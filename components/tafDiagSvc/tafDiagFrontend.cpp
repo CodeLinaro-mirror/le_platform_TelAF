@@ -34,10 +34,11 @@
 
 #include "legato.h"
 #include "interfaces.h"
+#include "tafDiagBackend.hpp"
 #include "tafDataIDSvr.hpp"
 #include "tafSecuritySvr.hpp"
+
 #ifndef LE_CONFIG_DIAG_VSTACK
-#include "tafDiagBackend.hpp"
 #include "tafRoutineCtrlSvr.hpp"
 #include "tafResetSvr.hpp"
 #include "tafUpdateSvr.hpp"
@@ -55,7 +56,6 @@ using namespace telux::tafsvc;
 //--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
-
     LE_INFO("TelAF UDS DataID service initialization start...");
     auto& did = taf_DataIDSvr::GetInstance();
     did.Init();

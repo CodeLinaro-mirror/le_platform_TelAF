@@ -26,8 +26,7 @@ requires:
 #if ${LE_CONFIG_DIAG_VSTACK} = y
     api:
     {
-        taf_diagDIDBackend.api
-        taf_diagSecBackend.api
+        taf_diagBackend.api
     }
 #endif
 }
@@ -60,6 +59,7 @@ sources:
         tafSecuritySvc.cpp
         tafSecuritySvrImpl.cpp
         tafDiagFrontend.cpp
+        tafDiagBackend.cpp
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
         tafRoutineCtrlSvc.cpp
         tafRoutineCtrlSvrImpl.cpp
@@ -70,6 +70,5 @@ sources:
         tafEventSvc.cpp
         tafEventSvrImpl.cpp
         tafDTCInfImpl.cpp
-        tafDiagBackend.cpp
 #endif
 }

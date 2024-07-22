@@ -5,10 +5,8 @@ sources:
     diagReadWriteDid.c
     diagRequestFileTransfer.c
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
-#if ${LE_CONFIG_TARGET_SIMULATION} = ""
     diagReset.c
     diagRoutineControl.c
-#endif
 #endif
 }
 
@@ -17,9 +15,8 @@ requires:
     api:
     {
         le_cfg.api
-        taf_diagDataID.api
         taf_diagSecurity.api
-
+        taf_diagDataID.api
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
         taf_diagReset.api
         taf_diagRoutineCtrl.api

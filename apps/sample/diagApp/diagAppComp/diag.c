@@ -37,15 +37,16 @@
 COMPONENT_INIT
 {
     LE_INFO("%s [start]", __FUNCTION__);
-    LE_FATAL_IF(diagReadWriteDid_Init() != LE_OK, "diagReadWriteDid_Init -> init failed");
+
     LE_FATAL_IF(diagSecurityAccess_Init() != LE_OK, "diagSecurityAccess_Init -> init failed");
+    LE_FATAL_IF(diagReadWriteDid_Init() != LE_OK, "diagReadWriteDid_Init -> init failed");
     LE_FATAL_IF(diagRequestFileTransfer_Init() != LE_OK,
                 "diagRequestFileTransfer_Init -> init failed");
+
 #ifndef LE_CONFIG_DIAG_VSTACK
-#ifndef LE_CONFIG_TARGET_SIMULATION
     LE_FATAL_IF(diagReset_Init() != LE_OK, "diagReset_Init -> init failed");
     LE_FATAL_IF(diagRoutineControl_Init() != LE_OK, "diagRoutineControl_Init -> init failed");
 #endif
-#endif
+
     LE_INFO("%s [done]", __FUNCTION__);
 }

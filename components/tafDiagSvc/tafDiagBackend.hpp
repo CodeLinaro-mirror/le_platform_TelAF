@@ -43,6 +43,23 @@
 
 #include <map>
 
+#ifdef LE_CONFIG_DIAG_VSTACK
+    // Enumeration of supported logical target address types.
+    typedef enum
+    {
+        TAF_UDS_TA_TYPE_PHYSICAL   = 0x00,    ///< Physical addressing.
+        TAF_UDS_TA_TYPE_FUNCTIONAL = 0x01     ///< Functional addressing.
+    }taf_uds_TaType_t;
+
+    // Logical address information structure in uds communication.
+    typedef struct
+    {
+        uint16_t            sa;         ///< Source address of message senders.
+        uint16_t            ta;         ///< Target address of message recipients.
+        taf_uds_TaType_t   taType;      ///< Target address type of message recipients.
+    }taf_uds_AddrInfo_t;
+#endif
+
 namespace telux {
 namespace tafsvc {
     #define TAF_STACK_CONFIG_PATH   "./tafDoIP.json"
@@ -76,9 +93,16 @@ namespace tafsvc {
             static taf_DiagBackend& GetInstance();
             void Init();
 
+#ifndef LE_CONFIG_DIAG_VSTACK
             // Registered to UDS stack for reception message.
             static void UdsIndicationHanler(const taf_uds_AddrInfo_t*         addrInfoPtr,
                 const taf_uds_DiagMsg_t* diagMsgPtr, le_result_t result, void* userPtr);
+#else
+            //Registered to KPIT stack for reception messsage
+            static void IntIndicationHandler( taf_diagBackend_DiagInfRef_t ref,
+                const taf_diagBackend_AddrInfo_t *addrInfoPtr, uint8_t serviceID,
+                    const uint8_t* msgPtr, size_t msgSize, void* contextPtr);
+#endif
 
             // UDS layer service identifier.
             le_result_t RegisterUdsService(uint8_t sid, taf_UDSInterface* service);
@@ -92,11 +116,17 @@ namespace tafsvc {
         private:
             le_result_t InitUdsStack();
             void DeInitUdsStack();
-
+#ifndef LE_CONFIG_DIAG_VSTACK
             taf_uds_DiagIndicationHandlerRef_t udsIndHandlerRef = NULL;
+#else
+            taf_diagBackend_DiagEventHandlerRef_t integrationIndHandlerRef = NULL;
+#endif
 
             uint8_t regstFlag = 0;
             std::map<uint8_t, taf_UDSInterface *> svcMap;
+#ifdef LE_CONFIG_DIAG_VSTACK
+            std::map<uint8_t, taf_diagBackend_DiagInfRef_t> refMap;
+#endif
     };
 }
 }

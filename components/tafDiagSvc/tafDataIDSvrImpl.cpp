@@ -138,7 +138,6 @@ taf_DataIDSvc_t* taf_DataIDSvr::GetServiceObj
  * UDS stack handler function
  */
 //-------------------------------------------------------------------------------------------------
-#ifndef LE_CONFIG_DIAG_VSTACK
 void taf_DataIDSvr::UDSMsgHandler
 (
     const taf_uds_AddrInfo_t* addrPtr,
@@ -161,7 +160,7 @@ void taf_DataIDSvr::UDSMsgHandler
     addrInfo.ta = addrPtr->sa;
     addrInfo.taType = addrPtr->taType;
 
-    if (sid == SID_READ_DATA_BY_IDENTIFIER)
+    if (sid == reqReadDIDSvcId)
     {
         taf_ReadDIDRxMsg_t* rxReadDIDMsgPtr = NULL;
 
@@ -195,7 +194,7 @@ void taf_DataIDSvr::UDSMsgHandler
         // Report the Read DID request message to message handler in service layer.
         le_event_ReportWithRefCounting(ReadDIDEvent, rxReadDIDMsgPtr);
     }
-    else if (sid == SID_WRITE_DATA_BY_IDENTIFIER)
+    else if (sid == reqWriteDIDSvcId)
     {
         taf_WriteDIDRxMsg_t* rxWriteDIDMsgPtr = NULL;
 
@@ -246,44 +245,6 @@ void taf_DataIDSvr::UDSMsgHandler
 
     return;
 }
-#endif
-
-// Callback function for read dataID request message
-#ifdef LE_CONFIG_DIAG_VSTACK
-void taf_DataIDSvr::readDIDMsgHandler
-(
-    taf_diagDIDBackend_ReadDIDRef_t rxMsgRef,
-    uint16_t dataId,
-    void* contextPtr
-)
-{
-    LE_DEBUG("readDIDMsgHandler!");
-
-    TAF_ERROR_IF_RET_NIL(rxMsgRef == NULL, "Invalid MsgRef");
-
-    auto &did = taf_DataIDSvr::GetInstance();
-    taf_ReadDIDRxMsg_t* rxReadDIDMsgPtr = NULL;
-
-    rxReadDIDMsgPtr = (taf_ReadDIDRxMsg_t*)le_mem_ForceAlloc(did.RxReadDIDMsgPool);
-    memset(rxReadDIDMsgPtr, 0, sizeof(taf_ReadDIDRxMsg_t));
-
-    rxReadDIDMsgPtr->rxMsgRef = rxMsgRef;
-    rxReadDIDMsgPtr->serviceId = did.reqReadDIDSvcId;
-    rxReadDIDMsgPtr->readDID[0] = dataId;
-    rxReadDIDMsgPtr->readDIDLen = sizeof(rxReadDIDMsgPtr->readDID[0])/sizeof(uint16_t);
-
-    rxReadDIDMsgPtr->link = LE_DLS_LINK_INIT;
-    rxReadDIDMsgPtr->readDIDRxMsgRef = (taf_diagDataID_RxReadDIDMsgRef_t)le_ref_CreateRef(
-            did.RxReadDIDMsgRefMap, rxReadDIDMsgPtr);
-
-    LE_DEBUG("Receive message(%p))", rxReadDIDMsgPtr->readDIDRxMsgRef);
-
-    // Report the Read DID request message to message handler in service layer.
-    le_event_ReportWithRefCounting(did.ReadDIDEvent, rxReadDIDMsgPtr);
-
-    return;
-}
-#endif
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -469,7 +430,7 @@ le_result_t taf_DataIDSvr::SendReadDIDResp
         LE_ERROR("Not found registered DID service for this request!");
         return LE_NOT_FOUND;
     }
-#ifndef LE_CONFIG_DIAG_VSTACK
+    
     // Call UDS function to send the response message.
     auto &backend = taf_DiagBackend::GetInstance();
     taf_uds_AddrInfo_t addrInfo;
@@ -497,36 +458,6 @@ le_result_t taf_DataIDSvr::SendReadDIDResp
             return ret;
         }
     }
-#else
-    if (errCode == 0)
-    {
-        // Check for dataSize with DID_LEN
-        if (dataSize <= DID_LEN)
-        {
-            LE_ERROR("Incorrect data size : %" PRIuS, dataSize);
-            return LE_FAULT;
-        }
-        // Send response.
-        ret = taf_diagDIDBackend_SendReadDIDResp(rxReadDIDMsgPtr->rxMsgRef,
-                (taf_diagDIDBackend_ReadDIDErrorCode_t)errCode, dataPtr+DID_LEN, dataSize-DID_LEN);
-        if (ret != LE_OK)
-        {
-            LE_ERROR("Failed to send read DID response.(%d)", ret);
-            return ret;
-        }
-    }
-    else
-    {
-        // Send response.
-        ret = taf_diagDIDBackend_SendReadDIDResp(rxReadDIDMsgPtr->rxMsgRef,
-                (taf_diagDIDBackend_ReadDIDErrorCode_t)errCode, NULL, 0);
-        if (ret != LE_OK)
-        {
-            LE_ERROR("Failed to send read DID response.(%d)", ret);
-            return ret;
-        }
-    }
-#endif
     // Remove the message from service message list.
     le_dls_Remove(&(servicePtr->readDIDMsgList), &(rxReadDIDMsgPtr->link));
 
@@ -734,6 +665,8 @@ le_result_t taf_DataIDSvr::SendWriteDIDResp
 
     TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
 
+    le_result_t ret;
+
     taf_WriteDIDRxMsg_t* rxWriteDIDMsgPtr =
             (taf_WriteDIDRxMsg_t*)le_ref_Lookup(RxWriteDIDMsgRefMap, rxMsgRef);
     if (rxWriteDIDMsgPtr == NULL)
@@ -748,8 +681,7 @@ le_result_t taf_DataIDSvr::SendWriteDIDResp
         LE_ERROR("Not found registered write DID service for this request!");
         return LE_NOT_FOUND;
     }
-#ifndef LE_CONFIG_DIAG_VSTACK
-    le_result_t ret;
+    
     // Call UDS function to send the response message.
     auto &backend = taf_DiagBackend::GetInstance();
     taf_uds_AddrInfo_t addrInfo;
@@ -781,7 +713,6 @@ le_result_t taf_DataIDSvr::SendWriteDIDResp
             return ret;
         }
     }
-#endif
     // Remove the message from service message list.
     le_dls_Remove(&(servicePtr->writeDIDMsgList), &(rxWriteDIDMsgPtr->link));
 
@@ -797,7 +728,6 @@ le_result_t taf_DataIDSvr::SendWriteDIDResp
  * Send NRC response to UDS stack.
  */
 //-------------------------------------------------------------------------------------------------
-#ifndef LE_CONFIG_DIAG_VSTACK
 le_result_t taf_DataIDSvr::SendNRCResp
 (
     uint8_t sid,
@@ -819,7 +749,6 @@ le_result_t taf_DataIDSvr::SendNRCResp
 
     return LE_OK;
 }
-#endif
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1001,16 +930,9 @@ void taf_DataIDSvr::Init
     // Set session close handler
     le_msg_AddServiceCloseHandler(taf_diagDataID_GetServiceRef(), OnClientDisconnection, NULL);
 
-#ifndef LE_CONFIG_DIAG_VSTACK
     auto& backend = taf_DiagBackend::GetInstance();
     backend.RegisterUdsService(reqReadDIDSvcId, this);
     backend.RegisterUdsService(reqWriteDIDSvcId, this);
-#else
-    taf_diagDIDBackend_ReadDIDHandlerRef_t diagReadDIDMsgRef =
-            taf_diagDIDBackend_AddReadDIDHandler(readDIDMsgHandler, NULL);
-    TAF_ERROR_IF_RET_NIL(diagReadDIDMsgRef == NULL,
-            "readDIDMsgHandler not registered successfully!");
-#endif
 
     LE_INFO("Diag DataID Service started!");
 }

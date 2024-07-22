@@ -33,8 +33,11 @@
  */
 #include "legato.h"
 #include "interfaces.h"
-#include "tafUDSStack.h"
 #include "tafDiagBackend.hpp"
+
+#ifndef LE_CONFIG_DIAG_VSTACK
+#include "tafUDSStack.h"
+#endif
 
 using namespace telux::tafsvc;
 using namespace std;
@@ -50,6 +53,7 @@ taf_DiagBackend& taf_DiagBackend::GetInstance()
     return instance;
 }
 
+#ifndef LE_CONFIG_DIAG_VSTACK
 void taf_DiagBackend::UdsIndicationHanler
 (
     const taf_uds_AddrInfo_t*  addrInfoPtr,
@@ -97,6 +101,50 @@ void taf_DiagBackend::UdsIndicationHanler
         inf->UDSMsgHandler(addrInfoPtr, sid, diagMsgPtr->dataPtr, diagMsgPtr->dataLen);
     }
 }
+#endif
+
+#ifdef LE_CONFIG_DIAG_VSTACK
+void taf_DiagBackend::IntIndicationHandler
+(
+    taf_diagBackend_DiagInfRef_t ref,
+    const taf_diagBackend_AddrInfo_t *addrInfoPtr,
+    uint8_t serviceID,
+    const uint8_t* msgPtr,
+    size_t msgSize,
+    void* contextPtr
+)
+{
+    taf_DiagBackend& backend = taf_DiagBackend::GetInstance();
+
+    LE_DEBUG("Enter IntegrationIndicationHanler");
+
+    if (addrInfoPtr == NULL || msgPtr == NULL)
+    {
+        LE_ERROR("Bad parameter");
+        return;
+    }
+
+    auto elem = backend.svcMap.find(serviceID);
+    if (elem == backend.svcMap.end())
+    {
+        LE_ERROR("This service(%d) handler is unregistered", serviceID);
+        return;
+    }
+
+    backend.refMap.insert(make_pair(serviceID, ref));
+
+    taf_uds_AddrInfo_t addrInfo;
+    addrInfo.sa = addrInfoPtr->sa;
+    addrInfo.ta = addrInfoPtr->ta;
+    addrInfo.taType = (taf_uds_TaType_t)addrInfoPtr->taType;
+
+    taf_UDSInterface* inf = elem->second;
+    if (inf != NULL)
+    {
+        inf->UDSMsgHandler(&addrInfo, serviceID, const_cast<uint8_t*>(msgPtr), msgSize);
+    }
+}
+#endif
 
 le_result_t taf_DiagBackend::RegisterUdsService
 (
@@ -132,8 +180,15 @@ void taf_DiagBackend::UnregisterUdsService
 )
 {
     svcMap.erase(sid);
+#ifdef LE_CONFIG_DIAG_VSTACK
+    refMap.erase(sid);
+#endif
 
+#ifdef LE_CONFIG_DIAG_VSTACK
+    if (svcMap.empty() && refMap.empty())
+#else
     if (svcMap.empty())
+#endif
     {
         DeInitUdsStack();
     }
@@ -143,6 +198,7 @@ le_result_t taf_DiagBackend::InitUdsStack
 (
 )
 {
+#ifndef LE_CONFIG_DIAG_VSTACK
     le_result_t ret;
 
     ret = taf_uds_Start(TAF_STACK_CONFIG_PATH);
@@ -159,7 +215,15 @@ le_result_t taf_DiagBackend::InitUdsStack
         LE_ERROR("Add diag message reception handler failure.");
         return LE_FAULT;
     }
-
+#else
+    // Register the callback for receiving uds message from KPIT.
+    integrationIndHandlerRef = taf_diagBackend_AddDiagEventHandler(IntIndicationHandler, NULL);
+    if (integrationIndHandlerRef == NULL)
+    {
+        LE_ERROR("Add diag message reception handler failure.");
+        return LE_FAULT;
+    }
+#endif
     return LE_OK;
 }
 
@@ -167,11 +231,19 @@ void taf_DiagBackend::DeInitUdsStack
 (
 )
 {
+#ifndef LE_CONFIG_DIAG_VSTACK
     if (udsIndHandlerRef != NULL)
     {
         taf_uds_RemoveDiagIndicationHandler(udsIndHandlerRef);
         regstFlag = 0;
     }
+#else
+    if (integrationIndHandlerRef != NULL)
+    {
+        taf_diagBackend_RemoveDiagEventHandler(integrationIndHandlerRef);
+        regstFlag = 0;
+    }
+#endif
 }
 
 le_result_t taf_DiagBackend::RespDiagPositive
@@ -187,12 +259,24 @@ le_result_t taf_DiagBackend::RespDiagPositive
         LE_ERROR("Bad parameter");
         return LE_BAD_PARAMETER;
     }
-
+#ifndef LE_CONFIG_DIAG_VSTACK
     taf_uds_DiagMsg_t msg;
     msg.dataPtr = (uint8_t*)dataPtr;
     msg.dataLen = dataLen;
 
     return taf_uds_SendDiagResp(addrInfoPtr, &msg, (taf_uds_ServiceId_t)sid, 0);
+#else
+    taf_diagBackend_AddrInfo_t addrInfo;
+    addrInfo.sa = addrInfoPtr->sa;
+    addrInfo.ta = addrInfoPtr->ta;
+    addrInfo.taType = (taf_diagBackend_TaType_t)addrInfoPtr->taType;
+
+    taf_DiagBackend& backend = taf_DiagBackend::GetInstance();
+    auto elem = backend.refMap.find(sid);
+    taf_diagBackend_DiagInfRef_t ref = elem->second;
+
+    return taf_diagBackend_SendResp(ref, &addrInfo, sid, 0, dataPtr, dataLen);
+#endif
 }
 
 le_result_t taf_DiagBackend::RespDiagPositive
@@ -206,8 +290,20 @@ le_result_t taf_DiagBackend::RespDiagPositive
         LE_ERROR("Bad parameter");
         return LE_BAD_PARAMETER;
     }
-
+#ifndef LE_CONFIG_DIAG_VSTACK
     return taf_uds_SendDiagResp(addrInfoPtr, NULL, (taf_uds_ServiceId_t)sid, 0);
+#else
+    taf_diagBackend_AddrInfo_t addrInfo;
+    addrInfo.sa = addrInfoPtr->sa;
+    addrInfo.ta = addrInfoPtr->ta;
+    addrInfo.taType = (taf_diagBackend_TaType_t)addrInfoPtr->taType;
+
+    taf_DiagBackend& backend = taf_DiagBackend::GetInstance();
+    auto elem = backend.refMap.find(sid);
+    taf_diagBackend_DiagInfRef_t ref = elem->second;
+
+    return taf_diagBackend_SendResp(ref, &addrInfo, sid, 0, NULL, 0);
+#endif
 }
 
 le_result_t taf_DiagBackend::RespDiagNegative
@@ -222,8 +318,20 @@ le_result_t taf_DiagBackend::RespDiagNegative
         LE_ERROR("Bad parameter");
         return LE_BAD_PARAMETER;
     }
-
+#ifndef LE_CONFIG_DIAG_VSTACK
     return taf_uds_SendDiagResp(addrInfoPtr, NULL, (taf_uds_ServiceId_t)sid, nrc);
+#else
+    taf_diagBackend_AddrInfo_t addrInfo;
+    addrInfo.sa = addrInfoPtr->sa;
+    addrInfo.ta = addrInfoPtr->ta;
+    addrInfo.taType = (taf_diagBackend_TaType_t)addrInfoPtr->taType;
+
+    taf_DiagBackend& backend = taf_DiagBackend::GetInstance();
+    auto elem = backend.refMap.find(sid);
+    taf_diagBackend_DiagInfRef_t ref = elem->second;
+
+    return taf_diagBackend_SendResp(ref, &addrInfo, sid, nrc, NULL, 0);
+#endif
 }
 
 void taf_DiagBackend::Init

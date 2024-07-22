@@ -136,7 +136,6 @@ taf_SecuritySvc_t* taf_SecuritySvr::GetServiceObj
  * UDS stack handler function
  */
 //-------------------------------------------------------------------------------------------------
-#ifndef LE_CONFIG_DIAG_VSTACK
 void taf_SecuritySvr::UDSMsgHandler
 (
     const taf_uds_AddrInfo_t* addrPtr,
@@ -159,7 +158,7 @@ void taf_SecuritySvr::UDSMsgHandler
     addrInfo.ta = addrPtr->sa;
     addrInfo.taType = addrPtr->taType;
 
-    if (sid == SID_DIAGNOSTIC_SESSION_CONTROL)
+    if (sid == reqSesCtrlSvcId)
     {
         taf_SesTypeRxMsg_t* rxSesTypePtr = NULL;
         rxSesTypePtr = (taf_SesTypeRxMsg_t*)le_mem_ForceAlloc(RxSesTypePool);
@@ -229,7 +228,7 @@ void taf_SecuritySvr::UDSMsgHandler
         // Report the session control request message to message handler in service layer.
         le_event_ReportWithRefCounting(SesChangeEvent, sesChangePtr);
     }
-    else if (sid == SID_SECURITY_ACCESS)
+    else if (sid == reqSecAccessSvcId)
     {
         taf_SecAccessRxMsg_t* rxSecAccessMsgPtr = NULL;
 
@@ -272,43 +271,6 @@ void taf_SecuritySvr::UDSMsgHandler
 
     return;
 }
-#endif
-
-#ifdef LE_CONFIG_DIAG_VSTACK
-// callback function for Session Ctrl request
-void taf_SecuritySvr::SessionControlEventHandler
-(
-    taf_diagSecBackend_SesTypeCheckRef_t sesTypeRef,
-    taf_diagSecBackend_SessionType_t sesType,
-    void* contextPtr
-)
-{
-    LE_INFO("SessionControlEventHandler");
-
-    TAF_ERROR_IF_RET_NIL(sesTypeRef == NULL, "Invalid Session type Ref");
-
-    auto &tafSecurity = taf_SecuritySvr::GetInstance();
-    taf_SesTypeRxMsg_t* rxSesCtrlMsgPtr = NULL;
-
-    rxSesCtrlMsgPtr = (taf_SesTypeRxMsg_t*)le_mem_ForceAlloc(tafSecurity.RxSesTypePool);
-    memset(rxSesCtrlMsgPtr, 0, sizeof(taf_SesTypeRxMsg_t));
-
-    rxSesCtrlMsgPtr->rxMsgRef = sesTypeRef;
-    rxSesCtrlMsgPtr->sessionType = sesType;
-
-    rxSesCtrlMsgPtr->link = LE_DLS_LINK_INIT;
-    rxSesCtrlMsgPtr->rxSesTypeRef = (taf_diagSecurity_RxSesTypeCheckRef_t)le_ref_CreateRef(
-            tafSecurity.RxSesTypeRefMap, rxSesCtrlMsgPtr);
-
-    LE_DEBUG("Receive message(%p))", rxSesCtrlMsgPtr->rxSesTypeRef);
-
-    // Report the Read DID request message to message handler in service layer.
-    le_event_ReportWithRefCounting(tafSecurity.SesTypeEvent, rxSesCtrlMsgPtr);
-
-    return;
-
-}
-#endif
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -406,13 +368,8 @@ void taf_SecuritySvr::RxSesCtrlEventHandler
     // Add the message in service message list and notify to application.
     rxSesTypePtr->link = LE_DLS_LINK_INIT;
     le_dls_Queue(&servicePtr->rxSesTypeList, &rxSesTypePtr->link);
-#ifdef LE_CONFIG_DIAG_VSTACK
-    handlerObjPtr->func(rxSesTypePtr->rxSesTypeRef, (taf_diagSecurity_SessionType_t)rxSesTypePtr->sessionType,
-            handlerObjPtr->ctxPtr);
-#else
     handlerObjPtr->func(rxSesTypePtr->rxSesTypeRef, rxSesTypePtr->sesType,
             handlerObjPtr->ctxPtr);
-#endif
 
     return;
 }
@@ -495,7 +452,7 @@ le_result_t taf_SecuritySvr::SendSesTypeCheckResp
         LE_ERROR("Not found registered security service for this request!");
         return LE_NOT_FOUND;
     }
-#ifndef LE_CONFIG_DIAG_VSTACK
+    
     // Call UDS function to send the response message.
     auto &backend = taf_DiagBackend::GetInstance();
     taf_uds_AddrInfo_t addrInfo;
@@ -523,15 +480,6 @@ le_result_t taf_SecuritySvr::SendSesTypeCheckResp
             return ret;
         }
     }
-#else
-    // Send response.
-    ret = taf_diagSecBackend_SendSesTypeCheckResp(rxSesTypePtr->rxMsgRef,
-            (taf_diagSecBackend_SesControlErrorCode_t)errCode);
-    if (ret != LE_OK)
-    {
-        LE_ERROR("Failed to send Session control type response.(%d)", ret);
-    }
-#endif
     // Remove the message from service message list.
     le_dls_Remove(&(servicePtr->rxSesTypeList), &(rxSesTypePtr->link));
 
@@ -587,39 +535,6 @@ taf_diagSecurity_SesChangeHandlerRef_t taf_SecuritySvr::AddSesChangeHandler
     return handlerObjPtr->sesChangeHandlerRef;
 }
 
-// callback function for Session Change Event Handler
-#ifdef LE_CONFIG_DIAG_VSTACK
-void taf_SecuritySvr::sesChangeMsgHandler
-(
-    taf_diagSecBackend_SessionType_t prev_session,
-    taf_diagSecBackend_SessionType_t current_session,
-    void* contextPtr
-)
-{
-    LE_INFO("SessionChangeEventHandler");
-
-    auto &tafSecurity = taf_SecuritySvr::GetInstance();
-    taf_SesChangeMsg_t* rxSesChangeMsgPtr = NULL;
-
-    rxSesChangeMsgPtr = (taf_SesChangeMsg_t*)le_mem_ForceAlloc(tafSecurity.SesChangePool);
-    memset(rxSesChangeMsgPtr, 0, sizeof(taf_SesChangeMsg_t));
-
-    rxSesChangeMsgPtr->previousSessionType = prev_session;
-    rxSesChangeMsgPtr->currentSessionType = current_session;
-
-    rxSesChangeMsgPtr->link = LE_DLS_LINK_INIT;
-    rxSesChangeMsgPtr->sesChangeRef = (taf_diagSecurity_SesChangeRef_t)le_ref_CreateRef(
-            tafSecurity.SesChangeRefMap, rxSesChangeMsgPtr);
-
-    LE_DEBUG("Receive message(%p))", rxSesChangeMsgPtr->sesChangeRef);
-
-    // Report the Read DID request message to message handler in service layer.
-    le_event_ReportWithRefCounting(tafSecurity.SesChangeEvent, rxSesChangeMsgPtr);
-
-    return;
-}
-#endif
-
 //-------------------------------------------------------------------------------------------------
 /**
  * SessionChange event handler.
@@ -671,13 +586,8 @@ void taf_SecuritySvr::SesChangeEventHandler
     // Add the message in service message list and notify to application.
     SesChangePtr->link = LE_DLS_LINK_INIT;
     le_dls_Queue(&servicePtr->rxSesChangeList, &SesChangePtr->link);
-#ifndef LE_CONFIG_DIAG_VSTACK
     handlerObjPtr->func(SesChangePtr->sesChangeRef, SesChangePtr->previousSesType,
             SesChangePtr->currentSesType, handlerObjPtr->ctxPtr);
-#else
-    handlerObjPtr->func(SesChangePtr->sesChangeRef, (taf_diagSecurity_SessionType_t)SesChangePtr->previousSessionType,
-            (taf_diagSecurity_SessionType_t)SesChangePtr->currentSessionType, handlerObjPtr->ctxPtr);
-#endif
 
     return;
 }
@@ -991,7 +901,7 @@ le_result_t taf_SecuritySvr::SendSecAccessResp
 
     TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
 
-    //le_result_t ret;
+    le_result_t ret;
 
     taf_SecAccessRxMsg_t* rxSecAccessMsgPtr =
             (taf_SecAccessRxMsg_t*)le_ref_Lookup(RxSecAccessMsgRefMap, rxMsgRef);
@@ -1007,9 +917,8 @@ le_result_t taf_SecuritySvr::SendSecAccessResp
         LE_ERROR("Not found registered security service for this request!");
         return LE_NOT_FOUND;
     }
-#ifndef LE_CONFIG_DIAG_VSTACK
+    
     // Call UDS function to send the response message.
-    le_result_t ret;
     auto &backend = taf_DiagBackend::GetInstance();
     taf_uds_AddrInfo_t addrInfo;
     addrInfo.sa = rxSecAccessMsgPtr->addrInfo.ta;
@@ -1048,7 +957,6 @@ le_result_t taf_SecuritySvr::SendSecAccessResp
             return ret;
         }
     }
-#endif
     // Remove the message from service message list.
     le_dls_Remove(&(servicePtr->rxMsgList), &(rxSecAccessMsgPtr->link));
 
@@ -1064,7 +972,6 @@ le_result_t taf_SecuritySvr::SendSecAccessResp
  * Send NRC response to UDS stack.
  */
 //-------------------------------------------------------------------------------------------------
-#ifndef LE_CONFIG_DIAG_VSTACK
 le_result_t taf_SecuritySvr::SendNRCResp
 (
     uint8_t sid,
@@ -1086,7 +993,6 @@ le_result_t taf_SecuritySvr::SendNRCResp
 
     return LE_OK;
 }
-#endif
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1318,22 +1224,10 @@ void taf_SecuritySvr::Init()
     // Set session close handler
     le_msg_AddServiceCloseHandler(taf_diagSecurity_GetServiceRef(), OnClientDisconnection, NULL);
 
-#ifndef LE_CONFIG_DIAG_VSTACK
     auto& backend = taf_DiagBackend::GetInstance();
     backend.RegisterUdsService(reqSesCtrlSvcId, this);
     backend.RegisterUdsService(sessionChangeId, this);
     backend.RegisterUdsService(reqSecAccessSvcId, this);
-#else
-    taf_diagSecBackend_SesTypeCheckHandlerRef_t diagSesReqMsgRef =
-           taf_diagSecBackend_AddSesTypeCheckHandler(SessionControlEventHandler, NULL);
-    TAF_ERROR_IF_RET_NIL(diagSesReqMsgRef == NULL,
-            "Session Control Event Handler not registered successfully!");
-
-    taf_diagSecBackend_SesChangeHandlerRef_t diagSesChangeMsgRef =
-            taf_diagSecBackend_AddSesChangeHandler(sesChangeMsgHandler, NULL);
-    TAF_ERROR_IF_RET_NIL(diagSesChangeMsgRef == NULL,
-            "Session Change Event Handler not registered successfully!");
-#endif
 
     LE_INFO("Diag Security Service started!");
 }

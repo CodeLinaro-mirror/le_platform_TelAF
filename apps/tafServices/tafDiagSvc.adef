@@ -37,8 +37,7 @@ processes:
 bindings:
 {
 #if ${LE_CONFIG_DIAG_VSTACK} = y
-    tafDiagSvc.tafDiagSvc.taf_diagDIDBackend -> tafDiagBackendSvc.taf_diagDIDBackend
-    tafDiagSvc.tafDiagSvc.taf_diagSecBackend -> tafDiagBackendSvc.taf_diagSecBackend
+    tafDiagSvc.tafDiagSvc.taf_diagBackend -> tafDiagBackendSvc.taf_diagBackend
 #endif
 }
 

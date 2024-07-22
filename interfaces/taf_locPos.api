@@ -185,21 +185,21 @@
  * the threshhold triggers notification (0 means not to notify about changes).
  *
  * @verbatim
-    static void NavigationHandler
-    (
-       taf_locPos_SampleRef_t positionSampleRef,
-       void* contextPtr
-    )
-    {
-      int32_t latitude, longitude, horizontalAccuracy;
-      LE_ASSERT_OK(taf_locPos_sample_Get2DLocation(positionSampleRef, &latitude,
-                                             &longitude, &horizontalAccuracy));
-      taf_locPos_sample_Release(positionSampleRef);
-    }
-    static taf_locPos_MovementHandlerRef_t  navigationHandlerRef;
-    navigationHandlerRef = taf_locPos_AddMovementHandler(0, 0, NavigationHandler, NULL);
-    LE_ASSERT(NULL != navigationHandlerRef);
-    taf_locPos_RemoveMovementHandler(navigationHandlerRef);
+   static void NavigationHandler
+   (
+      taf_locPos_SampleRef_t positionSampleRef,
+      void* contextPtr
+   )
+   {
+     int32_t latitude, longitude, horizontalAccuracy;
+     LE_ASSERT_OK(taf_locPos_sample_Get2DLocation(positionSampleRef, &latitude,
+                                            &longitude, &horizontalAccuracy));
+     taf_locPos_sample_Release(positionSampleRef);
+   }
+   static taf_locPos_MovementHandlerRef_t  navigationHandlerRef;
+   navigationHandlerRef = taf_locPos_AddMovementHandler(0, 0, NavigationHandler, NULL);
+   LE_ASSERT(NULL != navigationHandlerRef);
+   taf_locPos_RemoveMovementHandler(navigationHandlerRef);
    @endverbatim
  *
  * The handler gives a reference to the position sample object that triggered the

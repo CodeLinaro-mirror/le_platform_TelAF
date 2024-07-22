@@ -74,17 +74,17 @@
  * When this bit is set, each taf_pm_StayAwake() increments a counter and multiple calls to
  * taf_pm_Relax() are necessary to release the wakeup source.
  * @verbatim
-    char tag[10];
+   char tag[10];
 
-    snprintf(tag, sizeof(tag), "testpm");
-    taf_pm_WakeupSourceRef_t ref = taf_pm_NewWakeupSource(1, tag);
+   snprintf(tag, sizeof(tag), "testpm");
+   taf_pm_WakeupSourceRef_t ref = taf_pm_NewWakeupSource(1, tag);
 
-    for(int i = 0; i < 5; i++) {
-        tafPMTest_acquire(ref);
-    }
-    for(int i = 0; i < 5; i++) {
-        tafPMTest_release(ref);
-    }
+   for(int i = 0; i < 5; i++) {
+       tafPMTest_acquire(ref);
+   }
+   for(int i = 0; i < 5; i++) {
+       tafPMTest_release(ref);
+   }
    @endverbatim
  *
  * TelAF Power Manager service will automatically release and delete all wakeup sources held on.
@@ -99,7 +99,7 @@
  * Use the StateChangeEx to register a notification callback function to be called for every state
  * change trigger.
  * @verbatim
-    handlerExRef = taf_pm_AddStateChangeExHandler(TestStateChangeExHandler, NULL);
+   handlerExRef = taf_pm_AddStateChangeExHandler(TestStateChangeExHandler, NULL);
    @endverbatim
  *
  * @section taf_pm_getMachineList Get the available Virtual Machines
@@ -109,18 +109,18 @@
  * This function returns a @ref taf_pm_VMListRef_t that can be later used to get the name of each
  * machine, and also to delete the list reference using taf_pm_DeleteMachineList().
  * @verbatim
-    taf_pm_VMListRef_t vmListRef = taf_pm_GetMachineList( );
-    char name[32] = {0};
-    if(!vmListRef) {
-        LE_ERROR("List is null");
-    }
-    le_result_t res = taf_pm_GetFirstMachineName(vmListRef, name, 32);
-    while(res == LE_OK)
-    {
-        LE_INFO("vm name : %s",name);
-        res = taf_pm_GetNextMachineName(vmListRef, name, 32);
-    }
-    res = taf_pm_DeleteMachineList(vmListRef);
+   taf_pm_VMListRef_t vmListRef = taf_pm_GetMachineList( );
+   char name[32] = {0};
+   if(!vmListRef) {
+       LE_ERROR("List is null");
+   }
+   le_result_t res = taf_pm_GetFirstMachineName(vmListRef, name, 32);
+   while(res == LE_OK)
+   {
+       LE_INFO("vm name : %s",name);
+       res = taf_pm_GetNextMachineName(vmListRef, name, 32);
+   }
+   res = taf_pm_DeleteMachineList(vmListRef);
    @endverbatim
  *
  * @section taf_pm_SendStateChangeAck Acknowledge on the state change notification
@@ -130,7 +130,7 @@
  * TelAF Power Manager's client calls taf_pm_SendStateChangeAck()
  * to send the acknowledgement for state change.
  * @verbatim
-    taf_pm_SendStateChangeAck(powerStateRef, state, TAF_PM_PVM, TAF_PM_READY);
+   taf_pm_SendStateChangeAck(powerStateRef, state, TAF_PM_PVM, TAF_PM_READY);
    @endverbatim
  *
  * <HR>

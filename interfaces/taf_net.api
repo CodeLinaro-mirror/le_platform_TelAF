@@ -364,15 +364,15 @@
  * enabled, the handler function will be called.
  *
  * @verbatim
-    static void StartSocksAsyncHandlerFunc
-    (
-        le_result_t result, void* contextPtr
-    )
-    {
-        LE_INFO("**** Handler for start socks Asynchronously (Begin)****");
-        LE_INFO("result: %d", result);
-        LE_INFO("**** Handler for start socks Asynchronously (End)****");
-    }
+   static void StartSocksAsyncHandlerFunc
+   (
+       le_result_t result, void* contextPtr
+   )
+   {
+       LE_INFO("**** Handler for start socks Asynchronously (Begin)****");
+       LE_INFO("result: %d", result);
+       LE_INFO("**** Handler for start socks Asynchronously (End)****");
+   }
    @endverbatim
  *
  * The following APIs are supported for SOCKS management.

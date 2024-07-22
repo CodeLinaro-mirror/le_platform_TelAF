@@ -90,14 +90,14 @@
  *
  * @verbatim
 
-    OutRef = taf_audio_OpenSpeaker();
-    LE_ERROR_IF((NULL == OutRef), "taf_audio_OpenSpeaker returns NULL!");
+   OutRef = taf_audio_OpenSpeaker();
+   LE_ERROR_IF((NULL == OutRef), "taf_audio_OpenSpeaker returns NULL!");
 
-    OutputConnectorRef  = taf_audio_CreateConnector();
-    LE_ERROR_IF((NULL == OutputConnectorRef), "OutputConnectorRef  is NULL!");
+   OutputConnectorRef  = taf_audio_CreateConnector();
+   LE_ERROR_IF((NULL == OutputConnectorRef), "OutputConnectorRef  is NULL!");
 
-    FileRef = taf_audio_OpenPlayer();
-    LE_ERROR_IF((NULL == FileRef), "OpenFilePlayback returns NULL!");
+   FileRef = taf_audio_OpenPlayer();
+   LE_ERROR_IF((NULL == FileRef), "OpenFilePlayback returns NULL!");
 
    @endverbatim
  *
@@ -107,7 +107,7 @@
  *
  * @verbatim
 
-    MediaHandlerRef = taf_audio_AddMediaHandler(FileRef, MediaEventHandler, NULL);
+   MediaHandlerRef = taf_audio_AddMediaHandler(FileRef, MediaEventHandler, NULL);
 
    @endverbatim
 
@@ -115,23 +115,23 @@
  *
  * @verbatim
 
-        res = taf_audio_Connect(OutputConnectorRef, OutRef);
-        LE_ERROR_IF((LE_OK != res), "Failed on Output connector (res %s)!", LE_RESULT_TXT(res));
+   res = taf_audio_Connect(OutputConnectorRef, OutRef);
+   LE_ERROR_IF((LE_OK != res), "Failed on Output connector (res %s)!", LE_RESULT_TXT(res));
 
-        res = taf_audio_Connect(OutputConnectorRef , FileRef);
-        LE_ERROR_IF((LE_OK != res), "Playback failed on input connector!");
+   res = taf_audio_Connect(OutputConnectorRef , FileRef);
+   LE_ERROR_IF((LE_OK != res), "Playback failed on input connector!");
 
-        if ((FileFd = open(FilePath, O_RDONLY)) == -1)
-        {
-            LE_ERROR("Open file %s failure: errno.%d (%s)", FilePath, errno, LE_ERRNO_TXT(errno));
-            taf_audio_Disconnect(OutputConnectorRef, OutRef);
-            taf_audio_Disconnect(OutputConnectorRef, FileRef);
-            taf_audio_DeleteConnector(OutputConnectorRef);
-            taf_audio_Close(OutRef);
-            taf_audio_Close(FileRef);
+   if ((FileFd = open(FilePath, O_RDONLY)) == -1)
+   {
+       LE_ERROR("Open file %s failure: errno.%d (%s)", FilePath, errno, LE_ERRNO_TXT(errno));
+       taf_audio_Disconnect(OutputConnectorRef, OutRef);
+       taf_audio_Disconnect(OutputConnectorRef, FileRef);
+       taf_audio_DeleteConnector(OutputConnectorRef);
+       taf_audio_Close(OutRef);
+       taf_audio_Close(FileRef);
 
-            return LE_FAULT;
-        }
+       return LE_FAULT;
+   }
 
    @endverbatim
  *
@@ -139,9 +139,9 @@
  *
  * @verbatim
 
-        res = taf_audio_PlayFile(FileRef, FileFd);
+   res = taf_audio_PlayFile(FileRef, FileFd);
 
-        LE_ERROR_IF((LE_OK != res), "Playback failed...!");
+   LE_ERROR_IF((LE_OK != res), "Playback failed...!");
 
    @endverbatim
  *
@@ -149,9 +149,9 @@
  *
  * @verbatim
 
-        // Mute and UnMute can be called only on active stream
-        res = taf_audio_Mute(FileRef);
-        res = taf_audio_Unmute(FileRef);
+   // Mute and UnMute can be called only on active stream
+   res = taf_audio_Mute(FileRef);
+   res = taf_audio_Unmute(FileRef);
 
    @endverbatim
  *
@@ -179,14 +179,14 @@
  * @verbatim
 
    if (LE_OK != (res = taf_audio_EnableNoiseSuppressor(AudioRef)))
-    {
-        LE_ERROR("Set EnableNoiseSuppressor failed (res.%d)", res);
-    }
+   {
+       LE_ERROR("Set EnableNoiseSuppressor failed (res.%d)", res);
+   }
 
-    if (LE_OK != ((res = taf_audio_EnableEchoCanceller(AudioRef)))
-    {
-        LE_ERROR("Set EnableEchoCanceller failed! (res.%d)", res);
-    }
+   if (LE_OK != ((res = taf_audio_EnableEchoCanceller(AudioRef)))
+   {
+       LE_ERROR("Set EnableEchoCanceller failed! (res.%d)", res);
+   }
 
    @endverbatim
  *
@@ -196,15 +196,15 @@
  *
  * @verbatim
 
-    if (LE_OK != ((res = taf_audio_DisableEchoCanceller(AudioRef)))
-    {
-        LE_ERROR(" DisableEchoCanceller failed! (res.%d)", res);
-    }
+   if (LE_OK != ((res = taf_audio_DisableEchoCanceller(AudioRef)))
+   {
+       LE_ERROR(" DisableEchoCanceller failed! (res.%d)", res);
+   }
 
-    if (LE_OK != ((res = taf_audio_DisableNoiseSuppressor(AudioRef)))
-    {
-        LE_ERROR(" DisableNoiseSuppressor failed! (res.%d)", res);
-    }
+   if (LE_OK != ((res = taf_audio_DisableNoiseSuppressor(AudioRef)))
+   {
+       LE_ERROR(" DisableNoiseSuppressor failed! (res.%d)", res);
+   }
    @endverbatim
 
  *
@@ -213,11 +213,11 @@
  *
  * @verbatim
 
-    RxMdmRef = taf_audio_OpenModemVoiceRx(1);
-    LE_ERROR_IF(( NULL == RxMdmRef), "taf_audio_OpenModemVoiceRx returns NULL!");
+   RxMdmRef = taf_audio_OpenModemVoiceRx(1);
+   LE_ERROR_IF(( NULL == RxMdmRef), "taf_audio_OpenModemVoiceRx returns NULL!");
 
-    OutRef = taf_audio_OpenSpeaker();
-    LE_ERROR_IF((NULL == OutRef), "taf_audio_OpenSpeaker returns NULL!");
+   OutRef = taf_audio_OpenSpeaker();
+   LE_ERROR_IF((NULL == OutRef), "taf_audio_OpenSpeaker returns NULL!");
 
    @endverbatim
 
@@ -225,11 +225,11 @@
  *
  * @verbatim
 
-    TxMdmRef = taf_audio_OpenModemVoiceTx(1);
-    LE_ERROR_IF(( NULL == TxMdmRef), "taf_audio_OpenModemVoiceTx returns NULL!");
+   TxMdmRef = taf_audio_OpenModemVoiceTx(1);
+   LE_ERROR_IF(( NULL == TxMdmRef), "taf_audio_OpenModemVoiceTx returns NULL!");
 
-    InRef = taf_audio_OpenMic();
-    LE_ERROR_IF((NULL == InRef), "taf_audio_OpenMic returns NULL!");
+   InRef = taf_audio_OpenMic();
+   LE_ERROR_IF((NULL == InRef), "taf_audio_OpenMic returns NULL!");
 
    @endverbatim
 
@@ -238,23 +238,23 @@
  *
  * @verbatim
 
-    OutputConnectorRef = taf_audio_CreateConnector();
-    LE_ERROR_IF((NULL == OutputConnectorRef), "OutputConnectorRef is NULL!");
+   OutputConnectorRef = taf_audio_CreateConnector();
+   LE_ERROR_IF((NULL == OutputConnectorRef), "OutputConnectorRef is NULL!");
 
-    taf_audio_Connect(OutputConnectorRef, OutRef);
+   taf_audio_Connect(OutputConnectorRef, OutRef);
    @endverbatim
 
  * @note This needs to be called when a voice call is on hold.
  *
  * @verbatim
-    if ((FileFd = open(FilePath, O_RDONLY)) == -1)
-       {
-           LE_ERROR_IF((LE_OK != res), "Playback failed...!");
-           return LE_FAULT;
-       }
-        res = taf_audio_PlayFile(FileRef, FileFd);
+   if ((FileFd = open(FilePath, O_RDONLY)) == -1)
+   {
+       LE_ERROR_IF((LE_OK != res), "Playback failed...!");
+       return LE_FAULT;
+   }
+   res = taf_audio_PlayFile(FileRef, FileFd);
 
-        LE_ERROR_IF((LE_OK != res), "Playback failed...!");
+   LE_ERROR_IF((LE_OK != res), "Playback failed...!");
 
    @endverbatim
 
@@ -264,11 +264,11 @@
  * Delete and close the connectors when finished.
  *
  * @verbatim
-    taf_audio_Disconnect(OutputConnectorRef, OutRef);
-    taf_audio_Disconnect(OutputConnectorRef, FileRef);
-    taf_audio_DeleteConnector(OutputConnectorRef);
-    taf_audio_Close(OutRef);
-    taf_audio_Close(FileRef);
+   taf_audio_Disconnect(OutputConnectorRef, OutRef);
+   taf_audio_Disconnect(OutputConnectorRef, FileRef);
+   taf_audio_DeleteConnector(OutputConnectorRef);
+   taf_audio_Close(OutRef);
+   taf_audio_Close(FileRef);
 
    @endverbatim
  *
@@ -279,32 +279,32 @@
  *
  * @verbatim
 
-    InRef = taf_audio_OpenMic();
-    LE_ERROR_IF((NULL == InRef), "taf_audio_OpenMic returns NULL!");
+   InRef = taf_audio_OpenMic();
+   LE_ERROR_IF((NULL == InRef), "taf_audio_OpenMic returns NULL!");
 
-    InputConnectorRef  = taf_audio_CreateConnector();
-    LE_ERROR_IF((NULL == InputConnectorRef), "InputConnectorRef  is NULL!");
+   InputConnectorRef  = taf_audio_CreateConnector();
+   LE_ERROR_IF((NULL == InputConnectorRef), "InputConnectorRef  is NULL!");
 
-    FileRef = taf_audio_OpenRecorder();
-    LE_ERROR_IF((NULL == FileRef), "OpenRecorder returns NULL!");
+   FileRef = taf_audio_OpenRecorder();
+   LE_ERROR_IF((NULL == FileRef), "OpenRecorder returns NULL!");
 
-    res = taf_audio_Connect(InputConnectorRef, InRef);
-    LE_ERROR_IF(res != LE_OK, "Failed to connect Mic on Input connector!");
+   res = taf_audio_Connect(InputConnectorRef, InRef);
+   LE_ERROR_IF(res != LE_OK, "Failed to connect Mic on Input connector!");
 
-    res = taf_audio_Connect(InputConnectorRef , FileRef);
-    LE_ERROR_IF(res != LE_OK, "Failed to connect FileRecorder on input connector!");
+   res = taf_audio_Connect(InputConnectorRef , FileRef);
+   LE_ERROR_IF(res != LE_OK, "Failed to connect FileRecorder on input connector!");
 
-    // Default channel number is 1, and records on LEFT channel.
-    //Set to 2 for both LEFT & RIGHT channels
-    res = taf_audio_SetSamplePcmChannelNumber(FileAudioRef, 2);
-    LE_ERROR_IF(res != LE_OK, "Failed to set the channel number!");
+   // Default channel number is 1, and records on LEFT channel.
+   //Set to 2 for both LEFT & RIGHT channels
+   res = taf_audio_SetSamplePcmChannelNumber(FileAudioRef, 2);
+   LE_ERROR_IF(res != LE_OK, "Failed to set the channel number!");
 
-    int AudioFileFd=open(AudioFilePath, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
+   int AudioFileFd=open(AudioFilePath, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
 
-    if(AudioFileFd != -1) {
-        res = taf_audio_RecordFile(FileRef, AudioFileFd);
-        LE_ERROR_IF(res != LE_OK, "Failed to record the file!");
-    }
+   if(AudioFileFd != -1) {
+       res = taf_audio_RecordFile(FileRef, AudioFileFd);
+       LE_ERROR_IF(res != LE_OK, "Failed to record the file!");
+   }
 
    @endverbatim
  * <HR>

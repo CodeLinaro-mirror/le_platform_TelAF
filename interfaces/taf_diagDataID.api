@@ -88,19 +88,19 @@
    // Rx message handler function.
    void RxReadDIDHandler
    (
-        taf_diagDataID_RxReadDIDMsgRef_t rxReadMsgRef,
-        const uint16_t* dataIdPtr,
-        size_t dataIdSize,
-        void* contextPtr
+       taf_diagDataID_RxReadDIDMsgRef_t rxReadMsgRef,
+       const uint16_t* dataIdPtr,
+       size_t dataIdSize,
+       void* contextPtr
    )
    {
-        // Process after succesfully receiving message
+       // Process after succesfully receiving message
    }
 
    // Register the message handler.
    taf_diagDataID_RxReadDIDMsgHandlerRef_t RxReadDIDMsgHandlerRef =
        taf_diagDataID_AddRxReadDIDMsgHandler(SvcRef,
-            (taf_diagDataID_RxReadDIDMsgHandlerFunc_t)RxReadDIDHandler, NULL);
+          (taf_diagDataID_RxReadDIDMsgHandlerFunc_t)RxReadDIDHandler, NULL);
    LE_ASSERT(RxReadDIDMsgHandlerRef != NULL);
 
    // To remove the handler function, when it is not needed.
@@ -109,11 +109,11 @@
    // To send ReadDataByIdentifier response.
    uint8_t data[TAF_DIAGDATAID_MAX_READ_DID_PAYLOAD_SIZE];
    le_result_t result = taf_diagDataID_SendReadDIDResp(rxReadMsgRef,
-            TAF_DIAGDATAID_READ_DID_NO_ERROR, data, sizeof(data));
+           TAF_DIAGDATAID_READ_DID_NO_ERROR, data, sizeof(data));
    if (result != LE_OK)
    {
-      LE_ERROR("Fail to send response.");
-      return result;
+       LE_ERROR("Fail to send response.");
+       return result;
    }
    @endcode
  *
@@ -131,18 +131,18 @@
    // Rx message handler function.
    void RxWriteDIDHandler
    (
-        taf_diagDataID_RxWriteDIDMsgRef_t rxWriteMsgRef,
-        uint16_t dataId,
-        void* contextPtr
+       taf_diagDataID_RxWriteDIDMsgRef_t rxWriteMsgRef,
+       uint16_t dataId,
+       void* contextPtr
    )
    {
-        // Process after succesfully receiving message
+       // Process after succesfully receiving message
    }
 
    // Register the message handler.
    taf_diagDataID_RxWriteDIDMsgHandlerRef_t RxWriteDIDMsgHandlerRef =
        taf_diagDataID_AddRxWriteDIDMsgHandler(SvcRef,
-            (taf_diagDataID_RxWriteDIDMsgHandlerFunc_t)RxWriteDIDHandler, NULL);
+           (taf_diagDataID_RxWriteDIDMsgHandlerFunc_t)RxWriteDIDHandler, NULL);
    LE_ASSERT(RxWriteDIDMsgHandlerRef != NULL);
 
    // To remove the handler function, when it is not needed.
@@ -153,11 +153,11 @@
 
    // To send WriteDataByIdentifier response.
    le_result_t result = taf_diagDataID_SendWriteDIDResp(rxWriteMsgRef,
-            TAF_DIAGDATAID_WRITE_DID_NO_ERROR, dataId);
+           TAF_DIAGDATAID_WRITE_DID_NO_ERROR, dataId);
    if (result != LE_OK)
    {
-      LE_ERROR("Fail to send response.");
-      return result;
+       LE_ERROR("Fail to send response.");
+       return result;
    }
    @endcode
  *

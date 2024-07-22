@@ -91,23 +91,23 @@
  * taf_hms_GetUbiDevBadBlkCnt()   Gets UBI information for bad block count.
  * taf_hms_GetUbiDevId() Gets UBI device ID.
  * @verbatim
-    taf_hms_UbiDevInfoListRef_t ubiDevListRef = taf_hms_GetUbiDevInfoList();
-    taf_hms_UbiDevInfoRef_t UbiDevInfo = taf_hms_GetFirstUbiDevInfo(ubiDevListRef);
-    uint32_t ubiDeviceListSize;
-    result = taf_hms_GetUbiDevInfoListSize(ubiDevListRef, &ubiDeviceListSize);
-    while (UbiDevInfo != NULL and ubiDeviceListSize--)
-    {
-        uint32_t ubiEraseCount;
-        result = taf_hms_GetUbiDevEc(UbiDevInfo, &ubiEraseCount);
+   taf_hms_UbiDevInfoListRef_t ubiDevListRef = taf_hms_GetUbiDevInfoList();
+   taf_hms_UbiDevInfoRef_t UbiDevInfo = taf_hms_GetFirstUbiDevInfo(ubiDevListRef);
+   uint32_t ubiDeviceListSize;
+   result = taf_hms_GetUbiDevInfoListSize(ubiDevListRef, &ubiDeviceListSize);
+   while (UbiDevInfo != NULL and ubiDeviceListSize--)
+   {
+       uint32_t ubiEraseCount;
+       result = taf_hms_GetUbiDevEc(UbiDevInfo, &ubiEraseCount);
 
-        uint32_t ubiBadblock;
-        result = taf_hms_GetUbiDevBbc(UbiDevInfo, &ubiBadblock);
+       uint32_t ubiBadblock;
+       result = taf_hms_GetUbiDevBbc(UbiDevInfo, &ubiBadblock);
 
-        if (ubiDeviceListSize > 0) {
-            UbiDevInfo = taf_hms_GetNextUbiDevInfo(ubiDevListRef);
-        }
-    }
-  @endverbatim
+       if (ubiDeviceListSize > 0) {
+           UbiDevInfo = taf_hms_GetNextUbiDevInfo(ubiDevListRef);
+       }
+   }
+   @endverbatim
  *
  * @section taf_hms_GetUbiVolInfoList  Get the UBI volume information
  * The following APIs are provided for UBI volume information
@@ -118,24 +118,24 @@
  * taf_hms_GetUbiVolId() Gets UBI volume ID.
  *
  * @verbatim
-    taf_hms_UbiVolInfoListRef_t ubiVolListRef = taf_hms_GetUbiVolInfoList();
-    taf_hms_UbiVolInfoRef_t UbiVolInfo = taf_hms_GetFirstUbiVolInfo(ubiVolListRef);
-    uint32_t ubiVolumeListSize;
-    result = taf_hms_GetUbiVolInfoListSize(ubiVolListRef, &ubiVolumeListSize);
-    while (UbiVolInfo != NULL and ubiVolumeListSize--)
-    {
-        char ubiVolName[NAME_SIZE];
-        memset(ubiVolName, 0, NAME_SIZE);
-        taf_hms_GetUbiVolName(UbiVolInfo, ubiVolName, sizeof(ubiVolName));
+   taf_hms_UbiVolInfoListRef_t ubiVolListRef = taf_hms_GetUbiVolInfoList();
+   taf_hms_UbiVolInfoRef_t UbiVolInfo = taf_hms_GetFirstUbiVolInfo(ubiVolListRef);
+   uint32_t ubiVolumeListSize;
+   result = taf_hms_GetUbiVolInfoListSize(ubiVolListRef, &ubiVolumeListSize);
+   while (UbiVolInfo != NULL and ubiVolumeListSize--)
+   {
+       char ubiVolName[NAME_SIZE];
+       memset(ubiVolName, 0, NAME_SIZE);
+       taf_hms_GetUbiVolName(UbiVolInfo, ubiVolName, sizeof(ubiVolName));
 
-        uint32_t ubiVolSize;
-        result = taf_hms_GetUbiVolSize(UbiVolInfo, &ubiVolSize);
+       uint32_t ubiVolSize;
+       result = taf_hms_GetUbiVolSize(UbiVolInfo, &ubiVolSize);
 
-        if (ubiVolumeListSize > 0) {
-            UbiVolInfo = taf_hms_GetNextUbiVolInfo(ubiVolListRef);
-        }
-    }
-    @endverbatim
+       if (ubiVolumeListSize > 0) {
+           UbiVolInfo = taf_hms_GetNextUbiVolInfo(ubiVolListRef);
+       }
+   }
+   @endverbatim
  *
  * @section taf_hms_GetMtdInfoList Get the MTD device information
  * The following APIs are provided for MTD device information
@@ -148,21 +148,21 @@
  * taf_hms_GetMtdDevId() Gets MTD device ID.
  * taf_hms_GetMtdDevBlkCnt() Gets MTD block count.
  * @verbatim
-    taf_hms_MtdInfoListRef_t mtdListRef = taf_hms_GetMtdInfoList();
-    taf_hms_MtdInfoRef_t MtdInfo = taf_hms_GetFirstMtdInfo(mtdListRef);
-    uint32_t mtdDevListSize;
-    result = taf_hms_GetMtdInfoListSize(mtdListRef, &mtdDevListSize);
-    while (MtdInfo != NULL and mtdDevListSize--)
-    {
-        char MtdDevName[NAME_SIZE];
-        memset(MtdDevName, 0, NAME_SIZE);
-        taf_hms_GetMtdDevName(MtdInfo, MtdDevName, sizeof(MtdDevName));
+   taf_hms_MtdInfoListRef_t mtdListRef = taf_hms_GetMtdInfoList();
+   taf_hms_MtdInfoRef_t MtdInfo = taf_hms_GetFirstMtdInfo(mtdListRef);
+   uint32_t mtdDevListSize;
+   result = taf_hms_GetMtdInfoListSize(mtdListRef, &mtdDevListSize);
+   while (MtdInfo != NULL and mtdDevListSize--)
+   {
+       char MtdDevName[NAME_SIZE];
+       memset(MtdDevName, 0, NAME_SIZE);
+       taf_hms_GetMtdDevName(MtdInfo, MtdDevName, sizeof(MtdDevName));
 
-        if (mtdDevListSize > 0) {
-            MtdInfo = taf_hms_GetNextMtdInfo(mtdListRef);
-        }
-    }
-    @endverbatim
+       if (mtdDevListSize > 0) {
+           MtdInfo = taf_hms_GetNextMtdInfo(mtdListRef);
+       }
+   }
+   @endverbatim
  *
  * <HR>
  *

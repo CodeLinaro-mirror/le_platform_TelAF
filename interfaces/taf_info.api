@@ -34,17 +34,17 @@
  * The following example illustrates how to get the IMEI of the device
  *
  * @code
-        char imei[TAF_INFO_IMEI_MAX_BYTES];
-        le_result_t result = taf_info_GetImei(imei, sizeof(imei));
-        if(result == LE_OK)
-        {
-            // success
-            LE_INFO("IMEI: %s", imei);
-        }
-        else
-        {
-            LE_ERROR("Get IMEI failed");
-        }
+   char imei[TAF_INFO_IMEI_MAX_BYTES];
+   le_result_t result = taf_info_GetImei(imei, sizeof(imei));
+   if(result == LE_OK)
+   {
+       // success
+       LE_INFO("IMEI: %s", imei);
+   }
+   else
+   {
+       LE_ERROR("Get IMEI failed");
+   }
    @endcode
  *
  * @section taf_info_GetModel Get the model of the device
@@ -54,16 +54,16 @@
  * The following example illustrates how to get the model of the device
  *
  * @code
-        char model[TAF_INFO_MODEL_MAX_BYTES];
-        le_result_t result = taf_info_GetModel(model, sizeof(model));
-        if(result == LE_OK)
-        {
-            LE_INFO("Device Model : %s", model);
-        }
-        else
-        {
-            LE_ERROR("Get Device Model failed");
-        }
+   char model[TAF_INFO_MODEL_MAX_BYTES];
+   le_result_t result = taf_info_GetModel(model, sizeof(model));
+   if(result == LE_OK)
+   {
+       LE_INFO("Device Model : %s", model);
+   }
+   else
+   {
+       LE_ERROR("Get Device Model failed");
+   }
    @endcode
  *
  * @section taf_info_GetKernelVersion Get the kernel version of the device
@@ -92,16 +92,16 @@
  * The following example illustrates how to get the modem version
  *
  * @code
-        char modem[TAF_INFO_MODEM_MAX_BYTES];
-        le_result_t result = taf_info_GetModemVersion(modem, sizeof(modem));
-        if(result == LE_OK)
-        {
-            LE_INFO("Modem Version: %s", modem);
-        }
-        else
-        {
-            LE_ERROR("Get Modem Version failed");
-        }
+   char modem[TAF_INFO_MODEM_MAX_BYTES];
+   le_result_t result = taf_info_GetModemVersion(modem, sizeof(modem));
+   if(result == LE_OK)
+   {
+       LE_INFO("Modem Version: %s", modem);
+   }
+   else
+   {
+       LE_ERROR("Get Modem Version failed");
+   }
    @endcode
  *
  * @section taf_info_GetTZVersion Get the TrustZone version of the device
@@ -111,16 +111,16 @@
  * The following example illustrates how to get the TZ version of the device
  *
  * @code
-        char tz[TAF_INFO_TZ_MAX_BYTES];
-        le_result_t result = taf_info_GetTZVersion(tz, sizeof(tz));
-        if(result == LE_OK)
-        {
-            LE_INFO("TZ Version: %s", tz);
-        }
-        else
-        {
-            LE_ERROR("Get TZ Version failed");
-        }
+   char tz[TAF_INFO_TZ_MAX_BYTES];
+   le_result_t result = taf_info_GetTZVersion(tz, sizeof(tz));
+   if(result == LE_OK)
+   {
+       LE_INFO("TZ Version: %s", tz);
+   }
+   else
+   {
+       LE_ERROR("Get TZ Version failed");
+   }
    @endcode
  *
  * @section taf_info_GetTelafVersion Get the TelAF version
@@ -130,16 +130,16 @@
  * The following example illustrates how to get the TelAF version.
  *
  * @code
-        char telafVersion[TAF_INFO_TELAF_VERSION_MAX_BYTES];
-        le_result_t result = taf_info_GetTelafVersion(telafVersion, sizeof(telafVersion));
-        if(result == LE_OK)
-        {
-            LE_INFO("TelAF Version: %s", telafVersion);
-        }
-        else
-        {
-            LE_ERROR("Get TelAF Version failed");
-        }
+   char telafVersion[TAF_INFO_TELAF_VERSION_MAX_BYTES];
+   le_result_t result = taf_info_GetTelafVersion(telafVersion, sizeof(telafVersion));
+   if(result == LE_OK)
+   {
+       LE_INFO("TelAF Version: %s", telafVersion);
+   }
+   else
+   {
+       LE_ERROR("Get TelAF Version failed");
+   }
    @endcode
  *
  * @section taf_info_GetRootfsVersion Get the root file system version
@@ -149,16 +149,16 @@
  * The following example illustrates how to get the root file system version.
  *
  * @code
-        char rootfsVersion[TAF_INFO_ROOTFS_VERSION_MAX_BYTES];
-        le_result_t result = taf_info_GetRootfsVersion(rootfsVersion, sizeof(rootfsVersion));
-        if(result == LE_OK)
-        {
-            LE_INFO("RootFS Version: %s", rootfsVersion);
-        }
-        else
-        {
-            LE_ERROR("Get RootFS Version failed");
-        }
+   char rootfsVersion[TAF_INFO_ROOTFS_VERSION_MAX_BYTES];
+   le_result_t result = taf_info_GetRootfsVersion(rootfsVersion, sizeof(rootfsVersion));
+   if(result == LE_OK)
+   {
+       LE_INFO("RootFS Version: %s", rootfsVersion);
+   }
+   else
+   {
+       LE_ERROR("Get RootFS Version failed");
+   }
    @endcode
  *
  *

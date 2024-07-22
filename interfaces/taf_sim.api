@@ -246,8 +246,8 @@
  *
  * @verbatim
    static void NewSimStateHandler(taf_sim_Id_t simId, taf_sim_States_t simState, void* contextPtr){
-   LE_INFO("New SIM event for SIM card: %d SIM state: %d", simId, simState);
-   exit(EXIT_SUCCESS);
+       LE_INFO("New SIM event for SIM card: %d SIM state: %d", simId, simState);
+       exit(EXIT_SUCCESS);
    }
    taf_sim_NewStateHandlerRef_t msgHandlerRef = taf_sim_AddNewStateHandler(NewSimStateHandler, NULL);
    @endverbatim

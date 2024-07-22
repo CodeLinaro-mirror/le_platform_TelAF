@@ -35,14 +35,17 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafDiagBackend.hpp"
+#include "tafDataIDSvr.hpp"
+#include "tafSecuritySvr.hpp"
+
+#ifndef LE_CONFIG_DIAG_VSTACK
 #include "tafRoutineCtrlSvr.hpp"
 #include "tafResetSvr.hpp"
 #include "tafUpdateSvr.hpp"
-#include "tafSecuritySvr.hpp"
-#include "tafDataIDSvr.hpp"
 #include "tafEventSvr.hpp"
 #include "configuration.hpp"
 #include "tafDTCInf.hpp"
+#endif
 
 using namespace telux::tafsvc;
 
@@ -53,6 +56,18 @@ using namespace telux::tafsvc;
 //--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
+    
+    LE_INFO("TelAF UDS DataID service initialization start...");
+    auto& did = taf_DataIDSvr::GetInstance();
+    did.Init();
+    LE_INFO("TelAF UDS DataID service initialization end...");
+
+    LE_INFO("TelAF UDS Security service initialization start...");
+    auto& tafSecurity = taf_SecuritySvr::GetInstance();
+    tafSecurity.Init();
+    LE_INFO("TelAF UDS Security service initialization end...");
+
+#ifndef LE_CONFIG_DIAG_VSTACK
     try
     {
         cfg::diag_config_init("./diag_template.yaml.json");
@@ -61,11 +76,6 @@ COMPONENT_INIT
     {
         LE_FATAL("json file is not present");
     }
-
-    LE_INFO("TelAF UDS Security service initialization start...");
-    auto& tafSecurity = taf_SecuritySvr::GetInstance();
-    tafSecurity.Init();
-    LE_INFO("TelAF UDS Security service initialization end...");
 
     LE_INFO("TelAF UDS routine conctrol service initialization start...");
     auto& tafRCS = taf_RoutinCtrlSvr::GetInstance();
@@ -81,11 +91,6 @@ COMPONENT_INIT
     reset.Init();
     LE_INFO("TelAF UDS update service initialization end...");
 
-    LE_INFO("TelAF UDS DataID service initialization start...");
-    auto& did = taf_DataIDSvr::GetInstance();
-    did.Init();
-    LE_INFO("TelAF UDS DataID service initialization end...");
-
     LE_INFO("TelAF Event Management service initialization start...");
     auto& event = taf_EventSvr::GetInstance();
     event.Init();
@@ -100,4 +105,5 @@ COMPONENT_INIT
     auto& tafBackend = taf_DiagBackend::GetInstance();
     tafBackend.Init();
     LE_INFO("TelAF Diag Backend initialization end...");
+#endif
 }

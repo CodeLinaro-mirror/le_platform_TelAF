@@ -158,7 +158,7 @@ void taf_SecuritySvr::UDSMsgHandler
     addrInfo.ta = addrPtr->sa;
     addrInfo.taType = addrPtr->taType;
 
-    if (sid == SID_DIAGNOSTIC_SESSION_CONTROL)
+    if (sid == reqSesCtrlSvcId)
     {
         taf_SesTypeRxMsg_t* rxSesTypePtr = NULL;
         rxSesTypePtr = (taf_SesTypeRxMsg_t*)le_mem_ForceAlloc(RxSesTypePool);
@@ -228,7 +228,7 @@ void taf_SecuritySvr::UDSMsgHandler
         // Report the session control request message to message handler in service layer.
         le_event_ReportWithRefCounting(SesChangeEvent, sesChangePtr);
     }
-    else if (sid == SID_SECURITY_ACCESS)
+    else if (sid == reqSecAccessSvcId)
     {
         taf_SecAccessRxMsg_t* rxSecAccessMsgPtr = NULL;
 

@@ -43,6 +43,9 @@
 
 void diagRFT_DeactivateProgramming(void);
 const char * diagRFT_GetCompleteFileName(void);
+
+#ifndef LE_CONFIG_DIAG_VSTACK
 taf_update_State_t diagRoutineCtrl_GetUpdateState();
+#endif
 
 #endif /* DIAGPRIVATE_H */

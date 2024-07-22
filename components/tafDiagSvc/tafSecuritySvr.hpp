@@ -43,6 +43,11 @@
 #define DEFAULT_SVC_REF_CNT 16
 #define DEFAULT_RX_MSG_REF_CNT 16
 #define DEFAULT_RX_HANDLER_REF_CNT 16
+#define reqSesCtrlSvcId 0x10     // Session control request service ID.
+#define respSesCtrlSvcId 0x50    // Session control response service ID.
+#define reqSecAccessSvcId 0x27   // Security access request service ID.
+#define respSecAccessSvcId 0x67  // Security access response service ID.
+#define sessionChangeId 0xFF     // Session change dummy ID.
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -210,11 +215,6 @@ namespace telux {
                 le_result_t SendNRCResp(uint8_t sid, taf_uds_AddrInfo_t*  addrInfoPtr,
                         uint8_t errCode);
 
-                uint8_t reqSesCtrlSvcId = 0x10;     // Session control request service ID.
-                uint8_t respSesCtrlSvcId = 0x50;    // Session control response service ID.
-                uint8_t reqSecAccessSvcId = 0x27;   // Security access request service ID.
-                uint8_t respSecAccessSvcId = 0x67;  // Security access response service ID.
-                uint8_t sessionChangeId = 0xFF;     // Session change dummy ID.
                 uint16_t logAddr;                   // Service logic address.
 
                 // To clear message list.

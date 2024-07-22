@@ -43,6 +43,9 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafImuSensorSvc
     // $TELAF_ROOT/apps/tafServices/tafWlanSvc
     // $TELAF_ROOT/apps/tafServices/tafDiagBackendSvc
+#if ${LE_CONFIG_DIAG_VSTACK} = y
+    $TELAF_ROOT/apps/tafServices/tafDiagBackendSvc
+#endif
 
     // IVSS services.
     $TELAF_ROOT/apps/ivss/service/tafIvssTelephonySvc/tafIvssTelephonySvc

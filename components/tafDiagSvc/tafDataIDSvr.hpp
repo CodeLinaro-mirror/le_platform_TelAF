@@ -47,6 +47,10 @@
 #define MAX_READ_DID_REQ_LEN 4092
 #define MIN_WRITE_DID_REQ_LEN 3
 #define WRITE_DID_RESP_DATA_LEN 2
+#define reqReadDIDSvcId 0x22   // ReadDID request service ID.
+#define respReadDIDSvcId 0x62  // ReadDID response service ID.
+#define reqWriteDIDSvcId 0x2E  // WriteDID request service ID.
+#define respWriteDIDSvcId 0x6E // WriteDID response service ID.
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -182,10 +186,6 @@ namespace telux
                 void ClearReadDIDMsgList(taf_DataIDSvc_t* servicePtr);
                 void ClearWriteDIDMsgList(taf_DataIDSvc_t* servicePtr);
 
-                uint8_t reqReadDIDSvcId = 0x22;   // ReadDID request service ID.
-                uint8_t respReadDIDSvcId = 0x62;  // ReadDID response service ID.
-                uint8_t reqWriteDIDSvcId = 0x2E;  // WriteDID request service ID.
-                uint8_t respWriteDIDSvcId = 0x6E; // WriteDID response service ID.
                 uint16_t logAddr;                 // Service logic address.
 
                 uint8_t writeDataId[WRITE_DID_RESP_DATA_LEN];

@@ -24,6 +24,14 @@ config REFRESH_AUDIO_SVC
   default "$(b2k,$(REFRESH_AUDIO_SVC))" if !$(empty,$(REFRESH_AUDIO_SVC))
   default n
 
+# For Vendor Stack
+config DIAG_VSTACK
+  bool "QC or VStack"
+  default "$(b2k,$(VSTACK))" if !$(empty,$(VSTACK))
+  default n
+  ---help---
+  Build with QC STACK or Vendor STACK
+
 menu "apps"
 rsource "apps/KConfig"
 endmenu # end "apps"

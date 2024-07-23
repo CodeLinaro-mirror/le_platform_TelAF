@@ -47,6 +47,7 @@ ifdef(`sa525m',`
       # Get access for network operations APIs
         telux_allow_data_network_config(telaf_tafNetSvc_t)
         telux_allow_tel_private_info_read(telaf_tafNetSvc_t)
+        telux_allow_data_setting(telaf_tafNetSvc_t)
     ')
 
 # Allow update daemon to install/uninstall this service

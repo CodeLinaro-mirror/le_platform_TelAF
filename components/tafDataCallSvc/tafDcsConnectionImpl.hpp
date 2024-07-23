@@ -156,6 +156,8 @@ namespace tafsvc {
         char                                    ipv6Dns2[TAF_DCS_IPV6_ADDR_MAX_LEN];
         taf_dcs_DataBearerTechnology_t          dataBearerTech;
         le_event_Id_t                           sessionStateEvent;
+        uint32_t                                 ipv4Mask;      // Profile id
+        uint32_t                                 ipv6Mask;      // Profile id
     } taf_dcs_CallCtx_t;
 
     typedef struct IpAddrInfo
@@ -324,12 +326,14 @@ namespace tafsvc {
                                          size_t nameSize);
             le_result_t GetIpv4Address(uint8_t slotId, int32_t profileId, char* addrPtr,
                                        size_t addrSize);
+            le_result_t GetIpv4SubnetMask(uint8_t slotId, int32_t profileId, uint32_t* mask);
             le_result_t GetIpv4Gateway(uint8_t slotId, int32_t profileId, char* addrPtr,
                                        size_t addrSize);
             le_result_t GetIpv4Dns(uint8_t slotId, int32_t profileId, char* dns1Ptr,
                                    size_t dns1Size, char* dns2Ptr, size_t dns2Size);
             le_result_t GetIpv6Address(uint8_t slotId, int32_t profileId, char* addrPtr,
                                        size_t addrSize);
+            le_result_t GetIpv6SubnetMask(uint8_t slotId, int32_t profileId, uint32_t* mask);
             le_result_t GetIpv6Gateway(uint8_t slotId, int32_t profileId, char* addrPtr,
                                        size_t addrSize);
             le_result_t GetIpv6Dns(uint8_t slotId, int32_t profileId, char* dns1Ptr,

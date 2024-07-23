@@ -1665,6 +1665,26 @@ le_result_t taf_DataConnection::GetIpv4Address
     return LE_OK;
 }
 
+le_result_t taf_DataConnection::GetIpv4SubnetMask
+(
+    uint8_t slotId,
+    int32_t profileId,
+    uint32_t* mask
+)
+{
+    TAF_ERROR_IF_RET_VAL(mask == NULL, LE_BAD_PARAMETER, "mask is null");
+
+    taf_dcs_CallCtx_t* callCtxPtr;
+    callCtxPtr = GetCallCtx(slotId, profileId);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
+                         "Cannot find call context from slotId(%d) profileId(%d)",
+                         slotId, profileId);
+
+    *mask = callCtxPtr->ipv4Mask;
+
+    return LE_OK;
+}
+
 le_result_t taf_DataConnection::GetIpv4Gateway
 (
     uint8_t slotId,
@@ -1722,6 +1742,25 @@ le_result_t taf_DataConnection::GetIpv6Address
                          "Cannot find call context slotId(%d) profileId(%d)", slotId, profileId);
 
     le_utf8_Copy(addrPtr, callCtxPtr->ipv6Addr, addrSize, NULL);
+
+    return LE_OK;
+}
+
+le_result_t taf_DataConnection::GetIpv6SubnetMask
+(
+    uint8_t slotId,
+    int32_t profileId,
+    uint32_t* mask
+)
+{
+    TAF_ERROR_IF_RET_VAL(mask == NULL, LE_BAD_PARAMETER, "mask is null");
+
+    taf_dcs_CallCtx_t* callCtxPtr;
+    callCtxPtr = GetCallCtx(slotId, profileId);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
+                         "Cannot find call context slotId(%d) profileId(%d)", slotId, profileId);
+
+    *mask = callCtxPtr->ipv6Mask;
 
     return LE_OK;
 }
@@ -2000,6 +2039,7 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
                 le_utf8_Copy(callCtxPtr->ipv4Dns2,
                              eventPtr->ipv4AddrInfo.secondaryDnsAddress,
                              TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
+                callCtxPtr->ipv4Mask = eventPtr->ipv4AddrInfo.ifMask;
             }
 
             if (eventPtr->ipv6Status == telux::data::DataCallStatus::NET_CONNECTED)
@@ -2013,6 +2053,7 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
                 le_utf8_Copy(callCtxPtr->ipv6Dns2,
                              eventPtr->ipv6AddrInfo.secondaryDnsAddress,
                              TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
+                callCtxPtr->ipv6Mask = eventPtr->ipv6AddrInfo.ifMask;
             }
 
             callCtxPtr->dataBearerTech = updateDataBearerTech(eventPtr->dataBearerTech);

@@ -52,4 +52,5 @@ bindings:
 extern:
 {
        tafNetSvc.tafNetwork.taf_net
+       tafNetSvc.tafNetwork.taf_netIpPass
 }

@@ -10,7 +10,7 @@ provides:
 {
     api:
     {
-        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdSecStore.api
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdStorSec.api
     }
 }
 

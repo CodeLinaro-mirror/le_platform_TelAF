@@ -50,5 +50,5 @@ bindings:
 
 extern:
 {
-    tafMngdStorageSvc.tafMngdStorageSvc.taf_mngdSecStore
+    tafMngdStorageSvc.tafMngdStorageSvc.taf_mngdStorSec
 }

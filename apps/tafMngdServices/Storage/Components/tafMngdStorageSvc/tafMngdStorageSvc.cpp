@@ -39,7 +39,7 @@ using namespace telux::tafsvc;
 /**
  * Gets the used size of the storage
  */
-le_result_t taf_mngdSecStore_GetUsedSize
+le_result_t taf_mngdStorSec_GetUsedSize
 (
     uint32_t *sizePtr
 )
@@ -54,7 +54,7 @@ le_result_t taf_mngdSecStore_GetUsedSize
 /**
  * Gets the free size of the storage
  */
-le_result_t taf_mngdSecStore_GetFreeSize
+le_result_t taf_mngdStorSec_GetFreeSize
 (
     uint32_t *sizePtr
 )
@@ -69,7 +69,7 @@ le_result_t taf_mngdSecStore_GetFreeSize
 /**
  * Creates data reference for the new data label
  */
-taf_mngdSecStore_DataRef_t taf_mngdSecStore_CreateData
+taf_mngdStorSec_DataRef_t taf_mngdStorSec_CreateData
 (
     const char *dataLabel
 )
@@ -82,7 +82,7 @@ taf_mngdSecStore_DataRef_t taf_mngdSecStore_CreateData
 /**
  * Gets data reference for the new data label
  */
-taf_mngdSecStore_DataRef_t taf_mngdSecStore_GetDataRef
+taf_mngdStorSec_DataRef_t taf_mngdStorSec_GetDataRef
 (
     const char *dataLabel
 )
@@ -95,9 +95,9 @@ taf_mngdSecStore_DataRef_t taf_mngdSecStore_GetDataRef
 /**
  * Initializes writing data operation for the data label
  */
-le_result_t taf_mngdSecStore_WriteDataStart
+le_result_t taf_mngdStorSec_WriteDataStart
 (
-    taf_mngdSecStore_DataRef_t dataRef
+    taf_mngdStorSec_DataRef_t dataRef
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
@@ -108,9 +108,9 @@ le_result_t taf_mngdSecStore_WriteDataStart
 /**
  * Processes writing data operation for the data label
  */
-le_result_t taf_mngdSecStore_WriteDataChunk
+le_result_t taf_mngdStorSec_WriteDataChunk
 (
-    taf_mngdSecStore_DataRef_t dataRef,
+    taf_mngdStorSec_DataRef_t dataRef,
     const uint8_t *bufferPtr,
     size_t bufferSize
 )
@@ -123,9 +123,9 @@ le_result_t taf_mngdSecStore_WriteDataChunk
 /**
  * Ends writing data operation for the data label
  */
-le_result_t taf_mngdSecStore_WriteDataEnd
+le_result_t taf_mngdStorSec_WriteDataEnd
 (
-    taf_mngdSecStore_DataRef_t dataRef
+    taf_mngdStorSec_DataRef_t dataRef
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
@@ -136,9 +136,9 @@ le_result_t taf_mngdSecStore_WriteDataEnd
 /**
  * Reads data of the data label
  */
-le_result_t taf_mngdSecStore_ReadDataFirstChunk
+le_result_t taf_mngdStorSec_ReadDataFirstChunk
 (
-    taf_mngdSecStore_DataRef_t dataRef,
+    taf_mngdStorSec_DataRef_t dataRef,
     uint8_t *bufferPtr,
     size_t *readSize
 )
@@ -151,9 +151,9 @@ le_result_t taf_mngdSecStore_ReadDataFirstChunk
 /**
  * Reads the next data chunk from the given data item
  */
-le_result_t taf_mngdSecStore_ReadDataNextChunk
+le_result_t taf_mngdStorSec_ReadDataNextChunk
 (
-    taf_mngdSecStore_DataRef_t dataRef,
+    taf_mngdStorSec_DataRef_t dataRef,
     uint8_t *bufferPtr,
     size_t *readSize
 )
@@ -166,9 +166,9 @@ le_result_t taf_mngdSecStore_ReadDataNextChunk
 /**
  * Gets the data size for the given data item in bytes
  */
-le_result_t taf_mngdSecStore_GetDataSize
+le_result_t taf_mngdStorSec_GetDataSize
 (
-    taf_mngdSecStore_DataRef_t dataRef,
+    taf_mngdStorSec_DataRef_t dataRef,
     uint32_t *dataSize
 )
 {
@@ -180,9 +180,9 @@ le_result_t taf_mngdSecStore_GetDataSize
 /**
  * Deletes data and the data label
  */
-le_result_t taf_mngdSecStore_DeleteData
+le_result_t taf_mngdStorSec_DeleteData
 (
-    taf_mngdSecStore_DataRef_t dataRef
+    taf_mngdStorSec_DataRef_t dataRef
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();

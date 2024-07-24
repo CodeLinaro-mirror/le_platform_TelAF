@@ -348,7 +348,6 @@ telaf_admin_file_perms(telaf_admin_t, sysfs_t)
 telaf_admin_mount_perms(telaf_admin_t, cgroup_t)
 telaf_admin_mount_perms(telaf_admin_t, debugfs_t)
 telaf_admin_mount_perms(telaf_admin_t, tmpfs_t)
-allow telaf_admin_t adbd_t:unix_stream_socket { connectto read write getopt getattr };
 
 allow telaf_admin_domain telaf_app_rw_t:dir { search_dir_perms mounton };
 allow telaf_admin_domain telaf_app_rw_t:file { getattr mounton };
@@ -527,7 +526,9 @@ ifdef(`kirkstone',`
     # A workaround to support .update file instsallation
     allow telaf_core_domain unconfined_t:fd { use };
     allow telaf_admin_domain unconfined_t:fd { use };
-    allow telaf_app_t unconfined_t:fd { use };
+    allow telaf_app_domain unconfined_t:fd { use };
+    allow { telaf_admin_domain telaf_core_domain telaf_app_domain } adbd_t:unix_stream_socket { connectto read write getopt getattr };
+    allow setfiles_t adbd_t:unix_stream_socket { connectto read write getopt getattr };
 ')
 
 # Local rules

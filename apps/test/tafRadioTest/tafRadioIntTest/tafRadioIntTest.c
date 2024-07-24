@@ -1458,11 +1458,19 @@ void PrintServingStatus
             result = taf_radio_GetServingCellGsmBsic(&bsic, phoneId);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellGsmBsic - OK");
             LE_INFO("Phone %d GSM Base Station ID %d", phoneId, bsic);
+
+            result = taf_radio_GetServingCellArfcn(&arFcn, DEFAULT_PHONE_ID);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellArfcn - LE_OK");
+            LE_INFO("Phone %d GSM Absolute Radio Frequency Channel Number %d", phoneId, arFcn);
             break;
         case TAF_RADIO_RAT_UMTS:
             psc = taf_radio_GetServingCellScramblingCode(phoneId);
             LE_TEST_OK(true, "taf_radio_GetServingCellScramblingCode - OK");
             LE_INFO("Phone %d UMTS Primary Scrambling Code %d", phoneId, psc);
+
+            result = taf_radio_GetServingCellUarfcn(&arFcn, DEFAULT_PHONE_ID);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellUarfcn - LE_OK");
+            LE_INFO("Phone %d UMTS Absolute Radio Frequency Channel Number %d", phoneId, arFcn);
             break;
         case TAF_RADIO_RAT_LTE:
             tac = taf_radio_GetServingCellLteTracAreaCode(phoneId);

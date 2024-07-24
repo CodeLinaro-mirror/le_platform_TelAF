@@ -849,10 +849,16 @@ void TestTafRadioServingStatus
 
             result = taf_radio_GetServingCellGsmBsic(&bsic, DEFAULT_PHONE_ID);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellGsmBsic - LE_OK");
+
+            result = taf_radio_GetServingCellArfcn(&arFcn, DEFAULT_PHONE_ID);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellArfcn - LE_OK");
             break;
         case TAF_RADIO_RAT_UMTS:
             psc = taf_radio_GetServingCellScramblingCode(DEFAULT_PHONE_ID);
             LE_TEST_OK(true, "taf_radio_GetServingCellScramblingCode - uint16_t");
+
+            result = taf_radio_GetServingCellUarfcn(&arFcn, DEFAULT_PHONE_ID);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellUarfcn - LE_OK");
             LE_INFO("primary ScramblingCode : %d.", psc);
             break;
         case TAF_RADIO_RAT_LTE:

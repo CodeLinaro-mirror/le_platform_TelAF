@@ -2960,3 +2960,39 @@ FUNCTION le_result_t SetSignalStrengthIndHysteresisTimer
     uint16 hysteresisTimer IN,     ///< Hysteresis time in milliseconds.
     uint8 phoneId IN               ///< Phone ID.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell absolute radio frequency channel number.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note Only applicable for GSM.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetServingCellArfcn
+(
+    int32 arfcn OUT, ///< Absolute radio frequency channel number.
+    uint8 phoneId IN ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell UTRA absolute radio frequency channel number.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note Only applicable for UMTS.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetServingCellUarfcn
+(
+    int32 uarfcn OUT, ///< UTRA absolute radio frequency channel number.
+    uint8 phoneId IN  ///< Phone ID.
+);

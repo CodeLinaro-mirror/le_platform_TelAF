@@ -29,8 +29,8 @@ data_size = 1
 grp_of_dtc = 0xFFFFFF
 speedup = 1
 digest_data = '5'
-update_file = "/home/ubuntu/data/update_ubi_ab.zip"
-restore_file = "/data/images/update_ubi_ab.zip"
+update_file = os.environ.get("UPDATE_FILE", "/home/ubuntu/data/update_ubi_ab.zip")
+restore_file = os.environ.get("RESTORE_FILE", "/data/images/update_ubi_ab.zip")
 
 bytes_per_pack = 4000
 
@@ -71,7 +71,8 @@ config["input_output"] = {
 
 config['request_timeout'] = None
 
-doip_client = DoIPClient("192.168.225.1", 513)
+doip_remote_ip = os.environ.get("DOIP_REMOTE_IP", "192.168.225.1")
+doip_client = DoIPClient(doip_remote_ip, 0x0201)
 
 uds_connection = DoIPClientUDSConnector(doip_client)
 

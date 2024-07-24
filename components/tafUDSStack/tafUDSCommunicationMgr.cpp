@@ -42,6 +42,7 @@ using namespace telux::tafsvc;
 using namespace std;
 using namespace taf::uds;
 
+bool UdsCommunicationMgr::isResetInProgress = false;
 /*=================================================================================================
  FUNCTION        UdsCommunicationMgr::GetInstance
  DESCRIPTION     Get an instance of UdsCommunicationMgr
@@ -284,6 +285,8 @@ void UdsCommunicationMgr::IndicateWhenChangingToDefault()
 
     taf_SessionType_t oldSessionType = udsCmMgr.SessionType;
     udsCmMgr.SessionType = DEFAULT_SESSION;
+    udsCmMgr.reqSeedLevel = 0;
+    udsCmMgr.securityLevel = 0;
 
     taf_doip_DiagMsg_t sesChangeMsg;
     if(udsCmMgr.udsIndicationHandler.safeRef == NULL)
@@ -369,7 +372,7 @@ void UdsCommunicationMgr::CheckAndRestartS3Timer
     {
         cfg::Node & root = cfg::get_root_node();
         cfg::Node & common = root.get_child("common_props");
-        s3ServerInterval = common.get<uint32_t>("s3_server_max") * 1000; //Sec to msec.
+        s3ServerInterval = ((uint32_t)common.get<float>("s3_server_max")) * 1000; //Sec to msec.
         LE_DEBUG("s3ServerInterval = %d", s3ServerInterval);
     }
     catch (const std::exception& e)
@@ -1533,6 +1536,50 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
     return LE_OK;
 }
 
+std::map<std::string, uint8_t>& UdsCommunicationMgr::GetSessionMap(void)
+{
+    static std::map<std::string, uint8_t> sessionMap = cfg::get_diagnostic_session_map();
+    return sessionMap;
+}
+
+// FIXME: get the reference for the access speed
+
+bool UdsCommunicationMgr::IsValidSvcActiveSession(uint8_t sid, taf_SessionType_t currentSession)
+{
+    try{
+
+        cfg::Node & svcAllNode = cfg::get_root_node().get_child("services_all");
+        cfg::Node & sessList = svcAllNode.get_child(std::to_string(sid) + ".access.session");
+
+        std::map<std::string, uint8_t>& sessMap = GetSessionMap();
+
+        std::vector<uint8_t> activeSessionList;
+
+        for (auto &sess: sessList)
+        {
+            uint8_t sessId = sessMap[sess.second.get_value<std::string>()];
+            activeSessionList.push_back(sessId);
+        }
+
+        if (std::find(activeSessionList.begin(),
+                      activeSessionList.end(),
+                      (uint8_t)currentSession) != activeSessionList.end())
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LE_ERROR("Failed to get the 0x%02X's session from YAML configuration: %s", sid, e.what());
+        return false; // Mark the exception as 'false'
+    }
+}
+
+
 /**
  * Check NRC and Indicate received TransferData (0x36) message to Diag service.
  */
@@ -1555,9 +1602,7 @@ le_result_t UdsCommunicationMgr::IndicateRxXferDataReq
     }
 
     // Check active session type for TransferData.
-    if (SessionType != PROGRAMMING_SESSION
-            &&  SessionType != DOWNLOADED_ENUMLATION_SESSION
-                    &&  SessionType != FOTA_SESSION)
+    if (! IsValidSvcActiveSession(sid, SessionType))
     {
         LE_DEBUG("Programming session type is not active for TransferData.");
         *isInternalHandle = true;
@@ -1619,9 +1664,7 @@ le_result_t UdsCommunicationMgr::IndicateRxXferExitReq
     }
 
     // Check active session type for RequestTransferExit.
-    if (SessionType != PROGRAMMING_SESSION
-            &&  SessionType != DOWNLOADED_ENUMLATION_SESSION
-                    &&  SessionType != FOTA_SESSION)
+    if (! IsValidSvcActiveSession(sid, SessionType))
     {
         LE_DEBUG("Programming session type is not active for RequestTransferExit.");
         *isInternalHandle = true;
@@ -1694,9 +1737,7 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
     LE_INFO("[RFT] Request for moop:[0x%02X]", RFT_MOOP);
 
     // Check active session type for RequestFileTransfer.
-    if (SessionType != PROGRAMMING_SESSION
-            &&  SessionType != DOWNLOADED_ENUMLATION_SESSION
-                    &&  SessionType != FOTA_SESSION)
+    if (! IsValidSvcActiveSession(RTF_SID, SessionType))
     {
         LE_ERROR("Programming session type is not active for RequestFileTransfer.");
         // UDS_0x38_NRC_22: Not in programming session
@@ -1800,12 +1841,44 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
         }
     }
 
-    // FIXME: Need to unlock first, configured by yaml
-    if (securityLevel == 0)
+
+    try
     {
-        LE_ERROR("Security access denied");
-        // UDS_0x38_NRC_33: Access denied
-        return SendNRC(RTF_SID, SECURITY_ACCESS_DENY, addrInfoPtr);
+        cfg::Node & node = cfg::get_root_node().get_child(std::string("services_all.")
+                                                        + std::to_string(RTF_SID)
+                                                        + ".access.security_level");
+        bool lockSupported = false;
+
+        for (auto &secLevel : node)
+        {
+            if ( 0x27 == secLevel.second.get_value<uint8_t>() )
+            {
+                lockSupported = true;
+                break;
+            }
+        }
+
+        if (lockSupported == true)
+        {
+            if (securityLevel == 0)
+            {
+                LE_ERROR("Security access denied");
+                // UDS_0x38_NRC_33: Access denied
+                return SendNRC(RTF_SID, SECURITY_ACCESS_DENY, addrInfoPtr);
+            }
+            else
+            {
+                LE_DEBUG("unlock: OK");
+            }
+        }
+        else
+        {
+            LE_WARN("Can't invalid value for 0x%02X.access.security_level", RTF_SID);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LE_WARN("Can't get 0x%02X.access.security_level info: %s", RTF_SID, e.what());
     }
 
     //Will send the indication to the diag service
@@ -2126,6 +2199,13 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    //Ignore other requests if hardware reset is in progress until system is restarted
+    if(udsCmMgr.isResetInProgress)
+    {
+        LE_ERROR("Hardware reset is in progress, ignore other requests");
+        return;
+    }
+
     if(!udsCmMgr.readyToRecvData)
     {
         LE_ERROR("Handle in progress, can't receive another request");
@@ -2297,7 +2377,7 @@ void UdsCommunicationMgr::DiagIndicationHandler
         {
             cfg::Node & root = cfg::get_root_node();
             cfg::Node & common = root.get_child("common_props");
-            s3ServerInterval = common.get<uint32_t>("s3_server_max") * 1000; //Sec to msec.
+            s3ServerInterval = ((uint32_t)common.get<float>("s3_server_max")) * 1000; //Sec to msec.
             LE_DEBUG("s3ServerInterval = %d", s3ServerInterval);
         }
         catch (const std::exception& e)
@@ -2569,7 +2649,7 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     {
         cfg::Node & root = cfg::get_root_node();
         cfg::Node & common = root.get_child("common_props");
-        s3ServerInterval = common.get<uint32_t>("s3_server_max") * 1000; //Sec to msec.
+        s3ServerInterval = ((uint32_t)common.get<float>("s3_server_max")) * 1000; //Sec to msec.
         LE_DEBUG("s3ServerInterval = %d", s3ServerInterval);
     }
     catch (const std::exception& e)
@@ -2686,13 +2766,31 @@ le_result_t UdsCommunicationMgr::ECUResetResp
         return LE_OK;
     }
 
+    //Get ignore_request_for_hardreset from YAML
+    bool ignoreReqForHardReset = false;
+
+    try
+    {
+        cfg::Node & root = cfg::get_root_node();
+        cfg::Node & common = root.get_child("common_props");
+        ignoreReqForHardReset = common.get<bool>("ignore_request_for_hardreset");
+        LE_INFO("ignoreReqForHardReset = %d", ignoreReqForHardReset);
+    }
+    catch (const std::exception& e)
+    {
+        LE_DEBUG("Exception: %s. ignore_request_for_hardreset not configured", e.what());
+    }
+
+    uint8_t resetType = recvBuf[1] & 0x7F;
+    // Currently it's positive response for hardreset and let's get the attribute, tmp
+    if(ignoreReqForHardReset && (resetType == HARD_RESET))
+        isResetInProgress = true;
+
     uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
     if (suppressPosRspFlag == 1)
     {
         return LE_UNSUPPORTED;
     }
-
-    uint8_t resetType = recvBuf[1] & 0x7F;
 
     sendBuf[0] = ECU_RESET_RESPONSE_ID;
     sendBuf[1] = resetType;

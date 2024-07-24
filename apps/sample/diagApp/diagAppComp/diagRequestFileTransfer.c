@@ -123,11 +123,6 @@ static int isDirectoryExists(const char *path)
     return 0;
 }
 
-const char * diagRFT_GetCompleteFileName(void)
-{
-    return mCompleteFileAndPathName;
-}
-
 //Function to convert modeOfOperation type to string
 static char* tafModeOfOperationToString(taf_diagUpdate_ModeOfOpsType_t moop)
 {

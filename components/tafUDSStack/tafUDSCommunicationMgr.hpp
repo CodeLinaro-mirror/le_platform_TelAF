@@ -54,24 +54,6 @@ namespace uds{
     #define TAF_UDS_HANDLER_REF_CNT 1
     #define SHORT_TERM_ADJUSTMENT 3
 
-    // DID Config tree definition
-    #define DID_NODE_LEN                 100
-    #define DID_CONFIG_TREE_NODE         "diag/DID"
-    #define DID_READ_PROPERTY_SUPPORTED_FUNCTION  "diag/DID/%2x/supported_functions/read_did"
-    #define DID_WRITE_PROPERTY_SUPPORTED_FUNCTION  "diag/DID/%2x/supported_functions/write_did"
-    #define DID_READ_SEC_PROPERTY_SUPPORTED_FUNCTION  "diag/DID/%2x/supported_functions/read_sec"
-    #define DID_WRITE_SEC_PROPERTY_SUPPORTED_FUNCTION  "diag/DID/%2x/supported_functions/write_sec"
-    #define DID_CONFIG_TREE_VALUE_FORMAT  "diag/DID/%2x/value"
-    #define DID_DATA_FORMAT              "data%d"
-
-    // DTC Config tree definition
-    #define DTC_CONFIG_TREE_NODE                   "diag/DTC"
-    #define DTC_STATUS_AVAILABILITY_MASK           "DTCStatusAvailabilityMask"
-    #define DTC_INFORMATION                        "info"
-    #define DTC_STR_INFO_LEN                       20
-    #define DTC_STATUS                             "status"
-    #define DTC_SUB_FUNCTION_REPORT_DTC_BY_STATUS  0x2
-
     // UDS minimal len
     #define UDS_REQ_MIN_LEN 1
 
@@ -87,6 +69,7 @@ namespace uds{
     // ECUReset service (0x11)
     #define UDS_ECU_RESET_REQ_MIN_LEN 2
     #define UDS_ECU_RESET_RESP_BASE_LEN 2
+    #define HARD_RESET 1
 
     // ReadDTCInformation service (0x19)
     #define UDS_READ_DTC_INFO_REQ_MIN_LEN 2
@@ -354,6 +337,9 @@ namespace uds{
             bool IsSecurityAccessMatched(cfg::Node& node);
             bool IsRequestSubFuncSupported(cfg::Node& node, uint8_t subFunc);
 
+            std::map<std::string, uint8_t>& GetSessionMap(void);
+            bool IsValidSvcActiveSession(uint8_t sid, taf_SessionType_t currentSession);
+
             // update status parameter.
             bool isXferActive = false;
 
@@ -377,6 +363,7 @@ namespace uds{
             uint16_t recvDataLen = 0;
             uint16_t sendDataLen = 0;
             bool readyToRecvData = true;
+            static bool isResetInProgress;
             le_timer_Ref_t p2StarTimerRef;
             le_timer_Ref_t s3TimerRef;
             le_event_Id_t udsTimerEventId;

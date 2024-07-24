@@ -37,12 +37,14 @@
 #define ROUTINE_CONTROL_RECORD_LENGTH 100
 #define UPDATE_PRE_DOWNLOAD_CHECK_IDENTIFIER 0x0246
 #define UPDATE_POST_DOWNLOAD_CHECK_IDENTIFIER 0x0247
+#define UPDATE_SESSION_CONF_FILE "/data/nad_update.conf"
 #define PRE_DOWNLOAD_CHECK_OK 1
 
 //TelAF Update
 static taf_update_StateHandlerRef_t UpdateStateHandlerRef = NULL;
 
 taf_update_State_t updateState = TAF_UPDATE_IDLE;
+taf_update_SessionRef_t updateSessRef = NULL;
 
 //Diag Routine Control
 static taf_diagRoutineCtrl_ServiceRef_t diagRCPreDlSvcRef = NULL;
@@ -163,7 +165,7 @@ void routineCtrl_0246_MsgHandler
             }
             else
             {
-                if(taf_diagRoutineCtrl_SendResp( rxMsgRef, 
+                if(taf_diagRoutineCtrl_SendResp( rxMsgRef,
                     TAF_DIAGROUTINECTRL_REQUEST_SEQUENCE_ERROR, NULL, 0 ) != LE_OK)
                 {
                     LE_ERROR("Send response error");
@@ -180,6 +182,39 @@ void routineCtrl_0246_MsgHandler
             break;
     }
 
+}
+
+static le_result_t GetTargetFilePathFromConfigTree(char * fileName, size_t nameLen)
+{
+    if (fileName == NULL || nameLen == 0)
+    {
+        return LE_FAULT;
+    }
+
+    le_cfg_ConnectService();
+
+    #define ROUTINE_DW_TARGET_NAME "diag/routine"
+
+    le_cfg_IteratorRef_t ir = le_cfg_CreateReadTxn(ROUTINE_DW_TARGET_NAME);
+
+    if (le_cfg_NodeExists(ir, "") == false)
+    {
+        LE_ERROR("Faild to navigate to node: %s", ROUTINE_DW_TARGET_NAME);
+        le_cfg_CancelTxn(ir);
+        return LE_NOT_FOUND;
+    }
+
+    le_result_t result = le_cfg_GetString(ir, "targetFile", fileName, nameLen, "");
+    if (result != LE_OK)
+    {
+        LE_ERROR("Faild to get value : %s/targetFile", ROUTINE_DW_TARGET_NAME);
+        le_cfg_CancelTxn(ir);
+        return result;
+    }
+
+    le_cfg_CancelTxn(ir);
+
+    return LE_OK;
 }
 
 // Callback function for routine control request message
@@ -204,13 +239,32 @@ void routineCtrl_0247_MsgHandler
         //start routine to install firmware
         case TAF_DIAGROUTINECTRL_START_ROUTINE:
             LE_INFO("Start routine for identifier 0x%x",identifier);
-            const char * filePath = diagRFT_GetCompleteFileName();
-            if(updateState == TAF_UPDATE_IDLE || filePath[0] != '\0')
+
+            char targetFile[128];
+            result = GetTargetFilePathFromConfigTree(targetFile, sizeof(targetFile));
+            if (result != LE_OK)
+            {
+                LE_ERROR("Stop routine cause of invalid target file name was gotten");
+
+                if (taf_diagRoutineCtrl_SendResp(rxMsgRef,
+                        TAF_DIAGROUTINECTRL_GENERAL_PROGRAMMING_FAILURE,
+                        NULL, 0 ) != LE_OK)
+                {
+                    LE_ERROR("Response in exception");
+                }
+            }
+
+            LE_INFO("Routine target file name: %s", targetFile);
+
+            if(updateState == TAF_UPDATE_IDLE || targetFile[0] != '\0')
             {
                 LE_INFO("Post download check is OK");
                 //Install the firmware
-                result = taf_update_Install(TAF_UPDATE_FOTA, filePath);
-                LE_INFO("update firmware, result=%d, filepath=%s",result, filePath);
+                result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP,
+                                                           UPDATE_SESSION_CONF_FILE, &updateSessRef);
+                result = taf_update_StartInstall(updateSessRef, targetFile);
+                LE_INFO("update firmware, result=%d, targetFile=%s",result, targetFile);
+
                 if(result == LE_OK)
                 {
                     if(taf_diagRoutineCtrl_SendResp( rxMsgRef, TAF_DIAGROUTINECTRL_NO_ERROR,

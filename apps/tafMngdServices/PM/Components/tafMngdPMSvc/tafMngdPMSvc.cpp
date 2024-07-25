@@ -638,7 +638,7 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
             LE_INFO("Received ACK from client");
 
             mpms.ackClientrecrd.push_back((taf_mngdPm_nodePowerStateRef_t)Ref);
-            LE_INFO("regClientrecrd size is %ld ,ackClientrecrd size is:%ld",mpms.regClientrecrd.size(),
+            LE_INFO("regClientrecrd size is %zu ,ackClientrecrd size is:%zu",mpms.regClientrecrd.size(),
                     mpms.ackClientrecrd.size());
             //If Last acknowledged client , proceed for ack state change
             if(mpms.regClientrecrd.size() == mpms.ackClientrecrd.size())

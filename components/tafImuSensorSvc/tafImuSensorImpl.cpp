@@ -68,7 +68,7 @@ le_result_t IntializeSensorClient(taf_SensorClient_t* clientRequestPtr,const cha
         LE_FATAL("unable to create sensor client for %s",name);
     }
     clientRequestPtr->mSensorClient.push_back(sensorclient);
-    LE_INFO("sensorclient vector size %lu",clientRequestPtr->mSensorClient.size());
+    LE_INFO("sensorclient vector size %zu",clientRequestPtr->mSensorClient.size());
     return LE_OK;
 }
 
@@ -626,7 +626,8 @@ void tafSensorListener::onEvent(std::shared_ptr<std::vector<SensorEvent>> events
         }
         triggeredSensorEvent->eventList.push_back(eventData);
     }
-    LE_DEBUG("Event Recieved for %s %ld,%ld",clientRequestPtr->currentSensorClient->getSensorInfo().name.c_str(),events->at(0).timestamp,events->at(events->size()-1).timestamp);
+    LE_DEBUG("Event Recieved for %s  %" PRIu64 ", %" PRIu64 "",
+    clientRequestPtr->currentSensorClient->getSensorInfo().name.c_str(),events->at(0).timestamp,events->at(events->size()-1).timestamp);
     triggeredSensorEvent->sensorRef = clientRequestPtr->CurrentSensorRef;
     triggeredSensorEvent->listSize = events->size();
     triggeredSensorEvent->sessionRef = clientRequestPtr->sessionRef;

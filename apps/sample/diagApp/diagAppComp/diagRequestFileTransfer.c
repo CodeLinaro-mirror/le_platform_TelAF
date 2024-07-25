@@ -49,6 +49,8 @@ static DIR * mCompleteDirObject = NULL;
 static int activatedMoop = -1;
 static uint64_t mRequestDirTotalSize = 0;
 
+#ifndef LE_CONFIG_DIAG_VSTACK
+
 static le_sem_Ref_t semRef;
 
 #define fileExist(fileName) (access(fileName, F_OK) == 0)
@@ -197,6 +199,8 @@ static le_result_t writeFile(const uint8_t *data, const uint16_t len)
     return LE_OK;
 }
 
+#endif
+
 // When the security session changing from programming session to anther.
 void diagRFT_DeactivateProgramming(void)
 {
@@ -230,6 +234,8 @@ void diagRFT_DeactivateProgramming(void)
     activatedMoop = -1;
     mRequestDirTotalSize = 0;
 }
+
+#ifndef LE_CONFIG_DIAG_VSTACK
 
 // Callback function for file transfer request message
 void fileXferMsgHandler
@@ -686,8 +692,12 @@ static void* diagUpdateMsgThread(void* ctxPtr)
     return NULL;
 }
 
+#endif
+
 le_result_t diagRequestFileTransfer_Init(void)
 {
+
+#ifndef LE_CONFIG_DIAG_VSTACK
     semRef = le_sem_Create("SemRef", 0);
 
     //get diag update reference
@@ -705,6 +715,6 @@ le_result_t diagRequestFileTransfer_Init(void)
 
     le_thread_Start(diagUpdateThreadRef);
     le_sem_Wait(semRef);
-
+#endif
     return LE_OK;
 }

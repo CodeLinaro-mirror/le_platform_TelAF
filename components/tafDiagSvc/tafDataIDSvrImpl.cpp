@@ -160,7 +160,7 @@ void taf_DataIDSvr::UDSMsgHandler
     addrInfo.ta = addrPtr->sa;
     addrInfo.taType = addrPtr->taType;
 
-    if (sid == SID_READ_DATA_BY_IDENTIFIER)
+    if (sid == reqReadDIDSvcId)
     {
         taf_ReadDIDRxMsg_t* rxReadDIDMsgPtr = NULL;
 
@@ -194,7 +194,7 @@ void taf_DataIDSvr::UDSMsgHandler
         // Report the Read DID request message to message handler in service layer.
         le_event_ReportWithRefCounting(ReadDIDEvent, rxReadDIDMsgPtr);
     }
-    else if (sid == SID_WRITE_DATA_BY_IDENTIFIER)
+    else if (sid == reqWriteDIDSvcId)
     {
         taf_WriteDIDRxMsg_t* rxWriteDIDMsgPtr = NULL;
 

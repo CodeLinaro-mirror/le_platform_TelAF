@@ -1210,10 +1210,64 @@ taf_audio_RouteRef_t taf_Audio::OpenRoute( taf_audio_RouteId_t routeId,
 
         routePtr->mode = TAF_AUDIO_LOCAL_PLAYBACK;
         routePtr->sinkRef = *sinkRef;
+    } else if(mode == TAF_AUDIO_LOCAL_LOOPBACK)
+    {
+        //Setup loopback stream config.
+        if(mAudioLoopbackStream) {
+            LE_ERROR("Loopback stream already exists. ");
+            return NULL;
+        }
+
+        le_result_t res = LE_FAULT;
+        StreamConfig config;
+
+        config.type = telux::audio::StreamType::LOOPBACK;
+        config.sampleRate = 48000;
+        config.format = telux::audio::AudioFormat::PCM_16BIT_SIGNED;
+        config.channelTypeMask = telux::audio::ChannelType::LEFT | telux::audio::ChannelType::RIGHT;
+
+        if (routeId == TAF_AUDIO_ROUTE_1) {
+            config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_0);
+            config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SOURCE_0);
+            LE_DEBUG("set config with device types speaker 0 & mic 0");
+        } else if (routeId == TAF_AUDIO_ROUTE_2)
+        {
+            config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_1);
+            config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SOURCE_1);
+            LE_DEBUG("set config with device types speaker 1 & mic 1");
+        } else if (routeId == TAF_AUDIO_ROUTE_3)
+        {
+            config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_2);
+            config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SOURCE_2);
+            LE_DEBUG("set config with device types speaker 2 & mic 2");
+        } else if (routeId == TAF_AUDIO_ROUTE_4)
+        {
+            config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_3);
+            config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SOURCE_3);
+            LE_DEBUG("set config with device types speaker 3 & mic 3");
+        } else if (routeId == TAF_AUDIO_ROUTE_5)
+        {
+            config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_4);
+            config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SOURCE_4);
+            LE_DEBUG("set config with device types speaker 4 & mic 4");
+        }
+
+        res = StartAudio(config);
+        if (res != LE_OK) {
+            LE_ERROR("Loopback stream failed");
+            le_ref_DeleteRef(RouteRefMap, routePtr->routeRef);
+            le_mem_Release(routePtr);
+            return NULL;
+        }
+        routePtr->mode = TAF_AUDIO_LOCAL_LOOPBACK;
     }
 
     routePtr->routeRef = (taf_audio_RouteRef_t)le_ref_CreateRef(RouteRefMap, routePtr);
     LE_INFO("Route ref is %p", routePtr->routeRef);
+    if(routePtr->mode == TAF_AUDIO_LOCAL_LOOPBACK) {
+        // Set VHAL ctl route status for loopback
+        setVhalRouteStatus(TAF_AUDIO_LOCAL_LOOPBACK, true);
+    }
     return routePtr->routeRef;
 }
 
@@ -1259,6 +1313,56 @@ le_result_t taf_Audio::CloseRoute( taf_audio_RouteRef_t routeRef )
         TAF_ERROR_IF_RET_VAL( sourceStreamPtr == NULL, LE_FAULT,
                 "sourceRef is invalid!");
         ReleaseStream(sourceStreamPtr, routePtr->sessionRef, false);
+    } else if (routePtr->mode == TAF_AUDIO_LOCAL_LOOPBACK)
+    {
+        //Stop and delete loopback
+        if(!mAudioLoopbackStream){
+            LE_ERROR("No loopback stream exists.");
+            return LE_FAULT;
+        }
+
+        std::promise<telux::common::ErrorCode> p{};
+        telux::common::Status status;
+        telux::common::ErrorCode ec;
+
+        status = mAudioLoopbackStream->stopLoopback([&p] (telux::common::ErrorCode result) {
+            p.set_value(result);
+        });
+
+        if (status != telux::common::Status::SUCCESS) {
+            LE_ERROR("Request to stop loopback failed error : %d", (int)status);
+            return LE_FAULT;
+        }
+
+        ec = p.get_future().get();
+        if (ec != telux::common::ErrorCode::SUCCESS) {
+            LE_ERROR("Failed to stop loopback, error : %d", (int)ec);
+            return LE_FAULT;
+        }
+        LE_DEBUG("Loopback stopped");
+
+        p = std::promise<telux::common::ErrorCode>();
+        status = mAudioManager->deleteStream(mAudioLoopbackStream, [&p, this] (
+            telux::common::ErrorCode result) {
+            p.set_value(result);
+            this->mAudioLoopbackStream.reset();
+            this->mAudioLoopbackStream = nullptr;
+        });
+
+        if (status != telux::common::Status::SUCCESS) {
+            LE_ERROR("Request to delete loopback failed error : %d", (int)status);
+            return LE_FAULT;
+        }
+
+        ec = p.get_future().get();
+        if (ec != telux::common::ErrorCode::SUCCESS) {
+            LE_ERROR("Failed to delete loopback, error : %d", (int)ec);
+            return LE_FAULT;
+        }
+
+        LE_DEBUG("Loopback stream deleted");
+        // Set VHAL ctl route status for loopback
+        setVhalRouteStatus(routePtr->mode, false);
     }
 
     LE_DEBUG("Release routeRef %p", routeRef);
@@ -1491,6 +1595,8 @@ le_result_t taf_Audio::StartAudio
     resetCallbackPromise();
     auto status = Status::FAILED;
     std::promise<bool> p;
+    std::promise<telux::common::ErrorCode> prom{};
+    telux::common::ErrorCode ec;
     std::shared_ptr<telux::audio::IAudioStream> tafAudioStream;
     if (!mAudioManager){
         LE_ERROR("Invalid Audio Manager ");
@@ -1559,6 +1665,24 @@ le_result_t taf_Audio::StartAudio
                     telux::audio::IAudioCaptureStream>(tafAudioStream);
             LE_DEBUG("Audio Capture Stream is Created" );
             setVhalRouteStatus(TAF_AUDIO_LOCAL_RECORDING, true);
+        } else if(tafAudioStream->getType() == StreamType::LOOPBACK) {
+            mAudioLoopbackStream = std::dynamic_pointer_cast<
+                    telux::audio::IAudioLoopbackStream>(tafAudioStream);
+            LE_DEBUG("Audio Loopback Stream is Created" );
+            //Start loopback stream.
+            status = mAudioLoopbackStream->startLoopback([&prom] (telux::common::ErrorCode result) {
+                prom.set_value(result);
+            });
+            if (status != telux::common::Status::SUCCESS) {
+                LE_ERROR("Request to start loopback failed.\n");
+                return LE_FAULT;
+            }
+            ec = prom.get_future().get();
+            if (ec != telux::common::ErrorCode::SUCCESS) {
+                LE_ERROR("start loopback failed error : %d", (int)ec);
+                return LE_FAULT;
+            }
+            LE_DEBUG("Loopback started\n");
         } else {
             LE_DEBUG("Unknown Stream Created" );
         }

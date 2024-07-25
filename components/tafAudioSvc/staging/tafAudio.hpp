@@ -334,6 +334,7 @@ class taf_Audio : public ITafSvc
         std::shared_ptr<telux::audio::IAudioVoiceStream> mAudioVoiceStream;
         std::shared_ptr<telux::audio::IAudioCaptureStream> mAudioCaptureStream;
         std::shared_ptr<telux::audio::IAudioPlayStream> mAudioPlayStream;
+        std::shared_ptr<telux::audio::IAudioLoopbackStream> mAudioLoopbackStream;
         std::shared_ptr<telux::audio::IStreamBuffer> mPbStreamBuffer, mRecStreamBuffer;
         std::shared_ptr<telux::audio::IAudioPlayer> mAudioPlayer;
         std::shared_ptr<telux::audio::IPlayListener> mPlayListener;

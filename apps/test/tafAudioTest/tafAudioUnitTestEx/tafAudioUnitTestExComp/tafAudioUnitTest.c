@@ -218,6 +218,17 @@ void TEST_OPEN_ROUTE()
     LE_TEST_INFO("Test taf_audio_CloseRoute ROUTE_1 recording");
     res = taf_audio_CloseRoute(routeRef);
     LE_TEST_OK(res == LE_OK, "Successfully closed the ROUTE_1 recording");
+
+    LE_TEST_INFO("Test taf_audio_OpenRoute API ROUTE_1 loopback");
+    routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_LOCAL_LOOPBACK,
+            NULL, NULL);
+    LE_TEST_OK(routeRef != NULL, "OpenRoute successfull routeRef %p", routeRef);
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem ,Timeout);
+
+    LE_TEST_INFO("Test taf_audio_CloseRoute ROUTE_1 loopback");
+    res = taf_audio_CloseRoute(routeRef);
+    LE_TEST_OK(res == LE_OK, "Successfully closed the ROUTE_1 loopback");
 }
 
 void* Test_taf_audio_AddHandler(void* ctxPtr)

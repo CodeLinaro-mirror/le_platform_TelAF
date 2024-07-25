@@ -69,7 +69,7 @@ static le_thread_Ref_t Player_thread_ref, Recorder_thread_ref, node_thread_ref;
 taf_audio_RouteId_t routeId = (taf_audio_RouteId_t)-1;
 bool isVoiceActive = false, isPbActive = false, isRpbActive = false, isRecordingActive = false;
 bool isVoiceStreamCreated = false, isPbStreamCreated = false, isRecordStreamCreated = false,
-        isRpbStreamCreated = false;
+        isRpbStreamCreated = false, isLbStreamCreated = false;
 
 static void MyMediaEventHandler
 (
@@ -228,6 +228,36 @@ void Test_Audio_Playback_Stream(bool createRoute)
     res = taf_audio_Connect(playerConnRef, playerRef);
     LE_TEST_OK(res == LE_OK, "Successfully connected playerRef to ConnectorRef");
     isPbStreamCreated = true;
+}
+
+void Test_Audio_Loopback_Stream()
+{
+    LE_TEST_INFO("Test OpenRoute for LOCAL_LOOPBACK");
+    routeRef = taf_audio_OpenRoute( routeId, TAF_AUDIO_LOCAL_LOOPBACK,
+            NULL, NULL);
+    LE_TEST_OK(routeRef != NULL,
+            "OpenRoute successfull for LOCAL_LOOPBACK");
+
+    if(routeRef == NULL)
+    {
+        cout<<"****Failed to create route for loopback***"<<endl;
+        LE_TEST_EXIT;
+    }
+    cout<<"****Successfully started loopback***"<<endl;
+    isLbStreamCreated = true;
+}
+
+void Test_Audio_Loopback_Delete()
+{
+    LE_TEST_INFO("Test CloseRoute for LOCAL_LOOPBACK");
+    res = taf_audio_CloseRoute(routeRef);
+    LE_TEST_OK(res == LE_OK, "Successfully closed the LOCAL_LOOPBACK route");
+    if(res != LE_OK) {
+        cout<<"****Failed stop loopback***"<<endl;
+        return;
+    }
+    cout<<"****Successfully stopped loopback***"<<endl;
+    isLbStreamCreated = false;
 }
 
 void Test_Audio_Playback_Start( string filePath )
@@ -580,6 +610,10 @@ void PrintHelp()
         else
             cout<<"stop recording"<<endl;
     }
+    else if(isLbStreamCreated)
+    {
+        cout<<"stop loopback"<<endl;
+    }
     else
     {
         cout<<"1 - Create voice call streams"<<endl;
@@ -587,6 +621,7 @@ void PrintHelp()
         cout<<"3 - Create repeated file playback streams"<<endl;
         cout<<"4 - Create record streams"<<endl;
         cout<<"5 - node API testing"<<endl;
+        cout<<"6 - start loopback"<<endl;
     }
 }
 
@@ -1474,6 +1509,16 @@ void StartInputMonitoring
             else if (strncmp(inputStr, "Delete voice stream", 19) == 0)
             {
                 Test_Audio_VoiceCall_Delete();
+            } else if (strncmp(inputStr, "6", 1) == 0){
+                cout << "Enter route ID:";
+                cin >> number;
+                IS_CIN_FAILURE;
+                p = fgets(inputStr, sizeof(inputStr), stdin);
+                ConvertToRouteId(number);
+                Test_Audio_Loopback_Stream();
+
+            } else if (strncmp(inputStr, "stop loopback", 13) == 0){
+                Test_Audio_Loopback_Delete();
             }
         }
         else

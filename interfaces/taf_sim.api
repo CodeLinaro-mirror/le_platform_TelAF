@@ -92,7 +92,7 @@
  * @section taf_sim_SelectCard Select a card to use
  *
  * taf_sim_SelectCard() is used to select the SIM card available on the user device. By default,
- * the SIM card in slot1 is used for network camping.
+ * the SIM card in slot 1 is used for network camping.
  * Additionally, if the SIM card identifier is passed in any TAF SIM API as a parameter, it will select that
  * SIM and after this taf_sim_GetSelectedCard() will return the newly selected card, not necessarily
  * the one previously set by taf_sim_SelectCard().
@@ -144,9 +144,8 @@
  *
  * @ref taf_sim_GetEID() retrieves the EID.
  *
- * <b> Home Network Name</b>
+ * <b>International Mobile Subscriber Identity (IMSI)</b>
  *
- * - @ref taf_sim_GetHomeNetworkOperator() -- Retrieves the name of the home network.
  * - @ref taf_sim_GetIMSI() -- Gets the IMSI.
  *
  * <b>Phone Number</b>
@@ -158,29 +157,28 @@
  *
  * <b>Home Network Information</b>
  *
- * - @ref taf_sim_GetHomeNetworkOperator() -- Retrieves the name of the home network.
- * - @ref taf_sim_GetHomeNetworkMccMnc() -- Retrieves the MCC and MNC of the home network.
+ * - @ref taf_sim_GetHomeNetworkOperator() -- Retrieves the name of the carrier on which this subscription is made.
+ * - @ref taf_sim_GetHomeNetworkMccMnc() -- Retrieves the MCC and MNC of the carrier on which this subscription is made.
  *
  * @section taf_sim_auth SIM Authentication
  *
  * - @ref taf_sim_EnterPIN() -- Enters the Personal Identification Number (PIN) code which
  *   is required before any mobile device functionality can be used.
  *
- * - @ref taf_sim_GetRemainingPINTries() -- Returns the number of remaining PIN entry attempts
- *   left before the SIM will be blocked.
+ * - @ref taf_sim_GetRemainingPINTries() -- Returns the number of remaining PIN1/PIN2 entry attempts.
  *
  * - @ref taf_sim_GetRemainingPUKTries() -- Returns the number of remaining PUK retry attempts
  *   left before the SIM get blocked.
  *
  * - @ref taf_sim_ChangePIN() must be called to change the PIN code.
  *
- * - @ref taf_sim_Lock() -- Locks the SIM card and enables asking for the PIN code.
+ * - @ref taf_sim_Lock() -- Locks the SIM card and enables asking for the PIN1/PIN2 code.
  *
  * - @ref taf_sim_Unlock() -- Unlocks the SIM card and disables asking for the PIN code.
  *
  * - @ref taf_sim_Unblock() unblocks the SIM card. If the SIM card is blocked after X unsuccessful
  *   attempts to enter the PIN then @ref taf_sim_Unblock() can be used with Personal Unblocking
- *   (PUK) code to set a new PIN code and unblock the SIM.
+ *   (PUK1/PUK2) code to set a new PIN1/PIN2 and unblock the SIM.
  *
  * @section taf_sim_state SIM states
  *
@@ -192,13 +190,15 @@
  *
  * - @ref taf_sim_GetState() -- Retrieves the following SIM states.
  *
- *     - @ref TAF_SIM_INSERTED -- SIM card is inserted and locked.
- *     - @ref TAF_SIM_ABSENT -- SIM card is not present, i.e., not inserted.
- *     - @ref TAF_SIM_READY -- SIM card is present and unlocked.
- *     - @ref TAF_SIM_BLOCKED -- SIM card is blocked and cannot be used unless it is unlocked it.
- *     - @ref TAF_SIM_BUSY -- SIM card is busy, i.e., it is getting activated, getting unlocked, etc.
- *     - @ref TAF_SIM_POWER_DOWN -- SIM card is powered OFF.
+ *     - @ref TAF_SIM_PRESENT       -- SIM card is present and locked. This is same as TAF_SIM_INSERTED.
+ *     - @ref TAF_SIM_ABSENT        -- SIM card is not present, i.e., not inserted.
+ *     - @ref TAF_SIM_READY         -- SIM card is present and unlocked.
+ *     - @ref TAF_SIM_BLOCKED       -- SIM card is blocked and cannot be used unless it is unlocked it. Not supported.
+ *     - @ref TAF_SIM_BUSY          -- SIM card is busy, i.e., it is getting activated, getting unlocked, etc. Not supported.
+ *     - @ref TAF_SIM_POWER_DOWN    -- SIM card is powered OFF. Not supported.
  *     - @ref TAF_SIM_STATE_UNKNOWN -- Unknown SIM state; can occur when the state is not determined.
+ *     - @ref TAF_SIM_RESTRICTED    -- SIM card is present but not usable due to carrier restrictions.
+ *     - @ref TAF_SIM_ERROR         -- SIM card has error; either card is removed or not readable.
  *
  * A handler function should be registered to receive SIM state notifications.
  * @ref taf_sim_AddNewStateHandler() allows users to register a state change handler.
@@ -208,6 +208,9 @@
  *
  * When the SIM's state change is notified, the handler function is invoked.
  *
+ * @warning If the input *taf_sim_NewStateHandlerFunc_t is null then this function will kill the
+ * calling client.
+ *
  * Call @ref taf_sim_GetState() to retrieve the new state of the SIM.
  *
  * @note If many applications register handlers for notifications, they
@@ -215,9 +218,9 @@
  *
  * An application may uninstall a state change handler by calling @ref taf_sim_RemoveNewStateHandler().
  *
- * - @ref taf_sim_SetPower() -- Powers up or down the current SIM card.
+ * - @ref taf_sim_SetPower() -- Powers up or down the specified SIM card.
  *
- * - @ref taf_sim_Reset() -- Resets the specified card using the SIM-slot.
+ * - @ref taf_sim_Reset() -- Resets the specified SIM card.
  *
  * @warning The device may need a reboot to detect a SIM insertion or removal. So it is recommended to restart
  *          the device or NAD.
@@ -276,6 +279,10 @@
  * back to a commercial subscription and reboot. The user's application must wait for eUICC reboot
  * to finish and a network connection to be available.
  *
+ * Unsupported APIs:
+ *   -- taf_sim_SetAutomaticSelection()
+ *   -- taf_sim_GetAutomaticSelection()
+ *
  * <HR>
  *
  */
@@ -290,8 +297,6 @@ REFERENCE FPLMNList;
  * Legacy state support.
  */
 DEFINE INSERTED = 0;
-DEFINE BLOCKED = 3;
-DEFINE POWER_DOWN = 8;
 
 /**
  * Legacy slot ID support.
@@ -339,24 +344,15 @@ DEFINE FPLMN_MAX_OPERATORS_PER_LIST = (5);
  */
 ENUM States
 {
-    PRESENT,                   ///< SIM card is present.
+    PRESENT,                   ///< SIM card is present and locked. This is same as TAF_SIM_INSERTED.
     ABSENT,                    ///< SIM card is absent.
     READY,                     ///< SIM card is present and ready to use.
-    RESTRICTED,                ///< SIM card is present but not usable due to carrier restrictions
-    BUSY,                      ///< Not supported.
-    ERROR,                     ///< SIM card has error; either card is removed or not readable.
+    BLOCKED,                   ///< SIM card is blocked and cannot be used unless it is unlocked. Not supported.
+    BUSY,                      ///< SIM card is busy, i.e., it is getting activated, getting unlocked, etc. Not supported.
+    POWER_DOWN,                ///< SIM card is powered OFF. Currently this is not supported.
     STATE_UNKNOWN,             ///< SIM card state is unknown.
-    ERROR_UNKNOWN,             ///< Unknown error; not supported.
-    ERROR_POWER_DOWN,          ///< Power down; not supported.
-    ERROR_POLL_ERROR,          ///< Poll error; not supported.
-    ERROR_NO_ATR_RECEIVED,     ///< No ATR received; not supported.
-    ERROR_VOLT_MISMATCH,       ///< Volt mismatch; not supported.
-    ERROR_PARITY_ERROR,        ///< Parity error; not supported.
-    ERROR_POSSIBLY_REMOVED,    ///< Unknown, possibly removed; not supported.
-    ERROR_TECHNICAL_PROBLEMS,  ///< Card returned technical problems; not supported.
-    ERROR_NULL_BYTES,          ///< Card returned NULL bytes; not supported.
-    ERROR_SAP_CONNECTED,       ///< Terminal in SAP mode; not supported.
-    ERROR_CMD_TIMEOUT          ///< Command timeout error; not supported.
+    RESTRICTED,                ///< SIM card is present but not usable due to carrier restrictions.
+    ERROR                      ///< SIM card has error; either card is removed or not readable.
 };
 
 /**
@@ -368,7 +364,7 @@ ENUM Id
     SLOT_ID_1,          ///< SIM inserted in slot 1.
     SLOT_ID_2,          ///< SIM inserted in slot 2.
     REMOTE,             ///< Not supported.
-    UNSPECIFIED,        ///< Slot II is unspecified; use the current selected slot ID.
+    UNSPECIFIED,        ///< Slot ID is unspecified; use the current selected slot ID.
     ID_MAX
 };
 
@@ -379,9 +375,9 @@ ENUM LockType
 {
    PIN1 = 0,        ///< Lock type is PIN1.
    PIN2 = 1,        ///< Lock type is PIN2.
-   PUK1 = 2,        ///< Lock type is pin unblocking key 1.
-   PUK2 = 3,        ///< Lock type is pin unblocking key 2.
-   FDN  = 4         ///< Lock type is fixed dialing number.
+   PUK1 = 2,        ///< Lock type is PIN Unblocking Key 1.
+   PUK2 = 3,        ///< Lock type is PIN Unblocking Key 2.
+   FDN  = 4         ///< Lock type is Fixed Dialing number.
 };
 
 ENUM LockResponse
@@ -458,7 +454,7 @@ EVENT NewState
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Handler for PIN PUK changes.
+ * Handler for PIN1/PIN2/PUK1/PUK2 changes.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -528,7 +524,7 @@ FUNCTION bool IsReady
  * - LE_OK                  ICCID was read successfully.
  * - LE_OVERFLOW            Buffer size is too small.
  * - LE_BAD_PARAMETER       Invalid parameters.
- * - LE_FAULT               Failed to retrieve the ICCID.
+ * - LE_NOT_FOUND           Wrong SIM card to operate on.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -545,7 +541,7 @@ FUNCTION le_result_t GetICCID
  * @return
  * - LE_OVERFLOW         Buffer size is too small.
  * - LE_BAD_PARAMETER    Invalid parameters.
- * - LE_FAULT            Failed to retrieve the IMSI.
+ * - LE_NOT_FOUND        Wrong SIM card to operate on.
  * - LE_OK               IMSI retrieved successfully.
  *
  */
@@ -562,8 +558,8 @@ FUNCTION le_result_t GetIMSI
  *
  * @return
  * - LE_OVERFLOW         Buffer size is too small.
+ * - LE_NOT_FOUND        Wrong SIM card to operate on.
  * - LE_BAD_PARAMETER    Invalid parameters.
- * - LE_FAULT            Failed to retrieve the carrier name.
  * - LE_OK               Carrier name retrieved successfully.
  *
  */
@@ -581,7 +577,7 @@ FUNCTION le_result_t GetHomeNetworkOperator
  * @return
  * - LE_OVERFLOW         Buffer size is too small.
  * - LE_BAD_PARAMETER    Invalid parameters.
- * - LE_FAULT            Failed to retrieve the phone number.
+ * - LE_NOT_FOUND        Wrong SIM card to operate on.
  * - LE_OK               Phone number retrieved successfully.
  *
  */
@@ -598,8 +594,8 @@ FUNCTION le_result_t GetSubscriberPhoneNumber
  *
  * @return
  * - LE_OVERFLOW         Buffer size is too small.
+ * - LE_NOT_FOUND        Wrong SIM card to operate on.
  * - LE_BAD_PARAMETER    Invalid parameters.
- * - LE_FAULT            Failed to retrieve the phone number.
  * - LE_OK               Phone number retrieved successfully.
  *
  */
@@ -639,11 +635,12 @@ FUNCTION le_result_t SelectCard
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Unlocks the Sim card for an app by entering PIN.
+ * Unlocks the Sim card for an app by entering PIN1/PIN2.
  *
  * @return
- * - LE_BAD_PARAMETER   Invalid SIM slot ID.
+ * - LE_BAD_PARAMETER   Invalid parameters.
  * - LE_UNDERFLOW       PIN code length is too short (minimum 4 digits).
+ * - LE_NOT_FOUND       Wrong SIM card to operate on.
  * - LE_FAULT           Failed to send unlock SIM card by PIN request.
  * - LE_OK              Successfully sent unlock SIM by password request.
  *
@@ -652,16 +649,17 @@ FUNCTION le_result_t SelectCard
 FUNCTION le_result_t EnterPIN
 (
     Id        slotId IN,           ///< Slot ID of SIM.
-    LockType  lockType IN,         ///< Applicable lock types are PIN1 and PIN2.
+    LockType  lockType IN,         ///< Applicable lock types are PIN1/PIN2.
     string    pin[PIN_MAX_LEN] IN  ///< PIN1/PIN2.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Changes the password used in PIN1/PIN2 lock.
+ * Changes the PIN1/PIN2.
  *
  * @return LE_BAD_PARAMETER   Invalid SIM slot ID.
  * @return LE_UNDERFLOW       PIN code length is too short (minimum 4 digits).
+ * @return LE_NOT_FOUND       Wrong SIM card to operate on.
  * @return LE_FAULT           Failed to send change password for lock SIM card request.
  * @return LE_OK              Successfully sent change SIM lock password request.
  *
@@ -677,12 +675,11 @@ FUNCTION le_result_t ChangePIN
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets the available retry count of PIN tries.
+ * Gets the number of remaining PIN1 or PIN2 tries.
  *
  * @return
- * - LE_BAD_PARAMETER   Invalid SIM slot ID.
- * - LE_FAULT           Failed to get the number of remaining PIN insertion tries.
- * - A positive value   Retry count value.
+ * - A negative value           Failed to get the number of remaining PIN insertion tries.
+ * - Zero or a positive value   Successfully retrieved the retry count value.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -693,12 +690,11 @@ FUNCTION int32 GetRemainingPINTries
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets the remaining PUK try count.
+ * Gets the number of remaining PUK tries.
  *
  * @return
  * - LE_BAD_PARAMETER   Invalid SIM slot ID.
- * - LE_FAULT           Failed to get the number of remaining PUK insertion tries.
- * - A positive value   Retry count value.
+ * - LE_OK              Successfully get the number of remaining PUK insertion tries.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -710,10 +706,11 @@ FUNCTION le_result_t GetRemainingPUKTries
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Disables PIN1 or FDN lock.
+ * Unlocks the SIM card and disables the lock request of PIN1/PIN2.
  *
  * @return LE_BAD_PARAMETER   Invalid SIM slot ID.
  * @return LE_UNDERFLOW       PIN code length is too short (minimum 4 digits).
+ * @return LE_NOT_FOUND       Wrong SIM card to operate on.
  * @return LE_FAULT           Failed to send disable lock SIM card request.
  * @return LE_OK              Successfully sent disable SIM lock request.
  *
@@ -722,17 +719,18 @@ FUNCTION le_result_t GetRemainingPUKTries
 FUNCTION le_result_t Unlock
 (
     Id        slotId IN,           ///< Slot ID of SIM.
-    LockType  lockType IN,         ///< Applicable lock types are PIN1 and FDN.
+    LockType  lockType IN,         ///< Applicable lock types are PIN1/PIN2.
     string    pin[PIN_MAX_LEN] IN  ///< PIN1/PIN2.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Enables PIN1 or FDN lock.
+ * Locks the SIM card and enables the lock request of PIN1/PIN2.
  *
  * @return
  * - LE_BAD_PARAMETER   Invalid SIM slot ID.
  * - LE_UNDERFLOW       PIN code length is too short (minimum 4 digits).
+ * - LE_NOT_FOUND       Wrong SIM card to operate on.
  * - LE_FAULT           Failed to send enable lock SIM card request.
  * - LE_OK              Successfully sent the enable SIM lock request.
  *
@@ -741,18 +739,19 @@ FUNCTION le_result_t Unlock
 FUNCTION le_result_t Lock
 (
     Id        slotId IN,           ///< Slot ID of SIM.
-    LockType  lockType IN,         ///< Applicable lock types are PIN1 and FDN.
+    LockType  lockType IN,         ///< Applicable lock types are PIN1/PIN2.
     string    pin[PIN_MAX_LEN] IN  ///< PIN1/PIN2.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Unlocks the SIM card for an app by entering PUK and new PIN.
+ * Unblocks the SIM card by entering PUK1/PUK2 and new PIN1/PIN2.
  *
  * @return
  * - LE_BAD_PARAMETER   Invalid SIM slot ID.
  * - LE_OUT_OF_RANGE    PUK length is not correct (8 digits).
  * - LE_UNDERFLOW       PIN code length is too short (minimum 4 digits).
+ * - LE_NOT_FOUND       Wrong SIM card to operate on.
  * - LE_FAULT           Failed to send unlock SIM card request.
  * - LE_OK              Successfully sent the unlock SIM request.
  *
@@ -761,7 +760,7 @@ FUNCTION le_result_t Lock
 FUNCTION le_result_t Unblock
 (
     Id        slotId IN,              ///< Slot ID of SIM.
-    LockType  lockType IN,            ///< Applicable lock types are PUK1 and PUK2.
+    LockType  lockType IN,            ///< Applicable lock types are PUK1/PUK2.
     string    puk[PUK_MAX_LEN] IN,    ///< PUK1/PUK2.
     string    newpin[PIN_MAX_LEN] IN  ///< New PIN1/PIN2.
 );
@@ -771,8 +770,10 @@ FUNCTION le_result_t Unblock
  * Requests eUICC identifier(EID) for the slot.
  *
  * @return
- * - LE_OK       Succeeded.
- * - LE_FAULT    Failed.
+ * - LE_BAD_PARAMETER    Invalid SIM slot ID.
+ * - LE_OVERFLOW         Buffer size is too small.
+ * - LE_FAULT            Failed.
+ * - LE_OK               Succeeded.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetEID
@@ -784,6 +785,7 @@ FUNCTION le_result_t GetEID
 //-------------------------------------------------------------------------------------------------
 /**
  * Enables or disables the automatic SIM selection.
+ * @note Currently this API is not supported.
  *
  * @return
  * - LE_OK       Succeeded.
@@ -798,6 +800,7 @@ FUNCTION le_result_t SetAutomaticSelection
 //-------------------------------------------------------------------------------------------------
 /**
  * Gets the automatic SIM selection.
+ * @note Currently this API is not supported.
  *
  * @return
  * - LE_OK       Succeeded.
@@ -816,6 +819,7 @@ FUNCTION le_result_t GetAutomaticSelection
  * @return
  * - LE_OK             Successfully opened logical channel request.
  * - LE_BAD_PARAMETER  Invalid parameter.
+ * - LE_NOT_FOUND      Wrong SIM card to operate on.
  * - LE_FAULT          Failed to open logical channel.
  */
 //-------------------------------------------------------------------------------------------------
@@ -831,8 +835,10 @@ FUNCTION le_result_t OpenLogicalChannel
  * Closes a previously opened logical channel to the SIM.
  *
  * @return
- * - LE_OK       Successfully closed the logical channel.
- * - LE_FAULT    Failed to send the request.
+ * - LE_OK             Successfully closed the logical channel.
+ * - LE_BAD_PARAMETER  Invalid parameter.
+ * - LE_NOT_FOUND      Wrong SIM card to operate on.
+ * - LE_FAULT          Failed to send the request.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CloseLogicalChannel
@@ -848,7 +854,7 @@ FUNCTION le_result_t CloseLogicalChannel
  * @return
  * - LE_OK             Succeeded.
  * - LE_BAD_PARAMETER  Invalid parameter.
- * - LE_NOT_FOUND      Failed to select the SIM card.
+ * - LE_NOT_FOUND      Wrong SIM card to operate on.
  * - LE_FAULT          Failed to transmit APDU.
  */
 //-------------------------------------------------------------------------------------------------
@@ -867,8 +873,8 @@ FUNCTION le_result_t SendApduOnChannel
  * @return
  * - LE_OK             Succeeded.
  * - LE_FAULT          Failed to transmit APDU.
+ * - LE_NOT_FOUND      Wrong SIM card to operate on.
  * - LE_BAD_PARAMETER  Invalid parameter.
- * - LE_NOT_FOUND      Failed to select the SIM card.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendApdu
@@ -886,10 +892,7 @@ FUNCTION le_result_t SendApdu
  *      - LE_OK             Succeeded.
  *      - LE_FAULT          Failed.
  *      - LE_BAD_PARAMETER  A parameter is invalid.
- *      - LE_NOT_FOUND      - The function failed to select the SIM card for this operation
- *                          - The requested SIM file is not found
- *      - LE_OVERFLOW       Response buffer is too small to copy the SIM answer.
- *      - LE_UNSUPPORTED    The platform does not support this operation.
+ *      - LE_NOT_FOUND      Wrong SIM card to operate on.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendCommand
@@ -950,16 +953,16 @@ FUNCTION le_result_t LocalSwapToCommercialSubscription
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Powers up or down the current SIM.
+ * Powers up or down the SIM.
  *
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_FAULT -- Failed.
- *     - LE_NOT_FOUND  -- Failed to select the SIM card.
+ *     - LE_NOT_FOUND  -- Wrong SIM card to operate on.
  *     - LE_BAD_PARAMETER -- Incorrect parameter(s).
  *
- * @note For SIM power cycle operation, it must wait until the SIM state is LE_OFF
- *       before powering on the SIM, otherwise power up SIM will fail.
+ * @note For Multiple SIM power cycle (ON/OFF) operations, it must wait until completing the
+ * previous SIM power cycle operation (if any).
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetPower
@@ -989,7 +992,7 @@ FUNCTION le_result_t Reset
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_BAD_PARAMETER -- Invalid SIM identifier or null ECS pointer.
- *      - LE_NOT_FOUND -- Cannot determine the current selected subscription.
+ *      - LE_NOT_FOUND -- Wrong SIM card to operate on.
  *      - LE_FAULT -- Unexpected error.
  *
  */
@@ -1040,11 +1043,10 @@ FUNCTION FPLMNList CreateFPLMNList
 //-------------------------------------------------------------------------------------------------
 /**
  * Adds the FPLMN network into the newly created FPLMN list.
- * If fplmnListRef, mcc, or mnc is not valid then this function will kill the calling client.
  *
  * @return
- *      - LE_FAULT         Function failed.
- *      - LE_OK            Function succeeded.
+ *      - LE_FAULT         Failed.
+ *      - LE_OK            Succeeded.
  *      - LE_OVERFLOW      The FPLMN operator cannot be inserted into the FPLMN list.
  */
 //-------------------------------------------------------------------------------------------------
@@ -1059,12 +1061,10 @@ FUNCTION le_result_t AddFPLMNOperator
 /**
  * Reads the first FPLMN network from the list of FPLMN objects retrieved with
  * taf_sim_ReadFPLMNList().
- * If fplmnListRef, mccPtr, or mncPtr is not valid then this function will kill the calling
- * client.
  *
  * @return
- *      - LE_FAULT         Function failed.
- *      - LE_OK            Function succeeded.
+ *      - LE_FAULT         Failed.
+ *      - LE_OK            Succeeded.
  *      - LE_OVERFLOW      MCC/MNC string size is greater than the string length parameter that has
  *                         been given to this function.
  */
@@ -1078,13 +1078,11 @@ FUNCTION le_result_t GetFirstFPLMNOperator
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Reads the next FPLMN network from the list of FPLMN objects retrieved with le_sim_ReadFPLMNList().
- * If fplmnListRef, mccPtr, or mncPtr is not valid then this function will kill the calling
- * client.
+ * Reads the next FPLMN network from the list of FPLMN objects retrieved with taf_sim_ReadFPLMNList().
  *
  * @return
- *      - LE_FAULT         Function failed.
- *      - LE_OK            Function succeeded.
+ *      - LE_FAULT         Failed.
+ *      - LE_OK            Succeeded.
  *      - LE_OVERFLOW      MCC/MNC string size is greater than string length parameter that has
  *                         been given to this function.
  */
@@ -1112,8 +1110,7 @@ FUNCTION FPLMNList ReadFPLMNList
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Deletes the FPLMN list created by le_sim_ReadFPLMNList() or le_sim_CreateFPLMNList().
- * If fplmnListRef is not valid then this function will kill the calling client.
+ * Deletes the FPLMN list created by taf_sim_ReadFPLMNList() or taf_sim_CreateFPLMNList().
  *
  * @note
  *      On failure, the process exits so that users do not have to worry about checking the returned
@@ -1128,11 +1125,10 @@ FUNCTION DeleteFPLMNList
 //-------------------------------------------------------------------------------------------------
 /**
  * Writes the FPLMN list into the SIM.
- * If fplmnListRef is not valid then this function will kill the calling client.
  *
  * @return
- *      - LE_FAULT         Function failed.
- *      - LE_OK            Function succeeded.
+ *      - LE_FAULT         Failed.
+ *      - LE_OK            Succeeded.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -1144,7 +1140,7 @@ FUNCTION le_result_t WriteFPLMNList
 
 //------------------------------------------------------------------------------------------------
 /**
- * Retrieves the total number of SIM slots in the device.
+ * Gets the SIM slot count.
  *
  * @return LE_FAULT            Failed to retrieve the slot count.
  * @return LE_OK               The slot count was retrieved successfully.

@@ -15,6 +15,27 @@ config TELAF_VERSION
   default "$(TELAF_VERSION)" if !$(empty,$(TELAF_VERSION))
   default "telaf.lnx.1.1-xxxxxx"
 
+config ENABLE_DLT_LOGGING
+  bool "Enable DLT logging"
+  depends on LINUX && TARGET_SA525M
+  default $(b2k,$(ENABLE_DLT_LOGGING))
+  ---help---
+  Enable DLT logging. Syslogd is used if DLT logging is not enabled.
+
+config DLT_APP_ID
+  string "Application ID"
+  depends on ENABLE_DLT_LOGGING
+  default "$(def,$(DLT_APP_ID),TAFA)"
+  ---help---
+  Set DLT application ID if DLT logging is enabled.
+
+config DLT_CTX_ID
+  string "Context ID"
+  depends on ENABLE_DLT_LOGGING
+  default "$(def,$(DLT_CTX_ID),TAFC)"
+  ---help---
+  Set DLT context ID if DLT logging is enabled.
+
 config AUDIO_MULTI_FORMAT_PB_SUPPORTED
   bool "TelAF multi format playback supported"
   default $(b2k,$(def,$(TELUX_AUDIO_MULTI_FORMAT_PB_SUPPORTED),y))

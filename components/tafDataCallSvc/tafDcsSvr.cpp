@@ -1389,6 +1389,21 @@ COMPONENT_INIT
 {
     taf_dcs_profile_init();
     taf_dcs_connection_init();
+    // Add boot KPI marker
+    const char *kpi_file = "/sys/kernel/boot_kpi/kpi_values";
+    const char *kpi_marker = "L - TelAF data call service is ready";
+    FILE *file = fopen(kpi_file, "w");
+    if (file == NULL)
+    {
+        LE_ERROR("%s does not exist", kpi_file);
+        return;
+    }
+    if (fwrite(kpi_marker, sizeof(char), strlen(kpi_marker), file) != strlen(kpi_marker))
+    {
+        LE_ERROR("failed to write %s to %s", kpi_marker, kpi_file);
+    }
+    fclose(file);
+
     LE_INFO("the initialization of TelAf data call service is finished\n");
 }
 

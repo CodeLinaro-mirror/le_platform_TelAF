@@ -159,7 +159,7 @@
 
     void NewNodeWakeupSource()
     {
-        const char* vHalTag = "vehichle_on";
+        const char* vHalTag = "vehicle_on";
         uint8_t pmNodeId = 0;
         taf_mngdPm_wsRef_t ref = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_SMS, vHalTag);
         if(ref != NULL)
@@ -187,10 +187,10 @@
     }
    @endverbatim
  *
-  * @section taf_mngdPm_WakeupVehicleReqAsync Wake up the vehichle
+ * @section taf_mngdPm_WakeupVehicleReqAsync Wake up the vehicle
  *
  * TelAF Managed Power Management Service's client calls WakeupVehicleReqAsync() to request
- * MPMS to wake up the vehichle.
+ * MPMS to wake up the vehicle.
  * This function returns le_result_t.
  * @verbatim
  void wakeupVehicleCB(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode,
@@ -201,7 +201,7 @@
 
     void WakeupVehicleReqAsync()
     {
-        le_result_t result = = taf_mngdPm_WakeupVehicleReqAsync(VEHICHLE_WAKEUP_REASON_DEFAULT,
+        le_result_t result = = taf_mngdPm_WakeupVehicleReqAsync(VEHICLE_WAKEUP_REASON_DEFAULT,
                  wakeupVehicleCB,NULL);
         if(result == LE_OK) {
             LE_INFO("WakeupVehicleReqAsync request sent successfully");
@@ -482,7 +482,7 @@ FUNCTION le_result_t RestartReqAsync
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Request for the vehichle wakeup with wake up reason.
+ * Request for the vehicle wakeup with wake up reason.
  *
  * @return
  *     - LE_OK             Successfully sent the request.

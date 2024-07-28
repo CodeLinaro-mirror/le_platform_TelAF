@@ -48,7 +48,7 @@
 uint8_t TEST_TEXT_PATTERN[] = {'a','b','c','d','e','f','g'};
 uint8_t TEST_NUM_PATTERN[] = {0,1,2,3,4,5,6,7,8,9};
 
-taf_mngdSecStore_DataRef_t dataRef;
+taf_mngdStorSec_DataRef_t dataRef;
 
 __attribute__((unused)) static void PrintUsage()
 {
@@ -78,21 +78,21 @@ __attribute__((unused)) static void Test_Secure_Storage_Management()
 
     uint32_t freeSize = 0;
 
-    res = taf_mngdSecStore_GetFreeSize(&freeSize);
+    res = taf_mngdStorSec_GetFreeSize(&freeSize);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_GetFreeSize");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_GetFreeSize");
 
     LE_INFO("freeSize = %u", freeSize);
 
-    LE_TEST_ASSERT(freeSize == MSS_SECURE_STORAGE_SIZE, "Test taf_mngdSecStore_GetFreeSize");
+    LE_TEST_ASSERT(freeSize == MSS_SECURE_STORAGE_SIZE, "Test taf_mngdStorSec_GetFreeSize");
 
     uint32_t usedSize = 0;
 
-    res = taf_mngdSecStore_GetUsedSize(&usedSize);
+    res = taf_mngdStorSec_GetUsedSize(&usedSize);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_GetUsedSize");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_GetUsedSize");
 
-    LE_TEST_ASSERT(usedSize == 0, "Test taf_mngdSecStore_GetUsedSize");
+    LE_TEST_ASSERT(usedSize == 0, "Test taf_mngdStorSec_GetUsedSize");
 }
 
 
@@ -100,27 +100,27 @@ __attribute__((unused)) static void Test_Secure_Data_Management()
 {
     le_result_t res;
 
-    dataRef = taf_mngdSecStore_CreateData(TEST_DATA_LABEL);
+    dataRef = taf_mngdStorSec_CreateData(TEST_DATA_LABEL);
 
-    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdSecStore_CreateData");
+    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSec_CreateData");
 
-    taf_mngdSecStore_DataRef_t checkedDataRef = taf_mngdSecStore_GetDataRef(TEST_DATA_LABEL);
+    taf_mngdStorSec_DataRef_t checkedDataRef = taf_mngdStorSec_GetDataRef(TEST_DATA_LABEL);
 
-    LE_TEST_ASSERT(checkedDataRef != NULL, "Test taf_mngdSecStore_GetDataRef");
+    LE_TEST_ASSERT(checkedDataRef != NULL, "Test taf_mngdStorSec_GetDataRef");
 
-    LE_TEST_ASSERT(checkedDataRef == dataRef, "Test taf_mngdSecStore_GetDataRef");
+    LE_TEST_ASSERT(checkedDataRef == dataRef, "Test taf_mngdStorSec_GetDataRef");
 
     uint32_t dataSize = 0;
 
-    res = taf_mngdSecStore_GetDataSize(dataRef, &dataSize);
+    res = taf_mngdStorSec_GetDataSize(dataRef, &dataSize);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_GetDataSize");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_GetDataSize");
 
-    LE_TEST_ASSERT(dataSize == 0, "Test taf_mngdSecStore_GetDataSize");
+    LE_TEST_ASSERT(dataSize == 0, "Test taf_mngdStorSec_GetDataSize");
 
-    res = taf_mngdSecStore_DeleteData(dataRef);
+    res = taf_mngdStorSec_DeleteData(dataRef);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_DeleteData");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_DeleteData");
 }
 
 __attribute__((unused)) static uint8_t* GenerateTestData(uint32_t size)
@@ -138,116 +138,116 @@ __attribute__((unused)) static void Test_Secure_Data_Write()
 {
     le_result_t res;
 
-    dataRef = taf_mngdSecStore_CreateData(TEST_DATA_LABEL);
+    dataRef = taf_mngdStorSec_CreateData(TEST_DATA_LABEL);
 
-    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdSecStore_CreateData");
+    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSec_CreateData");
 
-    res = taf_mngdSecStore_WriteDataStart(dataRef);
+    res = taf_mngdStorSec_WriteDataStart(dataRef);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_WriteDataStart");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_WriteDataStart");
 
-    res = taf_mngdSecStore_WriteDataChunk(dataRef,
+    res = taf_mngdStorSec_WriteDataChunk(dataRef,
                                                 TEST_TEXT_PATTERN,
                                                 sizeof(TEST_TEXT_PATTERN));
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_WriteDataChunk");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_WriteDataChunk");
 
-    res = taf_mngdSecStore_WriteDataChunk(dataRef,
+    res = taf_mngdStorSec_WriteDataChunk(dataRef,
                                                 TEST_NUM_PATTERN,
                                                 sizeof(TEST_NUM_PATTERN));
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_WriteDataChunk");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_WriteDataChunk");
 
-    res = taf_mngdSecStore_WriteDataEnd(dataRef);
+    res = taf_mngdStorSec_WriteDataEnd(dataRef);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_WriteDataEnd");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_WriteDataEnd");
 
     uint32_t dataSize = 0;
 
-    res = taf_mngdSecStore_GetDataSize(dataRef, &dataSize);
+    res = taf_mngdStorSec_GetDataSize(dataRef, &dataSize);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_GetDataSize");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_GetDataSize");
 
-    LE_TEST_ASSERT(dataSize > 0, "Test taf_mngdSecStore_GetDataSize");
+    LE_TEST_ASSERT(dataSize > 0, "Test taf_mngdStorSec_GetDataSize");
 }
 
 __attribute__((unused)) static void Test_Secure_Data_Read()
 {
     le_result_t res;
 
-    uint8_t readBuf[TAF_MNGDSECSTORE_MAX_DATA_CHUNK_SIZE] = {0};
+    uint8_t readBuf[TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE] = {0};
     size_t readLen = sizeof(readBuf);
 
-    res = taf_mngdSecStore_ReadDataFirstChunk(dataRef, readBuf, &readLen);
+    res = taf_mngdStorSec_ReadDataFirstChunk(dataRef, readBuf, &readLen);
 
     LE_INFO("readLen = %" PRIuS, readLen);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_ReadDataFirstChunk");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_ReadDataFirstChunk");
 
-    LE_TEST_ASSERT(readLen > 0, "Test taf_mngdSecStore_ReadDataFirstChunk");
+    LE_TEST_ASSERT(readLen > 0, "Test taf_mngdStorSec_ReadDataFirstChunk");
 
     LE_TEST_ASSERT(readLen == (sizeof(TEST_TEXT_PATTERN) + sizeof(TEST_NUM_PATTERN)),
-                    "Test taf_mngdSecStore_ReadDataFirstChunk");
+                    "Test taf_mngdStorSec_ReadDataFirstChunk");
 
     LE_TEST_ASSERT(memcmp(readBuf, TEST_TEXT_PATTERN, sizeof(TEST_TEXT_PATTERN)) == 0,
-                    "Test taf_mngdSecStore_ReadDataFirstChunk");
+                    "Test taf_mngdStorSec_ReadDataFirstChunk");
 
     LE_TEST_ASSERT(memcmp(readBuf + sizeof(TEST_TEXT_PATTERN),
                             TEST_NUM_PATTERN, sizeof(TEST_NUM_PATTERN)) == 0,
-                    "Test taf_mngdSecStore_ReadDataFirstChunk");
+                    "Test taf_mngdStorSec_ReadDataFirstChunk");
 }
 
 __attribute__((unused)) static void Test_Secure_Data_Read_Write_Chunks()
 {
     le_result_t res;
 
-    res = taf_mngdSecStore_WriteDataStart(dataRef);
+    res = taf_mngdStorSec_WriteDataStart(dataRef);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_WriteDataStart");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_WriteDataStart");
 
-    uint8_t* genData = GenerateTestData(TAF_MNGDSECSTORE_MAX_DATA_CHUNK_SIZE * 2);
+    uint8_t* genData = GenerateTestData(TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE * 2);
 
-    res = taf_mngdSecStore_WriteDataChunk(dataRef,
+    res = taf_mngdStorSec_WriteDataChunk(dataRef,
                                             genData,
-                                            TAF_MNGDSECSTORE_MAX_DATA_CHUNK_SIZE);
+                                            TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_WriteDataChunk");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_WriteDataChunk");
 
-    res = taf_mngdSecStore_WriteDataChunk(dataRef,
-                                            genData + TAF_MNGDSECSTORE_MAX_DATA_CHUNK_SIZE,
-                                            TAF_MNGDSECSTORE_MAX_DATA_CHUNK_SIZE);
+    res = taf_mngdStorSec_WriteDataChunk(dataRef,
+                                            genData + TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE,
+                                            TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_WriteDataChunk");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_WriteDataChunk");
 
-    res = taf_mngdSecStore_WriteDataEnd(dataRef);
+    res = taf_mngdStorSec_WriteDataEnd(dataRef);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_WriteDataEnd");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_WriteDataEnd");
 
-    uint8_t readBuf[TAF_MNGDSECSTORE_MAX_DATA_CHUNK_SIZE] = {0};
+    uint8_t readBuf[TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE] = {0};
     size_t readLen = sizeof(readBuf);
     size_t totalReadLen = 0;
 
-    res = taf_mngdSecStore_ReadDataFirstChunk(dataRef, readBuf, &readLen);
+    res = taf_mngdStorSec_ReadDataFirstChunk(dataRef, readBuf, &readLen);
 
     LE_INFO("readLen = %" PRIuS, readLen);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_ReadDataFirstChunk");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_ReadDataFirstChunk");
 
-    LE_TEST_ASSERT(readLen > 0, "Test taf_mngdSecStore_ReadDataFirstChunk");
+    LE_TEST_ASSERT(readLen > 0, "Test taf_mngdStorSec_ReadDataFirstChunk");
 
     LE_TEST_ASSERT(memcmp(readBuf, genData, readLen) == 0,
-                    "Test taf_mngdSecStore_ReadDataFirstChunk");
+                    "Test taf_mngdStorSec_ReadDataFirstChunk");
 
     totalReadLen = readLen;
 
     while(readLen > 0)
     {
-        taf_mngdSecStore_ReadDataNextChunk(dataRef, readBuf, &readLen);
+        taf_mngdStorSec_ReadDataNextChunk(dataRef, readBuf, &readLen);
 
         LE_INFO("readLen = %" PRIuS, readLen);
 
         LE_TEST_ASSERT(memcmp(readBuf, genData + totalReadLen, readLen) == 0,
-                        "Test taf_mngdSecStore_ReadDataNextChunk");
+                        "Test taf_mngdStorSec_ReadDataNextChunk");
 
         totalReadLen += readLen;
     }
@@ -259,16 +259,16 @@ __attribute__((unused)) static void Test_Secure_Delete_Storage()
 {
     le_result_t res;
 
-    res = taf_mngdSecStore_DeleteData(dataRef);
+    res = taf_mngdStorSec_DeleteData(dataRef);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_DeleteData");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_DeleteData");
 }
 
 __attribute__((unused)) static void Test_Op_create(const char* label)
 {
-    dataRef = taf_mngdSecStore_CreateData(label);
+    dataRef = taf_mngdStorSec_CreateData(label);
 
-    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdSecStore_CreateData");
+    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSec_CreateData");
 
     printf("Create data label: %s succussfully\n", label);
     fflush(stdout);
@@ -281,23 +281,23 @@ __attribute__((unused)) static void Test_Op_Write
 {
     le_result_t res;
 
-    dataRef = taf_mngdSecStore_GetDataRef(label);
+    dataRef = taf_mngdStorSec_GetDataRef(label);
 
-    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdSecStore_GetDataRef");
+    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSec_GetDataRef");
 
-    res = taf_mngdSecStore_WriteDataStart(dataRef);
+    res = taf_mngdStorSec_WriteDataStart(dataRef);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_WriteDataStart");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_WriteDataStart");
 
-    res = taf_mngdSecStore_WriteDataChunk(dataRef,
+    res = taf_mngdStorSec_WriteDataChunk(dataRef,
                                             (uint8_t*)data,
                                             strlen(data));
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_WriteDataChunk");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_WriteDataChunk");
 
-    res = taf_mngdSecStore_WriteDataEnd(dataRef);
+    res = taf_mngdStorSec_WriteDataEnd(dataRef);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_WriteDataEnd");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_WriteDataEnd");
 
     printf("Write data: [%s] succussfully\n", data);
     fflush(stdout);
@@ -307,18 +307,18 @@ __attribute__((unused)) static void Test_Op_Read(const char* label)
 {
     le_result_t res;
 
-    dataRef = taf_mngdSecStore_GetDataRef(label);
+    dataRef = taf_mngdStorSec_GetDataRef(label);
 
-    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdSecStore_GetDataRef");
+    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSec_GetDataRef");
 
-    uint8_t readBuf[TAF_MNGDSECSTORE_MAX_DATA_CHUNK_SIZE] = {0};
+    uint8_t readBuf[TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE] = {0};
     size_t readLen = sizeof(readBuf);
 
-    res = taf_mngdSecStore_ReadDataFirstChunk(dataRef, readBuf, &readLen);
+    res = taf_mngdStorSec_ReadDataFirstChunk(dataRef, readBuf, &readLen);
 
     LE_INFO("readLen = %" PRIuS, readLen);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_ReadDataFirstChunk");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_ReadDataFirstChunk");
 
     printf("Read data: [%s] succussfully\n", (char*)readBuf);
     fflush(stdout);
@@ -328,13 +328,13 @@ __attribute__((unused)) static void Test_Op_Delete(const char* label)
 {
     le_result_t res;
 
-    dataRef = taf_mngdSecStore_GetDataRef(label);
+    dataRef = taf_mngdStorSec_GetDataRef(label);
 
-    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdSecStore_GetDataRef");
+    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSec_GetDataRef");
 
-    res = taf_mngdSecStore_DeleteData(dataRef);
+    res = taf_mngdStorSec_DeleteData(dataRef);
 
-    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdSecStore_DeleteData");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSec_DeleteData");
 
     printf("Delete data label: %s succussfully\n", label);
     fflush(stdout);

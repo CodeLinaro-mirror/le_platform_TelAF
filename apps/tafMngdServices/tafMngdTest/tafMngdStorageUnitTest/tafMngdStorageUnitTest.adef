@@ -27,5 +27,5 @@ processes:
 
 bindings:
 {
-    tafMngdStorageUnitTest.tafMngdStorageUnitTestComp.taf_mngdSecStore -> tafMngdStorageSvc.taf_mngdSecStore
+    tafMngdStorageUnitTest.tafMngdStorageUnitTestComp.taf_mngdStorSec -> tafMngdStorageSvc.taf_mngdStorSec
 }

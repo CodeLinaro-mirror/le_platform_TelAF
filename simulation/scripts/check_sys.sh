@@ -9,11 +9,11 @@ function check_system_version ()
 {
     RESULT=0
 
-    if [ "$OS_VERSION" = "20.04" ] || [ "$OS_VERSION" = "18.04" ]
+    if [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ] || [ "$OS_VERSION" = "18.04" ]
     then
         printf "%-30s ... %-20s ... [OK]\n" "Checking system version" "$OS_VERSION"
     else
-        printf "%-30s ... %-20s ... [NOK] <-- anyone in 18.04 or 20.04\n" "Checking system version" "$OS_VERSION"
+        printf "%-30s ... %-20s ... [NOK] <-- anyone in [18.04, 20.04, 22.04]\n" "Checking system version" "$OS_VERSION"
         RESULT=1
     fi
     return $RESULT
@@ -137,6 +137,9 @@ total_packages_checking="
 if [ $OS_VERSION = "20.04" ]; then
     total_packages_checking+=" python2"
     total_packages_checking+=" python-jinja2"
+elif [ $OS_VERSION = "22.04" ]; then
+    total_packages_checking+=" python2"
+    total_packages_checking+=" python3-jinja2"
 else # = 18.04
     total_packages_checking+=" python"
     total_packages_checking+=" python-jinja2"

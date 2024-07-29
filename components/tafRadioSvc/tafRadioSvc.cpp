@@ -5452,4 +5452,98 @@ le_result_t taf_radio_SetSignalStrengthIndHysteresisTimer
    return LE_OK;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell absolute radio frequency channel number.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note Only applicable for GSM.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellArfcn
+(
+    int32_t* arfcn, ///< [OUT] Absolute radio frequency channel number.
+    uint8_t phoneId ///< [IN] Phone ID.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
 
+    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
+        LE_FAULT, "Fail to get cell information.");
+
+    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), LE_FAULT,
+        "No serving cell.");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
+        TAF_RADIO_RAT_GSM, LE_FAULT, "Serving cell is not GSM.");
+
+    *arfcn = (int32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.arfcn;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell UTRA absolute radio frequency channel number.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note Only applicable for UMTS.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellUarfcn
+(
+    int32_t* uarfcn, ///< [OUT] UTRA absolute radio frequency channel number.
+    uint8_t phoneId  ///< [IN] Phone ID.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
+        LE_FAULT, "Fail to get cell information.");
+
+    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), LE_FAULT,
+        "No serving cell.");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
+        TAF_RADIO_RAT_UMTS, LE_FAULT, "Serving cell is not UMTS.");
+
+    *uarfcn = (int32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.uarfcn;
+
+    return LE_OK;
+}

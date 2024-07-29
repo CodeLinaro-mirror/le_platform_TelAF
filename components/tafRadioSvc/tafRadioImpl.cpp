@@ -1060,6 +1060,7 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.gsm.cid = gsmCellInfo->getCellIdentity().getIdentity();
                     cellIdInfo.gsm.lac = gsmCellInfo->getCellIdentity().getLac();
                     cellIdInfo.gsm.ta = gsmCellInfo->getSignalStrengthInfo().getTimingAdvance();
+                    cellIdInfo.gsm.arfcn = gsmCellInfo->getCellIdentity().getArfcn();
                     cellIdInfo.ss = gsmCellInfo->getSignalStrengthInfo().getDbm();
                     if (gsmCellInfo->isRegistered())
                     {
@@ -1099,6 +1100,7 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.umts.lac = umtsCellInfo->getCellIdentity().getLac();
                     cellIdInfo.umts.cid = umtsCellInfo->getCellIdentity().getIdentity();
                     cellIdInfo.umts.psc = umtsCellInfo->getCellIdentity().getPrimaryScramblingCode();
+                    cellIdInfo.umts.uarfcn = umtsCellInfo->getCellIdentity().getUarfcn();
                     cellIdInfo.ss = umtsCellInfo->getSignalStrengthInfo().getDbm();
                     if (umtsCellInfo->isRegistered())
                     {

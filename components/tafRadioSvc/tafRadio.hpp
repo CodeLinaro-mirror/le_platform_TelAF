@@ -165,6 +165,7 @@ typedef struct
     int cid;
     int lac;
     int ta;
+    int arfcn;
 } taf_RadioGsmCellInfo_t;
 
 /*
@@ -197,6 +198,7 @@ typedef struct
     int cid;
     int psc;
     int ecio;
+    int uarfcn;
 } taf_RadioUmtsCellInfo_t;
 
 /*

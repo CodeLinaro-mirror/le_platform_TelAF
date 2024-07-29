@@ -393,7 +393,7 @@ void TEST_AUDIO_PLAYBACK_FILE_LIST()
     LE_TEST_OK(res == LE_OK, "Successfully connected playerRef to playerConnRef");
 
     taf_audio_PlayFileConfig_t playFileConfig[1] = {0};
-    snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), wavfilePath);
+    snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), "%s", wavfilePath);
     playFileConfig[0].repeat = repeat;
 
     LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list size %ld",
@@ -410,7 +410,7 @@ void TEST_AUDIO_PLAYBACK_FILE_LIST()
 
     le_sem_Wait(tafAudioAppSem);
 
-    snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), amrfilePath);
+    snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), "%s", amrfilePath);
     playFileConfig[0].repeat = repeat;
 
     LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list size %ld",

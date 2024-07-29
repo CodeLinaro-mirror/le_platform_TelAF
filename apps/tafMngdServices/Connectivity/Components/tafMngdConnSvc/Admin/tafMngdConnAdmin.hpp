@@ -44,9 +44,6 @@
 #define MCS_MAX_FILE_PATH_LEN    256
 #define MCS_MAX_DATA_OBJ 16
 
-// Radio off time for L1 recovery
-#define MCS_L1_RECOVERY_RADIO_OFF_TIME 5
-
 // Maximum nmber of client sessions
 #define MCS_MAX_SESSIONS 16
 
@@ -126,18 +123,6 @@ namespace tafsvc {
 
     } mcs_EventType_t;
 
-    /**
-     * Data start retry intervals in milli seconds.
-    */
-    typedef enum
-    {
-        MCS_RETRY_INTERVAL_1 = 30000,  // 30 seconds
-        MCS_RETRY_INTERVAL_2 = 120000, // 2 minutes
-        MCS_RETRY_INTERVAL_3 = 240000, // 4 minutes
-        MCS_RETRY_INTERVAL_4 = 480000, // 8 minutes
-        MCS_RETRY_INTERVAL_LAST = 960000, // 16 minutes
-    } mcs_Data_Start_Retry_Intervals_t;
-
     typedef struct
     {
         mcs_EventType_t                   event;
@@ -190,6 +175,8 @@ namespace tafsvc {
         uint8_t                       phoneId;                // JSON Phone ID
         uint8_t                       dataStartRetryCount;    // Data Start retry count
         uint8_t                       maxdataRetryCount;      // User provided max retry count
+        uint16_t                      dataRetryBackoffIntervalInSec; // Retry backoff interval
+        uint8_t                       dataRetryBackoffIntervalStep; // Retry backoff interval step
         uint8_t                       dataConnTestFailedRetryCount; // ConnTest failed retry count
         bool                          dataRetry;              // DataRetry enabled/disabled
         uint32_t                      profileNumber;          // Profile number
@@ -202,7 +189,7 @@ namespace tafsvc {
         le_dls_Link_t                 link;                   // Link to data list
         mcs_Admin_State_t             adminState;               // Internal MCS state
         taf_mngdConn_DataState_t      dataState;              // The data state for notification
-        le_timer_Ref_t periodicConnectivityTestTimerRef;
+        le_timer_Ref_t                periodicConnectivityTestTimerRef;
                                                 // periodicConnectivityTestTimerRef timer reference
         le_timer_Ref_t                dataStartRetryTimerRef; // Data start retry timer reference
         le_timer_Ref_t                recoveryScheduleTimerRef; // Recovery schedule timer reference
@@ -337,6 +324,9 @@ namespace tafsvc {
 
             void ResetDataRetryPeriodicConnCheckValues();
             void ResetDataRetryPeriodicConnCheckValues(uint8_t dataId);
+            // Calculate data start retry backoff interval
+            uint32_t CalculateBackOffInterval(uint16_t IntervalInSec,
+                                                    uint8_t step, uint8_t retryCount);
 
             //Connectiontest
             void EventDataStartConnectionTest(uint8_t dataId);

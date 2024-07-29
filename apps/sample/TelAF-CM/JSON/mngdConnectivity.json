@@ -2,7 +2,7 @@
     "Product": "TelAF",
     "Name": "MngdConn",
     "ManagedConnectivityService": {
-        "Version": "24.06.00",
+        "Version": "24.07.00",
         "Configuration": {
             "Name": "Default",
             "Sim":[
@@ -33,12 +33,13 @@
                     "AutoStart":"Yes",
                      "DataStartRetry": {
                        "Enable": "Yes",
-                       "RetryCount": 1
+                       "RetryCount": 1,
+                       "BackoffInterval": 30,
+                       "BackoffIntervalStep": 2
                     },
                     "DataStartConnectionTest":{
                         "URL": null,
-                        "IPv4": null,
-                        "IPv6": null
+                        "IPv4": null
                     },
                      "PeriodicConnectivityCheck":{
                         "Interval": 60,
@@ -57,12 +58,13 @@
                     "AutoStart":"No",
                      "DataStartRetry": {
                        "Enable": "Yes",
-                       "RetryCount": 1
+                       "RetryCount": 1,
+                       "BackoffInterval": 30,
+                       "BackoffIntervalStep": 2
                     },
                      "DataStartConnectionTest":{
                         "URL": null,
-                        "IPv4": null,
-                        "IPv6": null
+                        "IPv4": null
                     },
                      "PeriodicConnectivityCheck":{
                         "Interval": 60,
@@ -92,7 +94,8 @@
                 "ConnectivityRecovery": {
                     "Level": "None",
                     "StartWaitTime": 30,
-                    "RetryWaitTime": 300
+                    "RetryWaitTime": 300,
+                    "L1RadioOffOnInterval": 5
                 }
             }
         }

@@ -61,6 +61,7 @@ static const char *JSON_Version_23_07_00 = "23.07.00";
 static const char *JSON_Version_23_11_00 = "23.11.00";
 static const char *JSON_Version_24_03_00 = "24.03.00";
 static const char *JSON_Version_24_06_00 = "24.06.00";
+static const char *JSON_Version_24_07_00 = "24.07.00";
 
 /**
  * Validate ManagedConnectivityService:Version
@@ -114,6 +115,13 @@ static bool Validate_MCS_Version(mcs_Policy_t &Policy,
     {
         Policy.Version        = MCS_JSON_VERSION_24_06_00;
         Configuration.Version = MCS_JSON_VERSION_24_06_00;
+        LE_INFO("Valid JSON Version: %s", Value.c_str());
+        return true;
+    }
+    else if (Value == JSON_Version_24_07_00)
+    {
+        Policy.Version        = MCS_JSON_VERSION_24_07_00;
+        Configuration.Version = MCS_JSON_VERSION_24_07_00;
         LE_INFO("Valid JSON Version: %s", Value.c_str());
         return true;
     }

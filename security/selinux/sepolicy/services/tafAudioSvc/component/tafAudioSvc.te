@@ -18,6 +18,7 @@ init_telaf_app_domain(telaf_tafAudioSvc_t,telaf_tafAudioSvc_exec_t)
 ifdef(`sa525m',`
     telux_allow_audio_voice(telaf_tafAudioSvc_t)
     telux_allow_audio_play(telaf_tafAudioSvc_t)
+    telux_allow_audio_factory_test(telaf_tafAudioSvc_t)
     telux_allow_audio_capture(telaf_tafAudioSvc_t)
 ')
 

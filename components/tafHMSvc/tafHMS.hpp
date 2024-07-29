@@ -12,10 +12,10 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 
+using namespace std;
 
 // Max number of Handler
 #define MAX_HMS_HANLDER 32
-
 #define MAX_CORES 8
 #define MAX_FIELDS 10
 
@@ -50,6 +50,7 @@
 
 #define UNUSED(arg) (arg = arg)
 
+
 //-------------------------------------------------------------------------------------------------
 /**
 * Structure to hold the HmsInfo
@@ -59,14 +60,15 @@ typedef struct
 {
     double cpuLoadInfo;
     uint32_t ramMemfreeInfo;
-} tafHmsInfo_t;
+}tafHmsInfo_t;
 
 //-------------------------------------------------------------------------------------------------
 /**
 * Structure to hold CPU load information for each core
 */
 //-------------------------------------------------------------------------------------------------
-struct CPUCore {
+typedef struct
+{
     uint32_t user;
     uint32_t nice;
     uint32_t system;
@@ -76,7 +78,8 @@ struct CPUCore {
     uint32_t softirq;
     uint32_t steal;
     uint32_t guest;
-};
+    uint32_t guest_nice;
+}taf_hms_CPUCore_t;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -218,19 +221,19 @@ class taf_Hms: public ITafSvc
             le_result_t GetMtdDevId(taf_hms_MtdDevInfoRef_t mtdDevInfoRef,
                 uint32_t* mtdDevIdPtr);
 
-            le_mem_PoolRef_t ubiDevListPool;
-            le_mem_PoolRef_t ubiDevInfoPool;
-            le_mem_PoolRef_t ubiVolListPool;
-            le_mem_PoolRef_t ubiVolInfoPool;
-            le_mem_PoolRef_t mtdListPool;
-            le_mem_PoolRef_t mtdInfoPool;
+            le_mem_PoolRef_t UbiDevListPool;
+            le_mem_PoolRef_t UbiDevInfoPool;
+            le_mem_PoolRef_t UbiVolListPool;
+            le_mem_PoolRef_t UbiVolInfoPool;
+            le_mem_PoolRef_t MtdListPool;
+            le_mem_PoolRef_t MtdInfoPool;
 
-            le_ref_MapRef_t ubiDevListRefMap;
-            le_ref_MapRef_t ubiDevRefMap;
-            le_ref_MapRef_t ubiVolListRefMap;
-            le_ref_MapRef_t ubiVolRefMap;
-            le_ref_MapRef_t mtdListRefMap;
-            le_ref_MapRef_t mtdRefMap;
+            le_ref_MapRef_t UbiDevListRefMap;
+            le_ref_MapRef_t UbiDevRefMap;
+            le_ref_MapRef_t UbiVolListRefMap;
+            le_ref_MapRef_t UbiVolRefMap;
+            le_ref_MapRef_t MtdListRefMap;
+            le_ref_MapRef_t MtdRefMap;
     };
   }
 }

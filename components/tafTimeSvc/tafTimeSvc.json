@@ -39,6 +39,7 @@
     "PollingInterval": "64",
     "ToleranceMillsec": "200",
     "AllowOverrideAfterFail": "-1",
-    "ValidClientList": "tafTimeIntTest tafTimeUnitTest"
+    "ValidClientList": "tafTimeIntTest tafTimeUnitTest",
+    "GptpDeviceName": "/dev/ptp0"
   }
 }

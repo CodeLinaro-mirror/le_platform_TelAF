@@ -21,3 +21,9 @@ bindings:
 {
     tafTimeUnitTest.tafTimeUnitTest.taf_time -> tafTimeSvc.taf_time
 }
+
+// Add SELinux module
+components:
+{
+    $TELAF_ROOT/security/selinux/sepolicy/test/tafTimeUnitTest/component
+}

@@ -85,89 +85,6 @@ le_result_t taf_time_SetSystemTime
                                 ackTimeSvc);
 }
 
-/*======================================================================
-
- FUNCTION        taf_time_GetSystemTime
-
- DESCRIPTION     Get system REAL time.
-
- DEPENDENCIES    Initialization of Time Service
-
- PARAMETERS      [IN] taf_time_TimeSpec_t * timeVal: Time in
-                      seconds and nanoseconds.
-
- RETURN VALUE    le_result_t
-                 LE_FAULT:             Fail.
-                 LE_OK:                Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_time_GetSystemTime
-(
-    taf_time_TimeSpec_t* timeValPtr
-)
-{
-    auto &time = taf_Time::GetInstance();
-    return time.GetSystemTime(timeValPtr);
-}
-
-/*======================================================================
-
- FUNCTION        taf_time_GetGnssTime
-
- DESCRIPTION     Get GNSS time that is maintained by time service.
-
- DEPENDENCIES    Initialization of Time Service
-
- PARAMETERS      [IN] taf_time_TimeSpec_t * timeVal: Time in
-                      seconds and nanoseconds.
-
- RETURN VALUE    le_result_t
-                 LE_FAULT:             Fail.
-                 LE_UNAVAILABLE:       Not available.
-                 LE_OK:                Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_time_GetGnssTime
-(
-    taf_time_TimeSpec_t* timeValPtr
-)
-{
-    auto &tafTime = taf_Time::GetInstance();
-    return tafTime.GetGnssTime(timeValPtr);
-}
-
-/*======================================================================
-
- FUNCTION        taf_time_GetRtcTime
-
- DESCRIPTION     Get RTC time from device or VHAL interface.
-
- DEPENDENCIES    Initialization of Time Service
-
- PARAMETERS      [IN] taf_time_TimeSpec_t * timeVal: Time in
-                      seconds and nanoseconds.
-
- RETURN VALUE    le_result_t
-                 LE_FAULT:             Fail.
-                 LE_OK:                Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_time_GetRtcTime
-(
-    taf_time_TimeSpec_t* timeVal
-)
-{
-    auto& tafTime = taf_Time::GetInstance();
-    return tafTime.GetRtcTime(timeVal);
-}
-
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Add handler for time source status change registration.
@@ -507,25 +424,6 @@ taf_time_SourceRef_t taf_time_GetSourceRef
     auto& tafTime = taf_Time::GetInstance();
     return tafTime.GetSourceRef(sourceId);
 }
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Release a source reference.
- *
- * @return
- *     - LE_OK if successful.
- *     - LE_FAULT if any error occurs.
- */
- //--------------------------------------------------------------------------------------------------
-le_result_t taf_time_ReleaseSourceRef
-(
-    taf_time_SourceRef_t SrcRef
-)
-{
-    auto& tafTime = taf_Time::GetInstance();
-    return tafTime.ReleaseSourceRef(SrcRef);
-}
-
 
 /*======================================================================
 

@@ -60,30 +60,6 @@
 
  * @section c_taf_time_Get Get the time
  *
- * To get the current local system time and GNSS time, the following APIs can be used.
- *
- *  - taf_time_GetSystemTime() -- Gets the local system time.
- *
- *  - taf_time_GetGnssTime() -- Gets the GNSS time maintained by the time service.
- *
- * The following examples illustrate how to use the APIs.
- *
- * @code
-
-   taf_time_TimeSpec_t systemTime;
-   if(taf_time_GetSystemTime(&systemTime)== LE_OK)
-   {
-        // Process received time.
-   }
-
-   taf_time_TimeSpec_t gnssTime;
-   if(taf_time_GetGnssTime(&gnssTime)== LE_OK)
-   {
-        // Process received time.
-   }
-
- * @endcode
- *
  * When trying to get the time information of a given time source, the application shall first
  * get the time reference by calling taf_time_GetTimeRef(), then call taf_time_GetTime()
  * to fetch the related time information. With the reference object, taf_time_GetRefSystemTime()
@@ -156,33 +132,6 @@
         // Process received time.
    }
  *
- * @section c_taf_time_Rtc Get the RTC time
- *
- * - taf_time_GetRtcTime() -- Gets RTC time in the format of seconds and nanosconds.
- *
- * @code
- *
-    le_result_t result;
-    taf_time_TimeSpec_t rtcTime;
-
-    result = taf_time_GetRtcTime(&rtcTime);
-    LE_INFO("RTC time is %"PRIu64".%"PRIu64, rtcTime.sec, rtcTime.nanosec);
- *
- * @section c_taf_time_Rtc Set the RTC time
- *
- * - taf_time_SetRtcTime() -- Sets RTC time in the format of seconds and nanosconds.
- *
- * @code
- *
-    le_result_t result;
-    result = taf_time_SetTimeToRtc(newTime);
-    if (result == LE_OK)
-    {
-        LE_INFO("Set time %"PRIu64".%"PRIu64" to RTC\n", newTime->sec, newTime->nanosec);
-    }
- *
- * @endcode
- *
  * @section taf_time_GetRtcTimeReqAsync Get the RTC time asynchronously
  *
  * With the callback function given in taf_time_GetRtcTimeReqAsync(), the application gets
@@ -222,9 +171,8 @@
  *
  *  - taf_time_GetSourceRef() -- Gets the source reference.
  *
- * When trying to get the reference for a source, the application shall call 
- * taf_time_GetSourceRef(). When reference is not needed, call taf_time_ReleaseSourceRef()
- * to release the source reference.
+ * When trying to get the reference for a source, the application shall call
+ * taf_time_GetSourceRef().
  *
  * The following example illustrates how to get the source reference.
  *
@@ -236,9 +184,6 @@
     srcRef = taf_time_GetSourceRef(sourceId);
     LE_ASSERT(srcRef != NULL);
 
-    // Release the memory for this reference.
-    res = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(res == LE_OK);
  *
  * @endcode
  *
@@ -247,8 +192,7 @@
  * When trying to get the time zone information of a given time source, the application shall
  * first get the source reference by calling taf_time_GetSourceRef(), then call
  * taf_time_GetTimeZone() to fetch the Offset from Universal time i.e. the difference between
- * local time and Universal time, in increments of 15 minutes (signed value). When the reference
- * is not needed, call taf_time_ReleaseSourceRef() to release the source reference.
+ * local time and Universal time, in increments of 15 minutes (signed value).
  *
  * The following example illustrates how to get the source information.
  *
@@ -264,9 +208,6 @@
     LE_ASSERT(res == LE_OK);
     LE_INFO("Time zone is:  %d", timeZone);
 
-    // Release the memory for this reference.
-    res = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(res == LE_OK);
  *
  * @endcode
  *
@@ -274,8 +215,7 @@
  *
  * When trying to get the daylight saving adjustment for a given time source, the application
  * shall first get the source reference by calling taf_time_GetSourceRef(), then call
- * taf_time_GetTimeDayAdj() to fetch the daylight saving adjustment in hours. When the reference
- * is not needed, call taf_time_ReleaseSourceRef() to release the source reference.
+ * taf_time_GetTimeDayAdj() to fetch the daylight saving adjustment in hours.
  *
  * The following example illustrates how to get the source information.
  *
@@ -291,9 +231,6 @@
     LE_ASSERT(res == LE_OK);
     LE_INFO("Day Light Saving is: %d", dayltSavAdj);
 
-    // Release the memory for this reference.
-    res = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(res == LE_OK);
  *
  * @endcode
  *
@@ -302,8 +239,7 @@
  *
  * When trying to get the number of failed loops and the polling interval time for a source,
  * the application shall first get the source reference by calling taf_time_GetSourceRef(),
- * then call taf_time_GetFailedLoops() to fetch the details. When the reference is not needed,
- * call taf_time_ReleaseSourceRef() to release the source reference.
+ * then call taf_time_GetFailedLoops() to fetch the details.
  *
  * The following example illustrates how to get the source information.
  *
@@ -320,9 +256,6 @@
     LE_INFO("The number of failed loops are %d. Loop interval is %ld",
     failedLoops, loopIntervalSec);
 
-    // Release the memory for this reference.
-    res = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(res == LE_OK);
  *
  * @endcode
  *
@@ -330,8 +263,7 @@
  *
  * When trying to get the availability of a source, the application shall first get
  * the source reference by calling taf_time_GetSourceRef(), then call taf_time_IsAvailable()
- * to fetch the availability. When the reference is not needed, call taf_time_ReleaseSourceRef()
- * to release the source reference.
+ * to fetch the availability.
  *
  * The following example illustrates how to get the source information.
  *
@@ -352,9 +284,6 @@
         LE_INFO("Time source is NOT Available!");
     }
 
-    // Release the memory for this reference.
-    res = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(res == LE_OK);
  *
  * @endcode
  *
@@ -379,8 +308,7 @@
  *
  * When trying to get the validity of a source, the application shall first get
  * the source reference by calling taf_time_GetSourceRef(), then call taf_time_IsSourceValid()
- * to fetch the validity. When the reference is not needed, call taf_time_ReleaseSourceRef()
- * to release the source reference.
+ * to fetch the validity.
  *
  * The following example illustrates how to get the source information.
  *
@@ -400,10 +328,6 @@
     {
         LE_INFO("Time source is NOT valid!");
     }
-
-    // Release the memory for this reference.
-    res = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(res == LE_OK);
  *
  * @endcode
  *
@@ -411,8 +335,7 @@
  *
  * When trying to set the validity of a source, the application shall first get
  * the source reference by calling taf_time_GetSourceRef(), then call taf_time_SetValidity()
- * to set the validity. When the reference is not needed, call taf_time_ReleaseSourceRef()
- * to release the source reference.
+ * to set the validity.
  * @note Client can set validity for RTC and external application only.
  *
  * The following example illustrates how to set the validity of a time source.
@@ -425,10 +348,6 @@
     srcRef = taf_time_GetSourceRef(sourceId);
     LE_ASSERT(srcRef != NULL);
     status = taf_time_SetValidity(srcRef, validity);
-    LE_ASSERT(res == LE_OK);
-
-    // Release the memory for this reference.
-    res = taf_time_ReleaseSourceRef(srcRef);
     LE_ASSERT(res == LE_OK);
  *
  * @endcode
@@ -672,63 +591,6 @@ STRUCT TimeSpec
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets system time.
- *
- * It returns the system time in seconds/nanoseconds since epoch via output timeVal.
- *
- * @note The value of nanoseconds may not be in good accuracy when the system cannot
- * reach to the accuracy.
- *
- * @return
- *  - LE_OK -- Succeeded.
- *  - LE_FAULT -- Internal error.
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t GetSystemTime
-(
-    TimeSpec timeVal OUT ///< Time in seconds/nanoseconds
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Gets GNSS time.
- *
- * It returns the system time in seconds/nanoseconds since epoch via output timeVal.
- *
- * @return
- *  - LE_OK -- Succeeded.
- *  - LE_UNAVAILABLE -- The GNSS time is not available.
- *  - LE_FAULT -- Internal error.
- *
- */
-
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t GetGnssTime
-(
-    TimeSpec timeVal OUT ///< Time in seconds/nanoseconds
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Gets the RTC time.
- *
- * It returns the RTC time in seconds/nanoseconds since epoch via output timeVal.
- *
- * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- The RTC time is not available.
- *  - LE_FAULT -- Internal error.
- *
- */
-
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t GetRtcTime
-(
-    TimeSpec timeVal OUT ///< Time in seconds/nanoseconds
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Sets the system time.
  *
  * @return
@@ -946,20 +808,6 @@ FUNCTION le_result_t SetRtcTimeReqAsync
 FUNCTION Source GetSourceRef
 (
     TimeSources sourceId IN    ///< Source ID.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Releases a 'Source' reference.
- *
- * @return
- *     - LE_OK -- Succeeded.
- *     - LE_FAULT -- Something went wrong.
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t ReleaseSourceRef
-(
-    Source  SrcRef  IN    ///< Source reference.
 );
 
 //--------------------------------------------------------------------------------------------------

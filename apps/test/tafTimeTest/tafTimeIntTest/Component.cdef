@@ -1,3 +1,9 @@
+cflags:
+{
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafGptpLibrary
+}
+
 sources:
 {
     tafTimeIntTest.c
@@ -5,6 +11,11 @@ sources:
 
 requires:
 {
+    component:
+    {
+       $TELAF_ROOT/components/tafGptpLibrary
+    }
+
     api:
     {
         taf_time.api

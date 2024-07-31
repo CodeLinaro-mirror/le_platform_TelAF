@@ -94,31 +94,33 @@ le_result_t tafMngdRpcPm::AcquireRpcNodeWakeLock()
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     LE_INFO("AcquireRpcNodeWakeLock rpcWsCount:%d", rpcPm.rpcWsCount);
     le_result_t res = LE_FAULT;
-    if(rpcPm.rpcWsCount == 0) {
-        if(rpcPm.rpcWs == nullptr)
-            rpcPm.rpcWs = taf_rpcPm_NewWakeupSource(WAKELOCK_WITHOUT_REF, "rpcPm");
-        if (rpcPm.rpcWs != nullptr)
-        {
-            res = taf_rpcPm_StayAwake(rpcPm.rpcWs);
-            if(res == LE_OK) {
-                LE_INFO("Wake source from RPC PM acquired successfully");
-                rpcPm.rpcWsCount++;
+    if(rpcPm.IsRpcConnected) {
+        if(rpcPm.rpcWsCount == 0) {
+            if(rpcPm.rpcWs == nullptr)
+                rpcPm.rpcWs = taf_rpcPm_NewWakeupSource(WAKELOCK_WITHOUT_REF, "rpcPm");
+            if (rpcPm.rpcWs != nullptr)
+            {
+                res = taf_rpcPm_StayAwake(rpcPm.rpcWs);
+                if(res == LE_OK) {
+                    LE_INFO("Wake source from RPC PM acquired successfully");
+                    rpcPm.rpcWsCount++;
+                }
+                else
+                {
+                    LE_INFO("failed to acquire rpcWs");
+                }
             }
             else
             {
-                LE_INFO("failed to acquire rpcWs");
+                LE_ERROR("Failed to create wakeup source!");
             }
         }
         else
         {
-            LE_ERROR("Failed to create wakeup source!");
+            LE_INFO("Wake source from RPC PM acquired successfully");
+            rpcPm.rpcWsCount++;
+            res = LE_OK;
         }
-    }
-    else
-    {
-        LE_INFO("Wake source from RPC PM acquired successfully");
-        rpcPm.rpcWsCount++;
-        res = LE_OK;
     }
     return res;
 }
@@ -132,32 +134,33 @@ le_result_t tafMngdRpcPm::ReleaseRpcNodeWakeLock()
     LE_INFO("ReleaseRpcNodeWakeLock rpcWsCount:%d", rpcPm.rpcWsCount);
 
     le_result_t res = LE_FAULT;
-    if(rpcPm.rpcWsCount > 0 )
-    {
-        LE_INFO("Wake source released successfully");
-        rpcPm.rpcWsCount--;
-        res = LE_OK;
-        if(rpcPm.rpcWsCount == 0 )
+    if(rpcPm.IsRpcConnected) {
+        if(rpcPm.rpcWsCount > 0 )
         {
-            if (rpcPm.rpcWs != nullptr)
+            LE_INFO("Wake source released successfully");
+            rpcPm.rpcWsCount--;
+            res = LE_OK;
+            if(rpcPm.rpcWsCount == 0 )
             {
-                res = taf_rpcPm_Relax(rpcPm.rpcWs);
-                if(res == LE_OK) {
-                    LE_INFO("Wake source released successfully");
+                if (rpcPm.rpcWs != nullptr)
+                {
+                    res = taf_rpcPm_Relax(rpcPm.rpcWs);
+                    if(res == LE_OK) {
+                        LE_INFO("Wake source released successfully");
+                    }
+                }
+                else
+                {
+                    LE_ERROR("Failed to release wakeup lock!");
+                    res = LE_FAULT;
                 }
             }
-            else
-            {
-                LE_ERROR("Failed to release wakeup lock!");
-                res = LE_FAULT;
-            }
+        }
+        else
+        {
+            LE_ERROR("No wakeup lock acquired to release !");
         }
     }
-    else
-    {
-        LE_ERROR("No wakeup lock acquired to release !");
-    }
-
     return res;
 }
 
@@ -246,6 +249,30 @@ taf_mngdPm_wsRef_t tafMngdRpcPm::NewRpcNodeWakeupSource( uint8_t pmNodeId,
     }
     return NULL;
 }
+
+/**
+ * Romves the rpc wakeupSource reference.
+ */
+void RemoveRpcNodeWakeupSource()
+{
+    LE_INFO("NewRpcNodeWakeupSource");
+    auto &rpcPm = tafMngdRpcPm::GetInstance();
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(rpcPm.rpcWsRefList));
+
+    while (linkHandlerPtr)
+    {
+        taf_wsRefCtx_t * wsRefCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&(rpcPm.rpcWsRefList), linkHandlerPtr);
+        if (wsRefCtxPtr && wsRefCtxPtr->wsRef)
+        {
+            le_ref_DeleteRef(rpcPm.rpcWsRefMap, wsRefCtxPtr->wsRef);
+            le_dls_Remove(&(rpcPm.rpcWsRefList), &wsRefCtxPtr->link);
+            le_mem_Release((void*)wsRefCtxPtr);
+        }
+    }
+}
+
 /**
  * SendRpcNodePowerStateChangeAck for the given node.
  */
@@ -544,6 +571,81 @@ void tafMngdRpcPm::RemoveRpcNodePowerStateChangeHandler(taf_mngdPm_NodePowerStat
     }
 }
 
+void tafMngdRpcPm::TryConnectService()
+{
+    IsRpcConnected = false;
+    le_result_t res = taf_rpcPm_TryConnectService();
+    auto &rpcPm = tafMngdRpcPm::GetInstance();
+    if(res == LE_OK) {
+        IsRpcConnected = true; //use this bool everyt time before rpc call.
+        LE_INFO("client connected successfully to the service.");
+        le_timer_Stop(rpcPm.RpcConnectTimerRef);
+        //Restore wake source reference if clients acquired wakesource
+        if(rpcPm.rpcWsCount > 0)
+        {
+            if(rpcPm.rpcWs == nullptr)
+                rpcPm.rpcWs = taf_rpcPm_NewWakeupSource(WAKELOCK_WITHOUT_REF, "rpcPm");
+            if (rpcPm.rpcWs != nullptr)
+            {
+                res = taf_rpcPm_StayAwake(rpcPm.rpcWs);
+                if(res == LE_OK)
+                {
+                    LE_INFO("Wake source restored successfully");
+                }
+            }
+        }
+        RpcRetryCount = 0;
+    }
+    else if(res == LE_UNAVAILABLE) {
+        LE_INFO("server is not currently offering the service to which the client is bound.");
+        RpcRetryCount++;
+        le_timer_SetContextPtr(rpcPm.RpcConnectTimerRef, NULL);
+        le_timer_Start(rpcPm.RpcConnectTimerRef);
+        LE_INFO("Started RpcConnectTimerRef");
+    }
+    else if(res == LE_NOT_PERMITTED) {
+        LE_INFO("client interface is not bound to any service (doesn't have a binding)");
+    }
+    else if(res == LE_COMM_ERROR) {
+        LE_INFO("Service Directory cannot be reached");
+    }
+}
+
+/**
+ * RpcConnect timer handler
+ */
+void tafMngdRpcPm::RpcConnectTimerHandler(le_timer_Ref_t timerRef)
+{
+    LE_INFO("RpcConnectTimerHandler");
+    auto &rpcPm = tafMngdRpcPm::GetInstance();
+    if(RpcRetryCount < 2) {
+        LE_INFO("Retry RpcConnectTimerHandler");
+        TryConnectService();
+    }
+    else
+    {
+        LE_INFO("Timeout occurred for RpcConnectTimerHandler");
+        RpcRetryCount = 0;
+        if(rpcPm.rpcWs)
+        {
+            rpcPm.rpcWs = NULL;
+        }
+        if(rpcPm.rpcWsCount > 0)
+        {
+            rpcPm.rpcWsCount = 0;
+        }
+        RemoveRpcNodeWakeupSource();
+        return;
+    }
+}
+
+void tafMngdRpcPm::RpcDisconnectHandler(void* contextPtr)
+{
+    LE_INFO("RpcDisconnectHandler");
+    auto &rpcPm = tafMngdRpcPm::GetInstance();
+    rpcPm.TryConnectService();
+}
+
 tafMngdRpcPm &tafMngdRpcPm::GetInstance()
 {
     static tafMngdRpcPm instance;
@@ -555,36 +657,27 @@ tafMngdRpcPm &tafMngdRpcPm::GetInstance()
  */
 void tafMngdRpcPm::Init(void)
 {
-    IsRpcConnected = false;
     LE_INFO("Init");
-    le_result_t res = taf_rpcPm_TryConnectService();
     auto &rpcPm = tafMngdRpcPm::GetInstance();
-    if(res == LE_OK) {
-	    IsRpcConnected = true; //use this bool everyt time before rpc call.
-        LE_INFO("client connected successfully to the service.");
-        rpcPm.rpcWsRefPool = le_mem_CreatePool("tafwsRefList", sizeof(taf_wsRefCtx_t));
-        rpcPm.rpcWsRefList = LE_DLS_LIST_INIT;
-        rpcPm.rpcWsRefMap = le_ref_CreateMap("tafwsRef", TAF_REF_POOL_SIZE);
-    }
 
-    else if(res == LE_UNAVAILABLE) {
-        LE_INFO("server is not currently offering the service to which the client is bound.");
-    }
+    RpcConnectTimerRef = le_timer_Create("RPC Connection Retry timer");
+    le_timer_SetMsInterval(RpcConnectTimerRef, RPC_CONNECT_TIMEOUT);
+    le_timer_SetHandler(RpcConnectTimerRef, RpcConnectTimerHandler);
 
-    else if(res == LE_NOT_PERMITTED) {
-        LE_INFO("client interface is not bound to any service (doesn't have a binding)");
-    }
+    rpcPm.RpcRetryCount = 0;
+    rpcPm.TryConnectService();
 
-    else if(res == LE_COMM_ERROR) {
-        LE_INFO("Service Directory cannot be reached");
-    }
-    if(rpcPm.IsRpcConnected)
+    if(rpcPm.IsRpcConnected) {
+        taf_rpcPm_SetNonExitServerDisconnectHandler(tafMngdRpcPm::RpcDisconnectHandler, NULL);
 	    rpcPm.rpcHandlerExRef = taf_rpcPm_AddStateChangeExHandler(tafMngdRpcPm::RpcPmStateChangeExHandler, NULL);
-    if (rpcPm.rpcHandlerExRef)
-        LE_INFO("Register RPC Extended state change handler is successfull");
+        if (rpcPm.rpcHandlerExRef)
+            LE_INFO("Register RPC Extended state change handler is successfull");
+    }
 
-   //else
-	   //start timer
+    rpcPm.rpcWsRefPool = le_mem_CreatePool("tafwsRefList", sizeof(taf_wsRefCtx_t));
+    rpcPm.rpcWsRefList = LE_DLS_LIST_INIT;
+    rpcPm.rpcWsRefMap = le_ref_CreateMap("tafwsRef", TAF_REF_POOL_SIZE);
+
     rpcPm.rpcNodePowerStateChange = le_event_CreateId("rpcNodePowerStateChange", sizeof(taf_mngdPm_NodePowerStateChange_t));
     le_event_AddHandler("tafNodePowerStateChange event", rpcPm.rpcNodePowerStateChange, rpcPm.RpcNodePowerStateChanged);
     rpcPm.rpcNodePowerStateRefPool = le_mem_CreatePool("rpcNodePowerStateHandlerList", sizeof(taf_NodePowerStateRef_t));
@@ -593,19 +686,21 @@ void tafMngdRpcPm::Init(void)
     rpcPm.rpcNodePowerStateHandlerPool = le_mem_CreatePool("rpcNodePowerStateHandlerList",
         sizeof(taf_mngdPm_NodePowerStateCtxt_t));
     rpcPm.rpcNodePowerStateHandlerList = LE_DLS_LIST_INIT;
+
+    LE_INFO("End Init");
 }
 
+//Rpc Pms WakeSource
 bool tafMngdRpcPm::IsRpcConnected = false;
 le_mem_PoolRef_t tafMngdRpcPm::rpcWsRefPool;
 le_dls_List_t tafMngdRpcPm::rpcWsRefList;
 le_ref_MapRef_t tafMngdRpcPm::rpcWsRefMap;
 uint8_t tafMngdRpcPm::rpcWsCount;
 
-//statchangeexhandler
+//Rpc Statchangeexhandler
 taf_rpcPm_StateChangeExHandlerRef_t tafMngdRpcPm::rpcHandlerExRef = nullptr;
 taf_rpcPm_PowerStateRef_t tafMngdRpcPm::rpcPowerStateRef = nullptr;
 taf_rpcPm_WakeupSourceRef_t tafMngdRpcPm::rpcWs = nullptr;
-
 
 //Node Power State change handler
 le_event_Id_t tafMngdRpcPm::rpcNodePowerStateChange;
@@ -615,4 +710,8 @@ le_ref_MapRef_t tafMngdRpcPm::rpcNodePowerStateHandlerMap;
 le_mem_PoolRef_t tafMngdRpcPm::rpcNodePowerStateRefPool;
 le_ref_MapRef_t tafMngdRpcPm::rpcNodePowerStateRefMap;
 int8_t tafMngdRpcPm::clientSize;
+
+//Rpc Connection retry
 taf_mngdPm_TargetedPowerMode_t tafMngdRpcPm::rpcTargetedPowerMode;
+le_timer_Ref_t tafMngdRpcPm::RpcConnectTimerRef = nullptr;
+int tafMngdRpcPm::RpcRetryCount;

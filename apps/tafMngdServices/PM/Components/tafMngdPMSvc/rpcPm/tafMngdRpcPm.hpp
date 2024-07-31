@@ -37,6 +37,8 @@
 #include "tafSvcIF.hpp"
 #include <vector>
 
+#define RPC_CONNECT_TIMEOUT 5000
+
 namespace telux {
 namespace tafsvc {
 
@@ -79,6 +81,7 @@ class tafMngdRpcPm: public ITafSvc
         static void RpcNodePowerStateChanged(void* reportPtr);
 
         static void RemoveRpcNodePowerStateChangeHandler(taf_mngdPm_NodePowerStateChangeHandlerRef_t handlerRef);
+
         // resources to communicate with rpc PMS
         static taf_rpcPm_WakeupSourceRef_t rpcWs;
         static le_mem_PoolRef_t rpcWsRefPool;
@@ -86,6 +89,7 @@ class tafMngdRpcPm: public ITafSvc
         static le_ref_MapRef_t rpcWsRefMap;
         static uint8_t rpcWsCount;
 
+        //Rpc StateChangeExHandler
         static taf_rpcPm_StateChangeExHandlerRef_t rpcHandlerExRef;
         static taf_rpcPm_PowerStateRef_t rpcPowerStateRef;
         std::vector<taf_mngdPm_nodePowerStateRef_t>rpcAckClientrecrd;
@@ -100,6 +104,13 @@ class tafMngdRpcPm: public ITafSvc
         static le_ref_MapRef_t rpcNodePowerStateRefMap;
         static int8_t clientSize;
         static taf_mngdPm_TargetedPowerMode_t rpcTargetedPowerMode;
+
+        //RPC Retry
+        static le_timer_Ref_t RpcConnectTimerRef;
+        static int RpcRetryCount;
+        static void RpcConnectTimerHandler(le_timer_Ref_t timerRef);
+        static void TryConnectService();
+        static void RpcDisconnectHandler(void * contextptr);
 };
 }
 }

@@ -636,8 +636,8 @@ ENUM Mode
  */
 ENUM Direction
 {
-    TX,   ///< Used for local capture/remote playback
-    RX    ///< Used for local playback/remote capture
+    RX,    ///< Used for local playback/remote capture
+    TX     ///< Used for local capture/remote playback
 };
 
 /**

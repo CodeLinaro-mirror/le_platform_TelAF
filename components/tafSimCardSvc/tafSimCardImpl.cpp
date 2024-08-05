@@ -1446,11 +1446,19 @@ le_result_t taf_sim::profileListCallbackEm
 
 le_result_t taf_sim::LocalSwapToEmergencyCallSubscription
 (
-    taf_sim_Id_t simId
+    taf_sim_Id_t simId,
+    taf_sim_Manufacturer_t manufacturer
 )
 {
     std::promise<telux::common::ErrorCode> q;
     le_result_t r;
+
+    if (manufacturer == TAF_SIM_MORPHO || manufacturer == TAF_SIM_VALID
+            || manufacturer >= TAF_SIM_MANUFACTURER_MAX) {
+        LE_ERROR("The manufacturer MORPHO and VALID are not supported.");
+        return LE_UNSUPPORTED;
+    }
+
     if(selectSimSlot(simId)!=LE_OK){
         return LE_BAD_PARAMETER;
     }
@@ -1512,11 +1520,17 @@ le_result_t taf_sim::profileListCallbackCo
 
 le_result_t taf_sim::LocalSwapToCommercialCallSubscription
 (
-    taf_sim_Id_t simId
+    taf_sim_Id_t simId,
+    taf_sim_Manufacturer_t manufacturer
 )
 {
     std::promise<telux::common::ErrorCode> q;
     le_result_t r;
+    if (manufacturer == TAF_SIM_MORPHO || manufacturer == TAF_SIM_VALID
+            || manufacturer >= TAF_SIM_MANUFACTURER_MAX) {
+        LE_ERROR("The manufacturer MORPHO and VALID are not supported.");
+        return LE_UNSUPPORTED;
+    }
     if(selectSimSlot(simId)!=LE_OK){
         return LE_BAD_PARAMETER;
     }

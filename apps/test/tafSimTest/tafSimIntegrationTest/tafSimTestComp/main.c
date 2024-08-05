@@ -340,7 +340,7 @@ COMPONENT_INIT
         tafSimTest_sim_access(simId);
     }else if(strcmp(testType, "swapProfiles") == 0)
     {
-        taf_sim_Manufacturer_t manufacturer = (taf_sim_Manufacturer_t)le_arg_GetArg(2);
+        taf_sim_Manufacturer_t manufacturer = (taf_sim_Manufacturer_t) atoi(le_arg_GetArg(2));
         tafSimTest_swapToEmergencyAndBack(simId, manufacturer);
     }
     else if (strcmp(testType, "setPower") == 0)

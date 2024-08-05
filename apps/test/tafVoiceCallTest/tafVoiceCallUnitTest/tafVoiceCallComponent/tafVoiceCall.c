@@ -58,50 +58,18 @@ static void MyCallEventHandler(taf_voicecall_CallRef_t callRef, \
     LE_INFO("Client get event: callEvent %d, callRef: %p!\n", (uint32_t)callEvent, callRef);
     LE_INFO("Client get event: id: %s!\n", id);
 
-    if ((callEvent != TAF_VOICECALL_EVENT_DIALING)&&(callEvent != TAF_VOICECALL_EVENT_WAITING))
+    if (callEvent != TAF_VOICECALL_EVENT_WAITING)
     {
         LocalExpectEvent = callEvent;
         LocalExpectCallRef = callRef;
-        //LE_INFO("LocalExpectEvent %d, LocalExpectCallRef: %p!\n", (uint32_t)LocalExpectEvent, LocalExpectCallRef);
         le_sem_Post(AppCtx.semaphore);
     }
-
-    if (callEvent == TAF_VOICECALL_EVENT_WAITING)
+    else
     {
       LocalExpectEvent = callEvent;
       LocalExpectCallWaitingRef = callRef;
       le_sem_Post(AppCtx.semaphore);
     }
-
-    if (callEvent == TAF_VOICECALL_EVENT_ALERTING)
-    {
-    }
-    else if (callEvent == TAF_VOICECALL_EVENT_ACTIVE)
-    {
-    }
-    else if (callEvent == TAF_VOICECALL_EVENT_ENDED)
-    {
-    }
-    else if (callEvent == TAF_VOICECALL_EVENT_INCOMING)
-    {
-    }
-    else if (callEvent == TAF_VOICECALL_EVENT_ONHOLD)
-    {
-    }
-
-#if 0
-
-    if ((LocalExpectEvent == callEvent) && (LocalExpectCallRef == callRef))
-    {
-        le_sem_Post(AppCtx.semaphore);
-    }
-
-    if ((TAF_VOICECALL_EVENT_INCOMING == callEvent) && (LocalExpectEvent == callEvent) && (LocalExpectCallRef == NULL))
-    {
-        LocalExpectCallRef = callRef;
-        le_sem_Post(AppCtx.semaphore);
-    }
-#endif
 
     return;
 }
@@ -398,12 +366,16 @@ le_result_t ut_tafVoiceCall_ValidCall_Start()
     LE_ASSERT_OK(wait_call(5));
     LE_ASSERT(AppCtx.requestRef != NULL);
 
-    // the 2nd event is alerting
+    // the 2nd event is dialing
+    LE_ASSERT_OK(wait_call(60));
+    LE_ASSERT((TAF_VOICECALL_EVENT_DIALING == LocalExpectEvent) && (LocalExpectCallRef == AppCtx.requestRef));
+
+    // the 3nd event is alerting
     LE_ASSERT_OK(wait_call(60));
     LE_ASSERT((TAF_VOICECALL_EVENT_ALERTING == LocalExpectEvent) && (LocalExpectCallRef == AppCtx.requestRef));
 
     LE_INFO("===== waiting for remote party to answer this call =====");
-    // the 3rd event is active
+    // the 4rd event is active
     LE_ASSERT_OK(wait_call(120));
     LE_ASSERT((TAF_VOICECALL_EVENT_ACTIVE == LocalExpectEvent) && (LocalExpectCallRef == AppCtx.requestRef));
 
@@ -440,11 +412,15 @@ le_result_t ut_tafVoiceCall_InvalidCall()
     LE_ASSERT_OK(wait_call(1));
     LE_ASSERT(AppCtx.requestRef != NULL);
 
-    // the 2nd event is alerting
+    // the 2nd event is dialing
+    LE_ASSERT_OK(wait_call(60));
+    LE_ASSERT((TAF_VOICECALL_EVENT_DIALING == LocalExpectEvent) && (LocalExpectCallRef == AppCtx.requestRef));
+
+    // the 3nd event is alerting
     LE_ASSERT_OK(wait_call(60));
     LE_ASSERT((TAF_VOICECALL_EVENT_ALERTING == LocalExpectEvent) && (LocalExpectCallRef == AppCtx.requestRef));
 
-    // the 3rd event is ended
+    // the 4rd event is ended
     LE_ASSERT_OK(wait_call(120));
     LE_ASSERT((TAF_VOICECALL_EVENT_ENDED == LocalExpectEvent) && (LocalExpectCallRef == AppCtx.requestRef));
 

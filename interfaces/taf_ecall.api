@@ -261,7 +261,8 @@
  *
  * An application can import an existing MSD using the taf_ecall_ImportMsd() API.
  * The existing MSD must follow the requirements presented in the "EN15722:2020" publication (this
- * publication is prepared by Technical Committee CEN/TC 278 “Intelligent Transport Systems").
+ * publication is prepared by Technical Committee CEN/TC 278 "Intelligent Transport Systems") or import
+ * an MSD with maximum length of 255 bytes for Private eCall over IMS.
  *
  * @b WARNING: The imported MSD does not consider the values provided by the
  *             taf_ecall_SetMsdXxx() APIs. It overwrites any MSD imported or encoded previously.
@@ -270,7 +271,8 @@
  *             taf_ecall_StartXxx() APIs (Manual, Automatic, Test). The user app is responsible for the
  *             proper settings.
  *
- * The encoded MSD can be fetched with the taf_ecall_ExportMsd() API.
+ * The encoded MSD provided by taf_ecall_ImportMsd() API or taf_ecall_SetMsdXxx() API can be fetched with
+ * the taf_ecall_ExportMsd() API.
  *
  * @b NOTE: The user application should perform the MSD transmission by using taf_ecall_SendMsd() when the
  * @ref TAF_ECALL_STATE_PSAP_START_RECEIVED event arrives.
@@ -1096,7 +1098,7 @@ FUNCTION le_result_t SetMsdEuroNCAPIIDeltaV
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ImportMsd
 (
-    Call  ecallRef IN,              ///< SIM slot ID.
+    Call  ecallRef IN,              ///< eCall reference.
     uint8 msd[MAX_MSD_LENGTH] IN    ///< MSD.
 );
 
@@ -1108,7 +1110,7 @@ FUNCTION le_result_t ImportMsd
  *      - LE_OK -- Succeeded.
  *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_OVERFLOW -- The size of the MSD buffer is wrong.
- *      - LE_NOT_FOUND -- The MSD is not imported or updated.
+ *      - LE_NOT_FOUND -- The MSD is not found.
  *      - LE_FAULT -- Failed.
  *
  * @b NOTE: The process exits if an invalid eCall reference is passed.
@@ -1116,7 +1118,7 @@ FUNCTION le_result_t ImportMsd
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ExportMsd
 (
-    Call  ecallRef IN,              ///< SIM slot ID.
+    Call  ecallRef IN,              ///< eCall reference.
     uint8 msd[MAX_MSD_LENGTH] OUT   ///< MSD output.
 );
 

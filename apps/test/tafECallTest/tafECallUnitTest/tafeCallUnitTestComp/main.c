@@ -40,9 +40,9 @@
 #define TEST_PSAP_NUMBER "10010"
 
 static le_sem_Ref_t testSemaphoreRef;
-static le_thread_Ref_t threadRef;
-static taf_ecall_State_t eCallState;
+static le_thread_Ref_t threadRef = NULL, imsServStatusThreadRef = NULL;
 static taf_ecall_StateChangeHandlerRef_t handlerRef;
+static taf_radio_ImsStatusChangeHandlerRef_t imsServStatusHandlerRef;
 static uint8_t msdRawData[43] = {2, 41, 68, 6, 128, 227, 10, 81, 67, 158, 41, 85, 212, 56, 0, 128, 4, 52, 10, 140, 65, 89,
             164, 56, 119, 207, 131, 54, 210, 63, 65, 104, 16, 24, 8, 32, 19, 198, 68, 0, 0, 48, 20};
 static uint8_t msdLength = 43;
@@ -50,284 +50,9 @@ static uint8_t oadDataFirst[8] = {8, 41, 68, 6, 128, 20, 8, 9};
 static uint8_t oadDataLengthFirst = 8;
 static uint8_t oadDataSec[6] = {8, 41, 68, 6, 128, 20};
 static uint8_t oadDataLengthSec = 6;
+bool waitT10StopForAuto = false;
 
-static void Test_ECall_TerminateRegistration()
-{
-    le_result_t res = taf_ecall_TerminateRegistration();
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_TerminateRegistration done");
-    LE_INFO("TerminateECallRegistration completed");
-}
 
-static void* Test_ECall_ExportMsd
-(
-    taf_ecall_CallRef_t    ecallRef
-)
-{
-    le_result_t res = taf_ecall_ExportMsd(ecallRef, msdRawData, (size_t*)&msdLength);
-    LE_TEST_OK(res == LE_OK || res == LE_NOT_FOUND, "Test_ECall_ExportMsd done");
-    LE_TEST_INFO("Test_ECall_ExportMsd done (res: %d)", (int) res);
-    return NULL;
-}
-
-static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
-        taf_ecall_State_t state, void* cntxtPtr)
-{
-    LE_INFO("Ecall state change event state = %d", state );
-    LE_INFO("Ecall state change event reference = %p", eCallReference );
-    eCallState = state;
-
-    switch (state)
-    {
-        case TAF_ECALL_STATE_UNKNOWN:
-        {
-            LE_INFO("TAF_ECALL_STATE_UNKNOWN");
-            break;
-        }
-        case TAF_ECALL_STATE_ALERTING:
-        {
-            LE_INFO("TAF_ECALL_STATE_ALERTING");
-            break;
-        }
-        case TAF_ECALL_STATE_ACTIVE:
-        {
-            LE_INFO("TAF_ECALL_STATE_ACTIVE");
-            break;
-        }
-        case TAF_ECALL_STATE_IDLE:
-        {
-            LE_INFO("TAF_ECALL_STATE_IDLE");
-            break;
-        }
-        case TAF_ECALL_STATE_WAITING_PSAP_START_IND:
-        {
-            LE_INFO("TAF_ECALL_STATE_WAITING_PSAP_START_IND");
-            break;
-        }
-        case TAF_ECALL_STATE_PSAP_START_RECEIVED:
-        {
-            LE_INFO("TAF_ECALL_STATE_PSAP_START_RECEIVED");
-            break;
-        }
-        case TAF_ECALL_STATE_MSD_TRANSMISSION_STARTED:
-        {
-            LE_INFO("TAF_ECALL_STATE_MSD_TRANSMISSION_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_LLNACK_RECEIVED:
-        {
-            LE_INFO("TAF_ECALL_STATE_LLNACK_RECEIVED");
-            break;
-        }
-        case TAF_ECALL_STATE_LL_ACK_RECEIVED:
-        {
-            LE_INFO("TAF_ECALL_STATE_LL_ACK_RECEIVED");
-            break;
-        }
-        case TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS:
-        {
-            LE_INFO("TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS");
-            break;
-        }
-        case TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED:
-        {
-            LE_INFO("TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED");
-            break;
-        }
-        case TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE:
-        {
-            LE_INFO("TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE");
-            break;
-        }
-        case TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN:
-        {
-            LE_INFO("TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN");
-            break;
-        }
-        case TAF_ECALL_STATE_MSD_UPDATE_REQ:
-        {
-            printf("TAF_ECALL_STATE_MSD_UPDATE_REQ");
-            taf_ecall_ImportMsd(eCallReference, msdRawData, msdLength);
-            taf_ecall_SendMsd(eCallReference);
-            break;
-        }
-        case TAF_ECALL_STATE_ENDED:
-        {
-            LE_INFO("TAF_ECALL_STATE_ENDED");
-            if (eCallReference != NULL)
-            {
-                taf_ecall_TerminationReason_t endReason = taf_ecall_GetTerminationReason(eCallReference);
-                LE_INFO("TAF_ECALL_STATE_ENDED endReason = %d", (int) endReason);
-            }
-            le_sem_Post(testSemaphoreRef);
-            break;
-        }
-        case TAF_ECALL_STATE_RESET:
-        {
-            LE_INFO("TAF_ECALL_STATE_RESET");
-            break;
-        }
-        case TAF_ECALL_STATE_COMPLETED:
-        {
-            LE_INFO("TAF_ECALL_STATE_COMPLETED");
-            break;
-        }
-        case TAF_ECALL_STATE_FAILED:
-        {
-            LE_INFO("TAF_ECALL_STATE_FAILED");
-            break;
-        }
-        case TAF_ECALL_STATE_END_OF_REDIAL_PERIOD:
-        {
-            LE_INFO("TAF_ECALL_STATE_END_OF_REDIAL_PERIOD");
-            break;
-        }
-        case TAF_ECALL_STATE_T2_EXPIRED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T2_EXPIRED");
-            break;
-        }
-        case TAF_ECALL_STATE_TIMEOUT_T3:
-        {
-            LE_INFO("TAF_ECALL_STATE_TIMEOUT_T3");
-            break;
-        }
-        case TAF_ECALL_STATE_T5_EXPIRED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T5_EXPIRED");
-            break;
-        }
-        case TAF_ECALL_STATE_T6_EXPIRED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T6_EXPIRED");
-            break;
-        }
-        case TAF_ECALL_STATE_T7_EXPIRED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T7_EXPIRED");
-            break;
-        }
-        case TAF_ECALL_STATE_T9_EXPIRED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T9_EXPIRED");
-            taf_ecall_OpMode_t opMode = TAF_ECALL_MODE_NORMAL;
-            taf_ecall_HlapTimerStatus_t timerStatus;
-            uint16_t elapsedTime;
-            if ((LE_OK == taf_ecall_GetConfiguredOperationMode(DEFAULT_PHONE_ID, &opMode)) && 
-                (opMode == TAF_ECALL_MODE_ECALL) &&
-                (LE_OK ==taf_ecall_GetHlapTimerState(TAF_ECALL_TIMER_TYPE_T10, &timerStatus, &elapsedTime)) &&
-                (timerStatus == TAF_ECALL_TIMER_STATUS_ACTIVE))
-            {
-                Test_ECall_TerminateRegistration();
-            }
-            break;
-        }
-        case TAF_ECALL_STATE_T10_EXPIRED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T10_EXPIRED");
-            break;
-        }
-        case TAF_ECALL_STATE_DIALING:
-        {
-            LE_INFO("TAF_ECALL_STATE_DIALING");
-            break;
-        }
-        case TAF_ECALL_STATE_NACK_OUT_OF_ORDER:
-        {
-            LE_INFO("TAF_ECALL_STATE_NACK_OUT_OF_ORDER");
-            break;
-        }
-        case TAF_ECALL_STATE_ACK_OUT_OF_ORDER:
-        {
-            LE_INFO("TAF_ECALL_STATE_ACK_OUT_OF_ORDER");
-            break;
-        }
-        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_STARTED:
-        {
-            LE_INFO("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS:
-        {
-            LE_INFO("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS");
-            break;
-        }
-        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE:
-        {
-            LE_INFO("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE");
-            break;
-        }
-        case TAF_ECALL_STATE_T2_STARTED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T2_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_T5_STARTED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T5_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_T6_STARTED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T6_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_T7_STARTED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T7_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_T9_STARTED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T9_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_T10_STARTED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T10_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_T2_STOPPED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T2_STOPPED");
-            break;
-        }
-        case TAF_ECALL_STATE_T5_STOPPED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T5_STOPPED");
-            break;
-        }
-        case TAF_ECALL_STATE_T6_STOPPED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T6_STOPPED");
-            break;
-        }
-        case TAF_ECALL_STATE_T7_STOPPED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T7_STOPPED");
-            break;
-        }
-        case TAF_ECALL_STATE_T9_STOPPED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T9_STOPPED");
-            break;
-        }
-        case TAF_ECALL_STATE_T10_STOPPED:
-        {
-            LE_INFO("TAF_ECALL_STATE_T10_STOPPED");
-            break;
-        }
-        case TAF_ECALL_STATE_INCOMING:
-        {
-            LE_INFO("TAF_ECALL_STATE_INCOMING");
-            break;
-        }
-        default:
-        {
-            LE_INFO("Unknown state");
-            break;
-        }
-    }
-}
 
 static void Test_ECall_OperationMode()
 {
@@ -348,9 +73,6 @@ static void Test_ECall_OperationMode()
     LE_TEST_OK(res == LE_OK, "taf_ecall_ExitOnlyMode done");
     res = taf_ecall_GetConfiguredOperationMode(DEFAULT_PHONE_ID, &opMode);
     LE_TEST_OK(opMode == TAF_ECALL_MODE_NORMAL, "taf_ecall_GetConfiguredOperationMode done");
-    LE_INFO("Test taf_ecall_OperationMode waiting 30 seconds for modem completed the process");
-    le_thread_Sleep(30);
-    LE_INFO("Configuration operatingMode completed");
 }
 
 static void Test_ECall_MSD_Information()
@@ -526,33 +248,6 @@ static void Test_ECall_HlapTimer()
 {
     le_result_t res = LE_FAULT;
 
-    uint16_t deregTimeOrg = 0;
-    res = taf_ecall_SetNadDeregistrationTime(13*60);
-    LE_TEST_OK(res == LE_FAULT, "Test taf_ecall_SetNadDeregTime done");
-    LE_INFO("SetNadDeregistrationTime as 13 hrs done");
-
-    res = taf_ecall_SetNadDeregistrationTime(12*60);
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetNadDeregTime done");
-    LE_INFO("SetNadDeregistrationTime as 12 hrs done");
-    res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-    LE_TEST_OK(res == LE_OK && deregTimeOrg == 12*60, "Test taf_ecall_GetNadDeregTime done");
-    LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
-
-    res = taf_ecall_SetNadDeregistrationTime(2);
-    LE_TEST_OK(res == LE_OK || res == LE_FAULT, "Test taf_ecall_SetNadDeregTime done");
-    LE_INFO("SetNadDeregistrationTime as 1 min done");
-    if (res == LE_OK)
-    {
-        res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-        LE_TEST_OK(res == LE_OK && deregTimeOrg == 2, "Test taf_ecall_GetNadDeregTime done");
-        LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
-
-        res = taf_ecall_SetNadMinNetworkRegistrationTime(12*60);
-        LE_TEST_OK(res == LE_FAULT, "Test taf_ecall_SetNadMinNetworkRegistrationTime done");
-        LE_INFO("SetNadMinNetworkRegistrationTime done");
-    }
-    LE_INFO("Set and get NadDeregTime completed");
-
     uint16_t minNwRegTime = 0;
     res = taf_ecall_SetNadMinNetworkRegistrationTime(13*60);
     LE_TEST_OK(res == LE_FAULT, "Test taf_ecall_SetNadMinNetworkRegistrationTime done");
@@ -572,6 +267,29 @@ static void Test_ECall_HlapTimer()
         LE_INFO("GetNadMinNetworkRegistrationTime as %d done", minNwRegTime);
     }
     LE_INFO("Set and get NadMinNetworkRegistrationTime completed");
+
+    uint16_t deregTimeOrg = 0;
+    res = taf_ecall_SetNadDeregistrationTime(13*60);
+    LE_TEST_OK(res == LE_FAULT, "Test taf_ecall_SetNadDeregTime done");
+    LE_INFO("SetNadDeregistrationTime as 13 hrs done");
+
+    res = taf_ecall_SetNadDeregistrationTime(12*60);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetNadDeregTime done");
+    LE_INFO("SetNadDeregistrationTime as 12 hrs done");
+    res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
+    LE_TEST_OK(res == LE_OK && deregTimeOrg == 12*60, "Test taf_ecall_GetNadDeregTime done");
+    LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
+
+    res = taf_ecall_SetNadDeregistrationTime(2);
+    LE_TEST_OK(res == LE_OK || res == LE_FAULT, "Test taf_ecall_SetNadDeregTime done");
+    LE_INFO("SetNadDeregistrationTime as 2 min done");
+    if (res == LE_OK)
+    {
+        res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
+        LE_TEST_OK(res == LE_OK && deregTimeOrg == 2, "Test taf_ecall_GetNadDeregTime done");
+        LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
+    }
+    LE_INFO("Set and get NadDeregTime completed");
 
     uint16_t ccftTimeOrg = 0;
     res = taf_ecall_SetNadClearDownFallbackTime(13*60);
@@ -630,64 +348,81 @@ static void Test_ECall_GetHlapTimerState()
     LE_INFO("GetHlapTimerState completed");
 }
 
+static void* Test_ECall_ExportMsd
+(
+    taf_ecall_CallRef_t    ecallRef
+)
+{
+    le_result_t res = taf_ecall_ExportMsd(ecallRef, msdRawData, (size_t*)&msdLength);
+    LE_TEST_OK(res == LE_OK || res == LE_NOT_FOUND, "Test_ECall_ExportMsd done");
+    LE_TEST_INFO("Test_ECall_ExportMsd done (res: %d)", (int) res);
+    return NULL;
+}
+
 #if defined(LE_CONFIG_ENABLE_PRIVATE_ECALL)
 static void Test_ECall_StartPrivate() {
-    taf_radio_Rat_t rat;
-    taf_radio_ImsRegStatus_t regStatus = TAF_RADIO_IMS_REG_STATUS_NOT_REGISTERED;
-    taf_radio_ImsSvcStatus_t svcStatus = TAF_RADIO_IMS_SVC_STATUS_UNKNOWN;
-    if ((LE_OK == taf_radio_GetRadioAccessTechInUse(&rat, DEFAULT_PHONE_ID)) &&
-        ((rat == TAF_RADIO_RAT_NR5G) || (rat == TAF_RADIO_RAT_LTE) || (rat == TAF_RADIO_RAT_LTE_CA)))
+    le_clk_Time_t timeToWait = {10, 0};
+    //Waits the ecall inactivity process completed
+    le_result_t res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWait);
+    if (res == LE_OK)
     {
-        if ((LE_OK == taf_radio_GetImsRegStatus(&regStatus, DEFAULT_PHONE_ID)) &&
-            (regStatus == TAF_RADIO_IMS_REG_STATUS_REGISTERED))
+        LE_INFO("IMS service is available");
+        taf_ecall_CallRef_t eCallRef = NULL;
+        le_result_t res = LE_FAULT;
+        const char* contentType = "application/EmergencyCallData.eCall.MSD";
+        const char* acceptInfo = "";
+
+        eCallRef= taf_ecall_Create();
+
+        res = taf_ecall_ImportMsd(eCallRef, msdRawData, msdLength);
+        LE_TEST_OK(res == LE_OK, "Test taf_ecall_ImportMsd done");
+        Test_ECall_ExportMsd(eCallRef);
+
+        res = taf_ecall_StartPrivate(eCallRef, TEST_PSAP_NUMBER, contentType, acceptInfo);
+        LE_TEST_OK(res == LE_OK, "Test_ECall_StartPrivate start");
+        if (res != LE_OK)
         {
-            taf_radio_ImsRef_t imsRef = taf_radio_GetIms(DEFAULT_PHONE_ID);
-            if (imsRef != NULL)
-            {
-                if ((LE_OK == taf_radio_GetImsSvcStatus(imsRef, TAF_RADIO_IMS_SVC_TYPE_VOIP, &svcStatus)) &&
-                    (svcStatus == TAF_RADIO_IMS_SVC_STATUS_FULL_SERVICE))
-                {
-                    taf_ecall_CallRef_t eCallRef = NULL;
-                    le_result_t res = LE_FAULT;
-                    const char* contentType = "application/EmergencyCallData.eCall.MSD";
-                    const char* acceptInfo = "";
-
-                    eCallRef= taf_ecall_Create();
-                    
-                    res = taf_ecall_ImportMsd(eCallRef, msdRawData, msdLength);
-                    LE_TEST_OK(res == LE_OK, "Test taf_ecall_ImportMsd done");
-                    Test_ECall_ExportMsd(eCallRef);
-                    
-                    res = taf_ecall_StartPrivate(eCallRef, TEST_PSAP_NUMBER, contentType, acceptInfo);
-                    LE_TEST_OK(res == LE_OK, "Test_ECall_StartPrivate start");
-                    res = taf_ecall_StartTest(eCallRef);
-                    LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartTest is busy");
-                    res = taf_ecall_StartManual(eCallRef);
-                    LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartManual is busy");
-                    res = taf_ecall_StartAutomatic(eCallRef);
-                    LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartAutomatic is busy");
-
-                    LE_INFO("Test taf_ecall_StartPrivate keep the call 20 seconds");
-                    le_thread_Sleep(20);
-
-                    taf_ecall_State_t retrievedState = taf_ecall_GetState(eCallRef);
-                    LE_INFO("Test taf_ecall_StartPrivate callState = %d", (int) retrievedState);
-                    
-                    taf_ecall_Type_t type = taf_ecall_GetType(eCallRef);
-                    LE_INFO("Test_ECall_StartPrivate callType = %d", (int) type);
-
-                    res = taf_ecall_End(eCallRef);
-                    if(res == LE_OK) {
-                        le_sem_Wait(testSemaphoreRef);
-                    }
-
-                    taf_ecall_Delete(eCallRef);
-                    eCallRef = NULL;
-                }
-            }
+            LE_ERROR("taf_ecall_StartPrivate start failed");
+            taf_ecall_Delete(eCallRef);
+            eCallRef = NULL;
+            return;
         }
+
+
+        le_clk_Time_t timeToWait = {5, 0};
+        //Waits the TAF_ECALL_STATE_ACTIVE event
+        res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWait);
+        if (res == LE_OK)
+        {
+            res = taf_ecall_StartTest(eCallRef);
+            LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartTest is busy");
+            res = taf_ecall_StartManual(eCallRef);
+            LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartManual is busy");
+            res = taf_ecall_StartAutomatic(eCallRef);
+            LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartAutomatic is busy");
+
+            //Waits the TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE/TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS event
+            res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWait);
+            if (res == LE_OK)
+            {
+                LE_INFO("Test_ECall_StartPrivate TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAULURE/SUCESS received");
+            }
+
+            taf_ecall_State_t retrievedState = taf_ecall_GetState(eCallRef);
+            LE_INFO("Test taf_ecall_StartPrivate callState = %d", (int) retrievedState);
+
+            taf_ecall_Type_t type = taf_ecall_GetType(eCallRef);
+            LE_INFO("Test_ECall_StartPrivate callType = %d", (int) type);
+        }
+
+        res = taf_ecall_End(eCallRef);
+        if(res == LE_OK) {
+            le_sem_Wait(testSemaphoreRef);
+        }
+
+        taf_ecall_Delete(eCallRef);
+        eCallRef = NULL;
     }
-        LE_INFO("Test taf_ecall_StartPrivate rat = %d, regStatus = %d, svcStatus = %d", (int) rat, (int)regStatus, (int)svcStatus);
 }
 #endif
 
@@ -696,6 +431,10 @@ static void Test_ECall_StartTest() {
     le_result_t res = LE_FAULT;
     const char* contentType = "application/EmergencyCallData.eCall.MSD";
     const char* acceptInfo = "";
+    uint16_t deregTimeOrg = 0;
+    uint16_t minNwRegTime = 0;
+    uint16_t ccftTimeOrg = 0;
+    taf_ecall_State_t retrievedState = TAF_ECALL_STATE_UNKNOWN;
 
     eCallRef= taf_ecall_Create();
 
@@ -713,53 +452,57 @@ static void Test_ECall_StartTest() {
         eCallRef = NULL;
         return;
     }
-    res = taf_ecall_StartManual(eCallRef);
-    LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartManual is busy");
-    res = taf_ecall_StartAutomatic(eCallRef);
-    LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartAutomatic is busy");
-    res = taf_ecall_StartPrivate(eCallRef, TEST_PSAP_NUMBER, contentType, acceptInfo);
-    LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartPrivate is busy");
 
-    LE_INFO("Test taf_ecall_StartTest keep the call 30 seconds");
-    le_thread_Sleep(30);
+    le_clk_Time_t timeToWait = {10, 0};
+    //Waits the TAF_ECALL_STATE_ACTIVE event
+    res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWait);
+    if (res == LE_OK)
+    {
+        res = taf_ecall_StartManual(eCallRef);
+        LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartManual is busy");
+        res = taf_ecall_StartAutomatic(eCallRef);
+        LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartAutomatic is busy");
+        res = taf_ecall_StartPrivate(eCallRef, TEST_PSAP_NUMBER, contentType, acceptInfo);
+        LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartPrivate is busy");
 
-    taf_ecall_State_t retrievedState = taf_ecall_GetState(eCallRef);
-    LE_INFO("Test_ECall_StartTest callState = %d", (int) retrievedState);
+        ///Waits the TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED/TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS event
+        res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWait);
+        if (res == LE_OK)
+        {
+            LE_INFO("Test_ECall_StartTest TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED/SUCESS received");
+        }
 
-    taf_ecall_Type_t type = taf_ecall_GetType(eCallRef);
-    LE_INFO("Test_ECall_StartTest callType = %d", (int) type);
+        retrievedState = taf_ecall_GetState(eCallRef);
+        LE_INFO("Test_ECall_StartTest callState = %d", (int) retrievedState);
 
-    Test_ECall_GetHlapTimerState();
+        taf_ecall_Type_t type = taf_ecall_GetType(eCallRef);
+        LE_INFO("Test_ECall_StartTest callType = %d", (int) type);
 
-    uint16_t deregTimeOrg = 0;
-    res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-    LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadDeregTime done");
-    LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
-    res = taf_ecall_SetNadDeregistrationTime(2);
-    LE_TEST_OK(res == LE_BUSY, "Test_ecall_SetNadDeregTime done");
-    LE_INFO("SetNadDeregistrationTime done");
+        Test_ECall_GetHlapTimerState();
 
-    uint16_t minNwRegTime = 0;
-    res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
-    LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadMinNetworkRegistrationTime done");
-    LE_INFO("GetNadMinNetworkRegistrationTime %d done", minNwRegTime);
-    res = taf_ecall_SetNadMinNetworkRegistrationTime(1);
-    LE_TEST_OK(res == LE_BUSY, "Test_ecall_SetNadMinNetworkRegistrationTime done");
-    LE_INFO("SetNadMinNetworkRegistrationTime done");
+        res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
+        LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadDeregTime done");
+        LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
+        res = taf_ecall_SetNadDeregistrationTime(2);
+        LE_TEST_OK(res == LE_BUSY, "Test_ecall_SetNadDeregTime done");
+        LE_INFO("SetNadDeregistrationTime done");
 
-    uint16_t ccftTimeOrg = 0;
-    res = taf_ecall_GetNadClearDownFallbackTime(&ccftTimeOrg);
-    LE_TEST_OK(res == LE_OK && ccftTimeOrg == 1, "Test_ecall_GetNadClearDownFallbackTime done");
-    LE_INFO("GetNadClearDownFallbackTime %d done", ccftTimeOrg);
-    res = taf_ecall_SetNadClearDownFallbackTime(1);
-    LE_TEST_OK(res == LE_BUSY, "Test_ecall_SetNadClearDownFallbackTime done");
-    LE_INFO("SetNadClearDownFallbackTime done");
+        res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
+        LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadMinNetworkRegistrationTime done");
+        LE_INFO("GetNadMinNetworkRegistrationTime %d done", minNwRegTime);
+        res = taf_ecall_SetNadMinNetworkRegistrationTime(1);
+        LE_TEST_OK(res == LE_BUSY, "Test_ecall_SetNadMinNetworkRegistrationTime done");
+        LE_INFO("SetNadMinNetworkRegistrationTime done");
 
-    LE_INFO("Test taf_ecall_StartTest keep the call 40 seconds again");
-    le_thread_Sleep(40);
+        res = taf_ecall_GetNadClearDownFallbackTime(&ccftTimeOrg);
+        LE_TEST_OK(res == LE_OK && ccftTimeOrg == 1, "Test_ecall_GetNadClearDownFallbackTime done");
+        LE_INFO("GetNadClearDownFallbackTime %d done", ccftTimeOrg);
+        res = taf_ecall_SetNadClearDownFallbackTime(1);
+        LE_TEST_OK(res == LE_BUSY, "Test_ecall_SetNadClearDownFallbackTime done");
+        LE_INFO("SetNadClearDownFallbackTime done");
+    }
 
     res = taf_ecall_End(eCallRef);
-    Test_ECall_GetHlapTimerState();
     if(res == LE_OK) {
         le_sem_Wait(testSemaphoreRef);
     }
@@ -767,8 +510,30 @@ static void Test_ECall_StartTest() {
     retrievedState = taf_ecall_GetState(eCallRef);
     LE_INFO("Test_ECall_StartTest callState = %d", (int) retrievedState);
 
+    Test_ECall_GetHlapTimerState();
+
+    //Waits the TAF_ECALL_STATE_T9_EXPIRED event
+    res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
+    if (res != LE_OK) {
+        minNwRegTime = 1;
+    }
+    LE_INFO("Test_ECall_StartTest TAF_ECALL_STATE_T9_EXPIRED waiting");
+    le_clk_Time_t timeToWaitT9 = {minNwRegTime * 60, 0};
+    res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWaitT9);
+    if (res == LE_OK)
+    {
+        LE_INFO("Test_ECall_StartTest TAF_ECALL_STATE_T9_EXPIRED received");
+    }
+
     taf_ecall_Delete(eCallRef);
     eCallRef = NULL;
+}
+
+static void Test_ECall_TerminateRegistration()
+{
+    le_result_t res = taf_ecall_TerminateRegistration();
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_TerminateRegistration done");
+    LE_INFO("TerminateECallRegistration completed");
 }
 
 static void Test_ECall_StartAutomatic() {
@@ -776,16 +541,19 @@ static void Test_ECall_StartAutomatic() {
     le_result_t res = LE_FAULT;
     const char* contentType = "application/EmergencyCallData.eCall.MSD";
     const char* acceptInfo = "";
-    taf_ecall_State_t retrievedState = eCallState;
+    uint16_t deregTimeOrg = 0;
+    uint16_t minNwRegTime = 0;
+    uint16_t ccftTimeOrg = 0;
+    taf_ecall_State_t retrievedState = TAF_ECALL_STATE_UNKNOWN;
 
     res = taf_ecall_ForceOnlyMode(DEFAULT_PHONE_ID);
     if (res != LE_OK)
     {
         LE_INFO("taf_ecall_ForceOnlyMode failed");
+        res = taf_ecall_ExitOnlyMode(DEFAULT_PHONE_ID);
+        LE_TEST_OK(res == LE_OK, "taf_ecall_ExitOnlyMode done");
         return;
     }
-    LE_INFO("Test taf_ecall_StartAutomatic waiting 30 seconds for modem completed the ecall inactivity process");
-    le_thread_Sleep(20);
 
     eCallRef = taf_ecall_Create();
 
@@ -816,50 +584,57 @@ static void Test_ECall_StartAutomatic() {
         eCallRef = NULL;
         return;
     }
-    res = taf_ecall_StartTest(eCallRef);
-    LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartTest is busy");
-    res = taf_ecall_StartManual(eCallRef);
-    LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartManual is busy");
-    res = taf_ecall_StartPrivate(eCallRef, TEST_PSAP_NUMBER, contentType, acceptInfo);
-    LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartPrivate is busy");
 
-    LE_INFO("Test taf_ecall_StartAutomatic keep the call 30 seconds");
-    le_thread_Sleep(30);
+    le_clk_Time_t timeToWait = {10, 0};
+    //Waits the TAF_ECALL_STATE_ACTIVE event
+    res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWait);
+    if (res == LE_OK)
+    {
+        res = taf_ecall_StartTest(eCallRef);
+        LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartTest is busy");
+        res = taf_ecall_StartManual(eCallRef);
+        LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartManual is busy");
+        res = taf_ecall_StartPrivate(eCallRef, TEST_PSAP_NUMBER, contentType, acceptInfo);
+        LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartPrivate is busy");
 
-    retrievedState = taf_ecall_GetState(eCallRef);
-    LE_INFO("Test_ECall_StartAutomatic callState = %d", (int) retrievedState);
+        //Waits the TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED/TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS event
+        res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWait);
+        if (res == LE_OK)
+        {
+            LE_INFO("Test_ECall_StartTest TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED/SUCESS received");
+        }
 
-    taf_ecall_Type_t type = taf_ecall_GetType(eCallRef);
-    LE_INFO("Test_ECall_StartAutomatic callType = %d", (int) type);
+        retrievedState = taf_ecall_GetState(eCallRef);
+        LE_INFO("Test_ECall_StartAutomatic callState = %d", (int) retrievedState);
 
-    Test_ECall_GetHlapTimerState();
+        taf_ecall_Type_t type = taf_ecall_GetType(eCallRef);
+        LE_INFO("Test_ECall_StartAutomatic callType = %d", (int) type);
 
-    uint16_t deregTimeOrg = 0;
-    res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-    LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadDeregTime done");
-    LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
-    res = taf_ecall_SetNadDeregistrationTime(2);
-    LE_TEST_OK(res == LE_BUSY || res == LE_OK || res == LE_FAULT, "Test_ecall_SetNadDeregTime done");
-    LE_INFO("SetNadDeregistrationTime done(res: %d)", (int) res);
+        Test_ECall_GetHlapTimerState();
 
-    uint16_t minNwRegTime = 0;
-    res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
-    LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadMinNetworkRegistrationTime done");
-    LE_INFO("GetNadMinNetworkRegistrationTime %d done", minNwRegTime);
-    res = taf_ecall_SetNadMinNetworkRegistrationTime(1);
-    LE_TEST_OK(res == LE_BUSY || res == LE_OK || res == LE_FAULT, "Test_ecall_SetNadMinNetworkRegistrationTime done");
-    LE_INFO("SetNadMinNetworkRegistrationTime done(res: %d)", (int) res);
+        res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
+        LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadDeregTime done");
+        LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
+        res = taf_ecall_SetNadDeregistrationTime(2);
+        LE_TEST_OK(res == LE_BUSY || res == LE_OK || res == LE_FAULT, "Test_ecall_SetNadDeregTime done");
+        LE_INFO("SetNadDeregistrationTime done(res: %d)", (int) res);
 
-    uint16_t ccftTimeOrg = 0;
-    res = taf_ecall_GetNadClearDownFallbackTime(&ccftTimeOrg);
-    LE_TEST_OK(res == LE_OK && ccftTimeOrg == 1, "Test_ecall_GetNadClearDownFallbackTime done");
-    LE_INFO("GetNadClearDownFallbackTime %d done", ccftTimeOrg);
-    res = taf_ecall_SetNadClearDownFallbackTime(1);
-    LE_TEST_OK(res == LE_BUSY || res == LE_OK, "Test_ecall_SetNadClearDownFallbackTime done");
-    LE_INFO("SetNadClearDownFallbackTime done(res: %d)", (int) res);
+        res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
+        LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadMinNetworkRegistrationTime done");
+        LE_INFO("GetNadMinNetworkRegistrationTime %d done", minNwRegTime);
+        res = taf_ecall_SetNadMinNetworkRegistrationTime(1);
+        LE_TEST_OK(res == LE_BUSY || res == LE_OK || res == LE_FAULT, "Test_ecall_SetNadMinNetworkRegistrationTime done");
+        LE_INFO("SetNadMinNetworkRegistrationTime done(res: %d)", (int) res);
+
+        res = taf_ecall_GetNadClearDownFallbackTime(&ccftTimeOrg);
+        LE_TEST_OK(res == LE_OK && ccftTimeOrg == 1, "Test_ecall_GetNadClearDownFallbackTime done");
+        LE_INFO("GetNadClearDownFallbackTime %d done", ccftTimeOrg);
+        res = taf_ecall_SetNadClearDownFallbackTime(1);
+        LE_TEST_OK(res == LE_BUSY || res == LE_OK, "Test_ecall_SetNadClearDownFallbackTime done");
+        LE_INFO("SetNadClearDownFallbackTime done(res: %d)", (int) res);
+    }
 
     res = taf_ecall_End(eCallRef);
-    Test_ECall_GetHlapTimerState();
     if(res == LE_OK) {
         le_sem_Wait(testSemaphoreRef);
     }
@@ -870,8 +645,38 @@ static void Test_ECall_StartAutomatic() {
     taf_ecall_TerminationReason_t endReason = taf_ecall_GetTerminationReason(eCallRef);
     LE_INFO("Test_ECall_StartAutomatic end reason = %d", (int) endReason);
 
-    LE_INFO("Test taf_ecall_StartAutomatic waiting for T9 or T10 timeout");
-    le_thread_Sleep(123);
+    //Waits the TAF_ECALL_STATE_T9_EXPIRED event
+    res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
+    if(res != LE_OK) {
+        minNwRegTime = 1;
+    }
+    LE_INFO("Test_ECall_StartTest TAF_ECALL_STATE_T9_EXPIRED waiting");
+    le_clk_Time_t timeToWaitT9 = {minNwRegTime * 60, 0};
+    res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWaitT9);
+    if (res == LE_OK)
+    {
+        LE_INFO("Test_ECall_StartTest TAF_ECALL_STATE_T9_EXPIRED received");
+        taf_ecall_OpMode_t opMode = TAF_ECALL_MODE_NORMAL;
+        taf_ecall_HlapTimerStatus_t timerStatus;
+        uint16_t elapsedTime;
+        if ((LE_OK == taf_ecall_GetConfiguredOperationMode(DEFAULT_PHONE_ID, &opMode)) && 
+            (opMode == TAF_ECALL_MODE_ECALL) &&
+            (LE_OK ==taf_ecall_GetHlapTimerState(TAF_ECALL_TIMER_TYPE_T10, &timerStatus, &elapsedTime)) &&
+            (timerStatus == TAF_ECALL_TIMER_STATUS_ACTIVE))
+        {
+            Test_ECall_TerminateRegistration();
+            waitT10StopForAuto = true;
+        }
+        le_clk_Time_t timeToWaitT10Stop = {5, 0};
+        res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWaitT10Stop);
+        if (res == LE_OK)
+        {
+            LE_INFO("Test_ECall_StartTest TAF_ECALL_STATE_T10_STOP received");
+        }
+    }
+
+    res = taf_ecall_ExitOnlyMode(DEFAULT_PHONE_ID);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_ExitOnlyMode done");
 
     taf_ecall_Delete(eCallRef);
     eCallRef = NULL;
@@ -882,9 +687,12 @@ static void Test_ECall_StartManual() {
     le_result_t res = LE_FAULT;
     const char* contentType = "application/EmergencyCallData.eCall.MSD";
     const char* acceptInfo = "";
+    uint16_t deregTimeOrg = 0;
+    uint16_t minNwRegTime = 0;
+    uint16_t ccftTimeOrg = 0;
+    taf_ecall_State_t retrievedState = TAF_ECALL_STATE_UNKNOWN;
 
     eCallRef = taf_ecall_Create();
-    Test_ECall_GetHlapTimerState();
     res = taf_ecall_StartManual(eCallRef);
     LE_TEST_OK(res == LE_OK || res == LE_FAULT, "Test_ECall_StartManual start");
     if (res != LE_OK)
@@ -894,65 +702,344 @@ static void Test_ECall_StartManual() {
         eCallRef = NULL;
         return;
     }
-    res = taf_ecall_StartTest(eCallRef);
-    LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartTest is busy");
-    res = taf_ecall_StartAutomatic(eCallRef);
-    LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartAutomatic is busy");
-    res = taf_ecall_StartPrivate(eCallRef, TEST_PSAP_NUMBER, contentType, acceptInfo);
-    LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartPrivate is busy");
 
-    LE_INFO("Test taf_ecall_StartManual keep the call 30 seconds");
-    le_thread_Sleep(30);
+    le_clk_Time_t timeToWait = {10, 0};
+    //Waits the TAF_ECALL_STATE_ACTIVE event
+    res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWait);
+    if (res == LE_OK)
+    {
+        res = taf_ecall_StartTest(eCallRef);
+        LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartTest is busy");
+        res = taf_ecall_StartAutomatic(eCallRef);
+        LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartAutomatic is busy");
+        res = taf_ecall_StartPrivate(eCallRef, TEST_PSAP_NUMBER, contentType, acceptInfo);
+       LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartPrivate is busy");
 
-    taf_ecall_State_t retrievedState = taf_ecall_GetState(eCallRef);
-    LE_INFO("Test_ECall_StartManual callState = %d", (int) retrievedState);
+        ///Waits the TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED/TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS event
+        res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWait);
+        if (res == LE_OK)
+        {
+            LE_INFO("Test_ECall_StartTest TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED/SUCESS received");
+        }
 
-    taf_ecall_Type_t type = taf_ecall_GetType(eCallRef);
-    LE_INFO("Test_ECall_StartManual callType = %d", (int) type);
+        retrievedState = taf_ecall_GetState(eCallRef);
+        LE_INFO("Test_ECall_StartManual callState = %d", (int) retrievedState);
 
-    Test_ECall_GetHlapTimerState();
+        taf_ecall_Type_t type = taf_ecall_GetType(eCallRef);
+        LE_INFO("Test_ECall_StartManual callType = %d", (int) type);
 
-    uint16_t deregTimeOrg = 0;
-    res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-    LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadDeregTime done");
-    LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
-    res = taf_ecall_SetNadDeregistrationTime(2);
-    LE_TEST_OK(res == LE_BUSY || res == LE_OK || res == LE_FAULT, "Test_ecall_SetNadDeregTime done");
-    LE_INFO("SetNadDeregistrationTime done(res: %d)", (int) res);
+        Test_ECall_GetHlapTimerState();
 
-    uint16_t minNwRegTime = 0;
-    res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
-    LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadMinNetworkRegistrationTime done");
-    LE_INFO("GetNadMinNetworkRegistrationTime %d done", minNwRegTime);
-    res = taf_ecall_SetNadMinNetworkRegistrationTime(1);
-    LE_TEST_OK(res == LE_BUSY || res == LE_OK || res == LE_FAULT , "Test_ecall_SetNadMinNetworkRegistrationTime done");
-    LE_INFO("SetNadMinNetworkRegistrationTime done(res: %d)", (int) res);
+        res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
+        LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadDeregTime done");
+        LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
+        res = taf_ecall_SetNadDeregistrationTime(2);
+        LE_TEST_OK(res == LE_BUSY || res == LE_OK || res == LE_FAULT, "Test_ecall_SetNadDeregTime done");
+        LE_INFO("SetNadDeregistrationTime done(res: %d)", (int) res);
 
-    uint16_t ccftTimeOrg = 0;
-    res = taf_ecall_GetNadClearDownFallbackTime(&ccftTimeOrg);
-    LE_TEST_OK(res == LE_OK && ccftTimeOrg == 1, "Test_ecall_GetNadClearDownFallbackTime done");
-    LE_INFO("GetNadClearDownFallbackTime %d done", ccftTimeOrg);
-    res = taf_ecall_SetNadClearDownFallbackTime(1);
-    LE_TEST_OK(res == LE_BUSY || res == LE_OK, "Test_ecall_SetNadClearDownFallbackTime done");
-    LE_INFO("SetNadClearDownFallbackTime done (res: %d)", (int) res);
+        res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
+        LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadMinNetworkRegistrationTime done");
+        LE_INFO("GetNadMinNetworkRegistrationTime %d done", minNwRegTime);
+        res = taf_ecall_SetNadMinNetworkRegistrationTime(1);
+        LE_TEST_OK(res == LE_BUSY || res == LE_OK || res == LE_FAULT , "Test_ecall_SetNadMinNetworkRegistrationTime done");
+        LE_INFO("SetNadMinNetworkRegistrationTime done(res: %d)", (int) res);
+
+        res = taf_ecall_GetNadClearDownFallbackTime(&ccftTimeOrg);
+        LE_TEST_OK(res == LE_OK && ccftTimeOrg == 1, "Test_ecall_GetNadClearDownFallbackTime done");
+        LE_INFO("GetNadClearDownFallbackTime %d done", ccftTimeOrg);
+        res = taf_ecall_SetNadClearDownFallbackTime(1);
+        LE_TEST_OK(res == LE_BUSY || res == LE_OK, "Test_ecall_SetNadClearDownFallbackTime done");
+        LE_INFO("SetNadClearDownFallbackTime done (res: %d)", (int) res);
+    }
 
     res = taf_ecall_End(eCallRef);
-    Test_ECall_GetHlapTimerState();
     if(res == LE_OK) {
         le_sem_Wait(testSemaphoreRef);
     }
 
-    retrievedState = taf_ecall_GetState(eCallRef);
-    LE_INFO("Test_ECall_StartManual callState = %d", (int) retrievedState);
-
     taf_ecall_TerminationReason_t endReason = taf_ecall_GetTerminationReason(eCallRef);
     LE_INFO("Test taf_ecall_StartManual endReason = %d", (int) endReason);
 
-    LE_INFO("Test taf_ecall_StartManual waiting for T9 or T10 timeout");
-    le_thread_Sleep(63);
+    retrievedState = taf_ecall_GetState(eCallRef);
+    LE_INFO("Test_ECall_StartManual callState = %d", (int) retrievedState);
+
+    Test_ECall_GetHlapTimerState();
+
+    //Waits the TAF_ECALL_STATE_T9_EXPIRED event
+    res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
+    if(res != LE_OK) {
+        minNwRegTime = 1;
+    }
+    LE_INFO("Test_ECall_StartTest TAF_ECALL_STATE_T9_EXPIRED waiting");
+    le_clk_Time_t timeToWaitT9 = {minNwRegTime * 60, 0};
+    res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWaitT9);
+    if (res == LE_OK)
+    {
+        LE_INFO("Test_ECall_StartTest TAF_ECALL_STATE_T9_EXPIRED received");
+    }
 
     taf_ecall_Delete(eCallRef);
     eCallRef = NULL;
+}
+
+static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
+        taf_ecall_State_t state, void* cntxtPtr)
+{
+    LE_INFO("Ecall state change event state = %d", state );
+    LE_INFO("Ecall state change event reference = %p", eCallReference );
+
+    switch (state)
+    {
+        case TAF_ECALL_STATE_UNKNOWN:
+        {
+            LE_INFO("TAF_ECALL_STATE_UNKNOWN");
+            break;
+        }
+        case TAF_ECALL_STATE_ALERTING:
+        {
+            LE_INFO("TAF_ECALL_STATE_ALERTING");
+            break;
+        }
+        case TAF_ECALL_STATE_ACTIVE:
+        {
+            LE_INFO("TAF_ECALL_STATE_ACTIVE");
+            le_sem_Post(testSemaphoreRef);
+            break;
+        }
+        case TAF_ECALL_STATE_IDLE:
+        {
+            LE_INFO("TAF_ECALL_STATE_IDLE");
+            break;
+        }
+        case TAF_ECALL_STATE_WAITING_PSAP_START_IND:
+        {
+            LE_INFO("TAF_ECALL_STATE_WAITING_PSAP_START_IND");
+            break;
+        }
+        case TAF_ECALL_STATE_PSAP_START_RECEIVED:
+        {
+            LE_INFO("TAF_ECALL_STATE_PSAP_START_RECEIVED");
+            break;
+        }
+        case TAF_ECALL_STATE_MSD_TRANSMISSION_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_MSD_TRANSMISSION_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_LLNACK_RECEIVED:
+        {
+            LE_INFO("TAF_ECALL_STATE_LLNACK_RECEIVED");
+            break;
+        }
+        case TAF_ECALL_STATE_LL_ACK_RECEIVED:
+        {
+            LE_INFO("TAF_ECALL_STATE_LL_ACK_RECEIVED");
+            break;
+        }
+        case TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS:
+        {
+            LE_INFO("TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS");
+            le_sem_Post(testSemaphoreRef);
+            break;
+        }
+        case TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED:
+        {
+            LE_INFO("TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED");
+            le_sem_Post(testSemaphoreRef);
+            break;
+        }
+        case TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE:
+        {
+            LE_INFO("TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE");
+            break;
+        }
+        case TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN:
+        {
+            LE_INFO("TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN");
+            break;
+        }
+        case TAF_ECALL_STATE_MSD_UPDATE_REQ:
+        {
+            printf("TAF_ECALL_STATE_MSD_UPDATE_REQ");
+            taf_ecall_ImportMsd(eCallReference, msdRawData, msdLength);
+            taf_ecall_SendMsd(eCallReference);
+            break;
+        }
+        case TAF_ECALL_STATE_ENDED:
+        {
+            LE_INFO("TAF_ECALL_STATE_ENDED");
+            if (eCallReference != NULL)
+            {
+                taf_ecall_TerminationReason_t endReason = taf_ecall_GetTerminationReason(eCallReference);
+                LE_INFO("TAF_ECALL_STATE_ENDED endReason = %d", (int) endReason);
+            }
+            le_sem_Post(testSemaphoreRef);
+            break;
+        }
+        case TAF_ECALL_STATE_RESET:
+        {
+            LE_INFO("TAF_ECALL_STATE_RESET");
+            break;
+        }
+        case TAF_ECALL_STATE_COMPLETED:
+        {
+            LE_INFO("TAF_ECALL_STATE_COMPLETED");
+            break;
+        }
+        case TAF_ECALL_STATE_FAILED:
+        {
+            LE_INFO("TAF_ECALL_STATE_FAILED");
+            break;
+        }
+        case TAF_ECALL_STATE_END_OF_REDIAL_PERIOD:
+        {
+            LE_INFO("TAF_ECALL_STATE_END_OF_REDIAL_PERIOD");
+            break;
+        }
+        case TAF_ECALL_STATE_T2_EXPIRED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T2_EXPIRED");
+            break;
+        }
+        case TAF_ECALL_STATE_TIMEOUT_T3:
+        {
+            LE_INFO("TAF_ECALL_STATE_TIMEOUT_T3");
+            break;
+        }
+        case TAF_ECALL_STATE_T5_EXPIRED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T5_EXPIRED");
+            break;
+        }
+        case TAF_ECALL_STATE_T6_EXPIRED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T6_EXPIRED");
+            break;
+        }
+        case TAF_ECALL_STATE_T7_EXPIRED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T7_EXPIRED");
+            break;
+        }
+        case TAF_ECALL_STATE_T9_EXPIRED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T9_EXPIRED");
+            le_sem_Post(testSemaphoreRef);
+            break;
+        }
+        case TAF_ECALL_STATE_T10_EXPIRED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T10_EXPIRED");
+            break;
+        }
+        case TAF_ECALL_STATE_DIALING:
+        {
+            LE_INFO("TAF_ECALL_STATE_DIALING");
+            break;
+        }
+        case TAF_ECALL_STATE_NACK_OUT_OF_ORDER:
+        {
+            LE_INFO("TAF_ECALL_STATE_NACK_OUT_OF_ORDER");
+            break;
+        }
+        case TAF_ECALL_STATE_ACK_OUT_OF_ORDER:
+        {
+            LE_INFO("TAF_ECALL_STATE_ACK_OUT_OF_ORDER");
+            break;
+        }
+        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS:
+        {
+            LE_INFO("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS");
+            le_sem_Post(testSemaphoreRef);
+            break;
+        }
+        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE:
+        {
+            LE_INFO("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE");
+            le_sem_Post(testSemaphoreRef);
+            break;
+        }
+        case TAF_ECALL_STATE_T2_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T2_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T5_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T5_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T6_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T6_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T7_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T7_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T9_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T9_STARTED");
+            if (waitT10StopForAuto == true)
+            {
+                waitT10StopForAuto = false;
+                le_sem_Post(testSemaphoreRef);
+            }
+            break;
+        }
+        case TAF_ECALL_STATE_T10_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T10_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T2_STOPPED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T2_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T5_STOPPED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T5_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T6_STOPPED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T6_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T7_STOPPED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T7_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T9_STOPPED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T9_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T10_STOPPED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T10_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_INCOMING:
+        {
+            LE_INFO("TAF_ECALL_STATE_INCOMING");
+            break;
+        }
+        default:
+        {
+            LE_INFO("Unknown state");
+            break;
+        }
+    }
 }
 
 static void* Test_taf_ecall_AddHandler(void* context) {
@@ -976,9 +1063,48 @@ static void Test_taf_ecall_RemoveHandler(void* param1, void* param2) {
     le_sem_Post(testSemaphoreRef);
 }
 
+static void tafECallImsServStatusHandler(taf_radio_ImsRef_t imsRef,
+        taf_radio_ImsIndBitMask_t bitmask,
+        uint8_t phoneId,
+        void* contextPtr
+)
+{
+    if (bitmask & TAF_RADIO_IMS_IND_BIT_MASK_SVC_INFO)
+    {
+        taf_radio_ImsSvcStatus_t svcStatus = TAF_RADIO_IMS_SVC_STATUS_UNKNOWN;
+        le_result_t result = taf_radio_GetImsSvcStatus(imsRef, TAF_RADIO_IMS_SVC_TYPE_VOIP, &svcStatus);
+        if ((result == LE_OK) && (TAF_RADIO_IMS_SVC_STATUS_FULL_SERVICE == svcStatus) && (phoneId == DEFAULT_PHONE_ID))
+        {
+            le_sem_Post(testSemaphoreRef);
+        }
+    }
+}
+
+static void* Test_taf_ecall_ImsServStatus_AddHandler(void* context) {
+
+    taf_radio_ConnectService();
+
+    imsServStatusHandlerRef = taf_radio_AddImsStatusChangeHandler((taf_radio_ImsStatusChangeHandlerFunc_t)tafECallImsServStatusHandler, NULL);
+    LE_TEST_OK(imsServStatusHandlerRef != NULL, "taf_radio_AddImsStatusChangeHandler is null");
+    LE_INFO("Add ims service status event handler complete. The handlerRef = %p", imsServStatusHandlerRef);
+
+    le_sem_Post(testSemaphoreRef);
+
+    le_event_RunLoop();
+    return NULL;
+}
+
+static void Test_taf_ecall_ImsServStatus_RemoveHandler(void* param1, void* param2) {
+
+    taf_radio_TryConnectService();
+
+    taf_radio_RemoveImsStatusChangeHandler(imsServStatusHandlerRef);
+
+    le_sem_Post(testSemaphoreRef);
+}
+
 COMPONENT_INIT
 {
-    Test_ECall_OperationMode();
 
     Test_ECall_MSD_Information();
 
@@ -986,13 +1112,31 @@ COMPONENT_INIT
 
     Test_ECall_HlapTimer();
 
+    Test_ECall_OperationMode();
+
     testSemaphoreRef = le_sem_Create("ECallSem", 0);
+
+#if defined(LE_CONFIG_ENABLE_PRIVATE_ECALL)
+    imsServStatusThreadRef = le_thread_Create("ImsServStatusThread", Test_taf_ecall_ImsServStatus_AddHandler, NULL);
+    le_thread_Start(imsServStatusThreadRef);
+
+    le_sem_Wait(testSemaphoreRef);
 
     threadRef = le_thread_Create("EctThread", Test_taf_ecall_AddHandler, NULL);
     le_thread_Start(threadRef);
 
-#if defined(LE_CONFIG_ENABLE_PRIVATE_ECALL)
     Test_ECall_StartPrivate();
+
+    le_event_QueueFunctionToThread(imsServStatusThreadRef, Test_taf_ecall_ImsServStatus_RemoveHandler, NULL, NULL);
+
+    le_sem_Wait(testSemaphoreRef);
+
+    le_result_t result = le_thread_Cancel(imsServStatusThreadRef);
+    LE_TEST_OK(result == LE_OK, "ImsServStatusThread cancelled");
+
+    //Disconnect the telaf radio service
+    taf_radio_DisconnectService();
+
 #endif
 
     Test_ECall_StartTest();
@@ -1005,13 +1149,13 @@ COMPONENT_INIT
 
     le_sem_Wait(testSemaphoreRef);
 
-    le_result_t result = le_thread_Cancel(threadRef);
-    LE_TEST_OK(result == LE_OK, "Test_taf_ecall_RemoveHandler done");
+    result = le_thread_Cancel(threadRef);
+    LE_TEST_OK(result == LE_OK, "EctThread cancelled");
+
+    //Disconnect the telaf eCall service
+    taf_ecall_DisconnectService();
 
     le_sem_Delete(testSemaphoreRef);
-
-    // Disconnect the telaf service.
-    taf_ecall_DisconnectService();
 
     LE_INFO("ECall API Unit test execution success");
 

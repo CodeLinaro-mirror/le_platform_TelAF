@@ -495,8 +495,9 @@ static void* CommandInput(void* contextPtr)
             printf("\th - Hangup the eCall\n");
             printf("\tt - Terminate registration\n");
             printf("\ta - Answer the eCall\n");
-            printf("\ts - Import and send MSD\n");
-            printf("\tu - Send MSD\n");
+            printf("\ti - Import and send MSD\n");
+            printf("\ts - Send MSD\n");
+            printf("\te - Export MSD\n");
             printf("\tg - Get hlap timer state\n");
             printf("\tq - Quit test\n");
             printf("-------------------------------------------------\n");
@@ -519,7 +520,7 @@ static void* CommandInput(void* contextPtr)
             le_result_t result =  ECallRef != NULL ? taf_ecall_Answer(ECallRef) : LE_FAULT;
             printf("Answer %s\n", result == LE_OK ? "success." : "failed!!");
             LE_INFO("CommandInput: answering the call, result %d\n", (int) result);
-        } else if (p != NULL && input_str[0]=='s') {
+        } else if (p != NULL && input_str[0]=='i') {
             printf("User input: %c, so import MSD eg:02251C0680E30A51439E2955D43800800837F80C9FD707F09A94BDD30E55E080000001FFFFE040\n", input_str[0]);
             char msd[2*TAF_ECALL_MAX_MSD_LENGTH+1];
             char *msdData = fgets(msd,sizeof(msd),stdin);
@@ -560,19 +561,24 @@ static void* CommandInput(void* contextPtr)
                     LE_INFO("CommandInput: send MSD, res: %d\n", res);
                 }
             }
-        } else if (p != NULL && input_str[0]=='u') {
+        } else if (p != NULL && input_str[0]=='s') {
+            printf("User input: %c, so send MSD...\n", input_str[0]);
+            int res = taf_ecall_SendMsd(ECallRef);
+            LE_INFO("CommandInput: send MSD, res: %d\n", res);
+        } else if (p != NULL && input_str[0]=='e') {
+            printf("User input: %c, so export MSD by ExportMsd...\n", input_str[0]);
             uint8_t msdRawDataExport[TAF_ECALL_MAX_MSD_LENGTH];
             size_t msdLengthExport = TAF_ECALL_MAX_MSD_LENGTH;
-            le_result_t result = LE_FAULT;
-            result = taf_ecall_ExportMsd(ECallRef, msdRawDataExport, &msdLengthExport);
-            if (LE_NOT_FOUND == result)
+            int res = taf_ecall_ExportMsd(ECallRef, msdRawDataExport, &msdLengthExport);
+            if (res == 0)
             {
-                printf("User input: %c, so send MSD by SetMsdxxx...\n", input_str[0]);
-                int res = taf_ecall_SendMsd(ECallRef);
-                LE_INFO("CommandInput: send MSD, res: %d\n", res);
-            } else if (LE_OK == result) {
-                printf("User input: %c, so send MSD by ImportMsd...\n", input_str[0]);
+                printf("Export MSD with PDU format = ");
+                for (int i = 0; i < msdLengthExport; i++) {
+                    printf("%d ", msdRawDataExport[i]);
+                }
             }
+            printf("\n");
+            LE_INFO("CommandInput: export MSD, res: %d\n", res);
         } else if (p != NULL && input_str[0]=='g') {
             printf("User input: %c, so enter the hlap timer type eg: 2...\n", input_str[0]);
             p = fgets(input_str,sizeof(input_str),stdin);
@@ -998,7 +1004,7 @@ static int exportMsd()
     le_result_t result = taf_ecall_ExportMsd(ECallRef, msdRawDataExport, &msdLengthExport);
     LE_TEST_OK(result == LE_OK, "ExportMsd - LE_OK");
     if (result == LE_NOT_FOUND) {
-        printf("MSD not found! May not set it.\n");
+        printf("MSD not found!\n");
     } else {
         printf("Result of ExportMsd is %s\n", result == LE_OK ? "Success." : "Failed!!");
     }

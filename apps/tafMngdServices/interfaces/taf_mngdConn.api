@@ -721,6 +721,13 @@ DEFINE MAX_DATA_START_RETRY_BACKOFF_INTERVAL_STEP = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * The minuimum value for configuration JSON's DataStartRetry:BackoffIntervalStep.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MIN_DATA_START_RETRY_BACKOFF_INTERVAL_STEP = 1;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * The maximum value for configuration JSON's PeriodicConnectivityCheck:Interval in seconds.
  */
 //--------------------------------------------------------------------------------------------------
@@ -752,7 +759,14 @@ DEFINE MAX_CONN_RECOVERY_RETRY_WAIT_TIME = 3600;
  * The maximum value for configuration JSON's ConnectivityRecovery:L1RadioOffOnInterval in seconds.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MAX_CONN_RECOVERY_L1_OFF_ON_INTERVAL = 240;
+DEFINE MAX_CONN_RECOVERY_L1_RADIO_OFF_ON_INTERVAL = 240;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The minimum value for configuration JSON's ConnectivityRecovery:L1RadioOffOnInterval in seconds.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MIN_CONN_RECOVERY_L1_RADIO_OFF_ON_INTERVAL = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**

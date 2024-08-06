@@ -345,9 +345,11 @@ bool mcs_PolicyParser::Validate_DS_CR_L1RadioOffOnInterval(mcs_Policy_t &Policy,
     }
 
 
-    // Ensure the value is within the range [0, TAF_MNGDCONN_MAX_CONN_RECOVERY_L1_OFF_ON_INTERVAL]
+    // Ensure the value is within the range [TAF_MNGDCONN_MIN_CONN_RECOVERY_L1_OFF_ON_INTERVAL,
+    // TAF_MNGDCONN_MAX_CONN_RECOVERY_L1_OFF_ON_INTERVAL]
     localInt = std::stoi(Value);
-    if (localInt < 0 || localInt > TAF_MNGDCONN_MAX_CONN_RECOVERY_L1_OFF_ON_INTERVAL)
+    if (localInt < TAF_MNGDCONN_MIN_CONN_RECOVERY_L1_RADIO_OFF_ON_INTERVAL
+        || localInt > TAF_MNGDCONN_MAX_CONN_RECOVERY_L1_RADIO_OFF_ON_INTERVAL)
     {
         LE_WARN("Value out of range: %d", localInt);
         return false;

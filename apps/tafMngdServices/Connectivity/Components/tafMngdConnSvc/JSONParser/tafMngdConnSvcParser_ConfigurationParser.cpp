@@ -844,7 +844,8 @@ bool mcs_ConfigurationParser::Validate_MCSC_Data_DSR_BackoffIntervalStep(
     }
     int localInt = std::stoi(Value);
     // Value should be valid BackoffIntervalStep
-    if (localInt < 0 || localInt > TAF_MNGDCONN_MAX_DATA_START_RETRY_BACKOFF_INTERVAL_STEP)
+    if (localInt < TAF_MNGDCONN_MIN_DATA_START_RETRY_BACKOFF_INTERVAL_STEP
+        || localInt > TAF_MNGDCONN_MAX_DATA_START_RETRY_BACKOFF_INTERVAL_STEP)
     {
         LE_WARN("Invalid BackoffIntervalStep: %d", localInt);
         return false;

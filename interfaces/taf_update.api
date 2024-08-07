@@ -36,7 +36,7 @@
 /**
  * @page c_tafUpdate Update Service
  *
- * @ref taf_update_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_update_interface.h>` @endrst
  *
  * <HR>
  *
@@ -46,8 +46,8 @@
  * supports installing firmware and applications and it parses the bundle when the OTA package is
  * downloaded on the target device. Users can register a handler to get detailed update progress.
  *
- * @note Currently update service does not support firmware and application updates at the same
- *       time. Users should install the OTA package after it's downloaded successfully.
+ * @b NOTE: Currently update service does not support firmware and application updates at the same
+ *          time. Users should install the OTA package after it's downloaded successfully.
  *
  * @section taf_update_binding IPC interfaces binding
  *
@@ -304,7 +304,7 @@ EVENT State
 /**
  * Downloads an OTA package from a cloud server.
  *
- * @note Update service will parse the download package and remove the QOTA header once the download
+ * @b NOTE: Update service will parse the download package and remove the QOTA header once the download
          is complete.
  */
 //--------------------------------------------------------------------------------------------------
@@ -316,7 +316,7 @@ FUNCTION Download
 /**
  * Installs an OTA package on the target device.
  *
- * @note QOTA header should be removed before calling this API.
+ * @b NOTE: QOTA header should be removed before calling this API.
  *
  * @return
  * - LE_FAULT -- Failed.

@@ -7,7 +7,7 @@
 /**
  * @page c_tafSomeipClnt SOME/IP Gateway Client Service
  *
- * @ref taf_someipClnt_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_someipClnt_interface.h>` @endrst
  *
  * <HR>
  *
@@ -138,8 +138,8 @@
  * In this case, a second configuration file tafSomeipGWSvc_1.json is created for network interface
  * "eth1" with its own network address and multicast address.
  *
- * @note The value of @b name, @b routing, and @b network in the configuration file must match the
- * file name, which is tafSomeipGWSvc_1 in this case.
+ * @b NOTE: The value of @b name, @b routing, and @b network in the configuration file must match the
+ *          file name, which is tafSomeipGWSvc_1 in this case.
  *
  * @section c_taf_someipClnt_commonapi_service CommonAPI client configuration
  *
@@ -375,8 +375,8 @@
    LE_ASSERT(eventHandlerRef != NULL);
    @endcode
  *
- * @note An event or an event group of a client-service-instance can be only set up by one client
- * application.
+ * @b NOTE: An event or an event group of a client-service-instance can be only set up by one client
+ *          application.
  *
  * <HR>
  *
@@ -653,7 +653,7 @@ FUNCTION le_result_t DeleteMsg
 HANDLER RespMsgHandler
 (
     le_result_t result                            IN, ///< Result of RequestResponse().
-    bool     isErrRsp                             IN, ///< True MT_ERROR(0x81), otherwise 
+    bool     isErrRsp                             IN, ///< True MT_ERROR(0x81), otherwise
                                                       ///  MT_RESPONSE(0x80).
     uint8    returnCode                           IN, ///< Return code of the response.
     uint8    data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload data of the response.

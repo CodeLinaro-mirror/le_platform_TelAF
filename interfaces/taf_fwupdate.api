@@ -36,7 +36,7 @@
 /**
  * @page c_tafFwUpdate Firmware Update Service
  *
- * @ref taf_fwupdate_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_fwupdate_interface.h>` @endrst
  *
  * <HR>
  *
@@ -108,7 +108,7 @@ FUNCTION le_result_t GetFirmwareVersion
  * @return
  *  - LE_OK -- Succeeded.
  *
- * @note Only used for local firmware update.
+ * @b NOTE: Only used for local firmware update.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Install

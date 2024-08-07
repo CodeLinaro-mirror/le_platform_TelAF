@@ -67,7 +67,7 @@
 /**
  * @page c_tafRadio Radio Service
  *
- * @ref taf_radio_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_radio_interface.h>` @endrst
  *
  * <HR>
  *
@@ -408,28 +408,28 @@
  * Users can get serving cellular network information.
  *
  *  - taf_radio_GetServingCellId() -- Gets the cell ID.
- * @warning Only applicable for GSM/LTE/WCDMA/TDSCDMA.
+ *    @b WARNING: Only applicable for GSM/LTE/WCDMA/TDSCDMA.
  *
  *  - taf_radio_GetServingCellLocAreaCode() -- Gets the location area code.
- * @warning Only applicable for  GSM/WCDMA/TDSCDMA.
+ *     @b WARNING: Only applicable for  GSM/WCDMA/TDSCDMA.
  *
  *  - taf_radio_GetServingCellLteTracAreaCode() -- Gets the tracking area code.
- * @warning Only applicable for LTE.
+ *     @b WARNING: Only applicable for LTE.
  *
  *  - taf_radio_GetServingCellEarfcn() -- Gets the E-UTRA absolute radio frequency channel number.
- * @warning Only applicable for LTE.
+ *     @b WARNING: Only applicable for LTE.
  *
  *  - taf_radio_GetServingCellTimingAdvance() -- Gets the timing advance.
- * @warning Only applicable for GSM/LTE.
+ *     @b WARNING: Only applicable for GSM/LTE.
  *
  *  - taf_radio_GetPhysicalServingLteCellId() -- Gets the physical cell ID.
- * @warning Only applicable for LTE.
+ *     @b WARNING: Only applicable for LTE.
  *
  *  - taf_radio_GetServingCellGsmBsic() -- Gets the base station ID.
- * @warning Only applicable for GSM.
+ *     @b WARNING: Only applicable for GSM.
  *
  *  - taf_radio_GetServingCellScramblingCode() -- Gets the primary scrambling code.
- * @warning Only applicable for WCDMA.
+ *     @b WARNING: Only applicable for WCDMA.
  *
  * @section c_taf_radio_network Network Information
  *
@@ -1628,7 +1628,7 @@ FUNCTION le_result_t DeletePreferredOperatorsList
  *  - Non-null pointer -- The preferred operators list reference.
  *  - Null pointer -- Internal error or no preferred operators list.
  *
- * @note At most 1 preferred operator list per slot.
+ * @b NOTE: At most 1 preferred operator list per slot.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION PreferredOperatorList GetPreferredOperatorsList
@@ -2172,7 +2172,7 @@ FUNCTION le_result_t GetServingCellGsmBsic
  *  - UINT16_MAX -- Internal error.
  *  - Others -- Primary scrambling code.
  *
- * @note Only applicable for WCDMA.
+ * @b NOTE: Only applicable for WCDMA.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint16 GetServingCellScramblingCode
@@ -2970,7 +2970,7 @@ FUNCTION le_result_t SetSignalStrengthIndHysteresisTimer
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
  *
- * @note Only applicable for GSM.
+ * @b NOTE: Only applicable for GSM.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetServingCellArfcn
@@ -2988,7 +2988,7 @@ FUNCTION le_result_t GetServingCellArfcn
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
  *
- * @note Only applicable for UMTS.
+ * @b NOTE: Only applicable for UMTS.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetServingCellUarfcn

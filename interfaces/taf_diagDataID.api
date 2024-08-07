@@ -36,7 +36,7 @@
 /**
  * @page c_tafDiagDataID Diag Data ID Service
  *
- * @ref taf_diagDataID_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_diagDataID_interface.h>` @endrst
  *
  * <HR>
  *
@@ -251,7 +251,7 @@ REFERENCE RxWriteDIDMsg;
  *     - Reference to the service instance.
  *     - NULL if not allowed to create the service.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
@@ -284,7 +284,7 @@ EVENT RxReadDIDMsg
 /**
  * Sends a response message for the received ReadDID message.
  *
- * @note This function must be called to send a response if receiving a message.
+ * @b NOTE: This function must be called to send a response if receiving a message.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -292,7 +292,7 @@ EVENT RxReadDIDMsg
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendReadDIDResp
@@ -333,7 +333,7 @@ EVENT RxWriteDIDMsg
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetWriteDataRecord
@@ -346,7 +346,7 @@ FUNCTION le_result_t GetWriteDataRecord
 /**
  * Sends a response message for the received WriteDID message.
  *
- * @note This function must be called to send a response if receiving a message.
+ * @b NOTE: This function must be called to send a response if receiving a message.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -354,7 +354,7 @@ FUNCTION le_result_t GetWriteDataRecord
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendWriteDIDResp

@@ -35,16 +35,16 @@
 /**
  * @page c_tafaudio Audio Service
  *
- * @ref taf_audio_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_audio_interface.h>` @endrst
  *
  * <HR>
  * The Audio service APIs provide an interface to playback and record audio.
- * TelAf audio is connector based and audio connectors have one input and output interface, which 
+ * TelAf audio is connector based and audio connectors have one input and output interface, which
  * is responsible for routing audio data.
  *
  * The audio stream reference represents the audio interfaces for the given connectors.
  *
- * For any stream types the maximum number of supported devices is one. A single stream for multiple 
+ * For any stream types the maximum number of supported devices is one. A single stream for multiple
  * devices is not supported.
  *
  * For example, for a voice call audio path, MIC and SPEAKER connectors are required, but in lower
@@ -220,8 +220,8 @@
    LE_ERROR_IF((NULL == OutRef), "taf_audio_OpenSpeaker returns NULL!");
 
    @endverbatim
-
- * @note This also needs to be called for a voice call on SA525M device.
+ *
+ * @b NOTE: This also needs to be called for a voice call on SA525M device.
  *
  * @verbatim
 
@@ -243,8 +243,8 @@
 
    taf_audio_Connect(OutputConnectorRef, OutRef);
    @endverbatim
-
- * @note This needs to be called when a voice call is on hold.
+ *
+ * @b NOTE: This needs to be called when a voice call is on hold.
  *
  * @verbatim
    if ((FileFd = open(FilePath, O_RDONLY)) == -1)
@@ -343,7 +343,7 @@ FUNCTION Connector CreateConnector
 
 /**
  * Deletes a connected connector.
- * @note This function will not return if passed a bad reference.
+ * @b NOTE: This function will not return if passed a bad reference.
  */
 FUNCTION DeleteConnector
 (
@@ -356,7 +356,7 @@ FUNCTION DeleteConnector
  * - LE_OK Success.
  * - LE_FAULT  Failure.
  *
- * @note This function will not return if passed a bad reference.
+ * @b NOTE: This function will not return if passed a bad reference.
  */
 FUNCTION le_result_t Connect
 (
@@ -367,7 +367,7 @@ FUNCTION le_result_t Connect
 /**
  * Disconnects a connector for an audio stream reference.
  *
- * @note This function will not return if passed a bad reference.
+ * @b NOTE: This function will not return if passed a bad reference.
  */
 FUNCTION Disconnect
 (
@@ -386,7 +386,7 @@ FUNCTION Stream OpenSpeaker
 
 /**
  * Opens an audio stream reference for microphone use.
- * 
+ *
  * @return Reference to an audio stream, NULL on error.
  */
 FUNCTION Stream OpenMic
@@ -416,7 +416,7 @@ uint32 slotId ///< Slot value.
 /**
  * DTMF playback for inband.
  *
- * @note Applicable only for voice streams.
+ * @b NOTE: Applicable only for voice streams.
  */
 FUNCTION le_result_t PlayDtmf
 (
@@ -428,8 +428,8 @@ FUNCTION le_result_t PlayDtmf
 
 /**
  * Mutes an audio stream.
- * 
- * @return 
+ *
+ * @return
  * - LE_OK    Success.
  * - LE_FAULT Failure.
  */
@@ -441,7 +441,7 @@ FUNCTION le_result_t Mute
 /**
  * Unmutes an audio stream.
  *
- * @return 
+ * @return
  * - LE_OK     Success.
  * - LE_FAULT  Failure.
  */
@@ -473,7 +473,7 @@ FUNCTION Stream OpenPlayer
 /**
 * Plays a file on a playback stream.
 *
-* @return 
+* @return
 * - LE_FAULT         Failure.
 * - LE_BAD_PARAMETER Invalid stream reference.
 * - LE_BUSY          Already active.
@@ -548,7 +548,7 @@ EVENT DtmfDetector
 /**
  * Stops the file playback or recording.
  *
- * @return 
+ * @return
  * - LE_OK     Success.
  * - LE_FAULT  Failure.
  */
@@ -560,7 +560,7 @@ FUNCTION le_result_t Stop
 /**
  * Sets the volume.
  *
- * @return 
+ * @return
  * - LE_FAULT Failure.
  * - LE_OK    Success.
 */
@@ -573,7 +573,7 @@ FUNCTION le_result_t SetGain
 /**
  * Gets the volume.
  *
- * @return 
+ * @return
  * - LE_FAULT Failure.
  * - LE_OK    Success.
  */
@@ -620,8 +620,8 @@ ENUM AmrMode
 
 /**
  * Enables noise suppression.
- * 
- * @return 
+ *
+ * @return
  * - LE_FAULT  Failure.
  * - LE_OK     Success.
 */
@@ -632,8 +632,8 @@ FUNCTION le_result_t EnableNoiseSuppressor
 
 /**
  * Enables echo cancellation.
- * 
- * @return 
+ *
+ * @return
  * - LE_FAULT  Failure.
  * - LE_OK     Success.
 */
@@ -644,8 +644,8 @@ FUNCTION le_result_t EnableEchoCanceller
 
 /**
  * Disables noise suppression.
- * 
- * @return 
+ *
+ * @return
  * - LE_FAULT  Failure.
  * - LE_OK     Success.
 */
@@ -657,7 +657,7 @@ FUNCTION le_result_t DisableNoiseSuppressor
 /**
  * Sets the volume.
  *
- * @return 
+ * @return
  * - LE_FAULT  Failure.
  * - LE_OK     Success.
 */
@@ -669,7 +669,7 @@ FUNCTION le_result_t DisableEchoCanceller
 /**
  * Gets echo cancellation status.
  *
- * @return 
+ * @return
  * - LE_FAULT  Failure.
  * - LE_OK     Success.
 */
@@ -709,7 +709,7 @@ ENUM I2SChannel
 /**
  * Opens an audio stream reference for I2S Rx interface use.
  *
- * @note Set the sampling rate using taf_audio_SetSamplePcmSamplingRate after creating the stream
+ * @b NOTE: Set the sampling rate using taf_audio_SetSamplePcmSamplingRate after creating the stream
  *       reference and before connecting, otherwise the defalut sampling rate will be 16000.
  *
  * @return Reference to the audio stream, NULL on error.
@@ -722,7 +722,7 @@ FUNCTION Stream OpenI2sRx
 /**
  * Opens an audio stream reference for I2S Tx interface use.
  *
- * @note Set the sampling rate using taf_audio_SetSamplePcmSamplingRate after creating the stream
+ * @b NOTE: Set the sampling rate using taf_audio_SetSamplePcmSamplingRate after creating the stream
  *       reference and before connecting, otherwise the defalut sampling rate will be 16000.
  *
  * @return Reference to the audio stream, NULL on error.
@@ -735,7 +735,7 @@ FUNCTION Stream OpenI2sTx
 /**
  * Opens an audio stream reference for PCM Rx interface use.
  *
- * @note Set the sampling rate using taf_audio_SetSamplePcmSamplingRate after creating the stream
+ * @b NOTE: Set the sampling rate using taf_audio_SetSamplePcmSamplingRate after creating the stream
  *       reference and before connecting, otherwise the defalut sampling rate will be 16000.
  *
  * @return Reference to the audio stream, NULL on error.
@@ -748,7 +748,7 @@ FUNCTION Stream OpenPcmRx
 /**
  * Opens an audio stream reference for PCM Tx interface use.
  *
- * @note Set the sampling rate using taf_audio_SetSamplePcmSamplingRate after creating the stream
+ * @b NOTE: Set the sampling rate using taf_audio_SetSamplePcmSamplingRate after creating the stream
  *       reference and before connecting, otherwise the defalut sampling rate will be 16000.
  *
  * @return Reference to the audio stream, NULL on error.
@@ -830,7 +830,7 @@ FUNCTION le_result_t SetEncodingFormat
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
  *
- * @note A client calling this function with either an invalid
+ * @b NOTE: A client calling this function with either an invalid
  * streamRef or null out pointer parameter will be killed and the
  * function will not return.
  */

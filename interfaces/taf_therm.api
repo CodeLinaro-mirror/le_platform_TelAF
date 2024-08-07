@@ -7,7 +7,7 @@
 /**
  * @page c_taftherm Thermal Management Service
  *
- * @ref taf_therm_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_therm_interface.h>` @endrst
  *
  * <HR>
  *
@@ -37,12 +37,13 @@
  * the information of each thermal zone, and also to delete the list reference using
  * taf_therm_DeleteThermalZoneList().
  *
- * @note
- * The following APIs are supported only on SA525M devices:
- * a. taf_therm_GetTripPointTripID()
- * b. taf_therm_GetTripPointThermalZoneID()
- * c. taf_therm_GetBoundTripPointTripID()
- * d. taf_therm_GetBoundTripPointThermalZoneID()
+ * @b NOTE:
+ *
+ *    The following APIs are supported only on SA525M devices:
+ *    a. taf_therm_GetTripPointTripID()
+ *    b. taf_therm_GetTripPointThermalZoneID()
+ *    c. taf_therm_GetBoundTripPointTripID()
+ *    d. taf_therm_GetBoundTripPointThermalZoneID()
  *
  * @verbatim
    le_result_t result;
@@ -826,7 +827,7 @@ FUNCTION le_result_t GetTripPointHysterisis
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
 *
-* @note
+* @b NOTE:
 * This is supported only on SA525M.
 */
 //------------------------------------------------------------------------------------------------
@@ -845,7 +846,7 @@ FUNCTION le_result_t GetTripPointTripID
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
 *
-* @note
+* @b NOTE:
 * This is supported only on SA525M.
 */
 //------------------------------------------------------------------------------------------------
@@ -945,7 +946,7 @@ FUNCTION le_result_t GetBoundTripPointHysterisis
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
 *
-* @note This is supported only on SA525M.
+* @b NOTE: This is supported only on SA525M.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetBoundTripPointTripID
@@ -963,7 +964,7 @@ FUNCTION le_result_t GetBoundTripPointTripID
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
 *
-* @note This is supported only on SA525M.
+* @b NOTE: This is supported only on SA525M.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetBoundTripPointThermalZoneID

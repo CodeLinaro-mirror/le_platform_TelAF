@@ -36,7 +36,7 @@
 /**
  * @page c_tafDiagReset Diag Reset Service
  *
- * @ref taf_diagReset_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_diagReset_interface.h>` @endrst
  *
  * <HR>
  *
@@ -174,7 +174,7 @@ REFERENCE RxMsg;
  *     - Reference to the service instance.
  *     - NULL if not allowed to create the service.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
@@ -208,7 +208,7 @@ EVENT RxMsg
 /**
  * Sends a response message for the Rx Reset message.
  *
- * @note This function must be called to send a response if receiving a message.
+ * @b NOTE: This function must be called to send a response if receiving a message.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -216,7 +216,7 @@ EVENT RxMsg
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendResp

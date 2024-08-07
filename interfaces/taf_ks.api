@@ -36,15 +36,15 @@
 /**
  * @page c_tafKeyStore Key Store Service
  *
- * @ref taf_ks_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_ks_interface.h>` @endrst
  *
  * <HR>
- * Key Store is an access control-based service with access to trusted hardware bound 
- * cryptography. It ensures that all cryptographic keys generated are bound to the device 
+ * Key Store is an access control-based service with access to trusted hardware bound
+ * cryptography. It ensures that all cryptographic keys generated are bound to the device
  * cryptographically and all cryptographic operations run in a trusted execution environment.
  *
  * Key Store service provides APIs to applications for key management, key access control, and
- * cryptographic operations. It has a built-in reliable and secure backend storage to save cryptographic 
+ * cryptographic operations. It has a built-in reliable and secure backend storage to save cryptographic
  * keys created by client applications. It also supports client authentication which means only the key
  * owner has the permission to access or use the key for certain purposes.
  *
@@ -87,24 +87,24 @@
  *
  * The following example illustrates how to create and provision an AES GCM key.
  * @code
-   const char keyId[] = "MyAesGcmKey";
-   taf_ks_KeyRef_t keyRef;
-   if (LE_NOT_FOUND == taf_ks_GetKey(keyId, &keyRef))
-   {
-       LE_ASSERT(LE_OK == taf_ks_CreateKey(keyId,TAF_KS_AES_ENCRYPT_DECRYPT, &keyRef));
-       LE_ASSERT(LE_OK == taf_ks_ProvisionAesKeyValue(keyRef,
-                                                      TAF_KS_AES_SIZE_256,
-                                                      TAF_KS_AES_MODE_GCM,
-                                                      NULL, 0));
-   }
-   @endcode
+    const char keyId[] = "MyAesGcmKey";
+    taf_ks_KeyRef_t keyRef;
+    if (LE_NOT_FOUND == taf_ks_GetKey(keyId, &keyRef))
+    {
+        LE_ASSERT(LE_OK == taf_ks_CreateKey(keyId,TAF_KS_AES_ENCRYPT_DECRYPT, &keyRef));
+        LE_ASSERT(LE_OK == taf_ks_ProvisionAesKeyValue(keyRef,
+                                                       TAF_KS_AES_SIZE_256,
+                                                       TAF_KS_AES_MODE_GCM,
+                                                       NULL, 0));
+    }
+    @endcode
  *
- * @note A key only allows one-shot provisioning after creation.
+ * @b NOTE: A key only allows one-shot provisioning after creation.
  *
  * Call taf_ks_GetKey() to get a key reference by the key name and call taf_ks_GetKeyUsage() to get the key
  * usage by the key reference.
  *
- * @note taf_ks_GetKey() returns LE_NOT_FOUND if the key is created but not provisioned.
+ * @b NOTE: taf_ks_GetKey() returns LE_NOT_FOUND if the key is created but not provisioned.
  *
  * Call taf_ks_ExportKey() to export the x.509 DER format public key.
  *
@@ -127,12 +127,12 @@
  * The following example illustrates how to create a cryptographic session and start the session for
  * data encryption.
  * @code
-   taf_ks_CryptoSessionRef_t sessionRef;
-   const uint8_t nonce[12] = {"abcdefghijk"}; // Shall be customized and filled by application.
-   LE_ASSERT(LE_OK == taf_ks_CryptoSessionCreate(keyRef, &sessionRef));
-   LE_ASSERT(LE_OK == taf_ks_CryptoSessionSetAesNonce(sessionRef, nonce, sizeof(nonce)));
-   LE_ASSERT(LE_OK == taf_ks_CryptoSessionStart(sessionRef, TAF_KS_CRYPTO_ENCRYPT));
-   @endcode
+ *   taf_ks_CryptoSessionRef_t sessionRef;
+ *   const uint8_t nonce[12] = {"abcdefghijk"}; // Shall be customized and filled by application.
+ *   LE_ASSERT(LE_OK == taf_ks_CryptoSessionCreate(keyRef, &sessionRef));
+ *   LE_ASSERT(LE_OK == taf_ks_CryptoSessionSetAesNonce(sessionRef, nonce, sizeof(nonce)));
+ *   LE_ASSERT(LE_OK == taf_ks_CryptoSessionStart(sessionRef, TAF_KS_CRYPTO_ENCRYPT));
+ *   @endcode
  *
  * @subsection c_taf_ks_process_session Process data within the session
  * Call taf_ks_CryptoSessionProcess() to process the input data and get the output data in a running
@@ -140,7 +140,7 @@
  * the input data size is greater than TAF_KS_MAX_PACKET_SIZE, which means the input data shall be
  * split into small pieces with the size of each piece less than TAF_KS_MAX_PACKET_SIZE.
  *
- * @note For AES GCM keys, taf_ks_CryptoSessionProcessAead() must be called one or multiple
+ * @b NOTE: For AES GCM keys, taf_ks_CryptoSessionProcessAead() must be called one or multiple
  * times to pass the AEAD before calling taf_ks_CryptoSessionProcess(). taf_ks_CryptoSessionAbort()
  * is used to abort a running session, if needed.
  *
@@ -150,26 +150,26 @@
  * The following example illustrates how to process the input plain text and get the encrypted data, the
  * encrypted data will be saved in the byte array of @b encryptedData with size of @b totalEncSize.
  * @code
-   const uint8_t plainText[] = "Keystore service for AES GCM test messages.";
-   uint8_t encryptedData[TAF_KS_MAX_PACKET_SIZE] = {0};
-   size_t encryptedDataSize = sizeof(encryptedData);
-   const uint8_t aead[] = {"123456789"}; // Shall be customized and filled by application.
-   LE_ASSERT(LE_OK == taf_ks_CryptoSessionProcessAead(sessionRef, aead, sizeof(aead)));
-   LE_ASSERT(LE_OK == taf_ks_CryptoSessionProcess(sessionRef,
-                                                  plainText,
-                                                  sizeof(plainText),
-                                                  encryptedData,
-                                                  &encryptedDataSize));
-   size_t totalEncSize = encryptedDataSize;
-   encryptedDataSize = sizeof(encryptedData) - totalEncSize;
-   LE_ASSERT(LE_OK == taf_ks_CryptoSessionEnd(sessionRef,
-                                              NULL, 0,
-                                              encryptedData + totalEncSize,
-                                              &encryptedDataSize));
-   totalEncSize = totalEncSize + encryptedDataSize;
-   @endcode
+    const uint8_t plainText[] = "Keystore service for AES GCM test messages.";
+    uint8_t encryptedData[TAF_KS_MAX_PACKET_SIZE] = {0};
+    size_t encryptedDataSize = sizeof(encryptedData);
+    const uint8_t aead[] = {"123456789"}; // Shall be customized and filled by application.
+    LE_ASSERT(LE_OK == taf_ks_CryptoSessionProcessAead(sessionRef, aead, sizeof(aead)));
+    LE_ASSERT(LE_OK == taf_ks_CryptoSessionProcess(sessionRef,
+                                                   plainText,
+                                                   sizeof(plainText),
+                                                   encryptedData,
+                                                   &encryptedDataSize));
+    size_t totalEncSize = encryptedDataSize;
+    encryptedDataSize = sizeof(encryptedData) - totalEncSize;
+    LE_ASSERT(LE_OK == taf_ks_CryptoSessionEnd(sessionRef,
+                                               NULL, 0,
+                                               encryptedData + totalEncSize,
+                                               &encryptedDataSize));
+    totalEncSize = totalEncSize + encryptedDataSize;
+    @endcode
  *
- * @note The crypto session is automatically deleted after taf_ks_CryptoSessionAbort() or
+ * @b NOTE:The crypto session is automatically deleted after taf_ks_CryptoSessionAbort() or
  * taf_ks_CryptoSessionEnd() is called, or when any error occurs in taf_ks_CryptoSessionStart() and
  * taf_ks_CryptoSessionProcess().
  *

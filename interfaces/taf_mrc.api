@@ -36,7 +36,7 @@
 /**
  * @page c_tafMRC MRC Service
  *
- * @ref taf_mrc_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_mrc_interface.h>` @endrst
  *
  * <HR>
  *
@@ -99,7 +99,7 @@
 /**
  * OTA operation status enum.
  *
- * @note OTA status notified to MRCD.
+ * @b NOTE: OTA status notified to MRCD.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM OtaOperationStatus
@@ -126,7 +126,7 @@ FUNCTION le_result_t SendOtaStartMsg
  * Sends an OTA resume message to MRCD.
  *
  * @return
- *  - LE_FAULT -- Failed. 
+ *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------

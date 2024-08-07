@@ -67,7 +67,7 @@
 /**
  * @page c_tafSimSap SIM Access Profile
  *
- * @ref taf_simSap_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_simSap_interface.h>` @endrst
  *
  * <HR>
  *

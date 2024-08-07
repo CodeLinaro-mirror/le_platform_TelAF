@@ -35,7 +35,7 @@
 /**
  * @page c_tafDiagUpdate Diag Update Service
  *
- * @ref taf_diagUpdate_service.h "API Reference"
+ * @rst :ref:`API reference <File taf_diagUpdate_interface.h>` @endrst
  *
  * <HR>
  *
@@ -347,7 +347,7 @@ REFERENCE RxXferExitMsg;
  *     - Reference to the service instance.
  *     - NULL if not allowed to create the service.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
@@ -386,7 +386,7 @@ EVENT RxFileXferMsg
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_OVERFLOW -- Payload size is too small.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetFilePathAndName
@@ -404,7 +404,7 @@ FUNCTION le_result_t GetFilePathAndName
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDataFormatID
@@ -422,7 +422,7 @@ FUNCTION le_result_t GetDataFormatID
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetUnCompFileSize
@@ -440,7 +440,7 @@ FUNCTION le_result_t GetUnCompFileSize
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCompFileSize
@@ -458,7 +458,7 @@ FUNCTION le_result_t GetCompFileSize
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef or wrong modeOfOperation.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetFilePosition
@@ -479,7 +479,7 @@ FUNCTION le_result_t SetFilePosition
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_OVERFLOW -- file size more than UINT32_MAX.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetFileSizeOrDirInfoLength
@@ -493,7 +493,7 @@ FUNCTION le_result_t SetFileSizeOrDirInfoLength
 /**
  * Sends a response message for the Rx RequestFileTransfer message.
  *
- * @note This function must be called to send a response
+ * @b NOTE: This function must be called to send a response
  *       if receiving a RequestFileTransfer message.
  *
  * @return
@@ -502,7 +502,7 @@ FUNCTION le_result_t SetFileSizeOrDirInfoLength
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendFileXferResp
@@ -541,7 +541,7 @@ EVENT RxXferDataMsg
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetblockSeqCount
@@ -559,7 +559,7 @@ FUNCTION le_result_t GetblockSeqCount
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetXferDataParamRecLen
@@ -578,7 +578,7 @@ FUNCTION le_result_t GetXferDataParamRecLen
  *     - LE_OVERFLOW -- Payload size is too small.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetXferDataParamRec
@@ -591,7 +591,7 @@ FUNCTION le_result_t GetXferDataParamRec
 /**
  * Sends a response message for the Rx TransferData message.
  *
- * @note This function must be called to send a response
+ * @b NOTE: This function must be called to send a response
  *       if receiving a TransferData message.
  *
  * @return
@@ -600,7 +600,7 @@ FUNCTION le_result_t GetXferDataParamRec
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendXferDataResp
@@ -640,7 +640,7 @@ EVENT RxXferExitMsg
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetXferExitParamRecLen
@@ -659,7 +659,7 @@ FUNCTION le_result_t GetXferExitParamRecLen
  *     - LE_OVERFLOW -- Payload size is too small.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetXferExitParamRec
@@ -672,7 +672,7 @@ FUNCTION le_result_t GetXferExitParamRec
 /**
  * Sends a response message for the Rx RequestTransferExit message.
  *
- * @note This function must be called to send a response
+ * @b NOTE: This function must be called to send a response
  *       if receiving a RequestTransferExit message.
  *
  * @return
@@ -681,7 +681,7 @@ FUNCTION le_result_t GetXferExitParamRec
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendXferExitResp

@@ -7,7 +7,7 @@
 /**
  * @page c_tafhms Health Monitor Service
  *
- * @ref taf_hms_interface.h "API Reference"
+ * @rst :ref:`API Reference <File taf_hms_interface.h>` @endrst
  *
  * <HR>
  *

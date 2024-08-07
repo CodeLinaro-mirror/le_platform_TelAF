@@ -36,7 +36,7 @@
 /**
  * @page c_tafpm Power Management Service
  *
- * @ref taf_pm_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_pm_interface.h>` @endrst
  *
  * <HR>
  *
@@ -168,9 +168,9 @@ ENUM State
     STATE_SUSPEND,                ///< System state is suspend.
     STATE_SHUTDOWN,               ///< System state is shutdown.
     STATE_ALL_ACKED,              ///< State all clients ACKed.
-                                  ///  @note This is an internal state between MPMS and PMS.
+                                  ///  @b NOTE: This is an internal state between MPMS and PMS.
     STATE_ALL_WAKELOCKS_RELEASED  ///< State all wakelocks released.
-                                  ///  @note This is an internal state between MPMS and PMS.
+                                  ///  @b NOTE: This is an internal state between MPMS and PMS.
 };
 
 /**
@@ -224,7 +224,7 @@ EVENT StateChange
 /**
  * StateChangeEx change handler.
  *
- * @note This is supported only on SA525M.
+ * @b NOTE: This is supported only on SA525M.
  */
 HANDLER StateChangeExHandler
 (
@@ -236,7 +236,7 @@ HANDLER StateChangeExHandler
 /**
  * TCU state change event of the local process.
  *
- * @note This is supported only on SA525M.
+ * @b NOTE: This is supported only on SA525M.
  */
 EVENT StateChangeEx
 (
@@ -318,7 +318,7 @@ FUNCTION State GetPowerState
 *     - LE_OK          Successfully changed the state of device.
 *     - LE_FAULT       Failed.
 *
-* @note This is supported only on SA525M.
+* @b NOTE: This is supported only on SA525M.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAllVMPowerState
@@ -334,7 +334,7 @@ FUNCTION le_result_t SetAllVMPowerState
 *     - LE_OK          Successfully changed the state of Virtual Machine.
 *     - LE_FAULT       Failed.
 *
-* @note This is supported only on SA525M.
+* @b NOTE: This is supported only on SA525M.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetVMPowerState
@@ -351,7 +351,7 @@ FUNCTION le_result_t SetVMPowerState
  *     - non-null pointer -- The Virtual Machines List reference.
  *     - null pointer -- Internal error.
  *
- * @note This is supported only on SA525M.
+ * @b NOTE: This is supported only on SA525M.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION VMList GetMachineList
@@ -367,7 +367,7 @@ FUNCTION VMList GetMachineList
  *     - LE_BAD_PARAMETER -- Bad parameters.
  *     - LE_NOT_FOUND -- Empty list.
  *
- * @note This is supported only on SA525M.
+ * @b NOTE: This is supported only on SA525M.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetFirstMachineName
@@ -385,7 +385,7 @@ FUNCTION le_result_t GetFirstMachineName
  *     - LE_BAD_PARAMETER -- Bad parameters.
  *     - LE_NOT_FOUND -- The end of the list.
  *
- * @note This is supported only on SA525M.
+ * @b NOTE: This is supported only on SA525M.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNextMachineName
@@ -402,7 +402,7 @@ FUNCTION le_result_t GetNextMachineName
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
  *
- * @note This is supported only on SA525M.
+ * @b NOTE: This is supported only on SA525M.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteMachineList
@@ -414,7 +414,7 @@ FUNCTION le_result_t DeleteMachineList
 /**
  *  Receives the acknowledgement from clients for state change.
  *
- * @note This is supported only on SA525M.
+ * @b NOTE: This is supported only on SA525M.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION SendStateChangeAck

@@ -59,7 +59,7 @@
 /**
  * @page c_tafsms SMS Service
  *
- * @ref taf_sms_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_sms_interface.h>` @endrst
  *
  * <HR>
  *
@@ -238,49 +238,50 @@
  *
  * @section taf_sms_usage_flow Typical application call flow
  *
- * - Message Sending
+ * @rstblock
+ * - **Message Sending**
  *
- * @image html SMS_usage_flow_sending.jpg
+ *   .. image:: /rst/flow_diagrams/SMS_usage_flow_sending.jpg
  *
- * #0 -- Create the message, the following manipulation will use the returned message reference from service.
+ *   #0. Create the message, the following manipulation will use the returned message reference from service.
  *
- * #1 -- Set the message content.
+ *   #1. Set the message content.
  *
- * #2 -- Set the receiver's phone number.
+ *   #2. Set the receiver's phone number.
  *
- * #3 -- Set the message callback to get the sending result.
+ *   #3. Set the message callback to get the sending result.
  *
- * #4 -- Send the message.
+ *   #4. Send the message.
  *
- * #5 -- Delete the message object if it is not used anymore.
+ *   #5. Delete the message object if it is not used anymore.
  *
- * - Message Receiving
+ * - **Message Receiving**
  *
- * @image html SMS_usage_flow_receiving.jpg
+ *   .. image:: /rst/flow_diagrams/SMS_usage_flow_receiving.jpg
  *
- * #0 -- Set preferred storage to one of the storage types.
+ *   #0. Set preferred storage to one of the storage types.
  *
- * #1 -- Set the message receiving handler to be able to receive any messages sent to the application.
+ *   #1. Set the message receiving handler to be able to receive any messages sent to the application.
  *
- * #2 -- Get the new message notification with the message reference.
+ *   #2. Get the new message notification with the message reference.
  *
- * #3 -- Get the PDU data with the specified message reference.
+ *   #3. Get the PDU data with the specified message reference.
  *
- * - Message Retrieving from storage
+ * - **Message Retrieving from storage**
  *
- * @image html SMS_usage_flow_retrieving.jpg
+ *   .. image:: /rst/flow_diagrams/SMS_usage_flow_retrieving.jpg
  *
- * #0 -- Create the Rx message list for listing the messages stored in SIM and HLOS.
+ *   #0. Create the Rx message list for listing the messages stored in SIM and HLOS.
  *
- * #1 -- Get message reference of the first message from Rx message list.
+ *   #1. Get message reference of the first message from Rx message list.
  *
- * #2 -- Get the message reference of the next message from the Rx message list.
+ *   #2. Get the message reference of the next message from the Rx message list.
  *
- * #3 -- Delete the message with the specified message reference.
+ *   #3. Delete the message with the specified message reference.
  *
- * #4 -- Delete the Rx message list after all manipulations are complete.
+ *   #4. Delete the Rx message list after all manipulations are complete.
  *
- * <HR>
+ * @endrst
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -952,7 +953,7 @@ FUNCTION le_result_t DeleteFromStorage
 /**
  * Deletes all messages from storage.
  *
- * @note In the case of HLOS storage, this API only deletes unlocked messages.
+ * @b NOTE: In the case of HLOS storage, this API only deletes unlocked messages.
  *
  * @return
  * - LE_BAD_PARAMETER -- Invalid storage.

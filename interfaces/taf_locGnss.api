@@ -65,7 +65,7 @@
 /**
  * @page c_taflocGnss Location Service
  *
- * @ref taf_locGnss_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_locGnss_interface.h>` @endrst
  *
  * <HR>
  *
@@ -275,7 +275,7 @@
    @endverbatim
  *
  *
- * @warning Some constellation types are unsupported depending on the platform.
+ * @b WARNING: Some constellation types are unsupported depending on the platform.
  *
  * The taf_locGnss_GetConstellation() function gets the blacklisted GNSS constellation(s).
  * @verbatim
@@ -336,10 +336,10 @@
    {
       // Process the NMEA sentence type received in the handler function.
    }
- * @endverbatim
+   @endverbatim
  *
- * @note If many applications register handlers for NMEA notifications, they
- *       will all receive it.
+ * @b NOTE: If many applications register handlers for NMEA notifications, they
+ *          will all receive it.
  *
  * An application may unregister a NMEA handler by calling @ref taf_locGnss_RemoveNmeaHandler().
  *
@@ -359,12 +359,12 @@
    }
    @endverbatim
  *
- * @note This function may be subject to limitations depending on the platform.
+ * @b NOTE: This function may be subject to limitations depending on the platform.
  *
  *
- * @warning Some NMEA sentences are unsupported depending on the platform.
+ * @b WARNING: Some NMEA sentences are unsupported depending on the platform.
  *
- * @note All supported NMEA sentences are enabled by default.
+ * @b NOTE: All supported NMEA sentences are enabled by default.
  *
  * The taf_locGnss_GetNmeaSentences() function gets the bitmask of the enabled NMEA sentences.
  * @verbatim
@@ -961,8 +961,8 @@
    }
  * @endverbatim
  *
- * @note If many applications register handlers for capability notifications, they
- *       will all receive it.
+ * @b NOTE: If many applications register handlers for capability notifications, they
+ *          will all receive it.
  *
  * An application may unregister a capability handler by calling @ref taf_locGnss_RemoveCapabilityChangeHandler().
  *
@@ -992,8 +992,8 @@
    }
    @endverbatim
  *
- * @note This API call is not incremental and the new NMEA configuration will completely overwrite
- *       the previous call to this API.
+ * @b NOTE: This API call is not incremental and the new NMEA configuration will completely overwrite
+ *          the previous call to this API.
  *
  * - taf_locGnss_GetXtraStatus() -- Gets whether the XTRA feature is enabled or not,
  * XTRA data status, and the valid time in hours.
@@ -1079,7 +1079,8 @@
  *
  * @section taf_locGnss_usage_flow Typical application call flow
  *
- * @image html location_usage_flow.jpg
+ * @rstblock
+ * .. image:: /rst/flow_diagrams/location_usage_flow.jpg
  *
  * The Location application locates in NAD device and access the tafLocationSvc on the corresponding NAD device.
  *
@@ -1102,6 +1103,8 @@
  * #8 -- When there's no need to receive any GNSS fixes from the application, the registered handler reference can be removed.
  *
  * #9 -- Stop the GNSS session with the service. This will stop receiving fixes at the location service.
+ *
+ * @endrst
  *
  * <HR>
  *
@@ -1140,7 +1143,7 @@ DEFINE SB_CONST_MAX_LEN = 8;
 /**
  * Defines the maximum bitmask for enabled NMEA sentences.
  *
- * @note This value should be coherent with @ref le_gnss_NmeaBitMask_t.
+ * @b NOTE: This value should be coherent with @ref le_gnss_NmeaBitMask_t.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE NMEA_SENTENCES_MAX = 0xFFFFFFFF;
@@ -1415,7 +1418,7 @@ ENUM Resolution
  *
  * @return A reference to the last position sample.
  *
- * @note
+ * @b NOTE:
  *      On failure, the process exits.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1431,7 +1434,7 @@ FUNCTION Sample GetLastSampleRef
  *  - LE_OK    Succeeded.
  *  - LE_FAULT Failed.
  *
- * @note If the caller passes an invalid position sample reference or a null pointer to this
+ * @b NOTE: If the caller passes an invalid position sample reference or a null pointer to this
  *       function, it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1445,7 +1448,7 @@ FUNCTION le_result_t GetPositionState
 /**
  * Releases the position sample per client session.
  *
- * @note If the caller passes an invalid position sample reference to this function,
+ * @b NOTE: If the caller passes an invalid position sample reference to this function,
  *       it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1464,19 +1467,19 @@ FUNCTION ReleaseSampleRef
  *  - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid.
  *  - LE_OK            Succeeded.
  *
- * @note latitudePtr, longitudePtr, and hAccuracyPtr can be set to NULL if not needed.
+ * @b NOTE: latitudePtr, longitudePtr, and hAccuracyPtr can be set to NULL if not needed.
  *
- * @note The latitude and longitude values are based on the WGS84 standard coordinate system.
+ * @b NOTE: The latitude and longitude values are based on the WGS84 standard coordinate system.
  *
- * @note The latitude and longitude values are given in degrees with 6 decimal places like:
+ * @b NOTE: The latitude and longitude values are given in degrees with 6 decimal places like:
  *       Latitude +48858300 = 48.858300 degrees North
  *       Longitude +2294400 = 2.294400 degrees East
  *       The latitude and longitude values are given in degrees, minutes, seconds in NMEA frame.
  *
- * @note In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
+ * @b NOTE: In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
  *       valid. Compare them with INT32_MAX.
  *
- * @note If the caller passes an invalid position sample reference to this function,
+ * @b NOTE: If the caller passes an invalid position sample reference to this function,
  *       it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1499,16 +1502,16 @@ FUNCTION le_result_t GetLocation
  *  - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid.
  *  - LE_OK            Succeeded.
  *
- * @note Direction and direction accuracy are given in degrees with 1 decimal place: 1755 = 175.5
+ * @b NOTE: Direction and direction accuracy are given in degrees with 1 decimal place: 1755 = 175.5
  * degrees.
  * Direction ranges from 0 to 359.9 degrees, where 0 is True North.
  *
- * @note If the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
+ * @b NOTE: If the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
  *       valid. Compare them with INT32_MAX.
  *
- * @note directionPtr and directionAccuracyPtr can be set to NULL if not needed.
+ * @b NOTE: directionPtr and directionAccuracyPtr can be set to NULL if not needed.
  *
- * @note If the caller passes an invalid position sample reference to this function,
+ * @b NOTE: If the caller passes an invalid position sample reference to this function,
  *       it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1529,15 +1532,15 @@ FUNCTION le_result_t GetDirection
  *  - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid.
  *  - LE_OK            Succeeded.
  *
- * @note For a 2D position fix, the altitude will be indicated as invalid and set to INT32_MAX
+ * @b NOTE: For a 2D position fix, the altitude will be indicated as invalid and set to INT32_MAX
  *
- * @note In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
+ * @b NOTE: In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
  *       valid. Compare them with INT32_MAX.
  *
- * @note If the caller passes an invalid position reference to this function,
+ * @b NOTE: If the caller passes an invalid position reference to this function,
  *       it is a fatal error and the client will be killed.
  *
- * @note altitudePtr and altitudeAccuracyPtr can be set to NULL if not needed.
+ * @b NOTE: altitudePtr and altitudeAccuracyPtr can be set to NULL if not needed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetAltitude
@@ -1556,18 +1559,18 @@ FUNCTION le_result_t GetAltitude
  * - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid.
  * - LE_OK            Succeeded.
  *
- * @note hSpeedPtr and hSpeedAccuracyPtr can be set to NULL if not needed.
+ * @b NOTE: hSpeedPtr and hSpeedAccuracyPtr can be set to NULL if not needed.
  *
- * @note Horizontal speed is in meters/second with 2 decimal places (3047 = 30.47 meters/second).
+ * @b NOTE: Horizontal speed is in meters/second with 2 decimal places (3047 = 30.47 meters/second).
  *
- * @note In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
+ * @b NOTE: In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
  *       valid. Compare them with UINT32_MAX.
  *
- * @note If the caller passes an invalid position sample reference to this function,
+ * @b NOTE: If the caller passes an invalid position sample reference to this function,
  *       it is a fatal error and the client will be killed.
  *
  *
- * @warning The horizontal speed accuracy is platform dependent.
+ * @b WARNING: The horizontal speed accuracy is platform dependent.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetHorizontalSpeed
@@ -1587,19 +1590,19 @@ FUNCTION le_result_t GetHorizontalSpeed
  *  - LE_OUT_OF_RANGE  At least one of the retrieved parameters is not valid.
  *  - LE_OK            Succeeded.
  *
- * @note vSpeedPtr and vSpeedAccuracyPtr can be set to NULL if not needed.
+ * @b NOTE: vSpeedPtr and vSpeedAccuracyPtr can be set to NULL if not needed.
  *
- * @note For a 2D position fix, the vertical speed will be indicated as invalid
+ * @b NOTE: For a 2D position fix, the vertical speed will be indicated as invalid
  *       and set to INT32_MAX.
  *
- * @note In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
+ * @b NOTE: In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
  *       valid. Compare them with INT32_MAX.
  *
- * @note If the caller passes an invalid position sample reference to this function,
+ * @b NOTE: If the caller passes an invalid position sample reference to this function,
  *       it is a fatal error and the client will be killed.
  *
  *
- * @warning The vertical speed accuracy is platform dependent.
+ * @b WARNING: The vertical speed accuracy is platform dependent.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetVerticalSpeed
@@ -1620,7 +1623,7 @@ FUNCTION le_result_t GetVerticalSpeed
  *  - LE_OK            Succeeded.
 
  *
- * @note If the caller passes an invalid position sample reference or a null pointer to this
+ * @b NOTE: If the caller passes an invalid position sample reference or a null pointer to this
  *       function, it is a fatal error and the client will be killed.
  *
  *
@@ -1643,7 +1646,7 @@ FUNCTION le_result_t  GetGpsLeapSeconds
  *  - LE_OUT_OF_RANGE  The retrieved date is invalid.
  *  - LE_OK            Succeeded.
  *
- * @note If the caller passes an invalid position sample reference or null pointers to this
+ * @b NOTE: If the caller passes an invalid position sample reference or null pointers to this
  *       function, it is a fatal error and the client will be killed.
 */
 //--------------------------------------------------------------------------------------------------
@@ -1664,7 +1667,7 @@ FUNCTION le_result_t GetDate
  *  - LE_OUT_OF_RANGE  The retrieved time is invalid
  *  - LE_OK            Succeeded.
  *
- * @note If the caller passes an invalid position sample reference or null pointers to this
+ * @b NOTE: If the caller passes an invalid position sample reference or null pointers to this
  *       function, it is a fatal error and the client will be killed.
 */
 //--------------------------------------------------------------------------------------------------
@@ -1687,7 +1690,7 @@ FUNCTION le_result_t GetTime
  *  - LE_NOT_PERMITTED The Location service state is not initialized.
  *  - LE_OK            Succeeded.
  *
- * @warning The settings are platform dependent.
+ * @b WARNING: The settings are platform dependent.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Enable
@@ -1753,7 +1756,7 @@ ENUM DopType
  *  - LE_FAULT         Failed.
  *  - LE_OK            Succeeded.
  *
- * @warning The settings are platform dependent.
+ * @b WARNING: The settings are platform dependent.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Disable
@@ -1785,11 +1788,11 @@ FUNCTION le_result_t Stop
  *  - LE_NOT_PERMITTED The Location service state is not initialized, disabled, or active.
  *  - LE_OK            Succeeded.
  *
- * @warning Some constellation types are unsupported depending on the platform.
+ * @b WARNING: Some constellation types are unsupported depending on the platform.
  *
- * @warning The settings are platform dependent.
+ * @b WARNING: The settings are platform dependent.
  *
- * @note GPS constellation and SVs cannot be blacklisted.
+ * @b NOTE: GPS constellation and SVs cannot be blacklisted.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetConstellation
@@ -1805,7 +1808,7 @@ FUNCTION le_result_t SetConstellation
  *  - LE_OK    Succeeded.
  *  - LE_FAULT Failed.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error and the
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
  *
 */
@@ -2347,20 +2350,20 @@ STRUCT DrParams
                           ///  dead reckoning positioning engine. The multiplicative scale factor is
                           ///  applied to the received vehicle speed value (in meters/second) to
                           ///  obtain the true vehicle speed. Range is 0.9 to 1.1.
-                          ///  @note The scale factor is specific to a given vehicle make and model.
+                          ///  @b NOTE: The scale factor is specific to a given vehicle make and model.
     double speedFactorUnc;///< Vehicle speed scale factor uncertainty (68% confidence) configuration
                           ///  input for the dead reckoning positioning engine. Range is 0.0 to 0.1.
-                          ///  @note The scale factor uncertainty is specific to a given
+                          ///  @b NOTE: The scale factor uncertainty is specific to a given
                           ///  vehicle make and model.
     double gyroFactor;    ///< Gyroscope scale factor configuration input for the dead reckoning
                           ///  positioning engine.The multiplicative scale factor is applied
                           ///  to received gyroscope value to obtain the true value. Range is
-                          ///  0.9 to 1.1. @note The scale factor is specific to the Gyroscope
+                          ///  0.9 to 1.1. @b NOTE: The scale factor is specific to the Gyroscope
                           ///  sensor and typically derived from either the sensor's data sheet
                           ///  or from actual calibration.
     double gyroFactorUnc; ///< Gyroscope scale factor uncertainty (68% confidence) configuration
                           ///  input for the dead reckoning positioning engine. Range is 0.0 to 0.1.
-                          ///  @note The scale factor uncertainty is specific to the Gyroscope
+                          ///  @b NOTE: The scale factor uncertainty is specific to the Gyroscope
                           ///  sensor and typically derived from either the sensor's data sheet
                           ///  or from actual calibration.
 };
@@ -2523,10 +2526,10 @@ FUNCTION State GetState
  *  - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid.
  *  - LE_OK            Succeeded.
  *
- * @note In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
+ * @b NOTE: In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
  *       valid. Compare them with UINT8_MAX.
  *
- * @note If the caller passes an invalid position sample reference to this function,
+ * @b NOTE: If the caller passes an invalid position sample reference to this function,
  *       it is a fatal error and the client will be killed.
 */
 //--------------------------------------------------------------------------------------------------
@@ -2548,7 +2551,7 @@ FUNCTION le_result_t GetSatellitesStatus
  *  - LE_FAULT         Failed.
  *  - LE_NOT_PERMITTED The Location service state is not ready.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error and the
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
 */
 //--------------------------------------------------------------------------------------------------
@@ -2567,7 +2570,7 @@ FUNCTION le_result_t GetAcquisitionRate
  *  - LE_OK            Succeeded.
  *  - LE_FAULT         Failed.
  *
- * @note In case of cold start and warm start, the aiding data for the GNSS engine is deleted and
+ * @b NOTE: In case of cold start and warm start, the aiding data for the GNSS engine is deleted and
  *       the TTFF in these cases would be precise. The TTFF accuracy is lower with higher
  *       acquisition rate and is the most precise acquisition at 100ms (10Hz).
  *
@@ -2575,7 +2578,7 @@ FUNCTION le_result_t GetAcquisitionRate
  *       restarting to receive the reports and receiving first fix reports since these APIs do not
  *       restart the underlying GNSS engine.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error and the
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
 */
 //--------------------------------------------------------------------------------------------------
@@ -2594,17 +2597,17 @@ FUNCTION le_result_t GetTtff
  *  - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid.
  *  - LE_OK            Succeeded.
  *
- * @note satId[] can be set to 0 if that information list index is not configured, so
+ * @b NOTE: satId[] can be set to 0 if that information list index is not configured, so
  *       all satellite parameters (satConst[], satSnr[], satAzim[], satElev[]) are fixed to 0.
  *
- * @note For LE_OUT_OF_RANGE returned code, invalid value depends on the field type:
+ * @b NOTE: For LE_OUT_OF_RANGE returned code, invalid value depends on the field type:
  * UINT16_MAX for satId, TAF_LOCGNSS_SV_CONSTELLATION_UNDEFINED for satConst, false for satUsed,
  * UINT8_MAX for satSnr, UINT16_MAX for satAzim, and UINT8_MAX for satElev.
  *
- * @note In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
+ * @b NOTE: In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
  *       valid.
  *
- * @note If the caller passes an invalid position sample reference to this function,
+ * @b NOTE: If the caller passes an invalid position sample reference to this function,
  *       it is a fatal error and the client will be killed.
 */
 //--------------------------------------------------------------------------------------------------
@@ -2630,7 +2633,7 @@ FUNCTION le_result_t GetSatellitesInfo
  *  - LE_OUT_OF_RANGE  The retrieved time accuracy is invalid.
  *  - LE_OK            Succeeded.
  *
- * @note If the caller passes an invalid position sample reference or a null pointer to this
+ * @b NOTE: If the caller passes an invalid position sample reference or a null pointer to this
  *       function, it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2650,9 +2653,9 @@ FUNCTION le_result_t GetTimeAccuracy
  *  - LE_OK            Succeeded.
  *  - LE_OUT_OF_RANGE  The retrieved time is invalid.
  *
- * @note The epoch time is the number of seconds elapsed.
+ * @b NOTE: The epoch time is the number of seconds elapsed.
  *
- * @note If the caller passes an invalid position sample reference or a null pointer to this
+ * @b NOTE: If the caller passes an invalid position sample reference or a null pointer to this
  *       function, it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2670,10 +2673,10 @@ FUNCTION le_result_t GetEpochTime
  * @return LE_BAD_PARAMETER    Invalid parameter provided.
  * @return LE_FAULT            Failed.
  *
- * @note The function sets the same resolution to all DOP values returned by
+ * @b NOTE: The function sets the same resolution to all DOP values returned by
  *       taf_locGnss_GetDilutionOfPrecision(). The resolution setting takes effect immediately.
  *
- * @note The resolution setting is done per client session.
+ * @b NOTE: The resolution setting is done per client session.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetDopResolution
@@ -2691,10 +2694,10 @@ FUNCTION le_result_t SetDopResolution
  *  - LE_OK            Succeeded.
  *
  *
- * @note The DOP value is given with 3 decimal places by default, i.e., DOP value 2200 = 2.200
+ * @b NOTE: The DOP value is given with 3 decimal places by default, i.e., DOP value 2200 = 2.200
  *       The resolution can be modified by calling the @c taf_locGnss_SetDopResolution() function.
  *
- * @note If the caller passes an invalid position sample reference to this function,
+ * @b NOTE: If the caller passes an invalid position sample reference to this function,
  *       it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2713,15 +2716,15 @@ FUNCTION le_result_t GetDilutionOfPrecision
  *  - LE_OK            Succeeded.
  *  - LE_FAULT         Failed to get the data.
  *
- * @note Insertion of each UTC leap second is usually decided about six months in advance by the
+ * @b NOTE: Insertion of each UTC leap second is usually decided about six months in advance by the
  *       International Earth Rotation and Reference Systems Service (IERS).
  *
- * @note If the caller passes a null pointer to this function, it is considered a fatal
+ * @b NOTE: If the caller passes a null pointer to this function, it is considered a fatal
  *       error and the client will be killed.
  *
- * @note If the return value of a parameter is INT32_MAX/UINT64_MAX, the parameter is not valid.
+ * @b NOTE: If the return value of a parameter is INT32_MAX/UINT64_MAX, the parameter is not valid.
  *
- * @note Currently the API is not implemented.
+ * @b NOTE: Currently the API is not implemented.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetLeapSeconds
@@ -2741,7 +2744,7 @@ FUNCTION le_result_t GetLeapSeconds
  *  - LE_OUT_OF_RANGE  The retrieved time is invalid.
  *  - LE_OK            Succeeded.
  *
- * @note If the caller passes an invalid position sample reference or null pointers to this
+ * @b NOTE: If the caller passes an invalid position sample reference or null pointers to this
  *       function, it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2763,7 +2766,7 @@ FUNCTION le_result_t GetGpsTime
  *  - LE_OUT_OF_RANGE   Acquisition rate value is equal to zero.
  *
  *
- * @warning The settings are platform dependent.
+ * @b WARNING: The settings are platform dependent.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAcquisitionRate
@@ -2780,7 +2783,7 @@ FUNCTION le_result_t SetAcquisitionRate
  *  - LE_NOT_PERMITTED The Location service state is not enabled or not started.
  *  - LE_OK            Succeeded.
  *
- * @note This API has a platform dependent feature.
+ * @b NOTE: This API has a platform dependent feature.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ForceWarmRestart
@@ -2824,7 +2827,7 @@ FUNCTION le_result_t ForceFactoryRestart
  *  - LE_NOT_PERMITTED The Location service state is not enabled or not started.
  *  - LE_OK            Succeeded.
  *
- * @note This API can be used to restart the Location service. It is equivalent calling taf_locGnss_Stop()
+ * @b NOTE: This API can be used to restart the Location service. It is equivalent calling taf_locGnss_Stop()
  *       and taf_locGnss_Start().
  */
 //--------------------------------------------------------------------------------------------------
@@ -2848,7 +2851,7 @@ FUNCTION le_result_t GetSupportedConstellations
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This API configures the minimum SV elevation angle setting used by the GNSS 
+ * This API configures the minimum SV elevation angle setting used by the GNSS
  * standard position engine per client session.
  *
  * @return
@@ -2857,7 +2860,7 @@ FUNCTION le_result_t GetSupportedConstellations
  *  - LE_OUT_OF_RANGE The minimum elevation value is above the range[0,90].
  *  - LE_NOT_PERMITTED The Location service state is not enabled or not started.
  *
- * @warning The settings are platform dependent.
+ * @b WARNING: The settings are platform dependent.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMinElevation
@@ -2876,7 +2879,7 @@ FUNCTION le_result_t SetMinElevation
  *  - LE_DUPLICATE     The Location service is already started.
  *  - LE_NOT_PERMITTED The Location service state is not enabled or not started.
  *
- * @warning The settings are platform dependent.
+ * @b WARNING: The settings are platform dependent.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StartMode
@@ -2894,7 +2897,7 @@ FUNCTION le_result_t StartMode
  *  - LE_FAULT       Failed.
  *  - LE_NOT_PERMITTED The Location service state is not enabled or not started.
  *
- * @note If the caller passes n null pointer to this function, it is a fatal error and the
+ * @b NOTE: If the caller passes n null pointer to this function, it is a fatal error and the
  *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2913,9 +2916,9 @@ FUNCTION le_result_t GetMinElevation
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
- * @warning This function may be subject to limitations depending on the platform.
+ * @b WARNING: This function may be subject to limitations depending on the platform.
  *
- * @note Some NMEA sentences are unsupported depending on the platform.
+ * @b NOTE: Some NMEA sentences are unsupported depending on the platform.
  *       Setting an unsuported NMEA sentence will not report an error but
  *       we cannot receive the NMEA callback function to fetch the same.
  *
@@ -2937,10 +2940,10 @@ FUNCTION le_result_t SetNmeaSentences
  *  - LE_TIMEOUT        Timeout occurred.
  *  - LE_NOT_PERMITTED  Location service is not active.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error and the
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
  *
- * @note Some NMEA sentences are unsupported depending on the platform.
+ * @b NOTE: Some NMEA sentences are unsupported depending on the platform.
  *       We cannot receive the NMEA callback function to fetch the unsupported
  *       NMEA sentences.So the bitmask won't get for those NMEA sentences.
  */
@@ -2964,7 +2967,7 @@ FUNCTION le_result_t GetNmeaSentences
  *  - LE_OUT_OF_RANGE   Dead reckoning parameters out of range.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error, the
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error, the
  *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2997,7 +3000,7 @@ FUNCTION le_result_t GetSupportedNmeaSentences
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error and the
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3017,7 +3020,7 @@ FUNCTION le_result_t ConfigureEngineState
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not active.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error and the
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3037,7 +3040,7 @@ FUNCTION le_result_t ConfigureRobustLocation
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not active.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error and the
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3058,7 +3061,7 @@ FUNCTION le_result_t RobustLocationInformation
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error and the
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3075,7 +3078,7 @@ FUNCTION le_result_t DefaultSecondaryBandConstellations
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error and the
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3093,7 +3096,7 @@ FUNCTION le_result_t RequestSecondaryBandConstellations
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error and the
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3111,7 +3114,7 @@ FUNCTION le_result_t ConfigureSecondaryBandConstellations
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  The Location service is not in the Active state.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 
@@ -3135,7 +3138,7 @@ FUNCTION le_result_t GetMagneticDeviation
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  The Location service is not in the Active state.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3161,7 +3164,7 @@ FUNCTION le_result_t GetEllipticalUncertainty
  *  - LE_BAD_PARAMETER  Invalid lever arm parameter provided.
  *  - LE_NOT_PERMITTED  The Location service is not in the ready state.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3180,7 +3183,7 @@ FUNCTION le_result_t SetLeverArmConfig
  *  - LE_BAD_PARAMETER  Invalid engine type parameter provided.
  *  - LE_NOT_PERMITTED  The Location service is not in the ready state.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3198,9 +3201,9 @@ FUNCTION le_result_t SetEngineType
  *  - LE_FAULT          Failed.
  *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
  *
- * @note When robust location is enabled, comformity index will be returned.
+ * @b NOTE: When robust location is enabled, comformity index will be returned.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3223,7 +3226,7 @@ FUNCTION le_result_t GetConformityIndex
  *  - LE_FAULT          Failed.
  *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3243,7 +3246,7 @@ FUNCTION le_result_t GetCalibrationData
  *  - LE_FAULT          Failed.
  *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3263,7 +3266,7 @@ FUNCTION le_result_t GetBodyFrameData
  *  - LE_FAULT          Failed.
  *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3288,7 +3291,7 @@ FUNCTION le_result_t GetVRPBasedLLA
  *  - LE_FAULT          Failed.
  *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3310,7 +3313,7 @@ FUNCTION le_result_t GetVRPBasedVelocity
  *  - LE_FAULT          Failed.
  *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3330,7 +3333,7 @@ FUNCTION le_result_t GetSvUsedInPosition
  *  - LE_FAULT          Failed.
  *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3350,7 +3353,7 @@ FUNCTION le_result_t GetSbasCorrection
  *  - LE_FAULT          Failed.
  *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3369,7 +3372,7 @@ FUNCTION le_result_t GetPositionTechnology
  *  - LE_FAULT          Failed.
  *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3390,7 +3393,7 @@ FUNCTION le_result_t GetLocationInfoValidity
  *  - LE_FAULT          Failed.
  *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3413,7 +3416,7 @@ FUNCTION le_result_t GetLocationOutputEngParams
  *  - LE_FAULT          Failed.
  *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3434,7 +3437,7 @@ FUNCTION le_result_t GetReliabilityInformation
  *  - LE_FAULT          Failed.
  *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3465,7 +3468,7 @@ FUNCTION le_result_t GetStdDeviationAzimuthInfo
  *  - LE_FAULT          Failed.
  *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3488,7 +3491,7 @@ FUNCTION le_result_t GetRealTimeInformation
  *  - LE_NO_MEMORY      The array length of measInfoPtr is zero.
  *  - LE_OVERFLOW       The array length of measInfoPtr is greater than MEASUREMENT_INFO_MAX.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3509,7 +3512,7 @@ FUNCTION le_result_t GetMeasurementUsageInfo
  *  - LE_BAD_PARAMETER  The given positionSampleRef is invalid.
  *  - LE_NO_MEMORY      The reportStatus is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3529,7 +3532,7 @@ FUNCTION le_result_t GetReportStatus
  *  - LE_BAD_PARAMETER  The positionSampleRef is invalid.
  *  - LE_NO_MEMORY      The altMeanSeaLevel is invalid.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3551,7 +3554,7 @@ FUNCTION le_result_t GetAltitudeMeanSeaLevel
  *  - LE_NO_MEMORY      The array length of sVIdsPtr is zero.
  *  - LE_OVERFLOW       The array length of sVIdsPtr is greater than MEASUREMENT_INFO_MAX.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3574,7 +3577,7 @@ FUNCTION le_result_t GetSVIds
  *  - LE_NO_MEMORY      The array length of svInfo is zero.
  *  - LE_OVERFLOW       The array length of svInfo is less than available SV of a constellation.
  *
- * @note If the caller passes an invalid position sample reference to this function,
+ * @b NOTE: If the caller passes an invalid position sample reference to this function,
  *       it is a fatal error and the client will be killed.
 */
 //--------------------------------------------------------------------------------------------------
@@ -3658,9 +3661,9 @@ FUNCTION le_result_t GetCapabilities
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
- * @warning This function may be subject to limitations depending on the platform.
+ * @b WARNING: This function may be subject to limitations depending on the platform.
  *
- * @note This API call is not incremental and the new NMEA configuration will completely overwrite
+ * @b NOTE: This API call is not incremental and the new NMEA configuration will completely overwrite
  *       the previous call to this API.
  *
  * LE_GNSS_NMEA_MASK_PQXFI is deprecated; LE_GNSS_NMEA_MASK_PTYPE should be used instead.
@@ -3734,7 +3737,7 @@ FUNCTION le_result_t SetDRConfigValidity
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *
- * @note If the caller passes a null pointer to this function, it is a fatal error
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  * and the client will be killed.
  */
 

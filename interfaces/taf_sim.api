@@ -67,7 +67,7 @@
 /**
  * @page c_tafsim SIM Service
  *
- * @ref taf_sim_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_sim_interface.h>` @endrst
  *
  * <HR>
  *
@@ -97,10 +97,10 @@
  * SIM and after this taf_sim_GetSelectedCard() will return the newly selected card, not necessarily
  * the one previously set by taf_sim_SelectCard().
  *
- * @note The SIM selection is not power off persistent. This function needs to be called at each start-up.
+ * @b NOTE: The SIM selection is not power off persistent. This function needs to be called at each start-up.
  *
- * @note It is highly recommended to wait for a TelAF SIM handler notification after selecting a new SIM
- * before calling TelAF SIM API functions.
+ * @b NOTE: It is highly recommended to wait for a TelAF SIM handler notification after selecting a new SIM
+ *          before calling TelAF SIM API functions.
  *
  * @section taf_sim_id SIM identification information
  *
@@ -117,9 +117,9 @@
  * - @ref taf_sim_AddNewStateHandler() -- Registers a handler to get notification when card state changes.
  * - @ref taf_sim_RemoveNewStateHandler() -- Unregisters the handler.
  *
- * @note During the initialization times of service, the new subscriptions of the ICCID change
- *       events are notified by the last changed events. This behavior exists only for 5 seconds and allows
- *       newly registered clients to get any ICCID changes that occured during the device power-on time.
+ * @b NOTE: During the initialization times of service, the new subscriptions of the ICCID change
+ *          events are notified by the last changed events. This behavior exists only for 5 seconds and allows
+ *          newly registered clients to get any ICCID changes that occured during the device power-on time.
  *
  * \b IMSI:
  * The International Mobile Subscriber Identity (IMSI) is a unique identity associated with
@@ -208,13 +208,13 @@
  *
  * When the SIM's state change is notified, the handler function is invoked.
  *
- * @warning If the input *taf_sim_NewStateHandlerFunc_t is null then this function will kill the
- * calling client.
+ * @b WARNING: If the input *taf_sim_NewStateHandlerFunc_t is null then this function will kill the
+ *             calling client.
  *
  * Call @ref taf_sim_GetState() to retrieve the new state of the SIM.
  *
- * @note If many applications register handlers for notifications, they
- *       will all receive it.
+ * @b NOTE: If many applications register handlers for notifications, they
+ *          will all receive it.
  *
  * An application may uninstall a state change handler by calling @ref taf_sim_RemoveNewStateHandler().
  *
@@ -222,8 +222,8 @@
  *
  * - @ref taf_sim_Reset() -- Resets the specified SIM card.
  *
- * @warning The device may need a reboot to detect a SIM insertion or removal. So it is recommended to restart
- *          the device or NAD.
+ * @b WARNING: The device may need a reboot to detect a SIM insertion or removal. So it is recommended to restart
+ *             the device or NAD.
  *
  * @subsection taf_sim_OpenLogicalChannel Logical channels
  *
@@ -241,7 +241,7 @@
  * Use @ref taf_sim_IsEmergencyCallSubscriptionSelected() to know if the EMERGENCY profile is activated for
  * the specified sim slot.
  *
- * @warning If no profile is active, it returns LE_NOT_FOUND.
+ * @b WARNING: If no profile is active, it returns LE_NOT_FOUND.
  *
  * Before the SIM sends a message, an application registers a callback handler using taf_sim_AddNewStateHandler().
  * Once the message is sent, the handler will be called indicating the sending status of the message.
@@ -785,7 +785,7 @@ FUNCTION le_result_t GetEID
 //-------------------------------------------------------------------------------------------------
 /**
  * Enables or disables the automatic SIM selection.
- * @note Currently this API is not supported.
+ * @b NOTE: Currently this API is not supported.
  *
  * @return
  * - LE_OK       Succeeded.
@@ -800,7 +800,7 @@ FUNCTION le_result_t SetAutomaticSelection
 //-------------------------------------------------------------------------------------------------
 /**
  * Gets the automatic SIM selection.
- * @note Currently this API is not supported.
+ * @b NOTE: Currently this API is not supported.
  *
  * @return
  * - LE_OK       Succeeded.
@@ -919,9 +919,9 @@ FUNCTION le_result_t SendCommand
  *      - LE_BAD_PARAMETER -- Invalid SIM identifier.
  *      - LE_FAULT -- Unexpected error.
  *
- * @note The eUICC should be in the Ready state.
+ * @b NOTE: The eUICC should be in the Ready state.
  *
- * @note Ensure the emergency profile is available on the eUICC or an error will be thrown.
+ * @b NOTE: Ensure the emergency profile is available on the eUICC or an error will be thrown.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t LocalSwapToEmergencyCallSubscription
@@ -940,9 +940,9 @@ FUNCTION le_result_t LocalSwapToEmergencyCallSubscription
  *      - LE_BAD_PARAMETER -- Invalid SIM identifier.
  *      - LE_FAULT -- Unexpected error.
  *
- * @note The eUICC should be in the Ready state.
+ * @b NOTE: The eUICC should be in the Ready state.
  *
- * @note Ensure the commercial profile is available on the eUICC or an error will be thrown.
+ * @b NOTE: Ensure the commercial profile is available on the eUICC or an error will be thrown.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t LocalSwapToCommercialSubscription
@@ -961,7 +961,7 @@ FUNCTION le_result_t LocalSwapToCommercialSubscription
  *     - LE_NOT_FOUND  -- Wrong SIM card to operate on.
  *     - LE_BAD_PARAMETER -- Incorrect parameter(s).
  *
- * @note For Multiple SIM power cycle (ON/OFF) operations, it must wait until completing the
+ * @b NOTE: For Multiple SIM power cycle (ON/OFF) operations, it must wait until completing the
  * previous SIM power cycle operation (if any).
  */
 //--------------------------------------------------------------------------------------------------
@@ -1112,7 +1112,7 @@ FUNCTION FPLMNList ReadFPLMNList
 /**
  * Deletes the FPLMN list created by taf_sim_ReadFPLMNList() or taf_sim_CreateFPLMNList().
  *
- * @note
+ * @b NOTE:
  *      On failure, the process exits so that users do not have to worry about checking the returned
  *      reference for validity.
  */

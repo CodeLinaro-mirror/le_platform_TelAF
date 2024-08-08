@@ -124,6 +124,7 @@ typedef struct
 typedef struct
 {
     bool isGraceful;
+    bool isForceful;
     bool isRestart;
     bool isSuspend;
     bool isWsAcquired;
@@ -132,6 +133,7 @@ typedef struct
 typedef struct
 {
     taf_mngdPm_State_t currentState;
+    taf_mngdPm_State_t prevState;
 }taf_stateMachine_t;
 
 typedef struct

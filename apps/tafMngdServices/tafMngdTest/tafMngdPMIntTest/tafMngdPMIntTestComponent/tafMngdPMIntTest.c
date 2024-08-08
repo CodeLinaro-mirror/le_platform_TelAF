@@ -100,7 +100,9 @@ static void PrintUsage ()
         "------------To GetInfoReport-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GetInfoReport\n"
         "------------To AddInfoReportHandler-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- AddInfoReportHandler\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- AddInfoReportHandler\n"
+        "------------To ForcedSystemShutdownAndSuspend-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdownAndSuspend\n");
 }
 
 void NodePowerStateChangeHandlerCB(
@@ -212,6 +214,48 @@ static void ForcedSystemShutdown()
     if(result == LE_OK)
     {
         LE_INFO("----ForcedSystemShutdown success----");
+    }
+    else
+    {
+        LE_ERROR("ForcedSystemShutdown request failed");
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void ForcedSystemShutdownAndSuspend()
+{
+    LE_INFO("----ForcedSystemShutdown test----");
+    le_result_t result;
+    uint8_t pmNodeId = 0;
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE", pmNodeId);
+     if(wsRef == NULL)
+         wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_APP_STAYAWAKE, vHalTag);
+     if(wsRef != NULL) {
+         LE_INFO("NewNodeWakeupSource ref is created for APP_STAYAWAKE");
+         if (wsRef != NULL) {
+             result = taf_mngdPm_StayAwakeNode(wsRef);
+             if(result == LE_OK) {
+                 LE_INFO("Resumed sysytem with wakeuptype APP_STAYAWAKE");
+             }
+             else {
+                 LE_INFO("Failed to acquire Wake source");
+             }
+         }
+     }
+     else {
+         LE_ERROR("Failed to create wakeup source!");
+     }
+    result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+            ForcedSystemShutdownCallBack, NULL);
+
+    if(result == LE_OK)
+    {
+        result = taf_mngdPm_RelaxNode(wsRef);
+        if(result == LE_OK) {
+            LE_INFO("suspended sysytem with wakeuptype MCU_VHAL");
+        }
+        LE_INFO("----ForcedSystemShutdown success----");
+        exit(EXIT_SUCCESS);
     }
     else
     {
@@ -745,6 +789,10 @@ COMPONENT_INIT
         else if(strcmp(testType, "AddInfoReportHandler") == 0)
         {
             AddInfoReportHandler();
+        }
+        else if(strcmp(testType, "ForcedSystemShutdownAndSuspend") == 0)
+        {
+            ForcedSystemShutdownAndSuspend();
         }
         else
         {

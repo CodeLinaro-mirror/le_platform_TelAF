@@ -90,7 +90,7 @@ taf_mngdStorSec_DataRef_t tafMngdStorageSvc::CreateData
 
     if(FindDataRef(dataLabel, &dataRef) == LE_NOT_FOUND)
     {
-        LE_ERROR("Create new data for '%s'", dataLabel);
+        LE_INFO("Create new data for '%s'", dataLabel);
 
         dataPtr = (tafMngdStorage_SecData_t*)le_mem_ForceAlloc(SecDataPool);
 
@@ -271,11 +271,11 @@ le_result_t tafMngdStorageSvc::CreateDataItem
                             LE_BAD_PARAMETER,
                             "cannot get data item path");
 
-    FILE *file = fopen(dataItemPath, "w");
-    if (file)
+    dataPtr->writeOp.outputFd = taf_rfs_Open(dataItemPath, O_CREAT|O_WRONLY|O_TRUNC, S_IRWXU);
+    if (dataPtr->writeOp.outputFd >= 0)
     {
         LE_INFO("File %s created successfully.", dataItemPath);
-        fclose(file);
+        taf_rfs_Close(dataPtr->writeOp.outputFd);
     }
     else
     {
@@ -734,7 +734,7 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
 
         dataPtr->isInReadingProcess = false;
 
-        LE_ERROR("Total output data size = %" PRIuS, *readSize);
+        LE_INFO("Total output data size = %" PRIuS, *readSize);
 
         if(*readSize < totalDecryptedSize)
         {
@@ -819,7 +819,7 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
 
     TAF_ERROR_IF_RET_VAL(dataPtr->isInReadingProcess == false,
                             LE_BUSY,
-                            "data is in reading process");
+                            "data is not in reading process");
 
     TAF_ERROR_IF_RET_VAL(*readSize > TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE,
                             LE_OVERFLOW,
@@ -924,7 +924,7 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
             dataPtr->readOp.ReadDecryptedDataSize += *readSize;
         }
 
-        LE_ERROR("Total read decrypted data size = %" PRIuS,
+        LE_INFO("Total read decrypted data size = %" PRIuS,
                     dataPtr->readOp.ReadDecryptedDataSize);
 
         dataPtr->isInReadingProcess = false;

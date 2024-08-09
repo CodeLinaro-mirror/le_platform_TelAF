@@ -242,6 +242,8 @@ __attribute__((unused)) static void Test_Secure_Data_Read_Write_Chunks()
 
     while(readLen > 0)
     {
+        readLen = sizeof(readBuf);
+
         taf_mngdStorSec_ReadDataNextChunk(dataRef, readBuf, &readLen);
 
         LE_INFO("readLen = %" PRIuS, readLen);

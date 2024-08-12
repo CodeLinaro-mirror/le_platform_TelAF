@@ -692,7 +692,7 @@ taf_fsc_StorageRef_t taf_fsc_GetStorageRef
     {
         *result = LE_NOT_FOUND;
 
-        LE_ERROR("Try to make path: %s", dirPath);
+        LE_INFO("Try to make path: %s", dirPath);
         if(LE_OK != le_dir_MakePath(dirPath, S_IRWXU))
         {
             LE_ERROR("le_dir_MakePath(%s) failed", dirPath);

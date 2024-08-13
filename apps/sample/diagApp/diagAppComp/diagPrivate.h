@@ -63,7 +63,6 @@ uint8_t readDIDFromConfigTree
     size_t* sendBufLen
 );
 
-#ifndef LE_CONFIG_DIAG_VSTACK
 taf_update_State_t diagRoutineCtrl_GetUpdateState();
-#endif
+
 #endif /* DIAGPRIVATE_H */

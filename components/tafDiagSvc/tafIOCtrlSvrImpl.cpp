@@ -220,11 +220,14 @@ void taf_IOCtrlSvr::UDSMsgHandler
             // Get the controlState size from config module
             try
             {
+                LE_DEBUG("identifier: %hu", rxIOCtrlMsgPtr->dataID);
                 cfg::Node & ioNode = cfg::top_IO_all<int>("identifier", rxIOCtrlMsgPtr->dataID);
+                LE_DEBUG("request.control_option_record.control_state");
                 std::string ctrlState
                         = ioNode.get<std::string>("request.control_option_record.control_state");
-
+                LE_DEBUG("control_state");
                 cfg::Node & dataNode = cfg::top_datas<std::string>("mnemonic", ctrlState);
+                LE_DEBUG("bit_size");
                 bitSize = dataNode.get<int>("functional_definition.bit_size");
                 LE_DEBUG("Configured bitSize : %d", bitSize);
             }

@@ -36,9 +36,9 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 
+// 3rd party UDS stack library
 #include "dg_struc.h"
 #include "callbacks.h"
-#include "log.h"
 #include "DiagNode.h"
 #include <iostream>
 #include <cstring>
@@ -93,20 +93,97 @@ namespace telux
                     std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
                 }
 
+                // Security Access
+                virtual Tdd_DG_Status AP_SuppSecAlg (C_UBYTE *SeedValue, C_USHORT SeedLength,
+                            C_UBYTE *Key, C_USHORT KeyLength, C_UBYTE SecurityLevel) override;
+
+                virtual Tdd_DG_Status AP_Get_SeedValue (C_UBYTE* SeedValue, C_USHORT SeedLength,
+                        C_UBYTE SecurityLevel, C_UBYTE* SecurityAccessDataRec,
+                                C_USHORT SecurityAccessDataRecLen) override;
+
+                // Request File Transfer
+                virtual Tdd_DG_Status AP_RequestFileTransfer(C_UBYTE modeOfOperation,
+                        C_USHORT filePathAndNameLength, C_UBYTE * filePathAndName,
+                                C_UBYTE fileSizeParameterLength, C_UINT32 fileSizeUncompressed,
+                                        C_UINT32 fileSizeCompressed, C_UBYTE dataFormatId) override;
+
+                virtual Tdd_DG_Status AP_Condition_For_DiagSess_ReqFileTrnsfr(
+                        Tdd_DG_DiagSession Session)
+                {
+                    return DG_OK;
+                }
+
+                // Transfer Data
+                virtual Tdd_DG_Status  AP_TransferData_Dwnld(C_UBYTE seqCounter,
+                        C_UBYTE* dwnldDataPtr, C_UINT32 dataLen) override;
+
+                virtual Tdd_DG_Status AP_Condition_For_DiagSess_TransferData(
+                        Tdd_DG_DiagSession Luc_DG_Session) override
+                {
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+
+                virtual Tdd_DG_Status AP_DataTransferCheck_DWLD(void) override
+                {
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+
+                virtual Tdd_DG_Status AP_DataTransferCheck_FILETRNSFR(void) override
+                {
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+
+                // Transfer Exit
+                virtual Tdd_DG_Status   AP_TransferExit(C_UBYTE * transferReqParamRecord,
+                        C_UBYTE length) override;
+
+                virtual Tdd_DG_Status AP_Condition_For_DiagSess_TransferExit(
+                        Tdd_DG_DiagSession Sessions) override
+                {
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+
+                // Routine Control
+                virtual Tdd_DG_Status AP_Routine_Control(C_USHORT routineId,
+                        Tdd_RoutineCtrl_SubFunc subFunction, C_UBYTE* ctrlOptionRecord,
+                                C_UINT32 ctrlOptionRecordLen) override;
+
+                virtual Tdd_DG_Status AP_ValidSession_RoutineCntrl(
+                        Tdd_DG_DiagSession Luc_DG_Session,
+                                C_USHORT Lus_AP_RoutineControlID) override
+                {
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+
+                virtual Tdd_DG_Status AP_SecurityAccess_RoutineCntrl(
+                        C_UINT32 routineId, C_UBYTE level) override
+                {
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+
+                virtual Tdd_DG_Status AP_Routine_Results_Available(
+                        C_USHORT Lus_DG_RoutineID) override
+                {
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+
                 // ECU Reset
-                virtual Tdd_DG_Status AP_Condition_For_ECUReset() override
+                virtual Tdd_DG_Status AP_ECUReset(C_UBYTE param) override;
+
+                virtual Tdd_DG_Status AP_Condition_For_ECUReset(C_UBYTE& powerDownTime) override
                 {
                     std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
                     return DG_OK;
                 }
 
                 virtual Tdd_DG_Status AP_DiagnosticKernel_Ready() override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_ECUReset(C_UBYTE param) override
                 {
                     std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
                     return DG_OK;
@@ -122,6 +199,12 @@ namespace telux
                     std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
                     return DG_OK;
                 }
+
+                // IO Communication Control
+                 virtual Tdd_DG_Status AP_IO_Control_By_Id(
+                        C_USHORT recordId, Tdd_IO_CtrlParam ioCtrlParam, C_UBYTE* ctrlState,
+                                C_UINT32 ctrlStateLen, C_UBYTE* ctrlEnableMaskRecord,
+                                        C_UINT32 ctrlEnableMaskRecordLen) override;
 
                 // Read DTC
                 virtual C_UBYTE AP_GetDTCFormatId(void) override
@@ -238,7 +321,8 @@ namespace telux
                     return DG_OK;
                 }
 
-                virtual void vd_updateFIFO( C_USHORT) override
+                virtual void vd_updateFIFO(C_USHORT Lus_FD_Index, C_UBYTE Luc_Mem_Selection)
+                        override
                 {
                     std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
                 }
@@ -269,175 +353,6 @@ namespace telux
                 {
                     std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
                     return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_IO_CONTRL_ID_9805 (void) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                // Routine Control
-                virtual Tdd_DG_Status AP_ValidSession_RoutineCntrl(
-                        Tdd_DG_DiagSession Luc_DG_Session,
-                                C_USHORT Lus_AP_RoutineControlID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_SecurityAccess_RoutineCntrl(
-                        C_UINT32 routineId, C_UBYTE level) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Routine_Results_Available(
-                        C_USHORT Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_2AA(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_2BB(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_2CC(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_2DD(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_2EE(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_3AA(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_3BB(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_3CC(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_3DD(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_3EE(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_4AA(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_4BB(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_4CC(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_4DD(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_4EE(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_5AA(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_5BB(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_5CC(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_5DD(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Dummy_RoutineOnDemandSelfTest_5EE(
-                        C_UBYTE Lus_DG_RoutineID) override
-                {
-                        std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                        return DG_OK;
                 }
 
                 // Request Download
@@ -471,26 +386,6 @@ namespace telux
                     return DG_OK;
                 }
 #endif
-                // Request Transfer Data
-                virtual Tdd_DG_Status AP_Condition_For_DiagSess_TransferData(
-                        Tdd_DG_DiagSession Luc_DG_Session) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_DataTransferCheck_DWLD(void) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_DataTransferCheck_FILETRNSFR(void) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
                 // Read Memory By Address
                 virtual Tdd_DG_Status AP_ReadMemoryByAddr(C_UINT32 address, C_USHORT size) override
                 {
@@ -506,54 +401,15 @@ namespace telux
                     return retVal;
                 }
 
-                virtual Tdd_DG_Status AP_SuppSecAlg (C_UBYTE *SeedValue, C_USHORT SeedLength,
-                            C_UBYTE *Key, C_USHORT KeyLength, C_UBYTE SecurityLevel)
-                {
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Get_SeedValue (C_UBYTE* SeedValue, C_USHORT SeedLength,
-                        C_UBYTE SecurityLevel)
-                {
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status  AP_TransferData_Dwnld(C_UBYTE seqCounter,
-                        C_UBYTE* dwnldDataPtr, C_USHORT dataLen)
-                {
-                    return DG_OK;
-                }
-
+#ifdef DG_REQUESTUPLOAD
                 virtual Tdd_DG_Status  AP_DataTransferCheck_UPLD(void)
                 {
                     return DG_OK;
                 }
 
                 virtual Tdd_DG_Status  AP_TransferData_Upld(C_UBYTE seqCounter,
-                        Tst_DG_Upld* upldDataPtr)
-                {
-                    return DG_OK;
-                }
-
-                // Request Transfer Exit
-                virtual Tdd_DG_Status AP_Condition_For_DiagSess_TransferExit(
-                        Tdd_DG_DiagSession Sessions) override
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status   AP_TransferExit(C_UBYTE * transferReqParamRecord,
-                        C_UBYTE length)
-                {
-                    return DG_OK;
-                }
-
-                virtual Tdd_DG_Status AP_Condition_For_DiagSess_ReqFileTrnsfr(
-                        Tdd_DG_DiagSession Session)
-                {
-                    return DG_OK;
-                }
+                        Tst_DG_Upld* upldDataPtr) override;
+#endif
 
                 // Clear DTC
                 virtual Tdd_DG_Status AP_ClrDTCInformation() override
@@ -569,35 +425,28 @@ namespace telux
                     return DG_OK;
                 }
 
-                // fault handler
-                Tdd_FD_NVRAM_State AP_NVRAM_ClearDTC (C_USHORT Luc_AP_Handle,
-                        C_USHORT Luc_AP_Length, C_USHORT Luc_AP_offset)
-                {
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ <<"\n";
-                    return DK_NVRAM_OK;
-                }
-
-                Tdd_FD_Status AP_NVRAM_Clear_SetAdditionalData (void)
+                Tdd_FD_Status AP_NVRAM_Clear_SetAdditionalData (C_UBYTE Luc_Mem_Selection)
                 {
                     std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
                     return FD_OK;
                 }
 
                 Tdd_FD_NVRAM_State AP_NVRAM_Write (C_USHORT Luc_AP_Handle, C_UBYTE *Luc_AP_SrcPtr,
-                        C_USHORT Luc_AP_Length, C_USHORT Luc_AP_Offset)
+                        C_USHORT Luc_AP_Length, C_USHORT Luc_AP_Offset, C_UBYTE Luc_Mem_Selection)
                 {
-                    uds_server::Log::info(">>>>>>>>%s, offset:%d, length:%d",__func__,
-                            Luc_AP_Offset, Luc_AP_Length);
-                    using namespace std;
-                    return DK_NVRAM_OK;
+                    return DK_NVRAM_ERROR;
                 }
 
                 Tdd_FD_NVRAM_State AP_NVRAM_Read (C_USHORT Luc_AP_Handle, C_UBYTE *Luc_AP_DestPtr,
-                        C_USHORT Luc_AP_Length, C_USHORT Luc_AP_Offset)
+                        C_USHORT Luc_AP_Length, C_USHORT Luc_AP_Offset, C_UBYTE Luc_Mem_Selection)
                 {
-                    uds_server::Log::info(">>>>>>>>%s, offset:%d, length:%d",__func__,
-                            Luc_AP_Offset, Luc_AP_Length);
-                    return DK_NVRAM_OK;
+                    return DK_NVRAM_ERROR;
+                }
+
+                Tdd_FD_NVRAM_State AP_NVRAM_Clear (C_USHORT Luc_AP_Handle, C_USHORT Luc_AP_Length,
+                        C_USHORT Luc_AP_offset, C_UBYTE Luc_Mem_Selection)
+                {
+                    return DK_NVRAM_ERROR;
                 }
 
                 DK_BOOL AP_Allow_No_Setting_DTCs (void)
@@ -606,24 +455,97 @@ namespace telux
                     return 1;
                 }
 
-                void AP_Store_Local_Snapshot (C_USHORT Lus_FD_Index, C_UBYTE *Luc_FD_LocalSnapshot)
+                void AP_Store_Local_Snapshot (C_UINT32 Lul_FD_DTC, C_UBYTE *Luc_FD_LocalSnapshot,
+                        C_UBYTE Luc_Mem_Selection)
                 {
                     //std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
                 }
 
-                virtual Tdd_DG_Status AP_RequestFileTransfer(C_UBYTE modeOfOperation,
-                        C_USHORT filePathAndNameLength, C_UBYTE * filePathAndName,
-                                C_UBYTE fileSizeParameterLength, C_UBYTE fileSizeUncompressed,
-                                        C_UBYTE fileSizeCompressed, C_UBYTE dataFormatId) override
+                Tdd_FD_Status AP_Additional_Cntrl_DTC_Setting_Info (C_UBYTE Luc_FD_SettingType,
+                        C_UBYTE Luc_Mem_Selection)
+                {
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return FD_OK;
+                }
+
+                /*Authentication*/
+                virtual Tdd_DG_Status AP_GetAuthenticationConfig() override
                 {
                     std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
                     return DG_OK;
                 }
 
-                Tdd_FD_Status AP_Additional_Cntrl_DTC_Setting_Info (C_UBYTE Luc_FD_SettingType)
+                virtual void AP_Notify_Deauthentication()override
                 {
                     std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
-                    return FD_OK;
+                }
+
+                virtual Tdd_DG_Status AP_VerifyCertUni(C_UBYTE commConfig, 
+                        C_UINT16 lenOfCertClient, C_UBYTE *certClient,
+                                C_UINT16 lenOfChallClient, C_UBYTE *challClient) override
+                {
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+
+                virtual Tdd_DG_Status AP_VerifyClientPOWN(C_UINT16 lenOfPOWNClient,
+                        C_UBYTE *POWNClient, C_UINT16 lenOfPubKey, C_UBYTE *pubKeyClient)override
+                {
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+
+                virtual Tdd_DG_Status AP_TransmitCertificate(C_UINT16 certEvaluationID,
+                        C_UINT16 lenOfCertData, C_UBYTE *certData) override
+                {
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+				
+                virtual Tdd_DG_Status AP_RequestChallenge(C_UINT8 commCtrl, C_UINT8 algoindicatorLen, C_UINT8* algoindicator) override
+				{
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+				
+				virtual Tdd_DG_Status AP_VerifyPOWNUni(C_UINT8 algoindicatorLen, C_UINT8* algoindicator, C_UINT16 pownClientLen, C_UINT8* pownClient,
+			                               C_UINT16 challengeClientLen, C_UINT8* challengeClient, C_UINT16 additionalParamLen,
+										   C_UINT8* additionalParam) override
+				{
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+				
+	            virtual Tdd_DG_Status AP_VerifyPOWNBi(C_UINT8 algoindicatorLen, C_UINT8* algoindicator, C_UINT16 pownClientLen, C_UINT8* pownClient,
+			                               C_UINT16 challengeClientLen, C_UINT8* challengeClient, C_UINT16 additionalParamLen,
+										   C_UINT8* additionalParam) override
+				{
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+				
+	            virtual Tdd_DG_Status AP_VerifyCertiBi(C_UINT8 commCtrl, C_UINT16 certiClientLen, C_UINT8* certiClient,
+			                               C_UINT16 challengeClientLen, C_UINT8* challengeClient) override
+				{
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+
+                /* Response On Event */
+                virtual Tdd_DG_Status AP_Condition_For_ResponseOnEvent( C_UBYTE Luc_AP_EventType)
+                        override
+                {
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
+                }
+
+                virtual Tdd_DG_Status AP_Update_VMResoponeOnEventTrigger(C_UBYTE Luc_AP_EventId,
+                        C_UBYTE Luc_AP_EventType, C_UBYTE *Luc_AP_EventTypeRecord,
+                                C_UBYTE Luc_AP_EventTypeRecordLen, C_UBYTE Luc_AP_EventStatus)
+                                        override
+                {
+                    std::cout << ">>>>>>>>>>>>>>>>>>>>" << __func__ << "\n";
+                    return DG_OK;
                 }
 
                 // Response event thread

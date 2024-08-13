@@ -4,13 +4,13 @@ provides:
     {
         taf_diagDataID.api
         taf_diagSecurity.api
-#if ${LE_CONFIG_DIAG_VSTACK} = ""
         taf_diagRoutineCtrl.api
-        taf_diagUpdate.api
         taf_diagReset.api
+        taf_diagUpdate.api
+        taf_diagIOCtrl.api
+#if ${LE_CONFIG_DIAG_VSTACK} = ""
         taf_diagEvent.api
         taf_diagDTC.api
-        taf_diagIOCtrl.api
         taf_diagDoIP.api
 #endif
     }
@@ -18,14 +18,14 @@ provides:
 
 requires:
 {
-#if ${LE_CONFIG_DIAG_VSTACK} = ""
     component:
     {
         $TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
+#if ${LE_CONFIG_DIAG_VSTACK} = ""
         $TELAF_ROOT/components/tafUDSStack
         $TELAF_ROOT/components/tafDataAccessComp
-    }
 #endif
+    }
 #if ${LE_CONFIG_DIAG_VSTACK} = y
     api:
     {
@@ -38,10 +38,10 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
     -I$TELAF_ROOT/components/tafUDSStack
     -I$TELAF_ROOT/components/tafDataAccessComp
-    -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
     -I$TELAF_ROOT/components/tafDoIPStack
 #endif
 }
@@ -63,15 +63,17 @@ sources:
         tafDataIDSvrImpl.cpp
         tafSecuritySvc.cpp
         tafSecuritySvrImpl.cpp
+        tafRoutineCtrlSvc.cpp
+        tafRoutineCtrlSvrImpl.cpp
+        tafResetSvc.cpp
+        tafResetSvrImpl.cpp
+        tafUpdateSvc.cpp
+        tafUpdateSvrImpl.cpp
+        tafIOCtrlSvc.cpp
+        tafIOCtrlSvrImpl.cpp
         tafDiagFrontend.cpp
         tafDiagBackend.cpp
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
-        tafRoutineCtrlSvc.cpp
-        tafRoutineCtrlSvrImpl.cpp
-        tafUpdateSvc.cpp
-        tafUpdateSvrImpl.cpp
-        tafResetSvc.cpp
-        tafResetSvrImpl.cpp
         tafEventSvc.cpp
         tafEventSvrImpl.cpp
         tafDTCSvc.cpp
@@ -80,7 +82,5 @@ sources:
         tafSnapshotSvc.cpp
         tafDiagDoIPSvc.cpp
         tafDiagDoIPSvrImpl.cpp
-        tafIOCtrlSvc.cpp
-        tafIOCtrlSvrImpl.cpp
 #endif
 }

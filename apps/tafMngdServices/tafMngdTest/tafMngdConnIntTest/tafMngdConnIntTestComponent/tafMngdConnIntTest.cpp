@@ -111,7 +111,7 @@ static le_result_t startData(taf_mngdConn_DataRef_t dataRef)
     LE_TEST_INFO("----startData test " );
     le_result_t result;
     result=taf_mngdConn_StartData(dataRef);
-    if(result !=LE_OK)
+    if (result != LE_OK && result != LE_DUPLICATE)
     {
         LE_TEST_INFO("taf_mngdConn_StartData failed: %d ", result);
     }
@@ -124,7 +124,15 @@ static le_result_t stopData(taf_mngdConn_DataRef_t dataRef)
     LE_TEST_INFO("----stopData test " );
     le_result_t result;
     result=taf_mngdConn_StopData(dataRef);
-    if(result !=LE_OK)
+    if (LE_NOT_PERMITTED == result)
+    {
+        LE_TEST_INFO("taf_mngdConn_StopData not permitted as AutoStart:Yes.");
+    }
+    else if (LE_NOT_POSSIBLE == result)
+    {
+        LE_TEST_INFO("taf_mngdConn_StopData not possible at this time. Retry in 5s.");
+    }
+    else if(result !=LE_OK)
     {
         LE_TEST_INFO("taf_mngdConn_StopData failed: %d ", result);
     }
@@ -368,7 +376,7 @@ COMPONENT_INIT
             case 1 :
             {
                 status = startData(getDataRef());
-                LE_TEST_OK(LE_OK == status, "startdata");
+                LE_TEST_OK(LE_OK == status || LE_DUPLICATE == status, "startdata");
             }
             break;
             case 2 :

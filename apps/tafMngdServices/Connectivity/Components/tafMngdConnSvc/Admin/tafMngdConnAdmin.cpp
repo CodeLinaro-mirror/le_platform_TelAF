@@ -618,6 +618,13 @@ le_result_t tafMngdConnAdmin::Stopdata(taf_mngdConn_DataRef_t dataRef)
         LE_ERROR("Json is needed");
         return LE_FAULT;
     }
+    // Check if a data start connection test is in progress and if it return LE_NOT_POSSIBLE. The
+    // application can try again after a delay, typicaly 5s.
+    if (dataCtxPtr->isDStartConnTestInProgress)
+    {
+        LE_WARN("Data start connection test is in progress.");
+        return LE_NOT_POSSIBLE;
+    }
 
     // Remove this client from the list of clients that have requested data start.
     le_msg_SessionRef_t sessionRef = taf_mngdConn_GetClientSessionRef();
@@ -1099,6 +1106,7 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
         case MCS_DATA_NOT_CONNECTED_RETRYING:
         case MCS_DATA_NOT_CONNECTED_NW_REGISTERED:
         case MCS_DATA_NOT_CONNECTED:
+        case MCS_DATA_NOT_CONNECTED_FAILED:
         case MCS_RECOVERY_CANCELED_L1:
         case MCS_RECOVERY_CANCELED_L2:
 
@@ -2154,6 +2162,7 @@ tafMngdConnAdmin::CreateDataCtx(
     dataCtxPtr->dataConnTestFailedRetryCount = 0;
     dataCtxPtr->isConnectivityRecoveryScheduled = false;
     dataCtxPtr->wasL1ConnectivityRecoveryDone = false;
+    dataCtxPtr->isDStartConnTestInProgress = false;
 
     if(conn_test_url != NULL)
     {
@@ -2829,6 +2838,8 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
 
     if(!url.empty())
     {
+        // Set data start connection test in progress to true
+        dataCtxPtr->isDStartConnTestInProgress = true;
         if(DataConnectivityTest_URL(url , interfaceName))
         {
             //connection is created.
@@ -2856,9 +2867,13 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
             stateMachineEvt.dataId=dataCtxPtr->dataId;
             le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
         }
+        // Set data start connection test in progress to false
+        dataCtxPtr->isDStartConnTestInProgress = false;
     }
     else if(!ipv4add.empty())
     {
+        // Set data start connection test in progress to true
+        dataCtxPtr->isDStartConnTestInProgress = true;
         if(DataConnectivityTest_IPv4(ipv4add , interfaceName))
         {
             //connection is created.
@@ -2879,6 +2894,8 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
             stateMachineEvt.dataId=dataCtxPtr->dataId;
             le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
         }
+        // Set data start connection test in progress to false
+        dataCtxPtr->isDStartConnTestInProgress = false;
     }
     //If both url and ipaddr is null
     else
@@ -2997,12 +3014,13 @@ bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4, std::string i
         std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+  ipv4
                                   + " 1> /dev/null 2> /dev/null";
     #endif
+    LE_DEBUG("%s", pingCommand.c_str());
     int result = system(pingCommand.c_str());
 
-    if(result == 0)
+    if (result == 0)
     {
-        //connection is created.
-        LE_INFO("DataConnectivityTest_IPv4 passed for interface %s",interfaceName.c_str());
+        // connection is created.
+        LE_INFO("DataConnectivityTest_IPv4 passed for interface %s", interfaceName.c_str());
         return true;
     }
     else
@@ -3725,6 +3743,8 @@ const char * tafMngdConnAdmin::StateToString(mcs_Admin_State_t state)
             return "MCS_DATA_NOT_CONNECTED";
         case MCS_DATA_NOT_CONNECTED_RETRYING:
             return "MCS_DATA_NOT_CONNECTED_RETRYING";
+        case MCS_DATA_NOT_CONNECTED_FAILED:
+            return "MCS_DATA_NOT_CONNECTED_FAILED";
         case MCS_DATA_CONNECTED_ACTIVE:
             return "MCS_DATA_CONNECTED_ACTIVE";
         case MCS_DATA_CONNECTED_INACTIVE:

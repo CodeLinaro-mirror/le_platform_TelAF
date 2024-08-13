@@ -201,7 +201,7 @@
  * The following table illustrates details about Configuration and Policy JSON.
  * @rstblock
 .. raw:: html
- 
+
   <table border="1">
  <thead>
    <tr>
@@ -606,7 +606,7 @@
  *
  * @section taf_mngdConn_usage_flow Typical application call flow
  *
- * @rstblock 
+ * @rstblock
  *
  * - **Automatic Data Connection Establishment**
  *
@@ -615,7 +615,7 @@
  *   Background setup:
  *
  *   Set the Data→AutoStart key as Yes in the mngdConnectivity.json file.
- *   
+ *
  *   Steps:
  *
  *   #a.1 -- Get the data reference for a given data ID.
@@ -919,6 +919,10 @@ FUNCTION le_result_t StartData
  * @return
  *   - LE_OK -- Succeeded.
  *   - LE_NOT_PERMITTED -- If data is auto started by the service, application cannot stop data.
+ *   - LE_NOT_POSSIBLE  -- If data start connection test is enabled and it is in progress,
+ *                         LE_NOT_POSSIBLE is returned. Applications can retry StopData after an
+ *                         appropriate delay. Data start connection test is either curl or 5 ping
+ *                         packets, which typically takes around 5s.
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------

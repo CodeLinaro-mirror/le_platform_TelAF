@@ -42,8 +42,6 @@
 #define DELETE_SYSTEM_CMD_FORMAT "rm %s"
 
 void diagRFT_DeactivateProgramming(void);
-
-#ifndef LE_CONFIG_DIAG_VSTACK
 taf_update_State_t diagRoutineCtrl_GetUpdateState();
-#endif
+
 #endif /* DIAGPRIVATE_H */

@@ -339,7 +339,7 @@ void taf_UpdateSvr::UDSMsgHandler
 
     TAF_ERROR_IF_RET_NIL(msgPtr == NULL, "Invalid dataPtr");
 
-    if (sid == SID_REQUEST_FILE_TRANSFER)  // RequestFileTransfer service of UDS
+    if (sid == reqFileXferSvcId)  // RequestFileTransfer service of UDS
     {
         uint8_t moo;    // Mode Of Operation
         uint16_t fileNameLen;
@@ -445,7 +445,7 @@ void taf_UpdateSvr::UDSMsgHandler
             moopDirection = 2; // No direction
         }
     }
-    else if (sid == SID_TRANSFER_DATA)  // TransferData service of UDS
+    else if (sid == fileDataXferSvcId)  // TransferData service of UDS
     {
         uint8_t blkSeqCnt;
 
@@ -509,7 +509,7 @@ void taf_UpdateSvr::UDSMsgHandler
         // Report the request message to message handler in service layer.
         le_event_ReportWithRefCounting(XferDataEvent, rxXferDataMsgPtr);
     }
-    else if (sid == SID_REQUEST_TRANSFER_EXIT)  // RequestTransferExit service of UDS.
+    else if (sid == fileXferExitSvcId)  // RequestTransferExit service of UDS.
     {
         // This parameter record contains parameter(s), which are required
         // by the server to support the transfer of data.

@@ -48,9 +48,7 @@ static le_sem_Ref_t semRef;
 // Diag RDBI/WDBI
 static taf_diagDataID_ServiceRef_t DiagDataIDSvcRef = NULL;
 static taf_diagDataID_RxReadDIDMsgHandlerRef_t DiagReadDataIDMsgRef = NULL;
-#ifndef LE_CONFIG_DIAG_VSTACK
 static taf_diagDataID_RxWriteDIDMsgHandlerRef_t DiagWriteDataIDMsgRef = NULL;
-#endif
 
 /**
  * Read DID from ConfigTree.
@@ -263,13 +261,13 @@ static void* diagRWDataIdMsgThread(void* ctxPtr)
                                 readDataIDMsgHandler, NULL);
     LE_TEST_OK(DiagReadDataIDMsgRef != NULL,
                "Registered successfully for readDataIDMsgHandler");
-#ifndef LE_CONFIG_DIAG_VSTACK
+ 
     DiagWriteDataIDMsgRef = taf_diagDataID_AddRxWriteDIDMsgHandler(
                                 DiagDataIDSvcRef,
                                 writeDataIDMsgHandler, NULL);
     LE_TEST_OK(DiagWriteDataIDMsgRef != NULL,
                "Registered successfully for writeDataIDMsgHandler");
-#endif
+ 
     le_sem_Post(semRef);
     le_event_RunLoop();
     return NULL;

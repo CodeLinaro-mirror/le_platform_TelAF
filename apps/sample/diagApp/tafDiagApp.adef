@@ -26,15 +26,15 @@ bindings:
 {
     tafDiagApp.diagAppComp.taf_diagDataID -> tafDiagSvc.taf_diagDataID
     tafDiagApp.diagAppComp.taf_diagSecurity -> tafDiagSvc.taf_diagSecurity
-
-#if ${LE_CONFIG_DIAG_VSTACK} = ""
+    tafDiagApp.diagAppComp.taf_diagUpdate -> tafDiagSvc.taf_diagUpdate
     tafDiagApp.diagAppComp.taf_diagReset -> tafDiagSvc.taf_diagReset
     tafDiagApp.diagAppComp.taf_diagRoutineCtrl -> tafDiagSvc.taf_diagRoutineCtrl
-    tafDiagApp.diagAppComp.taf_diagUpdate -> tafDiagSvc.taf_diagUpdate
     tafDiagApp.diagAppComp.taf_diagIOCtrl -> tafDiagSvc.taf_diagIOCtrl
     tafDiagApp.diagAppComp.taf_update -> tafUpdateSvc.taf_update
     tafDiagApp.diagAppComp.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
     tafDiagApp.diagAppComp.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
+
+#if ${LE_CONFIG_DIAG_VSTACK} = ""
     tafDiagApp.diagAppComp.taf_diagDoIP -> tafDiagSvc.taf_diagDoIP
 #endif
 }

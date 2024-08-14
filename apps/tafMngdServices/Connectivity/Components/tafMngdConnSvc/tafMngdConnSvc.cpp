@@ -116,6 +116,30 @@ le_result_t taf_mngdConn_GetDataNameByRef( taf_mngdConn_DataRef_t dataRef,
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the data profile number (as provided in the configuration JSON) for the given data
+ * reference. The profile number can be used by applications with the data call service to get
+ * in depth details about the profile.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- Data reference not found.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mngdConn_GetProfileNumberByRef
+(
+    taf_mngdConn_DataRef_t dataRef,
+        ///< [IN] The data reference.
+    uint8_t* dataProfileNumberPtr
+        ///< [OUT] The data profile number from the configuration JSON.
+)
+{
+    auto &admin = tafMngdConnAdmin::GetInstance();
+    return admin.GetProfileNumberByRef(dataRef, dataProfileNumberPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Starts a data cellular session for the given dataRef.
  *
  * @return

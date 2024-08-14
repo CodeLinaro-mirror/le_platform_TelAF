@@ -26,6 +26,7 @@ processes:
 bindings:
 {
     tafCM.tafCMComponent.taf_mngdConn -> tafMngdConnSvc.taf_mngdConn
+    tafCM.tafCMComponent.taf_dcs -> tafDataCallSvc.taf_dcs
 }
 
 // Bundle default Configuration and Policy JSONs

@@ -338,6 +338,7 @@ interface(`telaf_read_lib_files',`
         allow $1 telaf_sys_t:dir { search_dir_perms };
         allow $1 telaf_sys_t:lnk_file { read_file_perms };
         allow $1 telaf_app_rw_t:dir { search_dir_perms };
+        allow $1 telaf_app_rw_t:file { read open write getattr };
         allow $1 telaf_app_bundle_t:dir { search_dir_perms };
         allow $1 telaf_lib_t:dir { search_dir_perms };
         allow $1 telaf_lib_t:file { read_file_perms exec_file_perms };

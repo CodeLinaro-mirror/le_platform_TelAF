@@ -1011,10 +1011,10 @@ FUNCTION le_result_t SetPDP
  * Gets the data profile PDP type.
  *
  * @return
- *  - AF_DCS_PDP_UNKNOWN -- Unknown.
- *  - AF_DCS_PDP_IPV4 -- IPV4.
- *  - AF_DCS_PDP_IPV6 -- IPV6.
- *  - AF_DCS_PDP_IPV4V6 -- IPV4 and IPV6.
+ *  - TAF_DCS_PDP_UNKNOWN -- Unknown.
+ *  - TAF_DCS_PDP_IPV4 -- IPV4.
+ *  - TAF_DCS_PDP_IPV6 -- IPV6.
+ *  - TAF_DCS_PDP_IPV4V6 -- IPV4 and IPV6.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Pdp GetPDP
@@ -1089,4 +1089,3 @@ FUNCTION le_result_t GetPhoneIdByInterfaceName
     string        ifName[NAME_MAX_LEN]      IN,  ///< The interface name.
     uint8         phoneId                   OUT  ///< The phone ID.
 );
-

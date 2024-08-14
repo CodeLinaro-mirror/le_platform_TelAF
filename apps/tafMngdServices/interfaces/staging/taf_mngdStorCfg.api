@@ -1,0 +1,295 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_taf_mngdStorCfg Managed Storage Service
+ *
+ * @ref taf_mngdStorage_config_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Managed Storage service APIs provides applications to use encrypted and reliable
+ * storages.
+ *
+ * @section taf_mngdStorageSvc_binding IPC interfaces binding
+ *
+ * The following example illustrates how to bind to the Managed Storage Service.
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_mngdStorSec -> tafMngdStorageSvc.taf_mngdStorCfg
+   }
+   @endverbatim
+ *
+ * @section taf_mngdStorCfg Manage config storage
+ *
+ * The client is allocated the config storage when it connects to the service. When it calls
+ * taf_mngdStorCfg_GetRef() to get reference of config storage, the client uses the config storage
+ * to update and access its own configuration data.
+ *
+ * @section taf_mngdStorCfg_UpdateFile Update the file in config storage
+ *
+ * The client calls taf_mngdStorCfg_UpdateFile() to read the config file path from Managed Storage
+ * Service(MSS) configuration file and copy the config file from that path to config storage path.
+ *
+ * @code
+
+    le_result_t result;
+    result = taf_mngdStorCfg_UpdateFile();
+
+ * @endcode
+ *
+ * @section taf_mngdStorCfg_Sync Replace orignal config file with updated file
+ *
+ * The client calls taf_mngdStorCfg_Sync() to replace the orignal config file with the updated
+ * config file.
+ *
+ * @code
+
+    le_result_t result;
+    result = taf_mngdStorCfg_Sync();
+
+ * @endcode
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+/**
+ * Maximum length of string data.
+ */
+DEFINE MAX_STR_LEN = 511;
+
+/**
+ * Configuration storage reference.
+ */
+REFERENCE Config;
+
+/**
+ * Types of node data.
+ */
+
+ENUM NodeType
+{
+    TYPE_EMPTY,           ///< A node with no value.
+    TYPE_STRING,          ///< A node with string encoded as UTF-8.
+    TYPE_BOOL,            ///< A node with boolean value.
+    TYPE_INT,             ///< A node with signed 32 bit value.
+    TYPE_FLOAT,           ///< A node with 64 bit floating point value.
+    TYPE_DOESNT_EXIST     ///< Node does not exist.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Copies the file from the paths configured in the MSS configuration JSON file to the configuration
+ * storage and also checks the validity of the file.
+ *
+ * @return
+ *     - LE_OK             Successfully updated the file.
+ *     - LE_FAULT          Failed to update file.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UpdateFile
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Replaces the orignal configuration file with the updated file. It is advised to use this API if
+ * the update file operation is successful.
+ *
+ * @return
+ *     - LE_OK             Successfully synced the file.
+ *     - LE_FAULT          Failed to sync the file.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Sync
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reverts the configuration file to its original version. It is advised to use this API if
+ * the update file operation fails.
+ *
+ * @return
+ *     - LE_OK             Successfully rolled back the file.
+ *     - LE_FAULT          Failed to  roll back the file.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Rollback
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the configuration file reference.
+ *
+ * @return
+ *     - Config            Configuration storage reference.
+ *     - NULL              Invalid file name.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Config GetRef
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the major and minor version of the given configuration file reference.
+ *
+ * @return
+ *     - LE_OK             Successfully read the data.
+ *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_FAULT          Failed to read the data.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVersion
+(
+    Config    configRef               IN,    ///< Configuration storage reference.
+    uint32    majorVersion            OUT,   ///< Major version of the configuration file.
+    uint32    minorVersion            OUT,   ///< Minor version of the configuration file.
+    uint32    patchVersion            OUT    ///< Patch version of the configuration file.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the value and data type of the node.
+ *
+ * @return
+ *     - LE_OK             Successfully read the data.
+ *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_FAULT          Failed to read the data.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetValue
+(
+    Config    configRef               IN,    ///< Configuration storage reference.
+    string    groupName[MAX_STR_LEN]  IN,    ///< Name of the group of the node.
+    string    nodeName[MAX_STR_LEN]   IN,    ///< Name of the node.
+    NodeType  type                    OUT,   ///< Data type of the node.
+    string    nodeValue[MAX_STR_LEN]  OUT    ///< Value of the node.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data type of the node.
+ *
+ * @return
+ *     - LE_OK             Successfully read the data.
+ *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_FAULT          Failed to read the data.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetType
+(
+    Config    configRef               IN,    ///< Configuration storage reference.
+    string    groupName[MAX_STR_LEN]  IN,    ///< Name of the group of the node.
+    string    nodeName[MAX_STR_LEN]   IN,    ///< Name of the node.
+    NodeType  type                    OUT    ///< Data type of the node.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the value of the node with the data type string.
+ *
+ * @return
+ *     - LE_OK             Successfully read the data.
+ *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_FAULT          Failed to read the data.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetString
+(
+    Config    configRef               IN,    ///< Configuration storage reference.
+    string    groupName[MAX_STR_LEN]  IN,    ///< Name of the group of the node.
+    string    nodeName[MAX_STR_LEN]   IN,    ///< Name of the node.
+    string    nodeValue[MAX_STR_LEN]  OUT    ///< Value of the node.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the value of the node with the data type integer.
+ *
+ * @return
+ *     - LE_OK             Successfully read the data.
+ *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_FAULT          Failed to read the data.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetInt
+(
+    Config    configRef               IN,    ///< Configuration storage reference.
+    string    groupName[MAX_STR_LEN]  IN,    ///< Name of the group of the node.
+    string    nodeName[MAX_STR_LEN]   IN,    ///< Name of the node.
+    int32     nodeValue               OUT    ///< Value of the node.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the value of the node with the data type float.
+ *
+ * @return
+ *     - LE_OK             Successfully read the data.
+ *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_FAULT          Failed to read the data.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetFloat
+(
+    Config    configRef               IN,    ///< Configuration storage reference.
+    string    groupName[MAX_STR_LEN]  IN,    ///< Name of the group of the node.
+    string    nodeName[MAX_STR_LEN]   IN,    ///< Name of the node.
+    double    nodeValue               OUT    ///< Value of the node.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the value of the node with the data type boolean.
+ *
+ * @return
+ *     - LE_OK             Successfully read the data.
+ *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_FAULT          Failed to read the data.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBool
+(
+    Config    configRef               IN,    ///< Configuration storage reference.
+    string    groupName[MAX_STR_LEN]  IN,    ///< Name of the group of the node.
+    string    nodeName[MAX_STR_LEN]   IN,    ///< Name of the node.
+    int32     nodeValue               OUT    ///< Value of the node.
+);

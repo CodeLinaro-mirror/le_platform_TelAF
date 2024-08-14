@@ -56,5 +56,8 @@ allow telaf_tafIvssTelephonySvc_t proc_net_t:file read_file_perms;
 allow telaf_tafIvssTelephonySvc_t { unreserved_port_t node_t }:udp_socket { name_bind node_bind };
 allow telaf_tafIvssTelephonySvc_t { unreserved_port_t node_t }:tcp_socket { name_bind node_bind name_connect };
 
-# Allow telaf_tafIvssTelephonySvc_t and telaf_tafSomeipGWSvc_t to connectto unix_stream_socket
+# Allow telaf_tafIvssTelephonySvc_t and telaf_tafSomeipGWSvc_t connect to each other
 telaf_tafSomeipGWSvc_connect(telaf_tafIvssTelephonySvc_t)
+
+# Allow telaf_tafIvssTelephonySvc_t and telaf_tafSomeipGWSvc_t write to each other
+telaf_tafSomeipGWSvc_write(telaf_tafIvssTelephonySvc_t)

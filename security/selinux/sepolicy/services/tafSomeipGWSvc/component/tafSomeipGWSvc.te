@@ -21,6 +21,14 @@ type telaf_tafSomeipGWSvc_t;
 type telaf_tafSomeipGWSvc_data_t;
 files_type(telaf_tafSomeipGWSvc_data_t);
 
+# Setup for tmp directory
+type telaf_someiptmp_t;
+files_tmp_file(telaf_someiptmp_t)
+files_tmp_filetrans(telaf_tafSomeipGWSvc_t,telaf_someiptmp_t, { sock_file file dir })
+manage_sock_files_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_someiptmp_t);
+manage_files_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_someiptmp_t);
+allow telaf_tafSomeipGWSvc_t telaf_someiptmp_t:sock_file { write };
+
 # Run the service in its own confined domain
 init_telaf_app_domain(telaf_tafSomeipGWSvc_t,telaf_tafSomeipGWSvc_exec_t)
 

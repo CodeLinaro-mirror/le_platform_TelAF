@@ -355,7 +355,7 @@ le_result_t taf_sms_SetText
 
    size_t length = strnlen(textPtr, TAF_SMS_TEXT_BYTES);
 
-   TAF_KILL_CLIENT_IF_RET_VAL(length > (TAF_SMS_TEXT_BYTES-1), LE_FAULT, "strlen(text) > %d", (TAF_SMS_TEXT_BYTES-1));
+   TAF_ERROR_IF_RET_VAL(length > (TAF_SMS_TEXT_BYTES-1), LE_BAD_PARAMETER, "strlen(text) > %d", (TAF_SMS_TEXT_BYTES-1));
 
    TAF_ERROR_IF_RET_VAL(length == 0, LE_BAD_PARAMETER, "Input string length = 0");
 

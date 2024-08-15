@@ -5,6 +5,6 @@
 
 config VHAL_DRIVER_DIR
   string "VHAL driver directory"
-  default "/data/tmp/drivers/"
+  default "/app/tmp/drivers/"
   ---help---
   Directory to store vendor-developed drivers, deviceManger will scan and install drivers from this.

@@ -869,6 +869,16 @@ taf_doip_Result_t CommunicationMgr::CheckDoipHeaderOverUdp
         goto errOut;
     }
 
+    if (header.payloadLen > (udpDataLen - TAF_DOIP_HEADER_GENERIC_LENGTH))
+    {
+        // [DoIP-044] NACK code set to 0x03 if the payload length exceeds
+        // the currently availbale DoIP protocol handler memory.
+        LE_ERROR("DoIP message is out of memory! payload len is %d, available memory is %d\n",
+                header.payloadLen, udpDataLen - TAF_DOIP_HEADER_GENERIC_LENGTH);
+        nackCode = TAF_DOIP_HEADER_NACK_OUT_OF_MEMORY;
+        goto errOut;
+    }
+
     return TAF_DOIP_RESULT_OK;
 errOut:
     if (instanceType == TAF_DOIP_INSTANCE_TYPE_TESTER)

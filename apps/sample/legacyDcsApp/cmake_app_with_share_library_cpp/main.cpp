@@ -34,9 +34,16 @@
 
 #include <dataAdaptor.h>
 #include <radioAdaptor.h>
+#include <mutex>
+#include <condition_variable>
+
+// Global variable for thread communication
+std::mutex mtx;
+std::condition_variable cv;
+bool eventReady = false;
 
 /**
- * Main task for telAF thread, including connection with telAF dcs service, entering the event loop etc.
+ * Main task for TelAF thread, including delegating event handler, entering the event loop etc.
  */
 void *TelafTask
 (
@@ -44,6 +51,32 @@ void *TelafTask
 )
 {
     LE_INFO("Enter TelafTask");
+    std::lock_guard<std::mutex>lock(mtx);
+
+    // Delegate event handler
+    LE_INFO("Create data call event hanler");
+    uint32_t profileId = taf_dcs_GetDefaultProfileIndex();
+    taf_dcs_ProfileRef_t profileRef = taf_dcs_GetProfile(profileId);
+    taf_dcs_ConState_t callEvent;
+    taf_dcs_StateInfo_t info;
+    taf_dcs_Pdp_t contextPtr = TAF_DCS_PDP_IPV4V6;
+    da.DataCallEventHandler(profileRef, callEvent, &info, &contextPtr); // Create a data call event handler.
+
+    da.RegisterEventLoop();
+
+    eventReady = true;
+    cv.notify_one(); // Notify main thread
+
+    return nullptr;
+}
+
+
+/**
+ * Main thread for the application
+ */
+int main(int argc, char** argv)
+{
+    // Variable for radio adaptor and data adaptor
     RadioAdaptor ra;
     DataAdaptor da;
 
@@ -62,30 +95,17 @@ void *TelafTask
         LE_INFO("Radio power status abnormal");
     }
 
-    da.RegisterEventLoop();
-    return nullptr;
-}
-
-/**
- * Main thread for the application
- */
-int main(int argc, char** argv)
-{
     int ret;
-
     pthread_t tid;
+    ret = pthread_create(&tid, NULL, TelafTask, NULL);  // Create a separate thread, run TelafTask in the thread.
 
-    ret = pthread_create(&tid, NULL, TelafTask, NULL);  // Run TelafTask in a separate thread.
+    std::unique_lock<std::mutex>lock(mtx);
+    cv.wait(lock, []{return eventReady;});
+
     if (ret < 0)
     {
-        fprintf(stdout, "pthread_create is failed, ret: %d", ret);
+        fprintf(stdout, "pthread_create for main thread is failed, ret: %d", ret);
         return -1;
-    }
-
-    // Please overwrite the following code per your application.
-     while (1)
-    {
-        sleep(1);
     }
 
     return 0;

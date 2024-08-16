@@ -280,22 +280,23 @@ le_result_t tafMngdRpcPm::SendRpcNodePowerStateChangeAck
 (
     uint8_t pmNodeId,
     taf_mngdPm_nodePowerStateRef_t Ref,
-    taf_mngdPm_NodePowerState_t state,
     taf_mngdPm_NodeClientAck_t ack
 )
 {
     LE_INFO("SendRpcNodePowerStateChangeAck");
+    taf_mngdPm_NodePowerState_t state = TAF_MNGDPM_NODE_STATE_RESUME;
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     bool IsClientPresent = false;
     if(rpcPm.IsRpcConnected) {
         // validate client record existed in state change registered clients
-        for(const auto &it:rpcPm.rpcRegClientrecrd)
+        for(const auto &client:rpcPm.rpcRegClientrecrd)
         {
-            if ((it.ref == (taf_mngdPm_nodePowerStateRef_t)Ref)
-                    && (it.state == (taf_mngdPm_NodePowerState_t)state))
+            if (((client.nodeStateRef == (taf_mngdPm_nodePowerStateRef_t)Ref) &&
+                    (client.sessionRef == taf_mngdPm_GetClientSessionRef())))
             {
                 LE_INFO("Client found in record");
                 IsClientPresent = true;
+                state = client.state;
                 break;
             }
         }
@@ -310,13 +311,14 @@ le_result_t tafMngdRpcPm::SendRpcNodePowerStateChangeAck
             else
             {
                 LE_INFO("Received ACK from client");
-                rpcPm.rpcAckClientrecrd.push_back((taf_mngdPm_nodePowerStateRef_t)Ref);
-                LE_INFO("rpcRegClientrecrd size is %zu ,rpcAckClientrecrd size is:%zu",
-                        rpcPm.rpcRegClientrecrd.size(), rpcPm.rpcAckClientrecrd.size());
+                rpcPm.ackRpcClientrecrdSize++;
+                LE_INFO("rpcRegClientrecrd size is %zu ,ackRpcClientrecrdSize size is:%d",
+                        rpcPm.rpcRegClientrecrd.size(), rpcPm.ackRpcClientrecrdSize);
                 //If Last acknowledged client , proceed for ack state change
-                if(rpcPm.rpcRegClientrecrd.size() == rpcPm.rpcAckClientrecrd.size())
+                if((int8_t)rpcPm.rpcRegClientrecrd.size() == rpcPm.ackRpcClientrecrdSize)
                 {
                     rpcPm.clientSize = 0;
+                    rpcPm.ackRpcClientrecrdSize = 0;
                     rpcPm.SendAckToRpcPms(state, TAF_RPCPM_READY);
                     return LE_OK;
                 }
@@ -433,7 +435,7 @@ void tafMngdRpcPm::DeleteRpcNodePowerStateRefs()
     if(rpcPm.rpcRegClientrecrd.size() != 0) {
         for (const auto &it:rpcPm.rpcRegClientrecrd )
         {
-            le_ref_DeleteRef(rpcPm.rpcNodePowerStateRefMap, it.ref);
+            le_ref_DeleteRef(rpcPm.rpcNodePowerStateRefMap, it.nodeStateRef);
         }
     }
 }
@@ -452,7 +454,7 @@ void CallRpcNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t state)
 
     rpcPm.DeleteRpcNodePowerStateRefs();
     rpcPm.rpcRegClientrecrd.clear();
-    rpcPm.rpcAckClientrecrd.clear();
+    rpcPm.ackRpcClientrecrdSize = 0;
     while (linkHandlerPtr)
     {
         taf_mngdPm_NodePowerStateCtxt_t * rpcHandlerCtxPtr =
@@ -467,7 +469,8 @@ void CallRpcNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t state)
                         (taf_NodePowerStateRef_t*)le_mem_ForceAlloc(rpcPm.rpcNodePowerStateRefPool);
                 nodeStateListPtr->nodeStateRef =
                         (taf_mngdPm_nodePowerStateRef_t)le_ref_CreateRef(rpcPm.rpcNodePowerStateRefMap, nodeStateListPtr);
-                    rpcPm.rpcRegClientrecrd.push_back({nodeStateListPtr->nodeStateRef, state});
+                    rpcPm.rpcRegClientrecrd.push_back({nodeStateListPtr->nodeStateRef,
+                            rpcHandlerCtxPtr->sessionRef, state});
                 rpcHandlerCtxPtr->handlerPtr(rpcHandlerCtxPtr->pmNodeId, nodeStateListPtr->nodeStateRef, state,
                         rpcHandlerCtxPtr->nodePowerStateHandlerCtxPtr);
                 LE_INFO("Notified to Client");
@@ -533,6 +536,7 @@ taf_mngdPm_NodePowerStateChangeHandlerRef_t tafMngdRpcPm::AddRpcNodePowerStateCh
         taf_mngdPm_NodePowerStateCtxt_t * rpcHandlerCtxPtr =
                 (taf_mngdPm_NodePowerStateCtxt_t *)le_mem_ForceAlloc(rpcPm.rpcNodePowerStateHandlerPool);
         rpcHandlerCtxPtr->handlerPtr = handlerFuncPtr;
+        rpcHandlerCtxPtr->sessionRef = taf_mngdPm_GetClientSessionRef();
         rpcHandlerCtxPtr->pmNodeId = pmNodeId;
         rpcHandlerCtxPtr->powerStateMask = stateMask;
         rpcHandlerCtxPtr->handlerRef = (taf_mngdPm_NodePowerStateChangeHandlerRef_t)le_ref_CreateRef(
@@ -715,3 +719,4 @@ int8_t tafMngdRpcPm::clientSize;
 taf_mngdPm_TargetedPowerMode_t tafMngdRpcPm::rpcTargetedPowerMode;
 le_timer_Ref_t tafMngdRpcPm::RpcConnectTimerRef = nullptr;
 int tafMngdRpcPm::RpcRetryCount;
+int8_t tafMngdRpcPm::ackRpcClientrecrdSize;

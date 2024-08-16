@@ -44,7 +44,8 @@ namespace tafsvc {
 
 typedef struct
 {
-    taf_mngdPm_nodePowerStateRef_t ref;
+    taf_mngdPm_nodePowerStateRef_t nodeStateRef;
+    le_msg_SessionRef_t sessionRef;
     taf_mngdPm_NodePowerState_t state;
 }taf_rpcPm_NodePowerStateChange_t;
 
@@ -72,7 +73,7 @@ class tafMngdRpcPm: public ITafSvc
                void* contextPtr, uint8_t pmNodeId,taf_mngdPm_NodePowerStateChangeBitMask_t stateMask);
 
         static le_result_t SendRpcNodePowerStateChangeAck (uint8_t pmNodeId,
-                taf_mngdPm_nodePowerStateRef_t Ref, taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodeClientAck_t ack);
+                taf_mngdPm_nodePowerStateRef_t Ref, taf_mngdPm_NodeClientAck_t ack);
 
         static void SendAckToRpcPms(taf_mngdPm_NodePowerState_t state, taf_rpcPm_ClientAck_t ackType);
 
@@ -92,7 +93,7 @@ class tafMngdRpcPm: public ITafSvc
         //Rpc StateChangeExHandler
         static taf_rpcPm_StateChangeExHandlerRef_t rpcHandlerExRef;
         static taf_rpcPm_PowerStateRef_t rpcPowerStateRef;
-        std::vector<taf_mngdPm_nodePowerStateRef_t>rpcAckClientrecrd;
+        static int8_t ackRpcClientrecrdSize;
         std::vector<taf_rpcPm_NodePowerStateChange_t>rpcRegClientrecrd;
 
         //Node Power State change handler

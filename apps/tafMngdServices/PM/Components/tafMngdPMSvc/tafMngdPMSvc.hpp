@@ -152,6 +152,7 @@ typedef struct
     taf_mngdPm_NodePowerStateChangeHandlerFunc_t handlerPtr;
     uint8_t pmNodeId;
     le_dls_Link_t link;               // Link to handler list
+    le_msg_SessionRef_t sessionRef;
     taf_mngdPm_NodePowerStateChangeBitMask_t powerStateMask;
     taf_mngdPm_NodePowerStateChangeHandlerRef_t handlerRef;
     void* nodePowerStateHandlerCtxPtr;
@@ -161,6 +162,13 @@ typedef struct
 {
     taf_mngdPm_NodePowerState_t state;
 }taf_mngdPm_NodePowerStateChange_t;
+
+typedef struct
+{
+    taf_mngdPm_nodePowerStateRef_t nodeStateRef;
+    le_msg_SessionRef_t sessionRef;
+    taf_mngdPm_NodePowerState_t state;
+}taf_mngdPm_NodePowerStateChangeCtxt_t;
 
 /*
  * @brief The struct of Power state Ref list.
@@ -271,8 +279,8 @@ class tafMngdPMSvc: public ITafSvc
         static le_mem_PoolRef_t nodePowerStateRefPool;
         static le_ref_MapRef_t nodePowerStateRefMap;
         static void DeleteNodePowerStateRefs();
-        std::vector<taf_mngdPm_nodePowerStateRef_t>ackClientrecrd;
-        std::vector<taf_mngdPm_nodePowerStateRef_t>regClientrecrd;
+        std::vector<taf_mngdPm_NodePowerStateChangeCtxt_t>regClientrecrd;
+        static int8_t ackClientrecrdSize;
         static int8_t clientSize;
         static void SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_ClientAck_t ackType);
         bool IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState);

@@ -611,6 +611,5 @@ FUNCTION le_result_t SendNodePowerStateChangeAck
 (
     uint8 pmNodeId IN,   ///< The Node ID given.
     nodePowerState Ref,
-    NodePowerState state,
     NodeClientAck ack
 );

@@ -1392,6 +1392,15 @@ void NetStatusChangeHandler
         PrintRatSvcStatus(status);
     }
 
+    if (bitmask & TAF_RADIO_NET_STATUS_IND_BIT_MASK_SVC_DOMAIN)
+    {
+        taf_radio_ServiceDomainState_t domain = TAF_RADIO_SERVICE_DOMAIN_STATE_UNKNOWN;
+        le_result_t result = taf_radio_GetServiceDomain(&domain, phoneId);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetServiceDomain - OK");
+        LE_INFO("Phone %d service domain changed.", phoneId);
+        PrintSrvDomain(domain);
+    }
+
     if (bitmask & TAF_RADIO_NET_STATUS_IND_BIT_MASK_LTE_CS_CAP)
     {
         taf_radio_CsCap_t cap = TAF_RADIO_CS_CAP_UNKNOWN;
@@ -2012,6 +2021,11 @@ COMPONENT_INIT
             {
                 LE_INFO("Phone %ld power state : Off.", phoneId);
             }
+
+            taf_radio_OpMode_t mode;
+            result = taf_radio_GetOperatingMode(&mode, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetOperatingMode - OK");
+            PrintOperatingMode(mode);
         }
         else
         {

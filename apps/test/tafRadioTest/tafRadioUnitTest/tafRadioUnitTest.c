@@ -133,6 +133,13 @@ void NetStatusChangeHandler
         le_result_t result = taf_radio_GetRatSvcStatus(netStatusRef, &status);
         LE_TEST_OK(result == LE_OK, "taf_radio_GetRatSvcStatus - OK");
     }
+
+    if (bitmask & TAF_RADIO_NET_STATUS_IND_BIT_MASK_SVC_DOMAIN)
+    {
+        taf_radio_ServiceDomainState_t domain = TAF_RADIO_SERVICE_DOMAIN_STATE_UNKNOWN;
+        le_result_t result = taf_radio_GetServiceDomain(&domain, phoneId);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetServiceDomain - OK");
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -543,6 +550,9 @@ void TestTafRadioPower
     le_result_t result = taf_radio_SetRadioPower(LE_OFF, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_SetRadioPower - LE_OK");
 
+    result = taf_radio_SetOperatingMode(TAF_RADIO_OP_MODE_AIRPLANE, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetOperatingMode - LE_OK");
+
     result = taf_radio_SetRadioPower(LE_ON, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_SetRadioPower - LE_OK");
 
@@ -551,9 +561,13 @@ void TestTafRadioPower
     // wait for network reconnection.
     le_thread_Sleep(5);
 
+    taf_radio_OpMode_t mode;
+    result = taf_radio_GetOperatingMode(&mode, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetOperatingMode - LE_OK");
+
     result = taf_radio_GetRadioPower(&power, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetRadioPower - LE_OK");
-    if (power != LE_ON)
+    if (power != LE_ON || mode != TAF_RADIO_OP_MODE_ONLINE)
     {
         LE_ERROR("Radio is not powered on.");
         exit(0);

@@ -53,6 +53,14 @@ config DIAG_VSTACK
   ---help---
   Build with QC STACK or Vendor STACK
 
+# Diag for feature A
+config DIAG_FEATURE_A
+  bool "Common or feature A"
+  default "$(b2k,$(DIAG_FEATURE_A))" if !$(empty,$(DIAG_FEATURE_A))
+  default n
+  ---help---
+  Build for common or feature A
+
 menu "apps"
 rsource "apps/KConfig"
 endmenu # end "apps"

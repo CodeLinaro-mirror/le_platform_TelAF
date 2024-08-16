@@ -80,7 +80,9 @@ le_result_t taf_DataAccess_Init
 (
 )
 {
-    return LE_OK;
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.Load();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -386,6 +388,24 @@ le_result_t taf_DataAccess_SetEventFailedCounter
     auto &demHandler = DemDataHandler::GetInstance();
 
     return demHandler.SetEventFailedCounter(eventId, failedCounter);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Set event test failed counter and save it in storage media.
+ *
+ * @return
+ *  - The failed counter of the event. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED uint8_t taf_DataAccess_GetEventFailedCounter
+(
+    uint16_t eventId        ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetEventFailedCounter(eventId);
 }
 
 //-------------------------------------------------------------------------------------------------

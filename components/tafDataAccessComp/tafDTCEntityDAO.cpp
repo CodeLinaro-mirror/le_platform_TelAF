@@ -39,7 +39,9 @@
 #include "tafBaseDAO.hpp"
 #include "tafIOHandler.hpp"
 #include "tafDTCEntityDAO.hpp"
+#include "configuration.hpp"
 
+using namespace telux::tafsvc;
 using namespace taf::dataAccess;
 
 DtcEntityDao::DtcEntityDao
@@ -112,6 +114,24 @@ void DtcEntityDao::Init
     columnList.push_back("Update_Time");
     columnList.push_back("Test_Failed_Time");
     columnList.push_back("Confirmed_Time");
+}
+
+le_result_t DtcEntityDao::Load
+(
+)
+{
+    // Load all DTCs into the table.
+    if (mHandler->CheckTableEmpty())
+    {
+        LE_DEBUG("DTC table is empty. loading all DTCs into it");
+        return InitTableWithConfig();
+    }
+    else
+    {
+        LE_DEBUG("DTC table is not empty.");
+    }
+
+    return LE_OK;
 }
 
 le_result_t DtcEntityDao::CreateTable
@@ -221,6 +241,48 @@ le_result_t DtcEntityDao::UpdateTable
     {
         return LE_OK;
     }
+}
+
+le_result_t DtcEntityDao::InitTableWithConfig
+(
+)
+{
+    le_result_t ret;
+
+    try
+    {
+        std::vector<uint32_t> dtc_code_list = cfg::get_dtc_codes();
+        for (const auto & dtc_code: dtc_code_list)
+        {
+            // Insert.
+            DtcEntity entity;
+            entity.SetDtc(dtc_code);
+            entity.SetStatus(0);
+            entity.SetFaultOccurenceCounter(0);
+            entity.SetAgingCounter(0);
+            entity.SetAgedCounter(0);
+            entity.SetActivation(1);
+            entity.SetSuppression(0);
+            std::time_t now = std::time(nullptr);
+            entity.SetCreateTime(now);
+            entity.SetUpdateTime(now);
+
+            ret = Add(entity);
+            if (ret != LE_OK)
+            {
+                LE_ERROR("Failed to insert dtc0x%x into DTC table. ret=%d",
+                    dtc_code, (int32_t)ret);
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        // Not event in this DTC
+        LE_WARN("Exception: %s", e.what() );
+        return LE_FAULT;
+    }
+
+    return LE_OK;
 }
 
 void DtcEntityDao::BindValues
@@ -856,6 +918,9 @@ le_result_t DtcEntityDao::ClearDtcRecord
         return ret;
     }
 
+    // Load all DTCs into database table from configuration.
+    InitTableWithConfig();
+
     return LE_OK;
 }
 
@@ -868,12 +933,28 @@ le_result_t DtcEntityDao::ClearDtcRecord
     DtcEntity entity;
 
     entity.SetDtc(dtc);
-    ret = Remove(entity);
-    if (ret != LE_OK)
+    ret = QueryByKey(entity);
+    if (ret == LE_OK)
     {
-        LE_ERROR("Failed to delete dtc0x%x record. ret=%d",
-            dtc, (int32_t)ret);
-        return ret;
+        // Update.
+        entity.SetDtc(dtc);
+        entity.SetStatus(0);
+        entity.SetFaultOccurenceCounter(0);
+        entity.SetAgingCounter(0);
+        entity.SetAgedCounter(0);
+        entity.SetActivation(1);
+        entity.SetSuppression(0);
+
+        std::time_t now = std::time(nullptr);
+        entity.SetUpdateTime(now);
+
+        ret = Update(entity);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to clear dtc0x%x. ret=%d",
+                dtc, (int32_t)ret);
+            return ret;
+        }
     }
 
     return LE_OK;

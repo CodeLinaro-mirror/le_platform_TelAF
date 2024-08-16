@@ -182,11 +182,11 @@ namespace telux
             private:
                 // Internal search function.
                 taf_DataIDSvc_t* GetServiceObj();
-                
+
                 // Send NRC response msg.
-                le_result_t SendNRCResp(uint8_t sid, taf_uds_AddrInfo_t*  addrInfoPtr,
+                le_result_t SendNRCResp(uint8_t sid, const taf_uds_AddrInfo_t*  addrInfoPtr,
                         uint8_t errCode);
-                
+
                 // To clear message list.
                 void ClearReadDIDMsgList(taf_DataIDSvc_t* servicePtr);
                 void ClearWriteDIDMsgList(taf_DataIDSvc_t* servicePtr);

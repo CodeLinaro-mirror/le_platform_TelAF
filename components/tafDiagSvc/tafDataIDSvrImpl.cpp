@@ -157,12 +157,6 @@ void taf_DataIDSvr::UDSMsgHandler
     uint8_t msgPos = 1;  // Skip sid
     uint8_t errCode = 0;
 
-    // Send address information
-    taf_uds_AddrInfo_t addrInfo;
-    addrInfo.sa = addrPtr->ta;
-    addrInfo.ta = addrPtr->sa;
-    addrInfo.taType = addrPtr->taType;
-
     if (sid == reqReadDIDSvcId)
     {
         taf_ReadDIDRxMsg_t* rxReadDIDMsgPtr = NULL;
@@ -178,7 +172,7 @@ void taf_DataIDSvr::UDSMsgHandler
         {
             LE_DEBUG("Message length(%" PRIuS ") is not in correct format", msgLen - msgPos);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
-            SendNRCResp(sid, &addrInfo, errCode);
+            SendNRCResp(sid, addrPtr, errCode);
             le_mem_Release(rxReadDIDMsgPtr);
             return;
         }
@@ -214,7 +208,7 @@ void taf_DataIDSvr::UDSMsgHandler
         {
             LE_DEBUG("Message length(%" PRIuS ") is not correct", msgLen - msgPos);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
-            SendNRCResp(sid, &addrInfo, errCode);
+            SendNRCResp(sid, addrPtr, errCode);
             le_mem_Release(rxWriteDIDMsgPtr);
             return;
         }
@@ -228,7 +222,7 @@ void taf_DataIDSvr::UDSMsgHandler
         {
             LE_DEBUG("Message length(%" PRIuS ") is not correct", msgLen - msgPos);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
-            SendNRCResp(sid, &addrInfo, errCode);
+            SendNRCResp(sid, addrPtr, errCode);
             le_mem_Release(rxWriteDIDMsgPtr);
             return;
         }
@@ -249,7 +243,7 @@ void taf_DataIDSvr::UDSMsgHandler
     {
         LE_DEBUG("Service(0x%x) is invalid", sid);
         errCode = TAF_DIAG_SERVICE_NOT_SUPPORTED; // ServiceNotSupported
-        SendNRCResp(sid, &addrInfo, errCode);
+        SendNRCResp(sid, addrPtr, errCode);
     }
 
     return;
@@ -392,7 +386,10 @@ void taf_DataIDSvr::RxReadDIDEventHandler
     servicePtr = (taf_DataIDSvc_t*)did.GetServiceObj();
     if (servicePtr == NULL)
     {
-        LE_ERROR("Not found registered DID service for this request!");
+        LE_WARN("Not found registered DID service for this request!");
+        // UDS_0x22_NRC_21: Bad svc ref
+        did.SendNRCResp(rxReadDIDMsgPtr->serviceId, &(rxReadDIDMsgPtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(did.RxReadDIDMsgRefMap, rxReadDIDMsgPtr->readDIDRxMsgRef);
         le_mem_Release(rxReadDIDMsgPtr);
         return;
@@ -401,6 +398,9 @@ void taf_DataIDSvr::RxReadDIDEventHandler
     if (servicePtr->readDIDHandlerRef == NULL)
     {
         LE_WARN("Did not register handler for Read DID service.");
+        // UDS_0x22_NRC_21: handler not registered
+        did.SendNRCResp(rxReadDIDMsgPtr->serviceId, &(rxReadDIDMsgPtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(did.RxReadDIDMsgRefMap, rxReadDIDMsgPtr->readDIDRxMsgRef);
         le_mem_Release(rxReadDIDMsgPtr);
         return;
@@ -412,6 +412,9 @@ void taf_DataIDSvr::RxReadDIDEventHandler
                     servicePtr->readDIDHandlerRef);
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
+        // UDS_0x22_NRC_21: handler is null
+        did.SendNRCResp(rxReadDIDMsgPtr->serviceId, &(rxReadDIDMsgPtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(did.RxReadDIDMsgRefMap, rxReadDIDMsgPtr->readDIDRxMsgRef);
         le_mem_Release(rxReadDIDMsgPtr);
         return;
@@ -490,17 +493,6 @@ le_result_t taf_DataIDSvr::SendReadDIDResp
 
     TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
     TAF_ERROR_IF_RET_VAL(dataPtr == NULL, LE_BAD_PARAMETER, "Invalid dataPtr");
-
-    //Check errCode range
-    if(errCode != TAF_DIAGDATAID_READ_DID_NO_ERROR &&
-            errCode != TAF_DIAGDATAID_READ_DID_RESPONSE_TOO_LONG &&
-            errCode != TAF_DIAGDATAID_READ_DID_BUSY_REPEAT_REQ &&
-            errCode != TAF_DIAGDATAID_READ_DID_CONDITIONS_NOT_CORRECT &&
-            errCode < DID_NRC_RANGE_LOW_VALUE)
-    {
-        LE_ERROR("error code(%d) is invalid", errCode);
-        return LE_BAD_PARAMETER;
-    }
 
     le_result_t ret = LE_OK;
 
@@ -637,7 +629,10 @@ void taf_DataIDSvr::RxWriteDIDEventHandler
     servicePtr = (taf_DataIDSvc_t*)did.GetServiceObj();
     if (servicePtr == NULL)
     {
-        LE_ERROR("Not found registered DID service for this request!");
+        LE_WARN("Not found registered DID service for this request!");
+        // UDS_0x2E_NRC_21: service pointer is null
+        did.SendNRCResp(rxWriteDIDMsgPtr->serviceId, &(rxWriteDIDMsgPtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(did.RxWriteDIDMsgRefMap, rxWriteDIDMsgPtr->writeDIDRxMsgRef);
         le_mem_Release(rxWriteDIDMsgPtr);
         return;
@@ -646,6 +641,9 @@ void taf_DataIDSvr::RxWriteDIDEventHandler
     if (servicePtr->writeDIDHandlerRef == NULL)
     {
         LE_WARN("Did not register handler for write DID service.");
+        // UDS_0x2E_NRC_21: handler is not registered
+        did.SendNRCResp(rxWriteDIDMsgPtr->serviceId, &(rxWriteDIDMsgPtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(did.RxWriteDIDMsgRefMap, rxWriteDIDMsgPtr->writeDIDRxMsgRef);
         le_mem_Release(rxWriteDIDMsgPtr);
         return;
@@ -657,6 +655,9 @@ void taf_DataIDSvr::RxWriteDIDEventHandler
                     servicePtr->writeDIDHandlerRef);
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
+        // UDS_0x2E_NRC_21: handler is null
+        did.SendNRCResp(rxWriteDIDMsgPtr->serviceId, &(rxWriteDIDMsgPtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(did.RxWriteDIDMsgRefMap, rxWriteDIDMsgPtr->writeDIDRxMsgRef);
         le_mem_Release(rxWriteDIDMsgPtr);
         return;
@@ -765,16 +766,6 @@ le_result_t taf_DataIDSvr::SendWriteDIDResp
     LE_DEBUG("SendWriteDIDResp");
 
     TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
-    //Check errCode range
-    if(errCode != TAF_DIAGDATAID_WRITE_DID_NO_ERROR &&
-            errCode != TAF_DIAGDATAID_WRITE_DID_BUSY_REPEAT_REQ &&
-            errCode != TAF_DIAGDATAID_WRITE_DID_CONDITIONS_NOT_CORRECT &&
-            errCode != TAF_DIAGDATAID_WRITE_DID_GENERAL_PROGRAMMING_FAILURE &&
-            errCode < DID_NRC_RANGE_LOW_VALUE)
-    {
-        LE_ERROR("error code(%d) is invalid", errCode);
-        return LE_BAD_PARAMETER;
-    }
 
     le_result_t ret = LE_OK;
 
@@ -847,7 +838,7 @@ w_release_msg:
 le_result_t taf_DataIDSvr::SendNRCResp
 (
     uint8_t sid,
-    taf_uds_AddrInfo_t*  addrInfoPtr,
+    const taf_uds_AddrInfo_t*  addrInfoPtr,
     uint8_t errCode
 )
 {
@@ -855,9 +846,14 @@ le_result_t taf_DataIDSvr::SendNRCResp
 
     TAF_ERROR_IF_RET_VAL(addrInfoPtr == NULL, LE_BAD_PARAMETER, "Invalid addrInfoPtr");
 
+    taf_uds_AddrInfo_t addrInfo;
+    addrInfo.sa = addrInfoPtr->ta;
+    addrInfo.ta = addrInfoPtr->sa;
+    addrInfo.taType = addrInfoPtr->taType;
+
     // Call UDS function to send the response message.
     auto &backend = taf_DiagBackend::GetInstance();
-    backend.RespDiagNegative(sid, addrInfoPtr, errCode);
+    backend.RespDiagNegative(sid, &addrInfo, errCode);
 
     return LE_OK;
 }

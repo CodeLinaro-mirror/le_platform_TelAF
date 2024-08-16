@@ -366,8 +366,11 @@ le_result_t taf_DTCInf::GetNumOfDtcByStatusMask
     LE_DEBUG("Current session is %x", currentSesType);
 
     // Get the DTCStatusAvailabilityMask.
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    uint8_t availableMask = GetAvailableStatusMaskByCurrentSession(currentSesType);
+#else
     uint8_t availableMask = taf_DataAccess_GetAvailableStatusMask();
-
+#endif
     // Get the DTCFormatIdentifier.
     uint8_t formatId = taf_DataAccess_GetDtcFormatId();
 
@@ -454,7 +457,11 @@ le_result_t taf_DTCInf::GetDtcByStatusMask
         return result;
     }
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    respBuf[0] = GetAvailableStatusMaskByCurrentSession(currentSesType);
+#else
     respBuf[0] = dtcStatusRec.availableMask;
+#endif
     respBufLen = DTC_BY_STATUS_MASK_RESP_BASE_LEN;
 
     int i = 0;
@@ -790,7 +797,11 @@ le_result_t taf_DTCInf::GetSupportedDtc
         return result;
     }
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    respBuf[0] = GetAvailableStatusMaskByCurrentSession(currentSesType);
+#else
     respBuf[0] = dtcStatusRec.availableMask;
+#endif
     respBufLen = SUPPORTED_DTC_RESP_BASE_LEN;
 
     int i = 0;
@@ -1069,6 +1080,18 @@ bool taf_DTCInf::IsDTCCurrentSesTypeConfig
 
     return false;
 }
+
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+uint8_t taf_DTCInf::GetAvailableStatusMaskByCurrentSession(uint8_t currentSesType)
+{
+    LE_INFO("current sess=0x%x", currentSesType);
+    if ((uint8_t)currentSesType == FEATURE_A_PROGRAMMING_SESSION ||
+            (uint8_t)currentSesType == FEATURE_A_FOTA_SESSION)
+        return FEATURE_A_REPROGRAMMING_DTC_AVAILABILITY_MASK;
+    else
+        return FEATURE_A_APPLICATION_DTC_AVAILABILITY_MASK;
+}
+#endif
 
 //-------------------------------------------------------------------------------------------------
 /**

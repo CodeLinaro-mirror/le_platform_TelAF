@@ -109,6 +109,15 @@ void DemDataHandler::Init
     snapshotRnMap.insert(make_pair(3, Snapshot_LastDisappearance));
 }
 
+le_result_t DemDataHandler::Load
+(
+)
+{
+    auto &tafDtcDao = DtcEntityDao::GetInstance();
+
+    return tafDtcDao.Load();
+}
+
 le_result_t DemDataHandler::GetNumOfDtcByStatusMask
 (
     uint8_t statusMask,
@@ -297,10 +306,16 @@ le_result_t DemDataHandler::GetSnapshotRecByDtc
         if (pair == snapshotRnMap.end())
         {
             LE_ERROR("Unknow the record number(0x%x)", recNumber);
-            return LE_OUT_OF_RANGE;
+            return LE_OK;
         }
 
-        return GetSpecSnapshotRecByDtc(dtc, recNumber, &snapshotDataRecPtr->snapshotDataList);
+        // return GetSpecSnapshotRecByDtc(dtc, recNumber, &snapshotDataRecPtr->snapshotDataList);
+        if (GetSpecSnapshotRecByDtc(dtc, recNumber, &snapshotDataRecPtr->snapshotDataList) != LE_OK)
+        {
+            LE_INFO("Record Number (%02x) <-- ", recNumber);
+        }
+
+        return LE_OK;
     }
 }
 
@@ -510,6 +525,17 @@ le_result_t DemDataHandler::SetEventFailedCounter
     }
 
     return LE_OK;
+}
+
+uint8_t DemDataHandler::GetEventFailedCounter
+(
+    uint16_t eventId
+)
+{
+    auto &tafEventDao = EventEntityDao::GetInstance();
+
+    return static_cast<uint8_t>(tafEventDao.ReadFailedCounterByEventId
+            (static_cast<int32_t>(eventId)));
 }
 
 le_result_t DemDataHandler::ResetAllData
@@ -1016,8 +1042,13 @@ le_result_t DemDataHandler::GetSpecSnapshotRecByDtc
 {
     auto &snapshotDao = SnapshotEntityDao::GetInstance();
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    std::vector<DIDInfoPtr> dids = snapshotDao.GetDIDRecord(
+        static_cast<int32_t>(dtc), static_cast<int32_t>(FIXED_RECORD_NUMBER_FEATURE_A));
+#else
     std::vector<DIDInfoPtr> dids = snapshotDao.GetDIDRecord(
         static_cast<int32_t>(dtc), static_cast<int32_t>(recNumber));
+#endif
     if (dids.size() == 0)
     {
         // Not record.

@@ -392,6 +392,36 @@ le_result_t EventEntityDao::ReadEventInfoByEventId
     return LE_OK;
 }
 
+int32_t EventEntityDao::ReadFailedCounterByEventId
+(
+    int32_t eventId
+)
+{
+    int ret;
+    EventEntity entity;
+
+    entity.SetEventId(eventId);
+    ret = QueryByKey(entity);
+    if (ret != LE_OK)
+    {
+        if (ret == LE_NOT_FOUND)
+        {
+            LE_WARN("The key is not exist. ");
+        }
+        else
+        {
+            LE_ERROR("Failed to query entity by key. ret=%d", ret);
+        }
+
+        return 0;
+    }
+
+    LE_DEBUG("ReadFailedCounterByEventId: Get failed counter(0x%x) for event0x%x",
+        entity.GetTestFailedCounter(), eventId);
+
+    return entity.GetTestFailedCounter();
+}
+
 le_result_t EventEntityDao::WriteStatusAndDtcByEventId
 (
     int32_t eventId,
@@ -410,15 +440,7 @@ le_result_t EventEntityDao::WriteStatusAndDtcByEventId
         entity.SetEventId(eventId);
         entity.SetEventDtc(dtc);
         entity.SetEventStatus(status);
-
-        if (status != 0)
-        {
-            entity.SetTestFailedCounter(0);
-        }
-        else
-        {
-            entity.SetTestFailedCounter(1);
-        }
+        entity.SetTestFailedCounter(0);
 
         std::time_t now = std::time(nullptr);
         entity.SetCreateTime(now);
@@ -444,12 +466,6 @@ le_result_t EventEntityDao::WriteStatusAndDtcByEventId
 
         entity.SetEventStatus(status);
 
-        int32_t counter = entity.GetTestFailedCounter();
-        if (counter < TEST_FAILED_COUNTER_MAX)
-        {
-            counter++;
-            entity.SetTestFailedCounter(counter);
-        }
         std::time_t now = std::time(nullptr);
         entity.SetUpdateTime(now);
 
@@ -550,12 +566,21 @@ le_result_t EventEntityDao::ClearEventRecord
     EventEntity entity;
 
     entity.SetEventId(eventId);
-    ret = Remove(entity);
-    if (ret != LE_OK)
+    ret = QueryByKey(entity);
+    if (ret == LE_OK)
     {
-        LE_ERROR("Failed to delete event0x%x record from event table. ret=%d",
-            eventId, (int32_t)ret);
-        return ret;
+        // Update.
+        entity.SetEventStatus(0);
+        std::time_t now = std::time(nullptr);
+        entity.SetUpdateTime(now);
+
+        ret = Update(entity);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to clear event0x%x. ret=%d",
+                eventId, (int32_t)ret);
+            return ret;
+        }
     }
 
     return LE_OK;

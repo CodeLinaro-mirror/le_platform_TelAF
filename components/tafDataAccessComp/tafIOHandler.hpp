@@ -86,6 +86,7 @@ namespace dataAccess{
             virtual DataStatement Query(std::string &where) = 0;
             virtual DataStatement QueryCount(std::string &where) = 0;
             virtual bool CheckTableExist() = 0;
+            virtual bool CheckTableEmpty() = 0;
     };
 }
 }

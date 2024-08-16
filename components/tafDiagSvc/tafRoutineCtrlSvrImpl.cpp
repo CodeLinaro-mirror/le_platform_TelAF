@@ -179,7 +179,8 @@ void taf_RoutinCtrlSvr::RxReqEventHandler
     {
         LE_WARN("Not found registered service(identifier:0x%x) for this request",
             msgPtr->routineId);
-        rc.SendNRCResp(rc.svcId, &(msgPtr->addrInfo), TAF_DIAG_REQUEST_OUT_OF_RANGE);
+        // UDS_0x31_NRC_21: service pointer is null
+        rc.SendNRCResp(rc.svcId, &(msgPtr->addrInfo), TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(rc.reqMsgRefMap, msgPtr->ref);
         le_mem_Release(msgPtr);
         return;
@@ -189,7 +190,8 @@ void taf_RoutinCtrlSvr::RxReqEventHandler
     {
         LE_WARN("Did not register handler for service(identifier:0x%x)",
             msgPtr->routineId);
-        rc.SendNRCResp(rc.svcId, &(msgPtr->addrInfo), TAF_DIAG_REQUEST_OUT_OF_RANGE);
+        // UDS_0x31_NRC_21: handler is not registered
+        rc.SendNRCResp(rc.svcId, &(msgPtr->addrInfo), TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(rc.reqMsgRefMap, msgPtr->ref);
         le_mem_Release(msgPtr);
         return;
@@ -201,7 +203,8 @@ void taf_RoutinCtrlSvr::RxReqEventHandler
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
         LE_ERROR("Can not find routine control handler object!");
-        rc.SendNRCResp(rc.svcId, &(msgPtr->addrInfo), TAF_DIAG_REQUEST_OUT_OF_RANGE);
+        // UDS_0x31_NRC_21: handler is null
+        rc.SendNRCResp(rc.svcId, &(msgPtr->addrInfo), TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(rc.reqMsgRefMap, msgPtr->ref);
         le_mem_Release(msgPtr);
         return;
@@ -315,18 +318,6 @@ le_result_t taf_RoutinCtrlSvr::SendRoutineCtrlResp
     {
         LE_ERROR("Cannot find the service(identifier:0x%x)", reqMsgPtr->routineId);
         return LE_NOT_FOUND;
-    }
-
-    // Check errCode range.
-    if (nrc < TAF_DIAG_ROUTINE_CTRL_NRC_RANGE_LOW_VALUE
-        && nrc != TAF_DIAGROUTINECTRL_NO_ERROR
-        && nrc != TAF_DIAGROUTINECTRL_BUSY_REPEAT_REQ
-        && nrc != TAF_DIAGROUTINECTRL_CONDITIONS_NOT_CORRECT
-        && nrc != TAF_DIAGROUTINECTRL_REQUEST_SEQUENCE_ERROR
-        && nrc != TAF_DIAGROUTINECTRL_GENERAL_PROGRAMMING_FAILURE)
-    {
-        LE_ERROR("Error code is invalid.");
-        return LE_BAD_PARAMETER;
     }
 
     LE_ASSERT(reqMsgPtr->ref == reqMsgRef);

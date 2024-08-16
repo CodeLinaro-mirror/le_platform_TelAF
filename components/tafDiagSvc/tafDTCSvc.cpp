@@ -65,6 +65,30 @@ le_result_t taf_diagDTC_GetCode
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the fault detection counter for the given DTC reference.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_NOT_FOUND -- DTC reference was not found.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagDTC_GetFaultDetectionCounter
+(
+    taf_diagDTC_ServiceRef_t svcRef,
+        ///< [IN] The DTC reference.
+    uint8_t* faultDetectionCounterPtr
+        ///< [OUT] The DTC code.
+)
+{
+    auto &diagDTC = taf_DTCSvr::GetInstance();
+
+    return diagDTC.GetFaultDetectionCounter(svcRef, faultDetectionCounterPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Reads DTC status.
  *
  * @return

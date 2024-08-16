@@ -350,6 +350,19 @@ LE_SHARED le_result_t taf_DataAccess_SetEventFailedCounter
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Set event test failed counter and save it in storage media.
+ *
+ * @return
+ *  - The failed counter of the event. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED uint8_t taf_DataAccess_GetEventFailedCounter
+(
+    uint16_t eventId        ///< [IN]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Delete all DTC and Event data from storage media.
  *
  * @return

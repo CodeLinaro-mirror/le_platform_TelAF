@@ -122,6 +122,8 @@ namespace telux
                 //For specified DTC
                 taf_diagDTC_ServiceRef_t GetService(uint32_t dtcCode);
                 le_result_t GetCode(taf_diagDTC_ServiceRef_t svcRef, uint32_t* dtcCodePtr);
+                le_result_t GetFaultDetectionCounter(taf_diagDTC_ServiceRef_t svcRef,
+                        uint8_t* faultDetectionCounterPtr);
                 le_result_t ReadStatus(taf_diagDTC_ServiceRef_t svcRef, uint8_t* statusPtr);
                 le_result_t SetActivationStatus(taf_diagDTC_ServiceRef_t svcRef,
                         taf_diagDTC_ActivationStatus_t status);

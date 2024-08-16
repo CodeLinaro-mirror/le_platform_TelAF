@@ -70,6 +70,7 @@ namespace dataAccess{
             static DtcEntityDao &GetInstance();
             using BaseDao<DtcEntity, int32_t>::Init;
             void Init(const char *dbName,   int expectedVer);
+            le_result_t Load();
 
             void BindValues(DataStatement &statement, DtcEntity &entity) override;
             void BindKeyValue(DataStatement &statement, DtcEntity &entity) override;
@@ -116,6 +117,7 @@ namespace dataAccess{
                     bool ifExists);
             le_result_t UpdateTable(std::shared_ptr<IOHandler<DtcEntity, int32_t>> handler,
                     int currentVer, int expectedVer);
+            le_result_t InitTableWithConfig();
 
             std::vector<std::string> columnList;
             std::vector<std::string> pkList;

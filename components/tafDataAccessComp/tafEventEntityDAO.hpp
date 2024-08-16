@@ -81,6 +81,7 @@ namespace dataAccess{
             int32_t ReadEventStatusByEventId(int32_t eventId);
             le_result_t ReadEventInfoByEventId(int32_t eventId,
                     taf_DataAccess_EventInfo_t *eventInfoPtr);
+            int32_t ReadFailedCounterByEventId(int32_t eventId);
 
             le_result_t WriteStatusAndDtcByEventId(int32_t eventId, int32_t status, int32_t dtc);
             le_result_t WriteFailedCounterByEventId(int32_t eventId, int32_t counter);

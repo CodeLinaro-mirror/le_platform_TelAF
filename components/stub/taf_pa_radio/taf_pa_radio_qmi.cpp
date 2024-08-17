@@ -39,137 +39,6 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get register mode
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_radio_GetRegisterMode
-(
-    bool* isManualPtr,
-    char* mccPtr,
-    size_t mccPtrSize,
-    char* mncPtr,
-    size_t mncPtrSize,
-    uint8_t phoneId
-)
-{
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get platform specific registration error code
- */
-//--------------------------------------------------------------------------------------------------
-int32_t taf_pa_radio_GetPlatformSpecificRegistrationErrorCode
-(
-    void
-)
-{
-    return INT32_MAX;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Add handler for network registration rejection
- */
-//--------------------------------------------------------------------------------------------------
-taf_radio_NetRegRejectHandlerRef_t taf_pa_radio_AddNetRegRejectHandler
-(
-    taf_radio_NetRegRejectHandlerFunc_t handlerFuncPtr,
-    void* contextPtr
-)
-{
-    return NULL;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Remove handler for network registration rejection
- */
-//--------------------------------------------------------------------------------------------------
-void taf_pa_radio_RemoveNetRegRejectHandler
-(
-    taf_radio_NetRegRejectHandlerRef_t handlerRef
-)
-{
-    return;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Add handler for radio access technology change
- */
-//--------------------------------------------------------------------------------------------------
-taf_radio_RatChangeHandlerRef_t taf_pa_radio_AddRatChangeHandler
-(
-    taf_radio_RatChangeHandlerFunc_t handlerFuncPtr,
-    void* contextPtr
-)
-{
-    return NULL;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Remove handler for radio access technology change
- */
-//--------------------------------------------------------------------------------------------------
-void taf_pa_radio_RemoveRatChangeHandler
-(
-    taf_radio_RatChangeHandlerRef_t handlerRef
-)
-{
-    return;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get radio access technology in use
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_radio_GetRadioAccessTechInUse
-(
-    taf_radio_Rat_t* ratPtr,
-    uint8_t phoneId
-)
-{
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get current network name
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_radio_GetCurrentNetworkName
-(
-    char* nameStr,
-    size_t nameStrSize,
-    uint8_t phoneId
-)
-{
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get current network Mobile Country Code and Mobile Network Code
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_radio_GetCurrentNetworkMccMnc
-(
-    char* mccStr,
-    size_t mccStrNumElements,
-    char* mncStr,
-    size_t mncStrNumElements,
-    uint8_t phoneId
-)
-{
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Enable indication
  */
 //--------------------------------------------------------------------------------------------------
@@ -193,94 +62,6 @@ le_result_t taf_pa_radio_DisableIndication
 {
     return LE_OK;
 }
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get 2G/3G band capabilities
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_radio_GetBandCapabilities
-(
-    taf_radio_BandBitMask_t* bandMaskPtr,
-    uint8_t phoneId
-)
-{
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get LTE band capabilities
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_radio_GetLteBandCapabilities
-(
-    uint64_t* bandMaskPtr,
-    size_t* bandMaskSizePtr,
-    uint8_t phoneId
-)
-{
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Set 2G/3G band preferences
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_radio_SetBandPreferences
-(
-    taf_radio_BandBitMask_t bandMask,
-    uint8_t phoneId
-)
-{
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get 2G/3G band preferences
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_radio_GetBandPreferences
-(
-    taf_radio_BandBitMask_t* bandMaskPtr,
-    uint8_t phoneId
-)
-{
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Set LTE band preferences
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_radio_SetLteBandPreferences
-(
-    const uint64_t* bandMask,
-    size_t bandMaskSize,
-    uint8_t phoneId
-)
-{
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get LTE band preferences
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_radio_GetLteBandPreferences
-(
-    uint64_t* bandMaskPtr,
-    size_t* bandMaskSizePtr,
-    uint8_t phoneId
-)
-{
-    return LE_OK;
-}
-
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -447,20 +228,6 @@ void taf_pa_radio_RemoveNetStatusChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Get LTE CS capabilitiy.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_radio_GetLteCsCap
-(
-    uint8_t phoneId,
-    taf_radio_CsCap_t* capabilitiy
-)
-{
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  *  Get RAT service status.
  */
 //--------------------------------------------------------------------------------------------------
@@ -468,6 +235,15 @@ le_result_t taf_pa_radio_GetRatSvcStatus
 (
     uint8_t phoneId,
     taf_radio_RatSvcStatus_t* status
+)
+{
+    return LE_OK;
+}
+
+le_result_t taf_pa_radio_GetServingCellRoutingAreaCode
+(
+    uint8_t* rac,   ///< [OUT] Routing area code.
+    uint8_t phoneId ///< [IN] Phone id.
 )
 {
     return LE_OK;

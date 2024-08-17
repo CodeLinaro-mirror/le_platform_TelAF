@@ -3029,3 +3029,22 @@ FUNCTION le_result_t GetOperatingMode
     OpMode mode OUT, ///< Operating mode.
     uint8 phoneId IN ///< Phone ID.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets routing area code.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note Only applicable for GSM/WCDMA/TDSCDMA.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetServingCellRoutingAreaCode
+(
+    uint8 rac OUT,   ///< Routing area code.
+    uint8 phoneId IN ///< Phone ID.
+);

@@ -1,35 +1,6 @@
 /*
  * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "tafMngdPMSvc.hpp"
@@ -237,6 +208,62 @@ le_result_t tafMngdPMSvc::ParseJsonConfig(std::string configPath)
             }
         }
     }
+    return LE_OK;
+}
+
+/**
+ * Parse JSON config file
+ */
+le_result_t tafMngdPMSvc::ParseJsonConfiguration(std::string configPath)
+{
+    LE_DEBUG("ParseJsonConfig %s", configPath.c_str());
+
+    if (configPath.empty())
+    {
+        LE_ERROR("configPath is empty!");
+        return LE_FAULT;
+    }
+
+    std::ifstream jsonFile(configPath);
+    if (!jsonFile.is_open())
+    {
+        LE_WARN ("Unable to open %s", configPath.c_str());
+        configPath = TAF_MNGDPM_DEFAULT_CONF_PATH;
+        std::ifstream jsonFile(configPath);
+        if(!jsonFile.is_open())
+            return LE_FAULT;
+    }
+
+    // Create a root
+    pt::ptree root;
+    // Load the json file in this ptree
+    try
+    {
+        pt::read_json(configPath, root);
+    }
+    catch (const std::exception &e)
+    {
+        LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
+        return LE_FAULT;
+    }
+    auto &mpms = tafMngdPMSvc::GetInstance();
+
+    long int bootup_awake_time = root.get<int>("bootup_awake_time");
+    LE_INFO("bootup_awake_time is %ld", bootup_awake_time);
+    mpms.config.bootup_awake_time = bootup_awake_time;
+
+    bool hal_enabled = root.get<bool>("hal_enabled");
+    LE_INFO("hal_enabled is %d", hal_enabled);
+    mpms.config.hal_enabled = hal_enabled;
+
+    long int hal_state_prepare_timeout = root.get<int>("hal_state_prepare_timeout");
+    LE_INFO("hal_state_prepare_timeout is %ld", hal_state_prepare_timeout);
+    mpms.config.hal_state_prepare_timeout = hal_state_prepare_timeout;
+
+    long int hal_wakeup_vehicle_timeout = root.get<int>("hal_wakeup_vehicle_timeout");
+    LE_INFO("hal_wakeup_vehicle_timeout is %ld", hal_wakeup_vehicle_timeout);
+    mpms.config.hal_wakeup_vehicle_timeout = hal_wakeup_vehicle_timeout;
+
     return LE_OK;
 }
 
@@ -844,10 +871,11 @@ void tafMngdPMSvc::VehichleWakeupTimerHandler(le_timer_Ref_t timerRef)
 void tafMngdPMSvc::WaitWakeSourceTimer()
 {
     LE_INFO("WaitWakeSourceTimer");
+    auto &mpms = tafMngdPMSvc::GetInstance();
     le_result_t res;
     //timer to wait for wake source from apps
     wakeSourceTimerRef = le_timer_Create("WAKE SOURCE timer");
-    le_timer_SetMsInterval(wakeSourceTimerRef, VHAL_WAKESOURCE_TIMEOUT);
+    le_timer_SetMsInterval(wakeSourceTimerRef, mpms.config.hal_state_prepare_timeout);
     le_timer_SetHandler(wakeSourceTimerRef, WakeSourceTimerHandler);
     //acquire wakesource
     res = AcquireWakeLock();
@@ -886,15 +914,15 @@ le_result_t tafMngdPMSvc::InitVHalModule()
     {
         LE_INFO("Loaded module %s successfully", TAF_PM_MODULE_NAME);
         LE_DEBUG("Call pmInf(%p) init function", pmInf);
-
+        auto &mpms = tafMngdPMSvc::GetInstance();
         // init first
         (*(pmInf->InitHAL))();
         vhalAckTimerRef = le_timer_Create("VHAL ACK timer");
-        le_timer_SetMsInterval(vhalAckTimerRef, VHAL_ACK_TIMEOUT);
+        le_timer_SetMsInterval(vhalAckTimerRef, mpms.config.bootup_awake_time);
         le_timer_SetHandler(vhalAckTimerRef, VhalAckTimerHandler);
         //creating the timer for vehichle wakeup
         wakeupVehicleTimerRef = le_timer_Create("VEHICHLE WAKEUP timer");
-        le_timer_SetMsInterval(wakeupVehicleTimerRef, VEHICHLE_WAKEUP_TIMEOUT);
+        le_timer_SetMsInterval(wakeupVehicleTimerRef, mpms.config.hal_wakeup_vehicle_timeout);
         le_timer_SetHandler(wakeupVehicleTimerRef, VehichleWakeupTimerHandler);
     }
 
@@ -1374,3 +1402,4 @@ le_mem_PoolRef_t tafMngdPMSvc::nodePowerStateRefPool;
 le_ref_MapRef_t tafMngdPMSvc::nodePowerStateRefMap;
 int8_t tafMngdPMSvc::clientSize;
 int8_t tafMngdPMSvc::ackClientrecrdSize;
+taf_mngdPm_config_t tafMngdPMSvc::config;

@@ -28,6 +28,7 @@ requires:
 
     api:
     {
+        taf_mngdStorSec.api [optional]
         taf_pm.api
         le_appInfo.api
     }

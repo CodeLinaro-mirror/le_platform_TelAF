@@ -593,6 +593,16 @@ le_result_t tafMngdConnAdmin::Startdata(taf_mngdConn_DataRef_t dataRef)
         return LE_FAULT;
     }
 
+    std::string state = StateToString(dataCtxPtr->adminState);
+    LE_DEBUG("State is %s", state.c_str());
+    //Do action according to the current state.
+    if( MCS_DATA_CONNECTED_INACTIVE_RETRYING == dataCtxPtr->adminState ||
+        MCS_DATA_NOT_CONNECTED_RETRYING == dataCtxPtr->adminState )
+    {
+        LE_INFO("Retry is in progress");
+        return LE_IN_PROGRESS;
+    }
+
     stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT,0};
     stateMachineEvt.event = MCS_EVT_DATA_START_SYNC;
     stateMachineEvt.dataId=dataCtxPtr->dataId;
@@ -1226,6 +1236,13 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
     {
         LE_ERROR("Data retry disabled.");
         dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_FAILED;
+        //Since the data connection has failed remove all the clients
+        if(!dataCtxPtr->clients.empty() &&
+            MCS_CONNECTIONRECOVERY_LEVEL_NONE == Policy.DataSession.ConnectivityRecovery.Level)
+        {
+            LE_INFO("Connection Failed. Clear all clients for Data ID: %d", dataCtxPtr->dataId);
+            dataCtxPtr->clients.clear();
+        }
         ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTION_FAILED);
         return LE_NOT_POSSIBLE;
     }
@@ -1244,6 +1261,13 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
         // It is not possible to proceed with the retry mechanism
         LE_ERROR("Data retry count exceeded. Data connection FAILED.");
         dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_FAILED;
+        //Since the data connection has failed remove all the clients
+        if(!dataCtxPtr->clients.empty() &&
+            MCS_CONNECTIONRECOVERY_LEVEL_NONE == Policy.DataSession.ConnectivityRecovery.Level)
+        {
+	    LE_INFO("Connection Failed. Clear all clients for Data ID: %d", dataCtxPtr->dataId);
+            dataCtxPtr->clients.clear();
+        }
         ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTION_FAILED);
         return LE_NOT_POSSIBLE;
     }
@@ -1361,6 +1385,15 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
                     dataCtxPtr->dataConnTestFailedRetryCount = 0;
                     LE_ERROR("Data retry count exceeded. Data connection FAILED.");
                     dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_FAILED;
+                    //Since the data connection has failed remove all the clients
+                    if(!dataCtxPtr->clients.empty() &&
+                        MCS_CONNECTIONRECOVERY_LEVEL_NONE ==
+                        Policy.DataSession.ConnectivityRecovery.Level)
+                    {
+                        LE_INFO("Connection Failed. Clear all clients for Data ID: %d",
+                                dataCtxPtr->dataId);
+                        dataCtxPtr->clients.clear();
+                    }
                     ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTION_FAILED);
                     return LE_NOT_POSSIBLE;
                 }

@@ -33,8 +33,10 @@
 #define RFS_MAX_BACKUP_FILE_COUNT 100
 #endif
 
+#define RFS_COPY_BUFFER_SIZE 8192
+
 // RFS file backup storage
-#define RFS_STORAGE "/persist/rfs/"
+#define RFS_STORAGE "/data/rfs/"
 #define RFS_BACKUP_STORAGE RFS_STORAGE"backup/"
 #define RFS_MAX_BACKUP_FILENAME 1024
 #define RFS_FILE_EXTENDED_ATTR_MD5 "security.md5"
@@ -131,7 +133,7 @@ static void CalculateFileMD5(const char* filePath, char* md5Str, size_t md5StrSi
 
     FILE* file = fopen(filePath, "rb");
     if (!file) {
-        perror("Failed to open file");
+        LE_ERROR("Failed to open file");
         return;
     }
 
@@ -617,14 +619,8 @@ extern "C" LE_SHARED int taf_rfs_Open
         }
         else
         {
-            needRestore = true;
-
-            LE_ERROR("Failed to get MD5 from extended attribute: %s", strerror(errno));
-
-            RFS_ErrorMsg_t errMsg;
-            errMsg.error = RFS_ERR_GET_HASH;
-            snprintf(errMsg.filePath, sizeof(errMsg.filePath), "%s", filePathPtr);
-            le_event_Report(ErrorEventId, (void*)&errMsg, sizeof(RFS_ErrorMsg_t));
+            // The file doesn't have extended attribute to check hash, ignore it
+            LE_DEBUG("Cannot get MD5 from extended attribute: %s", strerror(errno));
         }
     }
     else if (!(flags & O_CREAT))
@@ -738,6 +734,103 @@ extern "C" LE_SHARED void taf_rfs_Delete
     }
 }
 
+extern "C" LE_SHARED int taf_rfs_Copy
+(
+    const char *sourcePath,
+    const char *destPath
+)
+{
+    int srcFd, destFd;
+    ssize_t bytesRead, bytesWritten;
+    uint8_t buffer[RFS_COPY_BUFFER_SIZE];
+
+    // open source file
+    srcFd = open(sourcePath, O_RDONLY);
+    if (srcFd < 0)
+    {
+        LE_ERROR("Failed to open source file");
+        return errno;
+    }
+
+    // open destination file, if it doesn't exist, create it
+    destFd = taf_rfs_Open(destPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (destFd < 0)
+    {
+        LE_ERROR("Failed to open destination file");
+        close(srcFd);
+        return errno;
+    }
+
+    // read source file and write to destination file
+    while ((bytesRead = read(srcFd, buffer, RFS_COPY_BUFFER_SIZE)) > 0)
+    {
+        bytesWritten = taf_rfs_Write(destFd, buffer, bytesRead);
+        if (bytesWritten != bytesRead)
+        {
+            LE_ERROR("Failed to write to destination file");
+            close(srcFd);
+            close(destFd);
+            return errno;
+        }
+    }
+
+    // error check for read returned value
+    if (bytesRead < 0)
+    {
+        LE_ERROR("Failed to read from source file");
+        close(srcFd);
+        taf_rfs_Close(destFd);
+        return errno;
+    }
+
+    close(srcFd);
+    taf_rfs_Close(destFd);
+
+    return 0;
+}
+
+int taf_rfs_Rename
+(
+    const char *sourcePath,
+    const char *destPath
+)
+{
+    // Try POSIX rename()
+    if (rename(sourcePath, destPath) == 0)
+    {
+        DeleteBackup(sourcePath);
+
+        BackupFileToStorage(destPath);
+
+        return 0;
+    }
+    else
+    {
+        // if the errno is EXDEV (cross-filesystem)，try to copy and delete
+        if (errno == EXDEV)
+        {
+            LE_INFO("Cross-filesystem rename detected, attempting copy and delete.");
+
+            int copyResult = taf_rfs_Copy(sourcePath, destPath);
+            if (copyResult != 0)
+            {
+                return copyResult;  // Copy failed, return error
+            }
+
+            // Copy succeeded, delete the source file
+            taf_rfs_Delete(sourcePath);
+
+            return 0;
+        }
+        else
+        {
+            // Other error, return error number
+            LE_ERROR("Failed to rename file");
+            return errno;
+        }
+    }
+}
+
 COMPONENT_INIT
 {
     // initializing
@@ -803,5 +896,4 @@ COMPONENT_INIT
 
     BackupStorageCheck.maxFileSize = RFS_MAX_BACKUP_FILE_SIZE;
     BackupStorageCheck.maxFileCount = RFS_MAX_BACKUP_FILE_COUNT;
-
 }

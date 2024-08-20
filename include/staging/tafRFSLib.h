@@ -213,6 +213,40 @@ LE_SHARED void taf_rfs_Delete
     const char* filePathPtr
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Copy a file.
+ * @param
+ *      sourcePath  - The source file path
+ *      destPath    - The destination file path
+ *
+ * @return
+ *      Zero on successful copy, others to indicate errno
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED int taf_rfs_Copy
+(
+    const char *sourcePath,
+    const char *destPath
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Rename a file.
+ * @param
+ *      sourcePath  - The source file path
+ *      destPath    - The destination file path
+ *
+ * @return
+ *      Zero on successful copy, others to indicate errno
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED int taf_rfs_Rename
+(
+    const char *sourcePath,
+    const char *destPath
+);
+
 #ifdef __cplusplus
 }
 #endif

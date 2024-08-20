@@ -57,6 +57,8 @@ le_result_t taf_uds_SendDiagResp
         return LE_BAD_PARAMETER;
     }
 
+    memcpy(&udsCmMgr.udsRespAddrInfo, addrInfoPtr, sizeof(*addrInfoPtr));
+
     if (diagMsgPtr != NULL)
     {
         return udsCmMgr.SendUDSResp(addrInfoPtr->sa, addrInfoPtr->ta, addrInfoPtr->taType,

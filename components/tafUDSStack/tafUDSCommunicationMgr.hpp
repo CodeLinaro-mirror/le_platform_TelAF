@@ -275,6 +275,18 @@ namespace uds{
             le_ref_MapRef_t udsHandlerRefMap = NULL;
             taf_UDSIndicationHandler_t udsIndicationHandler;
 
+            /* Security Access -- BEG -- */
+            uint8_t nrcCode = 0x00;
+            le_result_t remoteError = LE_OK;
+            taf_doip_AddrInfo_t udsRespAddrInfo;
+            /* Security Access -- END -- */
+
+            uint8_t recvBuf[UDS_DATA_SIZE];
+            uint8_t sendBuf[UDS_DATA_SIZE];
+            uint16_t recvDataLen = 0;
+            uint16_t sendDataLen = 0;
+            bool readyToRecvData = true;
+
         private:
             // Indicate recevied service message to Diag service if necessary.
             le_result_t IndicateSessionCtrlReq(taf_doip_AddrInfo_t* addrInfoPtr,
@@ -325,7 +337,7 @@ namespace uds{
             le_result_t ReqFileXferResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
 
-            static void IndicateWhenChangingToDefault();
+            void IndicateWhenChangingToDefault();
             le_result_t ReadDTCInfoResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
             le_result_t ClearDiagInfoResp(uint8_t serviceId, uint8_t err);
@@ -345,11 +357,6 @@ namespace uds{
             // update status parameter.
             bool isXferActive = false;
 
-            // Security access request seed parameter.
-            uint8_t reqSeedLevel = 0;
-            // Security access level.
-            uint8_t securityLevel = 0;
-
             //session change parameter.
             uint8_t sesChangeId = 0xFF;
             taf_doip_AddrInfo_t addrInfo;
@@ -360,11 +367,7 @@ namespace uds{
             taf_doip_PowerModeQueryHandlerRef_t PmQueryRef = NULL;
             taf_doip_DiagConfirmHandlerRef_t ConfirmRef = NULL;
             taf_SessionType_t SessionType = DEFAULT_SESSION;
-            uint8_t recvBuf[UDS_DATA_SIZE];
-            uint8_t sendBuf[UDS_DATA_SIZE];
-            uint16_t recvDataLen = 0;
-            uint16_t sendDataLen = 0;
-            bool readyToRecvData = true;
+
             static bool isResetInProgress;
             le_timer_Ref_t p2StarTimerRef;
             le_timer_Ref_t s3TimerRef;

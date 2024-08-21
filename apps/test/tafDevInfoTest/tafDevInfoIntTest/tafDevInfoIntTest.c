@@ -11,81 +11,29 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#define MAX_SYSTEM_CMD_LENGTH 200
-
 void PrintUsage(void)
 {
     puts("\n"
          "app runProc tafDevInfoIntTest tafDevInfoIntTest -- imei\n"
-         "app runProc tafDevInfoIntTest tafDevInfoIntTest -- kernel\n"
-         "app runProc tafDevInfoIntTest tafDevInfoIntTest -- modem\n"
-         "app runProc tafDevInfoIntTest tafDevInfoIntTest -- tz\n"
          "app runProc tafDevInfoIntTest tafDevInfoIntTest -- model\n"
-         "app runProc tafDevInfoIntTest tafDevInfoIntTest -- telaf\n"
-         "app runProc tafDevInfoIntTest tafDevInfoIntTest -- rootfs\n"
          "\n");
 }
 
 static le_result_t Test_GetImei()
 {
-    char imei[TAF_INFO_IMEI_MAX_BYTES];
-    le_result_t result = taf_info_GetImei(imei, sizeof(imei));
-    LE_INFO("taf_info_GetImei Return:%d\n",result);
+    char imei[TAF_DEVINFO_IMEI_MAX_BYTES];
+    le_result_t result = taf_devInfo_GetImei(imei, sizeof(imei));
+    LE_INFO("taf_devInfo_GetImei Return:%d\n",result);
     printf("Imei : %s\n", imei);
-    return result;
-}
-
-static le_result_t Test_GetKernelVersion()
-{
-    char version[TAF_INFO_VERSION_MAX_BYTES];
-    le_result_t result = taf_info_GetKernelVersion(version, sizeof(version));
-    LE_INFO("taf_info_GetKernelVersion Return: %d\n", result);
-    printf("Kernel Version : %s\n", version);
-    return result;
-}
-
-static le_result_t Test_GetModemVersion()
-{
-    char modem[TAF_INFO_MODEM_MAX_BYTES];
-    le_result_t result = taf_info_GetModemVersion(modem, sizeof(modem));
-    LE_INFO("taf_info_GetModemVersion Return: %d\n", result);
-    printf("Modem Version : %s\n", modem);
-    return result;
-}
-
-static le_result_t Test_GetTZVersion()
-{
-    char tz[TAF_INFO_TZ_MAX_BYTES];
-    le_result_t result = taf_info_GetTZVersion(tz, sizeof(tz));
-    LE_INFO("taf_info_GetTZVersion Return: %d\n", result);
-    printf("TZ Version : %s\n", tz);
     return result;
 }
 
 static le_result_t Test_GetDeviceModel()
 {
-    char model[TAF_INFO_MODEL_MAX_BYTES];
-    le_result_t result = taf_info_GetModel(model, sizeof(model));
-    LE_INFO("taf_info_GetTZVersion Return : %d\n", result);
+    char model[TAF_DEVINFO_MODEL_MAX_BYTES];
+    le_result_t result = taf_devInfo_GetModel(model, sizeof(model));
+    LE_INFO("taf_devInfo_GetModel Return : %d\n", result);
     printf("Device Model : %s\n", model);
-    return result;
-}
-
-static le_result_t Test_GetTelafVersion()
-{
-    char telafVersion[TAF_INFO_TELAF_VERSION_MAX_BYTES];
-    le_result_t result = taf_info_GetTelafVersion(telafVersion, sizeof(telafVersion));
-    LE_INFO("taf_info_GetTelafVersion Return : %d\n", result);
-    printf("Telaf Version : %s\n", telafVersion);
-    return result;
-}
-
-static le_result_t Test_GetRootfsVersion()
-{
-    char rootfsVersion[TAF_INFO_ROOTFS_VERSION_MAX_BYTES];
-    le_result_t result = taf_info_GetRootfsVersion(rootfsVersion, sizeof(rootfsVersion));
-    LE_INFO("taf_info_GetRootfsVersion Return : %d\n", result);
-    printf("Rootfs Version : %s\n", rootfsVersion);
     return result;
 }
 
@@ -115,32 +63,11 @@ COMPONENT_INIT
         CheckNumArgs(numArgs,1);
         status = Test_GetImei();
 #ifdef LE_CONFIG_GET_IMEI_SUPPORT
-        LE_TEST_OK(status == LE_OK, "Test taf_info_GetImei: End");
+        LE_TEST_OK(status == LE_OK, "Test taf_devInfo_GetImei: End");
 #endif
 #ifndef LE_CONFIG_GET_IMEI_SUPPORT
-        LE_TEST_OK(status == LE_UNSUPPORTED, "UNSUPPORTED :Test taf_info_GetImei End");
+        LE_TEST_OK(status == LE_UNSUPPORTED, "UNSUPPORTED :Test taf_devInfo_GetImei End");
 #endif
-    }
-    else if (strncmp(testType, "kernel", strlen(testType)) == 0)
-    {
-        LE_TEST_INFO("======== GetKernelVersion Test ========");
-        CheckNumArgs(numArgs,1);
-        status = Test_GetKernelVersion();
-        LE_TEST_OK(LE_OK == status, "GetKernelVersion Test: End");
-    }
-    else if (strncmp(testType, "modem", strlen(testType)) == 0)
-    {
-        LE_TEST_INFO("======== GetModemVersion========");
-        CheckNumArgs(numArgs,1);
-        status = Test_GetModemVersion();
-        LE_TEST_OK(LE_OK == status, "GetModemVersion Test: End");
-    }
-    else if (strncmp(testType, "tz", strlen(testType)) == 0)
-    {
-        LE_TEST_INFO("======== GetTZVersion========");
-        CheckNumArgs(numArgs,1);
-        status = Test_GetTZVersion();
-        LE_TEST_OK(LE_OK == status, "GetTZVersion Test: End");
     }
     else if (strncmp(testType, "model", strlen(testType)) == 0)
     {
@@ -148,20 +75,6 @@ COMPONENT_INIT
         CheckNumArgs(numArgs,1);
         status = Test_GetDeviceModel();
         LE_TEST_OK(LE_OK == status, "GetDeviceModel Test: End");
-    }
-    else if (strncmp(testType, "telaf", strlen(testType)) == 0)
-    {
-        LE_TEST_INFO("======== GetTelafVersion========");
-        CheckNumArgs(numArgs,1);
-        status = Test_GetTelafVersion();
-        LE_TEST_OK(LE_OK == status, "GetTelafVersion Test: End");
-    }
-    else if (strncmp(testType, "rootfs", strlen(testType)) == 0)
-    {
-        LE_TEST_INFO("======== GetRootfsVersion========");
-        CheckNumArgs(numArgs,1);
-        status = Test_GetRootfsVersion();
-        LE_TEST_OK(LE_OK == status, "GetRootfsVersion Test: End");
     }
     else
     {

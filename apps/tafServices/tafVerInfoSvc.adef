@@ -7,8 +7,8 @@ startGroup: 12
 capability:
 {
     CAP_WAKE_ALARM
-    CAP_NET_BIND_SERVICE
-    CAP_NET_ADMIN
+    CAP_FOWNER
+    CAP_SYS_ADMIN
     CAP_BLOCK_SUSPEND
 
 #if ${LE_CONFIG_TEST_COVERAGE} = y
@@ -19,6 +19,8 @@ capability:
 
 groups:
 {
+    ubi
+    disk
     system
     diag
     radio
@@ -30,7 +32,7 @@ sandboxed: false
 
 executables:
 {
-    tafDevInfoSvc = ( $TELAF_ROOT/components/tafDevInfoSvc )
+    tafVerInfoSvc = ( $TELAF_ROOT/components/tafVerInfoSvc )
 }
 
 start: auto
@@ -39,7 +41,7 @@ processes:
 {
     run:
     {
-        (tafDevInfoSvc)
+        (tafVerInfoSvc)
     }
 
     maxFileBytes: 8192K
@@ -52,5 +54,5 @@ bindings:
 
 extern:
 {
-    tafDevInfoSvc.tafDevInfoSvc.taf_devInfo
+    tafVerInfoSvc.tafVerInfoSvc.taf_verInfo
 }

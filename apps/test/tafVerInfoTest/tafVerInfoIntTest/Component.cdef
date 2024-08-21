@@ -1,12 +1,12 @@
 sources:
 {
-    tafDevInfoUnitTest.c
+    tafVerInfoIntTest.c
 }
 
 requires:
 {
     api:
     {
-        taf_devInfo.api
+        taf_verInfo.api
     }
 }

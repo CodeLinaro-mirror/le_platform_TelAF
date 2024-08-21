@@ -1,0 +1,23 @@
+maxThreads: 600
+sandboxed: false
+
+executables:
+{
+    tafVerInfoIntTest = ( tafVerInfoIntTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafVerInfoIntTest)
+    }
+    faultAction: stopApp
+}
+
+bindings:
+{
+    tafVerInfoIntTest.tafVerInfoIntTest.taf_verInfo -> tafVerInfoSvc.taf_verInfo
+}

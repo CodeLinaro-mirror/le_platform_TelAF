@@ -19,7 +19,7 @@ requires:
     api:
     {
         le_cfg.api
-        taf_mngdPm.api
+        taf_mngdPm.api  [optional]
     }
 
     component:

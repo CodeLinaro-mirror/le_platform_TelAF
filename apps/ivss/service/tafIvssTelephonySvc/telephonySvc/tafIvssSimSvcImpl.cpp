@@ -49,6 +49,8 @@ void tafIvssSimSvc::GetImsi(const std::shared_ptr<CommonAPI::ClientId> _client,
         CommonTypes::PhoneId _phoneId, GetImsiReply_t _reply)
 {
     // Create a generic response message object.
+    LE_INFO("tafIvssSimSvc GetImsi \n");
+
     taf_IvssSim_Ind_t* indPtr = (taf_IvssSim_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssSim_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss GetImsiSem", 0);
@@ -90,6 +92,8 @@ void tafIvssSimSvc::GetState(const std::shared_ptr<CommonAPI::ClientId> _client,
         CommonTypes::PhoneId _phoneId, GetStateReply_t _reply)
 {
     // Create a generic response message object.
+    LE_INFO("tafIvssSimSvc GetState \n");
+
     taf_IvssSim_Ind_t* indPtr = (taf_IvssSim_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssSim_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss GetStateSem", 0);
@@ -118,7 +122,7 @@ void tafIvssSimSvc::GetICCIDHandler
     TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
 
     taf_IvssSim_Ind_t* indPtr = (taf_IvssSim_Ind_t*)reportPtr;
-    indPtr->result = taf_sim_GetIMSI(indPtr->getICCID.slotId, indPtr->getICCID.iccid,
+    indPtr->result = taf_sim_GetICCID(indPtr->getICCID.slotId, indPtr->getICCID.iccid,
         sizeof(indPtr->getICCID.iccid));
     le_sem_Post(indPtr->semRef);
 
@@ -136,6 +140,8 @@ void tafIvssSimSvc::GetICCID(const std::shared_ptr<CommonAPI::ClientId> _client,
         CommonTypes::PhoneId _phoneId, GetICCIDReply_t _reply)
 {
     // Create a generic response message object.
+    LE_INFO("tafIvssSimSvc GetICCID \n");
+
     taf_IvssSim_Ind_t* indPtr = (taf_IvssSim_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssSim_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss GetICCIDSem", 0);
@@ -163,9 +169,10 @@ void tafIvssSimSvc::taf_Ivss_Sim_NewStateHandler
     void* contextPtr                           ///< [IN] Handler context.
 )
 {
+    LE_DEBUG("tafIvssSimSvc NewState Event");
+
     auto ivssSim = tafIvssSimSvc::GetInstance();
     ivssSim->fireSimStateEvent(PhoneIdSimToIvss(slotId), StateSimToIvss(state));
-    LE_DEBUG("tafIvssSimSvc NewState Event");
 };
 
 //--------------------------------------------------------------------------------------------------

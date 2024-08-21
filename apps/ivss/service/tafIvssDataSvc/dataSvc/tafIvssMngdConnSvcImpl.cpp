@@ -22,6 +22,44 @@ std::shared_ptr<tafIvssMngdConnSvc> tafIvssMngdConnSvc::GetInstance()
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Find the index of the data name in DataTable
+ */
+//--------------------------------------------------------------------------------------------------
+bool findDataNameIndex(const char* name, uint32_t* index) {
+    if (index == nullptr) {
+        return false;
+    }
+
+    for (uint32_t i = 0; i < IVSS_MAX_DATA_NUM; i++) {
+        if (std::strcmp(name, DataTable[i].name) == 0 && DataTable[i].startEnable) {
+            *index = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Find the index of the free data in DataTable
+ */
+//--------------------------------------------------------------------------------------------------
+bool findFreeDataIndex(const char* name, uint32_t* index) {
+    if (index == nullptr) {
+        return false;
+    }
+
+    for (uint32_t i = 0; i < IVSS_MAX_DATA_NUM; i++) {
+        if (DataTable[i].startEnable == false) {
+            *index = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add handler function for method 'StartData'
  */
 //--------------------------------------------------------------------------------------------------
@@ -33,7 +71,6 @@ void tafIvssMngdConnSvc::StartDataHandler
     TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
 
     taf_IvssMngdConn_Ind_t* indPtr = (taf_IvssMngdConn_Ind_t*)reportPtr;
-
     taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetDataByName(indPtr->startData.name);
     if (dataRef == nullptr)
     {
@@ -43,42 +80,39 @@ void tafIvssMngdConnSvc::StartDataHandler
         return;
     }
 
-    indPtr->result = taf_mngdConn_StartData(dataRef);
-    if (indPtr->result != LE_OK)
-    {
-        le_sem_Post(indPtr->semRef);
-        LE_ERROR("taf_mngdConn_StartData failed - %s", LE_RESULT_TXT(indPtr->result));
-        return;
-    }
-
+    // Get data table index.
     uint32_t index;
-    for (index = 0; index < IVSS_MAX_DATA_NUM; index++)
+    if (!findDataNameIndex(indPtr->startData.name, &index))
     {
-        if (DataTable[index].enable == false)
+        if (!findFreeDataIndex(indPtr->startData.name, &index))
         {
-            indPtr->result = taf_mngdConn_GetDataConnectionState(dataRef, &DataTable[index].state);
-            if (indPtr->result != LE_OK)
-            {
-                le_sem_Post(indPtr->semRef);
-                LE_ERROR("taf_mngdConn_GetDataConnectionState failed - %s",
-                    LE_RESULT_TXT(indPtr->result));
-                return;
-            }
-
-            DataStateHandlerRef[index] = taf_mngdConn_AddDataStateHandler(dataRef,
-                (taf_mngdConn_DataStateHandlerFunc_t)taf_ivss_mngdConn_DataStateHandler, NULL);
+            indPtr->result = LE_FAULT;
+            le_sem_Post(indPtr->semRef);
+            LE_ERROR("StartDataHandler findFreeDataIndex failed - %s", LE_RESULT_TXT(indPtr->result));
+            return;
+        }
+        else
+        {
             le_utf8_Copy(DataTable[index].name, indPtr->startData.name,
                 sizeof(DataTable[index].name), nullptr);
-            DataTable[index].enable = true;
-
-            le_sem_Post(indPtr->semRef);
-            return;
+            DataTable[index].startEnable = true;
         }
     }
 
-    indPtr->result = LE_FAULT;
+    // Add DataState handler.
+    if (!DataTable[index].handleEable)
+    {
+        DataStateHandlerRef[index] = taf_mngdConn_AddDataStateHandler(dataRef,
+            (taf_mngdConn_DataStateHandlerFunc_t)taf_ivss_mngdConn_DataStateHandler, NULL);
+        DataTable[index].handleEable = true;
+    }
+
+    // Start Data.
+    indPtr->result = taf_mngdConn_StartData(dataRef);
     le_sem_Post(indPtr->semRef);
-    LE_ERROR("StartDataHandler failed : No idle data table found.");
+
+    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_mngdConn_StartData failed - %s",
+        LE_RESULT_TXT(indPtr->result));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -94,6 +128,8 @@ void tafIvssMngdConnSvc::StartData
 )
 {
     // Create a generic response message object.
+    LE_INFO("tafIvssMngdConnSvc StartData \n");
+
     taf_IvssMngdConn_Ind_t* indPtr = (taf_IvssMngdConn_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssMngdConn_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss StartData", 0);
@@ -121,7 +157,6 @@ void tafIvssMngdConnSvc::StopDataHandler
     TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
 
     taf_IvssMngdConn_Ind_t* indPtr = (taf_IvssMngdConn_Ind_t*)reportPtr;
-
     taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetDataByName(indPtr->startData.name);
     if (dataRef == nullptr)
     {
@@ -131,32 +166,23 @@ void tafIvssMngdConnSvc::StopDataHandler
         return;
     }
 
-    indPtr->result = taf_mngdConn_StopData(dataRef);
-    if (indPtr->result != LE_OK)
+    // Get data table index.
+    uint32_t index;
+    if (!findDataNameIndex(indPtr->startData.name, &index))
     {
+        indPtr->result = LE_FAULT;
         le_sem_Post(indPtr->semRef);
-        LE_ERROR("taf_mngdConn_StopData failed - %s", LE_RESULT_TXT(indPtr->result));
+        LE_ERROR("findDataNameIndex failed - %s", LE_RESULT_TXT(indPtr->result));
         return;
     }
 
-    uint32_t index;
-    for (index = 0; index < IVSS_MAX_DATA_NUM; index++)
-    {
-        if (std::strcmp(indPtr->startData.name, DataTable[index].name) == 0)
-        {
-            taf_mngdConn_RemoveDataStateHandler(DataStateHandlerRef[index]);
-            memset(DataTable[index].name, 0, sizeof(DataTable[index].name));
-            DataTable[index].state = TAF_MNGDCONN_DATA_DISCONNECTED;
-            DataTable[index].enable = false;
-
-            le_sem_Post(indPtr->semRef);
-            return;
-        }
-    }
-
-    indPtr->result = LE_FAULT;
+    // Stop Data.
+    DataTable[index].stopEnable = true;
+    indPtr->result = taf_mngdConn_StopData(dataRef);
     le_sem_Post(indPtr->semRef);
-    LE_ERROR("StopDataHandler failed : No data table with the current data name found.");
+
+    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_mngdConn_StopData failed - %s",
+        LE_RESULT_TXT(indPtr->result));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -172,6 +198,8 @@ void tafIvssMngdConnSvc::StopData
 )
 {
     // Create a generic response message object.
+    LE_INFO("tafIvssMngdConnSvc StopData \n");
+
     taf_IvssMngdConn_Ind_t* indPtr = (taf_IvssMngdConn_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssMngdConn_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss StopData", 0);
@@ -197,6 +225,8 @@ void tafIvssMngdConnSvc::GetDataList
     GetDataListReply_t _reply
 )
 {
+    LE_INFO("tafIvssMngdConnSvc GetDataList \n");
+
     uint8_t dataNum = 0;
     std::vector<std::string> name = {};
     std::vector<MngdConnSvc::DataState> dataState = {};
@@ -204,7 +234,7 @@ void tafIvssMngdConnSvc::GetDataList
     uint32_t index;
     for (index = 0; index < IVSS_MAX_DATA_NUM; index++)
     {
-        if (DataTable[index].enable)
+        if (DataTable[index].stateEnable)
         {
             dataNum++;
             name.push_back(std::string(DataTable[index].name));
@@ -234,20 +264,34 @@ void tafIvssMngdConnSvc::taf_ivss_mngdConn_DataStateHandler
     TAF_ERROR_IF_RET_NIL(result != LE_OK, "taf_mngdConn_GetDataNameByRef fail - %s",
         LE_RESULT_TXT(result));
 
+    // Get data table index.
     uint32_t index;
-    for (index = 0; index < IVSS_MAX_DATA_NUM; index++)
+    if (!findDataNameIndex(dataName, &index))
     {
-        if (std::strcmp(dataName, DataTable[index].name) == 0)
-        {
-            DataTable[index].state = dataState;
-            ivssMngdConn->fireDataStateEvent(std::string(dataName),
-                DataStateMngdConnToIvss(dataState));
-            LE_DEBUG("tafivssMngdConnSvc DataState Event");
-            return;
-        }
+        LE_ERROR("taf_ivss_mngdConn_DataStateHandler: findDataNameIndex failed.");
+        return;
     }
 
-    LE_ERROR("taf_ivss_mngdConn_DataStateHandler: No data table with the current data name found.");
+    // Send broadcast.
+    DataTable[index].state = dataState;
+    DataTable[index].stateEnable = true;
+    ivssMngdConn->fireDataStateEvent(std::string(dataName), DataStateMngdConnToIvss(dataState));
+    LE_DEBUG("tafivssMngdConnSvc DataState Event");
+
+    // Remove DataState handler.
+    if (DataTable[index].stopEnable)
+    {
+        if (dataState == TAF_MNGDCONN_DATA_DISCONNECTED)
+        {
+            taf_mngdConn_RemoveDataStateHandler(DataStateHandlerRef[index]);
+            memset(&DataTable[index], 0, sizeof(DataTable[index]));
+        }
+        else
+        {
+            LE_ERROR("stopData but received status is not DISCONNECTED: (%d)",
+                static_cast<int>(dataState));
+        }
+    }
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -263,9 +307,7 @@ void tafIvssMngdConnSvc::Init
     uint32_t index;
     for (index = 0; index < IVSS_MAX_DATA_NUM; index++)
     {
-        memset(DataTable[index].name, 0, sizeof(DataTable[index].name));
-        DataTable[index].state = TAF_MNGDCONN_DATA_DISCONNECTED;
-        DataTable[index].enable = false;
+        memset(&DataTable[index], 0, sizeof(DataTable[index]));
     }
 
     // Init the memory pool
@@ -273,7 +315,7 @@ void tafIvssMngdConnSvc::Init
 
     // Init events.
     StartDataEvent = le_event_CreateIdWithRefCounting("StartDataEvent");
-    StopDataEvent = le_event_CreateIdWithRefCounting("StopDataHandler");
+    StopDataEvent = le_event_CreateIdWithRefCounting("StopDataEvent");
 
     // Init event handler.
     StartDataEventHandlerRef = le_event_AddHandler("StartDataEvent Handler", StartDataEvent,

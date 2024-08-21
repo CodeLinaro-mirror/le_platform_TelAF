@@ -21,6 +21,8 @@ static taf_diagDataID_ServiceRef_t DiagDataIDSvcRef = NULL;
 static taf_diagDataID_RxReadDIDMsgHandlerRef_t DiagReadDataIDMsgRef = NULL;
 static taf_diagDataID_RxWriteDIDMsgHandlerRef_t DiagWriteDataIDMsgRef = NULL;
 
+le_dls_List_t didStorageNotifyList = LE_DLS_LIST_INIT;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Get an instance of TelAF DID storage server.
@@ -121,7 +123,20 @@ void taf_diagDidStore::didReadCb
     auto &didStore = taf_diagDidStore::GetInstance();
 
     didStore.readStrg.readDID = dataID;
-    memcpy(&didStore.readStrg.didData, value, len);
+
+    if(value == NULL)
+    {
+        LE_INFO("No value found to read from DID");
+        return;
+    }
+
+    if (len == 0 || len > sizeof(didStore.readStrg.didData))
+    {
+        LE_ERROR("Invalid length");
+        return;
+    }
+
+    memcpy(didStore.readStrg.didData, value, len);
     didStore.readStrg.didDataLen = len;
     didStore.readStrg.result = result;
 
@@ -156,7 +171,7 @@ le_result_t taf_diagDidStore::Read
     requestPtr->requestingThreadRef = le_thread_GetCurrent();
     le_event_QueueFunctionToThread(ReadThreadRef, HandleReadWriteReq, requestPtr, NULL);
     le_sem_Wait(read_semaphore);
-    memcpy(dataRecordPtr, &readStrg.didData, readStrg.didDataLen);
+    memcpy(dataRecordPtr, readStrg.didData, readStrg.didDataLen);
     *dataRecordSizePtr = readStrg.didDataLen;
 
     return LE_OK;
@@ -292,14 +307,13 @@ void taf_diagDidStore::DidMsgPluginCB
 )
 {
     LE_DEBUG("DidMsgPluginCB!");
-    auto &didStore = taf_diagDidStore::GetInstance();
 
-    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(didStore.didStorageNotifyList));
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(didStorageNotifyList));
     while (linkHandlerPtr)
     {
         taf_DIDStorgNotifyHandler_t * handlerCtxPtr =
                 CONTAINER_OF(linkHandlerPtr, taf_DIDStorgNotifyHandler_t, link);
-        linkHandlerPtr = le_dls_PeekPrev(&(didStore.didStorageNotifyList), linkHandlerPtr);
+        linkHandlerPtr = le_dls_PeekPrev(&(didStorageNotifyList), linkHandlerPtr);
         if (handlerCtxPtr->func && (handlerCtxPtr->did == dataID))
         {
             LE_INFO("Notifying to clients");
@@ -322,7 +336,6 @@ taf_diagDidStore_DataIdChangeHandlerRef_t taf_diagDidStore::AddDataIdChangeHandl
 )
 {
     LE_DEBUG("AddDataIdChangeHandler!");
-    auto &didStore = taf_diagDidStore::GetInstance();
 
     taf_DidStore_t* servicePtr = (taf_DidStore_t*)le_ref_Lookup(SvcRefMap, svcRef);
     if(servicePtr == NULL)
@@ -358,8 +371,8 @@ taf_diagDidStore_DataIdChangeHandlerRef_t taf_diagDidStore::AddDataIdChangeHandl
     servicePtr->msgDIDStorgHandlerRef = handlerObjPtr->handlerRef;
 
     LE_INFO("DID Msg: Registered Handler");
-    le_dls_Queue(&(didStore.didStorageNotifyList),&handlerObjPtr->link);
 
+    le_dls_Queue(&(didStorageNotifyList),&handlerObjPtr->link);
     return handlerObjPtr->handlerRef;
 }
 
@@ -393,11 +406,19 @@ void taf_diagDidStore::RemoveDataIdChangeHandler
     // Detach the handler from service.
     servicePtr->msgDIDStorgHandlerRef = NULL;
 
+    // Remove the handler from the double-linked list
+    le_dls_Remove(&(didStorageNotifyList), &(handlerObjPtr->link));
+
     // Clear Handler resources
     handlerObjPtr->handlerRef = NULL;
     handlerObjPtr->svcRef     = NULL;
     handlerObjPtr->func       = NULL;
     handlerObjPtr->ctxPtr     = NULL;
+
+    if(le_dls_NumLinks(&didStorageNotifyList) == 0)
+    {
+        didStorageNotifyList = LE_DLS_LIST_INIT;
+    }
 
     // Free the handler.
     le_ref_DeleteRef(MsgDIDStorgHandlerRefMap, handlerRef);
@@ -547,6 +568,67 @@ void taf_diagDidStore::writeDataIDMsgHandler
 }
 
 
+void taf_diagDidStore::OnClientDisconnection
+(
+    le_msg_SessionRef_t sessionRef,
+    void *contextPtr
+)
+{
+    LE_DEBUG("OnClientDisconnection");
+    auto &didStore = taf_diagDidStore::GetInstance();
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(didStore.SvcRefMap);
+
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_DidStore_t* servicePtr = (taf_DidStore_t *)le_ref_GetValue(iterRef);
+
+        if (servicePtr == NULL || servicePtr->svcRef != le_ref_GetSafeRef(iterRef))
+        {
+            LE_ERROR("Service pointer is NULL or mismatched safe reference.");
+            continue;
+        }
+
+        if (servicePtr->sessionRef == sessionRef)
+        {
+            // Clearing the registered readDID handler
+            if (servicePtr->msgDIDStorgHandlerRef != NULL)
+            {
+                didStore.RemoveDataIdChangeHandler(servicePtr->msgDIDStorgHandlerRef);
+                servicePtr->msgDIDStorgHandlerRef = NULL;
+            }
+
+            // Remove the service from the double-linked list
+            le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(didStorageNotifyList));
+            while (linkHandlerPtr)
+            {
+                taf_DIDStorgNotifyHandler_t* handlerCtxPtr =
+                    CONTAINER_OF(linkHandlerPtr, taf_DIDStorgNotifyHandler_t, link);
+                if (handlerCtxPtr != NULL && handlerCtxPtr->svcRef == servicePtr->svcRef)
+                {
+                    // Print the address before removal
+                    LE_DEBUG("Removing handler object at address: %p", handlerCtxPtr);
+                    // Remove the handler from the list and release memory
+                    le_dls_Remove(&(didStorageNotifyList), &handlerCtxPtr->link);
+                    le_mem_Release(handlerCtxPtr);
+                    handlerCtxPtr = NULL; // Set the pointer to NULL after release
+
+                    // Print the address after removal
+                    LE_DEBUG("Handler object at address: %p removed", handlerCtxPtr);
+                }
+                else
+                {
+                    linkHandlerPtr = le_dls_PeekPrev(&(didStorageNotifyList), linkHandlerPtr);
+                }
+            }
+
+            // Deleting the reference and releasing the service object
+            le_ref_DeleteRef(didStore.SvcRefMap, (void*)servicePtr->svcRef);
+            le_mem_Release(servicePtr);
+        }
+    }
+}
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Initialization.
@@ -623,6 +705,9 @@ void taf_diagDidStore::Init
             writeDataIDMsgHandler, NULL);
     TAF_ERROR_IF_RET_NIL(DiagWriteDataIDMsgRef == NULL,
             "Not Registered successfully for writeDataIDMsgHandler");
+
+    // Set session close handler
+    le_msg_AddServiceCloseHandler(taf_diagDidStore_GetServiceRef(), OnClientDisconnection, NULL);
 
     LE_INFO("taf_diagDidStore Init completed!");
 

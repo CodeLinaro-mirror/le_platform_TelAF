@@ -23,13 +23,8 @@ typedef enum
 
 typedef struct {
     ValueRequest Vrequest;
-    /* union
-    {
-       TAF_PI_DIAGDID_GETHANDLER getHandler;
-       TAF_PI_DIAGDID_SETHANDLER setHandler;
-    }; */
     uint16_t did;
-    uint8_t *value;
+    uint8_t* value;
     size_t len;
     le_result_t result;
 }valueChangeReq_t;

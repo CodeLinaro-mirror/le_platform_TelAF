@@ -59,13 +59,21 @@ static void ValueChangeRequest
 
             // Copy the request's DID, value, length, and result to the readDIDResp structure
             readDIDResp.did = req->did;
+
+            if (req->len > sizeof(readDIDResp.value))
+            {
+                req->len = sizeof(readDIDResp.value);
+            }
             memcpy(readDIDResp.value, req->value, req->len);
             readDIDResp.len = req->len;
             readDIDResp.result = req->result;
 
-            // Call the callback function to handle the read DID response
-            getCallBackFunc(readDIDResp.did,readDIDResp.value, readDIDResp.len,
-                readDIDResp.result);
+            if(readDIDResp.value)
+            {
+                // Call the callback function to handle the read DID response
+                getCallBackFunc(readDIDResp.did, readDIDResp.value, readDIDResp.len,
+                    readDIDResp.result);
+            }
             break;
         }
         case VALUE_REQUEST_SET:

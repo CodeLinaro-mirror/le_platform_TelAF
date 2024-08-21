@@ -42,7 +42,7 @@ typedef struct
 typedef struct
 {
     uint16_t readDID;
-    uint8_t didData;
+    uint8_t didData[4092];
     uint16_t didDataLen;
     uint8_t result;
 }taf_ReadDidStorg_t;
@@ -129,8 +129,6 @@ class taf_diagDidStore: public ITafSvc
 
             le_mem_PoolRef_t MsgDIDStorgHandlerPool;
             le_ref_MapRef_t MsgDIDStorgHandlerRefMap;
-
-            le_dls_List_t didStorageNotifyList = LE_DLS_LIST_INIT;
 
     };
 }

@@ -75,7 +75,7 @@ le_result_t taf_Sensor::InitializeSensorClient(taf_SensorClient_t* clientRequest
             LE_FATAL("unable to create sensor client for %s",sensorMngr.sList[i].name.c_str());
         }
         clientRequestPtr->mSensorClient.push_back(sensorclient);
-        LE_INFO("sensorclient vector size %lu",clientRequestPtr->mSensorClient.size());
+        LE_INFO("sensorclient vector size %zu",clientRequestPtr->mSensorClient.size());
     }
     return LE_OK;
 }

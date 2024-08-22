@@ -284,7 +284,7 @@ le_result_t tafMngdRpcPm::SendRpcNodePowerStateChangeAck
             {
                 LE_INFO("Received ACK from client");
                 rpcPm.rpcAckClientrecrd.push_back((taf_mngdPm_nodePowerStateRef_t)Ref);
-                LE_INFO("rpcRegClientrecrd size is %ld ,rpcAckClientrecrd size is:%ld",
+                LE_INFO("rpcRegClientrecrd size is %zu ,rpcAckClientrecrd size is:%zu",
                         rpcPm.rpcRegClientrecrd.size(), rpcPm.rpcAckClientrecrd.size());
                 //If Last acknowledged client , proceed for ack state change
                 if(rpcPm.rpcRegClientrecrd.size() == rpcPm.rpcAckClientrecrd.size())

@@ -407,7 +407,7 @@ void TEST_AUDIO_PLAYBACK_FILE_LIST()
     snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), "%s", wavfilePath);
     playFileConfig[0].repeat = repeat;
 
-    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list size %ld",
+    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list size %zu",
             sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
     res = taf_audio_PlayFileList(playerRef, playFileConfig,
             sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
@@ -424,7 +424,7 @@ void TEST_AUDIO_PLAYBACK_FILE_LIST()
     snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), "%s", amrfilePath);
     playFileConfig[0].repeat = repeat;
 
-    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list size %ld",
+    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list size %zu",
             sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
     res = taf_audio_PlayFileList(playerRef, playFileConfig,
             sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));

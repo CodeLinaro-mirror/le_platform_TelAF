@@ -579,7 +579,7 @@ void TestGptpComponent()
     res = taf_gptpTime_GetTimeValue(gptpTimeRef, &gptpTimeValPtr);
     LE_ASSERT(res == LE_OK);
 
-    LE_INFO("Reference gptp time is %"PRIu64".%"PRIu64, gptpTimeValPtr.tv_sec,
+    LE_INFO("Reference gptp time is %ld.%ld", gptpTimeValPtr.tv_sec,
         gptpTimeValPtr.tv_nsec);
 
     taf_gptpTime_DeleteRef(gptpTimeRef);

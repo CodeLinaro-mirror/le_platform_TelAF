@@ -194,6 +194,7 @@ ENUM State
     DOWNLOAD_SUCCESS,  ///< Download success state, OTA package downloaded successfully.
     DOWNLOAD_FAIL,     ///< Download fail state, user can retry the download.
     INSTALLING,        ///< Installing state, user can query installation progress.
+    INSTALL_PAUSED,    ///< Install paused state.
     INSTALL_SUCCESS,   ///< Install success state, user can reboot to active if firmware installed
                        ///  or start probation if app installed.
     INSTALL_FAIL,      ///< Install fail state, update service drives to idle state later.
@@ -444,6 +445,34 @@ FUNCTION le_result_t StartInstall
 (
     Session session IN,              ///< Installation session reference.
     string pkgPath[FILE_PATH_LEN] IN ///< Package path.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pause installation.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t PauseInstall
+(
+    Session session IN ///< Installation session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resume installation.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ResumeInstall
+(
+    Session session IN ///< Installation session reference.
 );
 
 //--------------------------------------------------------------------------------------------------

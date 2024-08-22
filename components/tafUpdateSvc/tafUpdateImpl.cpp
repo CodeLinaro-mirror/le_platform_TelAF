@@ -474,6 +474,12 @@ void taf_Update::UpdateTimerHandler
                     sessPtr->percent);
                 tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALLING);
                 break;
+            case TAF_PI_UA_STATUS_PAUSED:
+                LE_INFO("UA plug-in current status paused, percent = %d.",
+                    sessPtr->percent);
+                le_timer_Stop(timerRef);
+                tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALL_PAUSED);
+                break;
             case TAF_PI_UA_STATUS_FINISH:
                 LE_INFO("UA plug-in current status is update finish.");
                 le_timer_Stop(timerRef);
@@ -544,7 +550,54 @@ void taf_Update::UpdateHandler
             }
             break;
         case TAF_UPDATE_INSTALLING:
-            LE_ERROR("UA plug-in is in installing state, invalid event(%d).", updateReq->event);
+            if (updateReq->event == TAF_UPDATE_INST_PAUSE)
+            {
+                LE_INFO("UA plug-in pause installation.");
+                int ret = (*(tafUpdate.uaInfPtr->pauseInstall))(sessPtr->sessRef);
+                if (ret)
+                {
+                    LE_ERROR("UA plug-in pause installation failed, ret = %d.", ret);
+                }
+                else
+                {
+                    if (tafUpdate.uaInfPtr->getProgress == NULL)
+                    {
+                        LE_ERROR("UA plug-in get update progress is not supported.");
+                    }
+                }
+            }
+            else
+            {
+                LE_ERROR("UA plug-in is in installing state, invalid event(%d).", updateReq->event);
+            }
+            break;
+        case TAF_UPDATE_INSTALL_PAUSED:
+            if (updateReq->event == TAF_UPDATE_INST_RESUME)
+            {
+                LE_INFO("UA plug-in resume installation.");
+                int ret = (*(tafUpdate.uaInfPtr->resumeInstall))(sessPtr->sessRef);
+                if (ret)
+                {
+                    LE_ERROR("UA plug-in resume installation failed, ret = %d.", ret);
+                }
+                else
+                {
+                    if (tafUpdate.uaInfPtr->getProgress == NULL)
+                    {
+                        LE_ERROR("UA plug-in get update progress is not supported.");
+                    }
+                    else
+                    {
+                        LE_INFO("Restart update timer.");
+                        le_timer_SetContextPtr(sessPtr->timerRef, (void*)sessPtr);
+                        le_timer_Start(sessPtr->timerRef);
+                    }
+                }
+            }
+            else
+            {
+                LE_ERROR("UA plug-in is in installing state, invalid event(%d).", updateReq->event);
+            }
             break;
         default:
             LE_ERROR("UA plug-in is in unknown state, state = %d.", sessPtr->state);

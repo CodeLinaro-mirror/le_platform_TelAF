@@ -35,6 +35,7 @@ typedef enum
 {
     TAF_PI_UA_STATUS_INIT,     ///< Update initialized.
     TAF_PI_UA_STATUS_UPDATING, ///< Updating.
+    TAF_PI_UA_STATUS_PAUSED,   ///< Update paused.
     TAF_PI_UA_STATUS_FINISH,   ///< Update finished.
     TAF_PI_UA_STATUS_ERROR     ///< Update failed with error.
 } taf_pi_ua_Status_t;
@@ -97,6 +98,32 @@ typedef int (*TAF_PI_UA_START_INSTALL)(taf_pi_ua_SessionRef_t sessRef, const cha
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Pause installation
+ *
+ * @param[in]  sessRef -- Update session reference.
+ *
+ * @return
+ * - 0      -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef int (*TAF_PI_UA_PAUSE_INSTALL)(taf_pi_ua_SessionRef_t sessRef);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resume installation
+ *
+ * @param[in]  sessRef -- Update session reference.
+ *
+ * @return
+ * - 0      -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef int (*TAF_PI_UA_RESUME_INSTALL)(taf_pi_ua_SessionRef_t sessRef);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Get update progress.
  *
  * @param[in]  sessRef -- Update session reference.
@@ -128,6 +155,8 @@ typedef struct
 
     // Update action.
     TAF_PI_UA_START_INSTALL startInstall;
+    TAF_PI_UA_PAUSE_INSTALL pauseInstall;
+    TAF_PI_UA_RESUME_INSTALL resumeInstall;
 
     // Update status.
     TAF_PI_UA_GET_PROGRESS getProgress;

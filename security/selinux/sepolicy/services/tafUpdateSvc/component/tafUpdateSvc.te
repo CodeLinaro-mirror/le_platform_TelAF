@@ -33,6 +33,7 @@ gen_require(`
     type ubi_device_t;
     type unreserved_port_t;
     type user_home_dir_t;
+    type telaf_fw_t;
     type telaf_lib_t;
     type telaf_app_bundle_t;
     type telaf_devmgr_t;
@@ -146,3 +147,6 @@ allow telaf_tafUpdateSvc_t telaf_app_exec_attr:file { manage_file_perms relabel_
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafUpdateSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafUpdateSvc_exec_t)
+
+# Allow access to run update plugin under /app
+allow telaf_tafUpdateSvc_t telaf_fw_t:file { exec_file_perms };

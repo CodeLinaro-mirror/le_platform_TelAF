@@ -748,7 +748,7 @@ le_result_t taf_Time::GetTimeFromLocalCache
     if (deltaTimeDataPtr == NULL)
     {
         LE_ERROR("Not initialized %s buffer\n", SourceNameIndexToStr(sourceName));
-        return LE_BAD_PARAMETER;
+        return LE_UNAVAILABLE;
     }
 
     result = GetBootTime(&bootTime);

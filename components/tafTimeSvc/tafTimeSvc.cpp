@@ -580,11 +580,7 @@ le_result_t taf_time_GetTimeDayAdj
 void taf_time_service_int(void)
 {
     LE_INFO("Time Service Init...");
-    sleep(2);
     auto &time = taf_Time::GetInstance();
-    time.Init();
-    //Need to move to 'tafTimeImpl.cpp'
-//-----------------------------------------------------------------------------
 // load driver
     LE_INFO("Loading the driver");
     time.timeInf = (time_Inf_t*)taf_devMgr_LoadDrv(TAF_TIME_MODULE_NAME, nullptr);
@@ -606,10 +602,9 @@ void taf_time_service_int(void)
         if (ret == -1)
         {
             LE_ERROR("Called InitHAL failed");
-            return;
         }
     }
-    //-----------------------------------------------------------------------------
+    time.Init();
     LE_INFO("Time Service ready");
     return;
 }

@@ -383,6 +383,11 @@ COMPONENT_INIT
                 LE_INFO("Data session already active for data ID: %d", id.first);
                 getConnectionInfo(tmpRef);
             }
+            else if (LE_IN_PROGRESS == leResult)
+            {
+                LE_INFO("Data session start is in progress for data ID: %d", id.first);
+                getConnectionInfo(tmpRef);
+            }
             else
             {
                 LE_WARN ("Unable to start data for data ID %d, error: %d", id.first, leResult);

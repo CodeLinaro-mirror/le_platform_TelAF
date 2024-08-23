@@ -161,10 +161,8 @@ void tafCallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> iCall)
         iCall->getCallIndex(), callStateToString(state), callDirectionToString(iCall->getCallDirection()),
         iCall->getRemotePartyNumber().c_str());
 
-    // skip dialing event because it is a temporary status, and always come before makeCallResponse
     if (state == telux::tel::CallState::CALL_DIALING)
     {
-        LE_INFO("skip dialing event");
         if (isCallOngoing == false)
         {
             callInfofd = open(VoiceCallInfoConfFile, O_CREAT|O_RDONLY|O_TRUNC);
@@ -178,7 +176,6 @@ void tafCallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> iCall)
                 isCallOngoing = true;
             }
         }
-        return;
     }
 
     if (isCallClosedNormal == false)
@@ -535,7 +532,6 @@ void taf_Handler::ProcessStateChanged(void *reportPtr)
 //
 le_result_t taf_VoiceCall::ChecktafCallCommandCallbackResult(void)
 {
-  CBCallCommandSynePromise = std::promise<le_result_t>();
   std::chrono::seconds span(TIMEOUT_CALLCOMMAND_CB);
 
   std::future<le_result_t> futResult = CBCallCommandSynePromise.get_future();
@@ -1139,6 +1135,7 @@ le_result_t taf_VoiceCall::AnswerCall(taf_voicecall_CallRef_t callRef, le_msg_Se
     taf_SessionRef_t *sessionRefNodePtr = GetSessionRefNodeFromCallCtx(callCtxPtr, sessionRef);
     TAF_ERROR_IF_RET_VAL(sessionRefNodePtr == NULL, LE_NOT_FOUND, "This sessionRef(%p) is not bound to this callCtx(%p)", sessionRef, callCtxPtr);
 
+    CBCallCommandSynePromise = std::promise<le_result_t>();
     callCtxPtr->tafCallStatus = iCall->answer(AnswerCb);
     if (callCtxPtr->tafCallStatus != telux::common::Status::SUCCESS)
     {
@@ -1185,6 +1182,7 @@ le_result_t taf_VoiceCall::StopCall(taf_voicecall_CallRef_t callRef, le_msg_Sess
     std::shared_ptr<ICall> iCall = callCtxPtr->iCall;
     if (iCall != nullptr)
     {
+        CBCallCommandSynePromise = std::promise<le_result_t>();
         if(iCall->getCallState() == telux::tel::CallState::CALL_INCOMING)
         {
             callCtxPtr->tafCallStatus = iCall->reject(RejectCb);
@@ -1228,6 +1226,7 @@ le_result_t taf_VoiceCall::HoldCall(taf_voicecall_CallRef_t callRef, le_msg_Sess
     std::shared_ptr<ICall> iCall = callCtxPtr->iCall;
     TAF_ERROR_IF_RET_VAL(iCall == nullptr, LE_NOT_FOUND, "iCall is null on callCtrl(%p), event: %s", callCtxPtr, EventToString(callCtxPtr->event));
 
+    CBCallCommandSynePromise = std::promise<le_result_t>();
     callCtxPtr->tafCallStatus = iCall->hold(HoldCb);
     if (callCtxPtr->tafCallStatus != telux::common::Status::SUCCESS)
     {
@@ -1257,6 +1256,7 @@ le_result_t taf_VoiceCall::ResumeCall(taf_voicecall_CallRef_t callRef, le_msg_Se
     std::shared_ptr<ICall> iCall = callCtxPtr->iCall;
     TAF_ERROR_IF_RET_VAL(iCall == nullptr, LE_NOT_FOUND, "iCall is null on callCtrl(%p), event: %s", callCtxPtr, EventToString(callCtxPtr->event));
 
+    CBCallCommandSynePromise = std::promise<le_result_t>();
     callCtxPtr->tafCallStatus = iCall->resume(ResumeCb);
     if (callCtxPtr->tafCallStatus != telux::common::Status::SUCCESS)
     {
@@ -1337,6 +1337,7 @@ le_result_t taf_VoiceCall::SwapCall(taf_voicecall_CallRef_t callRef, le_msg_Sess
 
     if (iCall1 != nullptr && iCall2 != nullptr && iCall1PhoneId == iCall2PhoneId)
     {
+        CBCallCommandSynePromise = std::promise<le_result_t>();
         callCtxPtr->tafCallStatus = CallMgr->swap(iCall1, iCall2, SwapCb);
     }
     else

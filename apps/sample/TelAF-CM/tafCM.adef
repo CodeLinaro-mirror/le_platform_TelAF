@@ -29,15 +29,6 @@ bindings:
     tafCM.tafCMComponent.taf_dcs -> tafDataCallSvc.taf_dcs
 }
 
-// Bundle default Configuration and Policy JSONs
-bundles:
-{
-    dir:
-    {
-        [rx] JSON/ JSON/
-    }
-}
-
 // Directory in which the Policy and Configuration JSONs will be installed
 requires:
 {

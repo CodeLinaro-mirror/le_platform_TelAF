@@ -45,6 +45,8 @@ extern "C" {
 #define DATA_ACCESS_TEST_DTC1    0xAB00CC
 #define DATA_ACCESS_TEST_DTC1_EV1 0x0002
 
+#define DATA_ACCESS_DID     0xF0D0
+
 void ConfigModuleInit();
 
 #ifdef  __cplusplus

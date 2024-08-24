@@ -9,6 +9,8 @@ sources:
     tafEventEntityDAO.cpp
     tafIOFactory.cpp
     tafSQLite3Handler.cpp
+    tafSnapshotEntity.cpp
+    tafSnapshotEntityDAO.cpp
 }
 
 cxxflags:

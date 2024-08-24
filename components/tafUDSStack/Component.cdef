@@ -8,6 +8,7 @@ cflags:
 {
     -I$TELAF_ROOT/include
     -I$TELAF_ROOT/components/tafDoIPStack
+    -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
     -I${LEGATO_ROOT}/framework/liblegato
 }
 
@@ -15,6 +16,7 @@ cxxflags:
 {
     -I$TELAF_ROOT/include
     -I$TELAF_ROOT/components/tafDoIPStack
+    -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
     -I${LEGATO_ROOT}/framework/liblegato
 }
 
@@ -28,6 +30,7 @@ requires:
     component:
     {
         $TELAF_ROOT/components/tafDoIPStack
+        $TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
     }
 
 }

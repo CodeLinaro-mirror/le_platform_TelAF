@@ -341,6 +341,8 @@ void taf_SecuritySvr::RxSesCtrlEventHandler
     servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj();
     if (servicePtr == NULL)
     {
+        LE_INFO("Service is not created");
+        security.SendSesPositiveResp(rxSesTypePtr);
         le_ref_DeleteRef(security.RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
         le_mem_Release(rxSesTypePtr);
         return;
@@ -348,7 +350,8 @@ void taf_SecuritySvr::RxSesCtrlEventHandler
 
     if (servicePtr->SesTypeHandlerRef == NULL)
     {
-        LE_WARN("Did not register handler for session control service.");
+        LE_INFO("Did not register handler for session control service.");
+        security.SendSesPositiveResp(rxSesTypePtr);
         le_ref_DeleteRef(security.RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
         le_mem_Release(rxSesTypePtr);
         return;
@@ -360,6 +363,8 @@ void taf_SecuritySvr::RxSesCtrlEventHandler
                     servicePtr->SesTypeHandlerRef);
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
+        LE_INFO("Handler is NULL");
+        security.SendSesPositiveResp(rxSesTypePtr);
         le_ref_DeleteRef(security.RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
         le_mem_Release(rxSesTypePtr);
         return;
@@ -491,6 +496,39 @@ le_result_t taf_SecuritySvr::SendSesTypeCheckResp
     return LE_OK;
 }
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * Send positive Session control response to UDS stack internally.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_SecuritySvr::SendSesPositiveResp
+(
+    taf_SesTypeRxMsg_t* rxSesTypePtr
+)
+{
+    LE_DEBUG("SendSesPositiveResp");
+
+    TAF_ERROR_IF_RET_VAL(rxSesTypePtr == NULL, LE_BAD_PARAMETER, "Invalid rxSesTypePtr");
+
+    le_result_t ret;
+
+    // Call UDS function to send the response message.
+    auto &backend = taf_DiagBackend::GetInstance();
+    taf_uds_AddrInfo_t addrInfo;
+    addrInfo.sa = rxSesTypePtr->addrInfo.ta;
+    addrInfo.ta = rxSesTypePtr->addrInfo.sa;
+    addrInfo.taType = rxSesTypePtr->addrInfo.taType;
+
+    // Positive response.
+    ret = backend.RespDiagPositive(reqSesCtrlSvcId, &addrInfo);
+    if (ret != LE_OK)
+    {
+        LE_ERROR("Failed to send session control positive response.(%d)", ret);
+        return ret;
+    }
+
+    return LE_OK;
+}
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -665,6 +703,28 @@ le_result_t taf_SecuritySvr::GetCurrentSesType
 
     *currentTypePtr = currentSesType;
 
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Internal function to get current session type.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_SecuritySvr::GetCurrentSession
+(
+    uint8_t* currentSesPtr
+)
+{
+    LE_INFO("GetCurrentSession!");
+
+    if (currentSesPtr == NULL)
+    {
+        LE_ERROR("Cannot find the currentSesPtr");
+        return LE_NOT_FOUND;
+    }
+
+    *currentSesPtr = currentSesType;
     return LE_OK;
 }
 
@@ -987,11 +1047,7 @@ le_result_t taf_SecuritySvr::SendNRCResp
 
     // Call UDS function to send the response message.
     auto &backend = taf_DiagBackend::GetInstance();
-    taf_uds_AddrInfo_t addrInfo;
-    addrInfo.sa = addrInfoPtr->ta;
-    addrInfo.ta = addrInfoPtr->sa;
-    addrInfo.taType = addrInfoPtr->taType;
-    backend.RespDiagNegative(sid, &addrInfo, errCode);
+    backend.RespDiagNegative(sid, addrInfoPtr, errCode);
 
     return LE_OK;
 }

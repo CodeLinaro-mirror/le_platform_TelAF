@@ -46,5 +46,6 @@ le_result_t diagRoutineControl_Init(void);
 #endif
 
 le_result_t diagSecurityAccess_Init(void);
+le_result_t diagDoIP_Init(void);
 
 #endif /* DIAG_H */

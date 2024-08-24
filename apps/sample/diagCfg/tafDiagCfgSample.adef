@@ -1,0 +1,12 @@
+executables:
+{
+    diagCfgSample = ( diagCfgSampleComp )
+}
+
+processes:
+{
+    run:
+    {
+        ( diagCfgSample )
+    }
+}

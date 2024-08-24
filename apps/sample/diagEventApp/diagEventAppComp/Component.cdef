@@ -8,6 +8,7 @@ requires:
     api:
     {
         taf_diagEvent.api
+        taf_diagDTC.api
     }
 }
 

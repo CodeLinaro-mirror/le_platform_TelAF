@@ -175,6 +175,10 @@ namespace telux
 
                 le_result_t RemoveSvc(taf_diagDataID_ServiceRef_t svcRef);
 
+                le_result_t SnapshotTriggerTheCollectionOfDIDs(uint16_t* dids,
+                                                               size_t numOfDids,
+                                                               taf_ReadDIDRxMsg_t **msgPPtr);
+
             private:
                 // Internal search function.
                 taf_DataIDSvc_t* GetServiceObj();

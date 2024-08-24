@@ -43,8 +43,11 @@
 #include "tafResetSvr.hpp"
 #include "tafUpdateSvr.hpp"
 #include "tafEventSvr.hpp"
+#include "tafSnapshotSvc.hpp"
 #include "configuration.hpp"
 #include "tafDTCInf.hpp"
+#include "tafDTCSvr.hpp"
+#include "tafDiagDoIPSvr.hpp"
 #endif
 
 using namespace telux::tafsvc;
@@ -56,7 +59,7 @@ using namespace telux::tafsvc;
 //--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
-    
+
     LE_INFO("TelAF UDS DataID service initialization start...");
     auto& did = taf_DataIDSvr::GetInstance();
     did.Init();
@@ -96,10 +99,25 @@ COMPONENT_INIT
     event.Init();
     LE_INFO("TelAF Event Management service initialization end...");
 
+    LE_INFO("TelAF DTC service initialization start...");
+    auto& dtcSvc = taf_DTCSvr::GetInstance();
+    dtcSvc.Init();
+    LE_INFO("TelAF DTC service initialization end...");
+
     LE_INFO("TelAF UDS DTC interface initialization start...");
     auto& dtcInf = taf_DTCInf::GetInstance();
     dtcInf.Init();
     LE_INFO("TelAF UDS DTC interface initialization end...");
+
+    LE_INFO("TelAF Snapshot service initialization start...");
+    auto& snapshot = taf_SnapshotSvr::GetInstance();
+    snapshot.Init();
+    LE_INFO("TelAF Snapshot service initialization end...");
+
+    LE_INFO("TelAF DoIP service initialization start...");
+    auto& doipSvc = taf_DiagDoIPSvr::GetInstance();
+    doipSvc.Init();
+    LE_INFO("TelAF DoIP service initialization end...");
 
     LE_INFO("TelAF Diag Backend initialization start...");
     auto& tafBackend = taf_DiagBackend::GetInstance();

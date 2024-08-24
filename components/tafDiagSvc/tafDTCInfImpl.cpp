@@ -37,6 +37,7 @@
 #include "tafDTCInf.hpp"
 #include "tafDataAccessComp.h"
 #include "tafEventSvr.hpp"
+#include "tafSecuritySvr.hpp"
 
 using namespace telux::tafsvc;
 
@@ -130,6 +131,62 @@ void taf_DTCInf::UDSMsgHandler
             }
             break;
 
+            case REPORT_DTC_SNAPSHOT_ID:  //0x03
+            {
+                LE_DEBUG("Requested DTC subfunction type is reportDTCSnapshotIdentification!");
+
+                if (msgLen != DTC_SNAPSHOT_ID_REQ_LEN)
+                {
+                    LE_DEBUG("Requested DTC message length is incorrect!");
+                    errCode = INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
+                    SendNRCResp(sid, addrPtr, errCode);
+
+                    return;
+                }
+
+                result = GetDtcSnapshotID();
+                if(result != LE_OK)
+                {
+                    LE_ERROR("Error while getting data for dtc snapshot ID!");
+                    return;
+                }
+            }break;
+
+            case REPORT_DTC_SNAPSHOT_REC_BY_DTC_NO:  //0x04
+            {
+                LE_DEBUG("Requested DTC subfunction type is reportDTCSnapshotRecordByDTCNumber!");
+
+                if (msgLen != DTC_SNAPSHOT_REC_BY_DTC_NUM_REQ_LEN)
+                {
+                    LE_DEBUG("Requested DTC message length is incorrect!");
+                    errCode = INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
+                    SendNRCResp(sid, addrPtr, errCode);
+
+                    return;
+                }
+
+                uint32_t dtcMaskRec = ((msgPtr[2] << 16) + (msgPtr[3] << 8) + (msgPtr[4]));
+                uint8_t dtcRecNum = msgPtr[5];
+
+                result = GetDtcSnapshotRecordByDTCNum(dtcMaskRec, dtcRecNum);
+                if (result == LE_OK)
+                {
+                    LE_DEBUG("Send positive response msg!");
+                }
+                else if(result == LE_UNSUPPORTED)
+                {
+                    LE_DEBUG("requestOutOfRange!");
+                    errCode = REQ_OUT_OF_RANGE;
+                    SendNRCResp(sid, addrPtr, errCode);
+                    return;
+                }
+                else
+                {
+                    LE_ERROR("Error while getting data for dtc snapshot record by dtc number!");
+                    return;
+                }
+            }break;
+
             case REPORT_DTC_EXT_DATA_REC_BY_DTC_NO:  // 0x06
             {
                 LE_DEBUG("Requested DTC subfunction type is reportDTCExtDataRecordByDTCNumber!");
@@ -147,7 +204,18 @@ void taf_DTCInf::UDSMsgHandler
                 uint8_t dtcExtDataRec = msgPtr[5];
 
                 result = GetExtDataRecordByDTCNum(dtcMaskRec, dtcExtDataRec);
-                if(result != LE_OK)
+                if (result == LE_OK)
+                {
+                    LE_DEBUG("Send positive response msg!");
+                }
+                else if(result == LE_UNSUPPORTED)
+                {
+                    LE_DEBUG("requestOutOfRange!");
+                    errCode = REQ_OUT_OF_RANGE;
+                    SendNRCResp(sid, addrPtr, errCode);
+                    return;
+                }
+                else
                 {
                     LE_ERROR("Error while getting data for dtc for ext data record!");
                     return;
@@ -226,7 +294,15 @@ void taf_DTCInf::UDSMsgHandler
         LE_DEBUG("DTc clear request: %x", grpOfDTC);
         result = GetClearDTCResp(grpOfDTC);
 
-        if(result == LE_UNSUPPORTED)
+        if (result == LE_UNAVAILABLE)
+        {
+            LE_DEBUG("conditionsNotCorrect!");
+            errCode = CONDITIONS_NOT_CORRECT;
+            SendNRCResp(sid, addrPtr, errCode);
+
+            return;
+        }
+        else if(result == LE_UNSUPPORTED)
         {
             LE_DEBUG("requestOutOfRange!");
             errCode = REQ_OUT_OF_RANGE;
@@ -275,19 +351,70 @@ le_result_t taf_DTCInf::GetNumOfDtcByStatusMask
 {
     LE_DEBUG("GetNumOfDtcByStatusMask");
 
-    taf_DataAccess_NumOfDTC_t numOfDTC;
     le_result_t result;
-    result = taf_DataAccess_GetNumOfDtcByStatusMask(statusMask, &numOfDTC);
+    bool isSesTypeConfig = false;
+
+    // Get the current active session type.
+    auto &security = taf_SecuritySvr::GetInstance();
+    uint8_t currentSesType;
+    result = security.GetCurrentSession(&currentSesType);
+    if (result != LE_OK)
+    {
+        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        return result;
+    }
+    LE_DEBUG("Current session is %x", currentSesType);
+
+    // Get the DTCStatusAvailabilityMask.
+    uint8_t availableMask = taf_DataAccess_GetAvailableStatusMask();
+
+    // Get the DTCFormatIdentifier.
+    uint8_t formatId = taf_DataAccess_GetDtcFormatId();
+
+    // Get all the filtered DTC based on statusMask, and count the DTC
+    taf_DataAccess_DTCStatusRec_t dtcStatusRec;
+    result = taf_DataAccess_GetDtcByStatusMask(statusMask, &dtcStatusRec);
     if (result != LE_OK)
     {
         LE_ERROR("Error while getting data from dataAccess module!");
         return result;
     }
 
-    respBuf[0] = numOfDTC.availableMask;
-    respBuf[1] = numOfDTC.formatIdentifier;
-    respBuf[2] = (numOfDTC.dtcCnt & 0xff00) >> 8;
-    respBuf[3] = numOfDTC.dtcCnt & 0xff;
+    // Count the supported DTC based filtering with statusMask and session type support
+    uint16_t dtcCount = 0;
+    if(le_dls_NumLinks(&dtcStatusRec.dtcStatusRecList) > 0)
+    {
+        le_dls_Link_t* linkPtr = NULL;
+        linkPtr = le_dls_Pop(&dtcStatusRec.dtcStatusRecList);
+
+        while(linkPtr != NULL)
+        {
+            taf_DataAccess_DTCStatus_t * dtcStatusPtr = CONTAINER_OF(linkPtr,
+                    taf_DataAccess_DTCStatus_t, link);
+
+            if (dtcStatusPtr != NULL)
+            {
+                // Check the current session type is same as config session type for dtc.
+                isSesTypeConfig = IsDTCCurrentSesTypeConfig(dtcStatusPtr->dtc, currentSesType);
+                if (isSesTypeConfig)
+                {
+                    dtcCount++;
+                }
+
+                // Release memory for dtcStatusPtr
+                le_mem_Release((void*)dtcStatusPtr);
+            }
+
+            // Returns the link next to a specified link.
+            linkPtr = le_dls_Pop(&dtcStatusRec.dtcStatusRecList);
+        }
+    }
+
+    // Pack the response msg.
+    respBuf[0] = availableMask;
+    respBuf[1] = formatId;
+    respBuf[2] = (dtcCount & 0xff00) >> 8;
+    respBuf[3] = dtcCount & 0xff;
 
     respBufLen = NO_OF_DTC_BY_STATUS_MASK_RESP_BASE_LEN;
     return LE_OK;
@@ -305,9 +432,21 @@ le_result_t taf_DTCInf::GetDtcByStatusMask
 {
     LE_DEBUG("GetDtcByStatusMask");
 
-    taf_DataAccess_DTCStatusRec_t dtcStatusRec;
-
     le_result_t result;
+    bool isSesTypeConfig = false;
+
+    // Get the current active session type.
+    auto &security = taf_SecuritySvr::GetInstance();
+    uint8_t currentSesType;
+    result = security.GetCurrentSession(&currentSesType);
+    if (result != LE_OK)
+    {
+        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        return result;
+    }
+    LE_DEBUG("Current session is %x", currentSesType);
+
+    taf_DataAccess_DTCStatusRec_t dtcStatusRec;
     result = taf_DataAccess_GetDtcByStatusMask(statusMask, &dtcStatusRec);
     if (result != LE_OK)
     {
@@ -332,16 +471,21 @@ le_result_t taf_DTCInf::GetDtcByStatusMask
 
             if (dtcStatusPtr != NULL)
             {
-                respBuf[DTC_BY_STATUS_MASK_RESP_BASE_LEN + i*4]
-                        = (dtcStatusPtr->dtc & 0xff0000) >> 16;
-                respBuf[DTC_BY_STATUS_MASK_RESP_BASE_LEN + i*4 + 1]
-                        = (dtcStatusPtr->dtc & 0xff00) >> 8;
-                respBuf[DTC_BY_STATUS_MASK_RESP_BASE_LEN + i*4 + 2]
-                        = (dtcStatusPtr->dtc & 0xff);
-                respBuf[DTC_BY_STATUS_MASK_RESP_BASE_LEN + i*4 + 3]
-                        = dtcStatusPtr->status;
+                // Check the current session type is same as config session type for dtc.
+                isSesTypeConfig = IsDTCCurrentSesTypeConfig(dtcStatusPtr->dtc, currentSesType);
+                if (isSesTypeConfig)
+                {
+                    respBuf[DTC_BY_STATUS_MASK_RESP_BASE_LEN + i*4]
+                            = (dtcStatusPtr->dtc & 0xff0000) >> 16;
+                    respBuf[DTC_BY_STATUS_MASK_RESP_BASE_LEN + i*4 + 1]
+                            = (dtcStatusPtr->dtc & 0xff00) >> 8;
+                    respBuf[DTC_BY_STATUS_MASK_RESP_BASE_LEN + i*4 + 2]
+                            = (dtcStatusPtr->dtc & 0xff);
+                    respBuf[DTC_BY_STATUS_MASK_RESP_BASE_LEN + i*4 + 3]
+                            = dtcStatusPtr->status;
 
-                i++;
+                    i++;
+                }
 
                 // Release memory for dtcStatusPtr
                 le_mem_Release((void*)dtcStatusPtr);
@@ -360,6 +504,178 @@ le_result_t taf_DTCInf::GetDtcByStatusMask
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Gets the msg for reportDTCSnapshotIdentification (0x03)
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DTCInf::GetDtcSnapshotID
+(
+)
+{
+    LE_DEBUG("GetDtcSnapshotID");
+
+    le_result_t result;
+    bool isSesTypeConfig = false;
+
+    // Get the current active session type.
+    auto &security = taf_SecuritySvr::GetInstance();
+    uint8_t currentSesType;
+    result = security.GetCurrentSession(&currentSesType);
+    if (result != LE_OK)
+    {
+        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        return result;
+    }
+    LE_DEBUG("Current session is %x", currentSesType);
+
+    taf_DataAccess_SnapshotInfoRec_t snapshotInfoRec;
+    result = taf_DataAccess_GetSnapshotIdentification(&snapshotInfoRec);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Error while getting data from dataAccess module!");
+        return result;
+    }
+
+    respBufLen = DTC_SNAPSHOT_ID_RESP_BASE_LEN;
+
+    int i = 0;
+
+    if(le_dls_NumLinks(&snapshotInfoRec.snapshotInfoList) > 0)
+    {
+        le_dls_Link_t* linkPtr = NULL;
+        linkPtr = le_dls_Pop(&snapshotInfoRec.snapshotInfoList);
+
+        while(linkPtr != NULL)
+        {
+            taf_DataAccess_SnapshotInfo_t * snapshotInfoPtr = CONTAINER_OF(linkPtr,
+                    taf_DataAccess_SnapshotInfo_t, link);
+
+            if (snapshotInfoPtr != NULL)
+            {
+                // Check the current session type is same as config session type for dtc.
+                isSesTypeConfig = IsDTCCurrentSesTypeConfig(snapshotInfoPtr->dtc, currentSesType);
+                if (isSesTypeConfig)
+                {
+                    respBuf[DTC_SNAPSHOT_ID_RESP_BASE_LEN + i*4]
+                            = (snapshotInfoPtr->dtc & 0xff0000) >> 16;
+                    respBuf[DTC_SNAPSHOT_ID_RESP_BASE_LEN + i*4 + 1]
+                            = (snapshotInfoPtr->dtc & 0xff00) >> 8;
+                    respBuf[DTC_SNAPSHOT_ID_RESP_BASE_LEN + i*4 + 2]
+                            = (snapshotInfoPtr->dtc & 0xff);
+                    respBuf[DTC_SNAPSHOT_ID_RESP_BASE_LEN + i*4 + 3]
+                            = snapshotInfoPtr->recNumber;
+
+                    i++;
+                }
+
+                // Release memory for dtcPtr
+                le_mem_Release((void*)snapshotInfoPtr);
+            }
+
+            // Returns the link next to a specified link.
+            linkPtr = le_dls_Pop(&snapshotInfoRec.snapshotInfoList);
+        }
+    }
+
+    // Response msg length.
+    respBufLen = respBufLen + (i*4);
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the msg for reportDTCSnapshotRecordByDTCNumber (0x04)
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DTCInf::GetDtcSnapshotRecordByDTCNum
+(
+    uint32_t dtcMaskRec,
+    uint8_t dtcRecNum
+)
+{
+    LE_DEBUG("GetDtcSnapshotRecordByDTCNum");
+
+    le_result_t result;
+    bool isSesTypeConfig = false;
+
+    // Get the current active session type.
+    auto &security = taf_SecuritySvr::GetInstance();
+    uint8_t currentSesType;
+    result = security.GetCurrentSession(&currentSesType);
+    if (result != LE_OK)
+    {
+        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        return result;
+    }
+    LE_DEBUG("Current session is %x", currentSesType);
+
+    // Check the current session type is same as config session type for dtc.
+    isSesTypeConfig = IsDTCCurrentSesTypeConfig(dtcMaskRec, currentSesType);
+    if (!isSesTypeConfig)
+    {
+        LE_DEBUG("Current session type is not supported!");
+        return LE_UNSUPPORTED;
+    }
+
+    taf_DataAccess_SnapshotDataRec_t snapshotDataRec;
+    result = taf_DataAccess_GetSnapshotRecByDtc(dtcMaskRec, dtcRecNum, &snapshotDataRec);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Error while getting data from dataAccess module!");
+        return result;
+    }
+
+    respBuf[0] = (snapshotDataRec.dtc & 0xff0000) >> 16;
+    respBuf[1] = (snapshotDataRec.dtc & 0xff00) >> 8;
+    respBuf[2] = (snapshotDataRec.dtc & 0xff);
+    respBuf[3] = snapshotDataRec.status;
+    respBufLen = DTC_SNAPSHOT_REC_BY_DTC_NUM_RESP_BASE_LEN;
+
+    if(le_dls_NumLinks(&snapshotDataRec.snapshotDataList) > 0)
+    {
+        le_dls_Link_t* linkPtr = NULL;
+        linkPtr = le_dls_Pop(&snapshotDataRec.snapshotDataList);
+
+        while(linkPtr != NULL)
+        {
+            taf_DataAccess_SnapshotData_t * snapshotDataPtr = CONTAINER_OF(linkPtr,
+                    taf_DataAccess_SnapshotData_t, link);
+
+            if (snapshotDataPtr != NULL)
+            {
+                respBuf[respBufLen] = snapshotDataPtr->recNumber;
+                LE_DEBUG("DTCSnapshotRecordNumber is %x", snapshotDataPtr->recNumber);
+                respBufLen = respBufLen + 1;
+
+                respBuf[respBufLen] = snapshotDataPtr->recDidSize;
+                LE_DEBUG("DTCSnapshotRecordNumberOfIdentifiers is %x", snapshotDataPtr->recDidSize);
+                respBufLen = respBufLen + 1;
+
+                for (int i =0; i<snapshotDataPtr->recDidSize; i++)
+                {
+                    respBuf[respBufLen] = (snapshotDataPtr->didSet[i].did & 0xff00) >> 8;
+                    respBufLen++;
+                    respBuf[respBufLen] = (snapshotDataPtr->didSet[i].did & 0xff);
+                    respBufLen++;
+                    memcpy(respBuf + respBufLen, snapshotDataPtr->didSet[i].didData,
+                            snapshotDataPtr->didSet[i].didDataSize);
+                    respBufLen = respBufLen + snapshotDataPtr->didSet[i].didDataSize;
+                }
+
+                // Release memory for snapshotDataPtr
+                le_mem_Release((void*)snapshotDataPtr);
+            }
+
+            // Returns the link next to a specified link
+            linkPtr = le_dls_Pop(&snapshotDataRec.snapshotDataList);
+        }
+    }
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Gets the msg for reportDTCExtDataRecordByDTCNumber (0x06)
  */
 //-------------------------------------------------------------------------------------------------
@@ -369,11 +685,31 @@ le_result_t taf_DTCInf::GetExtDataRecordByDTCNum
     uint8_t dtcExtDataRec
 )
 {
-    LE_DEBUG("GetSupportedDtc");
-
-    taf_DataAccess_ExtDataRec_t extDataRec;
+    LE_DEBUG("GetExtDataRecordByDTCNum");
 
     le_result_t result;
+    bool isSesTypeConfig = false;
+
+    // Get the current active session type.
+    auto &security = taf_SecuritySvr::GetInstance();
+    uint8_t currentSesType;
+    result = security.GetCurrentSession(&currentSesType);
+    if (result != LE_OK)
+    {
+        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        return result;
+    }
+    LE_DEBUG("Current session is %x", currentSesType);
+
+    // Check the current session type is same as config session type for dtc.
+    isSesTypeConfig = IsDTCCurrentSesTypeConfig(dtcMaskRcd, currentSesType);
+    if (!isSesTypeConfig)
+    {
+        LE_DEBUG("Current session type is not supported!");
+        return LE_UNSUPPORTED;
+    }
+
+    taf_DataAccess_ExtDataRec_t extDataRec;
     result = taf_DataAccess_GetExtDataRecByDtc(dtcMaskRcd, dtcExtDataRec, &extDataRec);
     if (result != LE_OK)
     {
@@ -432,9 +768,21 @@ le_result_t taf_DTCInf::GetSupportedDtc
 {
     LE_DEBUG("GetSupportedDtc");
 
-    taf_DataAccess_DTCStatusRec_t dtcStatusRec;
-
     le_result_t result;
+    bool isSesTypeConfig = false;
+
+    // Get the current active session type.
+    auto &security = taf_SecuritySvr::GetInstance();
+    uint8_t currentSesType;
+    result = security.GetCurrentSession(&currentSesType);
+    if (result != LE_OK)
+    {
+        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        return result;
+    }
+    LE_DEBUG("Current session is %x", currentSesType);
+
+    taf_DataAccess_DTCStatusRec_t dtcStatusRec;
     result = taf_DataAccess_GetSupportedDtc(&dtcStatusRec);
     if (result != LE_OK)
     {
@@ -459,16 +807,21 @@ le_result_t taf_DTCInf::GetSupportedDtc
 
             if (dtcStatusPtr != NULL)
             {
-                respBuf[SUPPORTED_DTC_RESP_BASE_LEN + i*4]
-                        = (dtcStatusPtr->dtc & 0xff0000) >> 16;
-                respBuf[SUPPORTED_DTC_RESP_BASE_LEN + i*4 + 1]
-                        = (dtcStatusPtr->dtc & 0xff00) >> 8;
-                respBuf[SUPPORTED_DTC_RESP_BASE_LEN + i*4 + 2]
-                        = (dtcStatusPtr->dtc & 0xff);
-                respBuf[SUPPORTED_DTC_RESP_BASE_LEN + i*4 + 3]
-                        = dtcStatusPtr->status;
+                // Check the current session type is same as config session type for dtc.
+                isSesTypeConfig = IsDTCCurrentSesTypeConfig(dtcStatusPtr->dtc, currentSesType);
+                if (isSesTypeConfig)
+                {
+                    respBuf[SUPPORTED_DTC_RESP_BASE_LEN + i*4]
+                            = (dtcStatusPtr->dtc & 0xff0000) >> 16;
+                    respBuf[SUPPORTED_DTC_RESP_BASE_LEN + i*4 + 1]
+                            = (dtcStatusPtr->dtc & 0xff00) >> 8;
+                    respBuf[SUPPORTED_DTC_RESP_BASE_LEN + i*4 + 2]
+                            = (dtcStatusPtr->dtc & 0xff);
+                    respBuf[SUPPORTED_DTC_RESP_BASE_LEN + i*4 + 3]
+                            = dtcStatusPtr->status;
 
-                i++;
+                    i++;
+                }
 
                 // Release memory for dtcPtr
                 le_mem_Release((void*)dtcStatusPtr);
@@ -496,11 +849,22 @@ le_result_t taf_DTCInf::GetFaultDetCounter
 {
     LE_DEBUG("GetFaultDetCounter");
 
-    le_dls_List_t FDCList = LE_DLS_LIST_INIT;
+    le_result_t result;
+    bool isSesTypeConfig = false;
 
-    // le_result_t result;
+    // Get the current active session type.
+    auto &security = taf_SecuritySvr::GetInstance();
+    uint8_t currentSesType;
+    result = security.GetCurrentSession(&currentSesType);
+    if (result != LE_OK)
+    {
+        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        return result;
+    }
+    LE_DEBUG("Current session is %x", currentSesType);
+
     auto &diagEvent = taf_EventSvr::GetInstance();
-
+    le_dls_List_t FDCList = LE_DLS_LIST_INIT;
     diagEvent.ReportDTCFaultDetectionCounter(&FDCList);
 
     respBufLen = DTC_FAULT_DETECTION_COUNTER_RESP_BASE_LEN;
@@ -519,16 +883,21 @@ le_result_t taf_DTCInf::GetFaultDetCounter
 
             if (fdcInfoPtr != NULL)
             {
-                respBuf[DTC_FAULT_DETECTION_COUNTER_RESP_BASE_LEN + i*4]
-                        = (fdcInfoPtr->dtc & 0xff0000) >> 16;
-                respBuf[DTC_FAULT_DETECTION_COUNTER_RESP_BASE_LEN + i*4 + 1]
-                        = (fdcInfoPtr->dtc & 0xff00) >> 8;
-                respBuf[DTC_FAULT_DETECTION_COUNTER_RESP_BASE_LEN + i*4 + 2]
-                        = (fdcInfoPtr->dtc & 0xff);
-                respBuf[DTC_FAULT_DETECTION_COUNTER_RESP_BASE_LEN + i*4 + 3]
-                        = fdcInfoPtr->fdc;
+                // Check the current session type is same as config session type for dtc.
+                isSesTypeConfig = IsDTCCurrentSesTypeConfig(fdcInfoPtr->dtc, currentSesType);
+                if (isSesTypeConfig)
+                {
+                    respBuf[DTC_FAULT_DETECTION_COUNTER_RESP_BASE_LEN + i*4]
+                            = (fdcInfoPtr->dtc & 0xff0000) >> 16;
+                    respBuf[DTC_FAULT_DETECTION_COUNTER_RESP_BASE_LEN + i*4 + 1]
+                            = (fdcInfoPtr->dtc & 0xff00) >> 8;
+                    respBuf[DTC_FAULT_DETECTION_COUNTER_RESP_BASE_LEN + i*4 + 2]
+                            = (fdcInfoPtr->dtc & 0xff);
+                    respBuf[DTC_FAULT_DETECTION_COUNTER_RESP_BASE_LEN + i*4 + 3]
+                            = fdcInfoPtr->fdc;
 
-                i++;
+                    i++;
+                }
 
                 le_mem_Release(fdcInfoPtr);
             }
@@ -556,8 +925,12 @@ le_result_t taf_DTCInf::GetClearDTCResp
 
     result = diagEvent.ClearDtc(grpOfDTC);
 
-
-    if (result == LE_UNSUPPORTED)    // Check for NRC 0x31
+    if (result == LE_UNAVAILABLE)    // Check for NRC 0x22
+    {
+        LE_DEBUG("Send NRC 0x22");
+        return result;
+    }
+    else if (result == LE_UNSUPPORTED)    // Check for NRC 0x31
     {
         LE_DEBUG("Send NRC 0x31");
         return result;
@@ -655,6 +1028,46 @@ le_result_t taf_DTCInf::SendNRCResp
     backend.RespDiagNegative(sid, &addrInfo, errCode);
 
     return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Check the current active session type with config session of dtc.
+ */
+//-------------------------------------------------------------------------------------------------
+bool taf_DTCInf::IsDTCCurrentSesTypeConfig
+(
+    uint32_t dtc,
+    uint8_t currentSesType
+)
+{
+    LE_DEBUG("IsDTCCurrentSesTypeConfig");
+
+    try
+    {
+        cfg::Node & dtcNode = cfg::get_dtc_node(dtc);
+        cfg::Node & sesType = dtcNode.get_child("access.session");
+
+        for (const auto & session: sesType)
+        {
+            string type = session.second.get_value<string>("");
+
+            cfg::Node & sesNode = cfg::top_diagnostic_session<string>("short_name", type);
+            int session_id = sesNode.get<int>("id");
+
+            if ((uint8_t)session_id == currentSesType)
+            {
+                LE_DEBUG("current session type is supported for this dtc");
+                return true;
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LE_ERROR("Exception: %s", e.what());
+    }
+
+    return false;
 }
 
 //-------------------------------------------------------------------------------------------------

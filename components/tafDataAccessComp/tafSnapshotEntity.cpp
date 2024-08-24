@@ -33,56 +33,73 @@
  */
 #include "legato.h"
 #include "interfaces.h"
-#include "tafDTCEntity.hpp"
+#include "tafSnapshotEntity.hpp"
 
 using namespace taf::dataAccess;
 
-DtcEntity::DtcEntity
+SnapshotEntity::SnapshotEntity
 (
 )
 {
 }
 
-DtcEntity::DtcEntity
+SnapshotEntity::SnapshotEntity
 (
-    int32_t dtc
+    int32_t id
 )
 {
-    mDtc = dtc;
+    mId = id;
 }
 
-DtcEntity::DtcEntity
+SnapshotEntity::SnapshotEntity
 (
+    int32_t id,
     int32_t dtc,
-    int32_t status,
-    int32_t faultOccurCounter,
-    int32_t agingCounter,
-    int32_t agedCounter,
+    int32_t did,
+    uint8_t didVal[],
+    int32_t didValLen,
+    int32_t recNum,
     std::time_t createTime,
-    std::time_t updateTime,
-    std::time_t testFailedTime,
-    std::time_t confirmedTime
+    std::time_t updateTime
 )
 {
+    mId = id;
     mDtc = dtc;
-    mStatus = status;
-    mFaultOccurCounter = faultOccurCounter;
-    mAgingCounter = agingCounter;
-    mAgedCounter = agedCounter;
+    mDid = did;
+
+    mDidValLen = (didValLen > DATA_ACCESS_DID_DATA_SIZE_MAX) ?
+        DATA_ACCESS_DID_DATA_SIZE_MAX : didValLen;
+
+    memcpy(mDidVal, didVal, mDidValLen);
+
+    mRecNum = recNum;
     mCreateTime = createTime;
     mUpdateTime = updateTime;
-    mTestFailedTime = testFailedTime;
-    mConfirmedTime = confirmedTime;
 }
 
-int32_t DtcEntity::GetDtc
+int32_t SnapshotEntity::GetId
+(
+)
+{
+    return mId;
+}
+
+void SnapshotEntity::SetId
+(
+    int32_t id
+)
+{
+    mId = id;
+}
+
+int32_t SnapshotEntity::GetDtc
 (
 )
 {
     return mDtc;
 }
 
-void DtcEntity::SetDtc
+void SnapshotEntity::SetDtc
 (
     int32_t dtc
 )
@@ -90,104 +107,73 @@ void DtcEntity::SetDtc
     mDtc = dtc;
 }
 
-int32_t DtcEntity::GetStatus
+int32_t SnapshotEntity::GetDid
 (
 )
 {
-    return mStatus;
+    return mDid;
 }
 
-void DtcEntity::SetStatus
+void SnapshotEntity::SetDid
 (
-    int32_t status
+    int32_t did
 )
 {
-    mStatus = status;
+    mDid = did;
 }
 
-int32_t DtcEntity::GetFaultOccurenceCounter
+void SnapshotEntity::GetDidValue
 (
+    uint8_t *didVal,
+    int32_t &didValLen
 )
 {
-    return mFaultOccurCounter;
+    if (didValLen < mDidValLen)
+    {
+        // The buffer is not enough.
+        memcpy(didVal, mDidVal, didValLen);
+        return;
+    }
+
+    memcpy(didVal, mDidVal, mDidValLen);
+    didValLen = mDidValLen;
 }
 
-void DtcEntity::SetFaultOccurenceCounter
+void SnapshotEntity::SetDidValue
 (
-    int32_t counter
+    const uint8_t didVal[],
+    int32_t didValLen
 )
 {
-    mFaultOccurCounter = counter;
+    mDidValLen = didValLen > DATA_ACCESS_DID_DATA_SIZE_MAX ?
+        DATA_ACCESS_DID_DATA_SIZE_MAX : didValLen;
+
+    memcpy(mDidVal, didVal, mDidValLen);
 }
 
-int32_t DtcEntity::GetAgingCounter
-(
-)
-{
-    return mAgingCounter;
-}
-
-void DtcEntity::SetAgingCounter
-(
-    int32_t counter
-)
-{
-    mAgingCounter = counter;
-}
-
-int32_t DtcEntity::GetAgedCounter
-(
-)
-{
-    return mAgedCounter;
-}
-
-void DtcEntity::SetAgedCounter
-(
-    int32_t counter
-)
-{
-    mAgedCounter = counter;
-}
-
-int32_t DtcEntity::GetActivation
+int32_t SnapshotEntity::GetRecordNum
 (
 )
 {
-    return mActivation;
+    return mRecNum;
 }
 
-void DtcEntity::SetActivation
+void SnapshotEntity::SetRecordNum
 (
-    int32_t activation
+    int32_t recNum
 )
 {
-    mActivation = activation;
+    mRecNum = recNum;
 }
 
-int32_t DtcEntity::GetSuppression
-(
-)
-{
-    return mSuppression;
-}
-
-void DtcEntity::SetSuppression
-(
-    int32_t suppression
-)
-{
-    mSuppression = suppression;
-}
-
-std::time_t DtcEntity::GetCreateTime
+std::time_t SnapshotEntity::GetCreateTime
 (
 )
 {
     return mCreateTime;
 }
 
-void DtcEntity::SetCreateTime
+void SnapshotEntity::SetCreateTime
 (
     std::time_t time
 )
@@ -195,47 +181,17 @@ void DtcEntity::SetCreateTime
     mCreateTime = time;
 }
 
-std::time_t DtcEntity::GetUpdateTime
+std::time_t SnapshotEntity::GetUpdateTime
 (
 )
 {
     return mUpdateTime;
 }
 
-void DtcEntity::SetUpdateTime
+void SnapshotEntity::SetUpdateTime
 (
     std::time_t time
 )
 {
     mUpdateTime = time;
-}
-
-std::time_t DtcEntity::GetTestFailedTime
-(
-)
-{
-    return mTestFailedTime;
-}
-
-void DtcEntity::SetTestFailedTime
-(
-    std::time_t time
-)
-{
-    mTestFailedTime = time;
-}
-
-std::time_t DtcEntity::GetConfirmedTime
-(
-)
-{
-    return mConfirmedTime;
-}
-
-void DtcEntity::SetConfirmedTime
-(
-    std::time_t time
-)
-{
-    mConfirmedTime = time;
 }

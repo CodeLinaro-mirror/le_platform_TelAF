@@ -109,9 +109,6 @@
  */
 //-------------------------------------------------------------------------------------------------
 
-USETYPES taf_types.api;
-
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Supplier fault code maximum length.
@@ -202,12 +199,11 @@ REFERENCE Service;
  *     - Reference to the service instance.
  *     - NULL if not allowed to create the service.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
 (
-    uint16 eventId
+    uint16 eventId IN
 );
 
 //--------------------------------------------------------------------------------------------------

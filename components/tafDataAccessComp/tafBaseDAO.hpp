@@ -63,6 +63,10 @@ namespace dataAccess{
 
             std::string mFileName;   // Storage entity(Table or file) name
             std::shared_ptr<IOHandler<T, K>> mHandler;
+            std::shared_ptr<IOHandler<T, K>> GetDaoHandler()
+            {
+                return mHandler;
+            }
 
             virtual void BindValues(DataStatement &statement, T &entity) = 0;
             virtual void BindKeyValue(DataStatement &statement, T &entity) = 0;

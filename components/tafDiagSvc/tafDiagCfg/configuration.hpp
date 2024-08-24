@@ -34,6 +34,16 @@ typedef enum operation_cycle_type
     Custom1
 } operation_cycle_type_t;
 
+typedef enum freeze_frame_trigger_type
+{
+    DEM_TRIGGER_ON_CONFIRMED,
+    DEM_TRIGGER_ON_EVERY_TEST_FAILED,
+    DEM_TRIGGER_ON_FDC_THRESHOLD,
+    DEM_TRIGGER_ON_PENDING,
+    DEM_TRIGGER_ON_TEST_FAILED,
+    DEM_TRIGGER_ON_TEST_FAILED_THIS_OPERATION_CYCLE
+} freeze_frame_trigger_type_t;
+
 typedef enum storage_condition_type
 {
     storage_condition_1,
@@ -105,6 +115,7 @@ typedef struct { /* <-- from [debounce_counter_based_algorithm] */
     int counter_jump_up_value;
     bool counter_jump_up;
     bool counter_jump_down;
+    int counter_fdc_threshold;
 } Counter_t;
 
 typedef struct { /* <-- from [debounce_time_based_algorithm] */
@@ -112,7 +123,8 @@ typedef struct { /* <-- from [debounce_time_based_algorithm] */
     std::string base;
     std::string debounce_behavior;
     float time_failed_threshold;
-    int time_passed_threshold;
+    float time_passed_threshold;
+    float time_fdc_threshold;
 } Timer_t;
 
 typedef struct { /* <-- from [debounce_monitor_internal_algorithm] */
@@ -125,6 +137,12 @@ inline static operation_cycle_type_t s_to_operation_cycle_type(std::string s)
 { throw std::runtime_error("[tiny] to be implemented"); }
 
 inline static enable_condition_type_t s_to_enable_condition_type(std::string s)
+{ throw std::runtime_error("[tiny] to be implemented"); }
+
+inline static freeze_frame_trigger_type_t s_to_freeze_frame_trigger_type(std::string s)
+{ throw std::runtime_error("[tiny] to be implemented"); }
+
+inline static extended_data_records_type_t s_to_extended_data_records_type(std::string s)
 { throw std::runtime_error("[tiny] to be implemented"); }
 
 typedef struct { /* <-- from [storage_condition] */
@@ -306,7 +324,8 @@ static inline std::map<uint32_t, std::shared_ptr<Node>> get_dtc_nodes(void)
 { throw std::runtime_error("[tiny] to be implemented"); }
 static inline std::vector<uint32_t> get_dtc_codes(void)
 { throw std::runtime_error("[tiny] to be implemented"); }
-
+static inline size_t get_did_value_size(uint16_t did_code)
+{ throw std::runtime_error("[tiny] to be implemented"); }
 
 template <typename T>
 static inline void fill_list(Node & node, std::vector<T> & to_be_filled)

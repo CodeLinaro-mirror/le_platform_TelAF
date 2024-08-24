@@ -66,18 +66,18 @@ config = dict(udsoncan.configs.default_client_config)
 config['data_identifiers'] = {
    0xF011: AsciiCodec(10),
    0xA5A5: AsciiCodec(2),
-   0xA5A6: AsciiCodec(1)
+   0xA5A6: AsciiCodec(1),
+   0xF0D0: AsciiCodec(3),
+   0xF0D2: AsciiCodec(6),
+   0xEF01: AsciiCodec(5),
+   0xF401: AsciiCodec(1)
 }
+
+config['request_timeout'] = None
 
 doip_client = DoIPClient("192.168.225.1", 513)
 
-power_mode = doip_client.request_diagnostic_power_mode()
-print(power_mode)
-
 uds_connection = DoIPClientUDSConnector(doip_client)
-
-alivecheck = doip_client.request_alive_check()
-print(alivecheck)
 
 def dummy_send2key(level, seed):
     key = bytearray(seed)
@@ -109,7 +109,15 @@ def update_workflow():
             response = uds_client.get_dtc_by_status_mask(status_mask)
             print(response)
 
-            # Step4.3: Read DTC(reportDTCExtDataRecordByDTCNumber). 19 06
+            # Step4.3: Read DTC(reportDTCSnapshotIdentification). 19 03
+            response = uds_client.get_dtc_snapshot_identification()
+            print(response)
+
+            # Step4.4: Read DTC(reportDTCSnapshotRecordByDTCNumber). 19 04
+            response = uds_client.get_dtc_snapshot_by_dtc_number(dtc_mask, rcd_num)
+            print(response)
+
+            # Step4.5: Read DTC(reportDTCExtDataRecordByDTCNumber). 19 06
             response = uds_client.get_dtc_extended_data_by_dtc_number(dtc_mask, rcd_num, data_size)
             print(response)
 

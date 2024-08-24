@@ -460,6 +460,20 @@ const void *DataStatement::GetColumnBlob
     return sqlite3_column_blob(mPrepareStmt.get(), colIdx);
 }
 
+int DataStatement::GetColumnBytes
+(
+    int colIdx
+)
+{
+    if (!CheckDbStatement())
+    {
+        LE_ERROR("Database statement is null.");
+        return 0;
+    }
+
+    return sqlite3_column_bytes(mPrepareStmt.get(), colIdx);
+}
+
 DataStatement::StatementPtr DataStatement::PrepareStatement
 (
 )

@@ -35,7 +35,10 @@
 #include "tafUDSCommunicationMgr.hpp"
 #include "legato.h"
 #include "interfaces.h"
+#include "configuration.hpp"
 
+using namespace telux::tafsvc;
+using namespace std;
 using namespace taf::uds;
 
 /*=================================================================================================
@@ -66,22 +69,164 @@ void UdsCommunicationMgr::Init
 {
     LE_INFO("UDS communication manager init.");
 
+    semRef = le_sem_Create("SemRef", 0);
+
     udsHandlerRefMap = le_ref_CreateMap("udsHandlerRefMap", TAF_UDS_HANDLER_REF_CNT);
 
-    //P2 star timer
-    p2StarTimerRef = le_timer_Create("UDSP2StarTimer");
-    le_timer_SetMsInterval(p2StarTimerRef, UDS_P2_STAR_SERVER);
-    le_timer_SetRepeat(p2StarTimerRef, 1);
-    le_timer_SetHandler(p2StarTimerRef, P2StarTimeoutHandler);
+    udsTimerEventId = le_event_CreateId("Uds Timer Event", sizeof(udsTimerEvent_t));
 
-    //S3 timer
-    s3TimerRef = le_timer_Create("UDSS3Timer");
-    le_timer_SetMsInterval(s3TimerRef, UDS_S3_SERVER);
-    le_timer_SetRepeat(s3TimerRef, 1);
-    le_timer_SetHandler(s3TimerRef, S3TimeoutHandler);
+    // Create timer thread.
+    le_thread_Ref_t udsTimerThreadRef = le_thread_Create("udsTimerTh", UdsTimerThread, NULL);
+
+    le_thread_Start(udsTimerThreadRef);
+    le_sem_Wait(semRef);
 
     LE_INFO("UDS communication manager ok.");
     return;
+}
+
+void UdsCommunicationMgr::UdsTimerHandler(void* reqPtr)
+{
+    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
+
+    udsTimerEvent_t* eventReq = (udsTimerEvent_t*)reqPtr;
+
+    if(eventReq == NULL)
+    {
+        LE_ERROR ("Invalid Parameters passed");
+        return;
+    }
+
+    LE_DEBUG("Timer event:%d", (int)(eventReq->event));
+
+    switch (eventReq->event) {
+        case TAF_UDS_S3_TIMER_STOP:
+            if(le_timer_IsRunning(udsCmMgr.s3TimerRef))
+            {
+                LE_DEBUG("Stop S3 timer");
+                le_timer_Stop(udsCmMgr.s3TimerRef);
+            }
+            break;
+
+        case TAF_UDS_S3_TIMER_START:
+            le_timer_SetMsInterval(udsCmMgr.s3TimerRef, eventReq->interval);
+            if(le_timer_IsRunning(udsCmMgr.s3TimerRef))
+            {
+                LE_DEBUG("Restart S3 timer");
+                le_timer_Restart(udsCmMgr.s3TimerRef);
+            }
+            else
+            {
+                LE_DEBUG("Start S3 timer");
+                le_timer_Start(udsCmMgr.s3TimerRef);
+            }
+            break;
+
+        case TAF_UDS_S3_TIMER_RESTART:
+            if(le_timer_IsRunning(udsCmMgr.s3TimerRef))
+            {
+                LE_DEBUG("Restart S3 timer");
+                le_timer_SetMsInterval(udsCmMgr.s3TimerRef, eventReq->interval);
+                le_timer_Restart(udsCmMgr.s3TimerRef);
+            }
+            break;
+
+        case TAF_UDS_P2STAR_TIMER_STOP:
+            if(le_timer_IsRunning(udsCmMgr.p2StarTimerRef))
+            {
+                LE_DEBUG("Stop P2* timer");
+                le_timer_Stop(udsCmMgr.p2StarTimerRef);
+            }
+            break;
+        case TAF_UDS_P2STAR_TIMER_START:
+            LE_DEBUG("Start P2* timer");
+            {
+                uint32_t p2StarServerInterval, maxNumberOfRcrrp;
+                //Get P2* server interval;
+                try
+                {
+                    cfg::Node & node = cfg::top_diagnostic_session<int>("id",
+                            (int)udsCmMgr.SessionType);
+                    p2StarServerInterval = node.get<uint32_t>("p2_star_server_max") * 1000;//To msec
+                    LE_DEBUG("p2StarServerInterval : %d", p2StarServerInterval);
+                    if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX)
+                    {
+                        p2StarServerInterval = UDS_P2_STAR_SERVER;
+                        LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%dms",
+                                p2StarServerInterval);
+                    }
+                }
+                catch (const std::exception& e)
+                {
+                    p2StarServerInterval = UDS_P2_STAR_SERVER;
+                    LE_ERROR("Exception: %s. Use default value: %dms", e.what() ,
+                            p2StarServerInterval);
+                }
+                //Get P2* server count
+                try
+                {
+                    cfg::Node & root = cfg::get_root_node();
+                    cfg::Node & common = root.get_child("common_props");
+                    maxNumberOfRcrrp = common.get<uint32_t>(
+                            "max_number_of_request_correctly_received_response_pending");
+                    LE_DEBUG("maxNumberOfRcrrp = %d", maxNumberOfRcrrp);
+                }
+                catch (const std::exception& e)
+                {
+                    maxNumberOfRcrrp = UDS_P2_STAR_SERVER_CNT;
+                    LE_ERROR("Exception: %s. Use default value:%d", e.what() , maxNumberOfRcrrp);
+                }
+
+                le_timer_SetMsInterval(udsCmMgr.p2StarTimerRef, p2StarServerInterval);
+                le_timer_SetRepeat(udsCmMgr.p2StarTimerRef, maxNumberOfRcrrp);
+                le_timer_Start(udsCmMgr.p2StarTimerRef);
+            }
+            break;
+        case TAF_UDS_P2STAR_TIMER_RESTART:
+            break;
+        default:
+            LE_ERROR("Undefined event received.");
+            break;
+    }
+}
+
+void UdsCommunicationMgr::UdsTimerEventReport
+(
+    taf_UDSTimer_EventType_t timerEvent,
+    uint32_t interval
+)
+{
+    udsTimerEvent_t udsTimerEvt;
+    udsTimerEvt.event = timerEvent;
+    udsTimerEvt.interval = interval;
+
+    le_event_Report(udsTimerEventId, &udsTimerEvt, sizeof(udsTimerEvent_t));
+}
+
+//Timer can only be started/stopped in the same thread. Create a thread to handle timer.
+void* UdsCommunicationMgr::UdsTimerThread(void* ctxPtr)
+{
+    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
+
+    //P2 star timer
+    udsCmMgr.p2StarTimerRef = le_timer_Create("UDSP2StarTimer");
+    le_timer_SetHandler(udsCmMgr.p2StarTimerRef, P2StarTimeoutHandler);
+
+    //S3 timer
+    udsCmMgr.s3TimerRef = le_timer_Create("UDSS3Timer");
+
+    le_timer_SetRepeat(udsCmMgr.s3TimerRef, 1);
+    le_timer_SetHandler(udsCmMgr.s3TimerRef, S3TimeoutHandler);
+
+    le_event_AddHandler("UDS Timer Event Handler", udsCmMgr.udsTimerEventId, UdsTimerHandler);
+
+    le_sem_Post(udsCmMgr.semRef);
+
+    LE_INFO("Create event loop for timer event");
+
+    le_event_RunLoop();
+
+    return NULL;
 }
 
 void UdsCommunicationMgr::P2StarTimeoutHandler
@@ -90,8 +235,32 @@ void UdsCommunicationMgr::P2StarTimeoutHandler
 )
 {
     auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
-    LE_INFO("P2 star time out");
+    uint32_t maxNumberOfRcrrp;
 
+    LE_DEBUG("P2StarTimeoutHandler count = %d",le_timer_GetExpiryCount(timerRef));
+    //Get P2* server count
+    try
+    {
+        cfg::Node & root = cfg::get_root_node();
+        cfg::Node & common = root.get_child("common_props");
+        maxNumberOfRcrrp = common.get<uint32_t>(
+                "max_number_of_request_correctly_received_response_pending");
+        LE_DEBUG("maxNumberOfRcrrp = %d", maxNumberOfRcrrp);
+    }
+    catch (const std::exception& e)
+    {
+        maxNumberOfRcrrp = UDS_P2_STAR_SERVER_CNT;
+        LE_ERROR("Exception: %s. Use default value:%d", e.what() , maxNumberOfRcrrp);
+    }
+
+    if(le_timer_GetExpiryCount(timerRef) < maxNumberOfRcrrp)
+    {
+        uint32_t sid = udsCmMgr.recvBuf[0];
+        udsCmMgr.SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, &udsCmMgr.addrInfo);
+        return;
+    }
+
+    LE_INFO("P2* timeout");
     udsCmMgr.readyToRecvData = true;
     memset(udsCmMgr.recvBuf, 0, UDS_DATA_SIZE);
     udsCmMgr.recvDataLen = 0;
@@ -250,6 +419,11 @@ le_result_t UdsCommunicationMgr::SendNRC
     sendDataLen = UDS_NEG_RESP_LEN;
 
     SendData(addrInfoPtr);
+
+    if(errorCode == REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING)
+    {
+        LE_DEBUG("RCRRP is sent");
+    }
 
     return LE_OK;
 }
@@ -1063,7 +1237,8 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
             case MOOP_REPLACE_FILE:
             {
                 uint8_t fileSizeParameterLength =
-                    LENGTH_OF_FILE_SIZE(recvBuf, RFT_BASE_LEN + filePathAndNameLength + SIZE_OF_DFI_);
+                    LENGTH_OF_FILE_SIZE(recvBuf, RFT_BASE_LEN + filePathAndNameLength +
+                            SIZE_OF_DFI_);
 
                 if (fileSizeParameterLength > 4 /* 4 byptes == 32 bits --> 4GB */
                  || recvDataLen != (RFT_BASE_LEN + filePathAndNameLength
@@ -1336,10 +1511,10 @@ le_result_t UdsCommunicationMgr::CheckAndSendInd
 
     SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, addrInfoPtr);
 
-    LE_DEBUG("------callback -------");
+    LE_DEBUG("------P2* timer start -------");
     readyToRecvData = false;
-    le_timer_Start(p2StarTimerRef);
 
+    UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_START, 0);
     indAddrInfo.sa = addrInfoPtr->sa;
     indAddrInfo.ta = addrInfoPtr->ta;
     indAddrInfo.taType = addrInfoPtr->taType;
@@ -1384,19 +1559,14 @@ void UdsCommunicationMgr::DiagIndicationHandler
     {
         LE_INFO("Disconnected, stopped the running timer");
 
-        // Stop s3 timer
-        if(le_timer_IsRunning(udsCmMgr.s3TimerRef))
-        {
-            LE_DEBUG("stop s3 running timer");
-            le_timer_Stop(udsCmMgr.s3TimerRef);
-        }
-
-        // Stop p2 timer
-        LE_DEBUG("stop P2 timer");
-        le_timer_Stop(udsCmMgr.p2StarTimerRef);
+        udsCmMgr.UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0);
+        udsCmMgr.UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0);
 
         udsCmMgr.readyToRecvData = true;
         udsCmMgr.isXferActive = false;
+        memset(udsCmMgr.recvBuf, 0, UDS_DATA_SIZE);
+        udsCmMgr.recvDataLen = 0;
+        udsCmMgr.sendDataLen = 0;
 
         IndicateWhenChangingToDefault();
 
@@ -1548,8 +1718,60 @@ void UdsCommunicationMgr::DiagIndicationHandler
     // diagnostic request message
     if((sid != SESSION_CONTROL_REQUEST_ID) && (udsCmMgr.SessionType != DEFAULT_SESSION))
     {
-        LE_DEBUG("In non-default session, received the request, then restart the timer");
-        le_timer_Restart(udsCmMgr.s3TimerRef);
+        uint32_t p2StarServerInterval, maxNumberOfRcrrp, s3ServerInterval;
+
+        LE_DEBUG("In non-default session, received the request, then restart S3 timer");
+        //Get P2* server interval;
+        try
+        {
+            cfg::Node & node = cfg::top_diagnostic_session<int>("id", (int)udsCmMgr.SessionType);
+            p2StarServerInterval = node.get<uint32_t>("p2_star_server_max") * 1000;//Sec to msec.
+            LE_DEBUG("p2StarServerInterval : %d", p2StarServerInterval);
+            if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX)
+            {
+                p2StarServerInterval = UDS_P2_STAR_SERVER;
+                LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%dms",
+                        p2StarServerInterval);
+            }
+        }
+        catch (const std::exception& e)
+        {
+            p2StarServerInterval = UDS_P2_STAR_SERVER;
+            LE_ERROR("Exception: %s. Use default value:%dms", e.what() , p2StarServerInterval);
+        }
+        //Get P2* server count
+        try
+        {
+            cfg::Node & root = cfg::get_root_node();
+            cfg::Node & common = root.get_child("common_props");
+            maxNumberOfRcrrp = common.get<uint32_t>(
+                    "max_number_of_request_correctly_received_response_pending");
+            LE_DEBUG("maxNumberOfRcrrp = %d", maxNumberOfRcrrp);
+        }
+        catch (const std::exception& e)
+        {
+            maxNumberOfRcrrp = UDS_P2_STAR_SERVER_CNT;
+            LE_ERROR("Exception: %s. Use default value:%d", e.what() , maxNumberOfRcrrp);
+        }
+        //Get S3* server interval
+        try
+        {
+            cfg::Node & root = cfg::get_root_node();
+            cfg::Node & common = root.get_child("common_props");
+            s3ServerInterval = common.get<uint32_t>("s3_server_max") * 1000; //Sec to msec.
+            LE_DEBUG("s3ServerInterval = %d", s3ServerInterval);
+        }
+        catch (const std::exception& e)
+        {
+            s3ServerInterval = UDS_S3_SERVER;
+            LE_ERROR("Exception: %s. Use default value:%dms", e.what(), s3ServerInterval);
+        }
+
+        if(s3ServerInterval < p2StarServerInterval*maxNumberOfRcrrp)
+            s3ServerInterval = p2StarServerInterval*maxNumberOfRcrrp;
+
+        LE_DEBUG("restart s3 with %d mili seconds", s3ServerInterval);
+        udsCmMgr.UdsTimerEventReport(TAF_UDS_S3_TIMER_START, s3ServerInterval);
     }
 
     if(!isInternalHandle)
@@ -1561,51 +1783,6 @@ void UdsCommunicationMgr::DiagIndicationHandler
 }
 
 /**
- * Session change timer setting
-*/
-void UdsCommunicationMgr::SesChangeTimer
-(
-)
-{
-    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
-    LE_DEBUG("SesChangeTimer");
-
-    if (udsCmMgr.recvBuf[0] == SESSION_CONTROL_REQUEST_ID)
-    {
-        taf_SessionType_t newSessionType;
-
-        newSessionType = (taf_SessionType_t)(udsCmMgr.recvBuf[1] & 0x7F);
-
-        if(udsCmMgr.SessionType != newSessionType)
-        {
-            // Session switched to default session.
-            if(newSessionType == DEFAULT_SESSION)
-            {
-                if(le_timer_IsRunning(udsCmMgr.s3TimerRef))
-                    le_timer_Stop(udsCmMgr.s3TimerRef);
-            }
-            //Session switched to non-default session.
-            else
-            {
-                if(le_timer_IsRunning(udsCmMgr.s3TimerRef))
-                    le_timer_Restart(udsCmMgr.s3TimerRef);
-                else
-                    le_timer_Start(udsCmMgr.s3TimerRef);
-            }
-
-            //Non default session to other session.
-            if(udsCmMgr.SessionType != DEFAULT_SESSION)
-            {
-                udsCmMgr.reqSeedLevel = 0;
-                udsCmMgr.securityLevel = 0;
-                LE_DEBUG("Session switched, reset the security level");
-            }
-        }
-    }
-}
-
-
-/**
  * Receive confirmation message from DoIP.
  */
 void UdsCommunicationMgr::DiagConfirmHandler
@@ -1615,22 +1792,7 @@ void UdsCommunicationMgr::DiagConfirmHandler
     void*                       userPtr      ///< [IN] User-defined pointer
 )
 {
-    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
-
-    LE_DEBUG("Receive doip confirmation, result is %d", result);
-
-    // If service response is session control type then start timer for Non-default session.
-    if (udsCmMgr.recvBuf[0] == SESSION_CONTROL_REQUEST_ID)
-    {
-        udsCmMgr.SesChangeTimer();
-    }
-
-    if (result == TAF_DOIP_RESULT_OK)
-    {
-        le_timer_Stop(udsCmMgr.p2StarTimerRef);
-        udsCmMgr.readyToRecvData = true;
-    }
-    else
+    if (result != TAF_DOIP_RESULT_OK)
     {
         LE_ERROR("Failed to send the uds response.%d", result);
     }
@@ -1699,9 +1861,17 @@ le_result_t UdsCommunicationMgr::SendUDSResp
         return LE_FAULT;
     }
 
+    //If already disconnected, can't send the response.
+    if(udsCmMgr.recvDataLen == 0)
+    {
+        LE_ERROR("Already disconnected, can not send response");
+        return LE_FAULT;
+    }
+
     if (serviceId != recvBuf[0])
     {
-        LE_ERROR("Request and Response service id mismatch");
+        LE_ERROR("Request and Response service id mismatch, RespSid=0x%x, RecvSid=0x%x",
+                serviceId, recvBuf[0]);
         return LE_BAD_PARAMETER;
     }
 
@@ -1774,7 +1944,64 @@ le_result_t UdsCommunicationMgr::SendUDSResp
     ret = taf_doip_DiagRequest(&respAddrInfo, &respDiagMsg);
     if (ret == LE_OK)
     {
+        uint32_t p2StarServerInterval, maxNumberOfRcrrp, s3ServerInterval;
+
         LE_DEBUG("Requested Diagnostic message response sent.");
+        UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0);
+        udsCmMgr.readyToRecvData = true;
+
+        //Get P2* server interval;
+        try
+        {
+            cfg::Node & node = cfg::top_diagnostic_session<int>("id", (int)udsCmMgr.SessionType);
+            p2StarServerInterval = node.get<uint32_t>("p2_star_server_max") * 1000;//Sec to msec.
+            LE_DEBUG("p2StarServerInterval : %d", p2StarServerInterval);
+            if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX)
+            {
+                p2StarServerInterval = UDS_P2_STAR_SERVER;
+                LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%dms",
+                        p2StarServerInterval);
+            }
+        }
+        catch (const std::exception& e)
+        {
+            p2StarServerInterval = UDS_P2_STAR_SERVER;
+            LE_ERROR("Exception: %s. Use default value:%dms", e.what(), p2StarServerInterval);
+        }
+        //Get P2* server count
+        try
+        {
+            cfg::Node & root = cfg::get_root_node();
+            cfg::Node & common = root.get_child("common_props");
+            maxNumberOfRcrrp = common.get<uint32_t>(
+                    "max_number_of_request_correctly_received_response_pending");
+            LE_DEBUG("maxNumberOfRcrrp = %d", maxNumberOfRcrrp);
+        }
+        catch (const std::exception& e)
+        {
+            maxNumberOfRcrrp = UDS_P2_STAR_SERVER_CNT;
+            LE_ERROR("Exception: %s. Use default value:%d", e.what(), maxNumberOfRcrrp);
+        }
+        //Get S3* server interval
+        try
+        {
+            cfg::Node & root = cfg::get_root_node();
+            cfg::Node & common = root.get_child("common_props");
+            s3ServerInterval = common.get<uint32_t>("s3_server_max") * 1000; //Sec to msec.
+            LE_DEBUG("s3ServerInterval = %d", s3ServerInterval);
+        }
+        catch (const std::exception& e)
+        {
+            s3ServerInterval = UDS_S3_SERVER;
+            LE_ERROR("Exception: %s. Use default value:%dms", e.what(), s3ServerInterval);
+        }
+
+        //If S3 timer is running, restart it with smaller interval.
+        if((serviceId != SESSION_CONTROL_REQUEST_ID) && (s3ServerInterval <
+                p2StarServerInterval*maxNumberOfRcrrp))
+        {
+            UdsTimerEventReport(TAF_UDS_S3_TIMER_RESTART, s3ServerInterval);
+        }
     }
 
     return LE_OK;
@@ -1789,6 +2016,8 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     uint8_t err
 )
 {
+    uint32_t p2StarServerInterval, p2ServerInterval, maxNumberOfRcrrp, s3ServerInterval;
+
     LE_INFO("SessionCtrlResp");
 
     if (POSITIVE_RESPONSE != err)
@@ -1809,18 +2038,106 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     // change the session type as requested and maintain it in stack
     SessionType = newSessionType;
 
+    //Get P2* server interval;
+    try
+    {
+        cfg::Node & node = cfg::top_diagnostic_session<int>("id", (int)SessionType);
+        p2StarServerInterval = node.get<uint32_t>("p2_star_server_max") * 1000;//Sec to msec.
+        LE_DEBUG("p2StarServerInterval : %d", p2StarServerInterval);
+        if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX)
+        {
+            p2StarServerInterval = UDS_P2_STAR_SERVER;
+            LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%dms",
+                    p2StarServerInterval);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        p2StarServerInterval = UDS_P2_STAR_SERVER;
+        LE_ERROR("Exception: %s. Use default value:%dms", e.what(), p2StarServerInterval);
+    }
+    //Get P2* server count
+    try
+    {
+        cfg::Node & root = cfg::get_root_node();
+        cfg::Node & common = root.get_child("common_props");
+        maxNumberOfRcrrp = common.get<uint32_t>(
+                "max_number_of_request_correctly_received_response_pending");
+        LE_DEBUG("maxNumberOfRcrrp = %d", maxNumberOfRcrrp);
+    }
+    catch (const std::exception& e)
+    {
+        maxNumberOfRcrrp = UDS_P2_STAR_SERVER_CNT;
+        LE_ERROR("Exception: %s. Use default value:%d", e.what(), maxNumberOfRcrrp);
+    }
+    //Get S3* server interval
+    try
+    {
+        cfg::Node & root = cfg::get_root_node();
+        cfg::Node & common = root.get_child("common_props");
+        s3ServerInterval = common.get<uint32_t>("s3_server_max") * 1000; //Sec to msec.
+        LE_DEBUG("s3ServerInterval = %d", s3ServerInterval);
+    }
+    catch (const std::exception& e)
+    {
+        s3ServerInterval = UDS_S3_SERVER;
+        LE_ERROR("Exception: %s. Use default value:%dms", e.what(), s3ServerInterval);
+    }
+    //Get P2 server interval;
+    try
+    {
+        cfg::Node & node = cfg::top_diagnostic_session<int>("id", (int)SessionType);
+        p2ServerInterval = node.get<float>("p2_server_max") * 1000;//Sec to msec.
+        LE_DEBUG("p2ServerInterval : %d", p2ServerInterval);
+        if(p2ServerInterval > UDS_P2_SERVER_MAX)
+        {
+            p2ServerInterval = UDS_P2_SERVER;
+            LE_ERROR("p2_server_max > maxmimal value. Use default value:%dms", p2ServerInterval);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        p2ServerInterval = UDS_P2_SERVER;
+        LE_ERROR("Exception: %s. Use default value:%dms", e.what(), p2ServerInterval);
+    }
+
     // Fill the response data to send the session response msg to DTool
     sendBuf[0] = SESSION_CONTROL_RESPONSE_ID;
     sendBuf[1] = recvBuf[1] & 0x7F;
-    sendBuf[2] = (UDS_P2_SERVER & 0xff00) >> 8;
-    sendBuf[3] = UDS_P2_SERVER & 0xff;
-    sendBuf[4] = (UDS_P2_STAR_SERVER & 0xff00) >> 8;
-    sendBuf[5] = UDS_P2_STAR_SERVER & 0xff;
+    sendBuf[2] = (p2ServerInterval & 0xff00) >> 8;
+    sendBuf[3] = p2ServerInterval & 0xff;
+    sendBuf[4] = (((p2StarServerInterval)/10) & 0xff00) >> 8; // The resolution for P2* is 10ms
+    sendBuf[5] = ((p2StarServerInterval)/10) & 0xff; // The resolution for P2* is 10ms
     sendDataLen = UDS_SESSION_CTRL_RESP_LEN;
 
     // Notify session change to the application.
     if (oldSessionType != newSessionType)
     {
+        // Session switched to default session.
+        if(newSessionType == DEFAULT_SESSION)
+        {
+            LE_INFO("default session:need to stop s3 timer");
+            UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0);
+        }
+        //Session switched to non-default session.
+        else
+        {
+            LE_INFO("other session:need to start s3 timer with bigger interval");
+
+            if(s3ServerInterval < p2StarServerInterval*maxNumberOfRcrrp)
+                s3ServerInterval = p2StarServerInterval*maxNumberOfRcrrp;
+
+            UdsTimerEventReport(TAF_UDS_S3_TIMER_START, s3ServerInterval);
+        }
+
+        //Non default session to other session.
+        if(oldSessionType != DEFAULT_SESSION)
+        {
+            reqSeedLevel = 0;
+            securityLevel = 0;
+            LE_DEBUG("Session switched, reset the security level");
+        }
+
         taf_doip_DiagMsg_t sesChangeMsg;
         if(udsIndicationHandler.safeRef == NULL)
         {

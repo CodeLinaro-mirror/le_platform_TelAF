@@ -43,8 +43,11 @@ namespace taf{
 namespace uds{
 
     #define UDS_DATA_SIZE 4095
-    #define UDS_P2_SERVER 50
-    #define UDS_P2_STAR_SERVER 5000
+    #define UDS_P2_SERVER 50 // Default P2 server interval
+    #define UDS_P2_SERVER_MAX 65535 //Maximal P2 server interval
+    #define UDS_P2_STAR_SERVER 5000 // Default P2* server interval
+    #define UDS_P2_STAR_SERVER_MAX 655350 //Maximal P2* server interval
+    #define UDS_P2_STAR_SERVER_CNT 120
     #define UDS_S3_SERVER 5000
     #define TAF_UDS_HANDLER_REF_CNT 1
 
@@ -143,6 +146,17 @@ namespace uds{
     #define UDS_CTRL_DTC_SETTING_REQ_MIN_LEN 2
     #define UDS_CTRL_DTC_SETTING_RESP_LEN 2
 
+    // S3 timer action
+    typedef enum
+    {
+        TAF_UDS_S3_TIMER_STOP          = 0,
+        TAF_UDS_S3_TIMER_START         = 0x01,
+        TAF_UDS_S3_TIMER_RESTART       = 0x02,
+        TAF_UDS_P2STAR_TIMER_STOP      = 0x03,
+        TAF_UDS_P2STAR_TIMER_START     = 0x04,
+        TAF_UDS_P2STAR_TIMER_RESTART   = 0x05
+    }taf_UDSTimer_EventType_t;
+
     // RequestFileTranser service mode of operation type
     typedef enum
     {
@@ -207,6 +221,12 @@ namespace uds{
         GENERAL_PROGRAMMING_FAILURE = 0x72,
         REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING = 0x78
     }taf_UDSErrorCode_t;
+
+    typedef struct
+    {
+        taf_UDSTimer_EventType_t             event;
+        uint32_t                             interval;
+    } udsTimerEvent_t;
 
     // UDS stack indication handler structure.
     typedef struct
@@ -308,13 +328,15 @@ namespace uds{
             le_result_t ReqFileXferResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
 
-            void SesChangeTimer();
             static void IndicateWhenChangingToDefault();
             le_result_t ReadDTCInfoResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
             le_result_t ClearDiagInfoResp(uint8_t serviceId, uint8_t err);
             le_result_t CtrlDTCSettingResp(uint8_t serviceId, uint8_t err);
 
+            static void* UdsTimerThread(void* ctxPtr);
+            static void UdsTimerHandler(void* reqPtr);
+            void UdsTimerEventReport(taf_UDSTimer_EventType_t timerEvent, uint32_t interval);
             // update status parameter.
             bool isXferActive = false;
 
@@ -340,6 +362,8 @@ namespace uds{
             bool readyToRecvData = true;
             le_timer_Ref_t p2StarTimerRef;
             le_timer_Ref_t s3TimerRef;
+            le_event_Id_t udsTimerEventId;
+            le_sem_Ref_t semRef;
     };
 }
 }

@@ -287,8 +287,11 @@ allow telaf_app_t etc_t:file { read open lock getattr };
 selinux_load_policy(telaf_update_t)
 userdom_security_admin_template(telaf_update_t, system_r)
 seutil_manage_config(telaf_update_t)
+seutil_manage_module_store(telaf_update_t);
+seutil_manage_file_contexts(telaf_update_t);
 allow telaf_update_t semanage_trans_lock_t:file { getattr read lock open };
 allow telaf_update_t semanage_read_lock_t:file { getattr read lock open };
+#allow telaf_update_t file_context_t:dir { manage_dir_perms };
 
 # Relabel /dev/log, /dev/null, /dev/zero, /dev/urandom
 allow telaf_app_rw_t { device_t }:filesystem { associate };
@@ -361,6 +364,8 @@ allow telaf_admin_domain telaf_sdir_t:unix_stream_socket { connectto read write 
 allow telaf_admin_domain telaf_logd_t:unix_stream_socket { connectto read write getopt };
 allow telaf_admin_domain telaf_cfgtree_t:unix_stream_socket { connectto read write getopt };
 allow telaf_admin_domain telaf_devmgr_t:unix_stream_socket { connectto read write getopt };
+# Support putting logs to adbd_t
+allow { telaf_admin_domain telaf_app_domain telaf_core_domain } adbd_t:unix_stream_socket { connectto read write getopt getattr };
 
 allow telaf_admin_domain telaf_overlay_t:dir { search };
 
@@ -410,6 +415,8 @@ domain_kill_all_domains(telaf_admin_domain);
 selinux_load_policy(telaf_admin_t)
 userdom_security_admin_template(telaf_admin_t, system_r)
 seutil_manage_config(telaf_admin_t)
+seutil_manage_module_store(telaf_admin_t);
+seutil_manage_file_contexts(telaf_admin_t);
 allow telaf_admin_t semanage_trans_lock_t:file { getattr read lock open };
 allow telaf_admin_t semanage_read_lock_t:file { getattr read lock open };
 
@@ -526,6 +533,7 @@ ifdef(`kirkstone',`
     allow telaf_core_domain init_runtime_t:dir { search_dir_perms };
     # A workaround to support .update file instsallation
     allow telaf_update_t unconfined_t:fd { use };
+    allow telaf_core_domain unconfined_t:fd { use };
 ')
 
 # Local rules

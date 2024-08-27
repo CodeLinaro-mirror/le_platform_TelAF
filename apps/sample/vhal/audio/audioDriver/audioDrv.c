@@ -114,6 +114,30 @@ static le_result_t taf_hal_GetNodeMuteState
     return LE_OK;
 }
 
+static le_result_t taf_hal_SetNodeGain
+(
+    uint8_t nodeId,
+    hal_audio_direction_t direction,
+    double gain
+)
+{
+    LE_DEBUG("AudioTestDrv: %s", __FUNCTION__);
+    LE_DEBUG("nodeId : %d direction: %d gain: %f", nodeId, direction, gain);
+    return LE_OK;
+}
+
+static le_result_t taf_hal_GetNodeGain
+(
+    uint8_t nodeId,
+    hal_audio_direction_t direction,
+    double *gain
+)
+{
+    LE_DEBUG("AudioTestDrv: %s", __FUNCTION__);
+    LE_DEBUG("nodeId : %d direction: %d", nodeId, direction);
+    return LE_OK;
+}
+
 static void NodeEventHandler
 (
     void* reportPtr,
@@ -256,6 +280,8 @@ LE_SHARED hal_audio_InfoTab_t TAF_HAL_INFO_TAB = {
         .GetNodePowerState = taf_hal_GetNodePowerState,
         .SetNodeMuteState = taf_hal_SetNodeMuteState,
         .GetNodeMuteState = taf_hal_GetNodeMuteState,
+        .SetNodeGain = taf_hal_SetNodeGain,
+        .GetNodeGain = taf_hal_GetNodeGain,
         .AddNodeStateChangeHandler = taf_hal_AddNodeStateChangeHandler,
     },
 };

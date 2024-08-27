@@ -689,7 +689,8 @@ void Test_Audio_NodeAPI
 )
 {
     int input;
-    string data;
+    string data, dir;
+    taf_audioVendor_Direction_t direction;
     char inputStr[MAX_LEN_OF_EACH_INPUT];
     char* p = NULL;
     le_result_t res = LE_FAULT;
@@ -703,6 +704,8 @@ void Test_Audio_NodeAPI
     cout<<"6-setMuteState"<<endl;
     cout<<"7-getMuteState"<<endl;
     cout<<"8-regsiterNodeEvent"<<endl;
+    cout<<"9-setNodeGain"<<endl;
+    cout<<"10-getNodeGain"<<endl;
     cout<<"Enter Input:";
     cin>>input;
 
@@ -865,10 +868,63 @@ void Test_Audio_NodeAPI
 
         le_sem_Wait(tafAudioAppSem);
 
-    } else
+    } else if (input == 9) {
+        cout<<"Enter node Id:";
+        cin>>input;
+        p = fgets(inputStr, sizeof(inputStr), stdin);
+        double gainPerc;
+        cout<<"Enter gain range from 0.0 to 1.0: ";
+        cin>>gainPerc;
+        p = fgets(inputStr, sizeof(inputStr), stdin);
+        cout<<"Enter direction 0 for RX(sink), 1 for TX(source): ";
+        cin>>dir;
+        p = fgets(inputStr, sizeof(inputStr), stdin);
+        if(dir[0]=='0') {
+            direction = TAF_AUDIOVENDOR_RX;
+        } else {
+            direction = TAF_AUDIOVENDOR_TX;
+        }
+        LE_INFO("Set gain to %d node device data is %f ", input, gainPerc);
+        res = taf_audioVendor_SetNodeGain(input, direction, gainPerc);
+
+        if ( res == LE_OK )
+        {
+            LE_INFO("Successfully set the gain to audio device");
+            cout<<"Successfully set the gain to audio device"<<endl;
+        } else {
+            LE_ERROR("Failed to set the gain to audio device");
+            cout<<"Failed to set the gain to audio device"<<endl;
+        }
+    } else if (input == 10) {
+        double getGainPerc;
+        cout<<"Enter node Id:";
+        cin>>input;
+        p = fgets(inputStr, sizeof(inputStr), stdin);
+        cout<<"Enter direction 0 for RX(sink), 1 for TX(source): ";
+        cin>>dir;
+        p = fgets(inputStr, sizeof(inputStr), stdin);
+        if(dir[0]=='0') {
+            direction = TAF_AUDIOVENDOR_RX;
+        } else {
+            direction = TAF_AUDIOVENDOR_TX;
+        }
+        LE_INFO("Get gain of node %d", input);
+        res = taf_audioVendor_GetNodeGain(input, direction, &getGainPerc);
+
+        if( res == LE_OK )
+        {
+            LE_INFO("Successfully got the gain of audio device %f", getGainPerc);
+            cout<<"Gain of audio device is " << getGainPerc <<endl;
+        }
+        else
+        {
+            LE_ERROR("Failed to get the gain of audio device");
+            cout<<"Failed to get the gain of audio device"<<endl;
+        }
+    }else
         cout<<"Invalid input"<<endl;
     if(p == NULL)
-        LE_INFO("Not able to get the input");
+        LE_ERROR("Not able to get the input");
 }
 
 void StartInputMonitoring

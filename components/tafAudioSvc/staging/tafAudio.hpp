@@ -353,6 +353,7 @@ class taf_Audio : public ITafSvc
         bool mIsCaptureStreamCreated = false;
         bool mIsPlayStreamCreated = false;
         bool mIsRecording = false;
+        bool mIsMpmsReady = false;
         uint32_t mBufferRecordedTillNow;
         uint32_t maxFileBytes;
         FILE *mFile;

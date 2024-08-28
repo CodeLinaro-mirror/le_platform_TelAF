@@ -199,12 +199,21 @@ void taf_Audio::Init(void)
         LE_ERROR("Failed to get the proc config for tafAudioSvc");
     }
     LE_DEBUG("maxFileBytes is %d", maxFileBytes);
+    le_result_t result = taf_mngdPm_TryConnectService();
 
-    bubHandlerRef = taf_mngdPm_AddInfoReportHandler(TAF_MNGDPM_INFO_REPORT_BIT_MASK_BUB_STATUS,
-            BuBStatusCB, NULL);
-    if(bubHandlerRef == NULL)
+    if(result == LE_OK)
     {
-        LE_ERROR("Failed to register for BuB status");
+        mIsMpmsReady = true;
+        bubHandlerRef = taf_mngdPm_AddInfoReportHandler(TAF_MNGDPM_INFO_REPORT_BIT_MASK_BUB_STATUS,
+                BuBStatusCB, NULL);
+        if(bubHandlerRef == NULL)
+        {
+            LE_ERROR("Failed to register for BuB status");
+        }
+    }
+    else
+    {
+        LE_ERROR("Failed to connect to MPMS with result %d", result);
     }
 }
 
@@ -575,7 +584,6 @@ void taf_Audio::DeleteConnector
     CloseConnectorPaths(connPtr);
 
     DeleteHashMap(connPtr);
-
 
     le_dls_Remove(&ConnectorList, &(connPtr->connLink));
 
@@ -2394,7 +2402,10 @@ le_result_t taf_Audio::ReadAmrHeader
         }
         mPbFileFormat = config.format;
     }
-
+    else{
+        LE_ERROR("Invalid header for AMR");
+        return LE_FAULT;
+    }
     return LE_OK;
 }
 
@@ -2643,19 +2654,43 @@ le_result_t taf_Audio::setVhalRouteStatus(taf_audio_Mode_t mode, bool status)
     }
     // Set VHAL BuB status after opening the route,
     // not required to set BuB status after closing the route as driver will be turned off.
-    if( res == LE_OK && status )
+    if( audioVhal.isAudioDrvAvailable() && res == LE_OK && status )
     {
         int32_t status;
-        le_result_t res = taf_mngdPm_GetInfoReport(TAF_MNGDPM_INFO_REPORT_BUB, &status);
-        if ( res == LE_OK )
+        le_result_t mpmsRes;
+        if(!mIsMpmsReady)
         {
-            if( status ==  TAF_MNGDPM_BUB_STATUS_NOT_IN_USE)
+            mpmsRes = taf_mngdPm_TryConnectService();
+            if(mpmsRes == LE_OK)
             {
-                audioVhal.CtlReportBubStatus(HAL_AUDIO_BUB_STATUS_NOT_IN_USE);
+                mIsMpmsReady = true;
+                bubHandlerRef = taf_mngdPm_AddInfoReportHandler(
+                        TAF_MNGDPM_INFO_REPORT_BIT_MASK_BUB_STATUS, BuBStatusCB, NULL);
+                if(bubHandlerRef == NULL)
+                {
+                    LE_ERROR("Failed to register for BuB status");
+                }
             }
-            else if ( status == TAF_MNGDPM_BUB_STATUS_IN_USE )
+            else
             {
-                audioVhal.CtlReportBubStatus(HAL_AUDIO_BUB_STATUS_IN_USE);
+                LE_ERROR("Failed to connect to MPMS with result %d", mpmsRes);
+            }
+        }
+        if (mIsMpmsReady)
+        {
+            mpmsRes = taf_mngdPm_GetInfoReport(TAF_MNGDPM_INFO_REPORT_BUB, &status);
+            if ( mpmsRes == LE_OK )
+            {
+                if( status ==  TAF_MNGDPM_BUB_STATUS_NOT_IN_USE)
+                {
+                    LE_DEBUG("BUB_STATUS_NOT_IN_USE");
+                    audioVhal.CtlReportBubStatus(HAL_AUDIO_BUB_STATUS_NOT_IN_USE);
+                }
+                else if ( status == TAF_MNGDPM_BUB_STATUS_IN_USE )
+                {
+                    LE_DEBUG("BUB_STATUS_IN_USE");
+                    audioVhal.CtlReportBubStatus(HAL_AUDIO_BUB_STATUS_IN_USE);
+                }
             }
         }
     }
@@ -2685,7 +2720,7 @@ void tafPromptsStatusListener::onPlaybackStopped() {
 }
 
 void tafPromptsStatusListener::onError(telux::common::ErrorCode error, std::string file) {
-    LE_ERROR("onError : Error encounter while playing the file %s", file.c_str());
+    LE_ERROR("onError : Error %d encounter while playing the file %s", (int)error, file.c_str());
     auto &audio = taf_Audio::GetInstance();
     audio.mIsPlaying = false;
     audio.mPbFileFormat = AudioFormat::UNKNOWN;
@@ -3062,13 +3097,14 @@ le_result_t taf_Audio::PlayList
 
         filesToPlay.push_back(pbConfig);
     }
+    mIsPlaying = true;
     ec = mAudioPlayer->startPlayback(filesToPlay, repeatedPlayerStatusListener);
     if (ec != telux::common::ErrorCode::SUCCESS) {
         LE_ERROR("failed start, err %d", static_cast<int>(ec));
         playerStreamPtr = nullptr;
+        mIsPlaying = false;
         return LE_FAULT;
     }
-    mIsPlaying = true;
     // Set volume and mute status of stream to player
     res = SetVolume(streamRef, streamPtr->volLevel, false);
     if (res == LE_OK)

@@ -179,6 +179,8 @@ namespace tafsvc {
         uint8_t                       dataRetryBackoffIntervalStep; // Retry backoff interval step
         uint8_t                       dataConnTestFailedRetryCount; // ConnTest failed retry count
         bool                          dataRetry;              // DataRetry enabled/disabled
+        bool                          isDStartConnTestInProgress; // DataStartConnectionTest in
+                                                                  // progress.
         uint32_t                      profileNumber;          // Profile number
         char                          dataName[MCS_MAX_NAME_LEN]; //DataName
         bool                          autoStart;              // Auto start or not

@@ -509,6 +509,29 @@ le_result_t tafMngdConnAdmin::GetDataNameByRef(taf_mngdConn_DataRef_t dataRef,
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  Gets the data profile number for the given data reference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnAdmin::GetProfileNumberByRef(taf_mngdConn_DataRef_t dataRef,
+                                                    uint8_t *dataProfileNumberPtr)
+{
+    TAF_ERROR_IF_RET_VAL(dataRef == NULL, LE_BAD_PARAMETER, "Null ptr(dataRef)");
+    TAF_ERROR_IF_RET_VAL(dataProfileNumberPtr == NULL, LE_BAD_PARAMETER,
+                                                            "Null ptr(dataProfileNumberPtr)");
+    mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)le_ref_Lookup(DataRefMap, (void *)dataRef);
+    if (dataCtxPtr == NULL)
+    {
+        LE_ERROR("Data reference not found");
+        *dataProfileNumberPtr = 0;
+        return LE_NOT_FOUND;
+    }
+    *dataProfileNumberPtr = static_cast<uint8_t>(dataCtxPtr->profileNumber);
+    LE_INFO("Profile number: %d", *dataProfileNumberPtr);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add data state handler.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2134,7 +2157,7 @@ tafMngdConnAdmin::CreateDataCtx(
     uint8_t dataId,
     uint8_t slotId,
     uint8_t phoneId,
-    uint32_t profileNumber,
+    uint8_t profileNumber,
     char dataName[MCS_MAX_NAME_LEN],
     bool autoStart,
     char *conn_test_url,

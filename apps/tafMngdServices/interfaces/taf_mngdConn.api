@@ -359,8 +359,7 @@
      <td>unit8_t</td>
      <td>1</td>
      <td>Refer to TelAF data call service.</td>
-     <td>Check if the profile is default or not. If not default, look for "Route
-         Items"</td>
+     <td>The data profile to use with this data object.</td>
    </tr>
    <tr>
      <td>APN</td>
@@ -901,6 +900,23 @@ FUNCTION le_result_t GetDataIdByRef
 FUNCTION le_result_t GetDataNameByRef(
     Data dataRef IN,                  ///< The data reference.
     string dataName[MAX_NAME_LEN] OUT ///< The data object name from the configuration JSON.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data profile number (as provided in the configuration JSON) for the given data
+ * reference. The profile number can be used by applications with the data call service to get
+ * in depth details about the profile.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- Data reference not found.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetProfileNumberByRef(
+    Data  dataRef IN,                 ///< The data reference.
+    uint8 dataProfileNumber OUT       ///< The data profile number from the configuration JSON.
 );
 
 //--------------------------------------------------------------------------------------------------

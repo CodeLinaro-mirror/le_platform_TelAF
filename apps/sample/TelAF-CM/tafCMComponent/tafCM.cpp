@@ -64,7 +64,7 @@ static void RecoveryStateHandler(taf_mngdConn_RecoveryState_t state,
                                  void *contextPtr)
 {
     uint8_t dataId=0;
-    le_result_t result = taf_mngdConn_DataGetId(dataRef, &dataId);
+    le_result_t result = taf_mngdConn_GetDataIdByRef(dataRef, &dataId);
     if (LE_OK != result)
     {
         LE_ERROR("Failed to get Data ID");
@@ -89,22 +89,21 @@ static void RecoveryStateHandler(taf_mngdConn_RecoveryState_t state,
 static int getConnectionInfo(taf_mngdConn_DataRef_t dataRef)
 {
     le_result_t result;
-    uint8_t dataID;
+    uint8_t profileID;
     taf_mngdConn_DataState_t state;
     char ipv4Addr[TAF_DCS_IPV4_ADDR_MAX_LEN] = {0};
     char ipv6Addr[TAF_DCS_IPV6_ADDR_MAX_LEN] = {0};
 
-    result = taf_mngdConn_DataGetConnectionState(dataRef, &dataID, &state);
+    result = taf_mngdConn_GetDataConnectionState(dataRef, &state);
     if (LE_OK != result){
         LE_WARN("DataGetConnectionState failed: %d", result);
         return result;
     }
-    LE_INFO("Data ID  = %d ", dataID);
 
     // Data is connected. Get IP addresses
-    result = taf_mngdConn_DataGetConnectionIPAddresses(dataRef,
-                                                        ipv4Addr, TAF_DCS_IPV4_ADDR_MAX_LEN,
-                                                        ipv6Addr, TAF_DCS_IPV6_ADDR_MAX_LEN);
+    result = taf_mngdConn_GetDataConnectionIPAddresses(dataRef,
+                                                       ipv4Addr, TAF_DCS_IPV4_ADDR_MAX_LEN,
+                                                       ipv6Addr, TAF_DCS_IPV6_ADDR_MAX_LEN);
     if (LE_OK == result)
     {
         if (ipv4Addr[0] != '\0')
@@ -115,6 +114,112 @@ static int getConnectionInfo(taf_mngdConn_DataRef_t dataRef)
     else{
         LE_WARN("DataGetConnectionIPAddresses failed: %d", result);
     }
+
+    // Get profile ID
+    result = taf_mngdConn_GetProfileNumberByRef(dataRef, &profileID);
+    if (LE_OK == result)
+    {
+        LE_INFO("Data profile = %d", profileID);
+    }
+    // Get profile reference
+    taf_dcs_ProfileRef_t profileRef = taf_dcs_GetProfile(profileID);
+    if (NULL == profileRef)
+    {
+        LE_WARN("Unable to get profile reference for profile id: %d", profileID);
+        return LE_FAULT;
+    }
+
+    size_t size = TAF_DCS_IPV4_ADDR_MAX_LEN;
+    char IPv4[TAF_DCS_IPV4_ADDR_MAX_LEN] = {0};
+    char IPv4_2[TAF_DCS_IPV4_ADDR_MAX_LEN] = {0};
+
+    result = taf_dcs_GetIPv4Address(profileRef, IPv4, size);
+    if (LE_OK == result)
+    {
+        LE_INFO("IPv4 Address: %s", IPv4);
+    }
+    else
+    {
+        LE_WARN("taf_dcs_GetIPv4Address failed: %d", result);
+    }
+    memset(IPv4, 0, TAF_DCS_IPV4_ADDR_MAX_LEN);
+    result = taf_dcs_GetIPv4DNSAddresses(profileRef, IPv4, size, IPv4_2, size);
+    if (LE_OK == result)
+    {
+        LE_INFO("IPv4 DNS1 Address: %s", IPv4);
+        LE_INFO("IPv4 DNS2 Address: %s", IPv4_2);
+    }
+    else
+    {
+        LE_WARN("taf_dcs_GetIPv4DNSAddresses failed: %d", result);
+    }
+    memset(IPv4, 0, TAF_DCS_IPV4_ADDR_MAX_LEN);
+    result = taf_dcs_GetIPv4GatewayAddress(profileRef, IPv4, size);
+    if (LE_OK == result)
+    {
+        LE_INFO("IPv4 Gateway Address: %s", IPv4);
+    }
+    else
+    {
+        LE_WARN("taf_dcs_GetIPv4GatewayAddress failed: %d", result);
+    }
+
+    taf_dcs_Pdp_t pdpType = taf_dcs_GetPDP(profileRef);
+    if (TAF_DCS_PDP_IPV6 == pdpType || TAF_DCS_PDP_IPV4V6 == pdpType)
+    {
+        LE_INFO("Data profile supports IPv6");
+    }
+    else
+    {
+        LE_INFO("Data profile does not support IPv6");
+        return LE_OK;
+    }
+
+    size = TAF_DCS_IPV6_ADDR_MAX_LEN;
+    char IPv6[TAF_DCS_IPV6_ADDR_MAX_LEN] = {0};
+    char IPv6_2[TAF_DCS_IPV6_ADDR_MAX_LEN] = {0};
+    memset(IPv6, 0, TAF_DCS_IPV6_ADDR_MAX_LEN);
+    result = taf_dcs_GetIPv6Address(profileRef, IPv6, size);
+    if (LE_OK == result)
+    {
+        LE_INFO("IPv6 Address: %s", IPv6);
+    }
+    else
+    {
+        LE_WARN("taf_dcs_GetIPv6Address failed: %d", result);
+    }
+
+    memset(IPv6, 0, TAF_DCS_IPV6_ADDR_MAX_LEN);
+    result = taf_dcs_GetIPv6DNSAddresses(profileRef, IPv6, size, IPv6_2, size);
+    if (LE_OK == result)
+    {
+        LE_INFO("IPv6 DNS1 Address: %s", IPv6);
+        LE_INFO("IPv6 DNS2 Address: %s", IPv6_2);
+    }
+    else
+    {
+        LE_WARN("taf_dcs_GetIPv6DNSAddresses failed: %d", result);
+    }
+
+    memset(IPv6, 0, TAF_DCS_IPV6_ADDR_MAX_LEN);
+    result = taf_dcs_GetIPv6GatewayAddress(profileRef, IPv6, size);
+    if (LE_OK == result)
+    {
+        LE_INFO("IPv6 Gateway Address: %s", IPv6);
+    }
+    else
+    {
+        LE_WARN("taf_dcs_GetIPv6GatewayAddress failed: %d", result);
+    }
+
+    /*
+    le_result_t (taf_dcs_ProfileRef_t, char *, size_t)
+
+le_result_t (taf_dcs_ProfileRef_t, char *, size_t, char *, size_t)
+
+le_result_t (taf_dcs_ProfileRef_t, char *, size_t)
+    */
+
     return result;
 }
 
@@ -126,7 +231,7 @@ static void DataStateHandler(taf_mngdConn_DataRef_t dataRef,
                              void *contextPtr)
 {
     uint8_t dataId = 0;
-    le_result_t result = taf_mngdConn_DataGetId(dataRef, &dataId);
+    le_result_t result = taf_mngdConn_GetDataIdByRef(dataRef, &dataId);
     if (LE_OK != result)
     {
         LE_ERROR("Failed to get Data ID");
@@ -268,7 +373,7 @@ COMPONENT_INIT
             // AutoStart: No, start the data session
             LE_INFO("Data ID: %d, AutoStart: No", id.first);
             LE_INFO("Start Data for ID %d", id.first);
-            leResult = taf_mngdConn_DataStart(tmpRef);
+            leResult = taf_mngdConn_StartData(tmpRef);
             if ( LE_OK == leResult)
             {
                 LE_INFO ("Data Session Started");

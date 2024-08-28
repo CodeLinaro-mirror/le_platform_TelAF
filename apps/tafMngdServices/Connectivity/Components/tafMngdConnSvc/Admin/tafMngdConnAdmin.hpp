@@ -181,7 +181,7 @@ namespace tafsvc {
         bool                          dataRetry;              // DataRetry enabled/disabled
         bool                          isDStartConnTestInProgress; // DataStartConnectionTest in
                                                                   // progress.
-        uint32_t                      profileNumber;          // Profile number
+        uint8_t                       profileNumber;          // Profile number
         char                          dataName[MCS_MAX_NAME_LEN]; //DataName
         bool                          autoStart;              // Auto start or not
         bool                          needReConn;             //Need to reconnect for manualStart
@@ -235,6 +235,8 @@ namespace tafsvc {
             le_result_t GetDataIdByRef(taf_mngdConn_DataRef_t dataRef, uint8_t* dataIdPtr);
             le_result_t GetDataNameByRef(taf_mngdConn_DataRef_t dataRef,
                                     char *dataName, size_t dataNameSize);
+            le_result_t GetProfileNumberByRef(taf_mngdConn_DataRef_t dataRef,
+                                              uint8_t *dataProfileNumberPtr);
             le_result_t Startdata(taf_mngdConn_DataRef_t dataRef);
             le_result_t Stopdata(taf_mngdConn_DataRef_t dataRef);
             le_result_t GetConnectionState(taf_mngdConn_DataRef_t dataRef,
@@ -315,12 +317,12 @@ namespace tafsvc {
             le_event_Id_t GetDataStateEvent(taf_mngdConn_DataRef_t dataRef);
             mcs_DataCtx_t* GetDataCtx(uint8_t dataId);
             mcs_DataCtx_t *GetDataCtx(const char *dataName);
-            mcs_DataCtx_t* CreateDataCtx(uint8_t dataId, uint8_t slotId, uint8_t phoneId,
-                                               uint32_t profileId,
-                                               char dataName[MCS_MAX_NAME_LEN],
-                                               bool autoStart,
-                                               char* conn_test_url,
-                                               char* conn_test_ipv4Addr);
+            mcs_DataCtx_t *CreateDataCtx(uint8_t dataId, uint8_t slotId, uint8_t phoneId,
+                                         uint8_t profileId,
+                                         char dataName[MCS_MAX_NAME_LEN],
+                                         bool autoStart,
+                                         char *conn_test_url,
+                                         char *conn_test_ipv4Addr);
             le_result_t getProfileList( profileInfo_t *profileNumberList, int *listSize);
             bool IsStateConnected();
 

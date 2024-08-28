@@ -2362,7 +2362,9 @@ COMPONENT_INIT
 
     le_result_t res = rpc_taf_net_TryConnectService();
 
-    isRpcNetConnected = res == LE_OK;
+    le_result_t result = rpc_taf_netIpPass_TryConnectService();
+
+    isRpcNetConnected = (res == LE_OK && result == LE_OK);
 
     if(res == LE_OK) {
         LE_INFO("Client connected successfully to the remote taf_net service.");

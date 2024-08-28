@@ -353,7 +353,7 @@ void* TimeValueChangeHandlerTestThread
     TimeValueChangeHandlerRef = taf_time_AddTimeValueChangeHandler(sourceId,
         (taf_time_TimeValueChangeHandlerFunc_t)TimeValueChangeHandler, (le_sem_Ref_t)contextPtr);
     LE_TEST_OK(TimeValueChangeHandlerRef != NULL, "taf_time_AddTimeValueChangeHandler() - OK");
-
+    le_sem_Post((le_sem_Ref_t)contextPtr);
     le_event_RunLoop();
     return NULL;
 }

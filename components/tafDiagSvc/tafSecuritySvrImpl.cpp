@@ -126,12 +126,6 @@ void taf_SecuritySvr::UDSMsgHandler
     uint8_t msgPos = 1;  // Skip sid
     uint8_t errCode = 0;
 
-    // Send address information
-    taf_uds_AddrInfo_t addrInfo;
-    addrInfo.sa = addrPtr->ta;
-    addrInfo.ta = addrPtr->sa;
-    addrInfo.taType = addrPtr->taType;
-
     if (sid == reqSesCtrlSvcId)
     {
         taf_SesTypeRxMsg_t* rxSesTypePtr = NULL;
@@ -139,6 +133,7 @@ void taf_SecuritySvr::UDSMsgHandler
         memset(rxSesTypePtr, 0, sizeof(taf_SesTypeRxMsg_t));
 
         memcpy(&rxSesTypePtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
+        rxSesTypePtr->serviceId = sid;
         rxSesTypePtr->sesType = msgPtr[msgPos] & 0x7F;
         LE_INFO("Receive session type: %x", rxSesTypePtr->sesType);
         msgPos += 1;
@@ -196,7 +191,7 @@ void taf_SecuritySvr::UDSMsgHandler
 
         rxSecAccessMsgPtr = (taf_SecAccessRxMsg_t*)le_mem_ForceAlloc(RxSecAccessMsgPool);
         memset(rxSecAccessMsgPtr, 0, sizeof(taf_SecAccessRxMsg_t));
-
+        rxSecAccessMsgPtr->serviceId = sid;
         memcpy(&rxSecAccessMsgPtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
         rxSecAccessMsgPtr->subFunc = msgPtr[msgPos] & 0x7F;
         msgPos += 1;
@@ -209,7 +204,7 @@ void taf_SecuritySvr::UDSMsgHandler
             LE_DEBUG("Message length(%" PRIuS ") is out of range", msgLen - msgPos);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             // UDS_0x27_NRC_13: Payload is overflow (check again)
-            SendNRCResp(sid, &addrInfo, errCode);
+            SendNRCResp(sid, addrPtr, errCode);
             le_mem_Release(rxSecAccessMsgPtr);
             return;
         }
@@ -232,7 +227,7 @@ void taf_SecuritySvr::UDSMsgHandler
         LE_DEBUG("Service(0x%x) is invalid", sid);
         errCode = TAF_DIAG_SERVICE_NOT_SUPPORTED; // ServiceNotSupported
         // UDS_0x27_NRC_11: Got the bad SID for svc
-        SendNRCResp(sid, &addrInfo, errCode);
+        SendNRCResp(sid, addrPtr, errCode);
     }
 
     return;
@@ -303,12 +298,17 @@ void taf_SecuritySvr::RxSesCtrlEventHandler
     taf_SecuritySvc_t* servicePtr = NULL;
     taf_SesTypeReqHandler_t* handlerObjPtr = NULL;
 
-
     servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj();
     if (servicePtr == NULL)
     {
         LE_INFO("Service is not created");
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+        // UDS_0x10_NRC_21: service pointer is null
+        security.SendNRCResp(rxSesTypePtr->serviceId, &(rxSesTypePtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
+#else
         security.SendSesPositiveResp(rxSesTypePtr);
+#endif
         le_ref_DeleteRef(security.RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
         le_mem_Release(rxSesTypePtr);
         return;
@@ -317,7 +317,13 @@ void taf_SecuritySvr::RxSesCtrlEventHandler
     if (servicePtr->SesTypeHandlerRef == NULL)
     {
         LE_INFO("Did not register handler for session control service.");
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+        // UDS_0x10_NRC_21: handler is not registered
+        security.SendNRCResp(rxSesTypePtr->serviceId, &(rxSesTypePtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
+#else
         security.SendSesPositiveResp(rxSesTypePtr);
+#endif
         le_ref_DeleteRef(security.RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
         le_mem_Release(rxSesTypePtr);
         return;
@@ -330,7 +336,13 @@ void taf_SecuritySvr::RxSesCtrlEventHandler
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
         LE_INFO("Handler is NULL");
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+        // UDS_0x10_NRC_21: handler is not registered
+        security.SendNRCResp(rxSesTypePtr->serviceId, &(rxSesTypePtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
+#else
         security.SendSesPositiveResp(rxSesTypePtr);
+#endif
         le_ref_DeleteRef(security.RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
         le_mem_Release(rxSesTypePtr);
         return;
@@ -758,10 +770,13 @@ void taf_SecuritySvr::RxSecAccessEventHandler
     taf_SecuritySvc_t* servicePtr = NULL;
     taf_SecAccessReqHandler_t* handlerObjPtr = NULL;
 
-
     servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj();
     if (servicePtr == NULL)
     {
+        // UDS_0x27_NRC_21: handler is not registered
+        LE_WARN("Service is not created");
+        security.SendNRCResp(rxSecAccessMsgPtr->serviceId, &(rxSecAccessMsgPtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(security.RxSecAccessMsgRefMap, rxSecAccessMsgPtr->rxMsgRef);
         le_mem_Release(rxSecAccessMsgPtr);
         return;
@@ -770,6 +785,9 @@ void taf_SecuritySvr::RxSecAccessEventHandler
     if (servicePtr->handlerRef == NULL)
     {
         LE_WARN("Did not register handler for security access service.");
+        // UDS_0x27_NRC_21: handler is not registered
+        security.SendNRCResp(rxSecAccessMsgPtr->serviceId, &(rxSecAccessMsgPtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(security.RxSecAccessMsgRefMap, rxSecAccessMsgPtr->rxMsgRef);
         le_mem_Release(rxSecAccessMsgPtr);
         return;
@@ -781,6 +799,9 @@ void taf_SecuritySvr::RxSecAccessEventHandler
                     servicePtr->handlerRef);
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
+        // UDS_0x27_NRC_21: handler is null
+        security.SendNRCResp(rxSecAccessMsgPtr->serviceId, &(rxSecAccessMsgPtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(security.RxSecAccessMsgRefMap, rxSecAccessMsgPtr->rxMsgRef);
         le_mem_Release(rxSecAccessMsgPtr);
         return;
@@ -1002,7 +1023,7 @@ le_result_t taf_SecuritySvr::SendSecAccessResp
 le_result_t taf_SecuritySvr::SendNRCResp
 (
     uint8_t sid,
-    taf_uds_AddrInfo_t*  addrInfoPtr,
+    const taf_uds_AddrInfo_t*  addrInfoPtr,
     uint8_t errCode
 )
 {
@@ -1010,9 +1031,14 @@ le_result_t taf_SecuritySvr::SendNRCResp
 
     TAF_ERROR_IF_RET_VAL(addrInfoPtr == NULL, LE_BAD_PARAMETER, "Invalid addrInfoPtr");
 
+    taf_uds_AddrInfo_t addrInfo;
+    addrInfo.sa = addrInfoPtr->ta;
+    addrInfo.ta = addrInfoPtr->sa;
+    addrInfo.taType = addrInfoPtr->taType;
+
     // Call UDS function to send the response message.
     auto &backend = taf_DiagBackend::GetInstance();
-    backend.RespDiagNegative(sid, addrInfoPtr, errCode);
+    backend.RespDiagNegative(sid, &addrInfo, errCode);
 
     return LE_OK;
 }

@@ -49,6 +49,8 @@ namespace uds{
     #define UDS_P2_SERVER_MAX 65535 //Maximal P2 server interval
     #define UDS_P2_STAR_SERVER 5000 // Default P2* server interval
     #define UDS_P2_STAR_SERVER_MAX 655350 //Maximal P2* server interval
+    #define UDS_P2_STAR_SERVER_MIN 1500 //Minimal P2* server interval
+    #define DELTA_UDS_P2_RESP 500 //Delta P2 RESP
     #define UDS_P2_STAR_SERVER_CNT 120
     #define UDS_S3_SERVER 5000
     #define TAF_UDS_HANDLER_REF_CNT 1

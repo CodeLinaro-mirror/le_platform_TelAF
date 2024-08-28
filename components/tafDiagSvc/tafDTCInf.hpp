@@ -77,6 +77,11 @@
 #define CLEAR_DTC_INFO_REQ_MIN_LEN 4
 #define CLEAR_DTC_INFO_RESP_LEN 0
 
+#define FEATURE_A_PROGRAMMING_SESSION 0x2
+#define FEATURE_A_FOTA_SESSION 0x42
+#define FEATURE_A_APPLICATION_DTC_AVAILABILITY_MASK 0x9
+#define FEATURE_A_REPROGRAMMING_DTC_AVAILABILITY_MASK 0x11
+
 //-------------------------------------------------------------------------------------------------
 /**
  * DTC subfunction.
@@ -163,7 +168,9 @@ namespace telux
                 // Send NRC response msg.
                 le_result_t SendNRCResp(uint8_t sid, const taf_uds_AddrInfo_t*  addrInfoPtr,
                         uint8_t errCode);
-
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+                uint8_t GetAvailableStatusMaskByCurrentSession(uint8_t currentSesType);
+#endif
                 uint8_t reqReadDTCSvcId = 0x19;    // ReadDTC request service ID.
                 uint8_t respReadDTCSvcId = 0x59;   // ReadDTC response service ID.
                 uint8_t reqClearDTCSvcId = 0x14;   // ClearDTC request service ID.

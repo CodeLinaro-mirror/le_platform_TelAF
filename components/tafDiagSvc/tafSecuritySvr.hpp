@@ -75,6 +75,7 @@ typedef struct
 {
     taf_diagSecurity_RxSesTypeCheckRef_t rxSesTypeRef; ///< Own reference.
     taf_uds_AddrInfo_t addrInfo;                       ///< Rx logical address.
+    uint8_t serviceId;                                 ///< Service Identifier.
     uint8_t sesType;                                   ///< Rx subFunction.
     le_dls_Link_t link;                                ///< Link to the Rx msg list.
 }taf_SesTypeRxMsg_t;
@@ -128,6 +129,7 @@ typedef struct
 {
     taf_diagSecurity_RxSecAccessMsgRef_t rxMsgRef;                 ///< Own reference.
     taf_uds_AddrInfo_t addrInfo;                                   ///< Rx logical address.
+    uint8_t serviceId;                                             ///< Service identifier.
     uint8_t subFunc;                                               ///< Rx subFunction.
     uint16_t PayloadLen;                                           ///< Rx payload length.
     uint8_t Payload[TAF_DIAGSECURITY_MAX_SEC_ACCESS_PAYLOAD_SIZE]; ///< Rx payload.
@@ -160,11 +162,11 @@ namespace telux {
 
                 static void OnClientDisconnection(le_msg_SessionRef_t sessionRef,
                         void *contextPtr);
-                
-		// UDS message handler.
+
+                // UDS message handler.
                 void UDSMsgHandler(const taf_uds_AddrInfo_t* addrPtr, uint8_t sid, uint8_t* msgPtr,
                         size_t msgLen) override;
-                
+
                 taf_diagSecurity_ServiceRef_t GetService();
 
                 // SessionControl 0x10
@@ -214,11 +216,11 @@ namespace telux {
             private:
                 // Internal search function.
                 taf_SecuritySvc_t* GetServiceObj();
-                
+
                 // Send NRC response msg.
-                le_result_t SendNRCResp(uint8_t sid, taf_uds_AddrInfo_t*  addrInfoPtr,
+                le_result_t SendNRCResp(uint8_t sid, const taf_uds_AddrInfo_t*  addrInfoPtr,
                         uint8_t errCode);
-                
+
                 //Send session control positive response internally.
                 le_result_t SendSesPositiveResp(taf_SesTypeRxMsg_t* rxSesTypePtr);
 

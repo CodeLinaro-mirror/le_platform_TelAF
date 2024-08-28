@@ -52,6 +52,8 @@ COMPONENT_INIT
         LE_FATAL("json file is not present");
     }
 
+    taf_DataAccess_Init();
+
     LE_INFO("TelAF UDS routine conctrol service initialization start...");
     auto& tafRCS = taf_RoutinCtrlSvr::GetInstance();
     tafRCS.Init();

@@ -328,8 +328,9 @@ void taf_IOCtrlSvr::RxIOCtrlEventHandler
     if (servicePtr == NULL)
     {
         LE_WARN("Not found registered IOCtrl service for this request!");
+        // UDS_0x2F_NRC_21: service pointer is null
         ioCtrl.SendNRCResp(rxIOCtrlMsgPtr->serviceId, &(rxIOCtrlMsgPtr->addrInfo),
-                TAF_DIAG_REQUEST_OUT_OF_RANGE);
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(ioCtrl.RxMsgRefMap, rxIOCtrlMsgPtr->rxMsgRef);
         le_mem_Release(rxIOCtrlMsgPtr);
         return;
@@ -338,8 +339,9 @@ void taf_IOCtrlSvr::RxIOCtrlEventHandler
     if (servicePtr->handlerRef == NULL)
     {
         LE_WARN("Did not register handler for IOCtrl service.");
+        // UDS_0x2F_NRC_21: handler is not registered
         ioCtrl.SendNRCResp(rxIOCtrlMsgPtr->serviceId, &(rxIOCtrlMsgPtr->addrInfo),
-                TAF_DIAG_REQUEST_OUT_OF_RANGE);
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(ioCtrl.RxMsgRefMap, rxIOCtrlMsgPtr->rxMsgRef);
         le_mem_Release(rxIOCtrlMsgPtr);
         return;
@@ -352,8 +354,9 @@ void taf_IOCtrlSvr::RxIOCtrlEventHandler
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
         LE_ERROR("Can not find IO control handler object!");
+        // UDS_0x2F_NRC_21: handler is null
         ioCtrl.SendNRCResp(rxIOCtrlMsgPtr->serviceId, &(rxIOCtrlMsgPtr->addrInfo),
-                TAF_DIAG_REQUEST_OUT_OF_RANGE);
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(ioCtrl.RxMsgRefMap, rxIOCtrlMsgPtr->rxMsgRef);
         le_mem_Release(rxIOCtrlMsgPtr);
         return;
@@ -514,16 +517,6 @@ le_result_t taf_IOCtrlSvr::SendResp
     {
         LE_ERROR("Not found registered IOCtrl service for this request!");
         return LE_NOT_FOUND;
-    }
-
-    // Check errCode range.
-    if(errCode != TAF_DIAGIOCTRL_NO_ERROR
-            && errCode != TAF_DIAGIOCTRL_BUSY_REPEAT_REQ
-                    && errCode != TAF_DIAGIOCTRL_CONDITIONS_NOT_CORRECT
-                            && errCode < IO_CONTROL_NRC_RANGE_LOW_VALUE)
-    {
-        LE_ERROR("Error code is invalid.");
-        return LE_BAD_PARAMETER;
     }
 
     // Call UDS function to send the response message.

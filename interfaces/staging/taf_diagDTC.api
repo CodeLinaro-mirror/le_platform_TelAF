@@ -220,6 +220,22 @@ FUNCTION le_result_t GetCode
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the fault detection counter for the given DTC reference.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter.
+ *     - LE_UNSUPPORTED -- DTC is not configured.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetFaultDetectionCounter
+(
+    Service svcRef  IN,                ///< The DTC reference.
+    uint8 faultDetectionCounter  OUT   ///< The fault detection counter.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Reads the DTC status.
  *
  * @return

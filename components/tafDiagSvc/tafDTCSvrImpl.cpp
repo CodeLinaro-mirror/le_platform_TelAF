@@ -115,6 +115,31 @@ le_result_t taf_DTCSvr::GetCode
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Get DTC code by the given service reference.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DTCSvr::GetFaultDetectionCounter
+(
+    taf_diagDTC_ServiceRef_t svcRef,
+    uint8_t* faultDetectionCounterPtr
+)
+{
+    uint32_t dtcCode;
+    le_result_t result;
+    auto &diagEvent = taf_EventSvr::GetInstance();
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "svcRef is null");
+
+    result=GetCode(svcRef, &dtcCode);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to get DTC code");
+        return result;
+    }
+    return diagEvent.GetFaultDetectionCounter(dtcCode, faultDetectionCounterPtr);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Read DTC status.
  */
 //-------------------------------------------------------------------------------------------------

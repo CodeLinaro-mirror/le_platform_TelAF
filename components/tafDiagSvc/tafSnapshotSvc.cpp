@@ -128,7 +128,9 @@ void taf_SnapshotSvr::storeDidsAsSnapshot
         size_t didValLen = cfg::get_did_value_size(did);
         if (pos + 2 + didValLen > dataSize)
         {
-            LE_FATAL("Responsed DID raw data mismatch their configurations.");
+            LE_ERROR("Responsed DID raw data mismatch their configurations.");
+            ReleaseList(list);
+            return;
         }
         uint8_t *didVal = (uint8_t *) le_mem_ForceVarAlloc(DidValPool, didValLen);
         memcpy(didVal, didRawData + pos + 2, didValLen);
@@ -149,22 +151,88 @@ void taf_SnapshotSvr::storeDidsAsSnapshot
          (*it)->supplierFaultCodeSize != 0 )
     {
         #define DID_OF_SUPPLIER_FC 0xEF01
+        size_t sfcSizeFromConf = cfg::get_did_value_size((uint16_t) DID_OF_SUPPLIER_FC);
+        size_t sfcSizePassedIn = (*it)->supplierFaultCodeSize;
+
+        if (sfcSizePassedIn > sfcSizeFromConf)
+        {
+            LE_ERROR("Bad Supplier Fault Code Size: (PASSIN: %" PRIuS ") > (YAML:%" PRIuS ")",
+                     sfcSizePassedIn, sfcSizeFromConf);
+            ReleaseList(list);
+            return;
+        }
+
         taf_DataAccess_DidNode_t * node =
                    (taf_DataAccess_DidNode_t*)le_mem_ForceAlloc(DidNodePool);
-        node->did = (uint16_t) DID_OF_SUPPLIER_FC;
-        size_t sfcSize = cfg::get_did_value_size((uint16_t) DID_OF_SUPPLIER_FC);
-        if ((*it)->supplierFaultCodeSize != sfcSize)
+
+        if (sfcSizePassedIn < sfcSizeFromConf)
         {
-            LE_WARN("Supplier fault code DID size mismatch its configuration. "
-                     "(cfg: %d != app: %d)",
-                     (int) sfcSize, (int) (*it)->supplierFaultCodeSize);
+            LE_WARN("Mismatched Supplier Fault Code Size: (PASSIN: %" PRIuS ") < (YAML:%" PRIuS ")",
+                     sfcSizePassedIn, sfcSizeFromConf);
+
+            {
+                LE_DEBUG("Original SFC:");
+                for (size_t i = 0; i < sfcSizePassedIn; i++)
+                {
+                    LE_DEBUG("[%d] %02X", (uint32_t)i, ((*it)->supplierFaultCodePtr)[i]);
+                }
+            }
+
+            uint8_t *sfcNewVal = (uint8_t *) le_mem_ForceVarAlloc(DidValPool, sfcSizeFromConf);
+            size_t diffSize = sfcSizeFromConf - sfcSizePassedIn;
+
+            memset(sfcNewVal, 0x00, sfcSizeFromConf); // Set all bytes to ZERO
+
+            memcpy(sfcNewVal + diffSize,
+                   (*it)->supplierFaultCodePtr,
+                   sfcSizePassedIn); // Put the bytes in the correct place
+
+            le_mem_Release((*it)->supplierFaultCodePtr); // Release previous did-val pointer
+
+            {
+                LE_DEBUG("New padding SFC:");
+                for (size_t i = 0; i < sfcSizeFromConf; i++)
+                {
+                    LE_DEBUG("[%d] %02X", (uint32_t)i, sfcNewVal[i]);
+                }
+            }
+
+            node->val = sfcNewVal;
+            node->len = sfcSizeFromConf;
         }
-        node->val = (*it)->supplierFaultCodePtr; // Like other nodes, release in ReleaseList
-        node->len = (*it)->supplierFaultCodeSize;
+        else
+        {
+            node->val = (*it)->supplierFaultCodePtr; // Like other nodes, release in ReleaseList
+            node->len = (*it)->supplierFaultCodeSize;
+        }
+
+        node->did = (uint16_t) DID_OF_SUPPLIER_FC;
         node->link = LE_DLS_LINK_INIT;
         le_dls_Queue(list, &node->link);
     }
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    // Deal with the Occurrence Counter storage
+    {
+        #define DID_OF_OCCURRENCE_COUNTER 0xF0D1
+        uint8_t occurrenceCounter = taf_DataAccess_GetDTCOccurrenceCounter(dtcCode);
+        size_t occCntSize = sizeof(occurrenceCounter);
+
+        taf_DataAccess_DidNode_t * node =
+                    (taf_DataAccess_DidNode_t*)le_mem_ForceAlloc(DidNodePool);
+
+        uint8_t *occCntVal = (uint8_t *) le_mem_ForceVarAlloc(DidValPool, occCntSize);
+        memcpy(occCntVal, &occurrenceCounter, occCntSize);
+
+        node->did = (uint16_t) DID_OF_OCCURRENCE_COUNTER;
+        node->val = occCntVal;
+        node->len = occCntSize;
+        node->link = LE_DLS_LINK_INIT;
+
+        LE_INFO("Push [occurrence counter] to Freeze Frame...");
+        le_dls_Queue(list, &node->link);
+    }
+#endif
     int occurrence = 1;
     le_result_t ret = taf_DataAccess_SetSnapshotData(dtcCode, list, &occurrence, ReleaseList);
 
@@ -255,12 +323,13 @@ void taf_SnapshotSvr::_triggerSnapshot
     size_t supplierFaultCodeSize
 )
 {
+#ifndef LE_CONFIG_DIAG_FEATURE_A
     if (! NeedToBeTriggered(dtcCode, typeOfTrigger))
     {
         LE_INFO("No matching type to trigger snapshot for dtc [0x%03X].", dtcCode);
         return;
     }
-
+#endif
     SendRequestToCollectDids(dtcCode,
                              supplierFaultCodePtr,
                              supplierFaultCodeSize);

@@ -57,6 +57,10 @@ namespace dataAccess{
     #define DEM_RECORD_DATA_TYPICAL_SIZE    6
     #define DEM_RECORD_DATA_TYPICAL_BYTES   4
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    #define FIXED_RECORD_NUMBER_FEATURE_A 2
+#endif
+
     constexpr int DEM_DB_VERSION = 1;
 
     typedef enum {
@@ -81,6 +85,7 @@ namespace dataAccess{
             static DemDataHandler &GetInstance();
 
             void Init();
+            le_result_t Load();
 
             le_result_t GetNumOfDtcByStatusMask(uint8_t statusMask,
                     taf_DataAccess_NumOfDTC_t *numOfDtcPtr);
@@ -102,6 +107,7 @@ namespace dataAccess{
             uint8_t GetDTCStatus(uint32_t dtc);
             uint8_t GetDTCOccurrenceCounter(uint32_t dtc);
             le_result_t SetEventFailedCounter(uint16_t eventId, uint8_t failedCounter);
+            uint8_t GetEventFailedCounter(uint16_t eventId);
             le_result_t ResetAllData(); // Reset data storage.
             le_result_t DeleteAllData(); // Delete all unsuppressional DTCs.
             le_result_t DeleteData(uint32_t dtc);
@@ -139,4 +145,3 @@ namespace dataAccess{
 }
 }
 #endif
-

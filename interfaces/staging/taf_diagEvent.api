@@ -127,6 +127,8 @@ ENUM StatusType
     FAILED,                         ///< Test result failed.
     PREPASSED,                      ///< Test result pre-passed.
     PREFAILED,                      ///< Test result pre-failed.
+    CONFIRMED,                      ///< Test confirmed.
+    TEST_NOT_COMPLETED,             ///< Test not completed.
     UNKNOWN = 0xff,                 ///< Unknown.
 };
 

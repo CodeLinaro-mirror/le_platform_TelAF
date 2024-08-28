@@ -869,16 +869,16 @@ void taf_UpdateSvr::RxFileXferEventHandler
     if (svcPtr == NULL)
     {
         LE_ERROR("Not found registered update service for this request");
-        // UDS_0x38_NRC_22: Not found registered diag update svc
-        nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
+        // UDS_0x38_NRC_21: Not found registered diag update svc
+        nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
     }
 
     if (svcPtr->fileXferRef == NULL)
     {
         LE_ERROR("Did not register RequestFileTransfer handler for update service");
-        // UDS_0x38_NRC_22: Bad svc ref
-        nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
+        // UDS_0x38_NRC_21: Bad svc ref
+        nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
     }
 
@@ -888,8 +888,8 @@ void taf_UpdateSvr::RxFileXferEventHandler
     if (handlerCtxPtr == NULL || handlerCtxPtr->func == NULL)
     {
         LE_ERROR("Can not find RequestFileTransfer handler object!");
-        // UDS_0x38_NRC_22: Bad callback fn
-        nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
+        // UDS_0x38_NRC_21: Bad callback fn
+        nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
     }
 
@@ -953,8 +953,8 @@ void taf_UpdateSvr::RxXferDataEventHandler
     if (svcPtr == NULL)
     {
         LE_DEBUG("Not found registered update service for this request");
-        // UDS_0x36_NRC_22: Not found svc
-        nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
+        // UDS_0x36_NRC_21: Not found svc
+        nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
     }
 
@@ -970,8 +970,8 @@ void taf_UpdateSvr::RxXferDataEventHandler
     if (svcPtr->xferDataRef == NULL)
     {
         LE_DEBUG("Did not register TransferData handler for update service");
-        // UDS_0x36_NRC_22: Invalid handler ref
-        nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
+        // UDS_0x36_NRC_21: Invalid handler ref
+        nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
     }
 
@@ -981,8 +981,8 @@ void taf_UpdateSvr::RxXferDataEventHandler
     if (handlerCtxPtr == NULL || handlerCtxPtr->func == NULL)
     {
         LE_DEBUG("Can not find TransferData handler object!");
-        // UDS_0x36_NRC_22: Invalid handler callback
-        nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
+        // UDS_0x36_NRC_21: Invalid handler callback
+        nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
     }
 
@@ -1031,8 +1031,8 @@ void taf_UpdateSvr::RxXferExitEventHandler
     if (svcPtr == NULL)
     {
         LE_DEBUG("Not found registered update service for this request");
-        // UDS_0x37_NRC_22: Not found registered svc
-        nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
+        // UDS_0x37_NRC_21: Not found registered svc
+        nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
     }
 
@@ -1048,8 +1048,8 @@ void taf_UpdateSvr::RxXferExitEventHandler
     if (svcPtr->xferExitRef == NULL)
     {
         LE_DEBUG("Did not register RequestTransferExit handler for update service");
-        // UDS_0x37_NRC_22: Invalid svc ref
-        nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
+        // UDS_0x37_NRC_21: Invalid svc ref
+        nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
     }
 
@@ -1059,8 +1059,8 @@ void taf_UpdateSvr::RxXferExitEventHandler
     if (handlerCtxPtr == NULL || handlerCtxPtr->func == NULL)
     {
         LE_DEBUG("Can not find RequestTransferExit handler object!");
-        // UDS_0x37_NRC_22: Invalid callback handler
-        nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
+        // UDS_0x37_NRC_21: Invalid callback handler
+        nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
     }
 

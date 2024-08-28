@@ -42,7 +42,7 @@ config['data_identifiers'] = {
    0xA5A6: AsciiCodec(1),
    0xF0D0: AsciiCodec(3),
    0xF0D2: AsciiCodec(6),
-   0xEF01: AsciiCodec(5),
+   0xEF01: AsciiCodec(10),
    0xF401: AsciiCodec(1)
 }
 

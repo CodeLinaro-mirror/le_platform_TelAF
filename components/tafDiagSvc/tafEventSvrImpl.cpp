@@ -132,6 +132,71 @@ le_result_t taf_EventSvr::SetStatusWithSupplierFaultCode
     size_t supplierFaultCodeSize
 )
 {
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    le_result_t result;
+
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "svcRef is null");
+    TAF_ERROR_IF_RET_VAL(eventStatus == TAF_DIAGEVENT_UNKNOWN, LE_FAULT,
+            "Incorrect event status");
+
+    taf_diagEvent_EventCtx_t* eventCtxPtr = GetEventCtx(svcRef);
+    TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_FAULT, "This event is not supported");
+
+    LE_DEBUG("event id=%d, dtc code=0x%x, dtc type=%d", eventCtxPtr->eventId,
+        eventCtxPtr->dtcCtxPtr->dtcCode, eventCtxPtr->dtcCtxPtr->dtcType);
+    //Check condition
+    if(!IsEventConditionOK(eventCtxPtr))
+    {
+        LE_ERROR("Condition check is not OK.");
+        return LE_FAULT;
+    }
+
+    //Store supplier fault code
+    if(eventCtxPtr->dtcCtxPtr->dtcType == TAF_DIAGEVENT_REPROGRAMMING_DTC ||
+            supplierFaultCodeSize <= 0 || supplierFaultCodePtr == NULL)
+    {
+        eventCtxPtr->supplierFaultCodeSize = 0;
+        memset(eventCtxPtr->supplierFaultCode, 0, TAF_DIAGEVENT_SUPPLIER_FAULT_CODE_MAX_LEN);
+    }
+    else
+    {
+        memcpy(eventCtxPtr->supplierFaultCode, supplierFaultCodePtr, supplierFaultCodeSize);
+        eventCtxPtr->supplierFaultCodeSize = supplierFaultCodeSize;
+    }
+
+    switch(eventStatus)
+    {
+        case TAF_DIAGEVENT_PASSED:
+            result = UpdateEventOnPassedCustomerN(eventCtxPtr);
+            break;
+        case TAF_DIAGEVENT_FAILED:
+            result = UpdateEventOnFailedCustomerN(eventCtxPtr);
+            break;
+        break;
+        case TAF_DIAGEVENT_PREPASSED:
+            result = UpdateEventOnPrePassedCustomerN(eventCtxPtr);
+            break;
+        break;
+        case TAF_DIAGEVENT_PREFAILED:
+            result = UpdateEventOnPreFailedCustomerN(eventCtxPtr);
+            break;
+        break;
+        case TAF_DIAGEVENT_CONFIRMED:
+            result = UpdateEventOnConfirmedCustomerN(eventCtxPtr);
+            break;
+        break;
+        case TAF_DIAGEVENT_TEST_NOT_COMPLETED:
+            result = UpdateEventOnTestNotCmpltCustomerN(eventCtxPtr);
+            break;
+        break;
+        case TAF_DIAGEVENT_UNKNOWN:
+            LE_ERROR("Incorrect event fault status");
+            result = LE_FAULT;
+        break;
+    }
+
+    return result;
+#else
     le_result_t result;
     taf_SnapshotSvr& ss = taf_SnapshotSvr::GetInstance();
 
@@ -201,6 +266,7 @@ le_result_t taf_EventSvr::SetStatusWithSupplierFaultCode
     }
 
     return result;
+#endif
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -292,13 +358,14 @@ bool taf_EventSvr::IsEventConditionOK
     taf_diagEvent_EventCtx_t* eventCtxPtr
 )
 {
+#ifndef LE_CONFIG_DIAG_FEATURE_A
     //Check operation cycle
     if(OperationCycleStates[eventCtxPtr->operationCycleId] != TAF_DIAGEVENT_CYCLE_START)
     {
         LE_ERROR("Operation cycle is not started.");
         return false;
     }
-
+#endif
     //enable condition
     if(!EnableConditions[eventCtxPtr->enableConditionId])
     {
@@ -408,6 +475,7 @@ le_result_t taf_EventSvr::SetOperationCycleState
     taf_diagEvent_OperationCycleState_t state
 )
 {
+#ifndef LE_CONFIG_DIAG_FEATURE_A
     le_result_t result;
 
     if(operationCycleId >= MAX_OPERATION_CYCLE_NUM)
@@ -468,6 +536,7 @@ le_result_t taf_EventSvr::SetOperationCycleState
         break;
     }
 
+#endif
     return LE_OK;
 }
 
@@ -643,6 +712,14 @@ void taf_EventSvr::ResetDebounceCounter
     TAF_ERROR_IF_RET_NIL(eventCtxPtr == NULL, "eventCtxPtr is null");
     eventCtxPtr->debounceCounter = 0;
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    le_result_t result;
+    result = taf_DataAccess_SetEventFailedCounter(eventCtxPtr->eventId, 0);
+    if(result != LE_OK)
+    {
+        LE_CRIT("Store fault detection counter error");
+    }
+#endif
     LE_DEBUG("Reset debounce counter for event id:%d", eventCtxPtr->eventId);
     if(eventCtxPtr->debounceType == TAF_DIAGEVENT_DEBOUNCE_TIME_BASED)
     {
@@ -1318,6 +1395,480 @@ le_result_t taf_EventSvr::UpdateDtcOnPassed
     return LE_OK;
 }
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+//-------------------------------------------------------------------------------------------------
+/**
+ * Update event status when test failed for Nissan.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::UpdateEventOnFailedCustomerN
+(
+    taf_diagEvent_EventCtx_t* eventCtxPtr
+)
+{
+    le_result_t result;
+    uint8_t oldEventUdsStatus = eventCtxPtr->eventUdsStatus;
+
+    LE_DEBUG("UpdateEventOnFailedCustomerN");
+
+    if(eventCtxPtr->dtcCtxPtr->dtcType == TAF_DIAGEVENT_REPROGRAMMING_DTC)
+    {
+        eventCtxPtr->eventUdsStatus = 0x01;//set bit0 to 1, others to 0
+    }
+    else if(eventCtxPtr->dtcCtxPtr->dtcType == TAF_DIAGEVENT_APPLICATION_DTC)
+    {
+        //Set bit 0 to value 1, don't touch bit 3
+        eventCtxPtr->eventUdsStatus |= TAF_DIAGEVENT_UDS_STATUS_TF;
+    }
+    else
+    {
+        LE_ERROR("DTC type error");
+        return LE_FAULT;
+    }
+
+    //Event uds status changed, call data handle module to store
+    if(oldEventUdsStatus != eventCtxPtr->eventUdsStatus)
+    {
+        LE_INFO("Event failed:eventId:%d, status=0x%x->0x%x", eventCtxPtr->eventId,
+                oldEventUdsStatus, eventCtxPtr->eventUdsStatus);
+        //Store data and report event UDS status change
+        result = StoreAndReportEventUdsStatus(eventCtxPtr);
+        if(result != LE_OK)
+        {
+            LE_ERROR("Failed to store event data");
+            return result;
+        }
+
+        TriggerSnapshotData(oldEventUdsStatus, eventCtxPtr);
+
+        return UpdateDtcForCustomerN(eventCtxPtr->dtcCtxPtr);
+    }
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Update DTC status for Nissan.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::UpdateDtcForCustomerN
+(
+    taf_diagEvent_DtcCtx_t *dtcCtxPtr
+)
+{
+// Update dtc status
+    uint8_t oldDtcStatus =0;
+    uint8_t oldOccurrenceCounter;
+    le_result_t result;
+    le_dls_Link_t* eventIdLinkPtr = NULL;
+    taf_diagEvent_EventCtx_t* eventCtxPtr;
+
+    LE_DEBUG("UpdateDtcForCustomerN");
+    TAF_ERROR_IF_RET_VAL(dtcCtxPtr == NULL, LE_FAULT, "dtcCtxPtr is null");
+
+    oldOccurrenceCounter = dtcCtxPtr->occurrenceCounter;
+    oldDtcStatus = dtcCtxPtr->dtcStatus;
+    //Calculate DTC status by events status
+    dtcCtxPtr->dtcStatus = 0;
+
+    eventIdLinkPtr = le_dls_Peek(&dtcCtxPtr->dtcEventIdList);
+    while (eventIdLinkPtr)
+    {
+        taf_DiagEvent_EventIdInfo_t* eventIdInfoPtr = CONTAINER_OF(eventIdLinkPtr,
+                taf_DiagEvent_EventIdInfo_t, link);
+        eventIdLinkPtr = le_dls_PeekNext(&dtcCtxPtr->dtcEventIdList, eventIdLinkPtr);
+        eventCtxPtr = GetEventCtxById(eventIdInfoPtr->eventId);
+        LE_DEBUG("DTC failed:event id:%d, dtcCode:0x%x", eventCtxPtr->eventId,
+                eventCtxPtr->dtcCode);
+        //Find the event with the same dtc code
+        dtcCtxPtr->dtcStatus |= eventCtxPtr->eventUdsStatus;
+    }
+
+    LE_DEBUG("DTC:status:0x%x->0x%x, Processing=%d, occurrence counter=%d",
+            oldDtcStatus, dtcCtxPtr->dtcStatus, dtcCtxPtr->occurrenceCounterProcessing,
+            dtcCtxPtr->occurrenceCounter);
+    if(dtcCtxPtr->occurrenceCounterProcessing  == TAF_DIAGEVENT_PROCESS_OCCCTR_TF)
+    {
+        //Bit 0 transition from 0 to 1
+        if(((oldDtcStatus & TAF_DIAGEVENT_UDS_STATUS_TF) == 0) &&
+                ((dtcCtxPtr->dtcStatus & TAF_DIAGEVENT_UDS_STATUS_TF) != 0) &&
+                (dtcCtxPtr->occurrenceCounter < MAX_OCCURRENCE_COUNTER))
+        {
+            LE_INFO("Tested Failed:Occurrence counter ++");
+            dtcCtxPtr->occurrenceCounter++;
+        }
+    }
+    else if(dtcCtxPtr->occurrenceCounterProcessing  ==  TAF_DIAGEVENT_PROCESS_OCCCTR_CDTC)
+    {
+
+
+        if(dtcCtxPtr->occurrenceCounter < MAX_OCCURRENCE_COUNTER)
+        {
+            //Bit 0 transition from 0 to 1 and bit 3 is 1, or bit 3 transition from 0 to 1
+            if((((oldDtcStatus & TAF_DIAGEVENT_UDS_STATUS_TF) == 0) &&
+                    ((dtcCtxPtr->dtcStatus & TAF_DIAGEVENT_UDS_STATUS_TF) != 0) &&
+                    ((dtcCtxPtr->dtcStatus & TAF_DIAGEVENT_UDS_STATUS_CDTC) != 0) ) ||
+                    (((oldDtcStatus & TAF_DIAGEVENT_UDS_STATUS_CDTC) == 0) &&
+                    ((dtcCtxPtr->dtcStatus & TAF_DIAGEVENT_UDS_STATUS_CDTC) != 0)))
+            {
+                LE_INFO("Confirmed DTC:Occurrence counter ++");
+                dtcCtxPtr->occurrenceCounter++;
+            }
+        }
+    }
+    else
+    {
+        LE_ERROR("Fault occurrence type");
+        return LE_FAULT;
+    }
+
+    LE_DEBUG("DTC Failed: DTC:0x%x, status:0x%x->0x%x, occurrence counter:%d->%d",
+            dtcCtxPtr->dtcCode, oldDtcStatus, dtcCtxPtr->dtcStatus,
+            oldOccurrenceCounter, dtcCtxPtr->occurrenceCounter);
+    //Counter or dtc status changed
+    if((oldOccurrenceCounter != dtcCtxPtr->occurrenceCounter) ||
+            (dtcCtxPtr->dtcStatus != oldDtcStatus))
+    {
+        //Call data handle module to store the DTC uds status
+        LE_INFO("Database:Store DTC code:0x%x, status:0x%x, occurrence counter:%d",
+                dtcCtxPtr->dtcCode, dtcCtxPtr->dtcStatus, dtcCtxPtr->occurrenceCounter);
+        result = taf_DataAccess_SetDTCStatus(dtcCtxPtr->dtcCode, dtcCtxPtr->dtcStatus,
+                dtcCtxPtr->occurrenceCounter);
+        if(result != LE_OK)
+        {
+            LE_CRIT("Can't store data into database, dtcCode:0x%x, status:0x%x",
+                    dtcCtxPtr->dtcCode, dtcCtxPtr->dtcStatus);
+            return result;
+        }
+    }
+
+    if(dtcCtxPtr->dtcStatus != oldDtcStatus)
+    {
+        ReportDtcStatus(dtcCtxPtr);
+    }
+
+    LE_INFO("Latest: DTC code=0x%x, status=0x%x,occurrencecounter=%d",
+            dtcCtxPtr->dtcCode, dtcCtxPtr->dtcStatus, dtcCtxPtr->occurrenceCounter);
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Update event status when test passed for Nissan.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::UpdateEventOnPassedCustomerN
+(
+    taf_diagEvent_EventCtx_t* eventCtxPtr
+)
+{
+    le_result_t result;
+    uint8_t oldEventUdsStatus = eventCtxPtr->eventUdsStatus;
+
+    TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_FAULT, "eventCtxPtr is null");
+
+    LE_DEBUG("UpdateEventOnPassedCustomerN");
+
+    if(eventCtxPtr->dtcCtxPtr->dtcType == TAF_DIAGEVENT_REPROGRAMMING_DTC)
+    {
+        eventCtxPtr->eventUdsStatus = 0x00;//set all bits to 0
+    }
+    else if(eventCtxPtr->dtcCtxPtr->dtcType == TAF_DIAGEVENT_APPLICATION_DTC)
+    {
+        //Set bit 0 to value 0, don't touch bit 3
+        eventCtxPtr->eventUdsStatus &= ~(TAF_DIAGEVENT_UDS_STATUS_TF);
+    }
+    else
+    {
+        LE_ERROR("DTC type error");
+        return LE_FAULT;
+    }
+
+    if(oldEventUdsStatus != eventCtxPtr->eventUdsStatus)
+    {
+        LE_INFO("Event passed:eventId:%d, status=0x%x->0x%x", eventCtxPtr->eventId,
+                oldEventUdsStatus, eventCtxPtr->eventUdsStatus);
+        //Store data and report event UDS status change
+        result = StoreAndReportEventUdsStatus(eventCtxPtr);
+        if(result != LE_OK)
+        {
+            LE_ERROR("Failed to store event data");
+            return result;
+        }
+
+        return UpdateDtcForCustomerN(eventCtxPtr->dtcCtxPtr);
+    }
+
+    return LE_OK;
+
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Update event status when test pre passed for Nissan.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::UpdateEventOnPrePassedCustomerN
+(
+    taf_diagEvent_EventCtx_t* eventCtxPtr
+)
+{
+    le_result_t result;
+
+    TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_FAULT, "eventCtxPtr is null");
+
+    LE_DEBUG("UpdateEventOnPrePassedCustomerN");
+
+    if(eventCtxPtr->dtcCtxPtr->dtcType == TAF_DIAGEVENT_APPLICATION_DTC)
+    {
+        LE_INFO("PRE_FAILED is not used for application DTC");
+        return LE_OK;
+    }
+
+    if(eventCtxPtr->dtcCtxPtr->dtcType != TAF_DIAGEVENT_REPROGRAMMING_DTC)
+    {
+        LE_ERROR("PRE_PASSED is not supported for this DTC type");
+        return LE_FAULT;
+    }
+
+    if(eventCtxPtr->debounceType != TAF_DIAGEVENT_DEBOUNCE_COUNTER_BASED)
+    {
+        LE_ERROR("PRE_PASSED is not supported for this debounce type");
+        return LE_FAULT;
+    }
+
+    //Debounce
+    if (eventCtxPtr->debounceCounter > eventCtxPtr->debounceCounterBasedConfig.passedThreshold)
+    {
+        if ((eventCtxPtr->debounceCounterBasedConfig.jumpDown == true) &&
+                (eventCtxPtr->debounceCounter >
+                eventCtxPtr->debounceCounterBasedConfig.jumpDownValue))
+        {
+            eventCtxPtr->debounceCounter =
+                    eventCtxPtr->debounceCounterBasedConfig.jumpDownValue;
+
+            LE_DEBUG("Set debounce counter to jumpdown value %d",eventCtxPtr->debounceCounter);
+        }
+        if (eventCtxPtr->debounceCounter >=
+                (eventCtxPtr->debounceCounterBasedConfig.passedThreshold +
+                eventCtxPtr->debounceCounterBasedConfig.decrementStepSize))
+        {
+            LE_DEBUG("debounce counter--  =%d",
+                    eventCtxPtr->debounceCounterBasedConfig.decrementStepSize);
+            eventCtxPtr->debounceCounter -=
+                    eventCtxPtr->debounceCounterBasedConfig.decrementStepSize;
+
+        }
+        else
+        {
+            eventCtxPtr->debounceCounter =
+                    eventCtxPtr->debounceCounterBasedConfig.passedThreshold;
+
+        }
+
+        //For Nissan, store fault detection counter with 0 in DB
+        result = taf_DataAccess_SetEventFailedCounter(eventCtxPtr->eventId, 0);
+        if(result != LE_OK)
+        {
+            LE_CRIT("Store fault detection counter error");
+        }
+
+        //After debounce, if reached the threshold, it is passed
+        if (eventCtxPtr->debounceCounter <= eventCtxPtr->debounceCounterBasedConfig.passedThreshold)
+        {
+            return UpdateEventOnPassedCustomerN(eventCtxPtr);
+        }
+    }
+    else
+    {
+        LE_INFO("Already passed, do nothing");
+    }
+
+    return LE_OK;
+
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Update event status when test pre failed for Nissan.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::UpdateEventOnPreFailedCustomerN
+(
+    taf_diagEvent_EventCtx_t* eventCtxPtr
+)
+{
+    le_result_t result;
+
+    TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_FAULT, "eventCtxPtr is null");
+
+    LE_DEBUG("UpdateEventOnPreFailedCustomerN");
+
+    if(eventCtxPtr->dtcCtxPtr->dtcType == TAF_DIAGEVENT_APPLICATION_DTC)
+    {
+        LE_INFO("PRE_FAILED is not used for application DTC");
+        return LE_OK;
+    }
+
+    if(eventCtxPtr->dtcCtxPtr->dtcType != TAF_DIAGEVENT_REPROGRAMMING_DTC)
+    {
+        LE_ERROR("PRE_FAILED is not supported for this DTC type");
+        return LE_FAULT;
+    }
+
+    if(eventCtxPtr->debounceType != TAF_DIAGEVENT_DEBOUNCE_COUNTER_BASED)
+    {
+        LE_ERROR("PRE_FAILED is not supported for this debounce type");
+        return LE_FAULT;
+    }
+
+    //Debounce
+    if (eventCtxPtr->debounceCounter < eventCtxPtr->debounceCounterBasedConfig.failedThreshold)
+    {
+        if ((eventCtxPtr->debounceCounterBasedConfig.jumpUp == true) &&
+                (eventCtxPtr->debounceCounter <
+                eventCtxPtr->debounceCounterBasedConfig.jumpUpValue))
+        {
+            eventCtxPtr->debounceCounter = eventCtxPtr->debounceCounterBasedConfig.jumpUpValue;
+
+        }
+        if (eventCtxPtr->debounceCounter <=
+                (eventCtxPtr->debounceCounterBasedConfig.failedThreshold -
+                eventCtxPtr->debounceCounterBasedConfig.incrementStepSize))
+        {
+            LE_DEBUG("debounce counter++  =%d",
+                    eventCtxPtr->debounceCounterBasedConfig.incrementStepSize);
+            eventCtxPtr->debounceCounter +=
+                    eventCtxPtr->debounceCounterBasedConfig.incrementStepSize;
+        }
+        else
+        {
+            eventCtxPtr->debounceCounter =
+                    eventCtxPtr->debounceCounterBasedConfig.failedThreshold;
+        }
+
+        //For Nissan, store fault detection counter in DB
+        float ratio = (float)MAX_FAULT_DETECTION_COUNTER/eventCtxPtr->debounceCounterBasedConfig.
+                failedThreshold;
+        uint8_t faultDetectionCounter = eventCtxPtr->debounceCounter * ratio;
+        LE_DEBUG("eventId:%d,debounceCounter=%d, ratio=%f", eventCtxPtr->eventId,
+                eventCtxPtr->debounceCounter, ratio);
+
+        result = taf_DataAccess_SetEventFailedCounter(eventCtxPtr->eventId, faultDetectionCounter);
+        if(result != LE_OK)
+        {
+            LE_CRIT("Store fault detection counter error");
+        }
+
+        //After debounce, if reached the threshold, it is failed
+        if (eventCtxPtr->debounceCounter >= eventCtxPtr->debounceCounterBasedConfig.failedThreshold)
+        {
+            return UpdateEventOnFailedCustomerN(eventCtxPtr);
+        }
+    }
+    else
+    {
+        LE_DEBUG("Already falied, do nothing");
+    }
+
+    return LE_OK;
+
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Update event status when test confirmed for Nissan.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::UpdateEventOnConfirmedCustomerN
+(
+    taf_diagEvent_EventCtx_t* eventCtxPtr
+)
+{
+    le_result_t result;
+    uint8_t oldEventUdsStatus = eventCtxPtr->eventUdsStatus;
+
+    LE_DEBUG("UpdateEventOnConfirmedCustomerN");
+
+    if(eventCtxPtr->dtcCtxPtr->dtcType != TAF_DIAGEVENT_APPLICATION_DTC)
+    {
+        LE_ERROR("CONFIRMED is not supported for this DTC type");
+        return LE_FAULT;
+    }
+
+    //Set bit 0 to value 1
+    eventCtxPtr->eventUdsStatus |= TAF_DIAGEVENT_UDS_STATUS_TF;
+    //Set bit 3 to value 1
+    eventCtxPtr->eventUdsStatus |= TAF_DIAGEVENT_UDS_STATUS_CDTC;
+
+    //Event uds status changed, call data handle module to store
+    if(oldEventUdsStatus != eventCtxPtr->eventUdsStatus)
+    {
+        LE_INFO("Event changed:eventId:%d, status=0x%x->0x%x", eventCtxPtr->eventId,
+                oldEventUdsStatus, eventCtxPtr->eventUdsStatus);
+        //Store data and report event UDS status change
+        result = StoreAndReportEventUdsStatus(eventCtxPtr);
+        if(result != LE_OK)
+        {
+            LE_ERROR("Failed to store event data");
+            return result;
+        }
+
+        TriggerSnapshotData(oldEventUdsStatus, eventCtxPtr);
+
+        return UpdateDtcForCustomerN(eventCtxPtr->dtcCtxPtr);
+    }
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Update event status when test confirmed for Nissan.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::UpdateEventOnTestNotCmpltCustomerN
+(
+    taf_diagEvent_EventCtx_t* eventCtxPtr
+)
+{
+    le_result_t result;
+    uint8_t oldEventUdsStatus = eventCtxPtr->eventUdsStatus;
+
+    LE_DEBUG("UpdateEventOnTestNotCmpltCustomerN");
+
+    if(eventCtxPtr->dtcCtxPtr->dtcType != TAF_DIAGEVENT_REPROGRAMMING_DTC)
+    {
+        LE_ERROR("TEST_NOT_COMPLETED is not supported for this DTC type");
+        return LE_FAULT;
+    }
+
+    //Set bit 0 to value 0, Set bit 4 to value 1
+    eventCtxPtr->eventUdsStatus = 0x10;
+
+    //Event uds status changed, call data handle module to store
+    if(oldEventUdsStatus != eventCtxPtr->eventUdsStatus)
+    {
+        LE_INFO("Event changed:eventId:%d, status=0x%x->0x%x", eventCtxPtr->eventId,
+                oldEventUdsStatus, eventCtxPtr->eventUdsStatus);
+        //Store data and report event UDS status change
+        result = StoreAndReportEventUdsStatus(eventCtxPtr);
+        if(result != LE_OK)
+        {
+            LE_ERROR("Failed to store event data");
+            return result;
+        }
+
+        TriggerSnapshotData(oldEventUdsStatus, eventCtxPtr);
+
+        return UpdateDtcForCustomerN(eventCtxPtr->dtcCtxPtr);
+    }
+
+    return LE_OK;
+}
+#endif
+
 void taf_EventSvr::TriggerSnapshotData
 (
     uint8_t oldEventUdsStatus,
@@ -1326,6 +1877,14 @@ void taf_EventSvr::TriggerSnapshotData
 {
     taf_SnapshotSvr& ss = taf_SnapshotSvr::GetInstance();
     TAF_ERROR_IF_RET_NIL(eventCtxPtr == NULL, "this event context is NULL");
+
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    if(eventCtxPtr->dtcCtxPtr->dtcType == TAF_DIAGEVENT_REPROGRAMMING_DTC)
+    {
+        LE_INFO("Don't trigger snapshot for reprogramming DTC");
+        return;
+    }
+#endif
 
     //Bit 3(confirmedDTC) changes from 0 to 1, trigger snapshot data
     if(((oldEventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_CDTC) == 0) &&
@@ -1832,6 +2391,14 @@ void taf_EventSvr::InitEventContext
         {
             LE_FATAL("fdcThreshold is incorrect for EventId:%d",eventId);
         }
+
+ #ifdef LE_CONFIG_DIAG_FEATURE_A
+        uint8_t faultDetectionCounter = taf_DataAccess_GetEventFailedCounter(eventId);
+        float ratio = (float)MAX_FAULT_DETECTION_COUNTER/eventCtxPtr->debounceCounterBasedConfig.
+                failedThreshold;
+        eventCtxPtr->debounceCounter = faultDetectionCounter/ratio;
+        LE_INFO("fdc=%d, debouncecounter=%d", faultDetectionCounter, eventCtxPtr->debounceCounter);
+#endif
     }
     else if(node.get<string>("base") == "Timer")
     {
@@ -1934,7 +2501,9 @@ void taf_EventSvr::InitEventContext
     }
 
     eventCtxPtr->failureCounter = 0;
+#ifndef LE_CONFIG_DIAG_FEATURE_A
     eventCtxPtr->debounceCounter = 0;
+#endif
     eventCtxPtr->fdcTriggerFlag = false;
     eventCtxPtr->eventFaultStatus = TAF_DIAGEVENT_UNKNOWN;
     //get event UDS status from database
@@ -2041,6 +2610,36 @@ taf_diagEvent_DtcCtx_t* taf_EventSvr::InitDtcContext
         dtcCtxPtr->occurrenceCounterProcessing = TAF_DIAGEVENT_PROCESS_OCCCTR_CDTC;
     }
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    //Get DTC type
+    try
+    {
+        cfg::Node & dtcNode = cfg::get_dtc_node(dtcCode);
+        cfg::Node & sesType = dtcNode.get_child("access.session");
+
+        dtcCtxPtr->dtcType = TAF_DIAGEVENT_APPLICATION_DTC;
+        for (const auto & session: sesType)
+        {
+            string type = session.second.get_value<string>("");
+
+            cfg::Node & sesNode = cfg::top_diagnostic_session<string>("short_name", type);
+            int session_id = sesNode.get<int>("id");
+
+            if ((uint8_t)session_id == FEATURE_A_PROGRAMMING_SESSION ||
+                    (uint8_t)session_id == FEATURE_A_FOTA_SESSION)
+            {
+                dtcCtxPtr->dtcType = TAF_DIAGEVENT_REPROGRAMMING_DTC;
+                break;
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LE_ERROR("Exception: %s", e.what());
+        dtcCtxPtr->dtcType = TAF_DIAGEVENT_UNKNOWN_DTC;
+    }
+    LE_INFO("----dtc code=0x%x, dtc type=%d", dtcCode, dtcCtxPtr->dtcType);
+#endif
     dtcCtxPtr->link = LE_DLS_LINK_INIT;
     dtcCtxPtr->dtcEventIdList = LE_DLS_LIST_INIT;
 
@@ -2061,7 +2660,9 @@ void taf_EventSvr::ClearDTCAndEventData
     void* param2Ptr
 )
 {
+#ifndef LE_CONFIG_DIAG_FEATURE_A
     le_result_t result;
+#endif
     uint8_t oldDtcStatus = 0;
     uint8_t oldEventStatus = 0;
     le_dls_Link_t* eventIdLinkPtr = NULL;
@@ -2071,7 +2672,7 @@ void taf_EventSvr::ClearDTCAndEventData
 
     TAF_ERROR_IF_RET_NIL(dtcCtxPtr == NULL, "dtcCtxPtr is NULL");
 
-    LE_INFO("Clear DTC, code = 0x%x", dtcCtxPtr->dtcCode);
+    LE_DEBUG("Clear DTC, code = 0x%x", dtcCtxPtr->dtcCode);
     //Clear DTC data in memory
     oldDtcStatus = dtcCtxPtr->dtcStatus;
 
@@ -2079,20 +2680,24 @@ void taf_EventSvr::ClearDTCAndEventData
     dtcCtxPtr->occurrenceCounter=0;
     //Clear DTC status
     dtcCtxPtr->dtcStatus = 0;
+
+#ifndef LE_CONFIG_DIAG_FEATURE_A
     //Set bit 4 to value 1
     dtcCtxPtr->dtcStatus |= TAF_DIAGEVENT_UDS_STATUS_TNCSLC;
     //Set bit 6 to value 1
     dtcCtxPtr->dtcStatus |= TAF_DIAGEVENT_UDS_STATUS_TNCTOC;
+#endif
 
     if (dtcCtxPtr->dtcStatus != oldDtcStatus)
     {
         //Send DTC status change indication,--To do
-        LE_INFO("DTC status changed, code = 0x%x", dtcCtxPtr->dtcCode);
+        LE_DEBUG("DTC status changed, code = 0x%x", dtcCtxPtr->dtcCode);
         diagEvent.ReportDtcStatus(dtcCtxPtr);
     }
 
+#ifndef LE_CONFIG_DIAG_FEATURE_A
     //The data is already cleared in data base, need to set it.
-    LE_INFO("Database:Store DTC code:0x%x, status:0x%x, occurrence counter:%d",
+    LE_DEBUG("Database:Store DTC code:0x%x, status:0x%x, occurrence counter:%d",
             dtcCtxPtr->dtcCode, dtcCtxPtr->dtcStatus, dtcCtxPtr->occurrenceCounter);
     result = taf_DataAccess_SetDTCStatus(dtcCtxPtr->dtcCode, dtcCtxPtr->dtcStatus,
             dtcCtxPtr->occurrenceCounter);
@@ -2101,7 +2706,7 @@ void taf_EventSvr::ClearDTCAndEventData
         LE_CRIT("Can't store data into database, dtcCode:0x%x, status:0x%x",
                 dtcCtxPtr->dtcCode, dtcCtxPtr->dtcStatus);
     }
-
+#endif
     //Clear events of this DTC
     eventIdLinkPtr = le_dls_Peek(&dtcCtxPtr->dtcEventIdList);
     while (eventIdLinkPtr)
@@ -2109,7 +2714,7 @@ void taf_EventSvr::ClearDTCAndEventData
         taf_DiagEvent_EventIdInfo_t* eventIdInfoPtr = CONTAINER_OF(eventIdLinkPtr,
                 taf_DiagEvent_EventIdInfo_t, link);
         eventIdLinkPtr = le_dls_PeekNext(&dtcCtxPtr->dtcEventIdList, eventIdLinkPtr);
-        LE_INFO("Clear event id =%d",eventIdInfoPtr->eventId);
+
         eventCtxPtr = diagEvent.GetEventCtxById(eventIdInfoPtr->eventId);
         if(eventCtxPtr == NULL)
         {
@@ -2120,18 +2725,21 @@ void taf_EventSvr::ClearDTCAndEventData
         oldEventStatus = eventCtxPtr->eventUdsStatus;
         //Clear Event status
         eventCtxPtr->eventUdsStatus = 0;
+#ifndef LE_CONFIG_DIAG_FEATURE_A
         //Set bit 4 to value 1
         eventCtxPtr->eventUdsStatus |= TAF_DIAGEVENT_UDS_STATUS_TNCSLC;
         //Set bit 6 to value 1
         eventCtxPtr->eventUdsStatus |= TAF_DIAGEVENT_UDS_STATUS_TNCTOC;
+#endif
         if (eventCtxPtr->eventUdsStatus != oldEventStatus)
         {
             LE_INFO("Event status changed, event Id = %d", eventCtxPtr->eventId);
             diagEvent.ReportEventUdsStatus(eventCtxPtr);
         }
 
+#ifndef LE_CONFIG_DIAG_FEATURE_A
         //The data is already cleared in database, need to store it
-        LE_INFO("Database:Store and report eventId:%d, status:0x%x", eventCtxPtr->eventId,
+        LE_DEBUG("Database:Store and report eventId:%d, status:0x%x", eventCtxPtr->eventId,
                 eventCtxPtr->eventUdsStatus);
         result = taf_DataAccess_SetEventStatus(eventCtxPtr->eventId, eventCtxPtr->eventUdsStatus);
         if(result != LE_OK)
@@ -2139,12 +2747,14 @@ void taf_EventSvr::ClearDTCAndEventData
             LE_CRIT("Can't store data into database, EventId:%d, status:0x%x",
                     eventCtxPtr->eventId, eventCtxPtr->eventUdsStatus);
         }
+#endif
 
         //Clear other data
         eventCtxPtr->failureCounter = 0;
         eventCtxPtr->eventFaultStatus = TAF_DIAGEVENT_UNKNOWN;
+#ifndef LE_CONFIG_DIAG_FEATURE_A
         diagEvent.ResetDebounceCounter(eventCtxPtr);
-
+#endif
     }
 
 }
@@ -2176,7 +2786,6 @@ le_result_t taf_EventSvr::ClearAllDtc
     {
         taf_diagEvent_DtcCtx_t* dtcCtxPtr = CONTAINER_OF(linkPtr, taf_diagEvent_DtcCtx_t, link);
         linkPtr = le_dls_PeekNext(&DtcCtxList, linkPtr);
-        LE_INFO("DTC CODE = 0x%x",dtcCtxPtr->dtcCode);
 
         le_event_QueueFunctionToThread(mainThrRef, ClearDTCAndEventData, dtcCtxPtr, NULL);
     }
@@ -2353,6 +2962,63 @@ le_result_t taf_EventSvr::SetAllDTCSuppression
 
     UpdateAllDtcSuppressionStatus(suppressionStatus);
 
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get fault detection
+ * This api is provided for the application
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::GetFaultDetectionCounter
+(
+    uint32_t dtcCode,
+    uint8_t* faultDetectionCounterPtr
+)
+{
+    le_dls_Link_t* eventIdLinkPtr = NULL;
+    taf_diagEvent_EventCtx_t* eventCtxPtr = NULL;
+    uint8_t eventFDC = 0;
+    uint8_t dtcFDC = 0;
+
+    TAF_ERROR_IF_RET_VAL(faultDetectionCounterPtr == NULL, LE_BAD_PARAMETER, "counterPtr is null");
+
+    taf_diagEvent_DtcCtx_t* dtcCtxPtr = GetDtcCtxByCode(dtcCode);
+
+    TAF_ERROR_IF_RET_VAL(dtcCtxPtr == NULL, LE_BAD_PARAMETER, "dtcCtxPtr is null");
+    //Check if DTC is suppressed
+    if(dtcCtxPtr->suppressionStatus == true)
+    {
+        LE_INFO("DTC code:0x%x is suppressed", dtcCtxPtr->dtcCode);
+        return LE_FAULT;
+    }
+
+    dtcFDC = 0;
+    //Get event list of this DTC
+    eventIdLinkPtr = le_dls_Peek(&dtcCtxPtr->dtcEventIdList);
+    while (eventIdLinkPtr)
+    {
+        taf_DiagEvent_EventIdInfo_t* eventIdInfoPtr = CONTAINER_OF(eventIdLinkPtr,
+                taf_DiagEvent_EventIdInfo_t, link);
+        eventIdLinkPtr = le_dls_PeekNext(&dtcCtxPtr->dtcEventIdList, eventIdLinkPtr);
+        LE_DEBUG("event id =%d",eventIdInfoPtr->eventId);
+
+        eventCtxPtr = GetEventCtxById(eventIdInfoPtr->eventId);
+        if(eventCtxPtr == NULL)
+            continue;
+
+        if(eventCtxPtr->debounceType !=TAF_DIAGEVENT_DEBOUNCE_COUNTER_BASED)
+            continue;
+
+        eventFDC = CalcCounterBasedDebounceFDC(eventCtxPtr);//Get FDC by debounceCounter
+        //Get the maximal counter
+        if(dtcFDC < eventFDC)
+            dtcFDC = eventFDC;
+    }
+
+    LE_DEBUG("fault detection counter = %d", dtcFDC);
+    *faultDetectionCounterPtr = dtcFDC;
     return LE_OK;
 }
 
@@ -2677,7 +3343,9 @@ void taf_EventSvr::Init
 
     // Get the main thread reference.
     mainThrRef = le_thread_GetCurrent();
-
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    memset(EnableConditions, true, sizeof(EnableConditions));
+#endif
     //Initialize the data from configuration module.
     try
     {

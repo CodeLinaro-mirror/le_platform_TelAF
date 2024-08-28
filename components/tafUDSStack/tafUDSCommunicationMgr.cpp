@@ -151,10 +151,11 @@ void UdsCommunicationMgr::UdsTimerHandler(void* reqPtr)
                             (int)udsCmMgr.SessionType);
                     p2StarServerInterval = node.get<uint32_t>("p2_star_server_max") * 1000;//To msec
                     LE_DEBUG("p2StarServerInterval : %d", p2StarServerInterval);
-                    if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX)
+                    if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX ||
+                            p2StarServerInterval < UDS_P2_STAR_SERVER_MIN)
                     {
                         p2StarServerInterval = UDS_P2_STAR_SERVER;
-                        LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%dms",
+                        LE_ERROR("p2_star_server_max is incorrect. Use default value:%dms",
                                 p2StarServerInterval);
                     }
                 }
@@ -179,7 +180,8 @@ void UdsCommunicationMgr::UdsTimerHandler(void* reqPtr)
                     LE_ERROR("Exception: %s. Use default value:%d", e.what() , maxNumberOfRcrrp);
                 }
 
-                le_timer_SetMsInterval(udsCmMgr.p2StarTimerRef, p2StarServerInterval);
+                le_timer_SetMsInterval(udsCmMgr.p2StarTimerRef,
+                        p2StarServerInterval - DELTA_UDS_P2_RESP);
                 le_timer_SetRepeat(udsCmMgr.p2StarTimerRef, maxNumberOfRcrrp);
                 le_timer_Start(udsCmMgr.p2StarTimerRef);
             }
@@ -896,18 +898,9 @@ le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
         return LE_FAULT;
     }
 
-    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
-    // Step 1: Total length check. UDS_0x10_NRC_13
-    if(recvDataLen > UDS_DATA_SIZE)
-    {
-        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        *isInternalHandle = true;
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
-
-    // Received data length shall not be ;ess than the UDS_SESSION_CTRL_REQ_MIN_LEN (MIN limit)
+    // Received data length shall be 2
     // Step 2: Minimum length check. UDS_0x10_NRC_13
-    if(recvDataLen < UDS_SESSION_CTRL_REQ_MIN_LEN)
+    if(recvDataLen != UDS_SESSION_CTRL_REQ_MIN_LEN)
     {
         LE_DEBUG("recvDataLen is less than the SessionCtrl request msg minimum length.");
         *isInternalHandle = true;
@@ -962,6 +955,14 @@ le_result_t UdsCommunicationMgr::IndicateECUResetReq
         return LE_FAULT;
     }
 
+    // Check negative err code for request msg length
+    if(recvDataLen != UDS_ECU_RESET_REQ_MIN_LEN)
+    {
+        LE_DEBUG("recvDataLen is less than the ECUReset request msg minimum length.");
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
     cfg::Node node;
     uint8_t subFunc = recvBuf[1] & 0x7f;
     try
@@ -993,22 +994,6 @@ le_result_t UdsCommunicationMgr::IndicateECUResetReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr);
     }
 
-    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
-    if(recvDataLen > UDS_DATA_SIZE)
-    {
-        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        *isInternalHandle = true;
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
-
-    // Check negative err code for minimum request msg length
-    if(recvDataLen < UDS_ECU_RESET_REQ_MIN_LEN)
-    {
-        LE_DEBUG("recvDataLen is less than the ECUReset request msg minimum length.");
-        *isInternalHandle = true;
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
-
     //Will send indication to the diag service
     *isInternalHandle = false;
     return LE_OK;
@@ -1036,13 +1021,13 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         return LE_FAULT;
     }
 
-    // Check active session type for SecurityAccess.
-    if (SessionType == DEFAULT_SESSION)
+    // Check negative err code for minimum request msg length
+    if(recvDataLen < UDS_SECURITY_ACCESS_REQ_MIN_LEN)
     {
-        LE_DEBUG("Default session type is active for IndicateSecAccessReq.");
+        LE_DEBUG("recvDataLen is less than the SecurityAccess msg minimum length.");
         *isInternalHandle = true;
-        // UDS_0x27_NRC_22: Bad session you are in
-        return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
+        // UDS_0x27_NRC_13: Less than minimum length
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
@@ -1054,15 +1039,6 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
-    // Check negative err code for minimum request msg length
-    if(recvDataLen < UDS_SECURITY_ACCESS_REQ_MIN_LEN)
-    {
-        LE_DEBUG("recvDataLen is less than the SecurityAccess msg minimum length.");
-        *isInternalHandle = true;
-        // UDS_0x27_NRC_13: Less than minimum length
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
-
     subFunc = recvBuf[1] & 0x7f;
 
     if(subFunc == 0x00 || (0x43 <= subFunc && subFunc >= 0x5E) || subFunc == 0x7f)
@@ -1071,6 +1047,15 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         *isInternalHandle = true;
         // UDS_0x27_NRC_12: The range is not supported
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr);
+    }
+
+    // Check active session type for SecurityAccess.
+    if (SessionType == DEFAULT_SESSION)
+    {
+        LE_DEBUG("Default session type is active for IndicateSecAccessReq.");
+        *isInternalHandle = true;
+        // UDS_0x27_NRC_22: Bad session you are in
+        return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
     }
 
     // requestSeed
@@ -1321,7 +1306,7 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
             if(recvDataLen < controlStateSize + UDS_IOCBID_REQ_MIN_LEN)
             {
                 LE_WARN("The received length is less than required.");
-                return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);//NRC 0x31
+                return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);//UDS_0x2F_NRC_13
             }
         }
         catch (const std::exception& e)
@@ -1475,10 +1460,10 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
         return LE_FAULT;
     }
 
-    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
-    if(recvDataLen > UDS_DATA_SIZE)
+    // Check negative err code for minimum request msg length
+    if(recvDataLen < UDS_ROUTINE_CTRL_REQ_MIN_LEN)
     {
-        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
+        LE_DEBUG("recvDataLen is less than the RoutinrCtrlReq msg minimum length.");
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
@@ -1494,6 +1479,14 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
     {
         LE_WARN("Exception: %s", e.what());
         LE_DEBUG("RID0x%x is not supported in the server.", rid);
+        *isInternalHandle = true;
+        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+    }
+
+    // Check active session type for RID.
+    if (!IsSessTypeMatched(node))
+    {
+        LE_DEBUG("Session type is not matched for routine control.");
         *isInternalHandle = true;
         return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
     }
@@ -1515,20 +1508,12 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr);
     }
 
-    // Check negative err code for minimum request msg length
-    if(recvDataLen < UDS_ROUTINE_CTRL_REQ_MIN_LEN)
+    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
+    if(recvDataLen > UDS_DATA_SIZE)
     {
-        LE_DEBUG("recvDataLen is less than the RoutinrCtrlReq msg minimum length.");
+        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
-
-    // Check active session type for RID.
-    if (!IsSessTypeMatched(node))
-    {
-        LE_DEBUG("Session type is not matched for routine control.");
-        *isInternalHandle = true;
-        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
     }
 
     //Will send the indication to the diag service
@@ -1601,6 +1586,26 @@ le_result_t UdsCommunicationMgr::IndicateRxXferDataReq
         return LE_FAULT;
     }
 
+    // Check negative err code for minimum request msg length
+    if (recvDataLen < UDS_REQ_XFER_DATA_BASE_LEN)
+    {
+        isXferActive = false;
+        LE_DEBUG("recvDataLen is less than the RxXferDataReq msg minimum length.");
+        *isInternalHandle = true;
+        // UDS_0x36_NRC_13: Less than minimum length
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
+    if(recvDataLen > UDS_DATA_SIZE)
+    {
+        isXferActive = false;
+        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
+        *isInternalHandle = true;
+        // UDS_0x36_NRC_13: overflow UDS_DATA_SIZE
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
     // Check active session type for TransferData.
     if (! IsValidSvcActiveSession(sid, SessionType))
     {
@@ -1615,26 +1620,6 @@ le_result_t UdsCommunicationMgr::IndicateRxXferDataReq
         *isInternalHandle = true;
         // UDS_0x36_NRC_24: Transfer is NOT in progress
         return SendNRC(sid, REQ_SEQUENCE_ERROR, addrInfoPtr);
-    }
-
-    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
-    if(recvDataLen > UDS_DATA_SIZE)
-    {
-        isXferActive = false;
-        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        *isInternalHandle = true;
-        // UDS_0x36_NRC_13: overflow UDS_DATA_SIZE
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
-
-    // Check negative err code for minimum request msg length
-    if (recvDataLen < UDS_REQ_XFER_DATA_BASE_LEN)
-    {
-        isXferActive = false;
-        LE_DEBUG("recvDataLen is less than the RxXferDataReq msg minimum length.");
-        *isInternalHandle = true;
-        // UDS_0x36_NRC_13: Less than minimum length
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     //Will send the indication to the diag service
@@ -1663,6 +1648,24 @@ le_result_t UdsCommunicationMgr::IndicateRxXferExitReq
         return LE_FAULT;
     }
 
+    // Check negative err code for minimum request msg length
+    if (recvDataLen < UDS_REQ_XFER_EXIT_BASE_LEN)
+    {
+        LE_DEBUG("recvDataLen is less than the RxXferExitReq msg minimum length.");
+        *isInternalHandle = true;
+        // UDS_0x37_NRC_13: Data less than minimum request msg len
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
+    if(recvDataLen > UDS_DATA_SIZE)
+    {
+        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
+        *isInternalHandle = true;
+        // UDS_0x37_NRC_13: Data more than UDS_DATA_SIZE
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
     // Check active session type for RequestTransferExit.
     if (! IsValidSvcActiveSession(sid, SessionType))
     {
@@ -1677,24 +1680,6 @@ le_result_t UdsCommunicationMgr::IndicateRxXferExitReq
         *isInternalHandle = true;
         // UDS_0x37_NRC_24: Transfer is not active
         return SendNRC(sid, REQ_SEQUENCE_ERROR, addrInfoPtr);
-    }
-
-    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
-    if(recvDataLen > UDS_DATA_SIZE)
-    {
-        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        *isInternalHandle = true;
-        // UDS_0x37_NRC_13: Data more than UDS_DATA_SIZE
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
-
-    // Check negative err code for minimum request msg length
-    if (recvDataLen < UDS_REQ_XFER_EXIT_BASE_LEN)
-    {
-        LE_DEBUG("recvDataLen is less than the RxXferExitReq msg minimum length.");
-        *isInternalHandle = true;
-        // UDS_0x37_NRC_13: Data less than minimum request msg len
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     //Will send indication to the diag service
@@ -1736,26 +1721,28 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
 
     LE_INFO("[RFT] Request for moop:[0x%02X]", RFT_MOOP);
 
-    // Check active session type for RequestFileTransfer.
-    if (! IsValidSvcActiveSession(RTF_SID, SessionType))
-    {
-        LE_ERROR("Programming session type is not active for RequestFileTransfer.");
-        // UDS_0x38_NRC_22: Not in programming session
-        return SendNRC(RTF_SID, CONDITIONS_NOT_CORRECT, addrInfoPtr);
-    }
     // Minimum length checking, the filePathAndNameLength >= 1
-    else if (recvDataLen < RFT_MIN_LEN || recvDataLen > UDS_DATA_SIZE)
+    if (recvDataLen < RFT_MIN_LEN || recvDataLen > UDS_DATA_SIZE)
     {
         LE_ERROR("Bad data size for 0x38");
         // UDS_0x38_NRC_13: Invalid msg length
         return SendNRC(RTF_SID, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
+
     // The validity check of the message parameters depends on the modeOfOperation parameter
-    else if (RFT_MOOP < MOOP_ADD_FILE || RFT_MOOP > MOOP_RESUME_FILE)
+    if (RFT_MOOP < MOOP_ADD_FILE || RFT_MOOP > MOOP_RESUME_FILE)
     {
         LE_ERROR("Bad moop for 0x38");
         // UDS_0x38_NRC_31: Invalid moop
         return SendNRC(RTF_SID, REQ_OUT_OF_RANGE, addrInfoPtr);
+    }
+
+    // Check active session type for RequestFileTransfer.
+    if (! IsValidSvcActiveSession(RTF_SID, SessionType))
+    {
+        LE_ERROR("Programming session type is not active for RequestFileTransfer.");
+        // UDS_0x38_NRC_22: Not in programming session
+        return SendNRC(RTF_SID, SERVICE_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr);
     }
     else
     {
@@ -1815,8 +1802,12 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
         {
             uint8_t dataFormatIdentifier = recvBuf[RFT_BASE_LEN + filePathAndNameLength];
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+            if (dataFormatIdentifier != 0x00 && dataFormatIdentifier != 0x01)
             // FIXME: Only support 0x00 first
+#else
             if (dataFormatIdentifier != 0x00)
+#endif
             {
                 LE_ERROR("Data length is mismatched for [0x%02X]", RFT_MOOP);
                 // UDS_0x38_NRC_31: Invalid dataFormatIdentifier
@@ -2386,7 +2377,8 @@ void UdsCommunicationMgr::DiagIndicationHandler
             LE_ERROR("Exception: %s. Use default value:%dms", e.what(), s3ServerInterval);
         }
 
-        if(s3ServerInterval < p2StarServerInterval*maxNumberOfRcrrp)
+
+        if(!isInternalHandle && (s3ServerInterval < p2StarServerInterval*maxNumberOfRcrrp))
             s3ServerInterval = p2StarServerInterval*maxNumberOfRcrrp;
 
         LE_DEBUG("restart s3 with %d mili seconds", s3ServerInterval);
@@ -2687,10 +2679,7 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
         //Session switched to non-default session.
         else
         {
-            LE_INFO("other session:need to start s3 timer with bigger interval");
-
-            if(s3ServerInterval < p2StarServerInterval*maxNumberOfRcrrp)
-                s3ServerInterval = p2StarServerInterval*maxNumberOfRcrrp;
+            LE_INFO("other session:need to start s3 timer");
 
             UdsTimerEventReport(TAF_UDS_S3_TIMER_START, s3ServerInterval);
         }

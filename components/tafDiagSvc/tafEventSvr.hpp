@@ -25,7 +25,8 @@ using namespace std;
 #define MIN_COUNTER_BASED_PARAM_VALUE -32768
 #define MIN_TIME_BASED_PARAM_VALUE 0.01
 #define MAX_TIME_BASED_PARAM_VALUE 3600
-
+#define FEATURE_A_PROGRAMMING_SESSION 0x2
+#define FEATURE_A_FOTA_SESSION 0x42
 //--------------------------------------------------------------------------------------------------
 /**
  * Diag Event Server Service Class
@@ -55,7 +56,14 @@ namespace telux
             TAF_DIAGEVENT_TIMER_PREPASSED = 0x01,
             TAF_DIAGEVENT_TIMER_UNKNOWN = 0x02
         }taf_diagEvent_Running_Timer_Type_t;
-
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+        typedef enum
+        {
+            TAF_DIAGEVENT_APPLICATION_DTC = 0x0,
+            TAF_DIAGEVENT_REPROGRAMMING_DTC = 0x01,
+            TAF_DIAGEVENT_UNKNOWN_DTC = 0x2
+        }taf_diagEvent_DTC_Type_t;
+#endif
         typedef struct
         {
             uint32_t    dtc;
@@ -110,6 +118,9 @@ namespace telux
             int16_t faultDetectionCounter;
             bool activationStatus;
             bool suppressionStatus;
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+            taf_diagEvent_DTC_Type_t dtcType;
+#endif
             le_dls_Link_t link;
             le_dls_List_t dtcEventIdList; // The list of event id in this DTC
         }taf_diagEvent_DtcCtx_t;
@@ -161,6 +172,16 @@ namespace telux
                 le_result_t SetStatusWithSupplierFaultCode(taf_diagEvent_ServiceRef_t svcRef,
                         taf_diagEvent_StatusType_t eventStatus, const uint8_t* supplierFaultCodePtr,
                         size_t supplierFaultCodeSize);
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+                le_result_t UpdateEventOnPassedCustomerN(taf_diagEvent_EventCtx_t* eventCtxPtr);
+                le_result_t UpdateEventOnFailedCustomerN(taf_diagEvent_EventCtx_t* eventCtxPtr);
+                le_result_t UpdateEventOnPrePassedCustomerN(taf_diagEvent_EventCtx_t* eventCtxPtr);
+                le_result_t UpdateEventOnPreFailedCustomerN(taf_diagEvent_EventCtx_t* eventCtxPtr);
+                le_result_t UpdateEventOnConfirmedCustomerN(taf_diagEvent_EventCtx_t* eventCtxPtr);
+                le_result_t UpdateEventOnTestNotCmpltCustomerN(
+                        taf_diagEvent_EventCtx_t* eventCtxPtr);
+                le_result_t UpdateDtcForCustomerN(taf_diagEvent_DtcCtx_t *dtcCtxPtr);
+#endif
                 le_result_t ResetDebounceStatus(taf_diagEvent_ServiceRef_t svcRef,
                         taf_diagEvent_DebounceResetStatus_t status);
                 le_result_t GetUdsStatus(taf_diagEvent_ServiceRef_t svcRef,
@@ -183,7 +204,8 @@ namespace telux
                 //Interface function for DTC service module
                 le_result_t SetDTCSuppression(uint32_t dtcCode, bool suppressionStatus);
                 le_result_t SetAllDTCSuppression(bool suppressionStatus);
-
+                le_result_t GetFaultDetectionCounter(uint32_t dtcCode,
+                        uint8_t* faultDetectionCounterPtr);
                 le_mem_PoolRef_t EventPool = NULL;
                 le_dls_List_t EventCtxList = LE_DLS_LIST_INIT;
                 le_mem_PoolRef_t DtcPool = NULL;

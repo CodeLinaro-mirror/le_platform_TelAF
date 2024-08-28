@@ -226,6 +226,7 @@ ENUM Error
     SECURITY_FAILURE,  ///< Security check failure.
     PACKAGE_NOT_FOUND, ///< Package not found.
     APP_NOT_RUNNING,   ///< App is not in running state.
+    INVALID_OPERATION, ///< Invalid operation requested.
     IMAGE_NOT_VERFIED  ///< Image not verifed.
 };
 

@@ -2763,7 +2763,7 @@ FUNCTION le_result_t GetGpsTime
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  The Location service state is not ready.
- *  - LE_OUT_OF_RANGE   Acquisition rate value is equal to zero.
+ *  - LE_OUT_OF_RANGE   Acquisition rate value is less than 100ms.
  *
  *
  * @b WARNING: The settings are platform dependent.

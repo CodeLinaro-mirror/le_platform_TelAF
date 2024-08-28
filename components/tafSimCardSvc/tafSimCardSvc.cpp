@@ -395,7 +395,7 @@ le_result_t taf_sim_LocalSwapToEmergencyCallSubscription
 )
 {
     auto &sim = taf_sim::GetInstance();
-    return sim.LocalSwapToEmergencyCallSubscription(simId);
+    return sim.LocalSwapToEmergencyCallSubscription(simId, manufacturer);
 }
 
 le_result_t taf_sim_LocalSwapToCommercialSubscription
@@ -405,7 +405,7 @@ le_result_t taf_sim_LocalSwapToCommercialSubscription
 )
 {
     auto &sim = taf_sim::GetInstance();
-    return sim.LocalSwapToCommercialCallSubscription(simId);
+    return sim.LocalSwapToCommercialCallSubscription(simId, manufacturer);
 }
 
 taf_sim_IccidChangeHandlerRef_t taf_sim_AddIccidChangeHandler(

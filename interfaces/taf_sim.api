@@ -411,8 +411,9 @@ ENUM Manufacturer
     OBERTHUR,           ///< Oberthur.
     GEMALTO,            ///< Gemalto.
     G_AND_D,            ///< G&D.
-    MORPHO,             ///< Morpho.
-    VALID,              ///< Valid.
+    MORPHO,             ///< Morpho. Not supported.
+    VALID,              ///< Valid. Not supported.
+    IDEMIA,             ///< Idemia.
     MANUFACTURER_MAX    ///< Indicates the last item.
 };
 
@@ -916,12 +917,15 @@ FUNCTION le_result_t SendCommand
  *
  * @return
  *      - LE_OK -- Succeeded.
- *      - LE_BAD_PARAMETER -- Invalid SIM identifier.
+ *      - LE_BAD_PARAMETER -- Invalid parameters.
+ *      - LE_UNSUPPORTED -- Not supported. This API is not supported for manufacturer MORPHO and VALID.
  *      - LE_FAULT -- Unexpected error.
  *
  * @b NOTE: The eUICC should be in the Ready state.
  *
  * @b NOTE: Ensure the emergency profile is available on the eUICC or an error will be thrown.
+ *
+ * @b NOTE: This API is not supported for manufacturer MORPHO and VALID.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t LocalSwapToEmergencyCallSubscription
@@ -937,12 +941,15 @@ FUNCTION le_result_t LocalSwapToEmergencyCallSubscription
  *
  * @return
  *      - LE_OK -- Succeeded.
- *      - LE_BAD_PARAMETER -- Invalid SIM identifier.
+ *      - LE_BAD_PARAMETER -- Invalid parameters.
+ *      - LE_UNSUPPORTED -- Not supported.
  *      - LE_FAULT -- Unexpected error.
  *
  * @b NOTE: The eUICC should be in the Ready state.
  *
  * @b NOTE: Ensure the commercial profile is available on the eUICC or an error will be thrown.
+ *
+ * @b NOTE: This API is not supported for manufacturer MORPHO and VALID.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t LocalSwapToCommercialSubscription

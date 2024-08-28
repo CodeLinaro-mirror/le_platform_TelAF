@@ -1,0 +1,22 @@
+sources:
+{
+    tafDualNadTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_net.api
+        rpc_taf_net = taf_net.api [manual-start]
+        taf_dcs.api
+        rpc_taf_dcs = taf_dcs.api [manual-start]
+        taf_netIpPass.api
+        rpc_taf_netIpPass = taf_netIpPass.api [manual-start]
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

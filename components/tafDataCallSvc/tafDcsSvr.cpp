@@ -760,6 +760,34 @@ le_result_t taf_dcs_GetIPv4Address(taf_dcs_ProfileRef_t profileRef, char *addrPt
 }
 
 /**
+ * Get the IPv6 interface mask corresponding to specified profile reference.
+ *
+ * If this profile is not brought up so far, the call context will be created corresponding to 
+ * specified profile index.
+ *
+ * @param [in] profileRef               The profile reference to be checked.
+ * @param [out] mask                    The IP mask.
+ *
+ * @returns LE_OK                       Success to get mask.
+ *          OTHER                       Failed to get mask.
+ *
+ * @note    If this session is not connected, '\0' string will be set on output addr pointers.
+ */
+le_result_t taf_dcs_GetIPv4SubnetMask(taf_dcs_ProfileRef_t profileRef, uint32_t* mask)
+{
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    int32_t profileId;
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+
+    return dataConnection.GetIpv4SubnetMask(slotId, profileId, mask);
+}
+
+/**
  * Get the IPv4 gateway corresponding to specified profile reference.
  *
  * If this profile is not brought up so far, the call context will be created corresponding to specified profile index.
@@ -857,6 +885,35 @@ le_result_t taf_dcs_GetIPv6Address(taf_dcs_ProfileRef_t profileRef, char *addrPt
 
     return dataConnection.GetIpv6Address(slotId, profileId, addrPtr, addrSize);
 }
+
+/**
+ * Get the IPv6 interface mask corresponding to specified profile reference.
+ *
+ * If this profile is not brought up so far, the call context will be created corresponding 
+ * to specified profile index.
+ *
+ * @param [in] profileRef               The profile reference to be checked.
+ * @param [out] mask                    The IP mask.
+ *
+ * @returns LE_OK                       Success to get mask.
+ *          OTHER                       Failed to get mask.
+ *
+ * @note    If this session is not connected, '\0' string will be set on output addr pointers.
+ */
+le_result_t taf_dcs_GetIPv6SubnetMask(taf_dcs_ProfileRef_t profileRef, uint32_t* mask)
+{
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    int32_t profileId;
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+
+    return dataConnection.GetIpv6SubnetMask(slotId, profileId, mask);
+}
+
 
 /**
  * Get the IPv6 gateway corresponding to specified profile reference.

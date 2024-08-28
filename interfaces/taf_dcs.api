@@ -1089,3 +1089,35 @@ FUNCTION le_result_t GetPhoneIdByInterfaceName
     string        ifName[NAME_MAX_LEN]      IN,  ///< The interface name.
     uint8         phoneId                   OUT  ///< The phone ID.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the connected data session IPv6 mask.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIPv6SubnetMask
+(
+    Profile profileRef                      IN, ///< The profile reference.
+    uint32  mask                            OUT ///< The IPv6 mask.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the connected data session IPv4 mask.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIPv4SubnetMask
+(
+    Profile profileRef                      IN, ///< The profile reference.
+    uint32  mask                            OUT ///< The IPv4 mask.
+);
+
+

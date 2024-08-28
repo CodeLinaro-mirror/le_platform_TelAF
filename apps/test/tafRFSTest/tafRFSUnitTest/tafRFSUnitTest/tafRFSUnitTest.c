@@ -17,7 +17,9 @@
 #include "tafRFSLib.h"
 
 #define TEST_FILE_PATH "/data/testRFS_File.txt"
-#define TEST_APP_DEFAULT_STORAGE "/persist/rfs/backup/"
+#define TEST_COPY_PATH "/data/testRFS_File_Copy.txt"
+#define TEST_RENAME_PATH "/data/testRFS_File_Rename.txt"
+#define TEST_APP_DEFAULT_STORAGE "/data/rfs/backup/"
 #define TEST_DATA_SIZE (1024 * 10)
 #define TIMEOUT_ITEM_TEST 5
 #define TEST_MAX_FILE_SIZE  10240
@@ -27,6 +29,8 @@
 #define OP_WRITE   "write"
 #define OP_DELETE  "delete"
 #define OP_CORRUPT "corrupt"
+#define OP_COPY    "copy"
+#define OP_RENAME  "rename"
 
 static le_mem_PoolRef_t TestRequestPool;
 static le_thread_Ref_t TestThreadRef;
@@ -37,7 +41,9 @@ typedef enum
     READ,
     WRITE,
     DELETE,
-    CORRUPT
+    CORRUPT,
+    COPY,
+    RENAME
 }
 TestOperation_t;
 
@@ -47,7 +53,7 @@ typedef struct
 }
 TestRequest_t;
 
-TestOperation_t testSequence[] = {WRITE, CORRUPT, READ, DELETE};
+TestOperation_t testSequence[] = {WRITE, CORRUPT, READ, COPY, RENAME, DELETE};
 //--------------------------------------------------------------------------------------------------
 /**
  * Set semaphore timeout
@@ -131,20 +137,20 @@ __attribute__((unused)) static void Test_Write()
     free(testData);
 }
 
-__attribute__((unused)) static void Test_Read()
+__attribute__((unused)) static void verify_file(char* filePath, char* op)
 {
     char* buffer = malloc(TEST_DATA_SIZE + 1);
-    LE_TEST_ASSERT(buffer != NULL, "Allocate buffer for read");
+    LE_TEST_ASSERT(buffer != NULL, "Allocate buffer for %s", op);
     buffer[TEST_DATA_SIZE] = '\0';
 
-    int fd = taf_rfs_Open(TEST_FILE_PATH, O_RDONLY, 0);
-    LE_TEST_ASSERT(fd >= 0, "Test taf_rfs_Open for read");
+    int fd = taf_rfs_Open(filePath, O_RDONLY, 0);
+    LE_TEST_ASSERT(fd >= 0, "Test taf_rfs_Open for %s", op);
 
     size_t expectedSize = TEST_DATA_SIZE;
     ssize_t bytesRead = taf_rfs_Read(fd, (uint8_t*)buffer, &expectedSize);
-    LE_TEST_ASSERT(bytesRead == TEST_DATA_SIZE, "Test taf_rfs_Read for read");
+    LE_TEST_ASSERT(bytesRead == TEST_DATA_SIZE, "Test taf_rfs_Read for %s", op);
 
-    LE_TEST_ASSERT(taf_rfs_Close(fd) == 0, "Test taf_rfs_Close for read");
+    LE_TEST_ASSERT(taf_rfs_Close(fd) == 0, "Test taf_rfs_Close for %s", op);
 
     char* data = malloc(TEST_DATA_SIZE + 1);
     LE_TEST_ASSERT(data != NULL, "Allocate test data");
@@ -159,11 +165,22 @@ __attribute__((unused)) static void Test_Read()
     free(data);
 }
 
+__attribute__((unused)) static void Test_Read()
+{
+    verify_file(TEST_FILE_PATH, OP_READ);
+}
+
 __attribute__((unused)) static void Test_Delete()
 {
     taf_rfs_Delete(TEST_FILE_PATH);
     struct stat st;
-    LE_TEST_ASSERT(stat(TEST_FILE_PATH, &st) == -1, "Test taf_rfs_Delete");
+    LE_TEST_ASSERT(stat(TEST_FILE_PATH, &st) == -1, "Test taf_rfs_Delete %s", TEST_FILE_PATH);
+
+    taf_rfs_Delete(TEST_COPY_PATH);
+    LE_TEST_ASSERT(stat(TEST_FILE_PATH, &st) == -1, "Test taf_rfs_Delete %s", TEST_COPY_PATH);
+
+    taf_rfs_Delete(TEST_RENAME_PATH);
+    LE_TEST_ASSERT(stat(TEST_FILE_PATH, &st) == -1, "Test taf_rfs_Delete %s", TEST_RENAME_PATH);
 }
 
 // This function simulates corrupting file
@@ -198,6 +215,18 @@ __attribute__((unused)) static void Simulate_Corrupt()
     fclose(file);
 }
 
+__attribute__((unused)) static void Test_Copy()
+{
+    LE_TEST_ASSERT(taf_rfs_Copy(TEST_FILE_PATH, TEST_COPY_PATH) == 0, "Test taf_rfs_Copy");
+    verify_file(TEST_COPY_PATH, OP_COPY);
+}
+
+__attribute__((unused)) static void Test_Rename()
+{
+    LE_TEST_ASSERT(taf_rfs_Rename(TEST_FILE_PATH, TEST_RENAME_PATH) == 0, "Test taf_rfs_Rename");
+    verify_file(TEST_RENAME_PATH, OP_RENAME);
+}
+
 static void ProcessTest
 (
     void* param1Ptr, // request object pointer
@@ -219,6 +248,16 @@ static void ProcessTest
         break;
         case CORRUPT:
         Simulate_Corrupt();
+        break;
+        case COPY:
+        Test_Copy();
+        break;
+        case RENAME:
+        Test_Rename();
+        break;
+
+        default:
+        LE_ERROR("Unknown operation");
         break;
     }
 
@@ -279,6 +318,14 @@ COMPONENT_INIT
         else if (strcmp(operation, OP_CORRUPT) == 0)
         {
             requestPtr->op = CORRUPT;
+        }
+        else if (strcmp(operation, OP_COPY) == 0)
+        {
+            requestPtr->op = COPY;
+        }
+        else if (strcmp(operation, OP_RENAME) == 0)
+        {
+            requestPtr->op = RENAME;
         }
         else
         {

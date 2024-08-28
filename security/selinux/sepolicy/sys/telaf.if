@@ -388,11 +388,14 @@ interface(`telaf_load_vhal_modules',`
 #
 interface(`telaf_load_rfs_component',`
     gen_require(`
+            type data_t;
             type persist_t;
             type cert_t;
             type proc_t;
     ')
 
+    allow $1 data_t:file { manage_file_perms relabel_file_perms };
+    allow $1 data_t:dir { remove_name create_dir_perms rw_dir_perms };
     allow $1 persist_t:file { manage_file_perms relabel_file_perms };
     allow $1 persist_t:dir { remove_name create_dir_perms rw_dir_perms };
     allow $1 cert_t:dir { search };

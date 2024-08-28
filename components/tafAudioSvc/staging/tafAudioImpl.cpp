@@ -2995,7 +2995,7 @@ void* taf_Audio::PlayList( void* ctxPtr) {
     audio.pbList.semRef = le_sem_Create("tafPlayFileSemRef", 0);
     for(size_t i = 0; i < audio.pbList.numOfFilesToPlay; i++)
     {
-        LE_DEBUG("Start the thread i is %ld", i);
+        LE_DEBUG("Start the thread i is %zu", i);
         le_thread_Start(le_thread_Create("PlayFileThread", PlayAudioFile,
                 &(audio.pbList.filesToPlay[i])));
         le_sem_Wait(audio.pbList.semRef);
@@ -3029,7 +3029,7 @@ le_result_t taf_Audio::PlayList
     size_t playFileConfigSize
 )
 {
-    LE_INFO("PlayList with size %ld", playFileConfigSize);
+    LE_INFO("PlayList with size %zu", playFileConfigSize);
     taf_audio_Stream_t* streamPtr = (taf_audio_Stream_t*)le_ref_Lookup(StreamRefMap,
             streamRef);
     TAF_ERROR_IF_RET_VAL((streamPtr == NULL), LE_FAULT, "Invalid reference");

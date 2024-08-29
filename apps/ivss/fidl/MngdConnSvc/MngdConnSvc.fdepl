@@ -24,23 +24,23 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.mod
 
     method StartData
     {
-        SomeIpMethodID = 30010
+        SomeIpMethodID = 0x1301
     }
 
     method StopData
     {
-        SomeIpMethodID = 30020
+        SomeIpMethodID = 0x1302
     }
 
     method GetDataList
     {
-        SomeIpMethodID = 30030
+        SomeIpMethodID = 0x1303
     }
 
     broadcast DataState
     {
-        SomeIpEventID = 33010
-        SomeIpEventGroups = { 33010 }
+        SomeIpEventID = 0x9301
+        SomeIpEventGroups = { 0x9300 }
     }
 }
 

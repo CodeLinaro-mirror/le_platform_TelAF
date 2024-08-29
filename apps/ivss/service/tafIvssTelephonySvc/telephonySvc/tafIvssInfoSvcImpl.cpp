@@ -47,6 +47,8 @@ void tafIvssInfoSvc::GetImei(const std::shared_ptr<CommonAPI::ClientId> _client,
         GetImeiReply_t _reply)
 {
     // Create a generic response message object.
+    LE_INFO("tafIvssInfoSvc GetImei \n");
+
     taf_IvssInfo_Ind_t* indPtr = (taf_IvssInfo_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssInfo_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss GetImeiSem", 0);

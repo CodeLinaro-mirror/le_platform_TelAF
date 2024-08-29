@@ -10,7 +10,16 @@ interface InfoSvc
 {
     version { major 0 minor 1 }
 
-    <** @description: Retrieves the International Mobile Equipment Identity (IMEI). **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Retrieves the International Mobile Equipment Identity (IMEI).
+    *
+    * @return FAULT         -- Failed to retrieve the IMEI.
+    *         OVERFLOW      -- IMEI length exceeds the maximum length.
+    *         UNSUPPORTED   -- Not Supported.
+    *         OK            -- Succeeded.
+    */
+    //----------------------------------------------------------------------------------------------
     method GetImei
     {
         out

@@ -19,7 +19,7 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.mod
 
     method GetImei
     {
-        SomeIpMethodID = 30010
+        SomeIpMethodID = 0x1201
     }
 }
 

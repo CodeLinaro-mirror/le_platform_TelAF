@@ -397,35 +397,34 @@ inline taf_radio_Rat_t RatIvssToRadio(RadioSvc::Rat rat)
 //--------------------------------------------------------------------------------------------------
 inline RadioSvc::RatBitMask RatBitMaskRadioToIvss(taf_radio_RatBitMask_t ratBitMask)
 {
-    RadioSvc constObj;
     RadioSvc::RatBitMask ret = 0x0;
     if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_ALL)
     {
-        ret |= constObj.RAT_BIT_MASK_ALL;
+        ret |= static_cast<uint32_t>(RadioSvc::RatBitMaskValue::RAT_BIT_MASK_ALL);
     }
     if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_GSM)
     {
-        ret |= constObj.RAT_BIT_MASK_GSM;
+        ret |= static_cast<uint32_t>(RadioSvc::RatBitMaskValue::RAT_BIT_MASK_GSM);
     }
     if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_UMTS)
     {
-        ret |= constObj.RAT_BIT_MASK_UMTS;
+        ret |= static_cast<uint32_t>(RadioSvc::RatBitMaskValue::RAT_BIT_MASK_UMTS);
     }
     if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_CDMA)
     {
-        ret |= constObj.RAT_BIT_MASK_CDMA;
+        ret |= static_cast<uint32_t>(RadioSvc::RatBitMaskValue::RAT_BIT_MASK_CDMA);
     }
     if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_TDSCDMA)
     {
-        ret |= constObj.RAT_BIT_MASK_TDSCDMA;
+        ret |= static_cast<uint32_t>(RadioSvc::RatBitMaskValue::RAT_BIT_MASK_TDSCDMA);
     }
     if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_LTE)
     {
-        ret |= constObj.RAT_BIT_MASK_LTE;
+        ret |= static_cast<uint32_t>(RadioSvc::RatBitMaskValue::RAT_BIT_MASK_LTE);
     }
     if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_NR5G)
     {
-        ret |= constObj.RAT_BIT_MASK_NR5G;
+        ret |= static_cast<uint32_t>(RadioSvc::RatBitMaskValue::RAT_BIT_MASK_NR5G);
     }
     return ret;
 }

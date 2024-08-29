@@ -54,81 +54,81 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.mod
 
     method SetRadioPower
     {
-        SomeIpMethodID = 30010
+        SomeIpMethodID = 0x1001
     }
 
     method GetRadioPower
     {
-        SomeIpMethodID = 30020
+        SomeIpMethodID = 0x1002
     }
 
     method GetSignalStrength
     {
-        SomeIpMethodID = 30030
+        SomeIpMethodID = 0x1003
     }
 
     method GetRegisterMode
     {
-        SomeIpMethodID = 30040
+        SomeIpMethodID = 0x1004
     }
 
     method SetAutomaticRegisterMode
     {
-        SomeIpMethodID = 30050
+        SomeIpMethodID = 0x1005
     }
 
     method GetHardwareConfig
     {
-        SomeIpMethodID = 30060
+        SomeIpMethodID = 0x1006
     }
 
     method GetRatPreferences
     {
-        SomeIpMethodID = 30070
+        SomeIpMethodID = 0x1007
     }
 
     method GetCurrentNetworkName
     {
-        SomeIpMethodID = 30080
+        SomeIpMethodID = 0x1008
     }
 
     method GetNetRegState
     {
-        SomeIpMethodID = 30090
+        SomeIpMethodID = 0x1009
     }
 
     method GetNrDualConnectivityStatus
     {
-        SomeIpMethodID = 30100
+        SomeIpMethodID = 0x100A
     }
 
     method SetSignalStrengthReportingCriteria
     {
-        SomeIpMethodID = 30110
+        SomeIpMethodID = 0x100B
     }
 
     broadcast SignalStrength
     {
-        SomeIpEventID = 33010
-        SomeIpEventGroups = { 33010 }
+        SomeIpEventID = 0x9001
+        SomeIpEventGroups = { 0x9000 }
     }
 
     broadcast RadioRat
     {
-        SomeIpEventID = 33020
-        SomeIpEventGroups = { 33020 }
+        SomeIpEventID = 0x9002
+        SomeIpEventGroups = { 0x9000 }
     }
 
     broadcast RadioState
     {
-        SomeIpEventID = 33030
-        SomeIpEventGroups = { 33030 }
+        SomeIpEventID = 0x9003
+        SomeIpEventGroups = { 0x9000 }
     }
 
     broadcast CellInfo
     {
-        SomeIpEventID = 33040
-        SomeIpEventGroups = { 33040 }
+        SomeIpEventID = 0x9004
+        SomeIpEventGroups = { 0x9000 }
     }
 }
 

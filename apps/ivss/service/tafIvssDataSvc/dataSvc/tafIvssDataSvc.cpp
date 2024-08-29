@@ -18,7 +18,7 @@ COMPONENT_INIT
     std::shared_ptr<CommonAPI::Runtime> mngdConnRuntime = CommonAPI::Runtime::get();
     auto ivssMngdConn = tafIvssMngdConnSvc::GetInstance();
     if (true != mngdConnRuntime->registerService("local", "modem.MngdConnSvc", ivssMngdConn,
-        "ivssMngdConnSvc"))
+        "ivssDataSvc"))
     {
         LE_FATAL("tafIvssMngdConnSvc Register Service failed.");
     }

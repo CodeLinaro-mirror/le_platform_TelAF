@@ -12,6 +12,10 @@
       "",
       "ValidClientList:",
       "List of Clients that can set the source validity.",
+      "",
+      "Source:",
+      "Need to configure valid time sources.",
+      "Supported time sources: 'ExAPP', 'GNSS', 'RTC', 'NETWORK', 'NETWORK2'.",
       ""
     ],
     "Sources": [

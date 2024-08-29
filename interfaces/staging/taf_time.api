@@ -561,13 +561,13 @@ REFERENCE Source;
  */
 //--------------------------------------------------------------------------------------------------
 ENUM TimeSources{
-    SRC_NAME_RTC,       ///< RTC time source
-    SRC_NAME_GNSS,      ///< GNSS time source
-    SRC_NAME_EX_APP,    ///< External time source
-    SRC_NAME_NETWORK,   ///< Network time source from phone1
-    SRC_NAME_NETWORK2,  ///< Network time source from phone2
-    SRC_NAME_UNKNOWN,    ///< No active time source
-    SRC_NAME_SYSTEM = 0xFF ///< System time ID
+    SRC_NAME_RTC,           ///< RTC time source
+    SRC_NAME_GNSS,          ///< GNSS time source
+    SRC_NAME_EX_APP,        ///< External time source
+    SRC_NAME_NETWORK,       ///< Network time source from phone1
+    SRC_NAME_NETWORK2,      ///< Network time source from phone2
+    SRC_NAME_UNKNOWN,       ///< No active time source
+    SRC_NAME_SYSTEM = 0xFF  ///< System time ID
 };
 
 ENUM StatusEventType{

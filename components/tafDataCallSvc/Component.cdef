@@ -23,6 +23,7 @@ requires:
     {
         lib/libtelux_tel.so
         lib/libtelux_data.so
+        lib/libtelux_common.so
     }
 
 }
@@ -33,6 +34,7 @@ cxxflags:
     -I$TELAF_ROOT/include
     -ltelux_tel
     -ltelux_data
+    -ltelux_common
 }
 
 cflags:
@@ -41,6 +43,7 @@ cflags:
     -I$TELAF_ROOT/include
     -ltelux_tel
     -ltelux_data
+    -ltelux_common
 }
 
 sources:
@@ -49,4 +52,3 @@ sources:
     tafDcsConnectionImpl.cpp
     tafDcsProfileImpl.cpp
 }
-

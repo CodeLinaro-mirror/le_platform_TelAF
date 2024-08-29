@@ -17,6 +17,7 @@ requires:
     lib:
     {
         lib/libtelux_tel.so
+        lib/libtelux_common.so
     }
 }
 
@@ -25,6 +26,7 @@ cxxflags:
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
     -ltelux_tel
+    -ltelux_common
 }
 
 cflags:
@@ -40,4 +42,3 @@ sources:
     tafRSP.cpp
     tafRSPImpl.cpp
 }
-

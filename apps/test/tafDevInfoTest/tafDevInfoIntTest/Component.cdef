@@ -7,6 +7,6 @@ requires:
 {
     api:
     {
-        taf_info.api
+        taf_devInfo.api
     }
 }

@@ -23,7 +23,7 @@ using namespace v0::com::qualcomm::qti::modem;
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    char imei[TAF_INFO_IMEI_MAX_BYTES]; ///< [OUT] IMEI number.
+    char imei[TAF_DEVINFO_IMEI_MAX_BYTES]; ///< [OUT] IMEI number.
 }taf_IvssInfo_GetImei_t;
 
 //--------------------------------------------------------------------------------------------------

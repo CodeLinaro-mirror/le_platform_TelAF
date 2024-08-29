@@ -1,0 +1,30 @@
+provides:
+{
+    api:
+    {
+        taf_verInfo.api
+    }
+}
+
+requires:
+{
+    component:
+    {
+        $LEGATO_ROOT/components/watchdogChain
+        $TELAF_ROOT/components/tafHalComp
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/components/tafHalComp
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/include/staging/plugin
+}
+
+sources:
+{
+    tafVerInfoSvc.cpp
+    tafVerInfoImpl.cpp
+}

@@ -45,5 +45,5 @@ bindings:
 {
     tafIvssTelephonySvc.telephonySvc.taf_radio -> tafRadioSvc.taf_radio
     tafIvssTelephonySvc.telephonySvc.taf_sim -> tafSimCardSvc.taf_sim
-    tafIvssTelephonySvc.telephonySvc.taf_info -> tafDevInfoSvc.taf_info
+    tafIvssTelephonySvc.telephonySvc.taf_devInfo -> tafDevInfoSvc.taf_devInfo
 }

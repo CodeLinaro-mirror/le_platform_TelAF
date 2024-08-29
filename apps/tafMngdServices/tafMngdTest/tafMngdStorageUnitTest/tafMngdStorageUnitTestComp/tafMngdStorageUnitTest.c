@@ -342,6 +342,18 @@ __attribute__((unused)) static void Test_Op_Delete(const char* label)
     fflush(stdout);
 }
 
+__attribute__((unused)) static void Test_cfg_UpdateAndSync(){
+    le_result_t result;
+
+    result = taf_mngdStorCfg_UpdateFile();
+    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSec_UpdateFile");
+    if(result == LE_OK){
+        result = taf_mngdStorCfg_Sync();
+        LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSec_Sync");
+    }
+
+}
+
 COMPONENT_INIT
 {
     if (le_arg_NumArgs() > 1)
@@ -431,6 +443,9 @@ COMPONENT_INIT
 
         LE_TEST_INFO("=== Test delete storage ===");
         Test_Secure_Delete_Storage();
+
+        LE_TEST_INFO("=== Test update and sync configStorage ===");
+        Test_cfg_UpdateAndSync();
 
         LE_TEST_INFO("=== TelAF MngdStorage unit test END ===");
     }

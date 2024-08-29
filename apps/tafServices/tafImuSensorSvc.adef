@@ -22,6 +22,9 @@ groups:
     system
     diag
     sensors
+    radio
+    inet
+    locclient
 }
 
 executables:

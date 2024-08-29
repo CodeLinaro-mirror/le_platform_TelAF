@@ -15,4 +15,5 @@ requires:
 cflags:
 {
     -I$TELAF_ROOT/components/stub/keyStore/Common
+    -I$LEGATO_ROOT/framework/liblegato/
 }

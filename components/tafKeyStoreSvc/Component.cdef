@@ -7,6 +7,7 @@ cflags:
 {
    -I$TELAF_ROOT/components/stub/keyStore/taf_pa_keystore
    -I$TELAF_ROOT/components/stub/keyStore/Common
+   -I$LEGATO_ROOT/framework/liblegato/
 }
 
 requires:
@@ -26,6 +27,6 @@ provides:
 {
     api:
     {
-        taf_ks.api
+        taf_ks.api [manual-start]
     }
 }

@@ -41,6 +41,37 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Max number of shared applications for a key.
+ */
+//--------------------------------------------------------------------------------------------------
+#define TAF_PA_KS_MAX_SHARED_APPS 5
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Shared app.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_ks_KeyUsage_t keyCap;                    ///< Shared key capability.
+    taf_ks_AppCapMask_t appCap;                  ///< Shared app capability.
+    char appName[LIMIT_MAX_APP_NAME_LEN + 1];    ///< Shared app name.
+}
+taf_pa_ks_SharedApp_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Shared app list.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_pa_ks_SharedApp_t appInfo[TAF_PA_KS_MAX_SHARED_APPS]; ///< Shared app list.
+}
+taf_pa_ks_sharedAppList_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Tag ID.
  */
 //--------------------------------------------------------------------------------------------------
@@ -177,6 +208,30 @@ taf_pa_ks_Param_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Prototype for key creation handler.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*taf_pa_ks_KeyCreationHandler_t)
+(
+    KeyMgt_KeyFileRef_t keyFileRef                 ///< Key file reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Prototype for key sharing notification handler.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*taf_pa_ks_KeySharingHandler_t)
+(
+    const char* keyIdPtr,                          ///< Key ID string
+    const char* ownerAppNamePtr,                   ///< Owner app name string
+    const char* sharedAppNamePtr,                  ///< Shared app name string
+    taf_ks_SharingState_t state,                   ///< Key sharing state
+    KeyMgt_KeyFileRef_t keyFileRef                 ///< Key file reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * PA initialization.
  *
  * @return
@@ -306,6 +361,32 @@ LE_SHARED le_result_t taf_pa_ks_ExportKey
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Share a key.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_ks_ShareKey
+(
+    le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
+    KeyMgt_KeyFileRef_t keyFileRef,       ///< [IN] Key file reference
+    taf_ks_KeyUsage_t keyCap,             ///< [IN] Shared capability
+    taf_ks_AppCapMask_t appCap,           ///< [IN] Shared app capability.
+    const char* appName                   ///< [IN] Shared application name
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancel key sharing to an application.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_ks_CancelKeySharing
+(
+    le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
+    KeyMgt_KeyFileRef_t keyFileRef,       ///< [IN] Key file reference
+    const char* appName                   ///< [IN] Shared application name
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Delete a key file by key name.
  */
 //--------------------------------------------------------------------------------------------------
@@ -325,6 +406,31 @@ LE_SHARED le_result_t taf_pa_ks_GetKey
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
     const char* keyName,                  ///< [IN] Key Name
     KeyMgt_KeyFileRef_t* keyFileRefPtr    ///< [OUT] Key file reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get a key file reference of a shared key by key name and app name.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_ks_GetSharedKey
+(
+    le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
+    const char* keyName,                  ///< [IN] Key Name
+    const char* appName,                  ///< [IN] App Name
+    KeyMgt_KeyFileRef_t* keyFileRefPtr    ///< [OUT] Key file reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get a shared app list for a shared key.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_ks_GetSharedAppList
+(
+    le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
+    KeyMgt_KeyFileRef_t keyFileRef,       ///< [IN] Key file reference
+    taf_pa_ks_sharedAppList_t* appListPtr ///< [OUT] Shared app list.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -419,6 +525,26 @@ LE_SHARED le_result_t taf_pa_ks_CryptoSessionEnd
 LE_SHARED le_result_t taf_pa_ks_CryptoSessionAbort
 (
     uint64_t                opHandle      ///< [IN] Cyrpto operation handle
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Register Key creation handler in PA layer
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_ks_RegKeyCreationHandler
+(
+    taf_pa_ks_KeyCreationHandler_t handlerFunc
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Register Key sharing state change handler in PA layer
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_ks_RegKeySharingHandler
+(
+    taf_pa_ks_KeySharingHandler_t handlerFunc
 );
 
 #endif // TAF_PA_KEYSTORAGE_INCLUDE_GUARD

@@ -146,6 +146,7 @@ gen_require(`
   type user_home_dir_t;
   type ping_exec_t;
   type dlt_t;
+  type coredump_data_t;
 ')
 
 ## telaf framework policies and definitions
@@ -281,6 +282,7 @@ allow telaf_app_t proc_t:file read_file_perms;
 allow telaf_app_t home_root_t:dir search_dir_perms;
 allow telaf_app_t user_home_dir_t:dir search_dir_perms;
 allow telaf_app_t etc_t:file { read open lock getattr };
+
 #domtrans_pattern(unconfined_t, telaf_bin_t, telaf_app_t)
 
 # Allow to load sepolicy module
@@ -462,8 +464,8 @@ allow telaf_app_domain tmpfs_t:filesystem getattr;
 allow telaf_app_domain tmpfs_t:file { read write open getattr mounton };
 allow telaf_app_domain tmpfs_t:dir { manage_dir_perms };
 allow telaf_app_domain telaf_apptmp_rw_t:sock_file { create write };
-allow telaf_app_domain telaf_apptmp_rw_t:dir { search add_name create open read write };
-allow telaf_app_domain telaf_apptmp_rw_t:file { create open read write lock };
+allow telaf_app_domain telaf_apptmp_rw_t:dir { manage_dir_perms };
+allow telaf_app_domain telaf_apptmp_rw_t:file { manage_file_perms };
 allow telaf_app_domain syslogd_t:unix_dgram_socket sendto;
 allow telaf_app_domain telaf_admin_t:fd use;
 allow telaf_app_domain telaf_sdir_t:unix_stream_socket connectto;
@@ -474,21 +476,30 @@ allow telaf_app_domain telaf_admin_t:fifo_file { read getattr write };
 allow telaf_app_domain telaf_app_bundle_t : { file dir lnk_file } *;
 allow telaf_app_domain device_t:sock_file { write };
 allow telaf_app_domain self:capability2 { block_suspend wake_alarm };
-allow telaf_app_domain self:capability { dac_override dac_read_search };
-allow telaf_app_domain self:process { signal setsched };
+allow telaf_app_domain self:capability { dac_override dac_read_search sys_nice fowner fsetid };
+allow telaf_app_domain self:process { signal setsched setfscreate  };
 allow telaf_app_domain self:fifo_file { write read };
 allow telaf_app_domain socket_device_t:dir search;
 allow telaf_app_domain default_t:file { read_file_perms };
 allow telaf_app_domain default_t:dir { search_dir_perms };
-allow telaf_app_domain self:capability { sys_nice };
 allow telaf_app_domain null_device_t:chr_file { read_file_perms };
 allow telaf_app_domain self:fd use;
 allow telaf_app_domain telaf_fw_t:file { manage_file_perms };
+
 # Manage /tmp/telaf_crash_logs
 allow telaf_app_domain tmp_t:dir { manage_dir_perms };
 allow telaf_app_domain tmp_t:file { manage_file_perms };
 allow telaf_app_domain syslogd_t:sem { read write associate unix_write };
 allow telaf_app_domain syslogd_t:shm { read unix_read associate };
+
+# Read and write core dump pattern for scripts "start" and "saveLogs"
+kernel_rw_kernel_sysctl(telaf_app_domain)
+
+# Allow kernel generate and save core dump to "/tmp/coredump"
+allow coredump_data_t tmpfs_t:filesystem { associate };
+allow data_t tmpfs_t:filesystem { associate };
+allow telaf_app_domain coredump_data_t:file { relabelfrom relabelto };
+allow telaf_app_domain data_t:file { relabelfrom relabelto };
 
 # Define core domain
 allow telaf_core_domain telaf_fw_t : dir { manage_dir_perms };

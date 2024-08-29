@@ -37,6 +37,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "configuration.hpp"
+#include "tafSecurityAccess.hpp"
 
 using namespace telux::tafsvc;
 using namespace std;
@@ -82,6 +83,8 @@ void UdsCommunicationMgr::Init
 
     le_thread_Start(udsTimerThreadRef);
     le_sem_Wait(semRef);
+
+    le_event_QueueFunction(SecurityAccess_Init, NULL, NULL);
 
     LE_INFO("UDS communication manager ok.");
     return;
@@ -287,8 +290,6 @@ void UdsCommunicationMgr::IndicateWhenChangingToDefault()
 
     taf_SessionType_t oldSessionType = udsCmMgr.SessionType;
     udsCmMgr.SessionType = DEFAULT_SESSION;
-    udsCmMgr.reqSeedLevel = 0;
-    udsCmMgr.securityLevel = 0;
 
     taf_doip_DiagMsg_t sesChangeMsg;
     if(udsCmMgr.udsIndicationHandler.safeRef == NULL)
@@ -324,7 +325,16 @@ void UdsCommunicationMgr::S3TimeoutHandler
 )
 {
     LE_INFO("Session time out");
-    IndicateWhenChangingToDefault();
+
+    LE_INFO("report -> SESSION_TIMEOUT_SIG");
+    SecAccReport_t report = {
+        .type = SESSION_TIMEOUT_SIG,
+        .curr_session_id = (uint32_t) UdsCommunicationMgr::GetInstance().SessionType,
+        .mgr = &UdsCommunicationMgr::GetInstance(),
+    };
+    le_event_Report(SecAccEventIdRef, &report, sizeof(report));
+
+    UdsCommunicationMgr::GetInstance().IndicateWhenChangingToDefault();
 }
 
 void UdsCommunicationMgr::CheckAndRestartS3Timer
@@ -673,7 +683,7 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
             int security_type = node.get_child("access").get<int>("security_level");
             //Authentication check after authentication service is supported, send NRC 0x34
             //Security access check. UDS_0x22_NRC_33
-            if(security_type == SECURITY_ACCESS_REQUEST_ID && securityLevel == 0)
+            if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked() == false)
             {
                 LE_WARN("Did is secured and the server is not unlocked.");
                 return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
@@ -841,7 +851,7 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
         int security_type = node.get_child("access").get<int>("security_level");
         //Authentication check after authentication service is supported, send NRC 0x34
         //Security access check. UDS_0x2E_NRC_33
-        if(security_type == SECURITY_ACCESS_REQUEST_ID && securityLevel == 0)
+        if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked() == false)
         {
             LE_WARN("Did is secured and the server is not unlocked.");
             return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
@@ -1008,17 +1018,17 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
     bool* isInternalHandle
 )
 {
-    LE_DEBUG("IndicateSecAccessReq");
-
-    // received service ID
     uint8_t sid = recvBuf[0];
-    uint8_t subFunc;
 
-    // Check the pointer.
-    if(addrInfoPtr == NULL || isInternalHandle == NULL)
+    memcpy(&udsRespAddrInfo, addrInfoPtr, sizeof(*addrInfoPtr));
+
+    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
+    if(recvDataLen > UDS_DATA_SIZE)
     {
-        LE_ERROR("Null pointer");
-        return LE_FAULT;
+        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
+        *isInternalHandle = true;
+        // UDS_0x27_NRC_13: More than UDS_DATA_SIZE
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Check negative err code for minimum request msg length
@@ -1030,147 +1040,49 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
-    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
-    if(recvDataLen > UDS_DATA_SIZE)
-    {
-        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        *isInternalHandle = true;
-        // UDS_0x27_NRC_13: More than UDS_DATA_SIZE
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
+    uint8_t subFunction = recvBuf[1] & 0x7f;
 
-    subFunc = recvBuf[1] & 0x7f;
-
-    if(subFunc == 0x00 || (0x43 <= subFunc && subFunc >= 0x5E) || subFunc == 0x7f)
+    if(subFunction == 0x00 || (0x43 <= subFunction && subFunction <= 0x5E) || subFunction == 0x7f)
     {
-        LE_DEBUG("subFunc is reserved.");
+        LE_DEBUG("subFunction is reserved.");
         *isInternalHandle = true;
         // UDS_0x27_NRC_12: The range is not supported
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr);
     }
 
-    // Check active session type for SecurityAccess.
-    if (SessionType == DEFAULT_SESSION)
+    le_sem_Ref_t SecAccSem = le_sem_Create("sync", 0);
+
+    if (recvBuf[1] % 2 == 1) /* RequestSeed */
     {
-        LE_DEBUG("Default session type is active for IndicateSecAccessReq.");
-        *isInternalHandle = true;
-        // UDS_0x27_NRC_22: Bad session you are in
-        return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
+        LE_INFO("report -> REQUEST_SEED_SIG (%02X)", recvBuf[1] & 0x7F);
+        SecAccReport_t report = {
+            .type = REQUEST_SEED_SIG,
+            .curr_session_id = (uint32_t) SessionType,
+            .sem = SecAccSem,
+            .mgr = this,
+            .is_internal = isInternalHandle,
+        };
+        le_event_Report(SecAccEventIdRef, &report, sizeof(report));
+    }
+    else /* SendKey: recvBuf[1] % 2 == 0 */
+    {
+        LE_INFO("report -> SEND_KEY_SIG (%02X)", recvBuf[1] & 0x7F);
+        SecAccReport_t report = {
+            .type = SEND_KEY_SIG,
+            .curr_session_id = (uint32_t) SessionType,
+            .sem = SecAccSem,
+            .mgr = this,
+            .is_internal = isInternalHandle,
+        };
+        le_event_Report(SecAccEventIdRef, &report, sizeof(report));
     }
 
-    // requestSeed
-    if (subFunc % 2 !=0)
-    {
-        reqSeedLevel = subFunc;
-        //If already unlock with the same security level, send 0 as the seed.
-        if(subFunc == securityLevel)
-        {
-            //send data 00
-            // Fill the response data
-            sendBuf[0] = SECURITY_ACCESS_RESPONSE_ID;
-            sendBuf[1] = subFunc;
+    le_sem_Wait(SecAccSem);
 
-            try
-            {
-                int seedBitSize = cfg::get_root_node().get<int>("security_level.seed_size");
-                int seedByteSize = (seedBitSize % 8) ? (seedBitSize / 8) + 1 : (seedBitSize / 8);
-                LE_INFO("Seed bit_size: %d, byte_size:%d", seedBitSize, seedByteSize);
+    LE_INFO("[SecAcc-Return] isInternalHandle: %d, sendNRC-result: %d",
+            *isInternalHandle, (int) this->remoteError);
 
-                sendDataLen = 2 + seedByteSize; // 2 = (SID + SUBFUNC)
-
-                if (sendDataLen > UDS_DATA_SIZE)
-                {
-                    LE_ERROR("Response-Seed size if overflow (> %u)", UDS_DATA_SIZE);
-                    *isInternalHandle = true;
-                    // UDS_0x27_NRC_22: Response-Seed size if overflow
-                    return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
-                }
-
-                memset(sendBuf + 2, 0x00, seedByteSize);
-            }
-            catch (const std::exception& e)
-            {
-                LE_ERROR("Failed to get the seed size from YAML configuration: %s", e.what());
-                *isInternalHandle = true;
-                // UDS_0x27_NRC_22: Failed to get the seed size from YAML configuration
-                return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
-            }
-
-            sendDataLen = UDS_SECURITY_ACCESS_RESP_SEED_ZERO_LEN;
-
-            //Send positive response
-            SendData(addrInfoPtr);
-            *isInternalHandle = true;
-            return LE_OK;
-        }
-        else
-        {
-            //Will send the indication to the diag service
-            *isInternalHandle = false;
-            return LE_OK;
-        }
-
-    }
-    // sendKey
-    else
-    {
-        // Check negative err code for minimum sendkey request msg length
-        if(recvDataLen < UDS_SECURITY_ACCESS_SEND_KEY_REQ_MIN_LEN)
-        {
-            LE_DEBUG("recvDataLen is less than the SecurityAccess sendkey msg minimum length.");
-            *isInternalHandle = true;
-            // UDS_0x27_NRC_13: Bad send key length
-            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-        }
-
-        //Without first receiving a 'requestSeed' request message.
-        if(reqSeedLevel == 0)
-        {
-            LE_DEBUG("Without first receiving a 'requestSeed' request message.");
-            *isInternalHandle = true;
-            // UDS_0x27_NRC_24: Received send-key before request-seed
-            return SendNRC(sid, REQ_SEQUENCE_ERROR, addrInfoPtr);
-        }
-
-        //'SendKey' level shall equal the 'requestSeed' SubFunction parameter value plus one.
-        if(subFunc != reqSeedLevel + 1)
-        {
-            LE_DEBUG("SendKey level shall equal the 'requestSeed' SubFunc param value plus one.");
-            *isInternalHandle = true;
-            // UDS_0x27_NRC_24: Request-seed + 1 != send-key level
-            return SendNRC(sid, REQ_SEQUENCE_ERROR, addrInfoPtr);
-        }
-
-        try
-        {
-            int keyBitSize = cfg::get_root_node().get<int>("security_level.key_size");
-            int keyByteSize = (keyBitSize % 8) ? (keyBitSize / 8) + 1 : (keyBitSize / 8);
-            LE_INFO("Key bit_size: %d, byte_size:%d", keyBitSize, keyByteSize);
-
-            if (recvDataLen - 2 != keyByteSize) // 2 = sizeof( SID + SUBFUNCTION )
-            {
-                LE_ERROR("Key size is not match YAML configuration");
-                *isInternalHandle = true;
-                // UDS_0x27_NRC_13: Key size is not match to YAML configuration
-                return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-            }
-        }
-        catch (const std::exception& e)
-        {
-            LE_ERROR("Failed to get the key size from YAML configuration: %s", e.what());
-            *isInternalHandle = true;
-            // UDS_0x27_NRC_22: Failed to get the key size from YAML configuration
-            return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
-        }
-
-        reqSeedLevel = 0;
-
-        //Will send the indication to the diag service
-        *isInternalHandle = false;
-        return LE_OK;
-    }
-
-    return LE_OK;
+    return this->remoteError;
 }
 
 /**
@@ -1419,7 +1331,7 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
         LE_INFO("security type=0x%x", security_type);
         //Authentication check after authentication service is supported, send NRC 0x34
         //Security access check. UDS_0x2F_NRC_33
-        if(security_type == SECURITY_ACCESS_REQUEST_ID && securityLevel == 0)
+        if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked() == false)
         {
             LE_WARN("Did is secured and the server is not unlocked.");
             return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
@@ -1851,7 +1763,7 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
 
         if (lockSupported == true)
         {
-            if (securityLevel == 0)
+            if (! SecurityAccess_IsUnlocked())
             {
                 LE_ERROR("Security access denied");
                 // UDS_0x38_NRC_33: Access denied
@@ -2170,7 +2082,18 @@ void UdsCommunicationMgr::DiagIndicationHandler
         udsCmMgr.recvDataLen = 0;
         udsCmMgr.sendDataLen = 0;
 
-        IndicateWhenChangingToDefault();
+        if (udsCmMgr.SessionType != DEFAULT_SESSION)
+        {
+            LE_INFO("report -> SESSION_CONTROL_SIG (doip-break)");
+            SecAccReport_t report = {
+                .type = SESSION_CONTROL_SIG,
+                .curr_session_id = (uint32_t) udsCmMgr.SessionType,
+                .mgr = &udsCmMgr,
+            };
+            le_event_Report(SecAccEventIdRef, &report, sizeof(report));
+        }
+
+        udsCmMgr.IndicateWhenChangingToDefault();
 
         return;
     }
@@ -2462,6 +2385,8 @@ le_result_t UdsCommunicationMgr::SendUDSResp
 
     auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
 
+    this->nrcCode = err; /* Record current NRC */
+
     le_result_t ret;
     taf_doip_DiagMsg_t respDiagMsg;
     taf_doip_AddrInfo_t respAddrInfo;
@@ -2545,9 +2470,13 @@ le_result_t UdsCommunicationMgr::SendUDSResp
 
     if (ret == LE_UNSUPPORTED)
     {
-        // Suppress positive response.
-        udsCmMgr.CheckAndRestartS3Timer(serviceId);
-        return LE_OK;
+        /* Security Access Service needs response */
+        if (recvBuf[0] != SECURITY_ACCESS_REQUEST_ID)
+        {
+            // Suppress positive response.
+            udsCmMgr.CheckAndRestartS3Timer(serviceId);
+            return LE_OK;
+        }
     }
     else if (ret != LE_OK)
     {
@@ -2667,16 +2596,16 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
         LE_ERROR("Exception: %s. Use default value:%dms", e.what(), p2ServerInterval);
     }
 
-    // Notify session change to the application.
+    // Notify session-change to the application.
     if (oldSessionType != newSessionType)
     {
-        // Session switched to default session.
+        // Switched to default session.
         if(newSessionType == DEFAULT_SESSION)
         {
             LE_INFO("default session:need to stop s3 timer");
             UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0);
         }
-        //Session switched to non-default session.
+        // Switched to non-default session.
         else
         {
             LE_INFO("other session:need to start s3 timer");
@@ -2684,13 +2613,14 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
             UdsTimerEventReport(TAF_UDS_S3_TIMER_START, s3ServerInterval);
         }
 
-        //Non default session to other session.
-        if(oldSessionType != DEFAULT_SESSION)
-        {
-            reqSeedLevel = 0;
-            securityLevel = 0;
-            LE_DEBUG("Session switched, reset the security level");
-        }
+        LE_INFO("report -> SESSION_CONTROL_SIG (d-tool)");
+        SecAccReport_t report = {
+            .type = SESSION_CONTROL_SIG,
+            .curr_session_id = (uint32_t) newSessionType,
+            .prev_session_id = (uint32_t) oldSessionType,
+            .mgr = this,
+        };
+        le_event_Report(SecAccEventIdRef, &report, sizeof(report));
 
         taf_doip_DiagMsg_t sesChangeMsg;
         if(udsIndicationHandler.safeRef == NULL)
@@ -2877,23 +2807,45 @@ le_result_t UdsCommunicationMgr::SecurityAccessResp
         return LE_FAULT;
     }
 
-    if (POSITIVE_RESPONSE != err)
+    uint8_t securityAccessType = recvBuf[1] & 0x7F;
+
+    le_sem_Ref_t SecAccSem = le_sem_Create("sync", 0);
+
+    if (securityAccessType % 2 != 0) /* Request Seed */
+    {
+        LE_INFO("report -> REQUEST_SEED_RESPONSE_SIG");
+        SecAccReport_t report = {
+            .type = REQUEST_SEED_RESPONSE_SIG,
+            .curr_session_id = (uint32_t) SessionType,
+            .sem = SecAccSem,
+            .mgr = this,
+        };
+        le_event_Report(SecAccEventIdRef, &report, sizeof(report));
+    }
+    else /* Send Key */
+    {
+        LE_INFO("report -> SEND_KEY_RESPONSE_SIG");
+        SecAccReport_t report = {
+            .type = SEND_KEY_RESPONSE_SIG,
+            .curr_session_id = (uint32_t) SessionType,
+            .sem = SecAccSem,
+            .mgr = this,
+        };
+        le_event_Report(SecAccEventIdRef, &report, sizeof(report));
+    }
+
+    le_sem_Wait(SecAccSem);
+    LE_INFO("[SecAcc] -> D-Tool");
+
+    if (POSITIVE_RESPONSE != this->nrcCode)
     {
         LE_DEBUG("Error code reported from Diag service");
-        SetNRC(serviceId, err);
+        SetNRC(serviceId, this->nrcCode);
         return LE_OK;
     }
 
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-    if (suppressPosRspFlag == 1)
-    {
-        return LE_UNSUPPORTED;
-    }
-
-    uint8_t securityAccessType = recvBuf[1] & 0x7F;
-
     sendBuf[0] = SECURITY_ACCESS_RESPONSE_ID;
-    sendBuf[1] = securityAccessType;
+    sendBuf[1] = recvBuf[1] & 0x7F; // Security Access Type
 
     if (dataPtr != NULL && dataSize != 0)
     {
@@ -2905,10 +2857,6 @@ le_result_t UdsCommunicationMgr::SecurityAccessResp
         sendDataLen = UDS_SECURITY_ACCESS_RESP_MIN_LEN;
     }
 
-    if (securityAccessType % 2 ==0)
-        securityLevel = securityAccessType - 1;
-
-    LE_DEBUG("securityLevel = %d", securityLevel);
     return LE_OK;
 }
 
@@ -3371,7 +3319,7 @@ bool UdsCommunicationMgr::IsSecurityAccessMatched
         LE_DEBUG("Security type = 0x%x", secType);
 
         // Security access check
-        if (secType == SECURITY_ACCESS_REQUEST_ID && securityLevel == 0)
+        if (secType == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked() == false)
         {
             LE_WARN("Node is secured and the server is not unlocked.");
             return false;

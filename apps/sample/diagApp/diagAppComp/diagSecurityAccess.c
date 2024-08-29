@@ -117,7 +117,7 @@ static void securityMsgHandler
                     TAF_DIAGSECURITY_SEC_ACCESS_CONDITIONS_NOT_CORRECT,
                     NULL, 0) != LE_OK)
             {
-                LE_ERROR("Send response error");
+                LE_ERROR("API SendSecAccessResp");
             }
             return;
         }
@@ -134,7 +134,7 @@ static void securityMsgHandler
                     TAF_DIAGSECURITY_SEC_ACCESS_CONDITIONS_NOT_CORRECT,
                     NULL, 0) != LE_OK)
             {
-                LE_ERROR("Send response error");
+                LE_ERROR("API SendSecAccessResp");
             }
             return;
         }
@@ -153,7 +153,7 @@ static void securityMsgHandler
                     TAF_DIAGSECURITY_SEC_ACCESS_REQUEST_OUT_OF_RANGE,
                     NULL, 0) != LE_OK)
             {
-                LE_ERROR("Send response error");
+                LE_ERROR("API SendSecAccessResp");
             }
             return;
         }
@@ -163,7 +163,7 @@ static void securityMsgHandler
         if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
                 TAF_DIAGSECURITY_SEC_ACCESS_NO_ERROR, seedData, seedDataLen ) != LE_OK)
         {
-            LE_ERROR("Send response error");
+            LE_ERROR("API SendSecAccessResp");
         }
     }
     //Validate the key
@@ -178,7 +178,7 @@ static void securityMsgHandler
             if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
                     TAF_DIAGSECURITY_SEC_ACCESS_INVALID_KEY, NULL,0) != LE_OK)
             {
-                LE_ERROR("Send response error");
+                LE_ERROR("API SendSecAccessResp");
             }
             return;
         }
@@ -192,7 +192,7 @@ static void securityMsgHandler
             if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
                     TAF_DIAGSECURITY_SEC_ACCESS_CONDITIONS_NOT_CORRECT, NULL, 0) != LE_OK)
             {
-                LE_ERROR("Send response error");
+                LE_ERROR("API SendSecAccessResp");
             }
             return;
         }
@@ -203,7 +203,7 @@ static void securityMsgHandler
             if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
                     TAF_DIAGSECURITY_SEC_ACCESS_NO_ERROR, NULL,0) != LE_OK)
             {
-                LE_ERROR("Send response error");
+                LE_ERROR("API SendSecAccessResp");
             }
 
         }
@@ -214,7 +214,7 @@ static void securityMsgHandler
             if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
                     TAF_DIAGSECURITY_SEC_ACCESS_INVALID_KEY, NULL,0) != LE_OK)
             {
-                LE_ERROR("Send response error");
+                LE_ERROR("API SendSecAccessResp");
             }
         }
     }

@@ -453,12 +453,19 @@ Node & top_routines_all(std::string field_name, T expected_value)
 }
 
 template <typename T = std::string>
-Node & top_datas(std::string field_name, T expected_value)
+Node & top_security_level(std::string field_name, T expected_value)
 {
     throw std::runtime_error("[tiny] to be implemented");
 }
+
 template <typename T = std::string>
-Node & top_IO_all(std::string field_name, T expected_value)
+Node & top_routine_parameters_all(std::string field_name, T expected_value)
+{
+    throw std::runtime_error("[tiny] to be implemented");
+}
+
+template <typename T = std::string>
+Node & top_datas(std::string field_name, T expected_value)
 {
     throw std::runtime_error("[tiny] to be implemented");
 }
@@ -468,6 +475,13 @@ Node & top_reset_all(std::string field_name, T expected_value)
 {
     throw std::runtime_error("[tiny] to be implemented");
 }
+
+template <typename T = std::string>
+Node & top_IO_all(std::string field_name, T expected_value)
+{
+    throw std::runtime_error("[tiny] to be implemented");
+}
+
 template <typename T = std::string>
 Node & top_did_all(std::string field_name, T expected_value)
 {

@@ -2,6 +2,7 @@ sources:
 {
     tafUDSCommunicationMgr.cpp
     tafUDSStack.cpp
+    tafSecurityAccess.cpp
 }
 
 cflags:
@@ -22,6 +23,10 @@ cxxflags:
 
 requires:
 {
+    api:
+    {
+        le_cfg.api
+    }
 
     component:
     {

@@ -1203,8 +1203,11 @@ errOut2:
     // Discard diagnostic message.
     udsTotalLen = 0;
     udsReceived = 0;
-    le_mem_Release(udsBuf);
-    udsBuf = NULL;
+    if (udsBuf)
+    {
+        le_mem_Release(udsBuf);
+        udsBuf = NULL;
+    }
     return;
 }
 

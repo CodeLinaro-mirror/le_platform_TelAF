@@ -81,6 +81,43 @@ void taf_RadioNetworkSelectionListener::onNetworkScanResults
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Initiate listener for telephony serving system.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_RadioServSysListener::taf_RadioServSysListener
+(
+    uint8_t phoneId ///< [IN] Slot ID.
+)
+{
+    phone = phoneId;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Listener for serving system information change.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioServSysListener::onSystemInfoChanged
+(
+    telux::tel::ServingSystemInfo sysInfo ///< [IN] Serving system information.
+)
+{
+    LE_DEBUG("<SDK Listener> taf_RadioServSysListener --> onSystemInfoChanged");
+
+    if (sysInfo.rat != rat)
+    {
+        rat = sysInfo.rat;
+        auto &tafRadio = taf_Radio::GetInstance();
+        taf_radio_RatChangeInd_t* ratChangeIndPtr =
+            (taf_radio_RatChangeInd_t*)le_mem_ForceAlloc(tafRadio.ratChangePool);
+        ratChangeIndPtr->rat = tafRadio.taf_radio_CovertRat(sysInfo.rat);
+        ratChangeIndPtr->phoneId = phone;
+        le_event_ReportWithRefCounting(tafRadio.ratChangeEvId, (void*)ratChangeIndPtr);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Initiate listener for IMS serving system.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1585,6 +1622,65 @@ le_event_Id_t taf_Radio::radioCmdEvId = nullptr;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Covert RAT enum.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_Rat_t taf_Radio::taf_radio_CovertRat
+(
+    telux::tel::RadioTechnology rat ///< [IN] Radio access technoloy.
+)
+{
+    switch (rat)
+    {
+        case telux::tel::RadioTechnology::RADIO_TECH_GSM:
+            return TAF_RADIO_RAT_GSM;
+        case telux::tel::RadioTechnology::RADIO_TECH_GPRS:
+            return TAF_RADIO_RAT_GPRS;
+        case telux::tel::RadioTechnology::RADIO_TECH_EDGE:
+            return TAF_RADIO_RAT_EDGE;
+        case telux::tel::RadioTechnology::RADIO_TECH_UMTS:
+            return TAF_RADIO_RAT_UMTS;
+        case telux::tel::RadioTechnology::RADIO_TECH_IS95A:
+            return TAF_RADIO_RAT_IS95A;
+        case telux::tel::RadioTechnology::RADIO_TECH_IS95B:
+            return TAF_RADIO_RAT_IS95B;
+        case telux::tel::RadioTechnology::RADIO_TECH_1xRTT:
+            return TAF_RADIO_RAT_1xRTT;
+        case telux::tel::RadioTechnology::RADIO_TECH_EVDO_0:
+            return TAF_RADIO_RAT_EVDO_0;
+        case telux::tel::RadioTechnology::RADIO_TECH_EVDO_A:
+            return TAF_RADIO_RAT_EVDO_A;
+        case telux::tel::RadioTechnology::RADIO_TECH_EVDO_B:
+            return TAF_RADIO_RAT_EVDO_B;
+        case telux::tel::RadioTechnology::RADIO_TECH_EHRPD:
+            return TAF_RADIO_RAT_EHRPD;
+        case telux::tel::RadioTechnology::RADIO_TECH_HSDPA:
+            return TAF_RADIO_RAT_HSDPA;
+        case telux::tel::RadioTechnology::RADIO_TECH_HSUPA:
+            return TAF_RADIO_RAT_HSUPA;
+        case telux::tel::RadioTechnology::RADIO_TECH_HSPA:
+            return TAF_RADIO_RAT_HSPA;
+        case telux::tel::RadioTechnology::RADIO_TECH_HSPAP:
+            return TAF_RADIO_RAT_HSPAP;
+        case telux::tel::RadioTechnology::RADIO_TECH_TD_SCDMA:
+            return TAF_RADIO_RAT_TDSCDMA;
+        case telux::tel::RadioTechnology::RADIO_TECH_IWLAN:
+            return TAF_RADIO_RAT_IWLAN;
+        case telux::tel::RadioTechnology::RADIO_TECH_LTE:
+            return TAF_RADIO_RAT_LTE;
+        case telux::tel::RadioTechnology::RADIO_TECH_LTE_CA:
+            return TAF_RADIO_RAT_LTE_CA;
+        case telux::tel::RadioTechnology::RADIO_TECH_NR5G:
+            return TAF_RADIO_RAT_NR5G;
+        default:
+            LE_WARN("Unknown RAT.");
+    }
+
+    return TAF_RADIO_RAT_UNKNOWN;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Layered handler for IMS registration state.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1724,6 +1820,32 @@ void taf_Radio::taf_radio_LayerCellInfoHandler
     {
         taf_RadioCellInfoInd_t* cellInfoPtr = (taf_RadioCellInfoInd_t*)reportPtr;
         handlerFunc(cellInfoPtr->cellInfoStatus, cellInfoPtr->phoneId, le_event_GetContextPtr());
+    }
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Layered handler for RAT change.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::taf_radio_LayerRatChangeHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_radio_RatChangeHandlerFunc_t handlerFunc =
+        (taf_radio_RatChangeHandlerFunc_t)layerHandlerFunc;
+
+    if (handlerFunc)
+    {
+        handlerFunc((taf_radio_RatChangeInd_t*)reportPtr, le_event_GetContextPtr());
     }
 
     le_mem_Release(reportPtr);
@@ -1993,6 +2115,8 @@ void RegisterListener
 
         tafRadio.dataServSysManagers[(SlotId)slot]->registerListener(
             tafRadio.dataServSysListeners[(SlotId)slot]);
+
+        tafRadio.servingSystemManagers[i - 1]->registerListener(tafRadio.servSysListeners[i - 1]);
     }
 }
 
@@ -2025,6 +2149,13 @@ void DeregisterListener
         {
             tafRadio.dataServSysManagers[(SlotId)slot]->deregisterListener(
                 tafRadio.dataServSysListeners[(SlotId)slot]);
+        }
+
+        if (tafRadio.servingSystemManagers[i - 1] != nullptr &&
+            tafRadio.servSysListeners[i -1] != nullptr)
+        {
+            tafRadio.servingSystemManagers[i - 1]->deregisterListener(
+                tafRadio.servSysListeners[i - 1]);
         }
     }
 }
@@ -2114,6 +2245,7 @@ void taf_Radio::Init(void)
     lteSsChangeEvId = le_event_CreateIdWithRefCounting("LteSsChange");
     nr5gSsChangeEvId = le_event_CreateIdWithRefCounting("Nr5gSsChange");
     cellInfoChangeEvId = le_event_CreateIdWithRefCounting("CellInfoChange");
+    ratChangeEvId = le_event_CreateIdWithRefCounting("RatChange");
 
     // 2. Initiate the memory pool
     prefOpsListPool = le_mem_InitStaticPool(prefOpsListPool,
@@ -2144,6 +2276,7 @@ void taf_Radio::Init(void)
     imsStatusChangePool = le_mem_CreatePool("imsStatusChangePool", sizeof(taf_RadioImsStatus_t));
     ssChangePool = le_mem_CreatePool("ssChangePool", sizeof(taf_RadioSsInd_t));
     cellInfoChangePool = le_mem_CreatePool("cellInfoPool", sizeof(taf_radio_NetRegStateInd_t));
+    ratChangePool = le_mem_CreatePool("ratChangePool", sizeof(taf_radio_RatChangeInd_t));
 
 
     // 3. Initiate the reference map.
@@ -2297,6 +2430,8 @@ void taf_Radio::Init(void)
                             isReady = true;
                             LE_INFO("%" PRIuS " serving subsystem is ready.", index);
                             servingSystemManagers.emplace_back(servingSystemManager);
+                            auto listener = std::make_shared<taf_RadioServSysListener>((uint8_t)index);
+                            servSysListeners.emplace_back(listener);
                         }
                     }
                 }

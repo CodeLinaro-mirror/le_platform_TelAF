@@ -38,12 +38,127 @@
 #include "taf_pa_keystore.h"
 
 //--------------------------------------------------------------------------------------------------
-// Data structures.
+// Enum for key type.
 //--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    KS_NEW_CREATED_KEY,  ///< New created key.
+    KS_PROVISIONED_KEY,  ///< Provisioned key.
+}
+KeyType_t;
+
+//--------------------------------------------------------------------------------------------------
+// Enum for event operation.
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    KS_OP_CREATE,        ///< Create a key.
+    KS_OP_SHARE,         ///< Share a key.
+}
+KeyOp_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Session node structure used by a crypto opertion.
+ * Data struct for shared app object
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_pa_ks_SharedApp_t appInfo; ///< Share app object
+    le_sls_Link_t link;            ///< Link to the list.
+}
+SharedApp_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data struct for shared app list for a client.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_ks_KeyRef_t keyRef;                       ///< Reference to the key
+    le_msg_SessionRef_t clientSessionRef;         ///< Client session reference
+    le_dls_Link_t link;                           ///< link to key's shareApp list
+    le_sls_List_t appList;                        ///< ShareApp list for this client session
+    le_sls_Link_t* currPtr;                       ///< Position for current shared appName.
+}
+SharedAppList_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data struct for key sharing state change event. The event could be triggered once a key is shared
+ * or a key sharing event hander is registered.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_ks_SharingState_t state;                   ///< Key sharing state
+    char keyId[TAF_KS_MAX_KEY_ID_SIZE + 1];        ///< Key ID
+    char ownerAppName[LIMIT_MAX_APP_NAME_LEN + 1]; ///< Owner app name
+    char sharedAppName[LIMIT_MAX_APP_NAME_LEN + 1];///< Shared app name
+}
+KeySharing_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data struct for generic key event in service layer.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    KeyOp_t op;                                    ///< Operation type.
+    KeyMgt_KeyFileRef_t keyFileRef;                ///< Key file reference from PA layer
+    KeySharing_t shareInfo;                        ///< Sharing info is needed if op=KS_OP_SHARE
+}
+KeyEvent_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data struct for new created key.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    char keyId[TAF_KS_MAX_KEY_ID_SIZE + 1];///< Key ID string
+    le_msg_SessionRef_t clientSessionRef;  ///< Client session reference
+    taf_ks_KeyUsage_t keyUsage;            ///< Key usage
+    le_dls_List_t tagList;                 ///< Tag list set to the new key
+}
+NewKey_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data struct for provisioned key.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    KeyMgt_KeyFileRef_t keyFileRef;        ///< Key file reference from PA layer
+    le_dls_List_t       cryptoSessionList; ///< Crypto session list
+    le_dls_List_t       sharedAppList;     ///< Shared app list
+}
+ProKey_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data struct for generic key.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_ks_KeyRef_t     keyRef;            ///< Reference to the key
+    KeyType_t           keyType;           ///< Key type
+    union
+    {
+        NewKey_t newKey;                   ///< New key object
+        ProKey_t proKey;                   ///< Provisioned key object
+    };
+}
+taf_ks_Key_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data struct for crypto session.
  */
 //--------------------------------------------------------------------------------------------------
 typedef struct
@@ -60,32 +175,20 @@ taf_ks_CryptoSession_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Key structure for new created keys. New key is not allowed for any crypto operations until it's
- * provisioned with proper key value.
+ * Data struct for key sharing handler.
  */
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    char keyName[TAF_KS_MAX_KEY_ID_SIZE+1];///< Key name string
-    le_msg_SessionRef_t clientSessionRef;  ///< Client session reference
-    taf_ks_KeyUsage_t keyUsage;            ///< Key usage
-    le_dls_List_t tagList;                 ///< Tag list set to the new key
+   le_msg_SessionRef_t clientSessionRef;             ///< Client session reference
+   char keyId[TAF_KS_MAX_KEY_ID_SIZE + 1];           ///< Key ID string
+   char ownerAppName[LIMIT_MAX_APP_NAME_LEN + 1];    ///< Key owner application
+   taf_ks_SharingState_t state;                      ///< Sharing state
+   taf_ks_KeySharingHandlerFunc_t handleFunc;        ///< Handler function
+   void* context;                                    ///< Handler context
+   taf_ks_KeySharingHandlerRef_t handlerRef;         ///< Handler reference
 }
-taf_ks_NewKey_t;
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Key structure for standard keys.
- */
-//--------------------------------------------------------------------------------------------------
-typedef struct
-{
-    taf_ks_NewKey_t*    newKeyPtr;         ///< new key reference if the key is new created.
-    KeyMgt_KeyFileRef_t keyFilePtr;        ///< Key file reference to the key file
-    le_dls_List_t       cryptoSessionList; ///< Crypto session list
-    taf_ks_KeyRef_t     keyRef;            ///< Reference to the key
-}
-taf_ks_Key_t;
+taf_ks_Handler_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -96,10 +199,17 @@ static le_ref_MapRef_t CryptoSessionRefMap;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Safe Reference Map for standard keys.
+ * Safe Reference Map for generic keys.
  */
 //--------------------------------------------------------------------------------------------------
 static le_ref_MapRef_t KeyRefMap;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Safe Reference Map for key sharing event handlers.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_ref_MapRef_t HandlerRefMap;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -110,14 +220,7 @@ static le_mem_PoolRef_t CryptoSessionPool;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The memory pool for new keys.
- */
-//--------------------------------------------------------------------------------------------------
-static le_mem_PoolRef_t NewKeyPool;
-
-//--------------------------------------------------------------------------------------------------
-/**
- * The memory pool for standard keys.
+ * The memory pool for generic keys.
  */
 //--------------------------------------------------------------------------------------------------
 static le_mem_PoolRef_t KeyPool;
@@ -152,26 +255,76 @@ static le_mem_PoolRef_t DataPool;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Search a key(value already provisioned) by keyFile reference
+ * The memory pool for key sharing handlers.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_mem_PoolRef_t HandlerPool;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The memory pool for key sharing app object.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_mem_PoolRef_t SharedAppPool;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The memory pool for key sharing app list object for a client.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_mem_PoolRef_t SharedAppListPool;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The memory pool for key file events
+ */
+//--------------------------------------------------------------------------------------------------
+static le_event_Id_t KeyEventId;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check if the string follows POSIX file name format. It only contains character in [A-Za-z0-9._-].
+ */
+//--------------------------------------------------------------------------------------------------
+static bool IsPosixFileNameFormat(const char* str)
+{
+    while (*str)
+    {
+        if ((!isalnum((unsigned char)*str)) &&
+            (*str != '_') &&
+            (*str != '.') &&
+            (*str != '-'))
+        {
+            return false;
+        }
+
+        str++;
+    }
+
+    return true;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Search a provisoned key by key file reference.
  */
 //--------------------------------------------------------------------------------------------------
 static taf_ks_Key_t* SearchProvisionedKey
 (
-    KeyMgt_KeyFileRef_t keyFileRef ///< [IN] Key reference
+    KeyMgt_KeyFileRef_t keyFileRef ///< [IN] Key file reference
 )
 {
     le_ref_IterRef_t iterRef = le_ref_GetIterator(KeyRefMap);
-
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         taf_ks_Key_t* keyPtr = le_ref_GetValue(iterRef);
-        LE_ASSERT(keyPtr != NULL);
 
-        if ((keyPtr->newKeyPtr == NULL) &&
-            (keyPtr->keyFilePtr != NULL) &&
-            (keyPtr->keyFilePtr == keyFileRef))
+        if ((keyPtr->keyType == KS_PROVISIONED_KEY) &&
+            (keyPtr->proKey.keyFileRef == keyFileRef))
         {
-            LE_INFO("found a provisioned key(%p).", keyPtr->keyFilePtr);
+            LE_INFO("Found a provisioned key(%p) for key file(%p).",
+                    keyPtr->keyRef, keyPtr->proKey.keyFileRef);
+
             return keyPtr;
         }
     }
@@ -181,27 +334,26 @@ static taf_ks_Key_t* SearchProvisionedKey
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Search a new created key(value not provisioned yet) by key name.
+ * Search a new created key(not provisioned yet) by key ID.
  */
 //--------------------------------------------------------------------------------------------------
 static taf_ks_Key_t* SearchNewKey
 (
-    const char* keyName ///< [IN] Key reference
+    const char* keyId ///< [IN] Key ID
 )
 {
     le_ref_IterRef_t iterRef = le_ref_GetIterator(KeyRefMap);
-
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         taf_ks_Key_t* keyPtr = le_ref_GetValue(iterRef);
-        LE_ASSERT(keyPtr != NULL);
 
-        if ((keyPtr->keyFilePtr == NULL) &&
-            (keyPtr->newKeyPtr != NULL) &&
-            (keyPtr->newKeyPtr->clientSessionRef == taf_ks_GetClientSessionRef()) &&
-            (0 == strcmp(keyName, keyPtr->newKeyPtr->keyName)))
+        if ((keyPtr->keyType == KS_NEW_CREATED_KEY) &&
+            (keyPtr->newKey.clientSessionRef == taf_ks_GetClientSessionRef()) &&
+            (0 == strcmp(keyId, keyPtr->newKey.keyId)))
         {
-            LE_INFO("found a new key(%p) for keyName '%s'.", keyPtr->newKeyPtr, keyName);
+            LE_INFO("Found a new key(%p) for keyId '%s' of client(%p).", keyPtr->keyRef, keyId,
+                    keyPtr->newKey.clientSessionRef);
+
             return keyPtr;
         }
     }
@@ -214,60 +366,52 @@ static taf_ks_Key_t* SearchNewKey
  * Set or update a specified tag for a new key.
  */
 //--------------------------------------------------------------------------------------------------
-static le_result_t SetTag
+static void SetTag
 (
-    taf_ks_Key_t*    keyPtr,   ///< [IN] Key pointer
-    taf_pa_ks_Tag_t* setTagPtr ///< [IN] Tag pointer
+    taf_ks_Key_t*    keyPtr,    ///< [IN] Key pointer
+    taf_pa_ks_Tag_t* setTagPtr  ///< [IN] Tag pointer
 )
 {
     taf_pa_ks_Tag_t* tagPtr = NULL;
 
-    if ((setTagPtr == NULL) || (setTagPtr->id >= TAF_PA_KS_TAG_MAX_IDS) || (keyPtr == NULL))
+    if ((setTagPtr != NULL) && (setTagPtr->id < TAF_PA_KS_TAG_MAX_IDS) &&
+        (keyPtr != NULL) && (keyPtr->keyType == KS_NEW_CREATED_KEY))
     {
-        LE_ERROR("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
-    // Check if it's a new key, only new key is allowed to set the tag.
-    if ((keyPtr->newKeyPtr == NULL) || (keyPtr->keyFilePtr != NULL))
-    {
-        LE_ERROR("Not permitted.");
-        return LE_NOT_PERMITTED;
-    }
-
-    // Check if the tag is created already for this new key.
-    le_dls_Link_t* linkPtr = le_dls_Peek(&(keyPtr->newKeyPtr->tagList));
-
-    while (linkPtr)
-    {
-        tagPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Tag_t, link);
-        linkPtr = le_dls_PeekNext(&(keyPtr->newKeyPtr->tagList), linkPtr);
-
-        if (tagPtr->id == setTagPtr->id)
+        // Check if the tag is already created for this new key.
+        le_dls_Link_t* linkPtr = le_dls_Peek(&(keyPtr->newKey.tagList));
+        while (linkPtr)
         {
-            // Remove the old tag from the tagList of the new key.
-            LE_INFO("Remove old tag(id = %u) for new keyName '%s'.",
-                    tagPtr->id, keyPtr->newKeyPtr->keyName);
-            le_dls_Remove(&(keyPtr->newKeyPtr->tagList), &(tagPtr->link));
+            tagPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Tag_t, link);
+            linkPtr = le_dls_PeekNext(&(keyPtr->newKey.tagList), linkPtr);
 
-            // Release the tag object
-            if ((tagPtr->id == TAF_PA_KS_TAG_APPLICATION_DATA) && (tagPtr->appDataPtr != NULL))
+            if (tagPtr->id == setTagPtr->id)
             {
-                le_mem_Release(tagPtr->appDataPtr);
+                // Remove the old tag from the tagList of the new key.
+                LE_INFO("Remove old tag(%u) for new keyId '%s'.",
+                        tagPtr->id, keyPtr->newKey.keyId);
+                le_dls_Remove(&(keyPtr->newKey.tagList), &(tagPtr->link));
+
+                if ((tagPtr->id == TAF_PA_KS_TAG_APPLICATION_DATA) && (tagPtr->appDataPtr != NULL))
+                {
+                    // Release the appData object in tag object.
+                    le_mem_Release(tagPtr->appDataPtr);
+                }
+
+                // Release the tag object.
+                le_mem_Release(tagPtr);
+
+                break;
             }
-            le_mem_Release(tagPtr);
-
-            break;
         }
+
+        // Create a new tag with sepcified id/value for the new key.
+        LE_INFO("Add tag(%u) for new keyId '%s' for client(%p).",
+                setTagPtr->id, keyPtr->newKey.keyId,
+                keyPtr->newKey.clientSessionRef);
+
+        // Add the tag into the tagList of the new key.
+        le_dls_Queue(&keyPtr->newKey.tagList, &(setTagPtr->link));
     }
-
-    // Create a new tag with sepcified id/value for the new key.
-    LE_INFO("Add tag(id = %u) for new keyName '%s'.", setTagPtr->id, keyPtr->newKeyPtr->keyName);
-
-    // Add the tag into the tagList of the new key.
-    le_dls_Queue(&keyPtr->newKeyPtr->tagList, &(setTagPtr->link));
-
-    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -275,85 +419,61 @@ static le_result_t SetTag
  * Set or update a specified parameter for a crypto session.
  */
 //--------------------------------------------------------------------------------------------------
-static le_result_t SetParam
+static void SetParam
 (
-    taf_ks_CryptoSession_t* sessionPtr,   ///< [IN] Cryption session pointer
-    taf_pa_ks_Param_t*     setParamPtr    ///< [IN] Parameter pointer
+    taf_ks_CryptoSession_t* sessionPtr,///< [IN] Cryption session pointer
+    taf_pa_ks_Param_t* setParamPtr     ///< [IN] Parameter pointer
 )
 {
     taf_pa_ks_Param_t* paramPtr = NULL;
-    taf_ks_Key_t* keyPtr = NULL;
 
-    if (sessionPtr == NULL)
+    if ((sessionPtr != NULL) && (setParamPtr != NULL) &&
+        (setParamPtr->id < TAF_PA_KS_PARAM_MAX_IDS))
     {
-        LE_ERROR("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
-    keyPtr = le_ref_Lookup(KeyRefMap, sessionPtr->keyRef);
-
-    if ((setParamPtr == NULL) ||
-        (setParamPtr->id >= TAF_PA_KS_PARAM_MAX_IDS) ||
-        (keyPtr == NULL))
-    {
-        LE_ERROR("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
-    // Check if it's a provisioned key, only the session of provisioned key
-    // is allowed to set the parameter.
-    if ((keyPtr->newKeyPtr != NULL) || (keyPtr->keyFilePtr == NULL))
-    {
-        LE_ERROR("Not permitted.");
-        return LE_NOT_PERMITTED;
-    }
-
-    // Check if the parameter is created already for this session.
-    le_dls_Link_t* linkPtr = le_dls_Peek(&(sessionPtr->paramList));
-
-    while (linkPtr)
-    {
-        paramPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Param_t, link);
-
-        linkPtr = le_dls_PeekNext(&(sessionPtr->paramList), linkPtr);
-
-        if (paramPtr->id == setParamPtr->id)
+        // Check if the parameter is already created for this session.
+        le_dls_Link_t* linkPtr = le_dls_Peek(&(sessionPtr->paramList));
+        while (linkPtr)
         {
-            // Remove the parameter from the paramList for the session.
-            LE_INFO("Remove old param(id = %u) for session(%p) of provisioned key(%p)",
-                    paramPtr->id, sessionPtr, keyPtr->keyFilePtr);
-            le_dls_Remove(&(sessionPtr->paramList), &(paramPtr->link));
+            paramPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Param_t, link);
+            linkPtr = le_dls_PeekNext(&(sessionPtr->paramList), linkPtr);
 
-            // Free the sub parameter.
-            switch(paramPtr->id)
+            if (paramPtr->id == setParamPtr->id)
             {
-                case TAF_PA_KS_PARAM_NONCE:
-                   le_mem_Release(paramPtr->nonceDataPtr);
-                   break;
+                // Remove the parameter from the paramList for the session.
+                LE_INFO("Remove old param(%u) for crypto session(%p) of key(%p).",
+                        paramPtr->id, sessionPtr->cryptoSessionRef, sessionPtr->keyRef);
+                le_dls_Remove(&(sessionPtr->paramList), &(paramPtr->link));
 
-                case TAF_PA_KS_PARAM_APPLICATION_DATA:
-                   le_mem_Release(paramPtr->appDataPtr);
-                   break;
+                // Free the sub parameter.
+                switch(paramPtr->id)
+                {
+                    case TAF_PA_KS_PARAM_NONCE:
+                        le_mem_Release(paramPtr->nonceDataPtr);
+                        break;
 
-                default:
-                   LE_FATAL("Unrecognized param(id = %u)", paramPtr->id);
-                   break;
+                    case TAF_PA_KS_PARAM_APPLICATION_DATA:
+                        le_mem_Release(paramPtr->appDataPtr);
+                        break;
+
+                    default:
+                        LE_FATAL("Unrecognized param(%u)", paramPtr->id);
+                        break;
+                }
+
+                // Free the parameter.
+                le_mem_Release(paramPtr);
+
+                break;
             }
-            // Free the parameter.
-            le_mem_Release(paramPtr);
-
-            break;
         }
+
+        // Create a new parameter with sepcified id/value for the session.
+        LE_INFO("Add parameter(%u) for crypto session(%p) of key(%p).",
+                setParamPtr->id, sessionPtr->cryptoSessionRef, sessionPtr->keyRef);
+
+        // Add the paramter into the paramList of the session
+        le_dls_Queue(&(sessionPtr->paramList), &(setParamPtr->link));
     }
-
-    // Create a new parameter with sepcified id/value for the session.
-    LE_INFO("Add parameter(id = %u) for session(%p) of provisioned key(%p)",
-            setParamPtr->id, sessionPtr, keyPtr->keyFilePtr);
-
-    // Add the paramter into the paramList of the session
-    le_dls_Queue(&(sessionPtr->paramList), &(setParamPtr->link));
-
-    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -361,51 +481,33 @@ static le_result_t SetParam
  * Clear the tag list of a new key. Remove and free all the tag objects in the list.
  */
 //--------------------------------------------------------------------------------------------------
-static le_result_t ClearTagList
+static void ClearTagList
 (
-    taf_ks_Key_t*    keyPtr   ///< [IN] Key pointer
+    taf_ks_Key_t* keyPtr   ///< [IN] Key pointer
 )
 {
     taf_pa_ks_Tag_t* tagPtr;
 
-    if (keyPtr == NULL)
+    if ((keyPtr != NULL) && (keyPtr->keyType == KS_NEW_CREATED_KEY))
     {
-        LE_ERROR("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
-    // Check if it's a new key, only new key has the tag list.
-    if ((keyPtr->newKeyPtr == NULL) || (keyPtr->keyFilePtr != NULL))
-    {
-        LE_ERROR("Not permitted.");
-        return LE_NOT_PERMITTED;
-    }
-
-    // Go through the tagList, free tag object and remove the node.
-    le_dls_Link_t* linkPtr = le_dls_Pop(&(keyPtr->newKeyPtr->tagList));
-
-    while (linkPtr)
-    {
-        tagPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Tag_t, link);
-        LE_ASSERT((tagPtr != NULL) && (tagPtr->id < TAF_PA_KS_TAG_MAX_IDS));
-
-        LE_INFO("Removed the tag(id = %u) of new keyName '%s'.",
-                tagPtr->id, keyPtr->newKeyPtr->keyName);
-        // Release the tag object
-        if ((tagPtr->id == TAF_PA_KS_TAG_APPLICATION_DATA) && (tagPtr->appDataPtr != NULL))
+        // Go through the tagList, free tag object and remove the node.
+        le_dls_Link_t* linkPtr = le_dls_Pop(&(keyPtr->newKey.tagList));
+        while (linkPtr)
         {
-            le_mem_Release(tagPtr->appDataPtr);
+            tagPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Tag_t, link);
+
+            LE_INFO("Removed the tag(%u) of new Key ID '%s'.",
+                    tagPtr->id, keyPtr->newKey.keyId);
+            // Release the tag object
+            if ((tagPtr->id == TAF_PA_KS_TAG_APPLICATION_DATA) && (tagPtr->appDataPtr != NULL))
+            {
+                le_mem_Release(tagPtr->appDataPtr);
+            }
+            le_mem_Release(tagPtr);
+
+            linkPtr = le_dls_Pop(&(keyPtr->newKey.tagList));
         }
-        le_mem_Release(tagPtr);
-
-        linkPtr = le_dls_Pop(&(keyPtr->newKeyPtr->tagList));
     }
-
-    // The list must be empty after clearing.
-    LE_ASSERT(le_dls_NumLinks(&(keyPtr->newKeyPtr->tagList)) == 0);
-    LE_INFO("Cleared tag list of new keyName '%s'", keyPtr->newKeyPtr->keyName);
-
-    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -414,73 +516,44 @@ static le_result_t ClearTagList
  * in the list.
  */
 //--------------------------------------------------------------------------------------------------
-static le_result_t ClearParamList
+static void ClearParamList
 (
-    taf_ks_CryptoSession_t* sessionPtr   ///< [IN] Cryption session pointer
+    taf_ks_CryptoSession_t* sessionPtr   ///< [IN] Crypto session pointer
 )
 {
     taf_pa_ks_Param_t* paramPtr = NULL;
-    taf_ks_Key_t* keyPtr = NULL;
 
-    if (sessionPtr == NULL)
+    if (sessionPtr != NULL)
     {
-        LE_ERROR("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
-    keyPtr = le_ref_Lookup(KeyRefMap, sessionPtr->keyRef);
-
-    if (keyPtr == NULL)
-    {
-        LE_ERROR("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
-    // Check if it's a provisioned key, only the session of provisioned key
-    // has the parameter list.
-    if ((keyPtr->newKeyPtr != NULL) || (keyPtr->keyFilePtr == NULL))
-    {
-        LE_ERROR("Not permitted.");
-        return LE_NOT_PERMITTED;
-    }
-
-    // Go through the paramList, free parameter object and remove the node.
-    le_dls_Link_t* linkPtr = le_dls_Pop(&(sessionPtr->paramList));
-
-    while (linkPtr)
-    {
-        paramPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Param_t, link);
-        LE_ASSERT((paramPtr != NULL) && (paramPtr->id < TAF_PA_KS_PARAM_MAX_IDS));
-
-        LE_INFO("Removed the param(id = %u) of session(%p) of provisioned key(%p)",
-                paramPtr->id, sessionPtr, keyPtr->keyFilePtr);
-        // Free the sub parameter.
-        switch(paramPtr->id)
+        // Go through the paramList, free parameter object and remove the node.
+        le_dls_Link_t* linkPtr = le_dls_Pop(&(sessionPtr->paramList));
+        while (linkPtr)
         {
-            case TAF_PA_KS_PARAM_NONCE:
-               le_mem_Release(paramPtr->nonceDataPtr);
-               break;
+            paramPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Param_t, link);
 
-            case TAF_PA_KS_PARAM_APPLICATION_DATA:
-               le_mem_Release(paramPtr->appDataPtr);
-               break;
+            LE_INFO("Removed the param(%u) for crypto session(%p) of key(%p)",
+                    paramPtr->id, sessionPtr->cryptoSessionRef, sessionPtr->keyRef);
+            // Free the sub parameter.
+            switch(paramPtr->id)
+            {
+                case TAF_PA_KS_PARAM_NONCE:
+                    le_mem_Release(paramPtr->nonceDataPtr);
+                    break;
 
-            default:
-               LE_FATAL("Unrecognized param(id = %u)", paramPtr->id);
-               break;
+                case TAF_PA_KS_PARAM_APPLICATION_DATA:
+                    le_mem_Release(paramPtr->appDataPtr);
+                    break;
+
+                default:
+                    LE_FATAL("Unrecognized param(%u)", paramPtr->id);
+                    break;
+            }
+            // Free the parameter.
+            le_mem_Release(paramPtr);
+
+            linkPtr = le_dls_Pop(&(sessionPtr->paramList));
         }
-        // Free the parameter.
-        le_mem_Release(paramPtr);
-
-        linkPtr = le_dls_Pop(&(sessionPtr->paramList));
     }
-
-    // The list must be empty after clearing.
-    LE_ASSERT(le_dls_NumLinks(&(sessionPtr->paramList)) == 0);
-    LE_INFO("Cleared param list of session(%p) of provisioned key(%p)",
-            sessionPtr, keyPtr->keyFilePtr);
-
-    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -489,43 +562,30 @@ static le_result_t ClearParamList
  * started.
  */
 //--------------------------------------------------------------------------------------------------
-static le_result_t RemoveCryptoSession
+static void RemoveCryptoSession
 (
-    taf_ks_CryptoSession_t* sessionPtr
-        ///< [IN] Crypto session ptr.
+    taf_ks_CryptoSession_t* sessionPtr  ///< [IN] Crypto session ptr.
 )
 {
-    if (sessionPtr == NULL)
+    if (sessionPtr != NULL)
     {
-        LE_ERROR("Bad parameter.");
-        return LE_BAD_PARAMETER;
+        // Abort the session if it's started.
+        if (sessionPtr->started)
+        {
+            taf_pa_ks_CryptoSessionAbort(sessionPtr->handle);
+            sessionPtr->started = false;
+            sessionPtr->handle = 0;
+        }
+
+        // Remove parameter list of the session.
+        ClearParamList(sessionPtr);
+
+        // Delete the sessionRef and free the session.
+        LE_INFO("Deleted the crypto session(%p)", sessionPtr->cryptoSessionRef);
+
+        le_ref_DeleteRef(CryptoSessionRefMap, sessionPtr->cryptoSessionRef);
+        le_mem_Release(sessionPtr);
     }
-
-    taf_ks_Key_t* keyPtr = le_ref_Lookup(KeyRefMap, sessionPtr->keyRef);
-    if ( keyPtr == NULL)
-    {
-        LE_ERROR("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
-    // Abort the session if it's started.
-    if (sessionPtr->started)
-    {
-        taf_pa_ks_CryptoSessionAbort(sessionPtr->handle);
-        sessionPtr->started = false;
-        sessionPtr->handle = 0;
-    }
-
-    // Remove parameter list of the session.
-    LE_ASSERT(LE_OK == ClearParamList(sessionPtr));
-
-    // Delete the sessionRef and free the session.
-    le_ref_DeleteRef(CryptoSessionRefMap, sessionPtr->cryptoSessionRef);
-    le_mem_Release(sessionPtr);
-    LE_INFO("Deleted the session(%p) of provisioned key(%p)",
-            sessionPtr, keyPtr->keyFilePtr);
-
-    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -533,51 +593,32 @@ static le_result_t RemoveCryptoSession
  * Clear the crypto session list of a provisioned key.
  */
 //--------------------------------------------------------------------------------------------------
-static le_result_t ClearCryptoSessionList
+static void ClearCryptoSessionList
 (
-    taf_ks_Key_t*    keyPtr   ///< [IN] Key pointer
+    taf_ks_Key_t* keyPtr   ///< [IN] Key pointer
 )
 {
     taf_ks_CryptoSession_t* sessionPtr = NULL;
 
-    if (keyPtr == NULL)
+    if ((keyPtr != NULL) && (keyPtr->keyType == KS_PROVISIONED_KEY))
     {
-        LE_ERROR("Bad parameter.");
-        return LE_BAD_PARAMETER;
+        // Go through the session list, free session object and remove the node.
+        le_dls_Link_t* linkPtr = le_dls_Pop(&(keyPtr->proKey.cryptoSessionList));
+        while (linkPtr)
+        {
+            sessionPtr = CONTAINER_OF(linkPtr, taf_ks_CryptoSession_t, link);
+            RemoveCryptoSession(sessionPtr);
+
+            linkPtr = le_dls_Pop(&(keyPtr->proKey.cryptoSessionList));
+        }
+
+        LE_INFO("Cleared crypto session list of key(%p)", keyPtr->keyRef);
     }
-
-    // Check if it's a provisioned key, only provisioned key
-    // has the cryto session list.
-    if ((keyPtr->newKeyPtr != NULL) || (keyPtr->keyFilePtr == NULL))
-    {
-        LE_ERROR("Not permitted.");
-        return LE_NOT_PERMITTED;
-    }
-
-    // Go through the session list, free session object and remove the node.
-    le_dls_Link_t* linkPtr = le_dls_Pop(&(keyPtr->cryptoSessionList));
-
-    while (linkPtr)
-    {
-        sessionPtr = CONTAINER_OF(linkPtr, taf_ks_CryptoSession_t, link);
-        LE_ASSERT(sessionPtr != NULL);
-
-        LE_ASSERT(LE_OK == RemoveCryptoSession(sessionPtr));
-
-        linkPtr = le_dls_Pop(&(keyPtr->cryptoSessionList));
-    }
-
-    // The list must be empty after clearing.
-    LE_ASSERT(le_dls_NumLinks(&(keyPtr->cryptoSessionList)) == 0);
-    LE_INFO("Cleared crypto session list for provisioned key(%p)",
-            keyPtr->keyFilePtr);
-
-    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove new keys which created by the specified client
+ * Remove new keys created by the given client
  */
 //--------------------------------------------------------------------------------------------------
 static void RemoveNewKeysForClient
@@ -586,7 +627,6 @@ static void RemoveNewKeysForClient
     void*               contextPtr   ///< [IN]
 )
 {
-    void* keyRef;
     taf_ks_Key_t* keyPtr;
     le_ref_IterRef_t iterRef = le_ref_GetIterator(KeyRefMap);
 
@@ -595,20 +635,14 @@ static void RemoveNewKeysForClient
         keyPtr = le_ref_GetValue(iterRef);
         LE_ASSERT(keyPtr != NULL);
 
-        if ((keyPtr->keyFilePtr == NULL) &&
-            (keyPtr->newKeyPtr != NULL) &&
-            (keyPtr->newKeyPtr->clientSessionRef == sessionRef))
+        if ((keyPtr->keyType == KS_NEW_CREATED_KEY) &&
+            (keyPtr->newKey.clientSessionRef == sessionRef))
         {
             // Remove the key reference.
-            keyRef = (void*)le_ref_GetSafeRef(iterRef);
-            LE_ASSERT(keyRef != NULL);
-            le_ref_DeleteRef(KeyRefMap, keyRef);
+            le_ref_DeleteRef(KeyRefMap, keyPtr->keyRef);
 
-            // Clear the tag list and free the new key part.
-            LE_ASSERT(LE_OK == ClearTagList(keyPtr));
-            LE_INFO("Remove a new key(%p) of keyName '%s' for client(%p).",
-                    keyPtr->newKeyPtr, keyPtr->newKeyPtr->keyName, sessionRef);
-            le_mem_Release(keyPtr->newKeyPtr);
+            // Clear the tag list.
+            ClearTagList(keyPtr);
 
             // Free the key object.
             le_mem_Release(keyPtr);
@@ -634,17 +668,14 @@ static void RemoveCryptoSessionsForClient
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         cryptoSessionPtr = le_ref_GetValue(iterRef);
-        LE_ASSERT(cryptoSessionPtr != NULL);
-
         if (cryptoSessionPtr->clientSessionRef == sessionRef)
         {
             // Remove the crypto session from the key's cryptoSession list.
             keyPtr = le_ref_Lookup(KeyRefMap, cryptoSessionPtr->keyRef);
-            LE_ASSERT(keyPtr != NULL);
-            le_dls_Remove(&(keyPtr->cryptoSessionList), &(cryptoSessionPtr->link));
+            le_dls_Remove(&(keyPtr->proKey.cryptoSessionList), &(cryptoSessionPtr->link));
 
             // Delete the crypto session.
-            LE_ASSERT(LE_OK == RemoveCryptoSession(cryptoSessionPtr));
+            RemoveCryptoSession(cryptoSessionPtr);
         }
     }
 }
@@ -674,20 +705,433 @@ static bool HasRunningCryptoSession
     return false;
 }
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the application name of the process with the specified client session reference.
+ */
+//-------------------------------------------------------------------------------------------------
+static le_result_t GetAppNameBySessionRef
+(
+    le_msg_SessionRef_t clientSessionRef,           ///< [IN]  client session reference.
+    char    *appNameStr,                            ///< [OUT] Application name buffer.
+    size_t   appNameSize                            ///< [IN]  Buffer size.
+)
+{
+    pid_t pid;
+    const char* namePtr = NULL;
+    char procPath[LIMIT_MAX_PATH_BYTES] = {0};
+    char appPath[LIMIT_MAX_PATH_BYTES] = {0};
+
+    // Parameter check.
+    if ((clientSessionRef == NULL) || (appNameStr == NULL) || (appNameSize == 0))
+    {
+        LE_ERROR("Bad parameters.");
+        return LE_BAD_PARAMETER;
+    }
+
+    // Get pid from the sessionRef.
+    if (le_msg_GetClientProcessId(clientSessionRef, &pid) != LE_OK)
+    {
+        LE_ERROR("Failed to get the pid from client session reference.");
+        return LE_FAULT;
+    }
+
+    // Get the app name from the pid.
+    if (le_appInfo_GetName(pid, appPath, sizeof(appPath)) != LE_OK)
+    {
+        // It's not a telaf app but should a legacy app.
+        // Read the program name from the softlink of /proc/<pid>/exe .
+        LE_ASSERT(snprintf(procPath, sizeof(procPath), "/proc/%d/exe", pid)
+                  < sizeof(procPath));
+
+        memset(appPath, 0, sizeof(appPath));
+        if (readlink(procPath, appPath, sizeof(appPath)) < 0)
+        {
+            LE_ERROR("readlink(%s) failed %s", procPath, LE_ERRNO_TXT(errno));
+            return LE_FAULT;
+        }
+
+        // Get the program name from the executable Path.
+        namePtr = le_path_GetBasenamePtr(appPath, "/");
+    }
+    else
+    {
+        // It's a telaf app.
+        namePtr = appPath;
+    }
+
+    return le_utf8_Copy(appNameStr, namePtr, appNameSize, NULL);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
- * Creates a new key.
+ * Create application key objects in service layer.
+ */
+//--------------------------------------------------------------------------------------------------
+static void CreateAppProKey
+(
+    KeyMgt_KeyFileRef_t keyFileRef                  ///< Key file reference
+)
+{
+    if (keyFileRef != NULL)
+    {
+        // Create a provisioned key.
+        taf_ks_Key_t* keyPtr = le_mem_ForceAlloc(KeyPool);
+        memset(keyPtr, 0, sizeof(taf_ks_Key_t));
+
+        keyPtr->keyType = KS_PROVISIONED_KEY;                 // Save the key type.
+        keyPtr->proKey.cryptoSessionList= LE_DLS_LIST_INIT;   // Save the cryptoSesion list.
+        keyPtr->proKey.sharedAppList = LE_DLS_LIST_INIT;      // Save the shared application list.
+        keyPtr->proKey.keyFileRef = keyFileRef;               // Save the key file reference.
+        keyPtr->keyRef = le_ref_CreateRef(KeyRefMap, keyPtr); // Save the key reference.
+
+        LE_INFO("A provisoned key(%p) created.", keyPtr->keyRef);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Key creation handler registered to PA.
+ */
+//--------------------------------------------------------------------------------------------------
+static void KeyCreationPAHandler
+(
+    KeyMgt_KeyFileRef_t keyFileRef                 ///< Key file reference
+)
+{
+#if 0
+    if (keyFileRef != NULL)
+    {
+        KeyEvent_t keyEvent;
+        memset(&keyEvent, 0, sizeof(KeyEvent_t));
+
+        keyEvent.op = KS_OP_CREATE;
+        keyEvent.keyFileRef = keyFileRef;
+
+        le_event_Report(KeyEventId, &keyEvent, sizeof(KeyEvent_t));
+    }
+#endif
+    CreateAppProKey(keyFileRef);
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Key sharing handler registered to PA.
+ */
+//--------------------------------------------------------------------------------------------------
+static void KeySharingPAHandler
+(
+    const char* keyIdPtr,                          ///< Key ID string
+    const char* ownerAppNamePtr,                   ///< Owner app name string
+    const char* sharedAppNamePtr,                  ///< Shared app name string
+    taf_ks_SharingState_t state,                   ///< Key sharing state
+    KeyMgt_KeyFileRef_t keyFileRef                 ///< Key file reference
+)
+{
+    if ((keyIdPtr != NULL) && (keyFileRef != NULL) &&
+        (ownerAppNamePtr != NULL) && (sharedAppNamePtr != NULL))
+    {
+        KeyEvent_t keyEvent;
+        memset(&keyEvent, 0, sizeof(KeyEvent_t));
+
+        keyEvent.op = KS_OP_SHARE;
+        keyEvent.keyFileRef = keyFileRef;
+
+        keyEvent.shareInfo.state = state;
+        le_utf8_Copy(keyEvent.shareInfo.keyId, keyIdPtr, sizeof(keyEvent.shareInfo.keyId), NULL);
+        le_utf8_Copy(keyEvent.shareInfo.sharedAppName, sharedAppNamePtr,
+                     sizeof(keyEvent.shareInfo.sharedAppName), NULL);
+        le_utf8_Copy(keyEvent.shareInfo.ownerAppName, ownerAppNamePtr,
+                     sizeof(keyEvent.shareInfo.ownerAppName), NULL);
+
+        le_event_Report(KeyEventId, &keyEvent, sizeof(KeyEvent_t));
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Notify clients that a key is shared.
+ */
+//--------------------------------------------------------------------------------------------------
+static void NotifyClientsForKeySharing
+(
+    const char* keyIdPtr,                          ///< Key ID string
+    const char* ownerAppNamePtr,                   ///< Owner app name string
+    const char* sharedAppNamePtr,                  ///< Shared app name string
+    taf_ks_SharingState_t state                    ///< Key sharing state
+)
+{
+    if ((keyIdPtr != NULL) && (ownerAppNamePtr != NULL) && (sharedAppNamePtr != NULL))
+    {
+        char appName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+
+        le_ref_IterRef_t iterRef = le_ref_GetIterator(HandlerRefMap);
+        while (le_ref_NextNode(iterRef) == LE_OK)
+        {
+            taf_ks_Handler_t* handlerPtr = le_ref_GetValue(iterRef);
+
+            // Get client app name.
+            if (LE_OK == GetAppNameBySessionRef(handlerPtr->clientSessionRef,
+                                                appName, sizeof(appName)))
+            {
+                // If the key sharing notification is for this client, call the client handler.
+                if ((0 == strcmp(keyIdPtr, handlerPtr->keyId)) &&
+                    (0 == strcmp(ownerAppNamePtr, handlerPtr->ownerAppName)) &&
+                    (0 == strcmp(sharedAppNamePtr, appName)) &&
+                    ((state == TAF_KS_SHARING_UPDATED) || (state != handlerPtr->state)))
+                {
+                    handlerPtr->state = state;
+                    handlerPtr->handleFunc(handlerPtr->keyId, handlerPtr->ownerAppName,
+                                           handlerPtr->state, handlerPtr->context);
+                }
+            }
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event handler for key sharing state change.
+ */
+//--------------------------------------------------------------------------------------------------
+static void KeyEventHandler
+(
+    void* reportPtr
+)
+{
+    if(reportPtr != NULL)
+    {
+        KeyEvent_t* keyEventPtr = (KeyEvent_t*)reportPtr;
+
+        // Common info
+        KeyOp_t op = keyEventPtr->op;
+        KeyMgt_KeyFileRef_t keyFileRef = keyEventPtr->keyFileRef;
+
+        // Key sharing info
+        taf_ks_SharingState_t state = keyEventPtr->shareInfo.state;
+        const char* keyIdPtr = keyEventPtr->shareInfo.keyId;
+        const char* ownerAppNamePtr = keyEventPtr->shareInfo.ownerAppName;
+        const char* sharedAppNamePtr = keyEventPtr->shareInfo.sharedAppName;
+
+        switch(op)
+        {
+            case KS_OP_CREATE:
+                CreateAppProKey(keyFileRef);
+            break;
+
+            case KS_OP_SHARE:
+                LE_INFO("sharing Key event: keyId(%s), ownApp(%s), sharedApp(%s), shareState(%u).",
+                        keyIdPtr, ownerAppNamePtr, sharedAppNamePtr, state);
+                NotifyClientsForKeySharing(keyIdPtr, ownerAppNamePtr, sharedAppNamePtr, state);
+            break;
+
+            default:
+                LE_FATAL("Unknown op(%d).", op);
+            break;
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Clear the appList.
+ */
+//--------------------------------------------------------------------------------------------------
+static void ClearAppList
+(
+    SharedAppList_t* appListPtr   ///< [IN] app list pointer
+)
+{
+    SharedApp_t* shareAppPtr = NULL;
+
+    if (appListPtr != NULL)
+    {
+        // Go through the appList, and free the app object.
+        le_sls_Link_t* linkPtr = le_sls_Pop(&(appListPtr->appList));
+        while (linkPtr)
+        {
+            shareAppPtr = CONTAINER_OF(linkPtr, SharedApp_t, link);
+            le_mem_Release(shareAppPtr);
+
+            linkPtr = le_sls_Pop(&(appListPtr->appList));
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add an appList of a given key for a client.
+ */
+//--------------------------------------------------------------------------------------------------
+static SharedAppList_t* UpdateAppListForClient
+(
+    le_msg_SessionRef_t sessionRef,                   ///< [IN] client session reference
+    taf_ks_Key_t* keyPtr,                             ///< [IN] key pointer
+    const taf_pa_ks_sharedAppList_t* sharedAppListPtr ///< [IN] sharedAppList from PA
+)
+{
+    SharedAppList_t* appListPtr = NULL;
+    le_dls_Link_t* linkPtr = NULL;
+
+    if ((keyPtr != NULL) && (keyPtr->keyType == KS_PROVISIONED_KEY))
+    {
+        linkPtr = le_dls_Peek(&(keyPtr->proKey.sharedAppList));
+        while (linkPtr != NULL)
+        {
+            appListPtr = CONTAINER_OF(linkPtr, SharedAppList_t, link);
+            linkPtr = le_dls_PeekNext(&(keyPtr->proKey.sharedAppList), linkPtr);
+
+            // Remove the old shareAppList of the key for this client.
+            if (appListPtr->clientSessionRef == sessionRef)
+            {
+                ClearAppList(appListPtr);
+                le_dls_Remove(&(keyPtr->proKey.sharedAppList), &(appListPtr->link));
+                le_mem_Release(appListPtr);
+
+                break;
+            }
+        }
+
+        // Create a new shareAppList of the key for this client.
+        if (sharedAppListPtr != NULL)
+        {
+            appListPtr = le_mem_ForceAlloc(SharedAppListPool);
+            memset(appListPtr, 0, sizeof(SharedAppList_t));
+
+            appListPtr->clientSessionRef = sessionRef;
+            appListPtr->appList = LE_SLS_LIST_INIT;
+            appListPtr->link = LE_DLS_LINK_INIT;
+            appListPtr->keyRef = keyPtr->keyRef;
+            appListPtr->currPtr = NULL;
+
+            for (int i = 0; i < TAF_PA_KS_MAX_SHARED_APPS; i++)
+            {
+               size_t len = strlen(sharedAppListPtr->appInfo[i].appName);
+               const char* namePtr = sharedAppListPtr->appInfo[i].appName;
+               taf_ks_KeyUsage_t keyCap = sharedAppListPtr->appInfo[i].keyCap;
+               taf_ks_AppCapMask_t appCap = sharedAppListPtr->appInfo[i].appCap;
+
+               if ((len > 0) && (len <= LIMIT_MAX_APP_NAME_LEN))
+               {
+                   // Create a sharedApp object for each shared app.
+                   SharedApp_t* appPtr = le_mem_ForceAlloc(SharedAppPool);
+                   memset(appPtr, 0, sizeof(SharedApp_t));
+
+                   appPtr->link = LE_SLS_LINK_INIT;
+                   le_utf8_Copy(appPtr->appInfo.appName, namePtr,
+                                sizeof(appPtr->appInfo.appName), NULL);
+                   appPtr->appInfo.keyCap = keyCap;
+                   appPtr->appInfo.appCap = appCap;
+                   le_sls_Queue(&(appListPtr->appList), &(appPtr->link));
+               }
+            }
+
+            // No shareApp objects in the list, just free the appList and return.
+            if (le_sls_NumLinks(&(appListPtr->appList)) == 0)
+            {
+               le_mem_Release(appListPtr);
+               return NULL;
+            }
+
+            // Queue the applist .
+            le_dls_Queue(&(keyPtr->proKey.sharedAppList), &(appListPtr->link));
+
+            return appListPtr;
+        }
+    }
+
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove all shared app lists for a client.
+ */
+//--------------------------------------------------------------------------------------------------
+static void RemoveAppListsForClient
+(
+    le_msg_SessionRef_t sessionRef,  ///< [IN] client session reference
+    void* contextPtr                 ///< [IN] context
+)
+{
+    taf_ks_Key_t* keyPtr = NULL;
+    SharedAppList_t* appListPtr = NULL;
+    le_dls_Link_t* linkPtr = NULL;
+
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(KeyRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        keyPtr = le_ref_GetValue(iterRef);
+
+        // For provisioned key, check the client session.
+        if (keyPtr->keyType == KS_PROVISIONED_KEY)
+        {
+            linkPtr = le_dls_Peek(&(keyPtr->proKey.sharedAppList));
+            while (linkPtr != NULL)
+            {
+                appListPtr = CONTAINER_OF(linkPtr, SharedAppList_t, link);
+                linkPtr = le_dls_PeekNext(&(keyPtr->proKey.sharedAppList), linkPtr);
+
+                // Remove all appLists created by this client session.
+                if (appListPtr->clientSessionRef == sessionRef)
+                {
+                    ClearAppList(appListPtr);
+                    le_dls_Remove(&(keyPtr->proKey.sharedAppList), &(appListPtr->link));
+                    le_mem_Release(appListPtr);
+
+                    break;
+                }
+            }
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Clear all sharedApp list for a given key.
+ */
+//--------------------------------------------------------------------------------------------------
+static void ClearSharedAppList
+(
+    taf_ks_Key_t*	 keyPtr   ///< [IN] Key pointer
+)
+{
+    le_dls_Link_t* linkPtr = NULL;
+    SharedAppList_t* appListPtr = NULL;
+
+    // For provisioned key, check the client session.
+    if ((keyPtr != NULL) && (keyPtr->keyType == KS_PROVISIONED_KEY))
+    {
+        linkPtr = le_dls_Pop(&(keyPtr->proKey.sharedAppList));
+        while (linkPtr != NULL)
+        {
+            appListPtr = CONTAINER_OF(linkPtr, SharedAppList_t, link);
+
+            ClearAppList(appListPtr);
+            le_mem_Release(appListPtr);
+
+            linkPtr = le_dls_Pop(&(keyPtr->proKey.sharedAppList));
+        }
+
+        LE_INFO("Cleared all sharedApp lists for key(%p)", keyPtr->keyRef);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Creates a new key by key ID.
  *
  * New keys initially have no value and cannot be used for any crypto operations. Call SetKey API to
  * set optional attributions for key access control if needed, then call Provision APIs to provision
- * the key value and save the key into the backend storage. The Crypto APIs are vailable to use only
- * after the key value is correctly provisioned.
+ * the key value and save the key into the backend storage. The Crypto APIs are available to use
+ * only after the key value is correctly provisioned.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_ks_CreateKey
 (
-    const char* keyName,
-        ///< [IN] Key name
+    const char* keyId,
+        ///< [IN] Key ID
     taf_ks_KeyUsage_t keyUsage,
         ///< [IN] Key usage
     taf_ks_KeyRef_t* keyRefPtr
@@ -696,35 +1140,46 @@ le_result_t taf_ks_CreateKey
 {
     le_result_t result;
     KeyMgt_KeyFileRef_t keyFileRef = NULL;
-    le_msg_SessionRef_t clientSessionRef;
+    le_msg_SessionRef_t clientSessionRef = taf_ks_GetClientSessionRef();
     taf_ks_Key_t* keyPtr;
-    char appName[LE_LIMIT_APP_NAME_LEN + 1] = { 0 };
-    pid_t pid;
-    uid_t uid;
+    char appName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
 
-    if ((keyName == NULL) || (keyRefPtr == NULL) || (keyUsage >= TAF_KS_KEYUSAGE_MAX))
+    // Parameter check.
+    if ((keyId == NULL) || (keyRefPtr == NULL) || (keyUsage >= TAF_KS_KEYUSAGE_MAX))
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
-    // Check if a new key of the specified key name for the client is already created,
-    // and just return the same reference if so.
-    keyPtr = SearchNewKey(keyName);
+    // Get appName from clientSession.
+    if (LE_OK != GetAppNameBySessionRef(clientSessionRef, appName, sizeof(appName)))
+    {
+        LE_ERROR("Failed to get client appName.");
+        return LE_FAULT;
+    }
+
+    // Check if keyId string follows the POSIX file name format.
+    if (!IsPosixFileNameFormat(keyId))
+    {
+        LE_ERROR("Invalid key ID format (%s).", keyId);
+        return LE_BAD_PARAMETER;
+    }
+
+    // Check if a new key of the specified key ID for the client is already created,
+    // and just return the same reference.
+    keyPtr = SearchNewKey(keyId);
     if (keyPtr != NULL)
     {
-        LE_WARN("New key for keyName '%s' already exists.", keyName);
+        LE_WARN("New key for keyId '%s' already exists.", keyId);
         return LE_NOT_PERMITTED;
     }
 
-    // Check if a provisoned key of the specified key name for the client already exists.
+    // Check if a provisoned key of the specified key ID for the client already exists.
     // We don't allow to create it again if so, thus we expect it return LE_NOT_FOUND.
-    clientSessionRef = taf_ks_GetClientSessionRef();
-    result = taf_pa_ks_GetKey(clientSessionRef, keyName, &keyFileRef);
+    result = taf_pa_ks_GetKey(clientSessionRef, keyId, &keyFileRef);
     if (result == LE_OK)
     {
-        LE_ASSERT(keyFileRef != NULL);
-        LE_WARN("Provisioned key for keyName '%s' already exists.", keyName);
+        LE_WARN("Provisioned key for keyName '%s' already exists.", keyId);
         return LE_NOT_PERMITTED;
     }
 
@@ -741,41 +1196,32 @@ le_result_t taf_ks_CreateKey
         taf_ks_Key_t* keyPtr = SearchProvisionedKey(keyFileRef);
         if (keyPtr != NULL)
         {
-            LE_INFO("An obselete provisioned key(%p) deleted.", keyPtr->keyFilePtr);
+            LE_INFO("An obselete provisioned key(%p) deleted.", keyPtr->keyRef);
 
-            LE_ASSERT(LE_OK == ClearCryptoSessionList(keyPtr));
+            ClearCryptoSessionList(keyPtr);
+            ClearSharedAppList(keyPtr);
             le_ref_DeleteRef(KeyRefMap, keyPtr->keyRef);
             le_mem_Release(keyPtr);
         }
     }
 
-    // Get the application name of the client if found.
-    if((LE_OK == le_msg_GetClientUserCreds(clientSessionRef, &uid, &pid)) &&
-       (LE_OK == le_appInfo_GetName(pid, appName, sizeof(appName)-1)))
-    {
-        LE_INFO("Create a new key of keyName '%s' for application '%s'.", keyName, appName);
-    }
+    LE_INFO("Create a new key of KeyId '%s' for application '%s'.", keyId, appName);
 
-    // Create a new key.
-    // Note the new key part will be freed after the key is provisioned. Then the key
-    // becomes a provisioned key.
+    // Create a new key. The new key will become a provisioned key after key provisioning.
     keyPtr = le_mem_ForceAlloc(KeyPool);
     memset(keyPtr, 0, sizeof(taf_ks_Key_t));
-    keyPtr->keyRef = le_ref_CreateRef(KeyRefMap, keyPtr); //Save the key reference.
-    keyPtr->keyFilePtr = NULL; // Not provisioned yet.
-    keyPtr->cryptoSessionList = LE_DLS_LIST_INIT;
 
-    keyPtr->newKeyPtr = le_mem_ForceAlloc(NewKeyPool);
-    memset(keyPtr->newKeyPtr, 0, sizeof(taf_ks_NewKey_t));
-    keyPtr->newKeyPtr->tagList = LE_DLS_LIST_INIT;
-    keyPtr->newKeyPtr->clientSessionRef = clientSessionRef;// Save client session.
-    keyPtr->newKeyPtr->keyUsage = keyUsage;  // Save key usage.
-    LE_ASSERT(LE_OK == le_utf8_Copy(keyPtr->newKeyPtr->keyName, keyName,
-                                    sizeof(keyPtr->newKeyPtr->keyName), NULL));// Save the key name.
+    keyPtr->keyRef = le_ref_CreateRef(KeyRefMap, keyPtr); // Save the key reference.
+    keyPtr->keyType = KS_NEW_CREATED_KEY;                 // Save key type.
+    keyPtr->newKey.tagList = LE_DLS_LIST_INIT;            // Save the tag list.
+    keyPtr->newKey.clientSessionRef = clientSessionRef;   // Save client session.
+    keyPtr->newKey.keyUsage = keyUsage;                   // Save key usage.
+    LE_ASSERT(LE_OK == le_utf8_Copy(keyPtr->newKey.keyId, keyId,
+                                    sizeof(keyPtr->newKey.keyId), NULL));// Save the key name.
 
     // Return the key reference of the new key.
     *keyRefPtr = keyPtr->keyRef;
-    LE_INFO("a new key(%p) created.", keyPtr->newKeyPtr);
+    LE_INFO("A new key(%p) created.", keyPtr->keyRef);
 
     return LE_OK;
 }
@@ -795,25 +1241,77 @@ le_result_t taf_ks_GetKey
 {
     le_result_t result;
     KeyMgt_KeyFileRef_t keyFileRef = NULL;
-    le_msg_SessionRef_t clientSessionRef;
+    le_msg_SessionRef_t clientSessionRef = taf_ks_GetClientSessionRef();
     taf_ks_Key_t* keyPtr;
-    char appName[LE_LIMIT_APP_NAME_LEN + 1] = { 0 };
-    pid_t pid;
-    uid_t uid;
+    char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+    char ownerAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+    const char* keyIdPtr = NULL;
+    const char* ownerAppPtr = NULL;
 
+    // Parameter check.
     if ((keyName == NULL) || (keyRefPtr == NULL))
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
-    // Get the key file reference from the PA interface.
-    clientSessionRef = taf_ks_GetClientSessionRef();
-    result = taf_pa_ks_GetKey(clientSessionRef, keyName, &keyFileRef);
+    // Get appName from clientSession.
+    if (LE_OK != GetAppNameBySessionRef(clientSessionRef, myAppName, sizeof(myAppName)))
+    {
+        LE_ERROR("Failed to get client appName.");
+        return LE_FAULT;
+    }
+
+    // For a shared Key, the keyName = "<appName>::<keyId>".
+    // Otherwise it's our own key.
+    keyIdPtr = strstr(keyName, "::");
+    if (keyIdPtr != NULL)
+    {
+        // Get the keyId from the keyName.
+        keyIdPtr = keyIdPtr + 2;
+
+        // Get the owner appName from the keyName.
+        le_utf8_CopyUpToSubStr(ownerAppName, keyName, "::", sizeof(ownerAppName), NULL);
+
+        // Sanity check.
+        if ((keyIdPtr[0] == '\0') || (ownerAppName[0] == '\0'))
+        {
+            LE_ERROR("Invalid keyName format (%s).", keyName);
+            return LE_BAD_PARAMETER;
+        }
+
+        ownerAppPtr = ownerAppName;
+        if (strcmp(myAppName, ownerAppName) == 0)
+        {
+            ownerAppPtr = NULL;
+        }
+    }
+    else
+    {
+        keyIdPtr = keyName;
+    }
+
+    // Check if keyId string follows the POSIX file name format.
+    if (!IsPosixFileNameFormat(keyIdPtr))
+    {
+        LE_ERROR("Invalid keyId format (%s).", keyIdPtr);
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ownerAppPtr != NULL)
+    {
+        LE_INFO("Get keyId('%s') of app('%s').", keyIdPtr, ownerAppPtr);
+        result = taf_pa_ks_GetSharedKey(clientSessionRef, keyIdPtr, ownerAppPtr, &keyFileRef);
+    }
+    else
+    {
+        // Get the key file of our own key.
+        LE_INFO("Get keyId('%s').", keyIdPtr);
+        result = taf_pa_ks_GetKey(clientSessionRef, keyIdPtr, &keyFileRef);
+    }
+
     if (result == LE_OK)
     {
-        LE_ASSERT(keyFileRef != NULL);
-
         // Search if a key reference to the key is already created.
         keyPtr = SearchProvisionedKey(keyFileRef);
         if(keyPtr != NULL)
@@ -822,36 +1320,31 @@ le_result_t taf_ks_GetKey
             return LE_OK;
         }
 
-        if((LE_OK == le_msg_GetClientUserCreds(clientSessionRef, &uid, &pid)) &&
-           (LE_OK == le_appInfo_GetName(pid, appName, sizeof(appName)-1)))
-        {
-            LE_INFO("Create a provisioned key of keyName '%s' for application '%s'.",
-                    keyName, appName);
-        }
-
         // Create a provisioned key.
         keyPtr = le_mem_ForceAlloc(KeyPool);
         memset(keyPtr, 0, sizeof(taf_ks_Key_t));
 
-        keyPtr->newKeyPtr = NULL;
-        keyPtr->keyFilePtr = keyFileRef; // Save the key file reference.
-        keyPtr->cryptoSessionList = LE_DLS_LIST_INIT;
+        keyPtr->keyType = KS_PROVISIONED_KEY;              // Save the key type.
+        keyPtr->proKey.cryptoSessionList= LE_DLS_LIST_INIT;// Save the cryptoSesion list
+        keyPtr->proKey.sharedAppList = LE_DLS_LIST_INIT;      // Save the shared application list.
+        keyPtr->proKey.keyFileRef = keyFileRef;            // Save the key file reference.
         keyPtr->keyRef = le_ref_CreateRef(KeyRefMap, keyPtr); //Save the key reference.
 
         // Return the key reference of the provisioned key.
         *keyRefPtr = keyPtr->keyRef;
-        LE_INFO("a privisoned key(%p) created.", keyPtr->keyFilePtr);
+        LE_INFO("A provisoned key(%p) created.", keyPtr->keyRef);
     }
     else if ((result == LE_NOT_FOUND) && (keyFileRef != NULL))
     {
         // An obselete key file was deleted in PA layer so we need delete it in
         // Service layer if exists.
-        taf_ks_Key_t* keyPtr = SearchProvisionedKey(keyFileRef);
+        keyPtr = SearchProvisionedKey(keyFileRef);
         if (keyPtr != NULL)
         {
-            LE_INFO("An obselete provisioned key(%p) deleted.", keyPtr->keyFilePtr);
+            LE_INFO("An obselete provisioned key(%p) deleted.", keyPtr->keyRef);
 
-            LE_ASSERT(LE_OK == ClearCryptoSessionList(keyPtr));
+            ClearCryptoSessionList(keyPtr);
+            ClearSharedAppList(keyPtr);
             le_ref_DeleteRef(KeyRefMap, keyPtr->keyRef);
             le_mem_Release(keyPtr);
         }
@@ -882,37 +1375,39 @@ le_result_t taf_ks_DeleteKey
     }
 
     // Key is not allowed to be deleted if it has running crypto session.
-    if (HasRunningCryptoSession(keyPtr->cryptoSessionList))
+    if ((keyPtr->keyType == KS_PROVISIONED_KEY) &&
+         HasRunningCryptoSession(keyPtr->proKey.cryptoSessionList))
     {
-        LE_WARN("The key has running crypto session.");
+        LE_WARN("Key has running crypto session.");
         return LE_NOT_PERMITTED;
     }
 
-    if (keyPtr->keyFilePtr != NULL)
+    if (keyPtr->keyType == KS_PROVISIONED_KEY)
     {
-        // Delete a provisioned key
-        le_result_t result = taf_pa_ks_DeleteKey(taf_ks_GetClientSessionRef(), keyPtr->keyFilePtr);
+        // Delete a provisioned key.
+        le_result_t result = taf_pa_ks_DeleteKey(taf_ks_GetClientSessionRef(),
+                                                 keyPtr->proKey.keyFileRef);
         if (result != LE_OK)
         {
             LE_ERROR("Failed to delete provisioned key(%p) (%s).",
-                     keyPtr->keyFilePtr, LE_RESULT_TXT(result));
+                     keyPtr->keyRef, LE_RESULT_TXT(result));
             return result;
         }
 
-        LE_ASSERT(LE_OK == ClearCryptoSessionList(keyPtr));
-        LE_INFO("a provisioned key(%p) deleted.", keyPtr->keyFilePtr);
+        // Clear the cryptoSession list.
+        ClearCryptoSessionList(keyPtr);
+
+        // Clear the shared application list.
+        ClearSharedAppList(keyPtr);
+
+        LE_INFO("A provisioned key(%p) deleted.", keyPtr->keyRef);
     }
     else
     {
-        // Delete a new key
-        if(keyPtr->newKeyPtr != NULL)
-        {
-            // Clear the tag list and free the new key part.
-            LE_ASSERT(LE_OK == ClearTagList(keyPtr));
-            LE_INFO("a new key(%p) of keyName '%s' deleted.",
-                    keyPtr->newKeyPtr, keyPtr->newKeyPtr->keyName);
-            le_mem_Release(keyPtr->newKeyPtr);
-        }
+        // Clear the tag list.
+        ClearTagList(keyPtr);
+
+        LE_INFO("A new key(%p) of keyId '%s' deleted.", keyPtr->keyRef, keyPtr->newKey.keyId);
     }
 
     // Delete the key reference and free the key object.
@@ -937,7 +1432,7 @@ le_result_t taf_ks_GetKeyUsage
 {
     if (keyUsagePtr == NULL)
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -949,21 +1444,22 @@ le_result_t taf_ks_GetKeyUsage
     }
 
     // This is a new key, get the keyUsage from the key object.
-    if (keyPtr->newKeyPtr != NULL)
+    if (keyPtr->keyType == KS_NEW_CREATED_KEY)
     {
-        if (keyPtr->newKeyPtr->clientSessionRef != taf_ks_GetClientSessionRef())
+        if (keyPtr->newKey.clientSessionRef != taf_ks_GetClientSessionRef())
         {
             LE_ERROR("Invalid client session.");
             return LE_NOT_PERMITTED;
         }
 
         // Return key usage of a new key.
-        *keyUsagePtr = keyPtr->newKeyPtr->keyUsage;
+        *keyUsagePtr = keyPtr->newKey.keyUsage;
         return LE_OK;
     }
 
     // This is a provisioned key, return key usage from the PA.
-    return taf_pa_ks_GetKeyUsage(taf_ks_GetClientSessionRef(), keyPtr->keyFilePtr, keyUsagePtr);
+    return taf_pa_ks_GetKeyUsage(taf_ks_GetClientSessionRef(),
+                                 keyPtr->proKey.keyFileRef, keyUsagePtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -987,7 +1483,7 @@ le_result_t taf_ks_SetKeyMaxUsesPerBoot
     }
 
     // Check if it's a new key, only new key is allowed to set the tag.
-    if ((keyPtr->newKeyPtr == NULL) || (keyPtr->keyFilePtr != NULL))
+    if (keyPtr->keyType != KS_NEW_CREATED_KEY)
     {
         LE_ERROR("Not permitted.");
         return LE_NOT_PERMITTED;
@@ -998,7 +1494,7 @@ le_result_t taf_ks_SetKeyMaxUsesPerBoot
 
     newTagPtr->id = TAF_PA_KS_TAG_MAX_USES_PER_BOOT;
     newTagPtr->maxUsesPerBoot = value;
-    LE_ASSERT(LE_OK == SetTag(keyPtr, newTagPtr));
+    SetTag(keyPtr, newTagPtr);
 
     return LE_OK;
 }
@@ -1024,7 +1520,7 @@ le_result_t taf_ks_SetKeyMinSecondsBetweenOps
     }
 
     // Check if it's a new key, only new key is allowed to set the tag.
-    if ((keyPtr->newKeyPtr == NULL) || (keyPtr->keyFilePtr != NULL))
+    if (keyPtr->keyType != KS_NEW_CREATED_KEY)
     {
         LE_ERROR("Not permitted.");
         return LE_NOT_PERMITTED;
@@ -1035,7 +1531,7 @@ le_result_t taf_ks_SetKeyMinSecondsBetweenOps
 
     newTagPtr->id = TAF_PA_KS_TAG_MIN_SECONDS_BETWEEN_OPS;
     newTagPtr->minSecondsBetweenOps = value;
-    LE_ASSERT(LE_OK == SetTag(keyPtr, newTagPtr));
+    SetTag(keyPtr, newTagPtr);
 
     return LE_OK;
 }
@@ -1059,7 +1555,7 @@ le_result_t taf_ks_SetKeyAppData
 {
     if ((dataPtr == NULL) || (dataSize == 0))
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -1071,7 +1567,7 @@ le_result_t taf_ks_SetKeyAppData
     }
 
     // Check if it's a new key, only new key is allowed to set the tag.
-    if ((keyPtr->newKeyPtr == NULL) || (keyPtr->keyFilePtr != NULL))
+    if (keyPtr->keyType != KS_NEW_CREATED_KEY)
     {
         LE_ERROR("Not permitted.");
         return LE_NOT_PERMITTED;
@@ -1084,7 +1580,7 @@ le_result_t taf_ks_SetKeyAppData
     newTagPtr->appDataPtr = le_mem_ForceAlloc(DataPool);
     memcpy(newTagPtr->appDataPtr->data, dataPtr, dataSize);
     newTagPtr->appDataPtr->size = dataSize;
-    LE_ASSERT(LE_OK == SetTag(keyPtr, newTagPtr));
+    SetTag(keyPtr, newTagPtr);
 
     return LE_OK;
 }
@@ -1111,7 +1607,7 @@ le_result_t taf_ks_SetKeyActiveDateTime
     }
 
     // Check if it's a new key, only new key is allowed to set the tag.
-    if ((keyPtr->newKeyPtr == NULL) || (keyPtr->keyFilePtr != NULL))
+    if (keyPtr->keyType != KS_NEW_CREATED_KEY)
     {
         LE_ERROR("Not permitted.");
         return LE_NOT_PERMITTED;
@@ -1122,7 +1618,7 @@ le_result_t taf_ks_SetKeyActiveDateTime
 
     newTagPtr->id = TAF_PA_KS_TAG_ACTIVE_DATETIME;
     newTagPtr->activeDateTime = value;
-    LE_ASSERT(LE_OK == SetTag(keyPtr, newTagPtr));
+    SetTag(keyPtr, newTagPtr);
 
     return LE_OK;
 }
@@ -1149,7 +1645,7 @@ le_result_t taf_ks_SetKeyOriginationExpireDateTime
     }
 
     // Check if it's a new key, only new key is allowed to set the tag.
-    if ((keyPtr->newKeyPtr == NULL) || (keyPtr->keyFilePtr != NULL))
+    if (keyPtr->keyType != KS_NEW_CREATED_KEY)
     {
         LE_ERROR("Not permitted.");
         return LE_NOT_PERMITTED;
@@ -1160,7 +1656,7 @@ le_result_t taf_ks_SetKeyOriginationExpireDateTime
 
     newTagPtr->id = TAF_PA_KS_TAG_ORIGINATION_EXPIRE_DATETIME;
     newTagPtr->originationExpireDateTime = value;
-    LE_ASSERT(LE_OK == SetTag(keyPtr, newTagPtr));
+    SetTag(keyPtr, newTagPtr);
 
     return LE_OK;
 }
@@ -1187,7 +1683,7 @@ le_result_t taf_ks_SetKeyUsageExpireDateTime
     }
 
     // Check if it's a new key, only new key is allowed to set the tag.
-    if ((keyPtr->newKeyPtr == NULL) || (keyPtr->keyFilePtr != NULL))
+    if (keyPtr->keyType != KS_NEW_CREATED_KEY)
     {
         LE_ERROR("Not permitted.");
         return LE_NOT_PERMITTED;
@@ -1198,7 +1694,7 @@ le_result_t taf_ks_SetKeyUsageExpireDateTime
 
     newTagPtr->id = TAF_PA_KS_TAG_USAGE_EXPIRE_DATETIME;
     newTagPtr->usageExpireDateTime = value;
-    LE_ASSERT(LE_OK == SetTag(keyPtr, newTagPtr));
+    SetTag(keyPtr, newTagPtr);
 
     return LE_OK;
 }
@@ -1233,7 +1729,7 @@ le_result_t taf_ks_ProvisionRsaEncKeyValue
 
     if ((keySize >= TAF_KS_RSA_SIZE_MAX) || (padding >= TAF_KS_RSA_ENC_PAD_MAX))
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -1246,44 +1742,41 @@ le_result_t taf_ks_ProvisionRsaEncKeyValue
 
     // Check if it's a new key since only new key can be provisioned.
     // Also check if the key is suitable for this key value provision.
-    if ((keyPtr->keyFilePtr != NULL) ||
-        (keyPtr->newKeyPtr == NULL) ||
-        (keyPtr->newKeyPtr->clientSessionRef != taf_ks_GetClientSessionRef()) ||
-        ((keyPtr->newKeyPtr->keyUsage != TAF_KS_RSA_ENCRYPT_DECRYPT) &&
-         (keyPtr->newKeyPtr->keyUsage != TAF_KS_RSA_ENCRYPT_ONLY) &&
-         (keyPtr->newKeyPtr->keyUsage != TAF_KS_RSA_DECRYPT_ONLY)))
+    if ((keyPtr->keyType != KS_NEW_CREATED_KEY) ||
+        (keyPtr->newKey.clientSessionRef != taf_ks_GetClientSessionRef()) ||
+        ((keyPtr->newKey.keyUsage != TAF_KS_RSA_ENCRYPT_DECRYPT) &&
+         (keyPtr->newKey.keyUsage != TAF_KS_RSA_ENCRYPT_ONLY) &&
+         (keyPtr->newKey.keyUsage != TAF_KS_RSA_DECRYPT_ONLY)))
     {
         LE_ERROR("Not permitted.");
         return LE_NOT_PERMITTED;
     }
 
     // Provision the RSA encryption key.
-    keyUsage = (keyPtr->newKeyPtr->keyUsage == TAF_KS_RSA_ENCRYPT_DECRYPT) ?
+    keyUsage = (keyPtr->newKey.keyUsage == TAF_KS_RSA_ENCRYPT_DECRYPT) ?
         TAF_PA_KS_ENCRYPT_DECRYPT :
-        ((keyPtr->newKeyPtr->keyUsage == TAF_KS_RSA_ENCRYPT_ONLY) ?
+        ((keyPtr->newKey.keyUsage == TAF_KS_RSA_ENCRYPT_ONLY) ?
         TAF_PA_KS_ENCRYPT_ONLY : TAF_PA_KS_DECRYPT_ONLY);
 
     result = taf_pa_ks_GenerateRsaEncKey(taf_ks_GetClientSessionRef(),
-                                         keyPtr->newKeyPtr->keyName,
+                                         keyPtr->newKey.keyId,
                                          keySize,
                                          keyUsage,
                                          padding,
-                                         &(keyPtr->newKeyPtr->tagList),
+                                         &(keyPtr->newKey.tagList),
                                          impDataPtr,
                                          impDataSize,
                                          &keyFileRef);
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
-        LE_ASSERT(LE_OK == ClearTagList(keyPtr));
-
-        // Free the new key part.
-        le_mem_Release(keyPtr->newKeyPtr);
-        keyPtr->newKeyPtr = NULL;
+        ClearTagList(keyPtr);
 
         // set key provisioned.
-        keyPtr->keyFilePtr = keyFileRef;
-        keyPtr->cryptoSessionList = LE_DLS_LIST_INIT;
+        keyPtr->keyType = KS_PROVISIONED_KEY;
+        keyPtr->proKey.keyFileRef = keyFileRef;
+        keyPtr->proKey.cryptoSessionList = LE_DLS_LIST_INIT;
+        keyPtr->proKey.sharedAppList = LE_DLS_LIST_INIT;
     }
 
     return result;
@@ -1319,7 +1812,7 @@ le_result_t taf_ks_ProvisionRsaSigKeyValue
 
     if ((keySize >= TAF_KS_RSA_SIZE_MAX) || (padding >= TAF_KS_RSA_SIG_PAD_MAX))
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -1332,44 +1825,41 @@ le_result_t taf_ks_ProvisionRsaSigKeyValue
 
     // Check if it's a new key since only new key can be provisioned.
     // Also check if the key is suitable for this key value provision.
-    if ((keyPtr->keyFilePtr != NULL) ||
-        (keyPtr->newKeyPtr == NULL) ||
-        (keyPtr->newKeyPtr->clientSessionRef != taf_ks_GetClientSessionRef()) ||
-        ((keyPtr->newKeyPtr->keyUsage != TAF_KS_RSA_SIGN_VERIFY) &&
-         (keyPtr->newKeyPtr->keyUsage != TAF_KS_RSA_SIGN_ONLY) &&
-         (keyPtr->newKeyPtr->keyUsage != TAF_KS_RSA_VERIFY_ONLY)))
+    if ((keyPtr->keyType != KS_NEW_CREATED_KEY) ||
+        (keyPtr->newKey.clientSessionRef != taf_ks_GetClientSessionRef()) ||
+        ((keyPtr->newKey.keyUsage != TAF_KS_RSA_SIGN_VERIFY) &&
+         (keyPtr->newKey.keyUsage != TAF_KS_RSA_SIGN_ONLY) &&
+         (keyPtr->newKey.keyUsage != TAF_KS_RSA_VERIFY_ONLY)))
     {
         LE_ERROR("Not permitted.");
         return LE_NOT_PERMITTED;
     }
 
     // Provision the RSA signing key.
-    keyUsage = (keyPtr->newKeyPtr->keyUsage == TAF_KS_RSA_SIGN_VERIFY) ?
+    keyUsage = (keyPtr->newKey.keyUsage == TAF_KS_RSA_SIGN_VERIFY) ?
         TAF_PA_KS_SIGN_VERIFY :
-        ((keyPtr->newKeyPtr->keyUsage == TAF_KS_RSA_SIGN_ONLY) ?
+        ((keyPtr->newKey.keyUsage == TAF_KS_RSA_SIGN_ONLY) ?
         TAF_PA_KS_SIGN_ONLY : TAF_PA_KS_VERIFY_ONLY);
 
     result = taf_pa_ks_GenerateRsaSigKey(taf_ks_GetClientSessionRef(),
-                                         keyPtr->newKeyPtr->keyName,
+                                         keyPtr->newKey.keyId,
                                          keySize,
                                          keyUsage,
                                          padding,
-                                         &(keyPtr->newKeyPtr->tagList),
+                                         &(keyPtr->newKey.tagList),
                                          impDataPtr,
                                          impDataSize,
                                          &keyFileRef);
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
-        LE_ASSERT(LE_OK == ClearTagList(keyPtr));
-
-        // Free the new key part.
-        le_mem_Release(keyPtr->newKeyPtr);
-        keyPtr->newKeyPtr = NULL;
+        ClearTagList(keyPtr);
 
         // set key provisioned.
-        keyPtr->keyFilePtr = keyFileRef;
-        keyPtr->cryptoSessionList = LE_DLS_LIST_INIT;
+        keyPtr->keyType = KS_PROVISIONED_KEY;
+        keyPtr->proKey.keyFileRef = keyFileRef;
+        keyPtr->proKey.cryptoSessionList = LE_DLS_LIST_INIT;
+        keyPtr->proKey.sharedAppList = LE_DLS_LIST_INIT;
     }
 
     return result;
@@ -1405,7 +1895,7 @@ le_result_t taf_ks_ProvisionEcdsaKeyValue
 
     if ((keySize >= TAF_KS_ECC_SIZE_MAX) || (digest >= TAF_KS_DIGEST_MAX))
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -1418,44 +1908,41 @@ le_result_t taf_ks_ProvisionEcdsaKeyValue
 
     // Check if it's a new key since only new key can be provisioned.
     // Also check if the key is suitable for this key value provision.
-    if ((keyPtr->keyFilePtr != NULL) ||
-        (keyPtr->newKeyPtr == NULL) ||
-        (keyPtr->newKeyPtr->clientSessionRef != taf_ks_GetClientSessionRef()) ||
-        ((keyPtr->newKeyPtr->keyUsage != TAF_KS_ECDSA_SIGN_VERIFY) &&
-         (keyPtr->newKeyPtr->keyUsage != TAF_KS_ECDSA_SIGN_ONLY) &&
-         (keyPtr->newKeyPtr->keyUsage != TAF_KS_ECDSA_VERIFY_ONLY)))
+    if ((keyPtr->keyType != KS_NEW_CREATED_KEY) ||
+        (keyPtr->newKey.clientSessionRef != taf_ks_GetClientSessionRef()) ||
+        ((keyPtr->newKey.keyUsage != TAF_KS_ECDSA_SIGN_VERIFY) &&
+         (keyPtr->newKey.keyUsage != TAF_KS_ECDSA_SIGN_ONLY) &&
+         (keyPtr->newKey.keyUsage != TAF_KS_ECDSA_VERIFY_ONLY)))
     {
         LE_ERROR("Not permitted.");
         return LE_NOT_PERMITTED;
     }
 
     // Provision the ECDSA key.
-    keyUsage = (keyPtr->newKeyPtr->keyUsage == TAF_KS_ECDSA_SIGN_VERIFY) ?
+    keyUsage = (keyPtr->newKey.keyUsage == TAF_KS_ECDSA_SIGN_VERIFY) ?
         TAF_PA_KS_SIGN_VERIFY :
-        ((keyPtr->newKeyPtr->keyUsage == TAF_KS_ECDSA_SIGN_ONLY) ?
+        ((keyPtr->newKey.keyUsage == TAF_KS_ECDSA_SIGN_ONLY) ?
         TAF_PA_KS_SIGN_ONLY : TAF_PA_KS_VERIFY_ONLY);
 
     result = taf_pa_ks_GenerateEcdsaKey(taf_ks_GetClientSessionRef(),
-                                        keyPtr->newKeyPtr->keyName,
+                                        keyPtr->newKey.keyId,
                                         keySize,
                                         keyUsage,
                                         digest,
-                                        &(keyPtr->newKeyPtr->tagList),
+                                        &(keyPtr->newKey.tagList),
                                         impDataPtr,
                                         impDataSize,
                                         &keyFileRef);
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
-        LE_ASSERT(LE_OK == ClearTagList(keyPtr));
-
-        // Free the new key part.
-        le_mem_Release(keyPtr->newKeyPtr);
-        keyPtr->newKeyPtr = NULL;
+        ClearTagList(keyPtr);
 
         // set key provisioned.
-        keyPtr->keyFilePtr = keyFileRef;
-        keyPtr->cryptoSessionList = LE_DLS_LIST_INIT;
+        keyPtr->keyType = KS_PROVISIONED_KEY;
+        keyPtr->proKey.keyFileRef = keyFileRef;
+        keyPtr->proKey.cryptoSessionList = LE_DLS_LIST_INIT;
+        keyPtr->proKey.sharedAppList = LE_DLS_LIST_INIT;
     }
 
     return result;
@@ -1491,7 +1978,7 @@ le_result_t taf_ks_ProvisionAesKeyValue
 
     if ((keySize >= TAF_KS_AES_SIZE_MAX) || (mode >= TAF_KS_AES_MODE_MAX))
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -1504,44 +1991,41 @@ le_result_t taf_ks_ProvisionAesKeyValue
 
     // Check if it's a new key since only new key can be provisioned.
     // Also check if the key is suitable for this key value provision.
-    if ((keyPtr->keyFilePtr != NULL) ||
-        (keyPtr->newKeyPtr == NULL) ||
-        (keyPtr->newKeyPtr->clientSessionRef != taf_ks_GetClientSessionRef()) ||
-        ((keyPtr->newKeyPtr->keyUsage != TAF_KS_AES_ENCRYPT_DECRYPT) &&
-         (keyPtr->newKeyPtr->keyUsage != TAF_KS_AES_ENCRYPT_ONLY) &&
-         (keyPtr->newKeyPtr->keyUsage != TAF_KS_AES_DECRYPT_ONLY)))
+    if ((keyPtr->keyType != KS_NEW_CREATED_KEY) ||
+        (keyPtr->newKey.clientSessionRef != taf_ks_GetClientSessionRef()) ||
+        ((keyPtr->newKey.keyUsage != TAF_KS_AES_ENCRYPT_DECRYPT) &&
+         (keyPtr->newKey.keyUsage != TAF_KS_AES_ENCRYPT_ONLY) &&
+         (keyPtr->newKey.keyUsage != TAF_KS_AES_DECRYPT_ONLY)))
     {
         LE_ERROR("Not permitted.");
         return LE_NOT_PERMITTED;
     }
 
     // Provision the AES key.
-    keyUsage = (keyPtr->newKeyPtr->keyUsage == TAF_KS_AES_ENCRYPT_DECRYPT) ?
+    keyUsage = (keyPtr->newKey.keyUsage == TAF_KS_AES_ENCRYPT_DECRYPT) ?
         TAF_PA_KS_ENCRYPT_DECRYPT :
-        ((keyPtr->newKeyPtr->keyUsage == TAF_KS_AES_ENCRYPT_ONLY) ?
+        ((keyPtr->newKey.keyUsage == TAF_KS_AES_ENCRYPT_ONLY) ?
         TAF_PA_KS_ENCRYPT_ONLY : TAF_PA_KS_DECRYPT_ONLY);
 
     result = taf_pa_ks_GenerateAesKey(taf_ks_GetClientSessionRef(),
-                                      keyPtr->newKeyPtr->keyName,
+                                      keyPtr->newKey.keyId,
                                       keySize,
                                       keyUsage,
                                       mode,
-                                      &(keyPtr->newKeyPtr->tagList),
+                                      &(keyPtr->newKey.tagList),
                                       impDataPtr,
                                       impDataSize,
                                       &keyFileRef);
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
-        LE_ASSERT(LE_OK == ClearTagList(keyPtr));
-
-        // Free the new key part.
-        le_mem_Release(keyPtr->newKeyPtr);
-        keyPtr->newKeyPtr = NULL;
+        ClearTagList(keyPtr);
 
         // set key provisioned.
-        keyPtr->keyFilePtr = keyFileRef;
-        keyPtr->cryptoSessionList = LE_DLS_LIST_INIT;
+        keyPtr->keyType = KS_PROVISIONED_KEY;
+        keyPtr->proKey.keyFileRef = keyFileRef;
+        keyPtr->proKey.cryptoSessionList = LE_DLS_LIST_INIT;
+        keyPtr->proKey.sharedAppList = LE_DLS_LIST_INIT;
     }
 
     return result;
@@ -1579,7 +2063,7 @@ le_result_t taf_ks_ProvisionHmacKeyValue
         (keySize > TAF_KS_MAX_HMAC_KEY_SIZE) ||
         (digest >= TAF_KS_DIGEST_MAX))
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -1592,44 +2076,41 @@ le_result_t taf_ks_ProvisionHmacKeyValue
 
     // Check if it's a new key since only new key can be provisioned.
     // Also check if the key is suitable for this key value provision.
-    if ((keyPtr->keyFilePtr != NULL) ||
-        (keyPtr->newKeyPtr == NULL) ||
-        (keyPtr->newKeyPtr->clientSessionRef != taf_ks_GetClientSessionRef()) ||
-        ((keyPtr->newKeyPtr->keyUsage != TAF_KS_HMAC_SIGN_VERIFY) &&
-         (keyPtr->newKeyPtr->keyUsage != TAF_KS_HMAC_SIGN_ONLY) &&
-         (keyPtr->newKeyPtr->keyUsage != TAF_KS_HMAC_VERIFY_ONLY)))
+    if ((keyPtr->keyType != KS_NEW_CREATED_KEY) ||
+        (keyPtr->newKey.clientSessionRef != taf_ks_GetClientSessionRef()) ||
+        ((keyPtr->newKey.keyUsage != TAF_KS_HMAC_SIGN_VERIFY) &&
+         (keyPtr->newKey.keyUsage != TAF_KS_HMAC_SIGN_ONLY) &&
+         (keyPtr->newKey.keyUsage != TAF_KS_HMAC_VERIFY_ONLY)))
     {
         LE_ERROR("Not permitted.");
         return LE_NOT_PERMITTED;
     }
 
     // Provision the HMAC key.
-    keyUsage = (keyPtr->newKeyPtr->keyUsage == TAF_KS_HMAC_SIGN_VERIFY) ?
+    keyUsage = (keyPtr->newKey.keyUsage == TAF_KS_HMAC_SIGN_VERIFY) ?
         TAF_PA_KS_SIGN_VERIFY :
-        ((keyPtr->newKeyPtr->keyUsage == TAF_KS_HMAC_SIGN_ONLY) ?
+        ((keyPtr->newKey.keyUsage == TAF_KS_HMAC_SIGN_ONLY) ?
         TAF_PA_KS_SIGN_ONLY : TAF_PA_KS_VERIFY_ONLY);
 
     result = taf_pa_ks_GenerateHmacKey(taf_ks_GetClientSessionRef(),
-                                       keyPtr->newKeyPtr->keyName,
+                                       keyPtr->newKey.keyId,
                                        keySize,
                                        keyUsage,
                                        digest,
-                                       &(keyPtr->newKeyPtr->tagList),
+                                       &(keyPtr->newKey.tagList),
                                        impDataPtr,
                                        impDataSize,
                                        &keyFileRef);
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
-        LE_ASSERT(LE_OK == ClearTagList(keyPtr));
-
-        // Free the new key part.
-        le_mem_Release(keyPtr->newKeyPtr);
-        keyPtr->newKeyPtr = NULL;
+        ClearTagList(keyPtr);
 
         // set key provisioned.
-        keyPtr->keyFilePtr = keyFileRef;
-        keyPtr->cryptoSessionList = LE_DLS_LIST_INIT;
+        keyPtr->keyType = KS_PROVISIONED_KEY;
+        keyPtr->proKey.keyFileRef = keyFileRef;
+        keyPtr->proKey.cryptoSessionList = LE_DLS_LIST_INIT;
+        keyPtr->proKey.sharedAppList = LE_DLS_LIST_INIT;
     }
 
     return result;
@@ -1654,7 +2135,7 @@ le_result_t taf_ks_ExportKey
 {
     if ((expDataPtr == NULL) || (expDataSizePtr == NULL))
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -1666,7 +2147,7 @@ le_result_t taf_ks_ExportKey
     }
 
     // Check if it's a provisioned key, only provisioned key is allowed to export the key.
-    if ((keyPtr->newKeyPtr != NULL) || (keyPtr->keyFilePtr == NULL))
+    if (keyPtr->keyType != KS_PROVISIONED_KEY)
     {
         LE_ERROR("Not permitted.");
         return LE_NOT_PERMITTED;
@@ -1674,7 +2155,7 @@ le_result_t taf_ks_ExportKey
 
     // Export the key data.
     return taf_pa_ks_ExportKey(taf_ks_GetClientSessionRef(),
-                               keyPtr->keyFilePtr,
+                               keyPtr->proKey.keyFileRef,
                                appDataPtr,
                                appDataSize,
                                expDataPtr,
@@ -1692,6 +2173,9 @@ le_result_t taf_ks_ExportKey
  * is allowed to share. If the real key usage is "TAF_KS_RSA_DECRYPT_ONLY", then only capability
  * "TAF_KS_RSA_DECRYPT_ONLY" is allowed to share.
  *
+ * The appCap provides additional privileges for the shared app to use the key like delete key
+ * and export key if needed.
+ *
  * Only the key owner app can share the key after provisioning. One key can be shared to at most
  * 5 applications to use.
  *
@@ -1707,13 +2191,57 @@ le_result_t taf_ks_ShareKey
 (
     taf_ks_KeyRef_t keyRef,
         ///< [IN] Key reference.
+    const char* LE_NONNULL appName,
+        ///< [IN] Shared application name.
     taf_ks_KeyUsage_t keyCap,
-        ///< [IN] key capability shared to use.
-    const char* LE_NONNULL appName
-        ///< [IN] Name of the app that the key is shared to.
+        ///< [IN] Shared key capability.
+    taf_ks_AppCapMask_t appCap
+        ///< [IN] Shared application capability.
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    if (appName == NULL)
+    {
+        LE_ERROR("Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+
+    // Get appName from clientSession.
+    if (LE_OK != GetAppNameBySessionRef(taf_ks_GetClientSessionRef(),
+                                        myAppName, sizeof(myAppName)))
+    {
+        LE_ERROR("Failed to get client appName.");
+        return LE_FAULT;
+    }
+
+    // Check if the key owner is the calling application.
+    if (strcmp(myAppName, appName) == 0)
+    {
+        LE_ERROR("The key owner app is the calling app('%s').", appName);
+        return LE_FAULT;
+    }
+
+    taf_ks_Key_t* keyPtr = le_ref_Lookup(KeyRefMap, keyRef);
+    if (keyPtr == NULL)
+    {
+        LE_ERROR("Key is not found.");
+        return LE_NOT_FOUND;
+    }
+
+    // Check if it's a provisioned key, only provisioned key is allowed to share.
+    if (keyPtr->keyType != KS_PROVISIONED_KEY)
+    {
+        LE_ERROR("Not permitted.");
+        return LE_NOT_PERMITTED;
+    }
+
+    // Export the key data.
+    return taf_pa_ks_ShareKey(taf_ks_GetClientSessionRef(),
+                              keyPtr->proKey.keyFileRef,
+                              keyCap,
+                              appCap,
+                              appName);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1738,8 +2266,39 @@ le_result_t taf_ks_CancelKeySharing
         ///< [IN] Name of the app that the key is shared to before.
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    if (appName == NULL)
+    {
+        LE_ERROR("Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    taf_ks_Key_t* keyPtr = le_ref_Lookup(KeyRefMap, keyRef);
+    if (keyPtr == NULL)
+    {
+        LE_ERROR("Key is not found.");
+        return LE_NOT_FOUND;
+    }
+
+    // Check if it's a provisioned key, only provisioned key is allowed to share.
+    if (keyPtr->keyType != KS_PROVISIONED_KEY)
+    {
+        LE_ERROR("Not permitted.");
+        return LE_NOT_PERMITTED;
+    }
+
+    // Check if the key has running crypto sessions.
+    if (HasRunningCryptoSession(keyPtr->proKey.cryptoSessionList))
+    {
+        LE_WARN("Key has running crypto session.");
+        return LE_NOT_PERMITTED;
+    }
+
+    // Cancel the key sharing.
+    return taf_pa_ks_CancelKeySharing(taf_ks_GetClientSessionRef(),
+                                      keyPtr->proKey.keyFileRef,
+                                      appName);
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Get the first application that the given key is shared to.
@@ -1757,13 +2316,69 @@ le_result_t taf_ks_GetFirstSharedApp
     taf_ks_KeyRef_t keyRef,
         ///< [IN] Key reference.
     char* appName,
-        ///< [OUT] Name of the app that the key is shared to.
-    size_t appNameSize
+        ///< [OUT] Shared application name.
+    size_t appNameSize,
         ///< [IN]
+    taf_ks_KeyUsage_t* keyCapPtr,
+        ///< [OUT] Shared key capability.
+    taf_ks_AppCapMask_t* appCapPtr
+        ///< [OUT] Shared application capability.
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    if ((appName == NULL) || (appNameSize == 0) ||
+        (keyCapPtr == NULL) || (appCapPtr == NULL))
+    {
+        LE_ERROR("Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    taf_ks_Key_t* keyPtr = le_ref_Lookup(KeyRefMap, keyRef);
+    if (keyPtr == NULL)
+    {
+        LE_ERROR("Key is not found.");
+        return LE_NOT_FOUND;
+    }
+
+    // Check if it's a provisioned key, only provisioned key is allowed to share.
+    if (keyPtr->keyType != KS_PROVISIONED_KEY)
+    {
+        LE_ERROR("Not permitted.");
+        return LE_NOT_PERMITTED;
+    }
+
+    le_msg_SessionRef_t clientSessionRef = taf_ks_GetClientSessionRef();
+    taf_pa_ks_sharedAppList_t appList;
+    memset(&appList, 0, sizeof(appList));
+
+    // Get the sharing state of the key from PA layer.
+    le_result_t result = taf_pa_ks_GetSharedAppList(clientSessionRef, keyPtr->proKey.keyFileRef,
+                                                    &appList);
+
+    if (result != LE_OK)
+    {
+        // Key is not shared to any applications, return LE_NOT_FOUND.
+        return LE_NOT_FOUND;
+    }
+
+    // Update the appList of the key for this client.
+    SharedAppList_t* appListPtr = UpdateAppListForClient(clientSessionRef, keyPtr, &appList);
+    if (appListPtr == NULL)
+    {
+        return LE_NOT_FOUND;
+    }
+
+    // Now get the first shareApp object.
+    SharedApp_t* appPtr = NULL;
+    appListPtr->currPtr = le_sls_Peek(&(appListPtr->appList));
+    appPtr = CONTAINER_OF(appListPtr->currPtr, SharedApp_t, link);
+
+    le_utf8_Copy(appName, appPtr->appInfo.appName, appNameSize, NULL);
+    *keyCapPtr = appPtr->appInfo.keyCap;
+    *appCapPtr = appPtr->appInfo.appCap;
+
+    return LE_OK;
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Get the next application that the given key is shared to.
@@ -1781,13 +2396,71 @@ le_result_t taf_ks_GetNextSharedApp
     taf_ks_KeyRef_t keyRef,
         ///< [IN] Key reference.
     char* appName,
-        ///< [OUT] Name of the app that the key is shared to.
-    size_t appNameSize
+        ///< [OUT] Shared application name.
+    size_t appNameSize,
         ///< [IN]
+    taf_ks_KeyUsage_t* keyCapPtr,
+        ///< [OUT] Shared key capability.
+    taf_ks_AppCapMask_t* appCapPtr
+        ///< [OUT] Shared application capability.
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    if ((appName == NULL) || (appNameSize == 0) ||
+        (keyCapPtr == NULL) || (appCapPtr == NULL))
+    {
+        LE_ERROR("Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    taf_ks_Key_t* keyPtr = le_ref_Lookup(KeyRefMap, keyRef);
+    if (keyPtr == NULL)
+    {
+        LE_ERROR("Key is not found.");
+        return LE_NOT_FOUND;
+    }
+
+    // Check if it's a provisioned key, only provisioned key is allowed to share.
+    if (keyPtr->keyType != KS_PROVISIONED_KEY)
+    {
+        LE_ERROR("Not permitted.");
+        return LE_NOT_PERMITTED;
+    }
+
+    le_msg_SessionRef_t clientSessionRef = taf_ks_GetClientSessionRef();
+    SharedAppList_t* appListPtr = NULL;
+    SharedApp_t* appPtr = NULL;
+
+    le_dls_Link_t* linkPtr = le_dls_Peek(&(keyPtr->proKey.sharedAppList));
+    while (linkPtr != NULL)
+    {
+        appListPtr = CONTAINER_OF(linkPtr, SharedAppList_t, link);
+        linkPtr = le_dls_PeekNext(&(keyPtr->proKey.sharedAppList), linkPtr);
+
+        if ((appListPtr != NULL) && (appListPtr->clientSessionRef == clientSessionRef))
+        {
+            appListPtr->currPtr = le_sls_PeekNext(&(appListPtr->appList), appListPtr->currPtr);
+            if (appListPtr->currPtr != NULL)
+            {
+                appPtr = CONTAINER_OF(appListPtr->currPtr, SharedApp_t, link);
+                le_utf8_Copy(appName, appPtr->appInfo.appName, appNameSize, NULL);
+                *keyCapPtr = appPtr->appInfo.keyCap;
+                *appCapPtr = appPtr->appInfo.appCap;
+
+                return LE_OK;
+            }
+
+            // Free the appList.
+            ClearAppList(appListPtr);
+            le_dls_Remove(&(keyPtr->proKey.sharedAppList), &(appListPtr->link));
+            le_mem_Release(appListPtr);
+
+            return LE_NOT_FOUND;
+        }
+    }
+
+    return LE_NOT_FOUND;
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Add handler function for EVENT 'taf_ks_KeySharing'
@@ -1813,8 +2486,72 @@ taf_ks_KeySharingHandlerRef_t taf_ks_AddKeySharingHandler
         ///< [IN]
 )
 {
-    return NULL;
+    // Parameter check.
+    if ((appName == NULL) || (keyId == NULL) || (handlerPtr == NULL))
+    {
+        LE_ERROR("Bad parameter.");
+        return NULL;
+    }
+
+    char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+
+    // Get appName from clientSession.
+    if (LE_OK != GetAppNameBySessionRef(taf_ks_GetClientSessionRef(),
+                                        myAppName, sizeof(myAppName)))
+    {
+        LE_ERROR("Failed to get client appName.");
+        return NULL;
+    }
+
+    // Check if keyId string follows the POSIX file name format.
+    if (!IsPosixFileNameFormat(keyId))
+    {
+        LE_ERROR("Invalid key ID format (%s).", keyId);
+        return NULL;
+    }
+
+    // Check if the key owner is the calling application.
+    if (strcmp(myAppName, appName) == 0)
+    {
+        LE_ERROR("The key owner app is the calling app('%s').", appName);
+        return NULL;
+    }
+
+    // Create a handler object.
+    taf_ks_Handler_t* myHandlerPtr = le_mem_ForceAlloc(HandlerPool);
+    memset(myHandlerPtr, 0, sizeof(taf_ks_Handler_t));
+
+    // Save handler info.
+    myHandlerPtr->clientSessionRef = taf_ks_GetClientSessionRef();
+    myHandlerPtr->handleFunc = handlerPtr;
+    myHandlerPtr->context = contextPtr;
+
+    // Save the keyId and ownerAppName.
+    le_utf8_Copy(myHandlerPtr->keyId, keyId, sizeof(myHandlerPtr->keyId), NULL);
+    le_utf8_Copy(myHandlerPtr->ownerAppName, appName, sizeof(myHandlerPtr->ownerAppName), NULL);
+
+    // Save sharing state and handler reference.
+    myHandlerPtr->state = TAF_KS_SHARING_DISABLED;
+    myHandlerPtr->handlerRef = le_ref_CreateRef(HandlerRefMap, myHandlerPtr);
+
+    // Get the sharing state of the desired key.
+    KeyMgt_KeyFileRef_t keyFileRef = NULL;
+    le_result_t result = taf_pa_ks_GetSharedKey(myHandlerPtr->clientSessionRef,
+                                                myHandlerPtr->keyId,
+                                                myHandlerPtr->ownerAppName,
+                                                &keyFileRef);
+
+    // Trigger the handler immediately if the key is already shared to the client.
+    if ((result == LE_OK) && (keyFileRef != NULL))
+    {
+        myHandlerPtr->state = TAF_KS_SHARING_ENABLED;
+        myHandlerPtr->handleFunc(myHandlerPtr->keyId, myHandlerPtr->ownerAppName,
+                                 myHandlerPtr->state, myHandlerPtr->context);
+    }
+
+    return myHandlerPtr->handlerRef;
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Remove handler function for EVENT 'taf_ks_KeySharing'
@@ -1826,6 +2563,14 @@ void taf_ks_RemoveKeySharingHandler
         ///< [IN]
 )
 {
+    taf_ks_Handler_t* myHandlerPtr = (taf_ks_Handler_t*)le_ref_Lookup(HandlerRefMap, handlerRef);
+    if (myHandlerPtr != NULL)
+    {
+        le_ref_DeleteRef(HandlerRefMap, handlerRef);
+        le_mem_Release(myHandlerPtr);
+    }
+
+    return;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1846,7 +2591,7 @@ le_result_t taf_ks_CryptoSessionCreate
 
     if (sessionRefPtr == NULL)
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -1859,7 +2604,7 @@ le_result_t taf_ks_CryptoSessionCreate
 
     // Check if it's a provisioned key, only the session of provisioned key
     // is allowed to create crypto sessions.
-    if ((keyPtr->newKeyPtr != NULL) || (keyPtr->keyFilePtr == NULL))
+    if (keyPtr->keyType != KS_PROVISIONED_KEY)
     {
         LE_ERROR("Not permitted.");
         return LE_NOT_PERMITTED;
@@ -1877,11 +2622,11 @@ le_result_t taf_ks_CryptoSessionCreate
     sessionPtr->cryptoSessionRef = le_ref_CreateRef(CryptoSessionRefMap, sessionPtr);
 
     // Add the session into the session list of the provisioned key.
-    le_dls_Queue(&(keyPtr->cryptoSessionList), &(sessionPtr->link));
+    le_dls_Queue(&(keyPtr->proKey.cryptoSessionList), &(sessionPtr->link));
     *sessionRefPtr = sessionPtr->cryptoSessionRef;
 
     LE_INFO("A new crypto session(%p) for provisioned key(%p) created.",
-            sessionPtr, keyPtr->keyFilePtr);
+            sessionPtr, keyPtr->keyRef);
     return LE_OK;
 }
 
@@ -1910,7 +2655,7 @@ le_result_t taf_ks_CryptoSessionSetAesNonce
         ((dataSize != TAF_PA_KS_AES_GCM_NONCE_SIZE) &&
          (dataSize != TAF_PA_KS_AES_CBC_NONCE_SIZE)))
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -1928,8 +2673,8 @@ le_result_t taf_ks_CryptoSessionSetAesNonce
         return LE_NOT_FOUND;
     }
 
-    // Check if it's a provisioned key, only provisioned key is allowed
-    if ((keyPtr->newKeyPtr != NULL) || (keyPtr->keyFilePtr == NULL) ||
+    // Check if it's a provisioned key, only provisioned key is allowed.
+    if ((keyPtr->keyType != KS_PROVISIONED_KEY) ||
         (sessionPtr->clientSessionRef != taf_ks_GetClientSessionRef()))
     {
         LE_ERROR("Not permitted.");
@@ -1945,7 +2690,7 @@ le_result_t taf_ks_CryptoSessionSetAesNonce
 
     memcpy(newParamPtr->nonceDataPtr->data, dataPtr, dataSize);
     newParamPtr->nonceDataPtr->size = dataSize;
-    LE_ASSERT(LE_OK == SetParam(sessionPtr, newParamPtr));
+    SetParam(sessionPtr, newParamPtr);
 
     return LE_OK;
 }
@@ -1972,7 +2717,7 @@ le_result_t taf_ks_CryptoSessionSetAppData
 
     if ((dataPtr == NULL) || (dataSize == 0))
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -1992,7 +2737,7 @@ le_result_t taf_ks_CryptoSessionSetAppData
 
     // Check if it's a provisioned key, only provisioned key is allowed
     // to set the session parameter.
-    if ((keyPtr->newKeyPtr != NULL) || (keyPtr->keyFilePtr == NULL) ||
+    if ((keyPtr->keyType != KS_PROVISIONED_KEY) ||
         (sessionPtr->clientSessionRef != taf_ks_GetClientSessionRef()))
     {
         LE_ERROR("Not permitted.");
@@ -2008,7 +2753,7 @@ le_result_t taf_ks_CryptoSessionSetAppData
 
     memcpy(newParamPtr->appDataPtr->data, dataPtr, dataSize);
     newParamPtr->appDataPtr->size = dataSize;
-    LE_ASSERT(LE_OK == SetParam(sessionPtr, newParamPtr));
+    SetParam(sessionPtr, newParamPtr);
 
     return LE_OK;
 }
@@ -2035,7 +2780,7 @@ le_result_t taf_ks_CryptoSessionStart
 
     if (cryptoPurpose >= TAF_KS_CRYPTO_MAX)
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -2054,7 +2799,7 @@ le_result_t taf_ks_CryptoSessionStart
     }
 
     // Check if it's a provisioned key, only provisioned key is allowed
-    if ((keyPtr->newKeyPtr != NULL) || (keyPtr->keyFilePtr == NULL) ||
+    if ((keyPtr->keyType != KS_PROVISIONED_KEY)||
         (sessionPtr->clientSessionRef != taf_ks_GetClientSessionRef()))
     {
         LE_ERROR("Not permitted.");
@@ -2065,12 +2810,12 @@ le_result_t taf_ks_CryptoSessionStart
     if (sessionPtr->started)
     {
         LE_WARN("Session(%p) for provisioned key(%p) is already started.",
-                sessionPtr, keyPtr->keyFilePtr);
+                sessionPtr, keyPtr->keyRef);
         return LE_DUPLICATE;
     }
 
     result = taf_pa_ks_CryptoSessionStart(taf_ks_GetClientSessionRef(),
-                                          keyPtr->keyFilePtr,
+                                          keyPtr->proKey.keyFileRef,
                                           cryptoPurpose,
                                           &(sessionPtr->paramList),
                                           &handle);
@@ -2079,13 +2824,13 @@ le_result_t taf_ks_CryptoSessionStart
         // Save the handle and set the session as started.
         sessionPtr->started = true;
         sessionPtr->handle = handle;
-        LE_ASSERT(LE_OK == ClearParamList(sessionPtr));
+        ClearParamList(sessionPtr);
     }
     else
     {
         // Remove the session if any error happens.
-        le_dls_Remove(&(keyPtr->cryptoSessionList), &(sessionPtr->link));
-        LE_ASSERT(LE_OK == RemoveCryptoSession(sessionPtr));
+        le_dls_Remove(&(keyPtr->proKey.cryptoSessionList), &(sessionPtr->link));
+        RemoveCryptoSession(sessionPtr);
     }
 
     return result;
@@ -2115,7 +2860,7 @@ le_result_t taf_ks_CryptoSessionProcessAead
 
     if ((inputDataPtr == NULL) || (inputDataSize == 0))
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -2134,7 +2879,7 @@ le_result_t taf_ks_CryptoSessionProcessAead
     }
 
     // Check if it's a provisioned key, only provisioned key is allowed
-    if ((keyPtr->newKeyPtr != NULL) || (keyPtr->keyFilePtr == NULL) ||
+    if ((keyPtr->keyType != KS_PROVISIONED_KEY) ||
         (sessionPtr->clientSessionRef != taf_ks_GetClientSessionRef()))
     {
         LE_ERROR("Not permitted.");
@@ -2145,7 +2890,7 @@ le_result_t taf_ks_CryptoSessionProcessAead
     if (sessionPtr->started == false)
     {
         LE_WARN("Session(%p) for provisioned key(%p) is not started.",
-                sessionPtr, keyPtr->keyFilePtr);
+                sessionPtr, keyPtr->keyRef);
         return LE_NOT_PERMITTED;
     }
 
@@ -2158,8 +2903,8 @@ le_result_t taf_ks_CryptoSessionProcessAead
         sessionPtr->started = false;
         sessionPtr->handle = 0;
 
-        le_dls_Remove(&(keyPtr->cryptoSessionList), &(sessionPtr->link));
-        LE_ASSERT(LE_OK == RemoveCryptoSession(sessionPtr));
+        le_dls_Remove(&(keyPtr->proKey.cryptoSessionList), &(sessionPtr->link));
+        RemoveCryptoSession(sessionPtr);
     }
 
     return result;
@@ -2201,7 +2946,7 @@ le_result_t taf_ks_CryptoSessionProcess
 
     if ((inputDataPtr == NULL) || (inputDataSize == 0))
     {
-        LE_KILL_CLIENT("Bad parameter.");
+        LE_ERROR("Bad parameter.");
         return LE_BAD_PARAMETER;
     }
 
@@ -2220,7 +2965,7 @@ le_result_t taf_ks_CryptoSessionProcess
     }
 
     // Check if it's a provisioned key, only provisioned key is allowed
-    if ((keyPtr->newKeyPtr != NULL) || (keyPtr->keyFilePtr == NULL) ||
+    if ((keyPtr->keyType != KS_PROVISIONED_KEY) ||
         (sessionPtr->clientSessionRef != taf_ks_GetClientSessionRef()))
     {
         LE_ERROR("Not permitted.");
@@ -2231,7 +2976,7 @@ le_result_t taf_ks_CryptoSessionProcess
     if (sessionPtr->started == false)
     {
         LE_WARN("Session(%p) for provisioned key(%p) is not started.",
-                sessionPtr, keyPtr->keyFilePtr);
+                sessionPtr, keyPtr->keyRef);
         return LE_NOT_PERMITTED;
     }
 
@@ -2246,8 +2991,8 @@ le_result_t taf_ks_CryptoSessionProcess
         sessionPtr->started = false;
         sessionPtr->handle = 0;
 
-        le_dls_Remove(&(keyPtr->cryptoSessionList), &(sessionPtr->link));
-        LE_ASSERT(LE_OK == RemoveCryptoSession(sessionPtr));
+        le_dls_Remove(&(keyPtr->proKey.cryptoSessionList), &(sessionPtr->link));
+        RemoveCryptoSession(sessionPtr);
     }
 
     return result;
@@ -2298,7 +3043,7 @@ le_result_t taf_ks_CryptoSessionEnd
     }
 
     // Check if it's a provisioned key, only provisioned key is allowed
-    if ((keyPtr->newKeyPtr != NULL) || (keyPtr->keyFilePtr == NULL) ||
+    if ((keyPtr->keyType != KS_PROVISIONED_KEY) ||
         (sessionPtr->clientSessionRef != taf_ks_GetClientSessionRef()))
     {
         LE_ERROR("Not permitted.");
@@ -2309,7 +3054,7 @@ le_result_t taf_ks_CryptoSessionEnd
     if (sessionPtr->started == false)
     {
         LE_WARN("Session(%p) for provisioned key(%p) is not started.",
-                sessionPtr, keyPtr->keyFilePtr);
+                sessionPtr, keyPtr->keyRef);
         return LE_NOT_PERMITTED;
     }
 
@@ -2323,8 +3068,8 @@ le_result_t taf_ks_CryptoSessionEnd
     sessionPtr->handle = 0;
 
     // Delete the crypto session.
-    le_dls_Remove(&(keyPtr->cryptoSessionList), &(sessionPtr->link));
-    LE_ASSERT(LE_OK == RemoveCryptoSession(sessionPtr));
+    le_dls_Remove(&(keyPtr->proKey.cryptoSessionList), &(sessionPtr->link));
+    RemoveCryptoSession(sessionPtr);
 
     return result;
 }
@@ -2361,7 +3106,7 @@ le_result_t taf_ks_CryptoSessionAbort
     }
 
     // Check if it's a provisioned key, only provisioned key is allowed.
-    if ((keyPtr->newKeyPtr != NULL) || (keyPtr->keyFilePtr == NULL) ||
+    if ((keyPtr->keyType != KS_PROVISIONED_KEY) ||
         (sessionPtr->clientSessionRef != taf_ks_GetClientSessionRef()))
     {
         LE_ERROR("Not permitted.");
@@ -2372,7 +3117,7 @@ le_result_t taf_ks_CryptoSessionAbort
     if (sessionPtr->started == false)
     {
         LE_WARN("Session(%p) for provisioned key(%p) is not started.",
-                sessionPtr, keyPtr->keyFilePtr);
+                sessionPtr, keyPtr->keyRef);
         return LE_NOT_PERMITTED;
     }
 
@@ -2382,8 +3127,8 @@ le_result_t taf_ks_CryptoSessionAbort
     sessionPtr->handle = 0;
 
     // Delete the crypto session.
-    le_dls_Remove(&(keyPtr->cryptoSessionList), &(sessionPtr->link));
-    LE_ASSERT(LE_OK == RemoveCryptoSession(sessionPtr));
+    le_dls_Remove(&(keyPtr->proKey.cryptoSessionList), &(sessionPtr->link));
+    RemoveCryptoSession(sessionPtr);
 
     return result;
 }
@@ -2397,7 +3142,6 @@ COMPONENT_INIT
 {
     // Create memory pools
     CryptoSessionPool = le_mem_CreatePool("CryptoSessionPool", sizeof(taf_ks_CryptoSession_t));
-    NewKeyPool = le_mem_CreatePool("NewKeyPool", sizeof(taf_ks_NewKey_t));
     KeyPool = le_mem_CreatePool("KeyPool", sizeof(taf_ks_Key_t));
 
     TagPool = le_mem_CreatePool("TagPool", sizeof(taf_pa_ks_Tag_t));
@@ -2406,16 +3150,33 @@ COMPONENT_INIT
     AesNoncePool = le_mem_CreatePool("AesNoncePool", sizeof(taf_pa_ks_Nonce_t));
     DataPool = le_mem_CreatePool("DataPool", sizeof(taf_pa_ks_Data_t));
 
+    HandlerPool = le_mem_CreatePool("HandlerPool", sizeof(taf_ks_Handler_t));
+    SharedAppPool = le_mem_CreatePool("SharedAppPool", sizeof(SharedApp_t));
+    SharedAppListPool = le_mem_CreatePool("SharedAppListPool", sizeof(SharedAppList_t));
+
     // Create reference maps
     CryptoSessionRefMap = le_ref_CreateMap("CryptoSessionRefMap", 20);
     KeyRefMap = le_ref_CreateMap("KeyRefMap", 500);
+    HandlerRefMap = le_ref_CreateMap("KeySharingHandler", 20);
 
-    // Set session close handlers
-    le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(), RemoveNewKeysForClient, NULL);
-    le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(), RemoveCryptoSessionsForClient, NULL);
+    // Create key event
+    KeyEventId = le_event_CreateId("KeyEvent", sizeof(KeyEvent_t));
+    le_event_AddHandler("KeyEventhandler", KeyEventId, KeyEventHandler);
+
+    // Register callback functions in PA layer.
+    taf_pa_ks_RegKeyCreationHandler(KeyCreationPAHandler);
+    taf_pa_ks_RegKeySharingHandler(KeySharingPAHandler);
 
     if (LE_OK == taf_pa_ks_Init())
     {
+        // Advertise the service.
+        taf_ks_AdvertiseService();
+
+        // Set session close handlers.
+        le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(), RemoveNewKeysForClient, NULL);
+        le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(), RemoveCryptoSessionsForClient, NULL);
+        le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(), RemoveAppListsForClient, NULL);
+
         LE_INFO("Telaf keyStore Service initialized.");
     }
     else

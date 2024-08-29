@@ -131,6 +131,136 @@ __attribute__((unused)) static void KeyManagementTest(void)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Tests for key sharing management APIs.
+ */
+//--------------------------------------------------------------------------------------------------
+__attribute__((unused)) static void KeySharingTest(void)
+{
+    const char keyId[] = "MySharedKeyTest";
+    const char invalidKeyId[] ="Wrong#&keyId";
+    const char nonExistSharedKeyId[] = "NonExistApp::NonExistKeyId";
+    const char* sharedAppNameList[] = {"Shared_App1", "Shared_App2", "Shared_App3", "Shared_App4",
+                                       "Shared_App5"};
+    char appName[LE_LIMIT_APP_NAME_LEN+1] = { 0 };
+    char keyName[256] = { 0 };
+    taf_ks_KeyRef_t keyRef;
+    taf_ks_KeyRef_t keyRef1;
+    taf_ks_KeyUsage_t keyCap;
+    taf_ks_AppCapMask_t appCap;
+
+    // Get/Create an invalid key.
+    LE_TEST_ASSERT((LE_BAD_PARAMETER == taf_ks_GetKey(invalidKeyId, &keyRef)) &&
+                   (LE_BAD_PARAMETER == taf_ks_CreateKey(invalidKeyId, TAF_KS_RSA_ENCRYPT_DECRYPT,
+                                                          &keyRef)),
+                   "Get/Create an invalid key (wrong keyId format).");
+
+    // Get a non-exist shared key.
+    LE_TEST_ASSERT(LE_NOT_FOUND == taf_ks_GetKey(nonExistSharedKeyId, &keyRef),
+                   "Get a non-exist shared key.");
+
+    if (LE_NOT_FOUND == taf_ks_GetKey(keyId, &keyRef))
+    {
+        LE_TEST_ASSERT(LE_OK == taf_ks_CreateKey(keyId, TAF_KS_RSA_ENCRYPT_DECRYPT, &keyRef),
+                                                 "Test shared key creation.");
+        LE_TEST_ASSERT(LE_NOT_PERMITTED == taf_ks_ShareKey(keyRef, "SharedApp_X",
+                                                           TAF_KS_RSA_ENCRYPT_DECRYPT, 0),
+                       "New created key is not allowed to share.");
+        LE_TEST_ASSERT(LE_OK == taf_ks_ProvisionRsaEncKeyValue(keyRef,
+                                                               TAF_KS_RSA_SIZE_1024,
+                                                               TAF_KS_RSA_ENC_PAD_OAEP_SHA2_512,
+                                                               NULL, 0),
+                       "Shared key is provisioned.");
+
+        // Share a wrong keyCap.
+        for (int i = 0; i < NUM_ARRAY_MEMBERS(sharedAppNameList); i++)
+        {
+            LE_TEST_ASSERT(LE_NOT_PERMITTED == taf_ks_ShareKey(keyRef, sharedAppNameList[i],
+                                                               TAF_KS_AES_ENCRYPT_DECRYPT, 0),
+                           "Share a wrong keyCap to app: '%s'.", sharedAppNameList[i]);
+        }
+
+        // Share a correct keyCap.
+        for (int i = 0; i < NUM_ARRAY_MEMBERS(sharedAppNameList); i++)
+        {
+            LE_TEST_ASSERT(LE_OK == taf_ks_ShareKey(keyRef, sharedAppNameList[i],
+                                                    TAF_KS_RSA_ENCRYPT_DECRYPT,
+                                                    TAF_KS_CAP_EXPORT_KEY),
+                           "Share key to app: '%s'.", sharedAppNameList[i]);
+        }
+
+        // Share to one more app will fail since we only support to share at most 5 apps.
+        LE_TEST_ASSERT(LE_NO_MEMORY == taf_ks_ShareKey(keyRef, "Shared_AppY",
+                                                       TAF_KS_RSA_ENCRYPT_DECRYPT, 0),
+                       "Share key to the 6th app: '%s'.", "Shared_AppY");
+
+        // Share the same keyCap and appCap.
+        LE_TEST_ASSERT(LE_DUPLICATE == taf_ks_ShareKey(keyRef, "Shared_App3",
+                                                       TAF_KS_RSA_ENCRYPT_DECRYPT,
+                                                       TAF_KS_CAP_EXPORT_KEY),
+                       "Share the same keyCap/appCap to app: '%s'.", "Shared_App3");
+
+        // Update the keyCap and appCap.
+        LE_TEST_ASSERT(LE_OK == taf_ks_ShareKey(keyRef, "Shared_App3",
+                                                         TAF_KS_RSA_ENCRYPT_DECRYPT,
+                                                         TAF_KS_CAP_DELETE_KEY),
+                       "Update the keyCap/appCap to app: '%s'.", "Shared_App3");
+    }
+    else
+    {
+        // Get the key by keyName="<appName>::<keyId>", Shall return the same key reference
+        // If the appName is our own app.
+        snprintf(keyName, sizeof(keyName), "tafKeyStoreUnitTest::%s", keyId);
+        LE_TEST_ASSERT((LE_OK == taf_ks_GetKey(keyName, &keyRef1)) && (keyRef == keyRef1),
+                       "Get the same key again.");
+
+        // Get sharedApp list.
+        LE_TEST_ASSERT(LE_OK == taf_ks_GetFirstSharedApp(keyRef, appName, sizeof(appName),
+                                                         &keyCap, &appCap),
+                       "Get shared app entry: name='%s', keyCap=%u, appCap=%u",
+                       appName, keyCap, appCap);
+        while (LE_OK == taf_ks_GetNextSharedApp(keyRef, appName, sizeof(appName), &keyCap, &appCap))
+        {
+            LE_TEST_INFO("Get shared app entry: name'%s', keyCap=%u, appCap=%u",
+                         appName, keyCap, appCap);
+        }
+
+        // Get sharedApp list again.
+        LE_TEST_ASSERT(LE_OK == taf_ks_GetFirstSharedApp(keyRef, appName, sizeof(appName),
+                                                         &keyCap, &appCap),
+                       "Get shared app entry: name='%s', keyCap=%u, appCap=%u",
+                       appName, keyCap, appCap);
+        while (LE_OK == taf_ks_GetNextSharedApp(keyRef, appName, sizeof(appName), &keyCap, &appCap))
+        {
+            LE_TEST_INFO("Get shared app entry: name'%s', keyCap=%u, appCap=%u",
+                         appName, keyCap, appCap);
+        }
+
+        // Cancel the sharing for non-shared app will fail.
+        LE_TEST_ASSERT(LE_NOT_PERMITTED == taf_ks_CancelKeySharing(keyRef, "Shared_AppZ"),
+                       "Cancel keySharing for a non-shared app: '%s'.", "Shared_AppZ");
+
+        // Cancel the sharing for all apps
+        for (int i = 0; i < NUM_ARRAY_MEMBERS(sharedAppNameList); i++)
+        {
+            LE_TEST_ASSERT(LE_OK == taf_ks_CancelKeySharing(keyRef, sharedAppNameList[i]),
+                           "Cancel the key sharing to app: '%s'.", sharedAppNameList[i]);
+        }
+
+        // Cancel the sharing again will fail.
+        for (int i = 0; i < NUM_ARRAY_MEMBERS(sharedAppNameList); i++)
+        {
+            LE_TEST_ASSERT(LE_NOT_PERMITTED == taf_ks_CancelKeySharing(keyRef,
+                                                                       sharedAppNameList[i]),
+                           "Cancel the key sharing to app: '%s'.", sharedAppNameList[i]);
+        }
+
+        // Delete the key
+        LE_TEST_ASSERT(LE_OK == taf_ks_DeleteKey(keyRef), "Delete the shared key.");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Tests for AES GCM encryption/decryption
  */
 //--------------------------------------------------------------------------------------------------
@@ -1515,6 +1645,7 @@ COMPONENT_INIT
     EncDataFileTest();         // Encrypt file test
     DecDataFileTest();         // Decrypt file test
     RsaKeyExportTest();        // Export RSA key test
+    KeySharingTest();          // Basic key sharing API test
 
     LE_TEST_INFO("=== telaf Keystore test END ===");
 

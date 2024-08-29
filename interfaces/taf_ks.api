@@ -221,6 +221,18 @@ DEFINE MAX_HMAC_KEY_SIZE = 128;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Capabilities shared to the application.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK AppCapMask
+{
+    CAP_DELETE_KEY,    ///< Shared app can delete the key.
+    CAP_EXPORT_KEY,    ///< Shared app can export the key.
+    CAP_GET_APP_LIST,  ///< Shared app can get shared application list of the key.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Key sharing state enum
  */
 //--------------------------------------------------------------------------------------------------
@@ -746,6 +758,9 @@ FUNCTION le_result_t ExportKey
  * is allowed to share. If the real key usage is "TAF_KS_RSA_DECRYPT_ONLY", then only capability
  * "TAF_KS_RSA_DECRYPT_ONLY" is allowed to share.
  *
+ * The appCap provides additional privileges for the shared app to use the key like delete key
+ * and export key if needed.
+ *
  * Only the key owner app can share the key after provisioning. One key can be shared to at most
  * 5 applications to use.
  *
@@ -760,8 +775,9 @@ FUNCTION le_result_t ExportKey
 FUNCTION le_result_t ShareKey
 (
     Key    keyRef                         IN, ///< Key reference.
-    KeyUsage keyCap                       IN, ///< key capability shared to use.
-    string appName[le_limit.APP_NAME_LEN] IN  ///< Name of the app that the key is shared to.
+    string appName[le_limit.APP_NAME_LEN] IN, ///< Shared application name.
+    KeyUsage keyCap                       IN, ///< Shared key capability.
+    AppCapMask appCap                     IN  ///< Shared application capability.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -786,7 +802,7 @@ FUNCTION le_result_t CancelKeySharing
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the first application that the given key is shared to.
+ * Gets the first application that the key is shared to.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -798,13 +814,15 @@ FUNCTION le_result_t CancelKeySharing
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetFirstSharedApp
 (
-    Key    keyRef                         IN, ///< Key reference.
-    string appName[le_limit.APP_NAME_LEN] OUT ///< Name of the app that the key is shared to.
+    Key    keyRef                         IN,  ///< Key reference.
+    string appName[le_limit.APP_NAME_LEN] OUT, ///< Shared application name.
+    KeyUsage keyCap                       OUT, ///< Shared key capability.
+    AppCapMask appCap                     OUT  ///< Shared application capability.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the next application that the given key is shared to.
+ * Gets the next application that the key is shared to.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -816,8 +834,10 @@ FUNCTION le_result_t GetFirstSharedApp
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNextSharedApp
 (
-    Key    keyRef                         IN, ///< Key reference.
-    string appName[le_limit.APP_NAME_LEN] OUT ///< Name of the app that the key is shared to.
+    Key    keyRef                         IN,  ///< Key reference.
+    string appName[le_limit.APP_NAME_LEN] OUT, ///< Shared application name.
+    KeyUsage keyCap                       OUT, ///< Shared key capability.
+    AppCapMask appCap                     OUT  ///< Shared application capability.
 );
 
 //--------------------------------------------------------------------------------------------------

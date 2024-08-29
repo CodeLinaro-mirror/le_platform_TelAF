@@ -417,6 +417,18 @@ typedef struct
     uint16_t hysteresisdB;
 } taf_RadioHysteresisConfig_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Network status indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;
+    taf_radio_NetStatusIndBitMask_t bitmask;
+    taf_radio_NetStatusRef_t netStatusRef;
+} taf_RadioNetStatusInd_t;
+
 namespace telux {
 namespace tafsvc {
     /*
@@ -743,6 +755,7 @@ namespace tafsvc {
         static void taf_radio_LayerImsStateHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerSsHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerCellInfoHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerNetStatusHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerRatChangeHandler(void* reportPtr, void* layerHandlerFunc);
 
         /*
@@ -786,6 +799,7 @@ namespace tafsvc {
         le_mem_PoolRef_t ssChangePool;
         le_mem_PoolRef_t cellInfoChangePool;
         le_mem_PoolRef_t ratChangePool;
+        le_mem_PoolRef_t netStatusPool;
 
         le_ref_MapRef_t prefOpListRefMap;
         le_ref_MapRef_t prefOpSafeRefMap;
@@ -809,6 +823,7 @@ namespace tafsvc {
         le_event_Id_t nr5gSsChangeEvId;
         le_event_Id_t cellInfoChangeEvId;
         le_event_Id_t ratChangeEvId;
+        le_event_Id_t netStatusEvId;
         static le_event_Id_t radioCmdEvId;
 
         bool subSystemStatusUpdated = false;
@@ -832,7 +847,7 @@ namespace tafsvc {
         std::map<SlotId, std::shared_ptr<telux::tel::IImsServingSystemManager>> imsServingSystemMgrs;
         std::map<SlotId, std::shared_ptr<telux::tel::IImsSettingsManager>> imsSettingMgrs;
         std::map<SlotId, std::shared_ptr<telux::data::IServingSystemManager>> dataServSysManagers;
-        std::map<le_event_HandlerRef_t, le_event_HandlerRef_t> pdpHandlerRefs;
+        std::map<taf_radio_NetStatusChangeHandlerRef_t, taf_radio_NetStatusChangeHandlerRef_t> netStatRefMap;
         taf_radio_ImsRef_t imsRefs[TAF_RADIO_PHONE_NUM];
         taf_radio_NetStatusRef_t netStatusRefs[TAF_RADIO_PHONE_NUM];
         std::shared_ptr<taf_RadioPhoneListener> phoneListener;

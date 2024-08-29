@@ -104,6 +104,18 @@ void taf_RadioServSysListener::onSystemInfoChanged
 {
     LE_DEBUG("<SDK Listener> taf_RadioServSysListener --> onSystemInfoChanged");
 
+    if (sysInfo.domain != serviceDomain)
+    {
+        serviceDomain = sysInfo.domain;
+        auto &tafRadio = taf_Radio::GetInstance();
+        taf_RadioNetStatusInd_t* statusPtr =
+            (taf_RadioNetStatusInd_t*)le_mem_ForceAlloc(tafRadio.netStatusPool);
+        statusPtr->phoneId = phone;
+        statusPtr->bitmask = TAF_RADIO_NET_STATUS_IND_BIT_MASK_SVC_DOMAIN;
+        statusPtr->netStatusRef = tafRadio.netStatusRefs[phone - 1];
+        le_event_ReportWithRefCounting(tafRadio.netStatusEvId, (void*)statusPtr);
+    }
+
     if (sysInfo.rat != rat)
     {
         rat = sysInfo.rat;
@@ -1827,6 +1839,31 @@ void taf_Radio::taf_radio_LayerCellInfoHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Layered handler for network status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::taf_radio_LayerNetStatusHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_radio_NetStatusHandlerFunc_t handlerFunc =
+        (taf_radio_NetStatusHandlerFunc_t)layerHandlerFunc;
+    taf_RadioNetStatusInd_t* indPtr = (taf_RadioNetStatusInd_t*)reportPtr;
+    if (handlerFunc)
+    {
+        handlerFunc(indPtr->netStatusRef, indPtr->bitmask, indPtr->phoneId,
+            le_event_GetContextPtr());
+    }
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Layered handler for RAT change.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2246,6 +2283,7 @@ void taf_Radio::Init(void)
     nr5gSsChangeEvId = le_event_CreateIdWithRefCounting("Nr5gSsChange");
     cellInfoChangeEvId = le_event_CreateIdWithRefCounting("CellInfoChange");
     ratChangeEvId = le_event_CreateIdWithRefCounting("RatChange");
+    netStatusEvId = le_event_CreateIdWithRefCounting("netStatus");
 
     // 2. Initiate the memory pool
     prefOpsListPool = le_mem_InitStaticPool(prefOpsListPool,
@@ -2277,7 +2315,7 @@ void taf_Radio::Init(void)
     ssChangePool = le_mem_CreatePool("ssChangePool", sizeof(taf_RadioSsInd_t));
     cellInfoChangePool = le_mem_CreatePool("cellInfoPool", sizeof(taf_radio_NetRegStateInd_t));
     ratChangePool = le_mem_CreatePool("ratChangePool", sizeof(taf_radio_RatChangeInd_t));
-
+    netStatusPool = le_mem_CreatePool("netStatusPool", sizeof(taf_RadioNetStatusInd_t));
 
     // 3. Initiate the reference map.
     prefOpListRefMap = le_ref_InitStaticMap(prefOpListRefMap,TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);

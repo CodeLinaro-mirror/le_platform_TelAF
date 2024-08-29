@@ -1079,6 +1079,7 @@ BITMASK ImsIndBitMask
 BITMASK NetStatusIndBitMask
 {
     NET_STATUS_IND_BIT_MASK_RAT_SVC_STATUS, ///< Indication for RAT service status changes.
+    NET_STATUS_IND_BIT_MASK_SVC_DOMAIN,     ///< Indication for service domain changes.
     NET_STATUS_IND_BIT_MASK_LTE_CS_CAP      ///< Indication for LTE CS capabilitiy changes.
 };
 
@@ -2995,4 +2996,36 @@ FUNCTION le_result_t GetServingCellUarfcn
 (
     int32 uarfcn OUT, ///< UTRA absolute radio frequency channel number.
     uint8 phoneId IN  ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the operating mode.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetOperatingMode
+(
+    OpMode mode IN,  ///< Operating mode.
+    uint8 phoneId IN ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the operating mode.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetOperatingMode
+(
+    OpMode mode OUT, ///< Operating mode.
+    uint8 phoneId IN ///< Phone ID.
 );

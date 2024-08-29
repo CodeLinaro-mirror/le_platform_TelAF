@@ -4521,7 +4521,18 @@ taf_radio_NetStatusChangeHandlerRef_t taf_radio_AddNetStatusChangeHandler
         ///< [IN] Handler context.
 )
 {
-    return taf_pa_radio_AddNetStatusChangeHandler(handlerFuncPtr, contextPtr);
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("NetStatusChangeHandler",
+        tafRadio.netStatusEvId, taf_Radio::taf_radio_LayerNetStatusHandler,
+        (void*)handlerFuncPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+    taf_radio_NetStatusChangeHandlerRef_t paHandlerRef =
+        taf_pa_radio_AddNetStatusChangeHandler(handlerFuncPtr, contextPtr);
+
+    tafRadio.netStatRefMap[(taf_radio_NetStatusChangeHandlerRef_t)handlerRef] = paHandlerRef;
+    return (taf_radio_NetStatusChangeHandlerRef_t)handlerRef;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4534,7 +4545,17 @@ void taf_radio_RemoveNetStatusChangeHandler
     taf_radio_NetStatusChangeHandlerRef_t handlerRef ///< [IN] Handler reference.
 )
 {
-    taf_pa_radio_RemoveNetStatusChangeHandler(handlerRef);
+    auto &tafRadio = taf_Radio::GetInstance();
+    std::map<taf_radio_NetStatusChangeHandlerRef_t,
+        taf_radio_NetStatusChangeHandlerRef_t>::iterator it =
+        tafRadio.netStatRefMap.find(handlerRef);
+    if (it != tafRadio.netStatRefMap.end())
+    {
+        taf_pa_radio_RemoveNetStatusChangeHandler(tafRadio.netStatRefMap[handlerRef]);
+        tafRadio.netStatRefMap.erase(it);
+    }
+
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -5552,6 +5573,132 @@ le_result_t taf_radio_GetServingCellUarfcn
         TAF_RADIO_RAT_UMTS, LE_FAULT, "Serving cell is not UMTS.");
 
     *uarfcn = (int32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.uarfcn;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the operating mode.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetOperatingMode
+(
+    taf_radio_OpMode_t mode, ///< [IN] Operating mode.
+    uint8_t phoneId          ///< [IN] Phone ID.
+)
+{
+    telux::tel::OperatingMode opMode;
+    switch (mode)
+    {
+        case TAF_RADIO_OP_MODE_ONLINE:
+            opMode = telux::tel::OperatingMode::ONLINE;
+            break;
+        case TAF_RADIO_OP_MODE_AIRPLANE:
+            opMode = telux::tel::OperatingMode::AIRPLANE;
+            break;
+        case TAF_RADIO_OP_MODE_FACTORY_TEST:
+            opMode = telux::tel::OperatingMode::FACTORY_TEST;
+            break;
+        case TAF_RADIO_OP_MODE_OFFLINE:
+            opMode = telux::tel::OperatingMode::OFFLINE;
+            break;
+        case TAF_RADIO_OP_MODE_RESETTING:
+            opMode = telux::tel::OperatingMode::RESETTING;
+            break;
+        case TAF_RADIO_OP_MODE_SHUTTING_DOWN:
+            opMode = telux::tel::OperatingMode::SHUTTING_DOWN;
+            break;
+        case TAF_RADIO_OP_MODE_PERSISTENT_LOW_POWER:
+            opMode = telux::tel::OperatingMode::PERSISTENT_LOW_POWER;
+            break;
+        default:
+            LE_ERROR("Invalid operating mode %d.", mode);
+            return LE_BAD_PARAMETER;
+    }
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    auto respenseCb = std::bind(&taf_RadioSetOperatingModeCallback::setOperatingModeResponse,
+        tafRadio.setOperatingModeCb, std::placeholders::_1);
+
+    auto ret = tafRadio.phoneManager->setOperatingMode(opMode, respenseCb);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.setOperatingModeCb->semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout.");
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.setOperatingModeCb->result != LE_OK,
+        tafRadio.setOperatingModeCb->result, "Fail to set operating mode.");
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the operating mode.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetOperatingMode
+(
+    taf_radio_OpMode_t* mode, ///< [OUT] Operating mode.
+    uint8_t phoneId           ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(mode == nullptr, LE_BAD_PARAMETER, "Null ptr(mode)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    auto ret = tafRadio.phoneManager->requestOperatingMode(tafRadio.getOperatingModeCb);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.getOperatingModeCb->semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.setOperatingModeCb->result != LE_OK,
+        tafRadio.setOperatingModeCb->result, "Fail to get operating mode.");
+
+    switch (tafRadio.getOperatingModeCb->opMode)
+    {
+        case telux::tel::OperatingMode::ONLINE:
+            *mode = TAF_RADIO_OP_MODE_ONLINE;
+            break;
+        case telux::tel::OperatingMode::AIRPLANE:
+            *mode = TAF_RADIO_OP_MODE_AIRPLANE;
+            break;
+        case telux::tel::OperatingMode::FACTORY_TEST:
+            *mode = TAF_RADIO_OP_MODE_FACTORY_TEST;
+            break;
+        case telux::tel::OperatingMode::OFFLINE:
+            *mode = TAF_RADIO_OP_MODE_OFFLINE;
+            break;
+        case telux::tel::OperatingMode::RESETTING:
+            *mode = TAF_RADIO_OP_MODE_RESETTING;
+            break;
+        case telux::tel::OperatingMode::SHUTTING_DOWN:
+            *mode = TAF_RADIO_OP_MODE_SHUTTING_DOWN;
+            break;
+        case telux::tel::OperatingMode::PERSISTENT_LOW_POWER:
+            *mode = TAF_RADIO_OP_MODE_PERSISTENT_LOW_POWER;
+            break;
+        default:
+            LE_ERROR("Invalid operating mode.");
+            return LE_FAULT;
+    }
 
     return LE_OK;
 }

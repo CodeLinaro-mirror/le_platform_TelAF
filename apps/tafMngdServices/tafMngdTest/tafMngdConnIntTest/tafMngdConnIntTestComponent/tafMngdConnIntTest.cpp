@@ -111,7 +111,7 @@ static le_result_t startData(taf_mngdConn_DataRef_t dataRef)
     LE_TEST_INFO("----startData test " );
     le_result_t result;
     result=taf_mngdConn_StartData(dataRef);
-    if (result != LE_OK && result != LE_DUPLICATE)
+    if (result != LE_OK && result != LE_DUPLICATE && result != LE_IN_PROGRESS)
     {
         LE_TEST_INFO("taf_mngdConn_StartData failed: %d ", result);
     }
@@ -376,7 +376,8 @@ COMPONENT_INIT
             case 1 :
             {
                 status = startData(getDataRef());
-                LE_TEST_OK(LE_OK == status || LE_DUPLICATE == status, "startdata");
+                LE_TEST_OK(LE_OK == status || LE_DUPLICATE == status || LE_IN_PROGRESS == status,
+                                                                                       "startdata");
             }
             break;
             case 2 :

@@ -1,0 +1,6 @@
+{
+    "bootup_awake_time": "10000",
+    "hal_enabled": "true",
+    "hal_state_prepare_timeout": "10000",
+    "hal_wakeup_vehicle_timeout": "10000"
+}

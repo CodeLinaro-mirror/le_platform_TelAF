@@ -611,6 +611,7 @@ taf_mngdPm_NodePowerStateChangeHandlerRef_t taf_mngdPm_AddNodePowerStateChangeHa
     taf_mngdPm_NodePowerStateCtxt_t * handlerCtxPtr =
             (taf_mngdPm_NodePowerStateCtxt_t *)le_mem_ForceAlloc(mpms.nodePowerStateHandlerPool);
     handlerCtxPtr->handlerPtr = handlerFuncPtr;
+    handlerCtxPtr->sessionRef = taf_mngdPm_GetClientSessionRef();
     handlerCtxPtr->pmNodeId = pmNodeId;
     handlerCtxPtr->powerStateMask = stateMask;
     handlerCtxPtr->handlerRef = (taf_mngdPm_NodePowerStateChangeHandlerRef_t)le_ref_CreateRef(
@@ -681,26 +682,31 @@ le_result_t taf_mngdPm_GetInfoReport(taf_mngdPm_InfoDataId_t infoReportId, int32
  * SendNodePowerStateChangeAck for the given node.
  */
 le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
-        taf_mngdPm_nodePowerStateRef_t Ref, taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodeClientAck_t ack)
+        taf_mngdPm_nodePowerStateRef_t Ref, taf_mngdPm_NodeClientAck_t ack)
 {
     LE_INFO("taf_mngdPm_SendNodePowerStateChangeAck");
+    taf_mngdPm_NodePowerState_t state = TAF_MNGDPM_NODE_STATE_RESUME;
     auto &mpms = tafMngdPMSvc::GetInstance();
     if(pmNodeId == 1)
     {
         auto &rpcPm = tafMngdRpcPm::GetInstance();
-        le_result_t res = rpcPm.SendRpcNodePowerStateChangeAck(pmNodeId, Ref, state, ack);
+        le_result_t res = rpcPm.SendRpcNodePowerStateChangeAck(pmNodeId, Ref, ack);
         return res;
-	}
+    }
     // validate client record existed in state change registered clients
-    for (auto it = mpms.regClientrecrd.begin(); it != mpms.regClientrecrd.end(); ++it ) {
-        if (*it == (taf_mngdPm_nodePowerStateRef_t)Ref) {
+    bool isClientPresent = false;
+    for (const auto &client : mpms.regClientrecrd) {
+        if (((client.nodeStateRef == (taf_mngdPm_nodePowerStateRef_t)Ref)) &&
+                    (client.sessionRef == taf_mngdPm_GetClientSessionRef())) {
             LE_INFO("Client found in record");
+            state = client.state;
+            isClientPresent = true;
             break;
         }
-        if (it == mpms.regClientrecrd.end()) {
-            LE_INFO("Client not found in the regClientrecrd");
-            return LE_FAULT;
-        }
+    }
+    if (!isClientPresent) {
+        LE_INFO("Client not found in the regClientrecrd");
+        return LE_FAULT;
     }
     if(mpms.IsSameAsCurrentState(state, mpms.stateMachine.currentState))
     {
@@ -713,13 +719,14 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
         else
         {
             LE_INFO("Received ACK from client");
-            mpms.ackClientrecrd.push_back((taf_mngdPm_nodePowerStateRef_t)Ref);
-            LE_INFO("regClientrecrd size is %zu ,ackClientrecrd size is:%zu",mpms.regClientrecrd.size(),
-                    mpms.ackClientrecrd.size());
+            mpms.ackClientrecrdSize++;
+            LE_INFO("regClientrecrd size is %zu ,ackClientrecrd size is:%d", mpms.regClientrecrd.size(),
+                    mpms.ackClientrecrdSize);
             //If Last acknowledged client , proceed for ack state change
-            if(mpms.regClientrecrd.size() == mpms.ackClientrecrd.size())
+            if((int8_t)mpms.regClientrecrd.size() == mpms.ackClientrecrdSize)
             {
                 mpms.clientSize = 0;
+                mpms.ackClientrecrdSize = 0;
                 mpms.SendAckToPms(state, TAF_PM_READY);
                 return LE_OK;
             }
@@ -779,7 +786,6 @@ COMPONENT_INIT
     mpms.nodePowerStateHandlerPool = le_mem_CreatePool("nodePowerStateHandlerList",
         sizeof(taf_mngdPm_NodePowerStateCtxt_t));
     mpms.nodePowerStateHandlerList = LE_DLS_LIST_INIT;
-
 
     try
     {

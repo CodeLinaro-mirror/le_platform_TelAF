@@ -111,7 +111,7 @@ void NodePowerStateChangeHandlerCB(
 {
     LE_INFO("NodePowerStateChangeHandlerFunc callback");
     le_result_t res = LE_FAULT;
-    res = taf_mngdPm_SendNodePowerStateChangeAck(pmNodeId, nodePowerStateRef,state, TAF_MNGDPM_CLIENT_READY);
+    res = taf_mngdPm_SendNodePowerStateChangeAck(pmNodeId, nodePowerStateRef, TAF_MNGDPM_CLIENT_READY);
     if(res == LE_OK)
     {
         LE_INFO("SendNodePowerStateChangeAck is success");
@@ -284,12 +284,12 @@ void GracefulSysSuspendWakeLock(uint8_t pmNodeId)
                      TAF_MNGDPM_SUSPEND);
              if(result == LE_OK)
                  LE_INFO("GracefulSysSuspendWakeLock triggered successfully");
-	 
+
              tafMpmAppSem = le_sem_Create("tafMpmAppSem", 0);
              le_sem_WaitWithTimeOut(tafMpmAppSem, Timeout);
              LE_INFO("wake lock timer expired");
              le_sem_Delete(tafMpmAppSem);
-	 
+
              result = taf_mngdPm_RelaxNode(wsRef);
              if(result == LE_OK)
                  LE_INFO("suspended sysytem with wakeuptype MCU_VHAL");

@@ -613,6 +613,17 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
     LE_INFO("Client with sessionRef %p (process %d) disconnected", sessionRef, sessionNodePtr->pid);
 
     le_mem_Release(sessionNodePtr);
+    int index = 0;
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    for(auto &client : mpms.regClientrecrd)
+    {
+        if(client.sessionRef == sessionRef)
+        {
+            mpms.regClientrecrd.erase(mpms.regClientrecrd.begin() + index);
+            return;
+        }
+        index++;
+    }
 }
 
 /**
@@ -1099,11 +1110,8 @@ void tafMngdPMSvc::DeleteNodePowerStateRefs()
 {
     LE_INFO("DeleteNodePowerStateRefs");
     auto &mpms = tafMngdPMSvc::GetInstance();
-    for (auto it = mpms.regClientrecrd.begin(); it != mpms.regClientrecrd.end(); ++it) {
-        if (*it != NULL)
-        {
-            le_ref_DeleteRef(nodePowerStateRefMap, *it);
-        }
+    for (const auto &client : mpms.regClientrecrd ) {
+            le_ref_DeleteRef(nodePowerStateRefMap, client.nodeStateRef);
     }
 }
 
@@ -1194,7 +1202,7 @@ void tafMngdPMSvc::CallNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t sta
     //clearing the previous references for new state notification
     DeleteNodePowerStateRefs();
     mpms.regClientrecrd.clear();
-    mpms.ackClientrecrd.clear();
+    mpms.ackClientrecrdSize = 0;
     while (linkHandlerPtr)
     {
         taf_mngdPm_NodePowerStateCtxt_t * handlerCtxPtr =
@@ -1208,10 +1216,12 @@ void tafMngdPMSvc::CallNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t sta
                 taf_NodePowerStateRef_t* nodeStateListPtr =
                         (taf_NodePowerStateRef_t*)le_mem_ForceAlloc(mpms.nodePowerStateRefPool);
                 nodeStateListPtr->nodeStateRef =
-                        (taf_mngdPm_nodePowerStateRef_t)le_ref_CreateRef(mpms.nodePowerStateRefMap, nodeStateListPtr);
-                mpms.regClientrecrd.push_back(nodeStateListPtr->nodeStateRef);
-                handlerCtxPtr->handlerPtr(handlerCtxPtr->pmNodeId, nodeStateListPtr->nodeStateRef, state,
-                        handlerCtxPtr->nodePowerStateHandlerCtxPtr);
+                        (taf_mngdPm_nodePowerStateRef_t)le_ref_CreateRef(mpms.nodePowerStateRefMap,
+                                nodeStateListPtr);
+                mpms.regClientrecrd.push_back({nodeStateListPtr->nodeStateRef,
+                        handlerCtxPtr->sessionRef, state});
+                handlerCtxPtr->handlerPtr(handlerCtxPtr->pmNodeId, nodeStateListPtr->nodeStateRef,
+                        state, handlerCtxPtr->nodePowerStateHandlerCtxPtr);
                 LE_INFO("Notified to Client");
             }
             else {
@@ -1353,3 +1363,4 @@ le_ref_MapRef_t tafMngdPMSvc::nodePowerStateHandlerMap;
 le_mem_PoolRef_t tafMngdPMSvc::nodePowerStateRefPool;
 le_ref_MapRef_t tafMngdPMSvc::nodePowerStateRefMap;
 int8_t tafMngdPMSvc::clientSize;
+int8_t tafMngdPMSvc::ackClientrecrdSize;

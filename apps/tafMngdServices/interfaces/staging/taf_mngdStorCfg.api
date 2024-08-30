@@ -53,6 +53,16 @@
    }
    @endverbatim
  *
+ * @section taf_mngdStorCfg Configuration
+ *
+ * The user should place a JSON file named tafMngdStorageConfig.json into /data/ManagedServices
+ * directory. This JSON file contains the information about the OEM json file path.
+ * The user needs to restart service after adding this json file Because by default, the default
+ * configuration file is picked.
+ *
+ * The default config will be bundled during building the service. The path of default file in the
+ * project is apps/tafMngdServices/Storage/Components/tafMngdCfgStorageSvc/config/tafMngdStorageConfig.json.
+ *
  * @section taf_mngdStorCfg Manage config storage
  *
  * The client is allocated the config storage when it connects to the service. When it calls
@@ -80,6 +90,18 @@
 
     le_result_t result;
     result = taf_mngdStorCfg_Sync();
+
+ * @endcode
+ *
+ * @section taf_mngdStorCfg_Cancel Cancel the configuration file update campaign.
+ *
+ * The client calls taf_mngdStorCfg_Cancel() to cancel the configuration file update campaign.
+ * The Cancel is advised to be performed only in case of failing to update file.
+ *
+ * @code
+
+    le_result_t result;
+    result = taf_mngdStorCfg_Cancel();
 
  * @endcode
  *
@@ -142,15 +164,15 @@ FUNCTION le_result_t Sync
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Reverts the configuration file to its original version. It is advised to use this API if
- * the update file operation fails.
+ * Cancels the config file update campaign. It is advised to use this API if the update file
+ * operation fails.
  *
  * @return
- *     - LE_OK             Successfully rolled back the file.
- *     - LE_FAULT          Failed to  roll back the file.
+ *     - LE_OK             Successfully cancel the update campaign.
+ *     - LE_FAULT          Failed to cancel update campaign.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t Rollback
+FUNCTION le_result_t Cancel
 (
 );
 

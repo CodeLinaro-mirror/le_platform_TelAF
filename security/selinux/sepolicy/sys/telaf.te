@@ -689,7 +689,8 @@ if (telaf_external_dependencies) {
     allow telaf_sdir_t user_tmp_t:file { manage_file_perms };
 
     #============ persist path ==================
-    allow telaf_admin_t persist_t:dir { write add_name create setattr getattr};
+    allow telaf_admin_t persist_t:dir { write add_name remove_name create setattr getattr};
+    allow telaf_admin_t persist_t:file { write read create open rename setattr getattr unlink};
 
     #============ allow supervisor to access libcap API ===========
     allow telaf_admin_t self:process { getcap setcap };

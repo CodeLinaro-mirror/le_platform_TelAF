@@ -346,12 +346,19 @@ __attribute__((unused)) static void Test_cfg_UpdateAndSync(){
     le_result_t result;
 
     result = taf_mngdStorCfg_UpdateFile();
-    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSec_UpdateFile");
+    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_UpdateFile");
     if(result == LE_OK){
         result = taf_mngdStorCfg_Sync();
-        LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSec_Sync");
+        LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Sync");
     }
 
+}
+
+__attribute__((unused)) static void Test_cfg_UpdateAndCancel(){
+    le_result_t result;
+    result = taf_mngdStorCfg_UpdateFile();
+    result = taf_mngdStorCfg_Cancel();
+    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Cancel");
 }
 
 COMPONENT_INIT
@@ -446,6 +453,9 @@ COMPONENT_INIT
 
         LE_TEST_INFO("=== Test update and sync configStorage ===");
         Test_cfg_UpdateAndSync();
+
+        LE_TEST_INFO("=== Test update and cancel configStorage ===");
+        Test_cfg_UpdateAndCancel();
 
         LE_TEST_INFO("=== TelAF MngdStorage unit test END ===");
     }

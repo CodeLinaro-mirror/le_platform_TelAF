@@ -114,6 +114,20 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
     TAF_ERROR_IF_RET_VAL(!handlerPtr, LE_BAD_PARAMETER, "invalid handlerRef");
 
     auto &mpms = tafMngdPMSvc::GetInstance();
+    if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN ||
+            mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN)
+    {
+        handlerPtr(mode, TAF_MNGDPM_READY, contextPtr);
+        return LE_OK;
+    }
+
+    if (mpms.RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
+    {
+        handlerPtr(mode, TAF_MNGDPM_NOT_READY, contextPtr);
+        return LE_OK;
+    }
+    mpms.powerMode.isForceful = true;
+    tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN);
     if(mpms.pmInf && mpms.pmInf->nodeStateChangePrepareAsync)
     {
         LE_INFO("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_NORMAL);
@@ -156,7 +170,19 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
 
     mpms.powerMode.isRestart = true;
     TAF_ERROR_IF_RET_VAL(mpms.handlerRef == nullptr, LE_BAD_PARAMETER, "invalid handlerRef");
+    if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN ||
+            mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN)
+    {
+        handlerPtr(mode, TAF_MNGDPM_READY, contextPtr);
+        return LE_OK;
+    }
 
+    if (mpms.RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
+    {
+        handlerPtr(mode, TAF_MNGDPM_NOT_READY, contextPtr);
+        return LE_OK;
+    }
+    tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN);
     if(mode == TAF_MNGDPM_RESTART_SYSTEM_OFF_ON)
     {
         if(mpms.pmInf && mpms.pmInf->nodeStateChangePrepareAsync)

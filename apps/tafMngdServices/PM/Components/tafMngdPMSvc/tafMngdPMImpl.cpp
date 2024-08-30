@@ -363,6 +363,8 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
     }
     else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_NOT_READY)
     {
+        tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
+        powerMode.isForceful = false;
         if(shutdownCB.shutdownCallbackFunc)
         {
             shutdownCB.shutdownCallbackFunc(
@@ -421,6 +423,8 @@ void tafMngdPMSvc::RestartPrepareRespCB
     }
     else if (mode == HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF && reason == HAL_PM_RSP_NOT_READY)
     {
+        tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
+        powerMode.isRestart = false;
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_NOT_READY,
@@ -722,12 +726,14 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
         }
         else if(powerMode.isSuspend)
         {
+            powerMode.isSuspend = false;
             LE_DEBUG("Send SuspendReqAsync %d", HAL_PM_SUSPEND_MODE_FULL);
             (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SUSPEND, HAL_PM_SUSPEND_MODE_FULL, tafMngdPMSvc::NodeStateChangeReqRespCB);
         }
-        else
+        else if(powerMode.isForceful)
         {
             LE_INFO("nodeStateChangeReqAsync triggered to VHAL on forceful shutdown");
+            powerMode.isForceful = false;
             (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::NodeStateChangeReqRespCB);
         }
     }
@@ -1006,7 +1012,10 @@ le_result_t tafMngdPMSvc::RequestStateChange(taf_mngdPm_State_t requestedState)
     LE_INFO("requested state %s", TafStateToString(requestedState));
 
     le_result_t res = LE_OK;
-
+    if (stateMachine.currentState == requestedState)
+    {
+        return res;
+    }
     switch(requestedState)
     {
         case TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE:
@@ -1080,6 +1089,7 @@ void tafMngdPMSvc::ProcessStateChange(taf_mngdPm_State_t toState)
 
     if(toState != stateMachine.currentState)
     {
+        stateMachine.prevState = stateMachine.currentState;
         stateMachine.currentState = toState;
 
         taf_mngdPm_StateInd_t stateInd;

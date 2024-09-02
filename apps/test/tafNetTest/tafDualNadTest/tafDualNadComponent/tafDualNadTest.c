@@ -6,12 +6,6 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#define NET_IPV4_ADDR_MAX_BYTES      16
-#define NET_IPV6_ADDR_MAX_BYTES      46
-#define NET_IP_PROTO_NUMBER_LEN      4
-#define NET_IP_PROTO_NUMBER_TCP      6
-#define NET_IP_PROTO_NUMBER_UDP      17
-
 #define TAF_CONFIG_SSIM_TEST
 #define TAF_CONFIG_PHONE_ID_1_TEST
 //#define TAF_CONFIG_PHONE_ID_2_TEST
@@ -59,38 +53,10 @@ char sDNSaddress[TAF_NET_IP_ADDR_MAX_LEN];
 uint32_t ifsubnetMask;
 
 
-le_sem_Ref_t semaphore;
-
-taf_net_RouteChangeHandlerRef_t routeChangeHandlerRef;
-taf_net_GatewayChangeHandlerRef_t gatewayChangeHandlerRef;
-taf_net_DNSChangeHandlerRef_t DNSChangeHandlerRef;
-taf_net_DestNatChangeHandlerRef_t DestNatChangeHandlerRef;
-
 static void PrintUsage ()
 {
     puts("\n"
             "app start tafDualNadTest\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- getinterfacelist\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- listen\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- changeiproute \
-<interfacename> <destination> <subnetmask> <metric> <1/0> \n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- getinterfacegw <interfacename>\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- getinterfacedns <interfacename>\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- setdefaultgw <interfacename>\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- setdns <interfacename>\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- backupsetandrestoregw \
-<interfacename>\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- adddestnatondefaultpdn \
-<privateipaddr> <privateport> <globalport> <tcp/udp>\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- deldestnatondefaultpdn \
-<privateipaddr> <privateport> <globalport> <tcp/udp>\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- getdestnatlistondefaultpdn\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- adddestnatondemandpdn \
-<profileid> <privateipaddr> <privateport> <globalport> <tcp/udp>\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- deldestnatondemandpdn \
-<profileid> <privateipaddr> <privateport> <globalport> <tcp/udp>\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- getdestnatlistondemandpdn \
-<profileid>\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- createvlan <vlanId> <Interface type> \
 <isAccelerated> <NetworkType> [optional priority]\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- removevlan <vlanId> <Interface type>\n"
@@ -111,12 +77,12 @@ static void PrintUsage ()
             "app runProc tafDualNadTest --exe=tafDualNadTest -- bindwithBackhaul \
 <vlanid> <backhaulVlanId> <BackhaulType>\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- bindwithBackhaulex \
-<vlanid> <phoneid> <backhaulVlanId> <BackhaulType>\n"
+<vlanid> <profileid> <BackhaulType> [Optional: phoneid]\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- unbindwithBackhaul <vlanid>\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcbindwithBackhaul \
 <Remote vlanid> <Remote profile Id> <Remote BackhaulType>\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcbindwithBackhaulex \
-<Remote vlanid> <Remote phoneid> <Remote profile id> <Remote BackhaulType>\n"
+<Remote vlanid> <Remote profile Id> <Remote BackhaulType> [Optional: Remote phoneid]\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcunbindwithBackhaul <Remote vlanid>\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- setIPPTOperation \
 <vlanid> <operation type> <interface type> <mac address>\n"
@@ -124,11 +90,15 @@ static void PrintUsage ()
 <Remote vlanid> <Remote operation type> <Remote interface type> <Remote mac address>\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- getIPPTConfig <vlan id>\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcgetIPPTConfig <Remote vlan id>\n"
-            "app runProc tafDualNadTest --exe=tafDualNadTest -- setIPConfig <vlan id> <ifType> <ip type> <ip Opr> <assign type> <ifAddr> <gwAddr> <PriDnsAddr> <SecDnsAddr> <ifmask>\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- setIPConfig <vlan id> <ifType> <ip type> <ip Opr> <assign type> [Optional if IpAssignType is DYNAMIC_IP: ifAddr> [Optional if IpAssignType is DYNAMIC_IP: gwAddr] [Optional if IpAssignType is DYNAMIC_IP: PriDnsAddr] [Optional if IpAssignType is DYNAMIC_IP: SecDnsAddr] [Optional if IpAssignType is DYNAMIC_IP: ifmask]\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- getIPConfig <vlan id> <ifType> <ip type>\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- getvlanentryinfo\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcdatacall <Remote profile id>\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- datacall <profile id>\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcstartdatangetipconfig <Remote profile id> <vlan id> <ifType> <ip type>\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcstartdatansetipconfig <Remote profile id> <vlan id> <ifType> <ip type> <ip Opr> <assign type>\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- getIPConfig <vlan id> <ifType> <ip type>\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcstopdatacall <Remote profile id>\n"
             "\n");
 }
 
@@ -149,662 +119,6 @@ void PrintCurrentTime() {
 
   strftime(buffer, 26, "%Y:%m:%d %H:%M:%S", tm_info);
   printf("\n\033[1;35m%s.%03d\033[0m ", buffer, millisec);
-}
-
-static void NetRouteChangeHandlerFunc
-(
-    const taf_net_RouteChangeInd_t* routeChangeIndPtr,
-    void* contextPtr
-)
-{
-    printf("**** Handler for route Change Indication (Begin)****\n");
-    printf("----interface name: %s\n", routeChangeIndPtr->interfaceName);
-    printf("----destination address: %s\n", routeChangeIndPtr->destAddr);
-    printf("----subnetmask: %s\n", routeChangeIndPtr->prefixLength);
-    printf("----metric: %d\n", routeChangeIndPtr->metric);
-    printf("----action: %d\n", routeChangeIndPtr->action);
-
-    printf("**** Handler for route Change Indication (End)****\n");
-}
-static void* NetRouteThread(void* contextPtr)
-{
-    //  connect service in thread.
-    taf_net_ConnectService();
-
-    routeChangeHandlerRef = taf_net_AddRouteChangeHandler(
-        (taf_net_RouteChangeHandlerFunc_t)NetRouteChangeHandlerFunc, NULL);
-    LE_ASSERT(routeChangeHandlerRef != NULL);
-
-    le_sem_Post(semaphore);
-    le_event_RunLoop();
-
-    return NULL;
-}
-
-static void NetGatewayChangeHandlerFunc
-(
-    const taf_net_GatewayChangeInd_t* gatewayChangeIndPtr,
-    void* contextPtr
-)
-{
-    printf("**** Handler for gateway change Indication (Begin)****\n");
-    printf("----interface name: %s\n", gatewayChangeIndPtr->interfaceName);
-    printf("----destination address: %s\n", gatewayChangeIndPtr->gatewayAddr);
-    printf("----ip type: %d\n", gatewayChangeIndPtr->ipType);
-
-    printf("**** Handler for gateway change Indication (End)****\n");
-}
-
-static void* NetGatewayThread(void* contextPtr)
-{
-    //  connect service in thread.
-    taf_net_ConnectService();
-
-    gatewayChangeHandlerRef = taf_net_AddGatewayChangeHandler(
-        (taf_net_GatewayChangeHandlerFunc_t)NetGatewayChangeHandlerFunc, NULL);
-    LE_ASSERT(gatewayChangeHandlerRef != NULL);
-
-    le_sem_Post(semaphore);
-    le_event_RunLoop();
-
-    return NULL;
-}
-
-static void NetDNSChangeHandlerFunc(const taf_net_DNSChangeInd_t* DNSChangeIndPtr, void* contextPtr)
-{
-    printf("**** Handler for DNS Change Indication (Begin)****\n");
-    printf("----ip addr1: %s\n", DNSChangeIndPtr->ipAddr1);
-    printf("----ip addr2: %s\n", DNSChangeIndPtr->ipAddr2);
-    printf("----ip type: %d\n", DNSChangeIndPtr->ipType);
-
-    printf("**** Handler for DNS Change Indication (End)****\n");
-}
-
-static void* NetDNSThread(void* contextPtr)
-{
-    //  connect service in thread.
-    taf_net_ConnectService();
-
-    DNSChangeHandlerRef = taf_net_AddDNSChangeHandler(
-        (taf_net_DNSChangeHandlerFunc_t)NetDNSChangeHandlerFunc, NULL);
-    LE_ASSERT(DNSChangeHandlerRef != NULL);
-
-    le_sem_Post(semaphore);
-    le_event_RunLoop();
-
-    return NULL;
-}
-
-static void DestNatChangeHandlerFunc
-(
-    const taf_net_DestNatChangeInd_t* DestNatChangeIndPtr,
-    void* contextPtr
-)
-{
-    printf("**** Handler for Destination Nat Change Indication (Begin)****\n");
-    printf("----profileId: %d\n", DestNatChangeIndPtr->profileId);
-    printf("----action: %d\n", DestNatChangeIndPtr->action);
-
-    printf("**** Handler for Destination Nat Change Indication (End)****\n");
-}
-
-static void* DestNatThread(void* contextPtr)
-{
-    //  connect service in thread.
-    taf_net_ConnectService();
-
-    DestNatChangeHandlerRef = taf_net_AddDestNatChangeHandler(
-        (taf_net_DestNatChangeHandlerFunc_t)DestNatChangeHandlerFunc, NULL);
-    LE_ASSERT(DestNatChangeHandlerRef != NULL);
-
-    le_sem_Post(semaphore);
-    le_event_RunLoop();
-
-    return NULL;
-}
-
-static void* HandlerThread(void* contextPtr)
-{
-    printf("======== Test Thread of Net Service Start ========\n");
-
-    //  connect service in thread.
-    taf_net_ConnectService();
-
-    semaphore = le_sem_Create("tafNetSem", 0);
-
-    printf("======== 1. Network Add Handlers ========\n");
-
-    printf("======== 1.1 Route change Handler ========\n");
-    le_thread_Ref_t threadRef = le_thread_Create("NetRouteTh", NetRouteThread, NULL);
-    le_thread_Start(threadRef);
-    le_clk_Time_t timeToWait = {5, 0};
-    LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
-
-    printf("======== 1.2 Gateway change Handler ========\n");
-    threadRef = le_thread_Create("NetGatewayTh", NetGatewayThread, NULL);
-    le_thread_Start(threadRef);
-    LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
-
-    printf("======== 1.3 DNS change Handler ========\n");
-    threadRef = le_thread_Create("DNSChangeTh", NetDNSThread, NULL);
-    le_thread_Start(threadRef);
-    LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
-
-    printf("======== 1.4 Nat change Handler ========\n");
-    threadRef = le_thread_Create("DestNatChgTh", DestNatThread, NULL);
-    le_thread_Start(threadRef);
-    LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
-
-    return NULL;
-}
-
-static int TafNetGetInterfaceList()
-{
-    le_result_t result;
-    taf_net_InterfaceInfo_t intfInfoListPtr[50];
-    size_t listSize = 0 ;
-
-    printf("----Start getinterfacelist test \n");
-    if (le_arg_NumArgs() < 1)
-    {
-        PrintUsage();
-        return EXIT_FAILURE;
-    }
-
-    result = taf_net_GetInterfaceList(intfInfoListPtr,&listSize);
-    printf("----interface number=%" PRIuS ",result=%d\n",listSize,result);
-    for(int i=0;i<listSize;i++)
-    {
-        printf("----interface name =%s,technology =%d,state =%d\n",intfInfoListPtr[i].interfaceName,
-                intfInfoListPtr[i].tech,intfInfoListPtr[i].state);
-    }
-
-    if(result !=LE_OK)
-        return EXIT_FAILURE;
-
-    return EXIT_SUCCESS;
-}
-
-static int TafNetChangeIpRoute()
-{
-    printf("----Start changeiproute test\n");
-    le_result_t result;
-
-    if (le_arg_NumArgs() != 6)
-    {
-        PrintUsage();
-        return EXIT_FAILURE;
-    }
-    const char* intfName = le_arg_GetArg(1);
-    const char* destAddr = le_arg_GetArg(2);
-    const char* prefixLength = le_arg_GetArg(3);
-    const char* metricPtr = le_arg_GetArg(4);
-    const char* isAddPtr = le_arg_GetArg(5);
-
-    if(intfName == NULL || destAddr == NULL || prefixLength == NULL || metricPtr == NULL ||
-       isAddPtr == NULL)
-    {
-        LE_ERROR("ifNamePtr, destAddr, prefixLength, metricPtr or isAddPtr is NULL");
-        exit(EXIT_FAILURE);
-    }
-
-    uint16_t metric = strtol(metricPtr, NULL, 0);
-    uint8_t isAdd = strtol(isAddPtr, NULL, 0);
-
-    result=taf_net_ChangeRoute(intfName,destAddr,prefixLength,metric,isAdd);
-    printf("----result =%d\n" ,result);
-
-    if(result !=LE_OK)
-        return EXIT_FAILURE;
-
-    return EXIT_SUCCESS;
-}
-
-static int TafNetGetInterfaceGw()
-{
-    printf("----Start getinterfacegateway test \n" );
-    le_result_t result;
-
-    if (le_arg_NumArgs() != 2)
-    {
-        PrintUsage();
-        return EXIT_FAILURE;
-    }
-    const char* intfName = le_arg_GetArg(1);
-    char ipv4addr[NET_IPV4_ADDR_MAX_BYTES];
-    char ipv6addr[NET_IPV6_ADDR_MAX_BYTES];
-
-    memset(ipv4addr, 0 , NET_IPV4_ADDR_MAX_BYTES);
-    memset(ipv6addr, 0 , NET_IPV6_ADDR_MAX_BYTES);
-
-    if(intfName == NULL)
-    {
-        LE_ERROR("ifNamePtr is NULL");
-        exit(EXIT_FAILURE);
-    }
-
-    result=taf_net_GetInterfaceGW(intfName,ipv4addr , sizeof(ipv4addr), ipv6addr, sizeof(ipv6addr));
-
-    printf("----result =%d\n" ,result);
-    if(result !=LE_OK)
-        return EXIT_FAILURE;
-
-    printf("----got gateway address ipv4 is %s,ipv6 is %s\n",ipv4addr,ipv6addr);
-
-    return EXIT_SUCCESS;
-}
-
-static int TafNetGetInterfaceDns()
-{
-    printf("----Start getinterfacedns test \n" );
-    le_result_t result;
-
-    if (le_arg_NumArgs() != 2)
-    {
-        PrintUsage();
-        return EXIT_FAILURE;
-    }
-
-    const char* intfName = le_arg_GetArg(1);
-
-    taf_net_DnsServerAddresses_t dnsServerAddressesPtr;
-
-    if(intfName == NULL)
-    {
-        LE_ERROR("ifNamePtr is NULL");
-        exit(EXIT_FAILURE);
-    }
-
-    result=taf_net_GetInterfaceDNS(intfName,&dnsServerAddressesPtr);
-
-    printf("----result =%d" ,result);
-    if(result !=LE_OK)
-        return EXIT_FAILURE;
-
-    printf("----got ipv4 DNS1 is %s,DNS2 is %s\n",dnsServerAddressesPtr.ipv4Addr1,
-                                                 dnsServerAddressesPtr.ipv4Addr2);
-    printf("----got ipv6 DNS1 is %s,DNS2 is %s\n",dnsServerAddressesPtr.ipv6Addr1,
-                                                 dnsServerAddressesPtr.ipv6Addr2);
-
-    return EXIT_SUCCESS;
-}
-
-static int TafNetSetDns()
-{
-    printf("----Start set dns test \n" );
-    le_result_t result;
-
-    if (le_arg_NumArgs() != 2)
-    {
-        PrintUsage();
-        return EXIT_FAILURE;
-    }
-
-    const char* intfName = le_arg_GetArg(1);
-
-    if(intfName == NULL)
-    {
-        LE_ERROR("ifNamePtr is NULL");
-        exit(EXIT_FAILURE);
-    }
-
-    result=taf_net_SetDNS(intfName);
-
-    printf("----result %d\n" ,result);
-    if(result !=LE_OK)
-        return EXIT_FAILURE;
-
-    return EXIT_SUCCESS;
-}
-
-static int TafNetSetDefaultGw()
-{
-    printf("----Start setdefaultgateway test \n" );
-    le_result_t result;
-
-    if (le_arg_NumArgs() != 2)
-    {
-        PrintUsage();
-        return EXIT_FAILURE;
-    }
-
-    const char* intfName = le_arg_GetArg(1);
-
-    if(intfName == NULL)
-    {
-        LE_ERROR("ifNamePtr is NULL");
-        exit(EXIT_FAILURE);
-    }
-
-    result=taf_net_SetDefaultGW(intfName);
-
-    printf("----result=%d \n" ,result);
-
-    if(result !=LE_OK)
-        return EXIT_FAILURE;
-
-    return EXIT_SUCCESS;
-}
-
-static int TafNetBackupSetAndRestoregw()
-{
-    printf("----Start backupsetandrestoregw test \n" );
-    le_result_t result;
-
-    if (le_arg_NumArgs() != 2)
-    {
-        PrintUsage();
-        return EXIT_FAILURE;
-    }
-
-    const char* intfName = le_arg_GetArg(1);
-
-    if(intfName == NULL)
-    {
-        LE_ERROR("ifNamePtr is NULL");
-        exit(EXIT_FAILURE);
-    }
-
-    taf_net_BackupDefaultGW();
-
-    result=taf_net_SetDefaultGW(intfName);
-
-    printf("----set result =%d \n",result );
-
-    if(result !=LE_OK)
-        return EXIT_FAILURE;
-
-    taf_net_RestoreDefaultGW();
-
-    printf("----backupsetandrestoregw result =%d \n",result );
-    return EXIT_SUCCESS;
-}
-
-static int TafNatAddDestNatOnDefaultPdn()
-{
-    printf("----Start adddestnatondefaultpdn test \n" );
-    le_result_t result;
-    uint16_t protonum=NET_IP_PROTO_NUMBER_TCP;
-
-    if (le_arg_NumArgs() !=5)
-    {
-        PrintUsage();
-        exit(EXIT_FAILURE);
-    }
-
-    const char* privateIpaddr = le_arg_GetArg(1);
-    const char* priPortPtr = le_arg_GetArg(2);
-    const char* gblPortPtr = le_arg_GetArg(3);
-    const char* ipproto = le_arg_GetArg(4);
-
-    if(privateIpaddr == NULL || priPortPtr == NULL || gblPortPtr == NULL || ipproto == NULL)
-    {
-        LE_ERROR("privateIpaddr, priPortPtr, gblPortPtr or ipproto is NULL");
-        exit(EXIT_FAILURE);
-    }
-
-    uint16_t priPort = strtol(priPortPtr, NULL, 0);
-    uint16_t gblPort = strtol(gblPortPtr, NULL, 0);
-
-    if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
-       strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
-        protonum = NET_IP_PROTO_NUMBER_TCP;
-    else if(strncmp(ipproto,"udp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
-            strncmp(ipproto,"UDP",NET_IP_PROTO_NUMBER_LEN) ==0)
-        protonum = NET_IP_PROTO_NUMBER_UDP;
-    else
-    {
-        printf("ERROR protocol\n");
-        exit(EXIT_FAILURE);
-    }
-
-    result=taf_net_AddDestNatEntryOnDefaultPdn(privateIpaddr,priPort,gblPort,protonum);
-    printf("----add dest nat result=%d\n",result);
-
-    return EXIT_SUCCESS;
-}
-
-static int TafNatDelDestNatOnDefaultPdn()
-{
-    printf("----Start deldestnatondefaultpdn test \n" );
-    le_result_t result;
-    uint16_t protonum=NET_IP_PROTO_NUMBER_TCP;
-
-    if (le_arg_NumArgs() !=5)
-    {
-        PrintUsage();
-        exit(EXIT_FAILURE);
-    }
-
-    const char* privateIpaddr = le_arg_GetArg(1);
-    const char* priPortPtr = le_arg_GetArg(2);
-    const char* gblPortPtr = le_arg_GetArg(3);
-    const char* ipproto = le_arg_GetArg(4);
-
-    if(privateIpaddr == NULL || priPortPtr == NULL || gblPortPtr == NULL || ipproto == NULL)
-    {
-        LE_ERROR("privateIpaddr, priPortPtr, gblPortPtr or ipproto is NULL");
-        exit(EXIT_FAILURE);
-    }
-
-    uint16_t priPort = strtol(priPortPtr, NULL, 0);
-    uint16_t gblPort = strtol(gblPortPtr, NULL, 0);
-
-    if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
-       strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
-        protonum = NET_IP_PROTO_NUMBER_TCP;
-    else if(strncmp(ipproto,"udp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
-            strncmp(ipproto,"UDP",NET_IP_PROTO_NUMBER_LEN) ==0)
-        protonum = NET_IP_PROTO_NUMBER_UDP;
-    else
-    {
-        printf("ERROR protocol\n");
-        exit(EXIT_FAILURE);
-    }
-
-    result=taf_net_RemoveDestNatEntryOnDefaultPdn(privateIpaddr,priPort,gblPort,protonum);
-    printf("----delete dest nat result=%d\n",result);
-
-    return EXIT_SUCCESS;
-}
-
-static int TafNatGetDestNatListOnDefaultPdn()
-{
-    le_result_t ret;
-    char ipProtoStr[NET_IP_PROTO_NUMBER_LEN];
-    taf_net_DestNatEntryListRef_t listRef=taf_net_GetDestNatEntryListOnDefaultPdn();
-
-    if(listRef !=NULL)
-    {
-        taf_net_DestNatEntryRef_t entryRef = taf_net_GetFirstDestNatEntry(listRef);
-        while(entryRef != NULL)
-        {
-            char ipaddr[NET_IPV6_ADDR_MAX_BYTES];
-            uint16_t priPort;
-            uint16_t glbPort;
-            taf_net_IpProto_t proto;
-            taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES,
-                                           &priPort, &glbPort, &proto);
-            if(proto == NET_IP_PROTO_NUMBER_TCP)
-                    le_utf8_Copy(ipProtoStr, "TCP", NET_IP_PROTO_NUMBER_LEN, NULL);
-            else if(proto == NET_IP_PROTO_NUMBER_UDP)
-                    le_utf8_Copy(ipProtoStr, "UDP", NET_IP_PROTO_NUMBER_LEN, NULL);
-            else
-                printf("error ip proto number\n");
-
-            printf("----ipaddr=%s private port=%d, global port=%d,proto=%s\n",ipaddr,
-                                                        priPort,glbPort,ipProtoStr);
-
-            entryRef=taf_net_GetNextDestNatEntry(listRef);
-        }
-
-        ret = taf_net_DeleteDestNatEntryList(listRef);
-        if(ret == LE_OK)
-        {
-            printf("----OK\n");
-        }
-        else
-        {
-            printf("----delete dest Nat reference list ERROR\n");
-        }
-    }
-
-    return EXIT_SUCCESS;
-}
-
-static int TafNatAddDestNatOnDemandPdn()
-{
-    printf("----Start adddestnatondemandpdn test \n" );
-    le_result_t result;
-    uint16_t protonum=NET_IP_PROTO_NUMBER_TCP;
-
-    if (le_arg_NumArgs() !=6)
-    {
-        PrintUsage();
-        exit(EXIT_FAILURE);
-    }
-
-    const char* profileIdPtr = le_arg_GetArg(1);
-    const char* privateIpaddr = le_arg_GetArg(2);
-    const char* priPortPtr = le_arg_GetArg(3);
-    const char* gblPortPtr = le_arg_GetArg(4);
-    const char* ipproto = le_arg_GetArg(5);
-
-    if(profileIdPtr == NULL || privateIpaddr == NULL || priPortPtr == NULL || gblPortPtr == NULL ||
-       ipproto == NULL)
-    {
-        LE_ERROR("profileIdPtr, privateIpaddr, priPortPtr, gblPortPtr or ipproto is NULL");
-        exit(EXIT_FAILURE);
-    }
-
-    uint32_t profileId = strtol(profileIdPtr, NULL, 0);
-    uint16_t priPort = strtol(priPortPtr, NULL, 0);
-    uint16_t gblPort = strtol(gblPortPtr, NULL, 0);
-
-    if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
-       strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
-        protonum = NET_IP_PROTO_NUMBER_TCP;
-    else if(strncmp(ipproto,"udp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
-            strncmp(ipproto,"UDP",NET_IP_PROTO_NUMBER_LEN) ==0)
-        protonum = NET_IP_PROTO_NUMBER_UDP;
-    else
-    {
-        printf("ERROR protocol\n");
-        exit(EXIT_FAILURE);
-    }
-
-    result=taf_net_AddDestNatEntryOnDemandPdn(profileId,privateIpaddr,priPort,gblPort,protonum);
-    printf("----add dest nat result=%d\n",result);
-
-    return EXIT_SUCCESS;
-}
-
-static int TafNatDelDestNatOnDemandPdn()
-{
-    printf("----Start deldestnatondemandpdn test \n" );
-    le_result_t result;
-    uint16_t protonum=NET_IP_PROTO_NUMBER_TCP;
-
-    if (le_arg_NumArgs() !=6)
-    {
-        PrintUsage();
-        exit(EXIT_FAILURE);
-    }
-
-    const char* profileIdPtr = le_arg_GetArg(1);
-    const char* privateIpaddr = le_arg_GetArg(2);
-    const char* priPortPtr = le_arg_GetArg(3);
-    const char* gblPortPtr = le_arg_GetArg(4);
-    const char* ipproto = le_arg_GetArg(5);
-
-    if(profileIdPtr == NULL || privateIpaddr == NULL || priPortPtr == NULL || gblPortPtr == NULL ||
-       ipproto == NULL)
-    {
-        LE_ERROR("profileIdPtr, privateIpaddr, priPortPtr, gblPortPtr or ipproto is NULL");
-        exit(EXIT_FAILURE);
-    }
-
-    uint32_t profileId = strtol(profileIdPtr, NULL, 0);
-    uint16_t priPort = strtol(priPortPtr, NULL, 0);
-    uint16_t gblPort = strtol(gblPortPtr, NULL, 0);
-
-    if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
-       strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
-        protonum = NET_IP_PROTO_NUMBER_TCP;
-    else if(strncmp(ipproto,"udp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
-            strncmp(ipproto,"UDP",NET_IP_PROTO_NUMBER_LEN) ==0)
-        protonum = NET_IP_PROTO_NUMBER_UDP;
-    else
-    {
-        printf("ERROR protocol\n");
-        exit(EXIT_FAILURE);
-    }
-
-    result=taf_net_RemoveDestNatEntryOnDemandPdn(profileId,privateIpaddr,priPort,gblPort,protonum);
-    printf("----delete dest nat result=%d\n",result);
-
-    return EXIT_SUCCESS;
-}
-
-static int TafNatGetDestNatListOnDemandPdn()
-{
-    le_result_t ret;
-    if (le_arg_NumArgs() !=2)
-    {
-        PrintUsage();
-        exit(EXIT_FAILURE);
-    }
-    char ipProtoStr[NET_IP_PROTO_NUMBER_LEN];
-
-    const char* profileIdPtr = le_arg_GetArg(1);
-
-    if(profileIdPtr == NULL)
-    {
-        LE_ERROR("profileIdPtr is NULL");
-        exit(EXIT_FAILURE);
-    }
-
-    uint32_t profileId = strtol(profileIdPtr, NULL, 0);
-    taf_net_DestNatEntryListRef_t listRef=taf_net_GetDestNatEntryListOnDemandPdn(profileId);
-
-    if(listRef !=NULL)
-    {
-        taf_net_DestNatEntryRef_t entryRef = taf_net_GetFirstDestNatEntry(listRef);
-        while(entryRef != NULL)
-        {
-            char ipaddr[NET_IPV6_ADDR_MAX_BYTES];
-            uint16_t priPort;
-            uint16_t glbPort;
-            taf_net_IpProto_t proto;
-            taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES,
-                                           &priPort, &glbPort, &proto);
-
-            if(proto == NET_IP_PROTO_NUMBER_TCP)
-                    le_utf8_Copy(ipProtoStr, "TCP", NET_IP_PROTO_NUMBER_LEN, NULL);
-            else if(proto == NET_IP_PROTO_NUMBER_UDP)
-                    le_utf8_Copy(ipProtoStr, "UDP", NET_IP_PROTO_NUMBER_LEN, NULL);
-            else
-            {
-                printf("----error ip proto number\n");
-                continue;
-            }
-            printf("ipaddr=%s private port=%d, global port=%d,proto=%s\n",ipaddr,priPort,
-                                                                         glbPort,ipProtoStr);
-            entryRef=taf_net_GetNextDestNatEntry(listRef);
-        }
-
-        ret = taf_net_DeleteDestNatEntryList(listRef);
-        if(ret == LE_OK)
-        {
-            printf("----OK\n");
-        }
-        else
-        {
-            printf("----delete dest Nat reference list ERROR\n");
-        }
-    }
-
-    return EXIT_SUCCESS;
 }
 
 static int TafVlanInterfaceInfo()
@@ -866,7 +180,6 @@ static int TafVlanInterfaceInfo()
     return EXIT_SUCCESS;
 }
 
-//when client session closed, vlanRef is removed from vlanRefMap, call 2 APIs in this command
 static int TafCreateVlan()
 {
     le_result_t ret;
@@ -1283,37 +596,49 @@ static int TafVlanBindWithBackhaul()
 static int TafVlanBindWithBackhaulEx()
 {
     le_result_t ret;
+    int numArgs = le_arg_NumArgs();
 
-    if (le_arg_NumArgs() != 5)
+    if (numArgs != 4 && numArgs != 5)
     {
         PrintUsage();
         exit(EXIT_FAILURE);
     }
 
     const char* vlanIdPtr = le_arg_GetArg(1);
-    const char* phoneIdPtr = le_arg_GetArg(2);
-    const char* backhaulVlanIdPtr = le_arg_GetArg(3);
-    const char* bhPtr = le_arg_GetArg(4);
+    const char* profileIdPtr = le_arg_GetArg(2);
+    const char* bhPtr = le_arg_GetArg(3);
 
-    if(vlanIdPtr == NULL || phoneIdPtr == NULL || backhaulVlanIdPtr == NULL)
+    const char* phoneIdPtr = "1";
+
+    if (numArgs == 5) {
+        phoneIdPtr = le_arg_GetArg(4);
+    }
+
+    if(vlanIdPtr == NULL || profileIdPtr == NULL || bhPtr == NULL)
     {
-        LE_ERROR("vlanIdPtr, phoneIdPtr or profileIdPtr is NULL");
+        LE_ERROR("vlanIdPtr, backHaulType or profileIdPtr is NULL");
         exit(EXIT_FAILURE);
     }
 
     uint32_t vlanid = strtol(vlanIdPtr, NULL, 0);
-    uint8_t phoneid = strtol(phoneIdPtr, NULL, 0);
-    uint32_t backhaulVlanId = strtol(backhaulVlanIdPtr, NULL, 0);
+    uint32_t profileid = strtol(profileIdPtr, NULL, 0);
     uint32_t backHaulType = strtol(bhPtr, NULL, 0);
+
+    uint8_t phoneid = strtol(phoneIdPtr, NULL, 0);
 
     taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanid);
 
-    ret = taf_netIpPass_SetVlanBackhaulVlanId(vlanRef, backhaulVlanId);
+    if (numArgs == 5) {
+        //User input phoneid (i.e. slot id)
+        ret = taf_netIpPass_SetVlanBackhaulPhoneId(vlanRef, phoneid);
+    }
 
-    ret = taf_netIpPass_SetVlanBackhaulPhoneId(vlanRef, phoneid);
+    ret = taf_netIpPass_SetVlanBackhaulProfileId(vlanRef, profileid);
+
     ret = taf_netIpPass_SetVlanBackhaulType(vlanRef, (taf_netIpPass_BackhaulType_t) backHaulType);
 
     ret = taf_netIpPass_BindVlanWithBackhaul(vlanRef);
+
     if(ret == LE_OK)
     {
         printf("----bind vlan with backhaul OK\n");
@@ -1408,35 +733,49 @@ static int RpcTafVlanBindWithBackhaulEx()
 {
     le_result_t ret;
 
-    if (le_arg_NumArgs() != 5)
+    int numArgs = le_arg_NumArgs();
+
+    if (numArgs != 4 && numArgs != 5)
     {
         PrintUsage();
         exit(EXIT_FAILURE);
     }
 
     const char* vlanIdPtr = le_arg_GetArg(1);
-    const char* phoneIdPtr = le_arg_GetArg(2);
-    const char* backhaulProfileIdPtr = le_arg_GetArg(3);
-    const char* bhPtr = le_arg_GetArg(4);
+    const char* profileIdPtr = le_arg_GetArg(2);
+    const char* bhPtr = le_arg_GetArg(3);
 
-    if(vlanIdPtr == NULL || phoneIdPtr == NULL || backhaulProfileIdPtr == NULL)
+    const char* phoneIdPtr = "1";
+
+    if (numArgs == 5) {
+        phoneIdPtr = le_arg_GetArg(4);
+    }
+
+    if(vlanIdPtr == NULL || profileIdPtr == NULL || bhPtr == NULL)
     {
-        LE_ERROR("vlanIdPtr, phoneIdPtr or profileIdPtr is NULL");
+        LE_ERROR("vlanIdPtr, backHaulType or profileIdPtr is NULL");
         exit(EXIT_FAILURE);
     }
 
     uint32_t vlanid = strtol(vlanIdPtr, NULL, 0);
-    uint8_t phoneid = strtol(phoneIdPtr, NULL, 0);
-    uint32_t backhaulProfileId = strtol(backhaulProfileIdPtr, NULL, 0);
+    uint32_t profileid = strtol(profileIdPtr, NULL, 0);
     uint32_t backHaulType = strtol(bhPtr, NULL, 0);
+
+    uint8_t phoneid = strtol(phoneIdPtr, NULL, 0);
 
     taf_net_VlanRef_t vlanRef=rpc_taf_net_GetVlanById(vlanid);
 
-    ret = rpc_taf_netIpPass_SetVlanBackhaulProfileId(vlanRef, backhaulProfileId);
-    ret = rpc_taf_netIpPass_SetVlanBackhaulPhoneId(vlanRef, phoneid);
+    if (numArgs == 5) {
+        //User input phoneid (i.e. slot id)
+        ret = rpc_taf_netIpPass_SetVlanBackhaulPhoneId(vlanRef, phoneid);
+    }
+
+    ret = rpc_taf_netIpPass_SetVlanBackhaulProfileId(vlanRef, profileid);
+
     ret = rpc_taf_netIpPass_SetVlanBackhaulType(vlanRef, (taf_netIpPass_BackhaulType_t) backHaulType);
 
     ret = rpc_taf_netIpPass_BindVlanWithBackhaul(vlanRef);
+
     if(ret == LE_OK)
     {
         printf("----rpc bind vlan with backhaul OK\n");
@@ -1752,30 +1091,46 @@ static int TafGetIPPTConfig()
     return EXIT_SUCCESS;
 }
 
-static int TafSetIPConfig()
+static int TafSetIPConfig(int cmdOffset, bool takeIpInfoFromDataCall)
 {
     le_result_t ret;
 
-    if (le_arg_NumArgs() != 11)
+    int numArgs = le_arg_NumArgs();
+
+    if (numArgs != 11+cmdOffset)
     {
-        PrintUsage();
-        exit(EXIT_FAILURE);
+        if ((numArgs < 6+cmdOffset) || ((numArgs == 6+cmdOffset) && atoi(le_arg_GetArg(5+cmdOffset)) == TAF_NETIPPASS_STATIC_IP && !takeIpInfoFromDataCall)) {
+            //IpAssignType is TAF_NETIPPASS_STATIC_IP but neither input IP, GW, DNS0, DNS1 nor started data call and ask to take these from data call.
+            LE_INFO("TafSetIPConfig numArgs: %d and IpAssignType: %d", numArgs, (numArgs < 6+cmdOffset) ? -1 : atoi(le_arg_GetArg(5+cmdOffset)));
+            PrintUsage();
+            exit(EXIT_FAILURE);
+        }
     }
 
-    const char* vlanIdPtr = le_arg_GetArg(1);
-    const char* ifTypePtr = le_arg_GetArg(2);
-    const char* ipTypePtr = le_arg_GetArg(3);
-    const char* ipOprPtr = le_arg_GetArg(4);
-    const char* ipAssignTypePtr = le_arg_GetArg(5);
-    const char* interfaceAddrPtr = le_arg_GetArg(6);
-    const char* gwAddrPtr = le_arg_GetArg(7);
-    const char* primaryDnsAddrPtr = le_arg_GetArg(8);
-    const char* secondaryDnsAddrPtr = le_arg_GetArg(9);
-    const char* ifMaskAddrPtr = le_arg_GetArg(10);
+    const char* vlanIdPtr = le_arg_GetArg(1+cmdOffset);
+    const char* ifTypePtr = le_arg_GetArg(2+cmdOffset);
+    const char* ipTypePtr = le_arg_GetArg(3+cmdOffset);
+    const char* ipOprPtr = le_arg_GetArg(4+cmdOffset);
+    const char* ipAssignTypePtr = le_arg_GetArg(5+cmdOffset);
 
-    if(vlanIdPtr == NULL || ipOprPtr == NULL || ipAssignTypePtr == NULL || interfaceAddrPtr == NULL)
+    const char* interfaceAddrPtr = "";
+    const char* gwAddrPtr = "";
+    const char* primaryDnsAddrPtr = "";
+    const char* secondaryDnsAddrPtr = "";
+    const char* ifMaskAddrPtr = "";
+
+    if (numArgs == 11+cmdOffset) {
+        //IpAssignType is TAF_NETIPPASS_STATIC_IP and user input the IP Addr Details
+        interfaceAddrPtr = le_arg_GetArg(6+cmdOffset);
+        gwAddrPtr = le_arg_GetArg(7+cmdOffset);
+        primaryDnsAddrPtr = le_arg_GetArg(8+cmdOffset);
+        secondaryDnsAddrPtr = le_arg_GetArg(9+cmdOffset);
+        ifMaskAddrPtr = le_arg_GetArg(10+cmdOffset);
+    }
+
+    if(vlanIdPtr == NULL || ipOprPtr == NULL || ipAssignTypePtr == NULL)
     {
-        LE_ERROR("vlanIdPtr or ipOprPtr or ipAssignTypePtr or interfaceAddrPtr is NULL");
+        LE_ERROR("vlanIdPtr or ipOprPtr or ipAssignTypePtr is NULL");
         exit(EXIT_FAILURE);
     }
 
@@ -1786,11 +1141,29 @@ static int TafSetIPConfig()
     taf_netIpPass_IpAssignType_t ipAssignType = (taf_netIpPass_IpAssignType_t)strtol(ipAssignTypePtr, NULL, 0);
 
     taf_netIpPass_IpAddressInfo_t ipAddrInfo;
-    le_utf8_Copy(ipAddrInfo.interfaceAddress, interfaceAddrPtr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
-    le_utf8_Copy(ipAddrInfo.gwAddress, gwAddrPtr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
-    le_utf8_Copy(ipAddrInfo.primaryDnsAddress, primaryDnsAddrPtr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
-    le_utf8_Copy(ipAddrInfo.secondaryDnsAddress, secondaryDnsAddrPtr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
-    ipAddrInfo.interfaceMask = (uint32_t)strtol(ifMaskAddrPtr, NULL, 0);
+
+    if (ipAssignType == TAF_NETIPPASS_STATIC_IP && numArgs == 11+cmdOffset) {
+        //Take IP details from user input if IpAssignType is TAF_NETIPPASS_STATIC_IP
+        le_utf8_Copy(ipAddrInfo.interfaceAddress, interfaceAddrPtr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
+        le_utf8_Copy(ipAddrInfo.gwAddress, gwAddrPtr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
+        le_utf8_Copy(ipAddrInfo.primaryDnsAddress, primaryDnsAddrPtr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
+        le_utf8_Copy(ipAddrInfo.secondaryDnsAddress, secondaryDnsAddrPtr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
+        ipAddrInfo.interfaceMask = (uint32_t)strtol(ifMaskAddrPtr, NULL, 0);
+    } else if (ipAssignType == TAF_NETIPPASS_STATIC_IP && takeIpInfoFromDataCall) {
+        //Take IP details from data call in IpAssignType as TAF_NETIPPASS_STATIC_IP
+        le_utf8_Copy(ipAddrInfo.interfaceAddress, ifaddress, TAF_NET_IP_ADDR_MAX_LEN, NULL);
+        le_utf8_Copy(ipAddrInfo.gwAddress, gwaddress, TAF_NET_IP_ADDR_MAX_LEN, NULL);
+        le_utf8_Copy(ipAddrInfo.primaryDnsAddress, pDNSaddress, TAF_NET_IP_ADDR_MAX_LEN, NULL);
+        le_utf8_Copy(ipAddrInfo.secondaryDnsAddress, sDNSaddress, TAF_NET_IP_ADDR_MAX_LEN, NULL);
+        ipAddrInfo.interfaceMask = ifsubnetMask;
+    }
+
+    if (ipAssignType == TAF_NETIPPASS_STATIC_IP) {
+        LE_INFO("IPv4 info Addr: %s, GW: %s, DNS0: %s, DNS1: %s and Subnet Mask: %u\n",
+                ipAddrInfo.interfaceAddress, ipAddrInfo.gwAddress, ipAddrInfo.primaryDnsAddress,
+                ipAddrInfo.secondaryDnsAddress,
+                takeIpInfoFromDataCall ? ifsubnetMask : (uint32_t) strtol(ifMaskAddrPtr, NULL, 0));
+    }
 
     taf_netIpPass_InterfaceRef_t ipptInterfaceRef = taf_netIpPass_GetInterface(ifType);
 
@@ -1813,19 +1186,19 @@ static int TafSetIPConfig()
     return EXIT_SUCCESS;
 }
 
-static int TafGetIPConfig()
+static int TafGetIPConfig(int cmdOffset)
 {
     le_result_t ret;
 
-    if (le_arg_NumArgs() != 4)
+    if (le_arg_NumArgs() != 4+cmdOffset)
     {
         PrintUsage();
         exit(EXIT_FAILURE);
     }
 
-    const char* vlanIdPtr = le_arg_GetArg(1);
-    const char* ifTypePtr = le_arg_GetArg(2);
-    const char* ipTypePtr = le_arg_GetArg(3);
+    const char* vlanIdPtr = le_arg_GetArg(1+cmdOffset);
+    const char* ifTypePtr = le_arg_GetArg(2+cmdOffset);
+    const char* ipTypePtr = le_arg_GetArg(3+cmdOffset);
 
     if(vlanIdPtr == NULL || ipTypePtr == NULL || ifTypePtr == NULL)
     {
@@ -1919,13 +1292,13 @@ void rpc_data_event_handler
 
         result=rpc_taf_dcs_GetIPv4Address(profileRef, ipAddr0, TAF_DCS_IPV4_ADDR_MAX_LEN);
         LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4Address - LE_OK");
-        printf("IPv4 Addr: %s\n", ipAddr0);
+        printf("IPv4 Addr:        %s\n", ipAddr0);
 
         le_utf8_Copy(ifaddress,ipAddr0, TAF_NET_IP_ADDR_MAX_LEN, NULL);
 
         result=rpc_taf_dcs_GetIPv4GatewayAddress(profileRef, ipAddr0, TAF_DCS_IPV4_ADDR_MAX_LEN);
         LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4GatewayAddress - LE_OK");
-        printf("IPv4 Gateway: %s\n", ipAddr0);
+        printf("IPv4 Gateway:     %s\n", ipAddr0);
 
         le_utf8_Copy(gwaddress,ipAddr0, TAF_NET_IP_ADDR_MAX_LEN, NULL);
 
@@ -1933,14 +1306,14 @@ void rpc_data_event_handler
                                        TAF_DCS_IPV4_ADDR_MAX_LEN, ipAddr1,
                                        TAF_DCS_IPV4_ADDR_MAX_LEN);
         LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4DNSAddresses - LE_OK");
-        printf("IPv4 Dns0: %s, Dns1: %s\n", ipAddr0, ipAddr1);
+        printf("IPv4 Dns0:        %s \nIPv4 Dns1:        %s\n", ipAddr0, ipAddr1);
 
         le_utf8_Copy(pDNSaddress,ipAddr0, TAF_NET_IP_ADDR_MAX_LEN, NULL);
         le_utf8_Copy(sDNSaddress,ipAddr1, TAF_NET_IP_ADDR_MAX_LEN, NULL);
 
         result=rpc_taf_dcs_GetIPv4SubnetMask(profileRef, &subNetMask);
         LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4GatewayAddress - LE_OK");
-        printf("IPv4 Subnet Mask: %d\n", subNetMask);
+        printf("IPv4 Subnet Mask: %u\n", subNetMask);
 
         ifsubnetMask = subNetMask;
 
@@ -2004,13 +1377,13 @@ void data_event_handler
 
         result= taf_dcs_GetIPv4Address(profileRef, ipAddr0, TAF_DCS_IPV4_ADDR_MAX_LEN);
         LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4Address - LE_OK");
-        printf("IPv4 Addr: %s\n", ipAddr0);
+        printf("IPv4 Addr:        %s\n", ipAddr0);
 
         le_utf8_Copy(ifaddress,ipAddr0, TAF_NET_IP_ADDR_MAX_LEN, NULL);
 
         result=taf_dcs_GetIPv4GatewayAddress(profileRef, ipAddr0, TAF_DCS_IPV4_ADDR_MAX_LEN);
         LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4GatewayAddress - LE_OK");
-        printf("IPv4 Gateway: %s\n", ipAddr0);
+        printf("IPv4 Gateway:     %s\n", ipAddr0);
 
         le_utf8_Copy(gwaddress,ipAddr0, TAF_NET_IP_ADDR_MAX_LEN, NULL);
 
@@ -2018,14 +1391,14 @@ void data_event_handler
                                        TAF_DCS_IPV4_ADDR_MAX_LEN, ipAddr1,
                                        TAF_DCS_IPV4_ADDR_MAX_LEN);
         LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4DNSAddresses - LE_OK");
-        printf("IPv4 Dns0: %s, Dns1: %s\n", ipAddr0, ipAddr1);
+        printf("IPv4 Dns0:        %s \nIPv4 Dns1:        %s\n", ipAddr0, ipAddr1);
 
         le_utf8_Copy(pDNSaddress,ipAddr0, TAF_NET_IP_ADDR_MAX_LEN, NULL);
         le_utf8_Copy(sDNSaddress,ipAddr1, TAF_NET_IP_ADDR_MAX_LEN, NULL);
 
         result=taf_dcs_GetIPv4SubnetMask(profileRef, &subNetMask);
         LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4GatewayAddress - LE_OK");
-        printf("IPv4 Subnet Mask: %d\n", subNetMask);
+        printf("IPv4 Subnet Mask: %u\n", subNetMask);
 
         ifsubnetMask = subNetMask;
 
@@ -2353,6 +1726,133 @@ static int DataCallTest(void* contextPtr)
     return EXIT_SUCCESS;
 }
 
+void PrintRpcDataInfo() {
+
+    char interfaceName[64];
+    uint32_t profileId=0;
+    uint8_t phoneId;
+    uint32_t subNetMask=0;
+    char ipAddr0[TAF_DCS_IPV4_ADDR_MAX_LEN];
+    char ipAddr1[TAF_DCS_IPV4_ADDR_MAX_LEN];
+    le_result_t result = LE_OK;
+
+    taf_dcs_ProfileRef_t profileRef = rpc_taf_dcs_GetProfile(remoteDataProfileid);
+
+    rpc_taf_dcs_GetInterfaceName(profileRef, interfaceName, 64);
+
+    result = rpc_taf_dcs_GetProfileIdByInterfaceName(interfaceName, &profileId);
+    LE_TEST_OK(result == LE_OK, "Connected: profile(%d), ifname(%s)", profileId, interfaceName);
+    printf("Connected: profile(%d), ifname(%s)\n", profileId, interfaceName);
+
+    result= rpc_taf_dcs_GetIPv4Address(profileRef, ipAddr0, TAF_DCS_IPV4_ADDR_MAX_LEN);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4Address - LE_OK");
+    printf("IPv4 Addr:        %s\n", ipAddr0);
+
+    le_utf8_Copy(ifaddress,ipAddr0, TAF_NET_IP_ADDR_MAX_LEN, NULL);
+
+    result=rpc_taf_dcs_GetIPv4GatewayAddress(profileRef, ipAddr0, TAF_DCS_IPV4_ADDR_MAX_LEN);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4GatewayAddress - LE_OK");
+    printf("IPv4 Gateway:     %s\n", ipAddr0);
+
+    le_utf8_Copy(gwaddress,ipAddr0, TAF_NET_IP_ADDR_MAX_LEN, NULL);
+
+    result=rpc_taf_dcs_GetIPv4DNSAddresses(profileRef, ipAddr0,
+                                       TAF_DCS_IPV4_ADDR_MAX_LEN, ipAddr1,
+                                       TAF_DCS_IPV4_ADDR_MAX_LEN);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4DNSAddresses - LE_OK");
+    printf("IPv4 Dns0:        %s \nIPv4 Dns1:        %s\n", ipAddr0, ipAddr1);
+
+    le_utf8_Copy(pDNSaddress,ipAddr0, TAF_NET_IP_ADDR_MAX_LEN, NULL);
+    le_utf8_Copy(sDNSaddress,ipAddr1, TAF_NET_IP_ADDR_MAX_LEN, NULL);
+
+    result=rpc_taf_dcs_GetIPv4SubnetMask(profileRef, &subNetMask);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4GatewayAddress - LE_OK");
+    printf("IPv4 Subnet Mask: %u\n", subNetMask);
+
+    ifsubnetMask = subNetMask;
+
+    result = rpc_taf_dcs_GetPhoneIdByInterfaceName(interfaceName, &phoneId);
+    LE_TEST_OK(result == LE_OK, "Connected: phoneId(%d), ifname(%s)", phoneId, interfaceName);
+    printf("Connected: phoneId(%d), ifname(%s)\n", phoneId, interfaceName);
+}
+
+static int RpcStartDataCallAndGetIpConfig()
+{
+    if (le_arg_NumArgs() < 2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* profileIdPtr = le_arg_GetArg(1);
+    remoteDataProfileid = strtol(profileIdPtr, NULL, 0);
+
+    le_result_t result = rpc_taf_mdc_StartSession(rpc_taf_dcs_GetProfile(remoteDataProfileid));
+
+    LE_TEST_OK(result == LE_OK, "rpc_taf_mdc_StartSession - OK");
+
+    printf("Start remote data call. Result: %s\n", LE_RESULT_TXT(result));
+
+    PrintRpcDataInfo();
+
+    printf("Getting local IP config, wait ...\n");
+
+    sleep(4);
+
+    TafGetIPConfig(1);
+
+    return EXIT_SUCCESS;
+}
+
+static int RpcStartDataCallAndSetIpConfig()
+{
+    if (le_arg_NumArgs() < 2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* profileIdPtr = le_arg_GetArg(1);
+    remoteDataProfileid = strtol(profileIdPtr, NULL, 0);
+
+    le_result_t result = rpc_taf_mdc_StartSession(rpc_taf_dcs_GetProfile(remoteDataProfileid));
+
+    LE_TEST_OK(result == LE_OK, "rpc_taf_mdc_StartSession - OK");
+
+    printf("Start remote data call. Result: %s\n", LE_RESULT_TXT(result));
+
+    PrintRpcDataInfo();
+
+    printf("Setting local IP config, wait ...\n");
+
+    sleep(4);
+
+    //Need to start data call and cache ip info before give takeIpInfoFromDataCall as true.
+    TafSetIPConfig(1, true);
+
+    return EXIT_SUCCESS;
+}
+
+static int RpcStopDataCall()
+{
+    if (le_arg_NumArgs() < 2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* profileIdPtr = le_arg_GetArg(1);
+    remoteDataProfileid = strtol(profileIdPtr, NULL, 0);
+
+    le_result_t result = rpc_taf_mdc_StopSession(rpc_taf_dcs_GetProfile(remoteDataProfileid));
+
+    LE_TEST_OK(result == LE_OK, "rpc_taf_mdc_StopSession - OK");
+
+    printf("Stop remote data call. Result: %s\n", LE_RESULT_TXT(result));
+
+    return EXIT_SUCCESS;
+}
+
 
 COMPONENT_INIT
 {
@@ -2366,20 +1866,21 @@ COMPONENT_INIT
 
     isRpcNetConnected = (res == LE_OK && result == LE_OK);
 
-    if(res == LE_OK) {
-        LE_INFO("Client connected successfully to the remote taf_net service.");
+    if(isRpcNetConnected) {
+        LE_INFO("Client connected successfully to the remote taf_net and taf_netIpPass services.");
     } else {
-        LE_INFO("Client unable to connect the remote taf_net service!");
+        LE_INFO("Client unable to connect the remote taf_net and/or taf_netIpPass service!");
     }
 
     res = rpc_taf_dcs_TryConnectService();
+    result = rpc_taf_mdc_TryConnectService();
 
-    isRpcDcsConnected = res == LE_OK;
+    isRpcDcsConnected = (res == LE_OK && result == LE_OK);
 
-    if(res == LE_OK) {
-        LE_INFO("Client connected successfully to the remote taf_dcs service.");
+    if(isRpcDcsConnected) {
+        LE_INFO("Client connected successfully to the remote taf_dcs and taf_mdc services.");
     } else {
-        LE_INFO("Client unable to connect the remote taf_dcs service!");
+        LE_INFO("Client unable to connect the remote taf_dcs and/or taf_mdc service!");
     }
 
     if (le_arg_NumArgs() == 0)
@@ -2397,70 +1898,13 @@ COMPONENT_INIT
         }
 
         if(!isRpcNetConnected && strncmp(testType, "rpc", 3) == 0) {
-            if(strcmp(testType, "rpcdatacall") != 0) {
+            if(strcmp(testType, "rpcdatacall") != 0 && strcmp(testType, "rpcstopdatacall") != 0) {
                 printf("Remote NET RPC is not connecetd!\n");
                 exit(EXIT_FAILURE);
             }
         }
 
-        if(strcmp(testType, "getinterfacelist") ==0)
-        {
-            status=TafNetGetInterfaceList();
-        }
-        else if(strcmp(testType, "listen") == 0)
-        {
-          printf("===register handler started===\n");
-          le_thread_Start(le_thread_Create("NetTestThread", HandlerThread, NULL));
-        }
-        else if(strcmp(testType, "changeiproute") == 0)
-        {
-          status=TafNetChangeIpRoute();
-        }
-        else if(strcmp(testType, "getinterfacegw") == 0)
-        {
-          status=TafNetGetInterfaceGw();
-        }
-        else if(strcmp(testType, "getinterfacedns") == 0)
-        {
-          status=TafNetGetInterfaceDns();
-        }
-        else if(strcmp(testType, "setdns") == 0)
-        {
-          status=TafNetSetDns();
-        }
-        else if(strcmp(testType, "setdefaultgw") == 0)
-        {
-          status=TafNetSetDefaultGw();
-        }
-        else if(strcmp(testType, "backupsetandrestoregw") == 0)
-        {
-          status=TafNetBackupSetAndRestoregw();
-        }
-        else if(strcmp(testType, "adddestnatondefaultpdn") == 0)
-        {
-            status=TafNatAddDestNatOnDefaultPdn();
-        }
-        else if(strcmp(testType, "deldestnatondefaultpdn") == 0)
-        {
-            status=TafNatDelDestNatOnDefaultPdn();
-        }
-        else if(strcmp(testType, "getdestnatlistondefaultpdn") == 0)
-        {
-            status=TafNatGetDestNatListOnDefaultPdn();
-        }
-        else if(strcmp(testType, "adddestnatondemandpdn") == 0)
-        {
-            status=TafNatAddDestNatOnDemandPdn();
-        }
-        else if(strcmp(testType, "deldestnatondemandpdn") == 0)
-        {
-            status=TafNatDelDestNatOnDemandPdn();
-        }
-        else if(strcmp(testType, "getdestnatlistondemandpdn") == 0)
-        {
-            status=TafNatGetDestNatListOnDemandPdn();
-        }
-        else if(strcmp(testType, "createvlan") == 0)
+        if(strcmp(testType, "createvlan") == 0)
         {
             status=TafCreateVlan();
         }
@@ -2550,18 +1994,42 @@ COMPONENT_INIT
         }
         else if(strcmp(testType, "setIPConfig") == 0)
         {
-            status=TafSetIPConfig();
+            status=TafSetIPConfig(0, false);
         }
         else if(strcmp(testType, "getIPConfig") == 0)
         {
-            status=TafGetIPConfig();
+            status=TafGetIPConfig(0);
         }
         else if(strcmp(testType, "rpcdatacall") == 0)
         {
             if (isRpcDcsConnected) {
                 status = RpcDataCallTest(NULL);
             } else {
-                printf("Remote DCS RPC is not connecetd!\n");
+                printf("Remote DCS and/or MDC RPC are not connecetd!\n");
+            }
+        }
+        else if(strcmp(testType, "rpcstartdatangetipconfig") == 0)
+        {
+            if (isRpcDcsConnected) {
+                status = RpcStartDataCallAndGetIpConfig();
+            } else {
+                printf("Remote DCS and/or MDC RPC are not connecetd!\n");
+            }
+        }
+        else if(strcmp(testType, "rpcstartdatansetipconfig") == 0)
+        {
+            if (isRpcDcsConnected) {
+                status = RpcStartDataCallAndSetIpConfig();
+            } else {
+                printf("Remote DCS and/or MDC RPC are not connecetd!\n");
+            }
+        }
+        else if(strcmp(testType, "rpcstopdatacall") == 0)
+        {
+            if (isRpcDcsConnected) {
+                status = RpcStopDataCall();
+            } else {
+                printf("Remote DCS and/or MDC RPC is not connecetd!\n");
             }
         }
         else if(strcmp(testType, "datacall") == 0)

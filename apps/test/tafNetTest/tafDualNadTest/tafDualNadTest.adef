@@ -32,4 +32,6 @@ bindings:
     tafDualNadTest.tafDualNadComponent.rpc_taf_netIpPass -> <telaf>.rpcServer_102_telaf_taf_netIpPass
     tafDualNadTest.tafDualNadComponent.taf_dcs -> tafDataCallSvc.taf_dcs
     tafDualNadTest.tafDualNadComponent.rpc_taf_dcs -> <telaf>.rpcServer_102_telaf_taf_dcs   // Binding to remote DCS service on system 0x102 via RPC proxy
+    tafDualNadTest.tafDualNadComponent.taf_mdc -> tafDataCallSvc.taf_mdc
+    tafDualNadTest.tafDualNadComponent.rpc_taf_mdc -> <telaf>.rpcServer_102_telaf_taf_mdc
 }

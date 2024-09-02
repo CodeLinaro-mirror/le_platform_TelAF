@@ -49,25 +49,32 @@ le_result_t taf_uds_SendDiagResp
 {
     LE_DEBUG("taf_uds_SendDiagResp");
 
-    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
-
     if(addrInfoPtr == NULL)
     {
         LE_ERROR("Null pointer");
         return LE_BAD_PARAMETER;
     }
 
-    memcpy(&udsCmMgr.udsRespAddrInfo, addrInfoPtr, sizeof(*addrInfoPtr));
+    LE_DEBUG("ifName=%s", addrInfoPtr->ifName);
+    auto udsCmMgr = UdsCommunicationMgr::GetInstance(addrInfoPtr->ifName);
+    if(udsCmMgr == NULL)
+    {
+        LE_ERROR("Can't get instance by ifName %s", addrInfoPtr->ifName);
+        return LE_FAULT;
+    }
+
+    memcpy(&udsCmMgr->udsRespAddrInfo, addrInfoPtr, sizeof(*addrInfoPtr));
+    le_utf8_Copy(udsCmMgr->udsRespAddrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN,
+            NULL);
 
     if (diagMsgPtr != NULL)
     {
-        return udsCmMgr.SendUDSResp(addrInfoPtr->sa, addrInfoPtr->ta, addrInfoPtr->taType,
-                serviceId, err, diagMsgPtr->dataPtr, diagMsgPtr->dataLen);
+        return udsCmMgr->SendUDSResp(addrInfoPtr->ifName, serviceId, err,
+                diagMsgPtr->dataPtr, diagMsgPtr->dataLen);
     }
     else
     {
-        return udsCmMgr.SendUDSResp(addrInfoPtr->sa, addrInfoPtr->ta, addrInfoPtr->taType,
-                serviceId, err, NULL, 0);
+        return udsCmMgr->SendUDSResp(addrInfoPtr->ifName, serviceId, err, NULL, 0);
     }
 }
 
@@ -80,7 +87,6 @@ taf_uds_DiagIndicationHandlerRef_t taf_uds_AddDiagIndicationHandler
     LE_DEBUG("taf_uds_AddDiagIndicationHandler");
 
     void* handlerRef;
-    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
 
     if(indicationHandlerPtr == NULL)
     {
@@ -88,24 +94,27 @@ taf_uds_DiagIndicationHandlerRef_t taf_uds_AddDiagIndicationHandler
         return NULL;
     }
 
-    if(udsCmMgr.UdsAddDiagIndicationHandler() != LE_OK)
+    if(UdsCommunicationMgr::UdsAddDiagIndicationHandler() != LE_OK)
     {
         LE_ERROR("Add doip indication");
         return NULL;
     }
 
     // Remove previous handler reference
-    if (udsCmMgr.udsIndicationHandler.safeRef != NULL &&
-        le_ref_Lookup(udsCmMgr.udsHandlerRefMap, udsCmMgr.udsIndicationHandler.safeRef))
+    if (UdsCommunicationMgr::udsIndicationHandler.safeRef != NULL &&
+        le_ref_Lookup(UdsCommunicationMgr::udsHandlerRefMap,
+                UdsCommunicationMgr::udsIndicationHandler.safeRef))
     {
-        le_ref_DeleteRef(udsCmMgr.udsHandlerRefMap, udsCmMgr.udsIndicationHandler.safeRef);
+        le_ref_DeleteRef(UdsCommunicationMgr::udsHandlerRefMap,
+                UdsCommunicationMgr::udsIndicationHandler.safeRef);
     }
 
-    handlerRef = le_ref_CreateRef(udsCmMgr.udsHandlerRefMap, &udsCmMgr.udsIndicationHandler);
-    udsCmMgr.udsIndicationHandler.funcPtr =
+    handlerRef = le_ref_CreateRef(UdsCommunicationMgr::udsHandlerRefMap,
+            &UdsCommunicationMgr::udsIndicationHandler);
+    UdsCommunicationMgr::udsIndicationHandler.funcPtr =
             (taf_doip_DiagIndicationHandlerFunc_t)indicationHandlerPtr;
-    udsCmMgr.udsIndicationHandler.ctxPtr = userPtr;
-    udsCmMgr.udsIndicationHandler.safeRef = handlerRef;
+    UdsCommunicationMgr::udsIndicationHandler.ctxPtr = userPtr;
+    UdsCommunicationMgr::udsIndicationHandler.safeRef = handlerRef;
 
     return (taf_uds_DiagIndicationHandlerRef_t)handlerRef;
 }
@@ -117,14 +126,14 @@ void taf_uds_RemoveDiagIndicationHandler
 {
     LE_DEBUG("taf_uds_RemoveDiagIndicationHandler");
 
-    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
 
     taf_UDSIndicationHandler_t* handlerPtr =
-            (taf_UDSIndicationHandler_t*)le_ref_Lookup(udsCmMgr.udsHandlerRefMap, handerRef);
+            (taf_UDSIndicationHandler_t*)le_ref_Lookup(UdsCommunicationMgr::udsHandlerRefMap,
+            handerRef);
 
     if (handlerPtr != NULL)
     {
-        le_ref_DeleteRef(udsCmMgr.udsHandlerRefMap, handlerPtr->safeRef);
+        le_ref_DeleteRef(UdsCommunicationMgr::udsHandlerRefMap, handlerPtr->safeRef);
         handlerPtr->safeRef = NULL;
     }
 
@@ -137,17 +146,13 @@ le_result_t taf_uds_Start
 )
 {
     LE_DEBUG("taf_uds_Start");
-    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
 
-    return udsCmMgr.UdsStart(configPathPtr);
+    return UdsCommunicationMgr::UdsStart(configPathPtr);
 }
 
 COMPONENT_INIT
 {
     LE_INFO("UDS component init once start...");
-
-    auto &udsCmMgr = UdsCommunicationMgr::GetInstance();
-    udsCmMgr.Init();
 
     LE_INFO("UDS component init end...");
 }

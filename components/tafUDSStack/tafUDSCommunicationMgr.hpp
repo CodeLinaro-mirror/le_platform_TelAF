@@ -37,7 +37,9 @@
 #include "tafDoIPStack.h"
 #include "legato.h"
 #include "interfaces.h"
+#include "tafSvcIF.hpp"
 #include "configuration.hpp"
+#include <mutex>
 
 using namespace telux::tafsvc;
 
@@ -55,6 +57,8 @@ namespace uds{
     #define UDS_S3_SERVER 5000
     #define TAF_UDS_HANDLER_REF_CNT 1
     #define SHORT_TERM_ADJUSTMENT 3
+    #define MAX_INTERFACE_NAME_LEN 30
+    #define MAX_TIMER_NAME_LEN 36
 
     // UDS minimal len
     #define UDS_REQ_MIN_LEN 1
@@ -223,6 +227,7 @@ namespace uds{
     {
         taf_UDSTimer_EventType_t             event;
         uint32_t                             interval;
+        char                                 ifName[30];
     } udsTimerEvent_t;
 
     // UDS stack indication handler structure.
@@ -247,21 +252,23 @@ namespace uds{
 
     class UdsCommunicationMgr{
         public:
+            UdsCommunicationMgr(const char* ifName);
             UdsCommunicationMgr();
             ~UdsCommunicationMgr();
-            static UdsCommunicationMgr &GetInstance();
-
+            static std::shared_ptr<UdsCommunicationMgr> GetInstance(const char* ifName);
             void Init();
-            le_result_t UdsStart(const char* configPathPtr);
+            static void InitInstances(le_dls_List_t* interfaceList);
 
-            le_result_t UdsAddDiagIndicationHandler();
+            static le_result_t UdsStart(const char* configPathPtr);
+
+            static le_result_t UdsAddDiagIndicationHandler();
             static void DiagIndicationHandler( taf_doip_AddrInfo_t* addrInfoPtr,
                     taf_doip_DiagMsg_t* diagMsgPtr, taf_doip_Result_t result, void* userPtr);
             static void DiagConfirmHandler(const taf_doip_AddrInfo_t* addrInfoPtr,
                 taf_doip_Result_t result, void* userPtr);
 
-            le_result_t SendUDSResp( uint16_t sa, uint16_t ta, uint8_t addrType, uint8_t serviceId,
-                    uint8_t err, const uint8_t* dataPtr, uint16_t dataSize);
+            le_result_t SendUDSResp(const char* ifName, uint8_t serviceId, uint8_t err,
+                    const uint8_t* dataPtr, uint16_t dataSize);
 
             le_result_t SetNRC(uint8_t sid, uint8_t errorCode);
             le_result_t SendNRC(uint8_t sid, uint8_t errorCode, taf_doip_AddrInfo_t*  addrInfoPtr);
@@ -272,8 +279,8 @@ namespace uds{
             static void P2StarTimeoutHandler(le_timer_Ref_t timerRef);
             static void S3TimeoutHandler(le_timer_Ref_t timerRef);
 
-            le_ref_MapRef_t udsHandlerRefMap = NULL;
-            taf_UDSIndicationHandler_t udsIndicationHandler;
+            static le_ref_MapRef_t udsHandlerRefMap;
+            static taf_UDSIndicationHandler_t udsIndicationHandler;
 
             /* Security Access -- BEG -- */
             uint8_t nrcCode = 0x00;
@@ -286,6 +293,9 @@ namespace uds{
             uint16_t recvDataLen = 0;
             uint16_t sendDataLen = 0;
             bool readyToRecvData = true;
+            char interface[MAX_INTERFACE_NAME_LEN];
+            le_timer_Ref_t p2StarTimerRef;
+            le_timer_Ref_t s3TimerRef;
 
         private:
             // Indicate recevied service message to Diag service if necessary.
@@ -337,7 +347,7 @@ namespace uds{
             le_result_t ReqFileXferResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
 
-            void IndicateWhenChangingToDefault();
+            static void IndicateWhenChangingToDefault(const char* ifName);
             le_result_t ReadDTCInfoResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
             le_result_t ClearDiagInfoResp(uint8_t serviceId, uint8_t err);
@@ -345,7 +355,8 @@ namespace uds{
 
             static void* UdsTimerThread(void* ctxPtr);
             static void UdsTimerHandler(void* reqPtr);
-            void UdsTimerEventReport(taf_UDSTimer_EventType_t timerEvent, uint32_t interval);
+            void UdsTimerEventReport(taf_UDSTimer_EventType_t timerEvent, uint32_t interval,
+                        const char* ifName);
             void CheckAndRestartS3Timer(uint8_t serviceId);
             bool IsSessTypeMatched(cfg::Node& node);
             bool IsSecurityAccessMatched(cfg::Node& node);
@@ -362,17 +373,20 @@ namespace uds{
             taf_doip_AddrInfo_t addrInfo;
             uint8_t sesChangeBuf[UDS_SESSION_CHANGE_DATA_SIZE];
 
-            taf_doip_Ref_t  DoipEntityRef = NULL;
-            taf_doip_DiagIndicationHandlerRef_t IndicationRef = NULL;
-            taf_doip_PowerModeQueryHandlerRef_t PmQueryRef = NULL;
-            taf_doip_DiagConfirmHandlerRef_t ConfirmRef = NULL;
+            static taf_doip_Ref_t  DoipEntityRef;
+            static taf_doip_DiagIndicationHandlerRef_t IndicationRef;
+            static taf_doip_PowerModeQueryHandlerRef_t PmQueryRef;
+            static taf_doip_DiagConfirmHandlerRef_t ConfirmRef;
             taf_SessionType_t SessionType = DEFAULT_SESSION;
 
             static bool isResetInProgress;
-            le_timer_Ref_t p2StarTimerRef;
-            le_timer_Ref_t s3TimerRef;
-            le_event_Id_t udsTimerEventId;
-            le_sem_Ref_t semRef;
+            static le_event_Id_t udsTimerEventId;
+            static le_sem_Ref_t semRef;
+
+            static std::map<std::string, std::shared_ptr<UdsCommunicationMgr>> instances;
+            static std::mutex mutex_;
+
+            taf_doip_DiagMsg_t sesChangeMsg;
     };
 }
 }

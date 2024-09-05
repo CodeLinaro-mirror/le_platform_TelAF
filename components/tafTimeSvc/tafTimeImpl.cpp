@@ -1776,7 +1776,6 @@ le_result_t taf_Time::SetSystemTime
 
         TimeSourceChangeNotify(LatestTimeSourceInfo->systemSourceId, timeSource);
         LatestTimeSourceInfo->systemSourceId = timeSource;
-        LatestTimeSourceInfo->failedLoops = 0;
         AllowOverrideAfterFail = TimeSourceConf.allowOverrideAfterFail;
     }
 
@@ -1802,6 +1801,7 @@ le_result_t taf_Time::SetSystemTime
         SetTimeSt->asyncRtcSetTime = true;
     }
 
+    LatestTimeSourceInfo->failedLoops = 0;
     LatestTimeSourceInfo->isAvailable = true;
     return LE_OK;
 }
@@ -1908,7 +1908,7 @@ void taf_Time::SourceAvailabilityUpdate(le_result_t result, taf_time_TimeSources
             )
             {
                 oldValidity = sourcePtr->sourceValidity;
-                if(oldValidity != true && sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK)
+                if(oldValidity != true)
                 {
                     tafTime.WriteValidtyToSecStorage(sourcePtr, true);
                 }
@@ -1926,7 +1926,7 @@ void taf_Time::SourceAvailabilityUpdate(le_result_t result, taf_time_TimeSources
             )
             {
                 oldValidity = sourcePtr->sourceValidity;
-                if(oldValidity != false && sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK)
+                if(oldValidity != false)
                 {
                     tafTime.WriteValidtyToSecStorage(sourcePtr, false);
                 }
@@ -2538,6 +2538,14 @@ le_result_t taf_Time::UpdateNetworkTimeZoneInfo
     return LE_OK;
 }
 
+void NetworkTimeResponseUpdateHandler(void* param)
+{
+    auto &tafTime = taf_Time::GetInstance();
+    NetworkInfoUpdateArgs_t* networkInfo = (NetworkInfoUpdateArgs_t*) param;
+    tafTime.NetworkTimeResponseUpdate(networkInfo->networkNumber,
+         networkInfo->info, networkInfo->error);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Response for synching network time.
@@ -2550,7 +2558,14 @@ void taf_Time::SyncNetworkTimeResponse
 )
 {
     auto &tafTime = taf_Time::GetInstance();
-    tafTime.NetworkTimeResponseUpdate(1, info, error);
+    tafTime.NetworkUpdateInfo1.networkNumber = 1;
+    tafTime.NetworkUpdateInfo1.error = error;
+    tafTime.NetworkUpdateInfo1.info = info;
+
+    le_event_QueueFunctionToThread(mainThreadRef,
+        (le_event_DeferredFunc_t)NetworkTimeResponseUpdateHandler,
+        &tafTime.NetworkUpdateInfo1, NULL);
+
     le_result_t result = tafTime.UpdateNetworkTimeZoneInfo(info, TAF_TIME_SRC_NAME_NETWORK);
     if(result != LE_OK)
     {
@@ -2570,7 +2585,14 @@ void taf_Time::SyncNetworkTimeResponse2
 )
 {
     auto &tafTime = taf_Time::GetInstance();
-    tafTime.NetworkTimeResponseUpdate(2, info, error);
+    tafTime.NetworkUpdateInfo2.networkNumber = 2;
+    tafTime.NetworkUpdateInfo2.error = error;
+    tafTime.NetworkUpdateInfo2.info = info;
+
+    le_event_QueueFunctionToThread(mainThreadRef,
+        (le_event_DeferredFunc_t)NetworkTimeResponseUpdateHandler,
+        &tafTime.NetworkUpdateInfo2, NULL);
+
     le_result_t result = tafTime.UpdateNetworkTimeZoneInfo(info, TAF_TIME_SRC_NAME_NETWORK2);
     if(result != LE_OK)
     {
@@ -3636,12 +3658,6 @@ void taf_Time::Init(void)
         le_event_CreateId("timeSourceStatusEventId", sizeof(SourceStatusChange_Event_t));
     le_event_AddHandler("TimeSourceStatusHandlerRef",
         timeSourceStatusEventId, timeSourceStatusHandler);
-
-    NetworkTimeResponseUpdatePool =
-        le_mem_CreatePool("NetworkTimeResponseUpdatePool", sizeof(NetworkTimeResponseUpdateArgs_t));
-    NetworkTimeResponseArgs =
-        (NetworkTimeResponseUpdateArgs_t*)le_mem_ForceAlloc(NetworkTimeResponseUpdatePool);
-    NetworkTimeResponseArgs = {};
 
     mainThreadRef = le_thread_GetCurrent();
 

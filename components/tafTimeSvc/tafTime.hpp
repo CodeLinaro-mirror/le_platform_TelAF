@@ -314,7 +314,7 @@ typedef struct
     taf_time_AsyncSetTimeReqHandlerFunc_t setRTCCallbackFunc;
 }taf_time_setRTCCb_t;
 
-struct NetworkTimeResponseUpdateArgs_t
+struct NetworkInfoUpdateArgs_t
 {
     uint8_t networkNumber;
     telux::tel::NetworkTimeInfo info;   ///< [IN] Network time information.
@@ -613,8 +613,6 @@ namespace telux
                 le_ref_MapRef_t SrcRefMap;
                 le_mem_PoolRef_t SrcPool = NULL;
 
-                le_mem_PoolRef_t NetworkTimeResponseUpdatePool = NULL;
-
                 le_mem_PoolRef_t NetworkDeltaTimePool = NULL;
                 le_mem_PoolRef_t NetworkDeltaTime2Pool = NULL;
 
@@ -680,7 +678,8 @@ namespace telux
                 le_result_t ReadValidityFromSecStorage(taf_SourceInf_t* sourcePtr, bool* validity);
                 uint64_t PrevSrcAvailabiltyMap = 0x0;
                 struct SetTimeStatus* SetTimeSt = NULL;
-                struct NetworkTimeResponseUpdateArgs_t* NetworkTimeResponseArgs = NULL;
+                NetworkInfoUpdateArgs_t NetworkUpdateInfo1 = {};
+                NetworkInfoUpdateArgs_t NetworkUpdateInfo2 = {};
 
             private:
                 std::shared_ptr<ITimeListener> gnssTimeListener = nullptr;

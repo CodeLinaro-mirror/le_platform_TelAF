@@ -740,17 +740,7 @@ void VehicleDiscovery::VehicleAnnounceTimerHandler
     auto &vehicleDis = VehicleDiscovery::GetInstance();
 
     taf_doipLink_t link;
-    char netType[TAF_DOIP_IPTYPE_MAX_LEN];
-
-    vehicleMgr.GetNetType(netType);
-    if (!strncasecmp(netType, "IPv4", 4))
-    {
-        link.sockRef = commMgr.udpEquipSockRef;
-    }
-    else
-    {
-        link.sockRef = commMgr.udpDiscoverSockRef;
-    }
+    link.sockRef = commMgr.udpDiscoverSockRef;
 
     vehicleMgr.GetMulticast(link.ip);
     vehicleMgr.GetUdpPort(&(link.port));

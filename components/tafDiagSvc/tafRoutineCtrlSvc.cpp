@@ -64,6 +64,33 @@ taf_diagRoutineCtrl_ServiceRef_t taf_diagRoutineCtrl_GetService
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Sets VLAN ID to the service to filter ReadDID and WriteDID request.
+ * if the VLAN ID is not found or not exist, it will return error.
+ * This function shall be called before registering RxMsgHandler.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_UNSUPPORTED -- VLAN ID is unknown.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagRoutineCtrl_SetVlanId
+(
+    taf_diagRoutineCtrl_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    uint16_t vlanId
+        ///< [IN] VLAN ID.
+)
+{
+    auto& tafRCS = taf_RoutinCtrlSvr::GetInstance();
+
+    return tafRCS.SetVlanId(svcRef, vlanId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add handler function for EVENT 'taf_diagRoutineCtrl_RxMsg'
  *
  * This event provides information on Rx RoutineControl message.
@@ -125,6 +152,31 @@ le_result_t taf_diagRoutineCtrl_GetRoutineCtrlRec
     auto& tafRCS = taf_RoutinCtrlSvr::GetInstance();
 
     return tafRCS.GetRoutineCtrlRec(rxMsgRef, optionRecPtr, optionRecSizePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the vlan id of the Rx RoutineControl message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- VLAN ID not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagRoutineCtrl_GetVlanIdFromMsg
+(
+    taf_diagRoutineCtrl_RxMsgRef_t rxMsgRef,
+        ///< [IN] Receive message reference.
+    uint16_t* vlanIdPtr
+        ///< [OUT] VLAN ID.
+)
+{
+    auto& tafRCS = taf_RoutinCtrlSvr::GetInstance();
+
+    return tafRCS.GetVlanIdFromMsg(rxMsgRef, vlanIdPtr);
 }
 
 //--------------------------------------------------------------------------------------------------

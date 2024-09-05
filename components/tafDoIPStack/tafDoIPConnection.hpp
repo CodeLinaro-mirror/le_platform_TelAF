@@ -99,8 +99,9 @@ namespace doip{
     class Connection;
     class Connection : public std::enable_shared_from_this<Connection> {
         public:
-            Connection(std::shared_ptr<ConnectionManager> mgr, le_socket_Ref_t socketRef,
-                    taf_doip_ConnectType_t type, std::string& ip, uint16_t port);
+            Connection(std::shared_ptr<ConnectionManager> mgr,
+                    le_socket_Ref_t socketRef, taf_doip_ConnectType_t type,
+                    std::string& ip, uint16_t port, std::string& ifname);
 
             ~Connection();
 
@@ -166,10 +167,15 @@ namespace doip{
             void RespondHeaderNegativeACK(taf_doipHeaderNACKCode_t nackCode);
 
             uint16_t                testerSA;   // Tester source logical address.
+                                                // It will be assigned after regitered.
             uint16_t                entitySA;   // Entity source logical address.
                                                 // If doip stack runs on the gateway,
                                                 // It is the gateway logical address.
 
+            // Tester source logical address at routine activation stage.
+            uint16_t                raTesterSa;
+
+            std::string             localIface;
             std::string             remoteIp;
             uint16_t                remotePort;
             taf_doip_ConnectState_t connState = TAF_DOIP_CONNECT_STATE_INITIALIZED;

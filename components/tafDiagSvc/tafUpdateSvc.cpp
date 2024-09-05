@@ -62,6 +62,35 @@ taf_diagUpdate_ServiceRef_t taf_diagUpdate_GetService
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Sets VLAN ID to the service to filter RequestFileTransfer/TransferData/
+ * RequestTransferExit request.
+ * if the VLAN ID is not found or not exist, it will return error.
+ * This function shall be called before registering RxFileXferMsgHandler,
+ * RxXferDataMsgHandler and RxXferExitMsgHandler.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_UNSUPPORTED -- VLAN ID is unknown.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagUpdate_SetVlanId
+(
+    taf_diagUpdate_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    uint16_t vlanId
+        ///< [IN] VLAN ID.
+)
+{
+    auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
+
+    return tafUpdateSvr.SetVlanId(svcRef, vlanId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add handler function for EVENT 'taf_diagUpdate_RxFileXferMsg'
  *
  * This event provides information on RequestFileTransfer message.
@@ -521,6 +550,31 @@ le_result_t taf_diagUpdate_SendXferExitResp
     auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
 
     return tafUpdateSvr.SendXferExitResp(rxMsgRef, errCode, dataPtr, dataSize);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the vlan id of the Request RequestFileTransfer/TransferData/RequestTransferExit message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- VLAN ID not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagUpdate_GetVlanIdFromMsg
+(
+    taf_diagUpdate_RxMsgRef_t rxMsgRef,
+        ///< [IN] ReadDID or WriteDID received message reference.
+    uint16_t* vlanIdPtr
+        ///< [OUT] VLAN ID.
+)
+{
+    auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
+
+    return tafUpdateSvr.GetVlanIdFromMsg(rxMsgRef, vlanIdPtr);
 }
 
 //--------------------------------------------------------------------------------------------------

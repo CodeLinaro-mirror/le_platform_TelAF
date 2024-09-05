@@ -67,7 +67,7 @@ namespace doip{
             // Function to create new connection and add to connection box
             // to handle doip request and response.
             std::shared_ptr<Connection> FindOrCreateConnection(le_socket_Ref_t sockRef,
-                char* ip, int port);
+                    char* ip, int port, const char *ifacePtr);
             std::shared_ptr<Connection> FindConnectionByLogicalAddr(uint16_t logicalAddr);
             std::shared_ptr<Connection> FindConnectionBySocket(le_socket_Ref_t sockRef);
             taf_doip_Result_t DeleteConnection(std::shared_ptr<Connection> connectPtr);
@@ -80,9 +80,10 @@ namespace doip{
             void PerformSigleAliveCheck(std::shared_ptr<Connection> connection, uint16_t ta);
 
             taf_doip_Result_t InformUdsMessage(uint16_t sa, uint16_t ta,
-                char* data, uint32_t length);
+                    char* data, uint32_t length, std::string& iface);
 
-            void ReportConnectionEvent(uint16_t sa, uint16_t ta, taf_doip_Result_t rgistResult);
+            void ReportConnectionEvent(uint16_t sa, uint16_t ta,
+                    taf_doip_Result_t rgistResult, std::string& iface);
 
             // For DoIP stack message. except UDS message type.
             le_mem_PoolRef_t    inMsgPool = NULL;
@@ -95,7 +96,7 @@ namespace doip{
         private:
             static void ConnectionDeleter(Connection* connPtr);
             std::shared_ptr<Connection> ServerCreateConnection(le_socket_Ref_t sockRef,
-                std::string& ip, uint16_t port);
+                    std::string& ip, uint16_t port, std::string& iface);
 
             //CommunicationMgr    &communicateMgr;
 

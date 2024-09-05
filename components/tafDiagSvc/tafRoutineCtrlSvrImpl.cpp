@@ -174,11 +174,11 @@ void taf_RoutinCtrlSvr::RxReqEventHandler
         return;
     }
 
-    servicePtr = rc.GetServiceObj(msgPtr->routineId);
+    servicePtr = rc.GetServiceObj(msgPtr->routineId, msgPtr->addrInfo.vlanId);
     if (servicePtr == NULL)
     {
-        LE_WARN("Not found registered service(identifier:0x%x) for this request",
-            msgPtr->routineId);
+        LE_WARN("Not found registered service(identifier:0x%x) for this request(vlan id:0x%x)",
+            msgPtr->routineId, msgPtr->addrInfo.vlanId);
         // UDS_0x31_NRC_21: service pointer is null
         rc.SendNRCResp(rc.svcId, &(msgPtr->addrInfo), TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(rc.reqMsgRefMap, msgPtr->ref);
@@ -240,7 +240,8 @@ void taf_RoutinCtrlSvr::RxReqEventHandler
 
 taf_RoutineCtrlSvc_t* taf_RoutinCtrlSvr::GetServiceObj
 (
-    uint16_t identifier
+    uint16_t identifier,
+    le_msg_SessionRef_t sessionRef
 )
 {
     le_ref_IterRef_t iterRef = le_ref_GetIterator(svcRefMap);
@@ -248,9 +249,56 @@ taf_RoutineCtrlSvc_t* taf_RoutinCtrlSvr::GetServiceObj
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         taf_RoutineCtrlSvc_t* servicePtr = (taf_RoutineCtrlSvc_t*)le_ref_GetValue(iterRef);
-        if ((servicePtr != NULL) && (servicePtr->identifier == identifier))
+        if ((servicePtr != NULL) && (servicePtr->identifier == identifier)
+            && (sessionRef == servicePtr->sessionRef))
         {
             return servicePtr;
+        }
+    }
+
+    return NULL;
+}
+
+taf_RoutineCtrlSvc_t* taf_RoutinCtrlSvr::GetServiceObj
+(
+    uint16_t identifier,
+    uint16_t vlanId
+)
+{
+    bool isFound = false;
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(svcRefMap);
+
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_RoutineCtrlSvc_t* servicePtr = (taf_RoutineCtrlSvc_t *)le_ref_GetValue(iterRef);
+        if ((servicePtr != NULL) && (servicePtr->identifier == identifier))
+        {
+            // In some cases. the interface may not set the vlan.
+            if (vlanId == 0 && le_dls_NumLinks(&servicePtr->supportedVlanList) == 0)
+            {
+                return servicePtr;
+            }
+
+            // Verify if the vlan is match.
+            le_dls_Link_t* linkPtr = NULL;
+            linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+            while (linkPtr)
+            {
+                taf_RoutineCtrlVlanIdNode_t *vlan = CONTAINER_OF(linkPtr,
+                    taf_RoutineCtrlVlanIdNode_t, link);
+                if (vlan != NULL && vlan->vlanId == vlanId)
+                {
+                    // Match.
+                    isFound = true;
+                    break;
+                }
+                linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+            }
+
+            if (isFound)
+            {
+                return servicePtr;
+            }
         }
     }
 
@@ -313,10 +361,11 @@ le_result_t taf_RoutinCtrlSvr::SendRoutineCtrlResp
         return LE_NOT_FOUND;
     }
 
-    servicePtr = GetServiceObj(reqMsgPtr->routineId);
+    servicePtr = GetServiceObj(reqMsgPtr->routineId, reqMsgPtr->addrInfo.vlanId);
     if (servicePtr == NULL)
     {
-        LE_ERROR("Cannot find the service(identifier:0x%x)", reqMsgPtr->routineId);
+        LE_ERROR("Cannot find the service(identifier:0x%x, vlan id:0x%x)",
+            reqMsgPtr->routineId, reqMsgPtr->addrInfo.vlanId);
         return LE_NOT_FOUND;
     }
 
@@ -328,6 +377,8 @@ le_result_t taf_RoutinCtrlSvr::SendRoutineCtrlResp
     addrInfo.sa = reqMsgPtr->addrInfo.ta;
     addrInfo.ta = reqMsgPtr->addrInfo.sa;
     addrInfo.taType = reqMsgPtr->addrInfo.taType;
+    addrInfo.vlanId = reqMsgPtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, reqMsgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
 
     if (nrc != 0)
     {
@@ -394,6 +445,8 @@ le_result_t taf_RoutinCtrlSvr::SendNRCResp
     addrInfo.sa = addrInfoPtr->ta;
     addrInfo.ta = addrInfoPtr->sa;
     addrInfo.taType = addrInfoPtr->taType;
+    addrInfo.vlanId = addrInfoPtr->vlanId;
+    le_utf8_Copy(addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
 
     return backend.RespDiagNegative(sid, &addrInfo, errCode);
 }
@@ -419,10 +472,11 @@ le_result_t taf_RoutinCtrlSvr::ReleaseRoutineCtrlMsg
         return LE_NOT_FOUND;
     }
 
-    servicePtr = GetServiceObj(reqMsgPtr->routineId);
+    servicePtr = GetServiceObj(reqMsgPtr->routineId, reqMsgPtr->addrInfo.vlanId);
     if (servicePtr == NULL)
     {
-        LE_ERROR("Cannot find the service(identifier:0x%x)", reqMsgPtr->routineId);
+        LE_ERROR("Cannot find the service(identifier:0x%x, vlan id:0x%x)",
+            reqMsgPtr->routineId, reqMsgPtr->addrInfo.vlanId);
         return LE_NOT_FOUND;
     }
 
@@ -457,17 +511,10 @@ taf_diagRoutineCtrl_ServiceRef_t taf_RoutinCtrlSvr::FindOrCreateService
         return NULL;
     }
 
-    taf_RoutineCtrlSvc_t* servicePtr = GetServiceObj(identifier);
+    taf_RoutineCtrlSvc_t* servicePtr = GetServiceObj(identifier,
+        taf_diagRoutineCtrl_GetClientSessionRef());
     if (servicePtr != NULL)
     {
-        // The service is created.
-        if (servicePtr->sessionRef != taf_diagRoutineCtrl_GetClientSessionRef())
-        {
-            LE_ERROR("The identifier(0x%x) in routine control is created by other client",
-                identifier);
-            return NULL;
-        }
-
         return servicePtr->ref;
     }
 
@@ -479,6 +526,7 @@ taf_diagRoutineCtrl_ServiceRef_t taf_RoutinCtrlSvr::FindOrCreateService
     servicePtr->reqMsgList  = LE_DLS_LIST_INIT;
     servicePtr->sessionRef  = taf_diagRoutineCtrl_GetClientSessionRef();
     servicePtr->ref = (taf_diagRoutineCtrl_ServiceRef_t)le_ref_CreateRef(svcRefMap, servicePtr);
+    servicePtr->supportedVlanList = LE_DLS_LIST_INIT;
 
     LE_INFO("Routine control: serviceRef%p of client%p is created for identifier0x%x",
         servicePtr->ref, servicePtr->sessionRef, servicePtr->identifier);
@@ -629,12 +677,73 @@ void taf_RoutinCtrlSvr::RemoveRxReqMsgHandler
     le_mem_Release(handlerObjPtr);
 }
 
+le_result_t taf_RoutinCtrlSvr::SetVlanId
+(
+    taf_diagRoutineCtrl_ServiceRef_t svcRef,
+    uint16_t vlanId
+)
+{
+    taf_RoutineCtrlSvc_t* servicePtr = (taf_RoutineCtrlSvc_t*)le_ref_Lookup(svcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+
+    // Check if the vlan is set.
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+    while (linkPtr)
+    {
+        taf_RoutineCtrlVlanIdNode_t *vlan = CONTAINER_OF(linkPtr,
+            taf_RoutineCtrlVlanIdNode_t, link);
+        if (vlan != NULL && vlan->vlanId == vlanId)
+        {
+            LE_INFO("The Vlan id(0x%x) is set for ref%p", vlanId, svcRef);
+            return LE_OK;
+        }
+        linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+    }
+
+    taf_RoutineCtrlVlanIdNode_t *vlanPtr = (taf_RoutineCtrlVlanIdNode_t *)
+        le_mem_ForceAlloc(vlanPool);
+    if (vlanPtr == NULL)
+    {
+        LE_INFO("Failed to allocate memory.");
+        return LE_NO_MEMORY;
+    }
+
+    vlanPtr->vlanId = vlanId;
+    vlanPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&servicePtr->supportedVlanList, &vlanPtr->link);
+
+    return LE_OK;
+}
+
+le_result_t taf_RoutinCtrlSvr::GetVlanIdFromMsg
+(
+    taf_diagRoutineCtrl_RxMsgRef_t reqMsgRef,
+    uint16_t* vlanIdPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(vlanIdPtr == NULL, LE_BAD_PARAMETER, "Invalid vlanIdPtr");
+
+    taf_RoutineCtrlReqMsg_t* reqMsgPtr = (taf_RoutineCtrlReqMsg_t*)
+        le_ref_Lookup(reqMsgRefMap, reqMsgRef);
+    if (reqMsgPtr == NULL)
+    {
+        LE_ERROR("Cannot find the rxMsg in routine ctrl service");
+        return LE_NOT_FOUND;
+    }
+
+    *vlanIdPtr = reqMsgPtr->addrInfo.vlanId;
+
+    return LE_OK;
+}
+
 void taf_RoutinCtrlSvr::Init()
 {
     // Create memory pools.
     svcPool = le_mem_CreatePool("RoutineCtrlSvcPool", sizeof(taf_RoutineCtrlSvc_t));
     reqMsgPool = le_mem_CreatePool("RoutineReqMsgPool", sizeof(taf_RoutineCtrlReqMsg_t));
     reqHandlerPool = le_mem_CreatePool("RoutinereqHdlPool", sizeof(taf_RoutineCtrlReqHandler_t));
+    vlanPool = le_mem_CreatePool("RoutineVlanPool", sizeof(taf_RoutineCtrlVlanIdNode_t));
 
     // Set memory pool destructor.
     //le_mem_SetDestructor(svcPool, taf_RoutinCtrlSvr::ServiceObjDestructor);

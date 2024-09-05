@@ -78,6 +78,7 @@ void taf_UpdateSvr::Init
     RxFileXferMsgPool = le_mem_CreatePool("Server RxFileXferMsgPool", sizeof(taf_FileXferRxMsg_t));
     RxXferDataMsgPool = le_mem_CreatePool("Server RxXferDataMsgPool", sizeof(taf_XferDataRxMsg_t));
     RxXferExitMsgPool = le_mem_CreatePool("Server RxXferExitMsgPool", sizeof(taf_XferExitRxMsg_t));
+    vlanPool = le_mem_CreatePool("DiagUpdateVlanPool", sizeof(taf_UpdateVlanIdNode_t));
 
     RxFileXferHandlerPool = le_mem_CreatePool("Server RxFileXferHandlerPool",
             sizeof(taf_FileXferHandler_t));
@@ -138,7 +139,7 @@ taf_diagUpdate_ServiceRef_t taf_UpdateSvr::CreateUpdateSvc
 )
 {
     // Search the service.
-    taf_UpdateSvc_t* svcPtr = FindSvcInList();
+    taf_UpdateSvc_t* svcPtr = FindSvcInList(taf_diagUpdate_GetClientSessionRef());
 
     // Create a service object if it doesn't exist in the list.
     if (svcPtr == NULL)
@@ -165,6 +166,7 @@ taf_diagUpdate_ServiceRef_t taf_UpdateSvr::CreateUpdateSvc
         // Init update service state.
         svcPtr->state = TAF_DIAG_UPDATE_INIT;
 
+        svcPtr->supportedVlanList = LE_DLS_LIST_INIT;
         LE_INFO("svcRef %p of client %p is created for Diag update service.",
                 svcPtr->svcRef, svcPtr->sessionRef);
     }
@@ -185,6 +187,7 @@ taf_diagUpdate_ServiceRef_t taf_UpdateSvr::CreateUpdateSvc
 
 taf_UpdateSvc_t* taf_UpdateSvr::FindSvcInList
 (
+    le_msg_SessionRef_t sessionRef
 )
 {
     le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
@@ -192,9 +195,55 @@ taf_UpdateSvc_t* taf_UpdateSvr::FindSvcInList
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         taf_UpdateSvc_t* svcPtr = (taf_UpdateSvc_t *)le_ref_GetValue(iterRef);
-        if (svcPtr != NULL)
+        if ((svcPtr != NULL) && (svcPtr->sessionRef == sessionRef))
         {
             return svcPtr;
+        }
+    }
+
+    return NULL;
+}
+
+taf_UpdateSvc_t* taf_UpdateSvr::FindSvcInList
+(
+    uint16_t vlanId
+)
+{
+    LE_DEBUG("find the diag update service object!");
+    bool isFound = false;
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
+
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_UpdateSvc_t* servicePtr = (taf_UpdateSvc_t *)le_ref_GetValue(iterRef);
+        if (servicePtr != NULL)
+        {
+            // In some cases. the interface may not set the vlan.
+            if (vlanId == 0 && le_dls_NumLinks(&servicePtr->supportedVlanList) == 0)
+            {
+                return servicePtr;
+            }
+
+            // Verify if the vlan is match.
+            le_dls_Link_t* linkPtr = NULL;
+            linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+            while (linkPtr)
+            {
+                taf_UpdateVlanIdNode_t *vlan = CONTAINER_OF(linkPtr,
+                    taf_UpdateVlanIdNode_t, link);
+                if ((vlan != NULL) && (vlan->vlanId == vlanId))
+                {
+                    // Match.
+                    isFound = true;
+                    break;
+                }
+                linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+            }
+
+            if (isFound)
+            {
+                return servicePtr;
+            }
         }
     }
 
@@ -554,6 +603,9 @@ errOut:
     addrInfo.sa = addrPtr->ta;
     addrInfo.ta = addrPtr->sa;
     addrInfo.taType = addrPtr->taType;
+    addrInfo.vlanId = addrPtr->vlanId;
+    le_utf8_Copy(addrInfo.ifName, addrPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
+
     RspNegativeMsg(&addrInfo, sid, nrc);
 
     return;
@@ -836,11 +888,11 @@ void taf_UpdateSvr::RemoveRxXferExitReqHandler
 /*
  * Get the programming session interruption indication
 **/
-void taf_UpdateSvr::programmingInterrupt(void)
+void taf_UpdateSvr::programmingInterrupt(uint16_t vlanId)
 {
     taf_UpdateSvr& update = taf_UpdateSvr::GetInstance();
 
-    taf_UpdateSvc_t* svcPtr = update.FindSvcInList();
+    taf_UpdateSvc_t* svcPtr = update.FindSvcInList(vlanId);
     if (svcPtr != NULL)
     {
         svcPtr->state = TAF_DIAG_UPDATE_INIT; // reset the state-machine
@@ -865,7 +917,7 @@ void taf_UpdateSvr::RxFileXferEventHandler
     msgPtr = (taf_FileXferRxMsg_t*)reportPtr;
     taf_UpdateSvr& update = taf_UpdateSvr::GetInstance();
 
-    svcPtr = update.FindSvcInList();
+    svcPtr = update.FindSvcInList(msgPtr->addrInfo.vlanId);
     if (svcPtr == NULL)
     {
         LE_ERROR("Not found registered update service for this request");
@@ -925,6 +977,8 @@ errOut:
     addrInfo.sa = msgPtr->addrInfo.ta;
     addrInfo.ta = msgPtr->addrInfo.sa;
     addrInfo.taType = msgPtr->addrInfo.taType;
+    addrInfo.vlanId = msgPtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
     update.RspNegativeMsg(&addrInfo, msgPtr->serviceId, nrc);
 
     le_ref_DeleteRef(update.RxFileXferMsgRefMap, msgPtr->rxMsgRef);
@@ -949,7 +1003,7 @@ void taf_UpdateSvr::RxXferDataEventHandler
     msgPtr = (taf_XferDataRxMsg_t*)reportPtr;
     taf_UpdateSvr& update = taf_UpdateSvr::GetInstance();
 
-    svcPtr = update.FindSvcInList();
+    svcPtr = update.FindSvcInList(msgPtr->addrInfo.vlanId);
     if (svcPtr == NULL)
     {
         LE_DEBUG("Not found registered update service for this request");
@@ -1003,6 +1057,8 @@ errOut:
     addrInfo.sa = msgPtr->addrInfo.ta;
     addrInfo.ta = msgPtr->addrInfo.sa;
     addrInfo.taType = msgPtr->addrInfo.taType;
+    addrInfo.vlanId = msgPtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
     update.RspNegativeMsg(&addrInfo, msgPtr->serviceId, nrc);
 
     le_ref_DeleteRef(update.RxXferDataMsgRefMap, msgPtr->rxMsgRef);
@@ -1027,7 +1083,7 @@ void taf_UpdateSvr::RxXferExitEventHandler
     msgPtr = (taf_XferExitRxMsg_t*)reportPtr;
     taf_UpdateSvr& update = taf_UpdateSvr::GetInstance();
 
-    svcPtr = update.FindSvcInList();
+    svcPtr = update.FindSvcInList(msgPtr->addrInfo.vlanId);
     if (svcPtr == NULL)
     {
         LE_DEBUG("Not found registered update service for this request");
@@ -1078,6 +1134,8 @@ errOut:
     addrInfo.sa = msgPtr->addrInfo.ta;
     addrInfo.ta = msgPtr->addrInfo.sa;
     addrInfo.taType = msgPtr->addrInfo.taType;
+    addrInfo.vlanId = msgPtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
     update.RspNegativeMsg(&addrInfo, msgPtr->serviceId, nrc);
 
     le_ref_DeleteRef(update.RxXferExitMsgRefMap, msgPtr->rxMsgRef);
@@ -1335,7 +1393,7 @@ le_result_t taf_UpdateSvr::SendFileXferResp
     }
 
     // Get the service.
-    taf_UpdateSvc_t* svcPtr = FindSvcInList();
+    taf_UpdateSvc_t* svcPtr = FindSvcInList(msgPtr->addrInfo.vlanId);
     if (svcPtr == NULL)
     {
         LE_ERROR("Not found registered update service for this request");
@@ -1346,6 +1404,8 @@ le_result_t taf_UpdateSvr::SendFileXferResp
     addrInfo.sa = msgPtr->addrInfo.ta;
     addrInfo.ta = msgPtr->addrInfo.sa;
     addrInfo.taType = msgPtr->addrInfo.taType;
+    addrInfo.vlanId = msgPtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
     if (errCode == TAF_DIAGUPDATE_FILE_XFER_NO_ERROR)
     {
         uint8_t *buffer = NULL ;
@@ -1442,7 +1502,7 @@ le_result_t taf_UpdateSvr::ReleaseRxFileXferMsg
         return LE_NOT_FOUND;
     }
 
-    svcPtr = FindSvcInList();
+    svcPtr = FindSvcInList(msgPtr->addrInfo.vlanId);
     if (svcPtr == NULL)
     {
         LE_ERROR("Cannot find the update service");
@@ -1558,7 +1618,7 @@ le_result_t taf_UpdateSvr::SendXferDataResp
     }
 
     // Get the service.
-    taf_UpdateSvc_t* svcPtr = FindSvcInList();
+    taf_UpdateSvc_t* svcPtr = FindSvcInList(msgPtr->addrInfo.vlanId);
     if (svcPtr == NULL)
     {
         LE_ERROR("Not found registered update service for this request");
@@ -1569,6 +1629,8 @@ le_result_t taf_UpdateSvr::SendXferDataResp
     addrInfo.sa = msgPtr->addrInfo.ta;
     addrInfo.ta = msgPtr->addrInfo.sa;
     addrInfo.taType = msgPtr->addrInfo.taType;
+    addrInfo.vlanId = msgPtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
     if (errCode == TAF_DIAGUPDATE_XFER_DATA_NO_ERROR)
     {
         ret = RspPositiveMsg(&addrInfo, msgPtr->serviceId, dataPtr, dataSize);
@@ -1617,7 +1679,7 @@ le_result_t taf_UpdateSvr::ReleaseRxXferDataMsg
         return LE_NOT_FOUND;
     }
 
-    svcPtr = FindSvcInList();
+    svcPtr = FindSvcInList(msgPtr->addrInfo.vlanId);
     if (svcPtr == NULL)
     {
         LE_ERROR("Cannot find the update service");
@@ -1712,7 +1774,7 @@ le_result_t taf_UpdateSvr::SendXferExitResp
     }
 
     // Get the service.
-    taf_UpdateSvc_t* svcPtr = FindSvcInList();
+    taf_UpdateSvc_t* svcPtr = FindSvcInList(msgPtr->addrInfo.vlanId);
     if (svcPtr == NULL)
     {
         LE_ERROR("Not found registered update service for this request");
@@ -1723,6 +1785,8 @@ le_result_t taf_UpdateSvr::SendXferExitResp
     addrInfo.sa = msgPtr->addrInfo.ta;
     addrInfo.ta = msgPtr->addrInfo.sa;
     addrInfo.taType = msgPtr->addrInfo.taType;
+    addrInfo.vlanId = msgPtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
     if (errCode == TAF_DIAGUPDATE_XFER_EXIT_NO_ERROR)
     {
         ret = RspPositiveMsg(&addrInfo, msgPtr->serviceId, dataPtr, dataSize);
@@ -1771,7 +1835,7 @@ le_result_t taf_UpdateSvr::ReleaseRxXferExitMsg
         return LE_NOT_FOUND;
     }
 
-    svcPtr = FindSvcInList();
+    svcPtr = FindSvcInList(msgPtr->addrInfo.vlanId);
     if (svcPtr == NULL)
     {
         LE_ERROR("Cannot find the update service");
@@ -1788,4 +1852,79 @@ le_result_t taf_UpdateSvr::ReleaseRxXferExitMsg
     LE_DEBUG("Release reqMsg(%p) resource for TransferData", rxMsgRef);
 
     return LE_OK;
+}
+
+le_result_t taf_UpdateSvr::SetVlanId
+(
+    taf_diagUpdate_ServiceRef_t svcRef,
+    uint16_t vlanId
+)
+{
+    taf_UpdateSvc_t* servicePtr = (taf_UpdateSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+
+    // Check if the vlan is set.
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+    while (linkPtr)
+    {
+        taf_UpdateVlanIdNode_t *vlan = CONTAINER_OF(linkPtr,
+            taf_UpdateVlanIdNode_t, link);
+        if (vlan != NULL && vlan->vlanId == vlanId)
+        {
+            LE_INFO("The Vlan id(0x%x) is set for ref%p", vlanId, svcRef);
+            return LE_OK;
+        }
+        linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+    }
+
+    taf_UpdateVlanIdNode_t *vlanPtr = (taf_UpdateVlanIdNode_t *)
+        le_mem_ForceAlloc(vlanPool);
+    if (vlanPtr == NULL)
+    {
+        LE_INFO("Failed to allocate memory.");
+        return LE_NO_MEMORY;
+    }
+
+    vlanPtr->vlanId = vlanId;
+    vlanPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&servicePtr->supportedVlanList, &vlanPtr->link);
+
+    return LE_OK;
+}
+
+le_result_t taf_UpdateSvr::GetVlanIdFromMsg
+(
+    taf_diagUpdate_RxMsgRef_t rxMsgRef,
+    uint16_t* vlanIdPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(vlanIdPtr == NULL, LE_BAD_PARAMETER, "Invalid vlanIdPtr");
+
+    taf_FileXferRxMsg_t* fileXferMsgPtr = (taf_FileXferRxMsg_t*)
+        le_ref_Lookup(RxFileXferMsgRefMap, rxMsgRef);
+    if (fileXferMsgPtr != NULL)
+    {
+        *vlanIdPtr = fileXferMsgPtr->addrInfo.vlanId;
+        return LE_OK;
+    }
+
+    taf_XferDataRxMsg_t* xferDataMsgPtr = (taf_XferDataRxMsg_t*)
+        le_ref_Lookup(RxXferDataMsgRefMap, rxMsgRef);
+    if (xferDataMsgPtr != NULL)
+    {
+        *vlanIdPtr = fileXferMsgPtr->addrInfo.vlanId;
+        return LE_OK;
+    }
+
+    taf_XferExitRxMsg_t* xferExitMsgPtr = (taf_XferExitRxMsg_t*)
+        le_ref_Lookup(RxXferExitMsgRefMap, rxMsgRef);
+    if (xferExitMsgPtr == NULL)
+    {
+        *vlanIdPtr = xferExitMsgPtr->addrInfo.vlanId;
+        return LE_OK;
+    }
+
+    LE_ERROR("Can not find the rxMsgRef");
+    return LE_FAULT;
 }

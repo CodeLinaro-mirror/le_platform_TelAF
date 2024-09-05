@@ -234,8 +234,8 @@ void taf_SnapshotSvr::storeDidsAsSnapshot
     }
 #endif
     int occurrence = 1;
-    le_result_t ret = taf_DataAccess_SetSnapshotData(dtcCode, list, &occurrence, ReleaseList);
-
+    le_result_t ret = taf_DataAccess_SetSnapshotData(dtcCode, list, &occurrence);
+    ReleaseList(list);
     le_mem_Release(*it);
     SnapshotTriggeredList.erase(it);
 

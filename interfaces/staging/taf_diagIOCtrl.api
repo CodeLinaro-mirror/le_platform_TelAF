@@ -170,6 +170,26 @@ FUNCTION Service GetService
     uint16 dataId   ///< Data identifier.
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets VLAN ID to the service to filter InputOutputControlByIdentifier requests.
+ * If the VLAN ID is not found or does not existed, it will return an error.
+ * This function shall be called before registering RxMsgHandler.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_UNSUPPORTED -- VLAN ID is unknown.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetVlanId
+(
+    Service svcRef IN,      ///< Service reference.
+    uint16 vlanId IN        ///< VLAN ID.
+);
+
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a Rx InputOutputControlByIdentifier message.
@@ -227,6 +247,24 @@ FUNCTION le_result_t GetCtrlEnableMaskRecd
 (
     RxMsg rxMsgRef  IN,                               ///< Received message reference.
     uint8 maskRecord[MAX_CONTROL_RECORD_SIZE]  OUT    ///< Control enable mask record.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the VLAN ID of the Rx InputOutputControlByIdentifier message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- VLAN ID not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVlanIdFromMsg
+(
+    RxMsg rxMsgRef  IN,    ///< Receive message reference.
+    uint16 vlanId   OUT    ///< VLAN ID.
 );
 
 //-------------------------------------------------------------------------------------------------

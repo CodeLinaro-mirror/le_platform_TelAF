@@ -69,6 +69,7 @@ namespace tafsvc {
         taf_diagRoutineCtrl_RxMsgHandlerRef_t rxHandlerRef;
         le_msg_SessionRef_t sessionRef;
         taf_diagRoutineCtrl_ServiceRef_t ref;
+        le_dls_List_t supportedVlanList;
     }taf_RoutineCtrlSvc_t;
 
     typedef struct
@@ -81,6 +82,17 @@ namespace tafsvc {
         size_t recordSize;
         uint8_t recordData[TAF_DIAG_ROUTINE_CTRL_RECORD_LEN];
     }taf_RoutineCtrlReqMsg_t;
+
+    //-------------------------------------------------------------------------------------------------
+    /**
+     * VLAN ID structure.
+     */
+    //-------------------------------------------------------------------------------------------------
+    typedef struct
+    {
+        le_dls_Link_t   link;
+        uint16_t        vlanId;
+    }taf_RoutineCtrlVlanIdNode_t;
 
     // Implementation of Routine control service
     class taf_RoutinCtrlSvr : public ITafSvc, public taf_UDSInterface
@@ -112,6 +124,11 @@ namespace tafsvc {
             le_result_t SendRoutineCtrlResp(taf_diagRoutineCtrl_RxMsgRef_t reqMsgRef,
                     uint8_t nrc, const uint8_t* dataPtr, size_t dataSize);
             le_result_t ReleaseRoutineCtrlMsg(taf_diagRoutineCtrl_RxMsgRef_t reqMsgRef);
+
+            // VLAN ID setting/getting.
+            le_result_t SetVlanId(taf_diagRoutineCtrl_ServiceRef_t svcRef, uint16_t vlanId);
+            le_result_t GetVlanIdFromMsg(taf_diagRoutineCtrl_RxMsgRef_t reqMsgRef,
+                uint16_t* vlanIdPtr);
         private:
             uint8_t svcId = 0x31;
             uint16_t logAddr;   // This service logic address.
@@ -131,7 +148,10 @@ namespace tafsvc {
             le_event_Id_t rxReqEvent;
             le_event_HandlerRef_t rxReqEventHandlerRef;
 
-            taf_RoutineCtrlSvc_t* GetServiceObj(uint16_t identifier);
+            le_mem_PoolRef_t vlanPool;
+
+            taf_RoutineCtrlSvc_t* GetServiceObj(uint16_t identifier, uint16_t vlanId);
+            taf_RoutineCtrlSvc_t* GetServiceObj(uint16_t identifier, le_msg_SessionRef_t sessionRef);
             le_result_t SendNRCResp(uint8_t sid, const taf_uds_AddrInfo_t*  addrInfoPtr,
                     uint8_t errCode);
     };

@@ -115,7 +115,8 @@ std::shared_ptr<Connection> ConnectionManager::FindOrCreateConnection
 (
     le_socket_Ref_t sockRef,
     char*           ip,
-    int             port
+    int             port,
+    const char*     ifacePtr
 )
 {
     if (sockRef == NULL)
@@ -130,18 +131,20 @@ std::shared_ptr<Connection> ConnectionManager::FindOrCreateConnection
         return connection;
     }
 
-    std::string ipStr;
+    std::string ipStr, ifaceStr;
     ipStr.assign(ip);
-    LE_DEBUG("Create connection(%s:%d)", ip, port);
+    ifaceStr.assign(ifacePtr);
+    LE_DEBUG("Create connection(%s %s:%d)", ifacePtr, ip, port);
 
-    return ServerCreateConnection(sockRef, ipStr, (uint16_t)port);
+    return ServerCreateConnection(sockRef, ipStr, (uint16_t)port, ifaceStr);
 }
 
 std::shared_ptr<Connection> ConnectionManager::ServerCreateConnection
 (
     le_socket_Ref_t sockRef,
     std::string&    ip,
-    uint16_t        port
+    uint16_t        port,
+    std::string&    iface
 )
 {
     uint32_t    mcts;
@@ -161,7 +164,7 @@ std::shared_ptr<Connection> ConnectionManager::ServerCreateConnection
     }
 
     std::shared_ptr<Connection> connection(new Connection(shared_from_this(), sockRef,
-        TAF_DOIP_CONNECTION_TYPE_SVR, ip, (uint16_t)port), ConnectionDeleter);
+        TAF_DOIP_CONNECTION_TYPE_SVR, ip, (uint16_t)port, iface), ConnectionDeleter);
     connectionBox.push_back(connection);
     LE_DEBUG("connection is %p", connection.get());
     connection->Start();
@@ -310,6 +313,11 @@ void ConnectionManager::PerformSigleAliveCheck
 {
     auto&   parser = ProtocolParser::GetInstance();
     std::shared_ptr<Connection> connectionTmp = FindConnectionByLogicalAddr(ta);
+    if (connectionTmp == connection)
+    {
+        // Skip itself.
+        return;
+    }
 
     if (connectionTmp->singleAliveCheckFlag)
     {
@@ -334,22 +342,24 @@ taf_doip_Result_t ConnectionManager::InformUdsMessage
     uint16_t    sa,
     uint16_t    ta,
     char*       data,
-    uint32_t    length
+    uint32_t    length,
+    std::string& iface
 )
 {
     auto&   CommMgr = CommunicationMgr::GetInstance();
 
-    return CommMgr.InformUdsMessage(sa, ta, data, length);
+    return CommMgr.InformUdsMessage(sa, ta, data, length, iface.c_str());
 }
 
 void ConnectionManager::ReportConnectionEvent
 (
     uint16_t sa,
     uint16_t ta,
-    taf_doip_Result_t rgistResult
+    taf_doip_Result_t rgistResult,
+    std::string& iface
 )
 {
     auto&   CommMgr = CommunicationMgr::GetInstance();
 
-    CommMgr.ReportConnectionEvent(sa, ta, rgistResult);
+    CommMgr.ReportConnectionEvent(sa, ta, rgistResult, iface.c_str());
 }

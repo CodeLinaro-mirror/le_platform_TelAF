@@ -355,6 +355,9 @@ taf_diagDoIP_EventHandlerRef_t taf_diagDoIP_AddEventHandler
 (
     taf_diagDoIP_ServiceRef_t svcRef,
         ///< [IN] Service reference.
+    uint16_t vlanId,
+        ///< [IN] Rx event of specific interface's VLAN ID.
+        ///< if the interface did not has VLAN ID, input 0.
     taf_diagDoIP_EventHandlerFunc_t handlerPtr,
         ///< [IN] DoIP event handler.
     void* contextPtr
@@ -363,7 +366,7 @@ taf_diagDoIP_EventHandlerRef_t taf_diagDoIP_AddEventHandler
 {
     auto& doipSvc = taf_DiagDoIPSvr::GetInstance();
 
-    return doipSvc.AddEventHandler(svcRef, handlerPtr, contextPtr);
+    return doipSvc.AddEventHandler(svcRef, vlanId, handlerPtr, contextPtr);
 }
 //--------------------------------------------------------------------------------------------------
 /**

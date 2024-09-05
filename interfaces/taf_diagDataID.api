@@ -231,6 +231,13 @@ REFERENCE Service;
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * A base reference to the ReadDID and WriteDID received request message.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE RxMsg;
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Reference to the ReadDID received request message.
  */
 //-------------------------------------------------------------------------------------------------
@@ -256,6 +263,26 @@ REFERENCE RxWriteDIDMsg;
 //-------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
 (
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets VLAN ID to the service to filter ReadDID and WriteDID requests.
+ * If the VLAN ID is not found or does not existed, it will return an error.
+ * This function shall be called before registering RxReadDIDMsgHandler and RxWriteDIDMsgHandler.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_UNSUPPORTED -- VLAN ID is unknown.
+ *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetVlanId
+(
+    Service svcRef IN,      ///< Service reference.
+    uint16 vlanId IN        ///< VLAN ID.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -362,6 +389,24 @@ FUNCTION le_result_t SendWriteDIDResp
     RxWriteDIDMsg rxMsgRef  IN,       ///< Received message reference.
     uint8 errCode  IN,                ///< Error code type.
     uint16 dataId  IN                 ///< data identifier.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the VLAN ID of the request ReadDID or WriteDID message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- VLAN ID not found.
+ *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVlanIdFromMsg
+(
+    RxMsg rxMsgRef  IN,         ///< ReadDID or WriteDID received message reference.
+    uint16 vlanId   OUT         ///< VLAN ID.
 );
 
 //-------------------------------------------------------------------------------------------------

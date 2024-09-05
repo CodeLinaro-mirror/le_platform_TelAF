@@ -445,9 +445,11 @@ taf_sim_States_t taf_sim::getState(taf_sim_Id_t simId) {
             if(applications.size() != 0)  {
                 for(auto cardApp : applications) {
                     if(cardApp->getAppType() == telux::tel::AppType::APPTYPE_USIM) {
-                        if (cardApp->getAppState() == telux::tel::AppState::APPSTATE_READY) {
+                        auto appState = cardApp->getAppState();
+                        if (appState == telux::tel::AppState::APPSTATE_READY) {
                             return TAF_SIM_READY;
-                            break;
+                        } else if (appState == telux::tel::AppState::APPSTATE_ILLEGAL) {
+                            return TAF_SIM_ERROR;
                         }
                     }
                 }

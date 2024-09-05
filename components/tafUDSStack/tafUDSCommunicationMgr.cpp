@@ -44,8 +44,8 @@ using namespace std;
 using namespace taf::uds;
 
 bool UdsCommunicationMgr::isResetInProgress = false;
-std::map<std::string, std::shared_ptr<UdsCommunicationMgr>> UdsCommunicationMgr::instances;
-std::mutex UdsCommunicationMgr::mutex_;
+std::map<std::string, UdsCommunicationMgr*> UdsCommunicationMgr::instances;
+std::mutex UdsCommunicationMgr::mutex_instance;
 taf_doip_Ref_t  UdsCommunicationMgr::DoipEntityRef = NULL;
 le_ref_MapRef_t UdsCommunicationMgr::udsHandlerRefMap = NULL;
 le_event_Id_t UdsCommunicationMgr::udsTimerEventId = NULL;
@@ -55,7 +55,7 @@ taf_doip_DiagIndicationHandlerRef_t UdsCommunicationMgr::IndicationRef = NULL;
 taf_doip_DiagConfirmHandlerRef_t UdsCommunicationMgr::ConfirmRef = NULL;
 taf_UDSIndicationHandler_t UdsCommunicationMgr::udsIndicationHandler;
 
-std::shared_ptr<UdsCommunicationMgr> UdsCommunicationMgr::GetInstance
+UdsCommunicationMgr* UdsCommunicationMgr::GetInstance
 (
     const char* ifName
 )
@@ -67,7 +67,7 @@ std::shared_ptr<UdsCommunicationMgr> UdsCommunicationMgr::GetInstance
     }
 
     std::string interfaceName(ifName);
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_instance);
     auto it = instances.find(interfaceName);
     if (it != instances.end())
     {
@@ -115,16 +115,22 @@ void UdsCommunicationMgr::InitInstances
 {
     le_dls_Link_t* linkPtr = NULL;
 
+    le_event_QueueFunction(SecurityAccess_Init, NULL, NULL);
+
     linkPtr = le_dls_Peek(interfaceList);
     while (linkPtr)
     {
         taf_doip_Iface_t *ifacePtr = CONTAINER_OF(linkPtr, taf_doip_Iface_t, link);
         std::string ifName = ifacePtr->ifName;
-        instances[ifName] =
-                std::shared_ptr<UdsCommunicationMgr>(new UdsCommunicationMgr(ifacePtr->ifName));
+
+        instances[ifName] = new UdsCommunicationMgr(ifacePtr->ifName);
+        le_event_QueueFunction(SecurityAccess_CreateActiveObject,
+                               instances[ifName], ifacePtr->ifName);
 
         linkPtr = le_dls_PeekNext(interfaceList, linkPtr);
     }
+
+    le_event_QueueFunction(SecurityAccess_StartWorker, NULL, NULL);
 
     semRef = le_sem_Create("SemRef", 0);
 
@@ -137,8 +143,6 @@ void UdsCommunicationMgr::InitInstances
 
     le_thread_Start(udsTimerThreadRef);
     le_sem_Wait(semRef);
-
-    le_event_QueueFunction(SecurityAccess_Init, NULL, NULL);// only one tmp?
 
     LE_INFO("UDS communication manager ok.");
     return;
@@ -425,7 +429,7 @@ void UdsCommunicationMgr::S3TimeoutHandler
     LE_INFO("Session time out");
     char* ifName = (char*)le_timer_GetContextPtr(timerRef);
 
-    std::shared_ptr<UdsCommunicationMgr> udsCmMgr = UdsCommunicationMgr::GetInstance(ifName);
+    UdsCommunicationMgr* udsCmMgr = UdsCommunicationMgr::GetInstance(ifName);
 
     if(udsCmMgr == NULL)
     {
@@ -436,8 +440,7 @@ void UdsCommunicationMgr::S3TimeoutHandler
     LE_INFO("report -> SESSION_TIMEOUT_SIG");
     SecAccReport_t report = {
         .type = SESSION_TIMEOUT_SIG,
-        .curr_session_id = (uint32_t) udsCmMgr->SessionType,
-        .mgr = udsCmMgr.get(),
+        .mgr = udsCmMgr,
     };
     le_event_Report(SecAccEventIdRef, &report, sizeof(report));
 
@@ -829,8 +832,8 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
                     int security_type = node.get_child("access").get<int>("security_level");
                     //Authentication check after authentication service is supported, send NRC 0x34
                     //Security access check. UDS_0x22_NRC_33
-                    if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked()
-                            == false)
+                    if(security_type == SECURITY_ACCESS_REQUEST_ID
+                    && SecurityAccess_IsUnlocked(this) == false)
                     {
                         LE_WARN("Did is secured, but the server is not unlocked.");
                         return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
@@ -1023,7 +1026,7 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
                 int security_type = node.get_child("access").get<int>("security_level");
                 //Authentication check after authentication service is supported, send NRC 0x34
                 //Security access check. UDS_0x22_NRC_33
-                if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked() ==
+                if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) ==
                         false)
                 {
                     LE_WARN("Did is secured and the server is not unlocked.");
@@ -1246,7 +1249,6 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         LE_INFO("report -> REQUEST_SEED_SIG (%02X)", recvBuf[1] & 0x7F);
         SecAccReport_t report = {
             .type = REQUEST_SEED_SIG,
-            .curr_session_id = (uint32_t) SessionType,
             .sem = SecAccSem,
             .mgr = this,
             .is_internal = isInternalHandle,
@@ -1258,7 +1260,6 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         LE_INFO("report -> SEND_KEY_SIG (%02X)", recvBuf[1] & 0x7F);
         SecAccReport_t report = {
             .type = SEND_KEY_SIG,
-            .curr_session_id = (uint32_t) SessionType,
             .sem = SecAccSem,
             .mgr = this,
             .is_internal = isInternalHandle,
@@ -1521,7 +1522,7 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
         LE_INFO("security type=0x%x", security_type);
         //Authentication check after authentication service is supported, send NRC 0x34
         //Security access check. UDS_0x2F_NRC_33
-        if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked() == false)
+        if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) == false)
         {
             LE_WARN("Did is secured and the server is not unlocked.");
             return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
@@ -1953,7 +1954,7 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
 
         if (lockSupported == true)
         {
-            if (! SecurityAccess_IsUnlocked())
+            if (! SecurityAccess_IsUnlocked(this))
             {
                 LE_ERROR("Security access denied");
                 // UDS_0x38_NRC_33: Access denied
@@ -2255,9 +2256,8 @@ void UdsCommunicationMgr::DiagIndicationHandler
 
     LE_DEBUG("ifName=%s, vlanId=%d", addrInfoPtr->ifName, addrInfoPtr->vlanId);
 
-    std::shared_ptr<UdsCommunicationMgr> udsCmMgr =
+    UdsCommunicationMgr * udsCmMgr =
             UdsCommunicationMgr::GetInstance(addrInfoPtr->ifName);
-
     if(udsCmMgr == NULL)
     {
         LE_ERROR("Can't get instance by ifName %s", addrInfoPtr->ifName);
@@ -2291,7 +2291,7 @@ void UdsCommunicationMgr::DiagIndicationHandler
             LE_INFO("report -> SESSION_CONTROL_SIG (doip-break)");
             SecAccReport_t report = {
                 .type = SESSION_CONTROL_SIG,
-                .mgr = udsCmMgr.get(),
+                .mgr = udsCmMgr,
             };
             le_event_Report(SecAccEventIdRef, &report, sizeof(report));
         }
@@ -2824,8 +2824,6 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
         LE_INFO("report -> SESSION_CONTROL_SIG (d-tool)");
         SecAccReport_t report = {
             .type = SESSION_CONTROL_SIG,
-            .curr_session_id = (uint32_t) newSessionType,
-            .prev_session_id = (uint32_t) oldSessionType,
             .mgr = this,
         };
         le_event_Report(SecAccEventIdRef, &report, sizeof(report));
@@ -3024,7 +3022,6 @@ le_result_t UdsCommunicationMgr::SecurityAccessResp
         LE_INFO("report -> REQUEST_SEED_RESPONSE_SIG");
         SecAccReport_t report = {
             .type = REQUEST_SEED_RESPONSE_SIG,
-            .curr_session_id = (uint32_t) SessionType,
             .sem = SecAccSem,
             .mgr = this,
         };
@@ -3035,7 +3032,6 @@ le_result_t UdsCommunicationMgr::SecurityAccessResp
         LE_INFO("report -> SEND_KEY_RESPONSE_SIG");
         SecAccReport_t report = {
             .type = SEND_KEY_RESPONSE_SIG,
-            .curr_session_id = (uint32_t) SessionType,
             .sem = SecAccSem,
             .mgr = this,
         };
@@ -3527,7 +3523,7 @@ bool UdsCommunicationMgr::IsSecurityAccessMatched
         LE_DEBUG("Security type = 0x%x", secType);
 
         // Security access check
-        if (secType == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked() == false)
+        if (secType == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) == false)
         {
             LE_WARN("Node is secured and the server is not unlocked.");
             return false;

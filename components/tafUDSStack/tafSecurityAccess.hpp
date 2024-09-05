@@ -42,19 +42,20 @@ typedef enum SecAccSignal_s {
 
 typedef struct {
     SecAccSignal_t type;
-    uint32_t curr_session_id;
-    uint32_t prev_session_id;
     le_sem_Ref_t sem;
     UdsCommunicationMgr * mgr;
     bool * is_internal;
 } SecAccReport_t;
 
+struct AO_SecurityAccess_s;
+
 extern le_event_Id_t SecAccEventIdRef;
 
-/* All initialization operations and create a new thread for the State Machine */
-void SecurityAccess_Init(void *, void *);
+void SecurityAccess_Init(void * u, void * p);
+void SecurityAccess_CreateActiveObject(void * mgr, void * ifname);
+void SecurityAccess_StartWorker(void * u, void *p);
 
-bool SecurityAccess_IsUnlocked(void);
+bool SecurityAccess_IsUnlocked(UdsCommunicationMgr * mgr);
 
 #ifdef __cplusplus
 }

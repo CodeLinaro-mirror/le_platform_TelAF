@@ -255,7 +255,8 @@ namespace uds{
             UdsCommunicationMgr(const char* ifName);
             UdsCommunicationMgr();
             ~UdsCommunicationMgr();
-            static std::shared_ptr<UdsCommunicationMgr> GetInstance(const char* ifName);
+
+            static UdsCommunicationMgr * GetInstance(const char* ifName);
             void Init();
             static void InitInstances(le_dls_List_t* interfaceList);
 
@@ -286,6 +287,7 @@ namespace uds{
             uint8_t nrcCode = 0x00;
             le_result_t remoteError = LE_OK;
             taf_doip_AddrInfo_t udsRespAddrInfo;
+            struct AO_SecurityAccess_s * mSecurityAccess;
             /* Security Access -- END -- */
 
             uint8_t recvBuf[UDS_DATA_SIZE];
@@ -296,6 +298,7 @@ namespace uds{
             char interface[MAX_INTERFACE_NAME_LEN];
             le_timer_Ref_t p2StarTimerRef;
             le_timer_Ref_t s3TimerRef;
+            taf_SessionType_t SessionType = DEFAULT_SESSION;
 
         private:
             // Indicate recevied service message to Diag service if necessary.
@@ -377,14 +380,13 @@ namespace uds{
             static taf_doip_DiagIndicationHandlerRef_t IndicationRef;
             static taf_doip_PowerModeQueryHandlerRef_t PmQueryRef;
             static taf_doip_DiagConfirmHandlerRef_t ConfirmRef;
-            taf_SessionType_t SessionType = DEFAULT_SESSION;
 
             static bool isResetInProgress;
             static le_event_Id_t udsTimerEventId;
             static le_sem_Ref_t semRef;
 
-            static std::map<std::string, std::shared_ptr<UdsCommunicationMgr>> instances;
-            static std::mutex mutex_;
+            static std::map<std::string, UdsCommunicationMgr*> instances;
+            static std::mutex mutex_instance;
 
             taf_doip_DiagMsg_t sesChangeMsg;
     };

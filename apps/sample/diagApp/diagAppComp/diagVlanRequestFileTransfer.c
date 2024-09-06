@@ -1,60 +1,42 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 #include "diagPrivate.h"
 
 #define UPDATE_FILE_PATH_LENGTH 1024
-
-static FILE * mCompleteFileObject = NULL;
-static char mCompleteFileAndPathName[UPDATE_FILE_PATH_LENGTH];
-
 // ".incomplete" + '\0' size is [12]
 #define INCOMPLETE_FILE_NAME_SIZE (UPDATE_FILE_PATH_LENGTH + 12)
 #define INCOMPLETEFILE_SUFFIX ".incomplete"
 
-static char mIncompleteFileAndPathName[INCOMPLETE_FILE_NAME_SIZE];
-static FILE * mIncompleteFileObject = NULL;
-static DIR * mCompleteDirObject = NULL;
-static int activatedMoop = -1;
-static uint64_t mRequestDirTotalSize = 0;
-static uint8_t recordedSeqCounter = 0;
-static uint32_t recordedTargetFileSize = 0;
-static uint32_t uploadedTargetTotal = 0;
+typedef struct DiagUpdateAppHandler_s
+{
+    FILE * mCompleteFileObject;
+    char mCompleteFileAndPathName[UPDATE_FILE_PATH_LENGTH];
+    char mIncompleteFileAndPathName[INCOMPLETE_FILE_NAME_SIZE];
+    FILE * mIncompleteFileObject;
+    DIR * mCompleteDirObject;
+    int activatedMoop;
+    uint64_t mRequestDirTotalSize;
+    uint8_t recordedSeqCounter;
+    uint32_t recordedTargetFileSize;
+    uint32_t uploadedTargetTotal;
+    le_sem_Ref_t semRef;
+    le_thread_Ref_t diagUpdateThreadRef;
+
+    uint32_t vlanId;
+
+    taf_diagUpdate_ServiceRef_t DiagUpdateSvcRef;
+    taf_diagUpdate_RxFileXferMsgHandlerRef_t DiagFileXferMsgRef;
+    taf_diagUpdate_RxXferDataMsgHandlerRef_t DiagXferDataMsgRef;
+    taf_diagUpdate_RxXferExitMsgHandlerRef_t DiagXferExitMsgRef;
+} DiagUpdateAppHandler_t;
+
+
+static le_mem_PoolRef_t DiagUpdateAppHandlerPool = NULL;
+static le_hashmap_Ref_t UpdateAppObjectTable = NULL;
 
 #ifndef LE_CONFIG_DIAG_VSTACK
-
-static le_sem_Ref_t semRef;
 
 #define fileExist(fileName) (access(fileName, F_OK) == 0)
 #define deleteFile(fileName) unlink(fileName)
@@ -103,11 +85,6 @@ static le_sem_Ref_t semRef;
             return; \
     } while(0)
 
-// Diag Update
-static taf_diagUpdate_ServiceRef_t DiagUpdateSvcRef = NULL;
-static taf_diagUpdate_RxFileXferMsgHandlerRef_t DiagFileXferMsgRef = NULL;
-static taf_diagUpdate_RxXferDataMsgHandlerRef_t DiagXferDataMsgRef = NULL;
-static taf_diagUpdate_RxXferExitMsgHandlerRef_t DiagXferExitMsgRef = NULL;
 
 /*
  * Determines whether a given path is a directory.
@@ -174,22 +151,27 @@ static FILE* createFile(const char * pathNamePtr)
 }
 
 // Function to close a file
-static void closeFile()
+static void closeFile(DiagUpdateAppHandler_t * me)
 {
-    le_flock_CloseStream(mIncompleteFileObject);
-    mIncompleteFileObject = NULL;
+    le_flock_CloseStream(me->mIncompleteFileObject);
+    me->mIncompleteFileObject = NULL;
 }
 
 // Function to write data into file
-static le_result_t writeFile(const uint8_t *data, const uint16_t len)
+static le_result_t writeFile
+(
+    DiagUpdateAppHandler_t * me,
+    const uint8_t *data,
+    const uint16_t len
+)
 {
     int bytes;
-    if(mIncompleteFileObject == NULL)
+    if(me->mIncompleteFileObject == NULL)
     {
         LE_ERROR("write data error");
         return LE_FAULT;
     }
-    if ((bytes = write(fileno(mIncompleteFileObject), data, len) < 0))
+    if ((bytes = write(fileno(me->mIncompleteFileObject), data, len) < 0))
     {
         LE_ERROR("write data error");
         return LE_FAULT;
@@ -200,46 +182,51 @@ static le_result_t writeFile(const uint8_t *data, const uint16_t len)
 #endif
 
 // When the security session changing from programming session to anther.
-void diagRFT_DeactivateProgramming(void)
+void diagRFT_DeactivateProgrammingByVlanId(uint32_t vlanId)
 {
-    if (mCompleteFileObject)
+
+    DiagUpdateAppHandler_t * me =
+        (DiagUpdateAppHandler_t*) le_hashmap_Get(UpdateAppObjectTable, &vlanId);
+
+    LE_ASSERT(me);
+
+    if (me->mCompleteFileObject)
     {
-        if (fclose(mCompleteFileObject) == 0)
+        if (fclose(me->mCompleteFileObject) == 0)
         {
-            mCompleteFileObject = NULL;
+            me->mCompleteFileObject = NULL;
         }
     }
 
-    if (mIncompleteFileObject)
+    if (me->mIncompleteFileObject)
     {
-        if (fclose(mIncompleteFileObject) == 0)
+        if (fclose(me->mIncompleteFileObject) == 0)
         {
-            mIncompleteFileObject = NULL;
+            me->mIncompleteFileObject = NULL;
         }
     }
 
-    if (mCompleteDirObject)
+    if (me->mCompleteDirObject)
     {
-        if (closedir(mCompleteDirObject) == 0)
+        if (closedir(me->mCompleteDirObject) == 0)
         {
-            mCompleteDirObject = NULL;
+            me->mCompleteDirObject = NULL;
         }
     }
 
-    memset(mCompleteFileAndPathName, 0, sizeof(mCompleteFileAndPathName));
-    memset(mIncompleteFileAndPathName, 0, sizeof(mIncompleteFileAndPathName));
+    memset(me->mCompleteFileAndPathName, 0, sizeof(me->mCompleteFileAndPathName));
+    memset(me->mIncompleteFileAndPathName, 0, sizeof(me->mIncompleteFileAndPathName));
 
-    activatedMoop = -1;
-    mRequestDirTotalSize = 0;
+    me->activatedMoop = -1;
+    me->mRequestDirTotalSize = 0;
 
-    recordedSeqCounter = 0;
-    recordedTargetFileSize = 0;
-    uploadedTargetTotal = 0;
+    me->recordedSeqCounter = 0;
+    me->recordedTargetFileSize = 0;
+    me->uploadedTargetTotal = 0;
 }
 
 #ifndef LE_CONFIG_DIAG_VSTACK
 
-// Callback function for file transfer request message
 static void fileXferMsgHandler
 (
     taf_diagUpdate_RxFileXferMsgRef_t rxMsgRef,
@@ -247,6 +234,7 @@ static void fileXferMsgHandler
     void* contextPtr
 )
 {
+    DiagUpdateAppHandler_t * me = (DiagUpdateAppHandler_t *) contextPtr;
     le_result_t result;
     char filePathAndName[UPDATE_FILE_PATH_LENGTH];
     size_t fileLen = UPDATE_FILE_PATH_LENGTH;
@@ -267,15 +255,15 @@ static void fileXferMsgHandler
 
     LE_INFO("Filename = %s, MOOP: [0x%02X]", filePathAndName, moop);
 
-    le_utf8_Copy(mCompleteFileAndPathName, filePathAndName, UPDATE_FILE_PATH_LENGTH, NULL);
+    le_utf8_Copy(me->mCompleteFileAndPathName, filePathAndName, UPDATE_FILE_PATH_LENGTH, NULL);
 
     switch(moop)
     {
         case TAF_DIAGUPDATE_ADD_FILE:
         {
-            if (fileExist(mCompleteFileAndPathName))
+            if (fileExist(me->mCompleteFileAndPathName))
             {
-                LE_ERROR("File [%s] already exist.", mCompleteFileAndPathName);
+                LE_ERROR("File [%s] already exist.", me->mCompleteFileAndPathName);
                 // UDS_0x38_NRC_70: Add file but the file already exists (moop: 01)
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_UPLOAD_DOWNLOAD_NOT_ACCEPTED);
             }
@@ -283,8 +271,8 @@ static void fileXferMsgHandler
         // No 'break' for reusing code block
         case TAF_DIAGUPDATE_REPLACE_FILE:
         {
-            le_utf8_Copy(mIncompleteFileAndPathName, mCompleteFileAndPathName, UPDATE_FILE_PATH_LENGTH, NULL);
-            result = le_utf8_Append(mIncompleteFileAndPathName, INCOMPLETEFILE_SUFFIX,
+            le_utf8_Copy(me->mIncompleteFileAndPathName, me->mCompleteFileAndPathName, UPDATE_FILE_PATH_LENGTH, NULL);
+            result = le_utf8_Append(me->mIncompleteFileAndPathName, INCOMPLETEFILE_SUFFIX,
                                     INCOMPLETE_FILE_NAME_SIZE, NULL);
             if (result == LE_OVERFLOW)
             {
@@ -293,29 +281,29 @@ static void fileXferMsgHandler
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
             }
 
-            LE_INFO("Incomplete-File: |%s|", mIncompleteFileAndPathName);
+            LE_INFO("Incomplete-File: |%s|", me->mIncompleteFileAndPathName);
 
-            if (fileExist(mIncompleteFileAndPathName))
+            if (fileExist(me->mIncompleteFileAndPathName))
             {
-                LE_INFO("Remove incomplete file: |%s|", mIncompleteFileAndPathName);
+                LE_INFO("Remove incomplete file: |%s|", me->mIncompleteFileAndPathName);
 
-                if (deleteFile(mIncompleteFileAndPathName) != 0)
+                if (deleteFile(me->mIncompleteFileAndPathName) != 0)
                 {
-                    LE_ERROR("Fail to remove file : |%s| (%m)", mIncompleteFileAndPathName);
+                    LE_ERROR("Fail to remove file : |%s| (%m)", me->mIncompleteFileAndPathName);
                     // UDS_0x38_NRC_22: Delete Incomplete-File failed (moop: 01/03)
                     DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
                 }
             }
 
-            mIncompleteFileObject = createFile(mIncompleteFileAndPathName);
-            if(mIncompleteFileObject == NULL)
+            me->mIncompleteFileObject = createFile(me->mIncompleteFileAndPathName);
+            if(me->mIncompleteFileObject == NULL)
             {
-                LE_ERROR("Fail to create file |%s|", mIncompleteFileAndPathName);
+                LE_ERROR("Fail to create file |%s|", me->mIncompleteFileAndPathName);
                 // UDS_0x38_NRC_22: Create Incomplete-File failed (moop: 01/03)
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
             }
 
-            LE_INFO("File: |%s| is created", mIncompleteFileAndPathName);
+            LE_INFO("File: |%s| is created", me->mIncompleteFileAndPathName);
         }
         break;
 
@@ -332,8 +320,8 @@ static void fileXferMsgHandler
 
         case TAF_DIAGUPDATE_RESUME_FILE:
         {
-            le_utf8_Copy(mIncompleteFileAndPathName, mCompleteFileAndPathName, UPDATE_FILE_PATH_LENGTH, NULL);
-            result = le_utf8_Append(mIncompleteFileAndPathName, INCOMPLETEFILE_SUFFIX,
+            le_utf8_Copy(me->mIncompleteFileAndPathName, me->mCompleteFileAndPathName, UPDATE_FILE_PATH_LENGTH, NULL);
+            result = le_utf8_Append(me->mIncompleteFileAndPathName, INCOMPLETEFILE_SUFFIX,
                                     INCOMPLETE_FILE_NAME_SIZE, NULL);
             if (result == LE_OVERFLOW)
             {
@@ -342,14 +330,14 @@ static void fileXferMsgHandler
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
             }
 
-            if (! fileExist(mIncompleteFileAndPathName))
+            if (! fileExist(me->mIncompleteFileAndPathName))
             {
-                LE_ERROR("Does not exist file : |%s|, can't resume", mIncompleteFileAndPathName);
+                LE_ERROR("Does not exist file : |%s|, can't resume", me->mIncompleteFileAndPathName);
                 // UDS_0x38_NRC_24: Can NOT resume (moop: 06)
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_REQUEST_SEQUENCE_ERROR);
             }
 
-            if (fileExist(mCompleteFileAndPathName))
+            if (fileExist(me->mCompleteFileAndPathName))
             {
                 LE_INFO("Target file exists (from REPLACE).");
             }
@@ -358,25 +346,25 @@ static void fileXferMsgHandler
                 LE_INFO("Target file doesn't exist (from ADD).");
             }
 
-            mIncompleteFileObject = le_flock_OpenStream(mIncompleteFileAndPathName, LE_FLOCK_APPEND, NULL);
-            if (mIncompleteFileObject == NULL)
+            me->mIncompleteFileObject = le_flock_OpenStream(me->mIncompleteFileAndPathName, LE_FLOCK_APPEND, NULL);
+            if (me->mIncompleteFileObject == NULL)
             {
-                LE_ERROR("Fail to open: |%s| (%m)", mIncompleteFileAndPathName);
+                LE_ERROR("Fail to open: |%s| (%m)", me->mIncompleteFileAndPathName);
                 // UDS_0x38_NRC_22: Can NOT access Incomplete-File (moop: 06)
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
             }
 
-            if (fseek(mIncompleteFileObject, 0, SEEK_END) != 0)
+            if (fseek(me->mIncompleteFileObject, 0, SEEK_END) != 0)
             {
-                LE_ERROR("Fail to seek file: |%s| (%m)", mIncompleteFileAndPathName);
+                LE_ERROR("Fail to seek file: |%s| (%m)", me->mIncompleteFileAndPathName);
                 // UDS_0x38_NRC_22: Can NOT fseek Incomplete-File (moop: 06)
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
             }
 
-            incompleteFileSize = ftell(mIncompleteFileObject);
+            incompleteFileSize = ftell(me->mIncompleteFileObject);
             if (incompleteFileSize == -1)
             {
-                LE_ERROR("Fail to tell file size: |%s| (%m)", mIncompleteFileAndPathName);
+                LE_ERROR("Fail to tell file size: |%s| (%m)", me->mIncompleteFileAndPathName);
                 // UDS_0x38_NRC_22: Can NOT ftell Incomplete-File (moop: 06)
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
             }
@@ -396,41 +384,41 @@ static void fileXferMsgHandler
 
         case TAF_DIAGUPDATE_READ_FILE:
         {
-            if (! fileExist(mCompleteFileAndPathName))
+            if (! fileExist(me->mCompleteFileAndPathName))
             {
                 LE_ERROR("Target file does NOT exists.");
                 // UDS_0x38_NRC_31: Not found target file (moop: 04)
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_REQUEST_OUT_OF_RANGE);
             }
 
-            mCompleteFileObject = le_flock_OpenStream(mCompleteFileAndPathName, LE_FLOCK_READ, NULL);
-            if (mCompleteFileObject == NULL)
+            me->mCompleteFileObject = le_flock_OpenStream(me->mCompleteFileAndPathName, LE_FLOCK_READ, NULL);
+            if (me->mCompleteFileObject == NULL)
             {
-                LE_ERROR("Fail to open: |%s| (%m)", mCompleteFileAndPathName);
+                LE_ERROR("Fail to open: |%s| (%m)", me->mCompleteFileAndPathName);
                 // UDS_0x38_NRC_22: Can NOT open target file (moop: 04)
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
             }
 
-            LE_INFO("Open file %s for reading", mCompleteFileAndPathName);
+            LE_INFO("Open file %s for reading", me->mCompleteFileAndPathName);
 
-            if (fseek(mCompleteFileObject, 0, SEEK_END) != 0)
+            if (fseek(me->mCompleteFileObject, 0, SEEK_END) != 0)
             {
-                LE_ERROR("Fail to seek file to end: |%s| (%m)", mCompleteFileAndPathName);
+                LE_ERROR("Fail to seek file to end: |%s| (%m)", me->mCompleteFileAndPathName);
                 // UDS_0x38_NRC_22: Can NOT fseek(END) target file (moop: 04)
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
             }
 
-            completeFileSize = ftell(mCompleteFileObject);
+            completeFileSize = ftell(me->mCompleteFileObject);
             if (completeFileSize == -1)
             {
-                LE_ERROR("Fail to tell file size: |%s| (%m)", mCompleteFileAndPathName);
+                LE_ERROR("Fail to tell file size: |%s| (%m)", me->mCompleteFileAndPathName);
                 // UDS_0x38_NRC_22: Can NOT ftell target file (moop: 04)
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
             }
 
-            if (fseek(mCompleteFileObject, 0, SEEK_SET) != 0)
+            if (fseek(me->mCompleteFileObject, 0, SEEK_SET) != 0)
             {
-                LE_ERROR("Fail to seek file to begin: |%s| (%m)", mCompleteFileAndPathName);
+                LE_ERROR("Fail to seek file to begin: |%s| (%m)", me->mCompleteFileAndPathName);
                 // UDS_0x38_NRC_22: Can NOT fseek(SET) target file (moop: 04)
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
             }
@@ -449,29 +437,29 @@ static void fileXferMsgHandler
 
         case TAF_DIAGUPDATE_READ_DIR:
         {
-            if (! isDirectoryExists(mCompleteFileAndPathName))
+            if (! isDirectoryExists(me->mCompleteFileAndPathName))
             {
                 LE_ERROR("NamedPath is NOT a directory");
                 // UDS_0x38_NRC_31: Not found target dir (moop: 05)
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_REQUEST_OUT_OF_RANGE);
             }
 
-            mCompleteDirObject = opendir(mCompleteFileAndPathName);
-            if (mCompleteDirObject == NULL)
+            me->mCompleteDirObject = opendir(me->mCompleteFileAndPathName);
+            if (me->mCompleteDirObject == NULL)
             {
                 LE_ERROR("Can NOT open dir (%m)");
                 // UDS_0x38_NRC_22: Can NOT opendir (moop: 05)
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
             }
 
-            LE_INFO("Open dir |%s| for reading", mCompleteFileAndPathName);
+            LE_INFO("Open dir |%s| for reading", me->mCompleteFileAndPathName);
 
             struct dirent * entry;
-            LE_DEBUG("In dir: %s", mCompleteFileAndPathName);
+            LE_DEBUG("In dir: %s", me->mCompleteFileAndPathName);
             errno = 0; // To check the readdir error
-            while ((entry = readdir(mCompleteDirObject)) != NULL) {
+            while ((entry = readdir(me->mCompleteDirObject)) != NULL) {
                 LE_DEBUG("-> %s", entry->d_name);
-                mRequestDirTotalSize += strlen(entry->d_name) + 1; // + '\0'
+                me->mRequestDirTotalSize += strlen(entry->d_name) + 1; // + '\0'
             }
 
             if (errno != 0)
@@ -482,7 +470,7 @@ static void fileXferMsgHandler
             }
 
             taf_diagUpdate_SetFileSizeOrDirInfoLength(rxMsgRef,
-                                                      (uint64_t)mRequestDirTotalSize,
+                                                      (uint64_t)me->mRequestDirTotalSize,
                                                       0);
             if (result != LE_OK)
             {
@@ -491,7 +479,7 @@ static void fileXferMsgHandler
                 DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
             }
 
-            seekdir(mCompleteDirObject, 0);
+            seekdir(me->mCompleteDirObject, 0);
         }
         break;
     }
@@ -501,7 +489,7 @@ static void fileXferMsgHandler
     ||  moop == TAF_DIAGUPDATE_RESUME_FILE)
     {
         // For now, we just support 'dataFormatIdentifier' == 0x00
-        result = taf_diagUpdate_GetUnCompFileSize(rxMsgRef, &recordedTargetFileSize);
+        result = taf_diagUpdate_GetUnCompFileSize(rxMsgRef, &me->recordedTargetFileSize);
         if (result != LE_OK)
         {
             LE_ERROR("API GetUnCompFileSize");
@@ -510,24 +498,24 @@ static void fileXferMsgHandler
         }
 
         LE_INFO("Target file uncompressed size = %u(0x%04x)",
-                recordedTargetFileSize, recordedTargetFileSize);
+                me->recordedTargetFileSize, me->recordedTargetFileSize);
     }
     else if (moop == TAF_DIAGUPDATE_READ_FILE)
     {
-        recordedTargetFileSize = completeFileSize;
+        me->recordedTargetFileSize = completeFileSize;
     }
     else if (moop == TAF_DIAGUPDATE_READ_DIR)
     {
-        recordedTargetFileSize = mRequestDirTotalSize;
+        me->recordedTargetFileSize = me->mRequestDirTotalSize;
     }
 
     DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_NO_ERROR);
 
-    recordedSeqCounter = 0; // Reset the sequence counter
-    uploadedTargetTotal = 0; // Reset uploaded target size
+    me->recordedSeqCounter = 0; // Reset the sequence counter
+    me->uploadedTargetTotal = 0; // Reset uploaded target size
 
     // Mark latest activated MOOP
-    activatedMoop = moop;
+    me->activatedMoop = moop;
 }
 
 // Callback function for data transfer request message
@@ -537,6 +525,7 @@ static void xferDataMsgHandler
     void* contextPtr
 )
 {
+    DiagUpdateAppHandler_t * me = (DiagUpdateAppHandler_t *) contextPtr;
     le_result_t result;
     uint8_t xferData[TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE];
     size_t xferDataLen = 0;
@@ -583,16 +572,16 @@ static void xferDataMsgHandler
         }
     }
 
-    if (activatedMoop == TAF_DIAGUPDATE_DELETE_FILE)
+    if (me->activatedMoop == TAF_DIAGUPDATE_DELETE_FILE)
     {
         LE_ERROR("Data transfer in MOOP: 02 (DELETE FILE)");
         // UDS_0x36_NRC_72: Data transfer in moop: 02
         DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
     }
     // For input data actions
-    else if (activatedMoop == TAF_DIAGUPDATE_ADD_FILE
-         ||  activatedMoop == TAF_DIAGUPDATE_RESUME_FILE
-         ||  activatedMoop == TAF_DIAGUPDATE_REPLACE_FILE)
+    else if (me->activatedMoop == TAF_DIAGUPDATE_ADD_FILE
+         ||  me->activatedMoop == TAF_DIAGUPDATE_RESUME_FILE
+         ||  me->activatedMoop == TAF_DIAGUPDATE_REPLACE_FILE)
     {
         result = taf_diagUpdate_GetblockSeqCount( rxMsgRef, &incomingSeqCounter );
         if (result != LE_OK)
@@ -602,11 +591,11 @@ static void xferDataMsgHandler
             DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
         }
 
-        if (incomingSeqCounter != (uint8_t) (recordedSeqCounter + 1))
+        if (incomingSeqCounter != (uint8_t) (me->recordedSeqCounter + 1))
         {
             LE_ERROR("Wrong block sequence counter (i:%d != r:%d + 1)",
                      (int)incomingSeqCounter,
-                     (int)recordedSeqCounter);
+                     (int)me->recordedSeqCounter);
             // UDS_0x36_NRC_73: Wrong block sequence counter
             DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_WRONG_BLOCK_SEQUENCE_COUNTER);
         }
@@ -629,10 +618,10 @@ static void xferDataMsgHandler
             DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
         }
 
-        if(mIncompleteFileObject != NULL)
+        if(me->mIncompleteFileObject != NULL)
         {
             //write data into file
-            result = writeFile(xferData, xferDataLen);
+            result = writeFile(me, xferData, xferDataLen);
             if(result != LE_OK)
             {
                 LE_ERROR("Failed to write data");
@@ -642,19 +631,19 @@ static void xferDataMsgHandler
             else
             {
                 DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_NO_ERROR);
-                ++ recordedSeqCounter; // Only update when the processing is successful
+                ++ me->recordedSeqCounter; // Only update when the processing is successful
             }
         }
         else
         {
-            LE_ERROR("mIncompleteFileObject is NULL");
+            LE_ERROR("me->mIncompleteFileObject is NULL");
             // UDS_0x36_NRC_72: Not found opened Incomplete-File
             DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
         }
     }
     // For output data actions
-    else if (activatedMoop == TAF_DIAGUPDATE_READ_FILE
-         ||  activatedMoop == TAF_DIAGUPDATE_READ_DIR)
+    else if (me->activatedMoop == TAF_DIAGUPDATE_READ_FILE
+         ||  me->activatedMoop == TAF_DIAGUPDATE_READ_DIR)
     {
         result = taf_diagUpdate_GetblockSeqCount( rxMsgRef, &incomingSeqCounter );
         if (result != LE_OK)
@@ -664,34 +653,34 @@ static void xferDataMsgHandler
             DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
         }
 
-        if (incomingSeqCounter != (uint8_t)(recordedSeqCounter + 1))
+        if (incomingSeqCounter != (uint8_t)(me->recordedSeqCounter + 1))
         {
             LE_ERROR("Wrong block sequence counter (i:%d != r:%d + 1)",
                      (int)incomingSeqCounter,
-                     (int)recordedSeqCounter);
+                     (int)me->recordedSeqCounter);
             // UDS_0x36_NRC_73: Wrong block sequence counter
             DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_WRONG_BLOCK_SEQUENCE_COUNTER);
         }
 
-        if (activatedMoop == TAF_DIAGUPDATE_READ_FILE)
+        if (me->activatedMoop == TAF_DIAGUPDATE_READ_FILE)
         {
-            if (mCompleteFileObject == NULL)
+            if (me->mCompleteFileObject == NULL)
             {
                 LE_ERROR("No opened file for reading");
                 // UDS_0x36_NRC_72: Not found opened Incomplete-File (moop: 04)
                 DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
             }
 
-            nbytes = fread(xferData, 1, TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE, mCompleteFileObject);
+            nbytes = fread(xferData, 1, TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE, me->mCompleteFileObject);
             if (nbytes > 0)
             {
                 DIAG_36_RESPONSE_DATA(TAF_DIAGUPDATE_XFER_DATA_NO_ERROR, xferData, nbytes);
-                ++ recordedSeqCounter;
-                uploadedTargetTotal += nbytes;
+                ++ me->recordedSeqCounter;
+                me->uploadedTargetTotal += nbytes;
             }
             else /* == 0, then check EOF or ERROR */
             {
-                if (ferror(mCompleteFileObject))
+                if (ferror(me->mCompleteFileObject))
                 {
                     LE_ERROR("Fail to read file: %m");
                     // UDS_0x36_NRC_22: Fail to read target file
@@ -705,7 +694,7 @@ static void xferDataMsgHandler
         }
         else /* == TAF_DIAGUPDATE_READ_DIR */
         {
-            if (mCompleteDirObject == NULL)
+            if (me->mCompleteDirObject == NULL)
             {
                 LE_ERROR("No opened dir for reading");
                 // UDS_0x36_NRC_72: Not found opened Incomplete-Dir (moop: 05)
@@ -713,7 +702,7 @@ static void xferDataMsgHandler
             }
 
             errno = 0; // To check the readdir error
-            struct dirent *entry = readdir(mCompleteDirObject);
+            struct dirent *entry = readdir(me->mCompleteDirObject);
             if (entry != NULL)
             {
                 // For each file name including '\0' end of string
@@ -728,8 +717,8 @@ static void xferDataMsgHandler
 
                 memcpy(xferData, entry->d_name, fileItemLength);
                 DIAG_36_RESPONSE_DATA(TAF_DIAGUPDATE_XFER_DATA_NO_ERROR, xferData, fileItemLength);
-                uploadedTargetTotal += fileItemLength;
-                ++ recordedSeqCounter;
+                me->uploadedTargetTotal += fileItemLength;
+                ++ me->recordedSeqCounter;
             }
             else
             {
@@ -748,25 +737,24 @@ static void xferDataMsgHandler
     }
     else
     {
-        LE_ERROR("Bad activated MOOP: 0x%02X", activatedMoop);
+        LE_ERROR("Bad activated MOOP: 0x%02X", me->activatedMoop);
         // UDS_0x36_NRC_72: Invalid moop
         DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
     }
 }
 
 /* Check if the target file is uploaded completely */
-static bool IsCompletedForUpload()
+static bool IsCompletedForUpload(DiagUpdateAppHandler_t * me)
 {
-    return uploadedTargetTotal < recordedTargetFileSize ? 0 : 1;
+    return me->uploadedTargetTotal < me->recordedTargetFileSize ? 0 : 1;
 }
-
 
 /*
  * Check if the target file is complete or not
 **/
-static bool IsEnoughForTargetFile(FILE * target)
+static bool IsEnoughForTargetFile(DiagUpdateAppHandler_t * me)
 {
-    int fd = fileno(target);
+    int fd = fileno(me->mIncompleteFileObject);
     struct stat state;
 
     if (fstat(fd, &state) == -1)
@@ -775,7 +763,7 @@ static bool IsEnoughForTargetFile(FILE * target)
         return 0;
     }
 
-    if ((uint32_t) state.st_size < recordedTargetFileSize)
+    if ((uint32_t) state.st_size < me->recordedTargetFileSize)
     {
         return 0;
     }
@@ -795,6 +783,7 @@ static void xferExitMsgHandler
 {
     LE_INFO("Received transfer exit req msg");
 
+    DiagUpdateAppHandler_t * me = (DiagUpdateAppHandler_t *) contextPtr;
     le_result_t result = LE_OK;
     size_t recLength = 0;
     uint8_t recData[TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE];
@@ -823,25 +812,25 @@ static void xferExitMsgHandler
         DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_REQUEST_OUT_OF_RANGE);
     }
 
-    if (activatedMoop == TAF_DIAGUPDATE_DELETE_FILE)
+    if (me->activatedMoop == TAF_DIAGUPDATE_DELETE_FILE)
     {
         LE_ERROR("Bad condition detected");
         // UDS_0x37_NRC_72: Transfer exit in moop: 02
         DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_GENERAL_PROGRAMMING_FAILURE);
     }
-    else if (activatedMoop == TAF_DIAGUPDATE_ADD_FILE
-         ||  activatedMoop == TAF_DIAGUPDATE_RESUME_FILE
-         ||  activatedMoop == TAF_DIAGUPDATE_REPLACE_FILE)
+    else if (me->activatedMoop == TAF_DIAGUPDATE_ADD_FILE
+         ||  me->activatedMoop == TAF_DIAGUPDATE_RESUME_FILE
+         ||  me->activatedMoop == TAF_DIAGUPDATE_REPLACE_FILE)
     {
-        if(mIncompleteFileObject != NULL)
+        if(me->mIncompleteFileObject != NULL)
         {
-            if (IsEnoughForTargetFile(mIncompleteFileObject))
+            if (IsEnoughForTargetFile(me))
             {
-                closeFile();
+                closeFile(me);
 
-                LE_INFO("Rename |%s| -> |%s|", mIncompleteFileAndPathName, mCompleteFileAndPathName);
+                LE_INFO("Rename |%s| -> |%s|", me->mIncompleteFileAndPathName, me->mCompleteFileAndPathName);
 
-                if (rename(mIncompleteFileAndPathName, mCompleteFileAndPathName) != 0)
+                if (rename(me->mIncompleteFileAndPathName, me->mCompleteFileAndPathName) != 0)
                 {
                     LE_ERROR("fail to rename: (%m)");
                     // UDS_0x37_NRC_72: Call rename failed
@@ -856,40 +845,40 @@ static void xferExitMsgHandler
             }
         }
     }
-    else if(activatedMoop == TAF_DIAGUPDATE_READ_FILE
-        ||  activatedMoop == TAF_DIAGUPDATE_READ_DIR)
+    else if(me->activatedMoop == TAF_DIAGUPDATE_READ_FILE
+        ||  me->activatedMoop == TAF_DIAGUPDATE_READ_DIR)
     {
-        if (! IsCompletedForUpload())
+        if (! IsCompletedForUpload(me))
         {
             LE_ERROR("Programming is not completed (moop: 04/05)");
             // UDS_0x37_NRC_24: Programming is not completed (moop: 04/05)
             DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_REQUEST_SEQUENCE_ERROR);
         }
 
-        if (activatedMoop == TAF_DIAGUPDATE_READ_FILE)
+        if (me->activatedMoop == TAF_DIAGUPDATE_READ_FILE)
         {
-            if (mCompleteFileObject != NULL)
+            if (me->mCompleteFileObject != NULL)
             {
-                if (fclose(mCompleteFileObject) != 0)
+                if (fclose(me->mCompleteFileObject) != 0)
                 {
                     LE_ERROR("fail to fclose: (%m)");
                     // UDS_0x37_NRC_72: Call fclose failed
                     DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_GENERAL_PROGRAMMING_FAILURE);
                 }
-                mCompleteFileObject = NULL;
+                me->mCompleteFileObject = NULL;
             }
         }
         else /* TAF_DIAGUPDATE_READ_DIR */
         {
-            if (mCompleteDirObject != NULL)
+            if (me->mCompleteDirObject != NULL)
             {
-                if (closedir(mCompleteDirObject) != 0)
+                if (closedir(me->mCompleteDirObject) != 0)
                 {
                     LE_ERROR("fail to closedir: (%m)");
                     // UDS_0x37_NRC_72: Call closedir failed
                     DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_GENERAL_PROGRAMMING_FAILURE);
                 }
-                mCompleteDirObject = NULL;
+                me->mCompleteDirObject = NULL;
             }
         }
     }
@@ -899,57 +888,92 @@ static void xferExitMsgHandler
 
 static void* diagUpdateMsgThread(void* ctxPtr)
 {
+    DiagUpdateAppHandler_t * me = (DiagUpdateAppHandler_t *) ctxPtr;
+
     taf_diagUpdate_ConnectService();
 
-    DiagFileXferMsgRef = taf_diagUpdate_AddRxFileXferMsgHandler(
-                            DiagUpdateSvcRef,
-                            fileXferMsgHandler, NULL);
+    me->DiagUpdateSvcRef = taf_diagUpdate_GetService();
+    LE_ASSERT(me->DiagUpdateSvcRef);
 
-    DiagXferDataMsgRef = taf_diagUpdate_AddRxXferDataMsgHandler(
-                            DiagUpdateSvcRef,
-                            xferDataMsgHandler, NULL);
+#ifdef DIAG_MULTIVLAN_TEST
+    le_result_t result = LE_OK;
+    result = taf_diagUpdate_SetVlanId(me->DiagUpdateSvcRef, me->vlanId);
+    LE_ASSERT(result == LE_OK);
+#endif
 
-    DiagXferExitMsgRef = taf_diagUpdate_AddRxXferExitMsgHandler(
-                            DiagUpdateSvcRef,
-                            xferExitMsgHandler, NULL);
+    me->DiagFileXferMsgRef = taf_diagUpdate_AddRxFileXferMsgHandler(
+                            me->DiagUpdateSvcRef,
+                            fileXferMsgHandler, (void*)me);
 
-    if (DiagFileXferMsgRef == NULL
-    ||  DiagXferDataMsgRef == NULL
-    ||  DiagXferExitMsgRef == NULL)
-    {
-        LE_ERROR("Fail to register handler for diagUpdateSvc !");
-        le_sem_Post(semRef);
-        return NULL;
-    }
+    me->DiagXferDataMsgRef = taf_diagUpdate_AddRxXferDataMsgHandler(
+                            me->DiagUpdateSvcRef,
+                            xferDataMsgHandler, (void*)me);
 
-    le_sem_Post(semRef);
+    me->DiagXferExitMsgRef = taf_diagUpdate_AddRxXferExitMsgHandler(
+                            me->DiagUpdateSvcRef,
+                            xferExitMsgHandler, (void*)me);
+
+    LE_ASSERT(
+        (me->DiagFileXferMsgRef != NULL)
+    &&  (me->DiagXferDataMsgRef != NULL)
+    &&  (me->DiagXferExitMsgRef != NULL)
+    );
+
+    le_sem_Post(me->semRef);
+
     le_event_RunLoop();
     return NULL;
 }
 
 #endif
 
-le_result_t diagRequestFileTransfer_Init(void)
+
+le_result_t diagVlanRequestFileTransfer_Init(void)
 {
 
 #ifndef LE_CONFIG_DIAG_VSTACK
-    semRef = le_sem_Create("SemRef", 0);
 
-    //get diag update reference
-    DiagUpdateSvcRef = taf_diagUpdate_GetService();
-    if(DiagUpdateSvcRef == NULL)
-    {
-        LE_ERROR("Get diagUpdate service");
-        return LE_FAULT;
-    }
+    DiagUpdateAppHandlerPool = le_mem_CreatePool("D-Update-App-Hdlr", sizeof(DiagUpdateAppHandler_t));
 
-    // Create diag upate message handle thread to handle filetransfer(0x38), transferdata(0x36)
-    // and transfer exit(0x37)
-    le_thread_Ref_t diagUpdateThreadRef = le_thread_Create("diagUpdateTd",
-            diagUpdateMsgThread, NULL);
+    UpdateAppObjectTable = le_hashmap_Create("D-Update-App-Hdlr-Map",
+                                           3,
+                                           le_hashmap_HashUInt32,
+                                           le_hashmap_EqualsUInt32);
 
-    le_thread_Start(diagUpdateThreadRef);
-    le_sem_Wait(semRef);
+    DiagUpdateAppHandler_t * UpdateAppObj_def =
+        (DiagUpdateAppHandler_t *) le_mem_ForceAlloc(DiagUpdateAppHandlerPool);
+    LE_ASSERT(UpdateAppObj_def);
+
+    UpdateAppObj_def->vlanId = TEST_VLAN_ID_0;
+
+    le_hashmap_Put(UpdateAppObjectTable,
+                   & UpdateAppObj_def->vlanId,
+                   UpdateAppObj_def);
+
+    UpdateAppObj_def->semRef = le_sem_Create("SemRef_Def", 0);
+    UpdateAppObj_def->diagUpdateThreadRef =
+        le_thread_Create("D-Update-Th-def", diagUpdateMsgThread, (void*) UpdateAppObj_def);
+    le_thread_Start(UpdateAppObj_def->diagUpdateThreadRef);
+    le_sem_Wait(UpdateAppObj_def->semRef);
+
+#ifdef DIAG_MULTIVLAN_TEST
+    DiagUpdateAppHandler_t * UpdateAppObj_ext =
+        (DiagUpdateAppHandler_t *) le_mem_ForceAlloc(DiagUpdateAppHandlerPool);
+    LE_ASSERT(UpdateAppObj_ext);
+
+    UpdateAppObj_ext->vlanId = TEST_VLAN_ID_1;
+
+    le_hashmap_Put(UpdateAppObjectTable,
+                   & UpdateAppObj_ext->vlanId,
+                   UpdateAppObj_ext);
+
+    UpdateAppObj_ext->semRef = le_sem_Create("SemRef_Ext", 0);
+    UpdateAppObj_ext->diagUpdateThreadRef =
+        le_thread_Create("D-Update-Th-ext", diagUpdateMsgThread, (void*) UpdateAppObj_ext);
+    le_thread_Start(UpdateAppObj_ext->diagUpdateThreadRef);
+    le_sem_Wait(UpdateAppObj_ext->semRef);
+#endif
+
 #endif
     return LE_OK;
 }

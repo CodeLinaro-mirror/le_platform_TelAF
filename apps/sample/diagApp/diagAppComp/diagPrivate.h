@@ -38,10 +38,30 @@
 #include "legato.h"
 #include "interfaces.h"
 
+// Enable the following macro for multi-vlan testing
+// #define DIAG_MULTIVLAN_TEST
+#define TEST_VLAN_ID_0      10
+#define TEST_VLAN_ID_1      110
+
 #define SYSTEM_COMMAND_STR_LENGTH 1030
 #define DELETE_SYSTEM_CMD_FORMAT "rm %s"
 
-void diagRFT_DeactivateProgramming(void);
+void diagRFT_DeactivateProgrammingByVlanId(uint32_t vlanId);
+void diagRFT_DeactivateProgramming();
+
+uint8_t writeDIDToConfigTree
+(
+    const uint16_t dataId,
+    const uint8_t* dataPtr,
+    uint16_t dataSize
+);
+
+uint8_t readDIDFromConfigTree
+(
+    const uint16_t dataId,
+    uint8_t* sendBuf,
+    size_t* sendBufLen
+);
 
 #ifndef LE_CONFIG_DIAG_VSTACK
 taf_update_State_t diagRoutineCtrl_GetUpdateState();

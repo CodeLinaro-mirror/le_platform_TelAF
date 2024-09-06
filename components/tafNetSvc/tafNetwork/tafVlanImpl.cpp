@@ -590,6 +590,7 @@ taf_net_VlanRef_t taf_Vlan::CreateVlan
         //set vlan bind values to default values
         //because for backhaul type WWAN profile/slot are not needed
         vlanPtr->vlanBindConfig.profileId = -1;
+        vlanPtr->vlanBindConfig.slotId = DEFAULT_SLOT_ID;
         vlanPtr->vlanBindConfig.vlanIdBackhaul = -1;
         return (taf_net_VlanRef_t)le_ref_CreateRef(vlanRefMap, (void*)vlanPtr);
     }
@@ -2204,8 +2205,8 @@ le_result_t taf_Vlan::BindVlanWithBackhaul(taf_net_VlanRef_t vlanRef)
 
     if(vlanPtr->vlanBindConfig.backhaulType == TAF_NETIPPASS_BH_WWAN)
     {
-        vlanId=GetBoundVlanIdFromSlotAndProfile(vlanPtr->vlanBindConfig.slotId, 
-                                                vlanPtr->vlanBindConfig.profileId); 
+        vlanId=GetBoundVlanIdFromSlotAndProfile(vlanPtr->vlanBindConfig.slotId,
+                                                vlanPtr->vlanBindConfig.profileId);
         if(vlanId !=0)
         {
            LE_ERROR("Profile is already bound with vlan");
@@ -2408,13 +2409,12 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
     if(vlanPtr->vlanBindConfig.backhaulType == TAF_NETIPPASS_BH_WWAN)
     {
         result=GetBoundSlotIdProfileIdFromVlan(vlanId, &slotId, &profileId);
+        TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting slotId and profileId failed");
     }
     else // for ETH and rest where SIM does not exist.
     {
         //vlanid=queryVlanToBackhaulBindings // TODO check for backhaul vlanID bound also
     }
-
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting slotId and profileId failed");
 
     std::shared_ptr<tafVlanMappingCallback> bindVlanWithProfileCb =
                                  std::make_shared<tafVlanMappingCallback>(slot);
@@ -2932,21 +2932,26 @@ le_result_t taf_Vlan::SetIPConfig
 
     if(interfacePtr->ipConfig.ipAssignType == TAF_NETIPPASS_STATIC_IP)
     {
-    TAF_ERROR_IF_RET_VAL( (interfacePtr->ipConfig.ipAddrInfo.interfaceAddress == NULL) || 
-                          (interfacePtr->ipConfig.ipAddrInfo.gwAddress == NULL) || 
-                          (interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress == NULL) || 
-                          (interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress == NULL), 
+    TAF_ERROR_IF_RET_VAL( (interfacePtr->ipConfig.ipAddrInfo.interfaceAddress == NULL) ||
+                          (interfacePtr->ipConfig.ipAddrInfo.gwAddress == NULL) ||
+                          (interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress == NULL) ||
+                          (interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress == NULL),
                           LE_BAD_PARAMETER, "invalid ip address");
 
-    /*struct sockaddr_in6 addr6;
+    struct sockaddr_in6 addr6;
     struct sockaddr_in addr;
 
     if(ipType == TAF_NET_IPV4)
     {
-       if ((inet_pton(AF_INET,interfacePtr->ipConfig.ipAddrInfo.interfaceAddress,&(addr.sin_addr)) != 1)
-        && (inet_pton(AF_INET, interfacePtr->ipConfig.ipAddrInfo.gwAddress,&(addr.sin_addr)) != 1) 
-        &&(inet_pton(AF_INET, interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress,&(addr.sin_addr)) != 1)
-        &&(inet_pton(AF_INET, interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress,&(addr.sin_addr)) != 1)
+       if(
+       (inet_pton(AF_INET,
+        interfacePtr->ipConfig.ipAddrInfo.interfaceAddress,&(addr.sin_addr)) != 1) ||
+       (inet_pton(AF_INET,
+        interfacePtr->ipConfig.ipAddrInfo.gwAddress,&(addr.sin_addr)) != 1) ||
+       (inet_pton(AF_INET,
+        interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress,&(addr.sin_addr)) != 1) ||
+       (inet_pton(AF_INET,
+        interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress,&(addr.sin_addr)) != 1)
           )
          {
            return LE_BAD_PARAMETER;
@@ -2954,20 +2959,24 @@ le_result_t taf_Vlan::SetIPConfig
     }
     else if(ipType == TAF_NET_IPV6)
     {
-         if ((inet_pton(AF_INET6,interfacePtr->ipConfig.ipAddrInfo.interfaceAddress,&(addr6.sin6_addr)) != 1)
-         && (inet_pton(AF_INET6, interfacePtr->ipConfig.ipAddrInfo.gwAddress,&(addr6.sin6_addr)) != 1) 
-        && (inet_pton(AF_INET6, interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress,&(addr6.sin6_addr)) != 1)
-       && (inet_pton(AF_INET6, interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress,&(addr6.sin6_addr)) != 1)
+         if ((inet_pton(AF_INET6,
+              interfacePtr->ipConfig.ipAddrInfo.interfaceAddress,&(addr6.sin6_addr)) != 1)
+         || (inet_pton(AF_INET6,
+             interfacePtr->ipConfig.ipAddrInfo.gwAddress,&(addr6.sin6_addr)) != 1)
+        || (inet_pton(AF_INET6,
+            interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress,&(addr6.sin6_addr)) != 1)
+       || (inet_pton(AF_INET6,
+           interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress,&(addr6.sin6_addr)) != 1)
           )
          {
            return LE_BAD_PARAMETER;
          }
-    }*/
+    }
 
     std::string interfaceAddress(interfacePtr->ipConfig.ipAddrInfo.interfaceAddress);
     ipConfig.ipAddr.ifAddress = interfaceAddress;
     ipConfig.ipAddr.ifMask = interfacePtr->ipConfig.ipAddrInfo.interfaceMask;
-    
+
     std::string gwAddress(interfacePtr->ipConfig.ipAddrInfo.gwAddress);
     ipConfig.ipAddr.gwAddress = gwAddress;
 

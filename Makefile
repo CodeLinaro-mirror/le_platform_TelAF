@@ -24,8 +24,6 @@ ifneq ($(filter simula%,$(MAKECMDGOALS)),)
   include simulation/simulation.mk
 endif
 
-export VSTACK ?= n
-
 # SDK configurations
 include config.mk
 

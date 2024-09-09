@@ -47,6 +47,17 @@
 #define SECURE_MAX_NUM_OF_STORAGE    25
 #define SECURE_MAX_NUM_OF_DATA      100
 
+/*
+ * Macros for config storage
+ */
+#define CONFIG_STORAGE "/persist/configStorage/"
+#define CONFIG_RFS "/persist/rfs/"
+#define CONFIG_RFS_STORAGE CONFIG_RFS"configStorage/"
+#define MSS_CONFIG_PATH "/data/ManagedServices/tafMngdStorageConfig.json"
+#define DEFAULT_MSS_CONFIG_PATH "/legato/systems/current/appsWriteable/tafMngdStorageSvc/data/ManagedServices/tafMngdStorageConfig.json"
+#define MAX_NUM_OF_CONFIG_STORAGE    20
+#define MAX_FILE_NAME_LEN 255
+
 namespace telux {
 namespace tafsvc {
 
@@ -91,10 +102,10 @@ ReadOp_t;
 typedef struct
 {
     // Reference to the secure storage
-    taf_mngdSecStore_DataRef_t dataRef;
+    taf_mngdStorSec_DataRef_t dataRef;
 
     // Data name
-    char dataLabel[TAF_MNGDSECSTORE_MAX_DATA_LABLE_BYTES];
+    char dataLabel[TAF_MNGDSTORSEC_MAX_DATA_LABLE_BYTES];
 
     // Client session reference
     le_msg_SessionRef_t clientSessionRef;
@@ -113,6 +124,40 @@ typedef struct
     ReadOp_t readOp;
 }
 tafMngdStorage_SecData_t;
+
+typedef struct{
+    // JSON file path
+    char updatePath[LIMIT_MAX_PATH_BYTES];
+
+    // Golden copy file path
+    char goldenCopyPath[LIMIT_MAX_PATH_BYTES];
+
+    // File name
+    char fileName[MAX_FILE_NAME_LEN];
+
+    // Owner App id
+    char ownerId[TAF_MNGDSTORCFG_MAX_STR_LEN];
+
+    // Major version of file
+    int majorVersion;
+
+    // Minor version of file
+    int minorVersion;
+
+    // Patch version of file
+    int patchVersion;
+
+    // Client session reference
+    le_msg_SessionRef_t clientSessionRef;
+
+    // Reference of configuration file
+    taf_mngdStorCfg_ConfigRef_t fileRef;
+
+    size_t dataSize;
+
+    int outputFd;
+}
+tafMngdStorage_ConfigFileData_t;
 
 class tafMngdStorageSvc: public ITafSvc
 {
@@ -146,39 +191,39 @@ class tafMngdStorageSvc: public ITafSvc
          * Functions for secure data
          */
 
-        taf_mngdSecStore_DataRef_t CreateData(const char* dataLable);
+        taf_mngdStorSec_DataRef_t CreateData(const char* dataLable);
 
-        taf_mngdSecStore_DataRef_t GetDataRef(const char* dataLable);
+        taf_mngdStorSec_DataRef_t GetDataRef(const char* dataLable);
 
         le_result_t FindDataRef(const char* dataLabel,
-                                            taf_mngdSecStore_DataRef_t* dataRef);
+                                            taf_mngdStorSec_DataRef_t* dataRef);
 
         le_result_t GetDataPath(const char* dataLabel, char* bufferPtr,
                                             size_t bufferSize);
 
-        le_result_t CreateDataItem(taf_mngdSecStore_DataRef_t dataRef);
+        le_result_t CreateDataItem(taf_mngdStorSec_DataRef_t dataRef);
 
         static void ReleaseDataRef(le_msg_SessionRef_t sessionRef, void* contextPtr);
 
-        le_result_t WriteDataStart(taf_mngdSecStore_DataRef_t dataRef);
+        le_result_t WriteDataStart(taf_mngdStorSec_DataRef_t dataRef);
 
-        le_result_t WriteDataChunk(taf_mngdSecStore_DataRef_t dataRef,
+        le_result_t WriteDataChunk(taf_mngdStorSec_DataRef_t dataRef,
                                                 const uint8_t *bufferPtr,
                                                 size_t bufferSize);
 
-        le_result_t WriteDataEnd(taf_mngdSecStore_DataRef_t dataRef);
+        le_result_t WriteDataEnd(taf_mngdStorSec_DataRef_t dataRef);
 
-        le_result_t ReadDataFirstChunk(taf_mngdSecStore_DataRef_t dataRef,
+        le_result_t ReadDataFirstChunk(taf_mngdStorSec_DataRef_t dataRef,
                                                     uint8_t *bufferPtr,
                                                     size_t *readSize);
 
-        le_result_t ReadDataNextChunk(taf_mngdSecStore_DataRef_t dataRef,
+        le_result_t ReadDataNextChunk(taf_mngdStorSec_DataRef_t dataRef,
                                                     uint8_t *bufferPtr,
                                                     size_t *readSize);
 
-        le_result_t GetDataSize(taf_mngdSecStore_DataRef_t dataRef, uint32_t *size);
+        le_result_t GetDataSize(taf_mngdStorSec_DataRef_t dataRef, uint32_t *size);
 
-        le_result_t DeleteData(taf_mngdSecStore_DataRef_t dataRef);
+        le_result_t DeleteData(taf_mngdStorSec_DataRef_t dataRef);
 
         le_result_t CheckSize(uint32_t writeSize);
 
@@ -207,6 +252,30 @@ class tafMngdStorageSvc: public ITafSvc
             memcpy(dst, src, copy_size);
             return copy_size;
         }
+
+        /**
+         * Resources for  config storage
+         */
+        le_ref_MapRef_t configStorageRefMap;
+        le_mem_PoolRef_t configStoragePool;
+
+        /**
+         * Functions for Config storage
+         */
+
+        void InitConfigStorage();
+
+        le_result_t ParseServiceJsonConfig();
+
+        le_result_t UpdateFile();
+
+        le_result_t Sync();
+
+        le_result_t GetConfigStoragePath(char* storagePtr, size_t storageSize,
+            tafMngdStorage_ConfigFileData_t* configPtr);
+
+        le_result_t GetConfigFilePath(char* bufferPtr, size_t bufferSize,
+            tafMngdStorage_ConfigFileData_t* configPtr);
 
 };
 }

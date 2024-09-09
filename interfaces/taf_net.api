@@ -37,7 +37,7 @@
 /**
  * @page c_tafNetwork Network Service
  *
- * @ref taf_net_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_net_interface.h>` @endrst
  *
  * <HR>
  *
@@ -166,12 +166,12 @@
  * - taf_net_DeleteDestNatEntryList() -- Deletes the reference of destination NAT entry list.
  * - taf_net_AddDestNatChangeHandler() -- Adds a handler for NAT changes.
  * - taf_net_RemoveDestNatChangeHandler() -- Removes a handler for NAT changes.
-
- * @note When adding a static destination NAT entry, and changing the default profile ID the
- *       static destination NAT entry will be changed accordingly.
  *
- * @note After binding VLAN with the profile ID, the corresponding destination NAT for
- *       on-demand PDN can be added into iptables.
+ * @b NOTE: When adding a static destination NAT entry, and changing the default profile ID the
+ *          static destination NAT entry will be changed accordingly.
+ *
+ * @b NOTE: After binding VLAN with the profile ID, the corresponding destination NAT for
+ *          on-demand PDN can be added into iptables.
  *
  * @section c_taf_net_Vlan_management VLAN management
  *
@@ -217,9 +217,9 @@
  * - taf_net_DeleteVlanInterfaceList() -- Deletes the reference of the VLAN interface list.
  * - taf_net_GetVlanInterfaceType()    -- Gets the VLAN interface type.
  *
- * @note When adding or deleting a VLAN interface for a VLAN with isAccelerated as true, if the interface is
- *       the first added or last deleted for the interface type in the system, the system will automatically
- *       reboot after 5 seconds.
+ * @b NOTE: When adding or deleting a VLAN interface for a VLAN with isAccelerated as true, if the interface is
+ *          the first added or last deleted for the interface type in the system, the system will automatically
+ *          reboot after 5 seconds.
  *
  *
  * The following APIs are supported for VLAN information retrieval.
@@ -243,9 +243,9 @@
  *
  * The API taf_net_UnbindVlanFromProfile can be used to unbind VLAN from a profile.
  *
- * @note If binding VLAN with the default profile ID, the system will automatically reboot after 5 seconds.
+ * @b NOTE: If binding VLAN with the default profile ID, the system will automatically reboot after 5 seconds.
  *
- * @note If unbinding VLAN from default profile id, the system will automatically reboot after 5 seconds.
+ * @b NOTE: If unbinding VLAN from default profile id, the system will automatically reboot after 5 seconds.
  *
  * @section c_taf_net_L2TP_management L2TP management
  *
@@ -364,15 +364,15 @@
  * enabled, the handler function will be called.
  *
  * @verbatim
-    static void StartSocksAsyncHandlerFunc
-    (
-        le_result_t result, void* contextPtr
-    )
-    {
-        LE_INFO("**** Handler for start socks Asynchronously (Begin)****");
-        LE_INFO("result: %d", result);
-        LE_INFO("**** Handler for start socks Asynchronously (End)****");
-    }
+   static void StartSocksAsyncHandlerFunc
+   (
+       le_result_t result, void* contextPtr
+   )
+   {
+       LE_INFO("**** Handler for start socks Asynchronously (Begin)****");
+       LE_INFO("result: %d", result);
+       LE_INFO("**** Handler for start socks Asynchronously (End)****");
+   }
    @endverbatim
  *
  * The following APIs are supported for SOCKS management.
@@ -388,8 +388,8 @@
  * - taf_net_EnableSocksAsync()         -- Asynchronously enables SOCKS.
  * - taf_net_DisableSocksAsync()        -- Asynchronously disables SOCKS.
  *
- * @note If changing the SOCKS authentication method or association, the application needs to disable and
- *       enable SOCKS to use the new method or username.
+ * @b NOTE: If changing the SOCKS authentication method or association, the application needs to disable and
+ *          enable SOCKS to use the new method or username.
  *
  * @section c_taf_net_GSB_management GSB management
  *
@@ -397,9 +397,9 @@
  * removing GSB, and querying GSB information. GSB enables hardware IP acceleration (IPA) for
  * traffic on physical interfaces corresponding to the NON-QTI WLAN and ethernet chips.
  *
- * @note GSB APIs are not supported on SA515M.
- * The following example shows how to add GSB. This example adds an interface named "wlan0",
- * of TAF_NET_GSB_WLAN_AP type, and with 800 Mbps bandwidth.
+ * @b NOTE: GSB APIs are not supported on SA515M.
+ *          The following example shows how to add GSB. This example adds an interface named "wlan0",
+ *          of TAF_NET_GSB_WLAN_AP type, and with 800 Mbps bandwidth.
  *
  * @verbatim
    result = taf_net_AddGsb("wlan0", TAF_NET_GSB_WLAN_AP, 900);
@@ -1316,7 +1316,7 @@ FUNCTION le_result_t DeleteDestNatEntryList
 /**
  * Creates a VLAN.
  *
- * @note To use VLAN bridge and VLAN binding features, set device mode with value 0 first.
+ * @b NOTE: To use VLAN bridge and VLAN binding features, set device mode with value 0 first.
  *
  *
  * @return
@@ -1351,7 +1351,7 @@ FUNCTION le_result_t SetVlanPriority
 /**
  * Removes a VLAN.
  *
- * @note The system is not allowed to remove a VLAN if the VLAN interface list is not empty.
+ * @b NOTE: The system is not allowed to remove a VLAN if the VLAN interface list is not empty.
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -1383,7 +1383,7 @@ FUNCTION Vlan GetVlanById
 /**
  * Adds a VLAN interface into the VLAN interface list.
  *
- * @note Adding the first interface into the VLAN interface list with the same interface type
+ * @b NOTE: Adding the first interface into the VLAN interface list with the same interface type
  *       triggers a system reboot if VLAN acceleration is enabled.
  *
  * @return
@@ -1404,7 +1404,7 @@ FUNCTION le_result_t AddVlanInterface
 /**
  * Removes a VLAN interface from the VLAN interface list.
  *
- * @note Removing the last interface from the VLAN interface list with the same interface type
+ * @b NOTE: Removing the last interface from the VLAN interface list with the same interface type
  *       triggers a system reboot if VLAN acceleration is enabled.
  *
  * @return
@@ -1628,7 +1628,7 @@ FUNCTION le_result_t GetVlanBoundPhoneId
 /**
  * Binds a VLAN with a specified profile ID.
  *
- * @note Binding VLAN with the default profile ID results in the system automatically rebooting
+ * @b NOTE: Binding VLAN with the default profile ID results in the system automatically rebooting
  *       after 5 seconds.
  *
  * @return
@@ -1648,7 +1648,7 @@ FUNCTION le_result_t BindVlanWithProfile
 /**
  * Binds a VLAN with a specified phone ID and profile index.
  *
- * @note Binding a VLAN with the default profile ID results in the system automatically rebooting
+ * @b NOTE: Binding a VLAN with the default profile ID results in the system automatically rebooting
  *       after 5 seconds.
  *
  * @return
@@ -1669,7 +1669,7 @@ FUNCTION le_result_t BindVlanWithProfileEx
 /**
  * Unbinds a VLAN from previous profile ID.
  *
- * @note Unbinding VLAN from the default profile ID results in the system automatically rebooting
+ * @b NOTE: Unbinding VLAN from the default profile ID results in the system automatically rebooting
  *       after 5 seconds.
  *
  * @return
@@ -1688,7 +1688,7 @@ FUNCTION le_result_t UnbindVlanFromProfile
 /**
  * Enables (synchronously) L2TP for unmanaged tunnel state.
  *
- * @note To use the L2TP feature set device mode with value 1 first.
+ * @b NOTE: To use the L2TP feature set device mode with value 1 first.
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -2161,7 +2161,7 @@ FUNCTION le_result_t GetSessionConfig
 /**
  * Enables (synchronously) the SOCKS proxy service.
  *
- * @note To use the SOCKS feature, set device mode with value 2 first.
+ * @b NOTE: To use the SOCKS feature, set device mode with value 2 first.
  *
  * @return
  *   - LE_OK -- Succeeded.

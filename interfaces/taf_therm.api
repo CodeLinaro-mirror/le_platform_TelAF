@@ -7,7 +7,7 @@
 /**
  * @page c_taftherm Thermal Management Service
  *
- * @ref taf_therm_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_therm_interface.h>` @endrst
  *
  * <HR>
  *
@@ -37,109 +37,110 @@
  * the information of each thermal zone, and also to delete the list reference using
  * taf_therm_DeleteThermalZoneList().
  *
- * @note
- * The following APIs are supported only on SA525M devices:
- * a. taf_therm_GetTripPointTripID()
- * b. taf_therm_GetTripPointThermalZoneID()
- * c. taf_therm_GetBoundTripPointTripID()
- * d. taf_therm_GetBoundTripPointThermalZoneID()
+ * @b NOTE:
+ *
+ *    The following APIs are supported only on SA525M devices:
+ *    a. taf_therm_GetTripPointTripID()
+ *    b. taf_therm_GetTripPointThermalZoneID()
+ *    c. taf_therm_GetBoundTripPointTripID()
+ *    d. taf_therm_GetBoundTripPointThermalZoneID()
  *
  * @verbatim
-     le_result_t result;
-     taf_therm_ThermalZoneListRef_t tZoneListRef = taf_therm_GetThermalZonesList();
-     if (tZoneListRef == NULL)
-         return;
-     taf_therm_ThermalZoneListRef_t headTZoneListRef = tZoneListRef;
+   le_result_t result;
+   taf_therm_ThermalZoneListRef_t tZoneListRef = taf_therm_GetThermalZonesList();
+   if (tZoneListRef == NULL)
+       return;
+   taf_therm_ThermalZoneListRef_t headTZoneListRef = tZoneListRef;
 
-     taf_therm_ThermalZoneRef_t tZone = taf_therm_GetFirstThermalZone(tZoneListRef);
-     uint32_t thermalZoneListSize;
-     result = taf_therm_GetThermalZonesListSize(tZoneListRef, &thermalZoneListSize);
+   taf_therm_ThermalZoneRef_t tZone = taf_therm_GetFirstThermalZone(tZoneListRef);
+   uint32_t thermalZoneListSize;
+   result = taf_therm_GetThermalZonesListSize(tZoneListRef, &thermalZoneListSize);
 
-     while (tZone != NULL and thermalZoneListSize--)
-     {
-         uint32_t tripPointListSize;
-         result = taf_therm_GetTripPointListSize(tZone, &tripPointListSize);
-         uint32_t boundCDevListSize;
-         result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &boundCDevListSize);
-         uint32_t tZoneid;
-         result = taf_therm_GetThermalZoneID(tZone, &tZoneid);
-         char thermalZoneType[TYPE_SIZE];
-         memset(thermalZoneType, 0, TYPE_SIZE);
-         result = taf_therm_GetThermalZoneType(tZone, thermalZoneType, sizeof(thermalZoneType));
-         uint32_t currTemp;
-         result = taf_therm_GetThermalZoneCurrentTemp(tZone, &currTemp);
-         uint32_t passiveTemp;
-         result = taf_therm_GetThermalZonePassiveTemp(tZone, &passiveTemp);
-         if (tripPointListSize > 0)
-         {
-             taf_therm_TripPointRef_t tripPoint = taf_therm_GetFirstTripPoint(tZone);
-             uint32_t listSize;
-             result = taf_therm_GetTripPointListSize(tZone, &listSize);
-             while (tripPoint != NULL and listSize--)
-             {
-                 uint32_t tripID;
-                 result = taf_therm_GetTripPointTripID(tripPoint, &tripID);
-                 uint32_t tZoneID;
-                 result = taf_therm_GetTripPointThermalZoneID(tripPoint, &tZoneID);
-                 char tripType[TYPE_SIZE];
-                 memset(tripType, 0, TYPE_SIZE);
-                 taf_therm_GetTripPointType(tripPoint, tripType, sizeof(tripType));
-                 uint32_t threshold;
-                 result = taf_therm_GetTripPointThreshold(tripPoint, &threshold);
-                 uint32_t hysterisis;
-                 result = taf_therm_GetTripPointHysterisis(tripPoint, &hysterisis);
-                 if (listSize > 0)
-                 {
-                     tripPoint = taf_therm_GetNextTripPoint(tZone);
-                 }
-             }
-         }
-         if (boundCDevListSize > 0)
-         {
-             taf_therm_BoundCoolingDeviceRef_t boundCDev = taf_therm_GetFirstBoundCDev(tZone);
-             uint32_t listSize;
-             result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &listSize);
+   while (tZone != NULL and thermalZoneListSize--)
+   {
+       uint32_t tripPointListSize;
+       result = taf_therm_GetTripPointListSize(tZone, &tripPointListSize);
+       uint32_t boundCDevListSize;
+       result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &boundCDevListSize);
+       uint32_t tZoneid;
+       result = taf_therm_GetThermalZoneID(tZone, &tZoneid);
+       char thermalZoneType[TYPE_SIZE];
+       memset(thermalZoneType, 0, TYPE_SIZE);
+       result = taf_therm_GetThermalZoneType(tZone, thermalZoneType, sizeof(thermalZoneType));
+       uint32_t currTemp;
+       result = taf_therm_GetThermalZoneCurrentTemp(tZone, &currTemp);
+       uint32_t passiveTemp;
+       result = taf_therm_GetThermalZonePassiveTemp(tZone, &passiveTemp);
+       if (tripPointListSize > 0)
+       {
+           taf_therm_TripPointRef_t tripPoint = taf_therm_GetFirstTripPoint(tZone);
+           uint32_t listSize;
+           result = taf_therm_GetTripPointListSize(tZone, &listSize);
+           while (tripPoint != NULL and listSize--)
+           {
+               uint32_t tripID;
+               result = taf_therm_GetTripPointTripID(tripPoint, &tripID);
+               uint32_t tZoneID;
+               result = taf_therm_GetTripPointThermalZoneID(tripPoint, &tZoneID);
+               char tripType[TYPE_SIZE];
+               memset(tripType, 0, TYPE_SIZE);
+               taf_therm_GetTripPointType(tripPoint, tripType, sizeof(tripType));
+               uint32_t threshold;
+               result = taf_therm_GetTripPointThreshold(tripPoint, &threshold);
+               uint32_t hysterisis;
+               result = taf_therm_GetTripPointHysterisis(tripPoint, &hysterisis);
+               if (listSize > 0)
+               {
+                   tripPoint = taf_therm_GetNextTripPoint(tZone);
+               }
+           }
+       }
+       if (boundCDevListSize > 0)
+       {
+           taf_therm_BoundCoolingDeviceRef_t boundCDev = taf_therm_GetFirstBoundCDev(tZone);
+           uint32_t listSize;
+           result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &listSize);
 
-             while (boundCDev != NULL and listSize--)
-             {
-                 uint32_t coolingID;
-                 result = taf_therm_GetBoundCoolingId(boundCDev, &coolingID);
-                 uint32_t tripPointListSize;
-                 if (taf_therm_GetBoundTripPointListSize(boundCDev, &tripPointListSize) <= 0)
-                     return;
-                 taf_therm_TripPointRef_t boundTripPoint = taf_therm_GetFirstBoundTripPoint(boundCDev);
-                 result = taf_therm_GetBoundTripPointListSize(boundCDev, &tripPointListSize);
-                 while (boundTripPoint != NULL and tripPointListSize--)
-                 {
-                     uint32_t boundTripID;
-                     result = taf_therm_GetBoundTripPointTripID(boundTripPoint, &boundTripID);
-                     uint32_t boundTZoneID;
-                     result = taf_therm_GetBoundTripPointThermalZoneID(boundTripPoint, &boundTZoneID);
-                     char boundTripType[TYPE_SIZE];
-                     memset(boundTripType, 0, TYPE_SIZE);
-                     taf_therm_GetBoundTripPointType(boundTripPoint, boundTripType,
-                     sizeof(boundTripType));
-                     uint32_t boundThreshold;
-                     result = taf_therm_GetBoundTripPointThreshold(boundTripPoint, &boundThreshold);
-                     uint32_t boundHysterisis;
-                     result = taf_therm_GetBoundTripPointHysterisis(boundTripPoint, &boundHysterisis);
-                     if (tripPointListSize > 0)
-                     {
-                         boundTripPoint = taf_therm_GetNextBoundTripPoint(boundCDev);
-                     }
-                 }
-                 if (listSize > 0)
-                 {
-                     boundCDev = taf_therm_GetNextBoundCDev(tZone);
-                 }
-             }
-         }
-         if (thermalZoneListSize > 0)
-         {
-             tZone = taf_therm_GetNextThermalZone(tZoneListRef);
-         }
-     }
-     result = taf_therm_DeleteThermalZoneList(headTZoneListRef);
+           while (boundCDev != NULL and listSize--)
+           {
+               uint32_t coolingID;
+               result = taf_therm_GetBoundCoolingId(boundCDev, &coolingID);
+               uint32_t tripPointListSize;
+               if (taf_therm_GetBoundTripPointListSize(boundCDev, &tripPointListSize) <= 0)
+                   return;
+               taf_therm_TripPointRef_t boundTripPoint = taf_therm_GetFirstBoundTripPoint(boundCDev);
+               result = taf_therm_GetBoundTripPointListSize(boundCDev, &tripPointListSize);
+               while (boundTripPoint != NULL and tripPointListSize--)
+               {
+                   uint32_t boundTripID;
+                   result = taf_therm_GetBoundTripPointTripID(boundTripPoint, &boundTripID);
+                   uint32_t boundTZoneID;
+                   result = taf_therm_GetBoundTripPointThermalZoneID(boundTripPoint, &boundTZoneID);
+                   char boundTripType[TYPE_SIZE];
+                   memset(boundTripType, 0, TYPE_SIZE);
+                   taf_therm_GetBoundTripPointType(boundTripPoint, boundTripType,
+                   sizeof(boundTripType));
+                   uint32_t boundThreshold;
+                   result = taf_therm_GetBoundTripPointThreshold(boundTripPoint, &boundThreshold);
+                   uint32_t boundHysterisis;
+                   result = taf_therm_GetBoundTripPointHysterisis(boundTripPoint, &boundHysterisis);
+                   if (tripPointListSize > 0)
+                   {
+                       boundTripPoint = taf_therm_GetNextBoundTripPoint(boundCDev);
+                   }
+               }
+               if (listSize > 0)
+               {
+                   boundCDev = taf_therm_GetNextBoundCDev(tZone);
+               }
+           }
+       }
+       if (thermalZoneListSize > 0)
+       {
+           tZone = taf_therm_GetNextThermalZone(tZoneListRef);
+       }
+   }
+   result = taf_therm_DeleteThermalZoneList(headTZoneListRef);
 
    @endverbatim
  *
@@ -155,30 +156,30 @@
  *
  * @verbatim
 
-    le_result_t result;
-    taf_therm_CoolingDeviceListRef_t cDevListRef = taf_therm_GetCoolingDeviceList();
+   le_result_t result;
+   taf_therm_CoolingDeviceListRef_t cDevListRef = taf_therm_GetCoolingDeviceList();
 
-     taf_therm_CoolingDeviceListRef_t headCDevListRef = cDevListRef;
+   taf_therm_CoolingDeviceListRef_t headCDevListRef = cDevListRef;
 
-     taf_therm_CoolingDeviceRef_t cDev = taf_therm_GetFirstCoolingDevice(cDevListRef);
-     uint32_t coolingDeviceListSize;
-     result = taf_therm_GetCoolingDeviceListSize(cDevListRef, &coolingDeviceListSize);
-     while (cDev != NULL and coolingDeviceListSize--)
-     {
-         char description[TYPE_SIZE];
-         memset(description, 0, TYPE_SIZE);
-         result = taf_therm_GetCDevDescription(cDev, description, sizeof(description));
-         uint32_t coolingID;
-         result = taf_therm_GetCDevID(cDev, &coolingID);
-         uint32_t maxCooling;
-         result = taf_therm_GetCDevMaxCoolingLevel(cDev, &maxCooling);
-         uint32_t currCooling;
-         result = taf_therm_GetCDevCurrentCoolingLevel(cDev, &currCooling);
-         if (coolingDeviceListSize > 0) {
-             cDev = taf_therm_GetNextCoolingDevice(cDevListRef);
-         }
-     }
-     result = taf_therm_DeleteCoolingDeviceList(headCDevListRef);
+   taf_therm_CoolingDeviceRef_t cDev = taf_therm_GetFirstCoolingDevice(cDevListRef);
+   uint32_t coolingDeviceListSize;
+   result = taf_therm_GetCoolingDeviceListSize(cDevListRef, &coolingDeviceListSize);
+   while (cDev != NULL and coolingDeviceListSize--)
+   {
+       char description[TYPE_SIZE];
+       memset(description, 0, TYPE_SIZE);
+       result = taf_therm_GetCDevDescription(cDev, description, sizeof(description));
+       uint32_t coolingID;
+       result = taf_therm_GetCDevID(cDev, &coolingID);
+       uint32_t maxCooling;
+       result = taf_therm_GetCDevMaxCoolingLevel(cDev, &maxCooling);
+       uint32_t currCooling;
+       result = taf_therm_GetCDevCurrentCoolingLevel(cDev, &currCooling);
+       if (coolingDeviceListSize > 0) {
+           cDev = taf_therm_GetNextCoolingDevice(cDevListRef);
+       }
+   }
+   result = taf_therm_DeleteCoolingDeviceList(headCDevListRef);
 
    @endverbatim
  *
@@ -193,94 +194,94 @@
  * the information of the thermal zone.
  *
  * @verbatim
-     le_result_t result;
-     taf_therm_ThermalZoneRef_t tZone = taf_therm_GetThermalZoneByName("ThermalZoneName");
-     if (tZone != NULL)
-     {
-             uint32_t tripPointListSize;
-         result = taf_therm_GetTripPointListSize(tZone, &tripPointListSize);
-         uint32_t boundCDevListSize;
-         result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &boundCDevListSize);
-         uint32_t tZoneid;
-         result = taf_therm_GetThermalZoneID(tZone, &tZoneid);
-         char thermalZoneType[TYPE_SIZE];
-         memset(thermalZoneType, 0, TYPE_SIZE);
-         result = taf_therm_GetThermalZoneType(tZone, thermalZoneType, sizeof(thermalZoneType));
-         uint32_t currTemp;
-         result = taf_therm_GetThermalZoneCurrentTemp(tZone, &currTemp);
-         uint32_t passiveTemp;
-         result = taf_therm_GetThermalZonePassiveTemp(tZone, &passiveTemp);
-         if (tripPointListSize > 0)
-         {
-             taf_therm_TripPointRef_t tripPoint = taf_therm_GetFirstTripPoint(tZone);
-             uint32_t listSize;
-             result = taf_therm_GetTripPointListSize(tZone, &listSize);
-             while (tripPoint != NULL and listSize--)
-             {
-                 uint32_t tripID;
-                 result = taf_therm_GetTripPointTripID(tripPoint, &tripID);
-                 uint32_t tZoneID;
-                 result = taf_therm_GetTripPointThermalZoneID(tripPoint, &tZoneID);
-                 char tripType[TYPE_SIZE];
-                 memset(tripType, 0, TYPE_SIZE);
-                 taf_therm_GetTripPointType(tripPoint, tripType, sizeof(tripType));
-                 uint32_t threshold;
-                 result = taf_therm_GetTripPointThreshold(tripPoint, &threshold);
-                 uint32_t hysterisis;
-                 result = taf_therm_GetTripPointHysterisis(tripPoint, &hysterisis);
-                 if (listSize > 0)
-                 {
-                     tripPoint = taf_therm_GetNextTripPoint(tZone);
-                 }
-             }
-         }
-         if (boundCDevListSize > 0)
-         {
-             taf_therm_BoundCoolingDeviceRef_t boundCDev = taf_therm_GetFirstBoundCDev(tZone);
-             uint32_t listSize;
-             result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &listSize);
+   le_result_t result;
+   taf_therm_ThermalZoneRef_t tZone = taf_therm_GetThermalZoneByName("ThermalZoneName");
+   if (tZone != NULL)
+   {
+       uint32_t tripPointListSize;
+       result = taf_therm_GetTripPointListSize(tZone, &tripPointListSize);
+       uint32_t boundCDevListSize;
+       result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &boundCDevListSize);
+       uint32_t tZoneid;
+       result = taf_therm_GetThermalZoneID(tZone, &tZoneid);
+       char thermalZoneType[TYPE_SIZE];
+       memset(thermalZoneType, 0, TYPE_SIZE);
+       result = taf_therm_GetThermalZoneType(tZone, thermalZoneType, sizeof(thermalZoneType));
+       uint32_t currTemp;
+       result = taf_therm_GetThermalZoneCurrentTemp(tZone, &currTemp);
+       uint32_t passiveTemp;
+       result = taf_therm_GetThermalZonePassiveTemp(tZone, &passiveTemp);
+       if (tripPointListSize > 0)
+       {
+           taf_therm_TripPointRef_t tripPoint = taf_therm_GetFirstTripPoint(tZone);
+           uint32_t listSize;
+           result = taf_therm_GetTripPointListSize(tZone, &listSize);
+           while (tripPoint != NULL and listSize--)
+           {
+               uint32_t tripID;
+               result = taf_therm_GetTripPointTripID(tripPoint, &tripID);
+               uint32_t tZoneID;
+               result = taf_therm_GetTripPointThermalZoneID(tripPoint, &tZoneID);
+               char tripType[TYPE_SIZE];
+               memset(tripType, 0, TYPE_SIZE);
+               taf_therm_GetTripPointType(tripPoint, tripType, sizeof(tripType));
+               uint32_t threshold;
+               result = taf_therm_GetTripPointThreshold(tripPoint, &threshold);
+               uint32_t hysterisis;
+               result = taf_therm_GetTripPointHysterisis(tripPoint, &hysterisis);
+               if (listSize > 0)
+               {
+                   tripPoint = taf_therm_GetNextTripPoint(tZone);
+               }
+           }
+       }
+       if (boundCDevListSize > 0)
+       {
+           taf_therm_BoundCoolingDeviceRef_t boundCDev = taf_therm_GetFirstBoundCDev(tZone);
+           uint32_t listSize;
+           result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &listSize);
 
-             while (boundCDev != NULL and listSize--)
-             {
-                 uint32_t coolingID;
-                 result = taf_therm_GetBoundCoolingId(boundCDev, &coolingID);
-                 uint32_t tripPointListSize;
-                 if (taf_therm_GetBoundTripPointListSize(boundCDev, &tripPointListSize) <= 0)
-                     return;
-                 taf_therm_TripPointRef_t boundTripPoint = taf_therm_GetFirstBoundTripPoint(boundCDev);
-                 result = taf_therm_GetBoundTripPointListSize(boundCDev, &tripPointListSize);
-                 while (boundTripPoint != NULL and tripPointListSize--)
-                 {
-                     uint32_t boundTripID;
-                     result = taf_therm_GetBoundTripPointTripID(boundTripPoint, &boundTripID);
-                     uint32_t boundTZoneID;
-                     result = taf_therm_GetBoundTripPointThermalZoneID(boundTripPoint, &boundTZoneID);
-                     char boundTripType[TYPE_SIZE];
-                     memset(boundTripType, 0, TYPE_SIZE);
-                     taf_therm_GetBoundTripPointType(boundTripPoint, boundTripType, sizeof(boundTripType));
-                     uint32_t boundThreshold;
-                     result = taf_therm_GetBoundTripPointThreshold(boundTripPoint, &boundThreshold);
-                     uint32_t boundHysterisis;
-                     result = taf_therm_GetBoundTripPointHysterisis(boundTripPoint, &boundHysterisis);
-                     if (tripPointListSize > 0)
-                     {
-                         boundTripPoint = taf_therm_GetNextBoundTripPoint(boundCDev);
-                     }
-                 }
-                 if (listSize > 0)
-                 {
-                     boundCDev = taf_therm_GetNextBoundCDev(tZone);
-                 }
-             }
-     }
+           while (boundCDev != NULL and listSize--)
+           {
+               uint32_t coolingID;
+               result = taf_therm_GetBoundCoolingId(boundCDev, &coolingID);
+               uint32_t tripPointListSize;
+               if (taf_therm_GetBoundTripPointListSize(boundCDev, &tripPointListSize) <= 0)
+                   return;
+               taf_therm_TripPointRef_t boundTripPoint = taf_therm_GetFirstBoundTripPoint(boundCDev);
+               result = taf_therm_GetBoundTripPointListSize(boundCDev, &tripPointListSize);
+               while (boundTripPoint != NULL and tripPointListSize--)
+               {
+                   uint32_t boundTripID;
+                   result = taf_therm_GetBoundTripPointTripID(boundTripPoint, &boundTripID);
+                   uint32_t boundTZoneID;
+                   result = taf_therm_GetBoundTripPointThermalZoneID(boundTripPoint, &boundTZoneID);
+                   char boundTripType[TYPE_SIZE];
+                   memset(boundTripType, 0, TYPE_SIZE);
+                   taf_therm_GetBoundTripPointType(boundTripPoint, boundTripType, sizeof(boundTripType));
+                   uint32_t boundThreshold;
+                   result = taf_therm_GetBoundTripPointThreshold(boundTripPoint, &boundThreshold);
+                   uint32_t boundHysterisis;
+                   result = taf_therm_GetBoundTripPointHysterisis(boundTripPoint, &boundHysterisis);
+                   if (tripPointListSize > 0)
+                   {
+                       boundTripPoint = taf_therm_GetNextBoundTripPoint(boundCDev);
+                   }
+               }
+               if (listSize > 0)
+               {
+                   boundCDev = taf_therm_GetNextBoundCDev(tZone);
+               }
+           }
+   }
 
    @endverbatim
 
-* The application needs to release the thermal zone object after processing it
-* by calling taf_therm_ReleaseThermalZoneRef().
-* @verbatim
+ * The application needs to release the thermal zone object after processing it
+ * by calling taf_therm_ReleaseThermalZoneRef().
+ * @verbatim
    taf_therm_ReleaseThermalZoneRef(tZone);
-  @endverbatim
+   @endverbatim
 
  * @section taf_therm_GetCoolingDeviceByName Get specified cooling device information
  *
@@ -309,42 +310,42 @@
    }
    @endverbatim
 
-* The application needs to release the cooling device object after processing it
-* by calling taf_therm_ReleaseCoolingDeviceRef().
-* @verbatim
+ * The application needs to release the cooling device object after processing it
+ * by calling taf_therm_ReleaseCoolingDeviceRef().
+ * @verbatim
    taf_therm_ReleaseCoolingDeviceRef(tripEventSampleRef);
-  @endverbatim
+   @endverbatim
 
  * An application may register and deregister a trip event handler to be notified when the trip
  * points trip with taf_therm_AddTripEventHandler() and taf_therm_RemoveTripEventHandler().
  * When a trip event is triggered, the handler is called.
  * @verbatim
 
- static void TestTripEventHandler
- (
-     taf_therm_TripPointRef_t tripPoint,
-     taf_therm_TripEventType_t type,
-     void* contextPtr
- )
- {
-     le_result_t result;
-     uint32_t tripID, tZoneID, threshold, hysterisis;
-     result = taf_therm_GetTripPointTripID(tripPoint, &tripID);
-     result = taf_therm_GetTripPointThermalZoneID(tripPoint, &tZoneID);
-     result = taf_therm_GetTripPointThreshold(tripPoint, &threshold);
-     result = taf_therm_GetTripPointHysterisis(tripPoint, &hysterisis);
-     char tripType[TYPE_SIZE];
-     memset(tripType, 0, TYPE_SIZE);
-     taf_therm_GetTripPointType(tripPoint, tripType, sizeof(tripType));
-     taf_therm_ReleaseTripEventRef(tripPoint);
- }
+   static void TestTripEventHandler
+   (
+       taf_therm_TripPointRef_t tripPoint,
+       taf_therm_TripEventType_t type,
+       void* contextPtr
+   )
+   {
+       le_result_t result;
+       uint32_t tripID, tZoneID, threshold, hysterisis;
+       result = taf_therm_GetTripPointTripID(tripPoint, &tripID);
+       result = taf_therm_GetTripPointThermalZoneID(tripPoint, &tZoneID);
+       result = taf_therm_GetTripPointThreshold(tripPoint, &threshold);
+       result = taf_therm_GetTripPointHysterisis(tripPoint, &hysterisis);
+       char tripType[TYPE_SIZE];
+       memset(tripType, 0, TYPE_SIZE);
+       taf_therm_GetTripPointType(tripPoint, tripType, sizeof(tripType));
+       taf_therm_ReleaseTripEventRef(tripPoint);
+   }
 
- handlerRef = taf_therm_AddTripEventHandler
- ((taf_therm_TripEventHandlerFunc_t) TripEventHandler, NULL);
- LE_ASSERT(handlerRef != NULL);
- taf_therm_RemoveTripEventHandler(handlerRef);
+   handlerRef = taf_therm_AddTripEventHandler
+   ((taf_therm_TripEventHandlerFunc_t) TripEventHandler, NULL);
+   LE_ASSERT(handlerRef != NULL);
+   taf_therm_RemoveTripEventHandler(handlerRef);
 
- @endverbatim
+   @endverbatim
  *
  * The application needs to release the trip point object after processing it by
  * calling taf_therm_ReleaseTripEventRef().
@@ -359,29 +360,29 @@
 
  * @verbatim
 
- void TestCoolingLevelChangeHandler
- (
-     taf_therm_CoolingDeviceRef_t cDev,
-     void* contextPtr
- )
- {
-     le_result_t result;
-     uint32_t coolingID, maxCooling, currCooling;
-     result = taf_therm_GetCDevID(cDev, &coolingID);
-     result = taf_therm_GetCDevMaxCoolingLevel(cDev, &maxCooling);
-     result = taf_therm_GetCDevCurrentCoolingLevel(cDev, &currCooling);
-     char description[TYPE_SIZE];
-     memset(description, 0, TYPE_SIZE);
-     result = taf_therm_GetCDevDescription(cDev, description, sizeof(description));
-     taf_therm_ReleaseCoolingDeviceRef(cDev);
- }
+   void TestCoolingLevelChangeHandler
+   (
+       taf_therm_CoolingDeviceRef_t cDev,
+       void* contextPtr
+   )
+   {
+       le_result_t result;
+       uint32_t coolingID, maxCooling, currCooling;
+       result = taf_therm_GetCDevID(cDev, &coolingID);
+       result = taf_therm_GetCDevMaxCoolingLevel(cDev, &maxCooling);
+       result = taf_therm_GetCDevCurrentCoolingLevel(cDev, &currCooling);
+       char description[TYPE_SIZE];
+       memset(description, 0, TYPE_SIZE);
+       result = taf_therm_GetCDevDescription(cDev, description, sizeof(description));
+       taf_therm_ReleaseCoolingDeviceRef(cDev);
+   }
 
- handlerRef = taf_therm_AddCoolingLevelChangeEventHandler
- ((taf_therm_CoolingLevelChangeEventHandlerFunc_t) TestCoolingLevelChangeHandler, NULL);
- LE_ASSERT(handlerRef != NULL);
- taf_therm_RemoveTripEventHandler(handlerRef);
+   handlerRef = taf_therm_AddCoolingLevelChangeEventHandler
+   ((taf_therm_CoolingLevelChangeEventHandlerFunc_t) TestCoolingLevelChangeHandler, NULL);
+   LE_ASSERT(handlerRef != NULL);
+   taf_therm_RemoveTripEventHandler(handlerRef);
 
- @endverbatim
+   @endverbatim
  *
  * The application needs to release the cooling device object after processing it
  * by calling taf_therm_ReleaseCoolingDeviceRef().
@@ -826,7 +827,7 @@ FUNCTION le_result_t GetTripPointHysterisis
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
 *
-* @note
+* @b NOTE:
 * This is supported only on SA525M.
 */
 //------------------------------------------------------------------------------------------------
@@ -845,7 +846,7 @@ FUNCTION le_result_t GetTripPointTripID
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
 *
-* @note
+* @b NOTE:
 * This is supported only on SA525M.
 */
 //------------------------------------------------------------------------------------------------
@@ -945,7 +946,7 @@ FUNCTION le_result_t GetBoundTripPointHysterisis
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
 *
-* @note This is supported only on SA525M.
+* @b NOTE: This is supported only on SA525M.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetBoundTripPointTripID
@@ -963,7 +964,7 @@ FUNCTION le_result_t GetBoundTripPointTripID
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
 *
-* @note This is supported only on SA525M.
+* @b NOTE: This is supported only on SA525M.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetBoundTripPointThermalZoneID

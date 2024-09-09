@@ -37,7 +37,7 @@
 /**
  * @page c_taflocPosCtrl Positioning Control
  *
- * @ref taf_locPosCtrl_interface.h "API Reference"
+ * @rst :ref:`API Reference <File taf_locPosCtrl_interface.h>` @endrst
  *
  * <HR>
  *
@@ -60,12 +60,12 @@
  * To request that the Positioning Control service be activated, call taf_locPosCtrl_Request().
  * To release the Positioning Control service when finished with it, call taf_locPosCtrl_Release().
  *
- * If the Positioning Control service is already active when taf_locPosCtrl_Request() is called, 
+ * If the Positioning Control service is already active when taf_locPosCtrl_Request() is called,
  * it will remain active. This happens if another application has already requested that the service
  * be activated and not yet released the Positioning Control service.
  *
  * The Positioning Control service need not be swititched off when an application calls
- * taf_locPosCtrl_Release(). The service will be switched off only after all applications that have 
+ * taf_locPosCtrl_Release(). The service will be switched off only after all applications that have
  * requested that the service be active have also released the Positioning Control service.
  *
  * <HR>

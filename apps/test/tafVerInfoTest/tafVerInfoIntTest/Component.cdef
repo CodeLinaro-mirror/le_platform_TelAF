@@ -1,0 +1,12 @@
+sources:
+{
+    tafVerInfoIntTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_verInfo.api
+    }
+}

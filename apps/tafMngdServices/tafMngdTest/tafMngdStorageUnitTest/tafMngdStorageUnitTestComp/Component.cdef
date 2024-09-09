@@ -7,7 +7,8 @@ requires:
 {
     api:
     {
-        taf_mngdSecStore.api
+        taf_mngdStorSec.api
+        taf_mngdStorCfg.api
     }
 }
 

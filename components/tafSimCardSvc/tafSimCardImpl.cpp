@@ -1090,7 +1090,7 @@ bool taf_sim::waitForCardEvent(CardEvent cardEvent, int timeout) {
 le_result_t taf_sim::OpenLogicalChannel( taf_sim_Id_t simId, taf_sim_AppType_t appType, uint8_t* channelPtr) {
     if (selectSimSlot(simId) != LE_OK) {
         LE_INFO("Selecting sim slot failed");
-        return LE_BAD_PARAMETER;
+        return LE_NOT_FOUND;
     }
     auto card = cards[slot];
     std::vector<std::shared_ptr<ICardApp>> applications;
@@ -1128,7 +1128,7 @@ le_result_t taf_sim::OpenLogicalChannel( taf_sim_Id_t simId, taf_sim_AppType_t a
 
 le_result_t taf_sim::CloseLogicalChannel( taf_sim_Id_t simId, uint8_t channel) {
     if (selectSimSlot(simId) != LE_OK) {
-        return LE_BAD_PARAMETER;
+        return LE_NOT_FOUND;
     }
     auto closeLogicalChannelCb = std::make_shared<tafCloseLogicalChannelCallback>();
     auto card = cards[slot];
@@ -1167,7 +1167,7 @@ le_result_t taf_sim::SendApduOnChannel( taf_sim_Id_t simId, uint8_t channel,
     }
 
     if (selectSimSlot(simId) != LE_OK) {
-        return LE_BAD_PARAMETER;
+        return LE_NOT_FOUND;
     }
     LE_DEBUG("SendApduOnChannel: channel id: %d", channel);
     auto card = cards[slot];
@@ -1210,7 +1210,7 @@ le_result_t taf_sim::SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr,
         }
     }
     if (selectSimSlot(simId) != LE_OK) {
-        return LE_BAD_PARAMETER;
+        return LE_NOT_FOUND;
     }
     auto card = cards[slot];
     auto ret = card->transmitApduBasicChannel(cla, instruction,
@@ -1236,15 +1236,14 @@ le_result_t taf_sim::SendCommand(
     uint8_t* responsePtr, size_t* responseNumElementsPtr
 )
 {
-    if(selectSimSlot(simId) != LE_OK)
-        return LE_BAD_PARAMETER;
+    if (selectSimSlot(simId) != LE_OK) {
+        LE_INFO("Issue with simId");
+        return LE_NOT_FOUND;
+    }
     char* fileId_end=(char*)fileIdentifierPtr+4;
     uint16_t field = strtol(fileIdentifierPtr, &fileId_end , 16);
     LE_INFO("field: %d", field);
-    if (selectSimSlot(simId) != LE_OK) {
-        LE_INFO("Issue with simId");
-        return LE_BAD_PARAMETER;
-    }
+
     auto card = cards[slot];
     string filePath = std::string(pathPtr, 5);
     std::vector<uint8_t> data(dataPtr, dataPtr+dataNumElements);
@@ -1447,11 +1446,19 @@ le_result_t taf_sim::profileListCallbackEm
 
 le_result_t taf_sim::LocalSwapToEmergencyCallSubscription
 (
-    taf_sim_Id_t simId
+    taf_sim_Id_t simId,
+    taf_sim_Manufacturer_t manufacturer
 )
 {
     std::promise<telux::common::ErrorCode> q;
     le_result_t r;
+
+    if (manufacturer == TAF_SIM_MORPHO || manufacturer == TAF_SIM_VALID
+            || manufacturer >= TAF_SIM_MANUFACTURER_MAX) {
+        LE_ERROR("The manufacturer MORPHO and VALID are not supported.");
+        return LE_UNSUPPORTED;
+    }
+
     if(selectSimSlot(simId)!=LE_OK){
         return LE_BAD_PARAMETER;
     }
@@ -1513,11 +1520,17 @@ le_result_t taf_sim::profileListCallbackCo
 
 le_result_t taf_sim::LocalSwapToCommercialCallSubscription
 (
-    taf_sim_Id_t simId
+    taf_sim_Id_t simId,
+    taf_sim_Manufacturer_t manufacturer
 )
 {
     std::promise<telux::common::ErrorCode> q;
     le_result_t r;
+    if (manufacturer == TAF_SIM_MORPHO || manufacturer == TAF_SIM_VALID
+            || manufacturer >= TAF_SIM_MANUFACTURER_MAX) {
+        LE_ERROR("The manufacturer MORPHO and VALID are not supported.");
+        return LE_UNSUPPORTED;
+    }
     if(selectSimSlot(simId)!=LE_OK){
         return LE_BAD_PARAMETER;
     }

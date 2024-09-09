@@ -1,0 +1,54 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafVerInfoSvc, 1.0)
+
+type telaf_tafVerInfoSvc_exec_t;
+files_type(telaf_tafVerInfoSvc_exec_t);
+
+type telaf_tafVerInfoSvc_t;
+gen_require(`
+    type firmware_t;
+    type proc_t;
+    type etc_t;
+    type telaf_sys_t;
+    type cert_t;
+    type shell_exec_t;
+    type mbim_device_t;
+    type mtd_device_t;
+    type ubi_device_t;
+')
+
+type telaf_tafVerInfoSvc_data_t;
+files_type(telaf_tafVerInfoSvc_data_t);
+
+init_telaf_app_domain(telaf_tafVerInfoSvc_t,telaf_tafVerInfoSvc_exec_t)
+
+# Allow update daemon to install/uninstall this service
+telaf_admin_manage_all_files_perms(telaf_tafVerInfoSvc_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafVerInfoSvc_exec_t)
+
+# Allow access to version files and directories
+allow telaf_tafVerInfoSvc_t firmware_t:file { read_file_perms };
+allow telaf_tafVerInfoSvc_t firmware_t:dir { search_dir_perms };
+allow telaf_tafVerInfoSvc_t proc_t:file { read_file_perms };
+allow telaf_tafVerInfoSvc_t proc_t:dir { search_dir_perms };
+allow telaf_tafVerInfoSvc_t etc_t:file { read_file_perms };
+allow telaf_tafVerInfoSvc_t etc_t:dir { search_dir_perms };
+allow telaf_tafVerInfoSvc_t telaf_sys_t:file { read_file_perms };
+allow telaf_tafVerInfoSvc_t telaf_sys_t:dir { search_dir_perms };
+
+# Allow access to ssl library
+allow telaf_tafVerInfoSvc_t cert_t:dir { search };
+allow telaf_tafVerInfoSvc_t cert_t:file { read_file_perms };
+
+# Allow access to get boot bank
+allow telaf_tafVerInfoSvc_t shell_exec_t:file { exec_file_perms };
+
+# Allow access to get partition data
+allow telaf_tafVerInfoSvc_t mbim_device_t:chr_file { rw_file_perms };
+allow telaf_tafVerInfoSvc_t mtd_device_t:chr_file { rw_file_perms };
+allow telaf_tafVerInfoSvc_t ubi_device_t:chr_file { rw_file_perms };
+
+# Allow access to HAL component
+telaf_load_vhal_modules(telaf_tafVerInfoSvc_t)

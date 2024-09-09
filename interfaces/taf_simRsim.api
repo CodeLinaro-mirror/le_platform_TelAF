@@ -67,7 +67,7 @@
 /**
  * @page c_tafsimRsim Remote SIM
  *
- * @ref taf_simRsim_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_simRsim_interface.h>` @endrst
  *
  * <HR>
  *
@@ -156,15 +156,16 @@
  * Applications must use @ref taf_simRsim_RemoveMessageHandler() to release @ref taf_simRsim_MessageHandlerRef_t message
  * handler reference object when it is no longer used.
  *
- * @warning The remote SIM service supports only one remote SIM card and can therefore be
- *          connected with only one application.
+ * @b WARNING: The remote SIM service supports only one remote SIM card and can therefore be
+ *              connected with only one application.
  *
- * @note
- * - The remote SIM service has to be supported by the modem to be used: check your platform
- *   documentation.
- * - The remote SIM card should be selected in order to use the remote SIM service.
- * - As runtime switch is not currently supported, the switch between local and remote SIM card
- *   requires a platform reset to take effect.
+ * @b NOTE:
+ *    
+ *    - The remote SIM service has to be supported by the modem to be used: check your platform
+ *      documentation.
+ *    - The remote SIM card should be selected in order to use the remote SIM service.
+ *    - As runtime switch is not currently supported, the switch between local and remote SIM card
+ *      requires a platform reset to take effect.
  *
  * <HR>
  *

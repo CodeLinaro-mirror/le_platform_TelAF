@@ -76,11 +76,13 @@ COMPONENT_INIT
  *  - LE_BAD_PARAMETER  Invalid parameter.
  */
 //-------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_DataAccess_Init
+le_result_t taf_DataAccess_Init
 (
 )
 {
-    return LE_OK;
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.Load();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -358,7 +360,7 @@ uint8_t taf_DataAccess_GetDTCStatus
  *  - The occurence counter of the DTC. If not exist, will return 0.
  */
 //-------------------------------------------------------------------------------------------------
-LE_SHARED uint8_t taf_DataAccess_GetDTCOccurrenceCounter
+uint8_t taf_DataAccess_GetDTCOccurrenceCounter
 (
     uint32_t dtc        ///< [IN]
 )
@@ -386,6 +388,24 @@ le_result_t taf_DataAccess_SetEventFailedCounter
     auto &demHandler = DemDataHandler::GetInstance();
 
     return demHandler.SetEventFailedCounter(eventId, failedCounter);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Set event test failed counter and save it in storage media.
+ *
+ * @return
+ *  - The failed counter of the event. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED uint8_t taf_DataAccess_GetEventFailedCounter
+(
+    uint16_t eventId        ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetEventFailedCounter(eventId);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -423,4 +443,220 @@ le_result_t taf_DataAccess_DeleteData
     auto &demHandler = DemDataHandler::GetInstance();
 
     return demHandler.DeleteData(dtc);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the DTC activation status from storage media.
+ *
+ * @return
+ *  - The status of the DTC activation. If not exist, will return 1.
+ */
+//-------------------------------------------------------------------------------------------------
+uint8_t taf_DataAccess_GetDTCActivation
+(
+    uint32_t dtc        ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetActivation(dtc);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Set the DTC activation status into storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_SetDTCActivation
+(
+    uint32_t dtc,               ///< [IN]
+    uint8_t activationStatus    ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.SetActivation(dtc, activationStatus);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the DTC suppression status from storage media.
+ *
+ * @return
+ *  - The status of the DTC suppression. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+uint8_t taf_DataAccess_GetDTCSuppression
+(
+    uint32_t dtc        ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetSuppression(dtc);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Set the DTC suppression status into storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ *  - LE_BAD_PARAMETER  Bad parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_SetDTCSuppression
+(
+    uint32_t dtc,               ///< [IN]
+    uint8_t suppressionStatus   ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    if (suppressionStatus != 0 && suppressionStatus != 1)
+    {
+        LE_ERROR("SetDTCSuppression error: Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    return demHandler.SetSuppression(dtc, suppressionStatus);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get all the datas of the specified DTC.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_GetDTCData
+(
+    uint32_t dtc,       ///< [IN]
+    le_dls_List_t *list ///< [OUT]
+)
+{
+    if (list == nullptr)
+    {
+        LE_ERROR("taf_DataAccess_GetDTCData error: Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetDTCData(dtc, list);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Release the data resources.
+ *
+ * @return
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_DataAccess_ReleaseDTCData
+(
+    le_dls_List_t *list
+)
+{
+    if (list == nullptr)
+    {
+        LE_ERROR("taf_DataAccess_ReleaseDTCData error: Bad parameter.");
+        return;
+    }
+
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.ReleaseDTCData(list);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Save the snapshot data into storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_SetSnapshotData
+(
+    uint32_t dtc,
+    le_dls_List_t *list,
+    void *action,
+    void (*release)(le_dls_List_t *list)
+)
+{
+    if (list == nullptr)
+    {
+        LE_ERROR("taf_DataAccess_ReleaseDTCData error: Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto &demHandler = DemDataHandler::GetInstance();
+    le_result_t ret = demHandler.SetSnapshotData(dtc, 0, list);
+    if (ret != LE_OK)
+    {
+        LE_ERROR("Failed to save snapshot data, ret=%d.", (int)ret);
+        goto out;
+    }
+
+    ret = LE_OK;
+out:
+    if (release != nullptr)
+    {
+        release(list);
+    }
+
+    return ret;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Save the suppression status of all DTCs into storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_SetAllDTCSuppression
+(
+    uint8_t suppressionStatus
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    if (suppressionStatus != 0 && suppressionStatus != 1)
+    {
+        LE_ERROR("SetDTCSuppression error: Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    return demHandler.SetAllSuppression(suppressionStatus);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * clear up all the DTC datas in the storage media. Include suppressional DTCs.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_ResetDTCStorage
+(
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.ResetAllData();
 }

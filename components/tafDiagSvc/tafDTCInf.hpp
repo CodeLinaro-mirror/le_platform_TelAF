@@ -39,26 +39,48 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include "tafDiagBackend.hpp"
-
+#include "configuration.hpp"
 
 // Response data size.
 #define RESPONSE_DATA_SIZE 4095
 
 // ReadDTCInformation service (0x19)
+// Subfunction reportNumberOfDTCByStatusMask (0x01)
 #define NO_OF_DTC_BY_STATUS_MASK_REQ_LEN 3
 #define NO_OF_DTC_BY_STATUS_MASK_RESP_BASE_LEN 4
+
+// Subfunction reportDTCByStatusMask (0x02)
 #define DTC_BY_STATUS_MASK_REQ_LEN 3
 #define DTC_BY_STATUS_MASK_RESP_BASE_LEN 1
+
+// Subfunction reportDTCSnapshotIdentification (0x03)
+#define DTC_SNAPSHOT_ID_REQ_LEN 2
+#define DTC_SNAPSHOT_ID_RESP_BASE_LEN 0
+
+// Subfunction reportDTCSnapshotRecordByDTCNumber (0x04)
+#define DTC_SNAPSHOT_REC_BY_DTC_NUM_REQ_LEN 6
+#define DTC_SNAPSHOT_REC_BY_DTC_NUM_RESP_BASE_LEN 4
+
+// Subfunction reportDTCExtDataRecordByDTCNumber (0x06)
 #define DTC_EXT_DATA_REC_BY_DTC_NO_REQ_LEN 6
 #define DTC_EXT_DATA_REC_BY_DTC_NO_RESP_BASE_LEN 4
+
+// Subfunction reportSupportedDTC (0x0A)
 #define SUPPORTED_DTC_REQ_LEN 2
 #define SUPPORTED_DTC_RESP_BASE_LEN 1
+
+// Subfunction reportDTCFaultDetectionCounter (0x14)
 #define DTC_FAULT_DETECTION_COUNTER_REQ_LEN 2
 #define DTC_FAULT_DETECTION_COUNTER_RESP_BASE_LEN 0
 
 // ClearDiagnosticInformation service (0x14)
 #define CLEAR_DTC_INFO_REQ_MIN_LEN 4
 #define CLEAR_DTC_INFO_RESP_LEN 0
+
+#define FEATURE_A_PROGRAMMING_SESSION 0x2
+#define FEATURE_A_FOTA_SESSION 0x42
+#define FEATURE_A_APPLICATION_DTC_AVAILABILITY_MASK 0x9
+#define FEATURE_A_REPROGRAMMING_DTC_AVAILABILITY_MASK 0x11
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -69,6 +91,8 @@ typedef enum
 {
     REPORT_NO_OF_DTC_BY_STATUS_MASK = 0x01,
     REPORT_DTC_BY_STATUS_MASK = 0x02,
+    REPORT_DTC_SNAPSHOT_ID = 0x03,
+    REPORT_DTC_SNAPSHOT_REC_BY_DTC_NO = 0x04,
     REPORT_DTC_EXT_DATA_REC_BY_DTC_NO = 0x06,
     REPORT_SUPPORTED_DTC = 0x0A,
     REPORT_DTC_FAULT_DETECTION_COUNTER = 0x14
@@ -105,6 +129,8 @@ namespace telux
                 static taf_DTCInf& GetInstance();
                 void Init();
 
+                bool IsDTCCurrentSesTypeConfig(uint32_t dtc, uint8_t currentSesType);
+
                 // UDS message handler.
                 void UDSMsgHandler(const taf_uds_AddrInfo_t* addrPtr, uint8_t sid, uint8_t* msgPtr,
                         size_t msgLen) override;
@@ -117,6 +143,13 @@ namespace telux
 
                 // Subfunction reportDTCByStatusMask (0x02)
                 le_result_t GetDtcByStatusMask(uint8_t statusMask);
+
+                // Subfunction reportDTCSnapshotIdentification (0x03)
+                le_result_t GetDtcSnapshotID();
+
+                // Subfunction reportDTCSnapshotRecordByDTCNumber (0x04)
+                le_result_t GetDtcSnapshotRecordByDTCNum(uint32_t dtcMaskRec,
+                        uint8_t dtcRecNum);
 
                 // Subfunction reportDTCExtDataRecordByDTCNumber (0x06)
                 le_result_t GetExtDataRecordByDTCNum(uint32_t dtcMaskRec, uint8_t dtcExtDataRec);
@@ -135,7 +168,9 @@ namespace telux
                 // Send NRC response msg.
                 le_result_t SendNRCResp(uint8_t sid, const taf_uds_AddrInfo_t*  addrInfoPtr,
                         uint8_t errCode);
-
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+                uint8_t GetAvailableStatusMaskByCurrentSession(uint8_t currentSesType);
+#endif
                 uint8_t reqReadDTCSvcId = 0x19;    // ReadDTC request service ID.
                 uint8_t respReadDTCSvcId = 0x59;   // ReadDTC response service ID.
                 uint8_t reqClearDTCSvcId = 0x14;   // ClearDTC request service ID.

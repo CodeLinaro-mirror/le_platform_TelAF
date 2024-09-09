@@ -1,35 +1,6 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include <errno.h>
 #include <arpa/inet.h>
@@ -497,10 +468,28 @@ taf_doip_Result_t CommunicationMgr::InformUdsMessage
     diagInfoPtr = (taf_doipDiagDataInfo_t*)le_mem_ForceAlloc(udsInfoPool);
 
     diagInfoPtr->sa     = sa;
-    diagInfoPtr->ta     = ta;
 
-    // Currently, we only support physical addressing;
-    diagInfoPtr->taType = TAF_DOIP_TA_TYPE_PHYSICAL;
+    auto &vehicleMgr = VehicleManager::GetInstance();
+    uint16_t sourceAddr = 0;
+    vehicleMgr.GetEntityLogicalAddr(&sourceAddr);
+
+    if (vehicleMgr.IsFunctionalAddress(ta))
+    {
+        diagInfoPtr->ta = sourceAddr;  // Use our logical address.
+        diagInfoPtr->taType = TAF_DOIP_TA_TYPE_FUNCTIONAL;
+    }
+    else
+    {
+        if (ta != sourceAddr)
+        {
+            LE_ERROR("Invalid TA(0x%x). Expect 0x%x\n", ta, sourceAddr);
+            return TAF_DOIP_RESULT_UNKNOWN_TA;
+        }
+
+        diagInfoPtr->ta = ta;
+        diagInfoPtr->taType = TAF_DOIP_TA_TYPE_PHYSICAL;
+    }
+
     diagInfoPtr->data   = dataPtr;
     diagInfoPtr->len    = length;
 
@@ -849,9 +838,13 @@ taf_doip_Result_t CommunicationMgr::CheckDoipHeaderOverUdp
 
     // We are DoIP entity.
     if (header.payloadType != TAF_DOIP_PAYLOAD_TYPE_VEHICLE_IDENTIFY_REQUEST
+#if TAF_DOIP_VIN_REQ_WITH_EID_OPTION
         && header.payloadType != TAF_DOIP_PAYLOAD_TYPE_VEHICLE_IDENTIFY_REQUEST_EID
+#endif
         && header.payloadType != TAF_DOIP_PAYLOAD_TYPE_VEHICLE_IDENTIFY_REQUEST_VIN
+#if TAF_DOIP_ENTITY_STATUS_REQ_OPTION
         && header.payloadType != TAF_DOIP_PAYLOAD_TYPE_ENTITY_STATUS_REQUEST
+#endif
         && header.payloadType != TAF_DOIP_PAYLOAD_TYPE_POWER_MODE_INFO_REQUEST)
     {
         // [DoIP-042] NACK code set to 0x01 if the payload type is not supported.
@@ -873,6 +866,16 @@ taf_doip_Result_t CommunicationMgr::CheckDoipHeaderOverUdp
         LE_ERROR("DoIP message is too large! payload len is %d, mds is %d\n",
                 header.payloadLen, mds);
         nackCode = TAF_DOIP_HEADER_NACK_MESSAGE_TOO_LARGE;
+        goto errOut;
+    }
+
+    if (header.payloadLen > (udpDataLen - TAF_DOIP_HEADER_GENERIC_LENGTH))
+    {
+        // [DoIP-044] NACK code set to 0x03 if the payload length exceeds
+        // the currently availbale DoIP protocol handler memory.
+        LE_ERROR("DoIP message is out of memory! payload len is %d, available memory is %d\n",
+                header.payloadLen, udpDataLen - TAF_DOIP_HEADER_GENERIC_LENGTH);
+        nackCode = TAF_DOIP_HEADER_NACK_OUT_OF_MEMORY;
         goto errOut;
     }
 

@@ -142,6 +142,31 @@ le_result_t taf_AudioVhal::GetNodeMuteState(uint8_t audioNodeId, bool *isMuted)
     return audioInf->GetNodeMuteState(audioNodeId, isMuted);
 }
 
+le_result_t taf_AudioVhal::SetNodeGain (uint8_t nodeId, taf_audioVendor_Direction_t direction,
+        double gain)
+{
+    LE_DEBUG("SetNodeGain node id : %d direction: %d gain: %f", nodeId, direction, gain);
+
+    if (audioInf->SetNodeGain) {
+        return audioInf->SetNodeGain(nodeId, (hal_audio_direction_t)direction, gain);
+    }
+
+    return LE_UNSUPPORTED;
+}
+
+le_result_t taf_AudioVhal::GetNodeGain (uint8_t nodeId, taf_audioVendor_Direction_t direction,
+        double *gain)
+{
+    LE_DEBUG("GetNodeGain node id : %d direction: %d", nodeId, direction);
+
+    if (audioInf->GetNodeGain) {
+        return audioInf->GetNodeGain(nodeId, (hal_audio_direction_t)direction, gain);
+    }
+
+    return LE_UNSUPPORTED;
+
+}
+
 void taf_AudioVhal::NodeEventHandler(void* reportPtr, void* secondLayerHandlerFunc)
 {
     taf_AudioVhal audioVhal = taf_AudioVhal::GetInstance();

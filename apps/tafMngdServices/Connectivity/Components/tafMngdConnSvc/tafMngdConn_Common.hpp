@@ -209,7 +209,8 @@ namespace tafsvc {
         MCS_JSON_VERSION_23_07_00 = 230700, //"TAF_23.07.00"
         MCS_JSON_VERSION_23_11_00 = 231100, //"TAF_23.11.00"
         MCS_JSON_VERSION_24_03_00 = 240300, //"TAF_24.03.00"
-        MCS_JSON_VERSION_24_06_00 = 240600  //"TAF_24.06.00"
+        MCS_JSON_VERSION_24_06_00 = 240600, //"TAF_24.06.00"
+        MCS_JSON_VERSION_24_07_00 = 240700  //"TAF_24.07.00"
     } mcs_JSON_Version_t;
 
     // Constant Strings
@@ -233,14 +234,5 @@ namespace tafsvc {
      *
      */
     const int MCS_MAX_RECOVERY_LEVEL = 4;
-
-        /**
-     * \brief Maximum level of supported RetryCount
-     *
-     * Maximum RetryCount is 255 for Alpha2 Release
-     *
-     */
-    const int MCS_MAX_RECOVERY_RETRY_COUNT = 255;
-
 }
 }

@@ -95,7 +95,7 @@ void tafMngdStorageSvc::InitStorage
     SecDataRefMap = le_ref_CreateMap("SecDataRefMap", SECURE_MAX_NUM_OF_DATA);
 
     // Release storage reference for disconnected session
-    le_msg_AddServiceCloseHandler(taf_mngdSecStore_GetServiceRef(),
+    le_msg_AddServiceCloseHandler(taf_mngdStorSec_GetServiceRef(),
                                     ReleaseDataRef,
                                     nullptr);
 }
@@ -175,7 +175,7 @@ le_result_t tafMngdStorageSvc::GetClientNamespace
     pid_t pid;
     char appPath[LIMIT_MAX_PATH_BYTES] = {0};
 
-    le_msg_SessionRef_t sessionRef = taf_mngdSecStore_GetClientSessionRef();
+    le_msg_SessionRef_t sessionRef = taf_mngdStorSec_GetClientSessionRef();
 
     if (sessionRef != nullptr)
     {

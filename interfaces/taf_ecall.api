@@ -72,7 +72,7 @@
 /**
  * @page c_tafecall eCall Service
  *
- * @ref taf_ecall_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_ecall_interface.h>` @endrst
  *
  * <HR>
  *
@@ -158,12 +158,13 @@
  * taf_ecall_Answer() is used to answer an incoming eCall when the minimum network registration
  * timer is active.
  *
- * @warning An application should wait for end of the existing eCall before dialing another
- * with the @c taf_ecall_StartXxx() APIs. An eCall is stopped when any of the following occurs.
- * - The application successfully stops it with taf_ecall_End() returning @c LE_OK
- * - The @ref TAF_ECALL_STATE_ENDED event arrives
- * - The @ref TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN event is notified
- * - The @ref TAF_ECALL_STATE_FAILED event is notified and no redial is initiated
+ * @b WARNING: An application should wait for end of the existing eCall before dialing another
+ *             with the @c taf_ecall_StartXxx() APIs. An eCall is stopped when any of the following occurs.
+ *
+ *             - The application successfully stops it with taf_ecall_End() returning @c LE_OK
+ *             - The @ref TAF_ECALL_STATE_ENDED event arrives
+ *             - The @ref TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN event is notified
+ *             - The @ref TAF_ECALL_STATE_FAILED event is notified and no redial is initiated
  *
  * If the eCall object is no longer required, the application can call taf_ecall_Delete() to free
  * all allocated resources of the eCall object.
@@ -247,8 +248,8 @@
  *
  * The MSD is automatically encoded with the previous MSD values set earlier.
  *
- * @warning The above functions may return a @ref LE_DUPLICATE error when MSD has already been imported
- * using the taf_ecall_ImportMsd() API.
+ * @b WARNING: The above functions may return a @ref LE_DUPLICATE error when MSD has already been imported
+ *             using the taf_ecall_ImportMsd() API.
  *
  * The MSD transmission mode can be set and retrieved using the following APIs.
  *  - taf_ecall_SetMsdTxMode(): Not supported on this platform.
@@ -260,18 +261,20 @@
  *
  * An application can import an existing MSD using the taf_ecall_ImportMsd() API.
  * The existing MSD must follow the requirements presented in the "EN15722:2020" publication (this
- * publication is prepared by Technical Committee CEN/TC 278 “Intelligent Transport Systems").
+ * publication is prepared by Technical Committee CEN/TC 278 "Intelligent Transport Systems") or import
+ * an MSD with maximum length of 255 bytes for Private eCall over IMS.
  *
- * @warning The imported MSD does not consider the values provided by the
- * taf_ecall_SetMsdXxx() APIs. It overwrites any MSD imported or encoded previously.
+ * @b WARNING: The imported MSD does not consider the values provided by the
+ *             taf_ecall_SetMsdXxx() APIs. It overwrites any MSD imported or encoded previously.
  *
- * @warning The imported MSD may overwrite the control flags (automatic and test eCall) set by
- * taf_ecall_StartXxx() APIs (Manual, Automatic, Test). The user app is responsible for the
- * proper settings.
+ * @b WARNING: The imported MSD may overwrite the control flags (automatic and test eCall) set by
+ *             taf_ecall_StartXxx() APIs (Manual, Automatic, Test). The user app is responsible for the
+ *             proper settings.
  *
- * The encoded MSD can be fetched with the taf_ecall_ExportMsd() API.
+ * The encoded MSD provided by taf_ecall_ImportMsd() API or taf_ecall_SetMsdXxx() API can be fetched with
+ * the taf_ecall_ExportMsd() API.
  *
- * @note The user application should perform the MSD transmission by using taf_ecall_SendMsd() when the
+ * @b NOTE: The user application should perform the MSD transmission by using taf_ecall_SendMsd() when the
  * @ref TAF_ECALL_STATE_PSAP_START_RECEIVED event arrives.
  * The MSD may be modified before calling taf_ecall_SendMsd() by the e_ecall_ImportMsd() API
  * or the taf_ecall_SetMsdXxx() APIs.
@@ -306,7 +309,9 @@
  *
  * @section taf_ecall_usage_flow Typical application call flow
  *
- * @image html eCall_usage_flow.jpg
+ * @rstblock
+ * .. image:: /rst/flow_diagrams/eCall_usage_flow.jpg
+ * @endrst
  *
  * eCall apps can use the TelAF eCall service to start an eCall with a PSAP, enable conversation over a voice channel,
  * and end the eCall.
@@ -721,7 +726,7 @@ FUNCTION le_result_t GetConfiguredOperationMode
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
  *
- * @note Currently, only MSD version 2 and 3 are supported.
+ * @b NOTE: Currently, only MSD version 2 and 3 are supported.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdVersion
@@ -737,7 +742,7 @@ FUNCTION le_result_t SetMsdVersion
  *      - LE_OK -- Succeeded.
  *      - LE_BAD_PARAMETER -- Invalid parameters.
  *
- * @note Currently, only MSD version 2 and 3 are supported.
+ * @b NOTE: Currently, only MSD version 2 and 3 are supported.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetMsdVersion
@@ -901,7 +906,7 @@ FUNCTION le_result_t SetMsdPosition
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
  *
- * @note The process exits when an invalid eCall reference is given.
+ * @b NOTE: The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPositionN1
@@ -927,7 +932,7 @@ FUNCTION le_result_t SetMsdPositionN1
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
  *
- * @note The process exits when an invalid eCall reference is given.
+ * @b NOTE: The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPositionN2
@@ -953,7 +958,7 @@ FUNCTION le_result_t SetMsdPositionN2
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
  *
- * @note The process exits when an invalid eCall reference is given.
+ * @b NOTE: The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPassengersCount
@@ -972,7 +977,7 @@ FUNCTION le_result_t SetMsdPassengersCount
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
  *
- * @note The process exits when an invalid eCall reference is given.
+ * @b NOTE: The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdAdditionalData
@@ -993,7 +998,7 @@ FUNCTION le_result_t SetMsdAdditionalData
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
  *
- * @note The process exits when an invalid eCall reference is given.
+ * @b NOTE: The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ResetMsdAdditionalData
@@ -1011,7 +1016,7 @@ FUNCTION le_result_t ResetMsdAdditionalData
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
  *
- * @note The process exits when an invalid eCall reference is given.
+ * @b NOTE: The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdEuroNCAPLocationOfImpact
@@ -1030,7 +1035,7 @@ FUNCTION le_result_t SetMsdEuroNCAPLocationOfImpact
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
  *
- * @note The process exits when an invalid eCall reference is given.
+ * @b NOTE: The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdEuroNCAPRolloverDetected
@@ -1049,7 +1054,7 @@ FUNCTION le_result_t SetMsdEuroNCAPRolloverDetected
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
  *
- * @note The process exits when an invalid eCall reference is given.
+ * @b NOTE: The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ResetMsdEuroNCAPRolloverDetected
@@ -1067,7 +1072,7 @@ FUNCTION le_result_t ResetMsdEuroNCAPRolloverDetected
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
  *
- * @note The process exits when an invalid eCall reference is given.
+ * @b NOTE: The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdEuroNCAPIIDeltaV
@@ -1088,12 +1093,12 @@ FUNCTION le_result_t SetMsdEuroNCAPIIDeltaV
  *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_OVERFLOW -- The size of the MSD buffer is wrong.
  *
- * @note The process exits if an invalid eCall reference is passed.
+ * @b NOTE: The process exits if an invalid eCall reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ImportMsd
 (
-    Call  ecallRef IN,              ///< SIM slot ID.
+    Call  ecallRef IN,              ///< eCall reference.
     uint8 msd[MAX_MSD_LENGTH] IN    ///< MSD.
 );
 
@@ -1105,15 +1110,15 @@ FUNCTION le_result_t ImportMsd
  *      - LE_OK -- Succeeded.
  *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_OVERFLOW -- The size of the MSD buffer is wrong.
- *      - LE_NOT_FOUND -- The MSD is not imported or updated.
+ *      - LE_NOT_FOUND -- The MSD is not found.
  *      - LE_FAULT -- Failed.
  *
- * @note The process exits if an invalid eCall reference is passed.
+ * @b NOTE: The process exits if an invalid eCall reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ExportMsd
 (
-    Call  ecallRef IN,              ///< SIM slot ID.
+    Call  ecallRef IN,              ///< eCall reference.
     uint8 msd[MAX_MSD_LENGTH] OUT   ///< MSD output.
 );
 
@@ -1198,7 +1203,7 @@ FUNCTION le_result_t StartTest
  *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_FAULT -- Failed.
  *
- * @note Currently, only SA525M platform are supported.
+ * @b NOTE: Currently, only SA525M platform are supported.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StartPrivate
@@ -1251,7 +1256,7 @@ FUNCTION le_result_t Answer
  * @return
  *      - The current state of the given eCall.
  *
- * @note The process exits if an invalid eCall reference is passed.
+ * @b NOTE: The process exits if an invalid eCall reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION State GetState
@@ -1266,7 +1271,7 @@ FUNCTION State GetState
  * @return
  *      - The current type of the given eCall.
  *
- * @note Passing a bad or null pointer to this function results in a fatal error and the function
+ * @b NOTE: Passing a bad or null pointer to this function results in a fatal error and the function
  *       may not return.
  */
 //-------------------------------------------------------------------------------------------------
@@ -1283,7 +1288,7 @@ FUNCTION  Type GetType
  * @return
  *      - The platform-specific termination code.
  *
- * @note The API is not supported in this platform.
+ * @b NOTE: The API is not supported in this platform.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION int32 GetPlatformSpecificTerminationCode
@@ -1297,7 +1302,7 @@ FUNCTION int32 GetPlatformSpecificTerminationCode
  *
  * @return The termination reason.
  *
- * @note Passing a bad or null pointer to this function results in a fatal error and the function
+ * @b NOTE: Passing a bad or null pointer to this function results in a fatal error and the function
  *       may not return.
  */
 //-------------------------------------------------------------------------------------------------
@@ -1310,17 +1315,17 @@ FUNCTION TerminationReason GetTerminationReason
 /**
  * Sets the public safely answering point (PSAP) phone number for eCall.
  *
- * @note The PSAP number is applicable in manually or automatically dialed eCalls. It is also
+ * @b NOTE: The PSAP number is applicable in manually or automatically dialed eCalls. It is also
  *       applicable to test eCalls that are dialed intentionally for testing, validating,
  *       or certifying.
  *
- * @warning This function doesn't modify the U/SIM content.
+ * @b WARNING: This function doesn't modify the U/SIM content.
  *
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Failed.
  *
- * @note If the PSAP number is empty or too long (max TAF_SIM_PHONE_NUM_MAX_LEN digits), it is a
+ * @b NOTE: If the PSAP number is empty or too long (max TAF_SIM_PHONE_NUM_MAX_LEN digits), it is a
  *       fatal error and the function will not return.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1333,11 +1338,11 @@ FUNCTION TerminationReason GetTerminationReason
 /**
  * Gets the PSAP number set with taf_ecall_SetPsapNumber().
  *
- * @note The PSAP number is applicable in manually or automatically dialed eCalls. It is also
+ * @b NOTE: The PSAP number is applicable in manually or automatically dialed eCalls. It is also
  *       applicable to test eCalls that are dialed intentionally for testing, validating,
  *       or certifying.
  *
- * @warning This function doesn't read the U/SIM content.
+ * @b WARNING: This function doesn't read the U/SIM content.
  *
  * @return
  *  - LE_OK -- Succeeded.
@@ -1356,7 +1361,7 @@ FUNCTION le_result_t GetPsapNumber
  * Reads the FDN/SDN numbers from U/SIM to dial a test eCall when the modem is in
  * TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY or TAF_ECALL_MODE_ECALL.
  *
- * @note If the FDN number is updated with a new number, ensure that the SIM card is refreshed.
+ * @b NOTE: If the FDN number is updated with a new number, ensure that the SIM card is refreshed.
  *
  * @return
  *  - LE_OK -- Succeeded.

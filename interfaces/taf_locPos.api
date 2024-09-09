@@ -37,13 +37,13 @@
 /**
  * @page c_taflocPos Positioning
  *
- * @ref taf_locPos_interface.h "API Reference" <br>
+ * @rst :ref:`API reference <File taf_locPos_interface.h>` @endrst
  *
  * <HR>
  *
  * This API provides access to the device's physical position and movement information.
  *
- * @note    Enabling and disabling the positioning system can be performed
+ * @b NOTE: Enabling and disabling the positioning system can be performed
  *          only through the @ref c_taflocPosCtrl.
  *
  * @section taf_locPos_binding IPC interfaces binding
@@ -185,21 +185,21 @@
  * the threshhold triggers notification (0 means not to notify about changes).
  *
  * @verbatim
-    static void NavigationHandler
-    (
-       taf_locPos_SampleRef_t positionSampleRef,
-       void* contextPtr
-    )
-    {
-      int32_t latitude, longitude, horizontalAccuracy;
-      LE_ASSERT_OK(taf_locPos_sample_Get2DLocation(positionSampleRef, &latitude,
-                                             &longitude, &horizontalAccuracy));
-      taf_locPos_sample_Release(positionSampleRef);
-    }
-    static taf_locPos_MovementHandlerRef_t  navigationHandlerRef;
-    navigationHandlerRef = taf_locPos_AddMovementHandler(0, 0, NavigationHandler, NULL);
-    LE_ASSERT(NULL != navigationHandlerRef);
-    taf_locPos_RemoveMovementHandler(navigationHandlerRef);
+   static void NavigationHandler
+   (
+      taf_locPos_SampleRef_t positionSampleRef,
+      void* contextPtr
+   )
+   {
+     int32_t latitude, longitude, horizontalAccuracy;
+     LE_ASSERT_OK(taf_locPos_sample_Get2DLocation(positionSampleRef, &latitude,
+                                            &longitude, &horizontalAccuracy));
+     taf_locPos_sample_Release(positionSampleRef);
+   }
+   static taf_locPos_MovementHandlerRef_t  navigationHandlerRef;
+   navigationHandlerRef = taf_locPos_AddMovementHandler(0, 0, NavigationHandler, NULL);
+   LE_ASSERT(NULL != navigationHandlerRef);
+   taf_locPos_RemoveMovementHandler(navigationHandlerRef);
    @endverbatim
  *
  * The handler gives a reference to the position sample object that triggered the
@@ -207,7 +207,7 @@
  * the object when done with it.
  *
  * The accessor functions are:
- * - taf_locPos_sample_Get2DLocation -- Triggered inside NavigationHandler() function to get 
+ * - taf_locPos_sample_Get2DLocation -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
@@ -218,7 +218,7 @@
    }
    @endverbatim
  *
- * - taf_locPos_sample_GetTime() -- Triggered inside NavigationHandler() function to get 
+ * - taf_locPos_sample_GetTime() -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
@@ -229,7 +229,7 @@
    }
    @endverbatim
  *
- * - taf_locPos_sample_GetDate() -- Triggered inside NavigationHandler() function to get 
+ * - taf_locPos_sample_GetDate() -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
@@ -251,7 +251,7 @@
    }
    @endverbatim
  *
- * - taf_locPos_sample_GetHorizontalSpeed() -- Triggered inside NavigationHandler() function to get 
+ * - taf_locPos_sample_GetHorizontalSpeed() -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
@@ -262,7 +262,7 @@
    }
    @endverbatim
  *
- * - taf_locPos_sample_GetVerticalSpeed() -- Triggered inside NavigationHandler() function to get 
+ * - taf_locPos_sample_GetVerticalSpeed() -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
@@ -273,7 +273,7 @@
    }
    @endverbatim
  *
- * - taf_locPos_sample_GetDirection() -- Triggered inside NavigationHandler() function to get 
+ * - taf_locPos_sample_GetDirection() -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
@@ -297,8 +297,8 @@
  * @c taf_locPos_sample_Release() releases the object.
  *
  * You can remove the handler function by calling the taf_locPos_RemoveMovementHandler() API.
- * @note The taf_locPos_RemoveMovementHandler() API does not delete the position object. The caller has
- *       to delete it by calling the taf_locPos_sample_Release() function.
+ * @b NOTE: The taf_locPos_RemoveMovementHandler() API does not delete the position object. The caller has
+ *          to delete it by calling the taf_locPos_sample_Release() function.
  *
  * @section taf_locPos_acquisitionRate Positioning acquisition rate
  *
@@ -320,12 +320,11 @@
      // Process after succesfully getting the acquisition rate.
    }
    @endverbatim
- * @note
- * The acquisition rate set will take effect once a request of activation of the positioning service
- * by taf_locPosCtrl_Request() is done.
- * @note
- * If the acquisition rate was not previously configured, it will be set to a default value
- * of one second once taf_locPosCtrl_Request() is called.
+ * @b NOTE: The acquisition rate set will take effect once a request of activation of the positioning service
+ *          by taf_locPosCtrl_Request() is done.
+ *
+ * @b NOTE: If the acquisition rate was not previously configured, it will be set to a default value
+ *          of one second once taf_locPosCtrl_Request() is called.
  *
  * <HR>
  *
@@ -378,7 +377,7 @@ EVENT Movement
  * - LE_OUT_OF_RANGE  One, or more, retrieved parameters is invalid.
  * - LE_OK            Succeeded.
  *
- * @note latitudePtr, longitudePtr, hAccuracyPtr can be set to NULL if not needed.
+ * @b NOTE: latitudePtr, longitudePtr, hAccuracyPtr can be set to NULL if not needed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Get2DLocation
@@ -397,7 +396,7 @@ FUNCTION le_result_t Get2DLocation
  * - LE_OUT_OF_RANGE  The retrieved date is invalid.
  * - LE_OK            Succeeded.
  *
- * @note Currently the API implementation is in progress.
+ * @b NOTE: Currently the API implementation is in progress.
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -416,7 +415,7 @@ FUNCTION le_result_t GetDate
  * - LE_FAULT         Failed to get the position fix state.
  * - LE_OK            Succeeded.
  *
- * @note In case the function fails to get the position fix state, a fatal error occurs,
+ * @b NOTE: In case the function fails to get the position fix state, a fatal error occurs,
  *       the function will not return.
  */
 //--------------------------------------------------------------------------------------------------
@@ -436,7 +435,7 @@ FUNCTION le_result_t GetFixState
  *                    UINT32_MAX).
  * - LE_OK            Succeeded.
  *
- * @note hSpeedPtr, hSpeedAccuracyPtr, vSpeedPtr, and vSpeedAccuracyPtr can be set to NULL if not
+ * @b NOTE: hSpeedPtr, hSpeedAccuracyPtr, vSpeedPtr, and vSpeedAccuracyPtr can be set to NULL if not
  *       needed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -458,10 +457,10 @@ FUNCTION le_result_t GetMotion
  * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
  * - LE_OK            Succeeded.
  *
- * @note Direction is given in degrees.
+ * @b NOTE: Direction is given in degrees.
  *       Direction ranges from 0 to 359 degrees, where 0 is true North degree.
  *
- * @note directionPtr and directionAccuracyPtr can be set to NULL if not needed.
+ * @b NOTE: directionPtr and directionAccuracyPtr can be set to NULL if not needed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDirection
@@ -519,7 +518,7 @@ FUNCTION uint32 GetAcquisitionRate
 /**
  * Releases the position sample.
  *
- * @note If the caller is passing an invalid position reference to this function,
+ * @b NOTE: If the caller is passing an invalid position reference to this function,
  *       it is a fatal error and the function will not return.
  */
 //--------------------------------------------------------------------------------------------------
@@ -552,7 +551,7 @@ ENUM Resolution
  * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
  * - LE_OK            Succeeded.
  *
- * @note latitudePtr, longitudePtr,hAccuracyPtr, altitudePtr, and vAccuracyPtr can be set to NULL
+ * @b NOTE: latitudePtr, longitudePtr,hAccuracyPtr, altitudePtr, and vAccuracyPtr can be set to NULL
  *       if not needed.
 */
 //--------------------------------------------------------------------------------------------------
@@ -575,10 +574,10 @@ FUNCTION le_result_t Get3DLocation
  * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
  * - LE_OK            Suceeded.
  *
- * @note If the caller passes an invalid position reference to this function,
+ * @b NOTE: If the caller passes an invalid position reference to this function,
  *       it is a fatal error and the function will not return.
  *
- * @note latitudePtr, longitudePtr, and horizontalAccuracyPtr can be set to NULL if not needed.
+ * @b NOTE: latitudePtr, longitudePtr, and horizontalAccuracyPtr can be set to NULL if not needed.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t sample_Get2DLocation
@@ -598,10 +597,10 @@ FUNCTION le_result_t sample_Get2DLocation
  * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
  * - LE_OK            Suceeded.
  *
- * @note If the caller passes an invalid position reference to this function,
+ * @b NOTE: If the caller passes an invalid position reference to this function,
  *       it is a fatal error and the function will not return.
  *
- * @note altitudePtr and altitudeAccuracyPtr can be set to NULL if not needed.
+ * @b NOTE: altitudePtr and altitudeAccuracyPtr can be set to NULL if not needed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t sample_GetAltitude
@@ -639,10 +638,10 @@ FUNCTION le_result_t sample_GetTime
  * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
  * - LE_OK            Suceeded.
  *
- * @note If the caller passes an invalid position reference to this function,
+ * @b NOTE: If the caller passes an invalid position reference to this function,
  *       it is a fatal error and the function will not return.
  *
- * @note hSpeedPtr and hSpeedAccuracyPtr can be set to NULL if not needed.
+ * @b NOTE: hSpeedPtr and hSpeedAccuracyPtr can be set to NULL if not needed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t sample_GetHorizontalSpeed
@@ -661,13 +660,13 @@ FUNCTION le_result_t sample_GetHorizontalSpeed
  * - LE_OUT_OF_RANGE  One of the retrieved parameter is invalid.
  * - LE_OK            Suceeded.
  *
- * @note Direction is given in degrees.
+ * @b NOTE: Direction is given in degrees.
  *       Direction ranges from 0 to 359 degrees, where 0 is true North.
  *
- * @note If the caller passed an invalid position reference to this function,
+ * @b NOTE: If the caller passed an invalid position reference to this function,
  *       it is a fatal error and the function will not return.
  *
- * @note directionPtr and directionAccuracyPtr can be set to NULL if not needed.
+ * @b NOTE: directionPtr and directionAccuracyPtr can be set to NULL if not needed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t sample_GetDirection
@@ -686,10 +685,10 @@ FUNCTION le_result_t sample_GetDirection
  * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is not valid.
  * - LE_OK            Suceeded.
  *
- * @note If the caller passes an invalid position reference to this function,
+ * @b NOTE: If the caller passes an invalid position reference to this function,
  *       it is a fatal error and the function will not return.
  *
- * @note vSpeedPtr and vSpeedAccuracyPtr can be set to NULL if not needed.
+ * @b NOTE: vSpeedPtr and vSpeedAccuracyPtr can be set to NULL if not needed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t sample_GetVerticalSpeed
@@ -707,7 +706,7 @@ FUNCTION le_result_t sample_GetVerticalSpeed
  * - LE_OK               Suceeded.
  * - LE_BAD_PARAMETER    Invalid parameter provided.
  *
- * @note The positioning distance values are: the altitude above sea level, the horizontal
+ * @b NOTE: The positioning distance values are: the altitude above sea level, the horizontal
  *       position accuracy and the vertical position accuracy. The API sets the same resolution to
  *       all distance values. The resolution change request takes effect immediately.
  *
@@ -726,7 +725,7 @@ FUNCTION le_result_t SetDistanceResolution
  * - LE_FAULT         Failed to get the position sample's fix state.
  * - LE_OK            Suceeded.
  *
- * @note If the caller passes an invalid position reference to this function,
+ * @b NOTE: If the caller passes an invalid position reference to this function,
  *       it is a fatal error and the function will not return.
  */
 //--------------------------------------------------------------------------------------------------

@@ -48,7 +48,7 @@ static const uint8_t seedData[] = {0x36, 0x57};
 static void sesTypeMsgHandler
 (
     taf_diagSecurity_RxSesTypeCheckRef_t rxMsgRef,
-    taf_diagSecurity_SessionType_t SesCtrlType,
+    uint8_t SesCtrlType,
     void* contextPtr
 )
 {
@@ -68,15 +68,15 @@ static void sesTypeMsgHandler
 static void sesChangeHandler
 (
     taf_diagSecurity_SesChangeRef_t sesChangeRef,
-    taf_diagSecurity_SessionType_t PreviousType,
-    taf_diagSecurity_SessionType_t CurrentType,
+    uint8_t PreviousType,
+    uint8_t CurrentType,
     void* contextPtr
 )
 {
     LE_TEST_INFO("sesChangeHandler");
     LE_TEST_INFO("Previous session type: %x, Current session type: %x", PreviousType, CurrentType);
 
-    if (PreviousType == TAF_DIAGSECURITY_PROGRAMMING && CurrentType != TAF_DIAGSECURITY_PROGRAMMING)
+    if (PreviousType == 0x02 && CurrentType != 0x02)
     {
         LE_INFO("Deactivate programming --> release all resources");
         diagRFT_DeactivateProgramming();
@@ -95,6 +95,8 @@ static void securityMsgHandler
 {
     size_t seedDataLen = 0, keyDataLen = 0;
     uint8_t keyData[TAF_DIAGSECURITY_MAX_SEC_ACCESS_PAYLOAD_SIZE];
+    uint8_t securityAccessDataRecord[TAF_DIAGSECURITY_MAX_SEC_ACCESS_PAYLOAD_SIZE];
+    size_t securityAccessDataRecordSize = 0;
 
     le_result_t result;
 
@@ -103,12 +105,65 @@ static void securityMsgHandler
     //Send seed response
     if(accessType %2 != 0)
     {
+        result = taf_diagSecurity_GetSecAccessPayloadLen(
+                                        rxMsgRef,
+                                        (uint16_t *)&securityAccessDataRecordSize);
+        if(result != LE_OK)
+        {
+            LE_ERROR("API GetSecAccessPayloadLen");
+            // UDS_0x27_NRC_22: API GetSecAccessPayloadLen
+            if(taf_diagSecurity_SendSecAccessResp(
+                    rxMsgRef,
+                    TAF_DIAGSECURITY_SEC_ACCESS_CONDITIONS_NOT_CORRECT,
+                    NULL, 0) != LE_OK)
+            {
+                LE_ERROR("API SendSecAccessResp");
+            }
+            return;
+        }
+
+        result = taf_diagSecurity_GetSecAccessPayload(rxMsgRef,
+                                                      securityAccessDataRecord,
+                                                      &securityAccessDataRecordSize);
+        if(result != LE_OK)
+        {
+            LE_ERROR("API GetSecAccessPayload");
+            // UDS_0x27_NRC_22: API GetSecAccessPayload
+            if(taf_diagSecurity_SendSecAccessResp(
+                    rxMsgRef,
+                    TAF_DIAGSECURITY_SEC_ACCESS_CONDITIONS_NOT_CORRECT,
+                    NULL, 0) != LE_OK)
+            {
+                LE_ERROR("API SendSecAccessResp");
+            }
+            return;
+        }
+
+        LE_INFO("Request-Seed: securityAccessDataRecord size is [%" PRIuS "]",
+                securityAccessDataRecordSize);
+
+        #define isValidSecurityAccessDataRecord(record, size) (1)
+        if (! isValidSecurityAccessDataRecord(securityAccessDataRecord,
+                                              securityAccessDataRecordSize))
+        {
+            LE_ERROR("Invalid securityAccessDataRecord");
+            // UDS_0x27_NRC_31: Invalid securityAccessDataRecord
+            if(taf_diagSecurity_SendSecAccessResp(
+                    rxMsgRef,
+                    TAF_DIAGSECURITY_SEC_ACCESS_REQUEST_OUT_OF_RANGE,
+                    NULL, 0) != LE_OK)
+            {
+                LE_ERROR("API SendSecAccessResp");
+            }
+            return;
+        }
+
         seedDataLen = sizeof(seedData);
 
         if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
                 TAF_DIAGSECURITY_SEC_ACCESS_NO_ERROR, seedData, seedDataLen ) != LE_OK)
         {
-            LE_ERROR("Send response error");
+            LE_ERROR("API SendSecAccessResp");
         }
     }
     //Validate the key
@@ -119,10 +174,11 @@ static void securityMsgHandler
                 keyDataLen > TAF_DIAGSECURITY_MAX_SEC_ACCESS_PAYLOAD_SIZE )
         {
             LE_ERROR("Getting key len");
+            // UDS_0x27_NRC_35: Send-Key size is bad
             if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
                     TAF_DIAGSECURITY_SEC_ACCESS_INVALID_KEY, NULL,0) != LE_OK)
             {
-                LE_ERROR("Send response error");
+                LE_ERROR("API SendSecAccessResp");
             }
             return;
         }
@@ -132,10 +188,11 @@ static void securityMsgHandler
         if(result != LE_OK)
         {
             LE_ERROR("Getting key data");
+            // UDS_0x27_NRC_22: API GetSecAccessPayload (send-key)
             if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
                     TAF_DIAGSECURITY_SEC_ACCESS_CONDITIONS_NOT_CORRECT, NULL, 0) != LE_OK)
             {
-                LE_ERROR("Send response error");
+                LE_ERROR("API SendSecAccessResp");
             }
             return;
         }
@@ -146,17 +203,18 @@ static void securityMsgHandler
             if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
                     TAF_DIAGSECURITY_SEC_ACCESS_NO_ERROR, NULL,0) != LE_OK)
             {
-                LE_ERROR("Send response error");
+                LE_ERROR("API SendSecAccessResp");
             }
 
         }
         // Key is invalid
         else
         {
+            // UDS_0x27_NRC_35: Got invalid key by API
             if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
                     TAF_DIAGSECURITY_SEC_ACCESS_INVALID_KEY, NULL,0) != LE_OK)
             {
-                LE_ERROR("Send response error");
+                LE_ERROR("API SendSecAccessResp");
             }
         }
     }
@@ -198,7 +256,7 @@ le_result_t diagSecurityAccess_Init(void)
     }
     // Get the current session type
     le_result_t result;
-    taf_diagSecurity_SessionType_t currentSesType;
+    uint8_t currentSesType;
     result = taf_diagSecurity_GetCurrentSesType(diagSecuritySvcRef, &currentSesType);
     if (result == LE_OK)
     {

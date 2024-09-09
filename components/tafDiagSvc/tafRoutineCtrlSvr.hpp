@@ -45,6 +45,7 @@ namespace tafsvc {
     #define TAF_DIAG_ROUTINE_CTRL_REQHANDLER_CNT   32
     #define TAF_DIAG_ROUTINE_CTRL_REQMSG_CNT 8
     #define TAF_DIAG_ROUTINE_CTRL_RECORD_LEN    1024
+    #define TAF_DIAG_ROUTINE_CTRL_NRC_RANGE_LOW_VALUE 0x80U
 
     typedef struct
     {
@@ -97,19 +98,19 @@ namespace tafsvc {
 
             // UDS message handler. It will be called if receive this service message.
             void UDSMsgHandler(const taf_uds_AddrInfo_t* addrPtr,
-                uint8_t sid, uint8_t* msgPtr, size_t msgLen) override;
+                    uint8_t sid, uint8_t* msgPtr, size_t msgLen) override;
 
             taf_diagRoutineCtrl_ServiceRef_t FindOrCreateService(uint16_t identifier);
             le_result_t RemoveRoutineCtrlSvc(taf_diagRoutineCtrl_ServiceRef_t svcRef);
             taf_diagRoutineCtrl_RxMsgHandlerRef_t AddRxReqMsgHandler(
-                taf_diagRoutineCtrl_ServiceRef_t svcRef,
-                taf_diagRoutineCtrl_RxMsgHandlerFunc_t handlerPtr,
-                void* contextPtr);
+                    taf_diagRoutineCtrl_ServiceRef_t svcRef,
+                    taf_diagRoutineCtrl_RxMsgHandlerFunc_t handlerPtr,
+                    void* contextPtr);
             void RemoveRxReqMsgHandler(taf_diagRoutineCtrl_RxMsgHandlerRef_t handlerRef);
             le_result_t GetRoutineCtrlRec(taf_diagRoutineCtrl_RxMsgRef_t reqMsgRef,
-                uint8_t* optionRecPtr, size_t* optionRecSizePtr);
+                    uint8_t* optionRecPtr, size_t* optionRecSizePtr);
             le_result_t SendRoutineCtrlResp(taf_diagRoutineCtrl_RxMsgRef_t reqMsgRef,
-                uint8_t nrc, const uint8_t* dataPtr, size_t dataSize);
+                    uint8_t nrc, const uint8_t* dataPtr, size_t dataSize);
             le_result_t ReleaseRoutineCtrlMsg(taf_diagRoutineCtrl_RxMsgRef_t reqMsgRef);
         private:
             uint8_t svcId = 0x31;
@@ -131,6 +132,8 @@ namespace tafsvc {
             le_event_HandlerRef_t rxReqEventHandlerRef;
 
             taf_RoutineCtrlSvc_t* GetServiceObj(uint16_t identifier);
+            le_result_t SendNRCResp(uint8_t sid, const taf_uds_AddrInfo_t*  addrInfoPtr,
+                    uint8_t errCode);
     };
 }
 }

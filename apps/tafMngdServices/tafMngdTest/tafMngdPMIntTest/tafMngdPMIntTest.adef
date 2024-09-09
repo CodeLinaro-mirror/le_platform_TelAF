@@ -28,5 +28,4 @@ processes:
 bindings:
 {
     tafMngdPMIntTest.tafMngdPMIntTestComponent.taf_mngdPm -> tafMngdPMSvc.taf_mngdPm
-    tafMngdPMIntTest.tafMngdPMIntTestComponent.taf_pm -> tafPMSvc.taf_pm
 }

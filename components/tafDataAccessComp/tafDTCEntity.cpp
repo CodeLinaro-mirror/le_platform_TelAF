@@ -150,6 +150,36 @@ void DtcEntity::SetAgedCounter
     mAgedCounter = counter;
 }
 
+int32_t DtcEntity::GetActivation
+(
+)
+{
+    return mActivation;
+}
+
+void DtcEntity::SetActivation
+(
+    int32_t activation
+)
+{
+    mActivation = activation;
+}
+
+int32_t DtcEntity::GetSuppression
+(
+)
+{
+    return mSuppression;
+}
+
+void DtcEntity::SetSuppression
+(
+    int32_t suppression
+)
+{
+    mSuppression = suppression;
+}
+
 std::time_t DtcEntity::GetCreateTime
 (
 )

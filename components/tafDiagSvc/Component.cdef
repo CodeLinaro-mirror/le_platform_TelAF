@@ -9,6 +9,9 @@ provides:
         taf_diagUpdate.api
         taf_diagReset.api
         taf_diagEvent.api
+        taf_diagDTC.api
+        taf_diagIOCtrl.api
+        taf_diagDoIP.api
 #endif
     }
 }
@@ -39,6 +42,7 @@ cxxflags:
     -I$TELAF_ROOT/components/tafUDSStack
     -I$TELAF_ROOT/components/tafDataAccessComp
     -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
+    -I$TELAF_ROOT/components/tafDoIPStack
 #endif
 }
 
@@ -49,6 +53,7 @@ cflags:
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
     -I$TELAF_ROOT/components/tafUDSStack
     -I$TELAF_ROOT/components/tafDataAccessComp
+    -I$TELAF_ROOT/components/tafDoIPStack
 #endif
 }
 
@@ -69,6 +74,13 @@ sources:
         tafResetSvrImpl.cpp
         tafEventSvc.cpp
         tafEventSvrImpl.cpp
+        tafDTCSvc.cpp
+        tafDTCSvrImpl.cpp
         tafDTCInfImpl.cpp
+        tafSnapshotSvc.cpp
+        tafDiagDoIPSvc.cpp
+        tafDiagDoIPSvrImpl.cpp
+        tafIOCtrlSvc.cpp
+        tafIOCtrlSvrImpl.cpp
 #endif
 }

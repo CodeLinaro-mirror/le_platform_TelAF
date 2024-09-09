@@ -36,7 +36,7 @@
 /**
  * @page c_tafFlash Flash Access Service
  *
- * @ref taf_flash_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_flash_interface.h>` @endrst
  *
  * <HR>
  *
@@ -221,7 +221,7 @@ ENUM OpenMode
 /**
  * Initiates flash access reference map and memory pool.
  *
- * @note This function should be called once before calling other flash access APIs.
+ * @b NOTE: This function should be called once before calling other flash access APIs.
  *
  * @return
  *  - LE_FAULT -- Failed.
@@ -469,7 +469,7 @@ FUNCTION le_result_t UbiRead
 /**
  * Initiates write size of UBI volume.
  *
- * @note Users should set the number of bytes before subsequent
+ * @b NOTE: Users should set the number of bytes before subsequent
  *       write operations.
  *
  * @return
@@ -488,7 +488,7 @@ FUNCTION le_result_t UbiInitWrite
 /**
  * Writes data to UBI volume.
  *
- * @note Users should keep the context of writing UBI volume.
+ * @b NOTE: Users should keep the context of writing UBI volume.
  *
  * @return
  *  - LE_FAULT -- Failed.

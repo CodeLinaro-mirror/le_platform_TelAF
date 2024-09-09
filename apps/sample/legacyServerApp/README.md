@@ -12,7 +12,7 @@ Before building the applications, the toolchain needs to be installed properly a
 
 ### Step 1 Source the tool chain
 ```bash
-source /opt/qct/sa515m/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
+source /opt/qct/sa525m/environment-setup-aarch64-oe-linux
 ```
 
 ### Step 2 Setup TelAF building environment
@@ -25,7 +25,7 @@ cd ~/telaf
 #### Step 3.1 Build the server application
 ```bash
 cd ~/cppserver_dataAdaptor
-mkapp -t sa515m -i $TELAF_INTERFACES dataAdaptorSvc.adef
+mkapp -t sa525m -i $TELAF_INTERFACES dataAdaptorSvc.adef
 ```
 
 The output dataAdaptorSvc.sa515m.update package locates in the current directory.
@@ -37,7 +37,7 @@ On device, install the package by the following command.
 Lastly run the executable file.
 ```bash
 cd /data/
-update dataAdaptorSvc.sa515m.update
+update dataAdaptorSvc.sa525m.update
 ```
 Now the server application is installed and brought up on the device.
 
@@ -45,7 +45,7 @@ Now the server application is installed and brought up on the device.
 #### Step 4.1 Build the client application
 ```bash
 cd ~/cclient_dataAdaptor
-mkapp -t sa515m -i $TELAF_INTERFACES dataAdaptorClient.adef
+mkapp -t sa525m -i $TELAF_INTERFACES dataAdaptorClient.adef
 ```
 
 The output dataAdaptorClient.sa515m.update package locates in the current directory.
@@ -57,6 +57,6 @@ On device, install the package by the following command.
 Lastly run the executable file.
 ```bash
 cd /data/
-update dataAdaptorClient.sa515m.update
+update dataAdaptorClient.sa525m.update
 ```
 Now the client application is installed and brought up on the device.

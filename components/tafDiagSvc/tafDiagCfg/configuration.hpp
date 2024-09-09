@@ -34,6 +34,16 @@ typedef enum operation_cycle_type
     Custom1
 } operation_cycle_type_t;
 
+typedef enum freeze_frame_trigger_type
+{
+    DEM_TRIGGER_ON_CONFIRMED,
+    DEM_TRIGGER_ON_EVERY_TEST_FAILED,
+    DEM_TRIGGER_ON_FDC_THRESHOLD,
+    DEM_TRIGGER_ON_PENDING,
+    DEM_TRIGGER_ON_TEST_FAILED,
+    DEM_TRIGGER_ON_TEST_FAILED_THIS_OPERATION_CYCLE
+} freeze_frame_trigger_type_t;
+
 typedef enum storage_condition_type
 {
     storage_condition_1,
@@ -105,6 +115,7 @@ typedef struct { /* <-- from [debounce_counter_based_algorithm] */
     int counter_jump_up_value;
     bool counter_jump_up;
     bool counter_jump_down;
+    int counter_fdc_threshold;
 } Counter_t;
 
 typedef struct { /* <-- from [debounce_time_based_algorithm] */
@@ -112,7 +123,8 @@ typedef struct { /* <-- from [debounce_time_based_algorithm] */
     std::string base;
     std::string debounce_behavior;
     float time_failed_threshold;
-    int time_passed_threshold;
+    float time_passed_threshold;
+    float time_fdc_threshold;
 } Timer_t;
 
 typedef struct { /* <-- from [debounce_monitor_internal_algorithm] */
@@ -126,6 +138,21 @@ inline static operation_cycle_type_t s_to_operation_cycle_type(std::string s)
 
 inline static enable_condition_type_t s_to_enable_condition_type(std::string s)
 { throw std::runtime_error("[tiny] to be implemented"); }
+
+inline static freeze_frame_trigger_type_t s_to_freeze_frame_trigger_type(std::string s)
+{ throw std::runtime_error("[tiny] to be implemented"); }
+
+inline static extended_data_records_type_t s_to_extended_data_records_type(std::string s)
+{ throw std::runtime_error("[tiny] to be implemented"); }
+
+typedef struct { /* <-- from [diagnostic_session] */
+    std::string short_name;
+    int id;
+    std::string jump_to_bootloader;
+    float p2_server_max;
+    int p2_star_server_max;
+} diagnostic_session_item_t;
+
 
 typedef struct { /* <-- from [storage_condition] */
     std::string short_name;
@@ -229,7 +256,11 @@ typedef struct { /* <-- from [dtc_all] */
         int snapshot_record_number;
     } snapshots_t;
     snapshots_t snapshots;
-    std::string security_level;
+    typedef struct {
+        std::vector<std::string> session;
+        int security_level;
+    } access_t;
+    access_t access;
     typedef struct {
         std::string filtering_GADE;
         typedef struct {
@@ -267,6 +298,8 @@ typedef struct {
     bool status_bit_storage_test_failed;
     std::string type_of_dtc_supported;
     int security_delay_time_on_boot;
+    float s3_server_max;
+    bool ignore_request_for_hardreset;
 } common_props_t;
 
 static inline void diag_config_init(const char * cfg_path)
@@ -306,7 +339,10 @@ static inline std::map<uint32_t, std::shared_ptr<Node>> get_dtc_nodes(void)
 { throw std::runtime_error("[tiny] to be implemented"); }
 static inline std::vector<uint32_t> get_dtc_codes(void)
 { throw std::runtime_error("[tiny] to be implemented"); }
-
+static inline size_t get_did_value_size(uint16_t did_code)
+{ throw std::runtime_error("[tiny] to be implemented"); }
+static inline std::map<std::string, uint8_t> get_diagnostic_session_map(void)
+{ throw std::runtime_error("[tiny] to be implemented"); }
 
 template <typename T>
 static inline void fill_list(Node & node, std::vector<T> & to_be_filled)
@@ -394,6 +430,60 @@ Node & top_fim_all(std::string field_name, T expected_value)
 
 template <typename T = std::string>
 void top_fim_all(std::string field_name, T expected_value, fim_all_item_t* to_be_filled)
+{
+    throw std::runtime_error("[tiny] to be implemented");
+}
+
+template <typename T = std::string>
+Node & top_diagnostic_session(std::string field_name, T expected_value)
+{
+    throw std::runtime_error("[tiny] to be implemented");
+}
+
+template <typename T = std::string>
+void top_diagnostic_session(std::string field_name, T expected_value, diagnostic_session_item_t* to_be_filled)
+{
+    throw std::runtime_error("[tiny] to be implemented");
+}
+
+template <typename T = std::string>
+Node & top_routines_all(std::string field_name, T expected_value)
+{
+    throw std::runtime_error("[tiny] to be implemented");
+}
+
+template <typename T = std::string>
+Node & top_security_level(std::string field_name, T expected_value)
+{
+    throw std::runtime_error("[tiny] to be implemented");
+}
+
+template <typename T = std::string>
+Node & top_routine_parameters_all(std::string field_name, T expected_value)
+{
+    throw std::runtime_error("[tiny] to be implemented");
+}
+
+template <typename T = std::string>
+Node & top_datas(std::string field_name, T expected_value)
+{
+    throw std::runtime_error("[tiny] to be implemented");
+}
+
+template <typename T = std::string>
+Node & top_reset_all(std::string field_name, T expected_value)
+{
+    throw std::runtime_error("[tiny] to be implemented");
+}
+
+template <typename T = std::string>
+Node & top_IO_all(std::string field_name, T expected_value)
+{
+    throw std::runtime_error("[tiny] to be implemented");
+}
+
+template <typename T = std::string>
+Node & top_did_all(std::string field_name, T expected_value)
 {
     throw std::runtime_error("[tiny] to be implemented");
 }

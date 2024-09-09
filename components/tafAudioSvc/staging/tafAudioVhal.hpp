@@ -89,6 +89,10 @@ class taf_AudioVhal
                 taf_audioVendor_NodePowerState_t *state);
         le_result_t SetNodeMuteState(uint8_t audioNodeId, bool mute);
         le_result_t GetNodeMuteState(uint8_t audioNodeId, bool *isMuted);
+        le_result_t SetNodeGain(uint8_t nodeId, taf_audioVendor_Direction_t direction,
+                double gain);
+        le_result_t GetNodeGain(uint8_t nodeId, taf_audioVendor_Direction_t direction,
+                double *gain);
         taf_audioVendor_NodeStateChangeHandlerRef_t AddNodeStateChangeHandler( uint8_t audioNodeId,
                 taf_audioVendor_NodeStateHandlerFunc_t handlerPtr, void* contextPtr);
         void RemoveNodeStateChangeHandler(taf_audioVendor_NodeStateChangeHandlerRef_t handlerRef);

@@ -1,35 +1,6 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
@@ -47,9 +18,6 @@
 #define VEHICHLE_WAKEUP_STATUS_UNKNOWN 2
 #define TAF_MNGDPM_VM_HASH_SIZE 10
 #define NODE_PRIMARY_NAD 0
-#define VHAL_ACK_TIMEOUT 10000
-#define VHAL_WAKESOURCE_TIMEOUT 10000
-#define VEHICHLE_WAKEUP_TIMEOUT 10000
 #define NODE_ID 0
 #define WAKELOCK_WITHOUT_REF 0
 #define MAX_SESSION 5
@@ -124,6 +92,7 @@ typedef struct
 typedef struct
 {
     bool isGraceful;
+    bool isForceful;
     bool isRestart;
     bool isSuspend;
     bool isWsAcquired;
@@ -132,6 +101,7 @@ typedef struct
 typedef struct
 {
     taf_mngdPm_State_t currentState;
+    taf_mngdPm_State_t prevState;
 }taf_stateMachine_t;
 
 typedef struct
@@ -152,6 +122,7 @@ typedef struct
     taf_mngdPm_NodePowerStateChangeHandlerFunc_t handlerPtr;
     uint8_t pmNodeId;
     le_dls_Link_t link;               // Link to handler list
+    le_msg_SessionRef_t sessionRef;
     taf_mngdPm_NodePowerStateChangeBitMask_t powerStateMask;
     taf_mngdPm_NodePowerStateChangeHandlerRef_t handlerRef;
     void* nodePowerStateHandlerCtxPtr;
@@ -162,6 +133,13 @@ typedef struct
     taf_mngdPm_NodePowerState_t state;
 }taf_mngdPm_NodePowerStateChange_t;
 
+typedef struct
+{
+    taf_mngdPm_nodePowerStateRef_t nodeStateRef;
+    le_msg_SessionRef_t sessionRef;
+    taf_mngdPm_NodePowerState_t state;
+}taf_mngdPm_NodePowerStateChangeCtxt_t;
+
 /*
  * @brief The struct of Power state Ref list.
  */
@@ -169,6 +147,17 @@ typedef struct
 {
     taf_mngdPm_nodePowerStateRef_t nodeStateRef;
 } taf_NodePowerStateRef_t;
+
+/*
+ * @brief The struct of Power state Ref list.
+ */
+typedef struct
+{
+    long int bootup_awake_time;
+    long int hal_state_prepare_timeout;
+    long int hal_wakeup_vehicle_timeout;
+    bool hal_enabled;
+} taf_mngdPm_config_t;
 
 class tafMngdPMSvc: public ITafSvc
 {
@@ -179,6 +168,7 @@ class tafMngdPMSvc: public ITafSvc
         void Init(void);
         static tafMngdPMSvc &GetInstance();
         static le_result_t ParseJsonConfig(std::string configPath);
+        static le_result_t ParseJsonConfiguration(std::string configPath);
         static const char* TafStateToString(taf_mngdPm_State_t tafState);
         static void OnClientConnection(le_msg_SessionRef_t sessionRef, void *ctxPtr);
         static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ctxPtr);
@@ -187,6 +177,7 @@ class tafMngdPMSvc: public ITafSvc
         static le_result_t InitVHalModule();
         static void StateChangeExHandler(taf_pm_PowerStateRef_t powerStateRef,
                 taf_pm_NadVm_t vm_id, taf_pm_State_t state, void* contextPtr);
+
         static void VhalAckTimerHandler(le_timer_Ref_t timerRef);
         static void WakeSourceTimerHandler(le_timer_Ref_t timerRef);
         static void WaitWakeSourceTimer();
@@ -270,11 +261,14 @@ class tafMngdPMSvc: public ITafSvc
         static le_mem_PoolRef_t nodePowerStateRefPool;
         static le_ref_MapRef_t nodePowerStateRefMap;
         static void DeleteNodePowerStateRefs();
-        std::vector<taf_mngdPm_nodePowerStateRef_t>ackClientrecrd;
-        std::vector<taf_mngdPm_nodePowerStateRef_t>regClientrecrd;
+        std::vector<taf_mngdPm_NodePowerStateChangeCtxt_t>regClientrecrd;
+        static int8_t ackClientrecrdSize;
         static int8_t clientSize;
         static void SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_ClientAck_t ackType);
         bool IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState);
+        bool IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePowerStateChangeBitMask_t stateMask);
+        //MPM configuration
+        static taf_mngdPm_config_t config;
 };
 }
 }

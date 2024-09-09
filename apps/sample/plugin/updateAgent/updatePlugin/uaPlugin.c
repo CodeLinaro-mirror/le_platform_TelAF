@@ -55,6 +55,13 @@ le_event_Id_t updateCmdEv;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Update session process event.
+ */
+//--------------------------------------------------------------------------------------------------
+le_event_Id_t sessProcEv;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Update status.
  */
 //--------------------------------------------------------------------------------------------------
@@ -69,10 +76,10 @@ int totalTime = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Time for initalizing update.
+ * Elpased time for update.
  */
 //--------------------------------------------------------------------------------------------------
-int initTime = 0;
+int elapsedTime = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -121,20 +128,19 @@ void UpdateTimerHandler
     le_timer_Ref_t timerRef ///< [IN] Download timer reference.
 )
 {
-    uint32_t time = le_timer_GetExpiryCount(timerRef);
+    elapsedTime++;
     int percent = 0;
 
     switch (updateStatus)
     {
         case TAF_PI_UA_STATUS_INIT:
-            LE_INFO("Unpacking the package....");
-            initTime = time;
+            LE_INFO("Update initiated.");
             break;
         case TAF_PI_UA_STATUS_UPDATING:
             if (totalTime != 0)
             {
-                LE_INFO("Applying patches....");
-                percent = (time - initTime) * 100 / totalTime;
+                LE_INFO("Updating....");
+                percent = elapsedTime * 100 / totalTime;
                 if (percent > 100)
                 {
                     updatePercent = 100;
@@ -149,6 +155,10 @@ void UpdateTimerHandler
         case TAF_PI_UA_STATUS_FINISH:
             LE_INFO("Update finished.");
             percent = 100;
+            le_timer_Stop(timerRef);
+            break;
+        case TAF_PI_UA_STATUS_PAUSED:
+            LE_INFO("Update paused.");
             le_timer_Stop(timerRef);
             break;
         case TAF_PI_UA_STATUS_ERROR:
@@ -481,6 +491,162 @@ le_result_t ApplyUbiPatch
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Unpack package.
+ */
+//--------------------------------------------------------------------------------------------------
+void UnpackPackage
+(
+    char* filePath ///< [IN] Update package file path.
+)
+{
+    char unpackCmd[STR_MAX_BYTES];
+    snprintf(unpackCmd, sizeof(unpackCmd), UNZIP_TO_DATA, filePath);
+    if (SendCmd(unpackCmd) != LE_OK)
+    {
+        LE_ERROR("Unpack package %s failed.", filePath);
+        updateStatus = TAF_PI_UA_STATUS_ERROR;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get boot slot.
+ */
+//--------------------------------------------------------------------------------------------------
+void GetBootSlot
+(
+    bool* bootA ///< [OUT] If boot on system A.
+)
+{
+    char res[STR_MAX_BYTES];
+    FILE* fp = popen(GET_ACTIVE_SLOT, "r");
+    if (fp == NULL || fgets(res, sizeof(res), fp) == NULL)
+    {
+        LE_ERROR("Fail to get boot slot.");
+        updateStatus = TAF_PI_UA_STATUS_ERROR;
+        return;
+    }
+
+    if (strncmp(res, "_a", 2) == 0)
+    {
+        LE_INFO("Boot on A slot.");
+        *bootA = true;
+    }
+    else if (strncmp(res, "_b", 2) == 0)
+    {
+        LE_INFO("Boot on B slot.");
+        *bootA = false;
+    }
+	else
+    {
+        LE_ERROR("Fail to get boot slot.");
+        updateStatus = TAF_PI_UA_STATUS_ERROR;
+    }
+
+    pclose(fp);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Initiate flash information.
+ */
+//--------------------------------------------------------------------------------------------------
+void InitFlashInfo
+(
+    taf_pi_ua_FlashInfo* flashInfo ///< [OUT] Flash information.
+)
+{
+    InitUbiInfoTab("telaf", flashInfo->isBootOnA, &flashInfo->telaf);
+    InitUbiInfoTab("rootfs", flashInfo->isBootOnA, &flashInfo->rootfs);
+
+    // Estimate time for applying patches
+    if (flashInfo->telaf.validPatch)
+    {
+       totalTime += UPDATE_TELAF_TIME;
+    }
+    if (flashInfo->rootfs.validPatch)
+    {
+       totalTime += UPDATE_ROOTFS_TIME;
+    }
+
+    if (totalTime == 0)
+    {
+        LE_ERROR("No partitions to be updated.");
+        updateStatus = TAF_PI_UA_STATUS_ERROR;
+        return;
+    }
+    else
+    {
+        totalTime += UNPACK_TIME;
+        LE_INFO("Estimate %ds for updating patches.", totalTime);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set active slot.
+ */
+//--------------------------------------------------------------------------------------------------
+void SetActiveSlot
+(
+    int slot ///< [IN] Slot to be set as active.
+)
+{
+    char activeCmd[STR_MAX_BYTES];
+    snprintf(activeCmd, sizeof(activeCmd), SET_ACTIVE_SLOT, slot);
+    if (SendCmd(activeCmd) != LE_OK)
+    {
+        LE_ERROR("AB switch failed.");
+        updateStatus = TAF_PI_UA_STATUS_ERROR;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set pause action
+ */
+//--------------------------------------------------------------------------------------------------
+void SetPauseAction
+(
+    bool action ///< [IN] Pause action
+)
+{
+    int rc;
+    if (action)
+    {
+        rc = open(PAUSE_ACTION, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
+        if (rc > 0)
+        {
+            close(rc);
+        }
+    }
+    else
+	{
+        rc = unlink(PAUSE_ACTION);
+    }
+    LE_DEBUG("RC : %d.", rc);
+
+    (void)SendCmd(SYNC_FS);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get pause action
+ */
+//--------------------------------------------------------------------------------------------------
+bool GetPauseAction
+(
+    void
+)
+{
+    if (access(PAUSE_ACTION, 0) == 0)
+        return true;
+
+    return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Update command handler.
  *
  * @return NULL
@@ -492,90 +658,44 @@ void UpdateCmdHandler
 )
 {
     ua_Command_t* uaCmdPtr = (ua_Command_t*)cmdPtr;
-    bool bootFlag = true;
 
-    // 1. Unpack update package.
-    char unpackCmd[STR_MAX_BYTES];
-    snprintf(unpackCmd, sizeof(unpackCmd), UNZIP_TO_DATA, uaCmdPtr->filePath);
-    if (SendCmd(unpackCmd) != LE_OK)
+    switch (uaCmdPtr->action)
     {
-        LE_ERROR("Unpack package %s failed.", uaCmdPtr->filePath);
-        updateStatus = TAF_PI_UA_STATUS_ERROR;
-        return;
+        case START_INSTALL:
+            if (updateStatus == TAF_PI_UA_STATUS_UPDATING ||
+                updateStatus == TAF_PI_UA_STATUS_PAUSED)
+            {
+                LE_WARN("Installation is in progress.");
+            }
+            else
+            {
+                session.cmd.action = START_INSTALL;
+                le_utf8_Copy(session.cmd.filePath, uaCmdPtr->filePath, FILE_PATH_MAX_BYTES, NULL);
+                session.process = INIT_SESSION;
+                le_timer_Start(updateTimerRef);
+                le_event_Report(sessProcEv, &session.process, sizeof(taf_pi_ua_Process));
+            }
+            break;
+        case PAUSE_INSTALL:
+            if (updateStatus == TAF_PI_UA_STATUS_PAUSED)
+            {
+                LE_WARN("Installation is already pauesd.");
+            }
+            else if (updateStatus == TAF_PI_UA_STATUS_UPDATING || updateStatus == TAF_PI_UA_STATUS_INIT)
+            {
+                SetPauseAction(true);
+            }
+            break;
+        case RESUME_INSTALL:
+            if (updateStatus == TAF_PI_UA_STATUS_PAUSED)
+            {
+                SetPauseAction(false);
+                session.cmd.action = RESUME_INSTALL;
+                le_timer_Start(updateTimerRef);
+                le_event_Report(sessProcEv, &session.process, sizeof(taf_pi_ua_Process));
+            }
+            break;
     }
-
-    // 2. Get boot slot.
-    char res[STR_MAX_BYTES];
-    taf_pi_ua_PartitionInfo telaf, rootfs;
-    FILE* fp = popen(GET_ACTIVE_SLOT, "r");
-    if (fp == NULL || fgets(res, sizeof(res), fp) == NULL)
-    {
-        LE_ERROR("Fail to get boot slot.");
-        updateStatus = TAF_PI_UA_STATUS_ERROR;
-        return;
-    }
-    if (strncmp(res, "_a", 2) == 0)
-    {
-        LE_INFO("Boot on A slot.");
-    }
-    else
-    {
-        LE_INFO("Boot on B slot.");
-        bootFlag = false;
-    }
-    pclose(fp);
-
-    // 3. Initiate information table and estimate total time.
-    InitUbiInfoTab("telaf", bootFlag, &telaf);
-    InitUbiInfoTab("rootfs", bootFlag, &rootfs);
-    if (telaf.validPatch)
-    {
-       totalTime += UPDATE_TELAF_TIME;
-    }
-    if (rootfs.validPatch)
-    {
-       totalTime += UPDATE_ROOTFS_TIME;
-    }
-    if (totalTime == 0)
-    {
-        LE_ERROR("No partitions to be updated.");
-        updateStatus = TAF_PI_UA_STATUS_ERROR;
-        return;
-    }
-    else
-    {
-        updateStatus = TAF_PI_UA_STATUS_UPDATING;
-    }
-
-    // 4. Apply patch on TelAF.
-    if (ApplyUbiPatch(&telaf) != LE_OK)
-    {
-        LE_ERROR("Applying telaf patch failed.");
-        updateStatus = TAF_PI_UA_STATUS_ERROR;
-        return;
-    }
-
-    // 5. Apply patch on RootFs.
-    if (ApplyUbiPatch(&rootfs) != LE_OK)
-    {
-        LE_ERROR("Applying rootfs patch failed.");
-        updateStatus = TAF_PI_UA_STATUS_ERROR;
-        return;
-    }
-
-    // 6. Switch to active slot.
-    char activeCmd[STR_MAX_BYTES];
-    snprintf(activeCmd, sizeof(activeCmd), SET_ACTIVE_SLOT, (int)bootFlag);
-    if (SendCmd(activeCmd) != LE_OK)
-    {
-        LE_ERROR("AB switch failed.");
-        updateStatus = TAF_PI_UA_STATUS_ERROR;
-        return;
-    }
-
-    // 7. Update completed.
-    updateStatus = TAF_PI_UA_STATUS_FINISH;
-    LE_INFO("Update completed.");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -601,6 +721,162 @@ void* UpdateThread
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Session process handler.
+ *
+ * @return NULL
+ */
+//--------------------------------------------------------------------------------------------------
+void SessProcHandler
+(
+    void* processPtr ///< [IN] Session process context.
+)
+{
+    taf_pi_ua_Process* procPtr = (taf_pi_ua_Process*)processPtr;
+    switch (*procPtr)
+    {
+        case INIT_SESSION:
+            updateStatus = TAF_PI_UA_STATUS_INIT;
+            totalTime = 0;
+            elapsedTime = 0;
+            updatePercent = 0;
+
+            session.process = UNPACK_PACKAGE;
+            if (!GetPauseAction())
+            {
+                le_event_Report(sessProcEv, &session.process, sizeof(taf_pi_ua_Process));
+            }
+            else
+            {
+                updateStatus = TAF_PI_UA_STATUS_PAUSED;
+            }
+            break;
+        case UNPACK_PACKAGE:
+            updateStatus = TAF_PI_UA_STATUS_INIT;
+
+            UnpackPackage(session.cmd.filePath);
+
+            if (updateStatus != TAF_PI_UA_STATUS_ERROR)
+            {
+                session.process = GET_BOOT_SLOT;
+                if (!GetPauseAction())
+                {
+                    le_event_Report(sessProcEv, &session.process, sizeof(taf_pi_ua_Process));
+                }
+                else
+                {
+                    updateStatus = TAF_PI_UA_STATUS_PAUSED;
+                }
+            }
+            break;
+        case GET_BOOT_SLOT:
+            updateStatus = TAF_PI_UA_STATUS_INIT;
+
+            GetBootSlot(&session.flashInfo.isBootOnA);
+            if (updateStatus != TAF_PI_UA_STATUS_ERROR)
+            {
+                session.process = INIT_FLASH_INFO;
+                if (!GetPauseAction())
+                {
+                    le_event_Report(sessProcEv, &session.process, sizeof(taf_pi_ua_Process));
+                }
+                else
+                {
+                    updateStatus = TAF_PI_UA_STATUS_PAUSED;
+                }
+            }
+            break;
+        case INIT_FLASH_INFO:
+            updateStatus = TAF_PI_UA_STATUS_INIT;
+
+            InitFlashInfo(&session.flashInfo);
+            if (updateStatus != TAF_PI_UA_STATUS_ERROR)
+            {
+                session.process = APPLY_TELAF_PATCH;
+                if (!GetPauseAction())
+                {
+                    le_event_Report(sessProcEv, &session.process, sizeof(taf_pi_ua_Process));
+                }
+                else
+                {
+                    updateStatus = TAF_PI_UA_STATUS_PAUSED;
+                }
+            }
+            break;
+        case APPLY_TELAF_PATCH:
+            updateStatus = TAF_PI_UA_STATUS_UPDATING;
+
+            if (ApplyUbiPatch(&session.flashInfo.telaf) != LE_OK)
+            {
+                LE_ERROR("Applying telaf patch failed.");
+                updateStatus = TAF_PI_UA_STATUS_ERROR;
+            }
+            else
+            {
+                session.process = APPLY_ROOTFS_PATCH;
+                if (!GetPauseAction())
+                {
+                    le_event_Report(sessProcEv, &session.process, sizeof(taf_pi_ua_Process));
+                }
+                else
+                {
+                    updateStatus = TAF_PI_UA_STATUS_PAUSED;
+                }
+            }
+            break;
+        case APPLY_ROOTFS_PATCH:
+            updateStatus = TAF_PI_UA_STATUS_UPDATING;
+
+            if (ApplyUbiPatch(&session.flashInfo.rootfs) != LE_OK)
+            {
+                LE_ERROR("Applying rootfs patch failed.");
+                updateStatus = TAF_PI_UA_STATUS_ERROR;
+            }
+            else
+            {
+                session.process = SET_ACTIVE;
+                if (!GetPauseAction())
+                {
+                    le_event_Report(sessProcEv, &session.process, sizeof(taf_pi_ua_Process));
+                }
+                else
+                {
+                    updateStatus = TAF_PI_UA_STATUS_PAUSED;
+                }
+            }
+            break;
+        case SET_ACTIVE:
+            SetActiveSlot((int)session.flashInfo.isBootOnA);
+            if (updateStatus != TAF_PI_UA_STATUS_ERROR)
+            {
+                updateStatus = TAF_PI_UA_STATUS_FINISH;
+            }
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Session process thread.
+ *
+ * @return NULL
+ */
+//--------------------------------------------------------------------------------------------------
+void* SessProcThread
+(
+    void* contextPtr ///< [IN] Context.
+)
+{
+    le_event_AddHandler("SessProcHandler", sessProcEv, SessProcHandler);
+
+    le_sem_Post((le_sem_Ref_t)contextPtr);
+
+    le_event_RunLoop();
+
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Initialize update agent.
  */
 //--------------------------------------------------------------------------------------------------
@@ -613,6 +889,12 @@ void taf_pi_ua_Init()
     le_sem_Ref_t semaphore = le_sem_Create("updateSem", 0);
     updateCmdEv = le_event_CreateId("updateCmdEv", sizeof(ua_Command_t));
     le_thread_Ref_t threadRef = le_thread_Create("updateThread", UpdateThread, (void*)semaphore);
+    le_thread_SetStackSize(threadRef, 0x20000);
+    le_thread_Start(threadRef);
+    le_sem_Wait(semaphore);
+
+    sessProcEv = le_event_CreateId("sessProcEv", sizeof(taf_pi_ua_Process));
+    threadRef = le_thread_Create("sessProcThread", SessProcThread, (void*)semaphore);
     le_thread_SetStackSize(threadRef, 0x20000);
     le_thread_Start(threadRef);
     le_sem_Wait(semaphore);
@@ -691,14 +973,69 @@ int taf_pi_ua_StartInstall
         return -1;
     }
 
-    updateStatus = TAF_PI_UA_STATUS_INIT;
-    totalTime = 0;
-    updatePercent = 0;
+    ua_Command_t cmd;
+    cmd.action = START_INSTALL;
+    le_utf8_Copy(cmd.filePath, filePath, FILE_PATH_MAX_BYTES, NULL);
+    le_event_Report(updateCmdEv, &cmd, sizeof(ua_Command_t));
 
-    le_timer_Start(updateTimerRef);
+    return 0;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pause install.
+ *
+ * @return
+ *  - 0      On success.
+ *  - Others On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+int taf_pi_ua_PauseInstall
+(
+    taf_pi_ua_SessionRef_t sessRef ///< [IN] Update session reference.
+)
+{
+    LE_INFO("UA Plug-In pause install...");
+
+    taf_pi_ua_Session* sessPtr = (taf_pi_ua_Session*)le_ref_Lookup(sessionRefMap, sessRef);
+    if (sessPtr == NULL)
+    {
+        LE_ERROR("Can not find update session.");
+        return -1;
+    }
 
     ua_Command_t cmd;
-    le_utf8_Copy(cmd.filePath, filePath, FILE_PATH_MAX_BYTES, NULL);
+    cmd.action = PAUSE_INSTALL;
+    le_event_Report(updateCmdEv, &cmd, sizeof(ua_Command_t));
+
+    return 0;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resume install.
+ *
+ * @return
+ *  - 0      On success.
+ *  - Others On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+int taf_pi_ua_ResumeInstall
+(
+    taf_pi_ua_SessionRef_t sessRef ///< [IN] Update session reference.
+)
+{
+    LE_INFO("UA Plug-In resume install...");
+
+    taf_pi_ua_Session* sessPtr = (taf_pi_ua_Session*)le_ref_Lookup(sessionRefMap, sessRef);
+    if (sessPtr == NULL)
+    {
+        LE_ERROR("Can not find update session.");
+        return -1;
+    }
+
+    ua_Command_t cmd;
+    cmd.action = RESUME_INSTALL;
     le_event_Report(updateCmdEv, &cmd, sizeof(ua_Command_t));
 
     return 0;
@@ -757,6 +1094,8 @@ LE_SHARED ua_InfoTab_t TAF_HAL_INFO_TAB =
         .init = taf_pi_ua_Init,
         .getSess = taf_pi_ua_GetSession,
         .startInstall = taf_pi_ua_StartInstall,
+        .pauseInstall = taf_pi_ua_PauseInstall,
+        .resumeInstall = taf_pi_ua_ResumeInstall,
         .getProgress = taf_pi_ua_GetProgress,
     },
 };

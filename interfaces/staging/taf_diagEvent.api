@@ -109,9 +109,6 @@
  */
 //-------------------------------------------------------------------------------------------------
 
-USETYPES taf_types.api;
-
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Supplier fault code maximum length.
@@ -130,6 +127,8 @@ ENUM StatusType
     FAILED,                         ///< Test result failed.
     PREPASSED,                      ///< Test result pre-passed.
     PREFAILED,                      ///< Test result pre-failed.
+    CONFIRMED,                      ///< Test confirmed.
+    TEST_NOT_COMPLETED,             ///< Test not completed.
     UNKNOWN = 0xff,                 ///< Unknown.
 };
 
@@ -202,12 +201,11 @@ REFERENCE Service;
  *     - Reference to the service instance.
  *     - NULL if not allowed to create the service.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
 (
-    uint16 eventId
+    uint16 eventId IN
 );
 
 //--------------------------------------------------------------------------------------------------

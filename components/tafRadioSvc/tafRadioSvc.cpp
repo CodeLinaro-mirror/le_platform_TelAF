@@ -894,82 +894,77 @@ void taf_radio_RemoveNetRegRejectHandler(taf_radio_NetRegRejectHandlerRef_t hand
     taf_pa_radio_RemoveNetRegRejectHandler(handlerRef);
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_AddRatChangeHandler
-
- DESCRIPTION     Add a handler function for RAT change.
-
- DEPENDENCIES    Initialization of Radio Service.
-
- PARAMETERS      [IN] le_mrc_RatChangeHandlerFunc_t handlerFuncPtr:
-                          The handler function.
-                 [IN] void* contextPtr: Context pointer.
-
- RETURN VALUE    taf_radio_RatChangeHandlerFunc_t
-                     non-nullptr: Success
-
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for RAT changes.
+ *
+ * @return
+ *  - taf_radio_RatChangeHandlerRef_t Handler reference.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_RatChangeHandlerRef_t taf_radio_AddRatChangeHandler
 (
-    taf_radio_RatChangeHandlerFunc_t handlerFuncPtr,
-    void* contextPtr
+    taf_radio_RatChangeHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr                                 ///< [IN] Handler context.
 )
 {
-    return taf_pa_radio_AddRatChangeHandler(handlerFuncPtr, contextPtr);
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("RatChangeHandler",
+        tafRadio.ratChangeEvId, taf_Radio::taf_radio_LayerRatChangeHandler, (void*)handlerFuncPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_radio_RatChangeHandlerRef_t)(handlerRef);
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_RemoveRatChangeHandler
-
- DESCRIPTION     Remove a handler function from RAT change.
-
- DEPENDENCIES    Add a handler function for RAT change.
-
- PARAMETERS      [IN] taf_radio_RatChangeHandlerRef_t handlerRef:
-                          The handler reference.
-
- RETURN VALUE    None
-
- SIDE EFFECTS
-
-======================================================================*/
-void taf_radio_RemoveRatChangeHandler(taf_radio_RatChangeHandlerRef_t handlerRef)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for RAT changes.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveRatChangeHandler
+(
+    taf_radio_RatChangeHandlerRef_t handlerRef ///< [IN] Handler reference.
+)
 {
-    taf_pa_radio_RemoveRatChangeHandler(handlerRef);
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetRadioAccessTechInUse
-
- DESCRIPTION     Get the radio technology in use.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [OUT] taf_radio_Rat_t* ratPtr: The radio technology in use.
-                 [IN] uint8_t phoneId:          The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_GetRadioAccessTechInUse(taf_radio_Rat_t* ratPtr, uint8_t phoneId)
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the radio access technology in use.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetRadioAccessTechInUse
+(
+    taf_radio_Rat_t* ratPtr, ///< [OUT] Radio access technology.
+    uint8_t phoneId          ///< [IN] Phone ID.
+)
 {
-    TAF_ERROR_IF_RET_VAL(ratPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(statePtr)");
+    TAF_ERROR_IF_RET_VAL(ratPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(statePtr)");
 
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(), LE_BAD_PARAMETER,
         "Invalid para(phoneId:%d)", phoneId);
 
-    return taf_pa_radio_GetRadioAccessTechInUse(ratPtr, phoneId);
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    telux::tel::ServingSystemInfo sysInfo;
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->getSystemInfo(sysInfo);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    *ratPtr = tafRadio.taf_radio_CovertRat(sysInfo.rat);
+
+    return LE_OK;
 }
 
 /*======================================================================
@@ -1572,75 +1567,82 @@ le_result_t taf_radio_SetServiceDomainPreferences
     return LE_OK;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetSignalQual
-
- DESCRIPTION     Get the signal quality, according to the signal strength level
-                 from different rat.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [OUT] uint32_t* qualityPtr: The signal quality.
-                                             Valid from 1 to 5, 0 is unknown.
-                 [IN] uint8_t phoneId:       The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_GetSignalQual(uint32_t* qualityPtr, uint8_t phoneId)
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the signal quality.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetSignalQual
+(
+    uint32_t* qualityPtr, ///< [OUT] Signal quality level.
+    uint8_t phoneId       ///< [IN] Phone ID.
+)
 {
-    TAF_ERROR_IF_RET_VAL(qualityPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(qualityPtr)");
+    TAF_ERROR_IF_RET_VAL(qualityPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(qualityPtr)");
 
     auto &tafRadio = taf_Radio::GetInstance();
     TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
         "Invalid para(phoneId:%d)", phoneId);
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    taf_radio_Rat_t rat = TAF_RADIO_RAT_UNKNOWN;
-    le_result_t res = taf_pa_radio_GetRadioAccessTechInUse(&rat, phoneId);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Fail to get RAT in use.");
+    telux::tel::ServingSystemInfo sysInfo;
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->getSystemInfo(sysInfo);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
 
     auto ret = tafRadio.phones[phoneId - 1]->requestSignalStrength(tafRadio.signalStrengthCb);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
-    res = le_sem_WaitWithTimeOut(tafRadio.signalStrengthCb->semaphore, timeToWait);
+    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.signalStrengthCb->semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(tafRadio.signalStrengthCb->result != LE_OK,
         tafRadio.signalStrengthCb->result, "Fail to get signal quality.");
 
-    switch (rat)
+    switch (sysInfo.rat)
     {
-        case TAF_RADIO_RAT_GSM:
+        case telux::tel::RadioTechnology::RADIO_TECH_GSM:
+        case telux::tel::RadioTechnology::RADIO_TECH_GPRS:
+        case telux::tel::RadioTechnology::RADIO_TECH_EDGE:
             *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.gsm.sslv;
             break;
-        case TAF_RADIO_RAT_UMTS:
+        case telux::tel::RadioTechnology::RADIO_TECH_UMTS:
+        case telux::tel::RadioTechnology::RADIO_TECH_HSDPA:
+        case telux::tel::RadioTechnology::RADIO_TECH_HSUPA:
+        case telux::tel::RadioTechnology::RADIO_TECH_HSPA:
+        case telux::tel::RadioTechnology::RADIO_TECH_HSPAP:
             *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.umts.sslv;
             break;
-        case TAF_RADIO_RAT_CDMA:
+        case telux::tel::RadioTechnology::RADIO_TECH_IS95A:
+        case telux::tel::RadioTechnology::RADIO_TECH_IS95B:
+        case telux::tel::RadioTechnology::RADIO_TECH_1xRTT:
+        case telux::tel::RadioTechnology::RADIO_TECH_EVDO_0:
+        case telux::tel::RadioTechnology::RADIO_TECH_EVDO_A:
+        case telux::tel::RadioTechnology::RADIO_TECH_EVDO_B:
+        case telux::tel::RadioTechnology::RADIO_TECH_EHRPD:
             *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.cdma.sslv;
             break;
-        case TAF_RADIO_RAT_TDSCDMA:
+        case telux::tel::RadioTechnology::RADIO_TECH_TD_SCDMA:
             return LE_UNAVAILABLE;
-        case TAF_RADIO_RAT_LTE:
+        case telux::tel::RadioTechnology::RADIO_TECH_LTE:
+        case telux::tel::RadioTechnology::RADIO_TECH_LTE_CA:
             *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.lte.sslv;
             break;
-        case TAF_RADIO_RAT_NR5G:
+        case telux::tel::RadioTechnology::RADIO_TECH_NR5G:
             *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.nr5g.sslv;
             break;
         default:
-            LE_ERROR("Invalid RAT(%d).", rat);
+            LE_ERROR("Invalid RAT.");
             return LE_FAULT;
     }
 
@@ -4519,7 +4521,18 @@ taf_radio_NetStatusChangeHandlerRef_t taf_radio_AddNetStatusChangeHandler
         ///< [IN] Handler context.
 )
 {
-    return taf_pa_radio_AddNetStatusChangeHandler(handlerFuncPtr, contextPtr);
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("NetStatusChangeHandler",
+        tafRadio.netStatusEvId, taf_Radio::taf_radio_LayerNetStatusHandler,
+        (void*)handlerFuncPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+    taf_radio_NetStatusChangeHandlerRef_t paHandlerRef =
+        taf_pa_radio_AddNetStatusChangeHandler(handlerFuncPtr, contextPtr);
+
+    tafRadio.netStatRefMap[(taf_radio_NetStatusChangeHandlerRef_t)handlerRef] = paHandlerRef;
+    return (taf_radio_NetStatusChangeHandlerRef_t)handlerRef;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4532,7 +4545,17 @@ void taf_radio_RemoveNetStatusChangeHandler
     taf_radio_NetStatusChangeHandlerRef_t handlerRef ///< [IN] Handler reference.
 )
 {
-    taf_pa_radio_RemoveNetStatusChangeHandler(handlerRef);
+    auto &tafRadio = taf_Radio::GetInstance();
+    std::map<taf_radio_NetStatusChangeHandlerRef_t,
+        taf_radio_NetStatusChangeHandlerRef_t>::iterator it =
+        tafRadio.netStatRefMap.find(handlerRef);
+    if (it != tafRadio.netStatRefMap.end())
+    {
+        taf_pa_radio_RemoveNetStatusChangeHandler(tafRadio.netStatRefMap[handlerRef]);
+        tafRadio.netStatRefMap.erase(it);
+    }
+
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -5458,4 +5481,224 @@ le_result_t taf_radio_SetSignalStrengthIndHysteresisTimer
    return LE_OK;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell absolute radio frequency channel number.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note Only applicable for GSM.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellArfcn
+(
+    int32_t* arfcn, ///< [OUT] Absolute radio frequency channel number.
+    uint8_t phoneId ///< [IN] Phone ID.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
 
+    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
+        LE_FAULT, "Fail to get cell information.");
+
+    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), LE_FAULT,
+        "No serving cell.");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
+        TAF_RADIO_RAT_GSM, LE_FAULT, "Serving cell is not GSM.");
+
+    *arfcn = (int32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.arfcn;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell UTRA absolute radio frequency channel number.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note Only applicable for UMTS.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellUarfcn
+(
+    int32_t* uarfcn, ///< [OUT] UTRA absolute radio frequency channel number.
+    uint8_t phoneId  ///< [IN] Phone ID.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
+        LE_FAULT, "Fail to get cell information.");
+
+    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), LE_FAULT,
+        "No serving cell.");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
+        TAF_RADIO_RAT_UMTS, LE_FAULT, "Serving cell is not UMTS.");
+
+    *uarfcn = (int32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.uarfcn;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the operating mode.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetOperatingMode
+(
+    taf_radio_OpMode_t mode, ///< [IN] Operating mode.
+    uint8_t phoneId          ///< [IN] Phone ID.
+)
+{
+    telux::tel::OperatingMode opMode;
+    switch (mode)
+    {
+        case TAF_RADIO_OP_MODE_ONLINE:
+            opMode = telux::tel::OperatingMode::ONLINE;
+            break;
+        case TAF_RADIO_OP_MODE_AIRPLANE:
+            opMode = telux::tel::OperatingMode::AIRPLANE;
+            break;
+        case TAF_RADIO_OP_MODE_FACTORY_TEST:
+            opMode = telux::tel::OperatingMode::FACTORY_TEST;
+            break;
+        case TAF_RADIO_OP_MODE_OFFLINE:
+            opMode = telux::tel::OperatingMode::OFFLINE;
+            break;
+        case TAF_RADIO_OP_MODE_RESETTING:
+            opMode = telux::tel::OperatingMode::RESETTING;
+            break;
+        case TAF_RADIO_OP_MODE_SHUTTING_DOWN:
+            opMode = telux::tel::OperatingMode::SHUTTING_DOWN;
+            break;
+        case TAF_RADIO_OP_MODE_PERSISTENT_LOW_POWER:
+            opMode = telux::tel::OperatingMode::PERSISTENT_LOW_POWER;
+            break;
+        default:
+            LE_ERROR("Invalid operating mode %d.", mode);
+            return LE_BAD_PARAMETER;
+    }
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    auto respenseCb = std::bind(&taf_RadioSetOperatingModeCallback::setOperatingModeResponse,
+        tafRadio.setOperatingModeCb, std::placeholders::_1);
+
+    auto ret = tafRadio.phoneManager->setOperatingMode(opMode, respenseCb);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.setOperatingModeCb->semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout.");
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.setOperatingModeCb->result != LE_OK,
+        tafRadio.setOperatingModeCb->result, "Fail to set operating mode.");
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the operating mode.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetOperatingMode
+(
+    taf_radio_OpMode_t* mode, ///< [OUT] Operating mode.
+    uint8_t phoneId           ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(mode == nullptr, LE_BAD_PARAMETER, "Null ptr(mode)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    auto ret = tafRadio.phoneManager->requestOperatingMode(tafRadio.getOperatingModeCb);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.getOperatingModeCb->semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.setOperatingModeCb->result != LE_OK,
+        tafRadio.setOperatingModeCb->result, "Fail to get operating mode.");
+
+    switch (tafRadio.getOperatingModeCb->opMode)
+    {
+        case telux::tel::OperatingMode::ONLINE:
+            *mode = TAF_RADIO_OP_MODE_ONLINE;
+            break;
+        case telux::tel::OperatingMode::AIRPLANE:
+            *mode = TAF_RADIO_OP_MODE_AIRPLANE;
+            break;
+        case telux::tel::OperatingMode::FACTORY_TEST:
+            *mode = TAF_RADIO_OP_MODE_FACTORY_TEST;
+            break;
+        case telux::tel::OperatingMode::OFFLINE:
+            *mode = TAF_RADIO_OP_MODE_OFFLINE;
+            break;
+        case telux::tel::OperatingMode::RESETTING:
+            *mode = TAF_RADIO_OP_MODE_RESETTING;
+            break;
+        case telux::tel::OperatingMode::SHUTTING_DOWN:
+            *mode = TAF_RADIO_OP_MODE_SHUTTING_DOWN;
+            break;
+        case telux::tel::OperatingMode::PERSISTENT_LOW_POWER:
+            *mode = TAF_RADIO_OP_MODE_PERSISTENT_LOW_POWER;
+            break;
+        default:
+            LE_ERROR("Invalid operating mode.");
+            return LE_FAULT;
+    }
+
+    return LE_OK;
+}

@@ -393,7 +393,7 @@ void ProtocolParser::DiagNegativeACK
     uint32_t dataPackSize = payloadLen + TAF_DOIP_HEADER_GENERIC_LENGTH;
     char diagNACKData[dataPackSize];
 
-    uint16_t payloadType = TAF_DOIP_PAYLOAD_TYPE_DIAGNOSTIC_POSITIVE_ACK;
+    uint16_t payloadType = TAF_DOIP_PAYLOAD_TYPE_DIAGNOSTIC_NEGATIVE_ACK;
     parser.PackGenericHeader(diagNACKData, payloadType, payloadLen);
 
     uint8_t headerPos = TAF_DOIP_HEADER_GENERIC_LENGTH;

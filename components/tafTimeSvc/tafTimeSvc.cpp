@@ -85,89 +85,6 @@ le_result_t taf_time_SetSystemTime
                                 ackTimeSvc);
 }
 
-/*======================================================================
-
- FUNCTION        taf_time_GetSystemTime
-
- DESCRIPTION     Get system REAL time.
-
- DEPENDENCIES    Initialization of Time Service
-
- PARAMETERS      [IN] taf_time_TimeSpec_t * timeVal: Time in
-                      seconds and nanoseconds.
-
- RETURN VALUE    le_result_t
-                 LE_FAULT:             Fail.
-                 LE_OK:                Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_time_GetSystemTime
-(
-    taf_time_TimeSpec_t* timeValPtr
-)
-{
-    auto &time = taf_Time::GetInstance();
-    return time.GetSystemTime(timeValPtr);
-}
-
-/*======================================================================
-
- FUNCTION        taf_time_GetGnssTime
-
- DESCRIPTION     Get GNSS time that is maintained by time service.
-
- DEPENDENCIES    Initialization of Time Service
-
- PARAMETERS      [IN] taf_time_TimeSpec_t * timeVal: Time in
-                      seconds and nanoseconds.
-
- RETURN VALUE    le_result_t
-                 LE_FAULT:             Fail.
-                 LE_UNAVAILABLE:       Not available.
-                 LE_OK:                Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_time_GetGnssTime
-(
-    taf_time_TimeSpec_t* timeValPtr
-)
-{
-    auto &tafTime = taf_Time::GetInstance();
-    return tafTime.GetGnssTime(timeValPtr);
-}
-
-/*======================================================================
-
- FUNCTION        taf_time_GetRtcTime
-
- DESCRIPTION     Get RTC time from device or VHAL interface.
-
- DEPENDENCIES    Initialization of Time Service
-
- PARAMETERS      [IN] taf_time_TimeSpec_t * timeVal: Time in
-                      seconds and nanoseconds.
-
- RETURN VALUE    le_result_t
-                 LE_FAULT:             Fail.
-                 LE_OK:                Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_time_GetRtcTime
-(
-    taf_time_TimeSpec_t* timeVal
-)
-{
-    auto& tafTime = taf_Time::GetInstance();
-    return tafTime.GetRtcTime(timeVal);
-}
-
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Add handler for time source status change registration.
@@ -508,25 +425,6 @@ taf_time_SourceRef_t taf_time_GetSourceRef
     return tafTime.GetSourceRef(sourceId);
 }
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Release a source reference.
- *
- * @return
- *     - LE_OK if successful.
- *     - LE_FAULT if any error occurs.
- */
- //--------------------------------------------------------------------------------------------------
-le_result_t taf_time_ReleaseSourceRef
-(
-    taf_time_SourceRef_t SrcRef
-)
-{
-    auto& tafTime = taf_Time::GetInstance();
-    return tafTime.ReleaseSourceRef(SrcRef);
-}
-
-
 /*======================================================================
 
  FUNCTION        taf_time_GetFailedLoops
@@ -682,11 +580,7 @@ le_result_t taf_time_GetTimeDayAdj
 void taf_time_service_int(void)
 {
     LE_INFO("Time Service Init...");
-    sleep(2);
     auto &time = taf_Time::GetInstance();
-    time.Init();
-    //Need to move to 'tafTimeImpl.cpp'
-//-----------------------------------------------------------------------------
 // load driver
     LE_INFO("Loading the driver");
     time.timeInf = (time_Inf_t*)taf_devMgr_LoadDrv(TAF_TIME_MODULE_NAME, nullptr);
@@ -708,10 +602,9 @@ void taf_time_service_int(void)
         if (ret == -1)
         {
             LE_ERROR("Called InitHAL failed");
-            return;
         }
     }
-    //-----------------------------------------------------------------------------
+    time.Init();
     LE_INFO("Time Service ready");
     return;
 }

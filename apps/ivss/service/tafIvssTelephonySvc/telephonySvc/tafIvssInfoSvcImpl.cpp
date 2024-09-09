@@ -31,10 +31,10 @@ void tafIvssInfoSvc::GetImeiHandler
     TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
 
     taf_IvssInfo_Ind_t* indPtr = (taf_IvssInfo_Ind_t*)reportPtr;
-    indPtr->result = taf_info_GetImei(indPtr->getImei.imei, TAF_INFO_IMEI_MAX_BYTES);
+    indPtr->result = taf_devInfo_GetImei(indPtr->getImei.imei, TAF_DEVINFO_IMEI_MAX_BYTES);
     le_sem_Post(indPtr->semRef);
 
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_info_GetImei fail - %s",
+    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_devInfo_GetImei fail - %s",
         LE_RESULT_TXT(indPtr->result));
 }
 
@@ -47,6 +47,8 @@ void tafIvssInfoSvc::GetImei(const std::shared_ptr<CommonAPI::ClientId> _client,
         GetImeiReply_t _reply)
 {
     // Create a generic response message object.
+    LE_INFO("tafIvssInfoSvc GetImei \n");
+
     taf_IvssInfo_Ind_t* indPtr = (taf_IvssInfo_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssInfo_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss GetImeiSem", 0);

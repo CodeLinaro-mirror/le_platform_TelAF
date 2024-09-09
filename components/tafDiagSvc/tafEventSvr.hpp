@@ -25,7 +25,8 @@ using namespace std;
 #define MIN_COUNTER_BASED_PARAM_VALUE -32768
 #define MIN_TIME_BASED_PARAM_VALUE 0.01
 #define MAX_TIME_BASED_PARAM_VALUE 3600
-
+#define FEATURE_A_PROGRAMMING_SESSION 0x2
+#define FEATURE_A_FOTA_SESSION 0x42
 //--------------------------------------------------------------------------------------------------
 /**
  * Diag Event Server Service Class
@@ -53,9 +54,16 @@ namespace telux
         {
             TAF_DIAGEVENT_TIMER_PREFAILED = 0x0,
             TAF_DIAGEVENT_TIMER_PREPASSED = 0x01,
-            TAF_DIAGEVENT_TIMER_UNKNOWN = 0x01,
+            TAF_DIAGEVENT_TIMER_UNKNOWN = 0x02
         }taf_diagEvent_Running_Timer_Type_t;
-
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+        typedef enum
+        {
+            TAF_DIAGEVENT_APPLICATION_DTC = 0x0,
+            TAF_DIAGEVENT_REPROGRAMMING_DTC = 0x01,
+            TAF_DIAGEVENT_UNKNOWN_DTC = 0x2
+        }taf_diagEvent_DTC_Type_t;
+#endif
         typedef struct
         {
             uint32_t    dtc;
@@ -75,22 +83,24 @@ namespace telux
             uint8_t  eventUdsStatus;
         } taf_diagEvent_UdsStatus_t;
 
-        //tmp configured
+        //Counterbased debounce config structure
         typedef struct {
             int16_t  decrementStepSize;
             int16_t  incrementStepSize;
             int16_t  failedThreshold;
             int16_t  passedThreshold;
-            bool jumpDown;
-            bool jumpUp;
+            bool  jumpDown;
+            bool  jumpUp;
             int16_t  jumpDownValue;
             int16_t  jumpUpValue;
+            int16_t  fdcThreshold;
         } taf_diagEvent_DebounceCounterBasedConfig;
 
-        //tmp configured
+        //Timebased debounce config structure
         typedef struct {
             uint32_t  failedThreshold;
             uint32_t  passedThreshold;
+            uint32_t  fdcThreshold;
         } taf_diagEvent_DebounceTimeBasedConfig;
 
         typedef struct
@@ -103,10 +113,14 @@ namespace telux
         {
             uint32_t dtcCode;
             uint8_t dtcStatus;
-            taf_diagEvent_Process_Occur_Counter_Type_t occurrenceCounterProcessing;//Configured
+            taf_diagEvent_Process_Occur_Counter_Type_t occurrenceCounterProcessing;
             uint8_t occurrenceCounter;
             int16_t faultDetectionCounter;
             bool activationStatus;
+            bool suppressionStatus;
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+            taf_diagEvent_DTC_Type_t dtcType;
+#endif
             le_dls_Link_t link;
             le_dls_List_t dtcEventIdList; // The list of event id in this DTC
         }taf_diagEvent_DtcCtx_t;
@@ -122,13 +136,18 @@ namespace telux
             uint8_t eventUdsStatus; // event UDS status
             uint8_t failureCounter;// failure counter/trip counter
             uint8_t confirmationThreshold; //Confirmation threshold
+            uint8_t supplierFaultCode[TAF_DIAGEVENT_SUPPLIER_FAULT_CODE_MAX_LEN];
+            size_t supplierFaultCodeSize;
             taf_diagEvent_StatusType_t eventFaultStatus;//PASSED,FAILED,UNKNOWN
             int16_t debounceCounter;// debounce counter
+            bool fdcTriggerFlag; // FDC trigger flag
             taf_diagEvent_DebounceResetStatus_t debounceBehavior_; //Congigured and changed by API
             uint8_t debounceType;// debounce type
             taf_diagEvent_DebounceCounterBasedConfig debounceCounterBasedConfig;
+            uint32_t timeBasedFdcThresholdStorageValue;
             taf_diagEvent_DebounceTimeBasedConfig debounceTimeBasedConfig;
             le_timer_Ref_t timerRef;
+            le_timer_Ref_t fdcTimerRef;
             taf_diagEvent_Running_Timer_Type_t timerType;
             int64_t startTime;
             le_dls_List_t sessionRefList; // The list of clients
@@ -153,6 +172,16 @@ namespace telux
                 le_result_t SetStatusWithSupplierFaultCode(taf_diagEvent_ServiceRef_t svcRef,
                         taf_diagEvent_StatusType_t eventStatus, const uint8_t* supplierFaultCodePtr,
                         size_t supplierFaultCodeSize);
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+                le_result_t UpdateEventOnPassedCustomerN(taf_diagEvent_EventCtx_t* eventCtxPtr);
+                le_result_t UpdateEventOnFailedCustomerN(taf_diagEvent_EventCtx_t* eventCtxPtr);
+                le_result_t UpdateEventOnPrePassedCustomerN(taf_diagEvent_EventCtx_t* eventCtxPtr);
+                le_result_t UpdateEventOnPreFailedCustomerN(taf_diagEvent_EventCtx_t* eventCtxPtr);
+                le_result_t UpdateEventOnConfirmedCustomerN(taf_diagEvent_EventCtx_t* eventCtxPtr);
+                le_result_t UpdateEventOnTestNotCmpltCustomerN(
+                        taf_diagEvent_EventCtx_t* eventCtxPtr);
+                le_result_t UpdateDtcForCustomerN(taf_diagEvent_DtcCtx_t *dtcCtxPtr);
+#endif
                 le_result_t ResetDebounceStatus(taf_diagEvent_ServiceRef_t svcRef,
                         taf_diagEvent_DebounceResetStatus_t status);
                 le_result_t GetUdsStatus(taf_diagEvent_ServiceRef_t svcRef,
@@ -166,10 +195,17 @@ namespace telux
                 static void FirstLayerUdsStatusHandler(void* reportPtr,
                         void* secondLayerHandlerFunc);
 
-                //Interface function to DTC module
+                //Interface function for DTC interface module and DTC service module
                 le_result_t ClearDtc(uint32_t dtcCode);
+                le_result_t EnableDTCSetting(uint32_t dtcCode);
+                le_result_t DisableDTCSetting(uint32_t dtcCode);
+                //Interface function for DTC interface module
                 void ReportDTCFaultDetectionCounter(le_dls_List_t* fdcInfoListPtr);
-
+                //Interface function for DTC service module
+                le_result_t SetDTCSuppression(uint32_t dtcCode, bool suppressionStatus);
+                le_result_t SetAllDTCSuppression(bool suppressionStatus);
+                le_result_t GetFaultDetectionCounter(uint32_t dtcCode,
+                        uint8_t* faultDetectionCounterPtr);
                 le_mem_PoolRef_t EventPool = NULL;
                 le_dls_List_t EventCtxList = LE_DLS_LIST_INIT;
                 le_mem_PoolRef_t DtcPool = NULL;
@@ -206,7 +242,8 @@ namespace telux
                         le_msg_SessionRef_t sessionRef);
                 static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *contextPtr);
 
-                static void CounterBasedTimerHandler(le_timer_Ref_t  timerRef);
+                static void TimeBasedDebounceTimerHandler(le_timer_Ref_t  timerRef);
+                static void FdcTimerHandler(le_timer_Ref_t  timerRef);
                 le_result_t DebounceEvent(taf_diagEvent_EventCtx_t* eventCtxPtr,
                         taf_diagEvent_StatusType_t eventStatus);
                 le_result_t DebounceCounterBased(taf_diagEvent_EventCtx_t* eventCtxPtr,
@@ -225,6 +262,11 @@ namespace telux
                 le_result_t ClearSingleDtc(uint32_t dtcCode);
                 le_result_t ClearAllDtc();
                 static void ClearDTCAndEventData(void* param1Ptr, void* param2Ptr);
+
+                void TriggerSnapshotData(uint8_t oldEventUdsStatus,
+                        taf_diagEvent_EventCtx_t* eventCtxPtr);
+
+                void UpdateAllDtcSuppressionStatus(bool suppressionStatus);
 
                 le_ref_MapRef_t SvcRefMap;
                 le_mem_PoolRef_t SessionRefPool = NULL;

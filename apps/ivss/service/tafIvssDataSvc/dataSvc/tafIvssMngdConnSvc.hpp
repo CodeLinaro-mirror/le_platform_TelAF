@@ -27,8 +27,11 @@ using namespace v0::com::qualcomm::qti::modem;
 typedef struct
 {
     char name[TAF_MNGDCONN_MAX_NAME_LEN];       ///< The data name to use.
-    bool enable;                                ///< True if start, false if stop.
     taf_mngdConn_DataState_t state;             ///< The data state.
+    bool startEnable;                           ///< True if called startData, false if not.
+    bool handleEable;                           ///< True if add DataState handle, false if not.
+    bool stateEnable;                           ///< True if received DataState event, false if not.
+    bool stopEnable;                            ///< True if called sttopData, false if not.
 }taf_IvssMngdConn_DataInfo_t;
 
 //--------------------------------------------------------------------------------------------------

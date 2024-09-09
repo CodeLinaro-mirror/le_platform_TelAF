@@ -83,7 +83,7 @@ typedef struct
 
 // Max number of DID in one freeze frame
 #define DATA_ACCESS_FF_DID_SIZE_MAX     10
-#define DATA_ACCESS_DID_DATA_SIZE_MAX    16
+#define DATA_ACCESS_DID_DATA_SIZE_MAX    128
 typedef struct
 {
     uint16_t    did;
@@ -107,7 +107,7 @@ typedef struct
 }taf_DataAccess_SnapshotDataRec_t;
 
 // Max number of bytes in one extended data record
-#define DATA_ACCESS_EXT_DATA_SIZE_MAX   16
+#define DATA_ACCESS_EXT_DATA_SIZE_MAX   128
 typedef struct
 {
     uint8_t     recNumber;
@@ -350,6 +350,19 @@ LE_SHARED le_result_t taf_DataAccess_SetEventFailedCounter
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Set event test failed counter and save it in storage media.
+ *
+ * @return
+ *  - The failed counter of the event. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED uint8_t taf_DataAccess_GetEventFailedCounter
+(
+    uint16_t eventId        ///< [IN]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Delete all DTC and Event data from storage media.
  *
  * @return
@@ -373,6 +386,159 @@ LE_SHARED le_result_t taf_DataAccess_DeleteAllData
 LE_SHARED le_result_t taf_DataAccess_DeleteData
 (
     uint32_t dtc
+);
+
+// newly increased
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the DTC activation status from storage media.
+ *
+ * @return
+ *  - The status of the DTC activation. If not exist, will return 1.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED uint8_t taf_DataAccess_GetDTCActivation
+(
+    uint32_t dtc        ///< [IN]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Set the DTC activation status into storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_SetDTCActivation
+(
+    uint32_t dtc,               ///< [IN]
+    uint8_t activationStatus    ///< [IN]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the DTC suppression status from storage media.
+ *
+ * @return
+ *  - The status of the DTC suppression. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED uint8_t taf_DataAccess_GetDTCSuppression
+(
+    uint32_t dtc        ///< [IN]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Set the DTC suppression status into storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_SetDTCSuppression
+(
+    uint32_t dtc,               ///< [IN]
+    uint8_t suppressionStatus   ///< [IN]
+);
+
+typedef enum {
+    SNAPSHOT_DATA = 0x00,              ///< Snapshot data.
+    EXTENDED_DATA                      ///< Extended data.
+}taf_DataAccess_DataType_t;
+
+typedef struct
+{
+    uint32_t dtcCode;
+    uint8_t recordNum;
+    uint8_t occurrenceType;  // Not used.
+    taf_DataAccess_DataType_t dataType;
+    uint16_t dataId;  // 0 if dataType is extended data.
+    uint16_t dataLen;
+    uint8_t *dataValue;
+    le_dls_Link_t link;
+}taf_DataAccess_DtcDataInfo_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get all the datas of the specified DTC.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_GetDTCData
+(
+    uint32_t dtc,       ///< [IN]
+    le_dls_List_t *list ///< [OUT]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Release the data resources.
+ *
+ * @return
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED void taf_DataAccess_ReleaseDTCData
+(
+    le_dls_List_t *list
+);
+
+typedef struct {
+    uint16_t did;
+    uint8_t *val;
+    uint16_t len;
+    le_dls_Link_t link;
+}taf_DataAccess_DidNode_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Save the snapshot data into storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_SetSnapshotData
+(
+    uint32_t dtc,
+    le_dls_List_t *list,
+    void *action,
+    void (*release)(le_dls_List_t *list)
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Save the suppression status of all DTCs into storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_SetAllDTCSuppression
+(
+    uint8_t suppressionStatus
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * clear up all the DTC datas in the storage media. Include suppressional DTCs.
+ * Currently, this function only uses for test.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_ResetDTCStorage
+(
 );
 
 #ifdef  __cplusplus

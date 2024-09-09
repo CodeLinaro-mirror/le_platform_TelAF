@@ -18,8 +18,6 @@ gen_require(`
     type init_t;
     type init_var_run_t;
     type initctl_t;
-    type leprop_t;
-    type leprop_sock_t;
     type kernel_t;
     type kmsg_device_t;
     type mbim_device_t;
@@ -35,6 +33,7 @@ gen_require(`
     type ubi_device_t;
     type unreserved_port_t;
     type user_home_dir_t;
+    type telaf_fw_t;
     type telaf_lib_t;
     type telaf_app_bundle_t;
     type telaf_devmgr_t;
@@ -100,11 +99,9 @@ allow telaf_tafUpdateSvc_t mtd_device_t:chr_file { rw_file_perms };
 allow telaf_tafUpdateSvc_t mtd_block_t:blk_file { rw_file_perms };
 allow telaf_tafUpdateSvc_t self:capability2 { syslog };
 allow telaf_tafUpdateSvc_t kernel_t:system { syslog_read };
-allow telaf_tafUpdateSvc_t leprop_sock_t:sock_file { write };
 allow telaf_tafUpdateSvc_t cache_t:dir { manage_dir_perms };
 allow telaf_tafUpdateSvc_t cache_t:file { manage_file_perms };
 allow telaf_tafUpdateSvc_t cache_t:lnk_file { manage_file_perms };
-allow telaf_tafUpdateSvc_t leprop_t:unix_stream_socket { connectto };
 allow telaf_tafUpdateSvc_t fs_t:filesystem { getattr unmount };
 # allow access to /dev/mtd devices
 storage_raw_write_fixed_disk(telaf_tafUpdateSvc_t)
@@ -150,3 +147,6 @@ allow telaf_tafUpdateSvc_t telaf_app_exec_attr:file { manage_file_perms relabel_
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafUpdateSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafUpdateSvc_exec_t)
+
+# Allow access to run update plugin under /app
+allow telaf_tafUpdateSvc_t telaf_fw_t:file { exec_file_perms };

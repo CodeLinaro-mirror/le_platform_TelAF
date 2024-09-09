@@ -8,7 +8,7 @@ Before building the application, the toolchain needs to be installed properly an
 
 ### Step 1 Source the tool chain
 ```bash
-source /opt/qct/sa515m/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
+source /opt/qct/sa525m/environment-setup-aarch64-oe-linux
 ```
 
 ### Step 2 Setup TelAF building environment
@@ -20,7 +20,7 @@ cd ~/telaf
 ### Step 3 Build the application
 ```bash
 cd ~/cmake_app_bundle
-mkapp -t sa515m -i $TELAF_INTERFACES DataAppDemo.adef
+mkapp -t sa525m -i $TELAF_INTERFACES DataAppDemo.adef
 ```
 
 The output DataAppDemo.sa515m.update package locates in the current directory.
@@ -32,6 +32,6 @@ On device, install the package by the following command.
 Lastly run the executable file.
 ```bash
 cd /data/
-update DataAppDemo.sa515m.update
+update DataAppDemo.sa525m.update
 ```
 Now the application is installed and brought up on the device.

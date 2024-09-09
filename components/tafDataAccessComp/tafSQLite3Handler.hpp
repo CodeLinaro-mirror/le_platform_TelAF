@@ -71,7 +71,8 @@ namespace dataAccess{
             // Transation function
 
             sqlite3 *GetDbHandle();
-
+            le_result_t GetVersion(int &ver);
+            le_result_t SetVersion(int ver);
         private:
             static int ExecuteCallback(void *data, int argc, char **argv, char **azCloName);
 
@@ -117,6 +118,16 @@ namespace dataAccess{
                 {
                     mDb.Close();
                 }
+            }
+
+            le_result_t GetVersion(int &ver) override
+            {
+                return mDb.GetVersion(ver);
+            }
+
+            le_result_t SetVersion(int ver) override
+            {
+                return mDb.SetVersion(ver);
             }
 
             le_result_t Add(T &entity) override
@@ -315,6 +326,41 @@ namespace dataAccess{
                 LE_DEBUG("QueryCount statement: %s", sql.c_str());
 
                 return mDb.ExecQuery(sql.c_str());
+            }
+
+            bool CheckTableExist() override
+            {
+                std::string tableName = IOHandler<T, K>::mpDao->mFileName;
+
+                std::string sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=?";
+
+                DataStatement statement(mDb.GetDbHandle(), sql.c_str());
+                statement.ClearBindings();
+                statement.BindValue(1, tableName.c_str());
+
+                if (statement.ExecuteRowStep())
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            bool CheckTableEmpty() override
+            {
+                std::stringstream sqlSs;
+                std::string tableName = IOHandler<T, K>::mpDao->mFileName;
+
+                sqlSs << "SELECT EXISTS (SELECT 1 FROM ";
+                sqlSs << tableName << " LIMIT 1);";
+                std::string existSql = sqlSs.str();
+
+                DataStatement statement(mDb.ExecQuery(existSql.c_str()));
+                (void)statement.ExecuteRowStep();
+
+                return (statement.GetColumnInt(0)) == 0 ? true : false;
             }
         private:
             DataStatement *GetInsertStatement()

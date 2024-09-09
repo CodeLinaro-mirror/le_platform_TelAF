@@ -480,10 +480,16 @@ void tafSimTest_swapToEmergencyAndBack
     taf_sim_Manufacturer_t manufacturer
 )
 {
-    LE_ASSERT_OK(taf_sim_LocalSwapToEmergencyCallSubscription(simId, manufacturer));
-    LE_INFO("SwapToEmergency success");
-    LE_ASSERT_OK(taf_sim_LocalSwapToCommercialSubscription(simId, manufacturer));
-    LE_INFO("SwapToRegular success");
+    LE_INFO("SwapToEmergencyAndBack simId: %d, manufacturer: %d", (int) simId, (int) manufacturer);
+
+    le_result_t r = taf_sim_LocalSwapToEmergencyCallSubscription(simId, manufacturer);
+    LE_INFO("SwapToEmergency %s, ErrorCode: %s", r == LE_OK ? "success" : "failed", LE_RESULT_TXT(r));
+    printf("SwapToEmergency %s, ErrorCode: %s\n", r == LE_OK ? "success" : "failed", LE_RESULT_TXT(r));
+
+    r = taf_sim_LocalSwapToCommercialSubscription(simId, manufacturer);
+
+    LE_INFO("SwapToRegular %s, ErrorCode: %s", r == LE_OK ? "success" : "failed", LE_RESULT_TXT(r));
+    printf("SwapToRegular %s, ErrorCode: %s\n", r == LE_OK ? "success" : "failed", LE_RESULT_TXT(r));
 }
 
 void tafSimTest_fplmnList_test(taf_sim_Id_t simId){

@@ -34,7 +34,9 @@
 
 #include "legato.h"
 #include "interfaces.h"
+#include <string>
 #include "tafResetSvr.hpp"
+#include "configuration.hpp"
 
 using namespace telux::tafsvc;
 
@@ -58,10 +60,25 @@ taf_ResetSvr &taf_ResetSvr::GetInstance()
 //-------------------------------------------------------------------------------------------------
 taf_diagReset_ServiceRef_t taf_ResetSvr::GetService
 (
-    taf_diagReset_Type_t resetType
+    uint8_t resetType
 )
 {
     LE_DEBUG("Gets the Reset Service");
+
+    // Reset type check. Exception if can't get node from config file.
+    if (resetType != TAF_DIAGRESET_ALL_RESET)
+    {
+        try
+        {
+            cfg::Node node = cfg::top_reset_all<int>("sub_function_identifier", resetType);
+            LE_INFO("Reset type 0x%x is supported", resetType);
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("ECU reset type 0x%x is not configured in YAML file.", resetType);
+            return NULL;
+        }
+    }
 
     // Search the service.
     taf_ResetSvc_t* servicePtr = GetServiceObj(resetType);
@@ -124,7 +141,7 @@ taf_diagReset_ServiceRef_t taf_ResetSvr::GetService
 //-------------------------------------------------------------------------------------------------
 taf_ResetSvc_t* taf_ResetSvr::GetServiceObj
 (
-    taf_diagReset_Type_t resetType
+    uint8_t resetType
 )
 {
     le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
@@ -255,10 +272,8 @@ void taf_ResetSvr::RxReqEventHandler
 
     taf_ResetSvc_t* servicePtr = NULL;
     taf_ResetReqHandler_t* handlerObjPtr = NULL;
-    taf_diagReset_Type_t resetType;
 
-
-    servicePtr = (taf_ResetSvc_t*)reset.GetServiceObj((taf_diagReset_Type_t)rxMsgPtr->subFunc);
+    servicePtr = (taf_ResetSvc_t*)reset.GetServiceObj(rxMsgPtr->subFunc);
     if (servicePtr == NULL)
     {
         servicePtr = (taf_ResetSvc_t*)reset.GetServiceObj(TAF_DIAGRESET_ALL_RESET);
@@ -266,11 +281,10 @@ void taf_ResetSvr::RxReqEventHandler
         {
             LE_WARN("Not found registered ECU reset service type: 0x%x for this request",
                     rxMsgPtr->subFunc);
-
+            // UDS_0x11_NRC_21: service pointer is null
+            reset.SendNRCResp(&(rxMsgPtr->addrInfo), TAF_DIAG_BUSY_REPEAT_REQUEST);
             le_ref_DeleteRef(reset.RxMsgRefMap, rxMsgPtr->rxMsgRef);
-            LE_DEBUG("1 Call RxReqEventHandler");
             le_mem_Release(rxMsgPtr);
-            LE_DEBUG("2 Call RxReqEventHandler");
             return;
         }
     }
@@ -279,6 +293,8 @@ void taf_ResetSvr::RxReqEventHandler
     {
         LE_WARN("Did not register handler for ECU reset service type: 0x%x",
                 rxMsgPtr->subFunc);
+        // UDS_0x11_NRC_21: handler is not registered
+        reset.SendNRCResp(&(rxMsgPtr->addrInfo), TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(reset.RxMsgRefMap, rxMsgPtr->rxMsgRef);
         le_mem_Release(rxMsgPtr);
         return;
@@ -289,41 +305,14 @@ void taf_ResetSvr::RxReqEventHandler
             (taf_ResetReqHandler_t*)le_ref_Lookup(reset.ReqHandlerRefMap, servicePtr->handlerRef);
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
+        // UDS_0x11_NRC_21: handler is null
+        reset.SendNRCResp(&(rxMsgPtr->addrInfo), TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(reset.RxMsgRefMap, rxMsgPtr->rxMsgRef);
         le_mem_Release(rxMsgPtr);
         return;
     }
 
-    if (rxMsgPtr->subFunc == 0x01)
-    {
-        resetType = TAF_DIAGRESET_HARD_RESET;
-    }
-    else if (rxMsgPtr->subFunc == 0x02)
-    {
-        resetType = TAF_DIAGRESET_KEY_OFF_ON_RESET;
-    }
-    else if (rxMsgPtr->subFunc == 0x03)
-    {
-        resetType = TAF_DIAGRESET_SOFT_RESET;
-    }
-    else if (rxMsgPtr->subFunc == 0x04)
-    {
-        resetType = TAF_DIAGRESET_ENABLE_RAPID_POWER_SHUTDOWN_RESET;
-    }
-    else if (rxMsgPtr->subFunc == 0x05)
-    {
-        resetType = TAF_DIAGRESET_DISABLE_RAPID_POWER_SHUTDOWN_RESET;
-    }
-    else
-    {
-        LE_DEBUG("Invalid SubFunction(0x%x)", rxMsgPtr->subFunc);
-        // Send subfunction not supported NRC.
-        reset.SendNRCResp(&(rxMsgPtr->addrInfo), TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED);
-
-        le_ref_DeleteRef(reset.RxMsgRefMap, rxMsgPtr->rxMsgRef);
-        le_mem_Release(rxMsgPtr);
-        return;
-    }
+    uint8_t resetType = rxMsgPtr->subFunc;
 
     // Add the message in service message list and notify to application.
     rxMsgPtr->link = LE_DLS_LINK_INIT;
@@ -417,7 +406,7 @@ le_result_t taf_ResetSvr::SendNRCResp
 le_result_t taf_ResetSvr::SendResp
 (
     taf_diagReset_RxMsgRef_t rxMsgRef,
-    taf_diagReset_ErrorCode_t errCode
+    uint8_t errCode
 )
 {
     LE_DEBUG("SendResp");
@@ -429,7 +418,7 @@ le_result_t taf_ResetSvr::SendResp
     taf_ResetRxMsg_t* rxMsgPtr = (taf_ResetRxMsg_t*)le_ref_Lookup(RxMsgRefMap, rxMsgRef);
     TAF_ERROR_IF_RET_VAL(rxMsgPtr == NULL, LE_BAD_PARAMETER, "Invalid rxMsgPtr");
 
-    taf_ResetSvc_t* servicePtr = (taf_ResetSvc_t*)GetServiceObj((taf_diagReset_Type_t)rxMsgPtr->subFunc);
+    taf_ResetSvc_t* servicePtr = (taf_ResetSvc_t*)GetServiceObj(rxMsgPtr->subFunc);
     if (servicePtr == NULL)
     {
         servicePtr = (taf_ResetSvc_t*)GetServiceObj(TAF_DIAGRESET_ALL_RESET);

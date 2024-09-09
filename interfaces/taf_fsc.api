@@ -36,7 +36,7 @@
 /**
  * @page c_tafFSCrypt FS-Crypt Service
  *
- * @ref taf_fsc_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_fsc_interface.h>` @endrst
  *
  * <HR>
  * Some of the directories in UBFS, or the whole UBIFS volume, which are used to store important
@@ -66,7 +66,7 @@
  * a new one with the given name will be created. A storage reference is returned to the client for
  * FS-Crypt storage operations.
  *
- * Applications only call the following interfaces to finish storage manipulation and there is no need 
+ * Applications only call the following interfaces to finish storage manipulation and there is no need
  * to care about key management or encryption and decryption operation as these actions will be maintained at
  * the service backend.
  * The following storage APIs are supported.
@@ -77,34 +77,34 @@
  *
  * The following example illustrates how to initialize FS-Crypt storage and lock the directory.
  * @code
-   le_result_t result;
-   taf_fsc_StorageRef_t storageRef = taf_fsc_GetStorageRef("/app/test", &result);
+    le_result_t result;
+    taf_fsc_StorageRef_t storageRef = taf_fsc_GetStorageRef("/app/test", &result);
 
-   if(LE_OK == result){
-       // Process of the storage
-   }
-   else{
-       // Error process
-   }
+    if(LE_OK == result){
+        // Process of the storage
+    }
+    else{
+        // Error process
+    }
 
-   result == taf_fsc_LockStorage(storageRef);
+    result == taf_fsc_LockStorage(storageRef);
 
-   if(LE_OK == result){
-       // Process of the storage
-   }
-   else{
-       // Error process
-   }
+    if(LE_OK == result){
+        // Process of the storage
+    }
+    else{
+        // Error process
+    }
 
-   @endcode
+    @endcode
  *
- * @note Storage will be unlocked after calling taf_fsc_GetStorageRef.
+ * @b NOTE: Storage will be unlocked after calling taf_fsc_GetStorageRef.
  *
  * After calling taf_fsc_GetStorageRef, the generated key for the specified directory is added
  * to the kernel keyring, meaning that the storage is in the Unlocked state and the client app
  * can access the directory without calling taf_fsc_UnlockStorage().
  *
- * @note The key removing mechanism will be triggered during shutdown.
+ * @b NOTE: The key removing mechanism will be triggered during shutdown.
  *
  * To avoid raw keys being copied from non-volatile storage, the service removes all keys from
  * the kernel keyring when the system is shutting down.

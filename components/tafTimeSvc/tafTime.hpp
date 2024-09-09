@@ -38,6 +38,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
+#include "taf_gptpTime.h"
 
 // For reading json configuration file
 #include "jansson.h"
@@ -78,6 +79,7 @@
 #define TAF_TIME_TOLERANCES_SETTING_STR    "ToleranceMillsec"
 #define TAF_TIME_ALLOWOVERRIDE_STR         "AllowOverrideAfterFail"
 #define TAF_TIME_VALIDCLIENTLIST_STR       "ValidClientList"
+#define TAF_TIME_GPTPDEVICENAME_STR        "GptpDeviceName"
 #define TAF_TIME_SERVICE_SOURCE_STR        "Sources"
 
 #define TAF_TIME_RTC_DEV_NAME "/dev/rtc0"
@@ -175,6 +177,8 @@ typedef struct
     taf_time_TimeSources_t newSource; ///< New working time source
 } taf_TimeSourceStatus_t;
 
+static le_thread_Ref_t mainThreadRef = NULL;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Network time information structure.
@@ -247,20 +251,22 @@ typedef struct
 
 typedef struct
 {
-    taf_time_TimeSources_t sourceId;         ///< Time source ID.
-    taf_time_TimeSources_t systemSourceId;   ///< System time source ID.
-    taf_time_SourceRef_t ref;                ///< own reference.
-    bool sourceValidity;                     ///< The validity for current time source.
-    int32_t failedLoops = -1;                ///< Number of loop failure for time source.
+    taf_time_TimeSources_t sourceId;             ///< Time source ID.
+    taf_time_TimeSources_t systemSourceId;       ///< System time source ID.
+    taf_time_SourceRef_t ref;                    ///< own reference.
+    bool sourceValidity;                         ///< The validity for current time source.
+    int32_t failedLoops = -1;                    ///< Number of loop failure for time source.
     bool isAvailable;
-    int8_t timeZone = 0;                     ///< Offset between UTC and local time in units
-                                             ///  of 15 minutes(signed value).
-                                             ///  Actual value = field value * 15 minutes.
-    uint8_t dstAdj = 0;                      ///< Daylight saving adjustment in hours to obtain
-                                             ///  local time. Possible values: 0, 1, and 2.
-    le_msg_SessionRef_t sessionRef;          ///< Client that connected to the service.
-    taf_time_StatusEventType_t eventType;    ///< Type of event to which client want to
-                                             /// subscribe for.
+    int8_t timeZone = 0;                         ///< Offset between UTC and local time in units
+                                                 ///  of 15 minutes(signed value).
+                                                 ///  Actual value = field value * 15 minutes.
+    uint8_t dstAdj = 0;                          ///< Daylight saving adjustment in hours to obtain
+                                                 ///  local time. Possible values: 0, 1, and 2.
+    taf_mngdStorSec_DataRef_t secStrgdataRef = NULL; ///< Managed storage service reference 
+                                                 /// for storing
+    le_msg_SessionRef_t sessionRef;              ///< Client that connected to the service.
+    taf_time_StatusEventType_t eventType;        ///< Type of event to which client want to
+                                                 /// subscribe for.
     taf_time_TimeSourceStatusHandlerRef_t handlerRef = NULL;      ///< Handler reference.
     taf_time_TimeSourceStatusHandlerFunc_t handlerFunc = NULL;    ///< Handler function.
     void* context;                                                ///< Handler context.
@@ -308,6 +314,13 @@ typedef struct
     taf_time_AsyncSetTimeReqHandlerFunc_t setRTCCallbackFunc;
 }taf_time_setRTCCb_t;
 
+struct NetworkTimeResponseUpdateArgs_t
+{
+    uint8_t networkNumber;
+    telux::tel::NetworkTimeInfo info;   ///< [IN] Network time information.
+    telux::common::ErrorCode error;    ///< [IN] Error code.
+};
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Class defination.
@@ -335,6 +348,7 @@ namespace telux
             long int toleranceMillsec;
             int64_t allowOverrideAfterFail;
             std::vector<std::string> validClientList;
+            std::string gptpDeviceName;
             int sourceArrySize;
             int sourceVectorSize;
 
@@ -429,6 +443,10 @@ namespace telux
 
                 for (auto item : validClientList) {
                     LE_INFO("Client: %s\n", item.c_str());
+                }
+                if(!gptpDeviceName.empty())
+                {
+                    LE_INFO("GptpDeviceName %s\n", gptpDeviceName.c_str());
                 }
 
                 LE_INFO("Time source size: %ld\n", source.size());
@@ -595,6 +613,8 @@ namespace telux
                 le_ref_MapRef_t SrcRefMap;
                 le_mem_PoolRef_t SrcPool = NULL;
 
+                le_mem_PoolRef_t NetworkTimeResponseUpdatePool = NULL;
+
                 le_mem_PoolRef_t NetworkDeltaTimePool = NULL;
                 le_mem_PoolRef_t NetworkDeltaTime2Pool = NULL;
 
@@ -630,7 +650,6 @@ namespace telux
                     void* contextPtr);
                 bool isNewTimeSrcSetTimeAllowed(taf_time_TimeSources_t newTimeSource);
 
-
                 le_event_Id_t timeSourceStatusEventId;
                 taf_time_TimeSourceStatusHandlerRef_t AddTimeSourceStatusHandler(
                     taf_time_SourceRef_t SrcRef, taf_time_StatusEventType_t eventType,
@@ -652,14 +671,16 @@ namespace telux
                     taf_time_TimeSources_t sourceIndex);
                 void UpdateFailedLoops(taf_time_TimeSources_t sourceIndex,
                     taf_TimeFailLoopAction_t action);
-                void InitializeSystemTimeAttr();
+                void InitializeSystemTimeAttr(le_result_t connectStatus);
                 bool IsSourceValid(taf_time_SourceRef_t sourceRef);
                 le_result_t SetValidity(taf_time_SourceRef_t sourceRef, bool validity);
                 le_result_t CheckSetValidityPermission();
                 void ReportValidityChange(taf_SourceInf_t* sourcePtr);
-
+                le_result_t WriteValidtyToSecStorage(taf_SourceInf_t* sourcePtr, bool newvalidity);
+                le_result_t ReadValidityFromSecStorage(taf_SourceInf_t* sourcePtr, bool* validity);
                 uint64_t PrevSrcAvailabiltyMap = 0x0;
                 struct SetTimeStatus* SetTimeSt = NULL;
+                struct NetworkTimeResponseUpdateArgs_t* NetworkTimeResponseArgs = NULL;
 
             private:
                 std::shared_ptr<ITimeListener> gnssTimeListener = nullptr;
@@ -667,6 +688,7 @@ namespace telux
                 TimeTypeMask SupportTimeMask;
                 int64_t AllowOverrideAfterFail = -1;
                 pthread_mutex_t ProtectlocalTime_mutex;
+                taf_gptpTime_Ref_t gptpTimeRef = NULL;
         };
     }
 }

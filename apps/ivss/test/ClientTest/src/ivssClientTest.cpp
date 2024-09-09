@@ -29,10 +29,11 @@ using namespace v0::com::qualcomm::qti::modem;
  */
 //--------------------------------------------------------------------------------------------------
 
-#define CHECK_RETURN_VALUE(expression, message) \
+#define CHECK_RETURN_VALUE(expression, message, value) \
     do { \
         if (!(expression)) { \
-            std::cerr << "Error: " << (message) << std::endl; \
+            std::cerr << "Error: " << (message) << "Value: " << static_cast<int>(value) \
+                << std::endl; \
             return false; \
         } \
     } while(0);
@@ -228,10 +229,10 @@ int main(int argc, char* argv[])
     std::shared_ptr<InfoSvcProxy<>> infoProxyKeep;
     std::shared_ptr<MngdConnSvcProxy<>> mngdConnProxyKeep;
 
-    if (svcMask & IVSS_TEST_SVC_RADIO_MASK) {
-        // commonapi proxy init
+    if (svcMask & IVSS_TEST_SVC_RADIO_MASK)
+    {
         std::shared_ptr<RadioSvcProxy<>> radioProxy = runtime->buildProxy < RadioSvcProxy > (
-            "local", "modem.RadioSvc", "radioSvcTest");
+            "local", "modem.RadioSvc", "clientTest");
         std::cout << "Checking availability!" << std::endl;
         while (!radioProxy->isAvailable())
         {
@@ -239,9 +240,52 @@ int main(int argc, char* argv[])
         }
         std::cout << "radioProxy Available..." << std::endl;
         radioProxyKeep = radioProxy;
+    }
 
+    if (svcMask & IVSS_TEST_SVC_SIM_MASK)
+    {
+        std::shared_ptr<SimSvcProxy<>> simProxy = runtime->buildProxy < SimSvcProxy > ("local",
+            "modem.SimSvc", "clientTest");
+        std::cout << "Checking availability!" << std::endl;
+        while (!simProxy->isAvailable())
+        {
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+        }
+        std::cout << "simProxy Available..." << std::endl;
+        simProxyKeep = simProxy;
+    }
+
+    if (svcMask & IVSS_TEST_SVC_INFO_MASK)
+    {
+        std::shared_ptr<InfoSvcProxy<>> infoProxy = runtime->buildProxy < InfoSvcProxy > ("local",
+            "modem.InfoSvc", "clientTest");
+        std::cout << "Checking availability!" << std::endl;
+        while (!infoProxy->isAvailable())
+        {
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+        }
+        std::cout << "infoProxy Available..." << std::endl;
+        infoProxyKeep = infoProxy;
+    }
+
+    if (svcMask & IVSS_TEST_SVC_MNGDCONN_MASK)
+    {
+        std::shared_ptr<MngdConnSvcProxy<>> mngdConnProxy = runtime->buildProxy < MngdConnSvcProxy >
+            ("local", "modem.MngdConnSvc", "clientTest");
+        std::cout << "Checking availability!" << std::endl;
+        while (!mngdConnProxy->isAvailable())
+        {
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+        }
+        std::cout << "mngdConnProxy Available..." << std::endl;
+        mngdConnProxyKeep = mngdConnProxy;
+    }
+
+    // api test
+    if (svcMask & IVSS_TEST_SVC_RADIO_MASK)
+    {
         // Subscribe to broadcast
-        radioProxy->getRadioRatEvent().subscribe([&](const CommonTypes::PhoneId& phoneId,
+        radioProxyKeep->getRadioRatEvent().subscribe([&](const CommonTypes::PhoneId& phoneId,
             const RadioSvc::Rat& rat)
             {
                 std::cout << "======== RadioRatEvent Test ========" << std::endl;
@@ -251,7 +295,7 @@ int main(int argc, char* argv[])
             }
         );
 
-        radioProxy->getSignalStrengthEvent().subscribe([&](const CommonTypes::PhoneId& phoneId,
+        radioProxyKeep->getSignalStrengthEvent().subscribe([&](const CommonTypes::PhoneId& phoneId,
             const RadioSvc::Rat& rat, const int32_t& ss, const int32_t& rsrp)
             {
                 std::cout << "======== SignalStrengthEvent Test ========" << std::endl;
@@ -261,7 +305,7 @@ int main(int argc, char* argv[])
             }
         );
 
-        radioProxy->getRadioStateEvent().subscribe([&](const RadioSvc::States& radioState)
+        radioProxyKeep->getRadioStateEvent().subscribe([&](const RadioSvc::States& radioState)
             {
                 std::cout << "======== RadioStateEvent Test ========" << std::endl;
                 std::cout << "Radio State change to :" << RadioStatesToString(radioState)
@@ -269,7 +313,7 @@ int main(int argc, char* argv[])
             }
         );
 
-        radioProxy->getCellInfoEvent().subscribe([&](const CommonTypes::PhoneId& phoneId,
+        radioProxyKeep->getCellInfoEvent().subscribe([&](const CommonTypes::PhoneId& phoneId,
             const RadioSvc::CellInfoStatus& status)
             {
                 std::cout << "======== CellInfoEvent Test ========" << std::endl;
@@ -282,31 +326,35 @@ int main(int argc, char* argv[])
 
         std::cout << "======== setPower OFF Test ========" << std::endl;
         power = CommonTypes::OnOffType::OFF;
-        radioProxy->SetRadioPower(phoneId, power, callStatus, methodError);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        radioProxyKeep->SetRadioPower(phoneId, power, callStatus, methodError);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "SetRadioPower SUCCESS " << std::endl << std::endl;
         std::this_thread::sleep_for(std::chrono::seconds(2));
 
         std::cout << "======== getPower Test ========" << "'\n";
-        radioProxy->GetRadioPower(phoneId, callStatus, methodError, power);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        radioProxyKeep->GetRadioPower(phoneId, callStatus, methodError, power);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "GetRadioPower: " << (power == CommonTypes::OnOffType::ON ? "ON'" : "OFF'")
             << std::endl << std::endl;
 
         std::cout << "======== setPower ON Test ========" << std::endl;
         power = CommonTypes::OnOffType::ON;
-        radioProxy->SetRadioPower(phoneId, power, callStatus, methodError);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        radioProxyKeep->SetRadioPower(phoneId, power, callStatus, methodError);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "SetRadioPower SUCCESS " << std::endl << std::endl;
         std::this_thread::sleep_for(std::chrono::seconds(2));
 
         std::cout << "======== getPower Test ========" << "'\n";
-        radioProxy->GetRadioPower(phoneId, callStatus, methodError, power);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        radioProxyKeep->GetRadioPower(phoneId, callStatus, methodError, power);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "GetRadioPower: " << (power == CommonTypes::OnOffType::ON ? "ON'" : "OFF'")
             << std::endl << std::endl;
 
@@ -314,11 +362,12 @@ int main(int argc, char* argv[])
         RadioSvc::SignalMetrics signalStrength;
         std::cout << "======== get LTE signal strength Test ========" << "'\n";
         rat = RadioSvc::Rat::RAT_LTE;
-        radioProxy->GetSignalStrength(phoneId, rat, callStatus, methodError, signalStrength);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        radioProxyKeep->GetSignalStrength(phoneId, rat, callStatus, methodError, signalStrength);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         RadioSvc::LteSignalMetrics lteMetrics = signalStrength.get<RadioSvc::LteSignalMetrics>();
-        std::cout << "get LTE signal strength: ss=" << lteMetrics.getSs() << " (dBm), rsrq=" 
+        std::cout << "get LTE signal strength: ss=" << lteMetrics.getSs() << " (dBm), rsrq="
             << lteMetrics.getRsrq() << " (dB), rsrp" << lteMetrics.getRsrp() << " (dBm), snr"
             << lteMetrics.getSnr() << " (0.1 dB)"
             << std::endl << std::endl;
@@ -328,30 +377,31 @@ int main(int argc, char* argv[])
         std::string mnc;
         std::cout << "======== get Register Mode Test ========" << "'\n";
         rat = RadioSvc::Rat::RAT_LTE;
-        radioProxy->GetRegisterMode(phoneId, callStatus, methodError, isManual, mcc, mnc);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        radioProxyKeep->GetRegisterMode(phoneId, callStatus, methodError, isManual, mcc, mnc);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "get Register Mode: isManual=" << isManual << " , mcc=" << mcc << " mnc="
             << mnc << std::endl << std::endl;
 
-
         std::cout << "======== set Automatic Register Mode Test ========" << "'\n";
         rat = RadioSvc::Rat::RAT_LTE;
-        radioProxy->SetAutomaticRegisterMode(phoneId, callStatus, methodError);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        radioProxyKeep->SetAutomaticRegisterMode(phoneId, callStatus, methodError);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "set Automatic Register Mode success" << std::endl << std::endl;
-
 
         std::cout << "======== Get Hardware Config Test ========" << "'\n";
         uint8_t totalSimCount = 0;
         uint8_t maxActiveSims = 0;
         RadioSvc::RatBitMask deviceRatCapMask = 0x0;
         RadioSvc::RatBitMask simRatCapMask = 0x0;
-        radioProxy->GetHardwareConfig(phoneId, callStatus, methodError, totalSimCount,
+        radioProxyKeep->GetHardwareConfig(phoneId, callStatus, methodError, totalSimCount,
             maxActiveSims, deviceRatCapMask, simRatCapMask);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "GetHardwareConfig: totalSimCount "
             << static_cast<unsigned int>(totalSimCount) << "'\n"
             << "maxActiveSims " << static_cast<unsigned int>(maxActiveSims) << "'\n"
@@ -359,25 +409,25 @@ int main(int argc, char* argv[])
             << "simRatCapMask "<< static_cast<unsigned int>(simRatCapMask) << "'\n"
             << std::endl << std::endl;
 
-
         std::cout << "======== Get Rat Preferences Test ========" << "'\n";
         RadioSvc::RatBitMask ratMask = 0x0;
-        radioProxy->GetRatPreferences(phoneId, callStatus, methodError, ratMask);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        radioProxyKeep->GetRatPreferences(phoneId, callStatus, methodError, ratMask);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "GetRatPreferences: ratMask " << static_cast<unsigned int>(ratMask)
             << std::endl << std::endl;
-
 
         std::cout << "======== Get Current Network Name Test ========" << "'\n";
         std::string longName;
         std::string shortName;
-        radioProxy->GetCurrentNetworkName(phoneId, callStatus, methodError, longName, shortName);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        radioProxyKeep->GetCurrentNetworkName(phoneId, callStatus, methodError, longName,
+            shortName);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "GetCurrentNetworkName: longName " << longName << " shortName " << shortName
             << std::endl << std::endl;
-
 
         std::cout << "======== Get NetRegState Test ========" << "'\n";
         RadioSvc::Rat getRat;
@@ -385,23 +435,23 @@ int main(int argc, char* argv[])
         std::string getMcc;
         std::string getMnc;
         RadioSvc::NetRegState netReg;
-        radioProxy->GetNetRegState(phoneId, callStatus, methodError, getRat, cellId, getMcc, getMnc,
-            netReg);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
-        std::cout << "GetNetRegState: rat= " << RatToString(rat) << " , cellId=" << cellId 
-            << " , mcc=" << mcc << " , mnc=" << mnc << " , netReg=" 
+        radioProxyKeep->GetNetRegState(phoneId, callStatus, methodError, getRat, cellId, getMcc,
+            getMnc, netReg);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
+        std::cout << "GetNetRegState: rat= " << RatToString(rat) << " , cellId=" << cellId
+            << " , mcc=" << mcc << " , mnc=" << mnc << " , netReg="
             << static_cast<unsigned int>(netReg) << std::endl << std::endl;
-
 
         std::cout << "======== Get NrDualConnectivityStatus Test ========" << "'\n";
         RadioSvc::NRDcnrRestriction statusDcnr;
-        radioProxy->GetNrDualConnectivityStatus(phoneId, callStatus, methodError, statusDcnr);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        radioProxyKeep->GetNrDualConnectivityStatus(phoneId, callStatus, methodError, statusDcnr);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "GetNrDualConnectivityStatus: statusDcnr "
             << static_cast<unsigned int>(statusDcnr) << std::endl << std::endl;
-
 
         std::cout << "======== Set SignalStrengthReportingCriteria  Test ========" << std::endl;
         power = CommonTypes::OnOffType::ON;
@@ -410,27 +460,18 @@ int main(int argc, char* argv[])
             RadioSvc::SigIndicationType::SIG_THRESHOLD, -1400, -440, 0};
         RadioSvc::SigStrengthHysteresis hyst = RadioSvc::SigStrengthHysteresis{
             true, 50, true, 5000};
-        radioProxy->SetSignalStrengthReportingCriteria(phoneId, sigType, ind, hyst, callStatus,
+        radioProxyKeep->SetSignalStrengthReportingCriteria(phoneId, sigType, ind, hyst, callStatus,
             methodError);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "SetSignalStrengthReportingCriteria SUCCESS " << std::endl << std::endl;
     }
 
-
-    if (svcMask & IVSS_TEST_SVC_SIM_MASK) {
-        std::shared_ptr<SimSvcProxy<>> simProxy = runtime->buildProxy < SimSvcProxy > ("local",
-            "modem.SimSvc", "SimSvcTest");
-        std::cout << "Checking availability!" << std::endl;
-        while (!simProxy->isAvailable())
-        {
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
-        }
-        std::cout << "simProxy Available..." << std::endl;
-        simProxyKeep = simProxy;
-
+    if (svcMask & IVSS_TEST_SVC_SIM_MASK)
+    {
         // Subscribe to broadcast
-        simProxy->getSimStateEvent().subscribe([&](const CommonTypes::PhoneId& phoneId,
+        simProxyKeep->getSimStateEvent().subscribe([&](const CommonTypes::PhoneId& phoneId,
             const SimSvc::States& simState)
             {
                 std::cout << "======== getSimStateEvent Test ========" << std::endl;
@@ -442,60 +483,44 @@ int main(int argc, char* argv[])
 
         std::string imsi;
         std::cout << "======== get Sim Imsi Test ========" << "'\n";
-        simProxy->GetImsi(phoneId, callStatus, methodError, imsi);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        simProxyKeep->GetImsi(phoneId, callStatus, methodError, imsi);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "get Imsi: " << imsi << std::endl << std::endl;
 
         SimSvc::States simState;
         std::cout << "======== get SimState Test ========" << "'\n";
-        simProxy->GetState(phoneId, callStatus, methodError, simState);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        simProxyKeep->GetState(phoneId, callStatus, methodError, simState);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "get Status: " << StateToString(simState) << std::endl << std::endl;
 
         std::string iccid;
         std::cout << "======== Sim GetICCID Test ========" << "'\n";
-        simProxy->GetICCID(phoneId, callStatus, methodError, iccid);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        simProxyKeep->GetICCID(phoneId, callStatus, methodError, iccid);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "get ICCID: " << iccid << std::endl << std::endl;
     }
 
-
-    if (svcMask & IVSS_TEST_SVC_INFO_MASK) {
-        std::shared_ptr<InfoSvcProxy<>> infoProxy = runtime->buildProxy < InfoSvcProxy > ("local",
-            "modem.InfoSvc", "InfoSvcTest");
-        std::cout << "Checking availability!" << std::endl;
-        while (!infoProxy->isAvailable())
-        {
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
-        }
-        std::cout << "infoProxy Available..." << std::endl;
-        infoProxyKeep = infoProxy;
-
+    if (svcMask & IVSS_TEST_SVC_INFO_MASK)
+    {
         std::string imei;
         std::cout << "======== get Imei Test ========" << "'\n";
-        infoProxy->GetImei(callStatus, methodError, imei);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        infoProxyKeep->GetImei(callStatus, methodError, imei);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "get Imei: " << imei << std::endl << std::endl;
     }
 
-
-    if (svcMask & IVSS_TEST_SVC_MNGDCONN_MASK) {
-        std::shared_ptr<MngdConnSvcProxy<>> mngdConnProxy = runtime->buildProxy < MngdConnSvcProxy >
-            ("local", "modem.MngdConnSvc", "MngdConnSvcTest");
-        std::cout << "Checking availability!" << std::endl;
-        while (!mngdConnProxy->isAvailable())
-        {
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
-        }
-        std::cout << "mngdConnProxy Available..." << std::endl;
-        mngdConnProxyKeep = mngdConnProxy;
-
+    if (svcMask & IVSS_TEST_SVC_MNGDCONN_MASK)
+    {
         // Subscribe to broadcast
-        mngdConnProxy->getDataStateEvent().subscribe([&](const std::string& name,
+        mngdConnProxyKeep->getDataStateEvent().subscribe([&](const std::string& name,
             const MngdConnSvc::DataState& dataState)
             {
                 std::cout << "======== getDataStateEvent Test ========" << std::endl;
@@ -504,32 +529,52 @@ int main(int argc, char* argv[])
             }
         );
 
-
         std::string name = "Data1";
-        std::cout << "======== StartData Test ========" << "'\n";
-        mngdConnProxy->StartData(name, callStatus, methodError);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        std::cout << "======== StartData1 Test ========" << "'\n";
+        mngdConnProxyKeep->StartData(name, callStatus, methodError);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "StartData SUCCESS: " << name << std::endl << std::endl;
 
+        std::string name2 = "Data2";
+        std::cout << "======== StartData2 Test ========" << "'\n";
+        mngdConnProxyKeep->StartData(name2, callStatus, methodError);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
+        std::cout << "StartData SUCCESS: " << name2 << std::endl << std::endl;
 
+        std::cout << "======== GetDataList Test ========" << "'\n";
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         uint8_t dataNum = 0;
         std::vector<std::string> nameList = {};
         std::vector<MngdConnSvc::DataState> dataState = {};
-        std::cout << "======== GetDataList Test ========" << "'\n";
-        mngdConnProxy->GetDataList(callStatus, methodError, dataNum, nameList, dataState);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
-        std::cout << "GetDataList number: " << dataNum << " , name=" << nameList[0] << " , dataState="
-            << DataStateToString(dataState[0]) << std::endl << std::endl;
+        mngdConnProxyKeep->GetDataList(callStatus, methodError, dataNum, nameList, dataState);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
+        std::cout << "GetDataList number: " << static_cast<int>(dataNum) << "'\n";
+        for (int i = 0; i < dataNum; i++)
+        {
+            std::cout << "name" << i << "=" << nameList[i] << ", dataState="
+                << DataStateToString(dataState[i]) << "'\n";
+        }
 
-        std::cout << "======== StopData Test ========" << "'\n";
-        mngdConnProxy->StopData(name, callStatus, methodError);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
-        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        std::cout << "======== StopData1 Test ========" << "'\n";
+        mngdConnProxyKeep->StopData(name, callStatus, methodError);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "StopData SUCCESS: " << name << std::endl << std::endl;
-    }
 
+        std::cout << "======== StopData2 Test ========" << "'\n";
+        mngdConnProxyKeep->StopData(name2, callStatus, methodError);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
+        std::cout << "StopData SUCCESS: " << name2 << std::endl << std::endl;
+    }
 
     while (true) {
         std::cout << "Waiting for event... (Abort with CTRL+C)" << std::endl;

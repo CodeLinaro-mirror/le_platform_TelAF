@@ -27,7 +27,7 @@ executables:
         tafMngdStorageSvc = ( $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdStorageSvc )
 }
 
-start: manual
+start: auto
 
 processes:
 {
@@ -46,9 +46,35 @@ bindings:
 {
     tafMngdStorageSvc.tafMngdStorageSvc.taf_ks -> tafKeyStoreSvc.taf_ks
     tafMngdStorageSvc.tafMngdStorageSvc.le_appInfo -> <root>.le_appInfo
+    tafMngdStorageSvc.tafMngdStorageSvc.le_cfg -> <root>.le_cfg
+    tafMngdStorageSvc.tafMngdStorageSvc.le_cfgAdmin -> <root>.le_cfgAdmin
+}
+
+bundles:
+{
+    file:
+    {
+        [rw]  $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdStorageSvc/config/tafMngdStorageConfig.json  /data/ManagedServices/
+    }
+}
+
+// Directory in which configuration JSONs will be installed
+requires:
+{
+    dir:
+    {
+        /data/ManagedServices /
+    }
+
+    configTree:
+    {
+        [w] .
+    }
+
 }
 
 extern:
 {
-    tafMngdStorageSvc.tafMngdStorageSvc.taf_mngdSecStore
+    tafMngdStorageSvc.tafMngdStorageSvc.taf_mngdStorSec
+    tafMngdStorageSvc.tafMngdStorageSvc.taf_mngdStorCfg
 }

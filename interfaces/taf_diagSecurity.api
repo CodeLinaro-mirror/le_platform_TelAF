@@ -36,7 +36,7 @@
 /**
  * @page c_tafDiagSecurity Diag Security Service
  *
- * @ref taf_diagSecurity_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_diagSecurity_interface.h>` @endrst
  *
  * <HR>
  *
@@ -91,7 +91,7 @@
    void RxSesTypeHandler
    (
         taf_diagSecurity_RxSesTypeCheckRef_t rxSesTypeRef,
-        taf_diagSecurity_SessionType_t sesCtrlType,
+        uint8_t sesCtrlType,
         void* contextPtr
    )
    {
@@ -130,8 +130,8 @@
    void SesChangeHandler
    (
         taf_diagSecurity_SesChangeRef_t sesChangeRef,
-        taf_diagSecurity_SessionType_t previousType,
-        taf_diagSecurity_SessionType_t currentType,
+        uint8_t previousType,
+        uint8_t currentType,
         void* contextPtr
    )
    {
@@ -247,6 +247,7 @@ ENUM SessionType
     EXTENDED,                             ///< Extended diagnostic session.
     VEHICLE_MANUFACTURER_SPECIFIC = 0x40, ///< Vehicle manufacture specific session.
     FOTA = 0x42,                          ///< Fota session.
+    DOWNLOADED_ENUMLATION_SESSION = 0x52, ///< Download enumlation session.
     SYSTEM_SUPPLIER_SPECIFIC = 0x60       ///< System supplier specific session.
 };
 
@@ -258,6 +259,7 @@ ENUM SessionType
 ENUM SesControlErrorCode
 {
     SES_CONTROL_NO_ERROR = 0,
+    SES_CONTROL_BUSY_REPEAT_REQ = 0x21,
     SES_CONTROL_CONDITIONS_NOT_CORRECT = 0x22
 };
 
@@ -269,7 +271,9 @@ ENUM SesControlErrorCode
 ENUM SecAccessErrorCode
 {
     SEC_ACCESS_NO_ERROR = 0,
+    SEC_ACCESS_BUSY_REPEAT_REQ = 0x21,
     SEC_ACCESS_CONDITIONS_NOT_CORRECT = 0x22,
+    SEC_ACCESS_REQUEST_OUT_OF_RANGE = 0x31,
     SEC_ACCESS_INVALID_KEY = 0x35
 };
 
@@ -310,7 +314,7 @@ REFERENCE RxSecAccessMsg;
  *     - Reference to the service instance.
  *     - NULL if not allowed to create the service.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
@@ -325,7 +329,7 @@ FUNCTION Service GetService
 HANDLER RxSesTypeHandler
 (
     RxSesTypeCheck rxSesTypeRef  IN,    ///< Received session type reference.
-    SessionType sesCtrlType  IN         ///< Session control type.
+    uint8 sesCtrlType  IN               ///< Session control type.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -343,7 +347,7 @@ EVENT RxSesTypeCheck
 /**
  * Sends a response message for the condition check of Rx session control type.
  *
- * @note This function must be called to send a response if receiving a message.
+ * @b NOTE: This function must be called to send a response if receiving a message.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -351,7 +355,7 @@ EVENT RxSesTypeCheck
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendSesTypeCheckResp
@@ -368,8 +372,8 @@ FUNCTION le_result_t SendSesTypeCheckResp
 HANDLER SesChangeHandler
 (
     SesChange sesChangeRef  IN,      ///< Session change reference.
-    SessionType previousType  IN,    ///< Previous session control type.
-    SessionType currentType   IN     ///< Current session control type.
+    uint8 previousType  IN,          ///< Previous session control type.
+    uint8 currentType   IN           ///< Current session control type.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -392,13 +396,13 @@ EVENT SesChange
  *     - LE_BAD_PARAMETER -- Invalid svcRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCurrentSesType
 (
-    Service svcRef IN,             ///< Service reference.
-    SessionType currentType OUT    ///< Current session control type.
+    Service svcRef IN,       ///< Service reference.
+    uint8 currentType OUT    ///< Current session control type.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -431,7 +435,7 @@ EVENT RxSecAccessMsg
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSecAccessPayloadLen
@@ -451,7 +455,7 @@ FUNCTION le_result_t GetSecAccessPayloadLen
  *     - LE_OVERFLOW -- Payload size is too small.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSecAccessPayload
@@ -464,7 +468,7 @@ FUNCTION le_result_t GetSecAccessPayload
 /**
  * Sends a response message for the Rx security access message.
  *
- * @note This function must be called to send a response if receiving a message.
+ * @b NOTE: This function must be called to send a response if receiving a message.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -472,7 +476,7 @@ FUNCTION le_result_t GetSecAccessPayload
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendSecAccessResp

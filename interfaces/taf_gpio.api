@@ -36,7 +36,7 @@
 /**
  * @page c_tafgpio GPIO Service
  *
- * @ref taf_gpio_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_gpio_interface.h>` @endrst
  *
  * <HR>
  *
@@ -92,7 +92,7 @@
  * Use the ChangeEvent to register a notification callback function to be called when the
  * state of an input pin changes. The type of edge detection can then be modified by calling
  * taf_gpio_SetEdgeSense() or taf_gpio_DisableEdgeSense().
- * @note The client will be killed in the following scenarios.
+ * @b NOTE: The client will be killed in the following scenarios.
  * - If the GPIO object reference is NULL or not initialized.
  * - When unable to set edge detection correctly.
  *
@@ -144,7 +144,7 @@ ENUM State
  * Configures the pin as an input pin.
  *
  * @return
- *     - LE_OK           Succeeded. 
+ *     - LE_OK           Succeeded.
  *     - LE_BUSY         GPIO is busy or locked by another client.
  *     - LE_IO_ERROR     Failed.
  */
@@ -159,7 +159,7 @@ FUNCTION le_result_t SetInput
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets an output pin to Active state.
- * @warning Valid only for output pins.
+ * @b WARNING: Valid only for output pins.
  *
  * @return
  *     - LE_OK           Succeeded.
@@ -175,7 +175,7 @@ FUNCTION le_result_t Activate(
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets an output pin to Inactive state.
- * @warning Valid only for output pins.
+ * @b WARNING: Valid only for output pins.
  *
  * @return
  *     - LE_OK           Succeeded.
@@ -197,7 +197,7 @@ FUNCTION le_result_t Deactivate(
  *     - TAF_GPIO_OFF   GPIO pin voltage is low.
  *     - TAF_GPIO_ON    GPIO pin voltage is high.
  *
- * @note Invalid to read an output pin.
+ * @b NOTE: Invalid to read an output pin.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION State Read(
@@ -318,7 +318,7 @@ FUNCTION le_result_t GetName(
  * @return
  * The current configured edge value.
  *
- * @note Invalid to read the edge sense of an output pin.
+ * @b NOTE: Invalid to read the edge sense of an output pin.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Edge GetEdgeSense(
@@ -329,7 +329,7 @@ FUNCTION Edge GetEdgeSense(
 /**
  * Gets the current value of the pin polarity.
  *
- * @return 
+ * @return
  * The current pin polarity.
  */
 //--------------------------------------------------------------------------------------------------
@@ -341,10 +341,10 @@ FUNCTION Polarity GetPolarity(
 /**
  * Checks if the pin is currently active.
  *
- * @return 
+ * @return
  * True if active; false if inactive.
  *
- * @note This can only be used on output pins.
+ * @b NOTE: This can only be used on output pins.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsActive(

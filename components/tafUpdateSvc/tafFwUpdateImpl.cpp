@@ -1112,7 +1112,7 @@ le_result_t taf_FwUpdate::EraseAllMTDBlocks(taf_update_Bank_t activeBank)
         taf_lib_flash_Partition_t partition = partitionList.partition[i];
 
         // check if it is a MTD partition
-        if(partition.eraseSize == kMTDEraseSize)
+        if(partition.eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
         {
             // if the active bank is 'A' erase dual banked volumes from 'B'
             // OR if the active bank is 'B' erase dual banked volumes from 'A'
@@ -1250,7 +1250,7 @@ le_result_t taf_FwUpdate::CalculateTotalPages()
     {
         taf_lib_flash_Partition_t *partition = &(partitionList.partition[i]);
 
-        if(partition->eraseSize == kMTDEraseSize)
+        if(partition->eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
         {
             std::string mtdName = std::string(partition->name);
             if(partition->bank == DUAL_BANK_A)
@@ -1294,7 +1294,7 @@ le_result_t taf_FwUpdate::CalculateTotalPages()
             }
         }
 
-        else if(partition->eraseSize == kUBIEraseSize)
+        else if(partition->eraseSize == TAF_LIB_FLASH_UBI_BLOCK_SIZE)
         {
             std::string ubiName = std::string(partition->name);
             // check if ubiName ends with "_b"
@@ -1378,10 +1378,18 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
 
     for (uint32_t i = 0; i < partitionList.number; ++i)
     {
+        taf_update_State_t state =
+            (taf_update_State_t)tafUpdate_ConfigTree_GetInt(kState);
+        if(state == TAF_UPDATE_SYNC_PAUSED)
+        {
+            LE_INFO("Received pause signal in MTD sync, stopping...");
+            return LE_OK;
+        }
+
         taf_lib_flash_Partition_t *partition = &(partitionList.partition[i]);
 
         // Not a MTD partition, skip
-        if(partition->eraseSize != kMTDEraseSize)
+        if(partition->eraseSize != TAF_LIB_FLASH_MTD_BLOCK_SIZE)
         {
             continue;
         }
@@ -1410,7 +1418,7 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
                 result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
                 if (result != LE_OK)
                 {
-                    LE_ERROR("taf_lib_flash_OpenPartition for Bank A failed");
+                    LE_ERROR("taf_lib_flash_OpenPartition for partition A failed");
                     return LE_FAULT;
                 }
 
@@ -1418,7 +1426,15 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
                 result = taf_lib_flash_OpenPartition(partition_b, O_RDWR);
                 if (result != LE_OK)
                 {
-                    LE_ERROR("taf_lib_flash_OpenPartition for Bank B failed");
+                    // close partition 'A'
+                    result = taf_lib_flash_ClosePartition(partition_a);
+                    if (result != LE_OK)
+                    {
+                        LE_ERROR("taf_lib_flash_ClosePartition for partition A failed");
+                        return LE_FAULT;
+                    }
+
+                    LE_ERROR("taf_lib_flash_OpenPartition for partition B failed");
                     return LE_FAULT;
                 }
 
@@ -1432,6 +1448,12 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
                     LE_ERROR("GetMtdInformation for partition A failed");
                     return LE_FAULT;
                 }
+                if(badBlocksNumber_a > 0)
+                {
+                    LE_ERROR("bad blocks(%u) detected in partition A, stopping sync..",
+                        badBlocksNumber_a);
+                    return LE_FAULT;
+                }
 
                 // Get MTD information for Partition 'B'
                 uint32_t totalBlocks_b = 0, badBlocksNumber_b = 0,
@@ -1443,10 +1465,16 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
                     LE_ERROR("GetMtdInformation for partition B failed");
                     return LE_FAULT;
                 }
+                if(badBlocksNumber_b > 0)
+                {
+                    LE_ERROR("bad blocks(%u) detected in partition B, stopping sync..",
+                        badBlocksNumber_b);
+                    return LE_FAULT;
+                }
 
                 size_t totalPartitionSize = 0;
                 uint32_t totalPages = 0;
-                taf_lib_flash_Partition_t *src, *dest;
+                taf_lib_flash_Partition_t *src = nullptr, *dest = nullptr;
                 if(activeBank == TAF_UPDATE_BANK_A)
                 {
                     totalPartitionSize = totalBlocks_a * blockSize_a;
@@ -1462,29 +1490,18 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
                     dest = partition_a;
                 }
 
-                // Read pages from source and write to destination
-                uint32_t currentPageIndexMTD = tafUpdate_ConfigTree_GetInt(kCurrPageIdxMTD);
-
                 size_t pSize = kPageSize;
                 uint8_t page[kPageSize] = { 0 };
 
                 uint32_t totalPagesForSync = tafUpdate_ConfigTree_GetInt(kTotalPages);
 
-                for(uint32_t p = currentPageIndexMTD; p < totalPages; ++p)
+                // report sync progress to the user
+                uint32_t pagesSynced = tafUpdate_ConfigTree_GetInt(kPagesSynced);
+                uint32_t percentage = (pagesSynced * 100) / totalPagesForSync;
+                ReportStatus(TAF_UPDATE_SYNCHRONIZING, percentage, TAF_UPDATE_NONE);
+
+                for(uint32_t p = 0; p < totalPages; ++p)
                 {
-                    // report sync progress to the user
-                    uint32_t pagesSynced = tafUpdate_ConfigTree_GetInt(kPagesSynced);
-                    uint32_t percentage = (pagesSynced * 100) / totalPagesForSync;
-                    ReportStatus(TAF_UPDATE_SYNCHRONIZING, percentage, TAF_UPDATE_NONE);
-
-                    taf_update_State_t state =
-                        (taf_update_State_t)tafUpdate_ConfigTree_GetInt(kState);
-                    if(state == TAF_UPDATE_SYNC_PAUSED)
-                    {
-                        LE_INFO("Recieved pause signal in MTD sync, stopping...");
-                        break;
-                    }
-
                     result = taf_lib_flash_ReadPartition(src,
                                 p * TAF_FLASH_MTD_PAGE_MAX_READ_SIZE, page, &pSize);
                     if (result != LE_OK)
@@ -1500,43 +1517,27 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
                         LE_ERROR("taf_lib_flash_WritePartition at page index %u failed", p);
                         return LE_FAULT;
                     }
-
-                    // set next page index as current
-                    tafUpdate_ConfigTree_SetInt(kCurrPageIdxMTD, p + 1);
-
-                    tafUpdate_ConfigTree_SetInt(kPagesSynced, pagesSynced + 1);
                 }
+                tafUpdate_ConfigTree_SetInt(kPagesSynced, pagesSynced + totalPages);
 
                 // close partition 'A' and 'B'
                 result = taf_lib_flash_ClosePartition(partition_a);
                 if (result != LE_OK)
                 {
-                    LE_ERROR("taf_flash_MtdClose for partition A failed");
+                    LE_ERROR("taf_lib_flash_ClosePartition for partition A failed");
                     return LE_FAULT;
                 }
                 result = taf_lib_flash_ClosePartition(partition_b);
                 if (result != LE_OK)
                 {
-                    LE_ERROR("taf_flash_MtdClose for partition B failed");
+                    LE_ERROR("taf_lib_flash_ClosePartition for partition B failed");
                     return LE_FAULT;
                 }
 
-                taf_update_State_t state =
-                    (taf_update_State_t)tafUpdate_ConfigTree_GetInt(kState);
-                if(state != TAF_UPDATE_SYNC_PAUSED)
-                {
-                    // mark sync done for mtdName
-                    tafUpdate_ConfigTree_SetBool(mtdName, true);
+                // mark sync done for mtdName
+                tafUpdate_ConfigTree_SetBool(mtdName, true);
 
-                    // reset currentPageIndexMTD to 0 for next UBI
-                    tafUpdate_ConfigTree_SetInt(kCurrPageIdxMTD, 0);
-                    LE_INFO("Successfully synced MTD %s", mtdName.c_str());
-                }
-                else
-                {
-                    // in pause state, simply return
-                    return LE_OK;
-                }
+                LE_INFO("Successfully synced MTD %s", mtdName.c_str());
             }
             else
             {
@@ -1560,10 +1561,18 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
     le_result_t result = LE_OK;
     for (uint32_t i = 0; i < partitionList.number; ++i)
     {
+        taf_update_State_t state =
+            (taf_update_State_t)tafUpdate_ConfigTree_GetInt(kState);
+        if(state == TAF_UPDATE_SYNC_PAUSED)
+        {
+            LE_INFO("Received pause signal in UBI sync, stopping...");
+            return LE_OK;
+        }
+
         taf_lib_flash_Partition_t *partition = &(partitionList.partition[i]);
 
         // Not a UBI partition, skip
-        if(partition->eraseSize != kUBIEraseSize)
+        if(partition->eraseSize != TAF_LIB_FLASH_UBI_BLOCK_SIZE)
         {
             continue;
         }
@@ -1599,26 +1608,27 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
 
                 LE_INFO("Syncing UBI %s", ubiName.c_str());
 
-                bool isUBIOpen = tafUpdate_ConfigTree_GetBool(kIsUBIOpen);
-                if(!isUBIOpen)
+                // Open Partition 'A'
+                result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                if (result != LE_OK)
                 {
-                    // Open Partition 'A'
-                    result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                    LE_ERROR("taf_lib_flash_OpenPartition for Bank A failed");
+                    return LE_FAULT;
+                }
+
+                // Open Partition 'B'
+                result = taf_lib_flash_OpenPartition(partition_b, O_RDWR);
+                if (result != LE_OK)
+                {
+                    // close volume 'A'
+                    result = taf_lib_flash_ClosePartition(partition_a);
                     if (result != LE_OK)
                     {
-                        LE_ERROR("taf_lib_flash_OpenPartition for Bank A failed");
+                        LE_ERROR("taf_lib_flash_ClosePartition failed");
                         return LE_FAULT;
                     }
-
-                    // Open Partition 'B'
-                    result = taf_lib_flash_OpenPartition(partition_b, O_RDWR);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_OpenPartition for Bank B failed");
-                        return LE_FAULT;
-                    }
-
-                    tafUpdate_ConfigTree_SetBool(kIsUBIOpen, true);
+                    LE_ERROR("taf_lib_flash_OpenPartition for Bank B failed");
+                    return LE_FAULT;
                 }
 
                 // UBI Information for volume 'A'
@@ -1644,7 +1654,7 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
                 size_t pSize = kPageSize;
                 uint8_t page[kPageSize] = { 0 };
                 uint32_t volumeSize = 0;
-                taf_lib_flash_Partition_t *src, *dest;
+                taf_lib_flash_Partition_t *src = nullptr, *dest = nullptr;
                 if(activeBank == TAF_UPDATE_BANK_A)
                 {
                     src = partition_a;
@@ -1658,15 +1668,11 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
                     volumeSize = volumeSize_a;
                 }
 
-                if(!tafUpdate_ConfigTree_GetBool(kIsUBIVolUpSizeSet))
+                result = taf_lib_flash_SetUbiVolUpSize(dest, volumeSize);
+                if (result != LE_OK)
                 {
-                    result = taf_lib_flash_SetUbiVolUpSize(dest, volumeSize);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_SetUbiVolUpSize failed");
-                        return LE_FAULT;
-                    }
-                    tafUpdate_ConfigTree_SetBool(kIsUBIVolUpSizeSet, true);
+                    LE_ERROR("taf_lib_flash_SetUbiVolUpSize failed");
+                    return LE_FAULT;
                 }
 
                 uint32_t totalPages = volumeSize / pSize;
@@ -1675,23 +1681,14 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
 
                 uint32_t totalPagesForSync = tafUpdate_ConfigTree_GetInt(kTotalPages);
 
+                // report sync progress to the user
+                uint32_t pagesSynced = tafUpdate_ConfigTree_GetInt(kPagesSynced);
+                uint32_t percentage = (pagesSynced * 100) / totalPagesForSync;
+                ReportStatus(TAF_UPDATE_SYNCHRONIZING, percentage, TAF_UPDATE_NONE);
+
                 // Read pages from source and write to destination
-                uint32_t currentPageIndexUBI = tafUpdate_ConfigTree_GetInt(kCurrPageIdxUBI);
-                for (uint32_t p = currentPageIndexUBI; p < totalPages; ++p)
+                for (uint32_t p = 0; p < totalPages; ++p)
                 {
-                    // report sync progress to the user
-                    uint32_t pagesSynced = tafUpdate_ConfigTree_GetInt(kPagesSynced);
-                    uint32_t percentage = (pagesSynced * 100) / totalPagesForSync;
-                    ReportStatus(TAF_UPDATE_SYNCHRONIZING, percentage, TAF_UPDATE_NONE);
-
-                    taf_update_State_t state =
-                        (taf_update_State_t)tafUpdate_ConfigTree_GetInt(kState);
-                    if(state == TAF_UPDATE_SYNC_PAUSED)
-                    {
-                        LE_INFO("Recieved pause signal in UBI sync, stopping...");
-                        return LE_OK;
-                    }
-
                     result = taf_lib_flash_ReadPartition(src, p * pSize, page, &pSize);
                     if (result != LE_OK)
                     {
@@ -1705,42 +1702,29 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
                         LE_ERROR("taf_lib_flash_WritePartition failed at index %u", p);
                         return LE_FAULT;
                     }
-
-                    // set next page index as current
-                    tafUpdate_ConfigTree_SetInt(kCurrPageIdxUBI, p + 1);
-
-                    tafUpdate_ConfigTree_SetInt(kPagesSynced, pagesSynced + 1);
                 }
+                tafUpdate_ConfigTree_SetInt(kPagesSynced, pagesSynced + totalPages);
 
-                taf_update_State_t state =
-                    (taf_update_State_t)tafUpdate_ConfigTree_GetInt(kState);
-                if(state != TAF_UPDATE_SYNC_PAUSED)
+                // close volume src and dest
+                result = taf_lib_flash_ClosePartition(src);
+                if (result != LE_OK)
                 {
-                    // close volume src and dest
-                    result = taf_lib_flash_ClosePartition(src);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_ClosePartition failed");
-                        return LE_FAULT;
-                    }
-
-                    result = taf_lib_flash_ClosePartition(dest);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_ClosePartition failed");
-                        return LE_FAULT;
-                    }
-
-                    tafUpdate_ConfigTree_SetBool(kIsUBIOpen, false);
-
-                    // mark sync done for current UBI
-                    tafUpdate_ConfigTree_SetBool(partition->name, true);
-
-                    tafUpdate_ConfigTree_SetInt(kCurrPageIdxUBI, 0);
-
-                    tafUpdate_ConfigTree_SetBool(kIsUBIVolUpSizeSet, false);
-                    LE_INFO("Successfully synced UBI %s", partition->name);
+                    LE_ERROR("taf_lib_flash_ClosePartition failed");
+                    return LE_FAULT;
                 }
+
+                result = taf_lib_flash_ClosePartition(dest);
+                if (result != LE_OK)
+                {
+                    LE_ERROR("taf_lib_flash_ClosePartition failed");
+                    return LE_FAULT;
+                }
+
+                // mark sync done for current UBI
+                tafUpdate_ConfigTree_SetBool(partition->name, true);
+
+                //tafUpdate_ConfigTree_SetBool(kIsUBIVolUpSizeSet, false);
+                LE_INFO("Successfully synced UBI %s", partition->name);
             }
         }
     }
@@ -1872,7 +1856,9 @@ void taf_FwUpdate::FwSyncHandler(void* reqPtr)
     {
         if((state == TAF_UPDATE_SYNCHRONIZING) || (state == TAF_UPDATE_SYNC_PAUSED))
         {
-            LE_WARN("Invalid state to start AB sync");
+            tafFwUpdate.ReportStatus(state, 0, TAF_UPDATE_INVALID_OPERATION);
+            std::string currState = tafFwUpdate.FwUpdateStateToString(state);
+            LE_WARN("Invalid state to start AB sync, current state is %s", currState.c_str());
             return;
         }
 
@@ -1882,14 +1868,10 @@ void taf_FwUpdate::FwSyncHandler(void* reqPtr)
         tafUpdate_ConfigTree_SetInt(kState, TAF_UPDATE_IDLE);
         tafUpdate_ConfigTree_SetInt(kPagesSynced, 0);
         tafUpdate_ConfigTree_SetInt(kTotalPages, 0);
-        tafUpdate_ConfigTree_SetInt(kCurrPageIdxMTD, 0);
-        tafUpdate_ConfigTree_SetInt(kCurrPageIdxUBI, 0);
         tafUpdate_ConfigTree_SetBool(kAreBlocksErased, false);
         tafUpdate_ConfigTree_SetBool(kAreBlocksErased, false);
         tafUpdate_ConfigTree_SetBool(kIsMTDSynced, false);
         tafUpdate_ConfigTree_SetBool(kIsUBISynced, false);
-        tafUpdate_ConfigTree_SetBool(kIsUBIOpen, false);
-        tafUpdate_ConfigTree_SetBool(kIsUBIVolUpSizeSet, false);
 
         LE_INFO("Starting A-B bank synchronization");
         tafFwUpdate.SetState(TAF_UPDATE_SYNCHRONIZING);
@@ -1915,7 +1897,9 @@ void taf_FwUpdate::FwSyncHandler(void* reqPtr)
         }
         else
         {
-            LE_WARN("Invalid state for pause");
+            tafFwUpdate.ReportStatus(state, 0, TAF_UPDATE_INVALID_OPERATION);
+            std::string currState = tafFwUpdate.FwUpdateStateToString(state);
+            LE_WARN("Invalid state for pause, current state is %s", currState.c_str());
         }
     }
     else if (updateReq->event == TAF_FWUPDATE_EV_RESUME_SYNC)
@@ -1930,12 +1914,53 @@ void taf_FwUpdate::FwSyncHandler(void* reqPtr)
         }
         else
         {
-            LE_WARN("Invalid state for resume");
+            tafFwUpdate.ReportStatus(state, 0, TAF_UPDATE_INVALID_OPERATION);
+            std::string currState = tafFwUpdate.FwUpdateStateToString(state);
+            LE_WARN("Invalid state for resume, current state is %s", currState.c_str());
         }
     }
     else
     {
         LE_WARN("Unknown event %d", (int)updateReq->event);
+    }
+}
+
+/*======================================================================
+ FUNCTION        taf_FwUpdate::FwUpdateStateToString
+ DESCRIPTION     Returns FW update state in string format
+ PARAMETERS      [IN] state: FW update state
+ RETURN VALUE    std::string
+======================================================================*/
+std::string taf_FwUpdate::FwUpdateStateToString(taf_update_State_t state)
+{
+    switch (state)
+    {
+        case TAF_UPDATE_DOWNLOAD_FAIL:
+            return "TAF_UPDATE_DOWNLOAD_FAIL";
+        case TAF_UPDATE_DOWNLOADING:
+            return "TAF_UPDATE_DOWNLOADING";
+        case TAF_UPDATE_DOWNLOAD_SUCCESS:
+            return "TAF_UPDATE_DOWNLOAD_SUCCESS";
+        case TAF_UPDATE_INSTALLING:
+            return "TAF_UPDATE_INSTALLING";
+        case TAF_UPDATE_INSTALL_FAIL:
+            return "TAF_UPDATE_INSTALL_FAIL";
+        case TAF_UPDATE_INSTALL_SUCCESS:
+            return "TAF_UPDATE_INSTALL_SUCCESS";
+        case TAF_UPDATE_PROBATION:
+            return "TAF_UPDATE_PROBATION";
+        case TAF_UPDATE_IDLE:
+            return "TAF_UPDATE_IDLE";
+        case TAF_UPDATE_SYNCHRONIZING:
+            return "TAF_UPDATE_SYNCHRONIZING";
+        case TAF_UPDATE_SYNC_SUCCESS:
+            return "TAF_UPDATE_SYNC_SUCCESS";
+        case TAF_UPDATE_SYNC_PAUSED:
+            return "TAF_UPDATE_SYNC_PAUSED";
+        case TAF_UPDATE_SYNC_FAIL:
+            return "TAF_UPDATE_SYNC_FAIL";
+        default:
+            return "";
     }
 }
 

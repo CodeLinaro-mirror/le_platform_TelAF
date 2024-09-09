@@ -17,10 +17,10 @@ processes:
 }
 
 // Add SELinux module
-//components:
-//{
-//    $TELAF_ROOT/security/selinux/sepolicy/test/tafFSCryptUnitTest/component
-//}
+components:
+{
+    $TELAF_ROOT/security/selinux/sepolicy/test/tafFSCryptUnitTest/component
+}
 
 bindings:
 {

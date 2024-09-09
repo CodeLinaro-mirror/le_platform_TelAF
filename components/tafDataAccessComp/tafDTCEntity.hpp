@@ -65,6 +65,12 @@ namespace dataAccess{
             int32_t GetAgedCounter();
             void SetAgedCounter(int32_t counter);
 
+            int32_t GetActivation();
+            void SetActivation(int32_t activation);
+
+            int32_t GetSuppression();
+            void SetSuppression(int32_t suppression);
+
             std::time_t GetCreateTime();
             void SetCreateTime(std::time_t time);
 
@@ -83,6 +89,8 @@ namespace dataAccess{
             int32_t mFaultOccurCounter = -1;
             int32_t mAgingCounter = -1;
             int32_t mAgedCounter = -1;
+            int32_t mActivation = -1;
+            int32_t mSuppression = -1;
             std::time_t mCreateTime = 0;
             std::time_t mUpdateTime = 0;
             std::time_t mTestFailedTime = 0;

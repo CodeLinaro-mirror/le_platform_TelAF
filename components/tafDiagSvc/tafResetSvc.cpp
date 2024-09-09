@@ -60,7 +60,7 @@ using namespace telux::tafsvc;
 //--------------------------------------------------------------------------------------------------
 taf_diagReset_ServiceRef_t taf_diagReset_GetService
 (
-    taf_diagReset_Type_t resetType
+    uint8_t resetType
 )
 {
     LE_DEBUG("taf_diagReset_GetService");
@@ -117,7 +117,7 @@ void taf_diagReset_RemoveRxMsgHandler
 le_result_t taf_diagReset_SendResp
 (
     taf_diagReset_RxMsgRef_t rxMsgRef,
-    taf_diagReset_ErrorCode_t errCode
+    uint8_t errCode
 )
 {
     LE_DEBUG("taf_diagReset_SendResp");

@@ -201,6 +201,71 @@ sqlite3 *SQLite3DbUtil::GetDbHandle
     return mDbPtr;
 }
 
+le_result_t SQLite3DbUtil::GetVersion
+(
+    int &ver
+)
+{
+    int ret;
+    char *errMsg = nullptr;
+    const char *sql = "PRAGMA user_version;";
+
+    if (mDbPtr == nullptr)
+    {
+        LE_ERROR("Database is not open.");
+        return LE_BAD_PARAMETER;
+    }
+
+    ret = sqlite3_exec(mDbPtr, sql, [](void *data, int argc, char **argv, char **azColName)
+        {
+            int *verPtr = (int *)data;
+            
+            *verPtr = argv != nullptr ? (argv[0] != nullptr ? atoi(argv[0]) : 0) : 0;
+            return 0;
+        }, (void *)&ver, &errMsg);
+    if (ret != SQLITE_OK)
+    {
+        LE_ERROR("Get DB version error: %s, ret=%d", errMsg, ret);
+        sqlite3_free(errMsg);
+        return LE_IO_ERROR;
+    }
+
+    LE_DEBUG("DB version is %d", ver);
+
+    return LE_OK;
+}
+
+le_result_t SQLite3DbUtil::SetVersion
+(
+    int ver
+)
+{
+    int ret;
+    char *errMsg = nullptr;
+    std::stringstream sqlSs;
+
+    sqlSs << "PRAGMA user_version = " << ver << ";";
+
+    if (mDbPtr == nullptr)
+    {
+        LE_ERROR("Database is not open.");
+        return LE_BAD_PARAMETER;
+    }
+
+    std::string sql = sqlSs.str();
+    LE_DEBUG("QueryByKey statement: %s", sql.c_str());
+                
+    ret = sqlite3_exec(mDbPtr, sql.c_str(), nullptr, nullptr, &errMsg);
+    if (ret != SQLITE_OK)
+    {
+        LE_ERROR("Set DB version error: %s, ret=%d", errMsg, ret);
+        sqlite3_free(errMsg);
+        return LE_IO_ERROR;
+    }
+
+    return LE_OK;
+}
+
 int SQLite3DbUtil::ExecuteCallback
 (
     void *data,

@@ -124,7 +124,7 @@ le_result_t taf_diagDataID_SendReadDIDResp
 (
     taf_diagDataID_RxReadDIDMsgRef_t rxMsgRef,
         ///< [IN] Received message reference.
-    taf_diagDataID_ReadDIDErrorCode_t errCode,
+    uint8_t errCode,
         ///< [IN] Error code type.
     const uint8_t* dataPtr,
         ///< [IN] Data payload.
@@ -222,7 +222,7 @@ le_result_t taf_diagDataID_SendWriteDIDResp
 (
     taf_diagDataID_RxWriteDIDMsgRef_t rxMsgRef,
         ///< [IN] Received message reference.
-    taf_diagDataID_WriteDIDErrorCode_t errCode,
+    uint8_t errCode,
         ///< [IN] Error code type.
     uint16_t dataId
         ///< [IN] data identifier.

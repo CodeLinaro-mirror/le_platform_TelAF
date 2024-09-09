@@ -65,12 +65,15 @@
         .InitHAL = Init,
         .CtlSetAudioStatus = taf_hal_CtlSetAudioStatus,
         .SendVendorConfig = taf_hal_SendVendorConfig,
+        .CtlReportBubStatus = taf_hal_CtlReportBubStatus,
         .GetNodeType = taf_hal_GetNodeType,
         .SendNodeVendorConfig = taf_hal_SendNodeVendorConfig,
         .SetNodePowerState = taf_hal_SetNodePowerState,
         .GetNodePowerState = taf_hal_GetNodePowerState,
         .SetNodeMuteState = taf_hal_SetNodeMuteState,
         .GetNodeMuteState = taf_hal_GetNodeMuteState,
+        .SetNodeGain = taf_hal_SetNodeGain,
+        .GetNodeGain = taf_hal_GetNodeGain,
         .AddNodeStateChangeHandler = taf_hal_AddNodeStateChangeHandler,
     }
 
@@ -153,6 +156,18 @@ typedef enum
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Audio device directions
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    HAL_AUDIO_DIRECTION_RX,    /**<Audio node direction RX */
+    HAL_AUDIO_DIRECTION_TX     /**<Audio node direction TX */
+} hal_audio_direction_t;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Initializes the Audio VHAL driver.
  * @param void
  *
@@ -172,7 +187,7 @@ typedef void (*hal_audio_InitFunc_t)(void);
  *      result for setting audio status
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*hal_audio_CtlSetAudioStatus_t)
+typedef le_result_t (*hal_audio_CtlSetAudioStatusFunc_t)
 (
     bool isActive,
     uint32_t route, hal_audio_Mode_t mode
@@ -187,7 +202,7 @@ typedef le_result_t (*hal_audio_CtlSetAudioStatus_t)
  *      Result for sending vendor configuration.
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*hal_audio_SendVendorConfig_t)
+typedef le_result_t (*hal_audio_SendVendorConfigFunc_t)
 (
     const char* config
 );
@@ -202,7 +217,7 @@ typedef le_result_t (*hal_audio_SendVendorConfig_t)
  *      Type of audio device.
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*hal_audio_GetNodeType_t)
+typedef le_result_t (*hal_audio_GetNodeTypeFunc_t)
 (
     uint8_t nodeId,
     hal_audio_NodeType_t *nodeType
@@ -218,7 +233,7 @@ typedef le_result_t (*hal_audio_GetNodeType_t)
  *      Result of sending audio device configuration to vendor.
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*hal_audio_SendNodeVendorConfig_t)
+typedef le_result_t (*hal_audio_SendNodeVendorConfigFunc_t)
 (
     uint8_t nodeId,
     const char* config
@@ -234,7 +249,7 @@ typedef le_result_t (*hal_audio_SendNodeVendorConfig_t)
  *      Result of setting audio device power state.
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*hal_audio_SetNodePowerState_t)
+typedef le_result_t (*hal_audio_SetNodePowerStateFunc_t)
 (
     uint8_t nodeId,
     hal_audio_PowerState_t state
@@ -250,7 +265,7 @@ typedef le_result_t (*hal_audio_SetNodePowerState_t)
  *      Result of getting audio device power state.
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*hal_audio_GetNodePowerState_t)
+typedef le_result_t (*hal_audio_GetNodePowerStateFunc_t)
 (
     uint8_t nodeId,
     hal_audio_PowerState_t *state
@@ -266,7 +281,7 @@ typedef le_result_t (*hal_audio_GetNodePowerState_t)
  *      Result of setting audio device mute status.
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*hal_audio_SetNodeMuteState_t)
+typedef le_result_t (*hal_audio_SetNodeMuteStateFunc_t)
 (
     uint8_t nodeId,
     bool mute
@@ -282,7 +297,7 @@ typedef le_result_t (*hal_audio_SetNodeMuteState_t)
  *      Result of getting mute status of the audio device.
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*hal_audio_GetNodeMuteState_t)
+typedef le_result_t (*hal_audio_GetNodeMuteStateFunc_t)
 (
     uint8_t nodeId,
     bool *isMuted
@@ -328,23 +343,61 @@ typedef le_result_t (*hal_audio_AddNodeStateChangeHandler_t)
  *      result for reporing BuB status
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*hal_audio_CtlReportBubStatus)
+typedef le_result_t (*hal_audio_CtlReportBubStatusFunc_t)
 (
     hal_audio_bubStatus_t bubStatus
+);
+
+//--------------------------------------------------------------------------------------------------
+/** Sets the gain to the audio device.
+ * @param
+ *      nodeId      - Audio device node ID
+ *      direction   - Audio device direction to set gain
+ *      gain        - Gain percentage ranged from 0 to 1
+ *
+ * @return
+ *      Result of setting gain to the audio device.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*hal_audio_SetNodeGainFunc_t)
+(
+    uint8_t nodeId,
+    hal_audio_direction_t direction,
+    double gain
+);
+
+//--------------------------------------------------------------------------------------------------
+/** Gets the gain of the audio device.
+ * @param
+ *      nodeId      - Audio device node ID
+ *      direction   - Audio device direction to get gain
+ *      gain        - Gain percentage ranged from 0 to 1
+ *
+ * @return
+ *      Result of getting gain of the audio device.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*hal_audio_GetNodeGainFunc_t)
+(
+    uint8_t nodeId,
+    hal_audio_direction_t direction,
+    double *gain
 );
 
 typedef struct
 {
     hal_audio_InitFunc_t InitHAL;
-    hal_audio_CtlSetAudioStatus_t CtlSetAudioStatus;
-    hal_audio_CtlReportBubStatus CtlReportBubStatus;
-    hal_audio_SendVendorConfig_t SendVendorConfig;
-    hal_audio_GetNodeType_t GetNodeType;
-    hal_audio_SendNodeVendorConfig_t SendNodeVendorConfig;
-    hal_audio_SetNodePowerState_t SetNodePowerState;
-    hal_audio_GetNodePowerState_t GetNodePowerState;
-    hal_audio_SetNodeMuteState_t SetNodeMuteState;
-    hal_audio_GetNodeMuteState_t GetNodeMuteState;
+    hal_audio_CtlSetAudioStatusFunc_t CtlSetAudioStatus;
+    hal_audio_CtlReportBubStatusFunc_t CtlReportBubStatus;
+    hal_audio_SendVendorConfigFunc_t SendVendorConfig;
+    hal_audio_GetNodeTypeFunc_t GetNodeType;
+    hal_audio_SendNodeVendorConfigFunc_t SendNodeVendorConfig;
+    hal_audio_SetNodePowerStateFunc_t SetNodePowerState;
+    hal_audio_GetNodePowerStateFunc_t GetNodePowerState;
+    hal_audio_SetNodeMuteStateFunc_t SetNodeMuteState;
+    hal_audio_GetNodeMuteStateFunc_t GetNodeMuteState;
+    hal_audio_SetNodeGainFunc_t SetNodeGain;
+    hal_audio_GetNodeGainFunc_t GetNodeGain;
     hal_audio_AddNodeStateChangeHandler_t AddNodeStateChangeHandler;
 } hal_audio_Inf_t;
 

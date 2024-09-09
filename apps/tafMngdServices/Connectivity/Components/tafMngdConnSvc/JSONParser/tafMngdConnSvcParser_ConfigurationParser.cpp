@@ -719,46 +719,6 @@ bool mcs_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_IPv4(
 }
 
 /**
- * Data Connection Test IPv6 can be a string or NULL.
- */
-bool mcs_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_IPv6(
-                                            mcs_Configuration_t &Configuration,
-                                            std::string Value,
-                                            int Index)
-{
-    LE_DEBUG("%s", Value.c_str());
-    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
-    if (MCS_JSON_DATA_TYPE_STRING != DataType && MCS_JSON_DATA_TYPE_NULL != DataType)
-    {
-        LE_WARN("Incorrect data type");
-        return false;
-    }
-    // Index should be valid as Data is an array
-    if (Index < 0)
-    {
-        LE_WARN("Invalid Array Index");
-        return false;
-    }
-
-    // Update the Data Count.
-    // Index will be 0. So count will be Index + 1
-    Configuration.DataCount = Index + 1;
-
-    // Valid value. Update Configuration.
-    // Set to NULL or string
-    if (MCS_JSON_DATA_TYPE_NULL == DataType)
-    {
-        memset(Configuration.Data[Index].DataStartConnectionTest.IPv6,0,MCS_MAX_IPV6_LEN);
-        return true;
-    }
-    // Valid String.
-    // Since we have already validated string length above, we can ignore return value here
-    le_utf8_Copy(Configuration.Data[Index].DataStartConnectionTest.IPv6, Value.c_str(),
-                                                MCS_MAX_IPV6_LEN,NULL);
-    return true;
-}
-
-/**
  * Validate DataStartRetry:Enable
  */
 bool mcs_ConfigurationParser::Validate_MCSC_Data_DSR_Enable(
@@ -800,29 +760,98 @@ bool mcs_ConfigurationParser::Validate_MCSC_Data_DSR_RetryCount(
     LE_DEBUG("%s", Value.c_str());
 
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
-    if (MCS_JSON_DATA_TYPE_NULL == DataType)
-    {
-        LE_WARN("Null value");
-        return false;
-    }
-    //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version < MCS_JSON_VERSION_24_03_00)
-    {
-        LE_WARN("Invalid JSON version");
-        return false;
-    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
+    //Check the JSON version to be atleast 24.07.00
+    if(Configuration.Version < MCS_JSON_VERSION_24_07_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+
     // Value should be valid RetryCount
-    if (std::stoi(Value) < 0 || std::stoi(Value) > MCS_MAX_RECOVERY_RETRY_COUNT) {
+    if (std::stoi(Value) < 0 || std::stoi(Value) > TAF_MNGDCONN_MAX_DATA_START_RETRY_COUNT)
+    {
         LE_WARN("Invalid RetryCount");
         return false;
     }
     // Valid value. Update Configuration.
     Configuration.Data[Index].DataStartRetry.RetryCount = std::stoi(Value);
+    return true;
+}
+
+/**
+ * Validate DataStartRetry:BackoffInterval
+ */
+bool mcs_ConfigurationParser::Validate_MCSC_Data_DSR_BackoffInterval(
+    mcs_Configuration_t &Configuration,
+    std::string Value,
+    int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+
+    // Check the JSON version to be atleast 24.07.00
+    if (Configuration.Version < MCS_JSON_VERSION_24_07_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+
+    int localInt = std::stoi(Value);
+    // Value should be valid BackoffInterval. Only 30 is supported.
+    if (localInt != TAF_MNGDCONN_MAX_DATA_START_RETRY_BACKOFF_INTERVAL)
+    {
+        LE_WARN("Invalid BackoffInterval, %d", localInt);
+        return false;
+    }
+    // Valid value. Update Configuration.
+    Configuration.Data[Index].DataStartRetry.BackoffInterval = static_cast<uint16_t>(localInt);
+    return true;
+}
+
+/**
+ * Validate DataStartRetry:BackoffIntervalStep
+ */
+bool mcs_ConfigurationParser::Validate_MCSC_Data_DSR_BackoffIntervalStep(
+    mcs_Configuration_t &Configuration,
+    std::string Value,
+    int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+
+    // Check the JSON version to be atleast 24.07.00
+    if (Configuration.Version < MCS_JSON_VERSION_24_07_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+    int localInt = std::stoi(Value);
+    // Value should be valid BackoffIntervalStep
+    if (localInt < TAF_MNGDCONN_MIN_DATA_START_RETRY_BACKOFF_INTERVAL_STEP
+        || localInt > TAF_MNGDCONN_MAX_DATA_START_RETRY_BACKOFF_INTERVAL_STEP)
+    {
+        LE_WARN("Invalid BackoffIntervalStep: %d", localInt);
+        return false;
+    }
+    // Valid value. Update Configuration.
+    Configuration.Data[Index].DataStartRetry.BackoffIntervalStep = static_cast<uint8_t>(localInt);
     return true;
 }
 
@@ -836,22 +865,18 @@ bool mcs_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_Inter
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
-    if (MCS_JSON_DATA_TYPE_NULL == DataType)
-    {
-        LE_WARN("Null value");
-        return false;
-    }
-    //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version < MCS_JSON_VERSION_24_03_00)
-    {
-        LE_WARN("Invalid JSON version");
-        return false;
-    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
+    //Check the JSON version to be atleast 24.07.00
+    if(Configuration.Version < MCS_JSON_VERSION_24_07_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+
     // Index should be valid as Data is an array
     if (Index < 0)
     {
@@ -863,8 +888,16 @@ bool mcs_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_Inter
     // Index will be 0. So count will be Index + 1
     Configuration.DataCount = Index + 1;
 
+    int localValue = std::stoi(Value);
+    // Value should be valid RetryCount
+    if (localValue < 0 || localValue > TAF_MNGDCONN_MAX_PERIODIC_CONN_CHECK_INTERVAL)
+    {
+        LE_WARN("Invalid RetryCount, %d", localValue);
+        return false;
+    }
     // Valid value. Update Configuration.
-    Configuration.Data[Index].PeriodicConnectivityCheck.Interval = std::stoi(Value);
+    Configuration.Data[Index].PeriodicConnectivityCheck.Interval =
+                                                            static_cast<uint16_t>(localValue);
     return true;
 }
 
@@ -879,29 +912,26 @@ bool mcs_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_Retry
     LE_DEBUG("%s", Value.c_str());
 
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
-    if (MCS_JSON_DATA_TYPE_NULL == DataType)
-    {
-        LE_WARN("Null value");
-        return false;
-    }
-    //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version < MCS_JSON_VERSION_24_03_00)
-    {
-        LE_WARN("Invalid JSON version");
-        return false;
-    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
+    //Check the JSON version to be atleast 24.07.00
+    if(Configuration.Version < MCS_JSON_VERSION_24_07_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+    int localValue = std::stoi(Value);
     // Value should be valid RetryCount
-    if (std::stoi(Value) < 0 || std::stoi(Value) > MCS_MAX_RECOVERY_RETRY_COUNT) {
-        LE_WARN("Invalid RetryCount");
+    if (localValue < 0 || localValue > TAF_MNGDCONN_MAX_PERIODIC_CONN_CHECK_RETRY_COUNT) {
+        LE_WARN("Invalid RetryCount, %d", localValue);
         return false;
     }
     // Valid value. Update Configuration.
-    Configuration.Data[Index].PeriodicConnectivityCheck.RetryCount = std::stoi(Value);
+    Configuration.Data[Index].PeriodicConnectivityCheck.RetryCount =
+                                                        static_cast<uint8_t>(localValue);
     return true;
 }
 
@@ -1444,12 +1474,15 @@ void mcs_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
                                 = &Validate_MCSC_Data_DataStartConnectionTest_URL;
     ConfigurationValidationFuncMap["Data:DataStartConnectionTest:IPv4"]
                                 = &Validate_MCSC_Data_DataStartConnectionTest_IPv4;
-    ConfigurationValidationFuncMap["Data:DataStartConnectionTest:IPv6"]
-                                = &Validate_MCSC_Data_DataStartConnectionTest_IPv6;
+
     // Data:DataStartRetry
+    ConfigurationValidationFuncMap["Data:DataStartRetry:Enable"] = &Validate_MCSC_Data_DSR_Enable;
     ConfigurationValidationFuncMap["Data:DataStartRetry:RetryCount"]
                                 = &Validate_MCSC_Data_DSR_RetryCount;
-    ConfigurationValidationFuncMap["Data:DataStartRetry:Enable"] = &Validate_MCSC_Data_DSR_Enable;
+    ConfigurationValidationFuncMap["Data:DataStartRetry:BackoffInterval"]
+                                = &Validate_MCSC_Data_DSR_BackoffInterval;
+    ConfigurationValidationFuncMap["Data:DataStartRetry:BackoffIntervalStep"]
+                                = &Validate_MCSC_Data_DSR_BackoffIntervalStep;
     // Data:PeriodicConnectivityCheck
     ConfigurationValidationFuncMap["Data:PeriodicConnectivityCheck:URL"]
                                 = &Validate_MCSC_Data_PeriodicConnectivityCheck_URL;
@@ -1493,7 +1526,6 @@ void mcs_ConfigurationParser::ResetConfigurationStructure (
         Configuration.Data[Index].Profile.APN[0]         = '\0';
         Configuration.Data[Index].DataStartConnectionTest.URL[0]        = '\0';
         Configuration.Data[Index].DataStartConnectionTest.IPv4[0]       = '\0';
-        Configuration.Data[Index].DataStartConnectionTest.IPv6[0]       = '\0';
         Configuration.Data[Index].PeriodicConnectivityCheck.Interval      = 0;
         Configuration.Data[Index].PeriodicConnectivityCheck.RetryCount    = 0;
         Configuration.Data[Index].PeriodicConnectivityCheck.URL[0]        = '\0';

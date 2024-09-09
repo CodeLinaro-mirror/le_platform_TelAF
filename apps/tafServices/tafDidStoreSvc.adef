@@ -1,0 +1,45 @@
+sandboxed: false
+
+start: auto
+
+maxThreads: 600
+
+username: telaf
+
+capability:
+{
+        CAP_WAKE_ALARM
+        CAP_NET_ADMIN
+        CAP_BLOCK_SUSPEND
+        CAP_DAC_READ_SEARCH
+        CAP_DAC_OVERRIDE
+}
+
+executables:
+{
+    tafDidStoreSvc = ( $TELAF_ROOT/components/tafDidStoreSvc )
+}
+
+groups:
+{
+}
+
+processes:
+{
+    run:
+    {
+        (tafDidStoreSvc)
+    }
+
+    faultAction: restart
+}
+
+bindings:
+{
+    tafDidStoreSvc.tafDidStoreSvc.taf_diagDataID -> tafDiagSvc.taf_diagDataID
+}
+
+extern:
+{
+    tafDidStoreSvc.tafDidStoreSvc.taf_diagDidStore
+}

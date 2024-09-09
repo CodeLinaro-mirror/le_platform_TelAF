@@ -1683,6 +1683,153 @@ le_result_t taf_ks_ExportKey
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Share a key to another application to use. Key sharing is persistent until cancelled by API
+ * taf_ks_CancelKeySharing().
+ *
+ * The keyCap provides the key capability that is shared to use. It must match the real key usage
+ * of the key. For example if real key usage is "TAF_KS_RSA_ENCRYPT_DECRYPT", then the capability
+ * of "TAF_KS_RSA_ENCRYPT_DECRYPT", "TAF_KS_RSA_ENCRYPT_ONLY" or "TAF_KS_RSA_DECRYPT_ONLY"
+ * is allowed to share. If the real key usage is "TAF_KS_RSA_DECRYPT_ONLY", then only capability
+ * "TAF_KS_RSA_DECRYPT_ONLY" is allowed to share.
+ *
+ * Only the key owner app can share the key after provisioning. One key can be shared to at most
+ * 5 applications to use.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
+ *     - LE_NOT_FOUND -- Key does not exist.
+ *     - LE_NOT_PERMITTED -- Key is not provisioned or calling application is not the key owner.
+ *     - LE_FAULT -- Error.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_ks_ShareKey
+(
+    taf_ks_KeyRef_t keyRef,
+        ///< [IN] Key reference.
+    taf_ks_KeyUsage_t keyCap,
+        ///< [IN] key capability shared to use.
+    const char* LE_NONNULL appName
+        ///< [IN] Name of the app that the key is shared to.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancel the key sharing. Only the key owner app can cancel the key sharing.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
+ *     - LE_NOT_FOUND -- Key does not exist.
+ *     - LE_NOT_PERMITTED -- Key is not provisioned, is not shared to the given application before,
+ *       calling application is not the key owner, or the shared application has running crypto
+ *       sessions for the key.
+ *     - LE_FAULT -- Error.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_ks_CancelKeySharing
+(
+    taf_ks_KeyRef_t keyRef,
+        ///< [IN] Key reference.
+    const char* LE_NONNULL appName
+        ///< [IN] Name of the app that the key is shared to before.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the first application that the given key is shared to.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
+ *     - LE_NOT_FOUND -- Key does not exist.
+ *     - LE_NOT_PERMITTED -- Key is not provisioned or calling application is not the key owner.
+ *     - LE_FAULT -- Error.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_ks_GetFirstSharedApp
+(
+    taf_ks_KeyRef_t keyRef,
+        ///< [IN] Key reference.
+    char* appName,
+        ///< [OUT] Name of the app that the key is shared to.
+    size_t appNameSize
+        ///< [IN]
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the next application that the given key is shared to.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
+ *     - LE_NOT_FOUND -- Key does not exist.
+ *     - LE_NOT_PERMITTED -- Key is not provisioned or calling application is not the key owner.
+ *     - LE_FAULT -- Error.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_ks_GetNextSharedApp
+(
+    taf_ks_KeyRef_t keyRef,
+        ///< [IN] Key reference.
+    char* appName,
+        ///< [OUT] Name of the app that the key is shared to.
+    size_t appNameSize
+        ///< [IN]
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_ks_KeySharing'
+ *
+ * This event provides information when a key of another application is shared to the calling
+ * application.
+ *
+ * The handler will be also triggered on registration if the required key is already shared to the
+ * calling application before or the key capability shared is updated.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+taf_ks_KeySharingHandlerRef_t taf_ks_AddKeySharingHandler
+(
+    const char* LE_NONNULL keyId,
+        ///< [IN] Key ID.
+    const char* LE_NONNULL appName,
+        ///< [IN] Key owner app.
+    taf_ks_KeySharingHandlerFunc_t handlerPtr,
+        ///< [IN] Handler is called when the required key of the
+        ///< application shared to the calling application.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    return NULL;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_ks_KeySharing'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_ks_RemoveKeySharingHandler
+(
+    taf_ks_KeySharingHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Create a crypto operation session for the key.
  */
 //--------------------------------------------------------------------------------------------------

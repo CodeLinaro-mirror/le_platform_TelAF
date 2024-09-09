@@ -67,7 +67,7 @@
 /**
  * @page c_tafvoicecall Voice Call Service
  *
- * @ref taf_voicecall_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_voicecall_interface.h>` @endrst
  *
  * <HR>
  *
@@ -88,7 +88,7 @@
  *
  * @section c_taf_vaoicecall_outgoing Starting a voice call
  *
- * A voice call can be started using taf_voicecall_Start() with the destination identifier and 
+ * A voice call can be started using taf_voicecall_Start() with the destination identifier and
  * SIM slot number passed as parameters.
  * @verbatim
    myTafCallRef = taf_voicecall_Start(DestinationNum, Slot);
@@ -102,7 +102,7 @@
    @endverbatim
  *
  * Before the voice call is started, an application registers a state handler using
- * taf_voicecall_AddStateHandler(). Once the voice call is established, the handler will be called 
+ * taf_voicecall_AddStateHandler(). Once the voice call is established, the handler will be called
  * indicating it's now connected. If the state of the voice call changes, the handler will be
  * called with the new state.
  *
@@ -252,7 +252,7 @@ FUNCTION le_result_t End
  * Deletes a call according to the given call reference.
  *
  * @return
- * - LE_OK -- Succeeded. 
+ * - LE_OK -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -272,7 +272,7 @@ FUNCTION le_result_t Delete
  * to Active.
  *
  * @return
- * - LE_OK -- Succeeded. 
+ * - LE_OK -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -287,7 +287,7 @@ FUNCTION le_result_t Answer
  * The call should be in the idle state when calling this API.
  *
  * @return
- * - LE_OK -- Succeeded. 
+ * - LE_OK -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -302,7 +302,7 @@ FUNCTION le_result_t GetEndCause
  * Holds the active call. This call should be in the ACTIVE state.
  *
  * @return
- * - LE_OK -- Succeeded. 
+ * - LE_OK -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -316,7 +316,7 @@ FUNCTION le_result_t Hold
  * Resumes the holding call. This call should be in the HOLD state.
  *
  * @return
- * - LE_OK -- Succeeded. 
+ * - LE_OK -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------

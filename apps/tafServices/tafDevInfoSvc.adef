@@ -52,5 +52,5 @@ bindings:
 
 extern:
 {
-    tafDevInfoSvc.tafDevInfoSvc.taf_info
+    tafDevInfoSvc.tafDevInfoSvc.taf_devInfo
 }

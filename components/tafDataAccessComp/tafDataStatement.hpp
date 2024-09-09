@@ -87,6 +87,8 @@ namespace dataAccess{
             const char *GetColumnText(int colIdx, const char *defaultValue = "");
             const void *GetColumnBlob(int colIdx);
 
+            int GetColumnBytes(int colIdx);
+
             // Pointer to the database statement.
             using StatementPtr = std::shared_ptr<sqlite3_stmt>;
 

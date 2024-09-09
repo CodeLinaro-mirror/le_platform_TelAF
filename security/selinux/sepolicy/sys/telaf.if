@@ -83,6 +83,8 @@ interface(`init_telaf_app_domain',`
         write_telux_log_file($1)
         telux_allow_tel($1)
 
+        dlt_allow_user_logging($1)
+
         allow telaf_admin_domain $1:fd { use };
         allow telaf_admin_domain { $1 $2 }:file { all_file_perms };
         allow telaf_admin_domain { $1 $2 }:dir { all_dir_perms };
@@ -146,6 +148,8 @@ interface(`init_telaf_core_domain',`
 
         manage_user_data_files($1, data_t)
 
+        dlt_allow_user_logging($1)
+
         # Support mls
         mls_file_read_to_clearance($1)
         mls_file_write_to_clearance($1)
@@ -196,6 +200,8 @@ interface(`init_telaf_admin_domain',`
         manage_user_data_files($1, data_t)
         write_telux_log_file($1)
         telux_allow_tel($1)
+
+        dlt_allow_user_logging($1)
 
         # Support mls
         mls_file_read_to_clearance($1)
@@ -382,11 +388,14 @@ interface(`telaf_load_vhal_modules',`
 #
 interface(`telaf_load_rfs_component',`
     gen_require(`
+            type data_t;
             type persist_t;
             type cert_t;
             type proc_t;
     ')
 
+    allow $1 data_t:file { manage_file_perms relabel_file_perms };
+    allow $1 data_t:dir { remove_name create_dir_perms rw_dir_perms };
     allow $1 persist_t:file { manage_file_perms relabel_file_perms };
     allow $1 persist_t:dir { remove_name create_dir_perms rw_dir_perms };
     allow $1 cert_t:dir { search };

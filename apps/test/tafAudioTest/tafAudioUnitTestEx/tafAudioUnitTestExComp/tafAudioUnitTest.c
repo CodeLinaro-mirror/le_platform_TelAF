@@ -218,6 +218,17 @@ void TEST_OPEN_ROUTE()
     LE_TEST_INFO("Test taf_audio_CloseRoute ROUTE_1 recording");
     res = taf_audio_CloseRoute(routeRef);
     LE_TEST_OK(res == LE_OK, "Successfully closed the ROUTE_1 recording");
+
+    LE_TEST_INFO("Test taf_audio_OpenRoute API ROUTE_1 loopback");
+    routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_LOCAL_LOOPBACK,
+            NULL, NULL);
+    LE_TEST_OK(routeRef != NULL, "OpenRoute successfull routeRef %p", routeRef);
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem ,Timeout);
+
+    LE_TEST_INFO("Test taf_audio_CloseRoute ROUTE_1 loopback");
+    res = taf_audio_CloseRoute(routeRef);
+    LE_TEST_OK(res == LE_OK, "Successfully closed the ROUTE_1 loopback");
 }
 
 void* Test_taf_audio_AddHandler(void* ctxPtr)
@@ -393,10 +404,10 @@ void TEST_AUDIO_PLAYBACK_FILE_LIST()
     LE_TEST_OK(res == LE_OK, "Successfully connected playerRef to playerConnRef");
 
     taf_audio_PlayFileConfig_t playFileConfig[1] = {0};
-    snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), wavfilePath);
+    snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), "%s", wavfilePath);
     playFileConfig[0].repeat = repeat;
 
-    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list size %ld",
+    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list size %zu",
             sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
     res = taf_audio_PlayFileList(playerRef, playFileConfig,
             sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
@@ -410,10 +421,10 @@ void TEST_AUDIO_PLAYBACK_FILE_LIST()
 
     le_sem_Wait(tafAudioAppSem);
 
-    snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), amrfilePath);
+    snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), "%s", amrfilePath);
     playFileConfig[0].repeat = repeat;
 
-    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list size %ld",
+    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list size %zu",
             sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
     res = taf_audio_PlayFileList(playerRef, playFileConfig,
             sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
@@ -833,6 +844,9 @@ void TEST_AUDIO_VHAL_DEV_APIS()
     const char* configurePath = "/data/audioConfigure.xml";
     taf_audioVendor_NodePowerState_t state;
     bool muteState;
+    double gainPerc = 0.5;
+    double getGainPerc;
+    taf_audioVendor_Direction_t direction = TAF_AUDIOVENDOR_RX;
     taf_audioVendor_NodeStateChangeHandlerRef_t handlerRef;
 
     LE_TEST_INFO("Test taf_audioVendor_GetNodeType");
@@ -890,6 +904,25 @@ void TEST_AUDIO_VHAL_DEV_APIS()
     LE_TEST_INFO("Test taf_audioVendor_GetNodeMuteStatus");
     res = taf_audioVendor_GetNodeMuteState(0x1, &muteState);
     LE_TEST_OK(!muteState, "Successfully got the device mute state as unmute res is %d", res);
+
+    LE_TEST_INFO("Test taf_audioVendor_SetNodeGain");
+    res = taf_audioVendor_SetNodeGain(0x1, direction, gainPerc);
+    LE_TEST_OK(res == LE_OK, "Successfully set the audio device gain");
+
+    LE_TEST_INFO("Test taf_audioVendor_GetNodeGain");
+    res = taf_audioVendor_GetNodeGain(0x1, direction, &getGainPerc);
+    LE_TEST_OK(res == LE_OK, "Successfully got the gain of audio device %f", getGainPerc);
+
+    direction = TAF_AUDIOVENDOR_TX;
+    LE_TEST_INFO("Test taf_audioVendor_SetNodeGain");
+    res = taf_audioVendor_SetNodeGain(0x1, direction, gainPerc);
+    LE_TEST_OK(res == LE_UNSUPPORTED,
+                "Successfully tested setting audio device gain for unsupported use-case");
+
+    LE_TEST_INFO("Test taf_audioVendor_GetNodeGain");
+    res = taf_audioVendor_GetNodeGain(0x1, direction, &getGainPerc);
+    LE_TEST_OK(res == LE_UNSUPPORTED,
+                "Successfully tested getting the gain of audio device for unsupported use-case");
 
     LE_TEST_INFO("Test taf_audioVendor_AddNodeStateChangeHandler");
     handlerRef = taf_audioVendor_AddNodeStateChangeHandler(0x1, NodeStateChangeCallback, NULL);

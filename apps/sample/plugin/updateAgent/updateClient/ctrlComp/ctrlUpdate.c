@@ -23,6 +23,8 @@ static void PrintHelp
             SYNOPSIS:\n\
                 updateCtrl help\n\
                 updateCtrl install <file>\n\
+                updateCtrl pause \n\
+                updateCtrl resume \n\
             \n\
             DESCRIPTION:\n\
                 updateCtrl help\n\
@@ -30,6 +32,12 @@ static void PrintHelp
             \n\
                 updateCtrl install\n\
                   - Starts update process.\n\
+            \n\
+                updateCtrl pause\n\
+                  - Pauses update process.\n\
+            \n\
+                updateCtrl resume\n\
+                  - Resumes update process.\n\
             ");
 
     exit(EXIT_SUCCESS);
@@ -66,6 +74,14 @@ static void CommandHandler
     else if (strcmp(command, "install") == 0)
     {
         le_arg_AddPositionalCallback(SetFile);
+    }
+    else if (strcmp(command, "pause") == 0)
+    {
+        ctrlUpdate_PauseInstall();
+    }
+    else if (strcmp(command, "resume") == 0)
+    {
+        ctrlUpdate_ResumeInstall();
     }
     else
     {

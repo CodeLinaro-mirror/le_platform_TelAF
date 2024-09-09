@@ -40,15 +40,12 @@
 #include "tafSvcIF.hpp"
 #include "tafDiagBackend.hpp"
 
-/*
-#define TAF_DIAG_RESET_SVC_CNT   32
-#define TAF_DIAG_RESET_REQHANDLER_CNT   32
-#define TAF_DIAG_RESET_REQMSG_CNT 8
-*/
-
 #define DEFAULT_SVC_REF_CNT 16
 #define DEFAULT_RX_MSG_REF_CNT 16
 #define DEFAULT_RX_HANDLER_REF_CNT 16
+
+// NRC lowest value for reset service
+#define ECURESET_NRC_RANGE_LOW_VALUE 0x80U
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -58,7 +55,7 @@
 typedef struct
 {
     taf_diagReset_ServiceRef_t svcRef;           ///< Own reference.
-    taf_diagReset_Type_t resetType;              ///< Reset type.
+    uint8_t resetType;                           ///< Reset type.
     le_dls_List_t rxMsgList;                     ///< Rx message list of the service.
     taf_diagReset_RxMsgHandlerRef_t handlerRef;  ///< Rx Message handler ref of the service.
     le_msg_SessionRef_t sessionRef;              ///< Reference to a client-server session.
@@ -108,21 +105,20 @@ namespace telux {
                 void UDSMsgHandler(const taf_uds_AddrInfo_t* addrPtr, uint8_t sid, uint8_t* msgPtr,
                         size_t msgLen) override;
 
-                taf_diagReset_ServiceRef_t GetService(taf_diagReset_Type_t resetType);
+                taf_diagReset_ServiceRef_t GetService(uint8_t resetType);
 
                 static void RxReqEventHandler(void* reportPtr);
                 taf_diagReset_RxMsgHandlerRef_t AddRxMsgHandler(taf_diagReset_ServiceRef_t svcRef,
                         taf_diagReset_RxMsgHandlerFunc_t handlerPtr, void* contextPtr);
                 void RemoveRxMsgHandler(taf_diagReset_RxMsgHandlerRef_t handlerRef);
 
-                le_result_t SendResp(taf_diagReset_RxMsgRef_t rxMsgRef,
-                        taf_diagReset_ErrorCode_t errCode);
+                le_result_t SendResp(taf_diagReset_RxMsgRef_t rxMsgRef, uint8_t errCode);
 
                 le_result_t RemoveSvc(taf_diagReset_ServiceRef_t svcRef);
 
             private:
                 // Internal search function.
-                taf_ResetSvc_t* GetServiceObj(taf_diagReset_Type_t resetType);
+                taf_ResetSvc_t* GetServiceObj(uint8_t resetType);
                 // Send NRC response msg.
                 le_result_t SendNRCResp(taf_uds_AddrInfo_t*  addrInfoPtr, uint8_t errCode);
 

@@ -19,5 +19,5 @@ processes:
 
 bindings:
 {
-    tafDevInfoIntTest.tafDevInfoIntTest.taf_info -> tafDevInfoSvc.taf_info
+    tafDevInfoIntTest.tafDevInfoIntTest.taf_devInfo -> tafDevInfoSvc.taf_devInfo
 }

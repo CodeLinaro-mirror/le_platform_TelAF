@@ -1,0 +1,58 @@
+maxThreads: 600
+
+username: telaf
+
+startGroup: 12
+
+capability:
+{
+    CAP_WAKE_ALARM
+    CAP_FOWNER
+    CAP_SYS_ADMIN
+    CAP_BLOCK_SUSPEND
+
+#if ${LE_CONFIG_TEST_COVERAGE} = y
+    CAP_DAC_READ_SEARCH
+    CAP_DAC_OVERRIDE
+#endif
+}
+
+groups:
+{
+    ubi
+    disk
+    system
+    diag
+    radio
+    inet
+    locclient
+}
+
+sandboxed: false
+
+executables:
+{
+    tafVerInfoSvc = ( $TELAF_ROOT/components/tafVerInfoSvc )
+}
+
+start: auto
+
+processes:
+{
+    run:
+    {
+        (tafVerInfoSvc)
+    }
+
+    maxFileBytes: 8192K
+    faultAction: restart
+}
+
+bindings:
+{
+}
+
+extern:
+{
+    tafVerInfoSvc.tafVerInfoSvc.taf_verInfo
+}

@@ -1,0 +1,35 @@
+maxThreads: 600
+sandboxed: false
+
+executables:
+{
+    tafDualNadTest = ( $TELAF_ROOT/apps/test/tafNetTest/tafDualNadTest/tafDualNadComponent )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafDualNadTest)
+    }
+
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    faultAction: stopApp
+
+}
+
+bindings:
+{
+    tafDualNadTest.tafDualNadComponent.taf_net -> tafNetSvc.taf_net
+    tafDualNadTest.tafDualNadComponent.rpc_taf_net -> <telaf>.rpcServer_102_telaf_taf_net
+    tafDualNadTest.tafDualNadComponent.taf_netIpPass -> tafNetSvc.taf_netIpPass
+    tafDualNadTest.tafDualNadComponent.rpc_taf_netIpPass -> <telaf>.rpcServer_102_telaf_taf_netIpPass
+    tafDualNadTest.tafDualNadComponent.taf_dcs -> tafDataCallSvc.taf_dcs
+    tafDualNadTest.tafDualNadComponent.rpc_taf_dcs -> <telaf>.rpcServer_102_telaf_taf_dcs   // Binding to remote DCS service on system 0x102 via RPC proxy
+}

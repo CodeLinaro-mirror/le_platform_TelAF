@@ -25,6 +25,10 @@
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /*
@@ -165,6 +169,7 @@ typedef struct
     int cid;
     int lac;
     int ta;
+    int arfcn;
 } taf_RadioGsmCellInfo_t;
 
 /*
@@ -197,6 +202,7 @@ typedef struct
     int cid;
     int psc;
     int ecio;
+    int uarfcn;
 } taf_RadioUmtsCellInfo_t;
 
 /*
@@ -411,6 +417,18 @@ typedef struct
     uint16_t hysteresisdB;
 } taf_RadioHysteresisConfig_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Network status indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;
+    taf_radio_NetStatusIndBitMask_t bitmask;
+    taf_radio_NetStatusRef_t netStatusRef;
+} taf_RadioNetStatusInd_t;
+
 namespace telux {
 namespace tafsvc {
     /*
@@ -422,6 +440,16 @@ namespace tafsvc {
         std::vector<telux::tel::OperatorInfo> opInfos;
         void onNetworkScanResults(telux::tel::NetworkScanStatus scanStatus,
             std::vector<telux::tel::OperatorInfo> operatorInfos) override;
+    };
+
+    class taf_RadioServSysListener : public telux::tel::IServingSystemListener
+    {
+        public:
+            uint8_t phone = DEFAULT_PHONE_ID;
+            telux::tel::RadioTechnology rat = telux::tel::RadioTechnology::RADIO_TECH_UNKNOWN;
+            telux::tel::ServiceDomain serviceDomain = telux::tel::ServiceDomain::UNKNOWN;
+            taf_RadioServSysListener(uint8_t phone);
+            void onSystemInfoChanged(telux::tel::ServingSystemInfo sysInfo) override;
     };
 
     class taf_RadioImsServSysListener : public telux::tel::IImsServingSystemListener
@@ -720,12 +748,15 @@ namespace tafsvc {
          */
         static taf_Radio &GetInstance();
 
+        taf_radio_Rat_t taf_radio_CovertRat(telux::tel::RadioTechnology rat);
         static void taf_radio_LayerImsRegStateHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerOpModeHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerNetRegStateHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerImsStateHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerSsHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerCellInfoHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerNetStatusHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerRatChangeHandler(void* reportPtr, void* layerHandlerFunc);
 
         /*
          * Command thread in radio service.
@@ -767,6 +798,8 @@ namespace tafsvc {
         le_mem_PoolRef_t packSwStatePool;
         le_mem_PoolRef_t ssChangePool;
         le_mem_PoolRef_t cellInfoChangePool;
+        le_mem_PoolRef_t ratChangePool;
+        le_mem_PoolRef_t netStatusPool;
 
         le_ref_MapRef_t prefOpListRefMap;
         le_ref_MapRef_t prefOpSafeRefMap;
@@ -789,6 +822,8 @@ namespace tafsvc {
         le_event_Id_t lteSsChangeEvId;
         le_event_Id_t nr5gSsChangeEvId;
         le_event_Id_t cellInfoChangeEvId;
+        le_event_Id_t ratChangeEvId;
+        le_event_Id_t netStatusEvId;
         static le_event_Id_t radioCmdEvId;
 
         bool subSystemStatusUpdated = false;
@@ -802,6 +837,7 @@ namespace tafsvc {
         std::shared_ptr<taf_RadioGetOperatingModeCallback> getOperatingModeCb;
         std::shared_ptr<taf_RadioCellularCapsCallback> cellularCapsCb;
         std::vector<std::shared_ptr<taf_RadioNetworkSelectionListener>> networkListeners;
+        std::vector<std::shared_ptr<taf_RadioServSysListener>> servSysListeners;
         std::map<SlotId, std::shared_ptr<telux::tel::IImsServingSystemListener>> imsServSysListeners;
         std::map<SlotId, std::shared_ptr<telux::data::IServingSystemListener>> dataServSysListeners;
         std::vector<std::shared_ptr<telux::tel::IPhone>> phones;
@@ -811,7 +847,7 @@ namespace tafsvc {
         std::map<SlotId, std::shared_ptr<telux::tel::IImsServingSystemManager>> imsServingSystemMgrs;
         std::map<SlotId, std::shared_ptr<telux::tel::IImsSettingsManager>> imsSettingMgrs;
         std::map<SlotId, std::shared_ptr<telux::data::IServingSystemManager>> dataServSysManagers;
-        std::map<le_event_HandlerRef_t, le_event_HandlerRef_t> pdpHandlerRefs;
+        std::map<taf_radio_NetStatusChangeHandlerRef_t, taf_radio_NetStatusChangeHandlerRef_t> netStatRefMap;
         taf_radio_ImsRef_t imsRefs[TAF_RADIO_PHONE_NUM];
         taf_radio_NetStatusRef_t netStatusRefs[TAF_RADIO_PHONE_NUM];
         std::shared_ptr<taf_RadioPhoneListener> phoneListener;

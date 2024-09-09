@@ -43,24 +43,24 @@ static taf_diagReset_RxMsgHandlerRef_t diagResetMsgRef = NULL;
 static le_sem_Ref_t semRef;
 
 //Function to convert reset type to string
-static char* tafResetTypeToString(taf_diagReset_Type_t resetType)
+static char* tafResetTypeToString(uint8_t resetType)
 {
     char* state;
     switch(resetType)
     {
-        case TAF_DIAGRESET_HARD_RESET :
+        case 0x01 :
             state = "Hard reset";
             break;
-        case TAF_DIAGRESET_KEY_OFF_ON_RESET :
+        case 0x02 :
             state = "Key off on reset";
             break;
-        case TAF_DIAGRESET_SOFT_RESET :
+        case 0x03 :
             state = "Soft reset";
             break;
-        case TAF_DIAGRESET_ENABLE_RAPID_POWER_SHUTDOWN_RESET :
+        case 0x04 :
             state = "Enable rapid power shoutdown reset";
             break;
-        case TAF_DIAGRESET_DISABLE_RAPID_POWER_SHUTDOWN_RESET :
+        case 0x05 :
             state = "Disable rapid power shoutdown reset";
             break;
         default :
@@ -75,7 +75,7 @@ static char* tafResetTypeToString(taf_diagReset_Type_t resetType)
 void resetMsgHandler
 (
     taf_diagReset_RxMsgRef_t rxMsgRef,
-    taf_diagReset_Type_t resetType,
+    uint8_t resetType,
     void* contextPtr
 )
 {
@@ -83,7 +83,7 @@ void resetMsgHandler
 
     switch(resetType)
     {
-        case TAF_DIAGRESET_HARD_RESET:
+        case 0x01:
             //If installed firmware successfully, then can reboot to active
             if(diagRoutineCtrl_GetUpdateState() == TAF_UPDATE_INSTALL_SUCCESS)
             {

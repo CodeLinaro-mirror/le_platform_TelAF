@@ -31,40 +31,30 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #ifndef TAFUDS_COMMUNICATION_MGR_HPP
 #define TAFUDS_COMMUNICATION_MGR_HPP
 
 #include "tafDoIPStack.h"
 #include "legato.h"
 #include "interfaces.h"
+#include "configuration.hpp"
+
+using namespace telux::tafsvc;
 
 namespace taf{
 namespace uds{
 
     #define UDS_DATA_SIZE 4095
-    #define UDS_P2_SERVER 50
-    #define UDS_P2_STAR_SERVER 5000
+    #define UDS_P2_SERVER 50 // Default P2 server interval
+    #define UDS_P2_SERVER_MAX 65535 //Maximal P2 server interval
+    #define UDS_P2_STAR_SERVER 5000 // Default P2* server interval
+    #define UDS_P2_STAR_SERVER_MAX 655350 //Maximal P2* server interval
+    #define UDS_P2_STAR_SERVER_MIN 1500 //Minimal P2* server interval
+    #define DELTA_UDS_P2_RESP 500 //Delta P2 RESP
+    #define UDS_P2_STAR_SERVER_CNT 120
     #define UDS_S3_SERVER 5000
     #define TAF_UDS_HANDLER_REF_CNT 1
-
-    // DID Config tree definition
-    #define DID_NODE_LEN                 100
-    #define DID_CONFIG_TREE_NODE         "diag/DID"
-    #define DID_READ_PROPERTY_SUPPORTED_FUNCTION  "diag/DID/%2x/supported_functions/read_did"
-    #define DID_WRITE_PROPERTY_SUPPORTED_FUNCTION  "diag/DID/%2x/supported_functions/write_did"
-    #define DID_READ_SEC_PROPERTY_SUPPORTED_FUNCTION  "diag/DID/%2x/supported_functions/read_sec"
-    #define DID_WRITE_SEC_PROPERTY_SUPPORTED_FUNCTION  "diag/DID/%2x/supported_functions/write_sec"
-    #define DID_CONFIG_TREE_VALUE_FORMAT  "diag/DID/%2x/value"
-    #define DID_DATA_FORMAT              "data%d"
-
-    // DTC Config tree definition
-    #define DTC_CONFIG_TREE_NODE                   "diag/DTC"
-    #define DTC_STATUS_AVAILABILITY_MASK           "DTCStatusAvailabilityMask"
-    #define DTC_INFORMATION                        "info"
-    #define DTC_STR_INFO_LEN                       20
-    #define DTC_STATUS                             "status"
-    #define DTC_SUB_FUNCTION_REPORT_DTC_BY_STATUS  0x2
+    #define SHORT_TERM_ADJUSTMENT 3
 
     // UDS minimal len
     #define UDS_REQ_MIN_LEN 1
@@ -81,6 +71,7 @@ namespace uds{
     // ECUReset service (0x11)
     #define UDS_ECU_RESET_REQ_MIN_LEN 2
     #define UDS_ECU_RESET_RESP_BASE_LEN 2
+    #define HARD_RESET 1
 
     // ReadDTCInformation service (0x19)
     #define UDS_READ_DTC_INFO_REQ_MIN_LEN 2
@@ -102,6 +93,10 @@ namespace uds{
     #define UDS_WRITE_DID_REQ_MIN_LEN 4
     #define UDS_WRITE_DID_REQ_BASE_LEN 3  // Service ID(1) + DID (2)
     #define UDS_WRITE_DID_RESP_LEN 3
+
+    // InputOutputControlByIdentifier service (0x2F)
+    #define UDS_IOCBID_REQ_MIN_LEN 4  // SI+DID+IOCP
+    #define UDS_IOCBID_RESP_MIN_LEN 4
 
     // Routine control service (0x31)
     #define UDS_ROUTINE_CTRL_REQ_MIN_LEN 4
@@ -143,6 +138,17 @@ namespace uds{
     #define UDS_CTRL_DTC_SETTING_REQ_MIN_LEN 2
     #define UDS_CTRL_DTC_SETTING_RESP_LEN 2
 
+    // S3 timer action
+    typedef enum
+    {
+        TAF_UDS_S3_TIMER_STOP          = 0,
+        TAF_UDS_S3_TIMER_START         = 0x01,
+        TAF_UDS_S3_TIMER_RESTART       = 0x02,
+        TAF_UDS_P2STAR_TIMER_STOP      = 0x03,
+        TAF_UDS_P2STAR_TIMER_START     = 0x04,
+        TAF_UDS_P2STAR_TIMER_RESTART   = 0x05
+    }taf_UDSTimer_EventType_t;
+
     // RequestFileTranser service mode of operation type
     typedef enum
     {
@@ -164,6 +170,7 @@ namespace uds{
         READ_DID_REQUEST_ID = 0x22,
         SECURITY_ACCESS_REQUEST_ID = 0x27,
         WRITE_DID_REQUEST_ID = 0x2E,
+        INPUT_OUTPUT_CONTROL_REQUEST_ID = 0x2F,
         ROUTINE_CONTROL_REQUEST_ID = 0x31,
         TRANSFER_DATA_REQUEST_ID = 0x36,
         REQUEST_TRANSFER_EXIT_REQUEST_ID = 0x37,
@@ -182,6 +189,7 @@ namespace uds{
         READ_DID_RESPONSE_ID = 0x62,
         SECURITY_ACCESS_RESPONSE_ID = 0x67,
         WRITE_DID_RESPONSE_ID = 0x6E,
+        IOCBID_RESPONSE_ID = 0x6F,
         ROUTINE_CONTROL_RESPONSE_ID = 0x71,
         TRANSFER_DATA_RESPONSE_ID = 0x76,
         REQUEST_TRANSFER_EXIT_RESPONSE_ID = 0x77,
@@ -198,6 +206,7 @@ namespace uds{
         SUBFUNCTION_NOT_SUPPORTED = 0x12,
         INCORRECT_MSG_LEN_OR_INVALID_FORMAT = 0x13,
         RESP_TOO_LONG = 0x14,
+        BUSY_REPEAT_REQ = 0x21,
         CONDITIONS_NOT_CORRECT = 0x22,
         REQ_SEQUENCE_ERROR = 0x24,
         REQ_OUT_OF_RANGE = 0x31,
@@ -205,8 +214,16 @@ namespace uds{
         INVALID_KEY = 0x35,
         UPLOAD_DOWNLOAD_NOT_ACCEPTED = 0x70,
         GENERAL_PROGRAMMING_FAILURE = 0x72,
-        REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING = 0x78
+        REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING = 0x78,
+        SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION = 0x7E,
+        SERVICE_NOT_SUPPORTED_IN_ACTIVE_SESSION = 0x7F
     }taf_UDSErrorCode_t;
+
+    typedef struct
+    {
+        taf_UDSTimer_EventType_t             event;
+        uint32_t                             interval;
+    } udsTimerEvent_t;
 
     // UDS stack indication handler structure.
     typedef struct
@@ -258,18 +275,32 @@ namespace uds{
             le_ref_MapRef_t udsHandlerRefMap = NULL;
             taf_UDSIndicationHandler_t udsIndicationHandler;
 
+            /* Security Access -- BEG -- */
+            uint8_t nrcCode = 0x00;
+            le_result_t remoteError = LE_OK;
+            taf_doip_AddrInfo_t udsRespAddrInfo;
+            /* Security Access -- END -- */
+
+            uint8_t recvBuf[UDS_DATA_SIZE];
+            uint8_t sendBuf[UDS_DATA_SIZE];
+            uint16_t recvDataLen = 0;
+            uint16_t sendDataLen = 0;
+            bool readyToRecvData = true;
+
         private:
             // Indicate recevied service message to Diag service if necessary.
             le_result_t IndicateSessionCtrlReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // SessionCtrl service (0x10).
             le_result_t IndicateECUResetReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // ECUReset service (0x11).
-            le_result_t IndicateReadDIDResp(taf_doip_AddrInfo_t* addrInfoPtr,
+            le_result_t IndicateReadDIDReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // ReadDID service (0x22).
-            le_result_t IndicateWriteDIDResp(taf_doip_AddrInfo_t* addrInfoPtr,
+            le_result_t IndicateWriteDIDReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // WriteDID service (0x2E).
             le_result_t IndicateSecAccessReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // SecurrityAccess service (0x27).
+            le_result_t IndicateIOCBIDReq(taf_doip_AddrInfo_t* addrInfoPtr,
+                    bool* isInternalHandle);    // InputOutputControlByIdentifier service (0x2F).
             le_result_t IndicateRoutinrCtrlReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // RoutineControl service (0x31).
             le_result_t IndicateRxFileXferReq(taf_doip_AddrInfo_t* addrInfoPtr,
@@ -286,11 +317,7 @@ namespace uds{
                     bool* isInternalHandle);    // ReadDTCInfo service (0x19)
 
             // Internally check and Respond UDS message to uds client (through DoIP stack).
-            le_result_t ReadDTCInfoResp(taf_doip_AddrInfo_t* addrInfoPtr);    // (0x19).
             le_result_t TesterPresentResp(taf_doip_AddrInfo_t*  addrInfoPtr);    // (0x3E)
-
-            // To read DTC from ConfigTree.
-            uint8_t readDTCByStatusMask(uint8_t statusMask);
 
             // Send UDS response message from Diag service.
             le_result_t SessionCtrlResp(uint8_t serviceId, uint8_t err);
@@ -300,6 +327,8 @@ namespace uds{
             le_result_t WriteDIDResp(uint8_t serviceId, uint8_t err);
             le_result_t SecurityAccessResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
+            le_result_t IOCBIDResp(uint8_t serviceId, const uint8_t* dataPtr, uint16_t dataSize,
+                    uint8_t err);
             le_result_t RoutineCtrlResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
             le_result_t XferDataResp(uint8_t serviceId, const uint8_t* dataPtr,
@@ -308,20 +337,25 @@ namespace uds{
             le_result_t ReqFileXferResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
 
-            void SesChangeTimer();
-            static void IndicateWhenChangingToDefault();
+            void IndicateWhenChangingToDefault();
             le_result_t ReadDTCInfoResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
             le_result_t ClearDiagInfoResp(uint8_t serviceId, uint8_t err);
             le_result_t CtrlDTCSettingResp(uint8_t serviceId, uint8_t err);
 
+            static void* UdsTimerThread(void* ctxPtr);
+            static void UdsTimerHandler(void* reqPtr);
+            void UdsTimerEventReport(taf_UDSTimer_EventType_t timerEvent, uint32_t interval);
+            void CheckAndRestartS3Timer(uint8_t serviceId);
+            bool IsSessTypeMatched(cfg::Node& node);
+            bool IsSecurityAccessMatched(cfg::Node& node);
+            bool IsRequestSubFuncSupported(cfg::Node& node, uint8_t subFunc);
+
+            std::map<std::string, uint8_t>& GetSessionMap(void);
+            bool IsValidSvcActiveSession(uint8_t sid, taf_SessionType_t currentSession);
+
             // update status parameter.
             bool isXferActive = false;
-
-            // Security access request seed parameter.
-            uint8_t reqSeedLevel = 0;
-            // Security access level.
-            uint8_t securityLevel = 0;
 
             //session change parameter.
             uint8_t sesChangeId = 0xFF;
@@ -333,13 +367,12 @@ namespace uds{
             taf_doip_PowerModeQueryHandlerRef_t PmQueryRef = NULL;
             taf_doip_DiagConfirmHandlerRef_t ConfirmRef = NULL;
             taf_SessionType_t SessionType = DEFAULT_SESSION;
-            uint8_t recvBuf[UDS_DATA_SIZE];
-            uint8_t sendBuf[UDS_DATA_SIZE];
-            uint16_t recvDataLen = 0;
-            uint16_t sendDataLen = 0;
-            bool readyToRecvData = true;
+
+            static bool isResetInProgress;
             le_timer_Ref_t p2StarTimerRef;
             le_timer_Ref_t s3TimerRef;
+            le_event_Id_t udsTimerEventId;
+            le_sem_Ref_t semRef;
     };
 }
 }

@@ -41,10 +41,24 @@
 #include "tafVlanImpl.hpp"
 #include "tafNetworkImpl.hpp"
 #include "tafSvcIF.hpp"
+#include <arpa/inet.h>
 
 #define OPERATION_TIMEOUT 30
+#define OPERATION_DATA_SETTINGS 60
 
 using namespace telux::tafsvc;
+
+//Interface IP definition for LOCAL
+
+LE_MEM_DEFINE_STATIC_POOL(interfacePool, TAF_NET_MAX_VLAN_INTERFACE, sizeof(taf_InterfaceConfig_t));
+
+LE_REF_DEFINE_STATIC_MAP(interfaceRefMap, TAF_NET_MAX_VLAN_INTERFACE);
+
+LE_MEM_DEFINE_STATIC_POOL(interfaceIPPool, TAF_NET_MAX_VLAN_INTERFACE,
+                          sizeof(taf_InterfaceConfig_t));
+
+LE_REF_DEFINE_STATIC_MAP(interfaceIPRefMap, TAF_NET_MAX_VLAN_INTERFACE);
+
 
 //VLAN definition
 
@@ -114,6 +128,12 @@ void taf_Vlan::Init(void)
     vlanPool = le_mem_InitStaticPool(vlanPool,
                            TAF_NET_MAX_VLAN_ENTRY, sizeof(taf_Vlan_t));
 
+    interfacePool = le_mem_InitStaticPool(interfacePool,
+                           TAF_NET_MAX_VLAN_INTERFACE, sizeof(taf_InterfaceConfig_t));
+
+    interfaceIPPool = le_mem_InitStaticPool(interfaceIPPool,
+                           TAF_NET_MAX_VLAN_INTERFACE, sizeof(taf_InterfaceConfig_t));
+
     vlanEntryListPool = le_mem_InitStaticPool(vlanEntryListPool,
                                TAF_NET_MAX_VLAN_ENTRY_LIST, sizeof(taf_VlanEntryList_t));
 
@@ -135,6 +155,10 @@ void taf_Vlan::Init(void)
     // 3. Initiate the reference map.
 
     vlanRefMap = le_ref_InitStaticMap(vlanRefMap, TAF_NET_MAX_VLAN_ENTRY);
+
+    interfaceRefMap = le_ref_InitStaticMap(interfaceRefMap, TAF_NET_MAX_VLAN_INTERFACE);
+
+    interfaceIPRefMap = le_ref_InitStaticMap(interfaceIPRefMap, TAF_NET_MAX_VLAN_INTERFACE);
 
     vlanEntryListRefMap = le_ref_InitStaticMap(vlanEntryListRefMap, TAF_NET_MAX_VLAN_ENTRY_LIST);
 
@@ -163,6 +187,7 @@ void taf_Vlan::Init(void)
         LE_INFO("Vlan manager initialize error...");
         return ;
     }
+
 
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // 6. Check if subsystem status
@@ -203,6 +228,70 @@ void taf_Vlan::Init(void)
     {
         LE_CRIT("unable to init vlan component!");
     }
+
+    // Get the iDataSettingsManager
+    if(dataSettingsManager == nullptr)
+    {
+            auto &dataFactory = telux::data::DataFactory::getInstance();
+            isReady = false;
+            std::promise<telux::common::ServiceStatus> promSetting;
+            dataSettingsManager = dataFactory.getDataSettingsManager(
+                telux::data::OperationType::DATA_LOCAL,
+                [&](telux::common::ServiceStatus svcStatus)
+                {
+                    if (svcStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                    {
+                        promSetting.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+                    }
+                    else
+                    {
+                        promSetting.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+                    }
+                });
+
+            if (!dataSettingsManager)
+            {
+                LE_ERROR("Failed to get Data Settings instance.");
+            }
+            else
+            {
+                telux::common::ServiceStatus dataSettingsManagerStatus = dataSettingsManager->getServiceStatus();
+                if (dataSettingsManagerStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                {
+                    LE_INFO("Data setting subsystem wait to be ready...");
+                    std::future<telux::common::ServiceStatus> initFuture = promSetting.get_future();
+                    std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+                        OPERATION_DATA_SETTINGS));
+                    if (std::future_status::timeout == waitStatus)
+                    {
+                        LE_FATAL ("Timeout waiting for Data setting susbsytem");
+                    }
+                    else
+                    {
+                        dataSettingsManagerStatus = initFuture.get();
+                    }
+                }
+                if (dataSettingsManagerStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                {
+                    isReady = true;
+                    LE_INFO("iDataSettingsManager is ready...");
+                }
+                else
+                {
+                    LE_FATAL("Fail to init Data Setting Manager subsystem");
+                }
+            }
+        }
+
+    if(isReady)
+    {
+        LE_INFO("data settings manager is ready...");
+    }
+    else
+    {
+        LE_CRIT("unable to init data settings manager!");
+    }
+
 
     // Add a handler for client session close
     le_msg_AddServiceCloseHandler( taf_net_GetServiceRef(), ClientCloseSessionHandler, NULL );
@@ -498,6 +587,10 @@ taf_net_VlanRef_t taf_Vlan::CreateVlan
         vlanPtr->isAccelerated=isAccelerated;
         vlanPtr->priority=priority;
         vlanPtr->sessionRef=sessionRef;
+        //set vlan bind values to default values
+        //because for backhaul type WWAN profile/slot are not needed
+        vlanPtr->vlanBindConfig.profileId = -1;
+        vlanPtr->vlanBindConfig.vlanIdBackhaul = -1;
         return (taf_net_VlanRef_t)le_ref_CreateRef(vlanRefMap, (void*)vlanPtr);
     }
 
@@ -549,6 +642,49 @@ le_result_t taf_Vlan::RemoveVlan
 
     return LE_OK;
 }
+
+/*======================================================================
+
+ FUNCTION        taf_Vlan::RemoveInterface
+
+ DESCRIPTION     Remove a interface reference.
+
+ DEPENDENCIES    The initialization of Interface.
+
+ PARAMETERS      [IN] taf_net_InterfaceRef_t interfaceRef : The reference of Interface
+
+ RETURN VALUE    le_result_t
+                     LE_OK:            Succeeded to remove vlan
+                     LE_NOT_FOUND:     Interface is not found
+                     LE_BAD_PARAMETER: Invalid parameter.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_Vlan::RemoveInterface
+(
+    taf_netIpPass_InterfaceRef_t interfaceRef
+)
+{
+    taf_Vlan_t *interfacePtr = NULL;
+
+    TAF_ERROR_IF_RET_VAL(interfaceRef == NULL, LE_BAD_PARAMETER, "interfaceRef is null");
+    interfacePtr = (taf_Vlan_t*)le_ref_Lookup(interfaceRefMap, interfaceRef);
+    if(interfacePtr != NULL)
+    {
+      le_ref_DeleteRef(interfaceRefMap, interfaceRef);
+      le_mem_Release(interfacePtr);
+      return LE_OK;
+    }
+    // else check in interfaceIPRefMap
+    interfacePtr = (taf_Vlan_t*)le_ref_Lookup(interfaceIPRefMap, interfaceRef);
+    TAF_ERROR_IF_RET_VAL(interfacePtr == NULL, LE_NOT_FOUND, "interface is not present");
+    le_ref_DeleteRef(interfaceIPRefMap, interfaceRef);
+    le_mem_Release(interfacePtr);
+
+    return LE_OK;
+}
+
 
 /*======================================================================
 
@@ -661,6 +797,11 @@ le_result_t taf_Vlan::AddVlanInterface
     vconfig.vlanId = vlanPtr->vlanId;
     vconfig.isAccelerated = vlanPtr->isAccelerated;
     vconfig.priority = vlanPtr->priority;
+    vconfig.nwType = (telux::data::NetworkType)vlanPtr->nwType;
+
+    if (vconfig.nwType != NetworkType::LAN) {
+        vconfig.createBridge = false;
+    }
 
     interfacePresent=IsVlanInterfacePresentInDb(vconfig.vlanId, ifType);
     if(interfacePresent)
@@ -702,6 +843,44 @@ le_result_t taf_Vlan::AddVlanInterface
 
 /*======================================================================
 
+ FUNCTION        taf_Vlan::SetVlanNetworkType
+
+ DESCRIPTION     Set VLAN network type.
+
+ DEPENDENCIES    The creation of vlan.
+
+ PARAMETERS      None.
+
+ RETURN VALUE    le_result_t
+                     LE_BAD_PARAMETER: Invalid parameters.
+                     LE_NOT_FOUND:     Vlan is not present.
+                     LE_OK:            Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_Vlan::SetVlanNetworkType
+(
+    taf_net_VlanRef_t vlanRef,
+    taf_netIpPass_NetworkType_t nwType
+)
+{
+    taf_Vlan_t *vlanPtr=NULL;
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == NULL, LE_BAD_PARAMETER, "vlanRef is null");
+
+    vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
+
+    TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "can't get vlan info");
+
+    vlanPtr->nwType= nwType;
+
+    return LE_OK;
+}
+
+
+/*======================================================================
+
  FUNCTION        taf_Vlan::SetVlanPriority
 
  DESCRIPTION     Set VLAN priority.
@@ -738,6 +917,156 @@ le_result_t taf_Vlan::SetVlanPriority
 
     return LE_OK;
 }
+
+/*======================================================================
+
+ FUNCTION        taf_Vlan::SetVlanBackhaulType
+
+ DESCRIPTION     Set VLAN backhaulType for vlan binding.
+
+ DEPENDENCIES    The creation of vlan.
+
+ PARAMETERS      None.
+
+ RETURN VALUE    le_result_t
+                     LE_BAD_PARAMETER: Invalid parameters.
+                     LE_NOT_FOUND:     Vlan is not present.
+                     LE_OK:            Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_Vlan::SetVlanBackhaulType
+(
+    taf_net_VlanRef_t vlanRef,
+    taf_netIpPass_BackhaulType_t bhType
+)
+{
+    taf_Vlan_t *vlanPtr=NULL;
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == NULL, LE_BAD_PARAMETER, "vlanRef is null");
+
+    vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
+
+    TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "can't get vlan info");
+
+    vlanPtr->vlanBindConfig.backhaulType= bhType;
+
+    return LE_OK;
+}
+
+/*======================================================================
+
+ FUNCTION        taf_Vlan::SetVlanBackhaulVlanId
+
+ DESCRIPTION     Set VLAN backhaulType vlan id for vlan binding.
+
+ DEPENDENCIES    The creation of vlan.
+
+ PARAMETERS      None.
+
+ RETURN VALUE    le_result_t
+                     LE_BAD_PARAMETER: Invalid parameters.
+                     LE_NOT_FOUND:     Vlan is not present.
+                     LE_OK:            Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_Vlan::SetVlanBackhaulVlanId
+(
+    taf_net_VlanRef_t vlanRef,
+    uint16_t vlanId
+)
+{
+    taf_Vlan_t *vlanPtr=NULL;
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == NULL, LE_BAD_PARAMETER, "vlanRef is null");
+
+    vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
+
+    TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "can't get vlan info");
+
+    vlanPtr->vlanBindConfig.vlanIdBackhaul= vlanId;
+
+    return LE_OK;
+}
+
+/*======================================================================
+
+ FUNCTION        taf_Vlan::SetVlanBackhaulProfileId
+
+ DESCRIPTION     Set VLAN Profile id for vlan binding.
+
+ DEPENDENCIES    The creation of vlan.
+
+ PARAMETERS      None.
+
+ RETURN VALUE    le_result_t
+                     LE_BAD_PARAMETER: Invalid parameters.
+                     LE_NOT_FOUND:     Vlan is not present.
+                     LE_OK:            Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_Vlan::SetVlanBackhaulProfileId
+(
+    taf_net_VlanRef_t vlanRef,
+    uint32_t profileId
+)
+{
+    taf_Vlan_t *vlanPtr=NULL;
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == NULL, LE_BAD_PARAMETER, "vlanRef is null");
+
+    vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
+
+    TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "can't get vlan info");
+
+    vlanPtr->vlanBindConfig.profileId= profileId;
+
+    return LE_OK;
+}
+
+/*======================================================================
+
+ FUNCTION        taf_Vlan::SetVlanBackhaulSlotId
+
+ DESCRIPTION     Set VLAN Profile id for vlan binding.
+
+ DEPENDENCIES    The creation of vlan.
+
+ PARAMETERS      None.
+
+ RETURN VALUE    le_result_t
+                     LE_BAD_PARAMETER: Invalid parameters.
+                     LE_NOT_FOUND:     Vlan is not present.
+                     LE_OK:            Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_Vlan::SetVlanBackhaulSlotId
+(
+    taf_net_VlanRef_t vlanRef,
+    uint8_t slotId
+)
+{
+    taf_Vlan_t *vlanPtr=NULL;
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == NULL, LE_BAD_PARAMETER, "vlanRef is null");
+
+    vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
+
+    TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "can't get vlan info");
+
+    vlanPtr->vlanBindConfig.slotId= slotId;
+
+    return LE_OK;
+}
+
+
 
 /*======================================================================
 
@@ -1022,6 +1351,7 @@ taf_net_VlanEntryListRef_t taf_Vlan::GetVlanEntryList()
                 }
 
                 vlanEntryPtr->info.isAccelerated=info.isAccelerated;
+                vlanEntryPtr->info.nwType= (taf_netIpPass_NetworkType_t)info.nwType;
                 vlanEntryPtr->link = LE_SLS_LINK_INIT;
                 le_sls_Queue(&(vlanEntriesList->vlanEntryList), &(vlanEntryPtr->link));
                 previous_vlanId = info.vlanId;
@@ -1231,6 +1561,46 @@ le_result_t taf_Vlan::IsVlanAccelerated
 
     return LE_OK;
 
+}
+
+/*======================================================================
+
+ FUNCTION        taf_Vlan::GetVlanNetworkType
+
+ DESCRIPTION     Get the vlan network type from a reference.
+
+ DEPENDENCIES    Initialization of a vlan entry list and get a safe reference of a vlan entry.
+
+ PARAMETERS      [IN] taf_net_VlanEntryRef_t vlanEntryRef :
+                          The vlan entry reference.
+
+ RETURN VALUE    le_result_t
+                     LE_OK:            Succeeded.
+                     LE_NOT_FOUND:     Vlan is not found
+                     LE_BAD_PARAMETER: Invalid parameter.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_Vlan::GetVlanNetworkType
+(
+    taf_net_VlanEntryRef_t vlanEntryRef,
+    taf_netIpPass_NetworkType_t  *networkType
+)
+{
+    TAF_ERROR_IF_RET_VAL(vlanEntryRef == NULL, LE_BAD_PARAMETER,
+        "Null reference(vlanEntryRef)");
+
+    TAF_ERROR_IF_RET_VAL(networkType == NULL, LE_BAD_PARAMETER,
+        "Null Ptr(GetVlanNetworkType)");
+
+    taf_VlanEntry_t* vlanEntryPtr = (taf_VlanEntry_t*)le_ref_Lookup(vlanEntrySafeRefMap,
+                                                                    vlanEntryRef);
+    TAF_ERROR_IF_RET_VAL(vlanEntryPtr == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
+
+    *networkType=vlanEntryPtr->info.nwType;
+
+    return LE_OK;
 }
 
 /*======================================================================
@@ -1796,6 +2166,128 @@ le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint8_t slo
 
 /*======================================================================
 
+ FUNCTION        taf_Vlan::BindVlanWithBackhaul
+
+ DESCRIPTION     Bind a VLAN with a particular profile ID by invoking telsdk API.
+
+ DEPENDENCIES    The initialization of Vlan.
+
+ PARAMETERS      [IN] taf_net_VlanRef_t vlanRef: The reference of vlan.
+                 [IN] uint8_t slotid: The slot id
+                 [IN] uint32_t profileId: The profile id
+
+ RETURN VALUE    le_result_t
+                     LE_TIMEOUT：       Time out
+                     LE_BAD_PARAMETER: Invalid parameter.
+                     LE_NOT_FOUND:     Vlan not found
+                     LE_FAULT:         Failure.
+                     LE_OK:            Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_Vlan::BindVlanWithBackhaul(taf_net_VlanRef_t vlanRef)
+{
+
+    le_result_t result;
+    uint16_t vlanId=0;
+    std::chrono::seconds span(OPERATION_TIMEOUT);
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == NULL , LE_BAD_PARAMETER, "vlanRef is null");
+
+    VlanSyncPromise = std::promise<le_result_t>();
+
+    taf_Vlan_t* vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
+    TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "Vlan not found");
+
+    SlotId slot = (SlotId)vlanPtr->vlanBindConfig.slotId;
+
+    if(vlanPtr->vlanBindConfig.backhaulType == TAF_NETIPPASS_BH_WWAN)
+    {
+        vlanId=GetBoundVlanIdFromSlotAndProfile(vlanPtr->vlanBindConfig.slotId, 
+                                                vlanPtr->vlanBindConfig.profileId); 
+        if(vlanId !=0)
+        {
+           LE_ERROR("Profile is already bound with vlan");
+           return LE_FAULT;
+        }
+    }
+    else // for ETH and rest where SIM does not exist.
+    {
+        //vlanid=queryVlanToBackhaulBindings // TODO check for backhaul vlanID bound also
+    }
+
+    vlanId = vlanPtr->vlanId;
+    std::shared_ptr<tafVlanMappingCallback> bindVlanWithProfileCb =
+                                                   std::make_shared<tafVlanMappingCallback>(slot);
+
+    auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
+                                                bindVlanWithProfileCb, std::placeholders::_1);
+
+    telux::data::net::VlanBindConfig vlanBind;
+    vlanBind.vlanId = vlanId;
+
+    switch (vlanPtr->vlanBindConfig.backhaulType)
+    {
+        case TAF_NETIPPASS_BH_ETH:
+            vlanBind.bhInfo.backhaul = telux::data::BackhaulType::ETH;
+            break;
+        case TAF_NETIPPASS_BH_USB:
+            vlanBind.bhInfo.backhaul = telux::data::BackhaulType::USB;
+            break;
+        case TAF_NETIPPASS_BH_WLAN:
+            vlanBind.bhInfo.backhaul = telux::data::BackhaulType::WLAN;
+            break;
+        case TAF_NETIPPASS_BH_WWAN:
+            vlanBind.bhInfo.backhaul = telux::data::BackhaulType::WWAN;
+            break;
+        case TAF_NETIPPASS_BH_BLE:
+            vlanBind.bhInfo.backhaul = telux::data::BackhaulType::BLE;
+            break;
+        default:
+            LE_ERROR("Invalid backhaul type (%d).", vlanPtr->vlanBindConfig.backhaulType);
+            return LE_BAD_PARAMETER;
+    }
+
+    if(vlanPtr->vlanBindConfig.backhaulType == TAF_NETIPPASS_BH_WWAN)
+    {
+       vlanBind.bhInfo.slotId = (SlotId)vlanPtr->vlanBindConfig.slotId;
+       vlanBind.bhInfo.profileId = vlanPtr->vlanBindConfig.profileId;
+    }
+    else
+    {
+        vlanBind.bhInfo.vlanId = vlanPtr->vlanBindConfig.vlanIdBackhaul;
+    }
+
+    Status status = vlanManager->bindToBackhaul(vlanBind, bindVlanWithProfileRespCb);
+
+    if (status == Status::SUCCESS)
+    {
+        std::future<le_result_t> futureResult = VlanSyncPromise.get_future();
+        std::future_status waitStatus = futureResult.wait_for(span);
+
+        if (std::future_status::timeout == waitStatus)
+        {
+            LE_ERROR("Bind vlan with backhaul timeout for %d seconds", OPERATION_TIMEOUT);
+            result = LE_TIMEOUT;
+        }
+        else
+        {
+            result = futureResult.get();
+        }
+
+        return result;
+    }
+    else
+    {
+        LE_ERROR( "ERROR - Failed to bind vlan with backhaul, Status:%d ", static_cast<int>(status));
+        return LE_FAULT;
+    }
+
+}
+
+/*======================================================================
+
  FUNCTION        taf_Vlan::UnbindVlanFromProfile
 
  DESCRIPTION     Unbind a VLAN from a particular profile ID by invoking telsdk API.
@@ -1841,6 +2333,7 @@ le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
 
     auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
                                                 bindVlanWithProfileCb, std::placeholders::_1);
+
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = vlanManager->unbindFromProfile(profileId, vlanId,
                                                    bindVlanWithProfileRespCb, (SlotId)slotId);
@@ -1872,6 +2365,125 @@ le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
     }
 
 }
+
+/*======================================================================
+
+ FUNCTION        taf_Vlan::UnbindVlanFromBackhaul
+
+ DESCRIPTION     Unbind a VLAN from a particular profile ID by invoking telsdk API.
+
+ DEPENDENCIES    The initialization of Vlan.
+
+ PARAMETERS      [IN] taf_net_VlanRef_t vlanRef: The reference of vlan.
+
+ RETURN VALUE    le_result_t
+                     LE_TIMEOUT：       Time out
+                     LE_BAD_PARAMETER: Invalid parameter.
+                     LE_NOT_FOUND:     Vlan not found
+                     LE_FAULT:         Failuree.
+                     LE_OK:            Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
+{
+    le_result_t result;
+    uint16_t vlanId=0;
+    uint32_t profileId=0;
+    uint8_t slotId=0;
+    std::chrono::seconds span(OPERATION_TIMEOUT);
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == NULL , LE_BAD_PARAMETER, "vlanRef is null");
+
+    VlanSyncPromise = std::promise<le_result_t>();
+
+    taf_Vlan_t* vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
+    TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
+    vlanId = vlanPtr->vlanId;
+    SlotId slot = (SlotId)vlanPtr->vlanBindConfig.slotId;
+
+    TAF_ERROR_IF_RET_VAL(vlanId == 0, LE_FAULT, "Invalid vlan id");
+
+    if(vlanPtr->vlanBindConfig.backhaulType == TAF_NETIPPASS_BH_WWAN)
+    {
+        result=GetBoundSlotIdProfileIdFromVlan(vlanId, &slotId, &profileId);
+    }
+    else // for ETH and rest where SIM does not exist.
+    {
+        //vlanid=queryVlanToBackhaulBindings // TODO check for backhaul vlanID bound also
+    }
+
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting slotId and profileId failed");
+
+    std::shared_ptr<tafVlanMappingCallback> bindVlanWithProfileCb =
+                                 std::make_shared<tafVlanMappingCallback>(slot);
+
+    auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
+                                                bindVlanWithProfileCb, std::placeholders::_1);
+    telux::data::net::VlanBindConfig vlanBind;
+    vlanBind.vlanId = vlanId;
+
+    switch (vlanPtr->vlanBindConfig.backhaulType)
+    {
+        case TAF_NETIPPASS_BH_ETH:
+            vlanBind.bhInfo.backhaul = telux::data::BackhaulType::ETH;
+            break;
+        case TAF_NETIPPASS_BH_USB:
+            vlanBind.bhInfo.backhaul = telux::data::BackhaulType::USB;
+            break;
+        case TAF_NETIPPASS_BH_WLAN:
+            vlanBind.bhInfo.backhaul = telux::data::BackhaulType::WLAN;
+            break;
+        case TAF_NETIPPASS_BH_WWAN:
+            vlanBind.bhInfo.backhaul = telux::data::BackhaulType::WWAN;
+            break;
+        case TAF_NETIPPASS_BH_BLE:
+            vlanBind.bhInfo.backhaul = telux::data::BackhaulType::BLE;
+            break;
+        default:
+            LE_ERROR("Invalid backhaul type (%d).", vlanPtr->vlanBindConfig.backhaulType);
+            return LE_BAD_PARAMETER;
+    }
+
+    if(vlanPtr->vlanBindConfig.backhaulType == TAF_NETIPPASS_BH_WWAN)
+    {
+       vlanBind.bhInfo.slotId = slot;
+       vlanBind.bhInfo.profileId = vlanPtr->vlanBindConfig.profileId;
+    }
+    else
+    {
+       vlanBind.bhInfo.vlanId = vlanPtr->vlanBindConfig.vlanIdBackhaul;
+    }
+
+    Status status = vlanManager->unbindFromBackhaul(vlanBind,bindVlanWithProfileRespCb);
+
+    if (status == Status::SUCCESS)
+    {
+        std::future<le_result_t> futureResult = VlanSyncPromise.get_future();
+        std::future_status waitStatus = futureResult.wait_for(span);
+
+        if (std::future_status::timeout == waitStatus)
+        {
+            LE_ERROR("Unbind vlan from profile timeout for %d seconds", OPERATION_TIMEOUT);
+            result = LE_TIMEOUT;
+        }
+        else
+        {
+            result = futureResult.get();
+        }
+
+        return result;
+    }
+    else
+    {
+        LE_ERROR("ERROR - Failed to unbind vlan from profile, Status:%d ",
+                  static_cast<int>(status));
+        return LE_FAULT;
+    }
+
+}
+
 
 /*======================================================================
 
@@ -2062,5 +2674,547 @@ void taf_Vlan::ClientCloseSessionHandler(le_msg_SessionRef_t sessionRef, void  *
         }
     }
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get IP Pass through and IP config reference.
+ *
+ * @return
+ *  - NULL   Invalid parameters or internal errors.
+ *  - Others IMS reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_netIpPass_InterfaceRef_t taf_Vlan::GetInterface
+(
+     taf_net_VlanIfType_t ifType
+)
+{
+     taf_InterfaceConfig_t* interfacePtr = NULL;
+     interfacePtr = (taf_InterfaceConfig_t*)le_mem_ForceAlloc(interfacePool);
+     interfacePtr->ifType=ifType;
+
+     return (taf_netIpPass_InterfaceRef_t)le_ref_CreateRef(interfaceRefMap, (void*)interfacePtr);
+}
+
+le_result_t taf_Vlan::SetIPPTOperation
+(
+    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_netIpPass_Operation_t  operation
+)
+{
+    taf_InterfaceConfig_t *interfacePtr=NULL;
+    TAF_ERROR_IF_RET_VAL(interfaceRef == NULL, LE_BAD_PARAMETER, "interfaceRef is null");
+
+    interfacePtr = (taf_InterfaceConfig_t*)le_ref_Lookup(interfaceRefMap, interfaceRef);
+    TAF_ERROR_IF_RET_VAL(interfacePtr == NULL, LE_NOT_FOUND, "can't get interface info");
+
+    interfacePtr->passThroughConfig.operation = operation;
+
+    LE_DEBUG("SetIPPTOperation(%d)", (int)operation);
+
+    return LE_OK;
+
+}
+
+
+le_result_t taf_Vlan::SetIPPTDeviceMacAddress
+(
+    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_net_VlanIfType_t ifType,
+    const char *macAddr
+)
+{
+    taf_InterfaceConfig_t *interfacePtr=NULL;
+    TAF_ERROR_IF_RET_VAL(interfaceRef == NULL, LE_BAD_PARAMETER, "interfaceRef is null");
+
+    interfacePtr = (taf_InterfaceConfig_t*)le_ref_Lookup(interfaceRefMap, interfaceRef);
+    TAF_ERROR_IF_RET_VAL(interfacePtr == NULL, LE_NOT_FOUND, "can't get interface info");
+
+    interfacePtr->passThroughConfig.ifType = ifType;
+    le_utf8_Copy(interfacePtr->passThroughConfig.macAddr,macAddr, TAF_NET_MAC_ADDR_MAX_LEN + 1, NULL);
+
+    LE_DEBUG("SetIPPTDeviceMacAddress(%d)", (int)ifType);
+    LE_DEBUG("Mac address %s", macAddr);
+
+    return LE_OK;
+
+}
+
+
+le_result_t taf_Vlan::SetIPPassThroughConfig
+(
+    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    uint16_t vlanId
+)
+{
+    taf_InterfaceConfig_t *interfacePtr=NULL;
+    uint32_t profileId=0;
+    uint8_t slotId=0;
+    le_result_t result;
+
+    TAF_ERROR_IF_RET_VAL(interfaceRef == NULL , LE_BAD_PARAMETER, "interfaceRef is null");
+
+    interfacePtr = (taf_InterfaceConfig_t*)le_ref_Lookup(interfaceRefMap, interfaceRef);
+    TAF_ERROR_IF_RET_VAL(interfacePtr == NULL, LE_NOT_FOUND, "can't get interface info");
+
+    result=GetBoundSlotIdProfileIdFromVlan(vlanId, &slotId, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting slotId and profileId failed");
+
+    telux::data::IpptParams ipptParams;
+    telux::data::IpptConfig ipptConfig;
+    telux::data::IpptDeviceConfig ipptDeviceConfig;
+
+    ipptParams.profileId = profileId;
+    ipptParams.slotId  = (SlotId)slotId;
+    ipptParams.vlanId  = vlanId;
+    LE_DEBUG("SetIPPassThroughConfig vlanid(%d)", (int)vlanId);
+    LE_DEBUG("SetIPPassThroughConfig slotId(%d)", (int)slotId);
+    LE_DEBUG("SetIPPassThroughConfig profileId(%d)", (int)profileId);
+
+    ipptConfig.ipptOpr = (telux::data::Operation)interfacePtr->passThroughConfig.operation;
+    LE_DEBUG("SetIPPassThroughConfig operation(%d)", (int)interfacePtr->passThroughConfig.operation);
+    if( interfacePtr->passThroughConfig.operation == TAF_NETIPPASS_IPPT_ENABLE )
+    {
+      ipptConfig.devConfig.nwInterface =
+        (telux::data::InterfaceType)interfacePtr->passThroughConfig.ifType;
+
+      //le_utf8_Copy((char*)ipptConfig.devConfig.macAddr.data(),
+           //interfacePtr->passThroughConfig.macAddr, TAF_NET_MAC_ADDR_MAX_LEN + 1, NULL);
+      std::string mac(interfacePtr->passThroughConfig.macAddr);
+      ipptConfig.devConfig.macAddr = mac;
+
+      LE_DEBUG("SetIPPassThrough iftype(%d)", (int)interfacePtr->passThroughConfig.ifType);
+      LE_DEBUG("SetIPPassThrough Mac in %s", interfacePtr->passThroughConfig.macAddr);
+      LE_DEBUG("SetIPPassThrough Mac out %s", ipptConfig.devConfig.macAddr.data());
+    }
+    else
+    {
+        LE_ERROR("IP Pass through disabled or unknown; not filling device config");
+    }
+
+    telux::common::ErrorCode error = dataSettingsManager->setIpPassThroughConfig(ipptParams, 
+                                                                                 ipptConfig);
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("ERROR - Failed to set ip pass through, error:%d ",static_cast<int>(error));
+        return LE_FAULT;
+    }
+    else
+    {
+        LE_INFO("set ip pass through is success...");
+    }
+    return LE_OK;
+}
+
+taf_netIpPass_InterfaceRef_t taf_Vlan::GetIPPassThroughConfig
+(
+    uint16_t vlanId
+)
+{
+    taf_InterfaceConfig_t *interfacePtr=NULL;
+    bool result = false;
+    uint32_t profileId=0;
+    uint8_t slotId=0;
+
+    result=GetBoundSlotIdProfileIdFromVlan(vlanId, &slotId, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, NULL, "Getting slotId and profileId failed");
+
+    telux::data::IpptConfig ipptConfig;
+    telux::data::IpptParams ipptParams;
+
+    ipptParams.profileId = profileId;
+    ipptParams.vlanId = vlanId;
+    ipptParams.slotId = static_cast<SlotId>(slotId);
+    LE_DEBUG("GetIPPassThroughConfig vlanid(%d)", (int)vlanId);
+    LE_DEBUG("GetIPPassThroughConfig slotId(%d)", (int)slotId);
+    LE_DEBUG("GetIPPassThroughConfig profileId(%d)", (int)profileId);
+
+    telux::common::ErrorCode error = dataSettingsManager->getIpPassThroughConfig(ipptParams,
+                                                                                 ipptConfig);
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("ERROR - Failed to get ip pass through, error:%d ",static_cast<int>(error));
+        return NULL;
+    }
+    else
+    {
+        LE_INFO("set ip pass through GET is success...");
+    }
+
+    // fill values in the REFERENCE to be passed to the client
+    interfacePtr = (taf_InterfaceConfig_t*)le_mem_ForceAlloc(interfaceIPPool);
+
+    interfacePtr->passThroughConfig.operation = (taf_netIpPass_Operation_t)ipptConfig.ipptOpr;
+    LE_DEBUG("GetIPPassThroughConfig operation(%d)", (int)interfacePtr->passThroughConfig.operation);
+    interfacePtr->passThroughConfig.ifType =
+                 (taf_net_VlanIfType_t)ipptConfig.devConfig.nwInterface;
+    le_utf8_Copy(interfacePtr->passThroughConfig.macAddr,ipptConfig.devConfig.macAddr.c_str(),
+                 TAF_NET_MAC_ADDR_MAX_LEN + 1, NULL);
+    LE_DEBUG("GetIPPassThroughConfig iftype(%d)", (int)interfacePtr->passThroughConfig.ifType);
+    LE_DEBUG("GetIPPassThroughConfig Mac %s", interfacePtr->passThroughConfig.macAddr);
+
+    return (taf_netIpPass_InterfaceRef_t)le_ref_CreateRef(interfaceIPRefMap, (void*)interfacePtr);
+}
+
+
+le_result_t taf_Vlan::GetIPPTOperation
+(
+    taf_netIpPass_InterfaceRef_t ifIPRef,
+    taf_netIpPass_Operation_t*  operation
+)
+{
+    taf_InterfaceConfig_t *interfacePtr=NULL;
+    TAF_ERROR_IF_RET_VAL(ifIPRef == NULL, LE_BAD_PARAMETER, "interfaceRef is null");
+
+    interfacePtr = (taf_InterfaceConfig_t*)le_ref_Lookup(interfaceIPRefMap,ifIPRef);
+    TAF_ERROR_IF_RET_VAL(interfacePtr == NULL, LE_NOT_FOUND, "can't get interface info");
+
+    *operation = interfacePtr->passThroughConfig.operation;
+
+    return LE_OK;
+
+}
+
+le_result_t taf_Vlan::GetIPPTDeviceMacAddress
+(
+    taf_netIpPass_InterfaceRef_t ifIPRef,
+    taf_net_VlanIfType_t *ifType,
+    char *macAddr, size_t macAddrSize
+)
+{
+    taf_InterfaceConfig_t *interfacePtr=NULL;
+    TAF_ERROR_IF_RET_VAL(ifIPRef == NULL, LE_BAD_PARAMETER, "interfaceRef is null");
+
+    interfacePtr = (taf_InterfaceConfig_t*)le_ref_Lookup(interfaceIPRefMap,ifIPRef);
+    TAF_ERROR_IF_RET_VAL(interfacePtr == NULL, LE_NOT_FOUND, "can't get interface info");
+
+    //if( interfacePtr->passThroughConfig.operation == TAF_NETIPPASS_IPPT_ENABLE )
+    if(interfacePtr->passThroughConfig.macAddr != NULL)
+    {
+      *ifType = interfacePtr->passThroughConfig.ifType;
+       le_utf8_Copy(macAddr,interfacePtr->passThroughConfig.macAddr,TAF_NET_MAC_ADDR_MAX_LEN + 1,
+                  NULL);
+       LE_DEBUG("GetIPPTDeviceMacAddress iftype(%d)", (int)interfacePtr->passThroughConfig.ifType);
+       LE_DEBUG("GetIPPTDeviceMacAddress Mac %s", interfacePtr->passThroughConfig.macAddr);
+    }
+    else
+    {
+        LE_ERROR("IP Pass through disabled or unknown; not filling device config");
+    }
+
+    return LE_OK;
+}
+// IP config
+le_result_t taf_Vlan::SetIPConfig
+(
+    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_net_NetIpType_t  ipType,
+    taf_net_VlanIfType_t   ifType,
+    uint16_t vlanId
+)
+{
+
+    taf_InterfaceConfig_t *interfacePtr=NULL;
+    TAF_ERROR_IF_RET_VAL(interfaceRef == NULL, LE_BAD_PARAMETER, "interfaceRef is null");
+
+    interfacePtr = (taf_InterfaceConfig_t*)le_ref_Lookup(interfaceRefMap, interfaceRef);
+    TAF_ERROR_IF_RET_VAL(interfacePtr == NULL, LE_NOT_FOUND, "can't get interface info");
+
+    telux::data::IpConfig ipConfig;
+    telux::data::IpConfigParams ipConfigParams;
+
+    //Set ipConfig
+    ipConfig.ipType  = (telux::data::IpAssignType)interfacePtr->ipConfig.ipAssignType;
+    ipConfig.ipOpr  = (telux::data::IpAssignOperation)interfacePtr->ipConfig.ipOpr;
+
+    LE_DEBUG("SetIPConfig vlanid(%d)", (int)vlanId);
+    LE_DEBUG("SetIPConfig ipType(%d)", (int)ipType);
+
+    if(interfacePtr->ipConfig.ipAssignType == TAF_NETIPPASS_STATIC_IP)
+    {
+    TAF_ERROR_IF_RET_VAL( (interfacePtr->ipConfig.ipAddrInfo.interfaceAddress == NULL) || 
+                          (interfacePtr->ipConfig.ipAddrInfo.gwAddress == NULL) || 
+                          (interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress == NULL) || 
+                          (interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress == NULL), 
+                          LE_BAD_PARAMETER, "invalid ip address");
+
+    /*struct sockaddr_in6 addr6;
+    struct sockaddr_in addr;
+
+    if(ipType == TAF_NET_IPV4)
+    {
+       if ((inet_pton(AF_INET,interfacePtr->ipConfig.ipAddrInfo.interfaceAddress,&(addr.sin_addr)) != 1)
+        && (inet_pton(AF_INET, interfacePtr->ipConfig.ipAddrInfo.gwAddress,&(addr.sin_addr)) != 1) 
+        &&(inet_pton(AF_INET, interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress,&(addr.sin_addr)) != 1)
+        &&(inet_pton(AF_INET, interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress,&(addr.sin_addr)) != 1)
+          )
+         {
+           return LE_BAD_PARAMETER;
+         }
+    }
+    else if(ipType == TAF_NET_IPV6)
+    {
+         if ((inet_pton(AF_INET6,interfacePtr->ipConfig.ipAddrInfo.interfaceAddress,&(addr6.sin6_addr)) != 1)
+         && (inet_pton(AF_INET6, interfacePtr->ipConfig.ipAddrInfo.gwAddress,&(addr6.sin6_addr)) != 1) 
+        && (inet_pton(AF_INET6, interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress,&(addr6.sin6_addr)) != 1)
+       && (inet_pton(AF_INET6, interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress,&(addr6.sin6_addr)) != 1)
+          )
+         {
+           return LE_BAD_PARAMETER;
+         }
+    }*/
+
+    std::string interfaceAddress(interfacePtr->ipConfig.ipAddrInfo.interfaceAddress);
+    ipConfig.ipAddr.ifAddress = interfaceAddress;
+    ipConfig.ipAddr.ifMask = interfacePtr->ipConfig.ipAddrInfo.interfaceMask;
+    
+    std::string gwAddress(interfacePtr->ipConfig.ipAddrInfo.gwAddress);
+    ipConfig.ipAddr.gwAddress = gwAddress;
+
+    std::string primaryDnsAddress(interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress);
+    ipConfig.ipAddr.primaryDnsAddress = primaryDnsAddress;
+
+    std::string secondaryDnsAddress(interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress);
+    ipConfig.ipAddr.secondaryDnsAddress = secondaryDnsAddress;
+
+    LE_DEBUG("SetIPConfig if %s", ipConfig.ipAddr.ifAddress.data());
+    LE_DEBUG("SetIPConfig gw %s", ipConfig.ipAddr.gwAddress.data());
+    LE_DEBUG("SetIPConfig pDNS %s", ipConfig.ipAddr.primaryDnsAddress.data());
+    LE_DEBUG("SetIPConfig sDNS %s", ipConfig.ipAddr.secondaryDnsAddress.data());
+    }
+
+    //Set ipConfigParams
+    ipConfigParams.ifType = (telux::data::InterfaceType)ifType;
+    ipConfigParams.vlanId = vlanId;
+
+    if(ipType == TAF_NET_IPV4) 
+       { ipConfigParams.ipFamilyType = telux::data::IpFamilyType::IPV4; }
+    else if (ipType == TAF_NET_IPV6) 
+        { ipConfigParams.ipFamilyType = telux::data::IpFamilyType::IPV6; }
+    else
+        return LE_BAD_PARAMETER;
+
+    telux::common::ErrorCode error = dataSettingsManager->setIpConfig(ipConfigParams, 
+                                                                      ipConfig);
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("ERROR - Failed to set ip config , error:%d ",static_cast<int>(error));
+        return LE_FAULT;
+    }
+    else
+    {
+        LE_INFO("set ip config is success...");
+    }
+
+    return LE_OK;
+
+}
+
+le_result_t taf_Vlan::SetIPConfigParams
+(
+    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_netIpPass_IpAssignOperation_t ipOpr,
+    taf_netIpPass_IpAssignType_t ipAssignType
+)
+{
+    taf_InterfaceConfig_t *interfacePtr=NULL;
+    TAF_ERROR_IF_RET_VAL(interfaceRef == NULL, LE_BAD_PARAMETER, "interfaceRef is null");
+
+    interfacePtr = (taf_InterfaceConfig_t*)le_ref_Lookup(interfaceRefMap, interfaceRef);
+    TAF_ERROR_IF_RET_VAL(interfacePtr == NULL, LE_NOT_FOUND, "can't get interface info");
+
+    interfacePtr->ipConfig.ipOpr = ipOpr;
+    interfacePtr->ipConfig.ipAssignType = ipAssignType;
+
+    LE_DEBUG("SetIPConfigParams ipOpr(%d)", (int)interfacePtr->ipConfig.ipOpr);
+    LE_DEBUG("SetIPConfigParams ipAssignType(%d)", (int)interfacePtr->ipConfig.ipAssignType);
+
+    return LE_OK;
+}
+
+le_result_t taf_Vlan::SetIPConfigAddressParams
+(
+    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    const taf_netIpPass_IpAddressInfo_t*  ipAddrInfo
+)
+{
+    taf_InterfaceConfig_t *interfacePtr=NULL;
+    TAF_ERROR_IF_RET_VAL(interfaceRef == NULL, LE_BAD_PARAMETER, "interfaceRef is null");
+
+    interfacePtr = (taf_InterfaceConfig_t*)le_ref_Lookup(interfaceRefMap, interfaceRef);
+    TAF_ERROR_IF_RET_VAL(interfacePtr == NULL, LE_NOT_FOUND, "can't get interface info");
+
+    TAF_ERROR_IF_RET_VAL( (ipAddrInfo->interfaceAddress == NULL) ||
+                          (ipAddrInfo->gwAddress == NULL) ||
+                          (ipAddrInfo->primaryDnsAddress == NULL) ||
+                          (ipAddrInfo->secondaryDnsAddress == NULL),
+                          LE_BAD_PARAMETER, "ip address NULL");
+
+    le_utf8_Copy(interfacePtr->ipConfig.ipAddrInfo.interfaceAddress,ipAddrInfo->interfaceAddress, 
+                 TAF_NET_IP_ADDR_MAX_LEN, NULL);
+    interfacePtr->ipConfig.ipAddrInfo.interfaceMask = ipAddrInfo->interfaceMask;
+
+    le_utf8_Copy(interfacePtr->ipConfig.ipAddrInfo.gwAddress,ipAddrInfo->gwAddress, 
+                 TAF_NET_IP_ADDR_MAX_LEN, NULL);
+    le_utf8_Copy(interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress,ipAddrInfo->primaryDnsAddress, 
+                 TAF_NET_IP_ADDR_MAX_LEN, NULL);
+    le_utf8_Copy(interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress,ipAddrInfo->secondaryDnsAddress, 
+                 TAF_NET_IP_ADDR_MAX_LEN, NULL);
+
+    LE_DEBUG("SetIPConfigAddressParams if %s", interfacePtr->ipConfig.ipAddrInfo.interfaceAddress);
+    LE_DEBUG("SetIPConfigAddressParams gw %s", interfacePtr->ipConfig.ipAddrInfo.gwAddress);
+    LE_DEBUG("SetIPConfigAddressParams pDNS %s", interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress);
+    LE_DEBUG("SetIPConfigAddressParams sDNS %s", interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress);
+
+    return LE_OK;
+}
+
+le_result_t taf_Vlan::GetIPConfigParams
+(
+    taf_netIpPass_InterfaceRef_t ifIPRef,
+    taf_netIpPass_IpAssignOperation_t* ipOpr,
+    taf_netIpPass_IpAssignType_t* ipAssignType
+)
+{
+    taf_InterfaceConfig_t *interfacePtr=NULL;
+    TAF_ERROR_IF_RET_VAL(ifIPRef == NULL, LE_BAD_PARAMETER, "interfaceRef is null");
+
+    interfacePtr = (taf_InterfaceConfig_t*)le_ref_Lookup(interfaceIPRefMap, ifIPRef);
+    TAF_ERROR_IF_RET_VAL(interfacePtr == NULL, LE_NOT_FOUND, "can't get interface info");
+
+    *ipOpr = interfacePtr->ipConfig.ipOpr;
+    *ipAssignType = interfacePtr->ipConfig.ipAssignType;
+
+    LE_DEBUG("GetIPConfigParams ipOpr(%d)", (int)interfacePtr->ipConfig.ipOpr);
+    LE_DEBUG("GetIPConfigParams ipAssignType(%d)", (int)interfacePtr->ipConfig.ipAssignType);
+
+    return LE_OK;
+}
+
+le_result_t taf_Vlan::GetIPConfigAddressParams
+(
+    taf_netIpPass_InterfaceRef_t ifIPRef,
+    taf_netIpPass_IpAddressInfo_t*  ipAddrInfo
+)
+{
+    taf_InterfaceConfig_t *interfacePtr=NULL;
+    TAF_ERROR_IF_RET_VAL(ifIPRef == NULL, LE_BAD_PARAMETER, "interfaceRef is null");
+
+    interfacePtr = (taf_InterfaceConfig_t*)le_ref_Lookup(interfaceIPRefMap, ifIPRef);
+    TAF_ERROR_IF_RET_VAL(interfacePtr == NULL, LE_NOT_FOUND, "can't get interface info");
+
+    if(interfacePtr->ipConfig.ipAssignType == TAF_NETIPPASS_STATIC_IP)
+    {    
+    TAF_ERROR_IF_RET_VAL( (ipAddrInfo == NULL) || (ipAddrInfo->interfaceAddress == NULL) ||
+                          (ipAddrInfo->gwAddress == NULL) ||
+                          (ipAddrInfo->primaryDnsAddress == NULL) ||
+                          (ipAddrInfo->secondaryDnsAddress == NULL),
+                          LE_BAD_PARAMETER, "ip address NULL");
+
+    le_utf8_Copy(ipAddrInfo->interfaceAddress,interfacePtr->ipConfig.ipAddrInfo.interfaceAddress,
+                 TAF_NET_IP_ADDR_MAX_LEN, NULL);
+    ipAddrInfo->interfaceMask = interfacePtr->ipConfig.ipAddrInfo.interfaceMask;
+
+    le_utf8_Copy(ipAddrInfo->gwAddress,interfacePtr->ipConfig.ipAddrInfo.gwAddress,
+                 TAF_NET_IP_ADDR_MAX_LEN, NULL);
+    le_utf8_Copy(ipAddrInfo->primaryDnsAddress,
+                 interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress,
+                 TAF_NET_IP_ADDR_MAX_LEN, NULL);
+    le_utf8_Copy(ipAddrInfo->secondaryDnsAddress,
+                 interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress,
+                 TAF_NET_IP_ADDR_MAX_LEN, NULL);
+
+    LE_DEBUG("GetIPConfigAddressParams if %s", interfacePtr->ipConfig.ipAddrInfo.interfaceAddress);
+    LE_DEBUG("GetIPConfigAddressParams gw %s", interfacePtr->ipConfig.ipAddrInfo.gwAddress);
+    LE_DEBUG("GetIPConfigAddressParams pDNS %s", interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress);
+    LE_DEBUG("GetIPConfigAddressParams sDNS %s", interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress);
+    }
+    else
+    {
+        LE_ERROR("IP config is DYNAMIC or UNKNOWN; dont copy address information");
+    }
+
+    return LE_OK;
+}
+
+taf_netIpPass_InterfaceRef_t taf_Vlan::GetIPConfig
+(
+    taf_net_NetIpType_t  ipType,
+    taf_net_VlanIfType_t ifType,
+    uint16_t vlanId
+)
+{
+    taf_InterfaceConfig_t *interfacePtr=NULL;
+
+    telux::data::IpConfig ipConfig;
+    telux::data::IpConfigParams ipConfigParams;
+
+    //Set ipConfigParams
+    ipConfigParams.ifType = (telux::data::InterfaceType)ifType;
+    ipConfigParams.vlanId = vlanId;
+    LE_DEBUG("GetIPConfig vlanid(%d)", (int)vlanId);
+
+    if(ipType == TAF_NET_IPV4) 
+       { ipConfigParams.ipFamilyType = telux::data::IpFamilyType::IPV4; }
+    else if (ipType == TAF_NET_IPV6) 
+        { ipConfigParams.ipFamilyType = telux::data::IpFamilyType::IPV6; }
+    else
+    {
+        LE_ERROR("ERROR - invalid ip type , error:%d ",static_cast<int>(ipType));
+        return NULL;
+    }
+
+    telux::common::ErrorCode error = dataSettingsManager->getIpConfig(ipConfigParams, 
+                                                                      ipConfig);
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("ERROR - Failed to get ip config , error:%d ",static_cast<int>(error));
+        return NULL;
+    }
+    else
+    {
+        LE_INFO("get ip config is success...");
+    }
+
+    // fill values in the REFERENCE to be passed to the client
+    interfacePtr = (taf_InterfaceConfig_t*)le_mem_ForceAlloc(interfaceIPPool);
+
+    interfacePtr->ipConfig.ipOpr = (taf_netIpPass_IpAssignOperation_t)ipConfig.ipOpr;
+    interfacePtr->ipConfig.ipAssignType = (taf_netIpPass_IpAssignType_t)ipConfig.ipType;
+
+    LE_DEBUG("GetIPConfig ipOpr(%d)", (int)interfacePtr->ipConfig.ipOpr);
+    LE_DEBUG("GetIPConfig ipAssignType(%d)", (int)interfacePtr->ipConfig.ipAssignType);
+
+    if(ipConfig.ipType == telux::data::IpAssignType::STATIC_IP)
+    {
+       //copy IP address info
+        le_utf8_Copy(interfacePtr->ipConfig.ipAddrInfo.interfaceAddress,
+                     ipConfig.ipAddr.ifAddress.c_str(),TAF_NET_IP_ADDR_MAX_LEN, NULL);
+        interfacePtr->ipConfig.ipAddrInfo.interfaceMask = ipConfig.ipAddr.ifMask;
+
+        le_utf8_Copy(interfacePtr->ipConfig.ipAddrInfo.gwAddress,
+                     ipConfig.ipAddr.gwAddress.c_str(),
+                     TAF_NET_IP_ADDR_MAX_LEN, NULL);
+        le_utf8_Copy(interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress,
+                     ipConfig.ipAddr.primaryDnsAddress.c_str(),TAF_NET_IP_ADDR_MAX_LEN, NULL);
+        le_utf8_Copy(interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress,
+                     ipConfig.ipAddr.secondaryDnsAddress.c_str(),TAF_NET_IP_ADDR_MAX_LEN, NULL);
+
+        LE_DEBUG("GetIPConfig if %s", interfacePtr->ipConfig.ipAddrInfo.interfaceAddress);
+        LE_DEBUG("GetIPConfig gw %s", interfacePtr->ipConfig.ipAddrInfo.gwAddress);
+        LE_DEBUG("GetIPConfig pDNS %s", interfacePtr->ipConfig.ipAddrInfo.primaryDnsAddress);
+        LE_DEBUG("GetIPConfig sDNS %s", interfacePtr->ipConfig.ipAddrInfo.secondaryDnsAddress);
+
+    }
+    else
+    {
+        LE_ERROR("IP config is DYNAMIC or UNKNOWN; dont copy address information");
+    }
+
+    return (taf_netIpPass_InterfaceRef_t)le_ref_CreateRef(interfaceIPRefMap, (void*)interfacePtr);
+}
+
+
+
 
 

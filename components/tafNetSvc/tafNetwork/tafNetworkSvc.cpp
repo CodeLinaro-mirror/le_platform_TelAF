@@ -909,6 +909,139 @@ taf_net_VlanRef_t taf_net_CreateVlan
 }
 
 /**
+ * Sets the network type to a VLAN. By default Network type is LAN.
+ *
+ * @param [in] vlanRef                  The VLAN reference.
+ * @param [in] priority                 The priority.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                VLAN is not present.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to set priority to a VLAN.
+ *
+ */
+le_result_t taf_netIpPass_SetVlanNetworkType
+(
+    taf_net_VlanRef_t vlanRef,
+    taf_netIpPass_NetworkType_t nwType
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+
+    return tafVlan.SetVlanNetworkType(vlanRef, nwType);
+}
+
+/**
+ * Sets the backhaul type to a VLAN binding.
+ *
+ * @param [in] vlanRef                  The VLAN reference.
+ * @param [in] priority                 The priority.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                VLAN is not present.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to set priority to a VLAN.
+ *
+ */
+le_result_t taf_netIpPass_SetVlanBackhaulType
+(
+    taf_net_VlanRef_t vlanRef,
+    taf_netIpPass_BackhaulType_t bhType
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+
+    return tafVlan.SetVlanBackhaulType(vlanRef, bhType);
+}
+
+/**
+ * Sets the backhaul vlan ID to a VLAN binding.
+ *
+ * @param [in] vlanRef                  The VLAN reference.
+ * @param [in] priority                 The priority.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                VLAN is not present.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to set priority to a VLAN.
+ *
+ */
+le_result_t taf_netIpPass_SetVlanBackhaulVlanId
+(
+    taf_net_VlanRef_t vlanRef,
+    uint16_t vlanId
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+
+    return tafVlan.SetVlanBackhaulVlanId(vlanRef, vlanId);
+}
+
+/**
+ * Sets the phoneId of backhaul to a VLAN binding if backhaul type is WWAN.
+ *
+ * @param [in] vlanRef                  The VLAN reference.
+ * @param [in] priority                 The priority.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                VLAN is not present.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to set priority to a VLAN.
+ *
+ */
+le_result_t taf_netIpPass_SetVlanBackhaulPhoneId
+(
+    taf_net_VlanRef_t vlanRef,
+    uint8_t phoneId
+)
+{
+    le_result_t result;
+    uint8_t slotId;
+    auto &tafVlan = taf_Vlan::GetInstance();
+    auto &network = taf_Net::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+
+    result = network.getSlotIdFromPhoneId(phoneId, &slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "failed to get slot id from phone id");
+
+    return tafVlan.SetVlanBackhaulSlotId(vlanRef, slotId);
+}
+
+/**
+ * Sets the profileID of backhaul to a VLAN binding if backhaul type is WWAN.
+ *
+ * @param [in] vlanRef                  The VLAN reference.
+ * @param [in] priority                 The priority.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                VLAN is not present.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to set priority to a VLAN.
+ *
+ */
+le_result_t taf_netIpPass_SetVlanBackhaulProfileId
+(
+    taf_net_VlanRef_t vlanRef,
+    uint32_t profileId
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+
+    return tafVlan.SetVlanBackhaulProfileId(vlanRef, profileId);
+}
+
+
+
+/**
  * Set a VLAN priority.
  *
  * @param [in] vlanRef                  The VLAN reference.
@@ -1243,6 +1376,27 @@ le_result_t taf_net_IsVlanAccelerated
 }
 
 /**
+ * Gets the NetworkType of VLAN by the VLAN entry reference..
+ *
+ * @param [in] vlanEntryRef             The VLAN entry reference.
+ * @param [out] isAcceleratedPtr        Is VLAN accelerated or not.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                VLAN is not present.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ */
+le_result_t taf_netIpPass_GetVlanNetworkType
+(
+    taf_net_VlanEntryRef_t vlanEntryRef,
+    taf_netIpPass_NetworkType_t* nwType
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.GetVlanNetworkType(vlanEntryRef, nwType);
+}
+
+/**
  * Get the bound profile ID.
  *
  * @param [in] vlanEntryRef             The VLAN entry reference.
@@ -1351,6 +1505,8 @@ le_result_t taf_net_BindVlanWithProfileEx
     return result;
 }
 
+
+
 /**
  * Unbind a VLAN From a particular profile ID.
  *
@@ -1377,6 +1533,318 @@ le_result_t taf_net_UnbindVlanFromProfile
     result=tafVlan.UnbindVlanFromProfile(vlanRef);
     return result;
 }
+
+/**
+ * Binds a VLAN with a specified backhaul config.
+ *
+ * @param [in] vlanRef                  The VLAN Reference.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND:               VLAN not found
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to bind VLAN with profile.
+ *          LE_TIMEOUT                  Time out.
+ *
+ * @note  If bind VLAN with default profile id and phone id, the system will auto reboot after 5
+ *        seconds
+ */
+ le_result_t taf_netIpPass_BindVlanWithBackhaul
+(
+    taf_net_VlanRef_t vlanRef
+)
+{
+    le_result_t result;
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+
+    result=tafVlan.BindVlanWithBackhaul(vlanRef);
+    return result;
+}
+
+/**
+ * Unbinds a VLAN from previous profile ID.
+ *
+ * @param [in] vlanRef                  The VLAN Reference.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND:               VLAN not found
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to unbind VLAN from profile.
+ *          LE_TIMEOUT                  Time out.
+ *
+ * @note if unbind VLAN from default profile id, the system will auto reboot after 5 seconds
+ */
+le_result_t taf_netIpPass_UnbindVlanFromBackhaul
+(
+    taf_net_VlanRef_t vlanRef
+)
+{
+    le_result_t result;
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+
+    result=tafVlan.UnbindVlanFromBackhaul(vlanRef);
+    return result;
+}
+
+taf_netIpPass_InterfaceRef_t taf_netIpPass_GetInterface
+(
+     taf_net_VlanIfType_t ifType
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+    return tafVlan.GetInterface(ifType);
+}
+
+le_result_t taf_netIpPass_RemoveInterface
+(
+    taf_netIpPass_InterfaceRef_t interfaceRef
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+    return tafVlan.RemoveInterface(interfaceRef);
+}
+
+le_result_t taf_netIpPass_SetIPPTOperation
+(
+    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_netIpPass_Operation_t  operation
+)
+{
+    le_result_t result;
+
+    auto &tafVlan = taf_Vlan::GetInstance();
+    TAF_ERROR_IF_RET_VAL(interfaceRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+    result=tafVlan.SetIPPTOperation(interfaceRef,operation);
+
+    return result;
+
+}
+
+le_result_t taf_netIpPass_SetIPPTDeviceMacAddress
+(
+    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_net_VlanIfType_t ifType,
+    const char *macAddr
+)
+{
+    le_result_t result;
+
+    auto &tafVlan = taf_Vlan::GetInstance();
+    TAF_ERROR_IF_RET_VAL(interfaceRef == nullptr , LE_BAD_PARAMETER, "interfaceRef is null");
+    result=tafVlan.SetIPPTDeviceMacAddress(interfaceRef,ifType,macAddr);
+
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Allows the client to set the IP passthrough configuration for a specific profile and vlan ID.
+ * When operation is set to ENABLE, the client can add a new ipptConfig or modify an existing
+ * configuration.
+ *
+ * If ipptConfig is not provided, the system will perform an IP passthrough operation on the
+ * existing configuration.
+ *
+ * Configuration changes will be persistent across reboots.
+ * @param [in] interfaceRef                  The VLAN Reference.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+  *  - LE_BAD_PARAMETER -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_netIpPass_SetIPPassThroughConfig
+(
+    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    uint16_t vlanid
+)
+{
+    le_result_t result;
+
+    auto &tafVlan = taf_Vlan::GetInstance();
+    TAF_ERROR_IF_RET_VAL(interfaceRef == nullptr , LE_BAD_PARAMETER, "interfaceRef is null");
+    result=tafVlan.SetIPPassThroughConfig(interfaceRef,vlanid);
+
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the current IP passthrough configuration for a specific profile ID and vlan ID.
+ *
+ * @return
+ *   - NON-NULL -- Succeeded.
+ *   - NULL -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_netIpPass_InterfaceRef_t taf_netIpPass_GetIPPassThroughConfig
+(
+    uint16_t vlanId
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+    return tafVlan.GetIPPassThroughConfig(vlanId);
+}
+
+le_result_t taf_netIpPass_GetIPPTOperation
+(
+    taf_netIpPass_InterfaceRef_t interfaceRef,
+    taf_netIpPass_Operation_t*  operation
+)
+{
+    le_result_t result;
+
+    auto &tafVlan = taf_Vlan::GetInstance();
+    TAF_ERROR_IF_RET_VAL(interfaceRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+    result=tafVlan.GetIPPTOperation(interfaceRef,operation);
+
+    return result;
+}
+
+le_result_t taf_netIpPass_GetIPPTDeviceMacAddress
+(
+    taf_netIpPass_InterfaceRef_t interfaceRef,
+    taf_net_VlanIfType_t *ifType,
+    char *macAddr,
+    size_t macAddrSize
+)
+{
+    le_result_t result;
+
+    auto &tafVlan = taf_Vlan::GetInstance();
+    TAF_ERROR_IF_RET_VAL(interfaceRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+    result=tafVlan.GetIPPTDeviceMacAddress(interfaceRef,ifType,macAddr,macAddrSize);
+
+    return result;
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the IP configuration for an interface.
+ * Prior to invoking this API, the data call should be up and running.
+ *
+ * Provides the ability to configure STATIC_IP or DYNAMIC_IP to a specified InterfaceType.
+ *
+ * When DataCallStatus, whose IP address is being passed through to this NAD, changes to NET_NO_NET,
+ * this API must be invoked again with operation to DISABLE.
+ * When DataCallStatus, whose IP address is being passed through to this NAD, changes to
+ * NET_CONNECTED, this API must be invoked again with operation to ENABLE.
+ * When DataCallStatus, whose IP address is being passed through to this NAD, changes to
+ * NET_RECONFIGURED, this API must be invoked again with operation to RECONFIG.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_netIpPass_SetIPConfig
+(
+    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_net_NetIpType_t  ipType,
+    taf_net_VlanIfType_t ifType,
+    uint16_t vlanId
+)
+{
+    le_result_t result;
+
+    auto &tafVlan = taf_Vlan::GetInstance();
+    TAF_ERROR_IF_RET_VAL(interfaceRef == nullptr , LE_BAD_PARAMETER, "interfaceRef is null");
+    result=tafVlan.SetIPConfig(interfaceRef,ipType,ifType,vlanId);
+
+    return result;
+}
+
+le_result_t taf_netIpPass_SetIPConfigParams
+(
+    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_netIpPass_IpAssignOperation_t ipOpr,
+    taf_netIpPass_IpAssignType_t ipType
+)
+{
+    le_result_t result;
+
+    auto &tafVlan = taf_Vlan::GetInstance();
+    TAF_ERROR_IF_RET_VAL(interfaceRef == nullptr , LE_BAD_PARAMETER, "interfaceRef is null");
+    result=tafVlan.SetIPConfigParams(interfaceRef,ipOpr,ipType);
+
+    return result;
+}
+
+le_result_t taf_netIpPass_SetIPConfigAddressParams
+(
+    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    const taf_netIpPass_IpAddressInfo_t*  ipAddrInfo
+)
+{
+    le_result_t result;
+
+    auto &tafVlan = taf_Vlan::GetInstance();
+    TAF_ERROR_IF_RET_VAL(interfaceRef == nullptr , LE_BAD_PARAMETER, "interfaceRef is null");
+    result=tafVlan.SetIPConfigAddressParams(interfaceRef,ipAddrInfo);
+
+    return result;
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IP configuration for an interface.
+ * Provides the ability to get the configuration for STATIC_IP or DYNAMIC_IP for a specific
+ * InterfaceType and IpFamilyType.
+ *
+ * This API does not support IpFamilyType::IPV4V6. The client must invoke this
+ * API multiple times to get IP configuration for IpFamilyType::IPV4 and IpFamilyType::IPV6.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_netIpPass_GetIPConfigParams
+(
+    taf_netIpPass_InterfaceRef_t vlanIPRef,
+    taf_netIpPass_IpAssignOperation_t* ipOpr,
+    taf_netIpPass_IpAssignType_t* ipType
+)
+{
+    le_result_t result;
+
+    auto &tafVlan = taf_Vlan::GetInstance();
+    TAF_ERROR_IF_RET_VAL(vlanIPRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+    result=tafVlan.GetIPConfigParams(vlanIPRef,ipOpr,ipType);
+    return result;
+}
+
+le_result_t taf_netIpPass_GetIPConfigAddressParams
+(
+    taf_netIpPass_InterfaceRef_t vlanIPRef,
+    taf_netIpPass_IpAddressInfo_t*  ipAddrInfo
+)
+{
+    le_result_t result;
+
+    auto &tafVlan = taf_Vlan::GetInstance();
+    TAF_ERROR_IF_RET_VAL(vlanIPRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+    result=tafVlan.GetIPConfigAddressParams(vlanIPRef,ipAddrInfo);
+    return result;
+}
+
+taf_netIpPass_InterfaceRef_t taf_netIpPass_GetIPConfig
+(
+    taf_net_NetIpType_t  ipType,
+    taf_net_VlanIfType_t ifType,
+    uint16_t vlanId
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+    return tafVlan.GetIPConfig(ipType,ifType,vlanId);
+}
+
 
 /*=========================================L2TP=========================================*/
 

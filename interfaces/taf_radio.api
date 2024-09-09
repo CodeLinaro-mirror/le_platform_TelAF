@@ -67,7 +67,7 @@
 /**
  * @page c_tafRadio Radio Service
  *
- * @ref taf_radio_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_radio_interface.h>` @endrst
  *
  * <HR>
  *
@@ -408,28 +408,28 @@
  * Users can get serving cellular network information.
  *
  *  - taf_radio_GetServingCellId() -- Gets the cell ID.
- * @warning Only applicable for GSM/LTE/WCDMA/TDSCDMA.
+ *    @b WARNING: Only applicable for GSM/LTE/WCDMA/TDSCDMA.
  *
  *  - taf_radio_GetServingCellLocAreaCode() -- Gets the location area code.
- * @warning Only applicable for  GSM/WCDMA/TDSCDMA.
+ *     @b WARNING: Only applicable for  GSM/WCDMA/TDSCDMA.
  *
  *  - taf_radio_GetServingCellLteTracAreaCode() -- Gets the tracking area code.
- * @warning Only applicable for LTE.
+ *     @b WARNING: Only applicable for LTE.
  *
  *  - taf_radio_GetServingCellEarfcn() -- Gets the E-UTRA absolute radio frequency channel number.
- * @warning Only applicable for LTE.
+ *     @b WARNING: Only applicable for LTE.
  *
  *  - taf_radio_GetServingCellTimingAdvance() -- Gets the timing advance.
- * @warning Only applicable for GSM/LTE.
+ *     @b WARNING: Only applicable for GSM/LTE.
  *
  *  - taf_radio_GetPhysicalServingLteCellId() -- Gets the physical cell ID.
- * @warning Only applicable for LTE.
+ *     @b WARNING: Only applicable for LTE.
  *
  *  - taf_radio_GetServingCellGsmBsic() -- Gets the base station ID.
- * @warning Only applicable for GSM.
+ *     @b WARNING: Only applicable for GSM.
  *
  *  - taf_radio_GetServingCellScramblingCode() -- Gets the primary scrambling code.
- * @warning Only applicable for WCDMA.
+ *     @b WARNING: Only applicable for WCDMA.
  *
  * @section c_taf_radio_network Network Information
  *
@@ -1079,6 +1079,7 @@ BITMASK ImsIndBitMask
 BITMASK NetStatusIndBitMask
 {
     NET_STATUS_IND_BIT_MASK_RAT_SVC_STATUS, ///< Indication for RAT service status changes.
+    NET_STATUS_IND_BIT_MASK_SVC_DOMAIN,     ///< Indication for service domain changes.
     NET_STATUS_IND_BIT_MASK_LTE_CS_CAP      ///< Indication for LTE CS capabilitiy changes.
 };
 
@@ -1628,7 +1629,7 @@ FUNCTION le_result_t DeletePreferredOperatorsList
  *  - Non-null pointer -- The preferred operators list reference.
  *  - Null pointer -- Internal error or no preferred operators list.
  *
- * @note At most 1 preferred operator list per slot.
+ * @b NOTE: At most 1 preferred operator list per slot.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION PreferredOperatorList GetPreferredOperatorsList
@@ -2172,7 +2173,7 @@ FUNCTION le_result_t GetServingCellGsmBsic
  *  - UINT16_MAX -- Internal error.
  *  - Others -- Primary scrambling code.
  *
- * @note Only applicable for WCDMA.
+ * @b NOTE: Only applicable for WCDMA.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint16 GetServingCellScramblingCode
@@ -2959,4 +2960,72 @@ FUNCTION le_result_t SetSignalStrengthIndHysteresisTimer
 (
     uint16 hysteresisTimer IN,     ///< Hysteresis time in milliseconds.
     uint8 phoneId IN               ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell absolute radio frequency channel number.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @b NOTE: Only applicable for GSM.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetServingCellArfcn
+(
+    int32 arfcn OUT, ///< Absolute radio frequency channel number.
+    uint8 phoneId IN ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell UTRA absolute radio frequency channel number.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @b NOTE: Only applicable for UMTS.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetServingCellUarfcn
+(
+    int32 uarfcn OUT, ///< UTRA absolute radio frequency channel number.
+    uint8 phoneId IN  ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the operating mode.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetOperatingMode
+(
+    OpMode mode IN,  ///< Operating mode.
+    uint8 phoneId IN ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the operating mode.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetOperatingMode
+(
+    OpMode mode OUT, ///< Operating mode.
+    uint8 phoneId IN ///< Phone ID.
 );

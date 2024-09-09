@@ -22,4 +22,5 @@ ifdef(`sa525m',`
 telux_allow_sensor(telaf_tafImuSensorSvc_t)
 telux_allow_sensor_data_read(telaf_tafImuSensorSvc_t)
 telux_allow_sensor_privileged_ops(telaf_tafImuSensorSvc_t)
+allow telaf_tafImuSensorSvc_t self:capability { sys_resource };
 ')

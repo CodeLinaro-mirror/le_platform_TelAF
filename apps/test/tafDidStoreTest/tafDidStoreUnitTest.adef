@@ -1,0 +1,28 @@
+maxThreads: 600
+sandboxed: false
+executables:
+{
+    tafDidStoreUnitTest = ( tafDidStoreUnitTest )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafDidStoreUnitTest)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    maxFileBytes: 1048576K
+}
+
+start: manual
+
+bindings:
+{
+	tafDidStoreUnitTest.tafDidStoreUnitTest.taf_diagDidStore -> tafDidStoreSvc.taf_diagDidStore
+}

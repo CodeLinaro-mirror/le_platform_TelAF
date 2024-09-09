@@ -10,7 +10,11 @@ interface SimSvc
 {
     version { major 0 minor 1 }
 
-    <** @description: State of the card **>
+    //------------------------------------------------------------------------------------------
+    /**
+    * State of the card.
+    */
+    //------------------------------------------------------------------------------------------
     enumeration States
     {
         PRESENT         ///< SIM card is present.
@@ -21,7 +25,18 @@ interface SimSvc
         STATE_UNKNOWN   ///< SIM card state is unknown.
     }
 
-    <** @description: Retrieves the IMSI for the SIM **>
+    //---------------------------------------------------------------------------------------------
+    /**
+    * Retrieves the IMSI for the SIM.
+    *
+    * @return
+    * - OVERFLOW         Buffer size is too small.
+    * - BAD_PARAMETER    Invalid parameters.
+    * - NOT_FOUND        Wrong SIM card to operate on.
+    * - OK               IMSI retrieved successfully.
+    *
+    */
+    //---------------------------------------------------------------------------------------------
     method GetImsi
     {
         in
@@ -35,6 +50,14 @@ interface SimSvc
         error Result            ///< return result.
     }
 
+    //---------------------------------------------------------------------------------------------
+    /**
+    * Gets the state of the SIM card for the given slotId.
+    *
+    * @return
+    *  - OK                 Succeeded.
+    */
+    //---------------------------------------------------------------------------------------------
     <** @description: Gets the state of the SIM card **>
     method GetState
     {
@@ -49,7 +72,18 @@ interface SimSvc
         error Result            ///< return result.
     }
 
-    <** @description: Retrieves the SIM's ICCID **>
+    //---------------------------------------------------------------------------------------------
+    /**
+    * Retrieves the SIM's ICCID.
+    *
+    * @return
+    * - OK                  ICCID was read successfully.
+    * - OVERFLOW            Buffer size is too small.
+    * - BAD_PARAMETER       Invalid parameters.
+    * - NOT_FOUND           Wrong SIM card to operate on.
+    *
+    */
+    //---------------------------------------------------------------------------------------------
     method GetICCID
     {
         in
@@ -63,7 +97,11 @@ interface SimSvc
         error Result            ///< return result.
     }
 
-    <** @description: SIM card state change event **>
+    //---------------------------------------------------------------------------------------------
+    /**
+    * SIM card state change event.
+    */
+    //---------------------------------------------------------------------------------------------
     broadcast SimState
     {
         out

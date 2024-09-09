@@ -248,6 +248,7 @@ namespace telux {
                 le_result_t ImportMsd( taf_ecall_CallRef_t ecallRef, const uint8_t* pdumsd, size_t msdLength);
                 le_result_t ExportMsd( taf_ecall_CallRef_t ecallRef, uint8_t* pdumsd, size_t* msdLength);
                 le_result_t SendMsd( taf_ecall_CallRef_t ecallRef);
+                le_result_t RetrieveEncodedMsdPdu(ECallMsdData eCallMsdData, uint8_t* pduMsd, size_t *msdLength);
                 static int CheckVIN(char *vin);
                 le_result_t UpdateMsdVehicleInfo();
                 le_result_t UpdateMsdInformation(taf_ecall_CallRef_t ecallRef);

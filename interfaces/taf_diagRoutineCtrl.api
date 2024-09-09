@@ -35,7 +35,7 @@
 /**
  * @page c_tafDiagRoutineCtrl Diag Routine Control Service
  *
- * @ref taf_diagRoutineCtrl_service.h "API Reference"
+ * @rst :ref:`API reference <File taf_diagRoutineCtrl_interface.h>` @endrst
  *
  * <HR>
  *
@@ -133,7 +133,9 @@ ENUM Type
 ENUM ErrorCode
 {
     NO_ERROR = 0,                       ///< Success.
+    BUSY_REPEAT_REQ = 0x21,             ///< Resouce is temporarily busy.
     CONDITIONS_NOT_CORRECT = 0x22,      ///< Condition is not correct.
+    REQUEST_SEQUENCE_ERROR = 0x24,      ///< Sequence error.
     GENERAL_PROGRAMMING_FAILURE = 0x72  ///< Programming failure.
 };
 
@@ -160,7 +162,7 @@ REFERENCE RxMsg;
  *     - Reference to the service instance.
  *     - NULL if not allowed to create the service.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
@@ -200,7 +202,7 @@ EVENT RxMsg
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRoutineCtrlRec
@@ -213,7 +215,7 @@ FUNCTION le_result_t GetRoutineCtrlRec
 /**
  * Sends a response message for the Rx RoutineControl message.
  *
- * @note This function must be called to send a response if receiving a message.
+ * @b NOTE: This function must be called to send a response if receiving a message.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -221,13 +223,13 @@ FUNCTION le_result_t GetRoutineCtrlRec
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendResp
 (
     RxMsg rxMsgRef  IN,                  ///< Received message reference.
-    ErrorCode errCode  IN,               ///< Error code type.
+    uint8 errCode  IN,               ///< Error code type.
     uint8 data[MAX_PAYLOAD_SIZE]  IN     ///< Payload data.
 );
 

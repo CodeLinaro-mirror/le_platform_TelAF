@@ -48,8 +48,9 @@ static le_sem_Ref_t semRef;
 // Diag RDBI/WDBI
 static taf_diagDataID_ServiceRef_t DiagDataIDSvcRef = NULL;
 static taf_diagDataID_RxReadDIDMsgHandlerRef_t DiagReadDataIDMsgRef = NULL;
+#ifndef LE_CONFIG_DIAG_VSTACK
 static taf_diagDataID_RxWriteDIDMsgHandlerRef_t DiagWriteDataIDMsgRef = NULL;
-
+#endif
 
 /**
  * Read DID from ConfigTree.
@@ -66,7 +67,7 @@ uint8_t readDIDFromConfigTree
     if(sendBuf == NULL || sendBufLen == NULL)
     {
         LE_ERROR("Null pointer.");
-        return TAF_DIAGDATAID_READ_DID_REQUEST_OUT_OF_RANGE;
+        return TAF_DIAGDATAID_READ_DID_CONDITIONS_NOT_CORRECT;
     }
 
     char node[DID_NODE_LEN] = { 0 };
@@ -78,7 +79,7 @@ uint8_t readDIDFromConfigTree
     {
         LE_ERROR("No DID node.");
         le_cfg_CancelTxn(iteratorRef_r);
-        return TAF_DIAGDATAID_READ_DID_REQUEST_OUT_OF_RANGE;
+        return TAF_DIAGDATAID_READ_DID_CONDITIONS_NOT_CORRECT;
     }
 
     int i = 0;
@@ -89,7 +90,7 @@ uint8_t readDIDFromConfigTree
         {
             LE_DEBUG("Data length is too long");
             le_cfg_CancelTxn(iteratorRef_r);
-            return TAF_DIAGDATAID_READ_DID_REQUEST_OUT_OF_RANGE;
+            return TAF_DIAGDATAID_READ_DID_CONDITIONS_NOT_CORRECT;
         }
 
         data = le_cfg_GetInt(iteratorRef_r, "", 0);
@@ -129,7 +130,7 @@ uint8_t writeDIDToConfigTree
     if (wrIter == NULL)
     {
         LE_ERROR("Get write node failed.");
-        return TAF_DIAGDATAID_WRITE_DID_REQUEST_OUT_OF_RANGE;
+        return TAF_DIAGDATAID_WRITE_DID_CONDITIONS_NOT_CORRECT;
     }
 
     // Need to clear the config tree since the length of the value written may be less than the old.
@@ -169,7 +170,7 @@ void readDataIDMsgHandler
 
     if(dataIdSize == 0 || dataIdPtr == NULL)
     {
-        if(taf_diagDataID_SendReadDIDResp( rxMsgRef, TAF_DIAGDATAID_READ_DID_REQUEST_OUT_OF_RANGE,
+        if(taf_diagDataID_SendReadDIDResp( rxMsgRef, TAF_DIAGDATAID_READ_DID_CONDITIONS_NOT_CORRECT,
                 NULL, 0 ) != LE_OK)
         {
             LE_ERROR("Send response error");
@@ -182,7 +183,7 @@ void readDataIDMsgHandler
         if(sendBufLen + DID_LEN > TAF_DIAGDATAID_MAX_READ_DID_PAYLOAD_SIZE)
         {
             if(taf_diagDataID_SendReadDIDResp( rxMsgRef,
-                    TAF_DIAGDATAID_READ_DID_REQUEST_OUT_OF_RANGE, NULL, 0 ) != LE_OK)
+                    TAF_DIAGDATAID_READ_DID_CONDITIONS_NOT_CORRECT, NULL, 0 ) != LE_OK)
             {
                 LE_ERROR("Send response error");
             }
@@ -237,7 +238,7 @@ void writeDataIDMsgHandler
         LE_ERROR("Getting data record");
         if(taf_diagDataID_SendWriteDIDResp(
                 rxMsgRef,
-                TAF_DIAGDATAID_WRITE_DID_REQUEST_OUT_OF_RANGE, dataId) != LE_OK)
+                TAF_DIAGDATAID_WRITE_DID_CONDITIONS_NOT_CORRECT, dataId) != LE_OK)
         {
             LE_ERROR("Send response error");
         }
@@ -262,13 +263,13 @@ static void* diagRWDataIdMsgThread(void* ctxPtr)
                                 readDataIDMsgHandler, NULL);
     LE_TEST_OK(DiagReadDataIDMsgRef != NULL,
                "Registered successfully for readDataIDMsgHandler");
-
+#ifndef LE_CONFIG_DIAG_VSTACK
     DiagWriteDataIDMsgRef = taf_diagDataID_AddRxWriteDIDMsgHandler(
                                 DiagDataIDSvcRef,
                                 writeDataIDMsgHandler, NULL);
     LE_TEST_OK(DiagWriteDataIDMsgRef != NULL,
                "Registered successfully for writeDataIDMsgHandler");
-
+#endif
     le_sem_Post(semRef);
     le_event_RunLoop();
     return NULL;

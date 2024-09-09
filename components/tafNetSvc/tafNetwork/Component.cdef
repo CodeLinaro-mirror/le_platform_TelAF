@@ -3,6 +3,7 @@ provides:
     api:
     {
         taf_net.api
+        taf_netIpPass.api
     }
 }
 

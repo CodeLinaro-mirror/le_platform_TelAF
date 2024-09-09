@@ -244,8 +244,8 @@ namespace telux {
                 le_result_t SetPower( taf_sim_Id_t simId, le_onoff_t powerState);
                 le_result_t Reset(taf_sim_Id_t simId);
                 le_result_t IsEmergencyCallSubscriptionSelected (taf_sim_Id_t simId, bool* isEcs);
-                le_result_t LocalSwapToEmergencyCallSubscription(taf_sim_Id_t simId);
-                le_result_t LocalSwapToCommercialCallSubscription(taf_sim_Id_t simId);
+                le_result_t LocalSwapToEmergencyCallSubscription(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
+                le_result_t LocalSwapToCommercialCallSubscription(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
                 le_result_t profileListCallbackEm(
                         const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
                         telux::common::ErrorCode error,

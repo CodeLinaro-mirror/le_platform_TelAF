@@ -174,7 +174,7 @@ void TestSensorOnEventFunc(taf_imuSensor_SensorRef_t sensorRef,taf_imuSensor_Sam
     taf_imuSensor_DataValue_t biasData[TAF_IMUSENSOR_MAX_SUPPORTED_BATCH_COUNT];
     size_t  size = sizeof(rawData)/sizeof(taf_imuSensor_DataValue_t);
     result = taf_imuSensor_GetRotatedData(ref,rawData,&size,biasData,&size);
-    LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetRotatedData- LE_OK. Event size %ld",size);
+    LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetRotatedData- LE_OK. Event size %zu",size);
     uint64_t eventTimeStamp = 0;
     uint32_t count = 0;
     float samplingRateAggregate = 0.0;

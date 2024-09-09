@@ -3,6 +3,7 @@ sources:
     gpio/tafMngdPMGpio.cpp
     can/tafMngdPMCan.cpp
     sms/tafMngdPMSms.cpp
+    rpcPm/tafMngdRpcPm.cpp
     tafMngdPMImpl.cpp
     tafMngdPMSvc.cpp
 }
@@ -21,9 +22,10 @@ requires:
     {
         taf_can.api
         taf_sms.api
-        taf_pm.api
         taf_gpio.api
         le_appInfo.api
+        taf_pm = taf_pm.api                       // Local service interface
+        taf_rpcPm = taf_pm.api  [manual-start]    // Remote service interface
     }
 
     component:
@@ -39,6 +41,7 @@ cxxflags:
     -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/can/tafMngdPMCan
     -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/gpio/tafMngdPMGpio
     -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/sms/tafMngdPMSms
+    -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/rpcPm/tafMngdRpcPm
     -I$TELAF_ROOT/components/tafHalComp
     -I${LEGATO_ROOT}/framework/liblegato
     -I$TELAF_ROOT/include/staging/vhal

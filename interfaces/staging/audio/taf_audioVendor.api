@@ -71,8 +71,8 @@
  * @subsection c_get_audio_device_type Get the type of audio device connected to the node
  *
  * @verbatim
-    taf_audioVendor_NodeType_t nodeType = taf_audioVendor_GetNodeType(0x1);
-    if(nodeType != TAF_AUDIO_INVALID)
+    le_result_t res = taf_audioVendor_GetNodeType(0x1, &nodeType);
+    if(nodeType != TAF_AUDIOVENDOR_INVALID)
         LE_INFO("Successfully got the audio device type");
 
    @endverbatim
@@ -134,6 +134,23 @@
     taf_audioVendor_RemoveNodeStateChangeHandler(handlerRef);
 
    @endverbatim
+ *
+ * @subsection c_set_and_get_audio_device_gain Set/get audio device gain percent ranged from 0 to 1
+ *
+ * @verbatim
+    double gainPerc = 0.5;
+    double getGainPerc;
+    taf_audioVendor_Direction_t direction = TAF_AUDIOVENDOR_RX;
+    le_result_t res = taf_audioVendor_SetNodeGain(0x1, direction, gainPerc);
+    if(res == LE_OK)
+        LE_INFO("Successfully set the gain to audio device");
+
+    res = taf_audioVendor_GetNodeGain(0x1, direction, &getGainPerc);
+    if(res == LE_OK)
+        LE_INFO("Successfully got the gain of audio device %f", getGainPerc);
+
+   @endverbatim
+ *
  */
 //--------------------------------------------------------------------------------------------------
 
@@ -161,13 +178,22 @@ ENUM NodePowerState
     ACTIVE
 };
 
+/**
+ * Audio node directions. RX for sink, TX for source.
+ */
+ENUM Direction
+{
+    RX,
+    TX
+};
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets audio device node type.
  *
  * @return
  *     - LE_OK                 Success.
- *     - LE_BAD_PARAMETER      Node id is not valid.
+ *     - LE_BAD_PARAMETER      Node ID is not valid.
  *     - LE_FAULT              Failure.
  */
 //--------------------------------------------------------------------------------------------------
@@ -184,7 +210,7 @@ FUNCTION le_result_t GetNodeType
  *
  * @return
  *     - LE_OK                 Success.
- *     - LE_BAD_PARAMETER      Node id is not valid.
+ *     - LE_BAD_PARAMETER      Node ID is not valid.
  *     - LE_FAULT              Failure.
  */
 //--------------------------------------------------------------------------------------------------
@@ -214,7 +240,7 @@ FUNCTION le_result_t SendVendorConfig
  *
  * @return
  *     - LE_OK                 Success.
- *     - LE_BAD_PARAMETER      Node id is not valid.
+ *     - LE_BAD_PARAMETER      Node ID is not valid.
  *     - LE_FAULT              Failure.
  */
 //--------------------------------------------------------------------------------------------------
@@ -230,7 +256,7 @@ FUNCTION le_result_t SetNodePowerState
  *
  * @return
  *     - LE_OK                 Success.
- *     - LE_BAD_PARAMETER      Node id is not valid.
+ *     - LE_BAD_PARAMETER      Node ID is not valid.
  *     - LE_FAULT              Failure.
  */
 //--------------------------------------------------------------------------------------------------
@@ -246,7 +272,7 @@ FUNCTION le_result_t GetNodePowerState
  *
  * @return
  *     - LE_OK                 Success.
- *     - LE_BAD_PARAMETER      Node id is not valid.
+ *     - LE_BAD_PARAMETER      Node ID is not valid.
  *     - LE_FAULT              Failure.
  */
 //--------------------------------------------------------------------------------------------------
@@ -262,7 +288,7 @@ FUNCTION le_result_t SetNodeMuteState
  *
  * @return
  *     - LE_OK                 Success.
- *     - LE_BAD_PARAMETER      Node id is not valid.
+ *     - LE_BAD_PARAMETER      Node ID is not valid.
  *     - LE_FAULT              Failure.
  */
 //--------------------------------------------------------------------------------------------------
@@ -270,6 +296,44 @@ FUNCTION le_result_t GetNodeMuteState
 (
     uint8   nodeId   IN,      ///< The audio node ID.
     bool    isMuted  OUT      ///< The mute status of the audio device.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets gain to the audio device.
+ *
+ * @return
+ *     - LE_OK                 Success.
+ *     - LE_BAD_PARAMETER      Node ID is not valid.
+ *     - LE_UNSUPPORTED        If direction is not valid for the audio node device.
+ *                             Eg., TX for PA and RX/TX for A2B.
+ *     - LE_FAULT              Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetNodeGain
+(
+    uint8     nodeId    IN,    ///< The audio node ID.
+    Direction direction IN,    ///< Audio node direction to set gain.
+    double    gain      IN     ///< Gain percentage ranged 0 to 1.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets gain of the audio device.
+ *
+ * @return
+ *     - LE_OK                 Success.
+ *     - LE_BAD_PARAMETER      Node ID is not valid.
+ *     - LE_UNSUPPORTED        If direction is not valid for the audio node device.
+ *                             Eg., TX for PA and RX/TX for A2B.
+ *     - LE_FAULT              Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNodeGain
+(
+    uint8     nodeId    IN,      ///< The audio node ID.
+    Direction direction IN,      ///< Audio node direction to set gain.
+    double    gain      OUT      ///< Gain percentage ranged 0 to 1.
 );
 
 /**

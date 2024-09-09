@@ -1,40 +1,14 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSecuritySvr.hpp"
+#ifndef LE_CONFIG_DIAG_VSTACK
+#include "tafUpdateSvr.hpp"
+#endif
 
 using namespace telux::tafsvc;
 
@@ -152,12 +126,6 @@ void taf_SecuritySvr::UDSMsgHandler
     uint8_t msgPos = 1;  // Skip sid
     uint8_t errCode = 0;
 
-    // Send address information
-    taf_uds_AddrInfo_t addrInfo;
-    addrInfo.sa = addrPtr->ta;
-    addrInfo.ta = addrPtr->sa;
-    addrInfo.taType = addrPtr->taType;
-
     if (sid == reqSesCtrlSvcId)
     {
         taf_SesTypeRxMsg_t* rxSesTypePtr = NULL;
@@ -165,30 +133,10 @@ void taf_SecuritySvr::UDSMsgHandler
         memset(rxSesTypePtr, 0, sizeof(taf_SesTypeRxMsg_t));
 
         memcpy(&rxSesTypePtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
-        rxSesTypePtr->sesType = (taf_diagSecurity_SessionType_t)(msgPtr[msgPos] & 0x7F);
-        LE_INFO("Receive seesion type: %x", rxSesTypePtr->sesType);
+        rxSesTypePtr->serviceId = sid;
+        rxSesTypePtr->sesType = msgPtr[msgPos] & 0x7F;
+        LE_INFO("Receive session type: %x", rxSesTypePtr->sesType);
         msgPos += 1;
-
-        switch (rxSesTypePtr->sesType)
-        {
-            case TAF_DIAGSECURITY_DEFAULT:
-                break;
-            case TAF_DIAGSECURITY_PROGRAMMING:
-                break;
-            case TAF_DIAGSECURITY_EXTENDED:
-                break;
-            case TAF_DIAGSECURITY_VEHICLE_MANUFACTURER_SPECIFIC:
-                break;
-            case TAF_DIAGSECURITY_FOTA:
-                break;
-            case TAF_DIAGSECURITY_SYSTEM_SUPPLIER_SPECIFIC:
-                break;
-            default:
-                LE_DEBUG("Requested session type is not supported");
-                errCode = TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED;
-                SendNRCResp(sid, &addrInfo, errCode);
-                return;
-        }
 
         rxSesTypePtr->link = LE_DLS_LINK_INIT;
         rxSesTypePtr->rxSesTypeRef = (taf_diagSecurity_RxSesTypeCheckRef_t)le_ref_CreateRef(
@@ -208,10 +156,10 @@ void taf_SecuritySvr::UDSMsgHandler
         memset(sesChangePtr, 0, sizeof(taf_SesChangeMsg_t));
 
         memcpy(&sesChangePtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
-        sesChangePtr->previousSesType = (taf_diagSecurity_SessionType_t)msgPtr[msgPos];
+        sesChangePtr->previousSesType = msgPtr[msgPos];
         msgPos += 1;
 
-        sesChangePtr->currentSesType = (taf_diagSecurity_SessionType_t)msgPtr[msgPos];
+        sesChangePtr->currentSesType = msgPtr[msgPos];
         msgPos += 1;
 
         // Update the local session type with current active session type and
@@ -224,7 +172,16 @@ void taf_SecuritySvr::UDSMsgHandler
 
         LE_DEBUG("Previous session type: %X and Current session type: %x",
                 sesChangePtr->previousSesType, sesChangePtr->currentSesType);
-
+#ifndef LE_CONFIG_DIAG_VSTACK
+        if ((sesChangePtr->previousSesType == TAF_DIAGSECURITY_PROGRAMMING ||
+                sesChangePtr->previousSesType == TAF_DIAGSECURITY_FOTA ||
+                        sesChangePtr->previousSesType
+                                == TAF_DIAGSECURITY_DOWNLOADED_ENUMLATION_SESSION)
+                                        &&  sesChangePtr->currentSesType  == 0x01)
+        {
+            taf_UpdateSvr::GetInstance().programmingInterrupt();
+        }
+#endif
         // Report the session control request message to message handler in service layer.
         le_event_ReportWithRefCounting(SesChangeEvent, sesChangePtr);
     }
@@ -234,7 +191,7 @@ void taf_SecuritySvr::UDSMsgHandler
 
         rxSecAccessMsgPtr = (taf_SecAccessRxMsg_t*)le_mem_ForceAlloc(RxSecAccessMsgPool);
         memset(rxSecAccessMsgPtr, 0, sizeof(taf_SecAccessRxMsg_t));
-
+        rxSecAccessMsgPtr->serviceId = sid;
         memcpy(&rxSecAccessMsgPtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
         rxSecAccessMsgPtr->subFunc = msgPtr[msgPos] & 0x7F;
         msgPos += 1;
@@ -246,7 +203,10 @@ void taf_SecuritySvr::UDSMsgHandler
         {
             LE_DEBUG("Message length(%" PRIuS ") is out of range", msgLen - msgPos);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
-            SendNRCResp(sid, &addrInfo, errCode);
+            // UDS_0x27_NRC_13: Payload is overflow (check again)
+            SendNRCResp(sid, addrPtr, errCode);
+            le_mem_Release(rxSecAccessMsgPtr);
+            return;
         }
 
         memcpy(rxSecAccessMsgPtr->Payload, msgPtr + msgPos, msgLen - msgPos);
@@ -266,7 +226,8 @@ void taf_SecuritySvr::UDSMsgHandler
     {
         LE_DEBUG("Service(0x%x) is invalid", sid);
         errCode = TAF_DIAG_SERVICE_NOT_SUPPORTED; // ServiceNotSupported
-        SendNRCResp(sid, &addrInfo, errCode);
+        // UDS_0x27_NRC_11: Got the bad SID for svc
+        SendNRCResp(sid, addrPtr, errCode);
     }
 
     return;
@@ -337,10 +298,17 @@ void taf_SecuritySvr::RxSesCtrlEventHandler
     taf_SecuritySvc_t* servicePtr = NULL;
     taf_SesTypeReqHandler_t* handlerObjPtr = NULL;
 
-
     servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj();
     if (servicePtr == NULL)
     {
+        LE_INFO("Service is not created");
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+        // UDS_0x10_NRC_21: service pointer is null
+        security.SendNRCResp(rxSesTypePtr->serviceId, &(rxSesTypePtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
+#else
+        security.SendSesPositiveResp(rxSesTypePtr);
+#endif
         le_ref_DeleteRef(security.RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
         le_mem_Release(rxSesTypePtr);
         return;
@@ -348,7 +316,14 @@ void taf_SecuritySvr::RxSesCtrlEventHandler
 
     if (servicePtr->SesTypeHandlerRef == NULL)
     {
-        LE_WARN("Did not register handler for session control service.");
+        LE_INFO("Did not register handler for session control service.");
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+        // UDS_0x10_NRC_21: handler is not registered
+        security.SendNRCResp(rxSesTypePtr->serviceId, &(rxSesTypePtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
+#else
+        security.SendSesPositiveResp(rxSesTypePtr);
+#endif
         le_ref_DeleteRef(security.RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
         le_mem_Release(rxSesTypePtr);
         return;
@@ -360,6 +335,14 @@ void taf_SecuritySvr::RxSesCtrlEventHandler
                     servicePtr->SesTypeHandlerRef);
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
+        LE_INFO("Handler is NULL");
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+        // UDS_0x10_NRC_21: handler is not registered
+        security.SendNRCResp(rxSesTypePtr->serviceId, &(rxSesTypePtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
+#else
+        security.SendSesPositiveResp(rxSesTypePtr);
+#endif
         le_ref_DeleteRef(security.RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
         le_mem_Release(rxSesTypePtr);
         return;
@@ -480,6 +463,7 @@ le_result_t taf_SecuritySvr::SendSesTypeCheckResp
             return ret;
         }
     }
+    
     // Remove the message from service message list.
     le_dls_Remove(&(servicePtr->rxSesTypeList), &(rxSesTypePtr->link));
 
@@ -490,6 +474,38 @@ le_result_t taf_SecuritySvr::SendSesTypeCheckResp
     return LE_OK;
 }
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * Send positive Session control response to UDS stack internally.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_SecuritySvr::SendSesPositiveResp
+(
+    taf_SesTypeRxMsg_t* rxSesTypePtr
+)
+{
+    LE_DEBUG("SendSesPositiveResp");
+
+    TAF_ERROR_IF_RET_VAL(rxSesTypePtr == NULL, LE_BAD_PARAMETER, "Invalid rxSesTypePtr");
+
+    le_result_t ret;
+
+    // Call UDS function to send the response message.
+    auto &backend = taf_DiagBackend::GetInstance();
+    taf_uds_AddrInfo_t addrInfo;
+    addrInfo.sa = rxSesTypePtr->addrInfo.ta;
+    addrInfo.ta = rxSesTypePtr->addrInfo.sa;
+    addrInfo.taType = rxSesTypePtr->addrInfo.taType;
+
+    // Positive response.
+    ret = backend.RespDiagPositive(reqSesCtrlSvcId, &addrInfo);
+    if (ret != LE_OK)
+    {
+        LE_ERROR("Failed to send session control positive response.(%d)", ret);
+        return ret;
+    }
+    return LE_OK;
+}
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -647,7 +663,7 @@ void taf_SecuritySvr::RemoveSesChangeHandler
 le_result_t taf_SecuritySvr::GetCurrentSesType
 (
     taf_diagSecurity_ServiceRef_t svcRef,
-    taf_diagSecurity_SessionType_t* currentTypePtr
+    uint8_t* currentTypePtr
 )
 {
     LE_DEBUG("GetCurrentSesType!");
@@ -664,6 +680,28 @@ le_result_t taf_SecuritySvr::GetCurrentSesType
 
     *currentTypePtr = currentSesType;
 
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Internal function to get current session type.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_SecuritySvr::GetCurrentSession
+(
+    uint8_t* currentSesPtr
+)
+{
+    LE_INFO("GetCurrentSession!");
+
+    if (currentSesPtr == NULL)
+    {
+        LE_ERROR("Cannot find the currentSesPtr");
+        return LE_NOT_FOUND;
+    }
+
+    *currentSesPtr = currentSesType;
     return LE_OK;
 }
 
@@ -732,10 +770,13 @@ void taf_SecuritySvr::RxSecAccessEventHandler
     taf_SecuritySvc_t* servicePtr = NULL;
     taf_SecAccessReqHandler_t* handlerObjPtr = NULL;
 
-
     servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj();
     if (servicePtr == NULL)
     {
+        // UDS_0x27_NRC_21: handler is not registered
+        LE_WARN("Service is not created");
+        security.SendNRCResp(rxSecAccessMsgPtr->serviceId, &(rxSecAccessMsgPtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(security.RxSecAccessMsgRefMap, rxSecAccessMsgPtr->rxMsgRef);
         le_mem_Release(rxSecAccessMsgPtr);
         return;
@@ -744,6 +785,9 @@ void taf_SecuritySvr::RxSecAccessEventHandler
     if (servicePtr->handlerRef == NULL)
     {
         LE_WARN("Did not register handler for security access service.");
+        // UDS_0x27_NRC_21: handler is not registered
+        security.SendNRCResp(rxSecAccessMsgPtr->serviceId, &(rxSecAccessMsgPtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(security.RxSecAccessMsgRefMap, rxSecAccessMsgPtr->rxMsgRef);
         le_mem_Release(rxSecAccessMsgPtr);
         return;
@@ -755,6 +799,9 @@ void taf_SecuritySvr::RxSecAccessEventHandler
                     servicePtr->handlerRef);
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
+        // UDS_0x27_NRC_21: handler is null
+        security.SendNRCResp(rxSecAccessMsgPtr->serviceId, &(rxSecAccessMsgPtr->addrInfo),
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(security.RxSecAccessMsgRefMap, rxSecAccessMsgPtr->rxMsgRef);
         le_mem_Release(rxSecAccessMsgPtr);
         return;
@@ -957,6 +1004,7 @@ le_result_t taf_SecuritySvr::SendSecAccessResp
             return ret;
         }
     }
+    
     // Remove the message from service message list.
     le_dls_Remove(&(servicePtr->rxMsgList), &(rxSecAccessMsgPtr->link));
 
@@ -975,7 +1023,7 @@ le_result_t taf_SecuritySvr::SendSecAccessResp
 le_result_t taf_SecuritySvr::SendNRCResp
 (
     uint8_t sid,
-    taf_uds_AddrInfo_t*  addrInfoPtr,
+    const taf_uds_AddrInfo_t*  addrInfoPtr,
     uint8_t errCode
 )
 {
@@ -983,12 +1031,13 @@ le_result_t taf_SecuritySvr::SendNRCResp
 
     TAF_ERROR_IF_RET_VAL(addrInfoPtr == NULL, LE_BAD_PARAMETER, "Invalid addrInfoPtr");
 
-    // Call UDS function to send the response message.
-    auto &backend = taf_DiagBackend::GetInstance();
     taf_uds_AddrInfo_t addrInfo;
     addrInfo.sa = addrInfoPtr->ta;
     addrInfo.ta = addrInfoPtr->sa;
     addrInfo.taType = addrInfoPtr->taType;
+
+    // Call UDS function to send the response message.
+    auto &backend = taf_DiagBackend::GetInstance();
     backend.RespDiagNegative(sid, &addrInfo, errCode);
 
     return LE_OK;

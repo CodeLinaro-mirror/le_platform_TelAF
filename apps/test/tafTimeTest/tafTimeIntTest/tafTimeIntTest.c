@@ -34,10 +34,13 @@
 
 #include "legato.h"
 #include "interfaces.h"
+#include "taf_gptpTime.h"
 
 static taf_time_TimeSourceChangeHandlerRef_t TimeSourceChangeHandlerRef = NULL;
 static taf_time_TimeValueChangeHandlerRef_t TimeValueChangeHandlerRef = NULL;
 static taf_time_TimeSourceStatusHandlerRef_t TimeSourceStatusHandlerRef = NULL;
+
+#define TAF_GPTP_DEVICE_0          "/dev/ptp0"
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -55,12 +58,9 @@ void TimePrintHelpMenu
         "\n"
         "SYNOPSIS:\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- help\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- get gnssTime\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- get rtcTime\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- set rtcTime 1688998899 1000\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- asyncSet rtcTime 1688998899 1000\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- asyncGet rtcTime\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- get systemTime\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- get GetTime 1\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- handler 10\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- timeChaHandler 65 3\n"
@@ -72,16 +72,11 @@ void TimePrintHelpMenu
         "    app runProc tafTimeIntTest tafTimeIntTest -- get DayAdj 3\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- get TimeZone 3\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- set Validity 3 0\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- GptpComponent\n"
         "\n"
         "DESCRIPTION:\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- help\n"
         "       Display this help and exit.\n"
-        "\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- get gnssTime\n"
-        "       Get time service maintained gnss time.\n"
-        "\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- get rtcTime\n"
-        "       Get RTC time from device or VHAL.\n"
         "\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- set rtcTime\n"
         "       Update rtc time with 'seconds' + 'nanose' as input.\n"
@@ -123,6 +118,9 @@ void TimePrintHelpMenu
         "\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- set Validity sourceId validity\n"
         "       Sets the validity of given source Id.\n"
+        "\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- GptpComponent\n"
+        "       Get the ptp time.\n"
         "\n"
     );
 
@@ -255,73 +253,6 @@ void TestSetTimeToRtc(taf_time_TimeSpec_t* newTime)
     }
 }
 
-//-------------------------------------------------------------------------------------------------
-/**
- * Get system time through parameter 'CLOCK_REALTIME'.
- */
- //-------------------------------------------------------------------------------------------------
-void TestGetSystemTime
-(
-    void
-)
-{
-    le_result_t result;
-    taf_time_TimeSpec_t systemTime;
-
-    result = taf_time_GetSystemTime(&systemTime);
-    LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_GetSystemTime() APIs.");
-
-    LE_INFO("System time is %"PRIu64".%"PRIu64, systemTime.sec, systemTime.nanosec);
-    ConvertSecToDateTime(systemTime);
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get GNSS time that is maintained in time service.
- */
-//--------------------------------------------------------------------------------------------------
-void TestGetGnssTime
-(
-    void
-)
-{
-    le_result_t result;
-    taf_time_TimeSpec_t gnssTime;
-
-    //GNSS not ready will return not found. Here just verify the API
-    result = taf_time_GetGnssTime(&gnssTime);
-    LE_TEST_ASSERT((result == LE_OK || result == LE_UNAVAILABLE),
-        "Test: taf_time_GetGnssTime() APIs.");
-    if (result == LE_OK)
-    {
-        LE_INFO("GNSS time is %"PRIu64".%"PRIu64, gnssTime.sec, gnssTime.nanosec);
-        ConvertSecToDateTime(gnssTime);
-    }
-    else
-    {
-        LE_INFO("GNSS time is not available now\n");
-    }
-}
-
-//-------------------------------------------------------------------------------------------------
-/**
- * Get RTC time from device or VHAL interface.
- */
- //------------------------------------------------------------------------------------------------
-void TestGetRtcTime
-(
-    void
-)
-{
-    le_result_t result;
-    taf_time_TimeSpec_t rtcTime;
-
-    result = taf_time_GetRtcTime(&rtcTime);
-    LE_TEST_ASSERT(result == LE_OK,
-        "Test: taf_time_GetRtcTime() APIs.");
-    LE_INFO("RTC time is %"PRIu64".%"PRIu64, rtcTime.sec, rtcTime.nanosec);
-}
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Get time through time source ID and return related reference.
@@ -422,7 +353,7 @@ void* TimeValueChangeHandlerTestThread
     TimeValueChangeHandlerRef = taf_time_AddTimeValueChangeHandler(sourceId,
         (taf_time_TimeValueChangeHandlerFunc_t)TimeValueChangeHandler, (le_sem_Ref_t)contextPtr);
     LE_TEST_OK(TimeValueChangeHandlerRef != NULL, "taf_time_AddTimeValueChangeHandler() - OK");
-
+    le_sem_Post((le_sem_Ref_t)contextPtr);
     le_event_RunLoop();
     return NULL;
 }
@@ -613,10 +544,6 @@ void TestGetSourceDetails
     {
         LE_INFO("Time source is NOT valid!");
     }
-
-    // Release the memory for this reference.
-    res = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(res == LE_OK);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -680,10 +607,6 @@ void TestGetTimeZone
     le_result_t res = taf_time_GetTimeZone(srcRef, &timeZone);
     LE_ASSERT(res == LE_OK);
     LE_INFO("Time zone is:  %d", timeZone);
-
-    // Release the memory for this reference.
-    le_result_t result = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(result == LE_OK);
 }
 
 void TestGetDayAdj
@@ -700,10 +623,6 @@ void TestGetDayAdj
     le_result_t res = taf_time_GetTimeDayAdj(srcRef, &dayltSavAdj);
     LE_ASSERT(res == LE_OK);
     LE_INFO("Day Light Saving is: %d", dayltSavAdj);
-
-    // Release the memory for this reference.
-    le_result_t result = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(result == LE_OK);
 }
 
 void TestSetValidity
@@ -721,10 +640,6 @@ void TestSetValidity
     le_result_t res = taf_time_SetValidity(srcRef, validityFlag);
     LE_ASSERT(res == LE_OK);
     LE_INFO("taf_time_SetValidity - LE_OK");
-
-    // Release the memory for this reference.
-    le_result_t result = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(result == LE_OK);
 }
 
 
@@ -733,19 +648,7 @@ void TimeGetCmdTest(void)
     TimeCheckArgs(2);
     const char* cmd = le_arg_GetArg(1);
 
-    if (strncmp(cmd, "systemTime", strlen(cmd)) == 0)
-    {
-        TestGetSystemTime();
-    }
-    else if (strncmp(cmd, "gnssTime", strlen(cmd)) == 0)
-    {
-        TestGetGnssTime();
-    }
-    else if (strncmp(cmd, "rtcTime", strlen("rtcTime")) == 0)
-    {
-        TestGetRtcTime();
-    }
-    else if (strncmp(cmd, "GetTime", strlen(cmd)) == 0)
+    if (strncmp(cmd, "GetTime", strlen(cmd)) == 0)
     {
         TimeCheckArgs(3);
         TestGetTimeRef();
@@ -985,11 +888,6 @@ void* TimeSourceStatusHandlerTestThread(
     LE_INFO("Handler registered successfully!.");
     le_sem_Post((le_sem_Ref_t)contextPtr);
     le_event_RunLoop();
-
-    // Release the memory for this reference.
-    le_result_t result = taf_time_ReleaseSourceRef(sourceRef);
-    LE_ASSERT(result == LE_OK);
-
     return NULL;
 }
 
@@ -1030,6 +928,30 @@ void TimeSourceStatusHandlerTest(void)
     le_sem_Delete(semaphore);
 
     RemoveRefTimeSourceStatusTestHandler();
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Verify the interface for ptp lib.
+ */
+ //------------------------------------------------------------------------------------------------
+void TestGptpComponent()
+{
+    le_result_t res;
+    struct timespec gptpTimeValPtr;
+    taf_gptpTime_Ref_t gptpTimeRef;
+
+    gptpTimeRef = taf_gptpTime_CreateRef(TAF_GPTP_DEVICE_0);
+    LE_ASSERT(gptpTimeRef != NULL);
+
+    res = taf_gptpTime_GetTimeValue(gptpTimeRef, &gptpTimeValPtr);
+    LE_ASSERT(res == LE_OK);
+
+    LE_INFO("Reference gptp time is %ld.%ld", gptpTimeValPtr.tv_sec,
+        gptpTimeValPtr.tv_nsec);
+
+    taf_gptpTime_DeleteRef(gptpTimeRef);
+    LE_ASSERT(res == LE_OK);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1074,6 +996,10 @@ COMPONENT_INIT
     else if (strncmp(cmd, "timeSourceStatusHandler", strlen(cmd)) == 0)
     {
         TimeSourceStatusHandlerTest();
+    }
+    else if (strncmp(cmd, "GptpComponent", strlen(cmd)) == 0)
+    {
+        TestGptpComponent();
     }
     else
     {

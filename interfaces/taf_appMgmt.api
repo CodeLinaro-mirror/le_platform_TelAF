@@ -36,7 +36,7 @@
 /**
  * @page c_tafAppMgmt Application Management Service
  *
- * @ref taf_appMgmt_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_appMgmt_interface.h>` @endrst
  *
  * <HR>
  *
@@ -69,7 +69,7 @@
  *
  * Users can get application information through the app list using the following functions.
  *
- *  - taf_appMgmt_CreateAppList() / taf_appMgmt_DeleteAppList() creates and deletes app list 
+ *  - taf_appMgmt_CreateAppList() / taf_appMgmt_DeleteAppList() creates and deletes app list
  *    references.
  *
  *  - taf_appMgmt_GetFirstApp() / taf_appMgmt_GetNextApp() get the first or next app reference.
@@ -217,7 +217,7 @@ FUNCTION le_result_t GetVersion
  *  - LE_FAULT -- Failure.
  *  - LE_OK -- Success.
  *
- * @note Installed apps are activated in a probation state when started for the first time.
+ * @b NOTE: Installed apps are activated in a probation state when started for the first time.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Start
@@ -233,7 +233,7 @@ FUNCTION le_result_t Start
  *  - LE_NOT_FOUND -- App not found or not currently running; see note.
  *  - LE_OK -- Success.
  *
- * @note Installed apps are not stopped if they are running in a Probation state.
+ * @b NOTE: Installed apps are not stopped if they are running in a Probation state.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Stop
@@ -251,7 +251,7 @@ FUNCTION le_result_t Stop
  *  - LE_FAULT -- Failure.
  *  - LE_OK -- Success.
  *
- * @note Installed app is not allow to uninstall if in probation state.
+ * @b NOTE: Installed app is not allow to uninstall if in probation state.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Uninstall
@@ -324,7 +324,7 @@ FUNCTION App GetNextApp
  *  - LE_NOT_FOUND -- Reference not found.
  *  - LE_OK -- Success.
  *
- * @note Get static information when creating app list.
+ * @b NOTE: Get static information when creating app list.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetAppDetails

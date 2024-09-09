@@ -145,6 +145,8 @@ gen_require(`
   type home_root_t;
   type user_home_dir_t;
   type ping_exec_t;
+  type dlt_t;
+  type coredump_data_t;
 ')
 
 ## telaf framework policies and definitions
@@ -230,6 +232,9 @@ allow telaf_cfgtree_t proc_t:dir list_dir_perms;
 allow telaf_cfgtree_t mnt_t:dir list_dir_perms;
 allow telaf_cfgtree_t self:capability { sys_ptrace };
 allow telaf_cfgtree_t kernel_t:dir list_dir_perms;
+allow telaf_cfgtree_t persist_t:dir { search };
+allow telaf_cfgtree_t persist_t:file { read getattr open };
+allow telaf_cfgtree_t urandom_device_t:chr_file { read open };
 
 # Define the log daemon type
 type telaf_update_t;
@@ -242,8 +247,6 @@ allow telaf_update_t mnt_t:dir search_dir_perms;
 allow telaf_update_t shell_exec_t:file { exec_file_perms };
 allow telaf_update_t tmp_t:dir { search_dir_perms };
 allow telaf_update_t tmp_t:file { read_file_perms };
-seutil_manage_module_store(telaf_update_t)
-seutil_manage_file_contexts(telaf_update_t)
 
 # Define the deviceManager type
 type telaf_devmgr_t;
@@ -255,15 +258,15 @@ init_telaf_core_domain(telaf_devmgr_t, telaf_devmgr_exec_t)
 allow telaf_devmgr_t telaf_devmgr_t:process { signal };
 allow telaf_devmgr_t telaf_devmgr_t:capability { sys_ptrace kill };
 allow telaf_devmgr_t proc_t:file { open read getattr };
-allow telaf_devmgr_t data_t:dir { relabelfrom relabelto search getattr };
-allow telaf_devmgr_t data_t:file { relabel_file_perms };
+allow telaf_devmgr_t telaf_fw_t:dir { relabelfrom relabelto search getattr };
+allow telaf_devmgr_t telaf_fw_t:file { relabel_file_perms link manage_file_perms };
 allow telaf_devmgr_t telaf_devmgr_data_t:dir { relabel_dir_perms manage_dir_perms };
 allow telaf_devmgr_t telaf_devmgr_data_t:file { relabel_file_perms manage_file_perms mmap_rw_file_perms mmap_exec_file_perms };
 
 allow telaf_devmgr_data_t fs_t:filesystem { associate };
 
 ifdef(`sa525m',`
-    allow telaf_devmgr_t data_t:file { map };
+    allow telaf_devmgr_t telaf_fw_t:file { map };
 ')
 
 # Update daemon need to remove files during app uninstallation (telaf_admin_t also needs these permission)
@@ -273,8 +276,6 @@ allow telaf_admin_domain device_t:chr_file { manage_file_perms relabelfrom relab
 allow telaf_admin_domain device_t:dir { manage_dir_perms relabelfrom relabelto };
 allow telaf_admin_domain { devlog_t device_t }:sock_file { getattr relabelto relabelfrom write open };
 allow telaf_admin_domain { null_device_t urandom_device_t zero_device_t }:chr_file { unlink };
-seutil_manage_module_store(telaf_admin_domain)
-seutil_manage_file_contexts(telaf_admin_domain)
 
 # Context "telaf_bin_t" will be transition to "telaf_app_t" domain by default
 type telaf_app_t;
@@ -284,14 +285,18 @@ allow telaf_app_t proc_t:file read_file_perms;
 allow telaf_app_t home_root_t:dir search_dir_perms;
 allow telaf_app_t user_home_dir_t:dir search_dir_perms;
 allow telaf_app_t etc_t:file { read open lock getattr };
+
 #domtrans_pattern(unconfined_t, telaf_bin_t, telaf_app_t)
 
 # Allow to load sepolicy module
 selinux_load_policy(telaf_update_t)
 userdom_security_admin_template(telaf_update_t, system_r)
 seutil_manage_config(telaf_update_t)
+seutil_manage_module_store(telaf_update_t);
+seutil_manage_file_contexts(telaf_update_t);
 allow telaf_update_t semanage_trans_lock_t:file { getattr read lock open };
 allow telaf_update_t semanage_read_lock_t:file { getattr read lock open };
+#allow telaf_update_t file_context_t:dir { manage_dir_perms };
 
 # Relabel /dev/log, /dev/null, /dev/zero, /dev/urandom
 allow telaf_app_rw_t { device_t }:filesystem { associate };
@@ -364,6 +369,8 @@ allow telaf_admin_domain telaf_sdir_t:unix_stream_socket { connectto read write 
 allow telaf_admin_domain telaf_logd_t:unix_stream_socket { connectto read write getopt };
 allow telaf_admin_domain telaf_cfgtree_t:unix_stream_socket { connectto read write getopt };
 allow telaf_admin_domain telaf_devmgr_t:unix_stream_socket { connectto read write getopt };
+# Support putting logs to adbd_t
+allow { telaf_admin_domain telaf_app_domain telaf_core_domain } adbd_t:unix_stream_socket { connectto read write getopt getattr };
 
 allow telaf_admin_domain telaf_overlay_t:dir { search };
 
@@ -372,6 +379,10 @@ files_read_etc_files(telaf_admin_domain)
 
 # allow logging to syslog
 logging_send_syslog_msg(telaf_admin_domain)
+
+# allow logging to dlt-daemon
+mls_socket_read_to_clearance(dlt_t)
+mls_socket_write_to_clearance(dlt_t)
 
 # allow supervisor to send signal to telaf app
 allow telaf_admin_domain telaf_app_domain:process signal;
@@ -409,6 +420,8 @@ domain_kill_all_domains(telaf_admin_domain);
 selinux_load_policy(telaf_admin_t)
 userdom_security_admin_template(telaf_admin_t, system_r)
 seutil_manage_config(telaf_admin_t)
+seutil_manage_module_store(telaf_admin_t);
+seutil_manage_file_contexts(telaf_admin_t);
 allow telaf_admin_t semanage_trans_lock_t:file { getattr read lock open };
 allow telaf_admin_t semanage_read_lock_t:file { getattr read lock open };
 
@@ -454,8 +467,8 @@ allow telaf_app_domain tmpfs_t:filesystem getattr;
 allow telaf_app_domain tmpfs_t:file { read write open getattr mounton };
 allow telaf_app_domain tmpfs_t:dir { manage_dir_perms };
 allow telaf_app_domain telaf_apptmp_rw_t:sock_file { create write };
-allow telaf_app_domain telaf_apptmp_rw_t:dir { search add_name create open read write };
-allow telaf_app_domain telaf_apptmp_rw_t:file { create open read write lock };
+allow telaf_app_domain telaf_apptmp_rw_t:dir { manage_dir_perms };
+allow telaf_app_domain telaf_apptmp_rw_t:file { manage_file_perms };
 allow telaf_app_domain syslogd_t:unix_dgram_socket sendto;
 allow telaf_app_domain telaf_admin_t:fd use;
 allow telaf_app_domain telaf_sdir_t:unix_stream_socket connectto;
@@ -466,21 +479,30 @@ allow telaf_app_domain telaf_admin_t:fifo_file { read getattr write };
 allow telaf_app_domain telaf_app_bundle_t : { file dir lnk_file } *;
 allow telaf_app_domain device_t:sock_file { write };
 allow telaf_app_domain self:capability2 { block_suspend wake_alarm };
-allow telaf_app_domain self:capability { dac_override dac_read_search };
-allow telaf_app_domain self:process { signal setsched };
+allow telaf_app_domain self:capability { dac_override dac_read_search sys_nice fowner fsetid };
+allow telaf_app_domain self:process { signal setsched setfscreate  };
 allow telaf_app_domain self:fifo_file { write read };
 allow telaf_app_domain socket_device_t:dir search;
 allow telaf_app_domain default_t:file { read_file_perms };
 allow telaf_app_domain default_t:dir { search_dir_perms };
-allow telaf_app_domain self:capability { sys_nice };
 allow telaf_app_domain null_device_t:chr_file { read_file_perms };
 allow telaf_app_domain self:fd use;
 allow telaf_app_domain telaf_fw_t:file { manage_file_perms };
+
 # Manage /tmp/telaf_crash_logs
 allow telaf_app_domain tmp_t:dir { manage_dir_perms };
 allow telaf_app_domain tmp_t:file { manage_file_perms };
 allow telaf_app_domain syslogd_t:sem { read write associate unix_write };
 allow telaf_app_domain syslogd_t:shm { read unix_read associate };
+
+# Read and write core dump pattern for scripts "start" and "saveLogs"
+kernel_rw_kernel_sysctl(telaf_app_domain)
+
+# Allow kernel generate and save core dump to "/tmp/coredump"
+allow coredump_data_t tmpfs_t:filesystem { associate };
+allow data_t tmpfs_t:filesystem { associate };
+allow telaf_app_domain coredump_data_t:file { relabelfrom relabelto };
+allow telaf_app_domain data_t:file { relabelfrom relabelto };
 
 # Define core domain
 allow telaf_core_domain telaf_fw_t : dir { manage_dir_perms };
@@ -524,11 +546,8 @@ ifdef(`kirkstone',`
     allow telaf_core_domain syslogd_runtime_t:dir { search_dir_perms };
     allow telaf_core_domain init_runtime_t:dir { search_dir_perms };
     # A workaround to support .update file instsallation
+    allow telaf_update_t unconfined_t:fd { use };
     allow telaf_core_domain unconfined_t:fd { use };
-    allow telaf_admin_domain unconfined_t:fd { use };
-    allow telaf_app_domain unconfined_t:fd { use };
-    allow { telaf_admin_domain telaf_core_domain telaf_app_domain } adbd_t:unix_stream_socket { connectto read write getopt getattr };
-    allow setfiles_t adbd_t:unix_stream_socket { connectto read write getopt getattr };
 ')
 
 # Local rules

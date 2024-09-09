@@ -265,16 +265,20 @@ bool mcs_PolicyParser::Validate_DS_CR_StartWaitTime(mcs_Policy_t &Policy,
 {
     LE_DEBUG("%s", Value.c_str());
     int localInt = 0;
-    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
-    if (MCS_JSON_DATA_TYPE_NUMBER != DataType&&
-        MCS_JSON_DATA_TYPE_NULL != DataType)
+    if (MCS_JSON_DATA_TYPE_NUMBER != mcs_GetDataType(Value))
     {
         LE_WARN("Incorrect data type");
         return false;
     }
-    // Ensure the value is within the range [0, 255]
+    // Check the JSON version to be atleast 24.07.00
+    if (Policy.Version < MCS_JSON_VERSION_24_07_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+    // Ensure the value is within the range [0, TAF_MNGDCONN_MAX_CONN_RECOVERY_START_WAIT_TIME]
     localInt = std::stoi(Value);
-    if (localInt < 0 || localInt > 255)
+    if (localInt < 0 || localInt > TAF_MNGDCONN_MAX_CONN_RECOVERY_START_WAIT_TIME)
     {
         LE_WARN("Value out of range: %d", localInt);
         return false;
@@ -293,29 +297,65 @@ bool mcs_PolicyParser::Validate_DS_CR_RetryWaitTime(mcs_Policy_t &Policy,
 {
     LE_DEBUG("%s", Value.c_str());
     int localInt = 0;
-    // Check the JSON version to be atleast 24.03.00
-    if (Policy.Version < MCS_JSON_VERSION_24_06_00)
+    // Check the JSON version to be atleast 24.07.00
+    if (Policy.Version < MCS_JSON_VERSION_24_07_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
     }
 
-    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
-    if (MCS_JSON_DATA_TYPE_NUMBER != DataType &&
-        MCS_JSON_DATA_TYPE_NULL != DataType)
+    if (MCS_JSON_DATA_TYPE_NUMBER != mcs_GetDataType(Value))
     {
         LE_WARN("Incorrect data type");
         return false;
     }
-    // Ensure the value is within the range [0, UINT16_MAX]
+    // Ensure the value is within the range [0, TAF_MNGDCONN_MAX_CONN_RECOVERY_RETRY_WAIT_TIME]
     localInt = std::stoi(Value);
-    if (localInt < 0 || localInt > UINT16_MAX)
+    if (localInt < 0 || localInt > TAF_MNGDCONN_MAX_CONN_RECOVERY_RETRY_WAIT_TIME)
     {
         LE_WARN("Value out of range: %d", localInt);
         return false;
     }
     // Valid value. Update Policy.
     Policy.DataSession.ConnectivityRecovery.RetryWaitTime = static_cast<uint16_t>(localInt);
+    return true;
+}
+
+/**
+ * Validate ConnectivityRecovery:L1RadioOffOnInterval
+ */
+bool mcs_PolicyParser::Validate_DS_CR_L1RadioOffOnInterval(mcs_Policy_t &Policy,
+                                                               std::string Value,
+                                                               int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    int localInt = 0;
+
+    if (MCS_JSON_DATA_TYPE_NUMBER != mcs_GetDataType(Value))
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+
+    // Check the JSON version to be atleast 24.07.00
+    if (Policy.Version < MCS_JSON_VERSION_24_07_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+
+
+    // Ensure the value is within the range [TAF_MNGDCONN_MIN_CONN_RECOVERY_L1_OFF_ON_INTERVAL,
+    // TAF_MNGDCONN_MAX_CONN_RECOVERY_L1_OFF_ON_INTERVAL]
+    localInt = std::stoi(Value);
+    if (localInt < TAF_MNGDCONN_MIN_CONN_RECOVERY_L1_RADIO_OFF_ON_INTERVAL
+        || localInt > TAF_MNGDCONN_MAX_CONN_RECOVERY_L1_RADIO_OFF_ON_INTERVAL)
+    {
+        LE_WARN("Value out of range: %d", localInt);
+        return false;
+    }
+    // Valid value. Update Policy.
+    Policy.DataSession.ConnectivityRecovery.L1RadioOffOnInterval = static_cast<uint8_t>(localInt);
     return true;
 }
 
@@ -612,6 +652,8 @@ void mcs_PolicyParser::UpdateValidPolicyFuncMap(void)
                                                             &Validate_DS_CR_StartWaitTime;
     PolicyValidationFuncMap["DataSession:ConnectivityRecovery:RetryWaitTime"] =
                                                          &Validate_DS_CR_RetryWaitTime;
+    PolicyValidationFuncMap["DataSession:ConnectivityRecovery:L1RadioOffOnInterval"] =
+                                                         &Validate_DS_CR_L1RadioOffOnInterval;
 }
 
 /**

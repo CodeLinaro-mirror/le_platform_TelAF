@@ -47,6 +47,9 @@ void UpdateHandler
         case TAF_UPDATE_INSTALLING:
             LE_INFO("Installing %d%%", indication->percent);
             break;
+        case TAF_UPDATE_INSTALL_PAUSED:
+            LE_INFO("Install paused %d%%", indication->percent);
+            break;
         case TAF_UPDATE_INSTALL_SUCCESS:
             LE_INFO("Install success");
             break;
@@ -69,6 +72,38 @@ void ctrlUpdate_StartInstall
     if (result != LE_OK)
     {
         LE_ERROR("Fail to start install");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pause install.
+ */
+//--------------------------------------------------------------------------------------------------
+void ctrlUpdate_PauseInstall
+(
+)
+{
+    le_result_t result = taf_update_PauseInstall(sessRef);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to pause install");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pause install.
+ */
+//--------------------------------------------------------------------------------------------------
+void ctrlUpdate_ResumeInstall
+(
+)
+{
+    le_result_t result = taf_update_ResumeInstall(sessRef);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to resume install");
     }
 }
 

@@ -8,6 +8,7 @@ apps:
 {
     // Platform services.
     $TELAF_ROOT/apps/tafServices/tafDevInfoSvc
+    $TELAF_ROOT/apps/tafServices/tafVerInfoSvc
     $TELAF_ROOT/apps/tafServices/tafThermSvc
     $TELAF_ROOT/apps/tafServices/tafVoiceCallSvc
     $TELAF_ROOT/apps/tafServices/tafSimCardSvc
@@ -42,10 +43,11 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafHMSvc
     $TELAF_ROOT/apps/tafServices/tafImuSensorSvc
     // $TELAF_ROOT/apps/tafServices/tafWlanSvc
-    // $TELAF_ROOT/apps/tafServices/tafDiagBackendSvc
+
 #if ${LE_CONFIG_DIAG_VSTACK} = y
     $TELAF_ROOT/apps/tafServices/tafDiagBackendSvc
 #endif
+    $TELAF_ROOT/apps/tafServices/tafDidStoreSvc
 
     // IVSS services.
     $TELAF_ROOT/apps/ivss/service/tafIvssTelephonySvc/tafIvssTelephonySvc
@@ -63,6 +65,8 @@ apps:
     // $TELAF_ROOT/apps/test/tafSensorTest/tafSensorIntTest/tafSensorIntTest
     // $TELAF_ROOT/apps/test/tafDevInfoTest/tafDevInfoUnitTest
     // $TELAF_ROOT/apps/test/tafDevInfoTest/tafDevInfoIntTest
+    // $TELAF_ROOT/apps/test/tafVerInfoTest/tafVerInfoUnitTest
+    // $TELAF_ROOT/apps/test/tafVerInfoTest/tafVerInfoIntTest
     $TELAF_ROOT/apps/test/tafLxcInitApp/tafLxcInitApp
     // $TELAF_ROOT/apps/test/tafThermTest/tafThermUnitTest
     // $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
@@ -88,6 +92,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafMRCTest/tafMRCIntTest
     // $TELAF_ROOT/apps/test/tafECallTest/tafECallUnitTest/tafECallUnitTest
     // $TELAF_ROOT/apps/test/tafNetTest/tafNetUnitTest/tafNetUnitTest
+    // $TELAF_ROOT/apps/test/tafNetTest/tafDualNadTest/tafDualNadTest
     // $TELAF_ROOT/apps/test/tafNetTest/tafNetIntTest/tafNetIntTest
     // $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeyStoreUnitTest/tafKeyStoreUnitTest
     // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMUnitTest

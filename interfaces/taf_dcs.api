@@ -66,7 +66,7 @@
 /**
  * @page c_tafDataCallSvc Data Call Service
  *
- * @ref taf_dcs_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_dcs_interface.h>` @endrst
  *
  * <HR>
  *
@@ -88,7 +88,7 @@
  *
  * @section c_taf_dcs_start_data_call Starting a data call
  *
- * A synchronous data call can be started using taf_dcs_StartSession() with the profile 
+ * A synchronous data call can be started using taf_dcs_StartSession() with the profile
  * reference passed as parameters.
  *
  * @verbatim
@@ -124,7 +124,7 @@
  * An application can stop a synchronous data call by using taf_dcs_StopSession() and stop an
  * asynchronous data call by using taf_dcs_StopSessionAsync().
  *
- * @note When an application starts a data call using taf_dcs_StartSession() or
+ * @b NOTE: When an application starts a data call using taf_dcs_StartSession() or
  * taf_dcs_StartSessionAsync() and the application loses the connection with the data call service,
  * the data call will be automatically stopped by the data call service.
  *
@@ -793,7 +793,7 @@ HANDLER ProfileListHandler
 /**
  * Gets the data profile list.
  *
- * @note For Dual Sim-Single Active (DSSA) mode and Dual Sim-Dual Active (DSDA) mode, this API gets
+ * @b NOTE: For Dual Sim-Single Active (DSSA) mode and Dual Sim-Dual Active (DSDA) mode, this API gets
  * the data profile list with phone ID 1.
  *
  * @return
@@ -853,7 +853,7 @@ FUNCTION le_result_t GetDefaultPhoneIdAndProfileId
 /**
  * Sets the default profile index corresponding to the specified profile index.
  *
- * @note For Dual Sim-Single Active (DSSA) mode and Dual Sim-Dual Active (DSDA) mode, this API sets
+ * @b NOTE: For Dual Sim-Single Active (DSSA) mode and Dual Sim-Dual Active (DSDA) mode, this API sets
  * the data profile with default phone ID 1.
  *
  * @return
@@ -885,7 +885,7 @@ FUNCTION le_result_t SetDefaultProfileIndexEx
 /**
  * Gets the profile reference for the given profile index.
  *
- * @note For Dual Sim-Single Active (DSSA) mode and Dual Sim-Dual Active (DSDA) mode, this API gets
+ * @b NOTE: For Dual Sim-Single Active (DSSA) mode and Dual Sim-Dual Active (DSDA) mode, this API gets
  * the profile reference with phone ID 1.
  *
  * @return
@@ -1011,10 +1011,10 @@ FUNCTION le_result_t SetPDP
  * Gets the data profile PDP type.
  *
  * @return
- *  - AF_DCS_PDP_UNKNOWN -- Unknown.
- *  - AF_DCS_PDP_IPV4 -- IPV4.
- *  - AF_DCS_PDP_IPV6 -- IPV6.
- *  - AF_DCS_PDP_IPV4V6 -- IPV4 and IPV6.
+ *  - TAF_DCS_PDP_UNKNOWN -- Unknown.
+ *  - TAF_DCS_PDP_IPV4 -- IPV4.
+ *  - TAF_DCS_PDP_IPV6 -- IPV6.
+ *  - TAF_DCS_PDP_IPV4V6 -- IPV4 and IPV6.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Pdp GetPDP
@@ -1089,4 +1089,35 @@ FUNCTION le_result_t GetPhoneIdByInterfaceName
     string        ifName[NAME_MAX_LEN]      IN,  ///< The interface name.
     uint8         phoneId                   OUT  ///< The phone ID.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the connected data session IPv6 mask.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIPv6SubnetMask
+(
+    Profile profileRef                      IN, ///< The profile reference.
+    uint32  mask                            OUT ///< The IPv6 mask.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the connected data session IPv4 mask.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIPv4SubnetMask
+(
+    Profile profileRef                      IN, ///< The profile reference.
+    uint32  mask                            OUT ///< The IPv4 mask.
+);
+
 

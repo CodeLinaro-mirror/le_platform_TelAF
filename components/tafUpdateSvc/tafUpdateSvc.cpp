@@ -616,6 +616,96 @@ le_result_t taf_update_StartInstall
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Pauses installation.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_UNSUPPORTED   Unsupported.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_PauseInstall
+(
+    taf_update_SessionRef_t sessionRef ///< [IN] Installation session reference.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+
+    taf_UpdateReq_t updateReq;
+
+    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
+        sessionRef);
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+
+    switch (sessPtr->sessType)
+    {
+        case TAF_UPDATE_SESSION_TYPE_PLUGIN_UPDATE:
+            TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr == NULL, LE_UNSUPPORTED,
+                "Please install UA module.");
+
+            TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr->pauseInstall == NULL, LE_UNSUPPORTED,
+                "UA plug-in pause install function is not supported.");
+
+            updateReq.event = TAF_UPDATE_INST_PAUSE;
+            updateReq.sessPtr = &sessPtr->upiSess;
+            le_event_Report(tafUpdate.updatePiEvId, &updateReq, sizeof(taf_UpdateReq_t));
+            break;
+        default:
+            LE_ERROR("Unsupported session type (%d) for installation.", sessPtr->sessType);
+            return LE_UNSUPPORTED;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resumes installation.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_UNSUPPORTED   Unsupported.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_ResumeInstall
+(
+    taf_update_SessionRef_t sessionRef ///< [IN] Installation session reference.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+
+    taf_UpdateReq_t updateReq;
+
+    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
+        sessionRef);
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+
+    switch (sessPtr->sessType)
+    {
+        case TAF_UPDATE_SESSION_TYPE_PLUGIN_UPDATE:
+            TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr == NULL, LE_UNSUPPORTED,
+                "Please install UA module.");
+
+            TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr->resumeInstall == NULL, LE_UNSUPPORTED,
+                "UA plug-in resume install function is not supported.");
+
+            updateReq.event = TAF_UPDATE_INST_RESUME;
+            updateReq.sessPtr = &sessPtr->upiSess;
+            le_event_Report(tafUpdate.updatePiEvId, &updateReq, sizeof(taf_UpdateReq_t));
+            break;
+        default:
+            LE_ERROR("Unsupported session type (%d) for installation.", sessPtr->sessType);
+            return LE_UNSUPPORTED;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Installation post check.
  *
  * @return

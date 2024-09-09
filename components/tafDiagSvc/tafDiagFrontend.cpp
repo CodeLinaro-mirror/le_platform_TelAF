@@ -1,50 +1,25 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
 #include "interfaces.h"
-#include "tafDiagBackend.hpp"
 #include "tafDataIDSvr.hpp"
 #include "tafSecuritySvr.hpp"
+#include "tafDiagBackend.hpp"
 
 #ifndef LE_CONFIG_DIAG_VSTACK
 #include "tafRoutineCtrlSvr.hpp"
 #include "tafResetSvr.hpp"
 #include "tafUpdateSvr.hpp"
+#include "tafIOCtrlSvr.hpp"
 #include "tafEventSvr.hpp"
+#include "tafSnapshotSvc.hpp"
 #include "configuration.hpp"
 #include "tafDTCInf.hpp"
+#include "tafDTCSvr.hpp"
+#include "tafDiagDoIPSvr.hpp"
 #endif
 
 using namespace telux::tafsvc;
@@ -56,6 +31,7 @@ using namespace telux::tafsvc;
 //--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
+
     LE_INFO("TelAF UDS DataID service initialization start...");
     auto& did = taf_DataIDSvr::GetInstance();
     did.Init();
@@ -76,6 +52,8 @@ COMPONENT_INIT
         LE_FATAL("json file is not present");
     }
 
+    taf_DataAccess_Init();
+
     LE_INFO("TelAF UDS routine conctrol service initialization start...");
     auto& tafRCS = taf_RoutinCtrlSvr::GetInstance();
     tafRCS.Init();
@@ -95,14 +73,49 @@ COMPONENT_INIT
     event.Init();
     LE_INFO("TelAF Event Management service initialization end...");
 
+    LE_INFO("TelAF DTC service initialization start...");
+    auto& dtcSvc = taf_DTCSvr::GetInstance();
+    dtcSvc.Init();
+    LE_INFO("TelAF DTC service initialization end...");
+
     LE_INFO("TelAF UDS DTC interface initialization start...");
     auto& dtcInf = taf_DTCInf::GetInstance();
     dtcInf.Init();
     LE_INFO("TelAF UDS DTC interface initialization end...");
 
+    LE_INFO("TelAF Snapshot service initialization start...");
+    auto& snapshot = taf_SnapshotSvr::GetInstance();
+    snapshot.Init();
+    LE_INFO("TelAF Snapshot service initialization end...");
+
+    LE_INFO("TelAF DoIP service initialization start...");
+    auto& doipSvc = taf_DiagDoIPSvr::GetInstance();
+    doipSvc.Init();
+    LE_INFO("TelAF DoIP service initialization end...");
+
+    LE_INFO("TelAF IOCtrl service initialization start...");
+    auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
+    ioCtrl.Init();
+    LE_INFO("TelAF IOCtrl service initialization end...");
+
     LE_INFO("TelAF Diag Backend initialization start...");
     auto& tafBackend = taf_DiagBackend::GetInstance();
     tafBackend.Init();
     LE_INFO("TelAF Diag Backend initialization end...");
+
 #endif
+    // Add boot KPI marker
+    const char *kpi_file = "/sys/kernel/boot_kpi/kpi_values";
+    const char *kpi_marker = "L - TelAF diagnostic service is ready";
+    FILE *file = fopen(kpi_file, "w");
+    if (file == NULL)
+    {
+        LE_ERROR("%s does not exist", kpi_file);
+        return;
+    }
+    if (fwrite(kpi_marker, sizeof(char), strlen(kpi_marker), file) != strlen(kpi_marker))
+    {
+        LE_ERROR("failed to write %s to %s", kpi_marker, kpi_file);
+    }
+    fclose(file);
 }

@@ -67,7 +67,7 @@
 /**
  * @page c_tafSimRsp Remote SIM Profile
  *
- * @ref taf_simRsp_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_simRsp_interface.h>` @endrst
  *
  * <HR>
  *

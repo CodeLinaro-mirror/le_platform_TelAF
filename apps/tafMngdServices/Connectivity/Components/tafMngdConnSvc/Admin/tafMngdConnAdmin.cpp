@@ -509,6 +509,29 @@ le_result_t tafMngdConnAdmin::GetDataNameByRef(taf_mngdConn_DataRef_t dataRef,
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  Gets the data profile number for the given data reference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnAdmin::GetProfileNumberByRef(taf_mngdConn_DataRef_t dataRef,
+                                                    uint8_t *dataProfileNumberPtr)
+{
+    TAF_ERROR_IF_RET_VAL(dataRef == NULL, LE_BAD_PARAMETER, "Null ptr(dataRef)");
+    TAF_ERROR_IF_RET_VAL(dataProfileNumberPtr == NULL, LE_BAD_PARAMETER,
+                                                            "Null ptr(dataProfileNumberPtr)");
+    mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)le_ref_Lookup(DataRefMap, (void *)dataRef);
+    if (dataCtxPtr == NULL)
+    {
+        LE_ERROR("Data reference not found");
+        *dataProfileNumberPtr = 0;
+        return LE_NOT_FOUND;
+    }
+    *dataProfileNumberPtr = static_cast<uint8_t>(dataCtxPtr->profileNumber);
+    LE_INFO("Profile number: %d", *dataProfileNumberPtr);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add data state handler.
  */
 //--------------------------------------------------------------------------------------------------
@@ -570,6 +593,16 @@ le_result_t tafMngdConnAdmin::Startdata(taf_mngdConn_DataRef_t dataRef)
         return LE_FAULT;
     }
 
+    std::string state = StateToString(dataCtxPtr->adminState);
+    LE_DEBUG("State is %s", state.c_str());
+    //Do action according to the current state.
+    if( MCS_DATA_CONNECTED_INACTIVE_RETRYING == dataCtxPtr->adminState ||
+        MCS_DATA_NOT_CONNECTED_RETRYING == dataCtxPtr->adminState )
+    {
+        LE_INFO("Retry is in progress");
+        return LE_IN_PROGRESS;
+    }
+
     stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT,0};
     stateMachineEvt.event = MCS_EVT_DATA_START_SYNC;
     stateMachineEvt.dataId=dataCtxPtr->dataId;
@@ -617,6 +650,13 @@ le_result_t tafMngdConnAdmin::Stopdata(taf_mngdConn_DataRef_t dataRef)
     {
         LE_ERROR("Json is needed");
         return LE_FAULT;
+    }
+    // Check if a data start connection test is in progress and if it return LE_NOT_POSSIBLE. The
+    // application can try again after a delay, typicaly 5s.
+    if (dataCtxPtr->isDStartConnTestInProgress)
+    {
+        LE_WARN("Data start connection test is in progress.");
+        return LE_NOT_POSSIBLE;
     }
 
     // Remove this client from the list of clients that have requested data start.
@@ -1099,6 +1139,7 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
         case MCS_DATA_NOT_CONNECTED_RETRYING:
         case MCS_DATA_NOT_CONNECTED_NW_REGISTERED:
         case MCS_DATA_NOT_CONNECTED:
+        case MCS_DATA_NOT_CONNECTED_FAILED:
         case MCS_RECOVERY_CANCELED_L1:
         case MCS_RECOVERY_CANCELED_L2:
 
@@ -1136,6 +1177,42 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Return the back off time interval
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t tafMngdConnAdmin::CalculateBackOffInterval(uint16_t IntervalInSec,
+                                                    uint8_t step,
+                                                    uint8_t retryCount)
+{
+    LE_INFO("Interval    : %d sec", IntervalInSec);
+    LE_INFO("Step        : %d", step);
+    LE_INFO("Retry Count : %d", retryCount);
+    uint32_t intervalInMilliSec = 0;
+    if (1 == step || 1 == retryCount)
+    {
+        // Interval is always the same
+        intervalInMilliSec = IntervalInSec * 1000;
+    }
+    else if (2 ==step)
+    {
+        if (2 == retryCount)
+            intervalInMilliSec = 60 * 1000;
+        else if (3 == retryCount)
+            intervalInMilliSec = 120 * 1000;
+        else if (4 == retryCount)
+            intervalInMilliSec = 240 * 1000;
+        else if (5 == retryCount)
+            intervalInMilliSec = 480 * 1000;
+        else
+            intervalInMilliSec = 480 * 1000;
+    }
+
+    LE_INFO("Back off interval = %d ms", intervalInMilliSec);
+    return intervalInMilliSec;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handle the event MCS_EVT_DATA_START_RETRY
  * When this event is received, it means that data start failed or data disconnected after it was
  * started. From here, a retry timer will be started, with appropriate back-off.
@@ -1159,6 +1236,13 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
     {
         LE_ERROR("Data retry disabled.");
         dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_FAILED;
+        //Since the data connection has failed remove all the clients
+        if(!dataCtxPtr->clients.empty() &&
+            MCS_CONNECTIONRECOVERY_LEVEL_NONE == Policy.DataSession.ConnectivityRecovery.Level)
+        {
+            LE_INFO("Connection Failed. Clear all clients for Data ID: %d", dataCtxPtr->dataId);
+            dataCtxPtr->clients.clear();
+        }
         ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTION_FAILED);
         return LE_NOT_POSSIBLE;
     }
@@ -1177,6 +1261,13 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
         // It is not possible to proceed with the retry mechanism
         LE_ERROR("Data retry count exceeded. Data connection FAILED.");
         dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_FAILED;
+        //Since the data connection has failed remove all the clients
+        if(!dataCtxPtr->clients.empty() &&
+            MCS_CONNECTIONRECOVERY_LEVEL_NONE == Policy.DataSession.ConnectivityRecovery.Level)
+        {
+	    LE_INFO("Connection Failed. Clear all clients for Data ID: %d", dataCtxPtr->dataId);
+            dataCtxPtr->clients.clear();
+        }
         ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTION_FAILED);
         return LE_NOT_POSSIBLE;
     }
@@ -1188,33 +1279,10 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
     dataCtxPtr->dataStartRetryCount = (dataCtxPtr->dataStartRetryCount) + 1;
 
     // Set the retry count back off period
-    switch (dataCtxPtr->dataStartRetryCount)
-    {
-        case 1:
-            le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
-                                                                MCS_RETRY_INTERVAL_1);
-            break;
-        case 2:
-            le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
-                                                                MCS_RETRY_INTERVAL_2);
-            break;
-        case 3:
-            le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
-                                                                MCS_RETRY_INTERVAL_3);
-            break;
-        case 4:
-            le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
-                                                                MCS_RETRY_INTERVAL_4);
-            break;
-        case 5:
-            le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
-                                                                MCS_RETRY_INTERVAL_LAST);
-            break;
-        default:
-            le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
-                                                                MCS_RETRY_INTERVAL_LAST);
-            break;
-    };
+    le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
+                           CalculateBackOffInterval(dataCtxPtr->dataRetryBackoffIntervalInSec,
+                                                    dataCtxPtr->dataRetryBackoffIntervalStep,
+                                                    dataCtxPtr->dataStartRetryCount));
 
     // Start the data start retry timer
     le_timer_Start(dataCtxPtr->dataStartRetryTimerRef);
@@ -1317,6 +1385,15 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
                     dataCtxPtr->dataConnTestFailedRetryCount = 0;
                     LE_ERROR("Data retry count exceeded. Data connection FAILED.");
                     dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_FAILED;
+                    //Since the data connection has failed remove all the clients
+                    if(!dataCtxPtr->clients.empty() &&
+                        MCS_CONNECTIONRECOVERY_LEVEL_NONE ==
+                        Policy.DataSession.ConnectivityRecovery.Level)
+                    {
+                        LE_INFO("Connection Failed. Clear all clients for Data ID: %d",
+                                dataCtxPtr->dataId);
+                        dataCtxPtr->clients.clear();
+                    }
                     ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTION_FAILED);
                     return LE_NOT_POSSIBLE;
                 }
@@ -2113,7 +2190,7 @@ tafMngdConnAdmin::CreateDataCtx(
     uint8_t dataId,
     uint8_t slotId,
     uint8_t phoneId,
-    uint32_t profileNumber,
+    uint8_t profileNumber,
     char dataName[MCS_MAX_NAME_LEN],
     bool autoStart,
     char *conn_test_url,
@@ -2141,6 +2218,7 @@ tafMngdConnAdmin::CreateDataCtx(
     dataCtxPtr->dataConnTestFailedRetryCount = 0;
     dataCtxPtr->isConnectivityRecoveryScheduled = false;
     dataCtxPtr->wasL1ConnectivityRecoveryDone = false;
+    dataCtxPtr->isDStartConnTestInProgress = false;
 
     if(conn_test_url != NULL)
     {
@@ -2571,6 +2649,11 @@ le_result_t tafMngdConnAdmin::InitializeStates()
 
             dataCtxPtr->maxdataRetryCount = Configuration.Data[dataIdx].DataStartRetry.RetryCount;
             dataCtxPtr->dataRetry = Configuration.Data[dataIdx].DataStartRetry.Enable;
+            // JSON has backoff interval in seconds. Convert it to milliseconds
+            dataCtxPtr->dataRetryBackoffIntervalInSec =
+                                        Configuration.Data[dataIdx].DataStartRetry.BackoffInterval;
+            dataCtxPtr->dataRetryBackoffIntervalStep =
+                                    Configuration.Data[dataIdx].DataStartRetry.BackoffIntervalStep;
 
             if(Configuration.Data[dataIdx].PeriodicConnectivityCheck.URL[0] != '\0')
             {
@@ -2811,6 +2894,8 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
 
     if(!url.empty())
     {
+        // Set data start connection test in progress to true
+        dataCtxPtr->isDStartConnTestInProgress = true;
         if(DataConnectivityTest_URL(url , interfaceName))
         {
             //connection is created.
@@ -2838,9 +2923,13 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
             stateMachineEvt.dataId=dataCtxPtr->dataId;
             le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
         }
+        // Set data start connection test in progress to false
+        dataCtxPtr->isDStartConnTestInProgress = false;
     }
     else if(!ipv4add.empty())
     {
+        // Set data start connection test in progress to true
+        dataCtxPtr->isDStartConnTestInProgress = true;
         if(DataConnectivityTest_IPv4(ipv4add , interfaceName))
         {
             //connection is created.
@@ -2861,6 +2950,8 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
             stateMachineEvt.dataId=dataCtxPtr->dataId;
             le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
         }
+        // Set data start connection test in progress to false
+        dataCtxPtr->isDStartConnTestInProgress = false;
     }
     //If both url and ipaddr is null
     else
@@ -2979,12 +3070,13 @@ bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4, std::string i
         std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+  ipv4
                                   + " 1> /dev/null 2> /dev/null";
     #endif
+    LE_DEBUG("%s", pingCommand.c_str());
     int result = system(pingCommand.c_str());
 
-    if(result == 0)
+    if (result == 0)
     {
-        //connection is created.
-        LE_INFO("DataConnectivityTest_IPv4 passed for interface %s",interfaceName.c_str());
+        // connection is created.
+        LE_INFO("DataConnectivityTest_IPv4 passed for interface %s", interfaceName.c_str());
         return true;
     }
     else
@@ -3295,7 +3387,9 @@ void tafMngdConnAdmin::EventL1ConnRecoveryStart(uint8_t dataId)
         LE_WARN ("Radio power off failed: %d", result);
     }
     LE_INFO("Radio turned off");
-    sleep(MCS_L1_RECOVERY_RADIO_OFF_TIME);
+    LE_INFO("Wait %ds before turning radio back on.",
+                                   Policy.DataSession.ConnectivityRecovery.L1RadioOffOnInterval);
+    sleep(Policy.DataSession.ConnectivityRecovery.L1RadioOffOnInterval);
     result = radio.PowerOn(dataCtxPtr->phoneId);
     if (LE_OK != result)
     {
@@ -3705,6 +3799,8 @@ const char * tafMngdConnAdmin::StateToString(mcs_Admin_State_t state)
             return "MCS_DATA_NOT_CONNECTED";
         case MCS_DATA_NOT_CONNECTED_RETRYING:
             return "MCS_DATA_NOT_CONNECTED_RETRYING";
+        case MCS_DATA_NOT_CONNECTED_FAILED:
+            return "MCS_DATA_NOT_CONNECTED_FAILED";
         case MCS_DATA_CONNECTED_ACTIVE:
             return "MCS_DATA_CONNECTED_ACTIVE";
         case MCS_DATA_CONNECTED_INACTIVE:

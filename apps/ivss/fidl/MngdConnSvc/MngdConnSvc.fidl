@@ -10,10 +10,18 @@ interface MngdConnSvc
 {
     version { major 0 minor 1 }
 
-    <** @description: Maximum number of data in the system **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Maximum number of data in the system.
+    */
+    //----------------------------------------------------------------------------------------------
     const UInt8 MAX_DATA_NUM = 4
 
-    <** @description: The data state. **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * The data state.
+    */
+    //----------------------------------------------------------------------------------------------
     enumeration DataState
     {
         DATA_DISCONNECTED       ///< Transition state to CONNECTED or FAILED.
@@ -22,7 +30,21 @@ interface MngdConnSvc
         DATA_CONNECTION_STALLED ///< Transition state to CONNECTED or DISCONNECTED.
     }
 
-    <** @description: Starts a data session for the given data name. **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Starts a data session for the given data name. This API should be used when the value of
+    * "AutoStart" is "No" in the configuration file.
+    *
+    * The service tracks clients that call StartData for Data objects with AutoStart:No and is used
+    * to manage StopData behavior.
+    *
+    * @return
+    *   - OK -- Succeeded.
+    *   - DUPLICATE -- The data connection is already started.
+    *   - IN_PROGRESS -- The data connection establishment retry is in progress.
+    *   - Appropriate error is returned on failure.
+    */
+    //----------------------------------------------------------------------------------------------
     method StartData
     {
         in
@@ -32,7 +54,22 @@ interface MngdConnSvc
         error Result            ///< return result.
     }
 
-    <** @description: Stops a data cellular session for the given name. **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Stops a data cellular session for the given data name.
+    *
+    * Data will be stopped only when all clients that have called StartData for data objects with
+    * AutoStart:No either stop data or exit.
+    *
+    * @return
+    *   - OK -- Succeeded.
+    *   - NOT_PERMITTED -- If data is auto started by the service, application cannot stop data.
+    *   - NOT_POSSIBLE  -- If data start connection test is enabled and it is in progress,
+    *                      NOT_POSSIBLE is returned. Applications can retry StopData after an
+    *                      appropriate delay. Data start connection test is either curl or 5 ping.
+    *   - Appropriate error is returned on failure.
+    */
+    //----------------------------------------------------------------------------------------------
     method StopData
     {
         in
@@ -42,7 +79,14 @@ interface MngdConnSvc
         error Result            ///< return result.
     }
 
-    <** @description: Gets connection state information for all currently running datas. **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Gets connection state information for all currently running datas.
+    *
+    * @return
+    *   - OK -- Succeeded.
+    */
+    //----------------------------------------------------------------------------------------------
     method GetDataList
     {
         out
@@ -54,7 +98,11 @@ interface MngdConnSvc
         error Result                            ///< return result.
     }
 
-    <** @description: Events to report data state.  **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Events to report data state.
+    */
+    //----------------------------------------------------------------------------------------------
     broadcast DataState
     {
         out

@@ -36,7 +36,7 @@
 /**
  * @page c_tafDiagDataID Diag Data ID Service
  *
- * @ref taf_diagDataID_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_diagDataID_interface.h>` @endrst
  *
  * <HR>
  *
@@ -88,19 +88,19 @@
    // Rx message handler function.
    void RxReadDIDHandler
    (
-        taf_diagDataID_RxReadDIDMsgRef_t rxReadMsgRef,
-        const uint16_t* dataIdPtr,
-        size_t dataIdSize,
-        void* contextPtr
+       taf_diagDataID_RxReadDIDMsgRef_t rxReadMsgRef,
+       const uint16_t* dataIdPtr,
+       size_t dataIdSize,
+       void* contextPtr
    )
    {
-        // Process after succesfully receiving message
+       // Process after succesfully receiving message
    }
 
    // Register the message handler.
    taf_diagDataID_RxReadDIDMsgHandlerRef_t RxReadDIDMsgHandlerRef =
        taf_diagDataID_AddRxReadDIDMsgHandler(SvcRef,
-            (taf_diagDataID_RxReadDIDMsgHandlerFunc_t)RxReadDIDHandler, NULL);
+          (taf_diagDataID_RxReadDIDMsgHandlerFunc_t)RxReadDIDHandler, NULL);
    LE_ASSERT(RxReadDIDMsgHandlerRef != NULL);
 
    // To remove the handler function, when it is not needed.
@@ -109,11 +109,11 @@
    // To send ReadDataByIdentifier response.
    uint8_t data[TAF_DIAGDATAID_MAX_READ_DID_PAYLOAD_SIZE];
    le_result_t result = taf_diagDataID_SendReadDIDResp(rxReadMsgRef,
-            TAF_DIAGDATAID_READ_DID_NO_ERROR, data, sizeof(data));
+           TAF_DIAGDATAID_READ_DID_NO_ERROR, data, sizeof(data));
    if (result != LE_OK)
    {
-      LE_ERROR("Fail to send response.");
-      return result;
+       LE_ERROR("Fail to send response.");
+       return result;
    }
    @endcode
  *
@@ -131,18 +131,18 @@
    // Rx message handler function.
    void RxWriteDIDHandler
    (
-        taf_diagDataID_RxWriteDIDMsgRef_t rxWriteMsgRef,
-        uint16_t dataId,
-        void* contextPtr
+       taf_diagDataID_RxWriteDIDMsgRef_t rxWriteMsgRef,
+       uint16_t dataId,
+       void* contextPtr
    )
    {
-        // Process after succesfully receiving message
+       // Process after succesfully receiving message
    }
 
    // Register the message handler.
    taf_diagDataID_RxWriteDIDMsgHandlerRef_t RxWriteDIDMsgHandlerRef =
        taf_diagDataID_AddRxWriteDIDMsgHandler(SvcRef,
-            (taf_diagDataID_RxWriteDIDMsgHandlerFunc_t)RxWriteDIDHandler, NULL);
+           (taf_diagDataID_RxWriteDIDMsgHandlerFunc_t)RxWriteDIDHandler, NULL);
    LE_ASSERT(RxWriteDIDMsgHandlerRef != NULL);
 
    // To remove the handler function, when it is not needed.
@@ -153,11 +153,11 @@
 
    // To send WriteDataByIdentifier response.
    le_result_t result = taf_diagDataID_SendWriteDIDResp(rxWriteMsgRef,
-            TAF_DIAGDATAID_WRITE_DID_NO_ERROR, dataId);
+           TAF_DIAGDATAID_WRITE_DID_NO_ERROR, dataId);
    if (result != LE_OK)
    {
-      LE_ERROR("Fail to send response.");
-      return result;
+       LE_ERROR("Fail to send response.");
+       return result;
    }
    @endcode
  *
@@ -205,8 +205,8 @@ ENUM ReadDIDErrorCode
 {
     READ_DID_NO_ERROR = 0,
     READ_DID_RESPONSE_TOO_LONG = 0x14,
-    READ_DID_CONDITIONS_NOT_CORRECT = 0x22,
-    READ_DID_REQUEST_OUT_OF_RANGE = 0x31
+    READ_DID_BUSY_REPEAT_REQ = 0x21,
+    READ_DID_CONDITIONS_NOT_CORRECT = 0x22
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -217,8 +217,8 @@ ENUM ReadDIDErrorCode
 ENUM WriteDIDErrorCode
 {
     WRITE_DID_NO_ERROR = 0,
+    WRITE_DID_BUSY_REPEAT_REQ = 0x21,
     WRITE_DID_CONDITIONS_NOT_CORRECT = 0x22,
-    WRITE_DID_REQUEST_OUT_OF_RANGE = 0x31,
     WRITE_DID_GENERAL_PROGRAMMING_FAILURE = 0x72
 };
 
@@ -251,7 +251,7 @@ REFERENCE RxWriteDIDMsg;
  *     - Reference to the service instance.
  *     - NULL if not allowed to create the service.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
@@ -284,7 +284,7 @@ EVENT RxReadDIDMsg
 /**
  * Sends a response message for the received ReadDID message.
  *
- * @note This function must be called to send a response if receiving a message.
+ * @b NOTE: This function must be called to send a response if receiving a message.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -292,13 +292,13 @@ EVENT RxReadDIDMsg
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendReadDIDResp
 (
     RxReadDIDMsg rxMsgRef  IN,                   ///< Received message reference.
-    ReadDIDErrorCode errCode  IN,                ///< Error code type.
+    uint8 errCode  IN,                           ///< Error code type.
     uint8 data[MAX_READ_DID_PAYLOAD_SIZE]  IN    ///< Data payload.
 );
 
@@ -333,7 +333,7 @@ EVENT RxWriteDIDMsg
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetWriteDataRecord
@@ -346,7 +346,7 @@ FUNCTION le_result_t GetWriteDataRecord
 /**
  * Sends a response message for the received WriteDID message.
  *
- * @note This function must be called to send a response if receiving a message.
+ * @b NOTE: This function must be called to send a response if receiving a message.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -354,13 +354,13 @@ FUNCTION le_result_t GetWriteDataRecord
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
- * @note The process exits if an invalid reference is passed.
+ * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendWriteDIDResp
 (
     RxWriteDIDMsg rxMsgRef  IN,       ///< Received message reference.
-    WriteDIDErrorCode errCode  IN,    ///< Error code type.
+    uint8 errCode  IN,                ///< Error code type.
     uint16 dataId  IN                 ///< data identifier.
 );
 

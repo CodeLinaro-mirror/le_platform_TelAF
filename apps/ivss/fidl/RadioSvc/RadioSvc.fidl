@@ -10,17 +10,28 @@ interface RadioSvc
 {
     version { major 0 minor 1 }
 
-    <** @description: RAT bitmask **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * RAT bitmask.
+    */
+    //----------------------------------------------------------------------------------------------
     typedef RatBitMask is UInt32
-    const UInt32 RAT_BIT_MASK_GSM = 0x1         /// GSM bitmask.
-    const UInt32 RAT_BIT_MASK_UMTS = 0x2        /// UMTS bitmask.
-    const UInt32 RAT_BIT_MASK_CDMA = 0x4        /// CDMA bitmask.
-    const UInt32 RAT_BIT_MASK_TDSCDMA = 0x8     /// TDSCDMA bitmask.
-    const UInt32 RAT_BIT_MASK_LTE = 0x10        /// LTE bitmask.
-    const UInt32 RAT_BIT_MASK_NR5G = 0x20       /// NR5G bitmask.
-    const UInt32 RAT_BIT_MASK_ALL = 0x40        /// All RAT bitmask.
+    enumeration RatBitMaskValue
+    {
+        RAT_BIT_MASK_GSM = 0x00000001       /// GSM bitmask.
+        RAT_BIT_MASK_UMTS = 0x00000002      /// UMTS bitmask.
+        RAT_BIT_MASK_CDMA = 0x00000004      /// CDMA bitmask.
+        RAT_BIT_MASK_TDSCDMA = 0x00000008   /// TDSCDMA bitmask.
+        RAT_BIT_MASK_LTE = 0x0000010        /// LTE bitmask.
+        RAT_BIT_MASK_NR5G = 0x0000020       /// NR5G bitmask.
+        RAT_BIT_MASK_ALL = 0x0000040        /// All RAT bitmask.
+    }
 
-    <** @description: Type to represent different RATs supported by the system **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Type to represent different RATs supported by the system.
+    */
+    //----------------------------------------------------------------------------------------------
     enumeration Rat
     {
         RAT_UNKNOWN ///< Unknown RAT.
@@ -39,7 +50,11 @@ interface RadioSvc
         RAT_NR5G    ///< NR5G - New Radio 5G.
     }
 
-    <** @description: Network registration state **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Network registration state.
+    */
+    //----------------------------------------------------------------------------------------------
     enumeration NetRegState
     {
         NET_REG_STATE_NONE                      ///< Not registered and not searching.
@@ -51,7 +66,11 @@ interface RadioSvc
         NET_REG_STATE_EMERGENCY_AVAILABLE       ///< Not registered and not searching,
     }
 
-    <** @description: DCNR(Dual Connectivity with NR) Restriction status on 5G NR **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * DCNR(Dual Connectivity with NR) Restriction status on 5G NR.
+    */
+    //----------------------------------------------------------------------------------------------
     enumeration NRDcnrRestriction
     {
         NR_DCNR_UNKNOWN         ///< NR DCNR Status unknown.
@@ -59,7 +78,11 @@ interface RadioSvc
         NR_DCNR_UNRESTRICTED    ///< NR DCNR is not Restricted
     }
 
-    <** @description: Radio status enum **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Radio status enum.
+    */
+    //----------------------------------------------------------------------------------------------
     enumeration States
     {
         OFF             ///< Radio explictly powered off
@@ -67,7 +90,11 @@ interface RadioSvc
         ON              ///< Radio is on
     }
 
-    <** @description: Cell Info change status enum **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Cell Info change status enum.
+    */
+    //----------------------------------------------------------------------------------------------
     enumeration CellInfoStatus
     {
         CELL_SERVING_CHANGED                    ///< Serving Cell info changed.
@@ -75,7 +102,11 @@ interface RadioSvc
         CELL_SERVING_AND_NEIGHBOR_CHANGED       ///< Serving and neighbor changed.
     }
 
-    <** @description: Signal type enum **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Signal type enum.
+    */
+    //----------------------------------------------------------------------------------------------
     enumeration SigType
     {
         SIG_TYPE_GSM_RSSI           ///< GSM Received Signal Strength Indicator.
@@ -84,21 +115,33 @@ interface RadioSvc
         SIG_TYPE_NR5G_RSRP          ///< NR5G Reference Signal Receiving Power.
     }
 
-    <** @description: Signal strength indication type enum **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Signal strength indication type enum.
+    */
+    //----------------------------------------------------------------------------------------------
     enumeration SigIndicationType
     {
         SIG_THRESHOLD       ///< Report signal strength based on threshold.
         SIG_DELTA           ///< Report signal strength based on delta.
     }
 
-    <** @description: GSM signal metrics. **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * GSM signal metrics.
+    */
+    //----------------------------------------------------------------------------------------------
     struct GsmSignalMetrics
     {
         Int32 rssi      ///< Received signal strength indicator in dBm.
         UInt32 ber      ///< Bit error rate, valid from 0 to 7.
     }
 
-    <** @description: Umts signal metrics. **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Umts signal metrics.
+    */
+    //----------------------------------------------------------------------------------------------
     struct UmtsSignalMetrics
     {
         Int32 ss        ///< Signal strength in dBm.
@@ -106,7 +149,11 @@ interface RadioSvc
         Int32 rscp      ///< Receive signal channel power in dBm.
     }
 
-    <** @description: Lte signal metrics. **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Lte signal metrics.
+    */
+    //----------------------------------------------------------------------------------------------
     struct LteSignalMetrics
     {
         Int32 ss        ///< Signal strength in dBm.
@@ -115,7 +162,11 @@ interface RadioSvc
         Int32 snr       ///< Signal-to-noise ratio in units of 0.1 dB.
     }
 
-    <** @description: Nr5g signal metrics. **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Nr5g signal metrics.
+    */
+    //----------------------------------------------------------------------------------------------
     struct Nr5gSignalMetrics
     {
         Int32 rsrq      ///< Reference Signal Receive Quality in dB.
@@ -123,7 +174,12 @@ interface RadioSvc
         Int32 snr       ///< Signal-to-Noise Ratio in units of 0.1 dB.
     }
 
-    <** @description: Signal strength indication structure. **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Signal strength indication structure.
+    * -- Sets signal strength reporting criteria. Either threshold or delta can be set at a time.
+    */
+    //----------------------------------------------------------------------------------------------
     struct SigStrengthIndication
     {
         SigIndicationType type          ///< Use threshold or delta as the indication.
@@ -133,6 +189,14 @@ interface RadioSvc
     }
 
     <** @description: Signal strength reporting hysteresis structure. **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Signal strength reporting hysteresis structure.
+    * -- Sets the optional parameters for signal strength reporting criteria. Hysteresis threshold
+    *    is applicable only when threshold is set. Hysteresis timer is applicable for both threshold
+    *    and delta
+    */
+    //----------------------------------------------------------------------------------------------
     struct SigStrengthHysteresis
     {
         Boolean setThreshold        ///< True if set a hysteresis threshold, false if not.
@@ -141,7 +205,11 @@ interface RadioSvc
         UInt16 timer                ///< Hysteresis time in milliseconds, to all RATs.
     }
 
-    <** @description: Signal metrics for each rat **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Signal metrics for each rat.
+    */
+    //----------------------------------------------------------------------------------------------
     union SignalMetrics
     {
         GsmSignalMetrics gsm        ///< GSM signal metrics.
@@ -150,7 +218,16 @@ interface RadioSvc
         Nr5gSignalMetrics nr5g      ///< Nr5g signal metrics.
     }
 
-    <** @description: Set power state of the Radio **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Sets the radio power state.
+    *
+    * @return
+    *  - BAD_PARAMETER -- Bad parameters.
+    *  - FAULT -- Failed.
+    *  - OK -- Succeeded.
+    */
+    //----------------------------------------------------------------------------------------------
     method SetRadioPower
     {
         in
@@ -161,7 +238,16 @@ interface RadioSvc
         error Result            ///< return result.
     }
 
-    <** @description: Get power state of the Radio **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    *  Gets the radio power state.
+    *
+    * @return
+    *  - BAD_PARAMETER -- Bad parameters.
+    *  - FAULT -- Failed.
+    *  - OK -- Succeeded.
+    */
+    //----------------------------------------------------------------------------------------------
     method GetRadioPower
     {
         in
@@ -175,6 +261,17 @@ interface RadioSvc
         error Result            ///< return result.
     }
 
+    //----------------------------------------------------------------------------------------------
+    /**
+    *  Gets Radio signal metrics.
+    *
+    * @return
+    *  - BAD_PARAMETER -- Bad parameters.
+    *  - NOT_FOUND -- Reference not found.
+    *  - UNAVAILABLE -- RAT unavailable.
+    *  - OK -- Succeeded.
+    */
+    //----------------------------------------------------------------------------------------------
     <** @description: Get signal strength of the Radio **>
     method GetSignalStrength
     {
@@ -190,7 +287,17 @@ interface RadioSvc
         error Result                        ///< return result.
     }
 
-    <** @description: Get the network registration mode **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    *  Gets the network registration mode.
+    *
+    * @return
+    *  - BAD_PARAMETER -- Bad parameters.
+    *  - TIMEOUT -- Response time out.
+    *  - FAULT -- Failed.
+    *  - OK -- Succeeded.
+    */
+    //----------------------------------------------------------------------------------------------
     method GetRegisterMode
     {
         in
@@ -207,7 +314,17 @@ interface RadioSvc
         error Result            ///< return result.
     }
 
-    <** @description: Registers to network using automatic mode **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    *  Registers to network using automatic mode.
+    *
+    * @return
+    *  - BAD_PARAMETER -- Bad parameters.
+    *  - TIMEOUT -- Response time out.
+    *  - FAULT -- Failed.
+    *  - OK -- Succeeded.
+    */
+    //----------------------------------------------------------------------------------------------
     method SetAutomaticRegisterMode
     {
         in
@@ -217,7 +334,18 @@ interface RadioSvc
         error Result            ///< return result.
     }
 
-    <** @description: Gets SIM maximum counts and RAT capabilities **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    *  Gets the total SIM count, maximum active SIM count, SIM maximum counts, RAT capabilities
+    *  supported by hardware and SIM based on a given phone ID.
+    *
+    * @return
+    *  - BAD_PARAMETER -- Bad parameters.
+    *  - TIMEOUT -- Response time out.
+    *  - FAULT -- Failed.
+    *  - OK -- Succeeded.
+    */
+    //----------------------------------------------------------------------------------------------
     method GetHardwareConfig
     {
         in
@@ -235,7 +363,17 @@ interface RadioSvc
         error Result                        ///< return result.
     }
 
-    <** @description: Gets the RAT preferences **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    *  Gets the RAT preferences.
+    *
+    * @return
+    *  - BAD_PARAMETER -- Bad parameters.
+    *  - TIMEOUT -- Response timed out.
+    *  - FAULT -- Failed.
+    *  - OK -- Succeeded.
+    */
+    //----------------------------------------------------------------------------------------------
     method GetRatPreferences
     {
         in
@@ -249,7 +387,17 @@ interface RadioSvc
         error Result            ///< return result.
     }
 
-    <** @description: Gets the long name and short name of the network **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    *  Gets the long name and short name of the network.
+    *
+    * @return
+    *  - BAD_PARAMETER -- Bad parameters.
+    *  - FAULT -- Failed.
+    *  - TIMEOUT -- Time out.
+    *  - OK -- Succeeded.
+    */
+    //----------------------------------------------------------------------------------------------
     method GetCurrentNetworkName
     {
         in
@@ -264,7 +412,17 @@ interface RadioSvc
         error Result            ///< return result.
     }
 
-    <** @description: Gets the current registration state **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    *  Gets the RAT in use, cell ID, current MCC and MNC, network registration state.
+    *
+    * @return
+    *  - BAD_PARAMETER -- Bad parameters.
+    *  - TIMEOUT -- Response timed out.
+    *  - FAULT -- Failed.
+    *  - OK -- Succeeded.
+    */
+    //----------------------------------------------------------------------------------------------
     method GetNetRegState
     {
         in
@@ -282,7 +440,16 @@ interface RadioSvc
         error Result            ///< return result.
     }
 
-    <** @description: Gets the DCNR and ENDC mode status **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    *  Gets the DCNR and ENDC mode status.
+    *
+    * @return
+    *  - BAD_PARAMETER -- Bad parameters.
+    *  - FAULT -- Failed
+    *  - OK -- Succeeded.
+    */
+    //----------------------------------------------------------------------------------------------
     method GetNrDualConnectivityStatus
     {
         in
@@ -296,7 +463,16 @@ interface RadioSvc
         error Result                        ///< return result.
     }
 
-    <** @description: Sets signal reporting criteria. **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Sets signal reporting criteria.
+    *
+    * @return
+    *  - BAD_PARAMETER -- Bad parameters
+    *  - FAULT -- Failed.
+    *  - OK -- Succeeded.
+    */
+    //----------------------------------------------------------------------------------------------
     method SetSignalStrengthReportingCriteria
     {
         in
@@ -309,7 +485,11 @@ interface RadioSvc
         error Result                    ///< return result.
     }
 
-    <** @description: Event to report signal strength change  **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Event to report signal strength change.
+    */
+    //----------------------------------------------------------------------------------------------
     broadcast SignalStrength
     {
         out
@@ -321,7 +501,11 @@ interface RadioSvc
         }
     }
 
-    <** @description: Event to report RAT change  **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Event to report RAT change.
+    */
+    //----------------------------------------------------------------------------------------------
     broadcast RadioRat
     {
         out
@@ -331,7 +515,11 @@ interface RadioSvc
         }
     }
 
-    <** @description: Event to radio state change  **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Event to radio state change.
+    */
+    //----------------------------------------------------------------------------------------------
     broadcast RadioState
     {
         out
@@ -340,7 +528,11 @@ interface RadioSvc
         }
     }
 
-    <** @description: Event to report cell info change  **>
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Event to report cell info change.
+    */
+    //----------------------------------------------------------------------------------------------
     broadcast CellInfo
     {
         out

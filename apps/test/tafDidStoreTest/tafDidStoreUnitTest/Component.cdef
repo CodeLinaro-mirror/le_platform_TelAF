@@ -1,0 +1,17 @@
+sources:
+{
+    didStoreUnitTest.c
+}
+
+requires:
+{
+    api:
+    {
+        le_cfg.api
+        taf_diagDidStore.api
+    }
+}
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

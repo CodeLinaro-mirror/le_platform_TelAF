@@ -372,6 +372,64 @@ le_result_t taf_audioVendor_GetNodeMuteState
     return audioVhal.GetNodeMuteState(audioNodeId, isMuted);
 }
 
+le_result_t taf_audioVendor_SetNodeGain
+(
+    uint8_t nodeId,
+    taf_audioVendor_Direction_t direction,
+    double gain
+)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!audioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+
+    TAF_ERROR_IF_RET_VAL( gain < 0 || gain > 1, LE_BAD_PARAMETER, "Invalid gain level");
+
+    taf_audioVendor_NodeType_t nodeType = TAF_AUDIOVENDOR_INVALID;
+    taf_audioVendor_GetNodeType(nodeId, &nodeType);
+    TAF_ERROR_IF_RET_VAL(nodeType == TAF_AUDIOVENDOR_INVALID, LE_BAD_PARAMETER, "Invalid node ID");
+
+    if(direction == TAF_AUDIOVENDOR_RX){
+        if(nodeType == TAF_AUDIOVENDOR_AUDIO_A2B){
+            return LE_UNSUPPORTED;
+        }
+    } else {
+        if(nodeType == TAF_AUDIOVENDOR_AUDIO_A2B || nodeType == TAF_AUDIOVENDOR_AUDIO_PA){
+            return LE_UNSUPPORTED;
+        }
+    }
+
+    return audioVhal.SetNodeGain(nodeId, direction, gain);
+}
+
+le_result_t taf_audioVendor_GetNodeGain
+(
+    uint8_t nodeId,
+    taf_audioVendor_Direction_t direction,
+    double *gain
+)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!audioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+
+    taf_audioVendor_NodeType_t nodeType = TAF_AUDIOVENDOR_INVALID;
+    taf_audioVendor_GetNodeType(nodeId, &nodeType);
+    TAF_ERROR_IF_RET_VAL(nodeType == TAF_AUDIOVENDOR_INVALID, LE_BAD_PARAMETER, "Invalid node ID");
+
+    if(direction == TAF_AUDIOVENDOR_RX){
+        if(nodeType == TAF_AUDIOVENDOR_AUDIO_A2B){
+            return LE_UNSUPPORTED;
+        }
+    } else {
+        if(nodeType == TAF_AUDIOVENDOR_AUDIO_A2B || nodeType == TAF_AUDIOVENDOR_AUDIO_PA){
+            return LE_UNSUPPORTED;
+        }
+    }
+
+    return audioVhal.GetNodeGain(nodeId, direction, gain);
+}
+
 taf_audioVendor_NodeStateChangeHandlerRef_t taf_audioVendor_AddNodeStateChangeHandler
 (
     uint8_t audioNodeId,
@@ -449,7 +507,7 @@ le_result_t taf_audio_SetVolume
 {
     LE_DEBUG("taf_audio_SetVolume: %f", volumeLevel);
     auto &audio = taf_Audio::GetInstance();
-    return audio.SetVolume(streamRef, volumeLevel);
+    return audio.SetVolume(streamRef, volumeLevel, true);
 }
 
 /**

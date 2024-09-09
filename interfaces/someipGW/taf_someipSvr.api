@@ -7,7 +7,7 @@
 /**
  * @page c_tafSomeipSvr SOME/IP Gateway Server Service
  *
- * @ref taf_someipSvr_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_someipSvr_interface.h>` @endrst
  *
  * <HR>
  *
@@ -137,8 +137,8 @@
  * In this case, a second configuration file tafSomeipGWSvc_1.json is created for network interface
  * "eth1" with its own network address and multicast address.
  *
- * @note The value of @b name, @b routing, and @b network in configuration file must match the file
- * name, which is tafSomeipGWSvc_1 in this case.
+ * @b NOTE: The value of @b name, @b routing, and @b network in configuration file must match the file
+ *          name, which is tafSomeipGWSvc_1 in this case.
  *
  * @section c_taf_someipSvr_commonapi_service CommonAPI server configuration
  *
@@ -204,9 +204,9 @@
  * application that offers two services(0xED80/0x0001 and 0xED81/0x0001) on UDP port 31000 of
  * unicast address 192.168.226.1.
  *
- * @note Once a commonAPI server service is declared in the JSON file, it means that service is
- * offered by the commonAPI application. Do not call any taf_someipSvr() APIs to offer that service
- * again in a TelAF application, otherwise it will cause unexpected result.
+ * @b NOTE: Once a commonAPI server service is declared in the JSON file, it means that service is
+ *          offered by the commonAPI application. Do not call any taf_someipSvr() APIs to offer that service
+ *          again in a TelAF application, otherwise it will cause unexpected result.
  *
  * @section c_taf_someipSvr_server_API Server Service APIs
  *
@@ -214,7 +214,7 @@
  * calling taf_someipSvr_GetService() or taf_someipSvr_GetServiceEx() and use the reference returned
  * for subsequent operations.
  *
- * @note One SOME/IP server-service-instance can be only represented by one application.
+ * @b NOTE: One SOME/IP server-service-instance can be only represented by one application.
  *
  * The following example illustrates how to set up a SOME/IP server-service-instance and offer the
  * service on default network interface.
@@ -317,7 +317,7 @@
    LE_ASSERT(RxMsgHandlerRef != NULL);
    @endcode
  *
- * @note One SOME/IP server-service-instance can register only one message handler.
+ * @b NOTE: One SOME/IP server-service-instance can register only one message handler.
  *
  * @section c_taf_someipSvr_event_API Event APIs
  *
@@ -342,8 +342,8 @@
    LE_ASSERT(LE_OK == taf_someipSvr_Notify(serviceRef, eventId, payloadData, sizeof(payloadData)));
    @endcode
  *
- * @note An event must be enabled before offering, and the taf_someipSvr_Notify() is available only
- * after the event is offered.
+ * @b NOTE: An event must be enabled before offering, and the taf_someipSvr_Notify() is available only
+ *          after the event is offered.
  *
  * <HR>
  *

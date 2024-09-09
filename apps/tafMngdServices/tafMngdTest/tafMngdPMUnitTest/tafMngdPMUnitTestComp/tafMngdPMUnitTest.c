@@ -248,9 +248,10 @@ le_result_t SuspendSystem(const char* wakeuptype)
 {
     le_result_t res = LE_FAULT;
     taf_mngdPm_wsRef_t wsRef = NULL;
+    uint8_t pmNodeId = 0;
     if(strcmp(wakeuptype, "1") == 0) {
         LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
-        wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_SMS, vHalTag);
+        wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_SMS, vHalTag);
         if(wsRef != NULL) {
             LE_INFO("NewNodeWakeupSource ref is created for SMS");
             res = taf_mngdPm_RelaxNode(wsRef);
@@ -260,7 +261,7 @@ le_result_t SuspendSystem(const char* wakeuptype)
     }
     else if(strcmp(wakeuptype, "2") == 0) {
         LE_INFO("NewNodeWakeupSource wakeuptype is VOICE_CALL");
-        wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_VOICE_CALL, vHalTag);
+        wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_VOICE_CALL, vHalTag);
         if(wsRef != NULL) {
             LE_INFO("NewNodeWakeupSource ref is created for VOICE_CALL");
             res = taf_mngdPm_RelaxNode(wsRef);
@@ -270,7 +271,7 @@ le_result_t SuspendSystem(const char* wakeuptype)
     }
     else if(strcmp(wakeuptype, "3") == 0) {
         LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
-        wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_MCU_VHAL, vHalTag);
+        wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_MCU_VHAL, vHalTag);
         if(wsRef != NULL) {
             LE_INFO("NewNodeWakeupSource ref is created for MCU_VHAL");
             res = taf_mngdPm_RelaxNode(wsRef);
@@ -331,7 +332,7 @@ le_result_t ResumeSystem(const char* wakeuptype)
 
 static le_result_t TestSMSWakeupType()
 {
-    le_result_t res;
+    le_result_t res = LE_FAULT;
     LE_INFO("TestSMSWakeupType");
     LE_TEST_INFO("To test SMS as newnode wakeuptype!");
     res = SetModemWakeupSource("1");
@@ -354,7 +355,7 @@ static le_result_t TestSMSWakeupType()
 
 static le_result_t TestVoiceCallWakeupType()
 {
-    le_result_t res;
+    le_result_t res = LE_FAULT;
     LE_INFO("TestVoiceCallWakeupType");
     LE_TEST_INFO("To test VOICE_CALL as newnode wakeuptype!");
     res = SetModemWakeupSource("2");
@@ -377,9 +378,8 @@ static le_result_t TestVoiceCallWakeupType()
 
 static le_result_t TestMcuVhalWakeupType()
 {
-    le_result_t res;
+    le_result_t res = LE_FAULT;
     LE_INFO("TestMcuVhalWakeupType");
-
     LE_TEST_INFO("To test MCU_VHAL as newnode wakeuptype!");
     res = SetModemWakeupSource("4");
     LE_TEST_OK(res==LE_OK, "Test MCU_VHAL as newnode wakeuptype! - Pass");

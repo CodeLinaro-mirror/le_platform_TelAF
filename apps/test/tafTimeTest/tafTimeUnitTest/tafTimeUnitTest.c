@@ -32,12 +32,16 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include "legato.h"
 #include "interfaces.h"
+#include "taf_gptpTime.h"
 
 static taf_time_TimeSourceChangeHandlerRef_t TimeSourceChangeHandlerRef = NULL;
 static taf_time_TimeValueChangeHandlerRef_t TimeValueChangeHandlerRef = NULL;
 static taf_time_TimeSourceStatusHandlerRef_t TimeSourceStatusHandlerRef = NULL;
+
+#define TAF_GPTP_DEVICE_0          "/dev/ptp0"
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -166,73 +170,6 @@ void TestSetSystemTime
     LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_SetSystemTime() APIs - false");
 
     LE_INFO("Set the time to %"PRIu64".%"PRIu64, newTimePtr->sec, newTimePtr->nanosec);
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get system time through parameter 'CLOCK_REALTIME'.
- */
-//--------------------------------------------------------------------------------------------------
-void TestGetSystemTime
-(
-    void
-)
-{
-    le_result_t result;
-    taf_time_TimeSpec_t systemTime;
-
-    result = taf_time_GetSystemTime(&systemTime);
-    LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_GetSystemTime() APIs.");
-
-    LE_INFO("System time is %"PRIu64".%"PRIu64, systemTime.sec, systemTime.nanosec);
-    ConvertSecToDateTime(systemTime);
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get GNSS time that is maintained in time service.
- */
-//--------------------------------------------------------------------------------------------------
-void TestGetGnssTime
-(
-    void
-)
-{
-    le_result_t result;
-    taf_time_TimeSpec_t gnssTime;
-
-    //GNSS not ready will return not found. Here just verify the API
-    result = taf_time_GetGnssTime(&gnssTime);
-    LE_TEST_ASSERT((result == LE_OK||result == LE_UNAVAILABLE),
-                        "Test: taf_time_GetGnssTime() APIs.");
-    if (result == LE_OK)
-    {
-        LE_INFO("GNSS time is %"PRIu64".%"PRIu64, gnssTime.sec, gnssTime.nanosec);
-        ConvertSecToDateTime(gnssTime);
-    }
-    else
-    {
-        LE_INFO("GNSS time is not available now\n");
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get RTC time from device or VHAL interface.
- */
-//--------------------------------------------------------------------------------------------------
-void TestGetRtcTime
-(
-    void
-)
-{
-    le_result_t result;
-    taf_time_TimeSpec_t rtcTime;
-
-    result = taf_time_GetRtcTime(&rtcTime);
-    LE_TEST_ASSERT(result == LE_OK,
-        "Test: taf_time_GetRtcTime() APIs.");
-    LE_INFO("RTC time is %"PRIu64".%"PRIu64, rtcTime.sec, rtcTime.nanosec);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -526,10 +463,6 @@ void TestGetSourceRef
 
     srcRef = taf_time_GetSourceRef(sourceId);
     LE_TEST_ASSERT(srcRef != NULL, "taf_time_GetSourceRef() API - OK.");
-
-    // Release the memory for this reference.
-    le_result_t res = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(res == LE_OK);
 }
 
 void TestGetSystemTimeSourceID()
@@ -550,10 +483,6 @@ void TestGetTimeZone()
     int8_t timeZone = 0;
     le_result_t res = taf_time_GetTimeZone(srcRef, &timeZone);
     LE_TEST_ASSERT(res == LE_OK, "taf_time_GetTimeZone - OK. TimeZone is %d", timeZone);
-
-    // Release the memory for this reference.
-    res = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(res == LE_OK);
 }
 
 void TestGetDayAdj()
@@ -566,10 +495,6 @@ void TestGetDayAdj()
     uint8_t dayltSavAdj;
     le_result_t res = taf_time_GetTimeDayAdj(srcRef, &dayltSavAdj);
     LE_TEST_ASSERT(res == LE_OK, "taf_time_GetTimeDayAdj - OK. Day Light Saving is %d", dayltSavAdj);
-
-    // Release the memory for this reference.
-    res = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(res == LE_OK);
 }
 
 void TestFailedLoops()
@@ -584,10 +509,6 @@ void TestFailedLoops()
     LE_ASSERT(res == LE_OK);
     LE_INFO("The number of failed loops are %d. Loop interval is  %" PRIu64 "",
     failedLoops, loopIntervalSec);
-
-    // Release the memory for this reference.
-    res = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(res == LE_OK);
 }
 
 void TestGetSourceAvailability()
@@ -606,10 +527,6 @@ void TestGetSourceAvailability()
     {
         LE_INFO("Time source is NOT Available!");
     }
-
-    // Release the memory for this reference.
-    le_result_t res = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(res == LE_OK);
 }
 
 void TestGetSourceValidity()
@@ -628,10 +545,6 @@ void TestGetSourceValidity()
     {
         LE_INFO("Time source is NOT valid!");
     }
-
-    // Release the memory for this reference.
-    le_result_t res = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(res == LE_OK);
 }
 
 void TestSetSourceValidity()
@@ -646,11 +559,33 @@ void TestSetSourceValidity()
     le_result_t res = taf_time_SetValidity(srcRef, validityFlag);
     LE_ASSERT(res == LE_OK);
     LE_INFO("taf_time_SetValidity - LE_OK");
-
-    // Release the memory for this reference.
-    le_result_t result = taf_time_ReleaseSourceRef(srcRef);
-    LE_ASSERT(result == LE_OK);
 }
+
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Verify the interface for ptp lib.
+ */
+ //------------------------------------------------------------------------------------------------
+void TestGptpComponent()
+{
+    le_result_t res;
+    struct timespec gptpTimeValPtr;
+    taf_gptpTime_Ref_t gptpTimeRef;
+
+    gptpTimeRef = taf_gptpTime_CreateRef(TAF_GPTP_DEVICE_0);
+    LE_ASSERT(gptpTimeRef != NULL);
+
+    res = taf_gptpTime_GetTimeValue(gptpTimeRef, &gptpTimeValPtr);
+    LE_ASSERT(res == LE_OK);
+
+    LE_INFO("Reference gptp time is %ld.%ld", gptpTimeValPtr.tv_sec,
+        gptpTimeValPtr.tv_nsec);
+
+    taf_gptpTime_DeleteRef(gptpTimeRef);
+    LE_ASSERT(res == LE_OK);
+}
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -666,12 +601,6 @@ COMPONENT_INIT
     LE_TEST_INFO("==========================================");
 
     TestSetSystemTime();
-
-    TestGetSystemTime();
-
-    TestGetGnssTime();
-    TestGetRtcTime();
-
     TestGetTimeRef();
     TestGetSourceRef();
     TestGetSystemTimeSourceID();
@@ -686,6 +615,8 @@ COMPONENT_INIT
     TestRtcVhalAsyncGetTime();
 
     TestTimeRegistrationHandler();
+
+    TestGptpComponent();
 
     LE_TEST_INFO("===== TimeSvc client API test DONE =====");
 

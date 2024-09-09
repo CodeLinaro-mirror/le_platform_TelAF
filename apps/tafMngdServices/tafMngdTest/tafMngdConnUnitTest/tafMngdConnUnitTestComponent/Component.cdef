@@ -1,6 +1,6 @@
 sources:
 {
-    tafMngdConnUnitTest.c
+    tafMngdConnUnitTest.cpp
 }
 
 requires:

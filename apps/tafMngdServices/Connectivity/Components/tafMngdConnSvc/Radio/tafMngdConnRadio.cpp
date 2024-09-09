@@ -421,8 +421,14 @@ bool tafMngdConnRadio::IsNetworkRegistered(uint8_t phoneId)
     result = taf_radio_GetPacketSwitchedState(&state, phoneId);
     if(result != LE_OK)
     {
-        LE_ERROR("Get network reg info failed: %d", result);
-        return false;
+        LE_ERROR("taf_radio_GetPacketSwitchedState failed: %d", result);
+        // Since GetPacketSwitchedState() failed, check with GetNetRegState()
+        result = taf_radio_GetNetRegState(&state, phoneId);
+        if(result != LE_OK)
+        {
+            LE_ERROR("taf_radio_GetNetRegState failed: %d", result);
+            return false;
+        }
     }
 
     if(state == TAF_RADIO_NET_REG_STATE_HOME || state == TAF_RADIO_NET_REG_STATE_ROAMING)

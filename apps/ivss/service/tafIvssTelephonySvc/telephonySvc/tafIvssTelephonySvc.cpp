@@ -21,7 +21,8 @@ COMPONENT_INIT
     // Initialize the ivss radio service.
     std::shared_ptr<CommonAPI::Runtime> radioRuntime = CommonAPI::Runtime::get();
     auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    if (true != radioRuntime->registerService("local", "modem.RadioSvc", ivssRadio, "ivssRadioSvc"))
+    if (true != radioRuntime->registerService("local", "modem.RadioSvc", ivssRadio,
+        "ivssTelephonySvc"))
     {
         LE_FATAL("tafIvssRadioSvc Register Service failed.");
     }
@@ -30,7 +31,7 @@ COMPONENT_INIT
     // Initialize the ivss sim service.
     std::shared_ptr<CommonAPI::Runtime> simRuntime = CommonAPI::Runtime::get();
     auto ivssSim = tafIvssSimSvc::GetInstance();
-    if (true != simRuntime->registerService("local", "modem.SimSvc", ivssSim, "ivssSimSvc"))
+    if (true != simRuntime->registerService("local", "modem.SimSvc", ivssSim, "ivssTelephonySvc"))
     {
         LE_FATAL("tafIvssSimSvc Register Service failed.");
     }
@@ -39,7 +40,8 @@ COMPONENT_INIT
     // Initialize the ivss info service.
     std::shared_ptr<CommonAPI::Runtime> infoRuntime = CommonAPI::Runtime::get();
     auto ivssInfo = tafIvssInfoSvc::GetInstance();
-    if (true != infoRuntime->registerService("local", "modem.InfoSvc", ivssInfo, "ivssInfoSvc"))
+    if (true != infoRuntime->registerService("local", "modem.InfoSvc", ivssInfo,
+        "ivssTelephonySvc"))
     {
         LE_FATAL("tafIvssInfoSvc Register Service failed.");
     }

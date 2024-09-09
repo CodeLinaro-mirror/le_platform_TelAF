@@ -51,6 +51,7 @@
 #define respReadDIDSvcId 0x62  // ReadDID response service ID.
 #define reqWriteDIDSvcId 0x2E  // WriteDID request service ID.
 #define respWriteDIDSvcId 0x6E // WriteDID response service ID.
+#define DID_NRC_RANGE_LOW_VALUE 0x80U
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -148,7 +149,7 @@ namespace telux
                 // UDS message handler.
                 void UDSMsgHandler(const taf_uds_AddrInfo_t* addrPtr, uint8_t sid, uint8_t* msgPtr,
                         size_t msgLen) override;
-	
+
                 taf_diagDataID_ServiceRef_t GetService();
 
                 static void RxReadDIDEventHandler(void* reportPtr);
@@ -158,8 +159,8 @@ namespace telux
                                         void* contextPtr);
                 void RemoveRxReadDIDMsgHandler(taf_diagDataID_RxReadDIDMsgHandlerRef_t handlerRef);
                 le_result_t SendReadDIDResp(taf_diagDataID_RxReadDIDMsgRef_t rxMsgRef,
-                        taf_diagDataID_ReadDIDErrorCode_t errCode, const uint8_t* dataPtr,
-                                size_t dataSize);
+                        uint8_t errCode, const uint8_t* dataPtr, size_t dataSize);
+
                 static void RxWriteDIDEventHandler(void* reportPtr);
                 taf_diagDataID_RxWriteDIDMsgHandlerRef_t AddRxWriteDIDMsgHandler(
                         taf_diagDataID_ServiceRef_t svcRef,
@@ -170,17 +171,22 @@ namespace telux
                 le_result_t GetWriteDataRecord(taf_diagDataID_RxWriteDIDMsgRef_t rxMsgRef,
                         uint8_t* dataRecordPtr, size_t* dataRecordSizePtr);
                 le_result_t SendWriteDIDResp(taf_diagDataID_RxWriteDIDMsgRef_t rxMsgRef,
-                        taf_diagDataID_WriteDIDErrorCode_t errCode, uint16_t dataId);
+                        uint8_t errCode, uint16_t dataId);
+
                 le_result_t RemoveSvc(taf_diagDataID_ServiceRef_t svcRef);
+
+                le_result_t SnapshotTriggerTheCollectionOfDIDs(uint16_t* dids,
+                                                               size_t numOfDids,
+                                                               taf_ReadDIDRxMsg_t **msgPPtr);
 
             private:
                 // Internal search function.
                 taf_DataIDSvc_t* GetServiceObj();
-                
+
                 // Send NRC response msg.
-                le_result_t SendNRCResp(uint8_t sid, taf_uds_AddrInfo_t*  addrInfoPtr,
+                le_result_t SendNRCResp(uint8_t sid, const taf_uds_AddrInfo_t*  addrInfoPtr,
                         uint8_t errCode);
-                
+
                 // To clear message list.
                 void ClearReadDIDMsgList(taf_DataIDSvc_t* servicePtr);
                 void ClearWriteDIDMsgList(taf_DataIDSvc_t* servicePtr);

@@ -15,6 +15,27 @@ config TELAF_VERSION
   default "$(TELAF_VERSION)" if !$(empty,$(TELAF_VERSION))
   default "telaf.lnx.1.1-xxxxxx"
 
+config ENABLE_DLT_LOGGING
+  bool "Enable DLT logging"
+  depends on LINUX && TARGET_SA525M
+  default $(b2k,$(ENABLE_DLT_LOGGING))
+  ---help---
+  Enable DLT logging. Syslogd is used if DLT logging is not enabled.
+
+config DLT_APP_ID
+  string "Application ID"
+  depends on ENABLE_DLT_LOGGING
+  default "$(def,$(DLT_APP_ID),TAFA)"
+  ---help---
+  Set DLT application ID if DLT logging is enabled.
+
+config DLT_CTX_ID
+  string "Context ID"
+  depends on ENABLE_DLT_LOGGING
+  default "$(def,$(DLT_CTX_ID),TAFC)"
+  ---help---
+  Set DLT context ID if DLT logging is enabled.
+
 config AUDIO_MULTI_FORMAT_PB_SUPPORTED
   bool "TelAF multi format playback supported"
   default $(b2k,$(def,$(TELUX_AUDIO_MULTI_FORMAT_PB_SUPPORTED),y))
@@ -22,7 +43,7 @@ config AUDIO_MULTI_FORMAT_PB_SUPPORTED
 config REFRESH_AUDIO_SVC
   bool "Telaf refresh audio service enabled"
   default "$(b2k,$(REFRESH_AUDIO_SVC))" if !$(empty,$(REFRESH_AUDIO_SVC))
-  default n
+  default y
 
 # For Vendor Stack
 config DIAG_VSTACK
@@ -31,6 +52,14 @@ config DIAG_VSTACK
   default n
   ---help---
   Build with QC STACK or Vendor STACK
+
+# Diag for feature A
+config DIAG_FEATURE_A
+  bool "Common or feature A"
+  default "$(b2k,$(DIAG_FEATURE_A))" if !$(empty,$(DIAG_FEATURE_A))
+  default n
+  ---help---
+  Build for common or feature A
 
 menu "apps"
 rsource "apps/KConfig"

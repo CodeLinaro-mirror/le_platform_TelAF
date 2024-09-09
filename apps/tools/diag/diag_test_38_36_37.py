@@ -102,6 +102,9 @@ def unlock_device(diag):
     # Security access #1-Request seed(SecurityAccess). 27 01
     response = diag.uds_client.request_seed(0x01)
 
+    if response.service_data.seed == bytes(len(response.service_data.seed)):
+        return # The device was unlocked already
+
     key = dummy_send2key(level=0x01, seed=response.service_data.seed)
 
     # Security access #2-Send key(SecurityAccess). 27 02
@@ -129,6 +132,7 @@ def download_to_target(diag, mmoop, file_in_host, file_in_target, break_in_sq = 
     diag.extended_session()
     unlock_device(diag)
     diag.programming_session()
+    unlock_device(diag)
 
     with open(file_in_host, "rb") as in_file:
         in_file.seek(0, 2)
@@ -184,6 +188,7 @@ def RFT_delete_file(diag, file_in_target):
     diag.extended_session()
     unlock_device(diag)
     diag.programming_session()
+    unlock_device(diag)
 
     diag.uds_client.request_file_transfer(moop=0x02, path=file_in_target)
     diag.extended_session()
@@ -193,6 +198,7 @@ def upload_from_target(diag, mmoop, path_in_host, path_in_target):
     diag.extended_session()
     unlock_device(diag)
     diag.programming_session()
+    unlock_device(diag)
 
     response = diag.uds_client.request_file_transfer(moop=mmoop, path=path_in_target)
 

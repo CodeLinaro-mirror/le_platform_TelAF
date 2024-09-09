@@ -81,8 +81,11 @@ typedef enum {
  * Update event enum.
  */
 //--------------------------------------------------------------------------------------------------
-typedef enum {
+typedef enum
+{
     TAF_UPDATE_INST_START,
+    TAF_UPDATE_INST_PAUSE,
+    TAF_UPDATE_INST_RESUME,
     TAF_UPDATE_INST_CANCEL
 } taf_UpdateEvent_t;
 

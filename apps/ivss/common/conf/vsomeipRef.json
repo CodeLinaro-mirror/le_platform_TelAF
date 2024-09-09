@@ -1,6 +1,6 @@
 {
-    "unicast" : "192.168.225.1",
-    "device" : "bridge0",
+    "unicast" : "192.168.10.1",
+    "device" : "eth0.2",
     "logging" :
     {
         "level" : "error",
@@ -12,25 +12,18 @@
     "applications" :
     [
         {
-            "name" : "tafSomeipGWSvc",
-            "id" : "0x0101"
+            "name" : "tafSomeipGWSvc_1",
+            "id" : "0x0102"
         },
         {
-            "name" : "ivssRadioSvc",
+            "name" : "ivssTelephonySvc",
             "id" : "0x0201"
         },
         {
-            "name" : "ivssSimSvc",
-            "id" : "0x0301"
-        },
-        {
-            "name" : "ivssInfoSvc",
-            "id" : "0x0401"
-        },
-        {
-            "name" : "ivssMngdSvc",
-            "id" : "0x0501"
+            "name" : "ivssDataSvc",
+            "id" : "0x0202"
         }
+
     ],
     "services" :
     [
@@ -59,12 +52,12 @@
             "unreliable" : "31000"
         }
     ],
-    "routing" : "tafSomeipGWSvc",
-    "network" : "tafSomeipGWSvc",
+    "routing" : "tafSomeipGWSvc_1",
+    "network" : "tafSomeipGWSvc_1",
     "service-discovery" :
     {
         "enable" : "true",
-        "multicast" : "224.0.0.1",
+        "multicast" : "225.0.0.1",
         "port" : "30490",
         "protocol" : "udp",
         "initial_delay_min" : "10",

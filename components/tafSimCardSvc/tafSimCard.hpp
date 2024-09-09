@@ -230,6 +230,7 @@ namespace telux {
                 le_result_t GetAutomaticSelection( bool* enablePtr);
                 bool waitForCardEvent(CardEvent cardEvent, int timeout = DEFAULT_TIMEOUT_IN_SECONDS);
                 le_result_t OpenLogicalChannel(taf_sim_Id_t slotId, taf_sim_AppType_t appType, uint8_t* channelPtr);
+                le_result_t OpenLogicalChannelByAid(taf_sim_Id_t slotId, const char* aid, uint8_t* channel);
                 le_result_t CloseLogicalChannel( taf_sim_Id_t simId, uint8_t channel);
                 le_result_t SendApduOnChannel( taf_sim_Id_t simId, uint8_t channel,
                         const uint8_t* commandApduPtr, size_t commandApduNumElements,

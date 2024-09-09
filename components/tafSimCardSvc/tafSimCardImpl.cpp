@@ -1126,6 +1126,30 @@ le_result_t taf_sim::OpenLogicalChannel( taf_sim_Id_t simId, taf_sim_AppType_t a
     return LE_OK;
 }
 
+le_result_t taf_sim::OpenLogicalChannelByAid( taf_sim_Id_t simId, const char* aid, uint8_t* channelPtr) {
+    if (selectSimSlot(simId) != LE_OK) {
+        LE_INFO("Selecting sim slot failed");
+        return LE_NOT_FOUND;
+    }
+    auto card = cards[slot];
+
+    auto openLogicalCb = std::make_shared<tafOpenLogicalChannelCallback>();
+
+    if(!card) {
+        LE_INFO("Card not found!");
+        return LE_BAD_PARAMETER;
+    }
+
+    card->openLogicalChannel(aid, openLogicalCb);
+    if(!waitForCardEvent(CardEvent::OPEN_LOGICAL_CHANNEL)) {
+        LE_INFO("Opening Logical Channel by AID failed!");
+        return LE_FAULT;
+    }
+    LE_INFO("Open Logical channel by AID success channel = %d", openChannel);
+    *channelPtr = openChannel;
+    return LE_OK;
+}
+
 le_result_t taf_sim::CloseLogicalChannel( taf_sim_Id_t simId, uint8_t channel) {
     if (selectSimSlot(simId) != LE_OK) {
         return LE_NOT_FOUND;

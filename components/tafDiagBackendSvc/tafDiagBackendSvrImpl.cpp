@@ -140,10 +140,13 @@ void taf_DiagBackend::DiagEventHandler
     TAF_ERROR_IF_RET_NIL(diagReqMsgPtr == NULL, "reportPtr is Null");
     TAF_ERROR_IF_RET_NIL(subHandlerFunc == NULL, "Null ptr(subHandlerFunc)");
 
+    // Passing dummy value
     taf_diagBackend_AddrInfo_t addrInfo;
     addrInfo.sa = 0x0;
     addrInfo.ta = 0x0;
     addrInfo.taType = TAF_DIAGBACKEND_TA_TYPE_PHYSICAL;
+    addrInfo.vlanId = 0;
+    addrInfo.ifName[0] = '\0';
 
     taf_diagBackend_DiagHandlerFunc_t handlerFunc
             = (taf_diagBackend_DiagHandlerFunc_t)subHandlerFunc;

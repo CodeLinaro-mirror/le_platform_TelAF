@@ -24,7 +24,7 @@
  *
  */
 //--------------------------------------------------------------------------------------------------
-typedef void (*hal_pi_cfgStor_init_t)(void);
+typedef void (*pi_cfgStor_init_t)(void);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -37,7 +37,28 @@ typedef void (*hal_pi_cfgStor_init_t)(void);
  *
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*hal_pi_cfgStor_auth_t)(const char* filePath);
+typedef le_result_t (*pi_cfgStor_auth_t)
+(
+    const char* filePath
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Merge file.
+ * @param
+ *      outputFilePath    - the output file
+ *      configFilePath    - the file to be merged
+ *
+ * @return
+ *      result of the merge operation
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*pi_cfgStor_merge_t)
+(
+    const char* outputFilePath,
+    const char* configFilePath
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -47,10 +68,13 @@ typedef le_result_t (*hal_pi_cfgStor_auth_t)(const char* filePath);
 typedef struct
 {
     // Initialization.
-    hal_pi_cfgStor_init_t init;
+    pi_cfgStor_init_t init;
 
     // Authenticate file.
-    hal_pi_cfgStor_auth_t auth;
+    pi_cfgStor_auth_t auth;
+
+    // Merge file.
+    pi_cfgStor_merge_t merge;
 
 } cfgStor_Inf_t;
 
@@ -64,5 +88,7 @@ typedef struct
     TAF_HAL_MGR_INF_t mgrInf; ///< Device manager information.
     cfgStor_Inf_t cfgStorInf; ///< Config storage plugin information.
 } pi_cfgStor_InfoTab_t;
+
+extern pi_cfgStor_InfoTab_t TAF_HAL_INFO_TAB;
 
 #endif

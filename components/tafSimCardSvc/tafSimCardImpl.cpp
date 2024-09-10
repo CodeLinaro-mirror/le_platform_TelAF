@@ -1343,6 +1343,9 @@ le_result_t taf_sim::IsEmergencyCallSubscriptionSelected(taf_sim_Id_t simId, boo
         LE_INFO("Invalid sim identifier given");
         return LE_BAD_PARAMETER;
     }
+
+    ProfileSyncPromise = std::promise<le_result_t>();
+
     std::shared_ptr<tafSimProfileCallback> profileListCb = std::make_shared<tafSimProfileCallback>();
 
     auto responseCb = std::bind(&tafSimProfileCallback::profileListCallBack, profileListCb, std::placeholders::_1, std::placeholders::_2);

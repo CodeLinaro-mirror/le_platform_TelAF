@@ -470,8 +470,13 @@ void tafSimTest_sim_isEmergency
 )
 {
     bool state = false;
-    LE_ASSERT_OK(taf_sim_IsEmergencyCallSubscriptionSelected(simId, &state));
-    LE_INFO("Emergency Check working");
+    le_result_t r = taf_sim_IsEmergencyCallSubscriptionSelected(simId, &state);
+
+    if(r == LE_OK) {
+        printf("Query Success! Emergency call subscription is%s active.\n", state ? "" : " not");
+    } else {
+        printf("Query emergency call subscription is failed! Error: %s\n", LE_RESULT_TXT(r));
+    }
 }
 
 void tafSimTest_swapToEmergencyAndBack

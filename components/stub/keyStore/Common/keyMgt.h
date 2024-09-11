@@ -42,4 +42,28 @@
 //--------------------------------------------------------------------------------------------------
 typedef void* KeyMgt_KeyFileRef_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * SHA256 data struct.
+ */
+//--------------------------------------------------------------------------------------------------
+#define MAX_HASH_SIZE_HASH_256 32
+typedef struct
+{
+  uint8_t data[MAX_HASH_SIZE_HASH_256];
+}
+Sha256_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Safe implementation of memcpy
+ */
+//--------------------------------------------------------------------------------------------------
+static inline size_t memscpy(void *dst, size_t dst_size, const void *src, size_t src_size)
+{
+      size_t  copy_size = (dst_size <= src_size) ? dst_size : src_size;
+      memcpy(dst, src, copy_size);
+      return copy_size;
+};
+
 #endif // KEY_MGT_H

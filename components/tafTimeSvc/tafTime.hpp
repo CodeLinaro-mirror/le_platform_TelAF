@@ -83,6 +83,10 @@
 #define TAF_TIME_SERVICE_SOURCE_STR        "Sources"
 
 #define TAF_TIME_RTC_DEV_NAME "/dev/rtc0"
+
+#define TAF_TIME_DELTA_TIME_DIR "/etc/deltatime"
+#define TAF_TIME_DELTA_TIME_PATH TAF_TIME_DELTA_TIME_DIR "/dlt_msec"
+
 //-------------------------------------------------------------------------------------------------
 /**
  * Macro definition for time source.
@@ -449,7 +453,7 @@ namespace telux
                     LE_INFO("GptpDeviceName %s\n", gptpDeviceName.c_str());
                 }
 
-                LE_INFO("Time source size: %ld\n", source.size());
+                LE_INFO("Time source size: %zu\n", source.size());
             }
         };
 
@@ -518,6 +522,7 @@ namespace telux
                 le_result_t GetAsyncRtcSetTimeStatus(void);
                 le_result_t GetSystemTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetInternalRtcTime(taf_time_TimeSpec_t* timeVal);
+                le_result_t UpdateDeltaTimeToStorage(taf_time_TimeSpec_t timeVal);
                 le_result_t GetNetworkTime(taf_time_TimeSpec_t* timeValPtr,
                                                               taf_time_TimeSources_t sourceId);
 

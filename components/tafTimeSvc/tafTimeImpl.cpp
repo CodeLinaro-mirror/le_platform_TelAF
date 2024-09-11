@@ -1679,6 +1679,77 @@ bool taf_Time::IsThresholdSetTimeAllow
 
     return true;
 }
+
+le_result_t taf_Time::UpdateDeltaTimeToStorage
+(
+    taf_time_TimeSpec_t timeVal
+)
+{
+    le_result_t result = LE_OK;
+    uint64_t oldDelta_Msec = 0, newDelta_Msec = 0, dataMsec = 0;
+    taf_time_TimeSpec_t rtcTimeVal;
+
+    int fd = open(TAF_TIME_DELTA_TIME_PATH, O_RDWR | O_CREAT, 0666);
+    if (fd == -1) {
+        LE_ERROR("Open file: %s failed, %s\n", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
+        return LE_FAULT;
+    }
+
+    result = GetInternalRtcTime(&rtcTimeVal);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Read RTC failed %d\n", result);
+        close(fd);
+        return result;
+    }
+
+    if (rtcTimeVal.sec > timeVal.sec)
+    {
+        newDelta_Msec = (rtcTimeVal.sec * 1000) + (rtcTimeVal.nanosec/1000)
+                      - (timeVal.sec * 1000) - (timeVal.nanosec/1000);
+    }
+    else
+    {
+        newDelta_Msec = (timeVal.sec * 1000) + (timeVal.nanosec/1000)
+                      - (rtcTimeVal.sec * 1000) - (rtcTimeVal.nanosec/1000);
+    }
+
+    ssize_t bytesRead = read(fd, &dataMsec, sizeof(uint64_t));
+    if (bytesRead <= 0)
+    {
+        LE_DEBUG("Read file %s failed, bytes read: %zd\n", TAF_TIME_DELTA_TIME_PATH, bytesRead);
+        if (write(fd, &newDelta_Msec, sizeof(uint64_t)) < 0)
+        {
+            LE_ERROR("Write file: %s failed, %s\n", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
+        }
+        close(fd);
+        return LE_FAULT;
+    }
+    else
+    {
+        oldDelta_Msec = dataMsec;
+        if ((newDelta_Msec > oldDelta_Msec + 1000) || (oldDelta_Msec > newDelta_Msec + 1000))
+        {
+            dataMsec = newDelta_Msec;
+            /* Move the file pointer to the beginning */
+            lseek(fd, 0, SEEK_SET);
+            if (write(fd, &dataMsec, sizeof(uint64_t)) < 0)
+            {
+                LE_ERROR("Write file: %s failed, %s\n", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
+                close(fd);
+                return LE_FAULT;
+            }
+        }
+    }
+
+    LE_DEBUG("RTC sec %" PRIu64 ", System sec %" PRIu64 ", oldDlt sec %" PRIu64 ", newDlt sec "
+             "%" PRIu64 "\n", rtcTimeVal.sec, timeVal.sec, oldDelta_Msec/1000, newDelta_Msec/1000);
+
+    close(fd);
+
+    return LE_OK;
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Set system 'CLOCK_REAL' time.
@@ -1769,6 +1840,12 @@ le_result_t taf_Time::SetSystemTime
                                                      SourceNameIndexToStr(timeSource));
 
     }
+
+    if(access(TAF_TIME_DELTA_TIME_DIR, F_OK) != -1)
+    {
+        UpdateDeltaTimeToStorage(timeVal);
+    }
+
     if (LatestTimeSourceInfo->systemSourceId != timeSource)
     {
         LE_INFO("Switching time source from %s to %s",
@@ -3041,7 +3118,7 @@ le_result_t taf_Time::GetInternalRtcTime
     timeVal->sec = mktime(&rtc_tm) + rtc_tm.tm_gmtoff;
     if (timeVal->sec < 0)
     {
-        LE_ERROR("Invalid RTC seconds = %ld\n", timeVal->sec);
+        LE_ERROR("Invalid RTC seconds = %" PRIu64 "\n", timeVal->sec);
         return LE_FAULT;
     }
     timeVal->nanosec = 0;

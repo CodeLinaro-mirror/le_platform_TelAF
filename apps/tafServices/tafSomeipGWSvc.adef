@@ -24,6 +24,12 @@ capability:
 #endif
 }
 
+groups:
+{
+    sensors
+    gps
+}
+
 executables:
 {
     tafSomeipGWSvc = ( $TELAF_ROOT/components/tafSomeipGWSvc )

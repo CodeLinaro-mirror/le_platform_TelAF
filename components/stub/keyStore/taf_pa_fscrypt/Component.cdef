@@ -8,7 +8,6 @@ requires:
     api:
     {
         le_appInfo.api
-        taf_ks.api
     }
 }
 

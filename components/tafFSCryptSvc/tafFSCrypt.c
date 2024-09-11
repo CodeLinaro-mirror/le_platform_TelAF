@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -41,6 +41,22 @@
 
 #include <openssl/err.h>
 #include <openssl/evp.h>
+#include <openssl/md5.h>
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Key name of internal AES GCM key.
+ */
+//--------------------------------------------------------------------------------------------------
+#define FSC_INT_KEY_NAME "fscIntAesGcmKey"
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Key parameters of internal AES GCM key.
+ */
+//--------------------------------------------------------------------------------------------------
+#define INT_KEY_NONCE_LEN 12
+#define INT_KEY_AEAD_LEN  32
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -878,11 +894,112 @@ static void RemoveSessionFromStorage
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Encrypt data by KeyStore.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t InternalCryptoProcess
+(
+    taf_ks_CryptoPurpose_t  purpose,
+    Sha256_t*               fileIdPtr,
+    const uint8_t*          plainTextPtr,
+    size_t                  plainTextSize,
+    uint8_t*                encryptedDataPtr,
+    size_t*                 encryptedDataSizePtr
+)
+{
+    uint8_t nonce[INT_KEY_NONCE_LEN] = {0};
+    uint8_t aead[INT_KEY_AEAD_LEN] = {0};
+    uint8_t md5Digest[EVP_MAX_MD_SIZE] = {0};
+
+    uint md5_hash_length = 0;
+
+    // Caculate the md5 of the file ID, later use the md5 as the nonce.
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if(ctx == NULL)
+    {
+        LE_ERROR("ctx is NULL");
+        return LE_FAULT;
+    }
+
+    const EVP_MD* method = EVP_md5();
+
+    EVP_DigestInit_ex(ctx, method, NULL);
+    EVP_DigestUpdate(ctx, fileIdPtr->data, sizeof(fileIdPtr->data));
+    EVP_DigestFinal_ex(ctx, md5Digest, &md5_hash_length);
+    EVP_MD_CTX_free(ctx);
+
+    memscpy(nonce, INT_KEY_NONCE_LEN, md5Digest, md5_hash_length);
+
+    // Set the AEAD before data encryption/decryption.
+    memscpy(aead, INT_KEY_AEAD_LEN, fileIdPtr, sizeof(fileIdPtr->data));
+
+    // Encrypt the data using internal key
+    const char keyId[] = FSC_INT_KEY_NAME;
+
+    taf_ks_KeyRef_t keyRef;
+    taf_ks_CryptoSessionRef_t sessionRef;
+
+    size_t totalEncryptedSize = *encryptedDataSizePtr;
+    size_t encSize = 0;
+
+    le_result_t res;
+
+    res = taf_ks_GetKey(keyId, &keyRef);
+
+    LE_ASSERT(LE_FAULT != res);
+
+    LE_DEBUG("Get key(%s) res = %d", FSC_INT_KEY_NAME, res);
+
+    if(LE_NOT_FOUND == res)
+    {
+        res = taf_ks_CreateKey(keyId, TAF_KS_AES_ENCRYPT_DECRYPT, &keyRef);
+
+        LE_ASSERT(LE_FAULT != res);
+
+        res = taf_ks_ProvisionAesKeyValue(keyRef,
+                                          TAF_KS_AES_SIZE_256,
+                                          TAF_KS_AES_MODE_GCM,
+                                          NULL, 0);
+
+        LE_ASSERT(LE_FAULT != res);
+    }
+    else if(LE_OK != res)
+    {
+        return LE_FAULT;
+    }
+
+    LE_ASSERT(LE_OK == taf_ks_CryptoSessionCreate(keyRef, &sessionRef));
+    LE_ASSERT(LE_OK == taf_ks_CryptoSessionSetAesNonce(sessionRef, nonce, sizeof(nonce)));
+    LE_ASSERT(LE_OK == taf_ks_CryptoSessionStart(sessionRef, purpose));
+    LE_ASSERT(LE_OK == taf_ks_CryptoSessionProcessAead(sessionRef, aead, sizeof(aead)));
+    LE_ASSERT(LE_OK == taf_ks_CryptoSessionProcess(sessionRef,
+                                                    plainTextPtr,
+                                                    plainTextSize,
+                                                    encryptedDataPtr,
+                                                    encryptedDataSizePtr));
+
+    encSize = *encryptedDataSizePtr;
+    *encryptedDataSizePtr = totalEncryptedSize - encSize;
+    LE_ASSERT(LE_OK == taf_ks_CryptoSessionEnd(sessionRef,
+                                                NULL, 0,
+                                                encryptedDataPtr + encSize,
+                                                encryptedDataSizePtr));
+
+    *encryptedDataSizePtr += encSize;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * The FS-Crypt component initialization function.
  */
 //--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
+    // Init PA crypto function
+    taf_pa_fsc_Init(&InternalCryptoProcess);
+
     // Create memory pools
     StoragePool = le_mem_CreatePool("StoragePool", sizeof(taf_fsc_Storage_t));
 

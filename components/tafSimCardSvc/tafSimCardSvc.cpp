@@ -285,6 +285,15 @@ le_result_t taf_sim_OpenLogicalChannel( taf_sim_Id_t slotId,
     return sim.OpenLogicalChannel(slotId, appType, channel);
 }
 
+le_result_t taf_sim_OpenLogicalChannelByAid( taf_sim_Id_t slotId,
+                const char* aid, uint8_t* channel) {
+    TAF_ERROR_IF_RET_VAL(channel == NULL, LE_BAD_PARAMETER, "channelPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(aid == NULL, LE_BAD_PARAMETER, "aid is NULL");
+    TAF_ERROR_IF_RET_VAL(strlen(aid) > TAF_SIM_AID_BYTES, LE_OVERFLOW, "Aid length is more");
+    auto &sim = taf_sim::GetInstance();
+    return sim.OpenLogicalChannelByAid(slotId, aid, channel);
+}
+
 le_result_t taf_sim_CloseLogicalChannel( taf_sim_Id_t simId, uint8_t channel) {
     auto &sim = taf_sim::GetInstance();
     return sim.CloseLogicalChannel(simId, channel);

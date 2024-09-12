@@ -32,19 +32,21 @@ static taf_sim_NewStateHandlerRef_t NewSimStateHandlerRef = NULL;
 static taf_sim_IccidChangeHandlerRef_t IccidChangeHandlerRef = NULL;
 
 static void DisplayAppUsage(void) {
-    printf("Usage of the 'tafsimTest' application is:\n");
-    printf("Test SIM state: app runProc tafSimTest --exe=tafSimTest -- state <slot1/slot2/unknown>\n");
-    printf("Test SIM state change: app runProc tafSimTest --exe=tafSimTest -- events\n");
-    printf("SIM information test: app runProc tafSimTest --exe=tafSimTest -- info <slot1/slot2/unknown>\n");
-    printf("SIM informations test: app runProc tafSimTest --exe=tafSimTest -- infoAll <slot1/slot2/unknown>\n");
-    printf("SIM selection test: app runProc tafSimTest --exe=tafSimTest -- select <slot1/slot2/unknown>\n");
-    printf("SIM authentication test: app runProc tafSimTest --exe=tafSimTest -- enterPin <slot1/slot2/unknown> <pin1/pin2> pin\n");
-    printf("SIM change pin  test: app runProc tafSimTest --exe=tafSimTest -- changePin <slot1/slot2/unknown> <pin1/pin2> old_pin new_pin\n");
-    printf("SIM unblock  test: app runProc tafSimTest --exe=tafSimTest -- unblock <slot1/slot2/unknown> <puk1/puk2> puk new_pin\n");
-    printf("SIM lock test: app runProc tafSimTest --exe=tafSimTest -- lock <slot1/slot2/unknown> <pin1/fdn> pin\n");
-    printf("SIM unlock test: app runProc tafSimTest --exe=tafSimTest -- unlock <slot1/slot2/unknown> <pin1/fdn> pin\n");
-    printf("SIM access test: app runProc tafSimTest --exe=tafSimTest -- access <slot1/slot2/unknown>\n");
-    printf("SIM SetPower test: app runProc tafSimTest --exe=tafSimTest -- setPower <slot1/slot2/unknown> <ON/OFF>\n");
+    printf("Usage of the 'tafSimIntTest' application is:\n");
+    printf("Test SIM state: app runProc tafSimIntTest --exe=tafSimIntTest -- state <slot1/slot2/unknown>\n");
+    printf("Test SIM state change: app runProc tafSimIntTest --exe=tafSimIntTest -- events\n");
+    printf("SIM information test: app runProc tafSimIntTest --exe=tafSimIntTest -- info <slot1/slot2/unknown>\n");
+    printf("SIM informations test: app runProc tafSimIntTest --exe=tafSimIntTest -- infoAll <slot1/slot2/unknown>\n");
+    printf("SIM selection test: app runProc tafSimIntTest --exe=tafSimIntTest -- select <slot1/slot2/unknown>\n");
+    printf("SIM authentication test: app runProc tafSimIntTest --exe=tafSimIntTest -- enterPin <slot1/slot2/unknown> <pin1/pin2> pin\n");
+    printf("SIM change pin  test: app runProc tafSimIntTest --exe=tafSimIntTest -- changePin <slot1/slot2/unknown> <pin1/pin2> old_pin new_pin\n");
+    printf("SIM unblock  test: app runProc tafSimIntTest --exe=tafSimIntTest -- unblock <slot1/slot2/unknown> <puk1/puk2> puk new_pin\n");
+    printf("SIM lock test: app runProc tafSimIntTest --exe=tafSimIntTest -- lock <slot1/slot2/unknown> <pin1/fdn> pin\n");
+    printf("SIM unlock test: app runProc tafSimIntTest --exe=tafSimIntTest -- unlock <slot1/slot2/unknown> <pin1/fdn> pin\n");
+    printf("SIM open logical channel test: app runProc tafSimIntTest --exe=tafSimIntTest -- openLogicalChannel <slot1/slot2/unknown> <AID>\n");
+    printf("SIM close logical channel test: app runProc tafSimIntTest --exe=tafSimIntTest -- closeLogicalChannel <slot1/slot2/unknown> <Channel ID>\n");
+    printf("SIM access test: app runProc tafSimIntTest --exe=tafSimIntTest -- access <slot1/slot2/unknown>\n");
+    printf("SIM SetPower test: app runProc tafSimIntTest --exe=tafSimIntTest -- setPower <slot1/slot2/unknown> <ON/OFF>\n");
     printf("SIM Reset test: app runProc tafSimIntTest --exe=tafSimIntTest -- Reset <slot1/slot2/unknown>\n");
     printf("SIM EMERGENCY test: app runProc tafSimIntTest --exe=tafSimIntTest -- isEmergency <slot1/slot2/unknown>\n");
     printf("SIM Swap Profiles test: app runProc tafSimIntTest --exe=tafSimIntTest -- swapProfiles <slot1/slot2/unknown> <0/1/2/3/4/5>\n");
@@ -338,7 +340,40 @@ COMPONENT_INIT
     }else if (strcmp(testType, "access") == 0)
     {
         tafSimTest_sim_access(simId);
-    }else if(strcmp(testType, "swapProfiles") == 0)
+    }
+    else if (strcmp(testType, "openLogicalChannel") == 0)
+    {
+        const char* aid = le_arg_GetArg(2);
+        if (NULL == aid)
+        {
+            LE_ERROR("Aid is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+
+        int aidLen = strlen(aid);
+
+        LE_INFO("Length of AID: %d", aidLen);
+
+        if (aidLen > TAF_SIM_AID_BYTES) {
+            printf("Invalid length (%d) of AID. AID max length: %d.\n", aidLen, TAF_SIM_AID_BYTES);
+        }
+
+        tafSimTest_sim_openLogicalChannel(simId, aid);
+    }
+    else if (strcmp(testType, "closeLogicalChannel") == 0)
+    {
+        const char* channelIdPtr = le_arg_GetArg(2);
+        if (NULL == channelIdPtr)
+        {
+            LE_ERROR("ChannelIdPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        uint8_t channelId = atoi(channelIdPtr);
+        tafSimTest_sim_closeLogicalChannel(simId, channelId);
+    }
+    else if(strcmp(testType, "swapProfiles") == 0)
     {
         taf_sim_Manufacturer_t manufacturer = (taf_sim_Manufacturer_t) atoi(le_arg_GetArg(2));
         tafSimTest_swapToEmergencyAndBack(simId, manufacturer);

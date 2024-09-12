@@ -392,6 +392,36 @@ void tafSimTest_unblock_puk
     LE_TEST_OK(res == LE_OK, "tafSimTest_unblock_puk");
 }
 
+void tafSimTest_sim_openLogicalChannel
+(
+    taf_sim_Id_t simId,
+    const char* aid
+)
+{
+    uint8_t channel = 0;
+
+    le_result_t res  = taf_sim_OpenLogicalChannelByAid(simId, aid, &channel);
+    if (res == LE_OK) {
+        printf("OpenLogicalChannelByAid success. Channel: %d\n", channel);
+    } else {
+        printf("OpenLogicalChannelByAid failed!\n");
+    }
+}
+
+void tafSimTest_sim_closeLogicalChannel
+(
+    taf_sim_Id_t simId,
+    uint8_t channelId
+)
+{
+    le_result_t res  = taf_sim_CloseLogicalChannel(simId, channelId);
+    if (res == LE_OK) {
+        printf("CloseLogicalChannel of channel #%d is success.\n", channelId);
+    } else {
+       printf("CloseLogicalChannel of channel #%d is failed!\n", channelId);
+    }
+}
+
 void tafSimTest_sim_access
 (
     taf_sim_Id_t simId

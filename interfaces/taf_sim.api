@@ -234,9 +234,9 @@
  * - The card assigns a number to open a new channel. This channel remains open until
  *   it is closed by the application or until the SIM is deactivated.
  *
- * Use @ref taf_sim_OpenLogicalChannel() to open a logical channel in the SIM card. APDUs then can
- * be sent to SIM card with @ref taf_sim_SendApduOnChannel(). When the logical channel is no
- * longer needed, it can be closed using @ref taf_sim_CloseLogicalChannel().
+ * Use @ref taf_sim_OpenLogicalChannel() or @ref taf_sim_OpenLogicalChannelByAid() to open a logical
+ * channel in the SIM card. APDUs then can be sent to SIM card with @ref taf_sim_SendApduOnChannel().
+ * When the logical channel is no longer needed, it can be closed using @ref taf_sim_CloseLogicalChannel().
  *
  * Use @ref taf_sim_IsEmergencyCallSubscriptionSelected() to know if the EMERGENCY profile is activated for
  * the specified sim slot.
@@ -335,6 +335,9 @@ DEFINE  PATH_MAX_LEN  = (100);
 DEFINE  PATH_MAX_BYTES  = (PATH_MAX_LEN+1);
 
 DEFINE AID_MAX_LEN = (4);
+
+DEFINE  AID_LEN    = (32);
+DEFINE  AID_BYTES  = (AID_LEN+1);
 
 DEFINE FPLMN_MAX_LISTS = (1);
 DEFINE FPLMN_MAX_OPERATORS_PER_LIST = (5);
@@ -829,6 +832,25 @@ FUNCTION le_result_t OpenLogicalChannel
      Id slotId IN,           ///< Slot ID.
      AppType apptype IN,     ///< App type.
      uint8 channelPtr OUT    ///< Channel as output.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Opens a logical channel by AID input to the SIM.
+ *
+ * @return
+ * - LE_OK             Successfully opened logical channel request.
+ * - LE_OVERFLOW       Buffer size is too small.
+ * - LE_BAD_PARAMETER  Invalid parameter.
+ * - LE_NOT_FOUND      Wrong SIM card to operate on.
+ * - LE_FAULT          Failed to open logical channel.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t OpenLogicalChannelByAid
+(
+     Id slotId IN,                  ///< Slot ID.
+     string aid[AID_BYTES] IN,      ///< Application identifier (AID)
+     uint8 channelPtr OUT           ///< Channel as output.
 );
 
 //-------------------------------------------------------------------------------------------------

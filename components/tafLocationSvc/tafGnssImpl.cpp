@@ -3090,7 +3090,9 @@ le_result_t taf_locGnss::GetPositionState
     {
         return result;
     }
-
+    LE_DEBUG("GetPositionState reportStatus:%d",
+                  posSampleReqPtr->positionSampleNodePtr->reportStatus);
+    LE_DEBUG("GetPositionState techmask :%d",posSampleReqPtr->positionSampleNodePtr->techMask);
     taf_locGnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = gnss.DiscoverSessionRef(posSampleReqPtr->sessionRef);
 
@@ -3098,32 +3100,63 @@ le_result_t taf_locGnss::GetPositionState
         LE_ERROR("GetPositionState did not find sessionRef: %p", posSampleReqPtr->sessionRef);
         return LE_FAULT;
     }
-    if (posSampleReqPtr->positionSampleNodePtr->altitudeValid == true)
+
+    if(posSampleReqPtr->positionSampleNodePtr->reportStatus == TAF_LOCGNSS_REPORT_STATUS_SUCCESS)//if report status is success
     {
-        posSampleReqPtr->positionSampleNodePtr->fixState = TAF_LOCGNSS_STATE_FIX_3D;
-        LE_DEBUG("FixState is 3D");
-    }
-    else
-    {
-         //used sv count check here as location CE's suggestion
-        if((posSampleReqPtr->positionSampleNodePtr->latitudeValid == true) &&
-                (posSampleReqPtr->positionSampleNodePtr->longitudeValid == true))
+        if(posSampleReqPtr->positionSampleNodePtr->validityExMask
+                                                       & (1ULL << TAF_LOCGNSS_HAS_POS_TECH_MASK))
         {
-            posSampleReqPtr->positionSampleNodePtr->fixState = TAF_LOCGNSS_STATE_FIX_2D;
-            LE_DEBUG("FixState is 2D");
+            LE_DEBUG("GetPositionState HAS_POS_TECH_MASK is set");
+            if(posSampleReqPtr->positionSampleNodePtr->techMask & TAF_LOCGNSS_LOC_GNSS) //0x01
+            {
+                LE_DEBUG("GetPositionState tech mask includes GNSS ");
+                if(posSampleReqPtr->positionSampleNodePtr->validityMask
+                                                       & TAF_LOCGNSS_HAS_ALTITUDE_BIT)
+                {
+                    posSampleReqPtr->positionSampleNodePtr->fixState = TAF_LOCGNSS_STATE_FIX_3D;
+                    LE_DEBUG("GetPositionState FixState is 3D");
+                }
+                else
+                {
+                    if(posSampleReqPtr->positionSampleNodePtr->validityMask & HAS_LAT_LONG_BIT)
+                    {
+                        posSampleReqPtr->positionSampleNodePtr->fixState = TAF_LOCGNSS_STATE_FIX_2D;
+                        LE_DEBUG("GetPositionState FixState is 2D");
+                    }
+                    else
+                    {
+                        posSampleReqPtr->positionSampleNodePtr->fixState =
+                                                                TAF_LOCGNSS_STATE_FIX_NO_POS;
+                        LE_DEBUG("GetPositionState HAS_LAT_LONG_BIT is not set, returning No Fix");
+                    }
+                }
+            }
+            else
+            {
+                if((posSampleReqPtr->positionSampleNodePtr->techMask == TAF_LOCGNSS_LOC_SENSORS)
+                ||(posSampleReqPtr->positionSampleNodePtr->techMask == TAF_LOCGNSS_STATE_FIX_ESTIMATED))
+                {
+                    LE_DEBUG("GetPositionState tech mask is SENSORS/ESTIMATED,returning estimated");
+                    posSampleReqPtr->positionSampleNodePtr->fixState =
+                                                                  TAF_LOCGNSS_STATE_FIX_ESTIMATED;
+                }
+                else
+                {
+                    posSampleReqPtr->positionSampleNodePtr->fixState = TAF_LOCGNSS_STATE_FIX_NO_POS;
+                    LE_DEBUG("GetPositionState technmask is not estimated, so returning No Fix");
+                }
+            }
         }
         else
         {
             posSampleReqPtr->positionSampleNodePtr->fixState = TAF_LOCGNSS_STATE_FIX_NO_POS;
-            LE_DEBUG("FixState is unknown");
+            LE_DEBUG("GetPositionState HAS_POS_TECH_MASK is not set, so returning No Fix");
         }
     }
-    if ((posSampleReqPtr->positionSampleNodePtr->techMaskValid == true) &&
-        ((posSampleReqPtr->positionSampleNodePtr->techMask == TAF_LOCGNSS_LOC_SENSORS) ||
-         (posSampleReqPtr->positionSampleNodePtr->techMask == TAF_LOCGNSS_LOC_PROPAGATED)))
+    else //if report status is failure or intermediate
     {
-        posSampleReqPtr->positionSampleNodePtr->fixState = TAF_LOCGNSS_STATE_FIX_ESTIMATED;
-        LE_DEBUG("FixState is Estimated");
+        posSampleReqPtr->positionSampleNodePtr->fixState = TAF_LOCGNSS_STATE_FIX_NO_POS;
+        LE_DEBUG("GetPositionState report status is failure, so returning No Fix");
     }
     *statePtr = posSampleReqPtr->positionSampleNodePtr->fixState;
 

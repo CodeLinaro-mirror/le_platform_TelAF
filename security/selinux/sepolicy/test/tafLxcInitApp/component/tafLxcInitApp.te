@@ -16,6 +16,8 @@ type usb_dev_t;
 type unlabeled_t;
 type unconfined_t;
 type lxcrootfs_t;
+type binderfs_t;
+type qmi_fw_conf_t;
 ')
 
 type telaf_tafLxcInitApp_exec_t;
@@ -40,8 +42,8 @@ telaf_admin_file_perms(telaf_tafLxcInitApp_t, telaf_tafLxcInitApp_data_t)
 unconfined_domain(telaf_tafLxcInitApp_t)
 
 allow telaf_tafLxcInitApp_t adbd_system_data_t:file mounton;
-allow telaf_tafLxcInitApp_t data_t:chr_file unlink;
-allow telaf_tafLxcInitApp_t data_t:dir mounton;
+allow telaf_tafLxcInitApp_t data_t:chr_file { link unlink rename create };
+allow telaf_tafLxcInitApp_t data_t:dir { mounton relabelfrom };
 allow telaf_tafLxcInitApp_t qcmap_etc_data_t:dir search;
 allow telaf_tafLxcInitApp_t qcmap_etc_data_t:file mounton;
 allow telaf_tafLxcInitApp_t sensor_util_t:dir search;
@@ -52,3 +54,7 @@ allow telaf_tafLxcInitApp_t wifi_system_data_t:dir search;
 allow telaf_tafLxcInitApp_t wifi_system_data_t:file mounton;
 allow unconfined_t telaf_tafLxcInitApp_t:process transition;
 allow telaf_tafLxcInitApp_t lxcrootfs_t:file entrypoint;
+allow telaf_tafLxcInitApp_t data_t:file relabelfrom;
+allow telaf_tafLxcInitApp_t binderfs_t:dir mounton;
+allow telaf_tafLxcInitApp_t qmi_fw_conf_t:file mounton;
+allow telaf_tafLxcInitApp_t self:capability2 mac_admin;

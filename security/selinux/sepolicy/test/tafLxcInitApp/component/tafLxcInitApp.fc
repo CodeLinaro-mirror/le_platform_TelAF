@@ -4,3 +4,4 @@
 /legato/systems/current/appsWriteable/tafLxcInitApp/bin/tafLxcInitApp                   gen_context(system_u:object_r:telaf_tafLxcInitApp_exec_t,s0)
 /legato/apps/[^/]*/read-only/bin/tafLxcInitApp                                              gen_context(system_u:object_r:telaf_tafLxcInitApp_exec_t,s0)
 /legato/systems/current/appsWriteable/tafLxcInitApp/lib(/.*)?                               gen_context(system_u:object_r:telaf_lib_t,s0)
+/data/lxc_rw/app(/.*)?                                                                   gen_context(system_u:object_r:lxcrootfs_t,s0)

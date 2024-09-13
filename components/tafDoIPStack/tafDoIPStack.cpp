@@ -584,6 +584,25 @@ le_result_t taf_doip_SetSourceAddr
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Gets the supported interfaces of DoIP entity.
+ *
+ * @return
+ *  - Interface list    success.
+ *  - NULL              FAILURE.
+ */
+//-------------------------------------------------------------------------------------------------
+le_dls_List_t *taf_doip_GetIfaces
+(
+    taf_doip_Ref_t  doipRef     ///< [IN] DoIP entity reference.
+)
+{
+    auto& vehicleMgr = VehicleManager::GetInstance();
+
+    return vehicleMgr.GetIfaceList();
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Adds a handler to query power mode status.
  *
  * @note If call this function to add handler more than one times with the same reference,
@@ -1007,7 +1026,8 @@ static void FirstDoIPEventHandler
         return;
     }
 
-    handlerPtr(doipSessionPtr->doipRef, event, statusPtr->clientAddr, le_event_GetContextPtr());
+    handlerPtr(doipSessionPtr->doipRef, event, statusPtr->clientAddr,
+            statusPtr->vlanId, le_event_GetContextPtr());
 }
 
 //-------------------------------------------------------------------------------------------------

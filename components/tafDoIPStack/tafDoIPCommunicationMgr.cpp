@@ -8,6 +8,10 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <ifaddrs.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <net/if.h>
+#include <arpa/inet.h>
 #include <stdint.h>
 #include <memory>
 
@@ -53,6 +57,14 @@ CommunicationMgr &CommunicationMgr::GetInstance()
 CommunicationMgr::CommunicationMgr()
 {
     connectionMgrPtr = std::make_shared<ConnectionManager>();
+
+    for (int i = 0; i < MAX_INF_NUM; ++i)
+    {
+        tcpDataSockRef[i] = NULL;
+        udpEquipSockRef[i] = NULL;
+        memset(localIp[i], 0, TAF_DOIP_IP_ADDR_MAX_LEN);
+    }
+    udpDiscoverSockRef = NULL;
 }
 
 /*=================================================================================================
@@ -97,7 +109,8 @@ taf_doip_Result_t CommunicationMgr::GetLocalIPAddr
 {
     struct ifaddrs  *ifaPtr, *tmpPtr;
 
-    LE_DEBUG("Enter GetLocalIPAddr, family address is %d\n", af);
+    LE_DEBUG("Enter GetLocalIPAddr, family address is %d, iface is %s",
+        af, ifname.c_str());
 
     if (ip == NULL || (af != AF_INET && af != AF_INET6))
     {
@@ -155,7 +168,7 @@ taf_doip_Result_t CommunicationMgr::GetLocalIPAddr
 
             if (inet_ntop(af, &addr, ip, size) == NULL)
             {
-                LE_ERROR("Can not get IPv4 address.\n");
+                LE_ERROR("Can not get IPv4 address for %s.", ifname.c_str());
                 freeifaddrs(ifaPtr);
                 return TAF_DOIP_RESULT_ERROR;
             }
@@ -376,23 +389,35 @@ taf_doip_Result_t CommunicationMgr::SessionStart
     //auto& vehicleMgr = VehicleManager::GetInstance();
     //sa = vehicleMgr.GetEntityLogicalAddr();
 
-    // Enable async mode and start fd monitor.
-    if (LE_OK != le_socket_SetMonitoring(tcpDataSockRef, true))
+    if (udpDiscoverSockRef != NULL)
     {
-       LE_ERROR("Failed to enable tcp data socket monitor.");
-       return TAF_DOIP_RESULT_ERROR;
+        if (LE_OK != le_socket_SetMonitoring(udpDiscoverSockRef, true))
+        {
+           LE_ERROR("Failed to enable udp discovery socket monitor.");
+           return TAF_DOIP_RESULT_ERROR;
+        }
     }
 
-    if (LE_OK != le_socket_SetMonitoring(udpDiscoverSockRef, true))
+    for (uint32_t i = 0; i < MAX_INF_NUM; i++)
     {
-       LE_ERROR("Failed to enable udp discovery socket monitor.");
-       return TAF_DOIP_RESULT_ERROR;
-    }
+        if (tcpDataSockRef[i] != NULL)
+        {
+            // Enable async mode and start fd monitor.
+            if (LE_OK != le_socket_SetMonitoring(tcpDataSockRef[i], true))
+            {
+               LE_ERROR("Failed to enable tcp data socket monitor.");
+               return TAF_DOIP_RESULT_ERROR;
+            }
+        }
 
-    if (LE_OK != le_socket_SetMonitoring(udpEquipSockRef, true))
-    {
-       LE_ERROR("Failed to enable udp discovery socket monitor.");
-       return TAF_DOIP_RESULT_ERROR;
+        if (udpEquipSockRef[i] != NULL)
+        {
+            if (LE_OK != le_socket_SetMonitoring(udpEquipSockRef[i], true))
+            {
+               LE_ERROR("Failed to enable udp discovery socket monitor.");
+               return TAF_DOIP_RESULT_ERROR;
+            }
+        }
     }
 
     state = TAF_DOIP_STATE_RUNNING;
@@ -427,12 +452,26 @@ taf_doip_Result_t CommunicationMgr::SessionStop
     }
     udpDataLen = 0;
 
-    le_socket_SetMonitoring(tcpDataSockRef, false);
-    LE_DEBUG("tcpDataSockRef=%p\n", tcpDataSockRef);
-    le_socket_SetMonitoring(udpDiscoverSockRef, false);
-    LE_DEBUG("udpDiscoverSockRef=%p\n", udpDiscoverSockRef);
-    le_socket_SetMonitoring(udpEquipSockRef, false);
-    LE_DEBUG("udpEquipSockRef=%p\n", udpEquipSockRef);
+    for (uint32_t i = 0; i < MAX_INF_NUM; ++i)
+    {
+        if (tcpDataSockRef[i] != NULL)
+        {
+            le_socket_SetMonitoring(tcpDataSockRef[i], false);
+            LE_DEBUG("tcpDataSockRef=%p\n", tcpDataSockRef[i]);
+        }
+
+        if (udpEquipSockRef[i] != NULL)
+        {
+            le_socket_SetMonitoring(udpEquipSockRef[i], false);
+            LE_DEBUG("udpEquipSockRef=%p\n", udpEquipSockRef[i]);
+        }
+    }
+
+    if (udpDiscoverSockRef != NULL)
+    {
+        le_socket_SetMonitoring(udpDiscoverSockRef, false);
+        LE_DEBUG("udpDiscoverSockRef=%p\n", udpDiscoverSockRef);
+    }
 
     state = TAF_DOIP_STATE_STOP;
     LE_DEBUG("DoIP session stop success.!");
@@ -454,7 +493,8 @@ taf_doip_Result_t CommunicationMgr::InformUdsMessage
     uint16_t    sa,
     uint16_t    ta,
     char*       dataPtr,
-    uint32_t    length
+    uint32_t    length,
+    const char* ifacePtr
 )
 {
     taf_doipDiagDataInfo_t* diagInfoPtr;
@@ -468,6 +508,9 @@ taf_doip_Result_t CommunicationMgr::InformUdsMessage
     diagInfoPtr = (taf_doipDiagDataInfo_t*)le_mem_ForceAlloc(udsInfoPool);
 
     diagInfoPtr->sa     = sa;
+    le_utf8_Copy(diagInfoPtr->ifName, ifacePtr, TAF_DOIP_INTERFACE_NAME_MAX_LEN, NULL);
+    diagInfoPtr->vlanId = GetVlanId(ifacePtr);
+    LE_DEBUG("UDS message is coming from %s(with vlan id %d)", ifacePtr, diagInfoPtr->vlanId);
 
     auto &vehicleMgr = VehicleManager::GetInstance();
     uint16_t sourceAddr = 0;
@@ -606,12 +649,40 @@ taf_doip_Result_t CommunicationMgr::SendUDPData
         return TAF_DOIP_RESULT_PARAM_ERROR;
     }
 
-    sndSockRef = le_socket_Create(desIpPtr, desPort, localIp, UDP_TYPE);
+    struct sockaddr_storage socketAddrInfo;
+    char local[TAF_DOIP_IP_ADDR_MAX_LEN];
+    if (inet_pton(AF_INET, desIpPtr, &(((struct sockaddr_in*)&socketAddrInfo)->sin_addr)) == 1)
+    {
+        if (GetLocalIPv4FromSource((struct sockaddr_in*)&socketAddrInfo, local)
+            != TAF_DOIP_RESULT_OK)
+        {
+            LE_ERROR("Failed to get local ip from source ip.\n");
+            return TAF_DOIP_RESULT_ERROR;
+        }
+    }
+    else if (inet_pton(AF_INET6, desIpPtr, &(((struct sockaddr_in6*)&socketAddrInfo)->sin6_addr)) == 1)
+    {
+        if (GetLocalIPv6FromSource((struct sockaddr_in6*)&socketAddrInfo, local)
+            != TAF_DOIP_RESULT_OK)
+        {
+            LE_ERROR("Failed to get local ip from source ip.\n");
+            return TAF_DOIP_RESULT_ERROR;
+        }
+    }
+    else
+    {
+        LE_ERROR("inet_pton error.");
+        return TAF_DOIP_RESULT_ERROR;
+    }
+
+    sndSockRef = le_socket_Create(desIpPtr, desPort, local, UDP_TYPE);
     if (sndSockRef == NULL)
     {
         LE_ERROR("Failed to create udp socket reference.\n");
         return TAF_DOIP_RESULT_NETWORK_ERROR;
     }
+
+    le_socket_Bind(sndSockRef);
 
     if (le_socket_Connect(sndSockRef) != LE_OK)
     {
@@ -664,15 +735,21 @@ taf_doip_Result_t CommunicationMgr::SendUDPData
 
     if (!strncasecmp(netType, "IPv4", 4))
     {
-        // [DoIP-125]: Set target IPv4 address to limited broadcast address.
-        // The udpDiscoverSockRef bind INADDR_ANY to receive client's limited broadcast.
-        // If here use it to send the limited broadcast and the system didn't set default
-        // gateway or route, it will return network unreachable.
-        if (le_socket_SendTo(udpEquipSockRef, messagePtr, len,
-            (char*)TAF_DOIP_UDP_BROADCAST_IP, udpDiscoveryPort) != LE_OK)
+        for (uint32_t i = 0; i < MAX_INF_NUM; ++i)
         {
-            LE_ERROR("Unable to transmit multicast packet.");
-            return TAF_DOIP_RESULT_NETWORK_ERROR;
+            if (udpEquipSockRef[i] != NULL)
+            {
+                // [DoIP-125]: Set target IPv4 address to limited broadcast address.
+                // The udpDiscoverSockRef bind INADDR_ANY to receive client's limited broadcast.
+                // If here use it to send the limited broadcast and the system didn't set default
+                // gateway or route, it will return network unreachable.
+                if (le_socket_SendTo(udpEquipSockRef[i], messagePtr, len,
+                    (char*)TAF_DOIP_UDP_BROADCAST_IP, udpDiscoveryPort) != LE_OK)
+                {
+                    LE_ERROR("Unable to transmit multicast packet.");
+                    return TAF_DOIP_RESULT_NETWORK_ERROR;
+                }
+            }
         }
     }
     else
@@ -722,7 +799,15 @@ taf_doip_Result_t CommunicationMgr::RecvUdpData
     }
 
     // Filter local annoucement message.
-    if (strcmp(remoteIp, localIp) == 0 || strcmp(remoteIp, "0.0.0.0") == 0)
+    for (int i = 0; i < MAX_INF_NUM; ++i)
+    {
+        if (strcmp(remoteIp, localIp[i]) == 0)
+        {
+            return TAF_DOIP_RESULT_OK;
+        }
+    }
+
+    if (strcmp(remoteIp, "0.0.0.0") == 0)
     {
         return TAF_DOIP_RESULT_OK;
     }
@@ -742,7 +827,7 @@ taf_doip_Result_t CommunicationMgr::RecvUdpData
 
     if (CheckDoipHeaderOverUdp(hdr, remoteIp, remotePort) != 0)
     {
-        LE_ERROR("DoIP header error!, ret=0x%x\n", ret);
+        LE_WARN("DoIP header error!");
         return TAF_DOIP_RESULT_HDR_ERROR;
     }
 
@@ -848,7 +933,7 @@ taf_doip_Result_t CommunicationMgr::CheckDoipHeaderOverUdp
         && header.payloadType != TAF_DOIP_PAYLOAD_TYPE_POWER_MODE_INFO_REQUEST)
     {
         // [DoIP-042] NACK code set to 0x01 if the payload type is not supported.
-        LE_ERROR("Unknow payload type!payload type is [0x%x]\n", header.payloadType);
+        LE_WARN("Unknow payload type!payload type is [0x%x]\n", header.payloadType);
         nackCode = TAF_DOIP_HEADER_NACK_UNKNOWN_PAYLOAD_TYPE;
         goto errOut;
     }
@@ -1228,6 +1313,7 @@ void CommunicationMgr::TcpDataSocketEventCallback
     le_socket_Ref_t childSockRef;
     char    ip[TAF_DOIP_IP_ADDR_MAX_LEN];
     int     port;
+    const char* ifacePtr = (const char*)userPtr;
     auto&   commMgr = CommunicationMgr::GetInstance();
 
     if ((events & POLLIN) != POLLIN)
@@ -1242,9 +1328,9 @@ void CommunicationMgr::TcpDataSocketEventCallback
         LE_ERROR("Failed to accept client connection.");
         return;
     }
-    LE_DEBUG("Accept a connection(%s:%d)", ip, port);
+    LE_DEBUG("Accept a connection(%s:%d) from %s", ip, port, ifacePtr);
 
-    commMgr.connectionMgrPtr->FindOrCreateConnection(childSockRef, ip, port);
+    commMgr.connectionMgrPtr->FindOrCreateConnection(childSockRef, ip, port, ifacePtr);
 
     return;
 }
@@ -1281,6 +1367,9 @@ void CommunicationMgr::IndicateUdsMessage
             addrInfo.sa = dataInfoPtr->sa;
             addrInfo.ta = dataInfoPtr->ta;
             addrInfo.taType = (taf_doip_TaType_t)dataInfoPtr->taType;
+            addrInfo.vlanId = dataInfoPtr->vlanId;
+            le_utf8_Copy(addrInfo.ifName, dataInfoPtr->ifName,
+                TAF_DOIP_INTERFACE_NAME_MAX_LEN, NULL);
             diagMsg.dataPtr = (uint8_t*)dataInfoPtr->data + 2 * TAF_DOIP_LOGICAL_ADDRESS_LENGTH;
             diagMsg.dataLen = dataInfoPtr->len - 2 * TAF_DOIP_LOGICAL_ADDRESS_LENGTH;
 
@@ -1349,15 +1438,20 @@ void CommunicationMgr::ReportConnectionEvent
 (
     uint16_t sa,
     uint16_t ta,
-    taf_doip_Result_t rgistResult
+    taf_doip_Result_t rgistResult,
+    const char* ifacePtr
 )
 {
     taf_doipDiagDataInfo_t* diagInfoPtr;
+    uint16_t vid = GetVlanId(ifacePtr);
 
     diagInfoPtr = (taf_doipDiagDataInfo_t*)le_mem_ForceAlloc(udsInfoPool);
 
     diagInfoPtr->sa     = sa;
     diagInfoPtr->ta     = ta;
+    le_utf8_Copy(diagInfoPtr->ifName, ifacePtr, TAF_DOIP_INTERFACE_NAME_MAX_LEN, NULL);
+    diagInfoPtr->vlanId = vid;
+    LE_DEBUG("UDS message is coming from %s(with vlan id %d)", ifacePtr, diagInfoPtr->vlanId);
 
     // Currently, we only support physical addressing;
     diagInfoPtr->taType = TAF_DOIP_TA_TYPE_PHYSICAL;
@@ -1379,6 +1473,8 @@ void CommunicationMgr::ReportConnectionEvent
     status.clientAddr   = sa;
     status.entityAddr   = ta;
     status.eventStatus  = rgistResult;
+    le_utf8_Copy(status.ifName, ifacePtr, TAF_DOIP_INTERFACE_NAME_MAX_LEN, NULL);
+    status.vlanId = vid;
     le_event_Report(sessPtr->statusEvtId, (void*)&status, sizeof(status));
 
     return;
@@ -1419,7 +1515,9 @@ void CommunicationMgr::IndicateConnectionEvent
             addrInfo.sa = dataInfoPtr->sa;
             addrInfo.ta = dataInfoPtr->ta;
             addrInfo.taType = (taf_doip_TaType_t)dataInfoPtr->taType;
-
+            addrInfo.vlanId = dataInfoPtr->vlanId;
+            le_utf8_Copy(addrInfo.ifName, dataInfoPtr->ifName,
+                TAF_DOIP_INTERFACE_NAME_MAX_LEN, NULL);
             // Indicate reception message to upper layer.
             handlerFunc(&addrInfo, NULL, (taf_doip_Result_t)rgistResult, handler->ctxPtr);
         }
@@ -1498,6 +1596,459 @@ void CommunicationMgr::RespondHeaderNegativeACK
 }
 
 /*=================================================================================================
+ FUNCTION        CommunicationMgr::GetVlanId
+ DESCRIPTION     Get VLAN ID from interface
+ PARAMETERS      [IN] iface: Destination IP Pointer
+                 [IN] port: Destination port
+                 [IN] nackCode: negative ack code
+ RETURN VALUE    void
+=================================================================================================*/
+uint16_t CommunicationMgr::GetVlanId(const char *ifacePtr)
+{
+    FILE *fp;
+    char buf[256];
+    int32_t vlanId = 0;
+
+    // open /proc/net/vlan/config to get vlan information
+    fp = fopen(VLAN_PROC_PATH, "r");
+    if (fp == NULL)
+    {
+        LE_ERROR("Failed to open %s", VLAN_PROC_PATH);
+        return 0;
+    }
+
+    // Find the vlan id with the interface name.
+    while (fgets(buf, sizeof(buf), fp) != NULL)
+    {
+        if (strstr(buf, ifacePtr) != NULL)
+        {
+            sscanf(buf, "%*s %*s %d", &vlanId);
+            break;
+        }
+    }
+
+    fclose(fp);
+
+    return (uint16_t)vlanId;
+}
+
+taf_doip_Result_t CommunicationMgr::GetLocalIPv4FromSource
+(
+    struct sockaddr_in *srcAddrPtr,
+    char *local
+)
+{
+    struct ifaddrs *interfaces = NULL;
+    struct ifaddrs *addr = NULL;
+    taf_doip_Result_t result = TAF_DOIP_RESULT_ERROR;
+
+    int ret = getifaddrs(&interfaces);
+    if (ret != 0)
+    {
+        LE_ERROR("Failed to get interface addresses");
+        return TAF_DOIP_RESULT_ERROR;
+    }
+
+    for (addr = interfaces; addr != NULL; addr = addr->ifa_next)
+    {
+        if (addr->ifa_addr == NULL || addr->ifa_addr->sa_family != AF_INET)
+        {
+            continue;
+        }
+
+        struct sockaddr_in *ipAddr = (struct sockaddr_in *)addr->ifa_addr;
+        struct sockaddr_in *netMask = (struct sockaddr_in *)addr->ifa_netmask;
+
+        if ((addr->ifa_flags & IFF_UP) && (addr->ifa_flags & IFF_RUNNING) && netMask != NULL)
+        {
+            // Check the address.
+            if ((srcAddrPtr->sin_addr.s_addr & netMask->sin_addr.s_addr) ==
+                (ipAddr->sin_addr.s_addr & netMask->sin_addr.s_addr))
+            {
+                LE_DEBUG("Interface : %s\n", addr->ifa_name);
+                inet_ntop(AF_INET, &(ipAddr->sin_addr), local, TAF_DOIP_IPV4_ADDR_MAX_LEN);
+                result = TAF_DOIP_RESULT_OK;
+                goto out;
+            }
+        }
+    }
+
+out:
+    freeifaddrs(interfaces);
+    return result;
+}
+
+taf_doip_Result_t CommunicationMgr::GetLocalIPv6FromSource
+(
+    struct sockaddr_in6 *srcAddrPtr,
+    char *local
+)
+{
+    struct ifaddrs *interfaces = NULL;
+    struct ifaddrs *addr = NULL;
+    taf_doip_Result_t result = TAF_DOIP_RESULT_ERROR;
+
+    int ret = getifaddrs(&interfaces);
+    if (ret != 0)
+    {
+        LE_ERROR("Failed to get interface addresses");
+        return TAF_DOIP_RESULT_ERROR;
+    }
+
+    for (addr = interfaces; addr != NULL; addr = addr->ifa_next)
+    {
+        if (addr->ifa_addr == NULL || addr->ifa_addr->sa_family != AF_INET6)
+        {
+            continue;
+        }
+
+        struct sockaddr_in6 *ipAddr = (struct sockaddr_in6 *)addr->ifa_addr;
+        struct sockaddr_in6 *netMask = (struct sockaddr_in6 *)addr->ifa_netmask;
+
+        if ((addr->ifa_flags & IFF_UP) && (addr->ifa_flags & IFF_RUNNING) && netMask != NULL)
+        {
+            // Check the address.
+            if ((srcAddrPtr->sin6_addr.s6_addr[0] & netMask->sin6_addr.s6_addr[0]) ==
+                (ipAddr->sin6_addr.s6_addr[0] & netMask->sin6_addr.s6_addr[0])
+                && (srcAddrPtr->sin6_addr.s6_addr[1] & netMask->sin6_addr.s6_addr[1]) ==
+                (ipAddr->sin6_addr.s6_addr[1] & netMask->sin6_addr.s6_addr[1])
+                && (srcAddrPtr->sin6_addr.s6_addr[2] & netMask->sin6_addr.s6_addr[2]) ==
+                (ipAddr->sin6_addr.s6_addr[2] & netMask->sin6_addr.s6_addr[2])
+                && (srcAddrPtr->sin6_addr.s6_addr[3] & netMask->sin6_addr.s6_addr[3]) ==
+                (ipAddr->sin6_addr.s6_addr[3] & netMask->sin6_addr.s6_addr[3])
+                && (srcAddrPtr->sin6_addr.s6_addr[4] & netMask->sin6_addr.s6_addr[4]) ==
+                (ipAddr->sin6_addr.s6_addr[4] & netMask->sin6_addr.s6_addr[4])
+                && (srcAddrPtr->sin6_addr.s6_addr[5] & netMask->sin6_addr.s6_addr[5]) ==
+                (ipAddr->sin6_addr.s6_addr[5] & netMask->sin6_addr.s6_addr[5])
+                && (srcAddrPtr->sin6_addr.s6_addr[6] & netMask->sin6_addr.s6_addr[6]) ==
+                (ipAddr->sin6_addr.s6_addr[6] & netMask->sin6_addr.s6_addr[6])
+                && (srcAddrPtr->sin6_addr.s6_addr[7] & netMask->sin6_addr.s6_addr[7]) ==
+                (ipAddr->sin6_addr.s6_addr[7] & netMask->sin6_addr.s6_addr[7]))
+            {
+                LE_DEBUG("Interface : %s\n", addr->ifa_name);
+                inet_ntop(AF_INET6, &(ipAddr->sin6_addr), local, TAF_DOIP_IPV6_ADDR_MAX_LEN);
+                result = TAF_DOIP_RESULT_OK;
+                goto out;
+            }
+        }
+    }
+
+out:
+    freeifaddrs(interfaces);
+    return result;
+}
+
+/*=================================================================================================
+ FUNCTION        CommunicationMgr::CreateSpecIPv4Socket
+ DESCRIPTION     Create IPv4 sockets for DoIP communication.
+ PARAMETERS      void
+ RETURN VALUE    taf_doip_Result_t: Result of specific IPv4 socket creation.
+=================================================================================================*/
+taf_doip_Result_t CommunicationMgr::CreateSpecIPv4Socket
+(
+    uint32_t index,
+    const char* ifNamePtr,
+    uint16_t udpDiscoveryPort,
+    uint16_t tcpDataPort
+)
+{
+    taf_doip_Result_t result = TAF_DOIP_RESULT_OK;
+
+    std::string ifNameStr;
+    ifNameStr.assign(ifNamePtr);
+    if (GetLocalIPv4Addr(ifNameStr, localIp[index], TAF_DOIP_IPV4_ADDR_MAX_LEN)
+        != TAF_DOIP_RESULT_OK)
+    {
+        LE_ERROR("Can not get local IPv4 address.\n");
+        result = TAF_DOIP_RESULT_NETWORK_ERROR;
+        goto errOut;
+    }
+
+    LE_DEBUG("Get IPv4-%s\n", localIp[index]);
+
+    tcpDataSockRef[index] = le_socket_Create(NULL, tcpDataPort, localIp[index], TCP_TYPE);
+    if (tcpDataSockRef[index] == NULL)
+    {
+        LE_ERROR("Failed to create tcp socket reference.\n");
+        result = TAF_DOIP_RESULT_NO_SOCKET;
+        goto errOut;
+    }
+
+    udpEquipSockRef[index] = le_socket_Create(NULL, udpDiscoveryPort, localIp[index], UDP_TYPE);
+    if (udpEquipSockRef[index] == NULL)
+    {
+        LE_ERROR("Failed to create udp socket reference.\n");
+        result = TAF_DOIP_RESULT_NETWORK_ERROR;
+        goto errOut;
+    }
+
+    if (le_socket_Bind(udpEquipSockRef[index]) != LE_OK)
+    {
+        LE_ERROR("Failed to bind with port%d", udpDiscoveryPort);
+        result = TAF_DOIP_RESULT_NETWORK_ERROR;
+        goto errOut;
+    }
+
+    le_socket_SetTimeout(udpEquipSockRef[index], SOCKET_TIMEOUT_MS);
+    le_socket_AddEventHandler(udpEquipSockRef[index], UdpSocketEventCallback, NULL);
+
+    LE_DEBUG("tcp socket ref is %p", tcpDataSockRef[index]);
+    le_socket_SetTimeout(tcpDataSockRef[index], SOCKET_TIMEOUT_MS);
+
+    // Set the socket event callback for tcp listener fd monitor.
+    le_socket_AddEventHandler(tcpDataSockRef[index], TcpDataSocketEventCallback, (void*)ifNamePtr);
+    if (le_socket_Bind(tcpDataSockRef[index]) != LE_OK)
+    {
+        LE_ERROR("le_socket_Bind error!\n");
+        result = TAF_DOIP_RESULT_NETWORK_ERROR;
+        goto errOut;
+    }
+
+    return result;
+
+errOut:
+    if (tcpDataSockRef[index] != NULL)
+    {
+        le_socket_Delete(tcpDataSockRef[index]);
+        tcpDataSockRef[index] = NULL;
+    }
+
+    if (udpEquipSockRef[index] != NULL)
+    {
+        le_socket_Delete(udpEquipSockRef[index]);
+        udpEquipSockRef[index] = NULL;
+    }
+
+    return result;
+}
+
+/*=================================================================================================
+ FUNCTION        CommunicationMgr::CreateSpecIPv6Socket
+ DESCRIPTION     Create IPv6 sockets for DoIP communication.
+ PARAMETERS      void
+ RETURN VALUE    taf_doip_Result_t: Result of specific IPv6 socket creation.
+=================================================================================================*/
+taf_doip_Result_t CommunicationMgr::CreateSpecIPv6Socket
+(
+    uint32_t index,
+    const char* ifNamePtr,
+    uint16_t udpDiscoveryPort,
+    uint16_t tcpDataPort
+)
+{
+    taf_doip_Result_t result = TAF_DOIP_RESULT_OK;
+
+    std::string ifNameStr;
+    ifNameStr.assign(ifNamePtr);
+    if (GetLocalIPv6Addr(ifNameStr, localIp[index], TAF_DOIP_IPV6_ADDR_MAX_LEN)
+        != TAF_DOIP_RESULT_OK)
+    {
+        LE_ERROR("Can not get local IPv6 address.\n");
+        goto errOut;
+    }
+
+    LE_DEBUG("Get IPv6-%s\n", localIp[index]);
+
+    tcpDataSockRef[index] = le_socket_Create(NULL, tcpDataPort, localIp[index], TCP_TYPE);
+    if (tcpDataSockRef[index] == NULL)
+    {
+        LE_ERROR("Failed to create tcp socket reference.\n");
+        result = TAF_DOIP_RESULT_NETWORK_ERROR;
+        goto errOut;
+    }
+
+    // Set the socket event callback for tcp listener fd monitor.
+    le_socket_AddEventHandler(tcpDataSockRef[index], TcpDataSocketEventCallback, (void*)ifNamePtr);
+    if (le_socket_Bind(tcpDataSockRef[index]) != LE_OK)
+    {
+        LE_ERROR("le_socket_Bind error!\n");
+        result = TAF_DOIP_RESULT_NETWORK_ERROR;
+        goto errOut;
+    }
+
+    return result;
+errOut:
+    if (tcpDataSockRef[index] != NULL)
+    {
+        le_socket_Delete(tcpDataSockRef[index]);
+        tcpDataSockRef[index] = NULL;
+    }
+
+    return result;
+}
+
+/*=================================================================================================
+ FUNCTION        CommunicationMgr::CreateIPv4Socket
+ DESCRIPTION     Create IPv4 socket resource for DoIP communication.
+ PARAMETERS      void
+ RETURN VALUE    taf_doip_Result_t: Result of IPv4 socket resource creation.
+=================================================================================================*/
+taf_doip_Result_t CommunicationMgr::CreateIPv4SocketRes
+(
+)
+{
+    uint16_t    udpDiscoveryPort;
+    uint16_t    tcpDataPort;
+    taf_doip_Result_t result;
+
+    auto& vehicleMgr = VehicleManager::GetInstance();
+
+    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTcpPort(&tcpDataPort))
+    {
+        tcpDataPort = TAF_DOIP_TCP_DATA_DEFAULT;
+    }
+
+    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetUdpPort(&udpDiscoveryPort))
+    {
+        udpDiscoveryPort = TAF_DOIP_UDP_DISCOVERY_DEFAULT;
+    }
+
+    LE_DEBUG("TCP_DATA is %d, UDP_DISCOVEERY is %d",
+            tcpDataPort, udpDiscoveryPort);
+
+    le_dls_List_t *ifaces = vehicleMgr.GetIfaceList();
+    if (le_dls_IsEmpty(ifaces))
+    {
+        result = CreateSpecIPv4Socket(0, TAF_DOIP_INTERFACE_DEFAULT,
+                udpDiscoveryPort, tcpDataPort);
+        if (result != TAF_DOIP_RESULT_OK)
+        {
+            LE_ERROR("Failed to create specific socket reference.");
+            return result;
+        }
+    }
+    else
+    {
+        uint32_t cnt = 0;
+        le_dls_Link_t* linkPtr = NULL;
+        linkPtr = le_dls_Peek(ifaces);
+        while (linkPtr)
+        {
+            taf_doip_Iface_t *ifacePtr = CONTAINER_OF(linkPtr, taf_doip_Iface_t, link);
+            result = CreateSpecIPv4Socket(cnt, ifacePtr->ifName, udpDiscoveryPort, tcpDataPort);
+            if (result != TAF_DOIP_RESULT_OK)
+            {
+                LE_ERROR("Failed to create specific socket reference.");
+                return result;
+            }
+
+            linkPtr = le_dls_PeekNext(ifaces, linkPtr);
+            cnt++;
+        }
+    }
+
+    udpDiscoverSockRef = le_socket_Create(NULL, udpDiscoveryPort,
+        (char*)TAF_DOIP_IPv4_ADDRESS_ANY, UDP_TYPE);
+    if (udpDiscoverSockRef == NULL)
+    {
+        LE_ERROR("Failed to create udp socket reference.\n");
+        return TAF_DOIP_RESULT_NO_SOCKET;
+    }
+
+    if (le_socket_Bind(udpDiscoverSockRef) != LE_OK)
+    {
+        LE_ERROR("Failed to bind with port%d", udpDiscoveryPort);
+        return TAF_DOIP_RESULT_NETWORK_ERROR;
+    }
+
+    le_socket_SetTimeout(udpDiscoverSockRef, SOCKET_TIMEOUT_MS);
+
+    // Set the socket event callback for discovery fd monitor.
+    le_socket_AddEventHandler(udpDiscoverSockRef, UdpSocketEventCallback, NULL);
+    LE_DEBUG("Discovery socket ref is %p", udpDiscoverSockRef);
+
+    return TAF_DOIP_RESULT_OK;
+}
+
+/*=================================================================================================
+ FUNCTION        CommunicationMgr::CreateIPv6SocketRes
+ DESCRIPTION     Create IPv4 socket resource for DoIP communication.
+ PARAMETERS      void
+ RETURN VALUE    taf_doip_Result_t: Result of IPv6 socket resource creation.
+=================================================================================================*/
+taf_doip_Result_t CommunicationMgr::CreateIPv6SocketRes
+(
+)
+{
+    uint16_t    udpDiscoveryPort;
+    uint16_t    tcpDataPort;
+    taf_doip_Result_t result;
+
+    auto& vehicleMgr = VehicleManager::GetInstance();
+
+    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTcpPort(&tcpDataPort))
+    {
+        tcpDataPort = TAF_DOIP_TCP_DATA_DEFAULT;
+    }
+
+    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetUdpPort(&udpDiscoveryPort))
+    {
+        udpDiscoveryPort = TAF_DOIP_UDP_DISCOVERY_DEFAULT;
+    }
+
+    LE_DEBUG("TCP_DATA is %d, UDP_DISCOVEERY is %d",
+            tcpDataPort, udpDiscoveryPort);
+
+    le_dls_List_t *ifaces = vehicleMgr.GetIfaceList();
+    if (le_dls_IsEmpty(ifaces))
+    {
+        result = CreateSpecIPv6Socket(0, TAF_DOIP_INTERFACE_DEFAULT,
+            udpDiscoveryPort, tcpDataPort);
+        if (result != TAF_DOIP_RESULT_OK)
+        {
+            LE_ERROR("Failed to create specific socket reference.");
+            return result;
+        }
+    }
+    else
+    {
+        uint32_t cnt = 0;
+        le_dls_Link_t* linkPtr = NULL;
+        linkPtr = le_dls_Peek(ifaces);
+        while (linkPtr)
+        {
+            taf_doip_Iface_t *ifacePtr = CONTAINER_OF(linkPtr, taf_doip_Iface_t, link);
+            result = CreateSpecIPv6Socket(cnt, ifacePtr->ifName, udpDiscoveryPort, tcpDataPort);
+            if (result != TAF_DOIP_RESULT_OK)
+            {
+                LE_ERROR("Failed to create specific socket reference.");
+                return result;
+            }
+
+            linkPtr = le_dls_PeekNext(ifaces, linkPtr);
+            cnt++;
+        }
+    }
+
+    udpDiscoverSockRef = le_socket_Create(NULL, udpDiscoveryPort,
+        (char*)TAF_DOIP_UDP6_BROADCAST_IP, UDP_TYPE);
+    if (udpDiscoverSockRef == NULL)
+    {
+        LE_ERROR("Failed to create udp socket reference.\n");
+        return TAF_DOIP_RESULT_NETWORK_ERROR;
+    }
+
+    if (le_socket_Bind(udpDiscoverSockRef) != LE_OK)
+    {
+        LE_ERROR("Failed to bind with port%d", udpDiscoveryPort);
+        return TAF_DOIP_RESULT_NETWORK_ERROR;
+    }
+
+    if (le_socket_JoinMulticastGroup(udpDiscoverSockRef,
+        (const char*)TAF_DOIP_UDP6_BROADCAST_IP) != LE_OK)
+    {
+        LE_ERROR("Failed to join multicast group for IPv6.");
+        return TAF_DOIP_RESULT_NETWORK_ERROR;
+    }
+
+    // Set the socket event callback for discovery fd monitor.
+    le_socket_AddEventHandler(udpDiscoverSockRef, UdpSocketEventCallback, NULL);
+    LE_DEBUG("Discovery socket ref is %p", udpDiscoverSockRef);
+
+    return TAF_DOIP_RESULT_OK;
+}
+
+/*=================================================================================================
  FUNCTION        CommunicationMgr::SessionInit
  DESCRIPTION     Initialization of DoIP session resource
                  in communication manager
@@ -1510,9 +2061,6 @@ taf_doip_Result_t CommunicationMgr::SessionInit
 {
     auto& vehicleMgr = VehicleManager::GetInstance();
     char netType[TAF_DOIP_IPTYPE_MAX_LEN];
-    char ifname[TAF_DOIP_INTERFACE_NAME_MAX_LEN];
-    uint16_t    udpDiscoveryPort;
-    uint16_t    tcpDataPort;
     taf_doip_Result_t result = TAF_DOIP_RESULT_ERROR;
 
     if (TAF_DOIP_RESULT_OK != vehicleMgr.GetNetType(netType))
@@ -1521,135 +2069,26 @@ taf_doip_Result_t CommunicationMgr::SessionInit
                      TAF_DOIP_IPTYPE_MAX_LEN, NULL);
     }
 
-    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetIfName(ifname))
-    {
-        le_utf8_Copy(ifname, TAF_DOIP_INTERFACE_DEFAULT,
-                TAF_DOIP_INTERFACE_NAME_MAX_LEN, NULL);
-    }
-
-    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTcpPort(&tcpDataPort))
-    {
-        tcpDataPort = TAF_DOIP_TCP_DATA_DEFAULT;
-    }
-
-    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetUdpPort(&udpDiscoveryPort))
-    {
-        udpDiscoveryPort = TAF_DOIP_UDP_DISCOVERY_DEFAULT;
-    }
-
-    LE_DEBUG("TCP_DATA is %d, UDP_DISCOVEERY is %d, type is %s\n",
-            tcpDataPort, udpDiscoveryPort, netType);
+    LE_DEBUG("net type is %s\n", netType);
 
     if (!strncasecmp(netType, "IPv4", 4))
     {
-        std::string ifNameStr = ifname;
-        if (GetLocalIPv4Addr(ifNameStr, localIp, sizeof(localIp)) != TAF_DOIP_RESULT_OK)
+        result = CreateIPv4SocketRes();
+        if (result != TAF_DOIP_RESULT_OK)
         {
-            LE_ERROR("Can not get local IPv4 address.\n");
-            goto errOut;
+            LE_ERROR("Failed to create IPv4 socket resource.");
+            return result;
         }
-
-        LE_DEBUG("Get IPv4-%s\n", localIp);
-
-        tcpDataSockRef = le_socket_Create(NULL, tcpDataPort, localIp, TCP_TYPE);
-        if (tcpDataSockRef == NULL)
-        {
-            LE_ERROR("Failed to create tcp socket reference.\n");
-            return TAF_DOIP_RESULT_NETWORK_ERROR;
-        }
-
-        udpDiscoverSockRef = le_socket_Create(NULL, udpDiscoveryPort,
-            (char*)TAF_DOIP_IPv4_ADDRESS_ANY, UDP_TYPE);
-        if (udpDiscoverSockRef == NULL)
-        {
-            LE_ERROR("Failed to create udp socket reference.\n");
-            result = TAF_DOIP_RESULT_NETWORK_ERROR;
-            goto errOut;
-        }
-
-        if (le_socket_Bind(udpDiscoverSockRef) != LE_OK)
-        {
-            LE_ERROR("Failed to bind with port%d", udpDiscoveryPort);
-            result = TAF_DOIP_RESULT_NETWORK_ERROR;
-            goto errOut;
-        }
-
-        udpEquipSockRef = le_socket_Create(NULL, udpDiscoveryPort, localIp, UDP_TYPE);
-        if (udpEquipSockRef == NULL)
-        {
-            LE_ERROR("Failed to create udp socket reference.\n");
-            result = TAF_DOIP_RESULT_NETWORK_ERROR;
-            goto errOut;
-        }
-
-        if (le_socket_Bind(udpEquipSockRef) != LE_OK)
-        {
-            LE_ERROR("Failed to bind with port%d", udpDiscoveryPort);
-            result = TAF_DOIP_RESULT_NETWORK_ERROR;
-            goto errOut;
-        }
-        le_socket_SetTimeout(udpEquipSockRef, SOCKET_TIMEOUT_MS);
-        le_socket_AddEventHandler(udpEquipSockRef, UdpSocketEventCallback, NULL);
     }
     else
     {
-        std::string ifNameStr = ifname;
-        if (GetLocalIPv6Addr(ifNameStr, localIp, sizeof(localIp)) != TAF_DOIP_RESULT_OK)
+        result = CreateIPv6SocketRes();
+        if (result != TAF_DOIP_RESULT_OK)
         {
-            LE_ERROR("Can not get local IPv6 address.\n");
-            goto errOut;
-        }
-
-        LE_DEBUG("Get IPv6-%s\n", localIp);
-
-        tcpDataSockRef = le_socket_Create(NULL, tcpDataPort, localIp, TCP_TYPE);
-        if (tcpDataSockRef == NULL)
-        {
-            LE_ERROR("Failed to create tcp socket reference.\n");
-            result = TAF_DOIP_RESULT_NETWORK_ERROR;
-            goto errOut;
-        }
-
-        udpDiscoverSockRef = le_socket_Create(NULL, udpDiscoveryPort,
-            (char*)TAF_DOIP_UDP6_BROADCAST_IP, UDP_TYPE);
-        if (udpDiscoverSockRef == NULL)
-        {
-            LE_ERROR("Failed to create udp socket reference.\n");
-            result = TAF_DOIP_RESULT_NETWORK_ERROR;
-            goto errOut;
-        }
-
-        if (le_socket_Bind(udpDiscoverSockRef) != LE_OK)
-        {
-            LE_ERROR("Failed to bind with port%d", udpDiscoveryPort);
-            result = TAF_DOIP_RESULT_NETWORK_ERROR;
-            goto errOut;
-        }
-
-        if (le_socket_JoinMulticastGroup(udpDiscoverSockRef,
-            (const char*)TAF_DOIP_UDP6_BROADCAST_IP) != LE_OK)
-        {
-            LE_ERROR("Failed to join multicast group for IPv6.");
-            goto errOut;
+            LE_ERROR("Failed to create IPv4 socket resource.");
+            return result;
         }
     }
-
-    LE_DEBUG("tcp socket ref is %p, discovery socket ref is %p",
-        tcpDataSockRef, udpDiscoverSockRef);
-    le_socket_SetTimeout(tcpDataSockRef, SOCKET_TIMEOUT_MS);
-
-    // Set the socket event callback for tcp listener fd monitor.
-    le_socket_AddEventHandler(tcpDataSockRef, TcpDataSocketEventCallback, NULL);
-    if (le_socket_Bind(tcpDataSockRef) != LE_OK)
-    {
-        LE_ERROR("le_socket_Bind error!\n");
-        goto errOut;
-    }
-
-    le_socket_SetTimeout(udpDiscoverSockRef, SOCKET_TIMEOUT_MS);
-
-    // Set the socket event callback for discovery fd monitor.
-    le_socket_AddEventHandler(udpDiscoverSockRef, UdpSocketEventCallback, NULL);
 
     // Initialize TCP connection manager.
     connectionMgrPtr->Init();
@@ -1660,27 +2099,6 @@ taf_doip_Result_t CommunicationMgr::SessionInit
     state = TAF_DOIP_STATE_INIT;
 
     return TAF_DOIP_RESULT_OK;
-
-errOut:
-    if (tcpDataSockRef != NULL)
-    {
-        le_socket_Delete(tcpDataSockRef);
-        tcpDataSockRef = NULL;
-    }
-
-    if (udpDiscoverSockRef != NULL)
-    {
-        le_socket_Delete(udpDiscoverSockRef);
-        udpDiscoverSockRef = NULL;
-    }
-
-    if (udpEquipSockRef != NULL)
-    {
-        le_socket_Delete(udpEquipSockRef);
-        udpEquipSockRef = NULL;
-    }
-
-    return result;
 }
 
 /*=================================================================================================
@@ -1697,15 +2115,19 @@ taf_doip_Result_t CommunicationMgr::SessionDeInit()
         SessionStop();
     }
 
-    le_socket_Delete(tcpDataSockRef);
-    tcpDataSockRef = NULL;
     le_socket_Delete(udpDiscoverSockRef);
     udpDiscoverSockRef = NULL;
 
-    if (udpEquipSockRef != NULL)
+    for (int i = 0; i < MAX_INF_NUM; ++i)
     {
-        le_socket_Delete(udpEquipSockRef);
-        udpEquipSockRef = NULL;
+        le_socket_Delete(tcpDataSockRef[i]);
+        tcpDataSockRef[i] = NULL;
+
+        if (udpEquipSockRef[i] != NULL)
+        {
+            le_socket_Delete(udpEquipSockRef[i]);
+            udpEquipSockRef[i] = NULL;
+        }
     }
 
     return TAF_DOIP_RESULT_OK;

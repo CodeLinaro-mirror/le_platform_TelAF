@@ -590,8 +590,7 @@ le_result_t taf_DataAccess_SetSnapshotData
 (
     uint32_t dtc,
     le_dls_List_t *list,
-    void *action,
-    void (*release)(le_dls_List_t *list)
+    void *action
 )
 {
     if (list == nullptr)
@@ -605,17 +604,10 @@ le_result_t taf_DataAccess_SetSnapshotData
     if (ret != LE_OK)
     {
         LE_ERROR("Failed to save snapshot data, ret=%d.", (int)ret);
-        goto out;
+        return ret;
     }
 
-    ret = LE_OK;
-out:
-    if (release != nullptr)
-    {
-        release(list);
-    }
-
-    return ret;
+    return LE_OK;
 }
 
 //-------------------------------------------------------------------------------------------------

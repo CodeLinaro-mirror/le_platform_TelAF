@@ -30,6 +30,7 @@ typedef struct
     le_dls_List_t reqMsgList;                      ///< Rx msg list.
     taf_diagIOCtrl_RxMsgHandlerRef_t handlerRef;   ///< Handler reference.
     le_msg_SessionRef_t sessionRef;                ///< Ref to a client-svr session.
+    le_dls_List_t supportedVlanList;
 }taf_IOCtrlSvc_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -63,6 +64,17 @@ typedef struct
     taf_diagIOCtrl_RxMsgHandlerFunc_t func;      ///< Handler function.
     void* ctxPtr;                                ///< Handler context.
 }taf_IOCtrlHandler_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * VLAN ID structure.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_dls_Link_t   link;
+    uint16_t        vlanId;
+}taf_IOCtrlVlanIdNode_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -104,10 +116,13 @@ namespace telux
                         uint8_t errCode, const uint8_t* dataPtr, size_t dataSize);
 
                 le_result_t RemoveSvc(taf_diagIOCtrl_ServiceRef_t svcRef);
-
+                le_result_t SetVlanId(taf_diagIOCtrl_ServiceRef_t svcRef, uint16_t vlanId);
+                le_result_t GetVlanIdFromMsg(taf_diagIOCtrl_RxMsgRef_t reqMsgRef,
+                        uint16_t* vlanIdPtr);
             private:
                 // Internal search function.
-                taf_IOCtrlSvc_t* GetServiceObj(uint16_t dataId);
+                taf_IOCtrlSvc_t* GetServiceObj(uint16_t dataId, le_msg_SessionRef_t sessionRef);
+                taf_IOCtrlSvc_t* GetServiceObj(uint16_t dataId, uint16_t vlanId);
                 // Send NRC response msg.
                 le_result_t SendNRCResp(uint8_t sid, const taf_uds_AddrInfo_t*  addrInfoPtr,
                         uint8_t errCode);
@@ -130,6 +145,7 @@ namespace telux
                 // Rx request handler object
                 le_mem_PoolRef_t ReqHandlerPool;
                 le_ref_MapRef_t ReqHandlerRefMap;
+                le_mem_PoolRef_t vlanPool;
 
                 // Event for service.
                 le_event_Id_t ReqEvent;

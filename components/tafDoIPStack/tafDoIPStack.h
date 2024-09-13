@@ -43,7 +43,7 @@ extern "C" {
 #define TAF_DOIP_ACTIVATION_LINE_OFF 0
 #define TAF_DOIP_ACTIVATION_LINE_ON  1
 
-#define TAF_DOIP_IFNAME_SIZE 10
+#define TAF_DOIP_INTERFACE_NAME_MAX_LEN     30
 
 #define TAF_DOIP_VIN_SIZE 17    ///< Vehicle identification number size.
 #define TAF_DOIP_EID_SIZE 6     ///< Entify identification size.
@@ -123,6 +123,8 @@ typedef struct
     uint16_t            sa;         ///< Source address of message senders.
     uint16_t            ta;         ///< Target address of message recipients.
     taf_doip_TaType_t   taType;     ///< Target address type of message recipients.
+    uint16_t            vlanId;     ///< VLAN ID. =0 if the interface is not vlan port.
+    char ifName[TAF_DOIP_INTERFACE_NAME_MAX_LEN]; ///< Which interface does the package come from.
 }taf_doip_AddrInfo_t;
 
 //-------------------------------------------------------------------------------------------------
@@ -135,6 +137,17 @@ typedef struct
     uint8_t*            dataPtr;    ///< Data pointer.
     size_t              dataLen;    ///< Data length.
 }taf_doip_DiagMsg_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Interface structure.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_dls_Link_t link;
+    char ifName[TAF_DOIP_INTERFACE_NAME_MAX_LEN];
+}taf_doip_Iface_t;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -221,6 +234,8 @@ typedef void (*taf_doip_EventHandlerFunc_t)
     taf_doip_Ref_t              doipRef,     ///< [IN] DoIP entity reference.
     taf_doip_Event_t            event,       ///< [IN] Result of the event.
     uint16_t                    remoteAddr,  ///< [IN] Remote logical address.
+    uint16_t                    fromVlanId,  ///< [IN] Which vlan id does the event come from.
+                                             ///< [IN] vlan id equal to 0 if the vlan id isn't set.
     void*                       userPtr      ///< [IN] User-defined pointer
 );
 
@@ -431,6 +446,20 @@ LE_SHARED le_result_t taf_doip_SetSourceAddr
 (
     taf_doip_Ref_t  doipRef,    ///< [IN] DoIP entity reference.
     uint16_t        sa          ///< [IN] Source address.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the supported interfaces of DoIP entity.
+ *
+ * @return
+ *  - Interface list    success.
+ *  - NULL              FAILURE.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_dls_List_t *taf_doip_GetIfaces
+(
+    taf_doip_Ref_t  doipRef     ///< [IN] DoIP entity reference.
 );
 
 //-------------------------------------------------------------------------------------------------

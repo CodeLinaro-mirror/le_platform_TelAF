@@ -64,6 +64,7 @@ typedef struct
     taf_diagSecurity_SesChangeHandlerRef_t sesChangeHandlerRef;    ///< Rx sesChange handler ref.
     taf_diagSecurity_RxSecAccessMsgHandlerRef_t handlerRef;        ///< Rx SecAccess handler ref.
     le_msg_SessionRef_t sessionRef;                                ///< Client-server session ref.
+    le_dls_List_t supportedVlanList;
 }taf_SecuritySvc_t;
 
 //-------------------------------------------------------------------------------------------------
@@ -149,6 +150,12 @@ typedef struct
     void* ctxPtr;                                           ///< Handler context.
 }taf_SecAccessReqHandler_t;
 
+typedef struct
+{
+    le_dls_Link_t   link;
+    uint16_t        vlanId;
+}taf_SecurityVlanIdNode_t;
+
 // Security access service class
 namespace telux {
     namespace tafsvc {
@@ -213,9 +220,14 @@ namespace telux {
 
                 le_result_t RemoveSvc(taf_diagSecurity_ServiceRef_t svcRef);
 
+                // VLAN ID setting/getting.
+                le_result_t SetVlanId(taf_diagSecurity_ServiceRef_t svcRef, uint16_t vlanId);
+                le_result_t GetVlanIdFromMsg(taf_diagSecurity_RxMsgRef_t rxMsgRef,
+                    uint16_t* vlanIdPtr);
             private:
                 // Internal search function.
-                taf_SecuritySvc_t* GetServiceObj();
+                taf_SecuritySvc_t* GetServiceObj(le_msg_SessionRef_t sessionRef);
+                taf_SecuritySvc_t* GetServiceObj(uint16_t vlanId);
 
                 // Send NRC response msg.
                 le_result_t SendNRCResp(uint8_t sid, const taf_uds_AddrInfo_t*  addrInfoPtr,
@@ -245,6 +257,8 @@ namespace telux {
                 le_ref_MapRef_t SesChangeRefMap;
                 le_mem_PoolRef_t RxSecAccessMsgPool;
                 le_ref_MapRef_t RxSecAccessMsgRefMap;
+
+                le_mem_PoolRef_t vlanPool;
 
                 // Rx request handler object
                 le_mem_PoolRef_t ReqSesTypeHandlerPool;

@@ -42,6 +42,33 @@ taf_diagIOCtrl_ServiceRef_t taf_diagIOCtrl_GetService
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Sets VLAN ID to the service to filter InputOutputControlByIdentifier request.
+ * if the VLAN ID is not found or not exist, it will return error.
+ * This function shall be called before registering RxMsgHandler.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_UNSUPPORTED -- VLAN ID is unknown.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagIOCtrl_SetVlanId
+(
+    taf_diagIOCtrl_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    uint16_t vlanId
+        ///< [IN] VLAN ID.
+)
+{
+    LE_DEBUG("taf_diagIOCtrl_SetVlanId");
+    auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
+    return ioCtrl.SetVlanId(svcRef, vlanId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add handler function for EVENT 'taf_diagIOCtrl_RxMsg'
  *
  * This event provides information on Rx InputOutputControlByIdentifier message.
@@ -130,6 +157,31 @@ le_result_t taf_diagIOCtrl_GetCtrlEnableMaskRecd
     LE_DEBUG("taf_diagIOCtrl_GetCtrlEnableMaskRecd");
     auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
     return ioCtrl.GetCtrlEnableMaskRecd(rxMsgRef, maskRecordPtr, maskRecordSizePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the vlan id of the Rx InputOutputControlByIdentifier message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- VLAN ID not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagIOCtrl_GetVlanIdFromMsg
+(
+    taf_diagIOCtrl_RxMsgRef_t rxMsgRef,
+        ///< [IN] Receive message reference.
+    uint16_t* vlanIdPtr
+        ///< [OUT] VLAN ID.
+)
+{
+    LE_DEBUG("taf_diagIOCtrl_GetVlanIdFromMsg");
+    auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
+    return ioCtrl.GetVlanIdFromMsg(rxMsgRef, vlanIdPtr);
 }
 
 //--------------------------------------------------------------------------------------------------

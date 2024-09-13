@@ -42,7 +42,7 @@
 #include "tafDoIPStack.h"
 
 #define DEFAULT_SVC_REF_CNT 16
-#define DEFAULT_SESSION_REF_CNT 16
+#define DEFAULT_VLAN_REF_CNT 8
 
 typedef struct
 {
@@ -56,12 +56,20 @@ typedef struct
 typedef struct
 {
     le_msg_SessionRef_t sessionRef;
-    taf_diagDoIP_EventHandlerFunc_t func;
-    void *ctxPtr;
+    le_dls_List_t vlanInfoList;
     taf_DoIPSVC_t *svrPtr;
-    void *safeRef;
     le_dls_Link_t link;
 }taf_DoIPSession_t;
+
+typedef struct
+{
+    uint16_t vlanId;
+    taf_diagDoIP_EventHandlerFunc_t func;
+    void *ctxPtr;
+    void *safeRef;
+    taf_DoIPSession_t *sessPtr;
+    le_dls_Link_t link;
+}taf_VlanCallback_t;
 
 namespace telux {
 namespace tafsvc {
@@ -74,7 +82,7 @@ namespace tafsvc {
             void Init();
 
             static void DoIPEventHandler(taf_doip_Ref_t doipRef, taf_doip_Event_t event,
-                    uint16_t remoteAddr, void* userPtr);
+                    uint16_t remoteAddr, uint16_t fromVlanId, void* userPtr);
             static void OnClientDisconnection(le_msg_SessionRef_t sessionRef,
                     void *contextPtr);
 
@@ -82,6 +90,7 @@ namespace tafsvc {
             le_result_t RemoveService(taf_diagDoIP_ServiceRef_t svcRef);
             taf_diagDoIP_EventHandlerRef_t AddEventHandler(
                     taf_diagDoIP_ServiceRef_t svcRef,
+                    uint16_t vlanId,
                     taf_diagDoIP_EventHandlerFunc_t handlerPtr,
                     void* contextPtr);
             void RemoveEventHandler(taf_diagDoIP_EventHandlerRef_t handlerRef);
@@ -97,15 +106,19 @@ namespace tafsvc {
             le_ref_MapRef_t svcRefMap;
 
             le_mem_PoolRef_t sessPool;
-            le_ref_MapRef_t sessRefMap;
+            le_mem_PoolRef_t vlanPool;
+            le_ref_MapRef_t vlanRefMap;
 
             taf_DoIPSVC_t* GetServiceObj(uint16_t identifier);
             taf_DoIPSession_t *AddSessionToService(taf_DoIPSVC_t* servicePtr,
                     le_msg_SessionRef_t sessionRef);
             le_result_t RemoveSessionFromService(taf_DoIPSVC_t* servicePtr,
                     le_msg_SessionRef_t sessionRef);
-            le_result_t SetSessionEventHandler(taf_DoIPSession_t *sessionPtr,
+            le_result_t SetSessionEventHandler(taf_DoIPSession_t *sessionPtr, uint16_t vlanId,
                     taf_diagDoIP_EventHandlerFunc_t handlerPtr, void* contextPtr);
+            void RemoveAllVlanFromSession(taf_DoIPSession_t* sessionPtr);
+            taf_VlanCallback_t* GetVlanInfoWithVlanId(taf_DoIPSession_t* sessionPtr,
+                    uint16_t vlanId);
     };
 }
 }

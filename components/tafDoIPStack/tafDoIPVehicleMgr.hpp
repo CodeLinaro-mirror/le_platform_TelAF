@@ -32,14 +32,13 @@ typedef struct
     uint32_t aliveCheckTime;
     bool authEnableStatus;
     uint32_t authInfo;
-    char ifName[TAF_DOIP_INTERFACE_NAME_MAX_LEN];
+    le_dls_List_t ifaceList;  // Interface list
     char netType[TAF_DOIP_IPTYPE_MAX_LEN];
     uint16_t udpPort;
     uint16_t tcpPort;
     le_dls_List_t funcGroupList;
     bool parseStatus = false;     // This flag will indicate that whether json is parsed or not
 }taf_doip_Config_t;
-
 
 namespace taf{
 namespace doip{
@@ -92,8 +91,6 @@ namespace doip{
 
             taf_doip_Result_t GetNetType(char* netTypePtr);
 
-            taf_doip_Result_t GetIfName(char* ifNamePtr);
-
             taf_doip_Result_t SetVin(const char* vinPtr);
             taf_doip_Result_t GetVin(char* vinPtr);
 
@@ -101,9 +98,11 @@ namespace doip{
             taf_doip_Result_t GetGid(char* gidPtr);
 
             bool IsFunctionalAddress(uint16_t logicalAddr);
+            le_dls_List_t *GetIfaceList();
         private:
             le_mem_PoolRef_t tafDoipConfigPool = NULL;
             le_mem_PoolRef_t funcGroupPool = NULL;
+            le_mem_PoolRef_t ifNamePool = NULL;
             taf_doip_Config_t *doipConfigPtr = NULL;
     };
 }

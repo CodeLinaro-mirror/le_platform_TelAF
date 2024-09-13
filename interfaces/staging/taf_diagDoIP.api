@@ -345,7 +345,9 @@ HANDLER EventHandler
 (
     Service svcRef  IN,         ///< Service reference.
     EventType eventType  IN,    ///< DoIP event type.
-    uint16 remoteLogicAddr      ///< The logical address of Remoted DoIP client.
+    uint16 remoteLogicAddr IN,  ///< The logical address of remote DoIP client.
+    uint16 vlanId IN            ///< The VLAN ID where the event comes from.
+                                /// If no valid VLAN ID, input 0.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -359,5 +361,7 @@ HANDLER EventHandler
 EVENT Event
 (
     Service svcRef  IN,         ///< Service reference.
-    EventHandler handler        ///< DoIP event handler.
+    uint16 vlanId IN,           ///< Rx event of specific interface's VLAN ID.
+                                ///< If the interface does not have a VLAN ID, input 0.
+    EventHandler handler IN     ///< DoIP event handler.
 );

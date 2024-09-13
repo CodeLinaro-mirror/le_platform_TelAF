@@ -22,7 +22,7 @@
     },
     "network":
     {
-        "ifname": "bridge0",
+        "ifname": ["bridge0"],
         "type": "IPv4",
         "UDP_DISCOVERY": 13400,
         "TCP_DATA": 13400,

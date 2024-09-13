@@ -69,9 +69,15 @@ void VehicleManager::ParseJsonConfig
                 sizeof(taf_doip_FuncGroup_t));
     }
 
+    if (vehicleMgr.ifNamePool == NULL)
+    {
+        vehicleMgr.ifNamePool = le_mem_CreatePool("IfNamePool", sizeof(taf_doip_Iface_t));
+    }
+
     vehicleMgr.doipConfigPtr
             = (taf_doip_Config_t *)le_mem_ForceAlloc(vehicleMgr.tafDoipConfigPool);
     vehicleMgr.doipConfigPtr->funcGroupList = LE_DLS_LIST_INIT;
+    vehicleMgr.doipConfigPtr->ifaceList = LE_DLS_LIST_INIT;
 
     // Read json config file
     try{
@@ -148,10 +154,27 @@ void VehicleManager::ParseJsonConfig
         vehicleMgr.doipConfigPtr->authInfo
                 = 0;
 
-        std::string ifName = root.get<std::string>("network.ifname");
-        le_utf8_Copy(vehicleMgr.doipConfigPtr->ifName, ifName.c_str(),
-                TAF_DOIP_INTERFACE_NAME_MAX_LEN, NULL);
-        LE_INFO("ifName: %s", vehicleMgr.doipConfigPtr->ifName);
+        uint32_t cnt = 0;
+        pt::ptree &ifNodes = root.get_child("network.ifname");
+        for (const auto &ifNode : ifNodes)
+        {
+            if (cnt >= MAX_INF_NUM)
+            {
+                LE_WARN("The maximum number of interfaces has been reached");
+                break;
+            }
+
+            std::string ifName = ifNode.second.get_value<std::string>("");
+            taf_doip_Iface_t *interfacePtr = (taf_doip_Iface_t*)
+                    le_mem_ForceAlloc(vehicleMgr.ifNamePool);
+
+            interfacePtr->link = LE_DLS_LINK_INIT;
+            le_utf8_Copy(interfacePtr->ifName, ifName.c_str(),
+                    TAF_DOIP_INTERFACE_NAME_MAX_LEN, NULL);
+            LE_INFO("ifName: %s", interfacePtr->ifName);
+            le_dls_Queue(&vehicleMgr.doipConfigPtr->ifaceList, &interfacePtr->link);
+            cnt++;
+        }
 
         std::string netType = root.get<std::string>("network.type");
         le_utf8_Copy(vehicleMgr.doipConfigPtr->netType, netType.c_str(),
@@ -510,35 +533,6 @@ taf_doip_Result_t VehicleManager::GetAuthInfo
     }
 }
 
-taf_doip_Result_t VehicleManager::GetIfName
-(
-    char* ifNamePtr
-)
-{
-    LE_DEBUG("GetIfName!");
-
-    if (ifNamePtr == NULL)
-    {
-        LE_ERROR("ifNamePtr is null!");
-        return TAF_DOIP_RESULT_PARAM_ERROR;
-    }
-
-    auto &vehicleMgr = VehicleManager::GetInstance();
-
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
-    {
-        le_utf8_Copy(ifNamePtr, vehicleMgr.doipConfigPtr->ifName,
-                TAF_DOIP_INTERFACE_NAME_MAX_LEN, NULL);
-    }
-    else
-    {
-        LE_ERROR("json configuration is not parsed!");
-        return TAF_DOIP_RESULT_ERROR;
-    }
-
-    return TAF_DOIP_RESULT_OK;
-}
-
 taf_doip_Result_t VehicleManager::GetNetType
 (
     char* netTypePtr
@@ -773,6 +767,18 @@ bool VehicleManager::IsFunctionalAddress
     }
 
     return false;
+}
+
+le_dls_List_t *VehicleManager::GetIfaceList
+(
+)
+{
+    if (doipConfigPtr == NULL)
+    {
+        return nullptr;
+    }
+
+    return &doipConfigPtr->ifaceList;
 }
 
 taf_doip_Result_t VehicleManager::DeInit

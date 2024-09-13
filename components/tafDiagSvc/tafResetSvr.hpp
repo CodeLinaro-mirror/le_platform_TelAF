@@ -59,6 +59,7 @@ typedef struct
     le_dls_List_t rxMsgList;                     ///< Rx message list of the service.
     taf_diagReset_RxMsgHandlerRef_t handlerRef;  ///< Rx Message handler ref of the service.
     le_msg_SessionRef_t sessionRef;              ///< Reference to a client-server session.
+    le_dls_List_t supportedVlanList;             ///< VLAN ID list.
 }taf_ResetSvc_t;
 
 //-------------------------------------------------------------------------------------------------
@@ -86,6 +87,17 @@ typedef struct
     taf_diagReset_RxMsgHandlerFunc_t func;       ///< Handler function.
     void* ctxPtr;                                ///< Handler context.
 }taf_ResetReqHandler_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * VLAN ID structure.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_dls_Link_t   link;
+    uint16_t        vlanId;
+}taf_ResetVlanIdNode_t;
 
 // ECU Reset service class
 namespace telux {
@@ -116,9 +128,14 @@ namespace telux {
 
                 le_result_t RemoveSvc(taf_diagReset_ServiceRef_t svcRef);
 
+                // VLAN ID setting/getting.
+                le_result_t SetVlanId(taf_diagReset_ServiceRef_t svcRef, uint16_t vlanId);
+                le_result_t GetVlanIdFromMsg(taf_diagReset_RxMsgRef_t rxMsgRef,
+                    uint16_t* vlanIdPtr);
             private:
                 // Internal search function.
-                taf_ResetSvc_t* GetServiceObj(uint8_t resetType);
+                taf_ResetSvc_t* GetServiceObj(uint8_t resetType, uint16_t vlanId);
+                taf_ResetSvc_t* GetServiceObj(uint8_t resetType, le_msg_SessionRef_t sessionRef);
                 // Send NRC response msg.
                 le_result_t SendNRCResp(taf_uds_AddrInfo_t*  addrInfoPtr, uint8_t errCode);
 
@@ -140,6 +157,8 @@ namespace telux {
                 // Rx request handler object
                 le_mem_PoolRef_t ReqHandlerPool;
                 le_ref_MapRef_t ReqHandlerRefMap;
+
+                le_mem_PoolRef_t VlanPool;
 
                 // Event for service.
                 le_event_Id_t ResetEvent;

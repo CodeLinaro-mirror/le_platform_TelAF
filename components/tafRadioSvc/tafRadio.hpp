@@ -822,8 +822,6 @@ namespace tafsvc {
          */
         void Init(void);
 
-        void onInitCompleted(telux::common::ServiceStatus status);
-
         le_mem_PoolRef_t prefOpsListPool;
         le_mem_PoolRef_t prefOpPool;
         le_mem_PoolRef_t prefOpSafeRefPool;
@@ -871,10 +869,7 @@ namespace tafsvc {
         le_event_Id_t netRegRejEvId;
         static le_event_Id_t radioCmdEvId;
 
-        bool subSystemStatusUpdated = false;
         int32_t netRejectCause = TAF_RADIO_NET_REJ_CAUSE_UNDEFINED;
-        std::mutex mtx;
-        std::condition_variable conVar;
         taf_RadioDataCallbackInfo_t dataInfoCb;
         taf_OperatorNameCallbackInfo_t opNameCb;
         std::shared_ptr<taf_RadioSignalStrengthCallback> signalStrengthCb;
@@ -891,7 +886,7 @@ namespace tafsvc {
         std::vector<std::shared_ptr<telux::tel::IServingSystemManager>> servingSystemManagers;
         std::shared_ptr<telux::tel::IPhoneManager> phoneManager;
         std::map<SlotId, std::shared_ptr<telux::tel::IImsServingSystemManager>> imsServingSystemMgrs;
-        std::map<SlotId, std::shared_ptr<telux::tel::IImsSettingsManager>> imsSettingMgrs;
+        std::shared_ptr<telux::tel::IImsSettingsManager> imsSettingMgr;
         std::map<SlotId, std::shared_ptr<telux::data::IServingSystemManager>> dataServSysManagers;
         std::map<taf_radio_NetStatusChangeHandlerRef_t, taf_radio_NetStatusChangeHandlerRef_t> netStatRefMap;
         taf_radio_ImsRef_t imsRefs[TAF_RADIO_PHONE_NUM];

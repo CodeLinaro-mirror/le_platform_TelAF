@@ -2671,29 +2671,6 @@ void PowerStateChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Subsystem completes intialization.
- */
-//--------------------------------------------------------------------------------------------------
-void taf_Radio::onInitCompleted
-(
-    telux::common::ServiceStatus status ///< [IN] Service status.
-)
-{
-    std::lock_guard<std::mutex> lock(mtx);
-    if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-    {
-        LE_INFO("Status : available.");
-        subSystemStatusUpdated = true;
-        conVar.notify_all();
-    }
-    else
-    {
-        LE_ERROR("Invalid status: %d", (int)status);
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Initialization.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2949,21 +2926,43 @@ void taf_Radio::Init(void)
             // 10. Initialize data serving subsystem.
             isReady = false;
             int slot = (int)phoneManager->getSlotIdFromPhoneId(index);
-            telux::common::ServiceStatus subSystemStatus =
-                telux::common::ServiceStatus::SERVICE_FAILED;
-            auto initCb = std::bind(&taf_Radio::onInitCompleted, this, std::placeholders::_1);
-            auto servingSystemMgr = dataFactory.getServingSystemManager((SlotId)slot, initCb);
-            if (servingSystemMgr)
-            {
-                std::unique_lock<std::mutex> uLock(mtx);
-                if (!conVar.wait_for(uLock, std::chrono::seconds(TAF_RADIO_SUBSYSTEM_TIMEOUT),
-                    [this]{return this->subSystemStatusUpdated;}))
+            std::promise<telux::common::ServiceStatus> dataSrvProm;
+            auto servingSystemMgr = dataFactory.getServingSystemManager(
+                (SlotId)slot,[&](telux::common::ServiceStatus svcStatus)
                 {
-                    LE_FATAL("Timeout waiting for data serving susbsytem");
+                    if (svcStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                    {
+                        dataSrvProm.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+                    }
+                    else
+                    {
+                        dataSrvProm.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+                    }
+                });
+            if (!servingSystemMgr)
+            {
+                LE_ERROR("Failed to get Data Serving System instance.");
+            }
+            else
+            {
+                telux::common::ServiceStatus dataServSysMgrStatus =
+                    servingSystemMgr->getServiceStatus();
+                if (dataServSysMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                {
+                    LE_INFO("Data serving subsystem wait to be ready...");
+                    std::future<telux::common::ServiceStatus> initFuture = dataSrvProm.get_future();
+                    std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+                        TAF_RADIO_SUBSYSTEM_TIMEOUT));
+                    if (std::future_status::timeout == waitStatus)
+                    {
+                        LE_FATAL ("Timeout waiting for Data serving susbsytem");
+                    }
+                    else
+                    {
+                        dataServSysMgrStatus = initFuture.get();
+                    }
                 }
-
-                subSystemStatus = servingSystemMgr->getServiceStatus();
-                if (subSystemStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                if (dataServSysMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
                 {
                     isReady = true;
                     LE_INFO("%d data serving subsystem is ready.", slot);
@@ -2975,10 +2974,6 @@ void taf_Radio::Init(void)
                 {
                     LE_FATAL("Fail to init Data Serving subsystem");
                 }
-            }
-            else
-            {
-                LE_ERROR("Failed to get Data Serving System instance.");
             }
 
             // 11. Initialize IMS serving subsystem.
@@ -3034,56 +3029,55 @@ void taf_Radio::Init(void)
                     LE_FATAL("Fail to init IMS Serving subsystem");
                 }
             }
+        }
+    }
 
-            // 12. Initialize IMS settings subsystem.
-            isReady = false;
-            std::promise<telux::common::ServiceStatus> promSetting;
-            auto imsSettingMgr = phoneFactory.getImsSettingsManager(
-                [&](telux::common::ServiceStatus svcStatus)
-                {
-                    if (svcStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-                    {
-                        promSetting.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
-                    }
-                    else
-                    {
-                        promSetting.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
-                    }
-                });
-
-            if (!imsSettingMgr)
+    // 12. Initialize IMS settings subsystem.
+    isReady = false;
+    std::promise<telux::common::ServiceStatus> promSetting;
+    imsSettingMgr = phoneFactory.getImsSettingsManager(
+        [&](telux::common::ServiceStatus svcStatus)
+        {
+            if (svcStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
             {
-                LE_ERROR("Failed to get IMS Settings instance.");
+                promSetting.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
             }
             else
             {
-                telux::common::ServiceStatus imsSettingMgrStatus = imsSettingMgr->getServiceStatus();
-                if (imsSettingMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
-                {
-                    LE_INFO("IMS setting subsystem wait to be ready...");
-                    std::future<telux::common::ServiceStatus> initFuture = promSetting.get_future();
-                    std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
-                        TAF_RADIO_SUBSYSTEM_TIMEOUT));
-                    if (std::future_status::timeout == waitStatus)
-                    {
-                        LE_FATAL ("Timeout waiting for IMS setting susbsytem");
-                    }
-                    else
-                    {
-                        imsSettingMgrStatus = initFuture.get();
-                    }
-                }
-                if (imsSettingMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-                {
-                    isReady = true;
-                    imsSettingMgrs.emplace((SlotId)slot, imsSettingMgr);
-                    LE_INFO("%d IMS setting subsystem is ready.", slot);
-                }
-                else
-                {
-                    LE_FATAL("Fail to init IMS Setting subsystem");
-                }
+                promSetting.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
             }
+        });
+
+    if (!imsSettingMgr)
+    {
+        LE_ERROR("Failed to get IMS Settings instance.");
+    }
+    else
+    {
+        telux::common::ServiceStatus imsSettingMgrStatus = imsSettingMgr->getServiceStatus();
+        if (imsSettingMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_INFO("IMS setting subsystem wait to be ready...");
+            std::future<telux::common::ServiceStatus> initFuture = promSetting.get_future();
+            std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+                TAF_RADIO_SUBSYSTEM_TIMEOUT));
+            if (std::future_status::timeout == waitStatus)
+            {
+                LE_FATAL ("Timeout waiting for IMS setting susbsytem");
+            }
+            else
+            {
+                imsSettingMgrStatus = initFuture.get();
+            }
+        }
+        if (imsSettingMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            isReady = true;
+            LE_INFO("IMS setting subsystem is ready.");
+        }
+        else
+        {
+            LE_FATAL("Fail to init IMS Setting subsystem");
         }
     }
 

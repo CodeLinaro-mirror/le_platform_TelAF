@@ -179,6 +179,18 @@ void TestActivateSensor(){
     if(result!=LE_OK) return;
 }
 
+void TestSelfTest(){
+    LE_TEST_INFO("--------- Testing Self Test for Sensor----------");
+    le_result_t result = taf_imuSensor_SelfTest(sensorsArray[0],TAF_IMUSENSOR_POSITIVE);
+    LE_TEST_OK(result == LE_OK, "taf_imuSensor_SelfTest Info- LE_OK.");
+    if(result == LE_UNSUPPORTED){
+        LE_TEST_INFO("Not supported on this target");
+    }
+    else if(result == LE_TIMEOUT){
+        LE_TEST_INFO("Failed due to time out.");
+    }
+}
+
 void DeleteSensorList()
 {
     le_result_t result;
@@ -194,7 +206,8 @@ COMPONENT_INIT{
     TestAvailableSensor();
     TestSetEulerAngle();
     TestActivateSensor();
-    le_thread_Sleep(10);
+    TestSelfTest();
+    le_thread_Sleep(2);
     DeleteSensorList();
     exit(EXIT_SUCCESS);
 }

@@ -152,6 +152,7 @@ namespace tafsvc {
             le_result_t GetSensorRangeInfo(taf_imuSensor_SensorRef_t,double*);
             le_result_t GetSensorResolution(taf_imuSensor_SensorRef_t,double*);
             le_result_t Activate(taf_imuSensor_SensorRef_t,double ,uint32_t);
+            le_result_t SelfTest(taf_imuSensor_SensorRef_t,taf_imuSensor_SelfTestMode_t);
             le_result_t Deactivate(taf_imuSensor_SensorRef_t sensorRef);
             void CleanUp(taf_SensorClient_t*);
             taf_imuSensor_DataHandlerRef_t AddDataHandler(taf_imuSensor_SensorRef_t,

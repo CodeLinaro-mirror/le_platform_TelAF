@@ -49,12 +49,13 @@ static void DoIPEventHandler
     taf_diagDoIP_ServiceRef_t svrRef,
     taf_diagDoIP_EventType_t eventType,
     uint16_t remoteLogicAddr,
+    uint16_t vlanId,
     void* contextPtr
 )
 {
     LE_TEST_INFO("Received a DoIP event notification");
-    LE_TEST_INFO("Event type is 0x%x, client logical address is 0x%x",
-        (uint32_t)eventType, remoteLogicAddr);
+    LE_TEST_INFO("Event type is 0x%x, client logical address is 0x%x, vlan0x%x",
+        (uint32_t)eventType, remoteLogicAddr, vlanId);
 }
 
 void SetAndGetVIN
@@ -116,7 +117,7 @@ static void* diagDoIPEventThread
 {
     taf_diagDoIP_ConnectService();
 
-    diagDoIPEventRef = taf_diagDoIP_AddEventHandler(diagDoIPSvcRef, DoIPEventHandler, NULL);
+    diagDoIPEventRef = taf_diagDoIP_AddEventHandler(diagDoIPSvcRef, 0, DoIPEventHandler, NULL);
     LE_TEST_ASSERT(diagDoIPEventRef != NULL, "Registered DoIPEventHandler");
 
     le_sem_Post(semRef);

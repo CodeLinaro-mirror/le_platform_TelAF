@@ -9,6 +9,13 @@ sources:
     diagRoutineControl.c
     diagIOCtrl.c
     diagDoIP.c
+    diagVlanDoIP.c
+    diagVlanIOCtrl.c
+    diagVlanReadWriteDid.c
+    diagVlanRequestFileTransfer.c
+    diagVlanReset.c
+    diagVlanRoutineControl.c
+    diagVlanSecurityAccess.c
 #endif
 }
 

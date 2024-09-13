@@ -642,18 +642,60 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
     if(shutdownCB.sessionRef == sessionRef)
         shutdownCB.shutdownCallbackFunc = nullptr;
     LE_INFO("Client with sessionRef %p (process %d) disconnected", sessionRef, sessionNodePtr->pid);
-
     le_mem_Release(sessionNodePtr);
-    int index = 0;
+
     auto &mpms = tafMngdPMSvc::GetInstance();
-    for(auto &client : mpms.regClientrecrd)
+    //clear state change registered clients
+    for(auto it = mpms.regClientrecrd.begin(); it != mpms.regClientrecrd.end(); )
     {
-        if(client.sessionRef == sessionRef)
+        if(it->sessionRef == sessionRef)
         {
-            mpms.regClientrecrd.erase(mpms.regClientrecrd.begin() + index);
-            return;
+            LE_INFO("Client with sessionRef %p", it->sessionRef);
+            it = mpms.regClientrecrd.erase(it);
         }
-        index++;
+        else
+        {
+            ++it;
+        }
+    }
+    //clear Wake Source filter
+    for(auto it = mpms.wsWhiteList.begin(); it != mpms.wsWhiteList.end(); )
+    {
+        if(it->sessionRef == sessionRef)
+        {
+            LE_INFO("Client with sessionRef %p", it->sessionRef);
+            it = mpms.wsWhiteList.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+
+    //Clear WsReflist
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
+
+    while (linkHandlerPtr)
+    {
+        taf_wsRefCtx_t * wsRefCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
+        LE_INFO("Client with sessionRef %p", wsRefCtxPtr->sessionRef);
+        if (wsRefCtxPtr && wsRefCtxPtr->sessionRef == sessionRef && wsRefCtxPtr->isAcquiredLock)
+        {
+            le_result_t res = tafMngdPMSvc::ReleaseWakeLock();
+            if(res == LE_OK)
+            {
+                LE_INFO("Released lock");
+                wsRefCtxPtr->isAcquiredLock = false;
+            }
+            else {
+                le_ref_DeleteRef(mpms.wsRefMap, wsRefCtxPtr->wsRef);
+                le_dls_Remove(&(mpms.wsRefList), &wsRefCtxPtr->link);
+                free((void*)wsRefCtxPtr->vhalTag);
+                le_mem_Release((void*)wsRefCtxPtr);
+            }
+        }
     }
 }
 
@@ -823,9 +865,12 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
  */
 void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
 {
+    LE_INFO("VhalAckTimerHandler");
+    auto &mpms = tafMngdPMSvc::GetInstance();
     taf_mngdPm_RequestedState_t* state =
       (taf_mngdPm_RequestedState_t*)le_timer_GetContextPtr(timerRef);
-    LE_INFO("Timer Expired state is %d", *(state));
+    LE_INFO("Timer Expired after %ld msec for state %d", mpms.config.hal_state_prepare_timeout,
+            *(state));
     if(*(state) == SYSTEM_NORMAL_SHUTDOWN)
     {
         LE_INFO("Timer expire for SYSTEM_FORCEFUL_SHUTDOWN");
@@ -850,10 +895,17 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
  */
 void tafMngdPMSvc::VehichleWakeupTimerHandler(le_timer_Ref_t timerRef)
 {
-    taf_mngdPm_RequestedState_t* state =
-      (taf_mngdPm_RequestedState_t*)le_timer_GetContextPtr(timerRef);
-    LE_INFO("Timer Expired state is %d", *(state));
-    taf_mngdPm_RequestedWakeupVehicle_t* mode = (taf_mngdPm_RequestedWakeupVehicle_t*)le_timer_GetContextPtr(timerRef);
+    LE_INFO("VehichleWakeupTimerHandler");
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    taf_mngdPm_RequestedWakeupVehicle_t* wakeupMode =
+      (taf_mngdPm_RequestedWakeupVehicle_t*)le_timer_GetContextPtr(timerRef);
+
+    LE_INFO("Timer Expired after %ld msec for wakeupMode %d",
+            mpms.config.hal_wakeup_vehicle_timeout, *(wakeupMode));
+
+    taf_mngdPm_RequestedWakeupVehicle_t* mode =
+            (taf_mngdPm_RequestedWakeupVehicle_t*)le_timer_GetContextPtr(timerRef);
+
     if(*(mode) == WAKEUP_VEHICHLE_REQ_DEFAULT)
     {
         LE_INFO("Timer expire for WAKEUP_VEHICHLE_REQ_DEFAULT");
@@ -875,7 +927,7 @@ void tafMngdPMSvc::WaitWakeSourceTimer()
     le_result_t res;
     //timer to wait for wake source from apps
     wakeSourceTimerRef = le_timer_Create("WAKE SOURCE timer");
-    le_timer_SetMsInterval(wakeSourceTimerRef, mpms.config.hal_state_prepare_timeout);
+    le_timer_SetMsInterval(wakeSourceTimerRef, mpms.config.bootup_awake_time);
     le_timer_SetHandler(wakeSourceTimerRef, WakeSourceTimerHandler);
     //acquire wakesource
     res = AcquireWakeLock();
@@ -892,9 +944,10 @@ void tafMngdPMSvc::WaitWakeSourceTimer()
 void tafMngdPMSvc::WakeSourceTimerHandler(le_timer_Ref_t timerRef)
 {
     LE_INFO("Timer Expired for WakeSourceTimerHandler");
+    auto &mpms = tafMngdPMSvc::GetInstance();
     le_result_t res = ReleaseWakeLock();
     if(res == LE_OK)
-        LE_INFO("Triggered suspend after 10sec wait to acquire wakesource from apps");
+        LE_INFO("ReleaseWakeLock after %ld msec timeout", mpms.config.bootup_awake_time);
 }
 
 /**
@@ -918,7 +971,7 @@ le_result_t tafMngdPMSvc::InitVHalModule()
         // init first
         (*(pmInf->InitHAL))();
         vhalAckTimerRef = le_timer_Create("VHAL ACK timer");
-        le_timer_SetMsInterval(vhalAckTimerRef, mpms.config.bootup_awake_time);
+        le_timer_SetMsInterval(vhalAckTimerRef, mpms.config.hal_state_prepare_timeout);
         le_timer_SetHandler(vhalAckTimerRef, VhalAckTimerHandler);
         //creating the timer for vehichle wakeup
         wakeupVehicleTimerRef = le_timer_Create("VEHICHLE WAKEUP timer");
@@ -935,11 +988,6 @@ le_result_t tafMngdPMSvc::InitVHalModule()
 le_result_t tafMngdPMSvc::AcquireWakeLock()
 {
     LE_INFO("AcquireWakeLock wsCount:%d", wsCount);
-    if(le_timer_IsRunning(wakeSourceTimerRef))
-    {
-        LE_INFO("acquired wake source when timer is running");
-        return LE_OK;
-    }
     le_result_t res = LE_FAULT;
     if(wsCount == 0) {
         if(ws == nullptr)
@@ -990,7 +1038,7 @@ le_result_t tafMngdPMSvc::ReleaseWakeLock()
             {
                 res = taf_pm_Relax(ws);
                 if(res == LE_OK) {
-                    LE_INFO("Wake source released successfully");
+                    LE_INFO("Wake source from pms released successfully");
                     powerMode.isWsAcquired = false;
                 }
             }
@@ -1016,19 +1064,20 @@ void tafMngdPMSvc::SetModemWakeupSource(taf_mngdPm_WakeupType_t wakeupType)
 {
     LE_INFO("SetModemWakeupSource");
     //check if same wakeupSource exists
+    auto &mpms = tafMngdPMSvc::GetInstance();
     if(wsWhiteList.size() > 0)
     {
-        for (auto it = wsWhiteList.begin(); it != wsWhiteList.end(); ++it )
+        for(auto &client : mpms.wsWhiteList)
         {
-            if (*it == wakeupType)
+            if((client.wakeupType == wakeupType) && (client.sessionRef == taf_mngdPm_GetClientSessionRef()))
             {
                 LE_INFO("wakeupType already in wsWhiteList");
-                return ;
+                return;
             }
         }
     }
     LE_INFO("SetModemWakeupSource type %d", wakeupType);
-    wsWhiteList.push_back(wakeupType);
+    mpms.wsWhiteList.push_back({wakeupType, taf_mngdPm_GetClientSessionRef()});
 }
 
 /**
@@ -1371,7 +1420,7 @@ taf_pm_WakeupSourceRef_t tafMngdPMSvc::ws = nullptr;
 taf_mngdPm_TargetedPowerMode_t tafMngdPMSvc::targetedPowerMode = TAF_MNGDPM_RESUME;
 taf_mngdPm_RestartCb_t tafMngdPMSvc::restartCB;
 taf_mngdPm_ShutdownCb_t tafMngdPMSvc::shutdownCB;
-std::vector<taf_mngdPm_WakeupType_t> tafMngdPMSvc::wsWhiteList;
+std::vector<taf_mngdPm_WakeupSourceCtxt_t> tafMngdPMSvc::wsWhiteList;
 
 uint8_t tafMngdPMSvc::wsCount = 0;
 taf_powerMode_t tafMngdPMSvc::powerMode{};

@@ -215,6 +215,7 @@ le_result_t taf_mngdPm_WakeupVehicleReqAsync(int32_t reason,
             mpms.wakeupVehicleCB.wakeupVehicleCallbackFunc = handlerPtr;
             mpms.wakeupVehicleCB.wakeupVehicleCBCtxPtr = contextPtr;
             mpms.wakeupVehicleCB.sessionRef = taf_mngdPm_GetClientSessionRef();
+            LE_INFO("Client with sessionRef %p", mpms.wakeupVehicleCB.sessionRef);
             (*(mpms.pmInf->wakeupVehicleReqAsync))(VEHICHLE_WAKEUP_REASON_DEFAULT, tafMngdPMSvc::WakeupVehicleCB);
         }
         else
@@ -270,29 +271,34 @@ taf_mngdPm_wsRef_t taf_mngdPm_NewNodeWakeupSource( uint8_t pmNodeId,
     taf_mngdPm_WakeupType_t wakeupType, const char* vhalTag)
 {
     LE_INFO("taf_mngdPm_NewNodeWakeupSource");
-    bool inThewsWhiteList = false;
+    bool isWsWhitelisted = false;
     auto &mpms = tafMngdPMSvc::GetInstance();
     if(wakeupType == TAF_MNGDPM_APP_STAYAWAKE)
     {
-        inThewsWhiteList = true;
+        isWsWhitelisted = true;
     }
     else
     {
-        for (auto it = mpms.wsWhiteList.begin(); it != mpms.wsWhiteList.end(); ++it ) {
-            if (*it == wakeupType) {
+        for(auto &client : mpms.wsWhiteList)
+        {
+            if((client.wakeupType == wakeupType) &&
+                    (client.sessionRef == taf_mngdPm_GetClientSessionRef()))
+            {
                 LE_INFO("wakeupType found in wsWhiteList");
-                inThewsWhiteList = true;
+                isWsWhitelisted = true;
                 break;
             }
         }
     }
-    if(inThewsWhiteList)
+    if(isWsWhitelisted)
     {
+        isWsWhitelisted = false;
+
         if(pmNodeId == 1)
         {
             LE_INFO("RPC NewNodeWakeupSource");
             auto &rpcPm = tafMngdRpcPm::GetInstance();
-	        taf_mngdPm_wsRef_t wsRef = rpcPm.NewRpcNodeWakeupSource(pmNodeId, wakeupType);
+            taf_mngdPm_wsRef_t wsRef = rpcPm.NewRpcNodeWakeupSource(pmNodeId, wakeupType);
             if(wsRef) {
                 LE_INFO("NewRpcNodeWakeupSource triggered from MPMS");
                 return wsRef;
@@ -307,15 +313,15 @@ taf_mngdPm_wsRef_t taf_mngdPm_NewNodeWakeupSource( uint8_t pmNodeId,
                 (taf_wsRefCtx_t *)le_mem_ForceAlloc(mpms.wsRefPool);
         wsCtxPtr->wsRef = (taf_mngdPm_wsRef_t)le_ref_CreateRef(
                 mpms.wsRefMap, wsCtxPtr);
-        wsCtxPtr->vhalTag = vhalTag;
+        wsCtxPtr->vhalTag = strdup(vhalTag);
         wsCtxPtr->pmNodeId = pmNodeId;
         wsCtxPtr->wakeupType = wakeupType;
+        wsCtxPtr->sessionRef = taf_mngdPm_GetClientSessionRef();
         wsCtxPtr->link = LE_DLS_LINK_INIT;
+        wsCtxPtr->isAcquiredLock= false;
+
         le_dls_Queue(&(mpms.wsRefList), &wsCtxPtr->link);
-        inThewsWhiteList = false;
-
         return wsCtxPtr->wsRef;
-
     }
     else {
         LE_INFO("wakeupType not found in wsWhiteList");
@@ -341,48 +347,38 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
         taf_wsRefCtx_t * wsRefCtxPtr =
                 CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
         linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
-        if(wsRefCtxPtr->wakeupType == TAF_MNGDPM_APP_STAYAWAKE)
+
+        if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef &&
+                wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef())
         {
+            LE_INFO("WakeupType matched with wsRefList for StayAwakeNode");
+            //check if already a wakelock acquired
+            if(wsRefCtxPtr && wsRefCtxPtr->isAcquiredLock)
+            {
+                 LE_INFO("WakeLock already acquired");
+                 return LE_FAULT;
+            }
             res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_WAKING_UP);
             if(res != LE_OK)
             {
                 return res;
             }
-            ispresent = true;
-            LE_INFO("WakeupType is TAF_MNGDPM_APP_STAYAWAKE");
             res = tafMngdPMSvc::AcquireWakeLock();
-            //sending notification to VHAL
-            if((res == LE_OK) && (wsRefCtxPtr->vhalTag != NULL) && (mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
+            if(res == LE_OK)
             {
-                LE_INFO("send nodeInfoNotification for vhalTag:%s", wsRefCtxPtr->vhalTag);
-                (*(mpms.pmInf->nodeInfoNotification))(wsRefCtxPtr->pmNodeId,
-                    HAL_PM_NODE_INFO_LOCK_ACQUIRED, wsRefCtxPtr->vhalTag);
-            }
-            break;
-        }
-        else if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef)
-        {
-            for (auto it = mpms.wsWhiteList.begin(); it != mpms.wsWhiteList.end(); ++it ) {
-                if (*it == wsRefCtxPtr->wakeupType)
+                LE_INFO("Acquired wakelock");
+                wsRefCtxPtr->isAcquiredLock = true;
+                ispresent = true;
+                //sending notification to VHAL
+                if((wsRefCtxPtr->vhalTag != NULL) && (mpms.pmInf) &&
+                        (mpms.pmInf->nodeInfoNotification))
                 {
-                    res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_WAKING_UP);
-                    if(res != LE_OK)
-                    {
-                        return res;
-                    }
-                    ispresent = true;
-                    LE_INFO("WakeupType matched with whitelisting wakeup_source");
-                    res = tafMngdPMSvc::AcquireWakeLock();
-                    //sending notification to VHAL
-                    if((res == LE_OK) && (wsRefCtxPtr->vhalTag != NULL) && (mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
-                    {
-                        LE_INFO("send nodeInfoNotification for vhalTag:%s", wsRefCtxPtr->vhalTag);
-                        (*(mpms.pmInf->nodeInfoNotification))(wsRefCtxPtr->pmNodeId,
-                            HAL_PM_NODE_INFO_LOCK_ACQUIRED, wsRefCtxPtr->vhalTag);
-                    }
-                    break;
+                    LE_INFO("send nodeInfoNotification for vhalTag:%s", wsRefCtxPtr->vhalTag);
+                    (*(mpms.pmInf->nodeInfoNotification))(wsRefCtxPtr->pmNodeId,
+                        HAL_PM_NODE_INFO_LOCK_ACQUIRED, wsRefCtxPtr->vhalTag);
                 }
             }
+            break;
         }
     }
     if(ispresent)
@@ -420,25 +416,39 @@ le_result_t taf_mngdPm_RelaxNode(taf_mngdPm_wsRef_t wsRef)
         taf_wsRefCtx_t * wsRefCtxPtr =
                 CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
         linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
-        if ((wsRefCtxPtr) && wsRef && (wsRefCtxPtr->wsRef == wsRef))
+
+        if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef &&
+                wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef() &&
+                        wsRefCtxPtr->isAcquiredLock)
         {
-            ispresent = true;
-            LE_INFO("WakeupType matched with whitelisting wakeup_source");
+            LE_INFO("WakeupType matched with wsRefList for RelaxNode");
             res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
             if(res != LE_OK)
             {
                 return res;
             }
-            //sending notification to VHAL
-            if((wsRefCtxPtr->vhalTag != NULL) && (mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
-            {
-                LE_INFO("nodeInfoNotification for vhalTag: %s", wsRefCtxPtr->vhalTag);
-                (*(mpms.pmInf->nodeInfoNotification))(wsRefCtxPtr->pmNodeId, HAL_PM_NODE_INFO_LOCK_RELEASED,
-                    wsRefCtxPtr->vhalTag);
-            }
             res = tafMngdPMSvc::ReleaseWakeLock();
+            if(res == LE_OK)
+            {
+                LE_INFO("client Released WakeLock");
+                wsRefCtxPtr->isAcquiredLock = false;
+                ispresent = true;
+                //sending notification to VHAL
+                if((wsRefCtxPtr->vhalTag != NULL) && (mpms.pmInf) &&
+                        (mpms.pmInf->nodeInfoNotification))
+                {
+                    LE_INFO("nodeInfoNotification for vhalTag: %s", wsRefCtxPtr->vhalTag);
+                    (*(mpms.pmInf->nodeInfoNotification))(wsRefCtxPtr->pmNodeId,
+                            HAL_PM_NODE_INFO_LOCK_RELEASED, wsRefCtxPtr->vhalTag);
+                }
+                //Clearing wsRefList
+                le_ref_DeleteRef(mpms.wsRefMap, wsRef);
+                le_dls_Remove(&(mpms.wsRefList), &wsRefCtxPtr->link);
+                free((void*)wsRefCtxPtr->vhalTag);
+                le_mem_Release((void*)wsRefCtxPtr);
+            }
+            break;
         }
-        break;
     }
     if(ispresent)
     {

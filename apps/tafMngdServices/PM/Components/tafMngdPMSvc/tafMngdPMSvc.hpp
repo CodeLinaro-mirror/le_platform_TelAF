@@ -82,11 +82,13 @@ typedef struct
 
 typedef struct
 {
-    const char* vhalTag;                    // VhalTag to be sent to VHAL
+    const char* vhalTag;                   // VhalTag to be sent to VHAL
     taf_mngdPm_wsRef_t wsRef;              // New wakeup source reference
-    uint8_t pmNodeId;                       // NodeId given
+    uint8_t pmNodeId;                      // NodeId given
     taf_mngdPm_WakeupType_t wakeupType;    // WakeupType for the wake source
-    le_dls_Link_t link;                     // Link to handler list
+    le_dls_Link_t link;                    // Link to handler list
+    le_msg_SessionRef_t sessionRef;        // Session reference of a client
+    bool isAcquiredLock;                   // boolean to check wakelock acquired
 }taf_wsRefCtx_t;
 
 typedef struct
@@ -139,6 +141,13 @@ typedef struct
     le_msg_SessionRef_t sessionRef;
     taf_mngdPm_NodePowerState_t state;
 }taf_mngdPm_NodePowerStateChangeCtxt_t;
+
+typedef struct
+{
+    uint32_t wakeupType;
+    le_msg_SessionRef_t sessionRef;
+}taf_mngdPm_WakeupSourceCtxt_t;
+
 
 /*
  * @brief The struct of Power state Ref list.
@@ -223,7 +232,7 @@ class tafMngdPMSvc: public ITafSvc
         static taf_mngdPm_TargetedPowerMode_t targetedPowerMode;
         static taf_mngdPm_RestartCb_t restartCB;
         static taf_mngdPm_ShutdownCb_t shutdownCB;
-        static std::vector<taf_mngdPm_WakeupType_t> wsWhiteList;
+        static std::vector<taf_mngdPm_WakeupSourceCtxt_t> wsWhiteList;
         static uint8_t wsCount;
         static taf_powerMode_t powerMode;
         static taf_stateMachine_t stateMachine;
@@ -233,7 +242,7 @@ class tafMngdPMSvc: public ITafSvc
         static hal_pm_Inf_t *pmInf;
         static taf_mngdPm_RequestedState_t statePtr;
         static le_timer_Ref_t wakeSourceTimerRef;
-    
+
         // resources for multi-client management
         static taf_mngdPm_Client_t mngdPmClientInfo;
         static const char* clientWhiteList[2];

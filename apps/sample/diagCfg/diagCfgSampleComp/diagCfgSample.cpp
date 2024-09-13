@@ -65,11 +65,11 @@ static void examples(cfg::Node & node)
 
     {
         cfg::Node & n = cfg::top_dtc_all<int>("identification.code", 0xAB00CC);
-        std::cout << "Eg. top_dtc_all 1..test_failed_bit_0_or_1: " << n.get<string>("functional_conditions.conditions_to_raise_DTC.test_failed_bit_0_or_1") <<std::endl;
+        std::cout << "Eg. top_dtc_all 1..snapshot_record_content: " << n.get<string>("snapshots.snapshot_record_content") << std::endl;
 
         cfg::dtc_all_item_t temp;
         cfg::top_dtc_all<int>("identification.code", 0xAB00CC, &temp);
-        std::cout << "Eg. top_dtc_all 2..test_failed_bit_0_or_1: " <<temp.functional_conditions.conditions_to_raise_DTC.test_failed_bit_0_or_1 << std::endl;
+        std::cout << "Eg. top_dtc_all 2..snapshot_record_content: " <<temp.snapshots.snapshot_record_content << std::endl;
     }
 
     {

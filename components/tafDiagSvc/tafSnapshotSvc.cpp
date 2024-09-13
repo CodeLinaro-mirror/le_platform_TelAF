@@ -43,7 +43,7 @@ bool taf_SnapshotSvr::NeedToBeTriggered
 {
     cfg::Node & dtc = cfg::get_dtc_node(dtcCode);
 
-    cfg::Node & ff = dtc.get_child("identification.freeze_frames");
+    cfg::Node & ff = dtc.get_child("snapshots.freeze_frames");
     for (auto & f : ff)
     {
         string item = f.second.get_value<string>("");
@@ -292,7 +292,7 @@ void taf_SnapshotSvr::SendRequestToCollectDids
 )
 {
     cfg::Node & dtc = cfg::get_dtc_node(dtcCode);
-    string didType = dtc.get<string>("identification.snapshot_record_content");
+    string didType = dtc.get<string>("snapshots.snapshot_record_content");
     cfg::Node & root = cfg::get_root_node();
     cfg::Node & dids = root.get_child("data_indentifier_set").get_child(didType);
     std::vector<uint16_t> didRequestList;

@@ -20,6 +20,7 @@ ifdef(`sa525m',`
     telux_allow_audio_play(telaf_tafAudioSvc_t)
     telux_allow_audio_factory_test(telaf_tafAudioSvc_t)
     telux_allow_audio_capture(telaf_tafAudioSvc_t)
+    telux_allow_audio_voice_data(telaf_tafAudioSvc_t)
 ')
 
 # Allow update daemon to install/uninstall this service

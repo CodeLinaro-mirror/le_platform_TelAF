@@ -44,9 +44,9 @@ static le_sem_Ref_t tafAudioAppSem;
 static taf_audio_MediaHandlerRef_t MediaHandlerRef = NULL;
 le_clk_Time_t Timeout = { 3 , 0 };
 static le_thread_Ref_t Player_thread_ref, Recorder_thread_ref, Dtmf_detect_thread_ref;
-taf_audio_StreamRef_t recorderRef = NULL, playerRef = NULL, playerRef1 = NULL,
+taf_audio_StreamRef_t recorderRef = NULL, playerRef = NULL, playerRef1 = NULL, txPlayerRef = NULL,
         recorderRef1 = NULL, sinkRef = NULL, sourceRef = NULL, rxStreamRef = NULL,
-        txStreamRef = NULL, sinkRef1 = NULL, sourceRef1 = NULL;
+        txStreamRef = NULL, sinkRef1 = NULL, sourceRef1 = NULL, rxRecorderRef = NULL;
 taf_audio_RouteRef_t routeRef = NULL, routeRef1 = NULL;
 taf_audio_ConnectorRef_t rxConn = NULL, txConn = NULL, connRef = NULL;
 static taf_audio_DtmfDetectorHandlerRef_t dtmfDetectHandlerRef = NULL;
@@ -616,6 +616,172 @@ void TEST_AUDIO_RECORD()
     LE_TEST_OK(true, "Successfully deregistered for the media callback");
 }
 
+void TEST_INCALL_AUDIO_PLAYBACK(bool isRemote)
+{
+    LE_TEST_INFO("Test taf_audio_CreateConnector");
+    taf_audio_ConnectorRef_t playerConnRef = taf_audio_CreateConnector();
+    LE_TEST_OK(playerConnRef != NULL, "Successfully created Connector ");
+
+    if(!isRemote)
+    {
+        LE_TEST_INFO("Test taf_audio_OpenPlayer(TAF_AUDIO_RX)");
+        playerRef = taf_audio_OpenPlayer(TAF_AUDIO_RX);
+        LE_TEST_OK(playerRef != NULL, "Successfully opened the RX player stream");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect sinkRef and playerConnRef");
+        res = taf_audio_Connect(playerConnRef, sinkRef);
+        LE_TEST_OK(res == LE_OK, "Successfully connected sinkRef to playerConnRef");
+    }
+    else
+    {
+        LE_TEST_INFO("Test taf_audio_OpenPlayer(TAF_AUDIO_TX)");
+        playerRef = taf_audio_OpenPlayer(TAF_AUDIO_TX);
+        LE_TEST_OK(playerRef != NULL, "Successfully opened the TX player stream");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect playerConnRef and txStreamRef");
+        res = taf_audio_Connect(playerConnRef, txStreamRef);
+        LE_TEST_OK(res == LE_OK, "Successfully txStreamRef connected to playerConnRef");
+    }
+
+    LE_TEST_INFO("Test taf_audio_Connect to connect playerRef and playerConnRef");
+    res = taf_audio_Connect(playerConnRef, playerRef);
+    LE_TEST_OK(res == LE_OK, "Successfully connected playerRef to playerConnRef");
+
+    Player_thread_ref = le_thread_Create("taf_audio_svc_test_thread",
+            Test_taf_audio_AddHandler, (void*)playerRef);
+    le_thread_Start(Player_thread_ref);
+
+    le_sem_Wait(tafAudioAppSem);
+
+    LE_TEST_INFO("Test taf_audio_PlayFile to play a file");
+    res = taf_audio_PlayFile(playerRef, wavfilePath);
+    if(isRemote)
+    {
+        LE_TEST_OK(res == LE_OK, "Successfully started the incall uplink playback");
+
+        le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+
+        LE_TEST_INFO("Test taf_audio_Stop playback");
+        res = taf_audio_Stop(playerRef);
+        LE_TEST_OK(res == LE_OK, "Successfully stopped the incall uplink playback");
+
+        le_sem_Wait(tafAudioAppSem);
+    }
+    else
+    {
+        LE_TEST_OK(res == LE_UNSUPPORTED, "Successfully failed to play PCM incall downlink");
+    }
+
+    taf_audio_PlayFileConfig_t playFileConfig[1] = {0};
+    snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), "%s", amrfilePath);
+    playFileConfig[0].repeat = repeat;
+
+    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list size %zd",
+            sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
+    res = taf_audio_PlayFileList(playerRef, playFileConfig,
+            sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
+    LE_TEST_OK(res == LE_OK, "Successfully started the incall file list playback");
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+
+    LE_TEST_INFO("Test taf_audio_Stop playback");
+    res = taf_audio_Stop(playerRef);
+    LE_TEST_OK(res == LE_OK, "Successfully stopped the file playback");
+
+    le_sem_Wait(tafAudioAppSem);
+
+    LE_TEST_INFO("Test taf_audio_Disconnect to disconnect playerRef from connRef");
+    taf_audio_Disconnect(playerConnRef, playerRef);
+    LE_TEST_OK(true, "Successfully disconnected playerRef from playerConnRef");
+
+    LE_TEST_INFO("Test taf_audio_Close to close playerRef");
+    taf_audio_Close(playerRef);
+    LE_TEST_OK(true, "Successfully closed playerRef");
+
+    LE_TEST_INFO("Test taf_audio_RemoveMediaHandler");
+    taf_audio_RemoveMediaHandler(MediaHandlerRef);
+    LE_TEST_OK(true, "Successfully deregistered for the media callback");
+
+    LE_TEST_INFO("Test taf_audio_DeleteConnector");
+    taf_audio_DeleteConnector(playerConnRef);
+    LE_TEST_OK(true, "Successfully deleted the player connector reference");
+
+}
+
+void TEST_INCALL_AUDIO_RECORDING(bool isRemote)
+{
+    LE_TEST_INFO("Test taf_audio_CreateConnector");
+    taf_audio_ConnectorRef_t connRef = taf_audio_CreateConnector();
+    LE_TEST_OK(connRef != NULL, "Successfully created Connector ");
+
+    if (!isRemote)
+    {
+        LE_TEST_INFO("Test taf_audio_OpenRecorder(TAF_AUDIO_TX)");
+        recorderRef = taf_audio_OpenRecorder(TAF_AUDIO_TX);
+        LE_TEST_OK(recorderRef != NULL, "Successfully opened the TX recorder stream");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect sourceRef and connRef");
+        res = taf_audio_Connect(connRef, sourceRef);
+        LE_TEST_OK(res == LE_OK, "Successfully connected sourceRef to connRef");
+
+    }
+    else
+    {
+        LE_TEST_INFO("Test taf_audio_OpenRecorder(TAF_AUDIO_RX)");
+        recorderRef = taf_audio_OpenRecorder(TAF_AUDIO_RX);
+        LE_TEST_OK(recorderRef != NULL, "Successfully opened the RX recorder stream");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect rxStreamRef and connRef");
+        res = taf_audio_Connect(connRef, rxStreamRef);
+        LE_TEST_OK(res == LE_OK, "Successfully connected rxStreamRef to connRef");
+    }
+
+    LE_TEST_INFO("Test taf_audio_Connect to connect recorderRef and connRef");
+    res = taf_audio_Connect(connRef, recorderRef);
+    LE_TEST_OK(res == LE_OK, "Successfully connected recorderRef to connRef");
+
+    Recorder_thread_ref = le_thread_Create("taf_audio_svc_test_thread",
+            Test_taf_audio_AddHandler, (void*)recorderRef);
+    le_thread_Start(Recorder_thread_ref);
+
+    le_sem_Wait(tafAudioAppSem);
+
+    LE_TEST_INFO("Test taf_audio_RecordFile to record a file");
+    res = taf_audio_RecordFile(recorderRef, recordfilePath);
+    if(isRemote)
+    {
+        LE_TEST_OK(res == LE_OK, "Successfully started the incall downlink file recording");
+
+        le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+
+        LE_TEST_INFO("Test taf_audio_Stop recording");
+        res = taf_audio_Stop(recorderRef);
+        LE_TEST_OK(res == LE_OK, "Successfully stopped the file recording");
+
+        le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+    }
+    else
+    {
+        LE_TEST_OK(res == LE_UNSUPPORTED, "Failed to start the incall uplink file recording");
+    }
+
+    LE_TEST_INFO("Test taf_audio_Disconnect to disconnect recorderRef from connRef");
+    taf_audio_Disconnect(connRef, recorderRef);
+    LE_TEST_OK(true, "Successfully disconnected recorderRef from connRef");
+
+    LE_TEST_INFO("Test taf_audio_Close to close recorderRef");
+    taf_audio_Close(recorderRef);
+    LE_TEST_OK(true, "Successfully closed recorderRef");
+
+    LE_TEST_INFO("Test taf_audio_RemoveMediaHandler");
+    taf_audio_RemoveMediaHandler(MediaHandlerRef);
+    LE_TEST_OK(true, "Successfully deregistered for the media callback");
+
+    LE_TEST_INFO("Test taf_audio_DeleteConnector");
+    taf_audio_DeleteConnector(connRef);
+    LE_TEST_OK(true, "Successfully deleted the recorder connector reference");
+}
+
 void TEST_AUDIO_VOICE_CONNECTION()
 {
     static const char*  DtmfString = "5";
@@ -748,6 +914,14 @@ void TEST_AUDIO_VOICE_CONNECTION()
     LE_TEST_INFO("Test taf_audio_GetMute to get mute status of modem voice RX");
     res = taf_audio_GetMute(rxStreamRef, &isMute);
     LE_TEST_OK(!isMute, "Successfully get the mute status as false");
+
+    TEST_INCALL_AUDIO_PLAYBACK(false);
+
+    TEST_INCALL_AUDIO_PLAYBACK(true);
+
+    TEST_INCALL_AUDIO_RECORDING(false);
+
+    TEST_INCALL_AUDIO_RECORDING(true);
 
     LE_TEST_INFO("Test taf_audio_Disconnect to disconnect txConn and txStreamRef");
     taf_audio_Disconnect(txConn, txStreamRef);

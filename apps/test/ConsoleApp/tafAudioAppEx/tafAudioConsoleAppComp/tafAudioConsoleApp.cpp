@@ -40,7 +40,7 @@
 #include "interfaces.h"
 
 #define MAX_NUMBER_OF_INPUT     10
-#define MAX_LEN_OF_EACH_INPUT     28
+#define MAX_LEN_OF_EACH_INPUT   50
 #define IS_CIN_FAILURE                                                     \
         if(cin.fail()){                                                    \
             cout << "InValidInput" << endl;                                \
@@ -58,21 +58,25 @@ const char* arg4;
 
 static le_sem_Ref_t tafAudioAppSem;
 le_clk_Time_t Timeout = { 3 , 0 };
-static taf_audio_MediaHandlerRef_t playerHandlerRef = NULL, recorderHandlerRef = NULL;
+static taf_audio_MediaHandlerRef_t playerHandlerRef = NULL, recorderHandlerRef = NULL,
+        txPlayerHandlerRef = NULL, rxRecorderHandlerRef = NULL;
 static taf_audio_DtmfDetectorHandlerRef_t dtmfDetectHandlerRef = NULL;
-taf_audio_StreamRef_t sinkRef = NULL, recorderRef = NULL, playerRef = NULL;
-taf_audio_StreamRef_t sourceRef = NULL, rxStreamRef = NULL, txStreamRef = NULL;
+taf_audio_StreamRef_t sinkRef = NULL, recorderRef = NULL, playerRef = NULL,  txPlayerRef = NULL,
+        sourceRef = NULL, rxStreamRef = NULL, txStreamRef = NULL, rxRecorderRef = NULL;
 taf_audio_RouteRef_t routeRef = NULL;
-taf_audio_ConnectorRef_t rxConn = NULL, txConn = NULL, playerConnRef = NULL, connRef = NULL;
+taf_audio_ConnectorRef_t rxConn = NULL, txConn = NULL, playerConnRef = NULL, connRef = NULL,
+        txPlayerConnRef = NULL, rxConnRef = NULL;
 taf_audioVendor_NodeStateChangeHandlerRef_t handlerRef;
 le_result_t res;
 static le_thread_Ref_t Player_thread_ref, Recorder_thread_ref, node_thread_ref,
         Dtmf_detect_thread_ref;
 taf_audio_RouteId_t routeId = (taf_audio_RouteId_t)-1;
-bool isVoiceActive = false, isPbActive = false, isRpbActive = false, isRecordingActive = false;
+bool isVoiceActive = false, isPbActive = false, isRpbActive = false, isRecordingActive = false,
+        isTxPbActive = false, isTxRpbActive = false, isRxRecActive = false;
 bool isVoiceStreamCreated = false, isPbStreamCreated = false, isRecordStreamCreated = false,
         isRpbStreamCreated = false, isLbStreamCreated = false, isDtmfRegistered = false,
-        isDtmfToneStarted = false;
+        isDtmfToneStarted = false,  isTxPbStreamCreated = false, isTxRpbStreamCreated = false,
+        isRxRecordStreamCreated = false;
 
 static void MyDtmfDetectorHandler
 (
@@ -104,8 +108,12 @@ static void MyMediaEventHandler
             LE_INFO(" Playback/capture stopped");
             if (streamRef == playerRef)
                 cout<<"****Playback stopped***"<<endl;
+            else if (streamRef == txPlayerRef)
+                cout<<"****Remote playback stopped***"<<endl;
             else if (streamRef == recorderRef)
                 cout<<"****Capture stopped***"<<endl;
+            else if (streamRef == rxRecorderRef)
+                cout<<"****Remote capture stopped***"<<endl;
             else
                 LE_INFO(" Unknown stream playback/capture stopped");
             le_sem_Post(tafAudioAppSem);
@@ -129,8 +137,14 @@ static void MyMediaEventHandler
         isPbActive = false;
         isRpbActive = false;
     }
+    else if (streamRef == txPlayerRef) {
+        isTxPbActive = false;
+        isTxRpbActive = false;
+    }
     else if (streamRef == recorderRef)
         isRecordingActive = false;
+    else if (streamRef == rxRecorderRef)
+        isRxRecActive = false;
 }
 
 void* Test_taf_audio_AddHandler(void* ctxPtr)
@@ -141,11 +155,15 @@ void* Test_taf_audio_AddHandler(void* ctxPtr)
     taf_audio_StreamRef_t streamRef = (taf_audio_StreamRef_t)ctxPtr;
     if (streamRef == playerRef) {
         playerHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
+    } else if (streamRef == txPlayerRef) {
+        txPlayerHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
     } else if (streamRef == recorderRef) {
         recorderHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
     } else if (streamRef == rxStreamRef) {
         dtmfDetectHandlerRef = taf_audio_AddDtmfDetectorHandler(streamRef, MyDtmfDetectorHandler,
                 NULL);
+    } else if (streamRef == rxRecorderRef) {
+        rxRecorderHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
     }
     sem = le_sem_FindSemaphore("tafAudioAppSem");
     if(sem != NULL)
@@ -207,7 +225,7 @@ void* Test_taf_audio_NodeHandler(void* ctxPtr)
     return NULL;
 }
 
-void Test_Audio_Playback_Stream(bool createRoute)
+void Test_Audio_Playback_Stream(bool createRoute, int direction)
 {
     if (createRoute) {
         LE_TEST_INFO("Test OpenRoute for LOCAL_PLAYBACK");
@@ -223,28 +241,59 @@ void Test_Audio_Playback_Stream(bool createRoute)
         }
     }
 
-    LE_TEST_INFO("Test taf_audio_OpenPlayer(TAF_AUDIO_RX)");
-    playerRef = taf_audio_OpenPlayer(TAF_AUDIO_RX);
-    LE_TEST_OK(playerRef != NULL, "Successfully opened the player stream");
+    if(direction == 1)
+    {
+        LE_TEST_INFO("Test taf_audio_CreateConnector");
+        playerConnRef = taf_audio_CreateConnector();
+        LE_TEST_OK(playerConnRef != NULL, "Successfully created Connector ");
 
-    Player_thread_ref = le_thread_Create("taf_audio_test_thread",
-            Test_taf_audio_AddHandler, (void*)playerRef);
+        LE_TEST_INFO("Test taf_audio_OpenPlayer(TAF_AUDIO_RX)");
+        playerRef = taf_audio_OpenPlayer(TAF_AUDIO_RX);
+        LE_TEST_OK(playerRef != NULL, "Successfully opened the player stream");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect sinkRef and playerConnRef");
+        res = taf_audio_Connect(playerConnRef, sinkRef);
+        LE_TEST_OK(res == LE_OK, "Successfully connected sinkRef to playerConnRef");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect playerRef and playerConnRef");
+        res = taf_audio_Connect(playerConnRef, playerRef);
+        LE_TEST_OK(res == LE_OK, "Successfully connected playerRef to playerConnRef");
+
+        Player_thread_ref = le_thread_Create("taf_audio_svc_test_thread",
+                Test_taf_audio_AddHandler, (void*)playerRef);
+        isPbStreamCreated = true;
+    }
+    else if (direction == 2)
+    {
+        LE_TEST_INFO("Test taf_audio_CreateConnector");
+        txPlayerConnRef = taf_audio_CreateConnector();
+        LE_TEST_OK(txPlayerConnRef != NULL, "Successfully created Connector ");
+
+        LE_TEST_INFO("Test taf_audio_OpenPlayer(TAF_AUDIO_TX)");
+        txPlayerRef = taf_audio_OpenPlayer(TAF_AUDIO_TX);
+        LE_TEST_OK(txPlayerRef != NULL, "Successfully opened the player stream");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect txPlayerConnRef and txStreamRef");
+        res = taf_audio_Connect(txPlayerConnRef, txStreamRef);
+        LE_TEST_OK(res == LE_OK, "Successfully txStreamRef connected to txPlayerConnRef");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect txPlayerRef and playerConnRef");
+        res = taf_audio_Connect(txPlayerConnRef, txPlayerRef);
+        LE_TEST_OK(res == LE_OK, "Successfully connected txPlayerRef to txPlayerConnRef");
+
+        Player_thread_ref = le_thread_Create("taf_audio_svc_test_thread",
+                Test_taf_audio_AddHandler, (void*)txPlayerRef);
+        isTxPbStreamCreated = true;
+    }
+    else
+    {
+        cout << "Invalid input";
+        return;
+    }
+
     le_thread_Start(Player_thread_ref);
 
     le_sem_Wait(tafAudioAppSem);
-
-    LE_TEST_INFO("Test taf_audio_CreateConnector");
-    playerConnRef = taf_audio_CreateConnector();
-    LE_TEST_OK(playerConnRef != NULL, "Successfully created Connector ");
-
-    LE_TEST_INFO("Test taf_audio_Connect to connect sinkRef and playerConnRef");
-    res = taf_audio_Connect(playerConnRef, sinkRef);
-    LE_TEST_OK(res == LE_OK, "Successfully connected sinkRef to ConnectorRef");
-
-    LE_TEST_INFO("Test taf_audio_Connect to connect playerRef and playerConnRef");
-    res = taf_audio_Connect(playerConnRef, playerRef);
-    LE_TEST_OK(res == LE_OK, "Successfully connected playerRef to ConnectorRef");
-    isPbStreamCreated = true;
 }
 
 void Test_Audio_Loopback_Stream()
@@ -319,10 +368,10 @@ void Test_Audio_Stop_DTMF() {
     isDtmfToneStarted = false;
 }
 
-void Test_Audio_Playback_Start( string filePath )
+void Test_Audio_Playback_Start( taf_audio_StreamRef_t streamRef, string filePath )
 {
     LE_TEST_INFO("Test taf_audio_PlayFile to play a file");
-    res = taf_audio_PlayFile(playerRef, filePath.c_str());
+    res = taf_audio_PlayFile(streamRef, filePath.c_str());
     LE_TEST_OK(res == LE_OK, "Successfully started the file playback");
 
     if(res != LE_OK)
@@ -331,10 +380,14 @@ void Test_Audio_Playback_Start( string filePath )
         return;
     }
     cout<<"****Successfully started playback***"<<endl;
-    isPbActive = true;
+    if(streamRef == playerRef)
+        isPbActive = true;
+    else if(streamRef == txPlayerRef)
+        isTxPbActive = true;
 }
 
-void Test_Audio_PlayList_Setup( bool createRoute )
+// direction : 1 for local, 2 for remote
+void Test_Audio_PlayList_Setup( bool createRoute, int direction)
 {
     if (createRoute) {
         LE_TEST_INFO("Test OpenRoute for LOCAL_PLAYBACK");
@@ -350,32 +403,61 @@ void Test_Audio_PlayList_Setup( bool createRoute )
         }
     }
 
-    LE_TEST_INFO("Test taf_audio_OpenPlayer(TAF_AUDIO_RX)");
-    playerRef = taf_audio_OpenPlayer(TAF_AUDIO_RX);
-    LE_TEST_OK(playerRef != NULL, "Successfully opened the player stream");
+    if(direction == 1)
+    {
+        LE_TEST_INFO("Test taf_audio_CreateConnector");
+        playerConnRef = taf_audio_CreateConnector();
+        LE_TEST_OK(playerConnRef != NULL, "Successfully created Connector ");
 
-    Player_thread_ref = le_thread_Create("taf_audio_svc_test_thread",
-            Test_taf_audio_AddHandler, (void*)playerRef);
+        LE_TEST_INFO("Test taf_audio_OpenPlayer(TAF_AUDIO_RX)");
+        playerRef = taf_audio_OpenPlayer(TAF_AUDIO_RX);
+        LE_TEST_OK(playerRef != NULL, "Successfully opened the player stream");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect sinkRef and playerConnRef");
+        res = taf_audio_Connect(playerConnRef, sinkRef);
+        LE_TEST_OK(res == LE_OK, "Successfully connected sinkRef to playerConnRef");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect playerRef and playerConnRef");
+        res = taf_audio_Connect(playerConnRef, playerRef);
+        LE_TEST_OK(res == LE_OK, "Successfully connected playerRef to playerConnRef");
+
+        Player_thread_ref = le_thread_Create("taf_audio_svc_test_thread",
+                Test_taf_audio_AddHandler, (void*)playerRef);
+        isRpbStreamCreated = true;
+    }
+    else if (direction == 2)
+    {
+        LE_TEST_INFO("Test taf_audio_CreateConnector");
+        txPlayerConnRef = taf_audio_CreateConnector();
+        LE_TEST_OK(txPlayerConnRef != NULL, "Successfully created Connector ");
+
+        LE_TEST_INFO("Test taf_audio_OpenPlayer(TAF_AUDIO_TX)");
+        txPlayerRef = taf_audio_OpenPlayer(TAF_AUDIO_TX);
+        LE_TEST_OK(txPlayerRef != NULL, "Successfully opened the player stream");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect txPlayerConnRef and txStreamRef");
+        res = taf_audio_Connect(txPlayerConnRef, txStreamRef);
+        LE_TEST_OK(res == LE_OK, "Successfully txStreamRef connected to txPlayerConnRef");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect txPlayerRef and txPlayerConnRef");
+        res = taf_audio_Connect(txPlayerConnRef, txPlayerRef);
+        LE_TEST_OK(res == LE_OK, "Successfully connected txPlayerRef to txPlayerConnRef");
+
+        Player_thread_ref = le_thread_Create("taf_audio_svc_test_txThread",
+                Test_taf_audio_AddHandler, (void*)txPlayerRef);
+        isTxRpbStreamCreated = true;
+    }
+    else
+    {
+        cout << "Invalid input";
+        return;
+    }
     le_thread_Start(Player_thread_ref);
-
     le_sem_Wait(tafAudioAppSem);
-
-    LE_TEST_INFO("Test taf_audio_CreateConnector");
-    taf_audio_ConnectorRef_t playerConnRef = taf_audio_CreateConnector();
-    LE_TEST_OK(playerConnRef != NULL, "Successfully created Connector ");
-
-    LE_TEST_INFO("Test taf_audio_Connect to connect sinkRef and playerConnRef");
-    res = taf_audio_Connect(playerConnRef, sinkRef);
-    LE_TEST_OK(res == LE_OK, "Successfully connected sinkRef to ConnectorRef");
-
-    LE_TEST_INFO("Test taf_audio_Connect to connect playerRef and playerConnRef");
-    res = taf_audio_Connect(playerConnRef, playerRef);
-    LE_TEST_OK(res == LE_OK, "Successfully connected playerRef to ConnectorRef");
-
-    isRpbStreamCreated = true;
 }
 
-void Test_Audio_Record_Stream(bool createRoute)
+// direction : 1 for local, 2 for remote
+void Test_Audio_Record_Stream(bool createRoute, int direction)
 {
     if(createRoute) {
         LE_TEST_INFO("Test taf_audio_OpenRoute API with capture mode");
@@ -390,34 +472,64 @@ void Test_Audio_Record_Stream(bool createRoute)
         }
     }
 
-    LE_TEST_INFO("Test taf_audio_OpenRecorder(TAF_AUDIO_TX)");
-    recorderRef = taf_audio_OpenRecorder(TAF_AUDIO_TX);
-    LE_TEST_OK(recorderRef != NULL, "Successfully opened the recorder stream");
+    if (direction == 1)
+    {
+        LE_TEST_INFO("Test taf_audio_CreateConnector");
+        connRef = taf_audio_CreateConnector();
+        LE_TEST_OK(connRef != NULL, "Successfully created Connector");
 
-    Recorder_thread_ref = le_thread_Create("taf_audio_svc_test_thread",
-            Test_taf_audio_AddHandler, (void*)recorderRef);
+        LE_TEST_INFO("Test taf_audio_OpenRecorder(TAF_AUDIO_TX)");
+        recorderRef = taf_audio_OpenRecorder(TAF_AUDIO_TX);
+        LE_TEST_OK(recorderRef != NULL, "Successfully opened the TX recorder stream");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect sourceRef and connRef");
+        res = taf_audio_Connect(connRef, sourceRef);
+        LE_TEST_OK(res == LE_OK, "Successfully connected sourceRef to connRef");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect recorderRef and connRef");
+        res = taf_audio_Connect(connRef, recorderRef);
+        LE_TEST_OK(res == LE_OK, "Successfully connected recorderRef to connRef");
+
+        Recorder_thread_ref = le_thread_Create("taf_audio_svc_test_thread",
+                Test_taf_audio_AddHandler, (void*)recorderRef);
+        isRecordStreamCreated = true;
+    }
+    else if (direction == 2)
+    {
+        LE_TEST_INFO("Test taf_audio_CreateConnector");
+        rxConnRef = taf_audio_CreateConnector();
+        LE_TEST_OK(rxConnRef != NULL, "Successfully created Connector");
+
+        LE_TEST_INFO("Test taf_audio_OpenRecorder(TAF_AUDIO_RX)");
+        rxRecorderRef = taf_audio_OpenRecorder(TAF_AUDIO_RX);
+        LE_TEST_OK(rxRecorderRef != NULL, "Successfully opened the RX recorder stream");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect rxStreamRef and rxConnRef");
+        res = taf_audio_Connect(rxConnRef, rxStreamRef);
+        LE_TEST_OK(res == LE_OK, "Successfully connected rxStreamRef to rxConnRef");
+
+        LE_TEST_INFO("Test taf_audio_Connect to connect rxRecorderRef and rxConnRef");
+        res = taf_audio_Connect(rxConnRef, rxRecorderRef);
+        LE_TEST_OK(res == LE_OK, "Successfully connected rxRecorderRef to rxConnRef");
+
+        Recorder_thread_ref = le_thread_Create("taf_audio_svc_test_thread",
+                Test_taf_audio_AddHandler, (void*)rxRecorderRef);
+        isRxRecordStreamCreated = true;
+    }
+    else
+    {
+        cout << "Invalid input";
+    }
+
     le_thread_Start(Recorder_thread_ref);
 
     le_sem_Wait(tafAudioAppSem);
-
-    LE_TEST_INFO("Test taf_audio_CreateConnector");
-    taf_audio_ConnectorRef_t connRef = taf_audio_CreateConnector();
-    LE_TEST_OK(connRef != NULL, "Successfully created Connector ");
-
-    LE_TEST_INFO("Test taf_audio_Connect to connect sourceRef and connRef");
-    res = taf_audio_Connect(connRef, sourceRef);
-    LE_TEST_OK(res == LE_OK, "Successfully connected sourceRef to ConnectorRef");
-
-    LE_TEST_INFO("Test taf_audio_Connect to connect recorderRef and connRef");
-    res = taf_audio_Connect(connRef, recorderRef);
-    LE_TEST_OK(res == LE_OK, "Successfully connected recorderRef to ConnectorRef");
-    isRecordStreamCreated = true;
 }
 
-void Test_Audio_Record_Start(string filePath)
+void Test_Audio_Record_Start(taf_audio_StreamRef_t streamRef, string filePath)
 {
     LE_TEST_INFO("Test taf_audio_RecordFile to record a file");
-    res = taf_audio_RecordFile(recorderRef, filePath.c_str());
+    res = taf_audio_RecordFile(streamRef, filePath.c_str());
     LE_TEST_OK(res == LE_OK, "Successfully started the file recording");
 
     if(res != LE_OK)
@@ -426,29 +538,50 @@ void Test_Audio_Record_Start(string filePath)
         return;
     }
     cout<<"****Successfully started recording***"<<endl;
-    isRecordingActive  = true;
+    if (streamRef == recorderRef)
+        isRecordingActive  = true;
+    else if (streamRef == rxRecorderRef)
+        isRxRecActive = true;
 }
 
-void Test_Audio_Playback_Stop()
+void Test_Audio_Playback_Stop(taf_audio_StreamRef_t streamRef)
 {
     LE_TEST_INFO("Test taf_audio_Stop playback");
-    res = taf_audio_Stop(playerRef);
+    res = taf_audio_Stop(streamRef);
     LE_TEST_OK(res == LE_OK, "Successfully stopped the file playback");
 
     le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
 
-    isPbActive = false;
-    isRpbActive = false;
+    if(streamRef == playerRef) {
+        isPbActive = false;
+        isRpbActive = false;
+    }
+    else if (streamRef == txPlayerRef)
+    {
+        isTxPbActive = false;
+        isTxRpbActive = false;
+    }
 }
 
-void Test_Audio_Playback_Delete(bool closeRoute)
+void Test_Audio_Playback_Delete(taf_audio_StreamRef_t streamRef, bool closeRoute)
 {
-    if(isPbActive)
-        Test_Audio_Playback_Stop();
-
-    LE_TEST_INFO("Test taf_audio_Disconnect to disconnect playerRef from connRef");
-    taf_audio_Disconnect(playerConnRef, playerRef);
-    LE_TEST_OK(true, "Successfully disconnected playerRef from ConnectorRef");
+    if(streamRef == playerRef) {
+        if(isPbActive || isRpbActive)
+            Test_Audio_Playback_Stop(streamRef);
+        LE_TEST_INFO("Test taf_audio_Disconnect to disconnect playerRef from playerConnRef");
+        taf_audio_Disconnect(playerConnRef, playerRef);
+        LE_TEST_OK(true, "Successfully disconnected playerRef from playerConnRef");
+        isPbStreamCreated = false;
+        taf_audio_RemoveMediaHandler(playerHandlerRef);
+    } else if (streamRef == txPlayerRef) {
+        if(isTxPbActive || isTxRpbActive)
+            Test_Audio_Playback_Stop(streamRef);
+        LE_TEST_INFO("Test taf_audio_Disconnect to disconnect txPlayerRef from txPlayerConnRef");
+        taf_audio_Disconnect(txPlayerConnRef, txPlayerRef);
+        LE_TEST_OK(true, "Successfully disconnected txPlayerRef from txPlayerConnRef");
+        isTxPbStreamCreated = false;
+        taf_audio_RemoveMediaHandler(txPlayerHandlerRef);
+    }
 
     if(closeRoute)
     {
@@ -456,25 +589,40 @@ void Test_Audio_Playback_Delete(bool closeRoute)
         res = taf_audio_CloseRoute(routeRef);
         LE_TEST_OK(res == LE_OK, "Successfully closed the LOACL_PLAYBACK route");
     }
-    taf_audio_RemoveMediaHandler(playerHandlerRef);
-    isPbStreamCreated = false;
 }
 
-void Test_Audio_Record_Stop()
+void Test_Audio_Record_Stop(taf_audio_StreamRef_t streamRef)
 {
     LE_TEST_INFO("Test taf_audio_Stop recording");
-    res = taf_audio_Stop(recorderRef);
+    res = taf_audio_Stop(streamRef);
     LE_TEST_OK(res == LE_OK, "Successfully stopped the file recording");
-    isRecordingActive = false;
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+    if(streamRef == recorderRef)
+        isRecordingActive = false;
+    else if(streamRef == rxRecorderRef)
+        isRxRecActive = false;
 }
 
-void Test_Audio_Record_Delete(bool closeRoute)
+void Test_Audio_Record_Delete(taf_audio_StreamRef_t streamRef, bool closeRoute)
 {
-    if(isRecordingActive)
-        Test_Audio_Record_Stop();
-    LE_TEST_INFO("Test taf_audio_Disconnect to disconnect recorderRef from connRef");
-    taf_audio_Disconnect(connRef, recorderRef);
-    LE_TEST_OK(true, "Successfully disconnected recorderRef from ConnectorRef");
+
+    if(streamRef == recorderRef) {
+        if(isRecordingActive)
+            Test_Audio_Record_Stop(streamRef);
+        LE_TEST_INFO("Test taf_audio_Disconnect to disconnect recorderRef from connRef");
+        taf_audio_Disconnect(connRef, recorderRef);
+        LE_TEST_OK(true, "Successfully disconnected recorderRef from ConnectorRef");
+        isRecordStreamCreated = false;
+        taf_audio_RemoveMediaHandler(recorderHandlerRef);
+    } else if (streamRef == rxRecorderRef) {
+        if(isRxRecActive)
+            Test_Audio_Record_Stop(streamRef);
+        LE_TEST_INFO("Test taf_audio_Disconnect to disconnect rxRecorderRef from rxConnRef");
+        taf_audio_Disconnect(rxConnRef, rxRecorderRef);
+        LE_TEST_OK(true, "Successfully disconnected rxRecorderRef from rxConnRef");
+        isRxRecordStreamCreated = false;
+        taf_audio_RemoveMediaHandler(rxRecorderHandlerRef);
+    }
 
     if (closeRoute)
     {
@@ -482,8 +630,6 @@ void Test_Audio_Record_Delete(bool closeRoute)
         res = taf_audio_CloseRoute(routeRef);
         LE_TEST_OK(res == LE_OK, "Successfully closed the LOACL_RECORDING route");
     }
-    taf_audio_RemoveMediaHandler(recorderHandlerRef);
-    isRecordStreamCreated = false;
 }
 
 void Test_Audio_VoiceCall_Stream(bool isEcnrEnable)
@@ -573,10 +719,16 @@ void Test_Audio_VoiceCall_Delete()
         Test_Audio_VoiceCall_Stop();
 
     if(isRecordStreamCreated)
-        Test_Audio_Record_Delete(false);
+        Test_Audio_Record_Delete(recorderRef, false);
+
+    if(isRxRecordStreamCreated)
+        Test_Audio_Record_Delete(rxRecorderRef, false);
 
     if(isPbStreamCreated || isRpbStreamCreated)
-        Test_Audio_Playback_Delete(false);
+        Test_Audio_Playback_Delete(playerRef, false);
+
+    if(isTxPbStreamCreated || isTxRpbStreamCreated)
+        Test_Audio_Playback_Delete(txPlayerRef, false);
 
     LE_TEST_INFO("Test taf_audio_CloseRoute");
     res = taf_audio_CloseRoute(routeRef);
@@ -615,6 +767,15 @@ void PrintHelp()
             else
                 cout<<"stop recording"<<endl;
         }
+        if(!isRxRecordStreamCreated)
+            cout<<"Create remote record stream"<<endl;
+        else {
+            cout<<"Delete remote recorder stream"<<endl;
+            if(!isRxRecActive)
+                cout<<"start remote recording"<<endl;
+            else
+                cout<<"stop remote recording"<<endl;
+        }
         if(!isPbStreamCreated)
         {
             cout<<"Create pb stream"<<endl;
@@ -638,6 +799,30 @@ void PrintHelp()
                 cout<<"start repeat_playback"<<endl;
             else
                 cout<<"stop playback"<<endl;
+        }
+        if(!isTxPbStreamCreated)
+        {
+            cout<<"Create remote pb stream"<<endl;
+        }
+        else
+        {
+            cout<<"Delete remote player stream"<<endl;
+            if(!isTxPbActive)
+                cout<<"start remote playback"<<endl;
+            else
+                cout<<"stop remote playback"<<endl;
+        }
+        if(!isTxRpbStreamCreated)
+        {
+            cout<<"Create remote repeat_pb stream"<<endl;
+        }
+        else
+        {
+            cout<<"Delete remote repeated_player stream"<<endl;
+            if(!isTxRpbActive)
+                cout<<"start remote repeat_playback"<<endl;
+            else
+                cout<<"stop remote playback"<<endl;
         }
     }
     else if(isPbStreamCreated)
@@ -691,10 +876,11 @@ void PrintHelp()
     }
 }
 
-void Test_Mngd_Audio_Start_PlayFileList(taf_audio_PlayFileConfig_t* fileConfig, size_t listSize)
+void Test_Mngd_Audio_Start_PlayFileList(taf_audio_StreamRef_t streamRef,
+        taf_audio_PlayFileConfig_t* fileConfig, size_t listSize)
 {
     LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list");
-    res = taf_audio_PlayFileList(playerRef, fileConfig, listSize);
+    res = taf_audio_PlayFileList(streamRef, fileConfig, listSize);
     LE_TEST_OK(res == LE_OK, "Successfully started the file list playback");
 
     if(res != LE_OK)
@@ -703,17 +889,30 @@ void Test_Mngd_Audio_Start_PlayFileList(taf_audio_PlayFileConfig_t* fileConfig, 
         return;
     }
     cout<<"****Successfully repeated file playback is started***"<<endl;
-    isRpbActive = true;
+    if (streamRef == playerRef)
+        isRpbActive = true;
+    else if (streamRef == txPlayerRef)
+        isTxRpbActive = true;
 }
 
-void Test_Audio_Delete_PlayList(bool closeRoute){
+void Test_Audio_Delete_PlayList(taf_audio_StreamRef_t streamRef, bool closeRoute){
 
-    if(isRpbActive)
-        Test_Audio_Playback_Stop();
-
-    LE_TEST_INFO("Test taf_audio_Disconnect to disconnect playerRef from connRef");
-    taf_audio_Disconnect(playerConnRef, playerRef);
-    LE_TEST_OK(true, "Successfully disconnected playerRef from ConnectorRef");
+    if(streamRef == playerRef) {
+        if(isPbActive || isRpbActive)
+            Test_Audio_Playback_Stop(playerRef);
+        LE_TEST_INFO("Test taf_audio_Disconnect to disconnect playerRef from connRef");
+        taf_audio_Disconnect(playerConnRef, playerRef);
+        LE_TEST_OK(true, "Successfully disconnected playerRef from playerConnRef");
+        isRpbStreamCreated = false;
+    }
+    else if (streamRef == txPlayerRef) {
+        if(isTxPbActive || isTxRpbActive)
+            Test_Audio_Playback_Stop(txPlayerRef);
+        LE_TEST_INFO("Test taf_audio_Disconnect to disconnect txPlayerRef from txPlayerConnRef");
+        taf_audio_Disconnect(txPlayerConnRef, txPlayerRef);
+        LE_TEST_OK(true, "Successfully disconnected txPlayerRef from txPlayerConnRef");
+        isTxRpbStreamCreated = false;
+    }
 
     if(closeRoute)
     {
@@ -721,8 +920,12 @@ void Test_Audio_Delete_PlayList(bool closeRoute){
         res = taf_audio_CloseRoute(routeRef);
         LE_TEST_OK(res == LE_OK, "Successfully closed the LOACL_PLAYBACK route");
     }
-    taf_audio_RemoveMediaHandler(playerHandlerRef);
-    isRpbStreamCreated = false;
+    if (streamRef == playerRef) {
+        taf_audio_RemoveMediaHandler(playerHandlerRef);
+    }
+    else if (streamRef == txPlayerRef) {
+        taf_audio_RemoveMediaHandler(txPlayerHandlerRef);
+    }
 }
 
 void ConvertToRouteId(int routeInput)
@@ -1038,22 +1241,28 @@ void StartInputMonitoring
                     || strncmp(inputStr, "Create pb stream", 16) == 0)
             {
                 LE_INFO("Create playback stream");
-                if(isVoiceStreamCreated)
-                    Test_Audio_Playback_Stream(false);
+                if(isVoiceStreamCreated) {
+                    Test_Audio_Playback_Stream(false, 1);
+                }
                 else {
                     cout << "Enter route ID:";
                     cin >> number;
                     IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     ConvertToRouteId(number);
-                    Test_Audio_Playback_Stream(true);
+                    Test_Audio_Playback_Stream(true, 1);
                 }
+            }
+            else if(strncmp(inputStr, "Create remote pb stream", 21) == 0)
+            {
+                Test_Audio_Playback_Stream(false, 2);
             }
             else if(strncmp(inputStr, "3", 1) == 0
                     || strncmp(inputStr, "Create repeat_pb stream", 23) == 0)
             {
-                if(isVoiceStreamCreated)
-                    Test_Audio_PlayList_Setup(false);
+                if(isVoiceStreamCreated) {
+                    Test_Audio_PlayList_Setup(false, 1);
+                }
                 else {
                     LE_INFO("Start repeated file playback");
                     cout << "Enter route ID:";
@@ -1061,23 +1270,32 @@ void StartInputMonitoring
                     IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     ConvertToRouteId(number);
-                    Test_Audio_PlayList_Setup(true);
+                    Test_Audio_PlayList_Setup(true, 1);
                 }
+            }
+            else if (strncmp(inputStr, "Create remote repeat_pb stream", 30) == 0)
+            {
+                Test_Audio_PlayList_Setup(false, 2);
             }
             else if(strncmp(inputStr, "4", 1) == 0
                     || strncmp(inputStr, "Create record stream", 20) == 0)
             {
                 LE_INFO("Start recording stream");
-                if(isVoiceStreamCreated)
-                    Test_Audio_Record_Stream(false);
+                if(isVoiceStreamCreated) {
+                    Test_Audio_Record_Stream(false, 1);
+                }
                 else {
                     cout << "Enter route ID:";
                     cin >> number;
                     IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     ConvertToRouteId(number);
-                    Test_Audio_Record_Stream(true);
+                    Test_Audio_Record_Stream(true, 1);
                 }
+            }
+            else if(strncmp(inputStr, "Create remote record stream", 27) == 0)
+            {
+                Test_Audio_Record_Stream(false, 2);
             }
             else if(strncmp(inputStr, "5", 1) == 0)
             {
@@ -1092,8 +1310,12 @@ void StartInputMonitoring
                 cin >> volLevel;
                 IS_CIN_FAILURE;
                 p = fgets(inputStr, sizeof(inputStr), stdin);
+                res = LE_FAULT;
+                LE_TEST_INFO("Test set volume level");
                 if (isVoiceStreamCreated
-                        && (isPbStreamCreated || isRpbStreamCreated) && isRecordStreamCreated)
+                        && (isPbStreamCreated || isRpbStreamCreated || isTxPbStreamCreated
+                        || isTxRpbStreamCreated)
+                        && (isRecordStreamCreated || isRxRecordStreamCreated))
                 {
                     cout << "1 - modem RX" << endl;
                     cout << "2 - player" << endl;
@@ -1104,22 +1326,56 @@ void StartInputMonitoring
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if(number == 1)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetVolume on rxStreamRef");
                         res = taf_audio_SetVolume(rxStreamRef, volLevel);
-                        LE_TEST_OK(res == LE_OK, "Successfully set volume to rxStreamRef");
                     } else if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetVolume on playerRef");
-                        res = taf_audio_SetVolume(playerRef, volLevel);
-                        LE_TEST_OK(res == LE_OK, "Successfully set volume to playerRef");
+                        if((isPbStreamCreated || isRpbStreamCreated) &&
+                                (isTxPbStreamCreated || isTxRpbStreamCreated)){
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_SetVolume(playerRef, volLevel);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_SetVolume(txPlayerRef, volLevel);
+                            }
+                        } else if (isPbStreamCreated || isRpbStreamCreated) {
+                            res = taf_audio_SetVolume(playerRef, volLevel);
+                        } else if (isTxPbStreamCreated || isTxRpbStreamCreated) {
+                            res = taf_audio_SetVolume(txPlayerRef, volLevel);
+                        }
                     } else if (number == 3)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetVolume on recorderRef");
-                        res = taf_audio_SetVolume(recorderRef, volLevel);
-                        LE_TEST_OK(res == LE_OK, "Successfully set volume to recorderRef");
+                        if (isRecordStreamCreated && isRxRecordStreamCreated) {
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_SetVolume(recorderRef, volLevel);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_SetVolume(rxRecorderRef, volLevel);
+                            }
+                        } else if (isRecordStreamCreated) {
+                            res = taf_audio_SetVolume(recorderRef, volLevel);
+                        } else if (isRxRecordStreamCreated) {
+                            res = taf_audio_SetVolume(rxRecorderRef, volLevel);
+                        }
                     }
                 }
-                else if (isVoiceStreamCreated && (isPbStreamCreated || isRpbStreamCreated))
+                else if (isVoiceStreamCreated && (isPbStreamCreated || isRpbStreamCreated
+                        || isTxPbStreamCreated || isTxRpbStreamCreated))
                 {
                     cout << "1 - modem RX" << endl;
                     cout << "2 - player" << endl;
@@ -1129,19 +1385,36 @@ void StartInputMonitoring
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetVolume on playerRef");
-                        res = taf_audio_SetVolume(playerRef, volLevel);
-                        LE_TEST_OK(res == LE_OK, "Successfully set volume to playerRef");
+                        if((isPbStreamCreated || isRpbStreamCreated) &&
+                                (isTxPbStreamCreated || isTxRpbStreamCreated)){
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_SetVolume(playerRef, volLevel);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_SetVolume(txPlayerRef, volLevel);
+                            }
+                        } else if (isPbStreamCreated || isRpbStreamCreated) {
+                            res = taf_audio_SetVolume(playerRef, volLevel);
+                        } else if (isTxPbStreamCreated || isTxRpbStreamCreated) {
+                            res = taf_audio_SetVolume(txPlayerRef, volLevel);
+                        }
                     }
                     else if(number == 1)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetVolume on rxStreamRef");
                         res = taf_audio_SetVolume(rxStreamRef, volLevel);
-                        LE_TEST_OK(res == LE_OK, "Successfully set volume to rxStreamRef");
                     }
 
                 }
-                else if (isVoiceStreamCreated && isRecordStreamCreated)
+                else if (isVoiceStreamCreated
+                        && (isRecordStreamCreated || isRxRecordStreamCreated))
                 {
                     cout << "1 - modem RX" << endl;
                     cout << "2 - recorder:" << endl;
@@ -1151,35 +1424,45 @@ void StartInputMonitoring
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetVolume on recorderRef");
-                        res = taf_audio_SetVolume(recorderRef, volLevel);
-                        LE_TEST_OK(res == LE_OK, "Successfully set volume to recorderRef");
+                        if (isRecordStreamCreated && isRxRecordStreamCreated) {
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_SetVolume(recorderRef, volLevel);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_SetVolume(rxRecorderRef, volLevel);
+                            }
+                        } else if (isRecordStreamCreated) {
+                            res = taf_audio_SetVolume(recorderRef, volLevel);
+                        } else if (isRxRecordStreamCreated) {
+                            res = taf_audio_SetVolume(rxRecorderRef, volLevel);
+                        }
                     }
                     else if (number == 1)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetVolume on rxStreamRef");
                         res = taf_audio_SetVolume(rxStreamRef, volLevel);
-                        LE_TEST_OK(res == LE_OK, "Successfully set volume to rxStreamRef");
                     }
                 }
                 else if ((isPbStreamCreated || isRpbStreamCreated))
                 {
-                    LE_TEST_INFO("Test taf_audio_SetVolume on playerRef");
                     res = taf_audio_SetVolume(playerRef, volLevel);
-                    LE_TEST_OK(res == LE_OK, "Successfully set volume to playerRef");
                 }
                 else if (isRecordStreamCreated)
                 {
-                    LE_TEST_INFO("Test taf_audio_SetVolume on recorderRef");
                     res = taf_audio_SetVolume(recorderRef, volLevel);
-                    LE_TEST_OK(res == LE_OK, "Successfully set volume to recorderRef");
                 }
                 else if (isVoiceStreamCreated)
                 {
-                    LE_TEST_INFO("Test taf_audio_SetVolume on rxStreamRef");
                     res = taf_audio_SetVolume(rxStreamRef, volLevel);
-                    LE_TEST_OK(res == LE_OK, "Successfully set volume to rxStreamRef");
                 }
+                LE_TEST_OK(res == LE_OK, "Successfully set the volume");
                 if(res == LE_OK)
                     cout<< "Successfully set the volume" << endl;
                 else
@@ -1188,8 +1471,12 @@ void StartInputMonitoring
             else if (strncmp(inputStr, "getVolume", 9) == 0)
             {
                 double getVolLevel = 0.0;
+                res = LE_FAULT;
+                LE_TEST_INFO("Test getVolume");
                 if (isVoiceStreamCreated
-                        && (isPbStreamCreated || isRpbStreamCreated) && isRecordStreamCreated)
+                        && (isPbStreamCreated || isRpbStreamCreated || isTxPbStreamCreated
+                        || isTxRpbStreamCreated)
+                        && (isRecordStreamCreated || isRxRecordStreamCreated))
                 {
                     cout << "1 - modem RX" << endl;
                     cout << "2 - player" << endl;
@@ -1200,25 +1487,57 @@ void StartInputMonitoring
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if(number == 1)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetVolume to get volume of rxStreamRef");
                         res = taf_audio_GetVolume(rxStreamRef, &getVolLevel);
-                        LE_TEST_OK(res == LE_OK,
-                                "Successfully get the vol level of rxStreamRef %f", getVolLevel);
                     } else if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetVolume to get volume of playerRef");
-                        res = taf_audio_GetVolume(playerRef, &getVolLevel);
-                        LE_TEST_OK(res == LE_OK,
-                                "Successfully get the vol level of player %f", getVolLevel);
+                        if((isPbStreamCreated || isRpbStreamCreated) &&
+                                (isTxPbStreamCreated || isTxRpbStreamCreated)){
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_GetVolume(playerRef, &getVolLevel);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_GetVolume(txPlayerRef, &getVolLevel);
+
+                            }
+                        } else if (isPbStreamCreated || isRpbStreamCreated) {
+                            res = taf_audio_GetVolume(playerRef, &getVolLevel);
+                        } else if (isTxPbStreamCreated || isTxRpbStreamCreated) {
+                            res = taf_audio_GetVolume(txPlayerRef, &getVolLevel);
+                        }
                     } else if (number == 3)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetVolume to get volume of recorderRef");
-                        res = taf_audio_GetVolume(recorderRef, &getVolLevel);
-                        LE_TEST_OK(res == LE_OK,
-                                "Successfully get the vol level of recoder %f", getVolLevel);
+                        if (isRecordStreamCreated && isRxRecordStreamCreated) {
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_GetVolume(recorderRef, &getVolLevel);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_GetVolume(rxRecorderRef, &getVolLevel);
+                            }
+                        } else if (isRecordStreamCreated) {
+                            res = taf_audio_GetVolume(recorderRef, &getVolLevel);
+                        } else if (isRxRecordStreamCreated) {
+                            res = taf_audio_GetVolume(rxRecorderRef, &getVolLevel);
+                        }
                     }
                 }
-                else if (isVoiceStreamCreated && (isPbStreamCreated || isRpbStreamCreated))
+                else if (isVoiceStreamCreated && (isPbStreamCreated || isRpbStreamCreated
+                        || isTxPbStreamCreated || isTxRpbStreamCreated))
                 {
                     cout << "1 - modem RX" << endl;
                     cout << "2 - player" << endl;
@@ -1228,20 +1547,35 @@ void StartInputMonitoring
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetVolume to get vol of playerRef");
-                        res = taf_audio_GetVolume(playerRef, &getVolLevel);
-                        LE_TEST_OK(res == LE_OK,
-                                "Successfully get the vol level of player %f", getVolLevel);
+                        if((isPbStreamCreated || isRpbStreamCreated) &&
+                                (isTxPbStreamCreated || isTxRpbStreamCreated)){
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_GetVolume(playerRef, &getVolLevel);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_GetVolume(txPlayerRef, &getVolLevel);
+                            }
+                        } else if (isPbStreamCreated || isRpbStreamCreated) {
+                            res = taf_audio_GetVolume(playerRef, &getVolLevel);
+                        } else if (isTxPbStreamCreated || isTxRpbStreamCreated) {
+                            res = taf_audio_GetVolume(txPlayerRef, &getVolLevel);
+                        }
                     }
                     else if (number == 1)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetVolume to get volume of rxStreamRef");
                         res = taf_audio_GetVolume(rxStreamRef, &getVolLevel);
-                        LE_TEST_OK(res == LE_OK,
-                                "Successfully get the vol level of rxStreamRef %f", getVolLevel);
                     }
                 }
-                else if (isVoiceStreamCreated && isRecordStreamCreated)
+                else if (isVoiceStreamCreated
+                        && (isRecordStreamCreated || isRxRecordStreamCreated))
                 {
                     cout << "1 - modem RX" << endl;
                     cout << "2 - recorder:" << endl;
@@ -1251,53 +1585,63 @@ void StartInputMonitoring
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetVolume to get volume of recorderRef");
-                        res = taf_audio_GetVolume(recorderRef, &getVolLevel);
-                        LE_TEST_OK(res == LE_OK,
-                                "Successfully get the vol level of recoder %f", getVolLevel);
+                        if (isRecordStreamCreated && isRxRecordStreamCreated) {
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_GetVolume(recorderRef, &getVolLevel);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_GetVolume(rxRecorderRef, &getVolLevel);
+                            }
+                        } else if (isRecordStreamCreated) {
+                            res = taf_audio_GetVolume(recorderRef, &getVolLevel);
+                        } else if (isRxRecordStreamCreated) {
+                            res = taf_audio_GetVolume(rxRecorderRef, &getVolLevel);
+                        }
                     }
                     else if (number == 1)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetVolume to get volume of rxStreamRef");
                         res = taf_audio_GetVolume(rxStreamRef, &getVolLevel);
-                        LE_TEST_OK(res == LE_OK,
-                                "Successfully get the vol level of rxStreamRef %f", getVolLevel);
                     }
                 }
                 else if ((isPbStreamCreated || isRpbStreamCreated))
                 {
-                    LE_TEST_INFO("Test taf_audio_GetVolume to get vol of playerRef");
                     res = taf_audio_GetVolume(playerRef, &getVolLevel);
-                    LE_TEST_OK(res == LE_OK,
-                            "Successfully get the vol level of player %f", getVolLevel);
                 }
                 else if (isRecordStreamCreated)
                 {
-                    LE_TEST_INFO("Test taf_audio_GetVolume to get volume of recorderRef");
                     res = taf_audio_GetVolume(recorderRef, &getVolLevel);
-                    LE_TEST_OK(res == LE_OK,
-                            "Successfully get the vol level of recorder %f", getVolLevel);
                 }
                 else if (isVoiceStreamCreated)
                 {
-                    LE_TEST_INFO("Test taf_audio_GetVolume to get volume of rxStreamRef");
                     res = taf_audio_GetVolume(rxStreamRef, &getVolLevel);
-                    LE_TEST_OK(res == LE_OK,
-                            "Successfully get the vol level of rxStreamRef %f", getVolLevel);
+
                 }
+                LE_TEST_OK(res == LE_OK, "Successfully get the volume level");
                 cout << "Volume level is " << getVolLevel << endl;
             }
             else if (strncmp(inputStr, "setMute", 7) == 0)
             {
                 LE_INFO("setMute arg2 is %s", arg2);
                 bool isMute;
+                res = LE_FAULT;
                 cout << "Enter 1 to mute and 0 to unmute:";
                 cin >> number;
                 IS_CIN_FAILURE;
                 isMute = number==1 ? true : false;
                 p = fgets(inputStr, sizeof(inputStr), stdin);
+                LE_TEST_INFO("Test taf_audio_SetMute");
                 if (isVoiceStreamCreated
-                        && (isPbStreamCreated || isRpbStreamCreated) && isRecordStreamCreated)
+                        && (isPbStreamCreated || isRpbStreamCreated || isTxPbStreamCreated
+                        || isTxRpbStreamCreated)
+                        && (isRecordStreamCreated || isRxRecordStreamCreated))
                 {
                     cout << "1 - modem RX" << endl;
                     cout << "2 - modem TX" << endl;
@@ -1309,30 +1653,62 @@ void StartInputMonitoring
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetMute to mute modem voice RX");
                         res = taf_audio_SetMute(rxStreamRef, isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully set mute status to rxStreamRef");
                     }
                     else if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetMute to mute modem voice TX");
                         res = taf_audio_SetMute(txStreamRef, isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully set mute status to txStreamRef");
                     }
                     else if (number == 3)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetMute to mute playerRef");
-                        res = taf_audio_SetMute(playerRef, isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully playerRef is muted");
+                        if((isPbStreamCreated || isRpbStreamCreated) &&
+                                (isTxPbStreamCreated || isTxRpbStreamCreated)){
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_SetMute(playerRef, isMute);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_SetMute(txPlayerRef, isMute);
+                            }
+                        } else if (isPbStreamCreated || isRpbStreamCreated) {
+                            res = taf_audio_SetMute(playerRef, isMute);
+                        } else if (isTxPbStreamCreated || isTxRpbStreamCreated) {
+                            res = taf_audio_SetMute(txPlayerRef, isMute);
+                        }
                     }
                     else if (number == 4)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetMute to mute recorderRef");
-                        res = taf_audio_SetMute(recorderRef, isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully recorderRef is muted");
+                        if (isRecordStreamCreated && isRxRecordStreamCreated) {
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_SetMute(recorderRef, isMute);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_SetMute(rxRecorderRef, isMute);
+                            }
+                        } else if (isRecordStreamCreated) {
+                            res = taf_audio_SetMute(recorderRef, isMute);
+                        } else if (isRxRecordStreamCreated) {
+                            res = taf_audio_SetMute(rxRecorderRef, isMute);
+                        }
                     }
                 }
-                else if (isVoiceStreamCreated && (isPbStreamCreated || isRpbStreamCreated))
+                else if (isVoiceStreamCreated && (isPbStreamCreated || isRpbStreamCreated
+                        || isTxPbStreamCreated || isTxRpbStreamCreated))
                 {
                     cout << "1 - modem RX" << endl;
                     cout << "2 - modem TX" << endl;
@@ -1343,24 +1719,38 @@ void StartInputMonitoring
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetMute to mute modem voice RX");
                         res = taf_audio_SetMute(rxStreamRef, isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully set mute status to rxStreamRef");
                     }
                     else if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetMute to mute modem voice TX");
                         res = taf_audio_SetMute(txStreamRef, isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully set mute status to txStreamRef");
                     }
                     else if (number == 3)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetMute to mute playerRef");
-                        res = taf_audio_SetMute(playerRef, isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully playerRef is muted");
+                        if((isPbStreamCreated || isRpbStreamCreated) &&
+                                (isTxPbStreamCreated || isTxRpbStreamCreated)){
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_SetMute(playerRef, isMute);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_SetMute(txPlayerRef, isMute);
+                            }
+                        } else if (isPbStreamCreated || isRpbStreamCreated) {
+                            res = taf_audio_SetMute(playerRef, isMute);
+                        } else if (isTxPbStreamCreated || isTxRpbStreamCreated) {
+                            res = taf_audio_SetMute(txPlayerRef, isMute);
+                        }
                     }
                 }
-                else if(isVoiceStreamCreated && isRecordStreamCreated)
+                else if(isVoiceStreamCreated && (isRecordStreamCreated || isRxRecordStreamCreated))
                 {
                     cout << "1 - modem RX" << endl;
                     cout << "2 - modem TX" << endl;
@@ -1371,34 +1761,43 @@ void StartInputMonitoring
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetMute to mute modem voice RX");
                         res = taf_audio_SetMute(rxStreamRef, isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully set mute status to rxStreamRef");
                     }
                     else if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetMute to mute modem voice TX");
                         res = taf_audio_SetMute(txStreamRef, isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully set mute status to txStreamRef");
                     }
                     else if (number == 3)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetMute to mute recorderRef");
-                        res = taf_audio_SetMute(recorderRef, isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully recorderRef is muted");
+                        if (isRecordStreamCreated && isRxRecordStreamCreated) {
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_SetMute(recorderRef, isMute);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_SetMute(rxRecorderRef, isMute);
+                            }
+                        } else if (isRecordStreamCreated) {
+                            res = taf_audio_SetMute(recorderRef, isMute);
+                        } else if (isRxRecordStreamCreated) {
+                            res = taf_audio_SetMute(rxRecorderRef, isMute);
+                        }
                     }
                 }
                 else if ((isPbStreamCreated || isRpbStreamCreated))
                 {
-                    LE_TEST_INFO("Test taf_audio_SetMute to mute playerRef");
                     res = taf_audio_SetMute(playerRef, isMute);
-                    LE_TEST_OK(res == LE_OK, "Successfully playerRef is muted");
                 }
                 else if (isRecordStreamCreated)
                 {
-                    LE_TEST_INFO("Test taf_audio_SetMute to mute recorderRef");
                     res = taf_audio_SetMute(recorderRef, isMute);
-                    LE_TEST_OK(res == LE_OK, "Successfully recorderRef is muted");
                 }
                 else if (isVoiceStreamCreated)
                 {
@@ -1408,23 +1807,24 @@ void StartInputMonitoring
                     IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1) {
-                        LE_TEST_INFO("Test taf_audio_SetMute to mute modem voice RX");
                         res = taf_audio_SetMute(rxStreamRef, isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully set mute status to rxStreamRef");
                     }
                     else if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_SetMute to mute modem voice TX");
                         res = taf_audio_SetMute(txStreamRef, isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully set mute status to txStreamRef");
                     }
                 }
+                LE_TEST_OK(res == LE_OK, "Successfully set the mute status");
             }
             else if (strncmp(inputStr, "getMute", 7) == 0)
             {
                 bool isMute = false;
+                res = LE_FAULT;
+                LE_TEST_INFO("Test taf_audio_GetMute");
                 if (isVoiceStreamCreated
-                        && (isPbStreamCreated || isRpbStreamCreated) && isRecordStreamCreated)
+                        && (isPbStreamCreated || isRpbStreamCreated || isTxPbStreamCreated
+                        || isTxRpbStreamCreated)
+                        && (isRecordStreamCreated || isRxRecordStreamCreated))
                 {
                     cout << "1 - modem RX" << endl;
                     cout << "2 - modem TX" << endl;
@@ -1436,30 +1836,62 @@ void StartInputMonitoring
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetMute of modem voice RX");
                         res = taf_audio_GetMute(rxStreamRef, &isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully get the mute status");
                     }
                     else if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetMute of modem voice TX");
                         res = taf_audio_GetMute(txStreamRef, &isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully get the mute status");
                     }
                     else if (number == 3)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetMute of playerRef");
-                        res = taf_audio_GetMute(playerRef, &isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully get the mute status of player");
+                        if((isPbStreamCreated || isRpbStreamCreated) &&
+                                (isTxPbStreamCreated || isTxRpbStreamCreated)){
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_GetMute(playerRef, &isMute);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_GetMute(txPlayerRef, &isMute);
+                            }
+                        } else if (isPbStreamCreated || isRpbStreamCreated) {
+                            res = taf_audio_GetMute(playerRef, &isMute);
+                        } else if (isTxPbStreamCreated || isTxRpbStreamCreated) {
+                            res = taf_audio_GetMute(txPlayerRef, &isMute);
+                        }
                     }
                     else if (number == 4)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetMute of recorderRef");
-                        res = taf_audio_GetMute(recorderRef, &isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully get the mute status of recorder");
+                        if (isRecordStreamCreated && isRxRecordStreamCreated) {
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_GetMute(recorderRef, &isMute);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_GetMute(rxRecorderRef, &isMute);
+                            }
+                        } else if (isRecordStreamCreated) {
+                            res = taf_audio_GetMute(recorderRef, &isMute);
+                        } else if (isRxRecordStreamCreated) {
+                            res = taf_audio_GetMute(rxRecorderRef, &isMute);
+                        }
                     }
                 }
-                else if (isVoiceStreamCreated && (isPbStreamCreated || isRpbStreamCreated))
+                else if (isVoiceStreamCreated && (isPbStreamCreated || isRpbStreamCreated
+                        || isTxPbStreamCreated || isTxRpbStreamCreated))
                 {
                     cout << "1 - modem RX" << endl;
                     cout << "2 - modem TX" << endl;
@@ -1470,24 +1902,38 @@ void StartInputMonitoring
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetMute of modem voice RX");
                         res = taf_audio_GetMute(rxStreamRef, &isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully get the mute status");
                     }
                     else if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetMute of modem voice TX");
                         res = taf_audio_GetMute(txStreamRef, &isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully get the mute status");
                     }
                     else if (number == 3)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetMute of playerRef");
-                        res = taf_audio_GetMute(playerRef, &isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully get the mute status of player");
+                        if((isPbStreamCreated || isRpbStreamCreated) &&
+                                (isTxPbStreamCreated || isTxRpbStreamCreated)){
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_GetMute(playerRef, &isMute);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_GetMute(txPlayerRef, &isMute);
+                            }
+                        } else if (isPbStreamCreated || isRpbStreamCreated) {
+                            res = taf_audio_GetMute(playerRef, &isMute);
+                        } else if (isTxPbStreamCreated || isTxRpbStreamCreated) {
+                            res = taf_audio_GetMute(txPlayerRef, &isMute);
+                        }
                     }
                 }
-                else if(isVoiceStreamCreated && isRecordStreamCreated)
+                else if(isVoiceStreamCreated && (isRecordStreamCreated || isRxRecordStreamCreated))
                 {
                     cout << "1 - modem RX" << endl;
                     cout << "2 - modem TX" << endl;
@@ -1498,34 +1944,43 @@ void StartInputMonitoring
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetMute of modem voice RX");
                         res = taf_audio_GetMute(rxStreamRef, &isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully get the mute status");
                     }
                     else if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetMute to mute modem voice TX");
                         res = taf_audio_GetMute(txStreamRef, &isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully get mute status of txStreamRef");
                     }
                     else if (number == 3)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetMute of recorderRef");
-                        res = taf_audio_GetMute(recorderRef, &isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully get the mute status of recorder");
+                        if (isRecordStreamCreated && isRxRecordStreamCreated) {
+                            cout << "1 - Local" << endl;
+                            cout << "2 - Remote" << endl;
+                            cout << "Enter input:";
+                            cin >> number;
+                            IS_CIN_FAILURE;
+                            p = fgets(inputStr, sizeof(inputStr), stdin);
+                            if(number == 1)
+                            {
+                                res = taf_audio_GetMute(recorderRef, &isMute);
+                            }
+                            else if (number == 2)
+                            {
+                                res = taf_audio_GetMute(rxRecorderRef, &isMute);
+                            }
+                        } else if (isRecordStreamCreated) {
+                            res = taf_audio_GetMute(recorderRef, &isMute);
+                        } else if (isRxRecordStreamCreated) {
+                            res = taf_audio_GetMute(rxRecorderRef, &isMute);
+                        }
                     }
                 }
                 else if ((isPbStreamCreated || isRpbStreamCreated))
                 {
-                    LE_TEST_INFO("Test taf_audio_GetMute to get mute status of playerRef");
                     res = taf_audio_GetMute(playerRef, &isMute);
-                    LE_TEST_OK(res == LE_OK, "Successfully get the mute status of player");
                 }
                 else if (isRecordStreamCreated)
                 {
-                    LE_TEST_INFO("Test taf_audio_GetMute to get mute status of recorderRef");
                     res = taf_audio_GetMute(recorderRef, &isMute);
-                    LE_TEST_OK(res == LE_OK, "Successfully get the mute status of recorder");
                 }
                 else if (isVoiceStreamCreated)
                 {
@@ -1535,17 +1990,14 @@ void StartInputMonitoring
                     IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1) {
-                        LE_TEST_INFO("Test taf_audio_GetMute of modem voice RX");
                         res = taf_audio_GetMute(rxStreamRef, &isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully get the mute status");
                     }
                     else if (number == 2)
                     {
-                        LE_TEST_INFO("Test taf_audio_GetMute of modem voice TX");
                         res = taf_audio_GetMute(txStreamRef, &isMute);
-                        LE_TEST_OK(res == LE_OK, "Successfully get the mute status");
                     }
                 }
+                LE_TEST_OK(res == LE_OK, "Successfully got the mute status");
                 cout << "Mute status is " << isMute << endl;
             }
             else if (strncmp(inputStr, "start voice", 11) == 0)
@@ -1558,7 +2010,15 @@ void StartInputMonitoring
                 cin >> fileName;
                 IS_CIN_FAILURE;
                 p = fgets(inputStr, sizeof(inputStr), stdin);
-                Test_Audio_Playback_Start(fileName);
+                Test_Audio_Playback_Start(playerRef, fileName);
+            }
+            else if (strncmp(inputStr, "start remote playback", 21) == 0)
+            {
+                cout << "Enter file path:";
+                cin >> fileName;
+                IS_CIN_FAILURE;
+                p = fgets(inputStr, sizeof(inputStr), stdin);
+                Test_Audio_Playback_Start(txPlayerRef, fileName);
             }
             else if (strncmp(inputStr, "start recording", 15) == 0)
             {
@@ -1566,23 +2026,44 @@ void StartInputMonitoring
                 cin >> fileName;
                 IS_CIN_FAILURE;
                 p = fgets(inputStr, sizeof(inputStr), stdin);
-                Test_Audio_Record_Start(fileName);
+                Test_Audio_Record_Start(recorderRef, fileName);
+            }
+            else if (strncmp(inputStr, "start remote recording", 22) == 0)
+            {
+                cout << "Enter file path:";
+                cin >> fileName;
+                IS_CIN_FAILURE;
+                p = fgets(inputStr, sizeof(inputStr), stdin);
+                Test_Audio_Record_Start(rxRecorderRef, fileName);
             }
             else if (strncmp(inputStr, "stop playback", 13) == 0)
             {
-                    Test_Audio_Playback_Stop();
+                    Test_Audio_Playback_Stop(playerRef);
+            }
+            else if (strncmp(inputStr, "stop remote playback", 20) == 0)
+            {
+                    Test_Audio_Playback_Stop(txPlayerRef);
             }
             else if (strncmp(inputStr, "stop recording", 14) == 0)
             {
-                    Test_Audio_Record_Stop();
+                    Test_Audio_Record_Stop(recorderRef);
+            }
+            else if (strncmp(inputStr, "stop remote recording", 21) == 0)
+            {
+                    Test_Audio_Record_Stop(rxRecorderRef);
             }
             else if (strncmp(inputStr, "stop voice", 10) == 0)
             {
                 Test_Audio_VoiceCall_Stop();
             }
-            else if (strncmp(inputStr, "start repeat_playback", 21) == 0)
+            else if (strncmp(inputStr, "start remote repeat_playback", 28) == 0
+                || (strncmp(inputStr, "start repeat_playback", 21) == 0))
             {
+                LE_INFO("inputstring is %s", inputStr);
                 int numFiles = 0;
+                bool isRemotePb = false;
+                if(strncmp(inputStr, "start remote repeat_playback", 28) == 0)
+                    isRemotePb = true;
                 cout << "Enter the number of files: ";
                 cin >> numFiles;
                 IS_CIN_FAILURE;
@@ -1610,28 +2091,44 @@ void StartInputMonitoring
                     }
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                 }
-                Test_Mngd_Audio_Start_PlayFileList(playFileConfig, numFiles);
+                if (!isRemotePb)
+                    Test_Mngd_Audio_Start_PlayFileList(playerRef, playFileConfig, numFiles);
+                else
+                    Test_Mngd_Audio_Start_PlayFileList(txPlayerRef, playFileConfig, numFiles);
             }
             else if (strncmp(inputStr, "Delete player stream", 20) == 0)
             {
                 if(isVoiceActive)
-                    Test_Audio_Playback_Delete(false);
+                    Test_Audio_Playback_Delete(playerRef, false);
                 else
-                    Test_Audio_Playback_Delete(true);
+                    Test_Audio_Playback_Delete(playerRef, true);
             }
-            else if (strncmp(inputStr, "Delete repeated_player stream", 20) == 0)
+            else if (strncmp(inputStr, "Delete remote player stream", 27) == 0)
+            {
+                if(isVoiceActive) // check if this is required
+                    Test_Audio_Playback_Delete(txPlayerRef, false);
+            }
+            else if (strncmp(inputStr, "Delete repeated_player stream", 29) == 0)
             {
                 if(isVoiceActive)
-                    Test_Audio_Delete_PlayList(false);
+                    Test_Audio_Delete_PlayList(playerRef, false);
                 else
-                    Test_Audio_Delete_PlayList(true);
+                    Test_Audio_Delete_PlayList(playerRef, true);
+            }
+            else if (strncmp(inputStr, "Delete remote repeated_player stream", 36) == 0)
+            {
+                Test_Audio_Delete_PlayList(txPlayerRef, false);
             }
             else if (strncmp(inputStr, "Delete recorder stream", 22) == 0)
             {
                 if(isVoiceActive)
-                    Test_Audio_Record_Delete(false);
+                    Test_Audio_Record_Delete(recorderRef, false);
                 else
-                    Test_Audio_Record_Delete(true);
+                    Test_Audio_Record_Delete(recorderRef, true);
+            }
+            else if (strncmp(inputStr, "Delete remote recorder stream", 29) == 0)
+            {
+                Test_Audio_Record_Delete(rxRecorderRef, false);
             }
             else if (strncmp(inputStr, "Delete voice stream", 19) == 0)
             {

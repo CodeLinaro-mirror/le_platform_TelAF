@@ -2,9 +2,8 @@ sources:
 {
     tafMngdSecStore.cpp
     tafMngdSecData.cpp
-    tafMngdStorageImpl.cpp
-    tafMngdStorageSvc.cpp
-    tafMngdConfigStorage.cpp
+    tafMngdSecStorageImpl.cpp
+    tafMngdSecStorageSvc.cpp
 }
 
 provides:
@@ -12,7 +11,6 @@ provides:
     api:
     {
         $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdStorSec.api
-        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdStorCfg.api
     }
 }
 
@@ -22,8 +20,6 @@ requires:
     {
         taf_ks.api
         le_appInfo.api
-        le_cfg.api
-        le_cfgAdmin.api
     }
 
     component:
@@ -44,5 +40,4 @@ ldflags:
 {
    -lssl
    -lcrypto
-   -lboost_filesystem
 }

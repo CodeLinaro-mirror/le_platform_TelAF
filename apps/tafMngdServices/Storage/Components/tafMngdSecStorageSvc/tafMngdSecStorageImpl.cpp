@@ -52,7 +52,6 @@ tafMngdStorageSvc &tafMngdStorageSvc::GetInstance()
 void tafMngdStorageSvc::Init(void)
 {
     InitStorage();
-    InitConfigStorage();
     taf_rfs_Init(true, nullptr);
 }
 

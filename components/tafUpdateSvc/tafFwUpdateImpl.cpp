@@ -199,7 +199,12 @@ void taf_FwUpdate::UpdateProgress
             break;
         case TAF_UPDATE_SYNC_SUCCESS:
             LE_INFO("Sync success.");
+            tafFwUpdate.percent = 0;
             tafFwUpdate.SetState(TAF_UPDATE_IDLE);
+            break;
+        case TAF_UPDATE_SYNC_PAUSED:
+            LE_INFO("Sync pause.");
+            tafFwUpdate.SetState(TAF_UPDATE_SYNC_PAUSED);
             break;
         case TAF_UPDATE_SYNC_FAIL:
             LE_INFO("Sync failed.");
@@ -1376,10 +1381,11 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
         }
     }
 
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
     for (uint32_t i = 0; i < partitionList.number; ++i)
     {
-        taf_update_State_t state =
-            (taf_update_State_t)tafUpdate_ConfigTree_GetInt(kState);
+        taf_update_State_t state = tafFwUpdate.GetState();
         if(state == TAF_UPDATE_SYNC_PAUSED)
         {
             LE_INFO("Received pause signal in MTD sync, stopping...");
@@ -1559,10 +1565,10 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
     }
 
     le_result_t result = LE_OK;
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
     for (uint32_t i = 0; i < partitionList.number; ++i)
     {
-        taf_update_State_t state =
-            (taf_update_State_t)tafUpdate_ConfigTree_GetInt(kState);
+        taf_update_State_t state = tafFwUpdate.GetState();
         if(state == TAF_UPDATE_SYNC_PAUSED)
         {
             LE_INFO("Received pause signal in UBI sync, stopping...");
@@ -1753,7 +1759,6 @@ void taf_FwUpdate::PerformABSync()
     {
         LE_ERROR("Fail to get active bank.");
         tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
-        tafUpdate_ConfigTree_SetInt(kState, TAF_UPDATE_SYNC_FAIL);
         return;
     }
     switch (activeBank)
@@ -1781,8 +1786,7 @@ void taf_FwUpdate::PerformABSync()
     }
 
     bool isMTDSynced = tafUpdate_ConfigTree_GetBool(kIsMTDSynced);
-    taf_update_State_t state =
-        (taf_update_State_t)tafUpdate_ConfigTree_GetInt(kState);
+    taf_update_State_t state = tafFwUpdate.GetState();
     if((!isMTDSynced) && (state != TAF_UPDATE_SYNC_PAUSED))
     {
         result = SyncMTD(activeBank);
@@ -1790,13 +1794,12 @@ void taf_FwUpdate::PerformABSync()
         {
             LE_ERROR("SyncMTD failed");
             tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
-            tafUpdate_ConfigTree_SetInt(kState, TAF_UPDATE_SYNC_FAIL);
             return;
         }
     }
 
     bool isUBISynced = tafUpdate_ConfigTree_GetBool(kIsUBISynced);
-    state = (taf_update_State_t)tafUpdate_ConfigTree_GetInt(kState);
+    state = tafFwUpdate.GetState();
     if((!isUBISynced) && (state != TAF_UPDATE_SYNC_PAUSED))
     {
         result = SyncUBI(activeBank);
@@ -1804,7 +1807,6 @@ void taf_FwUpdate::PerformABSync()
         {
             LE_ERROR("SyncUBI failed");
             tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
-            tafUpdate_ConfigTree_SetInt(kState, TAF_UPDATE_SYNC_FAIL);
             return;
         }
     }
@@ -1814,9 +1816,10 @@ void taf_FwUpdate::PerformABSync()
     if(isMTDSynced && isUBISynced)
     {
         LE_INFO("Sync completed successfully");
-        tafUpdate_ConfigTree_SetInt(kState, TAF_UPDATE_SYNC_SUCCESS);
-        ReportStatus(TAF_UPDATE_SYNCHRONIZING, 100, TAF_UPDATE_NONE);
-        ReportStatus(TAF_UPDATE_SYNC_SUCCESS, 0, TAF_UPDATE_NONE);
+        tafFwUpdate.percent = 100;
+        tafFwUpdate.error = TAF_UPDATE_NONE;
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
     }
 }
 
@@ -1849,8 +1852,7 @@ void taf_FwUpdate::FwSyncHandler(void* reqPtr)
     LE_DEBUG("In taf_FwUpdate::FwSyncHandler");
     taf_FwUpdateReq_t* updateReq = (taf_FwUpdateReq_t*)reqPtr;
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    taf_update_State_t state =
-        (taf_update_State_t)tafUpdate_ConfigTree_GetInt(kState);
+    taf_update_State_t state = tafFwUpdate.GetState();
 
     if (updateReq->event == TAF_FWUPDATE_EV_START_SYNC)
     {
@@ -1865,7 +1867,6 @@ void taf_FwUpdate::FwSyncHandler(void* reqPtr)
         // clear the config tree
         tafUpdate_ConfigTree_ClearTree();
 
-        tafUpdate_ConfigTree_SetInt(kState, TAF_UPDATE_IDLE);
         tafUpdate_ConfigTree_SetInt(kPagesSynced, 0);
         tafUpdate_ConfigTree_SetInt(kTotalPages, 0);
         tafUpdate_ConfigTree_SetBool(kAreBlocksErased, false);
@@ -1874,12 +1875,11 @@ void taf_FwUpdate::FwSyncHandler(void* reqPtr)
         tafUpdate_ConfigTree_SetBool(kIsUBISynced, false);
 
         LE_INFO("Starting A-B bank synchronization");
-        tafFwUpdate.SetState(TAF_UPDATE_SYNCHRONIZING);
-
-        tafUpdate_ConfigTree_SetInt(kState, TAF_UPDATE_SYNCHRONIZING);
 
         // report current state to the user
-        tafFwUpdate.ReportStatus(TAF_UPDATE_SYNCHRONIZING, 0, TAF_UPDATE_NONE);
+        tafFwUpdate.percent = 0;
+        tafFwUpdate.error = TAF_UPDATE_NONE;
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
 
         taf_FwUpdateEvent_t req = TAF_FWUPDATE_EV_START_SYNC;
         le_event_Report(taf_FwUpdate::fwStartSyncEvId, &req, sizeof(taf_FwUpdateEvent_t));
@@ -1889,8 +1889,7 @@ void taf_FwUpdate::FwSyncHandler(void* reqPtr)
         if(state == TAF_UPDATE_SYNCHRONIZING)
         {
             LE_INFO("Pausing A-B bank synchronization");
-            tafFwUpdate.SetState(TAF_UPDATE_SYNC_PAUSED);
-            tafUpdate_ConfigTree_SetInt(kState, TAF_UPDATE_SYNC_PAUSED);
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_PAUSED);
 
             // report current state to the user
             tafFwUpdate.ReportStatus(TAF_UPDATE_SYNC_PAUSED, 0, TAF_UPDATE_NONE);
@@ -1907,8 +1906,8 @@ void taf_FwUpdate::FwSyncHandler(void* reqPtr)
         if(state == TAF_UPDATE_SYNC_PAUSED)
         {
             LE_INFO("Resuming A-B bank synchronization");
-            tafFwUpdate.SetState(TAF_UPDATE_SYNCHRONIZING);
-            tafUpdate_ConfigTree_SetInt(kState, TAF_UPDATE_SYNCHRONIZING);
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
+
             taf_FwUpdateEvent_t req = TAF_FWUPDATE_EV_START_SYNC;
             le_event_Report(taf_FwUpdate::fwStartSyncEvId, &req, sizeof(taf_FwUpdateEvent_t));
         }

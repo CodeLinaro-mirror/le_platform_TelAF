@@ -67,7 +67,6 @@ const size_t kPageSize = 4 * 1024; //4k
 const std::string kAreBlocksErased = "ARE_BLOCKS_ERASED";
 const std::string kIsMTDSynced = "IS_MTD_SYNCED";
 const std::string kIsUBISynced = "IS_UBI_SYNCED";
-const std::string kState = "STATE";
 const std::string kPagesSynced = "PAGES_SYNCED";
 const std::string kTotalPages = "TOTAL_PAGES";
 

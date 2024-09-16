@@ -1832,6 +1832,10 @@ le_result_t taf_Time::CheckSourceTime
             {
                 result = GetAsyncRtcSetTimeStatus();
             }
+            else
+            {
+                result = GetRtcTime(timePtr);
+            }
             break;
 
         case TAF_TIME_SRC_NAME_GNSS:

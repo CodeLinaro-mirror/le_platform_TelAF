@@ -132,33 +132,64 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
 le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
     taf_mngdPm_AsyncRestartReqHandlerFunc_t handlerPtr, void* contextPtr)
 {
+    LE_INFO("taf_mngdPm_RestartReqAsync");
     auto &mpms = tafMngdPMSvc::GetInstance();
 
     if(tafMngdPMSvc::IsClientValid() == false)
     {
         return LE_UNSUPPORTED;
     }
-
-    mpms.powerMode.isRestart = true;
     TAF_ERROR_IF_RET_VAL(mpms.handlerRef == nullptr, LE_BAD_PARAMETER, "invalid handlerRef");
-    if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN ||
-            mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN)
-    {
-        handlerPtr(mode, TAF_MNGDPM_READY, contextPtr);
-        return LE_OK;
-    }
 
-    if (mpms.RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
-    {
-        handlerPtr(mode, TAF_MNGDPM_NOT_READY, contextPtr);
-        return LE_OK;
-    }
-    tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN);
     if(mode == TAF_MNGDPM_RESTART_SYSTEM_OFF_ON)
     {
-        if(mpms.pmInf && mpms.pmInf->nodeStateChangePrepareAsync)
+        LE_INFO("mode is TAF_MNGDPM_RESTART_SYSTEM_OFF_ON");
+        if((mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN) ||
+                (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN))
+        {
+            handlerPtr(mode, TAF_MNGDPM_READY, contextPtr);
+            return LE_OK;
+        }
+        else {
+            if(mpms.RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) == LE_OK)
+            {
+                tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN);
+            }
+            else
+            {
+                handlerPtr(mode, TAF_MNGDPM_NOT_READY, contextPtr);
+                return LE_OK;
+            }
+        }
+    }
+    else if(mode == TAF_MNGDPM_RESTART_MODE_NAD_REBOOT)
+    {
+        LE_INFO("mode is TAF_MNGDPM_RESTART_MODE_NAD_REBOOT");
+        if(mpms.stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING ||
+                mpms.stateMachine.currentState == TAF_MNGDPM_STATE_RESTART)
+        {
+            handlerPtr(mode, TAF_MNGDPM_READY, contextPtr);
+            return LE_OK;
+        }
+        else {
+            if (mpms.RequestStateChange(TAF_MNGDPM_STATE_RESTARTING) == LE_OK)
+            {
+                tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_RESTARTING);
+            }
+            else
+            {
+                handlerPtr(mode, TAF_MNGDPM_NOT_READY, contextPtr);
+                return LE_OK;
+            }
+        }
+    }
+
+    if(mpms.pmInf && mpms.pmInf->nodeStateChangePrepareAsync)
+    {
+        if(mode == TAF_MNGDPM_RESTART_SYSTEM_OFF_ON)
         {
             LE_INFO("Send restartReqAsync %d", HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF);
+            mpms.powerMode.isShutDown = true;
             (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF, tafMngdPMSvc::RestartPrepareRespCB);
             mpms.statePtr = RESTART_WITH_NAD_POWER_OFF_ON;
             le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
@@ -167,19 +198,45 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
             mpms.restartCB.restartCBCtxPtr = contextPtr;
             mpms.restartCB.sessionRef = taf_mngdPm_GetClientSessionRef();
         }
-        else
+        else if(mode == TAF_MNGDPM_RESTART_MODE_NAD_REBOOT)
         {
-            LE_INFO("Ignore VHAL response if drive is not available");
+            LE_INFO("Send restartReqAsync %d", HAL_PM_RESTART_MODE_NAD_REBOOT);
+            mpms.powerMode.isRestart = true;
+            (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_NAD_REBOOT, tafMngdPMSvc::RestartPrepareRespCB);
+            mpms.statePtr = RESTART_WITH_NAD_REBOOT;
+            le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
+            le_timer_Start(mpms.vhalAckTimerRef);
+            mpms.restartCB.restartCallbackFunc = handlerPtr;
+            mpms.restartCB.restartCBCtxPtr = contextPtr;
+            mpms.restartCB.sessionRef = taf_mngdPm_GetClientSessionRef();
+        }
+    }
+    else
+    {
+        LE_INFO("Ignore VHAL response if drive is not available");
+        if(mode == TAF_MNGDPM_RESTART_SYSTEM_OFF_ON)
+        {
+            LE_INFO("mode is TAF_MNGDPM_RESTART_SYSTEM_OFF_ON");
             le_result_t res = tafMngdPMSvc::ShutdownNAD();
             if(res == LE_OK)
             {
+                mpms.powerMode.isShutDown = true;
                 mpms.powerMode.isGraceful = false;
             }
-            // Send ready incase of driver not available.
-            handlerPtr(mode, TAF_MNGDPM_READY, contextPtr);
         }
+        else if(mode == TAF_MNGDPM_RESTART_MODE_NAD_REBOOT)
+        {
+            LE_INFO("mode is TAF_MNGDPM_RESTART_MODE_NAD_REBOOT");
+            le_result_t res = tafMngdPMSvc::RestartNAD();
+            if(res == LE_OK)
+            {
+                mpms.powerMode.isRestart = true;
+                mpms.powerMode.isGraceful = false;
+            }
+        }
+        // Send ready incase of driver not available.
+        handlerPtr(mode, TAF_MNGDPM_READY, contextPtr);
     }
-
     return LE_OK;
 }
 
@@ -500,18 +557,13 @@ le_result_t taf_mngdPm_ShutdownNode (uint8_t pmNodeId)
 le_result_t taf_mngdPm_RestartNode (uint8_t pmNodeId)
 {
     LE_INFO("taf_mngdPm_RestartNode");
+    auto &mpms = tafMngdPMSvc::GetInstance();
     if(tafMngdPMSvc::IsClientValid() == false)
     {
         return LE_UNSUPPORTED;
     }
-    if (reboot(RB_AUTOBOOT)) {
-        LE_INFO("System is rebooted");
-        return LE_OK;
-    }
-    else {
-        LE_INFO("System reboot failed");
-        return LE_FAULT;
-    }
+    le_result_t res = mpms.RestartNAD();
+    return res;
 }
 
 

@@ -27,7 +27,9 @@ static void PrintUsage ()
         "app start tafMngdPMIntTest\n"
         "--------To know Usage--------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- help \n"
-        "--------To Restart the System --------\n"
+        "--------To Restart the System with TAF_MNGDPM_RESTART_MODE_NAD_REBOOT--------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RebootSystem \n"
+        "--------To Restart the System with TAF_MNGDPM_RESTART_SYSTEM_OFF_ON--------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RestartSystem \n"
         "--------To KeepAwakeThenRestartSystem the System --------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- KeepAwakeThenRestartSystem \n"
@@ -157,9 +159,31 @@ void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rs
     if(rspmode == 0)
     {
         LE_INFO("----RestartSystem success----");
-        exit(EXIT_SUCCESS);
     }
-    exit(EXIT_FAILURE);
+    else
+    {
+        LE_INFO("----RestartSystem failed----");
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void RebootSystem()
+{
+    LE_INFO("----RebootSystem test----" );
+    uint8_t pmNodeId = 0;
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE", pmNodeId);
+    le_result_t res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT,
+            RestartCallback, NULL);
+
+    if(res == LE_OK)
+    {
+        LE_INFO("----RebootSystem requested----");
+    }
+    else
+    {
+        LE_ERROR("RebootSystem request failed");
+        exit(EXIT_FAILURE);
+    }
 }
 
 static void RestartSystem()
@@ -781,6 +805,10 @@ COMPONENT_INIT
         else if(strcmp(testType, "RestartSystem") == 0)
         {
             RestartSystem();
+        }
+        else if(strcmp(testType, "RebootSystem") == 0)
+        {
+            RebootSystem();
         }
         else if(strcmp(testType, "KeepAwakeThenRestartSystem") == 0)
         {

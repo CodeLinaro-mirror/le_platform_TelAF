@@ -841,6 +841,7 @@ void TestTafRadioServingStatus
     uint16_t psc;
 
     uint16_t tac;
+    uint8_t rac;
     uint32_t earFcn;
     uint32_t ta;
     uint16_t pscid;
@@ -866,6 +867,9 @@ void TestTafRadioServingStatus
 
             result = taf_radio_GetServingCellArfcn(&arFcn, DEFAULT_PHONE_ID);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellArfcn - LE_OK");
+
+            result = taf_radio_GetServingCellRoutingAreaCode(&rac, DEFAULT_PHONE_ID);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellRoutingAreaCode - LE_OK");
             break;
         case TAF_RADIO_RAT_UMTS:
             psc = taf_radio_GetServingCellScramblingCode(DEFAULT_PHONE_ID);
@@ -874,6 +878,9 @@ void TestTafRadioServingStatus
             result = taf_radio_GetServingCellUarfcn(&arFcn, DEFAULT_PHONE_ID);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellUarfcn - LE_OK");
             LE_INFO("primary ScramblingCode : %d.", psc);
+
+            result = taf_radio_GetServingCellRoutingAreaCode(&rac, DEFAULT_PHONE_ID);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellRoutingAreaCode - LE_OK");
             break;
         case TAF_RADIO_RAT_LTE:
             tac = taf_radio_GetServingCellLteTracAreaCode(DEFAULT_PHONE_ID);
@@ -908,6 +915,10 @@ void TestTafRadioServingStatus
             pcid = taf_radio_GetPhysicalServingNrCellId(DEFAULT_PHONE_ID);
             LE_TEST_OK(true, "taf_radio_GetPhysicalServingNrCellId - OK");
             LE_INFO("pysical serving cell id : %d.", pcid);
+            break;
+        case TAF_RADIO_RAT_TDSCDMA:
+            result = taf_radio_GetServingCellRoutingAreaCode(&rac, DEFAULT_PHONE_ID);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellRoutingAreaCode - LE_OK");
             break;
         default:
             LE_INFO("Unavailble RAT %d for serving system.", rat);

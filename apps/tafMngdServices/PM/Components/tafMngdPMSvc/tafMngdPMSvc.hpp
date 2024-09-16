@@ -20,7 +20,7 @@
 #define NODE_PRIMARY_NAD 0
 #define NODE_ID 0
 #define WAKELOCK_WITHOUT_REF 0
-#define MAX_SESSION 5
+#define MAX_SESSION 50
 #define TAF_REF_POOL_SIZE 32
 #define STAYAWAKE "STAYAWAKE"
 #define RELAX "RELAX"
@@ -248,7 +248,6 @@ class tafMngdPMSvc: public ITafSvc
 
         // resources for multi-client management
         static taf_mngdPm_Client_t mngdPmClientInfo;
-        static const char* clientWhiteList[2];
 
         // resources to manamge state change handler
         static le_event_Id_t stateChange;

@@ -23,6 +23,32 @@ interface(`telaf_tafSomeipGWSvc_connect',`
             type telaf_tafSomeipGWSvc_t;
     ')
 
-    allow $1 telaf_tafSomeipGWSvc_t:unix_stream_socket { connectto };
     allow telaf_tafSomeipGWSvc_t $1:unix_stream_socket { connectto };
+    allow $1 telaf_tafSomeipGWSvc_t:unix_stream_socket { connectto };
+')
+
+#######################################
+# <summary>
+#        Allow telaf_tafSomeipGWSvc_t to write to other vsomeip services
+# </summary>
+# <param name="domain">
+#        <summary>
+#        Type to be used as a daemon domain.
+#        </summary>
+# </param>
+# <param name="entry_point">
+#        <summary>
+#        Type of the program to be used as an entry point to this domain
+#        </summary>
+# </param>
+
+interface(`telaf_tafSomeipGWSvc_write',`
+    gen_require(`
+            type telaf_tafSomeipGWSvc_t;
+            type telaf_someiptmp_t;
+    ')
+
+    allow telaf_tafSomeipGWSvc_t $1:sock_file { write };
+    allow $1 telaf_tafSomeipGWSvc_t:sock_file { write };
+    allow $1 telaf_someiptmp_t:sock_file { write };
 ')

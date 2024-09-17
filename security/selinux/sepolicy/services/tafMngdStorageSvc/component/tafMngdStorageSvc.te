@@ -65,3 +65,6 @@ allow telaf_tafMngdCfgStorageSvc_t self:capability { sys_admin };
 allow telaf_tafMngdCfgStorageSvc_t data_t:file { relabel_file_perms };
 
 telaf_load_vhal_modules(telaf_tafMngdCfgStorageSvc_t)
+
+# FSCrypt rules
+telaf_tafKeyStoreSvc_FscInit(telaf_tafMngdCfgStorageSvc_t, telaf_fw_t, telaf_tafMngdCfgStorageSvc_data_t)

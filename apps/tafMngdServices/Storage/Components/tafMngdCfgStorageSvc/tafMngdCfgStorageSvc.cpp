@@ -76,6 +76,32 @@ le_result_t taf_mngdStorCfg_Cancel
 }
 
 /**
+ *  Revert to orignal version of config file.
+ */
+le_result_t taf_mngdStorCfg_Rollback
+(
+    void
+)
+{
+    auto &mss = tafMngdStorageSvc::GetInstance();
+
+    return mss.Rollback();
+}
+
+/**
+ *  Commit data to config storage.
+ */
+le_result_t taf_mngdStorCfg_Commit
+(
+    void
+)
+{
+   auto &mss = tafMngdStorageSvc::GetInstance();
+
+    return mss.Commit();
+}
+
+/**
  * Get the configuration storage reference.
  */
 taf_mngdStorCfg_ConfigRef_t  taf_mngdStorCfg_GetRef

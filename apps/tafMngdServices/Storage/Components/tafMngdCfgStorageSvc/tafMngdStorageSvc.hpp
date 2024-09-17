@@ -48,11 +48,11 @@
 #define CONFIG_RFS "/persist/rfs/"
 #define CONFIG_RFS_STORAGE CONFIG_RFS"configStorage/"
 #define CONFIG_FILE_NAME "Config.json"
-#define MSS_CONFIG_PATH "/data/ManagedServices/tafMngdStorageConfig.json"
+#define CONFIG_FILE_NAME_BAK "Config.json.bak"
 #define DEFAULT_MSS_CONFIG_PATH "/legato/systems/current/appsWriteable/tafMngdStorageSvc/data/ManagedServices/tafMngdStorageConfig.json"
 #define MAX_CONFIG_FILES 5
 #define MAX_NUM_OF_CONFIG_STORAGE 20
-#define MAX_FILE_NAME_LEN 255
+#define MAX_FILE_NAME_LEN 256
 
 namespace telux {
 namespace tafsvc {
@@ -103,12 +103,11 @@ class tafMngdStorageSvc: public ITafSvc
         le_ref_MapRef_t configStorageRefMap;
         le_mem_PoolRef_t configStoragePool;
         cfgStor_Inf_t* cfgStorInf;
+        taf_fsc_StorageRef_t cfgFscRef;
+        taf_fsc_StorageRef_t cfgRfsFscRef;
 
         // JSON file update path
         char updatePath[LIMIT_MAX_PATH_BYTES];
-
-        // Golden copy file path
-        char goldenCopyPath[LIMIT_MAX_PATH_BYTES];
 
         /**
          * Resources for holding all config files data.
@@ -136,6 +135,8 @@ class tafMngdStorageSvc: public ITafSvc
 
         le_result_t GetConfigStoragePath(char* storagePtr, size_t storageSize);
 
+        le_result_t GetFiles(const char *path);
+
         le_result_t ConvertToSingleMssJson();
 
         le_result_t AuthenticateFile();
@@ -146,6 +147,14 @@ class tafMngdStorageSvc: public ITafSvc
         le_result_t ValidateJsonSchema(char* filePath,size_t fileSize);
 
         le_result_t Cancel();
+
+        le_result_t Rollback();
+
+        le_result_t Commit();
+
+        le_result_t ClearTree();
+
+        le_result_t ImportTree(char* filePath);
 
 };
 }

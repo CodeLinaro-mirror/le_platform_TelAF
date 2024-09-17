@@ -46,12 +46,11 @@ sandboxed: false
 
 bindings:
 {
-    tafMngdSecStorageSvc.tafMngdSecStorageSvc.taf_ks -> tafKeyStoreSvc.taf_ks
-    tafMngdSecStorageSvc.tafMngdSecStorageSvc.le_appInfo -> <root>.le_appInfo
-    tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.taf_ks -> tafKeyStoreSvc.taf_ks
-    tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_appInfo -> <root>.le_appInfo
+    tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.taf_fsc -> tafKeyStoreSvc.taf_fsc
     tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_cfg -> <root>.le_cfg
     tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_cfgAdmin -> <root>.le_cfgAdmin
+    tafMngdSecStorageSvc.tafMngdSecStorageSvc.taf_ks -> tafKeyStoreSvc.taf_ks
+    tafMngdSecStorageSvc.tafMngdSecStorageSvc.le_appInfo -> <root>.le_appInfo
 }
 
 bundles:

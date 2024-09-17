@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -36,6 +36,23 @@
 #include "interfaces.h"
 #include "taf_pa_fscrypt.h"
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * PA initialization.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_pa_fsc_Init
+(
+    void* cryptoFunc
+)
+{
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get a key file reference by key name.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t taf_pa_fsc_GetKey
 (
     le_msg_SessionRef_t clientSessionRef,   ///< [IN] Client session reference

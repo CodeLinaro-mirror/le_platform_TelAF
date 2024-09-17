@@ -52,7 +52,6 @@ static uint8_t recordedSeqCounter = 0;
 static uint32_t recordedTargetFileSize = 0;
 static uint32_t uploadedTargetTotal = 0;
 
-#ifndef LE_CONFIG_DIAG_VSTACK
 
 static le_sem_Ref_t semRef;
 
@@ -197,8 +196,6 @@ static le_result_t writeFile(const uint8_t *data, const uint16_t len)
     return LE_OK;
 }
 
-#endif
-
 // When the security session changing from programming session to anther.
 void diagRFT_DeactivateProgramming(void)
 {
@@ -236,8 +233,6 @@ void diagRFT_DeactivateProgramming(void)
     recordedTargetFileSize = 0;
     uploadedTargetTotal = 0;
 }
-
-#ifndef LE_CONFIG_DIAG_VSTACK
 
 // Callback function for file transfer request message
 void fileXferMsgHandler
@@ -927,12 +922,8 @@ static void* diagUpdateMsgThread(void* ctxPtr)
     return NULL;
 }
 
-#endif
-
 le_result_t diagRequestFileTransfer_Init(void)
 {
-
-#ifndef LE_CONFIG_DIAG_VSTACK
     semRef = le_sem_Create("SemRef", 0);
 
     //get diag update reference
@@ -950,6 +941,5 @@ le_result_t diagRequestFileTransfer_Init(void)
 
     le_thread_Start(diagUpdateThreadRef);
     le_sem_Wait(semRef);
-#endif
     return LE_OK;
 }

@@ -47,10 +47,18 @@
 #define WRITE_DID_REQ_BASE_LEN 3
 #define SES_CONTROL_REQ_BASE_LEN 2
 #define SES_CHANGE_REQ_BASE_LEN 3
+#define SECURITY_ACCESS_REQ_BASE_LEN 2
+#define REQUEST_FILE_TRANSFER_REQ_BASE_LEN 4
+#define TRANSFER_DATA_REQ_BASE_LEN 2
+#define REQUEST_TRANSFER_EXIT_REQ_BASE_LEN 1
+#define ECU_RESET_REQ_BASE_LEN 2
+#define ROUTINE_CONTROL_REQ_BASE_LEN 4
+#define IO_CTRL_REQ_BASE_LEN 4
 
 typedef enum
 {
     SID_DIAGNOSTIC_SESSION_CONTROL = 0x10,
+    SID_ECU_RESET = 0x11,
     SID_CLEAR_DIAGNOSTIC_INFO = 0x14,
     SID_READ_DTC_INFO = 0x19,
     SID_READ_DATA_BY_IDENTIFIER = 0x22,
@@ -61,6 +69,7 @@ typedef enum
     SID_REQUEST_TRANSFER_EXIT = 0x37,
     SID_REQUEST_FILE_TRANSFER = 0x38,
     SID_CONTROL_DTC_SETTING = 0x85,
+    SID_IO_CTRL = 0x2F,
     SID_DIAGNOSTIC_SESSION_CHANGE = 0xff
 }taf_diagBackend_ServiceId_t;
 
@@ -106,24 +115,27 @@ namespace telux
                 static taf_DiagBackend& GetInstance();
 
                 static void DiagEventHandler(void* reportPtr, void* subHandlerFunc);
-                // DiagEvent common handler
+                // Add Event handler to get request message
                 taf_diagBackend_DiagEventHandlerRef_t AddDiagEventHandler(
                         taf_diagBackend_DiagHandlerFunc_t handlerPtr, void* contextPtr);
+
+                // Add Event handler to get request message
                 void RemoveDiagEventHandler(taf_diagBackend_DiagEventHandlerRef_t handlerRef);
 
-                // DiagEvent Send Response
+                // Add Event handler to get request message
                 le_result_t SendResp( taf_diagBackend_DiagInfRef_t ref,
-                        const taf_diagBackend_AddrInfo_t* addrInfoPtr, uint8_t serviceID, uint8_t errCode, const uint8_t* dataPtr, size_t dataSize);
+                        const taf_diagBackend_AddrInfo_t* addrInfoPtr, uint8_t serviceID,
+                                uint8_t errCode, const uint8_t* dataPtr, size_t dataSize);
 
                 le_event_Id_t DiagEventReqEvtId;
                 static void DiagEventReqEvtHandler(void* didReqPtr);
+
             private:
+
                 le_event_Id_t DiagEvent;
                 le_event_HandlerRef_t DiagEventHandlerRef;
                 le_mem_PoolRef_t RespMsgPool;
         };
     }
 }
-
-
 #endif

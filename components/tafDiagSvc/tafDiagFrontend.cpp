@@ -7,16 +7,16 @@
 #include "interfaces.h"
 #include "tafDataIDSvr.hpp"
 #include "tafSecuritySvr.hpp"
+#include "tafUpdateSvr.hpp"
+#include "tafRoutineCtrlSvr.hpp"
+#include "tafResetSvr.hpp"
+#include "tafIOCtrlSvr.hpp"
+#include "configuration.hpp"
 #include "tafDiagBackend.hpp"
 
 #ifndef LE_CONFIG_DIAG_VSTACK
-#include "tafRoutineCtrlSvr.hpp"
-#include "tafResetSvr.hpp"
-#include "tafUpdateSvr.hpp"
-#include "tafIOCtrlSvr.hpp"
 #include "tafEventSvr.hpp"
 #include "tafSnapshotSvc.hpp"
-#include "configuration.hpp"
 #include "tafDTCInf.hpp"
 #include "tafDTCSvr.hpp"
 #include "tafDiagDoIPSvr.hpp"
@@ -32,6 +32,15 @@ using namespace telux::tafsvc;
 COMPONENT_INIT
 {
 
+    try
+    {
+        cfg::diag_config_init("./diag_template.yaml.json");
+    }
+    catch (const std::exception& e)
+    {
+        LE_FATAL("json file is not present");
+    }
+
     LE_INFO("TelAF UDS DataID service initialization start...");
     auto& did = taf_DataIDSvr::GetInstance();
     did.Init();
@@ -42,32 +51,26 @@ COMPONENT_INIT
     tafSecurity.Init();
     LE_INFO("TelAF UDS Security service initialization end...");
 
-#ifndef LE_CONFIG_DIAG_VSTACK
-    try
-    {
-        cfg::diag_config_init("./diag_template.yaml.json");
-    }
-    catch (const std::exception& e)
-    {
-        LE_FATAL("json file is not present");
-    }
-
-    taf_DataAccess_Init();
+    LE_INFO("TelAF UDS update service initialization start...");
+    auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
+    tafUpdateSvr.Init();
+    LE_INFO("TelAF UDS update service initialization end...");
 
     LE_INFO("TelAF UDS routine conctrol service initialization start...");
     auto& tafRCS = taf_RoutinCtrlSvr::GetInstance();
     tafRCS.Init();
     LE_INFO("TelAF UDS routine conctrol service initialization end...");
 
-    LE_INFO("TelAF UDS update service initialization start...");
-    auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
-    tafUpdateSvr.Init();
-    LE_INFO("TelAF UDS update service initialization end...");
-
     auto &reset = taf_ResetSvr::GetInstance();
     reset.Init();
     LE_INFO("TelAF UDS update service initialization end...");
 
+    LE_INFO("TelAF IOCtrl service initialization start...");
+    auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
+    ioCtrl.Init();
+    LE_INFO("TelAF IOCtrl service initialization end...");
+
+#ifndef LE_CONFIG_DIAG_VSTACK
     LE_INFO("TelAF Event Management service initialization start...");
     auto& event = taf_EventSvr::GetInstance();
     event.Init();
@@ -77,6 +80,8 @@ COMPONENT_INIT
     auto& dtcSvc = taf_DTCSvr::GetInstance();
     dtcSvc.Init();
     LE_INFO("TelAF DTC service initialization end...");
+
+    taf_DataAccess_Init();
 
     LE_INFO("TelAF UDS DTC interface initialization start...");
     auto& dtcInf = taf_DTCInf::GetInstance();
@@ -92,11 +97,6 @@ COMPONENT_INIT
     auto& doipSvc = taf_DiagDoIPSvr::GetInstance();
     doipSvc.Init();
     LE_INFO("TelAF DoIP service initialization end...");
-
-    LE_INFO("TelAF IOCtrl service initialization start...");
-    auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
-    ioCtrl.Init();
-    LE_INFO("TelAF IOCtrl service initialization end...");
 
     LE_INFO("TelAF Diag Backend initialization start...");
     auto& tafBackend = taf_DiagBackend::GetInstance();

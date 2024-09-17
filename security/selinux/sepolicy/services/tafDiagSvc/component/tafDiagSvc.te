@@ -38,3 +38,5 @@ allow telaf_tafDiagSvc_t node_t:tcp_socket { node_bind };
 allow telaf_tafDiagSvc_t proc_t:file {read_file_perms};
 # /data/diag
 allow telaf_tafDiagSvc_t data_t:dir {relabelfrom};
+
+unconfined_domain(telaf_tafDiagSvc_t)

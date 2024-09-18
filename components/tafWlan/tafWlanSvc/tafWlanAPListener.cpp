@@ -44,7 +44,7 @@ void taf_WlanAPListener::onApDeviceStatusChanged(
     std::vector<telux::wlan::DeviceIndInfo> info)
 {
     LE_INFO ("WLAN AP connected device changed event: %d", (int) event);
-    LE_INFO ("Device info size : %ld", info.size());
+    LE_INFO ("Device info size : %zu", info.size());
     for (auto element : info) {
         LE_INFO ("Device Id : %d", (int) element.id);
         LE_INFO ("Device MAC: %s", element.macAddress.c_str());

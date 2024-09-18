@@ -156,7 +156,7 @@ void *taf_WlanSTASvcImpl::StaWpaSuppMonitorThreadHdlr(void *context)
                 LE_WARN("wpa_ctrl_recv failed");
                 break;
             }
-            LE_DEBUG ("Received response Len: %ld", len);
+            LE_DEBUG ("Received response Len: %zu", len);
             LE_DEBUG("Received response    : %s", rsp);
             // Split te received buffer using space as delimiter
             std::vector<std::string> ind = taf_WlanHelper::StrSplit(rsp, ' ');
@@ -481,7 +481,7 @@ void taf_WlanSTASvcImpl::PerformScan(StaCtx_t *CtxPtr)
         wpa_ctrl_close(ctrl);
         return;
     }
-    LE_DEBUG("PING RSP Len: %ld", rsp_len);
+    LE_DEBUG("PING RSP Len: %zu", rsp_len);
     LE_DEBUG("PING RSP: %s", rsp_buf);
     if (0 != strncmp(rsp_buf, "PONG", strlen("PONG")))
     {
@@ -523,7 +523,7 @@ void taf_WlanSTASvcImpl::PerformScan(StaCtx_t *CtxPtr)
         wpa_ctrl_close(ctrl);
         return;
     }
-    LE_DEBUG("SCAN RSP Len: %ld", rsp_len);
+    LE_DEBUG("SCAN RSP Len: %zu", rsp_len);
     LE_DEBUG("SCAN RSP: %s", rsp_buf);
     if (0 != strncmp(rsp_buf, "OK", strlen("OK")))
     {
@@ -568,7 +568,7 @@ void taf_WlanSTASvcImpl::PerformScan(StaCtx_t *CtxPtr)
         wpa_ctrl_close(ctrl);
         return;
     }
-    LE_DEBUG("SCAN_RESULTS RSP Len: %ld", rsp_len);
+    LE_DEBUG("SCAN_RESULTS RSP Len: %zu", rsp_len);
     // SCAN_RESULTS are in! Store them in the relevant context
     PopulateScanResults(CtxPtr, rsp_buf);
 
@@ -1071,7 +1071,7 @@ le_result_t taf_WlanSTASvcImpl::GetAPScanResults(
     *numAPPtr = staCtxPtr->numScannedAPs;
 
     LE_DEBUG("numAPPtr     : %d", *numAPPtr);
-    LE_DEBUG("ApInfoSizePtr: %ld", *ApInfoSizePtr);
+    LE_DEBUG("ApInfoSizePtr: %zu", *ApInfoSizePtr);
 
     // Check if enough space is available to store all scanned APs.
     if (*ApInfoSizePtr >= staCtxPtr->numScannedAPs)
@@ -1081,7 +1081,7 @@ le_result_t taf_WlanSTASvcImpl::GetAPScanResults(
     }
     else
     {
-        LE_WARN("Number of element(%ld) less than number of available APs(%d)", *ApInfoSizePtr,
+        LE_WARN("Number of element(%zu) less than number of available APs(%d)", *ApInfoSizePtr,
                                                                           staCtxPtr->numScannedAPs);
     }
     le_result_t ret = LE_OK;

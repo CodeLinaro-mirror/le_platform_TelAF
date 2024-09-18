@@ -4,5 +4,5 @@
 /legato/systems/current/appsWriteable/tafMngdStorageSvc/lib(/.*)?                             gen_context(system_u:object_r:telaf_lib_t,s0)
 /legato/systems/current/appsWriteable/tafMngdStorageSvc/bin/tafMngdSecStorageSvc                 gen_context(system_u:object_r:telaf_tafMngdSecStorageSvc_exec_t,s0)
 /legato/apps/[^/]*/read-only/bin/tafMngdSecStorageSvc                                            gen_context(system_u:object_r:telaf_tafMngdSecStorageSvc_exec_t,s0)
-/legato/systems/current/appsWriteable/tafMngdStorageSvc/bin/tafMngdcfgStorageSvc                 gen_context(system_u:object_r:telaf_tafMngdCfgStorageSvc_exec_t,s0)
+/legato/systems/current/appsWriteable/tafMngdStorageSvc/bin/tafMngdCfgStorageSvc                 gen_context(system_u:object_r:telaf_tafMngdCfgStorageSvc_exec_t,s0)
 /legato/apps/[^/]*/read-only/bin/tafMngdCfgStorageSvc                                            gen_context(system_u:object_r:telaf_tafMngdCfgStorageSvc_exec_t,s0)

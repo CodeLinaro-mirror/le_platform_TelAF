@@ -23,7 +23,7 @@ le_result_t taf_mngdPm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
         taf_mngdPm_TargetedPowerMode_t targetPowerMode)
 {
     LE_INFO("taf_mngdPm_SetNodeTargetedPowerMode targetPowerMode : %d", targetPowerMode);
-
+    le_result_t res = LE_FAULT;
     auto &mpms = tafMngdPMSvc::GetInstance();
 
     if(tafMngdPMSvc::IsClientValid() == false)
@@ -34,7 +34,7 @@ le_result_t taf_mngdPm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
     {
         auto &rpcPm = tafMngdRpcPm::GetInstance();
         rpcPm.rpcTargetedPowerMode = targetPowerMode;
-        le_result_t res = tafMngdRpcPm::AcquireRpcNodeWakeLock();
+        res = tafMngdRpcPm::AcquireRpcNodeWakeLock();
         if(res == LE_OK)
             LE_INFO("Wake source acquired successfully");
         res = tafMngdRpcPm::ReleaseRpcNodeWakeLock();
@@ -46,7 +46,7 @@ le_result_t taf_mngdPm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
         mpms.targetedPowerMode = targetPowerMode;
         if(targetPowerMode == TAF_MNGDPM_SUSPEND || targetPowerMode == TAF_MNGDPM_SHUTDOWN)
         {
-            le_result_t res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
+            res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
             if(res != LE_OK)
             {
                 return res;
@@ -56,7 +56,7 @@ le_result_t taf_mngdPm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
         // Acquire a wakelock to get notified on last wakeup source release.
         if (mpms.ws != nullptr)
         {
-            le_result_t res = tafMngdPMSvc::AcquireWakeLock();
+            res = tafMngdPMSvc::AcquireWakeLock();
             if(res == LE_OK)
                 LE_INFO("Wake source acquired successfully");
             res = tafMngdPMSvc::ReleaseWakeLock();
@@ -68,7 +68,7 @@ le_result_t taf_mngdPm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
             LE_ERROR("Failed to create wakeup source!");
         }
     }
-    return LE_OK;
+    return res;
 }
 
 /**

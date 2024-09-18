@@ -153,7 +153,7 @@ Tdd_DG_Status taf_DiagStack::AP_ReadWriteDataByID
             diagReqMsgPtr->link = LE_DLS_LINK_INIT;
 
             LE_DEBUG("Pushed data:");
-            LE_DEBUG("diagReqMsgPtr->dataLen: %ld", sizeof(data));
+            LE_DEBUG("diagReqMsgPtr->dataLen: %zu", sizeof(data));
             LE_DEBUG("1:%x",diagReqMsgPtr->data[1]);
             LE_DEBUG("2:%x",diagReqMsgPtr->data[2]);
 

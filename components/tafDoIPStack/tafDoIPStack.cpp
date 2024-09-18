@@ -169,12 +169,15 @@ le_result_t taf_doip_Delete
 
     auto& cmMgr = CommunicationMgr::GetInstance();
 
+    le_mutex_Lock(cmMgr.doipSessionRefMutex);
     doipSessionPtr = (taf_doipSession_t*)le_ref_Lookup(cmMgr.doipSessionRefMap, doipRef);
     if (doipSessionPtr == NULL)
     {
+        le_mutex_Unlock(cmMgr.doipSessionRefMutex);
         LE_ERROR("Invalid reference!!");
         return LE_NOT_FOUND;
     }
+    le_mutex_Unlock(cmMgr.doipSessionRefMutex);
 
     if (doipSessionPtr->diagIndicationHandler.safeRef)
     {
@@ -259,12 +262,15 @@ le_result_t taf_doip_Start
     taf_doipSession_t*  doipSessionPtr;
     auto& cmMgr = CommunicationMgr::GetInstance();
 
+    le_mutex_Lock(cmMgr.doipSessionRefMutex);
     doipSessionPtr = (taf_doipSession_t*)le_ref_Lookup(cmMgr.doipSessionRefMap, doipRef);
     if (doipSessionPtr == NULL)
     {
+        le_mutex_Unlock(cmMgr.doipSessionRefMutex);
         LE_ERROR("Invalid reference!!");
         return LE_NOT_FOUND;
     }
+    le_mutex_Unlock(cmMgr.doipSessionRefMutex);
 
     ret = cmMgr.SessionStart();
     if (ret != TAF_DOIP_RESULT_OK)
@@ -301,12 +307,15 @@ le_result_t taf_doip_Stop
     taf_doipSession_t*  doipSessionPtr;
     auto& cmMgr = CommunicationMgr::GetInstance();
 
+    le_mutex_Lock(cmMgr.doipSessionRefMutex);
     doipSessionPtr = (taf_doipSession_t*)le_ref_Lookup(cmMgr.doipSessionRefMap, doipRef);
     if (doipSessionPtr == NULL)
     {
+        le_mutex_Unlock(cmMgr.doipSessionRefMutex);
         LE_ERROR("Invalid reference!!");
         return LE_NOT_FOUND;
     }
+    le_mutex_Unlock(cmMgr.doipSessionRefMutex);
 
     ret = cmMgr.SessionStop();
     if (ret != TAF_DOIP_RESULT_OK)
@@ -626,12 +635,15 @@ taf_doip_PowerModeQueryHandlerRef_t taf_doip_AddPowerModeQueryHandler
 
     auto& cmMgr = CommunicationMgr::GetInstance();
 
+    le_mutex_Lock(cmMgr.doipSessionRefMutex);
     doipSessionPtr = (taf_doipSession_t*)le_ref_Lookup(cmMgr.doipSessionRefMap, doipRef);
     if (doipSessionPtr == NULL)
     {
+        le_mutex_Unlock(cmMgr.doipSessionRefMutex);
         LE_ERROR("Invalid reference!!");
         return NULL;
     }
+    le_mutex_Unlock(cmMgr.doipSessionRefMutex);
 
     // Remove previous handler reference
     if (le_ref_Lookup(cmMgr.doipHandlerRefMap, doipSessionPtr->pmQueryhandler.safeRef))
@@ -704,12 +716,15 @@ taf_doip_DiagIndicationHandlerRef_t taf_doip_AddDiagIndicationHandler
 
     auto& cmMgr = CommunicationMgr::GetInstance();
 
+    le_mutex_Lock(cmMgr.doipSessionRefMutex);
     doipSessionPtr = (taf_doipSession_t*)le_ref_Lookup(cmMgr.doipSessionRefMap, doipRef);
     if (doipSessionPtr == NULL)
     {
+        le_mutex_Unlock(cmMgr.doipSessionRefMutex);
         LE_ERROR("Invalid reference!!");
         return NULL;
     }
+    le_mutex_Unlock(cmMgr.doipSessionRefMutex);
 
     le_mutex_Lock(doipSessionPtr->diagIndicationHandler.mutexRef);
 
@@ -790,12 +805,15 @@ taf_doip_DiagConfirmHandlerRef_t taf_doip_AddDiagConfirmHandler
 
     auto& cmMgr = CommunicationMgr::GetInstance();
 
+    le_mutex_Lock(cmMgr.doipSessionRefMutex);
     doipSessionPtr = (taf_doipSession_t*)le_ref_Lookup(cmMgr.doipSessionRefMap, doipRef);
     if (doipSessionPtr == NULL)
     {
+        le_mutex_Unlock(cmMgr.doipSessionRefMutex);
         LE_ERROR("Invalid reference!!");
         return NULL;
     }
+    le_mutex_Unlock(cmMgr.doipSessionRefMutex);
 
     le_mutex_Lock(doipSessionPtr->diagConfirmHandler.mutexRef);
 
@@ -872,12 +890,15 @@ taf_doip_UserConfirmHandlerRef_t taf_doip_AddUserConfirmHandler
 
     auto& cmMgr = CommunicationMgr::GetInstance();
 
+    le_mutex_Lock(cmMgr.doipSessionRefMutex);
     doipSessionPtr = (taf_doipSession_t*)le_ref_Lookup(cmMgr.doipSessionRefMap, doipRef);
     if (doipSessionPtr == NULL)
     {
+        le_mutex_Unlock(cmMgr.doipSessionRefMutex);
         LE_ERROR("Invalid reference!!");
         return NULL;
     }
+    le_mutex_Unlock(cmMgr.doipSessionRefMutex);
 
     // Remove previous handler reference
     if (le_ref_Lookup(cmMgr.doipHandlerRefMap, doipSessionPtr->userConfirmHandler.safeRef))
@@ -1049,12 +1070,15 @@ LE_SHARED taf_doip_EventHandlerRef_t taf_doip_AddEventHandler
     taf_doipSession_t*  doipSessionPtr;
     auto& cmMgr = CommunicationMgr::GetInstance();
 
+    le_mutex_Lock(cmMgr.doipSessionRefMutex);
     doipSessionPtr = (taf_doipSession_t*)le_ref_Lookup(cmMgr.doipSessionRefMap, doipRef);
     if (doipSessionPtr == NULL)
     {
+        le_mutex_Unlock(cmMgr.doipSessionRefMutex);
         LE_ERROR("Invalid reference!!");
         return NULL;
     }
+    le_mutex_Unlock(cmMgr.doipSessionRefMutex);
 
     le_event_Id_t eventId = doipSessionPtr->statusEvtId;
 

@@ -231,6 +231,8 @@ namespace doip{
             le_ref_MapRef_t doipSessionRefMap;
             le_ref_MapRef_t doipHandlerRefMap;
 
+            le_mutex_Ref_t doipSessionRefMutex;
+
             taf_doipSession_t*  FindDoipSession(uint16_t sa);
             taf_doip_PowerMode_t QueryPowerMode();
             taf_doip_UserConfirmResult_t ConfirmRoutingActivation(uint16_t sa, uint16_t ta);

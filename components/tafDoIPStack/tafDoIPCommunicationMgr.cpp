@@ -240,6 +240,8 @@ taf_doipSession_t* CommunicationMgr::FindDoipSession
     taf_doipSession_t*  doipSessionPtr = NULL;
 
     auto& cmMgr = CommunicationMgr::GetInstance();
+
+    le_mutex_Lock(cmMgr.doipSessionRefMutex);
     le_ref_IterRef_t iterRef = le_ref_GetIterator(cmMgr.doipSessionRefMap);
 
     LE_DEBUG("FindDoipSession, iter ref is %p.", iterRef);
@@ -249,11 +251,25 @@ taf_doipSession_t* CommunicationMgr::FindDoipSession
         if (doipSessionPtr != NULL
             && sa == doipSessionPtr->logicalSrcAddr)
         {
-            LE_DEBUG("found a doip session, SA is '%d'\n", sa);
+            LE_DEBUG("found a doip session%p, SA is '%d'", doipSessionPtr, sa);
             isFound = true;
             break;
         }
+        else
+        {
+            // Trace info
+            if (doipSessionPtr != NULL)
+            {
+                LE_DEBUG("Get a doip session%p with SA'%d', but we found the '%d'",
+                    doipSessionPtr, doipSessionPtr->logicalSrcAddr, sa);
+            }
+            else
+            {
+                LE_DEBUG("DoIP Session pointer is NULL");
+            }
+        }
     }
+    le_mutex_Unlock(cmMgr.doipSessionRefMutex);
 
     if (isFound)
     {
@@ -276,6 +292,8 @@ taf_doip_PowerMode_t CommunicationMgr::QueryPowerMode
     taf_doipSession_t   *doipSessionPtr = NULL;
 
     auto& cmMgr = CommunicationMgr::GetInstance();
+
+    le_mutex_Lock(cmMgr.doipSessionRefMutex);
     le_ref_IterRef_t iterRef = le_ref_GetIterator(cmMgr.doipSessionRefMap);
 
     LE_DEBUG("FindDoipSession, iter ref is %p.", iterRef);
@@ -288,10 +306,12 @@ taf_doip_PowerMode_t CommunicationMgr::QueryPowerMode
             handler = &doipSessionPtr->pmQueryhandler;
             if (handler->funcPtr)
             {
+                le_mutex_Unlock(cmMgr.doipSessionRefMutex);
                 return handler->funcPtr(handler->ctxPtr);
             }
         }
     }
+    le_mutex_Unlock(cmMgr.doipSessionRefMutex);
 
     return TAF_DOIP_POWER_MODE_NOT_SUPPORTED;
 }
@@ -2155,6 +2175,7 @@ void CommunicationMgr::Init
     doipSessionPool = le_mem_CreatePool("DoipSessionPool", sizeof(taf_doipSession_t));
     doipSessionRefMap = le_ref_CreateMap("DoipSessionRefMap", TAF_DOIP_MAX_ENTITY_NUM);
     doipHandlerRefMap = le_ref_CreateMap("DoipHandlerRefMap", TAF_DOIP_MAX_USER_HANDLER_NUM);
+    doipSessionRefMutex = le_mutex_CreateRecursive("DoipSessionRefMutex");
 
     // Initialized vehicle deiscovery.
     auto& vehicleDisovery = VehicleDiscovery::GetInstance();

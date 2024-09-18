@@ -64,7 +64,4 @@ allow telaf_admin_t telaf_tafMngdCfgStorageSvc_exec_t:lnk_file { read };
 allow telaf_tafMngdCfgStorageSvc_t self:capability { sys_admin };
 allow telaf_tafMngdCfgStorageSvc_t data_t:file { relabel_file_perms };
 
-allow telaf_admin_t telaf_devmgr_data_t:file { execute map open read };
-allow telaf_devmgr_t telaf_admin_t:lnk_file read;
-allow telaf_admin_t telaf_devmgr_data_t:dir search;
-allow telaf_admin_t telaf_devmgr_data_t:file getattr;
+telaf_load_vhal_modules(telaf_tafMngdCfgStorageSvc_t)

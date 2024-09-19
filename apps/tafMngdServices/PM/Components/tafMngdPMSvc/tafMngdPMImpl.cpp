@@ -987,7 +987,6 @@ le_result_t tafMngdPMSvc::InitVHalModule()
  */
 le_result_t tafMngdPMSvc::AcquireWakeLock()
 {
-    LE_INFO("AcquireWakeLock wsCount:%d", wsCount);
     le_result_t res = LE_FAULT;
     if(wsCount == 0) {
         if(ws == nullptr)
@@ -1016,6 +1015,7 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
         wsCount++;
         res = LE_OK;
     }
+    LE_INFO("AcquireWakeLock wsCount:%d", wsCount);
     return res;
 }
 
@@ -1024,18 +1024,21 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
  */
 le_result_t tafMngdPMSvc::ReleaseWakeLock()
 {
-    LE_INFO("ReleaseWakeLock wsCount:%d", wsCount);
-
     le_result_t res = LE_FAULT;
     if(wsCount > 0 )
     {
         LE_INFO("Wake source released successfully");
         wsCount--;
+        LE_INFO("ReleaseWakeLock wsCount:%d", wsCount);
         res = LE_OK;
         if(wsCount == 0 )
         {
             if (ws != nullptr && powerMode.isWsAcquired)
             {
+                if(tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE) != LE_OK)
+                {
+                    return res;
+                }
                 res = taf_pm_Relax(ws);
                 if(res == LE_OK) {
                     LE_INFO("Wake source from pms released successfully");
@@ -1120,8 +1123,7 @@ le_result_t tafMngdPMSvc::RequestStateChange(taf_mngdPm_State_t requestedState)
             break;
 
         case TAF_MNGDPM_STATE_WAKING_UP:
-            if(stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING &&
-               stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN)
+            if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN)
             {
                 res = LE_NOT_PERMITTED;
             }

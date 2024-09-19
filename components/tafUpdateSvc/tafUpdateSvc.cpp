@@ -302,16 +302,22 @@ le_result_t taf_update_StartSync
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
+    taf_FwUpdateReq_t fwReq;
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == nullptr, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up synchronization session.");
 
-    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
-        "Unsupported session type (%d) for bank synchronization.", sessPtr->sessType);
-
-    taf_FwUpdateEvent_t fwReq = TAF_FWUPDATE_EV_START_SYNC;
-    le_event_Report(taf_FwUpdate::fwSyncHandlerEvId, &fwReq, sizeof(taf_FwUpdateEvent_t));
+    switch (sessPtr->sessType)
+    {
+        case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
+            fwReq.event = TAF_FWUPDATE_EV_START_SYNC;
+            le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
+            break;
+        default:
+            LE_ERROR("Unsupported session type (%d) for synchronization.", sessPtr->sessType);
+            return LE_UNSUPPORTED;
+    }
 
     return LE_OK;
 }
@@ -332,16 +338,32 @@ le_result_t taf_update_PauseSync
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    taf_update_State_t state = tafFwUpdate.GetState();
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == nullptr, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up synchronization session.");
 
-    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
-        "Unsupported session type (%d) for bank synchronization.", sessPtr->sessType);
+    switch (sessPtr->sessType)
+    {
+        case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
+            if (state != TAF_UPDATE_SYNCHRONIZING)
+            {
+                LE_ERROR("Invalid pause operation.");
+                return LE_FAULT;
+            }
+            else
+            {
+                LE_INFO("Pause NAD sync.");
+                tafFwUpdate.SetPauseAction(TAF_UPDATE_SYNCHRONIZING, true);
+            }
+            break;
+        default:
+            LE_ERROR("Unsupported session type (%d) for synchronization.", sessPtr->sessType);
+            return LE_UNSUPPORTED;
+    }
 
-    taf_FwUpdateEvent_t fwReq = TAF_FWUPDATE_EV_PAUSE_SYNC;
-    le_event_Report(taf_FwUpdate::fwSyncHandlerEvId, &fwReq, sizeof(taf_FwUpdateEvent_t));
     return LE_OK;
 }
 
@@ -361,16 +383,74 @@ le_result_t taf_update_ResumeSync
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
+    taf_FwUpdateReq_t fwReq;
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == nullptr, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up synchronization session.");
 
-    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
-        "Unsupported session type (%d) for bank synchronization.", sessPtr->sessType);
+    switch (sessPtr->sessType)
+    {
+        case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
+            fwReq.event = TAF_FWUPDATE_EV_RESUME_SYNC;
+            le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
+            break;
+        default:
+            LE_ERROR("Unsupported session type (%d) for synchronization.", sessPtr->sessType);
+            return LE_UNSUPPORTED;
+    }
 
-    taf_FwUpdateEvent_t fwReq = TAF_FWUPDATE_EV_RESUME_SYNC;
-    le_event_Report(taf_FwUpdate::fwSyncHandlerEvId, &fwReq, sizeof(taf_FwUpdateEvent_t));
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancels AB Sync.
+ *
+ * @return
+ *  - LE_FAULT       On failure.
+ *  - LE_OK          On success.
+ *  - LE_UNSUPPORTED Unsupported.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_CancelSync
+(
+    taf_update_SessionRef_t sessionRef ///< [IN] Sync session reference.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    taf_update_State_t state = tafFwUpdate.GetState();
+
+    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
+        sessionRef);
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up synchronization session.");
+
+    switch (sessPtr->sessType)
+    {
+        case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
+            if (state != TAF_UPDATE_SYNCHRONIZING && state != TAF_UPDATE_SYNC_PAUSED)
+            {
+                LE_ERROR("Invalid cancel operation.");
+                return LE_FAULT;
+            }
+            else
+            {
+                LE_INFO("Cancel NAD sync.");
+                tafFwUpdate.SetCancelAction(TAF_UPDATE_SYNCHRONIZING, true);
+
+                if (state == TAF_UPDATE_SYNC_PAUSED)
+                {
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+                }
+            }
+            break;
+        default:
+            LE_ERROR("Unsupported session type (%d) for cancelling synchronization.",
+                sessPtr->sessType);
+            return LE_UNSUPPORTED;
+    }
+
     return LE_OK;
 }
 
@@ -650,7 +730,7 @@ le_result_t taf_update_PauseInstall
             else
             {
                 LE_INFO("Pause NAD update.");
-                tafFwUpdate.SetPauseAction(true);
+                tafFwUpdate.SetPauseAction(TAF_UPDATE_INSTALLING, true);
             }
             break;
         case TAF_UPDATE_SESSION_TYPE_PLUGIN_UPDATE:
@@ -756,7 +836,7 @@ le_result_t taf_update_CancelInstall
             else
             {
                 LE_INFO("Cancel NAD update.");
-                tafFwUpdate.SetCancelAction(true);
+                tafFwUpdate.SetCancelAction(TAF_UPDATE_INSTALLING, true);
 
                 if (state == TAF_UPDATE_INSTALL_PAUSED)
                 {
@@ -772,7 +852,6 @@ le_result_t taf_update_CancelInstall
 
     return LE_OK;
 }
-
 
 //--------------------------------------------------------------------------------------------------
 /**

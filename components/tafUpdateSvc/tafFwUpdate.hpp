@@ -68,16 +68,11 @@
 #define TAF_FWUPDATE_ACTIVATE_CONTEXT "activate_context"
 #define TAF_FWUPDATE_ACTIVATE_ITEM_NODE "activate_context/item/%s"
 
+#define TAF_FWUPDATE_SYNC_CONTEXT "sync_context"
+#define TAF_FWUPDATE_SYNC_IMGAE_NODE "sync_context/image/%s"
+
 #define TAF_FWUPDATE_FOTA_STATE "/data/le_fs/fotaState"
 #define TAF_FWUPDATE_LOCAL_PACAKAGE_PATH "/data/images/firmware"
-
-const size_t kPageSize = 4 * 1024; //4k
-
-const std::string kAreBlocksErased = "ARE_BLOCKS_ERASED";
-const std::string kIsMTDSynced = "IS_MTD_SYNCED";
-const std::string kIsUBISynced = "IS_UBI_SYNCED";
-const std::string kPagesSynced = "PAGES_SYNCED";
-const std::string kTotalPages = "TOTAL_PAGES";
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -142,39 +137,36 @@ namespace tafsvc {
         void ReportStatus(taf_update_State_t state, uint32_t percent, taf_update_Error_t error);
         void UpdateProgress(taf_update_State_t state);
 
-        static void InstallTimerHandler(le_timer_Ref_t timerRef);
-
         void GetRootfsVersion(char* version);
         void GetTelafVersion(char* version);
         le_result_t GetFirmwareVersion(char* version);
-        le_result_t GetMtdInformation(taf_lib_flash_Partition_t *partition, uint32_t* blocksNumber,
-                uint32_t* badBlocksNumber, uint32_t* blockSize, uint32_t* pageSize);
-        le_result_t GetUbiInformation(taf_lib_flash_Partition_t* partition, uint32_t* lebNumber,
-                uint32_t* freeLebNumber, uint32_t* volumeSize);
 
         bool GetUnpackDir(char* unpackDir, size_t dirLen);
         le_result_t InstallPreCheck(const char* manifest);
-        void SetPauseAction(bool paused);
-        bool GetPauseAction(void);
-        void SetCancelAction(bool cancel);
-        bool GetCancelAction(void);
-        void SetPageNumber(bool isTotal, uint32_t number);
-        uint32_t GetPageNumber(bool isTotal);
+        void CleanupContext(taf_update_State_t state);
+        void SetPauseAction(taf_update_State_t state, bool paused);
+        bool GetPauseAction(taf_update_State_t state);
+        void SetCancelAction(taf_update_State_t state, bool cancel);
+        bool GetCancelAction(taf_update_State_t state);
+        void SetPageNumber(taf_update_State_t state, bool isTotal, uint32_t number);
+        uint32_t GetPageNumber(taf_update_State_t state, bool isTotal);
         bool HasSuffix(const char *str);
         void SetPackageDataPath(const char* dataPath);
         void GetPackageDataPath(char* dataPath, size_t pathLen);
         void SetImageDataPath(const char* image, const char* dataPath);
         void GetImageDataPath(const char* image, char* dataPath, size_t pathLen);
-        bool GetImageStatus(const char* image);
-        void SetImageStatus(const char* image, bool updated);
-        uint32_t GetImagePageNumber(const char* image);
-        void SetImagePageNumber(const char* image, uint32_t pageNum);
-        bool GetImageForUpdate(char* name, size_t nameLen);
+        void SetImageStatus(taf_update_State_t state, const char* image, bool updated);
+        uint32_t GetImagePageNumber(taf_update_State_t state, const char* image);
+        void SetImagePageNumber(taf_update_State_t state, const char* image, uint32_t pageNum);
+        bool GetImageForUpdate(taf_update_State_t state, char* name, size_t nameLen);
         bool IsPatchExist(const char* filePath, const char* patchPath);
         bool IsDeltaUpdate(const char* filePath);
         bool UnpackImage(const char* filePath, const char* imagePath, uint32_t* pageNum);
+        void SyncPartition(void);
         void UpdateImage(void);
+        le_result_t InitPartitionList(void);
         void StartInstall(const char* filePath);
+        void StartSync(void);
         void InstallFirmware(const char* filePath);
 
         le_result_t CalFileHash (const char* filePath, uint32_t* calSize, uint8_t* hash,
@@ -183,7 +175,6 @@ namespace tafsvc {
             unsigned int* hashLen);
         bool VerifyHash(const char* partition, const char* filePath);
         void InstallPostCheck(const char* filePath);
-
 
         le_result_t EraseBank(taf_update_Bank_t bank);
         le_result_t PerformBankSync(void);
@@ -209,35 +200,14 @@ namespace tafsvc {
 
         void Init(void);
 
-        le_result_t CalculateTotalPages(void);
-        bool CompareBinaryFiles(const std::string& filename1, const std::string& filename2);
-
-        std::string FwUpdateStateToString(taf_update_State_t state);
-
         static void FwUpdateHandler(void* reqPtr);
-        static void FwSyncHandler(void* reqPtr);
-        static void FwStartSync(void* reqPtr);
         static void* FwUpdateThread(void* contextPtr);
-        static void* FwSyncHandlerThread(void* contextPtr);
-        static void* FwStartSyncThread(void* contextPtr);
 
         static le_event_Id_t fwUpdateEvId;
-        static le_event_Id_t fwSyncHandlerEvId;
-        static le_event_Id_t fwStartSyncEvId;
 
+        taf_lib_flash_PartitionList_t pList;
         uint32_t percent = 0;
         taf_update_Error_t error = TAF_UPDATE_NONE;
-        bool isPartitionListInit = false;
-
-    private:
-        le_result_t InitPartitionList();
-        le_result_t SyncMTD(taf_update_Bank_t activeBank);
-        le_result_t EraseAllMTDBlocks(taf_update_Bank_t activeBank);
-        le_result_t SyncUBI(taf_update_Bank_t activeBank);
-        void PerformABSync();
-
-        taf_lib_flash_PartitionList_t partitionList;
-        std::map<std::string /* Partition name */, uint32_t /* Index*/> partitionMap;
     };
 }
 }

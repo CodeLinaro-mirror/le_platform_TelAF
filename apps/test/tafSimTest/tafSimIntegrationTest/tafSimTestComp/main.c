@@ -45,6 +45,7 @@ static void DisplayAppUsage(void) {
     printf("SIM unlock test: app runProc tafSimIntTest --exe=tafSimIntTest -- unlock <slot1/slot2/unknown> <pin1/fdn> pin\n");
     printf("SIM open logical channel test: app runProc tafSimIntTest --exe=tafSimIntTest -- openLogicalChannel <slot1/slot2/unknown> <AID>\n");
     printf("SIM close logical channel test: app runProc tafSimIntTest --exe=tafSimIntTest -- closeLogicalChannel <slot1/slot2/unknown> <Channel ID>\n");
+    printf("SIM get app types: app runProc tafSimIntTest --exe=tafSimIntTest -- getAppType <slot1/slot2/unknown>\n");
     printf("SIM access test: app runProc tafSimIntTest --exe=tafSimIntTest -- access <slot1/slot2/unknown>\n");
     printf("SIM SetPower test: app runProc tafSimIntTest --exe=tafSimIntTest -- setPower <slot1/slot2/unknown> <ON/OFF>\n");
     printf("SIM Reset test: app runProc tafSimIntTest --exe=tafSimIntTest -- Reset <slot1/slot2/unknown>\n");
@@ -337,7 +338,12 @@ COMPONENT_INIT
         exitApplication = false;
         tafSimTest_setLock(simId,lockType,pinPtr, false);
 
-    }else if (strcmp(testType, "access") == 0)
+    }
+    else if (strcmp(testType, "getAppType") == 0)
+    {
+        tafSimTest_GetAppTypes(simId);
+    }
+    else if (strcmp(testType, "access") == 0)
     {
         tafSimTest_sim_access(simId);
     }

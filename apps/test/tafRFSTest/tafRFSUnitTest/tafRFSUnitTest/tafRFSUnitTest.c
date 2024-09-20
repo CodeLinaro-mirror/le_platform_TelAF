@@ -106,19 +106,18 @@ __attribute__((unused)) static void Test_Init()
 
 __attribute__((unused)) static void Test_SetAppBackupStorage()
 {
-    le_result_t res = taf_rfs_SetBackupStorage(NULL, TEST_MAX_FILE_SIZE, TEST_MAX_FILE_COUNT);
+    le_result_t res = taf_rfs_SetBackupStorage(NULL);
 
     LE_TEST_ASSERT(res == LE_NOT_FOUND, "Test taf_rfs_SetBackupStorage");
 
-    res = taf_rfs_SetBackupStorage(TEST_APP_DEFAULT_STORAGE, 0, 0);
-
-    LE_TEST_ASSERT(res == LE_BAD_PARAMETER, "Test taf_rfs_SetBackupStorage");
-
-    res = taf_rfs_SetBackupStorage(TEST_APP_DEFAULT_STORAGE,
-                                    TEST_MAX_FILE_SIZE,
-                                    TEST_MAX_FILE_COUNT);
+    res = taf_rfs_SetBackupStorage(TEST_APP_DEFAULT_STORAGE);
 
     LE_TEST_ASSERT(res == LE_OK, "Test taf_rfs_SetBackupStorage");
+
+    res = taf_rfs_SetBackupCapacity(TEST_MAX_FILE_SIZE,
+                                    TEST_MAX_FILE_COUNT);
+
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_rfs_SetBackupCapacity");
 }
 
 __attribute__((unused)) static void Test_Write()
@@ -338,9 +337,7 @@ COMPONENT_INIT
 
             if(strlen(path) > 0)
             {
-                le_result_t res = taf_rfs_SetBackupStorage(path,
-                                                        TEST_MAX_FILE_SIZE,
-                                                        TEST_MAX_FILE_COUNT);
+                le_result_t res = taf_rfs_SetBackupStorage(path);
 
                 LE_TEST_ASSERT(res == LE_OK, "Test taf_rfs_SetBackupStorage");
             }

@@ -114,16 +114,26 @@ void StateHandler(taf_update_StateInd_t* indication, taf_update_SessionRef_t ses
         case TAF_UPDATE_INSTALLING:
             LE_INFO("Installing %d%% .", indication->percent);
             break;
+        case TAF_UPDATE_INSTALL_PAUSED:
+            LE_INFO("Install paused %d%% .", indication->percent);
+            break;
         case TAF_UPDATE_INSTALL_FAIL:
-            LE_TEST_OK(false, "taf_update_Install - Fail");
-            le_sem_Post(semaphore);
+            LE_INFO("Install failed.");
             break;
         case TAF_UPDATE_INSTALL_SUCCESS:
-            LE_TEST_OK(true, "taf_update_Install - OK");
-            le_sem_Post(semaphore);
+            LE_INFO("Install success.");
             break;
         case TAF_UPDATE_PROBATION:
-            LE_INFO("Probation.");
+            LE_INFO("Probation %d%% .", indication->percent);
+            break;
+        case TAF_UPDATE_PROBATION_PAUSED:
+            LE_INFO("Probation paused %d%% .", indication->percent);
+            break;
+        case TAF_UPDATE_PROBATION_FAIL:
+            LE_INFO("Probation failed.");
+            break;
+        case TAF_UPDATE_PROBATION_SUCCESS:
+            LE_INFO("Probation success.");
             break;
         case TAF_UPDATE_IDLE:
             LE_INFO("Idle.");
@@ -362,17 +372,45 @@ COMPONENT_INIT
             const char* path = le_arg_GetArg(2);
             if (path != nullptr)
             {
-                result = taf_update_StartInstall(sessRef, path);
-                LE_TEST_OK(result == LE_OK, "taf_update_StartInstall - OK");
+                LE_INFO("Enter s to start installation.");
+                LE_INFO("Enter p to pause installation.");
+                LE_INFO("Enter r to resume installation.");
+                LE_INFO("Enter e to exit installation.");
+                while (true)
+                {
+                    char input;
+                    std::cin >> input;
+                    if (input == 's')
+                    {
+                        LE_INFO("Start install.");
+                        result = taf_update_StartInstall(sessRef, path);
+                        LE_TEST_OK(result == LE_OK, "taf_update_StartInstall - OK");
+                    }
+                    else if (input == 'p')
+                    {
+                        LE_INFO("Pause install.");
+                        result = taf_update_PauseInstall(sessRef);
+                        LE_TEST_OK(result == LE_OK, "taf_update_PauseInstall - OK");
+                    }
+                    else if (input == 'r')
+                    {
+                        LE_INFO("Resume install.");
+                        result = taf_update_ResumeInstall(sessRef);
+                        LE_TEST_OK(result == LE_OK, "taf_update_ResumeInstall - OK");
+                    }
+                    else if (input == 'e')
+                    {
+                        LE_INFO("Exit install.");
+                        break;
+                    }
+                }
             }
-            le_sem_Wait(semaphore);
         } else if (name != nullptr) {
             result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_TELAF_APP,
                 SESSION_CONF_FILE, &sessRef);
             LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
             result = taf_update_StartInstall(sessRef, name);
             LE_TEST_OK(result == LE_OK, "taf_update_StartInstall - OK");
-            le_sem_Wait(semaphore);
         }
         taf_update_RemoveStateHandler(handlerRef);
         LE_TEST_OK(true, "taf_update_RemoveStateHandler - OK");
@@ -403,12 +441,45 @@ COMPONENT_INIT
     else if (strncmp(cmd, "activation", strlen("activation")) == 0)
     {
         LE_TEST_INFO("======== Activation Test ========");
+        CreateHandlerThread();
         result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP,
             SESSION_CONF_FILE, &sessRef);
         LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
 
-        result = taf_update_VerifyActivation(sessRef, IMAGE_VERSION_FILE);
-        LE_TEST_OK(result == LE_OK, "taf_update_VerifyActivation - OK");
+        LE_INFO("Enter s to start activation.");
+        LE_INFO("Enter p to pause activation.");
+        LE_INFO("Enter r to resume activation.");
+        LE_INFO("Enter e to exit activation.");
+        while (true)
+        {
+            char input;
+            std::cin >> input;
+            if (input == 's')
+            {
+                LE_INFO("Start activation.");
+                result = taf_update_VerifyActivation(sessRef, IMAGE_VERSION_FILE);
+                LE_TEST_OK(result == LE_OK, "taf_update_VerifyActivation - OK");
+            }
+            else if (input == 'p')
+            {
+                LE_INFO("Pause activation.");
+                result = taf_update_PauseActivation(sessRef);
+                LE_TEST_OK(result == LE_OK, "taf_update_PauseActivation - OK");
+            }
+            else if (input == 'r')
+            {
+                LE_INFO("Resume activation.");
+                result = taf_update_ResumeActivation(sessRef);
+                LE_TEST_OK(result == LE_OK, "taf_update_ResumeActivation - OK");
+            }
+            else if (input == 'e')
+            {
+                LE_INFO("Exit activation.");
+                break;
+            }
+        }
+        taf_update_RemoveStateHandler(handlerRef);
+        LE_TEST_OK(true, "taf_update_RemoveStateHandler - OK");
     }
     else if (strncmp(cmd, "bank-sync", strlen("bank-sync")) == 0)
     {

@@ -523,7 +523,7 @@ le_result_t taf_update_Install
     {
         case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
             le_utf8_Copy(sessPtr->fwSess.filePath, pkgPath, TAF_UPDATE_FILE_PATH_LEN, NULL);
-            fwReq.event = TAF_FWUPDATE_EV_INSTALL;
+            fwReq.event = TAF_FWUPDATE_EV_START_INSTALL;
             le_utf8_Copy(fwReq.filePath, pkgPath, TAF_UPDATE_FILE_PATH_LEN, NULL);
             le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
             break;
@@ -578,7 +578,7 @@ le_result_t taf_update_StartInstall
     {
         case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
             le_utf8_Copy(sessPtr->fwSess.filePath, pkgPath, TAF_UPDATE_FILE_PATH_LEN, NULL);
-            fwReq.event = TAF_FWUPDATE_EV_INSTALL;
+            fwReq.event = TAF_FWUPDATE_EV_START_INSTALL;
             le_utf8_Copy(fwReq.filePath, pkgPath, TAF_UPDATE_FILE_PATH_LEN, NULL);
             le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
             break;
@@ -631,7 +631,8 @@ le_result_t taf_update_PauseInstall
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
-
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    taf_update_State_t state = tafFwUpdate.GetState();
     taf_UpdateReq_t updateReq;
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
@@ -640,6 +641,18 @@ le_result_t taf_update_PauseInstall
 
     switch (sessPtr->sessType)
     {
+        case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
+            if (state != TAF_UPDATE_INSTALLING)
+            {
+                LE_ERROR("Invalid pause operation.");
+                return LE_FAULT;
+            }
+            else
+            {
+                LE_INFO("Pause NAD update.");
+                tafFwUpdate.SetPauseAction(true);
+            }
+            break;
         case TAF_UPDATE_SESSION_TYPE_PLUGIN_UPDATE:
             TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr == NULL, LE_UNSUPPORTED,
                 "Please install UA module.");
@@ -676,7 +689,7 @@ le_result_t taf_update_ResumeInstall
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
-
+    taf_FwUpdateReq_t fwReq;
     taf_UpdateReq_t updateReq;
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
@@ -685,6 +698,10 @@ le_result_t taf_update_ResumeInstall
 
     switch (sessPtr->sessType)
     {
+        case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
+            fwReq.event = TAF_FWUPDATE_EV_RESUME_INSTALL;
+            le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
+            break;
         case TAF_UPDATE_SESSION_TYPE_PLUGIN_UPDATE:
             TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr == NULL, LE_UNSUPPORTED,
                 "Please install UA module.");
@@ -727,10 +744,6 @@ le_result_t taf_update_InstallPostCheck
 
     TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
         "Unsupported session type (%d) for post-check.", sessPtr->sessType);
-
-    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-
-    TAF_ERROR_IF_RET_VAL(tafFwUpdate.IsBankSwitched(), LE_FAULT, "Bank is swictched.");
 
     taf_FwUpdateReq_t fwReq;
     fwReq.event = TAF_FWUPDATE_EV_INSTALL_POST_CHECK;
@@ -793,7 +806,39 @@ le_result_t taf_update_VerifyActivation
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
-            
+
+    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
+        sessionRef);
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+
+    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
+        "Unsupported session type (%d) for activation verification.", sessPtr->sessType);
+
+    taf_FwUpdateReq_t fwReq;
+    fwReq.event = TAF_FWUPDATE_EV_START_ACTIVATION;
+    le_utf8_Copy(fwReq.filePath, manifest, TAF_UPDATE_FILE_PATH_LEN, NULL);
+    le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pause activation.
+ *
+ * @return
+ *  - LE_FAULT       On failure.
+ *  - LE_OK          On success.
+ *  - LE_UNSUPPORTED Unsupported.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_PauseActivation
+(
+    taf_update_SessionRef_t sessionRef ///< [IN] Installation session reference.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
     TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
@@ -802,12 +847,46 @@ le_result_t taf_update_VerifyActivation
         "Unsupported session type (%d) for activation verification.", sessPtr->sessType);
 
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    taf_update_State_t state = tafFwUpdate.GetState();
+    if (state != TAF_UPDATE_PROBATION)
+    {
+        LE_ERROR("Invalid pause operation.");
+        return LE_FAULT;
+    }
+    else
+    {
+        tafFwUpdate.SetActivationPaused(true);
+    }
 
-    TAF_ERROR_IF_RET_VAL(!tafFwUpdate.IsBankSwitched(), LE_FAULT, "Bank is not swictched.");
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resume activation.
+ *
+ * @return
+ *  - LE_FAULT       On failure.
+ *  - LE_OK          On success.
+ *  - LE_UNSUPPORTED Unsupported.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_ResumeActivation
+(
+    taf_update_SessionRef_t sessionRef ///< [IN] Installation session reference.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+
+    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
+        sessionRef);
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+
+    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
+        "Unsupported session type (%d) for activation verification.", sessPtr->sessType);
 
     taf_FwUpdateReq_t fwReq;
-    fwReq.event = TAF_FWUPDATE_EV_VERIFY_ACTIVATION;
-    le_utf8_Copy(fwReq.filePath, manifest, TAF_UPDATE_FILE_PATH_LEN, NULL);
+    fwReq.event = TAF_FWUPDATE_EV_RESUME_ACTIVATION;
     le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
 
     return LE_OK;

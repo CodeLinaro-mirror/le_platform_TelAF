@@ -200,6 +200,7 @@ ENUM State
     INSTALL_FAIL,      ///< Install fail state, update service drives to idle state later.
     PROBATION,         ///< Probation state, during probation, update service checks if newly installed
                        ///  firmware or app is stable and drives to idle state later.
+    PROBATION_PAUSED,  ///< Probation is paused.
     PROBATION_SUCCESS, ///< Probation success state, application or firmware is working properly
                        ///  without errors.
     PROBATION_FAIL,    ///< Probation fail state, update service drives to idle state later.
@@ -534,6 +535,34 @@ FUNCTION le_result_t VerifyActivation
 (
     Session session IN,               ///< Installation session reference.
     string manifest[FILE_PATH_LEN] IN ///< Manifest for activation verification.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pauses activation.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t PauseActivation
+(
+    Session session IN ///< Installation session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resumes activation.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ResumeActivation
+(
+    Session session IN ///< Installation session reference.
 );
 
 //--------------------------------------------------------------------------------------------------

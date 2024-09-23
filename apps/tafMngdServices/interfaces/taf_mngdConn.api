@@ -774,17 +774,31 @@ DEFINE MAX_CONN_RECOVERY_RETRY_WAIT_TIME = 3600;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The maximum value for configuration JSON's ConnectivityRecovery:L1RadioOffOnInterval in seconds.
+ * The maximum value for configuration JSON's ConnectivityRecovery:RadioOffOnInterval in seconds.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MAX_CONN_RECOVERY_L1_RADIO_OFF_ON_INTERVAL = 240;
+DEFINE MAX_CONN_RECOVERY_RADIO_OFF_ON_INTERVAL = 240;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The minimum value for configuration JSON's ConnectivityRecovery:L1RadioOffOnInterval in seconds.
+ * The minimum value for configuration JSON's ConnectivityRecovery:RadioOffOnInterval in seconds.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MIN_CONN_RECOVERY_L1_RADIO_OFF_ON_INTERVAL = 5;
+DEFINE MIN_CONN_RECOVERY_RADIO_OFF_ON_INTERVAL = 5;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum value for configuration JSON's ConnectivityRecovery:SimOffOnInterval in seconds.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_CONN_RECOVERY_SIM_OFF_ON_INTERVAL = 240;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The minimum value for configuration JSON's ConnectivityRecovery:SimOffOnInterval in seconds.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MIN_CONN_RECOVERY_SIM_OFF_ON_INTERVAL = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**

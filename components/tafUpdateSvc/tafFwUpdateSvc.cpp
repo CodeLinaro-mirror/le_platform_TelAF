@@ -47,9 +47,10 @@ using namespace telux::tafsvc;
 ======================================================================*/
 void taf_fwupdate_RebootToActive()
 {
-    taf_FwUpdateReq_t updateReq;
-    updateReq.event = TAF_FWUPDATE_EV_REBOOT_TO_ACTIVE;
-    le_event_Report(taf_FwUpdate::fwUpdateEvId, &updateReq, sizeof(taf_FwUpdateReq_t));
+    if (reboot(RB_AUTOBOOT) == -1)
+    {
+        LE_ERROR("Fail to reboot. Errno = %s.", LE_ERRNO_TXT(errno));
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -94,7 +95,7 @@ le_result_t taf_fwupdate_Install()
 {
     taf_FwUpdateReq_t fwupdateReq;
 
-    fwupdateReq.event = TAF_FWUPDATE_EV_INSTALL;
+    fwupdateReq.event = TAF_FWUPDATE_EV_START_INSTALL;
     le_utf8_Copy(fwupdateReq.filePath, TAF_FWUPDATE_LOCAL_PACAKAGE_PATH,
         TAF_UPDATE_FILE_PATH_LEN, NULL);
     le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwupdateReq, sizeof(taf_FwUpdateReq_t));

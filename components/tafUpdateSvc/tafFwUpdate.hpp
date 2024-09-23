@@ -42,10 +42,8 @@
 #include "tafSvcIF.hpp"
 #include "tafFlashAccess.hpp"
 
-#define TAF_FWUPDATE_INSTALL_CMD_LEN 256
+#define TAF_FWUPDATE_CMD_LEN 256
 #define TAF_FWUPDATE_CMD_RESULT_LEN 32
-// Data proccessing rate is about 3.84 MB/s.
-#define TAF_FWUPDATE_PROC_DATA_RATE 4035394
 
 #define TAF_FIRMWARE_VERSION_LINE_NUM 16
 #define TAF_TELAF_VERSION_LEN 21
@@ -58,8 +56,15 @@
 #define TAF_ROOTFS_VERSION_FILE "/etc/version"
 #define TAF_FIRMWARE_VERSION_FILE "/firmware/image/Ver_Info.txt"
 
+#define TAF_FWUPDATE_INSTALL_CONTEXT "install_context"
+#define TAF_FWUPDATE_INSTALL_IMGAE_NODE "install_context/image/%s"
+#define TAF_FWUPDATE_POST_CHECK_SCRIPT "META-INF/com/google/android/updater-post-install-script"
+#define TAF_FWUPDATE_POST_CHECK_SCRIPT_PATH "/data/updater-post-install-script"
+
+#define TAF_FWUPDATE_ACTIVATE_CONTEXT "activate_context"
+#define TAF_FWUPDATE_ACTIVATE_ITEM_NODE "activate_context/item/%s"
+
 #define TAF_FWUPDATE_FOTA_STATE "/data/le_fs/fotaState"
-#define TAF_FWUPDATE_PREVIOUS_BANK "/data/le_fs/bank"
 #define TAF_FWUPDATE_LOCAL_PACAKAGE_PATH "/data/images/firmware"
 
 const size_t kPageSize = 4 * 1024; //4k
@@ -77,24 +82,25 @@ const std::string kTotalPages = "TOTAL_PAGES";
 //--------------------------------------------------------------------------------------------------
 #define TAF_FWUPDATE_FLASH_PAGE_SIZE 0x1000
 
-// Firmware update event
-typedef enum {
-    TAF_FWUPDATE_EV_INSTALL,
+//--------------------------------------------------------------------------------------------------
+/**
+ * Firmware update event.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_FWUPDATE_EV_START_INSTALL,
+    TAF_FWUPDATE_EV_PAUSE_INSTALL,
+    TAF_FWUPDATE_EV_RESUME_INSTALL,
     TAF_FWUPDATE_EV_INSTALL_POST_CHECK,
-    TAF_FWUPDATE_EV_REBOOT_TO_ACTIVE,
-    TAF_FWUPDATE_EV_VERIFY_ACTIVATION,
+    TAF_FWUPDATE_EV_START_ACTIVATION,
+    TAF_FWUPDATE_EV_RESUME_ACTIVATION,
     TAF_FWUPDATE_EV_SYNC,
     TAF_FWUPDATE_EV_START_SYNC,
     TAF_FWUPDATE_EV_PAUSE_SYNC,
     TAF_FWUPDATE_EV_RESUME_SYNC,
     TAF_FWUPDATE_EV_ROLLBACK
 } taf_FwUpdateEvent_t;
-
-// Timer options
-typedef enum {
-    TAF_FWUPDATE_TIMER_OP_INST_START,
-    TAF_FWUPDATE_TIMER_OP_INST_STOP
-} taf_FwUpdateTimerOp_t;
 
 // Firmware update request
 typedef struct {
@@ -129,16 +135,53 @@ namespace tafsvc {
         le_result_t GetUbiInformation(taf_lib_flash_Partition_t* partition, uint32_t* lebNumber,
                 uint32_t* freeLebNumber, uint32_t* volumeSize);
         le_result_t InstallPreCheck(const char* manifest);
+        void SetPauseAction(bool paused);
+        bool GetPauseAction(void);
+        void SetPageNumber(bool isTotal, uint32_t number);
+        uint32_t GetPageNumber(bool isTotal);
+        void SetImageDataPath(const char* image, const char* dataPath);
+        void GetImageDataPath(const char* image, char* dataPath, size_t pathLen);
+        bool GetImageStatus(const char* image);
+        void SetImageStatus(const char* image, bool updated);
+        uint32_t GetImagePageNumber(const char* image);
+        void SetImagePageNumber(const char* image, uint32_t pageNum);
+        bool GetImageForUpdate(char* name, size_t nameLen);
+        bool IsPatchExist(const char* filePath, const char* patchPath);
+        bool IsDeltaUpdate(const char* filePath);
+        bool UnpackImage(const char* filePath, const char* imagePath, uint32_t* pageNum);
+        void UpdateImage(void);
+        void StartInstall(const char* filePath);
         void InstallFirmware(const char* filePath);
-        le_result_t InstallPostCheck(const char* filePath);
 
-        bool IsBankSwitched(void);
-        le_result_t GetActiveBank(taf_update_Bank_t* bankPtr);
-        le_result_t SetActiveBank(taf_update_Bank_t bank);
+        le_result_t CalFileHash (const char* filePath, uint32_t* calSize, uint8_t* hash,
+            unsigned int* hashLen);
+        le_result_t CalPartitionHash (const char* partition, uint32_t calSize, uint8_t* hash,
+            unsigned int* hashLen);
+        bool VerifyHash(const char* partition, const char* filePath);
+        void InstallPostCheck(const char* filePath);
+
+
         le_result_t EraseBank(taf_update_Bank_t bank);
         le_result_t PerformBankSync(void);
         le_result_t Rollback(void);
-        le_result_t VerifyActivation(const char* manifest);
+
+        void SetActivationContext(taf_update_State_t state, taf_update_Bank_t bank);
+        bool IsBankSwitched(void);
+        le_result_t GetActiveBank(taf_update_Bank_t* bankPtr);
+        le_result_t SetActiveBank(taf_update_Bank_t bank);
+        void SetActivationPaused(bool paused);
+        bool GetActivationPaused(void);
+        bool GetActivateItemStatus(const char* item);
+        void SetActivateItemStatus(const char* item, bool activated);
+        void SetManifest(const char* manifest);
+        void GetManifest(char* manifest, size_t pathLen);
+        void GetPreviousBank(taf_update_Bank_t* bank);
+        void GetPreviousVersion(const char* item, char* version, size_t verSize);
+        void GetActivationState(taf_update_State_t* state);
+        bool GetItemForActivation(char* item, size_t itemLen, uint32_t* index);
+        uint32_t GetActivationItemCount();
+        void ActivateComponent(void);
+        void StartActivation(const char* manifest);
 
         void Init(void);
 
@@ -153,18 +196,11 @@ namespace tafsvc {
         static void* FwSyncHandlerThread(void* contextPtr);
         static void* FwStartSyncThread(void* contextPtr);
 
-        static void TimerOpHandler(void* contextPtr);
-        static void* TimerThread(void* contextPtr);
-
         static le_event_Id_t fwUpdateEvId;
-        static le_event_Id_t fwTimerEvId;
         static le_event_Id_t fwSyncHandlerEvId;
         static le_event_Id_t fwStartSyncEvId;
 
-        le_timer_Ref_t instTimerRef;
-
         uint32_t percent = 0;
-        uint32_t totalTime = 0;
         taf_update_Error_t error = TAF_UPDATE_NONE;
         bool isPartitionListInit = false;
 

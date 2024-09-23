@@ -8,6 +8,7 @@ gen_require(`
     type bin_t;
     type cache_t;
     type cache_recovery_t;
+    type cert_t;
     type cgroup_t;
     type device_t;
     type etc_t;
@@ -128,6 +129,10 @@ systemd_start_power_units(telaf_tafUpdateSvc_t)
 # flash access
 allow telaf_tafUpdateSvc_t mbim_device_t:chr_file { rw_file_perms };
 allow telaf_tafUpdateSvc_t ubi_device_t:chr_file { rw_file_perms };
+
+# Allow access to ssl library
+allow telaf_tafUpdateSvc_t cert_t:dir { search };
+allow telaf_tafUpdateSvc_t cert_t:file { read_file_perms };
 
 # device manager
 # to be replaced with telaf_load_vhal_modules

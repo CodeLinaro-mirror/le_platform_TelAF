@@ -40,26 +40,27 @@ using namespace telux::tafsvc;
  * Copy the file from the paths configured in the MSS configuration JSON file to configuration
  * storage and also checks the validity of file
  */
-le_result_t taf_mngdStorCfg_UpdateFile
+le_result_t taf_mngdStorCfg_Update
 (
-    void
+    taf_mngdStorCfg_ConfigRef_t configRef,
+    const char* LE_NONNULL version
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
 
-    return mss.UpdateFile();
+    return mss.Update(configRef,version);
 }
 
 /**
  * Replace the orignal configuration file with the updated file in config storage.
  */
-le_result_t taf_mngdStorCfg_Sync
+le_result_t taf_mngdStorCfg_Activate
 (
-    void
+    taf_mngdStorCfg_ConfigRef_t configRef
 ){
     auto &mss = tafMngdStorageSvc::GetInstance();
 
-    return mss.Sync();
+    return mss.Activate(configRef);
 }
 
 /**
@@ -67,12 +68,12 @@ le_result_t taf_mngdStorCfg_Sync
  */
 le_result_t taf_mngdStorCfg_Cancel
 (
-    void
+    taf_mngdStorCfg_ConfigRef_t configRef
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
 
-    return mss.Cancel();
+    return mss.Cancel(configRef);
 }
 
 /**
@@ -80,12 +81,12 @@ le_result_t taf_mngdStorCfg_Cancel
  */
 le_result_t taf_mngdStorCfg_Rollback
 (
-    void
+    taf_mngdStorCfg_ConfigRef_t configRef
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
 
-    return mss.Rollback();
+    return mss.Rollback(configRef);
 }
 
 /**
@@ -93,12 +94,12 @@ le_result_t taf_mngdStorCfg_Rollback
  */
 le_result_t taf_mngdStorCfg_Commit
 (
-    void
+    taf_mngdStorCfg_ConfigRef_t configRef
 )
 {
    auto &mss = tafMngdStorageSvc::GetInstance();
 
-    return mss.Commit();
+   return mss.Commit(configRef);
 }
 
 /**
@@ -108,7 +109,9 @@ taf_mngdStorCfg_ConfigRef_t  taf_mngdStorCfg_GetRef
 (
 )
 {
-    return nullptr;
+   auto &mss = tafMngdStorageSvc::GetInstance();
+
+   return mss.GetRef();
 }
 
 /**
@@ -122,7 +125,8 @@ le_result_t taf_mngdStorCfg_GetVersion
     uint32_t* PatchVersionPtr
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    auto &mss = tafMngdStorageSvc::GetInstance();
+    return mss.GetVersion(ConfigRef, MajorVersionPtr,MinorVersionPtr,PatchVersionPtr);
 }
 
 /**
@@ -152,7 +156,8 @@ le_result_t taf_mngdStorCfg_GetType
     taf_mngdStorCfg_NodeType_t* typePtr
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    auto &mss = tafMngdStorageSvc::GetInstance();
+    return mss.GetType(ConfigRef, groupName, nodeName, typePtr);
 }
 
 /**
@@ -167,7 +172,8 @@ le_result_t taf_mngdStorCfg_GetString
     size_t nodeValueSize
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    auto &mss = tafMngdStorageSvc::GetInstance();
+    return mss.GetString(ConfigRef,groupName,nodeName,nodeValue,nodeValueSize);
 }
 
 /**
@@ -180,7 +186,8 @@ le_result_t taf_mngdStorCfg_GetInt
     const char* LE_NONNULL nodeName,
     int32_t* nodeValuePtr
 ){
-    return LE_NOT_IMPLEMENTED;
+    auto &mss = tafMngdStorageSvc::GetInstance();
+    return mss.GetInt(ConfigRef, groupName, nodeName, nodeValuePtr);
 }
 
 /**
@@ -193,7 +200,8 @@ le_result_t taf_mngdStorCfg_GetFloat
     const char* LE_NONNULL nodeName,
     double* nodeValuePtr
 ){
-    return LE_NOT_IMPLEMENTED;
+    auto &mss = tafMngdStorageSvc::GetInstance();
+    return mss.GetFloat(ConfigRef, groupName, nodeName, nodeValuePtr);
 }
 
 /**
@@ -206,7 +214,20 @@ le_result_t taf_mngdStorCfg_GetBool
     const char* LE_NONNULL nodeName,
     int32_t* nodeValuePtr
 ){
-    return LE_NOT_IMPLEMENTED;
+    auto &mss = tafMngdStorageSvc::GetInstance();
+    return mss.GetBool(ConfigRef, groupName, nodeName, nodeValuePtr);
+}
+
+/**
+ * Get the value of the node with data type boolean.
+ */
+le_result_t taf_mngdStorCfg_ReleaseRef
+(
+    taf_mngdStorCfg_ConfigRef_t ConfigRef
+){
+     auto &mss = tafMngdStorageSvc::GetInstance();
+
+    return mss.ReleaseRef(ConfigRef);
 }
 
 COMPONENT_INIT

@@ -37,6 +37,7 @@
 #include <unordered_map>
 #include <string>
 #include <dirent.h>
+#include <limits.h>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <fstream>
@@ -242,6 +243,8 @@ le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(){
             const boost::property_tree::ptree& uPath = item.second;
             std::string fPath = uPath.get<std::string>("Path");
             snprintf(updatePath,sizeof(updatePath),"%s",fPath.c_str());
+            bool format  =  uPath.get<bool>("QcmFormat");
+            isQcmFormat =  format;
             LE_INFO("update path is %s",updatePath);
         }
     } catch (const boost::property_tree::ptree_error& e) {
@@ -257,111 +260,136 @@ bool tafMngdStorageSvc::IsFileExisting(const char *path)
     return (stat(path, &buffer) == 0);
 }
 
-le_result_t tafMngdStorageSvc::UpdateFile(){
+taf_mngdStorCfg_ConfigRef_t tafMngdStorageSvc::GetRef(){
+    LE_DEBUG("GetRef for config storage");
+    tafMngdStorage_ConfigStorage_t* configStorPtr =
+        (tafMngdStorage_ConfigStorage_t*)le_mem_ForceAlloc(configStoragePool);
+    memset(configStorPtr,0,sizeof(tafMngdStorage_ConfigStorage_t));
+    configStorPtr->clientSessionRef = taf_mngdStorCfg_GetClientSessionRef();
+    configStorPtr->configRef =
+        (taf_mngdStorCfg_ConfigRef_t)le_ref_CreateRef(configStorageRefMap,configStorPtr);
+    return configStorPtr->configRef;
+}
+
+le_result_t tafMngdStorageSvc::Update(taf_mngdStorCfg_ConfigRef_t configStor,
+    const char* version){
 
     le_result_t result;
     // Unlock CONFIG_STORAGE and CONFIG_RFS_STORAGE
-    result = taf_fsc_UnlockStorage(cfgFscRef);
+    result = UnlockStorage();
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to unlock fsc storage %s", CONFIG_STORAGE);
-        return LE_FAULT;
+        return result;
     }
+    LE_INFO("Storage Unlocked");
 
-    result = taf_fsc_UnlockStorage(cfgRfsFscRef);
-    if(result != LE_OK)
-    {
-        LE_ERROR("Failed to unlock fsc storage %s", CONFIG_RFS_STORAGE);
-        return LE_FAULT;
+    // For OEM format max 5 OEM json files supported.
+    // if its QCM format only 1 config json file supported.
+
+    uint32_t maxFiles=0;
+    if(isQcmFormat){
+        maxFiles = MAX_QCM_CONFIG_FILES;
+    }else{
+        maxFiles = MAX_OEM_CONFIG_FILES;
     }
 
     //Getting file from update path
-    result = GetFiles(updatePath);
+    result = GetFiles(updatePath,maxFiles);
     if(result !=LE_OK){
+        LockStorage();
         return result;
     }
     LE_INFO("Successfully found files.");
 
     //Authenticate Json File using Plugin Module.
-    result = AuthenticateFile();
+    result = AuthenticateFile(maxFiles);
     if(result != LE_OK){
         LE_ERROR("unable to Authenticate all files.");
+        LockStorage();
         return result;
     }
 
     LE_INFO("Authenticated all File Successfully");
 
     //Convert all json file to single mss json file.
-    result  =  ConvertToSingleMssJson();
+    result  =  ConvertToSingleMssJson(maxFiles);
     if(result != LE_OK){
         LE_ERROR("unable to convert all files to single JSON file");
+        LockStorage();
         return result;
     }
-
     LE_INFO("Successfully Convert to single json File");
+
     //Getting Active Storage Path.
     char storagePath[LIMIT_MAX_PATH_BYTES] =  {0};
     result =
         GetConfigStoragePath(storagePath,sizeof(storagePath));
     if(result != LE_OK){
+        LockStorage();
         LE_ERROR("Unable to get Active Storage path");
         return result;
     }
 
     //Validate JSON schema
-    result = ValidateJsonSchema(storagePath,sizeof(storagePath));
+    result = ValidateJsonSchema(storagePath,version);
     if(result != LE_OK){
         LE_ERROR("Failed to validate json schema for file %s",storagePath);
+        taf_rfs_Delete(storagePath);
+        LockStorage();
         if(result ==LE_FORMAT_ERROR) return LE_FORMAT_ERROR;
         return result;
     }
 
     LE_INFO("Successfully validate json schema for file %s",storagePath);
 
+    char MasterFilePath[LIMIT_MAX_PATH_BYTES] = {0};
+    snprintf(MasterFilePath,sizeof(MasterFilePath),"%s%s",CONFIG_STORAGE,CONFIG_FILE_NAME);
+
+    // creating .bak file.
+    if(IsFileExisting(MasterFilePath)){
+        LE_INFO("Creating backup of file %s",MasterFilePath);
+        char backUpPath[LIMIT_MAX_PATH_BYTES] = {0};
+        snprintf(backUpPath,sizeof(backUpPath),"%s%s",CONFIG_STORAGE,CONFIG_FILE_NAME_BAK);
+        int output = taf_rfs_Copy(MasterFilePath,backUpPath);
+        if(output != 0){
+            LockStorage();
+            LE_ERROR("unable to create backup for %s at %s with %d",MasterFilePath,backUpPath,output);
+            return LE_FAULT;
+        }
+        LE_INFO("successfully created backup file at path %s",backUpPath);
+    }
+
     // Lock CONFIG_STORAGE and CONFIG_RFS_STORAGE
-    result = taf_fsc_LockStorage(cfgFscRef);
+    result = LockStorage();
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to lock fsc storage %s", CONFIG_STORAGE);
-        return LE_FAULT;
+        return result;
     }
-
-    result = taf_fsc_LockStorage(cfgRfsFscRef);
-    if(result != LE_OK)
-    {
-        LE_ERROR("Failed to lock fsc storage %s", CONFIG_RFS_STORAGE);
-        return LE_FAULT;
-    }
-
+    LE_INFO("Storage locked");
     return LE_OK;
 }
 
-le_result_t tafMngdStorageSvc::Sync(){
+le_result_t tafMngdStorageSvc::Activate(taf_mngdStorCfg_ConfigRef_t configRef){
 
     // Unlock CONFIG_STORAGE and CONFIG_RFS_STORAGE
-    le_result_t result = taf_fsc_UnlockStorage(cfgFscRef);
+    le_result_t result = UnlockStorage();
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to unlock fsc storage %s", CONFIG_STORAGE);
-        return LE_FAULT;
+        return result;
     }
-
-    result = taf_fsc_UnlockStorage(cfgRfsFscRef);
-    if(result != LE_OK)
-    {
-        LE_ERROR("Failed to unlock fsc storage %s", CONFIG_RFS_STORAGE);
-        return LE_FAULT;
-    }
+    LE_INFO("Storage unlocked");
 
     char filePath[LIMIT_MAX_PATH_BYTES] =  {0};
     result = GetConfigStoragePath(filePath,sizeof(filePath));
     if(result != LE_OK){
+        LockStorage();
         LE_ERROR("Unable to get Active Storage path");
         return result;
     }
 
     //checking if file exists at path.
     if(!IsFileExisting(filePath)){
+        LockStorage();
         LE_ERROR("Unable to find file at %s",filePath);
         return LE_FAULT;
     }
@@ -369,21 +397,9 @@ le_result_t tafMngdStorageSvc::Sync(){
     char renamePath[LIMIT_MAX_PATH_BYTES] = {0};
     snprintf(renamePath,sizeof(renamePath),"%s%s",CONFIG_STORAGE,CONFIG_FILE_NAME);
 
-    // creating .bak file.
-    if(IsFileExisting(renamePath)){
-        LE_INFO("Creating backup of file %s",renamePath);
-        char backUpPath[LIMIT_MAX_PATH_BYTES] = {0};
-        snprintf(backUpPath,sizeof(backUpPath),"%s%s",CONFIG_STORAGE,CONFIG_FILE_NAME_BAK);
-        int output = taf_rfs_Rename(renamePath,backUpPath);
-        if(output != 0){
-            LE_ERROR("unable to create backup for %s at %s with %d",renamePath,backUpPath,output);
-            return LE_FAULT;
-        }
-        LE_INFO("successfully created backup file at path %s",backUpPath);
-    }
-
-    int output = taf_rfs_Rename(filePath,renamePath);
+    int output = taf_rfs_Copy(filePath,renamePath);
     if(output != 0){
+        LockStorage();
         LE_ERROR("unable to sync the file to path %s with error %d",renamePath,output);
         return LE_FAULT;
     }
@@ -392,100 +408,79 @@ le_result_t tafMngdStorageSvc::Sync(){
     //Clear Config Tree
     result = ClearTree();
     if(result != LE_OK){
+        LockStorage();
         return result;
     }
 
     //Import config Tree
     result = ImportTree(renamePath);
     if(result != LE_OK){
+        LockStorage();
         return result;
     }
 
     // Lock CONFIG_STORAGE and CONFIG_RFS_STORAGE
-    result = taf_fsc_LockStorage(cfgFscRef);
+    result = LockStorage();
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to lock fsc storage %s", CONFIG_STORAGE);
         return LE_FAULT;
     }
-
-    result = taf_fsc_LockStorage(cfgRfsFscRef);
-    if(result != LE_OK)
-    {
-        LE_ERROR("Failed to lock fsc storage %s", CONFIG_RFS_STORAGE);
-        return LE_FAULT;
-    }
+    LE_INFO("Storage Locked");
 
     return LE_OK;
 }
 
-le_result_t tafMngdStorageSvc::Cancel(){
+le_result_t tafMngdStorageSvc::Cancel(taf_mngdStorCfg_ConfigRef_t configRef){
     LE_DEBUG("Cancel the update campaign");
 
     // Unlock CONFIG_STORAGE and CONFIG_RFS_STORAGE
-    le_result_t result = taf_fsc_UnlockStorage(cfgFscRef);
+    le_result_t result = UnlockStorage();
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to unlock fsc storage %s", CONFIG_STORAGE);
         return LE_FAULT;
     }
+    LE_INFO("Storage Locked");
 
-    result = taf_fsc_UnlockStorage(cfgRfsFscRef);
-    if(result != LE_OK)
-    {
-        LE_ERROR("Failed to unlock fsc storage %s", CONFIG_RFS_STORAGE);
-        return LE_FAULT;
-    }
-
+    // Delete config.json.update file
     char storagePath[LIMIT_MAX_PATH_BYTES] =  {0};
-    result =
-        GetConfigStoragePath(storagePath,sizeof(storagePath));
-    if(result != LE_OK){
-        LE_ERROR("Unable to get Active Storage path");
-        return LE_FAULT;
-    }
+    result = GetConfigStoragePath(storagePath,sizeof(storagePath));
     if(!IsFileExisting(storagePath)){
+        LockStorage();
         LE_ERROR("Unable to find file at %s",storagePath);
         return LE_OK;
     }
     taf_rfs_Delete(storagePath);
     LE_INFO("Successfully deleted file from path %s",storagePath);
 
-    // Lock CONFIG_STORAGE and CONFIG_RFS_STORAGE
-    result = taf_fsc_LockStorage(cfgFscRef);
-    if(result != LE_OK)
-    {
-        LE_ERROR("Failed to lock fsc storage %s", CONFIG_STORAGE);
-        return LE_FAULT;
+    // Delete .bak file also.
+    char bakFilePath[LIMIT_MAX_PATH_BYTES] =  {0};
+    snprintf(bakFilePath,sizeof(bakFilePath),"%s%s",CONFIG_STORAGE,CONFIG_FILE_NAME_BAK);
+    if(IsFileExisting(bakFilePath)){
+        taf_rfs_Delete(bakFilePath);
+        LE_INFO("Successfully deleted file from path %s",bakFilePath);
     }
 
-    result = taf_fsc_LockStorage(cfgRfsFscRef);
+    // Lock CONFIG_STORAGE and CONFIG_RFS_STORAGE
+    result = LockStorage();
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to lock fsc storage %s", CONFIG_RFS_STORAGE);
         return LE_FAULT;
     }
+    LE_INFO("Storage Locked");
 
     return LE_OK;
 }
 
-le_result_t tafMngdStorageSvc::Rollback(){
+le_result_t tafMngdStorageSvc::Rollback(taf_mngdStorCfg_ConfigRef_t configRef){
     LE_DEBUG("Rolling back config file to pervious version of file");
 
     // Unlock CONFIG_STORAGE and CONFIG_RFS_STORAGE
-    le_result_t result = taf_fsc_UnlockStorage(cfgFscRef);
+    le_result_t  result = UnlockStorage();
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to unlock fsc storage %s", CONFIG_STORAGE);
         return LE_FAULT;
     }
-
-    result = taf_fsc_UnlockStorage(cfgRfsFscRef);
-    if(result != LE_OK)
-    {
-        LE_ERROR("Failed to unlock fsc storage %s", CONFIG_RFS_STORAGE);
-        return LE_FAULT;
-    }
+    LE_INFO("Storage unlocked");
 
     char backUpPath[LIMIT_MAX_PATH_BYTES] = {0};
     snprintf(backUpPath,sizeof(backUpPath),"%s%s",CONFIG_STORAGE,CONFIG_FILE_NAME_BAK);
@@ -493,12 +488,9 @@ le_result_t tafMngdStorageSvc::Rollback(){
     snprintf(ConfigFilePath,sizeof(ConfigFilePath),"%s%s",CONFIG_STORAGE,CONFIG_FILE_NAME);
     //checks if backup file exists in directory.
     if(IsFileExisting(backUpPath)){
-        //delete Config.json before rollback, if it exsist.
-        if(IsFileExisting(ConfigFilePath)){
-            taf_rfs_Delete(ConfigFilePath);
-        }
-        int output =  taf_rfs_Rename(backUpPath,ConfigFilePath);
+        int output =  taf_rfs_Copy(backUpPath,ConfigFilePath);
         if(output != 0){
+            LockStorage();
             LE_ERROR("unable to rollback the file to path %s with error %d",ConfigFilePath,output);
             return LE_FAULT;
         }
@@ -506,56 +498,45 @@ le_result_t tafMngdStorageSvc::Rollback(){
         //Clearing the tree.
         result =  ClearTree();
         if(result != LE_OK){
+            LockStorage();
             return result;
         }
 
         //Importing Tree For reverted File;
         result = ImportTree(ConfigFilePath);
         if(result != LE_OK){
+            LockStorage();
             return result;
         }
 
     }
     else{
+        LockStorage();
         LE_ERROR("File not exist at path %s",backUpPath);
         return LE_FAULT;
     }
 
     // Lock CONFIG_STORAGE and CONFIG_RFS_STORAGE
-    result = taf_fsc_LockStorage(cfgFscRef);
+    result = LockStorage();
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to lock fsc storage %s", CONFIG_STORAGE);
         return LE_FAULT;
     }
-
-    result = taf_fsc_LockStorage(cfgRfsFscRef);
-    if(result != LE_OK)
-    {
-        LE_ERROR("Failed to lock fsc storage %s", CONFIG_RFS_STORAGE);
-        return LE_FAULT;
-    }
+    LE_INFO("Storage Locked");
 
     return LE_OK;
 }
 
-le_result_t tafMngdStorageSvc::Commit(){
+le_result_t tafMngdStorageSvc::Commit(taf_mngdStorCfg_ConfigRef_t configRef){
     LE_DEBUG("Commiting data to config storage");
 
     // Unlock CONFIG_STORAGE and CONFIG_RFS_STORAGE
-    le_result_t result = taf_fsc_UnlockStorage(cfgFscRef);
+    le_result_t result = UnlockStorage();
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to unlock fsc storage %s", CONFIG_STORAGE);
         return LE_FAULT;
     }
-
-    result = taf_fsc_UnlockStorage(cfgRfsFscRef);
-    if(result != LE_OK)
-    {
-        LE_ERROR("Failed to unlock fsc storage %s", CONFIG_RFS_STORAGE);
-        return LE_FAULT;
-    }
+    LE_INFO("Storage unlocked");
 
     char backUpPath[LIMIT_MAX_PATH_BYTES] = {0};
     snprintf(backUpPath,sizeof(backUpPath),"%s%s",CONFIG_STORAGE,CONFIG_FILE_NAME_BAK);
@@ -571,14 +552,45 @@ le_result_t tafMngdStorageSvc::Commit(){
         else{
             LE_ERROR("File not exists at %s",backUpPath);
         }
+        char storagePath[LIMIT_MAX_PATH_BYTES] =  {0};
+        result = GetConfigStoragePath(storagePath,sizeof(storagePath));
+        if(!IsFileExisting(storagePath)){
+            LockStorage();
+            LE_ERROR("Unable to find file at %s",storagePath);
+            return LE_OK;
+        }
+        taf_rfs_Delete(storagePath);
+        LE_INFO("Successfully deleted file from path %s",storagePath);
     }
     else{
+        LockStorage();
         LE_ERROR("Configuation file not exists at %s",ConfigFilePath);
         return LE_FAULT;
     }
 
     // Lock CONFIG_STORAGE and CONFIG_RFS_STORAGE
-    result = taf_fsc_LockStorage(cfgFscRef);
+    result = LockStorage();
+    if(result != LE_OK)
+    {
+        return LE_FAULT;
+    }
+    LE_INFO("Storage Locked");
+    return LE_OK;
+}
+
+le_result_t tafMngdStorageSvc::ReleaseRef(taf_mngdStorCfg_ConfigRef_t configRef){
+    TAF_ERROR_IF_RET_VAL(configRef == nullptr,LE_BAD_PARAMETER,"Null reference(config storage)");
+    tafMngdStorage_ConfigStorage_t* strPtr =
+        (tafMngdStorage_ConfigStorage_t*)le_ref_Lookup(configStorageRefMap,configRef);
+    TAF_ERROR_IF_RET_VAL(strPtr == nullptr, LE_BAD_PARAMETER, "Invalid para(null reference ptr)");
+    le_ref_DeleteRef(configStorageRefMap, configRef);
+    le_mem_Release(strPtr);
+    return LE_OK;
+}
+
+le_result_t tafMngdStorageSvc::LockStorage()
+{
+    le_result_t result = taf_fsc_LockStorage(cfgFscRef);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to lock fsc storage %s", CONFIG_STORAGE);
@@ -589,6 +601,24 @@ le_result_t tafMngdStorageSvc::Commit(){
     if(result != LE_OK)
     {
         LE_ERROR("Failed to lock fsc storage %s", CONFIG_RFS_STORAGE);
+        return LE_FAULT;
+    }
+    return LE_OK;
+}
+
+le_result_t tafMngdStorageSvc::UnlockStorage()
+{
+   le_result_t result = taf_fsc_UnlockStorage(cfgFscRef);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to unlock fsc storage %s", CONFIG_STORAGE);
+        return LE_FAULT;
+    }
+
+    result = taf_fsc_UnlockStorage(cfgRfsFscRef);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to unlock fsc storage %s", CONFIG_RFS_STORAGE);
         return LE_FAULT;
     }
     return LE_OK;
@@ -639,7 +669,7 @@ le_result_t tafMngdStorageSvc::GetConfigFilePath(char* filePtr, size_t fileSize,
     return LE_OK;
 }
 
-le_result_t tafMngdStorageSvc::GetFiles(const char *path)
+le_result_t tafMngdStorageSvc::GetFiles(const char *path,uint32_t maxFiles)
 {
     struct dirent *d;
     DIR *dir = opendir(path);
@@ -650,7 +680,7 @@ le_result_t tafMngdStorageSvc::GetFiles(const char *path)
         return LE_FAULT; // Return false if the directory cannot be opened
     }
     bool isEmpty = true;
-    int i=0;
+    uint32_t i=0;
     while ((d = readdir(dir)) != NULL) {
         // ignoring '.' and '..'
         if(d->d_name[0] == '.' &&
@@ -667,8 +697,8 @@ le_result_t tafMngdStorageSvc::GetFiles(const char *path)
             continue;
         }
 
-        if(i>=MAX_CONFIG_FILES){
-            LE_ERROR("Configuration files reached max limit of %d",MAX_CONFIG_FILES);
+        if(i>=maxFiles){
+            LE_ERROR("Configuration files reached max limit of %d",maxFiles);
             closedir(dir);
             return LE_OUT_OF_RANGE;
         }
@@ -690,7 +720,7 @@ le_result_t tafMngdStorageSvc::GetFiles(const char *path)
     return LE_OK;
 }
 
-le_result_t tafMngdStorageSvc::ConvertToSingleMssJson(){
+le_result_t tafMngdStorageSvc::ConvertToSingleMssJson(uint32_t maxFiles){
     LE_INFO("Converting All files to single MSS json file");
     le_result_t result;
     char storagePath[LIMIT_MAX_PATH_BYTES] =  {0};
@@ -700,7 +730,7 @@ le_result_t tafMngdStorageSvc::ConvertToSingleMssJson(){
         LE_ERROR("Unable to get Active Storage path");
         return LE_FAULT;
     }
-    for(int i=0;i<MAX_CONFIG_FILES;i++){
+    for(uint32_t i=0;i<maxFiles;i++){
         tafMngdStorage_ConfigFileData_t* configFilePtr = configFileData[i];
         if(configFilePtr){
             LE_INFO("Updating file %s",configFilePtr->fileName);
@@ -717,24 +747,33 @@ le_result_t tafMngdStorageSvc::ConvertToSingleMssJson(){
                 LE_ERROR("Unable to find file at %s",FilePath);
                 return LE_FAULT;
             }
-            if(!cfgStorInf){
-                LE_ERROR("plugin Module not initialized..");
-                return LE_FAULT;
+            if(!isQcmFormat){
+                if(!cfgStorInf){
+                    LE_ERROR("plugin Module not initialized..");
+                    return LE_FAULT;
+                }
+                result = (*(cfgStorInf->merge))(storagePath,FilePath);
+                if(result != LE_OK){
+                    LE_ERROR("Unable to merge confile file from %s to %s", FilePath,storagePath);
+                    return LE_FAULT;
+                }
             }
-            result = (*(cfgStorInf->merge))(storagePath,FilePath);
-            if(result != LE_OK){
-                LE_ERROR("Unable to merge confile file from %s to %s", FilePath,storagePath);
-                return LE_FAULT;
+            else{
+                int output = taf_rfs_Copy(FilePath,storagePath);
+                if(output != 0){
+                    LE_ERROR("unable to Copy File from %s to %s",FilePath,storagePath);
+                    return LE_FAULT;
+                }
             }
         }
     }
     return LE_OK;
 }
 
-le_result_t tafMngdStorageSvc::AuthenticateFile(){
+le_result_t tafMngdStorageSvc::AuthenticateFile(uint32_t maxFiles){
     //Authenticate each file one by one.
     le_result_t result;
-    for(int i=0;i<MAX_CONFIG_FILES;i++){
+    for(uint32_t i=0;i<maxFiles;i++){
         tafMngdStorage_ConfigFileData_t* configFilePtr = configFileData[i];
         if(configFilePtr){
             LE_INFO("Authenticating file %s",configFilePtr->fileName);
@@ -768,7 +807,7 @@ le_result_t tafMngdStorageSvc::AuthenticateFile(){
     return LE_OK;
 }
 
-le_result_t tafMngdStorageSvc::ValidateJsonSchema(char* filePath, size_t fileSize){
+le_result_t tafMngdStorageSvc::ValidateJsonSchema(char* filePath,const char* version){
     int majVersion=0;
     int minVersion=0;
     int patchVersion=0;
@@ -820,6 +859,14 @@ le_result_t tafMngdStorageSvc::ValidateJsonSchema(char* filePath, size_t fileSiz
         return LE_FAULT;
     }
 
+    char updateVersion[LIMIT_MAX_PATH_BYTES] ={0};
+    snprintf(updateVersion,sizeof(updateVersion),"%d.%d.%d",majVersion,minVersion,patchVersion);
+
+    if(strncmp(version,updateVersion,strlen(version))==1){
+        LE_ERROR("Json file %s version mismatch with input version",filePath);
+        return LE_FAULT;
+    }
+
     if(versionInfo == NULL){
         versionInfo =
             (tafMngdStorage_ConfigVersionInfo_t*)malloc(sizeof(tafMngdStorage_ConfigVersionInfo_t));
@@ -844,4 +891,194 @@ le_result_t tafMngdStorageSvc::ValidateJsonSchema(char* filePath, size_t fileSiz
         return LE_FORMAT_ERROR;
     }
 return LE_OK;
+}
+
+le_result_t tafMngdStorageSvc::GetVersion(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+    uint32_t *MajorVersionPtr,
+    uint32_t *MinorVersionPtr,
+    uint32_t *PatchVersionPtr)
+{
+    le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
+    le_result_t res = LE_FAULT;
+    if (!itrRef)
+    {
+        LE_ERROR("Failed to create a read transcation");
+        le_cfg_CancelTxn(itrRef);
+        return LE_FAULT;
+    }
+    if (le_cfg_NodeExists(itrRef, CFG_NODE_MAJORVERSION) && le_cfg_NodeExists(itrRef, CFG_NODE_MINORVERSION) && le_cfg_NodeExists(itrRef, CFG_NODE_PATCHVERSION))
+    {
+        *MajorVersionPtr = le_cfg_QuickGetInt(CFG_NODE_MAJORVERSION_FULLPATH, INT_MAX);
+        *MinorVersionPtr = le_cfg_QuickGetInt(CFG_NODE_MINORVERSION_FULLPATH, INT_MAX);
+        *PatchVersionPtr = le_cfg_QuickGetInt(CFG_NODE_PATCHVERSION_FULLPATH, INT_MAX);
+        if ((*MajorVersionPtr != INT_MAX) && (*MinorVersionPtr != INT_MAX) && (*PatchVersionPtr != INT_MAX))
+        {
+            res = LE_OK;
+        }
+        LE_INFO("MajorVersion: %d MinorVersion: %d PatchVersion: %d", *MajorVersionPtr, *MinorVersionPtr, *PatchVersionPtr);
+    }
+    else
+    {
+        LE_ERROR("Node not exist");
+    }
+    le_cfg_CancelTxn(itrRef);
+    return res;
+}
+
+le_result_t tafMngdStorageSvc::GetType(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+    const char *LE_NONNULL groupName,
+    const char *LE_NONNULL nodeName,
+    taf_mngdStorCfg_NodeType_t *typePtr)
+{
+    le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
+    if (!itrRef)
+    {
+        LE_INFO("Failed to create a read transcation");
+        le_cfg_CancelTxn(itrRef);
+        return LE_FAULT;
+    }
+    le_cfg_GoToNode(itrRef, groupName);
+    le_cfg_nodeType_t nodeType = le_cfg_GetNodeType(itrRef, nodeName);
+    LE_INFO("nodeType:%d", nodeType);
+    switch (nodeType)
+    {
+    case LE_CFG_TYPE_STRING:
+        *typePtr = TAF_MNGDSTORCFG_TYPE_STRING;
+        break;
+    case LE_CFG_TYPE_BOOL:
+        *typePtr = TAF_MNGDSTORCFG_TYPE_BOOL;
+        break;
+    case LE_CFG_TYPE_INT:
+        *typePtr = TAF_MNGDSTORCFG_TYPE_INT;
+        break;
+    case LE_CFG_TYPE_FLOAT:
+        *typePtr = TAF_MNGDSTORCFG_TYPE_FLOAT;
+        break;
+    default:
+        le_cfg_CancelTxn(itrRef);
+        return LE_UNAVAILABLE;
+    }
+    LE_INFO("typePtr:%d", *typePtr);
+    le_cfg_CancelTxn(itrRef);
+    return LE_OK;
+}
+
+le_result_t tafMngdStorageSvc::GetString(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+    const char *LE_NONNULL groupName,
+    const char *LE_NONNULL nodeName,
+    char *nodeValue,
+    size_t nodeValueSize)
+{
+    le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
+    le_result_t result = LE_NOT_FOUND;
+    if (!itrRef)
+    {
+        LE_INFO("Failed to create a read transcation");
+        le_cfg_CancelTxn(itrRef);
+        return LE_FAULT;
+    }
+    le_cfg_GoToNode(itrRef, groupName);
+    le_result_t nodePath_result = le_cfg_GetPath(itrRef, nodeName, nodePath, sizeof(nodePath));
+    if (nodePath_result == LE_OK)
+    {
+        LE_INFO("nodePath :%s", nodePath);
+        result = le_cfg_QuickGetString(nodePath, nodeValue, nodeValueSize, "");
+        if(result == LE_OK){
+            LE_INFO("nodeValue:%s", nodeValue);
+        }
+    }
+    le_cfg_CancelTxn(itrRef);
+    return result;
+}
+
+le_result_t tafMngdStorageSvc::GetInt(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+    const char *LE_NONNULL groupName,
+    const char *LE_NONNULL nodeName,
+    int32_t *nodeValuePtr)
+{
+    le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
+    le_result_t result = LE_NOT_FOUND;
+    if (!itrRef)
+    {
+        LE_INFO("Failed to create a read transcation");
+        le_cfg_CancelTxn(itrRef);
+        return LE_FAULT;
+    }
+    le_cfg_GoToNode(itrRef, groupName);
+    le_result_t nodePath_result = le_cfg_GetPath(itrRef, nodeName, nodePath, sizeof(nodePath));
+    if (nodePath_result == LE_OK)
+    {
+        LE_INFO("nodePath :%s", nodePath);
+        *nodeValuePtr = le_cfg_QuickGetInt(nodePath, INT_MAX);
+        if (*nodeValuePtr != INT_MAX)
+        {
+            LE_INFO("nodeValue:%d",*nodeValuePtr);
+            result = LE_OK;
+        }
+    }
+    le_cfg_CancelTxn(itrRef);
+    return result;
+}
+
+le_result_t tafMngdStorageSvc::GetFloat(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+    const char *LE_NONNULL groupName,
+    const char *LE_NONNULL nodeName,
+    double *nodeValuePtr)
+{
+    le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
+    le_result_t result = LE_NOT_FOUND;
+    if (!itrRef)
+    {
+        LE_INFO("Failed to create a read transcation");
+        le_cfg_CancelTxn(itrRef);
+        return LE_FAULT;
+    }
+    le_cfg_GoToNode(itrRef, groupName);
+    le_result_t nodePath_result = le_cfg_GetPath(itrRef, nodeName, nodePath, sizeof(nodePath));
+    if (nodePath_result == LE_OK)
+    {
+        LE_INFO("nodePath :%s", nodePath);
+        *nodeValuePtr = le_cfg_QuickGetFloat(nodePath, FLT_MAX);
+        if (*nodeValuePtr != FLT_MAX)
+        {
+            LE_INFO("nodeValue:%f", *nodeValuePtr);
+            result = LE_OK;
+        }
+    }
+    le_cfg_CancelTxn(itrRef);
+    return result;
+}
+
+le_result_t tafMngdStorageSvc::GetBool(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+    const char *LE_NONNULL groupName,
+    const char *LE_NONNULL nodeName,
+    int32_t *nodeValuePtr)
+{
+    le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
+    le_result_t result = LE_NOT_FOUND;
+    if (!itrRef)
+    {
+        LE_INFO("Failed to create a read transcation");
+        le_cfg_CancelTxn(itrRef);
+        return LE_FAULT;
+    }
+    le_cfg_GoToNode(itrRef, groupName);
+    le_result_t nodePath_result = le_cfg_GetPath(itrRef, nodeName, nodePath, sizeof(nodePath));
+    if (nodePath_result == LE_OK)
+    {
+        LE_INFO("nodePath :%s", nodePath);
+        if (le_cfg_QuickGetBool(nodePath, false))
+        {
+            *nodeValuePtr = 1;
+            result = LE_OK;
+        }
+        else
+        {
+            *nodeValuePtr = 0;
+            result = LE_OK;
+        }
+    }
+    LE_INFO("nodeValue:%d", *nodeValuePtr);
+    le_cfg_CancelTxn(itrRef);
+    return result;
 }

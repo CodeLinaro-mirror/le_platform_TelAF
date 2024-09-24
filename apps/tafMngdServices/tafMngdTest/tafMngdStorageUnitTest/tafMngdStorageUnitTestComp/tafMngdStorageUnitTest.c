@@ -44,11 +44,13 @@
 
 #define TEST_DATA_LABEL "testdata"
 #define MSS_SECURE_STORAGE_SIZE 8192
+#define LE_CFG_STR_LEN_BYTES   512
 
 uint8_t TEST_TEXT_PATTERN[] = {'a','b','c','d','e','f','g'};
 uint8_t TEST_NUM_PATTERN[] = {0,1,2,3,4,5,6,7,8,9};
 
 taf_mngdStorSec_DataRef_t dataRef;
+taf_mngdStorCfg_ConfigRef_t cRef;
 
 __attribute__((unused)) static void PrintUsage()
 {
@@ -342,52 +344,130 @@ __attribute__((unused)) static void Test_Op_Delete(const char* label)
     fflush(stdout);
 }
 
+__attribute__((unused)) static void Test_cfg_GetRef(){
+    cRef = taf_mngdStorCfg_GetRef();
+    LE_TEST_ASSERT(cRef != NULL, "Test taf_mngdStorCfg_GetRef");
+}
+
 __attribute__((unused)) static void Test_cfg_UpdateProcess(){
     le_result_t result;
-    result = taf_mngdStorCfg_UpdateFile();
+    result = taf_mngdStorCfg_Update(cRef,"0.0.0");
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_UpdateFile");
     if(result == LE_OK){
-        result = taf_mngdStorCfg_Sync();
+        result = taf_mngdStorCfg_Activate(cRef);
         LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Sync");
         if(result == LE_OK){
-            result = taf_mngdStorCfg_Commit();
+            result = taf_mngdStorCfg_Commit(cRef);
             LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Commit");
         }
         else{
-            result = taf_mngdStorCfg_Rollback();
+            result = taf_mngdStorCfg_Rollback(cRef);
             LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Rollback");
         }
     }
     else{
-        result = taf_mngdStorCfg_Cancel();
+        result = taf_mngdStorCfg_Cancel(cRef);
         LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Cancel");
     }
 }
 
 __attribute__((unused)) static void Test_cfg_RollbackProcess(){
     le_result_t result;
-    result = taf_mngdStorCfg_UpdateFile();
+    result = taf_mngdStorCfg_Update(cRef,"0.0.0");
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_UpdateFile");
     if(result == LE_OK){
-        result = taf_mngdStorCfg_Sync();
+        result = taf_mngdStorCfg_Activate(cRef);
         LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Sync");
         if(result == LE_OK){
-            result = taf_mngdStorCfg_Rollback();
+            result = taf_mngdStorCfg_Rollback(cRef);
             LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Rollback");
+            if(result == LE_OK){
+                result = taf_mngdStorCfg_Commit(cRef);
+                LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Commit");
+            }
         }
     }
     else{
-        result = taf_mngdStorCfg_Cancel();
+        result = taf_mngdStorCfg_Cancel(cRef);
         LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Cancel");
     }
 }
 
 __attribute__((unused)) static void Test_cfg_CancelProcess(){
     le_result_t result;
-    result = taf_mngdStorCfg_UpdateFile();
-    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_UpdateFile");
-    result = taf_mngdStorCfg_Cancel();
+    result = taf_mngdStorCfg_Update(cRef,"0.0.0");
+    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Update");
+    result = taf_mngdStorCfg_Cancel(cRef);
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Cancel");
+}
+
+__attribute__((unused)) static void Test_cfg_GetVersion(){
+    le_result_t result;
+    uint32_t MajorVersionPtr=0;
+    uint32_t MinorVersionPtr=0;
+    uint32_t PatchVersionPtr=0;
+    result = taf_mngdStorCfg_GetVersion(cRef,&MajorVersionPtr,&MinorVersionPtr,&PatchVersionPtr);
+    LE_TEST_OK(result == LE_OK, "Test taf_mngdStorCfg_GetVersion");
+    LE_INFO("Vesrion is %d.%d.%d",MajorVersionPtr,MinorVersionPtr,PatchVersionPtr);
+}
+
+__attribute__((unused)) static void Test_cfg_GetType()
+{
+    le_result_t result;
+    const char *LE_NONNULL groupName = "config1/";
+    const char *LE_NONNULL nodeName =  "aBoolVal";
+    taf_mngdStorCfg_NodeType_t typePtr;
+    result = taf_mngdStorCfg_GetType(cRef, groupName, nodeName, &typePtr);
+    LE_TEST_OK(result == LE_OK, "Test taf_mngdStorCfg_GetType");
+    LE_INFO("Node type is %d",typePtr);
+}
+__attribute__((unused)) static void Test_cfg_GetString()
+{
+    le_result_t result;
+    const char *LE_NONNULL groupName = "config1/";
+    const char *LE_NONNULL nodeName = "aStringVal";
+    char nodeValue[LE_CFG_STR_LEN_BYTES];
+    result = taf_mngdStorCfg_GetString(cRef, groupName, nodeName, nodeValue, sizeof(nodeValue));
+    LE_TEST_OK(result == LE_OK, "Test taf_mngdStorCfg_GetString");
+    LE_INFO("Value for node %s is %s",nodeName,nodeValue);
+}
+
+__attribute__((unused)) static void Test_cfg_GetInt()
+{
+    le_result_t result;
+    const char *LE_NONNULL groupName = "config1/";
+    const char *LE_NONNULL nodeName = "aIntVal";
+    int32_t nodeValuePtr = 0;
+    result = taf_mngdStorCfg_GetInt(cRef, groupName, nodeName, &nodeValuePtr);
+    LE_TEST_OK(result == LE_OK, "Test taf_mngdStorCfg_GetInt");
+    LE_INFO("Value for node %s is %d",nodeName,nodeValuePtr);
+}
+__attribute__((unused)) static void Test_cfg_GetFloat()
+{
+    le_result_t result;
+    const char *LE_NONNULL groupName = "config1/";
+    const char *LE_NONNULL nodeName = "aFloatVal";
+    double nodeValuePtr = 0.08597;
+    result = taf_mngdStorCfg_GetFloat(cRef, groupName, nodeName, &nodeValuePtr);
+    LE_TEST_OK(result == LE_OK, "Test taf_mngdStorCfg_GetFloat");
+    LE_INFO("Value for node %s is %f",nodeName,nodeValuePtr);
+}
+__attribute__((unused)) static void Test_cfg_GetBool()
+{
+    le_result_t result;
+    const char *LE_NONNULL groupName = "config1/";
+    const char *LE_NONNULL nodeName = "aBoolVal";
+    int32_t nodeValuePtr = 0;
+    result = taf_mngdStorCfg_GetBool(cRef, groupName, nodeName, &nodeValuePtr);
+    LE_TEST_OK(result == LE_OK, "Test taf_mngdStorCfg_GetBool");
+    LE_INFO("Value for node %s is %d",nodeName,nodeValuePtr);
+}
+
+
+__attribute__((unused)) static void Test_cfg_ReleaseRef(){
+    le_result_t result;
+    result = taf_mngdStorCfg_ReleaseRef(cRef);
+    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_ReleaseRef");
 }
 
 COMPONENT_INIT
@@ -480,6 +560,9 @@ COMPONENT_INIT
         LE_TEST_INFO("=== Test delete storage ===");
         Test_Secure_Delete_Storage();
 
+        LE_TEST_INFO("=== Test GetRef Process ConfigStorage");
+        Test_cfg_GetRef();
+
         LE_TEST_INFO("=== Test update Process configStorage ===");
         Test_cfg_UpdateProcess();
 
@@ -488,6 +571,27 @@ COMPONENT_INIT
 
         LE_TEST_INFO("=== Test Cancel Process configStorage ===");
         Test_cfg_CancelProcess();
+
+        LE_TEST_INFO("=== Test GetVersion ===");
+        Test_cfg_GetVersion();
+
+        LE_TEST_INFO("=== Test GetType ===");
+        Test_cfg_GetType();
+
+        LE_TEST_INFO("=== Test GetString ===");
+        Test_cfg_GetString();
+
+        LE_TEST_INFO("=== Test GetInt ===");
+        Test_cfg_GetInt();
+
+        LE_TEST_INFO("=== Test GetFloat ===");
+        Test_cfg_GetFloat();
+
+        LE_TEST_INFO("=== Test GetBool ===");
+        Test_cfg_GetBool();
+
+        LE_TEST_INFO("=== Test Release configStorage ===");
+        Test_cfg_ReleaseRef();
 
         LE_TEST_INFO("=== TelAF MngdStorage unit test END ===");
     }

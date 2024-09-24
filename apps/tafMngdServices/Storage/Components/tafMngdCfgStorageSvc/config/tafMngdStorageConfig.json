@@ -5,6 +5,7 @@
         "Configuration": {
             "UpdatePath":[
                 {
+                    "QcmFormat": false,
                     "Path": "/data/ManagedServices/MSS/update/"
                 }
             ]

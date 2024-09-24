@@ -8,6 +8,7 @@ requires:
     api:
     {
         $TELAF_ROOT/apps/tafMngdServices/interfaces/taf_mngdConn.api
+        $TELAF_ROOT/interfaces/taf_dcs.api
     }
 }
 

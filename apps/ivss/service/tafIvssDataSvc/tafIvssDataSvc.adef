@@ -44,4 +44,5 @@ processes:
 bindings:
 {
     tafIvssDataSvc.dataSvc.taf_mngdConn -> tafMngdConnSvc.taf_mngdConn
+    tafIvssDataSvc.dataSvc.taf_dcs -> tafDataCallSvc.taf_dcs
 }

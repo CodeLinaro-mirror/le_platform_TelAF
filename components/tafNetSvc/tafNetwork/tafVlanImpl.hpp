@@ -235,12 +235,14 @@ namespace tafsvc {
             le_result_t UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef);
             void onInitComplete(telux::common::ServiceStatus status);
             void onInitCompleteDataSettings(telux::common::ServiceStatus status);
+            uint16_t GetBackhaulVlanIdBoundWithVlan(uint16_t vlanId,
+                                         taf_netIpPass_BackhaulType_t backhaulType, SlotId slot);
             uint16_t GetBoundVlanIdFromSlotAndProfile(uint8_t slotId, uint32_t profileId);
-            le_result_t GetBoundSlotIdProfileIdFromVlan(uint16_t vlanId, uint8_t* slotId, 
+            le_result_t GetBoundSlotIdProfileIdFromVlan(uint16_t vlanId, uint8_t* slotId,
                                                         uint32_t* profileId);
             le_result_t GetBindingInfo(uint8_t slotId);
 
-            taf_net_VlanRef_t CreateVlan(uint16_t vlanId, bool isAccelerated, 
+            taf_net_VlanRef_t CreateVlan(uint16_t vlanId, bool isAccelerated,
                                          le_msg_SessionRef_t sessionRef);
             le_result_t RemoveVlan(taf_net_VlanRef_t vlanRef);
             le_result_t UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef);
@@ -248,7 +250,8 @@ namespace tafsvc {
             //Create Parameters in REF
             le_result_t AddVlanInterface(taf_net_VlanRef_t vlanRef, taf_net_VlanIfType_t ifType);
             le_result_t SetVlanPriority(taf_net_VlanRef_t vlanRef, uint8_t priority);
-            le_result_t SetVlanNetworkType(taf_net_VlanRef_t vlanRef,taf_netIpPass_NetworkType_t nwType);
+            le_result_t SetVlanNetworkType(taf_net_VlanRef_t vlanRef,
+                                                              taf_netIpPass_NetworkType_t nwType);
             //Bind Parameters in REF
             le_result_t SetVlanBackhaulType(taf_net_VlanRef_t vlanRef,
                                             taf_netIpPass_BackhaulType_t bhType);

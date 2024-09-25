@@ -26,6 +26,7 @@
         "type": "IPv4",
         "UDP_DISCOVERY": 13400,
         "TCP_DATA": 13400,
+        "UDP_SOURCE": 13400,
         "TLS": false
     }
 }

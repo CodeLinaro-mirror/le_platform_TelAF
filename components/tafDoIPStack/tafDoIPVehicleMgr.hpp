@@ -36,6 +36,7 @@ typedef struct
     char netType[TAF_DOIP_IPTYPE_MAX_LEN];
     uint16_t udpPort;
     uint16_t tcpPort;
+    uint16_t udpSrc;    // UDP source port.
     le_dls_List_t funcGroupList;
     bool parseStatus = false;     // This flag will indicate that whether json is parsed or not
 }taf_doip_Config_t;
@@ -88,6 +89,8 @@ namespace doip{
             taf_doip_Result_t GetUdpPort(uint16_t *udpPortPtr);
 
             taf_doip_Result_t GetTcpPort(uint16_t *tcpPortPtr);
+
+            taf_doip_Result_t GetUdpSrcPort(uint16_t *udpSrcPortPtr);
 
             taf_doip_Result_t GetNetType(char* netTypePtr);
 

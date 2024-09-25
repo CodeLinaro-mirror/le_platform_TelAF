@@ -695,25 +695,33 @@ taf_doip_Result_t CommunicationMgr::SendUDPData
         return TAF_DOIP_RESULT_ERROR;
     }
 
-    sndSockRef = le_socket_Create(desIpPtr, desPort, local, UDP_TYPE);
-    if (sndSockRef == NULL)
+    uint16_t localPort;
+    auto& vehicleMgr = VehicleManager::GetInstance();
+    taf_doip_Result_t ret = vehicleMgr.GetUdpSrcPort(&localPort);
+    if ((ret == TAF_DOIP_RESULT_OK) && (localPort != 0))
     {
-        LE_ERROR("Failed to create udp socket reference.\n");
-        return TAF_DOIP_RESULT_NETWORK_ERROR;
+        sndSockRef = le_socket_Create(NULL, localPort, local, UDP_TYPE);
+        if (sndSockRef == NULL)
+        {
+            LE_ERROR("Failed to create udp socket reference.\n");
+            return TAF_DOIP_RESULT_NETWORK_ERROR;
+        }
+
+        le_socket_Bind(sndSockRef);
     }
-
-    le_socket_Bind(sndSockRef);
-
-    if (le_socket_Connect(sndSockRef) != LE_OK)
+    else
     {
-        LE_ERROR("Failed to connect %s:%d.", desIpPtr, desPort);
-        le_socket_Delete(sndSockRef);
-        return TAF_DOIP_RESULT_NETWORK_ERROR;
+        sndSockRef = le_socket_Create(NULL, 0, local, UDP_TYPE);
+        if (sndSockRef == NULL)
+        {
+            LE_ERROR("Failed to create udp socket reference.\n");
+            return TAF_DOIP_RESULT_NETWORK_ERROR;
+        }
     }
 
     le_socket_SetTimeout(sndSockRef, SOCKET_TIMEOUT_MS);
 
-    if (le_socket_Send(sndSockRef, messagePtr, len) != LE_OK)
+    if (le_socket_SendTo(sndSockRef, messagePtr, len, desIpPtr, desPort) != LE_OK)
     {
         LE_ERROR("Unable to transmit multicast packet.");
         le_socket_Delete(sndSockRef);

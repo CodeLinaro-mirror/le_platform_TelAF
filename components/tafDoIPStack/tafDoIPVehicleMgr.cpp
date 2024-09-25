@@ -186,6 +186,9 @@ void VehicleManager::ParseJsonConfig
         vehicleMgr.doipConfigPtr->udpPort
                 = root.get<uint32_t>("network.UDP_DISCOVERY");
 
+        vehicleMgr.doipConfigPtr->udpSrc
+                = root.get<uint32_t>("network.UDP_SOURCE");
+
         vehicleMgr.doipConfigPtr->parseStatus = true;
     }
     catch (std::exception const& exp)
@@ -607,6 +610,33 @@ taf_doip_Result_t VehicleManager::GetUdpPort
     if ( vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         *udpPortPtr = vehicleMgr.doipConfigPtr->udpPort;
+        return TAF_DOIP_RESULT_OK;
+    }
+    else
+    {
+        LE_ERROR("json configuration is not parsed!");
+        return TAF_DOIP_RESULT_UNSET;
+    }
+}
+
+taf_doip_Result_t VehicleManager::GetUdpSrcPort
+(
+    uint16_t *udpSrcPortPtr
+)
+{
+    LE_DEBUG("GetUdpPort!");
+
+    if (udpSrcPortPtr == NULL)
+    {
+        LE_ERROR("udpPortSrcPtr is null!");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    auto &vehicleMgr = VehicleManager::GetInstance();
+
+    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    {
+        *udpSrcPortPtr = vehicleMgr.doipConfigPtr->udpSrc;
         return TAF_DOIP_RESULT_OK;
     }
     else

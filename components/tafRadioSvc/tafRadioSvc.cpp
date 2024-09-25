@@ -1603,12 +1603,13 @@ le_result_t taf_radio_GetSignalQual
     TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
 
+    tafRadio.signalStrengthCb = std::make_shared<taf_RadioSignalStrengthCallback>();
     auto ret = tafRadio.phones[phoneId - 1]->requestSignalStrength(tafRadio.signalStrengthCb);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.signalStrengthCb->semaphore, timeToWait);
+    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.cbSem, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(tafRadio.signalStrengthCb->result != LE_OK,
@@ -1679,12 +1680,13 @@ taf_radio_MetricsRef_t taf_radio_MeasureSignalMetrics(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, nullptr,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
+    tafRadio.signalStrengthCb = std::make_shared<taf_RadioSignalStrengthCallback>();
     auto ret = tafRadio.phones[phoneId - 1]->requestSignalStrength(tafRadio.signalStrengthCb);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, nullptr,
         "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.signalStrengthCb->semaphore, timeToWait);
+    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.cbSem, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, nullptr, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(tafRadio.signalStrengthCb->result != LE_OK,

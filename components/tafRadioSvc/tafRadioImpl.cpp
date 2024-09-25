@@ -819,7 +819,8 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         ssMetrics.nr5g.snr = signalStrength->getNr5gSignalStrength()->getReferenceSignalSnr();
     }
 
-    le_sem_Post(semaphore);
+    auto &tafRadio = taf_Radio::GetInstance();
+    le_sem_Post(tafRadio.cbSem);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2720,6 +2721,7 @@ void taf_Radio::Init(void)
         le_sem_Create("taf_RadioBandCapCbSem", 0);
     taf_RadioRFBandPrefResponseCallback::semaphore =
         le_sem_Create("taf_RadioBandPrefCbSem", 0);
+    cbSem = le_sem_Create("taf_RadioCallbackSem", 0);
 
     imsRegStatusChangeId = le_event_CreateIdWithRefCounting("ImsRegStatus");
     opModeChangeId = le_event_CreateIdWithRefCounting("OpMode");
@@ -2935,7 +2937,6 @@ void taf_Radio::Init(void)
         getOperatingModeCb = std::make_shared<taf_RadioGetOperatingModeCallback>();
         cellularCapsCb = std::make_shared<taf_RadioCellularCapsCallback>();
         voiceSrvStateCb->semaphore = le_sem_Create("taf_RadioVoiceSrvStateCbSem", 0);
-        signalStrengthCb->semaphore = le_sem_Create("taf_RadioSgnStrengthCbSem", 0);
         setOperatingModeCb->semaphore = le_sem_Create("taf_RadioSetOpModeCbSem", 0);
         getOperatingModeCb->semaphore = le_sem_Create("taf_RadioGetOpModeCbSem", 0);
         cellularCapsCb->semaphore = le_sem_Create("CellCapsCbSem", 0);

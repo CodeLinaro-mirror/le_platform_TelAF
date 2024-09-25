@@ -69,7 +69,7 @@ taf_diagDataID_ServiceRef_t taf_DataIDSvr::GetService
     LE_DEBUG("Gets the DataID service!");
 
     // Search the service.
-    taf_DataIDSvc_t* servicePtr = GetServiceObj(taf_diagDataID_GetClientSessionRef());
+    taf_DataIDSvc_t* servicePtr = GetServiceObj();
 
     // Create a service object if it doesn't exist in the list.
     if (servicePtr == NULL)
@@ -95,6 +95,15 @@ taf_diagDataID_ServiceRef_t taf_DataIDSvr::GetService
         LE_DEBUG("svcRef %p of client %p is created for DataId.",
                 servicePtr->svcRef, servicePtr->sessionRef);
     }
+    else
+    {
+        // Only the service owner app can get the service reference for subsequent operations.
+        if (servicePtr->sessionRef != taf_diagDataID_GetClientSessionRef())
+        {
+            LE_ERROR("The service is created by other client.");
+            return NULL;
+        }
+    }
 
     LE_INFO("Get serviceRef %p for Diag DataId service.", servicePtr->svcRef);
 
@@ -109,7 +118,6 @@ taf_diagDataID_ServiceRef_t taf_DataIDSvr::GetService
 //-------------------------------------------------------------------------------------------------
 taf_DataIDSvc_t* taf_DataIDSvr::GetServiceObj
 (
-    le_msg_SessionRef_t sessionRef
 )
 {
     LE_DEBUG("find the service object!");
@@ -119,7 +127,7 @@ taf_DataIDSvc_t* taf_DataIDSvr::GetServiceObj
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         taf_DataIDSvc_t* servicePtr = (taf_DataIDSvc_t *)le_ref_GetValue(iterRef);
-        if ((servicePtr != NULL) && (servicePtr->sessionRef == sessionRef))
+        if (servicePtr != NULL)
         {
             return servicePtr;
         }
@@ -445,11 +453,8 @@ void taf_DataIDSvr::RxReadDIDEventHandler
     taf_DataIDSvc_t* servicePtr = NULL;
     taf_ReadDIDHandler_t* handlerObjPtr = NULL;
 
-#ifndef LE_CONFIG_DIAG_VSTACK
-    servicePtr = (taf_DataIDSvc_t*)did.GetServiceObj(rxReadDIDMsgPtr->addrInfo.vlanId);
-#else
-    servicePtr = (taf_DataIDSvc_t*)did.GetServiceObj(0);
-#endif
+    servicePtr = (taf_DataIDSvc_t*)did.GetServiceObj();
+
     if (servicePtr == NULL)
     {
         LE_WARN("Not found registered DID service for this request!");
@@ -572,11 +577,8 @@ le_result_t taf_DataIDSvr::SendReadDIDResp
 
     taf_DataIDSvc_t* servicePtr = NULL;
 
-#ifndef LE_CONFIG_DIAG_VSTACK
-    servicePtr = (taf_DataIDSvc_t*)GetServiceObj(rxReadDIDMsgPtr->addrInfo.vlanId);
-#else
-    servicePtr = (taf_DataIDSvc_t*)GetServiceObj(0);
-#endif
+    servicePtr = (taf_DataIDSvc_t*)GetServiceObj();
+
     if (servicePtr == NULL)
     {
         LE_ERROR("Not found registered DID service for this request!");
@@ -701,11 +703,8 @@ void taf_DataIDSvr::RxWriteDIDEventHandler
     taf_DataIDSvc_t* servicePtr = NULL;
     taf_WriteDIDHandler_t* handlerObjPtr = NULL;
 
-#ifndef LE_CONFIG_DIAG_VSTACK
-    servicePtr = (taf_DataIDSvc_t*)did.GetServiceObj(rxWriteDIDMsgPtr->addrInfo.vlanId);
-#else
-    servicePtr = (taf_DataIDSvc_t*)did.GetServiceObj(0);
-#endif
+    servicePtr = (taf_DataIDSvc_t*)did.GetServiceObj();
+
     if (servicePtr == NULL)
     {
         LE_WARN("Not found registered DID service for this request!");
@@ -858,11 +857,8 @@ le_result_t taf_DataIDSvr::SendWriteDIDResp
 
     auto &backend = taf_DiagBackend::GetInstance();
 
-#ifndef LE_CONFIG_DIAG_VSTACK
-    taf_DataIDSvc_t* servicePtr = (taf_DataIDSvc_t*)GetServiceObj(rxWriteDIDMsgPtr->addrInfo.vlanId);
-#else
-    taf_DataIDSvc_t* servicePtr = (taf_DataIDSvc_t*)GetServiceObj(0);
-#endif
+    taf_DataIDSvc_t* servicePtr = (taf_DataIDSvc_t*)GetServiceObj();
+
     if (servicePtr == NULL)
     {
         LE_ERROR("Not found registered write DID service for this request!");

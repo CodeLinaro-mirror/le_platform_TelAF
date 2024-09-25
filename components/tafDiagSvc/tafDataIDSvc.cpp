@@ -89,9 +89,7 @@ le_result_t taf_diagDataID_SetVlanId
         ///< [IN] VLAN ID.
 )
 {
-    LE_DEBUG("taf_diagDataID_SetVlanId");
-    auto &did = taf_DataIDSvr::GetInstance();
-    return did.SetVlanId(svcRef, vlanId);
+    return LE_UNSUPPORTED;
 }
 
 //--------------------------------------------------------------------------------------------------

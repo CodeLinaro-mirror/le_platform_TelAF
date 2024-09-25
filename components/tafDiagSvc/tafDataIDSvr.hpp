@@ -190,7 +190,7 @@ namespace telux
 
             private:
                 // Internal search function.
-                taf_DataIDSvc_t* GetServiceObj(le_msg_SessionRef_t sessionRef);
+                taf_DataIDSvc_t* GetServiceObj();
                 taf_DataIDSvc_t* GetServiceObj(uint16_t vlanId);
                 taf_DataIDSvc_t* GetAvailServiceObjForRead();
 

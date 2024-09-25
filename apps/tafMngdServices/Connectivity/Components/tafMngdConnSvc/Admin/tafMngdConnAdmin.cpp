@@ -978,20 +978,20 @@ le_result_t tafMngdConnAdmin::CancelRecovery(taf_mngdConn_DataRef_t dataRef,
 
 
 /*=====================================Event handle functions.===================================*/
-    //--------------------------------------------------------------------------------------------------
-    /**
-     * Handle the event MCS_EVT_INIT which is sent when system startup.
-     */
-    //--------------------------------------------------------------------------------------------------
-    void tafMngdConnAdmin::EventInit()
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle the event MCS_EVT_INIT which is sent when system startup.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventInit()
+{
+    // Initialize states for each data object
+    le_result_t result = InitializeStates();
+    if (LE_OK != result)
     {
-        // Initialize states for each data object
-        le_result_t result = InitializeStates();
-        if (LE_OK != result)
-        {
-            // Initialization did not complete. Wait for SIM/Radio events and act on them
-            LE_INFO("Initialization not complete. Wait for further events");
-        }
+        // Initialization did not complete. Wait for SIM/Radio events and act on them
+        LE_INFO("Initialization not complete. Wait for further events");
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1141,6 +1141,9 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
         case MCS_RECOVERY_CANCELED_L1:
         case MCS_RECOVERY_CANCELED_L2:
         case MCS_RECOVERY_CANCELED_L3:
+        case MCS_RECOVERY_FAILED_L1:
+        case MCS_RECOVERY_FAILED_L2:
+        case MCS_RECOVERY_FAILED_L3:
 
             result = data.Startdata(dataCtxPtr->phoneId, dataCtxPtr->profileNumber);
             if (result == LE_OK || result == LE_DUPLICATE) {

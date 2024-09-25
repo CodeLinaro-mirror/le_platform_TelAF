@@ -58,6 +58,7 @@ class tafMngdRpcPm: public ITafSvc
         void Init(void);
         static tafMngdRpcPm &GetInstance();
         static le_result_t ShutdownRpcNAD();
+        static le_result_t  RestartRpcNAD();
         static le_result_t SuspendRpcNAD();
         static bool IsRpcConnected;
         static le_result_t StayAwakeRpcNode(taf_mngdPm_wsRef_t wsRef);
@@ -112,6 +113,8 @@ class tafMngdRpcPm: public ITafSvc
         static void RpcConnectTimerHandler(le_timer_Ref_t timerRef);
         static void TryConnectService();
         static void RpcDisconnectHandler(void * contextptr);
+        //Multiclient data
+         static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ctxPtr);
 };
 }
 }

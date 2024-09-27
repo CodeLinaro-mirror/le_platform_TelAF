@@ -1501,7 +1501,7 @@ hal_pm_Inf_t* tafMngdPMSvc::pmInf = nullptr;
 le_timer_Ref_t tafMngdPMSvc::vhalAckTimerRef = nullptr;
 le_timer_Ref_t tafMngdPMSvc::wakeSourceTimerRef = nullptr;
 le_timer_Ref_t tafMngdPMSvc::wakeupVehicleTimerRef = nullptr;
-
+taf_mngdPm_RequestedWakeupVehicle_t tafMngdPMSvc::wakeupModePtr;
 taf_mngdPm_RequestedState_t tafMngdPMSvc::statePtr;
 taf_mngdPm_Client_t tafMngdPMSvc::mngdPmClientInfo;
 

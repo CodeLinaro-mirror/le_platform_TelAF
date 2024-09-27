@@ -105,8 +105,8 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
         LE_INFO("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_NORMAL);
         (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_SHUTDOWN,
                 HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::ShutdownPrepareRespCB);
-        taf_mngdPm_RequestedState_t statePtr = SYSTEM_NORMAL_SHUTDOWN;
-        le_timer_SetContextPtr(mpms.vhalAckTimerRef, &statePtr);
+        mpms.statePtr = SYSTEM_NORMAL_SHUTDOWN;
+        le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
         le_timer_Start(mpms.vhalAckTimerRef);
         mpms.shutdownCB.shutdownCallbackFunc = handlerPtr;
         mpms.shutdownCB.shutdownCBCtxPtr = contextPtr;
@@ -267,8 +267,8 @@ le_result_t taf_mngdPm_WakeupVehicleReqAsync(int32_t reason,
                 handlerPtr = nullptr;
                 return LE_UNSUPPORTED;
             }
-            taf_mngdPm_RequestedWakeupVehicle_t wakeupMode = WAKEUP_VEHICHLE_REQ_DEFAULT;
-            le_timer_SetContextPtr(mpms.wakeupVehicleTimerRef, &(wakeupMode));
+            mpms.wakeupModePtr = WAKEUP_VEHICHLE_REQ_DEFAULT;
+            le_timer_SetContextPtr(mpms.wakeupVehicleTimerRef, &(mpms.wakeupModePtr));
             le_timer_Start(mpms.wakeupVehicleTimerRef);
             LE_INFO("Timer has started");
             mpms.wakeupVehicleCB.wakeupVehicleCallbackFunc = handlerPtr;
@@ -517,11 +517,6 @@ le_result_t taf_mngdPm_RelaxNode(taf_mngdPm_wsRef_t wsRef)
                     (*(mpms.pmInf->nodeInfoNotification))(wsRefCtxPtr->pmNodeId,
                             HAL_PM_NODE_INFO_LOCK_RELEASED, wsRefCtxPtr->vhalTag);
                 }
-                //Clearing wsRefList
-                le_ref_DeleteRef(mpms.wsRefMap, wsRef);
-                le_dls_Remove(&(mpms.wsRefList), &wsRefCtxPtr->link);
-                free((void*)wsRefCtxPtr->vhalTag);
-                le_mem_Release((void*)wsRefCtxPtr);
             }
             break;
         }

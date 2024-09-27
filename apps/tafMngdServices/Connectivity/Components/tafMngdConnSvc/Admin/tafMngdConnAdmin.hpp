@@ -242,6 +242,8 @@ namespace tafsvc {
                                     char *dataName, size_t dataNameSize);
             le_result_t GetProfileNumberByRef(taf_mngdConn_DataRef_t dataRef,
                                               uint8_t *dataProfileNumberPtr);
+            le_result_t GetPhoneIdByRef(taf_mngdConn_DataRef_t dataRef,
+                                        uint8_t *phoneIdPtr);
             le_result_t Startdata(taf_mngdConn_DataRef_t dataRef);
             le_result_t Stopdata(taf_mngdConn_DataRef_t dataRef);
             le_result_t GetConnectionState(taf_mngdConn_DataRef_t dataRef,

@@ -965,6 +965,22 @@ FUNCTION le_result_t GetProfileNumberByRef(
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the phone ID that is used by the data object (as provided in the configuration JSON).
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- Data reference not found.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetPhoneIdByRef
+(
+    Data  dataRef IN,                 ///< The data reference.
+    uint8 phoneId OUT                 ///< The phone ID used by the provided data reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Starts a data session for the given data reference. This API should be used when the value of
  * "AutoStart" is "No" in the configuration file.
  *

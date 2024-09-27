@@ -549,6 +549,65 @@ le_result_t taf_audio_PlayFileList
     return audio.PlayList(streamRef, playFileConfigPtr, playFileConfigSize);
 }
 
+/**
+ * FUNCTION     : PlayDtmf
+ * DESCRIPTION  : Plays Dtmf tone on RX path for VoiceStream
+ * DEPENDECY    : Active Voice Stream
+ * PARAMETERS   : Modem Rx stream reference, DTMF char, duration, pause and gain
+ * RETURN VALUES: LE_OK on success,
+ *                LE_BAD_PARAMETER on invalid stream reference and LE_FAULT on failure.
+ */
+le_result_t taf_audio_PlayDtmf
+(
+taf_audio_StreamRef_t streamRef,
+const char*           dtmfPtr,
+uint16_t              duration,
+uint32_t              pause,
+double                gain
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.PlayDtmf(streamRef, dtmfPtr, duration, pause, gain);
+}
+
+/**
+ * FUNCTION     : StopDtmf
+ * DESCRIPTION  : Stop Dtmf
+ * DEPENDECY    : Active Voice Stream
+ * PARAMETERS   : Modem Rx stream reference
+ * RETURN VALUES: LE_OK on success,
+ *                LE_BAD_PARAMETER on invalid stream reference and LE_FAULT on failure.
+ */
+le_result_t taf_audio_StopDtmf
+(
+taf_audio_StreamRef_t streamRef
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.StopDtmf(streamRef);
+}
+
+taf_audio_DtmfDetectorHandlerRef_t taf_audio_AddDtmfDetectorHandler
+(
+ taf_audio_StreamRef_t               streamRef,
+ taf_audio_DtmfDetectorHandlerFunc_t handlerPtr,
+ void* contextPtr
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return (taf_audio_DtmfDetectorHandlerRef_t) audio.AddDtmfDetectorHandler(streamRef,
+            handlerPtr, contextPtr);
+}
+
+void taf_audio_RemoveDtmfDetectorHandler
+(
+ taf_audio_DtmfDetectorHandlerRef_t handlerRef
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.RemoveDtmfDetectorHandler(handlerRef);
+}
+
 COMPONENT_INIT
 {
     LE_INFO("tafAudioSvc COMPONENT init...");

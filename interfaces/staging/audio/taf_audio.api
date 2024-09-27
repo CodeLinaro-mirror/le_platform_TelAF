@@ -57,7 +57,8 @@
  *
  * TelAF Audio Service helps the user to open the audio connection for the requested route
  * type like ecall, non-ecall or playback/capture or playback of a playlist of audio files and
- * mode type as voice call, playback, record.
+ * mode type as voice call, playback, record. It supports DTMF detection and generation on the Rx
+ * path of voice call.
  *
  * Once route is opened, connect the sink reference and source reference to the
  * respective Rx/Tx connectors in case of voice call.
@@ -585,6 +586,164 @@
     }
 
    @endverbatim
+ *
+ * @subsection c_play_stop_DTMF Play/Stop DTMF for voice Rx path.
+ *
+ * Supports DTMF generation in Rx path [On Near End Device]. Prerequisite for DTMF generation is
+ * an active voice call.
+ *
+ * @verbatim
+
+    static const char*  DtmfString = "5";
+    static uint16_t     Duration = 5;
+    static uint32_t     Pause = 1;
+    static double       gain = 1.0;
+    le_result_t res;
+
+    taf_audio_StreamRef_t sinkRef = NULL;
+    taf_audio_StreamRef_t sourceRef = NULL;
+    taf_audio_RouteRef_t routeRef = NULL;
+    routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_VOICE_CALL,
+            &sinkRef, &sourceRef);
+    if(routeRef != NULL) {
+        LE_INFO("OpenRoute successfull sinkRef %p sourceRef %p", sinkRef, sourceRef);
+    }
+
+    taf_audio_ConnectorRef_t rxConn = taf_audio_CreateConnector();
+    taf_audio_ConnectorRef_t txConn = taf_audio_CreateConnector();
+
+    taf_audio_StreamRef_t rxStreamRef = taf_audio_OpenModemVoiceRx(1);
+    // true to enable ECNR configuration.
+    taf_audio_StreamRef_t txStreamRef = taf_audio_OpenModemVoiceTx(1, true);
+
+    res = taf_audio_Connect(rxConn, sinkRef);
+    if(res == LE_OK) {
+        LE_INFO("sinkRef connected successfully to rxConn" );
+    }
+
+    res = taf_audio_Connect(txConn, sourceRef);
+    if(res == LE_OK) {
+        LE_INFO("sourceRef connected successfully to txConn" );
+    }
+
+    res = taf_audio_Connect(rxConn, rxStreamRef);
+    if(res == LE_OK) {
+        LE_INFO("rxStreamRef connected successfully to rxConn" );
+    }
+
+    res = taf_audio_Connect(txConn, txStreamRef);
+    if(res == LE_OK) {
+        LE_INFO("txStreamRef connected successfully to txConn" );
+    }
+
+    LE_INFO("To test taf_audio_PlayDtmf on rxStreamRef.%p", rxStreamRef);
+    res = taf_audio_PlayDtmf(rxStreamRef, DtmfString, Duration, Pause, gain);
+    if(res == LE_OK) {
+        LE_INFO("taf_audio_PlayDtmf - Pass");
+    }
+
+    LE_INFO("To test taf_audio_StopDtmf on rxStreamRef.%p", rxStreamRef);
+    res = taf_audio_StopDtmf(rxStreamRef);
+    if(res == LE_OK) {
+        LE_INFO("taf_audio_StopDtmf - Pass");
+    }
+
+    taf_audio_Disconnect(txConn, txStreamRef);
+
+    taf_audio_Disconnect(rxConn, sinkRef);
+
+    taf_audio_Disconnect(txConn, sourceRef);
+
+    taf_audio_Disconnect(rxConn, rxStreamRef);
+
+    res = taf_audio_CloseRoute(routeRef);
+    if(res == LE_OK) {
+        LE_INFO("taf_audio_CloseRoute successful" );
+    }
+
+   @endverbatim
+
+*
+ * @subsection c_DTMF_Detection DTMF detection for voice Rx path.
+ *
+ * Supports DTMF detection in Rx path [Detection On Far End Voice Samples]. Prerequisite for DTMF
+ * detection is an active voice call.
+ *
+ * @verbatim
+
+    le_result_t res;
+    static taf_audio_DtmfDetectorHandlerRef_t dtmfDetectHandlerRef = NULL;
+
+    static void MyDtmfDetectorHandler
+    (
+        taf_audio_StreamRef_t streamRef,
+        char  dtmf,
+        void* contextPtr
+    )
+    {
+        LE_INFO("MyDtmfDetectorHandler detects %c", dtmf);
+        std::cout << "Dtmf tone detected for " << dtmf << std::endl;
+    }
+
+    taf_audio_StreamRef_t sinkRef = NULL;
+    taf_audio_StreamRef_t sourceRef = NULL;
+    taf_audio_RouteRef_t routeRef = NULL;
+    routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_VOICE_CALL,
+            &sinkRef, &sourceRef);
+    if(routeRef != NULL) {
+        LE_INFO("OpenRoute successfull sinkRef %p sourceRef %p", sinkRef, sourceRef);
+    }
+
+    taf_audio_ConnectorRef_t rxConn = taf_audio_CreateConnector();
+    taf_audio_ConnectorRef_t txConn = taf_audio_CreateConnector();
+
+    taf_audio_StreamRef_t rxStreamRef = taf_audio_OpenModemVoiceRx(1);
+    // true to enable ECNR configuration.
+    taf_audio_StreamRef_t txStreamRef = taf_audio_OpenModemVoiceTx(1, true);
+
+    res = taf_audio_Connect(rxConn, sinkRef);
+    if(res == LE_OK) {
+        LE_INFO("sinkRef connected successfully to rxConn" );
+    }
+
+    res = taf_audio_Connect(txConn, sourceRef);
+    if(res == LE_OK) {
+        LE_INFO("sourceRef connected successfully to txConn" );
+    }
+
+    res = taf_audio_Connect(rxConn, rxStreamRef);
+    if(res == LE_OK) {
+        LE_INFO("rxStreamRef connected successfully to rxConn" );
+    }
+
+    res = taf_audio_Connect(txConn, txStreamRef);
+    if(res == LE_OK) {
+        LE_INFO("txStreamRef connected successfully to txConn" );
+    }
+
+    //Add the handler for DTMF detection
+    dtmfDetectHandlerRef = taf_audio_AddDtmfDetectorHandler(rxStreamRef, MyDtmfDetectorHandler,
+            NULL);
+
+    //Remove the handler for DTMF detection
+    taf_audio_RemoveDtmfDetectorHandler(dtmfDetectHandlerRef);
+
+    taf_audio_Disconnect(txConn, txStreamRef);
+
+    taf_audio_Disconnect(rxConn, sinkRef);
+
+    taf_audio_Disconnect(txConn, sourceRef);
+
+    taf_audio_Disconnect(rxConn, rxStreamRef);
+
+    res = taf_audio_CloseRoute(routeRef);
+    if(res == LE_OK) {
+        LE_INFO("taf_audio_CloseRoute successful" );
+    }
+
+   @endverbatim
+
+
  */
 //--------------------------------------------------------------------------------------------------
 
@@ -602,6 +761,8 @@ REFERENCE Connector;
  * Reference type for route.
  */
 REFERENCE Route;
+
+DEFINE DTMF_MAXLEN   = 100;
 
 DEFINE MAX_SRC_PATH_LEN = 256;
 
@@ -957,4 +1118,53 @@ FUNCTION le_result_t GetVolume
 (
     Stream streamRef      IN,      ///< Audio stream reference.
     double  volumeLevel   OUT      ///< Volume level.
+);
+
+/**
+ * Starts DTMF playback on voice RX path.
+ *
+ * @return
+ *     - LE_OK                 Success.
+ *     - LE_BAD_PARAMETER      Invalid stream reference.
+ *     - LE_FAULT              Failure.
+ */
+FUNCTION le_result_t PlayDtmf
+(
+    Stream  streamRef           IN,  ///< Modem Rx stream reference.
+    string  dtmf[DTMF_MAXLEN]   IN,  ///< DTMFs to play.
+    uint16 duration             IN,  ///< DTMF duration in milliseconds, for infinity tone
+                                     ///  generation it can be 0xFFFF.
+    uint32  pause               IN,  ///< Pause duration between tones in milliseconds.
+    double gain                 IN   ///< Range 0.0 - 1.0.
+);
+
+/**
+ * Stops the DTMF playback.
+ *
+ * @return
+ *     - LE_OK                 Success.
+ *     - LE_BAD_PARAMETER      Invalid stream reference.
+ *     - LE_FAULT              Failure.
+ */
+FUNCTION le_result_t StopDtmf
+(
+    Stream  streamRef           IN   ///< Modem Rx stream reference.
+);
+
+/**
+ * Handler for DTMF tone detection.
+ */
+HANDLER DtmfDetectorHandler
+(
+    Stream     streamRef          IN,  ///< Modem Rx stream reference.
+    char         dtmf             IN   ///< DTMF char.
+);
+
+/**
+ * This event provides notification on DTMF tone detection for the registered player reference.
+ */
+EVENT DtmfDetector
+(
+    Stream       streamRef         IN, ///< Modem Rx stream reference.
+    DtmfDetectorHandler handler        ///< DTMF handler.
 );

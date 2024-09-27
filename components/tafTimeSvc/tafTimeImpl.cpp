@@ -139,7 +139,7 @@ void taf_TimeGnssListener::onGnssUtcTimeUpdate
     taf_time_TimeSpec_t timeVal;
     auto &tafTime = taf_Time::GetInstance();
     uint64_t arg = utc;
-    le_event_QueueFunctionToThread(mainThreadRef, (le_event_DeferredFunc_t)onGnssUtcTimeUpdateHandler,&arg, NULL);
+    le_event_QueueFunctionToThread(tafTime.mainThreadRef, (le_event_DeferredFunc_t)onGnssUtcTimeUpdateHandler,&arg, NULL);
     if(utc > 0)
     {
         tafTime.UpdateFailedLoops(TAF_TIME_SRC_NAME_GNSS, FAIL_LOOP_NUM_CLEAN);
@@ -408,7 +408,7 @@ le_result_t taf_Time::ReadTimeConf
     }
 
     value = json_string_value(itemData);
-    sscanf(value, "%ld", &allowOverrideAfterFail);
+    sscanf(value, "%" PRId64 "", &allowOverrideAfterFail);
     serviceCfg.allowOverrideAfterFail = allowOverrideAfterFail;
     AllowOverrideAfterFail = allowOverrideAfterFail;
 
@@ -882,7 +882,7 @@ le_result_t taf_Time::GetNetworkTime
     else
     {
         return GetTimeFromLocalCache(timeValPtr, NetworkDeltaTime2, sourceId);
-    }    
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1064,7 +1064,7 @@ le_result_t taf_Time::UpdateRefTimeInfo
             timeSrcRefPrt->dateTimeInf.referPtpTime = {0};
             LE_WARN("Get reference gptp time for %s failed",
                             SourceNameIndexToStr(timeSrcRefPrt->sourceId));
-        }  
+        }
         else
         {
             timeSrcRefPrt->dateTimeInf.referPtpTime.sec = gPtpimeVal.tv_sec;
@@ -1738,8 +1738,8 @@ le_result_t taf_Time::SetSystemTime
         if (clock_settime(CLOCK_REALTIME, &newTime) < 0)
         {
             LE_ERROR("Update sys time to:  "
-            "%" PRIu64 ".%" PRIu64 ", from:%" PRIu64 ".%" PRIu64 ". SRC: %s, ackTimeSvc %d\n",
-                newTime.tv_sec, newTime.tv_nsec, systemTime.sec, systemTime.nanosec,
+            "%lld.%ld, from:%" PRIu64 ".%" PRIu64 ". SRC: %s, ackTimeSvc %d\n",
+                (long long)newTime.tv_sec, newTime.tv_nsec, systemTime.sec, systemTime.nanosec,
                 SourceNameIndexToStr(timeSource), ackTimeSvc);
             switch (errno)
             {
@@ -1764,8 +1764,8 @@ le_result_t taf_Time::SetSystemTime
             }
         }
         LE_INFO("Update sys time to:  "
-                    "%" PRIu64 ".%" PRIu64 ", from:%" PRIu64 ".%" PRIu64 ". SRC: %s\n",
-            newTime.tv_sec, newTime.tv_nsec, systemTime.sec, systemTime.nanosec,
+                    "%lld.%ld, from:%" PRIu64 ".%" PRIu64 ". SRC: %s\n",
+            (long long)newTime.tv_sec, newTime.tv_nsec, systemTime.sec, systemTime.nanosec,
                                                      SourceNameIndexToStr(timeSource));
 
     }
@@ -1955,7 +1955,7 @@ void taf_Time::SourceAvailabilityUpdate(le_result_t result, taf_time_TimeSources
             }
         }
 
-        if 
+        if
         (
             oldValidity != sourcePtr->sourceValidity &&
             sourcePtr->handlerFunc != NULL &&
@@ -2070,7 +2070,7 @@ le_result_t taf_Time::SetTimeBaseOnConfig
             }
         }
 
-        LE_DEBUG("Tatol: %ld, latest: %s, current: %s, priority: %d,"
+        LE_DEBUG("Tatol: %zu, latest: %s, current: %s, priority: %d,"
             " set allow: %d, status: %d, result: %d\n",
             serviceCfg.source.size(), SourceNameIndexToStr(LatestTimeSourceInfo->systemSourceId),
             serviceCfg.source[i].sourceName.c_str(), i,
@@ -2121,7 +2121,7 @@ void taf_Time::SystemTimeUpdateTimerHandler
     }
     else
     {
-        LE_DEBUG("Time sources status: 0x%08lx\n", timeSrcStatusMap);
+        LE_DEBUG("Time sources status: 0x%08" PRIx64 "\n", timeSrcStatusMap);
     }
 
     if (timeSrcStatusMap == 0x0)
@@ -2562,7 +2562,7 @@ void taf_Time::SyncNetworkTimeResponse
     tafTime.NetworkUpdateInfo1.error = error;
     tafTime.NetworkUpdateInfo1.info = info;
 
-    le_event_QueueFunctionToThread(mainThreadRef,
+    le_event_QueueFunctionToThread(tafTime.mainThreadRef,
         (le_event_DeferredFunc_t)NetworkTimeResponseUpdateHandler,
         &tafTime.NetworkUpdateInfo1, NULL);
 
@@ -2589,7 +2589,7 @@ void taf_Time::SyncNetworkTimeResponse2
     tafTime.NetworkUpdateInfo2.error = error;
     tafTime.NetworkUpdateInfo2.info = info;
 
-    le_event_QueueFunctionToThread(mainThreadRef,
+    le_event_QueueFunctionToThread(tafTime.mainThreadRef,
         (le_event_DeferredFunc_t)NetworkTimeResponseUpdateHandler,
         &tafTime.NetworkUpdateInfo2, NULL);
 
@@ -2634,7 +2634,7 @@ void taf_Time::RequestNetworkTime(    void)
             }
             if (ret == telux::common::Status::SUCCESS)
             {
-                LE_DEBUG("Total phones: %ld, synching network time from phone %ld\n",
+                LE_DEBUG("Total phones: %zu, synching network time from phone %zu\n",
                                           tafTime.servingSystemManagers.size(), i+1);
                 break;
             }
@@ -2660,7 +2660,7 @@ le_result_t taf_Time::RegNetworkTimeListener
     for (size_t i = 0; i < tafTime.servingSystemManagers.size(); i++)
     {
 
-        LE_DEBUG("Trying to Register the servSysListener, size: %ld\n",
+        LE_DEBUG("Trying to Register the servSysListener, size: %zu\n",
                                                        servingSystemManagers.size());
         auto servSysListener = std::make_shared<taf_TimeServingSystemListener>(
                                 phoneManager->getPhoneIdFromSlotId(i+1));
@@ -2773,7 +2773,7 @@ le_result_t taf_Time::InitNetworkTime(void)
         telux::common::Status status = phoneManager->getPhoneIds(phoneIds);
         if (status == telux::common::Status::SUCCESS)
         {
-            LE_INFO("phoneIds.size: %ld\n", phoneIds.size());
+            LE_INFO("phoneIds.size: %zu\n", phoneIds.size());
             for (size_t index = 1; index <= phoneIds.size(); index++)
             {
                 auto servingSystemManager
@@ -2788,7 +2788,7 @@ le_result_t taf_Time::InitNetworkTime(void)
             }
         }
 
-        LE_INFO("servingSystemManagers.size: %ld\n", servingSystemManagers.size());
+        LE_INFO("servingSystemManagers.size: %zu\n", servingSystemManagers.size());
         for (size_t index = 0; index < servingSystemManagers.size(); index++)
         {
             // Check if serving subsystem is ready
@@ -2941,7 +2941,7 @@ bool taf_Time::isNewTimeSrcSetTimeAllowed(taf_time_TimeSources_t newTimeSource)
     }
     int currPriorityNum = TimeSourceConf.source[position].priority;
 
-    LE_DEBUG("currPriorityNum %d, newPriorityNum %d, AllowOverrideAfterFail %ld\n",
+    LE_DEBUG("currPriorityNum %d, newPriorityNum %d, AllowOverrideAfterFail %" PRIu64 "\n",
         currPriorityNum, newPriorityNum, AllowOverrideAfterFail);
 
     // Note, the small priority number will have higher priority
@@ -3063,7 +3063,7 @@ le_result_t taf_Time::GetInternalRtcTime
     timeVal->sec = mktime(&rtc_tm) + rtc_tm.tm_gmtoff;
     if (timeVal->sec < 0)
     {
-        LE_ERROR("Invalid RTC seconds = %ld\n", timeVal->sec);
+        LE_ERROR("Invalid RTC seconds = %" PRIu64 "\n", timeVal->sec);
         return LE_FAULT;
     }
     timeVal->nanosec = 0;

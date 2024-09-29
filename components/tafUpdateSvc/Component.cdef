@@ -43,6 +43,12 @@ cflags:
     -I$LEGATO_ROOT/components/watchdogChain
 }
 
+ldflags:
+{
+    -lssl
+    -lcrypto
+}
+
 sources:
 {
     tafUpdateSvc.cpp

@@ -36,6 +36,10 @@
 #include <chrono>
 #include <fstream>
 
+#include <openssl/evp.h>
+#include <openssl/sha.h>
+#include <openssl/md5.h>
+
 #include "tafUpdate.hpp"
 #include "tafFwUpdate.hpp"
 #include "tafUpdateConfigTreeHelper.hpp"
@@ -44,7 +48,6 @@ using namespace std;
 using namespace telux::tafsvc;
 
 le_event_Id_t taf_FwUpdate::fwUpdateEvId = nullptr;
-le_event_Id_t taf_FwUpdate::fwTimerEvId = nullptr;
 le_event_Id_t taf_FwUpdate::fwStartSyncEvId = nullptr;
 le_event_Id_t taf_FwUpdate::fwSyncHandlerEvId = nullptr;
 
@@ -99,6 +102,527 @@ taf_update_State_t taf_FwUpdate::GetState
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Set pause action in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SetPauseAction
+(
+    bool paused ///< [IN] Pause state.
+)
+{
+    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    le_cfg_SetBool(wrIter, "paused", paused);
+    le_cfg_CommitTxn(wrIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get pause action from config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::GetPauseAction
+(
+    void
+)
+{
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    bool paused = le_cfg_GetBool(rdIter, "paused", false);
+    le_cfg_CancelTxn(rdIter);
+    return paused;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set page number in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SetPageNumber
+(
+    bool isTotal,   ///< [IN] True if it is total page number.
+    uint32_t number ///< [IN] Page number.
+)
+{
+    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    if (isTotal)
+    {
+        le_cfg_SetInt(wrIter, "total_page", (int)number);
+    }
+    else
+    {
+        le_cfg_SetInt(wrIter, "updated_page", (int)number);
+    }
+    le_cfg_CommitTxn(wrIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get page number from config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_FwUpdate::GetPageNumber
+(
+    bool isTotal ///< [IN] True if it is total page number.
+)
+{
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    uint32_t pageNum = 0;
+    if (isTotal)
+    {
+        pageNum = (uint32_t)le_cfg_GetInt(rdIter, "total_page", 0);
+    }
+    else
+    {
+        pageNum = (uint32_t)le_cfg_GetInt(rdIter, "updated_page", 0);
+    }
+    le_cfg_CancelTxn(rdIter);
+    return pageNum;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set image data path in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SetImageDataPath
+(
+    const char* image,   ///< [IN] Image.
+    const char* dataPath ///< [IN] Image data path.
+)
+{
+    // 1. Find image node in config tree.
+    char node[LE_CFG_STR_LEN_BYTES] = { 0 };
+    snprintf(node, sizeof(node), TAF_FWUPDATE_INSTALL_IMGAE_NODE, image);
+
+    // 2. Set image data path.
+    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(node);
+    le_cfg_SetString(wrIter, "dataPath", dataPath);
+    le_cfg_CommitTxn(wrIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get image data path from config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::GetImageDataPath
+(
+    const char* image, ///< [IN] Image.
+    char* dataPath,    ///< [OUT] Image data path.
+    size_t pathLen     ///< [IN] Path length.
+)
+{
+    // 1. Find image node in config tree.
+    char node[LE_CFG_STR_LEN_BYTES] = { 0 };
+    snprintf(node, sizeof(node), TAF_FWUPDATE_INSTALL_IMGAE_NODE, image);
+
+    // 2. Get image data path.
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(node);
+    le_cfg_GetString(rdIter, "dataPath", dataPath, pathLen, "");
+    le_cfg_CancelTxn(rdIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get image data path from config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::GetImageStatus
+(
+    const char* image ///< [IN] Image.
+)
+{
+    // 1. Find image node in config tree.
+    char node[LE_CFG_STR_LEN_BYTES] = { 0 };
+    snprintf(node, sizeof(node), TAF_FWUPDATE_INSTALL_IMGAE_NODE, image);
+
+    // 2. Get image state.
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(node);
+    bool updated = le_cfg_GetBool(rdIter, "updated", false);
+    le_cfg_CancelTxn(rdIter);
+    return updated;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set image status in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SetImageStatus
+(
+    const char* image, ///< [IN] Image.
+    bool updated       ///< [IN] True if the image is updated.
+)
+{
+    // 1. Find image node in config tree.
+    char node[LE_CFG_STR_LEN_BYTES] = { 0 };
+    snprintf(node, sizeof(node), TAF_FWUPDATE_INSTALL_IMGAE_NODE, image);
+
+    // 2. Set image state.
+    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(node);
+    le_cfg_SetBool(wrIter, "updated", updated);
+    le_cfg_CommitTxn(wrIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get image page number from config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_FwUpdate::GetImagePageNumber
+(
+    const char* image ///< [IN] Image.
+)
+{
+    // 1. Find image node in config tree.
+    char node[LE_CFG_STR_LEN_BYTES] = { 0 };
+    snprintf(node, sizeof(node), TAF_FWUPDATE_INSTALL_IMGAE_NODE, image);
+
+    // 2. Get image page number.
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(node);
+    uint32_t pageNum = (uint32_t)le_cfg_GetInt(rdIter, "page_num", 0);
+    le_cfg_CancelTxn(rdIter);
+    return pageNum;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set image page number in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SetImagePageNumber
+(
+    const char* image, ///< [IN] Image.
+    uint32_t pageNum   ///< [IN] Image page number.
+)
+{
+    // 1. Find image node in config tree.
+    char node[LE_CFG_STR_LEN_BYTES] = { 0 };
+    snprintf(node, sizeof(node), TAF_FWUPDATE_INSTALL_IMGAE_NODE, image);
+
+    // 2. Set image page number.
+    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(node);
+    le_cfg_SetInt(wrIter, "page_num", (int)pageNum);
+    le_cfg_CommitTxn(wrIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get image to be updated from config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::GetImageForUpdate
+(
+    char* name,    ///< [OUT] Image name.
+    size_t nameLen ///< [IN] Image name length.
+)
+{
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    le_cfg_GoToNode(rdIter, "image");
+
+    if (le_cfg_GoToFirstChild(rdIter) == LE_NOT_FOUND)
+    {
+        LE_WARN("No image to be updated.");
+        le_cfg_CancelTxn(rdIter);
+        return false;
+    }
+
+    bool updated = false;
+    do
+    {
+        le_cfg_GetNodeName(rdIter, "", name, nameLen);
+
+        updated = le_cfg_GetBool(rdIter, "updated", false);
+        if (!updated)
+            break;
+    }
+    while (le_cfg_GoToNextSibling(rdIter) == LE_OK);
+
+    le_cfg_CancelTxn(rdIter);
+
+    return updated;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set activation paused in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SetActivationPaused
+(
+    bool paused ///< [IN] Pause state.
+)
+{
+    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_ACTIVATE_CONTEXT);
+    le_cfg_SetBool(wrIter, "paused", paused);
+    le_cfg_CommitTxn(wrIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get activation pause status from config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::GetActivationPaused
+(
+    void
+)
+{
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_ACTIVATE_CONTEXT);
+    bool paused = le_cfg_GetBool(rdIter, "paused", false);
+    le_cfg_CancelTxn(rdIter);
+    return paused;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get activation status from config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::GetActivateItemStatus
+(
+    const char* item ///< [IN] Activation item.
+)
+{
+    // 1. Find node in config tree.
+    char node[LE_CFG_STR_LEN_BYTES] = { 0 };
+    snprintf(node, sizeof(node), TAF_FWUPDATE_ACTIVATE_ITEM_NODE, item);
+
+    // 2. Get item status.
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(node);
+    bool activated = le_cfg_GetBool(rdIter, "activated", false);
+    le_cfg_CancelTxn(rdIter);
+    return activated;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set activation status in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SetActivateItemStatus
+(
+    const char* item, ///< [IN] Activation item.
+    bool activated    ///< [IN] True if item is activated.
+)
+{
+    // 1. Find node in config tree.
+    char node[LE_CFG_STR_LEN_BYTES] = { 0 };
+    snprintf(node, sizeof(node), TAF_FWUPDATE_ACTIVATE_ITEM_NODE, item);
+
+    // 2. Set item status.
+    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(node);
+    le_cfg_SetBool(wrIter, "activated", activated);
+    le_cfg_CommitTxn(wrIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set manifest in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SetManifest
+(
+    const char* manifest ///< [IN] Path for manifest.
+)
+{
+    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_ACTIVATE_CONTEXT);
+    le_cfg_SetString(wrIter, "manifest", manifest);
+    le_cfg_CommitTxn(wrIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get manifest from config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::GetManifest
+(
+    char* manifest, ///< [OUT] Manifest path.
+    size_t pathLen  ///< [IN] Path length.
+)
+{
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_ACTIVATE_CONTEXT);
+    le_cfg_GetString(rdIter, "manifest", manifest, pathLen, "");
+    le_cfg_CancelTxn(rdIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set activation context in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SetActivationContext
+(
+    taf_update_State_t state, ///< [IN] State.
+    taf_update_Bank_t bank   ///< [IN] Bank.
+)
+{
+    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_ACTIVATE_CONTEXT);
+    le_cfg_SetInt(wrIter, "state", (int)state);
+    if (state == TAF_UPDATE_INSTALL_SUCCESS || state == TAF_UPDATE_ROLLBACK_SUCCESS)
+    {
+        le_cfg_SetInt(wrIter, "previous_bank", (int)bank);
+    }
+
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    if (state == TAF_UPDATE_INSTALL_SUCCESS)
+    {
+        char rootfsVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
+        char telafVer[TAF_TELAF_VERSION_LEN] = {0};
+        char firmwareVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
+
+        tafFwUpdate.GetTelafVersion(telafVer);
+        le_cfg_SetString(wrIter, "telaf_version", telafVer);
+        tafFwUpdate.GetRootfsVersion(rootfsVer);
+        le_cfg_SetString(wrIter, "rootfs_version", rootfsVer);
+        tafFwUpdate.GetFirmwareVersion(firmwareVer);
+        le_cfg_SetString(wrIter, "firmware_version", firmwareVer);
+    }
+    le_cfg_CommitTxn(wrIter);
+
+    if (state == TAF_UPDATE_INSTALL_SUCCESS || state == TAF_UPDATE_ROLLBACK_SUCCESS)
+    {
+        tafFwUpdate.SetActivateItemStatus("bank_switch", false);
+        tafFwUpdate.SetActivateItemStatus("telaf", false);
+        tafFwUpdate.SetActivateItemStatus("rootfs", false);
+        tafFwUpdate.SetActivateItemStatus("firmware", false);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get previous version.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::GetPreviousVersion
+(
+    const char* item, ///< [OUT] Activation item.
+    char* version,    ///< [OUT] Previous version.
+    size_t verSize    ///< [IN] Version size;
+)
+{
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_ACTIVATE_CONTEXT);
+    if (strncmp(item, "telaf", strlen(item)) == 0)
+    {
+        le_cfg_GetString(rdIter, "telaf_version", version, verSize, "");
+    }
+    else if (strncmp(item, "rootfs", strlen(item)) == 0)
+    {
+        le_cfg_GetString(rdIter, "rootfs_version", version, verSize, "");
+    }
+    else if (strncmp(item, "firmware", strlen(item)) == 0)
+    {
+        le_cfg_GetString(rdIter, "firmware_version", version, verSize, "");
+    }
+
+    le_cfg_CancelTxn(rdIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get previous bank from activation context in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::GetPreviousBank
+(
+    taf_update_Bank_t* bank ///< [OUT] Bank.
+)
+{
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_ACTIVATE_CONTEXT);
+    *bank = (taf_update_Bank_t)le_cfg_GetInt(rdIter, "previous_bank", 0);
+    le_cfg_CancelTxn(rdIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get activation state from activation context in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::GetActivationState
+(
+    taf_update_State_t* state ///< [OUT] Activation state.
+)
+{
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_ACTIVATE_CONTEXT);
+    *state = (taf_update_State_t)le_cfg_GetInt(rdIter, "state", 0);
+    le_cfg_CancelTxn(rdIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get item to be activated from config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::GetItemForActivation
+(
+    char* item,     ///< [OUT] Activation item.
+    size_t itemLen, ///< [IN] Activation item name length.
+    uint32_t* index ///< [IN] Activation item node index.
+)
+{
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_ACTIVATE_CONTEXT);
+    le_cfg_GoToNode(rdIter, "item");
+
+    if (le_cfg_GoToFirstChild(rdIter) == LE_NOT_FOUND)
+    {
+        LE_WARN("No item to be activated.");
+        le_cfg_CancelTxn(rdIter);
+        return false;
+    }
+
+    bool activated = false;
+    uint32_t i = 0;
+    do
+    {
+        i++;
+        le_cfg_GetNodeName(rdIter, "", item, itemLen);
+
+        activated = le_cfg_GetBool(rdIter, "activated", false);
+        if (!activated)
+            break;
+    }
+    while (le_cfg_GoToNextSibling(rdIter) == LE_OK);
+
+    le_cfg_CancelTxn(rdIter);
+    *index = i;
+
+    return activated;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get activation item count.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_FwUpdate::GetActivationItemCount
+(
+    void
+)
+{
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_ACTIVATE_CONTEXT);
+    le_cfg_GoToNode(rdIter, "item");
+
+    if (le_cfg_GoToFirstChild(rdIter) == LE_NOT_FOUND)
+    {
+        LE_WARN("No item to be activated.");
+        le_cfg_CancelTxn(rdIter);
+        return 0;
+    }
+
+    uint32_t i = 0;
+    do
+    {
+        i++;
+    }
+    while (le_cfg_GoToNextSibling(rdIter) == LE_OK);
+
+    le_cfg_CancelTxn(rdIter);
+
+    return i;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Check if bank is swicthed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -109,26 +633,14 @@ bool taf_FwUpdate::IsBankSwitched
 {
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
-    taf_update_Bank_t bootBank = TAF_UPDATE_BANK_UNKNOWN;
-    tafFwUpdate.GetActiveBank(&bootBank);
+    taf_update_Bank_t currBank = TAF_UPDATE_BANK_UNKNOWN;
+    taf_update_Bank_t prevBank = TAF_UPDATE_BANK_UNKNOWN;
 
-    if (access(TAF_FWUPDATE_PREVIOUS_BANK, F_OK) == 0)
-    {
-        taf_update_Bank_t previousBank = TAF_UPDATE_BANK_UNKNOWN;
-        FILE* fp = fopen(TAF_FWUPDATE_PREVIOUS_BANK, "r");
-        fread(&previousBank, sizeof(taf_update_Bank_t), 1, fp);
-        fclose(fp);
+    tafFwUpdate.GetActiveBank(&currBank);
+    tafFwUpdate.GetPreviousBank(&prevBank);
 
-        if (previousBank != bootBank)
-            return true;
-    }
-    else
-    {
-        FILE* fp = fopen(TAF_FWUPDATE_PREVIOUS_BANK, "w");
-        fwrite(&bootBank, sizeof(taf_update_Bank_t), 1, fp);
-        fflush(fp);
-        fclose(fp);
-    }
+    if (currBank != prevBank)
+        return true;
 
     return false;
 }
@@ -165,7 +677,6 @@ void taf_FwUpdate::UpdateProgress
 )
 {
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    taf_FwUpdateTimerOp_t timerOp;
 
     // 1. Update state.
     switch (state)
@@ -173,18 +684,22 @@ void taf_FwUpdate::UpdateProgress
         case TAF_UPDATE_INSTALLING:
             LE_INFO("Installing %d%%...", tafFwUpdate.percent);
             break;
+        case TAF_UPDATE_INSTALL_PAUSED:
+            LE_INFO("Installing %d%% paused...", tafFwUpdate.percent);
+            tafFwUpdate.SetState(TAF_UPDATE_INSTALL_PAUSED);
+            break;
         case TAF_UPDATE_INSTALL_FAIL:
             LE_INFO("Install failed.");
-            timerOp = TAF_FWUPDATE_TIMER_OP_INST_STOP;
-            le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
             tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             break;
         case TAF_UPDATE_INSTALL_SUCCESS:
             LE_INFO("Install success.");
-            timerOp = TAF_FWUPDATE_TIMER_OP_INST_STOP;
-            le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
-            tafFwUpdate.SetState(TAF_UPDATE_INSTALL_SUCCESS);
+            tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             tafFwUpdate.error = TAF_UPDATE_IMAGE_NOT_VERFIED;
+            break;
+        case TAF_UPDATE_PROBATION_PAUSED:
+            LE_INFO("Probation %d%% paused...", tafFwUpdate.percent);
+            tafFwUpdate.SetState(TAF_UPDATE_PROBATION_PAUSED);
             break;
         case TAF_UPDATE_PROBATION_SUCCESS:
             LE_INFO("Probation success.");
@@ -192,7 +707,7 @@ void taf_FwUpdate::UpdateProgress
             break;
         case TAF_UPDATE_PROBATION_FAIL:
             LE_INFO("Probation failed.");
-            tafFwUpdate.SetState(TAF_UPDATE_PROBATION_FAIL);
+            tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             break;
         case TAF_UPDATE_SYNCHRONIZING:
             LE_INFO("A-B bank sync is in progress, completed %d%%...", tafFwUpdate.percent);
@@ -247,41 +762,6 @@ le_result_t taf_FwUpdate::SendPipeCmd(const char* cmd, const char* mod)
     TAF_ERROR_IF_RET_VAL(res != 0, LE_FAULT, "pclose errno(%d), result(%d).", errno, res);
 
     return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Install timer handler.
- */
-//--------------------------------------------------------------------------------------------------
-void taf_FwUpdate::InstallTimerHandler
-(
-    le_timer_Ref_t timerRef ///< [IN] Timer reference.
-)
-{
-    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-
-    uint32_t time = le_timer_GetExpiryCount(timerRef);
-
-    if (tafFwUpdate.totalTime)
-    {
-        tafFwUpdate.percent = time * 100 / tafFwUpdate.totalTime;
-        if (tafFwUpdate.percent > 100)
-        {
-            tafFwUpdate.percent = 100;
-            LE_INFO("Waiting to complete the installation...");
-            taf_FwUpdateTimerOp_t timerOp = TAF_FWUPDATE_TIMER_OP_INST_STOP;
-            le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
-        }
-    }
-    else
-    {
-        LE_WARN("Can not estimate time for installation.");
-        taf_FwUpdateTimerOp_t timerOp = TAF_FWUPDATE_TIMER_OP_INST_STOP;
-        le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
-    }
-
-    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALLING);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -463,6 +943,482 @@ le_result_t taf_FwUpdate::InstallPreCheck
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Check if the patch file exist.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::IsPatchExist
+(
+    const char* filePath, ///< [IN] File path.
+    const char* patchPath ///< [IN] Patch path.
+)
+{
+    char tmp[TAF_FWUPDATE_CMD_LEN];
+    snprintf(tmp, sizeof(tmp), "unzip -jo %s %s -d /data/", filePath, patchPath);
+
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    tafFwUpdate.SendPipeCmd(tmp, "w");
+    tafFwUpdate.SendPipeCmd("sync", "w");
+
+    snprintf(tmp, sizeof(tmp), "/data/%s", patchPath);
+
+    struct stat st;
+    if (stat(tmp, &st) == -1)
+    {
+        LE_WARN("%s not exists.", tmp);
+        return false;
+    }
+
+    unlink(tmp);
+
+    if (st.st_size == 0)
+    {
+        LE_INFO("%s is empty.", tmp);
+        return false;
+    }
+
+    return true;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check if it is delta update.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::IsDeltaUpdate
+(
+    const char* filePath ///< [IN] File path.
+)
+{
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    if (tafFwUpdate.IsPatchExist(filePath, "telaf.patch.dat"))
+    {
+        LE_INFO("Delta update with telaf.");
+        return true;
+    }
+
+    if (tafFwUpdate.IsPatchExist(filePath, "system.patch.dat"))
+    {
+        LE_INFO("Delta update with rootfs.");
+        return true;
+    }
+
+    if (tafFwUpdate.IsPatchExist(filePath, "modem.patch.dat"))
+    {
+        LE_INFO("Delta update with firmware.");
+        return true;
+    }
+
+    if (tafFwUpdate.IsPatchExist(filePath, "lxcrootfs.patch.dat"))
+    {
+        LE_INFO("Delta update with lxc.");
+        return true;
+    }
+
+    if (tafFwUpdate.IsPatchExist(filePath, "patch/boot.img.p"))
+    {
+        LE_INFO("Delta update with boot.");
+        return true;
+    }
+
+    return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Unpack image.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::UnpackImage
+(
+    const char* filePath,  ///< [IN] File path.
+    const char* imagePath, ///< [IN] Image path.
+    uint32_t* pageNum      ///< [OUT] Page number.
+)
+{
+    char tmp[TAF_FWUPDATE_CMD_LEN];
+    snprintf(tmp, sizeof(tmp), "unzip -jo %s %s -d /data/", filePath, imagePath);
+
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    tafFwUpdate.SendPipeCmd(tmp, "w");
+    tafFwUpdate.SendPipeCmd("sync", "w");
+
+    snprintf(tmp, sizeof(tmp), "/data/%s", imagePath);
+
+    struct stat st;
+    if (stat(tmp, &st) == -1)
+    {
+        LE_WARN("%s not exists.", tmp);
+        return false;
+    }
+    else if (st.st_size == 0)
+    {
+        LE_INFO("%s is empty.", tmp);
+        return false;
+    }
+
+    if (st.st_size % TAF_FWUPDATE_FLASH_PAGE_SIZE)
+    {
+        *pageNum = (uint32_t)st.st_size / TAF_FWUPDATE_FLASH_PAGE_SIZE + 1;
+    }
+    else
+    {
+        *pageNum = (uint32_t)st.st_size / TAF_FWUPDATE_FLASH_PAGE_SIZE;
+    }
+
+    return true;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Update image with install context in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::UpdateImage
+(
+    void
+)
+{
+    uint32_t pages = 0;
+    char image[TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN];
+    char dataPath[TAF_UPDATE_FILE_PATH_LEN];
+    uint8_t buffer[TAF_FWUPDATE_FLASH_PAGE_SIZE];
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    // 1. Get partition layout.
+    taf_lib_flash_PartitionList_t list;
+    le_result_t result = taf_lib_flash_GetPartitionList(&list);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to get partition list");
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        return;
+    }
+
+    // 2. Get the next image for update.
+    bool hasImageToUpdate = !tafFwUpdate.GetImageForUpdate(image, sizeof(image));
+    while (hasImageToUpdate)
+    {
+        if (!tafFwUpdate.GetPauseAction())
+        {
+            // 3. Find the partition for flash access.
+            uint32_t i =0;
+            for (i = 0; i < list.number; i++)
+            {
+                if ((strlen(image) == strlen(list.partition[i].name)) &&
+                    (strncmp(image, list.partition[i].name, strlen(image)) == 0))
+                    break;
+            }
+
+            if (i == list.number)
+            {
+                LE_ERROR("Fail to find partition %s from layout.", image);
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                return;
+            }
+
+            // 4. Open image data file for read.
+            pages = tafFwUpdate.GetImagePageNumber(image);
+
+            // 5. Get image information from config tree.
+            GetImageDataPath(image, dataPath, sizeof(dataPath));
+            FILE *fp = fopen(dataPath, "r");
+            if (fp == NULL)
+            {
+                printf("File %s not exists.", dataPath);
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                return;
+            }
+
+            // 6. Open partition for read and write.
+            result = taf_lib_flash_OpenPartition(&list.partition[i], O_RDWR);
+            if (result != LE_OK)
+            {
+                LE_ERROR("Fail to open partition %s.", list.partition[i].name);
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                fclose(fp);
+                return;
+            }
+
+            // 7. Erase MTD partition or UBI volume.
+            if (list.partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
+            {
+                uint32_t blockNum = list.partition[i].size / list.partition[i].eraseSize;
+                LE_INFO("Erasing %d blocks in MTD partition %s.", blockNum,
+                    list.partition[i].name);
+                for (uint32_t k = 0; k < blockNum; k++)
+                {
+                    bool isBad = false;
+                    result = taf_lib_flash_IsMtdBadBlock(&list.partition[i], k, &isBad);
+                    if (result != LE_OK)
+                    {
+                        LE_ERROR("Fail to get block %d status.", k);
+                        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                        fclose(fp);
+                        return;
+                    }
+
+                    if (isBad)
+                    {
+                        LE_WARN("Bad block detected at %d", k);
+                    }
+                    else
+                    {
+                        result = taf_lib_flash_EraseMtdBlock(&list.partition[i], k);
+                        if (result != LE_OK)
+                        {
+                            LE_ERROR("Fail to erase block %d.", i);
+                            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                            fclose(fp);
+                            return;
+                        }
+                    }
+                }
+                LE_INFO("MTD partition %s is erased.", list.partition[i].name);
+            }
+            else
+            {
+                LE_INFO("Erasing UBI volume %s.", list.partition[i].name);
+                result = taf_lib_flash_EraseUbiVol(&list.partition[i]);
+                if (result != LE_OK)
+                {
+                    LE_ERROR("Fail to erase volume %s.", list.partition[i].name);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                    fclose(fp);
+                    return;
+                }
+
+                LE_INFO("UBI volume %s is erased.", list.partition[i].name);
+
+                result = taf_lib_flash_SetUbiVolUpSize(&list.partition[i],
+                    pages * TAF_FWUPDATE_FLASH_PAGE_SIZE);
+                if (result != LE_OK)
+                {
+                    LE_ERROR("Fail to set volume %s upgrade size.", list.partition[i].name);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                    fclose(fp);
+                    return;
+                }
+            }
+
+            // 8. Perform flash write.
+            uint32_t pageUpdated = tafFwUpdate.GetPageNumber(false);
+            uint32_t totalPages = tafFwUpdate.GetPageNumber(true);
+            uint32_t percent = tafFwUpdate.percent;
+            for (uint32_t j = 0; j < pages; j++)
+            {
+                int ret = fread(buffer, 1, TAF_FWUPDATE_FLASH_PAGE_SIZE, fp);
+                if (ret < TAF_FWUPDATE_FLASH_PAGE_SIZE)
+                {
+                    memset(buffer + ret, 0xFF, TAF_FWUPDATE_FLASH_PAGE_SIZE - ret);
+                    LE_INFO("Padding 0xFF in %s at page %d, start at %d.\n",
+                        list.partition[i].name, j, ret);
+                }
+
+                result = taf_lib_flash_WritePartition(&list.partition[i],
+                    j * TAF_FWUPDATE_FLASH_PAGE_SIZE, buffer, TAF_FWUPDATE_FLASH_PAGE_SIZE);
+                if (result != LE_OK)
+                {
+                    LE_ERROR("Can not to write %s at page %d.", list.partition[i].name, j);
+                }
+
+                percent = (pageUpdated + j) * 100 / totalPages;
+                if (percent != tafFwUpdate.percent)
+                {
+                    tafFwUpdate.percent = percent;
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALLING);
+                }
+            }
+
+            // 9. Close partition for read and write.
+            result = taf_lib_flash_ClosePartition(&list.partition[i]);
+            if (result != LE_OK)
+            {
+                LE_ERROR("Fail to close partition %s.", list.partition[i].name);
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                fclose(fp);
+                return;
+            }
+
+            fclose(fp);
+
+            LE_INFO("%s is updated.", list.partition[i].name);
+
+            unlink(dataPath);
+            tafFwUpdate.SetImageStatus(image, true);
+            tafFwUpdate.SetPageNumber(false, pageUpdated + pages);
+
+            hasImageToUpdate = !tafFwUpdate.GetImageForUpdate(image, sizeof(image));
+        }
+        else
+        {
+            LE_INFO("Paused during update.");
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_PAUSED);
+            return;
+        }
+    }
+
+    taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
+    result = tafFwUpdate.GetActiveBank(&bank);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to get active bank.");
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        return;
+    }
+    else
+    {
+        if (bank == TAF_UPDATE_BANK_A)
+        {
+            result = tafFwUpdate.SetActiveBank(TAF_UPDATE_BANK_B);
+        }
+        else if (bank == TAF_UPDATE_BANK_B)
+        {
+            result = tafFwUpdate.SetActiveBank(TAF_UPDATE_BANK_A);
+        }
+
+        if (bank == TAF_UPDATE_BANK_UNKNOWN || result != LE_OK)
+        {
+            LE_ERROR("Fail to set active bank.");
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+            return;
+        }
+
+        tafFwUpdate.SetActivationContext(TAF_UPDATE_INSTALL_SUCCESS, bank);
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start installation.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::StartInstall
+(
+    const char* filePath ///< [IN] File path.
+)
+{
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    tafFwUpdate.SetPauseAction(false);
+    taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
+    if (tafFwUpdate.GetActiveBank(&bank) != LE_OK)
+    {
+        LE_ERROR("Fail to get active bank.");
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+    }
+
+    uint32_t totalPage = 0;
+    uint32_t imagePage = 0;
+    if (tafFwUpdate.UnpackImage(filePath, "telaf.new.dat", &imagePage))
+    {
+        LE_INFO("Detect telaf to be updated.");
+
+        if (bank == TAF_UPDATE_BANK_A)
+        {
+            tafFwUpdate.SetImageStatus("telaf_b", false);
+            tafFwUpdate.SetImagePageNumber("telaf_b", imagePage);
+            tafFwUpdate.SetImageDataPath("telaf_b", "/data/telaf.new.dat");
+        }
+        else if (bank == TAF_UPDATE_BANK_B)
+        {
+            tafFwUpdate.SetImageStatus("telaf_a", false);
+            tafFwUpdate.SetImagePageNumber("telaf_a", imagePage);
+            tafFwUpdate.SetImageDataPath("telaf_a", "/data/telaf.new.dat");
+        }
+
+        totalPage += imagePage;
+    }
+
+    if (tafFwUpdate.UnpackImage(filePath, "system.new.dat", &imagePage))
+    {
+        LE_INFO("Detect rootfs to be updated.");
+
+        if (bank == TAF_UPDATE_BANK_A)
+        {
+            tafFwUpdate.SetImageStatus("rootfs_b", false);
+            tafFwUpdate.SetImagePageNumber("rootfs_b", imagePage);
+            tafFwUpdate.SetImageDataPath("rootfs_b", "/data/system.new.dat");
+        }
+        else if (bank == TAF_UPDATE_BANK_B)
+        {
+            tafFwUpdate.SetImageStatus("rootfs_a", false);
+            tafFwUpdate.SetImagePageNumber("rootfs_a", imagePage);
+            tafFwUpdate.SetImageDataPath("rootfs_a", "/data/system.new.dat");
+        }
+
+        totalPage += imagePage;
+    }
+
+    if (tafFwUpdate.UnpackImage(filePath, "modem.new.dat", &imagePage))
+    {
+        LE_INFO("Detect firmware to be updated.");
+
+        if (bank == TAF_UPDATE_BANK_A)
+        {
+            tafFwUpdate.SetImageStatus("firmware_b", false);
+            tafFwUpdate.SetImagePageNumber("firmware_b", imagePage);
+            tafFwUpdate.SetImageDataPath("firmware_b", "/data/modem.new.dat");
+        }
+        else if (bank == TAF_UPDATE_BANK_B)
+        {
+            tafFwUpdate.SetImageStatus("firmware_a", false);
+            tafFwUpdate.SetImagePageNumber("firmware_a", imagePage);
+            tafFwUpdate.SetImageDataPath("firmware_a", "/data/modem.new.dat");
+        }
+
+        totalPage += imagePage;
+    }
+
+    if (tafFwUpdate.UnpackImage(filePath, "lxcrootfs.new.dat", &imagePage))
+    {
+        LE_INFO("Detect lxcrootfs to be updated.");
+
+        if (bank == TAF_UPDATE_BANK_A)
+        {
+            tafFwUpdate.SetImageStatus("lxcrootfs_b", false);
+            tafFwUpdate.SetImagePageNumber("lxcrootfs_b", imagePage);
+            tafFwUpdate.SetImageDataPath("lxcrootfs_b", "/data/lxcrootfs.new.dat");
+        }
+        else if (bank == TAF_UPDATE_BANK_B)
+        {
+            tafFwUpdate.SetImageStatus("lxcrootfs_a", false);
+            tafFwUpdate.SetImagePageNumber("lxcrootfs_a", imagePage);
+            tafFwUpdate.SetImageDataPath("lxcrootfs_a", "/data/lxcrootfs.new.dat");
+        }
+
+        totalPage += imagePage;
+    }
+
+    if (tafFwUpdate.UnpackImage(filePath, "boot.img", &imagePage))
+    {
+        LE_INFO("Detect boot to be updated.");
+
+        if (bank == TAF_UPDATE_BANK_A)
+        {
+            tafFwUpdate.SetImageStatus("boot_b", false);
+            tafFwUpdate.SetImagePageNumber("boot_b", imagePage);
+            tafFwUpdate.SetImageDataPath("boot_b", "/data/boot.img");
+        }
+        else if (bank == TAF_UPDATE_BANK_B)
+        {
+            tafFwUpdate.SetImageStatus("boot", false);
+            tafFwUpdate.SetImagePageNumber("boot", imagePage);
+            tafFwUpdate.SetImageDataPath("boot", "/data/boot.img");
+        }
+
+        totalPage += imagePage;
+    }
+
+    tafFwUpdate.SetPageNumber(true, totalPage);
+    tafFwUpdate.SetPageNumber(false, 0);
+
+    tafFwUpdate.UpdateImage();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Install firmware.
  */
 //--------------------------------------------------------------------------------------------------
@@ -486,20 +1442,16 @@ void taf_FwUpdate::InstallFirmware
         return;
     }
 
-    // 3. Evaluate time for installation.
-    ifstream infile(filePath);
-    infile.seekg (0, ios::end);
-    tafFwUpdate.totalTime = (uint32_t)(infile.tellg() / TAF_FWUPDATE_PROC_DATA_RATE);
-    LE_INFO("Estimate to complete installation in %d s.", tafFwUpdate.totalTime);
-    infile.close();
-
-    // 4. Start timer to report progress.
-    taf_FwUpdateTimerOp_t timerOp = TAF_FWUPDATE_TIMER_OP_INST_START;
-    le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
+    // 3. Check if it is delta update.
+    if (!tafFwUpdate.IsDeltaUpdate(filePath))
+    {
+        tafFwUpdate.StartInstall(filePath);
+        return;
+    }
 
     // 5. Install pacackeg with recovery client.
     LE_INFO("recovery client installing.");
-    char instCmd[TAF_FWUPDATE_INSTALL_CMD_LEN];
+    char instCmd[TAF_FWUPDATE_CMD_LEN];
     snprintf(instCmd, sizeof(instCmd), "recovery --update_package=%s", filePath);
     if (tafFwUpdate.SendPipeCmd(instCmd, "w") != LE_OK)
     {
@@ -549,52 +1501,354 @@ void taf_FwUpdate::InstallFirmware
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Firmware installation post-check.
- *
- * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ * Calculate Hash of a file
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_FwUpdate::InstallPostCheck
+le_result_t taf_FwUpdate::CalFileHash
+(
+    const char* filePath, ///< [IN] File path of the image data.
+    uint32_t* calSize,    ///< [OUT] Size of file for calculation.
+    uint8_t* hash,        ///< [OUT] Hash of a file.
+    unsigned int* hashLen ///< [OUT] Hash length.
+)
+{
+    FILE *file = fopen(filePath, "rb");
+    if (!file)
+    {
+        LE_ERROR("Fail to open %s.", filePath);
+        return LE_FAULT;
+    }
+
+    EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
+    const EVP_MD *md = EVP_sha1();
+    if (EVP_DigestInit_ex(md_ctx, md, NULL) != 1)
+    {
+        LE_ERROR("Fail to initiate sha1 context.");
+        EVP_MD_CTX_free(md_ctx);
+        return LE_FAULT;
+    }
+
+    uint8_t content[TAF_FWUPDATE_FLASH_PAGE_SIZE];
+    int bytes = 0;
+    while ((bytes = fread(content, 1, TAF_FWUPDATE_FLASH_PAGE_SIZE, file)) != 0)
+    {
+        EVP_DigestUpdate(md_ctx, content, bytes);
+        *calSize += bytes;
+    }
+
+    EVP_DigestFinal_ex(md_ctx, hash, hashLen);
+    EVP_MD_CTX_free(md_ctx);
+
+    fclose(file);
+    LE_INFO("%s sha1 hash calculated.", filePath);
+    for (unsigned int i = 0; i < *hashLen; ++i)
+    {
+        printf("%02x", hash[i]);
+    }
+    printf("\n");
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Calculate Hash of a partition
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::CalPartitionHash
+(
+    const char* partition, ///< [IN] Partition name.
+    uint32_t calSize,      ///< [IN] Partition size for calculation.
+    uint8_t* hash,         ///< [OUT] Hash of a partition.
+    unsigned int* hashLen  ///< [OUT] Hash length.
+)
+{
+    taf_lib_flash_PartitionList_t list;
+    le_result_t result = taf_lib_flash_GetPartitionList(&list);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Get partition list failed.");
+        return LE_FAULT;
+    }
+
+    uint32_t i = 0;
+    for (i = 0; i < list.number; i++)
+    {
+        if (strncmp(partition, list.partition[i].name, strlen(partition)) == 0 &&
+            strlen(partition) == strlen(list.partition[i].name))
+            break;
+    }
+
+    if (i == list.number)
+    {
+        LE_ERROR("Partition %s not found.", partition);
+        return LE_FAULT;
+    }
+
+    result = taf_lib_flash_OpenPartition(&list.partition[i], O_RDONLY);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to open partition %s.", partition);
+        return LE_FAULT;
+    }
+
+    EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
+    const EVP_MD *md = EVP_sha1();
+    if (EVP_DigestInit_ex(md_ctx, md, NULL) != 1)
+    {
+        LE_ERROR("Fail to initiate sha1 context.");
+        EVP_MD_CTX_free(md_ctx);
+        return LE_FAULT;
+    }
+
+    uint8_t content[TAF_FWUPDATE_FLASH_PAGE_SIZE];
+    size_t bytes = 0;
+    uint32_t iteration = calSize / TAF_FWUPDATE_FLASH_PAGE_SIZE;
+    for (uint32_t j = 0; j < iteration; j++)
+    {
+        bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
+        result = taf_lib_flash_ReadPartition(&list.partition[i], j * TAF_FWUPDATE_FLASH_PAGE_SIZE,
+            content, &bytes);
+        if (result != LE_OK)
+        {
+            LE_ERROR("Fail to read partition %s at iteration %d.", partition, j);
+            EVP_MD_CTX_free(md_ctx);
+            return LE_FAULT;
+        }
+
+        EVP_DigestUpdate(md_ctx, content, bytes);
+    }
+
+    bytes = calSize % TAF_FWUPDATE_FLASH_PAGE_SIZE;
+    if (bytes != 0)
+    {
+        result = taf_lib_flash_ReadPartition(&list.partition[i],
+            iteration * TAF_FWUPDATE_FLASH_PAGE_SIZE, content, &bytes);
+        if (result != LE_OK)
+        {
+            LE_ERROR("Fail to read the reset of partition %s.", partition);
+            EVP_MD_CTX_free(md_ctx);
+            return LE_FAULT;
+        }
+
+        EVP_DigestUpdate(md_ctx, content, bytes);
+    }
+
+    EVP_DigestFinal_ex(md_ctx, hash, hashLen);
+    EVP_MD_CTX_free(md_ctx);
+
+    LE_INFO("%s sha1 hash calculated.", partition);
+    for (unsigned int i = 0; i < *hashLen; ++i)
+    {
+        printf("%02x", hash[i]);
+    }
+    printf("\n");
+
+     // 7. Close partition.
+    result = taf_lib_flash_ClosePartition(&list.partition[i]);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to close partition.");
+        return LE_FAULT;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Verify hash.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::VerifyHash
+(
+    const char* partition, ///< [IN] Partition name.
+    const char* filePath   ///< [IN] File path of the image data.
+)
+{
+    uint8_t fileHash[SHA_DIGEST_LENGTH];
+    uint8_t partHash[SHA_DIGEST_LENGTH];
+    unsigned int fileHashLen = sizeof(fileHash);
+    unsigned int partHashLen = sizeof(partHash);
+    uint32_t calSize = 0;
+
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    le_result_t result = tafFwUpdate.CalFileHash(filePath, &calSize, fileHash, &fileHashLen);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to calculate %s hash.", filePath);
+        return false;
+    }
+
+    result = tafFwUpdate.CalPartitionHash(partition, calSize, partHash, &partHashLen);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to calculate %s hash.", partition);
+        return false;
+    }
+
+    if (partHashLen != fileHashLen)
+    {
+        LE_ERROR("Hash output length not equal.");
+        return false;
+    }
+
+    for (unsigned int i = 0; i < partHashLen; i++)
+    {
+        if (fileHash[i] != partHash[i])
+        {
+            LE_ERROR("Hash verified with failure at %d.", i);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Firmware installation post-check.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::InstallPostCheck
 (
     const char* filePath ///< [IN] File path.
 )
 {
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
-    LE_INFO("recovery client start post-check.");
-    char instCmd[TAF_FWUPDATE_INSTALL_CMD_LEN];
-    snprintf(instCmd, sizeof(instCmd), "recovery --update_package=%s:--post_verify", filePath);
-    if (tafFwUpdate.SendPipeCmd(instCmd, "w") != LE_OK)
+    taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
+    if (tafFwUpdate.GetActiveBank(&bank) != LE_OK)
     {
-        LE_ERROR("Fail to send pipe cmd.");
-        return LE_FAULT;
+        LE_ERROR("Fail to get active bank.");
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        return;
     }
 
-    LE_INFO("Checking post-check log.");
-    ifstream fin(TAF_FWUPDATE_RECOVERY_LOG_FILE);
-    string strline;
-    int line = 0;
-    le_result_t ret = LE_OK;
-    while (getline(fin, strline))
+    uint32_t imagePage = 0;
+    bool verified = false;
+    if (tafFwUpdate.UnpackImage(filePath, "telaf.new.dat", &imagePage))
     {
-        line++;
-        if (strline.find("--post_verify") != string::npos)
+        LE_INFO("Install post-check on telaf.");
+
+        if (bank == TAF_UPDATE_BANK_A)
         {
-            LE_DEBUG("Found --post_verify in line %d", line);
-            ret = LE_OK;
+            verified = tafFwUpdate.VerifyHash("telaf_b", "/data/telaf.new.dat");
+        }
+        else if (bank == TAF_UPDATE_BANK_B)
+        {
+            verified = tafFwUpdate.VerifyHash("telaf_a", "/data/telaf.new.dat");
         }
 
-        if (strline.find("partition has unexpected contents after OTA update") != string::npos)
+        if (!verified || bank == TAF_UPDATE_BANK_UNKNOWN)
         {
-            LE_DEBUG("Found verification failure in line %d", line);
-            ret = LE_FAULT;
+            LE_ERROR("Post-check failure on telaf.");
+            tafFwUpdate.error = TAF_UPDATE_SECURITY_FAILURE;
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+            return;
         }
+
+        LE_INFO("Install post-check on telaf success.");
     }
-    fin.close();
 
-    return ret;
+    if (tafFwUpdate.UnpackImage(filePath, "system.new.dat", &imagePage))
+    {
+        LE_INFO("Install post-check on rootfs.");
+
+        if (bank == TAF_UPDATE_BANK_A)
+        {
+            verified = tafFwUpdate.VerifyHash("rootfs_b", "/data/system.new.dat");
+        }
+        else if (bank == TAF_UPDATE_BANK_B)
+        {
+            verified = tafFwUpdate.VerifyHash("rootfs_a", "/data/system.new.dat");
+        }
+
+        if (!verified || bank == TAF_UPDATE_BANK_UNKNOWN)
+        {
+            LE_ERROR("Post-check failure on rootfs.");
+            tafFwUpdate.error = TAF_UPDATE_SECURITY_FAILURE;
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+            return;
+        }
+
+        LE_INFO("Install post-check on rootfs success.");
+    }
+
+    if (tafFwUpdate.UnpackImage(filePath, "modem.new.dat", &imagePage))
+    {
+        LE_INFO("Install post-check on firmware.");
+
+        if (bank == TAF_UPDATE_BANK_A)
+        {
+            verified = tafFwUpdate.VerifyHash("firmware_b", "/data/modem.new.dat");
+        }
+        else if (bank == TAF_UPDATE_BANK_B)
+        {
+            verified = tafFwUpdate.VerifyHash("firmware_a", "/data/modem.new.dat");
+        }
+
+        if (!verified || bank == TAF_UPDATE_BANK_UNKNOWN)
+        {
+            LE_ERROR("Post-check failure on firmware.");
+            tafFwUpdate.error = TAF_UPDATE_SECURITY_FAILURE;
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+            return;
+        }
+
+        LE_INFO("Install post-check on firmware success.");
+    }
+
+    if (tafFwUpdate.UnpackImage(filePath, "lxcrootfs.new.dat", &imagePage))
+    {
+        LE_INFO("Install post-check on lxcrootfs.");
+
+        if (bank == TAF_UPDATE_BANK_A)
+        {
+            verified = tafFwUpdate.VerifyHash("lxcrootfs_b", "/data/lxcrootfs.new.dat");
+        }
+        else if (bank == TAF_UPDATE_BANK_B)
+        {
+            verified = tafFwUpdate.VerifyHash("lxcrootfs_a", "/data/lxcrootfs.new.dat");
+        }
+
+        if (!verified || bank == TAF_UPDATE_BANK_UNKNOWN)
+        {
+            LE_ERROR("Post-check failure on lxcrootfs.");
+            tafFwUpdate.error = TAF_UPDATE_SECURITY_FAILURE;
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+            return;
+        }
+
+        LE_INFO("Install post-check on lxcrootfs success.");
+    }
+
+    if (tafFwUpdate.UnpackImage(filePath, "boot.img", &imagePage))
+    {
+        LE_INFO("Install post-check on boot.");
+
+        if (bank == TAF_UPDATE_BANK_A)
+        {
+            verified = tafFwUpdate.VerifyHash("boot_b", "/data/boot.img");
+        }
+        else if (bank == TAF_UPDATE_BANK_B)
+        {
+            verified = tafFwUpdate.VerifyHash("boot", "/data/boot.img");
+        }
+
+        if (!verified || bank == TAF_UPDATE_BANK_UNKNOWN)
+        {
+            LE_ERROR("Post-check failure on boot.");
+            tafFwUpdate.error = TAF_UPDATE_SECURITY_FAILURE;
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+            return;
+        }
+
+        LE_INFO("Install post-check on boot success.");
+    }
+
+    tafFwUpdate.error = TAF_UPDATE_NONE;
+    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -655,11 +1909,11 @@ le_result_t taf_FwUpdate::SetActiveBank
     FILE* fp = NULL;
     if (bank == TAF_UPDATE_BANK_A)
     {
-        fp = popen("/usr/bin/nad-abctl --set_acvtive 0", "r");
+        fp = popen("/usr/bin/nad-abctl --set_active 0", "r");
     }
     else if (bank == TAF_UPDATE_BANK_B)
     {
-        fp = popen("/usr/bin/nad-abctl --set_acvtive 1", "r");
+        fp = popen("/usr/bin/nad-abctl --set_active 1", "r");
     }
     else
     {
@@ -905,6 +2159,11 @@ le_result_t taf_FwUpdate::Rollback
 )
 {
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    if (!tafFwUpdate.IsBankSwitched())
+    {
+        LE_ERROR("Bank is not swicthed.");
+        return LE_FAULT;
+    }
 
     taf_update_Bank_t bootBank = TAF_UPDATE_BANK_UNKNOWN;
     if (tafFwUpdate.GetActiveBank(&bootBank) != LE_OK)
@@ -913,176 +2172,248 @@ le_result_t taf_FwUpdate::Rollback
         return LE_FAULT;
     }
 
-    if (access(TAF_FWUPDATE_PREVIOUS_BANK, F_OK) == 0)
-    {
-        FILE* fp = fopen(TAF_FWUPDATE_PREVIOUS_BANK, "w");
-        fwrite(&bootBank, sizeof(taf_update_Bank_t), 1, fp);
-        fflush(fp);
-        fclose(fp);
-    }
-    else
-    {
-        LE_ERROR("Fail to get the previous bank.");
-        return LE_FAULT;
-    }
-
+    taf_update_Bank_t activeBank = TAF_UPDATE_BANK_UNKNOWN;
     if (bootBank == TAF_UPDATE_BANK_A)
-        bootBank = TAF_UPDATE_BANK_B;
+        activeBank = TAF_UPDATE_BANK_B;
     else if (bootBank == TAF_UPDATE_BANK_B)
-        bootBank = TAF_UPDATE_BANK_A;
+        activeBank = TAF_UPDATE_BANK_A;
 
-    if (tafFwUpdate.SetActiveBank(bootBank) != LE_OK)
+    if (tafFwUpdate.SetActiveBank(activeBank) != LE_OK)
     {
         LE_ERROR("Fail to set active bank.");
         return LE_FAULT;
     }
 
+    tafFwUpdate.SetActivationContext(TAF_UPDATE_ROLLBACK_SUCCESS, bootBank);
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Verify activation.
- *
- * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ * Activate with context in config tree.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_FwUpdate::VerifyActivation
+void taf_FwUpdate::ActivateComponent
 (
-    const char* manifest ///< [IN] File path for manifest.
+    void
 )
 {
+    char item[LE_CFG_STR_LEN_BYTES] = { 0 };
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    uint32_t index = 0;
+    char manifest[TAF_UPDATE_FILE_PATH_LEN] = { 0 };
+    bool withMainifest = false;
+    char rootfsCmpVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
+    char telafCmpVer[TAF_TELAF_VERSION_LEN] = {0};
+    char firmwareCmpVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
 
-    if (strncmp(manifest, TAF_FWUPDATE_BYPASS_CHECK_TAG,
-        strlen(TAF_FWUPDATE_BYPASS_CHECK_TAG)) == 0)
+    // 1. Check if activation has been performed.
+    taf_update_State_t state = TAF_UPDATE_PROBATION;
+    tafFwUpdate.GetActivationState(&state);
+    switch (state)
     {
-        LE_INFO("Bypass activation verification.");
-        return LE_OK;
-    }
-
-    std::ifstream manifestFin(manifest);
-    std::string manifestVer;
-
-    char rootfsVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
-    char telafVer[TAF_TELAF_VERSION_LEN] = {0};
-    char firmwareVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
-
-    tafFwUpdate.GetRootfsVersion(rootfsVer);
-    tafFwUpdate.GetTelafVersion(telafVer);
-    le_result_t result = tafFwUpdate.GetFirmwareVersion(firmwareVer);
-    if (result != LE_OK)
-    {
-        LE_ERROR("Fail to get current firmware version.");
-        return LE_FAULT;
-    }
-
-    LE_INFO("Current rootfs version : %s", rootfsVer);
-    LE_INFO("Current telaf version : %s", telafVer);
-    LE_INFO("Current firmware version : %s", firmwareVer);
-
-    // Check if rootfs version is an updated version.
-    getline(manifestFin, manifestVer);
-    size_t pos = manifestVer.find(":");
-    if (pos == string::npos)
-    {
-        LE_ERROR("Invalid character in rootfs version from manifest.");
-        return LE_FAULT;
-    }
-    manifestVer = manifestVer.substr(pos + 1);
-    if (strncmp(manifestVer.c_str(), rootfsVer, strlen(rootfsVer)) != 0)
-    {
-        LE_ERROR("Detect rootfs version %s is not updated.", manifestVer.c_str());
-        return LE_FAULT;
-    }
-    // Check if firmware version is an updated version.
-    getline(manifestFin, manifestVer);
-    pos = manifestVer.find(":");
-    if (pos == string::npos)
-    {
-        LE_ERROR("Invalid character in firmware version from manifest.");
-        return LE_FAULT;
-    }
-    manifestVer = manifestVer.substr(pos + 1);
-    if (strncmp(manifestVer.c_str(), firmwareVer, strlen(firmwareVer)) != 0)
-    {
-        LE_ERROR("Detect firmware version %s is not updated.", manifestVer.c_str());
-        return LE_FAULT;
-    }
-
-    // Check if telaf version is an updated version.
-    getline(manifestFin, manifestVer);
-    pos = manifestVer.find(":");
-    if (pos == string::npos)
-    {
-        LE_ERROR("Invalid character in telaf version from manifest.");
-        return LE_FAULT;
-    }
-    manifestVer = manifestVer.substr(pos + 1);
-    if (strncmp(manifestVer.c_str(), telafVer, strlen(telafVer)) != 0)
-    {
-        LE_ERROR("Detect telaf version %s is not updated.", manifestVer.c_str());
-        return LE_FAULT;
-    }
-
-    // Close file stream.
-    manifestFin.close();
-
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Timer option handler.
- */
-//--------------------------------------------------------------------------------------------------
-void taf_FwUpdate::TimerOpHandler
-(
-    void* contextPtr ///< [IN] Context.
-)
-{
-    taf_FwUpdateTimerOp_t* op = (taf_FwUpdateTimerOp_t*)contextPtr;
-    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-
-    switch (*op)
-    {
-        case TAF_FWUPDATE_TIMER_OP_INST_START:
-            le_timer_Start(tafFwUpdate.instTimerRef);
+        case TAF_UPDATE_PROBATION_SUCCESS:
+            LE_INFO("Activation items have been verified with success.");
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_SUCCESS);
+            return;
+        case TAF_UPDATE_PROBATION_FAIL:
+            LE_ERROR("Activation items have been verified with failure.");
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+            return;
+        case TAF_UPDATE_INSTALL_SUCCESS:
+            LE_INFO("Activation after installion.");
+            withMainifest = true;
             break;
-        case TAF_FWUPDATE_TIMER_OP_INST_STOP:
-            le_timer_Stop(tafFwUpdate.instTimerRef);
+        case TAF_UPDATE_ROLLBACK_SUCCESS:
+            LE_INFO("Activation after rollback.");
             break;
         default:
-            LE_ERROR("Invalid timer option (%d).", *op);
+            LE_ERROR("Invalid activation operation.");
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+            return;
     }
-}
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Timer thread.
- */
-//--------------------------------------------------------------------------------------------------
-void* taf_FwUpdate::TimerThread
-(
-    void* contextPtr ///< [IN] Context.
-)
-{
-    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    // 2. Parse manifest file to get versions.
+    if (withMainifest)
+    {
+        tafFwUpdate.GetManifest(manifest, sizeof(manifest));
+        // Bypass activation.
+        if (strncmp(manifest, TAF_FWUPDATE_BYPASS_CHECK_TAG,
+            strlen(TAF_FWUPDATE_BYPASS_CHECK_TAG)) == 0)
+        {
+            LE_INFO("Bypass activation verification.");
+            tafFwUpdate.SetActivationContext(TAF_UPDATE_PROBATION_SUCCESS,
+                TAF_UPDATE_BANK_UNKNOWN);
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_SUCCESS);
+            return;
+        }
 
-    // 1. Create install timer.
-    tafFwUpdate.instTimerRef = le_timer_Create("Firmware Install Timer");
-    le_timer_SetMsInterval(tafFwUpdate.instTimerRef, 1000);
-    le_timer_SetRepeat(tafFwUpdate.instTimerRef, 0);
-    le_timer_SetHandler(tafFwUpdate.instTimerRef, InstallTimerHandler);
+        std::ifstream manifestFin(manifest);
+        std::string manifestVer;
 
-    // 2. Add handler for timer options.
-    le_event_AddHandler("timerOpHandler", fwTimerEvId, TimerOpHandler);
-    le_sem_Post((le_sem_Ref_t)contextPtr);
+        // Get rootfs version from manifest file.
+        getline(manifestFin, manifestVer);
+        size_t pos = manifestVer.find(":");
+        if (pos == string::npos)
+        {
+            LE_ERROR("Invalid character for rootfs version in manifest.");
+            tafFwUpdate.SetActivationContext(TAF_UPDATE_PROBATION_FAIL,
+                TAF_UPDATE_BANK_UNKNOWN);
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+            return;
+        }
+        manifestVer = manifestVer.substr(pos + 1);
+        le_utf8_Copy(rootfsCmpVer, manifestVer.c_str(), TAF_FWUPDATE_MAX_VERS_LEN, NULL);
 
-    le_event_RunLoop();
-    return NULL;
+        // Get firmware version from manifest file.
+        getline(manifestFin, manifestVer);
+        pos = manifestVer.find(":");
+        if (pos == string::npos)
+        {
+            LE_ERROR("Invalid character for firmware version in manifest.");
+            tafFwUpdate.SetActivationContext(TAF_UPDATE_PROBATION_FAIL,
+                TAF_UPDATE_BANK_UNKNOWN);
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+            return;
+        }
+        manifestVer = manifestVer.substr(pos + 1);
+        le_utf8_Copy(firmwareCmpVer, manifestVer.c_str(), TAF_FWUPDATE_MAX_VERS_LEN, NULL);
+
+        // Get telaf version from manifest file.
+        getline(manifestFin, manifestVer);
+        pos = manifestVer.find(":");
+        if (pos == string::npos)
+        {
+            LE_ERROR("Invalid character for telaf version in manifest.");
+            tafFwUpdate.SetActivationContext(TAF_UPDATE_PROBATION_FAIL,
+                TAF_UPDATE_BANK_UNKNOWN);
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+            return;
+        }
+        manifestVer = manifestVer.substr(pos + 1);
+        le_utf8_Copy(telafCmpVer, manifestVer.c_str(), TAF_TELAF_VERSION_LEN, NULL);
+
+        // Close file stream.
+        manifestFin.close();
+    }
+    else
+    {
+        // Get previous version from config tree.
+        GetPreviousVersion("telaf", telafCmpVer, sizeof(telafCmpVer));
+        GetPreviousVersion("rootfs", rootfsCmpVer, sizeof(rootfsCmpVer));
+        GetPreviousVersion("firmware", firmwareCmpVer, sizeof(firmwareCmpVer));
+    }
+
+    // 3. Activate remain items.
+    bool hasItemToActivate = !tafFwUpdate.GetItemForActivation(item, sizeof(item), &index);
+    uint32_t total = tafFwUpdate.GetActivationItemCount();
+    while (hasItemToActivate)
+    {
+        if (!tafFwUpdate.GetActivationPaused())
+        {
+            tafFwUpdate.percent = index * 100 / total;
+            if (strncmp(item, "bank_switch", strlen(item)) == 0)
+            {
+                LE_INFO("Checking if bank is switched...");
+                if (tafFwUpdate.IsBankSwitched())
+                {
+                    LE_INFO("Check bank activation -- PASS.");
+                    tafFwUpdate.SetActivateItemStatus("bank_switch", true);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION);
+                }
+                else
+                {
+                    LE_ERROR("Check bank activation -- FAIL.");
+                    tafFwUpdate.SetActivationContext(TAF_UPDATE_PROBATION_FAIL,
+                        TAF_UPDATE_BANK_UNKNOWN);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+                    return;
+                }
+            }
+
+            if (strncmp(item, "telaf", strlen(item)) == 0)
+            {
+                LE_INFO("Checking telaf version...");
+                char telafVer[TAF_TELAF_VERSION_LEN] = {0};
+                tafFwUpdate.GetTelafVersion(telafVer);
+                LE_INFO("Current telaf version : %s", telafVer);
+                if (strncmp(telafCmpVer, telafVer, strlen(telafVer)) == 0)
+                {
+                    LE_INFO("Check telaf activation -- PASS.");
+                    tafFwUpdate.SetActivateItemStatus("telaf", true);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION);
+                }
+                else
+                {
+                    LE_ERROR("Check telaf activation -- FAIL.");
+                    LE_ERROR("The expected telaf version : %s", telafCmpVer);
+                    tafFwUpdate.SetActivationContext(TAF_UPDATE_PROBATION_FAIL,
+                        TAF_UPDATE_BANK_UNKNOWN);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+                    return;
+                }
+            }
+
+            if (strncmp(item, "rootfs", strlen(item)) == 0)
+            {
+                LE_INFO("Checking rootfs version...");
+                char rootfsVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
+                tafFwUpdate.GetRootfsVersion(rootfsVer);
+                LE_INFO("Current rootfs version : %s", rootfsVer);
+                if (strncmp(rootfsCmpVer, rootfsVer, strlen(rootfsVer)) == 0)
+                {
+                    LE_INFO("Check rootfs activation -- PASS.");
+                    tafFwUpdate.SetActivateItemStatus("rootfs", true);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION);
+                }
+                else
+                {
+                    LE_ERROR("Check rootfs activation -- FAIL.");
+                    LE_ERROR("The expected rootfs version : %s", rootfsCmpVer);
+                    tafFwUpdate.SetActivationContext(TAF_UPDATE_PROBATION_FAIL,
+                        TAF_UPDATE_BANK_UNKNOWN);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+                    return;
+                }
+            }
+
+            if (strncmp(item, "firmware", strlen(item)) == 0)
+            {
+                LE_INFO("Checking firmware version...");
+                char firmwareVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
+                le_result_t result = tafFwUpdate.GetFirmwareVersion(firmwareVer);
+                LE_INFO("Current firmware version : %s", firmwareVer);
+                if (result == LE_OK &&
+                    strncmp(firmwareCmpVer, firmwareVer, strlen(firmwareVer)) == 0)
+                {
+                    LE_INFO("Check firmware activation -- PASS.");
+                    tafFwUpdate.SetActivateItemStatus("firmware", true);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION);
+                }
+                else
+                {
+                    LE_ERROR("Check firmware activation -- FAIL.");
+                    LE_ERROR("The expected firmware version : %s", firmwareCmpVer);
+                    tafFwUpdate.SetActivationContext(TAF_UPDATE_PROBATION_FAIL,
+                        TAF_UPDATE_BANK_UNKNOWN);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+                    return;
+                }
+            }
+
+            hasItemToActivate = !tafFwUpdate.GetItemForActivation(item, sizeof(item), &index);
+        }
+        else
+        {
+            LE_INFO("Paused during activation.");
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_PAUSED);
+            return;
+        }
+    }
+
+    LE_INFO("Activation success.");
+    tafFwUpdate.SetActivationContext(TAF_UPDATE_PROBATION_SUCCESS, TAF_UPDATE_BANK_UNKNOWN);
+    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_SUCCESS);
 }
 
 le_result_t taf_FwUpdate::InitPartitionList()
@@ -2057,7 +3388,7 @@ void taf_FwUpdate::FwUpdateHandler
     switch (state)
     {
         case TAF_UPDATE_IDLE:
-            if (updateReq->event == TAF_FWUPDATE_EV_INSTALL)
+            if (updateReq->event == TAF_FWUPDATE_EV_START_INSTALL)
             {
                 LE_INFO("NAD update start.");
                 tafFwUpdate.error = TAF_UPDATE_NONE;
@@ -2078,92 +3409,24 @@ void taf_FwUpdate::FwUpdateHandler
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
                 }
             }
-            else
+            else if (updateReq->event == TAF_FWUPDATE_EV_START_ACTIVATION)
             {
-                LE_ERROR("Invalid operation (%d) for idle state.", updateReq->event);
-            }
-            break;
-        case TAF_UPDATE_INSTALL_SUCCESS:
-            if (updateReq->event == TAF_FWUPDATE_EV_REBOOT_TO_ACTIVE)
-            {
-                if (tafFwUpdate.IsBankSwitched())
-                {
-                    LE_WARN("Bank is swicthed.");
-                }
-                else
-                {
-                    LE_INFO("Reboot to active bank.");
-
-                    taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
-                    tafFwUpdate.GetActiveBank(&bank);
-                    if (bank == TAF_UPDATE_BANK_A && !tafFwUpdate.IsBankSwitched())
-                        tafFwUpdate.SetActiveBank(TAF_UPDATE_BANK_B);
-                    else if (bank == TAF_UPDATE_BANK_B)
-                        tafFwUpdate.SetActiveBank(TAF_UPDATE_BANK_A);
-                }
-
-                if (reboot(RB_AUTOBOOT) == -1)
-                {
-                    LE_FATAL("Fail to reboot. Errno = %s.", LE_ERRNO_TXT(errno));
-                }
-            }
-            else if (updateReq->event == TAF_FWUPDATE_EV_VERIFY_ACTIVATION)
-            {
-                LE_INFO("Activation verification.");
-                if (tafFwUpdate.VerifyActivation(updateReq->filePath) != LE_OK)
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
-                else
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_SUCCESS);
-
-                taf_update_Bank_t bootBank = TAF_UPDATE_BANK_UNKNOWN;
-                tafFwUpdate.GetActiveBank(&bootBank);
-
-                if (access(TAF_FWUPDATE_PREVIOUS_BANK, F_OK) == 0)
-                {
-                    FILE* fp = fopen(TAF_FWUPDATE_PREVIOUS_BANK, "w");
-                    fwrite(&bootBank, sizeof(taf_update_Bank_t), 1, fp);
-                    fflush(fp);
-                    fclose(fp);
-                }
+                LE_INFO("NAD activation start.");
+                tafFwUpdate.error = TAF_UPDATE_NONE;
+                tafFwUpdate.SetActivationPaused(false);
+                tafFwUpdate.SetState(TAF_UPDATE_PROBATION);
+                tafFwUpdate.SetManifest(updateReq->filePath);
+                tafFwUpdate.ActivateComponent();
             }
             else if (updateReq->event == TAF_FWUPDATE_EV_INSTALL_POST_CHECK)
             {
                 LE_INFO("Installation post check.");
-                if (tafFwUpdate.InstallPostCheck(updateReq->filePath) != LE_OK)
-                {
-                    tafFwUpdate.error = TAF_UPDATE_SECURITY_FAILURE;
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
-                }
-                else
-                {
-                    tafFwUpdate.error = TAF_UPDATE_NONE;
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
-                }
+                tafFwUpdate.InstallPostCheck(updateReq->filePath);
             }
             else if (updateReq->event == TAF_FWUPDATE_EV_ROLLBACK)
             {
-                if (!tafFwUpdate.IsBankSwitched())
-                {
-                    LE_ERROR("Bank is not swicthed.");
-                }
-                else
-                {
-                    LE_INFO("Start rollback before activation.");
-                    if (tafFwUpdate.Rollback() != LE_OK)
-                        tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_FAIL);
-                    else
-                        tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_SUCCESS);
-                }
-            }
-            else
-            {
-                LE_ERROR("Invalid operation (%d) for install success state.", updateReq->event);
-            }
-            break;
-        case TAF_UPDATE_PROBATION_FAIL:
-            if (updateReq->event == TAF_FWUPDATE_EV_ROLLBACK)
-            {
-                LE_INFO("Start rollback after activation.");
+                LE_INFO("Start to rollback.");
+                tafFwUpdate.SetState(TAF_UPDATE_ROLLBACK);
                 if (tafFwUpdate.Rollback() != LE_OK)
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_FAIL);
                 else
@@ -2171,14 +3434,46 @@ void taf_FwUpdate::FwUpdateHandler
             }
             else
             {
-                LE_ERROR("Invalid operation (%d) for probation fail state.", updateReq->event);
+                LE_ERROR("Invalid operation (%d) for idle state.", updateReq->event);
+            }
+            break;
+        case TAF_UPDATE_ROLLBACK:
+            LE_ERROR("Invalid operation for rollback state.");
+            break;
+        case TAF_UPDATE_PROBATION:
+            LE_ERROR("Invalid operation for probation state.");
+            break;
+        case TAF_UPDATE_PROBATION_PAUSED:
+            if (updateReq->event == TAF_FWUPDATE_EV_RESUME_ACTIVATION)
+            {
+                LE_INFO("Resume NAD activation.");
+                tafFwUpdate.SetActivationPaused(false);
+                tafFwUpdate.SetState(TAF_UPDATE_PROBATION);
+                tafFwUpdate.ActivateComponent();
+            }
+            else
+            {
+                LE_ERROR("Invalid operation (%d) for probation state.", updateReq->event);
             }
             break;
         case TAF_UPDATE_SYNCHRONIZING:
             LE_ERROR("Invalid operation for synchronizing state.");
             break;
         case TAF_UPDATE_INSTALLING:
-            LE_ERROR("Invalid operation for installing state.");
+            LE_ERROR("Invalid operation (%d) for installing state.", updateReq->event);
+            break;
+        case TAF_UPDATE_INSTALL_PAUSED:
+            if (updateReq->event == TAF_FWUPDATE_EV_RESUME_INSTALL)
+            {
+                LE_INFO("Resume NAD update.");
+                tafFwUpdate.SetPauseAction(false);
+                tafFwUpdate.SetState(TAF_UPDATE_INSTALLING);
+                tafFwUpdate.UpdateImage();
+            }
+            else
+            {
+                LE_ERROR("Invalid operation (%d) for installing state.", updateReq->event);
+            }
             break;
         default:
             LE_ERROR("Invalid state (%d).", state);
@@ -2195,6 +3490,8 @@ void* taf_FwUpdate::FwUpdateThread
     void* contextPtr ///< [IN] Context
 )
 {
+    le_cfg_ConnectService();
+
     le_event_AddHandler("fwUpdateHandler", fwUpdateEvId, FwUpdateHandler);
     le_sem_Post((le_sem_Ref_t)contextPtr);
 
@@ -2216,21 +3513,12 @@ void taf_FwUpdate::Init
 
     // 1. Create event for firmware update.
     fwUpdateEvId = le_event_CreateId("fwUpdateEvId", sizeof(taf_FwUpdateReq_t));
-    fwTimerEvId = le_event_CreateId("fwTimerEvId", sizeof(taf_FwUpdateTimerOp_t));
     fwSyncHandlerEvId = le_event_CreateId("fwSyncHandlerEvId", sizeof(taf_FwUpdateEvent_t));
     fwStartSyncEvId = le_event_CreateId("fwStartSyncEvId", sizeof(taf_FwUpdateEvent_t));
 
     // 2. Create thread for firmware update.
     le_sem_Ref_t semaphore = le_sem_Create("fwUpdateThreadSem", 0);
     le_thread_Ref_t threadRef = le_thread_Create("fwUpdateThread", FwUpdateThread, (void*)semaphore);
-    le_thread_SetStackSize(threadRef, TAF_UPDATE_THREAD_STACK_SIZE);
-    le_thread_Start(threadRef);
-    le_sem_Wait(semaphore);
-    le_sem_Delete(semaphore);
-
-    // 3. Create thread for timer.
-    semaphore = le_sem_Create("fwTimerThreadSem", 0);
-    threadRef = le_thread_Create("fwTimerThread", TimerThread, (void*)semaphore);
     le_thread_SetStackSize(threadRef, TAF_UPDATE_THREAD_STACK_SIZE);
     le_thread_Start(threadRef);
     le_sem_Wait(semaphore);
@@ -2258,11 +3546,14 @@ void taf_FwUpdate::Init
     {
         case TAF_UPDATE_IDLE:
             break;
-        case TAF_UPDATE_INSTALLING:
-            UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        case TAF_UPDATE_INSTALL_PAUSED:
+            LE_INFO("Install paused.");
             break;
-        case TAF_UPDATE_INSTALL_SUCCESS:
-            LE_INFO("Install success.");
+        case TAF_UPDATE_PROBATION_PAUSED:
+            LE_INFO("Activation paused.");
+            break;
+        case TAF_UPDATE_SYNC_PAUSED:
+            LE_INFO("Sync paused.");
             break;
         case TAF_UPDATE_SYNCHRONIZING:
             {

@@ -735,7 +735,7 @@ void *taf_WlanAPSvcImpl::APWpaCtrlThreadHdlr(void *context)
     size_t len = AP_WPA_CTRL_RSP_BUF_LEN;
     std::string hostapd_path(HOSTAPD_LOCATION_PATH);
     hostapd_path = hostapd_path + ApctxPtr->interfaceName;
-    LE_INFO("hostapd apth: %s", hostapd_path.c_str());
+    LE_INFO("hostapd path: %s", hostapd_path.c_str());
 
     ctrl = wpa_ctrl_open(hostapd_path.c_str());
     if (nullptr == ctrl)

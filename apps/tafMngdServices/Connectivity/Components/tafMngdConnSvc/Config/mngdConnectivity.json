@@ -2,7 +2,7 @@
     "Product": "TelAF",
     "Name": "MngdConn",
     "ManagedConnectivityService": {
-        "Version": "24.07.00",
+        "Version": "24.09.00",
         "Configuration": {
             "Name": "Default",
             "Sim":[
@@ -95,7 +95,8 @@
                     "Level": "None",
                     "StartWaitTime": 30,
                     "RetryWaitTime": 300,
-                    "L1RadioOffOnInterval": 5
+                    "RadioOffOnInterval": 5,
+                    "SimOffOnInterval": 5
                 }
             }
         }

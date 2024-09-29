@@ -14,13 +14,13 @@
 #define DID_CONFIG_TREE_VALUE_FORMAT "diag/DID/%2x/value"
 #define DID_DATA_FORMAT              "data%d"
 
-static le_sem_Ref_t semRef[2];
+static le_sem_Ref_t semRef;
 
 // Diag RDBI/WDBI
-static taf_diagDataID_ServiceRef_t DiagVlanDIDSvcRef[2] = {NULL};
-static taf_diagDataID_RxReadDIDMsgHandlerRef_t DiagVlanRdDIDMsgRef[2] = {NULL};
+static taf_diagDataID_ServiceRef_t DiagVlanDIDSvcRef = {NULL};
+static taf_diagDataID_RxReadDIDMsgHandlerRef_t DiagVlanRdDIDMsgRef = {NULL};
 #ifndef LE_CONFIG_DIAG_VSTACK
-static taf_diagDataID_RxWriteDIDMsgHandlerRef_t DiagVlanWrDIDMsgRef[2] = {NULL};
+static taf_diagDataID_RxWriteDIDMsgHandlerRef_t DiagVlanWrDIDMsgRef = {NULL};
 #endif
 
 /**
@@ -153,65 +153,43 @@ void diagVlanWrDIDMsgHandler
 static void* diagVlanRWDIDMsgThread(void* ctxPtr)
 {
     taf_diagDataID_ConnectService();
-    unsigned long idx = (unsigned long)(uintptr_t)ctxPtr;
-    uint16_t vlanId;
 
-    DiagVlanDIDSvcRef[idx] = taf_diagDataID_GetService();
-    if(DiagVlanDIDSvcRef[idx] == NULL)
+    DiagVlanDIDSvcRef = taf_diagDataID_GetService();
+    if(DiagVlanDIDSvcRef == NULL)
     {
         LE_ERROR("Get diagDataID service");
         return (void*)LE_FAULT;
     }
 
-    if (idx == 0ul)
-    {
-        vlanId = TEST_VLAN_ID_0;
-    }
-    else
-    {
-        vlanId = TEST_VLAN_ID_1;
-    }
-
-    if (taf_diagDataID_SetVlanId(DiagVlanDIDSvcRef[idx], vlanId) != LE_OK)
-    {
-        LE_ERROR("Failed to set vlan id for this service");
-        return (void*)LE_FAULT;
-    }
-
-    DiagVlanRdDIDMsgRef[idx] = taf_diagDataID_AddRxReadDIDMsgHandler(
-                                DiagVlanDIDSvcRef[idx],
-                                diagVlanRdDIDMsgHandler, (void*)idx);
-    LE_TEST_OK(DiagVlanRdDIDMsgRef[idx] != NULL,
+    DiagVlanRdDIDMsgRef = taf_diagDataID_AddRxReadDIDMsgHandler(
+                                DiagVlanDIDSvcRef,
+                                diagVlanRdDIDMsgHandler, NULL);
+    LE_TEST_OK(DiagVlanRdDIDMsgRef != NULL,
                "Registered successfully for diagVlanRdDIDMsgHandler");
 #ifndef LE_CONFIG_DIAG_VSTACK
-    DiagVlanWrDIDMsgRef[idx] = taf_diagDataID_AddRxWriteDIDMsgHandler(
-                                DiagVlanDIDSvcRef[idx],
-                                diagVlanWrDIDMsgHandler, (void*)idx);
-    LE_TEST_OK(DiagVlanWrDIDMsgRef[idx] != NULL,
+    DiagVlanWrDIDMsgRef = taf_diagDataID_AddRxWriteDIDMsgHandler(
+                                DiagVlanDIDSvcRef,
+                                diagVlanWrDIDMsgHandler, NULL);
+    LE_TEST_OK(DiagVlanWrDIDMsgRef != NULL,
                "Registered successfully for diagVlanWrDIDMsgHandler");
 #endif
-    le_sem_Post(semRef[idx]);
+    le_sem_Post(semRef);
     le_event_RunLoop();
     return NULL;
 }
 
 le_result_t diagVlanReadWriteDid_Init(void)
 {
-    semRef[0] = le_sem_Create("SemRef0", 0);
-    semRef[1] = le_sem_Create("SemRef1", 0);
+    semRef = le_sem_Create("SemRef", 0);
 
     // Create diag RWDID message handle thread to handle read/wriet DID request
     le_thread_Ref_t rwDataIdThreadRef = le_thread_Create("rwDataIdTd",
                                                          diagVlanRWDIDMsgThread,
-                                                         (void *)(uintptr_t)0);
-    le_thread_Ref_t rwDataIdThreadRef1 = le_thread_Create("rwDataIdTd1",
-                                                         diagVlanRWDIDMsgThread,
-                                                         (void *)(uintptr_t)1);
+                                                         NULL);
 
     le_thread_Start(rwDataIdThreadRef);
-    le_thread_Start(rwDataIdThreadRef1);
-    le_sem_Wait(semRef[0]);
-    le_sem_Wait(semRef[1]);
+
+    le_sem_Wait(semRef);
 
     return LE_OK;
 }

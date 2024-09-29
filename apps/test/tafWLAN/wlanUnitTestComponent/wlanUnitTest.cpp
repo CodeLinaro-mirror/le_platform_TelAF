@@ -20,9 +20,6 @@ static taf_wlanSta_WlanSTARef_t wlanSTARef = nullptr;
 static std::promise<taf_wlanSta_State_t> connectPromise;
 static std::promise<taf_wlanSta_State_t> disconnectPromise;
 
-//static const taf_wlan_STAid_t STAid = TAF_WLAN_STA_ID1;
-//static const char* wlanIntf = "wlan0";
-
 static const char *StaEventsToStr(taf_wlanSta_State_t State)
 {
     if (TAF_WLANSTA_STATE_UNKNOWN == State)
@@ -389,6 +386,90 @@ COMPONENT_INIT
     LE_TEST_OK(1 == APInfoSizeOne, "APInfoSizeOne should be 1");
     LE_TEST_INFO("AP Number : 1");
     PrintAPInfo(&ApInfo);
+
+    // Connect-Discconect test for an AP
+    LE_TEST_INFO("======== Do WLAN STA Connect to an AP ========");
+    connectPromise = std::promise<taf_wlanSta_State_t>();
+    taf_wlanSta_APInfo_t APInfoConnect = {};
+    std::string ssid;
+    std::cout << "\nEnter SSID from available scanned APs: ";
+    std::getline(std::cin, ssid);
+
+    bool isApFound = false;
+    for(size_t i = 0; i < APInfoSize; ++i)
+    {
+        taf_wlanSta_APInfo_t ap = ApInfos[i];
+        if(std::string(ap.SSID) == ssid)
+        {
+            LE_TEST_INFO("Found %s in the scanned APs list", ap.SSID);
+            isApFound = true;
+            APInfoConnect = ap;
+            break;
+        }
+    }
+    if(!isApFound)
+    {
+        printf("%s was not found in the scanned APs, try again\n", ssid.c_str());
+        LE_TEST_EXIT;
+    }
+
+    if(APInfoConnect.secAuthMethod == TAF_WLAN_SEC_AUTH_METHOD_PSK)
+    {
+        std::string password;
+        std::cout << "Enter password: ";
+        std::getline(std::cin, password);
+        LE_TEST_INFO("======== test taf_wlanSta_SetWpa2Psk ========");
+        result = taf_wlanSta_SetWpa2Psk(wlanSTARef, &APInfoConnect, password.c_str());
+        LE_TEST_ASSERT(LE_OK == result, "WLAN Unit Test: taf_wlanSta_SetWpa2Psk");
+    }
+
+    LE_TEST_INFO("======== test taf_wlanSta_Connect ========");
+    result = taf_wlanSta_Connect(wlanSTARef, &APInfoConnect);
+
+    // Waiting for maximum of 60 seconds for connect to be completed
+    auto fut = connectPromise.get_future();
+    auto status = fut.wait_for(std::chrono::seconds(60));
+    if (status == std::future_status::ready)
+    {
+        taf_wlanSta_State_t state = fut.get();
+        if (state == TAF_WLANSTA_STATE_CONNECTED)
+        {
+            LE_TEST_INFO("Connection to AP %s was successful..", ssid.c_str());
+        }
+        else if (state == TAF_WLANSTA_STATE_ASSOCIATION_FAILED)
+        {
+            LE_TEST_INFO("Connection to AP %s failed..", ssid.c_str());
+        }
+    }
+    if (status == std::future_status::timeout)
+    {
+        LE_TEST_INFO("Timeout waiting for TAF_WLANSTA_STATE_CONNECTED event");
+    }
+
+    LE_TEST_ASSERT(LE_OK == result, "WLAN Unit Test: taf_wlanSta_Connect");
+
+    LE_TEST_INFO("======== test taf_wlanSta_Disconnect ========");
+    disconnectPromise = std::promise<taf_wlanSta_State_t>();
+    result = taf_wlanSta_Disconnect(wlanSTARef, &APInfoConnect);
+
+    // Waiting for maximum of 20 seconds for disconnect to be completed
+    fut = disconnectPromise.get_future();
+    status = fut.wait_for(std::chrono::seconds(20));
+    if (status == std::future_status::ready)
+    {
+        taf_wlanSta_State_t state = fut.get();
+        if (state == TAF_WLANSTA_STATE_DISCONNECTED)
+        {
+            LE_TEST_INFO("Disconnection from AP %s was successful..", ssid.c_str());
+        }
+    }
+    if (status == std::future_status::timeout)
+    {
+        LE_TEST_INFO("Timeout waiting for taf_wlanSta_Disconnect");
+    }
+
+    LE_TEST_ASSERT(LE_OK == result, "WLAN Unit Test: taf_wlanSta_Disconnect");
+
 
     LE_TEST_INFO("======== ALL WLAN UNIT TESTS PASSED ========");
     LE_TEST_EXIT;

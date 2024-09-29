@@ -16,6 +16,7 @@
 
 #define MAX_SYSTEM_CMD_LENGTH 200
 
+
 static le_sem_Ref_t wlanSemRef = nullptr;
 static std::promise<taf_wlanSta_State_t> connectPromise;
 static std::promise<taf_wlanSta_State_t> disconnectPromise;
@@ -31,6 +32,9 @@ void PrintUsage() {
            "app runProc tafWLANSTAIntTest wlanSTATest -- SetMode  <STA> <Station Mode>\n"
            "app runProc tafWLANSTAIntTest wlanSTATest -- DoAPScan <STA>\n"
            "app runProc tafWLANSTAIntTest wlanSTATest -- GetAPScanResults <STA>\n"
+           "app runProc tafWLANSTAIntTest wlanSTATest -- SetWpa2Psk <STA> <SSID> <psk>\n"
+           "app runProc tafWLANSTAIntTest wlanSTATest -- Connect <STA> <SSID>\n"
+           "app runProc tafWLANSTAIntTest wlanSTATest -- Disconnect <STA> <SSID>\n"
            "\n STA: STA interface obtained from taf_wlan_GetIntfInfo\n"
            "\n");
 }
@@ -224,6 +228,163 @@ static le_result_t wlanSTATestGetAPScanResults(taf_wlanSta_WlanSTARef_t staRef)
     printf("\nNum elements populated: %" PRIuS "", APInfoSize);
 
     PrintAllAPInfoOnConsole(ApInfo, APInfoSize);
+    return result;
+}
+
+static le_result_t wlanSTATestSetWpa2Psk(taf_wlanSta_WlanSTARef_t staRef)
+{
+    if (!staRef) {
+        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
+        return LE_FAULT;
+    }
+
+    std::string ssid(le_arg_GetArg(2));
+
+    taf_wlanSta_APInfo_t APInfoConnect;
+    uint16_t numScanedAPs = 0;
+    size_t APInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
+    taf_wlanSta_APInfo_t ApInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = { 0 };
+    taf_wlanSta_GetAPScanResults(staRef, &numScanedAPs, ApInfo, &APInfoSize);
+    bool isApFound = false;
+    for(size_t i = 0; i < APInfoSize; ++i)
+    {
+        taf_wlanSta_APInfo_t ap = ApInfo[i];
+        if(std::string(ap.SSID) == ssid)
+        {
+            LE_TEST_INFO("Found %s in the scanned APs list", ap.SSID);
+            isApFound = true;
+            APInfoConnect = ap;
+            break;
+        }
+    }
+    if(!isApFound)
+    {
+        printf("%s was not found in the scanned APs, try again\n", ssid.c_str());
+        LE_TEST_EXIT;
+    }
+
+    std::string psk = "";
+    if(APInfoConnect.secAuthMethod == TAF_WLAN_SEC_AUTH_METHOD_PSK)
+    {
+        psk = std::string(le_arg_GetArg(3));
+    }
+
+    le_result_t result = taf_wlanSta_SetWpa2Psk(staRef, &APInfoConnect, psk.c_str());
+    fprintf(stderr, "taf_wlanSta_SetWpa2Psk Return: %d\n", result);
+
+    return result;
+}
+
+static le_result_t wlanSTATestConnect(taf_wlanSta_WlanSTARef_t staRef)
+{
+    if (!staRef) {
+        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
+        return LE_FAULT;
+    }
+
+    std::string ssid(le_arg_GetArg(2));
+    uint16_t numScanedAPs = 0;
+    size_t APInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
+    taf_wlanSta_APInfo_t ApInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = { 0 };
+    taf_wlanSta_APInfo_t APInfoConnect;
+    taf_wlanSta_GetAPScanResults(staRef, &numScanedAPs, ApInfo, &APInfoSize);
+    bool isApFound = false;
+    for(size_t i = 0; i < APInfoSize; ++i)
+    {
+        taf_wlanSta_APInfo_t ap = ApInfo[i];
+        if(std::string(ap.SSID) == ssid)
+        {
+            LE_TEST_INFO("Found %s in the scanned APs list", ap.SSID);
+            isApFound = true;
+            APInfoConnect = ap;
+            break;
+        }
+    }
+    if(!isApFound)
+    {
+        printf("%s was not found in the scanned APs, try again\n", ssid.c_str());
+        LE_TEST_EXIT;
+    }
+    connectPromise = std::promise<taf_wlanSta_State_t>();
+
+    le_result_t result = taf_wlanSta_Connect(staRef, &APInfoConnect);
+    fprintf(stderr, "taf_wlanSta_Connect Return: %d\n", result);
+
+    // Waiting for maximum of 60 seconds for connect to be completed
+    auto fut = connectPromise.get_future();
+    auto status = fut.wait_for(std::chrono::seconds(60));
+    if (status == std::future_status::ready)
+    {
+        taf_wlanSta_State_t state = fut.get();
+        if (state == TAF_WLANSTA_STATE_CONNECTED)
+        {
+            printf("Connection to AP %s was successful..\n", ssid.c_str());
+        }
+        else if (state == TAF_WLANSTA_STATE_ASSOCIATION_FAILED)
+        {
+            printf("Connection to AP %s failed..", ssid.c_str());
+        }
+    }
+    if (status == std::future_status::timeout)
+    {
+        LE_TEST_INFO("Timeout waiting for TAF_WLANSTA_STATE_CONNECTED event");
+        result = LE_TIMEOUT;
+    }
+
+    return result;
+}
+
+static le_result_t wlanSTATestDisconnect(taf_wlanSta_WlanSTARef_t staRef)
+{
+    if (!staRef) {
+        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
+        return LE_FAULT;
+    }
+    std::string ssid(le_arg_GetArg(2));
+    uint16_t numScanedAPs = 0;
+    size_t APInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
+    taf_wlanSta_APInfo_t ApInfos[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = { 0 };
+    taf_wlanSta_APInfo_t APInfo;
+    taf_wlanSta_GetAPScanResults(staRef, &numScanedAPs, ApInfos, &APInfoSize);
+    bool isApFound = false;
+    for(size_t i = 0; i < APInfoSize; ++i)
+    {
+        taf_wlanSta_APInfo_t ap = ApInfos[i];
+        if(std::string(ap.SSID) == ssid)
+        {
+            LE_TEST_INFO("Found %s in the scanned APs list", ap.SSID);
+            isApFound = true;
+            APInfo = ap;
+            break;
+        }
+    }
+    if(!isApFound)
+    {
+        printf("%s was not found in the scanned APs, try again\n", ssid.c_str());
+        LE_TEST_EXIT;
+    }
+
+    disconnectPromise = std::promise<taf_wlanSta_State_t>();
+
+    le_result_t result = taf_wlanSta_Disconnect(staRef, &APInfo);
+    fprintf(stderr, "taf_wlanSta_Connect Return: %d\n", result);
+
+    // Waiting for maximum of 20 seconds for disconnect to be completed
+    auto fut = disconnectPromise.get_future();
+    auto status = fut.wait_for(std::chrono::seconds(20));
+    if (status == std::future_status::ready)
+    {
+        taf_wlanSta_State_t state = fut.get();
+        if (state == TAF_WLANSTA_STATE_DISCONNECTED)
+        {
+            printf("Disconnection from AP %s was successful..", APInfo.SSID);
+        }
+    }
+    if (status == std::future_status::timeout)
+    {
+        LE_TEST_INFO("Timeout waiting for taf_wlanSta_Disconnect");
+        result = LE_TIMEOUT;
+    }
     return result;
 }
 
@@ -424,6 +585,21 @@ COMPONENT_INIT {
         CheckNumArgs(numArgs, 2);
         status = wlanSTATestGetAPScanResults(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetAPScanResults");
+    } else if (strncasecmp(testType, "SetWpa2Psk", strlen("SetWpa2Psk")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: SetWpa2Psk ========");
+        CheckNumArgs(numArgs, 4);
+        status = wlanSTATestSetWpa2Psk(getSTARef(staIntfName));
+        LE_TEST_OK(LE_OK == status, "WLAN Test: SetWpa2Psk");
+    } else if (strncasecmp(testType, "Connect", strlen("Connect")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: Connect ========");
+        CheckNumArgs(numArgs, 3);
+        status = wlanSTATestConnect(getSTARef(staIntfName));
+        LE_TEST_OK(LE_OK == status, "WLAN Test: Connect");
+    } else if (strncasecmp(testType, "Disconnect", strlen("Disconnect")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: Disconnect ========");
+        CheckNumArgs(numArgs, 3);
+        status = wlanSTATestDisconnect(getSTARef(staIntfName));
+        LE_TEST_OK(LE_OK == status, "WLAN Test: Disconnect");
     } else {
         PrintUsage();
         LE_TEST_FATAL("Invalid test type %s", testType);

@@ -7,7 +7,7 @@ provides:
 {
     api:
     {
-        printer = printer.api
+          printer = rpcPrinter.api
     }
 }
 

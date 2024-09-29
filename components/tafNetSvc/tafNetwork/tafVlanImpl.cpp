@@ -2202,6 +2202,7 @@ le_result_t taf_Vlan::BindVlanWithBackhaul(taf_net_VlanRef_t vlanRef)
     TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "Vlan not found");
 
     SlotId slot = (SlotId)vlanPtr->vlanBindConfig.slotId;
+    telux::data::net::VlanBindConfig vlanBind = {};
 
     if(vlanPtr->vlanBindConfig.backhaulType == TAF_NETIPPASS_BH_WWAN)
     {
@@ -2212,10 +2213,17 @@ le_result_t taf_Vlan::BindVlanWithBackhaul(taf_net_VlanRef_t vlanRef)
            LE_ERROR("Profile is already bound with vlan");
            return LE_FAULT;
         }
+        vlanBind.bhInfo.slotId = (SlotId)vlanPtr->vlanBindConfig.slotId;
+        vlanBind.bhInfo.profileId = vlanPtr->vlanBindConfig.profileId;
     }
     else // for ETH and rest where SIM does not exist.
     {
-        //vlanid=queryVlanToBackhaulBindings // TODO check for backhaul vlanID bound also
+        uint16_t bhvlanid = GetBackhaulVlanIdBoundWithVlan(
+                                              vlanId, vlanPtr->vlanBindConfig.backhaulType, slot);
+
+        LE_INFO("bindVlanFromBackhaul: bhvlanid %d", bhvlanid);
+        TAF_ERROR_IF_RET_VAL(bhvlanid != 0, LE_FAULT, "vlan id is already bound to the backhaul");
+        vlanBind.bhInfo.vlanId = vlanPtr->vlanBindConfig.vlanIdBackhaul;
     }
 
     vlanId = vlanPtr->vlanId;
@@ -2225,7 +2233,6 @@ le_result_t taf_Vlan::BindVlanWithBackhaul(taf_net_VlanRef_t vlanRef)
     auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
                                                 bindVlanWithProfileCb, std::placeholders::_1);
 
-    telux::data::net::VlanBindConfig vlanBind;
     vlanBind.vlanId = vlanId;
 
     switch (vlanPtr->vlanBindConfig.backhaulType)
@@ -2248,16 +2255,6 @@ le_result_t taf_Vlan::BindVlanWithBackhaul(taf_net_VlanRef_t vlanRef)
         default:
             LE_ERROR("Invalid backhaul type (%d).", vlanPtr->vlanBindConfig.backhaulType);
             return LE_BAD_PARAMETER;
-    }
-
-    if(vlanPtr->vlanBindConfig.backhaulType == TAF_NETIPPASS_BH_WWAN)
-    {
-       vlanBind.bhInfo.slotId = (SlotId)vlanPtr->vlanBindConfig.slotId;
-       vlanBind.bhInfo.profileId = vlanPtr->vlanBindConfig.profileId;
-    }
-    else
-    {
-        vlanBind.bhInfo.vlanId = vlanPtr->vlanBindConfig.vlanIdBackhaul;
     }
 
     Status status = vlanManager->bindToBackhaul(vlanBind, bindVlanWithProfileRespCb);
@@ -2330,7 +2327,7 @@ le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting slotId and profileId failed");
 
     std::shared_ptr<tafVlanMappingCallback> bindVlanWithProfileCb =
-                                                   std::make_shared<tafVlanMappingCallback>((SlotId)slotId);
+                                          std::make_shared<tafVlanMappingCallback>((SlotId)slotId);
 
     auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
                                                 bindVlanWithProfileCb, std::placeholders::_1);
@@ -2393,6 +2390,7 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
     uint16_t vlanId=0;
     uint32_t profileId=0;
     uint8_t slotId=0;
+    taf_netIpPass_BackhaulType_t backhaulType;
     std::chrono::seconds span(OPERATION_TIMEOUT);
 
     TAF_ERROR_IF_RET_VAL(vlanRef == NULL , LE_BAD_PARAMETER, "vlanRef is null");
@@ -2402,18 +2400,26 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
     taf_Vlan_t* vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
     TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
     vlanId = vlanPtr->vlanId;
+    backhaulType = vlanPtr->vlanBindConfig.backhaulType;
     SlotId slot = (SlotId)vlanPtr->vlanBindConfig.slotId;
+    telux::data::net::VlanBindConfig vlanBind = {};
 
     TAF_ERROR_IF_RET_VAL(vlanId == 0, LE_FAULT, "Invalid vlan id");
 
-    if(vlanPtr->vlanBindConfig.backhaulType == TAF_NETIPPASS_BH_WWAN)
+    if(backhaulType == TAF_NETIPPASS_BH_WWAN)
     {
         result=GetBoundSlotIdProfileIdFromVlan(vlanId, &slotId, &profileId);
         TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting slotId and profileId failed");
+        vlanBind.bhInfo.slotId = (SlotId)slotId;
+        vlanBind.bhInfo.profileId = profileId;
+        slot = (SlotId)slotId;
     }
     else // for ETH and rest where SIM does not exist.
     {
-        //vlanid=queryVlanToBackhaulBindings // TODO check for backhaul vlanID bound also
+        uint16_t bhvlanid = GetBackhaulVlanIdBoundWithVlan(vlanId,backhaulType, slot);
+        LE_INFO("UnbindVlanFromBackhaul: bhvlanid %d", bhvlanid);
+        TAF_ERROR_IF_RET_VAL(bhvlanid == 0, LE_FAULT, "vlan id is not bound to the backhaul");
+        vlanBind.bhInfo.vlanId = bhvlanid;
     }
 
     std::shared_ptr<tafVlanMappingCallback> bindVlanWithProfileCb =
@@ -2421,10 +2427,9 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
 
     auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
                                                 bindVlanWithProfileCb, std::placeholders::_1);
-    telux::data::net::VlanBindConfig vlanBind;
     vlanBind.vlanId = vlanId;
 
-    switch (vlanPtr->vlanBindConfig.backhaulType)
+    switch (backhaulType)
     {
         case TAF_NETIPPASS_BH_ETH:
             vlanBind.bhInfo.backhaul = telux::data::BackhaulType::ETH;
@@ -2442,18 +2447,8 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
             vlanBind.bhInfo.backhaul = telux::data::BackhaulType::BLE;
             break;
         default:
-            LE_ERROR("Invalid backhaul type (%d).", vlanPtr->vlanBindConfig.backhaulType);
+            LE_ERROR("Invalid backhaul type (%d).", backhaulType);
             return LE_BAD_PARAMETER;
-    }
-
-    if(vlanPtr->vlanBindConfig.backhaulType == TAF_NETIPPASS_BH_WWAN)
-    {
-       vlanBind.bhInfo.slotId = slot;
-       vlanBind.bhInfo.profileId = vlanPtr->vlanBindConfig.profileId;
-    }
-    else
-    {
-       vlanBind.bhInfo.vlanId = vlanPtr->vlanBindConfig.vlanIdBackhaul;
     }
 
     Status status = vlanManager->unbindFromBackhaul(vlanBind,bindVlanWithProfileRespCb);
@@ -2482,6 +2477,70 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
         return LE_FAULT;
     }
 
+}
+
+/*======================================================================
+
+ FUNCTION        taf_Vlan::GetBackhaulVlanIdBoundWithVlan
+
+ DESCRIPTION     Get the bound backhaul id with vlan.
+
+ DEPENDENCIES    The initialization of Vlan.
+
+ PARAMETERS      [IN] uint16_t vlanId: The vlan Id.
+ PARAMETERS      [IN] taf_netIpPass_BackhaulType_t backhaulType: The backhaul type.
+ PARAMETERS      [IN] SlotId slot: The slot Id.
+
+ RETURN VALUE    uint16_t
+                    0:       no backhaul binding with this vlan.
+                    others:  backhaul id.
+
+ SIDE EFFECTS
+
+======================================================================*/
+uint16_t taf_Vlan::GetBackhaulVlanIdBoundWithVlan(uint16_t vlanId,
+                                      taf_netIpPass_BackhaulType_t backhaulType,
+                                      SlotId slot)
+{
+    TAF_ERROR_IF_RET_VAL(vlanManager == NULL, 0, "vlanManager is null");
+
+    std::promise<telux::common::ErrorCode> p;
+    std::promise<const std::vector<telux::data::net::VlanBindConfig>> q;
+
+    telux::data::net::VlanBindingsResponseCb cb =
+            [&p, &q](const std::vector<telux::data::net::VlanBindConfig> bindings,
+                     telux::common::ErrorCode error) {
+                p.set_value(error);
+                q.set_value(bindings);
+            };
+
+    telux::common::Status status = vlanManager->queryVlanToBackhaulBindings(
+                                               (telux::data::BackhaulType) backhaulType, cb, slot);
+
+    if (status == Status::SUCCESS)
+    {
+        LE_INFO("GetBackhaulVlanIdBoundWithVlan request status: %d", (int) status);
+        telux::common::ErrorCode error = p.get_future().get();
+        LE_INFO("GetBackhaulVlanIdBoundWithVlan response error code: %d", (int) error);
+        if (error == ErrorCode::SUCCESS)
+        {
+            const std::vector<telux::data::net::VlanBindConfig> vlanbindings = q.get_future().get();
+            LE_INFO("Size of vector VlanBindConfig: %d", (int) vlanbindings.size());
+            for (auto binding:vlanbindings)
+            {
+                LE_INFO("binding.vlanId: %d, binding.bhInfo.vlanId: %d",
+                                                          binding.vlanId,
+                                                          binding.bhInfo.vlanId);
+                if (binding.vlanId == vlanId) {
+                    if (binding.bhInfo.vlanId > 0) {
+                        return binding.bhInfo.vlanId;
+                    }
+                }
+            }
+        }
+    }
+
+    return 0;
 }
 
 

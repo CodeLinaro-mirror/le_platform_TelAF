@@ -79,7 +79,11 @@ namespace tafsvc {
         MCS_RECOVERY_SCHEDULED_L2,                ///< L2 connectivity recovery scheduled.
         MCS_RECOVERY_STARTED_L2,                  ///< L2 connectivity recovery started.
         MCS_RECOVERY_CANCELED_L2,                 ///< L2 connectivity recovery canceled.
-        MCS_RECOVERY_FAILED_L2                    ///< L2 connectivity recovery failed.
+        MCS_RECOVERY_FAILED_L2,                    ///< L2 connectivity recovery failed.
+        MCS_RECOVERY_SCHEDULED_L3,                ///< L3 connectivity recovery scheduled.
+        MCS_RECOVERY_STARTED_L3,                  ///< L3 connectivity recovery started.
+        MCS_RECOVERY_CANCELED_L3,                 ///< L3 connectivity recovery canceled.
+        MCS_RECOVERY_FAILED_L3                    ///< L3 connectivity recovery failed.
     } mcs_Admin_State_t;
 
     /**
@@ -109,18 +113,15 @@ namespace tafsvc {
         MCS_EVT_DATA_START_CONNECTIONTEST,
         MCS_EVT_DATA_PERIODIC_CONNECTIONTEST,
         MCS_EVT_CONN_RECOVERY_SCHEDULE_L1, // Schedule L1 connectivity recovery
-        MCS_EVT_CONN_RECOVERY_CANCEL_L1,
-        MCS_EVT_CONN_RECOVERY_CANCEL_L1_SYNC,
-        MCS_EVT_CONN_RECOVERY_CANCEL_L1_SEND_IND,
-        MCS_EVT_CONN_RECOVERY_INTERRUPTED_L1,
         MCS_EVT_CONN_RECOVERY_START_L1,
         MCS_EVT_CONN_RECOVERY_SCHEDULE_L2, // Schedule L2 connectivity recovery
-        MCS_EVT_CONN_RECOVERY_CANCEL_L2,
-        MCS_EVT_CONN_RECOVERY_CANCEL_L2_SYNC,
-        MCS_EVT_CONN_RECOVERY_CANCEL_L2_SEND_IND,
-        MCS_EVT_CONN_RECOVERY_INTERRUPTED_L2,
-        MCS_EVT_CONN_RECOVERY_START_L2
-
+        MCS_EVT_CONN_RECOVERY_START_L2,
+        MCS_EVT_CONN_RECOVERY_SCHEDULE_L3, // Schedule L2 connectivity recovery
+        MCS_EVT_CONN_RECOVERY_START_L3,
+        MCS_EVT_CONN_RECOVERY_CANCEL,      // Cancel Recovery
+        MCS_EVT_CONN_RECOVERY_CANCEL_SYNC,
+        MCS_EVT_CONN_RECOVERY_CANCEL_SEND_IND,
+        MCS_EVT_CONN_RECOVERY_INTERRUPTED
     } mcs_EventType_t;
 
     typedef struct
@@ -141,12 +142,13 @@ namespace tafsvc {
         taf_mngdConn_DataState_t               dataState;
     } DataState_t;
 
-    /* Internal structure to report Recovery State */
+    /* Internal structure to report Recovery Event */
     typedef struct
     {
-        taf_mngdConn_RecoveryState_t recoveryState;
+        taf_mngdConn_RecoveryEvent_t recoveryEvent;
         taf_mngdConn_DataRef_t       dataRef;
-    } RecoveryState_t;
+        taf_mngdConn_RecoveryOperation_t operation;
+    } RecoveryEvent_t;
 
     typedef struct
     {
@@ -218,6 +220,9 @@ namespace tafsvc {
                                       //PeriodicConnectivityTest MaxRetryCount
         uint8_t                       conn_periodic_test_maxRetryCount;
 	    bool                          wasL1ConnectivityRecoveryDone;
+        bool                          wasL2ConnectivityRecoveryDone;
+        taf_mngdConn_RecoveryOperation_t recoveryOperation;
+                                        //The current recovery operation
         // Clients that have called Data Start
         std::set<le_msg_SessionRef_t> clients;
     } mcs_DataCtx_t;
@@ -245,15 +250,15 @@ namespace tafsvc {
                                                   char *ipv4AddrPtr, size_t ipv4AddrSize,
                                                   char *ipv6AddrPtr, size_t ipv6AddrSize);
             le_result_t StartDataRetry(taf_mngdConn_DataRef_t dataRef);
-            le_result_t CancelL1Recovery(taf_mngdConn_DataRef_t dataRef);
-            le_result_t CancelL2Recovery(taf_mngdConn_DataRef_t dataRef);
+            le_result_t CancelRecovery(taf_mngdConn_DataRef_t dataRef,
+                                       taf_mngdConn_RecoveryOperation_t operation);
 
             taf_mngdConn_DataStateHandlerRef_t AddDataStateHandler(
                 taf_mngdConn_DataRef_t dataRef,
                 taf_mngdConn_DataStateHandlerFunc_t handlerPtr,
                 void *contextPtr);
-            taf_mngdConn_RecoveryStateHandlerRef_t AddRecoveryStateHandler(
-                taf_mngdConn_RecoveryStateHandlerFunc_t handlerPtr,
+            taf_mngdConn_RecoveryEventHandlerRef_t AddRecoveryEventHandler(
+                taf_mngdConn_RecoveryEventHandlerFunc_t handlerPtr,
                 void *contextPtr);
 
             // Accessor functions
@@ -284,8 +289,8 @@ namespace tafsvc {
             le_mutex_Ref_t DataCtxMutex = NULL; // Mutex for DataCtxList
             le_ref_MapRef_t DataRefMap = NULL;
 
-            le_mem_PoolRef_t recoveryStatePool;
-            le_event_Id_t recoveryStateEvent; // Recovery state event
+            le_mem_PoolRef_t recoveryEventPool;
+            le_event_Id_t recoveryEvent; // Recovery event
 
             // resources for multi-client management
             static mcs_Clients_t ConnectedClients;
@@ -311,8 +316,9 @@ namespace tafsvc {
 
             void ReportAndUpdateDataState(mcs_DataCtx_t *dataCtxPtr,
                                           taf_mngdConn_DataState_t newstate);
-            void ReportRecoveryStateEvent(taf_mngdConn_RecoveryState_t recoveryState,
-                                          mcs_DataCtx_t *dataCtxPtr);
+            void ReportRecoveryEvent(taf_mngdConn_RecoveryEvent_t recoveryEvent,
+                                          mcs_DataCtx_t *dataCtxPtr,
+                                          taf_mngdConn_RecoveryOperation_t operation);
             le_result_t InitializeStates();
             le_event_Id_t GetDataStateEvent(taf_mngdConn_DataRef_t dataRef);
             mcs_DataCtx_t* GetDataCtx(uint8_t dataId);
@@ -340,19 +346,21 @@ namespace tafsvc {
 
             // L1 Connectivity Recovery
             void EventL1ConnRecoverySchedule(uint8_t dataId);
-            void EventL1ConnRecoveryCancel(uint8_t dataId);
-            void EventL1ConnRecoveryCancelSync(uint8_t dataId);
-            void EventL1ConnRecoveryCancelSendInd(uint8_t dataId);
-            void EventL1ConnRecoveryInterrupted(uint8_t dataId);
             void EventL1ConnRecoveryStart(uint8_t dataId);
 
             // L2 Connectivity Recovery
             void EventL2ConnRecoverySchedule(uint8_t dataId);
-            void EventL2ConnRecoveryCancel(uint8_t dataId);
-            void EventL2ConnRecoveryCancelSync(uint8_t dataId);
-            void EventL2ConnRecoveryCancelSendInd(uint8_t dataId);
-            void EventL2ConnRecoveryInterrupted(uint8_t dataId);
             void EventL2ConnRecoveryStart(uint8_t dataId);
+
+            // L3 Connectivity Recovery
+            void EventL3ConnRecoverySchedule(uint8_t dataId);
+            void EventL3ConnRecoveryStart(uint8_t dataId);
+
+            //Cancel Recovery
+            void EventConnRecoveryCancel(uint8_t dataId);
+            void EventConnRecoveryCancelSync(uint8_t dataId);
+            void EventConnRecoveryCancelSendInd(uint8_t dataId);
+            void EventConnRecoveryInterrupted(uint8_t dataId);
 
             const char *EventToString(mcs_EventType_t event);
             const char *StateToString(mcs_Admin_State_t state);
@@ -381,7 +389,7 @@ namespace tafsvc {
 
             // Layered handlers to send events to applications
             static void FirstLayerDataStateHandler(void *reportPtr, void *secondLayerHandlerFunc);
-            static void FirstLayerRecoveryStateHandler(void *reportPtr,
+            static void FirstLayerRecoveryEventHandler(void *reportPtr,
                                                        void *secondLayerHandlerFunc);
 #ifndef LE_CONFIG_TARGET_SIMULATION
             //Async APIs callback handler

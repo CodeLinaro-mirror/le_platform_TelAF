@@ -245,42 +245,27 @@ le_result_t taf_mngdConn_StartDataRetry(
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Cancels a scheduled L1 recovery process. This API should be called for all data references that
- * scheduled a L1 recovery.
+ * Cancels a scheduled recovery process. A recovery could be scheduled for one or more data
+ * connetions. For a scheduled recovery process to be canceled, this API should be called for all
+ * data references for which recovery has been scheduled.
  *
  * @return
  *   - LE_OK -- Succeeded.
- *   - LE_NOT_POSSIBLE -- A L1 recovery process has not been scheduled.
- *   - LE_NOT_PERMITTED -- A L1 recovery process has already started.
+ *   - LE_NOT_POSSIBLE -- A recovery process has not been scheduled.
+ *   - LE_NOT_PERMITTED -- A recovery process has already started.
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_mngdConn_CancelL1Recovery(taf_mngdConn_DataRef_t dataRef)
-{
-    auto &admin = tafMngdConnAdmin::GetInstance();
-    return admin.CancelL1Recovery(dataRef);
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Cancels a scheduled L2 recovery process. A L2 recovery could be scheduled for one or more data
- * connetions. For a scheduled L2 recovery process to be canceled, this API should be called for all
- * data references for which L2 recovery has been scheduled.
- *
- * @return
- *   - LE_OK -- Succeeded.
- *   - LE_NOT_POSSIBLE -- A L2 recovery process has not been scheduled.
- *   - LE_NOT_PERMITTED -- A L2 recovery process has already started.
- *   - Appropriate error is returned on failure.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_mngdConn_CancelL2Recovery(
-    taf_mngdConn_DataRef_t dataRef
-    ///< [IN] The data reference.
+le_result_t taf_mngdConn_CancelRecoveryOperation
+(
+        taf_mngdConn_DataRef_t dataRef,
+        ///< [IN] The data reference.
+        taf_mngdConn_RecoveryOperation_t operation
+        ///< [IN] The recovery operation to cancel.
 )
 {
     auto &admin = tafMngdConnAdmin::GetInstance();
-    return admin.CancelL2Recovery(dataRef);
+    return admin.CancelRecovery(dataRef, operation);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -314,13 +299,13 @@ void taf_mngdConn_RemoveDataStateHandler(taf_mngdConn_DataStateHandlerRef_t hand
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler function for EVENT 'taf_mngdConn_RecoveryState'
+ * Add handler function for EVENT 'taf_mngdConn_RecoveryEvent'
  *
  * Events to report recovery state.
  */
 //--------------------------------------------------------------------------------------------------
-taf_mngdConn_RecoveryStateHandlerRef_t taf_mngdConn_AddRecoveryStateHandler(
-    taf_mngdConn_RecoveryStateHandlerFunc_t handlerPtr,
+taf_mngdConn_RecoveryEventHandlerRef_t taf_mngdConn_AddRecoveryEventHandler(
+    taf_mngdConn_RecoveryEventHandlerFunc_t handlerPtr,
     ///< [IN] The event handler reference.
     void *contextPtr
     ///< [IN]
@@ -328,16 +313,16 @@ taf_mngdConn_RecoveryStateHandlerRef_t taf_mngdConn_AddRecoveryStateHandler(
 {
     TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Null ptr(handlerPtr)");
     auto &admin = tafMngdConnAdmin::GetInstance();
-    return admin.AddRecoveryStateHandler(handlerPtr, contextPtr);
+    return admin.AddRecoveryEventHandler(handlerPtr, contextPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler function for EVENT 'taf_mngdConn_RecoveryState'
+ * Remove handler function for EVENT 'taf_mngdConn_RecoveryEvent'
  */
 //--------------------------------------------------------------------------------------------------
-void taf_mngdConn_RemoveRecoveryStateHandler(
-    taf_mngdConn_RecoveryStateHandlerRef_t handlerRef
+void taf_mngdConn_RemoveRecoveryEventHandler(
+    taf_mngdConn_RecoveryEventHandlerRef_t handlerRef
     ///< [IN]
 )
 {

@@ -322,9 +322,9 @@ bool mcs_PolicyParser::Validate_DS_CR_RetryWaitTime(mcs_Policy_t &Policy,
 }
 
 /**
- * Validate ConnectivityRecovery:L1RadioOffOnInterval
+ * Validate ConnectivityRecovery:RadioOffOnInterval
  */
-bool mcs_PolicyParser::Validate_DS_CR_L1RadioOffOnInterval(mcs_Policy_t &Policy,
+bool mcs_PolicyParser::Validate_DS_CR_RadioOffOnInterval(mcs_Policy_t &Policy,
                                                                std::string Value,
                                                                int Index)
 {
@@ -348,14 +348,52 @@ bool mcs_PolicyParser::Validate_DS_CR_L1RadioOffOnInterval(mcs_Policy_t &Policy,
     // Ensure the value is within the range [TAF_MNGDCONN_MIN_CONN_RECOVERY_L1_OFF_ON_INTERVAL,
     // TAF_MNGDCONN_MAX_CONN_RECOVERY_L1_OFF_ON_INTERVAL]
     localInt = std::stoi(Value);
-    if (localInt < TAF_MNGDCONN_MIN_CONN_RECOVERY_L1_RADIO_OFF_ON_INTERVAL
-        || localInt > TAF_MNGDCONN_MAX_CONN_RECOVERY_L1_RADIO_OFF_ON_INTERVAL)
+    if (localInt < TAF_MNGDCONN_MIN_CONN_RECOVERY_RADIO_OFF_ON_INTERVAL
+        || localInt > TAF_MNGDCONN_MAX_CONN_RECOVERY_RADIO_OFF_ON_INTERVAL)
     {
         LE_WARN("Value out of range: %d", localInt);
         return false;
     }
     // Valid value. Update Policy.
-    Policy.DataSession.ConnectivityRecovery.L1RadioOffOnInterval = static_cast<uint8_t>(localInt);
+    Policy.DataSession.ConnectivityRecovery.RadioOffOnInterval = static_cast<uint8_t>(localInt);
+    return true;
+}
+
+/**
+ * Validate ConnectivityRecovery:SimOffOnInterval
+ */
+bool mcs_PolicyParser::Validate_DS_CR_SimOffOnInterval(mcs_Policy_t &Policy,
+                                                               std::string Value,
+                                                               int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    int localInt = 0;
+
+    if (MCS_JSON_DATA_TYPE_NUMBER != mcs_GetDataType(Value))
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+
+    // Check the JSON version to be atleast 24.09.00
+    if (Policy.Version < MCS_JSON_VERSION_24_09_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+
+
+    // Ensure the value is within the range [TAF_MNGDCONN_MIN_CONN_RECOVERY_L1_OFF_ON_INTERVAL,
+    // TAF_MNGDCONN_MAX_CONN_RECOVERY_L1_OFF_ON_INTERVAL]
+    localInt = std::stoi(Value);
+    if (localInt < TAF_MNGDCONN_MIN_CONN_RECOVERY_SIM_OFF_ON_INTERVAL
+        || localInt > TAF_MNGDCONN_MAX_CONN_RECOVERY_SIM_OFF_ON_INTERVAL)
+    {
+        LE_WARN("Value out of range: %d", localInt);
+        return false;
+    }
+    // Valid value. Update Policy.
+    Policy.DataSession.ConnectivityRecovery.SimOffOnInterval = static_cast<uint8_t>(localInt);
     return true;
 }
 
@@ -652,8 +690,10 @@ void mcs_PolicyParser::UpdateValidPolicyFuncMap(void)
                                                             &Validate_DS_CR_StartWaitTime;
     PolicyValidationFuncMap["DataSession:ConnectivityRecovery:RetryWaitTime"] =
                                                          &Validate_DS_CR_RetryWaitTime;
-    PolicyValidationFuncMap["DataSession:ConnectivityRecovery:L1RadioOffOnInterval"] =
-                                                         &Validate_DS_CR_L1RadioOffOnInterval;
+    PolicyValidationFuncMap["DataSession:ConnectivityRecovery:RadioOffOnInterval"] =
+                                                         &Validate_DS_CR_RadioOffOnInterval;
+    PolicyValidationFuncMap["DataSession:ConnectivityRecovery:SimOffOnInterval"] =
+                                                         &Validate_DS_CR_SimOffOnInterval;
 }
 
 /**

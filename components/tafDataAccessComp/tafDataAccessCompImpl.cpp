@@ -97,22 +97,82 @@ void DemDataHandler::Init
 
     // Update the DEM user_version after initialization.
     tafDtcDao.GetDaoHandler()->SetVersion(DEM_DB_VERSION);
-
-    // Get configuration from diagConfig module.
-    extendedRnMap.insert(make_pair(1, ExtendData_OccurenceCounter));
-    extendedRnMap.insert(make_pair(2, ExtendData_CumulativeDistanceOCCWithTestFailed));
-    extendedRnMap.insert(make_pair(3, ExtendData_IUMPRNumerator));
-    extendedRnMap.insert(make_pair(4, ExtendData_IUMPRDenominator));
-
-    snapshotRnMap.insert(make_pair(1, Snapshot_FirstOccurrence));
-    snapshotRnMap.insert(make_pair(2, Snapshot_LastOccurrence));
-    snapshotRnMap.insert(make_pair(3, Snapshot_LastDisappearance));
 }
 
 le_result_t DemDataHandler::Load
 (
 )
 {
+    // Get configuration from diagConfig module.
+    try
+    {
+        std::vector<uint32_t> dtc_code_list = cfg::get_dtc_codes();
+        for (const auto & dtc_code: dtc_code_list)
+        {
+            cfg::Node & dtc = cfg::get_dtc_node(dtc_code);
+
+            // Init snapshot.
+            cfg::Node & ffs = dtc.get_child("snapshots.freeze_frames");
+            for (auto &ff : ffs)
+            {
+                string item = ff.second.get_value<string>("");
+
+                // Lookup the info from freeze frames.
+                cfg::Node & ffNode = cfg::top_freeze_frames<string>("short_name", item);
+                int rn = ffNode.get<int>("record_number");
+                if (std::string("firstOccurrence") == item)
+                {
+                    snapshotRnVec.push_back(std::make_tuple(
+                            rn, dtc_code, Snapshot_FirstOccurrence)
+                            );
+                }
+                else if (std::string("lastOccurrence") == item)
+                {
+                    snapshotRnVec.push_back(std::make_tuple(
+                            rn, dtc_code, Snapshot_LastOccurrence)
+                            );
+                }
+                else if (std::string("lastDisappearance") == item)
+                {
+                    snapshotRnVec.push_back(std::make_tuple(
+                            rn, dtc_code, Snapshot_LastDisappearance)
+                            );
+                }
+                else
+                {
+                    LE_WARN("Unexpected FF(%s) for DTC0x%x", item.c_str(), dtc_code);
+                }
+            }
+
+            // Init extended data.
+            cfg::Node & extds = dtc.get_child("identification.extended_data_records");
+            for (auto &extd : extds)
+            {
+                string item = extd.second.get_value<string>("");
+
+                // Lookup the info from freeze frames.
+                cfg::Node & extdNode = cfg::top_extended_data_records<string>("short_name", item);
+                int rn = extdNode.get<int>("record_number");
+                if (std::string("OccurenceCounter") == item)
+                {
+                    extendedRnVec.push_back(std::make_tuple(
+                            rn, dtc_code, ExtendData_OccurenceCounter)
+                            );
+                }
+                else  // Only supported OccurenceCounter for extended data records.
+                {
+                    LE_WARN("Unexpected ExtData(%s) for DTC0x%x", item.c_str(), dtc_code);
+                }
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        // Failed to read diag configuration.
+        LE_WARN("Exception: %s", e.what() );
+        return LE_FAULT;
+    }
+
     auto &tafDtcDao = DtcEntityDao::GetInstance();
 
     return tafDtcDao.Load();
@@ -302,13 +362,6 @@ le_result_t DemDataHandler::GetSnapshotRecByDtc
     }
     else
     {
-        auto pair = snapshotRnMap.find(static_cast<int>(recNumber));
-        if (pair == snapshotRnMap.end())
-        {
-            LE_ERROR("Unknow the record number(0x%x)", recNumber);
-            return LE_OK;
-        }
-
         // return GetSpecSnapshotRecByDtc(dtc, recNumber, &snapshotDataRecPtr->snapshotDataList);
         if (GetSpecSnapshotRecByDtc(dtc, recNumber, &snapshotDataRecPtr->snapshotDataList) != LE_OK)
         {
@@ -772,9 +825,9 @@ le_result_t DemDataHandler::GetDTCData
     ret = tafDtcDao.ReadStatusByDtc(dtc, status, occurCounter);
     if (ret == LE_OK)
     {
-        // Save the extended data record in the list.
+        // Save the extended data record in the list. Only support OccurenceCounter.
         int rn;
-        ret = GetExtendedDataRecordNumByType(ExtendData_OccurenceCounter, rn);
+        ret = GetExtendedDataRecordNumByType(dtc, ExtendData_OccurenceCounter, rn);
         if (ret == LE_OK)
         {
             taf_DataAccess_DtcDataInfo_t *dtcDataInfoPtr;
@@ -796,10 +849,15 @@ le_result_t DemDataHandler::GetDTCData
     }
 
     // Get snapshot datas of specified DTC.
-    for (const auto& pair : snapshotRnMap)
+    for (const auto& item : snapshotRnVec)
     {
+        if (std::get<1>(item) != dtc)
+        {
+            continue;
+        }
+
         std::vector<DIDInfoPtr> dids = tafSnapshotDao.GetDIDRecord(
-            static_cast<int32_t>(dtc), static_cast<int32_t>(pair.first));
+                static_cast<int32_t>(dtc), static_cast<int32_t>(std::get<0>(item)));
         for (const auto& did : dids)
         {
             taf_DataAccess_DtcDataInfo_t *dtcDataInfoPtr;
@@ -807,7 +865,7 @@ le_result_t DemDataHandler::GetDTCData
             memset(dtcDataInfoPtr, 0, sizeof(taf_DataAccess_DtcDataInfo_t));
 
             dtcDataInfoPtr->dtcCode = dtc;
-            dtcDataInfoPtr->recordNum  = static_cast<uint8_t>(pair.first);
+            dtcDataInfoPtr->recordNum  = static_cast<uint8_t>(std::get<0>(item));
             dtcDataInfoPtr->occurrenceType = 0;
             dtcDataInfoPtr->dataType = SNAPSHOT_DATA;
             dtcDataInfoPtr->dataId = did->did;
@@ -880,50 +938,93 @@ le_result_t DemDataHandler::SetSnapshotData
     }
 
     int firstRn, lastRn;
-    ret = GetSnapshotDataRecordNumByType(Snapshot_FirstOccurrence, firstRn);
-    if (ret != LE_OK)
+    ret = GetSnapshotDataRecordNumByType(dtc, Snapshot_LastOccurrence, lastRn);
+    if (ret == LE_OK)
     {
-        LE_ERROR("Unknow the record number for first occurrence");
-        return LE_FAULT;
-    }
-
-    ret = GetSnapshotDataRecordNumByType(Snapshot_LastOccurrence, lastRn);
-    if (ret != LE_OK)
-    {
-        LE_ERROR("Unknow the record number for last occurrence");
-        return LE_FAULT;
-    }
-
-    int32_t count = tafSnapshotDao.ReadDIDCount(static_cast<int32_t>(dtc),
-        static_cast<int32_t>(firstRn));
-    if (count != 0)
-    {
-        // last occurrence. Check if the list size is correct.
-        if (count != static_cast<int32_t>(le_dls_NumLinks(list)))
+        // Last occurrence is configured.
+        LE_DEBUG("Get last record number%d for DTC0x%x successfully", lastRn, dtc);
+        int32_t count = tafSnapshotDao.ReadDIDCount(static_cast<int32_t>(dtc),
+                static_cast<int32_t>(lastRn));
+        if (count != 0)
         {
-            LE_ERROR("The nodes is uncorrect. %d-%" PRIuS, count, le_dls_NumLinks(list));
-            return LE_NOT_POSSIBLE;
+            // last occurrence. Check if the list size is correct.
+            if (count != static_cast<int32_t>(le_dls_NumLinks(list)))
+            {
+                LE_ERROR("The nodes is uncorrect. %d-%" PRIuS, count, le_dls_NumLinks(list));
+                return LE_NOT_POSSIBLE;
+            }
+
+            // Only update last occurrence record in this situation
+            return tafSnapshotDao.SetDIDRecord(static_cast<int32_t>(dtc),
+                static_cast<int32_t>(lastRn), dids);
         }
 
-        return tafSnapshotDao.SetDIDRecord(static_cast<int32_t>(dtc),
-            static_cast<int32_t>(lastRn), dids);
-    }
+        // First time to set the snapshot
+        ret = GetSnapshotDataRecordNumByType(dtc, Snapshot_FirstOccurrence, firstRn);
+        if (ret == LE_OK)
+        {
+            // Set the first occurrence record if it is configured in the yaml.
+            count = tafSnapshotDao.ReadDIDCount(static_cast<int32_t>(dtc),
+                    static_cast<int32_t>(firstRn));
+            if (count != 0)
+            {
+                // Check if the list size is correct.
+                if (count != static_cast<int32_t>(le_dls_NumLinks(list)))
+                {
+                    LE_ERROR("The nodes is uncorrect. %d-%" PRIuS, count, le_dls_NumLinks(list));
+                    return LE_NOT_POSSIBLE;
+                }
+            }
 
-    // First occurrence.
-    ret = tafSnapshotDao.SetDIDRecord(static_cast<int32_t>(dtc),
-                static_cast<int32_t>(firstRn), dids);
-    if (ret != LE_OK)
-    {
-        LE_ERROR("Failed to save DID record for first occurrence");
-        return LE_FAULT;
-    }
+            // First occurrence.
+            ret = tafSnapshotDao.SetDIDRecord(static_cast<int32_t>(dtc),
+                        static_cast<int32_t>(firstRn), dids);
+            if (ret != LE_OK)
+            {
+                LE_ERROR("Failed to save DID record for DTC0x%x first occurrence", dtc);
+                return LE_FAULT;
+            }
+        }
 
-    ret = tafSnapshotDao.SetDIDRecord(static_cast<int32_t>(dtc),
-                static_cast<int32_t>(lastRn), dids);
-    if (ret != LE_OK)
+        ret = tafSnapshotDao.SetDIDRecord(static_cast<int32_t>(dtc),
+                    static_cast<int32_t>(lastRn), dids);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to save DID record for first occurrence");
+            return LE_FAULT;
+        }
+    }
+    else
     {
-        LE_ERROR("Failed to save DID record for first occurrence");
-        return LE_FAULT;
+        // Last occurrence is not configured.
+        ret = GetSnapshotDataRecordNumByType(dtc, Snapshot_FirstOccurrence, firstRn);
+        if (ret != LE_OK)
+        {
+            LE_INFO("No need to save snapshot for DTC0x%x", dtc);
+            return LE_OK;
+        }
+
+        // Only configure to save first occurrence record.
+        int32_t count = tafSnapshotDao.ReadDIDCount(static_cast<int32_t>(dtc),
+                static_cast<int32_t>(firstRn));
+        if (count != 0)
+        {
+            // Check if the list size is correct.
+            if (count != static_cast<int32_t>(le_dls_NumLinks(list)))
+            {
+                LE_ERROR("The nodes is uncorrect. %d-%" PRIuS, count, le_dls_NumLinks(list));
+                return LE_NOT_POSSIBLE;
+            }
+        }
+
+        // Save to first occurrence.
+        ret = tafSnapshotDao.SetDIDRecord(static_cast<int32_t>(dtc),
+                    static_cast<int32_t>(firstRn), dids);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to save DID record for first occurrence");
+            return LE_FAULT;
+        }
     }
 
     return LE_OK;
@@ -931,43 +1032,54 @@ le_result_t DemDataHandler::SetSnapshotData
 
 le_result_t DemDataHandler::GetExtendedDataTypeByRecordNum
 (
+    uint32_t dtc,
     int rn,
     ExtendData_Type_t &type
 )
 {
-    auto it = extendedRnMap.find(rn);
-    if (it == extendedRnMap.end())
-    {
-        LE_WARN("The extended data record number(%d) is out of range.", rn);
-        return LE_NOT_FOUND;
-    }
-
-    type = it->second;
-
-    return LE_OK;
-}
-
-le_result_t DemDataHandler::GetExtendedDataRecordNumByType
-(
-    ExtendData_Type_t type,
-    int &rn
-)
-{
     bool found = false;
 
-    for (const auto& pair : extendedRnMap)
+    for (const auto& item : extendedRnVec)
     {
-        if (pair.second == type)
+        if (std::get<1>(item) == dtc && std::get<0>(item) == rn)
         {
             found = true;
-            rn = pair.first;
+            type = std::get<2>(item);
             break;
         }
     }
 
     if (!found)
     {
-        LE_WARN("Unknowd extended data type(%d).", (int)type);
+        LE_WARN("Unknowd exended data record number(%d) for DTC0x%x.", rn, dtc);
+        return LE_NOT_FOUND;
+    }
+
+    return LE_OK;
+}
+
+le_result_t DemDataHandler::GetExtendedDataRecordNumByType
+(
+    uint32_t dtc,
+    ExtendData_Type_t type,
+    int &rn
+)
+{
+    bool found = false;
+
+    for (const auto& item : extendedRnVec)
+    {
+        if (std::get<1>(item) == dtc && std::get<2>(item) == type)
+        {
+            found = true;
+            rn = std::get<0>(item);
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        LE_WARN("Unknowd exended data type(%d) for DTC0x%x.", (int)type, dtc);
         return LE_NOT_FOUND;
     }
 
@@ -976,43 +1088,54 @@ le_result_t DemDataHandler::GetExtendedDataRecordNumByType
 
 le_result_t DemDataHandler::GetSnapshotDataTypeByRecordNum
 (
+    uint32_t dtc,
     int rn,
     Snapshot_Type_t &type
 )
 {
-    auto it = snapshotRnMap.find(rn);
-    if (it == snapshotRnMap.end())
-    {
-        LE_WARN("The snapshot data record number(%d) is out of range.", rn);
-        return LE_NOT_FOUND;
-    }
-
-    type = it->second;
-
-    return LE_OK;
-}
-
-le_result_t DemDataHandler::GetSnapshotDataRecordNumByType
-(
-    Snapshot_Type_t type,
-    int &rn
-)
-{
     bool found = false;
 
-    for (const auto& pair : snapshotRnMap)
+    for (const auto& item : snapshotRnVec)
     {
-        if (pair.second == type)
+        if (std::get<1>(item) == dtc && std::get<0>(item) == rn)
         {
             found = true;
-            rn = pair.first;
+            type = std::get<2>(item);
             break;
         }
     }
 
     if (!found)
     {
-        LE_WARN("Unknowd snapshot data type(%d).", (int)type);
+        LE_WARN("Unknowd snapshot record number(%d) for DTC0x%x.", rn, dtc);
+        return LE_NOT_FOUND;
+    }
+
+    return LE_OK;
+}
+
+le_result_t DemDataHandler::GetSnapshotDataRecordNumByType
+(
+    uint32_t dtc,
+    Snapshot_Type_t type,
+    int &rn
+)
+{
+    bool found = false;
+
+    for (const auto& item : snapshotRnVec)
+    {
+        if (std::get<1>(item) == dtc && std::get<2>(item) == type)
+        {
+            found = true;
+            rn = std::get<0>(item);
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        LE_WARN("Unknowd snapshot data type(%d) for DTC0x%x.", (int)type, dtc);
         return LE_NOT_FOUND;
     }
 
@@ -1025,9 +1148,14 @@ le_result_t DemDataHandler::GetAllSnapshotRecByDtc
     le_dls_List_t *list
 )
 {
-    for (const auto& pair : snapshotRnMap)
+    for (const auto& item : snapshotRnVec)
     {
-        GetSpecSnapshotRecByDtc(dtc, static_cast<uint8_t>(pair.first), list);
+        if (std::get<1>(item) != dtc)
+        {
+            continue;
+        }
+
+        GetSpecSnapshotRecByDtc(dtc, static_cast<uint8_t>(std::get<0>(item)), list);
     }
 
     return LE_OK;
@@ -1042,13 +1170,8 @@ le_result_t DemDataHandler::GetSpecSnapshotRecByDtc
 {
     auto &snapshotDao = SnapshotEntityDao::GetInstance();
 
-#ifdef LE_CONFIG_DIAG_FEATURE_A
-    std::vector<DIDInfoPtr> dids = snapshotDao.GetDIDRecord(
-        static_cast<int32_t>(dtc), static_cast<int32_t>(FIXED_RECORD_NUMBER_FEATURE_A));
-#else
     std::vector<DIDInfoPtr> dids = snapshotDao.GetDIDRecord(
         static_cast<int32_t>(dtc), static_cast<int32_t>(recNumber));
-#endif
     if (dids.size() == 0)
     {
         // Not record.

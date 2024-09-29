@@ -57,10 +57,6 @@ namespace dataAccess{
     #define DEM_RECORD_DATA_TYPICAL_SIZE    6
     #define DEM_RECORD_DATA_TYPICAL_BYTES   4
 
-#ifdef LE_CONFIG_DIAG_FEATURE_A
-    #define FIXED_RECORD_NUMBER_FEATURE_A 2
-#endif
-
     constexpr int DEM_DB_VERSION = 1;
 
     typedef enum {
@@ -132,15 +128,23 @@ namespace dataAccess{
 
             le_mem_PoolRef_t freezeFramePool;
 
-            std::map<int,ExtendData_Type_t> extendedRnMap;   // Extended record number map.
-            std::map<int, Snapshot_Type_t> snapshotRnMap;   // Snapshot record number map.
+            // Extended record number vector: <record number, dtc, type>.
+            std::vector<std::tuple<int, uint32_t, ExtendData_Type_t>> extendedRnVec;
 
-            le_result_t GetExtendedDataTypeByRecordNum(int rn, ExtendData_Type_t &type);
-            le_result_t GetExtendedDataRecordNumByType(ExtendData_Type_t type, int &rn);
-            le_result_t GetSnapshotDataTypeByRecordNum(int rn, Snapshot_Type_t &type);
-            le_result_t GetSnapshotDataRecordNumByType(Snapshot_Type_t type, int &rn);
+            // Snapshot record number vector: <record number, dtc, type>.
+            std::vector<std::tuple<int, uint32_t, Snapshot_Type_t>> snapshotRnVec;
+
+            le_result_t GetExtendedDataTypeByRecordNum(
+                    uint32_t dtc, int rn, ExtendData_Type_t &type);
+            le_result_t GetExtendedDataRecordNumByType(
+                    uint32_t dtc, ExtendData_Type_t type, int &rn);
+            le_result_t GetSnapshotDataTypeByRecordNum(
+                    uint32_t dtc, int rn, Snapshot_Type_t &type);
+            le_result_t GetSnapshotDataRecordNumByType(
+                    uint32_t dtc, Snapshot_Type_t type, int &rn);
             le_result_t GetAllSnapshotRecByDtc(uint32_t        dtc, le_dls_List_t *list);
-            le_result_t GetSpecSnapshotRecByDtc(uint32_t dtc, uint8_t recNumber, le_dls_List_t *list);
+            le_result_t GetSpecSnapshotRecByDtc(
+                    uint32_t dtc, uint8_t recNumber, le_dls_List_t *list);
     };
 }
 }

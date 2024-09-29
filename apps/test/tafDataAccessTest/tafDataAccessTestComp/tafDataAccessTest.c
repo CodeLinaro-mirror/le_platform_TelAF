@@ -44,7 +44,7 @@ static void SignalHandler
     LE_TEST_EXIT;
 }
 
-static void DEMTableReset
+__attribute__((unused)) static void DEMTableReset
 (
 )
 {
@@ -286,6 +286,22 @@ __attribute__((unused)) void TestEventOperation
     // Query
     rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC1_EV1);
     LE_TEST_ASSERT(rdStatus == status3, "Test taf_DataAccess_GetEventStatus");
+
+    // Test failed counter.
+    uint8_t testFailedCounter = 6;
+    uint8_t readFailedCounter;
+    readFailedCounter = taf_DataAccess_GetEventFailedCounter(DATA_ACCESS_TEST_DTC1_EV1);
+    LE_TEST_ASSERT(readFailedCounter == 0, "Test taf_DataAccess_GetEventFailedCounter");
+
+    ret = taf_DataAccess_SetEventFailedCounter(DATA_ACCESS_TEST_DTC1_EV1, testFailedCounter);
+    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventFailedCounter");
+
+    readFailedCounter = taf_DataAccess_GetEventFailedCounter(DATA_ACCESS_TEST_DTC1_EV1);
+    LE_TEST_ASSERT(readFailedCounter == 6, "Test taf_DataAccess_GetEventFailedCounter");
+
+    taf_DataAccess_DeleteAllData();
+    readFailedCounter = taf_DataAccess_GetEventFailedCounter(DATA_ACCESS_TEST_DTC1_EV1);
+    LE_TEST_ASSERT(readFailedCounter == 6, "Test taf_DataAccess_GetEventFailedCounter");   
 
     LE_TEST_INFO("TestEventOperation Exit...");
 }
@@ -801,7 +817,7 @@ __attribute__((unused)) void TestGetDTCData
     node.link = LE_DLS_LINK_INIT;
     le_dls_Queue(&list, &node.link);
 
-    ret = taf_DataAccess_SetSnapshotData(DATA_ACCESS_TEST_DTC0, &list, NULL, NULL);
+    ret = taf_DataAccess_SetSnapshotData(DATA_ACCESS_TEST_DTC0, &list, NULL);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetSnapshotData");
 
     le_dls_List_t dataList;
@@ -860,7 +876,7 @@ __attribute__((unused)) void TestSnapshotIdentification
     node.link = LE_DLS_LINK_INIT;
     le_dls_Queue(&list, &node.link);
 
-    ret = taf_DataAccess_SetSnapshotData(DATA_ACCESS_TEST_DTC0, &list, NULL, NULL);
+    ret = taf_DataAccess_SetSnapshotData(DATA_ACCESS_TEST_DTC0, &list, NULL);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetSnapshotData");
 
     taf_DataAccess_SnapshotInfoRec_t snapshotInfo;
@@ -911,7 +927,7 @@ __attribute__((unused)) void TestGetSnapshotRecord
     node.link = LE_DLS_LINK_INIT;
     le_dls_Queue(&list, &node.link);
 
-    ret = taf_DataAccess_SetSnapshotData(DATA_ACCESS_TEST_DTC0, &list, NULL, NULL);
+    ret = taf_DataAccess_SetSnapshotData(DATA_ACCESS_TEST_DTC0, &list, NULL);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetSnapshotData");
 
     taf_DataAccess_SnapshotDataRec_t snapshotRec;
@@ -964,6 +980,8 @@ COMPONENT_INIT
     le_sig_SetEventHandler(SIGTERM, SignalHandler);
 
     ConfigModuleInit();
+
+    taf_DataAccess_Init();
 
     DEMTableReset();
 

@@ -55,13 +55,8 @@
  *
  * @section taf_mngdStorCfg Configuration
  *
- * The user should place a JSON file named tafMngdStorageConfig.json into /data/ManagedServices
- * directory. This JSON file contains the information about the OEM json file path.
- * The user needs to restart service after adding this json file Because by default, the default
- * configuration file is picked.
- *
- * The default config will be bundled during building the service. The path of default file in the
- * project is apps/tafMngdServices/Storage/Components/tafMngdCfgStorageSvc/config/tafMngdStorageConfig.json.
+ * The service configuration file will be bundled during building the service. The path of default
+ * file in the project is apps/tafMngdServices/Storage/Components/tafMngdCfgStorageSvc/config/tafMngdStorageConfig.json.
  *
  * @section taf_mngdStorCfg Manage config storage
  *
@@ -93,7 +88,7 @@
 
  * @endcode
  *
- * @section taf_mngdStorCfg_Cancel Cancel the configuration file update campaign.
+ * @section taf_mngdStorCfg_Cancel Cancel the configuration file update campaign
  *
  * The client calls taf_mngdStorCfg_Cancel() to cancel the configuration file update campaign.
  * The Cancel is advised to be performed only in case of failing to update file.
@@ -102,6 +97,31 @@
 
     le_result_t result;
     result = taf_mngdStorCfg_Cancel();
+
+ * @endcode
+ *
+ * @section taf_mngdStorCfg_Rollback Revert the config file to original version
+ *
+ * The client calls taf_mngdStorCfg_Rollback() to revert the configuration file to previous version.
+ * It is advised to use in case of failure in firmware update.
+ *
+ * @code
+
+    le_result_t result;
+    result = taf_mngdStorCfg_Rollback();
+
+ * @endcode
+ *
+ *
+ * @section taf_mngdStorCfg_Commit Commit data to config storage after successful firmare update
+ *
+ * The client calls taf_mngdStorCfg_Commit() to commit data to config storage after
+ * successful firmare update.
+ *
+ * @code
+
+    le_result_t result;
+    result = taf_mngdStorCfg_Commit();
 
  * @endcode
  *
@@ -173,6 +193,33 @@ FUNCTION le_result_t Sync
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Cancel
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reverts to orignal version of configuration file. It is advised to use in case of failure in
+ * firmware update or anything wrong with new config file.
+ *
+ * @return
+ *     - LE_OK             Successfully rollback the file.
+ *     - LE_FAULT          Failed to rollback file.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Rollback
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Commits data to config storage after successfull firmare update.
+ *
+ * @return
+ *     - LE_OK             Successfully commit to config storage.
+ *     - LE_FAULT          Failed to commit config storage.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Commit
 (
 );
 

@@ -342,21 +342,50 @@ __attribute__((unused)) static void Test_Op_Delete(const char* label)
     fflush(stdout);
 }
 
-__attribute__((unused)) static void Test_cfg_UpdateAndSync(){
+__attribute__((unused)) static void Test_cfg_UpdateProcess(){
     le_result_t result;
-
     result = taf_mngdStorCfg_UpdateFile();
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_UpdateFile");
     if(result == LE_OK){
         result = taf_mngdStorCfg_Sync();
         LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Sync");
+        if(result == LE_OK){
+            result = taf_mngdStorCfg_Commit();
+            LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Commit");
+        }
+        else{
+            result = taf_mngdStorCfg_Rollback();
+            LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Rollback");
+        }
     }
-
+    else{
+        result = taf_mngdStorCfg_Cancel();
+        LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Cancel");
+    }
 }
 
-__attribute__((unused)) static void Test_cfg_UpdateAndCancel(){
+__attribute__((unused)) static void Test_cfg_RollbackProcess(){
     le_result_t result;
     result = taf_mngdStorCfg_UpdateFile();
+    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_UpdateFile");
+    if(result == LE_OK){
+        result = taf_mngdStorCfg_Sync();
+        LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Sync");
+        if(result == LE_OK){
+            result = taf_mngdStorCfg_Rollback();
+            LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Rollback");
+        }
+    }
+    else{
+        result = taf_mngdStorCfg_Cancel();
+        LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Cancel");
+    }
+}
+
+__attribute__((unused)) static void Test_cfg_CancelProcess(){
+    le_result_t result;
+    result = taf_mngdStorCfg_UpdateFile();
+    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_UpdateFile");
     result = taf_mngdStorCfg_Cancel();
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Cancel");
 }
@@ -451,11 +480,14 @@ COMPONENT_INIT
         LE_TEST_INFO("=== Test delete storage ===");
         Test_Secure_Delete_Storage();
 
-        LE_TEST_INFO("=== Test update and sync configStorage ===");
-        Test_cfg_UpdateAndSync();
+        LE_TEST_INFO("=== Test update Process configStorage ===");
+        Test_cfg_UpdateProcess();
 
-        LE_TEST_INFO("=== Test update and cancel configStorage ===");
-        Test_cfg_UpdateAndCancel();
+        LE_TEST_INFO("=== Test Rollback Process configStorage ===");
+        Test_cfg_RollbackProcess();
+
+        LE_TEST_INFO("=== Test Cancel Process configStorage ===");
+        Test_cfg_CancelProcess();
 
         LE_TEST_INFO("=== TelAF MngdStorage unit test END ===");
     }

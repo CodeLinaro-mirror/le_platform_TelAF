@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -51,13 +51,21 @@ static void PrintStaState(taf_wlanSta_State_t State)
 //--------------------------------------------------------------------------------------------------
 void taf_WlanSTAListener::onStationStatusChanged(std::vector<telux::wlan::StaStatus> staStatus)
 {
-    for (auto element : staStatus) {
+    for (auto element : staStatus)
+    {
         LE_INFO ("STA Id             : %d", (int) element.id);
         PrintStaState (taf_WlanHelper::StaIntfStatusToTAF(element.status));
-        //LE_INFO ("STA State          : %d", (int) element.status);
         LE_INFO ("STA Interface Name : %s", element.name.c_str());
         LE_INFO ("STA MAC Address    : %s", element.macAddress.c_str());
         LE_INFO ("STA IPv4 Address   : %s", element.ipv4Address.c_str());
         LE_INFO ("STA IPv6 Address   : %s", element.ipv6Address.c_str());
+
+        auto &wlanSta = taf_WlanSTASvcImpl::GetInstance();
+        StaCtx_t *CtxPtr = wlanSta.GetStaCtx(taf_WlanHelper::TeluxIdtoTAFSTAId(element.id));
+        taf_wlanSta_State_t state = taf_WlanHelper::StaIntfStatusToTAF(element.status);
+        if(state != TAF_WLANSTA_STATE_UNKNOWN)
+        {
+            wlanSta.ReportStaState(CtxPtr, state);
+        }
     }
 }

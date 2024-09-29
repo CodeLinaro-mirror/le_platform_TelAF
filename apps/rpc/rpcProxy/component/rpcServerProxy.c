@@ -503,6 +503,10 @@ static void RpcCreateSessionRespHandler
                 }
                 else
                 {
+                    // Save the RPC sessionId anyway since we still need to validate the RPC
+                    // sessionId in RpcDeleteSessionRespHandler().
+                    proxySessionPtr->rpcSessionId = sessionId;
+
                     // Send a RPC DeleteSession command to remote RPC proxy to also delete
                     // remote proxy session since local proxy session is already closed.
                     rpcProxyMessage_DeleteSessionRequestResponse(serviceRef,

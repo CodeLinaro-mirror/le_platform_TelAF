@@ -32,11 +32,17 @@ const char* tafMngdPMSvc::TafStateToString(taf_mngdPm_State_t tafState)
         case TAF_MNGDPM_STATE_SHUTDOWN:
             state = "Shutdown";
             break;
+        case TAF_MNGDPM_STATE_RESTART:
+            state = "Restart";
+            break;
         case TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE:
             state = "Releasing wake source";
             break;
         case TAF_MNGDPM_STATE_SUSPENDING:
             state = "Suspending";
+            break;
+        case TAF_MNGDPM_STATE_RESTARTING:
+            state = "Restarting";
             break;
         case TAF_MNGDPM_STATE_SHUTTING_DOWN:
             state = "Shutting down";
@@ -295,6 +301,33 @@ le_result_t tafMngdPMSvc::ShutdownNAD()
 }
 
 /**
+ * Set Restart state to NAD
+ */
+le_result_t tafMngdPMSvc::RestartNAD()
+{
+    le_result_t res = taf_pm_SetAllVMPowerState(TAF_PM_STATE_RESTART);
+    if(res != LE_OK)
+    {
+        LE_ERROR("Failed to restart the NAD");
+    }
+    else
+    {
+        le_hashmap_It_Ref_t hashIter =
+                (le_hashmap_It_Ref_t)le_hashmap_GetIterator(vmStateHashmap);
+        while (LE_OK == le_hashmap_NextNode(hashIter))
+        {
+            taf_mngdPm_vmState_t *vmStatePtr =
+                    (taf_mngdPm_vmState_t*)le_hashmap_GetValue(hashIter);
+
+            if(vmStatePtr) {
+                vmStatePtr->state = TAF_MNGDPM_STATE_RESTART;
+            }
+        }
+    }
+    return res;
+}
+
+/**
  * Set suspend state to NAD
  */
 le_result_t tafMngdPMSvc::SuspendNAD()
@@ -451,10 +484,43 @@ void tafMngdPMSvc::RestartPrepareRespCB
     else if (mode == HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF && reason == HAL_PM_RSP_NOT_READY)
     {
         tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
-        powerMode.isRestart = false;
+        powerMode.isShutDown = false;
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_NOT_READY,
+                    restartCB.restartCBCtxPtr);
+        }
+    }
+    if (mode == HAL_PM_RESTART_MODE_NAD_REBOOT && reason == HAL_PM_RSP_READY)
+    {
+        if(RequestStateChange(TAF_MNGDPM_STATE_RESTARTING) != LE_OK)
+        {
+            if(restartCB.restartCallbackFunc)
+            {
+                restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_NOT_READY,
+                        restartCB.restartCBCtxPtr);
+            }
+            return;
+        }
+
+        if(restartCB.restartCallbackFunc)
+        {
+            restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_READY,
+                    restartCB.restartCBCtxPtr);
+        }
+        le_result_t res = RestartNAD();
+        if(res == LE_OK)
+        {
+            LE_INFO("RestartNAD is success");
+        }
+    }
+    else if (mode == HAL_PM_RESTART_MODE_NAD_REBOOT && reason == HAL_PM_RSP_NOT_READY)
+    {
+        tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
+        powerMode.isRestart = false;
+        if(restartCB.restartCallbackFunc)
+        {
+            restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_NOT_READY,
                     restartCB.restartCBCtxPtr);
         }
     }
@@ -785,13 +851,21 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     {
         if(powerMode.isGraceful)
         {
+            powerMode.isGraceful = false;
             LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_GRACEFUL);
             (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_GRACEFUL, tafMngdPMSvc::NodeStateChangeReqRespCB);
         }
-        else if(powerMode.isRestart)
+        else if(powerMode.isShutDown)
         {
+            powerMode.isShutDown = false;
             LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF);
             (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF, tafMngdPMSvc::NodeStateChangeReqRespCB);
+        }
+        else if(powerMode.isRestart)
+        {
+            powerMode.isRestart = false;
+            LE_DEBUG("Send RestartReqAsync %d", HAL_PM_RESTART_MODE_NAD_REBOOT);
+            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_NAD_REBOOT, tafMngdPMSvc::NodeStateChangeReqRespCB);
         }
         else if(powerMode.isSuspend)
         {
@@ -822,9 +896,9 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     else if(state == TAF_PM_STATE_SHUTDOWN)
     {
         ProcessStateChange(TAF_MNGDPM_STATE_SHUTDOWN);
-        if(powerMode.isRestart)
+        if(powerMode.isShutDown)
         {
-             powerStateChange.state = TAF_MNGDPM_NODE_STATE_RESTART_PREPARE;
+             powerStateChange.state = TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE;
              le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
              if(pmInf && pmInf->nodeStateChangeNotification)
              {
@@ -841,6 +915,21 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
              {
                  LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_SHUTDOWN);
                  (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN,
+                         NULL);
+             }
+        }
+    }
+    else if(state == TAF_PM_STATE_RESTART)
+    {
+        ProcessStateChange(TAF_MNGDPM_STATE_RESTART);
+        if(powerMode.isRestart)
+        {
+             powerStateChange.state = TAF_MNGDPM_NODE_STATE_RESTART_PREPARE;
+             le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
+             if(pmInf && pmInf->nodeStateChangeNotification)
+             {
+                 LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_RESTART);
+                 (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESTART,
                          NULL);
              }
         }
@@ -1114,6 +1203,7 @@ le_result_t tafMngdPMSvc::RequestStateChange(taf_mngdPm_State_t requestedState)
             }
             break;
 
+        case TAF_MNGDPM_STATE_RESTARTING:
         case TAF_MNGDPM_STATE_SHUTTING_DOWN:
             if(stateMachine.currentState != TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE &&
                stateMachine.currentState != TAF_MNGDPM_STATE_RESUME)
@@ -1123,7 +1213,7 @@ le_result_t tafMngdPMSvc::RequestStateChange(taf_mngdPm_State_t requestedState)
             break;
 
         case TAF_MNGDPM_STATE_WAKING_UP:
-            if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN)
+            if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN || stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING)
             {
                 res = LE_NOT_PERMITTED;
             }
@@ -1262,10 +1352,15 @@ void tafMngdPMSvc::SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_Client
 {
     LE_INFO("SendAckToPms");
     auto &mpms = tafMngdPMSvc::GetInstance();
-    if ((state == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE) ||(state== TAF_MNGDPM_NODE_STATE_RESTART_PREPARE))
+    if (state == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE)
     {
         LE_INFO("TAF_PM_STATE_SHUTDOWN");
         taf_pm_SendStateChangeAck(mpms.powerStateRef, TAF_PM_STATE_SHUTDOWN, TAF_PM_PVM, ackType);
+    }
+    else if(state== TAF_MNGDPM_NODE_STATE_RESTART_PREPARE)
+    {
+        LE_INFO("TAF_PM_STATE_SHUTDOWN");
+        taf_pm_SendStateChangeAck(mpms.powerStateRef, TAF_PM_STATE_RESTART, TAF_PM_PVM, ackType);
     }
     else if (state == TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE)
     {

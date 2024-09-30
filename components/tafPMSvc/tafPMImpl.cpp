@@ -375,6 +375,10 @@ void taf_PM::Init(void)
     powerStateHandlerList = LE_DLS_LIST_INIT;
     powerStateHandlerRefMap = le_ref_CreateMap("tafPStateHandler",
         TAF_POWER_SOURCE_DEFAULT_POOL_SIZE);
+    //Timer Ref to get the ack from pms clients for state change
+    pmClientsAckTimerRef = le_timer_Create("PM Clients ACK timer");
+    le_timer_SetMsInterval(pmClientsAckTimerRef, PMS_CLNTS_ACK_TIMEOUT);
+    le_timer_SetHandler(pmClientsAckTimerRef, PmsClntsAckTimerHandler);
 #endif
     LE_INFO("tafPM service init done...\n");
 }
@@ -723,19 +727,54 @@ void taf_PM::RemoveStateChangeExHandler(taf_pm_StateChangeExHandlerRef_t handler
 }
 
 /**
+ * PMS clients state change ack timer handler
+ */
+void taf_PM::PmsClntsAckTimerHandler(le_timer_Ref_t timerRef)
+{
+    LE_INFO("PmsClntsAckTimerHandler");
+    taf_pm_State_t* state =
+      (taf_pm_State_t*)le_timer_GetContextPtr(timerRef);
+    LE_INFO("PmsClntsAckTimer Expired after %d msec for state %d", PMS_CLNTS_ACK_TIMEOUT,
+            *(state));
+    auto &tafPwrMgr = taf_PM::GetInstance();
+    stateEvent_t evt;
+    evt.state = TAF_PM_STATE_ALL_ACKED;
+    le_event_Report(tafPwrMgr.stateChangeExEvent, &evt, sizeof(evt));
+}
+
+/**
  * Sets the power state to VM
  */
 le_result_t taf_PM::SetPowerState(taf_pm_State_t state, const char* machineName)
 {
     TcuActivityState tcuState = tafStateToTcuState(state);
-    LE_INFO( "SetPowerState state : %s to machine : %s", tcuStateToString(tcuState), machineName);
+    if(state == TAF_PM_STATE_RESTART)
+        LE_INFO( "SetPowerState state : TAF_PM_STATE_RESTART to machine : %s", machineName);
+    else
+        LE_INFO( "SetPowerState state : %s to machine : %s", tcuStateToString(tcuState), machineName);
+    auto &tafPwrMgr = taf_PM::GetInstance();
 
     if(state == TAF_PM_STATE_SUSPEND && pm_recrd.wsAcquired > 0)
     {
         LE_ERROR("Trying to set suspend state when wake source is acquired");
         return LE_FAULT;
     }
+    else if(state == TAF_PM_STATE_RESTART)
+    {
+        stateEvent_t evt;
+        evt.state = TAF_PM_STATE_RESTART;
+        curTcuState = state;
+        // send state change notification to all the handlers registered
+        LE_DEBUG("sent report state for TAF_PM_STATE_RESTART");
+        le_event_Report(tafPwrMgr.StateChangeEvent, &evt, sizeof(evt));
+        LE_INFO("sent Extend report for TAF_PM_STATE_RESTART");
+        le_event_Report(tafPwrMgr.stateChangeExEvent, &evt, sizeof(evt));
 
+        taf_pm_State_t statePtr = TAF_PM_STATE_RESTART;
+        le_timer_SetContextPtr(pmClientsAckTimerRef, &statePtr);
+        le_timer_Start(pmClientsAckTimerRef);
+        return LE_OK;
+    }
     telux::common::Status status = telux::common::Status::FAILED;
     stateChangePromise = std::promise<le_result_t>();
     status = tcuActivityMgr->setActivityState(
@@ -1281,18 +1320,22 @@ taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType )
             return;
         }
     }
-    if(state == TAF_PM_STATE_ALL_ACKED && ackType == TAF_PM_READY)
+    if(state == TAF_PM_STATE_ALL_ACKED)
     {
          LE_INFO("Received ACK from client %s",pClient->name);
+         if(curTcuState == TAF_PM_STATE_RESTART)
+         {
+             if (reboot(RB_AUTOBOOT)) {
+                 LE_INFO("System is rebooted");
+                 return;
+             }
+             else {
+                 LE_INFO("System reboot failed");
+                 return;
+             }
+         }
          SendAckToPmd(curTcuState);
          return;
-    }
-    else if(state == TAF_PM_STATE_ALL_ACKED && ackType == TAF_PM_NOT_READY)
-    {
-        LE_INFO("Received NACK from client %s", pClient->name);
-        isNack = true;
-        SendNackToPmd(curTcuState);
-        return;
     }
     else if(curTcuState == state)
     {
@@ -1300,6 +1343,10 @@ taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType )
         {
             LE_INFO("Received NACK from client %s for state %s", pClient->name,
                     tcuStateToString(tcuState));
+            if(state == TAF_PM_STATE_RESTART) {
+                LE_INFO("Return for pmClientsAckTimer timeout");
+                return;
+            }
             isNack = true;
             SendNackToPmd(state);
         }
@@ -1314,6 +1361,11 @@ taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType )
             //If Last acknowledged client , proceed for ack state change
             if(regClientrecrd.size() == ackClientrecrd.size())
             {
+                if(le_timer_IsRunning(pmClientsAckTimerRef))
+                {
+                    LE_DEBUG("Stop the pmClientsAckTimer");
+                    le_timer_Stop(pmClientsAckTimerRef);
+                }
                 auto &tafPwrMgr = taf_PM::GetInstance();
                 stateEvent_t evt;
                 evt.state = TAF_PM_STATE_ALL_ACKED;

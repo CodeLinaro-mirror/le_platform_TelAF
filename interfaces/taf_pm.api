@@ -167,6 +167,7 @@ ENUM State
     STATE_RESUME,                 ///< System state is resume.
     STATE_SUSPEND,                ///< System state is suspend.
     STATE_SHUTDOWN,               ///< System state is shutdown.
+    STATE_RESTART,                ///< System state is restart.
     STATE_ALL_ACKED,              ///< State all clients ACKed.
                                   ///  @b NOTE: This is an internal state between MPMS and PMS.
     STATE_ALL_WAKELOCKS_RELEASED  ///< State all wakelocks released.

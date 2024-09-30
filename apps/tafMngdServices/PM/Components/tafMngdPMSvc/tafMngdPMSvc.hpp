@@ -65,7 +65,8 @@ typedef enum
 typedef enum
 {
     SYSTEM_NORMAL_SHUTDOWN,
-    RESTART_WITH_NAD_POWER_OFF_ON
+    RESTART_WITH_NAD_POWER_OFF_ON,
+    RESTART_WITH_NAD_REBOOT
 }taf_mngdPm_RequestedState_t;
 
 typedef struct
@@ -95,6 +96,7 @@ typedef struct
 {
     bool isGraceful;
     bool isForceful;
+    bool isShutDown;
     bool isRestart;
     bool isSuspend;
     bool isWsAcquired;
@@ -193,6 +195,7 @@ class tafMngdPMSvc: public ITafSvc
         static void VehichleWakeupTimerHandler(le_timer_Ref_t timerRef);
 
         static le_result_t ShutdownNAD();
+        static le_result_t RestartNAD();
         static le_result_t SuspendNAD();
         static void ShutdownPrepareRespCB(uint8_t pmNodeId, hal_pm_NodeState_t state,
                 hal_pm_PowerMode_t mode, hal_pm_RspReason_t reason);

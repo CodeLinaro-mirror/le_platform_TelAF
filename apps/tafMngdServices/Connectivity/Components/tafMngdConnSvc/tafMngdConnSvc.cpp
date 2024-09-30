@@ -140,6 +140,28 @@ le_result_t taf_mngdConn_GetProfileNumberByRef
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the phone id that is used by the data object (as provided in the configuration JSON).
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- Data reference not found.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mngdConn_GetPhoneIdByRef
+(
+    taf_mngdConn_DataRef_t dataRef,
+        ///< [IN] The data reference.
+    uint8_t* phoneIdPtr
+        ///< [OUT] The phone id used by the provided data reference.
+)
+{
+    auto &admin = tafMngdConnAdmin::GetInstance();
+    return admin.GetPhoneIdByRef(dataRef, phoneIdPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Starts a data cellular session for the given dataRef.
  *
  * @return

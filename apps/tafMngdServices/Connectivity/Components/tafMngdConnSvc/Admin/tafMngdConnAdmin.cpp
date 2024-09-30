@@ -545,6 +545,29 @@ le_result_t tafMngdConnAdmin::GetProfileNumberByRef(taf_mngdConn_DataRef_t dataR
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  Gets the phone id for the given data reference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnAdmin::GetPhoneIdByRef(taf_mngdConn_DataRef_t dataRef,
+                                              uint8_t *phoneIdPtr)
+{
+    TAF_ERROR_IF_RET_VAL(dataRef == NULL, LE_BAD_PARAMETER, "Null ptr(dataRef)");
+    TAF_ERROR_IF_RET_VAL(phoneIdPtr == NULL, LE_BAD_PARAMETER,
+                         "Null ptr(phoneIdPtr)");
+    mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)le_ref_Lookup(DataRefMap, (void *)dataRef);
+    if (dataCtxPtr == NULL)
+    {
+        LE_ERROR("Data reference not found");
+        *phoneIdPtr = 0;
+        return LE_NOT_FOUND;
+    }
+    *phoneIdPtr = static_cast<uint8_t>(dataCtxPtr->phoneId);
+    LE_INFO("Phone ID: %d", *phoneIdPtr);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add data state handler.
  */
 //--------------------------------------------------------------------------------------------------

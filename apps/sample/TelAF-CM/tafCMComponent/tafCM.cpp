@@ -57,27 +57,46 @@ using std::string;
 namespace pt = boost::property_tree;
 
 /**
- * Connectivity recovery state returned by Managed Connectivity Service
+ * Connectivity recovery events returned by Managed Connectivity Service
  **/
-static void RecoveryStateHandler(taf_mngdConn_RecoveryState_t state,
-                                 taf_mngdConn_DataRef_t dataRef,
+static void RecoveryEventHandler(taf_mngdConn_DataRef_t dataRef,
+                                 taf_mngdConn_RecoveryEvent_t recoveryEvent,
+                                 taf_mngdConn_RecoveryOperation_t operation,
                                  void *contextPtr)
 {
     uint8_t dataId=0;
     le_result_t result = taf_mngdConn_GetDataIdByRef(dataRef, &dataId);
     if (LE_OK != result)
     {
-        LE_ERROR("Failed to get Data ID");
+        LE_ERROR ("Failed to get Data ID");
     }
-    LE_INFO("Event recevied for Data Id: %d", dataId);
-    if (TAF_MNGDCONN_RECOVERY_L1_SCHEDULED == state)
+    LE_INFO ("Event recevied for Data Id: %d", dataId);
+    switch (recoveryEvent)
     {
-        LE_INFO("Recovery State: RECOVERY_L1_SCHEDULED");
-    }
-    else if (TAF_MNGDCONN_RECOVERY_L1_STARTED == state)
+    case TAF_MNGDCONN_RECOVERY_SCHEDULED:
+        LE_INFO ("TAF_MNGDCONN_RECOVERY_SCHEDULED");
+    case TAF_MNGDCONN_RECOVERY_STARTED:
+        LE_INFO ("TAF_MNGDCONN_RECOVERY_STARTED");
+    case TAF_MNGDCONN_RECOVERY_CANCELED:
+        LE_INFO ("TAF_MNGDCONN_RECOVERY_CANCELED");
+    case TAF_MNGDCONN_RECOVERY_FAILED:
+        LE_INFO ("TAF_MNGDCONN_RECOVERY_FAILED");
+    default:
+        LE_INFO("unknown recovery event: %d", static_cast<int>(recoveryEvent));
+    };
+    switch (operation)
     {
-        LE_INFO("Recovery State: RECOVERY_L1_STARTED");
-    }
+    case TAF_MNGDCONN_RECOVERY_NONE:
+        LE_INFO ("TAF_MNGDCONN_RECOVERY_NONE");
+    case TAF_MNGDCONN_RECOVERY_RADIO_OFF_ON:
+        LE_INFO ("TAF_MNGDCONN_RECOVERY_RADIO_OFF_ON");
+    case TAF_MNGDCONN_RECOVERY_SIM_OFF_ON:
+        LE_INFO ("TAF_MNGDCONN_RECOVERY_SIM_OFF_ON");
+    case TAF_MNGDCONN_RECOVERY_FAILED:
+        LE_INFO ("TAF_MNGDCONN_RECOVERY_NAD_REBOOT");
+    default:
+        LE_INFO ("unknown recovery event: %d", static_cast<int>(recoveryEvent));
+    };
 
     LE_UNUSED(contextPtr);
     return;
@@ -90,6 +109,7 @@ static int getConnectionInfo(taf_mngdConn_DataRef_t dataRef)
 {
     le_result_t result;
     uint8_t profileID;
+    uint8_t phoneID;
     taf_mngdConn_DataState_t state;
     char ipv4Addr[TAF_DCS_IPV4_ADDR_MAX_LEN] = {0};
     char ipv6Addr[TAF_DCS_IPV6_ADDR_MAX_LEN] = {0};
@@ -121,8 +141,14 @@ static int getConnectionInfo(taf_mngdConn_DataRef_t dataRef)
     {
         LE_INFO("Data profile = %d", profileID);
     }
+    // Get profile ID
+    result = taf_mngdConn_GetPhoneIdByRef(dataRef, &phoneID);
+    if (LE_OK == result)
+    {
+        LE_INFO("Phone ID = %d", phoneID);
+    }
     // Get profile reference
-    taf_dcs_ProfileRef_t profileRef = taf_dcs_GetProfile(profileID);
+    taf_dcs_ProfileRef_t profileRef = taf_dcs_GetProfileEx(phoneID, profileID);
     if (NULL == profileRef)
     {
         LE_WARN("Unable to get profile reference for profile id: %d", profileID);
@@ -342,7 +368,7 @@ COMPONENT_INIT
     }
 
     // Register recovery state handler
-    taf_mngdConn_AddRecoveryStateHandler(RecoveryStateHandler, NULL);
+    taf_mngdConn_AddRecoveryEventHandler(RecoveryEventHandler, NULL);
 
     // Create tafMngdConn Data references for the Data IDs.
     // Once the references are created, register for data session notifications.

@@ -361,7 +361,11 @@ le_result_t taf_RoutinCtrlSvr::SendRoutineCtrlResp
         return LE_NOT_FOUND;
     }
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     servicePtr = GetServiceObj(reqMsgPtr->routineId, reqMsgPtr->addrInfo.vlanId);
+#else
+    servicePtr = GetServiceObj(reqMsgPtr->routineId, (uint16_t)0);
+#endif
     if (servicePtr == NULL)
     {
         LE_ERROR("Cannot find the service(identifier:0x%x, vlan id:0x%x)",
@@ -377,8 +381,10 @@ le_result_t taf_RoutinCtrlSvr::SendRoutineCtrlResp
     addrInfo.sa = reqMsgPtr->addrInfo.ta;
     addrInfo.ta = reqMsgPtr->addrInfo.sa;
     addrInfo.taType = reqMsgPtr->addrInfo.taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
     addrInfo.vlanId = reqMsgPtr->addrInfo.vlanId;
     le_utf8_Copy(addrInfo.ifName, reqMsgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
 
     if (nrc != 0)
     {
@@ -445,8 +451,10 @@ le_result_t taf_RoutinCtrlSvr::SendNRCResp
     addrInfo.sa = addrInfoPtr->ta;
     addrInfo.ta = addrInfoPtr->sa;
     addrInfo.taType = addrInfoPtr->taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
     addrInfo.vlanId = addrInfoPtr->vlanId;
     le_utf8_Copy(addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
 
     return backend.RespDiagNegative(sid, &addrInfo, errCode);
 }
@@ -472,7 +480,11 @@ le_result_t taf_RoutinCtrlSvr::ReleaseRoutineCtrlMsg
         return LE_NOT_FOUND;
     }
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     servicePtr = GetServiceObj(reqMsgPtr->routineId, reqMsgPtr->addrInfo.vlanId);
+#else
+    servicePtr = GetServiceObj(reqMsgPtr->routineId, (uint16_t)0);
+#endif
     if (servicePtr == NULL)
     {
         LE_ERROR("Cannot find the service(identifier:0x%x, vlan id:0x%x)",
@@ -686,6 +698,7 @@ le_result_t taf_RoutinCtrlSvr::SetVlanId
     taf_RoutineCtrlSvc_t* servicePtr = (taf_RoutineCtrlSvc_t*)le_ref_Lookup(svcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     // Check if the vlan is set.
     le_dls_Link_t* linkPtr = NULL;
     linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
@@ -714,6 +727,9 @@ le_result_t taf_RoutinCtrlSvr::SetVlanId
     le_dls_Queue(&servicePtr->supportedVlanList, &vlanPtr->link);
 
     return LE_OK;
+#else
+    return LE_NOT_IMPLEMENTED;
+#endif
 }
 
 le_result_t taf_RoutinCtrlSvr::GetVlanIdFromMsg
@@ -724,6 +740,7 @@ le_result_t taf_RoutinCtrlSvr::GetVlanIdFromMsg
 {
     TAF_ERROR_IF_RET_VAL(vlanIdPtr == NULL, LE_BAD_PARAMETER, "Invalid vlanIdPtr");
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     taf_RoutineCtrlReqMsg_t* reqMsgPtr = (taf_RoutineCtrlReqMsg_t*)
         le_ref_Lookup(reqMsgRefMap, reqMsgRef);
     if (reqMsgPtr == NULL)
@@ -735,6 +752,9 @@ le_result_t taf_RoutinCtrlSvr::GetVlanIdFromMsg
     *vlanIdPtr = reqMsgPtr->addrInfo.vlanId;
 
     return LE_OK;
+#else
+    return LE_NOT_IMPLEMENTED;
+#endif
 }
 
 void taf_RoutinCtrlSvr::Init()

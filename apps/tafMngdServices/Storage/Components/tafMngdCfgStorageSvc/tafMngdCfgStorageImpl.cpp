@@ -142,11 +142,11 @@ void tafMngdStorageSvc::InitConfigStorage(){
     }
 
     // Set up RFS backup storage to the specified path
-    // if(taf_rfs_SetBackupStorage(CONFIG_RFS_STORAGE) != LE_OK)
-    // {
-    //     LE_ERROR("Failed to set rfs backup storage %s", CONFIG_RFS_STORAGE);
-    //     exit(-1);
-    // }
+    if(taf_rfs_SetBackupStorage(CONFIG_RFS_STORAGE) != LE_OK)
+    {
+        LE_ERROR("Failed to set rfs backup storage %s", CONFIG_RFS_STORAGE);
+        exit(-1);
+    }
 
     le_result_t result = LE_OK;
 

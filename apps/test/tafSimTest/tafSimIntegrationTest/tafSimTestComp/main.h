@@ -51,6 +51,7 @@ void tafSimTest_Change_pin( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
         const char* oldpinPtr, const char* newpinPtr);
 void tafSimTest_unblock_puk( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
         const char* pukPtr, const char* newpinPtr);
+void tafSimTest_GetAppTypes(taf_sim_Id_t simId);
 void tafSimTest_sim_access( taf_sim_Id_t simId);
 void tafSimTest_sim_openLogicalChannel(taf_sim_Id_t simId, const char* aid);
 void tafSimTest_sim_closeLogicalChannel(taf_sim_Id_t simId, uint8_t channelId);

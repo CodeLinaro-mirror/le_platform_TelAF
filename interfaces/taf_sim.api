@@ -225,6 +225,8 @@
  * @b WARNING: The device may need a reboot to detect a SIM insertion or removal. So it is recommended to restart
  *             the device or NAD.
  *
+ * Use @ref taf_sim_GetAppTypes() to retrieve application types in the SIM card.
+ *
  * @subsection taf_sim_OpenLogicalChannel Logical channels
  *
  * Logical channel is specified by standard ETSI TS 102 221 in the section 8.7. If they are
@@ -338,6 +340,8 @@ DEFINE AID_MAX_LEN = (4);
 
 DEFINE  AID_LEN    = (32);
 DEFINE  AID_BYTES  = (AID_LEN+1);
+
+DEFINE MAX_APP_TYPE = (5);
 
 DEFINE FPLMN_MAX_LISTS = (1);
 DEFINE FPLMN_MAX_OPERATORS_PER_LIST = (5);
@@ -814,6 +818,23 @@ FUNCTION le_result_t SetAutomaticSelection
 FUNCTION le_result_t GetAutomaticSelection
 (
     bool enable OUT        ///< Enable flag as output.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the application types of a SIM.
+ *
+ * @return
+ * - LE_OK             Successfully get types of card applications.
+ * - LE_BAD_PARAMETER  Invalid parameter.
+ * - LE_NOT_FOUND      Wrong SIM card to operate on.
+ * - LE_FAULT          Failed to get types of card applications.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetAppTypes
+(
+     Id slotId IN,                         ///< Slot ID.
+     AppType apptype[MAX_APP_TYPE] OUT     ///< Application type.
 );
 
 //-------------------------------------------------------------------------------------------------

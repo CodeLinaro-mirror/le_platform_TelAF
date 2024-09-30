@@ -23,13 +23,13 @@ le_result_t taf_mngdPm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
         taf_mngdPm_TargetedPowerMode_t targetPowerMode)
 {
     LE_INFO("taf_mngdPm_SetNodeTargetedPowerMode targetPowerMode : %d", targetPowerMode);
-    le_result_t res = LE_FAULT;
-    auto &mpms = tafMngdPMSvc::GetInstance();
-
     if(tafMngdPMSvc::IsClientValid() == false)
     {
         return LE_UNSUPPORTED;
     }
+
+    le_result_t res = LE_FAULT;
+    auto &mpms = tafMngdPMSvc::GetInstance();
     if(pm_node_id == 1)
     {
         auto &rpcPm = tafMngdRpcPm::GetInstance();
@@ -77,6 +77,7 @@ le_result_t taf_mngdPm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
 le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
     taf_mngdPm_AsyncShutdownReqHandlerFunc_t handlerPtr, void* contextPtr)
 {
+    LE_INFO("taf_mngdPm_ShutdownReqAsync");
     if(tafMngdPMSvc::IsClientValid() == false)
     {
         return LE_UNSUPPORTED;
@@ -133,12 +134,12 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
     taf_mngdPm_AsyncRestartReqHandlerFunc_t handlerPtr, void* contextPtr)
 {
     LE_INFO("taf_mngdPm_RestartReqAsync");
-    auto &mpms = tafMngdPMSvc::GetInstance();
-
     if(tafMngdPMSvc::IsClientValid() == false)
     {
         return LE_UNSUPPORTED;
     }
+
+    auto &mpms = tafMngdPMSvc::GetInstance();
     TAF_ERROR_IF_RET_VAL(mpms.handlerRef == nullptr, LE_BAD_PARAMETER, "invalid handlerRef");
 
     if(mode == TAF_MNGDPM_RESTART_SYSTEM_OFF_ON)
@@ -246,12 +247,13 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
 le_result_t taf_mngdPm_WakeupVehicleReqAsync(int32_t reason,
     taf_mngdPm_AsyncWakeupVehicleReqHandlerFunc_t handlerPtr, void* contextPtr)
 {
-    auto &mpms = tafMngdPMSvc::GetInstance();
-
+    LE_INFO("taf_mngdPm_WakeupVehicleReqAsync");
     if(tafMngdPMSvc::IsClientValid() == false)
     {
         return LE_UNSUPPORTED;
     }
+
+    auto &mpms = tafMngdPMSvc::GetInstance();
     TAF_ERROR_IF_RET_VAL(mpms.handlerRef == nullptr, LE_BAD_PARAMETER, "invalid handlerRef");
 
     if(reason == VEHICHLE_WAKEUP_REASON_DEFAULT)
@@ -293,8 +295,13 @@ le_result_t taf_mngdPm_WakeupVehicleReqAsync(int32_t reason,
 le_result_t taf_mngdPm_SetModemWakeupSource (
         uint32_t wakeupSource)
 {
-    taf_mngdPm_WakeupType_t wakeupType;
     LE_INFO("taf_mngdPm_SetModemWakeupSource");
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return LE_UNSUPPORTED;
+    }
+
+    taf_mngdPm_WakeupType_t wakeupType;
     if((wakeupSource & (1)) != 0)
     {
         LE_INFO("wakeupType is SMS");
@@ -328,8 +335,13 @@ taf_mngdPm_wsRef_t taf_mngdPm_NewNodeWakeupSource( uint8_t pmNodeId,
     taf_mngdPm_WakeupType_t wakeupType, const char* vhalTag)
 {
     LE_INFO("taf_mngdPm_NewNodeWakeupSource");
-    bool isWsWhitelisted = false;
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return NULL;
+    }
+
     auto &mpms = tafMngdPMSvc::GetInstance();
+    bool isWsWhitelisted = false;
     if(wakeupType == TAF_MNGDPM_APP_STAYAWAKE)
     {
         isWsWhitelisted = true;
@@ -392,9 +404,12 @@ taf_mngdPm_wsRef_t taf_mngdPm_NewNodeWakeupSource( uint8_t pmNodeId,
 le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
 {
     LE_INFO("taf_mngdPm_StayAwakeNode");
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return LE_UNSUPPORTED;
+    }
 
     auto &mpms = tafMngdPMSvc::GetInstance();
-
     le_result_t res = LE_FAULT;
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
     bool ispresent = false;
@@ -462,8 +477,12 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
 le_result_t taf_mngdPm_RelaxNode(taf_mngdPm_wsRef_t wsRef)
 {
     LE_INFO("taf_mngdPm_RelaxNode");
-    auto &mpms = tafMngdPMSvc::GetInstance();
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return LE_UNSUPPORTED;
+    }
 
+    auto &mpms = tafMngdPMSvc::GetInstance();
     le_result_t res = LE_FAULT;
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
     bool ispresent = false;
@@ -531,11 +550,12 @@ le_result_t taf_mngdPm_RelaxNode(taf_mngdPm_wsRef_t wsRef)
 le_result_t taf_mngdPm_ShutdownNode (uint8_t pmNodeId)
 {
     LE_DEBUG("taf_mngdPm_ShutdownNode pmNodeId : %d", pmNodeId);
-    auto &mpms = tafMngdPMSvc::GetInstance();
     if(tafMngdPMSvc::IsClientValid() == false)
     {
         return LE_UNSUPPORTED;
     }
+
+    auto &mpms = tafMngdPMSvc::GetInstance();
     if(pmNodeId == 1)
     {
         auto &rpcPm = tafMngdRpcPm::GetInstance();
@@ -557,15 +577,15 @@ le_result_t taf_mngdPm_ShutdownNode (uint8_t pmNodeId)
 le_result_t taf_mngdPm_RestartNode (uint8_t pmNodeId)
 {
     LE_INFO("taf_mngdPm_RestartNode");
-    auto &mpms = tafMngdPMSvc::GetInstance();
     if(tafMngdPMSvc::IsClientValid() == false)
     {
         return LE_UNSUPPORTED;
     }
+
+    auto &mpms = tafMngdPMSvc::GetInstance();
     le_result_t res = mpms.RestartNAD();
     return res;
 }
-
 
 /**
  * Adds the client to StateChangeHandler.
@@ -576,8 +596,13 @@ taf_mngdPm_StateChangeHandlerRef_t taf_mngdPm_AddStateChangeHandler
     void* contextPtr
 )
 {
-    auto &mpms = tafMngdPMSvc::GetInstance();
+    LE_INFO("taf_mngdPm_AddStateChangeHandler");
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return NULL;
+    }
 
+    auto &mpms = tafMngdPMSvc::GetInstance();
     le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("MPMSStateChangeHandler",
         mpms.stateChange, tafMngdPMSvc::StateLayeredHandler, (void*)handlerFuncPtr);
     le_event_SetContextPtr(handlerRef, contextPtr);
@@ -589,6 +614,12 @@ taf_mngdPm_StateChangeHandlerRef_t taf_mngdPm_AddStateChangeHandler
  */
 void taf_mngdPm_RemoveStateChangeHandler(taf_mngdPm_StateChangeHandlerRef_t handlerRef)
 {
+    LE_INFO("taf_mngdPm_RemoveStateChangeHandler");
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return;
+    }
+
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
@@ -599,6 +630,11 @@ taf_mngdPm_InfoReportHandlerRef_t taf_mngdPm_AddInfoReportHandler(taf_mngdPm_Inf
         taf_mngdPm_InfoReportHandlerFunc_t handlerPtr, void* contextPtr)
 {
     LE_DEBUG("AddInfoReportHandler");
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return NULL;
+    }
+
     auto &mpms = tafMngdPMSvc::GetInstance();
     if((!mpms.pmInf) || (mpms.pmInf->addBubStatusHandler == NULL) )
     {
@@ -632,6 +668,11 @@ taf_mngdPm_InfoReportHandlerRef_t taf_mngdPm_AddInfoReportHandler(taf_mngdPm_Inf
 void taf_mngdPm_RemoveInfoReportHandler(taf_mngdPm_InfoReportHandlerRef_t handlerRef)
 {
     LE_INFO("RemoveInfoReportHandler");
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return;
+    }
+
     auto &mpms = tafMngdPMSvc::GetInstance();
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.infoReportHandlerList));
     while (linkHandlerPtr)
@@ -657,6 +698,11 @@ taf_mngdPm_NodePowerStateChangeHandlerRef_t taf_mngdPm_AddNodePowerStateChangeHa
 )
 {
     LE_INFO("taf_mngdPm_AddNodePowerStateChangeHandler");
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return NULL;
+    }
+
     if(pmNodeId == 1)
     {
         auto &rpcPm = tafMngdRpcPm::GetInstance();
@@ -688,6 +734,11 @@ taf_mngdPm_NodePowerStateChangeHandlerRef_t taf_mngdPm_AddNodePowerStateChangeHa
 void taf_mngdPm_RemoveNodePowerStateChangeHandler(taf_mngdPm_NodePowerStateChangeHandlerRef_t handlerRef)
 {
     LE_INFO("RemoveNodePowerStateHandler");
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return;
+    }
+
     bool isPmsNodeChangeRef = false;
     auto &mpms = tafMngdPMSvc::GetInstance();
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.nodePowerStateHandlerList));
@@ -718,6 +769,11 @@ void taf_mngdPm_RemoveNodePowerStateChangeHandler(taf_mngdPm_NodePowerStateChang
 le_result_t taf_mngdPm_GetInfoReport(taf_mngdPm_InfoDataId_t infoReportId, int32_t* report)
 {
     LE_INFO("taf_mngdPm_GetInfoReport");
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return LE_UNSUPPORTED;
+    }
+
     le_result_t res = LE_FAULT ;
     auto &mpms = tafMngdPMSvc::GetInstance();
     if((!mpms.pmInf) || (mpms.pmInf->getBubStatus == NULL))
@@ -744,6 +800,11 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
         taf_mngdPm_nodePowerStateRef_t Ref, taf_mngdPm_NodeClientAck_t ack)
 {
     LE_INFO("taf_mngdPm_SendNodePowerStateChangeAck");
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return LE_UNSUPPORTED;
+    }
+
     taf_mngdPm_NodePowerState_t state = TAF_MNGDPM_NODE_STATE_RESUME;
     auto &mpms = tafMngdPMSvc::GetInstance();
     if(pmNodeId == 1)

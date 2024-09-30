@@ -637,41 +637,16 @@ void tafMngdPMSvc::OnClientConnection(le_msg_SessionRef_t sessionRef, void *ctxP
     LE_DEBUG("OnClientConnection");
 
     pid_t pid;
-    char appName[LIMIT_MAX_PATH_BYTES] = {0};
 
     if (LE_OK != le_msg_GetClientProcessId(sessionRef, &pid))
     {
         LE_ERROR("Error, Failed to get client pid.");
     }
 
-    bool inTheWhiteList = false;
-    if (le_appInfo_GetName(pid, appName, sizeof(appName)) == LE_OK)
-    {
-        LE_INFO("client appName: %s", appName);
-
-        for(uint i = 0; i < sizeof(clientWhiteList) / sizeof(clientWhiteList[0]); i++)
-        {
-            if(strcmp(appName, clientWhiteList[i]) == 0)
-            {
-                LE_INFO("app is in the client white list");
-                inTheWhiteList = true;
-                break;
-            }
-        }
-    }
-
     taf_mngdPm_SessionNode_t* sessionNodePtr = nullptr;
 
-    if(inTheWhiteList)
-    {
-        sessionNodePtr =
-            (taf_mngdPm_SessionNode_t*)le_mem_ForceAlloc(mngdPmClientInfo.SessionNodePool);
-    }
-    else
-    {
-        sessionNodePtr =
-            (taf_mngdPm_SessionNode_t*)le_mem_TryAlloc(mngdPmClientInfo.SessionNodePool);
-    }
+    sessionNodePtr =
+        (taf_mngdPm_SessionNode_t*)le_mem_TryAlloc(mngdPmClientInfo.SessionNodePool);
 
     TAF_ERROR_IF_RET_NIL(sessionNodePtr == nullptr, "Cannot allocate sessionNode");
 
@@ -746,9 +721,9 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
         taf_wsRefCtx_t * wsRefCtxPtr =
                 CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
         linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
-        LE_INFO("Client with sessionRef %p", wsRefCtxPtr->sessionRef);
         if (wsRefCtxPtr && wsRefCtxPtr->sessionRef == sessionRef && wsRefCtxPtr->isAcquiredLock)
         {
+            LE_INFO("Client with sessionRef %p", wsRefCtxPtr->sessionRef);
             le_result_t res = tafMngdPMSvc::ReleaseWakeLock();
             if(res == LE_OK)
             {
@@ -1530,7 +1505,6 @@ le_timer_Ref_t tafMngdPMSvc::wakeupVehicleTimerRef = nullptr;
 
 taf_mngdPm_RequestedState_t tafMngdPMSvc::statePtr;
 taf_mngdPm_Client_t tafMngdPMSvc::mngdPmClientInfo;
-const char* tafMngdPMSvc::clientWhiteList[] = {"tafMngdPMIntTest","tafMngdPMUnitTest"};
 
 le_event_Id_t tafMngdPMSvc::stateChange;
 taf_mngdPm_WakeupVehicleCb_t tafMngdPMSvc::wakeupVehicleCB;

@@ -10,6 +10,8 @@
 
 #include "legato.h"
 #include "interfaces.h"
+
+
 taf_mngdPm_wsRef_t wsRef = NULL;
 static le_sem_Ref_t tafMpmAppSem;
 le_clk_Time_t Timeout = { 5 , 0 };
@@ -83,7 +85,9 @@ static void PrintUsage ()
         "------------To Create a new TestWakeSourceSampleApp-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestWakeSourceSampleApp\n"
         "------------To create a TestWakeSourceIntApp-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestWakeSourceIntApp\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestWakeSourceIntApp\n"
+        "------------To Create a CreateMutlipleClients-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- CreateMutlipleClients\n");
 }
 
 void NodePowerStateChangeHandlerCB(
@@ -756,18 +760,64 @@ static void* connect_service(void* ctxPtr)
     le_event_RunLoop();
 }
 
+void* ThreadFunction(void* threadID) {
+
+    taf_mngdPm_ConnectService();
+    // You can add any additional processing here
+    le_result_t res = taf_mngdPm_SetModemWakeupSource(1);
+    if(res == LE_OK)
+        printf("SetModemWakeupSource for wakeuptype SMS is set\n");
+    wsRef = taf_mngdPm_NewNodeWakeupSource(0, 1, vHalTag);
+    if(wsRef)
+        printf("NewNodeWakeupSource ref is created for\n");
+    printf("ResumeSystem");
+    if(wsRef != NULL) {
+        res = taf_mngdPm_StayAwakeNode(wsRef);
+        if(res == LE_OK) {
+            printf("Resumed sysytem\n");
+         }
+    }
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+}
+
+void CreateMutlipleClients()
+{
+    long t;
+    semRef = le_sem_Create("MngdIntTestApp", 0);
+    int NUM_THREADS = 0;
+    char buffer[100];
+    while(NUM_THREADS >= 0)
+    {
+    printf("Enter the number of clients\nEnter'-1' to exit\n");
+    if(fgets(buffer, sizeof(buffer), stdin))
+        LE_INFO("Value read successfully");
+    buffer[strcspn(buffer, "\n")] = '\0';
+    NUM_THREADS = atoi(buffer);
+    for (t = 0; t < NUM_THREADS; t++) {
+        threadRef = le_thread_Create("inttestapp",
+                                    ThreadFunction, NULL);
+        if (threadRef) {
+            fprintf(stderr, "create thread :%ld \n", t);
+        }
+        le_thread_Start(threadRef);
+        le_sem_Wait(semRef);
+    }
+    printf("All threads completed successfully.\n");
+    if(NUM_THREADS == -1)
+        exit(EXIT_SUCCESS);
+    }
+}
+
 void CreatSampleApp()
 {
     semRef = le_sem_Create("MngdIntTestApp", 0);
     queueSemRef = le_sem_Create("MngdPMIntQueueSem", 0);
     LE_INFO("createapp1 start");
-    if(threadRef == NULL)
-    {
         threadRef = le_thread_Create("inttestapp",
                                     connect_service, NULL);
         le_thread_Start(threadRef);
         le_sem_Wait(semRef);
-    }
 }
 
 COMPONENT_INIT
@@ -914,6 +964,10 @@ COMPONENT_INIT
         else if(strcmp(testType, "TestWakeSourceIntApp") == 0)
         {
             TestWakeSourceIntApp();
+        }
+        else if(strcmp(testType, "CreateMutlipleClients") == 0)
+        {
+            CreateMutlipleClients();
         }
         else
         {

@@ -466,6 +466,15 @@ int main(int argc, char* argv[])
             callStatus)
         CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "SetSignalStrengthReportingCriteria SUCCESS " << std::endl << std::endl;
+
+        std::cout << "======== Get PacketSwitchedState Test ========" << "'\n";
+        RadioSvc::NetRegState netState;
+        radioProxyKeep->GetPacketSwitchedState(phoneId, callStatus, methodError, netState);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
+        std::cout << "GetPacketSwitchedState: netState=" << static_cast<unsigned int>(netState)
+            << std::endl << std::endl;
     }
 
     if (svcMask & IVSS_TEST_SVC_SIM_MASK)

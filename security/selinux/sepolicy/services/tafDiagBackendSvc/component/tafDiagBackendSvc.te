@@ -9,6 +9,7 @@ gen_require(`
   type node_t;
   type unreserved_port_t;
   type telaf_admin_t;
+  type kernel_t;
 ')
 
 
@@ -30,8 +31,10 @@ telaf_admin_manage_all_files_perms(telaf_tafDiagBackendSvc_exec_t)
 allow telaf_tafDiagBackendSvc_t node_t:tcp_socket { node_bind };
 allow telaf_tafDiagBackendSvc_t node_t:udp_socket { node_bind };
 allow telaf_tafDiagBackendSvc_t self:netlink_route_socket { bind create getattr nlmsg_read read write };
-allow telaf_tafDiagBackendSvc_t self:tcp_socket { accept bind create listen read setopt shutdown write };
-allow telaf_tafDiagBackendSvc_t self:udp_socket { bind create read setopt write };
+allow telaf_tafDiagBackendSvc_t self:tcp_socket { accept bind create listen read setopt shutdown write ioctl };
+allow telaf_tafDiagBackendSvc_t self:udp_socket { bind create read setopt write ioctl };
 allow telaf_tafDiagBackendSvc_t telaf_admin_t:fifo_file { ioctl };
 allow telaf_tafDiagBackendSvc_t unreserved_port_t:tcp_socket { name_bind };
 allow telaf_tafDiagBackendSvc_t unreserved_port_t:udp_socket { name_bind };
+allow telaf_tafDiagBackendSvc_t self:capability { net_admin };
+allow telaf_tafDiagBackendSvc_t kernel_t:system { module_request };

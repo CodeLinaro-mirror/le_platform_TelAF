@@ -769,7 +769,7 @@ void *taf_WlanAPSvcImpl::APWpaCtrlThreadHdlr(void *context)
                 LE_WARN("wpa_ctrl_recv failed");
                 break;
             }
-            LE_DEBUG("Received response Len: %ld", len);
+            LE_DEBUG("Received response Len: %zu", len);
             LE_DEBUG("Received response    : %s", rsp);
             // Split the received buffer using space as delimiter
             std::vector<std::string> ind = taf_WlanHelper::StrSplit(rsp, ' ');

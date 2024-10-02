@@ -150,7 +150,7 @@ void *taf_WlanSTASvcImpl::StaWpaSuppMonitorThreadHdlr(void *context)
                 LE_WARN("wpa_ctrl_recv failed");
                 break;
             }
-            LE_DEBUG("Received response Len: %ld", len);
+            LE_DEBUG("Received response Len: %zu", len);
             LE_DEBUG("Received response    : %s", rsp);
             // Split the received buffer using space as delimiter
             std::vector<std::string> ind = taf_WlanHelper::StrSplit(rsp, ' ');
@@ -506,7 +506,7 @@ le_result_t taf_WlanSTASvcImpl::runWPACommand(
         return LE_FAULT;
     }
 
-    LE_DEBUG("Response Len : %ld", len);
+    LE_DEBUG("Response Len : %zu", len);
     LE_DEBUG("Response     : %s", buf);
 
     if(response != nullptr)
@@ -594,7 +594,7 @@ bool taf_WlanSTASvcImpl::CheckCommunication
         LE_ERROR("Failed to send command");
         return false;
     }
-    LE_DEBUG("PING RSP Len: %ld", rsp_len);
+    LE_DEBUG("PING RSP Len: %zu", rsp_len);
     LE_DEBUG("PING RSP: %s", rsp_buf);
     if (strncmp(rsp_buf, "PONG", strlen("PONG")) != 0)
     {

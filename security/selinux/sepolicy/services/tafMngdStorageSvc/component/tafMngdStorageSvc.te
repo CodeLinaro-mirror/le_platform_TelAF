@@ -9,13 +9,13 @@ gen_require(`
 ')
 
 # Framework definition for telaf
-type telaf_tafMngdSecStorageSvc_exec_t;
-files_type(telaf_tafMngdSecStorageSvc_exec_t);
+type telaf_tafMngdSecDataStorageSvc_exec_t;
+files_type(telaf_tafMngdSecDataStorageSvc_exec_t);
 
-type telaf_tafMngdSecStorageSvc_t;
+type telaf_tafMngdSecDataStorageSvc_t;
 
-type telaf_tafMngdSecStorageSvc_data_t;
-files_type(telaf_tafMngdSecStorageSvc_data_t);
+type telaf_tafMngdSecDataStorageSvc_data_t;
+files_type(telaf_tafMngdSecDataStorageSvc_data_t);
 
 # Framework definition for telaf
 type telaf_tafMngdCfgStorageSvc_exec_t;
@@ -26,15 +26,15 @@ type telaf_tafMngdCfgStorageSvc_t;
 type telaf_tafMngdCfgStorageSvc_data_t;
 files_type(telaf_tafMngdCfgStorageSvc_data_t);
 
-init_telaf_app_domain(telaf_tafMngdSecStorageSvc_t,telaf_tafMngdSecStorageSvc_exec_t)
+init_telaf_app_domain(telaf_tafMngdSecDataStorageSvc_t,telaf_tafMngdSecDataStorageSvc_exec_t)
 
 ifdef(`sa525m',`
-    allow telaf_tafMngdSecStorageSvc_exec_t telaf_admin_t:lnk_file {read};
+    allow telaf_tafMngdSecDataStorageSvc_exec_t telaf_admin_t:lnk_file {read};
 ')
 
 # Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafMngdSecStorageSvc_data_t)
-telaf_admin_manage_all_files_perms(telaf_tafMngdSecStorageSvc_exec_t)
+telaf_admin_manage_all_files_perms(telaf_tafMngdSecDataStorageSvc_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafMngdSecDataStorageSvc_exec_t)
 
 init_telaf_app_domain(telaf_tafMngdCfgStorageSvc_t,telaf_tafMngdCfgStorageSvc_exec_t)
 
@@ -48,17 +48,17 @@ telaf_admin_manage_all_files_perms(telaf_tafMngdCfgStorageSvc_exec_t)
 
 # KeyStore rules
 
-telaf_tafKeyStoreSvc_getKeyId(telaf_tafMngdSecStorageSvc_t)
+telaf_tafKeyStoreSvc_getKeyId(telaf_tafMngdSecDataStorageSvc_t)
 telaf_tafKeyStoreSvc_getKeyId(telaf_tafMngdCfgStorageSvc_t)
 
 # RFS component necessary rules
 
-telaf_load_rfs_component(telaf_tafMngdSecStorageSvc_t)
+telaf_load_rfs_component(telaf_tafMngdSecDataStorageSvc_t)
 telaf_load_rfs_component(telaf_tafMngdCfgStorageSvc_t)
 
-allow telaf_admin_t telaf_tafMngdSecStorageSvc_exec_t:lnk_file { read };
-allow telaf_tafMngdSecStorageSvc_t self:capability { sys_admin };
-allow telaf_tafMngdSecStorageSvc_t data_t:file { relabel_file_perms };
+allow telaf_admin_t telaf_tafMngdSecDataStorageSvc_exec_t:lnk_file { read };
+allow telaf_tafMngdSecDataStorageSvc_t self:capability { sys_admin };
+allow telaf_tafMngdSecDataStorageSvc_t data_t:file { relabel_file_perms };
 
 allow telaf_admin_t telaf_tafMngdCfgStorageSvc_exec_t:lnk_file { read };
 allow telaf_tafMngdCfgStorageSvc_t self:capability { sys_admin };

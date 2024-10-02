@@ -56,32 +56,44 @@
  * @section taf_mngdStorSec Manage secure storage
  *
  * The client is allocated the secure storage when it connects to the service. When it calls
- * taf_mngdStorSec_CreateData() to create a data item, the client uses the storage to create,
+ * taf_mngdStorSecData_CreateData() to create a data item, the client uses the storage to create,
  * read and write its own data.
  * This function returns the data reference when the client creats secure data item with data name.
  *
  * @code
 
-    taf_mngdStorSec_CreateData("DataLabel");
+    taf_mngdStorSecData_CreateData("DataName");
 
  * @endcode
  *
  * Optionally, client calls the following interfaces to finish storage management.
  *
  * The following storage APIs are supported.
- * - taf_mngdStorSec_GetUsedSize() -- Gets used size of the storage.
- * - taf_mngdStorSec_GetFreeSize() -- Gets free size of the storage.
+ * - taf_mngdStorSecData_GetUsedSize() -- Gets used size of the storage.
+ * - taf_mngdStorSecData_GetFreeSize() -- Gets free size of the storage.
  *
- * @section taf_mngdStorSec_data Manage the data item
+ * @section taf_mngdStorSecData_data Manage the data item
  *
- * TelAF Managed Storage Service's client calls taf_mngdStorSec_GetDataRef() and input data label
+ * TelAF Managed Storage Service's client calls taf_mngdStorSecData_GetDataRef() and input data label
  * to get the data item which is allocated to the client to store data.
- * Data label can be defined in an arbitrary unique ID that follows the POSIX file name convention.
+ *
+ * The data is identified by data name which is a unique string within an application. Data ID shall
+ * follow POSIX portable file name format, that is only characters in [A-Za-z0-9._-] are allowed to
+ * be used.
+ *
+ * The data label which is passed to API taf_mngdStorSecData_GetDataRef() shall follow the format of
+ * "[appName::]<dataName>", where the "[appName::]" is optional and only needed when the calling
+ * application wants to get data owned by another application and the data owner application has
+ * shared that data to the calling application.
+ *
+ * For example, if the calling application gets its own data name "data1", the data name is "data1".
+ * If the calling application gets the data name "data2" of application "app2", then the data name is
+ * "app2::data2".
  *
  * @code
 
-    taf_mngdStorSec_DataRef_t dataRef
-        = taf_mngdStorSec_GetDataRef("DataLabel");
+    taf_mngdStorSecData_DataRef_t dataRef
+        = taf_mngdStorSecData_GetDataRef("DataName");
 
     if(dataRef)
     {
@@ -89,8 +101,8 @@
     }
     else
     {
-        taf_mngdStorSec_DataRef_t dataRef
-            = taf_mngdStorSec_CreateData("DataLabel");
+        taf_mngdStorSecData_DataRef_t dataRef
+            = taf_mngdStorSecData_CreateData("DataName");
 
         if(dataRef)
         {
@@ -107,15 +119,15 @@
  * Optionally, client calls the following interfaces to finish the data item manipulations.
  *
  * The following storage APIs are supported.
- * - taf_mngdStorSec_GetDataSize() -- Gets the data size from the given data item.
- * - taf_mngdStorSec_DeleteData() -- Deletes the data item.
+ * - taf_mngdStorSecData_GetDataSize() -- Gets the data size from the given data item.
+ * - taf_mngdStorSecData_DeleteData() -- Deletes the data item.
  *
- * @section taf_mngdStorSec_data_write Write data to the data item
+ * @section taf_mngdStorSecData_data_write Write data to the data item
  *
- * To store data in secure data item, the client firstly calls taf_mngdStorSec_WriteDataStart()
- * to start a writing operation, then calls taf_mngdStorSec_WriteDataChunk() to input data buffer
+ * To store data in secure data item, the client firstly calls taf_mngdStorSecData_WriteDataStart()
+ * to start a writing operation, then calls taf_mngdStorSecData_WriteDataChunk() to input data buffer
  * and specify data length. This API can be called back-to-back to do multiple writing operation.
- * At the end, the client calls taf_mngdStorSec_WriteDataEnd() to finish the current writing
+ * At the end, the client calls taf_mngdStorSecData_WriteDataEnd() to finish the current writing
  * operation.
  *
  * @code
@@ -123,24 +135,24 @@
     uint8_t dataBuff_1[DATA_LEN_1] = {};
     uint8_t dataBuff_2[DATA_LEN_2] = {};
 
-    le_result_t res = taf_mngdStorSec_WriteDataStart(dataRef);
+    le_result_t res = taf_mngdStorSecData_WriteDataStart(dataRef);
 
     if(LE_OK == res)
     {
-        res = taf_mngdStorSec_WriteDataChunk(dataRef, dataBuff_1, DATA_LEN_1);
+        res = taf_mngdStorSecData_WriteDataChunk(dataRef, dataBuff_1, DATA_LEN_1);
 
-        res = taf_mngdStorSec_WriteDataChunk(dataRef, dataBuff_2, DATA_LEN_2);
+        res = taf_mngdStorSecData_WriteDataChunk(dataRef, dataBuff_2, DATA_LEN_2);
     }
 
-    taf_mngdStorSec_WriteDataEnd(dataRef);
+    taf_mngdStorSecData_WriteDataEnd(dataRef);
 
  * @code
  *
- * @section taf_mngdStorSec_data_read Read data from the data item
+ * @section taf_mngdStorSecData_data_read Read data from the data item
  *
- * To read data from the data item, the client calls taf_mngdStorSec_ReadData() with buffer pointer
+ * To read data from the data item, the client calls taf_mngdStorSecData_ReadData() with buffer pointer
  * to store the output data. The third output parameter is to specify the data length of the read data.
- * The client shall keep calling taf_mngdStorSec_ReadData() to read the entire data until the returned
+ * The client shall keep calling taf_mngdStorSecData_ReadData() to read the entire data until the returned
  * read data length is 0.
  *
  * @code
@@ -148,18 +160,28 @@
     uint8_t dataBuff[DATA_LEN] = {};
     size readLen = 0;
 
-    le_result_t res = taf_mngdStorSec_ReadDataFirstChunk(dataRef, dataBuff, &readLen);
+    le_result_t res = taf_mngdStorSecData_ReadDataFirstChunk(dataRef, dataBuff, &readLen);
 
     // use the read data from the data buffer
 
     while(readLen > 0 && res == LE_OK)
     {
-        res = taf_mngdStorSec_ReadDataNextChunk(dataRef, dataBuff, &readLen);
+        res = taf_mngdStorSecData_ReadDataNextChunk(dataRef, dataBuff, &readLen);
 
         // use the read data from the data buffer
     }
 
  * @code
+ *
+ * @section taf_mngdStorSecData_data_sharing Share data access to other applications
+ *
+ * To share data from the data item, the client calls taf_mngdStorSecData_ShareData() with the specified
+ * access and the shared app name, at most 5 applications can be shared for a data. Data sharing for
+ * application can be canceled by calling taf_mngdStorSecData_CancelDataSharing().
+ *
+ * The following storage API is supported to get the information of shared applications.
+ * - taf_mngdStorSecData_GetFirstSharedApp() -- Gets the first application that the data is shared to.
+ * - taf_mngdStorSecData_GetNextSharedApp() -- Gets the next application that the data is shared to.
  *
  * <HR>
  *
@@ -167,23 +189,65 @@
 //--------------------------------------------------------------------------------------------------
 
 USETYPES taf_ks.api;
+USETYPES le_limit.api;
 
 /**
  * Maximum number of characters and bytes for a secure storage data label.
  */
-DEFINE MAX_DATA_LABLE_SIZE = 255;
-DEFINE MAX_DATA_LABLE_BYTES = (MAX_DATA_LABLE_SIZE + 1);
+DEFINE MAX_DATA_LABEL_SIZE = 255;
+DEFINE MAX_DATA_LABEL_BYTES = (MAX_DATA_LABEL_SIZE + 1);
 
 /**
  * Maximum number of bytes for each data chunk in secure storage.
  */
 DEFINE MAX_DATA_CHUNK_SIZE = taf_ks.MAX_PACKET_SIZE;
 
+/**
+ * Maximum number of bytes for each data chunk in secure storage.
+ */
+DEFINE MAX_SHARED_APP_NUM = 5;
+
 
 /**
  * Secure storage data reference.
  */
 REFERENCE Data;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data usage enum
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM DataUsage
+{
+    DATA_READ_WRITE,    ///< With read and write access.
+    DATA_READ,          ///< With read only access.
+    DATA_WRITE          ///< With write only access.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data state enum
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM DataState
+{
+    DATA_SHARING_ENABLE,     ///< Data sharing is enabled.
+    DATA_SHARING_DISABLED,   ///< Data sharing is disabled.
+    DATA_UPDATED,            ///< Data content is updated.
+    DATA_DELETED             ///< Data content is deleted.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Shared app information structure
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT SharedAppInfo
+{
+    string appName[le_limit.APP_NAME_LEN];
+    DataUsage usage;
+};
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -217,17 +281,19 @@ FUNCTION le_result_t GetFreeSize
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Creates a data label with empty data and returns the reference to the data label. The label name
+ * Creates a data name with empty data and returns the reference to the data name. The data name
  * shall follow POSIX portable file name convention.
+ *
+ * The created data will be owned by the calling app.
  *
  * @return
  *     - Date       New data reference.
- *     - NULL       Invalid data label, or the data label already exists.
+ *     - NULL       Invalid data name, or the data name already exists.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Data CreateData
 (
-    string dataLabel[MAX_DATA_LABLE_BYTES]  IN   ///< Data label.
+    string dataName[MAX_DATA_LABEL_BYTES]  IN   ///< Data name.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -242,7 +308,7 @@ FUNCTION Data CreateData
 //--------------------------------------------------------------------------------------------------
 FUNCTION Data GetDataRef
 (
-    string dataLabel[MAX_DATA_LABLE_BYTES]  IN   ///< Data label.
+    string dataLabel[MAX_DATA_LABEL_BYTES]  IN   ///< Data label.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -346,6 +412,8 @@ FUNCTION le_result_t GetDataSize
 /**
  * Deletes the data from the given data item.
  *
+ * Only the data owner app is allowed to delete the data.
+ *
  * @return
  *     - LE_OK             Successfully deletes the data.
  *     - LE_BAD_PARAMETER  The given data label is invalid.
@@ -355,4 +423,119 @@ FUNCTION le_result_t GetDataSize
 FUNCTION le_result_t DeleteData
 (
     Data dataRef IN   ///< Data reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Shares the data to another application to use. Data sharing is persistent until cancelled by API
+ * taf_mngdStorSecData_CancelDataSharing().
+ *
+ * Only the data owner app can share the data after provisioning. One data can be shared to at most
+ * 5 applications to read/write.
+ *
+ * If the data owner app intends to change the usage of the data that has been shared to the shared
+ * app, it is necessary to call CancelDataSharing() to cancel the sharing and call ShareData() again
+ * to set up the new data usage.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
+ *     - LE_NOT_FOUND -- Data does not exist.
+ *     - LE_NOT_PERMITTED -- Data is not provisioned or calling application is not the data owner.
+ *     - LE_FAULT -- Error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ShareData
+(
+    Data dataRef                            IN, ///< Data reference.
+    DataUsage usage                         IN, ///< Data usage shared to use.
+    string appName[le_limit.APP_NAME_LEN]   IN  ///< Name of the app that the data is shared to.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancels the data sharing. Only the data owner app can cancel the data sharing.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
+ *     - LE_NOT_FOUND -- Data does not exist.
+ *     - LE_NOT_PERMITTED -- Data is not provisioned or is not shared to the given application before,
+ *       calling application is not the data owner.
+ *     - LE_FAULT -- Error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CancelDataSharing
+(
+    Data dataRef                            IN, ///< Data reference.
+    string appName[le_limit.APP_NAME_LEN]   IN  ///< Name of the app that the data is shared to before.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the first application that the given data is shared to.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
+ *     - LE_NOT_FOUND -- Data does not exist.
+ *     - LE_NOT_PERMITTED -- Data is not provisioned or calling application is not the data owner.
+ *     - LE_FAULT -- Error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetFirstSharedApp
+(
+    Data dataRef                            IN,  ///< Data reference.
+    string appName[le_limit.APP_NAME_LEN]   OUT, ///< Name of the app that the data is shared to.
+    DataUsage usage                         OUT  ///< Data usage shared to use.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the next application that the given data is shared to.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
+ *     - LE_NOT_FOUND -- Data does not exist.
+ *     - LE_NOT_PERMITTED -- Data is not provisioned or calling application is not the data owner.
+ *     - LE_FAULT -- Error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNextSharedApp
+(
+    Data dataRef                            IN,  ///< Data reference.
+    string appName[le_limit.APP_NAME_LEN]   OUT, ///< Name of the app that the data is shared to.
+    DataUsage usage                         OUT  ///< Data usage shared to use.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for data state change.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER DataStateChangeHandler
+(
+    string dataName[MAX_DATA_LABEL_BYTES]   IN,  ///< Data name.
+    string appName[le_limit.APP_NAME_LEN]   IN,  ///< Name of the owner app of the data.
+    DataState state                         IN   ///< Data state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information when the data is changed, deleted, shared to the calling application
+ * or the sharing to the calling application is canceled.
+ *
+ * The handler will be also triggered on registration if the required data has already been shared to the
+ * calling application before.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT DataStateChange
+(
+    string dataName[MAX_DATA_LABEL_BYTES]   IN,  ///< Data name.
+    string appName[le_limit.APP_NAME_LEN]   IN,  ///< Name of the owner app of the data.
+    DataStateChangeHandler handler          IN   ///< Handler is called when the required data of the
+                                                 ///< application shared to the calling application.
 );

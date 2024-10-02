@@ -2229,11 +2229,11 @@ void taf_Time::InitializeSystemTimeAttr(le_result_t connectStatus)
     if(connectStatus == LE_OK)
     {
         LatestTimeSourceInfo->secStrgdataRef =
-        taf_mngdStorSec_CreateData(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
+        taf_mngdStorSecData_CreateData(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
         if(LatestTimeSourceInfo->secStrgdataRef == NULL)
         {
             LatestTimeSourceInfo->secStrgdataRef =
-                taf_mngdStorSec_GetDataRef(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
+                taf_mngdStorSecData_GetDataRef(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
         }
     }
     LatestTimeSourceInfo->sessionRef = taf_time_GetClientSessionRef();
@@ -2251,7 +2251,7 @@ void taf_Time::InitializeSystemTimeAttr(le_result_t connectStatus)
 //--------------------------------------------------------------------------------------------------
 void *taf_Time::SyncTimeTasks(void* contextPtr)
 {
-    le_result_t connectStatus = taf_mngdStorSec_TryConnectService();
+    le_result_t connectStatus = taf_mngdStorSecData_TryConnectService();
     le_result_t regGnssTimeStatus = LE_UNAVAILABLE;
     le_result_t regNetworkTimeStatus = LE_UNAVAILABLE;
     long int interval;
@@ -2284,11 +2284,11 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
             if(connectStatus == LE_OK)
             {
                 src->secStrgdataRef =
-                taf_mngdStorSec_CreateData(tafTime.SourceNameIndexToStr(src->sourceId));
+                taf_mngdStorSecData_CreateData(tafTime.SourceNameIndexToStr(src->sourceId));
                 if(src->secStrgdataRef == NULL)
                 {
                     src->secStrgdataRef =
-                        taf_mngdStorSec_GetDataRef(tafTime.SourceNameIndexToStr(src->sourceId));
+                        taf_mngdStorSecData_GetDataRef(tafTime.SourceNameIndexToStr(src->sourceId));
                 }
             }
             src->ref = (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, src);
@@ -3573,33 +3573,33 @@ le_result_t taf_Time::CheckSetValidityPermission()
 
 le_result_t taf_Time::WriteValidtyToSecStorage(taf_SourceInf_t* sourcePtr, bool newvalidity)
 {
-    le_result_t connectStatus = taf_mngdStorSec_TryConnectService();
+    le_result_t connectStatus = taf_mngdStorSecData_TryConnectService();
     if(connectStatus != LE_OK)
     {
         return LE_FAULT;
     }
     le_result_t res = LE_FAULT;
-    taf_mngdStorSec_DataRef_t dataRef = sourcePtr->secStrgdataRef;
+    taf_mngdStorSecData_DataRef_t dataRef = sourcePtr->secStrgdataRef;
     uint8_t validityToSet = newvalidity == true ? 1 : 0;
     if(dataRef == NULL)
     {
         LE_DEBUG("Unable to get data reference for storing validity in secure storage");
         return LE_NOT_FOUND;
     }
-    res = taf_mngdStorSec_WriteDataStart(dataRef);
+    res = taf_mngdStorSecData_WriteDataStart(dataRef);
     if(res != LE_OK)
     {
         LE_DEBUG("Cannot start writing validity in secure storage.");
         return res;
     }
-    res = taf_mngdStorSec_WriteDataChunk(dataRef, &validityToSet, sizeof(validityToSet));
+    res = taf_mngdStorSecData_WriteDataChunk(dataRef, &validityToSet, sizeof(validityToSet));
 
     if(res != LE_OK)
     {
         LE_DEBUG("Cannot write validity in secure storage.");
         return res;
     }
-    res = taf_mngdStorSec_WriteDataEnd(dataRef);
+    res = taf_mngdStorSecData_WriteDataEnd(dataRef);
 
     if(res != LE_OK)
     {
@@ -3611,13 +3611,13 @@ le_result_t taf_Time::WriteValidtyToSecStorage(taf_SourceInf_t* sourcePtr, bool 
 
 le_result_t taf_Time::ReadValidityFromSecStorage(taf_SourceInf_t* sourcePtr, bool* validity)
 {
-    le_result_t connectStatus = taf_mngdStorSec_TryConnectService();
+    le_result_t connectStatus = taf_mngdStorSecData_TryConnectService();
     if(connectStatus != LE_OK)
     {
         return LE_FAULT;
     }
     le_result_t res;
-    taf_mngdStorSec_DataRef_t dataRef = sourcePtr->secStrgdataRef;
+    taf_mngdStorSecData_DataRef_t dataRef = sourcePtr->secStrgdataRef;
     if(dataRef == NULL)
     {
         LE_WARN("Unable to read validity in secure storage.No ref available for time source");
@@ -3627,7 +3627,7 @@ le_result_t taf_Time::ReadValidityFromSecStorage(taf_SourceInf_t* sourcePtr, boo
     uint8_t readBuf;
     size_t readLen = sizeof(readBuf);
 
-    res = taf_mngdStorSec_ReadDataFirstChunk(dataRef, &readBuf, &readLen);
+    res = taf_mngdStorSecData_ReadDataFirstChunk(dataRef, &readBuf, &readLen);
     if(res != LE_OK)
     {
         LE_WARN("Failed to read validity from secure storage.");

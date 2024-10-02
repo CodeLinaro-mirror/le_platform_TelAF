@@ -1,16 +1,16 @@
 sources:
 {
-    tafMngdSecStore.cpp
+    tafMngdSecDataStore.cpp
     tafMngdSecData.cpp
-    tafMngdSecStorageImpl.cpp
-    tafMngdSecStorageSvc.cpp
+    tafMngdSecDataStorageImpl.cpp
+    tafMngdSecDataStorageSvc.cpp
 }
 
 provides:
 {
     api:
     {
-        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdStorSec.api
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdStorSecData.api
     }
 }
 

@@ -264,7 +264,7 @@ typedef struct
                                                  ///  Actual value = field value * 15 minutes.
     uint8_t dstAdj = 0;                          ///< Daylight saving adjustment in hours to obtain
                                                  ///  local time. Possible values: 0, 1, and 2.
-    taf_mngdStorSec_DataRef_t secStrgdataRef = NULL; ///< Managed storage service reference
+    taf_mngdStorSecData_DataRef_t secStrgdataRef = NULL; ///< Managed storage service reference
                                                  /// for storing
     le_msg_SessionRef_t sessionRef;              ///< Client that connected to the service.
     taf_time_StatusEventType_t eventType;        ///< Type of event to which client want to

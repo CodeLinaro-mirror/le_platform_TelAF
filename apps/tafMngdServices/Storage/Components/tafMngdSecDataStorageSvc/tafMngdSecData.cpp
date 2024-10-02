@@ -52,14 +52,14 @@ using namespace telux::tafsvc;
 /**
  * Create data reference and item
  */
-taf_mngdStorSec_DataRef_t tafMngdStorageSvc::CreateData
+taf_mngdStorSecData_DataRef_t tafMngdStorageSvc::CreateData
 (
     const char* dataLabel
 )
 {
     LE_INFO("CreateData, dataLabel = %s", dataLabel);
 
-    taf_mngdStorSec_DataRef_t dataRef;
+    taf_mngdStorSecData_DataRef_t dataRef;
 
     TAF_ERROR_IF_RET_VAL(
         CheckValidPosixFileName(dataLabel) != LE_OK,
@@ -97,9 +97,9 @@ taf_mngdStorSec_DataRef_t tafMngdStorageSvc::CreateData
         memset((void*)dataPtr, 0, sizeof(tafMngdStorage_SecData_t));
 
         dataPtr->dataRef =
-        (taf_mngdStorSec_DataRef_t)le_ref_CreateRef(SecDataRefMap, dataPtr);
+        (taf_mngdStorSecData_DataRef_t)le_ref_CreateRef(SecDataRefMap, dataPtr);
 
-        dataPtr->clientSessionRef = taf_mngdStorSec_GetClientSessionRef();
+        dataPtr->clientSessionRef = taf_mngdStorSecData_GetClientSessionRef();
 
         snprintf(dataPtr->dataLabel, sizeof(dataPtr->dataLabel), "%s", dataLabel);
 
@@ -133,14 +133,14 @@ taf_mngdStorSec_DataRef_t tafMngdStorageSvc::CreateData
 /**
  * Get data reference
  */
-taf_mngdStorSec_DataRef_t tafMngdStorageSvc::GetDataRef
+taf_mngdStorSecData_DataRef_t tafMngdStorageSvc::GetDataRef
 (
     const char* dataLabel
 )
 {
     LE_INFO("GetDataRef, dataLabel = %s", dataLabel);
 
-    taf_mngdStorSec_DataRef_t dataRef;
+    taf_mngdStorSecData_DataRef_t dataRef;
 
    char dataItemPath[LIMIT_MAX_PATH_BYTES] = {0};
 
@@ -173,9 +173,9 @@ taf_mngdStorSec_DataRef_t tafMngdStorageSvc::GetDataRef
         memset((void*)dataPtr, 0, sizeof(tafMngdStorage_SecData_t));
 
         dataPtr->dataRef =
-        (taf_mngdStorSec_DataRef_t)le_ref_CreateRef(SecDataRefMap, dataPtr);
+        (taf_mngdStorSecData_DataRef_t)le_ref_CreateRef(SecDataRefMap, dataPtr);
 
-        dataPtr->clientSessionRef = taf_mngdStorSec_GetClientSessionRef();
+        dataPtr->clientSessionRef = taf_mngdStorSecData_GetClientSessionRef();
         snprintf(dataPtr->dataLabel, sizeof(dataPtr->dataLabel), "%s", dataLabel);
         snprintf(dataPtr->path, sizeof(dataPtr->path), "%s", dataItemPath);
 
@@ -196,7 +196,7 @@ taf_mngdStorSec_DataRef_t tafMngdStorageSvc::GetDataRef
 le_result_t tafMngdStorageSvc::FindDataRef
 (
     const char* dataLabel,
-    taf_mngdStorSec_DataRef_t* dataRef
+    taf_mngdStorSecData_DataRef_t* dataRef
 )
 {
     LE_DEBUG("FindDataRef");
@@ -215,9 +215,9 @@ le_result_t tafMngdStorageSvc::FindDataRef
 
         // Find the node that context matches to the current client and storage but session has been closed
         if ((strcmp(dataPtr->dataLabel, dataLabel) == 0) &&
-            dataPtr->clientSessionRef == taf_mngdStorSec_GetClientSessionRef())
+            dataPtr->clientSessionRef == taf_mngdStorSecData_GetClientSessionRef())
         {
-            (*dataRef) = (taf_mngdStorSec_DataRef_t)le_ref_GetSafeRef(iterRef);
+            (*dataRef) = (taf_mngdStorSecData_DataRef_t)le_ref_GetSafeRef(iterRef);
 
             LE_DEBUG("Find data '%s' for client session (%p)",
                     dataPtr->dataLabel, dataPtr->clientSessionRef);
@@ -257,7 +257,7 @@ le_result_t tafMngdStorageSvc::GetDataPath
  */
 le_result_t tafMngdStorageSvc::CreateDataItem
 (
-    taf_mngdStorSec_DataRef_t dataRef
+    taf_mngdStorSecData_DataRef_t dataRef
 )
 {
     tafMngdStorage_SecData_t* dataPtr =
@@ -339,7 +339,7 @@ void tafMngdStorageSvc::ReleaseDataRef
  */
 le_result_t tafMngdStorageSvc::WriteDataStart
 (
-    taf_mngdStorSec_DataRef_t dataRef
+    taf_mngdStorSecData_DataRef_t dataRef
 )
 {
     tafMngdStorage_SecData_t* dataPtr =
@@ -365,9 +365,9 @@ le_result_t tafMngdStorageSvc::WriteDataStart
 
     uint8_t nonce[EVP_MAX_MD_SIZE] = {0};
 
-    uint8_t nonceData[TAF_MNGDSTORSEC_MAX_DATA_LABLE_BYTES] = {0};
+    uint8_t nonceData[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES] = {0};
 
-    char ns[TAF_MNGDSTORSEC_MAX_DATA_LABLE_BYTES] = {0};
+    char ns[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES] = {0};
 
     TAF_ERROR_IF_RET_VAL(GetClientNamespace(ns,
                                                     sizeof(ns)) != LE_OK,
@@ -453,7 +453,7 @@ le_result_t tafMngdStorageSvc::WriteDataStart
  */
 le_result_t tafMngdStorageSvc::WriteDataChunk
 (
-    taf_mngdStorSec_DataRef_t dataRef,
+    taf_mngdStorSecData_DataRef_t dataRef,
     const uint8_t *bufferPtr,
     size_t bufferSize
 )
@@ -465,10 +465,10 @@ le_result_t tafMngdStorageSvc::WriteDataChunk
                             LE_UNAVAILABLE,
                             "Data is not in writing process");
 
-    TAF_ERROR_IF_RET_VAL(bufferSize > TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE,
+    TAF_ERROR_IF_RET_VAL(bufferSize > TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE,
                             LE_OVERFLOW,
                             "Data size %" PRIuS " is larger than the limitation %d",
-                            bufferSize, TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE);
+                            bufferSize, TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE);
 
     TAF_ERROR_IF_RET_VAL(CheckSize(bufferSize) != LE_OK,
                             LE_OVERFLOW,
@@ -509,7 +509,7 @@ le_result_t tafMngdStorageSvc::WriteDataChunk
 
 le_result_t tafMngdStorageSvc::WriteDataEnd
 (
-    taf_mngdStorSec_DataRef_t dataRef
+    taf_mngdStorSecData_DataRef_t dataRef
 )
 {
     tafMngdStorage_SecData_t* dataPtr =
@@ -556,7 +556,7 @@ le_result_t tafMngdStorageSvc::WriteDataEnd
 
 le_result_t tafMngdStorageSvc::ReadDataFirstChunk
 (
-    taf_mngdStorSec_DataRef_t dataRef,
+    taf_mngdStorSecData_DataRef_t dataRef,
     uint8_t *bufferPtr,
     size_t *readSize
 )
@@ -575,18 +575,18 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
                             LE_BUSY,
                             "data is in reading process");
 
-    TAF_ERROR_IF_RET_VAL(*readSize > TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE,
+    TAF_ERROR_IF_RET_VAL(*readSize > TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE,
                             LE_OVERFLOW,
                             "Read size %" PRIuS " is larger than the limitation %d",
-                            *readSize, TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE);
+                            *readSize, TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE);
 
     memset((void*)(&(dataPtr->readOp)), 0, sizeof(ReadOp_t));
 
     uint8_t nonce[EVP_MAX_MD_SIZE] = {0};
 
-    uint8_t nonceData[TAF_MNGDSTORSEC_MAX_DATA_LABLE_BYTES] = {0};
+    uint8_t nonceData[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES] = {0};
 
-    char ns[TAF_MNGDSTORSEC_MAX_DATA_LABLE_BYTES] = {0};
+    char ns[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES] = {0};
 
     TAF_ERROR_IF_RET_VAL(GetClientNamespace(ns, sizeof(ns)) != LE_OK,
                             LE_BAD_PARAMETER,
@@ -645,8 +645,8 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
                             "Failed to process aead");
 
     struct stat fileStat = {0};
-    uint8_t tmpBuf[TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE] = {0};
-    size_t readFileSize = TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE;
+    uint8_t tmpBuf[TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE] = {0};
+    size_t readFileSize = TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE;
 
     dataPtr->isInReadingProcess = true;
 
@@ -676,7 +676,7 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
         return LE_OK;
     }
 
-    if(dataPtr->readOp.fileSize <= TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE)
+    if(dataPtr->readOp.fileSize <= TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE)
     {
         ssize_t bytesRead = taf_rfs_Read(dataPtr->readOp.outputFd, tmpBuf, &readFileSize);
 
@@ -747,7 +747,7 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
     {
         dataPtr->readOp.readIterator = 0;
 
-        size_t currentSize = TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE;
+        size_t currentSize = TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE;
 
         ssize_t bytesRead = taf_rfs_Read(dataPtr->readOp.outputFd, tmpBuf, &currentSize);
         if (bytesRead != (ssize_t)currentSize)
@@ -802,7 +802,7 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
 
 le_result_t tafMngdStorageSvc::ReadDataNextChunk
 (
-    taf_mngdStorSec_DataRef_t dataRef,
+    taf_mngdStorSecData_DataRef_t dataRef,
     uint8_t *bufferPtr,
     size_t *readSize
 )
@@ -821,12 +821,12 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
                             LE_BUSY,
                             "data is not in reading process");
 
-    TAF_ERROR_IF_RET_VAL(*readSize > TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE,
+    TAF_ERROR_IF_RET_VAL(*readSize > TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE,
                             LE_OVERFLOW,
                             "Read size %" PRIuS " is larger than the limitation %d",
-                            *readSize, TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE);
+                            *readSize, TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE);
 
-    uint8_t tmpBuf[TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE] = {0};
+    uint8_t tmpBuf[TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE] = {0};
 
     taf_ks_CryptoSessionRef_t* sessionRefPtr = &(dataPtr->readOp.sessionRef);
 
@@ -835,16 +835,16 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
 
     le_result_t result = LE_OK;
 
-    if((dataPtr->readOp.readIterator * TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE) <
+    if((dataPtr->readOp.readIterator * TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE) <
         dataPtr->readOp.fileSize)
     {
         size_t currentSize =
             dataPtr->readOp.fileSize -
-            (dataPtr->readOp.readIterator * TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE);
+            (dataPtr->readOp.readIterator * TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE);
 
-        if (currentSize > TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE)
+        if (currentSize > TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE)
         {
-            currentSize = TAF_MNGDSTORSEC_MAX_DATA_CHUNK_SIZE;
+            currentSize = TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE;
         }
 
         ssize_t bytesRead = taf_rfs_Read(dataPtr->readOp.outputFd, tmpBuf, &currentSize);
@@ -937,7 +937,7 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
 
 le_result_t tafMngdStorageSvc::GetDataSize
 (
-    taf_mngdStorSec_DataRef_t dataRef,
+    taf_mngdStorSecData_DataRef_t dataRef,
     uint32_t *size
 )
 {
@@ -976,7 +976,7 @@ le_result_t tafMngdStorageSvc::GetDataSize
 
 le_result_t tafMngdStorageSvc::DeleteData
 (
-    taf_mngdStorSec_DataRef_t dataRef
+    taf_mngdStorSecData_DataRef_t dataRef
 )
 {
     tafMngdStorage_SecData_t* dataPtr =

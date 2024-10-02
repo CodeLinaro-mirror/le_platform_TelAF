@@ -91,10 +91,10 @@ ReadOp_t;
 typedef struct
 {
     // Reference to the secure storage
-    taf_mngdStorSec_DataRef_t dataRef;
+    taf_mngdStorSecData_DataRef_t dataRef;
 
     // Data name
-    char dataLabel[TAF_MNGDSTORSEC_MAX_DATA_LABLE_BYTES];
+    char dataLabel[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES];
 
     // Client session reference
     le_msg_SessionRef_t clientSessionRef;
@@ -146,39 +146,39 @@ class tafMngdStorageSvc: public ITafSvc
          * Functions for secure data
          */
 
-        taf_mngdStorSec_DataRef_t CreateData(const char* dataLable);
+        taf_mngdStorSecData_DataRef_t CreateData(const char* dataLable);
 
-        taf_mngdStorSec_DataRef_t GetDataRef(const char* dataLable);
+        taf_mngdStorSecData_DataRef_t GetDataRef(const char* dataLable);
 
         le_result_t FindDataRef(const char* dataLabel,
-                                            taf_mngdStorSec_DataRef_t* dataRef);
+                                            taf_mngdStorSecData_DataRef_t* dataRef);
 
         le_result_t GetDataPath(const char* dataLabel, char* bufferPtr,
                                             size_t bufferSize);
 
-        le_result_t CreateDataItem(taf_mngdStorSec_DataRef_t dataRef);
+        le_result_t CreateDataItem(taf_mngdStorSecData_DataRef_t dataRef);
 
         static void ReleaseDataRef(le_msg_SessionRef_t sessionRef, void* contextPtr);
 
-        le_result_t WriteDataStart(taf_mngdStorSec_DataRef_t dataRef);
+        le_result_t WriteDataStart(taf_mngdStorSecData_DataRef_t dataRef);
 
-        le_result_t WriteDataChunk(taf_mngdStorSec_DataRef_t dataRef,
+        le_result_t WriteDataChunk(taf_mngdStorSecData_DataRef_t dataRef,
                                                 const uint8_t *bufferPtr,
                                                 size_t bufferSize);
 
-        le_result_t WriteDataEnd(taf_mngdStorSec_DataRef_t dataRef);
+        le_result_t WriteDataEnd(taf_mngdStorSecData_DataRef_t dataRef);
 
-        le_result_t ReadDataFirstChunk(taf_mngdStorSec_DataRef_t dataRef,
+        le_result_t ReadDataFirstChunk(taf_mngdStorSecData_DataRef_t dataRef,
                                                     uint8_t *bufferPtr,
                                                     size_t *readSize);
 
-        le_result_t ReadDataNextChunk(taf_mngdStorSec_DataRef_t dataRef,
+        le_result_t ReadDataNextChunk(taf_mngdStorSecData_DataRef_t dataRef,
                                                     uint8_t *bufferPtr,
                                                     size_t *readSize);
 
-        le_result_t GetDataSize(taf_mngdStorSec_DataRef_t dataRef, uint32_t *size);
+        le_result_t GetDataSize(taf_mngdStorSecData_DataRef_t dataRef, uint32_t *size);
 
-        le_result_t DeleteData(taf_mngdStorSec_DataRef_t dataRef);
+        le_result_t DeleteData(taf_mngdStorSecData_DataRef_t dataRef);
 
         le_result_t CheckSize(uint32_t writeSize);
 

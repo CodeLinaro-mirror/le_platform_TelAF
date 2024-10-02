@@ -39,7 +39,7 @@ using namespace telux::tafsvc;
 /**
  * Gets the used size of the storage
  */
-le_result_t taf_mngdStorSec_GetUsedSize
+le_result_t taf_mngdStorSecData_GetUsedSize
 (
     uint32_t *sizePtr
 )
@@ -54,7 +54,7 @@ le_result_t taf_mngdStorSec_GetUsedSize
 /**
  * Gets the free size of the storage
  */
-le_result_t taf_mngdStorSec_GetFreeSize
+le_result_t taf_mngdStorSecData_GetFreeSize
 (
     uint32_t *sizePtr
 )
@@ -67,22 +67,22 @@ le_result_t taf_mngdStorSec_GetFreeSize
 }
 
 /**
- * Creates data reference for the new data label
+ * Creates data reference for the new data name
  */
-taf_mngdStorSec_DataRef_t taf_mngdStorSec_CreateData
+taf_mngdStorSecData_DataRef_t taf_mngdStorSecData_CreateData
 (
-    const char *dataLabel
+    const char *dataName
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
 
-    return mss.CreateData(dataLabel);
+    return mss.CreateData(dataName);
 }
 
 /**
  * Gets data reference for the new data label
  */
-taf_mngdStorSec_DataRef_t taf_mngdStorSec_GetDataRef
+taf_mngdStorSecData_DataRef_t taf_mngdStorSecData_GetDataRef
 (
     const char *dataLabel
 )
@@ -95,9 +95,9 @@ taf_mngdStorSec_DataRef_t taf_mngdStorSec_GetDataRef
 /**
  * Initializes writing data operation for the data label
  */
-le_result_t taf_mngdStorSec_WriteDataStart
+le_result_t taf_mngdStorSecData_WriteDataStart
 (
-    taf_mngdStorSec_DataRef_t dataRef
+    taf_mngdStorSecData_DataRef_t dataRef
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
@@ -108,9 +108,9 @@ le_result_t taf_mngdStorSec_WriteDataStart
 /**
  * Processes writing data operation for the data label
  */
-le_result_t taf_mngdStorSec_WriteDataChunk
+le_result_t taf_mngdStorSecData_WriteDataChunk
 (
-    taf_mngdStorSec_DataRef_t dataRef,
+    taf_mngdStorSecData_DataRef_t dataRef,
     const uint8_t *bufferPtr,
     size_t bufferSize
 )
@@ -123,9 +123,9 @@ le_result_t taf_mngdStorSec_WriteDataChunk
 /**
  * Ends writing data operation for the data label
  */
-le_result_t taf_mngdStorSec_WriteDataEnd
+le_result_t taf_mngdStorSecData_WriteDataEnd
 (
-    taf_mngdStorSec_DataRef_t dataRef
+    taf_mngdStorSecData_DataRef_t dataRef
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
@@ -136,9 +136,9 @@ le_result_t taf_mngdStorSec_WriteDataEnd
 /**
  * Reads data of the data label
  */
-le_result_t taf_mngdStorSec_ReadDataFirstChunk
+le_result_t taf_mngdStorSecData_ReadDataFirstChunk
 (
-    taf_mngdStorSec_DataRef_t dataRef,
+    taf_mngdStorSecData_DataRef_t dataRef,
     uint8_t *bufferPtr,
     size_t *readSize
 )
@@ -151,9 +151,9 @@ le_result_t taf_mngdStorSec_ReadDataFirstChunk
 /**
  * Reads the next data chunk from the given data item
  */
-le_result_t taf_mngdStorSec_ReadDataNextChunk
+le_result_t taf_mngdStorSecData_ReadDataNextChunk
 (
-    taf_mngdStorSec_DataRef_t dataRef,
+    taf_mngdStorSecData_DataRef_t dataRef,
     uint8_t *bufferPtr,
     size_t *readSize
 )
@@ -166,9 +166,9 @@ le_result_t taf_mngdStorSec_ReadDataNextChunk
 /**
  * Gets the data size for the given data item in bytes
  */
-le_result_t taf_mngdStorSec_GetDataSize
+le_result_t taf_mngdStorSecData_GetDataSize
 (
-    taf_mngdStorSec_DataRef_t dataRef,
+    taf_mngdStorSecData_DataRef_t dataRef,
     uint32_t *dataSize
 )
 {
@@ -180,15 +180,94 @@ le_result_t taf_mngdStorSec_GetDataSize
 /**
  * Deletes data and the data label
  */
-le_result_t taf_mngdStorSec_DeleteData
+le_result_t taf_mngdStorSecData_DeleteData
 (
-    taf_mngdStorSec_DataRef_t dataRef
+    taf_mngdStorSecData_DataRef_t dataRef
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
 
     return mss.DeleteData(dataRef);
 }
+
+/**
+ * Shares a data to another application to use
+ */
+le_result_t taf_mngdStorSecData_ShareData
+(
+    taf_mngdStorSecData_DataRef_t dataRef,
+    taf_mngdStorSecData_DataUsage_t usage,
+    const char* LE_NONNULL appName
+
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+/**
+ * Cancels the data sharing
+ */
+le_result_t taf_mngdStorSecData_CancelDataSharing
+(
+    taf_mngdStorSecData_DataRef_t dataRef,
+    const char* LE_NONNULL appName
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+/**
+ * Gets the first application that the given data is shared to
+ */
+le_result_t taf_mngdStorSecData_GetFirstSharedApp
+(
+    taf_mngdStorSecData_DataRef_t dataRef,
+    char* appName,
+    size_t appNameSize,
+    taf_mngdStorSecData_DataUsage_t* usage
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+/**
+ * Gets the next application that the given data is shared to
+ */
+le_result_t taf_mngdStorSecData_GetNextSharedApp
+(
+    taf_mngdStorSecData_DataRef_t dataRef,
+    char* appName,
+    size_t appNameSize,
+    taf_mngdStorSecData_DataUsage_t* usage
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+/**
+ * Add handler for data state change.
+ */
+taf_mngdStorSecData_DataStateChangeHandlerRef_t taf_mngdStorSecData_AddDataStateChangeHandler
+(
+    const char* LE_NONNULL dataName,
+    const char* LE_NONNULL appName,
+    taf_mngdStorSecData_DataStateChangeHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    return NULL;
+}
+
+/**
+ * Remove handler function for data state change.
+ */
+void taf_mngdStorSecData_RemoveDataStateChangeHandler
+(
+    taf_mngdStorSecData_DataStateChangeHandlerRef_t handlerRef
+)
+{
+}
+
 
 COMPONENT_INIT
 {

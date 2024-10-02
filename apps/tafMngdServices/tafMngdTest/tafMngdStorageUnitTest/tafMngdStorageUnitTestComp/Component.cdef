@@ -7,7 +7,7 @@ requires:
 {
     api:
     {
-        taf_mngdStorSec.api
+        taf_mngdStorSecData.api
         taf_mngdStorCfg.api
     }
 }

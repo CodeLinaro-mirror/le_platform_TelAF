@@ -26,17 +26,31 @@
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+/*
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 /**
  * The common type definitions for TelAF.
  */
 
 /**
- * According to ITU-T recommendations E.164/E.163. The phone numbers can be 
+ * According to ITU-T recommendations E.164/E.163. The phone numbers can be
  * a maximum of 15 digits, and appending prefix('+' / '00') should be: 15 + 2.
  *
  * Finally adding one byte for a null character should be: 15 + 2 + 1.
  */
 DEFINE  REMOTE_PARTY_NUM_MAX_BYTES = (15+2+1);
 
-
+//--------------------------------------------------------------------------------------------------
+/**
+ * The supported phone IDs.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM PhoneId
+{
+    PHONE_ID_UNKNOWN = 0,
+    PHONE_ID_1 = 1,
+    PHONE_ID_2 = 2
+};

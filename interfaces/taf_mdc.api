@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -42,12 +42,13 @@ USETYPES taf_dcs.api;
 /**
  * Starts a permanent synchronous data cellular session for the given profile reference.
  *
- * @returns 
+ * @returns
  * - LE_OK                           Successfully made the data call.
  * - LE_NOT_FOUND                    Parameter is invalid or cannot create the data call.
  * - LE_OUT_OF_RANGE                 PDP type is unknown.
  * - LE_BUSY                         Profile is in use.
  * - LE_TIMEOUT                      Timed out while attempting to make the data call.
+ * - LE_NOT_POSSIBLE                 Data profile is not yet created.
  * - LE_FAULT                        Failed to make the data call.
  */
 //--------------------------------------------------------------------------------------------------
@@ -60,12 +61,13 @@ FUNCTION le_result_t StartSession
 /**
  * Starts a permanent asynchronous data cellular session for the given profile reference.
  *
- * @returns 
+ * @returns
  * - LE_OK                           Successfully made the data call.
  * - LE_NOT_FOUND                    Parameter is invalid or cannot create the data call.
  * - LE_OUT_OF_RANGE                 PDP type is unknown.
  * - LE_BUSY                         Profile is in use.
  * - LE_TIMEOUT                      Timed out while attempting to make the data call.
+ * - LE_NOT_POSSIBLE                 Data profile is not yet created.
  * - LE_FAULT                        Failed to make the data call.
  */
 //--------------------------------------------------------------------------------------------------
@@ -78,12 +80,13 @@ FUNCTION le_result_t StartSessionAsync
 /**
  * Synchronously stops a permanent data cellular session for the given profile reference.
  *
- * @returns 
+ * @returns
  * - LE_OK                           Successfully stopped the data call.
  * - LE_NOT_FOUND                    Could not find the data call to stop.
  * - LE_OUT_OF_RANGE                 PDP type is unknown.
  * - LE_BAD_PARAMETER                Call context is NULL.
  * - LE_TIMEOUT                      Timed out while attempting to stop the data call.
+ * - LE_NOT_POSSIBLE                 Data profile is not yet created.
  * - LE_FAULT                        Failed to stop the data call.
  */
 //--------------------------------------------------------------------------------------------------
@@ -96,12 +99,13 @@ FUNCTION le_result_t StopSession
 /**
  * Asynchronously stops a permanent data cellular session for the given profile reference.
  *
- * @returns 
+ * @returns
  * - LE_OK                           Successfully stopped the data call.
  * - LE_NOT_FOUND                    Could not find the data call to stop .
  * - LE_OUT_OF_RANGE                 PDP type is unknown.
  * - LE_BAD_PARAMETER                Call context is NULL.
  * - LE_TIMEOUT                      Timed out while attempting to stop the data call.
+ * - LE_NOT_POSSIBLE                 Data profile is not yet created.
  * - LE_FAULT                        Failed to stop the data call.
  */
 //--------------------------------------------------------------------------------------------------

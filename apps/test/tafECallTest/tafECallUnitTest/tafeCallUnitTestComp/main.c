@@ -461,6 +461,7 @@ static void Test_ECall_StartTest() {
     uint16_t minNwRegTime = 0;
     uint16_t ccftTimeOrg = 0;
     taf_ecall_State_t retrievedState = TAF_ECALL_STATE_UNKNOWN;
+    bool isInProgress = false;
 
     eCallRef= taf_ecall_Create();
 
@@ -478,6 +479,10 @@ static void Test_ECall_StartTest() {
         eCallRef = NULL;
         return;
     }
+
+    res = taf_ecall_IsInProgress(eCallRef, &isInProgress);
+    LE_TEST_OK(res == LE_OK, "getIsInProgress  - LE_OK");
+    LE_INFO("Test IsInProgress = %d", (int) isInProgress);
 
     le_clk_Time_t timeToWait = {10, 0};
     //Waits the TAF_ECALL_STATE_ACTIVE event
@@ -532,6 +537,10 @@ static void Test_ECall_StartTest() {
     if(res == LE_OK) {
         le_sem_Wait(testSemaphoreRef);
     }
+
+    res = taf_ecall_IsInProgress(eCallRef, &isInProgress);
+    LE_TEST_OK(res == LE_OK, "getIsInProgress  - LE_OK");
+    LE_INFO("Test IsInProgress = %d", (int) isInProgress);
 
     retrievedState = taf_ecall_GetState(eCallRef);
     LE_INFO("Test_ECall_StartTest callState = %d", (int) retrievedState);

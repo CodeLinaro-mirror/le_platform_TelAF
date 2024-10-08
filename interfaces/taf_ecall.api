@@ -138,6 +138,7 @@
  *
  * taf_ecall_Create() helps to create a new eCall object and returns a reference to the eCall session.
  * taf_ecall_GetType() is used to query the current type of the eCall session.
+ * taf_ecall_IsInProgress() is used to query the eCall in progress or not.
  * At this point the eCall is not yet started, the eCall session must be started using one of the
  * following functions.
  * - taf_ecall_StartManual() -- Initiates a manual eCall session; triggered by a passenger
@@ -1516,6 +1517,22 @@ FUNCTION le_result_t GetHlapTimerState
     HlapTimerStatus timerStatus OUT, ///<The status of the HLAP timer.
     uint16 elapsedTime OUT            ///<The elapsed time of the HLAP timer in unit of seconds.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Queries the eCall in progress or not.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t IsInProgress
+(
+    Call ecallRef IN,       ///< eCall reference.
+    bool isInProgress OUT   ///eCall is in progress or not.
+);
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the number of dial attempts in case of call initiation failed for Europen regulatory eCall.

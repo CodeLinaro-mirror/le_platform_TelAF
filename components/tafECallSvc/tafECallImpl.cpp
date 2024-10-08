@@ -2506,6 +2506,39 @@ void taf_ecall::ALACKTimerEventHandler(void* reqPtr)
     }
 }
 
+le_result_t taf_ecall::IsInProgress(taf_ecall_CallRef_t ecallRef, bool* isInProgress)
+{
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    if (eCallPtr == NULL)
+    {
+        LE_ERROR("Invalid eCall reference");
+        return LE_BAD_PARAMETER;
+    }
+
+    std::shared_ptr<telux::tel::ICall> spCall = nullptr;
+    if (CallManager) {
+        std::vector<std::shared_ptr<telux::tel::ICall>> callList
+           = CallManager->getInProgressCalls();
+        for(auto callIterator = std::begin(callList); callIterator != std::end(callList);
+            ++callIterator) {
+            telux::tel::CallState callState = (*callIterator)->getCallState();
+            if(callState != telux::tel::CallState::CALL_ENDED) {
+               spCall = *callIterator;
+               break;
+            }
+        }
+        if(spCall && eCallPtr->callIndex == spCall->getCallIndex()) {
+            *isInProgress = true;
+        } else {
+            *isInProgress = false;
+        }
+    } else {
+        return LE_FAULT;
+    }
+    return LE_OK;
+}
+
 le_result_t taf_ecall::ConfigureInitialDialRedial(std::vector<int> redialPara)
 {
     if (CallManager) {

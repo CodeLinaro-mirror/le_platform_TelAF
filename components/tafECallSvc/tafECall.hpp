@@ -274,6 +274,7 @@ namespace telux {
                 uint16_t ConvertElapsedTime(std::chrono::time_point<std::chrono::system_clock> startTime);
                 static void ReportPositiveALACKTimerHandler(le_timer_Ref_t timerRef);
                 static void ALACKTimerEventHandler(void* reqPtr);
+                le_result_t IsInProgress(taf_ecall_CallRef_t ecallRef, bool* isInProgress);
                 le_result_t ConfigureInitialDialRedial(std::vector<int> redialPara);
                 le_result_t SetInitialDialAttempts(uint8_t attempts);
                 le_result_t SetInitialDialIntervalBetweenDialAttempts(const uint16_t* interval, size_t intervalLength);

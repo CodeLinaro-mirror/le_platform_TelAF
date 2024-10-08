@@ -348,6 +348,32 @@ static void Test_ECall_GetHlapTimerState()
     LE_INFO("GetHlapTimerState completed");
 }
 
+static void Test_ECall_DialRedial() {
+    le_result_t res = LE_FAULT;
+
+    uint16_t dialIntervalErr[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH] = {60, 60, 60};
+    res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialIntervalErr, 3);
+    LE_TEST_OK(res == LE_OK, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    uint16_t dialInterval[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH] = {5, 60, 60};
+    res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialInterval, 3);
+    LE_TEST_OK(res == LE_OK, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialInterval, 5);
+    LE_TEST_OK(res == LE_FAULT, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialInterval, 3);
+    LE_TEST_OK(res == LE_OK, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(NULL, 0);
+    LE_TEST_OK(res == LE_OVERFLOW, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+
+    uint8_t dialAttempts = 11;
+    res = taf_ecall_SetInitialDialAttempts(dialAttempts);
+    LE_TEST_OK(res == LE_OVERFLOW, "SetInitialDialAttempts - LE_OK");
+    dialAttempts = 2;
+    res = taf_ecall_SetInitialDialAttempts(dialAttempts);
+    LE_TEST_OK(res == LE_OK, "SetInitialDialAttempts - LE_OK");
+
+    LE_INFO("Set redial attempts and interval completed");
+}
+
 static void* Test_ECall_ExportMsd
 (
     taf_ecall_CallRef_t    ecallRef
@@ -899,6 +925,12 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_END_OF_REDIAL_PERIOD:
         {
             LE_INFO("TAF_ECALL_STATE_END_OF_REDIAL_PERIOD");
+            if (eCallReference != NULL)
+            {
+                taf_ecall_TerminationReason_t endReason = taf_ecall_GetTerminationReason(eCallReference);
+                LE_INFO("TAF_ECALL_STATE_ENDED_OF_REDIAL_PERIOD endReason = %d", (int) endReason);
+            }
+            le_sem_Post(testSemaphoreRef);
             break;
         }
         case TAF_ECALL_STATE_T2_EXPIRED:
@@ -1116,6 +1148,8 @@ COMPONENT_INIT
     Test_ECall_PsapNumber();
 
     Test_ECall_HlapTimer();
+
+    Test_ECall_DialRedial();
 
     Test_ECall_OperationMode();
 

@@ -222,6 +222,20 @@
  *
  * The taf_ecall_GetHlapTimerState() API is used to get the timer status and elapsed time based on HLAP timer type.
  *
+ * @section taf_ecall_redial_configuration NAD eCall initial failed
+ *
+ * The dial parameters for a failed initial call in the Europe regulatory eCall system can be set using the following
+ * APIs. Note that this configuration is not persistent after modem reboots. The number of redial attempts and the interval
+ * between these attempts follows the 3GPP ESTI 122 001 Annex. The range of the number of redial attempts is [1,10] and
+ * the default value is 10. The default dial intervals between dial attempts are follows and users can set the initial
+ * dial interval to be equal to or greater than the default value.
+ * - 1st redial interval: 5 seconds.
+ * - 2nd-4th redial intervals: 60 seconds.
+ * - 5th-10th redial intervals: 180 seconds.
+ *
+ * - taf_ecall_SetInitialDialAttempts() -- Sets the number of dial attempts.
+ * - taf_ecall_SetInitialDialIntervalBetweenDialAttempts() -- Sets the dial interval value between dial attempts.
+ *
  * @section taf_ecall_concurrency Concurrency of eCall
  *
  * If another application wants to use the eCall service when a session is already active, the
@@ -364,6 +378,7 @@ DEFINE MAX_DATA_LENGTH  =  (94);
 DEFINE MAX_MSD_LENGTH = (255);
 DEFINE CONTENT_TYPE_MAX_LENGTH = (128);
 DEFINE ACCEPT_INFO_MAX_LENGTH = (128);
+DEFINE MAX_DIAL_ATTEMPTS_LENGTH = (10);
 
 /**
  *  Operational modes.
@@ -469,7 +484,7 @@ ENUM State
     STATE_RESET,                              ///< Not supported.
     STATE_COMPLETED,                          ///< Not supported.
     STATE_FAILED,                             ///< Not supported.
-    STATE_END_OF_REDIAL_PERIOD,               ///< Not supported.
+    STATE_END_OF_REDIAL_PERIOD,               ///< Ended call of the redial period.
     STATE_T2_EXPIRED,                         ///< T2 timer expired.
     STATE_TIMEOUT_T3,                         ///< Not  supported.
     STATE_T5_EXPIRED,                         ///< T5 Timer expired.
@@ -1500,4 +1515,35 @@ FUNCTION le_result_t GetHlapTimerState
     HlapTimerType timer IN,          ///<HLAP timer Type.
     HlapTimerStatus timerStatus OUT, ///<The status of the HLAP timer.
     uint16 elapsedTime OUT            ///<The elapsed time of the HLAP timer in unit of seconds.
+);
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the number of dial attempts in case of call initiation failed for Europen regulatory eCall.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OVERFLOW -- The size of the dial attempt length is wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetInitialDialAttempts
+(
+    uint8 attempts IN   ///< The number of dial attempts
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the dial interval value between two dial attempts in case of call initiation failed for Europen
+ * regulatory eCall.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
+ *  - LE_BAD_PARAMETER -- Invalid parameters.
+ *  - LE_OVERFLOW -- The size of the dial interval length is wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetInitialDialIntervalBetweenDialAttempts
+(
+    uint16 interval[MAX_DIAL_ATTEMPTS_LENGTH] IN   ///< Interval in unit of seconds.
 );

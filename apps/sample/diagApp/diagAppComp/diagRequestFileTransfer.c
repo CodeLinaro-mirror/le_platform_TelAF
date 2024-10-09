@@ -235,7 +235,7 @@ void diagRFT_DeactivateProgramming(void)
 }
 
 // Callback function for file transfer request message
-void fileXferMsgHandler
+static void fileXferMsgHandler
 (
     taf_diagUpdate_RxFileXferMsgRef_t rxMsgRef,
     taf_diagUpdate_ModeOfOpsType_t moop,
@@ -526,7 +526,7 @@ void fileXferMsgHandler
 }
 
 // Callback function for data transfer request message
-void xferDataMsgHandler
+static void xferDataMsgHandler
 (
     taf_diagUpdate_RxXferDataMsgRef_t rxMsgRef,
     void* contextPtr
@@ -782,7 +782,7 @@ static bool IsEnoughForTargetFile(FILE * target)
 
 
 // Callback function for transfer exit request message
-void xferExitMsgHandler
+static void xferExitMsgHandler
 (
     taf_diagUpdate_RxXferExitMsgRef_t rxMsgRef,
     void* contextPtr

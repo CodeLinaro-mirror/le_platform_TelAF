@@ -37,6 +37,9 @@
 #include "tafSvcIF.hpp"
 #include "tafHalAudio.h"
 #include <queue>
+#include <unordered_map>
+#include <thread>
+#include <chrono>
 #include <telux/audio/AudioFactory.hpp>
 #include <telux/audio/AudioManager.hpp>
 #include <telux/audio/AudioPlayer.hpp>
@@ -54,6 +57,7 @@ using namespace telux::audio;
 #define DEFAULT_BITSPERSAMPLE      16
 #define MAX_NUM_OF_PLAYLIST        4
 #define MAX_NUM_OF_PLAYBACK_FILES  8
+#define MAX_DTMF_GAIN              8192
 
 #define DEVICE_TYPE_SINK_0   1
 #define DEVICE_TYPE_SINK_1   2
@@ -89,6 +93,7 @@ using namespace telux::audio;
 #define ID_DATA    0x61746164
 
 typedef struct StreamEventHandlerRef* StreamEventHandlerRef_t;
+typedef struct taf_audio_DtmfStreamEventHandlerRef* taf_audio_DtmfStreamEventHandlerRef_t;
 
 typedef struct taf_audio_Connector {
     le_hashmap_Ref_t              audioInList;
@@ -138,6 +143,7 @@ typedef struct taf_audio_Stream {
     le_hashmap_Ref_t connList;
     taf_audio_Direction_t direction;
     taf_audio_StreamRef_t streamRef;
+    taf_audio_DtmfStreamEventHandlerRef_t dtmfEventHandler;
     le_event_Id_t    eventId;
     le_dls_List_t    streamRefWithEventHdlrList;
     le_dls_List_t    sessionRefList;
@@ -174,7 +180,8 @@ taf_audio_Route_t;
 
 typedef enum
 {
-    TAF_AUDIO_BITMASK_MEDIA_EVENT = 0x1
+    TAF_AUDIO_BITMASK_MEDIA_EVENT = 0x1,
+    TAF_AUDIO_BITMASK_DTMF_DETECTION = 0x02
 }
 taf_audio_StreamEventBitMask_t;
 
@@ -248,6 +255,13 @@ typedef struct
     le_result_t pbRes;
 }taf_PbList_t;
 
+typedef struct {
+    uint16_t duration;
+    uint32_t pause;
+    double dtmfGain;
+    std::vector<std::pair<int, int>> frequencyList{};
+}taf_Dtmf_t;
+
 /**
  * Audio format.
  */
@@ -278,6 +292,11 @@ namespace tafsvc {
             void onPlayStopped() override;
     };
 
+    class tafVoiceListener : public telux::audio::IVoiceListener {
+        public:
+            virtual void onDtmfToneDetection(DtmfTone dtmfTone) override;
+    };
+
 class taf_Audio : public ITafSvc
 {
 
@@ -297,6 +316,7 @@ class taf_Audio : public ITafSvc
         AudioFormat mRecFileFormat = AudioFormat::UNKNOWN;
         le_sem_Ref_t mPlaySemRef;
         le_dls_List_t  EventIdList = LE_DLS_LIST_INIT;
+        taf_audio_StreamRef_t mDtmfAudioRef = NULL;
 
         void Init(void);
 
@@ -317,7 +337,10 @@ class taf_Audio : public ITafSvc
         taf_audio_StreamRef_t OpenRecorder(taf_audio_Direction_t direction);
         taf_audio_MediaHandlerRef_t AddMediaHandler(taf_audio_StreamRef_t streamRef,
                 taf_audio_MediaHandlerFunc_t handlerPtr, void* contextPtr);
+        taf_audio_DtmfDetectorHandlerRef_t AddDtmfDetectorHandler(taf_audio_StreamRef_t streamRef,
+                taf_audio_DtmfDetectorHandlerFunc_t handlerPtr, void* contextPtr);
         void RemoveMediaHandler(taf_audio_MediaHandlerRef_t handlerRef);
+        void RemoveDtmfDetectorHandler(taf_audio_DtmfDetectorHandlerRef_t handlerRef);
         le_result_t RecordFile( taf_audio_StreamRef_t streamRef, const char *srcPath);
         le_result_t Stop(taf_audio_StreamRef_t streamRef);
         le_result_t PlayFile( taf_audio_StreamRef_t streamRef, const char *srcPath);
@@ -328,6 +351,10 @@ class taf_Audio : public ITafSvc
         le_result_t GetMute( taf_audio_StreamRef_t streamRef, bool *isMute);
         le_result_t SetVolume( taf_audio_StreamRef_t streamRef, double volLevel, bool isClient);
         le_result_t GetVolume( taf_audio_StreamRef_t streamRef, double *volLevel);
+        le_result_t PlayDtmf(taf_audio_StreamRef_t streamRef,
+                const char* dtmfPtr, uint16_t duration, uint32_t pause, double gain);
+        le_result_t StopDtmf(taf_audio_StreamRef_t streamRef);
+        char getDTMFChar(telux::audio::DtmfLowFreq lowFreq, telux::audio::DtmfHighFreq highFreq);
 
         private:
 
@@ -339,6 +366,7 @@ class taf_Audio : public ITafSvc
         std::shared_ptr<telux::audio::IStreamBuffer> mPbStreamBuffer, mRecStreamBuffer;
         std::shared_ptr<telux::audio::IAudioPlayer> mAudioPlayer;
         std::shared_ptr<telux::audio::IPlayListener> mPlayListener;
+        std::shared_ptr<telux::audio::IVoiceListener> mVoiceListener;
         std::shared_ptr<telux::audio::IPlayListListener> repeatedPlayerStatusListener;
         std::queue<std::shared_ptr<telux::audio::IStreamBuffer>> mPbFreeBuffers, mRecFreeBuffers;
 
@@ -346,6 +374,7 @@ class taf_Audio : public ITafSvc
         bool isEcnrEnabled = false;
         bool mCallStarted = false;
         bool mVoiceEnabled1 = false;
+        bool mDtmfStarted = false;
         bool mModemRx = false;
         bool mSpeaker = false;
         bool mModemTx = false;
@@ -358,10 +387,11 @@ class taf_Audio : public ITafSvc
         uint32_t maxFileBytes;
         FILE *mFile;
         FILE *mPlayFile;
-        le_sem_Ref_t mRecordSemRef, mPbStartedSemRef, mRecStartedSemRef;
+        le_sem_Ref_t mRecordSemRef, mPbStartedSemRef, mRecStartedSemRef, mDtmfStartedSemRef;
         SlotId mRxSlotId = INVALID_SLOT_ID , mTxSlotId = INVALID_SLOT_ID;
         StreamConfig voiceStreamConfig = {};
         taf_PbList_t pbList;
+        taf_Dtmf_t dtmfData{};
         taf_mngdPm_InfoReportHandlerRef_t bubHandlerRef;
 
         le_mem_PoolRef_t ConnectorPool = NULL;
@@ -428,7 +458,11 @@ class taf_Audio : public ITafSvc
                 telux::common::ErrorCode error);
         static void StreamMuteUnmuteCallback(ErrorCode error);
         static void BuBStatusCB(int32_t status, void *contextPtr);
-
+        static void RegisterDtmfListenerCallback(ErrorCode error);
+        static void PlayDtmfCallback(ErrorCode error);
+        static void StopDtmfCallback(ErrorCode error);
+        std::pair<int, int> getDTMFFrequencies(char key);
+        static void* playAllDtmfTones(void* dtmfTones);
 };
 }
 }

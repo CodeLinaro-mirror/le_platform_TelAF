@@ -46,3 +46,8 @@ extern:
     tafWlanSvc.tafWlanSvc.taf_wlanAp
     tafWlanSvc.tafWlanSvc.taf_wlanSta
 }
+
+bindings:
+{
+    tafWlanSvc.tafWlanSvc.le_appInfo -> <root>.le_appInfo
+}

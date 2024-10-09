@@ -61,6 +61,8 @@ namespace doip{
     #define TAF_DOIP_MDS_DEFAULT            4096
     #define TAF_DOIP_SA_DEFAULT             0x201
 
+    #define VLAN_PROC_PATH  "/proc/net/vlan/config"
+
     //-------------------------------------------------------------------------------------------------
     /**
      * Enumeration of routing activation confirmation result.
@@ -107,6 +109,8 @@ namespace doip{
         int       taType;
         char*     data;
         uint32_t  len;
+        uint16_t  vlanId;
+        char      ifName[TAF_DOIP_INTERFACE_NAME_MAX_LEN];
     }taf_doipDiagDataInfo_t;
 
     typedef struct
@@ -159,6 +163,8 @@ namespace doip{
         taf_doip_Result_t   eventStatus;
         uint16_t            clientAddr;             // Remote client source address.
         uint16_t            entityAddr;             // Entity source address.
+        uint16_t            vlanId;
+        char                ifName[TAF_DOIP_INTERFACE_NAME_MAX_LEN];
     }taf_doip_Status_t;
 
     class CommunicationMgr {
@@ -195,11 +201,12 @@ namespace doip{
             // When Connection receive a uds messsage.
             // It will call this function to send uds message to upper layer.
             taf_doip_Result_t InformUdsMessage(uint16_t sa, uint16_t ta, char* dataPtr,
-                uint32_t length);
+                    uint32_t length, const char* ifacePtr);
             taf_doip_Result_t TransUdsMessage(uint16_t sa, uint16_t ta, taf_doip_TaType_t taType,
-                char* dataPtr, uint32_t length);
+                    char* dataPtr, uint32_t length);
 
-            void ReportConnectionEvent(uint16_t sa, uint16_t ta, taf_doip_Result_t rgistResult);
+            void ReportConnectionEvent(uint16_t sa, uint16_t ta, taf_doip_Result_t rgistResult,
+                    const char* ifacePtr);
 
             //VehicleManager& GetVehicleManager();
 
@@ -211,18 +218,20 @@ namespace doip{
             static void* UdsHandleThread(void* contextPtr);
 
             // Lister and accept client connect via this socket reference.
-            le_socket_Ref_t tcpDataSockRef;
+            le_socket_Ref_t tcpDataSockRef[MAX_INF_NUM];
 
             // Send and receive UDP massage(Vehicle discovery) via these two socket references.
             // Notice: In some systems, Not default gw or route, so need to add a socket which was
             // bound with a local interface for IPv4 limited broadcast sending and UDP reception.
             le_socket_Ref_t udpDiscoverSockRef;
-            le_socket_Ref_t udpEquipSockRef = NULL;
+            le_socket_Ref_t udpEquipSockRef[MAX_INF_NUM];
 
             // For upper layer create doip and register handler.
             le_mem_PoolRef_t doipSessionPool;
             le_ref_MapRef_t doipSessionRefMap;
             le_ref_MapRef_t doipHandlerRefMap;
+
+            le_mutex_Ref_t doipSessionRefMutex;
 
             taf_doipSession_t*  FindDoipSession(uint16_t sa);
             taf_doip_PowerMode_t QueryPowerMode();
@@ -255,6 +264,18 @@ namespace doip{
             void RespondHeaderNegativeACK(const char* ipPtr, uint16_t port,
                     taf_doipHeaderNACKCode_t nackCode);
 
+            // If not set vlan, this function will return 0.
+            uint16_t GetVlanId(const char *ifacePtr);
+
+            taf_doip_Result_t CreateIPv4SocketRes();
+            taf_doip_Result_t CreateIPv6SocketRes();
+            taf_doip_Result_t CreateSpecIPv4Socket(uint32_t index, const char* ifNamePtr,
+                    uint16_t udpDiscoveryPort, uint16_t tcpDataPort);
+            taf_doip_Result_t CreateSpecIPv6Socket(uint32_t index, const char* ifNamePtr,
+                    uint16_t udpDiscoveryPort, uint16_t tcpDataPort);
+            taf_doip_Result_t GetLocalIPv4FromSource(struct sockaddr_in *srcAddrPtr, char *local);
+            taf_doip_Result_t GetLocalIPv6FromSource(struct sockaddr_in6 *srcAddrPtr, char *local);
+
             // Create Doip Connection Manager
             std::shared_ptr<ConnectionManager> connectionMgrPtr;
 
@@ -264,7 +285,7 @@ namespace doip{
             //uint16_t sa;     // Source logical address.
             //uint32_t authenInfo;
             //char multiAddr[TAF_DOIP_IP_ADDR_MAX_LEN];
-            char localIp[TAF_DOIP_IP_ADDR_MAX_LEN];
+            char localIp[TAF_DOIP_IP_ADDR_MAX_LEN][MAX_INF_NUM];
 
             taf_doipState_t state = TAF_DOIP_STATE_FINAL;
 

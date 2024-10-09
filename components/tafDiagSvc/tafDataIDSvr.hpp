@@ -66,6 +66,7 @@ typedef struct
     taf_diagDataID_RxReadDIDMsgHandlerRef_t readDIDHandlerRef;   ///< Handler ref of ReadDID svc.
     taf_diagDataID_RxWriteDIDMsgHandlerRef_t writeDIDHandlerRef; ///< Handler ref of WriteDID svc.
     le_msg_SessionRef_t sessionRef;                              ///< Ref to a client-svr session.
+    le_dls_List_t supportedVlanList;
 }taf_DataIDSvc_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -125,6 +126,11 @@ typedef struct
     void* ctxPtr;                                        ///< Handler context.
 }taf_WriteDIDHandler_t;
 
+typedef struct
+{
+    le_dls_Link_t   link;
+    uint16_t        vlanId;
+}taf_DataIDVlanIdNode_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -145,7 +151,7 @@ namespace telux
 
                 static void OnClientDisconnection(le_msg_SessionRef_t sessionRef,
                         void *contextPtr);
-                
+
                 // UDS message handler.
                 void UDSMsgHandler(const taf_uds_AddrInfo_t* addrPtr, uint8_t sid, uint8_t* msgPtr,
                         size_t msgLen) override;
@@ -178,10 +184,15 @@ namespace telux
                 le_result_t SnapshotTriggerTheCollectionOfDIDs(uint16_t* dids,
                                                                size_t numOfDids,
                                                                taf_ReadDIDRxMsg_t **msgPPtr);
+                le_result_t SetVlanId(taf_diagDataID_ServiceRef_t svcRef, uint16_t vlanId);
+                le_result_t GetVlanIdFromMsg(taf_diagDataID_RxMsgRef_t rxMsgRef,
+                        uint16_t* vlanIdPtr);
 
             private:
                 // Internal search function.
                 taf_DataIDSvc_t* GetServiceObj();
+                taf_DataIDSvc_t* GetServiceObj(uint16_t vlanId);
+                taf_DataIDSvc_t* GetAvailServiceObjForRead();
 
                 // Send NRC response msg.
                 le_result_t SendNRCResp(uint8_t sid, const taf_uds_AddrInfo_t*  addrInfoPtr,
@@ -210,6 +221,7 @@ namespace telux
                 le_ref_MapRef_t ReqReadDIDHandlerRefMap;
                 le_mem_PoolRef_t ReqWriteDIDHandlerPool;
                 le_ref_MapRef_t ReqWriteDIDHandlerRefMap;
+                le_mem_PoolRef_t vlanPool;
 
                 // Event for service.
                 le_event_Id_t ReadDIDEvent;

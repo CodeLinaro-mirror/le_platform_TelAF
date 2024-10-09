@@ -37,160 +37,6 @@
 using namespace telux::tafsvc;
 
 /**
- * Gets the used size of the storage
- */
-le_result_t taf_mngdStorSec_GetUsedSize
-(
-    uint32_t *sizePtr
-)
-{
-    auto &mss = tafMngdStorageSvc::GetInstance();
-
-    *sizePtr = mss.GetStorageUsedSize();
-
-    return LE_OK;
-}
-
-/**
- * Gets the free size of the storage
- */
-le_result_t taf_mngdStorSec_GetFreeSize
-(
-    uint32_t *sizePtr
-)
-{
-    auto &mss = tafMngdStorageSvc::GetInstance();
-
-    *sizePtr = mss.GetStorageFreeSpace();
-
-    return LE_OK;
-}
-
-/**
- * Creates data reference for the new data label
- */
-taf_mngdStorSec_DataRef_t taf_mngdStorSec_CreateData
-(
-    const char *dataLabel
-)
-{
-    auto &mss = tafMngdStorageSvc::GetInstance();
-
-    return mss.CreateData(dataLabel);
-}
-
-/**
- * Gets data reference for the new data label
- */
-taf_mngdStorSec_DataRef_t taf_mngdStorSec_GetDataRef
-(
-    const char *dataLabel
-)
-{
-    auto &mss = tafMngdStorageSvc::GetInstance();
-
-    return mss.GetDataRef(dataLabel);
-}
-
-/**
- * Initializes writing data operation for the data label
- */
-le_result_t taf_mngdStorSec_WriteDataStart
-(
-    taf_mngdStorSec_DataRef_t dataRef
-)
-{
-    auto &mss = tafMngdStorageSvc::GetInstance();
-
-    return mss.WriteDataStart(dataRef);
-}
-
-/**
- * Processes writing data operation for the data label
- */
-le_result_t taf_mngdStorSec_WriteDataChunk
-(
-    taf_mngdStorSec_DataRef_t dataRef,
-    const uint8_t *bufferPtr,
-    size_t bufferSize
-)
-{
-    auto &mss = tafMngdStorageSvc::GetInstance();
-
-    return mss.WriteDataChunk(dataRef, bufferPtr, bufferSize);
-}
-
-/**
- * Ends writing data operation for the data label
- */
-le_result_t taf_mngdStorSec_WriteDataEnd
-(
-    taf_mngdStorSec_DataRef_t dataRef
-)
-{
-    auto &mss = tafMngdStorageSvc::GetInstance();
-
-    return mss.WriteDataEnd(dataRef);
-}
-
-/**
- * Reads data of the data label
- */
-le_result_t taf_mngdStorSec_ReadDataFirstChunk
-(
-    taf_mngdStorSec_DataRef_t dataRef,
-    uint8_t *bufferPtr,
-    size_t *readSize
-)
-{
-    auto &mss = tafMngdStorageSvc::GetInstance();
-
-    return mss.ReadDataFirstChunk(dataRef, bufferPtr, readSize);
-}
-
-/**
- * Reads the next data chunk from the given data item
- */
-le_result_t taf_mngdStorSec_ReadDataNextChunk
-(
-    taf_mngdStorSec_DataRef_t dataRef,
-    uint8_t *bufferPtr,
-    size_t *readSize
-)
-{
-    auto &mss = tafMngdStorageSvc::GetInstance();
-
-    return mss.ReadDataNextChunk(dataRef, bufferPtr, readSize);
-}
-
-/**
- * Gets the data size for the given data item in bytes
- */
-le_result_t taf_mngdStorSec_GetDataSize
-(
-    taf_mngdStorSec_DataRef_t dataRef,
-    uint32_t *dataSize
-)
-{
-    auto &mss = tafMngdStorageSvc::GetInstance();
-
-    return mss.GetDataSize(dataRef, dataSize);
-}
-
-/**
- * Deletes data and the data label
- */
-le_result_t taf_mngdStorSec_DeleteData
-(
-    taf_mngdStorSec_DataRef_t dataRef
-)
-{
-    auto &mss = tafMngdStorageSvc::GetInstance();
-
-    return mss.DeleteData(dataRef);
-}
-
-/**
  * Copy the file from the paths configured in the MSS configuration JSON file to configuration
  * storage and also checks the validity of file
  */
@@ -217,14 +63,42 @@ le_result_t taf_mngdStorCfg_Sync
 }
 
 /**
- * Revert configuration file with orignal version in config storage.
+ *  Cancel the update file campaign.
+ */
+le_result_t taf_mngdStorCfg_Cancel
+(
+    void
+)
+{
+    auto &mss = tafMngdStorageSvc::GetInstance();
+
+    return mss.Cancel();
+}
+
+/**
+ *  Revert to orignal version of config file.
  */
 le_result_t taf_mngdStorCfg_Rollback
 (
     void
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    auto &mss = tafMngdStorageSvc::GetInstance();
+
+    return mss.Rollback();
+}
+
+/**
+ *  Commit data to config storage.
+ */
+le_result_t taf_mngdStorCfg_Commit
+(
+    void
+)
+{
+   auto &mss = tafMngdStorageSvc::GetInstance();
+
+    return mss.Commit();
 }
 
 /**
@@ -341,5 +215,5 @@ COMPONENT_INIT
 
     auto &mss = tafMngdStorageSvc::GetInstance();
 
-    mss.Init();
+    mss.InitConfigStorage();
 }

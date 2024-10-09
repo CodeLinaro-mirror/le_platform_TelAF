@@ -71,6 +71,32 @@ const char* SimStateToString(taf_sim_States_t state) {
     return cardState;
 }
 
+//Function to convert sim app type to string
+const char* SimAppTypeToString(taf_sim_AppType_t appType) {
+    const char *appTypeStr;
+    switch(appType) {
+        case TAF_SIM_APPTYPE_SIM:
+            appTypeStr = "SIM";
+            break;
+        case TAF_SIM_APPTYPE_USIM:
+            appTypeStr = "USIM";
+            break;
+        case TAF_SIM_APPTYPE_CSIM:
+            appTypeStr = "CSIM";
+            break;
+        case TAF_SIM_APPTYPE_RUIM:
+            appTypeStr = "RUIM";
+            break;
+        case TAF_SIM_APPTYPE_ISIM:
+            appTypeStr = "ISIM";
+            break;
+        default:
+            appTypeStr = "Unknown";
+            break;
+    }
+    return appTypeStr;
+}
+
 static void TestNewSimStateHandler
 (
     taf_sim_Id_t     simId,
@@ -327,6 +353,29 @@ void tafSimUnitTest_sendApdu
     LE_INFO("tafSimUnitTest_sendApdu: APDU response sw2 = 0x%02X",responseAPDU[1]);
 }
 
+void tafSimUnitTest_GetAppTypes
+(
+    taf_sim_Id_t simId
+)
+{
+    le_result_t res;
+    taf_sim_AppType_t appType[TAF_SIM_MAX_APP_TYPE];
+    size_t appTypeNumElements = TAF_SIM_MAX_APP_TYPE;
+
+    res = taf_sim_GetAppTypes(simId, appType, &appTypeNumElements);
+    LE_TEST_OK(res == LE_OK, "tafSimUnitTest_GetAppTypes");
+
+    if (res == LE_OK) {
+        LE_INFO("Total number of apps in card: %d\n", (int) appTypeNumElements);
+    } else {
+        LE_INFO("API GetAppTypes failed! Error: %s\n", LE_RESULT_TXT(res));
+        return;
+    }
+
+    for (int i = 0; i < (int) appTypeNumElements; i++) {
+        LE_INFO("App type: %s\n", SimAppTypeToString(appType[i]));
+    }
+}
 
 void tafSimUnitTest_sim_access
 (
@@ -670,6 +719,8 @@ COMPONENT_INIT
         tafSimUnitTest_setLock(simId,lockType,newPinPtr, true);
 
         tafSimUnitTest_setLock(simId,lockType,newPinPtr, false);
+
+        tafSimUnitTest_GetAppTypes(simId);
 
         tafSimUnitTest_sendApdu(simId);
 

@@ -32,6 +32,7 @@ void PrintUsage(void)
          "app runProc tafSensorIntTest tafSensorIntTest -- SensorInfo <name>\n"
          "app runProc tafSensorIntTest tafSensorIntTest -- SetAngle <Pitch> <Roll> <Yaw>\n"
          "app runProc tafSensorIntTest tafSensorIntTest -- Activate <SensorName> <SamplingRate> <BatchCount>"
+         "app runProc tafSensorIntTest tafSensorIntTest -- SelfTest <sensorName> <Mode>"
          "\n");
 }
 
@@ -247,6 +248,47 @@ static le_result_t TestActivateSensor(const char* name,double SamplingRate,
     return LE_NOT_FOUND;
 }
 
+static le_result_t TestSelfTest(const char* name,const char* mode){
+    le_result_t result;
+    taf_imuSensor_SelfTestMode_t modeType;
+    if(strncmp(mode,"n",strlen(mode)) == 0 || strncmp(mode,"N",strlen(mode)) == 0  ){
+        modeType = TAF_IMUSENSOR_NEGATIVE;
+    }
+    else if(strncmp(mode,"p",strlen(mode)) == 0 || strncmp(mode,"P",strlen(mode)) == 0){
+       modeType =  TAF_IMUSENSOR_POSITIVE;
+    }
+    else{
+        return LE_NOT_FOUND;
+    }
+    for(int i=0;i<SENSOR_NUMS;i++){
+        taf_imuSensor_SensorRef_t sensorRef = sensorsList[i];
+        char sensorName[50];
+        result = taf_imuSensor_GetName(sensorRef,sensorName,sizeof(sensorName));
+        if(result != LE_OK) return result;
+        if(strncmp(name,sensorName, strlen(name)) == 0){
+            le_result_t result = taf_imuSensor_SelfTest(sensorRef,modeType);
+            LE_TEST_OK(result == LE_OK, "taf_imuSensor_SelfTest Info- LE_OK.");
+            if(result ==  LE_UNSUPPORTED ){
+                printf("\033[1;31m Self Test not supported on this target. \033[0m\n");
+            }
+            else if(result == LE_TIMEOUT){
+                printf("\033[1;31m Self Test for %s in mode %d is failed due to timeout. \033[0m\n",
+                    sensorName,modeType);
+            }
+            else if(result == LE_OK){
+                printf("\033[1;31m Self Test for %s in mode %d is Passed. \033[0m\n",
+                    sensorName,modeType);
+            }
+            else{
+                printf("\033[1;31m Self Test for %s in mode %d is Failed. \033[0m\n",
+                    sensorName,modeType);
+            }
+            if(result!=LE_OK) return LE_NOT_FOUND;
+        }
+    }
+    return LE_OK;
+}
+
 inline void CheckNumArgs(size_t NumArgs, size_t ExpectedNumArgs)
 {
     if (NumArgs!=ExpectedNumArgs)
@@ -318,6 +360,18 @@ COMPONENT_INIT
             LE_TEST_INFO("Sensor Name not found %s",name);
         }
         LE_TEST_OK(status ==LE_OK,"Test taf_imuSensor_Activate Succeed %d",status);
+    }
+    else if(strncmp(testType, "SelfTest", strlen(testType)) == 0){
+        LE_TEST_INFO("=======Test Sensor SelfTest========");
+        CheckNumArgs(numArgs,3);
+        const char* name = le_arg_GetArg(1);
+        const char* mode = le_arg_GetArg(2);
+        status = TestSelfTest(name,mode);
+        if(status != LE_OK){
+            LE_TEST_INFO("Sensor Name not found %s",name);
+        }
+        LE_TEST_OK(status ==LE_OK,"Test taf_imuSensor_SelfTest Succeed %d",status);
+
     }
     else{
         PrintUsage();

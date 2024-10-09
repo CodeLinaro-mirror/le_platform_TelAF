@@ -1257,6 +1257,8 @@ ENUM SBConstellation
 ENUM FixState
 {
     STATE_FIX_NO_POS,          ///< No fixed GNSS fix position.
+                               ///  Even for TAF_LOCGNSS_REPORT_STATUS_INTERMEDIATE, this fix
+                               ///  state will be returned.
     STATE_FIX_2D,              ///< 2-dimensional position fix
     STATE_FIX_3D,              ///< 3-dimensional position fix.
     STATE_FIX_ESTIMATED        ///< Estimated position fix.

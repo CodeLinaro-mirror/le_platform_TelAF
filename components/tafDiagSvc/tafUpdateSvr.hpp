@@ -75,6 +75,7 @@ typedef struct
     taf_diagUpdate_RxXferExitMsgHandlerRef_t xferExitRef; ///< Rx Msg Handler of RequestTransferExit.
 
     tafDiagUpdateState_t state;                        ///< Update session state machine.
+    le_dls_List_t supportedVlanList;
 }taf_UpdateSvc_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -167,6 +168,12 @@ typedef struct
     taf_diagUpdate_RxXferExitMsgHandlerRef_t handlerRef;    ///< own reference.
 }taf_XferExitHandler_t;
 
+typedef struct
+{
+    le_dls_Link_t   link;
+    uint16_t        vlanId;
+}taf_UpdateVlanIdNode_t;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Diag update Server Service Class
@@ -247,11 +254,14 @@ namespace tafsvc
             le_result_t ReleaseRxXferExitMsg(taf_diagUpdate_RxXferExitMsgRef_t rxMsgRef);
 
             le_result_t RemoveUpdateSvc(taf_diagUpdate_ServiceRef_t svcRef);
-            void programmingInterrupt(void);
+            void programmingInterrupt(uint16_t vlanId);
+            le_result_t SetVlanId(taf_diagUpdate_ServiceRef_t svcRef, uint16_t vlanId);
+            le_result_t GetVlanIdFromMsg(taf_diagUpdate_RxMsgRef_t rxMsgRef, uint16_t* vlanIdPtr);
 
         private:
             // Internal search functions.
-            taf_UpdateSvc_t* FindSvcInList();
+            taf_UpdateSvc_t* FindSvcInList(le_msg_SessionRef_t sessionRef);
+            taf_UpdateSvc_t* FindSvcInList(uint16_t vlanId);
             le_result_t RspNegativeMsg(taf_uds_AddrInfo_t* addrPtr, uint8_t sid, uint8_t nrc);
             le_result_t RspPositiveMsg(taf_uds_AddrInfo_t* addrPtr, uint8_t sid,
                 const uint8_t* dataPtr,size_t dataSize);
@@ -283,6 +293,7 @@ namespace tafsvc
             le_mem_PoolRef_t RxXferDataHandlerPool;
             le_ref_MapRef_t RxXferExitHandlerRefMap;
             le_mem_PoolRef_t RxXferExitHandlerPool;
+            le_mem_PoolRef_t vlanPool;
 
             //Event for service
             le_event_Id_t FileXferEvent;

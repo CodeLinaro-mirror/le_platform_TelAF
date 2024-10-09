@@ -535,6 +535,69 @@ le_result_t taf_Sensor::Activate(taf_imuSensor_SensorRef_t sensorRef,double samp
     return LE_OK;
 }
 
+le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
+    taf_imuSensor_SelfTestMode_t mode){
+    LE_DEBUG("Self Test");
+    taf_SensorClient_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr,LE_FAULT, "clientRequestPtr is NULL");
+    LE_INFO("Start: sensorClientPtr %p, sensorClientPtr->sessionRef %p, num of active client %d",
+            clientRequestPtr, clientRequestPtr->sessionRef, mClientRefCount);
+    taf_SensorInfo_t* sensorPtr = (taf_SensorInfo_t*)le_ref_Lookup(tSensorInfoMap, sensorRef);
+    LE_INFO("sensor pointer finding");
+    TAF_ERROR_IF_RET_VAL(sensorPtr == NULL,LE_FAULT,"Invalid reference (%p) provided!",sensorPtr);
+    LE_INFO("sensor pointer found");
+    for(const auto& it: clientRequestPtr->mSensorClient){
+        if(it->getSensorInfo().name == sensorPtr->name){
+            LE_INFO("sensor name %s",sensorPtr->name);
+            SelfTestType type;
+            if(mode == TAF_IMUSENSOR_POSITIVE){
+                type  = SelfTestType::POSITIVE;
+            }
+            else if(mode == TAF_IMUSENSOR_NEGATIVE){
+                type  = SelfTestType::NEGATIVE;
+            }
+            else{
+                return LE_FAULT;
+            }
+            std::promise<le_result_t> p1;
+            auto cb1 = [&p1](telux::common::ErrorCode error) {
+                if(error == telux::common::ErrorCode::SUCCESS) {
+                    p1.set_value(LE_OK);
+                }
+                else {
+                    p1.set_value(LE_FAULT);
+                }
+            };
+            Status status = it->selfTest(type,cb1);
+            if(status == telux::common::Status::SUCCESS){
+                std::future<le_result_t> futResult = p1.get_future();
+                //wait for result with 3 second time out.
+                LE_INFO("Waiting for result");
+                if(futResult.wait_for(std::chrono::seconds(3)) == std::future_status::ready){
+                    if(futResult.get() != LE_OK){
+                        LE_ERROR("self test failed");
+                        return LE_FAULT;
+                    }
+                }else{
+                    LE_ERROR("Timeout waiting for result..");
+                    return LE_TIMEOUT;
+                }
+            }
+            else if(status == telux::common::Status::NOTSUPPORTED){
+                LE_ERROR("Not supported on this target");
+                return  LE_UNSUPPORTED;
+            }
+            else{
+                LE_ERROR("unable to start self test");
+                return LE_FAULT;
+            }
+            LE_INFO("successfully initiated self test wait for callback");
+        }
+    }
+    return LE_OK;
+}
+
 le_result_t taf_Sensor::Deactivate(taf_imuSensor_SensorRef_t sensorRef){
     LE_DEBUG("Deactivate Sensor");
     taf_SensorClient_t* clientRequestPtr = NULL;

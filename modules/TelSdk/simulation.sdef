@@ -6,11 +6,7 @@
 
 apps:
 {
-    $LEGATO_ROOT/apps/sample/helloIpc/printClient
-    $LEGATO_ROOT/apps/sample/helloIpc/printServer
-
     $TELAF_ROOT/simulation/stub/taf_simula_pm/tafPMSvc
-
     $TELAF_ROOT/simulation/bypass/telaf/tafmodule
 
 #if ${TELAF_SIMULATION_ENABLE_SOMEIP_GW} = y
@@ -53,6 +49,14 @@ apps:
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdConnIntTest/tafMngdConnIntTest
 #endif
 
+#if ${TELAF_SIMULATION_ENABLE_RPC} = y
+    $TELAF_ROOT/apps/rpc/rpcProxy/tafRpcProxy
+    $TELAF_ROOT/apps/rpc/rpcTest/helloRpcServer/RpcPrintServer
+    $TELAF_ROOT/apps/rpc/rpcTest/helloRpcClient/RpcPrintClient
+#endif
+    $LEGATO_ROOT/apps/sample/helloIpc/printClient
+    $LEGATO_ROOT/apps/sample/helloIpc/printServer
+
 }
 
 #if ${TELAF_SIMULATION_ENABLE_DIAG} = y
@@ -78,6 +82,11 @@ bindings:
     <telaf>.DeviceManager -> <root>.DeviceManager
     <root>.DeviceManagerTool -> <root>.DeviceManagerTool
     <telaf>.sdirTool -> <root>.sdirTool
+
+#if ${TELAF_SIMULATION_ENABLE_RPC} = y
+    RpcPrintClient.rpcClientPrinter -> <telaf>.rpcServer_102_root_printer
+    RpcPrintClient.rpcClientPrinter -> <telaf>.rpcServer_101_root_printer
+#endif
 }
 
 interfaceSearch:
@@ -85,9 +94,13 @@ interfaceSearch:
     $TELAF_ROOT/interfaces
     $TELAF_ROOT/interfaces/staging
     $TELAF_ROOT/interfaces/tafVNW
-    $LEGATO_ROOT/apps/sample/helloIpc
     $TELAF_ROOT/interfaces/someipGW
     $TELAF_ROOT/apps/tafMngdServices/interfaces
+    $LEGATO_ROOT/apps/sample/helloIpc
+
+#if ${TELAF_SIMULATION_ENABLE_RPC} = y
+    $TELAF_ROOT/apps/rpc/rpcTest
+#endif
 }
 
 cflags:

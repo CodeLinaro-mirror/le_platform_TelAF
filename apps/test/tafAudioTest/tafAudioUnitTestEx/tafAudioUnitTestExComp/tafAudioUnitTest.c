@@ -43,12 +43,23 @@ int repeat = 1;
 static le_sem_Ref_t tafAudioAppSem;
 static taf_audio_MediaHandlerRef_t MediaHandlerRef = NULL;
 le_clk_Time_t Timeout = { 3 , 0 };
-static le_thread_Ref_t Player_thread_ref, Recorder_thread_ref;
+static le_thread_Ref_t Player_thread_ref, Recorder_thread_ref, Dtmf_detect_thread_ref;
 taf_audio_StreamRef_t recorderRef = NULL, playerRef = NULL, playerRef1 = NULL,
         recorderRef1 = NULL, sinkRef = NULL, sourceRef = NULL, rxStreamRef = NULL,
         txStreamRef = NULL, sinkRef1 = NULL, sourceRef1 = NULL;
 taf_audio_RouteRef_t routeRef = NULL, routeRef1 = NULL;
 taf_audio_ConnectorRef_t rxConn = NULL, txConn = NULL, connRef = NULL;
+static taf_audio_DtmfDetectorHandlerRef_t dtmfDetectHandlerRef = NULL;
+
+static void MyDtmfDetectorHandler
+(
+    taf_audio_StreamRef_t streamRef,
+    char  dtmf,
+    void* contextPtr
+)
+{
+    LE_INFO("MyDtmfDetectorHandler detects %c", dtmf);
+}
 
 static void MyMediaEventHandler
 (
@@ -233,11 +244,18 @@ void TEST_OPEN_ROUTE()
 
 void* Test_taf_audio_AddHandler(void* ctxPtr)
 {
-    le_sem_Ref_t sem = NULL;
+    le_sem_Ref_t sem=NULL;
     taf_audio_ConnectService();
 
     taf_audio_StreamRef_t streamRef = (taf_audio_StreamRef_t)ctxPtr;
-    MediaHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
+    if (streamRef == playerRef) {
+        MediaHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
+    } else if (streamRef == recorderRef) {
+        MediaHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
+    } else if (streamRef == rxStreamRef) {
+        dtmfDetectHandlerRef = taf_audio_AddDtmfDetectorHandler(streamRef, MyDtmfDetectorHandler,
+                NULL);
+    }
     sem = le_sem_FindSemaphore("tafAudioAppSem");
     if(sem != NULL)
     {
@@ -600,6 +618,12 @@ void TEST_AUDIO_RECORD()
 
 void TEST_AUDIO_VOICE_CONNECTION()
 {
+    static const char*  DtmfString = "5";
+    static uint16_t     Duration = 5;
+    static uint32_t     Pause = 1;
+    static double       gain = 1.0;
+    le_result_t res;
+
     LE_TEST_INFO("Test taf_audio_OpenRoute API ROUTE_1");
     routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_VOICE_CALL,
             &sinkRef, &sourceRef);
@@ -654,6 +678,30 @@ void TEST_AUDIO_VOICE_CONNECTION()
     LE_TEST_INFO("Test taf_audio_Connect to connect txConn and txStreamRef");
     res = taf_audio_Connect(txConn, txStreamRef);
     LE_TEST_OK(res == LE_OK, "Successfully txStreamRef connected to txConn");
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+
+    LE_TEST_INFO("Test taf_audio_AddDtmfDetectorHandler");
+    Dtmf_detect_thread_ref = le_thread_Create("taf_audio_dtmf_thread",
+            Test_taf_audio_AddHandler, (void*)rxStreamRef);
+    LE_TEST_OK(
+        (Dtmf_detect_thread_ref != NULL), "Successfully registered for DTMF detection event- Pass");
+    le_thread_Start(Dtmf_detect_thread_ref);
+    le_sem_Wait(tafAudioAppSem);
+
+    LE_TEST_INFO("Test taf_audio_RemoveDtmfDetectorHandler");
+    taf_audio_RemoveDtmfDetectorHandler(dtmfDetectHandlerRef);
+    LE_TEST_OK(true, "Successfully deregistered for DTMF detection event- Pass");
+
+    LE_TEST_INFO("To test taf_audio_PlayDtmf on rxStreamRef.%p", rxStreamRef);
+    res = taf_audio_PlayDtmf(rxStreamRef, DtmfString, Duration, Pause, gain);
+    LE_TEST_OK((res == LE_OK), "taf_audio_PlayDtmf - Pass");
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+
+    LE_TEST_INFO("To test taf_audio_StopDtmf on rxStreamRef.%p", rxStreamRef);
+    res = taf_audio_StopDtmf(rxStreamRef);
+    LE_TEST_OK((res == LE_OK), "taf_audio_StopDtmf - Pass");
 
     le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
 

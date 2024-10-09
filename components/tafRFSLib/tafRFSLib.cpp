@@ -515,9 +515,7 @@ extern "C" LE_SHARED le_result_t taf_rfs_Init
 
 extern "C" LE_SHARED le_result_t taf_rfs_SetBackupStorage
 (
-    const char *filePathPtr,
-    uint32_t maxFileSize,
-    uint16_t maxFileCount
+    const char *filePathPtr
 )
 {
     LE_INFO("%s: %s", __FUNCTION__, filePathPtr);
@@ -545,18 +543,6 @@ extern "C" LE_SHARED le_result_t taf_rfs_SetBackupStorage
         return LE_OVERFLOW;
     }
 
-    if(maxFileSize == 0)
-    {
-        LE_ERROR("maxFileSize is 0");
-        return LE_BAD_PARAMETER;
-    }
-
-    if(maxFileCount == 0)
-    {
-        LE_ERROR("maxFileCount is 0");
-        return LE_BAD_PARAMETER;
-    }
-
     snprintf(appBackupStorage, sizeof(appBackupStorage), "%s", filePathPtr);
 
     size_t len = strlen(appBackupStorage);
@@ -572,10 +558,31 @@ extern "C" LE_SHARED le_result_t taf_rfs_SetBackupStorage
         snprintf(appBackupStorage + len, sizeof(appBackupStorage), "/");
     }
 
-    BackupStorageCheck.maxFileSize = maxFileSize;
+    return LE_OK;
+}
+
+extern "C" LE_SHARED le_result_t taf_rfs_SetBackupCapacity
+(
+    uint32_t maxFileSizeBytes,
+    uint16_t maxFileCount
+)
+{
+    if(maxFileSizeBytes == 0)
+    {
+        LE_ERROR("maxFileSizeBytes is 0");
+        return LE_BAD_PARAMETER;
+    }
+
+    if(maxFileCount == 0)
+    {
+        LE_ERROR("maxFileCount is 0");
+        return LE_BAD_PARAMETER;
+    }
+
+    BackupStorageCheck.maxFileSize = maxFileSizeBytes;
     BackupStorageCheck.maxFileCount = maxFileCount;
 
-    LE_INFO("maxFileSize is %u, maxFileCount is %u", maxFileSize, maxFileCount);
+    LE_INFO("maxFileSizeBytes is %u, maxFileCount is %u", maxFileSizeBytes, maxFileCount);
 
     return LE_OK;
 }

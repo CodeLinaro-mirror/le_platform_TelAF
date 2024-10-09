@@ -181,8 +181,6 @@ typedef struct
     taf_time_TimeSources_t newSource; ///< New working time source
 } taf_TimeSourceStatus_t;
 
-static le_thread_Ref_t mainThreadRef = NULL;
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Network time information structure.
@@ -266,7 +264,7 @@ typedef struct
                                                  ///  Actual value = field value * 15 minutes.
     uint8_t dstAdj = 0;                          ///< Daylight saving adjustment in hours to obtain
                                                  ///  local time. Possible values: 0, 1, and 2.
-    taf_mngdStorSec_DataRef_t secStrgdataRef = NULL; ///< Managed storage service reference 
+    taf_mngdStorSec_DataRef_t secStrgdataRef = NULL; ///< Managed storage service reference
                                                  /// for storing
     le_msg_SessionRef_t sessionRef;              ///< Client that connected to the service.
     taf_time_StatusEventType_t eventType;        ///< Type of event to which client want to
@@ -318,7 +316,7 @@ typedef struct
     taf_time_AsyncSetTimeReqHandlerFunc_t setRTCCallbackFunc;
 }taf_time_setRTCCb_t;
 
-struct NetworkTimeResponseUpdateArgs_t
+struct NetworkInfoUpdateArgs_t
 {
     uint8_t networkNumber;
     telux::tel::NetworkTimeInfo info;   ///< [IN] Network time information.
@@ -443,7 +441,7 @@ namespace telux
                 if (toleranceMillsec) {
                     LE_INFO("ToleranceMillsec: %ld\n", toleranceMillsec);
                 }
-                LE_INFO("allowOverrideAfterFail: %ld\n", allowOverrideAfterFail);
+                LE_INFO("allowOverrideAfterFail: %" PRIu64 "\n", allowOverrideAfterFail);
 
                 for (auto item : validClientList) {
                     LE_INFO("Client: %s\n", item.c_str());
@@ -618,8 +616,6 @@ namespace telux
                 le_ref_MapRef_t SrcRefMap;
                 le_mem_PoolRef_t SrcPool = NULL;
 
-                le_mem_PoolRef_t NetworkTimeResponseUpdatePool = NULL;
-
                 le_mem_PoolRef_t NetworkDeltaTimePool = NULL;
                 le_mem_PoolRef_t NetworkDeltaTime2Pool = NULL;
 
@@ -685,7 +681,9 @@ namespace telux
                 le_result_t ReadValidityFromSecStorage(taf_SourceInf_t* sourcePtr, bool* validity);
                 uint64_t PrevSrcAvailabiltyMap = 0x0;
                 struct SetTimeStatus* SetTimeSt = NULL;
-                struct NetworkTimeResponseUpdateArgs_t* NetworkTimeResponseArgs = NULL;
+                NetworkInfoUpdateArgs_t NetworkUpdateInfo1 = {};
+                NetworkInfoUpdateArgs_t NetworkUpdateInfo2 = {};
+                le_thread_Ref_t mainThreadRef = NULL;
 
             private:
                 std::shared_ptr<ITimeListener> gnssTimeListener = nullptr;
@@ -694,6 +692,7 @@ namespace telux
                 int64_t AllowOverrideAfterFail = -1;
                 pthread_mutex_t ProtectlocalTime_mutex;
                 taf_gptpTime_Ref_t gptpTimeRef = NULL;
+
         };
     }
 }

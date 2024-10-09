@@ -106,6 +106,7 @@ typedef enum
 {
     HAL_PM_SHUTDOWN_MODE_NORMAL,               /**<Normal shutdown */
     HAL_PM_SHUTDOWN_MODE_GRACEFUL,             /**<Graceful shutdown */
+    HAL_PM_RESTART_MODE_NAD_REBOOT,            /**<NAD reboot for system restart */
     HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF, /**<NAD shutdown for system restart */
     HAL_PM_SUSPEND_MODE_FULL                   /**<Full suspend */
 } hal_pm_PowerMode_t;

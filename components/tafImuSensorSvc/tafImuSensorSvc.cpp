@@ -584,3 +584,31 @@ le_result_t taf_imuSensor_DeleteData
     auto& sensorMngr = taf_Sensor::GetInstance();
     return sensorMngr.DeleteData(sampleRef);
 }
+
+/*======================================================================
+
+ FUNCTION       taf_imuSensor_SelfTest
+
+ DESCRIPTION    Initiate self test for sensor.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     [IN] taf_imuSensor_SensorRef_t sensorRef: reference to Sensor.
+
+ RETURN VALUE   le_result_t
+                LE_FAULT: Fail
+                LE_OK:    Success
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_imuSensor_SelfTest
+(
+    taf_imuSensor_SensorRef_t sensorRef,
+    taf_imuSensor_SelfTestMode_t mode
+)
+{
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.SelfTest(sensorRef,mode);
+}

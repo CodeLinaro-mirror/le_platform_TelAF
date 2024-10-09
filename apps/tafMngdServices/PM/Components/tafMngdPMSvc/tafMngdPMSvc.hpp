@@ -20,7 +20,7 @@
 #define NODE_PRIMARY_NAD 0
 #define NODE_ID 0
 #define WAKELOCK_WITHOUT_REF 0
-#define MAX_SESSION 5
+#define MAX_SESSION 50
 #define TAF_REF_POOL_SIZE 32
 #define STAYAWAKE "STAYAWAKE"
 #define RELAX "RELAX"
@@ -65,7 +65,8 @@ typedef enum
 typedef enum
 {
     SYSTEM_NORMAL_SHUTDOWN,
-    RESTART_WITH_NAD_POWER_OFF_ON
+    RESTART_WITH_NAD_POWER_OFF_ON,
+    RESTART_WITH_NAD_REBOOT
 }taf_mngdPm_RequestedState_t;
 
 typedef struct
@@ -82,17 +83,20 @@ typedef struct
 
 typedef struct
 {
-    const char* vhalTag;                    // VhalTag to be sent to VHAL
+    const char* vhalTag;                   // VhalTag to be sent to VHAL
     taf_mngdPm_wsRef_t wsRef;              // New wakeup source reference
-    uint8_t pmNodeId;                       // NodeId given
+    uint8_t pmNodeId;                      // NodeId given
     taf_mngdPm_WakeupType_t wakeupType;    // WakeupType for the wake source
-    le_dls_Link_t link;                     // Link to handler list
+    le_dls_Link_t link;                    // Link to handler list
+    le_msg_SessionRef_t sessionRef;        // Session reference of a client
+    bool isAcquiredLock;                   // boolean to check wakelock acquired
 }taf_wsRefCtx_t;
 
 typedef struct
 {
     bool isGraceful;
     bool isForceful;
+    bool isShutDown;
     bool isRestart;
     bool isSuspend;
     bool isWsAcquired;
@@ -140,6 +144,13 @@ typedef struct
     taf_mngdPm_NodePowerState_t state;
 }taf_mngdPm_NodePowerStateChangeCtxt_t;
 
+typedef struct
+{
+    uint32_t wakeupType;
+    le_msg_SessionRef_t sessionRef;
+}taf_mngdPm_WakeupSourceCtxt_t;
+
+
 /*
  * @brief The struct of Power state Ref list.
  */
@@ -184,6 +195,7 @@ class tafMngdPMSvc: public ITafSvc
         static void VehichleWakeupTimerHandler(le_timer_Ref_t timerRef);
 
         static le_result_t ShutdownNAD();
+        static le_result_t RestartNAD();
         static le_result_t SuspendNAD();
         static void ShutdownPrepareRespCB(uint8_t pmNodeId, hal_pm_NodeState_t state,
                 hal_pm_PowerMode_t mode, hal_pm_RspReason_t reason);
@@ -223,7 +235,7 @@ class tafMngdPMSvc: public ITafSvc
         static taf_mngdPm_TargetedPowerMode_t targetedPowerMode;
         static taf_mngdPm_RestartCb_t restartCB;
         static taf_mngdPm_ShutdownCb_t shutdownCB;
-        static std::vector<taf_mngdPm_WakeupType_t> wsWhiteList;
+        static std::vector<taf_mngdPm_WakeupSourceCtxt_t> wsWhiteList;
         static uint8_t wsCount;
         static taf_powerMode_t powerMode;
         static taf_stateMachine_t stateMachine;
@@ -233,10 +245,9 @@ class tafMngdPMSvc: public ITafSvc
         static hal_pm_Inf_t *pmInf;
         static taf_mngdPm_RequestedState_t statePtr;
         static le_timer_Ref_t wakeSourceTimerRef;
-    
+
         // resources for multi-client management
         static taf_mngdPm_Client_t mngdPmClientInfo;
-        static const char* clientWhiteList[2];
 
         // resources to manamge state change handler
         static le_event_Id_t stateChange;

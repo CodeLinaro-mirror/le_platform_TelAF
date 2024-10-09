@@ -66,6 +66,8 @@ using namespace std;
 #define TAF_PM_REFERENCE_DEFAULT_POOL_SIZE   31
 #define TAF_POWER_SOURCE_DEFAULT_POOL_SIZE 64
 #define TAF_MNGD_PM_SERVICE 13
+#define PMS_CLNTS_ACK_TIMEOUT 350
+
 /**
  * Wakeup source record definition
  */
@@ -262,6 +264,8 @@ namespace tafsvc {
         taf_pm_StateChangeExHandlerRef_t AddStateChangeExHandler
                 (taf_pm_StateChangeExHandlerFunc_t handlerPtr,void* contextPtr);
         void RemoveStateChangeExHandler(taf_pm_StateChangeExHandlerRef_t handlerRef);
+        le_timer_Ref_t pmClientsAckTimerRef;
+        static void PmsClntsAckTimerHandler(le_timer_Ref_t timerRef);
         #endif
     };
 

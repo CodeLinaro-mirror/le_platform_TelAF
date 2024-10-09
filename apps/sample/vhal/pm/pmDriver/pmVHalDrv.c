@@ -7,6 +7,8 @@
 #include "interfaces.h"
 #include "tafHalPM.h"
 
+#define CFG_BUB_EVENT "/data/le_fs/bubevent"
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Power request resources.
@@ -100,6 +102,7 @@ static hal_pm_WakeupVehicleRspCallbackFunc_t wakeupVehichleRspCallBack = NULL;
 static hal_pm_NodeStateChangeReqCallbackFunc_t NodeStateChangeCbFunc = NULL;
 static hal_pm_NodeStateChangeNotificationConfirmCallbackFunc_t nodeStateChangeCallbackFunc = NULL;
 static hal_pm_NodeEventCallbackFunc_t nodeEventCallback = NULL;
+static hal_pm_AddBubStatusCallbackFunc_t bubStatusEventCallback = NULL;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -128,6 +131,13 @@ static le_event_Id_t SuspendRespEventId;
  */
 //--------------------------------------------------------------------------------------------------
 static le_event_Id_t NoteStateChangeRespEventId;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event ID for node event callback.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_event_Id_t BubStatusEventId;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -261,7 +271,28 @@ static void* taf_hal_GetModInf(void)
     LE_INFO("TestDrv: %s", __FUNCTION__);
     return &(TAF_HAL_INFO_TAB.pmInf);
 }
-
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler to process a Bub Status event.
+ */
+//--------------------------------------------------------------------------------------------------
+static void ProcessBubStatusHandler
+(
+    void* context
+)
+{
+    LE_INFO("PM_Drv: %s", __FUNCTION__);
+    if(bubStatusEventCallback)
+    {
+        int32_t* bubstatus = (int32_t*)context;
+        LE_INFO("bubstatus: %d", *bubstatus);
+        bubStatusEventCallback(bubstatus);
+    }
+    else
+    {
+        LE_ERROR("Bub Status event callback function is NULL");
+    }
+}
 // Used in QueueFunction to process power requests
 static void ProcessPowerRequest
 (
@@ -343,6 +374,41 @@ static void ProcessPowerRequest
             return;
     }
     le_mem_Release(req);
+}
+
+static void* BubStatusThread
+(
+    void* contextPtr
+)
+{
+    LE_INFO("PM_Drv: %s", __FUNCTION__);
+    int32_t prevAck = -1;
+    while(1)
+    {
+        FILE* file;
+        file = fopen(CFG_BUB_EVENT, "r");
+        if(file != NULL)
+        {
+           int32_t ack = -1;
+           while(fscanf(file, "%d", &ack) != EOF)
+           {
+               LE_DEBUG("config node %s is %d", CFG_BUB_EVENT, ack);
+           }
+           fclose(file);
+           if(prevAck != ack)
+           {
+           // fire event to call bub status handler
+               le_event_Report(BubStatusEventId, (void*)&ack, sizeof(ack));
+               prevAck = ack;
+           }
+           else
+           {
+               LE_INFO("No change in BUB status");
+           }
+        }
+        le_thread_Sleep(10);
+    }
+    return NULL;
 }
 
 // Used in QueueFunction to process node state change notification
@@ -577,9 +643,8 @@ static le_result_t taf_hal_AddBubStatusHandler
 )
 {
     LE_INFO("PM_VHAL: %s", __FUNCTION__);
-     int32_t status = HAL_PM_BUB_STATUS_IN_USE;
-     int32_t *reportptr = &status;
-    callback(reportptr);
+    bubStatusEventCallback = callback;
+
     return LE_OK;
 }
 
@@ -589,7 +654,18 @@ static le_result_t taf_hal_GetBubStatus
 )
 {
     LE_INFO("PM_VHAL: %s", __FUNCTION__);
-    *status = HAL_PM_BUB_STATUS_IN_USE;
+    int32_t ack = -1;
+    FILE* file;
+    file = fopen(CFG_BUB_EVENT, "r");
+    if(file != NULL)
+    {
+       while(fscanf(file, "%d", &ack) != EOF)
+       {
+           LE_DEBUG("config node %s is %d", CFG_BUB_EVENT, ack);
+       }
+       fclose(file);
+    }
+    *status = ack;
     LE_INFO("status %d", *status);
     return LE_OK;
 }
@@ -643,6 +719,19 @@ static void Init(void)
     le_event_AddHandler("ProcessShutdownRespHandler",
                             NoteStateChangeRespEventId,
                             ProcessNodeStateChangeRespHandler);
+    // Create an event Id for bub status event.
+    BubStatusEventId = le_event_CreateId("BubStatusEventId",
+                                         (sizeof(char) * 100));
+    // Register handler for bub status events.
+    le_event_AddHandler("ProcessBubStatusHandler",
+                            BubStatusEventId,
+                            ProcessBubStatusHandler);
+
+    le_thread_Ref_t BubStatusThreadRef = le_thread_Create(
+                                                    "BubStatusThread",
+                                                    BubStatusThread,
+                                                    NULL);
+    le_thread_Start(BubStatusThreadRef);
 }
 
 LE_SHARED hal_pm_InfoTab_t TAF_HAL_INFO_TAB = {

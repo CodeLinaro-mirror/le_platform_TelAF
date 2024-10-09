@@ -509,8 +509,7 @@ LE_SHARED le_result_t taf_DataAccess_SetSnapshotData
 (
     uint32_t dtc,
     le_dls_List_t *list,
-    void *action,
-    void (*release)(le_dls_List_t *list)
+    void *action
 );
 
 //-------------------------------------------------------------------------------------------------

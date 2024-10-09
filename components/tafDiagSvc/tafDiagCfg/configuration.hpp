@@ -219,7 +219,6 @@ typedef struct { /* <-- from [events] */
     int id;
     std::string event_kind;
     std::string long_name;
-    std::string device_name;
     std::string failure_name;
     int confirmation_threshold;
     std::string operation_cycle;
@@ -234,8 +233,6 @@ typedef struct { /* <-- from [events] */
     std::string debounce_algorithm;
     std::string enable_condition;
     std::string storage_condition;
-    std::string fim_fid;
-    std::string context_sw_component;
 } events_item_t;
 
 
@@ -244,16 +241,14 @@ typedef struct { /* <-- from [dtc_all] */
         int code;
         int priority;
         int fault_type;
-        std::string failure_name;
-        std::string snapshot_record_content;
-        std::string mnemonic;
         std::string description;
-        std::vector<std::string> freeze_frames;
         std::vector<std::string> extended_data_records;
+        int dtc_group_number;
     } identification_t;
     identification_t identification;
     typedef struct {
-        int snapshot_record_number;
+        std::string snapshot_record_content;
+        std::vector<std::string> freeze_frames;
     } snapshots_t;
     snapshots_t snapshots;
     typedef struct {
@@ -261,22 +256,6 @@ typedef struct { /* <-- from [dtc_all] */
         int security_level;
     } access_t;
     access_t access;
-    typedef struct {
-        std::string filtering_GADE;
-        typedef struct {
-            std::string test_failed_bit_0_or_1;
-            std::string confirmed_DTC_bit_3;
-        } conditions_to_raise_DTC_t;
-        conditions_to_raise_DTC_t conditions_to_raise_DTC;
-        typedef struct {
-            std::string test_passed_bit_0_or_1;
-            std::string confirmed_DTC_bit_3;
-        } conditions_to_memorize_DTC_t;
-        conditions_to_memorize_DTC_t conditions_to_memorize_DTC;
-    } functional_conditions_t;
-    functional_conditions_t functional_conditions;
-    std::string availability_DTC;
-    std::string memory_destination_DTC;
     std::vector<int> events;
 } dtc_all_item_t;
 
@@ -300,6 +279,7 @@ typedef struct {
     int security_delay_time_on_boot;
     float s3_server_max;
     bool ignore_request_for_hardreset;
+    int dtc_status_availability_mask;
 } common_props_t;
 
 static inline void diag_config_init(const char * cfg_path)

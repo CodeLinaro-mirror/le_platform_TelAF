@@ -44,17 +44,49 @@ using namespace std;
 using namespace taf::uds;
 
 bool UdsCommunicationMgr::isResetInProgress = false;
-/*=================================================================================================
- FUNCTION        UdsCommunicationMgr::GetInstance
- DESCRIPTION     Get an instance of UdsCommunicationMgr
- PARAMETERS      void
- RETURN VALUE    UdsCommunicationMgr: Instance reference
-=================================================================================================*/
-UdsCommunicationMgr &UdsCommunicationMgr::GetInstance()
-{
-    static UdsCommunicationMgr instance;
+std::map<std::string, UdsCommunicationMgr*> UdsCommunicationMgr::instances;
+std::mutex UdsCommunicationMgr::mutex_instance;
+taf_doip_Ref_t  UdsCommunicationMgr::DoipEntityRef = NULL;
+le_ref_MapRef_t UdsCommunicationMgr::udsHandlerRefMap = NULL;
+le_event_Id_t UdsCommunicationMgr::udsTimerEventId = NULL;
+taf_doip_PowerModeQueryHandlerRef_t UdsCommunicationMgr::PmQueryRef = NULL;
+le_sem_Ref_t UdsCommunicationMgr::semRef = NULL;
+taf_doip_DiagIndicationHandlerRef_t UdsCommunicationMgr::IndicationRef = NULL;
+taf_doip_DiagConfirmHandlerRef_t UdsCommunicationMgr::ConfirmRef = NULL;
+taf_UDSIndicationHandler_t UdsCommunicationMgr::udsIndicationHandler;
 
-    return instance;
+UdsCommunicationMgr* UdsCommunicationMgr::GetInstance
+(
+    const char* ifName
+)
+{
+    if(ifName == NULL)
+    {
+        LE_ERROR("Ifname is NULL");
+        return NULL;
+    }
+
+    std::string interfaceName(ifName);
+    std::lock_guard<std::mutex> lock(mutex_instance);
+    auto it = instances.find(interfaceName);
+    if (it != instances.end())
+    {
+        return it->second;
+    }
+    else
+    {
+        LE_ERROR("Instance with ifName %s not found", ifName);
+        return NULL;
+    }
+}
+
+UdsCommunicationMgr::UdsCommunicationMgr
+(
+    const char* ifName
+)
+{
+    le_utf8_Copy(interface, ifName, MAX_INTERFACE_NAME_LEN, NULL);
+    LE_INFO("create instance for ifName:%s", interface);
 }
 
 UdsCommunicationMgr::UdsCommunicationMgr()
@@ -72,6 +104,34 @@ void UdsCommunicationMgr::Init
 {
     LE_INFO("UDS communication manager init.");
 
+    LE_INFO("UDS communication manager ok.");
+    return;
+}
+
+void UdsCommunicationMgr::InitInstances
+(
+    le_dls_List_t* interfaceList
+)
+{
+    le_dls_Link_t* linkPtr = NULL;
+
+    le_event_QueueFunction(SecurityAccess_Init, NULL, NULL);
+
+    linkPtr = le_dls_Peek(interfaceList);
+    while (linkPtr)
+    {
+        taf_doip_Iface_t *ifacePtr = CONTAINER_OF(linkPtr, taf_doip_Iface_t, link);
+        std::string ifName = ifacePtr->ifName;
+
+        instances[ifName] = new UdsCommunicationMgr(ifacePtr->ifName);
+        le_event_QueueFunction(SecurityAccess_CreateActiveObject,
+                               instances[ifName], ifacePtr->ifName);
+
+        linkPtr = le_dls_PeekNext(interfaceList, linkPtr);
+    }
+
+    le_event_QueueFunction(SecurityAccess_StartWorker, NULL, NULL);
+
     semRef = le_sem_Create("SemRef", 0);
 
     udsHandlerRefMap = le_ref_CreateMap("udsHandlerRefMap", TAF_UDS_HANDLER_REF_CNT);
@@ -84,15 +144,15 @@ void UdsCommunicationMgr::Init
     le_thread_Start(udsTimerThreadRef);
     le_sem_Wait(semRef);
 
-    le_event_QueueFunction(SecurityAccess_Init, NULL, NULL);
-
     LE_INFO("UDS communication manager ok.");
     return;
 }
 
-void UdsCommunicationMgr::UdsTimerHandler(void* reqPtr)
+void UdsCommunicationMgr::UdsTimerHandler
+(
+    void* reqPtr
+)
 {
-    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
 
     udsTimerEvent_t* eventReq = (udsTimerEvent_t*)reqPtr;
 
@@ -102,45 +162,53 @@ void UdsCommunicationMgr::UdsTimerHandler(void* reqPtr)
         return;
     }
 
+    auto udsCmMgr = UdsCommunicationMgr::GetInstance(eventReq->ifName);
+
+    if(udsCmMgr == NULL)
+    {
+        LE_ERROR("Can't get instance by ifName %s", eventReq->ifName);
+        return;
+    }
+
     LE_DEBUG("Timer event:%d", (int)(eventReq->event));
 
     switch (eventReq->event) {
         case TAF_UDS_S3_TIMER_STOP:
-            if(le_timer_IsRunning(udsCmMgr.s3TimerRef))
+            if(le_timer_IsRunning(udsCmMgr->s3TimerRef))
             {
                 LE_DEBUG("Stop S3 timer");
-                le_timer_Stop(udsCmMgr.s3TimerRef);
+                le_timer_Stop(udsCmMgr->s3TimerRef);
             }
             break;
 
         case TAF_UDS_S3_TIMER_START:
-            le_timer_SetMsInterval(udsCmMgr.s3TimerRef, eventReq->interval);
-            if(le_timer_IsRunning(udsCmMgr.s3TimerRef))
+            le_timer_SetMsInterval(udsCmMgr->s3TimerRef, eventReq->interval);
+            if(le_timer_IsRunning(udsCmMgr->s3TimerRef))
             {
                 LE_DEBUG("Restart S3 timer");
-                le_timer_Restart(udsCmMgr.s3TimerRef);
+                le_timer_Restart(udsCmMgr->s3TimerRef);
             }
             else
             {
                 LE_DEBUG("Start S3 timer");
-                le_timer_Start(udsCmMgr.s3TimerRef);
+                le_timer_Start(udsCmMgr->s3TimerRef);
             }
             break;
 
         case TAF_UDS_S3_TIMER_RESTART:
-            if(le_timer_IsRunning(udsCmMgr.s3TimerRef))
+            if(le_timer_IsRunning(udsCmMgr->s3TimerRef))
             {
                 LE_DEBUG("Restart S3 timer");
-                le_timer_SetMsInterval(udsCmMgr.s3TimerRef, eventReq->interval);
-                le_timer_Restart(udsCmMgr.s3TimerRef);
+                le_timer_SetMsInterval(udsCmMgr->s3TimerRef, eventReq->interval);
+                le_timer_Restart(udsCmMgr->s3TimerRef);
             }
             break;
 
         case TAF_UDS_P2STAR_TIMER_STOP:
-            if(le_timer_IsRunning(udsCmMgr.p2StarTimerRef))
+            if(le_timer_IsRunning(udsCmMgr->p2StarTimerRef))
             {
                 LE_DEBUG("Stop P2* timer");
-                le_timer_Stop(udsCmMgr.p2StarTimerRef);
+                le_timer_Stop(udsCmMgr->p2StarTimerRef);
             }
             break;
         case TAF_UDS_P2STAR_TIMER_START:
@@ -151,7 +219,7 @@ void UdsCommunicationMgr::UdsTimerHandler(void* reqPtr)
                 try
                 {
                     cfg::Node & node = cfg::top_diagnostic_session<int>("id",
-                            (int)udsCmMgr.SessionType);
+                            (int)udsCmMgr->SessionType);
                     p2StarServerInterval = node.get<uint32_t>("p2_star_server_max") * 1000;//To msec
                     LE_DEBUG("p2StarServerInterval : %d", p2StarServerInterval);
                     if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX ||
@@ -183,10 +251,10 @@ void UdsCommunicationMgr::UdsTimerHandler(void* reqPtr)
                     LE_ERROR("Exception: %s. Use default value:%d", e.what() , maxNumberOfRcrrp);
                 }
 
-                le_timer_SetMsInterval(udsCmMgr.p2StarTimerRef,
+                le_timer_SetMsInterval(udsCmMgr->p2StarTimerRef,
                         p2StarServerInterval - DELTA_UDS_P2_RESP);
-                le_timer_SetRepeat(udsCmMgr.p2StarTimerRef, maxNumberOfRcrrp);
-                le_timer_Start(udsCmMgr.p2StarTimerRef);
+                le_timer_SetRepeat(udsCmMgr->p2StarTimerRef, maxNumberOfRcrrp);
+                le_timer_Start(udsCmMgr->p2StarTimerRef);
             }
             break;
         case TAF_UDS_P2STAR_TIMER_RESTART:
@@ -200,34 +268,51 @@ void UdsCommunicationMgr::UdsTimerHandler(void* reqPtr)
 void UdsCommunicationMgr::UdsTimerEventReport
 (
     taf_UDSTimer_EventType_t timerEvent,
-    uint32_t interval
+    uint32_t interval,
+    const char* ifName
 )
 {
     udsTimerEvent_t udsTimerEvt;
     udsTimerEvt.event = timerEvent;
     udsTimerEvt.interval = interval;
 
+    TAF_ERROR_IF_RET_NIL(ifName == NULL, "ifName is NULL");
+
+    le_utf8_Copy(udsTimerEvt.ifName, ifName, MAX_INTERFACE_NAME_LEN, NULL);//length
+
     le_event_Report(udsTimerEventId, &udsTimerEvt, sizeof(udsTimerEvent_t));
 }
 
 //Timer can only be started/stopped in the same thread. Create a thread to handle timer.
-void* UdsCommunicationMgr::UdsTimerThread(void* ctxPtr)
+void* UdsCommunicationMgr::UdsTimerThread
+(
+    void* ctxPtr
+)
 {
-    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
 
-    //P2 star timer
-    udsCmMgr.p2StarTimerRef = le_timer_Create("UDSP2StarTimer");
-    le_timer_SetHandler(udsCmMgr.p2StarTimerRef, P2StarTimeoutHandler);
+    for (const auto &pair : instances)
+    {
+        //std::cout << pair.first << " => " << pair.second << std::endl;
+        char p2TimerName[MAX_TIMER_NAME_LEN] = {0};
+        char s3TimerName[MAX_TIMER_NAME_LEN] = {0};
+        //create p2 timer
+        snprintf(p2TimerName, sizeof(p2TimerName)-1, "p2-%s", pair.second->interface);
+        pair.second->p2StarTimerRef = le_timer_Create(p2TimerName);
+        le_timer_SetHandler(pair.second->p2StarTimerRef, P2StarTimeoutHandler);
+        le_timer_SetContextPtr(pair.second->p2StarTimerRef, (void*)pair.first.c_str());
 
-    //S3 timer
-    udsCmMgr.s3TimerRef = le_timer_Create("UDSS3Timer");
+        //create s3 timer
+        snprintf(s3TimerName, sizeof(s3TimerName)-1, "s3-%s", pair.second->interface);
+        pair.second->s3TimerRef = le_timer_Create(s3TimerName);
+        le_timer_SetRepeat(pair.second->s3TimerRef, 1);
+        le_timer_SetHandler(pair.second->s3TimerRef, S3TimeoutHandler);
+        le_timer_SetContextPtr(pair.second->s3TimerRef, (void*)pair.first.c_str());
 
-    le_timer_SetRepeat(udsCmMgr.s3TimerRef, 1);
-    le_timer_SetHandler(udsCmMgr.s3TimerRef, S3TimeoutHandler);
+    }
 
-    le_event_AddHandler("UDS Timer Event Handler", udsCmMgr.udsTimerEventId, UdsTimerHandler);
+    le_event_AddHandler("UDS Timer Event Handler", udsTimerEventId, UdsTimerHandler);
 
-    le_sem_Post(udsCmMgr.semRef);
+    le_sem_Post(semRef);
 
     LE_INFO("Create event loop for timer event");
 
@@ -241,7 +326,16 @@ void UdsCommunicationMgr::P2StarTimeoutHandler
     le_timer_Ref_t timerRef
 )
 {
-    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
+    char* ifName = (char*)le_timer_GetContextPtr(timerRef);
+
+    auto udsCmMgr = UdsCommunicationMgr::GetInstance(ifName);
+
+    if(udsCmMgr == NULL)
+    {
+        LE_ERROR("Can't get instance by ifName %s", ifName);
+        return;
+    }
+
     uint32_t maxNumberOfRcrrp;
 
     LE_DEBUG("P2StarTimeoutHandler count = %d",le_timer_GetExpiryCount(timerRef));
@@ -262,45 +356,53 @@ void UdsCommunicationMgr::P2StarTimeoutHandler
 
     if(le_timer_GetExpiryCount(timerRef) < maxNumberOfRcrrp)
     {
-        uint32_t sid = udsCmMgr.recvBuf[0];
-        udsCmMgr.SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, &udsCmMgr.addrInfo);
+        uint32_t sid = udsCmMgr->recvBuf[0];
+        udsCmMgr->SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, &udsCmMgr->addrInfo);
         return;
     }
 
     LE_INFO("P2* timeout");
-    udsCmMgr.readyToRecvData = true;
-    memset(udsCmMgr.recvBuf, 0, UDS_DATA_SIZE);
-    udsCmMgr.recvDataLen = 0;
-    udsCmMgr.sendDataLen = 0;
+    udsCmMgr->readyToRecvData = true;
+    memset(udsCmMgr->recvBuf, 0, UDS_DATA_SIZE);
+    udsCmMgr->recvDataLen = 0;
+    udsCmMgr->sendDataLen = 0;
 }
 
 /*
  * When 'timeout' or 'disconnection' happen, change to DEFAULT session
  * and raise a indication to applications.
 */
-void UdsCommunicationMgr::IndicateWhenChangingToDefault()
+void UdsCommunicationMgr::IndicateWhenChangingToDefault
+(
+    const char* ifName
+)
 {
-    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
+    auto udsCmMgr = UdsCommunicationMgr::GetInstance(ifName);
 
-    if (DEFAULT_SESSION == udsCmMgr.SessionType)
+    if(udsCmMgr == NULL)
+    {
+        LE_ERROR("Can't get instance by ifName %s", ifName);
+        return;
+    }
+
+    if (DEFAULT_SESSION == udsCmMgr->SessionType)
     {
         // No session change, just ignore
         return;
     }
 
-    taf_SessionType_t oldSessionType = udsCmMgr.SessionType;
-    udsCmMgr.SessionType = DEFAULT_SESSION;
+    taf_SessionType_t oldSessionType = udsCmMgr->SessionType;
+    udsCmMgr->SessionType = DEFAULT_SESSION;
 
-    taf_doip_DiagMsg_t sesChangeMsg;
-    if(udsCmMgr.udsIndicationHandler.safeRef == NULL)
+    if(udsCmMgr->udsIndicationHandler.safeRef == NULL)
     {
         LE_ERROR("Not find handler to notify session change");
         return;
     }
 
     taf_UDSIndicationHandler_t* udsHandler =
-            (taf_UDSIndicationHandler_t*)le_ref_Lookup(udsCmMgr.udsHandlerRefMap,
-                    udsCmMgr.udsIndicationHandler.safeRef);
+            (taf_UDSIndicationHandler_t*)le_ref_Lookup(udsCmMgr->udsHandlerRefMap,
+                    udsCmMgr->udsIndicationHandler.safeRef);
 
     if(udsHandler == NULL || udsHandler->funcPtr == NULL)
     {
@@ -308,14 +410,14 @@ void UdsCommunicationMgr::IndicateWhenChangingToDefault()
         return;
     }
 
-    udsCmMgr.sesChangeBuf[0] = udsCmMgr.sesChangeId;
-    udsCmMgr.sesChangeBuf[1] = oldSessionType;
-    udsCmMgr.sesChangeBuf[2] = udsCmMgr.SessionType;
-    sesChangeMsg.dataPtr = udsCmMgr.sesChangeBuf;
-    sesChangeMsg.dataLen = UDS_SESSION_CHANGE_DATA_SIZE;
+    udsCmMgr->sesChangeBuf[0] = udsCmMgr->sesChangeId;
+    udsCmMgr->sesChangeBuf[1] = oldSessionType;
+    udsCmMgr->sesChangeBuf[2] = udsCmMgr->SessionType;
+    udsCmMgr->sesChangeMsg.dataPtr = udsCmMgr->sesChangeBuf;
+    udsCmMgr->sesChangeMsg.dataLen = UDS_SESSION_CHANGE_DATA_SIZE;
 
     // Indicate session change to the application.
-    udsHandler->funcPtr(&(udsCmMgr.addrInfo), &sesChangeMsg,
+    udsHandler->funcPtr(&(udsCmMgr->addrInfo), &udsCmMgr->sesChangeMsg,
                         TAF_DOIP_RESULT_OK, udsHandler->ctxPtr);
 }
 
@@ -325,16 +427,24 @@ void UdsCommunicationMgr::S3TimeoutHandler
 )
 {
     LE_INFO("Session time out");
+    char* ifName = (char*)le_timer_GetContextPtr(timerRef);
+
+    UdsCommunicationMgr* udsCmMgr = UdsCommunicationMgr::GetInstance(ifName);
+
+    if(udsCmMgr == NULL)
+    {
+        LE_ERROR("Can't get instance by ifName %s", ifName);
+        return;
+    }
 
     LE_INFO("report -> SESSION_TIMEOUT_SIG");
     SecAccReport_t report = {
         .type = SESSION_TIMEOUT_SIG,
-        .curr_session_id = (uint32_t) UdsCommunicationMgr::GetInstance().SessionType,
-        .mgr = &UdsCommunicationMgr::GetInstance(),
+        .mgr = udsCmMgr,
     };
     le_event_Report(SecAccEventIdRef, &report, sizeof(report));
 
-    UdsCommunicationMgr::GetInstance().IndicateWhenChangingToDefault();
+    IndicateWhenChangingToDefault(ifName);
 }
 
 void UdsCommunicationMgr::CheckAndRestartS3Timer
@@ -344,7 +454,7 @@ void UdsCommunicationMgr::CheckAndRestartS3Timer
 {
     uint32_t p2StarServerInterval, maxNumberOfRcrrp, s3ServerInterval;
 
-    UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0);
+    UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0, (char*)interface);
     readyToRecvData = true;
 
     //Get P2* server interval;
@@ -397,7 +507,7 @@ void UdsCommunicationMgr::CheckAndRestartS3Timer
     if((serviceId != SESSION_CONTROL_REQUEST_ID) && (s3ServerInterval <
             p2StarServerInterval*maxNumberOfRcrrp))
     {
-        UdsTimerEventReport(TAF_UDS_S3_TIMER_RESTART, s3ServerInterval);
+        UdsTimerEventReport(TAF_UDS_S3_TIMER_RESTART, s3ServerInterval, (char*)interface);
     }
 }
 
@@ -441,6 +551,20 @@ le_result_t UdsCommunicationMgr::UdsStart
             return LE_FAULT;
         }
     }
+
+    //Get interface list by DoipEntityRef
+    le_dls_List_t* interfaceList=taf_doip_GetIfaces(DoipEntityRef);
+
+    LE_INFO("Interface list num=%d", (int)le_dls_NumLinks(interfaceList));
+
+    if(interfaceList == NULL || le_dls_NumLinks(interfaceList) == 0)
+    {
+        LE_FATAL("interface list is empty");
+        return LE_FAULT;
+    }
+
+    //Initialize instance with interface name
+    InitInstances(interfaceList);
 
     ret = taf_doip_Start(DoipEntityRef);
     if (ret != LE_OK)
@@ -520,6 +644,8 @@ void UdsCommunicationMgr::SendData
     respAddrInfo.sa = addrInfoPtr->ta;
     respAddrInfo.ta = addrInfoPtr->sa;
     respAddrInfo.taType = addrInfoPtr->taType;
+    respAddrInfo.vlanId = addrInfoPtr->vlanId;
+    le_utf8_Copy(respAddrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
     respDiagMsg.dataPtr = sendBuf;
     respDiagMsg.dataLen = sendDataLen;
 
@@ -619,19 +745,23 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
             continue;
         }
 
+        string curSesName;
         try
         {
-            // Check active session type for data ID.
-            cfg::Node & sesType = node.get_child("access.session");
+            cfg::Node & accessibilitySessions = node.get_child("did_accessibility.diagnostic_session");
+            cfg::Node & curSesNode = cfg::top_diagnostic_session<int>("id", (int)SessionType);
+            curSesName = curSesNode.get<string>("short_name");
+            LE_DEBUG("curSesName=%s", curSesName.c_str());
+            //Check current session match
             bool isSessionMatched = false;
-            string type;
-            for (const auto & session: sesType)
+            for (const auto & accessibilitySession: accessibilitySessions)
             {
-                type = session.second.get_value<string>("");
+                //Get session name from did_accessibility.diagnostic_session
+                string confDidSessionName = accessibilitySession.first;
+                //Check if the supported session matches the current session
+                LE_DEBUG("accessibility session name=%s", confDidSessionName.c_str());
 
-                cfg::Node & sesNode = cfg::top_diagnostic_session<string>("short_name", type);
-                int confSessionId = sesNode.get<int>("id");
-                if ((uint8_t)confSessionId == (uint8_t)SessionType)
+                if (curSesName == confDidSessionName)
                 {
                     LE_DEBUG("current session type is supported for this data ID");
                     isSessionMatched = true;
@@ -646,10 +776,8 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
                 continue;
             }
 
-            string accessibilitySession = "did_accessibility.diagnostic_session." + type;
-            cfg::Node & rwAttributes = node.get_child(accessibilitySession);
-
-            // Check active session type for data ID.
+            //Check R,W attribute for current session
+            cfg::Node & rwAttributes = node.get_child("did_accessibility.diagnostic_session." + curSesName);
             bool isRWTypeMatched = false;
             for (const auto & rw: rwAttributes)
             {
@@ -664,36 +792,65 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
 
             if(!isRWTypeMatched)
             {
-                LE_DEBUG("current session attribute is not read for dataId:0x%x.", dataId);
-                //Current session is not read for this DID, don't response it.
+                LE_WARN("current session attribute is not R for dataId:0x%x.", dataId);
+                //Current session is not R for this DID, don't response it.
                 continue;
             }
         }
         catch (const std::exception& e)
         {
-            LE_ERROR("Exception: %s. session/diagnostic_session is not configured for dataId:0x%x.",
+            LE_WARN("Exception: %s. diagnostic_session is not configured for dataId:0x%x.",
                     e.what(), dataId);
             //session or is diagnostic_session not configured for this DID, don't response it.
             continue;
         }
 
-        //Step 3: Authentication check and Security access check
         try
         {
-            int security_type = node.get_child("access").get<int>("security_level");
-            //Authentication check after authentication service is supported, send NRC 0x34
-            //Security access check. UDS_0x22_NRC_33
-            if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked() == false)
+            // Check active session type for data ID.
+            cfg::Node & sesType = node.get_child("access.session");
+            bool isSessionPresentInAccess = false;
+
+            for (const auto & session: sesType)
             {
-                LE_WARN("Did is secured and the server is not unlocked.");
-                return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
+                string confAccessSesName = session.second.get_value<string>("");
+                //session is configured in access.session, check the security
+                if(curSesName == confAccessSesName)
+                {
+                    LE_DEBUG("current session type is supported for this data ID");
+                    isSessionPresentInAccess = true;
+                    break;
+                }
+            }
+
+            //security_level check if session configured in access.session
+            if(isSessionPresentInAccess)
+            {
+                //Step 3: Authentication check and Security access check
+                try
+                {
+                    int security_type = node.get_child("access").get<int>("security_level");
+                    //Authentication check after authentication service is supported, send NRC 0x34
+                    //Security access check. UDS_0x22_NRC_33
+                    if(security_type == SECURITY_ACCESS_REQUEST_ID
+                    && SecurityAccess_IsUnlocked(this) == false)
+                    {
+                        LE_WARN("Did is secured, but the server is not unlocked.");
+                        return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
+                    }
+                }
+                catch (const std::exception& e)
+                {
+                    //security_level is not configured. Don't check it.
+                    LE_WARN("Exception: %s. security_level is not configured for dataId 0x%x",
+                            e.what(), dataId);
+                }
             }
         }
         catch (const std::exception& e)
         {
             //security_level is not configured. Don't check it.
-            LE_WARN("Exception: %s. security_level is not configured for dataId 0x%x", e.what(),
-                    dataId);
+            LE_WARN("Exception: %s. security is not configured for dataId 0x%x", e.what(), dataId);
         }
 
         //Store DID in active session.
@@ -781,19 +938,23 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
         LE_WARN("Exception: %s. write_did is not configured for dataId:0x%x", e.what(), dataId);
     }
 
+    string curSesName;
     try
     {
-        // Check active session type for data ID.
-        cfg::Node & sesType = node.get_child("access.session");
+        cfg::Node & accessibilitySessions = node.get_child("did_accessibility.diagnostic_session");
+        cfg::Node & curSesNode = cfg::top_diagnostic_session<int>("id", (int)SessionType);
+        curSesName = curSesNode.get<string>("short_name");
+        LE_DEBUG("curSesName=%s", curSesName.c_str());
+        //Check current session match
         bool isSessionMatched = false;
-        string type;
-        for (const auto & session: sesType)
+        for (const auto & accessibilitySession: accessibilitySessions)
         {
-            type = session.second.get_value<string>("");
+            //Get session name from did_accessibility.diagnostic_session
+            string confDidSessionName = accessibilitySession.first;
+            //Check if the supported session matches the current session
+            LE_DEBUG("accessibility session name=%s", confDidSessionName.c_str());
 
-            cfg::Node & sesNode = cfg::top_diagnostic_session<string>("short_name", type);
-            int confSessionId = sesNode.get<int>("id");
-            if ((uint8_t)confSessionId == (uint8_t)SessionType)
+            if (curSesName == confDidSessionName)
             {
                 LE_DEBUG("current session type is supported for this data ID");
                 isSessionMatched = true;
@@ -808,18 +969,16 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
             return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
         }
 
-        string accessibilitySession = "did_accessibility.diagnostic_session." + type;
-        LE_INFO("accessibilitySession =%s", accessibilitySession.c_str());
-        cfg::Node & rwAttributes = node.get_child(accessibilitySession);
-
-        // Check active session type for data ID.
+        //Check R,W attribute for current session
+        cfg::Node & rwAttributes = node.get_child("did_accessibility.diagnostic_session." +
+                curSesName);
         bool isRWTypeMatched = false;
         for (const auto & rw: rwAttributes)
         {
             string attr = rw.second.get_value<string>("");
             if(attr == "W")
             {
-                LE_DEBUG("Support w");
+                LE_DEBUG("diagnostic_session is W");
                 isRWTypeMatched = true;
                 break;
             }
@@ -827,15 +986,65 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
 
         if(!isRWTypeMatched)
         {
-            LE_WARN("current session attribute is not written for dataId:0x%x.", dataId);
-            //Current session is not written for this DID, don't response it.
+            LE_WARN("current session attribute is not W for dataId:0x%x.", dataId);
+            //Current session is not W for this DID, don't response it.
             return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
         }
     }
     catch (const std::exception& e)
     {
-        LE_WARN("Exception: %s. session/diagnostic_session is not configured for dataId:0x%x.",
+        LE_WARN("Exception: %s. diagnostic_session is not configured for dataId:0x%x.",
                 e.what(), dataId);
+        //diagnostic_session not configured for this DID.
+        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+    }
+
+    try
+    {
+        // Check active session type for data ID.
+        cfg::Node & sesType = node.get_child("access.session");
+        bool isSessionPresentInAccess = false;
+
+        for (const auto & session: sesType)
+        {
+            string confAccessSesName = session.second.get_value<string>("");
+            //session is configured in access.session, check the security
+            if(curSesName == confAccessSesName)
+            {
+                LE_DEBUG("current session type is supported for this data ID");
+                isSessionPresentInAccess = true;
+                break;
+            }
+        }
+
+        //security_level check if session configured in access.session
+        if(isSessionPresentInAccess)
+        {
+            //Step 3: Authentication check and Security access check
+            try
+            {
+                int security_type = node.get_child("access").get<int>("security_level");
+                //Authentication check after authentication service is supported, send NRC 0x34
+                //Security access check. UDS_0x22_NRC_33
+                if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) ==
+                        false)
+                {
+                    LE_WARN("Did is secured and the server is not unlocked.");
+                    return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
+                }
+            }
+            catch (const std::exception& e)
+            {
+                //security_level is not configured. Don't check it.
+                LE_WARN("Exception: %s. security_level is not configured for dataId 0x%x", e.what(),
+                        dataId);
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        //security_level is not configured. Don't check it.
+        LE_WARN("Exception: %s. security is not configured for dataId 0x%x", e.what(), dataId);
     }
 
     // Step 3: Maximum length check. UDS_0x2E_NRC_13
@@ -843,25 +1052,6 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
     {
         LE_WARN("recvDataLen is more than the UDS_DATA_SIZE.");
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
-
-    //Step 4: Authentication check and Security access check
-    try
-    {
-        int security_type = node.get_child("access").get<int>("security_level");
-        //Authentication check after authentication service is supported, send NRC 0x34
-        //Security access check. UDS_0x2E_NRC_33
-        if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked() == false)
-        {
-            LE_WARN("Did is secured and the server is not unlocked.");
-            return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
-        }
-    }
-    catch (const std::exception& e)
-    {
-        //security_level is not configured. Don't check it.
-        LE_WARN("Exception: %s. security_level is not configured for dataId 0x%x", e.what(),
-                dataId);
     }
 
     //Step 5: Data record check. UDS_0x2E_NRC_31
@@ -938,6 +1128,8 @@ le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
     addrInfo.sa = addrInfoPtr->sa;
     addrInfo.ta = addrInfoPtr->ta;
     addrInfo.taType = addrInfoPtr->taType;
+    addrInfo.vlanId = addrInfoPtr->vlanId;
+    le_utf8_Copy(addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
 
     //Will send indication to the diag service
     *isInternalHandle = false;
@@ -1057,7 +1249,6 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         LE_INFO("report -> REQUEST_SEED_SIG (%02X)", recvBuf[1] & 0x7F);
         SecAccReport_t report = {
             .type = REQUEST_SEED_SIG,
-            .curr_session_id = (uint32_t) SessionType,
             .sem = SecAccSem,
             .mgr = this,
             .is_internal = isInternalHandle,
@@ -1069,7 +1260,6 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         LE_INFO("report -> SEND_KEY_SIG (%02X)", recvBuf[1] & 0x7F);
         SecAccReport_t report = {
             .type = SEND_KEY_SIG,
-            .curr_session_id = (uint32_t) SessionType,
             .sem = SecAccSem,
             .mgr = this,
             .is_internal = isInternalHandle,
@@ -1218,7 +1408,8 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
             if(recvDataLen < controlStateSize + UDS_IOCBID_REQ_MIN_LEN)
             {
                 LE_WARN("The received length is less than required.");
-                return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);//UDS_0x2F_NRC_13
+                //UDS_0x2F_NRC_13
+                return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
             }
         }
         catch (const std::exception& e)
@@ -1331,7 +1522,7 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
         LE_INFO("security type=0x%x", security_type);
         //Authentication check after authentication service is supported, send NRC 0x34
         //Security access check. UDS_0x2F_NRC_33
-        if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked() == false)
+        if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) == false)
         {
             LE_WARN("Did is secured and the server is not unlocked.");
             return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
@@ -1763,7 +1954,7 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
 
         if (lockSupported == true)
         {
-            if (! SecurityAccess_IsUnlocked())
+            if (! SecurityAccess_IsUnlocked(this))
             {
                 LE_ERROR("Security access denied");
                 // UDS_0x38_NRC_33: Access denied
@@ -2028,10 +2219,14 @@ le_result_t UdsCommunicationMgr::CheckAndSendInd
     LE_DEBUG("------P2* timer start -------");
     readyToRecvData = false;
 
-    UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_START, 0);
+    UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_START, 0, interface);
     indAddrInfo.sa = addrInfoPtr->sa;
     indAddrInfo.ta = addrInfoPtr->ta;
     indAddrInfo.taType = addrInfoPtr->taType;
+    indAddrInfo.vlanId = addrInfoPtr->vlanId;
+    le_utf8_Copy(indAddrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
+    LE_DEBUG("ifName=%s, vlanId=%d", indAddrInfo.ifName, indAddrInfo.vlanId);
+
     indDiagMsg.dataPtr = recvBuf;
     indDiagMsg.dataLen = recvDataLen;
     udsHandler->funcPtr(&indAddrInfo, &indDiagMsg, TAF_DOIP_RESULT_OK, udsHandler->ctxPtr);
@@ -2053,15 +2248,24 @@ void UdsCommunicationMgr::DiagIndicationHandler
 {
     LE_DEBUG("DiagIndicationHandler");
 
-    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
-    bool isInternalHandle = true;
-    le_result_t ret = LE_OK;
-
     if(addrInfoPtr == NULL)
     {
         LE_ERROR("addrInfoPtr invalid.");
         return;
     }
+
+    LE_DEBUG("ifName=%s, vlanId=%d", addrInfoPtr->ifName, addrInfoPtr->vlanId);
+
+    UdsCommunicationMgr * udsCmMgr =
+            UdsCommunicationMgr::GetInstance(addrInfoPtr->ifName);
+    if(udsCmMgr == NULL)
+    {
+        LE_ERROR("Can't get instance by ifName %s", addrInfoPtr->ifName);
+        return;
+    }
+
+    bool isInternalHandle = true;
+    le_result_t ret = LE_OK;
 
     if (result == TAF_DOIP_RESULT_SA_REGISTERED)
     {
@@ -2073,27 +2277,26 @@ void UdsCommunicationMgr::DiagIndicationHandler
     {
         LE_INFO("Disconnected, stopped the running timer");
 
-        udsCmMgr.UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0);
-        udsCmMgr.UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0);
+        udsCmMgr->UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0, addrInfoPtr->ifName);
+        udsCmMgr->UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0, addrInfoPtr->ifName);
 
-        udsCmMgr.readyToRecvData = true;
-        udsCmMgr.isXferActive = false;
-        memset(udsCmMgr.recvBuf, 0, UDS_DATA_SIZE);
-        udsCmMgr.recvDataLen = 0;
-        udsCmMgr.sendDataLen = 0;
+        udsCmMgr->readyToRecvData = true;
+        udsCmMgr->isXferActive = false;
+        memset(udsCmMgr->recvBuf, 0, UDS_DATA_SIZE);
+        udsCmMgr->recvDataLen = 0;
+        udsCmMgr->sendDataLen = 0;
 
-        if (udsCmMgr.SessionType != DEFAULT_SESSION)
+        if (udsCmMgr->SessionType != DEFAULT_SESSION)
         {
             LE_INFO("report -> SESSION_CONTROL_SIG (doip-break)");
             SecAccReport_t report = {
                 .type = SESSION_CONTROL_SIG,
-                .curr_session_id = (uint32_t) udsCmMgr.SessionType,
-                .mgr = &udsCmMgr,
+                .mgr = udsCmMgr,
             };
             le_event_Report(SecAccEventIdRef, &report, sizeof(report));
         }
 
-        udsCmMgr.IndicateWhenChangingToDefault();
+        IndicateWhenChangingToDefault(addrInfoPtr->ifName);
 
         return;
     }
@@ -2114,32 +2317,32 @@ void UdsCommunicationMgr::DiagIndicationHandler
     }
 
     //Ignore other requests if hardware reset is in progress until system is restarted
-    if(udsCmMgr.isResetInProgress)
+    if(udsCmMgr->isResetInProgress)
     {
         LE_ERROR("Hardware reset is in progress, ignore other requests");
         return;
     }
 
-    if(!udsCmMgr.readyToRecvData)
+    if(!udsCmMgr->readyToRecvData)
     {
         LE_ERROR("Handle in progress, can't receive another request");
-        udsCmMgr.SendNRC(diagMsgPtr->dataPtr[0], BUSY_REPEAT_REQ, addrInfoPtr);
+        udsCmMgr->SendNRC(diagMsgPtr->dataPtr[0], BUSY_REPEAT_REQ, addrInfoPtr);
         return;
     }
 
-    memcpy((char*)(udsCmMgr.recvBuf), (char*)(diagMsgPtr->dataPtr), UDS_DATA_SIZE);
-    udsCmMgr.recvDataLen = diagMsgPtr->dataLen;
-    udsCmMgr.sendDataLen = 0;
+    memcpy((char*)(udsCmMgr->recvBuf), (char*)(diagMsgPtr->dataPtr), UDS_DATA_SIZE);
+    udsCmMgr->recvDataLen = diagMsgPtr->dataLen;
+    udsCmMgr->sendDataLen = 0;
 
     // Check negative err code for minimum request msg length
-    if(udsCmMgr.recvDataLen < UDS_REQ_MIN_LEN)
+    if(udsCmMgr->recvDataLen < UDS_REQ_MIN_LEN)
     {
         LE_ERROR("recvDataLen is less than the UDS msg minimum length.");
         return;
     }
 
     // received service ID
-    uint8_t sid = udsCmMgr.recvBuf[0];
+    uint8_t sid = udsCmMgr->recvBuf[0];
 
     LE_DEBUG("-------Request service id = 0x%x",sid);
     //Handle the request message according to the service id
@@ -2149,93 +2352,93 @@ void UdsCommunicationMgr::DiagIndicationHandler
         {
             // Check NRC and then send indication to TelAf diag service if necessary for Session
             // control request msg.
-            ret = udsCmMgr.IndicateSessionCtrlReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateSessionCtrlReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case ECU_RESET_REQUEST_ID:  // 0x11
         {
             // Check NRC and then send indication to TelAf diag service if necessary for ECUReset
             // request msg.
-            ret = udsCmMgr.IndicateECUResetReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateECUResetReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case READ_DTC_INFO_REQUEST_ID:  // 0x19
         {
             // Check NRC and then send indication to TelAf diag service if necessary for ReadDTCInfo
             // request msg.
-            ret = udsCmMgr.IndicateReadDTCInfoReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateReadDTCInfoReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case READ_DID_REQUEST_ID:  // 0x22
         {
             // Check NRC and then send indication to TelAf diag service if necessary for readDid.
-            ret = udsCmMgr.IndicateReadDIDReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateReadDIDReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case SECURITY_ACCESS_REQUEST_ID:  // 0x27
         {
             // Check NRC and then send indication to TelAf diag service if necessary for
             // Security access request msg.
-            ret = udsCmMgr.IndicateSecAccessReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateSecAccessReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case WRITE_DID_REQUEST_ID:  // 0x2E
         {
             // Check NRC and then send indication to TelAf diag service if necessary for writeDid.
-            ret = udsCmMgr.IndicateWriteDIDReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateWriteDIDReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case INPUT_OUTPUT_CONTROL_REQUEST_ID:  // 0x2F
         {
             // Check NRC and then send indication to TelAf diag service if necessary for IOCBID.
-            ret = udsCmMgr.IndicateIOCBIDReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateIOCBIDReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case ROUTINE_CONTROL_REQUEST_ID: // 0x31
         {
             // Check NRC and then send indication to TelAf diag service if necessary for
             // RoutineControl request msg.
-            ret = udsCmMgr.IndicateRoutinrCtrlReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateRoutinrCtrlReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case TRANSFER_DATA_REQUEST_ID:  // 0x36
         {
             // Check NRC and then send indication to TelAf diag service if necessary for
             // TransferData request msg.
-            ret = udsCmMgr.IndicateRxXferDataReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateRxXferDataReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case REQUEST_TRANSFER_EXIT_REQUEST_ID:  // 0x37
         {
             // Check NRC and then send indication to TelAf diag service if necessary for
             // RequestTransferExit request msg.
-            ret = udsCmMgr.IndicateRxXferExitReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateRxXferExitReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case REQUEST_FILE_TRANSFER_REQUEST_ID:  // 0x38
         {
             // Check NRC and then send indication to TelAf diag service if necessary
             // for RequestFileTransfer request msg.
-            ret = udsCmMgr.IndicateRxFileXferReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateRxFileXferReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case TESTER_PRESENT_REQUEST_ID:  // 0x3E
         {
             // Check NRC and Handle it internally and then response to client.
-            ret = udsCmMgr.TesterPresentResp(addrInfoPtr);
+            ret = udsCmMgr->TesterPresentResp(addrInfoPtr);
             isInternalHandle = true;
         }
         break;
         case CLEAR_DIAG_INFO_REQUEST_ID:  // 0x14
         {
             // Check NRC and then send indication to TelAf diag service if necessary.
-            ret = udsCmMgr.IndicateClearDiagInfoReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateClearDiagInfoReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         default:
         {
             LE_DEBUG("Service type is not supported");
-            ret = udsCmMgr.SendNRC(sid, SERVICE_NOT_SUPPORTED, addrInfoPtr);
+            ret = udsCmMgr->SendNRC(sid, SERVICE_NOT_SUPPORTED, addrInfoPtr);
             isInternalHandle = true;
         }
         break;
@@ -2249,7 +2452,7 @@ void UdsCommunicationMgr::DiagIndicationHandler
 
     // Keep a diagnostic session other than the defaultSession active while not receiving any
     // diagnostic request message
-    if((sid != SESSION_CONTROL_REQUEST_ID) && (udsCmMgr.SessionType != DEFAULT_SESSION))
+    if((sid != SESSION_CONTROL_REQUEST_ID) && (udsCmMgr->SessionType != DEFAULT_SESSION))
     {
         uint32_t p2StarServerInterval, maxNumberOfRcrrp, s3ServerInterval;
 
@@ -2257,7 +2460,7 @@ void UdsCommunicationMgr::DiagIndicationHandler
         //Get P2* server interval;
         try
         {
-            cfg::Node & node = cfg::top_diagnostic_session<int>("id", (int)udsCmMgr.SessionType);
+            cfg::Node & node = cfg::top_diagnostic_session<int>("id", (int)udsCmMgr->SessionType);
             p2StarServerInterval = node.get<uint32_t>("p2_star_server_max") * 1000;//Sec to msec.
             LE_DEBUG("p2StarServerInterval : %d", p2StarServerInterval);
             if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX)
@@ -2305,12 +2508,13 @@ void UdsCommunicationMgr::DiagIndicationHandler
             s3ServerInterval = p2StarServerInterval*maxNumberOfRcrrp;
 
         LE_DEBUG("restart s3 with %d mili seconds", s3ServerInterval);
-        udsCmMgr.UdsTimerEventReport(TAF_UDS_S3_TIMER_START, s3ServerInterval);
+        udsCmMgr->UdsTimerEventReport(TAF_UDS_S3_TIMER_START, s3ServerInterval,
+                addrInfoPtr->ifName);
     }
 
     if(!isInternalHandle)
     {
-        udsCmMgr.CheckAndSendInd(sid, addrInfoPtr, diagMsgPtr);
+        udsCmMgr->CheckAndSendInd(sid, addrInfoPtr, diagMsgPtr);
     }
 
     return;
@@ -2372,9 +2576,7 @@ le_result_t UdsCommunicationMgr::UdsAddDiagIndicationHandler
  */
 le_result_t UdsCommunicationMgr::SendUDSResp
 (
-    uint16_t sa,
-    uint16_t ta,
-    uint8_t addrType,
+    const char* ifName,
     uint8_t serviceId,
     uint8_t err,
     const uint8_t* dataPtr,
@@ -2383,13 +2585,22 @@ le_result_t UdsCommunicationMgr::SendUDSResp
 {
     LE_DEBUG("SendUDSResp");
 
-    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
+    if(ifName == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_BAD_PARAMETER;
+    }
+    auto udsCmMgr = UdsCommunicationMgr::GetInstance(ifName);
+    if(udsCmMgr == NULL)
+    {
+        LE_ERROR("Can't get instance by ifName %s", ifName);
+        return LE_FAULT;
+    }
 
     this->nrcCode = err; /* Record current NRC */
 
     le_result_t ret;
     taf_doip_DiagMsg_t respDiagMsg;
-    taf_doip_AddrInfo_t respAddrInfo;
 
     if (DoipEntityRef == NULL)
     {
@@ -2398,7 +2609,7 @@ le_result_t UdsCommunicationMgr::SendUDSResp
     }
 
     //If already disconnected, can't send the response.
-    if(udsCmMgr.recvDataLen == 0)
+    if(udsCmMgr->recvDataLen == 0)
     {
         LE_ERROR("Already disconnected, can not send response");
         return LE_FAULT;
@@ -2474,7 +2685,7 @@ le_result_t UdsCommunicationMgr::SendUDSResp
         if (recvBuf[0] != SECURITY_ACCESS_REQUEST_ID)
         {
             // Suppress positive response.
-            udsCmMgr.CheckAndRestartS3Timer(serviceId);
+            udsCmMgr->CheckAndRestartS3Timer(serviceId);
             return LE_OK;
         }
     }
@@ -2484,17 +2695,14 @@ le_result_t UdsCommunicationMgr::SendUDSResp
         return ret;
     }
 
-    respAddrInfo.sa = sa;
-    respAddrInfo.ta = ta;
-    respAddrInfo.taType = (taf_doip_TaType_t)addrType;
-    respDiagMsg.dataPtr = udsCmMgr.sendBuf;
-    respDiagMsg.dataLen = udsCmMgr.sendDataLen;
+    respDiagMsg.dataPtr = udsCmMgr->sendBuf;
+    respDiagMsg.dataLen = udsCmMgr->sendDataLen;
 
-    ret = taf_doip_DiagRequest(&respAddrInfo, &respDiagMsg);
+    ret = taf_doip_DiagRequest(&udsCmMgr->udsRespAddrInfo, &respDiagMsg);
     if (ret == LE_OK)
     {
         LE_DEBUG("Requested Diagnostic message response sent.");
-        udsCmMgr.CheckAndRestartS3Timer(serviceId);
+        udsCmMgr->CheckAndRestartS3Timer(serviceId);
     }
 
     return LE_OK;
@@ -2603,21 +2811,19 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
         if(newSessionType == DEFAULT_SESSION)
         {
             LE_INFO("default session:need to stop s3 timer");
-            UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0);
+            UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0, interface);
         }
         // Switched to non-default session.
         else
         {
             LE_INFO("other session:need to start s3 timer");
 
-            UdsTimerEventReport(TAF_UDS_S3_TIMER_START, s3ServerInterval);
+            UdsTimerEventReport(TAF_UDS_S3_TIMER_START, s3ServerInterval, interface);
         }
 
         LE_INFO("report -> SESSION_CONTROL_SIG (d-tool)");
         SecAccReport_t report = {
             .type = SESSION_CONTROL_SIG,
-            .curr_session_id = (uint32_t) newSessionType,
-            .prev_session_id = (uint32_t) oldSessionType,
             .mgr = this,
         };
         le_event_Report(SecAccEventIdRef, &report, sizeof(report));
@@ -2816,7 +3022,6 @@ le_result_t UdsCommunicationMgr::SecurityAccessResp
         LE_INFO("report -> REQUEST_SEED_RESPONSE_SIG");
         SecAccReport_t report = {
             .type = REQUEST_SEED_RESPONSE_SIG,
-            .curr_session_id = (uint32_t) SessionType,
             .sem = SecAccSem,
             .mgr = this,
         };
@@ -2827,7 +3032,6 @@ le_result_t UdsCommunicationMgr::SecurityAccessResp
         LE_INFO("report -> SEND_KEY_RESPONSE_SIG");
         SecAccReport_t report = {
             .type = SEND_KEY_RESPONSE_SIG,
-            .curr_session_id = (uint32_t) SessionType,
             .sem = SecAccSem,
             .mgr = this,
         };
@@ -3319,7 +3523,7 @@ bool UdsCommunicationMgr::IsSecurityAccessMatched
         LE_DEBUG("Security type = 0x%x", secType);
 
         // Security access check
-        if (secType == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked() == false)
+        if (secType == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) == false)
         {
             LE_WARN("Node is secured and the server is not unlocked.");
             return false;

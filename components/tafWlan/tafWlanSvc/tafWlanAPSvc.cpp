@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -217,9 +217,9 @@ le_result_t taf_wlanAp_GetConnectedDevices
     taf_wlanAp_WlanAPRef_t wlanAPRef,
         ///< [IN] The WLAN AP reference.
     uint16_t* numDevicesPtr,
-        ///< [OUT] Number of devices connected to the AP.
+        ///< [OUT] Number of clients connected to the AP.
     taf_wlanAp_WlanAPConnectedDeviceInfo_t* DevInfoPtr,
-        ///< [OUT] Connected device information.
+        ///< [OUT] Connected client information.
     size_t* DevInfoSizePtr
         ///< [INOUT]
 )
@@ -232,5 +232,42 @@ le_result_t taf_wlanAp_GetConnectedDevices
         "DevInfoSizePtr is nullptr!");
     auto &wlan = taf_WlanAPSvcImpl::GetInstance();
     return wlan.GetConnectedDevices(wlanAPRef, numDevicesPtr, DevInfoPtr,
-        DevInfoSizePtr);
+                                    DevInfoSizePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_wlanAp_DeviceConnectionEvent'
+ */
+//--------------------------------------------------------------------------------------------------
+taf_wlanAp_DeviceConnectionEventHandlerRef_t taf_wlanAp_AddDeviceConnectionEventHandler
+(
+    taf_wlanAp_WlanAPRef_t wlanAPRef,
+        ///< [IN]
+    taf_wlanAp_DeviceConnectionEventHandlerFunc_t handlerPtr,
+        ///< [IN] The event handler reference.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    TAF_ERROR_IF_RET_VAL(nullptr == wlanAPRef, NULL, "wlanAPRef is nullptr!");
+    TAF_ERROR_IF_RET_VAL(nullptr == handlerPtr, NULL, "handlerPtr is nullptr!");
+    auto &wlan = taf_WlanAPSvcImpl::GetInstance();
+    return wlan.AddDeviceConnectionEventHandler(wlanAPRef, handlerPtr, contextPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_wlanAp_DeviceConnectionEvent'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_wlanAp_RemoveDeviceConnectionEventHandler
+(
+    taf_wlanAp_DeviceConnectionEventHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    TAF_ERROR_IF_RET_NIL(nullptr == handlerRef, "handlerRef is nullptr!");
+    auto &wlan = taf_WlanAPSvcImpl::GetInstance();
+    return wlan.RemoveDeviceConnectionEventHandler(handlerRef);
 }

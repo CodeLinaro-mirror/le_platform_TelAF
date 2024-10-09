@@ -26,6 +26,8 @@ allow telaf_tafTimeSvc_t self:capability { sys_time sys_admin };
 
 # Allow time service to register the time manager in telSDK
 telux_allow_loc(telaf_tafTimeSvc_t)
+telux_allow_loc_data(telaf_tafTimeSvc_t)
+telux_allow_loc_config(telaf_tafTimeSvc_t)
 
 # Telsdk network time
 telux_allow_tel_srv_system_read(telaf_tafTimeSvc_t)
@@ -51,6 +53,5 @@ ifdef(`sa525m',`
 # For updating the delta mseconds to storage
 time_delta_read_write(telaf_tafTimeSvc_t)
 
-telux_allow_loc(telaf_tafTimeSvc_t)
 allow telaf_tafTimeSvc_t clock_device_t:chr_file { read write open ioctl };
 allow telaf_tafTimeSvc_t etc_t:file { open read getattr };

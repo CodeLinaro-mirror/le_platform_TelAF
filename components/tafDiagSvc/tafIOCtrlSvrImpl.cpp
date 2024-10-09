@@ -49,7 +49,7 @@ taf_diagIOCtrl_ServiceRef_t taf_IOCtrlSvr::GetService
         return NULL;
     }
 
-    taf_IOCtrlSvc_t* servicePtr = GetServiceObj(dataID);
+    taf_IOCtrlSvc_t* servicePtr = GetServiceObj(dataID, taf_diagDataID_GetClientSessionRef());
 
     // Create a service object if it doesn't exist in the list.
     if (servicePtr == NULL)
@@ -75,15 +75,6 @@ taf_diagIOCtrl_ServiceRef_t taf_IOCtrlSvr::GetService
         LE_DEBUG("svcRef %p of client %p is created for DataId.",
                 servicePtr->svcRef, servicePtr->sessionRef);
     }
-    else
-    {
-        // Only the service owner app can get the service reference for subsequent operations.
-        if (servicePtr->sessionRef != taf_diagDataID_GetClientSessionRef())
-        {
-            LE_ERROR("The service is created by other client.");
-            return NULL;
-        }
-    }
 
     LE_INFO("Get serviceRef %p for Diag IOCtrl service.", servicePtr->svcRef);
 
@@ -98,7 +89,8 @@ taf_diagIOCtrl_ServiceRef_t taf_IOCtrlSvr::GetService
 //-------------------------------------------------------------------------------------------------
 taf_IOCtrlSvc_t* taf_IOCtrlSvr::GetServiceObj
 (
-    uint16_t dataID
+    uint16_t dataID,
+    le_msg_SessionRef_t sessionRef
 )
 {
     LE_DEBUG("find the service object!");
@@ -108,9 +100,57 @@ taf_IOCtrlSvc_t* taf_IOCtrlSvr::GetServiceObj
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         taf_IOCtrlSvc_t* servicePtr = (taf_IOCtrlSvc_t *)le_ref_GetValue(iterRef);
-        if ((servicePtr != NULL) && (servicePtr->dataID == dataID))
+        if ((servicePtr != NULL) && (servicePtr->dataID == dataID)
+            && (sessionRef == servicePtr->sessionRef))
         {
             return servicePtr;
+        }
+    }
+
+    return NULL;
+}
+
+taf_IOCtrlSvc_t* taf_IOCtrlSvr::GetServiceObj
+(
+    uint16_t dataID,
+    uint16_t vlanId
+)
+{
+    LE_DEBUG("find the service object!");
+    bool isFound = false;
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
+
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_IOCtrlSvc_t* servicePtr = (taf_IOCtrlSvc_t *)le_ref_GetValue(iterRef);
+        if ((servicePtr != NULL) && (servicePtr->dataID == dataID))
+        {
+            // In some cases. the interface may not set the vlan.
+            if (vlanId == 0 && le_dls_NumLinks(&servicePtr->supportedVlanList) == 0)
+            {
+                return servicePtr;
+            }
+
+            // Verify if the vlan is match.
+            le_dls_Link_t* linkPtr = NULL;
+            linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+            while (linkPtr)
+            {
+                taf_IOCtrlVlanIdNode_t *vlan = CONTAINER_OF(linkPtr,
+                    taf_IOCtrlVlanIdNode_t, link);
+                if (vlan != NULL && vlan->vlanId == vlanId)
+                {
+                    // Match.
+                    isFound = true;
+                    break;
+                }
+                linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+            }
+
+            if (isFound)
+            {
+                return servicePtr;
+            }
         }
     }
 
@@ -327,7 +367,8 @@ void taf_IOCtrlSvr::RxIOCtrlEventHandler
     taf_IOCtrlSvc_t* servicePtr = NULL;
     taf_IOCtrlHandler_t* handlerObjPtr = NULL;
 
-    servicePtr = (taf_IOCtrlSvc_t*)ioCtrl.GetServiceObj(rxIOCtrlMsgPtr->dataID);
+    servicePtr = (taf_IOCtrlSvc_t*)ioCtrl.GetServiceObj(rxIOCtrlMsgPtr->dataID,
+        rxIOCtrlMsgPtr->addrInfo.vlanId);
     if (servicePtr == NULL)
     {
         LE_WARN("Not found registered IOCtrl service for this request!");
@@ -515,7 +556,8 @@ le_result_t taf_IOCtrlSvr::SendResp
     }
 
     taf_IOCtrlSvc_t* servicePtr = NULL;
-    servicePtr = (taf_IOCtrlSvc_t*)GetServiceObj(rxIOCtrlMsgPtr->dataID);
+    servicePtr = (taf_IOCtrlSvc_t*)GetServiceObj(rxIOCtrlMsgPtr->dataID,
+        rxIOCtrlMsgPtr->addrInfo.vlanId);
     if (servicePtr == NULL)
     {
         LE_ERROR("Not found registered IOCtrl service for this request!");
@@ -528,6 +570,8 @@ le_result_t taf_IOCtrlSvr::SendResp
     addrInfo.sa = rxIOCtrlMsgPtr->addrInfo.ta;
     addrInfo.ta = rxIOCtrlMsgPtr->addrInfo.sa;
     addrInfo.taType = rxIOCtrlMsgPtr->addrInfo.taType;
+    addrInfo.vlanId = rxIOCtrlMsgPtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, rxIOCtrlMsgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
 
     if (errCode == 0)
     {
@@ -591,6 +635,8 @@ le_result_t taf_IOCtrlSvr::SendNRCResp
     addrInfo.sa = addrInfoPtr->ta;
     addrInfo.ta = addrInfoPtr->sa;
     addrInfo.taType = addrInfoPtr->taType;
+    addrInfo.vlanId = addrInfoPtr->vlanId;
+    le_utf8_Copy(addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
 
     // Call UDS function to send the response message.
     auto &backend = taf_DiagBackend::GetInstance();
@@ -695,6 +741,66 @@ void taf_IOCtrlSvr::OnClientDisconnection
     return;
 }
 
+le_result_t taf_IOCtrlSvr::SetVlanId
+(
+    taf_diagIOCtrl_ServiceRef_t svcRef,
+    uint16_t vlanId
+)
+{
+    taf_IOCtrlSvc_t* servicePtr = (taf_IOCtrlSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+
+    // Check if the vlan is set.
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+    while (linkPtr)
+    {
+        taf_IOCtrlVlanIdNode_t *vlan = CONTAINER_OF(linkPtr,
+            taf_IOCtrlVlanIdNode_t, link);
+        if (vlan != NULL && vlan->vlanId == vlanId)
+        {
+            LE_INFO("The Vlan id(0x%x) is set for ref%p", vlanId, svcRef);
+            return LE_OK;
+        }
+        linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+    }
+
+    taf_IOCtrlVlanIdNode_t *vlanPtr = (taf_IOCtrlVlanIdNode_t *)
+        le_mem_ForceAlloc(vlanPool);
+    if (vlanPtr == NULL)
+    {
+        LE_INFO("Failed to allocate memory.");
+        return LE_NO_MEMORY;
+    }
+
+    vlanPtr->vlanId = vlanId;
+    vlanPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&servicePtr->supportedVlanList, &vlanPtr->link);
+
+    return LE_OK;
+}
+
+le_result_t taf_IOCtrlSvr::GetVlanIdFromMsg
+(
+    taf_diagIOCtrl_RxMsgRef_t rxMsgRef,
+    uint16_t* vlanIdPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(vlanIdPtr == NULL, LE_BAD_PARAMETER, "Invalid vlanIdPtr");
+
+    taf_IOCtrlRxMsg_t* rxMsgPtr = (taf_IOCtrlRxMsg_t*)
+        le_ref_Lookup(RxMsgRefMap, rxMsgRef);
+    if (rxMsgPtr == NULL)
+    {
+        LE_ERROR("Cannot find the rxMsg in IO ctrl service");
+        return LE_NOT_FOUND;
+    }
+
+    *vlanIdPtr = rxMsgPtr->addrInfo.vlanId;
+
+    return LE_OK;
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Initialization.
@@ -712,6 +818,7 @@ void taf_IOCtrlSvr::Init
     RxMsgPool = le_mem_CreatePool("IOCtrlRxMsgPool", sizeof(taf_IOCtrlRxMsg_t));
     ReqHandlerPool = le_mem_CreatePool("IOCtrlReqHandlerPool",
             sizeof(taf_IOCtrlHandler_t));
+    vlanPool = le_mem_CreatePool("IOCtrlVlanPool", sizeof(taf_IOCtrlVlanIdNode_t));
 
     // Create reference maps
     SvcRefMap = le_ref_CreateMap("IOCtrlSvcRefMap", DEFAULT_SVC_REF_CNT);

@@ -59,17 +59,31 @@ const char* arg4;
 static le_sem_Ref_t tafAudioAppSem;
 le_clk_Time_t Timeout = { 3 , 0 };
 static taf_audio_MediaHandlerRef_t playerHandlerRef = NULL, recorderHandlerRef = NULL;
+static taf_audio_DtmfDetectorHandlerRef_t dtmfDetectHandlerRef = NULL;
 taf_audio_StreamRef_t sinkRef = NULL, recorderRef = NULL, playerRef = NULL;
 taf_audio_StreamRef_t sourceRef = NULL, rxStreamRef = NULL, txStreamRef = NULL;
 taf_audio_RouteRef_t routeRef = NULL;
 taf_audio_ConnectorRef_t rxConn = NULL, txConn = NULL, playerConnRef = NULL, connRef = NULL;
 taf_audioVendor_NodeStateChangeHandlerRef_t handlerRef;
 le_result_t res;
-static le_thread_Ref_t Player_thread_ref, Recorder_thread_ref, node_thread_ref;
+static le_thread_Ref_t Player_thread_ref, Recorder_thread_ref, node_thread_ref,
+        Dtmf_detect_thread_ref;
 taf_audio_RouteId_t routeId = (taf_audio_RouteId_t)-1;
 bool isVoiceActive = false, isPbActive = false, isRpbActive = false, isRecordingActive = false;
 bool isVoiceStreamCreated = false, isPbStreamCreated = false, isRecordStreamCreated = false,
-        isRpbStreamCreated = false, isLbStreamCreated = false;
+        isRpbStreamCreated = false, isLbStreamCreated = false, isDtmfRegistered = false,
+        isDtmfToneStarted = false;
+
+static void MyDtmfDetectorHandler
+(
+    taf_audio_StreamRef_t streamRef,
+    char  dtmf,
+    void* contextPtr
+)
+{
+    LE_INFO("MyDtmfDetectorHandler detects %c", dtmf);
+    std::cout << "Dtmf tone detected for " << dtmf << std::endl;
+}
 
 static void MyMediaEventHandler
 (
@@ -129,6 +143,9 @@ void* Test_taf_audio_AddHandler(void* ctxPtr)
         playerHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
     } else if (streamRef == recorderRef) {
         recorderHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
+    } else if (streamRef == rxStreamRef) {
+        dtmfDetectHandlerRef = taf_audio_AddDtmfDetectorHandler(streamRef, MyDtmfDetectorHandler,
+                NULL);
     }
     sem = le_sem_FindSemaphore("tafAudioAppSem");
     if(sem != NULL)
@@ -258,6 +275,48 @@ void Test_Audio_Loopback_Delete()
     }
     cout<<"****Successfully stopped loopback***"<<endl;
     isLbStreamCreated = false;
+}
+
+void Test_Audio_DTMF_Detection_Register(){
+    LE_TEST_INFO("Test DTMF detection for Voice Call");
+    Dtmf_detect_thread_ref = le_thread_Create("taf_audio_dtmf_thread",
+            Test_taf_audio_AddHandler, (void*)rxStreamRef);
+    LE_TEST_OK(Dtmf_detect_thread_ref != NULL, "Successfully regsiter for DTMF detection event ");
+    if(Dtmf_detect_thread_ref != NULL )
+    {
+        cout<<"Successfully registered for DTMF detection event"<<endl;
+        isDtmfRegistered = true;
+        le_thread_Start(Dtmf_detect_thread_ref);
+        le_sem_Wait(tafAudioAppSem);
+    }
+    else
+    {
+        cout<<"Failed to register the DTMF detection event"<<endl;
+    }
+}
+
+void Test_Audio_DTMF_Detection_Deregister(){
+    LE_TEST_INFO("Test deregister DTMF detection for Voice Call");
+    taf_audio_RemoveDtmfDetectorHandler(dtmfDetectHandlerRef);
+    LE_TEST_OK(true, "Successfully deregsiter for DTMF detection event ");
+    isDtmfRegistered = false;
+}
+
+void Test_Audio_Play_DTMF(const char* dtmfPtr, uint16_t duration, uint32_t pause,
+    double gain) {
+    le_result_t res;
+    LE_TEST_INFO("To test taf_audio_PlayDtmf on rxStreamRef.%p", rxStreamRef);
+    res = taf_audio_PlayDtmf(rxStreamRef, dtmfPtr, duration, pause, gain);
+    LE_TEST_OK((res == LE_OK), "taf_audio_PlayDtmf - Pass");
+    isDtmfToneStarted = true;
+}
+
+void Test_Audio_Stop_DTMF() {
+    le_result_t res;
+    LE_TEST_INFO("To test taf_audio_StopDtmf on rxStreamRef.%p", rxStreamRef);
+    res = taf_audio_StopDtmf(rxStreamRef);
+    LE_TEST_OK((res == LE_OK), "taf_audio_StopDtmf - Pass");
+    isDtmfToneStarted = false;
 }
 
 void Test_Audio_Playback_Start( string filePath )
@@ -537,8 +596,15 @@ void PrintHelp()
         cout<<"getMute"<<endl;
         if(!isVoiceActive)
             cout<<"start voice"<<endl;
-        else
+        else {
             cout<<"stop voice"<<endl;
+            cout<<"playDtmf"<<endl;
+            if(isDtmfToneStarted)
+                cout<<"stopDtmf"<<endl;
+            cout<<"registerDtmfDetection"<<endl;
+            if(isDtmfRegistered)
+                cout<<"deregisterDtmfDetection"<<endl;
+        }
         cout<<"Delete voice stream"<<endl;
         if(!isRecordStreamCreated)
             cout<<"Create record stream"<<endl;
@@ -942,6 +1008,11 @@ void StartInputMonitoring
         char* p = fgets(inputStr, sizeof(inputStr), stdin);
         int number;
         string fileName = "";
+        string DtmfString = "";
+        uint16_t duration;
+        uint32_t pause;
+        double   gain;
+
         if (p != NULL)
         {
             if (strncmp(inputStr, "h", 1) == 0 || strncmp(inputStr, "?", 1) == 0 ||
@@ -1575,6 +1646,30 @@ void StartInputMonitoring
 
             } else if (strncmp(inputStr, "stop loopback", 13) == 0){
                 Test_Audio_Loopback_Delete();
+            } else if (strncmp(inputStr, "playDtmf", 8) == 0) {
+                cout << "Enter dtmf characters: ";
+                cin >> DtmfString;
+                IS_CIN_FAILURE;
+                p = fgets(inputStr, sizeof(inputStr), stdin);
+                cout << "Enter duration:";
+                cin >> duration;
+                IS_CIN_FAILURE;
+                p = fgets(inputStr, sizeof(inputStr), stdin);
+                cout << "Enter pause:";
+                cin >> pause;
+                IS_CIN_FAILURE;
+                p = fgets(inputStr, sizeof(inputStr), stdin);
+                cout << "Enter gain(range: 0-1):";
+                cin >> gain;
+                IS_CIN_FAILURE;
+                p = fgets(inputStr, sizeof(inputStr), stdin);
+                Test_Audio_Play_DTMF(DtmfString.c_str(), duration, pause, gain);
+            } else if (strncmp(inputStr, "stopDtmf", 8) == 0) {
+                Test_Audio_Stop_DTMF();
+            } else if(strncmp(inputStr, "registerDtmfDetection", 21) == 0) {
+                Test_Audio_DTMF_Detection_Register();
+            } else if(strncmp(inputStr, "deregisterDtmfDetection", 23) == 0) {
+                Test_Audio_DTMF_Detection_Deregister();
             }
         }
         else

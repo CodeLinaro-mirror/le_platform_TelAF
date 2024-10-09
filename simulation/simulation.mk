@@ -88,6 +88,11 @@ export TELAF_SIMULATION_ENABLE_SOMEIP_GW ?= n
 export TELAF_SIMULATION_ENABLE_DIAG ?= n
 export TELAF_SIMULATION_ENABLE_CAPI ?= n
 
+export TELAF_SIMULATION_ENABLE_RPC ?= n
+ifneq ($(TELAF_SIMULATION_ENABLE_RPC),n)
+  TELAF_SIMULATION_ENABLE_SOMEIP_GW := y
+endif
+
 ifneq ($(TELAF_SIMULATION_ENABLE_DIAG),n)
 export TELAF_SIMULATION_DIAG_SINC ?= $(TELAF_ROOT)/simulation/diag.sinc
 endif
@@ -149,7 +154,7 @@ post-simulation-build:
 	$Q tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ up_simulation.sh
 	$Q tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ .check_done
 ifneq ($(TELAF_SIMULATION_ENABLE_MNGD_CONN),n)
-	$Q cp $(TELAF_ROOT)/apps/sample/TelAF-CM/JSON/mngdConnectivity.json $(SIMULATION_HOME)/deps/taf_rootfs
+	$Q cp $(TELAF_ROOT)/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/Config/mngdConnectivity.json $(SIMULATION_HOME)/deps/taf_rootfs
 endif
 	$Q tar rf $(SIMULATION_TARBALL) --exclude=taf_rootfs/include \
 	                                --exclude=taf_rootfs/lib/cmake \

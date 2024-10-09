@@ -60,9 +60,8 @@ static void PrintUsage ()
               << "3 -> GetConnState  " << std::endl
               << "4 -> GetIpAddr  " << std::endl
               << "5 -> StartDataRetry  " << std::endl
-              << "6 -> CancelL1Recovery " << std::endl
-              << "7 -> CancelL2Recovery " << std::endl
-              << "8 -> Monitor " << std::endl
+              << "6 -> CancelRecovery " << std::endl
+              << "7 -> Monitor " << std::endl
               << std::endl;
 }
 
@@ -84,22 +83,18 @@ static std::string DataStateToString(taf_mngdConn_DataState_t state)
     return "unknown data state";
 }
 
-static std::string RecoveryStateToString(taf_mngdConn_RecoveryState_t state)
+static std::string RecoveryEventToString(taf_mngdConn_RecoveryEvent_t state)
 {
     switch (state)
     {
-    case TAF_MNGDCONN_RECOVERY_L1_SCHEDULED:
-        return "TAF_MNGDCONN_RECOVERY_L1_SCHEDULED";
-    case TAF_MNGDCONN_RECOVERY_L1_STARTED:
-        return "TAF_MNGDCONN_RECOVERY_L1_STARTED";
-    case TAF_MNGDCONN_RECOVERY_L1_CANCELED:
-        return "TAF_MNGDCONN_RECOVERY_L1_CANCELED";
-    case TAF_MNGDCONN_RECOVERY_L2_SCHEDULED:
-        return "TAF_MNGDCONN_RECOVERY_L2_SCHEDULED";
-    case TAF_MNGDCONN_RECOVERY_L2_STARTED:
-        return "TAF_MNGDCONN_RECOVERY_L2_STARTED";
-    case TAF_MNGDCONN_RECOVERY_L2_CANCELED:
-        return "TAF_MNGDCONN_RECOVERY_L2_CANCELED";
+    case TAF_MNGDCONN_RECOVERY_SCHEDULED:
+        return "TAF_MNGDCONN_RECOVERY_SCHEDULED";
+    case TAF_MNGDCONN_RECOVERY_STARTED:
+        return "TAF_MNGDCONN_RECOVERY_STARTED";
+    case TAF_MNGDCONN_RECOVERY_CANCELED:
+        return "TAF_MNGDCONN_RECOVERY_CANCELED";
+    case TAF_MNGDCONN_RECOVERY_FAILED:
+        return "TAF_MNGDCONN_RECOVERY_FAILED";
     default:
         LE_TEST_INFO("unknown recovery state: %d", static_cast<int>(state));
     }
@@ -139,26 +134,15 @@ static le_result_t stopData(taf_mngdConn_DataRef_t dataRef)
     return result;
 }
 
-static le_result_t cancelL1Recovery(taf_mngdConn_DataRef_t dataRef)
+static le_result_t cancelRecovery(taf_mngdConn_DataRef_t dataRef,
+                                  taf_mngdConn_RecoveryOperation_t operation)
 {
-    LE_TEST_INFO("----CancelL1Recovery test ");
+    LE_TEST_INFO("----CancelRecovery test ");
     le_result_t result = LE_FAULT;
-    result = taf_mngdConn_CancelL1Recovery(dataRef);
+    result = taf_mngdConn_CancelRecoveryOperation(dataRef, operation);
     if (result != LE_OK)
     {
-        LE_TEST_INFO("taf_mngdConn_CancelL1Recovery failed: %d ", result);
-    }
-    return result;
-}
-
-static le_result_t cancelL2Recovery(taf_mngdConn_DataRef_t dataRef)
-{
-    LE_TEST_INFO("----CancelL2Recovery test ");
-    le_result_t result = LE_FAULT;
-    result = taf_mngdConn_CancelL2Recovery(dataRef);
-    if (result != LE_OK)
-    {
-        LE_TEST_INFO("taf_mngdConn_CancelL2Recovery failed: %d ", result);
+        LE_TEST_INFO("taf_mngdConn_CancelRecoveryOperation failed: %d ", result);
     }
     return result;
 }
@@ -212,9 +196,10 @@ static le_result_t startDataRetryAsync(taf_mngdConn_DataRef_t dataRef)
     return result;
 }
 
-static void RecoveryStateHandler(taf_mngdConn_RecoveryState_t recoveryState,
-                                 taf_mngdConn_DataRef_t dataRef,
-                                 void *contextPtr)
+static void RecoveryEventHandler(taf_mngdConn_DataRef_t dataRef,
+                                 taf_mngdConn_RecoveryEvent_t recoveryEvent,
+                                 taf_mngdConn_RecoveryOperation_t operation,
+                                 void* contextPtr)
 {
     uint8_t dataId;
     char dataName[MCS_MAX_NAME_LEN];
@@ -233,7 +218,7 @@ static void RecoveryStateHandler(taf_mngdConn_RecoveryState_t recoveryState,
         LE_TEST_INFO("Failed to get Data Name");
     }
     LE_TEST_INFO("---data id : %d, name: %s, State : %s", dataId, dataName,
-                                                RecoveryStateToString(recoveryState).c_str());
+                                                RecoveryEventToString(recoveryEvent).c_str());
 
     return;
 }
@@ -269,7 +254,7 @@ static void* HandlerThread(void* contextPtr)
 {
 
     taf_mngdConn_DataStateHandlerRef_t     stateHandlerRef    = nullptr;
-    taf_mngdConn_RecoveryStateHandlerRef_t recoveryHandlerRef = nullptr;
+    taf_mngdConn_RecoveryEventHandlerRef_t recoveryHandlerRef = nullptr;
 
     taf_mngdConn_DataRef_t dataRef = (taf_mngdConn_DataRef_t)contextPtr;
 
@@ -286,7 +271,7 @@ static void* HandlerThread(void* contextPtr)
     }
 
     // Register recovery state handler
-    recoveryHandlerRef = taf_mngdConn_AddRecoveryStateHandler(RecoveryStateHandler, NULL);
+    recoveryHandlerRef = taf_mngdConn_AddRecoveryEventHandler(RecoveryEventHandler, NULL);
     if (nullptr == recoveryHandlerRef)
     {
         LE_TEST_FATAL("Unable to register for recovery state events");
@@ -354,6 +339,33 @@ static taf_mngdConn_DataRef_t getDataRef(void)
     return dataRef;
 }
 
+
+
+taf_mngdConn_RecoveryOperation_t convert_to_ConnRecovery_Operation_Type_enum(int operation)
+{
+    switch(operation){
+        case 0:
+        {
+            return TAF_MNGDCONN_RECOVERY_NONE;
+        }
+        case 1:
+        {
+            return TAF_MNGDCONN_RECOVERY_RADIO_OFF_ON;
+        }
+        case 2:
+        {
+            return TAF_MNGDCONN_RECOVERY_SIM_OFF_ON;
+        }
+        case 3:
+        {
+            return TAF_MNGDCONN_RECOVERY_NAD_REBOOT;
+        }
+        default:
+        std::cerr << "You entered an invalid operation";
+        LE_TEST_FATAL("Invalid test command %d", operation);
+    }
+}
+
 COMPONENT_INIT
 {
     le_result_t status = LE_OK;
@@ -406,17 +418,18 @@ COMPONENT_INIT
             break;
             case 6 :
             {
-                status = cancelL1Recovery(getDataRef());
-                LE_TEST_OK(LE_OK == status, "cancelL1Recovery");
+                int operation = 0;
+                std::cout << "Enter the level of recovery" << std::endl;
+                std::cout << "1 -> L1" << std::endl
+                        << "2 -> L2" << std::endl
+                        << "3 -> L3" << std::endl;
+                std::cin >> operation;
+                status = cancelRecovery(getDataRef(),
+                                        convert_to_ConnRecovery_Operation_Type_enum(operation));
+                LE_TEST_OK(LE_OK == status, "cancelRecovery");
             }
             break;
             case 7 :
-            {
-                status = cancelL2Recovery(getDataRef());
-                LE_TEST_OK(LE_OK == status, "cancelL2Recovery");
-            }
-            break;
-            case 8 :
             {
                 status = monitorState(getDataRef());
                 LE_TEST_OK(LE_OK == status, "MCS Test: Monitor");

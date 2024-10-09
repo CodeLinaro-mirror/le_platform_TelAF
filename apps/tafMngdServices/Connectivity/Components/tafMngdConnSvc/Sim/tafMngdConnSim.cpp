@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -101,4 +101,28 @@ void tafMngdConnSim::RegisterEvents()
 bool tafMngdConnSim::IsSimReady(uint8_t slotId)
 {
     return taf_sim_IsReady((taf_sim_Id_t)slotId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Power on the SIM.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnSim::PowerOn(uint8_t slotId)
+{
+    LE_INFO("Set SIM power on");
+
+    return taf_sim_SetPower((taf_sim_Id_t)slotId, LE_ON);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Power off the SIM.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnSim::PowerOff(uint8_t slotId)
+{
+    LE_INFO("Set SIM power off");
+
+    return taf_sim_SetPower((taf_sim_Id_t)slotId, LE_OFF);
 }

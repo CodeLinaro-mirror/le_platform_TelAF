@@ -54,10 +54,11 @@ void taf_DiagDoIPSvr::Init
     // Create memory pools.
     svcPool = le_mem_CreatePool("DoIPSvcPool", sizeof(taf_DoIPSVC_t));
     sessPool = le_mem_CreatePool("DoIPSessPool", sizeof(taf_DoIPSession_t));
+    vlanPool = le_mem_CreatePool("DoIPVlanPool", sizeof(taf_VlanCallback_t));
 
     // Create reference maps
     svcRefMap = le_ref_CreateMap("DoIPSvcRefMap", DEFAULT_SVC_REF_CNT);
-    sessRefMap = le_ref_CreateMap("DoIPSessRefMap", DEFAULT_SESSION_REF_CNT);
+    vlanRefMap = le_ref_CreateMap("DoIPVlanRefMap", DEFAULT_VLAN_REF_CNT);
 
     // Create client session close hander.
     le_msg_AddServiceCloseHandler(taf_diagDoIP_GetServiceRef(),
@@ -132,10 +133,13 @@ le_result_t taf_DiagDoIPSvr::RemoveService
 taf_diagDoIP_EventHandlerRef_t taf_DiagDoIPSvr::AddEventHandler
 (
     taf_diagDoIP_ServiceRef_t svcRef,
+    uint16_t vlanId,
     taf_diagDoIP_EventHandlerFunc_t handlerPtr,
     void* contextPtr
 )
 {
+    le_result_t ret;
+
     TAF_ERROR_IF_RET_VAL(svcRef == NULL, NULL, "Null ptr(svcRef)");
     TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Null ptr(handlerPtr)");
 
@@ -153,17 +157,25 @@ taf_diagDoIP_EventHandlerRef_t taf_DiagDoIPSvr::AddEventHandler
         LE_ERROR("Cannot find session object");
         return NULL;
     }
-    else if (sessionPtr->func != NULL)
+
+    ret = SetSessionEventHandler(sessionPtr, vlanId, handlerPtr, contextPtr);
+    if (ret != LE_OK)
     {
-        LE_ERROR("Event handler has been set");
+        LE_ERROR("Failed to set event handler");
         return NULL;
     }
 
-    SetSessionEventHandler(sessionPtr, handlerPtr, contextPtr);
-
     LE_INFO("Registered event handler to DoIP service");
+    taf_VlanCallback_t* vlanPtr = GetVlanInfoWithVlanId(sessionPtr, vlanId);
+    if (vlanPtr == NULL)
+    {
+        // Enter here means the vlan count reaches max.
+        LE_ERROR("Failed to get vlan info with vlan id(0x%x)", vlanId);
+        SetSessionEventHandler(sessionPtr, vlanId, NULL, NULL);
+        return NULL;
+    }
 
-    return (taf_diagDoIP_EventHandlerRef_t)sessionPtr->safeRef;
+    return (taf_diagDoIP_EventHandlerRef_t)vlanPtr->safeRef;
 }
 
 void taf_DiagDoIPSvr::RemoveEventHandler
@@ -171,21 +183,21 @@ void taf_DiagDoIPSvr::RemoveEventHandler
     taf_diagDoIP_EventHandlerRef_t handlerRef
 )
 {
-    taf_DoIPSession_t *sessPtr;
+    taf_VlanCallback_t* vlanPtr;
 
-    sessPtr = (taf_DoIPSession_t*)le_ref_Lookup(sessRefMap, handlerRef);
-    if (sessPtr == NULL)
+    vlanPtr = (taf_VlanCallback_t*)le_ref_Lookup(vlanRefMap, (void*)handlerRef);
+    if (vlanPtr == NULL || vlanPtr->sessPtr == NULL)
     {
         LE_ERROR("Invalid reference");
         return;
     }
 
-    if (sessPtr->sessionRef != taf_diagDoIP_GetClientSessionRef())
+    if (vlanPtr->sessPtr->sessionRef != taf_diagDoIP_GetClientSessionRef())
     {
         LE_WARN("Remove handler in another session");
     }
 
-    SetSessionEventHandler(sessPtr, NULL, NULL);
+    SetSessionEventHandler(vlanPtr->sessPtr, vlanPtr->vlanId, NULL, NULL);
 }
 
 le_result_t taf_DiagDoIPSvr::SetVIN
@@ -244,6 +256,7 @@ void taf_DiagDoIPSvr::DoIPEventHandler
     taf_doip_Ref_t doipRef,
     taf_doip_Event_t event,
     uint16_t remoteAddr,
+    uint16_t fromVlanId,
     void* userPtr
 )
 {
@@ -261,7 +274,7 @@ void taf_DiagDoIPSvr::DoIPEventHandler
             // No need to report.
             return;
     }
-
+    LE_DEBUG("Report a event from DoIP");
     taf_DiagDoIPSvr& doipSvr = taf_DiagDoIPSvr::GetInstance();
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(doipSvr.svcRefMap);
@@ -277,10 +290,17 @@ void taf_DiagDoIPSvr::DoIPEventHandler
                 // Loop to report to all clients.
                 taf_DoIPSession_t* sessionPtr = CONTAINER_OF(linkPtr, taf_DoIPSession_t, link);
                 linkPtr = le_dls_PeekNext(&(svcPtr->sessionList), linkPtr);
-                if (sessionPtr->func != NULL)
+
+                taf_VlanCallback_t* vlanPtr = doipSvr.GetVlanInfoWithVlanId(sessionPtr, fromVlanId);
+                if (vlanPtr != NULL && vlanPtr->func != NULL)
                 {
-                    // Report to the application
-                    sessionPtr->func(svcPtr->ref, eventType, remoteAddr, sessionPtr->ctxPtr);
+                    // App regitstered callback for the fromVlanId from this session.
+                    vlanPtr->func(svcPtr->ref,
+                                  eventType,
+                                  remoteAddr,
+                                  fromVlanId,
+                                  vlanPtr->ctxPtr
+                                  );
                 }
             }
         }
@@ -359,16 +379,15 @@ taf_DoIPSession_t *taf_DiagDoIPSvr::AddSessionToService
         }
     }
 
-    LE_DEBUG("add session %p for service%p", sessionRef, servicePtr);
+    LE_DEBUG("add session ref%p for service%p", sessionRef, servicePtr);
     taf_DoIPSession_t* newSessionPtr = (taf_DoIPSession_t *)le_mem_ForceAlloc(sessPool);
 
     newSessionPtr->sessionRef = sessionRef;
     newSessionPtr->link = LE_DLS_LINK_INIT;
     newSessionPtr->svrPtr = servicePtr;
-    newSessionPtr->func = NULL;
-    newSessionPtr->ctxPtr = NULL;
-    newSessionPtr->safeRef = le_ref_CreateRef(sessRefMap, newSessionPtr);
+    newSessionPtr->vlanInfoList = LE_DLS_LIST_INIT;
     le_dls_Queue(&servicePtr->sessionList, &(newSessionPtr->link));
+    LE_DEBUG("Allocate a session class%p", newSessionPtr);
 
     return newSessionPtr;
 }
@@ -391,9 +410,10 @@ le_result_t taf_DiagDoIPSvr::RemoveSessionFromService
 
         if (sessionPtr->sessionRef == sessionRef)
         {
-            LE_DEBUG("remove ref(%p) from service%p", sessionRef, servicePtr);
+            LE_DEBUG("remove session ref(%p) from service%p", sessionRef, servicePtr);
             le_dls_Remove(&(servicePtr->sessionList), &(sessionPtr->link));
-            le_ref_DeleteRef(sessRefMap, sessionPtr->safeRef);
+            RemoveAllVlanFromSession(sessionPtr);
+
             le_mem_Release(sessionPtr);
             return LE_OK;
         }
@@ -408,18 +428,96 @@ le_result_t taf_DiagDoIPSvr::RemoveSessionFromService
 le_result_t taf_DiagDoIPSvr::SetSessionEventHandler
 (
     taf_DoIPSession_t *sessionPtr,
+    uint16_t vlanId,
     taf_diagDoIP_EventHandlerFunc_t handlerPtr,
     void* contextPtr
 )
 {
-    if (sessionPtr->func != NULL)
+    le_dls_Link_t* linkPtr;
+    taf_VlanCallback_t* vlanPtr;
+
+    if (handlerPtr == NULL)
     {
-        LE_ERROR("Session event handler has been set");
-        return LE_DUPLICATE;
+        // Remove event handler.
+        linkPtr = le_dls_Peek(&(sessionPtr->vlanInfoList));
+        while (linkPtr != NULL)
+        {
+            vlanPtr = CONTAINER_OF(linkPtr, taf_VlanCallback_t, link);
+            if (vlanPtr->vlanId == vlanId)
+            {
+                // Remove the element and release resource.
+                le_dls_Remove(&(sessionPtr->vlanInfoList), &(vlanPtr->link));
+                le_ref_DeleteRef(vlanRefMap, vlanPtr->safeRef);
+                le_mem_Release(vlanPtr);
+            }
+            linkPtr = le_dls_PeekNext(&(sessionPtr->vlanInfoList), linkPtr);
+        }
+    }
+    else
+    {
+        // Add event handler.
+        linkPtr = le_dls_Peek(&(sessionPtr->vlanInfoList));
+        while (linkPtr != NULL)
+        {
+            // Check if the vlan id is registered.
+            vlanPtr = CONTAINER_OF(linkPtr, taf_VlanCallback_t, link);
+            if (vlanPtr->vlanId == vlanId)
+            {
+                LE_ERROR("Session event handler for vlan0x%x has been set", vlanId);
+                return LE_DUPLICATE;
+            }
+            linkPtr = le_dls_PeekNext(&(sessionPtr->vlanInfoList), linkPtr);
+        }
+
+        vlanPtr = (taf_VlanCallback_t *)le_mem_ForceAlloc(vlanPool);
+        vlanPtr->vlanId = vlanId;
+        vlanPtr->func = handlerPtr;
+        vlanPtr->ctxPtr = contextPtr;
+        vlanPtr->link = LE_DLS_LINK_INIT;
+        vlanPtr->safeRef = le_ref_CreateRef(vlanRefMap, vlanPtr);
+        vlanPtr->sessPtr = sessionPtr;
+        le_dls_Queue(&sessionPtr->vlanInfoList, &(vlanPtr->link));
+        LE_DEBUG("Add vlan(0x%x) handler to session successful.", vlanId);
     }
 
-    sessionPtr->func = handlerPtr;
-    sessionPtr->ctxPtr = contextPtr;
-
     return LE_OK;
+}
+void taf_DiagDoIPSvr::RemoveAllVlanFromSession
+(
+    taf_DoIPSession_t* sessionPtr
+)
+{
+    if (sessionPtr == NULL)
+    {
+        return;
+    }
+
+    le_dls_Link_t* linkPtr = le_dls_Pop(&sessionPtr->vlanInfoList);
+    while (linkPtr != NULL)
+    {
+        taf_VlanCallback_t* vlanPtr = CONTAINER_OF(linkPtr, taf_VlanCallback_t, link);
+        le_mem_Release(vlanPtr);
+
+        linkPtr = le_dls_Pop(&sessionPtr->vlanInfoList);
+    }
+}
+
+taf_VlanCallback_t* taf_DiagDoIPSvr::GetVlanInfoWithVlanId
+(
+    taf_DoIPSession_t* sessionPtr,
+    uint16_t vlanId
+)
+{
+    le_dls_Link_t* linkPtr = le_dls_Peek(&(sessionPtr->vlanInfoList));
+    while (linkPtr != NULL)
+    {
+        taf_VlanCallback_t* vlanPtr = CONTAINER_OF(linkPtr, taf_VlanCallback_t, link);
+        if (vlanPtr->vlanId == vlanId)
+        {
+            return vlanPtr;
+        }
+        linkPtr = le_dls_PeekNext(&(sessionPtr->vlanInfoList), linkPtr);
+    }
+
+    return NULL;
 }

@@ -1,0 +1,44 @@
+sources:
+{
+    tafMngdCfgStorageImpl.cpp
+    tafMngdCfgStorageSvc.cpp
+}
+
+provides:
+{
+    api:
+    {
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdStorCfg.api
+    }
+}
+
+requires:
+{
+    api:
+    {
+        taf_fsc.api
+        le_cfg.api
+        le_cfgAdmin.api
+    }
+
+    component:
+    {
+        $TELAF_ROOT/components/tafHalComp
+        $TELAF_ROOT/components/tafRFSLib
+    }
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+    -I${LEGATO_ROOT}/framework/liblegato
+    -I$TELAF_ROOT/include/staging
+    -I$TELAF_ROOT/components/tafHalComp
+    -I$TELAF_ROOT/include/staging/plugin
+    -DMSS_SEC_STORE_SIZE=8192
+}
+
+ldflags:
+{
+   -lboost_filesystem
+}

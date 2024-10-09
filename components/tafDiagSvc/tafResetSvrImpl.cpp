@@ -81,7 +81,7 @@ taf_diagReset_ServiceRef_t taf_ResetSvr::GetService
     }
 
     // Search the service.
-    taf_ResetSvc_t* servicePtr = GetServiceObj(resetType);
+    taf_ResetSvc_t* servicePtr = GetServiceObj(resetType, taf_diagReset_GetClientSessionRef());
 
     // Create a service object if it doesn't exist in the list.
     if (servicePtr == NULL)
@@ -101,22 +101,14 @@ taf_diagReset_ServiceRef_t taf_ResetSvr::GetService
         // Create a Safe Reference for this service object
         servicePtr->svcRef = (taf_diagReset_ServiceRef_t)le_ref_CreateRef(SvcRefMap, servicePtr);
 
+        servicePtr->supportedVlanList = LE_DLS_LIST_INIT;
+
         LE_INFO("svcRef %p of client %p is created for ECU reset type %x.",
                 servicePtr->svcRef, servicePtr->sessionRef, resetType);
     }
     else
     {
-        if (servicePtr->resetType == resetType)
-        {
-            // Only the service owner app can get the service reference for subsequent operations.
-            if (servicePtr->sessionRef != taf_diagReset_GetClientSessionRef())
-            {
-                LE_ERROR("The service for reset type (0x%x) created by other client.",
-                        servicePtr->resetType);
-                return NULL;
-            }
-        }
-        else if (servicePtr->resetType == TAF_DIAGRESET_ALL_RESET &&
+        if (servicePtr->resetType == TAF_DIAGRESET_ALL_RESET &&
                 resetType != TAF_DIAGRESET_ALL_RESET)
         {
             LE_ERROR("Service is already created to handle all type of Reset");
@@ -141,7 +133,66 @@ taf_diagReset_ServiceRef_t taf_ResetSvr::GetService
 //-------------------------------------------------------------------------------------------------
 taf_ResetSvc_t* taf_ResetSvr::GetServiceObj
 (
-    uint8_t resetType
+    uint8_t resetType,
+    uint16_t vlanId
+)
+{
+    bool isFound = false;
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
+
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_ResetSvc_t* servicePtr = (taf_ResetSvc_t *)le_ref_GetValue(iterRef);
+        if (servicePtr != NULL)
+        {
+            if ((servicePtr->resetType == resetType) ||
+                (servicePtr->resetType == TAF_DIAGRESET_ALL_RESET &&
+                resetType != TAF_DIAGRESET_ALL_RESET) ||
+                (servicePtr->resetType != TAF_DIAGRESET_ALL_RESET &&
+                resetType == TAF_DIAGRESET_ALL_RESET))
+            {
+                // In some cases. the interface may not set the vlan.
+                if (vlanId == 0 && le_dls_NumLinks(&servicePtr->supportedVlanList) == 0)
+                {
+                    return servicePtr;
+                }
+
+                // Verify if the vlan is match.
+                le_dls_Link_t* linkPtr = NULL;
+                linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+                while (linkPtr)
+                {
+                    taf_ResetVlanIdNode_t *vlan = CONTAINER_OF(linkPtr, taf_ResetVlanIdNode_t, link);
+                    if (vlan != NULL && vlan->vlanId == vlanId)
+                    {
+                        // Match.
+                        isFound = true;
+                        break;
+                    }
+                    linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+                }
+
+                if (isFound)
+                {
+                    return servicePtr;
+                }
+            }
+        }
+    }
+
+    return NULL;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the service instacnce object by resetType if the service reference already created and
+ * return the object pointer.
+ */
+//-------------------------------------------------------------------------------------------------
+taf_ResetSvc_t* taf_ResetSvr::GetServiceObj
+(
+    uint8_t resetType,
+    le_msg_SessionRef_t sessionRef
 )
 {
     le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
@@ -151,11 +202,12 @@ taf_ResetSvc_t* taf_ResetSvr::GetServiceObj
         taf_ResetSvc_t* servicePtr = (taf_ResetSvc_t *)le_ref_GetValue(iterRef);
         if (servicePtr != NULL)
         {
-            if ((servicePtr->resetType == resetType) ||
-                    (servicePtr->resetType == TAF_DIAGRESET_ALL_RESET &&
-                            resetType != TAF_DIAGRESET_ALL_RESET) ||
-                                    (servicePtr->resetType != TAF_DIAGRESET_ALL_RESET &&
-                                            resetType == TAF_DIAGRESET_ALL_RESET))
+            if ((sessionRef == servicePtr->sessionRef) &&
+                ((servicePtr->resetType == resetType) ||
+                (servicePtr->resetType == TAF_DIAGRESET_ALL_RESET &&
+                resetType != TAF_DIAGRESET_ALL_RESET) ||
+                (servicePtr->resetType != TAF_DIAGRESET_ALL_RESET &&
+                resetType == TAF_DIAGRESET_ALL_RESET)))
             {
                 return servicePtr;
             }
@@ -273,14 +325,15 @@ void taf_ResetSvr::RxReqEventHandler
     taf_ResetSvc_t* servicePtr = NULL;
     taf_ResetReqHandler_t* handlerObjPtr = NULL;
 
-    servicePtr = (taf_ResetSvc_t*)reset.GetServiceObj(rxMsgPtr->subFunc);
+    servicePtr = (taf_ResetSvc_t*)reset.GetServiceObj(rxMsgPtr->subFunc, rxMsgPtr->addrInfo.vlanId);
     if (servicePtr == NULL)
     {
-        servicePtr = (taf_ResetSvc_t*)reset.GetServiceObj(TAF_DIAGRESET_ALL_RESET);
+        servicePtr = (taf_ResetSvc_t*)reset.GetServiceObj(TAF_DIAGRESET_ALL_RESET,
+            rxMsgPtr->addrInfo.vlanId);
         if(servicePtr == NULL)
         {
-            LE_WARN("Not found registered ECU reset service type: 0x%x for this request",
-                    rxMsgPtr->subFunc);
+            LE_WARN("Not found registered ECU reset service type: 0x%x for this request(vlan id:0x%x)",
+                    rxMsgPtr->subFunc, rxMsgPtr->addrInfo.vlanId);
             // UDS_0x11_NRC_21: service pointer is null
             reset.SendNRCResp(&(rxMsgPtr->addrInfo), TAF_DIAG_BUSY_REPEAT_REQUEST);
             le_ref_DeleteRef(reset.RxMsgRefMap, rxMsgPtr->rxMsgRef);
@@ -393,6 +446,8 @@ le_result_t taf_ResetSvr::SendNRCResp
     addrInfo.sa = addrInfoPtr->ta;
     addrInfo.ta = addrInfoPtr->sa;
     addrInfo.taType = addrInfoPtr->taType;
+    addrInfo.vlanId = addrInfoPtr->vlanId;
+    le_utf8_Copy(addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
     backend.RespDiagNegative(reqSvcId, &addrInfo, errCode);
 
     return LE_OK;
@@ -418,14 +473,14 @@ le_result_t taf_ResetSvr::SendResp
     taf_ResetRxMsg_t* rxMsgPtr = (taf_ResetRxMsg_t*)le_ref_Lookup(RxMsgRefMap, rxMsgRef);
     TAF_ERROR_IF_RET_VAL(rxMsgPtr == NULL, LE_BAD_PARAMETER, "Invalid rxMsgPtr");
 
-    taf_ResetSvc_t* servicePtr = (taf_ResetSvc_t*)GetServiceObj(rxMsgPtr->subFunc);
+    taf_ResetSvc_t* servicePtr = (taf_ResetSvc_t*)GetServiceObj(rxMsgPtr->subFunc, rxMsgPtr->addrInfo.vlanId);
     if (servicePtr == NULL)
     {
-        servicePtr = (taf_ResetSvc_t*)GetServiceObj(TAF_DIAGRESET_ALL_RESET);
+        servicePtr = (taf_ResetSvc_t*)GetServiceObj(TAF_DIAGRESET_ALL_RESET, rxMsgPtr->addrInfo.vlanId);
         if(servicePtr == NULL)
         {
-            LE_ERROR("Cannot find the service(type:0x%x)", rxMsgPtr->subFunc);
-
+            LE_ERROR("Cannot find the service(type:0x%x, vlan id:0x%x)",
+                rxMsgPtr->subFunc, rxMsgPtr->addrInfo.vlanId);
             return LE_NOT_FOUND;
         }
     }
@@ -436,6 +491,8 @@ le_result_t taf_ResetSvr::SendResp
     addrInfo.sa = rxMsgPtr->addrInfo.ta;
     addrInfo.ta = rxMsgPtr->addrInfo.sa;
     addrInfo.taType = rxMsgPtr->addrInfo.taType;
+    addrInfo.vlanId = rxMsgPtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, rxMsgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
 
     if (errCode == 0)
     {
@@ -566,6 +623,73 @@ void taf_ResetSvr::OnClientDisconnection
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * VLAN ID setting.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_ResetSvr::SetVlanId
+(
+    taf_diagReset_ServiceRef_t svcRef,
+    uint16_t vlanId
+)
+{
+    taf_ResetSvc_t* servicePtr = (taf_ResetSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+
+    // Check if the vlan is set.
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+    while (linkPtr)
+    {
+        taf_ResetVlanIdNode_t *vlan = CONTAINER_OF(linkPtr, taf_ResetVlanIdNode_t, link);
+        if (vlan != NULL && vlan->vlanId == vlanId)
+        {
+            LE_INFO("The Vlan id(0x%x) is set for ref%p", vlanId, svcRef);
+            return LE_OK;
+        }
+        linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+    }
+
+    taf_ResetVlanIdNode_t *vlanPtr = (taf_ResetVlanIdNode_t *)le_mem_ForceAlloc(VlanPool);
+    if (vlanPtr == NULL)
+    {
+        LE_INFO("Failed to allocate memory.");
+        return LE_NO_MEMORY;
+    }
+
+    vlanPtr->vlanId = vlanId;
+    vlanPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&servicePtr->supportedVlanList, &vlanPtr->link);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * VLAN ID getting.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_ResetSvr::GetVlanIdFromMsg
+(
+    taf_diagReset_RxMsgRef_t rxMsgRef,
+    uint16_t* vlanIdPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(vlanIdPtr == NULL, LE_BAD_PARAMETER, "Invalid vlanIdPtr");
+
+    taf_ResetRxMsg_t* rxMsgPtr = (taf_ResetRxMsg_t*)le_ref_Lookup(RxMsgRefMap, rxMsgRef);
+    if (rxMsgPtr == NULL)
+    {
+        LE_ERROR("Cannot find the rxMsg in reset service");
+        return LE_NOT_FOUND;
+    }
+
+    *vlanIdPtr = rxMsgPtr->addrInfo.vlanId;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Initialization.
  */
 //--------------------------------------------------------------------------------------------------
@@ -577,6 +701,7 @@ void taf_ResetSvr::Init()
     SvcPool = le_mem_CreatePool("ResetSvcPool", sizeof(taf_ResetSvc_t));
     RxMsgPool = le_mem_CreatePool("ResetRxMsgPool", sizeof(taf_ResetRxMsg_t));
     ReqHandlerPool = le_mem_CreatePool("ResetReqHandlerPool", sizeof(taf_ResetReqHandler_t));
+    VlanPool = le_mem_CreatePool("ResetVlanPool", sizeof(taf_ResetVlanIdNode_t));
 
     // Create reference maps
     SvcRefMap = le_ref_CreateMap("ResetSvcRefMap", DEFAULT_SVC_REF_CNT);

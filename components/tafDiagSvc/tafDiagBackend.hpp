@@ -56,7 +56,9 @@
     {
         uint16_t            sa;         ///< Source address of message senders.
         uint16_t            ta;         ///< Target address of message recipients.
-        taf_uds_TaType_t   taType;      ///< Target address type of message recipients.
+        taf_uds_TaType_t    taType;      ///< Target address type of message recipients.
+        uint16_t            vlanId;     ///< VLAN ID. =0 if the interface is not vlan port.
+        char                ifName[MAX_INTERFACE_NAME_LEN]; ///< Interface name.
     }taf_uds_AddrInfo_t;
 #endif
 

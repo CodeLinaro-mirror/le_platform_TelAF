@@ -32,6 +32,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <cstring>
 #include <chrono>
 #include <fstream>
 
@@ -709,20 +710,20 @@ void taf_FwUpdate::UpdateProgress
             tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             break;
         case TAF_UPDATE_SYNCHRONIZING:
-            LE_INFO("Synchronizing %d%%...", tafFwUpdate.percent);
+            LE_INFO("A-B bank sync is in progress, completed %d%%...", tafFwUpdate.percent);
             tafFwUpdate.SetState(TAF_UPDATE_SYNCHRONIZING);
             break;
         case TAF_UPDATE_SYNC_SUCCESS:
-            LE_INFO("Sync success.");
+            LE_INFO("A-B bank sync success.");
             tafFwUpdate.percent = 0;
             tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             break;
         case TAF_UPDATE_SYNC_PAUSED:
-            LE_INFO("Sync pause.");
+            LE_INFO("A-B bank sync paused at %d%%...", tafFwUpdate.percent);
             tafFwUpdate.SetState(TAF_UPDATE_SYNC_PAUSED);
             break;
         case TAF_UPDATE_SYNC_FAIL:
-            LE_INFO("Sync failed.");
+            LE_INFO("A-B bank sync failed.");
             tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             break;
         case TAF_UPDATE_ROLLBACK_SUCCESS:
@@ -2691,6 +2692,46 @@ le_result_t taf_FwUpdate::CalculateTotalPages()
     return LE_OK;
 }
 
+bool taf_FwUpdate::CompareBinaryFiles(const std::string& filename1, const std::string& filename2)
+{
+    // Open the files for binary read
+    std::ifstream file1(filename1, std::ios::binary);
+    std::ifstream file2(filename2, std::ios::binary);
+
+    // Check if both files were successfully opened
+    if (!file1.is_open() || !file2.is_open())
+    {
+        LE_FATAL("Error opening files!");
+        return false;
+    }
+
+    // Compare file sizes
+    file1.seekg(0, std::ios::end);
+    file2.seekg(0, std::ios::end);
+    if (file1.tellg() != file2.tellg())
+    {
+        return false; // Files are of different sizes
+    }
+    file1.seekg(0, std::ios::beg);
+    file2.seekg(0, std::ios::beg);
+
+    // Read and compare the files at page level
+    char buffer1[kPageSize] = {0};
+    char buffer2[kPageSize] = {0};
+
+    while (!file1.eof() && !file2.eof())
+    {
+        file1.read(buffer1, kPageSize);
+        file2.read(buffer2, kPageSize);
+        if (std::memcmp(buffer1, buffer2, kPageSize) != 0)
+        {
+            return false; // Files differ
+        }
+    }
+
+    return true; // Files are identical
+}
+
 le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
 {
     if (!isPartitionListInit)
@@ -2736,8 +2777,11 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
             std::string mtdName = std::string(partition->name);
             if(partitionMap.find(mtdName + std::string("_b")) != partitionMap.end())
             {
-                bool isCopied = tafUpdate_ConfigTree_GetBool(mtdName);
-                if(isCopied)
+                taf_lib_flash_Partition_t *partition_a = partition;
+                taf_lib_flash_Partition_t *partition_b =
+                    &(partitionList.partition[partitionMap[std::string(partition->name) + "_b"]]);
+                bool isEqual = CompareBinaryFiles(partition_a->mtdDevPath, partition_b->mtdDevPath);
+                if(isEqual)
                 {
                     LE_INFO("MTD %s is already synced, skipping it", mtdName.c_str());
                     continue;
@@ -2746,10 +2790,6 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
                 {
                     LE_INFO("Syncing MTD %s", mtdName.c_str());
                 }
-
-                taf_lib_flash_Partition_t *partition_a = partition;
-                taf_lib_flash_Partition_t *partition_b =
-                    &(partitionList.partition[partitionMap[std::string(partition->name) + "_b"]]);
 
                 // Open Partition 'A'
                 result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
@@ -2834,8 +2874,9 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
 
                 // report sync progress to the user
                 uint32_t pagesSynced = tafUpdate_ConfigTree_GetInt(kPagesSynced);
-                uint32_t percentage = (pagesSynced * 100) / totalPagesForSync;
-                ReportStatus(TAF_UPDATE_SYNCHRONIZING, percentage, TAF_UPDATE_NONE);
+                tafFwUpdate.percent = (pagesSynced * 100) / totalPagesForSync;
+                tafFwUpdate.error = TAF_UPDATE_NONE;
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
 
                 for(uint32_t p = 0; p < totalPages; ++p)
                 {
@@ -2870,9 +2911,6 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
                     LE_ERROR("taf_lib_flash_ClosePartition for partition B failed");
                     return LE_FAULT;
                 }
-
-                // mark sync done for mtdName
-                tafUpdate_ConfigTree_SetBool(mtdName, true);
 
                 LE_INFO("Successfully synced MTD %s", mtdName.c_str());
             }
@@ -2926,13 +2964,6 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
                 ubiName.erase(i, suffix.length());
             }
 
-            bool isCopied = tafUpdate_ConfigTree_GetBool(partition->name);
-            if(isCopied)
-            {
-                LE_INFO("UBI %s is already synced, skipping it", ubiName.c_str());
-                continue;
-            }
-
             std::string ubiName_a = ubiName + std::string("_a");
             std::string ubiName_b(partition->name);
 
@@ -2942,6 +2973,13 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
                 taf_lib_flash_Partition_t *partition_a =
                     &(partitionList.partition[partitionMap[ubiName_a]]);
                 taf_lib_flash_Partition_t *partition_b = partition;
+
+                bool isEqual = CompareBinaryFiles(partition_a->mtdDevPath, partition_b->mtdDevPath);
+                if(isEqual)
+                {
+                    LE_INFO("UBI %s is already synced, skipping it", ubiName.c_str());
+                    continue;
+                }
 
                 LE_INFO("Syncing UBI %s", ubiName.c_str());
 
@@ -3020,8 +3058,9 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
 
                 // report sync progress to the user
                 uint32_t pagesSynced = tafUpdate_ConfigTree_GetInt(kPagesSynced);
-                uint32_t percentage = (pagesSynced * 100) / totalPagesForSync;
-                ReportStatus(TAF_UPDATE_SYNCHRONIZING, percentage, TAF_UPDATE_NONE);
+                tafFwUpdate.percent = (pagesSynced * 100) / totalPagesForSync;
+                tafFwUpdate.error = TAF_UPDATE_NONE;
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
 
                 // Read pages from source and write to destination
                 for (uint32_t p = 0; p < totalPages; ++p)
@@ -3057,10 +3096,6 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
                     return LE_FAULT;
                 }
 
-                // mark sync done for current UBI
-                tafUpdate_ConfigTree_SetBool(partition->name, true);
-
-                //tafUpdate_ConfigTree_SetBool(kIsUBIVolUpSizeSet, false);
                 LE_INFO("Successfully synced UBI %s", partition->name);
             }
         }
@@ -3189,7 +3224,8 @@ void taf_FwUpdate::FwSyncHandler(void* reqPtr)
     {
         if((state == TAF_UPDATE_SYNCHRONIZING) || (state == TAF_UPDATE_SYNC_PAUSED))
         {
-            tafFwUpdate.ReportStatus(state, 0, TAF_UPDATE_INVALID_OPERATION);
+            tafFwUpdate.error = TAF_UPDATE_INVALID_OPERATION;
+            tafFwUpdate.UpdateProgress(state);
             std::string currState = tafFwUpdate.FwUpdateStateToString(state);
             LE_WARN("Invalid state to start AB sync, current state is %s", currState.c_str());
             return;
@@ -3220,14 +3256,16 @@ void taf_FwUpdate::FwSyncHandler(void* reqPtr)
         if(state == TAF_UPDATE_SYNCHRONIZING)
         {
             LE_INFO("Pausing A-B bank synchronization");
+            uint32_t totalPagesForSync = tafUpdate_ConfigTree_GetInt(kTotalPages);
+            uint32_t pagesSynced = tafUpdate_ConfigTree_GetInt(kPagesSynced);
+            tafFwUpdate.percent = (pagesSynced * 100) / totalPagesForSync;
+            tafFwUpdate.error = TAF_UPDATE_NONE;
             tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_PAUSED);
-
-            // report current state to the user
-            tafFwUpdate.ReportStatus(TAF_UPDATE_SYNC_PAUSED, 0, TAF_UPDATE_NONE);
         }
         else
         {
-            tafFwUpdate.ReportStatus(state, 0, TAF_UPDATE_INVALID_OPERATION);
+            tafFwUpdate.error = TAF_UPDATE_INVALID_OPERATION;
+            tafFwUpdate.UpdateProgress(state);
             std::string currState = tafFwUpdate.FwUpdateStateToString(state);
             LE_WARN("Invalid state for pause, current state is %s", currState.c_str());
         }
@@ -3237,6 +3275,10 @@ void taf_FwUpdate::FwSyncHandler(void* reqPtr)
         if(state == TAF_UPDATE_SYNC_PAUSED)
         {
             LE_INFO("Resuming A-B bank synchronization");
+            uint32_t totalPagesForSync = tafUpdate_ConfigTree_GetInt(kTotalPages);
+            uint32_t pagesSynced = tafUpdate_ConfigTree_GetInt(kPagesSynced);
+            tafFwUpdate.percent = (pagesSynced * 100) / totalPagesForSync;
+            tafFwUpdate.error = TAF_UPDATE_NONE;
             tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
 
             taf_FwUpdateEvent_t req = TAF_FWUPDATE_EV_START_SYNC;
@@ -3244,7 +3286,8 @@ void taf_FwUpdate::FwSyncHandler(void* reqPtr)
         }
         else
         {
-            tafFwUpdate.ReportStatus(state, 0, TAF_UPDATE_INVALID_OPERATION);
+            tafFwUpdate.error = TAF_UPDATE_INVALID_OPERATION;
+            tafFwUpdate.UpdateProgress(state);
             std::string currState = tafFwUpdate.FwUpdateStateToString(state);
             LE_WARN("Invalid state for resume, current state is %s", currState.c_str());
         }
@@ -3482,7 +3525,6 @@ void taf_FwUpdate::Init
     le_sem_Delete(semaphore);
 
     // 4. Create thread for sync handler.
-    tafUpdate_ConfigTree_ClearTree();
     semaphore = le_sem_Create("FwSyncHandlerThreadSem", 0);
     threadRef = le_thread_Create("FwSyncHandlerThread", FwSyncHandlerThread, (void*)semaphore);
     le_thread_SetStackSize(threadRef, TAF_UPDATE_THREAD_STACK_SIZE);
@@ -3512,6 +3554,14 @@ void taf_FwUpdate::Init
             break;
         case TAF_UPDATE_SYNC_PAUSED:
             LE_INFO("Sync paused.");
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            {
+                // check if a previous sync was still in progress then complete it first
+                LE_INFO("A-B bank synchronization was stopped aburptly, resuming it..");
+                taf_FwUpdateEvent_t req = TAF_FWUPDATE_EV_START_SYNC;
+                le_event_Report(taf_FwUpdate::fwStartSyncEvId, &req, sizeof(taf_FwUpdateEvent_t));
+            }
             break;
         default:
             LE_ERROR("FOTA invalid state(%d), reset to idle.", state);

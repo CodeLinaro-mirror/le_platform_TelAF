@@ -7,6 +7,9 @@ gen_require(`
     type tmp_t;
     type NetworkManager_var_run_t;
     type NetworkManager_t;
+    # For WLAN AP
+    type hostapd_t;
+    type hostapd_var_run_t;
 ')
 
 
@@ -30,6 +33,14 @@ allow telaf_tafWlanSvc_t tmp_t:sock_file { create unlink write};
 allow telaf_tafWlanSvc_t NetworkManager_var_run_t:dir { write search };
 
 allow telaf_tafWlanSvc_t NetworkManager_var_run_t:sock_file { write };
+
+# For WLAN AP
+allow hostapd_t tmp_t:sock_file write;
+allow hostapd_t telaf_tafWlanSvc_t:unix_dgram_socket sendto;
+allow telaf_tafWlanSvc_t hostapd_var_run_t:dir search_dir_perms;
+allow telaf_tafWlanSvc_t hostapd_var_run_t:dir { write search };
+allow telaf_tafWlanSvc_t hostapd_var_run_t:sock_file { read write  };
+allow telaf_tafWlanSvc_t hostapd_t:unix_dgram_socket { sendto };
 
 telaf_tafKeyStoreSvc_getKeyId(telaf_tafWlanSvc_t)
 

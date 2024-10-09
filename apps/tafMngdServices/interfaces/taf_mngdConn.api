@@ -66,7 +66,7 @@
     "Product": "TelAF",
     "Name": "Managed Connectivity Service",
     "ManagedConnectivityService": {
-        "Version": "24.07.00",
+        "Version": "24.09.00",
         "Configuration": {                 ///< Configuration Object.
             "Name": "Default",
             "Sim":[
@@ -188,8 +188,10 @@
                     "RetryWaitTime" : 300,     ///< Time in seconds the service will wait before
                                                ///  retrying a recovery process that was canceled or
                                                ///  failed.
-                    "L1RadioOffOnInterval" : 5 ///< Time in seconds between radio off and on after
-                                               ///  L1 recovery is started.
+                    "RadioOffOnInterval" : 5,  ///< Time in seconds between radio off and on for
+                                               ///  radio off-on recovery operation.
+                    "SimOffOnInterval" : 5     ///< Time in seconds between sim off and on for
+                                               ///  sim off-on recovery operation.
                 }
             }
         }
@@ -202,15 +204,15 @@
  * @rstblock
 .. raw:: html
 
-  <table border="1">
+ <table border="1">
  <thead>
    <tr>
-     <th colspan="4">Object   (and subobjects)</th>
-     <th>Property</th>
-     <th>TelAF data ype</th>
-     <th>Default value</th>
-     <th>Maximum value/size</th>
-     <th>Description</th>
+     <th colspan="4" width="12%">Object (and subobjects)</th>
+     <th width="6%">Property</th>
+     <th width="6%">TelAF data type</th>
+     <th width="6%">Default value</th>
+     <th width="6%">Maximum value/size</th>
+     <th width="64%">Description</th>
    </tr>
  </thead>
  <tbody>
@@ -231,7 +233,7 @@
      <td>Optional and not used by the service.</td>
    </tr>
    <tr>
-     <td rowspan="35">ManagedConnectivityService</td>
+     <td rowspan="36">ManagedConnectivityService</td>
      <td colspan="3">Version</td>
      <td>Version</td>
      <td>char</td>
@@ -293,8 +295,8 @@
      <td>char</td>
      <td>"Network1"</td>
      <td>32</td>
-     <td>User provided name for the Network object. This is used by the service and should be a valid
-         string.
+     <td>User provided name for the Network object. This is used by the service and should be a
+         valid string.
          <br>
          Note: In case of multiple Network objects, user should ensure name is unique among Network
          objects. JSON will be marked as invalid otherwise.</td>
@@ -305,8 +307,7 @@
      <td>unit8_t</td>
      <td>Points to a valid Sim object</td>
      <td></td>
-     <td>This is a reference to the Sim object on which this
-         Network object depends</td>
+     <td>This is a reference to the Sim object this Network object depends upon.</td>
    </tr>
    <tr>
      <td>PhoneID</td>
@@ -390,14 +391,14 @@
      <td>Yes</td>
      <td>Yes<br>No<br></td>
      <td>
-          In case of error during data start, this controls whether data retry
+         In case of error during data start, this controls whether data retry
          should be attempted or not.  In data start retry, the data session is stopped and
-          restarted a specified number of times with a configured delay between the data start
-          attempts.
+         restarted a specified number of times with a configured delay between the data start
+         attempts.
         <br>If DataStartConnectionTest is enabled, then a data session will be considered as
-          CONNECTED only after the data start connection test succeeds.
-        <br>If data start does not succeed even after retries, data will be marked as FAILED and
-          "ConnectivityRecovery" will be tried, if enabled.
+            CONNECTED only after the data start connection test succeeds.
+        <br>If data start fails even after retries, data will be marked as FAILED and
+          " ConnectivityRecovery" will be tried, if enabled.
        </td>
    </tr>
    <tr>
@@ -405,7 +406,7 @@
      <td>uint8_t</td>
      <td>1</td>
      <td>5</td>
-     <td>Number of times to retry data start operation.</td>
+     <td>Number of times to retry DataStartRetry operation.</td>
    </tr>
    <tr>
      <td>BackoffInterval</td>
@@ -480,7 +481,7 @@
      <td>URL to use for periodic connectivity test.</td>
    </tr>
    <tr>
-     <td rowspan="9">Policy</td>
+     <td rowspan="10">Policy</td>
      <td colspan="2">Name</td>
      <td>Name</td>
      <td>char</td>
@@ -489,7 +490,7 @@
      <td>Optional and not used by the service.</td>
    </tr>
    <tr>
-     <td rowspan="9">DataSession</td>
+     <td rowspan="10">DataSession</td>
      <td rowspan="2">DataConnection</td>
      <td>Priority</td>
      <td>uint8_t</td>
@@ -523,25 +524,35 @@
           in order of priority.</td>
    </tr>
    <tr>
-     <td rowspan="4">ConnectivityRecovery</td>
+     <td rowspan="5">ConnectivityRecovery</td>
      <td>Level</td>
      <td>char</td>
      <td>None</td>
-     <td>None<br>L1<br>L2</td>
+     <td>None<br>L1<br>L2<br>L3</td>
      <td>This recovery mechanism will kick in after DataStartRetry fails.
-         <br> If a recovery is started, all data sessions will be disconnected, all timers will be
-              stopped and all states will be reset to initial state.
-         <br> If L1 or L2 recovery is canceled or if it fails, the service will retry the process
-              after RetryWaitTime seconds, if enabled.
-         <br> Supported values:
-         <br> None → Recovery is disabled. Default value.
-         <br> L1 → Level 1 connectivity recovery. During this process, the radio is turned off and
-              on to trigger NAD re-registration. Between radio off and radio on, there will be a
-              wait time that is specified via L1RadioOffOnInterval.
-         <br> L2 → Level 2 connectivity recovery. Request NAD reboot.
-         NAD reboot will be managed by Manged Power Management service.
-         <br> Enabling L2 also enables L1 recovery. The service will try L1 recovery followed by L2
-              recovery.
+        <br> If a recovery operation is started, all data sessions will be disconnected, all timers
+             will be stopped and all states will be reset to initial state.
+        <br> If a recovery operation is canceled or if it fails, the service will retry the
+             operation after RetryWaitTime seconds, if enabled.
+        <br> Supported values:
+        <br> Level specifies the maximum level of recovery to perform. Specifying a level
+             also enables the level(s) above it. The service performs recovery operations
+             in the following order.
+        <br> None → Recovery is disabled. Default value.
+        <br> L1 → Level 1 connectivity recovery. During this operation, the radio is turned
+                off and on to trigger NAD re-registration. Between radio off and radio on,
+                there will be a wait time that is specified using RadioOffOnInterval.
+        <br> L2 → Level 2 connectivity recovery. During this operation, the sim is turned
+                off and on to trigger SIM reinitialization and NAD re-registration. Between
+                sim off and sim on, there will be a wait time that is specified using
+                SimOffOnInterval.
+                Enabling L2 also enables L1 recovery. The service will try L1 recovery followed
+                by L2 recovery.
+        <br> L3 -> Level 3 connectivity recovery. A NAD reboot is tiggered using Managed
+                Power Management service.
+                Enabling L3 also enables L1 and L2 recoveries. The service will try L1 recovery
+                followed by L2 recovery and then L3 recovery.
+
      </td>
    </tr>
    <tr>
@@ -549,9 +560,9 @@
      <td>uint8_t</td>
      <td>30</td>
      <td>240</td>
-     <td>Time in seconds the service will wait between connectivity recovery
-         scheduled and started events. Applications will be able to cancel
-         the connectivity recovery process within this time.
+     <td>Time in seconds the service will wait between connectivity recovery scheduled and started
+         events. Applications will be able to cancel the connectivity recovery process within this
+         time.
      </td>
    </tr>
    <tr>
@@ -566,11 +577,18 @@
      </td>
    </tr>
    <tr>
-     <td>L1RadioOffOnInterval</td>
+     <td>RadioOffOnInterval</td>
      <td>uint8_t</td>
      <td>5</td>
      <td>240</td>
-     <td>Time to wait in seconds between the radio off and on operations in seconds.</td>
+     <td>Time to wait in seconds between the radio off and on operations.</td>
+   </tr>
+   <tr>
+     <td>SimOffOnInterval</td>
+     <td>uint8_t</td>
+     <td>5</td>
+     <td>240</td>
+     <td>Time to wait in seconds between the SIM off and on operations.</td>
    </tr>
  </tbody>
  </table>
@@ -584,6 +602,7 @@
       -- 24.03.00
       -- 24.06.00
       -- 24.07.00
+      -- 24.09.00
  @endverbatim
  * @par Multiple Data Sessions:
  *      For multiple data sessions, add Data object(s) and matching DataConnection object(s).
@@ -755,17 +774,31 @@ DEFINE MAX_CONN_RECOVERY_RETRY_WAIT_TIME = 3600;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The maximum value for configuration JSON's ConnectivityRecovery:L1RadioOffOnInterval in seconds.
+ * The maximum value for configuration JSON's ConnectivityRecovery:RadioOffOnInterval in seconds.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MAX_CONN_RECOVERY_L1_RADIO_OFF_ON_INTERVAL = 240;
+DEFINE MAX_CONN_RECOVERY_RADIO_OFF_ON_INTERVAL = 240;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The minimum value for configuration JSON's ConnectivityRecovery:L1RadioOffOnInterval in seconds.
+ * The minimum value for configuration JSON's ConnectivityRecovery:RadioOffOnInterval in seconds.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MIN_CONN_RECOVERY_L1_RADIO_OFF_ON_INTERVAL = 5;
+DEFINE MIN_CONN_RECOVERY_RADIO_OFF_ON_INTERVAL = 5;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum value for configuration JSON's ConnectivityRecovery:SimOffOnInterval in seconds.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_CONN_RECOVERY_SIM_OFF_ON_INTERVAL = 240;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The minimum value for configuration JSON's ConnectivityRecovery:SimOffOnInterval in seconds.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MIN_CONN_RECOVERY_SIM_OFF_ON_INTERVAL = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -810,37 +843,48 @@ EVENT DataState
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The connectivity recovery states.
+ * The connectivity recovery events.
  */
 //--------------------------------------------------------------------------------------------------
-ENUM RecoveryState{
-    RECOVERY_L1_SCHEDULED, ///< L1 recovery is scheduled to start.
-    RECOVERY_L1_STARTED,   ///< L1 recovery is started.
-    RECOVERY_L1_CANCELED,  ///< A scheduled L1 recovery is canceled.
-    RECOVERY_L2_SCHEDULED, ///< L2 recovery is scheduled to start.
-    RECOVERY_L2_STARTED,   ///< L2 recovery is started.
-    RECOVERY_L2_CANCELED   ///< A scheduled L2 recovery is canceled.
+ENUM RecoveryEvent{
+    RECOVERY_SCHEDULED, ///< Recovery is scheduled to start.
+    RECOVERY_STARTED,   ///< Recovery is started.
+    RECOVERY_CANCELED,  ///< Scheduled recovery is canceled.
+    RECOVERY_FAILED     ///< Recovery failed.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for recovery state.
+ * The connectivity recovery operations.
  */
 //--------------------------------------------------------------------------------------------------
-HANDLER RecoveryStateHandler
+ENUM RecoveryOperation{
+    RECOVERY_NONE,         ///< Unsupported operation.
+    RECOVERY_RADIO_OFF_ON, ///< Radio off on recovery operation.
+    RECOVERY_SIM_OFF_ON,   ///< Sim off on recovery operation.
+    RECOVERY_NAD_REBOOT    ///< NAD reboot recovery operation.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for recovery events.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER RecoveryEventHandler
 (
-    RecoveryState state IN, ///< The recovery state.
-    Data dataRef        IN  ///< Data reference that triggered this event.
+    Data              dataRef    IN,  ///< Data reference that triggered this event.
+    RecoveryEvent     event      IN,  ///< The recovery event.
+    RecoveryOperation operation  IN   ///< The recovery operation relevant to the event.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Events to report recovery state.
+ * Events to report recovery events.
  */
 //--------------------------------------------------------------------------------------------------
-EVENT RecoveryState
+EVENT RecoveryEvent
 (
-    RecoveryStateHandler handler ///< The event handler reference.
+    RecoveryEventHandler handler ///< The recovery event handler reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -917,6 +961,22 @@ FUNCTION le_result_t GetDataNameByRef(
 FUNCTION le_result_t GetProfileNumberByRef(
     Data  dataRef IN,                 ///< The data reference.
     uint8 dataProfileNumber OUT       ///< The data profile number from the configuration JSON.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the phone ID that is used by the data object (as provided in the configuration JSON).
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- Data reference not found.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetPhoneIdByRef
+(
+    Data  dataRef IN,                 ///< The data reference.
+    uint8 phoneId OUT                 ///< The phone ID used by the provided data reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1015,36 +1075,19 @@ FUNCTION le_result_t StartDataRetry
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Cancels a scheduled L1 recovery process. A L1 recovery could be scheduled for one or more data
- * connetions. For a scheduled L1 recovery process to be canceled, this API should be called for all
- * data references for which L1 recovery has been scheduled.
+ * Cancels a scheduled recovery operation. A recovery could be scheduled for one or more data
+ * connetions. For a scheduled recovery operation to be canceled, this API should be called for all
+ * data references for which recovery has been scheduled.
  *
  * @return
- *   - LE_OK -- Succeeded.
- *   - LE_NOT_POSSIBLE -- A L1 recovery process has not been scheduled.
- *   - LE_NOT_PERMITTED -- A L1 recovery process has already started.
+ *   - LE_OK            -- Succeeded.
+ *   - LE_NOT_POSSIBLE  -- A recovery operation has not been scheduled.
+ *   - LE_NOT_PERMITTED -- A recovery operation has already started.
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t CancelL1Recovery
+FUNCTION le_result_t CancelRecoveryOperation
 (
-    Data dataRef IN ///< The data reference.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Cancels a scheduled L2 recovery process. A L2 recovery could be scheduled for one or more data
- * connetions. For a scheduled L2 recovery process to be canceled, this API should be called for all
- * data references for which L2 recovery has been scheduled.
- *
- * @return
- *   - LE_OK -- Succeeded.
- *   - LE_NOT_POSSIBLE -- A L2 recovery process has not been scheduled.
- *   - LE_NOT_PERMITTED -- A L2 recovery process has already started.
- *   - Appropriate error is returned on failure.
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t CancelL2Recovery
-(
-    Data dataRef IN ///< The data reference.
+    Data               dataRef    IN, ///< The data reference.
+    RecoveryOperation  operation  IN  ///< The recovery operation to cancel.
 );

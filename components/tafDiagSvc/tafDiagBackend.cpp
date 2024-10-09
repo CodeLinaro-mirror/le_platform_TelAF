@@ -86,6 +86,8 @@ void taf_DiagBackend::UdsIndicationHanler
         addrInfo.sa = addrInfoPtr->ta;
         addrInfo.ta = addrInfoPtr->sa;
         addrInfo.taType = addrInfoPtr->taType;
+        addrInfo.vlanId = addrInfoPtr->vlanId;
+        le_utf8_Copy(addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
         backend.RespDiagNegative(sid, &addrInfo, TAF_DIAG_SERVICE_NOT_SUPPORTED);
         return;
     }
@@ -100,6 +102,8 @@ void taf_DiagBackend::UdsIndicationHanler
         addrInfo.sa = addrInfoPtr->ta;
         addrInfo.ta = addrInfoPtr->sa;
         addrInfo.taType = addrInfoPtr->taType;
+        addrInfo.vlanId = addrInfoPtr->vlanId;
+        le_utf8_Copy(addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
         backend.RespDiagNegative(sid, &addrInfo, TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
         return;
     }

@@ -523,7 +523,7 @@ void TestGetSourceDetails
 
     le_result_t res = taf_time_GetFailedLoops(srcRef, &failedLoops, &loopIntervalSec);
     LE_ASSERT(res == LE_OK);
-    LE_INFO("The number of failed loops are %d. Loop interval is  %" PRIu64 "",
+    LE_INFO("The number of failed loops are %d. Loop interval is  %" PRId64 "",
     failedLoops, loopIntervalSec);
     isAvailable = taf_time_IsAvailable(srcRef);
     if (isAvailable)
@@ -640,6 +640,15 @@ void TestSetValidity
     le_result_t res = taf_time_SetValidity(srcRef, validityFlag);
     LE_ASSERT(res == LE_OK);
     LE_INFO("taf_time_SetValidity - LE_OK");
+    validityFlag = taf_time_IsSourceValid(srcRef);
+    if (validityFlag)
+    {
+        LE_INFO("Validity of time source is set to true");
+    }
+    else
+    {
+        LE_INFO("Validity of time source is set to false");
+    }
 }
 
 
@@ -947,7 +956,7 @@ void TestGptpComponent()
     res = taf_gptpTime_GetTimeValue(gptpTimeRef, &gptpTimeValPtr);
     LE_ASSERT(res == LE_OK);
 
-    LE_INFO("Reference gptp time is %ld.%ld", gptpTimeValPtr.tv_sec,
+    LE_INFO("Reference gptp time is %lld.%ld", (long long)gptpTimeValPtr.tv_sec,
         gptpTimeValPtr.tv_nsec);
 
     taf_gptpTime_DeleteRef(gptpTimeRef);

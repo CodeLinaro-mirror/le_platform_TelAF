@@ -1,0 +1,13 @@
+{
+    "Product": "TelAF",
+    "Name": "MSS",
+    "MSS Config Storage": {
+        "Configuration": {
+            "UpdatePath":[
+                {
+                    "Path": "/data/ManagedServices/MSS/update/"
+                }
+            ]
+        }
+    }
+}

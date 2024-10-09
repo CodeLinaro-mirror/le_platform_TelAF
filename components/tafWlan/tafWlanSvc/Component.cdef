@@ -15,6 +15,10 @@ requires:
         lib/libtelux_wlan.so
         lib/libtelux_common.so
     }
+    api:
+    {
+        le_appInfo.api
+    }
 }
 
 cxxflags:
@@ -26,6 +30,7 @@ cxxflags:
     -D CONFIG_CTRL_IFACE_UNIX
     -I$TELAF_ROOT/../external/wpa_supplicant_8/src/common
     -I$TELAF_ROOT/../external/wpa_supplicant_8/src/utils
+    -I$LEGATO_ROOT/framework/liblegato
 }
 
 ldflags:

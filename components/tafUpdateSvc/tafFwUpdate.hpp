@@ -186,6 +186,7 @@ namespace tafsvc {
         void Init(void);
 
         le_result_t CalculateTotalPages(void);
+        bool CompareBinaryFiles(const std::string& filename1, const std::string& filename2);
 
         std::string FwUpdateStateToString(taf_update_State_t state);
 

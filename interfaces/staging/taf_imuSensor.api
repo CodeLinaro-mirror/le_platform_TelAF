@@ -151,6 +151,16 @@
  * The application has to release each sensor sample list received by the handler,
  * using the taf_imuSensor_DeleteData() triggered inside the TestSensorOnEventFunc() function.
  *
+ * @section taf_imuSensor_SelfTest  Initiate self test
+ *
+ * TelAF Sensor Management Service provides APIs to test whether the sensor is working properly or
+ * not. The client calls taf_imuSensor_SelfTest() to initiate test . This function takes two input
+ * parameters. The first is sensor reference. The second is mode of test.
+ *
+ * @verbatim
+    le_result_t result = taf_imuSensor_SelfTest(sensorRef,TAF_IMUSENSOR_POSITIVE);
+   @endverbatim
+ *
  * <HR>
  *
  */
@@ -221,6 +231,15 @@ STRUCT DataValue
                            /// per second for gyroscope.
 };
 
+/**
+ * Types of Self test mode.
+ */
+
+ENUM SelfTestMode
+{
+    POSITIVE = 1, ///< Positive self test mode.
+    NEGATIVE = 2  ///< Negative self test mode.
+};
 
 /**
  * Gets the list of available sensors.
@@ -488,6 +507,25 @@ FUNCTION le_result_t Activate
 FUNCTION le_result_t Deactivate
 (
    Sensor sensorRef                       IN   ///< Sensor reference.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ * Initiate self test for sensor.If there are active data acquisition sessions corresponding to
+ * sensor, these will be paused and the self test is initiated. Once the self test is completed
+ * the sensor data sessions will be restored.
+ *
+ * @return
+ * - LE_NOT_SUPPORTED Not supported on target platform.
+ * - LE_FAULT         Failed to complete self test.
+ * - LE_OK            Successfully completed self test.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SelfTest
+(
+   Sensor sensorRef                       IN,   ///< Sensor reference.
+   SelfTestMode mode                      IN    ///< Self test mode.
 );
 
 //------------------------------------------------------------------------------------------------

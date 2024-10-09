@@ -71,10 +71,11 @@ namespace tafsvc {
 
     typedef struct
     {
-        mcs_Policy_ConnRecoveryLevel_t Level; //L1=1, None=0
+        mcs_Policy_ConnRecoveryLevel_t Level; //L1=1, L2=2, L3=3, None=0
         uint8_t  StartWaitTime;               // In seconds.
         uint16_t RetryWaitTime;               // In seconds.
-        uint8_t  L1RadioOffOnInterval;        // In seconds.
+        uint8_t  RadioOffOnInterval;        // In seconds.
+        uint8_t  SimOffOnInterval;          // In seconds.
     } mcs_Policy_ConnectivityRecovery_t;
 
     typedef struct
@@ -148,7 +149,10 @@ private:
     static bool Validate_DS_CR_RetryWaitTime (mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
-    static bool Validate_DS_CR_L1RadioOffOnInterval (mcs_Policy_t &Policy,
+    static bool Validate_DS_CR_RadioOffOnInterval (mcs_Policy_t &Policy,
+                                                        std::string Value,
+                                                        int Index);
+    static bool Validate_DS_CR_SimOffOnInterval (mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
 

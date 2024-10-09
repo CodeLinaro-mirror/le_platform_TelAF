@@ -42,6 +42,13 @@ DEFINE MAX_PAYLOAD_SIZE = 4095;
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Maximum size of interface name in bytes.
+ */
+//-------------------------------------------------------------------------------------------------
+DEFINE MAX_INTERFACE_NAME_LEN = 30;
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Enumeration of supported logical target address types.
  */
 //-------------------------------------------------------------------------------------------------
@@ -58,9 +65,11 @@ ENUM TaType
 //-------------------------------------------------------------------------------------------------
 STRUCT AddrInfo
 {
-    uint16 sa;
-    uint16 ta;
-    TaType taType;
+    uint16 sa;                                ///< Source address of message senders.
+    uint16 ta;                                ///< Target address of message recipients.
+    TaType taType;                            ///< Target address type of message recipients.
+    uint16 vlanId;                            ///< VLAN ID = 0, if it is not vlan interface.
+    string ifName[MAX_INTERFACE_NAME_LEN];    ///< Interface name.
 };
 
 //-------------------------------------------------------------------------------------------------

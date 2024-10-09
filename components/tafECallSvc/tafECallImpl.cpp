@@ -473,9 +473,9 @@ void taf_ecall::InitializeECallPtr()
 #if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
     ECallObject.euroNCAPData.locationOfImpact = TAF_ECALL_LOI_UNKNOWN;
     ECallObject.euroNCAPData.rolloverDetectedPresent = false;
-    ECallObject.euroNCAPData.rangeLimit = 125;
-    ECallObject.euroNCAPData.deltaVX = -45;
-    ECallObject.euroNCAPData.deltaVY = 10;
+    ECallObject.euroNCAPData.rangeLimit = MSD_EURONCAP_OAD_DELTAV_INVALD;
+    ECallObject.euroNCAPData.deltaVX = MSD_EURONCAP_OAD_DELTAV_INVALD;
+    ECallObject.euroNCAPData.deltaVY = MSD_EURONCAP_OAD_DELTAV_INVALD;
 #endif
     //ECallObject.msd.optionalPdu.eCallDefaultOptions.objId. =;
     ECallObject.msd.optionalPdu.eCallDefaultOptions.optionalData = '\0';
@@ -1259,7 +1259,7 @@ le_result_t taf_ecall::SetMsdAdditionalData(taf_ecall_CallRef_t ecallRef, const 
         oadDataString.append(1,s1);
         oadDataString.append(1,s2);
     }
-    LE_INFO("Euro NCAP MSD OAD data = %s", oadDataString.c_str());
+    LE_DEBUG("Euro NCAP MSD OAD data = %s", oadDataString.c_str());
     std::vector<uint8_t> oadData(oadDataString.begin(), oadDataString.end());
     eCallPtr->msd.optionalPdu.data = oadData;
 #endif
@@ -1300,7 +1300,7 @@ le_result_t taf_ecall::SetMsdEuroNCAPLocationOfImpact(taf_ecall_CallRef_t ecallR
     if ((iiLocations < TAF_ECALL_LOI_UNKNOWN) || (iiLocations > TAF_ECALL_LOI_OTHER))
     {
         LE_ERROR("Invalid location of impact");
-        return LE_FAULT;
+        iiLocations = TAF_ECALL_LOI_UNKNOWN;
     }
 #if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
     ECallObject.euroNCAPData.locationOfImpact = iiLocations;
@@ -1365,12 +1365,22 @@ le_result_t taf_ecall::SetMsdEuroNCAPIIDeltaV(taf_ecall_CallRef_t ecallRef, uint
         return LE_DUPLICATE;
     }
 
-    if ((rangeLimit < 100) || (rangeLimit > 250) ||
-        (deltaVX < -250) || (deltaVX > 250) ||
-        (deltaVY < -250) || (deltaVY > 250))
+    if ((rangeLimit < MSD_EURONCAP_OAD_RANGELIMIT_MIN) || (rangeLimit > MSD_EURONCAP_OAD_RANGELIMIT_MAX))
     {
-        LE_ERROR("Invalid delta");
-        return LE_FAULT;
+        LE_ERROR("Invalid rangeLimit value");
+        rangeLimit = MSD_EURONCAP_OAD_DELTAV_INVALD;
+    }
+
+    if ((deltaVX < MSD_EURONCAP_OAD_DELTAVX_MIN) || (deltaVX > MSD_EURONCAP_OAD_DELTAVX_MAX))
+    {
+        LE_ERROR("Invalid deltaVX value");
+        deltaVX = MSD_EURONCAP_OAD_DELTAV_INVALD;
+    }
+
+    if ((deltaVY < MSD_EURONCAP_OAD_DELTAVY_MIN) || (deltaVY > MSD_EURONCAP_OAD_DELTAVY_MAX))
+    {
+        LE_ERROR("Invalid deltaVY value");
+        deltaVY = MSD_EURONCAP_OAD_DELTAV_INVALD;
     }
 
 #if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
@@ -2298,9 +2308,9 @@ le_result_t taf_ecall::UpdateMsdInformation(taf_ecall_CallRef_t ecallRef)
 #if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
             ECallObject.euroNCAPData.locationOfImpact = (taf_ecall_IILocations_t)ECALL_HAL_LOI_UNKNOWN;
             ECallObject.euroNCAPData.rolloverDetectedPresent = false;
-            ECallObject.euroNCAPData.rangeLimit = 125;
-            ECallObject.euroNCAPData.deltaVX = -45;
-            ECallObject.euroNCAPData.deltaVY = 10;
+            ECallObject.euroNCAPData.rangeLimit = MSD_EURONCAP_OAD_DELTAV_INVALD;
+            ECallObject.euroNCAPData.deltaVX = MSD_EURONCAP_OAD_DELTAV_INVALD;
+            ECallObject.euroNCAPData.deltaVY = MSD_EURONCAP_OAD_DELTAV_INVALD;
 #endif
         }
 
@@ -2349,9 +2359,9 @@ le_result_t taf_ecall::UpdateMsdInformation(taf_ecall_CallRef_t ecallRef)
                 LE_ERROR("Unable to get DeltaVHAL via VHAL");
             } else {
 #if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
-                if ((deltaV.rangeLimit < 100) || (deltaV.rangeLimit > 250) ||
-                    (deltaV.deltaVX < -250) || (deltaV.deltaVX > 250) ||
-                    (deltaV.deltaVY < -250) || (deltaV.deltaVY > 250))
+                if ((deltaV.rangeLimit < MSD_EURONCAP_OAD_RANGELIMIT_MIN) || (deltaV.rangeLimit > MSD_EURONCAP_OAD_RANGELIMIT_MAX) ||
+                    (deltaV.deltaVX < MSD_EURONCAP_OAD_DELTAVX_MIN) || (deltaV.deltaVX > MSD_EURONCAP_OAD_DELTAVX_MAX) ||
+                    (deltaV.deltaVY < MSD_EURONCAP_OAD_DELTAVY_MIN) || (deltaV.deltaVY > MSD_EURONCAP_OAD_DELTAVY_MAX))
                 {
                      LE_ERROR("Invalid deltaV information");
                 } else{

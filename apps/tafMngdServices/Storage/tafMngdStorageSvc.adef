@@ -24,7 +24,8 @@ groups:
 
 executables:
 {
-        tafMngdStorageSvc = ( $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdStorageSvc )
+        tafMngdSecStorageSvc = ( $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdSecStorageSvc )
+        tafMngdCfgStorageSvc = ( $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdCfgStorageSvc )
 }
 
 start: auto
@@ -33,7 +34,8 @@ processes:
 {
         run:
         {
-                (tafMngdStorageSvc)
+                (tafMngdSecStorageSvc)
+                (tafMngdCfgStorageSvc)
         }
 
         maxFileBytes: 8192K
@@ -44,17 +46,18 @@ sandboxed: false
 
 bindings:
 {
-    tafMngdStorageSvc.tafMngdStorageSvc.taf_ks -> tafKeyStoreSvc.taf_ks
-    tafMngdStorageSvc.tafMngdStorageSvc.le_appInfo -> <root>.le_appInfo
-    tafMngdStorageSvc.tafMngdStorageSvc.le_cfg -> <root>.le_cfg
-    tafMngdStorageSvc.tafMngdStorageSvc.le_cfgAdmin -> <root>.le_cfgAdmin
+    tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.taf_fsc -> tafKeyStoreSvc.taf_fsc
+    tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_cfg -> <root>.le_cfg
+    tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_cfgAdmin -> <root>.le_cfgAdmin
+    tafMngdSecStorageSvc.tafMngdSecStorageSvc.taf_ks -> tafKeyStoreSvc.taf_ks
+    tafMngdSecStorageSvc.tafMngdSecStorageSvc.le_appInfo -> <root>.le_appInfo
 }
 
 bundles:
 {
     file:
     {
-        [rw]  $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdStorageSvc/config/tafMngdStorageConfig.json  /data/ManagedServices/
+        [rw]  $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdCfgStorageSvc/config/tafMngdStorageConfig.json  /data/ManagedServices/
     }
 }
 
@@ -75,6 +78,6 @@ requires:
 
 extern:
 {
-    tafMngdStorageSvc.tafMngdStorageSvc.taf_mngdStorSec
-    tafMngdStorageSvc.tafMngdStorageSvc.taf_mngdStorCfg
+    tafMngdSecStorageSvc.tafMngdSecStorageSvc.taf_mngdStorSec
+    tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.taf_mngdStorCfg
 }

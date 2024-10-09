@@ -121,8 +121,23 @@ LE_SHARED le_result_t taf_rfs_Init
 //--------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_rfs_SetBackupStorage
 (
-    const char *filePathPtr,
-    uint32_t maxFileSize,
+    const char *filePathPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets backup storage capacity for RFS component.
+ * @param
+ *      maxFileSizeBytes - The max file size in byte
+ *      maxFileCount     - The max file count in backup storage
+ *
+ * @return
+ *      Result for the setup
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_rfs_SetBackupCapacity
+(
+    uint32_t maxFileSizeBytes,
     uint16_t maxFileCount
 );
 
@@ -131,8 +146,8 @@ LE_SHARED le_result_t taf_rfs_SetBackupStorage
  * Opens a file and returns a file descriptor.
  * @param
  *      filePathPtr    - The path name of file
- *      flags       - The file open flags
- *      mode        - The file open mode
+ *      flags          - The file open flags
+ *      mode           - The file open mode
  *
  * @return
  *      The non-negative integer on successful open, others for failed

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -290,6 +290,77 @@ le_result_t taf_wlanSta_GetAPScanResults(
     TAF_ERROR_IF_RET_VAL(NULL == ApInfoSizePtr, LE_BAD_PARAMETER, "ApInfoSizePtr is NULL!");
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
     return myWlanSta.GetAPScanResults(wlanSTARef, numAPPtr, ApInfoPtr, ApInfoSizePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets WPA2 PSK for an Access Point.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlanSta_SetWpa2Psk(
+    taf_wlanSta_WlanSTARef_t wlanSTARef,
+    ///< [IN] The WLAN STA reference.
+    const taf_wlanSta_APInfo_t* LE_NONNULL ApInfoPtr,
+    ///< [IN] AP information.
+    const char* LE_NONNULL psk
+    ///< [IN] AP information.
+)
+{
+    TAF_ERROR_IF_RET_VAL(wlanSTARef == nullptr, LE_BAD_PARAMETER, "wlanSTARef is NULL!");
+    TAF_ERROR_IF_RET_VAL(ApInfoPtr == nullptr, LE_BAD_PARAMETER, "ApInfoPtr is NULL!");
+    TAF_ERROR_IF_RET_VAL(std::string(ApInfoPtr->SSID).empty(),
+    LE_BAD_PARAMETER, "Empty SSID passed");
+    TAF_ERROR_IF_RET_VAL(std::string(psk).empty(),
+        LE_BAD_PARAMETER, "Empty psk passed");
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.SetWpa2Psk(wlanSTARef, ApInfoPtr, psk);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Connects to an Access Point.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlanSta_Connect(
+    taf_wlanSta_WlanSTARef_t wlanSTARef,
+    ///< [IN] The WLAN STA reference.
+    const taf_wlanSta_APInfo_t* LE_NONNULL ApInfoPtr
+    ///< [IN] AP information.
+)
+{
+    TAF_ERROR_IF_RET_VAL(wlanSTARef == nullptr, LE_BAD_PARAMETER, "wlanSTARef is NULL!");
+    TAF_ERROR_IF_RET_VAL(ApInfoPtr == nullptr, LE_BAD_PARAMETER, "ApInfoPtr is NULL!");
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.APConnect(wlanSTARef, ApInfoPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disconnects from an Access Point.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlanSta_Disconnect(
+    taf_wlanSta_WlanSTARef_t wlanSTARef,
+    ///< [IN] The WLAN STA reference.
+    const taf_wlanSta_APInfo_t* LE_NONNULL ApInfoPtr
+    ///< [IN] AP information.
+)
+{
+    TAF_ERROR_IF_RET_VAL(wlanSTARef == nullptr, LE_BAD_PARAMETER, "wlanSTARef is NULL!");
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.APDisconnect(wlanSTARef, ApInfoPtr);
 }
 
 //--------------------------------------------------------------------------------------------------

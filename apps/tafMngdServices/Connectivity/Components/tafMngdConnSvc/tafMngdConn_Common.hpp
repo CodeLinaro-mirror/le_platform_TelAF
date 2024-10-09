@@ -189,7 +189,8 @@ namespace tafsvc {
     {
         MCS_CONNECTIONRECOVERY_LEVEL_NONE = 0, /**<  DISABLED value. 0 */
         MCS_CONNECTIONRECOVERY_LEVEL_L1 = 1,   /**<  L1 Value. 1 */
-        MCS_CONNECTIONRECOVERY_LEVEL_L2 = 2    /**<  L2 Value. 2 */
+        MCS_CONNECTIONRECOVERY_LEVEL_L2 = 2,    /**<  L2 Value. 2 */
+        MCS_CONNECTIONRECOVERY_LEVEL_L3 = 3    /**<  L3 Value. 3 */
     } mcs_Policy_ConnRecoveryLevel_t;
 
     /**
@@ -210,7 +211,8 @@ namespace tafsvc {
         MCS_JSON_VERSION_23_11_00 = 231100, //"TAF_23.11.00"
         MCS_JSON_VERSION_24_03_00 = 240300, //"TAF_24.03.00"
         MCS_JSON_VERSION_24_06_00 = 240600, //"TAF_24.06.00"
-        MCS_JSON_VERSION_24_07_00 = 240700  //"TAF_24.07.00"
+        MCS_JSON_VERSION_24_07_00 = 240700,  //"TAF_24.07.00"
+        MCS_JSON_VERSION_24_09_00 = 240900  //"TAF_24.09.00"
     } mcs_JSON_Version_t;
 
     // Constant Strings

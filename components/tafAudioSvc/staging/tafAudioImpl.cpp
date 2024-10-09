@@ -49,6 +49,14 @@ LE_MEM_DEFINE_STATIC_POOL(tafAudioRoute, MAX_ROUTE, sizeof(taf_audio_Route_t));
 LE_MEM_DEFINE_STATIC_POOL(tafEventIdPool, MAX_STREAM, sizeof(tafEventIdList));
 LE_MEM_DEFINE_STATIC_POOL(tafEventHandlerRef, MAX_CONNECTOR, sizeof(EventHandlerRefNode_t));
 
+// Define the DTMF frequency pairs
+std::unordered_map<char, std::pair<int, int>> dtmfMap = {
+    {'1', {697, 1209}}, {'2', {697, 1336}}, {'3', {697, 1477}}, {'A', {697, 1633}},
+    {'4', {770, 1209}}, {'5', {770, 1336}}, {'6', {770, 1477}}, {'B', {770, 1633}},
+    {'7', {852, 1209}}, {'8', {852, 1336}}, {'9', {852, 1477}}, {'C', {852, 1633}},
+    {'*', {941, 1209}}, {'0', {941, 1336}}, {'#', {941, 1477}}, {'D', {941, 1633}}
+};
+
 // Resets the global callback promise variable
 static inline void resetCallbackPromise(void) {
     auto &audio = taf_Audio::GetInstance();
@@ -139,6 +147,7 @@ void taf_Audio::Init(void)
         return;
     }
 
+    mVoiceListener = std::make_shared<tafVoiceListener>();
     mPlayListener = std::make_shared<tafPlayListener>();
 
     // Load audio VHAL driver
@@ -324,6 +333,33 @@ void taf_Audio::ClientSessionCloseEventHandler
     }
 }
 
+char taf_Audio::getDTMFChar(telux::audio::DtmfLowFreq lowFreq,
+        telux::audio::DtmfHighFreq highFreq) {
+    for (const auto& itr : dtmfMap) {
+        if ((itr.second.first == static_cast<int>(lowFreq)) &&
+            (itr.second.second == static_cast<int>(highFreq))) {
+            return itr.first;
+        }
+    }
+
+    return '\0';
+}
+
+void tafVoiceListener::onDtmfToneDetection(telux::audio::DtmfTone dtmfTone) {
+    LE_DEBUG("Dtmf Tone Detected");
+    auto &audio = taf_Audio::GetInstance();
+    LE_DEBUG("Direction is %d",uint32_t (dtmfTone.direction));
+    LE_DEBUG("Low Frequency is %d",uint32_t(dtmfTone.lowFreq));
+    LE_DEBUG("High Frequency is %d",uint32_t(dtmfTone.highFreq));
+    taf_audio_Stream_t* streamPtr = (taf_audio_Stream_t*)audio.mDtmfAudioRef;
+    taf_audio_StreamEvent_t streamEvent;
+    streamEvent.streamPtr = streamPtr;
+    streamEvent.streamEvent = TAF_AUDIO_BITMASK_DTMF_DETECTION;
+    streamEvent.event.dtmf = audio.getDTMFChar(dtmfTone.lowFreq, dtmfTone.highFreq);
+    le_event_Report(streamPtr->eventId, &streamEvent,
+            sizeof(taf_audio_StreamEvent_t));
+}
+
 void tafPlayListener::onReadyForWrite() {
     LE_INFO("OnReadyForWrite");
     auto &audio = taf_Audio::GetInstance();
@@ -482,6 +518,39 @@ void taf_Audio::CloseConnectorPaths
             StopandDelete(currentStreamPtr, connPtr->audioOutList);
         }
     }
+}
+
+taf_audio_DtmfDetectorHandlerRef_t taf_Audio::AddDtmfDetectorHandler
+(
+ taf_audio_StreamRef_t               streamRef,
+ taf_audio_DtmfDetectorHandlerFunc_t handlerPtr,
+ void*                              ctxPtr
+)
+{
+    taf_audio_Stream_t* streamPtr = (taf_audio_Stream_t*)le_ref_Lookup(StreamRefMap, streamRef);
+    TAF_ERROR_IF_RET_VAL( streamPtr == NULL, NULL,"streamPtr is nullptr!");
+
+    TAF_ERROR_IF_RET_VAL(streamPtr->interface != TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX,
+            NULL, "Invalid stream reference");
+
+    LE_DEBUG("AddDtmfDetectorHandler");
+
+    if(mAudioVoiceStream && mVoiceEnabled1) {
+        telux::common::Status st = mAudioVoiceStream->registerListener(mVoiceListener);
+        if(st!=telux::common::Status::SUCCESS) {
+            LE_ERROR("Request to register for DTMF detection failed error : %d", (int)st);
+            return NULL;
+        }
+        LE_DEBUG("Request to Register Voice Listener Sent" );
+        mDtmfAudioRef = (taf_audio_StreamRef_t)streamPtr;
+    }
+
+    return (taf_audio_DtmfDetectorHandlerRef_t)AddStreamEventHandler(
+            streamPtr,
+            (le_event_HandlerFunc_t) handlerPtr,
+            TAF_AUDIO_BITMASK_DTMF_DETECTION,
+            ctxPtr
+            );
 }
 
 /**
@@ -948,6 +1017,7 @@ taf_audio_StreamRef_t taf_Audio::CreateStream
                 streamPtr->isMute = false;
                 break;
             case TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX:
+                streamPtr->eventId = CreateEventId();
                 streamPtr->volLevel = 0.000000;
             case TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX:
                 streamPtr->isMute = false;
@@ -1595,6 +1665,26 @@ void taf_Audio::StopAudioCallback(ErrorCode error)
     return;
 }
 
+void taf_Audio::PlayDtmfCallback(ErrorCode error)
+{
+    auto &audio = taf_Audio::GetInstance();
+    if (ErrorCode::SUCCESS == error) {
+        LE_DEBUG("Dtmf tone playing !!");
+    }
+    audio.gCallbackPromise.set_value(error);
+    return;
+}
+
+void taf_Audio::StopDtmfCallback(ErrorCode error)
+{
+    auto &audio = taf_Audio::GetInstance();
+    if (ErrorCode::SUCCESS == error) {
+        LE_DEBUG("Dtmf tone stopped !!");
+    }
+    audio.gCallbackPromise.set_value(error);
+    return;
+}
+
 le_result_t taf_Audio::StartAudio
 (
     StreamConfig config
@@ -1860,6 +1950,15 @@ void taf_Audio::FirstLayerEventHandler( void* reportPtr, void* secondLayerHandle
                 clientHandlerFunc(streamPtr->streamRef, mediaEvent, streamRefNodePtr->userCtx);
             }
             break;
+        case TAF_AUDIO_BITMASK_DTMF_DETECTION:
+            {
+                taf_audio_DtmfDetectorHandlerFunc_t clientHandlerFunc = (
+                        taf_audio_DtmfDetectorHandlerFunc_t)secondLayerHandlerFunc;
+                clientHandlerFunc(streamPtr->streamRef,
+                        streamEventPtr->event.dtmf,
+                        streamRefNodePtr->userCtx);
+            }
+            break;
     }
 }
 
@@ -1869,6 +1968,26 @@ void taf_Audio::RemoveMediaHandler
 )
 {
     RemoveStreamEventHandler( (StreamEventHandlerRef_t) handlerRef );
+}
+
+void taf_Audio::RemoveDtmfDetectorHandler
+(
+ taf_audio_DtmfDetectorHandlerRef_t handlerRef
+)
+{
+    if(mDtmfAudioRef) {
+        if (mAudioVoiceStream && mVoiceEnabled1) {
+            Status st = mAudioVoiceStream->deRegisterListener(mVoiceListener);
+            if(st == Status::SUCCESS) {
+                LE_DEBUG("Request to deregister for DTMF detection sent" );
+            } else {
+                LE_ERROR("Request to deregister for DTMF detection failed error : %d", (int)st);
+                return;
+            }
+            RemoveStreamEventHandler( (StreamEventHandlerRef_t) handlerRef );
+            mDtmfAudioRef = NULL;
+        }
+    }
 }
 
 void taf_Audio::RemoveStreamEventHandler
@@ -1886,6 +2005,33 @@ void taf_Audio::RemoveStreamEventHandler
     le_event_RemoveHandler((le_event_HandlerRef_t)streamRefNodePtr->handlerRef);
 
     le_ref_DeleteRef(EventHandlerRefMap, streamRefNodePtr->streamHandlerRef);
+
+    if (streamRefNodePtr->streamEventMask == TAF_AUDIO_BITMASK_DTMF_DETECTION)
+    {
+        uint32_t handlerCount = 0;
+
+        le_dls_Link_t* linkPtr = le_dls_Peek(&(streamPtr->streamRefWithEventHdlrList));
+
+        while (linkPtr != NULL)
+        {
+            EventHandlerRefNode_t* nodePtr;
+
+            nodePtr = CONTAINER_OF(linkPtr, EventHandlerRefNode_t, next);
+
+            linkPtr = le_dls_PeekNext(&streamPtr->streamRefWithEventHdlrList, linkPtr);
+
+            if (nodePtr->streamEventMask == TAF_AUDIO_BITMASK_DTMF_DETECTION)
+            {
+                handlerCount++;
+            }
+        }
+
+        LE_DEBUG("handlerCount %d", handlerCount);
+        if (handlerCount == 1)
+        {
+            streamPtr->dtmfEventHandler = NULL;
+        }
+    }
 
     le_dls_Remove(&streamPtr->streamRefWithEventHdlrList,
                   &streamRefNodePtr->next);
@@ -3611,4 +3757,143 @@ le_result_t taf_Audio::GetVolume
         return LE_OK;
     }
     return LE_FAULT;
+}
+
+std::pair<int, int> taf_Audio::getDTMFFrequencies(char key) {
+    // Find the frequency pair for the given key
+    auto itr = dtmfMap.find(key);
+    if (itr != dtmfMap.end()) {
+        return itr->second;
+    } else {
+        // Return a pair of -1 if the key is not found
+        return {-1, -1};
+    }
+}
+
+void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
+    auto &audio = taf_Audio::GetInstance();
+    taf_Dtmf_t* dtmfData = (taf_Dtmf_t*)dtmfTones;
+    bool playingFirstDtmf = true;
+
+    for(auto frequencies : dtmfData->frequencyList) {
+        resetCallbackPromise();
+        auto status = Status::FAILED;
+        DtmfTone dtmfTone = {};
+        dtmfTone.direction = StreamDirection::RX;
+        dtmfTone.lowFreq = static_cast<telux::audio::DtmfLowFreq>(frequencies.first);
+        dtmfTone.highFreq = static_cast<telux::audio::DtmfHighFreq>(frequencies.second);
+        LE_DEBUG("Playing frequencies low: %d, high: %d\n", frequencies.first,
+        frequencies.second);
+        uint16_t gain_new = dtmfData->dtmfGain*MAX_DTMF_GAIN;
+        status = audio.mAudioVoiceStream->playDtmfTone(
+                        dtmfTone, dtmfData->duration, gain_new, PlayDtmfCallback);
+        if(status == Status::SUCCESS) {
+            ErrorCode error = audio.gCallbackPromise.get_future().get();
+            if (ErrorCode::SUCCESS != error) {
+                LE_ERROR("Play Dtmf Tone failed");
+                if(playingFirstDtmf) {
+                    le_sem_Post(audio.mDtmfStartedSemRef);
+                    playingFirstDtmf = false;
+                }
+                return NULL;
+            }
+            audio.mDtmfStarted = true;
+            if(playingFirstDtmf) {
+                le_sem_Post(audio.mDtmfStartedSemRef);
+                playingFirstDtmf = false;
+            }
+        }else {
+            LE_ERROR("Request to play Dtmf Tone failed");
+            return NULL;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(dtmfData->pause+dtmfData->duration));
+    }
+    return NULL;
+}
+
+/**
+ * Play DTMF tone for RX path of voice call
+ */
+le_result_t taf_Audio::PlayDtmf
+(
+ taf_audio_StreamRef_t rStreamRef,
+ const char*           dtmfPtr,
+ uint16_t              uduration,
+ uint32_t              upause,
+ double                gain
+)
+{
+    taf_audio_Stream_t* streamPtr = (taf_audio_Stream_t*)le_ref_Lookup(StreamRefMap,
+            rStreamRef);
+
+    TAF_ERROR_IF_RET_VAL(streamPtr == NULL, LE_BAD_PARAMETER,"streamPtr is nullptr!");
+
+    TAF_ERROR_IF_RET_VAL(streamPtr->interface != TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX,
+            LE_BAD_PARAMETER, "Invalid stream reference");
+
+    dtmfData.duration = uduration;
+    dtmfData.pause = upause;
+    dtmfData.dtmfGain = gain;
+    dtmfData.frequencyList.clear();
+    if (mAudioVoiceStream && mVoiceEnabled1) {
+        while (*dtmfPtr != '\0') {
+            std::pair<int, int> frequencies = getDTMFFrequencies(*dtmfPtr);
+            if (frequencies.first != -1) {
+                dtmfData.frequencyList.emplace_back(frequencies);
+            } else {
+                LE_ERROR("Invalid DTMF key!");
+                return LE_FAULT;
+            }
+            dtmfPtr++;
+        }
+    } else {
+        LE_ERROR("Request to play Dtmf Tone failed, no active voice call.");
+        return LE_FAULT;
+    }
+
+    mDtmfStartedSemRef = le_sem_Create("tafDtmfStartedSemRef", 0);
+    le_thread_Start(le_thread_Create("DtmfThread", playAllDtmfTones, &dtmfData));
+    // Wait for DTMF to start successfully
+    le_sem_Wait(mDtmfStartedSemRef);
+    le_sem_Delete(mDtmfStartedSemRef);
+    mDtmfStartedSemRef = nullptr;
+
+    if(mDtmfStarted)
+        return LE_OK;
+
+    return LE_FAULT;
+}
+
+le_result_t taf_Audio::StopDtmf(taf_audio_StreamRef_t streamRef)
+{
+    resetCallbackPromise();
+    auto status = Status::FAILED;
+
+    taf_audio_Stream_t* streamPtr = (taf_audio_Stream_t*)le_ref_Lookup(StreamRefMap,
+            streamRef);
+    TAF_ERROR_IF_RET_VAL( streamPtr == NULL, LE_BAD_PARAMETER,"streamPtr is nullptr!");
+
+    TAF_ERROR_IF_RET_VAL(streamPtr->interface != TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX,
+            LE_BAD_PARAMETER, "Invalid stream reference");
+
+    if (mAudioVoiceStream && mVoiceEnabled1 && mDtmfStarted) {
+        status = mAudioVoiceStream->stopDtmfTone(StreamDirection::RX, StopDtmfCallback);
+        if(status == Status::SUCCESS) {
+            ErrorCode error = gCallbackPromise.get_future().get();
+            if (ErrorCode::SUCCESS != error) {
+                LE_ERROR("Stop Dtmf Tone failed");
+                return LE_FAULT;
+            }
+            mDtmfStarted = false;
+        }else {
+            LE_ERROR("Request to stop Dtmf Tone failed");
+            return LE_FAULT;
+        }
+    } else {
+        LE_ERROR("Request to play stop Tone failed");
+        return LE_FAULT;
+    }
+
+    return LE_OK;
 }

@@ -37,7 +37,7 @@ taf_diagSecurity_ServiceRef_t taf_SecuritySvr::GetService
     LE_DEBUG("Gets the security service!");
 
     // Search the service.
-    taf_SecuritySvc_t* servicePtr = GetServiceObj();
+    taf_SecuritySvc_t* servicePtr = GetServiceObj(taf_diagSecurity_GetClientSessionRef());
 
     // Create a service object if it doesn't exist in the list.
     if (servicePtr == NULL)
@@ -61,17 +61,9 @@ taf_diagSecurity_ServiceRef_t taf_SecuritySvr::GetService
         servicePtr->svcRef = (taf_diagSecurity_ServiceRef_t)le_ref_CreateRef(SvcRefMap,
                 servicePtr);
 
+        servicePtr->supportedVlanList = LE_DLS_LIST_INIT;
         LE_DEBUG("svcRef %p of client %p is created for security access.",
                 servicePtr->svcRef, servicePtr->sessionRef);
-    }
-    else
-    {
-        // Only the service owner app can get the service reference for subsequent operations.
-        if (servicePtr->sessionRef != taf_diagSecurity_GetClientSessionRef())
-        {
-            LE_ERROR("The service is created by other client.");
-            return NULL;
-        }
     }
 
     LE_INFO("Get serviceRef %p for Diag security service.", servicePtr->svcRef);
@@ -87,6 +79,7 @@ taf_diagSecurity_ServiceRef_t taf_SecuritySvr::GetService
 //-------------------------------------------------------------------------------------------------
 taf_SecuritySvc_t* taf_SecuritySvr::GetServiceObj
 (
+    le_msg_SessionRef_t sessionRef
 )
 {
     LE_DEBUG("find the service object!");
@@ -96,9 +89,55 @@ taf_SecuritySvc_t* taf_SecuritySvr::GetServiceObj
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t *)le_ref_GetValue(iterRef);
-        if (servicePtr != NULL)
+        if (servicePtr != NULL && servicePtr->sessionRef == sessionRef)
         {
             return servicePtr;
+        }
+    }
+
+    return NULL;
+}
+
+taf_SecuritySvc_t* taf_SecuritySvr::GetServiceObj
+(
+    uint16_t vlanId
+)
+{
+    LE_DEBUG("find the service object!");
+    bool isFound = false;
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
+
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t *)le_ref_GetValue(iterRef);
+        if (servicePtr != NULL)
+        {
+            // In some cases. the interface may not set the vlan.
+            if (vlanId == 0 && le_dls_NumLinks(&servicePtr->supportedVlanList) == 0)
+            {
+                return servicePtr;
+            }
+
+            // Verify if the vlan is match.
+            le_dls_Link_t* linkPtr = NULL;
+            linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+            while (linkPtr)
+            {
+                taf_SecurityVlanIdNode_t *vlan = CONTAINER_OF(linkPtr,
+                    taf_SecurityVlanIdNode_t, link);
+                if (vlan != NULL && vlan->vlanId == vlanId)
+                {
+                    // Match.
+                    isFound = true;
+                    break;
+                }
+                linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+            }
+
+            if (isFound)
+            {
+                return servicePtr;
+            }
         }
     }
 
@@ -179,7 +218,7 @@ void taf_SecuritySvr::UDSMsgHandler
                                 == TAF_DIAGSECURITY_DOWNLOADED_ENUMLATION_SESSION)
                                         &&  sesChangePtr->currentSesType  == 0x01)
         {
-            taf_UpdateSvr::GetInstance().programmingInterrupt();
+            taf_UpdateSvr::GetInstance().programmingInterrupt(addrPtr->vlanId);
         }
 #endif
         // Report the session control request message to message handler in service layer.
@@ -298,7 +337,11 @@ void taf_SecuritySvr::RxSesCtrlEventHandler
     taf_SecuritySvc_t* servicePtr = NULL;
     taf_SesTypeReqHandler_t* handlerObjPtr = NULL;
 
-    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj();
+#ifdef LE_CONFIG_DIAG_VSTACK
+    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj(0);
+#else
+    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj(rxSesTypePtr->addrInfo.vlanId);
+#endif
     if (servicePtr == NULL)
     {
         LE_INFO("Service is not created");
@@ -429,20 +472,28 @@ le_result_t taf_SecuritySvr::SendSesTypeCheckResp
         return LE_NOT_FOUND;
     }
 
-    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)GetServiceObj();
+#ifdef LE_CONFIG_DIAG_VSTACK
+    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)GetServiceObj(0);
+#else
+    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)
+        GetServiceObj(rxSesTypePtr->addrInfo.vlanId);
+#endif
     if (servicePtr == NULL)
     {
         LE_ERROR("Not found registered security service for this request!");
         return LE_NOT_FOUND;
     }
-    
+
     // Call UDS function to send the response message.
     auto &backend = taf_DiagBackend::GetInstance();
     taf_uds_AddrInfo_t addrInfo;
     addrInfo.sa = rxSesTypePtr->addrInfo.ta;
     addrInfo.ta = rxSesTypePtr->addrInfo.sa;
     addrInfo.taType = rxSesTypePtr->addrInfo.taType;
-
+#ifndef LE_CONFIG_DIAG_VSTACK
+    addrInfo.vlanId = rxSesTypePtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, rxSesTypePtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
     if (errCode == 0)
     {
         // Positive response.
@@ -463,7 +514,7 @@ le_result_t taf_SecuritySvr::SendSesTypeCheckResp
             return ret;
         }
     }
-    
+
     // Remove the message from service message list.
     le_dls_Remove(&(servicePtr->rxSesTypeList), &(rxSesTypePtr->link));
 
@@ -496,7 +547,10 @@ le_result_t taf_SecuritySvr::SendSesPositiveResp
     addrInfo.sa = rxSesTypePtr->addrInfo.ta;
     addrInfo.ta = rxSesTypePtr->addrInfo.sa;
     addrInfo.taType = rxSesTypePtr->addrInfo.taType;
-
+#ifndef LE_CONFIG_DIAG_VSTACK
+    addrInfo.vlanId = rxSesTypePtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, rxSesTypePtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
     // Positive response.
     ret = backend.RespDiagPositive(reqSesCtrlSvcId, &addrInfo);
     if (ret != LE_OK)
@@ -571,8 +625,11 @@ void taf_SecuritySvr::SesChangeEventHandler
     taf_SecuritySvc_t* servicePtr = NULL;
     taf_SesChangeHandler_t* handlerObjPtr = NULL;
 
-
-    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj();
+#ifdef LE_CONFIG_DIAG_VSTACK
+    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj(0);
+#else
+    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj(SesChangePtr->addrInfo.vlanId);
+#endif
     if (servicePtr == NULL)
     {
         le_ref_DeleteRef(security.SesChangeRefMap, SesChangePtr->sesChangeRef);
@@ -770,7 +827,11 @@ void taf_SecuritySvr::RxSecAccessEventHandler
     taf_SecuritySvc_t* servicePtr = NULL;
     taf_SecAccessReqHandler_t* handlerObjPtr = NULL;
 
-    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj();
+#ifdef LE_CONFIG_DIAG_VSTACK
+    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj(0);
+#else
+    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj(rxSecAccessMsgPtr->addrInfo.vlanId);
+#endif
     if (servicePtr == NULL)
     {
         // UDS_0x27_NRC_21: handler is not registered
@@ -958,20 +1019,28 @@ le_result_t taf_SecuritySvr::SendSecAccessResp
         return LE_NOT_FOUND;
     }
 
-    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)GetServiceObj();
+#ifdef LE_CONFIG_DIAG_VSTACK
+    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)GetServiceObj(0);
+#else
+    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)
+        GetServiceObj(rxSecAccessMsgPtr->addrInfo.vlanId);
+#endif
     if (servicePtr == NULL)
     {
         LE_ERROR("Not found registered security service for this request!");
         return LE_NOT_FOUND;
     }
-    
+
     // Call UDS function to send the response message.
     auto &backend = taf_DiagBackend::GetInstance();
     taf_uds_AddrInfo_t addrInfo;
     addrInfo.sa = rxSecAccessMsgPtr->addrInfo.ta;
     addrInfo.ta = rxSecAccessMsgPtr->addrInfo.sa;
     addrInfo.taType = rxSecAccessMsgPtr->addrInfo.taType;
-
+#ifndef LE_CONFIG_DIAG_VSTACK
+    addrInfo.vlanId = rxSecAccessMsgPtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, rxSecAccessMsgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
     if (errCode == 0)
     {
         // Positive response.
@@ -1004,7 +1073,7 @@ le_result_t taf_SecuritySvr::SendSecAccessResp
             return ret;
         }
     }
-    
+
     // Remove the message from service message list.
     le_dls_Remove(&(servicePtr->rxMsgList), &(rxSecAccessMsgPtr->link));
 
@@ -1035,7 +1104,10 @@ le_result_t taf_SecuritySvr::SendNRCResp
     addrInfo.sa = addrInfoPtr->ta;
     addrInfo.ta = addrInfoPtr->sa;
     addrInfo.taType = addrInfoPtr->taType;
-
+#ifndef LE_CONFIG_DIAG_VSTACK
+    addrInfo.vlanId = addrInfoPtr->vlanId;
+    le_utf8_Copy(addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
     // Call UDS function to send the response message.
     auto &backend = taf_DiagBackend::GetInstance();
     backend.RespDiagNegative(sid, &addrInfo, errCode);
@@ -1222,6 +1294,87 @@ void taf_SecuritySvr::OnClientDisconnection
     return;
 }
 
+le_result_t taf_SecuritySvr::SetVlanId
+(
+    taf_diagSecurity_ServiceRef_t svcRef,
+    uint16_t vlanId
+)
+{
+    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+
+#ifndef LE_CONFIG_DIAG_VSTACK
+    // Check if the vlan is set.
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+    while (linkPtr)
+    {
+        taf_SecurityVlanIdNode_t *vlan = CONTAINER_OF(linkPtr, taf_SecurityVlanIdNode_t, link);
+        if (vlan != NULL && vlan->vlanId == vlanId)
+        {
+            LE_INFO("The Vlan id(0x%x) is set for ref%p", vlanId, svcRef);
+            return LE_OK;
+        }
+        linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+    }
+
+    taf_SecurityVlanIdNode_t *vlanPtr = (taf_SecurityVlanIdNode_t *)le_mem_ForceAlloc(vlanPool);
+    if (vlanPtr == NULL)
+    {
+        LE_INFO("Failed to allocate memory.");
+        return LE_NO_MEMORY;
+    }
+
+    vlanPtr->vlanId = vlanId;
+    vlanPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&servicePtr->supportedVlanList, &vlanPtr->link);
+
+    return LE_OK;
+#else
+    return LE_NOT_IMPLEMENTED;
+#endif
+}
+
+le_result_t taf_SecuritySvr::GetVlanIdFromMsg
+(
+    taf_diagSecurity_RxMsgRef_t rxMsgRef,
+    uint16_t* vlanIdPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(vlanIdPtr == NULL, LE_BAD_PARAMETER, "Invalid vlanIdPtr");
+
+#ifndef LE_CONFIG_DIAG_VSTACK
+    taf_SesTypeRxMsg_t* rxSesTypePtr =
+            (taf_SesTypeRxMsg_t*)le_ref_Lookup(RxSesTypeRefMap, rxMsgRef);
+    if (rxSesTypePtr != NULL)
+    {
+        *vlanIdPtr = rxSesTypePtr->addrInfo.vlanId;
+        return LE_OK;
+    }
+
+    taf_SecAccessRxMsg_t* rxSecAccessMsgPtr =
+            (taf_SecAccessRxMsg_t*)le_ref_Lookup(RxSecAccessMsgRefMap, rxMsgRef);
+    if (rxSecAccessMsgPtr != NULL)
+    {
+        *vlanIdPtr = rxSecAccessMsgPtr->addrInfo.vlanId;
+        return LE_OK;
+    }
+
+    taf_SesChangeMsg_t* rxSesChangMsgPtr =
+            (taf_SesChangeMsg_t*)le_ref_Lookup(SesChangeRefMap, rxMsgRef);
+    if (rxSesChangMsgPtr != NULL)
+    {
+        *vlanIdPtr = rxSesChangMsgPtr->addrInfo.vlanId;
+        return LE_OK;
+    }
+
+    LE_ERROR("Can not find the rxMsgRef");
+    return LE_NOT_FOUND;
+#else
+    return LE_NOT_IMPLEMENTED;
+#endif
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Initialization.
@@ -1242,6 +1395,7 @@ void taf_SecuritySvr::Init()
     RxSecAccessMsgPool = le_mem_CreatePool("SecAccessRxMsgPool", sizeof(taf_SecAccessRxMsg_t));
     ReqSecAccessHandlerPool = le_mem_CreatePool("SecAccessReqHandlerPool",
             sizeof(taf_SecAccessReqHandler_t));
+    vlanPool = le_mem_CreatePool("SecAccessVlanPool", sizeof(taf_SecurityVlanIdNode_t));
 
     // Create reference maps
     SvcRefMap = le_ref_CreateMap("SecuritySvcRefMap", DEFAULT_SVC_REF_CNT);

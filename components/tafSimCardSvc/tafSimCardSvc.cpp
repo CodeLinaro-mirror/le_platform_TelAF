@@ -278,11 +278,35 @@ le_result_t taf_sim_GetAutomaticSelection( bool* enablePtr) {
     return sim.GetAutomaticSelection(enablePtr);
 }
 
+le_result_t taf_sim_GetAppTypes
+(
+    taf_sim_Id_t slotId,
+    taf_sim_AppType_t* appTypePtr,
+    size_t* appTypeNumElementsPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(appTypePtr == NULL, LE_BAD_PARAMETER, "appTypePtr is NULL");
+    TAF_ERROR_IF_RET_VAL(appTypeNumElementsPtr == NULL, LE_BAD_PARAMETER, "appTypeNumElementsPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(*appTypeNumElementsPtr < TAF_SIM_MAX_APP_TYPE, LE_BAD_PARAMETER, "Too few elements ");
+
+    auto &sim = taf_sim::GetInstance();
+    return sim.GetAppTypes(slotId, appTypePtr, appTypeNumElementsPtr);
+}
+
 le_result_t taf_sim_OpenLogicalChannel( taf_sim_Id_t slotId,
                 taf_sim_AppType_t appType, uint8_t* channel) {
     TAF_ERROR_IF_RET_VAL(channel == NULL, LE_BAD_PARAMETER, "channelPtr is NULL");
     auto &sim = taf_sim::GetInstance();
     return sim.OpenLogicalChannel(slotId, appType, channel);
+}
+
+le_result_t taf_sim_OpenLogicalChannelByAid( taf_sim_Id_t slotId,
+                const char* aid, uint8_t* channel) {
+    TAF_ERROR_IF_RET_VAL(channel == NULL, LE_BAD_PARAMETER, "channelPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(aid == NULL, LE_BAD_PARAMETER, "aid is NULL");
+    TAF_ERROR_IF_RET_VAL(strlen(aid) > TAF_SIM_AID_BYTES, LE_OVERFLOW, "Aid length is more");
+    auto &sim = taf_sim::GetInstance();
+    return sim.OpenLogicalChannelByAid(slotId, aid, channel);
 }
 
 le_result_t taf_sim_CloseLogicalChannel( taf_sim_Id_t simId, uint8_t channel) {

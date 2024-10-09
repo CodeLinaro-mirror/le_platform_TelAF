@@ -559,6 +559,15 @@ void TestSetSourceValidity()
     le_result_t res = taf_time_SetValidity(srcRef, validityFlag);
     LE_ASSERT(res == LE_OK);
     LE_INFO("taf_time_SetValidity - LE_OK");
+    validityFlag = taf_time_IsSourceValid(srcRef);
+    if (validityFlag)
+    {
+        LE_INFO("Validity of time source is set to true");
+    }
+    else
+    {
+        LE_INFO("Validity of time source is set to false");
+    }
 }
 
 

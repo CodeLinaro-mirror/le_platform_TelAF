@@ -32,7 +32,8 @@ Connection::Connection
     le_socket_Ref_t         sockRef,
     taf_doip_ConnectType_t  type,
     std::string&            ip,
-    uint16_t                port
+    uint16_t                port,
+    std::string&            ifname
 )
 {
     cliSockRef  = sockRef;
@@ -40,6 +41,7 @@ Connection::Connection
     remotePort  = port;
     connType    = type;
     connectionMgr = mgr;
+    localIface  = ifname;
     connState = TAF_DOIP_CONNECT_STATE_INITIALIZED;
 
     LE_INFO("Connection is created, socket ref is %p!!!\n", sockRef);
@@ -699,7 +701,7 @@ void Connection::RoutingActiveReqHandler
         goto errOut;
     }
 
-
+    raTesterSa = fromSa;
     memcpy(&type, payload + pos, TAF_DOIP_RA_ACTIVATION_TYPE_LEN);
     pos += TAF_DOIP_RA_ACTIVATION_TYPE_LEN;
 
@@ -756,7 +758,8 @@ void Connection::RoutingActiveReqHandler
         {
             // [DoIP-106] Reject routing activation if SA is defferent from this connection.
             // [DoIP-149] An different SA was on the already activated connection.
-            LE_ERROR("Received sa is not assigned to this ativated connection.\n");
+            LE_ERROR("Received sa is not assigned to this ativated connection."
+                "testSA is 0x%x, but recevied sa is 0x%x.", testerSA, fromSa);
             resCode = TAF_DOIP_RA_RES_SA_DIFFERENT_ACTIVATED_SOCKET;
             goto errOut;
         }
@@ -765,7 +768,7 @@ void Connection::RoutingActiveReqHandler
     {
         std::shared_ptr<Connection> connectionTmp(connectionMgr->
                                                   FindConnectionByLogicalAddr(fromSa));
-        if (connectionTmp != nullptr)
+        if (connectionTmp != nullptr && connectionTmp != shared_from_this())
         {
             // If alive check was already requested on this connection,
             // return and wait for response.
@@ -865,11 +868,13 @@ void Connection::ConnectionStateMachine
         CheckRoutingActivationConfirm();
         break;
     case TAF_DOIP_CONNECT_STATE_REGISTERED_ROUTING_ACTIVE:
-        connectionMgr->ReportConnectionEvent(testerSA, entitySA, TAF_DOIP_RESULT_SA_REGISTERED);
+        connectionMgr->ReportConnectionEvent(testerSA, entitySA,
+                TAF_DOIP_RESULT_SA_REGISTERED, localIface);
         break;
     case TAF_DOIP_CONNECT_STATE_FINALIZE:
         // [DoIP-133] Tcp socket shall be closed and resources shall be freed.
-        connectionMgr->ReportConnectionEvent(testerSA, entitySA, TAF_DOIP_RESULT_SA_DEREGISTERED);
+        connectionMgr->ReportConnectionEvent(testerSA, entitySA,
+                TAF_DOIP_RESULT_SA_DEREGISTERED, localIface);
         connectionMgr->DeleteConnection(shared_from_this());
         break;
     default:  // TAF_DOIP_CONNECT_STATE_LISTEN
@@ -1024,7 +1029,7 @@ void Connection::AliveCheckResHandler
                 link.commType = TAF_DOIP_SOCKET_TYPE_TCP;
                 link.sockRef = cliSockRef;
                 // [DoIP-60]
-                parser.RoutingActivationRes(&link, routingConnectionPtr->testerSA,
+                parser.RoutingActivationRes(&link, routingConnectionPtr->raTesterSa,
                     routingConnectionPtr->entitySA,
                     TAF_DOIP_RA_RES_ALL_SOCKET_REGISTED_AND_ACTIVE, 0);
                 routingConnectionPtr->ConnectionStateMachine(TAF_DOIP_CONNECT_STATE_FINALIZE, 0);
@@ -1047,7 +1052,7 @@ void Connection::AliveCheckResHandler
             link.commType = TAF_DOIP_SOCKET_TYPE_TCP;
             link.sockRef = cliSockRef;
             // [DoIP-150]
-            parser.RoutingActivationRes(&link, routingConnectionPtr->testerSA,
+            parser.RoutingActivationRes(&link, routingConnectionPtr->raTesterSa,
                     routingConnectionPtr->entitySA, TAF_DOIP_RA_RES_SA_REGISTED_DIFFERENT_SOCKET,
                             0);
             routingConnectionPtr->ConnectionStateMachine(TAF_DOIP_CONNECT_STATE_FINALIZE, 0);
@@ -1169,7 +1174,7 @@ void Connection::DiagnosticMsgSvrSecondHandler
     else
     {
         taf_doip_Result_t ret = connectionMgr->InformUdsMessage(logicalSourceAddr,
-                logicalTargetAddr, udsBuf, udsTotalLen);
+                logicalTargetAddr, udsBuf, udsTotalLen, localIface);
         if (ret == TAF_DOIP_RESULT_UNKNOWN_TA)
         {
             LE_ERROR("Invalid TA(0x%x).", logicalTargetAddr);

@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 **/
 //------------------------------------------------------------------------------------------------
@@ -168,7 +168,7 @@ FUNCTION WlanSTA GetWlanSTA
  * Starts the specified station.
  *
  * @return
- * - LE_OK -- Succeeded.
+ * - LE_OK  -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -182,7 +182,7 @@ FUNCTION le_result_t Start
  * Stops the specified station.
  *
  * @return
- * - LE_OK -- Succeeded.
+ * - LE_OK  -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -196,7 +196,7 @@ FUNCTION le_result_t Stop
  * Restarts the specified station.
  *
  * @return
- * - LE_OK -- Succeeded.
+ * - LE_OK  -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -210,7 +210,7 @@ FUNCTION le_result_t Restart
  * Sets the station to Bridged or Router mode.
  *
  * @return
- * - LE_OK -- Succeeded.
+ * - LE_OK  -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -225,7 +225,7 @@ FUNCTION le_result_t SetMode
  * Gets the station mode.
  *
  * @return
- * - LE_OK -- Succeeded.
+ * - LE_OK  -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -240,7 +240,7 @@ FUNCTION le_result_t GetMode
  * Sets the IP configuration of the station.
  *
  * @return
- * - LE_OK -- Succeeded.
+ * - LE_OK  -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -255,7 +255,7 @@ FUNCTION le_result_t SetStaticIPConfig
  * Gets the IP configuration of the station.
  *
  * @return
- * - LE_OK -- Succeeded.
+ * - LE_OK  -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -271,7 +271,7 @@ FUNCTION le_result_t GetIPConfig
  * Gets the station state.
  *
  * @return
- * - LE_OK -- Succeeded.
+ * - LE_OK  -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -293,7 +293,7 @@ FUNCTION le_result_t GetStatus
  * When a scan is started, it will clear the results from earlier scans.
  *
  * @return
- * - LE_OK -- Succeeded.
+ * - LE_OK  -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -307,7 +307,7 @@ FUNCTION le_result_t DoAPScan
  * Gets the list of scanned access points. This list is updated after every call to DoScan.
  *
  * @return
- * - LE_OK -- Succeeded.
+ * - LE_OK  -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -316,4 +316,49 @@ FUNCTION le_result_t GetAPScanResults
     WlanSTA wlanSTARef IN,                      ///< The WLAN STA reference.
     uint16  numAP      OUT,                     ///< Number of APs found in the scan.
     APInfo  ApInfo[MAX_APSCAN_RESULT_NUM] OUT   ///< Available AP information.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets WPA2 PSK for an access point that the WLAN station should connect with.
+ *
+ * @return
+ * - LE_OK  -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetWpa2Psk(
+    WlanSTA wlanSTARef IN,                              ///< The WLAN STA reference.
+    APInfo ApInfo IN,                                   ///< AP for which PSK needs to be set.
+    string Wpa2Psk[taf_wlan.MAX_PASSPHRASE_LENGTH] IN   ///< PSK to use for authentication.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Connects to an AP. This is an asynchronous operation and will trigger event STATE_CONNECTED
+ * on successful connection or STATE_ASSOCIATION_FAILED if association fails.
+ *
+ * @return
+ * - LE_OK  -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Connect(
+    WlanSTA wlanSTARef IN,                              ///< The WLAN STA reference.
+    APInfo ApInfo IN                                    ///< The AP to connect to.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disconnects from an AP. This is an asynchronous operation and will trigger event
+ * STATE_DISCONNECTED on completion.
+ *
+ * @return
+ * - LE_OK  -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Disconnect(
+    WlanSTA wlanSTARef IN,                              ///< The WLAN STA reference.
+    APInfo ApInfo IN                                    ///< The AP to disconnect from.
 );

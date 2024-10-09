@@ -69,6 +69,31 @@ taf_diagDataID_ServiceRef_t taf_diagDataID_GetService
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Sets VLAN ID to the service to filter ReadDID and WriteDID request.
+ * if the VLAN ID is not found or not exist, it will return error.
+ * This function shall be called before registering RxReadDIDMsgHandler and RxWriteDIDMsgHandler.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_UNSUPPORTED -- VLAN ID is unknown.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagDataID_SetVlanId
+(
+    taf_diagDataID_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    uint16_t vlanId
+        ///< [IN] VLAN ID.
+)
+{
+    return LE_UNSUPPORTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add handler function for EVENT 'taf_diagDataID_RxReadDIDMsg'
  *
  * This event provides information about the Rx ReadDID message.
@@ -229,8 +254,37 @@ le_result_t taf_diagDataID_SendWriteDIDResp
 )
 {
     LE_DEBUG("taf_diagDataID_SendWriteDIDResp");
+#ifndef LE_CONFIG_DIAG_VSTACK
     auto &did = taf_DataIDSvr::GetInstance();
     return did.SendWriteDIDResp(rxMsgRef, errCode, dataId);
+#else
+    return LE_UNSUPPORTED;
+#endif
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the vlan id of the Request ReadDID or WriteDID message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- VLAN ID not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagDataID_GetVlanIdFromMsg
+(
+    taf_diagDataID_RxMsgRef_t rxMsgRef,
+        ///< [IN] ReadDID or WriteDID received message reference.
+    uint16_t* vlanIdPtr
+        ///< [OUT] VLAN ID.
+)
+{
+    LE_DEBUG("taf_diagDataID_GetVlanIdFromMsg");
+    auto &did = taf_DataIDSvr::GetInstance();
+    return did.GetVlanIdFromMsg(rxMsgRef, vlanIdPtr);
 }
 
 //--------------------------------------------------------------------------------------------------

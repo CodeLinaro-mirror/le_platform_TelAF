@@ -864,7 +864,7 @@ FUNCTION le_result_t GetSystemTimeSourceID
 HANDLER TimeSourceStatusHandler
 (
     Source sourceRef            IN,  ///< Source reference.
-    StatusEventType eventType   IN,  ///< Status event type. 
+    StatusEventType eventType   IN,  ///< Status event type.
     bool status                 IN   ///< Status of source as per event type.
 );
 
@@ -902,13 +902,13 @@ FUNCTION le_result_t GetTimeZone
  * Gets the daylight saving adjustment in hours. Possible values for the output are 0, 1, and 2
  * indicating following:
  *
- * 0: No adjustment for daylight saving.
+ * - 0: No adjustment for daylight saving.
  *
- * 1: +1 adjustment for daylight saving.
+ * - 1: +1 adjustment for daylight saving.
  *
- * 2: +2 adjustment for daylight saving.
+ * - 2: +2 adjustment for daylight saving.
  *
- * 3: reserved.
+ * - 3: reserved.
  *
  * @return
  *  - LE_OK -- Succeeded.
@@ -926,7 +926,7 @@ FUNCTION le_result_t GetTimeDayAdj
  * Checks whether a time source is valid.
  *
  * @return
- *  - true -- valid.
+ *  - true -- Valid.
  *  - false -- Not valid.
  */
 //--------------------------------------------------------------------------------------------------

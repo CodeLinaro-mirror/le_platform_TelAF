@@ -47,8 +47,8 @@ typedef void (*TAF_PI_DA_INIT)(void);
 /**
  * Get download session.
  *
- * @param[in]  confFile -- Download session configuration file.
- * @param[out] sessRef  -- Download session reference.
+ * @param[in]  confFile Download session configuration file.
+ * @param[out] sessRef  Download session reference.
  *
  * @return
  * - 0      -- Succeeded.
@@ -61,7 +61,7 @@ typedef int (*TAF_PI_DA_GET_SESSION)(const char* confFile, taf_pi_da_SessionRef_
 /**
  * Start download.
  *
- * @param[in] sessRef -- Download session reference.
+ * @param[in] sessRef  Download session reference.
  *
  * @return
  * - 0      -- Succeeded.
@@ -74,7 +74,7 @@ typedef int (*TAF_PI_DA_START)(taf_pi_da_SessionRef_t sessRef);
 /**
  * Pause download.
  *
- * @param[in] sessRef -- Download session reference.
+ * @param[in] sessRef Download session reference.
  *
  * @return
  * - 0      -- Succeeded.
@@ -87,7 +87,7 @@ typedef int (*TAF_PI_DA_PAUSE)(taf_pi_da_SessionRef_t sessRef);
 /**
  * Resume download.
  *
- * @param[in] sessRef -- Download session reference.
+ * @param[in] sessRef Download session reference.
  *
  * @return
  * - 0      -- Succeeded.
@@ -100,7 +100,7 @@ typedef int (*TAF_PI_DA_RESUME)(taf_pi_da_SessionRef_t sessRef);
 /**
  * Cancel download.
  *
- * @param[in] sessRef -- Download session reference.
+ * @param[in] sessRef Download session reference.
  *
  * @return
  * - 0      -- Succeeded.
@@ -113,10 +113,10 @@ typedef int (*TAF_PI_DA_CANCEL)(taf_pi_da_SessionRef_t sessRef);
 /**
  * Get download progress.
  *
- * @param[in]  sessRef -- Download session reference.
- * @param[out] status  -- Download status.
- * @param[out] percent -- Download percentage.
- * @param[out] error   -- Error code in download process
+ * @param[in]  sessRef Download session reference.
+ * @param[out] status  Download status.
+ * @param[out] percent Download percentage.
+ * @param[out] error   Error code in download process
  *
  * @return
  * - 0      -- Succeeded.

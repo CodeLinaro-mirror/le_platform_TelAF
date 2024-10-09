@@ -79,9 +79,9 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 /**
  * Callback for response of file robustness functions.
- * @param
- *      error    - Error code
- *      filePathPtr - Error to the file
+ *
+ *  @param    error         Error code
+ *  @param    filePathPtr   Error to the file
  *
  * @return
  */
@@ -95,9 +95,9 @@ typedef void (*taf_rfs_ErrorHandler_t)
 //--------------------------------------------------------------------------------------------------
 /**
  * Initializes RFS component.
- * @param
- *      enableBackup - Enable backup mechanism or not
- *      callback     - The callback function to respond error occurrence
+ *
+ *  @param    enableBackup  Enable backup mechanism or not
+ *  @param    callback      Callback function to respond error occurrence
  *
  * @return
  *      Result for initialization
@@ -113,7 +113,7 @@ LE_SHARED le_result_t taf_rfs_Init
 /**
  * Sets backup storage for RFS component.
  * @param
- *      filePathPtr - The path name of backup storage
+ *      filePathPtr  Path name of backup storage
  *
  * @return
  *      Result for the setup
@@ -127,9 +127,9 @@ LE_SHARED le_result_t taf_rfs_SetBackupStorage
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets backup storage capacity for RFS component.
- * @param
- *      maxFileSizeBytes - The max file size in byte
- *      maxFileCount     - The max file count in backup storage
+ *
+ * @param     maxFileSizeBytes Max file size in byte
+ * @param     maxFileCount     Max file count in backup storage
  *
  * @return
  *      Result for the setup
@@ -144,10 +144,10 @@ LE_SHARED le_result_t taf_rfs_SetBackupCapacity
 //--------------------------------------------------------------------------------------------------
 /**
  * Opens a file and returns a file descriptor.
- * @param
- *      filePathPtr    - The path name of file
- *      flags          - The file open flags
- *      mode           - The file open mode
+ *
+ *  @param    filePathPtr   Path name of file
+ *  @param    flags         File open flags
+ *  @param    mode          File open mode
  *
  * @return
  *      The non-negative integer on successful open, others for failed
@@ -164,7 +164,7 @@ LE_SHARED int taf_rfs_Open
 /**
  * Closes the opened file descriptor.
  * @param
- *      fd    - Opened file descriptor
+ *      fd    Opened file descriptor
  *
  * @return
  *      0 on successful, -1 on failed
@@ -178,10 +178,10 @@ LE_SHARED int taf_rfs_Close
 //--------------------------------------------------------------------------------------------------
 /**
  * Reads data with specified length for an opened file descriptor.
- * @param
- *      fd       - Opened file descriptor
- *      butPtr   - The buffer to save the read data
- *      sizePtr  - The maximal length of data buffer
+ *
+ *  @param    fd       Opened file descriptor
+ *  @param    butPtr   Buffer to save the read data
+ *  @param    sizePtr  Maximal length of data buffer
  *
  * @return
  *      The actual read data length
@@ -197,10 +197,10 @@ LE_SHARED int taf_rfs_Read
 //--------------------------------------------------------------------------------------------------
 /**
  * Writes data with specified length for an opened file descriptor.
- * @param
- *      fd       - Opened file descriptor
- *      butPtr   - The buffer to be written
- *      sizePtr  - The buffer length
+ *
+ *  @param    fd       Opened file descriptor
+ *  @param    butPtr   Buffer to be written
+ *  @param    sizePtr  Buffer length
  *
  * @return
  *      The actual written data length
@@ -217,7 +217,7 @@ LE_SHARED int taf_rfs_Write
 /**
  * Deletes a file.
  * @param
- *      filePathPtr    - The path name of file
+ *      filePathPtr    Path name of file
  *
  * @return
  *
@@ -231,9 +231,9 @@ LE_SHARED void taf_rfs_Delete
 //--------------------------------------------------------------------------------------------------
 /**
  * Copy a file.
- * @param
- *      sourcePath  - The source file path
- *      destPath    - The destination file path
+ *
+ *  @param    sourcePath  Source file path
+ *  @param    destPath    Destination file path
  *
  * @return
  *      Zero on successful copy, others to indicate errno
@@ -248,9 +248,9 @@ LE_SHARED int taf_rfs_Copy
 //--------------------------------------------------------------------------------------------------
 /**
  * Rename a file.
- * @param
- *      sourcePath  - The source file path
- *      destPath    - The destination file path
+ *
+ *  @param    sourcePath  Source file path
+ *  @param    destPath    Destination file path
  *
  * @return
  *      Zero on successful copy, others to indicate errno

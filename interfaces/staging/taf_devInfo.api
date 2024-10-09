@@ -90,10 +90,11 @@ DEFINE MODEL_MAX_BYTES = 256;
 /**
  * Retrieves the International Mobile Equipment Identity (IMEI).
  *
- * @return LE_FAULT         -- Failed to retrieve the IMEI.
- *         LE_OVERFLOW      -- IMEI length exceeds the maximum length.
- *         LE_UNSUPPORTED   -- Not Supported.
- *         LE_OK            -- Succeeded.
+ * @return
+ *    - LE_FAULT         -- Failed to retrieve the IMEI.
+ *    - LE_OVERFLOW      -- IMEI length exceeds the maximum length.
+ *    - LE_UNSUPPORTED   -- Not Supported.
+ *    - LE_OK            -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetImei
@@ -105,8 +106,9 @@ FUNCTION le_result_t GetImei
 /**
  * Retrieves the Device Model.
  *
- * @return LE_FAULT         -- Failed to retrieve the Device Model.
- *         LE_OK            -- Succeeded.
+ * @return
+ *     - LE_FAULT         -- Failed to retrieve the Device Model.
+ *     - LE_OK            -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetModel

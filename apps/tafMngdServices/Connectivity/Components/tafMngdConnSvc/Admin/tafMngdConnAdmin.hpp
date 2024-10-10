@@ -252,8 +252,7 @@ namespace tafsvc {
                                                   char *ipv4AddrPtr, size_t ipv4AddrSize,
                                                   char *ipv6AddrPtr, size_t ipv6AddrSize);
             le_result_t StartDataRetry(taf_mngdConn_DataRef_t dataRef);
-            le_result_t CancelRecovery(taf_mngdConn_DataRef_t dataRef,
-                                       taf_mngdConn_RecoveryOperation_t operation);
+            le_result_t CancelRecovery(taf_mngdConn_DataRef_t dataRef);
 
             taf_mngdConn_DataStateHandlerRef_t AddDataStateHandler(
                 taf_mngdConn_DataRef_t dataRef,

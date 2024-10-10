@@ -432,7 +432,7 @@ namespace telux
             // Print the details of all source in time sources configuration
             void printSourceDetails() const {
                 for (const Source& item : source) {
-                    LE_INFO("Name: %s,\tpriority: %d, setTimeFlag: %d\n",
+                    LE_INFO("Name: %s, priority: %d, setTimeFlag: %d\n",
                                 item.sourceName.c_str(), item.priority, item.setSystemTime);
                 }
                 if (pollingInterval) {
@@ -441,7 +441,7 @@ namespace telux
                 if (toleranceMillsec) {
                     LE_INFO("ToleranceMillsec: %ld\n", toleranceMillsec);
                 }
-                LE_INFO("allowOverrideAfterFail: %" PRIu64 "\n", allowOverrideAfterFail);
+                LE_INFO("allowOverrideAfterFail: %" PRId64 "\n", allowOverrideAfterFail);
 
                 for (auto item : validClientList) {
                     LE_INFO("Client: %s\n", item.c_str());
@@ -521,6 +521,7 @@ namespace telux
                 le_result_t GetSystemTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetInternalRtcTime(taf_time_TimeSpec_t* timeVal);
                 le_result_t UpdateDeltaTimeToStorage(taf_time_TimeSpec_t timeVal);
+                void UpdateDeltaTimeToRAM(void);
                 le_result_t GetNetworkTime(taf_time_TimeSpec_t* timeValPtr,
                                                               taf_time_TimeSources_t sourceId);
 
@@ -692,7 +693,7 @@ namespace telux
                 int64_t AllowOverrideAfterFail = -1;
                 pthread_mutex_t ProtectlocalTime_mutex;
                 taf_gptpTime_Ref_t gptpTimeRef = NULL;
-
+                uint64_t deltaTimeMSec = 0;
         };
     }
 }

@@ -896,7 +896,8 @@ le_result_t taf_Time::GetNetworkTime
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Time::GetRtcTime
 (
-    taf_time_TimeSpec_t* timeValPtr
+    taf_time_TimeSpec_t* timeValPtr,
+    bool isAllowGetInternalRTCTime
 )
 {
     le_result_t result = LE_FAULT;
@@ -919,7 +920,7 @@ le_result_t taf_Time::GetRtcTime
         timeValPtr->nanosec = obj.nanosec;
         return LE_OK;
     }
-    else
+    else if(isAllowGetInternalRTCTime)
     {
         result = GetInternalRtcTime(timeValPtr);
         if(result < 0)
@@ -1220,7 +1221,7 @@ le_result_t taf_Time::GetTime
     if (srcTimePtr->sourceId == TAF_TIME_SRC_NAME_RTC)
     {
         // Here the RTC is a sync API
-        result = GetRtcTime(timeValPtr);
+        result = GetRtcTime(timeValPtr, true);
     }
     else if(srcTimePtr->sourceId == TAF_TIME_SRC_NAME_SYSTEM)
     {
@@ -1912,6 +1913,10 @@ le_result_t taf_Time::CheckSourceTime
             if (result == LE_OK)
             {
                 result = GetAsyncRtcSetTimeStatus();
+            }
+            else
+            {
+                result = GetRtcTime(timePtr,false);
             }
             break;
 

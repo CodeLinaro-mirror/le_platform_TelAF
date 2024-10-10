@@ -514,7 +514,7 @@ namespace telux
                          taf_time_TimeSpec_t* deltaTimeDataPtr, taf_time_TimeSources_t sourceName);
 
                 le_result_t GetBootTime(taf_time_TimeSpec_t* timeValPtr);
-                le_result_t GetRtcTime(taf_time_TimeSpec_t* timeValPtr);
+                le_result_t GetRtcTime(taf_time_TimeSpec_t* timeValPtr, bool isAllowGetInternalRTCTime);
                 le_result_t GetGnssTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetExSetTimeStatus(void);
                 le_result_t GetAsyncRtcSetTimeStatus(void);

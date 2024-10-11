@@ -343,10 +343,10 @@ le_result_t taf_radio_GetRegisterMode
     TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
         "Invalid para(mncPtrSize: %" PRIuS " < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
 
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.networkManagers.size(), LE_BAD_PARAMETER,
         "Invalid para(phoneId:%d)", phoneId);
 
-    auto &tafRadio = taf_Radio::GetInstance();
     auto networkManager = tafRadio.networkManagers[phoneId - 1];
     TAF_ERROR_IF_RET_VAL(networkManager == nullptr, LE_FAULT,
         "Invalid para(null ptr, phoneId:%d)", phoneId);

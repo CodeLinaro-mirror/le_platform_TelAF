@@ -85,29 +85,78 @@ TelafStatus()
         exit 1
     fi
 }
-
-StartTelaf()
+StartTelafService()
 {
     if ! IsSystemInstalled
     then
         echo "TelAF systems are not installed"
-        exit 1
+        return 1
     fi
 
     # If TelAF is already running.
     if IsFrameworkRunning
     then
         echo "The TelAF Supervisor is already running"
-        exit 0
+        return 0
     fi
 
-    echo "Starting TelAF ..."
+    echo "Starting TelAF service..."
 
     if [ -n "${TELAF_IN_CONTAINER}" ]; then
         # In LXC & Docker containers, don't use systemd
         /mnt/legato/start
     else
         systemctl start telaf
+    fi
+    if [ $? -ne 0 ] ; then
+        echo "Start TelAF service failed"
+        return 1
+    fi
+
+    echo "TelAF service is started"
+    return 0
+}
+
+StartTelafAppGroup()
+{
+    if [ -n "${TELAF_IN_CONTAINER}" ]; then
+        # In LXC & Docker containers, don't use systemd
+        /legato/systems/current/bin/app startGroup
+    else
+        systemctl start telaf.app
+    fi
+    if [ $? -ne 0 ] ; then
+        echo "Start TelAF App group failed"
+        return 1
+    fi
+
+    echo "Start TelAF APP group successful"
+    return 0
+}
+
+StopTelafAppGroup()
+{
+
+    systemctl stop telaf.app
+    if [ $? -ne 0 ] ; then
+        echo "Start TelAF App group failed"
+        return 1
+    fi
+
+    echo "Start TelAF APP group successful"
+    return 0
+}
+
+StartTelaf()
+{
+    StartTelafService
+    if [ $? -ne 0 ] ; then
+        exit 1
+    fi
+
+    StartTelafAppGroup
+    if [ $? -ne 0 ] ; then
+        exit 1
     fi
 
     echo "TelAF is started"
@@ -120,6 +169,9 @@ StopTelaf()
         echo "TelAF systems are not installed"
         exit 1
     fi
+
+    # Stop telaf App group first
+    StopTelafAppGroup
 
     if IsFrameworkRunning
     then

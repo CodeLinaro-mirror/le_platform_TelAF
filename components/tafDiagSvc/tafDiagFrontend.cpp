@@ -133,7 +133,8 @@ COMPONENT_INIT
     }
     catch (const std::exception& e)
     {
-        LE_FATAL("json file is not present");
+        LE_ERROR("json file is not present");
+        exit(EXIT_SUCCESS);
     }
 
     { /* Output all information tafDiagGen tool generated */
@@ -167,7 +168,8 @@ COMPONENT_INIT
         LE_INFO("MD5 of JSON file (runtime): %s", json_md5_runtime_str);
         LE_INFO("MD5 of JSON file (tool-gn): %s", TAFDIAGGEN_JSON_MD5);
 
-        LE_FATAL("MD5 of JSON file [Mismatched], FATAL!");
+        LE_ERROR("MD5 of JSON file [Mismatched], FATAL!");
+        exit(EXIT_SUCCESS);
     }
     else
     {

@@ -1,5 +1,6 @@
 sandboxed: false
 start: auto
+startGroup: 23
 maxThreads: 300
 
 executables:

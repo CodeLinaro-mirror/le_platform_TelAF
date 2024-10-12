@@ -2,7 +2,7 @@ maxThreads: 600
 
 username: telaf
 
-startGroup: 13
+startGroup: 23
 
 capability:
 {

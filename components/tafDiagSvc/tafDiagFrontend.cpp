@@ -38,7 +38,8 @@ COMPONENT_INIT
     }
     catch (const std::exception& e)
     {
-        LE_FATAL("json file is not present");
+        LE_ERROR("json file is not present");
+        exit(EXIT_SUCCESS);
     }
 
     LE_INFO("TelAF UDS DataID service initialization start...");

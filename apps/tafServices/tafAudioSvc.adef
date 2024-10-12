@@ -2,7 +2,7 @@ maxThreads: 600
 
 username: telaf
 
-startGroup: 2
+startGroup: 12
 
 groups:
 {

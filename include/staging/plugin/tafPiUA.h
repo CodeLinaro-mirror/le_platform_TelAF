@@ -58,8 +58,8 @@ typedef void (*TAF_PI_UA_INIT)(void);
 /**
  * Get update session.
  *
- * @param[in]  confFile -- Update session configuration file.
- * @param[out] sessRef  -- Update session reference.
+ * @param[in]  confFile Update session configuration file.
+ * @param[out] sessRef  Update session reference.
  *
  * @return
  * - 0      -- Succeeded.
@@ -72,8 +72,8 @@ typedef int (*TAF_PI_UA_GET_SESSION)(const char* confFile, taf_pi_ua_SessionRef_
 /**
  * Get update agent type.
  *
- * @param[in] sessRef -- Update session reference.
- * @param[out] uaType -- Updater agent type.
+ * @param[in] sessRef Update session reference.
+ * @param[out] uaType Updater agent type.
  *
  * @return
  * - 0      -- Succeeded.
@@ -86,8 +86,8 @@ typedef int (*TAF_PI_UA_GET_UA_TYPE)(taf_pi_ua_SessionRef_t sessRef, taf_pi_ua_U
 /**
  * Start install package
  *
- * @param[in]  sessRef -- Update session reference.
- * @param[in]  pkgFile -- Package file for installation.
+ * @param[in]  sessRef Update session reference.
+ * @param[in]  pkgFile Package file for installation.
  *
  * @return
  * - 0      -- Succeeded.
@@ -100,7 +100,7 @@ typedef int (*TAF_PI_UA_START_INSTALL)(taf_pi_ua_SessionRef_t sessRef, const cha
 /**
  * Pause installation
  *
- * @param[in]  sessRef -- Update session reference.
+ * @param[in]  sessRef Update session reference.
  *
  * @return
  * - 0      -- Succeeded.
@@ -113,7 +113,7 @@ typedef int (*TAF_PI_UA_PAUSE_INSTALL)(taf_pi_ua_SessionRef_t sessRef);
 /**
  * Resume installation
  *
- * @param[in]  sessRef -- Update session reference.
+ * @param[in]  sessRef Update session reference.
  *
  * @return
  * - 0      -- Succeeded.
@@ -126,10 +126,10 @@ typedef int (*TAF_PI_UA_RESUME_INSTALL)(taf_pi_ua_SessionRef_t sessRef);
 /**
  * Get update progress.
  *
- * @param[in]  sessRef -- Update session reference.
- * @param[out] status  -- Update status.
- * @param[out] percent -- Update percentage.
- * @param[out] error   -- Error code in update process.
+ * @param[in]  sessRef Update session reference.
+ * @param[out] status  Update status.
+ * @param[out] percent Update percentage.
+ * @param[out] error   Error code in update process.
  *
  * @return
  * - 0      -- Succeeded.

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -785,6 +785,57 @@ void tafIvssRadioSvc::SetSignalStrengthReportingCriteria
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Add handler function for method 'GetPacketSwitchedState'
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::GetPacketSwitchedStateHandler
+(
+    void* reportPtr
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
+    indPtr->result = taf_radio_GetPacketSwitchedState(&indPtr->getPacketSwitchedState.netState,
+        indPtr->getPacketSwitchedState.phoneId);
+    le_sem_Post(indPtr->semRef);
+
+    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_radio_GetPacketSwitchedState failed - %s",
+        LE_RESULT_TXT(indPtr->result));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the radio power state.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::GetPacketSwitchedState
+(
+    const std::shared_ptr<CommonAPI::ClientId> _client,
+    CommonTypes::PhoneId _phoneId,
+    GetPacketSwitchedStateReply_t _reply
+)
+{
+    // Create a generic response message object.
+    LE_INFO("tafIvssRadioSvc GetPacketSwitchedState \n");
+
+    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
+    memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
+    indPtr->semRef = le_sem_Create("Ivss GetPacketSwitchedStateSem", 0);
+    indPtr->getPacketSwitchedState.phoneId = PhoneIdIvssToUint8(_phoneId);
+
+    // Report to the common COMMONAPI msg handler in service layer.
+    le_event_ReportWithRefCounting(GetPacketSwitchedStateEvent, (void*)indPtr);
+    le_sem_Wait(indPtr->semRef);
+    _reply(ResultLeToIvss(indPtr->result),
+        NetRegRadioToIvss(indPtr->getPacketSwitchedState.netState));
+
+    le_sem_Delete(indPtr->semRef);
+    le_mem_Release(indPtr);
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for GSM signal strength changes.
  */
 //--------------------------------------------------------------------------------------------------
@@ -944,6 +995,7 @@ void tafIvssRadioSvc::Init
         "GetNrDualConnectivityStatusEvent");
     SetSignalStrengthReportingCriteriaEvent = le_event_CreateIdWithRefCounting(
         "SetSignalStrengthReportingCriteriaEvent");
+    GetPacketSwitchedStateEvent = le_event_CreateIdWithRefCounting("GetPacketSwitchedStateEvent");
 
     // Init event handler.
     SetRadioPowerEventHandlerRef = le_event_AddHandler("SetRadioPowerEvent Handler",
@@ -971,6 +1023,9 @@ void tafIvssRadioSvc::Init
     SetSignalStrengthReportingCriteriaEventHandlerRef = le_event_AddHandler(
         "SetSignalStrengthReportingCriteriaEvent Handler", SetSignalStrengthReportingCriteriaEvent,
         tafIvssRadioSvc::SetSignalStrengthReportingCriteriaHandler);
+    GetPacketSwitchedStateEventHandlerRef = le_event_AddHandler(
+        "GetPacketSwitchedStateEvent Handler", GetPacketSwitchedStateEvent,
+        tafIvssRadioSvc::GetPacketSwitchedStateHandler);
 
     // Init commonapi event.
     RatChangeHandlerRef = taf_radio_AddRatChangeHandler(

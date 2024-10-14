@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -105,6 +105,11 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.mod
     method SetSignalStrengthReportingCriteria
     {
         SomeIpMethodID = 0x100B
+    }
+
+    method GetPacketSwitchedState
+    {
+        SomeIpMethodID = 0x100C
     }
 
     broadcast SignalStrength

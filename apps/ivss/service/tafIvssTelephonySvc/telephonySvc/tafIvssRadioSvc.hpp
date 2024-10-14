@@ -249,6 +249,17 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the packet switch state structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;                  ///< [IN] Phone ID.
+    taf_radio_NetRegState_t netState; ///< [OUT] Packet switch state.
+}taf_IvssRadio_GetPacketSwitchedState_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Ivss radio method indication structure
  */
 //--------------------------------------------------------------------------------------------------
@@ -269,6 +280,7 @@ typedef struct
         taf_IvssRadio_GetNetRegState_t getNetRegState;
         taf_IvssRadio_GetNrDualConnectivityStatus_t getNrDualConnectivityStatus;
         taf_IvssRadio_SetSignalStrengthReportingCriteria_t setSignalStrengthReportingCriteria;
+        taf_IvssRadio_GetPacketSwitchedState_t getPacketSwitchedState;
     };
 }taf_IvssRadio_Ind_t;
 
@@ -645,6 +657,8 @@ public:
         CommonTypes::PhoneId _phoneId, RadioSvc::SigType _sigType,
         RadioSvc::SigStrengthIndication _ind, RadioSvc::SigStrengthHysteresis _hyst,
         SetSignalStrengthReportingCriteriaReply_t _reply);
+    virtual void GetPacketSwitchedState(const std::shared_ptr<CommonAPI::ClientId> _client,
+        CommonTypes::PhoneId _phoneId, GetPacketSwitchedStateReply_t _reply);
 
     // ivss method function handler.
     static void SetRadioPowerHandler(void* reportPtr);
@@ -658,6 +672,7 @@ public:
     static void GetNetRegStateHandler(void* reportPtr);
     static void GetNrDualConnectivityStatusHandler(void* reportPtr);
     static void SetSignalStrengthReportingCriteriaHandler(void* reportPtr);
+    static void GetPacketSwitchedStateHandler(void* reportPtr);
 
     // ivss event function handler.
     static void taf_ivss_radio_GsmSsChangeHandler(int32_t ss, int32_t rsrp, uint8_t phoneId,
@@ -689,6 +704,7 @@ public:
     le_event_Id_t GetNetRegStateEvent = NULL;
     le_event_Id_t GetNrDualConnectivityStatusEvent = NULL;
     le_event_Id_t SetSignalStrengthReportingCriteriaEvent = NULL;
+    le_event_Id_t GetPacketSwitchedStateEvent = NULL;
 
     le_event_HandlerRef_t SetRadioPowerEventHandlerRef;
     le_event_HandlerRef_t GetRadioPowerEventHandlerRef;
@@ -701,6 +717,7 @@ public:
     le_event_HandlerRef_t GetNetRegStateEventHandlerRef;
     le_event_HandlerRef_t GetNrDualConnectivityStatusEventHandlerRef;
     le_event_HandlerRef_t SetSignalStrengthReportingCriteriaEventHandlerRef;
+    le_event_HandlerRef_t GetPacketSwitchedStateEventHandlerRef;
 
     // ivss event ref.
     taf_radio_RatChangeHandlerRef_t RatChangeHandlerRef;

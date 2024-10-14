@@ -7,7 +7,7 @@
 /**
  * @page c_tafDiagEvent Diag Event Management Service
  *
- * @ref taf_diagEvent_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_diagEvent_interface.h>` @endrst
  *
  * <HR>
  *
@@ -46,7 +46,7 @@
  *
  * @section c_taf_diagEvent_SetOperationCycleState_API Operation Cycle API
  *
- * taf_diagEvent_SetOperationCycleState can be used to set operation cycle state for the specified
+ * taf_diagEvent_SetOperationCycleState() can be used to set operation cycle state for the specified
  * operation cycle id.
  *
  * The following example illustrates how to start the operation cycle.

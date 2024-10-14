@@ -7,7 +7,7 @@
 /**
  * @page c_tafDiagDataIDStor Diag Data ID Storage Service
  *
- * @ref taf_diagDataIDStor_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_diagDidStore_interface.h>` @endrst
  *
  * <HR>
  *

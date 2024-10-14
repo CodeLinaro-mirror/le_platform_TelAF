@@ -36,7 +36,7 @@
 /**
  * @page c_taf_mngdPm Managed Power Management Service
  *
- * @ref taf_mngdPm_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_mngdPm_interface.h>` @endrst
  *
  * <HR>
  *
@@ -189,7 +189,7 @@
  *
  * @section taf_mngdPm_WakeupVehicleReqAsync Wake up the vehicle
  *
- * TelAF Managed Power Management Service's client calls WakeupVehicleReqAsync() to request
+ * TelAF Managed Power Management Service's client calls taf_mngdPm_WakeupVehicleReqAsync() to request
  * MPMS to wake up the vehicle.
  * This function returns le_result_t.
  * @verbatim

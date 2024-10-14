@@ -7,7 +7,7 @@
 /**
  * @page c_tafVerInfo Version Information Service
  *
- * @ref taf_verInfo_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_verInfo_interface.h>` @endrst
  *
  * <HR>
  *
@@ -87,13 +87,13 @@
  *
  * @section taf_verInfo_GetTelafVersion Get the TelAF version
  *
- * - taf_verInfo_GetTelafVersion() -- Gets the TelAF version.
+ * - taf_verInfo_GetTelAFVersion() -- Gets the TelAF version.
  *
  * The following example illustrates how to get the TelAF version.
  *
  * @code
         char version[TAF_VERINFO_VERSION_MAX_BYTES];
-        le_result_t result = taf_verInfo_GetTelafVersion(version, sizeof(version));
+        le_result_t result = taf_verInfo_GetTelAFVersion(version, sizeof(version));
         if(result == LE_OK)
         {
             LE_INFO("TelAF version: %s", version);
@@ -106,13 +106,13 @@
  *
  * @section taf_verInfo_GetRootfsVersion Get the root file system version
  *
- * - taf_verInfo_GetRootfsVersion() -- Gets the root file system version.
+ * - taf_verInfo_GetRootFSVersion() -- Gets the root file system version.
  *
  * The following example illustrates how to get the root file system version.
  *
  * @code
         char version[TAF_VERINFO_VERSION_MAX_BYTES];
-        le_result_t result = taf_verInfo_GetRootfsVersion(version, sizeof(version));
+        le_result_t result = taf_verInfo_GetRootFSVersion(version, sizeof(version));
         if(result == LE_OK)
         {
             LE_INFO("RootFS version: %s", version);
@@ -144,13 +144,13 @@
  *
  * @section taf_verInfo_GetTelafHash Get the TelAF hash
  *
- * - taf_verInfo_GetTelafHash() -- Gets the TelAF hash.
+ * - taf_verInfo_GetTelAFHash() -- Gets the TelAF hash.
  *
  * The following example illustrates how to get the TelAF hash.
  *
  * @code
         uint8_t hash[TAF_VERINFO_HASH_MAX_BYTES];
-        le_result_t result = taf_verInfo_GetTelafHash(hash, sizeof(hash));
+        le_result_t result = taf_verInfo_GetTelAFHash(hash, sizeof(hash));
         if(result == LE_OK)
         {
             LE_INFO("TelAF hash: %s", hash);
@@ -163,13 +163,13 @@
  *
  * @section taf_verInfo_GetRootfsHash Get the root file system hash
  *
- * - taf_verInfo_GetRootfsHash() -- Gets the root file system hash.
+ * - taf_verInfo_GetRootFSHash() -- Gets the root file system hash.
  *
  * The following example illustrates how to get the root file system hash.
  *
  * @code
         uint8_t hash[TAF_VERINFO_HASH_MAX_BYTES];
-        le_result_t result = taf_verInfo_GetRootfsHash(hash, sizeof(hash));
+        le_result_t result = taf_verInfo_GetRootFSHash(hash, sizeof(hash));
         if(result == LE_OK)
         {
             LE_INFO("RootFS hash: %s", hash);

@@ -7,7 +7,7 @@
 /**
  * @page c_tafsensor Sensor Management Service
  *
- * @ref taf_imuSensor_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_imuSensor_interface.h>` @endrst
  *
  * <HR>
  *
@@ -92,8 +92,7 @@
     result = taf_imuSensor_DeleteSensorList(headTSensorListRef)
   @endverbatim
  *
- * @section taf_imuSensor_SetRefCoordinateByEulerAngle  Set the reference coordinate system by
- * euler angle
+ * @section taf_imuSensor_SetRefCoordinateByEulerAngle  Set the reference coordinate system by euler angle
  *
  * TelAF Sensor Management Service provides APIs to set the reference coordinate system by
  * euler angle to get rotated sensor data. The client calls
@@ -128,7 +127,7 @@
     le_result_t result  =  taf_imuSensor_Activate(sensorRef,samplingRate,batchCount);
    @endverbatim
  *
- * taf_imuSensor_AddDataHandler and taf_imuSensor_RemoveDataHandler are used for the client
+ * taf_imuSensor_AddDataHandler() and taf_imuSensor_RemoveDataHandler() are used for the client
  * application to register or unregister the handler to subscribe or unsubscribe the notification
  * when there is a sensor data calculated.
  *
@@ -154,7 +153,7 @@
  * @section taf_imuSensor_SelfTest  Initiate self test
  *
  * TelAF Sensor Management Service provides APIs to test whether the sensor is working properly or
- * not. The client calls taf_imuSensor_SelfTest() to initiate test . This function takes two input
+ * not. The client calls taf_imuSensor_SelfTest() to initiate test. This function takes two input
  * parameters. The first is sensor reference. The second is mode of test.
  *
  * @verbatim

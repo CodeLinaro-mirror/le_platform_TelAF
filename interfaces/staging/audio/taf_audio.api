@@ -36,7 +36,7 @@
 /**
  * @page c_taf_audio Audio Service
  *
- * @ref taf_audio_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_audio_interface.h>` @endrst
  *
  * <HR>
  *

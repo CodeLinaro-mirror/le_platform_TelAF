@@ -522,6 +522,7 @@ namespace tafsvc {
      */
     class taf_RadioSignalStrengthCallback : public telux::tel::ISignalStrengthCallback {
     public:
+        le_sem_Ref_t semaphore;
         le_result_t result;
         taf_RadioSignalMetrics_t ssMetrics;
         /*
@@ -870,7 +871,6 @@ namespace tafsvc {
         le_event_Id_t netRegRejEvId;
         static le_event_Id_t radioCmdEvId;
 
-        le_sem_Ref_t cbSem;
         bool subSystemStatusUpdated = false;
         int32_t netRejectCause = TAF_RADIO_NET_REJ_CAUSE_UNDEFINED;
         std::mutex mtx;

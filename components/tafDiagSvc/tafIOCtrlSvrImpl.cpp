@@ -367,8 +367,12 @@ void taf_IOCtrlSvr::RxIOCtrlEventHandler
     taf_IOCtrlSvc_t* servicePtr = NULL;
     taf_IOCtrlHandler_t* handlerObjPtr = NULL;
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     servicePtr = (taf_IOCtrlSvc_t*)ioCtrl.GetServiceObj(rxIOCtrlMsgPtr->dataID,
         rxIOCtrlMsgPtr->addrInfo.vlanId);
+#else
+    servicePtr = (taf_IOCtrlSvc_t*)ioCtrl.GetServiceObj(rxIOCtrlMsgPtr->dataID, (uint16_t)0);
+#endif
     if (servicePtr == NULL)
     {
         LE_WARN("Not found registered IOCtrl service for this request!");
@@ -556,8 +560,13 @@ le_result_t taf_IOCtrlSvr::SendResp
     }
 
     taf_IOCtrlSvc_t* servicePtr = NULL;
+
+#ifndef LE_CONFIG_DIAG_VSTACK
     servicePtr = (taf_IOCtrlSvc_t*)GetServiceObj(rxIOCtrlMsgPtr->dataID,
         rxIOCtrlMsgPtr->addrInfo.vlanId);
+#else
+    servicePtr = (taf_IOCtrlSvc_t*)GetServiceObj(rxIOCtrlMsgPtr->dataID, (uint16_t)0);
+#endif
     if (servicePtr == NULL)
     {
         LE_ERROR("Not found registered IOCtrl service for this request!");
@@ -570,8 +579,10 @@ le_result_t taf_IOCtrlSvr::SendResp
     addrInfo.sa = rxIOCtrlMsgPtr->addrInfo.ta;
     addrInfo.ta = rxIOCtrlMsgPtr->addrInfo.sa;
     addrInfo.taType = rxIOCtrlMsgPtr->addrInfo.taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
     addrInfo.vlanId = rxIOCtrlMsgPtr->addrInfo.vlanId;
     le_utf8_Copy(addrInfo.ifName, rxIOCtrlMsgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
 
     if (errCode == 0)
     {
@@ -635,8 +646,10 @@ le_result_t taf_IOCtrlSvr::SendNRCResp
     addrInfo.sa = addrInfoPtr->ta;
     addrInfo.ta = addrInfoPtr->sa;
     addrInfo.taType = addrInfoPtr->taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
     addrInfo.vlanId = addrInfoPtr->vlanId;
     le_utf8_Copy(addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
 
     // Call UDS function to send the response message.
     auto &backend = taf_DiagBackend::GetInstance();
@@ -750,6 +763,7 @@ le_result_t taf_IOCtrlSvr::SetVlanId
     taf_IOCtrlSvc_t* servicePtr = (taf_IOCtrlSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     // Check if the vlan is set.
     le_dls_Link_t* linkPtr = NULL;
     linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
@@ -778,6 +792,9 @@ le_result_t taf_IOCtrlSvr::SetVlanId
     le_dls_Queue(&servicePtr->supportedVlanList, &vlanPtr->link);
 
     return LE_OK;
+#else
+    return LE_NOT_IMPLEMENTED;
+#endif
 }
 
 le_result_t taf_IOCtrlSvr::GetVlanIdFromMsg
@@ -788,6 +805,7 @@ le_result_t taf_IOCtrlSvr::GetVlanIdFromMsg
 {
     TAF_ERROR_IF_RET_VAL(vlanIdPtr == NULL, LE_BAD_PARAMETER, "Invalid vlanIdPtr");
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     taf_IOCtrlRxMsg_t* rxMsgPtr = (taf_IOCtrlRxMsg_t*)
         le_ref_Lookup(RxMsgRefMap, rxMsgRef);
     if (rxMsgPtr == NULL)
@@ -799,6 +817,9 @@ le_result_t taf_IOCtrlSvr::GetVlanIdFromMsg
     *vlanIdPtr = rxMsgPtr->addrInfo.vlanId;
 
     return LE_OK;
+#else
+    return LE_NOT_IMPLEMENTED;
+#endif
 }
 
 //--------------------------------------------------------------------------------------------------

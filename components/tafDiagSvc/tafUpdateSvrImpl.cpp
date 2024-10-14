@@ -892,7 +892,11 @@ void taf_UpdateSvr::programmingInterrupt(uint16_t vlanId)
 {
     taf_UpdateSvr& update = taf_UpdateSvr::GetInstance();
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     taf_UpdateSvc_t* svcPtr = update.FindSvcInList(vlanId);
+#else
+    taf_UpdateSvc_t* svcPtr = update.FindSvcInList((uint16_t)0);
+#endif
     if (svcPtr != NULL)
     {
         svcPtr->state = TAF_DIAG_UPDATE_INIT; // reset the state-machine
@@ -917,7 +921,11 @@ void taf_UpdateSvr::RxFileXferEventHandler
     msgPtr = (taf_FileXferRxMsg_t*)reportPtr;
     taf_UpdateSvr& update = taf_UpdateSvr::GetInstance();
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     svcPtr = update.FindSvcInList(msgPtr->addrInfo.vlanId);
+#else
+    svcPtr = update.FindSvcInList((uint16_t)0);
+#endif
     if (svcPtr == NULL)
     {
         LE_ERROR("Not found registered update service for this request");
@@ -977,8 +985,10 @@ errOut:
     addrInfo.sa = msgPtr->addrInfo.ta;
     addrInfo.ta = msgPtr->addrInfo.sa;
     addrInfo.taType = msgPtr->addrInfo.taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
     addrInfo.vlanId = msgPtr->addrInfo.vlanId;
     le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
     update.RspNegativeMsg(&addrInfo, msgPtr->serviceId, nrc);
 
     le_ref_DeleteRef(update.RxFileXferMsgRefMap, msgPtr->rxMsgRef);
@@ -1003,7 +1013,11 @@ void taf_UpdateSvr::RxXferDataEventHandler
     msgPtr = (taf_XferDataRxMsg_t*)reportPtr;
     taf_UpdateSvr& update = taf_UpdateSvr::GetInstance();
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     svcPtr = update.FindSvcInList(msgPtr->addrInfo.vlanId);
+#else
+    svcPtr = update.FindSvcInList((uint16_t)0);
+#endif
     if (svcPtr == NULL)
     {
         LE_DEBUG("Not found registered update service for this request");
@@ -1057,8 +1071,10 @@ errOut:
     addrInfo.sa = msgPtr->addrInfo.ta;
     addrInfo.ta = msgPtr->addrInfo.sa;
     addrInfo.taType = msgPtr->addrInfo.taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
     addrInfo.vlanId = msgPtr->addrInfo.vlanId;
     le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
     update.RspNegativeMsg(&addrInfo, msgPtr->serviceId, nrc);
 
     le_ref_DeleteRef(update.RxXferDataMsgRefMap, msgPtr->rxMsgRef);
@@ -1083,7 +1099,11 @@ void taf_UpdateSvr::RxXferExitEventHandler
     msgPtr = (taf_XferExitRxMsg_t*)reportPtr;
     taf_UpdateSvr& update = taf_UpdateSvr::GetInstance();
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     svcPtr = update.FindSvcInList(msgPtr->addrInfo.vlanId);
+#else
+    svcPtr = update.FindSvcInList((uint16_t)0);
+#endif
     if (svcPtr == NULL)
     {
         LE_DEBUG("Not found registered update service for this request");
@@ -1134,8 +1154,10 @@ errOut:
     addrInfo.sa = msgPtr->addrInfo.ta;
     addrInfo.ta = msgPtr->addrInfo.sa;
     addrInfo.taType = msgPtr->addrInfo.taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
     addrInfo.vlanId = msgPtr->addrInfo.vlanId;
     le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
     update.RspNegativeMsg(&addrInfo, msgPtr->serviceId, nrc);
 
     le_ref_DeleteRef(update.RxXferExitMsgRefMap, msgPtr->rxMsgRef);
@@ -1393,7 +1415,11 @@ le_result_t taf_UpdateSvr::SendFileXferResp
     }
 
     // Get the service.
+#ifndef LE_CONFIG_DIAG_VSTACK
     taf_UpdateSvc_t* svcPtr = FindSvcInList(msgPtr->addrInfo.vlanId);
+#else
+    taf_UpdateSvc_t* svcPtr = FindSvcInList((uint16_t)0);
+#endif
     if (svcPtr == NULL)
     {
         LE_ERROR("Not found registered update service for this request");
@@ -1404,8 +1430,10 @@ le_result_t taf_UpdateSvr::SendFileXferResp
     addrInfo.sa = msgPtr->addrInfo.ta;
     addrInfo.ta = msgPtr->addrInfo.sa;
     addrInfo.taType = msgPtr->addrInfo.taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
     addrInfo.vlanId = msgPtr->addrInfo.vlanId;
     le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
     if (errCode == TAF_DIAGUPDATE_FILE_XFER_NO_ERROR)
     {
         uint8_t *buffer = NULL ;
@@ -1502,7 +1530,11 @@ le_result_t taf_UpdateSvr::ReleaseRxFileXferMsg
         return LE_NOT_FOUND;
     }
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     svcPtr = FindSvcInList(msgPtr->addrInfo.vlanId);
+#else
+    svcPtr = FindSvcInList((uint16_t)0);
+#endif
     if (svcPtr == NULL)
     {
         LE_ERROR("Cannot find the update service");
@@ -1618,7 +1650,11 @@ le_result_t taf_UpdateSvr::SendXferDataResp
     }
 
     // Get the service.
+#ifndef LE_CONFIG_DIAG_VSTACK
     taf_UpdateSvc_t* svcPtr = FindSvcInList(msgPtr->addrInfo.vlanId);
+#else
+    taf_UpdateSvc_t* svcPtr = FindSvcInList((uint16_t)0);
+#endif
     if (svcPtr == NULL)
     {
         LE_ERROR("Not found registered update service for this request");
@@ -1629,8 +1665,10 @@ le_result_t taf_UpdateSvr::SendXferDataResp
     addrInfo.sa = msgPtr->addrInfo.ta;
     addrInfo.ta = msgPtr->addrInfo.sa;
     addrInfo.taType = msgPtr->addrInfo.taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
     addrInfo.vlanId = msgPtr->addrInfo.vlanId;
     le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
     if (errCode == TAF_DIAGUPDATE_XFER_DATA_NO_ERROR)
     {
         ret = RspPositiveMsg(&addrInfo, msgPtr->serviceId, dataPtr, dataSize);
@@ -1679,7 +1717,11 @@ le_result_t taf_UpdateSvr::ReleaseRxXferDataMsg
         return LE_NOT_FOUND;
     }
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     svcPtr = FindSvcInList(msgPtr->addrInfo.vlanId);
+#else
+    svcPtr = FindSvcInList((uint16_t)0);
+#endif
     if (svcPtr == NULL)
     {
         LE_ERROR("Cannot find the update service");
@@ -1774,7 +1816,11 @@ le_result_t taf_UpdateSvr::SendXferExitResp
     }
 
     // Get the service.
+#ifndef LE_CONFIG_DIAG_VSTACK
     taf_UpdateSvc_t* svcPtr = FindSvcInList(msgPtr->addrInfo.vlanId);
+#else
+    taf_UpdateSvc_t* svcPtr = FindSvcInList((uint16_t)0);
+#endif
     if (svcPtr == NULL)
     {
         LE_ERROR("Not found registered update service for this request");
@@ -1785,8 +1831,10 @@ le_result_t taf_UpdateSvr::SendXferExitResp
     addrInfo.sa = msgPtr->addrInfo.ta;
     addrInfo.ta = msgPtr->addrInfo.sa;
     addrInfo.taType = msgPtr->addrInfo.taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
     addrInfo.vlanId = msgPtr->addrInfo.vlanId;
     le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
     if (errCode == TAF_DIAGUPDATE_XFER_EXIT_NO_ERROR)
     {
         ret = RspPositiveMsg(&addrInfo, msgPtr->serviceId, dataPtr, dataSize);
@@ -1835,7 +1883,11 @@ le_result_t taf_UpdateSvr::ReleaseRxXferExitMsg
         return LE_NOT_FOUND;
     }
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     svcPtr = FindSvcInList(msgPtr->addrInfo.vlanId);
+#else
+    svcPtr = FindSvcInList((uint16_t)0);
+#endif
     if (svcPtr == NULL)
     {
         LE_ERROR("Cannot find the update service");
@@ -1863,6 +1915,7 @@ le_result_t taf_UpdateSvr::SetVlanId
     taf_UpdateSvc_t* servicePtr = (taf_UpdateSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     // Check if the vlan is set.
     le_dls_Link_t* linkPtr = NULL;
     linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
@@ -1891,6 +1944,9 @@ le_result_t taf_UpdateSvr::SetVlanId
     le_dls_Queue(&servicePtr->supportedVlanList, &vlanPtr->link);
 
     return LE_OK;
+#else
+    return LE_NOT_IMPLEMENTED;
+#endif
 }
 
 le_result_t taf_UpdateSvr::GetVlanIdFromMsg
@@ -1901,6 +1957,7 @@ le_result_t taf_UpdateSvr::GetVlanIdFromMsg
 {
     TAF_ERROR_IF_RET_VAL(vlanIdPtr == NULL, LE_BAD_PARAMETER, "Invalid vlanIdPtr");
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     taf_FileXferRxMsg_t* fileXferMsgPtr = (taf_FileXferRxMsg_t*)
         le_ref_Lookup(RxFileXferMsgRefMap, rxMsgRef);
     if (fileXferMsgPtr != NULL)
@@ -1927,4 +1984,7 @@ le_result_t taf_UpdateSvr::GetVlanIdFromMsg
 
     LE_ERROR("Can not find the rxMsgRef");
     return LE_FAULT;
+#else
+    return LE_NOT_IMPLEMENTED;
+#endif
 }

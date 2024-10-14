@@ -2489,8 +2489,8 @@ void taf_Radio::Init(void)
         cellularCapsCb->semaphore = le_sem_Create("CellCapsCbSem", 0);
         dataInfoCb.semaphore = le_sem_Create("dataInfoCbSem", 0);
         opNameCb.semaphore = le_sem_Create("OopNameCbSem", 0);
-        opNameCb.longOpNamePtr[TAF_RADIO_NETWORK_NAME_MAX_LEN] = {0};
-        opNameCb.shortOpNamePtr[TAF_RADIO_NETWORK_NAME_MAX_LEN] = {0};
+        memset(opNameCb.longOpNamePtr, 0, TAF_RADIO_NETWORK_NAME_MAX_LEN);
+        memset(opNameCb.shortOpNamePtr, 0, TAF_RADIO_NETWORK_NAME_MAX_LEN);
 
         for (size_t index = 1; index <= phoneIds.size(); index++)
         {

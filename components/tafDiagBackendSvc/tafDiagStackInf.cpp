@@ -477,9 +477,22 @@ Tdd_DG_Status taf_DiagStack::AP_SuppSecAlg
         diagReqMsgPtr = (taf_DiagReqMsg_t *)le_mem_ForceAlloc(DiagMsgPool);
         memset(diagReqMsgPtr, 0, sizeof(taf_DiagReqMsg_t));
 
+        LE_INFO("SecurityLevel: %x", SecurityLevel);
+        LE_INFO("KeyLength: %hu", KeyLength);
+        for(int i=0;i<KeyLength;i++)
+        {
+            LE_INFO("KeyValue: %x",Key[i]);
+        }
+
+        LE_INFO("SeedLength: %hu",SeedLength);
+        for(int j=0;j<SeedLength;j++)
+        {
+            LE_INFO("SeedValue: %x",SeedValue[j]);
+        }
+
         diagReqMsgPtr->svcId = SID_SECURITY_ACCESS;
         diagReqMsgPtr->data[0] = SID_SECURITY_ACCESS;
-        diagReqMsgPtr->data[1] = SecurityLevel;
+        diagReqMsgPtr->data[1] = SecurityLevel+1;
 
         size_t dataRecLen = SECURITY_ACCESS_REQ_BASE_LEN;
 
@@ -1146,6 +1159,7 @@ void taf_DiagStack::DiagEventRespEvtHandler
     {
         LE_DEBUG("Send NRC response");
         //Negative response.
+        LE_DEBUG("Error code: %d",diagEventRespMsgPtr->errCode);
         std::lock_guard<std::mutex> lock(cb.ResponseStatusMtx);
         cb.nrcValue = diagEventRespMsgPtr->errCode;
         cb.ResponseStatus = FAILED;

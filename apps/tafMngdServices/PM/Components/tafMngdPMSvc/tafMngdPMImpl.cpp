@@ -1059,9 +1059,9 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
         {
             res = taf_pm_StayAwake(ws);
             if(res == LE_OK) {
-                LE_INFO("Wake source from PM acquired successfully");
                 powerMode.isWsAcquired = true;
                 wsCount++;
+                LE_INFO("Acquired WakeLock wsCount:%d", wsCount);
             }
             else
             {
@@ -1075,11 +1075,10 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
     }
     else
     {
-        LE_INFO("Wake source from PM acquired successfully");
         wsCount++;
+        LE_INFO("Acquired WakeLock wsCount:%d", wsCount);
         res = LE_OK;
     }
-    LE_INFO("AcquireWakeLock wsCount:%d", wsCount);
     return res;
 }
 

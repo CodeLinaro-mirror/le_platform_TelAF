@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -11,6 +11,15 @@
 #include <CommonAPI/CommonAPI.hpp>
 
 using namespace v0::com::qualcomm::qti::modem;
+
+#define TAF_IVSS_ERROR_IF_RET_NIL(condition, semRef, formatString, ...) \
+    do { \
+        if (condition) { \
+            le_sem_Post(semRef); \
+            LE_ERROR(formatString, ##__VA_ARGS__); \
+            return; \
+        } \
+    } while(0);
 
 inline CommonTypes::OnOffType OnoffLeToIvss(le_onoff_t onoff)
 {

@@ -49,6 +49,108 @@ using namespace telux::tafsvc;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Covert RF band bitmask.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_BandBitMask_t taf_radio_CovertRFBand
+(
+    std::shared_ptr<telux::tel::IRFBandList> list ///< [IN] RF band list.
+)
+{
+    taf_radio_BandBitMask_t bitmask = 0;
+    std::vector<telux::tel::GsmRFBand> gsmBands = list->getGsmBands();
+    if(!gsmBands.empty())
+    {
+        for (auto gsmBand : gsmBands)
+        {
+            switch (gsmBand)
+            {
+                case telux::tel::GsmRFBand::GSM_450:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_GSM_BAND_450;
+                    break;
+                case telux::tel::GsmRFBand::GSM_480:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_GSM_BAND_480;
+                    break;
+                case telux::tel::GsmRFBand::GSM_750:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_GSM_BAND_750;
+                    break;
+                case telux::tel::GsmRFBand::GSM_850:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_GSM_BAND_850;
+                    break;
+                case telux::tel::GsmRFBand::GSM_900_EXTENDED:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_CLASS_E_GSM_900_BAND;
+                    break;
+                case telux::tel::GsmRFBand::GSM_900_PRIMARY:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_CLASS_P_GSM_900_BAND;
+                    break;
+                case telux::tel::GsmRFBand::GSM_900_RAILWAYS:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_GSM_BAND_RAILWAYS_900_BAND;
+                    break;
+                case telux::tel::GsmRFBand::GSM_1800:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_CLASS_GSM_DCS_1800_BAND;
+                    break;
+                case telux::tel::GsmRFBand::GSM_1900:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_GSM_PCS_1900_BAND;
+                    break;
+                default:
+                    LE_ERROR("Invalid GSM band.");
+                    break;
+            }
+        }
+    }
+
+    std::vector<telux::tel::WcdmaRFBand> wcdmaBands = list->getWcdmaBands();
+    if(!wcdmaBands.empty())
+    {
+        for (auto wcdmaBand : wcdmaBands)
+        {
+            switch (wcdmaBand)
+            {
+                case telux::tel::WcdmaRFBand::WCDMA_2100:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_J_CH_IMT_2100_BAND;
+                    break;
+                case telux::tel::WcdmaRFBand::WCDMA_PCS_1900:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_WCDMA_US_PCS_1900_BAND;
+                    break;
+                case telux::tel::WcdmaRFBand::WCDMA_DCS_1800:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_EU_CH_DCS_1800_BAND;
+                    break;
+                case telux::tel::WcdmaRFBand::WCDMA_1700_US:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_WCDMA_US_1700_BAND;
+                    break;
+                case telux::tel::WcdmaRFBand::WCDMA_850:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_WCDMA_US_850_BAND;
+                    break;
+                case telux::tel::WcdmaRFBand::WCDMA_800:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_WCDMA_JAPAN_800_BAND;
+                    break;
+                case telux::tel::WcdmaRFBand::WCDMA_2600:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_2600_BAND;
+                    break;
+                case telux::tel::WcdmaRFBand::WCDMA_900:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_J_900_BAND;
+                    break;
+                case telux::tel::WcdmaRFBand::WCDMA_1700_JAPAN:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_J_1700_BAND;
+                    break;
+                case telux::tel::WcdmaRFBand::WCDMA_1500_JAPAN:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_WCDMA_JAPAN_1500_BAND;
+                    break;
+                case telux::tel::WcdmaRFBand::WCDMA_850_JAPAN:
+                    bitmask |= TAF_RADIO_BAND_BIT_MASK_WCDMA_JAPAN_850_BAND;
+                    break;
+                default:
+                    LE_ERROR("Invalid WCDMA band.");
+                    break;
+            }
+        }
+    }
+
+    return bitmask;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Listener for network scan results.
  */
 //--------------------------------------------------------------------------------------------------
@@ -126,6 +228,72 @@ void taf_RadioServSysListener::onSystemInfoChanged
         ratChangeIndPtr->phoneId = phone;
         le_event_ReportWithRefCounting(tafRadio.ratChangeEvId, (void*)ratChangeIndPtr);
     }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Listener for network rejection.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioServSysListener::onNetworkRejection
+(
+    telux::tel::NetworkRejectInfo rejectInfo ///< [IN] Network rejection information.
+)
+{
+    LE_DEBUG("<SDK Listener> taf_RadioServSysListener --> onNetworkRejection");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    taf_radio_NetRegRejInd_t* netRegRejIndPtr =
+        (taf_radio_NetRegRejInd_t*)le_mem_ForceAlloc(tafRadio.netRegRejPool);
+    netRegRejIndPtr->rat = tafRadio.taf_radio_CovertRat(rejectInfo.rejectSrvInfo.rat);
+    le_utf8_Copy(netRegRejIndPtr->mcc, rejectInfo.mcc.c_str(), TAF_RADIO_MCC_BYTES, NULL);
+    le_utf8_Copy(netRegRejIndPtr->mnc, rejectInfo.mnc.c_str(), TAF_RADIO_MNC_BYTES, NULL);
+    switch (rejectInfo.rejectSrvInfo.domain)
+    {
+        case telux::tel::ServiceDomain::NO_SRV:
+            netRegRejIndPtr->domain = TAF_RADIO_SERVICE_DOMAIN_STATE_NO_SVC;
+            break;
+        case telux::tel::ServiceDomain::CS_ONLY:
+            netRegRejIndPtr->domain = TAF_RADIO_SERVICE_DOMAIN_STATE_CS_ONLY;
+            break;
+        case telux::tel::ServiceDomain::PS_ONLY:
+            netRegRejIndPtr->domain = TAF_RADIO_SERVICE_DOMAIN_STATE_PS_ONLY;
+            break;
+        case telux::tel::ServiceDomain::CS_PS:
+            netRegRejIndPtr->domain = TAF_RADIO_SERVICE_DOMAIN_STATE_CS_AND_PS;
+            break;
+        case telux::tel::ServiceDomain::CAMPED:
+            netRegRejIndPtr->domain = TAF_RADIO_SERVICE_DOMAIN_STATE_CAMPED;
+            break;
+        case telux::tel::ServiceDomain::UNKNOWN:
+        default:
+            netRegRejIndPtr->domain = TAF_RADIO_SERVICE_DOMAIN_STATE_UNKNOWN;
+            break;
+    }
+    netRegRejIndPtr->phoneId = phone;
+    tafRadio.netRejectCause = (int32_t)rejectInfo.rejectCause;
+    le_event_ReportWithRefCounting(tafRadio.netRegRejEvId, (void*)netRegRejIndPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Listener for LTE CS capability change.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioServSysListener::onLteCsCapabilityChanged
+(
+    telux::tel::LteCsCapability lteCapability ///< [IN] LTE CS Capability.
+)
+{
+    LE_DEBUG("<SDK Listener> taf_RadioServSysListener --> onLteCsCapabilityChanged");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    taf_RadioNetStatusInd_t* statusPtr =
+        (taf_RadioNetStatusInd_t*)le_mem_ForceAlloc(tafRadio.netStatusPool);
+    statusPtr->phoneId = phone;
+    statusPtr->bitmask = TAF_RADIO_NET_STATUS_IND_BIT_MASK_LTE_CS_CAP;
+    statusPtr->netStatusRef = tafRadio.netStatusRefs[phone - 1];
+    le_event_ReportWithRefCounting(tafRadio.netStatusEvId, (void*)statusPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -691,7 +859,6 @@ void taf_RadioCellularCapsCallback::cellularCapabilityResponse
     le_sem_Post(semaphore);
 }
 
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Semaphore for configuring signal strength.
@@ -1111,6 +1278,12 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.gsm.ta = gsmCellInfo->getSignalStrengthInfo().getTimingAdvance();
                     cellIdInfo.gsm.arfcn = gsmCellInfo->getCellIdentity().getArfcn();
                     cellIdInfo.ss = gsmCellInfo->getSignalStrengthInfo().getDbm();
+                    le_utf8_Copy(cellIdInfo.mcc,
+                        gsmCellInfo->getCellIdentity().getMobileCountryCode().c_str(),
+                        TAF_RADIO_MCC_BYTES, NULL);
+                    le_utf8_Copy(cellIdInfo.mnc,
+                        gsmCellInfo->getCellIdentity().getMobileNetworkCode().c_str(),
+                        TAF_RADIO_MNC_BYTES, NULL);
                     if (gsmCellInfo->isRegistered())
                     {
                         cellListInfo.servingCell.push_back(
@@ -1151,6 +1324,12 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.umts.psc = umtsCellInfo->getCellIdentity().getPrimaryScramblingCode();
                     cellIdInfo.umts.uarfcn = umtsCellInfo->getCellIdentity().getUarfcn();
                     cellIdInfo.ss = umtsCellInfo->getSignalStrengthInfo().getDbm();
+                    le_utf8_Copy(cellIdInfo.mcc,
+                        umtsCellInfo->getCellIdentity().getMobileCountryCode().c_str(),
+                        TAF_RADIO_MCC_BYTES, NULL);
+                    le_utf8_Copy(cellIdInfo.mnc,
+                        umtsCellInfo->getCellIdentity().getMobileNetworkCode().c_str(),
+                        TAF_RADIO_MNC_BYTES, NULL);
                     if (umtsCellInfo->isRegistered())
                     {
                         cellListInfo.servingCell.push_back(
@@ -1170,6 +1349,12 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.tdscdma.cid = tdscdmaCellInfo->getCellIdentity().getIdentity();
                     cellIdInfo.tdscdma.lac = tdscdmaCellInfo->getCellIdentity().getLac();
                     cellIdInfo.ss = tdscdmaCellInfo->getSignalStrengthInfo().getRscp();
+                    le_utf8_Copy(cellIdInfo.mcc,
+                        tdscdmaCellInfo->getCellIdentity().getMobileCountryCode().c_str(),
+                        TAF_RADIO_MCC_BYTES, NULL);
+                    le_utf8_Copy(cellIdInfo.mnc,
+                        tdscdmaCellInfo->getCellIdentity().getMobileNetworkCode().c_str(),
+                        TAF_RADIO_MNC_BYTES, NULL);
                     if (tdscdmaCellInfo->isRegistered())
                     {
                         cellListInfo.servingCell.push_back(
@@ -1192,6 +1377,12 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.lte.earfcn = lteCellInfo->getCellIdentity().getEarfcn();
                     cellIdInfo.lte.ta = lteCellInfo->getSignalStrengthInfo().getTimingAdvance();
                     cellIdInfo.ss = lteCellInfo->getSignalStrengthInfo().getDbm();
+                    le_utf8_Copy(cellIdInfo.mcc,
+                        lteCellInfo->getCellIdentity().getMobileCountryCode().c_str(),
+                        TAF_RADIO_MCC_BYTES, NULL);
+                    le_utf8_Copy(cellIdInfo.mnc,
+                        lteCellInfo->getCellIdentity().getMobileNetworkCode().c_str(),
+                        TAF_RADIO_MNC_BYTES, NULL);
                     if (lteCellInfo->isRegistered())
                     {
                         cellListInfo.servingCell.push_back(
@@ -1213,6 +1404,12 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.nr5g.tac = nr5gCellInfo->getCellIdentity().getTrackingAreaCode();
                     cellIdInfo.nr5g.arfcn = nr5gCellInfo->getCellIdentity().getArfcn();
                     cellIdInfo.ss = nr5gCellInfo->getSignalStrengthInfo().getDbm();
+                    le_utf8_Copy(cellIdInfo.mcc,
+                        nr5gCellInfo->getCellIdentity().getMobileCountryCode().c_str(),
+                        TAF_RADIO_MCC_BYTES, NULL);
+                    le_utf8_Copy(cellIdInfo.mnc,
+                        nr5gCellInfo->getCellIdentity().getMobileNetworkCode().c_str(),
+                        TAF_RADIO_MNC_BYTES, NULL);
                     if (nr5gCellInfo->isRegistered())
                     {
                         cellListInfo.servingCell.push_back(
@@ -1535,6 +1732,229 @@ void taf_RadioImsSettingCallback::onRequestImsSipUserAgentConfig
         {
             le_utf8_Copy(sipUserAgentPtr, sipUserAgent.c_str(),
                 TAF_RADIO_IMS_USER_AGENT_BYTES, NULL);
+        }
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Semaphore for getting selection mode.
+ */
+//--------------------------------------------------------------------------------------------------
+le_sem_Ref_t taf_RadioSelectionModeResponseCallback::semaphore = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Result of getting selection mode.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_RadioSelectionModeResponseCallback::result = LE_OK;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Network selection mode information.
+ */
+//--------------------------------------------------------------------------------------------------
+telux::tel::NetworkModeInfo taf_RadioSelectionModeResponseCallback::selectModeInfo;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for getting selection mode.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioSelectionModeResponseCallback::selectionModeResponse
+(
+    telux::tel::NetworkModeInfo info, ///< [IN] Network mode information.
+    telux::common::ErrorCode error    ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioSelectionModeResponseCallback --> selectionModeResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        result = LE_OK;
+    }
+
+    selectModeInfo = info;
+    le_sem_Post(semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Semaphore for getting RF band capability.
+ */
+//--------------------------------------------------------------------------------------------------
+le_sem_Ref_t taf_RadioRFBandCapabilityResponseCallback::semaphore = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Result of getting RF band capability.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_RadioRFBandCapabilityResponseCallback::result = LE_OK;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * GSM and WCDMA RF band capability.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_BandBitMask_t taf_RadioRFBandCapabilityResponseCallback::bandCapability = 0;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * LTE RF band capability.
+ */
+//--------------------------------------------------------------------------------------------------
+uint64_t taf_RadioRFBandCapabilityResponseCallback::lteBandCapability[TAF_RADIO_LTE_BAND_GROUP_NUM];
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for getting RF band capability.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioRFBandCapabilityResponseCallback::rfBandCapabilityResponse
+(
+    std::shared_ptr<telux::tel::IRFBandList> capabilityList, ///< [IN] RF band capability list.
+    telux::common::ErrorCode error                           ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioRFBandCapabilityResponseCallback --> rfBandCapabilityResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        for (uint8_t i = 0; i < TAF_RADIO_LTE_BAND_GROUP_NUM; i++)
+        {
+            lteBandCapability[i] = 0;
+        }
+        bandCapability = taf_radio_CovertRFBand(capabilityList);
+        std::vector<telux::tel::LteRFBand> lteBands = capabilityList->getLteBands();
+        for (auto lteBand : lteBands)
+        {
+            if (lteBand < telux::tel::LteRFBand::E_UTRA_BAND_1 ||
+                lteBand > telux::tel::LteRFBand::E_UTRA_BAND_256)
+            {
+                LE_ERROR("Invalid LTE RF band.");
+            }
+            else
+            {
+                uint8_t bandIndex = static_cast<uint8_t>(lteBand) - 1;
+                uint8_t groupIndex = bandIndex / TAF_RADIO_BAND_NUM_PER_GROUP;
+                uint8_t bitIndex = bandIndex % TAF_RADIO_BAND_NUM_PER_GROUP;
+                lteBandCapability[groupIndex] |= (uint64_t)0x1 << bitIndex;
+            }
+        }
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Semaphore for RF band pereferences.
+ */
+//--------------------------------------------------------------------------------------------------
+le_sem_Ref_t taf_RadioRFBandPrefResponseCallback::semaphore = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Result of RF band pereferences.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_RadioRFBandPrefResponseCallback::result = LE_OK;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * GSM and WCDMA RF band pereferences.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_BandBitMask_t taf_RadioRFBandPrefResponseCallback::bandPreferences = 0;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * LTE RF band pereferences.
+ */
+//--------------------------------------------------------------------------------------------------
+uint64_t taf_RadioRFBandPrefResponseCallback::lteBandPreferences[TAF_RADIO_LTE_BAND_GROUP_NUM];
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for setting RF band preferences.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioRFBandPrefResponseCallback::setRFBandPrefResponse
+(
+    telux::common::ErrorCode error ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioRFBandPrefResponseCallback --> setRFBandPrefResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for getting RF band preferences.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioRFBandPrefResponseCallback::rfBandPrefResponse
+(
+    std::shared_ptr<telux::tel::IRFBandList> prefList, ///< [IN] RF band preferences list.
+    telux::common::ErrorCode error                     ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioRFBandPrefResponseCallback --> rfBandPrefResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        for (uint8_t i = 0; i < TAF_RADIO_LTE_BAND_GROUP_NUM; i++)
+        {
+            lteBandPreferences[i] = 0;
+        }
+        bandPreferences = taf_radio_CovertRFBand(prefList);
+        std::vector<telux::tel::LteRFBand> lteBands = prefList->getLteBands();
+        for (auto lteBand : lteBands)
+        {
+            if (lteBand < telux::tel::LteRFBand::E_UTRA_BAND_1 ||
+                lteBand > telux::tel::LteRFBand::E_UTRA_BAND_256)
+            {
+                LE_ERROR("Invalid LTE RF band.");
+            }
+            else
+            {
+                uint8_t bandIndex = static_cast<uint8_t>(lteBand) - 1;
+                uint8_t groupIndex = bandIndex / TAF_RADIO_BAND_NUM_PER_GROUP;
+                uint8_t bitIndex = bandIndex % TAF_RADIO_BAND_NUM_PER_GROUP;
+                lteBandPreferences[groupIndex] |= (uint64_t)0x1 << bitIndex;
+            }
         }
         result = LE_OK;
     }
@@ -1883,6 +2303,30 @@ void taf_Radio::taf_radio_LayerRatChangeHandler
     if (handlerFunc)
     {
         handlerFunc((taf_radio_RatChangeInd_t*)reportPtr, le_event_GetContextPtr());
+    }
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Layered handler for network registration rejection.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::taf_radio_LayerNetRejectHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_radio_NetRegRejectHandlerFunc_t handlerFunc =
+        (taf_radio_NetRegRejectHandlerFunc_t)layerHandlerFunc;
+
+    if (handlerFunc)
+    {
+        handlerFunc((taf_radio_NetRegRejInd_t*)reportPtr, le_event_GetContextPtr());
     }
 
     le_mem_Release(reportPtr);
@@ -2270,6 +2714,12 @@ void taf_Radio::Init(void)
     taf_RadioImsServSysCallback::semaphore = le_sem_Create("taf_RadioImsServSysCbSem", 0);
     taf_RadioImsSettingCallback::semaphore = le_sem_Create("taf_RadioImsSettingCbSem", 0);
     taf_RadioConfigureSignalStrengthCallback::semaphore = le_sem_Create("taf_RadioSigCfgCbSem", 0);
+    taf_RadioSelectionModeResponseCallback::semaphore =
+        le_sem_Create("taf_RadioSelectModeCbSem", 0);
+    taf_RadioRFBandCapabilityResponseCallback::semaphore =
+        le_sem_Create("taf_RadioBandCapCbSem", 0);
+    taf_RadioRFBandPrefResponseCallback::semaphore =
+        le_sem_Create("taf_RadioBandPrefCbSem", 0);
 
     imsRegStatusChangeId = le_event_CreateIdWithRefCounting("ImsRegStatus");
     opModeChangeId = le_event_CreateIdWithRefCounting("OpMode");
@@ -2284,6 +2734,7 @@ void taf_Radio::Init(void)
     cellInfoChangeEvId = le_event_CreateIdWithRefCounting("CellInfoChange");
     ratChangeEvId = le_event_CreateIdWithRefCounting("RatChange");
     netStatusEvId = le_event_CreateIdWithRefCounting("netStatus");
+    netRegRejEvId = le_event_CreateIdWithRefCounting("NetRegRej");
 
     // 2. Initiate the memory pool
     prefOpsListPool = le_mem_InitStaticPool(prefOpsListPool,
@@ -2316,6 +2767,7 @@ void taf_Radio::Init(void)
     cellInfoChangePool = le_mem_CreatePool("cellInfoPool", sizeof(taf_radio_NetRegStateInd_t));
     ratChangePool = le_mem_CreatePool("ratChangePool", sizeof(taf_radio_RatChangeInd_t));
     netStatusPool = le_mem_CreatePool("netStatusPool", sizeof(taf_RadioNetStatusInd_t));
+    netRegRejPool = le_mem_CreatePool("netRegRejPool", sizeof(taf_radio_NetRegRejInd_t));
 
     // 3. Initiate the reference map.
     prefOpListRefMap = le_ref_InitStaticMap(prefOpListRefMap,TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);

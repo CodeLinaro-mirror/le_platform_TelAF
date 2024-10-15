@@ -308,39 +308,24 @@ void taf_radio_SetManualRegisterModeAsync
     le_event_Report(taf_Radio::radioCmdEvId, &cmdReq, sizeof(taf_RadioCmdReq_t));
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetRegisterMode
-
- DESCRIPTION     Get radio register mode.
-
- DEPENDENCIES    Initialization of Radio Service
-
- PARAMETERS      [OUT] char* mccPtr:     The mobile country code.
-                 [IN] size_t mccPtrSize: Mobile country code length.
-                 [OUT] char* mncPtr:     The mobile network code.
-                 [IN] size_t mncPtrSize: Mobile network code length.
-                 [OUT] bool* isManualPtr:
-                           True if radio register mode is Manual.
-                           False if radio register mode is Automatic.
-                 [IN] uint8_t phoneId:   The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the network registeration mode.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRegisterMode
 (
-    bool* isManualPtr,
-    char* mccPtr,
-    size_t mccPtrSize,
-    char* mncPtr,
-    size_t mncPtrSize,
-    uint8_t phoneId
+    bool* isManualPtr, ///< [OUT] Ture if registered manually
+    char* mccPtr,      ///< [OUT] Mobile country code.
+    size_t mccPtrSize, ///< [IN] Mobile country code length.
+    char* mncPtr,      ///< [OUT] Mobile network code.
+    size_t mncPtrSize, ///< [IN] Mobile network code length.
+    uint8_t phoneId    ///< [IN] Phone ID.
 )
 {
     TAF_ERROR_IF_RET_VAL(isManualPtr == nullptr, LE_BAD_PARAMETER,
@@ -361,28 +346,59 @@ le_result_t taf_radio_GetRegisterMode
     TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
         "Invalid para(phoneId:%d)", phoneId);
 
-    return taf_pa_radio_GetRegisterMode(isManualPtr, mccPtr, mccPtrSize,
-        mncPtr, mncPtrSize, phoneId);
+    auto &tafRadio = taf_Radio::GetInstance();
+    auto networkManager = tafRadio.networkManagers[phoneId - 1];
+    TAF_ERROR_IF_RET_VAL(networkManager == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(networkManager->requestNetworkSelectionMode(
+        &taf_RadioSelectionModeResponseCallback::selectionModeResponse) !=
+        telux::common::Status::SUCCESS, LE_FAULT, "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioSelectionModeResponseCallback::semaphore,
+        timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioSelectionModeResponseCallback::result != LE_OK,
+        taf_RadioSelectionModeResponseCallback::result, "Fail to get register mode.");
+
+    if (taf_RadioSelectionModeResponseCallback::selectModeInfo.mode ==
+        telux::tel::NetworkSelectionMode::AUTOMATIC)
+    {
+        *isManualPtr = false;
+        return LE_OK;
+    }
+    else if (taf_RadioSelectionModeResponseCallback::selectModeInfo.mode ==
+        telux::tel::NetworkSelectionMode::MANUAL)
+    {
+        *isManualPtr = true;
+        le_utf8_Copy(mccPtr, taf_RadioSelectionModeResponseCallback::selectModeInfo.mcc.c_str(),
+            TAF_RADIO_MCC_BYTES, NULL);
+        le_utf8_Copy(mncPtr, taf_RadioSelectionModeResponseCallback::selectModeInfo.mnc.c_str(),
+            TAF_RADIO_MNC_BYTES, NULL);
+        return LE_OK;
+    }
+
+    LE_ERROR("Unknown register mode.");
+    return LE_FAULT;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetPlatformSpecificRegistrationErrorCode
-
- DESCRIPTION     Get the error code of setting registration mode.
-
- DEPENDENCIES    Configuration of registration mode.
-
- PARAMETERS      None
-
- RETURN VALUE    int32_t: Refer to enum taf_radio_NetRejCause_t
-
- SIDE EFFECTS
-
-======================================================================*/
-int32_t taf_radio_GetPlatformSpecificRegistrationErrorCode(void)
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the error code of network registeration.
+ *
+ * @return
+ *  - int32_t value is correspond to the taf_radio_NetRejCause_t
+ */
+//--------------------------------------------------------------------------------------------------
+int32_t taf_radio_GetPlatformSpecificRegistrationErrorCode
+(
+    void
+)
 {
-    return taf_pa_radio_GetPlatformSpecificRegistrationErrorCode();
+    auto &tafRadio = taf_Radio::GetInstance();
+    return tafRadio.netRejectCause;
 }
 
 /*======================================================================
@@ -846,52 +862,41 @@ le_result_t taf_radio_GetPreferredOperatorDetails
     return LE_OK;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_AddNetRegRejectHandler
-
- DESCRIPTION     Add a handler function for network registration rejection.
-
- DEPENDENCIES    Initialization of Radio Service.
-
- PARAMETERS      [IN] taf_radio_NetRegRejectHandlerFunc_t handlerFuncPtr:
-                          The handler function.
-                 [IN] void* contextPtr: Context pointer.
-
- RETURN VALUE    taf_radio_NetRegRejectHandlerRef_t
-                     non-nullptr: Success
-
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for network registration rejection.
+ *
+ * @return
+ *  - taf_radio_NetRegRejectHandlerRef_t Handler reference.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_NetRegRejectHandlerRef_t taf_radio_AddNetRegRejectHandler
 (
-    taf_radio_NetRegRejectHandlerFunc_t handlerFuncPtr,
-    void* contextPtr
+    taf_radio_NetRegRejectHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr                                    ///< [IN] Handler context.
 )
 {
-    return taf_pa_radio_AddNetRegRejectHandler(handlerFuncPtr, contextPtr);
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("NetRejectHandler",
+        tafRadio.netRegRejEvId, taf_Radio::taf_radio_LayerNetRejectHandler, (void*)handlerFuncPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_radio_NetRegRejectHandlerRef_t)(handlerRef);
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_RemoveNetRegRejectHandler
-
- DESCRIPTION     Remove a handler function from network registration rejection.
-
- DEPENDENCIES    Add a handler function for network registration rejection.
-
- PARAMETERS      [IN] taf_radio_NetRegRejectHandlerRef_t handlerRef:
-                          The handler reference.
-
- RETURN VALUE    None
-
- SIDE EFFECTS
-
-======================================================================*/
-void taf_radio_RemoveNetRegRejectHandler(taf_radio_NetRegRejectHandlerRef_t handlerRef)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for network rejection.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveNetRegRejectHandler
+(
+    taf_radio_NetRegRejectHandlerRef_t handlerRef ///< [IN] Handler reference.
+)
 {
-    taf_pa_radio_RemoveNetRegRejectHandler(handlerRef);
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2550,36 +2555,24 @@ le_result_t taf_radio_GetCurrentNetworkName
     return LE_OK;
 }
 
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetCurrentNetworkMccMnc
-
- DESCRIPTION     Get current network mobile country code and mobile network code.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [OUT] char* mccStr:            The mobile country code.
-                 [IN] size_t mccStrNumElements: Mobile country code length.
-                 [OUT] char* mncStr:            The mobile network code.
-                 [IN] size_t mncStrNumElements: Mobile network code length.
-                 [IN] uint8_t phoneId:          The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Get current network mobile country code and mobile network code.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCurrentNetworkMccMnc
 (
-    char* mccStr,
-    size_t mccStrNumElements,
-    char* mncStr,
-    size_t mncStrNumElements,
-    uint8_t phoneId
+    char* mccStr,             ///< [OUT] Mobile country code.
+    size_t mccStrNumElements, ///< [IN] Mobile country code length.
+    char* mncStr,             ///< [OUT] Mobile network code.
+    size_t mncStrNumElements, ///< [IN] Mobile network code length.
+    uint8_t phoneId           ///< [IN] Phone id.
 )
 {
     TAF_ERROR_IF_RET_VAL(mccStr == nullptr, LE_BAD_PARAMETER,
@@ -2597,8 +2590,32 @@ le_result_t taf_radio_GetCurrentNetworkMccMnc
     TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
         "Invalid para(phoneId:%d)", phoneId);
 
-    return taf_pa_radio_GetCurrentNetworkMccMnc(mccStr, mccStrNumElements, mncStr,
-        mncStrNumElements, phoneId);
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
+        LE_FAULT, "Fail to get cell information.");
+
+    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), LE_FAULT,
+        "No serving cell.");
+
+    le_utf8_Copy(mccStr, taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->mcc,
+        TAF_RADIO_MCC_BYTES, NULL);
+
+    le_utf8_Copy(mncStr, taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->mnc,
+        TAF_RADIO_MNC_BYTES, NULL);
+
+    return LE_OK;
 }
 
 /*======================================================================
@@ -3890,12 +3907,31 @@ le_result_t taf_radio_GetBandCapabilities
     uint8_t phoneId                       ///< [IN] Phone ID.
 )
 {
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
     TAF_ERROR_IF_RET_VAL(bandMaskPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskPtr)");
 
-    return taf_pa_radio_GetBandCapabilities(bandMaskPtr, phoneId);
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandCapability(
+        taf_RadioRFBandCapabilityResponseCallback::rfBandCapabilityResponse);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        taf_RadioRFBandCapabilityResponseCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandCapabilityResponseCallback::result != LE_OK,
+        taf_RadioRFBandCapabilityResponseCallback::result, "Fail to get RF band capability.");
+
+    *bandMaskPtr = taf_RadioRFBandCapabilityResponseCallback::bandCapability;
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3915,14 +3951,38 @@ le_result_t taf_radio_GetLteBandCapabilities
     uint8_t phoneId          ///< [IN] Phone ID.
 )
 {
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
     TAF_ERROR_IF_RET_VAL(bandMaskPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskPtr)");
 
     TAF_ERROR_IF_RET_VAL(bandMaskSizePtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskSizePtr)");
 
-    return taf_pa_radio_GetLteBandCapabilities(bandMaskPtr, bandMaskSizePtr, phoneId);
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandCapability(
+        taf_RadioRFBandCapabilityResponseCallback::rfBandCapabilityResponse);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        taf_RadioRFBandCapabilityResponseCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandCapabilityResponseCallback::result != LE_OK,
+        taf_RadioRFBandCapabilityResponseCallback::result, "Fail to get LTE band capability.");
+
+    for (uint8_t i = 0; i < TAF_RADIO_LTE_BAND_GROUP_NUM; i++)
+    {
+        bandMaskPtr[i] = taf_RadioRFBandCapabilityResponseCallback::lteBandCapability[i];
+    }
+
+    *bandMaskSizePtr = TAF_RADIO_LTE_BAND_GROUP_NUM;
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3941,10 +4001,118 @@ le_result_t taf_radio_SetBandPreferences
     uint8_t phoneId                   ///< [IN] Phone ID.
 )
 {
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
 
-    return taf_pa_radio_SetBandPreferences(bandMask, phoneId);
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    std::vector<telux::tel::GsmRFBand> gsmBands;
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_GSM_BAND_450)
+    {
+        gsmBands.push_back(telux::tel::GsmRFBand::GSM_450);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_GSM_BAND_480)
+    {
+        gsmBands.push_back(telux::tel::GsmRFBand::GSM_480);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_GSM_BAND_750)
+    {
+        gsmBands.push_back(telux::tel::GsmRFBand::GSM_750);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_GSM_BAND_850)
+    {
+        gsmBands.push_back(telux::tel::GsmRFBand::GSM_850);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_CLASS_E_GSM_900_BAND)
+    {
+        gsmBands.push_back(telux::tel::GsmRFBand::GSM_900_EXTENDED);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_CLASS_P_GSM_900_BAND)
+    {
+        gsmBands.push_back(telux::tel::GsmRFBand::GSM_900_PRIMARY);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_GSM_BAND_RAILWAYS_900_BAND)
+    {
+        gsmBands.push_back(telux::tel::GsmRFBand::GSM_900_RAILWAYS);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_CLASS_GSM_DCS_1800_BAND)
+    {
+        gsmBands.push_back(telux::tel::GsmRFBand::GSM_1800);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_GSM_PCS_1900_BAND)
+    {
+        gsmBands.push_back(telux::tel::GsmRFBand::GSM_1900);
+    }
+
+    std::vector<telux::tel::WcdmaRFBand> wcdmaBands;
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_J_CH_IMT_2100_BAND)
+    {
+        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_2100);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_US_PCS_1900_BAND)
+    {
+        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_PCS_1900);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_EU_CH_DCS_1800_BAND)
+    {
+        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_DCS_1800);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_US_1700_BAND)
+    {
+        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_1700_US);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_US_850_BAND)
+    {
+        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_850);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_JAPAN_800_BAND)
+    {
+        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_800);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_2600_BAND)
+    {
+        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_2600);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_J_900_BAND)
+    {
+        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_900);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_J_1700_BAND)
+    {
+        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_1700_JAPAN);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_JAPAN_1500_BAND)
+    {
+        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_1500_JAPAN);
+    }
+    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_JAPAN_850_BAND)
+    {
+        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_850_JAPAN);
+    }
+
+    auto builder = std::make_shared<telux::tel::RFBandListBuilder>();
+    telux::common::ErrorCode errCode = telux::common::ErrorCode::UNKNOWN;
+    std::shared_ptr<telux::tel::IRFBandList> prefBands =
+        builder->addGsmRFBands(gsmBands).addWcdmaRFBands(wcdmaBands).build(errCode);
+    TAF_ERROR_IF_RET_VAL(errCode != telux::common::ErrorCode::SUCCESS, LE_FAULT,
+        "Fail to create band reference list.");
+
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->setRFBandPreferences(
+        prefBands, taf_RadioRFBandPrefResponseCallback::setRFBandPrefResponse);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        taf_RadioRFBandPrefResponseCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandPrefResponseCallback::result != LE_OK,
+        taf_RadioRFBandPrefResponseCallback::result, "Fail to set RF band preferences.");
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3963,12 +4131,31 @@ le_result_t taf_radio_GetBandPreferences
     uint8_t phoneId                       ///< [IN] Phone ID.
 )
 {
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
     TAF_ERROR_IF_RET_VAL(bandMaskPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskPtr)");
 
-    return taf_pa_radio_GetBandPreferences(bandMaskPtr, phoneId);
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandPreferences(
+        taf_RadioRFBandPrefResponseCallback::rfBandPrefResponse);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        taf_RadioRFBandPrefResponseCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandPrefResponseCallback::result != LE_OK,
+        taf_RadioRFBandPrefResponseCallback::result, "Fail to get RF band preferences.");
+
+    *bandMaskPtr = taf_RadioRFBandPrefResponseCallback::bandPreferences;
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3996,7 +4183,47 @@ le_result_t taf_radio_SetLteBandPreferences
     TAF_ERROR_IF_RET_VAL(bandMaskSize < TAF_RADIO_LTE_BAND_GROUP_NUM, LE_BAD_PARAMETER,
         "Invalid para(bandMaskSize:%" PRIuS ")", bandMaskSize);
 
-    return taf_pa_radio_SetLteBandPreferences(bandMask, bandMaskSize, phoneId);
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    std::vector<telux::tel::LteRFBand> lteBands;
+    for (uint32_t i = 0; i < TAF_RADIO_LTE_BAND_GROUP_NUM; i++)
+    {
+        for (uint32_t j = 0; j < TAF_RADIO_BAND_NUM_PER_GROUP; j++)
+        {
+            if (bandMask[i] & (uint64_t)0x1 << j)
+            {
+                lteBands.push_back(
+                    static_cast<telux::tel::LteRFBand>(i * TAF_RADIO_BAND_NUM_PER_GROUP + j + 1));
+            }
+        }
+    }
+
+    auto builder = std::make_shared<telux::tel::RFBandListBuilder>();
+    telux::common::ErrorCode errCode = telux::common::ErrorCode::UNKNOWN;
+    std::shared_ptr<telux::tel::IRFBandList> prefBands =
+        builder->addLteRFBands(lteBands).build(errCode);
+    TAF_ERROR_IF_RET_VAL(errCode != telux::common::ErrorCode::SUCCESS, LE_FAULT,
+        "Fail to create band reference list.");
+
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->setRFBandPreferences(
+        prefBands, taf_RadioRFBandPrefResponseCallback::setRFBandPrefResponse);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        taf_RadioRFBandPrefResponseCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandPrefResponseCallback::result != LE_OK,
+        taf_RadioRFBandPrefResponseCallback::result, "Fail to set LTE RF band preferences.");
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4023,7 +4250,34 @@ le_result_t taf_radio_GetLteBandPreferences
 
     TAF_ERROR_IF_RET_VAL(bandMaskSizePtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskSizePtr)");
 
-    return taf_pa_radio_GetLteBandPreferences(bandMaskPtr, bandMaskSizePtr, phoneId);
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandPreferences(
+        taf_RadioRFBandPrefResponseCallback::rfBandPrefResponse);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        taf_RadioRFBandPrefResponseCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandPrefResponseCallback::result != LE_OK,
+        taf_RadioRFBandPrefResponseCallback::result, "Fail to get LTE RF band preferences.");
+
+    for (uint8_t i = 0; i < TAF_RADIO_LTE_BAND_GROUP_NUM; i++)
+    {
+        bandMaskPtr[i] = taf_RadioRFBandPrefResponseCallback::lteBandPreferences[i];
+    }
+
+    *bandMaskSizePtr = TAF_RADIO_LTE_BAND_GROUP_NUM;
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4472,10 +4726,45 @@ le_result_t taf_radio_GetLteCsCap
     uint8_t* phoneIdPtr = (uint8_t*)le_ref_Lookup(tafRadio.netStatusRefMap, netRef);
     TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Fail to look up reference.");
 
-    TAF_ERROR_IF_RET_VAL(*phoneIdPtr == 0 || *phoneIdPtr > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", *phoneIdPtr);
+    uint8_t phoneId = *phoneIdPtr;
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
 
-    return taf_pa_radio_GetLteCsCap(*phoneIdPtr, capabilitiy);
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    telux::tel::LteCsCapability lteCapability = telux::tel::LteCsCapability::UNKNOWN;
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->getLteCsCapability(lteCapability);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandPrefResponseCallback::result != LE_OK,
+        taf_RadioRFBandPrefResponseCallback::result, "Fail to get LTE RF band preferences.");
+
+    switch (lteCapability)
+    {
+        case telux::tel::LteCsCapability::FULL_SERVICE:
+            *capabilitiy = TAF_RADIO_CS_CAP_FULL_SERVICE;
+            break;
+        case telux::tel::LteCsCapability::CSFB_NOT_PREFERRED:
+            *capabilitiy = TAF_RADIO_CS_CAP_CSFB_NOT_PREFERRED;
+            break;
+        case telux::tel::LteCsCapability::SMS_ONLY:
+            *capabilitiy = TAF_RADIO_CS_CAP_SMS_ONLY;
+            break;
+        case telux::tel::LteCsCapability::LIMITED:
+            *capabilitiy = TAF_RADIO_CS_CAP_LIMITED;
+            break;
+        case telux::tel::LteCsCapability::BARRED:
+            *capabilitiy = TAF_RADIO_CS_CAP_BARRED;
+            break;
+        case telux::tel::LteCsCapability::UNKNOWN:
+        default:
+            *capabilitiy = TAF_RADIO_CS_CAP_UNKNOWN;
+            break;
+    }
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -5701,4 +5990,31 @@ le_result_t taf_radio_GetOperatingMode
     }
 
     return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets routing area code.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note Only applicable for GSM/WCDMA/TDSCDMA.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellRoutingAreaCode
+(
+    uint8_t* rac,   ///< [OUT] Routing area code.
+    uint8_t phoneId ///< [IN] Phone id.
+)
+{
+    TAF_ERROR_IF_RET_VAL(rac == nullptr, LE_BAD_PARAMETER, "Null ptr(rac)");
+
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    return taf_pa_radio_GetServingCellRoutingAreaCode(rac, phoneId);
 }

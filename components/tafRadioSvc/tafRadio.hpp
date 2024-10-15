@@ -76,6 +76,8 @@
 
 #define TAF_RADIO_SUBSYSTEM_TIMEOUT 5
 
+#define TAF_RADIO_BAND_NUM_PER_GROUP 64
+
 /*
  * @brief The emum of radio command type.
  */
@@ -232,6 +234,8 @@ typedef struct
 {
     taf_radio_Rat_t rat;
     int ss;
+    char mcc[TAF_RADIO_MCC_BYTES];
+    char mnc[TAF_RADIO_MCC_BYTES];
     union
     {
         taf_RadioGsmCellInfo_t gsm;
@@ -450,6 +454,8 @@ namespace tafsvc {
             telux::tel::ServiceDomain serviceDomain = telux::tel::ServiceDomain::UNKNOWN;
             taf_RadioServSysListener(uint8_t phone);
             void onSystemInfoChanged(telux::tel::ServingSystemInfo sysInfo) override;
+            void onNetworkRejection(telux::tel::NetworkRejectInfo rejectInfo) override;
+            void onLteCsCapabilityChanged(telux::tel::LteCsCapability lteCapability) override;
     };
 
     class taf_RadioImsServSysListener : public telux::tel::IImsServingSystemListener
@@ -550,6 +556,16 @@ namespace tafsvc {
                 telux::common::ErrorCode error) override;
     };
 
+    class taf_RadioSelectionModeResponseCallback
+    {
+        public:
+            static le_sem_Ref_t semaphore;
+            static le_result_t result;
+            static telux::tel::NetworkModeInfo selectModeInfo;
+
+            static void selectionModeResponse(telux::tel::NetworkModeInfo info,
+                telux::common::ErrorCode error);
+    };
     /*
      * @brief A radio network selection callback class must be provided when configuring the network selection mode
      *        and network preference.
@@ -626,6 +642,32 @@ namespace tafsvc {
          * @param [in] error         The error code of the rat preference configuration.
          */
         static void servingSystemResponse(telux::common::ErrorCode error);
+    };
+
+    class taf_RadioRFBandCapabilityResponseCallback
+    {
+        public:
+            static le_sem_Ref_t semaphore;
+            static le_result_t result;
+            static taf_radio_BandBitMask_t bandCapability;
+            static uint64_t lteBandCapability[TAF_RADIO_LTE_BAND_GROUP_NUM];
+
+            static void rfBandCapabilityResponse(
+                std::shared_ptr<telux::tel::IRFBandList> capabilityList,
+                telux::common::ErrorCode error);
+    };
+
+    class taf_RadioRFBandPrefResponseCallback
+    {
+        public:
+            static le_sem_Ref_t semaphore;
+            static le_result_t result;
+            static taf_radio_BandBitMask_t bandPreferences;
+            static uint64_t lteBandPreferences[TAF_RADIO_LTE_BAND_GROUP_NUM];
+
+            static void rfBandPrefResponse(std::shared_ptr<telux::tel::IRFBandList> prefList,
+                telux::common::ErrorCode error);
+            static void setRFBandPrefResponse(telux::common::ErrorCode error);
     };
 
     /*
@@ -757,6 +799,7 @@ namespace tafsvc {
         static void taf_radio_LayerCellInfoHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerNetStatusHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerRatChangeHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerNetRejectHandler(void* reportPtr, void* layerHandlerFunc);
 
         /*
          * Command thread in radio service.
@@ -800,6 +843,7 @@ namespace tafsvc {
         le_mem_PoolRef_t cellInfoChangePool;
         le_mem_PoolRef_t ratChangePool;
         le_mem_PoolRef_t netStatusPool;
+        le_mem_PoolRef_t netRegRejPool;
 
         le_ref_MapRef_t prefOpListRefMap;
         le_ref_MapRef_t prefOpSafeRefMap;
@@ -824,9 +868,11 @@ namespace tafsvc {
         le_event_Id_t cellInfoChangeEvId;
         le_event_Id_t ratChangeEvId;
         le_event_Id_t netStatusEvId;
+        le_event_Id_t netRegRejEvId;
         static le_event_Id_t radioCmdEvId;
 
         bool subSystemStatusUpdated = false;
+        int32_t netRejectCause = TAF_RADIO_NET_REJ_CAUSE_UNDEFINED;
         std::mutex mtx;
         std::condition_variable conVar;
         taf_RadioDataCallbackInfo_t dataInfoCb;

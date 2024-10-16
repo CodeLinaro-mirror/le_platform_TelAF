@@ -627,10 +627,6 @@ taf_mngdPm_StateChangeHandlerRef_t taf_mngdPm_AddStateChangeHandler
 void taf_mngdPm_RemoveStateChangeHandler(taf_mngdPm_StateChangeHandlerRef_t handlerRef)
 {
     LE_INFO("taf_mngdPm_RemoveStateChangeHandler");
-    if(tafMngdPMSvc::IsClientValid() == false)
-    {
-        return;
-    }
 
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
@@ -680,11 +676,6 @@ taf_mngdPm_InfoReportHandlerRef_t taf_mngdPm_AddInfoReportHandler(taf_mngdPm_Inf
 void taf_mngdPm_RemoveInfoReportHandler(taf_mngdPm_InfoReportHandlerRef_t handlerRef)
 {
     LE_INFO("RemoveInfoReportHandler");
-    if(tafMngdPMSvc::IsClientValid() == false)
-    {
-        return;
-    }
-
     auto &mpms = tafMngdPMSvc::GetInstance();
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.infoReportHandlerList));
     while (linkHandlerPtr)
@@ -746,10 +737,6 @@ taf_mngdPm_NodePowerStateChangeHandlerRef_t taf_mngdPm_AddNodePowerStateChangeHa
 void taf_mngdPm_RemoveNodePowerStateChangeHandler(taf_mngdPm_NodePowerStateChangeHandlerRef_t handlerRef)
 {
     LE_INFO("RemoveNodePowerStateHandler");
-    if(tafMngdPMSvc::IsClientValid() == false)
-    {
-        return;
-    }
 
     bool isPmsNodeChangeRef = false;
     auto &mpms = tafMngdPMSvc::GetInstance();

@@ -18,8 +18,6 @@ ifdef(`sa525m',`
     allow telaf_tafMngdPMSvc_exec_t telaf_admin_t:lnk_file {read};
 ')
 
-allow telaf_tafMngdPMSvc_t self:capability {sys_boot};
-
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafMngdPMSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafMngdPMSvc_exec_t)

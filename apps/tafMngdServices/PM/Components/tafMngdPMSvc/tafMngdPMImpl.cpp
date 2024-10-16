@@ -1361,6 +1361,7 @@ void tafMngdPMSvc::CallNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t sta
     DeleteNodePowerStateRefs();
     mpms.regClientrecrd.clear();
     mpms.ackClientrecrdSize = 0;
+    mpms.clientSize = 0;
     while (linkHandlerPtr)
     {
         taf_mngdPm_NodePowerStateCtxt_t * handlerCtxPtr =
@@ -1405,11 +1406,11 @@ void tafMngdPMSvc::NodePowerStateChanged(void* reportPtr)
     taf_mngdPm_NodePowerStateChange_t* powerStateChange =(taf_mngdPm_NodePowerStateChange_t*)reportPtr;
     if(powerStateChange->state == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE)
     {
-        CallNodePowerStateHandlerFunc(TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE);
+        CallNodePowerStateHandlerFunc(powerStateChange->state);
     }
     else if(powerStateChange->state == TAF_MNGDPM_NODE_STATE_RESTART_PREPARE)
     {
-        CallNodePowerStateHandlerFunc(TAF_MNGDPM_NODE_STATE_RESTART_PREPARE);
+        CallNodePowerStateHandlerFunc(powerStateChange->state);
     }
     else if(powerStateChange->state == TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE)
     {

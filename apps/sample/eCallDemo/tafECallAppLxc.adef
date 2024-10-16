@@ -1,0 +1,33 @@
+maxThreads: 600
+sandboxed: false
+executables:
+{
+    tafECallApp = ( eCallAppComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafECallApp)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+}
+
+
+start: manual
+
+bindings:
+{
+    tafECallApp.eCallAppComp.taf_ecall -> <telaf>.rpcServer_101_telaf_taf_ecall
+    tafECallApp.eCallAppComp.taf_locGnss -> <telaf>.rpcServer_101_telaf_taf_locGnss
+    tafECallApp.eCallAppComp.taf_locPos -> <telaf>.rpcServer_101_telaf_taf_locPos
+    tafECallApp.eCallAppComp.taf_locPosCtrl -> <telaf>.rpcServer_101_telaf_taf_locPosCtrl
+    tafECallApp.eCallAppComp.taf_gpio -> <telaf>.rpcServer_101_telaf_taf_gpio
+    tafECallApp.eCallAppComp.taf_audio -> <telaf>.rpcServer_101_telaf_taf_audio
+}
+

@@ -1681,26 +1681,38 @@ bool taf_Time::IsThresholdSetTimeAllow
     return true;
 }
 
+void taf_Time::UpdateDeltaTimeToRAM(void)
+{
+    auto &tafTime = taf_Time::GetInstance();
+    int fd = open(TAF_TIME_DELTA_TIME_PATH, O_RDWR | O_CREAT, 0666);
+    if (fd == -1) {
+        LE_WARN("Open file: %s failed, %s\n", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
+        return;
+    }
+
+    ssize_t bytesRead = read(fd, &tafTime.deltaTimeMSec, sizeof(uint64_t));
+    if (bytesRead <= 0)
+    {
+        LE_WARN("Read file %s failed, bytes read: %zd\n", TAF_TIME_DELTA_TIME_PATH, bytesRead);
+    }
+    close(fd);
+    return;
+}
+
 le_result_t taf_Time::UpdateDeltaTimeToStorage
 (
     taf_time_TimeSpec_t timeVal
 )
 {
+    auto &tafTime = taf_Time::GetInstance();
     le_result_t result = LE_OK;
-    uint64_t oldDelta_Msec = 0, newDelta_Msec = 0, dataMsec = 0;
+    uint64_t oldDelta_Msec = 0, newDelta_Msec = 0;
     taf_time_TimeSpec_t rtcTimeVal;
-
-    int fd = open(TAF_TIME_DELTA_TIME_PATH, O_RDWR | O_CREAT, 0666);
-    if (fd == -1) {
-        LE_ERROR("Open file: %s failed, %s\n", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
-        return LE_FAULT;
-    }
 
     result = GetInternalRtcTime(&rtcTimeVal);
     if(result != LE_OK)
     {
         LE_ERROR("Read RTC failed %d\n", result);
-        close(fd);
         return result;
     }
 
@@ -1715,38 +1727,28 @@ le_result_t taf_Time::UpdateDeltaTimeToStorage
                       - (rtcTimeVal.sec * 1000) - (rtcTimeVal.nanosec/1000);
     }
 
-    ssize_t bytesRead = read(fd, &dataMsec, sizeof(uint64_t));
-    if (bytesRead <= 0)
+    //Check if the delta time is any different
+    if((newDelta_Msec > tafTime.deltaTimeMSec + 1000) || (tafTime.deltaTimeMSec > newDelta_Msec + 1000))
     {
-        LE_DEBUG("Read file %s failed, bytes read: %zd\n", TAF_TIME_DELTA_TIME_PATH, bytesRead);
-        if (write(fd, &newDelta_Msec, sizeof(uint64_t)) < 0)
+        int fd = open(TAF_TIME_DELTA_TIME_PATH, O_RDWR | O_CREAT, 0666);
+        if (fd == -1) {
+            LE_ERROR("Open file: %s failed, %s\n", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
+            return LE_FAULT;
+        }
+        tafTime.deltaTimeMSec = newDelta_Msec;
+        /* Move the file pointer to the beginning */
+        lseek(fd, 0, SEEK_SET);
+        if (write(fd, &tafTime.deltaTimeMSec, sizeof(uint64_t)) < 0)
         {
             LE_ERROR("Write file: %s failed, %s\n", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
+            close(fd);
+            return LE_FAULT;
         }
         close(fd);
-        return LE_FAULT;
-    }
-    else
-    {
-        oldDelta_Msec = dataMsec;
-        if ((newDelta_Msec > oldDelta_Msec + 1000) || (oldDelta_Msec > newDelta_Msec + 1000))
-        {
-            dataMsec = newDelta_Msec;
-            /* Move the file pointer to the beginning */
-            lseek(fd, 0, SEEK_SET);
-            if (write(fd, &dataMsec, sizeof(uint64_t)) < 0)
-            {
-                LE_ERROR("Write file: %s failed, %s\n", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
-                close(fd);
-                return LE_FAULT;
-            }
-        }
     }
 
     LE_DEBUG("RTC sec %" PRIu64 ", System sec %" PRIu64 ", oldDlt sec %" PRIu64 ", newDlt sec "
              "%" PRIu64 "\n", rtcTimeVal.sec, timeVal.sec, oldDelta_Msec/1000, newDelta_Msec/1000);
-
-    close(fd);
 
     return LE_OK;
 }
@@ -1842,13 +1844,9 @@ le_result_t taf_Time::SetSystemTime
 
     }
 
-    struct stat info;
-    if (stat(TAF_TIME_DELTA_TIME_DIR, &info) == 0)
+    if(access(TAF_TIME_DELTA_TIME_DIR, F_OK) != -1)
     {
-        if (info.st_mode & S_IFDIR)
-        {
-            UpdateDeltaTimeToStorage(timeVal);
-        }
+        UpdateDeltaTimeToStorage(timeVal);
     }
 
     if (LatestTimeSourceInfo->systemSourceId != timeSource)
@@ -3027,7 +3025,7 @@ bool taf_Time::isNewTimeSrcSetTimeAllowed(taf_time_TimeSources_t newTimeSource)
     }
     int currPriorityNum = TimeSourceConf.source[position].priority;
 
-    LE_DEBUG("currPriorityNum %d, newPriorityNum %d, AllowOverrideAfterFail %" PRIu64 "\n",
+    LE_DEBUG("currPriorityNum %d, newPriorityNum %d, AllowOverrideAfterFail %" PRId64 "\n",
         currPriorityNum, newPriorityNum, AllowOverrideAfterFail);
 
     // Note, the small priority number will have higher priority
@@ -3746,6 +3744,10 @@ void taf_Time::Init(void)
         timeSourceStatusEventId, timeSourceStatusHandler);
 
     mainThreadRef = le_thread_GetCurrent();
+    if(access(TAF_TIME_DELTA_TIME_DIR, F_OK) != -1)
+    {
+        UpdateDeltaTimeToRAM();
+    }
 
 }
 

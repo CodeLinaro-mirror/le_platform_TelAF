@@ -770,7 +770,7 @@ le_result_t taf_PM::SetPowerState(taf_pm_State_t state, const char* machineName)
         LE_INFO("sent Extend report for TAF_PM_STATE_RESTART");
         le_event_Report(tafPwrMgr.stateChangeExEvent, &evt, sizeof(evt));
 
-        taf_pm_State_t statePtr = TAF_PM_STATE_RESTART;
+        statePtr = TAF_PM_STATE_RESTART;
         le_timer_SetContextPtr(pmClientsAckTimerRef, &statePtr);
         le_timer_Start(pmClientsAckTimerRef);
         return LE_OK;

@@ -245,7 +245,7 @@ class tafMngdPMSvc: public ITafSvc
         static hal_pm_Inf_t *pmInf;
         static taf_mngdPm_RequestedState_t statePtr;
         static le_timer_Ref_t wakeSourceTimerRef;
-
+        static taf_mngdPm_RequestedWakeupVehicle_t wakeupModePtr;
         // resources for multi-client management
         static taf_mngdPm_Client_t mngdPmClientInfo;
 

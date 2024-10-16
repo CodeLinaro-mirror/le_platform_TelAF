@@ -2469,7 +2469,7 @@ le_result_t taf_Audio::ReadAmrHeader
     config.type = StreamType::PLAY;
 
     char header[10] = {0};
-
+    lseek(streamPtr->fd, 0, SEEK_SET);
     if ( read(streamPtr->fd, header, 9) != 9 )
     {
         LE_WARN("AMR detection: cannot read header");
@@ -3215,6 +3215,8 @@ le_result_t taf_Audio::PlayList
             if (res != LE_OK) {
                 LE_ERROR("Unknown audio format");
                 playerStreamPtr = nullptr;
+                close(streamPtr->fd);
+                streamPtr->fd = -1;
                 return LE_FAULT;
             }
         }

@@ -7,6 +7,7 @@ function compile() {
   echo "You chose $target"
   mkcomp -t "$target" \
     -X "-O2" -C "-O2" \
+    ${MKTOOLS_X_C_FLAGS} \
     -X "-fPIC" \
     -X "-shared" \
     -X "-std=c++11" \

@@ -10,6 +10,7 @@ then
     echo "You chose sa525m"
     mkcomp -t sa525m \
         -X "-O2" -C "-O2" \
+        ${MKTOOLS_X_C_FLAGS} \
         -X "-fPIC" \
         -X "-shared" \
         -X "-std=c++11" \
@@ -21,6 +22,7 @@ then
     echo "You chose sa515m"
     mkcomp -t sa515m \
         -X "-O2" -C "-O2" \
+        ${MKTOOLS_X_C_FLAGS} \
         -X "-fPIC" \
         -X "-shared" \
         -X "-std=c++11" \

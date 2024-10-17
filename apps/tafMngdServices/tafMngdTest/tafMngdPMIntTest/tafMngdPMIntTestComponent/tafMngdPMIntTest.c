@@ -13,6 +13,8 @@
 
 
 taf_mngdPm_wsRef_t wsRef = NULL;
+taf_mngdPm_wsRef_t wsRef1 = NULL;
+
 static le_sem_Ref_t tafMpmAppSem;
 le_clk_Time_t Timeout = { 5 , 0 };
 int status = EXIT_SUCCESS;
@@ -833,54 +835,114 @@ static void* connect_service(void* ctxPtr)
         LE_INFO("input: %d", input);
         if(input == 1)
         {
-            printf("Enter WakeupType for SetModemWakeupSource\n 1.SMS \n 2.VOICE_CALL \n 3.SMS,VOICE_CALL \n "
+            printf("Enter WakeupType for SetModemWakeupSource\n -1.Exit\n 1.SMS \n 2.VOICE_CALL \n 3.SMS,VOICE_CALL \n "
                     "4.MCU_VHAL \n 5.SMS,MCU_VHAL \n 6.VOICE_CALL,MCU_VHAL \n 7.SMS,VOICE_CALL,MCU_VHAL \n");
             char wakeuptype[100];
             if(fgets(wakeuptype, sizeof(wakeuptype), stdin))
                 LE_INFO("Value read successfully");
             wakeuptype[strcspn(wakeuptype, "\n")] = '\0';
+            int entry = atoi(wakeuptype);
+            if(entry == -1)
+                continue;
             int res = SetModemWakeupSource(wakeuptype);
             if(res == LE_OK)
                 printf("'SetModemWakeupSource for wakeuptype %s is set'\n", wakeuptype);
         }
         if(input == 2)
         {
-            printf("Enter WakeupType for NewNodeWakeupSource\n 0.APP_STAYAWAKE\n 1.SMS \n 2.VOICE_CALL \n 3.MCU_VHAL \n");
-            int wakeuptype;
+            char NodeId[100];
+            printf("Enter NODE_ID\n -1.Exit\n 0.PVM\n 1.RPC\n");
+            if(fgets(NodeId, sizeof(NodeId), stdin))
+                LE_INFO("Value read successfully");
+            NodeId[strcspn(NodeId, "\n")] = '\0';
+            uint8_t NODE_ID = atoi(NodeId);
+            if(NODE_ID == -1)
+                continue;
+            printf("Enter WakeupType for NewNodeWakeupSource\n -1.Exit\n 0.APP_STAYAWAKE\n 1.SMS \n 2.VOICE_CALL \n 3.MCU_VHAL \n");
             char NewNodeWakeupSource[100];
+            int wakeuptype;
             if(fgets(NewNodeWakeupSource, sizeof(NewNodeWakeupSource), stdin))
                 LE_INFO("Value read successfully");
             NewNodeWakeupSource[strcspn(NewNodeWakeupSource, "\n")] = '\0';
             wakeuptype = atoi(NewNodeWakeupSource);
-            LE_INFO("NewNodeWakeupSource wakeuptype is %d", wakeuptype);
-            wsRef = taf_mngdPm_NewNodeWakeupSource(0, wakeuptype, vHalTag);
-            if(wsRef)
-                printf("'NewNodeWakeupSource ref is created for %d'\n", wakeuptype);
+            if(wakeuptype == -1)
+                continue;
+            if(NODE_ID == 0) {
+                wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, wakeuptype, vHalTag);
+                if(wsRef)
+            printf("NewNodeWakeupSource wakeuptype is %d for NODE_ID %d\n", wakeuptype, NODE_ID);
+           }
+           else if(NODE_ID == 1) {
+                wsRef1 = taf_mngdPm_NewNodeWakeupSource(NODE_ID, wakeuptype, vHalTag);
+                if(wsRef1)
+            printf("NewNodeWakeupSource wakeuptype is %d for NODE_ID %d\n", wakeuptype, NODE_ID);
+           }
         }
         if(input == 3)
         {
-             LE_INFO("ResumeSystem");
-             if(wsRef != NULL) {
-                 res = taf_mngdPm_StayAwakeNode(wsRef);
-                 if(res == LE_OK) {
-                     printf("'Resumed sysytem'\n");
-                  }
-             }
-             else
-                printf("'wsRef is null, Call NewNodeWakeupSource'\n");
+            char StayAwakeNode[100];
+            printf("Enter NODE_ID\n -1.Exit\n 0.PVM\n 1.RPC\n");
+            if(fgets(StayAwakeNode, sizeof(StayAwakeNode), stdin))
+                LE_INFO("Value read successfully");
+            StayAwakeNode[strcspn(StayAwakeNode, "\n")] = '\0';
+            uint8_t NODE_ID = atoi(StayAwakeNode);
+            if(NODE_ID == -1)
+                continue;
+            if(NODE_ID == 0) {
+                printf("Resume PVM System\n");
+                if(wsRef != NULL) {
+                    res = taf_mngdPm_StayAwakeNode(wsRef);
+                    if(res == LE_OK) {
+                        printf("'Resumed sysytem'\n");
+                     }
+                }
+                else
+                    printf("'wsRef is null, Call NewNodeWakeupSource'\n");
+            }
+            else if(NODE_ID == 1) {
+                printf("Resume RPC System\n");
+                 if(wsRef1 != NULL) {
+                     res = taf_mngdPm_StayAwakeNode(wsRef1);
+                     if(res == LE_OK) {
+                         printf("'Resumed sysytem'\n");
+                      }
+                 }
+                else
+                    printf("'wsRef is null for Rpc, Call NewNodeWakeupSource'\n");
+            }
         }
         if(input == 4)
         {
-            if(wsRef != NULL) {
-                LE_INFO("SuspendSystem");
-                res = taf_mngdPm_RelaxNode(wsRef);
-                if(res == LE_OK) {
-                    printf("'suspended system'\n");
-                    wsRef = NULL;
+            char RelaxNode[100];
+            printf("Enter NODE_ID\n -1.Exit\n 0.PVM\n 1.RPC\n");
+            if(fgets(RelaxNode, sizeof(RelaxNode), stdin))
+                LE_INFO("Value read successfully");
+            RelaxNode[strcspn(RelaxNode, "\n")] = '\0';
+            uint8_t NODE_ID = atoi(RelaxNode);
+            if(NODE_ID == -1)
+                continue;
+            if(NODE_ID == 0) {
+                printf("Suspend PVM System\n");
+                if(wsRef != NULL) {
+                    res = taf_mngdPm_RelaxNode(wsRef);
+                    if(res == LE_OK) {
+                        printf("'Resumed PVM system'\n");
+                     }
                 }
+                else
+                    printf("'wsRef is null, Call NewNodeWakeupSource'\n");
             }
-             else
-                printf("'wsRef is null, Call NewNodeWakeupSource'\n'");
+            else if(NODE_ID == 1) {
+                printf("Suspend RPC System\n");
+                 if(wsRef1 != NULL) {
+                     res = taf_mngdPm_RelaxNode(wsRef1);
+                     if(res == LE_OK) {
+                         printf("'Suspended RPC system'\n");
+                      }
+                 }
+                else
+                    printf("'wsRef is null for Rpc, Call NewNodeWakeupSource'\n");
+            }
         }
         if(input == 8)
         {

@@ -425,7 +425,7 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
         {
             LE_INFO("WakeupType matched with wsRefList for StayAwakeNode");
             //check if already a wakelock acquired
-            if(wsRefCtxPtr && wsRefCtxPtr->isAcquiredLock)
+            if(wsRefCtxPtr->isAcquiredLock)
             {
                  LE_INFO("WakeLock already acquired");
                  return LE_FAULT;
@@ -468,7 +468,7 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
             return res;
         }
     }
-    return LE_FAULT;
+    return res;
 }
 
 /**
@@ -577,8 +577,25 @@ le_result_t taf_mngdPm_RestartNode (uint8_t pmNodeId)
         return LE_UNSUPPORTED;
     }
 
+    le_result_t res = LE_FAULT;
+    if(pmNodeId == 1)
+    {
+        auto &rpcPm = tafMngdRpcPm::GetInstance();
+        res = rpcPm.RestartRpcNAD();
+        if(res == LE_OK)
+        {
+            LE_INFO("RPC RestartRpcNAD is successful");
+        }
+        return res;
+    }
+
     auto &mpms = tafMngdPMSvc::GetInstance();
-    le_result_t res = mpms.RestartNAD();
+    res = mpms.RestartNAD();
+    if(res == LE_OK)
+    {
+        LE_INFO("RestartNAD is successful");
+    }
+
     return res;
 }
 

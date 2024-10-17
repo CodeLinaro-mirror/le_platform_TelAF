@@ -80,6 +80,23 @@ namespace uds{
     // ReadDTCInformation service (0x19)
     #define UDS_READ_DTC_INFO_REQ_MIN_LEN 2
     #define UDS_READ_DTC_INFO_RESP_BASE_LEN 2
+    // Subfunction (0x19)
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_01_02 3
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_03 2
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_04 6
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_05 3
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_06 6
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_07_08 4
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_09 5
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_0A_0B_0C_0D_0E_14_15 2
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_16 3
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_17 4
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_18 7
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_19 7
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_1A 3
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_42 5
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_55 3
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN_56 4
 
     // ReadDataByIdentifier service (0x22)
     #define UDS_READ_DID_REQ_MIN_LEN 3
@@ -89,6 +106,8 @@ namespace uds{
 
     // Security access service (0x27)
     #define UDS_SECURITY_ACCESS_REQ_MIN_LEN 2
+    #define UDS_SECURITY_ACCESS_REQ_SEED_MIN_LEN 2
+    #define UDS_SECURITY_ACCESS_REQ_KEY_MIN_LEN 3
     #define UDS_SECURITY_ACCESS_SEND_KEY_REQ_MIN_LEN 3 //sid(1)+subfunc(1)+securitykey(1)
     #define UDS_SECURITY_ACCESS_RESP_MIN_LEN 2
     #define UDS_SECURITY_ACCESS_RESP_SEED_ZERO_LEN 4
@@ -136,6 +155,8 @@ namespace uds{
 
     // ClearDiagnosticInformation service (0x14)
     #define UDS_CLEAR_DIAG_INFO_REQ_MIN_LEN 4
+    #define UDS_CLEAR_DIAG_INFO_REQ_MIN_LEN_AND_MEM_SELECTION_LEN 5
+    #define UDS_CLEAR_DIAG_INFO_REQ_MAX_LEN 5
     #define UDS_CLEAR_DIAG_INFO_RESP_LEN 1
 
     // ControlDTCSetting service (0x85)
@@ -366,7 +387,15 @@ namespace uds{
             bool IsRequestSubFuncSupported(cfg::Node& node, uint8_t subFunc);
 
             std::map<std::string, uint8_t>& GetSessionMap(void);
-            bool IsValidSvcActiveSession(uint8_t sid, taf_SessionType_t currentSession);
+            bool IsServiceIDSupported(uint8_t sid);
+            bool IsValidSvcActiveSession(uint8_t sid);
+            bool IsSvcSecAccessMatched(uint8_t sid);
+
+            le_result_t GeneralServerResp(taf_doip_AddrInfo_t* addrInfoPtr, uint8_t sid);
+
+            bool IsSubFuncSupported(uint8_t sid, uint8_t subFunc);
+            bool IsSubFuncSessTypeValid(uint8_t sid, uint8_t subFunc);
+            bool IsSubFuncSecAccessMatched(uint8_t sid, uint8_t subFunc);
 
             // update status parameter.
             bool isXferActive = false;

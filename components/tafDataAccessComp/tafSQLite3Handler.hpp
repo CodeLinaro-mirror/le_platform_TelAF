@@ -92,22 +92,22 @@ namespace dataAccess{
             {
                 if (mpInsertStatement != nullptr)
                 {
-                    std::move(mpInsertStatement);
+                    (void) std::move(mpInsertStatement);
                 }
 
                 if (mpInsOrRepStatement != nullptr)
                 {
-                    std::move(mpInsOrRepStatement);
+                    (void) std::move(mpInsOrRepStatement);
                 }
 
                 if (mpUpdateStatement != nullptr)
                 {
-                    std::move(mpUpdateStatement);
+                    (void) std::move(mpUpdateStatement);
                 }
 
                 if (mpDeleteStatement != nullptr)
                 {
-                    std::move(mpDeleteStatement);
+                    (void) std::move(mpDeleteStatement);
                 }
 
                 // This function is only called when the component exit.

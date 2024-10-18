@@ -812,7 +812,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 if(locationInfo->getTimeStamp() != telux::loc::UNKNOWN_TIMESTAMP) {
                     time_t realtime;
                     realtime = (time_t)((locationInfo->getTimeStamp() / 1000));
-                    tm *ltm = localtime(&realtime);
+                    tm *ltm = gmtime(&realtime);
                     LE_DEBUG("onDetailedEngineLocationUpdate !UNKNOWN_TIMESTAMP");
                     if(ltm != NULL)
                     {
@@ -2268,9 +2268,10 @@ le_result_t taf_locGnss::SetConstellation
         constellationMask -= TAF_LOCGNSS_CONSTELLATION_DEFAULT;
         if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GPS)
         {
-            constellationMask -= TAF_LOCGNSS_CONSTELLATION_GPS;
-            LE_DEBUG("constellation type GPS is not supported");
-            return LE_FAULT;
+            deviceReset = false;
+            blackListInfo.constellation = telux::loc::GnssConstellationType::GPS;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is GPS");
         }
         if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GLONASS)
         {
@@ -2323,9 +2324,9 @@ le_result_t taf_locGnss::SetConstellation
     {
         if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GPS)
         {
-            constellationMask -= TAF_LOCGNSS_CONSTELLATION_GPS;
-            LE_DEBUG("constellation type GPS is not supported");
-            return LE_FAULT;
+            blackListInfo.constellation = telux::loc::GnssConstellationType::GPS;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is GPS");
         }
         if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GLONASS)
         {

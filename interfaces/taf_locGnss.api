@@ -1197,7 +1197,7 @@ DEFINE URL_PATH_MAX = 128;
  * Defines the maximum number of GNSS data signal types.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE NUMBER_OF_SIGNAL_TYPES_MAX = 20;
+DEFINE NUMBER_OF_SIGNAL_TYPES_MAX = 23;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2273,7 +2273,41 @@ ENUM GnssSignalType {
   BEIDOU_B2I = 262144,         ///< GNSS signal is of BEIDOU B2I RF Band.
   BEIDOU_B2AI = 524288,        ///< GNSS signal is of BEIDOU B2AI RF Band.
   NAVIC_L5 = 1048576,          ///< GNSS signal is of NAVIC L5 RF Band.
-  BEIDOU_B2AQ = 2097152        ///< GNSS signal is of BEIDOU B2A_Q RF Band.
+  BEIDOU_B2AQ = 2097152,       ///< GNSS signal is of BEIDOU B2A_Q RF Band.
+  BEIDOU_B2BI = 4194304,       ///< GNSS signal is of BEIDOU B2B_I RF band.
+  BEIDOU_B2BQ = 8388608,       ///< GNSS signal is of BEIDOU B2B_Q RF band.
+  NAVIC_L1 = 16777216          ///< GNSS signal is of NAVIC L1 RF band.
+};
+
+//------------------------------------------------------------------------------------------------
+/** Specify GNSS signal type and RF band for jammer info and automatic
+ *  gain control metric in GnssData.
+ */
+//------------------------------------------------------------------------------------------------
+ENUM GnssDataSignalTypes {
+  DATA_SIGNAL_TYPE_GPS_L1CA = 0,      ///< GPS L1CA RF Band.
+  DATA_SIGNAL_TYPE_GPS_L1C = 1,       ///< GPS L1C RF Band.
+  DATA_SIGNAL_TYPE_GPS_L2C_L = 2,     ///< GPS L2 RF Band.
+  DATA_SIGNAL_TYPE_GPS_L5_Q = 3,      ///< GPS L5 RF Band.
+  DATA_SIGNAL_TYPE_GLONASS_G1 = 4,    ///< GLONASS G1 (L1OF) RF Band.
+  DATA_SIGNAL_TYPE_GLONASS_G2 = 5,    ///< GLONASS G2 (L2OF) RF Band.
+  DATA_SIGNAL_TYPE_GALILEO_E1_C = 6,  ///< GALILEO E1 RF Band.
+  DATA_SIGNAL_TYPE_GALILEO_E5A_Q = 7, ///< GALILEO E5A RF Band.
+  DATA_SIGNAL_TYPE_GALILEO_E5B_Q = 8, ///< GALILEO E5B RF Band.
+  DATA_SIGNAL_TYPE_BEIDOU_B1_I = 9,   ///< BEIDOU B1_I RF Band.
+  DATA_SIGNAL_TYPE_BEIDOU_B1C = 10,   ///< BEIDOU B1C RF Band.
+  DATA_SIGNAL_TYPE_BEIDOU_B2_I = 11,  ///< BEIDOU B2_I RF Band.
+  DATA_SIGNAL_TYPE_BEIDOU_B2A_I = 12, ///< BEIDOU B2A_I RF Band.
+  DATA_SIGNAL_TYPE_QZSS_L1CA = 13,    ///< QZSS L1CA RF Band.
+  DATA_SIGNAL_TYPE_QZSS_L1S = 14,     ///< QZSS L1S RF Band.
+  DATA_SIGNAL_TYPE_QZSS_L2C_L = 15,   ///< QZSS L2C_L RF Band.
+  DATA_SIGNAL_TYPE_QZSS_L5_Q = 16,    ///< QZSS L5_Q RF Band.
+  DATA_SIGNAL_TYPE_SBAS_L1_CA = 17,   ///< SBAS L1_CA RF Band.
+  DATA_SIGNAL_TYPE_NAVIC_L5 = 18,     ///< NAVIC L5 RF Band.
+  DATA_SIGNAL_TYPE_BEIDOU_B2A_Q = 19, ///< BEIDOU B2A_Q RF Band.
+  DATA_SIGNAL_TYPE_BEIDOU_B2BI = 20,  ///< BEIDOU B2BI RF Band.
+  DATA_SIGNAL_TYPE_BEIDOU_B2BQ = 21,  ///< BEIDOU B2BQ RF Band.
+  DATA_SIGNAL_TYPE_NAVIC_L1 = 22      ///< NAVIC L1 RF Band.
 };
 
 //------------------------------------------------------------------------------------------------
@@ -2465,9 +2499,9 @@ STRUCT GnssMeasurementInfo {
 STRUCT GnssData
 {
   uint32 gnssDataMask; ///< bitwise OR of GnssDataValidityType
-  double jammerInd;    ///< Each index represents the signal type in GnssDataSignalTypes.
+  double jammerInd;    ///< Each index represents the signal type in @ref GnssDataSignalTypes.
   double agc;          ///< Automatic gain control for each signal type. Each index
-                       ///  corresponds to the signal type in GnssDataSignalTypes.
+                       ///  corresponds to the signal type in @ref GnssDataSignalTypes.
 };
 
 

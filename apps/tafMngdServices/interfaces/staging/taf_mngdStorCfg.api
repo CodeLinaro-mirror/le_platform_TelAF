@@ -63,28 +63,38 @@
  * The client is allocated the config storage when it connects to the service. When it calls
  * taf_mngdStorCfg_GetRef() to get reference of config storage, the client uses the config storage
  * to update and access its own configuration data.
+
+ * @section taf_mngdStorCfg_GetRef Get reference of config storage
  *
- * @section taf_mngdStorCfg_UpdateFile Update the file in config storage
+ * The client calls taf_mngdStorCfg_GetRef() to get the reference of the config storage.
  *
- * The client calls taf_mngdStorCfg_UpdateFile() to read the config file path from Managed Storage
+ * @code
+
+   taf_mngdStorCfg_ConfigRef_t cRef = taf_mngdStorCfg_GetRef();
+
+ * @endcode
+ *
+ * @section taf_mngdStorCfg_Update Update the file in config storage
+ *
+ * The client calls taf_mngdStorCfg_Update() to read the config file path from Managed Storage
  * Service(MSS) configuration file and copy the config file from that path to config storage path.
  *
  * @code
 
     le_result_t result;
-    result = taf_mngdStorCfg_UpdateFile();
+    result = taf_mngdStorCfg_Update(cRef,"1.0.0");
 
  * @endcode
  *
- * @section taf_mngdStorCfg_Sync Replace orignal config file with updated file
+ * @section taf_mngdStorCfg_Activate Replace orignal config file with updated file
  *
- * The client calls taf_mngdStorCfg_Sync() to replace the orignal config file with the updated
+ * The client calls taf_mngdStorCfg_Activate() to replace the orignal config file with the updated
  * config file.
  *
  * @code
 
     le_result_t result;
-    result = taf_mngdStorCfg_Sync();
+    result = taf_mngdStorCfg_Activate(cRef);
 
  * @endcode
  *
@@ -96,7 +106,7 @@
  * @code
 
     le_result_t result;
-    result = taf_mngdStorCfg_Cancel();
+    result = taf_mngdStorCfg_Cancel(cRef);
 
  * @endcode
  *
@@ -108,7 +118,7 @@
  * @code
 
     le_result_t result;
-    result = taf_mngdStorCfg_Rollback();
+    result = taf_mngdStorCfg_Rollback(cRef);
 
  * @endcode
  *
@@ -121,7 +131,58 @@
  * @code
 
     le_result_t result;
-    result = taf_mngdStorCfg_Commit();
+    result = taf_mngdStorCfg_Commit(cRef);
+
+ * @endcode
+ *
+ * @section taf_mngdStorCfg_GetVersion Get the version of config storage
+ *
+ * The client calls taf_mngdStorCfg_GetVersion() to get version of config storage.
+ *
+ * @code
+
+    le_result_t result;
+    uint32_t MajorVersionPtr=0;
+    uint32_t MinorVersionPtr=0;
+    uint32_t PatchVersionPtr=0;
+    result = taf_mngdStorCfg_GetVersion(cRef,&MajorVersionPtr,&MinorVersionPtr,&PatchVersionPtr);
+
+ * @endcode
+ *
+ * @section taf_mngdStorCfg Get Api's
+ *
+ * The managed config storage provide get Api's which help to get the data type of the node and
+ * also help to read the data of the nodes based on their types like string, integer etc. The
+ * client should know the groupName and nodeName for that which wants to read the data.
+ *
+ * @code
+
+    le_result_t result;
+    const char *LE_NONNULL groupName = "config2/";
+    const char *LE_NONNULL nodeName =  "key 4 in this config id";
+    char nodeValue[LE_CFG_STR_LEN_BYTES];
+    result = taf_mngdStorCfg_GetType(CRef, groupName, nodeName, &typePtr);
+    result = taf_mngdStorCfg_GetString(CRef, groupName, nodeName, nodeValue, sizeof(nodeValue));
+
+    int32_t nodeValuePtr = 0;
+    result = taf_mngdStorCfg_GetInt(CRef, groupName, nodeName, &nodeValuePtr);
+
+    double nodeValuePtr = 0.08597;
+    result = taf_mngdStorCfg_GetFloat(CRef, groupName, nodeName, &nodeValuePtr);
+
+    int32_t nodeValuePtr = 0;
+    result = taf_mngdStorCfg_GetBool(CRef, groupName, nodeName, &nodeValuePtr);
+
+ * @endcode
+ *
+ * @section taf_mngdStorCfg_ReleaseRef Release reference of config storage
+ *
+ * The client calls taf_mngdStorCfg_ReleaseRef() to release reference of config storage.
+ *
+ * @code
+
+    le_result_t result;
+    result = taf_mngdStorCfg_ReleaseRef(cRef);
 
  * @endcode
  *
@@ -156,6 +217,20 @@ ENUM NodeType
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the configuration storage reference.
+ *
+ * @return
+ *     - Config            Configuration storage reference.
+ *     - NULL              Invalid file name.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Config GetRef
+(
+);
+
+//-------------------------------------------------------------------------------------------------
+
+/**
  * Copies the file from the paths configured in the MSS configuration JSON file to the configuration
  * storage and also checks the validity of the file.
  *
@@ -164,8 +239,10 @@ ENUM NodeType
  *     - LE_FAULT          Failed to update file.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t UpdateFile
+FUNCTION le_result_t Update
 (
+    Config configRef              IN,   ///< Configuration storage reference.
+    string version[MAX_STR_LEN]    IN    ///< Version of the Config Storage.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -178,8 +255,9 @@ FUNCTION le_result_t UpdateFile
  *     - LE_FAULT          Failed to sync the file.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t Sync
+FUNCTION le_result_t Activate
 (
+    Config configRef              IN   ///< Configuration storage reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -194,6 +272,7 @@ FUNCTION le_result_t Sync
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Cancel
 (
+    Config configRef              IN   ///< Configuration storage reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -208,6 +287,7 @@ FUNCTION le_result_t Cancel
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Rollback
 (
+    Config configRef              IN   ///< Configuration storage reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -221,24 +301,12 @@ FUNCTION le_result_t Rollback
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Commit
 (
+    Config configRef              IN   ///< Configuration storage reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the configuration file reference.
- *
- * @return
- *     - Config            Configuration storage reference.
- *     - NULL              Invalid file name.
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION Config GetRef
-(
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Gets the major and minor version of the given configuration file reference.
+ * Gets the major, minor and patch version of the given configuration file reference.
  *
  * @return
  *     - LE_OK             Successfully read the data.
@@ -361,4 +429,18 @@ FUNCTION le_result_t GetBool
     string    groupName[MAX_STR_LEN]  IN,    ///< Name of the group of the node.
     string    nodeName[MAX_STR_LEN]   IN,    ///< Name of the node.
     int32     nodeValue               OUT    ///< Value of the node.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases the config storage reference.
+ *
+ * @return
+ *     - LE_OK             Successfully release reference.
+ *     - LE_FAULT          Failed to release reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ReleaseRef
+(
+    Config    configRef               IN    ///< Configuration storage reference.
 );

@@ -1,0 +1,219 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_taf_mngdStorSec Managed Storage Service
+ *
+ * @ref taf_mngdStorage_secure_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Managed Storage service provides applications the APIs to use encrypted and reliable
+ * storages.
+ *
+ * @section taf_mngdStorageSvc_binding IPC interfaces binding
+ *
+ * The following example illustrates how to bind to the secure file storage interface.
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_mngdStorSecFile -> tafMngdStorageSvc.taf_mngdStorSecFile
+   }
+   @endverbatim
+ *
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+USETYPES taf_fsc.api;
+USETYPES le_limit.api;
+
+/**
+ * Maximum number of characters and bytes for a secure file storage name.
+ */
+DEFINE MAX_STORAGE_NAME_SIZE = taf_fsc.MAX_STORAGE_NAME_SIZE;
+
+/**
+ * Maximum number of bytes for each data chunk in secure file storage reading.
+ */
+DEFINE MAX_DATA_CHUNK_SIZE = 8192;
+
+/**
+ * Secure file storage reference.
+ */
+REFERENCE Storage;
+
+/**
+ * Secure file storage managed capability mask.
+ */
+BITMASK ManagedCapMask
+{
+    CAP_RELIABILITY,    ///< file reliability.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Creates a file storage name with empty FSCrypt folder and returns the reference to the storage name
+ * and the managed capability. The storage name shall follow POSIX portable folder name convention.
+ *
+ * The created data will be owned by the calling app.
+ *
+ * @return
+ *     - LE_OK             Sent request successfully.
+ *     - LE_BAD_PARAMETER  The storage name is invalid.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CreateStorage
+(
+    string storageName[MAX_STORAGE_NAME_SIZE]  IN,   ///< Storage name.
+    ManagedCapMask ManagedCapMask              IN    ///< Managed capability.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the storage reference for the storage name. The storage name shall follow POSIX folder file name
+ * convention.
+ *
+ * @return
+ *     - Storage    New storage reference.
+ *     - NULL       Invalid storage name, or the storage name does not exist.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Storage GetStorageRef
+(
+    string storageName[MAX_STORAGE_NAME_SIZE]  IN   ///< Storage name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends the request to unlock the storage.
+ *
+ * @return
+ *     - LE_OK             Sent request successfully.
+ *     - LE_BAD_PARAMETER  The storage reference is invalid.
+ *     - LE_FAULT          Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UnlockStorage
+(
+    Storage storageRef IN   ///< Storage reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends the request to lock the storage.
+ *
+ * @return
+ *     - LE_OK             Sent request successfully.
+ *     - LE_BAD_PARAMETER  The storage reference is invalid.
+ *     - LE_FAULT          Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t LockStorage
+(
+    Storage storageRef IN   ///< Storage reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Imports the source file to the storage.
+ *
+ * @return
+ *     - LE_OK             Imported successfully.
+ *     - LE_BAD_PARAMETER  The source file path or the target file patch is invalid.
+ *     - LE_FAULT          Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ImportFile
+(
+    Storage storageRef                           IN,   ///< Storage reference.
+    string sourceFilePath[le_limit.MAX_PATH_LEN] IN,   ///< Source file to be copied to the file
+                                                       ///< storage.
+    string targetFilePath[le_limit.MAX_PATH_LEN] IN    ///< Target file path is the relative path
+                                                       ///< to the file storage reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reads the file from the storage.
+ *
+ * @return
+ *     - LE_OK             Sent request successfully.
+ *     - LE_BAD_PARAMETER  The file path is invalid.
+ *     - LE_FAULT          Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ReadFile
+(
+    Storage storageRef                     IN,   ///< Storage reference.
+    string filePath[le_limit.MAX_PATH_LEN] IN,   ///< File path is the relative path to the file
+                                                 ///< storage reference
+    uint8 bufPtr[MAX_DATA_CHUNK_SIZE]      OUT   ///< Output buffer.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the file from the storage.
+ *
+ * @return
+ *     - LE_OK             Sent request successfully.
+ *     - LE_BAD_PARAMETER  The file path is invalid.
+ *     - LE_FAULT          Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteFile
+(
+    Storage storageRef                     IN,   ///< Storage reference.
+    string filePath[le_limit.MAX_PATH_LEN] IN    ///< File path is the relative path to the file
+                                                 ///< storage reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the file storage base path.
+ *
+ * @return
+ *     - LE_OK             Sent request successfully.
+ *     - LE_BAD_PARAMETER  The given storage reference is invalid.
+ *     - LE_FAULT          Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBasePath
+(
+    Storage storageRef                     IN,   ///< Storage reference.
+    string basePath[le_limit.MAX_PATH_LEN] OUT   ///< Storage base path to the file storage reference
+);

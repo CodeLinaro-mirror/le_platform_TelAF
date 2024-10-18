@@ -9,6 +9,7 @@ if [ $TARGET == 'sa525m' ]
 then
     echo "You chose sa525m"
     mkcomp -t sa525m \
+        ${MKTOOLS_X_C_FLAGS} \
         -X "-O2" -C "-O2" \
         -X "-fPIC" \
         -X "-shared" \
@@ -20,6 +21,7 @@ elif [ $TARGET == 'sa515m' ]
 then
     echo "You chose sa515m"
     mkcomp -t sa515m \
+        ${MKTOOLS_X_C_FLAGS} \
         -X "-O2" -C "-O2" \
         -X "-fPIC" \
         -X "-shared" \

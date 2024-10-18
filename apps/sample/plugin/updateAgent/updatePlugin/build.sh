@@ -9,6 +9,7 @@ if [ $TARGET == 'sa525m' ]
 then
     mkcomp -t sa525m \
         -X "-O2" -C "-O2" \
+        ${MKTOOLS_X_C_FLAGS} \
         -X "-fPIC" \
         -X "-shared" \
         -X "-std=c++11" \
@@ -19,6 +20,7 @@ elif [ $TARGET == 'sa515m' ]
 then
     mkcomp -t sa515m \
         -X "-O2" -C "-O2" \
+        ${MKTOOLS_X_C_FLAGS} \
         -X "-fPIC" \
         -X "-shared" \
         -X "-std=c++11" \

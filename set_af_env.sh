@@ -49,6 +49,12 @@ setup_toolchain_default_location() {
         return
     fi
 
+    if echo "$CFLAGS" | grep -q "\-D_TIME_BITS=64"; then
+        MKTOOLS_X_C_FLAGS="-X -D_TIME_BITS=64 -X -D_FILE_OFFSET_BITS=64"
+        MKTOOLS_X_C_FLAGS+=" -C -D_TIME_BITS=64 -C -D_FILE_OFFSET_BITS=64"
+        export MKTOOLS_X_C_FLAGS=$MKTOOLS_X_C_FLAGS
+    fi
+
     # TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH environment variable will be used in findtoochain script.
     export TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH=$DEF_TOOLCHAIN_PATH
 }
@@ -97,6 +103,12 @@ setup_toolchain_custom_location() {
     else
         echo "Invalid target"
         return
+    fi
+
+    if echo "$CFLAGS" | grep -q "\-D_TIME_BITS=64"; then
+        MKTOOLS_X_C_FLAGS="-X -D_TIME_BITS=64 -X -D_FILE_OFFSET_BITS=64"
+        MKTOOLS_X_C_FLAGS+=" -C -D_TIME_BITS=64 -C -D_FILE_OFFSET_BITS=64"
+        export MKTOOLS_X_C_FLAGS=$MKTOOLS_X_C_FLAGS
     fi
 
     # TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH environment variable will be used in findtoochain script.
@@ -157,12 +169,6 @@ function build_target() {
     if [ $? -ne 0 ]; then
         echo "Error: when making target ${TARGET}"
         return
-    fi
-
-    if echo "$CFLAGS" | grep -q "\-D_TIME_BITS=64"; then
-        MKTOOLS_X_C_FLAGS="-X -D_TIME_BITS=64 -X -D_FILE_OFFSET_BITS=64"
-        MKTOOLS_X_C_FLAGS+=" -C -D_TIME_BITS=64 -C -D_FILE_OFFSET_BITS=64"
-        export MKTOOLS_X_C_FLAGS
     fi
 
     # Build telaf-prop source code if exists

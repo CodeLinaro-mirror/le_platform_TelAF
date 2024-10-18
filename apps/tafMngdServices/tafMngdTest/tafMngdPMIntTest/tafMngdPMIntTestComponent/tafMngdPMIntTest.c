@@ -14,7 +14,7 @@
 
 taf_mngdPm_wsRef_t wsRef = NULL;
 taf_mngdPm_wsRef_t wsRef1 = NULL;
-
+taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = 0;
 static le_sem_Ref_t tafMpmAppSem;
 le_clk_Time_t Timeout = { 5 , 0 };
 int status = EXIT_SUCCESS;
@@ -35,8 +35,6 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RebootSystem \n"
         "--------To Restart the PVM System--------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RestartSystem \n"
-        "--------To KeepAwakeThenRestartSystem the System --------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- KeepAwakeThenRestartSystem \n"
         "--------To trigger the Forceful PVM System Shutdown--------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdown \n"
         "--------To trigger the Graceful shutdown of particular node with NODE_ID with the wake lock acquired from this app--------\n"
@@ -63,22 +61,19 @@ static void PrintUsage ()
         "--------5 -> For SMS and MCU_VHAL wakeuptype------\n"
         "--------6 -> For VOICE_CALL and MCU_VHAL wakeuptype------\n"
         "--------7 -> For SMS, VOICE_CALL and MCU_VHAL wakeuptype------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- SetModemWakeupSource <wakeuptype>\n"
-        "------------To suspend the particular node with node ID-----------\n"
+        "------------To Suspend System the particular node with wakeuptype and node ID-----------\n"
         "--------0 -> For APP_STAYAWAKE wakeuptype------------\n"
         "--------1 -> For SMS wakeuptype------------\n"
         "--------2 -> For VOICE_CALL wakeuptype------------\n"
         "--------3 -> For MCU_VHAL wakeuptype------\n"
-        "------------To Suspend System the particular node with node ID-----------\n"
         "--------0 -> For PVM NAD ------------\n"
         "--------1 -> For RPC NAD ------------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- SuspendSystem <wakeuptype> <NODE_ID> \n"
-        "------------To Resume the system with wakeuptypes-----------\n"
+        "------------To Resume the system with wakeuptype and node ID-----------\n"
         "--------0 -> For APP_STAYAWAKE wakeuptype------------\n"
         "--------1 -> For SMS wakeuptype------------\n"
         "--------2 -> For VOICE_CALL wakeuptype------------\n"
         "--------3 -> For MCU_VHAL wakeuptype------\n"
-        "------------To Resume the particular node with node ID-----------\n"
         "--------0 -> For PVM NAD ------------\n"
         "--------1 -> For RPC NAD ------------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ResumeSystem <wakeuptype> <NODE_ID>\n"
@@ -139,7 +134,7 @@ void AddNodePowerStateChangeHandler
     LE_INFO("taf_mngdPm_AddNodePowerStateChangeHandler");
     if(strcmp(NodePowerStateChangeBitMask, "TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE") == 0)
     {
-        taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE;
+        stateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE;
         taf_mngdPm_NodePowerStateChangeHandlerRef_t ref = NULL;
         ref = taf_mngdPm_AddNodePowerStateChangeHandler(NodePowerStateChangeHandlerCB, NULL, pmNodeId, stateMask);
         if(ref)
@@ -149,7 +144,7 @@ void AddNodePowerStateChangeHandler
     }
     else if(strcmp(NodePowerStateChangeBitMask, "TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE") == 0)
     {
-        taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE;
+        stateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE;
         taf_mngdPm_NodePowerStateChangeHandlerRef_t ref = NULL;
         ref = taf_mngdPm_AddNodePowerStateChangeHandler(NodePowerStateChangeHandlerCB, NULL, pmNodeId, stateMask);
         if(ref)
@@ -159,7 +154,7 @@ void AddNodePowerStateChangeHandler
     }
     else if(strcmp(NodePowerStateChangeBitMask, "TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE") == 0)
     {
-        taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE;
+        stateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE;
         taf_mngdPm_NodePowerStateChangeHandlerRef_t ref = NULL;
         ref = taf_mngdPm_AddNodePowerStateChangeHandler(NodePowerStateChangeHandlerCB, NULL, pmNodeId, stateMask);
         if(ref)
@@ -169,7 +164,7 @@ void AddNodePowerStateChangeHandler
     }
     else if(strcmp(NodePowerStateChangeBitMask, "TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME") == 0)
     {
-        taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME;
+        stateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME;
         taf_mngdPm_NodePowerStateChangeHandlerRef_t ref = NULL;
         ref = taf_mngdPm_AddNodePowerStateChangeHandler(NodePowerStateChangeHandlerCB, NULL, pmNodeId, stateMask);
         if(ref)
@@ -265,9 +260,10 @@ void ForcedSystemShutdownCallBack(taf_mngdPm_ShutdownMode_t mode,
     if(ResponseMode == 0)
     {
         LE_INFO("----ForcedSystemShutdown success----");
-        exit(EXIT_SUCCESS);
     }
-    exit(EXIT_FAILURE);
+    else{
+        exit(EXIT_FAILURE);
+    }
 }
 
 static void ForcedSystemShutdown()
@@ -357,8 +353,6 @@ void SuspendSystem(const char* wakeuptype, uint8_t pmNodeId)
         }
         if(res != LE_OK)
             exit(EXIT_FAILURE);
-        else
-            exit(EXIT_SUCCESS);
     }
     else {
          LE_ERROR("SuspendSystem failed");
@@ -768,10 +762,9 @@ static void ForcedSystemShutdownAndSuspend()
     {
         result = taf_mngdPm_RelaxNode(wsRef);
         if(result == LE_OK) {
-            LE_INFO("suspended sysytem with wakeuptype MCU_VHAL");
+            LE_INFO("Triggered suspend sysytem");
         }
         LE_INFO("----ForcedSystemShutdown success----");
-        exit(EXIT_SUCCESS);
     }
     else
     {
@@ -964,7 +957,6 @@ void* ThreadFunction(void* threadID) {
     wsRef = taf_mngdPm_NewNodeWakeupSource(0, 1, vHalTag);
     if(wsRef)
         printf("NewNodeWakeupSource ref is created for\n");
-    printf("ResumeSystem");
     if(wsRef != NULL) {
         res = taf_mngdPm_StayAwakeNode(wsRef);
         if(res == LE_OK) {

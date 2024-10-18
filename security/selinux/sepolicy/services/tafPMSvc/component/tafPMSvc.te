@@ -22,3 +22,5 @@ ifdef(`sa525m',`
 telux_allow_power_control_state(telaf_tafPMSvc_t)
 ')
 
+#Allow system reboot capability for PMS
+allow telaf_tafPMSvc_t self:capability {sys_boot};

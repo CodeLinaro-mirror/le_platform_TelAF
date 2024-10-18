@@ -35,6 +35,8 @@
 #ifndef KEY_MGT_H
 #define KEY_MGT_H
 
+#include "limit.h"
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Reference to a key file object

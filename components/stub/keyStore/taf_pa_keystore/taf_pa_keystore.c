@@ -188,6 +188,23 @@ LE_SHARED le_result_t taf_pa_ks_ExportKey
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Share a key.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_ks_ShareKey
+(
+    le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
+    KeyMgt_KeyFileRef_t keyFileRef,       ///< [IN] Key file reference
+    taf_ks_KeyUsage_t keyCap,             ///< [IN] Shared capability
+    taf_ks_AppCapMask_t appCap,           ///< [IN] Shared application capability.
+    const char* appName                   ///< [IN] Shared application name
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Delete a key file by key name.
  */
 //--------------------------------------------------------------------------------------------------
@@ -210,6 +227,52 @@ le_result_t taf_pa_ks_GetKey
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
     const char* keyName,                  ///< [IN] Key Name
     KeyMgt_KeyFileRef_t* keyFileRefPtr    ///< [OUT] Key file reference.
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get a shared key file reference by key name and app name.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_ks_GetSharedKey
+(
+    le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
+    const char* keyName,                  ///< [IN] Key Name
+    const char* appName,                  ///< [IN] App Name
+    KeyMgt_KeyFileRef_t* keyFileRefPtr    ///< [OUT] Key file reference.
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancel key sharing to an application.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_ks_CancelKeySharing
+(
+    le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
+    KeyMgt_KeyFileRef_t keyFileRef,       ///< [IN] Key file reference
+    const char* appName                   ///< [IN] Shared application name
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get a shared app list for a shared key.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_ks_GetSharedAppList
+(
+    le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
+    KeyMgt_KeyFileRef_t keyFileRef,       ///< [IN] Key file reference
+    taf_pa_ks_sharedAppList_t* appListPtr ///< [OUT] Shared app list.
 )
 {
     return LE_OK;
@@ -255,7 +318,7 @@ le_result_t taf_pa_ks_CryptoSessionStart
  * This API can be called for multiple times but must before CryptoSessionProcess API.
  */
 //--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_ks_CryptoSessionProcessAead
+le_result_t taf_pa_ks_CryptoSessionProcessAead
 (
     uint64_t               opHandle,      ///< [IN] Cyrpto operation handle
     const uint8_t*     inputDataPtr,      ///< [IN] Data buffer to hold the AEAD data
@@ -322,6 +385,32 @@ le_result_t taf_pa_ks_CryptoSessionEnd
 le_result_t taf_pa_ks_CryptoSessionAbort
 (
     uint64_t                opHandle      ///< [IN] Cyrpto operation handle
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Register Key creation handler in PA layer
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_ks_RegKeyCreationHandler
+(
+    taf_pa_ks_KeyCreationHandler_t handlerFunc
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Register Key sharing state change handler in PA layer
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_ks_RegKeySharingHandler
+(
+    taf_pa_ks_KeySharingHandler_t handlerFunc
 )
 {
     return LE_OK;

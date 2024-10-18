@@ -323,10 +323,7 @@ namespace tafsvc {
         std::shared_ptr<ILocationManager> locationManager;
         bool mStarted;
         std::shared_ptr<tafLocationListener> posListener;
-        le_event_HandlerRef_t HandlerRef;
-        le_event_Id_t positionEventId;
-        le_event_Id_t locCapabilityEventId;
-        le_event_Id_t nmeaEventId;
+
         taf_locGnss_PositionSample_t   LastPositionSample;
         le_ref_MapRef_t PositionHandlerRefMap;
         taf_locGnss_PositionSample_t mSatParams;
@@ -500,6 +497,7 @@ namespace tafsvc {
 
             le_result_t SetDRConfigValidity(taf_locGnss_DRConfigValidityType_t validMask);
             le_result_t GetGptpTime(taf_locGnss_SampleRef_t positionSampleRef,uint64_t* gPtpTime,uint64_t* gPtpTimeUnc);
+            void CleanUp(taf_locGnss_Client_t*);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_mem_PoolRef_t   PositionSamplePoolRef;
@@ -518,6 +516,10 @@ namespace tafsvc {
             uint8_t mfeatureEnabled;
             uint32_t mXtraValidForHours;
             uint32_t mXtraDataStatus;
+            le_event_Id_t positionEventId;
+            le_event_Id_t nmeaEventId;
+            le_event_Id_t locCapabilityEventId;
+            le_event_HandlerRef_t HandlerRef;
 
             taf_locGnss_ConstellationBitMask_t mConstellationMask;
             taf_locGnss_NmeaBitMask_t mNmeaMask = 0;

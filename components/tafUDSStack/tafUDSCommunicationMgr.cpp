@@ -832,7 +832,7 @@ le_result_t UdsCommunicationMgr::GeneralServerResp
         return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr); // NRC 33
     }
 
-    return LE_OK;
+    return LE_NOT_FOUND;
 }
 
 /*
@@ -2840,7 +2840,7 @@ void UdsCommunicationMgr::DiagIndicationHandler
     uint8_t sid = udsCmMgr->recvBuf[0];
 
     // General server response behaviour check, NRC check for 0x11, 0x7f, 0x33
-    if(udsCmMgr->GeneralServerResp(addrInfoPtr, sid) != LE_OK)
+    if(udsCmMgr->GeneralServerResp(addrInfoPtr, sid) == LE_OK)
     {
         LE_DEBUG("General server negative response");
         return;

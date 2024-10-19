@@ -9,6 +9,7 @@ requires:
     {
         taf_diagEvent.api
         taf_diagDTC.api
+        taf_diag.api
     }
 }
 

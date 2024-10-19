@@ -25,4 +25,5 @@ bindings:
 {
     tafDiagEventApp.diagEventAppComp.taf_diagEvent -> tafDiagSvc.taf_diagEvent
     tafDiagEventApp.diagEventAppComp.taf_diagDTC -> tafDiagSvc.taf_diagDTC
+    tafDiagEventApp.diagEventAppComp.taf_diag -> tafDiagSvc.taf_diag
 }

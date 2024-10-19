@@ -180,6 +180,81 @@ void taf_IOCtrlSvr::UDSMsgHandler
 
     if (sid == reqIOCtrlSvcId)
     {
+        LE_DEBUG("IO control service");
+
+        // check enable condition
+#ifndef LE_CONFIG_DIAG_FEATURE_A
+        // Diag instance
+        auto &diag = taf_DiagSvr::GetInstance();
+        uint16_t dataId = (msgPtr[msgPos] << 8) + msgPtr[msgPos + 1];
+
+        try
+        {
+            LE_INFO("IO ctrl enable condition check");
+            cfg::Node & node = cfg::top_IO_all<int>("identifier", dataId);
+            cfg::Node & enableNode = node.get_child("data_enable_condition");
+
+            for (const auto & enable: enableNode)
+            {
+                // Get the defined enable operation type: "and" or "or"
+                std::string enableOperation = enable.first;
+                if (enableOperation == "and")
+                {
+                    LE_INFO("Check IO Ctrl enable condition status based on AND operation");
+                    cfg::Node & optNodeList = enableNode.get_child("and");
+                    for (const auto & optNode: optNodeList)
+                    {
+                        uint8_t enableId = optNode.second.get_value<uint8_t>();
+                        LE_DEBUG("Enable condition id = 0x%x", enableId);
+
+                        if (!diag.GetEnableConditionStatus(enableId))
+                        {
+                            errCode = cfg::get_nrc_by_condition_id(enableId);
+                            LE_WARN("Enable id %d condition is false, send nrc 0x%x",
+                                    enableId, errCode);
+                            SendNRCResp(sid, addrPtr, errCode);
+                            return;
+                        }
+                    }
+                }
+                else if (enableOperation == "or")
+                {
+                    LE_INFO("Check IO ctrl enable condition status based on OR operation");
+                    cfg::Node & optNodeList = enableNode.get_child("or");
+                    bool enableStatus = false;
+                    uint8_t enableId = 0;
+
+                    for (const auto & optNode: optNodeList)
+                    {
+                        enableId = optNode.second.get_value<uint8_t>();
+                        LE_DEBUG("Enable condition id = 0x%x", enableId);
+
+                        if(diag.GetEnableConditionStatus(enableId))
+                        {
+                            enableStatus = true;
+                            LE_INFO("enable id %d status is true", enableId);
+                            break;
+                        }
+                    }
+
+                    if(!enableStatus && enableId != 0)
+                    {
+                        errCode = cfg::get_nrc_by_condition_id(enableId);
+                        LE_WARN("Enable id %d condition is false, send nrc 0x%x",
+                                enableId, errCode);
+                        SendNRCResp(sid, addrPtr, errCode);
+                        return;
+                    }
+                }
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LE_WARN("Enable condition does not define for IO ctrol ID: 0x%x, Exception: %s",
+                    dataId, e.what());
+        }
+#endif
+
         taf_IOCtrlRxMsg_t* rxIOCtrlMsgPtr = NULL;
 
         rxIOCtrlMsgPtr = (taf_IOCtrlRxMsg_t*)le_mem_ForceAlloc(RxMsgPool);

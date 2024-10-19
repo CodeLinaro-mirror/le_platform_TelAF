@@ -13,6 +13,7 @@
 #include "tafIOCtrlSvr.hpp"
 #include "configuration.hpp"
 #include "tafDiagBackend.hpp"
+#include "tafDiagSvr.hpp"
 
 #ifndef LE_CONFIG_DIAG_VSTACK
 #include "tafEventSvr.hpp"
@@ -40,6 +41,11 @@ COMPONENT_INIT
     {
         LE_FATAL("json file is not present");
     }
+
+    LE_INFO("TelAF Diag service initialization start...");
+    auto& diag = taf_DiagSvr::GetInstance();
+    diag.Init();
+    LE_INFO("TelAF Diag service initialization end...");
 
     LE_INFO("TelAF UDS DataID service initialization start...");
     auto& did = taf_DataIDSvr::GetInstance();

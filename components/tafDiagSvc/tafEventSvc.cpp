@@ -233,29 +233,6 @@ le_result_t taf_diagEvent_RemoveSvc
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets an enable condition.
- *
- * @return
- *     - LE_OK -- Succeeded.
- *     - LE_FAULT -- Failed.
- *
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_diagEvent_SetEnableCondition
-(
-    uint8_t enableConditionID,
-        ///< [IN] Enable condition ID.
-    bool conditionFulfilled
-        ///< [IN] The enable condition is fulfilled (TRUE) or not.
-)
-{
-    auto &diagEvent = taf_EventSvr::GetInstance();
-
-    return diagEvent.SetEnableCondition(enableConditionID, conditionFulfilled);
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Sets the state of an operation cycle.
  *
  * @return

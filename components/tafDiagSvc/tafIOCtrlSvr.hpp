@@ -11,6 +11,10 @@
 #include "tafSvcIF.hpp"
 #include "tafDiagBackend.hpp"
 
+#ifndef LE_CONFIG_DIAG_FEATURE_A
+#include "tafDiagSvr.hpp"
+#endif
+
 #define DEFAULT_SVC_REF_CNT 16
 #define DEFAULT_RX_MSG_REF_CNT 16
 #define DEFAULT_RX_HANDLER_REF_CNT 16

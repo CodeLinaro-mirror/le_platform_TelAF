@@ -8,6 +8,7 @@ provides:
         taf_diagReset.api
         taf_diagUpdate.api
         taf_diagIOCtrl.api
+        taf_diag.api
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
         taf_diagEvent.api
         taf_diagDTC.api
@@ -73,6 +74,8 @@ sources:
         tafIOCtrlSvrImpl.cpp
         tafDiagFrontend.cpp
         tafDiagBackend.cpp
+        tafDiagSvc.cpp
+        tafDiagSvrImpl.cpp
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
         tafEventSvc.cpp
         tafEventSvrImpl.cpp

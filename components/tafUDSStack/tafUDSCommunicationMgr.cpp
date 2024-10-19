@@ -2843,6 +2843,7 @@ void UdsCommunicationMgr::DiagIndicationHandler
     if(udsCmMgr->GeneralServerResp(addrInfoPtr, sid) != LE_OK)
     {
         LE_DEBUG("General server negative response");
+        udsCmMgr->CheckAndRestartS3Timer(sid);
         return;
     }
 

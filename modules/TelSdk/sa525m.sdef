@@ -67,7 +67,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafDevInfoTest/tafDevInfoIntTest
     // $TELAF_ROOT/apps/test/tafVerInfoTest/tafVerInfoUnitTest
     // $TELAF_ROOT/apps/test/tafVerInfoTest/tafVerInfoIntTest
-    $TELAF_ROOT/apps/test/tafLxcInitApp/tafLxcInitApp
+    // $TELAF_ROOT/apps/test/tafLxcInitApp/tafLxcInitApp
     // $TELAF_ROOT/apps/test/tafThermTest/tafThermUnitTest
     // $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
     // $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallUnitTest

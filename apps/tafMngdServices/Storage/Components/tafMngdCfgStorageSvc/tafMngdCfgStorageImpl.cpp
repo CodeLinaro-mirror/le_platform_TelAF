@@ -59,6 +59,7 @@ tafMngdStorageSvc &tafMngdStorageSvc::GetInstance()
  */
 void tafMngdStorageSvc::Init(void)
 {
+    mClientRefCount=0;
     InitConfigStorage();
     taf_rfs_Init(true, nullptr);
 }
@@ -262,12 +263,17 @@ bool tafMngdStorageSvc::IsFileExisting(const char *path)
 
 taf_mngdStorCfg_ConfigRef_t tafMngdStorageSvc::GetRef(){
     LE_DEBUG("GetRef for config storage");
+    if(mClientRefCount >= MAX_NUM_OF_CONFIG_STORAGE){
+        LE_ERROR("Client Count reached max limit.");
+        return NULL;
+    }
     tafMngdStorage_ConfigStorage_t* configStorPtr =
         (tafMngdStorage_ConfigStorage_t*)le_mem_ForceAlloc(configStoragePool);
     memset(configStorPtr,0,sizeof(tafMngdStorage_ConfigStorage_t));
     configStorPtr->clientSessionRef = taf_mngdStorCfg_GetClientSessionRef();
     configStorPtr->configRef =
         (taf_mngdStorCfg_ConfigRef_t)le_ref_CreateRef(configStorageRefMap,configStorPtr);
+    mClientRefCount++;
     return configStorPtr->configRef;
 }
 
@@ -585,6 +591,7 @@ le_result_t tafMngdStorageSvc::ReleaseRef(taf_mngdStorCfg_ConfigRef_t configRef)
     TAF_ERROR_IF_RET_VAL(strPtr == nullptr, LE_BAD_PARAMETER, "Invalid para(null reference ptr)");
     le_ref_DeleteRef(configStorageRefMap, configRef);
     le_mem_Release(strPtr);
+    mClientRefCount--;
     return LE_OK;
 }
 
@@ -905,12 +912,15 @@ le_result_t tafMngdStorageSvc::GetVersion(taf_mngdStorCfg_ConfigRef_t ConfigRef,
         le_cfg_CancelTxn(itrRef);
         return LE_FAULT;
     }
-    if (le_cfg_NodeExists(itrRef, CFG_NODE_MAJORVERSION) && le_cfg_NodeExists(itrRef, CFG_NODE_MINORVERSION) && le_cfg_NodeExists(itrRef, CFG_NODE_PATCHVERSION))
+    if (le_cfg_NodeExists(itrRef, CFG_NODE_MAJORVERSION) &&
+        le_cfg_NodeExists(itrRef, CFG_NODE_MINORVERSION) &&
+        le_cfg_NodeExists(itrRef, CFG_NODE_PATCHVERSION))
     {
         *MajorVersionPtr = le_cfg_QuickGetInt(CFG_NODE_MAJORVERSION_FULLPATH, INT_MAX);
         *MinorVersionPtr = le_cfg_QuickGetInt(CFG_NODE_MINORVERSION_FULLPATH, INT_MAX);
         *PatchVersionPtr = le_cfg_QuickGetInt(CFG_NODE_PATCHVERSION_FULLPATH, INT_MAX);
-        if ((*MajorVersionPtr != INT_MAX) && (*MinorVersionPtr != INT_MAX) && (*PatchVersionPtr != INT_MAX))
+        if ((*MajorVersionPtr != INT_MAX) && (*MinorVersionPtr != INT_MAX) &&
+            (*PatchVersionPtr != INT_MAX))
         {
             res = LE_OK;
         }
@@ -936,30 +946,36 @@ le_result_t tafMngdStorageSvc::GetType(taf_mngdStorCfg_ConfigRef_t ConfigRef,
         le_cfg_CancelTxn(itrRef);
         return LE_FAULT;
     }
-    le_cfg_GoToNode(itrRef, groupName);
-    le_cfg_nodeType_t nodeType = le_cfg_GetNodeType(itrRef, nodeName);
-    LE_INFO("nodeType:%d", nodeType);
-    switch (nodeType)
+    le_result_t result = LE_NOT_FOUND;
+    char nodePathVal[LIMIT_MAX_PATH_BYTES];
+    result = tafMngdStorageSvc::GetNodePath(groupName, nodeName, nodePathVal);
+    if (result == LE_OK)
     {
-    case LE_CFG_TYPE_STRING:
-        *typePtr = TAF_MNGDSTORCFG_TYPE_STRING;
-        break;
-    case LE_CFG_TYPE_BOOL:
-        *typePtr = TAF_MNGDSTORCFG_TYPE_BOOL;
-        break;
-    case LE_CFG_TYPE_INT:
-        *typePtr = TAF_MNGDSTORCFG_TYPE_INT;
-        break;
-    case LE_CFG_TYPE_FLOAT:
-        *typePtr = TAF_MNGDSTORCFG_TYPE_FLOAT;
-        break;
-    default:
-        le_cfg_CancelTxn(itrRef);
-        return LE_UNAVAILABLE;
+        le_cfg_GoToNode(itrRef, groupName);
+        le_cfg_nodeType_t nodeType = le_cfg_GetNodeType(itrRef, nodeName);
+        LE_INFO("nodeType:%d", nodeType);
+        switch (nodeType)
+        {
+        case LE_CFG_TYPE_STRING:
+            *typePtr = TAF_MNGDSTORCFG_TYPE_STRING;
+            break;
+        case LE_CFG_TYPE_BOOL:
+            *typePtr = TAF_MNGDSTORCFG_TYPE_BOOL;
+            break;
+        case LE_CFG_TYPE_INT:
+            *typePtr = TAF_MNGDSTORCFG_TYPE_INT;
+            break;
+        case LE_CFG_TYPE_FLOAT:
+            *typePtr = TAF_MNGDSTORCFG_TYPE_FLOAT;
+            break;
+        default:
+            le_cfg_CancelTxn(itrRef);
+            return LE_UNAVAILABLE;
+        }
+        result = LE_OK;
     }
-    LE_INFO("typePtr:%d", *typePtr);
     le_cfg_CancelTxn(itrRef);
-    return LE_OK;
+    return result;
 }
 
 le_result_t tafMngdStorageSvc::GetString(taf_mngdStorCfg_ConfigRef_t ConfigRef,
@@ -968,22 +984,24 @@ le_result_t tafMngdStorageSvc::GetString(taf_mngdStorCfg_ConfigRef_t ConfigRef,
     char *nodeValue,
     size_t nodeValueSize)
 {
-    le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
     le_result_t result = LE_NOT_FOUND;
+    char nodePathVal[LIMIT_MAX_PATH_BYTES];
+    le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
     if (!itrRef)
     {
         LE_INFO("Failed to create a read transcation");
         le_cfg_CancelTxn(itrRef);
         return LE_FAULT;
     }
-    le_cfg_GoToNode(itrRef, groupName);
-    le_result_t nodePath_result = le_cfg_GetPath(itrRef, nodeName, nodePath, sizeof(nodePath));
-    if (nodePath_result == LE_OK)
+    result = tafMngdStorageSvc::GetNodePath(groupName, nodeName, nodePathVal);
+    if (result == LE_OK)
     {
-        LE_INFO("nodePath :%s", nodePath);
-        result = le_cfg_QuickGetString(nodePath, nodeValue, nodeValueSize, "");
-        if(result == LE_OK){
-            LE_INFO("nodeValue:%s", nodeValue);
+        le_cfg_GoToNode(itrRef, groupName);
+        LE_INFO("nodePathVal: %s", nodePathVal);
+        result = le_cfg_QuickGetString(nodePathVal, nodeValue, nodeValueSize, "");
+        if (result == LE_OK)
+        {
+            LE_INFO("nodeValue:%s",nodeValue);
         }
     }
     le_cfg_CancelTxn(itrRef);
@@ -995,23 +1013,23 @@ le_result_t tafMngdStorageSvc::GetInt(taf_mngdStorCfg_ConfigRef_t ConfigRef,
     const char *LE_NONNULL nodeName,
     int32_t *nodeValuePtr)
 {
-    le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
     le_result_t result = LE_NOT_FOUND;
+    char nodePathVal[LIMIT_MAX_PATH_BYTES];
+    le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
     if (!itrRef)
     {
         LE_INFO("Failed to create a read transcation");
         le_cfg_CancelTxn(itrRef);
         return LE_FAULT;
     }
-    le_cfg_GoToNode(itrRef, groupName);
-    le_result_t nodePath_result = le_cfg_GetPath(itrRef, nodeName, nodePath, sizeof(nodePath));
+    le_result_t nodePath_result = tafMngdStorageSvc::GetNodePath(groupName, nodeName, nodePathVal);
     if (nodePath_result == LE_OK)
     {
-        LE_INFO("nodePath :%s", nodePath);
-        *nodeValuePtr = le_cfg_QuickGetInt(nodePath, INT_MAX);
+        le_cfg_GoToNode(itrRef, groupName);
+        *nodeValuePtr = le_cfg_QuickGetInt(nodePathVal, INT_MAX);
         if (*nodeValuePtr != INT_MAX)
         {
-            LE_INFO("nodeValue:%d",*nodeValuePtr);
+            LE_INFO("nodeValue:%d", *nodeValuePtr);
             result = LE_OK;
         }
     }
@@ -1026,18 +1044,18 @@ le_result_t tafMngdStorageSvc::GetFloat(taf_mngdStorCfg_ConfigRef_t ConfigRef,
 {
     le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
     le_result_t result = LE_NOT_FOUND;
+    char nodePathVal[LIMIT_MAX_PATH_BYTES];
     if (!itrRef)
     {
         LE_INFO("Failed to create a read transcation");
         le_cfg_CancelTxn(itrRef);
         return LE_FAULT;
     }
-    le_cfg_GoToNode(itrRef, groupName);
-    le_result_t nodePath_result = le_cfg_GetPath(itrRef, nodeName, nodePath, sizeof(nodePath));
+    le_result_t nodePath_result = tafMngdStorageSvc::GetNodePath(groupName, nodeName,nodePathVal );
     if (nodePath_result == LE_OK)
     {
-        LE_INFO("nodePath :%s", nodePath);
-        *nodeValuePtr = le_cfg_QuickGetFloat(nodePath, FLT_MAX);
+        le_cfg_GoToNode(itrRef, groupName);
+        *nodeValuePtr = le_cfg_QuickGetFloat(nodePathVal, FLT_MAX);
         if (*nodeValuePtr != FLT_MAX)
         {
             LE_INFO("nodeValue:%f", *nodeValuePtr);
@@ -1055,29 +1073,156 @@ le_result_t tafMngdStorageSvc::GetBool(taf_mngdStorCfg_ConfigRef_t ConfigRef,
 {
     le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
     le_result_t result = LE_NOT_FOUND;
+    char nodePathVal[LIMIT_MAX_PATH_BYTES];
     if (!itrRef)
     {
         LE_INFO("Failed to create a read transcation");
         le_cfg_CancelTxn(itrRef);
         return LE_FAULT;
     }
-    le_cfg_GoToNode(itrRef, groupName);
-    le_result_t nodePath_result = le_cfg_GetPath(itrRef, nodeName, nodePath, sizeof(nodePath));
+    le_result_t nodePath_result = tafMngdStorageSvc::GetNodePath(groupName, nodeName, nodePathVal);
     if (nodePath_result == LE_OK)
     {
-        LE_INFO("nodePath :%s", nodePath);
-        if (le_cfg_QuickGetBool(nodePath, false))
+        le_cfg_GoToNode(itrRef, groupName);
+        if (le_cfg_QuickGetBool(nodePathVal, false))
         {
             *nodeValuePtr = 1;
-            result = LE_OK;
         }
         else
         {
             *nodeValuePtr = 0;
-            result = LE_OK;
+        }
+        result = LE_OK;
+        LE_INFO("nodeValue:%d", *nodeValuePtr);
+    }
+    le_cfg_CancelTxn(itrRef);
+    return result;
+}
+
+le_result_t tafMngdStorageSvc::GetValue(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+    const char *LE_NONNULL groupName,
+    const char *LE_NONNULL nodeName,
+    taf_mngdStorCfg_NodeType_t *typePtr,
+    char *nodeValue,
+    size_t nodeValueSize)
+{
+    le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
+    le_result_t result = LE_NOT_FOUND;
+    int32_t nodeBoolValue = 0;
+    int32_t nodeIntValue = 0;
+    double nodeDoubleValue = 0.000;
+    bool bool_result =false;
+    if (!itrRef)
+    {
+        LE_INFO("Failed to create a read transcation");
+        le_cfg_CancelTxn(itrRef);
+        return LE_FAULT;
+    }
+    result = tafMngdStorageSvc::GetType(ConfigRef, groupName, nodeName, typePtr);
+    if (result == LE_OK)
+    {
+        switch (*typePtr)
+        {
+        case TAF_MNGDSTORCFG_TYPE_STRING:
+            result = tafMngdStorageSvc::GetString(ConfigRef, groupName, nodeName, nodeValue, nodeValueSize);
+            if (result == LE_OK)
+            {
+                LE_INFO("type as String value: %s", nodeValue);
+            }
+            else
+            {
+                LE_ERROR("GetString Failed");
+            }
+            break;
+        case TAF_MNGDSTORCFG_TYPE_BOOL:
+            result = tafMngdStorageSvc::GetBool(ConfigRef, groupName, nodeName, &nodeBoolValue);
+            if (result == LE_OK)
+            {
+                if(nodeBoolValue == 1)
+                {
+                    bool_result = true;
+                }
+                snprintf(nodeValue,nodeValueSize,"%s", bool_result ? "true" : "false");
+                LE_INFO("type as bool value: %s", nodeValue);
+            }
+            else
+            {
+                LE_ERROR("GetBool Failed");
+            }
+            break;
+        case TAF_MNGDSTORCFG_TYPE_INT:
+            result = tafMngdStorageSvc::GetInt(ConfigRef, groupName, nodeName, &nodeIntValue);
+            if (result == LE_OK)
+            {
+                snprintf(nodeValue,nodeValueSize,"%d",nodeIntValue);
+                LE_INFO("type as Int value: %s", nodeValue);
+            }
+            else
+            {
+                LE_ERROR("GetInt Failed");
+            }
+            break;
+        case LE_CFG_TYPE_FLOAT:
+            result = tafMngdStorageSvc::GetFloat(ConfigRef, groupName, nodeName, &nodeDoubleValue);
+            if (result == LE_OK)
+            {
+               snprintf(nodeValue,nodeValueSize,"%f",nodeDoubleValue);
+               LE_INFO("type as float value: %s", nodeValue);
+            }
+            else
+            {
+               LE_ERROR("Getfloat Failed");
+            }
+            break;
+        default:
+            le_cfg_CancelTxn(itrRef);
+            return LE_UNAVAILABLE;
         }
     }
-    LE_INFO("nodeValue:%d", *nodeValuePtr);
+    else
+    {
+        LE_INFO("Failed with GetType");
+    }
+    le_cfg_CancelTxn(itrRef);
+    return result;
+}
+le_result_t tafMngdStorageSvc::GetNodePath(const char *LE_NONNULL groupName,
+    const char *LE_NONNULL nodeName,
+    char *nodePathVal
+)
+{
+    le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_SVC_PATH);
+    le_result_t result = LE_NOT_FOUND;
+    char groupPath[LIMIT_MAX_PATH_BYTES];
+    char nodePath[LIMIT_MAX_PATH_BYTES];
+    if (!itrRef)
+    {
+        LE_INFO("Failed to create a read transcation");
+        le_cfg_CancelTxn(itrRef);
+        return LE_FAULT;
+    }
+    le_result_t nodePath_result = le_cfg_GetPath(itrRef, groupName, groupPath, sizeof(groupPath));
+    if (nodePath_result == LE_OK)
+    {
+        le_cfg_GoToNode(itrRef, groupName);
+        le_result_t nodePath_result = le_cfg_GetPath(itrRef, nodeName, nodePath, sizeof(nodePath));
+        if (nodePath_result == LE_OK)
+        {
+            result = LE_OK;
+            LE_INFO("Node Name Exists: %s", nodeName);
+            LE_INFO("NodePath: %s",nodePath);
+            snprintf(nodePathVal,sizeof(nodePath),"%s",nodePath);
+            LE_INFO("NodePathVal: %s",nodePathVal);
+        }
+        else
+        {
+            LE_ERROR("Node Name not exists: %s", nodeName);
+        }
+    }
+    else
+    {
+        LE_ERROR("Group Name not exists: %s", groupName);
+    }
     le_cfg_CancelTxn(itrRef);
     return result;
 }

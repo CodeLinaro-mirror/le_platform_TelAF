@@ -142,7 +142,8 @@ le_result_t taf_mngdStorCfg_GetValue
     size_t nodeValueSize
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    auto &mss = tafMngdStorageSvc::GetInstance();
+    return mss.GetValue(ConfigRef, groupName, nodeName, typePtr,nodeValue,nodeValueSize);
 }
 
 /**

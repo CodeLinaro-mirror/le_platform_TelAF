@@ -173,6 +173,9 @@
     int32_t nodeValuePtr = 0;
     result = taf_mngdStorCfg_GetBool(CRef, groupName, nodeName, &nodeValuePtr);
 
+    taf_mngdStorCfg_NodeType_t typePtr;
+    result = taf_mngdStorCfg_GetValue(cRef, groupName, nodeName, &typePtr, nodeValue, sizeof(nodeValue));
+
  * @endcode
  *
  * @section taf_mngdStorCfg_ReleaseRef Release reference of config storage

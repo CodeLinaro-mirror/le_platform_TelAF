@@ -472,6 +472,13 @@ COMPONENT_INIT
 {
     LE_TEST_PLAN(LE_TEST_NO_PLAN);
 
+    if(le_arg_NumArgs() == 0)
+    {
+        printf("No arguments provided\n");
+        PrintHelpMenu();
+        LE_TEST_EXIT;
+    }
+
     const char* type = le_arg_GetArg(0);
 
     taf_flash_Init();

@@ -107,7 +107,8 @@ COMPONENT_INIT
     status = isLxcFlavour(filename, searchString);
     if(status == LE_NOT_FOUND)
     {
-        LE_FATAL("Current flavour is not LXC");
+        LE_ERROR("Current flavour is not LXC");
+        exit(EXIT_SUCCESS);
     }
     else
     {
@@ -118,7 +119,8 @@ COMPONENT_INIT
     status = isLxcRootfsDirectoryEmpty();
     if(status == LE_NOT_FOUND)
     {
-        LE_FATAL("""/lxcrootfs"" has no files or directories");
+        LE_ERROR("""/lxcrootfs"" has no files or directories");
+        exit(EXIT_SUCCESS);
     }
     else
     {

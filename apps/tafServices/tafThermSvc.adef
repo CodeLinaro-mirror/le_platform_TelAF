@@ -2,6 +2,7 @@ maxThreads: 600
 sandboxed: false
 
 username: telaf
+startGroup: 22
 
 capability:
 {

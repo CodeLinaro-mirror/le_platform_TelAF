@@ -331,7 +331,7 @@ le_result_t tafMngdStorageSvc::Update(taf_mngdStorCfg_ConfigRef_t configStor,
     }
 
     //Validate JSON schema
-    result = ValidateJsonSchema(storagePath,version);
+    result = ValidateJsonSchema(configStor,storagePath,version);
     if(result != LE_OK){
         LE_ERROR("Failed to validate json schema for file %s",storagePath);
         taf_rfs_Delete(storagePath);
@@ -807,10 +807,11 @@ le_result_t tafMngdStorageSvc::AuthenticateFile(uint32_t maxFiles){
     return LE_OK;
 }
 
-le_result_t tafMngdStorageSvc::ValidateJsonSchema(char* filePath,const char* version){
-    int majVersion=0;
-    int minVersion=0;
-    int patchVersion=0;
+le_result_t tafMngdStorageSvc::ValidateJsonSchema(taf_mngdStorCfg_ConfigRef_t configStor,
+    char* filePath,const char* version){
+    uint32_t majVersion=0;
+    uint32_t minVersion=0;
+    uint32_t patchVersion=0;
     std::ifstream jsonFile(filePath);
     if (!jsonFile.is_open())
     {
@@ -870,18 +871,16 @@ le_result_t tafMngdStorageSvc::ValidateJsonSchema(char* filePath,const char* ver
     if(versionInfo == NULL){
         versionInfo =
             (tafMngdStorage_ConfigVersionInfo_t*)malloc(sizeof(tafMngdStorage_ConfigVersionInfo_t));
-        memset(versionInfo,0,sizeof(tafMngdStorage_ConfigVersionInfo_t));
+        le_result_t result = taf_mngdStorCfg_GetVersion(configStor,
+            &versionInfo->majorVersion,&versionInfo->minorVersion,&versionInfo->patchVersion);
+        if(result != LE_OK){
+            memset(versionInfo,0,sizeof(tafMngdStorage_ConfigVersionInfo_t));
+        }
     }
     LE_DEBUG("version of file %d %d %d",versionInfo->majorVersion,versionInfo->minorVersion,versionInfo->patchVersion );
 
-    if(versionInfo->majorVersion == 0 && versionInfo->minorVersion == 0
-        && versionInfo->patchVersion == 0){
-        versionInfo->majorVersion = majVersion;
-        versionInfo->minorVersion = minVersion;
-        versionInfo->patchVersion = patchVersion;
-    }
-    else if(versionInfo->majorVersion <= majVersion && versionInfo->minorVersion <= minVersion
-        && versionInfo->patchVersion < patchVersion){
+    if(versionInfo->majorVersion < majVersion || versionInfo->minorVersion < minVersion
+        || versionInfo->patchVersion < patchVersion){
         versionInfo->majorVersion = majVersion;
         versionInfo->minorVersion = minVersion;
         versionInfo->patchVersion = patchVersion;
@@ -890,7 +889,7 @@ le_result_t tafMngdStorageSvc::ValidateJsonSchema(char* filePath,const char* ver
         LE_ERROR("Failed to validate json schema for %s",filePath);
         return LE_FORMAT_ERROR;
     }
-return LE_OK;
+    return LE_OK;
 }
 
 le_result_t tafMngdStorageSvc::GetVersion(taf_mngdStorCfg_ConfigRef_t ConfigRef,

@@ -75,13 +75,13 @@ tafMngdStorage_ConfigFileData_t;
 
 typedef struct{
     // Major version of file
-    int majorVersion;
+    uint32_t majorVersion;
 
     // Minor version of file
-    int minorVersion;
+    uint32_t minorVersion;
 
     // Patch version of file
-    int patchVersion;
+    uint32_t patchVersion;
 }
 tafMngdStorage_ConfigVersionInfo_t;
 
@@ -155,7 +155,8 @@ class tafMngdStorageSvc: public ITafSvc
         le_result_t GetConfigFilePath(char* bufferPtr, size_t bufferSize,
             tafMngdStorage_ConfigFileData_t* configPtr);
 
-        le_result_t ValidateJsonSchema(char* filePath,const char* version);
+        le_result_t ValidateJsonSchema(taf_mngdStorCfg_ConfigRef_t configStor,
+            char* filePath,const char* version);
 
         le_result_t Cancel(taf_mngdStorCfg_ConfigRef_t);
 

@@ -1,6 +1,6 @@
 sources:
 {
-    tafMngdStorageUnitTest.c
+    tafMngdSecStorageUnitTest.c
 }
 
 requires:
@@ -8,7 +8,6 @@ requires:
     api:
     {
         taf_mngdStorSecData.api
-        taf_mngdStorCfg.api
     }
 }
 

@@ -439,18 +439,6 @@ ENUM Command
     COMMAND_MAX                    ///< Indicates the last item.
 };
 
-//--------------------------------------------------------------------------------------------------
-/**
- * SIM refresh session type.
- */
-//--------------------------------------------------------------------------------------------------
-ENUM SessionType
-{
-    SESSION_TYPE_UNKNOWN = -1,
-    SESSION_TYPE_PRI_GW_PROV = 0,
-    SESSION_TYPE_SEC_GW_PROV = 1,
-};
-
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for SIM card state changes.

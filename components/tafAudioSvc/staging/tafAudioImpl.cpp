@@ -3476,12 +3476,9 @@ le_result_t taf_Audio::GetMute
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX)
     {
         LE_DEBUG("Get mute status of voice RX stream reference");
-        if(!mAudioVoiceStream) {
-            LE_DEBUG("Stream is not active, update the mute status of stream reference");
-            *isMute = streamPtr->isMute;
-            return LE_OK;
-        }
-        status = mAudioVoiceStream->getMute(StreamDirection::RX,
+        *isMute = streamPtr->isMute;
+        return LE_OK;
+        /*status = mAudioVoiceStream->getMute(StreamDirection::RX,
                 [&p, &responseStatus, &muteObj, this](StreamMute mute, ErrorCode error) {
             if (error == ErrorCode::SUCCESS) {
                 responseStatus = telux::common::Status::SUCCESS;
@@ -3492,16 +3489,13 @@ le_result_t taf_Audio::GetMute
                 responseStatus = telux::common::Status::FAILED;
                 p.set_value(false);
             }
-        });
+        });*/
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX)
     {
         LE_DEBUG("Get mute status of voice TX stream reference");
-        if(!mAudioVoiceStream) {
-            LE_DEBUG("Stream is not active, update the mute status of stream reference");
-            *isMute = streamPtr->isMute;
-            return LE_OK;
-        }
-        status = mAudioVoiceStream->getMute(StreamDirection::TX,
+        *isMute = streamPtr->isMute;
+        return LE_OK;
+        /*status = mAudioVoiceStream->getMute(StreamDirection::TX,
                 [&p, &responseStatus, &muteObj, this](StreamMute mute, ErrorCode error) {
             if (error == ErrorCode::SUCCESS) {
                 responseStatus = telux::common::Status::SUCCESS;
@@ -3512,7 +3506,7 @@ le_result_t taf_Audio::GetMute
                 responseStatus = telux::common::Status::FAILED;
                 p.set_value(false);
             }
-        });
+        });*/
     } else
     {
         LE_ERROR("Invalid stream reference");

@@ -207,7 +207,6 @@ DEFINE MAX_DATA_CHUNK_SIZE = taf_ks.MAX_PACKET_SIZE;
  */
 DEFINE MAX_SHARED_APP_NUM = 5;
 
-
 /**
  * Secure storage data reference.
  */
@@ -220,9 +219,10 @@ REFERENCE Data;
 //--------------------------------------------------------------------------------------------------
 ENUM DataUsage
 {
-    DATA_READ_WRITE,    ///< With read and write access.
-    DATA_READ,          ///< With read only access.
-    DATA_WRITE          ///< With write only access.
+    USAGE_UNKNOWN,       ///< Uknown usage.
+    USAGE_READ_WRITE,    ///< With read and write access.
+    USAGE_READ,          ///< With read only access.
+    USAGE_WRITE          ///< With write only access.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -232,7 +232,7 @@ ENUM DataUsage
 //--------------------------------------------------------------------------------------------------
 ENUM DataState
 {
-    DATA_SHARING_ENABLE,     ///< Data sharing is enabled.
+    DATA_SHARING_ENABLED,     ///< Data sharing is enabled.
     DATA_SHARING_DISABLED,   ///< Data sharing is disabled.
     DATA_UPDATED,            ///< Data content is updated.
     DATA_DELETED             ///< Data content is deleted.
@@ -291,7 +291,7 @@ FUNCTION le_result_t GetFreeSize
  *     - NULL       Invalid data name, or the data name already exists.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION Data CreateData
+FUNCTION le_result_t CreateData
 (
     string dataName[MAX_DATA_LABEL_BYTES]  IN   ///< Data name.
 );
@@ -448,8 +448,8 @@ FUNCTION le_result_t DeleteData
 FUNCTION le_result_t ShareData
 (
     Data dataRef                            IN, ///< Data reference.
-    DataUsage usage                         IN, ///< Data usage shared to use.
-    string appName[le_limit.APP_NAME_LEN]   IN  ///< Name of the app that the data is shared to.
+    string appName[le_limit.APP_NAME_LEN]   IN, ///< Name of the app that the data is shared to.
+    DataUsage usage                         IN  ///< Data usage shared to use.
 );
 
 //--------------------------------------------------------------------------------------------------

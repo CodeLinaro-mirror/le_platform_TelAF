@@ -69,7 +69,7 @@ le_result_t taf_mngdStorSecData_GetFreeSize
 /**
  * Creates data reference for the new data name
  */
-taf_mngdStorSecData_DataRef_t taf_mngdStorSecData_CreateData
+le_result_t taf_mngdStorSecData_CreateData
 (
     const char *dataName
 )
@@ -196,12 +196,13 @@ le_result_t taf_mngdStorSecData_DeleteData
 le_result_t taf_mngdStorSecData_ShareData
 (
     taf_mngdStorSecData_DataRef_t dataRef,
-    taf_mngdStorSecData_DataUsage_t usage,
-    const char* LE_NONNULL appName
-
+    const char* LE_NONNULL appName,
+    taf_mngdStorSecData_DataUsage_t usage
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    auto &mss = tafMngdStorageSvc::GetInstance();
+
+    return mss.ShareData(dataRef, appName, usage);
 }
 
 /**
@@ -213,7 +214,9 @@ le_result_t taf_mngdStorSecData_CancelDataSharing
     const char* LE_NONNULL appName
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    auto &mss = tafMngdStorageSvc::GetInstance();
+
+    return mss.CancelDataSharing(dataRef, appName);;
 }
 
 /**
@@ -227,7 +230,9 @@ le_result_t taf_mngdStorSecData_GetFirstSharedApp
     taf_mngdStorSecData_DataUsage_t* usage
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    auto &mss = tafMngdStorageSvc::GetInstance();
+
+    return mss.GetFirstSharedApp(dataRef, appName, appNameSize, usage);
 }
 
 /**
@@ -241,7 +246,9 @@ le_result_t taf_mngdStorSecData_GetNextSharedApp
     taf_mngdStorSecData_DataUsage_t* usage
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    auto &mss = tafMngdStorageSvc::GetInstance();
+
+    return mss.GetNextSharedApp(dataRef, appName, appNameSize, usage);
 }
 
 /**
@@ -255,7 +262,9 @@ taf_mngdStorSecData_DataStateChangeHandlerRef_t taf_mngdStorSecData_AddDataState
     void* contextPtr
 )
 {
-    return NULL;
+    auto &mss = tafMngdStorageSvc::GetInstance();
+
+    return mss.AddDataStateChangeHandler(dataName, appName, handlerPtr, contextPtr);
 }
 
 /**
@@ -266,6 +275,9 @@ void taf_mngdStorSecData_RemoveDataStateChangeHandler
     taf_mngdStorSecData_DataStateChangeHandlerRef_t handlerRef
 )
 {
+    auto &mss = tafMngdStorageSvc::GetInstance();
+
+    mss.RemoveDataStateChangeHandler(handlerRef);
 }
 
 

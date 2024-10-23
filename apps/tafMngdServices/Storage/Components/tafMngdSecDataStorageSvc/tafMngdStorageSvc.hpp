@@ -44,17 +44,16 @@
  */
 
 #define SECURE_STORAGE "/data/secStorage/"
-#define SECURE_MAX_NUM_OF_STORAGE    25
-#define SECURE_MAX_NUM_OF_DATA      100
+#define SECURE_MAX_NUM_OF_STORAGE       25
+#define SECURE_MAX_NUM_OF_DATA          100
+#define SECURE_MAX_NUM_OF_CLIENT_DATA   100
+#define SECURE_MAX_NUM_OF_DATA_HANDLER  20
 
 namespace telux {
 namespace tafsvc {
 
 typedef struct
 {
-    // Key reference
-    taf_ks_KeyRef_t keyRef;
-
     // Crypto session reference
     taf_ks_CryptoSessionRef_t sessionRef;
 
@@ -63,14 +62,14 @@ typedef struct
     size_t encryptedSize;
 
     int outputFd;
+
+    // Client session reference
+    le_msg_SessionRef_t clientSessionRef;
 }
 WriteOp_t;
 
 typedef struct
 {
-    // Key reference
-    taf_ks_KeyRef_t keyRef;
-
     // Crypto session reference
     taf_ks_CryptoSessionRef_t sessionRef;
 
@@ -85,19 +84,37 @@ typedef struct
     uint readIterator;
 
     int outputFd;
+
+    // Client session reference
+    le_msg_SessionRef_t clientSessionRef;
 }
 ReadOp_t;
 
 typedef struct
 {
-    // Reference to the secure storage
-    taf_mngdStorSecData_DataRef_t dataRef;
+    taf_mngdStorSecData_DataUsage_t usage;    ///< Data usage.
+    char appName[LIMIT_MAX_APP_NAME_LEN + 1]; ///< Shared app name.
+}
+SharedApp_t;
 
+typedef struct
+{
+    SharedApp_t appInfo[TAF_MNGDSTORSECDATA_MAX_SHARED_APP_NUM]; ///< Shared app list.
+    uint8_t getIterIndex;
+    uint8_t appCount;
+}
+SharedAppList_t;
+
+typedef struct
+{
     // Data name
-    char dataLabel[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES];
+    char dataName[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES];
 
-    // Client session reference
-    le_msg_SessionRef_t clientSessionRef;
+    // Owner app name
+    char ownerAppName[LIMIT_MAX_APP_NAME_LEN + 1];
+
+    // Key reference
+    taf_ks_KeyRef_t keyRef;
 
     // Whether the data is in writing process
     bool isInWritingProcess;
@@ -111,8 +128,61 @@ typedef struct
     WriteOp_t writeOp;
 
     ReadOp_t readOp;
+
+    SharedAppList_t sharedAppList;
 }
 tafMngdStorage_SecData_t;
+
+using tafMngdStorage_SecDataRef_t = tafMngdStorage_SecData_t*;
+
+typedef struct
+{
+    // Reference to the client secure storage
+    taf_mngdStorSecData_DataRef_t dataRef;
+
+    // Reference to secure data item
+    tafMngdStorage_SecDataRef_t secDataRef;
+
+    // Client session reference
+    le_msg_SessionRef_t clientSessionRef;
+
+    // Shared client
+    bool sharedClient;
+
+    // Data name
+    char dataLabel[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES];
+}
+tafMngdStorage_ClientData_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data structure for data change event in service layer.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    tafMngdStorage_SecDataRef_t secDataRef;         ///< Secure data reference
+    taf_mngdStorSecData_DataState_t state;          ///< Data state
+    char sharedAppName[LIMIT_MAX_APP_NAME_LEN + 1]; ///< Sharing state change application
+}
+tafMngdStorage_DataChangeEvent_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data structure for data change handler.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+   le_msg_SessionRef_t clientSessionRef;                        ///< Client session reference
+   char dataName[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES];     ///< Data name
+   char ownerAppName[LIMIT_MAX_APP_NAME_LEN + 1];               ///< Key owner application
+   taf_mngdStorSecData_DataState_t state;                       ///< Data change state
+   taf_mngdStorSecData_DataStateChangeHandlerFunc_t handleFunc; ///< Handler function
+   void* context;                                               ///< Handler context
+   taf_mngdStorSecData_DataStateChangeHandlerRef_t handlerRef;  ///< Handler reference
+}
+tafMngdStorage_DataChangeHandler_t;
 
 class tafMngdStorageSvc: public ITafSvc
 {
@@ -142,21 +212,34 @@ class tafMngdStorageSvc: public ITafSvc
 
         le_result_t CheckStorageSizeLimit(size_t inputSize);
 
+        void LoadAllSharedAppData();
+
+        void LoadSecDataRefForDataSharedKey(const char* namespacePtr, const char* dataNamePtr);
+
         /**
          * Functions for secure data
          */
 
-        taf_mngdStorSecData_DataRef_t CreateData(const char* dataLable);
+        tafMngdStorage_SecDataRef_t CreateSecDataRef(const char* dataNamePtr,
+                                                        const char* appNamePtr);
+
+        le_result_t CreateData(const char* dataName);
 
         taf_mngdStorSecData_DataRef_t GetDataRef(const char* dataLable);
 
-        le_result_t FindDataRef(const char* dataLabel,
-                                            taf_mngdStorSecData_DataRef_t* dataRef);
+        le_result_t FindClientDataRef(const char* dataLabel,
+                                        taf_mngdStorSecData_DataRef_t* dataRef);
 
-        le_result_t GetDataPath(const char* dataLabel, char* bufferPtr,
-                                            size_t bufferSize);
+        le_result_t FindSecDataRef(const char* dataLabel,const char* ownerAppName,
+                                    tafMngdStorage_SecDataRef_t* dataRef);
 
-        le_result_t CreateDataItem(taf_mngdStorSecData_DataRef_t dataRef);
+        le_result_t GetDataPath(const char* storageName, const char* dataLabel,
+                                char* bufferPtr, size_t bufferSize);
+
+        le_result_t GetDataKeyId(tafMngdStorage_SecDataRef_t dataRef,
+                                    char* keyId,size_t keySize);
+
+        le_result_t CreateDataItem(tafMngdStorage_SecDataRef_t dataRef);
 
         static void ReleaseDataRef(le_msg_SessionRef_t sessionRef, void* contextPtr);
 
@@ -183,10 +266,62 @@ class tafMngdStorageSvc: public ITafSvc
         le_result_t CheckSize(uint32_t writeSize);
 
         /**
+         * Functions for secure data sharing
+         */
+
+        le_result_t ShareData(taf_mngdStorSecData_DataRef_t dataRef,
+                                const char* appName,
+                                taf_mngdStorSecData_DataUsage_t usage);
+
+        le_result_t CancelDataSharing(taf_mngdStorSecData_DataRef_t dataRef,
+                                        const char* appName);
+
+        le_result_t RefreshSharedAppInfo(tafMngdStorage_SecDataRef_t dataRef);
+
+        taf_mngdStorSecData_DataUsage_t GetSharedAppUsage(taf_mngdStorSecData_DataRef_t dataRef,
+                                                            const char* appName);
+
+        bool IsInSharedAppList(taf_mngdStorSecData_DataRef_t dataRef, const char* appName);
+
+        le_result_t GetFirstSharedApp(taf_mngdStorSecData_DataRef_t dataRef,
+                                        char* appName,
+                                        size_t appNameSize,
+                                        taf_mngdStorSecData_DataUsage_t* usage);
+
+        le_result_t GetNextSharedApp(taf_mngdStorSecData_DataRef_t dataRef,
+                                        char* appName,
+                                        size_t appNameSize,
+                                        taf_mngdStorSecData_DataUsage_t* usage);
+
+        taf_mngdStorSecData_DataStateChangeHandlerRef_t AddDataStateChangeHandler(
+                const char* dataName,
+                const char* appName,
+                taf_mngdStorSecData_DataStateChangeHandlerFunc_t handlerPtr,
+                void* contextPtr);
+
+        void RemoveDataStateChangeHandler(
+                taf_mngdStorSecData_DataStateChangeHandlerRef_t handlerRef);
+
+        static void DataChangeEventHandler(void* reportPtr);
+
+        static void NotifyClientsForDataChange(const char* dataNamePtr,
+                                                const char* ownerAppNamePtr,
+                                                const char* sharedAppNamePtr,
+                                                taf_mngdStorSecData_DataState_t state);
+
+        /**
          * Resources for secure data
          */
         le_ref_MapRef_t SecDataRefMap;
         le_mem_PoolRef_t SecDataPool;
+
+        le_ref_MapRef_t ClientDataRefMap;
+        le_mem_PoolRef_t ClientDataPool;
+
+        le_ref_MapRef_t DataChangeHandlerRefMap;
+        le_mem_PoolRef_t DataChangeHandlerPool;
+
+        le_event_Id_t DataChangeEventId;
 
         /**
          * Internal functions
@@ -200,6 +335,10 @@ class tafMngdStorageSvc: public ITafSvc
         static bool IsFileExisting(const char *path);
 
         static le_result_t CheckValidPosixFileName(const char *fileName);
+
+        static le_result_t GetAppNameBySessionRef(le_msg_SessionRef_t clientSessionRef,
+                                                                char *appNameStr,
+                                                                size_t appNameSize);
 
         static inline size_t memscpy(void *dst, size_t dst_size, const void *src, size_t src_size)
         {

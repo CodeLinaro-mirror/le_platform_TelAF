@@ -2229,11 +2229,12 @@ void taf_Time::InitializeSystemTimeAttr(le_result_t connectStatus)
     LatestTimeSourceInfo->handlerFunc = NULL;
     if(connectStatus == LE_OK)
     {
-        if(taf_mngdStorSecData_CreateData(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId)) == LE_OK)
+        if(taf_mngdStorSecData_CreateData(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId)) == LE_DUPLICATE)
         {
-            LatestTimeSourceInfo->secStrgdataRef =
-                taf_mngdStorSecData_GetDataRef(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
+            LE_DEBUG("Data item already exist");
         }
+        LatestTimeSourceInfo->secStrgdataRef =
+                taf_mngdStorSecData_GetDataRef(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
     }
     LatestTimeSourceInfo->sessionRef = taf_time_GetClientSessionRef();
     LatestTimeSourceInfo->ref = (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, LatestTimeSourceInfo);
@@ -2282,11 +2283,24 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
             src->sessionRef = taf_time_GetClientSessionRef();
             if(connectStatus == LE_OK)
             {
-                if(taf_mngdStorSecData_CreateData(tafTime.SourceNameIndexToStr(src->sourceId)) == LE_OK)
+                if(taf_mngdStorSecData_CreateData(tafTime.SourceNameIndexToStr(src->sourceId)) == LE_DUPLICATE)
                 {
-                    src->secStrgdataRef =
-                        taf_mngdStorSecData_GetDataRef(tafTime.SourceNameIndexToStr(src->sourceId));
+                    LE_DEBUG("Data item already exist");
+                    if((src->sourceId == TAF_TIME_SRC_NAME_RTC) ||
+                       (src->sourceId == TAF_TIME_SRC_NAME_EX_APP))
+                    {
+                        src->secStrgdataRef =
+                            taf_mngdStorSecData_GetDataRef(tafTime.SourceNameIndexToStr(src->sourceId));
+                        bool previousValidity;
+                        le_result_t res = tafTime.ReadValidityFromSecStorage(src, &previousValidity);
+                        if(res == LE_OK)
+                        {
+                            src->sourceValidity = previousValidity;
+                        }
+                    }
                 }
+                src->secStrgdataRef =
+                        taf_mngdStorSecData_GetDataRef(tafTime.SourceNameIndexToStr(src->sourceId));
             }
             src->ref = (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, src);
         }
@@ -3630,6 +3644,7 @@ le_result_t taf_Time::ReadValidityFromSecStorage(taf_SourceInf_t* sourcePtr, boo
         LE_WARN("Failed to read validity from secure storage.");
         return res;
     }
+
     *validity = readBuf == 1 ? true : false;
 
     LE_INFO("readLen = %" PRIuS, readLen);

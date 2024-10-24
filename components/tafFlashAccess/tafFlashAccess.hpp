@@ -83,6 +83,7 @@ typedef struct
 {
     uint32_t index;                                  ///< Partition index.
     char name[TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN]; ///< Partition name.
+    uint32_t ubiVolCount;                            ///< UBI volume count on the partition.
     char mtdDevPath[TAF_LIB_FLASH_DEV_PATH_LEN];     ///< MTD device path.
     char ubiDevPath[TAF_LIB_FLASH_DEV_PATH_LEN];     ///< UBI device path.
     int mtdFd;                                       ///< File descriptor for MTD device.

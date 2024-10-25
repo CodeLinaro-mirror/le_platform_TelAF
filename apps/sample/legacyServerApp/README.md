@@ -12,7 +12,8 @@ Before building the applications, the toolchain needs to be installed properly a
 
 ### Step 1 Source the tool chain
 ```bash
-source /opt/qct/sa525m/environment-setup-aarch64-oe-linux
+cd ~/telaf
+source set_af_env.sh sa525m
 ```
 
 ### Step 2 Setup TelAF building environment

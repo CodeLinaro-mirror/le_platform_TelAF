@@ -53,11 +53,71 @@
    }
    @endverbatim
  *
+ * @section taf_mngdStorSecFile Create secure file storage
+ *
+ * The client is allocated the secure storage when it connects to the service. When it calls
+ * taf_mngdStorSecFile_CreateStorage() to create a storage item, the client uses the storage to create,
+ * read, and write its own data. This function returns the storage reference when the client creates
+ * a secure storage item with a storage name.
+ *
+ * @code
+
+    le_result_t result = taf_mngdStorSecFile_CreateStorage("StorageName");
+
+    if (result == LE_OK)
+    {
+        taf_mngdStorSecFile_StorageRef_t storageRef = taf_mngdStorSecFile_GetStorageRef("StorageName");
+
+        // Use storage reference to manipulate the secure folder or file operations
+    }
+
+ * @endcode
+ *
+ * @section taf_mngdStorSecFile Manage secure file storage
+ *
+ * The client can unlock the storage by calling taf_mngdStorSecFile_UnlockStorage(). This function
+ * sends a request to unlock the specified storage. After unlocking, the client can access files in
+ * the storage.
+ *
+ * The client can lock the storage by calling taf_mngdStorSecFile_LockStorage(). This function sends
+ * a request to lock the specified storage. After locking, the files under the storage will be encrypted
+ * and cannot be accessed.
+ *
+ * @code
+
+    le_result_t result = taf_mngdStorSecFile_UnlockStorage(storageRef);
+    if (result == LE_OK)
+    {
+        // Storage unlocked successfully
+
+        // File operations
+
+        // Lock the storage if no need to access the file
+        result = taf_mngdStorSecFile_LockStorage(storageRef);
+    }
+    else
+    {
+        // Handle error
+    }
+
+ * @endcode
+ *
+ * Optionally, the client calls the following interfaces to manage the storage. With these interfaces,
+ * storage locking and unlocking will be taken care by Managed Storage Service automatically.
+ *
+ * The following storage APIs are supported for file operations with reliability:
+ * - taf_mngdStorSecFile_ImportFile() -- Imports a file to the storage.
+ * - taf_mngdStorSecFile_ReadFile() -- Reads a file from the storage.
+ * - taf_mngdStorSecFile_DeleteFile() -- Deletes a file and its backup from the storage.
+ *
+ * The following storage API is used to get the base path of the storage:
+ * - taf_mngdStorSecFile_GetBasePath() -- Gets the base path of the storage.
  *
  * <HR>
  *
  */
 //--------------------------------------------------------------------------------------------------
+
 
 USETYPES taf_fsc.api;
 USETYPES le_limit.api;

@@ -21,7 +21,7 @@ init_telaf_app_domain(telaf_tafFSCryptUnitTest_t,telaf_tafFSCryptUnitTest_exec_t
 
 telaf_admin_manage_all_files_perms(telaf_tafFSCryptUnitTest_exec_t)
 
-telaf_tafKeyStoreSvc_FscInit(telaf_tafFSCryptUnitTest_t, telaf_fw_t, telaf_tafFSCryptUnitTest_data_t)
+telaf_tafKeyStoreSvc_FscInit(telaf_tafFSCryptUnitTest_t, telaf_tafFSCryptUnitTest_data_t)
 
 allow telaf_tafFSCryptUnitTest_t telaf_tafFSCryptUnitTest_data_t:dir { search_dir_perms rw_dir_perms rw_file_perms };
 allow telaf_tafFSCryptUnitTest_t telaf_tafFSCryptUnitTest_data_t:file { manage_file_perms delete_file_perms };

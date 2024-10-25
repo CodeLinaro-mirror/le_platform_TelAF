@@ -18,6 +18,15 @@ type telaf_tafMngdSecDataStorageSvc_data_t;
 files_type(telaf_tafMngdSecDataStorageSvc_data_t);
 
 # Framework definition for telaf
+type telaf_tafMngdSecFileStorageSvc_exec_t;
+files_type(telaf_tafMngdSecFileStorageSvc_exec_t);
+
+type telaf_tafMngdSecFileStorageSvc_t;
+
+type telaf_tafMngdSecFileStorageSvc_data_t;
+files_type(telaf_tafMngdSecFileStorageSvc_data_t);
+
+# Framework definition for telaf
 type telaf_tafMngdCfgStorageSvc_exec_t;
 files_type(telaf_tafMngdCfgStorageSvc_exec_t);
 
@@ -28,6 +37,8 @@ files_type(telaf_tafMngdCfgStorageSvc_data_t);
 
 init_telaf_app_domain(telaf_tafMngdSecDataStorageSvc_t,telaf_tafMngdSecDataStorageSvc_exec_t)
 
+init_telaf_app_domain(telaf_tafMngdSecFileStorageSvc_t,telaf_tafMngdSecFileStorageSvc_exec_t)
+
 ifdef(`sa525m',`
     allow telaf_tafMngdSecDataStorageSvc_exec_t telaf_admin_t:lnk_file {read};
 ')
@@ -35,6 +46,10 @@ ifdef(`sa525m',`
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafMngdSecDataStorageSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafMngdSecDataStorageSvc_exec_t)
+
+# Allow update daemon to install/uninstall this service
+telaf_admin_manage_all_files_perms(telaf_tafMngdSecFileStorageSvc_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafMngdSecFileStorageSvc_exec_t)
 
 init_telaf_app_domain(telaf_tafMngdCfgStorageSvc_t,telaf_tafMngdCfgStorageSvc_exec_t)
 
@@ -54,6 +69,7 @@ telaf_tafKeyStoreSvc_getKeyId(telaf_tafMngdCfgStorageSvc_t)
 # RFS component necessary rules
 
 telaf_load_rfs_component(telaf_tafMngdSecDataStorageSvc_t)
+telaf_load_rfs_component(telaf_tafMngdSecFileStorageSvc_t)
 telaf_load_rfs_component(telaf_tafMngdCfgStorageSvc_t)
 
 allow telaf_admin_t telaf_tafMngdSecDataStorageSvc_exec_t:lnk_file { read };
@@ -67,4 +83,5 @@ allow telaf_tafMngdCfgStorageSvc_t data_t:file { relabel_file_perms };
 telaf_load_vhal_modules(telaf_tafMngdCfgStorageSvc_t)
 
 # FSCrypt rules
-telaf_tafKeyStoreSvc_FscInit(telaf_tafMngdCfgStorageSvc_t, telaf_fw_t, telaf_tafMngdCfgStorageSvc_data_t)
+telaf_tafKeyStoreSvc_FscInit(telaf_tafMngdCfgStorageSvc_t, telaf_tafMngdCfgStorageSvc_data_t)
+telaf_tafKeyStoreSvc_FscInit(telaf_tafMngdSecFileStorageSvc_t, telaf_tafMngdSecFileStorageSvc_data_t)

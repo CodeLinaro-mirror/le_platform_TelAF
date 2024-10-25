@@ -26,6 +26,7 @@ groups:
     radio
     inet
     locclient
+    firmware
 }
 
 sandboxed: false

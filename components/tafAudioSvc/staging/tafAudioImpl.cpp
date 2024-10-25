@@ -3772,38 +3772,51 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
     bool playingFirstDtmf = true;
 
     for(auto frequencies : dtmfData->frequencyList) {
-        resetCallbackPromise();
-        auto status = Status::FAILED;
-        DtmfTone dtmfTone = {};
-        dtmfTone.direction = StreamDirection::RX;
-        dtmfTone.lowFreq = static_cast<telux::audio::DtmfLowFreq>(frequencies.first);
-        dtmfTone.highFreq = static_cast<telux::audio::DtmfHighFreq>(frequencies.second);
-        LE_DEBUG("Playing frequencies low: %d, high: %d\n", frequencies.first,
-        frequencies.second);
-        uint16_t gain_new = dtmfData->dtmfGain*MAX_DTMF_GAIN;
-        status = audio.mAudioVoiceStream->playDtmfTone(
-                        dtmfTone, dtmfData->duration, gain_new, PlayDtmfCallback);
-        if(status == Status::SUCCESS) {
-            ErrorCode error = audio.gCallbackPromise.get_future().get();
-            if (ErrorCode::SUCCESS != error) {
-                LE_ERROR("Play Dtmf Tone failed");
+        if(audio.mVoiceEnabled1 && (
+                audio.mDtmfStarted || playingFirstDtmf)) {
+            resetCallbackPromise();
+            auto status = Status::FAILED;
+            DtmfTone dtmfTone = {};
+            dtmfTone.direction = StreamDirection::RX;
+            dtmfTone.lowFreq = static_cast<telux::audio::DtmfLowFreq>(frequencies.first);
+            dtmfTone.highFreq = static_cast<telux::audio::DtmfHighFreq>(frequencies.second);
+            LE_DEBUG("Playing frequencies low: %d, high: %d\n", frequencies.first,
+            frequencies.second);
+            uint16_t gain_new = dtmfData->dtmfGain*MAX_DTMF_GAIN;
+            if(audio.mAudioVoiceStream) {
+                status = audio.mAudioVoiceStream->playDtmfTone(
+                            dtmfTone, dtmfData->duration, gain_new, PlayDtmfCallback);
+            } else {
+                LE_ERROR("No voice stream found");
+                return NULL;
+            }
+
+            if(status == Status::SUCCESS) {
+                ErrorCode error = audio.gCallbackPromise.get_future().get();
+                if (ErrorCode::SUCCESS != error) {
+                    LE_ERROR("Play Dtmf Tone failed");
+                    if(playingFirstDtmf) {
+                        le_sem_Post(audio.mDtmfStartedSemRef);
+                        playingFirstDtmf = false;
+                    }
+                    return NULL;
+                }
+                audio.mDtmfStarted = true;
                 if(playingFirstDtmf) {
                     le_sem_Post(audio.mDtmfStartedSemRef);
                     playingFirstDtmf = false;
                 }
+            }else {
+                LE_ERROR("Request to play Dtmf Tone failed");
                 return NULL;
             }
-            audio.mDtmfStarted = true;
-            if(playingFirstDtmf) {
-                le_sem_Post(audio.mDtmfStartedSemRef);
-                playingFirstDtmf = false;
-            }
-        }else {
-            LE_ERROR("Request to play Dtmf Tone failed");
-            return NULL;
-        }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(dtmfData->pause+dtmfData->duration));
+            std::this_thread::sleep_for(std::chrono::milliseconds(
+                    dtmfData->pause+dtmfData->duration));
+        } else {
+            //If the voice call ends in between, exit the thread.
+            break;
+        }
     }
     return NULL;
 }

@@ -2255,6 +2255,32 @@ tafMngdConnAdmin::CreateDataCtx(
     dataCtxPtr->dataStartRetryTimerRef = le_timer_Create(timerName);
     le_timer_SetWakeup(dataCtxPtr->dataStartRetryTimerRef, false);
 
+    //Create radio off/on interval timer
+    memset(timerName, 0, sizeof(timerName));
+    snprintf(timerName, sizeof(timerName)-1, "dataId-%d radio off/on timer", dataId);
+    dataCtxPtr->radioOffOnIntervalTimerRef = le_timer_Create(timerName);
+    le_timer_SetContextPtr(dataCtxPtr->radioOffOnIntervalTimerRef, dataCtxPtr);
+    le_timer_SetWakeup(dataCtxPtr->radioOffOnIntervalTimerRef, false);
+    le_timer_SetHandler(dataCtxPtr->radioOffOnIntervalTimerRef,
+                        RadioOffOnIntervalTimerHandler);
+    uint32_t radioOffOnInterval =
+                            Policy.DataSession.ConnectivityRecovery.RadioOffOnInterval * 1000; //ms
+    LE_INFO("Radio Off/On Interval: %d ms", radioOffOnInterval);
+    le_timer_SetMsInterval(dataCtxPtr->radioOffOnIntervalTimerRef, radioOffOnInterval);
+
+    //Create sim off/on interval timer
+    memset(timerName, 0, sizeof(timerName));
+    snprintf(timerName, sizeof(timerName)-1, "dataId-%d sim off/on timer", dataId);
+    dataCtxPtr->simOffOnIntervalTimerRef = le_timer_Create(timerName);
+    le_timer_SetContextPtr(dataCtxPtr->simOffOnIntervalTimerRef, dataCtxPtr);
+    le_timer_SetWakeup(dataCtxPtr->simOffOnIntervalTimerRef, false);
+    le_timer_SetHandler(dataCtxPtr->simOffOnIntervalTimerRef,
+                        SimOffOnIntervalTimerHandler);
+    uint32_t simOffOninterval =
+                            Policy.DataSession.ConnectivityRecovery.SimOffOnInterval * 1000; //ms
+    LE_INFO("Sim Off/On Interval: %d ms", simOffOninterval);
+    le_timer_SetMsInterval(dataCtxPtr->simOffOnIntervalTimerRef, simOffOninterval);
+
     // Create recovery schedule timer
     memset(timerName, 0, sizeof(timerName));
     snprintf(timerName, sizeof(timerName) - 1, "dataId-%d RecoverySchdTimer", dataId);
@@ -2845,6 +2871,61 @@ void tafMngdConnAdmin::RecoveryRetryTimerHandler(le_timer_Ref_t timerRef)
         return;
     }
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * RadioOffOnInterval timer handler
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::RadioOffOnIntervalTimerHandler(le_timer_Ref_t timerRef)
+{
+    LE_DEBUG("RadioOffOnInterval handler");
+    auto &radio = tafMngdConnRadio::GetInstance();
+    mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)le_timer_GetContextPtr(timerRef);
+    if(dataCtxPtr == NULL)
+    {
+        LE_INFO("Stop the timer.");
+        if (le_timer_IsRunning(timerRef))
+            le_timer_Stop(timerRef);
+        return;
+    }
+    le_result_t result = radio.PowerOn(dataCtxPtr->phoneId);
+    if (LE_OK != result)
+    {
+        LE_WARN ("Radio power on failed: %d", result);
+    }
+    LE_INFO("Radio turned on");
+    return;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * SimOffOnInterval timer handler
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::SimOffOnIntervalTimerHandler(le_timer_Ref_t timerRef)
+{
+    LE_DEBUG("SimOffOnInterval handler");
+    auto &sim = tafMngdConnSim::GetInstance();
+    mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)le_timer_GetContextPtr(timerRef);
+    if(dataCtxPtr == NULL)
+    {
+        LE_INFO("Stop the timer.");
+        if (le_timer_IsRunning(timerRef))
+            le_timer_Stop(timerRef);
+        return;
+    }
+    le_result_t result = sim.PowerOn(dataCtxPtr->slotId);
+    if (LE_OK != result)
+    {
+        LE_WARN ("SIM power on failed: %d", result);
+    }
+    LE_INFO("SIM turned on");
+    return;
+}
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Data start retry timer handler.
@@ -3495,15 +3576,8 @@ void tafMngdConnAdmin::EventL1ConnRecoveryStart(uint8_t dataId)
         LE_WARN ("Radio power off failed: %d", result);
     }
     LE_INFO("Radio turned off");
-    LE_INFO("Wait %ds before turning radio back on.",
-                                   Policy.DataSession.ConnectivityRecovery.RadioOffOnInterval);
-    sleep(Policy.DataSession.ConnectivityRecovery.RadioOffOnInterval);
-    result = radio.PowerOn(dataCtxPtr->phoneId);
-    if (LE_OK != result)
-    {
-        LE_WARN ("Radio power on failed: %d", result);
-    }
-    LE_INFO("Radio turned on");
+    //Start the timer for the interval
+    le_timer_Start(dataCtxPtr->radioOffOnIntervalTimerRef);
     le_mutex_Unlock(DataCtxMutex);
 
     //NAD should register again and data will be managed based on received events
@@ -3672,16 +3746,7 @@ void tafMngdConnAdmin::EventL2ConnRecoveryStart(uint8_t dataId)
         LE_WARN ("SIM power off failed: %d", result);
     }
     LE_INFO("SIM turned off");
-    LE_INFO("Wait %ds before turning SIM back on.",
-                                   Policy.DataSession.ConnectivityRecovery.SimOffOnInterval);
-    sleep(Policy.DataSession.ConnectivityRecovery.SimOffOnInterval);
-    result = sim.PowerOn(dataCtxPtr->slotId);
-    if (LE_OK != result)
-    {
-        LE_WARN ("SIM power on failed: %d", result);
-    }
-    sleep(Policy.DataSession.ConnectivityRecovery.SimOffOnInterval);
-    LE_INFO("SIM turned on");
+    le_timer_Start(dataCtxPtr->simOffOnIntervalTimerRef);
     le_mutex_Unlock(DataCtxMutex);
 }
 

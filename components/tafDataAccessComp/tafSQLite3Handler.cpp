@@ -171,7 +171,7 @@ int SQLite3DbUtil::ExecSQL
         return -1;
     }
 
-    LE_INFO("Excure %s get %d row(s)", sql, mRowNum);
+    LE_DEBUG("Excure %s get %d row(s)", sql, mRowNum);
     nb = mRowNum;
     mExecCb = nullptr;
     mRowNum = 0;

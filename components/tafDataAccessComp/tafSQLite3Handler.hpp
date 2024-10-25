@@ -237,7 +237,6 @@ namespace dataAccess{
 
                 std::string sql = sqlSs.str();
                 LE_DEBUG("QueryByKey statement: %s", sql.c_str());
-                printf("%s\n", sql.c_str());
 
                 DataStatement statement(mDb.GetDbHandle(), sql.c_str());
                 IOHandler<T, K>::mpDao->BindKeyValue(statement, entity);

@@ -294,7 +294,7 @@ void taf_SnapshotSvr::SendRequestToCollectDids
     cfg::Node & dtc = cfg::get_dtc_node(dtcCode);
     string didType = dtc.get<string>("snapshots.snapshot_record_content");
     cfg::Node & root = cfg::get_root_node();
-    cfg::Node & dids = root.get_child("data_indentifier_set").get_child(didType);
+    cfg::Node & dids = root.get_child("data_identifier_set").get_child(didType);
     std::vector<uint16_t> didRequestList;
 
     for (auto & did : dids)
@@ -352,6 +352,6 @@ void taf_SnapshotSvr::triggerSnapshot
     }
     catch (const std::exception& e)
     {
-        LE_FATAL("Trigger snapshot fatal: %s", e.what());
+        LE_ERROR("Trigger snapshot fatal: %s <--", e.what());
     }
 }

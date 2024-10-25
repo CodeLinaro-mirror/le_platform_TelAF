@@ -135,6 +135,13 @@ def update_workflow():
             response = uds_client.change_session(DiagnosticSessionControl.Session.programmingSession)
             print(response)
 
+            # --- Unlock in current session
+            response = uds_client.request_seed(0x01)
+            seed = response.service_data.seed
+            key = dummy_send2key(level=0x01, seed=seed)
+            response = uds_client.send_key(0x02, key)
+            print(response)
+
             # Step12.1: Read DTC(reportNumberOfDTCByStatusMask). 19 01
             response = uds_client.get_number_of_dtc_by_status_mask(status_mask)
             print(response)
@@ -170,13 +177,7 @@ def update_workflow():
             # Step14: Security access #1-Request seed(SecurityAccess). 27 01
             response = uds_client.request_seed(0x01)
             seed = response.service_data.seed
-
-            # Calculate key via seed.
-            key = dummy_send2key(level=0x01, seed=seed)
-
-            # Step15: Security access #2-Send key(SecurityAccess). 27 02
-            response = uds_client.send_key(0x02, key)
-            print(response)
+            print("All Zero returned: ", seed)
 
             with open(update_file, "rb") as f:
                 f.seek(0, 2)    # Move to end of file
@@ -235,7 +236,7 @@ def update_workflow():
                 print(response.service_data.routine_status_record)
                 update_state=response.service_data.routine_status_record
                 print(update_state)
-                if update_state == b'\x06':
+                if update_state == b'\x07':
                     break
 
             print(update_state)
@@ -251,7 +252,7 @@ def update_workflow():
                 tr.join()
 
             # Step21: Send ECU Reset if the condition is met.
-            if update_state == b'\x06':
+            if update_state == b'\x07':
                 response = uds_client.ecu_reset(reset_type=1) # Hard reset
                 print(response)
 

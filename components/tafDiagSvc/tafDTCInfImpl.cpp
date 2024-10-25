@@ -1154,3 +1154,4 @@ void taf_DTCInf::Init
 
     LE_INFO("Diag DTC Service started!");
 }
+

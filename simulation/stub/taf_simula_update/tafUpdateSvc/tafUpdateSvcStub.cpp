@@ -215,15 +215,7 @@ le_result_t taf_update_Install
         ///< [IN] OTA package name.
 )
 {
-    taf_update_StateInd_t report;
-    report.percent = (uint32_t) 100;
-    report.state = TAF_UPDATE_INSTALL_SUCCESS;
-    le_utf8_Copy(report.name, "firmware update session", TAF_UPDATE_SESSION_NAME_LEN, NULL);
-
-    le_event_Report(self.stateEvId, &report, sizeof(report));
-    LE_INFO("[INSTALL] --> Done.(%s) report to handlers", name);
-
-    return LE_OK;
+    return LE_NOT_IMPLEMENTED;
 }
 //--------------------------------------------------------------------------------------------------
 /**
@@ -331,7 +323,7 @@ le_result_t taf_update_GetInstallationSession
         ///< [OUT] Installation session reference.
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    return LE_OK;
 }
 //--------------------------------------------------------------------------------------------------
 /**
@@ -369,7 +361,15 @@ le_result_t taf_update_StartInstall
         ///< [IN] Package path.
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    taf_update_StateInd_t report;
+    report.percent = (uint32_t) 100;
+    report.state = TAF_UPDATE_INSTALL_SUCCESS;
+    le_utf8_Copy(report.name, "firmware update session", TAF_UPDATE_SESSION_NAME_LEN, NULL);
+
+    le_event_Report(self.stateEvId, &report, sizeof(report));
+    LE_INFO("[INSTALL] --> Done.(%s) report to handlers", pkgPath);
+
+    return LE_OK;
 }
 //--------------------------------------------------------------------------------------------------
 /**

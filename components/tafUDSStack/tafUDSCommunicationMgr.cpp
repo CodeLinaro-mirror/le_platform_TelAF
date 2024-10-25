@@ -214,26 +214,27 @@ void UdsCommunicationMgr::UdsTimerHandler
         case TAF_UDS_P2STAR_TIMER_START:
             LE_DEBUG("Start P2* timer");
             {
-                uint32_t p2StarServerInterval, maxNumberOfRcrrp;
+                float p2StarServerInterval;
+                uint32_t maxNumberOfRcrrp;
                 //Get P2* server interval;
                 try
                 {
                     cfg::Node & node = cfg::top_diagnostic_session<int>("id",
                             (int)udsCmMgr->SessionType);
-                    p2StarServerInterval = node.get<uint32_t>("p2_star_server_max") * 1000;//To msec
-                    LE_DEBUG("p2StarServerInterval : %d", p2StarServerInterval);
+                    p2StarServerInterval = node.get<float>("p2_star_server_max") * 1000;//To msec
+                    LE_DEBUG("p2StarServerInterval : %f", p2StarServerInterval);
                     if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX ||
                             p2StarServerInterval < UDS_P2_STAR_SERVER_MIN)
                     {
                         p2StarServerInterval = UDS_P2_STAR_SERVER;
-                        LE_ERROR("p2_star_server_max is incorrect. Use default value:%dms",
+                        LE_ERROR("p2_star_server_max is incorrect. Use default value:%fms",
                                 p2StarServerInterval);
                     }
                 }
                 catch (const std::exception& e)
                 {
                     p2StarServerInterval = UDS_P2_STAR_SERVER;
-                    LE_ERROR("Exception: %s. Use default value: %dms", e.what() ,
+                    LE_ERROR("Exception: %s. Use default value: %fms", e.what() ,
                             p2StarServerInterval);
                 }
                 //Get P2* server count
@@ -452,7 +453,8 @@ void UdsCommunicationMgr::CheckAndRestartS3Timer
     uint8_t serviceId
 )
 {
-    uint32_t p2StarServerInterval, maxNumberOfRcrrp, s3ServerInterval;
+    float p2StarServerInterval;
+    uint32_t maxNumberOfRcrrp, s3ServerInterval;
 
     UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0, (char*)interface);
     readyToRecvData = true;
@@ -461,19 +463,19 @@ void UdsCommunicationMgr::CheckAndRestartS3Timer
     try
     {
         cfg::Node & node = cfg::top_diagnostic_session<int>("id", (int)SessionType);
-        p2StarServerInterval = node.get<uint32_t>("p2_star_server_max") * 1000;//Sec to msec.
-        LE_DEBUG("p2StarServerInterval : %d", p2StarServerInterval);
+        p2StarServerInterval = node.get<float>("p2_star_server_max") * 1000;//Sec to msec.
+        LE_DEBUG("p2StarServerInterval : %f", p2StarServerInterval);
         if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX)
         {
             p2StarServerInterval = UDS_P2_STAR_SERVER;
-            LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%dms",
+            LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%fms",
                     p2StarServerInterval);
         }
     }
     catch (const std::exception& e)
     {
         p2StarServerInterval = UDS_P2_STAR_SERVER;
-        LE_ERROR("Exception: %s. Use default value:%dms", e.what(), p2StarServerInterval);
+        LE_ERROR("Exception: %s. Use default value:%fms", e.what(), p2StarServerInterval);
     }
     //Get P2* server count
     try
@@ -755,6 +757,8 @@ bool UdsCommunicationMgr::IsSvcSecAccessMatched
 {
     LE_DEBUG("IsSvcSecAccessMatched");
 
+    if (sid == 0x27) return true;
+
     // In default session, no need to check security level.
     if (SessionType == DEFAULT_SESSION)
     {
@@ -764,20 +768,14 @@ bool UdsCommunicationMgr::IsSvcSecAccessMatched
     // Check "security access" for requested service.
     try{
         cfg::Node & svcAllNode = cfg::get_root_node().get_child("services_all");
-        cfg::Node & secAccessLevel
-                = svcAllNode.get_child(std::to_string(sid) + ".access.security_level");
+        uint8_t secAccessType = svcAllNode.get<uint8_t>(std::to_string(sid) + ".access.security_type");
 
-        for (const auto & security: secAccessLevel)
+        LE_DEBUG("Security Type = 0x%x", secAccessType);
+
+        if (secAccessType == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) == false)
         {
-            int secLevel = security.second.get_value<uint8_t>();
-            LE_DEBUG("Security level = 0x%x", secLevel);
-
-            // Security access check
-            if (secLevel == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) == false)
-            {
-                LE_DEBUG("Node is secured and the server is not unlocked.");
-                return false;
-            }
+            LE_DEBUG("Node is secured and the server is not unlocked.");
+            return false;
         }
     }
     catch (const std::exception& e)
@@ -798,7 +796,7 @@ le_result_t UdsCommunicationMgr::GeneralServerResp
     uint8_t sid
 )
 {
-    LE_INFO("GeneralServerResp");
+    LE_DEBUG("GeneralServerResp");
 
     // Check the pointer.
     if(addrInfoPtr == NULL)
@@ -943,21 +941,15 @@ bool UdsCommunicationMgr::IsSubFuncSecAccessMatched
     {
         cfg::Node & svcAllNode = cfg::get_root_node().get_child("services_all");
         cfg::Node & subfuncNode = svcAllNode.get_child(std::to_string(sid) + ".sub_functions");
-        cfg::Node & secAccessLevel
-                = subfuncNode.get_child(std::to_string(subFunc) + ".access.security_level");
 
-        for (const auto & security: secAccessLevel)
+        uint8_t secAccessType = subfuncNode.get<uint8_t>(std::to_string(subFunc) + ".access.security_type");
+
+        LE_DEBUG("Security Type = 0x%x", secAccessType);
+
+        if (secAccessType == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) == false)
         {
-            int secLevel = security.second.get_value<uint8_t>();
-
-            LE_DEBUG("Security level = 0x%x", secLevel);
-
-            // Security access check
-            if (secLevel == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) == false)
-            {
-                LE_DEBUG("Node is secured and the server is not unlocked.");
-                return false;
-            }
+            LE_DEBUG("Node is secured and the server is not unlocked.");
+            return false;
         }
     }
     catch (const std::exception& e)
@@ -1023,6 +1015,7 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
     for(uint16_t i = 0; i < didNum; i++)
     {
         dataId = ((recvBuf[i*UDS_DID_LEN + 1]) << 8) + recvBuf[i*UDS_DID_LEN + 2];
+        LE_INFO("DID: 0x%X(%d)", dataId, dataId);
 
         cfg::Node node;
         try
@@ -1138,7 +1131,7 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
                 //Step 3: Authentication check and Security access check
                 try
                 {
-                    int security_type = node.get_child("access").get<int>("security_level");
+                    int security_type = node.get_child("access").get<int>("security_type");
                     //Authentication check after authentication service is supported, send NRC 0x34
                     //Security access check. UDS_0x22_NRC_33
                     if(security_type == SECURITY_ACCESS_REQUEST_ID
@@ -1332,7 +1325,7 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
             //Step 3: Authentication check and Security access check
             try
             {
-                int security_type = node.get_child("access").get<int>("security_level");
+                int security_type = node.get_child("access").get<int>("security_type");
                 //Authentication check after authentication service is supported, send NRC 0x34
                 //Security access check. UDS_0x22_NRC_33
                 if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) ==
@@ -1594,14 +1587,6 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr); // NRC 0x7E
     }
 
-    //  Step 5: Subfunction security access check. UDS_0x27_NRC_33
-    if (!IsSubFuncSecAccessMatched(sid, subFunction))
-    {
-        LE_WARN("Subfunction is secured and the server is not unlocked for subfunction: 0x%x",
-                subFunction);
-        *isInternalHandle = true;
-        return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr); // NRC 0x33
-    }
 
     le_sem_Ref_t SecAccSem = le_sem_Create("sync", 0);
 
@@ -1746,24 +1731,14 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
     // Step 4.2: ControlState parameter check for short term adjustment. UDS_0x2F_NRC_31
     if(ioCtrlParam == SHORT_TERM_ADJUSTMENT)
     {
-        int bitSize = 0;
         uint16_t controlStateSize = 0;
         // Get the controlState size from config module
 
         cfg::Node dataNode;
         try
         {
-            std::string ctrlState =
-                    node.get<std::string>("request.control_option_record.control_state");
-
-            dataNode = cfg::top_datas<std::string>("mnemonic", ctrlState);
-            bitSize = dataNode.get<int>("functional_definition.bit_size");
-            LE_DEBUG("Configured bitSize : %d", bitSize);
-
-            if(bitSize % 8 == 0)
-                controlStateSize = bitSize/8;
-            else
-                controlStateSize = (bitSize/8) + 1;
+            controlStateSize = node.get<uint16_t>("request.control_option_record.did_size");
+            LE_DEBUG("Configured byteSize : %d", controlStateSize);
 
             //Check control state size.
             if(recvDataLen < controlStateSize + UDS_IOCBID_REQ_MIN_LEN)
@@ -1778,95 +1753,6 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
             LE_WARN("Exception: %s", e.what());
             return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);//NRC 0x31
         }
-
-        try
-        {
-            std::string dataType= dataNode.get<string>("functional_definition.data_type");
-            if(dataType == "Numeric")
-            {
-                LE_INFO("dataType : Numeric");
-                int min = dataNode.get<int>("functional_definition.min");
-                int max = dataNode.get<int>("functional_definition.max");
-                std::string valueType= dataNode.get<string>("functional_definition.value_type");
-                if(valueType == "uint8" && controlStateSize == 1)
-                {
-                    uint8_t controlState = recvBuf[4];
-                    uint8_t newMin = static_cast<uint8_t>(min);
-                    uint8_t newMax = static_cast<uint8_t>(max);
-                    if(controlState < newMin || controlState > newMax)
-                    {
-                        LE_WARN("controlState(0x%x) is not in range(0x%x:0x%x)", controlState,
-                                newMin, newMax);
-                        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);//NRC 0x31
-                    }
-                }
-                else if(valueType == "sint8" && controlStateSize == 1)
-                {
-                    int8_t controlState = recvBuf[4];
-
-                    if(controlState < min || controlState > max)
-                    {
-                        LE_WARN("controlState(0x%x) is not in range(0x%x:0x%x)", controlState,
-                                min, max);
-                        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);//NRC 0x31
-                    }
-                }
-                else if(valueType == "uint16" && controlStateSize == 2)
-                {
-                    uint16_t controlState = ((recvBuf[4]) << 8) + recvBuf[5];
-
-                    uint16_t newMin = static_cast<uint16_t>(min);
-                    uint16_t newMax = static_cast<uint16_t>(max);
-                    if(controlState < newMin || controlState > newMax)
-                    {
-                        LE_WARN("controlState(0x%x) is not in range(0x%x:0x%x)", controlState,
-                                newMin, newMax);
-                        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);//NRC 0x31
-                    }
-                }
-                else if(valueType == "sint16" && controlStateSize == 2)
-                {
-                    int16_t controlState = ((recvBuf[4]) << 8) + recvBuf[5];
-
-                    if(controlState < min || controlState > max)
-                    {
-                        LE_WARN("controlState(0x%x) is not in range(0x%x:0x%x)", controlState,
-                                min, max);
-                        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);//NRC 0x31
-                    }
-                }
-                else if(valueType == "uint32" && controlStateSize == 4)
-                {
-                    uint32_t controlState = ((recvBuf[4]) << 24) + ((recvBuf[5]) << 16) +
-                            ((recvBuf[6]) << 8) + recvBuf[7];
-
-                    uint32_t newMin = static_cast<uint32_t>(min);
-                    uint32_t newMax = static_cast<uint32_t>(max);
-                    if(controlState < newMin || controlState > newMax)
-                    {
-                        LE_WARN("controlState(0x%x) is not in range(0x%x:0x%x)", controlState,
-                                newMin, newMax);
-                        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);//NRC 0x31
-                    }
-                }
-                else if(valueType == "sint32" && controlStateSize == 2)
-                {
-                    int32_t controlState = ((recvBuf[4]) << 24) + ((recvBuf[5]) << 16) +
-                            ((recvBuf[6]) << 8) + recvBuf[7];
-
-                    if(controlState < min || controlState > max)
-                    {
-                        LE_WARN("controlState(0x%x) is not in range(0x%x:0x%x)", controlState,
-                                min, max);
-                        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);//NRC 0x31
-                    }
-                }
-            }
-        }
-        catch (const std::exception& e)
-        {
-            LE_ERROR("Exception: %s", e.what());
-        }
     }
 
     //Step 5: Total length check. UDS_0x2F_NRC_13
@@ -1879,7 +1765,7 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
     //Step 6: Authentication check and Security access check
     try
     {
-        int security_type = node.get_child("access").get<int>("security_level");
+        int security_type = node.get_child("access").get<int>("security_type");
         LE_INFO("security type=0x%x", security_type);
         //Authentication check after authentication service is supported, send NRC 0x34
         //Security access check. UDS_0x2F_NRC_33
@@ -2228,21 +2114,10 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
 
     try
     {
-        cfg::Node & node = cfg::get_root_node().get_child(std::string("services_all.")
+        uint8_t secType = cfg::get_root_node().get<uint8_t>(std::string("services_all.")
                                                         + std::to_string(RTF_SID)
-                                                        + ".access.security_level");
-        bool lockSupported = false;
-
-        for (auto &secLevel : node)
-        {
-            if ( 0x27 == secLevel.second.get_value<uint8_t>() )
-            {
-                lockSupported = true;
-                break;
-            }
-        }
-
-        if (lockSupported == true)
+                                                        + ".access.security_type");
+        if (0x27 == secType)
         {
             if (! SecurityAccess_IsUnlocked(this))
             {
@@ -2257,12 +2132,12 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
         }
         else
         {
-            LE_WARN("Can't invalid value for 0x%02X.access.security_level", RTF_SID);
+            LE_WARN("Can't invalid value for 0x%02X.access.security_type", RTF_SID);
         }
     }
     catch (const std::exception& e)
     {
-        LE_WARN("Can't get 0x%02X.access.security_level info: %s", RTF_SID, e.what());
+        LE_WARN("Can't get 0x%02X.access.security_type info: %s", RTF_SID, e.what());
     }
 
     //Will send the indication to the diag service
@@ -2957,26 +2832,27 @@ void UdsCommunicationMgr::DiagIndicationHandler
     // diagnostic request message
     if((sid != SESSION_CONTROL_REQUEST_ID) && (udsCmMgr->SessionType != DEFAULT_SESSION))
     {
-        uint32_t p2StarServerInterval, maxNumberOfRcrrp, s3ServerInterval;
+        float p2StarServerInterval;
+        uint32_t maxNumberOfRcrrp, s3ServerInterval;
 
         LE_DEBUG("In non-default session, received the request, then restart S3 timer");
         //Get P2* server interval;
         try
         {
             cfg::Node & node = cfg::top_diagnostic_session<int>("id", (int)udsCmMgr->SessionType);
-            p2StarServerInterval = node.get<uint32_t>("p2_star_server_max") * 1000;//Sec to msec.
-            LE_DEBUG("p2StarServerInterval : %d", p2StarServerInterval);
+            p2StarServerInterval = node.get<float>("p2_star_server_max") * 1000;//Sec to msec.
+            LE_DEBUG("p2StarServerInterval : %f", p2StarServerInterval);
             if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX)
             {
                 p2StarServerInterval = UDS_P2_STAR_SERVER;
-                LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%dms",
+                LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%fms",
                         p2StarServerInterval);
             }
         }
         catch (const std::exception& e)
         {
             p2StarServerInterval = UDS_P2_STAR_SERVER;
-            LE_ERROR("Exception: %s. Use default value:%dms", e.what() , p2StarServerInterval);
+            LE_ERROR("Exception: %s. Use default value:%fms", e.what() , p2StarServerInterval);
         }
         //Get P2* server count
         try
@@ -3220,7 +3096,8 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     uint8_t err
 )
 {
-    uint32_t p2StarServerInterval, p2ServerInterval, maxNumberOfRcrrp, s3ServerInterval;
+    float p2StarServerInterval, p2ServerInterval;
+    uint32_t maxNumberOfRcrrp, s3ServerInterval;
 
     LE_INFO("SessionCtrlResp");
 
@@ -3248,19 +3125,19 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     try
     {
         cfg::Node & node = cfg::top_diagnostic_session<int>("id", (int)SessionType);
-        p2StarServerInterval = node.get<uint32_t>("p2_star_server_max") * 1000;//Sec to msec.
-        LE_DEBUG("p2StarServerInterval : %d", p2StarServerInterval);
+        p2StarServerInterval = node.get<float>("p2_star_server_max") * 1000;//Sec to msec.
+        LE_DEBUG("p2StarServerInterval : %f", p2StarServerInterval);
         if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX)
         {
             p2StarServerInterval = UDS_P2_STAR_SERVER;
-            LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%dms",
+            LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%fms",
                     p2StarServerInterval);
         }
     }
     catch (const std::exception& e)
     {
         p2StarServerInterval = UDS_P2_STAR_SERVER;
-        LE_ERROR("Exception: %s. Use default value:%dms", e.what(), p2StarServerInterval);
+        LE_ERROR("Exception: %s. Use default value:%fms", e.what(), p2StarServerInterval);
     }
     //Get P2* server count
     try
@@ -3294,17 +3171,17 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     {
         cfg::Node & node = cfg::top_diagnostic_session<int>("id", (int)SessionType);
         p2ServerInterval = node.get<float>("p2_server_max") * 1000;//Sec to msec.
-        LE_DEBUG("p2ServerInterval : %d", p2ServerInterval);
+        LE_DEBUG("p2ServerInterval : %f", p2ServerInterval);
         if(p2ServerInterval > UDS_P2_SERVER_MAX)
         {
             p2ServerInterval = UDS_P2_SERVER;
-            LE_ERROR("p2_server_max > maxmimal value. Use default value:%dms", p2ServerInterval);
+            LE_ERROR("p2_server_max > maxmimal value. Use default value:%fms", p2ServerInterval);
         }
     }
     catch (const std::exception& e)
     {
         p2ServerInterval = UDS_P2_SERVER;
-        LE_ERROR("Exception: %s. Use default value:%dms", e.what(), p2ServerInterval);
+        LE_ERROR("Exception: %s. Use default value:%fms", e.what(), p2ServerInterval);
     }
 
     // Notify session-change to the application.
@@ -3324,12 +3201,25 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
             UdsTimerEventReport(TAF_UDS_S3_TIMER_START, s3ServerInterval, interface);
         }
 
-        LE_INFO("report -> SESSION_CONTROL_SIG (d-tool)");
-        SecAccReport_t report = {
-            .type = SESSION_CONTROL_SIG,
-            .mgr = this,
-        };
-        le_event_Report(SecAccEventIdRef, &report, sizeof(report));
+        /* Need to be checked for valid session id first */
+        std::map<std::string, uint8_t>& session_mapping = GetSessionMap();
+        auto it = find_if(session_mapping.begin(), session_mapping.end(),
+                        [&newSessionType](const std::pair<std::string, uint8_t> pair) {
+                            return  pair.second == newSessionType;
+                        });
+        if (it != session_mapping.end())
+        {
+            LE_INFO("report -> SESSION_CONTROL_SIG (d-tool)");
+            SecAccReport_t report = {
+                .type = SESSION_CONTROL_SIG,
+                .mgr = this,
+            };
+            le_event_Report(SecAccEventIdRef, &report, sizeof(report));
+        }
+        else
+        {
+            LE_ERROR("The session id [%d/0x%x] was not found in supported list", newSessionType, newSessionType);
+        }
 
         taf_doip_DiagMsg_t sesChangeMsg;
         if(udsIndicationHandler.safeRef == NULL)
@@ -3363,10 +3253,10 @@ out:
         // Fill the response data to send the session response msg to DTool
         sendBuf[0] = SESSION_CONTROL_RESPONSE_ID;
         sendBuf[1] = recvBuf[1] & 0x7F;
-        sendBuf[2] = (p2ServerInterval & 0xff00) >> 8;
-        sendBuf[3] = p2ServerInterval & 0xff;
-        sendBuf[4] = (((p2StarServerInterval)/10) & 0xff00) >> 8; // The resolution for P2* is 10ms
-        sendBuf[5] = ((p2StarServerInterval)/10) & 0xff; // The resolution for P2* is 10ms
+        sendBuf[2] = (uint32_t(p2ServerInterval) & 0xff00) >> 8;
+        sendBuf[3] = uint32_t(p2ServerInterval) & 0xff;
+        sendBuf[4] = (uint32_t((p2StarServerInterval)/10) & 0xff00) >> 8; // The resolution for P2* is 10ms
+        sendBuf[5] = (uint32_t(p2StarServerInterval)/10) & 0xff; // The resolution for P2* is 10ms
         sendDataLen = UDS_SESSION_CTRL_RESP_LEN;
         return LE_OK;
     }
@@ -4022,7 +3912,7 @@ bool UdsCommunicationMgr::IsSecurityAccessMatched
 
     try
     {
-        int secType = node.get_child("access").get<int>("security_level");
+        int secType = node.get_child("access").get<int>("security_type");
         LE_DEBUG("Security type = 0x%x", secType);
 
         // Security access check

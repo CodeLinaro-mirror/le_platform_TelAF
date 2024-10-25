@@ -648,6 +648,8 @@ static void SwitchSessionBasedOnEvent(AO_SecurityAccess_t * self, MEvent_t const
     else {
         self->current_session = NULL;
 
+        LE_INFO("current session id: %d", CURRENT_SESSION_ID(ev));
+
         SecuritySession_t * sess;
         LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
         {

@@ -7,7 +7,7 @@
 /**
  * @page c_tafDiagIOCtrl Diag IO control Service
  *
- * @ref taf_diagIOCtrl_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_diagIOCtrl_interface.h>` @endrst
  *
  * <HR>
  *
@@ -48,8 +48,7 @@
    LE_ASSERT(svcRef != NULL);
    @endcode
  *
- * @section c_taf_diag_input_output_control_by_identifier InputOutputControlByIdentifier(0x2F)
- * service
+ * @section c_taf_diag_input_output_control_by_identifier InputOutputControlByIdentifier(0x2F) service
  *
  * After getting the service reference, an application can call
  * taf_diagIOCtrl_AddRxMsgHandler() to register a message handler for

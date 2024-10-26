@@ -37,7 +37,7 @@
  *
  * @page c_tafTime Time Service
  *
- * @ref taf_time_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_time_interface.h>` @endrst
  *
  * <HR>
  *
@@ -234,8 +234,7 @@
  *
  * @endcode
  *
- * @section taf_time_GetFailedLoops Get the number of failed loops and the polling interval
- * time for a source
+ * @section taf_time_GetFailedLoops Get the number of failed loops and the polling interval time for a source
  *
  * When trying to get the number of failed loops and the polling interval time for a source,
  * the application shall first get the source reference by calling taf_time_GetSourceRef(),
@@ -287,8 +286,7 @@
  *
  * @endcode
  *
- * @section taf_time_GetSystemTimeSourceID Get the source ID of time source to which system
- * time is synced
+ * @section taf_time_GetSystemTimeSourceID Get the source ID of time source to which system time is synced
  *
  * When trying to get the latest time source to which system is synced, call
  * taf_time_GetSystemTimeSourceID() to fetch the source ID.

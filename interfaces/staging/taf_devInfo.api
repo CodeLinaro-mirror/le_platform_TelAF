@@ -7,7 +7,7 @@
 /**
  * @page c_tafDevInfo Device Information Service
  *
- * @ref taf_devInfo_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_devInfo_interface.h>` @endrst
  *
  * <HR>
  *

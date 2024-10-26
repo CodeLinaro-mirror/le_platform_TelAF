@@ -36,7 +36,7 @@
 /**
  * @page c_taf_mngdStorSec Managed Storage Service
  *
- * @ref taf_mngdStorage_secure_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_mngdStorSec_interface.h>` @endrst
  *
  * <HR>
  *
@@ -114,7 +114,7 @@
         }
     }
 
- * @code
+ * @endcode
  *
  * Optionally, client calls the following interfaces to finish the data item manipulations.
  *
@@ -146,7 +146,7 @@
 
     taf_mngdStorSecData_WriteDataEnd(dataRef);
 
- * @code
+ * @endcode
  *
  * @section taf_mngdStorSecData_data_read Read data from the data item
  *
@@ -171,7 +171,7 @@
         // use the read data from the data buffer
     }
 
- * @code
+ * @endcode
  *
  * @section taf_mngdStorSecData_data_sharing Share data access to other applications
  *

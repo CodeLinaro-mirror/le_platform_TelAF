@@ -6,13 +6,12 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#define EVENT_ID_0001 0001 //Defined in YAML file
-#define DRIVING_CYCLE_ID 1 // The operation cycle id value of Event id 1
+#define EVENT_ID_0029 29 //Defined in YAML file
+#define DRIVING_CYCLE_ID 1 // The operation cycle id value of Event id 29
 
 // The enable condition id.
-#define ENABLE_CONDITION_ID1 3
-#define ENABLE_CONDITION_ID2 5
-#define ENABLE_CONDITION_ID3 6
+#define ENABLE_CONDITION_ID5 5
+#define ENABLE_CONDITION_ID6 6
 
 #define SUPPLIER_FAULT_CODE_LEN 5
 #define MAX_PREFAILED_NUMBER 20
@@ -149,7 +148,7 @@ static void* changeEventStatus()
     taf_diagDTC_ActivationStatus_t activationStatus;
 
     //Get the diag event service
-    diagEvent0001SvcRef = taf_diagEvent_GetService(EVENT_ID_0001);
+    diagEvent0001SvcRef = taf_diagEvent_GetService(EVENT_ID_0029);
     if(diagEvent0001SvcRef == NULL)
     {
         LE_ERROR("Failed to get diagEvent service");
@@ -627,21 +626,20 @@ static void* changeEventStatus()
     }
 
     // set enable condition as false
-    le_result_t res_1, res_2, res_3;
-    res_1 = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID1, false);
-    res_2 = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID2, false);
-    res_3 = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID3, false);
-    if((res_1 != LE_OK) || (res_2 != LE_OK) || (res_3 != LE_OK))
+    le_result_t res_5, res_6;
+    res_5 = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID5, false);
+    res_6 = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID6, false);
+    if((res_5 != LE_OK) || (res_6 != LE_OK))
     {
         LE_ERROR("Failed to set enable condition to false");
         return NULL;
     }
 
-    result = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID2, true);
+    result = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID5, true);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to set enable condition to true, result:%d, conditionId:%d", result,
-                ENABLE_CONDITION_ID2);
+                ENABLE_CONDITION_ID5);
         return NULL;
     }
 
@@ -712,6 +710,27 @@ void udsStatusChangeHandler
     LE_INFO("********Diag event %d, change status to 0x%x********", eventId, eventUdsStatus);
 }
 
+//Enable condition state change handler
+void enableCondStateChangeHandler
+(
+        taf_diagEvent_ServiceRef_t svcRef,
+        bool state,
+        void* contextPtr
+)
+{
+    le_result_t result;
+    uint16_t eventId;
+
+    result = taf_diagEvent_GetId(svcRef, &eventId);
+    if( result != LE_OK)
+    {
+        LE_ERROR("Failed to get event id");
+        return;
+    }
+
+    LE_INFO("********Diag event %d, Enable Condition state change to %d********", eventId, state);
+}
+
 //DTC status change handler
 void dtcStatusChangeHandler
 (
@@ -752,7 +771,7 @@ static void* diagEventUdsStatusTheadFunc(void* ctxPtr)
     taf_diagEvent_ConnectService();
 
     //Get the same diag event service
-    diagEventRef = taf_diagEvent_GetService(EVENT_ID_0001);
+    diagEventRef = taf_diagEvent_GetService(EVENT_ID_0029);
     if(diagEventRef == NULL)
     {
         LE_ERROR("Get diagEvent service");
@@ -765,6 +784,37 @@ static void* diagEventUdsStatusTheadFunc(void* ctxPtr)
     if(udsStatusRef == NULL)
     {
         LE_ERROR("Add event UDS status handler");
+        return NULL;
+    }
+
+    le_sem_Post(semRef);
+
+    le_event_RunLoop();
+
+    return NULL;
+}
+
+//Enable Condition state thread
+static void* enableCondStateTheadFunc(void* ctxPtr)
+{
+    taf_diagEvent_ServiceRef_t diagEventRef = NULL;
+    taf_diagEvent_ConnectService();
+
+    //Get the same diag event service
+    diagEventRef = taf_diagEvent_GetService(EVENT_ID_0029);
+    if(diagEventRef == NULL)
+    {
+        LE_ERROR("Get diagEvent service");
+        return NULL;
+    }
+
+    taf_diagEvent_EnableCondStateHandlerRef_t enableCondStateRef = 
+            taf_diagEvent_AddEnableCondStateHandler(diagEventRef,
+            (taf_diagEvent_EnableCondStateHandlerFunc_t)enableCondStateChangeHandler, ctxPtr);
+
+    if(enableCondStateRef == NULL)
+    {
+        LE_ERROR("Add Enable Condition state handler");
         return NULL;
     }
 
@@ -842,21 +892,28 @@ COMPONENT_INIT
     le_result_t result;
     semRef = le_sem_Create("SemRef", 0);
 
-    result = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID1, true);
+    result = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID5, true);
 
     if(result != LE_OK)
     {
         LE_ERROR("Failed to set enable condition");
     }
 
-    bool status = taf_diag_GetEnableConditionStatus(ENABLE_CONDITION_ID1);
-    LE_DEBUG("Enable condition status of %d is %d", ENABLE_CONDITION_ID1, status);
+    bool status = taf_diag_GetEnableConditionStatus(ENABLE_CONDITION_ID5);
+    LE_DEBUG("Enable condition status of %d is %d", ENABLE_CONDITION_ID5, status);
 
     // Create event uds status change thread
     le_thread_Ref_t eventUdsStatusThreadRef = le_thread_Create("udsStatusTh",
             diagEventUdsStatusTheadFunc, NULL);
 
     le_thread_Start(eventUdsStatusThreadRef);
+    le_sem_Wait(semRef);
+
+    // Create enable condition state change thread
+    le_thread_Ref_t enableCondStateThreadRef = le_thread_Create("enCondStateTh",
+            enableCondStateTheadFunc, NULL);
+
+    le_thread_Start(enableCondStateThreadRef);
     le_sem_Wait(semRef);
 
     // Create DTC status change thread

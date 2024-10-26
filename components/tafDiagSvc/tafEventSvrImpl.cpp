@@ -539,6 +539,11 @@ le_result_t taf_EventSvr::SetEventEnableStatus
                     }
                 }
 
+                if(enableStatus != eventCtxPtr->eventEnableStatus)
+                {
+                    LE_DEBUG("Notify Enable Condition state");
+                    ReportEnableCondState(eventCtxPtr, enableStatus);
+                }
                 // Set the overall enable status for eventId
                 if(enableStatus)
                 {
@@ -2156,6 +2161,31 @@ void taf_EventSvr::FirstLayerUdsStatusHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * FirstLayerEnableCondStateHandler.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_EventSvr::FirstLayerEnableCondStateHandler
+(
+    void* reportPtr,
+    void* secondLayerHandlerFunc
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_diagEvent_EnableCondState_t* enableCondStateEvent =
+            (taf_diagEvent_EnableCondState_t *)reportPtr;
+    TAF_ERROR_IF_RET_NIL(secondLayerHandlerFunc == NULL, "Null ptr(secondLayerHandlerFunc)");
+
+    taf_diagEvent_EnableCondStateHandlerFunc_t handlerFunc =
+            (taf_diagEvent_EnableCondStateHandlerFunc_t)secondLayerHandlerFunc;
+    handlerFunc(enableCondStateEvent->svcRef, enableCondStateEvent->state,
+            le_event_GetContextPtr());
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Call data handle module to store data into DB and report Event UDS status.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2208,6 +2238,36 @@ void taf_EventSvr::ReportEventUdsStatus
     udsStatusIndPtr->eventUdsStatus = eventCtxPtr->eventUdsStatus;
 
     le_event_ReportWithRefCounting(eventCtxPtr->udsStatusEventId, (void*)udsStatusIndPtr);
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Report Enable Condition state.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_EventSvr::ReportEnableCondState
+(
+    taf_diagEvent_EventCtx_t* eventCtxPtr,
+    bool state
+)
+{
+    TAF_ERROR_IF_RET_NIL(eventCtxPtr == NULL, "Null pointer");
+
+    if(eventCtxPtr->svcRef == NULL)
+    {
+        LE_DEBUG("No handler registered for eventId:%d", eventCtxPtr->eventId);
+        return;
+    }
+
+    taf_diagEvent_EnableCondState_t* enableCondStateIndPtr =
+                (taf_diagEvent_EnableCondState_t*)le_mem_ForceAlloc(EnableCondStatePool);
+
+    enableCondStateIndPtr->svcRef = eventCtxPtr->svcRef;
+    enableCondStateIndPtr->state = state;
+
+    le_event_ReportWithRefCounting(eventCtxPtr->enableCondStateEventId,
+            (void*)enableCondStateIndPtr);
 
 }
 
@@ -2276,6 +2336,25 @@ le_event_Id_t taf_EventSvr::GetUdsStatusEvent
     TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, NULL, "Invalid eventCtxPtr");
 
     return eventCtxPtr->udsStatusEventId;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get enable condition state event ID, used to notify the Enable Condition state change.
+ */
+//--------------------------------------------------------------------------------------------------
+le_event_Id_t taf_EventSvr::GetEnableCondStateEvent
+(
+    taf_diagEvent_ServiceRef_t svcRef
+)
+{
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, NULL, "svcRef is NULL");
+
+    taf_diagEvent_EventCtx_t* eventCtxPtr = (taf_diagEvent_EventCtx_t*)le_ref_Lookup(SvcRefMap,
+            svcRef);
+    TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, NULL, "Invalid eventCtxPtr");
+
+    return eventCtxPtr->enableCondStateEventId;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2380,6 +2459,9 @@ void taf_EventSvr::InitEventContext
     //Create event id for diag event
     snprintf(eventStatusName, sizeof(eventStatusName)-1, "eventCtx-%d", eventId);
     eventCtxPtr->udsStatusEventId = le_event_CreateIdWithRefCounting(eventStatusName);
+    //Create event id for enable condition
+    snprintf(eventStatusName, sizeof(eventStatusName)-1, "enableCond-%d", eventId);
+    eventCtxPtr->enableCondStateEventId = le_event_CreateIdWithRefCounting(eventStatusName);
     eventCtxPtr->eventId = eventId;
     eventCtxPtr->dtcCode = dtcCode;
 
@@ -3438,6 +3520,10 @@ void taf_EventSvr::Init
 
     // Create event uds status pools.
     EventUdsStatusPool = le_mem_CreatePool("eventUdsStatusPool", sizeof(taf_diagEvent_UdsStatus_t));
+
+    // Create enable condition state pools.
+    EnableCondStatePool = le_mem_CreatePool("enableCondStatePool",
+            sizeof(taf_diagEvent_EnableCondState_t));
 
     // Create session reference pools.
     SessionRefPool = le_mem_InitStaticPool(tafSessionRef, TAF_EVENT_MAX_SESSION_REF,

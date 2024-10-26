@@ -84,6 +84,12 @@ namespace telux
             uint8_t  eventUdsStatus;
         } taf_diagEvent_UdsStatus_t;
 
+        typedef struct
+        {
+            taf_diagEvent_ServiceRef_t  svcRef;
+            bool  state;
+        } taf_diagEvent_EnableCondState_t;
+
         //Counterbased debounce config structure
         typedef struct {
             int16_t  decrementStepSize;
@@ -129,7 +135,8 @@ namespace telux
         typedef struct
         {
             uint16_t eventId;
-            le_event_Id_t udsStatusEventId;// event for notification
+            le_event_Id_t udsStatusEventId;// event for UDS status notification
+            le_event_Id_t enableCondStateEventId;// event for Enable Condition state notification
             uint32_t dtcCode;
             taf_diagEvent_DtcCtx_t *dtcCtxPtr;
             uint8_t operationCycleId;// operation cycle id
@@ -168,6 +175,7 @@ namespace telux
                 le_result_t GetId(taf_diagEvent_ServiceRef_t svcRef, uint16_t* eventIdPtr);
 
                 le_event_Id_t GetUdsStatusEvent(taf_diagEvent_ServiceRef_t svcRef);
+                le_event_Id_t GetEnableCondStateEvent(taf_diagEvent_ServiceRef_t svcRef);
                 le_result_t SetStatus(taf_diagEvent_ServiceRef_t svcRef,
                         taf_diagEvent_StatusType_t eventStatus);
                 le_result_t SetStatusWithSupplierFaultCode(taf_diagEvent_ServiceRef_t svcRef,
@@ -194,6 +202,8 @@ namespace telux
 
                 taf_diagEvent_EventCtx_t* GetEventCtxById(uint16_t eventId);
                 static void FirstLayerUdsStatusHandler(void* reportPtr,
+                        void* secondLayerHandlerFunc);
+                static void FirstLayerEnableCondStateHandler(void* reportPtr,
                         void* secondLayerHandlerFunc);
 
                 //Interface function for DTC interface module and DTC service module
@@ -230,6 +240,7 @@ namespace telux
                 taf_diagEvent_EventCtx_t* GetEventCtx(taf_diagEvent_ServiceRef_t svcRef);
 
                 void ReportEventUdsStatus(taf_diagEvent_EventCtx_t* eventCtxPtr);
+                void ReportEnableCondState(taf_diagEvent_EventCtx_t* eventCtxPtr, bool state);
                 void ReportDtcStatus(taf_diagEvent_DtcCtx_t* dtcCtxPtr);
                 le_result_t StoreAndReportDTCStatus(taf_diagEvent_DtcCtx_t* dtcCtxPtr);
                 le_result_t StoreAndReportEventUdsStatus(taf_diagEvent_EventCtx_t* eventCtxPtr);
@@ -272,6 +283,7 @@ namespace telux
                 le_ref_MapRef_t SvcRefMap;
                 le_mem_PoolRef_t SessionRefPool = NULL;
                 le_mem_PoolRef_t EventUdsStatusPool;
+                le_mem_PoolRef_t EnableCondStatePool;
                 taf_diagEvent_OperationCycleState_t OperationCycleStates[MAX_OPERATION_CYCLE_NUM];
 
         };

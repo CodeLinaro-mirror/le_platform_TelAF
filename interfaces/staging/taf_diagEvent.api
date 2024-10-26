@@ -87,6 +87,8 @@
  * - taf_diagEvent_AddUdsStatusHandler() -- Adds a handler for event UDS status changes.
  * - taf_diagEvent_RemoveUdsStatusHandler() -- Removes a handler for event UDS status changes.
  * - taf_diagEvent_RemoveSvc() -- Removes the Event Management service.
+ * - taf_diagEvent_AddEnableCondStateHandler() -- Adds a handler for Enable Condition state change.
+ * - taf_diagEvent_RemoveEnableCondStateHandler() -- Removes a handler for Enable Condition state change.
  *
  * <HR>
  *
@@ -297,6 +299,28 @@ EVENT UdsStatus
 (
     Service  svcRef,             ///< Service reference.
     UdsStatusHandler  handler    ///< UDS status handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for a Enable Condition state.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER EnableCondStateHandler
+(
+    Service svcRef  IN,          ///< Service reference.
+    bool state  IN               ///< Enable Condition state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on Enable Condition state.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT EnableCondState
+(
+    Service  svcRef,                        ///< Service reference.
+    EnableCondStateHandler  handler         ///< Enable Condition state handler.
 );
 
 //--------------------------------------------------------------------------------------------------

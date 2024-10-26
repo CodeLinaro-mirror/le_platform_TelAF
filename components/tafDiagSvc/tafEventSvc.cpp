@@ -213,6 +213,58 @@ void taf_diagEvent_RemoveUdsStatusHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Add handler function for EVENT 'taf_diagEvent_EnableCondState'
+ *
+ * This event provides information on Enable Condition state.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_diagEvent_EnableCondStateHandlerRef_t taf_diagEvent_AddEnableCondStateHandler
+(
+    taf_diagEvent_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    taf_diagEvent_EnableCondStateHandlerFunc_t handlerPtr,
+        ///< [IN] Enable Condition state handler.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    auto &diagEvent = taf_EventSvr::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, NULL, "Null ptr(svcRef)");
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Null ptr(handlerPtr)");
+
+    le_event_Id_t enableCondStateEventId = diagEvent.GetEnableCondStateEvent(svcRef);
+    if(enableCondStateEventId == NULL)
+    {
+        LE_ERROR("Enable Condition state event is not initialized");
+        return NULL;
+    }
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("EnableCondStateHandler",
+        enableCondStateEventId, diagEvent.FirstLayerEnableCondStateHandler, (void*)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_diagEvent_EnableCondStateHandlerRef_t)(handlerRef);
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diagEvent_EnableCondState'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_diagEvent_RemoveEnableCondStateHandler
+(
+    taf_diagEvent_EnableCondStateHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Removes the Event Management service.
  *
  * @return

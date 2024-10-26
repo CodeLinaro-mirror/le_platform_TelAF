@@ -153,7 +153,7 @@ le_result_t DemDataHandler::Load
                 // Lookup the info from freeze frames.
                 cfg::Node & extdNode = cfg::top_extended_data_records<string>("short_name", item);
                 int rn = extdNode.get<int>("record_number");
-                if (std::string("OccurenceCounter") == item)
+                if (std::string("OccurrenceCounter") == item)
                 {
                     extendedRnVec.push_back(std::make_tuple(
                             rn, dtc_code, ExtendData_OccurenceCounter)

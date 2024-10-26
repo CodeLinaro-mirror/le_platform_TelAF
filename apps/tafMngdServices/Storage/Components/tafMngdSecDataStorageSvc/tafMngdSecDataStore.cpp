@@ -94,10 +94,32 @@ void tafMngdStorageSvc::InitStorage
     // Create reference maps
     SecDataRefMap = le_ref_CreateMap("SecDataRefMap", SECURE_MAX_NUM_OF_DATA);
 
+    // Create memory pools
+    ClientDataPool = le_mem_CreatePool("ClientDataPool", sizeof(tafMngdStorage_ClientData_t));
+
+    // Create reference maps
+    ClientDataRefMap = le_ref_CreateMap("ClientDataRefMap", SECURE_MAX_NUM_OF_CLIENT_DATA);
+
+    // Create memory pools
+    DataChangeHandlerPool =
+        le_mem_CreatePool("DataChangeHandlerPool", sizeof(tafMngdStorage_DataChangeHandler_t));
+
+    // Create reference maps
+    DataChangeHandlerRefMap =
+        le_ref_CreateMap("DataChangeHandlerRefMap", SECURE_MAX_NUM_OF_DATA_HANDLER);
+
     // Release storage reference for disconnected session
     le_msg_AddServiceCloseHandler(taf_mngdStorSecData_GetServiceRef(),
                                     ReleaseDataRef,
                                     nullptr);
+
+    // Create key event
+    DataChangeEventId =
+        le_event_CreateId("DataChangeEventId", sizeof(tafMngdStorage_DataChangeEvent_t));
+
+    le_event_AddHandler("DataChangeEventhandler", DataChangeEventId, DataChangeEventHandler);
+
+    LoadAllSharedAppData();
 }
 
 le_result_t tafMngdStorageSvc::GetStoragePath
@@ -110,8 +132,8 @@ le_result_t tafMngdStorageSvc::GetStoragePath
 
     TAF_ERROR_IF_RET_VAL(
         GetClientNamespace(nsStr,
-                                    sizeof(nsStr)) != LE_OK,
-                                    LE_FAULT, "Cannot get namespace");
+                            sizeof(nsStr)) != LE_OK,
+                            LE_FAULT, "Cannot get namespace");
 
     snprintf(bufferPtr, bufferSize, "%s%s", SECURE_STORAGE, nsStr);
 
@@ -127,10 +149,9 @@ le_result_t tafMngdStorageSvc::CreateStorageDir
     char storagePath[LIMIT_MAX_PATH_BYTES] = {0};
     struct stat sb;
 
-    TAF_ERROR_IF_RET_VAL(
-        GetStoragePath(storagePath,
-                                sizeof(storagePath)) != LE_OK,
-                                LE_FAULT, "Cannot get storage path");
+    TAF_ERROR_IF_RET_VAL(GetStoragePath(storagePath,
+                            sizeof(storagePath)) != LE_OK,
+                            LE_FAULT, "Cannot get storage path");
 
     if(stat(storagePath, &sb) == -1)
     {
@@ -251,4 +272,102 @@ uint32_t tafMngdStorageSvc::GetStorageUsedSize
                                 0, "Cannot get storage path");
 
     return GetFilesSizeInDirectory(storagePath);
+}
+
+void tafMngdStorageSvc::LoadAllSharedAppData
+(
+    void
+)
+{
+    struct dirent *namespace_entry;
+    DIR *namespace_dir = opendir(SECURE_STORAGE);
+
+    if (namespace_dir == nullptr)
+    {
+        LE_ERROR("Unable to open base directory");
+        return;
+    }
+
+    while ((namespace_entry = readdir(namespace_dir)) != nullptr)
+    {
+        if (namespace_entry->d_type == DT_DIR) {
+            // Skip "." and ".." directories
+            if (strcmp(namespace_entry->d_name, ".") == 0 ||
+                strcmp(namespace_entry->d_name, "..") == 0)
+            {
+                continue;
+            }
+
+            char namespace_path[1024];
+            snprintf(namespace_path, sizeof(namespace_path), "%s/%s",
+                        SECURE_STORAGE, namespace_entry->d_name);
+
+            struct dirent *data_entry;
+            DIR *data_dir = opendir(namespace_path);
+
+            if (data_dir == nullptr)
+            {
+                LE_ERROR("Unable to open namespace directory");
+                continue;
+            }
+
+            while ((data_entry = readdir(data_dir)) != nullptr)
+            {
+                if (data_entry->d_type == DT_REG)
+                {
+                    LoadSecDataRefForDataSharedKey(namespace_entry->d_name, data_entry->d_name);
+                }
+            }
+
+            closedir(data_dir);
+        }
+    }
+
+    closedir(namespace_dir);
+}
+
+void tafMngdStorageSvc::LoadSecDataRefForDataSharedKey
+(
+    const char* namespacePtr,
+    const char* dataNamePtr
+)
+{
+    LE_INFO("CreateSecDataRefForDataSharedKey");
+
+    char keyId[TAF_KS_MAX_KEY_ID_SIZE] = {0};
+    snprintf(keyId, TAF_KS_MAX_KEY_ID_SIZE, "%s%s", namespacePtr, dataNamePtr);
+
+    LE_INFO("Check keyId: %s", keyId);
+
+    taf_ks_KeyRef_t keyRef;
+    taf_ks_KeyUsage_t keyCap;
+    taf_ks_AppCapMask_t appCap;
+
+    TAF_ERROR_IF_RET_NIL(LE_OK != taf_ks_GetKey(keyId, &keyRef),
+                            "Failed to get key with key id: %s", keyId);
+
+    char appName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+
+    le_result_t res = taf_ks_GetFirstSharedApp(keyRef, appName, sizeof(appName), &keyCap, &appCap);
+
+    if(res == LE_OK)
+    {
+        tafMngdStorage_SecData_t *dataPtr = nullptr;
+        tafMngdStorage_SecDataRef_t secDataRef = nullptr;
+
+        dataPtr = (tafMngdStorage_SecData_t*)le_mem_ForceAlloc(SecDataPool);
+
+        memset((void*)dataPtr, 0, sizeof(tafMngdStorage_SecData_t));
+
+        secDataRef =
+            (tafMngdStorage_SecDataRef_t)le_ref_CreateRef(SecDataRefMap, dataPtr);
+
+        snprintf(dataPtr->dataName, sizeof(dataPtr->dataName), "%s", dataNamePtr);
+        snprintf(dataPtr->ownerAppName, sizeof(dataPtr->ownerAppName), "%s", namespacePtr);
+
+        dataPtr->isInWritingProcess = false;
+        dataPtr->isInReadingProcess = false;
+
+        RefreshSharedAppInfo(secDataRef);
+    }
 }

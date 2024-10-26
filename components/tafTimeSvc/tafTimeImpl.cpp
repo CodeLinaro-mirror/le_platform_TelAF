@@ -2228,9 +2228,7 @@ void taf_Time::InitializeSystemTimeAttr(le_result_t connectStatus)
     LatestTimeSourceInfo->handlerFunc = NULL;
     if(connectStatus == LE_OK)
     {
-        LatestTimeSourceInfo->secStrgdataRef =
-        taf_mngdStorSecData_CreateData(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
-        if(LatestTimeSourceInfo->secStrgdataRef == NULL)
+        if(taf_mngdStorSecData_CreateData(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId)) == LE_OK)
         {
             LatestTimeSourceInfo->secStrgdataRef =
                 taf_mngdStorSecData_GetDataRef(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
@@ -2283,9 +2281,7 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
             src->sessionRef = taf_time_GetClientSessionRef();
             if(connectStatus == LE_OK)
             {
-                src->secStrgdataRef =
-                taf_mngdStorSecData_CreateData(tafTime.SourceNameIndexToStr(src->sourceId));
-                if(src->secStrgdataRef == NULL)
+                if(taf_mngdStorSecData_CreateData(tafTime.SourceNameIndexToStr(src->sourceId)) == LE_OK)
                 {
                     src->secStrgdataRef =
                         taf_mngdStorSecData_GetDataRef(tafTime.SourceNameIndexToStr(src->sourceId));

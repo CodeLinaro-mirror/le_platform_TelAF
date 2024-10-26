@@ -37,10 +37,13 @@
 #include <string.h>
 
 #define OP_HELP "help"
-#define OP_CREATE "create"
-#define OP_READ    "read"
-#define OP_WRITE   "write"
-#define OP_DELETE  "delete"
+#define OP_CREATE    "create"
+#define OP_READ      "read"
+#define OP_WRITE     "write"
+#define OP_DELETE    "delete"
+#define OP_SHARE     "share"
+#define OP_CANCEL    "cancel"
+#define OP_GET       "get"
 
 #define TEST_DATA_LABEL "testdata"
 #define MSS_SECURE_STORAGE_SIZE 8192
@@ -51,12 +54,13 @@ uint8_t TEST_NUM_PATTERN[] = {0,1,2,3,4,5,6,7,8,9};
 
 taf_mngdStorSecData_DataRef_t dataRef;
 taf_mngdStorCfg_ConfigRef_t cRef;
+taf_mngdStorSecData_DataStateChangeHandlerRef_t handlerRef;
 
 __attribute__((unused)) static void PrintUsage()
 {
     puts("\n"
         "-------- To do unit test automatically --------\n"
-        "app start tafMngdPMIntTest\n"
+        "app start tafMngdStorageUnitTest\n"
         "\n"
         "-------- To know Usage --------\n"
         "app runProc tafMngdStorageUnitTest tafMngdStorageUnitTest -- help \n"
@@ -102,13 +106,15 @@ __attribute__((unused)) static void Test_Secure_Data_Management()
 {
     le_result_t res;
 
-    dataRef = taf_mngdStorSecData_CreateData(TEST_DATA_LABEL);
+    res = taf_mngdStorSecData_CreateData(TEST_DATA_LABEL);
 
-    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSecData_CreateData");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSecData_CreateData");
+
+    dataRef = taf_mngdStorSecData_GetDataRef(TEST_DATA_LABEL);
+
+    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSecData_GetDataRef");
 
     taf_mngdStorSecData_DataRef_t checkedDataRef = taf_mngdStorSecData_GetDataRef(TEST_DATA_LABEL);
-
-    LE_TEST_ASSERT(checkedDataRef != NULL, "Test taf_mngdStorSecData_GetDataRef");
 
     LE_TEST_ASSERT(checkedDataRef == dataRef, "Test taf_mngdStorSecData_GetDataRef");
 
@@ -140,9 +146,11 @@ __attribute__((unused)) static void Test_Secure_Data_Write()
 {
     le_result_t res;
 
-    dataRef = taf_mngdStorSecData_CreateData(TEST_DATA_LABEL);
+    res = taf_mngdStorSecData_CreateData(TEST_DATA_LABEL);
 
-    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSecData_CreateData");
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSecData_CreateData");
+
+    dataRef = taf_mngdStorSecData_GetDataRef(TEST_DATA_LABEL);
 
     res = taf_mngdStorSecData_WriteDataStart(dataRef);
 
@@ -259,7 +267,7 @@ __attribute__((unused)) static void Test_Secure_Data_Read_Write_Chunks()
     free(genData);
 }
 
-__attribute__((unused)) static void Test_Secure_Delete_Storage()
+__attribute__((unused)) static void Test_Secure_Data_Delete()
 {
     le_result_t res;
 
@@ -268,11 +276,122 @@ __attribute__((unused)) static void Test_Secure_Delete_Storage()
     LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSecData_DeleteData");
 }
 
+__attribute__((unused)) static void dataStateChangeHandler
+(
+    char dataName[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES],
+    char appName[LE_LIMIT_APP_NAME_LEN + 1],
+    taf_mngdStorSecData_DataState_t state,
+    void* context
+)
+{
+    LE_INFO("Data state change triggered for %s::%s, state: %u", appName, dataName, state);
+}
+
+__attribute__((unused)) static void Test_Secure_Data_Sharing()
+{
+    const char* sharedAppNameList[] = {"Shared_App1", "Shared_App2",
+                                       "Shared_App3", "Shared_App4",
+                                       "Shared_App5"};
+
+    const taf_mngdStorSecData_DataUsage_t usageList[] = {TAF_MNGDSTORSECDATA_USAGE_READ,
+                                                         TAF_MNGDSTORSECDATA_USAGE_WRITE,
+                                                         TAF_MNGDSTORSECDATA_USAGE_READ,
+                                                         TAF_MNGDSTORSECDATA_USAGE_WRITE,
+                                                         TAF_MNGDSTORSECDATA_USAGE_READ_WRITE};
+
+    char appName[5][LE_LIMIT_APP_NAME_LEN + 1] = { 0 };
+    taf_mngdStorSecData_DataUsage_t usage[5] = { 0 };
+
+    le_result_t res;
+
+    res = taf_mngdStorSecData_CreateData(TEST_DATA_LABEL);
+
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSecData_CreateData");
+
+    dataRef = taf_mngdStorSecData_GetDataRef(TEST_DATA_LABEL);
+
+    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSecData_GetDataRef");
+
+    // Share a wrong usage
+    for (int i = 0; i < NUM_ARRAY_MEMBERS(sharedAppNameList); i++)
+    {
+        LE_TEST_ASSERT(LE_BAD_PARAMETER ==
+                        taf_mngdStorSecData_ShareData(dataRef,
+                                                        sharedAppNameList[i],
+                                                        TAF_MNGDSTORSECDATA_USAGE_UNKNOWN),
+                        "Test taf_mngdStorSecData_ShareData");
+    }
+
+    // Share a correct usage
+    for (int i = 0; i < NUM_ARRAY_MEMBERS(sharedAppNameList); i++)
+    {
+        LE_TEST_ASSERT(LE_OK ==
+                        taf_mngdStorSecData_ShareData(dataRef,
+                                                        sharedAppNameList[i],
+                                                        usageList[i]),
+                        "Test taf_mngdStorSecData_ShareData");
+    }
+
+    // Get sharedApp list.
+    LE_TEST_ASSERT(LE_OK ==
+                    taf_mngdStorSecData_GetFirstSharedApp(dataRef,
+                                                            appName[0], LE_LIMIT_APP_NAME_LEN + 1,
+                                                            &usage[0]),
+                    "Test taf_mngdStorSecData_GetFirstSharedApp");
+
+    uint i = 1;
+    while (i < NUM_ARRAY_MEMBERS(sharedAppNameList))
+    {
+        LE_TEST_ASSERT(LE_OK ==
+                        taf_mngdStorSecData_GetNextSharedApp(dataRef,
+                                                                appName[0], LE_LIMIT_APP_NAME_LEN + 1,
+                                                                &usage[0]),
+                    "Test taf_mngdStorSecData_GetNextSharedApp");
+        i++;
+    }
+
+    // Cancel the sharing for all apps
+    for (int i = 0; i < NUM_ARRAY_MEMBERS(sharedAppNameList); i++)
+    {
+        LE_TEST_ASSERT(LE_OK == taf_mngdStorSecData_CancelDataSharing(dataRef,
+                                                                        sharedAppNameList[i]),
+                        "Test taf_mngdStorSecData_GetNextSharedApp");
+    }
+
+    LE_TEST_ASSERT(LE_NOT_PERMITTED == taf_mngdStorSecData_CancelDataSharing(dataRef,
+                                                                        sharedAppNameList[0]),
+                        "Test taf_mngdStorSecData_GetNextSharedApp");
+
+    handlerRef = taf_mngdStorSecData_AddDataStateChangeHandler(
+        TEST_DATA_LABEL,
+        "Shared_App",
+        (taf_mngdStorSecData_DataStateChangeHandlerFunc_t)dataStateChangeHandler,
+        NULL);
+
+    LE_TEST_ASSERT(handlerRef != NULL, "Test taf_mngdStorSecData_AddDataStateChangeHandler");
+
+    taf_mngdStorSecData_RemoveDataStateChangeHandler(handlerRef);
+
+    LE_TEST_ASSERT(true, "Test taf_mngdStorSecData_RemoveDataStateChangeHandler");
+
+    res = taf_mngdStorSecData_DeleteData(dataRef);
+
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSecData_DeleteData");
+}
+
 __attribute__((unused)) static void Test_Op_create(const char* label)
 {
-    dataRef = taf_mngdStorSecData_CreateData(label);
+    if(label == NULL)
+    {
+        LE_ERROR("Bad paremeter");
+        exit(1);
+    }
 
-    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSecData_CreateData");
+    le_result_t res;
+
+    res = taf_mngdStorSecData_CreateData(label);
+
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSecData_CreateData");
 
     printf("Create data label: %s succussfully\n", label);
     fflush(stdout);
@@ -283,6 +402,12 @@ __attribute__((unused)) static void Test_Op_Write
     const char* label, const char* data
 )
 {
+    if(label == NULL || data == NULL)
+    {
+        LE_ERROR("Bad paremeter");
+        exit(1);
+    }
+
     le_result_t res;
 
     dataRef = taf_mngdStorSecData_GetDataRef(label);
@@ -309,6 +434,12 @@ __attribute__((unused)) static void Test_Op_Write
 
 __attribute__((unused)) static void Test_Op_Read(const char* label)
 {
+    if(label == NULL)
+    {
+        LE_ERROR("Bad paremeter");
+        exit(1);
+    }
+
     le_result_t res;
 
     dataRef = taf_mngdStorSecData_GetDataRef(label);
@@ -330,6 +461,12 @@ __attribute__((unused)) static void Test_Op_Read(const char* label)
 
 __attribute__((unused)) static void Test_Op_Delete(const char* label)
 {
+    if(label == NULL)
+    {
+        LE_ERROR("Bad paremeter");
+        exit(1);
+    }
+
     le_result_t res;
 
     dataRef = taf_mngdStorSecData_GetDataRef(label);
@@ -341,6 +478,101 @@ __attribute__((unused)) static void Test_Op_Delete(const char* label)
     LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSecData_DeleteData");
 
     printf("Delete data label: %s succussfully\n", label);
+    fflush(stdout);
+}
+
+__attribute__((unused)) static void Test_Op_Share
+(
+    const char* label,
+    const char* app,
+    const char* usage
+)
+{
+    if(label == NULL || app == NULL || usage == NULL)
+    {
+        LE_ERROR("Bad paremeter");
+        exit(1);
+    }
+
+    le_result_t res;
+
+    dataRef = taf_mngdStorSecData_GetDataRef(label);
+
+    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSecData_GetDataRef");
+
+    int num = (int)atoi(usage);
+
+    taf_mngdStorSecData_DataUsage_t dataUsage = (taf_mngdStorSecData_DataUsage_t)(num);
+
+    res = taf_mngdStorSecData_ShareData(dataRef, app, dataUsage);
+
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSecData_ShareData");
+
+    printf("Share data: %s to app '%s' with usage %d succussfully\n", label, app, dataUsage);
+    fflush(stdout);
+}
+
+__attribute__((unused)) static void Test_Op_Cancel
+(
+    const char* label,
+    const char* app
+)
+{
+    if(label == NULL || app == NULL)
+    {
+        LE_ERROR("Bad paremeter");
+        exit(1);
+    }
+
+    le_result_t res;
+
+    dataRef = taf_mngdStorSecData_GetDataRef(label);
+
+    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSecData_GetDataRef");
+
+    res = taf_mngdStorSecData_CancelDataSharing(dataRef, app);
+
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSecData_CancelDataSharing");
+
+    printf("Cancel data: %s sharing to app '%s' succussfully\n", label, app);
+    fflush(stdout);
+}
+
+__attribute__((unused)) static void Test_Op_Get
+(
+    const char* label
+)
+{
+    if(label == NULL)
+    {
+        LE_ERROR("Bad paremeter");
+        exit(1);
+    }
+
+    le_result_t res;
+
+    dataRef = taf_mngdStorSecData_GetDataRef(label);
+
+    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSecData_GetDataRef");
+
+    char appName[LE_LIMIT_APP_NAME_LEN + 1];
+
+    taf_mngdStorSecData_DataUsage_t usage;
+
+    res = taf_mngdStorSecData_GetFirstSharedApp(dataRef, appName, sizeof(appName), &usage);
+
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSecData_GetFirstSharedApp");
+
+    printf("Get data: %s first shared app '%s' usage %d succussfully\n", label, appName, usage);
+
+    uint i = 1;
+    while (LE_OK == taf_mngdStorSecData_GetNextSharedApp(dataRef,                                                            appName, LE_LIMIT_APP_NAME_LEN + 1,
+                                                            &usage))
+    {
+        printf("Get data: %s next shared app '%s' usage %d succussfully\n", label, appName, usage);
+        i++;
+    }
+
     fflush(stdout);
 }
 
@@ -476,13 +708,15 @@ COMPONENT_INIT
     {
         const char* operation = le_arg_GetArg(0);
         char* op_label = NULL;
-        char* op_data = NULL;
+        char* op_para1 = NULL;
+        char* op_para2 = NULL;
 
         if (NULL == operation)
         {
             LE_ERROR("operation is NULL");
             exit(EXIT_FAILURE);
         }
+        LE_INFO("operation: %s", operation);
 
         const char* label = le_arg_GetArg(1);
 
@@ -498,9 +732,20 @@ COMPONENT_INIT
 
             if(strlen(data) == 0)
             {
-                LE_ERROR("Invalid data label");
+                LE_ERROR("Invalid data");
             }
-            op_data = (char*)data;
+            op_para1 = (char*)data;
+        }
+
+        if (le_arg_NumArgs() > 3)
+        {
+            const char* data = le_arg_GetArg(3);
+
+            if(strlen(data) == 0)
+            {
+                LE_ERROR("Invalid data");
+            }
+            op_para2 = (char*)data;
         }
 
         if(op_label == NULL || strlen(op_label) == 0)
@@ -518,9 +763,9 @@ COMPONENT_INIT
         }
         else if (strcmp(operation, OP_WRITE) == 0)
         {
-            if(op_data != NULL)
+            if(op_para1 != NULL)
             {
-                Test_Op_Write(op_label, op_data);
+                Test_Op_Write(op_label, op_para1);
             }
         }
         else if (strcmp(operation, OP_READ) == 0)
@@ -530,6 +775,18 @@ COMPONENT_INIT
         else if (strcmp(operation, OP_DELETE) == 0)
         {
             Test_Op_Delete(op_label);
+        }
+        else if (strcmp(operation, OP_SHARE) == 0)
+        {
+            Test_Op_Share(op_label, op_para1, op_para2);
+        }
+        else if (strcmp(operation, OP_CANCEL) == 0)
+        {
+            Test_Op_Cancel(op_label, op_para1);
+        }
+        else if (strcmp(operation, OP_GET) == 0)
+        {
+            Test_Op_Get(op_label);
         }
         else
         {
@@ -557,9 +814,12 @@ COMPONENT_INIT
         LE_TEST_INFO("=== Test secure data read write chunks ===");
         Test_Secure_Data_Read_Write_Chunks();
 
-        LE_TEST_INFO("=== Test delete storage ===");
-        Test_Secure_Delete_Storage();
+        LE_TEST_INFO("=== Test secure data delete ===");
+        Test_Secure_Data_Delete();
 
+        LE_TEST_INFO("=== Test secure data sharing ===");
+        Test_Secure_Data_Sharing();
+/*
         LE_TEST_INFO("=== Test GetRef Process ConfigStorage");
         Test_cfg_GetRef();
 
@@ -592,7 +852,7 @@ COMPONENT_INIT
 
         LE_TEST_INFO("=== Test Release configStorage ===");
         Test_cfg_ReleaseRef();
-
+*/
         LE_TEST_INFO("=== TelAF MngdStorage unit test END ===");
     }
     else

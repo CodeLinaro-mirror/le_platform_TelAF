@@ -1027,7 +1027,7 @@ void Connection::AliveCheckResHandler
                     && (!routingConnectionPtr->IsConnectionRegitered()))
             {
                 link.commType = TAF_DOIP_SOCKET_TYPE_TCP;
-                link.sockRef = cliSockRef;
+                link.sockRef = routingConnectionPtr->cliSockRef;
                 // [DoIP-60]
                 parser.RoutingActivationRes(&link, routingConnectionPtr->raTesterSa,
                     routingConnectionPtr->entitySA,
@@ -1050,7 +1050,7 @@ void Connection::AliveCheckResHandler
         if ((routingConnectionPtr != nullptr) && (!routingConnectionPtr->IsConnectionRegitered()))
         {
             link.commType = TAF_DOIP_SOCKET_TYPE_TCP;
-            link.sockRef = cliSockRef;
+            link.sockRef = routingConnectionPtr->cliSockRef;
             // [DoIP-150]
             parser.RoutingActivationRes(&link, routingConnectionPtr->raTesterSa,
                     routingConnectionPtr->entitySA, TAF_DOIP_RA_RES_SA_REGISTED_DIFFERENT_SOCKET,

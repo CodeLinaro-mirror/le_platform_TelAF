@@ -291,11 +291,12 @@ void tafMngdConnAdmin::OnClientDisconnect(le_msg_SessionRef_t sessionRef, void *
             // Check if this client was the last client that requested data
             if (dataCtxPtr->clients.empty())
             {
-                // If data is connected, send request to stop data
+                // If data is connected or in retrying, send request to stop data
                 if (MCS_DATA_CONNECTED_ACTIVE == dataCtxPtr->adminState ||
                     MCS_DATA_CONNECTED_INACTIVE == dataCtxPtr->adminState ||
                     MCS_DATA_CONNECTED_INACTIVE_RETRYING == dataCtxPtr->adminState ||
-                    MCS_DATA_CONNECTED_IDLE == dataCtxPtr->adminState)
+                    MCS_DATA_CONNECTED_IDLE == dataCtxPtr->adminState ||
+                    MCS_DATA_NOT_CONNECTED_RETRYING == dataCtxPtr->adminState)
                 {
                     LE_INFO("Client %p is the last client that requested data", sessionRef);
                     LE_INFO("Requesting data stop for Data ID %d", dataCtxPtr->dataId);
@@ -3181,6 +3182,8 @@ void tafMngdConnAdmin::EventL1ConnRecoverySchedule (uint8_t dataId)
             LE_INFO("Radio Off/On recovery already tried.");
             LE_INFO("Mark Radio Off/On as failed and schedule Sim Off/On recovery");
             dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L1;
+            ReportRecoveryEvent(TAF_MNGDCONN_RECOVERY_FAILED, dataCtxPtr,
+                                TAF_MNGDCONN_RECOVERY_RADIO_OFF_ON);
             stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
             stateMachineEvt.dataId = dataCtxPtr->dataId;
             stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_SCHEDULE_L2;
@@ -3565,6 +3568,8 @@ void tafMngdConnAdmin::EventL2ConnRecoverySchedule (uint8_t dataId)
             LE_INFO("Sim Off/On recovery already tried.");
             LE_INFO("Mark Sim Off/On as failed and schedule NAD Reboot recovery");
             dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L2;
+            ReportRecoveryEvent(TAF_MNGDCONN_RECOVERY_FAILED, dataCtxPtr,
+                                TAF_MNGDCONN_RECOVERY_SIM_OFF_ON);
             stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
             stateMachineEvt.dataId = dataCtxPtr->dataId;
             stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_SCHEDULE_L3;
@@ -3804,6 +3809,8 @@ void tafMngdConnAdmin::EventL3ConnRecoveryStart(uint8_t dataId)
             LE_WARN("Restart NAD request failed: %d", result);
             // Update admin state that L3 recovery has failed
             dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L3;
+            ReportRecoveryEvent(TAF_MNGDCONN_RECOVERY_FAILED, dataCtxPtr,
+                                TAF_MNGDCONN_RECOVERY_NAD_REBOOT);
             // Set the reconnected needed flag to TRUE
             dataCtxPtr->needReConn = true;
             // Inform admin that L3 recovery is interrupted
@@ -3815,6 +3822,8 @@ void tafMngdConnAdmin::EventL3ConnRecoveryStart(uint8_t dataId)
 #else
         LE_ERROR ("NAD reboot not started for simulation target");
         dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L3;
+        ReportRecoveryEvent(TAF_MNGDCONN_RECOVERY_FAILED, dataCtxPtr,
+                                TAF_MNGDCONN_RECOVERY_NAD_REBOOT);
         // Inform admin that L3 recovery is interrupted
         stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
         stateMachineEvt.dataId = dataCtxPtr->dataId;
@@ -3829,6 +3838,8 @@ void tafMngdConnAdmin::EventL3ConnRecoveryStart(uint8_t dataId)
         LE_INFO("Mark NAD Reboot recovery as interrupted and inform admin");
         // Update admin state that L3 recovery has failed
         dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L3;
+        ReportRecoveryEvent(TAF_MNGDCONN_RECOVERY_FAILED, dataCtxPtr,
+                                TAF_MNGDCONN_RECOVERY_NAD_REBOOT);
         // Set the reconnected needed flag to TRUE
         dataCtxPtr->needReConn = true;
         // Inform admin that L3 recovery is interrupted

@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -158,6 +158,8 @@ le_result_t taf_dcs_GetProfileListEx
  */
 taf_dcs_ProfileRef_t taf_dcs_GetProfile(uint32_t index)
 {
+    // Profile index cannot be 0 with this API.
+    TAF_ERROR_IF_RET_VAL(0 == index, NULL, "Profile id cannot be 0.");
     le_result_t result = LE_OK;
     uint8_t slotId;
 
@@ -184,7 +186,7 @@ taf_dcs_ProfileRef_t taf_dcs_GetProfileEx(uint8_t phoneId, uint32_t profileId)
     uint8_t slotId;
 
     auto &dataProfile = taf_DataProfile::GetInstance();
-
+    LE_INFO("Profile ID: %d", profileId);
     result = dataProfile.getSlotIdFromPhoneId(phoneId, &slotId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, NULL,  "Failed to get slot id from phone id");
 
@@ -203,6 +205,7 @@ uint32_t taf_dcs_GetProfileIndex
     taf_dcs_ProfileRef_t profileRef
 )
 {
+    LE_WARN("This API is deprecated. Use taf_dcs_GetProfileId");
     int32_t profileId;
     uint8_t slotId;
     auto &dataProfile = taf_DataProfile::GetInstance();
@@ -218,6 +221,47 @@ uint32_t taf_dcs_GetProfileIndex
         return 0;
     }
 
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the profile ID for the given profile reference.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
+ *  - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_GetProfileId
+(
+    taf_dcs_ProfileRef_t profileRef,
+        ///< [IN] The profile reference.
+    uint32_t* profileIdPtr
+        ///< [OUT] A positive number returns the profile number in the device. <br>
+        ///< 0 indicates the profile is not yet created.
+)
+{
+    TAF_ERROR_IF_RET_VAL(profileRef   == nullptr, LE_BAD_PARAMETER, "Null ptr(profileRef)");
+    TAF_ERROR_IF_RET_VAL(profileIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(profileIdPtr)");
+
+    int32_t profileId;
+    uint8_t slotId;
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
+    if (result != LE_OK)
+    {
+        LE_ERROR("Getting profile id from reference(%p) failed", profileRef);
+        *profileIdPtr = TAF_DCS_UNDEFINED_PROFILE_ID;
+        return result;
+    }
+    else
+    {
+        LE_INFO("Profile Id: %d", profileId);
+        *profileIdPtr = profileId;
+    }
+    return LE_OK;
 }
 
 /**
@@ -259,6 +303,51 @@ le_result_t taf_dcs_GetPhoneId
     return result;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Creates a new profile on the device. Client should have set at least the IP family type for the
+ * profile using ::taf_dcs_SetPDP before calling this API.<br>
+ * On success creation of profile, the profile reference will be updated with the created profile
+ * ID. Clients can use ::taf_dcs_GetProfileId to get the created profile ID.
+ *
+ * @return
+ *  - #LE_OK -- Succeeded.
+ *  - #LE_BAD_PARAMETER -- Bad parameter.
+ *  - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_CreateProfile
+(
+    taf_dcs_ProfileRef_t profileRef
+        ///< [IN] The profile reference.
+)
+{
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    return dataProfile.CreateProfile(profileRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the profile that is referenced. Once a profile is deleted, the profile reference is not
+ * valid anymore.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_DeleteProfile
+(
+    taf_dcs_ProfileRef_t profileRef
+        ///< [IN] The profile reference.
+)
+{
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    return dataProfile.DeleteProfile(profileRef);
+}
+
 /**
  * Set data profile APN corresponding to specified profile reference.
  *
@@ -274,6 +363,52 @@ le_result_t taf_dcs_SetAPN(taf_dcs_ProfileRef_t profileRef, const char *apnPtr)
 {
     auto &dataProfile = taf_DataProfile::GetInstance();
     return dataProfile.SetApn(profileRef, apnPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the data profile name.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_SetProfileName
+(
+    taf_dcs_ProfileRef_t profileRef,
+        ///< [IN] The profile reference.
+    const char* LE_NONNULL name
+        ///< [IN] The profile name.
+)
+{
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    return dataProfile.SetProfileName(profileRef, name);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data profile name.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OVERFLOW -- Apn size is smaller than APN_NAME_MAX_BYTES.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_GetProfileName
+(
+    taf_dcs_ProfileRef_t profileRef,
+        ///< [IN] The profile reference.
+    char* name,
+        ///< [OUT] The profile name.
+    size_t nameSize
+        ///< [IN]
+)
+{
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    return dataProfile.GetProfileName(profileRef, name, nameSize);
 }
 
 /**
@@ -304,9 +439,13 @@ le_result_t taf_dcs_SetPDP
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
     // Check if the data session is currently not disconnected for the given profile.
-    if(dataConnection.GetConnectionState(slotId, profileId, &state) == LE_OK &&
-       state != TAF_DCS_DISCONNECTED)
-        return LE_FAULT;
+    // Only check if the profile exists.
+    if (0 != profileId)
+    {
+        if (dataConnection.GetConnectionState(slotId, profileId, &state) == LE_OK &&
+            state != TAF_DCS_DISCONNECTED)
+            return LE_FAULT;
+    }
 
     return dataProfile.SetPdp(profileRef, pdp);
 }
@@ -375,6 +514,71 @@ le_result_t taf_dcs_GetApnTypes
     auto &dataProfile = taf_DataProfile::GetInstance();
     return dataProfile.GetApnTypes(profileRef, apnTypePtr);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the data profile APN type.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_SetApnTypes
+(
+    taf_dcs_ProfileRef_t profileRef,
+        ///< [IN] The profile reference.
+    taf_dcs_ApnType_t apnType
+        ///< [IN] The APN type.
+)
+{
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    return dataProfile.SetApnTypes(profileRef, apnType);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the data profile technology preference.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_SetTechPreference
+(
+    taf_dcs_ProfileRef_t profileRef,
+        ///< [IN] The profile reference.
+    taf_dcs_Tech_t techPref
+        ///< [IN] The technology preference.
+)
+{
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    return dataProfile.SetTechPreference(profileRef, techPref);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data profile technology preference.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_GetTechPreference
+(
+    taf_dcs_ProfileRef_t profileRef,
+        ///< [IN] The profile reference.
+    taf_dcs_Tech_t* techPrefPtr
+        ///< [OUT] The technology preference.
+)
+{
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    return dataProfile.GetTechPreference(profileRef, techPrefPtr);
+}
+
 /**
  * Get data profile PDP corresponding to specified profile reference.
  *
@@ -438,6 +642,8 @@ le_result_t taf_dcs_StartSession(taf_dcs_ProfileRef_t profileRef)
     uint8_t slotId;
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                "Profile not created yet.");
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     return dataConnection.StartSessionCmdSync(slotId, profileId, pdpType, taf_dcs_GetClientSessionRef());
@@ -487,6 +693,8 @@ le_result_t taf_dcs_StopSession(taf_dcs_ProfileRef_t profileRef)
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                    "Profile not created yet.");
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     return dataConnection.StopSessionCmdSync(slotId, profileId, pdpType,
@@ -572,6 +780,8 @@ taf_dcs_SessionStateHandlerRef_t taf_dcs_AddSessionStateHandler
     uint8_t slotId;
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, NULL, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, NULL,
+                                                                        "Profile not created yet.");
 
     le_event_Id_t sessionStateEvent = dataConnection.GetSessionStateEvent(slotId, profileId);
     le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler(
@@ -727,6 +937,8 @@ le_result_t taf_dcs_GetInterfaceName(taf_dcs_ProfileRef_t profileRef, char* name
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                    "Profile not created yet.");
 
     return dataConnection.GetInterfaceName(slotId, profileId, namePtr, nameSize);
 }
@@ -755,6 +967,8 @@ le_result_t taf_dcs_GetIPv4Address(taf_dcs_ProfileRef_t profileRef, char *addrPt
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                        "Profile not created yet.");
 
     return dataConnection.GetIpv4Address(slotId, profileId, addrPtr, addrSize);
 }
@@ -762,7 +976,7 @@ le_result_t taf_dcs_GetIPv4Address(taf_dcs_ProfileRef_t profileRef, char *addrPt
 /**
  * Get the IPv6 interface mask corresponding to specified profile reference.
  *
- * If this profile is not brought up so far, the call context will be created corresponding to 
+ * If this profile is not brought up so far, the call context will be created corresponding to
  * specified profile index.
  *
  * @param [in] profileRef               The profile reference to be checked.
@@ -783,6 +997,8 @@ le_result_t taf_dcs_GetIPv4SubnetMask(taf_dcs_ProfileRef_t profileRef, uint32_t*
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                        "Profile not created yet.");
 
     return dataConnection.GetIpv4SubnetMask(slotId, profileId, mask);
 }
@@ -816,6 +1032,8 @@ le_result_t taf_dcs_GetIPv4GatewayAddress
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                        "Profile not created yet.");
 
     return dataConnection.GetIpv4Gateway(slotId, profileId, addrPtr, addrSize);
 }
@@ -853,6 +1071,8 @@ le_result_t taf_dcs_GetIPv4DNSAddresses
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                    "Profile not created yet.");
 
     return dataConnection.GetIpv4Dns(slotId, profileId, dns1AddrPtr, dns1AddrSize, dns2AddrPtr,
                                      dns2AddrSize);
@@ -882,6 +1102,8 @@ le_result_t taf_dcs_GetIPv6Address(taf_dcs_ProfileRef_t profileRef, char *addrPt
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                        "Profile not created yet.");
 
     return dataConnection.GetIpv6Address(slotId, profileId, addrPtr, addrSize);
 }
@@ -889,7 +1111,7 @@ le_result_t taf_dcs_GetIPv6Address(taf_dcs_ProfileRef_t profileRef, char *addrPt
 /**
  * Get the IPv6 interface mask corresponding to specified profile reference.
  *
- * If this profile is not brought up so far, the call context will be created corresponding 
+ * If this profile is not brought up so far, the call context will be created corresponding
  * to specified profile index.
  *
  * @param [in] profileRef               The profile reference to be checked.
@@ -910,6 +1132,8 @@ le_result_t taf_dcs_GetIPv6SubnetMask(taf_dcs_ProfileRef_t profileRef, uint32_t*
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                        "Profile not created yet.");
 
     return dataConnection.GetIpv6SubnetMask(slotId, profileId, mask);
 }
@@ -944,6 +1168,8 @@ le_result_t taf_dcs_GetIPv6GatewayAddress
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                        "Profile not created yet.");
 
     return dataConnection.GetIpv6Gateway(slotId, profileId, addrPtr, addrSize);
 }
@@ -981,6 +1207,8 @@ le_result_t taf_dcs_GetIPv6DNSAddresses
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                        "Profile not created yet.");
 
     return dataConnection.GetIpv6Dns(slotId, profileId, dns1AddrPtr, dns1AddrSize, dns2AddrPtr,
                                      dns2AddrSize);
@@ -1013,6 +1241,8 @@ le_result_t taf_dcs_GetSessionState
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                        "Profile not created yet.");
 
     return dataConnection.GetConnectionState(slotId, profileId, statePtr);
 }
@@ -1046,6 +1276,8 @@ le_result_t taf_dcs_GetDataBearerTechnology
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                    "Profile not created yet.");
 
     return dataConnection.GetDataBearerTechnology(slotId, profileId, downDataBearerTechPtr,
                                                   upDataBearerTechPtr);
@@ -1070,7 +1302,9 @@ bool taf_dcs_IsIPv4(taf_dcs_ProfileRef_t profileRef)
     uint8_t slotId;
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(result != false, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, false,
+                                                                        "Profile not created yet.");
 
     return dataConnection.IsIpv4(slotId, profileId);
 }
@@ -1095,6 +1329,8 @@ bool taf_dcs_IsIPv6(taf_dcs_ProfileRef_t profileRef)
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, false, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, false,
+                                                                        "Profile not created yet.");
 
     return dataConnection.IsIpv6(slotId, profileId);
 }
@@ -1340,6 +1576,8 @@ le_result_t taf_mdc_StartSession(taf_dcs_ProfileRef_t profileRef)
 
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                        "Profile not created yet.");
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // Start a data call with a fixed value 0 for sessionRef, and when the client loses the
@@ -1371,6 +1609,8 @@ le_result_t taf_mdc_StartSessionAsync(taf_dcs_ProfileRef_t profileRef)
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                    "Profile not created yet.");
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // Start a data call with a fixed value 0 for sessionRef, and when the client loses the
@@ -1403,6 +1643,8 @@ le_result_t taf_mdc_StopSession(taf_dcs_ProfileRef_t profileRef)
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                        "Profile not created yet.");
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // When the application calls taf_mdc_StartSession() to start a data call, this function
@@ -1434,6 +1676,8 @@ le_result_t taf_mdc_StopSessionAsync(taf_dcs_ProfileRef_t profileRef)
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                        "Profile not created yet.");
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // When the application calls taf_mdc_StartSessionAsync() to start a data call, this function
@@ -1463,4 +1707,3 @@ COMPONENT_INIT
 
     LE_INFO("the initialization of TelAf data call service is finished\n");
 }
-

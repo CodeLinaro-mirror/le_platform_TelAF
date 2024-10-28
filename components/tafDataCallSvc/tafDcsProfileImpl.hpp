@@ -28,7 +28,7 @@
  */
 
 /*  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -38,6 +38,7 @@
 #include <memory>
 #include <vector>
 #include <iostream>
+#include <tuple>
 #include "telux/data/DataFactory.hpp"
 #include "telux/data/DataConnectionManager.hpp"
 #include "telux/data/DataProfile.hpp"
@@ -91,6 +92,12 @@ namespace tafsvc {
             SlotId slotId;
     };
 
+    class taf_CreateProfileCallback : public telux::data::IDataCreateProfileCallback
+    {
+    public:
+        void onResponse(int profileId, telux::common::ErrorCode error) override;
+    };
+
     class taf_ProfileModifyCallback : public telux::common::ICommandResponseCallback {
        void commandResponse(telux::common::ErrorCode error) override;
     };
@@ -113,9 +120,18 @@ namespace tafsvc {
 
             le_result_t MapProfileCtxToParams(taf_dcs_ProfileCtx_t *ctxPtr,
                                               telux::data::ProfileParams &params);
+            le_result_t CreateProfile(taf_dcs_ProfileRef_t profileRef);
+            le_result_t DeleteProfile(taf_dcs_ProfileRef_t profileRef);
             le_result_t SetApn(taf_dcs_ProfileRef_t profileRef, const char *apnPtr);
             le_result_t GetApn(taf_dcs_ProfileRef_t profileRef, char *apnPtr, size_t apnSize);
+            le_result_t SetProfileName(taf_dcs_ProfileRef_t profileRef, const char *namePtr);
+            le_result_t GetProfileName(taf_dcs_ProfileRef_t profileRef, char *namePtr,
+                                                                                   size_t nameSize);
             le_result_t GetApnTypes(taf_dcs_ProfileRef_t profileRef, taf_dcs_ApnType_t *apnTypePtr);
+            le_result_t SetApnTypes(taf_dcs_ProfileRef_t profileRef, taf_dcs_ApnType_t apnType);
+            le_result_t SetTechPreference(taf_dcs_ProfileRef_t profileRef, taf_dcs_Tech_t techPref);
+            le_result_t GetTechPreference(taf_dcs_ProfileRef_t profileRef,
+                                                                       taf_dcs_Tech_t *techPrefPtr);
             le_result_t SetPdp(taf_dcs_ProfileRef_t profileRef, taf_dcs_Pdp_t pdp);
             le_result_t SetAuth(taf_dcs_ProfileRef_t profileRef, taf_dcs_Auth_t type,
                                 const char *userName, const char *password);
@@ -124,7 +140,7 @@ namespace tafsvc {
                                           char *userNamePtr, size_t userNameSize, char *passwordPtr,
                                           size_t passwordSize);
             void CleanupAllProfiles(Profile_List_Event_t *listEvent);
-            void CreateIndividualProfile(taf_dcs_ProfileCtx_t *info);
+            le_result_t CreateIndividualProfile(taf_dcs_ProfileCtx_t *info);
             taf_dcs_ProfileCtx_t *GetProfileCtx(uint8_t slotId, uint32_t index);
             void UpdateIndividualProfile(taf_dcs_ProfileCtx_t *distPtr,
                                          taf_dcs_ProfileCtx_t *srcPtr);
@@ -138,6 +154,7 @@ namespace tafsvc {
                                                                           dataProfileManagers;
             std::map<SlotId, std::shared_ptr<taf_ProfileListCallback>> ListProfileCb;
             std::shared_ptr<taf_ProfileModifyCallback>  ModifyProfileCb;
+            std::shared_ptr<taf_CreateProfileCallback>  CreateProfileCb;
             void show(uint8_t slotId);
 
             taf_DataProfile() {};
@@ -163,6 +180,8 @@ namespace tafsvc {
             taf_dcs_Tech_t MapTechPreference(telux::data::TechPreference techPref);
             telux::data::TechPreference MapTechPreference(taf_dcs_Tech_t techPref);
             std::promise<le_result_t> CmdSynchronousPromise;
+            std::promise<std::tuple<telux::common::ErrorCode, int>> CreateProfileSyncPromise;
+
         private:
             le_mem_PoolRef_t ListEventPool = NULL;
             le_mem_PoolRef_t ProfilePool = NULL;
@@ -186,4 +205,3 @@ namespace tafsvc {
 
 }
 }
-

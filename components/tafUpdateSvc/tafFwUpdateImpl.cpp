@@ -2701,7 +2701,7 @@ bool taf_FwUpdate::CompareBinaryFiles(const std::string& filename1, const std::s
     // Check if both files were successfully opened
     if (!file1.is_open() || !file2.is_open())
     {
-        LE_FATAL("Error opening files!");
+        LE_ERROR("Error opening files!");
         return false;
     }
 
@@ -2974,7 +2974,7 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
                     &(partitionList.partition[partitionMap[ubiName_a]]);
                 taf_lib_flash_Partition_t *partition_b = partition;
 
-                bool isEqual = CompareBinaryFiles(partition_a->mtdDevPath, partition_b->mtdDevPath);
+                bool isEqual = CompareBinaryFiles(partition_a->ubiDevPath, partition_b->ubiDevPath);
                 if(isEqual)
                 {
                     LE_INFO("UBI %s is already synced, skipping it", ubiName.c_str());

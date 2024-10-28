@@ -27,6 +27,11 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "legato.h"
 #include "interfaces.h"
 #include <iostream>
@@ -71,6 +76,54 @@ void taf_sim_RemoveNewStateHandler(taf_sim_NewStateHandlerRef_t handlerRef)
 {
     auto &sim = taf_sim::GetInstance();
     sim.RemoveStateHandler(handlerRef);
+}
+
+taf_sim_RefreshChangeHandlerRef_t taf_sim_AddRefreshChangeHandler(taf_sim_RefreshChangeHandlerFunc_t handlerPtr, void* contextPtr) {
+    le_event_HandlerRef_t handlerRef;
+    auto &sim = taf_sim::GetInstance();
+    handlerRef = (le_event_HandlerRef_t)sim.AddRefreshChangeHandler(handlerPtr, contextPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_sim_RefreshChangeHandlerRef_t)(handlerRef);
+}
+
+le_result_t taf_sim_CreateSession(taf_sim_SessionType_t sessionType, taf_sim_RefreshRef_t* refreshSessionRef) {
+    LE_INFO("tafSimCard taf_sim_CreateSession sessionType: %d", (int) sessionType);
+    auto &sim = taf_sim::GetInstance();
+    return sim.CreateSession(sessionType, refreshSessionRef);
+}
+
+le_result_t taf_sim_SetRefreshRegisterFiles
+(
+    taf_sim_RefreshRef_t refreshSessionRef,
+    const taf_sim_RefreshRegFile_t* filesPtr,
+    size_t filesSize
+)
+{
+
+    LE_INFO("tafSimCard SetRefreshRegisterFiles refreshSessionRef: %p", refreshSessionRef);
+    auto &sim = taf_sim::GetInstance();
+    return sim.SetRefreshRegisterFiles(refreshSessionRef, filesPtr, filesSize);
+}
+
+le_result_t taf_sim_SetRefreshMode(taf_sim_RefreshRef_t refreshSessionRef, taf_sim_RefreshMode_t refreshMode) {
+
+    LE_INFO("tafSimCard SetRefreshMode refreshMode: %d", (int) refreshMode);
+    auto &sim = taf_sim::GetInstance();
+    return sim.SetRefreshMode(refreshSessionRef, refreshMode);
+}
+
+le_result_t taf_sim_SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, bool isRefreshAllowed) {
+    LE_INFO("tafSimCard SetRefreshAllow refreshAllow: %d", (int) isRefreshAllowed);
+    auto &sim = taf_sim::GetInstance();
+    return sim.SetRefreshAllow(refreshSessionRef, isRefreshAllowed);
+}
+
+void taf_sim_RemoveRefreshChangeHandler(taf_sim_RefreshChangeHandlerRef_t handlerRef)
+{
+    auto &sim = taf_sim::GetInstance();
+    sim.RemoveRefreshChangeHandler(handlerRef);
 }
 
 taf_sim_States_t taf_sim_GetState (taf_sim_Id_t slotId) {

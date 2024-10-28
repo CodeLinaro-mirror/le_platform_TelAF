@@ -27,11 +27,17 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "legato.h"
 #include "interfaces.h"
 #include <telux/tel/PhoneFactory.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
+#include "taf_pa_sim.hpp"
 
 #define DEFAULT_TIMEOUT_IN_SECONDS 5
 
@@ -54,6 +60,23 @@ namespace telux {
             taf_sim_FPLMNListRef_t ref;
             le_dls_List_t          link;
         }taf_sim_FPLMNList_t;
+
+        typedef struct taf_sim_Session
+        {
+            taf_sim_RefreshRef_t ref;
+            le_dls_List_t link;
+            taf_sim_SessionType_t sessionType;
+            le_msg_SessionRef_t clientSessionRef;
+            taf_sim_RefreshMode_t refreshMode;
+            taf_pa_sim_RefreshChangeHandlerRef_t paHandlerRef;
+            le_event_Id_t RefreshChangeEventId;
+            bool refreshAllow;
+            char activeProfileIccid[TAF_SIMRSP_ICCID_BYTES];
+            bool refreshResetStart;
+            size_t refreshRegFilesSize;
+            taf_sim_RefreshRegFile_t refreshRegFiles[TAF_SIM_MAX_SIM_REFRESH_FILES];
+            le_sem_Ref_t semaphore;
+        }taf_sim_Session_t;
 
         typedef struct
         {
@@ -87,6 +110,12 @@ namespace telux {
             le_result_t            result;
         }
         sim_response_event_t;
+
+        typedef struct
+        {
+            taf_sim_RefreshStatus_t     refreshStatus;
+        }
+        sim_refresh_event_t;
 
         enum class CardEvent {
             OPEN_LOGICAL_CHANNEL = 1,  /**<  Open Logical channel */
@@ -153,8 +182,12 @@ namespace telux {
                 le_mem_PoolRef_t FPLMNNodePool = NULL;
                 le_mem_PoolRef_t FPLMNListPool = NULL;
                 le_ref_MapRef_t FPLMNListRefMap;
+                le_mem_PoolRef_t SessionPool = NULL;
+                le_ref_MapRef_t SessionRefMap;
                 le_result_t AddFPLMNOperatorInternal(taf_sim_FPLMNListRef_t FPLMNListRef, char* mccPtr, char* mncPtr);
                 taf_sim_FPLMNListRef_t CreateInternalFPLMNList();
+                taf_sim_RefreshStatus_t ConvertPaRefreshStageToTafRefreshStatus(taf_pa_sim_RefreshStage_t refreshStage);
+                taf_pa_sim_SessionType_t ConvertTafSessionTypeToPaSessionType(taf_sim_SessionType_t sessionType);
 
             public:
                 void Init(void);
@@ -183,6 +216,7 @@ namespace telux {
                 uint8_t openChannel = 0;
                 IccResult apduResponse;
                 bool isEcs=false;
+                int32_t mClientRefCount;
 
                 le_event_Id_t NewStateEventId;
                 le_event_Id_t ResponseEventId;
@@ -201,6 +235,7 @@ namespace telux {
                 bool isValidSimId(taf_sim_Id_t simId);
                 le_result_t selectSimSlot(taf_sim_Id_t simId);
                 taf_sim_info_t* GetSimContext(taf_sim_Id_t simId);
+                static taf_sim_Session_t* DiscoverSessionRef(taf_sim_RefreshRef_t sessionRef);
                 void InitializeSimInfo(std::shared_ptr<telux::tel::ISubscription> subscription, taf_sim_Id_t simId);
                 std::shared_ptr<telux::tel::ISubscription> getSubscription(taf_sim_Id_t simId);
                 le_result_t getICCID(taf_sim_Id_t simId, char *iccid, int length);
@@ -267,6 +302,14 @@ namespace telux {
                 void DeleteFPLMNList(taf_sim_FPLMNListRef_t FPLMNListRef);
                 le_result_t WriteFPLMNList(taf_sim_Id_t simId, taf_sim_FPLMNListRef_t FPLMNListRef);
                 le_result_t getSlotCount(int *count);
+                static void FirstLayerNewRefreshChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);
+                taf_sim_RefreshChangeHandlerRef_t AddRefreshChangeHandler(taf_sim_RefreshChangeHandlerFunc_t handlerPtr, void* contextPtr);
+                void RemoveRefreshChangeHandler(taf_sim_RefreshChangeHandlerRef_t handlerRef);
+                void NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* contextPtr);
+                le_result_t CreateSession(taf_sim_SessionType_t sessionType, taf_sim_RefreshRef_t* refreshSessionRef);
+                le_result_t SetRefreshRegisterFiles(taf_sim_RefreshRef_t refreshSessionRef, const taf_sim_RefreshRegFile_t* filesPtr, size_t filesSize);
+                le_result_t SetRefreshMode(taf_sim_RefreshRef_t refreshSessionRef, taf_sim_RefreshMode_t refreshMode);
+                le_result_t SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, bool isRefreshAllowed);
         };
     }
 }

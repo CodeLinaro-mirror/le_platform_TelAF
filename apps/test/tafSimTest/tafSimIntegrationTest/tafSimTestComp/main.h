@@ -29,7 +29,7 @@
 
 /*
  *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-24 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -67,3 +67,4 @@ void tafSimTest_writeFplmnLists_test(taf_sim_Id_t simId);
 void tafSimTest_getFirstFplmnOperator_test(taf_sim_Id_t simId);
 void tafSimTest_getNextFplmnOperator_test(taf_sim_Id_t simId);
 void tafSimTest_deleteFplmnList_test(taf_sim_Id_t simId);
+le_result_t tafSimTest_refresh_test(taf_sim_Id_t simId, taf_sim_SessionType_t sessionType, taf_sim_RefreshMode_t refreshMode, bool refreshAllow);

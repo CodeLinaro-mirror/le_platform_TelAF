@@ -278,16 +278,14 @@ le_result_t taf_mngdConn_StartDataRetry(
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_mngdConn_CancelRecoveryOperation
+le_result_t taf_mngdConn_CancelRecovery
 (
-        taf_mngdConn_DataRef_t dataRef,
+        taf_mngdConn_DataRef_t dataRef
         ///< [IN] The data reference.
-        taf_mngdConn_RecoveryOperation_t operation
-        ///< [IN] The recovery operation to cancel.
 )
 {
     auto &admin = tafMngdConnAdmin::GetInstance();
-    return admin.CancelRecovery(dataRef, operation);
+    return admin.CancelRecovery(dataRef);
 }
 
 //--------------------------------------------------------------------------------------------------

@@ -116,7 +116,6 @@ class tafMngdStorageSvc: public ITafSvc
         // JSON file update path
         char updatePath[LIMIT_MAX_PATH_BYTES];
 
-        char nodePath[LIMIT_MAX_PATH_BYTES] ;
         // check for json format type
         bool isQcmFormat;
 
@@ -129,6 +128,9 @@ class tafMngdStorageSvc: public ITafSvc
          * Resources for holding version info for master config file.
          */
         tafMngdStorage_ConfigVersionInfo_t* versionInfo;
+
+        // Max limit of clients
+        int32_t mClientRefCount;
 
         /**
          * Functions for Config storage
@@ -202,6 +204,19 @@ class tafMngdStorageSvc: public ITafSvc
             const char *LE_NONNULL groupName,
             const char *LE_NONNULL nodeName,
             int32_t *nodeValuePtr);
+
+        le_result_t GetValue(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+            const char *LE_NONNULL groupName,
+            const char *LE_NONNULL nodeName,
+            taf_mngdStorCfg_NodeType_t *typePtr,
+            char *nodeValue,
+            size_t nodeValueSize
+        );
+
+        le_result_t GetNodePath(const char *LE_NONNULL groupName,
+            const char *LE_NONNULL nodeName,
+            char *nodePathVal
+        );
 
         le_result_t LockStorage();
 

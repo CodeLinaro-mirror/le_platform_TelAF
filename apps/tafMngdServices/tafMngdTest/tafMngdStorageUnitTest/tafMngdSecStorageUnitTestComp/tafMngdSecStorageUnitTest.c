@@ -699,6 +699,5 @@ COMPONENT_INIT
         LE_ERROR("Invalid operation");
         PrintUsage();
     }
-
     LE_TEST_EXIT;
 }

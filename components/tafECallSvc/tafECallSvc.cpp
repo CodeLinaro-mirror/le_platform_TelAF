@@ -1910,6 +1910,34 @@ le_result_t taf_ecall_GetHlapTimerState
 
 /*======================================================================
 
+ FUNCTION        taf_ecall_IsInProgress
+
+ DESCRIPTION     Queries the eCall in progress or not.
+
+ DEPENDENCIES    Initialization of ECall service
+
+ PARAMETERS      [IN] ecallRef: ecall reference
+
+ RETURN VALUE    le_result_t
+                     LE_FAULT:             Fail.
+                     LE_OK:                Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_ecall_IsInProgress
+(
+    taf_ecall_CallRef_t ecallRef,
+    bool* isInProgress
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.IsInProgress(ecallRef, isInProgress);
+}
+
+/*======================================================================
+
  FUNCTION        taf_ecall_SetInitialDialAttempts
 
  DESCRIPTION     Sets the number of dial attempts in case of call initiation failed for Europen regulatory eCall.

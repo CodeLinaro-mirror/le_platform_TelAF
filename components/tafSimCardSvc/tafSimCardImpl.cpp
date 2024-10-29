@@ -28,7 +28,7 @@
  */
 
 /*  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-24 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -296,6 +296,10 @@ void taf_sim::Init(void)
     FPLMNListPool = le_mem_CreatePool("FPLMNListPool", sizeof(taf_sim_FPLMNList_t));
     le_mem_ExpandPool(FPLMNListPool, TAF_SIM_FPLMN_MAX_LISTS);
     FPLMNListRefMap = le_ref_CreateMap("FPLMNListRefMap", TAF_SIM_FPLMN_MAX_LISTS);
+
+    SessionPool = le_mem_CreatePool("SessionPool", sizeof(taf_sim_Session_t));
+    le_mem_ExpandPool(SessionPool, 12);
+    SessionRefMap = le_ref_CreateMap("SessionRefMapRefMap", 10);
     fplmnListIndex = 0;
     // Get the PhoneFactory and SubscriptionManager instances.
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
@@ -629,6 +633,366 @@ bool taf_sim::isValidSimId(taf_sim_Id_t simId) {
         return true;
     }
     return false;
+}
+
+void onRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* contextPtr) {
+   auto &sim = taf_sim::GetInstance();
+
+   LE_INFO("onRefreshEvent: contextPtr: %p", contextPtr);
+
+   sim.NotifyRefreshEvent(ind, contextPtr);
+}
+
+taf_pa_sim_SessionType_t taf_sim::ConvertTafSessionTypeToPaSessionType(taf_sim_SessionType_t sessionType) {
+    switch (sessionType)
+    {
+        case TAF_SIM_SESSION_TYPE_PRI_GW_PROV:
+            return TAF_PA_SIM_SESSION_TYPE_PRI_GW_PROV;
+        case TAF_SIM_SESSION_TYPE_SEC_GW_PROV:
+            return TAF_PA_SIM_SESSION_TYPE_SEC_GW_PROV;
+        default:
+            LE_WARN("Unknown refresh session type %d.", sessionType);
+    }
+
+    return TAF_PA_SIM_SESSION_TYPE_PRI_GW_PROV;
+}
+
+taf_sim_RefreshStatus_t taf_sim::ConvertPaRefreshStageToTafRefreshStatus
+(
+    taf_pa_sim_RefreshStage_t refreshStage
+)
+{
+    switch (refreshStage)
+    {
+        case TAF_PA_SIM_REFRESH_STAGE_END_WITH_SUCCESS:
+            return TAF_SIM_REFRESH_STATUS_SUCCESS;
+        case TAF_PA_SIM_REFRESH_STAGE_END_WITH_FAILURE:
+            return TAF_SIM_REFRESH_STATUS_FAILURE;
+        default:
+            LE_WARN("Unknown refresh stage %d.", refreshStage);
+    }
+
+    return TAF_SIM_REFRESH_STATUS_FAILURE;
+}
+
+void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* contextPtr) {
+    LE_INFO("RefreshEvent: sessionType = %d, refreshMode = %d, refreshStage = %d", ind->sessionType, ind->refreshMode, ind->refreshStage);
+
+    le_result_t res = LE_FAULT;
+    char iccid[TAF_SIMRSP_ICCID_BYTES];
+
+    taf_sim_Session_t* clientRequestPtr = NULL;
+    sim_refresh_event_t simRefreshEvent;
+    simRefreshEvent.refreshStatus = 0;
+    clientRequestPtr = DiscoverSessionRef((taf_sim_RefreshRef_t) contextPtr);
+
+    LE_INFO("NotifyRefreshEvent contextPtr: %p, clientRequestPtr: %p", contextPtr, clientRequestPtr);
+
+    if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_WAIT_FOR_OK) {
+        if (clientRequestPtr != NULL && ((1 << ind->refreshMode) & clientRequestPtr->refreshMode) != 0) {
+            LE_INFO("Request Refresh_ok with refreshAllow: %d", (int) clientRequestPtr->refreshAllow);
+            res = taf_pa_sim_RefreshOk(ind->sessionType, clientRequestPtr->refreshAllow);
+        } else {
+            res = taf_pa_sim_RefreshOk(ind->sessionType, true);
+        }
+        LE_INFO("Refresh_ok: result: %s", LE_RESULT_TXT(res));
+
+        return;
+    } else if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_START && ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_FCN) {
+        res = taf_pa_sim_RefreshComplete(ind->sessionType);
+
+        LE_INFO("RefreshComplete: result: %s", LE_RESULT_TXT(res));
+
+        return;
+    } else if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_START && ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_RESET) {
+        LE_INFO("RefreshStart for reset mode");
+        clientRequestPtr->refreshResetStart = true;
+        le_clk_Time_t timeToWait = {120, 0};
+        res = le_sem_WaitWithTimeOut(clientRequestPtr->semaphore, timeToWait);
+        LE_INFO("Timer elapsed res: %s", LE_RESULT_TXT(res));
+        if (res == LE_OK || res == LE_TIMEOUT)
+        {
+            LE_INFO("ICCID change and profile swap");
+            taf_simRsp_ProfileListNodeRef_t    profileListPtr[TAF_SIMRSP_MAX_PROFILE];
+            size_t count = 0;
+            le_result_t result = LE_FAULT;
+
+            memset(iccid, 0, TAF_SIMRSP_ICCID_BYTES);
+            result = taf_simRsp_GetProfileList((taf_sim_Id_t)slot, profileListPtr, &count);
+
+            for (int i = 0; i < (int) count; i++) {
+                if (profileListPtr[i] != NULL) {
+                    if (taf_simRsp_GetProfileActiveStatus(profileListPtr[i])) {
+                        result = taf_simRsp_GetIccid(profileListPtr[i], iccid, TAF_SIMRSP_ICCID_BYTES);
+                    }
+                }
+            }
+
+            LE_INFO("Notify: current iccid: %s, previous iccid: %s and result: %s", iccid, clientRequestPtr->activeProfileIccid, LE_RESULT_TXT(result));
+
+            if (strncmp(iccid, clientRequestPtr->activeProfileIccid, TAF_SIMRSP_ICCID_BYTES) != 0)
+            {
+                simRefreshEvent.refreshStatus = TAF_SIM_REFRESH_STATUS_PROFILE_SWITCH;
+                le_utf8_Copy(clientRequestPtr->activeProfileIccid, iccid, TAF_SIMRSP_ICCID_BYTES, NULL);
+            }
+        }
+    }
+
+    bool notifyClient = (ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_END_WITH_SUCCESS)
+            || (ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_END_WITH_FAILURE)
+            || clientRequestPtr->refreshResetStart;
+
+    if (notifyClient) {
+
+        bool isFileChanged = (ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_FCN)
+                || (ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_INIT_FULL_FCN)
+                || (ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_INIT_FCN);
+
+        LE_INFO("refreshResetStart: %d and isFileChanged: %d", (int) clientRequestPtr->refreshResetStart, (int) isFileChanged);
+
+        if (ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_END_WITH_FAILURE) {
+            simRefreshEvent.refreshStatus = ConvertPaRefreshStageToTafRefreshStatus(ind->refreshStage);
+        } else {
+            //Add the refresh success.
+            simRefreshEvent.refreshStatus |= TAF_SIM_REFRESH_STATUS_SUCCESS;
+            if (isFileChanged) {
+                simRefreshEvent.refreshStatus |= TAF_SIM_REFRESH_STATUS_FILE_CHANGE;
+            }
+        }
+
+        if (clientRequestPtr != NULL) {
+            le_event_Report(clientRequestPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
+            clientRequestPtr->refreshResetStart = false;
+        }
+    }
+}
+
+void taf_sim::FirstLayerNewRefreshChangeHandler(void* reportPtr, void* secondLayerHandlerFunc) {
+    sim_refresh_event_t* simRefreshPtr = (sim_refresh_event_t*)reportPtr;
+
+    TAF_ERROR_IF_RET_NIL(simRefreshPtr == NULL, "simRefreshPtr is NULL");
+
+    taf_sim_RefreshChangeHandlerFunc_t clientHandlerFunc =
+        (taf_sim_RefreshChangeHandlerFunc_t)secondLayerHandlerFunc;
+
+    clientHandlerFunc(simRefreshPtr->refreshStatus, le_event_GetContextPtr());
+}
+
+taf_sim_RefreshChangeHandlerRef_t taf_sim::AddRefreshChangeHandler(taf_sim_RefreshChangeHandlerFunc_t handlerPtr, void* contextPtr) {
+    le_event_HandlerRef_t handlerRef;
+    LE_INFO("Add Refresh Change handler");
+    if (NULL == handlerPtr)
+    {
+        LE_KILL_CLIENT("Handler pointer is NULL");
+        return NULL;
+    }
+
+    taf_sim_Session_t* clientRequestPtr = NULL;
+    taf_sim_RefreshRef_t sessionRef = (taf_sim_RefreshRef_t) taf_sim_GetClientSessionRef();
+
+    clientRequestPtr = DiscoverSessionRef(sessionRef);
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
+
+    handlerRef = le_event_AddLayeredHandler("RefreshChangeHandler", clientRequestPtr->RefreshChangeEventId,
+            FirstLayerNewRefreshChangeHandler, (void*)handlerPtr);
+
+    clientRequestPtr->paHandlerRef = taf_pa_sim_AddRefreshChangeHandler((taf_pa_sim_RefreshChangeHandlerFunc_t)&onRefreshEvent, sessionRef);
+
+    LE_INFO("taf_pa_sim_AddRefreshChangeHandler done. paHandlerRef: %p, handlerRef: %p", clientRequestPtr->paHandlerRef, handlerRef);
+
+    return (taf_sim_RefreshChangeHandlerRef_t)(handlerRef);
+}
+
+void taf_sim::RemoveRefreshChangeHandler(taf_sim_RefreshChangeHandlerRef_t handlerRef) {
+    taf_sim_Session_t* clientRequestPtr = NULL;
+    taf_sim_RefreshRef_t sessionRef = (taf_sim_RefreshRef_t) taf_sim_GetClientSessionRef();
+
+    clientRequestPtr = DiscoverSessionRef(sessionRef);
+
+    TAF_ERROR_IF_RET_NIL( NULL == clientRequestPtr, "clientRequestPtr is NULL");
+    taf_pa_sim_RemoveRefreshChangeHandler(clientRequestPtr->paHandlerRef);
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+    le_ref_DeleteRef(SessionRefMap, clientRequestPtr->ref);
+    mClientRefCount--;
+}
+
+taf_sim_Session_t* taf_sim::DiscoverSessionRef
+(
+    taf_sim_RefreshRef_t sessionRef
+)
+{
+    auto &sim = taf_sim::GetInstance();
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(sim.SessionRefMap);
+    le_result_t result = le_ref_NextNode(iterRef);
+
+    while (LE_OK == result)
+    {
+        taf_sim_Session_t* sessionPtr = (taf_sim_Session_t*) le_ref_GetValue(iterRef);
+        if(sessionPtr == NULL) {
+            LE_INFO("DiscoverSessionRef sessionPtr null!");
+            return NULL;
+        }
+
+        LE_DEBUG("SessionRef %p, clientSessionRef %p", sessionRef, sessionPtr->clientSessionRef);
+
+        if (sessionRef == sessionPtr->ref || sessionRef == (taf_sim_RefreshRef_t) sessionPtr->clientSessionRef)
+        {
+             return sessionPtr;
+        }
+        result = le_ref_NextNode(iterRef);
+    }
+    LE_INFO("DiscoverSessionRef sessionPtr is null!");
+    return NULL;
+}
+
+le_result_t taf_sim::CreateSession(taf_sim_SessionType_t sessionType, taf_sim_RefreshRef_t* refreshSessionRef) {
+    taf_sim_Session_t* clientRequestPtr = NULL;
+    taf_sim_RefreshRef_t sessionRef = (taf_sim_RefreshRef_t) taf_sim_GetClientSessionRef();
+
+    LE_INFO("CreateSession client session ref %p", sessionRef);
+
+    clientRequestPtr = DiscoverSessionRef(sessionRef);
+
+    LE_INFO("After DiscoverSessionRef client session ref %p", clientRequestPtr);
+
+    if (clientRequestPtr != nullptr) {
+        LE_INFO("CreateSession: Already created the refresh Session, so use the existing one.");
+
+        *refreshSessionRef = (taf_sim_RefreshRef_t) clientRequestPtr->ref;
+        clientRequestPtr->sessionType = sessionType;
+
+        return LE_OK;
+    }
+
+    taf_sim_Session_t* res  = (taf_sim_Session_t* )le_mem_ForceAlloc(SessionPool);
+    if(res == NULL) {
+        LE_INFO("Create SessionPool failed!");
+        return LE_FAULT;
+    }
+    LE_INFO("Create new Session");
+    res->link = LE_DLS_LIST_INIT;
+    res->ref = (taf_sim_RefreshRef_t)le_ref_CreateRef(SessionRefMap, res);
+
+    res->clientSessionRef = (le_msg_SessionRef_t) sessionRef;
+
+    *refreshSessionRef = (taf_sim_RefreshRef_t)(res->ref);
+    res->sessionType = sessionType;
+    res->refreshAllow = true;
+    res->refreshMode = (taf_sim_RefreshMode_t) 0xffff;
+    res->refreshResetStart = false;
+    res->refreshRegFilesSize = 0;
+    res->RefreshChangeEventId = le_event_CreateId("ClientRefreshEventId", sizeof(sim_refresh_event_t));
+    res->semaphore = le_sem_Create("IccidCheckSem", 0);
+
+    LE_INFO("res->sessionRef %p, *reference %p", res->ref, *refreshSessionRef);
+
+    taf_simRsp_ProfileListNodeRef_t    profileListPtr[TAF_SIMRSP_MAX_PROFILE];
+    size_t count = 0;
+    le_result_t result = LE_FAULT;
+    memset(res->activeProfileIccid, 0, TAF_SIMRSP_ICCID_BYTES);
+
+    result = taf_simRsp_GetProfileList((taf_sim_Id_t)slot, profileListPtr, &count);
+
+    for (int i = 0; i < (int) count; i++) {
+        if (profileListPtr[i] != NULL) {
+            if (taf_simRsp_GetProfileActiveStatus(profileListPtr[i])) {
+                result = taf_simRsp_GetIccid(profileListPtr[i], res->activeProfileIccid, TAF_SIMRSP_ICCID_BYTES);
+            }
+        }
+    }
+
+    LE_INFO("Refresh create session done: iccid: %s, result: %s", res->activeProfileIccid, LE_RESULT_TXT(result));
+
+    if (sessionRef!=nullptr) {
+        //External client increase Client ref count
+        mClientRefCount++;
+    }
+
+    LE_INFO("SessionRef %p was not found, Created new Client session, total count %d", sessionRef, mClientRefCount);
+
+    return LE_OK;
+}
+
+le_result_t taf_sim::SetRefreshRegisterFiles(taf_sim_RefreshRef_t refreshSessionRef, const taf_sim_RefreshRegFile_t* filesPtr, size_t filesSize) {
+    taf_sim_Session_t* clientRequestPtr = NULL;
+
+    clientRequestPtr = DiscoverSessionRef(refreshSessionRef);
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    for (int i = 0; i < (int) filesSize; i++) {
+        clientRequestPtr->refreshRegFiles[i].file_id = filesPtr[i].file_id;
+        le_utf8_Copy((char*) clientRequestPtr->refreshRegFiles[i].path, (char*) filesPtr[i].path, sizeof(filesPtr[i].path), NULL);
+
+        LE_INFO("File_id: %d and path: %s", clientRequestPtr->refreshRegFiles[i].file_id, clientRequestPtr->refreshRegFiles[i].path);
+    }
+
+    clientRequestPtr->refreshRegFilesSize = filesSize;
+
+    return LE_OK;
+}
+
+le_result_t taf_sim::SetRefreshMode(taf_sim_RefreshRef_t refreshSessionRef, taf_sim_RefreshMode_t refreshMode) {
+    taf_sim_Session_t* clientRequestPtr = NULL;
+
+    clientRequestPtr = DiscoverSessionRef(refreshSessionRef);
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    clientRequestPtr->refreshMode = refreshMode;
+
+    return LE_OK;
+}
+
+le_result_t taf_sim::SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, bool isRefreshAllowed) {
+    taf_sim_Session_t* clientRequestPtr = NULL;
+
+    clientRequestPtr = DiscoverSessionRef(refreshSessionRef);
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    taf_pa_sim_RefreshFile_t refreshPAFiles[clientRequestPtr->refreshRegFilesSize];
+
+    for (int i = 0; i < (int) clientRequestPtr->refreshRegFilesSize; i++) {
+        refreshPAFiles[i].file_id = clientRequestPtr->refreshRegFiles[i].file_id;
+        if(clientRequestPtr->refreshRegFiles[i].path != NULL) {
+            refreshPAFiles[i].path_len = (strlen(clientRequestPtr->refreshRegFiles[i].path) - 1)/2;
+        } else {
+            refreshPAFiles[i].path_len = 0;
+        }
+
+        //If input clientRequestPtr->refreshRegFiles[i].path is 3F007FFF.
+        //Then refreshPAFiles.path[0] = 0(00), refreshPAFiles.path[1]=63(3F), refreshPAFiles.path[2] = 255(FF) and refreshPAFiles.path[3] = 127(7F)
+
+        uint32_t pathValue =  std::stoul(clientRequestPtr->refreshRegFiles[i].path, nullptr, 16);
+
+        LE_INFO("pathValue string: %s and in hex: %x", clientRequestPtr->refreshRegFiles[i].path, pathValue);
+
+        if (refreshPAFiles[i].path_len == 2) {
+            refreshPAFiles[i].path[0] = (pathValue & 0x000000ff);
+            refreshPAFiles[i].path[1] = (pathValue & 0x0000ff00) >> 8;
+        } else if (refreshPAFiles[i].path_len == 4) {
+            refreshPAFiles[i].path[0] = (pathValue & 0x00ff0000) >> 16;
+            refreshPAFiles[i].path[1] = (pathValue & 0xff000000) >> 24;
+            refreshPAFiles[i].path[2] = (pathValue & 0x000000ff);
+            refreshPAFiles[i].path[3] = (pathValue & 0x0000ff00) >> 8;
+        }
+        LE_INFO("PA file path0 ~ path3 in hex: %x %x %x %x", refreshPAFiles[i].path[0], refreshPAFiles[i].path[1], refreshPAFiles[i].path[2], refreshPAFiles[i].path[3]);
+
+        LE_INFO("PA file path0 ~ path3 in dec: %u %u %u %u", refreshPAFiles[i].path[0], refreshPAFiles[i].path[1], refreshPAFiles[i].path[2], refreshPAFiles[i].path[3]);
+
+        LE_INFO("PA File_id: %d and path_len: %d", refreshPAFiles[i].file_id, refreshPAFiles[i].path_len);
+    }
+
+    le_result_t res = taf_pa_sim_RefreshRegister(ConvertTafSessionTypeToPaSessionType(clientRequestPtr->sessionType),
+            clientRequestPtr->refreshRegFilesSize,
+            refreshPAFiles);
+
+    LE_INFO("Refresh register done: result: %s", LE_RESULT_TXT(res));
+
+    clientRequestPtr->refreshAllow = isRefreshAllowed;
+    return res;
 }
 
 le_result_t taf_sim::selectSimSlot(taf_sim_Id_t simId) {

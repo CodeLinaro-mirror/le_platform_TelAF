@@ -26,10 +26,17 @@
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "main.h"
 
 static taf_sim_NewStateHandlerRef_t NewSimStateHandlerRef = NULL;
 static taf_sim_IccidChangeHandlerRef_t IccidChangeHandlerRef = NULL;
+taf_sim_RefreshChangeHandlerRef_t RefreshChangeHandlerRef = NULL;
 
 static void DisplayAppUsage(void) {
     printf("Usage of the 'tafSimIntTest' application is:\n");
@@ -59,6 +66,7 @@ static void DisplayAppUsage(void) {
     printf("Get First FPLMN operator: app runProc tafSimIntTest --exe=tafSimIntTest -- firstFplmnOp <slot1/slot2/unknown>\n");
     printf("Get Next FPLMN operator: app runProc tafSimIntTest --exe=tafSimIntTest -- nextFplmnOp <slot1/slot2/unknown>\n");
     printf("Delete Next FPLMN List: app runProc tafSimIntTest --exe=tafSimIntTest -- deleteFplmnList <slot1/slot2/unknown>\n");
+    printf("SIM refresh: app runProc tafSimIntTest --exe=tafSimIntTest -- refresh <slot1/slot2/unknown> <Session type> <Refresh mode> <Refresh allow>\n");
 }
 
 static taf_sim_Id_t GetSimId(const char* simIdPtr) {
@@ -152,6 +160,29 @@ static void TestAuthenticationResponse
             exit(EXIT_FAILURE);
     }
     exit(EXIT_SUCCESS);
+}
+
+static void TestRefreshChangeHandler
+(
+    taf_sim_RefreshStatus_t status,
+    void* contextPtr
+)
+{
+    LE_INFO("TestRefreshChangeHandler: status %d\n", (int) status);
+
+    if ((status & TAF_SIM_REFRESH_STATUS_SUCCESS) != 0) {
+        printf("Refresh success.\n");
+    }
+    if ((status & TAF_SIM_REFRESH_STATUS_FAILURE) != 0) {
+        printf("Refresh failed!\n");
+    }
+    if ((status & TAF_SIM_REFRESH_STATUS_PROFILE_SWITCH) != 0) {
+        printf("Profile switch success.\n");
+    }
+    if ((status & TAF_SIM_REFRESH_STATUS_FILE_CHANGE) != 0) {
+        printf("File change success.\n");
+    }
+
 }
 
 COMPONENT_INIT
@@ -458,6 +489,43 @@ COMPONENT_INIT
     else if (strncmp(testType, "deleteFplmnList", 15) == 0)
     {
         tafSimTest_deleteFplmnList_test(simId);
+    }
+    else if (strcmp(testType, "refresh") == 0)
+    {
+        const char* sessionTypePtr = le_arg_GetArg(2);
+        if (NULL == sessionTypePtr)
+        {
+            LE_ERROR("sessionTypePtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        taf_sim_SessionType_t sessionType = (taf_sim_SessionType_t) atoi(sessionTypePtr);
+
+        const char* refreshModePtr = le_arg_GetArg(3);
+        if (NULL == refreshModePtr)
+        {
+            LE_ERROR("refreshModePtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        taf_sim_RefreshMode_t refreshMode = (taf_sim_RefreshMode_t) atoi(refreshModePtr);
+
+        const char* refreshAllowPtr = le_arg_GetArg(4);
+        if (NULL == refreshAllowPtr)
+        {
+            LE_ERROR("refreshAllowPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        bool refreshAllow = atoi(refreshAllowPtr) ==  0 ? false : true;
+
+        le_result_t res = tafSimTest_refresh_test(simId, sessionType, refreshMode, refreshAllow);
+        if (res == LE_OK) {
+            printf("Wait for refresh status ...\n");
+            RefreshChangeHandlerRef = taf_sim_AddRefreshChangeHandler(TestRefreshChangeHandler, NULL);
+            LE_ASSERT(RefreshChangeHandlerRef!=NULL);
+        }
+        exitApplication = res != LE_OK;
     }
     else {
         DisplayAppUsage();

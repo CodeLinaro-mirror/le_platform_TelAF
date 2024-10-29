@@ -463,8 +463,8 @@ ENUM State
     STATE_LL_ACK_RECEIVED,                    ///< Link-Layer Acknowledgement (LL-ACK) is received during in-band MSD transmission.
     STATE_MSD_TRANSMISSION_SUCCESS,           ///< In-band MSD transmission succeeded.
     STATE_MSD_TRANSMISSION_FAILED,            ///< In-band MSD transmission failed.
-    STATE_ALACK_RECEIVED_POSITIVE,            ///< Not supported.
-    STATE_ALACK_RECEIVED_CLEAR_DOWN,          ///< Not supported.
+    STATE_ALACK_RECEIVED_POSITIVE,            ///< Application-Layer Acknowledgement (positive) is received during in-band MSD transmission.
+    STATE_ALACK_RECEIVED_CLEAR_DOWN,          ///< Application-Layer Acknowledgement (cleardown) is received during in-band MSD transmission.
     STATE_ENDED,                              ///< Call stopped.
     STATE_RESET,                              ///< Not supported.
     STATE_COMPLETED,                          ///< Not supported.
@@ -496,7 +496,8 @@ ENUM State
     STATE_T7_STOPPED,                         ///< T7 Timer stopped.
     STATE_T9_STOPPED,                         ///< T9 Timer stopped.
     STATE_T10_STOPPED,                        ///< T10 Timer stopped.
-    STATE_INCOMING                            ///< Incoming eCall.
+    STATE_INCOMING,                           ///< Incoming eCall.
+    STATE_LL_NACK_DUE_TO_T7_EXPIRY            ///< Link-Layer Acknowledgement (LL-NACK) is received during in-band MSD transmission due to expiry of T7 Timer.
 };
 
 //-------------------------------------------------------------------------------------------------

@@ -129,6 +129,7 @@ namespace telux {
             bool                                isPrieCallOngoing;
             taf_ecall_Type_t                    type;
             std::shared_ptr<telux::tel::ICall>  iCall;
+            bool                                isReceivedLLACK;
         }
         taf_ECall_t;
 
@@ -139,6 +140,18 @@ namespace telux {
             int8_t               phoneId;
             char                 dest[MAX_DESTINATION_LEN];
         }StateChangeEvent_t;
+
+        typedef enum
+        {
+            ALACK_TIMER_START,
+            ALACK_TIMER_STOP
+        }
+        ALACKTimer_t;
+
+        typedef struct
+        {
+            ALACKTimer_t         alackTimer;
+        }ALACKTimerEvent_t;
 
         class tafECallOperatingModeCallback {
             public:
@@ -244,6 +257,8 @@ namespace telux {
                 taf_ecall_HlapTimerStatus_t GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType);
                 taf_ecall_HlapTimerStatus_t ConvertHlapTimerStatus(telux::tel::HlapTimerStatus status);
                 uint16_t ConvertElapsedTime(std::chrono::time_point<std::chrono::system_clock> startTime);
+                static void ReportPositiveALACKTimerHandler(le_timer_Ref_t timerRef);
+                static void ALACKTimerEventHandler(void* reqPtr);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);
@@ -288,6 +303,9 @@ namespace telux {
 
                 std::shared_ptr<telux::tel::ICallManager> CallManager;
                 le_ref_MapRef_t ECallPtrRefMap = NULL;
+
+                le_timer_Ref_t positiveALACKTimerRef;
+                le_event_Id_t ALACKTimerEventId;
 
             private:
                 std::shared_ptr<telux::tel::IPhoneManager> PhoneManager;

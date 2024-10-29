@@ -831,6 +831,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             LE_INFO("TAF_ECALL_STATE_LLNACK_RECEIVED");
             break;
         }
+        case TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY:
+        {
+            LE_INFO("TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY");
+            break;
+        }
         case TAF_ECALL_STATE_LL_ACK_RECEIVED:
         {
             LE_INFO("TAF_ECALL_STATE_LL_ACK_RECEIVED");

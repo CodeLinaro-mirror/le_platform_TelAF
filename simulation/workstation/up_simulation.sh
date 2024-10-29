@@ -118,6 +118,8 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     groupadd inet
     groupadd locclient
     groupadd ubi
+    groupadd gps
+    groupadd sensors
 
     # Create some default users
     useradd -M --no-log-init --shell /bin/bash telaf

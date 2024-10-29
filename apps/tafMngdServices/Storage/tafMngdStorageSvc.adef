@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 maxThreads: 600
 
 username: telaf
@@ -25,6 +30,7 @@ groups:
 executables:
 {
         tafMngdSecDataStorageSvc = ( $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdSecDataStorageSvc )
+        tafMngdSecFileStorageSvc = ( $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdSecFileStorageSvc )
         tafMngdCfgStorageSvc = ( $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdCfgStorageSvc )
 }
 
@@ -35,6 +41,7 @@ processes:
         run:
         {
                 (tafMngdSecDataStorageSvc)
+                (tafMngdSecFileStorageSvc)
                 (tafMngdCfgStorageSvc)
         }
 
@@ -51,6 +58,8 @@ bindings:
     tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_cfgAdmin -> <root>.le_cfgAdmin
     tafMngdSecDataStorageSvc.tafMngdSecDataStorageSvc.taf_ks -> tafKeyStoreSvc.taf_ks
     tafMngdSecDataStorageSvc.tafMngdSecDataStorageSvc.le_appInfo -> <root>.le_appInfo
+    tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.taf_fsc -> tafKeyStoreSvc.taf_fsc
+    tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.le_appInfo -> <root>.le_appInfo
 }
 
 bundles:
@@ -79,5 +88,6 @@ requires:
 extern:
 {
     tafMngdSecDataStorageSvc.tafMngdSecDataStorageSvc.taf_mngdStorSecData
+    tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.taf_mngdStorSecFile
     tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.taf_mngdStorCfg
 }

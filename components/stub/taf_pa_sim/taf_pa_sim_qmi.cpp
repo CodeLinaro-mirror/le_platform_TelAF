@@ -12,7 +12,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
  *  UIM refresh register.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_sim_refresh_register
+le_result_t taf_pa_sim_RefreshRegister
 (
     taf_pa_sim_SessionType_t sessionType,
     uint32_t filesLen,
@@ -27,7 +27,7 @@ le_result_t taf_pa_sim_refresh_register
  *  UIM refresh ok.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_sim_refresh_ok
+le_result_t taf_pa_sim_RefreshOk
 (
     taf_pa_sim_SessionType_t sessionType,
     bool refreshAllow
@@ -41,7 +41,7 @@ le_result_t taf_pa_sim_refresh_ok
  *  UIM refresh complete.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_sim_refresh_complete
+le_result_t taf_pa_sim_RefreshComplete
 (
     taf_pa_sim_SessionType_t sessionType
 )

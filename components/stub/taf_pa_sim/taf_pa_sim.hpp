@@ -65,7 +65,7 @@ typedef struct taf_pa_sim_RefreshChangeHandler* taf_pa_sim_RefreshChangeHandlerR
  *  UIM refresh register.
  */
 //--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_sim_refresh_register
+LE_SHARED le_result_t taf_pa_sim_RefreshRegister
 (
     taf_pa_sim_SessionType_t sessionType,
     uint32_t filesLen,
@@ -77,7 +77,7 @@ LE_SHARED le_result_t taf_pa_sim_refresh_register
  *  UIM refresh ok.
  */
 //--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_sim_refresh_ok
+LE_SHARED le_result_t taf_pa_sim_RefreshOk
 (
     taf_pa_sim_SessionType_t sessionType,
     bool refreshAllow
@@ -88,7 +88,7 @@ LE_SHARED le_result_t taf_pa_sim_refresh_ok
  *  UIM refresh complete.
  */
 //--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_sim_refresh_complete
+LE_SHARED le_result_t taf_pa_sim_RefreshComplete
 (
     taf_pa_sim_SessionType_t sessionType
 );

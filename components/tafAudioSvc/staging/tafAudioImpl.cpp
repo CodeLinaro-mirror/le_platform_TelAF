@@ -177,6 +177,7 @@ void taf_Audio::Init(void)
     EventHandlerRefMap = le_ref_CreateMap("TAFEventHandlerMap", MAX_CONNECTOR);
 
     mRecordSemRef = le_sem_Create("tafRecordSem", 0);
+    mRxRecordSemRef = le_sem_Create("tafRxRecordSem", 0);
 
     HashMapList = LE_DLS_LIST_INIT;
 
@@ -885,9 +886,6 @@ void taf_Audio::ReleaseStream
                     &(sessionRefNodePtr->refNodeLink));
 
             le_mem_Release(sessionRefNodePtr);
-
-            if(playerStreamPtr == streamPtr)
-                playerStreamPtr = nullptr;
 
             LE_DEBUG("Release stream %d", streamPtr->interface);
             le_mem_Release(streamPtr);
@@ -1760,6 +1758,14 @@ le_result_t taf_Audio::StartAudio
                 }
             }
         } else if(tafAudioStream->getType() == StreamType::CAPTURE) {
+            for(Direction dir : config.voicePaths) {
+                if(dir == telux::audio::Direction::RX) {
+                    LE_DEBUG("Create stream for incall downlink recording");
+                    mAudioRxCaptureStream = std::dynamic_pointer_cast<
+                        telux::audio::IAudioCaptureStream>(tafAudioStream);
+                    return LE_OK;
+                }
+            }
             mAudioCaptureStream = std::dynamic_pointer_cast<
                     telux::audio::IAudioCaptureStream>(tafAudioStream);
             LE_DEBUG("Audio Capture Stream is Created" );
@@ -2042,7 +2048,7 @@ void taf_Audio::RemoveStreamEventHandler
 le_result_t taf_Audio::RecordFile
 (
     taf_audio_StreamRef_t streamRef , ///< Audio stream reference.
-    const char                 *srcPath    ///< The file path.
+    const char            *srcPath    ///< The file path.
 )
 {
     LE_INFO("RecordFile srcPath %s", srcPath);
@@ -2055,14 +2061,17 @@ le_result_t taf_Audio::RecordFile
     TAF_ERROR_IF_RET_VAL(streamPtr->interface != TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE,
             LE_BAD_PARAMETER, "Invalid stream reference");
 
-    TAF_ERROR_IF_RET_VAL(mIsRecording, LE_BUSY, "Another file recording is in progress");
+    // Check if local capture is ongoing if direction is TX,
+    // and if incall downlink capture is ongoing if direction is RX.
+    TAF_ERROR_IF_RET_VAL((streamPtr->direction == TAF_AUDIO_TX) ? mIsRecording : mIsRxRecording,
+            LE_BUSY, "Another file recording is in progress");
 
-    if (!mIsCaptureStreamCreated) {
+    if (((streamPtr->direction == TAF_AUDIO_TX) && !mIsCaptureStreamCreated)
+            || ((streamPtr->direction == TAF_AUDIO_RX) && !mIsRxCaptureStreamCreated)) {
         StreamConfig config = {};
         config.type = StreamType::CAPTURE;
         config.slotId = DEFAULT_SLOT_ID;
         config.format = AudioFormat::PCM_16BIT_SIGNED;
-        mRecFileFormat = config.format;
         config.sampleRate = DEFAULT_SAMPLERATE;
         config.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
 
@@ -2080,12 +2089,18 @@ le_result_t taf_Audio::RecordFile
 
             strmItr = (le_hashmap_It_Ref_t)
                     le_hashmap_GetIterator(currentconnPtr->audioInList);
+            // Update the configuration based on the streams connected
             while (le_hashmap_NextNode(strmItr)==LE_OK) {
                 outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
                 TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
                         LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
-
-                if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_MIC_1){
+                if (mCallStarted && (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_MIC_1
+                        || outStreamPtr->interface == TAF_AUDIO_IF_CODEC_MIC_2
+                        || outStreamPtr->interface == TAF_AUDIO_IF_CODEC_MIC_3)){
+                    TAF_ERROR_IF_RET_VAL(true, LE_UNSUPPORTED,
+                            "Incall uplink recording is not supported");
+                }
+                else if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_MIC_1){
                     config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SOURCE_0);
                     LE_DEBUG("set config with device type mic0");
                 }
@@ -2098,23 +2113,40 @@ le_result_t taf_Audio::RecordFile
                     config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SOURCE_2);
                     LE_DEBUG("set config with device type mic2");
                 }
+                else if (outStreamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX) {
+                    config.voicePaths.emplace_back(telux::audio::Direction::RX);
+                    LE_DEBUG("set voice path to RX");
+                }
             }
         }
         res = StartAudio(config);
         TAF_ERROR_IF_RET_VAL( (res != LE_OK), LE_FAULT, "Config failed");
-        mIsCaptureStreamCreated = true;
+        if(streamPtr->direction == TAF_AUDIO_TX)
+            mIsCaptureStreamCreated = true; // local capture stream created.
+        else
+            mIsRxCaptureStreamCreated = true; // incall downlink capture stream created.
     }
 
     if ( srcPath != NULL )
     {
-        mFile = fopen(srcPath, "w");
-        if(mFile == NULL) {
+        FILE* file;
+        if(streamPtr->direction == TAF_AUDIO_TX)
+        {
+            mFile = fopen(srcPath, "w");
+            file = mFile;
+        }
+        else
+        {
+            mRxFile = fopen(srcPath, "w");
+            file = mRxFile;
+        }
+        if(file == NULL) {
             LE_ERROR("Unable to write to file");
             return LE_FAULT;
         }
-        if(mFile) {
-            fseek(mFile, 0, SEEK_SET);
-            if(setWavHeader(mFile, streamPtr) == LE_OK)
+        if(file) {
+            fseek(file, 0, SEEK_SET);
+            if(setWavHeader(file, streamPtr) == LE_OK)
             {
                 le_result_t res = SetVolume(streamRef, streamPtr->volLevel, false);
                 if (res == LE_OK)
@@ -2126,7 +2158,10 @@ le_result_t taf_Audio::RecordFile
                     LE_ERROR("Failed to set the vol level to recorder stream");
                 }
                 mRecStartedSemRef = le_sem_Create("tafRecStartedSemRef", 0);
-                le_thread_Start(le_thread_Create("RecordThread", Record, streamPtr));
+                if(streamPtr->direction == TAF_AUDIO_TX)
+                    le_thread_Start(le_thread_Create("RecordThread", Record, streamPtr));
+                else
+                    le_thread_Start(le_thread_Create("RxRecordThread", Record, streamPtr));
                 // Wait for record to start successfully
                 le_sem_Wait(mRecStartedSemRef);
                 le_sem_Delete(mRecStartedSemRef);
@@ -2160,16 +2195,16 @@ le_result_t taf_Audio::setWavHeader
     hdr.chunkId = ID_FMT;
     hdr.chunkSize = DEFAULT_BITSPERSAMPLE;
     hdr.formatTag = FORMAT_PCM;
-    hdr.channelsCount = 2;
+    hdr.channelsCount = DEFAULT_NUM_CHANNELS;
     hdr.sampleRate = DEFAULT_SAMPLERATE;
     hdr.bitsPerSample = DEFAULT_BITSPERSAMPLE;
     hdr.byteRate = (  hdr.sampleRate *
                       hdr.channelsCount *
-                      hdr.bitsPerSample  ) / 8;;
-    hdr.blockAlign = ( hdr.bitsPerSample * hdr.channelsCount) / 8;
+                      hdr.bitsPerSample  ) / BITS_PER_BYTE;
+    hdr.blockAlign = ( hdr.bitsPerSample * hdr.channelsCount) / BITS_PER_BYTE;
     hdr.chunkDataId = ID_DATA;
     hdr.chunkDataSize = 0;
-    hdr.riffSize = hdr.chunkDataSize + 44 - 8;
+    hdr.riffSize = hdr.chunkDataSize + DEFAULT_RIFF_SIZE;
     if (fwrite(&hdr, 1, sizeof(hdr),mFile) != sizeof(hdr))
     {
         LE_ERROR("Cannot write wave header");
@@ -2193,63 +2228,103 @@ void* taf_Audio::Record( void* ctxPtr) {
     uint32_t size = 0;
 
     taf_audio_Stream_t* streamPtr = (taf_audio_Stream_t*)ctxPtr;
+    std::shared_ptr<telux::audio::IAudioCaptureStream> *audioCaptureStream;
+    bool* isRecording;
+    bool* isRecMuteSet;
+    FILE* file;
+    uint32_t* bufferRecordedTillNow;
+    le_sem_Ref_t semRef;
+    std::shared_ptr<telux::audio::IStreamBuffer> *streamBuffer;
+    std::queue<std::shared_ptr<telux::audio::IStreamBuffer>> *freeBuffers;
 
-    audio.mIsRecording = false;
-    if(audio.mAudioCaptureStream) {
-        while(!audio.mRecFreeBuffers.empty()) {
-            audio.mRecFreeBuffers.pop();
+    if(streamPtr->direction == TAF_AUDIO_TX) // Update local recording data
+    {
+        audioCaptureStream = &audio.mAudioCaptureStream;
+        isRecording = &audio.mIsRecording;
+        isRecMuteSet = &audio.isRecMuteSet;
+        file = audio.mFile;
+        bufferRecordedTillNow = &audio.mBufferRecordedTillNow;
+        semRef = audio.mRecordSemRef;
+        streamBuffer = &audio.mRecStreamBuffer;
+        freeBuffers = &audio.mRecFreeBuffers;
+    }
+    else // Update incall downlink recording data
+    {
+        audioCaptureStream = &audio.mAudioRxCaptureStream;
+        isRecording = &audio.mIsRxRecording;
+        isRecMuteSet = &audio.isRxRecMuteSet;
+        file = audio.mRxFile;
+        bufferRecordedTillNow = &audio.mRxBufferRecordedTillNow;
+        semRef = audio.mRxRecordSemRef;
+        streamBuffer = &audio.mRxRecStreamBuffer;
+        freeBuffers = &audio.mRxRecFreeBuffers;
+    }
+    *isRecording = false;
+    if(*audioCaptureStream) {
+        while(!freeBuffers->empty()) {
+            freeBuffers->pop();
         }
 
         for(int i = 0; i < TOTAL_BUFFERS; i++) {
-            audio.mRecStreamBuffer = audio.mAudioCaptureStream->getStreamBuffer();
+            *streamBuffer = (*audioCaptureStream)->getStreamBuffer();
 
-            if(audio.mRecStreamBuffer != nullptr) {
-                size = audio.mRecStreamBuffer->getMinSize();
+            if(*streamBuffer != nullptr) {
+                size = (*streamBuffer)->getMinSize();
                 if(size == 0) {
-                    size =  audio.mRecStreamBuffer->getMaxSize();
+                    size =  (*streamBuffer)->getMaxSize();
                 }
-                audio.mRecStreamBuffer->setDataSize(size);
-                audio.mRecFreeBuffers.push(audio.mRecStreamBuffer);
+                (*streamBuffer)->setDataSize(size);
+                (*freeBuffers).push(*streamBuffer);
             } else {
                 LE_DEBUG( "Failed to get Stream Buffer ");
-                fclose(audio.mFile);
-                audio.mFile = NULL;
+                fclose(file);
+                file = NULL;
                 streamPtr->fd = -1;
                 le_sem_Post(audio.mRecStartedSemRef);
                 return NULL;
             }
         }
 
-        audio.mIsRecording = true;
-        audio.mBufferRecordedTillNow = 0;
+        *isRecording = true;
+        *bufferRecordedTillNow = 0;
 
         LE_INFO( "Audio recording started" );
-        while (audio.mIsRecording)
+        while (*isRecording)
         {
             // Stop recording when recorded buffer reaches maxFileBytes defined.
-            if((audio.mBufferRecordedTillNow + (uint32_t)sizeof(WavHeader_t) + (2 * size)) >= audio.maxFileBytes) {
+            if((*bufferRecordedTillNow + (uint32_t)sizeof(WavHeader_t) + (2 * size))
+                        >= audio.maxFileBytes) {
                 LE_ERROR("Stoping recording as file size reached maxFileBytes");
-                audio.mIsRecording = false;
+                *isRecording = false;
                 audio.StopAudio(streamPtr);
                 break;
             }
 
-            if(!audio.mRecFreeBuffers.empty()) {
-                audio.mRecStreamBuffer = audio.mRecFreeBuffers.front();
-                audio.mRecFreeBuffers.pop();
-                telux::common::Status status =
-                        audio.mAudioCaptureStream->read(audio.mRecStreamBuffer, size,
+            if(!freeBuffers->empty()) {
+                *streamBuffer = freeBuffers->front();
+                freeBuffers->pop();
+                telux::common::Status status;
+                if(streamPtr->direction == TAF_AUDIO_TX) {
+                status = (*audioCaptureStream)->read(*streamBuffer , size,
                         &taf_Audio::ReadCallback);
+                }
+                else{
+                    status = (*audioCaptureStream)->read(*streamBuffer, size,
+                            &taf_Audio::RxReadCallback);
+                }
                 if(status != telux::common::Status::SUCCESS) {
                     LE_ERROR("read() failed with error %d",int(status));
+                    *isRecording = false;
+                    audio.StopAudio(streamPtr);
+                    break;
                 }
             } else {
-                le_sem_Wait(audio.mRecordSemRef);
+                le_sem_Wait(semRef);
             }
             // Set the mute status of the stream.
-            if (!audio.isRecMuteSet && streamPtr->isMute)
+            if (!(*isRecMuteSet) && streamPtr->isMute)
             {
-                audio.isRecMuteSet = true;
+                *isRecMuteSet = true;
                 le_result_t res = audio.SetMute(streamPtr->streamRef, streamPtr->isMute);
                 if (res == LE_OK)
                 {
@@ -2263,58 +2338,73 @@ void* taf_Audio::Record( void* ctxPtr) {
             // Notify record started successfully
             if(audio.mRecStartedSemRef)
             {
-                audio.isRecMuteSet = true;
+                *isRecMuteSet = true;
                 le_sem_Post(audio.mRecStartedSemRef);
             }
         }
-        int waitTime = (8*(audio.mRecStreamBuffer->getMaxSize())*1000)/
+        int waitTime = (8*((*streamBuffer)->getMaxSize())* SECS_IN_MILLISES)/
                             (DEFAULT_SAMPLERATE*2*DEFAULT_BITSPERSAMPLE);
-        waitTime = waitTime + 100;
-        while(audio.mRecFreeBuffers.size() != TOTAL_BUFFERS) {
-            le_clk_Time_t timeToWait = {0, waitTime * 1000};
-            le_sem_WaitWithTimeOut(audio.mRecordSemRef, timeToWait);
+        waitTime = waitTime + MAX_RESPONSE_DELAY;
+        while(freeBuffers->size() != TOTAL_BUFFERS) {
+            le_clk_Time_t timeToWait = {0, waitTime * MILLISECS_IN_MICROSECS};
+            le_sem_WaitWithTimeOut(semRef, timeToWait);
         }
-        audio.mRecFileFormat = AudioFormat::UNKNOWN;
 
         // Update recorded buffer size to the header after completing the recording.
         WavHeader_t hdr;
-        fseek(audio.mFile, ((uint8_t*)&hdr.chunkDataSize - (uint8_t*)&hdr), SEEK_SET);
+        fseek(file, ((uint8_t*)&hdr.chunkDataSize - (uint8_t*)&hdr), SEEK_SET);
 
-        if (fwrite(&audio.mBufferRecordedTillNow, 1, sizeof(audio.mBufferRecordedTillNow),
-                audio.mFile) != sizeof(audio.mBufferRecordedTillNow))
+        if (fwrite(bufferRecordedTillNow, 1, sizeof(*bufferRecordedTillNow),
+                file) != sizeof(*bufferRecordedTillNow))
         {
             LE_ERROR("Cannot write size to wave header");
         }
         else{
-            LE_INFO("Updated the header with chunkdatasize %d",audio.mBufferRecordedTillNow);
+            LE_INFO("Updated the header with chunkdatasize %d",*bufferRecordedTillNow);
         }
-        fseek(audio.mFile, ((uint8_t*)&hdr.riffSize - (uint8_t*)&hdr), SEEK_SET);
-        uint32_t riffSize = audio.mBufferRecordedTillNow + 44 - 8;
+        fseek(file, ((uint8_t*)&hdr.riffSize - (uint8_t*)&hdr), SEEK_SET);
+        uint32_t riffSize = *bufferRecordedTillNow + DEFAULT_RIFF_SIZE;
 
-        if (fwrite(&riffSize, 1, sizeof(riffSize), audio.mFile) != sizeof(riffSize))
+        if (fwrite(&riffSize, 1, sizeof(riffSize), file) != sizeof(riffSize))
         {
             LE_ERROR("Cannot write riff size to wave header");
         }
         else{
             LE_INFO("Updated the header with riffsize %d", riffSize);
         }
-        fflush(audio.mFile);
-        fclose(audio.mFile);
-        audio.mFile= NULL;
+        fflush(file);
+        fclose(file);
+        file= NULL;
         streamPtr->fd = -1;
-        LE_INFO("File Recorded SuccessFully");
+        if (*bufferRecordedTillNow != 0)
+        {
+            LE_INFO("File Recorded SuccessFully");
+        }
+        else
+        {
+            LE_ERROR("File recording failed");
+        }
 
-        if(audio.mIsCaptureStreamCreated) {
+
+        if(streamPtr->direction == TAF_AUDIO_TX
+                ? audio.mIsCaptureStreamCreated : audio.mIsRxCaptureStreamCreated) {
             audio.DeleteAudioStream(streamPtr);
         }
         taf_audio_StreamEvent_t streamEvent;
         streamEvent.streamPtr = streamPtr;
         streamEvent.streamEvent = TAF_AUDIO_BITMASK_MEDIA_EVENT;
-        streamEvent.event.mediaEvent = TAF_AUDIO_MEDIA_STOPPED;
+        if (*bufferRecordedTillNow == 0)
+        {
+            streamEvent.event.mediaEvent = TAF_AUDIO_MEDIA_ERROR;
+        }
+        else
+        {
+            streamEvent.event.mediaEvent = TAF_AUDIO_MEDIA_STOPPED;
+        }
         le_event_Report(streamPtr->eventId, &streamEvent,
                 sizeof(taf_audio_StreamEvent_t));
     }
-    audio.isRecMuteSet = false;
+    *isRecMuteSet = false;
     return NULL;
 }
 
@@ -2342,6 +2432,7 @@ void taf_Audio::ReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer
     auto &audio = taf_Audio::GetInstance();
     if (error != telux::common::ErrorCode::SUCCESS) {
         LE_ERROR("read() returned with error %d",int(error));
+        audio.mIsRecording = false;
     } else {
         uint32_t size = buffer->getDataSize();
         bytesWrittenToFile = fwrite(buffer->getRawBuffer(), 1, size, audio.mFile);
@@ -2353,6 +2444,28 @@ void taf_Audio::ReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer
     buffer->reset();
     audio.mRecFreeBuffers.push(buffer);
     le_sem_Post(audio.mRecordSemRef);
+    return;
+}
+
+void taf_Audio::RxReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
+        telux::common::ErrorCode error)
+{
+    uint32_t bytesWrittenToFile = 0;
+    auto &audio = taf_Audio::GetInstance();
+    if (error != telux::common::ErrorCode::SUCCESS) {
+        LE_ERROR("read() returned with error %d",int(error));
+        audio.mIsRxRecording = false;
+    } else {
+        uint32_t size = buffer->getDataSize();
+        bytesWrittenToFile = fwrite(buffer->getRawBuffer(), 1, size, audio.mRxFile);
+        if(bytesWrittenToFile != size) {
+            LE_ERROR("Write Size mismatch while writing to file");
+        }
+        audio.mRxBufferRecordedTillNow = audio.mRxBufferRecordedTillNow + size;
+    }
+    buffer->reset();
+    audio.mRxRecFreeBuffers.push(buffer);
+    le_sem_Post(audio.mRxRecordSemRef);
     return;
 }
 
@@ -2374,7 +2487,10 @@ le_result_t taf_Audio::PlayFile
 
     le_result_t res = LE_FAULT;
 
-    TAF_ERROR_IF_RET_VAL(mIsPlaying, LE_BUSY, "Another playback is in progress");
+    // Check if local playback/incall downlink playback is ongoing if direction is RX,
+    // and if incall uplink playback is ongoing if direction is TX.
+    TAF_ERROR_IF_RET_VAL(streamPtr->direction == TAF_AUDIO_RX ? mIsPlaying : mIsTxPlaying, LE_BUSY,
+            "Another playback is in progress");
 
     taf_audio_PlayFileConfig_t playFileConfig[1] = {0};
     snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), srcPath);
@@ -2417,11 +2533,12 @@ le_result_t taf_Audio::ReadPcmHeader
 
     config.type = StreamType::PLAY;
     config.sampleRate = wHdr.sampleRate;
-    config.channelTypeMask = (wHdr.channelsCount == 2)
+    config.channelTypeMask = (wHdr.channelsCount == DEFAULT_NUM_CHANNELS)
             ? (ChannelType::LEFT | ChannelType::RIGHT) : ChannelType::LEFT;
     config.format = AudioFormat::PCM_16BIT_SIGNED;
 
-    // Set the config device type based on output device
+    // Set the config device type if voice stream is not active/ set voice path if
+    // voice stream is active based on output device connected
     le_hashmap_It_Ref_t connItr =
             (le_hashmap_It_Ref_t)le_hashmap_GetIterator(streamPtr->connList);
     taf_audio_Connector_t const * currentconnPtr;
@@ -2434,12 +2551,20 @@ le_result_t taf_Audio::ReadPcmHeader
                 LE_BAD_PARAMETER,"currentconnPtr is nullptr!");
 
         strmItr = (le_hashmap_It_Ref_t)le_hashmap_GetIterator(currentconnPtr->audioOutList);
+        // Update the configuration based on the streams connected
         while (le_hashmap_NextNode(strmItr)==LE_OK) {
             outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
             TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
                     LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
 
-            if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1){
+            if (mCallStarted && (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1
+                    || outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_2
+                    || outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_3))
+            {
+                TAF_ERROR_IF_RET_VAL(true, LE_UNSUPPORTED,
+                        "Incall downlink playback for PCM is not supported");
+            }
+            else if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1){
                 config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_0);
                 LE_DEBUG("set config with device type speaker 0");
             }
@@ -2450,6 +2575,10 @@ le_result_t taf_Audio::ReadPcmHeader
             else if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_3) {
                 config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_2);
                 LE_DEBUG("set config with device type speaker 2");
+            }
+            else if (outStreamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX) {
+                config.voicePaths.emplace_back(telux::audio::Direction::TX);
+                LE_DEBUG("set config with voice path TX");
             }
         }
     }
@@ -2513,7 +2642,8 @@ le_result_t taf_Audio::ReadAmrHeader
 
         config.channelTypeMask = 1;
 
-        // Set the config device type based on output device
+        // Set the config device type if voice stream is not active/ set voice path if
+        // voice stream is active based on output device connected
         le_hashmap_It_Ref_t connItr =
                 (le_hashmap_It_Ref_t)le_hashmap_GetIterator(streamPtr->connList);
         taf_audio_Connector_t const * currentconnPtr;
@@ -2531,8 +2661,14 @@ le_result_t taf_Audio::ReadAmrHeader
                 outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
                 TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
                         LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
-
-                if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1){
+                if (mCallStarted && (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1
+                        || outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_2
+                        || outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_3))
+                {
+                    config.voicePaths.emplace_back(telux::audio::Direction::RX);
+                    LE_DEBUG("set config with voice path RX");
+                }
+                else if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1){
                     config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_0);
                     LE_DEBUG("set config with device type speaker 0");
                 }
@@ -2543,6 +2679,10 @@ le_result_t taf_Audio::ReadAmrHeader
                 else if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_3) {
                     config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_2);
                     LE_DEBUG("set config with device type speaker 2");
+                }
+                else if (outStreamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX) {
+                    config.voicePaths.emplace_back(telux::audio::Direction::TX);
+                    LE_DEBUG("set config with voice path TX");
                 }
             }
         }
@@ -2640,9 +2780,14 @@ le_result_t taf_Audio::StopAudio(taf_audio_Stream_t* streamPtr)
         }
     }
     if(streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE) {
-        if (mAudioCaptureStream && mIsRecording) {
+        if ((streamPtr->direction == TAF_AUDIO_TX && mAudioCaptureStream && mIsRecording)
+                    || (streamPtr->direction == TAF_AUDIO_RX && mAudioRxCaptureStream
+                    && mIsRxRecording)) {
             LE_DEBUG("Stop Recording");
-            mIsRecording = false;
+            if(streamPtr->direction == TAF_AUDIO_TX)
+                mIsRecording = false;
+            else
+                mIsRxRecording = false;
             ErrorCode error = gCallbackPromise.get_future().get();
             if (ErrorCode::SUCCESS != error) {
                 LE_ERROR("Request to Stop stream failed error: %d", int (error));
@@ -2653,11 +2798,14 @@ le_result_t taf_Audio::StopAudio(taf_audio_Stream_t* streamPtr)
     }
     if(streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY) {
         LE_DEBUG("mIsPlaying is %s", mIsPlaying ? "true" : "false");
-        if (mIsPlaying) {
+        if (mIsPlaying || mIsTxPlaying) {
             LE_INFO("Stop Playing");
 #if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
             telux::common::ErrorCode ec;
-            ec = mAudioPlayer->stopPlayback();
+            if(streamPtr->direction == TAF_AUDIO_RX)
+                ec = mAudioPlayer->stopPlayback();
+            else
+                ec = mTxAudioPlayer->stopPlayback();
             if (ec != telux::common::ErrorCode::SUCCESS) {
                 if (ec == telux::common::ErrorCode::INVALID_STATE) {
                     LE_ERROR("no playback in progress");
@@ -2745,26 +2893,44 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
         }
     }
 
-    if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE && mAudioCaptureStream) {
-        mIsCaptureStreamCreated = false;
-        status = mAudioManager->deleteStream(mAudioCaptureStream, DeleteCaptureCallback);
+    if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE) {
+        std::promise<bool> p;
+        if(streamPtr->direction == TAF_AUDIO_TX && mAudioCaptureStream)
+        {
+            mIsCaptureStreamCreated = false;
+            status = mAudioManager->deleteStream(mAudioCaptureStream,
+                    [&p,this](telux::common::ErrorCode error) {
+                if (error == telux::common::ErrorCode::SUCCESS) {
+                    LE_INFO("DeleteCaptureCallback() succeeded");
+                    mAudioCaptureStream.reset();
+                    mAudioCaptureStream = nullptr;
+                    gCallbackPromise.set_value(error);
+                } else {
+                    gCallbackPromise.set_value(error);
+                    LE_ERROR("Failed to delete the capture stream");
+                }
+            });
+        }
+        else if (streamPtr->direction == TAF_AUDIO_RX && mAudioRxCaptureStream)
+        {
+            mIsRxCaptureStreamCreated = false;
+            status = mAudioManager->deleteStream(mAudioRxCaptureStream,
+                    [&p,this](telux::common::ErrorCode error) {
+                if (error == telux::common::ErrorCode::SUCCESS) {
+                    LE_INFO("DeleteCaptureCallback() succeeded");
+                    mAudioRxCaptureStream.reset();
+                    mAudioRxCaptureStream = nullptr;
+                    gCallbackPromise.set_value(error);
+                } else {
+                    gCallbackPromise.set_value(error);
+                    LE_ERROR("Failed to delete capture stream");
+                }
+            });
+        }
     }
     if(status == Status::SUCCESS)
         LE_INFO("status is success");
     return LE_OK;
-}
-
-void taf_Audio::DeleteCaptureCallback(ErrorCode error) {
-    auto &audio = taf_Audio::GetInstance();
-    if (ErrorCode::SUCCESS == error) {
-        LE_DEBUG("DeleteCaptureCallback() succeeded");
-        audio.mAudioCaptureStream.reset();
-        audio.mAudioCaptureStream = nullptr;
-    } else {
-        LE_DEBUG("Delete CaptureStream error: %d", int (error));
-    }
-    audio.gCallbackPromise.set_value(error);
-    return;
 }
 
 void taf_Audio::StreamMuteUnmuteCallback(ErrorCode error)
@@ -2844,43 +3010,43 @@ le_result_t taf_Audio::setVhalRouteStatus(taf_audio_Mode_t mode, bool status)
 }
 
 void tafPromptsStatusListener::onPlaybackStarted() {
-    LE_INFO("onPlaybackStarted");
+    if(streamPtr->direction == TAF_AUDIO_RX)
+        LE_INFO("Local playback started");
+    else if(streamPtr->direction == TAF_AUDIO_TX)
+        LE_INFO("Remote playback started");
 }
 
 void tafPromptsStatusListener::onPlaybackStopped() {
     LE_INFO("onPlaybackStopped");
     auto &audio = taf_Audio::GetInstance();
-    audio.mIsPlaying = false;
-    audio.mPbFileFormat = AudioFormat::UNKNOWN;
+    if(streamPtr->direction == TAF_AUDIO_RX)
+        audio.mIsPlaying = false;
+    else if(streamPtr->direction == TAF_AUDIO_TX)
+        audio.mIsTxPlaying = false;
 
-    if(audio.playerStreamPtr)
-    {
-        // Report STOP event to client
-        taf_audio_StreamEvent_t streamEvent;
-        streamEvent.streamPtr = audio.playerStreamPtr;
-        streamEvent.streamEvent = TAF_AUDIO_BITMASK_MEDIA_EVENT;
-        streamEvent.event.mediaEvent = TAF_AUDIO_MEDIA_STOPPED;
-        le_event_Report(streamEvent.streamPtr->eventId, &streamEvent,
-                sizeof(taf_audio_StreamEvent_t));
-    }
+    taf_audio_StreamEvent_t streamEvent;
+    streamEvent.streamPtr = streamPtr;
+    streamEvent.streamEvent = TAF_AUDIO_BITMASK_MEDIA_EVENT;
+    streamEvent.event.mediaEvent = TAF_AUDIO_MEDIA_STOPPED;
+    le_event_Report(streamEvent.streamPtr->eventId, &streamEvent,
+            sizeof(taf_audio_StreamEvent_t));
 }
 
 void tafPromptsStatusListener::onError(telux::common::ErrorCode error, std::string file) {
     LE_ERROR("onError : Error %d encounter while playing the file %s", (int)error, file.c_str());
     auto &audio = taf_Audio::GetInstance();
-    audio.mIsPlaying = false;
-    audio.mPbFileFormat = AudioFormat::UNKNOWN;
+    if(streamPtr->direction == TAF_AUDIO_RX)
+        audio.mIsPlaying = false;
+    else if(streamPtr->direction == TAF_AUDIO_TX)
+        audio.mIsTxPlaying = false;
 
-    if(audio.playerStreamPtr)
-    {
-        // Report ERROR event to client
-        taf_audio_StreamEvent_t streamEvent;
-        streamEvent.streamPtr = audio.playerStreamPtr;
-        streamEvent.streamEvent = TAF_AUDIO_BITMASK_MEDIA_EVENT;
-        streamEvent.event.mediaEvent = TAF_AUDIO_MEDIA_ERROR;
-        le_event_Report(streamEvent.streamPtr->eventId, &streamEvent,
-                sizeof(taf_audio_StreamEvent_t));
-    }
+    taf_audio_StreamEvent_t streamEvent;
+    streamEvent.streamPtr = streamPtr;
+    streamEvent.streamEvent = TAF_AUDIO_BITMASK_MEDIA_EVENT;
+    streamEvent.event.mediaEvent = TAF_AUDIO_MEDIA_ERROR;
+    le_event_Report(streamEvent.streamPtr->eventId, &streamEvent,
+            sizeof(taf_audio_StreamEvent_t));
+
     audio.setVhalRouteStatus(TAF_AUDIO_LOCAL_PLAYBACK, false);
 }
 
@@ -2891,19 +3057,19 @@ void tafPromptsStatusListener::onFilePlayed(std::string file) {
 void tafPromptsStatusListener::onPlaybackFinished() {
     LE_DEBUG("onPlaybackFinished");
     auto &audio = taf_Audio::GetInstance();
-    audio.mIsPlaying = false;
-    audio.mPbFileFormat = AudioFormat::UNKNOWN;
 
-    if(audio.playerStreamPtr)
-    {
-        // Report Finished event to client
-        taf_audio_StreamEvent_t streamEvent;
-        streamEvent.streamPtr = audio.playerStreamPtr;
-        streamEvent.streamEvent = TAF_AUDIO_BITMASK_MEDIA_EVENT;
-        streamEvent.event.mediaEvent = TAF_AUDIO_MEDIA_ENDED;
-        le_event_Report(streamEvent.streamPtr->eventId, &streamEvent,
-                sizeof(taf_audio_StreamEvent_t));
-    }
+    if(streamPtr->direction == TAF_AUDIO_RX)
+        audio.mIsPlaying = false;
+    else if(streamPtr->direction == TAF_AUDIO_TX)
+        audio.mIsTxPlaying = false;
+
+    taf_audio_StreamEvent_t streamEvent;
+    streamEvent.streamPtr = streamPtr;
+    streamEvent.streamEvent = TAF_AUDIO_BITMASK_MEDIA_EVENT;
+    streamEvent.event.mediaEvent = TAF_AUDIO_MEDIA_ENDED;
+    le_event_Report(streamEvent.streamPtr->eventId, &streamEvent,
+            sizeof(taf_audio_StreamEvent_t));
+
     audio.setVhalRouteStatus(TAF_AUDIO_LOCAL_PLAYBACK, false);
 
 }
@@ -2938,7 +3104,6 @@ void* taf_Audio::PlayAudioFile( void* ctxPtr) {
     res = audio.StartAudio(pbFilePtr->config);
     if(res != LE_OK)
     {
-        audio.playerStreamPtr = nullptr;
         LE_ERROR("Config failed");
         audio.pbList.pbRes = LE_FAULT;
         le_sem_Post(audio.mPbStartedSemRef);
@@ -3117,7 +3282,6 @@ void* taf_Audio::PlayAudioFile( void* ctxPtr) {
             le_event_Report(streamEvent.streamPtr->eventId, &streamEvent,
                     sizeof(taf_audio_StreamEvent_t));
         }
-        audio.mRecFileFormat = AudioFormat::UNKNOWN;
         fflush(audio.mPlayFile);
         fclose(audio.mPlayFile);
         audio.mPlayFile = NULL;
@@ -3183,9 +3347,10 @@ le_result_t taf_Audio::PlayList
     TAF_ERROR_IF_RET_VAL(streamPtr->interface != TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY,
             LE_BAD_PARAMETER, "Invalid stream reference");
 
-    TAF_ERROR_IF_RET_VAL(mIsPlaying, LE_BUSY, "Another playback is in progress");
-
-    playerStreamPtr = streamPtr;
+    // Check if local playback/incall downlink playback is ongoing if direction is RX,
+    // and if incall uplink playback is ongoing if direction is TX.
+    TAF_ERROR_IF_RET_VAL(streamPtr->direction == TAF_AUDIO_RX ? mIsPlaying : mIsTxPlaying, LE_BUSY,
+            "Another playback is in progress");
 
     le_result_t res = LE_FAULT;
     pbList.pbRes = LE_FAULT;
@@ -3207,6 +3372,8 @@ le_result_t taf_Audio::PlayList
         }
         res = ReadPcmHeader(streamPtr, pbList.filesToPlay[i].absoluteFilePath.c_str(),
                 pbList.filesToPlay[i].config);
+        if(res == LE_UNSUPPORTED)
+            return res;
         if (res != LE_OK)
         {
             res = ReadAmrHeader(streamPtr, pbList.filesToPlay[i].absoluteFilePath.c_str(),
@@ -3214,7 +3381,6 @@ le_result_t taf_Audio::PlayList
 
             if (res != LE_OK) {
                 LE_ERROR("Unknown audio format");
-                playerStreamPtr = nullptr;
                 close(streamPtr->fd);
                 streamPtr->fd = -1;
                 return LE_FAULT;
@@ -3230,7 +3396,6 @@ le_result_t taf_Audio::PlayList
 #if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
     telux::audio::PlaybackConfig pbConfig = {};
     telux::common::ErrorCode ec = telux::common::ErrorCode::INTERNAL_ERROR;;
-    repeatedPlayerStatusListener = std::make_shared<tafPromptsStatusListener>();
     std::vector<telux::audio::PlaybackConfig> filesToPlay;
     for(size_t i = 0; i < playFileConfigSize; i++)
     {
@@ -3245,17 +3410,48 @@ le_result_t taf_Audio::PlayList
 
         filesToPlay.push_back(pbConfig);
     }
-    mIsPlaying = true;
-    ec = mAudioPlayer->startPlayback(filesToPlay, repeatedPlayerStatusListener);
-    if (ec != telux::common::ErrorCode::SUCCESS) {
-        LE_ERROR("failed start, err %d", static_cast<int>(ec));
-        playerStreamPtr = nullptr;
-        mIsPlaying = false;
-        return LE_FAULT;
+    if(streamPtr->direction == TAF_AUDIO_TX)
+    {
+        // incall uplink playback
+        mIsTxPlaying = true;
+        LE_DEBUG("Create stream for incall uplink playback and start playback");
+        ec = AudioFactory::getInstance().getAudioPlayer(mTxAudioPlayer);
+        if (ec != telux::common::ErrorCode::SUCCESS) {
+            LE_ERROR("can't get IAudioPlayer");
+            return LE_FAULT;
+        }
+        repeatedTxPlayerStatusListener = std::make_shared<tafPromptsStatusListener>();
+        repeatedTxPlayerStatusListener->streamPtr = streamPtr;
+        ec = mTxAudioPlayer->startPlayback(filesToPlay, repeatedTxPlayerStatusListener);
+        if (ec != telux::common::ErrorCode::SUCCESS) {
+            LE_ERROR("failed start, err %d", static_cast<int>(ec));
+            mIsTxPlaying = false;
+            return LE_FAULT;
+        }
+    } else {
+        mIsPlaying = true;
+        // incall downlink playback if call is active, if not local playback.
+        if(mCallStarted)
+        {
+            LE_DEBUG("Create stream for incall downlink playback and start playback");
+        }
+        else
+        {
+            LE_DEBUG("Create stream for playback and start playback");
+        }
+        repeatedPlayerStatusListener = std::make_shared<tafPromptsStatusListener>();
+        repeatedPlayerStatusListener->streamPtr = streamPtr;
+        ec = mAudioPlayer->startPlayback(filesToPlay, repeatedPlayerStatusListener);
+        if (ec != telux::common::ErrorCode::SUCCESS) {
+            LE_ERROR("failed start, err %d", static_cast<int>(ec));
+            mIsPlaying = false;
+            return LE_FAULT;
+        }
     }
+
     // Set volume and mute status of stream to player
-    res = SetVolume(streamRef, streamPtr->volLevel, false);
-    if (res == LE_OK)
+    le_result_t resVol = SetVolume(streamRef, streamPtr->volLevel, false);
+    if (resVol == LE_OK)
     {
         LE_INFO("Successfully set the vol level to player stream");
     }
@@ -3265,8 +3461,8 @@ le_result_t taf_Audio::PlayList
     }
     if(streamPtr->isMute)
     {
-        res = SetMute(streamRef, streamPtr->isMute);
-        if (res == LE_OK)
+        resVol = SetMute(streamRef, streamPtr->isMute);
+        if (resVol == LE_OK)
         {
             LE_INFO("Successfully set the mute status to player stream");
         }
@@ -3276,13 +3472,15 @@ le_result_t taf_Audio::PlayList
         }
     }
 #else
+    // Remote playback will not be supported with older SDK version
+    if(streamPtr->direction == TAF_AUDIO_TX)
+        return LE_UNSUPPORTED;
     mPbStartedSemRef = le_sem_Create("tafPbStartedSemRef", 0);
     le_thread_Start(le_thread_Create("PlayListThread", PlayList, NULL));
     // Wait for playback to start successfully
     le_sem_Wait(mPbStartedSemRef);
     le_sem_Delete(mPbStartedSemRef);
     mPbStartedSemRef = nullptr;
-    playerStreamPtr = nullptr;
     LE_DEBUG("pbList.pbRes is %d", pbList.pbRes);
     if(pbList.pbRes == LE_FAULT)
         res = LE_FAULT;
@@ -3308,17 +3506,20 @@ le_result_t taf_Audio::SetMute
 
     StreamMute muteObj = {};
     muteObj.enable = isMute;
-    if(streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY
-            && streamPtr->direction == TAF_AUDIO_RX)
+    if(streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY)
     {
         LE_DEBUG("Set the mute status to player stream reference");
 #if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
-        if(!mIsPlaying) {
+        if(streamPtr->direction == TAF_AUDIO_RX ? !mIsPlaying : !mIsTxPlaying) {
             LE_DEBUG("Stream is not active, update the mute status to stream reference");
             streamPtr->isMute = isMute;
             return LE_OK;
         }
-        ErrorCode err = mAudioPlayer->setMute(isMute);
+        ErrorCode err;
+        if(streamPtr->direction == TAF_AUDIO_RX)
+            err = mAudioPlayer->setMute(isMute);
+        else
+            err = mTxAudioPlayer->setMute(isMute);
         if (ErrorCode::SUCCESS != err) {
             if (isMute) {
                 LE_ERROR("Request to Mute failed err: %d", int (err));
@@ -3339,17 +3540,23 @@ le_result_t taf_Audio::SetMute
         muteObj.dir = StreamDirection::RX;
         status = mAudioPlayStream->setMute(muteObj, StreamMuteUnmuteCallback);
 #endif
-    } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE
-            && streamPtr->direction == TAF_AUDIO_TX)
+    } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)
     {
         LE_DEBUG("Set the mute status to recorder stream reference");
-        if(!mAudioCaptureStream) {
+        if(streamPtr->direction == TAF_AUDIO_TX ? !mAudioCaptureStream : !mAudioRxCaptureStream) {
             LE_DEBUG("Stream is not active, update the mute status to stream reference");
             streamPtr->isMute = isMute;
             return LE_OK;
         }
-        muteObj.dir = StreamDirection::TX;
-        status = mAudioCaptureStream->setMute(muteObj, StreamMuteUnmuteCallback);
+        if(streamPtr->direction == TAF_AUDIO_TX) {
+            muteObj.dir = StreamDirection::TX;
+            status = mAudioCaptureStream->setMute(muteObj, StreamMuteUnmuteCallback);
+        }
+        else
+        {
+            muteObj.dir = StreamDirection::RX;
+            status = mAudioRxCaptureStream->setMute(muteObj, StreamMuteUnmuteCallback);
+        }
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX)
     {
         LE_DEBUG("Set the mute status to voice RX stream reference");
@@ -3415,17 +3622,20 @@ le_result_t taf_Audio::GetMute
     std::promise<bool> p;
     StreamMute muteObj = {};
 
-    if(streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY
-            && streamPtr->direction == TAF_AUDIO_RX)
+    if(streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY)
     {
         LE_DEBUG("Get mute status of player stream reference");
 #if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
-        if(!mIsPlaying) {
+        if(streamPtr->direction == TAF_AUDIO_RX ? !mIsPlaying : !mIsTxPlaying) {
             LE_DEBUG("Stream is not active, update the mute status of stream reference");
             *isMute = streamPtr->isMute;
             return LE_OK;
         }
-        ErrorCode err = mAudioPlayer->getMute(*isMute);
+        ErrorCode err;
+        if(streamPtr->direction == TAF_AUDIO_RX)
+            err = mAudioPlayer->getMute(*isMute);
+        else
+            err = mTxAudioPlayer->getMute(*isMute);
         if (ErrorCode::SUCCESS != err) {
             LE_ERROR("Request to get Mute status failed err: %d", int (err));
             return LE_FAULT;
@@ -3452,16 +3662,27 @@ le_result_t taf_Audio::GetMute
             }
         });
 #endif
-    } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE
-            && streamPtr->direction == TAF_AUDIO_TX)
+    } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)
     {
         LE_DEBUG("Get mute status of recorder stream reference");
-        if(!mAudioCaptureStream) {
+        if(streamPtr->direction == TAF_AUDIO_TX ? !mAudioCaptureStream : !mAudioRxCaptureStream) {
             LE_DEBUG("Stream is not active, update the mute status of stream reference");
             *isMute = streamPtr->isMute;
             return LE_OK;
         }
-        status = mAudioCaptureStream->getMute(StreamDirection::TX,
+        StreamDirection dir;
+        std::shared_ptr<telux::audio::IAudioCaptureStream> captureStream;
+        if(streamPtr->direction == TAF_AUDIO_TX)
+        {
+            dir = StreamDirection::TX;
+            captureStream = mAudioCaptureStream;
+        }
+        else
+        {
+            dir = StreamDirection::RX;
+            captureStream = mAudioRxCaptureStream;
+        }
+        status = captureStream->getMute(dir,
                 [&p, &responseStatus, &muteObj, this](StreamMute mute, ErrorCode error) {
             if (error == ErrorCode::SUCCESS) {
                 responseStatus = telux::common::Status::SUCCESS;
@@ -3553,17 +3774,20 @@ le_result_t taf_Audio::SetVolume
     streamVol.volume.emplace_back(leftChannelVol);
     streamVol.volume.emplace_back(rightChannelVol);
 
-    if(streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY
-            && streamPtr->direction == TAF_AUDIO_RX)
+    if(streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY)
     {
         LE_DEBUG("Set volume to player stream reference");
 #if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
-        if(!mIsPlaying) {
+        if(streamPtr->direction == TAF_AUDIO_RX ? !mIsPlaying : !mIsTxPlaying) {
             LE_DEBUG("Stream is not active, update the volume level to stream reference");
             streamPtr->volLevel = volLevel;
             return LE_OK;
         }
-        ErrorCode err = mAudioPlayer->setVolume(streamVol);
+        ErrorCode err;
+        if(streamPtr->direction == TAF_AUDIO_RX)
+            err = mAudioPlayer->setVolume(streamVol);
+        else
+            err = mTxAudioPlayer->setVolume(streamVol);
         if (ErrorCode::SUCCESS != err) {
             LE_ERROR("Request to set volume failed err: %d", int (err));
             return LE_FAULT;
@@ -3588,17 +3812,26 @@ le_result_t taf_Audio::SetVolume
             }
         });
 #endif
-    } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE
-            && streamPtr->direction == TAF_AUDIO_TX)
+    } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)
     {
         LE_DEBUG("Set volume to recorder stream reference");
-        if(!mAudioCaptureStream) {
+        if(streamPtr->direction == TAF_AUDIO_TX ? !mAudioCaptureStream : !mAudioRxCaptureStream) {
             LE_DEBUG("Stream is not active, update the volume level to stream reference");
             streamPtr->volLevel = volLevel;
             return LE_OK;
         }
-        streamVol.dir = StreamDirection::TX;
-        status = mAudioCaptureStream->setVolume(streamVol,
+        std::shared_ptr<telux::audio::IAudioCaptureStream> captureStream;
+        if(streamPtr->direction == TAF_AUDIO_TX)
+        {
+            streamVol.dir = StreamDirection::TX;
+            captureStream = mAudioCaptureStream;
+        }
+        else
+        {
+            streamVol.dir = StreamDirection::RX;
+            captureStream = mAudioRxCaptureStream;
+        }
+        status = captureStream->setVolume(streamVol,
                 [&p, this](ErrorCode error) {
             if (error == ErrorCode::SUCCESS) {
                 p.set_value(true);
@@ -3657,18 +3890,21 @@ le_result_t taf_Audio::GetVolume
     std::promise<bool> p;
     telux::audio::StreamVolume streamVol;
 
-    if(streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY
-            && streamPtr->direction == TAF_AUDIO_RX)
+    if(streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY)
     {
         LE_DEBUG("Get volume to player stream reference");
 
 #if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
-        if(!mIsPlaying) {
+        if(streamPtr->direction == TAF_AUDIO_RX ? !mIsPlaying : !mIsTxPlaying) {
             LE_DEBUG("Stream is not active,  share local stream reference volume");
             *volLevel = streamPtr->volLevel;
             return LE_OK;
         }
-        ErrorCode err = mAudioPlayer->getVolume(streamVol);
+        ErrorCode err;
+        if(streamPtr->direction == TAF_AUDIO_RX)
+            err = mAudioPlayer->getVolume(streamVol);
+        else
+            err = mTxAudioPlayer->getVolume(streamVol);
         if (ErrorCode::SUCCESS != err) {
             LE_ERROR("Request to get Mute status failed err: %d", int (err));
             return LE_FAULT;
@@ -3696,16 +3932,27 @@ le_result_t taf_Audio::GetVolume
             }
         });
 #endif
-    } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE
-            && streamPtr->direction == TAF_AUDIO_TX)
+    } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)
     {
         LE_DEBUG("Get volume to recorder stream reference");
-        if(!mAudioCaptureStream) {
+        if(streamPtr->direction == TAF_AUDIO_TX ? !mAudioCaptureStream : !mAudioRxCaptureStream) {
             LE_DEBUG("Stream is not active,  share local stream reference volume");
             *volLevel = streamPtr->volLevel;
             return LE_OK;
         }
-        status = mAudioCaptureStream->getVolume(StreamDirection::TX,
+        StreamDirection dir;
+        std::shared_ptr<telux::audio::IAudioCaptureStream> captureStream;
+        if(streamPtr->direction == TAF_AUDIO_TX)
+        {
+            dir = StreamDirection::TX;
+            captureStream = mAudioCaptureStream;
+        }
+        else
+        {
+            dir = StreamDirection::RX;
+            captureStream = mAudioRxCaptureStream;
+        }
+        status = captureStream->getVolume(dir,
                 [&p, &streamVol, this](telux::audio::StreamVolume volume, ErrorCode error) {
             if (error == ErrorCode::SUCCESS) {
                 streamVol = volume;

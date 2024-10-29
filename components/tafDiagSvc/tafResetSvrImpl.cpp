@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -240,6 +240,82 @@ void taf_ResetSvr::UDSMsgHandler
         LE_ERROR("The service(0x%x) is invalid", sid);
         return;
     }
+
+#ifndef LE_CONFIG_DIAG_FEATURE_A
+    uint8_t errCode = 0;
+    taf_uds_AddrInfo_t addrInfo;
+    memcpy(&addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
+
+    auto &diag = taf_DiagSvr::GetInstance();
+    uint8_t resetType = msgPtr[1] & 0x7F;
+
+    // check enable condition
+    try
+    {
+        LE_DEBUG("Reset enable condition check");
+        cfg::Node & node = cfg::top_reset_all<int>("sub_function_identifier", resetType);
+        cfg::Node & enableNode = node.get_child("data_enable_condition");
+
+        for (const auto & enable: enableNode)
+        {
+            // Get the defined enable operation type: "and" or "or"
+            std::string enableOperation = enable.first;
+            if (enableOperation == "and")
+            {
+                LE_INFO("Check reset enable condition status based on AND operation");
+                cfg::Node & optNodeList = enableNode.get_child("and");
+                for (const auto & optNode: optNodeList)
+                {
+                    uint8_t enableId = optNode.second.get_value<uint8_t>();
+                    LE_DEBUG("Enable condition id = 0x%x", enableId);
+
+                    if (!diag.GetEnableConditionStatus(enableId))
+                    {
+                        errCode = cfg::get_nrc_by_condition_id(enableId);
+                        LE_WARN("Enable id %d condition is false, send nrc 0x%x",
+                                enableId, errCode);
+                        SendNRCResp(&addrInfo, errCode);
+                        return;
+                    }
+                }
+            }
+            else if (enableOperation == "or")
+            {
+                LE_INFO("Check reset enable condition status based on OR operation");
+                cfg::Node & optNodeList = enableNode.get_child("or");
+                bool enableStatus = false;
+                uint8_t enableId = 0;
+
+                for (const auto & optNode: optNodeList)
+                {
+                    enableId = optNode.second.get_value<uint8_t>();
+                    LE_DEBUG("Enable condition id = 0x%x", enableId);
+
+                    if(diag.GetEnableConditionStatus(enableId))
+                    {
+                        enableStatus = true;
+                        LE_INFO("enable id %d status is true", enableId);
+                        break;
+                    }
+                }
+
+                if(!enableStatus && enableId != 0)
+                {
+                    errCode = cfg::get_nrc_by_condition_id(enableId);
+                    LE_WARN("Enable id %d condition is false, send nrc 0x%x",
+                            enableId, errCode);
+                    SendNRCResp(&addrInfo, errCode);
+                    return;
+                }
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LE_WARN("Enable condition does not define for reset type: 0x%x, Exception: %s",
+                    resetType, e.what());
+    }
+#endif
 
     taf_ResetRxMsg_t* rxMsgPtr = NULL;
 

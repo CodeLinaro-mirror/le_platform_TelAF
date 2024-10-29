@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -39,6 +39,12 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include "tafDiagBackend.hpp"
+
+#ifndef LE_CONFIG_DIAG_FEATURE_A
+#include "tafDiagSvr.hpp"
+#endif
+
+#include <string>
 
 #define DEFAULT_SVC_REF_CNT 16
 #define DEFAULT_RX_MSG_REF_CNT 16

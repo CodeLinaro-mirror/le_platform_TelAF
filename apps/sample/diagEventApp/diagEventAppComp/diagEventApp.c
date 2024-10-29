@@ -8,7 +8,12 @@
 
 #define EVENT_ID_0001 0001 //Defined in YAML file
 #define DRIVING_CYCLE_ID 1 // The operation cycle id value of Event id 1
-#define ENABLE_CONDITION_ID1 0 // The enable condition id value of Event id 1 and event id 2
+
+// The enable condition id.
+#define ENABLE_CONDITION_ID1 3
+#define ENABLE_CONDITION_ID2 5
+#define ENABLE_CONDITION_ID3 6
+
 #define SUPPLIER_FAULT_CODE_LEN 5
 #define MAX_PREFAILED_NUMBER 20
 #define SECOND_MAX_PREFAILED_NUMBER 8
@@ -621,19 +626,22 @@ static void* changeEventStatus()
         return NULL;
     }
 
-    result = taf_diagEvent_SetEnableCondition(ENABLE_CONDITION_ID1, false);
-    if(result != LE_OK)
+    // set enable condition as false
+    le_result_t res_1, res_2, res_3;
+    res_1 = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID1, false);
+    res_2 = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID2, false);
+    res_3 = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID3, false);
+    if((res_1 != LE_OK) || (res_2 != LE_OK) || (res_3 != LE_OK))
     {
-        LE_ERROR("Failed to set enable condition to false, result:%d, conditionId:%d", result,
-                ENABLE_CONDITION_ID1);
+        LE_ERROR("Failed to set enable condition to false");
         return NULL;
     }
 
-    result = taf_diagEvent_SetEnableCondition(ENABLE_CONDITION_ID1, true);
+    result = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID2, true);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to set enable condition to true, result:%d, conditionId:%d", result,
-                ENABLE_CONDITION_ID1);
+                ENABLE_CONDITION_ID2);
         return NULL;
     }
 
@@ -834,12 +842,15 @@ COMPONENT_INIT
     le_result_t result;
     semRef = le_sem_Create("SemRef", 0);
 
-    result = taf_diagEvent_SetEnableCondition(ENABLE_CONDITION_ID1, true);
+    result = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID1, true);
 
     if(result != LE_OK)
     {
         LE_ERROR("Failed to set enable condition");
     }
+
+    bool status = taf_diag_GetEnableConditionStatus(ENABLE_CONDITION_ID1);
+    LE_DEBUG("Enable condition status of %d is %d", ENABLE_CONDITION_ID1, status);
 
     // Create event uds status change thread
     le_thread_Ref_t eventUdsStatusThreadRef = le_thread_Create("udsStatusTh",

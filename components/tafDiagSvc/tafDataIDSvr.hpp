@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -40,6 +40,10 @@
 #include "tafSvcIF.hpp"
 #include "tafDiagBackend.hpp"
 
+#ifndef LE_CONFIG_DIAG_FEATURE_A
+#include "tafDiagSvr.hpp"
+#endif
+
 #define DEFAULT_SVC_REF_CNT 16
 #define DEFAULT_RX_MSG_REF_CNT 16
 #define DEFAULT_RX_HANDLER_REF_CNT 16
@@ -52,6 +56,9 @@
 #define reqWriteDIDSvcId 0x2E  // WriteDID request service ID.
 #define respWriteDIDSvcId 0x6E // WriteDID response service ID.
 #define DID_NRC_RANGE_LOW_VALUE 0x80U
+
+#define DID_LEN 2
+#define MAX_WRITE_DID_REQ_NUM 1
 
 //--------------------------------------------------------------------------------------------------
 /**

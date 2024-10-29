@@ -247,7 +247,8 @@ static void AO_SecurityAccess_ctor
 
             for (auto & level_item: sec_level) {
                 std::string level_name = level_item.second.get<std::string>("");
-                cfg::Node & level_node = cfg::top_security_level<std::string>("short_name", level_name);
+                cfg::Node & level_node = cfg::top_diagnostic_session_security_level<std::string>(
+                        "short_name", level_name);
 
                 SecurityLevel_t* level = (SecurityLevel_t*) le_mem_ForceAlloc(SecurityLevelPool);
                 level->Att_Cnt_Limit = level_node.get<int>("num_failed_security_access");

@@ -102,6 +102,8 @@ void taf_DTCInf::UDSMsgHandler
                 if(result != LE_OK)
                 {
                     LE_ERROR("Error while getting data for no of dtc by status mask!");
+                    errCode = REQ_OUT_OF_RANGE;
+                    SendNRCResp(sid, addrPtr, errCode);
                     return;
                 }
             }
@@ -126,6 +128,8 @@ void taf_DTCInf::UDSMsgHandler
                 if(result != LE_OK)
                 {
                     LE_ERROR("Error while getting data for dtc for status mask!");
+                    errCode = REQ_OUT_OF_RANGE;
+                    SendNRCResp(sid, addrPtr, errCode);
                     return;
                 }
             }
@@ -148,6 +152,8 @@ void taf_DTCInf::UDSMsgHandler
                 if(result != LE_OK)
                 {
                     LE_ERROR("Error while getting data for dtc snapshot ID!");
+                    errCode = REQ_OUT_OF_RANGE;
+                    SendNRCResp(sid, addrPtr, errCode);
                     return;
                 }
             }break;
@@ -173,16 +179,11 @@ void taf_DTCInf::UDSMsgHandler
                 {
                     LE_DEBUG("Send positive response msg!");
                 }
-                else if(result == LE_UNSUPPORTED)
-                {
-                    LE_DEBUG("requestOutOfRange!");
-                    errCode = REQ_OUT_OF_RANGE;
-                    SendNRCResp(sid, addrPtr, errCode);
-                    return;
-                }
                 else
                 {
-                    LE_ERROR("Error while getting data for dtc snapshot record by dtc number!");
+                    LE_ERROR("Result is %d", result);
+                    errCode = REQ_OUT_OF_RANGE;
+                    SendNRCResp(sid, addrPtr, errCode);
                     return;
                 }
             }break;
@@ -208,16 +209,11 @@ void taf_DTCInf::UDSMsgHandler
                 {
                     LE_DEBUG("Send positive response msg!");
                 }
-                else if(result == LE_UNSUPPORTED)
-                {
-                    LE_DEBUG("requestOutOfRange!");
-                    errCode = REQ_OUT_OF_RANGE;
-                    SendNRCResp(sid, addrPtr, errCode);
-                    return;
-                }
                 else
                 {
-                    LE_ERROR("Error while getting data for dtc for ext data record!");
+                    LE_ERROR("Result is %d", result);
+                    errCode = REQ_OUT_OF_RANGE;
+                    SendNRCResp(sid, addrPtr, errCode);
                     return;
                 }
             }
@@ -240,6 +236,8 @@ void taf_DTCInf::UDSMsgHandler
                 if(result != LE_OK)
                 {
                     LE_ERROR("Error while getting data for dtc report supported DTC!");
+                    errCode = REQ_OUT_OF_RANGE;
+                    SendNRCResp(sid, addrPtr, errCode);
                     return;
                 }
             }
@@ -262,6 +260,8 @@ void taf_DTCInf::UDSMsgHandler
                 if(result != LE_OK)
                 {
                     LE_ERROR("Error while getting data for fault detection counter!");
+                    errCode = REQ_OUT_OF_RANGE;
+                    SendNRCResp(sid, addrPtr, errCode);
                     return;
                 }
             }
@@ -397,8 +397,13 @@ le_result_t taf_DTCInf::GetNumOfDtcByStatusMask
 
             if (dtcStatusPtr != NULL)
             {
+#ifdef LE_CONFIG_DIAG_FEATURE_A
                 // Check the current session type is same as config session type for dtc.
                 isSesTypeConfig = IsDTCCurrentSesTypeConfig(dtcStatusPtr->dtc, currentSesType);
+#else
+                // No need to check session type.
+                isSesTypeConfig = true;
+#endif
                 if (isSesTypeConfig)
                 {
                     dtcCount++;
@@ -478,8 +483,13 @@ le_result_t taf_DTCInf::GetDtcByStatusMask
 
             if (dtcStatusPtr != NULL)
             {
+#ifdef LE_CONFIG_DIAG_FEATURE_A
                 // Check the current session type is same as config session type for dtc.
                 isSesTypeConfig = IsDTCCurrentSesTypeConfig(dtcStatusPtr->dtc, currentSesType);
+#else
+                // No need to check session type.
+                isSesTypeConfig = true;
+#endif
                 if (isSesTypeConfig)
                 {
                     respBuf[DTC_BY_STATUS_MASK_RESP_BASE_LEN + i*4]
@@ -558,8 +568,13 @@ le_result_t taf_DTCInf::GetDtcSnapshotID
 
             if (snapshotInfoPtr != NULL)
             {
+#ifdef LE_CONFIG_DIAG_FEATURE_A
                 // Check the current session type is same as config session type for dtc.
                 isSesTypeConfig = IsDTCCurrentSesTypeConfig(snapshotInfoPtr->dtc, currentSesType);
+#else
+                // No need to check session type.
+                isSesTypeConfig = true;
+#endif
                 if (isSesTypeConfig)
                 {
                     respBuf[DTC_SNAPSHOT_ID_RESP_BASE_LEN + i*4]
@@ -616,8 +631,13 @@ le_result_t taf_DTCInf::GetDtcSnapshotRecordByDTCNum
     }
     LE_DEBUG("Current session is %x", currentSesType);
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
     // Check the current session type is same as config session type for dtc.
     isSesTypeConfig = IsDTCCurrentSesTypeConfig(dtcMaskRec, currentSesType);
+#else
+    // No need to check session type.
+    isSesTypeConfig = true;
+#endif
     if (!isSesTypeConfig)
     {
         LE_DEBUG("Current session type is not supported!");
@@ -708,8 +728,13 @@ le_result_t taf_DTCInf::GetExtDataRecordByDTCNum
     }
     LE_DEBUG("Current session is %x", currentSesType);
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
     // Check the current session type is same as config session type for dtc.
     isSesTypeConfig = IsDTCCurrentSesTypeConfig(dtcMaskRcd, currentSesType);
+#else
+    // No need to check session type.
+    isSesTypeConfig = true;
+#endif
     if (!isSesTypeConfig)
     {
         LE_DEBUG("Current session type is not supported!");
@@ -818,8 +843,13 @@ le_result_t taf_DTCInf::GetSupportedDtc
 
             if (dtcStatusPtr != NULL)
             {
+#ifdef LE_CONFIG_DIAG_FEATURE_A
                 // Check the current session type is same as config session type for dtc.
                 isSesTypeConfig = IsDTCCurrentSesTypeConfig(dtcStatusPtr->dtc, currentSesType);
+#else
+                // No need to check session type.
+                isSesTypeConfig = true;
+#endif
                 if (isSesTypeConfig)
                 {
                     respBuf[SUPPORTED_DTC_RESP_BASE_LEN + i*4]
@@ -894,8 +924,13 @@ le_result_t taf_DTCInf::GetFaultDetCounter
 
             if (fdcInfoPtr != NULL)
             {
+#ifdef LE_CONFIG_DIAG_FEATURE_A
                 // Check the current session type is same as config session type for dtc.
                 isSesTypeConfig = IsDTCCurrentSesTypeConfig(fdcInfoPtr->dtc, currentSesType);
+#else
+                // No need to check session type.
+                isSesTypeConfig = true;
+#endif
                 if (isSesTypeConfig)
                 {
                     respBuf[DTC_FAULT_DETECTION_COUNTER_RESP_BASE_LEN + i*4]
@@ -1058,6 +1093,7 @@ bool taf_DTCInf::IsDTCCurrentSesTypeConfig
 {
     LE_DEBUG("IsDTCCurrentSesTypeConfig");
 
+    // Check DTC is supported in current active session or not.
     try
     {
         cfg::Node & dtcNode = cfg::get_dtc_node(dtc);

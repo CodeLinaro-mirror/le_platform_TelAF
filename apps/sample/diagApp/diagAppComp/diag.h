@@ -8,6 +8,8 @@
 
 #include "diagPrivate.h"
 
+le_result_t diag_Init(void);
+
 #ifndef DIAG_MULTIVLAN_TEST
 le_result_t diagReadWriteDid_Init(void);
 le_result_t diagSecurityAccess_Init(void);

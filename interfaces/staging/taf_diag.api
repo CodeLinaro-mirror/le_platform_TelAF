@@ -1,0 +1,99 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafDiag Diag Service
+ *
+ * @ref taf_diag_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * Diag Service provides APIs to applications to set enable condition and get enable condition
+ * status of enable ID.
+ *
+ * @section c_taf_diag_binding IPC interfaces binding
+ *
+ * The functions of this API are provided by the @b tafDiagSvc platform service.
+ *
+ * The following example illustrates how to bind to the diag service.
+ *
+ * @verbatim
+   bindings:
+   {
+        clientExe.clientComponent.taf_diag -> tafDiagSvc.taf_diag
+   }
+   @endverbatim
+ *
+ * @section c_taf_diag_enableCondition_API Enable condition API
+ *
+ * taf_diag_SetEnableCondition() can be used to set enable condition status for given enable ID
+ * to fulfilled or not fulfilled.
+ *
+ * The following example illustrates how to set the enable condition to fulfilled.
+ *
+ * @code
+   le_result_t result = taf_diagEvent_SetEnableCondition(ENABLE_CONDITION_ID, true);
+   if (result != LE_OK)
+   {
+      LE_ERROR("Fail to set enable condition.");
+      return result;
+   }
+   @endcode
+ *
+ * taf_diag_GetEnableConditionStatus() can be used to get enable condition status for given
+ * enable ID.
+ *
+ * The following example illustrates how to get the enable condition status.
+ *
+ * @code
+   bool enableStatus = taf_diag_GetEnableConditionStatus(ENABLE_CONDITION_ID);
+   if (enableStatus)
+   {
+      LE_INFO(" Enable status for ENABLE_CONDITION_ID is true");
+      return enableStatus;
+   }
+   else
+   {
+      LE_INFO(" Enable status for ENABLE_CONDITION_ID is false");
+      return enableStatus;
+   }
+   @endcode
+ *
+ * <HR>
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sets an enable condition.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetEnableCondition
+(
+    uint8 enableConditionID  IN,     ///< Enable condition ID.
+    bool conditionFulfilled  IN      ///< The enable condition is fulfilled (TRUE) or not.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets an enable condition status.
+ *
+ * @return
+ *     - TRUE -- Succeeded.
+ *     - FALSE -- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION bool GetEnableConditionStatus
+(
+    uint8 enableConditionID  IN     ///< Enable condition ID.
+);

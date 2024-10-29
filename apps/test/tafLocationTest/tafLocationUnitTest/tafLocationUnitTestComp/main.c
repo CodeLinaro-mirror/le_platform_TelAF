@@ -1784,7 +1784,7 @@ static void NmeaHandlerFunction
 {
     LE_INFO("\n************* NMEA Information ***************\n");
     LE_INFO("Timestamp                    : %"PRIu64" \n", timestamp);
-    DisplayNmea(nmeaInfo);
+    //DisplayNmea(nmeaInfo);
     LE_INFO("**********************************************\n");
 }
 

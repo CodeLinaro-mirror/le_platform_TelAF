@@ -135,6 +135,8 @@ typedef struct AO_SecurityAccess_s
 static le_mem_PoolRef_t SecurityActiveObjectPool;
 static le_mem_PoolRef_t SecuritySessionPool;
 static le_mem_PoolRef_t SecurityLevelPool;
+static le_hashmap_Ref_t AO_timer_mapping_table;
+#define MAX_AO_TIMER_TABLE_SIZE 16
 
 le_event_Id_t SecAccEventIdRef = NULL;
 
@@ -1201,8 +1203,11 @@ bool SecurityAccess_IsUnlocked(UdsCommunicationMgr * mgr)
 
 static void SecAcc_DelayTimerHandler(le_timer_Ref_t timerRef)
 {
+    LE_DEBUG("%s .. timerRef: %p", __FUNCTION__, timerRef);
+
     AO_SecurityAccess_t * object =
-        CONTAINER_OF(timerRef, AO_SecurityAccess_t, delay_timer_ref);
+            (AO_SecurityAccess_t *) le_hashmap_Get(AO_timer_mapping_table, timerRef);
+    LE_DEBUG("%s .. AO : %p", __FUNCTION__, object);
 
     LE_INFO("report -> DELAY_TIMER_EXPIRED_SIG");
     SecAccReport_t report = {
@@ -1244,6 +1249,13 @@ void SecurityAccess_Init(void * u, void * p)
     SecuritySessionPool = le_mem_CreatePool("SecuritySessionPool", sizeof(SecuritySession_t));
     SecurityLevelPool = le_mem_CreatePool("SecurityLevelPool", sizeof(SecurityLevel_t));
 
+    AO_timer_mapping_table = le_hashmap_Create(
+                                "AO-Timer-Table",
+                                MAX_AO_TIMER_TABLE_SIZE,
+                                le_hashmap_HashVoidPointer,
+                                le_hashmap_EqualsVoidPointer);
+    LE_ASSERT(AO_timer_mapping_table != NULL);
+
     /* Be used in UDS Manager Thread */
     le_cfg_ConnectService();
 
@@ -1268,6 +1280,18 @@ void SecurityAccess_CreateActiveObject(void * mgr_, void * ifname)
     char timerName[DELAY_TIMER_NAME_SIZE];
     snprintf(timerName, sizeof(timerName), "delay_timer_%s", (char *)ifname);
     mgr->mSecurityAccess->delay_timer_ref = le_timer_Create(timerName);
+    LE_ASSERT(mgr->mSecurityAccess->delay_timer_ref != NULL);
+
+    LE_DEBUG("%s .. AO: %p (%s)", __FUNCTION__, mgr->mSecurityAccess, (char *)ifname);
+    LE_DEBUG("%s .. delay_timer_ref: %p",
+            __FUNCTION__,
+            mgr->mSecurityAccess->delay_timer_ref);
+
+    LE_ASSERT(le_hashmap_Size(AO_timer_mapping_table) <= MAX_AO_TIMER_TABLE_SIZE);
+    le_hashmap_Put(AO_timer_mapping_table,
+                   mgr->mSecurityAccess->delay_timer_ref,
+                   mgr->mSecurityAccess);
+
     le_timer_SetRepeat(mgr->mSecurityAccess->delay_timer_ref, 1);
     le_timer_SetHandler(mgr->mSecurityAccess->delay_timer_ref, SecAcc_DelayTimerHandler);
 

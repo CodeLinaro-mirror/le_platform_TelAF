@@ -360,8 +360,10 @@ void taf_DiagBackend::Init
     void
 )
 {
-    if (InitUdsStack() == LE_OK)
-    {
-        regstFlag = 1;
+    if (regstFlag == 0) {
+        if (InitUdsStack() == LE_OK)
+        {
+            regstFlag = 1;
+        }
     }
 }

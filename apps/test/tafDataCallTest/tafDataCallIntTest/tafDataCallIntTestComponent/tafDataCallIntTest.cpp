@@ -369,7 +369,16 @@ void set_pdp_test(taf_dcs_Pdp_t pdp)
 
     // Test Case
     result = taf_dcs_SetPDP(TestProfileRef, pdp);
-    LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP - LE_OK");
+    if (TAF_DCS_PDP_UNKNOWN == pdp)
+    {
+        LE_TEST_OK(result == LE_BAD_PARAMETER, "taf_dcs_SetPDP - LE_BAD_PARAMETER");
+        TC_No += 1;
+        return;
+    }
+    else
+    {
+        LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP - LE_OK");
+    }
     report(LE_OK,result,"taf_dcs_SetPDP");
 
     // Test Case
@@ -807,6 +816,9 @@ COMPONENT_INIT
     TC_No = 1;
     ipType = TAF_DCS_PDP_UNKNOWN;
     set_pdp_test(ipType);
+
+    // These tests need not be run as TAF_DCS_PDP_UNKNOWN is not a supported PDP value.
+    /*
     set_apn_test(apnPtr);
     // profile_list_test();
     result=taf_dcs_StartSession(TestProfileRef);
@@ -819,6 +831,7 @@ COMPONENT_INIT
     report(LE_OUT_OF_RANGE,result,"stop_session_sync_test");
     restore_apn_test();
     get_roaming_status_test();
+    */
 
     /* Taf Async Data Call with PDP - TAF_DCS_PDP_IPV4V6 */
     LE_TEST_INFO("Taf Async Data Call with PDP - TAF_DCS_PDP_IPV4V6");

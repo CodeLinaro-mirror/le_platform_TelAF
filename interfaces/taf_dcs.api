@@ -393,31 +393,33 @@ STRUCT DnsServerAddresses
 //--------------------------------------------------------------------------------------------------
 ENUM DataBearerTechnology
 {
-    // CDMA related
-    DATA_BEARER_TECHNOLOGY_UNKNOWN,               ///< Unknown.
-    DATA_BEARER_TECHNOLOGY_CDMA2000_1X,           ///< CDMA 1XF.
-    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO,         ///< CDMA Rev 0.
-    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO_REVA,    ///< CDMA Rev A.
-    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO_REVB,    ///< CDMA Rev B.
-    DATA_BEARER_TECHNOLOGY_CDMA2000_EHRPD,        ///< CDMA EHPRD.
-    DATA_BEARER_TECHNOLOGY_CDMA2000_HRPD,         ///< CDMA HPRD.
-    DATA_BEARER_TECHNOLOGY_CDMA_EVDO_FMC,         ///< CDMA FMC.
-    DATA_BEARER_TECHNOLOGY_3GPP2_WLAN,            ///< IWLAN.
-    //UMTS related
-    DATA_BEARER_TECHNOLOGY_WCDMA,                 ///< WCDMA (UMTS).
-    DATA_BEARER_TECHNOLOGY_GPRS,                  ///< GPRS.
-    DATA_BEARER_TECHNOLOGY_HSDPA,                 ///< HSDPA.
-    DATA_BEARER_TECHNOLOGY_HSUPA,                 ///< HSUPA.
-    DATA_BEARER_TECHNOLOGY_EDGE,                  ///< EDGE.
-    DATA_BEARER_TECHNOLOGY_LTE,                   ///< LTE.
-    DATA_BEARER_TECHNOLOGY_HSDPA_PLUS,            ///< HSDPA_PLUS.
-    DATA_BEARER_TECHNOLOGY_DC_HSDPA_PLUS,         ///< DC_HSDPA_PLUS.
-    DATA_BEARER_TECHNOLOGY_HSPA,                  ///< HSPA.
-    DATA_BEARER_TECHNOLOGY_64_QAM,                ///< 64 QAM.
-    DATA_BEARER_TECHNOLOGY_TD_SCDMA,              ///< TDS-CDMA.
-    DATA_BEARER_TECHNOLOGY_GSM,                   ///< GSM.
-    DATA_BEARER_TECHNOLOGY_3GPP_WLAN,             ///< IWLAN.
-    DATA_BEARER_TECHNOLOGY_5G,                    ///< NR5G.
+    // 3GPP2 related
+    DATA_BEARER_TECHNOLOGY_UNKNOWN,            ///< Unknown.
+    DATA_BEARER_TECHNOLOGY_CDMA2000_1X,        ///< CDMA 1XF. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO,      ///< CDMA Rev 0. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO_REVA, ///< CDMA Rev A. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO_REVB, ///< CDMA Rev B. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_CDMA2000_EHRPD,     ///< CDMA EHPRD. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_CDMA2000_HRPD,      ///< CDMA HPRD. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_CDMA_EVDO_FMC,      ///< CDMA FMC. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_3GPP2_WLAN,         ///< IWLAN. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_CDMA_1X,            ///< CDMA 1X.
+    DATA_BEARER_TECHNOLOGY_CDMA_EVDO,          ///< CDMA EVDO.
+    // 3GPP related
+    DATA_BEARER_TECHNOLOGY_WCDMA,              ///< WCDMA (UMTS).
+    DATA_BEARER_TECHNOLOGY_GPRS,               ///< GPRS. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_HSDPA,              ///< HSDPA. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_HSUPA,              ///< HSUPA. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_EDGE,               ///< EDGE. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_LTE,                ///< LTE.
+    DATA_BEARER_TECHNOLOGY_HSDPA_PLUS,         ///< HSDPA_PLUS. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_DC_HSDPA_PLUS,      ///< DC_HSDPA_PLUS. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_HSPA,               ///< HSPA. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_64_QAM,             ///< 64 QAM. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_TD_SCDMA,           ///< TD-SCDMA.
+    DATA_BEARER_TECHNOLOGY_GSM,                ///< GSM.
+    DATA_BEARER_TECHNOLOGY_3GPP_WLAN,          ///< IWLAN. @deprecated This state is scheduled to be removed.
+    DATA_BEARER_TECHNOLOGY_5G                  ///< NR5G.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -900,6 +902,7 @@ FUNCTION bool IsIPv6
  *  - LE_OK -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
+ *  - LE_UNAVAILABLE  -- Data call is not active.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDataBearerTechnology

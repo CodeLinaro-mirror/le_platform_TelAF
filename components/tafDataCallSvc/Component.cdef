@@ -51,4 +51,5 @@ sources:
     tafDcsSvr.cpp
     tafDcsConnectionImpl.cpp
     tafDcsProfileImpl.cpp
+    tafDcsHelper.cpp
 }

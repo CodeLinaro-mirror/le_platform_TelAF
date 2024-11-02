@@ -75,6 +75,7 @@
 #include "telux/data/DataProfile.hpp"
 #include "telux/tel/PhoneFactory.hpp"
 #include "telux/common/CommonDefines.hpp"
+#include "tafDcsHelper.hpp"
 
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 #include <telux/tel/ServingSystemManager.hpp>
@@ -92,6 +93,7 @@ using namespace telux::common;
 
 #define SESSION_TIMEOUT 60
 #define DATA_SUBSYSTEM_INIT_TIMEOUT 5
+#define TELSDK_ASYNC_REQ_TIMEOUT 2
 
 namespace telux {
 namespace tafsvc {
@@ -241,6 +243,7 @@ namespace tafsvc {
         public:
             le_sem_Ref_t semaphore;
             telux::data::ServiceStatus status;
+            telux::common::ErrorCode errorCode;
             void requestServiceStatus(telux::data::ServiceStatus serviceStatus,
                                       telux::common::ErrorCode error);
     };
@@ -333,12 +336,6 @@ namespace tafsvc {
             static void EventHandler(void* reportPtr);
             void InternalEventHandler(void* reportPtr);
             taf_dcs_CallCtx_t* CreateDataCallCtx(uint8_t slotId, int32_t profileId);
-            const char * CallEventToString(taf_dcs_ConState_t callEvent);
-            const char* CallStatusToString(telux::data::DataCallStatus status);
-            const char* CallEndReasonToString(EndReasonType type);
-            const char* IpFamilyTypeToString(telux::data::IpFamilyType ipType);
-            const char* TechPreferenceToString(telux::data::TechPreference techPref);
-            const char* DataBearerToString(telux::data::DataBearerTechnology techPref);
             taf_dcs_CallCtx_t* GetCallCtx(uint8_t slotId, int32_t profileId);
             taf_dcs_CallCtx_t* GetCallCtx(taf_dcs_CallRef_t reference);
             le_result_t GetSlotIdAndProfileId(taf_dcs_CallRef_t reference, uint8_t *slotId,
@@ -413,12 +410,16 @@ namespace tafsvc {
                                                                          dataServingSystemListeners;
             std::map<SlotId, std::shared_ptr<taf_DataConnServingSystemListener>>
                                                                    connectionServingSystemlisteners;
-            std::shared_ptr<taf_DataConnRequestServiceStatusCallback> reqSvcStateCb;
+            std::shared_ptr<taf_DataConnRequestServiceStatusCallback> reqServiceStatusCb;
             std::shared_ptr<taf_DataConnRequestRoamingStatusCallback> reqRoamingStatusCb;
             std::shared_ptr<taf_DataAPNThrottleInfoCallback> reqAPNThrottlingStatusCb;
-        #endif
-            std::map<SlotId, std::shared_ptr<telux::data::IDataConnectionManager>>
-                                                                          dataConnectionManagers;
+
+            // Function to get data service status from TelSDK.
+            le_result_t GetServiceStatusFromTelSDK( const uint8_t slotId,
+                                                    telux::data::ServiceStatus &serviceStatus);
+            taf_dcs_DataBearerTechnology_t MapNwRatToDataBearerTech(telux::data::NetworkRat nwRAT);
+#endif
+            std::map<SlotId, std::shared_ptr<telux::data::IDataConnectionManager>> dataConnectionManagers;
             std::shared_ptr<telux::data::IDataConnectionListener> DataConnectionListener;
         private:
             le_dls_List_t    DataCallCtxList = LE_DLS_LIST_INIT;
@@ -437,4 +438,3 @@ namespace tafsvc {
 
 }
 }
-

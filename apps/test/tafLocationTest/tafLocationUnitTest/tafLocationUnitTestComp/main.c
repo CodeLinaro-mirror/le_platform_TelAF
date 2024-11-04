@@ -158,6 +158,7 @@ static void PositionHandlerFunction
     size_t satelliteElevNumElements = NUM_ARRAY_MEMBERS(satelliteElevPtr);
     uint32_t TimeAccuracy = 0;
     uint64_t EpochTime = 0;
+    uint8_t LeapSecondsUnc = 0;
     uint32_t gpsWeek;
     uint32_t gpsTimeOfWeek;
     taf_locGnss_Resolution_t DopRes;
@@ -340,6 +341,25 @@ static void PositionHandlerFunction
     else
     {
         LE_TEST_INFO("Failed! to get GPS Leap Seconds\n");
+    }
+
+    //Get Leap Seconds uncertainty
+    LE_TEST_INFO("taf_locGnss_GetLeapSecondsUncertainty() API is triggerred to get Leap seconds uncertainty");
+    positionSampleRef = taf_locGnss_GetLastSampleRef();
+    LE_TEST_INFO("taf_locGnss_GetLastSampleRef() API is triggerred to get last sample reference");
+    result = taf_locGnss_GetLeapSecondsUncertainty(positionSampleRef, &LeapSecondsUnc);
+    LE_TEST_OK(((LE_OK == result) || (LE_OUT_OF_RANGE == result)), "taf_locGnss_GetLeapSecondsUncertainty -LE_OK");
+    if (LE_OK == result)
+    {
+        LE_TEST_INFO("Leap Seconds Uncertainty %u s\n", LeapSecondsUnc);
+    }
+    else if (LE_OUT_OF_RANGE == result)
+    {
+        LE_TEST_INFO("Leap Seconds Uncertainty %u s\n", LeapSecondsUnc);
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! to get Leap Seconds Uncertainty\n");
     }
 
     //145. Get Date
@@ -1470,14 +1490,14 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! See log for details\n");
     }
 
-    //Gets the elapsed real time and its uncertainity values.
+    //Gets the elapsed real time and its uncertainty values.
     LE_TEST_INFO("taf_locGnss_GetRealTimeInformation() is called");
     result = taf_locGnss_GetRealTimeInformation(positionSampleRef,&realTime,&realTimeUnc);
     LE_TEST_OK(result == LE_OK, "taf_locGnss_GetRealTimeInformation-LE_OK");
     if (result == LE_OK)
     {
         LE_TEST_INFO("Elapsed real time: %"PRIu64" ns\n",realTime);
-        LE_TEST_INFO("Elapsed real time uncertainity: %"PRIu64" ns\n",realTimeUnc);
+        LE_TEST_INFO("Elapsed real time uncertainty: %"PRIu64" ns\n",realTimeUnc);
     }
     else if(result == LE_OUT_OF_RANGE)
     {
@@ -1589,7 +1609,7 @@ static void PositionHandlerFunction
     if (result == LE_OK)
     {
         LE_TEST_INFO("Gptp Time(in ns) :%"PRIu64"\n",gPtpTime);
-        LE_TEST_INFO("Gptp Time Uncertainity(in ns) :%"PRIu64"\n",gPtpTimeUnc);
+        LE_TEST_INFO("Gptp Time Uncertainty(in ns) :%"PRIu64"\n",gPtpTimeUnc);
     }
 
     LE_TEST_INFO("taf_locGnss_ReleaseSampleRef is triggered");

@@ -249,6 +249,8 @@ namespace tafsvc {
         uint64_t gPtpTime;
         bool gPtpTimeUncValid;
         uint64_t gPtpTimeUnc;
+        bool   leapSecondsUncValid;
+        uint8_t leapSecondsUnc;
         le_dls_Link_t   next;
     }
     taf_locGnss_PositionSample_t;
@@ -508,6 +510,7 @@ namespace tafsvc {
 
             le_result_t SetDRConfigValidity(taf_locGnss_DRConfigValidityType_t validMask);
             le_result_t GetGptpTime(taf_locGnss_SampleRef_t positionSampleRef,uint64_t* gPtpTime,uint64_t* gPtpTimeUnc);
+            le_result_t GetLeapSecondsUncertainty(taf_locGnss_SampleRef_t positionSampleRef,uint8_t* leapSecondsUncPtr);
             void CleanUp(taf_locGnss_Client_t*);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;

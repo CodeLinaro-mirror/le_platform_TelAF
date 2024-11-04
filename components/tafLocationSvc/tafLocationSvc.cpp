@@ -1990,3 +1990,20 @@ le_result_t taf_locGnss_GetDRSolutionStatus
     auto &gnss = taf_locGnss::GetInstance();
     return gnss.GetDRSolutionStatus(positionSampleRef,solutionStatusPtr);
 }
+
+/**
+* FUNCTION     : GetLeapSecondsUncertainty
+* DESCRIPTION  : Gets leap seconds uncertainty.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE and LE_FAULT on failed
+*/
+le_result_t taf_locGnss_GetLeapSecondsUncertainty
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+    uint8_t* leapSecondsUncPtr
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetLeapSecondsUncertainty(positionSampleRef,leapSecondsUncPtr);
+}

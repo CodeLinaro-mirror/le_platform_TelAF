@@ -476,6 +476,8 @@ void taf_locGnss::CopyPositionData
     LastDataPtr->gPtpTimeUnc = CurrentDataPtr->gPtpTimeUnc;
     LastDataPtr->drSolutionStatus = CurrentDataPtr->drSolutionStatus;
     LastDataPtr->drSolutionStatusValid = CurrentDataPtr->drSolutionStatusValid;
+    LastDataPtr->leapSecondsUncValid = CurrentDataPtr->leapSecondsUncValid;
+    LastDataPtr->leapSecondsUnc = CurrentDataPtr->leapSecondsUnc;
     LastDataPtr->next = LE_DLS_LINK_INIT;
 
     return;
@@ -647,6 +649,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->gPtpTimeValid = true;
                 LocationData->gPtpTimeUncValid = true;
                 LocationData->drSolutionStatusValid = true;
+                LocationData->leapSecondsUncValid = true;
                 if(locationInfo->getAltitudeType() == telux::loc::AltitudeType::CALCULATED)
                 {
                     clientRequestPtr->mAltType = TAF_LOCGNSS_ALT_TYPE_CALCULATED;
@@ -851,6 +854,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 } else {
                     LocationData->leapSeconds = 0;
                 }
+                LocationData->leapSecondsUnc = locationInfo->getLeapSecondsUncertainty();
                 LocationData->satsInViewCount = clientRequestPtr->mSatParams.satsInViewCount;
                 LocationData->satsTrackingCount = clientRequestPtr->mTotalSVTracked;
                 LocationData->satsUsedCount = locationInfo->getNumSvUsed();
@@ -1449,6 +1453,12 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->validityExMask |=
                                                 (1ULL << TAF_LOCGNSS_HAS_PROTECT_LEVEL_VERTICAL);
                     LE_DEBUG("valid protect vertical");
+                }
+                if((validityExMask & telux::loc::HAS_LEAP_SECONDS_UNC))
+                {
+                    LocationData->validityExMask |=
+                                                (1ULL << TAF_LOCGNSS_HAS_LEAP_SECONDS_UNC);
+                    LE_DEBUG("valid Leap seconds uncertainty");
                 }
                 telux::loc::PositioningEngine posEngineBits = locationInfo->getLocOutputEngMask();
                 if(posEngineBits & telux::loc::STANDARD_POSITIONING_ENGINE)
@@ -3720,6 +3730,39 @@ le_result_t taf_locGnss::DeleteDRSensorCalData
 
     return result;
 }
+
+le_result_t taf_locGnss::GetLeapSecondsUncertainty
+(
+ taf_locGnss_SampleRef_t positionSampleRef,
+ uint8_t* leapSecondsUncPtr
+)
+{
+    le_result_t result;
+    taf_locGnss_PositionSampleRequest_t* posSampleReqPtr
+                                            = (taf_locGnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL((leapSecondsUncPtr == NULL), LE_FAULT, "Invalid reference");
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    if (posSampleReqPtr->positionSampleNodePtr->leapSecondsUncValid)
+    {
+        result = LE_OK;
+        *leapSecondsUncPtr = posSampleReqPtr->positionSampleNodePtr->leapSecondsUnc;
+    }
+    else
+    {
+        result = LE_OUT_OF_RANGE;
+        *leapSecondsUncPtr = UINT8_MAX;
+    }
+
+    return result;
+}
+
 le_result_t taf_locGnss::GetMagneticDeviation
 (
  taf_locGnss_SampleRef_t positionSampleRef,

@@ -43,13 +43,13 @@ void tafSimTest_allState();
 void tafSimTest_info( taf_sim_Id_t slot );
 void tafSimTest_allInfo();
 void tafSimTest_selection( taf_sim_Id_t slot);
-void tafSimTest_enterPin( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
+le_result_t tafSimTest_enterPin( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
         const char*  pinPtr);
-void tafSimTest_setLock( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
+le_result_t tafSimTest_setLock( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
         const char*  pinPtr, bool lock);
-void tafSimTest_Change_pin( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
+le_result_t tafSimTest_Change_pin( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
         const char* oldpinPtr, const char* newpinPtr);
-void tafSimTest_unblock_puk( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
+le_result_t tafSimTest_unblock_puk( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
         const char* pukPtr, const char* newpinPtr);
 void tafSimTest_GetAppTypes(taf_sim_Id_t simId);
 void tafSimTest_sim_access( taf_sim_Id_t simId);

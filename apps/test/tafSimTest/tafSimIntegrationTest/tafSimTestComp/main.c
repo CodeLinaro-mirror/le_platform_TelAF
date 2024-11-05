@@ -190,6 +190,7 @@ COMPONENT_INIT
     taf_sim_Id_t simId = taf_sim_GetSelectedCard();
     bool exitApplication = true;
     const char* testType = "";
+    le_result_t res = LE_FAULT;
 
     taf_sim_Id_t simIdOrig = simId;
 
@@ -274,8 +275,12 @@ COMPONENT_INIT
             DisplayAppUsage();
             exit(EXIT_FAILURE);
         }
-        exitApplication = false;
-        tafSimTest_enterPin(simId,lockType,pinPtr);
+        res = tafSimTest_enterPin(simId,lockType,pinPtr);
+        if (res == LE_OK) {
+            exitApplication = false;
+        } else {
+            exitApplication = true;
+        }
     }
     else if (strcmp(testType, "changePin") == 0)
     {
@@ -301,7 +306,12 @@ COMPONENT_INIT
             DisplayAppUsage();
             exit(EXIT_FAILURE);
         }
-        tafSimTest_Change_pin(simId, lockType, oldpinPtr, newpinPtr);
+        res = tafSimTest_Change_pin(simId, lockType, oldpinPtr, newpinPtr);
+        if (res == LE_OK) {
+            exitApplication = false;
+        } else {
+            exitApplication = true;
+        }
     }
     else if (strcmp(testType, "unblock") == 0)
     {
@@ -327,7 +337,12 @@ COMPONENT_INIT
             DisplayAppUsage();
             exit(EXIT_FAILURE);
         }
-        tafSimTest_unblock_puk(simId, lockType, pukPtr, pinPtr);
+        res = tafSimTest_unblock_puk(simId, lockType, pukPtr, pinPtr);
+        if (res == LE_OK) {
+            exitApplication = false;
+        } else {
+            exitApplication = true;
+        }
     }
     else if (strcmp(testType, "lock") == 0)
     {
@@ -346,8 +361,13 @@ COMPONENT_INIT
             DisplayAppUsage();
             exit(EXIT_FAILURE);
         }
-        exitApplication = false;
-        tafSimTest_setLock(simId,lockType,pinPtr, true);
+
+        res = tafSimTest_setLock(simId,lockType,pinPtr, true);
+        if (res == LE_OK) {
+            exitApplication = false;
+        } else {
+            exitApplication = true;
+        }
     }
     else if (strcmp(testType, "unlock") == 0)
     {
@@ -366,8 +386,13 @@ COMPONENT_INIT
             DisplayAppUsage();
             exit(EXIT_FAILURE);
         }
-        exitApplication = false;
-        tafSimTest_setLock(simId,lockType,pinPtr, false);
+
+        res = tafSimTest_setLock(simId,lockType,pinPtr, false);
+        if (res == LE_OK) {
+            exitApplication = false;
+        } else {
+            exitApplication = true;
+        }
 
     }
     else if (strcmp(testType, "getAppType") == 0)

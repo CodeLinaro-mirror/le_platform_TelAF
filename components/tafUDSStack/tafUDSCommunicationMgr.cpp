@@ -1990,6 +1990,29 @@ static bool isAcsiiFormat(const char * arr, size_t arrLen)
     return true;
 }
 
+/* To get the file size value from the byte array */
+static uint32_t  ValueOfFileSize(uint8_t* buffer, uint8_t length, bool uncomp)
+{
+    uint32_t result = 0;
+
+    if (uncomp == true)
+    {
+        for (int i = 0; i < length; i++)
+        {
+            result = (result << 8) | (0xFF & buffer[i]);
+        }
+    }
+    else
+    {
+        uint8_t* nBuffer = buffer + length;
+        for (int i = 0; i < length; i++)
+        {
+            result = (result << 8) | (0xFF & nBuffer[i]);
+        }
+    }
+    return result;
+}
+
 /**
  * Check NRC and Indicate received RequestFileTransfer (0x38) message to Diag service.
  */
@@ -2009,11 +2032,11 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
 
     LE_INFO("[RFT] Request for moop:[0x%02X]", RFT_MOOP);
 
-    // Minimum length checking, the filePathAndNameLength >= 1
-    if (recvDataLen < RFT_MIN_LEN || recvDataLen > UDS_DATA_SIZE)
+    // Minimum length checking
+    if (recvDataLen < RFT_MIN_LEN)
     {
-        LE_ERROR("Bad data size for 0x38");
-        // UDS_0x38_NRC_13: Invalid msg length
+        LE_ERROR("Minimum length check failure for 0x38");
+        // UDS_0x38_NRC_13: Minimum length check failure
         return SendNRC(RTF_SID, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
@@ -2033,10 +2056,21 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
         case MOOP_READ_DIR:
         case MOOP_DELETE_FILE:
         {
-            if (recvDataLen != (RFT_BASE_LEN + filePathAndNameLength))
+            // Checking the validity of filePathAndNameLength
+            if (filePathAndNameLength > (UDS_DATA_SIZE - RFT_BASE_LEN)
+            ||  filePathAndNameLength < SIZE_OF_FP_B1)
             {
-                LE_ERROR("Data length is mismatched for [0x%02X]", RFT_MOOP);
-                // UDS_0x38_NRC_13: Mismatch msg size (moop: 02/05)
+                LE_ERROR("Invalid filePathAndNameLength for [0x%02X]", RFT_MOOP);
+                // UDS_0x38_NRC_31: Invalid filePathAndNameLength (moop: 02/05)
+                return SendNRC(RTF_SID, REQ_OUT_OF_RANGE, addrInfoPtr);
+            }
+
+            // Full length checking
+            if (recvDataLen > UDS_DATA_SIZE
+            ||  recvDataLen != (RFT_BASE_LEN + filePathAndNameLength))
+            {
+                LE_ERROR("Full length check failure for [0x%02X]", RFT_MOOP);
+                // UDS_0x38_NRC_13: Full length check failure (moop: 02/05)
                 return SendNRC(RTF_SID, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
             }
         }
@@ -2046,52 +2080,134 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
         case MOOP_RESUME_FILE:
         case MOOP_REPLACE_FILE:
         {
+            // Checking the validity of filePathAndNameLength
+            // Max len filePathAndNameLength = (UDS_DATA_SIZE - RFT_BASE_LEN - SIZE_OF_DFI_ - SIZE_OF_FSL)
+            if (filePathAndNameLength > (UDS_DATA_SIZE - RFT_BASE_LEN - SIZE_OF_DFI_ - SIZE_OF_FSL)
+            ||  filePathAndNameLength < SIZE_OF_FP_B1)
+            {
+                LE_ERROR("Invalid filePathAndNameLength for [0x%02X]", RFT_MOOP);
+                // UDS_0x38_NRC_31: Invalid filePathAndNameLength (moop: 01/03/06)
+                return SendNRC(RTF_SID, REQ_OUT_OF_RANGE, addrInfoPtr);
+            }
+
+            // Full length checking
+            if (recvDataLen > UDS_DATA_SIZE
+            ||  recvDataLen < (RFT_BASE_LEN + filePathAndNameLength + SIZE_OF_DFI_ + SIZE_OF_FSL))
+            {
+                LE_ERROR("Full length check failure for [0x%02X]", RFT_MOOP);
+                // UDS_0x38_NRC_13: Full length check failure (moop: 01/03/06)
+                return SendNRC(RTF_SID, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+            }
+
             uint8_t fileSizeParameterLength =
                 LENGTH_OF_FILE_SIZE(recvBuf, RFT_BASE_LEN + filePathAndNameLength +
                         SIZE_OF_DFI_);
 
-            if (fileSizeParameterLength > 4 /* 4 byptes == 32 bits --> 4GB */
-                || recvDataLen != (RFT_BASE_LEN + filePathAndNameLength
+            #define MAX_FILE_SIZE_LEN (4)
+            if (fileSizeParameterLength > MAX_FILE_SIZE_LEN) /* 4 byptes == 32 bits --> 4GB */
+            {
+                LE_ERROR("Invalid fileSizeParameterLength for [0x%02X]", RFT_MOOP);
+                // UDS_0x38_NRC_31: Invalid fileSizeParameterLength (moop: 01/03/06)
+                return SendNRC(RTF_SID, REQ_OUT_OF_RANGE, addrInfoPtr);
+            }
+
+            if (recvDataLen != (RFT_BASE_LEN + filePathAndNameLength
                                 + SIZE_OF_DFI_
                                 + SIZE_OF_FSL + (fileSizeParameterLength * 2)))
             {
-                LE_ERROR("Data length is mismatched for [0x%02X]", RFT_MOOP);
-                // UDS_0x38_NRC_13: Mismatch msg size (moop: 01/03/06)
+                LE_ERROR("Full length check failure for [0x%02X]", RFT_MOOP);
+                // UDS_0x38_NRC_13: Full length check failure (moop: 01/03/06)
                 return SendNRC(RTF_SID, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+            }
+
+            // Checking DFI
+            uint8_t dataFormatIdentifier = recvBuf[RFT_BASE_LEN + filePathAndNameLength];
+
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+            if (dataFormatIdentifier != 0x00 && dataFormatIdentifier != 0x01)
+#else
+            if (dataFormatIdentifier != 0x00)
+#endif
+            {
+                LE_ERROR("Bad dataFormatIdentifier for [0x%02X]", RFT_MOOP);
+                // UDS_0x38_NRC_31: Bad dataFormatIdentifier
+                return SendNRC(RTF_SID, REQ_OUT_OF_RANGE, addrInfoPtr);
+            }
+
+            // Checking FSUC & FSC
+            uint8_t* FSPtr = recvBuf + RFT_BASE_LEN
+                                     + filePathAndNameLength
+                                     + SIZE_OF_DFI_ + SIZE_OF_FSL;
+            uint32_t fileSizeUncompressed = ValueOfFileSize(FSPtr, fileSizeParameterLength, true);
+            uint32_t fileSizeCompressed = ValueOfFileSize(FSPtr, fileSizeParameterLength, false);
+            LE_INFO("FSUC: 0x%04X, FSC: 0x%04X", fileSizeUncompressed, fileSizeCompressed);
+
+            // Case 01: UC < C
+            if (fileSizeCompressed > fileSizeUncompressed)
+            {
+                LE_ERROR("Invalid FSUC & FSC (UC<C) for [0x%02X]", RFT_MOOP);
+                // UDS_0x38_NRC_31: Invalid FSUC & FSC (moop: 01/03/06)
+                return SendNRC(RTF_SID, REQ_OUT_OF_RANGE, addrInfoPtr);
+            }
+
+            // Case 02: DFI = 0x00, but UC != C
+            if (dataFormatIdentifier == 0x00)
+            {
+                if (fileSizeCompressed != fileSizeUncompressed)
+                {
+                    LE_ERROR("Invalid FSUC & FSC (DFI=0x00, UC!=C) for [0x%02X]", RFT_MOOP);
+                    // UDS_0x38_NRC_31: Invalid FSUC & FSC (moop: 01/03/06)
+                    return SendNRC(RTF_SID, REQ_OUT_OF_RANGE, addrInfoPtr);
+                }
+            }
+            // Case 03: DFI = 0x01, but UC == C
+            else if (dataFormatIdentifier == 0x01)
+            {
+                if (fileSizeCompressed == fileSizeUncompressed)
+                {
+                    LE_ERROR("Invalid FSUC & FSC (DFI=0x01, UC==C) for [0x%02X]", RFT_MOOP);
+                    // UDS_0x38_NRC_31: Invalid FSUC & FSC (moop: 01/03/06)
+                    return SendNRC(RTF_SID, REQ_OUT_OF_RANGE, addrInfoPtr);
+                }
             }
         }
         break;
 
         case MOOP_READ_FILE:
         {
-            if (recvDataLen != (RFT_BASE_LEN + filePathAndNameLength + SIZE_OF_DFI_))
+            // Checking the validity of filePathAndNameLength
+            if (filePathAndNameLength > (UDS_DATA_SIZE - RFT_BASE_LEN - SIZE_OF_DFI_)
+            ||  filePathAndNameLength < SIZE_OF_FP_B1)
             {
-                LE_ERROR("Data length is mismatched for [0x%02X]", RFT_MOOP);
-                // UDS_0x38_NRC_13: Mismatch msg size (moop: 04)
+                LE_ERROR("Invalid filePathAndNameLength for [0x%02X]", RFT_MOOP);
+                // UDS_0x38_NRC_31: Invalid filePathAndNameLength (moop: 04)
+                return SendNRC(RTF_SID, REQ_OUT_OF_RANGE, addrInfoPtr);
+            }
+
+            // Full length check
+            if (recvDataLen > UDS_DATA_SIZE
+            ||  recvDataLen != (RFT_BASE_LEN + filePathAndNameLength + SIZE_OF_DFI_))
+            {
+                LE_ERROR("Full length check failure for [0x%02X]", RFT_MOOP);
+                // UDS_0x38_NRC_13: Full length check failure (moop: 04)
                 return SendNRC(RTF_SID, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+            }
+
+            // Checking DFI
+            uint8_t dataFormatIdentifier = recvBuf[RFT_BASE_LEN + filePathAndNameLength];
+
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+            if (dataFormatIdentifier != 0x00 && dataFormatIdentifier != 0x01)
+#else
+            if (dataFormatIdentifier != 0x00)
+#endif
+            {
+                LE_ERROR("Bad dataFormatIdentifier for [0x%02X]", RFT_MOOP);
+                // UDS_0x38_NRC_31: Bad dataFormatIdentifier
+                return SendNRC(RTF_SID, REQ_OUT_OF_RANGE, addrInfoPtr);
             }
         }
         break;
-    }
-
-    if ( RFT_MOOP == MOOP_ADD_FILE
-        || RFT_MOOP == MOOP_RESUME_FILE
-        || RFT_MOOP == MOOP_REPLACE_FILE
-        || RFT_MOOP == MOOP_READ_FILE )
-    {
-        uint8_t dataFormatIdentifier = recvBuf[RFT_BASE_LEN + filePathAndNameLength];
-
-#ifdef LE_CONFIG_DIAG_FEATURE_A
-        if (dataFormatIdentifier != 0x00 && dataFormatIdentifier != 0x01)
-        // FIXME: Only support 0x00 first
-#else
-        if (dataFormatIdentifier != 0x00)
-#endif
-        {
-            LE_ERROR("Data length is mismatched for [0x%02X]", RFT_MOOP);
-            // UDS_0x38_NRC_31: Invalid dataFormatIdentifier
-            return SendNRC(RTF_SID, REQ_OUT_OF_RANGE, addrInfoPtr);
-        }
     }
 
     // Check the specified filePathAndName is valid.
@@ -2109,8 +2225,6 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
         // UDS_0x38_NRC_22: Transfer is in progress
         return SendNRC(RTF_SID, CONDITIONS_NOT_CORRECT, addrInfoPtr);
     }
-
-
 
     try
     {

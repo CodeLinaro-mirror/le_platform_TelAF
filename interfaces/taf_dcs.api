@@ -202,6 +202,7 @@
 //--------------------------------------------------------------------------------------------------
 
 USETYPES taf_types.api;
+USETYPES taf_radio.api;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -293,6 +294,20 @@ DEFINE  IPV6_ADDR_MAX_LEN = 46;
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE DEFAULT_PROFILE = 1;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * MCC length with null characters.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MCC_BYTES = taf_radio.MCC_BYTES;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * MNC length with null characters.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MNC_BYTES = taf_radio.MNC_BYTES;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -678,6 +693,42 @@ HANDLER RoamingStatusHandler
 EVENT RoamingStatus
 (
     RoamingStatusHandler handler            ///< Handler for roaming status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for throttled status.
+ *
+ * @param[in] profileRef  The profile reference.
+ * @param[in] isThrottled True when APN is throttled. False when APN is unthrottled.
+ * @param[in] ipv4RemainingTime The remaining ipv4 throttled time if isThrottled is True;
+ * otherwise 0.
+ * @param[in] ipv6RemainingTime The remaining ipv6 throttled time if isThrottled is True;
+ * otherwise 0.
+ * Later remaining time can be fetched by using taf_dcs_GetAPNThrottledStatus()
+ *
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER ThrottledStatusHandler
+(
+    Profile    profileRef        IN, ///< The profile reference.
+    bool       isThrottled       IN, ///< True when APN is throttled. False when APN is unthrottled.
+    uint32     ipv4RemainingTime IN, ///< The remaining IPv4 throttled time in milliseconds.
+    uint32     ipv6RemainingTime IN  ///< The remaining IPv6 throttled time in milliseconds.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report APN throttled status. The handler will be called separately for every APN
+ * that is throttled or unthrottled.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT ThrottledStatus
+(
+    Profile                profileRef,         ///< The profile reference.
+    ThrottledStatusHandler handler             ///< Handler for throttled status.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1370,4 +1421,45 @@ FUNCTION le_result_t GetIPv4SubnetMask
 (
     Profile profileRef                      IN, ///< The profile reference.
     uint32  mask                            OUT ///< The IPv4 mask.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns whether the APN is throttled or unthrottled.
+ * It gets the remaining throttled time for IPv4 and IPv6 in milliseconds if isThrottled is true
+ * otherwise returns 0.
+ * If profile belongs to only one ipType then FFFF is returned for not supported ipType.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not created.
+ *  - LE_UNAVAILABLE  -- Data profile is not throttled.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetAPNThrottledStatus
+(
+    Profile    profileRef        IN,  ///< The profile reference.
+    bool       isThrottled       OUT, ///< True when APN is throttled. False when APN is unthrottled.
+    uint32     ipv4RemainingTime OUT, ///< The remaining IPv4 throttled time in milliseconds.
+    uint32     ipv6RemainingTime OUT  ///< The remaining IPv6 throttled time in milliseconds.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the PLMN on which the APN is throttled.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not created.
+ *  - LE_UNAVAILABLE  -- Data profile is not throttled.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetAPNThrottledPLMN
+(
+    Profile    profileRef             IN,  ///< The profile reference.
+    bool       areAllPLMNsThrottled   OUT, ///< True if APN is throttled on all PLMNs.
+    string mcc[MCC_BYTES] OUT, ///< MCC of the PLMN on which the APN is throttled.
+    string mnc[MNC_BYTES] OUT  ///< MNC of the PLMN on which the APN is throttled.
 );

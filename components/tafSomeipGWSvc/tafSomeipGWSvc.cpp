@@ -21,6 +21,7 @@
 #define VSOMEIP_APP_NAME "tafSomeipGWSvc"
 #define ROUTING_INTF_NAME_SIZE 32
 #define ROUTING_IP_ADDR_SIZE 48
+#define MAX_ADD_ROUTE_RETRIES 5
 using namespace telux::tafsvc;
 
 class taf_vsomeipApp
@@ -33,7 +34,9 @@ class taf_vsomeipApp
             routingName(appName),
             deviceName(devName),
             unicastAddr(uniAddr),
-            multicastAddr(multiAddr)
+            multicastAddr(multiAddr),
+            routeAdded(false),
+            addRouteRetryCount(0)
         {
         };
         ~taf_vsomeipApp()
@@ -95,6 +98,26 @@ class taf_vsomeipApp
         uint16_t getClientId() const
         {
             return vsClientId;
+        }
+        bool isRouteAdded() const
+        {
+            return routeAdded;
+        }
+        void setRouteAdded(bool added)
+        {
+            routeAdded = added;
+        }
+        int32_t getAddRouteRetryCount() const
+        {
+            return addRouteRetryCount;
+        }
+        void incrementAddRouteRetryCount()
+        {
+            addRouteRetryCount++;
+        }
+        void resetAddRouteRetryCount()
+        {
+            addRouteRetryCount = 0;
         }
         void onState(vsomeip::state_type_e state)
         {
@@ -160,6 +183,8 @@ class taf_vsomeipApp
         std::string deviceName;
         std::string unicastAddr;
         std::string multicastAddr;
+        bool routeAdded;
+        int32_t addRouteRetryCount;
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -511,7 +536,7 @@ static le_result_t SetIpv4MulticastRouteWithIoctl
     bool isAdd
 )
 {
-    int sockfd;
+    int32_t sockfd;
     struct rtentry rt;
     struct in_addr destAddr;
 
@@ -581,7 +606,46 @@ static le_result_t SetIpv4MulticastRouteWithIoctl
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add routing for multicast address.
+ * Timer handler for retrying the addition of routing for multicast address.
+ */
+//--------------------------------------------------------------------------------------------------
+void TimerHandler
+(
+    le_timer_Ref_t timerRef
+)
+{
+    taf_vsomeipApp* app = static_cast<taf_vsomeipApp*>(le_timer_GetContextPtr(timerRef));
+    const char* multicastAddr = app->getMulticastAddr().c_str();
+    const char* intfName = app->getIntfName().c_str();
+
+    app->incrementAddRouteRetryCount();
+
+    if (LE_OK == SetIpv4MulticastRouteWithIoctl(multicastAddr, intfName, true))
+    {
+        LE_INFO("Retry %d: Successfully added route for %s on %s.", app->getAddRouteRetryCount(),
+            multicastAddr, intfName);
+        app->setRouteAdded(true);
+        app->resetAddRouteRetryCount();
+        le_timer_Delete(timerRef);
+    }
+    else
+    {
+        LE_WARN("Retry %d: Failed to add route for %s on %s.", app->getAddRouteRetryCount(),
+            multicastAddr, intfName);
+
+        if (app->getAddRouteRetryCount() >= MAX_ADD_ROUTE_RETRIES)
+        {
+            LE_ERROR("Retry %d: Exceeded max retries to add route for %s on %s.",
+                app->getAddRouteRetryCount(), multicastAddr, intfName);
+            app->resetAddRouteRetryCount();
+            le_timer_Delete(timerRef);
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add routing for multicast addresses.
  */
 //--------------------------------------------------------------------------------------------------
 static void AddRoutingForMulticastAddr
@@ -593,11 +657,26 @@ static void AddRoutingForMulticastAddr
     {
         if (RoutingManagerTable[id] != NULL)
         {
-            if (LE_OK != SetIpv4MulticastRouteWithIoctl(
-                RoutingManagerTable[id]->getMulticastAddr().c_str(),
-                RoutingManagerTable[id]->getIntfName().c_str(), true))
+            const char* multicastAddr = RoutingManagerTable[id]->getMulticastAddr().c_str();
+            const char* intfName = RoutingManagerTable[id]->getIntfName().c_str();
+            char timerName[64];
+            snprintf(timerName, sizeof(timerName), "AddRouteRetryTimer_%d", id);
+
+            if (LE_OK == SetIpv4MulticastRouteWithIoctl(multicastAddr, intfName, true))
             {
-                LE_ERROR("Failed to add routing for multicast address.");
+                LE_INFO("Successfully added route for %s on %s.", multicastAddr, intfName);
+                RoutingManagerTable[id]->setRouteAdded(true);
+            }
+            else
+            {
+                LE_WARN("Init attempt failed to add route for %s on %s.", multicastAddr, intfName);
+
+                le_timer_Ref_t timerRef = le_timer_Create(timerName);
+                le_timer_SetMsInterval(timerRef, 1000);
+                le_timer_SetHandler(timerRef, TimerHandler);
+                le_timer_SetRepeat(timerRef, MAX_ADD_ROUTE_RETRIES);
+                le_timer_SetContextPtr(timerRef, RoutingManagerTable[id]);
+                le_timer_Start(timerRef);
             }
         }
     }
@@ -605,7 +684,7 @@ static void AddRoutingForMulticastAddr
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Delete routing for multicast address.
+ * Delete routing for multicast addresses.
  */
 //--------------------------------------------------------------------------------------------------
 static void DeleteRoutingForMulticastAddr
@@ -615,18 +694,23 @@ static void DeleteRoutingForMulticastAddr
 {
     for (uint8_t id = 0; id < VSOMEIP_APP_MAX_CNT; id++)
     {
-        if (RoutingManagerTable[id] != NULL)
+        if ((RoutingManagerTable[id] != NULL) && (RoutingManagerTable[id]->isRouteAdded()))
         {
-            if (LE_OK != SetIpv4MulticastRouteWithIoctl(
-                RoutingManagerTable[id]->getMulticastAddr().c_str(),
-                RoutingManagerTable[id]->getIntfName().c_str(), false))
+            const char* multicastAddr = RoutingManagerTable[id]->getMulticastAddr().c_str();
+            const char* intfName = RoutingManagerTable[id]->getIntfName().c_str();
+
+            if (LE_OK == SetIpv4MulticastRouteWithIoctl(multicastAddr, intfName, false))
             {
-                LE_ERROR("Failed to delete routing for multicast address.");
+                LE_INFO("Successfully deleted route for %s on %s.", multicastAddr, intfName);
+                RoutingManagerTable[id]->setRouteAdded(false);
+            }
+            else
+            {
+                LE_ERROR("Failed to delete route for %s on %s.", multicastAddr, intfName);
             }
         }
     }
 }
-
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -717,7 +801,7 @@ taf_someipSvr_ServiceRef_t taf_someipSvr_GetServiceEx
     }
 
     taf_SomeipSvr& mySomeipSvr = taf_SomeipSvr::GetInstance();
-    return mySomeipSvr.GetServiceRef(routingId, serviceId, instanceId);    
+    return mySomeipSvr.GetServiceRef(routingId, serviceId, instanceId);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1338,7 +1422,7 @@ taf_someipClnt_ServiceRef_t taf_someipClnt_RequestServiceEx
     }
 
     taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
-    return mySomeipClient.RequestService(routingId, serviceId, instanceId);    
+    return mySomeipClient.RequestService(routingId, serviceId, instanceId);
 }
 
 //--------------------------------------------------------------------------------------------------

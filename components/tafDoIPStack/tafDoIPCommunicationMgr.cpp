@@ -1574,6 +1574,14 @@ void CommunicationMgr::RequestUdsMessage
     auto&   cmMgr = CommunicationMgr::GetInstance();
 
     connection = cmMgr.connectionMgrPtr->FindConnectionByLogicalAddr(dataInfoPtr->ta);
+    if (connection == nullptr)
+    {
+        le_mem_Release(dataInfoPtr->data);
+        le_mem_Release(dataInfoPtr);
+
+        return;
+    }
+
     connection->SendDiagMessage(dataInfoPtr->data, dataInfoPtr->len);
 
     le_mem_Release(dataInfoPtr->data);

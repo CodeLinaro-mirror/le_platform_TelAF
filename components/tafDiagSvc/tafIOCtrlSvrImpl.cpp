@@ -49,7 +49,7 @@ taf_diagIOCtrl_ServiceRef_t taf_IOCtrlSvr::GetService
         return NULL;
     }
 
-    taf_IOCtrlSvc_t* servicePtr = GetServiceObj(dataID, taf_diagDataID_GetClientSessionRef());
+    taf_IOCtrlSvc_t* servicePtr = GetServiceObj(dataID, taf_diagIOCtrl_GetClientSessionRef());
 
     // Create a service object if it doesn't exist in the list.
     if (servicePtr == NULL)
@@ -64,6 +64,7 @@ taf_diagIOCtrl_ServiceRef_t taf_IOCtrlSvr::GetService
 
         // Init message list.
         servicePtr->reqMsgList  = LE_DLS_LIST_INIT;
+        servicePtr->supportedVlanList = LE_DLS_LIST_INIT;
 
         // Attach the service to the client.
         servicePtr->sessionRef = taf_diagIOCtrl_GetClientSessionRef();

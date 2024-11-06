@@ -72,6 +72,10 @@ static void sesChangeHandler
         diagRFT_DeactivateProgrammingByVlanId((uint32_t)vlanId);
     }
 
+    // Release the session change msg.
+    result = taf_diagSecurity_ReleaseSesChangeMsg(sesChangeRef);
+    LE_TEST_OK(result == LE_OK, "Session change msg released successfully");
+
     return;
 }
 

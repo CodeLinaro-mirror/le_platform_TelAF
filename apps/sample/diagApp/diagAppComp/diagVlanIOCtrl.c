@@ -116,7 +116,7 @@ le_result_t diagVlanIOControl_Init(void)
             diagIOCtrlMsgThread, (void *)(uintptr_t)1);
 
     le_thread_Start(ioCtrlThreadRef1);
-    le_sem_Wait(semRef[0]);
+    le_sem_Wait(semRef[1]);
 
     return LE_OK;
 }

@@ -239,7 +239,7 @@ static le_result_t LocalSystemInit
             MySystemLink.index, MySystemLink.id, MySystemLink.name);
 
     // Sanity check for system id, which shall be identical to SOME/IP client ID.
-    uint16_t mySomeipClientId = taf_someipClnt_GetClientId();
+    uint16_t mySomeipClientId = rpcProxyConfig_GetVsomeipClientId();
     if (mySomeipClientId != MySystemLink.id)
     {
         LE_ERROR("Local SystemId(0x%x) and SOME/IP ClientId(0x%x) do not match.",

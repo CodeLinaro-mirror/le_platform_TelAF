@@ -161,6 +161,14 @@ static uint16_t BasePortNumber = TAF_RPC_DEFAULT_BASE_PORT_NUMBER;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Config routing dev.
+ */
+//--------------------------------------------------------------------------------------------------
+static char RoutingDev[TAF_SOMEIPDEF_MAX_IFNAME_LENGTH] = { 0 };
+static const char* RoutingDevPtr = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * The static configuration data struct, can be overrided by the configuration in JSON file is a
  * JSON file is specified.
  */
@@ -336,6 +344,25 @@ static le_result_t SetRemoteSystemLinkInfo
     LE_INFO("Set remote system link info (index=%d, id=0x%x, name=%s).", index, id, nameStr);
 
     return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set routing_name configuration.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SetRoutingName
+(
+    const char* devNamePtr           /// <IN> Routing device name
+)
+{
+    if (devNamePtr != NULL)
+    {
+        le_utf8_Copy(RoutingDev, devNamePtr, sizeof(RoutingDev), NULL);
+        RoutingDevPtr = RoutingDev;
+        LE_INFO("Set routing_name = %s", RoutingDevPtr);
+    }
 }
 
 
@@ -1043,6 +1070,32 @@ static bool IsOfferSystemIdInList
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Get my vsomeip client ID based on RPC configuration.
+ */
+//--------------------------------------------------------------------------------------------------
+static uint16_t GetVsomeipClientId
+(
+    void
+)
+{
+    uint16_t id;
+
+    if (RoutingDevPtr == NULL)
+    {
+        return taf_someipClnt_GetClientId();
+    }
+
+    if (LE_OK != taf_someipClnt_GetClientIdEx(RoutingDevPtr, &id))
+    {
+        LE_FATAL("Failed to get the vsomeip client id for routingDev:'%s'.", RoutingDevPtr);
+    }
+
+    return id;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Parse and load system link info from JSON file.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1068,7 +1121,7 @@ static le_result_t ParseSystemLinkInfo
     LE_ASSERT(root != NULL);
 
     // Get my system Id.
-    SystemId_t mySystemId = taf_someipClnt_GetClientId();
+    SystemId_t mySystemId = GetVsomeipClientId();
 
     // Load system array.
     js_systems = json_object_get(root, "systems");
@@ -1445,6 +1498,7 @@ static le_result_t ParseJsonFile
 )
 {
     json_t *root;
+    json_t *js_routing_name;
     json_error_t error;
 
     // Load entire JSON file.
@@ -1461,6 +1515,14 @@ static le_result_t ParseJsonFile
         LE_ERROR("root is not an object.");
         json_decref(root);
         return LE_FAULT;
+    }
+
+    // Parse "routing_name". By default the routing dev is NULL, which
+    // means RPC is running on vsomeip default routing manager.
+    js_routing_name = json_object_get(root, "routing_name");
+    if ((js_routing_name != NULL) && json_is_string(js_routing_name))
+    {
+        SetRoutingName(json_string_value(js_routing_name));
     }
 
     // Parse and load system link info.
@@ -1532,6 +1594,15 @@ void rpcProxyConfig_ShowConfiguration
 
     // Dump basic configurations.
     LE_INFO("--------------------Basic configurations-----------------");
+
+    if (RoutingDevPtr != NULL)
+    {
+        LE_INFO("Using on-demand vsomeip routing manager '%s'", RoutingDevPtr);
+    }
+    else
+    {
+        LE_INFO("Using by-default vsomeip routing manager.");
+    }
     LE_INFO("base_service_id: 0x%x", BaseServiceId);
     LE_INFO("base_port_number: %d", BasePortNumber);
     LE_INFO("response_timeout: %d", ResponseTimeoutSecs);
@@ -1627,3 +1698,30 @@ void rpcProxyConfig_LoadConfiguration
     // Start loading configuration in aysnc mode.
     le_event_QueueFunction(LoadRpcConfigFunc, (void*)funcPtr, (void*)filePathPtr);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get my vsomeip client ID.
+ */
+//--------------------------------------------------------------------------------------------------
+uint16_t rpcProxyConfig_GetVsomeipClientId
+(
+    void
+)
+{
+    return GetVsomeipClientId();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get routing name.
+ */
+//--------------------------------------------------------------------------------------------------
+const char* rpcProxyConfig_GetRoutingName
+(
+    void
+)
+{
+    return RoutingDevPtr;
+}
+

@@ -2,3 +2,26 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 ## <summary> devices interface </summary>
+
+########################################
+## <summary>
+##              Allow Update Service to have access for specified files and directory.
+## </summary>
+## <param name="target_domain">
+##              <summary>
+##              Type to be used as a target domain
+##              </summary>
+## </param>
+#
+interface(`telaf_update_manage_perms',`
+    gen_require(`
+            type telaf_tafUpdateSvc_t;
+    ')
+
+    allow telaf_tafUpdateSvc_t $1:file { manage_file_perms };
+    allow telaf_tafUpdateSvc_t $1:dir { manage_dir_perms };
+
+    ifdef(`sa525m',`
+    allow telaf_tafUpdateSvc_t $1:file { map };
+    ')
+')

@@ -246,7 +246,6 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetPartitionList
                 }
                 else if (strncmp(baseName, "mtd_num", strlen("mtd_num")) == 0)
                 {
-                    LE_INFO("mtd_num");
                     fp = fopen(entPtr->fts_path, "r");
                     if (fp != NULL)
                     {

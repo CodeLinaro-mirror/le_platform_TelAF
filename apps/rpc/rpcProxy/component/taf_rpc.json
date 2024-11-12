@@ -1,0 +1,47 @@
+{
+    "routing_name" : "telaflxc",
+    "systems" :
+    [
+        {
+            "id" : "0x101",
+            "name" : "SERVER"
+        },
+        {
+            "id" : "0x102",
+            "name" : "CLIENT"
+        }
+    ],
+    "rpc_services" :
+    [
+        {
+            "name" : "taf_ecall",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_audio",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_gpio",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_locGnss",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_locPos",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_locPosCtrl",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        }
+    ]
+}

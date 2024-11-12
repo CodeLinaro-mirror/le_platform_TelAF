@@ -82,6 +82,12 @@
  * Restart the tafSomeipGWSvc service or reboot the device to make the new configuration take effect
  * after any modifications.
  *
+ * Finally run below command to add a route entry for the SOME/IP-SD multicast address(Suppose the
+ * network interface is "bridge0" and the multicast address is "224.0.0.1"):
+ * @verbatim
+   route add 224.0.0.1 dev bridge0
+   @endverbatim
+ *
  * @section c_taf_someipSvr_multi_networks Multiple networks/VLANs configuration
  *
  * The default configuration file is only for single network/VLAN which is also the default network.

@@ -3,12 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <net/route.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSomeipGWSvc.hpp"
@@ -79,10 +73,6 @@ class taf_vsomeipApp
         const std::string& getIntfName() const
         {
             return deviceName;
-        }
-        const std::string& getMulticastAddr() const
-        {
-            return multicastAddr;
         }
         const std::string& getRoutingName() const
         {
@@ -501,144 +491,53 @@ static void StartAdditionalRoutingManagers
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set IPv4 multicast route with ioctl.
+ * Add a routing entry for multicast address.
  */
 //--------------------------------------------------------------------------------------------------
-static le_result_t SetIpv4MulticastRouteWithIoctl
+__attribute__((unused)) static void AddRoutingForMulticast
 (
-    const char *destAddrPtr,
-    const char *intfPtr,
-    bool isAdd
+    const char* multicastAddr,      /// [IN] multicast address (eg. "224.0.0.1")
+    const char* ifName              /// [IN] interface name (eg. "eth0")
 )
 {
-    int sockfd;
-    struct rtentry rt;
-    struct in_addr destAddr;
+    LE_ASSERT(multicastAddr != NULL);
+    LE_ASSERT(ifName != NULL);
 
-    if ((destAddrPtr == NULL) || (intfPtr == NULL))
+    char* argumentsPtr[6];
+    char addr[64] = {0};
+    char intf[64] = {0};
+    snprintf(addr, sizeof(addr), "%s", multicastAddr);
+    snprintf(intf, sizeof(intf), "%s", ifName);
+
+    argumentsPtr[0] = (char*)"/sbin/route";
+    argumentsPtr[1] = (char*)"add";
+    argumentsPtr[2] = addr;
+    argumentsPtr[3] = (char*)"dev";
+    argumentsPtr[4] = intf;
+    argumentsPtr[5] = NULL;
+
+    le_proc_Parameters_t proc =
     {
-        LE_ERROR("Bad parameters.");
-        return LE_BAD_PARAMETER;
+        .executableStr   = "/sbin/route",
+        .argumentsPtr    = argumentsPtr,
+        .environmentPtr  = NULL,
+        .detach          = false,
+        .closeFds        = LE_PROC_NO_FDS,
+        .init            = NULL,
+        .userPtr         = NULL
+    };
+
+    pid_t pid = le_proc_Execute(&proc);
+    if (pid < 0)
+    {
+        LE_FATAL("Failed to set routing(error %d).", errno);
     }
 
-    // Check if destAddrPtr is a valid IPv4 address and convert it to in_addr structure
-    if (inet_aton(destAddrPtr, &destAddr) == 0)
+    int status;
+    if (waitpid(pid, &status, 0) > 0)
     {
-        LE_ERROR("destAddrPtr inet_aton error");
-        return LE_BAD_PARAMETER;
+        LE_INFO("%s[%d] returned %d", proc.executableStr, (int) pid, status);
     }
-
-    // Check if the address is within the multicast address range
-    if (destAddr.s_addr < inet_addr("224.0.0.0") ||
-        destAddr.s_addr > inet_addr("239.255.255.255"))
-    {
-        LE_ERROR("destAddrPtr is not a valid multicast address.");
-        return LE_BAD_PARAMETER;
-    }
-
-    memset(&rt, 0, sizeof(struct rtentry));
-
-    ((struct sockaddr_in *)&rt.rt_dst)->sin_family = AF_INET;
-    ((struct sockaddr_in *)&rt.rt_dst)->sin_addr = destAddr;
-    ((struct sockaddr_in *)&rt.rt_gateway)->sin_family = AF_INET;
-    ((struct sockaddr_in *)&rt.rt_gateway)->sin_addr.s_addr = inet_addr("0.0.0.0");
-    ((struct sockaddr_in *)&rt.rt_genmask)->sin_family = AF_INET;
-    ((struct sockaddr_in *)&rt.rt_genmask)->sin_addr.s_addr = inet_addr("255.255.255.255");
-
-    rt.rt_dev = (char*)intfPtr;
-    rt.rt_flags = RTF_UP;
-    rt.rt_metric = 0;
-
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0)
-    {
-        LE_ERROR("socket error");
-        return LE_FAULT;
-    }
-
-    if (isAdd)
-    {
-        if (ioctl(sockfd, SIOCADDRT, &rt) < 0)
-        {
-            LE_ERROR("Failed to add route, error:%s", strerror(errno));
-            close(sockfd);
-            return LE_FAULT;
-        }
-    }
-    else
-    {
-        if (ioctl(sockfd, SIOCDELRT, &rt) < 0)
-        {
-            LE_ERROR("Failed to delete route, error:%s", strerror(errno));
-            close(sockfd);
-            return LE_FAULT;
-        }
-    }
-
-    close(sockfd);
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Add routing for multicast address.
- */
-//--------------------------------------------------------------------------------------------------
-static void AddRoutingForMulticastAddr
-(
-    void
-)
-{
-    for (uint8_t id = 0; id < VSOMEIP_APP_MAX_CNT; id++)
-    {
-        if (RoutingManagerTable[id] != NULL)
-        {
-            if (LE_OK != SetIpv4MulticastRouteWithIoctl(
-                RoutingManagerTable[id]->getMulticastAddr().c_str(),
-                RoutingManagerTable[id]->getIntfName().c_str(), true))
-            {
-                LE_ERROR("Failed to add routing for multicast address.");
-            }
-        }
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Delete routing for multicast address.
- */
-//--------------------------------------------------------------------------------------------------
-static void DeleteRoutingForMulticastAddr
-(
-    void
-)
-{
-    for (uint8_t id = 0; id < VSOMEIP_APP_MAX_CNT; id++)
-    {
-        if (RoutingManagerTable[id] != NULL)
-        {
-            if (LE_OK != SetIpv4MulticastRouteWithIoctl(
-                RoutingManagerTable[id]->getMulticastAddr().c_str(),
-                RoutingManagerTable[id]->getIntfName().c_str(), false))
-            {
-                LE_ERROR("Failed to delete routing for multicast address.");
-            }
-        }
-    }
-}
-
-
-//--------------------------------------------------------------------------------------------------
-/**
- * A SIGTERM event handler which will release route configuration.
- */
-//--------------------------------------------------------------------------------------------------
-static void TafSigTermEventHandler(int tafSigNum)
-{
-    LE_INFO("TafSigTermEventHandler :%d", tafSigNum);
-    DeleteRoutingForMulticastAddr();
-    LE_INFO("unload successful");
-    exit(EXIT_SUCCESS);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -662,8 +561,6 @@ COMPONENT_INIT
     }
 
     StartAdditionalRoutingManagers();
-    AddRoutingForMulticastAddr();
-    le_sig_SetEventHandler(SIGTERM, TafSigTermEventHandler);
 
     LE_INFO("TelAF SOME/IP GateWay Service initialized.");
 }

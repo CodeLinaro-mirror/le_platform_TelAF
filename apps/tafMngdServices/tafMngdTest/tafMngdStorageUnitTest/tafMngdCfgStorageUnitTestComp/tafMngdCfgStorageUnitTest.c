@@ -41,20 +41,43 @@ taf_mngdStorCfg_ConfigRef_t cRef;
 void PrintUsage(void)
 {
     puts("\n"
-         "Usage of 'tafMngdCfgStorageUnitTest' application.\n"
-         "app runProc tafMngdStorageUnitTest tafMngdCfgStorageUnitTest -- help\n"
-         "app runProc tafMngdStorageUnitTest tafMngdCfgStorageUnitTest -- Update <Version>\n"
-         "app runProc tafMngdStorageUnitTest tafMngdCfgStorageUnitTest -- Rollback\n"
-         "app runProc tafMngdStorageUnitTest tafMngdCfgStorageUnitTest -- Cancel\n"
-         "app runProc tafMngdStorageUnitTest tafMngdCfgStorageUnitTest -- Activate\n"
-         "app runProc tafMngdStorageUnitTest tafMngdCfgStorageUnitTest -- Commit\n"
-         "app runProc tafMngdStorageUnitTest tafMngdCfgStorageUnitTest -- GetVersion\n"
-         "app runProc tafMngdStorageUnitTest tafMngdCfgStorageUnitTest -- GetType <groupName> <nodeName>\n"
-         "app runProc tafMngdStorageUnitTest tafMngdCfgStorageUnitTest -- GetData <groupName> <nodeName>\n"
+         "-------- To do unit test automatically --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest\n"
+         "\n"
+         "-------- To know Usage --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest -- help\n"
+         "\n"
+         "-------- To Update Version --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest -- Update <Version>\n"
+         "\n"
+         "-------- Revert to orignal version of configuration file in case of failure during update --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest -- Rollback\n"
+         "\n"
+         "-------- To cancel Update process --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest -- Cancel\n"
+         "\n"
+         "-------- To Activate by replacing the orignal config file with the updated --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest -- Activate\n"
+         "\n"
+         "-------- To Commit data to config storage after successful firmare update --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest -- Commit\n"
+         "\n"
+         "-------- To get version of config storage --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest -- GetVersion\n"
+         "\n"
+         "-------- To get data type for the given groupName, nodeName --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest -- GetType <groupName> <nodeName>\n"
+         "\n"
+         "-------- To get data value for the given groupName, nodeName --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest -- GetData <groupName> <nodeName>\n"
+         "\n"
+         "-------- To get nodeInfo for the given groupName, nodeName --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest -- GetNodeInfo <groupName> <nodeName>\n"
          "\n");
 }
 
-static le_result_t GetRef(){
+static le_result_t GetRef()
+{
     cRef = taf_mngdStorCfg_GetRef();
     if(cRef == NULL) return LE_FAULT;
     return LE_OK;
@@ -64,10 +87,10 @@ static le_result_t Update(const char *version){
     le_result_t result;
     result = taf_mngdStorCfg_Update(cRef,version);
     if(result == LE_OK){
-        printf("Storage Updated !! Please Activate and commit to use updated storage.");
+        printf("Storage Updated !! Please Activate and commit to use updated storage.\n");
     }
     else{
-        printf("Failed to update Storage !! Please Cancel update process and retry.");
+        printf("Failed to update Storage !! Please Cancel update process and retry.\n");
     }
     return result;
 }
@@ -75,9 +98,9 @@ static le_result_t Update(const char *version){
 static le_result_t Cancel(){
     le_result_t result;
     result = taf_mngdStorCfg_Cancel(cRef);
-    if(result == LE_OK) printf("Update Process cancels Successfuly!! you may retry.");
+    if(result == LE_OK) printf("Update Process cancels Successfuly!! you may retry.\n");
     else{
-        printf("Cancels Operation failed!! Please try again.");
+        printf("Cancels Operation failed!! Please try again.\n");
     }
     return result;
 }
@@ -85,9 +108,9 @@ static le_result_t Cancel(){
 static le_result_t Activate(){
     le_result_t result;
     result = taf_mngdStorCfg_Activate(cRef);
-    if(result == LE_OK) printf("Storage Activated!! Please Commit to use Activated Storage");
+    if(result == LE_OK) printf("Storage Activated!! Please Commit to use Activated Storage.\n");
     else{
-        printf("Failed to Activate Storage !! you may Rollback and try activating again.");
+        printf("Failed to Activate Storage !! you may Rollback and try activating again.\n");
     }
     return result;
 }
@@ -95,9 +118,9 @@ static le_result_t Activate(){
 static le_result_t Rollback(){
     le_result_t result;
     result = taf_mngdStorCfg_Rollback(cRef);
-    if(result == LE_OK) printf("Storage Rollbacked!! Please commit to use rollbacked storage");
+    if(result == LE_OK) printf("Storage Rollbacked!! Please commit to use rollbacked storage.\n");
     else{
-        printf("Failed to Roolback Storage!! Try again.");
+        printf("Failed to Roolback Storage!! Try again.\n");
     }
     return result;
 }
@@ -105,9 +128,9 @@ static le_result_t Rollback(){
 static le_result_t Commit(){
     le_result_t result;
     result = taf_mngdStorCfg_Commit(cRef);
-    if(result == LE_OK) printf("Storage Commited!! Ready to use.");
+    if(result == LE_OK) printf("Storage Commited!! Ready to use.\n");
     else{
-        printf("Failed to Roolback Storage!! Try again.");
+        printf("Failed to Roolback Storage!! Try again.\n");
     }
     return result;
 
@@ -120,7 +143,7 @@ static le_result_t GetVersion(){
     uint32_t PatchVersionPtr=0;
     result = taf_mngdStorCfg_GetVersion(cRef,&MajorVersionPtr,&MinorVersionPtr,&PatchVersionPtr);
     if(result == LE_OK){
-        printf("Vesrion is %d.%d.%d",MajorVersionPtr,MinorVersionPtr,PatchVersionPtr);
+        printf("Vesrion is %d.%d.%d\n",MajorVersionPtr,MinorVersionPtr,PatchVersionPtr);
     }
     return result;
 }
@@ -130,11 +153,23 @@ static le_result_t GetType(const char *groupName , const char *nodeName){
     taf_mngdStorCfg_NodeType_t typePtr;
     result = taf_mngdStorCfg_GetType(cRef, groupName, nodeName, &typePtr);
     if(result == LE_OK){
-        printf("Node type is %d",typePtr);
+        printf("Node type is %d\n",typePtr);
     }
     return result;
 }
-
+static le_result_t GetValue(const char *groupName , const char *nodeName){
+    le_result_t result;
+    char nodeValuePtr[LE_CFG_STR_LEN_BYTES];
+    taf_mngdStorCfg_NodeType_t typePtr;
+    result =
+      taf_mngdStorCfg_GetValue(cRef,groupName,nodeName, &typePtr,nodeValuePtr,sizeof(nodeValuePtr));
+    LE_TEST_OK(result == LE_OK, "Test taf_mngdStorCfg_GetValue");
+    if(result == LE_OK){
+        printf("Node type is %d\n",typePtr);
+        printf("Node data is %s\n",nodeValuePtr);
+    }
+    return result;
+}
 static le_result_t GetData(const char *groupName , const char *nodeName){
     le_result_t result;
     taf_mngdStorCfg_NodeType_t typePtr;
@@ -145,28 +180,28 @@ static le_result_t GetData(const char *groupName , const char *nodeName){
             result = taf_mngdStorCfg_GetString(cRef, groupName, nodeName,
                 nodeValue, sizeof(nodeValue));
             if(result == LE_OK){
-                printf("Value for node %s is %s",nodeName,nodeValue);
+                printf("Value for node %s is %s\n",nodeName,nodeValue);
             }
         }
         else if(typePtr == TAF_MNGDSTORCFG_TYPE_BOOL){
             int32_t nodeValuePtr = 0;
             result = taf_mngdStorCfg_GetBool(cRef, groupName, nodeName, &nodeValuePtr);
             if(result == LE_OK){
-                printf("Value for node %s is %d",nodeName,nodeValuePtr);
+                printf("Value for node %s is %d\n",nodeName,nodeValuePtr);
             }
         }
         else if(typePtr == TAF_MNGDSTORCFG_TYPE_INT){
             int32_t nodeValuePtr = 0;
             result = taf_mngdStorCfg_GetInt(cRef, groupName, nodeName, &nodeValuePtr);
             if(result == LE_OK){
-                printf("Value for node %s is %d",nodeName,nodeValuePtr);
+                printf("Value for node %s is %d\n",nodeName,nodeValuePtr);
             }
         }
         else if(typePtr == TAF_MNGDSTORCFG_TYPE_FLOAT){
             double nodeValuePtr = 0;
             result = taf_mngdStorCfg_GetFloat(cRef, groupName, nodeName, &nodeValuePtr);
             if(result == LE_OK){
-                printf("Value for node %s is %f",nodeName,nodeValuePtr);
+                printf("Value for node %s is %f\n",nodeName,nodeValuePtr);
             }
         }
         else{
@@ -207,22 +242,16 @@ static void Test_cfg_GetDataProcess(){
     le_result_t result;
     char nodeValue[LE_CFG_STR_LEN_BYTES];
     taf_mngdStorCfg_NodeType_t typePtr;
-    double dValue =0.0;
-    int32_t iValue =0;
     cRef = taf_mngdStorCfg_GetRef();
     LE_TEST_ASSERT(cRef != NULL, "Test taf_mngdStorCfg_GetRef");
     result = taf_mngdStorCfg_GetType(cRef, "config1", "aBoolVal", &typePtr);
-    LE_TEST_OK(result == LE_OK,"----taf_mngdStorCfg_GetType()");
+    LE_TEST_ASSERT(result == LE_OK,"Test taf_mngdStorCfg_GetType");
     result = taf_mngdStorCfg_GetString(cRef, "config1", "aStringVal", nodeValue,sizeof(nodeValue));
-    LE_TEST_OK(result == LE_OK,"---taf_mngdStorCfg_GetString");
-    result = taf_mngdStorCfg_GetInt(cRef, "config1", "aIntVal", &iValue);
-    LE_TEST_OK(result == LE_OK,"----taf_mngdStorCfg_GetInt()");
-    result = taf_mngdStorCfg_GetFloat(cRef, "config1", "aFloatVal", &dValue);
-    LE_TEST_OK(result == LE_OK,"----taf_mngdStorCfg_GetFloat()");
+    LE_TEST_ASSERT(result == LE_OK,"Test taf_mngdStorCfg_GetString");
     char nodeValuePtr[LE_CFG_STR_LEN_BYTES];
     result =
-       taf_mngdStorCfg_GetValue(cRef, "config1","aBoolVal", &typePtr,nodeValuePtr,sizeof(nodeValuePtr));
-    LE_TEST_OK(result == LE_OK, "Test taf_mngdStorCfg_GetValue_Bool");
+       taf_mngdStorCfg_GetValue(cRef, "config1","aStringVal", &typePtr,nodeValuePtr,sizeof(nodeValuePtr));
+    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_GetValue");
 }
 
 static le_result_t ReleaseRef(){
@@ -308,6 +337,14 @@ COMPONENT_INIT
         LE_TEST_INFO("GetVersion Process Test");
         CheckNumArgs(numArgs,1);
         result = GetVersion();
+        LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_GetValue()");
+    }
+    else if(strncmp(testType, "GetNodeInfo", strlen(testType)) == 0){
+        LE_TEST_INFO("GetValuE Process Test");
+        CheckNumArgs(numArgs,3);
+        const char *groupName = le_arg_GetArg(1);
+        const char *nodeName = le_arg_GetArg(2);
+        result = GetValue(groupName,nodeName);
         LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_GetValue()");
     }
     else if(strncmp(testType, "help", strlen(testType)) == 0){

@@ -1,0 +1,34 @@
+maxThreads: 600
+sandboxed: false
+
+executables:
+{
+   tafMngdSecSharedApp =
+            ($TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSecDataStorageUnitTestComp)
+
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafMngdSecSharedApp)
+    }
+
+    faultAction: stopApp
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+
+    tafMngdSecSharedApp.tafMngdSecDataStorageUnitTestComp.taf_mngdStorSecData -> tafMngdStorageSvc.taf_mngdStorSecData
+}
+

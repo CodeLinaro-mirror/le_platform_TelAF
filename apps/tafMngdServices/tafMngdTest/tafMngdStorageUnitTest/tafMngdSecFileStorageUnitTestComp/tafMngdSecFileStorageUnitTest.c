@@ -115,13 +115,28 @@ void Test_GetBasePath()
 
 void PrintUsage()
 {
-    LE_INFO("Usage: <operation> <storageName> [data]");
-    LE_INFO("Operations:");
-    LE_INFO("  help    - Show this help message");
-    LE_INFO("  create  - Create storage with the given storageName");
-    LE_INFO("  write   - Write data to the storage with the given storageName");
-    LE_INFO("  read    - Read data from the storage with the given storageName");
-    LE_INFO("  delete  - Delete the storage with the given storageName");
+    puts("\n"
+         "-------- To do unit test automatically --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest \n"
+         "\n"
+         "-------- To create file storage --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- create <storageName>\n"
+         "\n"
+         "-------- To lock the specified storage --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- lock <storageName>\n"
+         "\n"
+         "-------- To Unlock the specified storage --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- unlock <storageName>\n"
+         "\n"
+         "-------- Import a file to the storage --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- import <storageName> <filepath>\n"
+         "\n"
+         "-------- To Read the file from the storage --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- read <storageName>\n"
+         "\n"
+         "-------- To Read the file from the storage --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- delete <storageName>\n"
+         "\n");
 }
 
 // Implementations of the test operations

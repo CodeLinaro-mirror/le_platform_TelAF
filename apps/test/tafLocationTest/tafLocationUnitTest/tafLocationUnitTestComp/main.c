@@ -173,6 +173,7 @@ static void PositionHandlerFunction
     double indexPtr;
     uint8_t percentPtr;
     uint32_t calibPtr;
+    uint32_t drSolutionPtr;
     double vrpLatitude;
     double vrpLongitude;
     double vrpAltitude;
@@ -698,6 +699,90 @@ static void PositionHandlerFunction
     else
     {
         LE_TEST_INFO("Failed! See log for details!\n");
+    }
+
+    //GetDRSolutionStatus
+    LE_TEST_INFO("taf_locGnss_GetDRSolutionStatus() API is to get DR solution status");
+    result = taf_locGnss_GetDRSolutionStatus(positionSampleRef,
+                                                     &drSolutionPtr);
+    if (result == LE_OK)
+    {
+        if(drSolutionPtr & TAF_LOCGNSS_VEHICLE_SENSOR_SPEED_INPUT_DETECTED)
+        {
+            printf("Vehicle sensor speed input was detected by DRE\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_VEHICLE_SENSOR_SPEED_INPUT_USED)
+        {
+            printf("Vehicle sensor speed input was used by DRE\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_UNCALIBRATED)
+        {
+            printf("DRE solution disengaged due to insufficient calibration\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_GNSS_QUALITY_INSUFFICIENT)
+        {
+            printf("DRE solution disengaged due to bad GNSS quality\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_FERRY_DETECTED)
+        {
+            printf("DRE solution disengaged as ferry condition detected.\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_ERROR_6DOF_SENSOR_UNAVAILABLE)
+        {
+            printf("DRE solution disengaged as 6DOF sensor inputs not available\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_ERROR_VEHICLE_SPEED_UNAVAILABLE)
+        {
+            printf("DRE solution disengaged as vehicle speed inputs not available\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_ERROR_GNSS_EPH_UNAVAILABLE)
+        {
+            printf("DRE solution disengaged as Ephemeris info not available\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_ERROR_GNSS_MEAS_UNAVAILABLE)
+        {
+            printf("DRE solution disengaged as GNSS measurement info not available\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_INIT_POSITION_INVALID)
+        {
+            printf("DRE solution disengaged due to non-availability of stored position from previous session\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_INIT_POSITION_UNRELIABLE)
+        {
+            printf("DRE solution disengaged due to vehicle motion detected at session start\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_POSITON_UNRELIABLE)
+        {
+            printf("DRE solution disengaged due to unreliable position\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_ERROR_GENERIC)
+        {
+            printf("DRE solution disengaged due to a generic error\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_SENSOR_TEMP_OUT_OF_RANGE)
+        {
+            printf("DRE solution disengaged due to Sensor Temperature being out of range\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_USER_DYNAMICS_INSUFFICIENT)
+        {
+            printf("DRE solution disengaged due to insufficient user dynamics\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_FACTORY_DATA_INCONSISTENT)
+        {
+            printf("DRE solution disengaged due to inconsistent factory data\n");
+        }
+        if(drSolutionPtr == 0)
+        {
+            printf("Dead Reckoning solution status not found\n");
+        }
+    }
+    else if (result == LE_OUT_OF_RANGE)
+    {
+        printf("Dr solution status data is invalid\n");
+    }
+    else
+    {
+        printf("Failed! See log for details!\n");
     }
 
     //GetBodyFrameData
@@ -4709,10 +4794,21 @@ static void TestTafGnssRestart
         LE_TEST_INFO("taf_locGnss_GetLeapSeconds is failed");
     }
 
+   //Delete DR sensor calibration data - Not permitted
+    LE_TEST_INFO("taf_locGnss_DeleteDRSensorCalData() API is calledto check whether it returns"
+        " Not permitted state or not");
+    result = taf_locGnss_DeleteDRSensorCalData();
+    LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_locGnss_DeleteDRSensorCalData-LE_NOT_PERMITTED");
+
    //207.Stop
     LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
     result = taf_locGnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
+
+   //Delete DR sensor calibration data - LE_OK
+    LE_TEST_INFO("taf_locGnss_DeleteDRSensorCalData() API is called");
+    result = taf_locGnss_DeleteDRSensorCalData();
+    LE_TEST_OK(result == LE_OK, "taf_locGnss_DeleteDRSensorCalData-LE_OK");
 
    //208.Force Warm Restart-Not Permitted
     LE_TEST_INFO("taf_locGnss_ForceWarmRestart() API is called to check whether it returns"
@@ -4731,6 +4827,7 @@ static void TestTafGnssRestart
         " Not permitted state or not");
     result = taf_locGnss_ForceHotRestart();
     LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_locGnss_ForceHotRestart-LE_NOT_PERMITTED");
+
 
    //211.Force Factory Restart- Not Supported
     LE_TEST_INFO("taf_locGnss_ForceFactoryRestart() API is called to check whether it returns"

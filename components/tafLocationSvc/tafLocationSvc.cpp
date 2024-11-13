@@ -1958,3 +1958,35 @@ le_result_t taf_locGnss_GetGptpTime
     auto &gnss = taf_locGnss::GetInstance();
     return gnss.GetGptpTime(positionSampleRef,gPtpTime,gPtpTimeUnc);
 }
+
+/**
+* FUNCTION     : DeleteDRSensorCalData
+* DESCRIPTION  : This function deletes dead reckoning sensor calibration data.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_NOT_PERMITTED on failed
+*/
+le_result_t taf_locGnss_DeleteDRSensorCalData
+(
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.DeleteDRSensorCalData();
+}
+
+/**
+* FUNCTION     : GetDRSolutionStatus
+* DESCRIPTION  : This function gets the dead reckoning sensor solution status.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_locGnss_GetDRSolutionStatus
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+    uint32_t* solutionStatusPtr
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetDRSolutionStatus(positionSampleRef,solutionStatusPtr);
+}

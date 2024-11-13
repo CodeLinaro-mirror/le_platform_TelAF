@@ -474,6 +474,8 @@ void taf_locGnss::CopyPositionData
     LastDataPtr->gPtpTime = CurrentDataPtr->gPtpTime;
     LastDataPtr->gPtpTimeUncValid = CurrentDataPtr->gPtpTimeUncValid;
     LastDataPtr->gPtpTimeUnc = CurrentDataPtr->gPtpTimeUnc;
+    LastDataPtr->drSolutionStatus = CurrentDataPtr->drSolutionStatus;
+    LastDataPtr->drSolutionStatusValid = CurrentDataPtr->drSolutionStatusValid;
     LastDataPtr->next = LE_DLS_LINK_INIT;
 
     return;
@@ -644,6 +646,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->gnssDataValid = true;
                 LocationData->gPtpTimeValid = true;
                 LocationData->gPtpTimeUncValid = true;
+                LocationData->drSolutionStatusValid = true;
                 if(locationInfo->getAltitudeType() == telux::loc::AltitudeType::CALCULATED)
                 {
                     clientRequestPtr->mAltType = TAF_LOCGNSS_ALT_TYPE_CALCULATED;
@@ -902,6 +905,89 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 {
                     LE_DEBUG("onDetailedEngineLocationUpdate Gyro calibration is needed");
                     LocationData->calibrationStatus |= ((1<<TAF_LOCGNSS_DR_GYRO_CALIBRATION_NEEDED));
+                }
+                telux::loc::DrSolutionStatus solutionStatus =
+                                                locationInfo->getSolutionStatus();//lsc
+                LE_DEBUG("DR solution status %d", solutionStatus);
+                if((solutionStatus & telux::loc::VEHICLE_SENSOR_SPEED_INPUT_DETECTED))
+                {
+                    LE_DEBUG("Vehicle sensor speed input was detected");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_VEHICLE_SENSOR_SPEED_INPUT_DETECTED;
+                }
+                if((solutionStatus & telux::loc::VEHICLE_SENSOR_SPEED_INPUT_USED))
+                {
+                    LE_DEBUG("Vehicle sensor speed input was used");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_VEHICLE_SENSOR_SPEED_INPUT_USED;
+                }
+                if((solutionStatus & telux::loc::WARNING_UNCALIBRATED))
+                {
+                    LE_DEBUG("Dead recokining engine solution disengaged");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_UNCALIBRATED;
+                }
+                if((solutionStatus & telux::loc::WARNING_GNSS_QUALITY_INSUFFICIENT))
+                {
+                    LE_DEBUG("DRE solution disengaged due to bad GNSS quality");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_GNSS_QUALITY_INSUFFICIENT;
+                }
+                if((solutionStatus & telux::loc::WARNING_FERRY_DETECTED))
+                {
+                    LE_DEBUG("DRE solution disengaged as ferry condition detected");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_FERRY_DETECTED;
+                }
+                if((solutionStatus & telux::loc::ERROR_6DOF_SENSOR_UNAVAILABLE))
+                {
+                    LE_DEBUG("DRE solution disengaged as 6DOF sensor inputs not available");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_ERROR_6DOF_SENSOR_UNAVAILABLE;
+                }
+                if((solutionStatus & telux::loc::ERROR_VEHICLE_SPEED_UNAVAILABLE))
+                {
+                    LE_DEBUG("DRE solution disengaged as vehicle speed inputs not available");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_ERROR_VEHICLE_SPEED_UNAVAILABLE;
+                }
+                if((solutionStatus & telux::loc::ERROR_GNSS_EPH_UNAVAILABLE))
+                {
+                    LE_DEBUG("DRE solution disengaged as Ephemeris info not available");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_ERROR_GNSS_EPH_UNAVAILABLE;
+                }
+                if((solutionStatus & telux::loc::ERROR_GNSS_MEAS_UNAVAILABLE))
+                {
+                    LE_DEBUG("DRE solution disengaged as GNSS measurement info not available");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_ERROR_GNSS_MEAS_UNAVAILABLE;
+                }
+                if((solutionStatus & telux::loc::WARNING_INIT_POSITION_INVALID))
+                {
+                    LE_DEBUG("DRE solution disengaged due to non-availability of stored position from previous session");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_INIT_POSITION_INVALID;
+                }
+                if((solutionStatus & telux::loc::WARNING_INIT_POSITION_UNRELIABLE))
+                {
+                    LE_DEBUG("DRE solution dis-engaged due to vehicle motion detected at session start");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_INIT_POSITION_UNRELIABLE;
+                }
+                if((solutionStatus & telux::loc::WARNING_POSITON_UNRELIABLE))
+                {
+                    LE_DEBUG("DRE solution dis-engaged due to unreliable position");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_POSITON_UNRELIABLE;
+                }
+                if((solutionStatus & telux::loc::ERROR_GENERIC))
+                {
+                    LE_DEBUG("DRE solution dis-engaged due to a generic error");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_ERROR_GENERIC;
+                }
+                if((solutionStatus & telux::loc::WARNING_SENSOR_TEMP_OUT_OF_RANGE))
+                {
+                    LE_DEBUG("DRE solution dis-engaged due to Sensor Temperature being out of range");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_SENSOR_TEMP_OUT_OF_RANGE;
+                }
+                if((solutionStatus & telux::loc::WARNING_FACTORY_DATA_INCONSISTENT))
+                {
+                    LE_DEBUG("DRE solution dis-engaged due to insufficient user dynamics");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_USER_DYNAMICS_INSUFFICIENT;
+                }
+                if((solutionStatus & telux::loc::WARNING_USER_DYNAMICS_INSUFFICIENT))
+                {
+                    LE_DEBUG("DRE solution dis-engaged due to inconsistent factory data ");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_FACTORY_DATA_INCONSISTENT;
                 }
                 LE_DEBUG("onDetailedEngineLocationUpdate Location position dynamic");
                 telux::loc::GnssKinematicsData GnssKinData = locationInfo->getBodyFrameData();
@@ -3559,6 +3645,75 @@ le_result_t taf_locGnss::GetGpsLeapSeconds
     return result;
 }
 
+le_result_t taf_locGnss::DeleteDRSensorCalData
+(
+    void
+)
+{
+    le_result_t result = LE_OK;
+    taf_locGnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
+    {
+        case TAF_LOCGNSS_STATE_ACTIVE:
+        case TAF_LOCGNSS_STATE_DISABLED:
+        case TAF_LOCGNSS_STATE_UNINITIALIZED:
+        {
+            LE_ERROR("Wrong Gnss state [%d]", clientRequestPtr->GnssState);
+            result = LE_NOT_PERMITTED;
+        }
+        break;
+        case TAF_LOCGNSS_STATE_READY:
+        {
+                std::promise<le_result_t> p1;
+
+                auto cb1 = [&p1](telux::common::ErrorCode error) {
+                    if(error == telux::common::ErrorCode::SUCCESS) {
+                        p1.set_value(LE_OK);
+                    }
+                    else {
+                        p1.set_value(LE_FAULT);
+                    }
+                };
+
+                /* Specifies AidingDataType mask */
+                /* 0 - EPHEMERIS 1 - DR_SENSOR_CALIBRATION
+                   AidingData |1UL << 1 which is 2*/
+
+                uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_DR_SENSOR_CALIBRATION;
+                telux::common::Status status =
+                                            mLocationConfigurator->deleteAidingData(AidingData,cb1);
+                if (status != telux::common::Status::SUCCESS)
+                {
+                    if (status == telux::common::Status::NOTIMPLEMENTED)
+                    {
+                        LE_ERROR("DeleteDRSensorCalData failed or Not Implemented");
+                    }
+                    result = LE_FAULT;
+                }
+                else
+                {
+                    std::future<le_result_t> futResult = p1.get_future();
+                    if(futResult.get() != LE_OK)
+                    {
+                        result = LE_FAULT;
+                    }
+                }
+        }
+        break;
+        default:
+        {
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
+            result = LE_FAULT;
+        }
+        break;
+    }
+
+    return result;
+}
 le_result_t taf_locGnss::GetMagneticDeviation
 (
  taf_locGnss_SampleRef_t positionSampleRef,
@@ -6113,6 +6268,41 @@ le_result_t taf_locGnss::GetCalibrationData
     }
     return result;
 }
+
+le_result_t taf_locGnss::GetDRSolutionStatus
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+    uint32_t* solutionStatusPtr
+)
+{
+    le_result_t result = LE_OK;
+    taf_locGnss_PositionSampleRequest_t* posSampleReqPtr
+                                            = (taf_locGnss_PositionSampleRequest_t *)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+    if (solutionStatusPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->drSolutionStatusValid)
+        {
+            *solutionStatusPtr = posSampleReqPtr->positionSampleNodePtr->drSolutionStatus;
+        }
+        else
+        {
+            LE_DEBUG("GetDRSolutionStatus is not valid");
+            result = LE_OUT_OF_RANGE;
+        }
+    }
+    else
+    {
+        result = LE_FAULT;
+    }
+    return result;
+}
+
 
 le_result_t taf_locGnss::GetBodyFrameData
 (

@@ -205,6 +205,14 @@
    }
    @endverbatim
  *
+ * The taf_locGnss_DeleteDRSensorCalData() function deletes Dead Reckoning sensor calibration data.
+ * @verbatim
+   if(taf_locGnss_DeleteDRSensorCalData() == LE_OK)
+   {
+     // Process after successfully deleting the Dead Reckoning sensor aiding data.
+   }
+   @endverbatim
+ *
  * @subsubsection taf_locGnss_TTFF Obtain Time To First Fix (TTFF)
  *
  * The taf_locGnss_GetTtff() function provides the TTFF
@@ -728,6 +736,16 @@
    if(taf_locGnss_GetCalibrationData(positionSampleRef,&calibPtr,&percentPtr) == LE_OK)
    {
      // Process after successfully getting the calibration status and confidence percentage.
+   }
+   @endverbatim
+ *
+ * - taf_locGnss_GetDRSolutionStatus() -- Triggered inside the PositionHandlerFunction()
+ *                                    function to get dead reckoning solution status from the position sample reference.
+ * @verbatim
+   uint32 solutionStatusPtr;
+   if(taf_locGnss_GetDRSolutionStatus(positionSampleRef,&solutionStatusPtr) == LE_OK)
+   {
+     // Process after successfully getting the dead reckoning solution status.
    }
    @endverbatim
  *
@@ -1998,6 +2016,47 @@ ENUM CalibrationType {
     DR_STATIC_CALIBRATION_LOW,             ///< Lot more stationary events on level ground needed
     DR_STATIC_CALIBRATION_MEDIUM,          ///< Some more stationary events on level ground needed
     DR_STATIC_CALIBRATION_HIGH             ///< Sufficient stationary events on level ground observed
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Status that contributes to the dead reckoning position engine.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK drSolutionStatusType {
+    VEHICLE_SENSOR_SPEED_INPUT_DETECTED,   ///< Vehicle sensor speed input was detected by
+                                           ///< the dead reckoning position engine.
+    VEHICLE_SENSOR_SPEED_INPUT_USED,       ///< Vehicle sensor speed input was used by
+                                           ///< the dead reckoning position engine.
+    WARNING_UNCALIBRATED,                  ///< Dead recokining engine solution disengaged
+                                           ///< due to insufficient calibration.
+    WARNING_GNSS_QUALITY_INSUFFICIENT,     ///< Dead reckoning engine solution disengaged
+                                           ///< due to bad GNSS quality.
+    WARNING_FERRY_DETECTED,                ///< Dead reckoning engine solution disengaged
+                                           ///< as ferry condition detected.
+    ERROR_6DOF_SENSOR_UNAVAILABLE,         ///< Dead reckoning engine solution disengaged
+                                           ///< as 6DOF sensor inputs not available.
+    ERROR_VEHICLE_SPEED_UNAVAILABLE,       ///< Dead reckoning engine solution disengaged
+                                           ///< as vehicle speed inputs not available.
+    ERROR_GNSS_EPH_UNAVAILABLE,            ///< Dead reckoning engine solution disengaged
+                                           ///< as Ephemeris info not available.
+    ERROR_GNSS_MEAS_UNAVAILABLE,           ///< Dead reckoning engine solution disengaged
+                                           ///< as GNSS measurement info not available.
+    WARNING_INIT_POSITION_INVALID,         ///< Dead reckonign engine solution disengaged due
+                                           ///< to non-availability of stored position
+                                           ///< from previous session.
+    WARNING_INIT_POSITION_UNRELIABLE,      ///< Dead reckoning engine solution disengage due to
+                                           ///< vehicle motion detected at session start.
+    WARNING_POSITON_UNRELIABLE,            ///< Dead reckoning engine solution disengage due to
+                                           ///< unreliable position.
+    ERROR_GENERIC,                         ///< Dead reckoning engine solution disengage due
+                                           ///< to a generic error.
+    WARNING_SENSOR_TEMP_OUT_OF_RANGE,      ///< Dead reckoning engine solution disengage due
+                                           ///< to Sensor Temperature being out of range.
+    WARNING_USER_DYNAMICS_INSUFFICIENT,    ///< Dead reckoning engine solution disengage due
+                                           ///< to insufficient user dynamics.
+    WARNING_FACTORY_DATA_INCONSISTENT      ///< Dead reckoning engine solution disengage due
+                                           ///< to inconsistent factory data.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -3784,3 +3843,38 @@ FUNCTION le_result_t GetGptpTime
     uint64 gPtpTime OUT,         ///< Gptp time stamp in nanoseconds.
     uint64 gPtpTimeUnc OUT       ///< Gptp time stamp uncertainty in nanoseconds.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes calibration data from dead reckoning position engine.
+ *
+ * @return
+ *  - LE_FAULT         Failed.
+ *  - LE_NOT_PERMITTED The Location service state is not READY.
+ *  - LE_OK            Succeeded.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteDRSensorCalData
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the dead reckoning solution status.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetDRSolutionStatus
+(
+    Sample positionSampleRef IN, ///< Position sample reference.
+    uint32 solutionStatusPtr OUT ///< Dead reckoning solution status.
+);
+

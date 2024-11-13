@@ -197,6 +197,8 @@ namespace tafsvc {
         bool     confidencePercentValid;
         uint8_t  calibrationStatus;
         uint8_t  calibrationStatusValid;
+        uint32_t  drSolutionStatus;
+        uint32_t  drSolutionStatusValid;
         taf_locGnss_KinematicsData_t GnssKinematicsData;
         bool     GnssKinematicsDataValid;
         double   vrpLatitude;
@@ -437,6 +439,7 @@ namespace tafsvc {
             le_result_t ForceColdRestart();
             le_result_t ForceWarmRestart();
             le_result_t ForceHotRestart();
+            le_result_t DeleteDRSensorCalData();
             le_result_t GetSupportedConstellations(taf_locGnss_ConstellationBitMask_t* constellationMaskPtr);
             le_result_t SetMinElevation( uint8_t  minElevation);
             le_result_t StartMode(taf_locGnss_StartMode_t mode);
@@ -467,6 +470,8 @@ namespace tafsvc {
             le_result_t GetConformityIndex(taf_locGnss_SampleRef_t positionSampleRef,double* indexPtr);
             le_result_t GetCalibrationData(taf_locGnss_SampleRef_t positionSampleRef,
                     uint32_t* calibPtr,uint8_t* percentPtr);
+            le_result_t GetDRSolutionStatus(taf_locGnss_SampleRef_t positionSampleRef,
+                    uint32_t* solutionStatusPtr);
             le_result_t GetBodyFrameData(taf_locGnss_SampleRef_t positionSampleRef,
                     taf_locGnss_KinematicsData_t* bodyDataPtr);
             le_result_t GetVRPBasedLLA(taf_locGnss_SampleRef_t positionSampleRef,

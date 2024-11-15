@@ -334,7 +334,7 @@ typedef void (*hal_pm_NodeInfoNotificationFunc_t)
 (
     uint8_t pm_node_id,
     hal_pm_NodeInfo_t info,
-    const char* vhalTag
+    const uint8_t reason
 );
 
 //--------------------------------------------------------------------------------------------------

@@ -173,8 +173,8 @@ le_result_t tafMngdRpcPm::RelaxRpcNode(taf_mngdPm_wsRef_t wsRef)
 
         while (linkHandlerPtr)
         {
-            taf_wsRefCtx_t * wsRefCtxPtr =
-                    CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
+            taf_nodeWsRefCtx_t * wsRefCtxPtr =
+                    CONTAINER_OF(linkHandlerPtr, taf_nodeWsRefCtx_t, link);
             linkHandlerPtr = le_dls_PeekPrev(&(rpcPm.rpcWsRefList), linkHandlerPtr);
             if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef &&
                     wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef() && wsRefCtxPtr->isAcquiredLock)
@@ -206,8 +206,8 @@ le_result_t tafMngdRpcPm::StayAwakeRpcNode(taf_mngdPm_wsRef_t wsRef)
         le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(rpcPm.rpcWsRefList));
         while (linkHandlerPtr)
         {
-            taf_wsRefCtx_t * wsRefCtxPtr =
-                    CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
+            taf_nodeWsRefCtx_t * wsRefCtxPtr =
+                    CONTAINER_OF(linkHandlerPtr, taf_nodeWsRefCtx_t, link);
             linkHandlerPtr = le_dls_PeekPrev(&(rpcPm.rpcWsRefList), linkHandlerPtr);
             if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef &&
                     wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef())
@@ -240,15 +240,16 @@ le_result_t tafMngdRpcPm::StayAwakeRpcNode(taf_mngdPm_wsRef_t wsRef)
 /**
  * Creates the node wakeupSource reference.
  */
-taf_mngdPm_wsRef_t tafMngdRpcPm::NewRpcNodeWakeupSource( uint8_t pmNodeId,
-    taf_mngdPm_WakeupType_t wakeupType)
+taf_mngdPm_wsRef_t tafMngdRpcPm::NewRpcNodeWakeupSource(uint8_t pmNodeId,
+        taf_mngdPm_WakeupType_t wakeupType)
+
 {
     LE_INFO("NewRpcNodeWakeupSource");
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     if(rpcPm.IsRpcConnected) {
         LE_INFO("RPC Connected");
-        taf_wsRefCtx_t * wsCtxPtr =
-                (taf_wsRefCtx_t *)le_mem_ForceAlloc(rpcPm.rpcWsRefPool);
+        taf_nodeWsRefCtx_t * wsCtxPtr =
+                (taf_nodeWsRefCtx_t *)le_mem_ForceAlloc(rpcPm.rpcWsRefPool);
         if(wsCtxPtr) {
             wsCtxPtr->wsRef = (taf_mngdPm_wsRef_t)le_ref_CreateRef(
                     rpcPm.rpcWsRefMap, wsCtxPtr);
@@ -275,8 +276,8 @@ void RemoveRpcNodeWakeupSource()
 
     while (linkHandlerPtr)
     {
-        taf_wsRefCtx_t * wsRefCtxPtr =
-                CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
+        taf_nodeWsRefCtx_t * wsRefCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_nodeWsRefCtx_t, link);
         linkHandlerPtr = le_dls_PeekPrev(&(rpcPm.rpcWsRefList), linkHandlerPtr);
         if (wsRefCtxPtr && wsRefCtxPtr->wsRef)
         {
@@ -703,8 +704,8 @@ void tafMngdRpcPm::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
 
     while (linkHandlerPtr)
     {
-        taf_wsRefCtx_t * wsRefCtxPtr =
-                CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
+        taf_nodeWsRefCtx_t * wsRefCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_nodeWsRefCtx_t, link);
         linkHandlerPtr = le_dls_PeekPrev(&(rpcPm.rpcWsRefList), linkHandlerPtr);
         if (wsRefCtxPtr && wsRefCtxPtr->sessionRef == sessionRef && wsRefCtxPtr->isAcquiredLock)
         {
@@ -748,7 +749,7 @@ void tafMngdRpcPm::Init(void)
             LE_INFO("Register RPC Extended state change handler is successfull");
     }
     le_msg_AddServiceCloseHandler(taf_mngdPm_GetServiceRef(), tafMngdRpcPm::OnClientDisconnection, NULL);
-    rpcPm.rpcWsRefPool = le_mem_CreatePool("tafrpcWsRefList", sizeof(taf_wsRefCtx_t));
+    rpcPm.rpcWsRefPool = le_mem_CreatePool("tafrpcWsRefList", sizeof(taf_nodeWsRefCtx_t));
     rpcPm.rpcWsRefList = LE_DLS_LIST_INIT;
     rpcPm.rpcWsRefMap = le_ref_CreateMap("tafwsRef", TAF_REF_POOL_SIZE);
 

@@ -17,13 +17,17 @@ taf_mngdPm_wsRef_t wsRef1 = NULL;
 taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = 0;
 static le_sem_Ref_t tafMpmAppSem;
 le_clk_Time_t Timeout = { 5 , 0 };
+
+static le_sem_Ref_t tafMpmEcallSem;
+le_clk_Time_t EcallTimeout = { 10 , 0 };
 int status = EXIT_SUCCESS;
-const char* vHalTag = "vehichle_on";
+const char* wsTag = "testWsTag";
 
 static le_sem_Ref_t semRef = NULL, queueSemRef = NULL;
 static le_thread_Ref_t threadRef = NULL;
 
 #define VEHICHLE_WAKEUP_REASON_DEFAULT 0
+#define AUTHORIZE_ALL_STAY_AWAKE_REASON 0xFFFFFFFF
 
 static void PrintUsage ()
 {
@@ -61,22 +65,6 @@ static void PrintUsage ()
         "--------5 -> For SMS and MCU_VHAL wakeuptype------\n"
         "--------6 -> For VOICE_CALL and MCU_VHAL wakeuptype------\n"
         "--------7 -> For SMS, VOICE_CALL and MCU_VHAL wakeuptype------\n"
-        "------------To Suspend System the particular node with wakeuptype and node ID-----------\n"
-        "--------0 -> For APP_STAYAWAKE wakeuptype------------\n"
-        "--------1 -> For SMS wakeuptype------------\n"
-        "--------2 -> For VOICE_CALL wakeuptype------------\n"
-        "--------3 -> For MCU_VHAL wakeuptype------\n"
-        "--------0 -> For PVM NAD ------------\n"
-        "--------1 -> For RPC NAD ------------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- SuspendSystem <wakeuptype> <NODE_ID> \n"
-        "------------To Resume the system with wakeuptype and node ID-----------\n"
-        "--------0 -> For APP_STAYAWAKE wakeuptype------------\n"
-        "--------1 -> For SMS wakeuptype------------\n"
-        "--------2 -> For VOICE_CALL wakeuptype------------\n"
-        "--------3 -> For MCU_VHAL wakeuptype------\n"
-        "--------0 -> For PVM NAD ------------\n"
-        "--------1 -> For RPC NAD ------------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ResumeSystem <wakeuptype> <NODE_ID>\n"
         "\n"
         "------------To Restart the particular node with node ID-----------\n"
         "--------0 -> For PVM NAD ------------\n"
@@ -103,8 +91,14 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- CreateMutlipleClients\n"
         "------------To  test AllowWakingupDuringSuspending-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- AllowWakingupDuringSuspending\n"
-        "------------To Test Resume and Suspend with multiple locks-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestResumeandSuspend\n");
+        "------------To Test System Resume and Suspend -----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestAuthorizedResumeandSuspend\n"
+        "------------To Test Node Resume and Suspend -----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestNodeResumeandSuspend\n"
+        "------------To Test Bub with ecall use cases-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestBubCases\n"
+        "------------To Test Test NonAuthorized StayAwake wake source-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestNonAuthorizedStayAwake\n");
 }
 
 
@@ -180,7 +174,7 @@ void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rs
     LE_INFO("RestartCallback response mode is %d", rspmode);
     if(rspmode == 0)
     {
-        LE_INFO("----RestartSystem success----");
+        LE_INFO("----Restart System success----");
     }
     else
     {
@@ -286,156 +280,6 @@ static void ForcedSystemShutdown()
     }
 }
 
-void SuspendSystem(const char* wakeuptype, uint8_t pmNodeId)
-{
-    le_result_t res = LE_FAULT;
-    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE", pmNodeId);
-    int result = SetModemWakeupSource(wakeuptype);
-    if(result) {
-        if(strcmp(wakeuptype, "0") == 0) {
-            LE_INFO("NewNodeWakeupSource wakeuptype is APP_STAYAWAKE");
-            wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_APP_STAYAWAKE, vHalTag);
-            if(wsRef != NULL) {
-                LE_INFO("NewNodeWakeupSource ref is created for APP_STAYAWAKE");
-                res = taf_mngdPm_StayAwakeNode(wsRef);
-                if(res == LE_OK) {
-                    LE_INFO("Resumed sysytem with wakeuptype APP_STAYAWAKE");
-                    res = taf_mngdPm_RelaxNode(wsRef);
-                    if(res == LE_OK)
-                        LE_INFO("suspended sysytem with wakeuptype APP_STAYAWAKE");
-                 }
-            }
-        }
-        else if(strcmp(wakeuptype, "1") == 0) {
-            LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
-            wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_SMS, vHalTag);
-            if(wsRef != NULL) {
-                LE_INFO("NewNodeWakeupSource ref is created for SMS");
-                res = taf_mngdPm_StayAwakeNode(wsRef);
-                if(res == LE_OK) {
-                    LE_INFO("Resumed sysytem with wakeuptype SMS");
-                    res = taf_mngdPm_RelaxNode(wsRef);
-                    if(res == LE_OK)
-                        LE_INFO("suspended sysytem with wakeuptype SMS");
-                 }
-            }
-        }
-        else if(strcmp(wakeuptype, "2") == 0) {
-            LE_INFO("NewNodeWakeupSource wakeuptype is VOICE_CALL");
-            wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_VOICE_CALL, vHalTag);
-            if(wsRef != NULL) {
-                LE_INFO("NewNodeWakeupSource ref is created for VOICE_CALL");
-                res = taf_mngdPm_StayAwakeNode(wsRef);
-                if(res == LE_OK) {
-                    LE_INFO("Resumed sysytem with wakeuptype VOICE_CALL");
-                    res = taf_mngdPm_RelaxNode(wsRef);
-                    if(res == LE_OK)
-                        LE_INFO("suspended sysytem with wakeuptype VOICE_CALL");
-                }
-            }
-        }
-        else if(strcmp(wakeuptype, "3") == 0) {
-            LE_INFO("NewNodeWakeupSource wakeuptype is MCU_VHAL");
-            wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_MCU_VHAL, vHalTag);
-            if(wsRef != NULL) {
-                LE_INFO("NewNodeWakeupSource ref is created for MCU_VHAL");
-                res = taf_mngdPm_StayAwakeNode(wsRef);
-                if(res == LE_OK) {
-                    LE_INFO("Resumed sysytem with wakeuptype MCU_VHAL");
-                    res = taf_mngdPm_RelaxNode(wsRef);
-                    if(res == LE_OK)
-                        LE_INFO("suspended sysytem with wakeuptype MCU_VHAL");
-                }
-            }
-        }
-        else {
-            LE_ERROR("SuspendSystem failed");
-        }
-        if(res != LE_OK)
-            exit(EXIT_FAILURE);
-    }
-    else {
-         LE_ERROR("SuspendSystem failed");
-            exit(EXIT_FAILURE);
-    }
-}
-
-void ResumeSystem(const char* wakeuptype, uint8_t pmNodeId)
-{
-    le_result_t res = LE_FAULT;
-    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME", pmNodeId);
-    int result = SetModemWakeupSource(wakeuptype);
-    if(result) {
-        if(strcmp(wakeuptype, "0") == 0) {
-            LE_INFO("NewNodeWakeupSource wakeuptype is APP_STAYAWAKE");
-            wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_APP_STAYAWAKE, vHalTag);
-            if(wsRef != NULL) {
-                LE_INFO("NewNodeWakeupSource ref is created for APP_STAYAWAKE");
-                res = taf_mngdPm_StayAwakeNode(wsRef);
-                if(res == LE_OK) {
-                    LE_INFO("Resumed sysytem with wakeuptype APP_STAYAWAKE");
-                 }
-            }
-        }
-        else if(strcmp(wakeuptype, "1") == 0) {
-            LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
-            wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_SMS, vHalTag);
-            if(wsRef != NULL) {
-                LE_INFO("NewNodeWakeupSource ref is created for SMS");
-                res = taf_mngdPm_StayAwakeNode(wsRef);
-                if(res == LE_OK) {
-                    LE_INFO("Resumed sysytem with wakeuptype SMS");
-                 }
-            }
-        }
-        else if(strcmp(wakeuptype, "2") == 0) {
-            LE_INFO("NewNodeWakeupSource wakeuptype is VOICE_CALL");
-            wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_VOICE_CALL, vHalTag);
-            if(wsRef != NULL) {
-                LE_INFO("NewNodeWakeupSource ref is created for VOICE_CALL");
-                res = taf_mngdPm_StayAwakeNode(wsRef);
-                if(res == LE_OK) {
-                    LE_INFO("Resumed sysytem with wakeuptype VOICE_CALL");
-                 }
-            }
-        }
-        else if(strcmp(wakeuptype, "3") == 0) {
-            LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
-            wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_MCU_VHAL, vHalTag);
-            if(wsRef != NULL) {
-                LE_INFO("NewNodeWakeupSource ref is created for MCU_VHAL");
-                res = taf_mngdPm_StayAwakeNode(wsRef);
-                if(res == LE_OK) {
-                    LE_INFO("Resumed sysytem with wakeuptype MCU_VHAL");
-                 }
-            }
-        }
-        else {
-             LE_ERROR("ResumeSystem failed");
-        }
-        if(res != LE_OK)
-            exit(EXIT_FAILURE);
-        printf("\nExit force Since, the acquired lock will be released once client exits\n -1.Exit \n");
-        char buffer[100];
-        if(fgets(buffer, sizeof(buffer), stdin))
-            LE_INFO("Value read successfully");
-        buffer[strcspn(buffer, "\n")] = '\0';
-        int input = atoi(buffer);
-        LE_INFO("input: %d", input);
-        if(input == -1)
-        {
-            if(res)
-                exit(EXIT_SUCCESS);
-            else
-                exit(EXIT_FAILURE);
-		}
-    }
-    else {
-         LE_ERROR("ResumeSystem failed");
-            exit(EXIT_FAILURE);
-    }
-}
-
 void GracefulSysShutdownWakeLock(uint8_t pmNodeId)
 {
     LE_INFO("----GracefulSysShutdownWakeLock test----");
@@ -443,7 +287,7 @@ void GracefulSysShutdownWakeLock(uint8_t pmNodeId)
         AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE", pmNodeId);
      // Create and acquire a wakelock to get notified on last wakeup source release.
      if(wsRef == NULL)
-         wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_APP_STAYAWAKE, vHalTag);
+         wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_APP_STAYAWAKE, wsTag);
      if(wsRef != NULL) {
          LE_INFO("NewNodeWakeupSource ref is created for APP_STAYAWAKE");
          if (wsRef != NULL) {
@@ -488,7 +332,7 @@ void GracefulSysSuspendWakeLock(uint8_t pmNodeId)
         AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE", pmNodeId);
      // Create and acquire a wakelock to get notified on last wakeup source release.
      if(wsRef == NULL)
-         wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_APP_STAYAWAKE, vHalTag);
+         wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_APP_STAYAWAKE, wsTag);
      if(wsRef != NULL) {
          LE_INFO("NewNodeWakeupSource ref is created for APP_STAYAWAKE");
          if (wsRef != NULL) {
@@ -554,7 +398,7 @@ void GracefulSysSuspend(uint8_t pmNodeId)
 {
     LE_INFO("----GracefulSysSuspend test " );
     le_result_t result =  LE_FAULT;
-        AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE", pmNodeId);
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE", pmNodeId);
     LE_INFO("GracefulSysSuspend without wake source");
     result = taf_mngdPm_SetNodeTargetedPowerMode(pmNodeId,
             TAF_MNGDPM_SUSPEND);
@@ -656,6 +500,276 @@ static int GetInfoReport()
     return EXIT_FAILURE;
 }
 
+void BubCallBack1( int32_t status, void *contextptr)
+{
+    LE_INFO("BubCallBack is:%d", status);
+    if(status == TAF_MNGDPM_BUB_STATUS_IN_USE)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_IN_USE \n");
+        le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(42);
+        if(res == LE_OK) {
+            LE_INFO("taf_mngdPm_AuthorizeStayAwakeReason");
+        }
+       //UC1 ( BUB active + ecall = OFF => shutdown)
+        wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_1,
+                TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRef != NULL) {
+            LE_INFO("CreateWakeupSource ref is created for STAY_AWAKE_REASON_VENDOR_1");
+            res = taf_mngdPm_StayAwake(wsRef);
+            if(res == LE_OK) {
+                LE_INFO("Wake up sysytem with StayAwakeReason STAY_AWAKE_REASON_VENDOR_1");
+            }
+        }
+        tafMpmEcallSem = le_sem_Create("tafMpmEcallSem", 0);
+        le_sem_WaitWithTimeOut(tafMpmEcallSem, EcallTimeout);
+        LE_INFO("Timer expired");
+        res = taf_mngdPm_SetNodeTargetedPowerMode(0, TAF_MNGDPM_SHUTDOWN);
+        if(res == LE_OK) {
+            LE_INFO("SetNodeTargetedPowerMode TAF_MNGDPM_SHUTDOWN");
+        }
+        le_sem_WaitWithTimeOut(tafMpmEcallSem, EcallTimeout); //stay awake till timer expires
+        LE_INFO("Timer expired for TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_1");
+        res = taf_mngdPm_Relax(wsRef);
+        if(res == LE_OK) {
+            LE_INFO("Relax sysytem with TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_1");
+        }
+        le_sem_Delete(tafMpmEcallSem);
+    }
+    else if(status == TAF_MNGDPM_BUB_STATUS_NOT_IN_USE)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_NOT_IN_USE\n");
+    }
+    else if(status == TAF_MNGDPM_BUB_STATUS_UNKNOWN)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_UNKNOWN\n");
+    }
+    else
+    {
+        printf("Error status returned");
+        exit(EXIT_FAILURE);
+    }
+    exit(EXIT_SUCCESS);
+}
+
+void BubCallBack2( int32_t status, void *contextptr)
+{
+    LE_INFO("BubCallBack is:%d", status);
+    if(status == TAF_MNGDPM_BUB_STATUS_IN_USE)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_IN_USE \n");
+        le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(42);
+        if(res == LE_OK) {
+            LE_INFO("taf_mngdPm_AuthorizeStayAwakeReason");
+        }
+        //UC_3: BUB active + ecall = CALLBACK => suspend
+        wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_1,
+                TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRef != NULL) {
+            LE_INFO("CreateWakeupSource ref is created for STAY_AWAKE_REASON_VENDOR_1");
+            res = taf_mngdPm_StayAwake(wsRef);
+            if(res == LE_OK) {
+                LE_INFO("Wake up sysytem with StayAwakeReason STAY_AWAKE_REASON_VENDOR_1");
+            }
+        }
+        taf_mngdPm_wsRef_t wsRef0 = taf_mngdPm_CreateWakeupSource(
+                TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if (wsRef0 != NULL)
+        {
+            LE_INFO("CreateWakeupSource ref is created for STAY_AWAKE_REASON_ECALL_ACTIVE");
+            res = taf_mngdPm_StayAwake(wsRef0);
+            if(res == LE_OK) {
+                LE_INFO("Wake up sysytem with TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE");
+            }
+        }
+        tafMpmEcallSem = le_sem_Create("tafMpmEcallSem", 0);
+        le_sem_WaitWithTimeOut(tafMpmEcallSem, EcallTimeout);
+        LE_INFO("ECall timer expired");
+        res = taf_mngdPm_SetNodeTargetedPowerMode(0, TAF_MNGDPM_SUSPEND);
+        if(res == LE_OK) {
+            LE_INFO("SetNodeTargetedPowerMode TAF_MNGDPM_SUSPEND");
+        }
+        //Releasing PM_REN acquired wakelocks
+        res = taf_mngdPm_Relax(wsRef);
+        if(res == LE_OK) {
+            LE_INFO("Relax sysytem with TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_1");
+        }
+        le_sem_WaitWithTimeOut(tafMpmEcallSem, EcallTimeout);
+        LE_INFO("Timer expired");
+        //Releasing IVC acquired wakelocks
+        res = taf_mngdPm_Relax(wsRef0);
+        if(res == LE_OK) {
+            LE_INFO("Relax sysytem with TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE");
+        }
+        le_sem_Delete(tafMpmEcallSem);
+    }
+    else if(status == TAF_MNGDPM_BUB_STATUS_NOT_IN_USE)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_NOT_IN_USE\n");
+    }
+    else if(status == TAF_MNGDPM_BUB_STATUS_UNKNOWN)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_UNKNOWN\n");
+    }
+    else
+    {
+        printf("Error status returned");
+        exit(EXIT_FAILURE);
+    }
+    exit(EXIT_SUCCESS);
+}
+
+void BubCallBack3( int32_t status, void *contextptr)
+{
+    LE_INFO("BubCallBack is:%d", status);
+    if(status == TAF_MNGDPM_BUB_STATUS_IN_USE)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_IN_USE \n");
+        le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(42);
+        if(res == LE_OK) {
+            LE_INFO("taf_mngdPm_AuthorizeStayAwakeReason");
+        }
+        //UC4 SW update use case
+        wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_1,
+                TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRef != NULL) {
+            LE_INFO("CreateWakeupSource ref is created for STAY_AWAKE_REASON_VENDOR_1");
+            res = taf_mngdPm_StayAwake(wsRef);
+            if(res == LE_OK) {
+                LE_INFO("Wake up sysytem with StayAwakeReason STAY_AWAKE_REASON_VENDOR_1");
+            }
+        }
+        taf_mngdPm_wsRef_t wsRef1 = taf_mngdPm_CreateWakeupSource(
+                TAF_MNGDPM_STAY_AWAKE_REASON_SW_UPDATE, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if (wsRef1 != NULL)
+        {
+            LE_INFO("CreateWakeupSource ref is created for TAF_MNGDPM_STAY_AWAKE_REASON_SW_UPDATE");
+            res = taf_mngdPm_StayAwake(wsRef1);
+            if(res == LE_OK) {
+                LE_INFO("Wake up sysytem with wakeuptype TAF_MNGDPM_STAY_AWAKE_REASON_SW_UPDATE");
+            }
+        }
+        tafMpmEcallSem = le_sem_Create("tafMpmEcallSem", 0);
+        le_sem_WaitWithTimeOut(tafMpmEcallSem, EcallTimeout);
+        LE_INFO("Timer expired");
+        res = taf_mngdPm_SetNodeTargetedPowerMode(0, TAF_MNGDPM_SHUTDOWN);
+        if(res == LE_OK) {
+            LE_INFO("SetNodeTargetedPowerMode TAF_MNGDPM_SHUTDOWN");
+        }
+        res = taf_mngdPm_Relax(wsRef);
+        if(res == LE_OK) {
+            LE_INFO("Relax sysytem with TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_1");
+        }
+        le_sem_WaitWithTimeOut(tafMpmEcallSem, EcallTimeout); //stay awake till timer expires
+        LE_INFO("Timer expired for TAF_MNGDPM_STAY_AWAKE_REASON_SW_UPDATE");
+        res = taf_mngdPm_Relax(wsRef1);
+        if(res == LE_OK) {
+            LE_INFO("Relax sysytem with TAF_MNGDPM_STAY_AWAKE_REASON_SW_UPDATE");
+        }
+        le_sem_Delete(tafMpmEcallSem);
+    }
+    else if(status == TAF_MNGDPM_BUB_STATUS_NOT_IN_USE)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_NOT_IN_USE\n");
+    }
+    else if(status == TAF_MNGDPM_BUB_STATUS_UNKNOWN)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_UNKNOWN\n");
+    }
+    else
+    {
+        printf("Error status returned");
+        exit(EXIT_FAILURE);
+    }
+    exit(EXIT_SUCCESS);
+}
+
+void BubCallBack4( int32_t status, void *contextptr)
+{
+    LE_INFO("BubCallBack is:%d", status);
+    if(status == TAF_MNGDPM_BUB_STATUS_IN_USE)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_IN_USE \n");
+        le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(42);
+        if(res == LE_OK) {
+            LE_INFO("taf_mngdPm_AuthorizeStayAwakeReason");
+        }
+        //UC5 Shutdown use case ( ECall state transition from CALLBACK to OFF & BUB active)
+        wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_1,
+                TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRef != NULL) {
+            LE_INFO("CreateWakeupSource ref is created for STAY_AWAKE_REASON_VENDOR_1");
+            res = taf_mngdPm_StayAwake(wsRef);
+            if(res == LE_OK) {
+                LE_INFO("Wake up sysytem with StayAwakeReason STAY_AWAKE_REASON_VENDOR_1");
+            }
+        }
+        tafMpmEcallSem = le_sem_Create("tafMpmEcallSem", 0);
+        le_sem_WaitWithTimeOut(tafMpmEcallSem, EcallTimeout);
+        LE_INFO("Timer expired");
+        res = taf_mngdPm_SetNodeTargetedPowerMode(0, TAF_MNGDPM_SHUTDOWN);
+        if(res == LE_OK) {
+            LE_INFO("SetNodeTargetedPowerMode TAF_MNGDPM_SHUTDOWN");
+        }
+        le_sem_WaitWithTimeOut(tafMpmEcallSem, EcallTimeout); //stay awake till timer expires
+        LE_INFO("Timer expired for TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_1");
+        res = taf_mngdPm_Relax(wsRef);
+        if(res == LE_OK) {
+            LE_INFO("Relax sysytem with TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_1");
+        }
+        le_sem_Delete(tafMpmEcallSem);
+    }
+    else if(status == TAF_MNGDPM_BUB_STATUS_NOT_IN_USE)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_NOT_IN_USE\n");
+    }
+    else if(status == TAF_MNGDPM_BUB_STATUS_UNKNOWN)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_UNKNOWN\n");
+    }
+    else
+    {
+        printf("Error status returned");
+        exit(EXIT_FAILURE);
+    }
+    exit(EXIT_SUCCESS);
+}
+
+void BubCallBack5( int32_t status, void *contextptr)
+{
+    LE_INFO("BubCallBack is:%d", status);
+    if(status == TAF_MNGDPM_BUB_STATUS_IN_USE)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_IN_USE \n");
+    }
+    else if(status == TAF_MNGDPM_BUB_STATUS_NOT_IN_USE)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_NOT_IN_USE\n");
+        //UC9 suspend use case
+        tafMpmEcallSem = le_sem_Create("tafMpmEcallSem", 0);
+        le_sem_WaitWithTimeOut(tafMpmEcallSem, EcallTimeout);
+        LE_INFO("Timer expired");
+        le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(AUTHORIZE_ALL_STAY_AWAKE_REASON);
+        if(res == LE_OK) {
+            LE_INFO("taf_mngdPm_AuthorizeStayAwakeReason");
+        }
+        res = taf_mngdPm_SetNodeTargetedPowerMode(0, TAF_MNGDPM_SUSPEND);
+        if(res == LE_OK) {
+            LE_INFO("SetNodeTargetedPowerMode TAF_MNGDPM_SUSPEND");
+        }
+        le_sem_Delete(tafMpmEcallSem);
+    }
+    else if(status == TAF_MNGDPM_BUB_STATUS_UNKNOWN)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_UNKNOWN\n");
+    }
+    else
+    {
+        printf("Error status returned");
+        exit(EXIT_FAILURE);
+    }
+    exit(EXIT_SUCCESS);
+}
+
 void BubCallBack( int32_t status, void *contextptr)
 {
     LE_INFO("BubCallBack is:%d", status);
@@ -679,11 +793,11 @@ void BubCallBack( int32_t status, void *contextptr)
     exit(EXIT_SUCCESS);
 }
 
-void AddInfoReportHandler()
+void AddInfoReportHandler(void * bubCallBack)
 {
     LE_INFO("AddInfoReportHandler");
     taf_mngdPm_InfoReportHandlerRef_t handlerRef;
-    handlerRef = taf_mngdPm_AddInfoReportHandler((taf_mngdPm_InfoReportBitMask_t)1, BubCallBack, NULL);
+    handlerRef = taf_mngdPm_AddInfoReportHandler((taf_mngdPm_InfoReportBitMask_t)1, bubCallBack, NULL);
     if(handlerRef)
     {
          LE_INFO("AddInfoReportHandler is success");
@@ -696,7 +810,7 @@ static int KeepAwakeThenRestartSystem()
     le_result_t res = LE_FAULT;
     uint8_t NODE_ID = 0;
     LE_INFO("NewNodeWakeupSource wakeuptype is APP_STAYAWAKE");
-    wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_APP_STAYAWAKE, vHalTag);
+    wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_APP_STAYAWAKE, wsTag);
     if(wsRef != NULL) {
         LE_INFO("NewNodeWakeupSource ref is created for APP_STAYAWAKE");
         res = taf_mngdPm_StayAwakeNode(wsRef);
@@ -705,7 +819,7 @@ static int KeepAwakeThenRestartSystem()
         }
     }
 
-    taf_mngdPm_wsRef_t wsRefSms0 = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_SMS, vHalTag);
+    taf_mngdPm_wsRef_t wsRefSms0 = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_SMS, wsTag);
     if (wsRefSms0 != NULL)
     {
         LE_INFO("NewNodeWakeupSource ref is created for SMS 0");
@@ -718,7 +832,7 @@ static int KeepAwakeThenRestartSystem()
             LE_INFO("Relax sysytem with wakeuptype SMS 0");
         }
     }
-    taf_mngdPm_wsRef_t wsRefSms1 = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_SMS, vHalTag);
+    taf_mngdPm_wsRef_t wsRefSms1 = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_SMS, wsTag);
     if (wsRefSms1 != NULL)
     {
         LE_INFO("NewNodeWakeupSource ref is created for SMS 1");
@@ -739,7 +853,7 @@ static void ForcedSystemShutdownAndSuspend()
     uint8_t pmNodeId = 0;
     AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE", pmNodeId);
      if(wsRef == NULL)
-         wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_APP_STAYAWAKE, vHalTag);
+         wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_APP_STAYAWAKE, wsTag);
      if(wsRef != NULL) {
          LE_INFO("NewNodeWakeupSource ref is created for APP_STAYAWAKE");
          if (wsRef != NULL) {
@@ -779,7 +893,7 @@ static void AllowWakingupDuringSuspending()
     le_result_t result;
     uint8_t pmNodeId = 0;
      if(wsRef == NULL)
-         wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_APP_STAYAWAKE, vHalTag);
+         wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_APP_STAYAWAKE, wsTag);
      if(wsRef != NULL) {
          LE_INFO("NewNodeWakeupSource ref is created for APP_STAYAWAKE");
          if (wsRef != NULL) {
@@ -808,18 +922,102 @@ static void AllowWakingupDuringSuspending()
      }
 }
 
-static void* connect_service(void* ctxPtr)
+void TestBubCases()
 {
-    LE_INFO("TestWakeSourceSampleApp");
-    taf_mngdPm_ConnectService();
+    LE_INFO("testBubCases");
     int input = 0;
+    char buffer[100];
+
+    printf("Choose the BUB test case \n 8.Exit\n 1. UC_1: BUB active + ecall inactive => shutdown\n"
+    " 2. UC_3: BUB active + ecall callback => suspend\n"
+    " 3. UC_4: BUB active + SoftWare Update  => shutdown\n"
+    " 4. UC_5: BUB active + ecall callback end => wakeup + enter resume state + shutdown\n"
+    " 5. UC_9: BUB inactive + vehichle ON power mode => suspend\n ");
+    if(fgets(buffer, sizeof(buffer), stdin))
+        LE_INFO("Value read successfully");
+    buffer[strcspn(buffer, "\n")] = '\0';
+    input = atoi(buffer);
+    LE_INFO("input: %d", input);
+    if(input == 1)
+    {
+            LE_INFO("BUB active + ecall = OFF => shutdown");
+            printf("Sets the targeted power mode as SHUTDOWN assuming there's no eCall happens.\n");
+            taf_mngdPm_InfoReportHandlerRef_t handlerRef;
+            handlerRef = taf_mngdPm_AddInfoReportHandler((taf_mngdPm_InfoReportBitMask_t)1,
+                    BubCallBack1, NULL);
+            if(handlerRef)
+            {
+                 LE_INFO("AddInfoReportHandler is success");
+            }
+    }
+    if(input == 2)
+    {
+            LE_INFO("UC_3: BUB active + ecall = CALLBACK=> suspend");
+            printf("Sets the targeted power mode to SUSPEND after eCall happens.\n");
+            taf_mngdPm_InfoReportHandlerRef_t handlerRef;
+            handlerRef = taf_mngdPm_AddInfoReportHandler((taf_mngdPm_InfoReportBitMask_t)1,
+                    BubCallBack2, NULL);
+            if(handlerRef)
+            {
+                 LE_INFO("AddInfoReportHandler is success");
+            }
+    }
+    if(input == 3)
+    {
+            LE_INFO("UC_4: BUB active + SWL in critical phase\n");
+            printf("stay awake until SWL exits critical phase, then shutdown.\n");
+            taf_mngdPm_InfoReportHandlerRef_t handlerRef;
+            handlerRef = taf_mngdPm_AddInfoReportHandler((taf_mngdPm_InfoReportBitMask_t)1,
+                    BubCallBack3, NULL);
+            if(handlerRef)
+            {
+                 LE_INFO("AddInfoReportHandler is success");
+            }
+    }
+    if(input == 4)
+    {
+            LE_INFO("UC_5: ECall from CALLBACK to OFF & BUB active\n");
+            printf("stay awake until Wake Lock exits then shutdown"
+                    "as none of the previously authorized wakeup sources is active.\n");
+            taf_mngdPm_InfoReportHandlerRef_t handlerRef;
+            handlerRef = taf_mngdPm_AddInfoReportHandler((taf_mngdPm_InfoReportBitMask_t)1,
+                    BubCallBack4, NULL);
+            if(handlerRef)
+            {
+                 LE_INFO("AddInfoReportHandler is success");
+            }
+    }
+    if(input == 5)
+    {
+            LE_INFO("UC_9: BUB inactive while ON power mode -> authorize all stay awakes");
+            printf("Sets targeted power mode to SUSPEND.\n");
+            taf_mngdPm_InfoReportHandlerRef_t handlerRef;
+            handlerRef = taf_mngdPm_AddInfoReportHandler((taf_mngdPm_InfoReportBitMask_t)1,
+                    BubCallBack5, NULL);
+            if(handlerRef)
+            {
+                 LE_INFO("AddInfoReportHandler is success");
+            }
+    }
+    if(input == 8)
+    {
+        exit(EXIT_SUCCESS);
+    }
+
+}
+
+static void* TestNodeWakeSource(void* ctxPtr)
+{
+    LE_INFO("TestNodeWakeSource");
+    taf_mngdPm_ConnectService();
+    int input = 1;
     le_result_t res = LE_FAULT;
     taf_mngdPm_wsRef_t wsRef = NULL;
     char buffer[100];
 
-    while(input >= 0)
+    while(input != -1)
     {
-        printf("Choose the TestWakeSourceSampleApp Test Case\n 8.Exit\n 1.SetModemWakeupSource\n "
+        printf("Choose the TestNodeWakeSource Test Case\n -1.Exit\n 1.SetModemWakeupSource\n "
                 "2.NewNodeWakeupSource\n 3.ResumeSystem\n 4.SuspendSystem\n ");
         if(fgets(buffer, sizeof(buffer), stdin))
             LE_INFO("Value read successfully");
@@ -861,12 +1059,12 @@ static void* connect_service(void* ctxPtr)
             if(wakeuptype == -1)
                 continue;
             if(NODE_ID == 0) {
-                wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, wakeuptype, vHalTag);
+                wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, wakeuptype, wsTag);
                 if(wsRef)
             printf("NewNodeWakeupSource wakeuptype is %d for NODE_ID %d\n", wakeuptype, NODE_ID);
            }
            else if(NODE_ID == 1) {
-                wsRef1 = taf_mngdPm_NewNodeWakeupSource(NODE_ID, wakeuptype, vHalTag);
+                wsRef1 = taf_mngdPm_NewNodeWakeupSource(NODE_ID, wakeuptype, wsTag);
                 if(wsRef1)
             printf("NewNodeWakeupSource wakeuptype is %d for NODE_ID %d\n", wakeuptype, NODE_ID);
            }
@@ -919,7 +1117,7 @@ static void* connect_service(void* ctxPtr)
                 if(wsRef != NULL) {
                     res = taf_mngdPm_RelaxNode(wsRef);
                     if(res == LE_OK) {
-                        printf("'Resumed PVM system'\n");
+                        printf("'Suspended PVM system'\n");
                      }
                 }
                 else
@@ -947,6 +1145,139 @@ static void* connect_service(void* ctxPtr)
     le_event_RunLoop();
 }
 
+void TestNodeWakeSourceCases()
+{
+    semRef = le_sem_Create("MngdIntTestApp", 0);
+    queueSemRef = le_sem_Create("MngdPMIntQueueSem", 0);
+    LE_INFO("createapp1 start");
+        threadRef = le_thread_Create("inttestapp",
+                                    TestNodeWakeSource, NULL);
+        le_thread_Start(threadRef);
+        le_sem_Wait(semRef);
+}
+
+static void* connect_service(void* ctxPtr)
+{
+    LE_INFO("TestWakeSourceSampleApp");
+    taf_mngdPm_ConnectService();
+    int input = 1;
+    le_result_t res = LE_FAULT;
+    taf_mngdPm_wsRef_t wsRef = NULL;
+    char buffer[100];
+
+    while(input != -1)
+    {
+        printf("Choose the TestResumeandSuspend Test Case\n -1.Exit\n 1.AuthorizeStayAwakeReason\n "
+                "2.CreateWakeupSource\n 3.ResumeSystem\n 4.SuspendSystem\n ");
+        if(fgets(buffer, sizeof(buffer), stdin))
+            LE_INFO("Value read successfully");
+        buffer[strcspn(buffer, "\n")] = '\0';
+        input = atoi(buffer);
+        LE_INFO("input: %d", input);
+        if(input == 1)
+        {
+            printf("Enter bitmask for AuthorizeStayAwakeReason\n -1.Exit\n"
+                    "\n"
+                    " 1.TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL\n"
+                    "\n"
+                    " 2.TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE\n"
+                    "\n"
+                    " 4.STAY_AWAKE_REASON_BIT_MASK_ECALL_CALLBACK\n"
+                    "\n"
+                    " 8.TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_SW_UPDATE\n"
+                    "\n"
+                    " 15.TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL,"
+                            " TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE,"
+                                    " STAY_AWAKE_REASON_BIT_MASK_ECALL_CALLBACK,"
+                                            " TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_SW_UPDATE\n"
+                    "\n"
+                    " 16.TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VEH_NETWORK\n"
+                    "\n"
+                    " 31.TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VEH_NETWORK,"
+                            " STAY_AWAKE_REASON_BIT_MASK_SW_UPDATE,"
+                                    " STAY_AWAKE_REASON_BIT_MASK_ECALL_CALLBACK,"
+                                            " STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE,"
+                                                    " STAY_AWAKE_REASON_BIT_MASK_NORMAL\n"
+                    "\n"
+                    " 65536.STAY_AWAKE_REASON_BIT_MASK_VENDOR_1\n"
+                    "\n"
+                    " Z. ALL\n");
+            char StayAwakeReason[100];
+            if(fgets(StayAwakeReason, sizeof(StayAwakeReason), stdin))
+                LE_INFO("Value read successfully");
+            StayAwakeReason[strcspn(StayAwakeReason, "\n")] = '\0';
+            int entry = -1;
+            if(strcmp(StayAwakeReason, "Z")==0)
+            {
+                le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(AUTHORIZE_ALL_STAY_AWAKE_REASON);
+                if(res == LE_OK) {
+                    printf("'AuthorizeStayAwakeReason for ALL bitmask is set'\n");
+                    LE_INFO("AUTHORIZE_ALL_STAY_AWAKE_REASON %d", AUTHORIZE_ALL_STAY_AWAKE_REASON);
+               }
+            }
+            else
+            {
+                entry = atoi(StayAwakeReason);
+                le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(entry);
+                if(res == LE_OK)
+                    printf("'AuthorizeStayAwakeReason for bitmask %s is set'\n", StayAwakeReason);
+            }
+            if(entry == -1)
+                continue;
+        }
+        if(input == 2)
+        {
+            printf("Enter stayawake reason for CreateWakeupSource\n -1.Exit\n"
+            " 0.TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL\n"
+            " 1.TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE\n"
+            " 2.TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_CALLBACK\n"
+            " 3.TAF_MNGDPM_STAY_AWAKE_REASON_SW_UPDATE\n"
+            " 4.TAF_MNGDPM_STAY_AWAKE_REASON_VEH_NETWORK\n"
+            " 16.STAY_AWAKE_REASON_BIT_MASK_VENDOR_1\n");
+            char CreateWakeupSource[100];
+            int reason;
+            if(fgets(CreateWakeupSource, sizeof(CreateWakeupSource), stdin))
+                LE_INFO("Value read successfully");
+            CreateWakeupSource[strcspn(CreateWakeupSource, "\n")] = '\0';
+            reason = atoi(CreateWakeupSource);
+            if(reason == -1)
+                continue;
+            wsRef = taf_mngdPm_CreateWakeupSource(reason, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+            if(wsRef)
+                printf("Created WakeupSource ref for reason %d\n", reason);
+            else
+                printf("Failed to Create WakeupSource ref for reason %d\n", reason);
+
+        }
+        if(input == 3)
+        {
+            printf("Resume PVM System\n");
+            if(wsRef != NULL) {
+                res = taf_mngdPm_StayAwake(wsRef);
+                if(res == LE_OK) {
+                    printf("'Resumed sysytem'\n");
+                 }
+            }
+            else
+                printf("'wsRef is null, Call NewNodeWakeupSource'\n");
+        }
+        if(input == 4)
+        {
+            printf("Suspend PVM System\n");
+            if(wsRef != NULL) {
+                res = taf_mngdPm_Relax(wsRef);
+                if(res == LE_OK) {
+                    printf("'Suspended PVM system'\n");
+                 }
+            }
+            else
+                printf("'wsRef is null, Call NewNodeWakeupSource'\n");
+        }
+    }
+    le_sem_Post(semRef);
+    exit(EXIT_FAILURE);
+    le_event_RunLoop();
+}
 void* ThreadFunction(void* threadID) {
 
     taf_mngdPm_ConnectService();
@@ -954,7 +1285,7 @@ void* ThreadFunction(void* threadID) {
     le_result_t res = taf_mngdPm_SetModemWakeupSource(1);
     if(res == LE_OK)
         printf("SetModemWakeupSource for wakeuptype SMS is set\n");
-    wsRef = taf_mngdPm_NewNodeWakeupSource(0, 1, vHalTag);
+    wsRef = taf_mngdPm_NewNodeWakeupSource(0, 1, wsTag);
     if(wsRef)
         printf("NewNodeWakeupSource ref is created for\n");
     if(wsRef != NULL) {
@@ -995,7 +1326,7 @@ void CreateMutlipleClients()
     }
 }
 
-void CreatSampleApp()
+void TestWakeSourceCases()
 {
     semRef = le_sem_Create("MngdIntTestApp", 0);
     queueSemRef = le_sem_Create("MngdPMIntQueueSem", 0);
@@ -1004,6 +1335,39 @@ void CreatSampleApp()
                                     connect_service, NULL);
         le_thread_Start(threadRef);
         le_sem_Wait(semRef);
+}
+
+void TestNonAuthorizedStayAwake()
+{
+    uint8_t pmNodeId = 0;
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(2);
+    if(res == LE_OK)
+        printf("taf_mngdPm_AuthorizeStayAwakeReason for STAY_AWAKE_REASON_ECALL_ACTIVE\n");
+    wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+            TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRef)
+        printf("CreateWakeupSource for TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL\n");
+    if(wsRef != NULL) {
+        res = taf_mngdPm_StayAwake(wsRef);
+        if(res == LE_OK) {
+            printf("'Resumed sysytem'\n");
+         }
+    }
+    le_result_t result =  LE_FAULT;
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE", pmNodeId);
+    LE_INFO("GracefulSysSuspend without wake source");
+    result = taf_mngdPm_SetNodeTargetedPowerMode(pmNodeId,
+            TAF_MNGDPM_SUSPEND);
+    if(result == LE_OK)
+    {
+        LE_INFO("----GracefulSysSuspend success----");
+        exit(EXIT_SUCCESS);
+    }
+    else
+    {
+        LE_ERROR("GracefulSysSuspend request failed");
+        exit(EXIT_FAILURE);
+    }
 }
 
 COMPONENT_INIT
@@ -1103,26 +1467,6 @@ COMPONENT_INIT
                 exit(EXIT_FAILURE);
             }
         }
-        else if(strcmp(testType, "SuspendSystem") == 0)
-        {
-            if(testPar) {
-                SuspendSystem(testPar, atoi(testPar1));
-            }
-            else {
-                printf("Enter NODE_ID");
-                exit(EXIT_FAILURE);
-            }
-        }
-        else if(strcmp(testType, "ResumeSystem") == 0)
-        {
-            if(testPar) {
-                ResumeSystem(testPar, atoi(testPar1));
-            }
-            else {
-                printf("Enter NODE_ID");
-                exit(EXIT_FAILURE);
-            }
-        }
         else if(strcmp(testType, "RestartNode") == 0)
         {
             if(testPar) {
@@ -1157,15 +1501,23 @@ COMPONENT_INIT
         }
         else if(strcmp(testType, "AddInfoReportHandler") == 0)
         {
-            AddInfoReportHandler();
+            AddInfoReportHandler(&BubCallBack);
         }
         else if(strcmp(testType, "ForcedSystemShutdownAndSuspend") == 0)
         {
             ForcedSystemShutdownAndSuspend();
         }
-        else if(strcmp(testType, "TestResumeandSuspend") == 0)
+        else if(strcmp(testType, "TestAuthorizedResumeandSuspend") == 0)
         {
-            CreatSampleApp();
+            TestWakeSourceCases();
+        }
+        else if(strcmp(testType, "TestNodeResumeandSuspend") == 0)
+        {
+            TestNodeWakeSourceCases();
+        }
+        else if(strcmp(testType, "TestBubCases") == 0)
+        {
+            TestBubCases();
         }
         else if(strcmp(testType, "CreateMutlipleClients") == 0)
         {
@@ -1174,6 +1526,10 @@ COMPONENT_INIT
         else if(strcmp(testType, "AllowWakingupDuringSuspending") == 0)
         {
             AllowWakingupDuringSuspending();
+        }
+        else if(strcmp(testType, "TestNonAuthorizedStayAwake") == 0)
+        {
+            TestNonAuthorizedStayAwake();
         }
         else
         {

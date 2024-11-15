@@ -281,6 +281,79 @@ ENUM WakeupType
     VOICE_CALL,     ///< The wakeup type is VOICE_CALL for system wakeup.
     MCU_VHAL        ///< The wakeup type is  MCU / VHAL for system wakeup.
 };
+
+/**
+ * StayAwakeReason type for system wakeup.
+ * Value range from 5 to 15 is for the platform future extension.
+ * Value range from 16 to 31 is for Tier 1 product specific extension.
+ */
+ENUM StayAwakeReason
+{
+    STAY_AWAKE_REASON_NORMAL,             ///< StayAwake Reason normal.
+    STAY_AWAKE_REASON_ECALL_ACTIVE,       ///< StayAwake Reason for ecall active.
+    STAY_AWAKE_REASON_ECALL_CALLBACK,     ///< StayAwake Reason for ecall callback.
+    STAY_AWAKE_REASON_SW_UPDATE,          ///< StayAwake Reason for software update.
+    STAY_AWAKE_REASON_VEH_NETWORK,        ///< StayAwake Reason for vehicle network.
+
+    STAY_AWAKE_REASON_VENDOR_1 = 16,      ///< Tier-1 product specific StayAwake Reason.
+                                          ///< For handling bub state.
+    STAY_AWAKE_REASON_VENDOR_2,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_3,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_4,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_5,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_6,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_7,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_8,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_9,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_10,          ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_11,          ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_12,          ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_13,          ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_14,          ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_15,          ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_16           ///< Tier-1 product specific StayAwake Reason.
+};
+
+/**
+ * StayAwakeReason BitMask for system wakeup.
+ * Value range from 5 to 15 is for the platform future extension.
+ * Value range from 16 to 31 is for Tier 1 product specific extension.
+ */
+BITMASK StayAwakeReasonBitMask
+{
+    STAY_AWAKE_REASON_BIT_MASK_NORMAL,           ///< StayAwake Reason bit mask normal.
+    STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE,     ///< StayAwake Reason bit mask for ecall active.
+    STAY_AWAKE_REASON_BIT_MASK_ECALL_CALLBACK,   ///< StayAwake Reason bit mask for ecall callback.
+    STAY_AWAKE_REASON_BIT_MASK_SW_UPDATE,        ///< StayAwake Reason bit mask for software update.
+    STAY_AWAKE_REASON_BIT_MASK_VEH_NETWORK,      ///< StayAwake Reason bit mask for vehicle net.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_1 = 0x10000, ///< StayAwake Reason bit mask for vendor specific.
+                                                 ///< For handling bub state.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_2,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_3,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_4,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_5,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_6,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_7,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_8,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_9,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_10,        ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_11,        ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_12,        ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_13,        ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_14,        ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_15,        ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_16         ///< StayAwake Reason bit mask for vendor specific.
+};
+
+/**
+ * Wake source option for calling stay awake and relax.
+ */
+ENUM WsOpt
+{
+    WS_OPT_DEFAULT    ///< With same wake source ref, StayAwake and relax must be called in pairs.
+                      ///< Can be called multiple times.
+};
+
 /**
  * Information data report ID.
  */
@@ -616,3 +689,63 @@ FUNCTION le_result_t SendNodePowerStateChangeAck
     nodePowerState Ref,
     NodeClientAck ack
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Authorize the StayAwake reasons with bit mask.
+ *
+ * @return
+ *     - LE_OK             Successfully authorize the StayAwake reason bitmask.
+ *     - LE_BAD_PARAMETER  Invalid requested StayAwake reason bitmask.
+ *     - LE_FAULT          Failed to Authorize StayAwake reason bitmask.
+ */
+
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t AuthorizeStayAwakeReason
+(
+     StayAwakeReasonBitMask stayAwakeReasonMask
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Creates a new wake lock reference with given StayAwakeReason.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
+ *     - LE_FAULT          Failed to send the request.
+ */
+
+//--------------------------------------------------------------------------------------------------
+FUNCTION ws CreateWakeupSource (
+    StayAwakeReason reason IN,       ///< The wakeup type given.
+    WsOpt option,
+    string wsTag[WSREF_MAXLEN] IN  ///< The HAL tag information.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases the acquired wake source.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Relax (
+    ws wsRef IN    ///< The wakesource reference ID given.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Acquires the wake source to keep the node awake.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StayAwake(
+    ws wsRef IN     ///< The wakesource reference ID given.
+);
+//--------------------------------------------------------------------------------------------------

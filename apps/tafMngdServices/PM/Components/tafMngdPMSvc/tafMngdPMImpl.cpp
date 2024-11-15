@@ -713,7 +713,7 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
         }
     }
 
-    //Clear WsReflist
+    //Clear system WsReflist
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
 
     while (linkHandlerPtr)
@@ -733,6 +733,31 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
             else {
                 le_ref_DeleteRef(mpms.wsRefMap, wsRefCtxPtr->wsRef);
                 le_dls_Remove(&(mpms.wsRefList), &wsRefCtxPtr->link);
+                free((void*)wsRefCtxPtr->wsTag);
+                le_mem_Release((void*)wsRefCtxPtr);
+            }
+        }
+    }
+    //Clear node nodeWsRefList
+    le_dls_Link_t* linkNodeHandlerPtr = le_dls_PeekTail(&(mpms.nodeWsRefList));
+
+    while (linkNodeHandlerPtr)
+    {
+        taf_nodeWsRefCtx_t * wsRefCtxPtr =
+                CONTAINER_OF(linkNodeHandlerPtr, taf_nodeWsRefCtx_t, link);
+        linkNodeHandlerPtr = le_dls_PeekPrev(&(mpms.nodeWsRefList), linkNodeHandlerPtr);
+        if (wsRefCtxPtr && wsRefCtxPtr->sessionRef == sessionRef && wsRefCtxPtr->isAcquiredLock)
+        {
+            LE_INFO("Client with sessionRef %p", wsRefCtxPtr->sessionRef);
+            le_result_t res = tafMngdPMSvc::ReleaseWakeLock();
+            if(res == LE_OK)
+            {
+                LE_INFO("Released lock");
+                wsRefCtxPtr->isAcquiredLock = false;
+            }
+            else {
+                le_ref_DeleteRef(mpms.nodeWsRefMap, wsRefCtxPtr->wsRef);
+                le_dls_Remove(&(mpms.nodeWsRefList), &wsRefCtxPtr->link);
                 free((void*)wsRefCtxPtr->vhalTag);
                 le_mem_Release((void*)wsRefCtxPtr);
             }
@@ -1083,6 +1108,26 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
 }
 
 /**
+* Clear non authorized syatem wake sources
+*/
+void ClearUnauthorizedWs()
+{
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
+    while (linkHandlerPtr)
+    {
+        taf_wsRefCtx_t * wsRefCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
+        if (wsRefCtxPtr && wsRefCtxPtr->sessionRef && wsRefCtxPtr->isAcquiredLock)
+        {
+            LE_INFO("Clear non authorized wake source with sessionRef %p", wsRefCtxPtr->sessionRef);
+            wsRefCtxPtr->isAcquiredLock = false;
+        }
+    }
+}
+
+/**
  * Release wakesource
  */
 le_result_t tafMngdPMSvc::ReleaseWakeLock()
@@ -1102,6 +1147,7 @@ le_result_t tafMngdPMSvc::ReleaseWakeLock()
                 {
                     return res;
                 }
+                ClearUnauthorizedWs();
                 res = taf_pm_Relax(ws);
                 if(res == LE_OK) {
                     LE_INFO("Wake source from pms released successfully");
@@ -1460,6 +1506,30 @@ void tafMngdPMSvc::InfoReportVhalCB(int32_t* reportPtr)
 }
 
 /**
+ * Authorize StayAwake Reason for a given reason.
+ */
+bool tafMngdPMSvc::IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason)
+{
+    LE_INFO("AuthorizeStayAwakeReason");
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    unsigned int clientMask;
+
+    if(stayAwakeReason < 32)
+    {
+        //getting decimal value for given stay awake reason.
+        clientMask = (unsigned int)pow(2, (unsigned int)stayAwakeReason);
+    }
+    //Converting to binary format to check the given stay awake reason is authorized.
+    std::bitset<32> clientStayAwakeReasonMask(clientMask);
+    if((clientStayAwakeReasonMask & mpms.stayAwakeReasonMask) == clientStayAwakeReasonMask)
+    {
+        LE_INFO("stayAwakeReason is authorized");
+        return true;
+    }
+    return false;
+}
+
+/**
  * Get MPMS instance
  */
 tafMngdPMSvc &tafMngdPMSvc::GetInstance()
@@ -1483,6 +1553,10 @@ le_hashmap_Ref_t tafMngdPMSvc::vmStateHashmap;
 le_mem_PoolRef_t tafMngdPMSvc::wsRefPool;
 le_dls_List_t tafMngdPMSvc::wsRefList;
 le_ref_MapRef_t tafMngdPMSvc::wsRefMap;
+
+le_mem_PoolRef_t tafMngdPMSvc::nodeWsRefPool;
+le_dls_List_t tafMngdPMSvc::nodeWsRefList;
+le_ref_MapRef_t tafMngdPMSvc::nodeWsRefMap;
 
 taf_pm_StateChangeHandlerRef_t tafMngdPMSvc::handlerRef = nullptr;
 taf_pm_StateChangeExHandlerRef_t tafMngdPMSvc::handlerExRef = nullptr;
@@ -1523,3 +1597,6 @@ le_ref_MapRef_t tafMngdPMSvc::nodePowerStateRefMap;
 int8_t tafMngdPMSvc::clientSize;
 int8_t tafMngdPMSvc::ackClientrecrdSize;
 taf_mngdPm_config_t tafMngdPMSvc::config;
+
+//authorize stayawake reason
+std::bitset<32>  tafMngdPMSvc::stayAwakeReasonMask;

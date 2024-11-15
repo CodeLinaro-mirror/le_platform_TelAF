@@ -895,11 +895,9 @@ static void* diagUpdateMsgThread(void* ctxPtr)
     me->DiagUpdateSvcRef = taf_diagUpdate_GetService();
     LE_ASSERT(me->DiagUpdateSvcRef);
 
-#ifdef DIAG_MULTIVLAN_TEST
     le_result_t result = LE_OK;
     result = taf_diagUpdate_SetVlanId(me->DiagUpdateSvcRef, me->vlanId);
     LE_ASSERT(result == LE_OK);
-#endif
 
     me->DiagFileXferMsgRef = taf_diagUpdate_AddRxFileXferMsgHandler(
                             me->DiagUpdateSvcRef,
@@ -957,7 +955,6 @@ le_result_t diagVlanRequestFileTransfer_Init(void)
     le_thread_Start(UpdateAppObj_def->diagUpdateThreadRef);
     le_sem_Wait(UpdateAppObj_def->semRef);
 
-#ifdef DIAG_MULTIVLAN_TEST
     DiagUpdateAppHandler_t * UpdateAppObj_ext =
         (DiagUpdateAppHandler_t *) le_mem_ForceAlloc(DiagUpdateAppHandlerPool);
     LE_ASSERT(UpdateAppObj_ext);
@@ -974,7 +971,6 @@ le_result_t diagVlanRequestFileTransfer_Init(void)
         le_thread_Create("D-Update-Th-ext", diagUpdateMsgThread, (void*) UpdateAppObj_ext);
     le_thread_Start(UpdateAppObj_ext->diagUpdateThreadRef);
     le_sem_Wait(UpdateAppObj_ext->semRef);
-#endif
 
 #endif
     return LE_OK;

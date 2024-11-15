@@ -48,6 +48,7 @@
 #define SECURE_MAX_NUM_OF_DATA          100
 #define SECURE_MAX_NUM_OF_CLIENT_DATA   100
 #define SECURE_MAX_NUM_OF_DATA_HANDLER  20
+#define SECURE_DATA_TEMP_EXTENSION ".temp"
 
 namespace telux {
 namespace tafsvc {
@@ -206,11 +207,9 @@ class tafMngdStorageSvc: public ITafSvc
 
         uint32_t GetStorageMaxSize();
 
-        uint32_t GetStorageUsedSize();
+        uint32_t GetStorageUsedSize(const char* appNamePtr);
 
-        uint32_t GetStorageFreeSpace();
-
-        le_result_t CheckStorageSizeLimit(size_t inputSize);
+        uint32_t GetStorageFreeSpace(const char* appNamePtr);
 
         void LoadAllSharedAppData();
 
@@ -235,6 +234,12 @@ class tafMngdStorageSvc: public ITafSvc
 
         le_result_t GetDataPath(const char* storageName, const char* dataLabel,
                                 char* bufferPtr, size_t bufferSize);
+
+        int OpenTempFile(const char *filename);
+
+        int RenameTempFile(const char *filename);
+
+        void DeleteTempFile(const char *filename);
 
         le_result_t GetDataKeyId(tafMngdStorage_SecDataRef_t dataRef,
                                     char* keyId,size_t keySize);
@@ -263,7 +268,9 @@ class tafMngdStorageSvc: public ITafSvc
 
         le_result_t DeleteData(taf_mngdStorSecData_DataRef_t dataRef);
 
-        le_result_t CheckSize(uint32_t writeSize);
+        void ClearData(tafMngdStorage_SecDataRef_t dataRef);
+
+        le_result_t CheckSize(uint32_t writeSize, const char *appNamePtr, const char *fileNamePtr);
 
         /**
          * Functions for secure data sharing
@@ -326,6 +333,9 @@ class tafMngdStorageSvc: public ITafSvc
         /**
          * Internal functions
          */
+
+        static size_t GetFileSize(const char *filePath);
+
         static size_t GetFilesSizeInDirectory(const char *dirPath);
 
         static bool IsDirectoryEmpty(const char *path);

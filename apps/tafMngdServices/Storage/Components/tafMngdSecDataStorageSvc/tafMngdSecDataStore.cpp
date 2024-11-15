@@ -229,26 +229,14 @@ le_result_t tafMngdStorageSvc::GetClientNamespace
 
 uint32_t tafMngdStorageSvc::GetStorageFreeSpace
 (
+    const char* appNamePtr
 )
 {
-    if(GetStorageUsedSize() >= GetStorageMaxSize())
+    if(GetStorageUsedSize(appNamePtr) >= GetStorageMaxSize())
     {
         return 0;
     }
-    return (GetStorageMaxSize() - GetStorageUsedSize());
-}
-
-le_result_t tafMngdStorageSvc::CheckStorageSizeLimit
-(
-    size_t inputSize
-)
-{
-    if(GetStorageFreeSpace() >= inputSize)
-    {
-        return LE_OK;
-    }
-
-    return LE_NO_MEMORY;
+    return (GetStorageMaxSize() - GetStorageUsedSize(appNamePtr));
 }
 
 uint32_t tafMngdStorageSvc::GetStorageMaxSize
@@ -262,14 +250,22 @@ uint32_t tafMngdStorageSvc::GetStorageMaxSize
 
 uint32_t tafMngdStorageSvc::GetStorageUsedSize
 (
+    const char* appNamePtr
 )
 {
     char storagePath[LIMIT_MAX_PATH_BYTES] = {0};
 
-    TAF_ERROR_IF_RET_VAL(
-        GetStoragePath(storagePath,
+    if(appNamePtr != nullptr)
+    {
+        snprintf(storagePath, sizeof(storagePath), "%s%s", SECURE_STORAGE, appNamePtr);
+    }
+    else
+    {
+        TAF_ERROR_IF_RET_VAL(
+            GetStoragePath(storagePath,
                                 sizeof(storagePath)) != LE_OK,
                                 0, "Cannot get storage path");
+    }
 
     return GetFilesSizeInDirectory(storagePath);
 }
@@ -365,8 +361,15 @@ void tafMngdStorageSvc::LoadSecDataRefForDataSharedKey
         snprintf(dataPtr->dataName, sizeof(dataPtr->dataName), "%s", dataNamePtr);
         snprintf(dataPtr->ownerAppName, sizeof(dataPtr->ownerAppName), "%s", namespacePtr);
 
+        GetDataPath(dataPtr->ownerAppName,
+                        dataPtr->dataName,
+                        dataPtr->path,
+                        LIMIT_MAX_PATH_BYTES);
+
         dataPtr->isInWritingProcess = false;
         dataPtr->isInReadingProcess = false;
+
+        dataPtr->keyRef = keyRef;
 
         RefreshSharedAppInfo(secDataRef);
     }

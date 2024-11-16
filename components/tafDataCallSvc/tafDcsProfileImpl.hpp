@@ -53,6 +53,14 @@ using namespace telux::common;
 
 typedef struct
 {
+    bool isThrottled;                               /**< Is APN throttled */
+    bool isBlocked;                                 /**< Is APN blocked on all plmns */
+    char mcc[TAF_DCS_MCC_BYTES];                  /**< Mobile Country Code */
+    char mnc[TAF_DCS_MNC_BYTES];                  /**< Mobile Network Code */
+}throttleInfo_t;
+
+typedef struct
+{
     bool                                     isValid;
     uint8_t                                  slotId;
     taf_dcs_ProfileRef_t                     reference;
@@ -63,6 +71,8 @@ typedef struct
     taf_dcs_Auth_t                           auth;
     char                                     authUsername[TAF_DCS_USER_NAME_MAX_LEN];
     char                                     authPassword[TAF_DCS_PASSWORD_NAME_MAX_LEN];
+    le_event_Id_t                            throttleStateEvent;
+    throttleInfo_t                           throttleInfo;
     le_dls_Link_t                            link;
 } taf_dcs_ProfileCtx_t;
 
@@ -117,6 +127,7 @@ namespace tafsvc {
             taf_dcs_ProfileRef_t GetProfileRef(uint8_t slotId, int32_t index);
             le_result_t GetSlotIdAndProfileId(taf_dcs_ProfileRef_t profileRef, uint8_t *slotId,
                                               int32_t *profileId);
+            le_event_Id_t GetThrottleStateEvent(uint8_t slotId, int32_t profileId);
 
             le_result_t MapProfileCtxToParams(taf_dcs_ProfileCtx_t *ctxPtr,
                                               telux::data::ProfileParams &params);
@@ -149,6 +160,20 @@ namespace tafsvc {
             le_result_t SendProfileListReq(uint8_t slotId);
             le_result_t SendProfileModificationReq(uint8_t slotId, int32_t profileId,
                                                    telux::data::ProfileParams &params);
+
+            le_result_t GetAPNThrottledPLMN(taf_dcs_ProfileRef_t    profileRef,
+                                            bool       *areAllPLMNsThrottledPtr,
+                                            char                 *mccPtrPtr,
+                                            size_t                mccSize,
+                                            char                 *mncPtrPtr,
+                                            size_t                mncSize);
+
+            le_result_t IsAPNThrottled(uint8_t slotId, int32_t profileId, bool *isThrottledPtr);
+            le_result_t SendAPNThrottledInfo(uint8_t slotId, int32_t profileId,
+                                             bool *isThrottledPtr);
+
+            void ProcessThrottledApnInfoChanged(const std::vector<telux::data::APNThrottleInfo>
+                                                &throttleInfoList,uint8_t slotId);
 
             std::map<SlotId, std::shared_ptr<telux::data::IDataProfileManager>>
                                                                           dataProfileManagers;

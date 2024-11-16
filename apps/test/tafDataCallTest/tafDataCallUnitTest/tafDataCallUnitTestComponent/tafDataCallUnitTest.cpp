@@ -74,6 +74,7 @@ static taf_dcs_ProfileRef_t TestProfileRef = NULL , TestProfileRef2 = NULL ;
 le_thread_Ref_t dataSessionThRef = NULL, dataSessionThRef2 = NULL;
 static taf_dcs_SessionStateHandlerRef_t TestSessionStateRef = NULL, TestSessionStateRef2 = NULL;
 static taf_dcs_RoamingStatusHandlerRef_t TestRoamingStatusRef = NULL;
+static taf_dcs_ThrottledStatusHandlerRef_t TestThrottleStatusRef = NULL;
 char ApnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
 
 std::string callEventToString(taf_dcs_ConState_t callEvent)
@@ -227,6 +228,27 @@ static void roaming_status_handler
     LE_INFO("**** Handler for roaming status Indication (End)****");
 }
 
+static void throttle_status_handler
+(
+    taf_dcs_ProfileRef_t    profileRef,        ///< The profile reference.
+    bool       isThrottled,       ///< True when APN is throttled. False when APN is unthrottled.
+    uint32_t     ipv4RemainingTime, ///< The remaining IPv4 throttled time in milliseconds.
+    uint32_t     ipv6RemainingTime, ///< The remaining IPv6 throttled time in milliseconds.
+    void* contextPtr
+){
+    LE_TEST_INFO("**** Handler for throttle status Indication (Begin)****");
+    LE_TEST_INFO("----isThrottled : %d", (bool)isThrottled);
+    LE_TEST_INFO("----ipv4 Time : %d", (int)ipv4RemainingTime);
+    LE_TEST_INFO("----ipv6 Time : %d", (int)ipv6RemainingTime);
+    uint32_t profileId = taf_dcs_GetProfileIndex(profileRef);
+    uint8_t  phoneId = 0;
+    taf_dcs_GetPhoneId(profileRef,&phoneId);
+    LE_TEST_INFO("----profile ID : %d", (int)profileId);
+    LE_TEST_INFO("----phone ID : %d", (int)phoneId);
+
+    LE_TEST_INFO("**** Handler for throttle status Indication (End)****");
+}
+
 static void* ut_taf_roaming_status_handler(void* ctxPtr)
 {
     taf_dcs_ConnectService();
@@ -236,6 +258,23 @@ static void* ut_taf_roaming_status_handler(void* ctxPtr)
                             ctxPtr);
 
     LE_TEST_OK(TestRoamingStatusRef != NULL, "ut_taf_roaming_status_handler - void");
+
+    le_sem_Post(TestSemRef);
+
+    le_event_RunLoop();
+
+    return NULL;
+}
+
+static void* ut_taf_throttle_status_handler(void* ctxPtr)
+{
+    taf_dcs_ConnectService();
+
+    TestThrottleStatusRef = taf_dcs_AddThrottledStatusHandler(TestProfileRef,
+                           (taf_dcs_ThrottledStatusHandlerFunc_t)throttle_status_handler,
+                            ctxPtr);
+
+    LE_TEST_OK(TestThrottleStatusRef != NULL, "ut_taf_throttle_status_handler - void");
 
     le_sem_Post(TestSemRef);
 
@@ -441,6 +480,39 @@ void ut_get_roaming_status_test()
     LE_TEST_OK(result == LE_OK, "taf_dcs_GetRoamingStatus for phoneid(%d) - OK", PHONE_ID_2);
 
     LE_TEST_END_SKIP();
+}
+
+void ut_get_throttle_status_test()
+{
+    bool  areAllPLMNsThrottled;
+    char mccStr[TAF_DCS_MCC_BYTES];
+    char mncStr[TAF_DCS_MNC_BYTES];
+
+    bool       isThrottled;
+    uint32_t     ipv4RemainingTime;
+    uint32_t     ipv6RemainingTime;
+
+    LE_TEST_BEGIN_SKIP(!SSIM_TEST && !PHONE_ID_1_TEST, 1);
+
+    le_result_t result = taf_dcs_GetAPNThrottledStatus(TestProfileRef,&isThrottled,&ipv4RemainingTime,
+                                                                       &ipv6RemainingTime);
+    LE_TEST_OK(result == LE_OK || result == LE_UNAVAILABLE, "taf_dcs_GetAPNThrottledStatus OK");
+
+    LE_TEST_INFO("----isThrottled : %d", (bool)isThrottled);
+    LE_TEST_INFO("----ipv4 Time : %d", (int)ipv4RemainingTime);
+    LE_TEST_INFO("----ipv6 Time : %d", (int)ipv6RemainingTime);
+
+    result = taf_dcs_GetAPNThrottledPLMN(TestProfileRef, &areAllPLMNsThrottled,
+                                                       mccStr,TAF_DCS_MCC_BYTES,
+                                                       mncStr,TAF_DCS_MNC_BYTES);
+    LE_TEST_OK(result == LE_OK || result == LE_UNAVAILABLE, "taf_dcs_GetAPNThrottledPLMN OK");
+
+    LE_TEST_INFO("----areAllPLMNsThrottled : %d", (bool)areAllPLMNsThrottled);
+    LE_TEST_INFO("----MCC : %s", mccStr);
+    LE_TEST_INFO("----MNC : %s", mncStr);
+
+    LE_TEST_END_SKIP();
+
 }
 
 void ut_restore_apn_test()
@@ -1009,6 +1081,8 @@ static void* UnitTestThread(void* contextPtr)
 
     ut_get_roaming_status_test();
 
+    ut_get_throttle_status_test();
+
     ut_mdc_datacall_test();
 
     #if defined(TAF_CONFIG_SSIM_TEST) || defined(TAF_CONFIG_PHONE_ID_1_TEST)
@@ -1037,6 +1111,13 @@ static void* UnitTestThread(void* contextPtr)
                                                            ut_taf_roaming_status_handler, NULL);
 
     le_thread_Start(roamingStatusThRef);
+
+    le_sem_Wait(TestSemRef);
+
+    le_thread_Ref_t throttleStatusThRef = le_thread_Create("ThrottleStatusTh",
+                                                           ut_taf_throttle_status_handler, NULL);
+
+    le_thread_Start(throttleStatusThRef);
 
     le_sem_Wait(TestSemRef);
 
@@ -1070,6 +1151,10 @@ static void* UnitTestThread(void* contextPtr)
     taf_dcs_RemoveRoamingStatusHandler(TestRoamingStatusRef);
 
     LE_TEST_OK(le_thread_Cancel(roamingStatusThRef) == LE_OK, "le_thread_Cancel roaming - OK");
+
+    taf_dcs_RemoveThrottledStatusHandler(TestThrottleStatusRef);
+
+    LE_TEST_OK(le_thread_Cancel(throttleStatusThRef) == LE_OK, "le_thread_throttle roaming - OK");
 
     LE_INFO("====all tests are passed");
     return NULL;

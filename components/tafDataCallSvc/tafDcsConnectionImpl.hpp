@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -156,8 +156,8 @@ namespace tafsvc {
         char                                    ipv6Dns2[TAF_DCS_IPV6_ADDR_MAX_LEN];
         taf_dcs_DataBearerTechnology_t          dataBearerTech;
         le_event_Id_t                           sessionStateEvent;
-        uint32_t                                 ipv4Mask;      // Profile id
-        uint32_t                                 ipv6Mask;      // Profile id
+        uint32_t                                ipv4Mask;
+        uint32_t                                ipv6Mask;
     } taf_dcs_CallCtx_t;
 
     typedef struct IpAddrInfo
@@ -196,6 +196,15 @@ namespace tafsvc {
         le_dls_Link_t handlerLink;   ///< double link list's link element
     }HandlerSessionMapping_t;
 
+    typedef struct
+    {
+      int32_t      profileId;
+      uint8_t      slotId;
+      bool         throttleState;
+      uint32_t     ipv4Time;
+      uint32_t     ipv6Time;
+    } ThrottleStatus_t;
+
     typedef void (*taf_dcs_SessionStateFunc_t)(taf_dcs_ConState_t event,
                                                taf_dcs_StateInfo_t *infoPtr,
                                                taf_dcs_CallCtx_t *callCtxPtr);
@@ -203,7 +212,13 @@ namespace tafsvc {
     class taf_DataConnectionListener : public telux::data::IDataConnectionListener
     {
         public:
+          taf_DataConnectionListener(SlotId slot);
+
           void onDataCallInfoChanged(const std::shared_ptr<telux::data::IDataCall> &iCall) override;
+          void onThrottledApnInfoChanged(const std::vector<telux::data::APNThrottleInfo> &throttleInfoList) override;
+
+        private:
+            SlotId slotId;
     };
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     class taf_DataConnServingSystemListener : public telux::data::IServingSystemListener
@@ -239,6 +254,27 @@ namespace tafsvc {
             void requestRoamingStatus(telux::data::RoamingStatus roamingStatus,
                                       telux::common::ErrorCode error);
     };
+
+        /*
+     * @brief A apn throttle information callback class must be provided when requesting throttle
+     * information.
+     */
+    class taf_DataAPNThrottleInfoCallback {
+    public:
+        le_sem_Ref_t semaphore;
+        le_result_t result;
+        ThrottleStatus_t throttleStatus;
+        /*
+         * This function is called after requesting apn throttle information.
+         *
+         * @param [in] throttleInfoList    Pointer of apn throttle information list.
+         * @param [in] error               The error code of the result.
+         */
+        void apnThrottleListResponse(
+        const std::vector<telux::data::APNThrottleInfo> &throttleInfoList,
+        telux::common::ErrorCode error);
+    };
+
 
 #endif
     // Data connection component implementation
@@ -350,6 +386,10 @@ namespace tafsvc {
                                                       dataCallEvent_t *eventPtr);
             taf_dcs_DataBearerTechnology_t updateDataBearerTech(
                                                   telux::data::DataBearerTechnology dataBearerTech);
+            le_result_t GetAPNThrottledStatus(taf_dcs_ProfileRef_t    profileRef,
+                                                      bool         *isThrottledPtr,
+                                                      uint32_t     *ipv4RemainingTimePtr,
+                                                      uint32_t     *ipv6RemainingTimePtr);
             le_event_Id_t CallEvent;
             bool IsIpv4(uint8_t slotId, int32_t profileId);
             bool IsIpv6(uint8_t slotId, int32_t profileId);
@@ -375,6 +415,7 @@ namespace tafsvc {
                                                                    connectionServingSystemlisteners;
             std::shared_ptr<taf_DataConnRequestServiceStatusCallback> reqSvcStateCb;
             std::shared_ptr<taf_DataConnRequestRoamingStatusCallback> reqRoamingStatusCb;
+            std::shared_ptr<taf_DataAPNThrottleInfoCallback> reqAPNThrottlingStatusCb;
         #endif
             std::map<SlotId, std::shared_ptr<telux::data::IDataConnectionManager>>
                                                                           dataConnectionManagers;

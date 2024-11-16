@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -140,6 +140,9 @@ void taf_DataConnRequestRoamingStatusCallback::requestRoamingStatus
 }
 
 #endif
+
+taf_DataConnectionListener::taf_DataConnectionListener(SlotId slot) : slotId(slot) {}
+
 void taf_DataConnectionListener::onDataCallInfoChanged
 (
     const std::shared_ptr<telux::data::IDataCall> &iCall
@@ -216,6 +219,140 @@ void taf_DataConnectionListener::onDataCallInfoChanged
 
     le_event_Report(dataConnection.CallEvent, &callEvent, sizeof(dataCallEvent_t));
 };
+
+void taf_DataAPNThrottleInfoCallback::apnThrottleListResponse(
+        const std::vector<telux::data::APNThrottleInfo> &throttleInfoList,
+        telux::common::ErrorCode error)
+{
+    LE_DEBUG("<SDK Callback> taf_DataAPNThrottleInfoCallback --> apnThrottleListResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        result = LE_NOT_FOUND;
+        le_sem_Post(semaphore);
+        return;
+    }
+
+    LE_DEBUG("throttleInfoList size %d", (int)throttleInfoList.size());
+
+    if(throttleInfoList.size() == 0)
+    {
+      result = LE_OK;
+      LE_DEBUG("APN throttled is 0 hence return");
+      throttleStatus.throttleState = false;
+      throttleStatus.ipv4Time = 0;
+      throttleStatus.ipv6Time = 0;
+      le_sem_Post(semaphore);
+      return;
+    }
+
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    // Traverse the throttleInfoList to find your slotId and profile ID from profile context
+    // and store in cache
+    for (auto throttleInfo : throttleInfoList)
+    {
+      for (int tProfId : throttleInfo.profileIds)
+      {
+        if(tProfId == throttleStatus.profileId)
+        {
+          //cache throttle info in profile context.
+          // Absence of profile id in throttle info considered as the profile is not throttled
+          taf_dcs_ProfileCtx_t* profileCtx = dataProfile.GetProfileCtx(throttleStatus.slotId,
+                                                                 throttleStatus.profileId);
+          profileCtx->throttleInfo.isThrottled = true;
+          throttleStatus.throttleState = true;
+
+          le_utf8_Copy(profileCtx->throttleInfo.mnc, throttleInfo.mnc.c_str(),
+                                                     TAF_DCS_MNC_BYTES, NULL);
+          le_utf8_Copy(profileCtx->throttleInfo.mcc, throttleInfo.mcc.c_str(),
+                                                     TAF_DCS_MCC_BYTES, NULL);
+          if (throttleInfo.isBlocked)
+          {
+            LE_DEBUG("APN blocked on all plmns slot %d Id %d", throttleStatus.slotId,tProfId);
+            profileCtx->throttleInfo.isBlocked = throttleInfo.isBlocked;
+          }
+          throttleStatus.ipv4Time = throttleInfo.ipv4Time;
+          throttleStatus.ipv6Time = throttleInfo.ipv6Time;
+          break;
+        }
+      }
+    }
+
+    le_sem_Post(semaphore);
+}
+
+
+void taf_DataConnectionListener::onThrottledApnInfoChanged
+(
+const std::vector<telux::data::APNThrottleInfo>  &throttleInfoList
+)
+{
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    LE_DEBUG("<SDK Callback> taf_DataConnectionListener --> onThrottledApnInfoChanged");
+
+    LE_INFO("Number of throttled APN: %d",(uint8_t)throttleInfoList.size());
+
+    dataProfile.ProcessThrottledApnInfoChanged(throttleInfoList,slotId);
+}
+
+le_result_t taf_DataConnection::GetAPNThrottledStatus
+(
+  taf_dcs_ProfileRef_t    profileRef,
+  bool         *isThrottled,
+  uint32_t     *ipv4RemainingTime,
+  uint32_t     *ipv6RemainingTime
+)
+{
+
+    le_result_t result = LE_OK;
+    int32_t profileId;
+    uint8_t slotId;
+    TAF_ERROR_IF_RET_VAL((profileRef == NULL) || (isThrottled == NULL) ||
+                         (ipv4RemainingTime == NULL) || (ipv6RemainingTime == NULL),
+    LE_BAD_PARAMETER, "some pointers may be null");
+
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    auto reqAPNStatusCbFunc = std::bind(
+                                    &taf_DataAPNThrottleInfoCallback::apnThrottleListResponse,
+                                    reqAPNThrottlingStatusCb,
+                                    std::placeholders::_1,
+                                    std::placeholders::_2);
+
+    result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,"Unable to get slot ID and profile ID");
+
+    reqAPNThrottlingStatusCb->throttleStatus.profileId = profileId;
+    reqAPNThrottlingStatusCb->throttleStatus.slotId = slotId;
+    reqAPNThrottlingStatusCb->throttleStatus.throttleState = 0;
+    reqAPNThrottlingStatusCb->throttleStatus.ipv4Time = 0;
+    reqAPNThrottlingStatusCb->throttleStatus.ipv6Time = 0;
+
+    telux::common::Status status =
+    dataConnectionManagers[(SlotId)slotId]->requestThrottledApnInfo(reqAPNStatusCbFunc);
+
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+                         "Fail to get apn throttle info, ret: %d", (int32_t)status);
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(reqAPNThrottlingStatusCb->semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout.");
+
+    TAF_ERROR_IF_RET_VAL(reqAPNThrottlingStatusCb->result != LE_OK,
+        reqAPNThrottlingStatusCb->result, "Fail to get apn throttle info.");
+
+    *isThrottled = reqAPNThrottlingStatusCb->throttleStatus.throttleState;
+    *ipv4RemainingTime = reqAPNThrottlingStatusCb->throttleStatus.ipv4Time;
+    *ipv6RemainingTime = reqAPNThrottlingStatusCb->throttleStatus.ipv6Time;
+
+    LE_DEBUG("GetAPNThrottledStatus ipv4 %d ipv6 %d", *ipv4RemainingTime,*ipv6RemainingTime);
+    LE_DEBUG("GetAPNThrottledStatus isThrottled %d", *isThrottled);
+
+    return result;
+}
+
 
 const char* taf_DataConnection::CallStatusToString(telux::data::DataCallStatus status)
 {
@@ -3005,7 +3142,7 @@ void taf_DataConnection::Init(void)
         }
 
         /* register data connection status listener */
-        DataConnectionListener = std::make_shared<taf_DataConnectionListener>();
+        DataConnectionListener = std::make_shared<taf_DataConnectionListener>((SlotId)slotIdx);
         telux::common::Status status =  conneMgr->registerListener(DataConnectionListener);
         TAF_ERROR_IF_RET_NIL(status != telux::common::Status::SUCCESS,
                              "register listener failed, status: %d", (int32_t)status);
@@ -3066,6 +3203,9 @@ void taf_DataConnection::Init(void)
     reqRoamingStatusCb = std::make_shared<taf_DataConnRequestRoamingStatusCallback>();
     reqRoamingStatusCb->semaphore = le_sem_Create("taf_ConnReqRoamingStatusCbSem", 0);
 
+    reqAPNThrottlingStatusCb = std::make_shared<taf_DataAPNThrottleInfoCallback>();
+    reqAPNThrottlingStatusCb->semaphore = le_sem_Create("taf_ConnReqRoamingStatusCbSem", 0);
+
 #else
 
     auto ConnectionMgr = dataFactory.getDataConnectionManager();
@@ -3089,7 +3229,7 @@ void taf_DataConnection::Init(void)
     }
 
     /* register data connection status listener */
-    DataConnectionListener = std::make_shared<taf_DataConnectionListener>();
+    DataConnectionListener = std::make_shared<taf_DataConnectionListener>((SlotId)SLOT_ID_1);
     telux::common::Status status =  ConnectionMgr->registerListener(DataConnectionListener);
     TAF_ERROR_IF_RET_NIL(status != telux::common::Status::SUCCESS,
                          "register listener failed, status: %d", (int32_t)status);

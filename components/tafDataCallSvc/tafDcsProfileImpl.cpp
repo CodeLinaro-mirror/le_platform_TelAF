@@ -223,6 +223,199 @@ le_result_t taf_DataProfile::getSlotIdFromPhoneId(uint8_t phoneId, uint8_t *slot
     return result;
 }
 
+le_event_Id_t taf_DataProfile::GetThrottleStateEvent(uint8_t slotId, int32_t profileId)
+{
+    taf_dcs_ProfileCtx_t *profileCtxPtr = GetProfileCtx(slotId, profileId);
+    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, NULL,
+                         "Cannot find profile context slotId(%d) profileId(%d)",
+                         slotId, profileId);
+
+    return profileCtxPtr->throttleStateEvent;
+}
+
+void taf_DataProfile::ProcessThrottledApnInfoChanged(const std::vector<telux::data::APNThrottleInfo>  &throttleInfoList,uint8_t slotId)
+{
+    ThrottleStatus_t stateEvent;
+    le_dls_Link_t* linkPtr = NULL;
+
+    if(throttleInfoList.size() == 0)
+    {
+        //List is empty browse through profile list cache's value for each profile and send event
+        //if throttleState was true.
+        LE_INFO("onThrottledApnInfoChanged 0 APNs throttled!");
+
+        linkPtr = le_dls_Peek(&ProfileCtxList);
+        while (linkPtr)
+        {
+          //const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
+          //taf_dcs_ProfileCtx_t* profileCtx = GetProfileCtx(slotId, profileInfoPtr->index);
+          taf_dcs_ProfileCtx_t* profileCtx = CONTAINER_OF(linkPtr, taf_dcs_ProfileCtx_t, link);
+          linkPtr = le_dls_PeekNext(&ProfileCtxList, linkPtr);
+          if(profileCtx == NULL)
+          {
+            LE_DEBUG("Profile context not found slot %d Id %d", slotId,profileCtx->info.index);
+            continue;
+          }
+          if((slotId == profileCtx->slotId) && (profileCtx->throttleInfo.isThrottled == true))
+          {
+            //If throttle is true in profile context then send notification with false.
+            stateEvent.throttleState = false;
+            stateEvent.slotId = slotId;
+            stateEvent.profileId = profileCtx->info.index;
+            stateEvent.ipv4Time = 0;
+            stateEvent.ipv6Time = 0;
+            LE_INFO("%-6d""%-6d""%-12s", profileCtx->info.index, profileCtx->info.tech,
+                                         profileCtx->info.name);
+
+            le_event_Report(profileCtx->throttleStateEvent, &stateEvent, sizeof(stateEvent));
+            //reset the values in profile's cache.
+            memset(&(profileCtx->throttleInfo), 0, sizeof(throttleInfo_t));
+          }
+        }
+        return;
+    }
+
+    bool profileFound = false;
+    linkPtr = NULL;
+    linkPtr = le_dls_Peek(&ProfileCtxList);
+    while (linkPtr)
+    {
+      taf_dcs_ProfileCtx_t* profileCtxFromList = CONTAINER_OF(linkPtr, taf_dcs_ProfileCtx_t, link);
+      linkPtr = le_dls_PeekNext(&ProfileCtxList, linkPtr);
+      profileFound = false;
+      // Traverse the throttleInfoList to find your slotId and profile ID from profile context
+      for (auto throttleInfo : throttleInfoList)
+      {
+        for (uint8_t tProfId : throttleInfo.profileIds)
+        {
+          // Absence of profile id in throttle info considered as the profile is not throttled
+          taf_dcs_ProfileCtx_t* profileCtx = GetProfileCtx(slotId, tProfId);
+          if(profileCtx == NULL)
+          {
+            LE_DEBUG("Profile context not found slot %d Id %d", slotId,tProfId);
+            continue;
+          }
+          //cache throttle info in profile context.
+          if((profileCtxFromList->info.index == tProfId) && (slotId == profileCtx->slotId))
+          {
+            profileFound = true;
+            profileCtx->throttleInfo.isThrottled = true;
+            stateEvent.throttleState = true;
+            stateEvent.slotId = slotId;
+            stateEvent.profileId = tProfId;
+            le_utf8_Copy(profileCtx->throttleInfo.mnc, throttleInfo.mnc.c_str(),
+                                                     TAF_DCS_MNC_BYTES, NULL);
+            le_utf8_Copy(profileCtx->throttleInfo.mcc, throttleInfo.mcc.c_str(),
+                                                     TAF_DCS_MCC_BYTES, NULL);
+            if (throttleInfo.isBlocked)
+            {
+              LE_DEBUG("APN blocked on all plmns slot %d Id %d", slotId,tProfId);
+              profileCtx->throttleInfo.isBlocked = throttleInfo.isBlocked;
+            }
+            stateEvent.ipv4Time = throttleInfo.ipv4Time;
+            stateEvent.ipv6Time = throttleInfo.ipv6Time;
+            le_event_Report(profileCtx->throttleStateEvent, &stateEvent, sizeof(stateEvent));
+          }
+        }
+      }
+      if(profileFound == false) //check for throttleState. If yes send event with false. 
+      {
+        if(profileCtxFromList->throttleInfo.isThrottled == true )
+        {
+          stateEvent.throttleState = false;
+          stateEvent.slotId = slotId;
+          stateEvent.profileId = profileCtxFromList->info.index;
+          stateEvent.ipv4Time = 0;
+          stateEvent.ipv6Time = 0;
+          le_event_Report(profileCtxFromList->throttleStateEvent, &stateEvent, sizeof(stateEvent));
+          memset(&(profileCtxFromList->throttleInfo), 0, sizeof(throttleInfo_t));
+        }
+      }
+    }
+}
+
+
+le_result_t taf_DataProfile::GetAPNThrottledPLMN(taf_dcs_ProfileRef_t    profileRef,
+                                                 bool       *areAllPLMNsThrottled,
+                                                 char                 *mccPtr,
+                                                 size_t                mccSize,
+                                                 char                 *mncPtr,
+                                                 size_t                mncSize)
+
+{
+    TAF_ERROR_IF_RET_VAL((profileRef == NULL) || (areAllPLMNsThrottled == NULL) ||
+                         (mccPtr == NULL) || (mncPtr == NULL), LE_BAD_PARAMETER,
+                          "some pointers may be null");
+
+    taf_dcs_ProfileCtx_t* profileCtx = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap,
+                                                                           (void*)profileRef);
+    TAF_ERROR_IF_RET_VAL(profileCtx == NULL, LE_NOT_FOUND, 
+                                      "cannot get profile context from reference(%p)", profileRef);
+
+    TAF_ERROR_IF_RET_VAL(profileCtx->throttleInfo.isThrottled == false, LE_UNAVAILABLE,
+                                      "profile is not throttled");
+
+    if(profileCtx->throttleInfo.mcc != NULL)
+      le_utf8_Copy(mccPtr,profileCtx->throttleInfo.mcc,TAF_DCS_MCC_BYTES, NULL);
+
+    if(profileCtx->throttleInfo.mnc != NULL)
+      le_utf8_Copy(mncPtr,profileCtx->throttleInfo.mnc,TAF_DCS_MNC_BYTES, NULL);
+
+    *areAllPLMNsThrottled = profileCtx->throttleInfo.isBlocked;
+
+    LE_DEBUG("GetAPNThrottledPLMN mccPtr %s mncPtr %s", mccPtr,mncPtr);
+    LE_DEBUG("GetAPNThrottledPLMN areAllPLMNsThrottled %d", *areAllPLMNsThrottled);
+
+    return LE_OK;
+}
+
+
+le_result_t taf_DataProfile::SendAPNThrottledInfo(uint8_t slotId, int32_t profileId, bool *isThrottledPtr)
+{
+    taf_dcs_ProfileCtx_t* profileCtxPtr = GetProfileCtx(slotId, profileId);
+    le_result_t result = LE_OK;
+    bool         isThrottled = false;
+    uint32_t     ipv4RemainingTime = 0;
+    uint32_t     ipv6RemainingTime = 0;
+    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
+                         "Cannot find profile context slotId(%d) profileId(%d)",
+                         slotId, profileId);
+
+    *isThrottledPtr = profileCtxPtr->throttleInfo.isThrottled;
+
+    if(*isThrottledPtr == true)
+    {
+      //send APN throttle event
+      ThrottleStatus_t stateEvent;
+
+      result = taf_dcs_GetAPNThrottledStatus(profileCtxPtr->reference,
+                                             &isThrottled,&ipv4RemainingTime,
+                                             &ipv6RemainingTime);
+      if(result == LE_OK)
+      {
+        stateEvent.throttleState = true;
+        stateEvent.slotId = slotId;
+        stateEvent.profileId = profileId;
+        stateEvent.ipv4Time = ipv4RemainingTime;
+        stateEvent.ipv6Time = ipv6RemainingTime;
+        le_event_Report(profileCtxPtr->throttleStateEvent, &stateEvent, sizeof(stateEvent));
+      }
+    }
+    return LE_OK;
+}
+
+le_result_t taf_DataProfile::IsAPNThrottled(uint8_t slotId, int32_t profileId, bool *isThrottledPtr)
+{
+    taf_dcs_ProfileCtx_t* profileCtxPtr = GetProfileCtx(slotId, profileId);
+    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
+                         "Cannot find profile context slotId(%d) profileId(%d)",
+                         slotId, profileId);
+
+    *isThrottledPtr = profileCtxPtr->throttleInfo.isThrottled;
+    LE_DEBUG("Profile APN throttled %d", *isThrottledPtr);
+    return LE_OK;
+}
+
 
 taf_dcs_Pdp_t taf_DataProfile::MapIpFamily(telux::data::IpFamilyType ipFamily)
 {
@@ -1162,6 +1355,7 @@ void taf_DataProfile::CleanupAllProfiles(Profile_List_Event_t *listEvent)
 le_result_t taf_DataProfile::CreateIndividualProfile(taf_dcs_ProfileCtx_t *info)
 {
     taf_dcs_ProfileCtx_t* profileCtx = NULL;
+    char throttlename[18] = {0};
 
     profileCtx = (taf_dcs_ProfileCtx_t *)le_mem_ForceAlloc(ProfilePool);
     TAF_ERROR_IF_RET_VAL(profileCtx == NULL, LE_NO_MEMORY, "cannot alloc profileCtx");
@@ -1173,6 +1367,10 @@ le_result_t taf_DataProfile::CreateIndividualProfile(taf_dcs_ProfileCtx_t *info)
     TAF_ERROR_IF_RET_VAL(profileRef == NULL, LE_NO_MEMORY, "cannot alloc profileRef");
 
     profileCtx->reference = profileRef;
+
+    snprintf(throttlename, sizeof(throttlename)-1, "Throttle-%d-%d", profileCtx->slotId,
+                                                                     profileCtx->info.index);
+    profileCtx->throttleStateEvent = le_event_CreateId(throttlename, sizeof(ThrottleStatus_t));
 
     // add this profile context to list
     le_dls_Queue(&ProfileCtxList, &profileCtx->link);

@@ -388,7 +388,7 @@ EVENT RxSesTypeCheck
 FUNCTION le_result_t SendSesTypeCheckResp
 (
     RxSesTypeCheck rxSesTypeRef  IN,    ///< Received session type reference.
-    SesControlErrorCode errCode  IN     ///< Error code type.
+    uint8 errCode  IN                   ///< Error code type.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -509,7 +509,7 @@ FUNCTION le_result_t GetSecAccessPayload
 FUNCTION le_result_t SendSecAccessResp
 (
     RxSecAccessMsg rxMsgRef  IN,        ///< Received message reference.
-    SecAccessErrorCode errCode  IN,     ///< Error code type.
+    uint8 errCode  IN,                  ///< Error code type.
     uint8 data[MAX_PAYLOAD_SIZE]  IN    ///< Payload data.
 );
 

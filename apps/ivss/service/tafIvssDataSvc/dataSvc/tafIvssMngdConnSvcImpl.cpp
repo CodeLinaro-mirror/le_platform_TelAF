@@ -273,7 +273,7 @@ void tafIvssMngdConnSvc::GetDataIpv4InfoHandler
         "taf_mngdConn_GetPhoneIdByRef failed - %s", LE_RESULT_TXT(indPtr->result));
 
     taf_dcs_ProfileRef_t profileRef = NULL;
-    profileRef= taf_dcs_GetProfileEx(profileId, phoneId);
+    profileRef= taf_dcs_GetProfileEx(phoneId, profileId);
     if (profileRef == NULL)
     {
         indPtr->result = LE_FAULT;

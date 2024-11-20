@@ -47,6 +47,8 @@ namespace taf{
 namespace uds{
 
     #define UDS_DATA_SIZE 4095
+    #define UDS_CERT_MAX_LEN 8192
+    #define UDS_MAX_DATA_SIZE 2*UDS_CERT_MAX_LEN+16 //For PKI uni direction, 8192+8192+16
     #define UDS_P2_SERVER 50 // Default P2 server interval
     #define UDS_P2_SERVER_MAX 65535 //Maximal P2 server interval
     #define UDS_P2_STAR_SERVER 5000 // Default P2* server interval
@@ -55,11 +57,15 @@ namespace uds{
     #define DELTA_UDS_P2_RESP 500 //Delta P2 RESP
     #define UDS_P2_STAR_SERVER_CNT 120
     #define UDS_S3_SERVER 5000
+    #define AUTH_DEFAULT_MAX_ATT_CNT 10
+    #define AUTH_DEFAULT_DELAY_TIME 60 // 1 minute. unit:second
+    #define AUTH_DEFAULT_DELAY_TIME_MAX 16*60 // 16 minutes. unit:second
     #define TAF_UDS_HANDLER_REF_CNT 1
     #define SHORT_TERM_ADJUSTMENT 3
     #define MAX_INTERFACE_NAME_LEN 30
-    #define MAX_TIMER_NAME_LEN 36
     #define TESTER_STATE_CHANGE_DATA_SIZE 3
+    #define MAX_TIMER_NAME_LEN 50
+    #define UDS_INDICATION_DATA_LEN_MAX 255
 
     // UDS minimal len
     #define UDS_REQ_MIN_LEN 1
@@ -112,6 +118,27 @@ namespace uds{
     #define UDS_SECURITY_ACCESS_SEND_KEY_REQ_MIN_LEN 3 //sid(1)+subfunc(1)+securitykey(1)
     #define UDS_SECURITY_ACCESS_RESP_MIN_LEN 2
     #define UDS_SECURITY_ACCESS_RESP_SEED_ZERO_LEN 4
+
+    // Authentication service (0x29)
+    #define UDS_AUTH_INFO_REQ_MIN_LEN 2
+    #define UDS_AUTH_INFO_RESP_BASE_LEN 2
+    #define UDS_AUTH_DATA_SIZE_MIN_LEN 1
+    #define MAX_AUTH_TIME 30
+    #define UDS_AUTH_DATA_TYPE_ROLE 0
+    #define UDS_AUTH_EXPIRATION_DATA_SIZE 9
+    #define AUTH_CFG_NODE_PATH_LEN 128
+    #define AUTH_CONF_DATA "tafDiagSvc:/authentication/"
+
+    // Request length of authentication service
+    #define UDS_AUTH_DEAUTHENTICATE_EXACT_LEN 2       //Deauthenticate
+    #define UDS_AUTH_VERIFY_CERT_UNIDIR_MIN_LEN 7     //verifyCertificateUnidirectional
+    #define UDS_AUTH_VERIFY_CERT_BIDIR_MIN_LEN 9      //verifyCertificateBidirectional
+    #define UDS_AUTH_POWN_MIN_LEN 6                   //proofOfOwnership
+    #define UDS_AUTH_TRANSMIT_CERT_MIN_LEN    6       //TransmitCertificate
+    #define UDS_AUTH_REQ_CHLNG_EXACT_LEN 19           //requestChallengeForAuthentication
+    #define UDS_AUTH_VERIFY_POWN_UNIDIR_MIN_LEN 25    //verifyProofOfOwnershipUnidirectional
+    #define UDS_AUTH_VERIFY_POWN_BIDIR_MIN_LEN 26     //verifyProofOfOwnershipBidirectional
+    #define UDS_AUTH_CONFIGURATION_EXACT_LEN 2        //authenticationConfiguration
 
     // WriteDataByIdentifier service (0x2E)
     #define UDS_WRITE_DID_REQ_MIN_LEN 4
@@ -172,8 +199,34 @@ namespace uds{
         TAF_UDS_S3_TIMER_RESTART       = 0x02,
         TAF_UDS_P2STAR_TIMER_STOP      = 0x03,
         TAF_UDS_P2STAR_TIMER_START     = 0x04,
-        TAF_UDS_P2STAR_TIMER_RESTART   = 0x05
+        TAF_UDS_P2STAR_TIMER_RESTART   = 0x05,
+        TAF_UDS_AUTH_TIMER_STOP        = 0x06,
+        TAF_UDS_AUTH_TIMER_START       = 0x07,
+        TAF_UDS_AUTH_TIMER_RESTART     = 0x08,
+        TAF_UDS_AUTH_DELAY_TIMER_STOP  = 0x09,
+        TAF_UDS_AUTH_DELAY_TIMER_START = 0x0A
     }taf_UDSTimer_EventType_t;
+
+    typedef enum
+    {
+        AUTH_SUBFUNC_DEAUTHENTICATE        = 0x00,
+        AUTH_SUBFUNC_VERIFY_CERT_UNIDIR    = 0x01,
+        AUTH_SUBFUNC_VERIFY_CERT_BIDIR     = 0x02,
+        AUTH_SUBFUNC_POWN                  = 0x03,
+        AUTH_SUBFUNC_TRANSMIT_CERT         = 0x04,
+        AUTH_SUBFUNC_REQ_CHLNG_FOR_AUTH    = 0x05,
+        AUTH_SUBFUNC_VERIFY_POWN_UNIDIR    = 0x06,
+        AUTH_SUBFUNC_VERIFY_POWN_BIDIR     = 0x07,
+        AUTH_SUBFUNC_AUTH_CONF             = 0x08,
+        AUTH_SUBFUNC_UNKNOWN               = 0xff
+    }taf_UDSReqAuthSubFunc_t;
+
+    typedef enum
+    {
+        AUTH_STATE_DEAUTHENTICATED        = 0x00,
+        AUTH_STATE_AUTHENTICATED          = 0x01,
+        AUTH_STATE_UNKNOWN                = 0xff
+    }taf_UDSAuthState_t;
 
     // RequestFileTranser service mode of operation type
     typedef enum
@@ -195,6 +248,7 @@ namespace uds{
         READ_DTC_INFO_REQUEST_ID = 0x19,
         READ_DID_REQUEST_ID = 0x22,
         SECURITY_ACCESS_REQUEST_ID = 0x27,
+        AUTHENTICATION_REQUEST_ID = 0x29,
         WRITE_DID_REQUEST_ID = 0x2E,
         INPUT_OUTPUT_CONTROL_REQUEST_ID = 0x2F,
         ROUTINE_CONTROL_REQUEST_ID = 0x31,
@@ -214,6 +268,7 @@ namespace uds{
         READ_DTC_INFO_RESPONSE_ID = 0x59,
         READ_DID_RESPONSE_ID = 0x62,
         SECURITY_ACCESS_RESPONSE_ID = 0x67,
+        AUTHENTICATION_RESPONSE_ID = 0x69,
         WRITE_DID_RESPONSE_ID = 0x6E,
         IOCBID_RESPONSE_ID = 0x6F,
         ROUTINE_CONTROL_RESPONSE_ID = 0x71,
@@ -237,13 +292,24 @@ namespace uds{
         REQ_SEQUENCE_ERROR = 0x24,
         REQ_OUT_OF_RANGE = 0x31,
         SECURITY_ACCESS_DENY = 0x33,
+        AUTHENTICATION_REQUIRED = 0x34,
         INVALID_KEY = 0x35,
+        EXCEEDED_NUMBER_OF_ATTEMPTS = 0x36,
+        REQUIRED_TIME_DELAY_NOT_EXPIRED = 0x37,
         UPLOAD_DOWNLOAD_NOT_ACCEPTED = 0x70,
         GENERAL_PROGRAMMING_FAILURE = 0x72,
         REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING = 0x78,
         SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION = 0x7E,
         SERVICE_NOT_SUPPORTED_IN_ACTIVE_SESSION = 0x7F
     }taf_UDSErrorCode_t;
+
+    // UDS notification message ID
+    typedef enum
+    {
+        TESTER_STATE_MSG_ID = 0xFD,
+        AUTHENTICATION_EXPIRATION_MSG_ID = 0xFE,
+        SESSION_CHANGE_MSG_ID = 0xFF
+    }taf_UDSIndicationMsg_t;
 
     typedef struct
     {
@@ -288,7 +354,7 @@ namespace uds{
             static UdsCommunicationMgr * GetInstance(const char* ifName);
             void Init();
             static void InitInstances(le_dls_List_t* interfaceList);
-
+            static void InitAuthData(le_dls_List_t* interfaceList);
             static le_result_t UdsStart(const char* configPathPtr);
 
             static le_result_t UdsAddDiagIndicationHandler();
@@ -299,6 +365,8 @@ namespace uds{
 
             le_result_t SendUDSResp(const char* ifName, uint8_t serviceId, uint8_t err,
                     const uint8_t* dataPtr, uint16_t dataSize);
+            le_result_t SetUDSData(const char* ifName, uint8_t dataType, const uint8_t* dataPtr,
+                        uint16_t dataSize);
 
             le_result_t SetNRC(uint8_t sid, uint8_t errorCode);
             le_result_t SendNRC(uint8_t sid, uint8_t errorCode, taf_doip_AddrInfo_t*  addrInfoPtr);
@@ -308,7 +376,8 @@ namespace uds{
 
             static void P2StarTimeoutHandler(le_timer_Ref_t timerRef);
             static void S3TimeoutHandler(le_timer_Ref_t timerRef);
-
+            static void AuthTimeoutHandler(le_timer_Ref_t timerRef);
+            static void AuthDelayTimeoutHandler(le_timer_Ref_t timerRef);
             static le_ref_MapRef_t udsHandlerRefMap;
             static taf_UDSIndicationHandler_t udsIndicationHandler;
 
@@ -319,16 +388,20 @@ namespace uds{
             struct AO_SecurityAccess_s * mSecurityAccess;
             /* Security Access -- END -- */
 
-            uint8_t recvBuf[UDS_DATA_SIZE];
-            uint8_t sendBuf[UDS_DATA_SIZE];
+            uint8_t recvBuf[UDS_MAX_DATA_SIZE];
+            uint8_t sendBuf[UDS_MAX_DATA_SIZE];
             uint16_t recvDataLen = 0;
             uint16_t sendDataLen = 0;
             bool readyToRecvData = true;
             char interface[MAX_INTERFACE_NAME_LEN];
             le_timer_Ref_t p2StarTimerRef;
             le_timer_Ref_t s3TimerRef;
+            le_timer_Ref_t authTimerRef;
+            le_timer_Ref_t authDelayTimerRef;
             taf_SessionType_t SessionType = DEFAULT_SESSION;
             taf_TesterState_t PreviousState = OFF;
+            uint64_t currentRoleVal = 0;
+            taf_UDSAuthState_t authState = AUTH_STATE_UNKNOWN;
 
         private:
             // Indicate recevied service message to Diag service if necessary.
@@ -342,6 +415,8 @@ namespace uds{
                     bool* isInternalHandle);    // WriteDID service (0x2E).
             le_result_t IndicateSecAccessReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // SecurrityAccess service (0x27).
+            le_result_t IndicateAuthReq(taf_doip_AddrInfo_t*  addrInfoPtr,
+                    bool* isInternalHandle);    // Authentication service (0x29).
             le_result_t IndicateIOCBIDReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // InputOutputControlByIdentifier service (0x2F).
             le_result_t IndicateRoutinrCtrlReq(taf_doip_AddrInfo_t* addrInfoPtr,
@@ -370,6 +445,8 @@ namespace uds{
             le_result_t WriteDIDResp(uint8_t serviceId, uint8_t err);
             le_result_t SecurityAccessResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
+            le_result_t AuthenticationResp(uint8_t serviceId, const uint8_t* dataPtr,
+                    uint16_t dataSize, uint8_t err);
             le_result_t IOCBIDResp(uint8_t serviceId, const uint8_t* dataPtr, uint16_t dataSize,
                     uint8_t err);
             le_result_t RoutineCtrlResp(uint8_t serviceId, const uint8_t* dataPtr,
@@ -393,31 +470,41 @@ namespace uds{
             void CheckAndRestartS3Timer(uint8_t serviceId);
             bool IsSessTypeMatched(cfg::Node& node);
             bool IsSecurityAccessMatched(cfg::Node& node);
+            bool IsAuthRoleMatched(cfg::Node& node);
             bool IsRequestSubFuncSupported(cfg::Node& node, uint8_t subFunc);
 
             std::map<std::string, uint8_t>& GetSessionMap(void);
             bool IsServiceIDSupported(uint8_t sid);
             bool IsValidSvcActiveSession(uint8_t sid);
             bool IsSvcSecAccessMatched(uint8_t sid);
+            bool IsAuthCheckOK(uint8_t sid);
+            bool IsAuthReqLenCorrect(uint8_t subFunc);
+            bool IsAuthSubFuncSupported(uint8_t subFunc);
 
             le_result_t GeneralServerResp(taf_doip_AddrInfo_t* addrInfoPtr, uint8_t sid);
 
             bool IsSubFuncSupported(uint8_t sid, uint8_t subFunc);
             bool IsSubFuncSessTypeValid(uint8_t sid, uint8_t subFunc);
             bool IsSubFuncSecAccessMatched(uint8_t sid, uint8_t subFunc);
+            bool IsSubFuncAuthCheckOK(uint8_t sid, uint8_t subFunc);
+
+            void StoreAttCntToTree();
+            void StoreDelayTimeToTree();
 
             // update status parameter.
             bool isXferActive = false;
 
             //session change parameter.
-            uint8_t sesChangeId = 0xFF;
             taf_doip_AddrInfo_t addrInfo;
             uint8_t sesChangeBuf[UDS_SESSION_CHANGE_DATA_SIZE];
+            uint8_t dataIndBuf[UDS_INDICATION_DATA_LEN_MAX];
+            taf_UDSReqAuthSubFunc_t authPreSucReq = AUTH_SUBFUNC_UNKNOWN;
+            uint8_t authAttCnt = 0;
+            uint16_t authDelayTime = 60; // 1 minute
 
             // Tester present state change notification.
             static void IndicateTesterStateChange(const char* ifName,
                     taf_TesterState_t currentState);
-            uint8_t testerStateId = 0xFD;
             uint8_t testerStateChangeBuf[TESTER_STATE_CHANGE_DATA_SIZE];
             taf_doip_DiagMsg_t stateChangeMsg;
 
@@ -434,6 +521,7 @@ namespace uds{
             static std::mutex mutex_instance;
 
             taf_doip_DiagMsg_t sesChangeMsg;
+            taf_doip_DiagMsg_t dataIndMsg;
     };
 }
 }

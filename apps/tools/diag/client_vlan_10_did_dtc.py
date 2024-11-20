@@ -189,6 +189,30 @@ def update_workflow():
             response = uds_client.clear_dtc(grp_of_dtc)
             print(response)
 
+            # Step14: Transmit_certificate. 29 04
+            response = uds_client.transmit_certificate(certificate_evaluation_id=0x1122, certificate_data=bytes(8000),)
+            print(response)
+
+            #Step15: Verify_certificate_unidirectional. 29 01
+            response = uds_client.verify_certificate_unidirectional(communication_configuration=0, certificate_client=bytes(4096), challenge_client=bytes(1024),)
+            print(response)
+
+            #Step16: Proof_of_ownership. 29 03
+            response = uds_client.proof_of_ownership(proof_of_ownership_client=bytes(2048))
+            print(response)
+
+            #Step17: Authentication configuration. 29 08
+            response = uds_client.authentication_configuration()
+            print(response)
+
+            #Step18: Routine control. 31 01 02 46 start the routine
+            response = uds_client.routine_control(routine_id=0x0246, control_type=0x01)
+            print(response)
+
+            #Step19: Deauthenticate. 29 00
+            response = uds_client.deauthenticate()
+            print(response)
+
         except NegativeResponseException as e:
             print('Server refused our request for service %s with code "%s" (0x%02x)' % (e.response.service.get_name(), e.response.code_name, e.response.code))
         except (InvalidResponseException, UnexpectedResponseException) as e:

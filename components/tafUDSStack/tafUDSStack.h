@@ -87,6 +87,16 @@ typedef enum
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Enumeration of data type.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_UDS_DATA_TYPE_ROLE   = 0x00    ///< Role.
+}taf_uds_DataType_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Logical address information structure in uds communication.
  */
 //-------------------------------------------------------------------------------------------------
@@ -121,6 +131,23 @@ LE_SHARED le_result_t taf_uds_SendDiagResp
     const taf_uds_DiagMsg_t*   diagMsgPtr,     ///< [IN] Diagnostic message pointer.
     taf_uds_ServiceId_t serviceId,             ///< [IN] Service Id.
     uint8_t err                                ///< [IN] Error code.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sets data to UDS stack.
+ *
+ * @return
+ *  - LE_OK             Function success.
+ *  - LE_BAD_PARAMETER  Invalid parameter
+ *  - LE_COMM_ERROR     Sending message error.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_uds_SetData
+(
+    const taf_uds_AddrInfo_t*  addrInfoPtr,       ///< [IN] Logical address information pointer.
+    const taf_uds_DiagMsg_t*   diagMsgPtr,        ///< [IN] Data pointer.
+    taf_uds_DataType_t dataType                   ///< [IN] Data type.
 );
 
 //--------------------------------------------------------------------------------------------------

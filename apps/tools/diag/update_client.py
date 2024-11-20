@@ -174,7 +174,31 @@ def update_workflow():
             response = uds_client.clear_dtc(grp_of_dtc)
             print(response)
 
-            # Step14: Security access #1-Request seed(SecurityAccess). 27 01
+            # Step14: Transmit_certificate. 29 04
+            response = uds_client.transmit_certificate(certificate_evaluation_id=0x1122, certificate_data=bytes(8000),)
+            print(response)
+
+            #Step15: Verify_certificate_unidirectional. 29 01
+            response = uds_client.verify_certificate_unidirectional(communication_configuration=0, certificate_client=bytes(4096), challenge_client=bytes(1024),)
+            print(response)
+
+            #Step16: Proof_of_ownership. 29 03
+            response = uds_client.proof_of_ownership(proof_of_ownership_client=bytes(2048))
+            print(response)
+
+            #Step17: Authentication configuration. 29 08
+            response = uds_client.authentication_configuration()
+            print(response)
+
+            #Step18: Routine control. 31 01 02 46 start the routine
+            response = uds_client.routine_control(routine_id=0x0246, control_type=0x01)
+            print(response)
+
+            #Step19: Deauthenticate. 29 00
+            response = uds_client.deauthenticate()
+            print(response)
+
+            # Step20: Security access #1-Request seed(SecurityAccess). 27 01
             response = uds_client.request_seed(0x01)
             seed = response.service_data.seed
             print("All Zero returned: ", seed)
@@ -184,7 +208,7 @@ def update_workflow():
                 eof = f.tell()
 
                 print(eof)
-                # Step16.1: RequestFileTransfer(0x38)
+                # Step20.1: RequestFileTransfer(0x38)
                 response = uds_client.request_file_transfer(moop=1, path = restore_file, filesize=eof)
                 print(response)
                 print("Max length: %d" % response.service_data.max_length)
@@ -194,7 +218,7 @@ def update_workflow():
                 print("bytes_per_pack=%d" % bytes_per_pack)
                 f.seek(0, 0)
                 sq = 1
-                # Step16.2: Transfer Data(TransferData). 36
+                # Step20.2: Transfer Data(TransferData). 36
                 while f.tell() < eof:
                     bs = f.read(bytes_per_pack)
                     #response = uds_client.transfer_data(sq, bs)
@@ -205,11 +229,11 @@ def update_workflow():
                         sq = 0
                 f.close()
 
-            # Step16.3: Transter Exit(RequestTransferExit). 37
+            # Step20.3: Transter Exit(RequestTransferExit). 37
             response = uds_client.request_transfer_exit()
             print(response)
 
-            # Step17: Switch to extended session(Perform ECU Reset). 10 03
+            # Step21: Switch to extended session(Perform ECU Reset). 10 03
             response = uds_client.change_session(DiagnosticSessionControl.Session.extendedDiagnosticSession)
             print(response)
 
@@ -224,11 +248,19 @@ def update_workflow():
             response = uds_client.send_key(0x02, key)
             print(response)
 
-            # Step18: Routine Control RUNDTCTEST(RoutineControl). 31 01 02 47 start to update
+            #Step23: Verify_certificate_unidirectional. 29 01
+            response = uds_client.verify_certificate_unidirectional(communication_configuration=0, certificate_client=bytes(4096), challenge_client=bytes(1024),)
+            print(response)
+
+            #Step24: Proof_of_ownership. 29 03
+            response = uds_client.proof_of_ownership(proof_of_ownership_client=bytes(2048))
+            print(response)
+
+            # Step25: Routine Control RUNDTCTEST(RoutineControl). 31 01 02 47 start to update
             response = uds_client.routine_control(routine_id=0x0247, control_type=0x01)
             print(response)
 
-            # Step19: Routine Control RUNDTCTEST(RoutineControl). 31 03 02 47 request update status
+            # Step26: Routine Control RUNDTCTEST(RoutineControl). 31 03 02 47 request update status
             for i in range(100):
                 time.sleep(3)
                 response = uds_client.routine_control(routine_id=0x0247, control_type=0x03)
@@ -241,7 +273,7 @@ def update_workflow():
 
             print(update_state)
 
-            # Step20: Send tester present to maintain the current session. 3E 00
+            # Step27: Send tester present to maintain the current session. 3E 00
             def sendPresent():
                 uds_client.tester_present()
                 print(response)
@@ -251,7 +283,7 @@ def update_workflow():
                 tr.start()
                 tr.join()
 
-            # Step21: Send ECU Reset if the condition is met.
+            # Step28: Send ECU Reset if the condition is met.
             if update_state == b'\x07':
                 response = uds_client.ecu_reset(reset_type=1) # Hard reset
                 print(response)

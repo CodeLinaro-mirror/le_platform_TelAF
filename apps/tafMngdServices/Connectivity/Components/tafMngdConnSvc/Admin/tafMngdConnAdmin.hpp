@@ -37,9 +37,11 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include <future>
+#include <curl/curl.h>
 #include "tafMngdConn_Common.hpp"
 #include "tafMngdConnSvcJSONParser.hpp"
 #include <set>
+#include <regex>
 
 #define MCS_MAX_FILE_PATH_LEN    256
 #define MCS_MAX_DATA_OBJ 16
@@ -418,6 +420,10 @@ namespace tafsvc {
             static void FirstLayerDataStateHandler(void *reportPtr, void *secondLayerHandlerFunc);
             static void FirstLayerRecoveryEventHandler(void *reportPtr,
                                                        void *secondLayerHandlerFunc);
+
+            //Curl Helper Methods
+            bool PerformCurl(const char* URLStr);
+            std::string RemoveProtocol(const std::string &url);
 #ifndef LE_CONFIG_TARGET_SIMULATION
             //Async APIs callback handler
             static void RestartReqAsyncCallBack(taf_mngdPm_RestartMode_t RestartMode,

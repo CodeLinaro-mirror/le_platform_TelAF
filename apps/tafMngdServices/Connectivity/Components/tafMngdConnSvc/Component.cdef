@@ -36,6 +36,13 @@ requires:
         $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdPm.api
 #endif
     }
+
+
+    lib:
+    {
+        curl
+    }
+
 }
 
 cxxflags:

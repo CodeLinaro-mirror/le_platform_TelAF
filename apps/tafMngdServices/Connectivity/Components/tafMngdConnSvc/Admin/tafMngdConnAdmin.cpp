@@ -3367,23 +3367,17 @@ void tafMngdConnAdmin::EventDataPeriodicConnectivityTest(uint8_t dataId)
 
 bool tafMngdConnAdmin::DataConnectivityTest_URL(std::string url, std::string interfaceName)
 {
-    //Enable LE_CONFIG_DEBUG to get the output of curl in logs
-    #if LE_CONFIG_DEBUG
-        std::string curlCommand = "curl --interface " + interfaceName + " " + url;
-    #else
-        std::string curlCommand = "curl --interface " + interfaceName + " " + url
-                                   + " 1> /dev/null 2> /dev/null";
+    std::string URL = RemoveProtocol(url);
 
-    #endif
-
-    int result = system(curlCommand.c_str());
-    if(result == 0)
+    if (PerformCurl(URL.c_str()))
     {
-        //connection is created.
-        LE_INFO("DataConnectivityTest_URL passed for interface %s",interfaceName.c_str());
+        LE_INFO("DataConnectivityTest_URL passed ");
         return true;
     }
-    LE_INFO ("DataConnectivityTest_URL failed for interface %s",interfaceName.c_str());
+    else
+    {
+        LE_INFO ("DataConnectivityTest_URL failed ");
+    }
     return false;
 }
 
@@ -4169,6 +4163,73 @@ void tafMngdConnAdmin::EventL3ConnRecoveryStart(uint8_t dataId)
                         sizeof(stateMachineEvent_t));
         return;
     }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * CURL helper method to perform the Curl operation
+ */
+//--------------------------------------------------------------------------------------------------
+bool tafMngdConnAdmin::PerformCurl(const char* URLStr)
+{
+    CURL *curl;
+    CURLcode res;
+    bool result;
+
+    LE_INFO("curl URL: %s", URLStr);
+
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+
+    curl = curl_easy_init();
+    if (curl)
+    {
+        curl_easy_setopt(curl, CURLOPT_URL, URLStr);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
+        // Complete within 2s
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
+        // Just check the connection.
+        curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 1L);
+
+        // Perform the request, res will get the return code
+        res = curl_easy_perform(curl);
+        // Check for errors
+        if (res != CURLE_OK)
+        {
+            LE_WARN("cURL to %s error: %s", URLStr, curl_easy_strerror(res));
+            result = false;
+        }
+        else
+        {
+            LE_INFO("cURL to %s succeeded.", URLStr);
+            result = true;
+        }
+
+        // always cleanup
+        curl_easy_cleanup(curl);
+    }
+    else
+    {
+        result = false;
+        LE_WARN("Unable to initialize cURL");
+    }
+
+    curl_global_cleanup();
+
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * CURL helper method to remove the protocol from the URL
+ */
+//--------------------------------------------------------------------------------------------------
+std::string tafMngdConnAdmin::RemoveProtocol(const std::string &url)
+{
+    LE_INFO("URL: %s", url.c_str());
+    std::regex pattern("^https?://");
+    std::string new_url = std::regex_replace(url, pattern, "");
+    LE_INFO("New URL: %s", new_url.c_str());
+    return new_url;
 }
 
 const char * tafMngdConnAdmin::EventToString(mcs_EventType_t event)

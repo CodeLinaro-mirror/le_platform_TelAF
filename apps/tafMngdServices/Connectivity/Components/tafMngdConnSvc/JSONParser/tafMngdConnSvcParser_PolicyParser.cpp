@@ -398,6 +398,195 @@ bool mcs_PolicyParser::Validate_DS_CR_SimOffOnInterval(mcs_Policy_t &Policy,
 }
 
 /**
+ * Validate DataSession:ConnectivityRecovery:AllowCancel
+ */
+bool mcs_PolicyParser::Validate_DS_CR_AllowCancel(mcs_Policy_t &Policy,
+                                                        std::string Value,
+                                                        int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    // Check the JSON version to be atleast 24.12.00
+    if (Policy.Version < MCS_JSON_VERSION_24_12_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
+    if (MCS_JSON_DATA_TYPE_YES_NO != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Valid value. Update Policy.
+    Policy.DataSession.ConnectivityRecovery.AllowCancel = mcs_Convert_to_Yes_No_enum(Value);
+    return true;
+}
+
+/**
+ * Validate DataSession:ConnectivityRecovery:VerifyCancelingApp
+ */
+bool mcs_PolicyParser::Validate_DS_CR_VerifyCancelingApp(mcs_Policy_t &Policy,
+                                                        std::string Value,
+                                                        int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    // Check the JSON version to be atleast 24.12.00
+    if (Policy.Version < MCS_JSON_VERSION_24_12_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
+    if (MCS_JSON_DATA_TYPE_YES_NO != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Valid value. Update Policy.
+    Policy.DataSession.ConnectivityRecovery.VerifyCancelingApp = mcs_Convert_to_Yes_No_enum(Value);
+    return true;
+}
+
+/**
+ * Validate DataSession:AppMngdConnectivityRecovery:Enable
+ */
+bool mcs_PolicyParser::Validate_DS_AMCR_Enable(mcs_Policy_t &Policy,
+                                                        std::string Value,
+                                                        int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    // Check the JSON version to be atleast 24.12.00
+    if (Policy.Version < MCS_JSON_VERSION_24_12_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
+    if (MCS_JSON_DATA_TYPE_YES_NO != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Valid value. Update Policy.
+    Policy.DataSession.AppMngdConnectivityRecovery.Enable = mcs_Convert_to_Yes_No_enum(Value);
+    return true;
+}
+
+/**
+ * Validate DataSession:AppMngdConnectivityRecovery:VerifyCallingApp
+ */
+bool mcs_PolicyParser::Validate_DS_AMCR_VerifyCallingApp(mcs_Policy_t &Policy,
+                                                        std::string Value,
+                                                        int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    // Check the JSON version to be atleast 24.12.00
+    if (Policy.Version < MCS_JSON_VERSION_24_12_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
+    if (MCS_JSON_DATA_TYPE_YES_NO != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Valid value. Update Policy.
+    Policy.DataSession.AppMngdConnectivityRecovery.VerifyCallingApp =
+                                                                 mcs_Convert_to_Yes_No_enum(Value);
+    return true;
+}
+
+/**
+ * Validate DataSession:AppMngdConnectivityRecovery:MinTimeBetweenTriggers
+ */
+bool mcs_PolicyParser::Validate_DS_AMCR_MinTimeBetweenTriggers(mcs_Policy_t &Policy,
+                                                    std::string Value,
+                                                    int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    // Check the JSON version to be atleast 24.12.00
+    if (Policy.Version < MCS_JSON_VERSION_24_12_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+    int localInt = 0;
+
+    if (MCS_JSON_DATA_TYPE_NUMBER != mcs_GetDataType(Value))
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Ensure the value is within the range [0, TAF_MNGDCONN_MAX_CONN_RECOVERY_RETRY_WAIT_TIME]
+    localInt = std::stoi(Value);
+    if (localInt < 0 || localInt > TAF_MNGDCONN_MAX_CONN_RECOVERY_RETRY_WAIT_TIME)
+    {
+        LE_WARN("Value out of range: %d", localInt);
+        return false;
+    }
+    // Valid value. Update Policy.
+    Policy.DataSession.AppMngdConnectivityRecovery.MinTimeBetweenTriggers =
+                                                                    static_cast<uint16_t>(localInt);
+    return true;
+}
+
+/**
+ * Validate DataSession:AppMngdConnectivityRecovery:MaxTimeBetweenTriggers
+ */
+bool mcs_PolicyParser::Validate_DS_AMCR_MaxTimeBetweenTriggers(mcs_Policy_t &Policy,
+                                                    std::string Value,
+                                                    int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    // Check the JSON version to be atleast 24.12.00
+    if (Policy.Version < MCS_JSON_VERSION_24_12_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+    int localInt = 0;
+
+    if (MCS_JSON_DATA_TYPE_NUMBER != mcs_GetDataType(Value))
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Ensure the value is within the range [0, TAF_MNGDCONN_MAX_CONN_RECOVERY_RETRY_WAIT_TIME]
+    localInt = std::stoi(Value);
+    if (localInt < 0 || localInt > TAF_MNGDCONN_MAX_CONN_RECOVERY_RETRY_WAIT_TIME)
+    {
+        LE_WARN("Value out of range: %d", localInt);
+        return false;
+    }
+    // Valid value. Update Policy.
+    Policy.DataSession.AppMngdConnectivityRecovery.MaxTimeBetweenTriggers =
+                                                                    static_cast<uint16_t>(localInt);
+    return true;
+}
+
+/**
  * Check if the value for the property is of the correct type and also contains valid value.
  * The function to validate each value will be called. The respective function will update the
  * Policy structure if the value is valid.
@@ -457,6 +646,7 @@ bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
     bool bDataConnectionAvailable            = false;
     bool bMultiDataSessionAvailable          = false;
     bool bConnectivityRecoveryAvailable      = false;
+    bool bAppManagedConnectivityRecovery     = false;
     for (auto & element: tree) {
 
        if ("ManagedConnectivityService" == element.first ) {
@@ -589,6 +779,35 @@ bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
                                             }
                                         }
                                 }
+                                if ("AppManagedConnectivityRecovery" == child.first) {
+                                    bAppManagedConnectivityRecovery = true;
+                                 // Use an iterator to go through  the
+                                 // AppManagedConnectivityRecovery elements
+                                    for (auto &it: child.second) {
+                                            log.clear();
+                                            log.append ( std::string ("\t") + "Key: "
+                                                        + it.first +
+                                                        ", Value: " + it.second.data() );
+                                            LE_DEBUG ("%s", log.c_str() );
+                                            JSON_Property.clear();
+                                            JSON_Property.append(parent.first + ":"
+                                            + child.first + ":" +
+                                            it.first);
+                                            JSON_Value.clear();
+                                            JSON_Value.append(it.second.data());
+                                            // Validate values. Index is set to correct value
+                                            // as this is an array.
+                                            if (!ValidateValue(Policy, JSON_Property, JSON_Value,
+                                            MCS_INVALID_INDEX))
+                                            {
+                                                LE_WARN("Invalid JSON_Property Value");
+                                                LE_INFO("JSON_Property: %s, Value: %s",
+                                                JSON_Property.c_str(),
+                                                JSON_Value.c_str());
+                                                return false;
+                                            }
+                                        }
+                                }
                             }
                         }
                     }
@@ -612,6 +831,11 @@ bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
     if (!bConnectivityRecoveryAvailable)
     {
         LE_ERROR("ConnectivityRecovery object is missing");
+        return false;
+    }
+    if (!bAppManagedConnectivityRecovery)
+    {
+        LE_ERROR("AppManagedConnectivityRecovery object is missing");
         return false;
     }
     return true;
@@ -689,11 +913,23 @@ void mcs_PolicyParser::UpdateValidPolicyFuncMap(void)
     PolicyValidationFuncMap["DataSession:ConnectivityRecovery:StartWaitTime"] =
                                                             &Validate_DS_CR_StartWaitTime;
     PolicyValidationFuncMap["DataSession:ConnectivityRecovery:RetryWaitTime"] =
-                                                         &Validate_DS_CR_RetryWaitTime;
+                                                        &Validate_DS_CR_RetryWaitTime;
     PolicyValidationFuncMap["DataSession:ConnectivityRecovery:RadioOffOnInterval"] =
-                                                         &Validate_DS_CR_RadioOffOnInterval;
+                                                        &Validate_DS_CR_RadioOffOnInterval;
     PolicyValidationFuncMap["DataSession:ConnectivityRecovery:SimOffOnInterval"] =
-                                                         &Validate_DS_CR_SimOffOnInterval;
+                                                        &Validate_DS_CR_SimOffOnInterval;
+    PolicyValidationFuncMap["DataSession:ConnectivityRecovery:AllowCancel"] =
+                                                        &Validate_DS_CR_AllowCancel;
+    PolicyValidationFuncMap["DataSession:ConnectivityRecovery:VerifyCancelingApp"] =
+                                                        &Validate_DS_CR_VerifyCancelingApp;
+    PolicyValidationFuncMap["DataSession:AppManagedConnectivityRecovery:Enable"] =
+                                                        &Validate_DS_AMCR_Enable;
+    PolicyValidationFuncMap["DataSession:AppManagedConnectivityRecovery:VerifyCallingApp"] =
+                                                        &Validate_DS_AMCR_VerifyCallingApp;
+    PolicyValidationFuncMap["DataSession:AppManagedConnectivityRecovery:MinTimeBetweenTriggers"] =
+                                                        &Validate_DS_AMCR_MinTimeBetweenTriggers;
+    PolicyValidationFuncMap["DataSession:AppManagedConnectivityRecovery:MaxTimeBetweenTriggers"] =
+                                                        &Validate_DS_AMCR_MaxTimeBetweenTriggers;
 }
 
 /**

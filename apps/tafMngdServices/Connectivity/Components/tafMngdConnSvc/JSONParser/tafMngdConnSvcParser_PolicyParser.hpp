@@ -76,7 +76,17 @@ namespace tafsvc {
         uint16_t RetryWaitTime;               // In seconds.
         uint8_t  RadioOffOnInterval;        // In seconds.
         uint8_t  SimOffOnInterval;          // In seconds.
+        mcs_Yes_No_t AllowCancel;             //Yes=1, No=0
+        mcs_Yes_No_t VerifyCancelingApp;      //Yes=1, No=0
     } mcs_Policy_ConnectivityRecovery_t;
+
+    typedef struct
+    {
+        mcs_Yes_No_t Enable;                    //Yes=1, No=0
+        mcs_Yes_No_t VerifyCallingApp;          //Yes=1, No=0
+        uint8_t  MinTimeBetweenTriggers;        // In seconds.
+        uint8_t  MaxTimeBetweenTriggers;        // In seconds.
+    } mcs_Policy_AppMngdConnectivityRecovery_t;
 
     typedef struct
     {
@@ -85,6 +95,7 @@ namespace tafsvc {
                             DataConnection[MCS_MAX_DATA_CONNECION_OBJECT_COUNT];
         mcs_Policy_MultiDataSession_t MultiDataSession;
         mcs_Policy_ConnectivityRecovery_t ConnectivityRecovery;
+        mcs_Policy_AppMngdConnectivityRecovery_t AppMngdConnectivityRecovery;
     } mcs_Policy_DataSession_t;
 
     typedef struct
@@ -153,6 +164,24 @@ private:
                                                         std::string Value,
                                                         int Index);
     static bool Validate_DS_CR_SimOffOnInterval (mcs_Policy_t &Policy,
+                                                        std::string Value,
+                                                        int Index);
+    static bool Validate_DS_CR_AllowCancel (mcs_Policy_t &Policy,
+                                                        std::string Value,
+                                                        int Index);
+    static bool Validate_DS_CR_VerifyCancelingApp (mcs_Policy_t &Policy,
+                                                        std::string Value,
+                                                        int Index);
+    static bool Validate_DS_AMCR_Enable (mcs_Policy_t &Policy,
+                                                        std::string Value,
+                                                        int Index);
+    static bool Validate_DS_AMCR_VerifyCallingApp (mcs_Policy_t &Policy,
+                                                        std::string Value,
+                                                        int Index);
+    static bool Validate_DS_AMCR_MinTimeBetweenTriggers (mcs_Policy_t &Policy,
+                                                        std::string Value,
+                                                        int Index);
+    static bool Validate_DS_AMCR_MaxTimeBetweenTriggers (mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
 

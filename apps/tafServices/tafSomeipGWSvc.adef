@@ -47,6 +47,7 @@ processes:
         VSOMEIP_CONFIGURATION_tafSomeipGWSvc_5 = tafSomeipGWSvc_5.json
         VSOMEIP_CONFIGURATION_tafSomeipGWSvc_6 = tafSomeipGWSvc_6.json
         VSOMEIP_CONFIGURATION_tafSomeipGWSvc_7 = tafSomeipGWSvc_7.json
+        AUTO_ADD_ROUTE = YES
     }
 
     run:

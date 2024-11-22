@@ -181,6 +181,14 @@ void taf_Audio::Init(void)
 
     HashMapList = LE_DLS_LIST_INIT;
 
+#ifndef LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED // Remove this for TelAF based playback
+    le_sem_Ref_t mEventRegSemRef = le_sem_Create("mEventRegSemRef", 0);
+    le_thread_Start(le_thread_Create("RegisterBufferEventThread", RegisterBufferEvent,
+            mEventRegSemRef));
+    le_sem_Wait(mEventRegSemRef);
+    le_sem_Delete(mEventRegSemRef);
+#endif
+
     // Add a handler to the close session service
     le_msg_AddServiceCloseHandler( taf_audio_GetServiceRef(),
                                    ClientSessionCloseEventHandler,
@@ -362,14 +370,19 @@ void tafVoiceListener::onDtmfToneDetection(telux::audio::DtmfTone dtmfTone) {
 }
 
 void tafPlayListener::onReadyForWrite() {
-    LE_INFO("OnReadyForWrite");
+    LE_DEBUG("OnReadyForWrite");
     auto &audio = taf_Audio::GetInstance();
     audio.mEmptyPipeline = true;
-    le_sem_Post(audio.mPlaySemRef);
+    taf_audio_BufferEvent_t bufferEvent;
+    bufferEvent.bufferType = TAF_AUDIO_PB_BUFFER;
+    le_event_Report(audio.bufferEventId, &bufferEvent, sizeof(taf_audio_BufferEvent_t));
 }
 
 void tafPlayListener::onPlayStopped() {
     LE_DEBUG("onPlayStopped");
+    auto &audio = taf_Audio::GetInstance();
+    if(audio.mPlayCompletedSemRef)
+        le_sem_Post(audio.mPlayCompletedSemRef);
 }
 
 size_t HashRef
@@ -2412,16 +2425,22 @@ void taf_Audio::WriteCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffe
         telux::common::ErrorCode error)
 {
     auto &audio = taf_Audio::GetInstance();
-    if (ErrorCode::SUCCESS != error || buffer->getDataSize() != bytes) {
+    if (error != telux::common::ErrorCode::SUCCESS) {
+        LE_ERROR("Failed to write with error code : %d", (int)error);
+        audio.mIsPlaying = false;
+        audio.mIsPbError = true;
+    }
+    else if (buffer->getDataSize() != bytes) {
         audio.mEmptyPipeline = false;
         LE_ERROR("Bytes Requested %d: Bytes Written: %d", buffer->getDataSize(), bytes);
         long offset = -1 * (long)(buffer->getDataSize() - bytes);
         fseek(audio.mPlayFile, offset, SEEK_CUR);
-        LE_ERROR( "write failed with error code %d", int(error) );
     }
     buffer->reset();
     audio.mPbFreeBuffers.push(buffer);
-    le_sem_Post(audio.mPlaySemRef);
+    taf_audio_BufferEvent_t bufferEvent;
+    bufferEvent.bufferType = TAF_AUDIO_PB_BUFFER;
+    le_event_Report(audio.bufferEventId, &bufferEvent, sizeof(taf_audio_BufferEvent_t));
     return;
 }
 
@@ -2537,6 +2556,7 @@ le_result_t taf_Audio::ReadPcmHeader
             ? (ChannelType::LEFT | ChannelType::RIGHT) : ChannelType::LEFT;
     config.format = AudioFormat::PCM_16BIT_SIGNED;
 
+    LE_DEBUG("channelsCount %d", wHdr.channelsCount);
     // Set the config device type based on output device connected or voice path
     // direction in case of in-call uplink playback.
     le_hashmap_It_Ref_t connItr =
@@ -2805,9 +2825,6 @@ le_result_t taf_Audio::StopAudio(taf_audio_Stream_t* streamPtr)
             if (mPbFileFormat == AudioFormat::PCM_16BIT_SIGNED)
             {
                 LE_INFO("Stop WAV file successful");
-                while(mPbFreeBuffers.size() != TOTAL_BUFFERS) {
-                    le_sem_Wait(mPlaySemRef);
-                }
             } else {
                 status = mAudioPlayStream->stopAudio(StopType::FORCE_STOP, StopAudioCallback);
                 if (status == Status::SUCCESS) {
@@ -2820,10 +2837,19 @@ le_result_t taf_Audio::StopAudio(taf_audio_Stream_t* streamPtr)
                 }
             }
             gDelCbPromise = promise<ErrorCode>();
-            ErrorCode error = gDelCbPromise.get_future().get();
-            if (ErrorCode::SUCCESS != error) {
-                LE_ERROR("Request to delete playback stream failed error: %d", int (error));
+            std::future<telux::common::ErrorCode> gDelCbFuture = gDelCbPromise.get_future();
+            std::future_status waitStatus =
+                    gDelCbFuture.wait_for(std::chrono::seconds(STOP_TIMEOUT));
+            if (std::future_status::timeout == waitStatus)
+            {
+                LE_ERROR("Timeout on trying to delete the stream");
                 return LE_FAULT;
+            } else {
+                ErrorCode error = gDelCbFuture.get();
+                if (ErrorCode::SUCCESS != error) {
+                    LE_ERROR("Request to delete playback stream failed error: %d", int(error));
+                    return LE_FAULT;
+                }
             }
 #endif
             setVhalRouteStatus(TAF_AUDIO_LOCAL_PLAYBACK, false);
@@ -3067,223 +3093,41 @@ void taf_Audio::DeletePlayCallback(ErrorCode error) {
         audio.mAudioPlayStream.reset();
         audio.mAudioPlayStream = nullptr;
     } else {
-        LE_DEBUG("Delete PlayStream error: %d", int (error));
+        LE_ERROR("Delete PlayStream error: %d", int (error));
     }
     audio.gDelCbPromise.set_value(error);
     return;
 }
 
 /**
- * Play the file
+ * Register for the buffer event
  */
-void* taf_Audio::PlayAudioFile( void* ctxPtr) {
+void* taf_Audio::RegisterBufferEvent( void* ctxPtr) {
 
-    LE_DEBUG("Start the PlayAudioFile thread");
+    LE_DEBUG("Start registering for buffer event handler");
     auto &audio = taf_Audio::GetInstance();
-    uint32_t numBytes =0;
-    uint32_t size = 0;
-    le_result_t res = LE_FAULT;
-    taf_PlaybackFile_t* pbFilePtr = (taf_PlaybackFile_t*)ctxPtr;
-
-    LE_INFO("Audio file path : %s repeat : %d", pbFilePtr->absoluteFilePath.c_str(),
-            pbFilePtr->repeat);
-    res = audio.StartAudio(pbFilePtr->config);
-    if(res != LE_OK)
-    {
-        LE_ERROR("Config failed");
-        audio.pbList.pbRes = LE_FAULT;
-        le_sem_Post(audio.mPbStartedSemRef);
-        return NULL;
-    } else {
-        res = audio.SetVolume(pbFilePtr->streamPtr->streamRef,
-                pbFilePtr->streamPtr->volLevel, false);
-        if (res == LE_OK)
-        {
-            LE_INFO("Successfully set the vol level to player stream");
-        }
-        else
-        {
-            LE_ERROR("Failed to set the vol level to player stream");
-        }
-    }
-    audio.mPlaySemRef = le_sem_Create("tafPlaySemRef", 0);
-    audio.mIsPlayStreamCreated = true;
-    audio.mPlayFile = fopen(pbFilePtr->absoluteFilePath.c_str(), "r");
-
-    if(audio.mAudioPlayStream) {
-        while(!audio.mPbFreeBuffers.empty()) {
-            audio.mPbFreeBuffers.pop();
-        }
-
-        if(audio.mPlayFile) {
-            fseek(audio.mPlayFile, 0, SEEK_SET);
-        } else {
-            LE_ERROR("Unable to read file");
-            audio.pbList.pbRes = LE_FAULT;
-            le_sem_Post(audio.mPbStartedSemRef);
-            return NULL;
-        }
-
-        for(int i = 0; i < TOTAL_BUFFERS; i++) {
-            audio.mPbStreamBuffer = audio.mAudioPlayStream->getStreamBuffer();
-
-            if(audio.mPbStreamBuffer != nullptr) {
-                size = audio.mPbStreamBuffer->getMinSize();
-                if(size == 0) {
-                    size =  audio.mPbStreamBuffer->getMaxSize();
-                }
-                audio.mPbStreamBuffer->setDataSize(size);
-                audio.mPbFreeBuffers.push(audio.mPbStreamBuffer);
-            } else {
-                LE_DEBUG( "Failed to get Stream Buffer ");
-                fclose(audio.mPlayFile);
-                audio.mPlayFile = NULL;
-                audio.pbList.pbRes = LE_FAULT;
-                le_sem_Post(audio.mPbStartedSemRef);
-                return NULL;
-            }
-        }
-
-        audio.mIsPlaying = true;
-        audio.mEmptyPipeline = true;
-
-        LE_INFO( "Audio playback started" );
-
-        int repeat = 0;
-        while (!feof(audio.mPlayFile) && audio.mIsPlaying)
-        {
-            if(!audio.mPbFreeBuffers.empty() && (audio.mEmptyPipeline)) {
-                audio.mPbStreamBuffer = audio.mPbFreeBuffers.front();
-                audio.mPbFreeBuffers.pop();
-
-                numBytes = fread(audio.mPbStreamBuffer->getRawBuffer(), 1, size, audio.mPlayFile);
-                if(numBytes != size && !feof(audio.mPlayFile)) {
-                    LE_DEBUG( "Unable to read specified bytes, bytes read: %d", numBytes);
-                    audio.mPbStreamBuffer->reset();
-                    audio.mPbFreeBuffers.push(audio.mPbStreamBuffer);
-                    audio.mIsPlaying = false;
-                    break;
-                }
-
-                audio.mPbStreamBuffer->setDataSize(numBytes);
-                Status status = audio.mAudioPlayStream->write(audio.mPbStreamBuffer, audio.WriteCallback);
-
-                if(status != telux::common::Status::SUCCESS) {
-                    LE_ERROR( "Request to write to stream failed.");
-                } else {
-                    LE_DEBUG( "Request to write to stream sent.");
-                }
-            } else {
-                le_sem_Wait(audio.mPlaySemRef);
-            }
-            if(audio.mIsPlaying && feof(audio.mPlayFile))
-            {
-                if((pbFilePtr->repeat != -1) && (repeat != pbFilePtr->repeat))
-                {
-                    repeat++;
-                    fseek(audio.mPlayFile, 0, SEEK_SET);
-                    LE_INFO("Repeating the audio file %d time", repeat);
-                }
-                else if(pbFilePtr->repeat == -1)
-                {
-                    fseek(audio.mPlayFile, 0, SEEK_SET);
-                    LE_INFO("Playing the file again");
-                }
-            }
-            // Set the mute status of the stream.
-            if(!audio.isPbMuteSet && pbFilePtr->streamPtr->isMute)
-            {
-                audio.isPbMuteSet = true;
-                res = audio.SetMute(pbFilePtr->streamPtr->streamRef,
-                        pbFilePtr->streamPtr->isMute);
-                if (res == LE_OK)
-                {
-                    LE_INFO("Successfully set the mute status to player stream");
-                }
-                else
-                {
-                    LE_ERROR("Failed to set mute status to player stream");
-                }
-            }
-            // Notify playback started successfully
-            if(audio.mPbStartedSemRef){
-                audio.isPbMuteSet = true;
-                audio.pbList.pbRes = LE_OK;
-                le_sem_Post(audio.mPbStartedSemRef);
-            }
-        }
-
-        if (audio.mIsPlaying){
-            if (audio.mPbFileFormat == AudioFormat::PCM_16BIT_SIGNED) {
-                while(audio.mPbFreeBuffers.size() != TOTAL_BUFFERS) {
-                    le_sem_Wait(audio.mPlaySemRef);
-                }
-            } else if ((audio.mPbFileFormat == AudioFormat::AMRWB_PLUS) ||
-                    (audio.mPbFileFormat == AudioFormat::AMRWB) ||
-                    (audio.mPbFileFormat == AudioFormat::AMRNB)){
-                std::promise<bool> p;
-                auto status = audio.mAudioPlayStream->stopAudio(
-                        StopType::STOP_AFTER_PLAY, [&p](telux::common::ErrorCode error) {
-                    if (error == telux::common::ErrorCode::SUCCESS) {
-                        p.set_value(true);
-                    } else {
-                        p.set_value(false);
-                        LE_DEBUG("Failed to stop after playing buffers" );
-                    }
-                });
-                if(status == telux::common::Status::SUCCESS){
-                    LE_DEBUG("Request to stop playback after pending buffers Sent");
-                } else {
-                    LE_ERROR("Request to stop playback after pending buffers failed");
-                }
-                if (p.get_future().get()) {
-                    LE_DEBUG("Pending buffers played successfully" );
-                }
-            }
-            LE_INFO( "Playing %s completed successfully", pbFilePtr->absoluteFilePath.c_str());
-            if(audio.mIsPlayStreamCreated) {
-                audio.gDelCbPromise = promise<ErrorCode>();
-                res = audio.DeleteAudioStream(pbFilePtr->streamPtr);
-                LE_DEBUG("DeleteAudio stream interface %d",pbFilePtr->streamPtr->interface);
-                if(res == LE_OK)
-                {
-                    ErrorCode error = audio.gDelCbPromise.get_future().get();
-                    if (ErrorCode::SUCCESS != error) {
-                        LE_ERROR("Request to delete playback stream failed error: %d", int (error));
-                        return NULL;
-                    }
-                }
-            }
-        } else {
-            LE_INFO("Play Stopped");
-            if(audio.mIsPlayStreamCreated) {
-                audio.DeleteAudioStream(pbFilePtr->streamPtr);
-                LE_INFO("DeleteAudio stream interface %d",pbFilePtr->streamPtr->interface);
-            }
-            // Report STOP event to client
-            taf_audio_StreamEvent_t streamEvent;
-            streamEvent.streamPtr = pbFilePtr->streamPtr;
-            streamEvent.streamEvent = TAF_AUDIO_BITMASK_MEDIA_EVENT;
-            streamEvent.event.mediaEvent = TAF_AUDIO_MEDIA_STOPPED;
-            le_event_Report(streamEvent.streamPtr->eventId, &streamEvent,
-                    sizeof(taf_audio_StreamEvent_t));
-        }
-        fflush(audio.mPlayFile);
-        fclose(audio.mPlayFile);
-        audio.mPlayFile = NULL;
-        audio.isPbMuteSet = false;
-    }
-    while(!audio.mAudioPlayStream) {
-        le_sem_Delete(audio.mPlaySemRef);
-        audio.mPlaySemRef = nullptr;
-        le_sem_Post(audio.pbList.semRef);
-        break;
-    }
+    le_sem_Ref_t semRef = (le_sem_Ref_t)ctxPtr;
+    audio.bufferEventId = le_event_CreateId("BufferEvent", sizeof(taf_audio_BufferEvent_t));
+    audio.bufferHandlerRef =
+            le_event_AddHandler("BufferEvent", audio.bufferEventId, BufferEventHandler);
+    le_sem_Post(semRef);
+    le_event_RunLoop();
     return nullptr;
 }
 
+void taf_Audio::BufferEventHandler(void* ctxPtr)
+{
+    taf_audio_BufferEvent_t* bufferEventPtr = (taf_audio_BufferEvent_t*)ctxPtr;
+    auto &audio = taf_Audio::GetInstance();
+    LE_DEBUG("BufferEventHandler");
+    if(bufferEventPtr->bufferType == TAF_AUDIO_PB_BUFFER)
+    {
+        audio.PbBufferHandler();
+    }
+}
+
 /**
- * Play the file
+ * Play the files in the list
  */
 void* taf_Audio::PlayList( void* ctxPtr) {
     LE_INFO("PlayList thread started");
@@ -3291,14 +3135,12 @@ void* taf_Audio::PlayList( void* ctxPtr) {
     audio.pbList.semRef = le_sem_Create("tafPlayFileSemRef", 0);
     for(size_t i = 0; i < audio.pbList.numOfFilesToPlay; i++)
     {
-        LE_DEBUG("Start the thread i is %zu", i);
-        le_thread_Start(le_thread_Create("PlayFileThread", PlayAudioFile,
-                &(audio.pbList.filesToPlay[i])));
+        audio.PlayAudioFile(audio.pbList.filesToPlay[i]);
         le_sem_Wait(audio.pbList.semRef);
         // Terminate the thread if playback is stopped
-        if(!audio.mIsPlaying)
+        if(!audio.mIsPlaying || audio.mIsPbError)
         {
-            LE_DEBUG("Stop playing further as playback is stopped");
+            LE_DEBUG("Stop playing further on error or on stop request");
             break;
         }
     }
@@ -3315,7 +3157,310 @@ void* taf_Audio::PlayList( void* ctxPtr) {
     }
     le_sem_Delete(audio.pbList.semRef);
     audio.pbList.semRef = nullptr;
+    audio.pbList = {};
+    audio.currentPbFile = {};
+    audio.mPbFileFormat = AudioFormat::UNKNOWN;
     return nullptr;
+}
+
+void taf_Audio::PlayAudioFile
+(
+    taf_PlaybackFile_t fileToPlay
+)
+{
+    uint32_t numBytes =0;
+    uint32_t size = 0;
+    le_result_t res = LE_FAULT;
+
+    LE_INFO("Audio file path : %s repeat : %d", fileToPlay.absoluteFilePath.c_str(),
+            fileToPlay.repeat);
+    res = StartAudio(fileToPlay.config);
+    if(res != LE_OK)
+    {
+        LE_ERROR("Config failed");
+        if(mPbStartedSemRef)
+        {
+            pbList.pbRes = LE_FAULT;
+            le_sem_Post(mPbStartedSemRef);
+        }
+        le_sem_Post(pbList.semRef);
+        return;
+    } else {
+        currentPbFile = fileToPlay;
+        currentRepeat = 0;
+        res = SetVolume(fileToPlay.streamPtr->streamRef,
+               fileToPlay.streamPtr->volLevel, false);
+        if (res == LE_OK)
+        {
+            LE_INFO("Successfully set the vol level to player stream");
+        }
+        else
+        {
+            LE_ERROR("Failed to set the vol level to player stream");
+        }
+        mPbFileFormat = fileToPlay.config.format;
+    }
+    mIsPlayStreamCreated = true;
+    mPlayFile = fopen(fileToPlay.absoluteFilePath.c_str(), "r");
+
+    if(!mAudioPlayStream || !mPlayFile)
+    {
+        if(mPbStartedSemRef)
+        {
+            pbList.pbRes = LE_FAULT;
+            le_sem_Post(mPbStartedSemRef);
+        }
+        le_sem_Post(pbList.semRef);
+        return;
+    }
+
+    while(!mPbFreeBuffers.empty()) {
+        mPbFreeBuffers.pop();
+    }
+
+    fseek(mPlayFile, 0, SEEK_SET);
+
+    for(int i = 0; i < TOTAL_BUFFERS; i++) {
+        mPbStreamBuffer = mAudioPlayStream->getStreamBuffer();
+
+        if(mPbStreamBuffer != nullptr) {
+            size = mPbStreamBuffer->getMinSize();
+            if(size == 0) {
+                size =  mPbStreamBuffer->getMaxSize();
+            }
+            mPbStreamBuffer->setDataSize(size);
+            mPbFreeBuffers.push(mPbStreamBuffer);
+        } else {
+            LE_DEBUG( "Failed to get Stream Buffer ");
+            fclose(mPlayFile);
+            mPlayFile = NULL;
+            if(mPbStartedSemRef)
+            {
+                pbList.pbRes = LE_FAULT;
+                le_sem_Post(mPbStartedSemRef);
+            }
+            return;
+        }
+    }
+
+    mIsPlaying = true;
+    mEmptyPipeline = true;
+
+    LE_INFO( "Audio playback started" );
+
+    taf_audio_BufferEvent_t bufferEvent;
+    bufferEvent.bufferType = TAF_AUDIO_PB_BUFFER;
+
+    for(int i = 0; (i < TOTAL_BUFFERS && !feof(mPlayFile) && mIsPlaying); i++)
+    {
+        if(!mPbFreeBuffers.empty() && (mEmptyPipeline)) {
+            mPbStreamBuffer = mPbFreeBuffers.front();
+            mPbFreeBuffers.pop();
+
+            numBytes = fread(mPbStreamBuffer->getRawBuffer(), 1, size, mPlayFile);
+            if(numBytes != size && !feof(mPlayFile)) {
+                LE_ERROR( "Unable to read specified bytes, bytes read: %d", numBytes);
+                mPbStreamBuffer->reset();
+                mPbFreeBuffers.push(mPbStreamBuffer);
+                mIsPlaying = false;
+                if(mPbStartedSemRef)
+                {
+                    pbList.pbRes = LE_FAULT;
+                    le_sem_Post(mPbStartedSemRef);
+                }
+                le_sem_Post(pbList.semRef);
+                le_event_Report(bufferEventId, &bufferEvent, sizeof(taf_audio_BufferEvent_t));
+                return;
+            }
+
+            mPbStreamBuffer->setDataSize(numBytes);
+            Status status = mAudioPlayStream->write(mPbStreamBuffer, WriteCallback);
+            if(status != telux::common::Status::SUCCESS) {
+                LE_ERROR( "Request to write to stream failed.");
+                mPbStreamBuffer->reset();
+                mPbFreeBuffers.push(mPbStreamBuffer);
+                mIsPlaying = false;
+                if(mPbStartedSemRef)
+                {
+                    pbList.pbRes = LE_FAULT;
+                    le_sem_Post(mPbStartedSemRef);
+                }
+                le_sem_Post(pbList.semRef);
+                le_event_Report(bufferEventId, &bufferEvent, sizeof(taf_audio_BufferEvent_t));
+                return;
+            } else {
+                LE_DEBUG( "Request to write to stream sent.");
+            }
+        }
+    }
+    // Set the mute status of the stream.
+    if(fileToPlay.streamPtr->isMute)
+    {
+        res = SetMute(fileToPlay.streamPtr->streamRef,
+                fileToPlay.streamPtr->isMute);
+        if (res == LE_OK)
+        {
+            LE_INFO("Successfully set the mute status to player stream");
+        }
+        else
+        {
+            LE_ERROR("Failed to set mute status to player stream");
+        }
+    }
+    // Notify playback started successfully
+    if(mPbStartedSemRef){
+        pbList.pbRes = LE_OK;
+        le_sem_Post(mPbStartedSemRef);
+    }
+}
+
+void taf_Audio::PbBufferHandler
+(
+)
+{
+    uint32_t numBytes =0;
+    uint32_t size = 0;
+    if (!mPlayFile)
+        return;
+    taf_audio_BufferEvent_t bufferEvent;
+    bufferEvent.bufferType = TAF_AUDIO_PB_BUFFER;
+    if(mIsPlaying && feof(mPlayFile))
+    {
+        if((currentPbFile.repeat != -1)
+                && (currentRepeat != currentPbFile.repeat))
+        {
+            currentRepeat++;
+            fseek(mPlayFile, 0, SEEK_SET);
+            LE_INFO("Repeating the audio file %d time", currentRepeat);
+        }
+        else if(currentPbFile.repeat == -1)
+        {
+            fseek(mPlayFile, 0, SEEK_SET);
+            LE_INFO("Repeat the file playback again");
+        }
+    }
+    if(!feof(mPlayFile) && mIsPlaying && mAudioPlayStream)
+    {
+        size = mPbStreamBuffer->getMinSize();
+        if(size == 0) {
+            size =  mPbStreamBuffer->getMaxSize();
+        }
+        if(!mPbFreeBuffers.empty() && (mEmptyPipeline)) {
+            mPbStreamBuffer = mPbFreeBuffers.front();
+            mPbFreeBuffers.pop();
+
+            numBytes = fread(mPbStreamBuffer->getRawBuffer(), 1, size, mPlayFile);
+            if(numBytes != size && !feof(mPlayFile)) {
+                LE_ERROR( "Unable to read specified bytes, bytes read: %d %d", numBytes, size);
+                mPbStreamBuffer->reset();
+                mPbFreeBuffers.push(mPbStreamBuffer);
+                mIsPlaying = false;
+                mIsPbError = true;
+                le_event_Report(bufferEventId, &bufferEvent, sizeof(taf_audio_BufferEvent_t));
+                return;
+            }
+            mPbStreamBuffer->setDataSize(numBytes);
+            Status status = mAudioPlayStream->write(mPbStreamBuffer, WriteCallback);
+            if(status != telux::common::Status::SUCCESS) {
+                LE_ERROR( "Request to write to stream failed.");
+            } else {
+                LE_DEBUG( "Request to write to stream sent.");
+            }
+        }
+        return;
+    }
+
+    if(mIsPbError) {
+        // Report ERROR event to client
+        taf_audio_StreamEvent_t streamEvent;
+        streamEvent.streamPtr = pbList.filesToPlay[0].streamPtr;
+        streamEvent.streamEvent = TAF_AUDIO_BITMASK_MEDIA_EVENT;
+        streamEvent.event.mediaEvent = TAF_AUDIO_MEDIA_ERROR;
+        le_event_Report(streamEvent.streamPtr->eventId, &streamEvent,
+                sizeof(taf_audio_StreamEvent_t));
+        if(mIsPlayStreamCreated) {
+            gDelCbPromise = promise<ErrorCode>();
+            le_result_t res = DeleteAudioStream(pbList.filesToPlay[0].streamPtr);
+            LE_DEBUG("DeleteAudio player stream interface");
+            if(res == LE_OK)
+            {
+                ErrorCode error = gDelCbPromise.get_future().get();
+                if (ErrorCode::SUCCESS != error) {
+                    LE_ERROR("Request to delete playback stream failed error: %d", int (error));
+                }
+            }
+            else
+            {
+                LE_ERROR("Failed to delete the audio stream");
+            }
+        }
+        if(mPbStartedSemRef)
+        {
+            pbList.pbRes = LE_FAULT;
+            le_sem_Post(mPbStartedSemRef);
+        }
+    } else if (mIsPlaying){
+        if ((mPbFileFormat == AudioFormat::AMRWB_PLUS) ||
+                (mPbFileFormat == AudioFormat::AMRWB) ||
+                (mPbFileFormat == AudioFormat::AMRNB)){
+            std::promise<bool> p;
+            auto status = mAudioPlayStream->stopAudio(
+                    StopType::STOP_AFTER_PLAY, [&p](telux::common::ErrorCode error) {
+                if (error == telux::common::ErrorCode::SUCCESS) {
+                    p.set_value(true);
+                } else {
+                    p.set_value(false);
+                    LE_ERROR("Failed to stop after playing buffers" );
+                }
+            });
+            if(status == telux::common::Status::SUCCESS){
+                LE_INFO("Request to stop playback after pending buffers Sent");
+                if (p.get_future().get()) {
+                    LE_INFO("Pending buffers played successfully" );
+                    mPlayCompletedSemRef = le_sem_Create("mPlayCompletedSemRef", 0);
+                    le_sem_Wait(mPlayCompletedSemRef);
+                    le_sem_Delete(mPlayCompletedSemRef);
+                    LE_INFO( "Playing %s completed successfully",
+                            currentPbFile.absoluteFilePath.c_str());
+                }
+            } else {
+                LE_ERROR("Request to stop playback after pending buffers failed");
+            }
+        }
+        if(mIsPlayStreamCreated) {
+            gDelCbPromise = promise<ErrorCode>();
+            le_result_t res = DeleteAudioStream(pbList.filesToPlay[0].streamPtr);
+            if(res == LE_OK)
+            {
+                ErrorCode error = gDelCbPromise.get_future().get();
+                if (ErrorCode::SUCCESS != error) {
+                    LE_ERROR("Request to delete playback stream failed error: %d", int (error));
+                }
+            }
+            else
+            {
+                LE_ERROR("Failed to delete the audio stream");
+            }
+        }
+    } else {
+        LE_INFO("Play Stopped");
+        if(mIsPlayStreamCreated) {
+            DeleteAudioStream(pbList.filesToPlay[0].streamPtr);
+        }
+        // Report STOP event to client
+        taf_audio_StreamEvent_t streamEvent;
+        streamEvent.streamPtr = pbList.filesToPlay[0].streamPtr;
+        streamEvent.streamEvent = TAF_AUDIO_BITMASK_MEDIA_EVENT;
+        streamEvent.event.mediaEvent = TAF_AUDIO_MEDIA_STOPPED;
+        le_event_Report(streamEvent.streamPtr->eventId, &streamEvent,
+                sizeof(taf_audio_StreamEvent_t));
+    }
+    mPbFileFormat = AudioFormat::UNKNOWN;
+    fflush(mPlayFile);
+    fclose(mPlayFile);
+    mPlayFile = NULL;
+    mIsPbError = false;
+    le_sem_Post(pbList.semRef);
 }
 
 le_result_t taf_Audio::PlayList
@@ -3333,7 +3478,7 @@ le_result_t taf_Audio::PlayList
     TAF_ERROR_IF_RET_VAL(streamPtr->interface != TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY,
             LE_BAD_PARAMETER, "Invalid stream reference");
 
-    // Check if local playback/incall downlink playback is ongoing if direction is RX,
+    // Check if local playback is ongoing if direction is RX,
     // and if incall uplink playback is ongoing if direction is TX.
     TAF_ERROR_IF_RET_VAL(streamPtr->direction == TAF_AUDIO_RX ? mIsPlaying : mIsTxPlaying, LE_BUSY,
             "Another playback is in progress");
@@ -3794,6 +3939,10 @@ le_result_t taf_Audio::SetVolume
             return LE_OK;
         }
         streamVol.dir = StreamDirection::RX;
+        if(currentPbFile.config.channelTypeMask == ChannelType::LEFT)
+        {
+            streamVol.volume.pop_back();
+        }
         status = mAudioPlayStream->setVolume(streamVol,
                 [&p, this](ErrorCode error) {
             if (error == ErrorCode::SUCCESS) {

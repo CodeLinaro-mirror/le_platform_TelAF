@@ -248,6 +248,15 @@ static void Test_cfg_GetDataProcess(){
     LE_TEST_ASSERT(result == LE_OK,"Test taf_mngdStorCfg_GetType");
     result = taf_mngdStorCfg_GetString(cRef, "config1", "aStringVal", nodeValue,sizeof(nodeValue));
     LE_TEST_ASSERT(result == LE_OK,"Test taf_mngdStorCfg_GetString");
+    int32_t IntValuePtr = 0;
+    result = taf_mngdStorCfg_GetInt(cRef,"config1","aIntVal", &IntValuePtr);
+    LE_TEST_ASSERT(result == LE_OK,"Test taf_mngdStorCfg_GetInt");
+    int32_t boolValuePtr = 0;
+    result = taf_mngdStorCfg_GetBool(cRef, "config1", "aBoolVal", &boolValuePtr);
+    LE_TEST_ASSERT(result == LE_OK,"Test taf_mngdStorCfg_GetBool");
+    double doubleValuePtr = 0;
+    result = taf_mngdStorCfg_GetFloat(cRef, "config1", "aFloatVal", &doubleValuePtr);
+    LE_TEST_ASSERT(result == LE_OK,"Test taf_mngdStorCfg_GetFloat");
     char nodeValuePtr[LE_CFG_STR_LEN_BYTES];
     result =
        taf_mngdStorCfg_GetValue(cRef, "config1","aStringVal", &typePtr,nodeValuePtr,sizeof(nodeValuePtr));

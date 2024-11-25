@@ -476,7 +476,7 @@ le_result_t tafMngdStorageSvc::GetDataPath
     }
     else
     {
-        snprintf(bufferPtr, bufferSize, "%s%s/%s", SECURE_STORAGE, storageName, dataName);
+        snprintf(bufferPtr, bufferSize, "%s%s/%s", secDataStorage, storageName, dataName);
     }
 
     LE_INFO("data path is: %s", bufferPtr);

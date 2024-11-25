@@ -42,50 +42,82 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <string.h>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 using namespace telux::tafsvc;
+
+namespace pt = boost::property_tree;
 
 // Defines secure storage size for each client
 #ifndef MSS_SEC_STORE_SIZE
 #define MSS_SEC_STORE_SIZE (1024 * 8)
 #endif
 
+le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(){
+    LE_INFO("Parsing %s", DEFAULT_MSS_CONFIG_NAME);
+    std::ifstream jfile(DEFAULT_MSS_CONFIG_NAME);
+    if(!jfile.is_open()){
+        LE_WARN ("Unable to open %s", DEFAULT_MSS_CONFIG_NAME);
+        return LE_FAULT;
+    }
+
+    // Create a root
+    pt::ptree root;
+    // Load the json file in this ptree
+    try
+    {
+        pt::read_json(DEFAULT_MSS_CONFIG_NAME, root);
+    }
+    catch (const std::exception &e)
+    {
+        LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
+        return LE_FAULT;
+    }
+    std::string product = root.get<std::string>("Product");
+     if (product != "TelAF"){
+        LE_WARN("Invalid JSON property value");
+        return LE_FAULT;
+    }
+    std::string name = root.get<std::string>("Name");
+    if(name != "MSS"){
+        LE_WARN("Invalid JSON property value");
+        return LE_FAULT;
+    }
+    try {
+        for (const auto& item : root.get_child("MSS Secure Data Storage.Configuration.StoragePath")) {
+            const boost::property_tree::ptree& uPath = item.second;
+            std::string basePath = uPath.get<std::string>("BasePath");
+            snprintf(secDataStorage,sizeof(secDataStorage),"%s",basePath.c_str());
+            std::string backupPath = uPath.get<std::string>("BackupPath");
+            LE_INFO("Base path is %s",secDataStorage);
+            snprintf(secDataRfsStorage,sizeof(secDataRfsStorage),"%s",backupPath.c_str());
+            LE_INFO("Backup path is %s",secDataRfsStorage);
+        }
+    } catch (const boost::property_tree::ptree_error& e) {
+        LE_ERROR("Error accessing JSON data");
+        return LE_FAULT;
+    }
+    return LE_OK;
+}
+
 void tafMngdStorageSvc::InitStorage
 (
 )
 {
-    struct stat sb;
-
-    // assume SECURE_STORAGE dir exists in the system
-    if(stat(SECURE_STORAGE, &sb) == -1)
-    {
-        LE_INFO("secure storage dir does not exist, create it.");
-
-        if(mkdir(SECURE_STORAGE, 0755) != 0)
-        {
-            LE_ERROR("Failed to create the dir %s", SECURE_STORAGE);
-            exit(-1);
-        }
+    le_result_t res = ParseServiceJsonConfig();
+    if(res != LE_OK){
+        LE_FATAL("unable to parse service json");
     }
-    else if((sb.st_mode & S_IFMT) == S_IFDIR)
-    {
-        // assume the sub dir was created as well. do nothing
-        LE_INFO("RFS storage was found!");
+
+    res = CreateDirectory(secDataStorage);
+    if(res != LE_OK){
+        LE_FATAL("unable to create directory %s",secDataStorage);
     }
-    else
-    {
-        // some other file objects. delete first
-        LE_ERROR("Delete the file object, then create the storage");
 
-        // try to delete it
-        unlink(SECURE_STORAGE);
-
-        // Create the directory
-        if(mkdir(SECURE_STORAGE, 0755) != 0)
-        {
-            LE_ERROR("Failed to create the dir %s", SECURE_STORAGE);
-            exit(-1);
-        }
+    res = CreateDirectory(secDataRfsStorage);
+    if(res != LE_OK){
+        LE_FATAL("unable to create directory %s",secDataRfsStorage);
     }
 
     // Create memory pools
@@ -135,7 +167,7 @@ le_result_t tafMngdStorageSvc::GetStoragePath
                             sizeof(nsStr)) != LE_OK,
                             LE_FAULT, "Cannot get namespace");
 
-    snprintf(bufferPtr, bufferSize, "%s%s", SECURE_STORAGE, nsStr);
+    snprintf(bufferPtr, bufferSize, "%s%s", secDataStorage, nsStr);
 
     LE_INFO("storage path is: %s", bufferPtr);
 
@@ -257,7 +289,7 @@ uint32_t tafMngdStorageSvc::GetStorageUsedSize
 
     if(appNamePtr != nullptr)
     {
-        snprintf(storagePath, sizeof(storagePath), "%s%s", SECURE_STORAGE, appNamePtr);
+        snprintf(storagePath, sizeof(storagePath), "%s%s", secDataStorage, appNamePtr);
     }
     else
     {
@@ -276,7 +308,7 @@ void tafMngdStorageSvc::LoadAllSharedAppData
 )
 {
     struct dirent *namespace_entry;
-    DIR *namespace_dir = opendir(SECURE_STORAGE);
+    DIR *namespace_dir = opendir(secDataStorage);
 
     if (namespace_dir == nullptr)
     {
@@ -296,7 +328,7 @@ void tafMngdStorageSvc::LoadAllSharedAppData
 
             char namespace_path[1024];
             snprintf(namespace_path, sizeof(namespace_path), "%s/%s",
-                        SECURE_STORAGE, namespace_entry->d_name);
+                        secDataStorage, namespace_entry->d_name);
 
             struct dirent *data_entry;
             DIR *data_dir = opendir(namespace_path);

@@ -43,11 +43,10 @@
  * Macros for secure storage
  */
 
-#define SECFILE_DEFAULT_STORAGE         "/persist/secStorage/"
-#define SECFILE_RFS_STORAGE             "/persist/rfs/secFileStorage/"
 #define SECFILE_MAX_NUM_OF_STORAGE       25
 #define SECFILE_MAX_NUM_OF_FILE          30
 #define SECFILE_MAX_NUM_OF_CLIENT        30
+#define DEFAULT_MSS_CONFIG_NAME "tafMngdStorageSvc.json"
 
 namespace telux {
 namespace tafsvc {
@@ -105,6 +104,10 @@ class tafMngdSecFileStorageSvc: public ITafSvc
         /**
          * Resources for secure data
          */
+
+        char secFileStorage[TAF_MNGDSTORSECFILE_MAX_STORAGE_NAME_SIZE];
+        char secFileRfsStorage[TAF_MNGDSTORSECFILE_MAX_STORAGE_NAME_SIZE];
+
         le_ref_MapRef_t DirRefMap;
         le_mem_PoolRef_t DirPool;
 
@@ -151,6 +154,9 @@ class tafMngdSecFileStorageSvc: public ITafSvc
         /**
          * Internal functions
          */
+        le_result_t ParseServiceJsonConfig();
+
+        le_result_t CreateDirectory(const char *path);
 
         static bool IsDirExisting(const char *path);
 

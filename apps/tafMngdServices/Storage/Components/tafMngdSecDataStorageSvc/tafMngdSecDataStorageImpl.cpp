@@ -53,6 +53,7 @@ void tafMngdStorageSvc::Init(void)
 {
     InitStorage();
     taf_rfs_Init(true, nullptr);
+    taf_rfs_SetBackupStorage(secDataRfsStorage);
 }
 
 size_t tafMngdStorageSvc::GetFileSize
@@ -79,6 +80,11 @@ size_t tafMngdStorageSvc::GetFileSize
         LE_ERROR("%s is not a regular file", filePath);
         return 0;
     }
+}
+
+le_result_t tafMngdStorageSvc::CreateDirectory(const char *path)
+{
+    return le_dir_MakePath(path, 0644);
 }
 
 size_t tafMngdStorageSvc::GetFilesSizeInDirectory

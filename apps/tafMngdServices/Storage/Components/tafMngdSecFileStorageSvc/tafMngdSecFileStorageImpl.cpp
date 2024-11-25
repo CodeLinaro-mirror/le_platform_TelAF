@@ -36,6 +36,10 @@
 
 using namespace telux::tafsvc;
 #include <unistd.h>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+
+namespace pt = boost::property_tree;
 
 /**
  * Get MSS instance
@@ -46,75 +50,78 @@ tafMngdSecFileStorageSvc &tafMngdSecFileStorageSvc::GetInstance()
    return instance;
 }
 
+
+le_result_t tafMngdSecFileStorageSvc::ParseServiceJsonConfig(){
+    LE_INFO("Parsing %s", DEFAULT_MSS_CONFIG_NAME);
+    std::ifstream jfile(DEFAULT_MSS_CONFIG_NAME);
+    if(!jfile.is_open()){
+        LE_WARN ("Unable to open %s", DEFAULT_MSS_CONFIG_NAME);
+        return LE_FAULT;
+    }
+
+    // Create a root
+    pt::ptree root;
+    // Load the json file in this ptree
+    try
+    {
+        pt::read_json(DEFAULT_MSS_CONFIG_NAME, root);
+    }
+    catch (const std::exception &e)
+    {
+        LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
+        return LE_FAULT;
+    }
+    std::string product = root.get<std::string>("Product");
+     if (product != "TelAF"){
+        LE_WARN("Invalid JSON property value");
+        return LE_FAULT;
+    }
+    std::string name = root.get<std::string>("Name");
+    if(name != "MSS"){
+        LE_WARN("Invalid JSON property value");
+        return LE_FAULT;
+    }
+    try {
+        for (const auto& item :
+            root.get_child("MSS Secure File Storage.Configuration.StoragePath")) {
+            const boost::property_tree::ptree& uPath = item.second;
+            std::string basePath = uPath.get<std::string>("BasePath");
+            snprintf(secFileStorage,sizeof(secFileStorage),"%s",basePath.c_str());
+            std::string backupPath = uPath.get<std::string>("BackupPath");
+            LE_INFO("Base path is %s",secFileStorage);
+            snprintf(secFileRfsStorage,sizeof(secFileRfsStorage),"%s",backupPath.c_str());
+            LE_INFO("Backup path is %s",secFileRfsStorage);
+        }
+    } catch (const boost::property_tree::ptree_error& e) {
+        LE_ERROR("Error accessing JSON data");
+        return LE_FAULT;
+    }
+    return LE_OK;
+}
+
+le_result_t tafMngdSecFileStorageSvc::CreateDirectory(const char *path)
+{
+    return le_dir_MakePath(path, 0644);
+}
+
 /**
  * tafMngdSecFileStorageSvc initialization
  */
 void tafMngdSecFileStorageSvc::Init(void)
 {
-    struct stat sb;
-
-    // assume SECFILE_DEFAULT_STORAGE dir exists in the system
-    if(stat(SECFILE_DEFAULT_STORAGE, &sb) == -1)
-    {
-        LE_INFO("secure file storage default dir does not exist, create it.");
-
-        if(mkdir(SECFILE_DEFAULT_STORAGE, 0755) != 0)
-        {
-            LE_ERROR("Failed to create the dir %s", SECFILE_DEFAULT_STORAGE);
-            exit(-1);
-        }
-    }
-    else if((sb.st_mode & S_IFMT) == S_IFDIR)
-    {
-        // assume the sub dir was created as well. do nothing
-        LE_INFO("SECFILE_DEFAULT_STORAGE storage was found!");
-    }
-    else
-    {
-        // some other file objects. delete first
-        LE_ERROR("Delete the file object, then create the storage");
-
-        // try to delete it
-        unlink(SECFILE_DEFAULT_STORAGE);
-
-        // Create the directory
-        if(mkdir(SECFILE_DEFAULT_STORAGE, 0755) != 0)
-        {
-            LE_ERROR("Failed to create the dir %s", SECFILE_DEFAULT_STORAGE);
-            exit(-1);
-        }
+    le_result_t result = ParseServiceJsonConfig();
+    if(result != LE_OK){
+        LE_FATAL("Failed to read service json");
     }
 
-    // assume SECFILE_RFS_STORAGE dir exists in the system
-    if(stat(SECFILE_RFS_STORAGE, &sb) == -1)
-    {
-        LE_INFO("secure file storage default dir does not exist, create it.");
-
-        if(mkdir(SECFILE_RFS_STORAGE, 0755) != 0)
-        {
-            LE_ERROR("Failed to create the dir %s", SECFILE_DEFAULT_STORAGE);
-            exit(-1);
-        }
+    result = CreateDirectory(secFileStorage);
+    if(result != LE_OK){
+        LE_FATAL("Unable to create directory %s",secFileStorage);
     }
-    else if((sb.st_mode & S_IFMT) == S_IFDIR)
-    {
-        // assume the sub dir was created as well. do nothing
-        LE_INFO("SECFILE_RFS_STORAGE storage was found!");
-    }
-    else
-    {
-        // some other file objects. delete first
-        LE_ERROR("Delete the file object, then create the storage");
 
-        // try to delete it
-        unlink(SECFILE_RFS_STORAGE);
-
-        // Create the directory
-        if(mkdir(SECFILE_RFS_STORAGE, 0755) != 0)
-        {
-            LE_ERROR("Failed to create the dir %s", SECFILE_RFS_STORAGE);
-            exit(-1);
-        }
+    result = CreateDirectory(secFileRfsStorage);
+    if(result != LE_OK){
+        LE_FATAL("Unable to create directory %s",secFileRfsStorage);
     }
 
     // Create memory pools
@@ -131,7 +138,7 @@ void tafMngdSecFileStorageSvc::Init(void)
 
     taf_rfs_Init(true, nullptr);
 
-    taf_rfs_SetBackupStorage(SECFILE_RFS_STORAGE);
+    taf_rfs_SetBackupStorage(secFileRfsStorage);
 }
 
 bool tafMngdSecFileStorageSvc::IsDirExisting(const char *path)
@@ -314,7 +321,7 @@ tafMngdSecFileStorage_DirRef_t tafMngdSecFileStorageSvc::CreateDirRef
     snprintf(dirPtr->masterAppName, sizeof(dirPtr->masterAppName), "%s", myAppName);
 
     // Get the default storage path
-    if (GetStoragePath(SECFILE_DEFAULT_STORAGE, storageNamePtr,
+    if (GetStoragePath(secFileStorage, storageNamePtr,
                         dirPtr->path, sizeof(dirPtr->path)) != LE_OK)
     {
         LE_ERROR("Cannot get storage path");
@@ -337,7 +344,7 @@ tafMngdSecFileStorage_DirRef_t tafMngdSecFileStorageSvc::CreateDirRef
     }
 
     // Get the RFS storage path
-    if (GetStoragePath(SECFILE_RFS_STORAGE, storageNamePtr,
+    if (GetStoragePath(secFileRfsStorage, storageNamePtr,
                         dirPtr->rfsPath, sizeof(dirPtr->rfsPath)) != LE_OK)
     {
         LE_ERROR("Cannot get RFS storage path");
@@ -416,7 +423,7 @@ le_result_t tafMngdSecFileStorageSvc::CreateStorageRefImpl
     char dirPath[LIMIT_MAX_PATH_BYTES] = {0};
 
     // Get the storage path
-    if (GetStoragePath(SECFILE_DEFAULT_STORAGE, storageNamePtr, dirPath, sizeof(dirPath)) != LE_OK)
+    if (GetStoragePath(secFileStorage, storageNamePtr, dirPath, sizeof(dirPath)) != LE_OK)
     {
         LE_ERROR("Cannot get storage path");
         return LE_FAULT;
@@ -440,7 +447,7 @@ le_result_t tafMngdSecFileStorageSvc::CreateStorageRefImpl
     // Find or create the directory reference
     if (FindDirRef(storageNamePtr, &dirRef) == LE_NOT_FOUND)
     {
-        dirRef = CreateDirRef(SECFILE_DEFAULT_STORAGE, storageNamePtr);
+        dirRef = CreateDirRef(secFileStorage, storageNamePtr);
     }
     else
     {
@@ -504,7 +511,7 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
     char dirPath[LIMIT_MAX_PATH_BYTES] = {0};
 
     // Get the storage path
-    if (GetStoragePath(SECFILE_DEFAULT_STORAGE, storageNamePtr, dirPath, sizeof(dirPath)) != LE_OK)
+    if (GetStoragePath(secFileStorage, storageNamePtr, dirPath, sizeof(dirPath)) != LE_OK)
     {
         LE_ERROR("Cannot get storage path");
         return nullptr;
@@ -553,7 +560,7 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
     // Find or create the directory reference
     if (FindDirRef(storageNamePtr, &(clientCtxPtr->dirRef)) == LE_NOT_FOUND)
     {
-        clientCtxPtr->dirRef = CreateDirRef(SECFILE_DEFAULT_STORAGE, storageNamePtr);
+        clientCtxPtr->dirRef = CreateDirRef(secFileStorage, storageNamePtr);
         if (clientCtxPtr->dirRef == nullptr)
         {
             LE_ERROR("Cannot create directory context reference");

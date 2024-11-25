@@ -66,7 +66,7 @@ bundles:
 {
     file:
     {
-        [rw]  $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdCfgStorageSvc/config/tafMngdStorageConfig.json  /data/ManagedServices/
+        [r]  $TELAF_ROOT/apps/tafMngdServices/Storage/Components/config/tafMngdStorageSvc.json  /
     }
 }
 
@@ -80,7 +80,7 @@ requires:
 
     configTree:
     {
-        [w] .
+        [rw] tafMngdCfgStorageSvc
     }
 
 }

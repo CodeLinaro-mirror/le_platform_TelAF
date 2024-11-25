@@ -59,11 +59,14 @@ class Test_SecurityAccessService(unittest.TestCase):
         response = self.diag.u.request_seed(0x01)
         self.assertTrue(response.valid)
         self.assertFalse(response.positive)
-        self.assertEqual(response.original_payload.hex(), "7f2722")
+        # Checking SID supported in active session -> NRC 7F
+        self.assertEqual(response.original_payload.hex(), "7f277f")
         self.diag.d.close()
 
     def test0002_sunfunction_out_of_range(self):
         self.diag.do_connect()
+        # To one active session
+        self.diag.u.change_session(SESSION_0x03)
         # check this in general stage, so don't care the session
         response = self.diag.u.request_seed(0x43) # It's reserved
         self.assertTrue(response.valid)

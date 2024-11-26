@@ -91,7 +91,7 @@ le_result_t taf_diagSecurity_SetVlanId
         ///< [IN] VLAN ID
 )
 {
-    LE_DEBUG("taf_diagSecurity_GetService");
+    LE_DEBUG("taf_diagSecurity_SetVlanId, vlan id is 0x%x", vlanId);
     auto &security = taf_SecuritySvr::GetInstance();
 
     return security.SetVlanId(svcRef, vlanId);

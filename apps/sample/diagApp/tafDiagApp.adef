@@ -34,6 +34,7 @@ bindings:
     tafDiagApp.diagAppComp.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
     tafDiagApp.diagAppComp.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
     tafDiagApp.diagAppComp.taf_diag -> tafDiagSvc.taf_diag
+    tafDiagApp.diagAppComp.taf_diagAuth -> tafDiagSvc.taf_diagAuth
 
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
     tafDiagApp.diagAppComp.taf_diagDoIP -> tafDiagSvc.taf_diagDoIP

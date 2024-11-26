@@ -54,5 +54,6 @@ extern:
     tafDiagSvc.tafDiagSvc.taf_diagEvent
     tafDiagSvc.tafDiagSvc.taf_diagDTC
     tafDiagSvc.tafDiagSvc.taf_diagDoIP
+    tafDiagSvc.tafDiagSvc.taf_diagAuth
 #endif
 }

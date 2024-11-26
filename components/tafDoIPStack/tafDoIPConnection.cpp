@@ -1370,6 +1370,7 @@ void Connection::AliveCheckTimerHandler
         // Assigning the SA to the newly requested connection.
         if (!routingPtr->IsConnectionRegitered())
         {
+            routingPtr->testerSA = routingPtr->raTesterSa;
             routingPtr->ConnectionStateMachine(TAF_DOIP_CONNECT_STATE_REGISTERED_PENDING_FOR_AUTH,
                     routingPtr->authInfo);
         }

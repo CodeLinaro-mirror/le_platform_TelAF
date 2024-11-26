@@ -14,7 +14,7 @@ source set_af_env.sh sa525m
 ```bash
 cd ~/telaf
 ./bin/legs
-export TARGET=sa525m
+export TARGET=$TARGET_GLOBAL
 ```
 
 ### Step 3 Build the application
@@ -30,14 +30,16 @@ The output libdataAdaptor.so locates in build/datalib/, libreadioAdaptor.so loca
 the executable DataAppDemo locates in build/.
 
 ### Step 4 Run the application on the target
-Push libdataAdaptor.so and libreadioAdaptor.so to /data/lib on device, DataAppDemo to /data/ on device via ADB.
+Push libdataAdaptor.so and libreadioAdaptor.so to /tmp/lib on device, DataAppDemo to /tmp/ on device via ADB.
 On device, run the following commands to set external library path and bind the APIs to taf_dcs and taf_radio service.
+
+Note: the /tmp is a volatile storage that the content will be reset after reboot.
 
 Lastly run the executable file.
 ```bash
-export LD_LIBRARY_PATH=/data/lib/
-sdir bind "<root>.taf_dcs" "<root>.taf_dcs"
-sdir bind "<root>.taf_radio" "<root>.taf_radio"
+export LD_LIBRARY_PATH=/tmp/lib/
+sdir bind "<root>.taf_dcs" "<telaf>.taf_dcs"
+sdir bind "<root>.taf_radio" "<telaf>.taf_radio"
 ./DataAppDemo
 ```
-
+Please refer to ~/legacyDcsApp/cmake_app_bundle on how to bundle a legacy app to a TelAF app.

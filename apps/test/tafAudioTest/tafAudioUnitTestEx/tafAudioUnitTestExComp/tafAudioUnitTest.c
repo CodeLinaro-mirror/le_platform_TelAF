@@ -43,6 +43,7 @@ int repeat = 1;
 static le_sem_Ref_t tafAudioAppSem;
 static taf_audio_MediaHandlerRef_t MediaHandlerRef = NULL;
 le_clk_Time_t Timeout = { 3 , 0 };
+le_clk_Time_t StopTimeout = { 5 , 0 };
 static le_thread_Ref_t Player_thread_ref, Recorder_thread_ref, Dtmf_detect_thread_ref;
 taf_audio_StreamRef_t recorderRef = NULL, playerRef = NULL, playerRef1 = NULL, txPlayerRef = NULL,
         recorderRef1 = NULL, sinkRef = NULL, sourceRef = NULL, rxStreamRef = NULL,
@@ -318,7 +319,7 @@ void TEST_AUDIO_PLAYBACK()
     res = taf_audio_Stop(playerRef);
     LE_TEST_OK(res == LE_OK, "Successfully stopped the file playback");
 
-    le_sem_Wait(tafAudioAppSem);
+    le_sem_WaitWithTimeOut(tafAudioAppSem, StopTimeout);
 
     LE_TEST_INFO("Test taf_audio_GetVolume to get volume of playerRef");
     res = taf_audio_GetVolume(playerRef, &volLevel);
@@ -334,7 +335,7 @@ void TEST_AUDIO_PLAYBACK()
     res = taf_audio_Stop(playerRef);
     LE_TEST_OK(res == LE_OK, "Successfully stopped the file playback");
 
-    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+    le_sem_WaitWithTimeOut(tafAudioAppSem, StopTimeout);
 
     LE_TEST_INFO("Test taf_audio_PlayFile to play a file");
     res = taf_audio_PlayFile(playerRef, wavfilePath);
@@ -437,7 +438,7 @@ void TEST_AUDIO_PLAYBACK_FILE_LIST()
     res = taf_audio_Stop(playerRef);
     LE_TEST_OK(res == LE_OK, "Successfully stopped the file playback");
 
-    le_sem_Wait(tafAudioAppSem);
+    le_sem_WaitWithTimeOut(tafAudioAppSem, StopTimeout);
 
     snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), "%s", amrfilePath);
     playFileConfig[0].repeat = repeat;
@@ -454,7 +455,7 @@ void TEST_AUDIO_PLAYBACK_FILE_LIST()
     res = taf_audio_Stop(playerRef);
     LE_TEST_OK(res == LE_OK, "Successfully stopped the file playback");
 
-    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+    le_sem_WaitWithTimeOut(tafAudioAppSem, StopTimeout);
 
     LE_TEST_INFO("Test taf_audio_Disconnect to disconnect playerRef from connRef");
     taf_audio_Disconnect(connRef, playerRef);
@@ -513,7 +514,7 @@ void TEST_AUDIO_RECORD()
     res = taf_audio_Stop(recorderRef);
     LE_TEST_OK(res == LE_OK, "Successfully stopped the file recording");
 
-    le_sem_Wait(tafAudioAppSem);
+    le_sem_WaitWithTimeOut(tafAudioAppSem, StopTimeout);
 
     LE_TEST_INFO("Test taf_audio_RecordFile to record a file");
     res = taf_audio_RecordFile(recorderRef, recordfilePath);
@@ -569,7 +570,7 @@ void TEST_AUDIO_RECORD()
     res = taf_audio_Stop(recorderRef);
     LE_TEST_OK(res == LE_OK, "Successfully stopped the file recording");
 
-    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+    le_sem_WaitWithTimeOut(tafAudioAppSem, StopTimeout);
 
     LE_TEST_INFO("Test taf_audio_GetVolume to get volume of recorderRef");
     res = taf_audio_GetVolume(recorderRef, &volLevel);
@@ -597,7 +598,7 @@ void TEST_AUDIO_RECORD()
     res = taf_audio_Stop(recorderRef);
     LE_TEST_OK(res == LE_OK, "Successfully stopped the file recording");
 
-    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+    le_sem_WaitWithTimeOut(tafAudioAppSem, StopTimeout);
 
     LE_TEST_INFO("Test taf_audio_Disconnect to disconnect recorderRef from connRef");
     taf_audio_Disconnect(connRef, recorderRef);
@@ -665,7 +666,7 @@ void TEST_INCALL_AUDIO_PLAYBACK(bool isRemote)
         res = taf_audio_Stop(playerRef);
         LE_TEST_OK(res == LE_OK, "Successfully stopped the incall uplink playback");
 
-        le_sem_Wait(tafAudioAppSem);
+        le_sem_WaitWithTimeOut(tafAudioAppSem, StopTimeout);
     }
     else
     {

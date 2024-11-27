@@ -76,7 +76,6 @@
 
 #define TAF_TIME_SERVICE_HEADER_STR        "TimeService"
 #define TAF_TIME_INTERVAL_SETTING_STR      "PollingInterval"
-#define TAF_TIME_TOLERANCES_SETTING_STR    "ToleranceMillsec"
 #define TAF_TIME_ALLOWOVERRIDE_STR         "AllowOverrideAfterFail"
 #define TAF_TIME_VALIDCLIENTLIST_STR       "ValidClientList"
 #define TAF_TIME_GPTPDEVICENAME_STR        "GptpDeviceName"
@@ -97,7 +96,7 @@
 #define TAF_TIME_SECOND_PER_COUNT_DEFAULT  1
 
 #define TAF_TIME_NSEC_PER_SEC             (1000000000)
-#define TAF_TIME_THRESHOLD_MILLISEC       (200)
+#define TAF_TIME_THRESHOLD_MILLISEC       (2000)
 
 #define TAF_TIME_RECEIVE_GNSS_TIME_COUNT   5
 #define TAF_TIME_SYNC_TIME_TIMER_INTERVAL (61000)
@@ -153,6 +152,7 @@ typedef enum
     TAF_TIME_CONF_SOURCE,    ///< Time source name
     TAF_TIME_CONF_SETTIME,   ///< Flag to indicate if set time to system or not
     TAF_TIME_CONF_PRIORI,    ///< Source priority
+    TAF_TIME_CONF_TOLMILLSEC,    ///< tolerance millsec
 
     TAF_TIME_CONF_MAX_ITEM
 }
@@ -338,16 +338,16 @@ namespace telux
             int priority;
             bool setSystemTime;
             std::string sourceName;
+            long int toleranceMillsec;
 
-            Source(int pri, bool flag, const std::string& name) :
-                priority(pri), setSystemTime(flag), sourceName(name) {}
+            Source(int pri, bool flag, const std::string& name, long int tolMillsec) :
+              priority(pri), setSystemTime(flag), sourceName(name), toleranceMillsec(tolMillsec) {}
         };
 
         class TimeSources {
         public:
             std::vector<Source> source;
             long int pollingInterval;
-            long int toleranceMillsec;
             int64_t allowOverrideAfterFail;
             std::vector<std::string> validClientList;
             std::string gptpDeviceName;
@@ -362,6 +362,14 @@ namespace telux
                 addSizeToSource(position);
                 if (position >= 0 && position < (int)source.size()) {
                     source[position].priority = priority;
+                }
+            }
+
+            // Add a toleranceMillsec to TimeSources
+            void addToleranceMillsec(int position, long int tolMillsec) {
+                addSizeToSource(position);
+                if (position >= 0 && position < (int)source.size()) {
+                    source[position].toleranceMillsec = tolMillsec;
                 }
             }
 
@@ -386,7 +394,7 @@ namespace telux
             {
                 if (position == (int)source.size() && position + 1 < sourceVectorSize)
                 {
-                    source.push_back(Source(0, 0, ""));
+                    source.push_back(Source(0, 0, "", TAF_TIME_THRESHOLD_MILLISEC));
                 }
             }
 
@@ -432,14 +440,12 @@ namespace telux
             // Print the details of all source in time sources configuration
             void printSourceDetails() const {
                 for (const Source& item : source) {
-                    LE_INFO("Name: %s, priority: %d, setTimeFlag: %d\n",
-                                item.sourceName.c_str(), item.priority, item.setSystemTime);
+                    LE_INFO("Name: %s, priority: %d, setTimeFlag: %d, ToleranceMillsec: %ld\n",
+                                item.sourceName.c_str(), item.priority, item.setSystemTime,
+                                item.toleranceMillsec);
                 }
                 if (pollingInterval) {
                     LE_INFO("PollingInterval: %ld\n", pollingInterval);
-                }
-                if (toleranceMillsec) {
-                    LE_INFO("ToleranceMillsec: %ld\n", toleranceMillsec);
                 }
                 LE_INFO("allowOverrideAfterFail: %" PRId64 "\n", allowOverrideAfterFail);
 
@@ -544,7 +550,8 @@ namespace telux
                 taf_TimeNetTimeInfo_t* SearchNetTimeInfList(taf_time_TimeSources_t sourceId);
 
                 bool IsThresholdSetTimeAllow(taf_time_TimeSpec_t timeVal,
-                                                               taf_time_TimeSpec_t systemTime);
+                                                taf_time_TimeSpec_t systemTime,
+                                                    taf_time_TimeSources_t timeSource);
                 le_result_t SetSystemTime(taf_time_TimeSpec_t timeVal,
                                            taf_time_TimeSources_t sourceName, bool ackTimeSvc);
                 le_result_t SetTimeToRtc(taf_time_TimeSpec_t timeVal);

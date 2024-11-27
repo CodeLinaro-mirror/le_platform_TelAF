@@ -21,27 +21,30 @@
     "Sources": [
       {
         "Source": "ExAPP",
+        "ToleranceMillsec": "200",
         "SetTime": "true",
         "Priority": "1"
       },
       {
         "Source": "GNSS",
+        "ToleranceMillsec": "200",
         "SetTime": "true",
         "Priority": "2"
       },
       {
         "Source": "NETWORK",
+        "ToleranceMillsec": "2000",
         "SetTime": "true",
         "Priority": "3"
       },
       {
         "Source": "RTC",
+        "ToleranceMillsec": "2000",
         "SetTime": "true",
         "Priority": "4"
       }
     ],
     "PollingInterval": "64",
-    "ToleranceMillsec": "200",
     "AllowOverrideAfterFail": "-1",
     "ValidClientList": "tafTimeIntTest tafTimeUnitTest",
     "GptpDeviceName": "/dev/ptp0"

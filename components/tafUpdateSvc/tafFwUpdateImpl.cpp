@@ -2162,7 +2162,7 @@ le_result_t taf_FwUpdate::PerformBankSync
                 LE_INFO("Perform sync from MTD %s to %s...",
                     partitionList.partition[i].name, partitionList.partition[j].name);
 
-                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDWR);
+                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDONLY);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open MTD partition.");
 
                 result = taf_lib_flash_OpenPartition(&partitionList.partition[j], O_RDWR);
@@ -2202,7 +2202,7 @@ le_result_t taf_FwUpdate::PerformBankSync
                 LE_INFO("Perform sync from UBI %s to %s...",
                     partitionList.partition[i].name, partitionList.partition[j].name);
 
-                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDWR);
+                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDONLY);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open UBI volume.");
 
                 result = taf_lib_flash_OpenPartition(&partitionList.partition[j], O_RDWR);
@@ -2691,7 +2691,7 @@ le_result_t taf_FwUpdate::CalculateTotalPages()
                     taf_lib_flash_Partition_t *partition_a = partition;
 
                     // Open Partition 'A'
-                    result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                    result = taf_lib_flash_OpenPartition(partition_a, O_RDONLY);
                     if (result != LE_OK)
                     {
                         LE_ERROR("taf_lib_flash_OpenPartition for Bank A failed");
@@ -2749,7 +2749,7 @@ le_result_t taf_FwUpdate::CalculateTotalPages()
                         &(partitionList.partition[partitionMap[ubiName_a]]);
 
                     // Open Partition 'A'
-                    result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                    result = taf_lib_flash_OpenPartition(partition_a, O_RDONLY);
                     if (result != LE_OK)
                     {
                         LE_ERROR("taf_lib_flash_OpenPartition for Bank A failed");
@@ -2886,7 +2886,20 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
                 }
 
                 // Open Partition 'A'
-                result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                if (activeBank == TAF_UPDATE_BANK_A)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_a, O_RDONLY);
+                }
+                else if (activeBank == TAF_UPDATE_BANK_B)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                }
+                else
+                {
+                    LE_ERROR("Unknown bank.");
+                    return LE_FAULT;
+                }
+
                 if (result != LE_OK)
                 {
                     LE_ERROR("taf_lib_flash_OpenPartition for partition A failed");
@@ -2894,7 +2907,20 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
                 }
 
                 // Open Partition 'B'
-                result = taf_lib_flash_OpenPartition(partition_b, O_RDWR);
+                if (activeBank == TAF_UPDATE_BANK_A)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_b, O_RDWR);
+                }
+                else if (activeBank == TAF_UPDATE_BANK_B)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_b, O_RDONLY);
+                }
+                else
+                {
+                    LE_ERROR("Unknown bank.");
+                    return LE_FAULT;
+                }
+
                 if (result != LE_OK)
                 {
                     // close partition 'A'
@@ -3078,7 +3104,20 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
                 LE_INFO("Syncing UBI %s", ubiName.c_str());
 
                 // Open Partition 'A'
-                result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                if (activeBank == TAF_UPDATE_BANK_A)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_a, O_RDONLY);
+                }
+                else if (activeBank == TAF_UPDATE_BANK_B)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                }
+                else
+                {
+                    LE_ERROR("Unknown bank.");
+                    return LE_FAULT;
+                }
+
                 if (result != LE_OK)
                 {
                     LE_ERROR("taf_lib_flash_OpenPartition for Bank A failed");
@@ -3086,7 +3125,20 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
                 }
 
                 // Open Partition 'B'
-                result = taf_lib_flash_OpenPartition(partition_b, O_RDWR);
+                if (activeBank == TAF_UPDATE_BANK_A)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_b, O_RDWR);
+                }
+                else if (activeBank == TAF_UPDATE_BANK_B)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_b, O_RDONLY);
+                }
+                else
+                {
+                    LE_ERROR("Unknown bank.");
+                    return LE_FAULT;
+                }
+
                 if (result != LE_OK)
                 {
                     // close volume 'A'

@@ -2203,6 +2203,12 @@ taf_locGnss_Client_t* taf_locGnss::AcquireSessionRef
 
     if (NULL == clientRequestPtr)
     {
+        //when client count already reached 12
+        if(gnss.mClientRefCount >= (TAF_CONFIG_POSITIONING_ACTIVATION_MAX-1))
+        {
+            LE_DEBUG("Reached maximum clients count: %d",gnss.mClientRefCount);
+            return NULL;
+        }
         clientRequestPtr = (taf_locGnss_Client_t*)le_mem_ForceAlloc(gnss.ClientPoolRef);
 
         clientRequestPtr->sessionRef = sessionRef;
@@ -7586,10 +7592,6 @@ void taf_locGnss::CloseEventHandler
         gnss.Stop();
     }
 
-    if (sessionRef!=nullptr && gnss.mClientRefCount > 0){
-        //External Client release, decrement client ref count
-        gnss.mClientRefCount--;
-    }
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.PositionSampleMap);
     le_result_t result = le_ref_NextNode(iterRef);
@@ -7623,6 +7625,12 @@ void taf_locGnss::CloseEventHandler
 
         if (sessionRef == gnssPtr->sessionRef)
         {
+            if (gnss.mClientRefCount > 0)
+            {
+                //External Client release, decrement client ref count
+                gnss.mClientRefCount--;
+                LE_DEBUG("CloseEventHandler client count: %d",gnss.mClientRefCount);
+            }
             gnss.CleanUp(gnssPtr);
             void* safeRefPtr = (void*)le_ref_GetSafeRef(iterRef);
             LE_DEBUG("Release taf_locGnss_ReleaseClientRef 0x%p, Session 0x%p",

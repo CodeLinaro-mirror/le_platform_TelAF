@@ -548,7 +548,7 @@ bool mcs_PolicyParser::Validate_DS_AMCR_MinTimeBetweenTriggers(mcs_Policy_t &Pol
     }
     // Valid value. Update Policy.
     Policy.DataSession.AppMngdConnectivityRecovery.MinTimeBetweenTriggers =
-                                                                    static_cast<uint16_t>(localInt);
+                                                                    static_cast<uint8_t>(localInt);
     return true;
 }
 

@@ -1107,6 +1107,8 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
             continue;
         }
 
+//Don't check security for RDBI for BL3
+#ifdef LE_CONFIG_DIAG_FEATURE_A
         try
         {
             // Check active session type for data ID.
@@ -1154,7 +1156,7 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
             //security_level is not configured. Don't check it.
             LE_WARN("Exception: %s. security is not configured for dataId 0x%x", e.what(), dataId);
         }
-
+#endif
         //Store DID in active session.
         updatedRecvBuf[updatedRecvDataLen] = recvBuf[i*UDS_DID_LEN + 1];
         updatedRecvBuf[updatedRecvDataLen+1] = recvBuf[i*UDS_DID_LEN + 2];

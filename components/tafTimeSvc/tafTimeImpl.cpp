@@ -1164,7 +1164,8 @@ taf_time_TimeRef_t taf_Time::GetTimeRef
         }
     }
 
-    if (!TimeSourceConf.IsSourceExist(SourceNameIndexToStr(sourceId)))
+    if (!TimeSourceConf.IsSourceExist(SourceNameIndexToStr(sourceId)) &&
+        sourceId != TAF_TIME_SRC_NAME_SYSTEM)
     {
         LE_ERROR("Given time source is not registered in JSON file.");
         return NULL;

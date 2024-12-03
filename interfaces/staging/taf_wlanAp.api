@@ -6,7 +6,7 @@
 /**
  * @page c_tafwlanap Wireless LAN Access Point Management Service
  *
- * @rst :ref:`API reference <File taf_wlan_ap_interface.h>` @endrst
+ * @rst :ref:`API reference <File taf_wlanAp_interface.h>` @endrst
  *
  * <HR>
  *

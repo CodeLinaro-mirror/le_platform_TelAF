@@ -97,6 +97,12 @@ enum DataType
     TAF_LOCGNSS_DATA_UNKNOWN
 };
 
+enum AidingDataType
+{
+    TAF_LOCGNSS_AIDING_DATA_EPHEMERIS = (1<<0),
+    TAF_LOCGNSS_AIDING_DATA_DR_SENSOR_CALIBRATION = (1<<1)
+};
+
 namespace telux {
 namespace tafsvc {
 

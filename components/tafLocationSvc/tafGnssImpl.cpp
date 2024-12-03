@@ -4107,9 +4107,9 @@ le_result_t taf_locGnss::ForceWarmRestart
 
                 /* Specifies AidingDataType mask */
                 /* 0 - EPHEMERIS 1 - DR_SENSOR_CALIBRATION
-                   AidingData |1UL << (0,1) which is 3*/
+                   AidingData |1UL << 0 which is 1*/
 
-                uint32_t AidingData = 3;
+                uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_EPHEMERIS;
                 telux::common::Status status = mLocationConfigurator->deleteAidingData(AidingData, cb1);
                 if (status != telux::common::Status::SUCCESS)
                 {
@@ -4514,9 +4514,9 @@ le_result_t taf_locGnss::StartMode
 
                 /* Specifies AidingDataType mask */
                 /* 0 - EPHEMERIS 1 - DR_SENSOR_CALIBRATION
-                AidingData |1UL << (0,1) which is 3*/
+                AidingData |1UL << 0 which is 1*/
 
-                uint32_t AidingData = 3;
+                uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_EPHEMERIS;
                 telux::common::Status status = mLocationConfigurator->deleteAidingData(
                         AidingData, cb1);
                 if(status != telux::common::Status::SUCCESS)

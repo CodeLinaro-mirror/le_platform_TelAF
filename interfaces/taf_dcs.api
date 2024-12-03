@@ -70,8 +70,9 @@
  *
  * <HR>
  *
- * The Data Call service API is used for applications to manage data calls and data profiles.
- * It provides APIs over a mobile network.
+ * The Data Call service provides APIs to manage data profiles and wireless data calls. Data call
+ * session management APIs support both synchronous and asynchronous operations. Clients can
+ * register for and monitor data call related events.
  *
  * @section c_taf_dcs_binding IPC interfaces binding
  *
@@ -331,6 +332,13 @@ DEFINE MAX_ASYNC_HANDLER_MAPPING = 20;
 //--------------------------------------------------------------------------------------------------
 /**
  * The squash gateway addresses used by net APIs
+ *
+ * @struct taf_dcs_DefaultGatewayAddresses_t
+ * @var taf_dcs_DefaultGatewayAddresses_t::ipv4Addr
+ * The IPv4 address.
+ * @var taf_dcs_DefaultGatewayAddresses_t::ipv6Addr
+ * The IPv6 address.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT DefaultGatewayAddresses
@@ -342,6 +350,17 @@ STRUCT DefaultGatewayAddresses
 //--------------------------------------------------------------------------------------------------
 /**
  * The squash DNS addresses used by net APIs.
+ *
+ * @struct taf_dcs_DnsServerAddresses_t
+ * @var taf_dcs_DnsServerAddresses_t::ipv4Addr1
+ * The primary IPv4 DNS address.
+ * @var taf_dcs_DnsServerAddresses_t::ipv4Addr2
+ * The secondary IPv4 DNS address.
+ * @var taf_dcs_DnsServerAddresses_t::ipv6Addr1
+ * The primary IPv6 DNS address.
+ * @var taf_dcs_DnsServerAddresses_t::ipv6Addr2
+ * The secondary IPv6 DNS address.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT DnsServerAddresses
@@ -473,18 +492,31 @@ ENUM Tech
 //--------------------------------------------------------------------------------------------------
 /**
  * Additional state information.
- * IP: The IP Type of this event, e.g.,
- *     which interface (IPv4/IPv6) is supported on a CONNECTED event.
+ *
+ * @struct taf_dcs_StateInfo_t
+ * @var taf_dcs_StateInfo_t::ipType
+ * The pdp type of this event, e.g., which pdp (IPv4/IPv6) is supported on a CONNECTED event.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT StateInfo
 {
-    Pdp      ipType;
+    Pdp      ipType;                     ///< The IP type of this event.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
  * The roaming status indication.
+ *
+ * @struct taf_dcs_RoamingStatusInd_t
+ * @var taf_dcs_RoamingStatusInd_t::phoneId
+ * The phone ID.
+ * @var taf_dcs_RoamingStatusInd_t::isRoaming
+ * True means that roaming is on.<br>
+ * False means that roaming is off.
+ * @var taf_dcs_RoamingStatusInd_t::type
+ * The roaming type. Valid only if roaming is on.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT RoamingStatusInd
@@ -524,6 +556,7 @@ FUNCTION le_result_t StartSession
  *                       LE_OK           -- Succeeded.<br>
  *                       LE_NOT_POSSIBLE -- The data profile is not yet created.<br>
  *                       Others          -- Failed.
+ * @param[in] contextPtr The context provided by the application when adding the event handler.
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -597,6 +630,12 @@ FUNCTION le_result_t GetInterfaceName
 //--------------------------------------------------------------------------------------------------
 /**
  * The data call session handler.
+ *
+ * @param[in] profileRef The profile reference.
+ * @param[in] state      The connection state.
+ * @param[in] info       The connection information.
+ * @param[in] contextPtr The context provided by the application when adding the event handler.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER SessionStateHandler
@@ -620,6 +659,10 @@ EVENT SessionState
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for roaming status.
+ *
+ * @param[in] roamingStatusInd Roaming status indication.
+ * @param[in] contextPtr The context provided by the application when adding the event handler.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RoamingStatusHandler
@@ -819,18 +862,31 @@ FUNCTION le_result_t GetDataBearerTechnology
 /**
  * The data profile structure.
  *
+ * @struct taf_dcs_ProfileInfo_t
+ * @var taf_dcs_ProfileInfo_t::index
+ * The profile index.
+ * @var taf_dcs_ProfileInfo_t::tech
+ * The profile technology type.
+ * @var taf_dcs_ProfileInfo_t::name
+ * The profile name.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT ProfileInfo
 {
     uint32 index;                           ///< The profile index.
-    Tech   tech;                            ///< The technology.
+    Tech tech;                              ///< The profile technology type.
     string name[NAME_MAX_LEN];              ///< The profile name.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
  * The handler of the requesting data profile list.
+ *
+ * @param[in] result      The result.
+ * @param[in] profileList The profile list information.
+ * @param[in] contextPtr  The context provided by the application when adding the event handler.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ProfileListHandler

@@ -617,7 +617,7 @@ void TEST_AUDIO_RECORD()
     LE_TEST_OK(true, "Successfully deregistered for the media callback");
 }
 
-void TEST_INCALL_AUDIO_PLAYBACK(bool isRemote)
+void TEST_ACTIVE_VOICE_PLAYBACK(bool isRemote)
 {
     LE_TEST_INFO("Test taf_audio_CreateConnector");
     taf_audio_ConnectorRef_t playerConnRef = taf_audio_CreateConnector();
@@ -656,22 +656,16 @@ void TEST_INCALL_AUDIO_PLAYBACK(bool isRemote)
 
     LE_TEST_INFO("Test taf_audio_PlayFile to play a file");
     res = taf_audio_PlayFile(playerRef, wavfilePath);
-    if(isRemote)
-    {
-        LE_TEST_OK(res == LE_OK, "Successfully started the incall uplink playback");
 
-        le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+    LE_TEST_OK(res == LE_OK, "Successfully started the incall uplink playback");
 
-        LE_TEST_INFO("Test taf_audio_Stop playback");
-        res = taf_audio_Stop(playerRef);
-        LE_TEST_OK(res == LE_OK, "Successfully stopped the incall uplink playback");
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
 
-        le_sem_WaitWithTimeOut(tafAudioAppSem, StopTimeout);
-    }
-    else
-    {
-        LE_TEST_OK(res == LE_UNSUPPORTED, "Successfully failed to play PCM incall downlink");
-    }
+    LE_TEST_INFO("Test taf_audio_Stop playback");
+    res = taf_audio_Stop(playerRef);
+    LE_TEST_OK(res == LE_OK, "Successfully stopped the incall uplink playback");
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem, StopTimeout);
 
     taf_audio_PlayFileConfig_t playFileConfig[1] = {0};
     snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), "%s", amrfilePath);
@@ -916,9 +910,9 @@ void TEST_AUDIO_VOICE_CONNECTION()
     res = taf_audio_GetMute(rxStreamRef, &isMute);
     LE_TEST_OK(!isMute, "Successfully get the mute status as false");
 
-    TEST_INCALL_AUDIO_PLAYBACK(false);
+    TEST_ACTIVE_VOICE_PLAYBACK(false);
 
-    TEST_INCALL_AUDIO_PLAYBACK(true);
+    TEST_ACTIVE_VOICE_PLAYBACK(true);
 
     TEST_INCALL_AUDIO_RECORDING(false);
 

@@ -121,10 +121,7 @@
 
    @endverbatim
  *
- * Play the file(s) in the local speaker during active voice call. The voice call audio should be
- * connected before calling starting this the playback, or else This will be same as local playback.
- * Only AMR format is supported, PCM is not supported. Active voice call is mandatory for playback
- * to be successful.
+ * To play the file(s) in the local speaker(local playback) during active voice call.
  * @verbatim
     le_thread_Ref_t Player_thread_ref;
     le_sem_Ref_t tafAudioAppSem = le_sem_Create("tafAudioAppSem", 0);
@@ -179,7 +176,7 @@
                 break;
         }
     }
-    void TEST_INCALL_DOWNLINK_PLAYBACK()
+    void TEST_LOCAL_PLAYBACK_VOICE_ACTIVE()
     {
         taf_audio_ConnectorRef_t playerConnRef = taf_audio_CreateConnector();
 

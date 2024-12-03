@@ -2537,8 +2537,8 @@ le_result_t taf_Audio::ReadPcmHeader
             ? (ChannelType::LEFT | ChannelType::RIGHT) : ChannelType::LEFT;
     config.format = AudioFormat::PCM_16BIT_SIGNED;
 
-    // Set the config device type if voice stream is not active/ set voice path if
-    // voice stream is active based on output device connected
+    // Set the config device type based on output device connected or voice path
+    // direction in case of in-call uplink playback.
     le_hashmap_It_Ref_t connItr =
             (le_hashmap_It_Ref_t)le_hashmap_GetIterator(streamPtr->connList);
     taf_audio_Connector_t const * currentconnPtr;
@@ -2557,14 +2557,7 @@ le_result_t taf_Audio::ReadPcmHeader
             TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
                     LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
 
-            if (mCallStarted && (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1
-                    || outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_2
-                    || outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_3))
-            {
-                TAF_ERROR_IF_RET_VAL(true, LE_UNSUPPORTED,
-                        "Incall downlink playback for PCM is not supported");
-            }
-            else if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1){
+            if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1){
                 config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_0);
                 LE_DEBUG("set config with device type speaker 0");
             }
@@ -2642,8 +2635,8 @@ le_result_t taf_Audio::ReadAmrHeader
 
         config.channelTypeMask = 1;
 
-        // Set the config device type if voice stream is not active/ set voice path if
-        // voice stream is active based on output device connected
+        // Set the config device type based on output device connected or voice path
+        // direction in case of in-call uplink playback.
         le_hashmap_It_Ref_t connItr =
                 (le_hashmap_It_Ref_t)le_hashmap_GetIterator(streamPtr->connList);
         taf_audio_Connector_t const * currentconnPtr;
@@ -2661,14 +2654,7 @@ le_result_t taf_Audio::ReadAmrHeader
                 outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
                 TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
                         LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
-                if (mCallStarted && (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1
-                        || outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_2
-                        || outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_3))
-                {
-                    config.voicePaths.emplace_back(telux::audio::Direction::RX);
-                    LE_DEBUG("set config with voice path RX");
-                }
-                else if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1){
+                if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1){
                     config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_0);
                     LE_DEBUG("set config with device type speaker 0");
                 }

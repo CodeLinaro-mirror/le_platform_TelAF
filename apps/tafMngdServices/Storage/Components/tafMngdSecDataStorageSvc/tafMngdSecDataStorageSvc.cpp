@@ -46,7 +46,7 @@ le_result_t taf_mngdStorSecData_GetUsedSize
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
 
-    *sizePtr = mss.GetStorageUsedSize();
+    *sizePtr = mss.GetStorageUsedSize(nullptr);
 
     return LE_OK;
 }
@@ -61,7 +61,7 @@ le_result_t taf_mngdStorSecData_GetFreeSize
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
 
-    *sizePtr = mss.GetStorageFreeSpace();
+    *sizePtr = mss.GetStorageFreeSpace(nullptr);
 
     return LE_OK;
 }

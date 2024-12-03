@@ -55,6 +55,32 @@ void tafMngdStorageSvc::Init(void)
     taf_rfs_Init(true, nullptr);
 }
 
+size_t tafMngdStorageSvc::GetFileSize
+(
+    const char *filePath
+)
+{
+    struct stat fileStat;
+
+    // Get file statistics
+    if (stat(filePath, &fileStat) == -1)
+    {
+        LE_ERROR("Failed to get file status for %s", filePath);
+        return 0;
+    }
+
+    // Check if the entry is a regular file
+    if (S_ISREG(fileStat.st_mode))
+    {
+        return (size_t)fileStat.st_size;
+    }
+    else
+    {
+        LE_ERROR("%s is not a regular file", filePath);
+        return 0;
+    }
+}
+
 size_t tafMngdStorageSvc::GetFilesSizeInDirectory
 (
     const char *dirPath

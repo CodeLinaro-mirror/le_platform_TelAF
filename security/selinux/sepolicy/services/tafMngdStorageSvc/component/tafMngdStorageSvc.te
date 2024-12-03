@@ -85,3 +85,6 @@ telaf_load_vhal_modules(telaf_tafMngdCfgStorageSvc_t)
 # FSCrypt rules
 telaf_tafKeyStoreSvc_FscInit(telaf_tafMngdCfgStorageSvc_t, telaf_tafMngdCfgStorageSvc_data_t)
 telaf_tafKeyStoreSvc_FscInit(telaf_tafMngdSecFileStorageSvc_t, telaf_tafMngdSecFileStorageSvc_data_t)
+
+allow telaf_tafMngdSecFileStorageSvc_t self:capability { sys_admin };
+allow telaf_tafMngdSecFileStorageSvc_t init_t:key { search };

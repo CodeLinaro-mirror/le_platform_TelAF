@@ -357,7 +357,7 @@ __attribute__((unused)) static void Test_Secure_Data_Sharing()
                         "Test taf_mngdStorSecData_GetNextSharedApp");
     }
 
-    LE_TEST_ASSERT(LE_NOT_PERMITTED == taf_mngdStorSecData_CancelDataSharing(dataRef,
+    LE_TEST_ASSERT(LE_BAD_PARAMETER == taf_mngdStorSecData_CancelDataSharing(dataRef,
                                                                         sharedAppNameList[0]),
                         "Test taf_mngdStorSecData_GetNextSharedApp");
 

@@ -63,6 +63,7 @@ tafMngdStorage_SecDataRef_t tafMngdStorageSvc::CreateSecDataRef
     tafMngdStorage_SecData_t *dataPtr = nullptr;
     tafMngdStorage_SecDataRef_t secDataRef = nullptr;
     char keyId[TAF_KS_MAX_KEY_ID_SIZE] = {0};
+    char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
 
     dataPtr = (tafMngdStorage_SecData_t*)le_mem_ForceAlloc(SecDataPool);
     if (dataPtr == nullptr)
@@ -81,12 +82,28 @@ tafMngdStorage_SecDataRef_t tafMngdStorageSvc::CreateSecDataRef
     }
 
     snprintf(dataPtr->dataName, sizeof(dataPtr->dataName), "%s", dataNamePtr);
-    snprintf(dataPtr->ownerAppName, sizeof(dataPtr->ownerAppName), "%s", appNamePtr);
+
+    if(appNamePtr == nullptr)
+    {
+        // Get appName from clientSession.
+        if (LE_OK != GetAppNameBySessionRef(taf_mngdStorSecData_GetClientSessionRef(),
+                                            myAppName, sizeof(myAppName)))
+        {
+            LE_ERROR("Failed to get client appName.");
+            goto cleanup;
+        }
+
+        snprintf(dataPtr->ownerAppName, sizeof(dataPtr->ownerAppName), "%s", myAppName);
+    }
+    else
+    {
+        snprintf(dataPtr->ownerAppName, sizeof(dataPtr->ownerAppName), "%s", appNamePtr);
+    }
 
     dataPtr->isInWritingProcess = false;
     dataPtr->isInReadingProcess = false;
 
-    if (GetDataPath(nullptr, dataNamePtr, dataPtr->path, sizeof(dataPtr->path)) != LE_OK)
+    if (GetDataPath(appNamePtr, dataNamePtr, dataPtr->path, sizeof(dataPtr->path)) != LE_OK)
     {
         LE_ERROR("cannot get data path");
         goto cleanup;
@@ -205,10 +222,6 @@ taf_mngdStorSecData_DataRef_t tafMngdStorageSvc::GetDataRef
     const char* dataLabel
 )
 {
-    TAF_ERROR_IF_RET_VAL(CheckValidPosixFileName(dataLabel) != LE_OK,
-                            nullptr,
-                            "Invalid data label string");
-
     LE_INFO("GetDataRef, dataLabel = %s", dataLabel);
 
     char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
@@ -248,16 +261,26 @@ taf_mngdStorSecData_DataRef_t tafMngdStorageSvc::GetDataRef
         {
             ownerAppPtr = nullptr;
         }
+        else
+        {
+            TAF_ERROR_IF_RET_VAL(CheckValidPosixFileName(ownerAppPtr) != LE_OK,
+                            nullptr,
+                            "Invalid owner app string");
+        }
     }
     else
     {
         dataNamePtr = dataLabel;
     }
 
+    TAF_ERROR_IF_RET_VAL(CheckValidPosixFileName(dataNamePtr) != LE_OK,
+                            nullptr,
+                            "Invalid data label string");
+
     char dataItemPath[LIMIT_MAX_PATH_BYTES] = {0};
 
     TAF_ERROR_IF_RET_VAL(GetDataPath(ownerAppPtr,
-                                        dataLabel,
+                                        dataNamePtr,
                                         dataItemPath,
                                         LIMIT_MAX_PATH_BYTES) != LE_OK,
                             nullptr,
@@ -286,7 +309,7 @@ taf_mngdStorSecData_DataRef_t tafMngdStorageSvc::GetDataRef
 
         clientDataPtr->clientSessionRef = taf_mngdStorSecData_GetClientSessionRef();
 
-        snprintf(clientDataPtr->dataLabel, sizeof(clientDataPtr->dataLabel), "%s", dataNamePtr);
+        snprintf(clientDataPtr->dataLabel, sizeof(clientDataPtr->dataLabel), "%s", dataLabel);
 
         dataRef = clientDataPtr->dataRef;
     }
@@ -295,9 +318,9 @@ taf_mngdStorSecData_DataRef_t tafMngdStorageSvc::GetDataRef
         clientDataPtr = (tafMngdStorage_ClientData_t*)le_ref_Lookup(ClientDataRefMap, dataRef);
     }
 
-    if(FindSecDataRef(dataNamePtr, myAppName, &(clientDataPtr->secDataRef)) == LE_NOT_FOUND)
+    if(FindSecDataRef(dataNamePtr, ownerAppPtr, &(clientDataPtr->secDataRef)) == LE_NOT_FOUND)
     {
-        clientDataPtr->secDataRef = CreateSecDataRef(dataNamePtr, myAppName);
+        clientDataPtr->secDataRef = CreateSecDataRef(dataNamePtr, ownerAppPtr);
         TAF_ERROR_IF_RET_VAL(clientDataPtr->secDataRef == nullptr,
                                 nullptr,
                                 "Cannot create sec data ref");
@@ -307,8 +330,12 @@ taf_mngdStorSecData_DataRef_t tafMngdStorageSvc::GetDataRef
 
     if(ownerAppPtr != nullptr)
     {
+        LE_INFO("Check shared app list for %s", dataLabel);
+
         if(IsInSharedAppList(dataRef, myAppName) == false)
         {
+            LE_ERROR("app: %s is not shared app for data: %s", myAppName, dataLabel);
+
             tafMngdStorage_SecData_t* dataPtr =
                 (tafMngdStorage_SecData_t*)le_ref_Lookup(SecDataRefMap, clientDataPtr->secDataRef);
 
@@ -384,6 +411,23 @@ le_result_t tafMngdStorageSvc::FindSecDataRef
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(SecDataRefMap);
 
+    char appName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+
+    if(ownerAppName == nullptr)
+    {
+        // Get appName from clientSession.
+        if (LE_OK != GetAppNameBySessionRef(taf_mngdStorSecData_GetClientSessionRef(),
+                                            appName, sizeof(appName)))
+        {
+            LE_ERROR("Failed to get client appName.");
+            return LE_FAULT;
+        }
+    }
+    else
+    {
+        snprintf(appName, sizeof(appName), "%s", ownerAppName);
+    }
+
     // Scan all the data nodes
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
@@ -396,7 +440,7 @@ le_result_t tafMngdStorageSvc::FindSecDataRef
 
         // Find the node that context matches to the current data
         if ((strcmp(dataPtr->dataName, dataName) == 0) &&
-            (strcmp(dataPtr->ownerAppName, ownerAppName) == 0))
+            (strcmp(dataPtr->ownerAppName, appName) == 0))
         {
             (*dataRef) = (tafMngdStorage_SecDataRef_t)le_ref_GetSafeRef(iterRef);
 
@@ -432,12 +476,51 @@ le_result_t tafMngdStorageSvc::GetDataPath
     }
     else
     {
-        snprintf(bufferPtr, bufferSize, "%s/%s", storageName, dataName);
+        snprintf(bufferPtr, bufferSize, "%s%s/%s", SECURE_STORAGE, storageName, dataName);
     }
 
-    LE_INFO("storage path is: %s", bufferPtr);
+    LE_INFO("data path is: %s", bufferPtr);
 
     return LE_OK;
+}
+
+/**
+ * Open temp file
+ */
+int tafMngdStorageSvc::OpenTempFile
+(
+    const char *filename
+)
+{
+    char temp_filename[LIMIT_MAX_PATH_BYTES + sizeof(SECURE_DATA_TEMP_EXTENSION)];
+    snprintf(temp_filename, sizeof(temp_filename), "%s%s", filename, SECURE_DATA_TEMP_EXTENSION);
+    return taf_rfs_Open(temp_filename, O_CREAT|O_WRONLY|O_TRUNC, S_IRWXU);
+}
+
+/**
+ * Rename temp file
+ */
+int tafMngdStorageSvc::RenameTempFile
+(
+    const char *filename
+)
+{
+    char temp_filename[LIMIT_MAX_PATH_BYTES + sizeof(SECURE_DATA_TEMP_EXTENSION)];
+    snprintf(temp_filename, sizeof(temp_filename), "%s%s", filename, SECURE_DATA_TEMP_EXTENSION);
+    return taf_rfs_Rename(temp_filename, filename);
+}
+
+/**
+ * Delete temp file
+ */
+void tafMngdStorageSvc::DeleteTempFile
+(
+    const char *filename
+)
+{
+    char temp_filename[LIMIT_MAX_PATH_BYTES + sizeof(SECURE_DATA_TEMP_EXTENSION)];
+    snprintf(temp_filename, sizeof(temp_filename), "%s%s", filename, SECURE_DATA_TEMP_EXTENSION);
+    taf_rfs_Delete(temp_filename);
 }
 
 le_result_t tafMngdStorageSvc::GetDataKeyId
@@ -530,12 +613,16 @@ void tafMngdStorageSvc::ReleaseDataRef
                     dataPtr->writeOp.clientSessionRef == sessionRef)
                 {
                     taf_rfs_Close(dataPtr->writeOp.outputFd);
+                    dataPtr->isInWritingProcess = false;
+                    dataPtr->writeOp.clientSessionRef = nullptr;
                 }
 
                 if(dataPtr->isInReadingProcess == true &&
                     dataPtr->readOp.clientSessionRef == sessionRef)
                 {
                     taf_rfs_Close(dataPtr->readOp.outputFd);
+                    dataPtr->isInReadingProcess = false;
+                    dataPtr->writeOp.clientSessionRef = nullptr;
                 }
             }
 
@@ -572,6 +659,10 @@ le_result_t tafMngdStorageSvc::WriteDataStart
                             LE_BUSY,
                             "data is in writing process");
 
+    TAF_ERROR_IF_RET_VAL(dataPtr->isInReadingProcess == true,
+                            LE_BUSY,
+                            "data is in reading process");
+
     memset((void*)(&(dataPtr->writeOp)), 0, sizeof(WriteOp_t));
 
     if(clientDataPtr->sharedClient == true)
@@ -598,16 +689,7 @@ le_result_t tafMngdStorageSvc::WriteDataStart
 
     dataPtr->writeOp.clientSessionRef = taf_mngdStorSecData_GetClientSessionRef();
 
-    char dataItemPath[LIMIT_MAX_PATH_BYTES] = {0};
-
-    TAF_ERROR_IF_RET_VAL(GetDataPath(nullptr,
-                                        dataPtr->dataName,
-                                        dataItemPath,
-                                        LIMIT_MAX_PATH_BYTES) != LE_OK,
-                            LE_BAD_PARAMETER,
-                            "cannot get data item path");
-
-    TAF_ERROR_IF_RET_VAL(IsFileExisting(dataItemPath) == false,
+    TAF_ERROR_IF_RET_VAL(IsFileExisting(dataPtr->path) == false,
                             LE_UNAVAILABLE,
                             "data item does not exist");
 
@@ -622,7 +704,7 @@ le_result_t tafMngdStorageSvc::WriteDataStart
                             LE_BAD_PARAMETER,
                             "cannot get data namespace");
 
-    memscpy(nonceData, sizeof(nonceData), ns, sizeof(ns));
+    memscpy(nonceData, sizeof(nonceData), dataPtr->ownerAppName, sizeof(dataPtr->ownerAppName));
 
     // Caculate the md5 of the file ID, later use the md5 as the nonce.
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
@@ -674,7 +756,7 @@ le_result_t tafMngdStorageSvc::WriteDataStart
 
     dataPtr->writeOp.outputFd = -1;
 
-    dataPtr->writeOp.outputFd = taf_rfs_Open(dataPtr->path, O_CREAT|O_WRONLY|O_TRUNC, S_IRWXU);
+    dataPtr->writeOp.outputFd = OpenTempFile(dataPtr->path);
 
     if (dataPtr->writeOp.outputFd < 0)
     {
@@ -722,22 +804,38 @@ le_result_t tafMngdStorageSvc::WriteDataChunk
                             "Data size %" PRIuS " is larger than the limitation %d",
                             bufferSize, TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE);
 
-    TAF_ERROR_IF_RET_VAL(CheckSize(bufferSize) != LE_OK,
-                            LE_OVERFLOW,
-                            "Storage free size is not enough for the data size %" PRIuS,
-                            bufferSize);
-
     taf_ks_CryptoSessionRef_t* sessionRefPtr = &(dataPtr->writeOp.sessionRef);
     uint8_t* encryptedData = dataPtr->writeOp.encryptedData;
     size_t* encryptedDataSize = &(dataPtr->writeOp.encryptedSize);
-
     *encryptedDataSize = sizeof(dataPtr->writeOp.encryptedData);
 
-    le_result_t result = taf_ks_CryptoSessionProcess(*sessionRefPtr,
-                                                        bufferPtr,
-                                                        bufferSize,
-                                                        encryptedData,
-                                                        encryptedDataSize);
+    le_result_t result = LE_OK;
+
+    if(CheckSize(bufferSize, dataPtr->ownerAppName, dataPtr->path) != LE_OK)
+    {
+        result = taf_ks_CryptoSessionEnd(*sessionRefPtr,
+                                                    nullptr, 0,
+                                                    encryptedData,
+                                                    encryptedDataSize);
+
+        taf_rfs_Close(dataPtr->writeOp.outputFd);
+
+        dataPtr->isInWritingProcess = false;
+
+        dataPtr->writeOp.clientSessionRef = nullptr;
+
+        DeleteTempFile(dataPtr->path);
+
+        LE_ERROR("Storage free size is not enough for the data size %" PRIuS, bufferSize);
+
+        return LE_NO_MEMORY;
+    }
+
+    result = taf_ks_CryptoSessionProcess(*sessionRefPtr,
+                                            bufferPtr,
+                                            bufferSize,
+                                            encryptedData,
+                                            encryptedDataSize);
 
     TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "Process crypto session error");
 
@@ -814,6 +912,15 @@ le_result_t tafMngdStorageSvc::WriteDataEnd
     dataPtr->isInWritingProcess = false;
 
     dataPtr->writeOp.clientSessionRef = nullptr;
+
+    if(RenameTempFile(dataPtr->path) != 0)
+    {
+        DeleteTempFile(dataPtr->path);
+
+        LE_ERROR("Failed to rename temp file");
+
+        return LE_FAULT;
+    }
 
     // Set up data event information
     tafMngdStorage_DataChangeEvent_t dataEvent;
@@ -899,7 +1006,7 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
                             LE_BAD_PARAMETER,
                             "cannot get data namespace");
 
-    memscpy(nonceData, sizeof(nonceData), ns, sizeof(ns));
+    memscpy(nonceData, sizeof(nonceData), dataPtr->ownerAppName, sizeof(dataPtr->ownerAppName));
 
     // Caculate the md5 of the file ID, later use the md5 as the nonce.
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
@@ -1019,7 +1126,7 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
                                     decryptedData,
                                     *decryptedDataSize);
 
-            LE_INFO("Copy decrypted data size = %" PRIuS, *readSize);
+            LE_DEBUG("Copy decrypted data size = %" PRIuS, *readSize);
         }
 
         *decryptedDataSize = sizeof(dataPtr->readOp.decryptedData);
@@ -1040,7 +1147,7 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
                         decryptedData,
                         *decryptedDataSize);
 
-            LE_INFO("Copy decrypted data size = %" PRIuS, *readSize);
+            LE_DEBUG("Copy decrypted data size = %" PRIuS, *readSize);
         }
 
         taf_rfs_Close(dataPtr->readOp.outputFd);
@@ -1089,7 +1196,7 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
             *readSize =
                 memscpy(bufferPtr, buffSize, decryptedData, *decryptedDataSize);
 
-            LE_INFO("Copy decrypted data size = %" PRIuS, *readSize);
+            LE_DEBUG("Copy decrypted data size = %" PRIuS, *readSize);
 
             if(*readSize < totalDecryptedSize)
             {
@@ -1197,7 +1304,7 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
             *readSize =
                 memscpy(bufferPtr, buffSize, decryptedData, *decryptedDataSize);
 
-            LE_INFO("Copy decrypted data size = %" PRIuS, *readSize);
+            LE_DEBUG("Copy decrypted data size = %" PRIuS, *readSize);
         }
 
         if(*readSize < *decryptedDataSize)
@@ -1232,7 +1339,7 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
             *readSize =
                 memscpy(bufferPtr, buffSize, decryptedData, *decryptedDataSize);
 
-            LE_INFO("Copy decrypted data size =%" PRIuS, *readSize);
+            LE_DEBUG("Copy decrypted data size =%" PRIuS, *readSize);
         }
 
         if(*readSize < *decryptedDataSize)
@@ -1278,13 +1385,6 @@ le_result_t tafMngdStorageSvc::GetDataSize
         (tafMngdStorage_SecData_t*)le_ref_Lookup(SecDataRefMap, clientDataPtr->secDataRef);
 
     TAF_ERROR_IF_RET_VAL(dataPtr == nullptr, LE_NOT_FOUND, "invalid secure data ref");
-
-    TAF_ERROR_IF_RET_VAL(GetDataPath(nullptr,
-                                        dataPtr->dataName,
-                                        dataPtr->path,
-                                        LIMIT_MAX_PATH_BYTES) != LE_OK,
-                            LE_BAD_PARAMETER,
-                            "cannot get data item path");
 
     TAF_ERROR_IF_RET_VAL(IsFileExisting(dataPtr->path) == false,
                             LE_BAD_PARAMETER,
@@ -1333,51 +1433,63 @@ le_result_t tafMngdStorageSvc::DeleteData
                             LE_BUSY,
                             "data is in reading process");
 
-    TAF_ERROR_IF_RET_VAL(GetDataPath(nullptr,
-                                        dataPtr->dataName,
-                                        dataPtr->path,
-                                        LIMIT_MAX_PATH_BYTES) != LE_OK,
-                            LE_BAD_PARAMETER,
-                            "cannot get data item path");
-
     TAF_ERROR_IF_RET_VAL(IsFileExisting(dataPtr->path) == false,
                             LE_BAD_PARAMETER,
                             "cannot find data");
 
-    taf_ks_DeleteKey(dataPtr->keyRef);
+    // Notify registered shared app before cleaning data
+    for(uint i = 0; i < dataPtr->sharedAppList.appCount; i++)
+    {
+        const char* sharedAppNamePtr = dataPtr->sharedAppList.appInfo[i].appName;
+        NotifyClientsForDataChange(dataPtr->dataName,
+                                    dataPtr->ownerAppName,
+                                    sharedAppNamePtr,
+                                    TAF_MNGDSTORSECDATA_DATA_DELETED);
+    }
 
-    taf_rfs_Delete(dataPtr->path);
-
-    le_ref_DeleteRef(SecDataRefMap, clientDataPtr->secDataRef);
-    le_mem_Release(dataPtr);
-
-    // Set up data event information
-    tafMngdStorage_DataChangeEvent_t dataEvent;
-    memset(&dataEvent, 0, sizeof(tafMngdStorage_DataChangeEvent_t));
-
-    dataEvent.secDataRef = clientDataPtr->secDataRef;
-    dataEvent.state = TAF_MNGDSTORSECDATA_DATA_DELETED;
-
-    // Report event for DATA_DELETED
-    le_event_Report(DataChangeEventId, &dataEvent, sizeof(tafMngdStorage_DataChangeEvent_t));
+    ClearData(clientDataPtr->secDataRef);
 
     return LE_OK;
 }
 
-le_result_t tafMngdStorageSvc::CheckSize
+void tafMngdStorageSvc::ClearData
 (
-    uint32_t writeSize
+    tafMngdStorage_SecDataRef_t secDataRef
 )
 {
+    tafMngdStorage_SecData_t* dataPtr =
+        (tafMngdStorage_SecData_t*)le_ref_Lookup(SecDataRefMap, secDataRef);
+
+    TAF_ERROR_IF_RET_NIL(dataPtr == nullptr, "invalid secure data ref");
+
+    DeleteTempFile(dataPtr->path);
+
+    taf_ks_DeleteKey(dataPtr->keyRef);
+    taf_rfs_Delete(dataPtr->path);
+
+    le_ref_DeleteRef(SecDataRefMap, secDataRef);
+    le_mem_Release(dataPtr);
+}
+
+le_result_t tafMngdStorageSvc::CheckSize
+(
+    uint32_t writeSize,
+    const char *appNamePtr,
+    const char *fileNamePtr
+)
+{
+    // get file size
+    size_t fileSize = GetFileSize(fileNamePtr);
+
     // Consider uint32 overflow case
-    if(writeSize > UINT32_MAX - GetStorageUsedSize())
+    if(writeSize > UINT32_MAX - (GetStorageUsedSize(appNamePtr) - fileSize))
     {
         LE_ERROR("Storage size not enough");
         return LE_NO_MEMORY;
     }
 
     // Check if free storage size is enough for the requested write operation
-    if((writeSize + GetStorageUsedSize()) > GetStorageMaxSize())
+    if((writeSize + (GetStorageUsedSize(appNamePtr) - fileSize)) > GetStorageMaxSize())
     {
         LE_ERROR("Storage size not enough");
         return LE_NO_MEMORY;
@@ -1404,6 +1516,9 @@ le_result_t tafMngdStorageSvc::ShareData
     TAF_ERROR_IF_RET_VAL(dataPtr == nullptr, LE_NOT_FOUND, "invalid secure data ref");
 
     TAF_ERROR_IF_RET_VAL(appName == nullptr, LE_BAD_PARAMETER, "invalid appName");
+
+    TAF_ERROR_IF_RET_VAL(clientDataPtr->sharedClient == true,
+                            LE_NOT_PERMITTED, "calling client is not the data owner");
 
     char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
 
@@ -1486,8 +1601,11 @@ le_result_t tafMngdStorageSvc::CancelDataSharing
 
     TAF_ERROR_IF_RET_VAL(appName == nullptr, LE_BAD_PARAMETER, "invalid appName");
 
+    TAF_ERROR_IF_RET_VAL(clientDataPtr->sharedClient == true,
+                            LE_NOT_PERMITTED, "calling client is not the data owner");
+
     TAF_ERROR_IF_RET_VAL(IsInSharedAppList(dataRef, appName) == false,
-                            LE_NOT_PERMITTED,
+                            LE_BAD_PARAMETER,
                             "app '%s' is not shared app", appName);
 
     le_result_t res = taf_ks_CancelKeySharing(dataPtr->keyRef, appName);
@@ -1605,6 +1723,9 @@ bool tafMngdStorageSvc::IsInSharedAppList
 
     for(uint i = 0; i < dataPtr->sharedAppList.appCount; i++)
     {
+        LE_DEBUG("shared app: %s", dataPtr->sharedAppList.appInfo[i].appName);
+        LE_DEBUG("check app: %s", appName);
+
         if (strcmp(dataPtr->sharedAppList.appInfo[i].appName, appName) == 0)
         {
             return true;
@@ -1666,7 +1787,7 @@ le_result_t tafMngdStorageSvc::GetFirstSharedApp
 
     if(dataPtr->sharedAppList.appCount > 0)
     {
-        snprintf(appName, appNameSize, dataPtr->sharedAppList.appInfo[0].appName);
+        snprintf(appName, appNameSize, "%s", dataPtr->sharedAppList.appInfo[0].appName);
         *usage = dataPtr->sharedAppList.appInfo[0].usage;
 
         // move interator to the next index
@@ -1713,7 +1834,7 @@ le_result_t tafMngdStorageSvc::GetNextSharedApp
 
     uint8_t i = dataPtr->sharedAppList.getIterIndex;
 
-    snprintf(appName, appNameSize, dataPtr->sharedAppList.appInfo[i].appName);
+    snprintf(appName, appNameSize, "%s", dataPtr->sharedAppList.appInfo[i].appName);
     *usage = dataPtr->sharedAppList.appInfo[i].usage;
 
     // move interator to the next index
@@ -1855,9 +1976,9 @@ void tafMngdStorageSvc::DataChangeEventHandler
         const char* dataNamePtr = dataPtr->dataName;
         const char* ownerAppNamePtr = dataPtr->ownerAppName;
 
-        // If the state is DATA_UPDATED or DATA_DELETED, notify all the registered shared apps
+        // If the state is DATA_UPDATED, notify all the registered shared apps
         // otherwise, only notify the sharing state changed app
-        if(state == TAF_MNGDSTORSECDATA_DATA_UPDATED || state == TAF_MNGDSTORSECDATA_DATA_DELETED)
+        if(state == TAF_MNGDSTORSECDATA_DATA_UPDATED)
         {
             for(uint i = 0; i < dataPtr->sharedAppList.appCount; i++)
             {

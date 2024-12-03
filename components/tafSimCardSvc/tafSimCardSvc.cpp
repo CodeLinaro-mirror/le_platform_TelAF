@@ -137,6 +137,7 @@ bool taf_sim_IsPresent(taf_sim_Id_t slotId) {
     taf_sim_States_t state = sim.getState(slotId);
     if ((state == TAF_SIM_PRESENT) ||
             (state == TAF_SIM_READY) ||
+            (state == TAF_SIM_ERROR) ||
             (state == TAF_SIM_RESTRICTED))
     {
         return true;

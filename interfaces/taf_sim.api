@@ -167,7 +167,7 @@
  *     - @ref TAF_SIM_POWER_DOWN    -- SIM card is powered OFF. Not supported.
  *     - @ref TAF_SIM_STATE_UNKNOWN -- Unknown SIM state; can occur when the state is not determined.
  *     - @ref TAF_SIM_RESTRICTED    -- SIM card is present but not usable due to carrier restrictions.
- *     - @ref TAF_SIM_ERROR         -- SIM card has error; either card is removed or not readable.
+ *     - @ref TAF_SIM_ERROR         -- SIM card has error; either card is removed or not readable or illegal.
  *
  * A handler function should be registered to receive SIM state notifications.
  * @ref taf_sim_AddNewStateHandler() allows users to register a state change handler.
@@ -346,7 +346,7 @@ ENUM States
     POWER_DOWN,                ///< SIM card is powered OFF. Currently this is not supported.
     STATE_UNKNOWN,             ///< SIM card state is unknown.
     RESTRICTED,                ///< SIM card is present but not usable due to carrier restrictions.
-    ERROR                      ///< SIM card has error; either card is removed or not readable.
+    ERROR                      ///< SIM card has error; either card is removed or not readable or illegal.
 };
 
 /**

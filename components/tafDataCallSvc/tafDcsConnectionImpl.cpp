@@ -152,6 +152,8 @@ void taf_DataConnectionListener::onDataCallInfoChanged
     callEvent.callStatus    = callStatus;
     callEvent.ipType        = iCall->getIpFamilyType();
     callEvent.ipv4Status    = iCall->getIpv4Info().status;
+    callEvent.maxRxBitRate  = 0;
+    callEvent.maxTxBitRate  = 0;
     if (callEvent.ipv4Status == telux::data::DataCallStatus::NET_CONNECTED)
     {
         le_utf8_Copy(callEvent.ipv4AddrInfo.ifAddress, iCall->getIpv4Info().addr.ifAddress.c_str(),
@@ -196,6 +198,49 @@ void taf_DataConnectionListener::onDataCallInfoChanged
                      TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
 
     }
+
+    // If this is a connected event, update the max Tx and Rx bit rates.
+    if (telux::data::DataCallStatus::NET_CONNECTED == callEvent.callStatus ||
+        telux::data::DataCallStatus::NET_CONNECTED == callEvent.ipv4Status ||
+        telux::data::DataCallStatus::NET_CONNECTED == callEvent.ipv6Status)
+    {
+        LE_DEBUG("Get max data bit rate");
+        // Promise and future used for synchronization.
+        std::promise<bool> p;
+        std::future<bool> f = p.get_future();
+
+        // requestDataCallBitRate callback lambda
+        auto respCb = [&callEvent, &p](telux::data::BitRateInfo &bitRate,
+                                              telux::common::ErrorCode errorCode)
+        {
+            if (telux::common::ErrorCode::SUCCESS == errorCode)
+            {
+                // Success
+                LE_DEBUG("maxRxRate: %" PRIu64 "", bitRate.maxRxRate);
+                LE_DEBUG("maxTxRate: %" PRIu64 "", bitRate.maxTxRate);
+                callEvent.maxRxBitRate = bitRate.maxRxRate;
+                callEvent.maxTxBitRate = bitRate.maxTxRate;
+                p.set_value(true);
+            }
+            else
+            {
+                LE_WARN("requestDataCallBitRateCb error: %d", static_cast<int>(errorCode));
+            }
+        };
+        telux::common::Status status = iCall->requestDataCallBitRate(respCb);
+        if (telux::common::Status::SUCCESS == status)
+        {
+            LE_DEBUG("requestDataCallBitRate SUCCESS. Wait for cbk");
+            f.get();
+        }
+        else
+        {
+            LE_WARN("requestDataCallBitRate failed: %d", static_cast<int>(status));
+        }
+    }
+
+    LE_DEBUG("maxRxBitRate: %" PRIu64 "", callEvent.maxRxBitRate);
+    LE_DEBUG("maxTxBitRate: %" PRIu64 "", callEvent.maxTxBitRate);
 
     le_utf8_Copy(callEvent.ifName, iCall->getInterfaceName().c_str(), TAF_DCS_NAME_MAX_LEN, NULL);
 
@@ -337,6 +382,63 @@ le_result_t taf_DataConnection::GetAPNThrottledStatus
     return result;
 }
 
+/**
+ * Function to get the amx data bit rates.
+ */
+le_result_t taf_DataConnection::GetMaxDataBitRates(taf_dcs_ProfileRef_t profileRef,
+                                                   uint64_t *maxRxBitRatePtr,
+                                                   uint64_t *maxTxBitRatePtr)
+{
+    TAF_ERROR_IF_RET_VAL(NULL == profileRef,      LE_BAD_PARAMETER, "profileRef is NULL");
+    TAF_ERROR_IF_RET_VAL(NULL == maxRxBitRatePtr, LE_BAD_PARAMETER, "maxRxBitRatePtr is NULL");
+    TAF_ERROR_IF_RET_VAL(NULL == maxTxBitRatePtr, LE_BAD_PARAMETER, "maxTxBitRatePtr is NULL");
+
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    int32_t profileId;
+    uint8_t slotId;
+    taf_dcs_CallCtx_t *callCtxPtr = NULL;
+    le_result_t result;
+
+    result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+    if (LE_OK != result)
+    {
+        LE_ERROR("Unable to get slot Id and profile Id. result = %d", result);
+        return result;
+    }
+    LE_DEBUG("Slot Id: %d, Profile Id: %d", slotId, profileId);
+
+    // If the proifle ID is TAF_DCS_UNDEFINED_PROFILE_ID, it means the profile has not been created.
+    if (TAF_DCS_UNDEFINED_PROFILE_ID == profileId)
+    {
+        LE_ERROR("Profile has not been created yet.");
+        return LE_NOT_POSSIBLE;
+    }
+
+    // Get the call context.
+    callCtxPtr = GetCallCtx(slotId, profileId);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
+                        "Cannot get call context from slotId(%d) profileId(%d)", slotId, profileId);
+
+    if (callCtxPtr->callStatus != telux::data::DataCallStatus::NET_CONNECTED &&
+        callCtxPtr->callStatus != telux::data::DataCallStatus::NET_IDLE &&
+        callCtxPtr->ipv4Status != telux::data::DataCallStatus::NET_CONNECTED &&
+        callCtxPtr->ipv4Status != telux::data::DataCallStatus::NET_IDLE &&
+        callCtxPtr->ipv6Status != telux::data::DataCallStatus::NET_CONNECTED &&
+        callCtxPtr->ipv6Status != telux::data::DataCallStatus::NET_IDLE)
+    {
+        // Call is not connected. Return LE_UNAVAILABLE
+        LE_WARN("Data call is not active for profile id %d", profileId);
+        *maxTxBitRatePtr = 0;
+        *maxRxBitRatePtr = 0;
+        return LE_UNAVAILABLE;
+    }
+
+    // Get the max bit rates
+    *maxRxBitRatePtr = callCtxPtr->maxRxBitRate;
+    *maxTxBitRatePtr = callCtxPtr->maxTxBitRate;
+
+    return LE_OK;
+}
 
 void taf_DataConnection::LogDataCallInfo
 (
@@ -632,7 +734,8 @@ taf_dcs_CallCtx_t* taf_DataConnection::CreateDataCallCtx(uint8_t slotId, int32_t
 
     snprintf(name, sizeof(name)-1, "callCtx-%d-%d", slotId, profileId);
     callCtxPtr->sessionStateEvent = le_event_CreateId(name, sizeof(DataCallState_t));
-
+    callCtxPtr->maxRxBitRate = 0;
+    callCtxPtr->maxTxBitRate = 0;
     return callCtxPtr;
 }
 
@@ -2079,11 +2182,13 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
     switch (eventPtr->callStatus)
     {
         case  telux::data::DataCallStatus::NET_CONNECTING:
-            callCtxPtr->ipType     = eventPtr->ipType;
+            LE_DEBUG("NET_CONNECTING");
+            callCtxPtr->ipType = eventPtr->ipType;
             isSendEvent = true;
         break;
 
         case telux::data::DataCallStatus::NET_CONNECTED:
+            LE_DEBUG("NET_CONNECTED");
             callCtxPtr->ipType     = eventPtr->ipType;
             le_utf8_Copy(callCtxPtr->intfName, eventPtr->ifName,
                          sizeof(callCtxPtr->intfName), NULL);
@@ -2116,15 +2221,23 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
             }
 
             callCtxPtr->dataBearerTech = updateDataBearerTech(eventPtr->dataBearerTech);
+            callCtxPtr->maxRxBitRate = eventPtr->maxRxBitRate;
+            callCtxPtr->maxTxBitRate = eventPtr->maxTxBitRate;
             isSendEvent = true;
         break;
 
         case telux::data::DataCallStatus::NET_DISCONNECTING:
+            LE_DEBUG("NET_DISCONNECTING");
+            callCtxPtr->maxRxBitRate = 0;
+            callCtxPtr->maxTxBitRate = 0;
             isSendEvent = true;
         break;
 
         case telux::data::DataCallStatus::NET_NO_NET:
+            LE_DEBUG("NET_NO_NET");
             memset(callCtxPtr->intfName, 0, sizeof(callCtxPtr->intfName));
+            callCtxPtr->maxRxBitRate = 0;
+            callCtxPtr->maxTxBitRate = 0;
             isSendEvent = true;
         break;
 
@@ -2162,7 +2275,7 @@ taf_dcs_Pdp_t taf_DataConnection::GetEvtInfoFromConnStatus
     return ipType;
 }
 
-void taf_DataConnection::InternalEventHandler(void* reportPtr)
+void taf_DataConnection::InternalDataCallEventHandler(void *reportPtr)
 {
     le_result_t result = LE_OK, clientRet = LE_OK;
     bool isSendNotification;
@@ -2370,10 +2483,11 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
     return;
 }
 
-void taf_DataConnection::EventHandler(void* reportPtr)
+// The handler for dataConnection.CallEvent
+void taf_DataConnection::DataCnxCallEventHandler(void *reportPtr)
 {
     auto &dataConnection = taf_DataConnection::GetInstance();
-    return dataConnection.InternalEventHandler(reportPtr);
+    return dataConnection.InternalDataCallEventHandler(reportPtr);
 }
 
 void taf_DataConnection::SendNotificationStateEvent
@@ -2634,7 +2748,7 @@ void* taf_DataConnection::ConnectionEventThread(void* contextPtr)
 
     // internal event handler
     dataConnection.CallEvent = le_event_CreateId("Internal Event", sizeof(dataCallEvent_t));
-    le_event_AddHandler("Internal Event Handler", dataConnection.CallEvent, EventHandler);
+    le_event_AddHandler("Internal Event Handler", dataConnection.CallEvent, DataCnxCallEventHandler);
 
     le_sem_Post(semRef);
 

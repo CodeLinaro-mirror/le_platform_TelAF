@@ -14,7 +14,7 @@ source set_af_env.sh sa525m
 ```bash
 cd ~/telaf
 ./bin/legs
-export TARGET=sa525m
+export TARGET=$TARGET_GLOBAL
 ```
 
 ### Step 3 Build the application

@@ -38,7 +38,8 @@ config DLT_CTX_ID
 
 config AUDIO_MULTI_FORMAT_PB_SUPPORTED
   bool "TelAF multi format playback supported"
-  default $(b2k,$(def,$(TELUX_AUDIO_MULTI_FORMAT_PB_SUPPORTED),y))
+  default "$(b2k,$(AUDIO_MULTI_FORMAT_PB_SUPPORTED))" if !$(empty,$(AUDIO_MULTI_FORMAT_PB_SUPPORTED))
+  default y
 
 config REFRESH_AUDIO_SVC
   bool "Telaf refresh audio service enabled"

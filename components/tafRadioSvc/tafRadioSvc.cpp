@@ -1614,19 +1614,36 @@ le_result_t taf_radio_GetSignalQual
     TAF_ERROR_IF_RET_VAL(tafRadio.signalStrengthCb->result != LE_OK,
         tafRadio.signalStrengthCb->result, "Fail to get signal quality.");
 
+    // RAT persists when UE is out of service.
     switch (sysInfo.rat)
     {
         case telux::tel::RadioTechnology::RADIO_TECH_GSM:
         case telux::tel::RadioTechnology::RADIO_TECH_GPRS:
         case telux::tel::RadioTechnology::RADIO_TECH_EDGE:
-            *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.gsm.sslv;
+            if (tafRadio.signalStrengthCb->ssMetrics.ratMask & TAF_RADIO_RAT_BIT_MASK_GSM)
+            {
+                *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.gsm.sslv;
+            }
+            else
+            {
+                LE_ERROR("Fail to get GSM signal strength.");
+                return LE_FAULT;
+            }
             break;
         case telux::tel::RadioTechnology::RADIO_TECH_UMTS:
         case telux::tel::RadioTechnology::RADIO_TECH_HSDPA:
         case telux::tel::RadioTechnology::RADIO_TECH_HSUPA:
         case telux::tel::RadioTechnology::RADIO_TECH_HSPA:
         case telux::tel::RadioTechnology::RADIO_TECH_HSPAP:
-            *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.umts.sslv;
+            if (tafRadio.signalStrengthCb->ssMetrics.ratMask & TAF_RADIO_RAT_BIT_MASK_UMTS)
+            {
+                *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.umts.sslv;
+            }
+            else
+            {
+                LE_ERROR("Fail to get UMTS signal strength.");
+                return LE_FAULT;
+            }
             break;
         case telux::tel::RadioTechnology::RADIO_TECH_IS95A:
         case telux::tel::RadioTechnology::RADIO_TECH_IS95B:
@@ -1635,16 +1652,40 @@ le_result_t taf_radio_GetSignalQual
         case telux::tel::RadioTechnology::RADIO_TECH_EVDO_A:
         case telux::tel::RadioTechnology::RADIO_TECH_EVDO_B:
         case telux::tel::RadioTechnology::RADIO_TECH_EHRPD:
-            *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.cdma.sslv;
+            if (tafRadio.signalStrengthCb->ssMetrics.ratMask & TAF_RADIO_RAT_BIT_MASK_CDMA)
+            {
+                *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.cdma.sslv;
+            }
+            else
+            {
+                LE_ERROR("Fail to get CDMA signal strength.");
+                return LE_FAULT;
+            }
             break;
         case telux::tel::RadioTechnology::RADIO_TECH_TD_SCDMA:
             return LE_UNAVAILABLE;
         case telux::tel::RadioTechnology::RADIO_TECH_LTE:
         case telux::tel::RadioTechnology::RADIO_TECH_LTE_CA:
-            *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.lte.sslv;
+            if (tafRadio.signalStrengthCb->ssMetrics.ratMask & TAF_RADIO_RAT_BIT_MASK_LTE)
+            {
+                *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.lte.sslv;
+            }
+            else
+            {
+                LE_ERROR("Fail to get LTE signal strength.");
+                return LE_FAULT;
+            }
             break;
         case telux::tel::RadioTechnology::RADIO_TECH_NR5G:
-            *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.nr5g.sslv;
+            if (tafRadio.signalStrengthCb->ssMetrics.ratMask & TAF_RADIO_RAT_BIT_MASK_NR5G)
+            {
+                *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.nr5g.sslv;
+            }
+            else
+            {
+                LE_ERROR("Fail to get NR5G signal strength.");
+                return LE_FAULT;
+            }
             break;
         default:
             LE_ERROR("Invalid RAT.");
@@ -5012,7 +5053,7 @@ le_result_t taf_radio_SetImsSvcCfg
         "Invalid para(phoneId:%d)", *phoneIdPtr);
 
     SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(*phoneIdPtr);
-    TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgrs[slotId] == nullptr, LE_FAULT,
+    TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgr == nullptr, LE_FAULT,
         "Invalid IMS setting manager(slotId:%d)", slotId);
 
     telux::tel::ImsServiceConfig config{};
@@ -5041,7 +5082,7 @@ le_result_t taf_radio_SetImsSvcCfg
             return LE_UNSUPPORTED;
     }
 
-    auto ret = tafRadio.imsSettingMgrs[slotId]->setServiceConfig(slotId, config,
+    auto ret = tafRadio.imsSettingMgr->setServiceConfig(slotId, config,
         taf_RadioImsSettingCallback::onResponseCallback);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
@@ -5085,10 +5126,10 @@ le_result_t taf_radio_GetImsSvcCfg
     TAF_ERROR_IF_RET_VAL(enable == nullptr, LE_BAD_PARAMETER, "Null ptr(enable)");
 
     SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(*phoneIdPtr);
-    TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgrs[slotId] == nullptr, LE_FAULT,
+    TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgr == nullptr, LE_FAULT,
         "Invalid IMS setting manager(slotId:%d)", slotId);
 
-    auto ret = tafRadio.imsSettingMgrs[slotId]->requestServiceConfig(slotId,
+    auto ret = tafRadio.imsSettingMgr->requestServiceConfig(slotId,
         taf_RadioImsSettingCallback::onRequestImsServiceConfig);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
@@ -5161,11 +5202,11 @@ le_result_t taf_radio_SetImsUserAgent
         "Invalid para(phoneId:%d)", *phoneIdPtr);
 
     SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(*phoneIdPtr);
-    TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgrs[slotId] == nullptr, LE_FAULT,
+    TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgr == nullptr, LE_FAULT,
         "Invalid IMS setting manager(slotId:%d)", slotId);
 
     std::string uaStr(userAgent);
-    auto ret = tafRadio.imsSettingMgrs[slotId]->setSipUserAgent(slotId, uaStr,
+    auto ret = tafRadio.imsSettingMgr->setSipUserAgent(slotId, uaStr,
         taf_RadioImsSettingCallback::onResponseCallback);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
@@ -5211,10 +5252,10 @@ le_result_t taf_radio_GetImsUserAgent
         "Invalid para(phoneId:%d)", *phoneIdPtr);
 
     SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(*phoneIdPtr);
-    TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgrs[slotId] == nullptr, LE_FAULT,
+    TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgr == nullptr, LE_FAULT,
         "Invalid IMS setting manager(slotId:%d)", slotId);
 
-    auto ret = tafRadio.imsSettingMgrs[slotId]->requestSipUserAgent(slotId,
+    auto ret = tafRadio.imsSettingMgr->requestSipUserAgent(slotId,
         taf_RadioImsSettingCallback::onRequestImsSipUserAgentConfig);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");

@@ -173,7 +173,7 @@ void taf_SecuritySvr::UDSMsgHandler
 
         memcpy(&rxSesTypePtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
         rxSesTypePtr->serviceId = sid;
-        rxSesTypePtr->sesType = msgPtr[msgPos] & 0x7F;
+        rxSesTypePtr->sesType = msgPtr[msgPos];
         LE_INFO("Receive session type: %x", rxSesTypePtr->sesType);
         msgPos += 1;
 
@@ -455,7 +455,7 @@ void taf_SecuritySvr::RemoveRxSesTypeCheckHandler
 le_result_t taf_SecuritySvr::SendSesTypeCheckResp
 (
     taf_diagSecurity_RxSesTypeCheckRef_t rxSesTypeRef,
-    taf_diagSecurity_SesControlErrorCode_t errCode
+    uint8_t errCode
 )
 {
     LE_DEBUG("SendSesTypeCheckResp");
@@ -1000,7 +1000,7 @@ le_result_t taf_SecuritySvr::GetSecAccessPayload
 le_result_t taf_SecuritySvr::SendSecAccessResp
 (
     taf_diagSecurity_RxSecAccessMsgRef_t rxMsgRef,
-    taf_diagSecurity_SecAccessErrorCode_t errCode,
+    uint8_t errCode,
     const uint8_t* dataPtr,
     size_t dataSize
 )

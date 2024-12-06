@@ -114,6 +114,9 @@ typedef struct AO_SecurityAccess_s
     le_sls_List_t session_list;
     SecuritySession_t * current_session;
 
+    /* Each Active Object has their own dummy default configuration */
+    SecuritySession_t * default_session;
+
     /* Record last pending session-id (uds-session-id) */
     uint8_t last_pending_session_id;
     /* Record last pending signal (control/timeout) */
@@ -141,13 +144,18 @@ le_event_Id_t SecAccEventIdRef = NULL;
 
 /* default_session is not supported in Security-Access Field */
 #define SEC_ACC_DEFAULT_SESSION_ID 0xFF
-static SecuritySession_t SecAccDefaultSession = {
-    .session_id = SEC_ACC_DEFAULT_SESSION_ID,
-    .level_list = LE_SLS_LIST_INIT,
-    .active_level = NULL, /* Must be NULL to be checked */
-    .unlocked_level = NULL, /* Must be NULL to be checked */
-    .link = LE_SLS_LINK_INIT,
-};
+
+static SecuritySession_t * GetDefaultSession(void)
+{
+    SecuritySession_t * session = (SecuritySession_t*)le_mem_ForceAlloc(SecuritySessionPool);
+    session->session_id = SEC_ACC_DEFAULT_SESSION_ID;
+    session->level_list = LE_SLS_LIST_INIT;
+    session->active_level = NULL; /* Must be NULL to be checked */
+    session->unlocked_level = NULL; /* Must be NULL to be checked */
+    session->link = LE_SLS_LINK_INIT;
+
+    return session;
+}
 
 /* Standard States from ISO 14229:2020 Annex I section */
 MState_t State_initial(AO_SecurityAccess_t * self, MEvent_t const *ev);
@@ -168,6 +176,13 @@ typedef MState_t (* State_Function) (AO_SecurityAccess_t * self, MEvent_t const 
 #define EVENT(ev) ((SecAccEvent_t *) ev)
 #define CURRENT_SESSION_ID(ev) ((uint32_t)EVENT(ev)->report->mgr->SessionType)
 
+#define SECACC_ASSERT_FATAL(condition) \
+do { \
+    if (! (condition) ) { \
+        LE_FATAL("SecAcc-Fatal: %s", #condition); \
+    } \
+} while (0)
+
 void TryToCreateStorageFromTree(AO_SecurityAccess_t *self)
 {
     char nodePath[CFG_NODE_PATH_LEN] = {0};
@@ -176,6 +191,8 @@ void TryToCreateStorageFromTree(AO_SecurityAccess_t *self)
                                          CFG_SECURITY_ACCESS_TREE);
 
     snprintf(nodePath, sizeof(nodePath), "%s", self->ifname);
+
+    LE_DEBUG("Security config tree: %s", nodePath);
 
     if (le_cfg_NodeExists(iteratorRef, nodePath))
     {
@@ -205,10 +222,11 @@ void TryToCreateStorageFromTree(AO_SecurityAccess_t *self)
                          "%s/%02X/%02X/Att_Cnt", self->ifname,
                          sess->session_id, level->Security_Level);
                 le_cfg_SetInt(iteratorRef, nodePath, level->Att_Cnt);
+                LE_DEBUG("Tree node: [ %s ] created", nodePath);
             }
         }
         le_cfg_CommitTxn(iteratorRef);
-        LE_INFO("Initialize the tree: " CFG_SECURITY_ACCESS_TREE);
+        LE_INFO("Initialized the tree: " CFG_SECURITY_ACCESS_TREE);
     }
 }
 
@@ -222,16 +240,18 @@ static void AO_SecurityAccess_ctor
     MFsm_ctor(&self->super, (MStateHandler_t)&State_initial);
     try
     {
+        LE_INFO("Parsing security_binding ...");
         cfg::Node & sec_binding = cfg::get_root_node().get_child("security_binding");
 
         self->session_list = LE_SLS_LIST_INIT;
         self->current_session = NULL;
+        self->default_session = NULL; /* Allocated dynamically */
         self->last_pending_session_id = SEC_ACC_DEFAULT_SESSION_ID;
         self->last_pending_signal = INVALID_SIG;
         self->mMgr = mgr; /* To the manager instance */
         self->delay_timer_ref = NULL; /* Will be filled soon */
 
-        LE_ASSERT(strlen(ifname) + 1 <= IF_NAME_MAX_LEN);
+        SECACC_ASSERT_FATAL(strlen(ifname) + 1 <= IF_NAME_MAX_LEN);
         le_utf8_Copy(self->ifname, ifname, IF_NAME_MAX_LEN, NULL);
 
         for (auto & binding: sec_binding) {
@@ -267,6 +287,12 @@ static void AO_SecurityAccess_ctor
             sess->link = LE_SLS_LINK_INIT;
             le_sls_Queue(&self->session_list, &(sess->link));
         }
+
+        self->default_session = GetDefaultSession();
+        SECACC_ASSERT_FATAL(self->default_session != NULL);
+
+        /* Add dummy default session to session-list */
+        le_sls_Queue(&self->session_list, &(self->default_session->link));
     }
     catch (const std::exception& e)
     {
@@ -321,7 +347,7 @@ static void ResponseNRC(AO_SecurityAccess_t * self, MEvent_t const * ev, uint8_t
         evp->report->mgr->remoteError = LE_OK;
     }
 
-    LE_ASSERT(evp->report->sem);
+    SECACC_ASSERT_FATAL(evp->report->sem != NULL);
     le_sem_Post(evp->report->sem);
 }
 
@@ -332,7 +358,7 @@ static void SetResponseNRC(AO_SecurityAccess_t * self, MEvent_t const * ev, uint
 
     evp->report->mgr->nrcCode = nrc;
 
-    LE_ASSERT(evp->report->sem);
+    SECACC_ASSERT_FATAL(evp->report->sem != NULL);
     le_sem_Post(evp->report->sem);
 }
 
@@ -455,7 +481,7 @@ static bool MsgLengthIsNok(AO_SecurityAccess_t * self, MEvent_t const *ev, SecAc
             return true;
         }
 
-        LE_ASSERT(self->current_session->active_level != NULL);
+        SECACC_ASSERT_FATAL(self->current_session->active_level != NULL);
 
         uint32_t key_bit_size = self->current_session->active_level->key_size;
         uint16_t key_byte_size = (key_bit_size % 8) ? (key_bit_size / 8) + 1 : (key_bit_size / 8);
@@ -540,14 +566,14 @@ static void ActivateSubfunction(AO_SecurityAccess_t * self, MEvent_t const *ev)
         break;
     }
 
-    LE_ASSERT(self->current_session != NULL);
-    LE_ASSERT(self->current_session->active_level != NULL);
+    SECACC_ASSERT_FATAL(self->current_session != NULL);
+    SECACC_ASSERT_FATAL(self->current_session->active_level != NULL);
 }
 
 static void UnlockRequestedSecLevelAndLockOthers(AO_SecurityAccess_t * self)
 {
-    LE_ASSERT(self->current_session->active_level != NULL);
-    LE_ASSERT(self->current_session->unlocked_level != NULL);
+    SECACC_ASSERT_FATAL(self->current_session->active_level != NULL);
+    SECACC_ASSERT_FATAL(self->current_session->unlocked_level != NULL);
 
     if (self->current_session->active_level
     !=  self->current_session->unlocked_level) {
@@ -644,7 +670,7 @@ static void UnlockCurrentSecLevel(AO_SecurityAccess_t * self)
 static void SwitchSessionBasedOnEvent(AO_SecurityAccess_t * self, MEvent_t const * ev)
 {
     if (CURRENT_SESSION_ID(ev) == DEFAULT_SESSION) {
-        self->current_session = &SecAccDefaultSession;
+        self->current_session = self->default_session;
     }
     else {
         self->current_session = NULL;
@@ -660,7 +686,7 @@ static void SwitchSessionBasedOnEvent(AO_SecurityAccess_t * self, MEvent_t const
             }
         }
 
-        LE_ASSERT(self->current_session != NULL);
+        SECACC_ASSERT_FATAL(self->current_session != NULL);
     }
 }
 
@@ -696,7 +722,7 @@ static void DeactivateAndLock(AO_SecurityAccess_t * self)
 static void SwitchSessionAfterDelayTimerTimeout(AO_SecurityAccess_t * self)
 {
     if (self->last_pending_session_id == DEFAULT_SESSION) {
-        self->current_session = &SecAccDefaultSession;
+        self->current_session = self->default_session;
     }
     else {
         self->current_session = NULL;
@@ -709,8 +735,8 @@ static void SwitchSessionAfterDelayTimerTimeout(AO_SecurityAccess_t * self)
                 break;
             }
         }
-
-        LE_ASSERT(self->current_session != NULL);
+        LE_INFO("Pending session ID: %d", self->last_pending_session_id);
+        SECACC_ASSERT_FATAL(self->current_session != NULL);
     }
 
     /* Reset all last-pending stuff */
@@ -747,7 +773,7 @@ MState_t State_initial(AO_SecurityAccess_t * self, MEvent_t const *ev)
 {
     LE_INFO("SECURITY_ACCESS: %s", __FUNCTION__);
     LoadAttCntAndDelayTimer(self, ev);
-    self->current_session = &SecAccDefaultSession;
+    self->current_session = self->default_session;
     return M_Translate(&State_LockedNoActiveSeed);
 }
 
@@ -828,7 +854,7 @@ MState_t State_LockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *ev
             }
             else {
                 DeactivateAndLock(self);
-                self->current_session = &SecAccDefaultSession;
+                self->current_session = self->default_session;
                 return M_Handled();
             }
         }
@@ -953,7 +979,7 @@ MState_t State_LockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const *e
         }
         case SESSION_TIMEOUT_SIG: {
             DeactivateAndLock(self);
-            self->current_session = &SecAccDefaultSession;
+            self->current_session = self->default_session;
             return M_Translate(&State_LockedNoActiveSeed);
         }
     }
@@ -1055,7 +1081,7 @@ MState_t State_UnlockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *
             }
             else {
                 DeactivateAndLock(self);
-                self->current_session = &SecAccDefaultSession;
+                self->current_session = self->default_session;
                 return M_Translate(&State_LockedNoActiveSeed);
             }
         }
@@ -1187,7 +1213,7 @@ MState_t State_UnlockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const 
         }
         case SESSION_TIMEOUT_SIG: {
             DeactivateAndLock(self);
-            self->current_session = &SecAccDefaultSession;
+            self->current_session = self->default_session;
             return M_Translate(&State_LockedNoActiveSeed);
         }
     }
@@ -1260,7 +1286,7 @@ void SecurityAccess_CreateActiveObject(void * mgr_, void * ifname)
 
     /* Create new Active Object and bind it to UDS manager */
     mgr->mSecurityAccess = (AO_SecurityAccess_t *) le_mem_ForceAlloc(SecurityActiveObjectPool);
-    LE_ASSERT(mgr->mSecurityAccess);
+    SECACC_ASSERT_FATAL(mgr->mSecurityAccess != NULL);
 
     LE_DEBUG("AO object address: %p (in)", mgr->mSecurityAccess);
     AO_SecurityAccess_ctor(mgr->mSecurityAccess, mgr, (char *)ifname);
@@ -1272,7 +1298,7 @@ void SecurityAccess_CreateActiveObject(void * mgr_, void * ifname)
     char timerName[DELAY_TIMER_NAME_SIZE];
     snprintf(timerName, sizeof(timerName), "delay_timer_%s", (char *)ifname);
     mgr->mSecurityAccess->delay_timer_ref = le_timer_Create(timerName);
-    LE_ASSERT(mgr->mSecurityAccess->delay_timer_ref != NULL);
+    SECACC_ASSERT_FATAL(mgr->mSecurityAccess->delay_timer_ref != NULL);
 
     LE_DEBUG("%s .. AO: %p (%s)", __FUNCTION__, mgr->mSecurityAccess, (char *)ifname);
     LE_DEBUG("%s .. delay_timer_ref: %p",

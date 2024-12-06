@@ -360,7 +360,7 @@ void tafSimTest_selection
     printf("\n After selecting %d Current SIM slot id = %d\n" ,slot, slotId);
 }
 
-void tafSimTest_enterPin
+le_result_t tafSimTest_enterPin
 (
     taf_sim_Id_t simId,
     taf_sim_LockType_t lockType,
@@ -371,9 +371,10 @@ void tafSimTest_enterPin
     res = taf_sim_EnterPIN(simId, lockType, pinPtr);
     LE_TEST_OK(res == LE_OK, "tafSimTest_enterPin");
     LE_INFO("EnterPIN done");
+    return res;
 }
 
-void tafSimTest_setLock
+le_result_t tafSimTest_setLock
 (
     taf_sim_Id_t simId,
     taf_sim_LockType_t lockType,
@@ -391,9 +392,11 @@ void tafSimTest_setLock
         LE_TEST_OK(res == LE_OK, "taf_sim_Unlock");
         LE_INFO("Unlock request sent successfully");
     }
+
+    return res;
 }
 
-void tafSimTest_Change_pin
+le_result_t tafSimTest_Change_pin
 (
     taf_sim_Id_t simId,
     taf_sim_LockType_t lockType,
@@ -404,9 +407,10 @@ void tafSimTest_Change_pin
     le_result_t res;
     res = taf_sim_ChangePIN(simId, lockType, oldpinPtr, newpinPtr);
     LE_TEST_OK(res == LE_OK, "tafSimTest_Change_pin");
+    return res;
 }
 
-void tafSimTest_unblock_puk
+le_result_t tafSimTest_unblock_puk
 (
     taf_sim_Id_t simId,
     taf_sim_LockType_t lockType,
@@ -417,6 +421,7 @@ void tafSimTest_unblock_puk
     le_result_t res;
     res = taf_sim_Unblock(simId, lockType, pukPtr, newpinPtr);
     LE_TEST_OK(res == LE_OK, "tafSimTest_unblock_puk");
+    return res;
 }
 
 void tafSimTest_GetAppTypes

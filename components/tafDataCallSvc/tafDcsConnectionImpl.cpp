@@ -152,8 +152,14 @@ void taf_DataConnectionListener::onDataCallInfoChanged
     callEvent.callStatus    = callStatus;
     callEvent.ipType        = iCall->getIpFamilyType();
     callEvent.ipv4Status    = iCall->getIpv4Info().status;
+    callEvent.ipv6Status    = iCall->getIpv6Info().status;
     callEvent.maxRxBitRate  = 0;
     callEvent.maxTxBitRate  = 0;
+    callEvent.callEndReasonIPv4.callEndReasonType = TAF_DCS_CE_TYPE_UNKNOWN;
+    callEvent.callEndReasonIPv4.reasonInternal    = TAF_DCS_CE_INTERNAL_UNKNOWN;
+    callEvent.callEndReasonIPv6.callEndReasonType = TAF_DCS_CE_TYPE_UNKNOWN;
+    callEvent.callEndReasonIPv6.reasonInternal    = TAF_DCS_CE_INTERNAL_UNKNOWN;
+
     if (callEvent.ipv4Status == telux::data::DataCallStatus::NET_CONNECTED)
     {
         le_utf8_Copy(callEvent.ipv4AddrInfo.ifAddress, iCall->getIpv4Info().addr.ifAddress.c_str(),
@@ -174,8 +180,6 @@ void taf_DataConnectionListener::onDataCallInfoChanged
                      iCall->getIpv4Info().addr.secondaryDnsAddress.c_str(),
                      TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
     }
-
-    callEvent.ipv6Status        = iCall->getIpv6Info().status;
 
     if (callEvent.ipv6Status == telux::data::DataCallStatus::NET_CONNECTED)
     {
@@ -236,6 +240,104 @@ void taf_DataConnectionListener::onDataCallInfoChanged
         else
         {
             LE_WARN("requestDataCallBitRate failed: %d", static_cast<int>(status));
+        }
+    }
+
+    // If this is a data disconnected event, store the call end reason type and reason for IPv4.
+    if (telux::data::DataCallStatus::NET_NO_NET == callEvent.ipv4Status ||
+        telux::data::DataCallStatus::INVALID    == callEvent.ipv4Status )
+    {
+        telux::common::DataCallEndReason reason = iCall->getDataCallEndReason();
+        callEvent.callEndReasonIPv4.callEndReasonType =
+                                        taf_DCSHelper::ConvertCallEndReasonType(reason.type);
+
+        switch (reason.type)
+        {
+        case telux::common::EndReasonType::CE_MOBILE_IP:
+            callEvent.callEndReasonIPv4.reasonMIP =
+                            taf_DCSHelper::ConvertCallEndMobileIpReasonCode(reason.IpCode);
+            break;
+        case telux::common::EndReasonType::CE_INTERNAL:
+            callEvent.callEndReasonIPv4.reasonInternal =
+                            taf_DCSHelper::ConvertCallEndInternalReasonCode(reason.internalCode);
+            break;
+        case telux::common::EndReasonType::CE_CALL_MANAGER_DEFINED:
+            callEvent.callEndReasonIPv4.reasonCallManager =
+                            taf_DCSHelper::ConvertCallEndCallManagerReasonCode(reason.cmCode);
+            break;
+        case telux::common::EndReasonType::CE_3GPP_SPEC_DEFINED:
+            callEvent.callEndReasonIPv4.reasonSpec =
+                            taf_DCSHelper::ConvertCallEnd3GPPSpecReasonCode(reason.specCode);
+            break;
+        case telux::common::EndReasonType::CE_PPP:
+            callEvent.callEndReasonIPv4.reasonPPP =
+                            taf_DCSHelper::ConvertCallEndPPPReasonCode(reason.pppCode);
+            break;
+        case telux::common::EndReasonType::CE_EHRPD:
+            callEvent.callEndReasonIPv4.reasonEHRPD =
+                            taf_DCSHelper::ConvertCallEndEHRPDReasonCode(reason.ehrpdCode);
+            break;
+        case telux::common::EndReasonType::CE_IPV6:
+            callEvent.callEndReasonIPv4.reasonIPv6 =
+                            taf_DCSHelper::ConvertCallEndIPv6ReasonCode(reason.ipv6Code);
+            break;
+        case telux::common::EndReasonType::CE_HANDOFF:
+            callEvent.callEndReasonIPv4.reasonHandOff =
+                            taf_DCSHelper::ConvertCallEndHandoffReasonCode(reason.handOffCode);
+            break;
+        default:
+            LE_WARN("Invalid Reason code: %d", static_cast<int32_t>(reason.type));
+            callEvent.callEndReasonIPv4.reasonInternal = TAF_DCS_CE_INTERNAL_UNKNOWN;
+            break;
+        }
+    }
+
+    // If this is a data disconnected event, store the call end reason type and reason for IPv6.
+    if (telux::data::DataCallStatus::NET_NO_NET == callEvent.ipv6Status ||
+        telux::data::DataCallStatus::INVALID    == callEvent.ipv6Status )
+    {
+        telux::common::DataCallEndReason reason = iCall->getDataCallEndReason();
+        callEvent.callEndReasonIPv6.callEndReasonType =
+                                        taf_DCSHelper::ConvertCallEndReasonType(reason.type);
+
+        switch (reason.type)
+        {
+        case telux::common::EndReasonType::CE_MOBILE_IP:
+            callEvent.callEndReasonIPv6.reasonMIP =
+                            taf_DCSHelper::ConvertCallEndMobileIpReasonCode(reason.IpCode);
+            break;
+        case telux::common::EndReasonType::CE_INTERNAL:
+            callEvent.callEndReasonIPv6.reasonInternal =
+                            taf_DCSHelper::ConvertCallEndInternalReasonCode(reason.internalCode);
+            break;
+        case telux::common::EndReasonType::CE_CALL_MANAGER_DEFINED:
+            callEvent.callEndReasonIPv6.reasonCallManager =
+                            taf_DCSHelper::ConvertCallEndCallManagerReasonCode(reason.cmCode);
+            break;
+        case telux::common::EndReasonType::CE_3GPP_SPEC_DEFINED:
+            callEvent.callEndReasonIPv6.reasonSpec =
+                            taf_DCSHelper::ConvertCallEnd3GPPSpecReasonCode(reason.specCode);
+            break;
+        case telux::common::EndReasonType::CE_PPP:
+            callEvent.callEndReasonIPv6.reasonPPP =
+                            taf_DCSHelper::ConvertCallEndPPPReasonCode(reason.pppCode);
+            break;
+        case telux::common::EndReasonType::CE_EHRPD:
+            callEvent.callEndReasonIPv6.reasonEHRPD =
+                            taf_DCSHelper::ConvertCallEndEHRPDReasonCode(reason.ehrpdCode);
+            break;
+        case telux::common::EndReasonType::CE_IPV6:
+            callEvent.callEndReasonIPv6.reasonIPv6 =
+                            taf_DCSHelper::ConvertCallEndIPv6ReasonCode(reason.ipv6Code);
+            break;
+        case telux::common::EndReasonType::CE_HANDOFF:
+            callEvent.callEndReasonIPv6.reasonHandOff =
+                            taf_DCSHelper::ConvertCallEndHandoffReasonCode(reason.handOffCode);
+            break;
+        default:
+            LE_WARN("Invalid Reason code: %d", static_cast<int32_t>(reason.type));
+            callEvent.callEndReasonIPv6.reasonInternal = TAF_DCS_CE_INTERNAL_UNKNOWN;
+            break;
         }
     }
 
@@ -440,6 +542,121 @@ le_result_t taf_DataConnection::GetMaxDataBitRates(taf_dcs_ProfileRef_t profileR
     return LE_OK;
 }
 
+/**
+ * Function to convert call end reason to int32_t. This is a helper to GetCallEndReason function.
+ */
+int32_t taf_DataConnection::ConvertCEReason(taf_dcs_callEndReason_t ceReason)
+{
+    switch (ceReason.callEndReasonType)
+    {
+    case TAF_DCS_CE_TYPE_UNKNOWN:
+        LE_DEBUG("Unknown type");
+        return TAF_DCS_CE_REASON_UNKNOWN;
+    case TAF_DCS_CE_TYPE_MOBILE_IP:
+        return static_cast<int32_t>(ceReason.reasonMIP);
+    case TAF_DCS_CE_TYPE_INTERNAL:
+        return static_cast<int32_t>(ceReason.reasonInternal);
+    case TAF_DCS_CE_TYPE_CALL_MANAGER_DEFINED:
+        return static_cast<int32_t>(ceReason.reasonCallManager);
+    case TAF_DCS_CE_TYPE_3GPP_SPEC_DEFINED:
+        return static_cast<int32_t>(ceReason.reasonSpec);
+    case TAF_DCS_CE_TYPE_PPP:
+        return static_cast<int32_t>(ceReason.reasonPPP);
+    case TAF_DCS_CE_TYPE_EHRPD:
+        return static_cast<int32_t>(ceReason.reasonEHRPD);
+    case TAF_DCS_CE_TYPE_IPV6:
+        return static_cast<int32_t>(ceReason.reasonIPv6);
+    case TAF_DCS_CE_TYPE_HANDOFF:
+        return static_cast<int32_t>(ceReason.reasonHandOff);
+    default:
+        LE_WARN("Invalid/Unknown reason type: %d",
+                static_cast<int32_t>(ceReason.callEndReasonType));
+        return TAF_DCS_CE_REASON_UNKNOWN;
+    }
+}
+
+/**
+ * Function to get call end reason.
+ */
+le_result_t taf_DataConnection::GetCallEndReason(
+    taf_dcs_ProfileRef_t profileRef,
+    taf_dcs_Pdp_t pdpType,
+    taf_dcs_CallEndReasonType_t *callEndReasonTypePtr,
+    int32_t *callEndReasonPtr)
+{
+    TAF_ERROR_IF_RET_VAL(NULL == profileRef, LE_BAD_PARAMETER, "profileRef is NULL");
+    TAF_ERROR_IF_RET_VAL(NULL == callEndReasonTypePtr, LE_BAD_PARAMETER,
+                                                                "callEndReasonTypePtr is NULL");
+    TAF_ERROR_IF_RET_VAL(NULL == callEndReasonPtr, LE_BAD_PARAMETER, "callEndReasonPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_PDP_UNKNOWN == pdpType, LE_BAD_PARAMETER, "pdpType is invalid");
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_PDP_IPV4V6 == pdpType, LE_BAD_PARAMETER, "Specify IPv4 or IPv6");
+
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    int32_t profileId;
+    uint8_t slotId;
+    taf_dcs_CallCtx_t *callCtxPtr = NULL;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+    if (LE_OK != result)
+    {
+        LE_ERROR("Unable to get slot Id and profile Id. result = %d", result);
+        return result;
+    }
+    LE_DEBUG("Slot Id: %d, Profile Id: %d", slotId, profileId);
+
+    // If the proifle ID is TAF_DCS_UNDEFINED_PROFILE_ID, it means the profile has not been created.
+    if (TAF_DCS_UNDEFINED_PROFILE_ID == profileId)
+    {
+        LE_ERROR("Profile has not been created yet.");
+        return LE_NOT_POSSIBLE;
+    }
+
+    // Get the call context.
+    callCtxPtr = GetCallCtx(slotId, profileId);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
+                        "Cannot get call context from slotId(%d) profileId(%d)", slotId, profileId);
+
+    // Check if a data call has been setup yet.
+    if (telux::data::DataCallStatus::INVALID == callCtxPtr->callStatus)
+    {
+        // The call end type is unknown. No data call has been setup yet. Return LE_UNAVAILABLE.
+        LE_WARN("Data call has not been setup yet");
+        return LE_UNAVAILABLE;
+    }
+
+    if (TAF_DCS_PDP_IPV4 == pdpType)
+    {
+        // Check if a IPv4 data call is active
+        if (callCtxPtr->ipv4Status != telux::data::DataCallStatus::NET_NO_NET &&
+            callCtxPtr->ipv4Status != telux::data::DataCallStatus::INVALID)
+        {
+            // Call is connected. Return LE_UNAVAILABLE
+            LE_WARN("IPv4 call is active for profile id %d", profileId);
+            return LE_UNAVAILABLE;
+        }
+        LE_DEBUG("IPv4 Reason type: %d", callCtxPtr->callEndReasonIPv4.callEndReasonType);
+        // Assign the call end reason type
+        *callEndReasonTypePtr = callCtxPtr->callEndReasonIPv4.callEndReasonType;
+        *callEndReasonPtr     = ConvertCEReason(callCtxPtr->callEndReasonIPv4);
+    }
+    if (TAF_DCS_PDP_IPV6 == pdpType)
+    {
+        // Check if a IPv6 data call is active
+        if (callCtxPtr->ipv6Status != telux::data::DataCallStatus::NET_NO_NET &&
+            callCtxPtr->ipv6Status != telux::data::DataCallStatus::INVALID)
+        {
+            // Call is connected. Return LE_UNAVAILABLE
+            LE_WARN("IPv6 call is active for profile id %d", profileId);
+            return LE_UNAVAILABLE;
+        }
+        LE_DEBUG("IPv6 Reason type: %d", callCtxPtr->callEndReasonIPv6.callEndReasonType);
+        // Assign the call end reason type
+        *callEndReasonTypePtr = callCtxPtr->callEndReasonIPv6.callEndReasonType;
+        *callEndReasonPtr     = ConvertCEReason(callCtxPtr->callEndReasonIPv6);
+    }
+    LE_DEBUG("Reason code: %d", *callEndReasonPtr);
+    return LE_OK;
+}
+
 void taf_DataConnection::LogDataCallInfo
 (
     const std::shared_ptr<telux::data::IDataCall> &dataCall,
@@ -448,13 +665,14 @@ void taf_DataConnection::LogDataCallInfo
 {
     int32_t profileId = dataCall->getProfileId();
     uint8_t slotId = (uint8_t)dataCall->getSlotId();
+    telux::data::DataCallStatus callStatus;
 
     LE_DEBUG("data callback details from: %s", fromPtr);
     LE_DEBUG("profile id:           %d", profileId);
     LE_DEBUG("slot id:           %d", slotId);
     LE_DEBUG("interface name:       %s", dataCall->getInterfaceName().c_str());
-    LE_DEBUG("call status:          %s", taf_DCSHelper::CallStatusToString(
-                                                                dataCall->getDataCallStatus()));
+    callStatus = dataCall->getDataCallStatus();
+    LE_DEBUG("call status:          %s", taf_DCSHelper::CallStatusToString(callStatus));
     LE_DEBUG("ip type:              %s", taf_DCSHelper::IpFamilyTypeToString(
                                                                 dataCall->getIpFamilyType()));
     LE_DEBUG("ipv4 status:          %s", taf_DCSHelper::CallStatusToString(
@@ -468,8 +686,67 @@ void taf_DataConnection::LogDataCallInfo
         LE_DEBUG("primary dns addr:     %s", it.primaryDnsAddress.c_str());
         LE_DEBUG("secondary dns addr:   %s", it.secondaryDnsAddress.c_str());
     }
-    LE_DEBUG("call end reason:   %s", taf_DCSHelper::CallEndReasonTypeToString(
-                                                            dataCall->getDataCallEndReason().type));
+    telux::common::DataCallEndReason reason = dataCall->getDataCallEndReason();
+    LE_DEBUG("call end reason type:   %s", taf_DCSHelper::CallEndReasonTypeToString(reason.type));
+    if ( telux::data::DataCallStatus::NET_NO_NET        == callStatus ||
+         telux::data::DataCallStatus::NET_DISCONNECTING == callStatus )
+    {
+        switch (reason.type)
+        {
+        case telux::data::EndReasonType::CE_MOBILE_IP:
+            LE_DEBUG("call end MIP reason code: %d(%s)",
+                        static_cast<int32_t>(reason.IpCode),
+                        taf_DCSHelper::CallEndMobileIpReasonCodeToString(
+                            taf_DCSHelper::ConvertCallEndMobileIpReasonCode(reason.IpCode)));
+            break;
+        case telux::data::EndReasonType::CE_INTERNAL:
+            LE_DEBUG("call end internal reason code: %d(%s)",
+                     static_cast<int32_t>(reason.internalCode),
+                     taf_DCSHelper::CallEndInternalReasonCodeToString(
+                         taf_DCSHelper::ConvertCallEndInternalReasonCode(reason.internalCode)));
+            break;
+        case telux::data::EndReasonType::CE_CALL_MANAGER_DEFINED:
+            LE_DEBUG("call end CM reason code: %d(%s)",
+                     static_cast<int32_t>(reason.cmCode),
+                     taf_DCSHelper::CallEndCallManagerReasonCodeToString(
+                         taf_DCSHelper::ConvertCallEndCallManagerReasonCode(reason.cmCode)));
+            break;
+        case telux::data::EndReasonType::CE_3GPP_SPEC_DEFINED:
+            LE_DEBUG("call end 3GPP spec reason code: %d(%s)",
+                     static_cast<int32_t>(reason.specCode),
+                     taf_DCSHelper::CallEnd3GPPSpecReasonCodeToString(
+                         taf_DCSHelper::ConvertCallEnd3GPPSpecReasonCode(reason.specCode)));
+            break;
+        case telux::data::EndReasonType::CE_PPP:
+            LE_DEBUG("call end PPP reason code: %d(%s)",
+                     static_cast<int32_t>(reason.pppCode),
+                     taf_DCSHelper::CallEndPPPReasonCodeToString(
+                         taf_DCSHelper::ConvertCallEndPPPReasonCode(reason.pppCode)));
+            break;
+        case telux::data::EndReasonType::CE_EHRPD:
+            LE_DEBUG("call end EHRPD reason code: %d(%s)",
+                     static_cast<int32_t>(reason.ehrpdCode),
+                     taf_DCSHelper::CallEndEHRPDReasonCodeToString(
+                         taf_DCSHelper::ConvertCallEndEHRPDReasonCode(reason.ehrpdCode)));
+            break;
+        case telux::data::EndReasonType::CE_IPV6:
+            LE_DEBUG("call end IPv6 reason code: %d(%s)",
+                     static_cast<int32_t>(reason.ipv6Code),
+                     taf_DCSHelper::CallEndIPv6ReasonCodeToString(
+                         taf_DCSHelper::ConvertCallEndIPv6ReasonCode(reason.ipv6Code)));
+            break;
+        case telux::data::EndReasonType::CE_HANDOFF:
+            LE_DEBUG("call end handodd reason code: %d(%s)",
+                     static_cast<int32_t>(reason.handOffCode),
+                     taf_DCSHelper::CallEndHandoffReasonCodeToString(
+                         taf_DCSHelper::ConvertCallEndHandoffReasonCode(reason.handOffCode)));
+            break;
+        default:
+            LE_DEBUG("Invalid Reason code: %d", static_cast<int32_t>(reason.type));
+            break;
+        }
+    }
+
     LE_DEBUG("tech preference:      %s", taf_DCSHelper::TechPreferenceToString(
                                                             dataCall->getTechPreference()));
     LE_DEBUG("DataBearerTechnology: %s", taf_DCSHelper::DataBearerToString(
@@ -720,6 +997,7 @@ taf_dcs_CallCtx_t* taf_DataConnection::CreateDataCallCtx(uint8_t slotId, int32_t
     callCtxPtr->sessionListMutex = PTHREAD_MUTEX_INITIALIZER;
     callCtxPtr->ipv4Status = telux::data::DataCallStatus::INVALID;
     callCtxPtr->ipv6Status = telux::data::DataCallStatus::INVALID;
+    callCtxPtr->callStatus = telux::data::DataCallStatus::INVALID;
     callCtxPtr->ipType = telux::data::IpFamilyType::UNKNOWN;
     callCtxPtr->profileId = profileId;
     callCtxPtr->slotId = slotId;
@@ -736,6 +1014,11 @@ taf_dcs_CallCtx_t* taf_DataConnection::CreateDataCallCtx(uint8_t slotId, int32_t
     callCtxPtr->sessionStateEvent = le_event_CreateId(name, sizeof(DataCallState_t));
     callCtxPtr->maxRxBitRate = 0;
     callCtxPtr->maxTxBitRate = 0;
+    callCtxPtr->callEndReasonIPv4.callEndReasonType = TAF_DCS_CE_TYPE_UNKNOWN;
+    callCtxPtr->callEndReasonIPv4.reasonInternal    = TAF_DCS_CE_INTERNAL_UNKNOWN;
+    callCtxPtr->callEndReasonIPv6.callEndReasonType = TAF_DCS_CE_TYPE_UNKNOWN;
+    callCtxPtr->callEndReasonIPv6.reasonInternal    = TAF_DCS_CE_INTERNAL_UNKNOWN;
+
     return callCtxPtr;
 }
 
@@ -2238,8 +2521,96 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
             memset(callCtxPtr->intfName, 0, sizeof(callCtxPtr->intfName));
             callCtxPtr->maxRxBitRate = 0;
             callCtxPtr->maxTxBitRate = 0;
+
+            // IPv4 call end reason
+            callCtxPtr->callEndReasonIPv4.callEndReasonType =
+                                                    eventPtr->callEndReasonIPv4.callEndReasonType;
+            switch (eventPtr->callEndReasonIPv4.callEndReasonType)
+            {
+            case TAF_DCS_CE_TYPE_MOBILE_IP:
+                callCtxPtr->callEndReasonIPv4.reasonMIP =
+                                                    eventPtr->callEndReasonIPv4.reasonMIP;
+                break;
+            case TAF_DCS_CE_TYPE_INTERNAL:
+                callCtxPtr->callEndReasonIPv4.reasonInternal =
+                                                    eventPtr->callEndReasonIPv4.reasonInternal;
+                break;
+            case TAF_DCS_CE_TYPE_CALL_MANAGER_DEFINED:
+                callCtxPtr->callEndReasonIPv4.reasonCallManager =
+                                                    eventPtr->callEndReasonIPv4.reasonCallManager;
+                break;
+            case TAF_DCS_CE_TYPE_3GPP_SPEC_DEFINED:
+                callCtxPtr->callEndReasonIPv4.reasonSpec =
+                                                    eventPtr->callEndReasonIPv4.reasonSpec;
+                break;
+            case TAF_DCS_CE_TYPE_PPP:
+                callCtxPtr->callEndReasonIPv4.reasonPPP =
+                                                    eventPtr->callEndReasonIPv4.reasonPPP;
+                break;
+            case TAF_DCS_CE_TYPE_EHRPD:
+                callCtxPtr->callEndReasonIPv4.reasonEHRPD =
+                                                    eventPtr->callEndReasonIPv4.reasonEHRPD;
+                break;
+            case TAF_DCS_CE_TYPE_IPV6:
+                callCtxPtr->callEndReasonIPv4.reasonIPv6 =
+                                                    eventPtr->callEndReasonIPv4.reasonIPv6;
+                break;
+            case TAF_DCS_CE_TYPE_HANDOFF:
+                callCtxPtr->callEndReasonIPv4.reasonHandOff =
+                                                    eventPtr->callEndReasonIPv4.reasonHandOff;
+                break;
+            default:
+                LE_WARN("Invalid Reason type: %d",
+                        static_cast<int32_t>(eventPtr->callEndReasonIPv4.callEndReasonType));
+                callCtxPtr->callEndReasonIPv4.reasonInternal = TAF_DCS_CE_INTERNAL_UNKNOWN;
+                break;
+            }
+
+            // IPv6 call end reason
+            callCtxPtr->callEndReasonIPv6.callEndReasonType =
+                                                eventPtr->callEndReasonIPv6.callEndReasonType;
+            switch (eventPtr->callEndReasonIPv6.callEndReasonType)
+            {
+            case TAF_DCS_CE_TYPE_MOBILE_IP:
+                callCtxPtr->callEndReasonIPv6.reasonMIP =
+                                                eventPtr->callEndReasonIPv6.reasonMIP;
+                break;
+            case TAF_DCS_CE_TYPE_INTERNAL:
+                callCtxPtr->callEndReasonIPv6.reasonInternal =
+                                                eventPtr->callEndReasonIPv6.reasonInternal;
+                break;
+            case TAF_DCS_CE_TYPE_CALL_MANAGER_DEFINED:
+                callCtxPtr->callEndReasonIPv6.reasonCallManager =
+                                                eventPtr->callEndReasonIPv6.reasonCallManager;
+                break;
+            case TAF_DCS_CE_TYPE_3GPP_SPEC_DEFINED:
+                callCtxPtr->callEndReasonIPv6.reasonSpec =
+                                                eventPtr->callEndReasonIPv6.reasonSpec;
+                break;
+            case TAF_DCS_CE_TYPE_PPP:
+                callCtxPtr->callEndReasonIPv6.reasonPPP =
+                                                eventPtr->callEndReasonIPv6.reasonPPP;
+                break;
+            case TAF_DCS_CE_TYPE_EHRPD:
+                callCtxPtr->callEndReasonIPv6.reasonEHRPD =
+                                                eventPtr->callEndReasonIPv6.reasonEHRPD;
+                break;
+            case TAF_DCS_CE_TYPE_IPV6:
+                callCtxPtr->callEndReasonIPv6.reasonIPv6 =
+                                                eventPtr->callEndReasonIPv6.reasonIPv6;
+                break;
+            case TAF_DCS_CE_TYPE_HANDOFF:
+                callCtxPtr->callEndReasonIPv6.reasonHandOff =
+                                                eventPtr->callEndReasonIPv6.reasonHandOff;
+                break;
+            default:
+                LE_WARN("Invalid Reason type: %d",
+                        static_cast<int32_t>(eventPtr->callEndReasonIPv6.callEndReasonType));
+                callCtxPtr->callEndReasonIPv6.reasonInternal = TAF_DCS_CE_INTERNAL_UNKNOWN;
+                break;
+            }
             isSendEvent = true;
-        break;
+            break;
 
         default:
             LE_ERROR("cannot handle this event: %s",

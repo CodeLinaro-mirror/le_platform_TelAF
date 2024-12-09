@@ -1467,7 +1467,16 @@ static le_result_t RequestService
     taf_someipClnt_EventMsgHandlerRef_t eventHandlerRef;
     taf_someipClnt_State_t state;
 
-    serviceRef = taf_someipClnt_RequestService(serviceId, instanceId);
+    if (rpcProxyConfig_GetRoutingName() == NULL)
+    {
+        serviceRef = taf_someipClnt_RequestService(serviceId, instanceId);
+    }
+    else
+    {
+        serviceRef = taf_someipClnt_RequestServiceEx(serviceId, instanceId,
+                                                     rpcProxyConfig_GetRoutingName());
+    }
+
     if (serviceRef == NULL)
     {
         LE_ERROR("Failed to request SOME/IP service (0x%x/0x%x).", serviceId, instanceId);

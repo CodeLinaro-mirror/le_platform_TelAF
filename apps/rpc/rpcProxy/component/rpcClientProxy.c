@@ -1552,7 +1552,16 @@ static le_result_t OfferRpcService
     }
 
     // Get the SOME/IP server service reference.
-    serviceRef = taf_someipSvr_GetService(serviceId, instanceId);
+    if (rpcProxyConfig_GetRoutingName() == NULL)
+    {
+        serviceRef = taf_someipSvr_GetService(serviceId, instanceId);
+    }
+    else
+    {
+        serviceRef = taf_someipSvr_GetServiceEx(serviceId, instanceId,
+                                                rpcProxyConfig_GetRoutingName());
+    }
+
     if (serviceRef == NULL)
     {
         LE_ERROR("Failed to get SOME/IP service (0x%x/0x%x).", serviceId, instanceId);

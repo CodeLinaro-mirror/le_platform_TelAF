@@ -276,7 +276,20 @@ taf_mngdStorCfg_ConfigRef_t tafMngdStorageSvc::GetRef(){
 le_result_t tafMngdStorageSvc::Update(taf_mngdStorCfg_ConfigRef_t configStor,
     const char* version){
 
-    le_result_t result;
+    //Checking state of last update campaign
+    tafMngdStorage_UpdateState_t state;
+    le_result_t result = GetUpdateCampaignState(&state);
+    if(result == LE_FAULT){
+        LE_ERROR("unable to get state of update campaign");
+        return result;
+    }
+
+    // Will only permit update if last state was not found , commit or cancel.
+    if(result != LE_NOT_FOUND && state != CANCEL_COMPLETED && state != COMMIT_COMPLETED){
+        LE_ERROR("Operation Not Permitted");
+        return LE_NOT_PERMITTED;
+    }
+
     // Unlock configStorage and configRfsStorage
     result = UnlockStorage();
     if(result != LE_OK)
@@ -317,6 +330,7 @@ le_result_t tafMngdStorageSvc::Update(taf_mngdStorCfg_ConfigRef_t configStor,
     result  =  ConvertToSingleMssJson(maxFiles);
     if(result != LE_OK){
         LE_ERROR("unable to convert all files to single JSON file");
+        SetUpdateCampaignState(UPDATE_FAILED);
         LockStorage();
         return result;
     }
@@ -336,6 +350,7 @@ le_result_t tafMngdStorageSvc::Update(taf_mngdStorCfg_ConfigRef_t configStor,
     result = ValidateJsonSchema(configStor,storagePath,version);
     if(result != LE_OK){
         LE_ERROR("Failed to validate json schema for file %s",storagePath);
+        SetUpdateCampaignState(UPDATE_FAILED);
         taf_rfs_Delete(storagePath);
         LockStorage();
         if(result ==LE_FORMAT_ERROR) return LE_FORMAT_ERROR;
@@ -355,6 +370,7 @@ le_result_t tafMngdStorageSvc::Update(taf_mngdStorCfg_ConfigRef_t configStor,
         int output = taf_rfs_Copy(MasterFilePath,backUpPath);
         if(output != 0){
             LockStorage();
+            SetUpdateCampaignState(UPDATE_FAILED);
             LE_ERROR("unable to create backup for %s at %s with %d",MasterFilePath,backUpPath,output);
             return LE_FAULT;
         }
@@ -375,14 +391,32 @@ le_result_t tafMngdStorageSvc::Update(taf_mngdStorCfg_ConfigRef_t configStor,
     {
         return result;
     }
+    result = SetUpdateCampaignState(UPDATE_COMPLETED);
+    if(result != LE_OK)
+    {
+        return result;
+    }
     LE_INFO("Storage locked");
     return LE_OK;
 }
 
 le_result_t tafMngdStorageSvc::Activate(taf_mngdStorCfg_ConfigRef_t configRef){
 
+    //Checking state of update campaign
+
+    tafMngdStorage_UpdateState_t state;
+    le_result_t result = GetUpdateCampaignState(&state);
+    if(result != LE_OK){
+        LE_ERROR("unable to get state of update campaign");
+        return result;
+    }
+    if(state != UPDATE_COMPLETED){
+        LE_ERROR("Operation Not Permitted");
+        return LE_NOT_PERMITTED;
+    }
+
     // Unlock configStorage and configRfsStorage
-    le_result_t result = UnlockStorage();
+    result = UnlockStorage();
     if(result != LE_OK)
     {
         return result;
@@ -437,14 +471,32 @@ le_result_t tafMngdStorageSvc::Activate(taf_mngdStorCfg_ConfigRef_t configRef){
     }
     LE_INFO("Storage Locked");
 
+
+    result = SetUpdateCampaignState(ACTIVATE_COMPLETED);
+    if(result != LE_OK){
+        return result;
+    }
     return LE_OK;
 }
 
 le_result_t tafMngdStorageSvc::Cancel(taf_mngdStorCfg_ConfigRef_t configRef){
     LE_DEBUG("Cancel the update campaign");
 
+    //Checking state of update campaign
+
+    tafMngdStorage_UpdateState_t state;
+    le_result_t result = GetUpdateCampaignState(&state);
+    if(result != LE_OK){
+        LE_ERROR("unable to get state of update campaign");
+        return result;
+    }
+    if(state != UPDATE_COMPLETED && state != UPDATE_FAILED){
+        LE_ERROR("Operation Not Permitted");
+        return LE_NOT_PERMITTED;
+    }
+
     // Unlock configStorage and configRfsStorage
-    le_result_t result = UnlockStorage();
+    result = UnlockStorage();
     if(result != LE_OK)
     {
         return LE_FAULT;
@@ -495,14 +547,30 @@ le_result_t tafMngdStorageSvc::Cancel(taf_mngdStorCfg_ConfigRef_t configRef){
     }
     LE_INFO("Storage Locked");
 
+    result = SetUpdateCampaignState(CANCEL_COMPLETED);
+    if(result != LE_OK){
+        return result;
+    }
+
     return LE_OK;
 }
 
 le_result_t tafMngdStorageSvc::Rollback(taf_mngdStorCfg_ConfigRef_t configRef){
     LE_DEBUG("Rolling back config file to pervious version of file");
 
+    tafMngdStorage_UpdateState_t state;
+    le_result_t result = GetUpdateCampaignState(&state);
+    if(result != LE_OK){
+        LE_ERROR("unable to get state of update campaign");
+        return result;
+    }
+    if(state != ACTIVATE_COMPLETED && state != ACTIVATE_FAILED){
+        LE_ERROR("Operation Not Permitted");
+        return LE_NOT_PERMITTED;
+    }
+
     // Unlock configStorage and configRfsStorage
-    le_result_t  result = UnlockStorage();
+    result = UnlockStorage();
     if(result != LE_OK)
     {
         return LE_FAULT;
@@ -576,6 +644,10 @@ le_result_t tafMngdStorageSvc::Rollback(taf_mngdStorCfg_ConfigRef_t configRef){
     {
         return LE_FAULT;
     }
+    result = SetUpdateCampaignState(ROLLBACK_COMPLETED);
+    if(result != LE_OK){
+        return result;
+    }
     LE_INFO("Storage Locked");
 
     return LE_OK;
@@ -584,8 +656,21 @@ le_result_t tafMngdStorageSvc::Rollback(taf_mngdStorCfg_ConfigRef_t configRef){
 le_result_t tafMngdStorageSvc::Commit(taf_mngdStorCfg_ConfigRef_t configRef){
     LE_DEBUG("Commiting data to config storage");
 
+    //Checking state of update campaign
+
+    tafMngdStorage_UpdateState_t state;
+    le_result_t result = GetUpdateCampaignState(&state);
+    if(result != LE_OK){
+        LE_ERROR("unable to get state of update campaign");
+        return result;
+    }
+    if(state != ACTIVATE_COMPLETED && state != ROLLBACK_COMPLETED){
+        LE_ERROR("Operation Not Permitted");
+        return LE_NOT_PERMITTED;
+    }
+
     // Unlock configStorage and configRfsStorage
-    le_result_t result = UnlockStorage();
+    result = UnlockStorage();
     if(result != LE_OK)
     {
         return LE_FAULT;
@@ -624,6 +709,10 @@ le_result_t tafMngdStorageSvc::Commit(taf_mngdStorCfg_ConfigRef_t configRef){
         return LE_FAULT;
     }
     LE_INFO("Storage Locked");
+    result = SetUpdateCampaignState(COMMIT_COMPLETED);
+    if(result != LE_OK){
+        return result;
+    }
     return LE_OK;
 }
 
@@ -942,6 +1031,46 @@ le_result_t tafMngdStorageSvc::ValidateJsonSchema(taf_mngdStorCfg_ConfigRef_t co
                     updateVersion);
         return LE_FORMAT_ERROR;
     }
+    return LE_OK;
+}
+
+le_result_t tafMngdStorageSvc::GetUpdateCampaignState(tafMngdStorage_UpdateState_t* state) {
+    le_cfg_IteratorRef_t itrRef = le_cfg_CreateReadTxn(TAF_MNGD_CFG_STORAGE_UPDATE_TREE_PATH);
+    if (!itrRef)
+    {
+        LE_ERROR("Failed to create a read transcation");
+        le_cfg_CancelTxn(itrRef);
+        return LE_FAULT;
+    }
+    le_result_t result = LE_NOT_FOUND;
+    if(le_cfg_NodeExists(itrRef,CFG_NODE_STATE)){
+        char nodePathVal[LIMIT_MAX_PATH_BYTES];
+        snprintf(nodePathVal,LIMIT_MAX_PATH_BYTES,"%s%s",
+            TAF_MNGD_CFG_STORAGE_UPDATE_TREE_PATH,CFG_NODE_STATE);
+        int32_t cfgState = le_cfg_QuickGetInt(nodePathVal,-1);
+        if (cfgState == -1)
+        {
+            le_cfg_CancelTxn(itrRef);
+            return LE_FAULT;
+        }
+        *state = (tafMngdStorage_UpdateState_t)cfgState;
+        result = LE_OK;
+    }
+    le_cfg_CancelTxn(itrRef);
+    return result;
+}
+
+le_result_t tafMngdStorageSvc::SetUpdateCampaignState(tafMngdStorage_UpdateState_t state)
+{
+    le_cfg_IteratorRef_t itrRef = le_cfg_CreateWriteTxn(TAF_MNGD_CFG_STORAGE_UPDATE_TREE_PATH);
+    if (!itrRef)
+    {
+        LE_ERROR("Failed to create a read transcation");
+        le_cfg_CancelTxn(itrRef);
+        return LE_FAULT;
+    }
+    le_cfg_SetInt(itrRef,CFG_NODE_STATE,state);
+    le_cfg_CommitTxn(itrRef);
     return LE_OK;
 }
 

@@ -89,6 +89,9 @@ static le_result_t Update(const char *version){
     if(result == LE_OK){
         printf("Storage Updated !! Please Activate and commit to use updated storage.\n");
     }
+    else if(result == LE_NOT_PERMITTED){
+       printf("Update not permitted at this point!!\n");
+    }
     else{
         printf("Failed to update Storage !! Please Cancel update process and retry.\n");
     }
@@ -99,8 +102,11 @@ static le_result_t Cancel(){
     le_result_t result;
     result = taf_mngdStorCfg_Cancel(cRef);
     if(result == LE_OK) printf("Update Process cancels Successfuly!! you may retry.\n");
+    else if(result == LE_NOT_PERMITTED){
+       printf("Cancel not permitted at this point!!\n");
+    }
     else{
-        printf("Cancels Operation failed!! Please try again.\n");
+        printf("Cancel Operation failed!! Please try again.\n");
     }
     return result;
 }
@@ -109,6 +115,9 @@ static le_result_t Activate(){
     le_result_t result;
     result = taf_mngdStorCfg_Activate(cRef);
     if(result == LE_OK) printf("Storage Activated!! Please Commit to use Activated Storage.\n");
+    else if(result == LE_NOT_PERMITTED){
+       printf("Activate not permitted at this point!!\n");
+    }
     else{
         printf("Failed to Activate Storage !! you may Rollback and try activating again.\n");
     }
@@ -119,6 +128,9 @@ static le_result_t Rollback(){
     le_result_t result;
     result = taf_mngdStorCfg_Rollback(cRef);
     if(result == LE_OK) printf("Storage Rollbacked!! Please commit to use rollbacked storage.\n");
+    else if(result == LE_NOT_PERMITTED){
+       printf("Rollback not permitted at this point!!\n");
+    }
     else{
         printf("Failed to Roolback Storage!! Try again.\n");
     }
@@ -129,6 +141,9 @@ static le_result_t Commit(){
     le_result_t result;
     result = taf_mngdStorCfg_Commit(cRef);
     if(result == LE_OK) printf("Storage Commited!! Ready to use.\n");
+    else if(result == LE_NOT_PERMITTED){
+       printf("Commit not permitted at this point!!\n");
+    }
     else{
         printf("Failed to Roolback Storage!! Try again.\n");
     }

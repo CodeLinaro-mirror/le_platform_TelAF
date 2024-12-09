@@ -1479,7 +1479,7 @@ void CommunicationMgr::ReportConnectionEvent
     diagInfoPtr->ta     = ta;
     le_utf8_Copy(diagInfoPtr->ifName, ifacePtr, TAF_DOIP_INTERFACE_NAME_MAX_LEN, NULL);
     diagInfoPtr->vlanId = vid;
-    LE_DEBUG("UDS message is coming from %s(with vlan id %d)", ifacePtr, diagInfoPtr->vlanId);
+    LE_DEBUG("Connection event is coming from %s(with vlan id %d)", ifacePtr, diagInfoPtr->vlanId);
 
     // Currently, we only support physical addressing;
     diagInfoPtr->taType = TAF_DOIP_TA_TYPE_PHYSICAL;
@@ -1574,6 +1574,14 @@ void CommunicationMgr::RequestUdsMessage
     auto&   cmMgr = CommunicationMgr::GetInstance();
 
     connection = cmMgr.connectionMgrPtr->FindConnectionByLogicalAddr(dataInfoPtr->ta);
+    if (connection == nullptr)
+    {
+        le_mem_Release(dataInfoPtr->data);
+        le_mem_Release(dataInfoPtr);
+
+        return;
+    }
+
     connection->SendDiagMessage(dataInfoPtr->data, dataInfoPtr->len);
 
     le_mem_Release(dataInfoPtr->data);
@@ -1635,6 +1643,7 @@ uint16_t CommunicationMgr::GetVlanId(const char *ifacePtr)
 {
     FILE *fp;
     char buf[256];
+    char *nextPtr = NULL;
     int32_t vlanId = 0;
 
     // open /proc/net/vlan/config to get vlan information
@@ -1648,14 +1657,16 @@ uint16_t CommunicationMgr::GetVlanId(const char *ifacePtr)
     // Find the vlan id with the interface name.
     while (fgets(buf, sizeof(buf), fp) != NULL)
     {
-        if (strstr(buf, ifacePtr) != NULL)
+        char *tmpPtr = strtok_r(buf, " ", &nextPtr);
+        if ((tmpPtr != NULL) && (strcmp(ifacePtr, tmpPtr) == 0))
         {
-            sscanf(buf, "%*s %*s %d", &vlanId);
+            sscanf(nextPtr, "%*s %d", &vlanId);
             break;
         }
     }
 
     fclose(fp);
+    LE_DEBUG("Get vlan id(0x%x) for %s", vlanId, ifacePtr);
 
     return (uint16_t)vlanId;
 }

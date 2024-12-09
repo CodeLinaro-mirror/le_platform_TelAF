@@ -7,7 +7,7 @@
 /**
  * @page c_tafnetippass IP Passthrough
  *
- * @ref taf_netIpPass_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_netIpPass_interface.h>` @endrst
  *
  * The functions this API are provided by the @b tafNetSvc application service.
  *
@@ -22,46 +22,46 @@
  *
  * The following APIs are supported for binding VLAN to a backhaul.
  *
- * - SetVlanBackhaulType()            -- Sets backhaul type for the VLAN binding.
- * - SetVlanBackhaulVlanId()          -- Sets backhaul's VLAN ID for the VLAN binding.
- * - SetVlanBackhaulPhoneId()         -- Sets backhaul's phone ID for the VLAN binding.
- * - SetVlanBackhaulProfileId()       -- Sets backhaul's profile ID for the VLAN binding.
- * - BindVlanWithBackhaul()           -- Binds to backhaul defined by above values.
- * - UnbindVlanFromBackhaul()         -- Unbinds VLAN from a backhaul.
+ * - taf_netIpPass_SetVlanBackhaulType()            -- Sets backhaul type for the VLAN binding.
+ * - taf_netIpPass_SetVlanBackhaulVlanId()          -- Sets backhaul's VLAN ID for the VLAN binding.
+ * - taf_netIpPass_SetVlanBackhaulPhoneId()         -- Sets backhaul's phone ID for the VLAN binding.
+ * - taf_netIpPass_SetVlanBackhaulProfileId()       -- Sets backhaul's profile ID for the VLAN binding.
+ * - taf_netIpPass_BindVlanWithBackhaul()           -- Binds to backhaul defined by above values.
+ * - taf_netIpPass_UnbindVlanFromBackhaul()         -- Unbinds VLAN from a backhaul.
  *
  *
  * The following APIs are supported to provision network type for a VLAN.
  *
- * - SetVlanNetworkType()             -- Sets network type of the VLAN.
- * - GetVlanNetworkType()             -- Gets network type of the VLAN.
+ * - taf_netIpPass_SetVlanNetworkType()             -- Sets network type of the VLAN.
+ * - taf_netIpPass_GetVlanNetworkType()             -- Gets network type of the VLAN.
  *
  * The following APIs are supported to set IP passthrough config to REMOTE system.
  *
- * - GetInterface()                   -- Gets the interface reference to set the config.
- * - SetIPPTOperation()               -- Sets the operation parameter to the IP PASS reference.
- * - SetIPPTDeviceMacAddress()        -- Sets the device config parameters to the IP PASS reference.
- * - SetIPPassThroughConfig()         -- Sets IP passthrough config of the WWAN backhaul.
+ * - taf_netIpPass_GetInterface()                   -- Gets the interface reference to set the config.
+ * - taf_netIpPass_SetIPPTOperation()               -- Sets the operation parameter to the IP PASS reference.
+ * - taf_netIpPass_SetIPPTDeviceMacAddress()        -- Sets the device config parameters to the IP PASS reference.
+ * - taf_netIpPass_SetIPPassThroughConfig()         -- Sets IP passthrough config of the WWAN backhaul.
  *
  * The following APIs are supported to get IP passthrough config from REMOTE system.
  *
- * - GetIPPassThroughConfig()         -- Gets IP passthrough config of the WWAN backhaul.
- *                                       Returns a reference to IP passthrough config.
- * - GetIPPTOperation()               -- Gets the operation parameter to the IP PASS reference.
- * - GetIPPTDeviceMacAddress()        -- Gets the device config parameters to the IP config reference.
+ * - taf_netIpPass_GetIPPassThroughConfig()         -- Gets IP passthrough config of the WWAN backhaul.
+ *                                                     Returns a reference to IP passthrough config.
+ * - taf_netIpPass_GetIPPTOperation()               -- Gets the operation parameter to the IP PASS reference.
+ * - taf_netIpPass_GetIPPTDeviceMacAddress()        -- Gets the device config parameters to the IP config reference.
  *
  * The following APIs are supported to set IP config to LOCAL system.
  *
- * - GetInterface()                   -- Gets the interface Reference to set the config.
- * - SetIPConfigParams()              -- Sets the parameters to the IP config reference.
- * - SetIPConfigAddressParams()       -- Sets the address information to the IP config reference.
- * - SetIPConfig()                    -- Sets IP config to the LOCAL system.
+ * - taf_netIpPass_GetInterface()                   -- Gets the interface Reference to set the config.
+ * - taf_netIpPass_SetIPConfigParams()              -- Sets the parameters to the IP config reference.
+ * - taf_netIpPass_SetIPConfigAddressParams()       -- Sets the address information to the IP config reference.
+ * - taf_netIpPass_SetIPConfig()                    -- Sets IP config to the LOCAL system.
  *
  * The following APIs are supported to get IP config for the LOCAL system.
  *
- * - GetIPConfig()                    -- Gets IP config of the LOCAL system.
- *                                       Returns a reference to config.
- * - GetIPConfigParams()              -- Gets the parameters to the IP config reference.
- * - GetIPConfigAddressParams()       -- Gets the address information to the IP config reference.
+ * - taf_netIpPass_GetIPConfig()                    -- Gets IP config of the LOCAL system.
+ *                                                     Returns a reference to config.
+ * - taf_netIpPass_GetIPConfigParams()              -- Gets the parameters to the IP config reference.
+ * - taf_netIpPass_GetIPConfigAddressParams()       -- Gets the address information to the IP config reference.
  *
  *
  * <HR>
@@ -357,7 +357,7 @@ FUNCTION le_result_t SetIPPTDeviceMacAddress
 (
     Interface interfaceRef                        IN,///< Interface reference.
     taf_net.VlanIfType ifType                     IN, ///< Interface type.
-    string macAddr[taf_net.MAC_ADDR_MAX_LEN]      IN  ///< Device MAC address.  
+    string macAddr[taf_net.MAC_ADDR_MAX_LEN]      IN  ///< Device MAC address.
 );
 
 //--------------------------------------------------------------------------------------------------

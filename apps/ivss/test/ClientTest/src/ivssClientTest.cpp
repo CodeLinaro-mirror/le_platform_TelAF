@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <string>
+#include <thread>
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -466,6 +467,15 @@ int main(int argc, char* argv[])
             callStatus)
         CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
         std::cout << "SetSignalStrengthReportingCriteria SUCCESS " << std::endl << std::endl;
+
+        std::cout << "======== Get PacketSwitchedState Test ========" << "'\n";
+        RadioSvc::NetRegState netState;
+        radioProxyKeep->GetPacketSwitchedState(phoneId, callStatus, methodError, netState);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
+        std::cout << "GetPacketSwitchedState: netState=" << static_cast<unsigned int>(netState)
+            << std::endl << std::endl;
     }
 
     if (svcMask & IVSS_TEST_SVC_SIM_MASK)
@@ -560,6 +570,22 @@ int main(int argc, char* argv[])
             std::cout << "name" << i << "=" << nameList[i] << ", dataState="
                 << DataStateToString(dataState[i]) << "'\n";
         }
+
+        std::cout << "======== GetDataIpv4Info Test ========" << "'\n";
+        std::string ifName;
+        MngdConnSvc::DataIpInfo ipv4Info;
+        mngdConnProxyKeep->GetDataIpv4Info(name, callStatus, methodError, ifName, ipv4Info);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!", methodError)
+        std::cout << "ifName: " << ifName << "'\n";
+        std::cout << "Ipv4" << "'\n";
+        std::cout << "IP: " << ipv4Info.getIpAddr() << "'\n";
+        std::cout << "Gateway: " << ipv4Info.getGatewayAddr() << "'\n";
+        std::cout << "Dns1: " << ipv4Info.getDns1Addr() << "'\n";
+        std::cout << "Dns2: " << ipv4Info.getDns2Addr() << "'\n";
+        std::cout << "Mask: 0x" << std::hex << ipv4Info.getIpMask() << "'\n";
+
 
         std::cout << "======== StopData1 Test ========" << "'\n";
         mngdConnProxyKeep->StopData(name, callStatus, methodError);

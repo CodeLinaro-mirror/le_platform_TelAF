@@ -10,6 +10,7 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include "configuration.hpp"
+
 using namespace std;
 
 #define MAX_ENABLE_CONDITION_NUM 64
@@ -23,7 +24,7 @@ using namespace std;
 #define MIDDLE_COUNTER_BASED_PARAM_VALUE 1
 #define MAX_COUNTER_BASED_PARAM_VALUE 32768
 #define MIN_COUNTER_BASED_PARAM_VALUE -32768
-#define MIN_TIME_BASED_PARAM_VALUE 0.01
+#define MIN_TIME_BASED_PARAM_VALUE 0.001
 #define MAX_TIME_BASED_PARAM_VALUE 3600
 #define FEATURE_A_PROGRAMMING_SESSION 0x2
 #define FEATURE_A_FOTA_SESSION 0x42
@@ -83,6 +84,12 @@ namespace telux
             uint8_t  eventUdsStatus;
         } taf_diagEvent_UdsStatus_t;
 
+        typedef struct
+        {
+            taf_diagEvent_ServiceRef_t  svcRef;
+            bool  state;
+        } taf_diagEvent_EnableCondState_t;
+
         //Counterbased debounce config structure
         typedef struct {
             int16_t  decrementStepSize;
@@ -128,11 +135,12 @@ namespace telux
         typedef struct
         {
             uint16_t eventId;
-            le_event_Id_t udsStatusEventId;// event for notification
+            le_event_Id_t udsStatusEventId;// event for UDS status notification
+            le_event_Id_t enableCondStateEventId;// event for Enable Condition state notification
             uint32_t dtcCode;
             taf_diagEvent_DtcCtx_t *dtcCtxPtr;
             uint8_t operationCycleId;// operation cycle id
-            uint8_t enableConditionId;// enable condition id
+            bool eventEnableStatus;
             uint8_t eventUdsStatus; // event UDS status
             uint8_t failureCounter;// failure counter/trip counter
             uint8_t confirmationThreshold; //Confirmation threshold
@@ -167,6 +175,7 @@ namespace telux
                 le_result_t GetId(taf_diagEvent_ServiceRef_t svcRef, uint16_t* eventIdPtr);
 
                 le_event_Id_t GetUdsStatusEvent(taf_diagEvent_ServiceRef_t svcRef);
+                le_event_Id_t GetEnableCondStateEvent(taf_diagEvent_ServiceRef_t svcRef);
                 le_result_t SetStatus(taf_diagEvent_ServiceRef_t svcRef,
                         taf_diagEvent_StatusType_t eventStatus);
                 le_result_t SetStatusWithSupplierFaultCode(taf_diagEvent_ServiceRef_t svcRef,
@@ -187,12 +196,14 @@ namespace telux
                 le_result_t GetUdsStatus(taf_diagEvent_ServiceRef_t svcRef,
                         uint8_t* eventUdsStatusPtr);
                 le_result_t RemoveSvc(taf_diagEvent_ServiceRef_t svcRef);
-                le_result_t SetEnableCondition(uint8_t enableConditionID, bool conditionFulfilled);
+                le_result_t SetEventEnableStatus(uint8_t enableConditionID);
                 le_result_t SetOperationCycleState(uint8_t operationCycleId,
                         taf_diagEvent_OperationCycleState_t state);
 
                 taf_diagEvent_EventCtx_t* GetEventCtxById(uint16_t eventId);
                 static void FirstLayerUdsStatusHandler(void* reportPtr,
+                        void* secondLayerHandlerFunc);
+                static void FirstLayerEnableCondStateHandler(void* reportPtr,
                         void* secondLayerHandlerFunc);
 
                 //Interface function for DTC interface module and DTC service module
@@ -229,6 +240,7 @@ namespace telux
                 taf_diagEvent_EventCtx_t* GetEventCtx(taf_diagEvent_ServiceRef_t svcRef);
 
                 void ReportEventUdsStatus(taf_diagEvent_EventCtx_t* eventCtxPtr);
+                void ReportEnableCondState(taf_diagEvent_EventCtx_t* eventCtxPtr, bool state);
                 void ReportDtcStatus(taf_diagEvent_DtcCtx_t* dtcCtxPtr);
                 le_result_t StoreAndReportDTCStatus(taf_diagEvent_DtcCtx_t* dtcCtxPtr);
                 le_result_t StoreAndReportEventUdsStatus(taf_diagEvent_EventCtx_t* eventCtxPtr);
@@ -271,7 +283,7 @@ namespace telux
                 le_ref_MapRef_t SvcRefMap;
                 le_mem_PoolRef_t SessionRefPool = NULL;
                 le_mem_PoolRef_t EventUdsStatusPool;
-                bool EnableConditions[MAX_ENABLE_CONDITION_NUM];
+                le_mem_PoolRef_t EnableCondStatePool;
                 taf_diagEvent_OperationCycleState_t OperationCycleStates[MAX_OPERATION_CYCLE_NUM];
 
         };

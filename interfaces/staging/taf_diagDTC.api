@@ -7,7 +7,7 @@
 /**
  * @page c_tafDiagDtc Diag DTC Service
  *
- * @ref taf_diagDtc_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_diagDtc_interface.h>` @endrst
  *
  * <HR>
  *
@@ -29,7 +29,7 @@
  * @section c_taf_diagDTC_server_API Server Service APIs
  *
  * A diag DTC service reference should be got using taf_diagDTC_GetService() or
- * taf_diagDTC_GetAllService. Use the
+ * taf_diagDTC_GetAllService(). Use the
  * returned reference for subsequent operations.
  *
  * The following example illustrates how to set up a diag DTC server-service-instance for single

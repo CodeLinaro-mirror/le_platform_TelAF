@@ -15,6 +15,13 @@ config TELAF_VERSION
   default "$(TELAF_VERSION)" if !$(empty,$(TELAF_VERSION))
   default "telaf.lnx.1.1-xxxxxx"
 
+config APP_CFG_TREE_PATH
+  string "Config tree path for application"
+  default "/data/persist/telaf/config"
+  ---help---
+  Set the path for not system config tree.
+  Please also create this some path in boot up script.
+
 config ENABLE_DLT_LOGGING
   bool "Enable DLT logging"
   depends on LINUX && TARGET_SA525M
@@ -38,7 +45,8 @@ config DLT_CTX_ID
 
 config AUDIO_MULTI_FORMAT_PB_SUPPORTED
   bool "TelAF multi format playback supported"
-  default $(b2k,$(def,$(TELUX_AUDIO_MULTI_FORMAT_PB_SUPPORTED),y))
+  default "$(b2k,$(AUDIO_MULTI_FORMAT_PB_SUPPORTED))" if !$(empty,$(AUDIO_MULTI_FORMAT_PB_SUPPORTED))
+  default y
 
 config REFRESH_AUDIO_SVC
   bool "Telaf refresh audio service enabled"

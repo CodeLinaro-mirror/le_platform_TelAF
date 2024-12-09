@@ -173,7 +173,7 @@ void taf_SecuritySvr::UDSMsgHandler
 
         memcpy(&rxSesTypePtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
         rxSesTypePtr->serviceId = sid;
-        rxSesTypePtr->sesType = msgPtr[msgPos] & 0x7F;
+        rxSesTypePtr->sesType = msgPtr[msgPos];
         LE_INFO("Receive session type: %x", rxSesTypePtr->sesType);
         msgPos += 1;
 
@@ -338,7 +338,7 @@ void taf_SecuritySvr::RxSesCtrlEventHandler
     taf_SesTypeReqHandler_t* handlerObjPtr = NULL;
 
 #ifdef LE_CONFIG_DIAG_VSTACK
-    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj(0);
+    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj((uint16_t)0);
 #else
     servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj(rxSesTypePtr->addrInfo.vlanId);
 #endif
@@ -455,7 +455,7 @@ void taf_SecuritySvr::RemoveRxSesTypeCheckHandler
 le_result_t taf_SecuritySvr::SendSesTypeCheckResp
 (
     taf_diagSecurity_RxSesTypeCheckRef_t rxSesTypeRef,
-    taf_diagSecurity_SesControlErrorCode_t errCode
+    uint8_t errCode
 )
 {
     LE_DEBUG("SendSesTypeCheckResp");
@@ -473,7 +473,7 @@ le_result_t taf_SecuritySvr::SendSesTypeCheckResp
     }
 
 #ifdef LE_CONFIG_DIAG_VSTACK
-    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)GetServiceObj(0);
+    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)GetServiceObj((uint16_t)0);
 #else
     taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)
         GetServiceObj(rxSesTypePtr->addrInfo.vlanId);
@@ -626,7 +626,7 @@ void taf_SecuritySvr::SesChangeEventHandler
     taf_SesChangeHandler_t* handlerObjPtr = NULL;
 
 #ifdef LE_CONFIG_DIAG_VSTACK
-    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj(0);
+    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj((uint16_t)0);
 #else
     servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj(SesChangePtr->addrInfo.vlanId);
 #endif
@@ -828,7 +828,7 @@ void taf_SecuritySvr::RxSecAccessEventHandler
     taf_SecAccessReqHandler_t* handlerObjPtr = NULL;
 
 #ifdef LE_CONFIG_DIAG_VSTACK
-    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj(0);
+    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj((uint16_t)0);
 #else
     servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj(rxSecAccessMsgPtr->addrInfo.vlanId);
 #endif
@@ -1000,7 +1000,7 @@ le_result_t taf_SecuritySvr::GetSecAccessPayload
 le_result_t taf_SecuritySvr::SendSecAccessResp
 (
     taf_diagSecurity_RxSecAccessMsgRef_t rxMsgRef,
-    taf_diagSecurity_SecAccessErrorCode_t errCode,
+    uint8_t errCode,
     const uint8_t* dataPtr,
     size_t dataSize
 )
@@ -1020,7 +1020,7 @@ le_result_t taf_SecuritySvr::SendSecAccessResp
     }
 
 #ifdef LE_CONFIG_DIAG_VSTACK
-    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)GetServiceObj(0);
+    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)GetServiceObj((uint16_t)0);
 #else
     taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)
         GetServiceObj(rxSecAccessMsgPtr->addrInfo.vlanId);

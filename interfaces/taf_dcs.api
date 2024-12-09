@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -70,8 +70,9 @@
  *
  * <HR>
  *
- * The Data Call service API is used for applications to manage data calls and data profiles.
- * It provides APIs over a mobile network.
+ * The Data Call service provides APIs to manage data profiles and wireless data calls. Data call
+ * session management APIs support both synchronous and asynchronous operations. Clients can
+ * register for and monitor data call related events.
  *
  * @section c_taf_dcs_binding IPC interfaces binding
  *
@@ -101,14 +102,24 @@
    @endverbatim
  *
  * An asynchronous data call can be started using taf_dcs_StartSessionAsync() with the profile
- * reference passed as parameters.
+ * reference passed as parameters. The result of the taf_dcs_StartSessionAsync() operation will be
+ * provided via the completion handler, #taf_dcs_AsyncSessionHandlerFunc_t.
  *
  * @verbatim
-   result = taf_dcs_StartSessionAsync(profileReference);
-   if (result != LE_OK)
+   void AsyncSessionHandler (taf_dcs_ProfileRef_t profileRef,le_result_t result,void* contextPtr)
    {
-      LE_ERROR("Fail to start data call.");
-      return result;
+     if (LE_OK == result)
+     {
+        //Start session successful
+     }
+     else
+     {
+        // Handle errors
+     }
+   }
+   myFunc()
+   {
+     taf_dcs_StartSessionAsync(profileReference, AsyncSessionHandler, contextPtr);
    }
    @endverbatim
  *
@@ -149,7 +160,7 @@
  * - taf_dcs_GetRoamingStatus() -- Gets current roaming status.
  * - taf_dcs_GetApnTypes() -- Gets APN types.
  *
- * @section c_taf_dcs_support_phone_id Phone ID support.
+ * @section c_taf_dcs_support_phone_id Phone ID support
  *
  * Data call service provides API to support phone ID for DSSA/DSDA mode. The application can use
  * phone ID for these APIs.
@@ -166,6 +177,24 @@
  * - taf_dcs_GetProfileEx() -- Gets the profile reference for the given phone ID and profile index.
  * - taf_dcs_GetPhoneId() -- Gets the phone ID for the given profile reference.
  * - taf_dcs_GetPhoneIdByInterfaceName() -- Gets the phone ID by the interface name.
+ *
+ * @section c_taf_dcs_manage_profiles Managing Profiles
+ *
+ * Data call service provides APIs to manage profiles. TelAF applications can create profiles,
+ * update profile parameters and delete profiles with the profile management APIs.<br>
+ * To create a profile, applications should first get a profile reference using the
+ * taf_dcs_GetProfileEx() API with #TAF_DCS_UNDEFINED_PROFILE_ID for profileId. After setting all
+ * relevant parameters, applications can use taf_dcs_CreateProfile() to create the profile.<br>
+ * Applications can get the ID of the created profile using taf_dcs_GetProfileId() API.<br>
+ * Profiles can be deleted using taf_dcs_DeleteProfile().
+ *
+ * @verbatim
+ * profileReference = taf_dcs_GetProfileEx(phoneId, #TAF_DCS_UNDEFINED_PROFILE_ID);
+ * taf_dcs_SetAPN (profileReference, "TestAPN");
+ * taf_dcs_CreateProfile(profileReference);
+ * taf_dcs_GetProfileId (profileReference, &profileID);
+ * taf_dcs_DeleteProfile(profileReference);
+ * @endverbatim
  *
  * <HR>
  *
@@ -267,6 +296,13 @@ DEFINE DEFAULT_PROFILE = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * The undefined profile ID (0xFFFF).
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE UNDEFINED_PROFILE_ID = 0xFFFF;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Reference to the cellular profile context.
  */
 //--------------------------------------------------------------------------------------------------
@@ -296,6 +332,13 @@ DEFINE MAX_ASYNC_HANDLER_MAPPING = 20;
 //--------------------------------------------------------------------------------------------------
 /**
  * The squash gateway addresses used by net APIs
+ *
+ * @struct taf_dcs_DefaultGatewayAddresses_t
+ * @var taf_dcs_DefaultGatewayAddresses_t::ipv4Addr
+ * The IPv4 address.
+ * @var taf_dcs_DefaultGatewayAddresses_t::ipv6Addr
+ * The IPv6 address.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT DefaultGatewayAddresses
@@ -307,6 +350,17 @@ STRUCT DefaultGatewayAddresses
 //--------------------------------------------------------------------------------------------------
 /**
  * The squash DNS addresses used by net APIs.
+ *
+ * @struct taf_dcs_DnsServerAddresses_t
+ * @var taf_dcs_DnsServerAddresses_t::ipv4Addr1
+ * The primary IPv4 DNS address.
+ * @var taf_dcs_DnsServerAddresses_t::ipv4Addr2
+ * The secondary IPv4 DNS address.
+ * @var taf_dcs_DnsServerAddresses_t::ipv6Addr1
+ * The primary IPv6 DNS address.
+ * @var taf_dcs_DnsServerAddresses_t::ipv6Addr2
+ * The secondary IPv6 DNS address.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT DnsServerAddresses
@@ -403,7 +457,7 @@ BITMASK Auth
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The APN type
+ * The APN type mask.
  */
 //--------------------------------------------------------------------------------------------------
 BITMASK ApnType
@@ -438,18 +492,31 @@ ENUM Tech
 //--------------------------------------------------------------------------------------------------
 /**
  * Additional state information.
- * IP: The IP Type of this event, e.g.,
- *     which interface (IPv4/IPv6) is supported on a CONNECTED event.
+ *
+ * @struct taf_dcs_StateInfo_t
+ * @var taf_dcs_StateInfo_t::ipType
+ * The pdp type of this event, e.g., which pdp (IPv4/IPv6) is supported on a CONNECTED event.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT StateInfo
 {
-    Pdp      ipType;
+    Pdp      ipType;                     ///< The IP type of this event.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
  * The roaming status indication.
+ *
+ * @struct taf_dcs_RoamingStatusInd_t
+ * @var taf_dcs_RoamingStatusInd_t::phoneId
+ * The phone ID.
+ * @var taf_dcs_RoamingStatusInd_t::isRoaming
+ * True means that roaming is on.<br>
+ * False means that roaming is off.
+ * @var taf_dcs_RoamingStatusInd_t::type
+ * The roaming type. Valid only if roaming is on.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT RoamingStatusInd
@@ -471,6 +538,7 @@ STRUCT RoamingStatusInd
  *  - LE_DUPLICATE -- If the data session is already connected for the given profile.
  *  - LE_IN_PROGRESS -- The profile is in use and a data call is in progress.
  *  - LE_TIMEOUT -- Timed out when attempting to make the data call.
+ *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -481,7 +549,14 @@ FUNCTION le_result_t StartSession
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  The handler for asynchronous session start or stop result response.
+ * The handler for asynchronous session start or stop result response.
+ *
+ * @param[in] profileRef The profile reference.
+ * @param[in] result     The result of starting or stopping the data session.<br>
+ *                       LE_OK           -- Succeeded.<br>
+ *                       LE_NOT_POSSIBLE -- The data profile is not yet created.<br>
+ *                       Others          -- Failed.
+ * @param[in] contextPtr The context provided by the application when adding the event handler.
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -495,7 +570,6 @@ HANDLER AsyncSessionHandler
 /**
  * Starts (asynchronously) a cellular data session for the given profile reference.
  *
- * @return None.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION StartSessionAsync
@@ -515,6 +589,7 @@ FUNCTION StartSessionAsync
  *  - LE_BAD_PARAMETER -- Call context is NULL.
  *  - LE_TIMEOUT -- Timeout to stop a data call.
  *  - LE_IN_PROGRESS -- The profile is in use and a data call is in progress.
+ *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -527,7 +602,6 @@ FUNCTION le_result_t StopSession
 /**
  * Stops (asynchronously) a cellular data session for the given profile reference.
  *
- * @return None.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION StopSessionAsync
@@ -556,6 +630,12 @@ FUNCTION le_result_t GetInterfaceName
 //--------------------------------------------------------------------------------------------------
 /**
  * The data call session handler.
+ *
+ * @param[in] profileRef The profile reference.
+ * @param[in] state      The connection state.
+ * @param[in] info       The connection information.
+ * @param[in] contextPtr The context provided by the application when adding the event handler.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER SessionStateHandler
@@ -579,6 +659,10 @@ EVENT SessionState
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for roaming status.
+ *
+ * @param[in] roamingStatusInd Roaming status indication.
+ * @param[in] contextPtr The context provided by the application when adding the event handler.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RoamingStatusHandler
@@ -622,6 +706,7 @@ FUNCTION le_result_t GetRoamingStatus
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv4Address
@@ -637,6 +722,7 @@ FUNCTION le_result_t GetIPv4Address
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv4GatewayAddress
@@ -652,6 +738,7 @@ FUNCTION le_result_t GetIPv4GatewayAddress
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv4DNSAddresses
@@ -668,6 +755,7 @@ FUNCTION le_result_t GetIPv4DNSAddresses
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv6Address
@@ -683,6 +771,7 @@ FUNCTION le_result_t GetIPv6Address
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv6GatewayAddress
@@ -698,6 +787,7 @@ FUNCTION le_result_t GetIPv6GatewayAddress
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv6DNSAddresses
@@ -714,6 +804,7 @@ FUNCTION le_result_t GetIPv6DNSAddresses
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSessionState
@@ -757,6 +848,7 @@ FUNCTION bool IsIPv6
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDataBearerTechnology
@@ -769,18 +861,32 @@ FUNCTION le_result_t GetDataBearerTechnology
 //--------------------------------------------------------------------------------------------------
 /**
  * The data profile structure.
+ *
+ * @struct taf_dcs_ProfileInfo_t
+ * @var taf_dcs_ProfileInfo_t::index
+ * The profile index.
+ * @var taf_dcs_ProfileInfo_t::tech
+ * The profile technology type.
+ * @var taf_dcs_ProfileInfo_t::name
+ * The profile name.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT ProfileInfo
 {
     uint32 index;                           ///< The profile index.
-    Tech   tech;                            ///< The technology.
+    Tech tech;                              ///< The profile technology type.
     string name[NAME_MAX_LEN];              ///< The profile name.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
  * The handler of the requesting data profile list.
+ *
+ * @param[in] result      The result.
+ * @param[in] profileList The profile list information.
+ * @param[in] contextPtr  The context provided by the application when adding the event handler.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ProfileListHandler
@@ -888,6 +994,8 @@ FUNCTION le_result_t SetDefaultProfileIndexEx
  * @b NOTE: For Dual Sim-Single Active (DSSA) mode and Dual Sim-Dual Active (DSDA) mode, this API gets
  * the profile reference with phone ID 1.
  *
+ * @b NOTE: For creating profiles, use taf_dcs_GetProfileEx() followed by taf_dcs_CreateProfile().
+ *
  * @return
  *  - NULL -- Error.
  *  - Others -- The profile reference.
@@ -900,7 +1008,7 @@ FUNCTION Profile GetProfile
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the profile reference for the given phone ID and profile index.
+ * Gets the profile reference for the given phone ID and profile ID.
  *
  * @return
  *  - NULL -- Error.
@@ -909,13 +1017,58 @@ FUNCTION Profile GetProfile
 //--------------------------------------------------------------------------------------------------
 FUNCTION Profile GetProfileEx
 (
-    uint8 phoneId                           IN, ///< The phone ID.
-    uint32 profileId                        IN ///< The profile index.
+    uint8 phoneId IN,   ///< The phone ID.
+    uint32 profileId IN ///< The profile ID. <br>
+                        ///< Pass #TAF_DCS_UNDEFINED_PROFILE_ID to indicate the profile will be
+                        ///< created by calling taf_dcs_CreateProfile().
+                        ///< The API sets #TAF_DCS_TECH_3GPP and #TAF_DCS_PDP_IPV4 for technology
+                        ///< and PDP respectively.<br>
+                        ///< After creating the profile, clients can call taf_dcs_GetProfileId()
+                        ///< to get the created profile's ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Creates a new profile on the device.<br>
+ * On successful creation of profile, the profile reference will be updated with the created profile
+ * ID. Clients can use taf_dcs_GetProfileId() to get the created profile ID.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_DUPLICATE -- Profile already created.
+ *  - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CreateProfile
+(
+    Profile profileRef                      IN ///< The profile reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the profile with the given reference. Once a profile is deleted, the profile reference is
+ * no longer valid.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
+ *  - LE_BUSY -- Profile connection state is not DISCONNECTED. App should stop data and then delete
+ *               the profile.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteProfile
+(
+    Profile profileRef                      IN ///< The profile reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the profile index for the given profile reference.
+ *
+ * @b NOTE: This API will be depreacted. Please use taf_dcs_GetProfileId().
  *
  * @return
  *  - uint32 -- The profile index.
@@ -925,6 +1078,24 @@ FUNCTION Profile GetProfileEx
 FUNCTION uint32 GetProfileIndex
 (
     Profile profileRef                      IN ///< The profile reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the profile ID for the given profile reference.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
+ *  - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetProfileId
+(
+    Profile profileRef IN,  ///< The profile reference.
+    uint32 profileId   OUT  ///< The profile ID. <br>
+                            ///< #TAF_DCS_UNDEFINED_PROFILE_ID indicates the profile is not yet
+                            ///< created.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -978,6 +1149,84 @@ FUNCTION le_result_t GetAPN
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Sets the data profile name.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetProfileName
+(
+    Profile profileRef                      IN, ///< The profile reference.
+    string  name[NAME_MAX_LEN]              IN  ///< The profile name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data profile name.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OVERFLOW -- Apn size is smaller than APN_NAME_MAX_BYTES.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetProfileName
+(
+    Profile profileRef                      IN, ///< The profile reference.
+    string  name[NAME_MAX_LEN]              OUT ///< The profile name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the data profile technology preference.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetTechPreference
+(
+    Profile profileRef                      IN, ///< The profile reference.
+    Tech    techPref                        IN  ///< The technology preference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data profile technology preference.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTechPreference
+(
+    Profile profileRef                      IN, ///< The profile reference.
+    Tech    techPref                       OUT  ///< The technology preference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the data profile APN type.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetApnTypes
+(
+    Profile profileRef                      IN, ///< The profile reference.
+    ApnType  apnType                        IN ///< The APN type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the data profile APN types.
  *
  * @return
@@ -990,6 +1239,7 @@ FUNCTION le_result_t GetApnTypes
     Profile profileRef                      IN, ///< The profile reference.
     ApnType  apnType                        OUT ///< The APN type.
 );
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the data profile PDP type.
@@ -1097,6 +1347,7 @@ FUNCTION le_result_t GetPhoneIdByInterfaceName
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv6SubnetMask
@@ -1112,6 +1363,7 @@ FUNCTION le_result_t GetIPv6SubnetMask
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv4SubnetMask
@@ -1119,5 +1371,3 @@ FUNCTION le_result_t GetIPv4SubnetMask
     Profile profileRef                      IN, ///< The profile reference.
     uint32  mask                            OUT ///< The IPv4 mask.
 );
-
-

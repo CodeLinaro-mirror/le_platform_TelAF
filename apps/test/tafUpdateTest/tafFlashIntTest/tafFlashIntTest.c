@@ -71,12 +71,12 @@ void GetMtdInfo(const char* partition)
 
     // Open MTD Test
     result = taf_flash_MtdOpen(partition, TAF_FLASH_READ_WRITE, &partitionRef);
-    LE_TEST_OK((result == LE_OK), "taf_flash_MtdOpen - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_MtdOpen - LE_OK");
 
     // MTD Information Test
     result = taf_flash_MtdInformation( \
         partitionRef, &blocksNumber, &badBlocksNumber, &blockSize, &pageSize);
-    LE_TEST_OK((result == LE_OK), "taf_flash_MtdInformation - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_MtdInformation - LE_OK");
 
     LE_INFO("partition:        %s", partition);
     LE_INFO("block number:     %d", blocksNumber);
@@ -110,12 +110,12 @@ void ReadMtdPage
 
     // Open MTD Test
     result = taf_flash_MtdOpen(partition, TAF_FLASH_READ_WRITE, &partitionRef);
-    LE_TEST_OK((result == LE_OK), "taf_flash_MtdOpen - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_MtdOpen - LE_OK");
 
     // MTD Information Test
     result = taf_flash_MtdInformation( \
         partitionRef, &blocksNumber, &badBlocksNumber, &blockSize, &pageSize);
-    LE_TEST_OK((result == LE_OK), "taf_flash_MtdInformation - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_MtdInformation - LE_OK");
 
     snprintf(file, sizeof(file), "/%s.mtd_data", partition);
     result = le_fs_Open(file, LE_FS_CREAT | LE_FS_WRONLY, &fileRef);
@@ -169,12 +169,12 @@ void WriteMtdPage
 
     // Open MTD Test
     result = taf_flash_MtdOpen(partition, TAF_FLASH_READ_WRITE, &partitionRef);
-    LE_TEST_OK((result == LE_OK), "taf_flash_MtdOpen - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_MtdOpen - LE_OK");
 
     // MTD Information Test
     result = taf_flash_MtdInformation( \
         partitionRef, &blocksNumber, &badBlocksNumber, &blockSize, &pageSize);
-    LE_TEST_OK((result == LE_OK), "taf_flash_MtdInformation - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_MtdInformation - LE_OK");
 
     snprintf(file, sizeof(file), "/%s.mtd_data", partition);
 
@@ -224,12 +224,12 @@ void EraseMtdBlock(const char* partition)
 
     // Open MTD Test
     result = taf_flash_MtdOpen(partition, TAF_FLASH_READ_WRITE, &partitionRef);
-    LE_TEST_OK((result == LE_OK), "taf_flash_MtdOpen - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_MtdOpen - LE_OK");
 
     // MTD Information Test
     result = taf_flash_MtdInformation( \
         partitionRef, &blocksNumber, &badBlocksNumber, &blockSize, &pageSize);
-    LE_TEST_OK((result == LE_OK), "taf_flash_MtdInformation - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_MtdInformation - LE_OK");
 
     // Erase MTD Block Test
     for (i = 0; i < blocksNumber; i++)
@@ -268,12 +268,12 @@ void GetUbiInfo(const char* volume)
 
     // Open UBI Test
     result = taf_flash_UbiOpen(volume, TAF_FLASH_READ_ONLY, &volumeRef);
-    LE_TEST_OK((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
 
     // UBI Information Test
     result = taf_flash_UbiInformation( \
         volumeRef, &lebNumber, &freeLebNumber, &volumeSize);
-    LE_TEST_OK((result == LE_OK), "taf_flash_UbiInformation - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_UbiInformation - LE_OK");
 
     LE_INFO("volume:          %s", volume);
     LE_INFO("leb number:      %d", lebNumber);
@@ -304,12 +304,12 @@ void ReadUbiLeb(const char* volume)
 
     // Open UBI Test
     result = taf_flash_UbiOpen(volume, TAF_FLASH_READ_WRITE, &volumeRef);
-    LE_TEST_OK((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
 
     // UBI Information Test
     result = taf_flash_UbiInformation( \
         volumeRef, &lebNumber, &freeLebNumber, &volumeSize);
-    LE_TEST_OK((result == LE_OK), "taf_flash_UbiInformation - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_UbiInformation - LE_OK");
 
     snprintf(file, sizeof(file), "/%s.ubi_data", volume);
 
@@ -377,16 +377,16 @@ void WriteUbiLeb(const char* volume)
 
     // Open UBI Test
     result = taf_flash_UbiOpen(volume, TAF_FLASH_READ_WRITE, &volumeRef);
-    LE_TEST_OK((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
 
     // UBI Information Test
     result = taf_flash_UbiInformation( \
         volumeRef, &lebNumber, &freeLebNumber, &volumeSize);
-    LE_TEST_OK((result == LE_OK), "taf_flash_UbiInformation - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_UbiInformation - LE_OK");
 
     // Write UBI Leb Test
     result = taf_flash_UbiInitWrite(volumeRef, volumeSize);
-    LE_TEST_OK((result == LE_OK), "taf_flash_UbiInitWrite - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_UbiInitWrite - LE_OK");
 
     snprintf(file, sizeof(file), "/%s.ubi_data", volume);
     result = le_fs_Open(file, LE_FS_RDONLY, &fileRef);
@@ -406,7 +406,7 @@ void WriteUbiLeb(const char* volume)
         }
 
         result = taf_flash_UbiWrite(volumeRef, block, blockSize);
-        LE_TEST_OK((result == LE_OK), "taf_flash_UbiWrite - LE_OK");
+        LE_TEST_ASSERT((result == LE_OK), "taf_flash_UbiWrite - LE_OK");
 
         LE_INFO("Read %s and write to block %d with size %" PRIuS, file, i, blockSize);
     }
@@ -422,7 +422,7 @@ void WriteUbiLeb(const char* volume)
         }
 
         result = taf_flash_UbiWrite(volumeRef, block, blockSize);
-        LE_TEST_OK((result == LE_OK), "taf_flash_UbiWrite - LE_OK");
+        LE_TEST_ASSERT((result == LE_OK), "taf_flash_UbiWrite - LE_OK");
     }
 
     result = le_fs_Close(fileRef);
@@ -451,11 +451,11 @@ void EraseUbiLeb
 
     // Open UBI Test
     result = taf_flash_UbiOpen(volume, TAF_FLASH_READ_WRITE, &volumeRef);
-    LE_TEST_OK((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
 
     // Erase UBI Leb Test
     result = taf_flash_UbiErase(volumeRef);
-    LE_TEST_OK((result == LE_OK), "taf_flash_UbiErase - LE_OK");
+    LE_TEST_ASSERT((result == LE_OK), "taf_flash_UbiErase - LE_OK");
 
     // Close UBI Test
     result = taf_flash_UbiClose(volumeRef);
@@ -471,6 +471,13 @@ void EraseUbiLeb
 COMPONENT_INIT
 {
     LE_TEST_PLAN(LE_TEST_NO_PLAN);
+
+    if(le_arg_NumArgs() == 0)
+    {
+        printf("No arguments provided\n");
+        PrintHelpMenu();
+        LE_TEST_EXIT;
+    }
 
     const char* type = le_arg_GetArg(0);
 

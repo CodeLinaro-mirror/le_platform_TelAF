@@ -178,10 +178,9 @@ typedef void (*hal_audio_InitFunc_t)(void);
 
 //--------------------------------------------------------------------------------------------------
 /** set audio status for route and mode
- * @param
- *      status      - 0 - inactive, 1 - active
- *      route       - RouteId
- *      mode        - mode of stream
+ * @param status      0 - inactive, 1 - active
+ * @param route       RouteId
+ * @param mode        mode of stream
  *
  * @return
  *      result for setting audio status
@@ -195,8 +194,7 @@ typedef le_result_t (*hal_audio_CtlSetAudioStatusFunc_t)
 
 //--------------------------------------------------------------------------------------------------
 /** Vendor configuration from app to vendor to perform customized operations.
- * @param
- *      config      - Vendor configuration
+ * @param config      Vendor configuration
  *
  * @return
  *      Result for sending vendor configuration.
@@ -209,9 +207,8 @@ typedef le_result_t (*hal_audio_SendVendorConfigFunc_t)
 
 //--------------------------------------------------------------------------------------------------
 /** Gets audio device type of the requested audio node.
- * @param
- *      nodeId      - Audio device node ID
- *      nodeType    - Node type
+ * @param nodeId      Audio device node ID
+ * @param nodeType    Node type
  *
  * @return
  *      Type of audio device.
@@ -225,9 +222,9 @@ typedef le_result_t (*hal_audio_GetNodeTypeFunc_t)
 
 //--------------------------------------------------------------------------------------------------
 /** Sends the audio device configuration to vendor for customized operations.
- * @param
- *      nodeId      - Audio device node ID
- *      config      - Audio device configuration
+ *
+ *  @param    nodeId      Audio device node ID
+ *  @param    config      Audio device configuration
  *
  * @return
  *      Result of sending audio device configuration to vendor.
@@ -241,9 +238,9 @@ typedef le_result_t (*hal_audio_SendNodeVendorConfigFunc_t)
 
 //--------------------------------------------------------------------------------------------------
 /** Sets the audio device power state.
- * @param
- *      nodeId      - Audio device node ID
- *      state       - Power state to be set
+ *
+ *  @param    nodeId      Audio device node ID
+ *  @param    state       Power state to be set
  *
  * @return
  *      Result of setting audio device power state.
@@ -257,9 +254,9 @@ typedef le_result_t (*hal_audio_SetNodePowerStateFunc_t)
 
 //--------------------------------------------------------------------------------------------------
 /** Gets the audio device power state.
- * @param
- *      nodeId      - Audio device node ID
- *      state       - Power state
+ *
+ *  @param    nodeId      Audio device node ID
+ *  @param    state       Power state
  *
  * @return
  *      Result of getting audio device power state.
@@ -273,9 +270,9 @@ typedef le_result_t (*hal_audio_GetNodePowerStateFunc_t)
 
 //--------------------------------------------------------------------------------------------------
 /** Sets the audio device mute status.
- * @param
- *      nodeId      - Audio device node ID
- *      mute        - True to mute, false to unmute
+ *
+ *  @param    nodeId      Audio device node ID
+ *  @param    mute        True to mute, false to unmute
  *
  * @return
  *      Result of setting audio device mute status.
@@ -289,9 +286,9 @@ typedef le_result_t (*hal_audio_SetNodeMuteStateFunc_t)
 
 //--------------------------------------------------------------------------------------------------
 /** Gets the audio device mute status.
- * @param
- *      nodeId      - Audio device node ID
- *      isMuted     - Mute status
+ *
+ *  @param    nodeId      Audio device node ID
+ *  @param    isMuted     Mute status
  *
  * @return
  *      Result of getting mute status of the audio device.
@@ -306,9 +303,9 @@ typedef le_result_t (*hal_audio_GetNodeMuteStateFunc_t)
 //--------------------------------------------------------------------------------------------------
 /**
  * Device state changed event callback function.
- * @param
- *      nodeId              - Corresponding node to respond
- *      audio_device_event  - Corresponding node information to respond
+ *
+ *  @param    nodeId              Corresponding node to respond
+ *  @param    audio_device_event  Corresponding node information to respond
  * @return void
  */
 //--------------------------------------------------------------------------------------------------
@@ -321,9 +318,9 @@ typedef void (*hal_audio_DevStateChangeCallback_t)
 //--------------------------------------------------------------------------------------------------
 /**
  * Adds node state change event handler.
- * @param
- *      nodeId   - Corresponding node to respond
- *      callback - Node state change handler callback
+ *
+ *  @param    nodeId    Corresponding node to respond
+ *  @param    callback  Node state change handler callback
  * @return
  *      Result for adding the handler
  */
@@ -336,8 +333,8 @@ typedef le_result_t (*hal_audio_AddNodeStateChangeHandler_t)
 
 //--------------------------------------------------------------------------------------------------
 /** Reports BuB status when audio is active and on change in BuB status.
- * @param
- *      bubStatus      - BuB status
+ *
+ *  @param    bubStatus      BuB status
  *
  * @return
  *      result for reporing BuB status
@@ -350,10 +347,10 @@ typedef le_result_t (*hal_audio_CtlReportBubStatusFunc_t)
 
 //--------------------------------------------------------------------------------------------------
 /** Sets the gain to the audio device.
- * @param
- *      nodeId      - Audio device node ID
- *      direction   - Audio device direction to set gain
- *      gain        - Gain percentage ranged from 0 to 1
+ *
+ *  @param    nodeId      Audio device node ID
+ *  @param    direction   Audio device direction to set gain
+ *  @param    gain        Gain percentage ranged from 0 to 1
  *
  * @return
  *      Result of setting gain to the audio device.
@@ -368,10 +365,10 @@ typedef le_result_t (*hal_audio_SetNodeGainFunc_t)
 
 //--------------------------------------------------------------------------------------------------
 /** Gets the gain of the audio device.
- * @param
- *      nodeId      - Audio device node ID
- *      direction   - Audio device direction to get gain
- *      gain        - Gain percentage ranged from 0 to 1
+ *
+ *  @param    nodeId      Audio device node ID
+ *  @param    direction   Audio device direction to get gain
+ *  @param    gain        Gain percentage ranged from 0 to 1
  *
  * @return
  *      Result of getting gain of the audio device.

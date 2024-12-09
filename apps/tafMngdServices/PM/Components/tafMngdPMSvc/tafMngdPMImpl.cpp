@@ -933,11 +933,11 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
     auto &mpms = tafMngdPMSvc::GetInstance();
     taf_mngdPm_RequestedState_t* state =
       (taf_mngdPm_RequestedState_t*)le_timer_GetContextPtr(timerRef);
-    LE_INFO("Timer Expired after %ld msec for state %d", mpms.config.hal_state_prepare_timeout,
+    LE_INFO("VhalAckTimer Expired after %ld msec for state %d", mpms.config.hal_state_prepare_timeout,
             *(state));
     if(*(state) == SYSTEM_NORMAL_SHUTDOWN)
     {
-        LE_INFO("Timer expire for SYSTEM_FORCEFUL_SHUTDOWN");
+        LE_INFO("VhalAckTimer expire for SYSTEM_FORCEFUL_SHUTDOWN");
         if(shutdownCB.shutdownCallbackFunc)
         {
             shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_TIMEOUT,
@@ -946,7 +946,7 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
     }
     else if (*(state) == RESTART_WITH_NAD_POWER_OFF_ON)
     {
-            LE_INFO("Timer expire for TAF_MNGDPM_RESTART_SYSTEM_OFF_ON");
+            LE_INFO("VhalAckTimer expire for TAF_MNGDPM_RESTART_SYSTEM_OFF_ON");
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_TIMEOUT,
@@ -964,7 +964,7 @@ void tafMngdPMSvc::VehichleWakeupTimerHandler(le_timer_Ref_t timerRef)
     taf_mngdPm_RequestedWakeupVehicle_t* wakeupMode =
       (taf_mngdPm_RequestedWakeupVehicle_t*)le_timer_GetContextPtr(timerRef);
 
-    LE_INFO("Timer Expired after %ld msec for wakeupMode %d",
+    LE_INFO("VehichleWakeupTimer Expired after %ld msec for wakeupMode %d",
             mpms.config.hal_wakeup_vehicle_timeout, *(wakeupMode));
 
     taf_mngdPm_RequestedWakeupVehicle_t* mode =
@@ -972,7 +972,7 @@ void tafMngdPMSvc::VehichleWakeupTimerHandler(le_timer_Ref_t timerRef)
 
     if(*(mode) == WAKEUP_VEHICHLE_REQ_DEFAULT)
     {
-        LE_INFO("Timer expire for WAKEUP_VEHICHLE_REQ_DEFAULT");
+        LE_INFO("VehichleWakeupTimer expire for WAKEUP_VEHICHLE_REQ_DEFAULT");
         if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(WAKEUP_VEHICHLE_REQ_DEFAULT, TAF_MNGDPM_TIMEOUT,
@@ -999,7 +999,7 @@ void tafMngdPMSvc::WaitWakeSourceTimer()
         LE_INFO("acquired wake lock after init");
     }
     le_timer_Start(wakeSourceTimerRef);
-    LE_INFO("Started timer for wakesource request from apps");
+    LE_INFO("Started WaitWakeSourceTimer for wakesource request from apps");
 }
 
 /**
@@ -1007,7 +1007,7 @@ void tafMngdPMSvc::WaitWakeSourceTimer()
  */
 void tafMngdPMSvc::WakeSourceTimerHandler(le_timer_Ref_t timerRef)
 {
-    LE_INFO("Timer Expired for WakeSourceTimerHandler");
+    LE_INFO("WaitWakeSourceTimer Expired for WakeSourceTimerHandler");
     auto &mpms = tafMngdPMSvc::GetInstance();
     le_result_t res = ReleaseWakeLock();
     if(res == LE_OK)
@@ -1059,9 +1059,9 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
         {
             res = taf_pm_StayAwake(ws);
             if(res == LE_OK) {
-                LE_INFO("Wake source from PM acquired successfully");
                 powerMode.isWsAcquired = true;
                 wsCount++;
+                LE_INFO("Acquired WakeLock wsCount:%d", wsCount);
             }
             else
             {
@@ -1075,11 +1075,10 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
     }
     else
     {
-        LE_INFO("Wake source from PM acquired successfully");
         wsCount++;
+        LE_INFO("Acquired WakeLock wsCount:%d", wsCount);
         res = LE_OK;
     }
-    LE_INFO("AcquireWakeLock wsCount:%d", wsCount);
     return res;
 }
 
@@ -1362,6 +1361,7 @@ void tafMngdPMSvc::CallNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t sta
     DeleteNodePowerStateRefs();
     mpms.regClientrecrd.clear();
     mpms.ackClientrecrdSize = 0;
+    mpms.clientSize = 0;
     while (linkHandlerPtr)
     {
         taf_mngdPm_NodePowerStateCtxt_t * handlerCtxPtr =
@@ -1406,11 +1406,11 @@ void tafMngdPMSvc::NodePowerStateChanged(void* reportPtr)
     taf_mngdPm_NodePowerStateChange_t* powerStateChange =(taf_mngdPm_NodePowerStateChange_t*)reportPtr;
     if(powerStateChange->state == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE)
     {
-        CallNodePowerStateHandlerFunc(TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE);
+        CallNodePowerStateHandlerFunc(powerStateChange->state);
     }
     else if(powerStateChange->state == TAF_MNGDPM_NODE_STATE_RESTART_PREPARE)
     {
-        CallNodePowerStateHandlerFunc(TAF_MNGDPM_NODE_STATE_RESTART_PREPARE);
+        CallNodePowerStateHandlerFunc(powerStateChange->state);
     }
     else if(powerStateChange->state == TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE)
     {
@@ -1502,7 +1502,7 @@ hal_pm_Inf_t* tafMngdPMSvc::pmInf = nullptr;
 le_timer_Ref_t tafMngdPMSvc::vhalAckTimerRef = nullptr;
 le_timer_Ref_t tafMngdPMSvc::wakeSourceTimerRef = nullptr;
 le_timer_Ref_t tafMngdPMSvc::wakeupVehicleTimerRef = nullptr;
-
+taf_mngdPm_RequestedWakeupVehicle_t tafMngdPMSvc::wakeupModePtr;
 taf_mngdPm_RequestedState_t tafMngdPMSvc::statePtr;
 taf_mngdPm_Client_t tafMngdPMSvc::mngdPmClientInfo;
 

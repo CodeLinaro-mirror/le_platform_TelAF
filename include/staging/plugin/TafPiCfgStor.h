@@ -8,6 +8,7 @@
 
 #include "tafHalIF.hpp"
 
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Config storage plugin module name.
@@ -30,7 +31,7 @@ typedef void (*pi_cfgStor_init_t)(void);
 /**
  * Authenticate file.
  * @param
- *      filePath    - the file to be authenticated
+ *      filePath    File to be authenticated
  *
  * @return
  *      result of the authentication
@@ -90,5 +91,6 @@ typedef struct
 } pi_cfgStor_InfoTab_t;
 
 extern pi_cfgStor_InfoTab_t TAF_HAL_INFO_TAB;
+
 
 #endif

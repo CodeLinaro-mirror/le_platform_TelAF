@@ -50,8 +50,9 @@ ifdef(`sa525m',`
     telux_allow_tel_private_info_read(telaf_tafTimeSvc_t)
 ')
 
+allow telaf_tafTimeSvc_t clock_device_t:chr_file { read write open ioctl };
+allow telaf_tafTimeSvc_t etc_t:file { open read getattr };
+
 # For updating the delta mseconds to storage
 time_delta_read_write(telaf_tafTimeSvc_t)
 
-allow telaf_tafTimeSvc_t clock_device_t:chr_file { read write open ioctl };
-allow telaf_tafTimeSvc_t etc_t:file { open read getattr };

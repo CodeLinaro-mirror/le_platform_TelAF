@@ -123,7 +123,7 @@ uint16_t CountFiles(const char *path)
 //--------------------------------------------------------------------------------------------------
 static void CalculateFileMD5(const char* filePath, char* md5Str, size_t md5StrSize)
 {
-    LE_INFO("%s", __FUNCTION__);
+    LE_DEBUG("%s", __FUNCTION__);
 
     if (md5StrSize < (MD5_DIGEST_LENGTH * 2) + 1)
     {
@@ -188,7 +188,7 @@ static void CalculateFileMD5(const char* filePath, char* md5Str, size_t md5StrSi
 //--------------------------------------------------------------------------------------------------
 static le_result_t SetFileMD5ToExtendedAttr(const char* filePath)
 {
-    LE_INFO("%s", __FUNCTION__);
+    LE_DEBUG("%s", __FUNCTION__);
 
     char md5Str[(MD5_DIGEST_LENGTH * 2) + 1];
     CalculateFileMD5(filePath, md5Str, sizeof(md5Str));
@@ -215,7 +215,7 @@ static le_result_t SetFileMD5ToExtendedAttr(const char* filePath)
 //--------------------------------------------------------------------------------------------------
 static void CalculateFilePathSHA1(const char* filePath, char* outputHash)
 {
-    LE_INFO("%s", __FUNCTION__);
+    LE_DEBUG("%s", __FUNCTION__);
 
     unsigned char hash[SHA_DIGEST_LENGTH];
     SHA1((unsigned char*)filePath, strlen(filePath), hash);
@@ -234,7 +234,7 @@ static void CalculateFilePathSHA1(const char* filePath, char* outputHash)
 //--------------------------------------------------------------------------------------------------
 static le_result_t ReplaceFileWithBackup(const char* filePath)
 {
-    LE_INFO("%s", __FUNCTION__);
+    LE_DEBUG("%s", __FUNCTION__);
 
     char sha1Hash[SHA_DIGEST_LENGTH * 2 + 1];
     CalculateFilePathSHA1(filePath, sha1Hash);
@@ -313,9 +313,9 @@ static le_result_t ReplaceFileWithBackup(const char* filePath)
 //--------------------------------------------------------------------------------------------------
 static le_result_t BackUpFileAndSELinuxContext(const char* sourcePath, const char* targetPath)
 {
-    LE_INFO("%s", __FUNCTION__);
+    LE_DEBUG("%s", __FUNCTION__);
 
-    LE_INFO("sourcePath: %s, targetPath: %s", sourcePath, targetPath);
+    LE_DEBUG("sourcePath: %s, targetPath: %s", sourcePath, targetPath);
     int inputFd, outputFd;
     struct stat stat_buf;
     off_t offset = 0;
@@ -391,7 +391,7 @@ static le_result_t BackupFileToStorage
     const char* filePath
 )
 {
-    LE_INFO("----- %s -----", __FUNCTION__);
+    LE_DEBUG("----- %s -----", __FUNCTION__);
 
     char backupDir[RFS_MAX_BACKUP_FILENAME - (SHA_DIGEST_LENGTH * 2 + 1)];
 
@@ -434,7 +434,7 @@ static le_result_t BackupFileToStorage
 
         le_event_Report(ErrorEventId, (void*)&errMsg, sizeof(RFS_ErrorMsg_t));
     }
-    LE_INFO("----- %s finished -----", __FUNCTION__);
+    LE_DEBUG("----- %s finished -----", __FUNCTION__);
     return LE_OK;
 }
 
@@ -448,7 +448,7 @@ static void DeleteBackup
     const char* filePath
 )
 {
-    LE_INFO("%s", __FUNCTION__);
+    LE_DEBUG("%s", __FUNCTION__);
 
     char sha1Hash[SHA_DIGEST_LENGTH * 2 + 1];
     CalculateFilePathSHA1(filePath, sha1Hash);
@@ -463,7 +463,7 @@ static void DeleteBackup
         snprintf(backupPath, sizeof(backupPath), "%s%s", RFS_BACKUP_STORAGE, sha1Hash);
     }
 
-    LE_INFO("delete backup: %s", backupPath);
+    LE_DEBUG("delete backup: %s", backupPath);
     unlink(backupPath);
 }
 
@@ -594,8 +594,8 @@ extern "C" LE_SHARED int taf_rfs_Open
     mode_t mode
 )
 {
-    LE_INFO("%s", __FUNCTION__);
-    LE_INFO("filePathPtr: %s", filePathPtr);
+    LE_DEBUG("%s", __FUNCTION__);
+    LE_DEBUG("filePathPtr: %s", filePathPtr);
 
     if(enableBackup == false)
     {
@@ -620,7 +620,7 @@ extern "C" LE_SHARED int taf_rfs_Open
             if (strncmp(storedMd5Str, md5Str, MD5_DIGEST_LENGTH * 2) != 0)
             {
                 // MD5 is not matched, restore the file from backup storage
-                LE_INFO("MD5 is not mathced, will restore the file");
+                LE_WARN("MD5 is not mathced, will restore the file");
                 needRestore = true;
             }
         }
@@ -659,7 +659,7 @@ extern "C" LE_SHARED int taf_rfs_Close
     int fd
 )
 {
-    LE_INFO("%s", __FUNCTION__);
+    LE_DEBUG("%s", __FUNCTION__);
 
     if(enableBackup == false)
     {
@@ -673,12 +673,12 @@ extern "C" LE_SHARED int taf_rfs_Close
         // check if the fd has write permission
         if (!(flags & O_WRONLY) && !(flags & O_RDWR))
         {
-            LE_INFO("The fd does not have write permission, close it");
+            LE_DEBUG("The fd does not have write permission, close it");
             return close(fd);
         }
     }
 
-    LE_INFO("The fd has write permission.");
+    LE_DEBUG("The fd has write permission.");
 
     // Need to finish and return this function ASAP, push off uneccessary tasks to event process
 
@@ -710,7 +710,7 @@ extern "C" LE_SHARED int taf_rfs_Read
     size_t* sizePtr
 )
 {
-    LE_INFO("%s", __FUNCTION__);
+    LE_DEBUG("%s", __FUNCTION__);
     return read(fd, bufPtr, *sizePtr);
 }
 
@@ -721,7 +721,7 @@ extern "C" LE_SHARED int taf_rfs_Write
     size_t sizePtr
 )
 {
-    LE_INFO("%s", __FUNCTION__);
+    LE_DEBUG("%s", __FUNCTION__);
     return write(fd, bufPtr, sizePtr);
 }
 
@@ -730,8 +730,8 @@ extern "C" LE_SHARED void taf_rfs_Delete
     const char* filePathPtr
 )
 {
-    LE_INFO("%s", __FUNCTION__);
-    LE_INFO("filePathPtr: %s", filePathPtr);
+    LE_DEBUG("%s", __FUNCTION__);
+    LE_DEBUG("filePathPtr: %s", filePathPtr);
 
     unlink(filePathPtr);
 

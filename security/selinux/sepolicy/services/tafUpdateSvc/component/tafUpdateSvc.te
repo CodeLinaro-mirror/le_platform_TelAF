@@ -26,6 +26,7 @@ gen_require(`
     type power_unit_t;
     type proc_t;
     type shell_exec_t;
+    type syslogd_var_run_t;
     type system_dbusd_t;
     type systemd_logind_var_run_t;
     type telaf_admin_t;
@@ -155,3 +156,6 @@ telaf_admin_manage_all_files_perms(telaf_tafUpdateSvc_exec_t)
 
 # Allow access to run update plugin under /app
 allow telaf_tafUpdateSvc_t telaf_fw_t:file { exec_file_perms };
+
+# Allow access to syslog
+allow telaf_tafUpdateSvc_t syslogd_var_run_t:sock_file { rw_file_perms };

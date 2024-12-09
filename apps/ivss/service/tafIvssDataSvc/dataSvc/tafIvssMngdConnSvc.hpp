@@ -56,6 +56,22 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the data Ipv4 address, gateway, DNS, and mask structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    char name[TAF_MNGDCONN_MAX_NAME_LEN];        ///< [IN] The data name to use.
+    char ifName[TAF_DCS_NAME_MAX_LEN];           ///< [OUT] The interface name.
+    char ipAddr[TAF_DCS_IPV4_ADDR_MAX_LEN];      ///< [OUT] The Ipv4 address.
+    char gatewayAddr[TAF_DCS_IPV4_ADDR_MAX_LEN]; ///< [OUT] The Ipv4 gateway address.
+    char dns1Addr[TAF_DCS_IPV4_ADDR_MAX_LEN];    ///< [OUT] The Ipv4 primary DNS address.
+    char dns2Addr[TAF_DCS_IPV4_ADDR_MAX_LEN];    ///< [OUT] The Ipv4 secondary DNS address.
+    uint32_t ipMask;                             ///< [OUT] The Ipv4 mask.
+}taf_IvssMngdConn_GetDataIpv4Info_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Ivss mngd method indication structure
  */
 //--------------------------------------------------------------------------------------------------
@@ -67,6 +83,7 @@ typedef struct
     {
         taf_IvssMngdConn_StartData_t startData;
         taf_IvssMngdConn_StopData_t stopData;
+        taf_IvssMngdConn_GetDataIpv4Info_t getDataIpv4Info;
     };
 }taf_IvssMngdConn_Ind_t;
 
@@ -122,10 +139,13 @@ public:
         StopDataReply_t _reply);
     virtual void GetDataList(const std::shared_ptr<CommonAPI::ClientId> _client,
         GetDataListReply_t _reply);
+    virtual void GetDataIpv4Info(const std::shared_ptr<CommonAPI::ClientId> _client,
+        std::string _name, GetDataIpv4InfoReply_t _reply);
 
     // ivss method function handler.
     static void StartDataHandler(void* reportPtr);
     static void StopDataHandler(void* reportPtr);
+    static void GetDataIpv4InfoHandler(void* reportPtr);
 
     // ivss event function handler.
     static void taf_ivss_mngdConn_DataStateHandler(taf_mngdConn_DataRef_t dataRef,
@@ -137,9 +157,11 @@ public:
     // ivss method ref.
     le_event_Id_t StartDataEvent = NULL;
     le_event_Id_t StopDataEvent = NULL;
+    le_event_Id_t GetDataIpv4InfoEvent = NULL;
 
     le_event_HandlerRef_t StartDataEventHandlerRef;
     le_event_HandlerRef_t StopDataEventHandlerRef;
+    le_event_HandlerRef_t GetDataIpv4InfoEventHandlerRef;
 };
 
 #endif // TAFIVSSMNGDCONNSVC_HPP_

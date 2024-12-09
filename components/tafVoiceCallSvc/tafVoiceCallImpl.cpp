@@ -114,10 +114,31 @@ void tafCallListener::onIncomingCall(std::shared_ptr<telux::tel::ICall> iCall)
     callEvent_t msgCallEvent = { 0 };
     auto &myCall = taf_VoiceCall::GetInstance();
     telux::tel::CallState state = iCall->getCallState();
-    int8_t phoneId;
+    int8_t phoneId = iCall->getPhoneId();
+
+    std::promise<telux::common::ErrorCode> p;
+        std::promise<int> q;
+        std::promise<ECallHlapTimerStatus> r;
+        telux::tel::ECallHlapTimerStatusCallback cb =
+            [&p, &q, &r](telux::common::ErrorCode error, int phoneId, ECallHlapTimerStatus hlapTimerStatus) {
+            p.set_value(error);
+            q.set_value(phoneId);
+            r.set_value(hlapTimerStatus);
+        };
+
+    if (myCall.CallMgr->requestECallHlapTimerStatus(phoneId, cb) == Status::SUCCESS)
+    {
+        if (p.get_future().get() == ErrorCode::SUCCESS) {
+            if (phoneId == q.get_future().get() &&
+                telux::tel::HlapTimerStatus::ACTIVE == r.get_future().get().t9)
+            {
+                LE_INFO("eCall T9 timer is running");
+                return;
+            }
+        }
+    }
 
     le_utf8_Copy(msgCallEvent.dest, iCall->getRemotePartyNumber().c_str(), MAX_DESTINATION_LEN, NULL);
-    phoneId = iCall->getPhoneId();
 
     LE_DEBUG("In coming call: %s(0x%x), icall: %p, phoneId: %d, phoneNum: %s， dir: %s\n",
         callStateToString(state), (uint32_t)state, &*iCall, phoneId, msgCallEvent.dest, callDirectionToString(iCall->getCallDirection()));

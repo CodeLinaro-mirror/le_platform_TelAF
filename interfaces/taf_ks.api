@@ -758,8 +758,8 @@ FUNCTION le_result_t ExportKey
  * is allowed to share. If the real key usage is "TAF_KS_RSA_DECRYPT_ONLY", then only capability
  * "TAF_KS_RSA_DECRYPT_ONLY" is allowed to share.
  *
- * The appCap provides additional privileges for the shared app to use the key like delete key
- * and export key if needed.
+ * The appCap provides additional privileges for the shared app to use the key like deleting key
+ * and exporting key if needed.
  *
  * Only the key owner app can share the key after provisioning. One key can be shared to at most
  * 5 applications to use.

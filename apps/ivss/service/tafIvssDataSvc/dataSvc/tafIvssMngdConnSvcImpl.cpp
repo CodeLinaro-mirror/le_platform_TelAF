@@ -26,7 +26,7 @@ std::shared_ptr<tafIvssMngdConnSvc> tafIvssMngdConnSvc::GetInstance()
  */
 //--------------------------------------------------------------------------------------------------
 bool findDataNameIndex(const char* name, uint32_t* index) {
-    if (index == nullptr) {
+    if (index == NULL) {
         return false;
     }
 
@@ -45,7 +45,7 @@ bool findDataNameIndex(const char* name, uint32_t* index) {
  */
 //--------------------------------------------------------------------------------------------------
 bool findFreeDataIndex(const char* name, uint32_t* index) {
-    if (index == nullptr) {
+    if (index == NULL) {
         return false;
     }
 
@@ -72,12 +72,11 @@ void tafIvssMngdConnSvc::StartDataHandler
 
     taf_IvssMngdConn_Ind_t* indPtr = (taf_IvssMngdConn_Ind_t*)reportPtr;
     taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetDataByName(indPtr->startData.name);
-    if (dataRef == nullptr)
+    if (dataRef == NULL)
     {
         indPtr->result = LE_FAULT;
-        le_sem_Post(indPtr->semRef);
-        LE_ERROR("taf_mngdConn_GetDataByName failed - %s", LE_RESULT_TXT(indPtr->result));
-        return;
+        TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+            "taf_mngdConn_GetDataByName failed - %s", LE_RESULT_TXT(indPtr->result));
     }
 
     // Get data table index.
@@ -87,14 +86,13 @@ void tafIvssMngdConnSvc::StartDataHandler
         if (!findFreeDataIndex(indPtr->startData.name, &index))
         {
             indPtr->result = LE_FAULT;
-            le_sem_Post(indPtr->semRef);
-            LE_ERROR("StartDataHandler findFreeDataIndex failed - %s", LE_RESULT_TXT(indPtr->result));
-            return;
+            TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+                "StartDataHandler findFreeDataIndex failed - %s", LE_RESULT_TXT(indPtr->result));
         }
         else
         {
             le_utf8_Copy(DataTable[index].name, indPtr->startData.name,
-                sizeof(DataTable[index].name), nullptr);
+                sizeof(DataTable[index].name), NULL);
             DataTable[index].startEnable = true;
         }
     }
@@ -109,10 +107,10 @@ void tafIvssMngdConnSvc::StartDataHandler
 
     // Start Data.
     indPtr->result = taf_mngdConn_StartData(dataRef);
-    le_sem_Post(indPtr->semRef);
+    TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_mngdConn_StartData failed - %s", LE_RESULT_TXT(indPtr->result));
 
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_mngdConn_StartData failed - %s",
-        LE_RESULT_TXT(indPtr->result));
+    le_sem_Post(indPtr->semRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -133,7 +131,7 @@ void tafIvssMngdConnSvc::StartData
     taf_IvssMngdConn_Ind_t* indPtr = (taf_IvssMngdConn_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssMngdConn_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss StartData", 0);
-    le_utf8_Copy(indPtr->startData.name, _name.c_str(), sizeof(indPtr->startData.name), nullptr);
+    le_utf8_Copy(indPtr->startData.name, _name.c_str(), sizeof(indPtr->startData.name), NULL);
 
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(StartDataEvent, (void*)indPtr);
@@ -158,12 +156,11 @@ void tafIvssMngdConnSvc::StopDataHandler
 
     taf_IvssMngdConn_Ind_t* indPtr = (taf_IvssMngdConn_Ind_t*)reportPtr;
     taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetDataByName(indPtr->startData.name);
-    if (dataRef == nullptr)
+    if (dataRef == NULL)
     {
         indPtr->result = LE_FAULT;
-        le_sem_Post(indPtr->semRef);
-        LE_ERROR("taf_mngdConn_GetDataByName failed - %s", LE_RESULT_TXT(indPtr->result));
-        return;
+        TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+            "taf_mngdConn_GetDataByName failed - %s", LE_RESULT_TXT(indPtr->result));
     }
 
     // Get data table index.
@@ -171,18 +168,17 @@ void tafIvssMngdConnSvc::StopDataHandler
     if (!findDataNameIndex(indPtr->startData.name, &index))
     {
         indPtr->result = LE_FAULT;
-        le_sem_Post(indPtr->semRef);
-        LE_ERROR("findDataNameIndex failed - %s", LE_RESULT_TXT(indPtr->result));
-        return;
+        TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+            "StopDataHandler findDataNameIndex failed - %s", LE_RESULT_TXT(indPtr->result));
     }
 
     // Stop Data.
     DataTable[index].stopEnable = true;
     indPtr->result = taf_mngdConn_StopData(dataRef);
-    le_sem_Post(indPtr->semRef);
+    TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_mngdConn_StopData failed - %s", LE_RESULT_TXT(indPtr->result));
 
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_mngdConn_StopData failed - %s",
-        LE_RESULT_TXT(indPtr->result));
+    le_sem_Post(indPtr->semRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -203,7 +199,7 @@ void tafIvssMngdConnSvc::StopData
     taf_IvssMngdConn_Ind_t* indPtr = (taf_IvssMngdConn_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssMngdConn_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss StopData", 0);
-    le_utf8_Copy(indPtr->stopData.name, _name.c_str(), sizeof(indPtr->stopData.name), nullptr);
+    le_utf8_Copy(indPtr->stopData.name, _name.c_str(), sizeof(indPtr->stopData.name), NULL);
 
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(StopDataEvent, (void*)indPtr);
@@ -216,7 +212,7 @@ void tafIvssMngdConnSvc::StopData
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Stops a data session for the given data ID.
+ * Gets connection state information for all currently running datas.
  */
 //--------------------------------------------------------------------------------------------------
 void tafIvssMngdConnSvc::GetDataList
@@ -243,6 +239,114 @@ void tafIvssMngdConnSvc::GetDataList
     }
 
     _reply(ResultLeToIvss(LE_OK), dataNum, name, dataState);
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for method 'GetDataIpv4Info'
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssMngdConnSvc::GetDataIpv4InfoHandler
+(
+    void* reportPtr
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_IvssMngdConn_Ind_t* indPtr = (taf_IvssMngdConn_Ind_t*)reportPtr;
+    taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetDataByName(indPtr->startData.name);
+    if (dataRef == NULL)
+    {
+        indPtr->result = LE_FAULT;
+        TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+            "taf_mngdConn_GetDataByName failed - %s", LE_RESULT_TXT(indPtr->result));
+    }
+
+    uint8_t profileId;
+    indPtr->result = taf_mngdConn_GetProfileNumberByRef(dataRef, &profileId);
+    TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_mngdConn_GetProfileNumberByRef failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    uint8_t phoneId;
+    indPtr->result = taf_mngdConn_GetPhoneIdByRef(dataRef, &phoneId);
+    TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_mngdConn_GetPhoneIdByRef failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    taf_dcs_ProfileRef_t profileRef = NULL;
+    profileRef= taf_dcs_GetProfileEx(phoneId, profileId);
+    if (profileRef == NULL)
+    {
+        indPtr->result = LE_FAULT;
+        TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+            "taf_dcs_GetProfileEx failed - %s", LE_RESULT_TXT(indPtr->result));
+    }
+
+    if (taf_dcs_IsIPv4(profileRef) == false)
+    {
+        indPtr->result = LE_FAULT;
+        TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+            "taf_dcs_IsIPv4 failed - %s", LE_RESULT_TXT(indPtr->result));
+    }
+
+    indPtr->result = taf_dcs_GetInterfaceName(profileRef, indPtr->getDataIpv4Info.ifName,
+        sizeof(indPtr->getDataIpv4Info.ifName));
+    TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_dcs_GetInterfaceName failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    indPtr->result = taf_dcs_GetIPv4Address(profileRef, indPtr->getDataIpv4Info.ipAddr,
+        sizeof(indPtr->getDataIpv4Info.ipAddr));
+    TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_dcs_GetIPv4Address failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    indPtr->result = taf_dcs_GetIPv4GatewayAddress(profileRef, indPtr->getDataIpv4Info.gatewayAddr,
+        sizeof(indPtr->getDataIpv4Info.gatewayAddr));
+    TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_dcs_GetIpv4GatewayAddress failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    indPtr->result = taf_dcs_GetIPv4DNSAddresses(profileRef, indPtr->getDataIpv4Info.dns1Addr,
+        sizeof(indPtr->getDataIpv4Info.dns1Addr), indPtr->getDataIpv4Info.dns2Addr,
+        sizeof(indPtr->getDataIpv4Info.dns2Addr));
+    TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_dcs_GetIPv4DNSAddresses failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    indPtr->result = taf_dcs_GetIPv4SubnetMask(profileRef, &indPtr->getDataIpv4Info.ipMask);
+    TAF_IVSS_ERROR_IF_RET_NIL(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_dcs_GetIPv4SubnetMask failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    le_sem_Post(indPtr->semRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data Ipv4 address, gateway, DNS, and mask.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssMngdConnSvc::GetDataIpv4Info
+(
+    const std::shared_ptr<CommonAPI::ClientId> _client,
+    std::string _name,
+    GetDataIpv4InfoReply_t _reply
+)
+{
+    // Create a generic response message object.
+    LE_INFO("tafIvssMngdConnSvc GetDataIpv4Info \n");
+
+    taf_IvssMngdConn_Ind_t* indPtr = (taf_IvssMngdConn_Ind_t*)le_mem_ForceAlloc(EventPool);
+    memset(indPtr, 0, sizeof(taf_IvssMngdConn_Ind_t));
+    indPtr->semRef = le_sem_Create("Ivss GetDataIpv4Info", 0);
+    le_utf8_Copy(indPtr->getDataIpv4Info.name, _name.c_str(), sizeof(indPtr->getDataIpv4Info.name),
+        NULL);
+
+    // Report to the common COMMONAPI msg handler in service layer.
+    le_event_ReportWithRefCounting(GetDataIpv4InfoEvent, (void*)indPtr);
+    le_sem_Wait(indPtr->semRef);
+    _reply(ResultLeToIvss(indPtr->result), std::string(indPtr->getDataIpv4Info.ifName),
+        MngdConnSvc::DataIpInfo{indPtr->getDataIpv4Info.ipAddr, indPtr->getDataIpv4Info.gatewayAddr,
+        indPtr->getDataIpv4Info.dns1Addr, indPtr->getDataIpv4Info.dns2Addr,
+        indPtr->getDataIpv4Info.ipMask});
+
+    le_sem_Delete(indPtr->semRef);
+    le_mem_Release(indPtr);
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -316,12 +420,15 @@ void tafIvssMngdConnSvc::Init
     // Init events.
     StartDataEvent = le_event_CreateIdWithRefCounting("StartDataEvent");
     StopDataEvent = le_event_CreateIdWithRefCounting("StopDataEvent");
+    GetDataIpv4InfoEvent = le_event_CreateIdWithRefCounting("GetDataIpv4InfoEvent");
 
     // Init event handler.
     StartDataEventHandlerRef = le_event_AddHandler("StartDataEvent Handler", StartDataEvent,
         tafIvssMngdConnSvc::StartDataHandler);
     StopDataEventHandlerRef = le_event_AddHandler("StopDataEvent Handler", StopDataEvent,
         tafIvssMngdConnSvc::StopDataHandler);
+    GetDataIpv4InfoEventHandlerRef = le_event_AddHandler("GetDataIpv4InfoEvent Handler",
+        GetDataIpv4InfoEvent, tafIvssMngdConnSvc::GetDataIpv4InfoHandler);
 
     LE_INFO("tafIvssMngdConnSvc Service initialized");
 };

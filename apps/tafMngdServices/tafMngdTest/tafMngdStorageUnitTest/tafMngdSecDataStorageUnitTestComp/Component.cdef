@@ -1,14 +1,13 @@
 sources:
 {
-    tafMngdStorageUnitTest.c
+    tafMngdSecDataStorageUnitTest.c
 }
 
 requires:
 {
     api:
     {
-        taf_mngdStorSec.api
-        taf_mngdStorCfg.api
+        taf_mngdStorSecData.api
     }
 }
 

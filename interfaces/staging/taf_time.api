@@ -37,7 +37,7 @@
  *
  * @page c_tafTime Time Service
  *
- * @ref taf_time_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_time_interface.h>` @endrst
  *
  * <HR>
  *
@@ -234,8 +234,7 @@
  *
  * @endcode
  *
- * @section taf_time_GetFailedLoops Get the number of failed loops and the polling interval
- * time for a source
+ * @section taf_time_GetFailedLoops Get the number of failed loops and the polling interval time for a source
  *
  * When trying to get the number of failed loops and the polling interval time for a source,
  * the application shall first get the source reference by calling taf_time_GetSourceRef(),
@@ -287,8 +286,7 @@
  *
  * @endcode
  *
- * @section taf_time_GetSystemTimeSourceID Get the source ID of time source to which system
- * time is synced
+ * @section taf_time_GetSystemTimeSourceID Get the source ID of time source to which system time is synced
  *
  * When trying to get the latest time source to which system is synced, call
  * taf_time_GetSystemTimeSourceID() to fetch the source ID.
@@ -864,7 +862,7 @@ FUNCTION le_result_t GetSystemTimeSourceID
 HANDLER TimeSourceStatusHandler
 (
     Source sourceRef            IN,  ///< Source reference.
-    StatusEventType eventType   IN,  ///< Status event type. 
+    StatusEventType eventType   IN,  ///< Status event type.
     bool status                 IN   ///< Status of source as per event type.
 );
 
@@ -902,13 +900,13 @@ FUNCTION le_result_t GetTimeZone
  * Gets the daylight saving adjustment in hours. Possible values for the output are 0, 1, and 2
  * indicating following:
  *
- * 0: No adjustment for daylight saving.
+ * - 0: No adjustment for daylight saving.
  *
- * 1: +1 adjustment for daylight saving.
+ * - 1: +1 adjustment for daylight saving.
  *
- * 2: +2 adjustment for daylight saving.
+ * - 2: +2 adjustment for daylight saving.
  *
- * 3: reserved.
+ * - 3: reserved.
  *
  * @return
  *  - LE_OK -- Succeeded.
@@ -926,7 +924,7 @@ FUNCTION le_result_t GetTimeDayAdj
  * Checks whether a time source is valid.
  *
  * @return
- *  - true -- valid.
+ *  - true -- Valid.
  *  - false -- Not valid.
  */
 //--------------------------------------------------------------------------------------------------

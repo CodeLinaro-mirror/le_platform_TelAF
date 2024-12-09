@@ -51,6 +51,7 @@ extern:
     tafDiagSvc.tafDiagSvc.taf_diagReset
     tafDiagSvc.tafDiagSvc.taf_diagRoutineCtrl
     tafDiagSvc.tafDiagSvc.taf_diagIOCtrl
+    tafDiagSvc.tafDiagSvc.taf_diag
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
     tafDiagSvc.tafDiagSvc.taf_diagEvent
     tafDiagSvc.tafDiagSvc.taf_diagDTC

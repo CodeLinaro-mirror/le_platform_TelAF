@@ -4,21 +4,21 @@
 **/
 //------------------------------------------------------------------------------------------------
 /**
-* @page c_tafwlanap Wireless LAN Access Point Management Service
-*
-* @ref taf_wlan_ap_interface.h "API Reference"
-*
-* <HR>
-*
-* Wireless LAN(WLAN) Access Point(AP) Management Service provides APIs for applications to manage
-* Access Points that allow clients to connect to the WLAN and access the internet. Before a WLAN
-* AP can be started, the WLAN device should be properly configured using the WLAN Management
-* Service's APIs.
-*
-* @section taf_wlan_ap_binding IPC interfaces binding
-*
-* The functions of this service are provided by the @b tafWlanAPSvc application service.
-*
+ * @page c_tafwlanap Wireless LAN Access Point Management Service
+ *
+ * @rst :ref:`API reference <File taf_wlanAp_interface.h>` @endrst
+ *
+ * <HR>
+ *
+ * Wireless LAN(WLAN) Access Point(AP) Management Service provides APIs for applications to manage
+ * Access Points that allow clients to connect to the WLAN and access the internet. Before a WLAN
+ * AP can be started, the WLAN device should be properly configured using the WLAN Management
+ * Service's APIs.
+ *
+ * @section taf_wlan_ap_binding IPC interfaces binding
+ *
+ * The functions of this service are provided by the @b tafWlanAPSvc application service.
+ *
  * The following example illustrates how to bind to the WLAN Access Point service.
  * @verbatim
    bindings:
@@ -27,7 +27,7 @@
    }
    @endverbatim
  *
-*/
+ */
 //--------------------------------------------------------------------------------------------------
 USETYPES taf_wlan.api;
 USETYPES taf_net.api;

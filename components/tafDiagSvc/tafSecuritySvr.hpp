@@ -185,7 +185,7 @@ namespace telux {
                 void RemoveRxSesTypeCheckHandler(taf_diagSecurity_RxSesTypeCheckHandlerRef_t
                         handlerRef);
                 le_result_t SendSesTypeCheckResp(taf_diagSecurity_RxSesTypeCheckRef_t rxSesTypeRef,
-                        taf_diagSecurity_SesControlErrorCode_t errCode);
+                        uint8_t errCode);
 
                 // Session change indication function
                 static void SesChangeEventHandler(void* reportPtr);
@@ -215,8 +215,7 @@ namespace telux {
                         uint8_t* payloadPtr, size_t* payloadSizePtr);
 
                 le_result_t SendSecAccessResp( taf_diagSecurity_RxSecAccessMsgRef_t rxMsgRef,
-                        taf_diagSecurity_SecAccessErrorCode_t errCode, const uint8_t* dataPtr,
-                                size_t dataSize);
+                        uint8_t errCode, const uint8_t* dataPtr, size_t dataSize);
 
                 le_result_t RemoveSvc(taf_diagSecurity_ServiceRef_t svcRef);
 

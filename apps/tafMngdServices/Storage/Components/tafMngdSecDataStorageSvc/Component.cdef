@@ -1,0 +1,44 @@
+sources:
+{
+    tafMngdSecDataStore.cpp
+    tafMngdSecData.cpp
+    tafMngdSecDataStorageImpl.cpp
+    tafMngdSecDataStorageSvc.cpp
+}
+
+provides:
+{
+    api:
+    {
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdStorSecData.api
+    }
+}
+
+requires:
+{
+    api:
+    {
+        taf_ks.api
+        le_appInfo.api
+    }
+
+    component:
+    {
+        $TELAF_ROOT/components/tafRFSLib
+    }
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+    -I${LEGATO_ROOT}/framework/liblegato
+    -I$TELAF_ROOT/include/staging
+    -DMSS_SEC_STORE_SIZE=8192
+}
+
+ldflags:
+{
+   -lssl
+   -lboost_filesystem
+   -lcrypto
+}

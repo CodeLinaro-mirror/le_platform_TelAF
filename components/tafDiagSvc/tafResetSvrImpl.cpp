@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -241,6 +241,82 @@ void taf_ResetSvr::UDSMsgHandler
         return;
     }
 
+#ifndef LE_CONFIG_DIAG_FEATURE_A
+    uint8_t errCode = 0;
+    taf_uds_AddrInfo_t addrInfo;
+    memcpy(&addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
+
+    auto &diag = taf_DiagSvr::GetInstance();
+    uint8_t resetType = msgPtr[1] & 0x7F;
+
+    // check enable condition
+    try
+    {
+        LE_DEBUG("Reset enable condition check");
+        cfg::Node & node = cfg::top_reset_all<int>("sub_function_identifier", resetType);
+        cfg::Node & enableNode = node.get_child("data_enable_condition");
+
+        for (const auto & enable: enableNode)
+        {
+            // Get the defined enable operation type: "and" or "or"
+            std::string enableOperation = enable.first;
+            if (enableOperation == "and")
+            {
+                LE_INFO("Check reset enable condition status based on AND operation");
+                cfg::Node & optNodeList = enableNode.get_child("and");
+                for (const auto & optNode: optNodeList)
+                {
+                    uint8_t enableId = optNode.second.get_value<uint8_t>();
+                    LE_DEBUG("Enable condition id = 0x%x", enableId);
+
+                    if (!diag.GetEnableConditionStatus(enableId))
+                    {
+                        errCode = cfg::get_nrc_by_condition_id(enableId);
+                        LE_WARN("Enable id %d condition is false, send nrc 0x%x",
+                                enableId, errCode);
+                        SendNRCResp(&addrInfo, errCode);
+                        return;
+                    }
+                }
+            }
+            else if (enableOperation == "or")
+            {
+                LE_INFO("Check reset enable condition status based on OR operation");
+                cfg::Node & optNodeList = enableNode.get_child("or");
+                bool enableStatus = false;
+                uint8_t enableId = 0;
+
+                for (const auto & optNode: optNodeList)
+                {
+                    enableId = optNode.second.get_value<uint8_t>();
+                    LE_DEBUG("Enable condition id = 0x%x", enableId);
+
+                    if(diag.GetEnableConditionStatus(enableId))
+                    {
+                        enableStatus = true;
+                        LE_INFO("enable id %d status is true", enableId);
+                        break;
+                    }
+                }
+
+                if(!enableStatus && enableId != 0)
+                {
+                    errCode = cfg::get_nrc_by_condition_id(enableId);
+                    LE_WARN("Enable id %d condition is false, send nrc 0x%x",
+                            enableId, errCode);
+                    SendNRCResp(&addrInfo, errCode);
+                    return;
+                }
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LE_WARN("Enable condition does not define for reset type: 0x%x, Exception: %s",
+                    resetType, e.what());
+    }
+#endif
+
     taf_ResetRxMsg_t* rxMsgPtr = NULL;
 
     rxMsgPtr = (taf_ResetRxMsg_t*)le_mem_ForceAlloc(RxMsgPool);
@@ -325,11 +401,19 @@ void taf_ResetSvr::RxReqEventHandler
     taf_ResetSvc_t* servicePtr = NULL;
     taf_ResetReqHandler_t* handlerObjPtr = NULL;
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     servicePtr = (taf_ResetSvc_t*)reset.GetServiceObj(rxMsgPtr->subFunc, rxMsgPtr->addrInfo.vlanId);
+#else
+    servicePtr = (taf_ResetSvc_t*)reset.GetServiceObj(rxMsgPtr->subFunc, (uint16_t)0);
+#endif
     if (servicePtr == NULL)
     {
+#ifndef LE_CONFIG_DIAG_VSTACK
         servicePtr = (taf_ResetSvc_t*)reset.GetServiceObj(TAF_DIAGRESET_ALL_RESET,
             rxMsgPtr->addrInfo.vlanId);
+#else
+        servicePtr = (taf_ResetSvc_t*)reset.GetServiceObj(TAF_DIAGRESET_ALL_RESET, (uint16_t)0);
+#endif
         if(servicePtr == NULL)
         {
             LE_WARN("Not found registered ECU reset service type: 0x%x for this request(vlan id:0x%x)",
@@ -473,10 +557,18 @@ le_result_t taf_ResetSvr::SendResp
     taf_ResetRxMsg_t* rxMsgPtr = (taf_ResetRxMsg_t*)le_ref_Lookup(RxMsgRefMap, rxMsgRef);
     TAF_ERROR_IF_RET_VAL(rxMsgPtr == NULL, LE_BAD_PARAMETER, "Invalid rxMsgPtr");
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     taf_ResetSvc_t* servicePtr = (taf_ResetSvc_t*)GetServiceObj(rxMsgPtr->subFunc, rxMsgPtr->addrInfo.vlanId);
+#else
+    taf_ResetSvc_t* servicePtr = (taf_ResetSvc_t*)GetServiceObj(rxMsgPtr->subFunc, (uint16_t)0);
+#endif
     if (servicePtr == NULL)
     {
+#ifndef LE_CONFIG_DIAG_VSTACK
         servicePtr = (taf_ResetSvc_t*)GetServiceObj(TAF_DIAGRESET_ALL_RESET, rxMsgPtr->addrInfo.vlanId);
+#else
+        servicePtr = (taf_ResetSvc_t*)GetServiceObj(TAF_DIAGRESET_ALL_RESET, (uint16_t)0);
+#endif
         if(servicePtr == NULL)
         {
             LE_ERROR("Cannot find the service(type:0x%x, vlan id:0x%x)",
@@ -491,9 +583,10 @@ le_result_t taf_ResetSvr::SendResp
     addrInfo.sa = rxMsgPtr->addrInfo.ta;
     addrInfo.ta = rxMsgPtr->addrInfo.sa;
     addrInfo.taType = rxMsgPtr->addrInfo.taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
     addrInfo.vlanId = rxMsgPtr->addrInfo.vlanId;
     le_utf8_Copy(addrInfo.ifName, rxMsgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
-
+#endif
     if (errCode == 0)
     {
         // Positive Response
@@ -635,6 +728,7 @@ le_result_t taf_ResetSvr::SetVlanId
     taf_ResetSvc_t* servicePtr = (taf_ResetSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     // Check if the vlan is set.
     le_dls_Link_t* linkPtr = NULL;
     linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
@@ -661,6 +755,9 @@ le_result_t taf_ResetSvr::SetVlanId
     le_dls_Queue(&servicePtr->supportedVlanList, &vlanPtr->link);
 
     return LE_OK;
+#else
+    return LE_NOT_IMPLEMENTED;
+#endif
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -676,6 +773,7 @@ le_result_t taf_ResetSvr::GetVlanIdFromMsg
 {
     TAF_ERROR_IF_RET_VAL(vlanIdPtr == NULL, LE_BAD_PARAMETER, "Invalid vlanIdPtr");
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     taf_ResetRxMsg_t* rxMsgPtr = (taf_ResetRxMsg_t*)le_ref_Lookup(RxMsgRefMap, rxMsgRef);
     if (rxMsgPtr == NULL)
     {
@@ -686,6 +784,9 @@ le_result_t taf_ResetSvr::GetVlanIdFromMsg
     *vlanIdPtr = rxMsgPtr->addrInfo.vlanId;
 
     return LE_OK;
+#else
+    return LE_NOT_IMPLEMENTED;
+#endif
 }
 
 //--------------------------------------------------------------------------------------------------

@@ -7,6 +7,7 @@ sources:
     diagReset.c
     diagRoutineControl.c
     diagIOCtrl.c
+    diagEnableCondition.c
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
     diagDoIP.c
     diagVlanDoIP.c
@@ -33,6 +34,7 @@ requires:
         taf_update.api
         taf_appMgmt.api
         taf_fwupdate.api
+        taf_diag.api
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
         taf_diagDoIP.api
 #endif

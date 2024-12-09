@@ -36,7 +36,7 @@
 /**
  * @page c_tafDiagDoIP Diag DoIP Service
  *
- * @ref taf_diagDoIP_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_diagDoIP_interface.h>` @endrst
  *
  * <HR>
  *
@@ -75,10 +75,10 @@
  *
  * @section c_taf_diag_doip_config DoIP stack configuration
  *
- * an application can call taf_diagDoIP_SetVIN()/taf_diagDoIP_GetVIN()
+ * An application can call taf_diagDoIP_SetVIN() / taf_diagDoIP_GetVIN()
  * to set/get vehicle Identification Number, call taf_diagDoIP_SetEID()
- * /taf_diagDoIP_GetEID() to set/get entity Identification, call
- * taf_diagDoIP_SetGID()/taf_diagDoIP_GetGID() to set/get group Identification.
+ * / taf_diagDoIP_GetEID() to set/get entity Identification, call
+ * taf_diagDoIP_SetGID() / taf_diagDoIP_GetGID() to set/get group Identification.
  *
  * @code
    le_result_t result;

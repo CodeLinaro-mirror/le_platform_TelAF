@@ -821,18 +821,23 @@ ENUM DataState{
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for data state.
+ * Handler for data state events.
+ *
+ * @param[in] dataRef    The data reference that triggered this event.
+ * @param[in] state      The data state.
+ * @param[in] contextPtr The context provided by the application when adding the event handler.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER DataStateHandler
 (
-    Data dataRef                                         IN, ///< The data reference.
-    DataState state                                      IN  ///< The data state.
+    Data dataRef                             IN, ///< The data reference that triggered this event.
+    DataState state                          IN  ///< The data state.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Events to report data state.
+ * The data state events.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT DataState
@@ -867,19 +872,25 @@ ENUM RecoveryOperation{
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for recovery events.
+ * Handler for data recovery events.
+ *
+ * @param[in] dataRef    The data reference that triggered this event.
+ * @param[in] event      The recovery event.
+ * @param[in] operation  The recovery operation relevant to the event.
+ * @param[in] contextPtr The context provided by the application when adding the event handler.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RecoveryEventHandler
 (
-    Data              dataRef    IN,  ///< Data reference that triggered this event.
+    Data              dataRef    IN,  ///< The data reference that triggered this event.
     RecoveryEvent     event      IN,  ///< The recovery event.
     RecoveryOperation operation  IN   ///< The recovery operation relevant to the event.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Events to report recovery events.
+ * The data recovery events.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT RecoveryEvent
@@ -1075,19 +1086,18 @@ FUNCTION le_result_t StartDataRetry
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Cancels a scheduled recovery operation. A recovery could be scheduled for one or more data
- * connetions. For a scheduled recovery operation to be canceled, this API should be called for all
+ * Cancels a scheduled recovery. A recovery could be scheduled for one or more data
+ * connetions. For a scheduled recovery to be canceled, this API should be called for all
  * data references for which recovery has been scheduled.
  *
  * @return
  *   - LE_OK            -- Succeeded.
- *   - LE_NOT_POSSIBLE  -- A recovery operation has not been scheduled.
- *   - LE_NOT_PERMITTED -- A recovery operation has already started.
+ *   - LE_NOT_POSSIBLE  -- A recovery has not been scheduled.
+ *   - LE_NOT_PERMITTED -- A recovery has already started.
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t CancelRecoveryOperation
+FUNCTION le_result_t CancelRecovery
 (
-    Data               dataRef    IN, ///< The data reference.
-    RecoveryOperation  operation  IN  ///< The recovery operation to cancel.
+    Data               dataRef    IN ///< The data reference.
 );

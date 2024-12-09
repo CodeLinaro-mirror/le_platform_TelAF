@@ -105,8 +105,8 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
         LE_INFO("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_NORMAL);
         (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_SHUTDOWN,
                 HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::ShutdownPrepareRespCB);
-        taf_mngdPm_RequestedState_t statePtr = SYSTEM_NORMAL_SHUTDOWN;
-        le_timer_SetContextPtr(mpms.vhalAckTimerRef, &statePtr);
+        mpms.statePtr = SYSTEM_NORMAL_SHUTDOWN;
+        le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
         le_timer_Start(mpms.vhalAckTimerRef);
         mpms.shutdownCB.shutdownCallbackFunc = handlerPtr;
         mpms.shutdownCB.shutdownCBCtxPtr = contextPtr;
@@ -267,8 +267,8 @@ le_result_t taf_mngdPm_WakeupVehicleReqAsync(int32_t reason,
                 handlerPtr = nullptr;
                 return LE_UNSUPPORTED;
             }
-            taf_mngdPm_RequestedWakeupVehicle_t wakeupMode = WAKEUP_VEHICHLE_REQ_DEFAULT;
-            le_timer_SetContextPtr(mpms.wakeupVehicleTimerRef, &(wakeupMode));
+            mpms.wakeupModePtr = WAKEUP_VEHICHLE_REQ_DEFAULT;
+            le_timer_SetContextPtr(mpms.wakeupVehicleTimerRef, &(mpms.wakeupModePtr));
             le_timer_Start(mpms.wakeupVehicleTimerRef);
             LE_INFO("Timer has started");
             mpms.wakeupVehicleCB.wakeupVehicleCallbackFunc = handlerPtr;
@@ -425,7 +425,7 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
         {
             LE_INFO("WakeupType matched with wsRefList for StayAwakeNode");
             //check if already a wakelock acquired
-            if(wsRefCtxPtr && wsRefCtxPtr->isAcquiredLock)
+            if(wsRefCtxPtr->isAcquiredLock)
             {
                  LE_INFO("WakeLock already acquired");
                  return LE_FAULT;
@@ -468,7 +468,7 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
             return res;
         }
     }
-    return LE_FAULT;
+    return res;
 }
 
 /**
@@ -517,11 +517,6 @@ le_result_t taf_mngdPm_RelaxNode(taf_mngdPm_wsRef_t wsRef)
                     (*(mpms.pmInf->nodeInfoNotification))(wsRefCtxPtr->pmNodeId,
                             HAL_PM_NODE_INFO_LOCK_RELEASED, wsRefCtxPtr->vhalTag);
                 }
-                //Clearing wsRefList
-                le_ref_DeleteRef(mpms.wsRefMap, wsRef);
-                le_dls_Remove(&(mpms.wsRefList), &wsRefCtxPtr->link);
-                free((void*)wsRefCtxPtr->vhalTag);
-                le_mem_Release((void*)wsRefCtxPtr);
             }
             break;
         }
@@ -582,8 +577,25 @@ le_result_t taf_mngdPm_RestartNode (uint8_t pmNodeId)
         return LE_UNSUPPORTED;
     }
 
+    le_result_t res = LE_FAULT;
+    if(pmNodeId == 1)
+    {
+        auto &rpcPm = tafMngdRpcPm::GetInstance();
+        res = rpcPm.RestartRpcNAD();
+        if(res == LE_OK)
+        {
+            LE_INFO("RPC RestartRpcNAD is successful");
+        }
+        return res;
+    }
+
     auto &mpms = tafMngdPMSvc::GetInstance();
-    le_result_t res = mpms.RestartNAD();
+    res = mpms.RestartNAD();
+    if(res == LE_OK)
+    {
+        LE_INFO("RestartNAD is successful");
+    }
+
     return res;
 }
 
@@ -615,10 +627,6 @@ taf_mngdPm_StateChangeHandlerRef_t taf_mngdPm_AddStateChangeHandler
 void taf_mngdPm_RemoveStateChangeHandler(taf_mngdPm_StateChangeHandlerRef_t handlerRef)
 {
     LE_INFO("taf_mngdPm_RemoveStateChangeHandler");
-    if(tafMngdPMSvc::IsClientValid() == false)
-    {
-        return;
-    }
 
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
@@ -668,11 +676,6 @@ taf_mngdPm_InfoReportHandlerRef_t taf_mngdPm_AddInfoReportHandler(taf_mngdPm_Inf
 void taf_mngdPm_RemoveInfoReportHandler(taf_mngdPm_InfoReportHandlerRef_t handlerRef)
 {
     LE_INFO("RemoveInfoReportHandler");
-    if(tafMngdPMSvc::IsClientValid() == false)
-    {
-        return;
-    }
-
     auto &mpms = tafMngdPMSvc::GetInstance();
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.infoReportHandlerList));
     while (linkHandlerPtr)
@@ -734,10 +737,6 @@ taf_mngdPm_NodePowerStateChangeHandlerRef_t taf_mngdPm_AddNodePowerStateChangeHa
 void taf_mngdPm_RemoveNodePowerStateChangeHandler(taf_mngdPm_NodePowerStateChangeHandlerRef_t handlerRef)
 {
     LE_INFO("RemoveNodePowerStateHandler");
-    if(tafMngdPMSvc::IsClientValid() == false)
-    {
-        return;
-    }
 
     bool isPmsNodeChangeRef = false;
     auto &mpms = tafMngdPMSvc::GetInstance();

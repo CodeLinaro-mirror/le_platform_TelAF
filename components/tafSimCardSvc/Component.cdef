@@ -12,6 +12,7 @@ requires:
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
+        $TELAF_ROOT/components/stub/taf_pa_sim
     }
 
     lib:
@@ -25,6 +26,7 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/stub/taf_pa_sim
     -ltelux_tel
     -ltelux_common
 }

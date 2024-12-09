@@ -9,6 +9,7 @@
 #include "tafDTCSvr.hpp"
 #include "tafDataAccessComp.h"
 #include "tafSnapshotSvc.hpp"
+#include "tafDiagSvr.hpp"
 #include <algorithm>
 #include <chrono>
 
@@ -367,7 +368,7 @@ bool taf_EventSvr::IsEventConditionOK
     }
 #endif
     //enable condition
-    if(!EnableConditions[eventCtxPtr->enableConditionId])
+    if (!eventCtxPtr->eventEnableStatus)
     {
         LE_ERROR("Enable condition is not fullfilled.");
         return false;
@@ -425,25 +426,20 @@ le_result_t taf_EventSvr::RemoveSvc
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Sets enable condition.
+ * Sets enable condition status.
  */
 //-------------------------------------------------------------------------------------------------
-le_result_t taf_EventSvr::SetEnableCondition
+le_result_t taf_EventSvr::SetEventEnableStatus
 (
-    uint8_t enableConditionID,
-    bool conditionFulfilled
+    uint8_t enableConditionID
 )
 {
+    LE_DEBUG("SetEventEnableStatus");
+
     le_dls_Link_t* linkPtr = NULL;
 
-    if(enableConditionID >= MAX_ENABLE_CONDITION_NUM)
-    {
-        LE_ERROR("enableConditionID is too big");
-        return LE_FAULT;
-    }
-
-    EnableConditions[enableConditionID] = conditionFulfilled;
-    LE_INFO("EnableConditionId:%d is set to %d", enableConditionID, conditionFulfilled);
+    // Diag service instance
+    auto &diag = taf_DiagSvr::GetInstance();
 
     linkPtr = le_dls_Peek(&EventCtxList);
     while (linkPtr)
@@ -452,9 +448,124 @@ le_result_t taf_EventSvr::SetEnableCondition
                 link);
         linkPtr = le_dls_PeekNext(&EventCtxList, linkPtr);
 
-        //Debouncing behavior on enable condition
-        if((enableConditionID == eventCtxPtr->enableConditionId) && (conditionFulfilled == false) &&
-                (eventCtxPtr->debounceBehavior_ == TAF_DIAGEVENT_DEBOUNCE_RESET))
+        // Check Enable condition
+        LE_DEBUG("Check enable condition for event Id 0x%x", eventCtxPtr->eventId);
+        bool enableStatus = false; // Default enable status.
+        try
+        {
+            LE_DEBUG("Enable condition status check");
+            cfg::Node & eventNode = cfg::get_event_node(eventCtxPtr->eventId);
+            cfg::Node & enableNode = eventNode.get_child("data_enable_condition");
+
+            for (const auto & enable: enableNode)
+            {
+                // Get the defined enable operation type: "and" or "or"
+                std::string enableOperation = enable.first;
+                if (enableOperation == "and")
+                {
+                    LE_INFO("Check enable condition status based on AND operation");
+                    cfg::Node & optNodeList = enableNode.get_child("and");
+                    enableStatus = true;
+
+                    // Check enable id belong to this event id or not.
+                    bool isEnableIdAvailable = false;
+                    for (const auto & optNode: optNodeList)
+                    {
+                        uint8_t enableId = optNode.second.get_value<uint8_t>();
+                        if (enableId == enableConditionID)
+                        {
+                            isEnableIdAvailable = true;
+                            break;
+                        }
+                    }
+
+                    if (!isEnableIdAvailable)
+                    {
+                        LE_DEBUG("Enable Id 0x%x does not belong to this event 0x%x",
+                                enableConditionID, eventCtxPtr->eventId);
+                        break;
+                    }
+
+                    // Check Enable status based on all enable id belong to this event.
+                    for (const auto & optNode: optNodeList)
+                    {
+                        uint8_t enableId = optNode.second.get_value<uint8_t>();
+                        LE_DEBUG("Enable condition id = 0x%x", enableId);
+
+                        if (!diag.GetEnableConditionStatus(enableId))
+                        {
+                            enableStatus = false;
+                            LE_INFO("enable id %d status is false", enableId);
+                            break;
+                        }
+                    }
+                }
+                else if (enableOperation == "or")
+                {
+                    LE_INFO("Check enable condition status based on OR operation");
+                    cfg::Node & optNodeList = enableNode.get_child("or");
+                    enableStatus = false;
+
+                    // Check enable id belong to this event id or not.
+                    bool isEnableIdAvailable = false;
+                    for (const auto & optNode: optNodeList)
+                    {
+                        uint8_t enableId = optNode.second.get_value<uint8_t>();
+                        if (enableId == enableConditionID)
+                        {
+                            isEnableIdAvailable = true;
+                            break;
+                        }
+                    }
+
+                    if (!isEnableIdAvailable)
+                    {
+                        LE_DEBUG("Enable Id 0x%x does not belong to this event 0x%x",
+                                enableConditionID, eventCtxPtr->eventId);
+                        break;
+                    }
+
+                    for (const auto & optNode: optNodeList)
+                    {
+                        uint8_t enableId = optNode.second.get_value<uint8_t>();
+                        LE_DEBUG("Enable condition id = 0x%x", enableId);
+
+                        if(diag.GetEnableConditionStatus(enableId))
+                        {
+                            enableStatus = true;
+                            LE_INFO("enable id %d status is true", enableId);
+                            break;
+                        }
+                    }
+                }
+
+                if(enableStatus != eventCtxPtr->eventEnableStatus)
+                {
+                    LE_DEBUG("Notify Enable Condition state");
+                    ReportEnableCondState(eventCtxPtr, enableStatus);
+                }
+                // Set the overall enable status for eventId
+                if(enableStatus)
+                {
+                    eventCtxPtr->eventEnableStatus = true;
+                    LE_DEBUG("Enable condition for event id 0x%x is true", eventCtxPtr->eventId);
+                }
+                else
+                {
+                    eventCtxPtr->eventEnableStatus = false;
+                    LE_DEBUG("Enable condition for event id 0x%x is false", eventCtxPtr->eventId);
+                }
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LE_WARN("Enable condition id not found for eventID: 0x%x, Exception: %s",
+                    eventCtxPtr->eventId, e.what());
+        }
+
+        // Debouncing behavior on enable condition
+        if (eventCtxPtr->eventEnableStatus == false
+                && (eventCtxPtr->debounceBehavior_ == TAF_DIAGEVENT_DEBOUNCE_RESET))
         {
             LE_DEBUG("Clear the counter for event id %d", eventCtxPtr->eventId);
             ResetDebounceCounter(eventCtxPtr);
@@ -759,7 +870,7 @@ le_result_t taf_EventSvr::ResetDebounceStatus
 
     //Enable condition is not fullfilled, clear the counter
     if((status == TAF_DIAGEVENT_DEBOUNCE_RESET) &&
-            (EnableConditions[eventCtxPtr->enableConditionId] == false))
+            (eventCtxPtr->eventEnableStatus == false))
     {
         ResetDebounceCounter(eventCtxPtr);
     }
@@ -2050,6 +2161,31 @@ void taf_EventSvr::FirstLayerUdsStatusHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * FirstLayerEnableCondStateHandler.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_EventSvr::FirstLayerEnableCondStateHandler
+(
+    void* reportPtr,
+    void* secondLayerHandlerFunc
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_diagEvent_EnableCondState_t* enableCondStateEvent =
+            (taf_diagEvent_EnableCondState_t *)reportPtr;
+    TAF_ERROR_IF_RET_NIL(secondLayerHandlerFunc == NULL, "Null ptr(secondLayerHandlerFunc)");
+
+    taf_diagEvent_EnableCondStateHandlerFunc_t handlerFunc =
+            (taf_diagEvent_EnableCondStateHandlerFunc_t)secondLayerHandlerFunc;
+    handlerFunc(enableCondStateEvent->svcRef, enableCondStateEvent->state,
+            le_event_GetContextPtr());
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Call data handle module to store data into DB and report Event UDS status.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2102,6 +2238,36 @@ void taf_EventSvr::ReportEventUdsStatus
     udsStatusIndPtr->eventUdsStatus = eventCtxPtr->eventUdsStatus;
 
     le_event_ReportWithRefCounting(eventCtxPtr->udsStatusEventId, (void*)udsStatusIndPtr);
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Report Enable Condition state.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_EventSvr::ReportEnableCondState
+(
+    taf_diagEvent_EventCtx_t* eventCtxPtr,
+    bool state
+)
+{
+    TAF_ERROR_IF_RET_NIL(eventCtxPtr == NULL, "Null pointer");
+
+    if(eventCtxPtr->svcRef == NULL)
+    {
+        LE_DEBUG("No handler registered for eventId:%d", eventCtxPtr->eventId);
+        return;
+    }
+
+    taf_diagEvent_EnableCondState_t* enableCondStateIndPtr =
+                (taf_diagEvent_EnableCondState_t*)le_mem_ForceAlloc(EnableCondStatePool);
+
+    enableCondStateIndPtr->svcRef = eventCtxPtr->svcRef;
+    enableCondStateIndPtr->state = state;
+
+    le_event_ReportWithRefCounting(eventCtxPtr->enableCondStateEventId,
+            (void*)enableCondStateIndPtr);
 
 }
 
@@ -2170,6 +2336,25 @@ le_event_Id_t taf_EventSvr::GetUdsStatusEvent
     TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, NULL, "Invalid eventCtxPtr");
 
     return eventCtxPtr->udsStatusEventId;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get enable condition state event ID, used to notify the Enable Condition state change.
+ */
+//--------------------------------------------------------------------------------------------------
+le_event_Id_t taf_EventSvr::GetEnableCondStateEvent
+(
+    taf_diagEvent_ServiceRef_t svcRef
+)
+{
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, NULL, "svcRef is NULL");
+
+    taf_diagEvent_EventCtx_t* eventCtxPtr = (taf_diagEvent_EventCtx_t*)le_ref_Lookup(SvcRefMap,
+            svcRef);
+    TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, NULL, "Invalid eventCtxPtr");
+
+    return eventCtxPtr->enableCondStateEventId;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2274,6 +2459,9 @@ void taf_EventSvr::InitEventContext
     //Create event id for diag event
     snprintf(eventStatusName, sizeof(eventStatusName)-1, "eventCtx-%d", eventId);
     eventCtxPtr->udsStatusEventId = le_event_CreateIdWithRefCounting(eventStatusName);
+    //Create event id for enable condition
+    snprintf(eventStatusName, sizeof(eventStatusName)-1, "enableCond-%d", eventId);
+    eventCtxPtr->enableCondStateEventId = le_event_CreateIdWithRefCounting(eventStatusName);
     eventCtxPtr->eventId = eventId;
     eventCtxPtr->dtcCode = dtcCode;
 
@@ -2281,9 +2469,11 @@ void taf_EventSvr::InitEventContext
     eventCtxPtr->operationCycleId = uint8_t(cfg::s_to_operation_cycle_type(operationCycle));
     LE_INFO("operation cycle id : %d", eventCtxPtr->operationCycleId);
 
-    std::string enableCondition = event.second->get<string>("enable_condition");
-    eventCtxPtr->enableConditionId = uint8_t(cfg::s_to_enable_condition_type(enableCondition));
-    LE_INFO("enable condition id : %d", eventCtxPtr->enableConditionId);
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    eventCtxPtr->eventEnableStatus = true;
+#else
+    eventCtxPtr->eventEnableStatus = false;
+#endif
 
     eventCtxPtr->confirmationThreshold = event.second->get<int>("confirmation_threshold");
 
@@ -3331,6 +3521,10 @@ void taf_EventSvr::Init
     // Create event uds status pools.
     EventUdsStatusPool = le_mem_CreatePool("eventUdsStatusPool", sizeof(taf_diagEvent_UdsStatus_t));
 
+    // Create enable condition state pools.
+    EnableCondStatePool = le_mem_CreatePool("enableCondStatePool",
+            sizeof(taf_diagEvent_EnableCondState_t));
+
     // Create session reference pools.
     SessionRefPool = le_mem_InitStaticPool(tafSessionRef, TAF_EVENT_MAX_SESSION_REF,
             sizeof(taf_diagEvent_SessionRef_t));
@@ -3343,9 +3537,7 @@ void taf_EventSvr::Init
 
     // Get the main thread reference.
     mainThrRef = le_thread_GetCurrent();
-#ifdef LE_CONFIG_DIAG_FEATURE_A
-    memset(EnableConditions, true, sizeof(EnableConditions));
-#endif
+
     //Initialize the data from configuration module.
     try
     {

@@ -134,15 +134,14 @@ static le_result_t stopData(taf_mngdConn_DataRef_t dataRef)
     return result;
 }
 
-static le_result_t cancelRecovery(taf_mngdConn_DataRef_t dataRef,
-                                  taf_mngdConn_RecoveryOperation_t operation)
+static le_result_t cancelRecovery(taf_mngdConn_DataRef_t dataRef)
 {
     LE_TEST_INFO("----CancelRecovery test ");
     le_result_t result = LE_FAULT;
-    result = taf_mngdConn_CancelRecoveryOperation(dataRef, operation);
+    result = taf_mngdConn_CancelRecovery(dataRef);
     if (result != LE_OK)
     {
-        LE_TEST_INFO("taf_mngdConn_CancelRecoveryOperation failed: %d ", result);
+        LE_TEST_INFO("taf_mngdConn_CancelRecovery failed: %d ", result);
     }
     return result;
 }
@@ -339,33 +338,6 @@ static taf_mngdConn_DataRef_t getDataRef(void)
     return dataRef;
 }
 
-
-
-taf_mngdConn_RecoveryOperation_t convert_to_ConnRecovery_Operation_Type_enum(int operation)
-{
-    switch(operation){
-        case 0:
-        {
-            return TAF_MNGDCONN_RECOVERY_NONE;
-        }
-        case 1:
-        {
-            return TAF_MNGDCONN_RECOVERY_RADIO_OFF_ON;
-        }
-        case 2:
-        {
-            return TAF_MNGDCONN_RECOVERY_SIM_OFF_ON;
-        }
-        case 3:
-        {
-            return TAF_MNGDCONN_RECOVERY_NAD_REBOOT;
-        }
-        default:
-        std::cerr << "You entered an invalid operation";
-        LE_TEST_FATAL("Invalid test command %d", operation);
-    }
-}
-
 COMPONENT_INIT
 {
     le_result_t status = LE_OK;
@@ -418,14 +390,7 @@ COMPONENT_INIT
             break;
             case 6 :
             {
-                int operation = 0;
-                std::cout << "Enter the level of recovery" << std::endl;
-                std::cout << "1 -> L1" << std::endl
-                        << "2 -> L2" << std::endl
-                        << "3 -> L3" << std::endl;
-                std::cin >> operation;
-                status = cancelRecovery(getDataRef(),
-                                        convert_to_ConnRecovery_Operation_Type_enum(operation));
+                status = cancelRecovery(getDataRef());
                 LE_TEST_OK(LE_OK == status, "cancelRecovery");
             }
             break;

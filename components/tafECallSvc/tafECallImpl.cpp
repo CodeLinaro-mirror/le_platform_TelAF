@@ -144,6 +144,17 @@ void tafAnswerCommandCallback::commandResponse(telux::common::ErrorCode errorCod
    eCall.answerProm.set_value(errorCode);
 }
 
+void tafConfigRedialCallback::configureRedialResponse(
+    telux::common::ErrorCode error) {
+    auto &eCall = taf_ecall::GetInstance();
+    if (error == telux::common::ErrorCode::SUCCESS) {
+        LE_INFO("Configure redial executed successfully");
+    } else {
+        LE_ERROR( "Configure redial failed error = %d", (int)error);
+    }
+    eCall.configRedialProm.set_value(error);
+}
+
 void tafECallListener::onIncomingCall(std::shared_ptr<telux::tel::ICall> call) {
     TAF_ERROR_IF_RET_NIL(call == nullptr, "call is nullptr!");
 
@@ -177,6 +188,7 @@ void tafECallListener::onIncomingCall(std::shared_ptr<telux::tel::ICall> call) {
                         eCall.SetECallState(state);
                         sessionState = ECALL_INCOMING;
                         eCall.SetSessionState(sessionState);
+                        eCall.SetCallIndex(call->getCallIndex());
 
                         StateChangeEvent_t stateEvent = { 0 };
                         le_utf8_Copy(stateEvent.dest, call->getRemotePartyNumber().c_str(), MAX_DESTINATION_LEN, NULL);
@@ -210,8 +222,16 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
 
     bool isCallStateSet = false;
 
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(eCall.ECallPtrRefMap, eCall.GetECallReference());
+    TAF_ERROR_IF_RET_NIL(eCallPtr == NULL, "cannot get callptr");
+    if (eCallPtr->callIndex != call->getCallIndex())
+    {
+        LE_ERROR("Cannot match the index");
+        return;
+    }
+
     eCall.CallEndError = telux::tel::CallEndCause::NORMAL;
-    LE_INFO("CallID = %d, State: %d", (int) call->getCallIndex(), (int) callState);
+    LE_INFO("Call state: %d", (int) callState);
 
     if (callState == CallState::CALL_ACTIVE)
     {
@@ -231,6 +251,7 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
         sessionState = ECALL_DIALING;
         state = TAF_ECALL_STATE_DIALING;
         isCallStateSet = true;
+        eCallPtr->dialRedial.isRedial = false;
     }
     else if (callState == CallState::CALL_INCOMING)
     {
@@ -238,8 +259,16 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
     }
     else if (callState == CallState::CALL_ENDED)
     {
+        if (eCallPtr->dialRedial.isRedial == true)
+        {
+            state = TAF_ECALL_STATE_END_OF_REDIAL_PERIOD;
+        } else {
+            state = TAF_ECALL_STATE_ENDED;
+            eCall.SetCallIndex(-1);
+        }
+        eCallPtr->dialRedial.isRedial = false;
+        eCallPtr->isReceivedLLACK = false;
         sessionState = ECALL_ENDED;
-        state = TAF_ECALL_STATE_ENDED;
         eCall.CallEndError = call->getCallEndCause();
         LE_INFO("ECall ENDed terminate reason = %d", (int) eCall.CallEndError);
         isCallStateSet = true;
@@ -252,14 +281,7 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
     eCall.SetECallState(state);
     if (isCallStateSet)
     {
-        taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(eCall.ECallPtrRefMap, eCall.GetECallReference());
-        if (eCallPtr != NULL)
-        {
-            eCallPtr->iCall= call;
-        } else {
-            LE_ERROR("eCallPtr is nullPtr");
-        }
-
+        eCallPtr->iCall= call;
         StateChangeEvent_t stateEvent;
         stateEvent.eCallRef = eCall.GetECallReference();
         stateEvent.state = state;
@@ -280,18 +302,33 @@ taf_ecall_State_t tafECallListener::eCallMsdTransmissionStatusToState(
     taf_ecall_State_t state = TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED;
     auto &eCall = taf_ecall::GetInstance();
     StateChangeEvent_t stateEvent;
+    ALACKTimerEvent_t timerEvent;
+
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(eCall.ECallPtrRefMap, eCall.GetECallReference());
+    if (eCallPtr == nullptr)
+    {
+        LE_ERROR("eCallPtr is nullptr.");
+        return TAF_ECALL_STATE_UNKNOWN;
+    }
 
     LE_DEBUG("eCallMsdTransmissionStatusToState status = %d", (int)status);
 
     switch(status) {
         case telux::tel::ECallMsdTransmissionStatus::SUCCESS:
             state = TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS;
+            if(eCallPtr->isReceivedLLACK == true)
+            {
+                LE_INFO("Start the ALACK timer");
+                timerEvent.alackTimer = ALACK_TIMER_START;
+                le_event_Report(eCall.ALACKTimerEventId, &timerEvent, sizeof(ALACKTimerEvent_t));
+            }
             break;
         case telux::tel::ECallMsdTransmissionStatus::FAILURE:
             state = TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED;
             break;
         case telux::tel::ECallMsdTransmissionStatus::MSD_TRANSMISSION_STARTED:
             state = TAF_ECALL_STATE_MSD_TRANSMISSION_STARTED;
+            eCallPtr->isReceivedLLACK = false;
             break;
         case telux::tel::ECallMsdTransmissionStatus::NACK_OUT_OF_ORDER:
             state = TAF_ECALL_STATE_NACK_OUT_OF_ORDER;
@@ -304,6 +341,17 @@ taf_ecall_State_t tafECallListener::eCallMsdTransmissionStatusToState(
             break;
         case telux::tel::ECallMsdTransmissionStatus::LL_ACK_RECEIVED:
             state = TAF_ECALL_STATE_LL_ACK_RECEIVED;
+            eCallPtr->isReceivedLLACK = true;
+            break;
+        case telux::tel::ECallMsdTransmissionStatus::MSD_AL_ACK_CLEARDOWN:
+            LE_INFO("Stop the ALACK timer");
+            state = TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN;
+            ALACKTimerEvent_t timerEvent;
+            timerEvent.alackTimer = ALACK_TIMER_STOP;
+            le_event_Report(eCall.ALACKTimerEventId, &timerEvent, sizeof(ALACKTimerEvent_t));
+            break;
+        case telux::tel::ECallMsdTransmissionStatus::LL_NACK_DUE_TO_T7_EXPIRY:
+            state = TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY;
             break;
         case telux::tel::ECallMsdTransmissionStatus::OUTBAND_MSD_TRANSMISSION_STARTED:
             state = TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_STARTED;
@@ -424,6 +472,14 @@ void tafECallListener::OnMsdUpdateRequest(int phoneId) {
     }
 }
 
+void tafECallListener::onECallRedial(int phoneId, ECallRedialInfo info) {
+    LE_DEBUG("onECallRedial");
+    auto &eCall = taf_ecall::GetInstance();
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(eCall.ECallPtrRefMap, eCall.GetECallReference());
+    TAF_ERROR_IF_RET_NIL(eCallPtr == NULL, "cannot get callptr");
+    eCallPtr->dialRedial.isRedial = info.willECallRedial;
+}
+
 void taf_ecall::InitializeECallPtr()
 {
 
@@ -492,7 +548,18 @@ void taf_ecall::InitializeECallPtr()
 
     ECallObject.isPrieCallOngoing = false;
     ECallObject.type = TAF_ECALL_TYPE_UNKNOWN;
+    ECallObject.dialRedial.isRedial = false;
+    ECallObject.dialRedial.dialAttempts = TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH;
+    std::vector<int> redialPara({5000, 60000, 60000, 60000, 180000, 180000, 180000, 180000, 180000, 180000});
+    for (size_t i = 0; i < TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH; ++i) {
+        ECallObject.dialRedial.dialInterval[i] = redialPara[i] / 1000;
+    }
+    if ( LE_OK != ConfigureInitialDialRedial(redialPara))
+    {
+        LE_ERROR("Failed to configureInitialDialRedial with the default value");
+    }
 
+    ECallObject.isReceivedLLACK = false;
     UpdateMsd();
 }
 
@@ -603,8 +670,15 @@ void taf_ecall::Init(void)
     AnswerCb = std::make_shared<tafAnswerCommandCallback>();
 
     StateChangeEventId = le_event_CreateId("NewStateEventId", sizeof(StateChangeEvent_t));
+    ALACKTimerEventId = le_event_CreateId("ALACKEventId", sizeof(ALACKTimerEvent_t));
 
     le_cfg_AddChangeHandler(CFG_MODEMSERVICE_ECALL_PATH, ConfigChangeHandler, NULL);
+
+    positiveALACKTimerRef = le_timer_Create("Positive ALACK Timer");
+    le_timer_SetMsInterval(positiveALACKTimerRef, 500);
+    le_timer_SetHandler(positiveALACKTimerRef, ReportPositiveALACKTimerHandler);
+
+    le_event_AddHandler("ALACK Timer Event Handler", ALACKTimerEventId, ALACKTimerEventHandler);
 }
 
 taf_ecall &taf_ecall::GetInstance()
@@ -2382,6 +2456,158 @@ le_result_t taf_ecall::UpdateMsdInformation(taf_ecall_CallRef_t ecallRef)
     } else {
         return LE_FAULT;
     }
+}
+
+void taf_ecall::ReportPositiveALACKTimerHandler
+(
+    le_timer_Ref_t timerRef
+)
+{
+    auto &eCall = taf_ecall::GetInstance();
+    StateChangeEvent_t stateEvent = { 0 };
+    stateEvent.eCallRef = eCall.ECallObject.reference;
+    stateEvent.state = TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE;
+    if (eCall.ECallObject.eCallSession == ECALL_ACTIVE)
+    {
+        LE_INFO("Reports the AL-ACK(positive)");
+        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+    }
+    if(le_timer_IsRunning(eCall.positiveALACKTimerRef))
+    {
+        le_timer_Stop(eCall.positiveALACKTimerRef);
+    }
+}
+
+void taf_ecall::ALACKTimerEventHandler(void* reqPtr)
+{
+    ALACKTimerEvent_t* eventReq = (ALACKTimerEvent_t*)reqPtr;
+    auto &eCall = taf_ecall::GetInstance();
+
+    if(eventReq == NULL)
+    {
+        LE_ERROR ("Invalid Parameters");
+        return;
+    }
+
+    switch (eventReq->alackTimer) {
+        case ALACK_TIMER_START:
+            LE_INFO("Start the ALACK timer");
+            le_timer_Start(eCall.positiveALACKTimerRef);
+            break;
+
+        case ALACK_TIMER_STOP:
+            LE_INFO("Stop the ALACK timer");
+            le_timer_Stop(eCall.positiveALACKTimerRef);
+            break;
+
+        default:
+            LE_ERROR("Undefined event received.");
+            break;
+    }
+}
+
+le_result_t taf_ecall::IsInProgress(taf_ecall_CallRef_t ecallRef, bool* isInProgress)
+{
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    if (eCallPtr == NULL)
+    {
+        LE_ERROR("Invalid eCall reference");
+        return LE_BAD_PARAMETER;
+    }
+
+    std::shared_ptr<telux::tel::ICall> spCall = nullptr;
+    if (CallManager) {
+        std::vector<std::shared_ptr<telux::tel::ICall>> callList
+           = CallManager->getInProgressCalls();
+        for(auto callIterator = std::begin(callList); callIterator != std::end(callList);
+            ++callIterator) {
+            telux::tel::CallState callState = (*callIterator)->getCallState();
+            if(callState != telux::tel::CallState::CALL_ENDED) {
+               spCall = *callIterator;
+               break;
+            }
+        }
+        if(spCall && eCallPtr->callIndex == spCall->getCallIndex()) {
+            *isInProgress = true;
+        } else {
+            *isInProgress = false;
+        }
+    } else {
+        return LE_FAULT;
+    }
+    return LE_OK;
+}
+
+le_result_t taf_ecall::ConfigureInitialDialRedial(std::vector<int> redialPara)
+{
+    if (CallManager) {
+        for (size_t i = 0; i < redialPara.size(); i++)
+        {
+            LE_DEBUG("ConfigureInitialDialRedial redialPara = %d", redialPara[i]);
+        }
+        configRedialProm = std::promise<telux::common::ErrorCode>();
+        Status status = CallManager->configureECallRedial(RedialConfigType::CALL_ORIG, redialPara, tafConfigRedialCallback::configureRedialResponse);
+        if (status == Status::SUCCESS) {
+            telux::common::ErrorCode error = configRedialProm.get_future().get();
+            if (error == ErrorCode::SUCCESS) {
+                return LE_OK;
+            }
+        }
+    } else {
+        LE_ERROR("CallManager is null");
+        return LE_FAULT;
+    }
+    return LE_FAULT;
+}
+
+le_result_t taf_ecall::SetInitialDialAttempts(uint8_t attempts)
+{
+    std::vector<int> redialPara;
+    for (uint i = 0; i < attempts; i++)
+    {
+        redialPara.push_back(ECallObject.dialRedial.dialInterval[i] * 1000);
+    }
+
+    if ( LE_OK == ConfigureInitialDialRedial(redialPara))
+    {
+        ECallObject.dialRedial.dialAttempts = attempts;
+        return LE_OK;
+    }
+    return LE_FAULT;
+}
+
+le_result_t taf_ecall::SetInitialDialIntervalBetweenDialAttempts(const uint16_t* interval, size_t intervalLength)
+{
+    std::vector<int> redialPara;
+    size_t i = 0;
+
+    if (intervalLength < ECallObject.dialRedial.dialAttempts)
+    {
+        for (; i < intervalLength; i++)
+        {
+            redialPara.push_back(interval[i]*1000);
+        }
+        for (; i < ECallObject.dialRedial.dialAttempts; i++)
+        {
+            redialPara.push_back(ECallObject.dialRedial.dialInterval[i]*1000);
+        }
+    } else {
+        for (; i < ECallObject.dialRedial.dialAttempts; i++)
+        {
+            redialPara.push_back(interval[i]*1000);
+        }
+    }
+
+    if ( LE_OK == ConfigureInitialDialRedial(redialPara))
+    {
+        for (size_t i = 0; i < intervalLength; i++)
+        {
+            ECallObject.dialRedial.dialInterval[i] = interval[i];
+        }
+        return LE_OK;
+    }
+    return LE_FAULT;
 }
 
 taf_ecall_StateChangeHandlerRef_t taf_ecall::AddStateChangeHandler

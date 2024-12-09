@@ -36,7 +36,7 @@
 /**
  * @page c_taf_audio Audio Service
  *
- * @ref taf_audio_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_audio_interface.h>` @endrst
  *
  * <HR>
  *
@@ -121,11 +121,135 @@
 
    @endverbatim
  *
- * @subsection c_open_route_playback Open route for local playback
- *
+ * To play the file(s) in the local speaker(local playback) during active voice call.
  * @verbatim
-    taf_audio_StreamRef_t sinkRef = NULL, sourceRef = NULL, playerRef = NULL;
-    taf_audio_RouteRef_t routeRef = NULL;
+    le_thread_Ref_t Player_thread_ref;
+    le_sem_Ref_t tafAudioAppSem = le_sem_Create("tafAudioAppSem", 0);
+    taf_audio_StreamRef_t playerRef = NULL;
+    const char* srcPath = "/data/test.amr";
+    void* Test_taf_audio_AddHandler(void* ctxPtr)
+    {
+        le_sem_Ref_t sem = NULL;
+        taf_audio_ConnectService();
+
+        taf_audio_StreamRef_t streamRef = (taf_audio_StreamRef_t)ctxPtr;
+        MediaHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
+        if(MediaHandlerRef != NULL)
+            LE_INFO("Successfully registered for media handler");
+
+        sem = le_sem_FindSemaphore("tafAudioAppSem");
+        if(sem != NULL)
+        {
+            le_sem_Post(sem);
+        }
+        else
+        {
+            LE_ERROR("tafAudioAppSem is NULL!");
+        }
+        le_event_RunLoop();
+        return NULL;
+    }
+    static void MyMediaEventHandler
+    (
+        taf_audio_StreamRef_t          streamRef,
+        taf_audio_MediaEvent_t         event,
+        void*                               contextPtr
+    )
+    {
+        switch(event)
+        {
+            case TAF_AUDIO_MEDIA_ENDED:
+                LE_INFO(" Playback completed");
+                break;
+            case TAF_AUDIO_MEDIA_STOPPED:
+                LE_INFO(" Playback/capture stopped");
+                le_sem_Post(tafAudioAppSem);
+                break;
+            case TAF_AUDIO_MEDIA_ERROR:
+                LE_INFO("File event is TAF_AUDIO_MEDIA_ERROR.");
+                break;
+            case TAF_AUDIO_MEDIA_NO_MORE_SAMPLES:
+                LE_INFO("File event is TAF_AUDIO_MEDIA_NO_MORE_SAMPLES.");
+                break;
+            default:
+                LE_INFO("File event is %d", event);
+                break;
+        }
+    }
+    void TEST_LOCAL_PLAYBACK_VOICE_ACTIVE()
+    {
+        taf_audio_ConnectorRef_t playerConnRef = taf_audio_CreateConnector();
+
+        playerRef = taf_audio_OpenPlayer(TAF_AUDIO_RX);
+        //sinkRef should be the same stream reference sent in VOICE_CALL OpenRoute.
+        res = taf_audio_Connect(playerConnRef, sinkRef);
+        if(res != LE_OK)
+        {
+            LE_ERROR("Failed to connect sinkRef to playerConnRef");
+        }
+
+        res = taf_audio_Connect(playerConnRef, playerRef);
+        if(res != LE_OK)
+        {
+            LE_ERROR("Failed to connect playerRef to playerConnRef");
+        }
+        Player_thread_ref = le_thread_Create("taf_audio_svc_test_thread",
+                Test_taf_audio_AddHandler, (void*)playerRef);
+        le_thread_Start(Player_thread_ref);
+
+        le_sem_Wait(tafAudioAppSem);
+        res = taf_audio_PlayFile(playerRef, srcPath);
+        if (res != LE_OK)
+        {
+            LE_ERROR("Failed to start the playback");
+        }
+        res = taf_audio_Stop(playerRef);
+        if (res != LE_OK)
+        {
+            LE_ERROR("Failed to stop the playback");
+        }
+        // Wait till MEDIA_STOPPED callback is received.
+
+        // PlayFileList API can also be used to play the list of files locally during active
+        // voice call
+        taf_audio_PlayFileConfig_t playFileConfig[1] = {0};
+        snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), "%s", srcPath);
+        playFileConfig[0].repeat = repeat;
+
+        res = taf_audio_PlayFileList(playerRef, playFileConfig,
+                sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
+        if (res != LE_OK)
+        {
+            LE_ERROR("Failed to start the incall local file list playback");
+        }
+
+        res = taf_audio_Stop(playerRef);
+        if (res != LE_OK)
+        {
+            LE_ERROR("Failed to stop the file playback");
+        }
+        // Wait till MEDIA_STOPPED callback is received.
+        le_sem_Wait(tafAudioAppSem);
+
+        taf_audio_Disconnect(playerConnRef, playerRef);
+
+        taf_audio_Close(playerRef);
+
+        taf_audio_RemoveMediaHandler(MediaHandlerRef);
+
+        taf_audio_DeleteConnector(playerConnRef);
+    }
+   @endverbatim
+ *
+ * Recording the data from the local microphone during active voice call(incall uplink recording)
+ * is not supported.
+ *
+ * Play the file(s) on the far end during active voice call(incall uplink playback).
+ * Active voice call is mandatory for playback to be successful.
+ * @verbatim
+    le_thread_Ref_t Player_thread_ref;
+    le_sem_Ref_t tafAudioAppSem = le_sem_Create("tafAudioAppSem", 0);
+    taf_audio_StreamRef_t playerRef = NULL;
     const char* filePath = "/data/test.wav"
     void* Test_taf_audio_AddHandler(void* ctxPtr)
     {
@@ -144,7 +268,7 @@
         }
         else
         {
-            LE_ERROR_IF((sem == NULL), "tafAudioAppSem is NULL!");
+            LE_ERROR("tafAudioAppSem is NULL!");
         }
         le_event_RunLoop();
         return NULL;
@@ -159,19 +283,243 @@
         switch(event)
         {
             case TAF_AUDIO_MEDIA_ENDED:
-                LE_TEST_OK(true," Playback completed");
+                LE_INFO(" Playback completed");
                 break;
             case TAF_AUDIO_MEDIA_STOPPED:
-                LE_TEST_OK(true," Playback/capture stopped");
+                LE_INFO(" Playback/capture stopped");
+                le_sem_Post(tafAudioAppSem);
                 break;
             case TAF_AUDIO_MEDIA_ERROR:
-                LE_TEST_OK(true, "File event is TAF_AUDIO_MEDIA_ERROR.");
+                LE_INFO("File event is TAF_AUDIO_MEDIA_ERROR.");
                 break;
             case TAF_AUDIO_MEDIA_NO_MORE_SAMPLES:
-                LE_TEST_OK(true, "File event is TAF_AUDIO_MEDIA_NO_MORE_SAMPLES.");
+                LE_INFO("File event is TAF_AUDIO_MEDIA_NO_MORE_SAMPLES.");
                 break;
             default:
-                LE_TEST_OK(true, "File event is %d", event);
+                LE_INFO("File event is %d", event);
+                break;
+        }
+    }
+    void TEST_INCALL_UPLINK_PLAYBACK()
+    {
+        taf_audio_ConnectorRef_t playerConnRef = taf_audio_CreateConnector();
+
+        playerRef = taf_audio_OpenPlayer(TAF_AUDIO_TX);
+        //txStreamRef should be the same stream reference created and connected for VOICE_CALL.
+        res = taf_audio_Connect(playerConnRef, txStreamRef);
+        if(res != LE_OK)
+        {
+            LE_ERROR("Failed to connect txStreamRef to playerConnRef");
+        }
+
+        res = taf_audio_Connect(playerConnRef, playerRef);
+        if(res != LE_OK)
+        {
+            LE_ERROR("Failed to connect playerRef to playerConnRef");
+        }
+        Player_thread_ref = le_thread_Create("taf_audio_svc_test_thread",
+                Test_taf_audio_AddHandler, (void*)playerRef);
+        le_thread_Start(Player_thread_ref);
+
+        le_sem_Wait(tafAudioAppSem);
+        res = taf_audio_PlayFile(playerRef, filePath);
+        if (res != LE_OK)
+        {
+            LE_ERROR("Failed to start the playback");
+        }
+        res = taf_audio_Stop(playerRef);
+        if (res != LE_OK)
+        {
+            LE_ERROR("Failed to stop the playback");
+        }
+        // Wait till MEDIA_STOPPED callback is received.
+
+        // PlayFileList API can also be used to play the list of files locally during active
+        // voice call
+        const char* srcPath = "/data/test.amr";
+        taf_audio_PlayFileConfig_t playFileConfig[1] = {0};
+        snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), "%s", srcPath);
+        playFileConfig[0].repeat = repeat;
+
+        res = taf_audio_PlayFileList(playerRef, playFileConfig,
+                sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
+        if (res != LE_OK)
+        {
+            LE_ERROR("Failed to start the incall local file list playback");
+        }
+
+        res = taf_audio_Stop(playerRef);
+        if (res != LE_OK)
+        {
+            LE_ERROR("Failed to stop the file playback");
+        }
+        // Wait till MEDIA_STOPPED callback is received.
+        le_sem_Wait(tafAudioAppSem);
+
+        taf_audio_Disconnect(playerConnRef, playerRef);
+
+        taf_audio_Close(playerRef);
+
+        taf_audio_RemoveMediaHandler(MediaHandlerRef);
+
+        taf_audio_DeleteConnector(playerConnRef);
+    }
+   @endverbatim
+ *
+ * Record the packets received at the modem RX during active voice call. Active voice call is
+ * mandatory for recording to be successful. File will be recorded in PCM format.
+ *
+ * @verbatim
+    le_thread_Ref_t Recorder_thread_ref;
+    le_sem_Ref_t tafAudioAppSem = le_sem_Create("tafAudioAppSem", 0);
+    const char* recordfilePath = "/data/record.wav"
+    taf_audio_StreamRef_t recorderRef = NULL;
+    void* Test_taf_audio_AddHandler(void* ctxPtr)
+    {
+        le_sem_Ref_t sem = NULL;
+        taf_audio_ConnectService();
+
+        taf_audio_StreamRef_t streamRef = (taf_audio_StreamRef_t)ctxPtr;
+        MediaHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
+        if(MediaHandlerRef != NULL)
+            LE_INFO("Successfully registered for media handler");
+
+        sem = le_sem_FindSemaphore("tafAudioAppSem");
+        if(sem != NULL)
+        {
+            le_sem_Post(sem);
+        }
+        else
+        {
+            LE_ERROR("tafAudioAppSem is NULL!");
+        }
+        le_event_RunLoop();
+        return NULL;
+    }
+    static void MyMediaEventHandler
+    (
+        taf_audio_StreamRef_t          streamRef,
+        taf_audio_MediaEvent_t         event,
+        void*                               contextPtr
+    )
+    {
+        switch(event)
+        {
+            case TAF_AUDIO_MEDIA_ENDED:
+                LE_INFO(" Playback completed");
+                break;
+            case TAF_AUDIO_MEDIA_STOPPED:
+                LE_INFO(" Playback/capture stopped");
+                le_sem_Post(tafAudioAppSem);
+                break;
+            case TAF_AUDIO_MEDIA_ERROR:
+                LE_INFO("File event is TAF_AUDIO_MEDIA_ERROR.");
+                break;
+            case TAF_AUDIO_MEDIA_NO_MORE_SAMPLES:
+                LE_INFO("File event is TAF_AUDIO_MEDIA_NO_MORE_SAMPLES.");
+                break;
+            default:
+                LE_INFO("File event is %d", event);
+                break;
+        }
+    }
+    void TEST_INCALL_DOWNLINK_RECORDING(){
+        taf_audio_ConnectorRef_t connRef = taf_audio_CreateConnector();
+        recorderRef = taf_audio_OpenRecorder(TAF_AUDIO_RX);
+        //rxStreamRef sshould be the same stream reference created and connected for VOICE_CALL.
+        res = taf_audio_Connect(connRef, rxStreamRef);
+        if(res != LE_OK)
+        {
+            LE_ERROR("Failed to connect rxStreamRef to connRef");
+        }
+        res = taf_audio_Connect(connRef, recorderRef);
+        if (res != LE_OK)
+        {
+            LE_ERROR("Failed to connect recorderRef to connRef");
+        }
+        Recorder_thread_ref = le_thread_Create("taf_audio_svc_test_thread",
+                Test_taf_audio_AddHandler, (void*)recorderRef);
+        le_thread_Start(Recorder_thread_ref);
+
+        le_sem_Wait(tafAudioAppSem);
+
+        res = taf_audio_RecordFile(recorderRef, recordfilePath);
+        if (res != LE_OK)
+        {
+            LE_ERROR("Failed started the file recording");
+        }
+
+        //To stop the recording.
+        res = taf_audio_Stop(recorderRef);
+        if (res == LE_OK)
+        {
+            LE_ERROR("Failed stopped the file recording");
+        }
+
+        le_sem_Wait(tafAudioAppSem); // Wait till MEDIA_STOPPED is received.
+
+        taf_audio_Disconnect(connRef, recorderRef);
+
+        taf_audio_Close(recorderRef);
+
+        taf_audio_RemoveMediaHandler(MediaHandlerRef);
+
+        taf_audio_DeleteConnector(connRef);
+    }
+   @endverbatim
+ *
+ * @subsection c_open_route_playback Open route for local playback
+ *
+ * @verbatim
+    taf_audio_StreamRef_t sinkRef = NULL, sourceRef = NULL, playerRef = NULL;
+    taf_audio_RouteRef_t routeRef = NULL;
+    const char* filePath = "/data/test.wav"
+	le_sem_Ref_t tafAudioAppSem = le_sem_Create("tafAudioAppSem", 0);
+    void* Test_taf_audio_AddHandler(void* ctxPtr)
+    {
+        le_sem_Ref_t sem = NULL;
+        taf_audio_ConnectService();
+
+        taf_audio_StreamRef_t streamRef = (taf_audio_StreamRef_t)ctxPtr;
+        MediaHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
+        if(MediaHandlerRef != NULL)
+            LE_INFO("Successfully registered for media handler");
+
+        sem = le_sem_FindSemaphore("tafAudioAppSem");
+        if(sem != NULL)
+        {
+            le_sem_Post(sem);
+        }
+        else
+        {
+            LE_ERROR("tafAudioAppSem is NULL!");
+        }
+        le_event_RunLoop();
+        return NULL;
+    }
+    static void MyMediaEventHandler
+    (
+        taf_audio_StreamRef_t          streamRef,
+        taf_audio_MediaEvent_t         event,
+        void*                               contextPtr
+    )
+    {
+        switch(event)
+        {
+            case TAF_AUDIO_MEDIA_ENDED:
+                LE_INFO(" Playback completed");
+                break;
+            case TAF_AUDIO_MEDIA_STOPPED:
+                LE_INFO(" Playback/capture stopped");
+                break;
+            case TAF_AUDIO_MEDIA_ERROR:
+                LE_INFO("File event is TAF_AUDIO_MEDIA_ERROR.");
+                break;
+            case TAF_AUDIO_MEDIA_NO_MORE_SAMPLES:
+                LE_INFO("File event is TAF_AUDIO_MEDIA_NO_MORE_SAMPLES.");
+                break;
+            default:
+                LE_INFO("File event is %d", event);
                 break;
         }
     }
@@ -227,6 +575,7 @@
  * @verbatim
     taf_audio_StreamRef_t sinkRef = NULL, sourceRef = NULL, playerRef = NULL;
     taf_audio_RouteRef_t routeRef = NULL;
+    le_sem_Ref_t tafAudioAppSem = le_sem_Create("tafAudioAppSem", 0);
 
     void* Test_taf_audio_AddHandler(void* ctxPtr)
     {
@@ -245,7 +594,7 @@
         }
         else
         {
-            LE_ERROR_IF((sem == NULL), "tafAudioAppSem is NULL!");
+            LE_ERROR("tafAudioAppSem is NULL!");
         }
         le_event_RunLoop();
         return NULL;
@@ -260,19 +609,19 @@
         switch(event)
         {
             case TAF_AUDIO_MEDIA_ENDED:
-                LE_INFO(true," Playback completed");
+                LE_INFO(" Playback completed");
                 break;
             case TAF_AUDIO_MEDIA_STOPPED:
-                LE_INFO(true," Playback/capture stopped");
+                LE_INFO(" Playback/capture stopped");
                 break;
             case TAF_AUDIO_MEDIA_ERROR:
-                LE_INFO(true, "File event is TAF_AUDIO_MEDIA_ERROR.");
+                LE_INFO("File event is TAF_AUDIO_MEDIA_ERROR.");
                 break;
             case TAF_AUDIO_MEDIA_NO_MORE_SAMPLES:
-                LE_INFO(true, "File event is TAF_AUDIO_MEDIA_NO_MORE_SAMPLES.");
+                LE_INFO("File event is TAF_AUDIO_MEDIA_NO_MORE_SAMPLES.");
                 break;
             default:
-                LE_INFO(true, "File event is %d", event);
+                LE_INFO("File event is %d", event);
                 break;
         }
     }
@@ -336,6 +685,8 @@
     taf_audio_StreamRef_t sinkRef = NULL, sourceRef = NULL, recorderRef = NULL;
     taf_audio_RouteRef_t routeRef = NULL;
     const char* filePath = "/data/record.wav"
+    le_sem_Ref_t tafAudioAppSem = le_sem_Create("tafAudioAppSem", 0);
+
     void* Test_taf_audio_AddHandler(void* ctxPtr)
     {
         le_sem_Ref_t sem = NULL;
@@ -353,7 +704,7 @@
         }
         else
         {
-            LE_ERROR_IF((sem == NULL), "tafAudioAppSem is NULL!");
+            LE_ERROR("tafAudioAppSem is NULL!");
         }
         le_event_RunLoop();
         return NULL;
@@ -368,19 +719,19 @@
         switch(event)
         {
             case TAF_AUDIO_MEDIA_ENDED:
-                LE_TEST_OK(true," Playback completed");
+                LE_INFO(" Playback completed");
                 break;
             case TAF_AUDIO_MEDIA_STOPPED:
-                LE_TEST_OK(true," Playback/capture stopped");
+                LE_INFO(" Playback/capture stopped");
                 break;
             case TAF_AUDIO_MEDIA_ERROR:
-                LE_TEST_OK(true, "File event is TAF_AUDIO_MEDIA_ERROR.");
+                LE_INFO("File event is TAF_AUDIO_MEDIA_ERROR.");
                 break;
             case TAF_AUDIO_MEDIA_NO_MORE_SAMPLES:
-                LE_TEST_OK(true, "File event is TAF_AUDIO_MEDIA_NO_MORE_SAMPLES.");
+                LE_INFO("File event is TAF_AUDIO_MEDIA_NO_MORE_SAMPLES.");
                 break;
             default:
-                LE_TEST_OK(true, "File event is %d", event);
+                LE_INFO("File event is %d", event);
                 break;
         }
     }

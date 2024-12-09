@@ -38,40 +38,48 @@
 #include "tafHalLib.hpp"
 #include "limit.h"
 #include <vector>
+#include <float.h>
 #include "tafRFSLib.h"
 #include "TafPiCfgStor.h"
 
 /*
  * Macros for config storage
  */
-#define CONFIG_STORAGE "/persist/configStorage/"
-#define CONFIG_RFS "/persist/rfs/"
-#define CONFIG_RFS_STORAGE CONFIG_RFS"configStorage/"
 #define CONFIG_FILE_NAME "Config.json"
 #define CONFIG_FILE_NAME_BAK "Config.json.bak"
-#define DEFAULT_MSS_CONFIG_PATH "/legato/systems/current/appsWriteable/tafMngdStorageSvc/data/ManagedServices/tafMngdStorageConfig.json"
-#define MAX_CONFIG_FILES 5
+#define DEFAULT_MSS_CONFIG_NAME "tafMngdStorageSvc.json"
+#define TAF_MNGD_CFG_STORAGE_SVC_PATH "tafMngdCfgStorageSvc:/configuration/"
+#define MAX_OEM_CONFIG_FILES 5
+#define MAX_QCM_CONFIG_FILES 1
 #define MAX_NUM_OF_CONFIG_STORAGE 20
-#define MAX_FILE_NAME_LEN 256
+#define MAX_FILE_PATH_LEN 256
+#define CFG_NODE_MAJORVERSION "MajorVersion"
+#define CFG_NODE_MINORVERSION "MinorVersion"
+#define CFG_NODE_PATCHVERSION "PatchVersion"
+#define CFG_NODE_MAJORVERSION_FULLPATH TAF_MNGD_CFG_STORAGE_SVC_PATH CFG_NODE_MAJORVERSION
+#define CFG_NODE_MINORVERSION_FULLPATH TAF_MNGD_CFG_STORAGE_SVC_PATH CFG_NODE_MINORVERSION
+#define CFG_NODE_PATCHVERSION_FULLPATH TAF_MNGD_CFG_STORAGE_SVC_PATH CFG_NODE_PATCHVERSION
 
-namespace telux {
-namespace tafsvc {
+namespace telux
+{
+    namespace tafsvc
+    {
 
 typedef struct{
     // File name
-    char fileName[MAX_FILE_NAME_LEN];
+    char fileName[MAX_FILE_PATH_LEN];
 }
 tafMngdStorage_ConfigFileData_t;
 
 typedef struct{
     // Major version of file
-    int majorVersion;
+    uint32_t majorVersion;
 
     // Minor version of file
-    int minorVersion;
+    uint32_t minorVersion;
 
     // Patch version of file
-    int patchVersion;
+    uint32_t patchVersion;
 }
 tafMngdStorage_ConfigVersionInfo_t;
 
@@ -80,10 +88,7 @@ typedef struct{
     le_msg_SessionRef_t clientSessionRef;
 
     // Reference of configuration file
-    taf_mngdStorCfg_ConfigRef_t fileRef;
-
-    // Config Tree Iterator
-    le_cfg_IteratorRef_t iterator;
+    taf_mngdStorCfg_ConfigRef_t configRef;
 
 }
 tafMngdStorage_ConfigStorage_t;
@@ -100,24 +105,33 @@ class tafMngdStorageSvc: public ITafSvc
         /**
          * Resources for  config storage
          */
+        char configStorage[MAX_FILE_PATH_LEN];
+        char configRfsStorage[MAX_FILE_PATH_LEN];
         le_ref_MapRef_t configStorageRefMap;
         le_mem_PoolRef_t configStoragePool;
+        le_mem_PoolRef_t versionStoragePool;
         cfgStor_Inf_t* cfgStorInf;
         taf_fsc_StorageRef_t cfgFscRef;
         taf_fsc_StorageRef_t cfgRfsFscRef;
 
         // JSON file update path
-        char updatePath[LIMIT_MAX_PATH_BYTES];
+        char updatePath[MAX_FILE_PATH_LEN];
+
+        // check for json format type
+        bool isQcmFormat;
 
         /**
          * Resources for holding all config files data.
          */
-        tafMngdStorage_ConfigFileData_t* configFileData[MAX_CONFIG_FILES];
+        tafMngdStorage_ConfigFileData_t* configFileData[MAX_OEM_CONFIG_FILES];
 
         /**
          * Resources for holding version info for master config file.
          */
         tafMngdStorage_ConfigVersionInfo_t* versionInfo;
+
+        // Max limit of clients
+        int32_t mClientRefCount;
 
         /**
          * Functions for Config storage
@@ -129,32 +143,87 @@ class tafMngdStorageSvc: public ITafSvc
 
         bool IsFileExisting(const char *path);
 
-        le_result_t UpdateFile();
+        bool IsDirectoryExisting(const char *path);
 
-        le_result_t Sync();
+        le_result_t CreateDirectory(const char *path);
+
+        le_result_t Update(taf_mngdStorCfg_ConfigRef_t,const char*);
+
+        le_result_t Activate(taf_mngdStorCfg_ConfigRef_t);
 
         le_result_t GetConfigStoragePath(char* storagePtr, size_t storageSize);
 
-        le_result_t GetFiles(const char *path);
+        le_result_t GetFiles(const char *path,uint32_t maxFiles);
 
-        le_result_t ConvertToSingleMssJson();
+        le_result_t ConvertToSingleMssJson(uint32_t maxFiles);
 
-        le_result_t AuthenticateFile();
+        le_result_t AuthenticateFile(uint32_t maxFiles);
 
         le_result_t GetConfigFilePath(char* bufferPtr, size_t bufferSize,
             tafMngdStorage_ConfigFileData_t* configPtr);
 
-        le_result_t ValidateJsonSchema(char* filePath,size_t fileSize);
+        le_result_t ValidateJsonSchema(taf_mngdStorCfg_ConfigRef_t configStor,
+            char* filePath,const char* version);
 
-        le_result_t Cancel();
+        le_result_t Cancel(taf_mngdStorCfg_ConfigRef_t);
 
-        le_result_t Rollback();
+        le_result_t Rollback(taf_mngdStorCfg_ConfigRef_t);
 
-        le_result_t Commit();
+        taf_mngdStorCfg_ConfigRef_t GetRef();
+
+        le_result_t ReleaseRef(taf_mngdStorCfg_ConfigRef_t);
+
+        le_result_t Commit(taf_mngdStorCfg_ConfigRef_t);
 
         le_result_t ClearTree();
 
         le_result_t ImportTree(char* filePath);
+
+        le_result_t GetVersion(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+            uint32_t *MajorVersionPtr,
+            uint32_t *MinorVersionPtr,
+            uint32_t *PatchVersionPtr);
+
+        le_result_t GetType(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+            const char *LE_NONNULL groupName,
+            const char *LE_NONNULL nodeName,
+            taf_mngdStorCfg_NodeType_t *typePtr);
+
+        le_result_t GetString(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+            const char *LE_NONNULL groupName,
+            const char *LE_NONNULL nodeName,
+            char *nodeValue,
+            size_t nodeValueSize);
+
+        le_result_t GetInt(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+            const char *LE_NONNULL groupName,
+            const char *LE_NONNULL nodeName,
+            int32_t *nodeValuePtr);
+
+        le_result_t GetFloat(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+            const char *LE_NONNULL groupName,
+            const char *LE_NONNULL nodeName,
+            double *nodeValuePtr);
+
+        le_result_t GetBool(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+            const char *LE_NONNULL groupName,
+            const char *LE_NONNULL nodeName,
+            int32_t *nodeValuePtr);
+
+        le_result_t GetValue(taf_mngdStorCfg_ConfigRef_t ConfigRef,
+            const char *LE_NONNULL groupName,
+            const char *LE_NONNULL nodeName,
+            taf_mngdStorCfg_NodeType_t *typePtr,
+            char *nodeValue,
+            size_t nodeValueSize
+        );
+
+        le_result_t
+            CheckNodeExsist(const char *LE_NONNULL groupName,const char *LE_NONNULL nodeName);
+
+        le_result_t LockStorage();
+
+        le_result_t UnlockStorage();
 
 };
 }

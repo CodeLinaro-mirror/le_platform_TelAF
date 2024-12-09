@@ -1907,3 +1907,96 @@ le_result_t taf_ecall_GetHlapTimerState
     auto &ecall = taf_ecall::GetInstance();
     return ecall.GetHlapTimerState(timerType, timerStatus, elapsedTime);
 }
+
+/*======================================================================
+
+ FUNCTION        taf_ecall_IsInProgress
+
+ DESCRIPTION     Queries the eCall in progress or not.
+
+ DEPENDENCIES    Initialization of ECall service
+
+ PARAMETERS      [IN] ecallRef: ecall reference
+
+ RETURN VALUE    le_result_t
+                     LE_FAULT:             Fail.
+                     LE_OK:                Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_ecall_IsInProgress
+(
+    taf_ecall_CallRef_t ecallRef,
+    bool* isInProgress
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.IsInProgress(ecallRef, isInProgress);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_ecall_SetInitialDialAttempts
+
+ DESCRIPTION     Sets the number of dial attempts in case of call initiation failed for Europen regulatory eCall.
+
+ DEPENDENCIES    Initialization of ECall service
+
+ PARAMETERS      [IN] ecallRef: ecall reference
+
+ RETURN VALUE    le_result_t
+                     LE_OVERFLOW:          The size of the dial attempt length is wrong.
+                     LE_FAULT:             Fail.
+                     LE_OK:                Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_SetInitialDialAttempts
+(
+    uint8_t attempts
+)
+{
+    TAF_ERROR_IF_RET_VAL(attempts > TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH || attempts == 0,
+                    LE_OVERFLOW, "Wrong dial attempt length");
+
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetInitialDialAttempts(attempts);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_ecall_SetInitialDialIntervalBetweenDialAttempts
+
+ DESCRIPTION     Sets the dial interval value between dial attempts in case of call initiation failed for Europen
+                 regulatory eCall.
+
+ DEPENDENCIES    Initialization of ECall service
+
+ PARAMETERS      [IN] ecallRef: ecall reference
+
+ RETURN VALUE    le_result_t
+                     LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_OVERFLOW:          The size of the dial interval length is wrong.
+                     LE_FAULT:             Fail.
+                     LE_OK:                Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_SetInitialDialIntervalBetweenDialAttempts
+(
+    const uint16_t* interval,
+    size_t intervalLength
+)
+{
+    TAF_ERROR_IF_RET_VAL(interval == NULL, LE_BAD_PARAMETER," Dial interval is NULL");
+
+    TAF_ERROR_IF_RET_VAL(intervalLength > TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH || intervalLength == 0,
+                    LE_OVERFLOW, "Wrong dial interval length");
+
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetInitialDialIntervalBetweenDialAttempts(interval, intervalLength);
+}

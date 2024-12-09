@@ -30,8 +30,7 @@ typedef enum operation_cycle_type
     IGNITION,
     DC,
     POWER,
-    WUC,
-    Custom1
+    WUC
 } operation_cycle_type_t;
 
 typedef enum freeze_frame_trigger_type
@@ -44,54 +43,16 @@ typedef enum freeze_frame_trigger_type
     DEM_TRIGGER_ON_TEST_FAILED_THIS_OPERATION_CYCLE
 } freeze_frame_trigger_type_t;
 
-typedef enum storage_condition_type
-{
-    storage_condition_1,
-    storage_condition_2
-} storage_condition_type_t;
-
-typedef enum fim_fid_type
-{
-    fim_fid_dma_accelpos_accel_pdl_grd_lim,
-    fim_fid_dma_accelpos_alg_dgn_act,
-    fim_fid_dma_accelpos_dbl_fail
-} fim_fid_type_t;
-
 typedef enum freeze_frames_type
 {
     firstOccurrence,
-    lastOccurrence,
-    lastDisappearance
+    lastOccurrence
 } freeze_frames_type_t;
-
-typedef enum enable_condition_type
-{
-    Enable_1,
-    Enable_2
-} enable_condition_type_t;
-
-typedef enum indicator_type
-{
-    G1,
-    MIL,
-    G2
-} indicator_type_t;
-
-typedef enum connected_indicator_behavior_type
-{
-    BLINK_MODE,
-    BLINK_OR_CONTINUOUS_MODE_ON,
-    CONTINUOUS_MODE_ON,
-    FAST_FLASHING_MODE,
-    SLOW_FLASHING_MODE
-} connected_indicator_behavior_type_t;
 
 typedef enum extended_data_records_type
 {
-    OccurenceCounter,
-    CumulativeDistanceOCCWithTestFailed,
-    IUMPRNumerator,
-    IUMPRDenominator
+    OccurrenceCounter,
+    CumulativeDistanceWithTestFailed
 } extended_data_records_type_t;
 
 typedef enum debounce_algorithm_type
@@ -104,7 +65,7 @@ typedef enum debounce_algorithm_type
 
 typedef struct { /* <-- from [debounce_counter_based_algorithm] */
     std::string short_name;
-    std::string base;
+    bool counter_based;
     bool debounce_counter_storage;
     std::string debounce_behavior;
     int counter_decrement_step_size;
@@ -115,28 +76,40 @@ typedef struct { /* <-- from [debounce_counter_based_algorithm] */
     int counter_jump_up_value;
     bool counter_jump_up;
     bool counter_jump_down;
+    std::string base;
     int counter_fdc_threshold;
 } Counter_t;
 
 typedef struct { /* <-- from [debounce_time_based_algorithm] */
     std::string short_name;
-    std::string base;
-    std::string debounce_behavior;
+    bool time_based;
     float time_failed_threshold;
     float time_passed_threshold;
+    std::string base;
     float time_fdc_threshold;
+    std::string debounce_behavior;
 } Timer_t;
 
-typedef struct { /* <-- from [debounce_monitor_internal_algorithm] */
+
+
+
+
+
+
+
+
+
+
+
+
+
+typedef struct { /* <-- from [debounceCustom] */
     std::string short_name;
-    std::string base;
     bool monitor_internal;
+    std::string base;
 } Custom_t;
 
 inline static operation_cycle_type_t s_to_operation_cycle_type(std::string s)
-{ throw std::runtime_error("[tiny] to be implemented"); }
-
-inline static enable_condition_type_t s_to_enable_condition_type(std::string s)
 { throw std::runtime_error("[tiny] to be implemented"); }
 
 inline static freeze_frame_trigger_type_t s_to_freeze_frame_trigger_type(std::string s)
@@ -150,22 +123,10 @@ typedef struct { /* <-- from [diagnostic_session] */
     int id;
     std::string jump_to_bootloader;
     float p2_server_max;
-    int p2_star_server_max;
+    float p2_start_server_max;
+    std::string execution_authorization_pattern;
+    float p2_star_server_max;
 } diagnostic_session_item_t;
-
-
-typedef struct { /* <-- from [storage_condition] */
-    std::string short_name;
-    bool target_swc_service_dependency;
-    std::string context_sw_component;
-} storage_condition_item_t;
-
-
-typedef struct { /* <-- from [enable_condition] */
-    std::string short_name;
-    bool target_swc_service_dependency;
-    std::string context_sw_component;
-} enable_condition_item_t;
 
 
 typedef struct { /* <-- from [operation_cycle] */
@@ -175,18 +136,6 @@ typedef struct { /* <-- from [operation_cycle] */
     std::string context_sw_component;
     std::string cycle_auto_start;
 } operation_cycle_item_t;
-
-
-typedef struct { /* <-- from [indicator] */
-    std::string short_name;
-    std::string type;
-} indicator_item_t;
-
-
-typedef struct { /* <-- from [connected_indicator_behavior] */
-    std::string indicator_mnemonic;
-    std::string conditions;
-} connected_indicator_behavior_item_t;
 
 
 typedef struct { /* <-- from [extended_data_records] */
@@ -200,12 +149,6 @@ typedef struct { /* <-- from [extended_data_records] */
 } extended_data_records_item_t;
 
 
-typedef struct { /* <-- from [fim_all] */
-    std::string diagnostic_function_identifier;
-    std::string context_sw_component;
-} fim_all_item_t;
-
-
 typedef struct { /* <-- from [freeze_frames] */
     std::string short_name;
     int record_number;
@@ -216,34 +159,34 @@ typedef struct { /* <-- from [freeze_frames] */
 
 
 typedef struct { /* <-- from [events] */
-    int id;
+    std::string failure_name;
+    std::string mnemonic;
     std::string event_kind;
     std::string long_name;
-    std::string failure_name;
     int confirmation_threshold;
     std::string operation_cycle;
-    typedef struct {
-        std::vector<std::string> indicator;
-        std::vector<std::string> behavior;
-        int indicator_failure_cycle_counter_threshold;
-        int healing_cycle_counter_threshold;
-        std::string healing_cycle;
-    } connected_indicator_t;
-    connected_indicator_t connected_indicator;
     std::string debounce_algorithm;
-    std::string enable_condition;
-    std::string storage_condition;
+    typedef struct {
+        std::vector<int> or_;
+    } data_enable_condition_t;
+    data_enable_condition_t data_enable_condition;
+    int id;
+    typedef struct {
+        std::vector<std::string> or_;
+    } origin_data_enable_condition_t;
+    origin_data_enable_condition_t origin_data_enable_condition;
 } events_item_t;
 
 
 typedef struct { /* <-- from [dtc_all] */
     typedef struct {
         int code;
-        int priority;
         int fault_type;
         std::string description;
+        std::string device_name;
+        int priority;
         std::vector<std::string> extended_data_records;
-        int dtc_group_number;
+        int origin_code;
     } identification_t;
     identification_t identification;
     typedef struct {
@@ -251,35 +194,33 @@ typedef struct { /* <-- from [dtc_all] */
         std::vector<std::string> freeze_frames;
     } snapshots_t;
     snapshots_t snapshots;
-    typedef struct {
-        std::vector<std::string> session;
-        int security_level;
-    } access_t;
-    access_t access;
+    std::string feature;
+    std::string functional_specification;
+    std::string functional_requirement;
     std::vector<int> events;
 } dtc_all_item_t;
 
 
 typedef struct {
-    int max_number_of_event_entries;
-    std::string memory_entry_storage_trigger;
-    bool aging_requires_tested_cycle;
-    std::string clear_dtc_limitation;
-    std::string default_endianness;
-    std::string environment_data_capture;
-    std::string event_displacement_strategy;
-    int max_number_of_request_correctly_received_response_pending;
-    std::string occurrence_counter_processing;
-    bool response_on_all_requests_ids;
-    bool response_on_second_declined_request;
-    std::string status_bit_handling_test_failed_since_last_clear;
-    bool reset_confirmed_bit_on_overflow;
-    bool status_bit_storage_test_failed;
-    std::string type_of_dtc_supported;
-    int security_delay_time_on_boot;
     float s3_server_max;
     bool ignore_request_for_hardreset;
+    std::string occurrence_counter_processing;
+    int security_delay_time_on_boot;
+    int max_number_of_request_correctly_received_response_pending;
+    bool response_on_second_declined_request;
+    std::string status_bit_handling_test_failed_since_last_clear;
+    std::string environment_data_capture;
+    int max_number_of_event_entries;
+    std::string event_displacement_strategy;
+    std::string clear_dtc_limitation;
+    std::string default_endianness;
+    bool response_on_all_requests_ids;
+    bool aging_requires_tested_cycle;
+    bool status_bit_storage_test_failed;
+    std::string type_of_dtc_supported;
+    bool reset_confirmed_bit_on_overflow;
     int dtc_status_availability_mask;
+    std::string memory_entry_storage_trigger;
 } common_props_t;
 
 static inline void diag_config_init(const char * cfg_path)
@@ -322,6 +263,8 @@ static inline std::vector<uint32_t> get_dtc_codes(void)
 static inline size_t get_did_value_size(uint16_t did_code)
 { throw std::runtime_error("[tiny] to be implemented"); }
 static inline std::map<std::string, uint8_t> get_diagnostic_session_map(void)
+{ throw std::runtime_error("[tiny] to be implemented"); }
+static inline uint8_t get_nrc_by_condition_id(uint8_t cond_id)
 { throw std::runtime_error("[tiny] to be implemented"); }
 
 template <typename T>
@@ -402,19 +345,6 @@ void top_freeze_frames(std::string field_name, T expected_value, freeze_frames_i
 
 
 template <typename T = std::string>
-Node & top_fim_all(std::string field_name, T expected_value)
-{
-    throw std::runtime_error("[tiny] to be implemented");
-}
-
-
-template <typename T = std::string>
-void top_fim_all(std::string field_name, T expected_value, fim_all_item_t* to_be_filled)
-{
-    throw std::runtime_error("[tiny] to be implemented");
-}
-
-template <typename T = std::string>
 Node & top_diagnostic_session(std::string field_name, T expected_value)
 {
     throw std::runtime_error("[tiny] to be implemented");
@@ -433,7 +363,7 @@ Node & top_routines_all(std::string field_name, T expected_value)
 }
 
 template <typename T = std::string>
-Node & top_security_level(std::string field_name, T expected_value)
+Node & top_diagnostic_session_security_level(std::string field_name, T expected_value)
 {
     throw std::runtime_error("[tiny] to be implemented");
 }
@@ -469,33 +399,6 @@ Node & top_did_all(std::string field_name, T expected_value)
 }
 
 
-template <typename T = std::string>
-Node & top_storage_condition(std::string field_name, T expected_value)
-{
-    throw std::runtime_error("[tiny] to be implemented");
-}
-
-
-template <typename T = std::string>
-void top_storage_condition(std::string field_name, T expected_value, storage_condition_item_t* to_be_filled)
-{
-    throw std::runtime_error("[tiny] to be implemented");
-}
-
-
-template <typename T = std::string>
-Node & top_enable_condition(std::string field_name, T expected_value)
-{
-    throw std::runtime_error("[tiny] to be implemented");
-}
-
-
-template <typename T = std::string>
-void top_enable_condition(std::string field_name, T expected_value, enable_condition_item_t* to_be_filled)
-{
-    throw std::runtime_error("[tiny] to be implemented");
-}
-
 
 template <typename T = std::string>
 Node & top_operation_cycle(std::string field_name, T expected_value)
@@ -510,33 +413,6 @@ void top_operation_cycle(std::string field_name, T expected_value, operation_cyc
     throw std::runtime_error("[tiny] to be implemented");
 }
 
-
-template <typename T = std::string>
-Node & top_indicator(std::string field_name, T expected_value)
-{
-    throw std::runtime_error("[tiny] to be implemented");
-}
-
-
-template <typename T = std::string>
-void top_indicator(std::string field_name, T expected_value, indicator_item_t* to_be_filled)
-{
-    throw std::runtime_error("[tiny] to be implemented");
-}
-
-
-template <typename T = std::string>
-Node & top_connected_indicator_behavior(std::string field_name, T expected_value)
-{
-    throw std::runtime_error("[tiny] to be implemented");
-}
-
-
-template <typename T = std::string>
-void top_connected_indicator_behavior(std::string field_name, T expected_value, connected_indicator_behavior_item_t* to_be_filled)
-{
-    throw std::runtime_error("[tiny] to be implemented");
-}
 
 
 template <typename T = std::string>

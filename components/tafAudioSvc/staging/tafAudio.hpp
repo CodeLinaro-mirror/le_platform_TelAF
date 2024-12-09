@@ -55,9 +55,15 @@ using namespace telux::audio;
 #define TOTAL_BUFFERS              2
 #define DEFAULT_SAMPLERATE         48000
 #define DEFAULT_BITSPERSAMPLE      16
+#define DEFAULT_NUM_CHANNELS       2
+#define BITS_PER_BYTE              8
 #define MAX_NUM_OF_PLAYLIST        4
 #define MAX_NUM_OF_PLAYBACK_FILES  8
 #define MAX_DTMF_GAIN              8192
+#define SECS_IN_MILLISES           1000
+#define MILLISECS_IN_MICROSECS     1000
+#define MAX_RESPONSE_DELAY         100
+#define DEFAULT_RIFF_SIZE          sizeof(WavHeader_t) - 8 // Total file size - 8 bytes
 
 #define DEVICE_TYPE_SINK_0   1
 #define DEVICE_TYPE_SINK_1   2
@@ -284,6 +290,7 @@ namespace tafsvc {
             void onError(telux::common::ErrorCode error, std::string file) override;
             void onFilePlayed(std::string file) override;
             void onPlaybackFinished() override;
+            taf_audio_Stream_t* streamPtr;
     };
 
     class tafPlayListener : public telux::audio::IPlayListener {
@@ -308,12 +315,10 @@ class taf_Audio : public ITafSvc
         ~taf_Audio() {};
 
         std::promise<telux::common::ErrorCode> gCallbackPromise, gDelCbPromise;
-        bool mIsPlaying = false;
+        bool mIsPlaying = false, mIsTxPlaying = false;
         bool mEmptyPipeline = false;
-        bool isPbMuteSet = false, isRecMuteSet = false;
-        taf_audio_Stream_t* playerStreamPtr;
+        bool isPbMuteSet = false, isRecMuteSet = false, isRxRecMuteSet = false;
         AudioFormat mPbFileFormat = AudioFormat::UNKNOWN;
-        AudioFormat mRecFileFormat = AudioFormat::UNKNOWN;
         le_sem_Ref_t mPlaySemRef;
         le_dls_List_t  EventIdList = LE_DLS_LIST_INIT;
         taf_audio_StreamRef_t mDtmfAudioRef = NULL;
@@ -360,15 +365,26 @@ class taf_Audio : public ITafSvc
 
         std::shared_ptr<telux::audio::IAudioManager> mAudioManager;
         std::shared_ptr<telux::audio::IAudioVoiceStream> mAudioVoiceStream;
-        std::shared_ptr<telux::audio::IAudioCaptureStream> mAudioCaptureStream;
+        std::shared_ptr<telux::audio::IAudioCaptureStream> mAudioCaptureStream; // local capture stream
+
+        // incall downlink capture stream
+        std::shared_ptr<telux::audio::IAudioCaptureStream> mAudioRxCaptureStream;
         std::shared_ptr<telux::audio::IAudioPlayStream> mAudioPlayStream;
         std::shared_ptr<telux::audio::IAudioLoopbackStream> mAudioLoopbackStream;
-        std::shared_ptr<telux::audio::IStreamBuffer> mPbStreamBuffer, mRecStreamBuffer;
-        std::shared_ptr<telux::audio::IAudioPlayer> mAudioPlayer;
+        std::shared_ptr<telux::audio::IStreamBuffer> mPbStreamBuffer, mRecStreamBuffer,
+                mRxRecStreamBuffer;
+
+        // mAudioPlayer - local/incall downlink playback, mTxAudioPlayer - incall uplink playback
+        std::shared_ptr<telux::audio::IAudioPlayer> mAudioPlayer, mTxAudioPlayer;
         std::shared_ptr<telux::audio::IPlayListener> mPlayListener;
         std::shared_ptr<telux::audio::IVoiceListener> mVoiceListener;
-        std::shared_ptr<telux::audio::IPlayListListener> repeatedPlayerStatusListener;
-        std::queue<std::shared_ptr<telux::audio::IStreamBuffer>> mPbFreeBuffers, mRecFreeBuffers;
+
+        // local/incall downlink playback listener
+        std::shared_ptr<tafPromptsStatusListener> repeatedPlayerStatusListener;
+        // incall uplink playback listener
+        std::shared_ptr<tafPromptsStatusListener> repeatedTxPlayerStatusListener;
+        std::queue<std::shared_ptr<telux::audio::IStreamBuffer>> mPbFreeBuffers,
+                mRecFreeBuffers, mRxRecFreeBuffers;
 
         bool isVhalAvailable = false;
         bool isEcnrEnabled = false;
@@ -379,15 +395,17 @@ class taf_Audio : public ITafSvc
         bool mSpeaker = false;
         bool mModemTx = false;
         bool mMic = false;
-        bool mIsCaptureStreamCreated = false;
+        bool mIsCaptureStreamCreated = false, mIsRxCaptureStreamCreated = false;
         bool mIsPlayStreamCreated = false;
-        bool mIsRecording = false;
+        bool mIsRecording = false, mIsRxRecording = false;
         bool mIsMpmsReady = false;
-        uint32_t mBufferRecordedTillNow;
+        uint32_t mBufferRecordedTillNow, mRxBufferRecordedTillNow;
         uint32_t maxFileBytes;
-        FILE *mFile;
+        FILE *mFile, // File ptr for local recording
+                *mRxFile; //File ptr for incall downlink recording
         FILE *mPlayFile;
-        le_sem_Ref_t mRecordSemRef, mPbStartedSemRef, mRecStartedSemRef, mDtmfStartedSemRef;
+        le_sem_Ref_t mRecordSemRef, mRxRecordSemRef, mPbStartedSemRef, mRecStartedSemRef,
+                mDtmfStartedSemRef;
         SlotId mRxSlotId = INVALID_SLOT_ID , mTxSlotId = INVALID_SLOT_ID;
         StreamConfig voiceStreamConfig = {};
         taf_PbList_t pbList;
@@ -446,7 +464,6 @@ class taf_Audio : public ITafSvc
         static void StopAudioCallback(ErrorCode error);
         static void DeleteVoiceCallback(ErrorCode error);
         static void DeletePlayCallback(ErrorCode error);
-        static void DeleteCaptureCallback(ErrorCode error);
         static void FirstLayerEventHandler( void* reportPtr, void* secondLayerHandlerFunc );
         static le_event_Id_t CreateEventId();
         static void* Record( void* ctxPtr);
@@ -454,8 +471,10 @@ class taf_Audio : public ITafSvc
         static void* PlayAudioFile( void* ctxPtr);
         static void ReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
                     telux::common::ErrorCode error);
-        static void WriteCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer, uint32_t bytes,
-                telux::common::ErrorCode error);
+        static void RxReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
+                    telux::common::ErrorCode error);
+        static void WriteCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
+                uint32_t bytes, telux::common::ErrorCode error);
         static void StreamMuteUnmuteCallback(ErrorCode error);
         static void BuBStatusCB(int32_t status, void *contextPtr);
         static void RegisterDtmfListenerCallback(ErrorCode error);

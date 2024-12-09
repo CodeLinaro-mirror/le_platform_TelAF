@@ -5,5 +5,13 @@
         {
             "time": 10
         }
+    },
+
+    "firmware":
+    {
+        "unpack":
+        {
+            "directory": "/tmp"
+        }
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -406,12 +406,44 @@ void set_apn_test(const char *testApnStr)
     report(LE_OK,result,"taf_dcs_GetAPN");
     std::cout<<"*** APN: "<<apnStr<<endl;
 
-    // Test Case
+    // Test Case - Get APN type
     taf_dcs_ApnType_t apnType;
     result=taf_dcs_GetApnTypes(TestProfileRef, &apnType);
     LE_TEST_OK(result == LE_OK, "taf_dcs_GetApnTypes - LE_OK");
     report(LE_OK,result,"taf_dcs_GetApnTypes");
     std::cout<<"*** ApnTypes: "<<apnType<<endl;
+
+    // Test Case - Set APN type
+    taf_dcs_ApnType_t apnType_set = TAF_DCS_APN_TYPE_DEFAULT | TAF_DCS_APN_TYPE_IMS |
+                                                                          TAF_DCS_APN_TYPE_FOTA;
+    std::cout << "*** ApnTypes to set: " << apnType_set << endl;
+    result = taf_dcs_SetApnTypes(TestProfileRef, apnType_set);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetApnTypes - LE_OK");
+    report(LE_OK, result, "taf_dcs_SetApnTypes");
+
+    // Test Case - Get APN type and check if it matches what was set
+    taf_dcs_ApnType_t apnType_get;
+    result = taf_dcs_GetApnTypes(TestProfileRef, &apnType_get);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetApnTypes - LE_OK");
+    std::cout << "*** ApnTypes get: " << apnType_get << endl;
+    // Check if the APN type has been set properly
+    if (apnType_get == apnType_set)
+    {
+        report(LE_OK, result, "taf_dcs_SetApnTypes check");
+        std::cout << TC_No << "*** ApnTypes set/get check passed" << endl;
+    }
+    else
+    {
+        report(LE_FAULT, result, "taf_dcs_SetApnTypes check");
+        std::cout << TC_No  <<"*** ApnTypes set/get check failed" << endl;
+    }
+    TC_No += 1;
+
+    // Test Case - Set APN type back to what was first read
+    std::cout << "*** ApnTypes to set: " << apnType << endl;
+    result = taf_dcs_SetApnTypes(TestProfileRef, apnType);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetApnTypes to original - LE_OK");
+    report(LE_OK, result, "taf_dcs_SetApnTypes to original");
 
     // Test Case
     int return_value;

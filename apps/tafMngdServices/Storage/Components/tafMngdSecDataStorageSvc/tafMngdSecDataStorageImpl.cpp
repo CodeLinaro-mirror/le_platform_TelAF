@@ -53,6 +53,38 @@ void tafMngdStorageSvc::Init(void)
 {
     InitStorage();
     taf_rfs_Init(true, nullptr);
+    taf_rfs_SetBackupStorage(secDataRfsStorage);
+}
+
+size_t tafMngdStorageSvc::GetFileSize
+(
+    const char *filePath
+)
+{
+    struct stat fileStat;
+
+    // Get file statistics
+    if (stat(filePath, &fileStat) == -1)
+    {
+        LE_ERROR("Failed to get file status for %s", filePath);
+        return 0;
+    }
+
+    // Check if the entry is a regular file
+    if (S_ISREG(fileStat.st_mode))
+    {
+        return (size_t)fileStat.st_size;
+    }
+    else
+    {
+        LE_ERROR("%s is not a regular file", filePath);
+        return 0;
+    }
+}
+
+le_result_t tafMngdStorageSvc::CreateDirectory(const char *path)
+{
+    return le_dir_MakePath(path, 0644);
 }
 
 size_t tafMngdStorageSvc::GetFilesSizeInDirectory
@@ -66,12 +98,12 @@ size_t tafMngdStorageSvc::GetFilesSizeInDirectory
     size_t totalSize = 0;
 
     DIR *dp = opendir(dirPath);
-    if (dp == NULL) {
+    if (dp == nullptr) {
         LE_ERROR("Failed to open directory");
         return 0;
     }
 
-    while ((entry = readdir(dp)) != NULL) {
+    while ((entry = readdir(dp)) != nullptr) {
         // Ignore "." and ".." entries
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
@@ -105,12 +137,12 @@ bool tafMngdStorageSvc::IsDirectoryEmpty(const char *path)
     struct dirent *d;
     DIR *dir = opendir(path);
 
-    if (dir == NULL)
+    if (dir == nullptr)
     {
         return false; // Return false if the directory cannot be opened
     }
 
-    while ((d = readdir(dir)) != NULL) {
+    while ((d = readdir(dir)) != nullptr) {
         if (++n > 2) {
             break;
         }
@@ -150,7 +182,7 @@ bool tafMngdStorageSvc::IsFileExisting(const char *path)
 le_result_t tafMngdStorageSvc::CheckValidPosixFileName(const char *fileName)
 {
     // POSIX file name must not be empty
-    if (fileName == NULL || strlen(fileName) == 0)
+    if (fileName == nullptr || strlen(fileName) == 0)
     {
         return LE_BAD_PARAMETER;
     }
@@ -165,6 +197,63 @@ le_result_t tafMngdStorageSvc::CheckValidPosixFileName(const char *fileName)
             return LE_OUT_OF_RANGE;
         }
     }
+
+    return LE_OK;
+}
+
+le_result_t tafMngdStorageSvc::GetAppNameBySessionRef
+(
+    le_msg_SessionRef_t clientSessionRef,           ///< [IN]  client session reference.
+    char    *appNameStr,                            ///< [OUT] Application name buffer.
+    size_t   appNameSize                            ///< [IN]  Buffer size.
+)
+{
+    pid_t pid;
+    const char* namePtr = nullptr;
+    char procPath[LIMIT_MAX_PATH_BYTES] = {0};
+    char appPath[LIMIT_MAX_PATH_BYTES] = {0};
+
+    // Parameter check.
+    if ((clientSessionRef == nullptr) || (appNameStr == nullptr) || (appNameSize == 0))
+    {
+        LE_ERROR("Bad parameters.");
+        return LE_BAD_PARAMETER;
+    }
+
+    // Get pid from the sessionRef.
+    if (le_msg_GetClientProcessId(clientSessionRef, &pid) != LE_OK)
+    {
+        LE_ERROR("Failed to get the pid from client session reference.");
+        return LE_FAULT;
+    }
+
+    // Get the app name from the pid.
+    if (le_appInfo_GetName(pid, appPath, sizeof(appPath)) != LE_OK)
+    {
+        // It's not a telaf app but should a legacy app.
+        // Read the program name from the softlink of /proc/<pid>/exe .
+        LE_ASSERT(snprintf(procPath, sizeof(procPath), "/proc/%d/exe", pid)
+                  < static_cast<int>(sizeof(procPath)));
+
+        memset(appPath, 0, sizeof(appPath));
+        if (readlink(procPath, appPath, sizeof(appPath)) < 0)
+        {
+            LE_ERROR("readlink(%s) failed %s", procPath, LE_ERRNO_TXT(errno));
+            return LE_FAULT;
+        }
+
+        // Get the program name from the executable Path.
+        namePtr = le_path_GetBasenamePtr(appPath, "/");
+    }
+    else
+    {
+        // It's a telaf app.
+        namePtr = appPath;
+    }
+
+    snprintf(appNameStr, appNameSize, "%s", namePtr);
+
+    LE_INFO("Get appName: %s", appNameStr);
 
     return LE_OK;
 }

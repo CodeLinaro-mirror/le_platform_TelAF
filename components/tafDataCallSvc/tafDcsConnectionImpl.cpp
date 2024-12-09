@@ -719,13 +719,14 @@ taf_dcs_CallCtx_t* taf_DataConnection::CreateDataCallCtx(uint8_t slotId, int32_t
 taf_dcs_CallCtx_t* taf_DataConnection::GetCallCtx(uint8_t slotId, int32_t profileId)
 {
     le_dls_Link_t* linkPtr = NULL;
-
+    LE_DEBUG("Slot ID: %d, Profile ID: %d", slotId, profileId);
     le_mutex_Lock(callCtxMutex);
     linkPtr = le_dls_Peek(&DataCallCtxList);
     while (linkPtr)
     {
         taf_dcs_CallCtx_t* callCtxPtr = CONTAINER_OF(linkPtr, taf_dcs_CallCtx_t, link);
         linkPtr = le_dls_PeekNext(&DataCallCtxList, linkPtr);
+        LE_DEBUG("Ctx: Slot ID: %d, Profile ID: %d", callCtxPtr->slotId, callCtxPtr->profileId);
         if (callCtxPtr->slotId == slotId && callCtxPtr->profileId == profileId)
         {
             le_mutex_Unlock(callCtxMutex);
@@ -877,19 +878,20 @@ le_result_t taf_DataConnection::StopCall
 bool taf_DataConnection::IsCallCtxCreated(uint8_t slotId, int32_t profileId)
 {
     le_dls_Link_t* linkPtr = NULL;
-
+    LE_DEBUG("Slot ID: %d, Profile ID: %d", slotId, profileId);
     le_mutex_Lock(callCtxMutex);
     linkPtr = le_dls_Peek(&DataCallCtxList);
+
     while (linkPtr)
     {
         taf_dcs_CallCtx_t* callCtxPtr = CONTAINER_OF(linkPtr, taf_dcs_CallCtx_t, link);
         linkPtr = le_dls_PeekNext(&DataCallCtxList, linkPtr);
+        LE_DEBUG("Ctx: Slot ID: %d, Profile ID: %d", callCtxPtr->slotId, callCtxPtr->profileId);
         if (callCtxPtr->slotId == slotId && callCtxPtr->profileId == profileId)
         {
             le_mutex_Unlock(callCtxMutex);
             return true;
         }
-
     }
 
     le_mutex_Unlock(callCtxMutex);
@@ -1195,6 +1197,14 @@ void taf_DataConnection::StartSessionCmdAsync
         return;
     }
 
+    // If the proifle ID is TAF_DCS_UNDEFINED_PROFILE_ID, it means the profile has not been created.
+    if (TAF_DCS_UNDEFINED_PROFILE_ID == profileId)
+    {
+        LE_ERROR("Profile has not been created yet.");
+        handlerPtr(profileRef, LE_NOT_POSSIBLE, contextPtr);
+        return;
+    }
+
     LE_INFO("Async starting sessionRef=%p, slotId(%d) profileId(%d)",
              sessionRef, slotId, profileId);
 
@@ -1437,6 +1447,14 @@ void taf_DataConnection::StopSessionCmdAsync
     {
         LE_ERROR("profile reference(%p) is invalid", profileRef);
         handlerPtr(profileRef, LE_NOT_FOUND, contextPtr);
+        return;
+    }
+
+    // If the proifle ID is TAF_DCS_UNDEFINED_PROFILE_ID, it means the profile has not been created.
+    if (TAF_DCS_UNDEFINED_PROFILE_ID == profileId)
+    {
+        LE_ERROR("Profile has not been created yet.");
+        handlerPtr(profileRef, LE_NOT_POSSIBLE, contextPtr);
         return;
     }
 

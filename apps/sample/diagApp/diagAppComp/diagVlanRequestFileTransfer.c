@@ -943,6 +943,7 @@ le_result_t diagVlanRequestFileTransfer_Init(void)
     DiagUpdateAppHandler_t * UpdateAppObj_def =
         (DiagUpdateAppHandler_t *) le_mem_ForceAlloc(DiagUpdateAppHandlerPool);
     LE_ASSERT(UpdateAppObj_def);
+    memset(UpdateAppObj_def, 0x00, sizeof(*UpdateAppObj_def));
 
     UpdateAppObj_def->vlanId = TEST_VLAN_ID_0;
 
@@ -960,6 +961,7 @@ le_result_t diagVlanRequestFileTransfer_Init(void)
     DiagUpdateAppHandler_t * UpdateAppObj_ext =
         (DiagUpdateAppHandler_t *) le_mem_ForceAlloc(DiagUpdateAppHandlerPool);
     LE_ASSERT(UpdateAppObj_ext);
+    memset(UpdateAppObj_ext, 0x00, sizeof(*UpdateAppObj_ext));
 
     UpdateAppObj_ext->vlanId = TEST_VLAN_ID_1;
 

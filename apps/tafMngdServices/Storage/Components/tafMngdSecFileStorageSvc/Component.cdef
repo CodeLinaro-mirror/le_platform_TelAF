@@ -1,16 +1,19 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 sources:
 {
-    tafMngdSecStore.cpp
-    tafMngdSecData.cpp
-    tafMngdSecStorageImpl.cpp
-    tafMngdSecStorageSvc.cpp
+    tafMngdSecFileStorageImpl.cpp
+    tafMngdSecFileStorageSvc.cpp
 }
 
 provides:
 {
     api:
     {
-        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdStorSec.api
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdStorSecFile.api
     }
 }
 
@@ -18,7 +21,7 @@ requires:
 {
     api:
     {
-        taf_ks.api
+        taf_fsc.api
         le_appInfo.api
     }
 
@@ -33,11 +36,11 @@ cxxflags:
     -I$TELAF_ROOT/include
     -I${LEGATO_ROOT}/framework/liblegato
     -I$TELAF_ROOT/include/staging
-    -DMSS_SEC_STORE_SIZE=8192
 }
 
 ldflags:
 {
    -lssl
+   -lboost_filesystem
    -lcrypto
 }

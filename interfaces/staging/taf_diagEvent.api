@@ -7,7 +7,7 @@
 /**
  * @page c_tafDiagEvent Diag Event Management Service
  *
- * @ref taf_diagEvent_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_diagEvent_interface.h>` @endrst
  *
  * <HR>
  *
@@ -28,25 +28,9 @@
    }
    @endverbatim
  *
- * @section c_taf_diagEvent_enableCondition_API Enable condition API
- *
- * taf_diagEvent_SetEnableCondition() can be used to set one configured enable condition for the
- * event to fulfilled or not fulfilled.
- *
- * The following example illustrates how to set the enable condition to fulfilled.
- *
- * @code
-   le_result_t result = taf_diagEvent_SetEnableCondition(ENABLE_CONDITION_ID, true);
-   if (result != LE_OK)
-   {
-      LE_ERROR("Fail to set enable condition.");
-      return result;
-   }
-   @endcode
- *
  * @section c_taf_diagEvent_SetOperationCycleState_API Operation Cycle API
  *
- * taf_diagEvent_SetOperationCycleState can be used to set operation cycle state for the specified
+ * taf_diagEvent_SetOperationCycleState() can be used to set operation cycle state for the specified
  * operation cycle id.
  *
  * The following example illustrates how to start the operation cycle.
@@ -103,6 +87,8 @@
  * - taf_diagEvent_AddUdsStatusHandler() -- Adds a handler for event UDS status changes.
  * - taf_diagEvent_RemoveUdsStatusHandler() -- Removes a handler for event UDS status changes.
  * - taf_diagEvent_RemoveSvc() -- Removes the Event Management service.
+ * - taf_diagEvent_AddEnableCondStateHandler() -- Adds a handler for Enable Condition state change.
+ * - taf_diagEvent_RemoveEnableCondStateHandler() -- Removes a handler for Enable Condition state change.
  *
  * <HR>
  *
@@ -317,18 +303,24 @@ EVENT UdsStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets an enable condition.
- *
- * @return
- *     - LE_OK -- Succeeded.
- *     - LE_FAULT -- Failed.
- *
+ * Handler for a Enable Condition state.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetEnableCondition
+HANDLER EnableCondStateHandler
 (
-    uint8 enableConditionID  IN,     ///< Enable condition ID.
-    bool conditionFulfilled  IN      ///< The enable condition is fulfilled (TRUE) or not.
+    Service svcRef  IN,          ///< Service reference.
+    bool state  IN               ///< Enable Condition state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on Enable Condition state.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT EnableCondState
+(
+    Service  svcRef,                        ///< Service reference.
+    EnableCondStateHandler  handler         ///< Enable Condition state handler.
 );
 
 //--------------------------------------------------------------------------------------------------

@@ -37,6 +37,12 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.mod
         SomeIpMethodID = 0x1303
     }
 
+    method GetDataIpv4Info
+    {
+        SomeIpMethodID = 0x1304
+    }
+
+
     broadcast DataState
     {
         SomeIpEventID = 0x9301

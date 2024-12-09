@@ -206,8 +206,6 @@ telux::common::Status taf_locGnss::LocationManagerInit(taf_locGnss_Client_t* cli
         LE_DEBUG("LocationManagerInit for sessionRef: %p",  clientRequestPtr->sessionRef);
         clientRequestPtr->posListener = std::make_shared<tafLocationListener>();
         clientRequestPtr->posListener->clientSessionRef = &clientRequestPtr->sessionRef;
-        clientRequestPtr->positionEventId = le_event_CreateIdWithRefCounting("positionEventId");
-        clientRequestPtr->HandlerRef = le_event_AddHandler("LocUpdateEventId", clientRequestPtr->positionEventId, taf_locGnss::GnssPositionHandler);
 
         clientRequestPtr->locationManager->registerListenerEx(clientRequestPtr->posListener);
         auto status = clientRequestPtr->locationManager->registerForSystemInfoUpdates(clientRequestPtr->posListener);
@@ -812,7 +810,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 if(locationInfo->getTimeStamp() != telux::loc::UNKNOWN_TIMESTAMP) {
                     time_t realtime;
                     realtime = (time_t)((locationInfo->getTimeStamp() / 1000));
-                    tm *ltm = localtime(&realtime);
+                    tm *ltm = gmtime(&realtime);
                     LE_DEBUG("onDetailedEngineLocationUpdate !UNKNOWN_TIMESTAMP");
                     if(ltm != NULL)
                     {
@@ -1549,7 +1547,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->gPtpTimeUnc = locationInfo->getElapsedGptpTimeUnc();
                 LocationData->next = LE_DLS_LINK_INIT;
 
-                le_event_ReportWithRefCounting(clientRequestPtr->positionEventId, LocationData);
+                le_event_ReportWithRefCounting(gnss.positionEventId, LocationData);
                 clientRequestPtr->mSvEnabled = false;
                 clientRequestPtr->mGnssSigEnabled = false;
             }
@@ -1738,7 +1736,7 @@ void tafLocationListener::onCapabilitiesInfo(
         LE_DEBUG( "**** Gnss Capabilities Information ****" );
         CapabilityChangeEvent_t capabilityEvent;
         capabilityEvent.locCapability = (taf_locGnss_LocCapabilityType_t) capabilityInfo;
-        le_event_Report(clientRequestPtr->locCapabilityEventId, &capabilityEvent, sizeof(CapabilityChangeEvent_t));
+        le_event_Report(gnss.locCapabilityEventId, &capabilityEvent, sizeof(CapabilityChangeEvent_t));
     }
     le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
 }
@@ -1860,7 +1858,7 @@ void tafLocationListener::onGnssNmeaInfo(uint64_t timestamp, const std::string &
             nmeaEvent.nmeaMask[i] = gnss.mNmeaBitMask.c_str()[i];
         }
         LE_DEBUG( "**** NMEA handler string copied is: %s****",nmeaEvent.nmeaMask);
-        le_event_Report(clientRequestPtr->nmeaEventId, &nmeaEvent, sizeof(nmeaEvent));
+        le_event_Report(gnss.nmeaEventId, &nmeaEvent, sizeof(nmeaEvent));
     }
     le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
 }
@@ -2098,14 +2096,12 @@ void taf_locGnss::InitializeClient
     memset(&clientRequestPtr->mSatInfo, 0, sizeof(clientRequestPtr->mSatInfo));
     memset(&clientRequestPtr->mGnssData,0, sizeof(clientRequestPtr->mGnssData));
     clientRequestPtr->mGnssMutexRef = le_mutex_CreateRecursive("GnssMutexCl");
-
+    clientRequestPtr->locationManager = nullptr;
     status = gnss.LocationManagerInit(clientRequestPtr);
     if (status != telux::common::Status::SUCCESS) {
         LE_FATAL("LocationManager for sessionRef %p is not available", clientRequestPtr);
     }
 
-    clientRequestPtr->locCapabilityEventId = le_event_CreateId("LocCapabilityEventId", sizeof(CapabilityChangeEvent_t));
-    clientRequestPtr->nmeaEventId = le_event_CreateId("NmeaEventId", sizeof(NmeaInfoEvent_t));
 }
 
 taf_locGnss_Client_t* taf_locGnss::AcquireSessionRef
@@ -2268,9 +2264,10 @@ le_result_t taf_locGnss::SetConstellation
         constellationMask -= TAF_LOCGNSS_CONSTELLATION_DEFAULT;
         if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GPS)
         {
-            constellationMask -= TAF_LOCGNSS_CONSTELLATION_GPS;
-            LE_DEBUG("constellation type GPS is not supported");
-            return LE_FAULT;
+            deviceReset = false;
+            blackListInfo.constellation = telux::loc::GnssConstellationType::GPS;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is GPS");
         }
         if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GLONASS)
         {
@@ -2323,9 +2320,9 @@ le_result_t taf_locGnss::SetConstellation
     {
         if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GPS)
         {
-            constellationMask -= TAF_LOCGNSS_CONSTELLATION_GPS;
-            LE_DEBUG("constellation type GPS is not supported");
-            return LE_FAULT;
+            blackListInfo.constellation = telux::loc::GnssConstellationType::GPS;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is GPS");
         }
         if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GLONASS)
         {
@@ -2876,7 +2873,7 @@ taf_locGnss_CapabilityChangeHandlerRef_t taf_locGnss::AddCapabilityHandler
     clientRequestPtr = AcquireSessionRef();
     TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "AddCapabilityHandler: clientRequestPtr is NULL");
 
-    handlerRef = le_event_AddLayeredHandler("CapabilityHandler", clientRequestPtr->locCapabilityEventId,
+    handlerRef = le_event_AddLayeredHandler("CapabilityHandler", locCapabilityEventId,
             FirstLayerCapabilityHandler, (void*)handlerPtr);
 
     NumOfCapabilityHandlers++;
@@ -2919,7 +2916,7 @@ taf_locGnss_NmeaHandlerRef_t taf_locGnss::AddNmeaHandler
     clientRequestPtr = AcquireSessionRef();
     TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "AddCapabilityHandler: clientRequestPtr is NULL");
 
-    handlerRef = le_event_AddLayeredHandler("NmeaHandler", clientRequestPtr->nmeaEventId,
+    handlerRef = le_event_AddLayeredHandler("NmeaHandler", nmeaEventId,
             FirstLayerNmeaHandler, (void*)handlerPtr);
 
     NumOfNmeaHandlers++;
@@ -4110,9 +4107,9 @@ le_result_t taf_locGnss::ForceWarmRestart
 
                 /* Specifies AidingDataType mask */
                 /* 0 - EPHEMERIS 1 - DR_SENSOR_CALIBRATION
-                   AidingData |1UL << (0,1) which is 3*/
+                   AidingData |1UL << 0 which is 1*/
 
-                uint32_t AidingData = 3;
+                uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_EPHEMERIS;
                 telux::common::Status status = mLocationConfigurator->deleteAidingData(AidingData, cb1);
                 if (status != telux::common::Status::SUCCESS)
                 {
@@ -4517,9 +4514,9 @@ le_result_t taf_locGnss::StartMode
 
                 /* Specifies AidingDataType mask */
                 /* 0 - EPHEMERIS 1 - DR_SENSOR_CALIBRATION
-                AidingData |1UL << (0,1) which is 3*/
+                AidingData |1UL << 0 which is 1*/
 
-                uint32_t AidingData = 3;
+                uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_EPHEMERIS;
                 telux::common::Status status = mLocationConfigurator->deleteAidingData(
                         AidingData, cb1);
                 if(status != telux::common::Status::SUCCESS)
@@ -7436,6 +7433,7 @@ void taf_locGnss::CloseEventHandler
 
         if (sessionRef == gnssPtr->sessionRef)
         {
+            gnss.CleanUp(gnssPtr);
             void* safeRefPtr = (void*)le_ref_GetSafeRef(iterRef);
             LE_DEBUG("Release taf_locGnss_ReleaseClientRef 0x%p, Session 0x%p",
                      safeRefPtr, gnssPtr->sessionRef);
@@ -7484,6 +7482,44 @@ taf_locGnss::~taf_locGnss() {
    }
 }
 
+void taf_locGnss::CleanUp(taf_locGnss_Client_t* clientPtr)
+{
+    if(clientPtr == NULL)
+    {
+        LE_ERROR("ClientPtr is Null");
+        return;
+    }
+
+    if(clientPtr->locationManager)
+    {
+        telux::common::Status status = telux::common::Status::FAILED;
+        status = clientPtr->locationManager->deRegisterListenerEx(clientPtr->posListener);
+        if(status == telux::common::Status::SUCCESS)
+        {
+            LE_DEBUG("client deRegisterListenerEx");
+        }
+        else
+        {
+            LE_DEBUG("Failed to deRegisterListenerEx");
+        }
+        status = clientPtr->locationManager->deRegisterForSystemInfoUpdates(clientPtr->posListener);
+        if(status == telux::common::Status::SUCCESS)
+        {
+            LE_DEBUG("Deregistered a listener for location system information");
+        }
+        else
+        {
+            LE_DEBUG("Failed to deregister a listener for location system information");
+        }
+    }
+
+    if(clientPtr->posListener)
+    {
+        clientPtr->posListener = nullptr;
+        LE_DEBUG("clientPtr->posListener is nullptr");
+    }
+}
+
 void taf_locGnss::Init()
 {
 
@@ -7514,11 +7550,18 @@ void taf_locGnss::Init()
     PositionSampleRequestPoolRef = le_mem_InitStaticPool(PositionSampleRequest,
             GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_PositionSampleRequest_t));
 
+
     PositionSampleMap = le_ref_InitStaticMap(PositionSampleMap, GNSS_POSITION_SAMPLE_MAX);
 
     ClientRequestRefMap = le_ref_CreateMap("ClientRequestRefMap", TAF_CONFIG_POSITIONING_ACTIVATION_MAX);
 
     ClientPoolRef = le_mem_InitStaticPool(Client, TAF_CONFIG_POSITIONING_ACTIVATION_MAX, sizeof(taf_locGnss_Client_t));
+    positionEventId = le_event_CreateIdWithRefCounting("positionEventId");
+
+    HandlerRef = le_event_AddHandler("LocUpdateEventId", positionEventId, taf_locGnss::GnssPositionHandler);
+
+    locCapabilityEventId = le_event_CreateId("LocCapabilityEventId", sizeof(CapabilityChangeEvent_t));
+    nmeaEventId = le_event_CreateId("NmeaEventId", sizeof(NmeaInfoEvent_t));
 
     le_msg_ServiceRef_t msgService = taf_locGnss_GetServiceRef();
     le_msg_AddServiceOpenHandler(msgService, OpenEventHandler, NULL);

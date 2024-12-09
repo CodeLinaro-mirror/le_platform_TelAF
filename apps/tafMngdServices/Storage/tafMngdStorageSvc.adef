@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 maxThreads: 600
 
 username: telaf
@@ -25,7 +30,8 @@ groups:
 
 executables:
 {
-        tafMngdSecStorageSvc = ( $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdSecStorageSvc )
+        tafMngdSecDataStorageSvc = ( $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdSecDataStorageSvc )
+        tafMngdSecFileStorageSvc = ( $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdSecFileStorageSvc )
         tafMngdCfgStorageSvc = ( $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdCfgStorageSvc )
 }
 
@@ -35,7 +41,8 @@ processes:
 {
         run:
         {
-                (tafMngdSecStorageSvc)
+                (tafMngdSecDataStorageSvc)
+                (tafMngdSecFileStorageSvc)
                 (tafMngdCfgStorageSvc)
         }
 
@@ -50,15 +57,17 @@ bindings:
     tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.taf_fsc -> tafKeyStoreSvc.taf_fsc
     tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_cfg -> <root>.le_cfg
     tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_cfgAdmin -> <root>.le_cfgAdmin
-    tafMngdSecStorageSvc.tafMngdSecStorageSvc.taf_ks -> tafKeyStoreSvc.taf_ks
-    tafMngdSecStorageSvc.tafMngdSecStorageSvc.le_appInfo -> <root>.le_appInfo
+    tafMngdSecDataStorageSvc.tafMngdSecDataStorageSvc.taf_ks -> tafKeyStoreSvc.taf_ks
+    tafMngdSecDataStorageSvc.tafMngdSecDataStorageSvc.le_appInfo -> <root>.le_appInfo
+    tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.taf_fsc -> tafKeyStoreSvc.taf_fsc
+    tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.le_appInfo -> <root>.le_appInfo
 }
 
 bundles:
 {
     file:
     {
-        [rw]  $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdCfgStorageSvc/config/tafMngdStorageConfig.json  /data/ManagedServices/
+        [r]  $TELAF_ROOT/apps/tafMngdServices/Storage/Components/config/tafMngdStorageSvc.json  /
     }
 }
 
@@ -72,13 +81,14 @@ requires:
 
     configTree:
     {
-        [w] .
+        [rw] tafMngdCfgStorageSvc
     }
 
 }
 
 extern:
 {
-    tafMngdSecStorageSvc.tafMngdSecStorageSvc.taf_mngdStorSec
+    tafMngdSecDataStorageSvc.tafMngdSecDataStorageSvc.taf_mngdStorSecData
+    tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.taf_mngdStorSecFile
     tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.taf_mngdStorCfg
 }

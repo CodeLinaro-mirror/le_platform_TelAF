@@ -348,6 +348,32 @@ static void Test_ECall_GetHlapTimerState()
     LE_INFO("GetHlapTimerState completed");
 }
 
+static void Test_ECall_DialRedial() {
+    le_result_t res = LE_FAULT;
+
+    uint16_t dialIntervalErr[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH] = {60, 60, 60};
+    res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialIntervalErr, 3);
+    LE_TEST_OK(res == LE_OK, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    uint16_t dialInterval[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH] = {5, 60, 60};
+    res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialInterval, 3);
+    LE_TEST_OK(res == LE_OK, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialInterval, 5);
+    LE_TEST_OK(res == LE_FAULT, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialInterval, 3);
+    LE_TEST_OK(res == LE_OK, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(NULL, 0);
+    LE_TEST_OK(res == LE_OVERFLOW, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+
+    uint8_t dialAttempts = 11;
+    res = taf_ecall_SetInitialDialAttempts(dialAttempts);
+    LE_TEST_OK(res == LE_OVERFLOW, "SetInitialDialAttempts - LE_OK");
+    dialAttempts = 2;
+    res = taf_ecall_SetInitialDialAttempts(dialAttempts);
+    LE_TEST_OK(res == LE_OK, "SetInitialDialAttempts - LE_OK");
+
+    LE_INFO("Set redial attempts and interval completed");
+}
+
 static void* Test_ECall_ExportMsd
 (
     taf_ecall_CallRef_t    ecallRef
@@ -435,6 +461,7 @@ static void Test_ECall_StartTest() {
     uint16_t minNwRegTime = 0;
     uint16_t ccftTimeOrg = 0;
     taf_ecall_State_t retrievedState = TAF_ECALL_STATE_UNKNOWN;
+    bool isInProgress = false;
 
     eCallRef= taf_ecall_Create();
 
@@ -452,6 +479,10 @@ static void Test_ECall_StartTest() {
         eCallRef = NULL;
         return;
     }
+
+    res = taf_ecall_IsInProgress(eCallRef, &isInProgress);
+    LE_TEST_OK(res == LE_OK, "getIsInProgress  - LE_OK");
+    LE_INFO("Test IsInProgress = %d", (int) isInProgress);
 
     le_clk_Time_t timeToWait = {10, 0};
     //Waits the TAF_ECALL_STATE_ACTIVE event
@@ -506,6 +537,10 @@ static void Test_ECall_StartTest() {
     if(res == LE_OK) {
         le_sem_Wait(testSemaphoreRef);
     }
+
+    res = taf_ecall_IsInProgress(eCallRef, &isInProgress);
+    LE_TEST_OK(res == LE_OK, "getIsInProgress  - LE_OK");
+    LE_INFO("Test IsInProgress = %d", (int) isInProgress);
 
     retrievedState = taf_ecall_GetState(eCallRef);
     LE_INFO("Test_ECall_StartTest callState = %d", (int) retrievedState);
@@ -831,6 +866,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             LE_INFO("TAF_ECALL_STATE_LLNACK_RECEIVED");
             break;
         }
+        case TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY:
+        {
+            LE_INFO("TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY");
+            break;
+        }
         case TAF_ECALL_STATE_LL_ACK_RECEIVED:
         {
             LE_INFO("TAF_ECALL_STATE_LL_ACK_RECEIVED");
@@ -894,6 +934,12 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_END_OF_REDIAL_PERIOD:
         {
             LE_INFO("TAF_ECALL_STATE_END_OF_REDIAL_PERIOD");
+            if (eCallReference != NULL)
+            {
+                taf_ecall_TerminationReason_t endReason = taf_ecall_GetTerminationReason(eCallReference);
+                LE_INFO("TAF_ECALL_STATE_ENDED_OF_REDIAL_PERIOD endReason = %d", (int) endReason);
+            }
+            le_sem_Post(testSemaphoreRef);
             break;
         }
         case TAF_ECALL_STATE_T2_EXPIRED:
@@ -1111,6 +1157,8 @@ COMPONENT_INIT
     Test_ECall_PsapNumber();
 
     Test_ECall_HlapTimer();
+
+    Test_ECall_DialRedial();
 
     Test_ECall_OperationMode();
 

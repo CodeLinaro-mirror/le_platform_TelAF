@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -34,13 +34,6 @@
 
 #include <dataAdaptor.h>
 #include <radioAdaptor.h>
-#include <mutex>
-#include <condition_variable>
-
-// Global variable for thread communication
-std::mutex mtx;
-std::condition_variable cv;
-bool eventReady = false;
 
 /**
  * Main task for TelAF thread, including delegating event handler, entering the event loop etc.
@@ -51,32 +44,6 @@ void *TelafTask
 )
 {
     LE_INFO("Enter TelafTask");
-    std::lock_guard<std::mutex>lock(mtx);
-
-    // Delegate event handler
-    LE_INFO("Create data call event hanler");
-    uint32_t profileId = taf_dcs_GetDefaultProfileIndex();
-    taf_dcs_ProfileRef_t profileRef = taf_dcs_GetProfile(profileId);
-    taf_dcs_ConState_t callEvent;
-    taf_dcs_StateInfo_t info;
-    taf_dcs_Pdp_t contextPtr = TAF_DCS_PDP_IPV4V6;
-    da.DataCallEventHandler(profileRef, callEvent, &info, &contextPtr); // Create a data call event handler.
-
-    da.RegisterEventLoop();
-
-    eventReady = true;
-    cv.notify_one(); // Notify main thread
-
-    return nullptr;
-}
-
-
-/**
- * Main thread for the application
- */
-int main(int argc, char** argv)
-{
-    // Variable for radio adaptor and data adaptor
     RadioAdaptor ra;
     DataAdaptor da;
 
@@ -86,26 +53,43 @@ int main(int argc, char** argv)
     le_result_t result;
     taf_dcs_Pdp_t ipType = TAF_DCS_PDP_IPV4V6;
 
-    da.DumpDataProfile();
-
-    if(ra.IsRadioPowerOn()){
-        result = da.StartDataCallOnDefaultProfile(ipType);
+    if(!ra.IsRadioPowerOn())
+    {
+        LE_ERROR("Radio power status abnormal");
     }
-    else{
-        LE_INFO("Radio power status abnormal");
-    }
+    result = da.StartDataCallOnDefaultProfile(ipType);
 
+    // Some inter thread communication needed here to notify main
+    // when there's event received from the registered handler.
+
+    da.RegisterEventLoop();
+    return nullptr;
+}
+
+
+/**
+ * Main thread for the application
+ */
+int main(int argc, char** argv)
+{
     int ret;
     pthread_t tid;
-    ret = pthread_create(&tid, NULL, TelafTask, NULL);  // Create a separate thread, run TelafTask in the thread.
 
-    std::unique_lock<std::mutex>lock(mtx);
-    cv.wait(lock, []{return eventReady;});
-
+    ret = pthread_create(&tid, NULL, TelafTask, NULL);  // Run TelafTask in a separate thread.
     if (ret < 0)
     {
-        fprintf(stdout, "pthread_create for main thread is failed, ret: %d", ret);
+        fprintf(stdout, "pthread_create is failed, ret: %d", ret);
         return -1;
+    }
+    // Main thread is for synchronous call only without running the TelAF event loop.
+    DataAdaptor::Connect();
+    DataAdaptor da;
+    da.DumpDataProfile();
+
+    // Please overwrite the following code per your application.
+     while (1)
+    {
+        sleep(1);
     }
 
     return 0;

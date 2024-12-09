@@ -62,6 +62,54 @@ bool taf_lib_flash_HasSuffix
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Get partition MTD device path.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_GetMtdDevPath
+(
+    taf_lib_flash_Partition_t *partitionPtr ///< [INOUT] Partition.
+)
+{
+    FILE *fp = fopen("/proc/mtd", "r");
+    if (fp == NULL)
+    {
+        LE_ERROR("Can not open /proc/mtd.");
+        return LE_FAULT;
+    }
+
+    char line[TAF_LIB_FLASH_MAX_LINE_LEN] = "";
+    bool found = false;
+    while (fgets(line, sizeof(line), fp) != NULL)
+    {
+        if (strstr(line, partitionPtr->name) == NULL)
+            continue;
+
+        char *saveptr;
+        char *token = strtok_r(line, " ", &saveptr);
+        if (token != NULL)
+        {
+            token[strlen(token) - 1] = '\0';
+            le_utf8_Copy(partitionPtr->mtdDevPath, "/dev/", TAF_LIB_FLASH_DEV_PATH_LEN, NULL);
+            le_utf8_Append(partitionPtr->mtdDevPath, token, TAF_LIB_FLASH_DEV_PATH_LEN, NULL);
+        }
+
+        found = true;
+        break;
+    }
+
+    fclose(fp);
+
+    if (!found)
+    {
+        LE_ERROR("Can not find the MTD device path of %s.", partitionPtr->name);
+        return LE_NOT_FOUND;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Get partition list.
  *
  * @return
@@ -88,6 +136,7 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetPartitionList
         return LE_FAULT;
     }
 
+    // 1. Find MTD partitions.
     uint32_t i = 0;
     char line[TAF_LIB_FLASH_MAX_LINE_LEN] = "";
     while (fgets(line, sizeof(line), fp) != NULL)
@@ -124,20 +173,23 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetPartitionList
         {
             listPtr->partition[i].eraseSize = strtol(token, NULL, 16);
             token = strtok_r(NULL, " ", &saveptr);
-            if (token != NULL)
+            if (token != NULL && listPtr->partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
             {
                 listPtr->partition[i].index = i;
                 token[strlen(token) - 2] = '\0';
                 le_utf8_Copy(listPtr->partition[i].name, token + 1,
                     TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN, NULL);
+                listPtr->partition[i].ubiVolCount = 0;
 
                 i++;
             }
         }
     }
 
+    listPtr->number = i;
     fclose(fp);
 
+    // 2. Find UBI volumes.
     char* pathArrayPtr[] = {(char*)"/sys/devices/virtual/ubi", NULL};
     FTS* ftsPtr = fts_open(pathArrayPtr, FTS_PHYSICAL, NULL);
     FTSENT* entPtr;
@@ -160,39 +212,69 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetPartitionList
                     {
                         if (fgets(line, sizeof(line), fp) != NULL)
                         {
-                            line[strlen(line) - 1] = '\0';
-                            for (j = 0; j < i; j++)
-                            {
-                                if (strncmp(line, listPtr->partition[j].name, strlen(line)) == 0)
-                                    break;
-                            }
-
-                            if (j >= i)
-                            {
-                                LE_ERROR("Can not find MTD device for UBI volume %s.", line);
-                                fclose(fp);
-                                fts_close(ftsPtr);
-                                return LE_FAULT;
-                            }
+                            le_utf8_Copy(listPtr->partition[i].name, line, strlen(line), NULL);
 
                             char dirName[TAF_LIB_FLASH_UBI_DEV_INFO_PATH_LEN] = "";
                             le_path_GetDir(entPtr->fts_path, "/", dirName, sizeof(dirName));
                             dirName[strlen(dirName) - 1] = '\0';
                             char* ubiBase = le_path_GetBasenamePtr(dirName, "/");
-                            le_utf8_Copy(listPtr->partition[j].ubiDevPath, "/dev/",
+                            le_utf8_Copy(listPtr->partition[i].ubiDevPath, "/dev/",
                                 TAF_LIB_FLASH_DEV_PATH_LEN, NULL);
-                            le_utf8_Append(listPtr->partition[j].ubiDevPath, ubiBase,
+                            le_utf8_Append(listPtr->partition[i].ubiDevPath, ubiBase,
                                 TAF_LIB_FLASH_DEV_PATH_LEN, NULL);
 
                             char infoFile[TAF_LIB_FLASH_UBI_DEV_INFO_PATH_LEN] = "";
                             le_utf8_Copy(infoFile, dirName, sizeof(infoFile), NULL);
                             le_utf8_Append(infoFile, "/usable_eb_size", sizeof(infoFile), NULL);
                             taf_lib_flash_GetNumFromFile(infoFile,
-                                &listPtr->partition[j].eraseSize);
+                                &listPtr->partition[i].eraseSize);
 
                             le_utf8_Copy(infoFile, dirName, sizeof(infoFile), NULL);
                             le_utf8_Append(infoFile, "/data_bytes", sizeof(infoFile), NULL);
-                            taf_lib_flash_GetNumFromFile(infoFile, &listPtr->partition[j].size);
+                            taf_lib_flash_GetNumFromFile(infoFile, &listPtr->partition[i].size);
+                            listPtr->partition[i].ubiVolCount = 1;
+
+                            i++;
+                        }
+
+                        fclose(fp);
+                    }
+                    else
+                    {
+                        LE_ERROR("Can not open %s.", entPtr->fts_path);
+                    }
+                }
+                else if (strncmp(baseName, "mtd_num", strlen("mtd_num")) == 0)
+                {
+                    fp = fopen(entPtr->fts_path, "r");
+                    if (fp != NULL)
+                    {
+                        if (fgets(line, sizeof(line), fp) != NULL)
+                        {
+                            char devPath[TAF_LIB_FLASH_DEV_PATH_LEN] = "";
+                            line[strlen(line) - 1] = '\0';
+                            le_utf8_Copy(devPath, "/dev/mtd", TAF_LIB_FLASH_DEV_PATH_LEN, NULL);
+                            le_utf8_Append(devPath, line, TAF_LIB_FLASH_DEV_PATH_LEN, NULL);
+
+                            for (j = 0; j < listPtr->number; j++)
+                            {
+                                if (strncmp(devPath, listPtr->partition[j].mtdDevPath,
+                                    strlen(devPath)) == 0)
+                                    break;
+                            }
+
+                            if (j < listPtr->number)
+                            {
+                                char dirName[TAF_LIB_FLASH_UBI_DEV_INFO_PATH_LEN] = "";
+                                le_path_GetDir(entPtr->fts_path, "/", dirName, sizeof(dirName));
+                                dirName[strlen(dirName) - 1] = '\0';
+
+                                char infoFile[TAF_LIB_FLASH_UBI_DEV_INFO_PATH_LEN] = "";
+                                le_utf8_Copy(infoFile, dirName, sizeof(infoFile), NULL);
+                                le_utf8_Append(infoFile, "/volumes_count", sizeof(infoFile), NULL);
+                                taf_lib_flash_GetNumFromFile(infoFile,
+                                    &listPtr->partition[j].ubiVolCount);
+                            }
                         }
 
                         fclose(fp);
@@ -219,6 +301,7 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetPartitionList
 
     fts_close(ftsPtr);
 
+    // 3. Find the bank of paritions.
     listPtr->number = i;
     for (i = 0; i < listPtr->number; i++)
     {
@@ -882,6 +965,7 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_SetUbiVolUpSize
  *      - LE_OK            On success.
  *      - LE_BAD_PARAMETER If partition is NULL.
  *      - LE_FAULT         On failure.
+ *      - LE_UNSUPPORTED   Unsupported operation.
  */
 //--------------------------------------------------------------------------------------------------
 extern "C" LE_SHARED le_result_t taf_lib_flash_EraseUbiVol
@@ -899,6 +983,17 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_EraseUbiVol
         partitionPtr->eraseSize == 0)
     {
         LE_ERROR("Not UBI volume.");
+        return LE_FAULT;
+    }
+
+    le_result_t res = taf_lib_flash_GetMtdDevPath(partitionPtr);
+    if (res == LE_NOT_FOUND)
+    {
+        LE_ERROR("Can not support fast erase on UBI volume %s.", partitionPtr->name);
+        return LE_UNSUPPORTED;
+    }
+    else if (res != LE_OK)
+    {
         return LE_FAULT;
     }
 

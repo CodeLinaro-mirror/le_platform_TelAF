@@ -1,6 +1,6 @@
 sources:
 {
-    tafDataCallUnitTest.c
+    tafDataCallUnitTest.cpp
 }
 
 requires:

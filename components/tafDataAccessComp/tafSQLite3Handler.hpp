@@ -92,22 +92,22 @@ namespace dataAccess{
             {
                 if (mpInsertStatement != nullptr)
                 {
-                    std::move(mpInsertStatement);
+                    (void) std::move(mpInsertStatement);
                 }
 
                 if (mpInsOrRepStatement != nullptr)
                 {
-                    std::move(mpInsOrRepStatement);
+                    (void) std::move(mpInsOrRepStatement);
                 }
 
                 if (mpUpdateStatement != nullptr)
                 {
-                    std::move(mpUpdateStatement);
+                    (void) std::move(mpUpdateStatement);
                 }
 
                 if (mpDeleteStatement != nullptr)
                 {
-                    std::move(mpDeleteStatement);
+                    (void) std::move(mpDeleteStatement);
                 }
 
                 // This function is only called when the component exit.
@@ -237,7 +237,6 @@ namespace dataAccess{
 
                 std::string sql = sqlSs.str();
                 LE_DEBUG("QueryByKey statement: %s", sql.c_str());
-                printf("%s\n", sql.c_str());
 
                 DataStatement statement(mDb.GetDbHandle(), sql.c_str());
                 IOHandler<T, K>::mpDao->BindKeyValue(statement, entity);

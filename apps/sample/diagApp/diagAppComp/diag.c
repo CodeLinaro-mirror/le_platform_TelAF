@@ -8,6 +8,9 @@
 COMPONENT_INIT
 {
     LE_INFO("%s [start]", __FUNCTION__);
+
+    LE_FATAL_IF(diag_Init() != LE_OK, "diag_Init -> init failed");
+
 #ifndef DIAG_MULTIVLAN_TEST
     LE_ERROR_IF(diagReadWriteDid_Init() != LE_OK, "diagReadWriteDid_Init -> init failed");
     LE_FATAL_IF(diagSecurityAccess_Init() != LE_OK, "diagSecurityAccess_Init -> init failed");
@@ -36,4 +39,5 @@ COMPONENT_INIT
 #endif
 #endif
     LE_INFO("%s [done]", __FUNCTION__);
+
 }

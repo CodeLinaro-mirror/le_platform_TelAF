@@ -114,6 +114,14 @@ namespace telux {
 
         typedef struct
         {
+            bool                                isRedial = false;
+            uint8_t                             dialAttempts;
+            uint16_t                            dialInterval[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH];
+        }
+        taf_DialRedial_t;
+
+        typedef struct
+        {
             taf_ecall_CallRef_t                 reference;
             telux::tel::ECallMsdData            msd;
             bool                                isMsdUpdated;
@@ -129,6 +137,8 @@ namespace telux {
             bool                                isPrieCallOngoing;
             taf_ecall_Type_t                    type;
             std::shared_ptr<telux::tel::ICall>  iCall;
+            taf_DialRedial_t                    dialRedial;
+            bool                                isReceivedLLACK;
         }
         taf_ECall_t;
 
@@ -139,6 +149,18 @@ namespace telux {
             int8_t               phoneId;
             char                 dest[MAX_DESTINATION_LEN];
         }StateChangeEvent_t;
+
+        typedef enum
+        {
+            ALACK_TIMER_START,
+            ALACK_TIMER_STOP
+        }
+        ALACKTimer_t;
+
+        typedef struct
+        {
+            ALACKTimer_t         alackTimer;
+        }ALACKTimerEvent_t;
 
         class tafECallOperatingModeCallback {
             public:
@@ -181,6 +203,11 @@ namespace telux {
                 void commandResponse(telux::common::ErrorCode error) override;
         };
 
+        class tafConfigRedialCallback {
+            public:
+                static void configureRedialResponse(telux::common::ErrorCode error);
+        };
+
         class tafECallListener : public telux::tel::ICallListener {
             void onIncomingCall(std::shared_ptr<telux::tel::ICall> call) override;
             void onCallInfoChange(std::shared_ptr<telux::tel::ICall> call) override;
@@ -191,6 +218,7 @@ namespace telux {
 #endif
             void onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEvents) override;
             void OnMsdUpdateRequest(int phoneId);
+            void onECallRedial(int phoneId, ECallRedialInfo info) override;
 
              taf_ecall_State_t eCallMsdTransmissionStatusToState( ECallMsdTransmissionStatus status);
         };
@@ -244,6 +272,12 @@ namespace telux {
                 taf_ecall_HlapTimerStatus_t GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType);
                 taf_ecall_HlapTimerStatus_t ConvertHlapTimerStatus(telux::tel::HlapTimerStatus status);
                 uint16_t ConvertElapsedTime(std::chrono::time_point<std::chrono::system_clock> startTime);
+                static void ReportPositiveALACKTimerHandler(le_timer_Ref_t timerRef);
+                static void ALACKTimerEventHandler(void* reqPtr);
+                le_result_t IsInProgress(taf_ecall_CallRef_t ecallRef, bool* isInProgress);
+                le_result_t ConfigureInitialDialRedial(std::vector<int> redialPara);
+                le_result_t SetInitialDialAttempts(uint8_t attempts);
+                le_result_t SetInitialDialIntervalBetweenDialAttempts(const uint16_t* interval, size_t intervalLength);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);
@@ -274,6 +308,7 @@ namespace telux {
                 std::promise<telux::common::ErrorCode> answerProm;
                 std::promise<telux::common::ErrorCode> makeEcallProm;
                 std::promise<telux::common::ErrorCode> makePrieCallProm;
+                std::promise<telux::common::ErrorCode> configRedialProm;
                 CallEndCause CallEndError = telux::tel::CallEndCause::NORMAL;
 
                 std::chrono::time_point<std::chrono::system_clock> t2StartTime;
@@ -288,6 +323,9 @@ namespace telux {
 
                 std::shared_ptr<telux::tel::ICallManager> CallManager;
                 le_ref_MapRef_t ECallPtrRefMap = NULL;
+
+                le_timer_Ref_t positiveALACKTimerRef;
+                le_event_Id_t ALACKTimerEventId;
 
             private:
                 std::shared_ptr<telux::tel::IPhoneManager> PhoneManager;

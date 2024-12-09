@@ -265,6 +265,7 @@ namespace tafsvc {
                 (taf_pm_StateChangeExHandlerFunc_t handlerPtr,void* contextPtr);
         void RemoveStateChangeExHandler(taf_pm_StateChangeExHandlerRef_t handlerRef);
         le_timer_Ref_t pmClientsAckTimerRef;
+        taf_pm_State_t statePtr;
         static void PmsClntsAckTimerHandler(le_timer_Ref_t timerRef);
         #endif
     };

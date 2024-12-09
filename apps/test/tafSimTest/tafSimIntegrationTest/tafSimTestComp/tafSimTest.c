@@ -29,13 +29,14 @@
 
 /*
  *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-24 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "main.h"
 
 taf_sim_FPLMNListRef_t FplmnListRef;
+taf_sim_RefreshRef_t refreshSessionRef;
 
 static void TestNewSimStateHandler
 (
@@ -359,7 +360,7 @@ void tafSimTest_selection
     printf("\n After selecting %d Current SIM slot id = %d\n" ,slot, slotId);
 }
 
-void tafSimTest_enterPin
+le_result_t tafSimTest_enterPin
 (
     taf_sim_Id_t simId,
     taf_sim_LockType_t lockType,
@@ -370,9 +371,10 @@ void tafSimTest_enterPin
     res = taf_sim_EnterPIN(simId, lockType, pinPtr);
     LE_TEST_OK(res == LE_OK, "tafSimTest_enterPin");
     LE_INFO("EnterPIN done");
+    return res;
 }
 
-void tafSimTest_setLock
+le_result_t tafSimTest_setLock
 (
     taf_sim_Id_t simId,
     taf_sim_LockType_t lockType,
@@ -390,9 +392,11 @@ void tafSimTest_setLock
         LE_TEST_OK(res == LE_OK, "taf_sim_Unlock");
         LE_INFO("Unlock request sent successfully");
     }
+
+    return res;
 }
 
-void tafSimTest_Change_pin
+le_result_t tafSimTest_Change_pin
 (
     taf_sim_Id_t simId,
     taf_sim_LockType_t lockType,
@@ -403,9 +407,10 @@ void tafSimTest_Change_pin
     le_result_t res;
     res = taf_sim_ChangePIN(simId, lockType, oldpinPtr, newpinPtr);
     LE_TEST_OK(res == LE_OK, "tafSimTest_Change_pin");
+    return res;
 }
 
-void tafSimTest_unblock_puk
+le_result_t tafSimTest_unblock_puk
 (
     taf_sim_Id_t simId,
     taf_sim_LockType_t lockType,
@@ -416,6 +421,7 @@ void tafSimTest_unblock_puk
     le_result_t res;
     res = taf_sim_Unblock(simId, lockType, pukPtr, newpinPtr);
     LE_TEST_OK(res == LE_OK, "tafSimTest_unblock_puk");
+    return res;
 }
 
 void tafSimTest_GetAppTypes
@@ -741,4 +747,49 @@ void tafSimTest_deleteFplmnList_test(taf_sim_Id_t simId) {
     LE_TEST_OK(true, "tafSimTest_deleteFplmnList_test");
     LE_INFO("tafSimTest_deleteFplmnList_test end\n");
     printf("tafSimTest_deleteFplmnList_test completed. Result: PASS\n");
+}
+
+le_result_t tafSimTest_refresh_test(taf_sim_Id_t simId, taf_sim_SessionType_t sessionType, taf_sim_RefreshMode_t refreshMode, bool refreshAllow) {
+    le_result_t res = taf_sim_CreateSession(sessionType, &refreshSessionRef);
+    LE_TEST_OK(res == LE_OK, "taf_sim_CreateSession");
+    LE_INFO("CreateSession refreshSessionRef: %p", refreshSessionRef);
+
+    char input_str[32];
+    int i = 0;
+    taf_sim_RefreshRegFile_t refresfFiles[TAF_SIM_MAX_SIM_REFRESH_FILES];
+
+    printf("Do want to input refresh file? (y/n): ");
+    char *p = fgets(input_str,sizeof(input_str),stdin);
+
+    if (p != NULL && input_str[0]=='y') {
+        do {
+            printf("Input file ID (Ex: Input 28486 for file 0x6F46): ");
+            p = fgets(input_str,sizeof(input_str),stdin);
+            refresfFiles[i].file_id = atoi(input_str);
+
+            printf("Input file path(e.g: 3f007fff): ");
+            p = fgets(input_str,sizeof(input_str),stdin);
+            le_utf8_Copy((char*) refresfFiles[i].path, (char*) input_str, sizeof(input_str), NULL);
+
+            printf("Do want to input another refresh file (y/n): ");
+            p = fgets(input_str,sizeof(input_str),stdin);
+
+            LE_INFO("SL# %d File id: %d, file path: %s", i, refresfFiles[i].file_id, refresfFiles[i].path);
+            i++;
+        } while(input_str[0]!='n');
+
+        if (i > 0) {
+            res |= taf_sim_SetRefreshRegisterFiles(refreshSessionRef, refresfFiles, i);
+        }
+    }
+
+    res |= taf_sim_SetRefreshMode(refreshSessionRef, refreshMode);
+    LE_TEST_OK(res == LE_OK, "taf_sim_SetRefreshMode");
+
+    res |= taf_sim_SetRefreshAllow(refreshSessionRef, refreshAllow);
+    LE_TEST_OK(res == LE_OK, "taf_sim_SetRefreshAllow");
+
+    printf("Refresh request %s\n", res == LE_OK ? "success.":"failed!");
+
+    return res;
 }

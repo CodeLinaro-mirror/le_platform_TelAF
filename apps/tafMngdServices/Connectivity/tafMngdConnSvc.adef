@@ -49,7 +49,7 @@ bundles:
 {
     file:
     {
-        [rx] Components/tafMngdConnSvc/Config/mngdConnectivity.json /
+        [r] Components/tafMngdConnSvc/Config/mngdConnectivity.json /
     }
 }
 

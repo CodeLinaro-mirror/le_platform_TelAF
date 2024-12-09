@@ -38,7 +38,7 @@ typedef void (*TAF_HAL_INIT)(void);
 /**
  * Request to get the RTC time.
  * @param
- *      timeVal        - TimeSpec structure to store the RTC time.
+ *      timeVal        TimeSpec structure to store the RTC time.
  *
  * @return
  *      Returns for the request.
@@ -50,7 +50,7 @@ typedef le_result_t (*TAF_HAL_GETRTCTIME)(struct TimeSpec* timeVal);
 /**
  * Request to set the RTC time.
  * @param
- *      timeVal        - TimeSpec structure to store the RTC time.
+ *      timeVal        TimeSpec structure to store the RTC time.
  *
  * @return
  *      Returns for the request.
@@ -61,9 +61,9 @@ typedef le_result_t (*TAF_HAL_SETRTCTIME)(struct TimeSpec timeVal);
 //--------------------------------------------------------------------------------------------------
 /**
  * Callback function to get the RTC time asynchronously.
- * @param
- *      timVal        - TimeSpec structure to store the RTC time.
- *      responseState - The state of the response
+ *
+ *  @param    timVal         TimeSpec structure to store the RTC time.
+ *  @param    responseState  State of the response
  *
  * @return
  *      void
@@ -78,7 +78,7 @@ typedef void(*TAF_HAL_GETRTCASYNCCALLBACK)
 /**
  * Request to get the RTC time asynchronously.
  * @param
- *      callback        - the callback function to response the request.
+ *      callback        Callback function to response the request.
  *
  * @return
  *      void
@@ -90,7 +90,7 @@ typedef le_result_t(*TAF_HAL_GETRTCTIMEREQASYNC)(TAF_HAL_GETRTCASYNCCALLBACK CAL
 /**
  * Callback function to set the RTC time asynchronously.
  * @param
- *      responseState - The state of the response
+ *      responseState State of the response
  *
  * @return
  *      void
@@ -104,9 +104,9 @@ typedef void(*TAF_HAL_SETRTCASYNCCALLBACK)
 //--------------------------------------------------------------------------------------------------
 /**
  * Request to set the RTC time asynchronously.
- * @param
- *      timeVal         - TimeSpec structure to store the RTC time.
- *      callback        - the callback function to response the request.
+ *
+ *  @param    timeVal         TimeSpec structure to store the RTC time.
+ *  @param    callback        Callback function to response the request.
  *
  * @return
  *      void

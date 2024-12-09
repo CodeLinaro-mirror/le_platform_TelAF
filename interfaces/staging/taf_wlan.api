@@ -4,20 +4,20 @@
 **/
 //------------------------------------------------------------------------------------------------
 /**
-* @page c_tafwlan Wireless LAN Device Management Service
-*
-* @ref taf_wlan_interface.h "API Reference"
-*
-* <HR>
-*
-* Wireless LAN(WLAN) Management Service provides APIs for applications to manage the WLAN
-* chipset. Before a WLAN access point or station can be started, this service's APIs should be used
-* to enable and configure the WLAN chipset for proper use.
-*
-* @section taf_wlan_binding IPC interfaces binding
-*
-* The functions of this service are provided by the @b tafWlanSvc application service.
-*
+ * @page c_tafwlan Wireless LAN Device Management Service
+ *
+ * @rst :ref:`API reference <File taf_wlan_interface.h>` @endrst
+ *
+ * <HR>
+ *
+ * Wireless LAN(WLAN) Management Service provides APIs for applications to manage the WLAN
+ * chipset. Before a WLAN access point or station can be started, this service's APIs should be used
+ * to enable and configure the WLAN chipset for proper use.
+ *
+ * @section taf_wlan_binding IPC interfaces binding
+ *
+ * The functions of this service are provided by the @b tafWlanSvc application service.
+ *
  * The following example illustrates how to bind to the WLAN service.
  * @verbatim
    bindings:
@@ -26,7 +26,7 @@
    }
    @endverbatim
  *
-*/
+ */
 //--------------------------------------------------------------------------------------------------
 USETYPES taf_net.api;
 

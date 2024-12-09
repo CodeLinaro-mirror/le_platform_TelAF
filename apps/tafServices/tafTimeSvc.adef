@@ -46,7 +46,7 @@ bindings:
 {
     tafTimeSvc.tafTimeSvc.taf_pm -> tafPMSvc.taf_pm
     tafTimeSvc.tafTimeSvc.le_appInfo -> <root>.le_appInfo
-    tafTimeSvc.tafTimeSvc.taf_mngdStorSec ->  tafMngdStorageSvc.taf_mngdStorSec
+    tafTimeSvc.tafTimeSvc.taf_mngdStorSecData ->  tafMngdStorageSvc.taf_mngdStorSecData
 }
 
 extern:

@@ -198,6 +198,8 @@ namespace tafsvc {
         le_timer_Ref_t                dataStartRetryTimerRef; // Data start retry timer reference
         le_timer_Ref_t                recoveryScheduleTimerRef; // Recovery schedule timer reference
         le_timer_Ref_t                recoveryRetryTimerRef; // Recovery schedule timer reference
+        le_timer_Ref_t                radioOffOnIntervalTimerRef; //Radio On/Off timer reference
+        le_timer_Ref_t                simOffOnIntervalTimerRef; //SIM On/Off timer reference
         le_event_Id_t                 dataStateEvent;         //Data state event
         taf_dcs_Pdp_t                 ipType;                 // Ip type
         taf_mngdConn_DataRef_t        dataRef;
@@ -252,8 +254,7 @@ namespace tafsvc {
                                                   char *ipv4AddrPtr, size_t ipv4AddrSize,
                                                   char *ipv6AddrPtr, size_t ipv6AddrSize);
             le_result_t StartDataRetry(taf_mngdConn_DataRef_t dataRef);
-            le_result_t CancelRecovery(taf_mngdConn_DataRef_t dataRef,
-                                       taf_mngdConn_RecoveryOperation_t operation);
+            le_result_t CancelRecovery(taf_mngdConn_DataRef_t dataRef);
 
             taf_mngdConn_DataStateHandlerRef_t AddDataStateHandler(
                 taf_mngdConn_DataRef_t dataRef,
@@ -384,6 +385,8 @@ namespace tafsvc {
             static void DataRetryTimerHandler(le_timer_Ref_t timerRef);
             static void RecoveryScheduleTimerHandler(le_timer_Ref_t timerRef);
             static void RecoveryRetryTimerHandler(le_timer_Ref_t timerRef);
+            static void RadioOffOnIntervalTimerHandler(le_timer_Ref_t timerRef);
+            static void SimOffOnIntervalTimerHandler(le_timer_Ref_t timerRef);
 
             // Client connect/disconnect handlers
             static void OnClientConnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);

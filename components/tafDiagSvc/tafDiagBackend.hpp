@@ -44,6 +44,7 @@
 #include <map>
 
 #ifdef LE_CONFIG_DIAG_VSTACK
+#define MAX_INTERFACE_NAME_LEN 30
     // Enumeration of supported logical target address types.
     typedef enum
     {

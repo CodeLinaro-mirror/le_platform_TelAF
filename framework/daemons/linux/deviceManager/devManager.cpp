@@ -32,7 +32,7 @@ DECLARE_SAFE_CALL();
 #       define DRIVER_TMP_STORAGE "/data/tmp/drivers/"
 #endif
 
-#define DEV_MANAGER_STORAGE "/app/devManager/"
+#define DEV_MANAGER_STORAGE "/tmp/legato/devManager/"
 #define DEV_MANAGER_DRIVER_STORAGE DEV_MANAGER_STORAGE"drivers/"
 #define DEV_MANAGER_TMP_STORAGE DEV_MANAGER_STORAGE"tmp/"
 #define DEV_MANAGER_CMD_MAX_LEN   255

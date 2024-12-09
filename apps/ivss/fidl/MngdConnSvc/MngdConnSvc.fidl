@@ -32,6 +32,20 @@ interface MngdConnSvc
 
     //----------------------------------------------------------------------------------------------
     /**
+    * The data Ip info structure.
+    */
+    //----------------------------------------------------------------------------------------------
+    struct DataIpInfo
+    {
+        String ipAddr      ///< The Ip address.
+        String gatewayAddr ///< The Ip gateway address.
+        String dns1Addr    ///< The Ip primary DNS address.
+        String dns2Addr    ///< The Ip secondary DNS address.
+        UInt32 ipMask      ///< The Ip mask.
+    }
+
+    //----------------------------------------------------------------------------------------------
+    /**
     * Starts a data session for the given data name. This API should be used when the value of
     * "AutoStart" is "No" in the configuration file.
     *
@@ -96,6 +110,29 @@ interface MngdConnSvc
             DataState[] dataState               ///< The data state.
         }
         error Result                            ///< return result.
+    }
+
+    //----------------------------------------------------------------------------------------------
+    /**
+    * Gets the data Ipv4 address, gateway, DNS, and mask.
+    *
+    * @return
+    *   - OK -- Succeeded.
+    *   - NOT_FOUND -- Failed.
+    */
+    //----------------------------------------------------------------------------------------------
+    method GetDataIpv4Info
+    {
+        in
+        {
+            String name         ///< The data name to use.
+        }
+        out
+        {
+            String ifName       ///< The interface name.
+            DataIpInfo ipv4Info ///< The data Ipv4 info
+        }
+        error Result            ///< return result.
     }
 
     //----------------------------------------------------------------------------------------------

@@ -36,9 +36,10 @@
 #include <chrono>
 #include <fstream>
 
+#include "jansson.h"
+
 #include <openssl/evp.h>
 #include <openssl/sha.h>
-#include <openssl/md5.h>
 
 #include "tafUpdate.hpp"
 #include "tafFwUpdate.hpp"
@@ -51,6 +52,39 @@ le_event_Id_t taf_FwUpdate::fwUpdateEvId = nullptr;
 le_event_Id_t taf_FwUpdate::fwStartSyncEvId = nullptr;
 le_event_Id_t taf_FwUpdate::fwSyncHandlerEvId = nullptr;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * These tables define the partitons that can be included for update.
+ */
+//--------------------------------------------------------------------------------------------------
+static taf_FwUpdateParition_t partitonTableInfo[] =
+{
+    {"abl", false, "firmware-update/abl_userdebug.elf", NULL},
+    {"aop", false, "firmware-update/aop.mbn", NULL},
+    {"aop_devcfg", false, "firmware-update/aop_devcfg.mbn", NULL},
+    {"apdp", false, "firmware-update/apdp.mbn", NULL},
+    {"cmnlib64", false, "firmware-update/cmnlib64.mbn", NULL},
+    {"cpucpfw", false, "firmware-update/cpucp.elf", NULL},
+    {"tz_devcfg", false, "firmware-update/devcfg_auto.mbn", NULL},
+    {"dtbo", false, "firmware-update/dtbo.img", NULL},
+    {"qhee", false, "firmware-update/hypvmperformance.mbn", NULL},
+    {"keymaster", false, "firmware-update/km5virt.mbn", NULL},
+    {"multi_oem", false, "firmware-update/multi_image.mbn", NULL},
+    {"multi_qti", false, "firmware-update/multi_image_qti.mbn", NULL},
+    {"qupfw", false, "firmware-update/qupv3fw.elf", NULL},
+    {"shrm", false, "firmware-update/shrm.elf", NULL},
+    {"tz", false, "firmware-update/tz.mbn", NULL},
+    {"uefi", false, "firmware-update/uefi.elf", NULL},
+    {"xbl_config", false, "firmware-update/xbl_config.elf", NULL},
+    {"xbl_ramdump", false, "firmware-update/xbl_ramdump.elf", NULL},
+    {"sbl", false, "firmware-update/xbl_s_nand.melf", NULL},
+    {"boot", false, "boot.img", "patch/boot.img.p"},
+    {"telaf", true, "telaf.new.dat", "telaf.patch.dat"},
+    {"rootfs", true, "system.new.dat", "system.patch.dat"},
+    {"firmware", true, "modem.new.dat", "modem.patch.dat"},
+    {"lxcrootfs", true, "lxcrootfs.new.dat", "lxcrootfs.patch.dat"}
+};
+
 /*======================================================================
  FUNCTION        taf_FwUpdate::GetInstance
  DESCRIPTION     Get a instance of taf_FwUpdate
@@ -61,6 +95,65 @@ taf_FwUpdate &taf_FwUpdate::GetInstance()
 {
     static taf_FwUpdate instance;
     return instance;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get unpack directory.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::GetUnpackDir
+(
+    char* unpackDir, ///< [OUT] Unpack directory.
+    size_t dirLen    ///< [IN] Directory length.
+)
+{
+    json_t *root;
+    json_error_t error;
+
+    // Load entire JSON file.
+    root = json_load_file(TAF_FWUPDATE_CFG_FILE, 0, &error);
+    if (root == NULL)
+    {
+        LE_ERROR("JSON file error: line: %d, column: %d, position: %d, source: '%s', error: %s",
+            error.line, error.column, error.position, error.source, error.text);
+        return false;
+    }
+
+    // Check if "root" is an object.
+    if (!json_is_object(root))
+    {
+        LE_ERROR("root is not an object.");
+        json_decref(root);
+        return false;
+    }
+
+    // Load the 'firmware' object.
+    json_t* js_firmware = json_object_get(root, "firmware");
+    if (!json_is_object(js_firmware))
+    {
+        LE_ERROR("firmware object is not set in JSON file %s.", TAF_FWUPDATE_CFG_FILE);
+        return false;
+    }
+
+    // Load the 'unpack' object.
+    json_t* js_unpack = json_object_get(js_firmware, "unpack");
+    if (!json_is_object(js_unpack))
+    {
+        LE_ERROR("unpack object is not set in JSON file %s.", TAF_FWUPDATE_CFG_FILE);
+        return false;
+    }
+
+    // Load the 'directory' object.
+    json_t* js_directory = json_object_get(js_unpack, "directory");
+    if (!json_is_string(js_directory))
+    {
+        LE_ERROR("directory string is not set in JSON file %s.", TAF_FWUPDATE_CFG_FILE);
+        return false;
+    }
+
+    le_utf8_Copy(unpackDir, json_string_value(js_directory), dirLen, NULL);
+    return true;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -176,6 +269,37 @@ uint32_t taf_FwUpdate::GetPageNumber
     }
     le_cfg_CancelTxn(rdIter);
     return pageNum;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set package data path in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SetPackageDataPath
+(
+    const char* dataPath ///< [IN] Package data path.
+)
+{
+    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    le_cfg_SetString(wrIter, "packagePath", dataPath);
+    le_cfg_CommitTxn(wrIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get package data path from config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::GetPackageDataPath
+(
+    char* dataPath,    ///< [OUT] Package data path.
+    size_t pathLen     ///< [IN] Path length.
+)
+{
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    le_cfg_GetString(rdIter, "packagePath", dataPath, pathLen, "");
+    le_cfg_CancelTxn(rdIter);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -952,14 +1076,27 @@ bool taf_FwUpdate::IsPatchExist
     const char* patchPath ///< [IN] Patch path.
 )
 {
+    if (patchPath == NULL)
+    {
+        return false;
+    }
+
     char tmp[TAF_FWUPDATE_CMD_LEN];
-    snprintf(tmp, sizeof(tmp), "unzip -jo %s %s -d /data/", filePath, patchPath);
+    char dir[TAF_FWUPDATE_DIRNAME_LEN];
 
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    if (!tafFwUpdate.GetUnpackDir(dir, TAF_FWUPDATE_DIRNAME_LEN))
+    {
+        LE_ERROR("Fail to get unpack directory.");
+        return false;
+    }
+
+    snprintf(tmp, sizeof(tmp), "unzip -o %s %s -d %s", filePath, patchPath, dir);
+
     tafFwUpdate.SendPipeCmd(tmp, "w");
     tafFwUpdate.SendPipeCmd("sync", "w");
 
-    snprintf(tmp, sizeof(tmp), "/data/%s", patchPath);
+    snprintf(tmp, sizeof(tmp), "%s/%s", dir, patchPath);
 
     struct stat st;
     if (stat(tmp, &st) == -1)
@@ -991,34 +1128,46 @@ bool taf_FwUpdate::IsDeltaUpdate
 {
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
-    if (tafFwUpdate.IsPatchExist(filePath, "telaf.patch.dat"))
+    size_t i = 0;
+    while (i < NUM_ARRAY_MEMBERS(partitonTableInfo))
     {
-        LE_INFO("Delta update with telaf.");
-        return true;
+        if (tafFwUpdate.IsPatchExist(filePath, partitonTableInfo[i].patchPath))
+        {
+            LE_INFO("Delta update with %s.", partitonTableInfo[i].partition);
+            return true;
+        }
+
+        i++;
     }
 
-    if (tafFwUpdate.IsPatchExist(filePath, "system.patch.dat"))
-    {
-        LE_INFO("Delta update with rootfs.");
-        return true;
-    }
+    return false;
+}
 
-    if (tafFwUpdate.IsPatchExist(filePath, "modem.patch.dat"))
-    {
-        LE_INFO("Delta update with firmware.");
-        return true;
-    }
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check if string has "_a" or "_b" suffix.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::HasSuffix
+(
+    const char *str ///< [IN] Input string.
+)
+{
+    size_t len = strlen(str);
 
-    if (tafFwUpdate.IsPatchExist(filePath, "lxcrootfs.patch.dat"))
+    if (len > TAF_FWUPDATE_PARTITION_SUFFIX_LEN)
     {
-        LE_INFO("Delta update with lxc.");
-        return true;
-    }
+        if (strncmp(str + len - TAF_FWUPDATE_PARTITION_SUFFIX_LEN, "_a",
+            TAF_FWUPDATE_PARTITION_SUFFIX_LEN) == 0)
+        {
+            return true;
+        }
 
-    if (tafFwUpdate.IsPatchExist(filePath, "patch/boot.img.p"))
-    {
-        LE_INFO("Delta update with boot.");
-        return true;
+        if (strncmp(str + len - TAF_FWUPDATE_PARTITION_SUFFIX_LEN, "_b",
+            TAF_FWUPDATE_PARTITION_SUFFIX_LEN) == 0)
+        {
+            return true;
+        }
     }
 
     return false;
@@ -1037,23 +1186,33 @@ bool taf_FwUpdate::UnpackImage
 )
 {
     char tmp[TAF_FWUPDATE_CMD_LEN];
-    snprintf(tmp, sizeof(tmp), "unzip -jo %s %s -d /data/", filePath, imagePath);
+    char dir[TAF_FWUPDATE_DIRNAME_LEN];
 
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    if (!tafFwUpdate.GetUnpackDir(dir, TAF_FWUPDATE_DIRNAME_LEN))
+    {
+        LE_ERROR("Fail to get unpack directory.");
+        return false;
+    }
+
+    snprintf(tmp, sizeof(tmp), "unzip -o %s %s -d %s", filePath, imagePath, dir);
+
     tafFwUpdate.SendPipeCmd(tmp, "w");
     tafFwUpdate.SendPipeCmd("sync", "w");
 
-    snprintf(tmp, sizeof(tmp), "/data/%s", imagePath);
+    snprintf(tmp, sizeof(tmp), "%s/%s", dir, imagePath);
 
     struct stat st;
     if (stat(tmp, &st) == -1)
     {
         LE_WARN("%s not exists.", tmp);
+        *pageNum = 0;
         return false;
     }
     else if (st.st_size == 0)
     {
         LE_INFO("%s is empty.", tmp);
+        *pageNum = 0;
         return false;
     }
 
@@ -1117,15 +1276,66 @@ void taf_FwUpdate::UpdateImage
                 return;
             }
 
-            // 4. Open image data file for read.
-            pages = tafFwUpdate.GetImagePageNumber(image);
+            // 4. Get image information from config tree.
+            tafFwUpdate.GetImageDataPath(image, dataPath, sizeof(dataPath));
+            if (access(dataPath, 0) != 0)
+            {
+                // 5. Unpack if the temporary file not exists.
+                char filePath[TAF_UPDATE_FILE_PATH_LEN];
+                tafFwUpdate.GetPackageDataPath(filePath, sizeof(filePath));
+                LE_INFO("%s not exits, trying to unpack from %s.", dataPath, filePath);
 
-            // 5. Get image information from config tree.
-            GetImageDataPath(image, dataPath, sizeof(dataPath));
+                char partition[TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN];
+                le_utf8_Copy(partition, image, TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN, NULL);
+                if (tafFwUpdate.HasSuffix(image))
+                {
+                    partition[strlen(image) - TAF_FWUPDATE_PARTITION_SUFFIX_LEN] = '\0';
+                }
+
+                size_t j = 0;
+                while (j < NUM_ARRAY_MEMBERS(partitonTableInfo))
+                {
+                    if (strncmp(partition, partitonTableInfo[j].partition, strlen(partition)) == 0)
+                        break;
+                    j++;
+                }
+
+                if (j >= NUM_ARRAY_MEMBERS(partitonTableInfo))
+                {
+                    LE_ERROR("Fail to find %s from partition layout.", partition);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                    return;
+                }
+
+                char dir[TAF_FWUPDATE_DIRNAME_LEN];
+                if (!tafFwUpdate.GetUnpackDir(dir, TAF_FWUPDATE_DIRNAME_LEN))
+                {
+                    LE_ERROR("Fail to get unpack directory.");
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                    return;
+                }
+
+                if (!tafFwUpdate.UnpackImage(filePath, partitonTableInfo[j].dataPath, &pages))
+                {
+                    LE_ERROR("Fail to unnpack %s from %s.", filePath, partitonTableInfo[j].dataPath);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                    return;
+                }
+
+                snprintf(dataPath, sizeof(dataPath), "%s/%s", dir, partitonTableInfo[j].dataPath);
+                tafFwUpdate.SetImagePageNumber(image, pages);
+                tafFwUpdate.SetImageDataPath(image, dataPath);
+                LE_INFO("%s is unpacked from %s.", dataPath, filePath);
+            }
+            else
+            {
+                pages = tafFwUpdate.GetImagePageNumber(image);
+            }
+
             FILE *fp = fopen(dataPath, "r");
             if (fp == NULL)
             {
-                printf("File %s not exists.", dataPath);
+                LE_ERROR("File %s not exists.", dataPath);
                 tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
                 return;
             }
@@ -1307,108 +1517,60 @@ void taf_FwUpdate::StartInstall
     {
         LE_ERROR("Fail to get active bank.");
         tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        return;
     }
+
+    char dir[TAF_FWUPDATE_DIRNAME_LEN];
+    if (!tafFwUpdate.GetUnpackDir(dir, TAF_FWUPDATE_DIRNAME_LEN))
+    {
+        LE_ERROR("Fail to get unpack directory.");
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        return;
+    }
+
+    tafFwUpdate.SetPackageDataPath(filePath);
 
     uint32_t totalPage = 0;
     uint32_t imagePage = 0;
-    if (tafFwUpdate.UnpackImage(filePath, "telaf.new.dat", &imagePage))
+    char image[TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN];
+    char dataPath[TAF_UPDATE_FILE_PATH_LEN];
+    size_t i = 0;
+    while (i < NUM_ARRAY_MEMBERS(partitonTableInfo))
     {
-        LE_INFO("Detect telaf to be updated.");
-
-        if (bank == TAF_UPDATE_BANK_A)
+        if (tafFwUpdate.UnpackImage(filePath, partitonTableInfo[i].dataPath, &imagePage))
         {
-            tafFwUpdate.SetImageStatus("telaf_b", false);
-            tafFwUpdate.SetImagePageNumber("telaf_b", imagePage);
-            tafFwUpdate.SetImageDataPath("telaf_b", "/data/telaf.new.dat");
-        }
-        else if (bank == TAF_UPDATE_BANK_B)
-        {
-            tafFwUpdate.SetImageStatus("telaf_a", false);
-            tafFwUpdate.SetImagePageNumber("telaf_a", imagePage);
-            tafFwUpdate.SetImageDataPath("telaf_a", "/data/telaf.new.dat");
-        }
+            LE_INFO("Detect %s to be updated.", partitonTableInfo[i].partition);
+            snprintf(dataPath, sizeof(dataPath), "%s/%s", dir, partitonTableInfo[i].dataPath);
 
-        totalPage += imagePage;
-    }
+            if (bank == TAF_UPDATE_BANK_A)
+            {
+                snprintf(image, sizeof(image), "%s_b", partitonTableInfo[i].partition);
 
-    if (tafFwUpdate.UnpackImage(filePath, "system.new.dat", &imagePage))
-    {
-        LE_INFO("Detect rootfs to be updated.");
+                tafFwUpdate.SetImageStatus(image, false);
+                tafFwUpdate.SetImagePageNumber(image, imagePage);
+                tafFwUpdate.SetImageDataPath(image, dataPath);
+            }
+            else if (bank == TAF_UPDATE_BANK_B)
+            {
+                if (partitonTableInfo[i].hasSuffix)
+                {
+                    snprintf(image, sizeof(image), "%s_a", partitonTableInfo[i].partition);
+                    tafFwUpdate.SetImageStatus(image, false);
+                    tafFwUpdate.SetImagePageNumber(image, imagePage);
+                    tafFwUpdate.SetImageDataPath(image, dataPath);
+                }
+                else
+                {
+                    tafFwUpdate.SetImageStatus(partitonTableInfo[i].partition, false);
+                    tafFwUpdate.SetImagePageNumber(partitonTableInfo[i].partition, imagePage);
+                    tafFwUpdate.SetImageDataPath(partitonTableInfo[i].partition, dataPath);
+                }
+            }
 
-        if (bank == TAF_UPDATE_BANK_A)
-        {
-            tafFwUpdate.SetImageStatus("rootfs_b", false);
-            tafFwUpdate.SetImagePageNumber("rootfs_b", imagePage);
-            tafFwUpdate.SetImageDataPath("rootfs_b", "/data/system.new.dat");
-        }
-        else if (bank == TAF_UPDATE_BANK_B)
-        {
-            tafFwUpdate.SetImageStatus("rootfs_a", false);
-            tafFwUpdate.SetImagePageNumber("rootfs_a", imagePage);
-            tafFwUpdate.SetImageDataPath("rootfs_a", "/data/system.new.dat");
+            totalPage += imagePage;
         }
 
-        totalPage += imagePage;
-    }
-
-    if (tafFwUpdate.UnpackImage(filePath, "modem.new.dat", &imagePage))
-    {
-        LE_INFO("Detect firmware to be updated.");
-
-        if (bank == TAF_UPDATE_BANK_A)
-        {
-            tafFwUpdate.SetImageStatus("firmware_b", false);
-            tafFwUpdate.SetImagePageNumber("firmware_b", imagePage);
-            tafFwUpdate.SetImageDataPath("firmware_b", "/data/modem.new.dat");
-        }
-        else if (bank == TAF_UPDATE_BANK_B)
-        {
-            tafFwUpdate.SetImageStatus("firmware_a", false);
-            tafFwUpdate.SetImagePageNumber("firmware_a", imagePage);
-            tafFwUpdate.SetImageDataPath("firmware_a", "/data/modem.new.dat");
-        }
-
-        totalPage += imagePage;
-    }
-
-    if (tafFwUpdate.UnpackImage(filePath, "lxcrootfs.new.dat", &imagePage))
-    {
-        LE_INFO("Detect lxcrootfs to be updated.");
-
-        if (bank == TAF_UPDATE_BANK_A)
-        {
-            tafFwUpdate.SetImageStatus("lxcrootfs_b", false);
-            tafFwUpdate.SetImagePageNumber("lxcrootfs_b", imagePage);
-            tafFwUpdate.SetImageDataPath("lxcrootfs_b", "/data/lxcrootfs.new.dat");
-        }
-        else if (bank == TAF_UPDATE_BANK_B)
-        {
-            tafFwUpdate.SetImageStatus("lxcrootfs_a", false);
-            tafFwUpdate.SetImagePageNumber("lxcrootfs_a", imagePage);
-            tafFwUpdate.SetImageDataPath("lxcrootfs_a", "/data/lxcrootfs.new.dat");
-        }
-
-        totalPage += imagePage;
-    }
-
-    if (tafFwUpdate.UnpackImage(filePath, "boot.img", &imagePage))
-    {
-        LE_INFO("Detect boot to be updated.");
-
-        if (bank == TAF_UPDATE_BANK_A)
-        {
-            tafFwUpdate.SetImageStatus("boot_b", false);
-            tafFwUpdate.SetImagePageNumber("boot_b", imagePage);
-            tafFwUpdate.SetImageDataPath("boot_b", "/data/boot.img");
-        }
-        else if (bank == TAF_UPDATE_BANK_B)
-        {
-            tafFwUpdate.SetImageStatus("boot", false);
-            tafFwUpdate.SetImagePageNumber("boot", imagePage);
-            tafFwUpdate.SetImageDataPath("boot", "/data/boot.img");
-        }
-
-        totalPage += imagePage;
+        i++;
     }
 
     tafFwUpdate.SetPageNumber(true, totalPage);
@@ -1674,6 +1836,7 @@ bool taf_FwUpdate::VerifyHash
 
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
     le_result_t result = tafFwUpdate.CalFileHash(filePath, &calSize, fileHash, &fileHashLen);
+    unlink(filePath);
     if (result != LE_OK)
     {
         LE_ERROR("Fail to calculate %s hash.", filePath);
@@ -1725,126 +1888,57 @@ void taf_FwUpdate::InstallPostCheck
         return;
     }
 
+    char dir[TAF_FWUPDATE_DIRNAME_LEN];
+    if (!tafFwUpdate.GetUnpackDir(dir, TAF_FWUPDATE_DIRNAME_LEN))
+    {
+        LE_ERROR("Fail to get unpack directory.");
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        return;
+    }
+
     uint32_t imagePage = 0;
     bool verified = false;
-    if (tafFwUpdate.UnpackImage(filePath, "telaf.new.dat", &imagePage))
+    char partition[TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN];
+    char dataPath[TAF_UPDATE_FILE_PATH_LEN];
+
+    size_t i = 0;
+    while (i < NUM_ARRAY_MEMBERS(partitonTableInfo))
     {
-        LE_INFO("Install post-check on telaf.");
-
-        if (bank == TAF_UPDATE_BANK_A)
+        if (tafFwUpdate.UnpackImage(filePath, partitonTableInfo[i].dataPath, &imagePage))
         {
-            verified = tafFwUpdate.VerifyHash("telaf_b", "/data/telaf.new.dat");
-        }
-        else if (bank == TAF_UPDATE_BANK_B)
-        {
-            verified = tafFwUpdate.VerifyHash("telaf_a", "/data/telaf.new.dat");
-        }
+            LE_INFO("Install post-check on %s.", partitonTableInfo[i].partition);
+            snprintf(dataPath, sizeof(dataPath), "%s/%s", dir, partitonTableInfo[i].dataPath);
 
-        if (!verified || bank == TAF_UPDATE_BANK_UNKNOWN)
-        {
-            LE_ERROR("Post-check failure on telaf.");
-            tafFwUpdate.error = TAF_UPDATE_SECURITY_FAILURE;
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
-            return;
-        }
+            if (bank == TAF_UPDATE_BANK_A)
+            {
+                snprintf(partition, sizeof(partition), "%s_b", partitonTableInfo[i].partition);
+                verified = tafFwUpdate.VerifyHash(partition, dataPath);
+            }
+            else if (bank == TAF_UPDATE_BANK_B)
+            {
+                if (partitonTableInfo[i].hasSuffix)
+                {
+                    snprintf(partition, sizeof(partition), "%s_a", partitonTableInfo[i].partition);
+                    verified = tafFwUpdate.VerifyHash(partition, dataPath);
+                }
+                else
+                {
+                    verified = tafFwUpdate.VerifyHash(partitonTableInfo[i].partition, dataPath);
+                }
+            }
 
-        LE_INFO("Install post-check on telaf success.");
-    }
+            if (!verified || bank == TAF_UPDATE_BANK_UNKNOWN)
+            {
+                LE_ERROR("Install post-check failure on %s.", partitonTableInfo[i].partition);
+                tafFwUpdate.error = TAF_UPDATE_SECURITY_FAILURE;
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                return;
+            }
 
-    if (tafFwUpdate.UnpackImage(filePath, "system.new.dat", &imagePage))
-    {
-        LE_INFO("Install post-check on rootfs.");
-
-        if (bank == TAF_UPDATE_BANK_A)
-        {
-            verified = tafFwUpdate.VerifyHash("rootfs_b", "/data/system.new.dat");
-        }
-        else if (bank == TAF_UPDATE_BANK_B)
-        {
-            verified = tafFwUpdate.VerifyHash("rootfs_a", "/data/system.new.dat");
-        }
-
-        if (!verified || bank == TAF_UPDATE_BANK_UNKNOWN)
-        {
-            LE_ERROR("Post-check failure on rootfs.");
-            tafFwUpdate.error = TAF_UPDATE_SECURITY_FAILURE;
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
-            return;
+            LE_INFO("Install post-check on %s success.", partitonTableInfo[i].partition);
         }
 
-        LE_INFO("Install post-check on rootfs success.");
-    }
-
-    if (tafFwUpdate.UnpackImage(filePath, "modem.new.dat", &imagePage))
-    {
-        LE_INFO("Install post-check on firmware.");
-
-        if (bank == TAF_UPDATE_BANK_A)
-        {
-            verified = tafFwUpdate.VerifyHash("firmware_b", "/data/modem.new.dat");
-        }
-        else if (bank == TAF_UPDATE_BANK_B)
-        {
-            verified = tafFwUpdate.VerifyHash("firmware_a", "/data/modem.new.dat");
-        }
-
-        if (!verified || bank == TAF_UPDATE_BANK_UNKNOWN)
-        {
-            LE_ERROR("Post-check failure on firmware.");
-            tafFwUpdate.error = TAF_UPDATE_SECURITY_FAILURE;
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
-            return;
-        }
-
-        LE_INFO("Install post-check on firmware success.");
-    }
-
-    if (tafFwUpdate.UnpackImage(filePath, "lxcrootfs.new.dat", &imagePage))
-    {
-        LE_INFO("Install post-check on lxcrootfs.");
-
-        if (bank == TAF_UPDATE_BANK_A)
-        {
-            verified = tafFwUpdate.VerifyHash("lxcrootfs_b", "/data/lxcrootfs.new.dat");
-        }
-        else if (bank == TAF_UPDATE_BANK_B)
-        {
-            verified = tafFwUpdate.VerifyHash("lxcrootfs_a", "/data/lxcrootfs.new.dat");
-        }
-
-        if (!verified || bank == TAF_UPDATE_BANK_UNKNOWN)
-        {
-            LE_ERROR("Post-check failure on lxcrootfs.");
-            tafFwUpdate.error = TAF_UPDATE_SECURITY_FAILURE;
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
-            return;
-        }
-
-        LE_INFO("Install post-check on lxcrootfs success.");
-    }
-
-    if (tafFwUpdate.UnpackImage(filePath, "boot.img", &imagePage))
-    {
-        LE_INFO("Install post-check on boot.");
-
-        if (bank == TAF_UPDATE_BANK_A)
-        {
-            verified = tafFwUpdate.VerifyHash("boot_b", "/data/boot.img");
-        }
-        else if (bank == TAF_UPDATE_BANK_B)
-        {
-            verified = tafFwUpdate.VerifyHash("boot", "/data/boot.img");
-        }
-
-        if (!verified || bank == TAF_UPDATE_BANK_UNKNOWN)
-        {
-            LE_ERROR("Post-check failure on boot.");
-            tafFwUpdate.error = TAF_UPDATE_SECURITY_FAILURE;
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
-            return;
-        }
-
-        LE_INFO("Install post-check on boot success.");
+        i++;
     }
 
     tafFwUpdate.error = TAF_UPDATE_NONE;
@@ -2068,7 +2162,7 @@ le_result_t taf_FwUpdate::PerformBankSync
                 LE_INFO("Perform sync from MTD %s to %s...",
                     partitionList.partition[i].name, partitionList.partition[j].name);
 
-                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDWR);
+                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDONLY);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open MTD partition.");
 
                 result = taf_lib_flash_OpenPartition(&partitionList.partition[j], O_RDWR);
@@ -2108,7 +2202,7 @@ le_result_t taf_FwUpdate::PerformBankSync
                 LE_INFO("Perform sync from UBI %s to %s...",
                     partitionList.partition[i].name, partitionList.partition[j].name);
 
-                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDWR);
+                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDONLY);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open UBI volume.");
 
                 result = taf_lib_flash_OpenPartition(&partitionList.partition[j], O_RDWR);
@@ -2597,7 +2691,7 @@ le_result_t taf_FwUpdate::CalculateTotalPages()
                     taf_lib_flash_Partition_t *partition_a = partition;
 
                     // Open Partition 'A'
-                    result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                    result = taf_lib_flash_OpenPartition(partition_a, O_RDONLY);
                     if (result != LE_OK)
                     {
                         LE_ERROR("taf_lib_flash_OpenPartition for Bank A failed");
@@ -2655,7 +2749,7 @@ le_result_t taf_FwUpdate::CalculateTotalPages()
                         &(partitionList.partition[partitionMap[ubiName_a]]);
 
                     // Open Partition 'A'
-                    result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                    result = taf_lib_flash_OpenPartition(partition_a, O_RDONLY);
                     if (result != LE_OK)
                     {
                         LE_ERROR("taf_lib_flash_OpenPartition for Bank A failed");
@@ -2701,7 +2795,7 @@ bool taf_FwUpdate::CompareBinaryFiles(const std::string& filename1, const std::s
     // Check if both files were successfully opened
     if (!file1.is_open() || !file2.is_open())
     {
-        LE_FATAL("Error opening files!");
+        LE_ERROR("Error opening files!");
         return false;
     }
 
@@ -2792,7 +2886,20 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
                 }
 
                 // Open Partition 'A'
-                result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                if (activeBank == TAF_UPDATE_BANK_A)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_a, O_RDONLY);
+                }
+                else if (activeBank == TAF_UPDATE_BANK_B)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                }
+                else
+                {
+                    LE_ERROR("Unknown bank.");
+                    return LE_FAULT;
+                }
+
                 if (result != LE_OK)
                 {
                     LE_ERROR("taf_lib_flash_OpenPartition for partition A failed");
@@ -2800,7 +2907,20 @@ le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
                 }
 
                 // Open Partition 'B'
-                result = taf_lib_flash_OpenPartition(partition_b, O_RDWR);
+                if (activeBank == TAF_UPDATE_BANK_A)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_b, O_RDWR);
+                }
+                else if (activeBank == TAF_UPDATE_BANK_B)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_b, O_RDONLY);
+                }
+                else
+                {
+                    LE_ERROR("Unknown bank.");
+                    return LE_FAULT;
+                }
+
                 if (result != LE_OK)
                 {
                     // close partition 'A'
@@ -2974,7 +3094,7 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
                     &(partitionList.partition[partitionMap[ubiName_a]]);
                 taf_lib_flash_Partition_t *partition_b = partition;
 
-                bool isEqual = CompareBinaryFiles(partition_a->mtdDevPath, partition_b->mtdDevPath);
+                bool isEqual = CompareBinaryFiles(partition_a->ubiDevPath, partition_b->ubiDevPath);
                 if(isEqual)
                 {
                     LE_INFO("UBI %s is already synced, skipping it", ubiName.c_str());
@@ -2984,7 +3104,20 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
                 LE_INFO("Syncing UBI %s", ubiName.c_str());
 
                 // Open Partition 'A'
-                result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                if (activeBank == TAF_UPDATE_BANK_A)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_a, O_RDONLY);
+                }
+                else if (activeBank == TAF_UPDATE_BANK_B)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
+                }
+                else
+                {
+                    LE_ERROR("Unknown bank.");
+                    return LE_FAULT;
+                }
+
                 if (result != LE_OK)
                 {
                     LE_ERROR("taf_lib_flash_OpenPartition for Bank A failed");
@@ -2992,7 +3125,20 @@ le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
                 }
 
                 // Open Partition 'B'
-                result = taf_lib_flash_OpenPartition(partition_b, O_RDWR);
+                if (activeBank == TAF_UPDATE_BANK_A)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_b, O_RDWR);
+                }
+                else if (activeBank == TAF_UPDATE_BANK_B)
+                {
+                    result = taf_lib_flash_OpenPartition(partition_b, O_RDONLY);
+                }
+                else
+                {
+                    LE_ERROR("Unknown bank.");
+                    return LE_FAULT;
+                }
+
                 if (result != LE_OK)
                 {
                     // close volume 'A'

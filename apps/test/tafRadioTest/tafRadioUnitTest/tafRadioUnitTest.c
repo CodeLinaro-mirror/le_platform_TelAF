@@ -547,10 +547,8 @@ void TestTafRadioPower
     LE_TEST_OK(opModeChangeHandlerRef != NULL, "taf_radio_AddOpModeChangeHandler - OK");
 
     le_onoff_t power;
-    le_result_t result = taf_radio_SetRadioPower(LE_OFF, DEFAULT_PHONE_ID);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetRadioPower - LE_OK");
 
-    result = taf_radio_SetOperatingMode(TAF_RADIO_OP_MODE_AIRPLANE, DEFAULT_PHONE_ID);
+    le_result_t result = taf_radio_SetOperatingMode(TAF_RADIO_OP_MODE_AIRPLANE, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_SetOperatingMode - LE_OK");
 
     result = taf_radio_SetRadioPower(LE_ON, DEFAULT_PHONE_ID);

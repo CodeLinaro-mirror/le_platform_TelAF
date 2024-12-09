@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -64,6 +64,82 @@ void taf_RoutinCtrlSvr::UDSMsgHandler
         LE_ERROR("The service(0x%x) is invalid", sid);
         return;
     }
+
+#ifndef LE_CONFIG_DIAG_FEATURE_A
+
+    uint8_t errCode = 0;
+
+    // diag service instance
+    auto &diag = taf_DiagSvr::GetInstance();
+    uint16_t routineId = ((msgPtr[2]) << 8) + msgPtr[3];
+
+    // check enable condition
+    try
+    {
+        LE_DEBUG("Routine control enable condition check");
+        cfg::Node & node = cfg::top_routines_all<uint16_t>("identifier", routineId);
+        cfg::Node & enableNode = node.get_child("data_enable_condition");
+
+        for (const auto & enable: enableNode)
+        {
+            // Get the defined enable operation type: "and" or "or"
+            std::string enableOperation = enable.first;
+            if (enableOperation == "and")
+            {
+                LE_INFO("Check routine Ctrl enable condition status based on AND operation");
+                cfg::Node & optNodeList = enableNode.get_child("and");
+                for (const auto & optNode: optNodeList)
+                {
+                    uint8_t enableId = optNode.second.get_value<uint8_t>();
+                    LE_DEBUG("Enable condition id = 0x%x", enableId);
+
+                    if (!diag.GetEnableConditionStatus(enableId))
+                    {
+                        errCode = cfg::get_nrc_by_condition_id(enableId);
+                        LE_WARN("Enable id %d condition is false, send nrc 0x%x",
+                                enableId, errCode);
+                        SendNRCResp(svcId, addrPtr, errCode);
+                        return;
+                    }
+                }
+            }
+            else if (enableOperation == "or")
+            {
+                LE_INFO("Check routine Ctrl enable condition status based on OR operation");
+                cfg::Node & optNodeList = enableNode.get_child("or");
+                bool enableStatus = false;
+                uint8_t enableId = 0;
+
+                for (const auto & optNode: optNodeList)
+                {
+                    enableId = optNode.second.get_value<uint8_t>();
+                    LE_DEBUG("Enable condition id = 0x%x", enableId);
+
+                    if(diag.GetEnableConditionStatus(enableId))
+                    {
+                        enableStatus = true;
+                        LE_INFO("enable id %d status is true", enableId);
+                        break;
+                    }
+                }
+
+                if(!enableStatus && enableId != 0)
+                {
+                    errCode = cfg::get_nrc_by_condition_id(enableId);
+                    LE_WARN("Enable id %d condition is false, send nrc 0x%x",
+                            enableId, errCode);
+                    SendNRCResp(svcId, addrPtr, errCode);
+                    return;
+                }
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LE_WARN("Enable condition does not define for routine ctrol ID: 0x%x, Exception: %s",
+                routineId, e.what());
+    }
+#endif
 
     rcMsgPtr = (taf_RoutineCtrlReqMsg_t*)le_mem_ForceAlloc(reqMsgPool);
     memset(rcMsgPtr, 0, sizeof(taf_RoutineCtrlReqMsg_t));
@@ -362,7 +438,11 @@ le_result_t taf_RoutinCtrlSvr::SendRoutineCtrlResp
         return LE_NOT_FOUND;
     }
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     servicePtr = GetServiceObj(reqMsgPtr->routineId, reqMsgPtr->addrInfo.vlanId);
+#else
+    servicePtr = GetServiceObj(reqMsgPtr->routineId, (uint16_t)0);
+#endif
     if (servicePtr == NULL)
     {
         LE_ERROR("Cannot find the service(identifier:0x%x, vlan id:0x%x)",
@@ -378,8 +458,10 @@ le_result_t taf_RoutinCtrlSvr::SendRoutineCtrlResp
     addrInfo.sa = reqMsgPtr->addrInfo.ta;
     addrInfo.ta = reqMsgPtr->addrInfo.sa;
     addrInfo.taType = reqMsgPtr->addrInfo.taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
     addrInfo.vlanId = reqMsgPtr->addrInfo.vlanId;
     le_utf8_Copy(addrInfo.ifName, reqMsgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
 
     if (nrc != 0)
     {
@@ -446,8 +528,10 @@ le_result_t taf_RoutinCtrlSvr::SendNRCResp
     addrInfo.sa = addrInfoPtr->ta;
     addrInfo.ta = addrInfoPtr->sa;
     addrInfo.taType = addrInfoPtr->taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
     addrInfo.vlanId = addrInfoPtr->vlanId;
     le_utf8_Copy(addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
 
     return backend.RespDiagNegative(sid, &addrInfo, errCode);
 }
@@ -473,7 +557,11 @@ le_result_t taf_RoutinCtrlSvr::ReleaseRoutineCtrlMsg
         return LE_NOT_FOUND;
     }
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     servicePtr = GetServiceObj(reqMsgPtr->routineId, reqMsgPtr->addrInfo.vlanId);
+#else
+    servicePtr = GetServiceObj(reqMsgPtr->routineId, (uint16_t)0);
+#endif
     if (servicePtr == NULL)
     {
         LE_ERROR("Cannot find the service(identifier:0x%x, vlan id:0x%x)",
@@ -687,6 +775,7 @@ le_result_t taf_RoutinCtrlSvr::SetVlanId
     taf_RoutineCtrlSvc_t* servicePtr = (taf_RoutineCtrlSvc_t*)le_ref_Lookup(svcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     // Check if the vlan is set.
     le_dls_Link_t* linkPtr = NULL;
     linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
@@ -715,6 +804,9 @@ le_result_t taf_RoutinCtrlSvr::SetVlanId
     le_dls_Queue(&servicePtr->supportedVlanList, &vlanPtr->link);
 
     return LE_OK;
+#else
+    return LE_NOT_IMPLEMENTED;
+#endif
 }
 
 le_result_t taf_RoutinCtrlSvr::GetVlanIdFromMsg
@@ -725,6 +817,7 @@ le_result_t taf_RoutinCtrlSvr::GetVlanIdFromMsg
 {
     TAF_ERROR_IF_RET_VAL(vlanIdPtr == NULL, LE_BAD_PARAMETER, "Invalid vlanIdPtr");
 
+#ifndef LE_CONFIG_DIAG_VSTACK
     taf_RoutineCtrlReqMsg_t* reqMsgPtr = (taf_RoutineCtrlReqMsg_t*)
         le_ref_Lookup(reqMsgRefMap, reqMsgRef);
     if (reqMsgPtr == NULL)
@@ -736,6 +829,9 @@ le_result_t taf_RoutinCtrlSvr::GetVlanIdFromMsg
     *vlanIdPtr = reqMsgPtr->addrInfo.vlanId;
 
     return LE_OK;
+#else
+    return LE_NOT_IMPLEMENTED;
+#endif
 }
 
 void taf_RoutinCtrlSvr::Init()

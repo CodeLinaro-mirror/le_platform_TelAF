@@ -908,6 +908,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             printf("TAF_ECALL_STATE_INCOMING");
             break;
         }
+        case TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY:
+        {
+            printf("TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY");
+            break;
+        }
         default:
         {
             printf("Unknown state");
@@ -952,6 +957,9 @@ static void PrintUsage ()
             "tafECallApp -- terminateReg\n"
             "tafECallApp -- gpio <PIN>\n"
             "tafECallApp -- getHlapTimerState <hlap timer type>\n"
+            "tafECallApp -- isInProgress\n"
+            "tafECallApp -- setInitialDialAttempts <attempts (1-10)>\n"
+            "tafECallApp -- setInitialDialIntervalBetweenDialAttempts <dial interval in minutes in decimal e.g. 5 60 60 ... >\n"
             "\n");
 }
 
@@ -1558,6 +1566,77 @@ static int getHlapTimerState()
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+static int getIsInProgress()
+{
+    bool isInProgress = false;
+    ECallRef = taf_ecall_Create();
+    le_result_t result = taf_ecall_IsInProgress(ECallRef, &isInProgress);
+    LE_TEST_OK(result == LE_OK, "getIsInProgress - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    if (result == LE_OK) {
+        if (isInProgress == true)
+        {
+            printf("eCall is in progress\n");
+        } else {
+            printf("eCall is not in progress\n");
+        }
+    }
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int setInitialDialAttempts()
+{
+    if (le_arg_NumArgs() < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    uint8_t dialAttempts = atoi(le_arg_GetArg(2));
+    le_result_t result = taf_ecall_SetInitialDialAttempts(dialAttempts);
+    LE_TEST_OK(result == LE_OK, "setInitialDialAttempts - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int setInitialDialIntervalBetweenDialAttempts()
+{
+    int count = le_arg_NumArgs();
+    if (count < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    uint16_t dialInterval[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH];
+    for (int i = 0; i < (count-2); i++) {
+        const char* bytePtr = le_arg_GetArg(i+2);
+
+        if (bytePtr == NULL)
+        {
+            printf("Input at position %d is NULL!\n", i+2);
+            printf("Failed!! try again...\n");
+            return EXIT_FAILURE;
+        }
+
+        int byte = atoi(bytePtr);
+
+        if (byte < 5 || byte > 300) {
+            printf("Wrong input as %d.\n", byte);
+            printf("Failed!! try again...\n");
+            return EXIT_FAILURE;
+        }
+
+        dialInterval[i] = (uint16_t) byte;
+    }
+
+    le_result_t result = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialInterval, count-2);
+    LE_TEST_OK(result == LE_OK, "setInitialDialIntervalBetweenDialAttempts - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
 COMPONENT_INIT
 {
     int status = EXIT_SUCCESS;
@@ -1683,6 +1762,18 @@ COMPONENT_INIT
     else if (strcmp(command, "getHlapTimerState") == 0)
     {
         status = getHlapTimerState();
+    }
+    else if (strcmp(command, "isInProgress") == 0)
+    {
+        status = getIsInProgress();
+    }
+    else if (strcmp(command, "setInitialDialAttempts") == 0)
+    {
+        status = setInitialDialAttempts();
+    }
+    else if (strcmp(command, "setInitialDialIntervalBetweenDialAttempts") == 0)
+    {
+        status = setInitialDialIntervalBetweenDialAttempts();
     } else {
         PrintUsage();
     }

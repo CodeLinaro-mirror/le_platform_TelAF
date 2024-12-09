@@ -154,7 +154,7 @@ le_result_t taf_diagSecurity_SendSesTypeCheckResp
 (
     taf_diagSecurity_RxSesTypeCheckRef_t rxSesTypeRef,
         ///< [IN] Received session type reference.
-    taf_diagSecurity_SesControlErrorCode_t errCode
+    uint8_t errCode
         ///< [IN] Error code type.
 )
 {
@@ -325,7 +325,7 @@ le_result_t taf_diagSecurity_GetSecAccessPayload
 le_result_t taf_diagSecurity_SendSecAccessResp
 (
     taf_diagSecurity_RxSecAccessMsgRef_t rxMsgRef,
-    taf_diagSecurity_SecAccessErrorCode_t errCode,
+    uint8_t errCode,
     const uint8_t* dataPtr,
     size_t dataSize
 )

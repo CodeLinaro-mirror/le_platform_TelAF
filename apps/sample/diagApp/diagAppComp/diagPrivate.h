@@ -46,6 +46,9 @@
 #define SYSTEM_COMMAND_STR_LENGTH 1030
 #define DELETE_SYSTEM_CMD_FORMAT "rm %s"
 
+// Enable the mancro to set enable condition as false
+// #define DIAG_ENABLE_CONDITION_TEST
+
 void diagRFT_DeactivateProgrammingByVlanId(uint32_t vlanId);
 void diagRFT_DeactivateProgramming();
 
@@ -63,7 +66,6 @@ uint8_t readDIDFromConfigTree
     size_t* sendBufLen
 );
 
-#ifndef LE_CONFIG_DIAG_VSTACK
 taf_update_State_t diagRoutineCtrl_GetUpdateState();
-#endif
+
 #endif /* DIAGPRIVATE_H */

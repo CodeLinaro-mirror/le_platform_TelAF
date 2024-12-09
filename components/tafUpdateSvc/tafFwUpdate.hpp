@@ -48,6 +48,9 @@
 #define TAF_FIRMWARE_VERSION_LINE_NUM 16
 #define TAF_TELAF_VERSION_LEN 21
 
+#define TAF_FWUPDATE_DIRNAME_LEN 128
+#define TAF_FWUPDATE_PARTITION_SUFFIX_LEN 2
+
 #define TAF_FWUPDATE_BYPASS_CHECK_TAG "NULL"
 
 #define TAF_FWUPDATE_RECOVERY_LOG_FILE "/tmp/recovery.log"
@@ -55,6 +58,7 @@
 #define TAF_TELAF_VERSION_FILE "/legato/systems/current/version"
 #define TAF_ROOTFS_VERSION_FILE "/etc/version"
 #define TAF_FIRMWARE_VERSION_FILE "/firmware/image/Ver_Info.txt"
+#define TAF_FWUPDATE_CFG_FILE "tafUpdate.json"
 
 #define TAF_FWUPDATE_INSTALL_CONTEXT "install_context"
 #define TAF_FWUPDATE_INSTALL_IMGAE_NODE "install_context/image/%s"
@@ -108,6 +112,19 @@ typedef struct {
     char filePath[TAF_UPDATE_FILE_PATH_LEN];
 } taf_FwUpdateReq_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Partition structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    const char* partition;
+    const bool hasSuffix;
+    const char* dataPath;
+    const char* patchPath;
+} taf_FwUpdateParition_t;
+
 namespace telux {
 namespace tafsvc {
     class taf_FwUpdate : public ITafSvc {
@@ -134,11 +151,16 @@ namespace tafsvc {
                 uint32_t* badBlocksNumber, uint32_t* blockSize, uint32_t* pageSize);
         le_result_t GetUbiInformation(taf_lib_flash_Partition_t* partition, uint32_t* lebNumber,
                 uint32_t* freeLebNumber, uint32_t* volumeSize);
+
+        bool GetUnpackDir(char* unpackDir, size_t dirLen);
         le_result_t InstallPreCheck(const char* manifest);
         void SetPauseAction(bool paused);
         bool GetPauseAction(void);
         void SetPageNumber(bool isTotal, uint32_t number);
         uint32_t GetPageNumber(bool isTotal);
+        bool HasSuffix(const char *str);
+        void SetPackageDataPath(const char* dataPath);
+        void GetPackageDataPath(char* dataPath, size_t pathLen);
         void SetImageDataPath(const char* image, const char* dataPath);
         void GetImageDataPath(const char* image, char* dataPath, size_t pathLen);
         bool GetImageStatus(const char* image);

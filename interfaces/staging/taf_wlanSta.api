@@ -4,21 +4,21 @@
 **/
 //------------------------------------------------------------------------------------------------
 /**
-* @page c_tafwlansta Wireless LAN Station Management Service
-*
-* @ref taf_wlansta_interface.h "API Reference"
-*
-* <HR>
-*
-* Wireless LAN(WLAN) Station(STA) Management Service provides APIs for applications to manage
-* station that allow the WLAN device to connect to WLAN access points. Before a WLAN
-* STA can be started, the WLAN device should be properly configured using the WLAN Management
-* Service's APIs.
-*
-* @section taf_wlansta_binding IPC interfaces binding
-*
-* The functions of this service are provided by the @b tafWlanSvc application service.
-*
+ * @page c_tafwlansta Wireless LAN Station Management Service
+ *
+ * @rst :ref:`API reference <File taf_wlansta_interface.h>` @endrst
+ *
+ * <HR>
+ *
+ * Wireless LAN(WLAN) Station(STA) Management Service provides APIs for applications to manage
+ * station that allow the WLAN device to connect to WLAN access points. Before a WLAN
+ * STA can be started, the WLAN device should be properly configured using the WLAN Management
+ * Service's APIs.
+ *
+ * @section taf_wlansta_binding IPC interfaces binding
+ *
+ * The functions of this service are provided by the @b tafWlanSvc application service.
+ *
  * The following example illustrates how to bind to the WLAN Station service.
  * @verbatim
    bindings:
@@ -27,7 +27,7 @@
    }
    @endverbatim
  *
-*/
+ */
 //--------------------------------------------------------------------------------------------------
 USETYPES taf_wlan.api;
 USETYPES taf_net.api;

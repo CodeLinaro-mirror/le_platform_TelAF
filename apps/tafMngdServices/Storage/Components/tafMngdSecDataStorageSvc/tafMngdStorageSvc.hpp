@@ -43,12 +43,12 @@
  * Macros for secure storage
  */
 
-#define SECURE_STORAGE "/data/secStorage/"
 #define SECURE_MAX_NUM_OF_STORAGE       25
 #define SECURE_MAX_NUM_OF_DATA          100
 #define SECURE_MAX_NUM_OF_CLIENT_DATA   100
 #define SECURE_MAX_NUM_OF_DATA_HANDLER  20
 #define SECURE_DATA_TEMP_EXTENSION ".temp"
+#define DEFAULT_MSS_CONFIG_NAME "tafMngdStorageSvc.json"
 
 namespace telux {
 namespace tafsvc {
@@ -199,6 +199,8 @@ class tafMngdStorageSvc: public ITafSvc
          */
         void InitStorage();
 
+        le_result_t ParseServiceJsonConfig();
+
         le_result_t GetStoragePath(char* bufferPtr, size_t bufferSize);
 
         le_result_t CreateStorageDir();
@@ -319,6 +321,10 @@ class tafMngdStorageSvc: public ITafSvc
         /**
          * Resources for secure data
          */
+
+        char secDataStorage [LIMIT_MAX_PATH_BYTES];
+        char secDataRfsStorage [LIMIT_MAX_PATH_BYTES];
+
         le_ref_MapRef_t SecDataRefMap;
         le_mem_PoolRef_t SecDataPool;
 
@@ -335,6 +341,8 @@ class tafMngdStorageSvc: public ITafSvc
          */
 
         static size_t GetFileSize(const char *filePath);
+
+        static le_result_t CreateDirectory(const char *path);
 
         static size_t GetFilesSizeInDirectory(const char *dirPath);
 

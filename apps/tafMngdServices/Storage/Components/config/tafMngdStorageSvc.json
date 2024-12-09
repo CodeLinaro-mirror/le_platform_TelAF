@@ -1,0 +1,44 @@
+{
+    "Product": "TelAF",
+    "Name": "MSS",
+    "MSS Config Storage": {
+        "Configuration": {
+            "UpdatePath":[
+                {
+                    "QcmFormat": true,
+                    "Path": "/data/ManagedServices/MSS/update/"
+                }
+            ],
+            "StoragePath":[
+                {
+                    "BasePath": "/persist/configStorage/",
+                    "BackupPath": "/persist/rfs/configStorage/"
+                }
+            ]
+        }
+    },
+    "MSS Secure File Storage":
+    {
+        "Configuration":
+        {
+            "StoragePath":[
+                {
+                    "BasePath": "/persist/fileStorage/",
+                    "BackupPath": "/persist/rfs/secFileStorage/"
+                }
+            ]
+        }
+    },
+    "MSS Secure Data Storage":
+    {
+        "Configuration":
+        {
+            "StoragePath":[
+                {
+                    "BasePath": "/data/secStorage/",
+                    "BackupPath": "/data/rfs/secStorage/"
+                }
+            ]
+        }
+    }
+}

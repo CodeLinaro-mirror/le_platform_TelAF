@@ -1226,6 +1226,21 @@ bool SecurityAccess_IsUnlocked(UdsCommunicationMgr * mgr)
     return (mgr->mSecurityAccess->current_session->unlocked_level != NULL);
 }
 
+bool SecurityAccess_IsLevelUnlocked
+(
+    UdsCommunicationMgr * mgr,
+    uint8_t level
+)
+{
+    SecurityLevel_t * ulevel =
+        mgr->mSecurityAccess->current_session->unlocked_level;
+
+    if (ulevel != NULL && level == (uint8_t) ulevel->Security_Level)
+        return true; /* Unlocked */
+
+    return false; /* Locked */
+}
+
 static void SecAcc_DelayTimerHandler(le_timer_Ref_t timerRef)
 {
     LE_DEBUG("%s .. timerRef: %p", __FUNCTION__, timerRef);

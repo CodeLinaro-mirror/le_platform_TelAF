@@ -84,18 +84,22 @@ le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(){
         LE_WARN("Invalid JSON property value");
         return LE_FAULT;
     }
-    try {
-        for (const auto& item : root.get_child("MSS Secure Data Storage.Configuration.StoragePath")) {
-            const boost::property_tree::ptree& uPath = item.second;
+    try
+    {
+        for (const auto &item : root.get_child("MSS Secure Data Storage.Configuration.StoragePath"))
+        {
+            const boost::property_tree::ptree &uPath = item.second;
             std::string basePath = uPath.get<std::string>("BasePath");
-            snprintf(secDataStorage,sizeof(secDataStorage),"%s",basePath.c_str());
+            snprintf(secDataStorage, sizeof(secDataStorage), "%s", basePath.c_str());
             std::string backupPath = uPath.get<std::string>("BackupPath");
-            LE_INFO("Base path is %s",secDataStorage);
-            snprintf(secDataRfsStorage,sizeof(secDataRfsStorage),"%s",backupPath.c_str());
-            LE_INFO("Backup path is %s",secDataRfsStorage);
+            LE_INFO("Base path is %s", secDataStorage);
+            snprintf(secDataRfsStorage, sizeof(secDataRfsStorage), "%s", backupPath.c_str());
+            LE_INFO("Backup path is %s", secDataRfsStorage);
         }
-    } catch (const boost::property_tree::ptree_error& e) {
-        LE_ERROR("Error accessing JSON data");
+    }
+    catch (const boost::property_tree::ptree_error &e)
+    {
+        LE_ERROR("Error accessing JSON data with error %s",e.what());
         return LE_FAULT;
     }
     return LE_OK;

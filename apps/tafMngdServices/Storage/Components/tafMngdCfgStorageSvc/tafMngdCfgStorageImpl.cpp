@@ -65,7 +65,7 @@ void tafMngdStorageSvc::Init(void)
     // Set up RFS backup storage to the specified path
     if(taf_rfs_SetBackupStorage(configRfsStorage) != LE_OK)
     {
-        LE_FATAL("Failed to set rfs backup storage %s", configRfsStorage);
+        LE_ERROR("Failed to set rfs backup storage %s", configRfsStorage);
     }
 }
 
@@ -114,7 +114,7 @@ void tafMngdStorageSvc::InitConfigStorage()
     result = taf_fsc_LockStorage(cfgFscRef);
     if(result != LE_OK)
     {
-        LE_FATAL("Failed to lock fsc storage %s", configStorage);
+        LE_ERROR("Failed to lock fsc storage %s", configStorage);
     }
 
     cfgRfsFscRef = taf_fsc_GetStorageRef(configRfsStorage, &result);
@@ -126,7 +126,7 @@ void tafMngdStorageSvc::InitConfigStorage()
     result = taf_fsc_LockStorage(cfgRfsFscRef);
     if(result != LE_OK)
     {
-        LE_FATAL("Failed to lock fsc storage %s", configRfsStorage);
+        LE_ERROR("Failed to lock fsc storage %s", configRfsStorage);
     }
 
     configStoragePool = le_mem_CreatePool("configStoragePool",
@@ -191,7 +191,7 @@ le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(){
             snprintf(updatePath,sizeof(updatePath),"%s",fPath.c_str());
             bool format  =  uPath.get<bool>("QcmFormat");
             isQcmFormat =  format;
-            LE_INFO("update path is %s",updatePath);
+            LE_INFO("update path is %s and qc format is %d",updatePath,format);
         }
 
         for (const auto& item : root.get_child("MSS Config Storage.Configuration.StoragePath")) {
@@ -204,7 +204,7 @@ le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(){
             LE_INFO("Backup path is %s",configRfsStorage);
         }
     } catch (const boost::property_tree::ptree_error& e) {
-        LE_ERROR("Error accessing JSON data");
+        LE_ERROR("Error accessing JSON data with error %s",e.what());
         return LE_FAULT;
     }
     return LE_OK;
@@ -403,15 +403,15 @@ le_result_t tafMngdStorageSvc::Cancel(taf_mngdStorCfg_ConfigRef_t configRef){
     LE_INFO("Storage Locked");
 
     // Delete config.json.update file
-    char storagePath[LIMIT_MAX_PATH_BYTES] =  {0};
+     char storagePath[LIMIT_MAX_PATH_BYTES] =  {0};
     result = GetConfigStoragePath(storagePath,sizeof(storagePath));
-    if(!IsFileExisting(storagePath)){
-        LockStorage();
-        LE_ERROR("Unable to find file at %s",storagePath);
-        return LE_OK;
+    if(IsFileExisting(storagePath)){
+        taf_rfs_Delete(storagePath);
+        LE_INFO("Successfully deleted file from path %s",storagePath);
     }
-    taf_rfs_Delete(storagePath);
-    LE_INFO("Successfully deleted file from path %s",storagePath);
+    else{
+        LE_ERROR("Unable to find file at %s",storagePath);
+    }
 
     // Delete .bak file also.
     char bakFilePath[LIMIT_MAX_PATH_BYTES] =  {0};
@@ -420,10 +420,14 @@ le_result_t tafMngdStorageSvc::Cancel(taf_mngdStorCfg_ConfigRef_t configRef){
         taf_rfs_Delete(bakFilePath);
         LE_INFO("Successfully deleted file from path %s",bakFilePath);
     }
+    else{
+        LE_ERROR("Unable to find file at %s",bakFilePath);
+    }
 
     // Release Version Info ptr
     if(versionInfo != NULL){
         le_mem_Release(versionInfo);
+        versionInfo = NULL;
     }
 
     // Lock configStorage and configRfsStorage

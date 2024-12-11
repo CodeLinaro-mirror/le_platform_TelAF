@@ -237,5 +237,5 @@ COMPONENT_INIT
 
     auto &mss = tafMngdStorageSvc::GetInstance();
 
-    mss.InitConfigStorage();
+    mss.Init();
 }

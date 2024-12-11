@@ -6059,3 +6059,149 @@ le_result_t taf_radio_GetServingCellRoutingAreaCode
 
     return taf_pa_radio_GetServingCellRoutingAreaCode(rac, phoneId);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets 2G/3G band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note Only applicable for GSM/WCDMA/TDSCDMA.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellBandInfo
+(
+    taf_radio_BandBitMask_t* bandPtr,      ///< [OUT] 2G/3G active band.
+    taf_radio_RFBandWidth_t* bandWidthPtr, ///< [OUT] RF bandwidth.
+    uint8_t phoneId                        ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(bandPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandPtr)");
+
+    TAF_ERROR_IF_RET_VAL(bandWidthPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandWidthPtr)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandInfo(
+        taf_RadioRFBandInfoResponseCallback::rfBandInfoResponse);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        taf_RadioRFBandInfoResponseCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandInfoResponseCallback::result != LE_OK,
+        taf_RadioRFBandInfoResponseCallback::result, "Fail to get RF band information.");
+
+    *bandPtr = taf_RadioRFBandInfoResponseCallback::band;
+    *bandWidthPtr = taf_RadioRFBandInfoResponseCallback::bandwidth;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets LTE band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellLteBandInfo
+(
+    uint32_t* bandPtr,                     ///< [OUT] LTE active band.
+    taf_radio_RFBandWidth_t* bandWidthPtr, ///< [OUT] RF bandwidth.
+    uint8_t phoneId                        ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(bandPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandPtr)");
+
+    TAF_ERROR_IF_RET_VAL(bandWidthPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandWidthPtr)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandInfo(
+        taf_RadioRFBandInfoResponseCallback::rfBandInfoResponse);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        taf_RadioRFBandInfoResponseCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandInfoResponseCallback::result != LE_OK,
+        taf_RadioRFBandInfoResponseCallback::result, "Fail to get RF band information.");
+
+    *bandPtr = taf_RadioRFBandInfoResponseCallback::lteBand;
+    *bandWidthPtr = taf_RadioRFBandInfoResponseCallback::bandwidth;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NR band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellNrBandInfo
+(
+    uint32_t* bandPtr,                     ///< [OUT] NR active band.
+    taf_radio_RFBandWidth_t* bandWidthPtr, ///< [OUT] RF bandwidth.
+    uint8_t phoneId                        ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(bandPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandPtr)");
+
+    TAF_ERROR_IF_RET_VAL(bandWidthPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandWidthPtr)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandInfo(
+        taf_RadioRFBandInfoResponseCallback::rfBandInfoResponse);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        taf_RadioRFBandInfoResponseCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandInfoResponseCallback::result != LE_OK,
+        taf_RadioRFBandInfoResponseCallback::result, "Fail to get RF band information.");
+
+    *bandPtr = taf_RadioRFBandInfoResponseCallback::nrBand;
+    *bandWidthPtr = taf_RadioRFBandInfoResponseCallback::bandwidth;
+
+    return LE_OK;
+}

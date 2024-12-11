@@ -258,6 +258,8 @@ init_telaf_core_domain(telaf_devmgr_t, telaf_devmgr_exec_t)
 allow telaf_devmgr_t telaf_devmgr_t:process { signal };
 allow telaf_devmgr_t telaf_devmgr_t:capability { sys_ptrace kill };
 allow telaf_devmgr_t proc_t:file { open read getattr };
+allow telaf_devmgr_t telaf_mod_t:dir { manage_dir_perms };
+allow telaf_devmgr_t telaf_mod_t:file { relabel_file_perms link manage_file_perms };
 allow telaf_devmgr_t user_tmp_t:file { relabel_file_perms link manage_file_perms };
 allow telaf_devmgr_t telaf_apptmp_rw_t:dir { relabelfrom relabelto search getattr remove_name };
 allow telaf_devmgr_t telaf_apptmp_rw_t:file { relabel_file_perms link manage_file_perms };

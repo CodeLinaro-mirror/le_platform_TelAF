@@ -35,12 +35,12 @@ static void PrintUsage ()
         "app start tafMngdPMIntTest\n"
         "--------To know Usage--------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- help \n"
-        "--------To Reboot the PVM System--------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RebootSystem \n"
-        "--------To Restart the PVM System--------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RestartSystem \n"
-        "--------To trigger the Forceful PVM System Shutdown--------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdown \n"
+        "--------To Reboot the PVM System with given reasons--------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RebootSystemWithReason \n"
+        "--------To Restart the PVM System with given reasons--------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RestartSystemWithReason \n"
+        "--------To trigger the Forceful PVM System Shutdown with given reasons--------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdownWithReason \n"
         "--------To trigger the Graceful shutdown of particular node with NODE_ID with the wake lock acquired from this app--------\n"
         "--------0 -> For PVM NAD ------------\n"
         "--------1 -> For RPC NAD ------------\n"
@@ -169,7 +169,7 @@ void AddNodePowerStateChangeHandler
 }
 
 void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode ,
-        void* contextPtr)
+        le_result_t result, void* contextPtr)
 {
     LE_INFO("RestartCallback response mode is %d", rspmode);
     if(rspmode == 0)
@@ -209,14 +209,42 @@ static int SetModemWakeupSource(const char* wakeupSource)
     }
 }
 
-static void RebootSystem()
+static void RebootSystemWithReason()
 {
     LE_INFO("----RebootSystem test----" );
+    int input;
+    le_result_t res = LE_FAULT;
+    char buffer[100];
     uint8_t pmNodeId = 0;
     AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE", pmNodeId);
-    le_result_t res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT,
-            RestartCallback, NULL);
 
+    printf("Choose the Reboot reason\n -1.Exit\n 0.TAF_MNGDPM_RESTART_REASON_NORMAL\n "
+            "1.TAF_MNGDPM_RESTART_REASON_SW_UPDATE\n 2.TAF_MNGDPM_RESTART_REASON_ECALL_RECOVERY\n 16.TAF_MNGDPM_RESTART_REASON_VENDOR_1\n ");
+    if(fgets(buffer, sizeof(buffer), stdin))
+        LE_INFO("Value read successfully");
+    buffer[strcspn(buffer, "\n")] = '\0';
+    input = atoi(buffer);
+    LE_INFO("input: %d", input);
+    if(input == 0)
+    {
+        res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT,
+                RestartCallback, NULL, TAF_MNGDPM_RESTART_REASON_NORMAL);
+    }
+    if(input == 1)
+    {
+        res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT,
+                RestartCallback, NULL, TAF_MNGDPM_RESTART_REASON_SW_UPDATE);
+    }
+    if(input == 2)
+    {
+        res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT,
+                RestartCallback, NULL, TAF_MNGDPM_RESTART_REASON_ECALL_RECOVERY);
+    }
+    if(input == 16)
+    {
+        res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT,
+                RestartCallback, NULL, TAF_MNGDPM_RESTART_REASON_VENDOR_1);
+    }
     if(res == LE_OK)
     {
         LE_INFO("----RebootSystem requested----");
@@ -230,11 +258,59 @@ static void RebootSystem()
 
 static void RestartSystem()
 {
-    LE_INFO("----Restart System test----" );
+    LE_TEST_INFO("To test RestartSystem!" );
     uint8_t pmNodeId = 0;
     AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE", pmNodeId);
     le_result_t res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,
-            RestartCallback, NULL);
+            RestartCallback, NULL, TAF_MNGDPM_RESTART_REASON_NORMAL);
+
+    if(res == LE_OK)
+    {
+        LE_INFO("----RestartSystem requested----");
+    }
+    else
+    {
+        LE_ERROR("RestartSystem request failed");
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void RestartSystemWithReason()
+{
+    LE_INFO("----Restart System test----" );
+    int input;
+    le_result_t res = LE_FAULT;
+    char buffer[100];
+    uint8_t pmNodeId = 0;
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE", pmNodeId);
+
+    printf("Choose the Restart reason\n -1.Exit\n 0.TAF_MNGDPM_RESTART_REASON_NORMAL\n "
+            "1.TAF_MNGDPM_RESTART_REASON_SW_UPDATE\n 2.TAF_MNGDPM_RESTART_REASON_ECALL_RECOVERY\n 16.TAF_MNGDPM_RESTART_REASON_VENDOR_1\n ");
+    if(fgets(buffer, sizeof(buffer), stdin))
+        LE_INFO("Value read successfully");
+    buffer[strcspn(buffer, "\n")] = '\0';
+    input = atoi(buffer);
+    LE_INFO("input: %d", input);
+    if(input == 0)
+    {
+        res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,
+                RestartCallback, NULL, TAF_MNGDPM_RESTART_REASON_NORMAL);
+    }
+    if(input == 1)
+    {
+        res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,
+                RestartCallback, NULL, TAF_MNGDPM_RESTART_REASON_SW_UPDATE);
+    }
+    if(input == 2)
+    {
+        res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,
+                RestartCallback, NULL, TAF_MNGDPM_RESTART_REASON_ECALL_RECOVERY);
+    }
+    if(input == 16)
+    {
+        res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,
+                RestartCallback, NULL, TAF_MNGDPM_RESTART_REASON_VENDOR_1);
+    }
 
     if(res == LE_OK)
     {
@@ -248,7 +324,7 @@ static void RestartSystem()
 }
 
 void ForcedSystemShutdownCallBack(taf_mngdPm_ShutdownMode_t mode,
-    taf_mngdPm_ResponseMode_t ResponseMode, void* contextPtr)
+     taf_mngdPm_ResponseMode_t ResponseMode, le_result_t result, void* contextPtr)
 {
     LE_INFO("ForcedSystemShutdownCallBack response mode is %d", ResponseMode);
     if(ResponseMode == 0)
@@ -260,16 +336,39 @@ void ForcedSystemShutdownCallBack(taf_mngdPm_ShutdownMode_t mode,
     }
 }
 
-static void ForcedSystemShutdown()
+static void ForcedSystemShutdownWithReason()
 {
     LE_INFO("----ForcedSystemShutdown test----");
-    le_result_t result;
+    int input;
+    le_result_t res = LE_FAULT;
+    char buffer[100];
     uint8_t pmNodeId = 0;
     AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE", pmNodeId);
-    result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
-            ForcedSystemShutdownCallBack, NULL);
 
-    if(result == LE_OK)
+    printf("Choose the shutdown reason\n -1.Exit\n 0.TAF_MNGDPM_SHUTDOWN_REASON_NORMAL\n "
+            "1.TAF_MNGDPM_SHUTDOWN_REASON_BUB_ACTIVE\n 16.TAF_MNGDPM_SHUTDOWN_REASON_VENDOR_1\n ");
+    if(fgets(buffer, sizeof(buffer), stdin))
+        LE_INFO("Value read successfully");
+    buffer[strcspn(buffer, "\n")] = '\0';
+    input = atoi(buffer);
+    LE_INFO("input: %d", input);
+    if(input == 0)
+    {
+        res = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+                ForcedSystemShutdownCallBack, NULL, TAF_MNGDPM_SHUTDOWN_REASON_NORMAL);
+    }
+    if(input == 1)
+    {
+        res = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+                ForcedSystemShutdownCallBack, NULL, TAF_MNGDPM_SHUTDOWN_REASON_BUB_ACTIVE);
+    }
+    if(input == 16)
+    {
+        res = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+                ForcedSystemShutdownCallBack, NULL, TAF_MNGDPM_SHUTDOWN_REASON_VENDOR_1);
+    }
+
+    if(res == LE_OK)
     {
         LE_INFO("----ForcedSystemShutdown requested----");
     }
@@ -451,7 +550,7 @@ static int ShutdownNode(const char* node_id)
 }
 
 void WakeupVehicleback(int32_t reason, int32_t rspmode ,
-        void* contextPtr)
+        le_result_t result, void* contextPtr)
 {
     LE_INFO("WakeupVehicleback response is %d", rspmode);
     exit(status);
@@ -870,7 +969,7 @@ static void ForcedSystemShutdownAndSuspend()
          LE_ERROR("Failed to create wakeup source!");
      }
     result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
-            ForcedSystemShutdownCallBack, NULL);
+            ForcedSystemShutdownCallBack, NULL, TAF_MNGDPM_SHUTDOWN_REASON_NORMAL);
 
     if(result == LE_OK)
     {
@@ -1402,13 +1501,13 @@ COMPONENT_INIT
             PrintUsage();
             exit(EXIT_SUCCESS);
         }
-        else if(strcmp(testType, "RestartSystem") == 0)
+        else if(strcmp(testType, "RestartSystemWithReason") == 0)
         {
-            RestartSystem();
+            RestartSystemWithReason();
         }
-        else if(strcmp(testType, "RebootSystem") == 0)
+        else if(strcmp(testType, "RebootSystemWithReason") == 0)
         {
-            RebootSystem();
+            RebootSystemWithReason();
         }
         else if(strcmp(testType, "KeepAwakeThenRestartSystem") == 0)
         {
@@ -1416,9 +1515,9 @@ COMPONENT_INIT
             status = KeepAwakeThenRestartSystem();
             exit(status);
         }
-        else if(strcmp(testType, "ForcedSystemShutdown") == 0)
+        else if(strcmp(testType, "ForcedSystemShutdownWithReason") == 0)
         {
-            ForcedSystemShutdown();
+            ForcedSystemShutdownWithReason();
         }
         else if(strcmp(testType, "GracefulSysShutdownWakeLock") == 0)
         {

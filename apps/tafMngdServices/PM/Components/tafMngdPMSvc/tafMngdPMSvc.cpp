@@ -72,30 +72,44 @@ le_result_t taf_mngdPm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
 }
 
 /**
- * ShutDown the system with requested mode.
+ * ShutDown the system with requested mode and shutdown reason.
  */
 le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
-    taf_mngdPm_AsyncShutdownReqHandlerFunc_t handlerPtr, void* contextPtr)
+    taf_mngdPm_AsyncShutdownReqHandlerFunc_t handlerPtr, void* contextPtr,
+    taf_mngdPm_ShutdownReason_t reason)
 {
     LE_INFO("taf_mngdPm_ShutdownReqAsync");
     if(tafMngdPMSvc::IsClientValid() == false)
     {
+        if(handlerPtr != NULL)
+        {
+            handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_UNSUPPORTED, contextPtr);
+        }
         return LE_UNSUPPORTED;
     }
 
+    if(reason > 1 && reason < 15)
+    {
+        LE_INFO("Shutdown reason is not supported");
+        if(handlerPtr != NULL)
+        {
+            handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_UNSUPPORTED, contextPtr);
+        }
+        return LE_UNSUPPORTED;
+    }
     TAF_ERROR_IF_RET_VAL(!handlerPtr, LE_BAD_PARAMETER, "invalid handlerRef");
 
     auto &mpms = tafMngdPMSvc::GetInstance();
     if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN ||
             mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN)
     {
-        handlerPtr(mode, TAF_MNGDPM_READY, contextPtr);
+        handlerPtr(mode, TAF_MNGDPM_READY, LE_OK, contextPtr);
         return LE_OK;
     }
 
     if (mpms.RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
     {
-        handlerPtr(mode, TAF_MNGDPM_NOT_READY, contextPtr);
+        handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_OK, contextPtr);
         return LE_OK;
     }
     mpms.powerMode.isForceful = true;
@@ -103,8 +117,9 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
     if(mpms.pmInf && mpms.pmInf->nodeStateChangePrepareAsync)
     {
         LE_INFO("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_NORMAL);
+        const uint8_t shutdownReason = (uint8_t)reason;
         (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_SHUTDOWN,
-                HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::ShutdownPrepareRespCB);
+                HAL_PM_SHUTDOWN_MODE_NORMAL, shutdownReason, tafMngdPMSvc::ShutdownPrepareRespCB);
         mpms.statePtr = SYSTEM_NORMAL_SHUTDOWN;
         le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
         le_timer_Start(mpms.vhalAckTimerRef);
@@ -121,7 +136,7 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
             mpms.powerMode.isGraceful = false;
         }
         // Send ready incase of driver not available.
-        handlerPtr(mode, TAF_MNGDPM_READY, contextPtr);
+        handlerPtr(mode, TAF_MNGDPM_READY, LE_OK, contextPtr);
     }
 
     return LE_OK;
@@ -131,15 +146,29 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
  * Restarts the system with requested mode.
  */
 le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
-    taf_mngdPm_AsyncRestartReqHandlerFunc_t handlerPtr, void* contextPtr)
+    taf_mngdPm_AsyncRestartReqHandlerFunc_t handlerPtr, void* contextPtr,
+    taf_mngdPm_RestartReason_t reason)
 {
     LE_INFO("taf_mngdPm_RestartReqAsync");
+    auto &mpms = tafMngdPMSvc::GetInstance();
+
     if(tafMngdPMSvc::IsClientValid() == false)
     {
+        if(handlerPtr != NULL)
+        {
+            handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_UNSUPPORTED, contextPtr);
+        }
         return LE_UNSUPPORTED;
     }
-
-    auto &mpms = tafMngdPMSvc::GetInstance();
+    if(reason > 2 && reason < 15)
+    {
+        LE_INFO("Restart reason is not supported");
+        if(handlerPtr != NULL)
+        {
+            handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_UNSUPPORTED, contextPtr);
+        }
+        return LE_UNSUPPORTED;
+    }
     TAF_ERROR_IF_RET_VAL(mpms.handlerRef == nullptr, LE_BAD_PARAMETER, "invalid handlerRef");
 
     if(mode == TAF_MNGDPM_RESTART_SYSTEM_OFF_ON)
@@ -148,7 +177,7 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
         if((mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN) ||
                 (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN))
         {
-            handlerPtr(mode, TAF_MNGDPM_READY, contextPtr);
+            handlerPtr(mode, TAF_MNGDPM_READY, LE_OK, contextPtr);
             return LE_OK;
         }
         else {
@@ -158,7 +187,7 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
             }
             else
             {
-                handlerPtr(mode, TAF_MNGDPM_NOT_READY, contextPtr);
+                handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_OK, contextPtr);
                 return LE_OK;
             }
         }
@@ -169,7 +198,7 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
         if(mpms.stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING ||
                 mpms.stateMachine.currentState == TAF_MNGDPM_STATE_RESTART)
         {
-            handlerPtr(mode, TAF_MNGDPM_READY, contextPtr);
+            handlerPtr(mode, TAF_MNGDPM_READY, LE_OK, contextPtr);
             return LE_OK;
         }
         else {
@@ -179,7 +208,7 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
             }
             else
             {
-                handlerPtr(mode, TAF_MNGDPM_NOT_READY, contextPtr);
+                handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_OK, contextPtr);
                 return LE_OK;
             }
         }
@@ -187,11 +216,13 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
 
     if(mpms.pmInf && mpms.pmInf->nodeStateChangePrepareAsync)
     {
+        const uint8_t restartReason = (uint8_t)reason;
         if(mode == TAF_MNGDPM_RESTART_SYSTEM_OFF_ON)
         {
             LE_INFO("Send restartReqAsync %d", HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF);
             mpms.powerMode.isShutDown = true;
-            (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF, tafMngdPMSvc::RestartPrepareRespCB);
+            (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF,
+                    restartReason, tafMngdPMSvc::RestartPrepareRespCB);
             mpms.statePtr = RESTART_WITH_NAD_POWER_OFF_ON;
             le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
             le_timer_Start(mpms.vhalAckTimerRef);
@@ -203,7 +234,8 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
         {
             LE_INFO("Send restartReqAsync %d", HAL_PM_RESTART_MODE_NAD_REBOOT);
             mpms.powerMode.isRestart = true;
-            (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_NAD_REBOOT, tafMngdPMSvc::RestartPrepareRespCB);
+            (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_NAD_REBOOT,
+                    restartReason, tafMngdPMSvc::RestartPrepareRespCB);
             mpms.statePtr = RESTART_WITH_NAD_REBOOT;
             le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
             le_timer_Start(mpms.vhalAckTimerRef);
@@ -236,7 +268,7 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
             }
         }
         // Send ready incase of driver not available.
-        handlerPtr(mode, TAF_MNGDPM_READY, contextPtr);
+        handlerPtr(mode, TAF_MNGDPM_READY, LE_OK, contextPtr);
     }
     return LE_OK;
 }
@@ -250,6 +282,10 @@ le_result_t taf_mngdPm_WakeupVehicleReqAsync(int32_t reason,
     LE_INFO("taf_mngdPm_WakeupVehicleReqAsync");
     if(tafMngdPMSvc::IsClientValid() == false)
     {
+        if (handlerPtr != nullptr)
+        {
+            handlerPtr(reason, VEHICHLE_WAKEUP_STATUS_INVALID_REQ, LE_UNSUPPORTED, contextPtr);
+        }
         return LE_UNSUPPORTED;
     }
 
@@ -283,7 +319,7 @@ le_result_t taf_mngdPm_WakeupVehicleReqAsync(int32_t reason,
 
             if (handlerPtr != nullptr)
             {
-                handlerPtr(reason, VEHICHLE_WAKEUP_STATUS_INVALID_REQ, contextPtr);
+                handlerPtr(reason, VEHICHLE_WAKEUP_STATUS_INVALID_REQ, LE_OK, contextPtr);
             }
             // Send ready incase of driver not available.
             return LE_UNSUPPORTED;

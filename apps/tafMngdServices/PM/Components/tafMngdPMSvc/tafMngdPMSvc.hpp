@@ -216,11 +216,11 @@ class tafMngdPMSvc: public ITafSvc
         static le_result_t RestartNAD();
         static le_result_t SuspendNAD();
         static void ShutdownPrepareRespCB(uint8_t pmNodeId, hal_pm_NodeState_t state,
-                hal_pm_PowerMode_t mode, hal_pm_RspReason_t reason);
+                hal_pm_PowerMode_t mode, const uint8_t shutdownReason, hal_pm_RspReason_t reason);
         static void NodeStateChangeReqRespCB(uint8_t pmNodeId, hal_pm_NodeState_t state,
                 hal_pm_PowerMode_t mode);
         static void RestartPrepareRespCB(uint8_t pmNodeId, hal_pm_NodeState_t state,
-                hal_pm_PowerMode_t mode, hal_pm_RspReason_t reason);;
+                hal_pm_PowerMode_t mode, const uint8_t restartReason, hal_pm_RspReason_t reason);
         static void WakeupVehicleCB(int32_t reason, int32_t response);
 
         static void NodeStateChangeNotificationCB(uint8_t pm_node_id,

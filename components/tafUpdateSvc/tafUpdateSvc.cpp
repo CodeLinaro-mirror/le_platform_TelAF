@@ -723,6 +723,59 @@ le_result_t taf_update_ResumeInstall
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Cancels installation.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_UNSUPPORTED   Unsupported.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_CancelInstall
+(
+    taf_update_SessionRef_t sessionRef ///< [IN] Installation session reference.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    taf_update_State_t state = tafFwUpdate.GetState();
+
+    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
+        sessionRef);
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+
+    switch (sessPtr->sessType)
+    {
+        case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
+            if (state != TAF_UPDATE_INSTALLING && state != TAF_UPDATE_INSTALL_PAUSED)
+            {
+                LE_ERROR("Invalid cancel operation.");
+                return LE_FAULT;
+            }
+            else
+            {
+                LE_INFO("Cancel NAD update.");
+                tafFwUpdate.SetCancelAction(true);
+
+                if (state == TAF_UPDATE_INSTALL_PAUSED)
+                {
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+                }
+            }
+            break;
+        default:
+            LE_ERROR("Unsupported session type (%d) for cancelling installation.",
+                sessPtr->sessType);
+            return LE_UNSUPPORTED;
+    }
+
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Installation post check.
  *
  * @return

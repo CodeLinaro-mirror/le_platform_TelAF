@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -46,6 +46,9 @@ namespace telux
                                                         taf_dcs_CallEndHandoffReasonCode_t endCode);
             static const char *CallEndReasonCodeToString
                                        (taf_dcs_CallEndReasonType_t endReasonType, int32_t endCode);
+            static const char *TechPreferenceToString(taf_dcs_Tech_t techPref);
+            static std::string ApnTypeMaskToString(taf_dcs_ApnType_t apnTypeMask);
+            static std::string AuthMaskToString(taf_dcs_Auth_t authMask);
 
             /* TelSDK conversions */
             static const char *CallStatusToString(telux::data::DataCallStatus status);
@@ -76,3 +79,4 @@ namespace telux
         };
     } // namespace tafsvc
 } // namespace telux
+

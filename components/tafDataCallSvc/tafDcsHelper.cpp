@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -10,6 +10,44 @@
 
 #include "tafDcsHelper.hpp"
 using namespace telux::tafsvc;
+
+std::string taf_DCSHelper::ApnTypeMaskToString(taf_dcs_ApnType_t apnTypeMask)
+{
+    std::string result;
+    if (apnTypeMask & TAF_DCS_APN_TYPE_DEFAULT) result += "DEFAULT";
+    if (apnTypeMask & TAF_DCS_APN_TYPE_IMS)
+        result += (result.empty() ? std::string("") : std::string("|")) + std::string("IMS");
+    if (apnTypeMask & TAF_DCS_APN_TYPE_MMS)
+        result += (result.empty() ? std::string("") : std::string("|")) + std::string("MMS");
+    if (apnTypeMask & TAF_DCS_APN_TYPE_DUN)
+        result += (result.empty() ? std::string("") : std::string("|")) + std::string("DUN");
+    if (apnTypeMask & TAF_DCS_APN_TYPE_SUPL)
+        result += (result.empty() ? std::string("") : std::string("|")) + std::string("SUPL");
+    if (apnTypeMask & TAF_DCS_APN_TYPE_HIPRI)
+        result += (result.empty() ? std::string("") : std::string("|")) + std::string("HIPRI");
+    if (apnTypeMask & TAF_DCS_APN_TYPE_FOTA)
+        result += (result.empty() ? std::string("") : std::string("|")) + std::string("FOTA");
+    if (apnTypeMask & TAF_DCS_APN_TYPE_CBS)
+        result += (result.empty() ? std::string("") : std::string("|")) + std::string("CBS");
+    if (apnTypeMask & TAF_DCS_APN_TYPE_IA)
+        result += (result.empty() ? std::string("") : std::string("|")) + std::string("IA");
+    if (apnTypeMask & TAF_DCS_APN_TYPE_EMERGENCY)
+        result += (result.empty() ? std::string("") : std::string("|")) + std::string("EMERGENCY");
+    if (apnTypeMask & TAF_DCS_APN_TYPE_UT)
+        result += (result.empty() ? std::string("") : std::string("|")) + std::string("UT");
+    if (apnTypeMask & TAF_DCS_APN_TYPE_MCX)
+        result += (result.empty() ? std::string("") : std::string("|")) + std::string("MCX");
+    return result.empty() ? std::string("NONE") : result;
+}
+
+std::string taf_DCSHelper::AuthMaskToString(taf_dcs_Auth_t authMask)
+{
+    std::string result;
+    if (authMask & TAF_DCS_AUTH_NONE) result += "NONE";
+    if (authMask & TAF_DCS_AUTH_PAP)  result += (result.empty() ? "" : "|") + std::string("PAP");
+    if (authMask & TAF_DCS_AUTH_CHAP) result += (result.empty() ? "" : "|") + std::string("CHAP");
+    return result.empty() ? std::string("UNKNOWN") : result;
+}
 
 const char *taf_DCSHelper::DataBearerTechnologyToString(taf_dcs_DataBearerTechnology_t tech)
 {
@@ -2230,6 +2268,23 @@ const char *taf_DCSHelper::IpFamilyTypeToString(telux::data::IpFamilyType ipType
     default:
         LE_ERROR("unknown ip: %d", static_cast<int32_t>(ipType));
         return "UNKNOWN";
+    }
+}
+
+const char *taf_DCSHelper::TechPreferenceToString(taf_dcs_Tech_t techPref)
+{
+    switch (techPref)
+    {
+    case TAF_DCS_TECH_3GPP:
+        return "TAF_DCS_TECH_3GPP";
+    case TAF_DCS_TECH_3GPP2:
+        return "TAF_DCS_TECH_3GPP2";
+    case TAF_DCS_TECH_ANY:
+        return "TAF_DCS_TECH_ANY";
+    case TAF_DCS_TECH_UNKNOWN:
+    default:
+        LE_ERROR("unknown tech preference(%d)", static_cast<int32_t>(techPref));
+        return "TAF_DCS_TECH_UNKNOWN";
     }
 }
 

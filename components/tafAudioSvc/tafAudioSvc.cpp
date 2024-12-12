@@ -26,38 +26,16 @@
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- *  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  ​​​​​Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+
+ *  Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
-#include "legato.h"
-#include "interfaces.h"
-#include <iostream>
-#include <string>
-#include <memory>
-#include <telux/audio/AudioFactory.hpp>
-#include <telux/audio/AudioManager.hpp>
 #include "tafAudio.hpp"
+#include "tafAudioVhal.hpp"
 
-using namespace telux::common;
-using namespace telux::audio;
 using namespace telux::tafsvc;
-
-
-COMPONENT_INIT
-{
-    LE_INFO("tafAudio Service Init...\n");
-    auto &audio = taf_Audio::GetInstance();
-    audio.Init();
-
-    LE_INFO(" Audio service Ready...\n");
-
-}
-
-/**
- * New API defined in telAf Audio Service
- */
+using namespace taf::audioVhal;
 
 /**
 * FUNCTION     : CreateConnector
@@ -142,36 +120,6 @@ void taf_audio_Close
 }
 
 /**
-* FUNCTION     : OpenSpeaker
-* DESCRIPTION  : Open Speaker
-* DEPENDECY    :
-* PARAMETERS   : NIL
-* RETURN VALUES: Stream Reference, NULL on error
-*/
-taf_audio_StreamRef_t taf_audio_OpenSpeaker
-(
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.OpenSpeaker();
-}
-
-/**
-* FUNCTION     : OpenMic
-* DESCRIPTION  : Open MicroPhone
-* DEPENDECY    :
-* PARAMETERS   : NIL
-* RETURN VALUES: Stream Reference, NULL on error
-*/
-taf_audio_StreamRef_t taf_audio_OpenMic
-(
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.OpenMic();
-}
-
-/**
 * FUNCTION     : OpenModemVoiceRx
 * DESCRIPTION  : Gets the reference of outStream
 * DEPENDECY    :
@@ -180,7 +128,7 @@ taf_audio_StreamRef_t taf_audio_OpenMic
 */
 taf_audio_StreamRef_t taf_audio_OpenModemVoiceRx
 (
-uint32_t slotId
+    uint32_t slotId
 )
 {
     auto &audio = taf_Audio::GetInstance();
@@ -191,163 +139,484 @@ uint32_t slotId
 * FUNCTION     : OpenModemVoiceTx
 * DESCRIPTION  : Gets the reference of VoiceTx Path
 * DEPENDECY    :
-* PARAMETERS   : SlotId
+* PARAMETERS   : SlotId, ECNR configuration
 * RETURN VALUES: Reference of a Stream, NULL on error
 */
 taf_audio_StreamRef_t taf_audio_OpenModemVoiceTx
 (
-uint32_t slotId
+    uint32_t slotId, bool enableEcnr
 )
 {
     auto &audio = taf_Audio::GetInstance();
-    return audio.OpenModemVoiceTx(slotId);
+    return audio.OpenModemVoiceTx(slotId, enableEcnr);
 }
 
 /**
-* FUNCTION     : PlayDtmf
-* DESCRIPTION  : Plays Dtmf tone for Inband. Applicable for VoiceStream
-* DEPENDECY    : Active Stream
-* PARAMETERS   : Dtmf frequency, duration and gain
-* RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+* FUNCTION     : OpenRoute
+* DESCRIPTION  : Opens the audio route
+* DEPENDECY    :
+* PARAMETERS   : route, mode, sinkRef, sourceRef
+* RETURN VALUES: LE_OK on success, LE_BUSY if another route is opened,
+*                LE_BAD_PARAMETER on bad params, LE_FAULT on error.
 */
-le_result_t taf_audio_PlayDtmf
+taf_audio_RouteRef_t taf_audio_OpenRoute
 (
-taf_audio_StreamRef_t streamRef,
-const char*          dtmfPtr,
-uint32_t             duration,
-uint32_t             pause
+    taf_audio_RouteId_t route,
+    taf_audio_Mode_t mode,
+    taf_audio_StreamRef_t *sinkRef,
+    taf_audio_StreamRef_t *sourceRef
 )
 {
     auto &audio = taf_Audio::GetInstance();
-    return audio.PlayDtmf(streamRef, dtmfPtr, duration, pause);
+    return audio.OpenRoute(route, mode, sinkRef, sourceRef);
 }
 
 /**
-* FUNCTION     : Mute
-* DESCRIPTION  : Mutes the volumes for the given stream
-* DEPENDECY    : Active Stream
-* PARAMETERS   : Stream Reference for Audio
-* RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+* FUNCTION     : CloseRoute
+* DESCRIPTION  : Closes the audio route
+* DEPENDECY    :
+* PARAMETERS   : Route reference created on OpenRoute
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER if route is not opened, LE_FAULT on error.
 */
-le_result_t taf_audio_Mute
+le_result_t taf_audio_CloseRoute
 (
-taf_audio_StreamRef_t    streamRef
+    taf_audio_RouteRef_t routeRef
 )
 {
     auto &audio = taf_Audio::GetInstance();
-    StreamMute mute = {};
-    mute.enable = true;
-    return audio.Mute(streamRef, mute);
+    return audio.CloseRoute(routeRef);
 }
 
 /**
-* FUNCTION     : UnMute
-* DESCRIPTION  : UnMutes the volumes for the given stream
-* DEPENDECY    : Active Stream
-* PARAMETERS   : Stream Reference for Audio
-* RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+* FUNCTION     : OpenPlayer
+* DESCRIPTION  : Opens the stream for player
+* DEPENDECY    :
+* PARAMETERS   : direction
+* RETURN VALUES: Stream reference on success and null on failure.
 */
-le_result_t taf_audio_Unmute
-(
-taf_audio_StreamRef_t    streamRef
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    StreamMute mute = {};
-    mute.enable = false;
-    return audio.Mute(streamRef, mute);
-}
-
-/**
- * FUNCTION     : OpenPlayer
- * DESCRIPTION  : Gets the reference of Playing
- * DEPENDECY    :
- * PARAMETERS   :
- * RETURN VALUES: Reference of a Stream, NULL on error
- */
 taf_audio_StreamRef_t taf_audio_OpenPlayer
 (
+    taf_audio_Direction_t direction
 )
 {
     auto &audio = taf_Audio::GetInstance();
-    return audio.OpenPlayer();
+    return audio.OpenPlayer(direction);
 }
 
 /**
- * FUNCTION     : PlayFile
- * DESCRIPTION  : Play a file on a playback stream
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio and File descriptor
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
- */
+* FUNCTION     : PlayFile
+* DESCRIPTION  : Plays the audio file
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference and audio file path
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
 le_result_t taf_audio_PlayFile
 (
- taf_audio_StreamRef_t    streamRef,
- int fd
+    taf_audio_StreamRef_t streamRef,
+    const char *srcPath
 )
 {
     auto &audio = taf_Audio::GetInstance();
-    return audio.PlayFile(streamRef, fd);
+    return audio.PlayFile(streamRef, srcPath);
 }
 
 /**
- * FUNCTION     : Stop
- * DESCRIPTION  : Stop the file playback/recording
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
- */
+* FUNCTION     : OpenRecorder
+* DESCRIPTION  : Opens the stream for recorder
+* DEPENDECY    :
+* PARAMETERS   : direction
+* RETURN VALUES: Stream reference on success and null on failure.
+*/
+taf_audio_StreamRef_t taf_audio_OpenRecorder
+(
+    taf_audio_Direction_t direction
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.OpenRecorder(direction);
+}
+
+/**
+* FUNCTION     : RecordFile
+* DESCRIPTION  : Records the audio file
+* DEPENDECY    :
+* PARAMETERS   : Recorder stream reference and audio file path
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
+le_result_t taf_audio_RecordFile
+(
+    taf_audio_StreamRef_t streamRef,
+    const char *srcPath
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.RecordFile(streamRef, srcPath);
+}
+
+/**
+* FUNCTION     : Stop
+* DESCRIPTION  : Stops the active playback/record
+* DEPENDECY    :
+* PARAMETERS   : Player/recorder stream reference
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
 le_result_t taf_audio_Stop
 (
-taf_audio_StreamRef_t    streamRef
+    taf_audio_StreamRef_t streamRef
 )
 {
     auto &audio = taf_Audio::GetInstance();
     return audio.Stop(streamRef);
 }
 
-/**
- * FUNCTION     : SetGain
- * DESCRIPTION  : Set the volume
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
- */
-le_result_t taf_audio_SetGain
+taf_audio_MediaHandlerRef_t taf_audio_AddMediaHandler
 (
-taf_audio_StreamRef_t    streamRef,
-int32_t  gain
+   taf_audio_StreamRef_t streamRef,
+   taf_audio_MediaHandlerFunc_t handlerPtr,
+   void* contextPtr
 )
 {
     auto &audio = taf_Audio::GetInstance();
-    return audio.SetVolume(streamRef, gain);
+    return audio.AddMediaHandler(streamRef, handlerPtr, contextPtr);
+}
+
+void taf_audio_RemoveMediaHandler
+(
+   taf_audio_MediaHandlerRef_t handlerRef
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.RemoveMediaHandler(handlerRef);
+}
+
+le_result_t taf_audioVendor_GetNodeType
+(
+    uint8_t audioNodeId,
+    taf_audioVendor_NodeType_t *nodeType
+)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!audioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return audioVhal.GetNodeType(audioNodeId, nodeType);
+}
+
+le_result_t taf_audioVendor_SendNodeVendorConfig
+(
+    uint8_t audioNodeId,
+    const char* configPath
+)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!audioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return audioVhal.SendNodeVendorConfig(audioNodeId, configPath);
+}
+
+le_result_t taf_audioVendor_SendVendorConfig
+(
+    const char* configPath
+)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!audioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return audioVhal.SendVendorConfig(configPath);
+}
+
+le_result_t taf_audioVendor_SetNodePowerState
+(
+    uint8_t audioNodeId,
+    taf_audioVendor_NodePowerState_t state
+)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!audioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return audioVhal.SetNodePowerState(audioNodeId, state);
+}
+
+le_result_t taf_audioVendor_GetNodePowerState
+(
+    uint8_t audioNodeId,
+    taf_audioVendor_NodePowerState_t *state
+)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!audioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return audioVhal.GetNodePowerState(audioNodeId, state);
+}
+
+le_result_t taf_audioVendor_SetNodeMuteState
+(
+    uint8_t audioNodeId,
+    bool mute
+)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!audioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return audioVhal.SetNodeMuteState(audioNodeId, mute);
+}
+
+le_result_t taf_audioVendor_GetNodeMuteState
+(
+    uint8_t audioNodeId,
+    bool *isMuted
+)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!audioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return audioVhal.GetNodeMuteState(audioNodeId, isMuted);
+}
+
+le_result_t taf_audioVendor_SetNodeGain
+(
+    uint8_t nodeId,
+    taf_audioVendor_Direction_t direction,
+    double gain
+)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!audioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+
+    TAF_ERROR_IF_RET_VAL( gain < 0 || gain > 1, LE_BAD_PARAMETER, "Invalid gain level");
+
+    taf_audioVendor_NodeType_t nodeType = TAF_AUDIOVENDOR_INVALID;
+    taf_audioVendor_GetNodeType(nodeId, &nodeType);
+    TAF_ERROR_IF_RET_VAL(nodeType == TAF_AUDIOVENDOR_INVALID, LE_BAD_PARAMETER, "Invalid node ID");
+
+    if(direction == TAF_AUDIOVENDOR_RX){
+        if(nodeType == TAF_AUDIOVENDOR_AUDIO_A2B){
+            return LE_UNSUPPORTED;
+        }
+    } else {
+        if(nodeType == TAF_AUDIOVENDOR_AUDIO_A2B || nodeType == TAF_AUDIOVENDOR_AUDIO_PA){
+            return LE_UNSUPPORTED;
+        }
+    }
+
+    return audioVhal.SetNodeGain(nodeId, direction, gain);
+}
+
+le_result_t taf_audioVendor_GetNodeGain
+(
+    uint8_t nodeId,
+    taf_audioVendor_Direction_t direction,
+    double *gain
+)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!audioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+
+    taf_audioVendor_NodeType_t nodeType = TAF_AUDIOVENDOR_INVALID;
+    taf_audioVendor_GetNodeType(nodeId, &nodeType);
+    TAF_ERROR_IF_RET_VAL(nodeType == TAF_AUDIOVENDOR_INVALID, LE_BAD_PARAMETER, "Invalid node ID");
+
+    if(direction == TAF_AUDIOVENDOR_RX){
+        if(nodeType == TAF_AUDIOVENDOR_AUDIO_A2B){
+            return LE_UNSUPPORTED;
+        }
+    } else {
+        if(nodeType == TAF_AUDIOVENDOR_AUDIO_A2B || nodeType == TAF_AUDIOVENDOR_AUDIO_PA){
+            return LE_UNSUPPORTED;
+        }
+    }
+
+    return audioVhal.GetNodeGain(nodeId, direction, gain);
+}
+
+taf_audioVendor_NodeStateChangeHandlerRef_t taf_audioVendor_AddNodeStateChangeHandler
+(
+    uint8_t audioNodeId,
+    taf_audioVendor_NodeStateHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!audioVhal.isAudioDrvAvailable(), NULL,
+            "Audio drive is not available!");
+    return audioVhal.AddNodeStateChangeHandler(audioNodeId, handlerPtr, contextPtr);
+}
+
+void taf_audioVendor_RemoveNodeStateChangeHandler
+(
+    taf_audioVendor_NodeStateChangeHandlerRef_t handlerRef
+)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_NIL(!audioVhal.isAudioDrvAvailable(), "Audio drive is not available!");
+    audioVhal.RemoveNodeStateChangeHandler(handlerRef);
 }
 
 /**
- * FUNCTION     : GetGain
- * DESCRIPTION  : Get stream volume
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
- */
-le_result_t taf_audio_GetGain
+* FUNCTION     : SetMute
+* DESCRIPTION  : Sets the mute status of modem RX/TX, player, recorder streams.
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference and mute status
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on invalid stream reference
+*                and LE_FAULT on failure.
+*/
+le_result_t taf_audio_SetMute
 (
-taf_audio_StreamRef_t    streamRef,
-int32_t  *gain
+    taf_audio_StreamRef_t streamRef,
+    bool isMute
+)
+{
+    LE_DEBUG("taf_audio_SetMute : %s", isMute ? "true" : "false");
+    auto &audio = taf_Audio::GetInstance();
+    return audio.SetMute(streamRef, isMute);
+}
+
+/**
+* FUNCTION     : GetMute
+* DESCRIPTION  : Gets the mute status of modem RX/TX, player, recorder streams.
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference and address of bool
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on invalid stream reference
+*                and LE_FAULT on failure.
+*/
+le_result_t taf_audio_GetMute
+(
+    taf_audio_StreamRef_t streamRef,
+    bool *isMute
+)
+{
+    LE_DEBUG("taf_audio_GetMute");
+    auto &audio = taf_Audio::GetInstance();
+    return audio.GetMute(streamRef, isMute);
+}
+
+/**
+* FUNCTION     : SetVolume
+* DESCRIPTION  : Sets the volume level of modem RX, player, recorder streams.
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference and volume level
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on invalid stream reference
+*                and LE_FAULT on failure.
+*/
+le_result_t taf_audio_SetVolume
+(
+    taf_audio_StreamRef_t streamRef,
+    double volumeLevel
+)
+{
+    LE_DEBUG("taf_audio_SetVolume: %f", volumeLevel);
+    auto &audio = taf_Audio::GetInstance();
+    return audio.SetVolume(streamRef, volumeLevel, true);
+}
+
+/**
+* FUNCTION     : GetVolume
+* DESCRIPTION  : Gets the volume level of modem RX, player, recorder streams.
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference and address of double
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on invalid stream reference
+*                and LE_FAULT on failure.
+*/
+le_result_t taf_audio_GetVolume
+(
+    taf_audio_StreamRef_t streamRef,
+    double *volumeLevel
+)
+{
+    LE_DEBUG("taf_audio_GetVolume");
+    auto &audio = taf_Audio::GetInstance();
+    return audio.GetVolume(streamRef, volumeLevel);
+}
+
+/**
+* FUNCTION     : PlayFileList
+* DESCRIPTION  : Plays all the audio file in the list as per the configuration.
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference, address of PlayFileConfig and size of play list.
+* RETURN VALUES: LE_OK on success, LE_BUSY when other playback is active,
+*                LE_BAD_PARAMETER on invalid stream reference and LE_FAULT on failure.
+*/
+le_result_t taf_audio_PlayFileList
+(
+    taf_audio_StreamRef_t streamRef,
+    const taf_audio_PlayFileConfig_t*  playFileConfigPtr,
+    size_t playFileConfigSize
+)
+{
+    LE_INFO("taf_mngd_audio_PlayFileList");
+    auto &audio = taf_Audio::GetInstance();
+    return audio.PlayList(streamRef, playFileConfigPtr, playFileConfigSize);
+}
+
+/**
+ * FUNCTION     : PlayDtmf
+ * DESCRIPTION  : Plays Dtmf tone on RX path for VoiceStream
+ * DEPENDECY    : Active Voice Stream
+ * PARAMETERS   : Modem Rx stream reference, DTMF char, duration, pause and gain
+ * RETURN VALUES: LE_OK on success,
+ *                LE_BAD_PARAMETER on invalid stream reference and LE_FAULT on failure.
+ */
+le_result_t taf_audio_PlayDtmf
+(
+taf_audio_StreamRef_t streamRef,
+const char*           dtmfPtr,
+uint16_t              duration,
+uint32_t              pause,
+double                gain
 )
 {
     auto &audio = taf_Audio::GetInstance();
-    return audio.GetVolume(streamRef, gain);
+    return audio.PlayDtmf(streamRef, dtmfPtr, duration, pause, gain);
+}
+
+/**
+ * FUNCTION     : PlaySignallingDtmf
+ * DESCRIPTION  : Plays Dtmf tone on TX path for voice call
+ * DEPENDECY    : Active Voice call
+ * PARAMETERS   : SlotId, DTMF chars, duration, pause
+ * RETURN VALUES: LE_OK on success, LE_UNSUPPORTED when no active RF call,
+ *                LE_BAD_PARAMETER on invalid parameters ,LE_BUSY when DTMF playback is in progress
+ *                and LE_FAULT on failure.
+ */
+le_result_t taf_audio_PlaySignallingDtmf
+(
+uint32_t              slotId,
+const char*           dtmfPtr,
+uint32_t              duration,
+uint32_t              pause
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.PlaySignallingDtmf(slotId, dtmfPtr, duration, pause);
+}
+
+/**
+ * FUNCTION     : StopDtmf
+ * DESCRIPTION  : Stop Dtmf on TX path for voice call
+ * DEPENDECY    : Active Voice call
+ * PARAMETERS   : Slot Id
+ * RETURN VALUES: LE_OK on success, LE_UNSUPPORTED when no active RF call,
+ *                LE_BAD_PARAMETER on invalid slotId and LE_FAULT on failure.
+ */
+le_result_t taf_audio_StopSignallingDtmf
+(
+uint32_t              slotId
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.StopSignallingDtmf(slotId);
 }
 
 /**
  * FUNCTION     : StopDtmf
  * DESCRIPTION  : Stop Dtmf
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ * DEPENDECY    : Active Voice Stream
+ * PARAMETERS   : Modem Rx stream reference
+ * RETURN VALUES: LE_OK on success,
+ *                LE_BAD_PARAMETER on invalid stream reference and LE_FAULT on failure.
  */
-void taf_audio_StopDtmf
+le_result_t taf_audio_StopDtmf
 (
 taf_audio_StreamRef_t streamRef
 )
@@ -356,344 +625,33 @@ taf_audio_StreamRef_t streamRef
     return audio.StopDtmf(streamRef);
 }
 
-/**
- * FUNCTION     : EnableNoiseSuppressor
- * DESCRIPTION  : Enable NoiseSuppressor
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
- */
-le_result_t taf_audio_EnableNoiseSuppressor
-(
-taf_audio_StreamRef_t streamRef
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.EnableNoiseSuppressor(streamRef);
-}
-
-/**
- * FUNCTION     : EnableEchoCanceller
- * DESCRIPTION  : Enable EchoCanceller
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
- */
-le_result_t taf_audio_EnableEchoCanceller
-(
-taf_audio_StreamRef_t streamRef
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.EnableEchoCanceller(streamRef);
-}
-
-/**
- * FUNCTION     : DisableNoiseSuppressor
- * DESCRIPTION  : Disable NoiseSuppressor
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
- */
-le_result_t taf_audio_DisableNoiseSuppressor
-(
-taf_audio_StreamRef_t streamRef
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.DisableNoiseSuppressor(streamRef);
-}
-
-/**
- * FUNCTION     : DisableEchoCanceller
- * DESCRIPTION  : Disable EchoCanceller
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
- */
-le_result_t taf_audio_DisableEchoCanceller
-(
-taf_audio_StreamRef_t streamRef
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.DisableEchoCanceller(streamRef);
-}
-
-/**
- * FUNCTION     : IsNoiseSuppressorEnabled
- * DESCRIPTION  : Get status for Noise Suppressor
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
- */
-le_result_t taf_audio_IsNoiseSuppressorEnabled
-(
-taf_audio_StreamRef_t streamRef,
-bool* status
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.IsNoiseSuppressorEnabled(streamRef, status);
-}
-
-/**
- * FUNCTION     : IsEchoCancellerEnabled
- * DESCRIPTION  : Get status for EchoCanceller
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
- */
-le_result_t taf_audio_IsEchoCancellerEnabled
-(
-taf_audio_StreamRef_t streamRef,
-bool* status
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.IsEchoCancellerEnabled(streamRef, status);
-}
-
-/**
- * FUNCTION     : AddMediaHandler
- * DESCRIPTION  : Send media events notifications
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
- */
-taf_audio_MediaHandlerRef_t taf_audio_AddMediaHandler
-(
-    taf_audio_StreamRef_t streamRef,
-    taf_audio_MediaHandlerFunc_t handlerPtr,
-    void* contextPtr
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return (taf_audio_MediaHandlerRef_t) audio.AddMediaHandler(streamRef, handlerPtr, contextPtr);
-}
-
-/**
- * FUNCTION     : AddDtmfDetectorHandler
- * DESCRIPTION  : Detect DTMF from far end
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
- */
 taf_audio_DtmfDetectorHandlerRef_t taf_audio_AddDtmfDetectorHandler
 (
  taf_audio_StreamRef_t               streamRef,
  taf_audio_DtmfDetectorHandlerFunc_t handlerPtr,
  void* contextPtr
- )
-{
-    auto &audio = taf_Audio::GetInstance();
-    return (taf_audio_DtmfDetectorHandlerRef_t) audio.AddDtmfDetectorHandler(streamRef, handlerPtr, contextPtr);
-}
-
-/**
-* FUNCTION     : OpenI2sRx
-* DESCRIPTION  : Open I2s interface Rx
-* DEPENDECY    :
-* PARAMETERS   : channel mode
-* RETURN VALUES: Stream Reference, NULL on error
-*/
-taf_audio_StreamRef_t taf_audio_OpenI2sRx
-(
-    taf_audio_I2SChannel_t mode  ///< [IN] The channel mode.
 )
 {
     auto &audio = taf_Audio::GetInstance();
-    return audio.OpenI2sRx(mode);
-
+    return (taf_audio_DtmfDetectorHandlerRef_t) audio.AddDtmfDetectorHandler(streamRef,
+            handlerPtr, contextPtr);
 }
 
-/**
-* FUNCTION     : OpenI2sTx
-* DESCRIPTION  : Open I2s interface Tx
-* DEPENDECY    :
-* PARAMETERS   : channel mode
-* RETURN VALUES: Stream Reference, NULL on error
-*/
-taf_audio_StreamRef_t taf_audio_OpenI2sTx
+void taf_audio_RemoveDtmfDetectorHandler
 (
-    taf_audio_I2SChannel_t mode  ///< [IN] The channel mode.
+ taf_audio_DtmfDetectorHandlerRef_t handlerRef
 )
 {
     auto &audio = taf_Audio::GetInstance();
-    return audio.OpenI2sTx(mode);
-
+    return audio.RemoveDtmfDetectorHandler(handlerRef);
 }
 
-/**
-* FUNCTION     : OpenPcmRx
-* DESCRIPTION  : Open Pcm Rx interface
-* DEPENDECY    :
-* PARAMETERS   : time slot number
-* RETURN VALUES: Stream Reference, NULL on error
-*/
-taf_audio_StreamRef_t taf_audio_OpenPcmRx
-(
-    uint32_t timeslot  ///< [IN] The time slot number.
-)
+COMPONENT_INIT
 {
+    LE_INFO("tafAudioSvc COMPONENT init...");
+
     auto &audio = taf_Audio::GetInstance();
-    return audio.OpenPcmRx(timeslot);
+    audio.Init();
 
-}
-
-/**
-* FUNCTION     : OpenPcmTx
-* DESCRIPTION  : Open Pcm Tx interface
-* DEPENDECY    :
-* PARAMETERS   : time slot number
-* RETURN VALUES: Stream Reference, NULL on error
-*/
-taf_audio_StreamRef_t taf_audio_OpenPcmTx
-(
-    uint32_t timeslot  ///< [IN] The time slot number.
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.OpenPcmTx(timeslot);
-
-}
-
-/**
-* FUNCTION     : SetSamplePcmSamplingRate
-* DESCRIPTION  : Set sampling rate for the stream
-* DEPENDECY    :
-* PARAMETERS   : Stream refernce and sampling rate
-* RETURN VALUES: LE_OK on success, LE_FAULT on error
-*/
-le_result_t taf_audio_SetSamplePcmSamplingRate
-(
-    taf_audio_StreamRef_t    streamRef,  ///< [IN] The Stream Ref.
-    uint32_t                 samplingRate  ///< [IN] The sampling rate.
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.SetSamplePcmSamplingRate(streamRef, samplingRate);
-
-}
-
-/**
- * FUNCTION     : GetSamplePcmSamplingRate
- * DESCRIPTION  : Get sampling rate of the stream
- * DEPENDECY    :
- * PARAMETERS   : Stream refernce
- * RETURN VALUES: LE_OK on success, LE_FAULT on error
- */
-le_result_t taf_audio_GetSamplePcmSamplingRate
-(
-    taf_audio_StreamRef_t    streamRef,  ///< [IN] The Stream Ref.
-    uint32_t                 *samplingRate  ///< [OUT] The sampling rate.
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.GetSamplePcmSamplingRate(streamRef, samplingRate);
-
-}
-
-/**
- * FUNCTION     : SetSamplePcmChannelNumber
- * DESCRIPTION  : Set channel number for the recorder stream
- * DEPENDECY    :
- * PARAMETERS   : Stream refernce and channel number
- * RETURN VALUES: LE_OK on success, LE_FAULT on error
- */
-le_result_t taf_audio_SetSamplePcmChannelNumber
-(
-    taf_audio_StreamRef_t    streamRef,  ///< [IN] The Stream Ref.
-    uint32_t                 channelNum  ///< [IN] The Channel number.
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.SetSamplePcmChannelNumber(streamRef, channelNum);
-
-}
-
-/**
- * FUNCTION     : GetSamplePcmChannelNumber
- * DESCRIPTION  : Get channel number of the recorder stream
- * DEPENDECY    :
- * PARAMETERS   : Stream refernce
- * RETURN VALUES: LE_OK on success, LE_FAULT on error
- */
-le_result_t taf_audio_GetSamplePcmChannelNumber
-(
-    taf_audio_StreamRef_t    streamRef,  ///< [IN] The Stream Ref.
-    uint32_t                 *channelNum  ///< [OUT] The Channel number.
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.GetSamplePcmChannelNumber(streamRef, channelNum);
-
-}
-
-/**
- * FUNCTION     : SetEncodingFormat
- * DESCRIPTION  : Set encoding format for the recorder stream
- * DEPENDECY    :
- * PARAMETERS   : Stream refernce and encoding format
- * RETURN VALUES: LE_OK on success, LE_FAULT on error
- */
-le_result_t taf_audio_SetEncodingFormat
-(
-    taf_audio_StreamRef_t    streamRef,  ///< [IN] The Stream Ref.
-    taf_audio_Format_t       format  ///< [IN] The Encoding format.
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.SetEncodingFormat(streamRef, format);
-
-}
-
-/**
- * FUNCTION     : GetEncodingFormat
- * DESCRIPTION  : Get encoding format of the recorder stream
- * DEPENDECY    :
- * PARAMETERS   : Stream refernce
- * RETURN VALUES: LE_OK on success, LE_FAULT on error
- */
-le_result_t taf_audio_GetEncodingFormat
-(
-    taf_audio_StreamRef_t    streamRef,  ///< [IN] The Stream Ref.
-    taf_audio_Format_t       *format  ///< [OUT] The sampling rate.
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.GetEncodingFormat(streamRef, format);
-
-}
-
-/**
- * FUNCTION     : OpenRecorder
- * DESCRIPTION  : Gets the reference of Recording stream
- * DEPENDECY    :
- * PARAMETERS   :
- * RETURN VALUES: Reference of a Stream, NULL on error
- */
-taf_audio_StreamRef_t taf_audio_OpenRecorder
-(
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.OpenRecorder();
-}
-
-/**
- * FUNCTION     : RecordFile
- * DESCRIPTION  : Records a file on a record stream
- * DEPENDECY    :
- * PARAMETERS   : Stream Reference for Audio and File descriptor
- * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
- */
-le_result_t taf_audio_RecordFile
-(
- taf_audio_StreamRef_t    streamRef,
- int fd
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.RecordFile(streamRef, fd);
+    LE_INFO("COMPONENT end init");
 }

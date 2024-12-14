@@ -116,7 +116,7 @@ def nack_response_handler(func):
         try:
             return func(*args, **kwargs)
         except udsoncan.exceptions.NegativeResponseException as e:
-            pass
+            raise
         except (udsoncan.exceptions.InvalidResponseException,
                 udsoncan.exceptions.UnexpectedResponseException) as e:
             print('Server sent an invalid payload : {}'.format(e.response.original_payload))

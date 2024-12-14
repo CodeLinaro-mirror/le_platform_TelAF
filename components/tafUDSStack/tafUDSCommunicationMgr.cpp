@@ -1203,6 +1203,20 @@ bool UdsCommunicationMgr::IsValidSvcActiveSession
 {
     LE_DEBUG("IsValidSvcActiveSession");
 
+    if ((uint8_t) SessionType == DEFAULT_SESSION)
+    {
+        if (sid == SECURITY_ACCESS_REQUEST_ID        /*0x27*/
+        ||  sid == INPUT_OUTPUT_CONTROL_REQUEST_ID   /*0x2F*/
+        ||  sid == TRANSFER_DATA_REQUEST_ID          /*0x36*/
+        ||  sid == REQUEST_TRANSFER_EXIT_REQUEST_ID  /*0x37*/
+        ||  sid == REQUEST_FILE_TRANSFER_REQUEST_ID  /*0x38*/
+        /* More services aren't allowed in defaultSession (ISO14229-1-2020 Table 23)*/
+        )
+        {
+            return false;
+        }
+    }
+
     // Check "session access" for requested service.
     try{
         cfg::Node & svcAllNode = cfg::get_root_node().get_child("services_all");
@@ -2642,7 +2656,7 @@ le_result_t UdsCommunicationMgr::IndicateRxXferDataReq
     if (recvDataLen < UDS_REQ_XFER_DATA_BASE_LEN)
     {
         isXferActive = false;
-        LE_DEBUG("recvDataLen is less than the RxXferDataReq msg minimum length.");
+        LE_ERROR("recvDataLen is less than the RxXferDataReq msg minimum length.");
         *isInternalHandle = true;
         // UDS_0x36_NRC_13: Less than minimum length
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
@@ -2652,7 +2666,7 @@ le_result_t UdsCommunicationMgr::IndicateRxXferDataReq
     if(recvDataLen > UDS_DATA_SIZE)
     {
         isXferActive = false;
-        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
+        LE_ERROR("recvDataLen is more than the UDS_DATA_SIZE.");
         *isInternalHandle = true;
         // UDS_0x36_NRC_13: overflow UDS_DATA_SIZE
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
@@ -4684,7 +4698,7 @@ le_result_t UdsCommunicationMgr::XferDataResp
     if (POSITIVE_RESPONSE != err)
     {
         isXferActive = false;
-        LE_DEBUG("Error code reported from Diag service");
+        LE_ERROR("Error code reported from Diag service");
         SetNRC(serviceId, err);
         return LE_OK;
     }
@@ -4767,7 +4781,7 @@ le_result_t UdsCommunicationMgr::ReqFileXferResp
     }
 
     uint16_t filePathAndNameLength = LENGTH_OF_FILE_NAME;
-    uint16_t maxNumberOfBlockLen = UDS_MAX_DATA_SIZE - 4; // Reduce the source & target addresses.
+    uint16_t maxNumberOfBlockLen = UDS_DATA_SIZE - 4; // Reduce the source & target addresses.
     uint8_t lengthFormatIdentifier = HowManyChars(maxNumberOfBlockLen);
 
     // Echo DFI_ in response

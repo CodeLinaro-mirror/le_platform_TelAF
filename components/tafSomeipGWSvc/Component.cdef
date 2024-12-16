@@ -48,6 +48,11 @@ bundles:
         // the minimal configurations that vsomeip requires. Shall
         // be modified accordingly based on target device's unicast
         // and multicast addresses.
+    #if ${LE_CONFIG_FLAVOR_LXC} = y
+        [rw] tafSomeipGWSvcLXC.json  /tafSomeipGWSvc.json
+    #else
         [rw] tafSomeipGWSvc.json   /
+        [rw] tafSomeipGWSvc_1.json   /
+    #endif
     }
 }

@@ -36,6 +36,11 @@ bundles:
     // name shall be "taf_rpc.json".
     file:
     {
+        #if ${LE_CONFIG_FLAVOR_LXC} = y
+        [rw] taf_rpcLXC.json  /taf_rpc.json
+        #else
         [rw] taf_rpc_sample.json   /
+        [rw] taf_rpc.json   /
+        #endif
     }
 }

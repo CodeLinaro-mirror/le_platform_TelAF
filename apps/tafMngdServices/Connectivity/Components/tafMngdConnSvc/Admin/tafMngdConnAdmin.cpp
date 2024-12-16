@@ -36,6 +36,7 @@
 #include "tafMngdConnData.hpp"
 #include "tafMngdConnRadio.hpp"
 #include "tafMngdConnSim.hpp"
+#include "tafMngdConnECall.hpp"
 #include "tafMngdConnAdmin.hpp"
 #include "limit.h"
 
@@ -78,6 +79,14 @@ void Sim_init()
 {
     auto &sim = tafMngdConnSim::GetInstance();
     sim.Init();
+}
+
+void ECall_init()
+{
+#ifndef LE_CONFIG_TARGET_SIMULATION
+    auto &ecall = tafMngdConnECall::GetInstance();
+    ecall.Init();
+#endif
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -137,6 +146,8 @@ void tafMngdConnAdmin::Init(void)
     Radio_init();
     //Initiate sim module.
     Sim_init();
+    //Initiate ECall module.
+    ECall_init();
 
     //Initiate the memory pool.
     DataCtxPool = le_mem_InitStaticPool(tafMngdConnMemPool, MCS_MAX_DATA_OBJ,
@@ -1847,6 +1858,7 @@ void *tafMngdConnAdmin::StateMachineEventThreadFunc(void *contextPtr)
 #ifndef LE_CONFIG_TARGET_SIMULATION
     taf_net_ConnectService();
     taf_mngdPm_ConnectService();
+    taf_ecall_ConnectService();
 #endif
 
     // internal event handler
@@ -3526,11 +3538,26 @@ void tafMngdConnAdmin::EventL1ConnRecoveryStart(uint8_t dataId)
 
     // Reset connectivity recovery scheduled flag
     dataCtxPtr->isConnectivityRecoveryScheduled = false;
-    // Mark that connectivity recovery was tried
-    dataCtxPtr->wasL1ConnectivityRecoveryDone = true;
 
     // Set the reconnected needed flag to TRUE
     dataCtxPtr->needReConn = true;
+
+#ifndef LE_CONFIG_TARGET_SIMULATION
+    auto &ecall = tafMngdConnECall::GetInstance();
+    if (ecall.IsECallInProgress())
+    {
+        LE_WARN("eCall is in progress. Cannot proceed with L1 recovery");
+        dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L1;
+        // Inform admin that L1 recovery is interrupted
+        stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+        stateMachineEvt.dataId = dataCtxPtr->dataId;
+        stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_INTERRUPTED;
+        le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+        return;
+    }
+#endif
+    // Mark that connectivity recovery was tried
+    dataCtxPtr->wasL1ConnectivityRecoveryDone = true;
 
     ReportRecoveryEvent(TAF_MNGDCONN_RECOVERY_STARTED, dataCtxPtr,
                         TAF_MNGDCONN_RECOVERY_RADIO_OFF_ON);
@@ -3696,11 +3723,26 @@ void tafMngdConnAdmin::EventL2ConnRecoveryStart(uint8_t dataId)
 
     // Reset connectivity recovery scheduled flag
     dataCtxPtr->isConnectivityRecoveryScheduled = false;
-    // Mark that connectivity recovery was tried
-    dataCtxPtr->wasL2ConnectivityRecoveryDone = true;
 
     // Set the reconnected needed flag to TRUE
     dataCtxPtr->needReConn = true;
+
+#ifndef LE_CONFIG_TARGET_SIMULATION
+    auto &ecall = tafMngdConnECall::GetInstance();
+    if (ecall.IsECallInProgress())
+    {
+        LE_WARN("eCall is in progress. Cannot proceed with L2 recovery");
+        dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L2;
+        // Inform admin that L2 recovery is interrupted
+        stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+        stateMachineEvt.dataId = dataCtxPtr->dataId;
+        stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_INTERRUPTED;
+        le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+        return;
+    }
+#endif
+    // Mark that connectivity recovery was tried
+    dataCtxPtr->wasL2ConnectivityRecoveryDone = true;
 
     ReportRecoveryEvent(TAF_MNGDCONN_RECOVERY_STARTED, dataCtxPtr,
                         TAF_MNGDCONN_RECOVERY_SIM_OFF_ON);
@@ -3852,6 +3894,21 @@ void tafMngdConnAdmin::EventL3ConnRecoveryStart(uint8_t dataId)
         LE_ERROR("Unable to get reference for data id: %d", dataId);
         return;
     }
+
+#ifndef LE_CONFIG_TARGET_SIMULATION
+    auto &ecall = tafMngdConnECall::GetInstance();
+    if (ecall.IsECallInProgress())
+    {
+        LE_WARN("eCall is in progress. Cannot proceed with L3 recovery");
+        dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L3;
+        // Inform admin that L3 recovery is interrupted
+        stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+        stateMachineEvt.dataId = dataCtxPtr->dataId;
+        stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_INTERRUPTED;
+        le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+        return;
+    }
+#endif
 
     // Ensure service is in the correct state.
     if (MCS_RECOVERY_STARTED_L3 == dataCtxPtr->adminState)

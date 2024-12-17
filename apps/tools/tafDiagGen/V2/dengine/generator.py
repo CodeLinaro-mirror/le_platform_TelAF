@@ -110,12 +110,14 @@ def generate_code(root_node, tmpls_layer, build_dir):
     timestamp = datetime.timestamp(datetime.now())
     generated_time = datetime.fromtimestamp(timestamp).strftime('%Y_%m_%d__%H_%M_%S')
 
-    orig_evid_h_tmpl = "diag_event_id.h.jinja"
+    orig_evid_h_tmpl = "diag_ids.h.jinja"
     evid_h_generated = get_generated_name(orig_evid_h_tmpl, build_dir)
     evid_h_template = env.get_template(orig_evid_h_tmpl)
     evid_h_code = evid_h_template.render(
-                        root = root_node['events'],
-                        name_max_len = max([len(ev['mnemonic']) for ev in root_node['events'].values()]),
+                        root_node = root_node,
+                        ev_id_name_max = max([len(ev['mnemonic']) for ev in root_node['events'].values()]),
+                        cond_id_name_max = max([len(k) for k in root_node['datas_enable_conditions'].keys()]),
+                        oc_id_name_max = max([len(k) for k in root_node['operation_cycle'].keys()]),
                         tool_version = tool_version,
                         generated_time = generated_time
                         )

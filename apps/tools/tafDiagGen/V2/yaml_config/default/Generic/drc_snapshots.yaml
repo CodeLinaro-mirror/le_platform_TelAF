@@ -1,0 +1,21 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+domain_name: Generic
+
+data_identifier_set:
+  base: [ 0xF0D0, 0xF0D2 ]
+
+freeze_frames:
+  firstOccurrence:
+    short_name: firstOccurrence
+    record_number: 0x01
+    trigger: testFailed
+    update: false
+    custom_trigger:
+  lastOccurrence:
+    short_name: lastOccurrence
+    record_number: 0x02
+    trigger: testFailed
+    update: true
+    custom_trigger:

@@ -48,7 +48,16 @@ def schema__authentication_roles(top_node):
     if need_to_stop is True:
         sys.exit(1)
 
+
+def schema__debounce_algorithm_type(top_node): pass
+def schema_freeze_frame_trigger_type(top_node): pass
+
 mapping = {
+    # Added by default, don't check them!!
+    'debounce_algorithm_type': schema__debounce_algorithm_type,
+    'freeze_frame_trigger_type' : schema_freeze_frame_trigger_type,
+
+    # Will be exported and removed in near future
     'authentication_roles' : schema__authentication_roles,
 }
 

@@ -3777,9 +3777,9 @@ le_result_t taf_Audio::SetVolume
         }
         ErrorCode err;
         if(streamPtr->direction == TAF_AUDIO_RX)
-            err = mAudioPlayer->setVolume(streamVol);
+            err = mAudioPlayer->setVolume(volLevel);
         else
-            err = mTxAudioPlayer->setVolume(streamVol);
+            err = mTxAudioPlayer->setVolume(volLevel);
         if (ErrorCode::SUCCESS != err) {
             LE_ERROR("Request to set volume failed err: %d", int (err));
             return LE_FAULT;
@@ -3893,18 +3893,17 @@ le_result_t taf_Audio::GetVolume
             return LE_OK;
         }
         ErrorCode err;
+        float volume;
         if(streamPtr->direction == TAF_AUDIO_RX)
-            err = mAudioPlayer->getVolume(streamVol);
+            err = mAudioPlayer->getVolume(volume);
         else
-            err = mTxAudioPlayer->getVolume(streamVol);
+            err = mTxAudioPlayer->getVolume(volume);
         if (ErrorCode::SUCCESS != err) {
-            LE_ERROR("Request to get Mute status failed err: %d", int (err));
+            LE_ERROR("Request to get volume failed err: %d", int (err));
             return LE_FAULT;
         } else {
-            for (auto channelVolume : streamVol.volume) {
-                LE_INFO("vol is %f", channelVolume.vol);
-                *volLevel  = channelVolume.vol;
-            }
+            LE_INFO("vol is %f", volume);
+            *volLevel  = volume;
             return LE_OK;
         }
 #else

@@ -280,7 +280,11 @@ le_result_t taf_mngdPm_WakeupVehicleReqAsync(int32_t reason,
         else
         {
             LE_INFO("Returning unsupported if drive is not available");
-            handlerPtr = nullptr;
+
+            if (handlerPtr != nullptr)
+            {
+                handlerPtr(reason, VEHICHLE_WAKEUP_STATUS_INVALID_REQ, contextPtr);
+            }
             // Send ready incase of driver not available.
             return LE_UNSUPPORTED;
         }

@@ -6,12 +6,13 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#define EVENT_ID_0029 29 //Defined in YAML file
-#define DRIVING_CYCLE_ID 1 // The operation cycle id value of Event id 29
+#include "diag_ids.h"
 
-// The enable condition id.
-#define ENABLE_CONDITION_ID5 5
-#define ENABLE_CONDITION_ID6 6
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+#define Event_Sample_Big Event_ID_0x01
+#define Condition_tooBig 5
+#define Condition_toSmall 6
+#endif
 
 #define SUPPLIER_FAULT_CODE_LEN 5
 #define MAX_PREFAILED_NUMBER 20
@@ -148,7 +149,7 @@ static void* changeEventStatus()
     taf_diagDTC_ActivationStatus_t activationStatus;
 
     //Get the diag event service
-    diagEvent0001SvcRef = taf_diagEvent_GetService(EVENT_ID_0029);
+    diagEvent0001SvcRef = taf_diagEvent_GetService(Event_Sample_Big);
     if(diagEvent0001SvcRef == NULL)
     {
         LE_ERROR("Failed to get diagEvent service");
@@ -242,11 +243,11 @@ static void* changeEventStatus()
     LE_INFO("Start first operation cycle");
 
     //failureCounter =0
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
@@ -260,11 +261,11 @@ static void* changeEventStatus()
     }
 
     //failureCounter is 1
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
@@ -379,11 +380,11 @@ static void* changeEventStatus()
     //failureCounter is 0 after the clear
 
     LE_INFO("Start second operation cycle");
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
@@ -405,20 +406,20 @@ static void* changeEventStatus()
         return NULL;
     }
 
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
     LE_INFO("Start third operation cycle");
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
@@ -432,20 +433,20 @@ static void* changeEventStatus()
     }
 
     //failureCounter is 2
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
     LE_INFO("Start fourth operation cycle");
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
@@ -459,11 +460,11 @@ static void* changeEventStatus()
     }
 
     //DTC is confirmed(confirmation_threshold = 3 in YAML file ), failureCounter is 0
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
@@ -487,11 +488,11 @@ static void* changeEventStatus()
     LE_INFO("DTC code : 0x%x, DTC status : 0x%x", dtcCode, dtcStatus);
 
     LE_INFO("Start fifth operation cycle");
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
@@ -521,11 +522,11 @@ static void* changeEventStatus()
         return NULL;
     }
 
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
@@ -550,11 +551,11 @@ static void* changeEventStatus()
 
     //test counter based debounce , set prefailed 20 times which is more than
     //counter_failed_threshold which is 10
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
@@ -586,20 +587,20 @@ static void* changeEventStatus()
         }
     }
 
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
     //test counter based , set prefailed 8 times, counter_failed_threshold is 10
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
@@ -627,19 +628,19 @@ static void* changeEventStatus()
 
     // set enable condition as false
     le_result_t res_5, res_6;
-    res_5 = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID5, false);
-    res_6 = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID6, false);
+    res_5 = taf_diag_SetEnableCondition(Condition_tooBig, false);
+    res_6 = taf_diag_SetEnableCondition(Condition_toSmall, false);
     if((res_5 != LE_OK) || (res_6 != LE_OK))
     {
         LE_ERROR("Failed to set enable condition to false");
         return NULL;
     }
 
-    result = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID5, true);
+    result = taf_diag_SetEnableCondition(Condition_tooBig, true);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to set enable condition to true, result:%d, conditionId:%d", result,
-                ENABLE_CONDITION_ID5);
+                Condition_tooBig);
         return NULL;
     }
 
@@ -657,11 +658,11 @@ static void* changeEventStatus()
         }
      }
 
-    result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE_ID, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
-                result, eventId, DRIVING_CYCLE_ID);
+                result, eventId, OperationCycle_DC);
         return NULL;
     }
 
@@ -771,7 +772,7 @@ static void* diagEventUdsStatusTheadFunc(void* ctxPtr)
     taf_diagEvent_ConnectService();
 
     //Get the same diag event service
-    diagEventRef = taf_diagEvent_GetService(EVENT_ID_0029);
+    diagEventRef = taf_diagEvent_GetService(Event_Sample_Big);
     if(diagEventRef == NULL)
     {
         LE_ERROR("Get diagEvent service");
@@ -801,14 +802,14 @@ static void* enableCondStateTheadFunc(void* ctxPtr)
     taf_diagEvent_ConnectService();
 
     //Get the same diag event service
-    diagEventRef = taf_diagEvent_GetService(EVENT_ID_0029);
+    diagEventRef = taf_diagEvent_GetService(Event_Sample_Big);
     if(diagEventRef == NULL)
     {
         LE_ERROR("Get diagEvent service");
         return NULL;
     }
 
-    taf_diagEvent_EnableCondStateHandlerRef_t enableCondStateRef = 
+    taf_diagEvent_EnableCondStateHandlerRef_t enableCondStateRef =
             taf_diagEvent_AddEnableCondStateHandler(diagEventRef,
             (taf_diagEvent_EnableCondStateHandlerFunc_t)enableCondStateChangeHandler, ctxPtr);
 
@@ -892,15 +893,15 @@ COMPONENT_INIT
     le_result_t result;
     semRef = le_sem_Create("SemRef", 0);
 
-    result = taf_diag_SetEnableCondition(ENABLE_CONDITION_ID5, true);
+    result = taf_diag_SetEnableCondition(Condition_tooBig, true);
 
     if(result != LE_OK)
     {
         LE_ERROR("Failed to set enable condition");
     }
 
-    bool status = taf_diag_GetEnableConditionStatus(ENABLE_CONDITION_ID5);
-    LE_DEBUG("Enable condition status of %d is %d", ENABLE_CONDITION_ID5, status);
+    bool status = taf_diag_GetEnableConditionStatus(Condition_tooBig);
+    LE_DEBUG("Enable condition status of %d is %d", Condition_tooBig, status);
 
     // Create event uds status change thread
     le_thread_Ref_t eventUdsStatusThreadRef = le_thread_Create("udsStatusTh",

@@ -1,6 +1,8 @@
 {
     "Product": "TelAF",
     "Name": "MSS",
+    "Version": "0.0.0",
+    "Extension": "/data/persist/telaf/",
     "MSS Config Storage": {
         "Configuration": {
             "UpdatePath":[

@@ -34,7 +34,6 @@
 
 #include "tafMngdStorageSvc.hpp"
 #include <sys/stat.h>
-#include <unordered_map>
 #include <string>
 #include <dirent.h>
 #include <limits.h>
@@ -87,9 +86,9 @@ le_result_t tafMngdStorageSvc::CreateDirectory(const char *path)
 void tafMngdStorageSvc::InitConfigStorage()
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
-    le_result_t res =  mss.ParseServiceJsonConfig();
+    le_result_t res =  mss.PreCheckExtensionJson();
     if(res != LE_OK){
-        LE_FATAL("Unable to parse json %s",DEFAULT_MSS_CONFIG_NAME);
+        LE_FATAL("Unable to parse service json");
     }
 
     res = CreateDirectory(configStorage);
@@ -135,6 +134,9 @@ void tafMngdStorageSvc::InitConfigStorage()
     versionStoragePool = le_mem_CreatePool("versionStoragePool",
         sizeof(tafMngdStorage_ConfigVersionInfo_t));
 
+    cfgTempStoragePool = le_mem_CreatePool("cfgTempStoragePool",
+        sizeof(tafMngdStorage_ConfigFileData_t));
+
     configStorageRefMap = le_ref_CreateMap("ConfigStorageRefMap", MAX_NUM_OF_CONFIG_STORAGE);
 
     //Loads Plugin Module.
@@ -154,11 +156,54 @@ void tafMngdStorageSvc::InitConfigStorage()
     }
 }
 
-le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(){
-    LE_INFO("Parsing %s", DEFAULT_MSS_CONFIG_NAME);
+le_result_t tafMngdStorageSvc::PreCheckExtensionJson()
+{
     std::ifstream jfile(DEFAULT_MSS_CONFIG_NAME);
     if(!jfile.is_open()){
         LE_WARN ("Unable to open %s", DEFAULT_MSS_CONFIG_NAME);
+        return LE_FAULT;
+    }
+    // Create a root
+    pt::ptree root;
+    std::string version = "";
+    // Load the json file in this ptree
+    try
+    {
+        pt::read_json(DEFAULT_MSS_CONFIG_NAME, root);
+        version = root.get<std::string>("Version");
+        LE_INFO("Version of Json is %s",version.c_str());
+        std::string extension = root.get<std::string>("Extension");
+        if (extension != ""){
+            char extensionPath[LIMIT_MAX_PATH_BYTES];
+            snprintf(extensionPath,LIMIT_MAX_PATH_BYTES,"%s%s",extension.c_str(),
+                DEFAULT_MSS_CONFIG_NAME);
+            if(IsFileExisting(extensionPath)){
+                le_result_t result = ParseServiceJsonConfig(extensionPath);
+                if(result == LE_OK){
+                    LE_INFO("Service Initialize with extension json %s",extensionPath);
+                    return result;
+                }
+            }
+        }
+    }
+    catch (const std::exception &e)
+    {
+        LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
+        return LE_FAULT;
+    }
+    LE_INFO("Unable to intialize with extension json ,Intializing with default json");
+    //Initializing with default json
+    char configPath[LIMIT_MAX_PATH_BYTES];
+    snprintf(configPath,LIMIT_MAX_PATH_BYTES,"%s",DEFAULT_MSS_CONFIG_NAME);
+    le_result_t res = ParseServiceJsonConfig(configPath);
+    return res;
+}
+
+le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(char* configPath){
+    LE_INFO("Parsing %s", configPath);
+    std::ifstream jfile(configPath);
+    if(!jfile.is_open()){
+        LE_WARN ("Unable to open %s", configPath);
         return LE_FAULT;
     }
 
@@ -167,24 +212,19 @@ le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(){
     // Load the json file in this ptree
     try
     {
-        pt::read_json(DEFAULT_MSS_CONFIG_NAME, root);
-    }
-    catch (const std::exception &e)
-    {
-        LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
-        return LE_FAULT;
-    }
-    std::string product = root.get<std::string>("Product");
-     if (product != "TelAF"){
-        LE_WARN("Invalid JSON property value");
-        return LE_FAULT;
-    }
-    std::string name = root.get<std::string>("Name");
-    if(name != "MSS"){
-        LE_WARN("Invalid JSON property value");
-        return LE_FAULT;
-    }
-    try {
+        pt::read_json(configPath, root);
+        std::string product = root.get<std::string>("Product");
+        if (product != "TelAF"){
+            LE_WARN("Invalid JSON property value");
+            return LE_FAULT;
+        }
+        std::string name = root.get<std::string>("Name");
+        if(name != "MSS"){
+            LE_WARN("Invalid JSON property value");
+            return LE_FAULT;
+        }
+        std::string svcJsonVersion = root.get<std::string>("Version");
+        LE_INFO("Version of Json is %s",svcJsonVersion.c_str());
         for (const auto& item : root.get_child("MSS Config Storage.Configuration.UpdatePath")) {
             const boost::property_tree::ptree& uPath = item.second;
             std::string fPath = uPath.get<std::string>("Path");
@@ -193,7 +233,6 @@ le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(){
             isQcmFormat =  format;
             LE_INFO("update path is %s and qc format is %d",updatePath,format);
         }
-
         for (const auto& item : root.get_child("MSS Config Storage.Configuration.StoragePath")) {
             const boost::property_tree::ptree& uPath = item.second;
             std::string basePath = uPath.get<std::string>("BasePath");
@@ -203,8 +242,10 @@ le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(){
             snprintf(configRfsStorage,sizeof(configRfsStorage),"%s",backupPath.c_str());
             LE_INFO("Backup path is %s",configRfsStorage);
         }
-    } catch (const boost::property_tree::ptree_error& e) {
-        LE_ERROR("Error accessing JSON data with error %s",e.what());
+    }
+    catch (const std::exception &e)
+    {
+        LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
         return LE_FAULT;
     }
     return LE_OK;
@@ -320,6 +361,14 @@ le_result_t tafMngdStorageSvc::Update(taf_mngdStorCfg_ConfigRef_t configStor,
         LE_INFO("successfully created backup file at path %s",backUpPath);
     }
 
+    // Releasing configuration Files Path Data
+    for(int i=0;i<MAX_OEM_CONFIG_FILES;i++){
+        if(configFileData[i] != NULL){
+            le_mem_Release(configFileData[i]);
+            configFileData[i] = NULL;
+        }
+    }
+
     // Lock configStorage and configRfsStorage
     result = LockStorage();
     if(result != LE_OK)
@@ -428,6 +477,14 @@ le_result_t tafMngdStorageSvc::Cancel(taf_mngdStorCfg_ConfigRef_t configRef){
     if(versionInfo != NULL){
         le_mem_Release(versionInfo);
         versionInfo = NULL;
+    }
+
+    // Releasing configuration File Data
+    for(int i=0;i<MAX_OEM_CONFIG_FILES;i++){
+        if(configFileData[i] != NULL){
+            le_mem_Release(configFileData[i]);
+            configFileData[i] = NULL;
+        }
     }
 
     // Lock configStorage and configRfsStorage
@@ -683,7 +740,7 @@ le_result_t tafMngdStorageSvc::GetFiles(const char *path,uint32_t maxFiles)
             return LE_OUT_OF_RANGE;
         }
         configFileData[i] =
-                (tafMngdStorage_ConfigFileData_t*)malloc(sizeof(tafMngdStorage_ConfigFileData_t));
+                (tafMngdStorage_ConfigFileData_t*)le_mem_ForceAlloc(cfgTempStoragePool);
         if(configFileData[i] != NULL){
             snprintf(configFileData[i]->fileName,
                         sizeof(configFileData[i]->fileName),"%s",d->d_name);

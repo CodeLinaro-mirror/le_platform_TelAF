@@ -54,11 +54,55 @@ namespace pt = boost::property_tree;
 #define MSS_SEC_STORE_SIZE (1024 * 8)
 #endif
 
-le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(){
-    LE_INFO("Parsing %s", DEFAULT_MSS_CONFIG_NAME);
+le_result_t tafMngdStorageSvc::PreCheckExtensionJson()
+{
     std::ifstream jfile(DEFAULT_MSS_CONFIG_NAME);
     if(!jfile.is_open()){
         LE_WARN ("Unable to open %s", DEFAULT_MSS_CONFIG_NAME);
+        return LE_FAULT;
+    }
+    // Create a root
+    pt::ptree root;
+    std::string version = "";
+    // Load the json file in this ptree
+    try
+    {
+        pt::read_json(DEFAULT_MSS_CONFIG_NAME, root);
+        version = root.get<std::string>("Version");
+        LE_INFO("Version of Json is %s",version.c_str());
+        std::string extension = root.get<std::string>("Extension");
+        if (extension != ""){
+            char extensionPath[LIMIT_MAX_PATH_BYTES];
+            snprintf(extensionPath,LIMIT_MAX_PATH_BYTES,"%s%s",extension.c_str(),
+                DEFAULT_MSS_CONFIG_NAME);
+            if(IsFileExisting(extensionPath)){
+                le_result_t result = ParseServiceJsonConfig(extensionPath);
+                if(result == LE_OK){
+                    LE_INFO("Service Initialize with extension json %s",extensionPath);
+                    return result;
+                }
+            }
+        }
+    }
+    catch (const std::exception &e)
+    {
+        LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
+        return LE_FAULT;
+    }
+    LE_INFO("Unable to intialize with extension json ,Intializing with default json");
+    //Initializing with default json
+    char configPath[LIMIT_MAX_PATH_BYTES];
+    snprintf(configPath,LIMIT_MAX_PATH_BYTES,"%s",DEFAULT_MSS_CONFIG_NAME);
+    le_result_t res = ParseServiceJsonConfig(configPath);
+    return res;
+}
+
+le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(char* configPath)
+{
+    LE_INFO("Parsing %s", configPath);
+    std::ifstream jfile(configPath);
+    if(!jfile.is_open()){
+        LE_WARN ("Unable to open %s", configPath);
         return LE_FAULT;
     }
 
@@ -67,25 +111,19 @@ le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(){
     // Load the json file in this ptree
     try
     {
-        pt::read_json(DEFAULT_MSS_CONFIG_NAME, root);
-    }
-    catch (const std::exception &e)
-    {
-        LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
-        return LE_FAULT;
-    }
-    std::string product = root.get<std::string>("Product");
-     if (product != "TelAF"){
-        LE_WARN("Invalid JSON property value");
-        return LE_FAULT;
-    }
-    std::string name = root.get<std::string>("Name");
-    if(name != "MSS"){
-        LE_WARN("Invalid JSON property value");
-        return LE_FAULT;
-    }
-    try
-    {
+        pt::read_json(configPath, root);
+        std::string product = root.get<std::string>("Product");
+        if (product != "TelAF"){
+            LE_WARN("Invalid JSON property value");
+            return LE_FAULT;
+        }
+        std::string name = root.get<std::string>("Name");
+        if(name != "MSS"){
+            LE_WARN("Invalid JSON property value");
+            return LE_FAULT;
+        }
+        std::string svcJsonVersion = root.get<std::string>("Version");
+        LE_INFO("Version of Json is %s",svcJsonVersion.c_str());
         for (const auto &item : root.get_child("MSS Secure Data Storage.Configuration.StoragePath"))
         {
             const boost::property_tree::ptree &uPath = item.second;
@@ -97,9 +135,9 @@ le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(){
             LE_INFO("Backup path is %s", secDataRfsStorage);
         }
     }
-    catch (const boost::property_tree::ptree_error &e)
+    catch (const std::exception &e)
     {
-        LE_ERROR("Error accessing JSON data with error %s",e.what());
+        LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
         return LE_FAULT;
     }
     return LE_OK;
@@ -109,7 +147,7 @@ void tafMngdStorageSvc::InitStorage
 (
 )
 {
-    le_result_t res = ParseServiceJsonConfig();
+    le_result_t res = PreCheckExtensionJson();
     if(res != LE_OK){
         LE_FATAL("unable to parse service json");
     }

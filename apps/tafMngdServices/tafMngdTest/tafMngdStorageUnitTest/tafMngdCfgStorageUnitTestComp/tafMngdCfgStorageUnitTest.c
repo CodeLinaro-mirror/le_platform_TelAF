@@ -346,10 +346,10 @@ COMPONENT_INIT
         LE_TEST_INFO("GetVersion Process Test");
         CheckNumArgs(numArgs,1);
         result = GetVersion();
-        LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_GetValue()");
+        LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_GetVersion()");
     }
     else if(strncmp(testType, "GetNodeInfo", strlen(testType)) == 0){
-        LE_TEST_INFO("GetValuE Process Test");
+        LE_TEST_INFO("GetValue Process Test");
         CheckNumArgs(numArgs,3);
         const char *groupName = le_arg_GetArg(1);
         const char *nodeName = le_arg_GetArg(2);

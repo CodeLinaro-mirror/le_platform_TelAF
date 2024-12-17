@@ -780,8 +780,9 @@ void TEST_INCALL_AUDIO_RECORDING(bool isRemote)
 void TEST_AUDIO_VOICE_CONNECTION()
 {
     static const char*  DtmfString = "5";
-    static uint16_t     Duration = 5;
-    static uint32_t     Pause = 1;
+    static uint16_t     Duration = 5000;
+    static uint32_t     Pause = 1000;
+    static uint32_t     SlotId = 1;
     static double       gain = 1.0;
     le_result_t res;
 
@@ -863,6 +864,18 @@ void TEST_AUDIO_VOICE_CONNECTION()
     LE_TEST_INFO("To test taf_audio_StopDtmf on rxStreamRef.%p", rxStreamRef);
     res = taf_audio_StopDtmf(rxStreamRef);
     LE_TEST_OK((res == LE_OK), "taf_audio_StopDtmf - Pass");
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+
+    LE_TEST_INFO("To test taf_audio_PlaySignallingDtmf.");
+    res = taf_audio_PlaySignallingDtmf(SlotId, DtmfString, Duration, Pause);
+    LE_TEST_OK((res == LE_OK), "taf_audio_PlaySignallingDtmf - Pass");
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+
+    LE_TEST_INFO("To test taf_audio_StopSignallingDtmf");
+    res = taf_audio_StopSignallingDtmf(SlotId);
+    LE_TEST_OK((res == LE_OK), "taf_audio_StopSignallingDtmf - Pass");
 
     le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
 

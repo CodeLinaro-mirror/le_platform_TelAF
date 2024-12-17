@@ -76,7 +76,7 @@ bool isVoiceActive = false, isPbActive = false, isRpbActive = false, isRecording
 bool isVoiceStreamCreated = false, isPbStreamCreated = false, isRecordStreamCreated = false,
         isRpbStreamCreated = false, isLbStreamCreated = false, isDtmfRegistered = false,
         isDtmfToneStarted = false,  isTxPbStreamCreated = false, isTxRpbStreamCreated = false,
-        isRxRecordStreamCreated = false;
+        isRxRecordStreamCreated = false, isDtmfToneStartedTx = false;
 
 static void MyDtmfDetectorHandler
 (
@@ -351,21 +351,44 @@ void Test_Audio_DTMF_Detection_Deregister(){
     isDtmfRegistered = false;
 }
 
-void Test_Audio_Play_DTMF(const char* dtmfPtr, uint16_t duration, uint32_t pause,
-    double gain) {
+void Test_Audio_Play_DTMF(taf_audio_StreamRef_t streamRef, const char* dtmfPtr, uint16_t duration,
+    uint32_t pause, double gain) {
     le_result_t res;
-    LE_TEST_INFO("To test taf_audio_PlayDtmf on rxStreamRef.%p", rxStreamRef);
-    res = taf_audio_PlayDtmf(rxStreamRef, dtmfPtr, duration, pause, gain);
+    LE_TEST_INFO("To test taf_audio_PlayDtmf on StreamRef.%p", rxStreamRef);
+    res = taf_audio_PlayDtmf(streamRef, dtmfPtr, duration, pause, gain);
     LE_TEST_OK((res == LE_OK), "taf_audio_PlayDtmf - Pass");
     isDtmfToneStarted = true;
 }
 
-void Test_Audio_Stop_DTMF() {
+void Test_Audio_Play_Signalling_Dtmf(uint32_t slotId, const char* dtmfPtr, uint16_t duration,
+        uint32_t pause) {
     le_result_t res;
-    LE_TEST_INFO("To test taf_audio_StopDtmf on rxStreamRef.%p", rxStreamRef);
-    res = taf_audio_StopDtmf(rxStreamRef);
+    LE_TEST_INFO("To test taf_audio_PlaySignallingDtmf");
+    res = taf_audio_PlaySignallingDtmf(slotId, dtmfPtr, duration, pause);
+    LE_TEST_OK((res == LE_OK), "taf_audio_PlaySignallingDtmf - Pass");
+    if((res == LE_OK)) {
+        isDtmfToneStartedTx = true;
+    }
+}
+
+void Test_Audio_Stop_DTMF(taf_audio_StreamRef_t streamRef) {
+    le_result_t res;
+    LE_TEST_INFO("To test taf_audio_StopDtmf on StreamRef.%p", streamRef);
+    res = taf_audio_StopDtmf(streamRef);
     LE_TEST_OK((res == LE_OK), "taf_audio_StopDtmf - Pass");
-    isDtmfToneStarted = false;
+    if((res == LE_OK)) {
+        isDtmfToneStarted = false;
+    }
+}
+
+void Test_Audio_Stop_Signalling_Dtmf(uint32_t slotId) {
+    le_result_t res;
+    LE_TEST_INFO("To test Test_Audio_Stop_Signalling_Dtmf ");
+    res = taf_audio_StopSignallingDtmf(slotId);
+    LE_TEST_OK((res == LE_OK), "Test_Audio_Stop_Signalling_Dtmf - Pass");
+    if((res == LE_OK)) {
+        isDtmfToneStartedTx = false;
+    }
 }
 
 void Test_Audio_Playback_Start( taf_audio_StreamRef_t streamRef, string filePath )
@@ -873,6 +896,10 @@ void PrintHelp()
         cout<<"4 - Create record streams"<<endl;
         cout<<"5 - node API testing"<<endl;
         cout<<"6 - start loopback"<<endl;
+        cout<<"7 - start DTMF signalling"<<endl;
+        if(isDtmfToneStartedTx) {
+           cout<<"8 - stop DTMF signalling"<<endl;
+        }
     }
 }
 
@@ -2160,13 +2187,39 @@ void StartInputMonitoring
                 cin >> gain;
                 IS_CIN_FAILURE;
                 p = fgets(inputStr, sizeof(inputStr), stdin);
-                Test_Audio_Play_DTMF(DtmfString.c_str(), duration, pause, gain);
+                Test_Audio_Play_DTMF(rxStreamRef, DtmfString.c_str(), duration, pause,
+                        gain);
+
             } else if (strncmp(inputStr, "stopDtmf", 8) == 0) {
-                Test_Audio_Stop_DTMF();
+                Test_Audio_Stop_DTMF(rxStreamRef);
             } else if(strncmp(inputStr, "registerDtmfDetection", 21) == 0) {
                 Test_Audio_DTMF_Detection_Register();
             } else if(strncmp(inputStr, "deregisterDtmfDetection", 23) == 0) {
                 Test_Audio_DTMF_Detection_Deregister();
+            } else if (strncmp(inputStr, "7", 1) == 0){
+                cout << "Enter dtmf characters: ";
+                cin >> DtmfString;
+                IS_CIN_FAILURE;
+                p = fgets(inputStr, sizeof(inputStr), stdin);
+                cout << "Enter duration:";
+                cin >> duration;
+                IS_CIN_FAILURE;
+                p = fgets(inputStr, sizeof(inputStr), stdin);
+                cout << "Enter pause:";
+                cin >> pause;
+                IS_CIN_FAILURE;
+                p = fgets(inputStr, sizeof(inputStr), stdin);
+                cout << "Enter slotId:";
+                cin >> number;
+                IS_CIN_FAILURE;
+                p = fgets(inputStr, sizeof(inputStr), stdin);
+                Test_Audio_Play_Signalling_Dtmf(number, DtmfString.c_str(), duration, pause);
+            } else if (strncmp(inputStr, "8", 1) == 0) {
+                cout << "Enter slotId:";
+                cin >> number;
+                IS_CIN_FAILURE;
+                p = fgets(inputStr, sizeof(inputStr), stdin);
+                Test_Audio_Stop_Signalling_Dtmf(number);
             }
         }
         else

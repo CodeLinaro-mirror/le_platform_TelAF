@@ -43,6 +43,10 @@
 #include <telux/audio/AudioFactory.hpp>
 #include <telux/audio/AudioManager.hpp>
 #include <telux/audio/AudioPlayer.hpp>
+#include <telux/tel/CallManager.hpp>
+#include <telux/tel/CallListener.hpp>
+#include <telux/common/CommonDefines.hpp>
+#include <telux/tel/PhoneDefines.hpp>
 
 using namespace telux::common;
 using namespace telux::audio;
@@ -89,6 +93,7 @@ using namespace telux::audio;
 #define AUDIO_SVC_PROC_CONFIG_PATH "system:/apps/tafAudioSvc/procs/tafAudioSvc"
 #define DEFAULT_MAX_FILE_BYTES 90112
 #define MAX_FILE_BYTES_NODE_NAME "maxFileBytes"
+#define INFINITE_TONE_DURATION 65535
 
 /**
  * Symbols used to populate wave header file.
@@ -263,10 +268,14 @@ typedef struct
 }taf_PbList_t;
 
 typedef struct {
-    uint16_t duration;
+    uint16_t durationRx;
+    uint32_t durationTx;
     uint32_t pause;
+    int32_t slotId;
     double dtmfGain;
     std::vector<std::pair<int, int>> frequencyList{};
+    const char* dtmfChars;
+    le_result_t result;
 }taf_Dtmf_t;
 
 /**
@@ -319,6 +328,16 @@ namespace tafsvc {
         public:
             virtual void onDtmfToneDetection(DtmfTone dtmfTone) override;
     };
+
+    class tafSignallingDtmfListener : public telux::common::ICommandResponseCallback {
+        public:
+        tafSignallingDtmfListener(std::string commandName);
+        void commandResponse(telux::common::ErrorCode error) override;
+
+        private:
+        std::string commandName_;
+    };
+
 
 class taf_Audio : public ITafSvc
 {
@@ -373,9 +392,12 @@ class taf_Audio : public ITafSvc
         le_result_t GetMute( taf_audio_StreamRef_t streamRef, bool *isMute);
         le_result_t SetVolume( taf_audio_StreamRef_t streamRef, double volLevel, bool isClient);
         le_result_t GetVolume( taf_audio_StreamRef_t streamRef, double *volLevel);
+        le_result_t PlaySignallingDtmf(uint32_t slotId, const char* dtmfPtr, uint32_t duration,
+                uint32_t pause);
         le_result_t PlayDtmf(taf_audio_StreamRef_t streamRef,
                 const char* dtmfPtr, uint16_t duration, uint32_t pause, double gain);
         le_result_t StopDtmf(taf_audio_StreamRef_t streamRef);
+        le_result_t StopSignallingDtmf(uint32_t slotId);
         char getDTMFChar(telux::audio::DtmfLowFreq lowFreq, telux::audio::DtmfHighFreq highFreq);
 
         private:
@@ -408,6 +430,7 @@ class taf_Audio : public ITafSvc
         bool mCallStarted = false;
         bool mVoiceEnabled1 = false;
         bool mDtmfStarted = false;
+        bool mDtmfStartedTx = false;
         bool mModemRx = false;
         bool mSpeaker = false;
         bool mModemTx = false;
@@ -423,11 +446,11 @@ class taf_Audio : public ITafSvc
                 *mRxFile; //File ptr for incall downlink recording
         FILE *mPlayFile;
         le_sem_Ref_t mRecordSemRef, mRxRecordSemRef, mPbStartedSemRef, mRecStartedSemRef,
-                mDtmfStartedSemRef;
+                mDtmfStartedSemRef, mDtmfStartedSemRefTx;
         SlotId mRxSlotId = INVALID_SLOT_ID , mTxSlotId = INVALID_SLOT_ID;
         StreamConfig voiceStreamConfig = {};
         taf_PbList_t pbList;
-        taf_Dtmf_t dtmfData{};
+        taf_Dtmf_t dtmfDataRx{}, dtmfDataTx{};
         taf_mngdPm_InfoReportHandlerRef_t bubHandlerRef;
         taf_PlaybackFile_t currentPbFile;
         le_event_HandlerRef_t bufferHandlerRef;
@@ -502,8 +525,12 @@ class taf_Audio : public ITafSvc
         static void RegisterDtmfListenerCallback(ErrorCode error);
         static void PlayDtmfCallback(ErrorCode error);
         static void StopDtmfCallback(ErrorCode error);
+        std::shared_ptr<tafSignallingDtmfListener> onStartDtmfTone = nullptr;
+        std::shared_ptr<tafSignallingDtmfListener> onStopDtmfTone = nullptr;
+        std::shared_ptr<telux::tel::ICallManager> callManager = nullptr;
         std::pair<int, int> getDTMFFrequencies(char key);
         static void* playAllDtmfTones(void* dtmfTones);
+        static void* playDTMFonTX(void* dtmfTones);
         static void BufferEventHandler(void* contextPtr);
 };
 }

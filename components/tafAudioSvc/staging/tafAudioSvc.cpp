@@ -571,6 +571,44 @@ double                gain
 }
 
 /**
+ * FUNCTION     : PlaySignallingDtmf
+ * DESCRIPTION  : Plays Dtmf tone on TX path for voice call
+ * DEPENDECY    : Active Voice call
+ * PARAMETERS   : SlotId, DTMF chars, duration, pause
+ * RETURN VALUES: LE_OK on success, LE_UNSUPPORTED when no active RF call,
+ *                LE_BAD_PARAMETER on invalid parameters ,LE_BUSY when DTMF playback is in progress
+ *                and LE_FAULT on failure.
+ */
+le_result_t taf_audio_PlaySignallingDtmf
+(
+uint32_t              slotId,
+const char*           dtmfPtr,
+uint32_t              duration,
+uint32_t              pause
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.PlaySignallingDtmf(slotId, dtmfPtr, duration, pause);
+}
+
+/**
+ * FUNCTION     : StopDtmf
+ * DESCRIPTION  : Stop Dtmf on TX path for voice call
+ * DEPENDECY    : Active Voice call
+ * PARAMETERS   : Slot Id
+ * RETURN VALUES: LE_OK on success, LE_UNSUPPORTED when no active RF call,
+ *                LE_BAD_PARAMETER on invalid slotId and LE_FAULT on failure.
+ */
+le_result_t taf_audio_StopSignallingDtmf
+(
+uint32_t              slotId
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.StopSignallingDtmf(slotId);
+}
+
+/**
  * FUNCTION     : StopDtmf
  * DESCRIPTION  : Stop Dtmf
  * DEPENDECY    : Active Voice Stream

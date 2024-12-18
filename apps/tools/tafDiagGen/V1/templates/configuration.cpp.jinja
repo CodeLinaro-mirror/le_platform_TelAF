@@ -260,6 +260,24 @@ EXPORT_SYM uint8_t get_security_level_id(std::string level_name)
     return level_id;
 }
 
+EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_sessions_by_session_id(uint8_t session_id)
+{
+    NEED_INITED();
+
+    std::shared_ptr<std::vector<uint8_t>> session_list = std::make_shared<std::vector<uint8_t>>();
+
+    return session_list;
+}
+
+EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_levels_by_session_id(uint8_t session_id)
+{
+    NEED_INITED();
+
+    std::shared_ptr<std::vector<uint8_t>> level_list = std::make_shared<std::vector<uint8_t>>();
+
+    return level_list;
+}
+
 }
 }
 }

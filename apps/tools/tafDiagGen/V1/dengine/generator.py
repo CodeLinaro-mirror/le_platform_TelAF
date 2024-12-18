@@ -37,9 +37,14 @@ def f_get_value_type(value):
     else:
         raise Exception("Bad element --> [{}]".format(value))
 
+def f_to_hex_format(value, width=0):
+    assert type(value) is int
+    return f"0x{value:0{width}X}"
+
 Filters = {
     'f_get_list_elm_type': f_get_list_elm_type,
     'f_get_value_type' : f_get_value_type,
+    'f_to_hex_format' : f_to_hex_format,
 }
 
 def t_string(value):
@@ -103,6 +108,25 @@ def generate_code(custom, tmpls_layer, build_dir):
     timestamp = datetime.timestamp(datetime.now())
     generated_time = datetime.fromtimestamp(timestamp).strftime('%Y_%m_%d__%H_%M_%S')
 
+    root_node = custom.merged_data
+
+    orig_evid_h_tmpl = "diag_ids.h.jinja"
+    evid_h_generated = get_generated_name(orig_evid_h_tmpl, build_dir)
+    evid_h_template = env.get_template(orig_evid_h_tmpl)
+    evid_h_code = evid_h_template.render(
+                        root_node = root_node,
+                        ev_id_name_max = max([ev['id'] for ev in root_node['events'].values()]),
+                        oc_id_name_max = max([len(k) for k in root_node['operation_cycle'].keys()]),
+                        tool_version = tool_version + "_" + "customer",
+                        generated_time = generated_time
+                        )
+    with open(evid_h_generated, 'w') as evid_h_generated_fd:
+        evid_h_generated_fd.write(evid_h_code)
+    logc.info("[Generate] Event id header file done.")
+
+    evid_h_md5_str = compute_file_md5(evid_h_generated)
+    logc.info(f"[MD5] Event ID header file: {evid_h_md5_str}")
+
     json_md5_str = compute_file_md5(os.path.join(build_dir, JSON_FNAME))
     logc.info(f"[MD5] Json file: {json_md5_str}")
 
@@ -114,7 +138,6 @@ def generate_code(custom, tmpls_layer, build_dir):
 
     cpp_template = env.get_template(orig_cpp_tmpl)
     hpp_template = env.get_template(orig_hpp_tmpl)
-    root_node = custom.merged_data
 
     if not root_node: # Empty dict ?
         logc.error("Invalid 'root_node' for templates, empty 'customer' ? please check.")
@@ -122,7 +145,7 @@ def generate_code(custom, tmpls_layer, build_dir):
 
     cpp_rendered_code = cpp_template.render(root = root_node)
     hpp_rendered_code = hpp_template.render(root = root_node,
-                                                   tool_version = tool_version,
+                                                   tool_version = tool_version + "_" + "customer",
                                                    generated_time = generated_time,
                                                    json_md5 = json_md5_str)
 

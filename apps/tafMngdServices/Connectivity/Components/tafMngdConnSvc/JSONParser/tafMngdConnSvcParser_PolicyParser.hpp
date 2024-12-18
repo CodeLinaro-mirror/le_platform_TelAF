@@ -85,7 +85,7 @@ namespace tafsvc {
         mcs_Yes_No_t Enable;                    //Yes=1, No=0
         mcs_Yes_No_t VerifyCallingApp;          //Yes=1, No=0
         uint8_t  MinTimeBetweenTriggers;        // In seconds.
-        uint8_t  MaxTimeBetweenTriggers;        // In seconds.
+        uint16_t  MaxTimeBetweenTriggers;        // In seconds.
     } mcs_Policy_AppMngdConnectivityRecovery_t;
 
     typedef struct

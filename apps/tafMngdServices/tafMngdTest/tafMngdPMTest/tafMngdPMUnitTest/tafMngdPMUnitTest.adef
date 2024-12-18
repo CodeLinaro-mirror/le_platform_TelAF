@@ -4,7 +4,7 @@ sandboxed: false
 executables:
 {
     tafMngdPMUnitTest =
-            ($TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMUnitTest/tafMngdPMUnitTestComp)
+            ($TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPMUnitTest/tafMngdPMUnitTestComp)
 }
 
 start: manual

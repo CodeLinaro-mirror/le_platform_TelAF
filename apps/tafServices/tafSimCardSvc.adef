@@ -47,6 +47,7 @@ processes:
 
 bindings:
 {
+    tafSimCardSvc.tafSimCardSvc.taf_pm -> tafPMSvc.taf_pm
 }
 
 extern:

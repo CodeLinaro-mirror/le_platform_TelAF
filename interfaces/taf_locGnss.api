@@ -872,7 +872,7 @@
    uint64_t realTimeUnc;
    if(taf_locGnss_GetRealTimeInformation(positionSampleRef, &realTime,&realTimeUnc) == LE_OK)
    {
-     // Process after successfully getting elapsed real time and its uncertainity.
+     // Process after successfully getting elapsed real time and its uncertainty.
    }
    @endverbatim
  *
@@ -1094,6 +1094,7 @@
  * and next leap seconds.
  * Insertion of each UTC leap second is usually decided about six months in advance by the
  * International Earth Rotation and Reference Systems Service (IERS).
+ * The leap seconds uncertainty value is retrieved by calling taf_locGnss_GetLeapSecondsUncertainty() API.
  *
  * @section taf_locGnss_usage_flow Typical application call flow
  *
@@ -2126,7 +2127,7 @@ BITMASK LocationInfoValidity
     HAS_ELAPSED_REAL_TIME_UNC_BIT,///< Valid elapsed real time uncertainty via
                                   ///  @ref taf_locGnss_GetRealTimeInformation
     HAS_GPTP_TIME_BIT,            ///< Valid gptp time via @ref taf_locGnss_GetGptpTime
-    HAS_GPTP_TIME_UNC_BIT         ///< Valid gptp time uncertainity via @ref taf_locGnss_GetGptpTime
+    HAS_GPTP_TIME_UNC_BIT         ///< Valid gptp time uncertainty via @ref taf_locGnss_GetGptpTime
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2202,7 +2203,9 @@ ENUM LocationInfoExValidity
     HAS_PROTECT_LEVEL_ALONG_TRACK,     ///< Valid protect level along track.
     HAS_PROTECT_LEVEL_CROSS_TRACK,     ///< Valid protect level cross track.
     HAS_PROTECT_LEVEL_VERTICAL,        ///< Valid protect level vertical.
-    HAS_SOLUTION_STATUS                ///< Valid DR Solution status.
+    HAS_SOLUTION_STATUS,               ///< Valid DR Solution status.
+    HAS_LEAP_SECONDS_UNC               ///< Valid leap seconds uncertainty.
+                                       ///< via @ref taf_locGnss_GetLeapSecondsUncertainty
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -3555,7 +3558,7 @@ FUNCTION le_result_t GetStdDeviationAzimuthInfo
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the elapsed real time and its uncertainity values in nano-second
+ * Gets the elapsed real time and its uncertainty values in nano-second
  * per client session.
  *
  * @return
@@ -3878,3 +3881,24 @@ FUNCTION le_result_t GetDRSolutionStatus
     uint32 solutionStatusPtr OUT ///< Dead reckoning solution status.
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the position sample's leap seconds associated with the PVT report uncertainty per client session.
+ *
+ * @return
+ *  - LE_FAULT         Failed to get the leap seconds uncertainty.
+ *  - LE_OUT_OF_RANGE  The retrieved seconds is invalid.
+ *  - LE_OK            Succeeded.
+
+ *
+ * @b NOTE: If the caller passes an invalid position sample reference or a null pointer to this
+ *       function, it is a fatal error and the client will be killed.
+ *
+ *
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t  GetLeapSecondsUncertainty
+(
+    Sample positionSampleRef  IN,       ///< Position sample reference.
+    uint8  leapSecondsUncPtr OUT        ///< The leap seconds uncertainty in unit of seconds.
+);

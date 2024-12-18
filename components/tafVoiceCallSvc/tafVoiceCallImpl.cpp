@@ -126,7 +126,7 @@ void tafCallListener::onIncomingCall(std::shared_ptr<telux::tel::ICall> iCall)
             r.set_value(hlapTimerStatus);
         };
 
-    if (myCall.CallMgr->requestECallHlapTimerStatus(phoneId, cb) == Status::SUCCESS)
+    if (myCall.CallMgr != nullptr && myCall.CallMgr->requestECallHlapTimerStatus(phoneId, cb) == Status::SUCCESS)
     {
         if (p.get_future().get() == ErrorCode::SUCCESS) {
             if (phoneId == q.get_future().get() &&
@@ -136,6 +136,8 @@ void tafCallListener::onIncomingCall(std::shared_ptr<telux::tel::ICall> iCall)
                 return;
             }
         }
+    } else {
+        LE_ERROR("myCall.CallMgr is nullptr or requestECallHlapTimerStatus returns error");
     }
 
     le_utf8_Copy(msgCallEvent.dest, iCall->getRemotePartyNumber().c_str(), MAX_DESTINATION_LEN, NULL);
@@ -222,6 +224,7 @@ void tafCallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> iCall)
         msgCallEvent.callRef = callCtxPtr->callRef;
         le_utf8_Copy(msgCallEvent.dest, iCall->getRemotePartyNumber().c_str(), MAX_DESTINATION_LEN, NULL);
         msgCallEvent.phoneId = iCall->getPhoneId();
+        msgCallEvent.iCall = iCall;
         msgCallEvent.event = stateToEvent(state);
         msgCallEvent.inComingCall = isIncomingCall;
 
@@ -230,32 +233,37 @@ void tafCallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> iCall)
             msgCallEvent.termination = endCauseToTermination(iCall->getCallEndCause());
             LE_DEBUG("EndCause: %d, termination: %d", (uint32_t)iCall->getCallEndCause(), (uint32_t)msgCallEvent.termination);
 
-            std::shared_ptr<ICall> spCall = nullptr;
-            bool isAllVoiceCallClosed =true;
-            std::vector<std::shared_ptr<ICall>> inProgressCalls
-                = myCall.CallMgr->getInProgressCalls();
-            for(auto callIterator = std::begin(inProgressCalls);
-                callIterator != std::end(inProgressCalls); ++callIterator)
+            if (myCall.CallMgr != nullptr)
             {
-                spCall = *callIterator;
-                if(spCall)
+                std::shared_ptr<ICall> spCall = nullptr;
+                bool isAllVoiceCallClosed =true;
+                std::vector<std::shared_ptr<ICall>> inProgressCalls
+                    = myCall.CallMgr->getInProgressCalls();
+                for(auto callIterator = std::begin(inProgressCalls);
+                    callIterator != std::end(inProgressCalls); ++callIterator)
                 {
-                    if (spCall->getCallState() != telux::tel::CallState::CALL_ENDED)
+                    spCall = *callIterator;
+                    if(spCall)
                     {
-                        isAllVoiceCallClosed = false;
-                        break;
+                        if (spCall->getCallState() != telux::tel::CallState::CALL_ENDED)
+                        {
+                            isAllVoiceCallClosed = false;
+                            break;
+                        }
                     }
                 }
-            }
 
-            if (isAllVoiceCallClosed == true)
-            {
-                isCallOngoing = false;
-                callInfofd = unlink(VoiceCallInfoConfFile);
-                if (callInfofd < 0)
+                if (isAllVoiceCallClosed == true)
                 {
-                    LE_ERROR("delete voice call info file failed!");
+                    isCallOngoing = false;
+                    callInfofd = unlink(VoiceCallInfoConfFile);
+                    if (callInfofd < 0)
+                    {
+                        LE_ERROR("delete voice call info file failed!");
+                    }
                 }
+            }else {
+                LE_ERROR("myCall.CallMgr is nullptr");
             }
         }
 
@@ -382,7 +390,7 @@ taf_voicecall_CallEndCause_t tafCallListener::endCauseToTermination(telux::tel::
 
         default:
             termination = TAF_VOICECALL_END_UNDEFINED;
-        break;;
+        break;
     }
 
     return termination;
@@ -768,6 +776,12 @@ le_result_t taf_VoiceCall::SendCallEventToClient(taf_VoiceCtrl_t *callCtxPtr, bo
             linkHandlerPtr = le_dls_PeekPrev(&sessionCtxPtr->handlerList, linkHandlerPtr);
             if (handlerCtxPtr->handlerPtr)
             {
+                size_t length = strnlen(callCtxPtr->destId, TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES);
+                if (length > (TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES-1))
+                {
+                     le_utf8_Copy(callCtxPtr->destId, "Unknown", sizeof(callCtxPtr->destId), NULL);
+                     LE_ERROR("The destId length exceeds the max length");
+                }
                 handlerCtxPtr->handlerPtr(callCtxPtr->callRef, callCtxPtr->destId, callCtxPtr->event, handlerCtxPtr->usrContext);
             }
         }
@@ -823,6 +837,11 @@ void taf_VoiceCall::CallHandler(callEvent_t *eventVoicePtr)
     if (callCtxPtr->event == TAF_VOICECALL_EVENT_ENDED)
     {
         LE_DEBUG("This call[%p] is ended", callCtxPtr);
+        if ((eventVoicePtr->inComingCall == true) && (le_dls_NumLinks(&SessionCtxList) == 0))
+        {
+            LE_DEBUG("Call DestructorCallCtx");
+            le_mem_Release(callCtxPtr);
+        }
         ShowAll();
     }
 }
@@ -1064,7 +1083,10 @@ void taf_VoiceCall::DestructorCallCtx(void* objPtr)
     {
         LE_DEBUG("releasing callPtr: %p", callCtxPtr);
         callCtxPtr->iCall = nullptr;
-        le_ref_DeleteRef(CallCtrlRefMap, callCtxPtr->callRef);
+        if (callCtxPtr->callRef != nullptr)
+        {
+            le_ref_DeleteRef(CallCtrlRefMap, callCtxPtr->callRef);
+        }
         le_dls_Remove(&CallCtrlList, &callCtxPtr->link);
     }
 }

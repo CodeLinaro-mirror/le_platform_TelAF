@@ -5246,25 +5246,25 @@ le_result_t taf_locGnss::GetSupportedNmeaSentences
     switch (clientRequestPtr->GnssState)
     {
         case TAF_LOCGNSS_STATE_READY:
+        case TAF_LOCGNSS_STATE_ACTIVE:
         {
             //filling the supported bitmask values
-            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GPGGA;
-            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GPRMC;
-            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GNGSA;
-            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GPVTG;
-            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GPGNS;
-            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GPDTM;
             *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GPGSV;
             *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GLGSV;
             *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GAGSV;
             *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GQGSV;
             *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GBGSV;
             *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GIGSV;
+            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GGA;
+            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_RMC;
+            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GSA;
+            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_VTG;
+            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GNS;
+            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_DTM;
             result = LE_OK;
         }
         break;
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
-        case TAF_LOCGNSS_STATE_ACTIVE:
         case TAF_LOCGNSS_STATE_DISABLED:
         {
             LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);

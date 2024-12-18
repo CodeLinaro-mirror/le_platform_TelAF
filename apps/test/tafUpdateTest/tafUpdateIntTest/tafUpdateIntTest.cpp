@@ -375,6 +375,7 @@ COMPONENT_INIT
                 LE_INFO("Enter s to start installation.");
                 LE_INFO("Enter p to pause installation.");
                 LE_INFO("Enter r to resume installation.");
+                LE_INFO("Enter c to cancel installation.");
                 LE_INFO("Enter e to exit installation.");
                 while (true)
                 {
@@ -397,6 +398,12 @@ COMPONENT_INIT
                         LE_INFO("Resume install.");
                         result = taf_update_ResumeInstall(sessRef);
                         LE_TEST_OK(result == LE_OK, "taf_update_ResumeInstall - OK");
+                    }
+                    else if (input == 'c')
+                    {
+                        LE_INFO("Cancel install.");
+                        result = taf_update_CancelInstall(sessRef);
+                        LE_TEST_OK(result == LE_OK, "taf_update_CancelInstall - OK");
                     }
                     else if (input == 'e')
                     {

@@ -156,6 +156,8 @@ namespace tafsvc {
         le_result_t InstallPreCheck(const char* manifest);
         void SetPauseAction(bool paused);
         bool GetPauseAction(void);
+        void SetCancelAction(bool cancel);
+        bool GetCancelAction(void);
         void SetPageNumber(bool isTotal, uint32_t number);
         uint32_t GetPageNumber(bool isTotal);
         bool HasSuffix(const char *str);

@@ -479,6 +479,20 @@ FUNCTION le_result_t ResumeInstall
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Cancel installation.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CancelInstall
+(
+    Session session IN ///< Installation session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Verification post installation, check if flashing properly on inactive bank.
  *
  * @return

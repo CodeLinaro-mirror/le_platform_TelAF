@@ -226,6 +226,37 @@ bool taf_FwUpdate::GetPauseAction
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Set pause action in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SetCancelAction
+(
+    bool cancel ///< [IN] Cancel action.
+)
+{
+    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    le_cfg_SetBool(wrIter, "cancel", cancel);
+    le_cfg_CommitTxn(wrIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get pause action from config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::GetCancelAction
+(
+    void
+)
+{
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    bool cancel = le_cfg_GetBool(rdIter, "cancel", false);
+    le_cfg_CancelTxn(rdIter);
+    return cancel;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Set page number in config tree.
  */
 //--------------------------------------------------------------------------------------------------
@@ -805,6 +836,9 @@ void taf_FwUpdate::UpdateProgress
     // 1. Update state.
     switch (state)
     {
+        case TAF_UPDATE_IDLE:
+            tafFwUpdate.SetState(TAF_UPDATE_IDLE);
+            break;
         case TAF_UPDATE_INSTALLING:
             LE_INFO("Installing %d%%...", tafFwUpdate.percent);
             break;
@@ -1258,7 +1292,7 @@ void taf_FwUpdate::UpdateImage
     bool hasImageToUpdate = !tafFwUpdate.GetImageForUpdate(image, sizeof(image));
     while (hasImageToUpdate)
     {
-        if (!tafFwUpdate.GetPauseAction())
+        if (!tafFwUpdate.GetPauseAction() && !tafFwUpdate.GetCancelAction())
         {
             // 3. Find the partition for flash access.
             uint32_t i =0;
@@ -1462,8 +1496,17 @@ void taf_FwUpdate::UpdateImage
         }
         else
         {
-            LE_INFO("Paused during update.");
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_PAUSED);
+            if (tafFwUpdate.GetCancelAction())
+            {
+                LE_INFO("Cancelled during update.");
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+            }
+            else
+            {
+                LE_INFO("Paused during update.");
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_PAUSED);
+            }
+
             return;
         }
     }
@@ -1512,6 +1555,7 @@ void taf_FwUpdate::StartInstall
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
     tafFwUpdate.SetPauseAction(false);
+    tafFwUpdate.SetCancelAction(false);
     taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
     if (tafFwUpdate.GetActiveBank(&bank) != LE_OK)
     {

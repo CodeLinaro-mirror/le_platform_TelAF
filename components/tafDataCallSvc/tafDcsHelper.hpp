@@ -27,6 +27,25 @@ namespace telux
             static const char *RoamingTypeToString(taf_dcs_RoamingType_t roamingType);
             static const char *CallEventToString(taf_dcs_ConState_t callEvent);
             static const char *IpFamilyTypeToString(taf_dcs_Pdp_t ipType);
+            static const char *CallEndReasonTypeToString(taf_dcs_CallEndReasonType_t endReasonType);
+            static const char *CallEndMobileIpReasonCodeToString(
+                                                       taf_dcs_CallEndMobileIpReasonCode_t endCode);
+            static const char *CallEndInternalReasonCodeToString(
+                                                       taf_dcs_CallEndInternalReasonCode_t endCode);
+            static const char *CallEndCallManagerReasonCodeToString(
+                                                    taf_dcs_CallEndCallManagerReasonCode_t endCode);
+            static const char *CallEnd3GPPSpecReasonCodeToString(
+                                                       taf_dcs_CallEnd3GPPSpecReasonCode_t endCode);
+            static const char *CallEndPPPReasonCodeToString(
+                                                            taf_dcs_CallEndPPPReasonCode_t endCode);
+            static const char *CallEndEHRPDReasonCodeToString(
+                                                          taf_dcs_CallEndEHRPDReasonCode_t endCode);
+            static const char *CallEndIPv6ReasonCodeToString(
+                                                           taf_dcs_CallEndIPv6ReasonCode_t endCode);
+            static const char *CallEndHandoffReasonCodeToString(
+                                                        taf_dcs_CallEndHandoffReasonCode_t endCode);
+            static const char *CallEndReasonCodeToString
+                                       (taf_dcs_CallEndReasonType_t endReasonType, int32_t endCode);
 
             /* TelSDK conversions */
             static const char *CallStatusToString(telux::data::DataCallStatus status);
@@ -34,6 +53,26 @@ namespace telux
             static const char *TechPreferenceToString(telux::data::TechPreference techPref);
             static const char *DataBearerToString(telux::data::DataBearerTechnology techPref);
             static const char *CallEndReasonTypeToString(telux::common::EndReasonType endType);
+
+            // Conversions from TelSDK types to TelAF types and vice-versa
+            static taf_dcs_CallEndReasonType_t ConvertCallEndReasonType
+                                            (telux::common::EndReasonType endReasonType);
+            static taf_dcs_CallEndMobileIpReasonCode_t ConvertCallEndMobileIpReasonCode
+                                            (telux::common::MobileIpReasonCode endReasonCode);
+            static taf_dcs_CallEndInternalReasonCode_t ConvertCallEndInternalReasonCode
+                                            (telux::common::InternalReasonCode endReasonCode);
+            static taf_dcs_CallEndCallManagerReasonCode_t ConvertCallEndCallManagerReasonCode
+                                            (telux::common::CallManagerReasonCode endReasonCode);
+            static taf_dcs_CallEnd3GPPSpecReasonCode_t ConvertCallEnd3GPPSpecReasonCode
+                                            (telux::common::SpecReasonCode endReasonCode);
+            static taf_dcs_CallEndPPPReasonCode_t ConvertCallEndPPPReasonCode
+                                            (telux::common::PPPReasonCode endReasonCode);
+            static taf_dcs_CallEndEHRPDReasonCode_t ConvertCallEndEHRPDReasonCode
+                                            (telux::common::EHRPDReasonCode endReasonCode);
+            static taf_dcs_CallEndIPv6ReasonCode_t ConvertCallEndIPv6ReasonCode
+                                            (telux::common::Ipv6ReasonCode endReasonCode);
+            static taf_dcs_CallEndHandoffReasonCode_t ConvertCallEndHandoffReasonCode
+                                            (telux::common::HandoffReasonCode endReasonCode);
         };
     } // namespace tafsvc
 } // namespace telux

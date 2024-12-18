@@ -130,6 +130,22 @@ namespace tafsvc {
         le_dls_Link_t       link;
     } taf_SessionRef_t;
 
+    typedef struct
+    {
+        taf_dcs_CallEndReasonType_t callEndReasonType;
+        union
+        {
+            taf_dcs_CallEndMobileIpReasonCode_t    reasonMIP;
+            taf_dcs_CallEndInternalReasonCode_t    reasonInternal;
+            taf_dcs_CallEndCallManagerReasonCode_t reasonCallManager;
+            taf_dcs_CallEnd3GPPSpecReasonCode_t    reasonSpec;
+            taf_dcs_CallEndPPPReasonCode_t         reasonPPP;
+            taf_dcs_CallEndEHRPDReasonCode_t       reasonEHRPD;
+            taf_dcs_CallEndIPv6ReasonCode_t        reasonIPv6;
+            taf_dcs_CallEndHandoffReasonCode_t     reasonHandOff;
+        };
+    }taf_dcs_callEndReason_t;
+
     typedef struct tag_taf_dcs_Call_Ctx
     {
         taf_dcs_CallRef_t                       callRef;
@@ -162,6 +178,8 @@ namespace tafsvc {
         uint32_t                                ipv6Mask;
         uint64_t                                maxRxBitRate;
         uint64_t                                maxTxBitRate;
+        taf_dcs_callEndReason_t                 callEndReasonIPv4;
+        taf_dcs_callEndReason_t                 callEndReasonIPv6;
     } taf_dcs_CallCtx_t;
 
     typedef struct IpAddrInfo
@@ -190,6 +208,8 @@ namespace tafsvc {
         telux::data::DataBearerTechnology       dataBearerTech;
         uint64_t                                maxRxBitRate;
         uint64_t                                maxTxBitRate;
+        taf_dcs_callEndReason_t                 callEndReasonIPv4;
+        taf_dcs_callEndReason_t                 callEndReasonIPv6;
     } dataCallEvent_t;
 
     typedef struct
@@ -394,6 +414,10 @@ namespace tafsvc {
             le_result_t GetMaxDataBitRates( taf_dcs_ProfileRef_t profileRef,
                                             uint64_t *maxRxBitRatePtr,
                                             uint64_t *maxTxBitRatePtr);
+            le_result_t GetCallEndReason( taf_dcs_ProfileRef_t profileRef,
+                                          taf_dcs_Pdp_t pdpType,
+                                          taf_dcs_CallEndReasonType_t *callEndReasonTypePtr,
+                                          int32_t *callEndReasonPtr);
 
             le_event_Id_t CallEvent;
             bool IsIpv4(uint8_t slotId, int32_t profileId);
@@ -442,7 +466,7 @@ namespace tafsvc {
             le_thread_Ref_t ConnectionEventThreadRef = NULL;
             int32_t DefaultProfileId = TAF_DCS_DEFAULT_PROFILE;
             int32_t DefaultSlotId = SLOT_ID_1;
+            int32_t ConvertCEReason(taf_dcs_callEndReason_t ceReason);
     };
-
 }
 }

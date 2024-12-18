@@ -787,7 +787,7 @@ taf_dcs_SessionStateHandlerRef_t taf_dcs_AddSessionStateHandler
 {
     TAF_ERROR_IF_RET_VAL((profileRef == NULL) || (handlerPtr == NULL) , NULL,
                           "some pointers may be null");
-    
+
     auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
 
@@ -1702,6 +1702,38 @@ le_result_t taf_dcs_GetMaxDataBitRates(
 {
     auto &dataConnection = taf_DataConnection::GetInstance();
     return dataConnection.GetMaxDataBitRates(profileRef, maxRxBitRatePtr, maxTxBitRatePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the call end reason. This API can be used to get the extended call end reason after a data
+ * connection is disconnected.
+ *
+ * This API provides the call end reason type and the respective call end reason.
+ *
+ * @return
+ *  - LE_OK            -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Parameter error.
+ *  - LE_NOT_POSSIBLE  -- Data profile is not created.
+ *  - LE_UNAVAILABLE   -- Data call is still active.
+ *  - LE_NOT_FOUND     -- Internal context cannot be found.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_GetCallEndReason
+(
+    taf_dcs_ProfileRef_t profileRef,
+    ///< [IN] The profile reference.
+    taf_dcs_Pdp_t pdpType,
+    ///< [IN] The packet data protocol type.
+    taf_dcs_CallEndReasonType_t *callEndReasonTypePtr,
+    ///< [OUT] The call end reason type.
+    int32_t *callEndReasonPtr
+    ///< [OUT] The call end reason.
+)
+{
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    return dataConnection.GetCallEndReason(profileRef, pdpType, callEndReasonTypePtr,
+                                                                        callEndReasonPtr);
 }
 
 /**

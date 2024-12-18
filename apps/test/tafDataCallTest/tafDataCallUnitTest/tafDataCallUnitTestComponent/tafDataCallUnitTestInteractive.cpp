@@ -34,6 +34,7 @@ static void ShowMenu()
               << "3 -> Session: Get data bearer technology" << std::endl
               << "4 -> Session: Get roaming status" << std::endl
               << "5 -> Session: Get max data bit rates" << std::endl
+              << "6 -> Session: Get call end reason" << std::endl
               << std::endl;
 }
 
@@ -60,13 +61,13 @@ static taf_dcs_ProfileRef_t GetProfileRef()
 static le_result_t CreateProfile()
 {
     LE_TEST_INFO("Create profile");
-    return LE_OK;
+    return LE_UNSUPPORTED;
 }
 
 static le_result_t DeleteProfile()
 {
     LE_TEST_INFO("Delete profile");
-    return LE_OK;
+    return LE_UNSUPPORTED;
 }
 
 static le_result_t GetDataBearerTechnology()
@@ -85,8 +86,6 @@ static le_result_t GetDataBearerTechnology()
     result = taf_dcs_GetDataBearerTechnology(ProfileRef, &upTech, &downTech);
     if (LE_OK!=result)
     {
-        LE_TEST_INFO("Failed to get data bearer technology: %d", result);
-        std::cout << "Failed to get data bearer technology: " << result << std::endl;
         if (LE_UNAVAILABLE == result)
         {
             LE_TEST_INFO("LE_UNAVAILABLE: Data call not active");
@@ -136,7 +135,7 @@ static le_result_t GetRoamingStatus()
     result = taf_dcs_GetRoamingStatus(phoneID, &isRoaming, &roamingType);
     if (LE_OK!=result)
     {
-        LE_ERROR("Failed to get roaming status");
+        LE_TEST_INFO("Failed to get roaming status");
         return result;
     }
     LE_TEST_INFO("Phone id: %d", phoneID);
@@ -177,6 +176,79 @@ static le_result_t GetMaxDataBitRates()
                                                                             RxBitRate, TxBitRate);
     std::cout << "Max bit rates in bits/sec. Rx: " << RxBitRate << ",Tx: " << TxBitRate
                                                                             << std::endl;
+    return result;
+}
+
+static le_result_t GetCallEndReason()
+{
+    LE_TEST_INFO("Get call end reason");
+    le_result_t result = LE_OK;
+    std::string logStr;
+
+    taf_dcs_CallEndReasonType_t callEndReasonType = TAF_DCS_CE_TYPE_UNKNOWN;
+    int32_t callEndReasonCode = -1;
+
+    taf_dcs_ProfileRef_t ProfileRef = GetProfileRef();
+    if (nullptr == ProfileRef)
+    {
+        LE_TEST_INFO("Failed to get profile ref");
+        return LE_FAULT;
+    }
+
+    // IPv4
+    result = taf_dcs_GetCallEndReason(ProfileRef, TAF_DCS_PDP_IPV4,
+                                                        &callEndReasonType, &callEndReasonCode);
+    if (LE_OK != result)
+    {
+        logStr.clear();
+        logStr = logStr + "IPv4 taf_dcs_GetCallEndReason: " +
+                 std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+        LE_TEST_OK(LE_OK == result, "%s", logStr.c_str());
+        std::cout << logStr << std::endl;
+    }
+    const char *CallEndReasonTypeStr4 = taf_DCSHelper::CallEndReasonTypeToString(callEndReasonType);
+    const char *CallEndReasonCodeStr4 = taf_DCSHelper::CallEndReasonCodeToString(
+                                                             callEndReasonType, callEndReasonCode);
+
+    LE_TEST_INFO("IPv4 Call end reason type: %d(%s)", callEndReasonType, CallEndReasonTypeStr4);
+    std::cout << "IPv4 Call end reason type: " << callEndReasonType
+                                               << "(" << CallEndReasonTypeStr4 << ")" << std::endl;
+
+    LE_TEST_INFO("IPv4 Call end reason code: %d(%s)", callEndReasonCode, CallEndReasonCodeStr4);
+    std::cout << "IPv4 Call end reason code: " << callEndReasonCode;
+    if (CallEndReasonCodeStr4)
+    {
+        std::cout << "(" << CallEndReasonCodeStr4 << ")";
+    }
+    std::cout << std::endl;
+
+    // IPv6
+    result = taf_dcs_GetCallEndReason(ProfileRef, TAF_DCS_PDP_IPV6,
+                                      &callEndReasonType, &callEndReasonCode);
+    if (LE_OK != result)
+    {
+        logStr.clear();
+        logStr = logStr + "IPv6 taf_dcs_GetCallEndReason: " +
+                 std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+        LE_TEST_OK(LE_OK == result, "%s", logStr.c_str());
+        std::cout << logStr << std::endl;
+        return result;
+    }
+    const char *CallEndReasonTypeStr6 = taf_DCSHelper::CallEndReasonTypeToString(callEndReasonType);
+    const char *CallEndReasonCodeStr6 = taf_DCSHelper::CallEndReasonCodeToString(
+        callEndReasonType, callEndReasonCode);
+
+    LE_TEST_INFO("IPv6 Call end reason type: %d(%s)", callEndReasonType, CallEndReasonTypeStr6);
+    std::cout << "IPv6 Call end reason type: " << callEndReasonType
+                                               << "(" << CallEndReasonTypeStr6 << ")" << std::endl;
+
+    LE_TEST_INFO("IPv6 Call end reason code: %d(%s)", callEndReasonCode, CallEndReasonCodeStr6);
+    std::cout << "IPv6 Call end reason code: " << callEndReasonCode;
+    if (CallEndReasonCodeStr6)
+    {
+        std::cout << "(" << CallEndReasonCodeStr6 << ")";
+    }
+    std::cout << std::endl;
     return result;
 }
 
@@ -325,6 +397,7 @@ void tafDCSUnitTest_RunInteractiveTests()
     le_result_t result = LE_OK;
     le_thread_Ref_t asyncCmdThreadRef = nullptr;
     le_sem_Ref_t asyncCmdSemRef = nullptr;
+    std::string logStr;
     asyncCmdSemRef = le_sem_Create("asyncCmdSem", 0);
 
     asyncCmdThreadRef = le_thread_Create("async_cmd_thread", async_cmd_thread_handler,
@@ -351,31 +424,61 @@ void tafDCSUnitTest_RunInteractiveTests()
             case 1 :
             {
                 result = CreateProfile();
-                LE_TEST_OK(LE_OK == result, "Create Profile: %d", result);
+                logStr.clear();
+                logStr = logStr + "taf_dcs_CreateProfile: " +
+                                    std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_OK(LE_OK == result, "%s", logStr.c_str());
+                std::cout << logStr << std::endl;
                 break;
             }
             case 2 :
             {
                 result = DeleteProfile();
-                LE_TEST_OK(LE_OK == result, "Delete Profile: %d", result);
+                logStr.clear();
+                logStr = logStr + "taf_dcs_DeleteProfile: " +
+                                    std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_OK(LE_OK == result, "%s", logStr.c_str());
+                std::cout << logStr << std::endl;
                 break;
             }
             case 3:
             {
                 result = GetDataBearerTechnology();
-                LE_TEST_OK(LE_OK == result, "Get data bearer technology: %d", result);
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetDataBearerTechnology: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_OK(LE_OK == result, "%s", logStr.c_str());
+                std::cout << logStr << std::endl;
                 break;
             }
             case 4:
             {
                 result = GetRoamingStatus();
-                LE_TEST_OK(LE_OK == result, "Get roaming status: %d", result);
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetRoamingStatus: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_OK(LE_OK == result, "%s", logStr.c_str());
+                std::cout << logStr << std::endl;
                 break;
             }
             case 5:
             {
                 result = GetMaxDataBitRates();
-                LE_TEST_OK(LE_OK == result, "Get max data bit rates: %d", result);
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetMaxDataBitRates: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_OK(LE_OK == result, "%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case 6:
+            {
+                result = GetCallEndReason();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetCallEndReason: " +
+                                    std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_OK(LE_OK == result, "%s", logStr.c_str());
+                std::cout << logStr << std::endl;
                 break;
             }
             default:

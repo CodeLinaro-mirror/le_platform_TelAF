@@ -620,7 +620,14 @@ le_result_t taf_Audio::StopandDelete
                 inputPtr->interface, outputPtr->interface);
         }
     }
-    if(streamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1
+
+    if(streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX
+            || streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX)
+    {
+        res = StopAudio(streamPtr);
+        res = DeleteAudioStream(streamPtr);
+    }
+    else if(streamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_1
             || streamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_2
             || streamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_3
             || streamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER_4

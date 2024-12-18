@@ -1685,6 +1685,24 @@ le_result_t taf_dcs_GetAPNThrottledPLMN
                                                                              mncPtr,mncSize);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the maximum Tx and Rx data bit rates for an active data call.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_GetMaxDataBitRates(
+    taf_dcs_ProfileRef_t profileRef,
+    ///< [IN] The profile reference.
+    uint64_t *maxRxBitRatePtr,
+    ///< [OUT] The maximum receive data rate in bits/second.
+    uint64_t *maxTxBitRatePtr
+    ///< [OUT] The maximum transmit data rate in bits/second.
+)
+{
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    return dataConnection.GetMaxDataBitRates(profileRef, maxRxBitRatePtr, maxTxBitRatePtr);
+}
 
 /**
  * The init function of TelAF data connection component.

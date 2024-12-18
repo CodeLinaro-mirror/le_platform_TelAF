@@ -160,6 +160,8 @@ namespace tafsvc {
         le_event_Id_t                           sessionStateEvent;
         uint32_t                                ipv4Mask;
         uint32_t                                ipv6Mask;
+        uint64_t                                maxRxBitRate;
+        uint64_t                                maxTxBitRate;
     } taf_dcs_CallCtx_t;
 
     typedef struct IpAddrInfo
@@ -186,6 +188,8 @@ namespace tafsvc {
         taf_dcs_IpAddrInfo_t                    ipv4AddrInfo;
         taf_dcs_IpAddrInfo_t                    ipv6AddrInfo;
         telux::data::DataBearerTechnology       dataBearerTech;
+        uint64_t                                maxRxBitRate;
+        uint64_t                                maxTxBitRate;
     } dataCallEvent_t;
 
     typedef struct
@@ -333,8 +337,8 @@ namespace tafsvc {
             le_result_t SetDefaultProfileIdSync(uint8_t slotId, uint32_t profileId);
             le_result_t GetDefaultProfileIdSync(uint8_t *slotId, uint32_t *profileId);
 
-            static void EventHandler(void* reportPtr);
-            void InternalEventHandler(void* reportPtr);
+            static void DataCnxCallEventHandler(void *reportPtr);
+            void InternalDataCallEventHandler(void* reportPtr);
             taf_dcs_CallCtx_t* CreateDataCallCtx(uint8_t slotId, int32_t profileId);
             taf_dcs_CallCtx_t* GetCallCtx(uint8_t slotId, int32_t profileId);
             taf_dcs_CallCtx_t* GetCallCtx(taf_dcs_CallRef_t reference);
@@ -387,6 +391,10 @@ namespace tafsvc {
                                                       bool         *isThrottledPtr,
                                                       uint32_t     *ipv4RemainingTimePtr,
                                                       uint32_t     *ipv6RemainingTimePtr);
+            le_result_t GetMaxDataBitRates( taf_dcs_ProfileRef_t profileRef,
+                                            uint64_t *maxRxBitRatePtr,
+                                            uint64_t *maxTxBitRatePtr);
+
             le_event_Id_t CallEvent;
             bool IsIpv4(uint8_t slotId, int32_t profileId);
             bool IsIpv6(uint8_t slotId, int32_t profileId);

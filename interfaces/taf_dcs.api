@@ -1466,3 +1466,22 @@ FUNCTION le_result_t GetAPNThrottledPLMN
     string mcc[MCC_BYTES] OUT, ///< MCC of the PLMN on which the APN is throttled.
     string mnc[MNC_BYTES] OUT  ///< MNC of the PLMN on which the APN is throttled.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the maximum Tx and Rx data bit rates for an active data call.
+ *
+ * @return
+ *  - LE_OK            -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Parameter error.
+ *  - LE_NOT_POSSIBLE  -- Data profile is not created.
+ *  - LE_UNAVAILABLE   -- Data call is not active.
+ *  - LE_NOT_FOUND     -- Internal context cannot be found.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetMaxDataBitRates
+(
+    Profile    profileRef             IN,  ///< The profile reference.
+    uint64     maxRxBitRate           OUT, ///< The maximum receive data rate in bits/second.
+    uint64     maxTxBitRate           OUT  ///< The maximum transmit data rate in bits/second.
+);

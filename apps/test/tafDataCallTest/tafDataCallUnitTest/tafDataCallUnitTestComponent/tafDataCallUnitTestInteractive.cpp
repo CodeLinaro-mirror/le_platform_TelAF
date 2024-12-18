@@ -33,6 +33,7 @@ static void ShowMenu()
               << "2 -> Profile: Delete Profile  " << std::endl
               << "3 -> Session: Get data bearer technology" << std::endl
               << "4 -> Session: Get roaming status" << std::endl
+              << "5 -> Session: Get max data bit rates" << std::endl
               << std::endl;
 }
 
@@ -144,6 +145,38 @@ static le_result_t GetRoamingStatus()
     std::cout << "Phone id: " << phoneID << std::endl;
     std::cout << "Is roaming: " << (isRoaming ? "true" : "false") << std::endl;
     std::cout << "Roaming type: " << RoamingTypeToString(roamingType) << std::endl;
+    return result;
+}
+
+static le_result_t GetMaxDataBitRates()
+{
+    LE_TEST_INFO("Get max data bit rates");
+    le_result_t result = LE_OK;
+
+    uint64_t RxBitRate, TxBitRate;
+
+    taf_dcs_ProfileRef_t ProfileRef = GetProfileRef();
+    if (nullptr == ProfileRef)
+    {
+        LE_TEST_INFO("Failed to get profile ref");
+        return LE_FAULT;
+    }
+    result = taf_dcs_GetMaxDataBitRates(ProfileRef, &RxBitRate, &TxBitRate);
+    if (LE_OK != result)
+    {
+        LE_TEST_INFO("Failed to get max bit rates: %d", result);
+        std::cout << "Failed to get max bit rates: " << result << std::endl;
+        if (LE_UNAVAILABLE == result)
+        {
+            LE_TEST_INFO("LE_UNAVAILABLE: Data call not active");
+            std::cout << "LE_UNAVAILABLE: Data call not active." << std::endl;
+        }
+        return result;
+    }
+    LE_TEST_INFO("Max bit rates in bits/sec. Rx: %" PRIu64 ",Tx: %" PRIu64 " ",
+                                                                            RxBitRate, TxBitRate);
+    std::cout << "Max bit rates in bits/sec. Rx: " << RxBitRate << ",Tx: " << TxBitRate
+                                                                            << std::endl;
     return result;
 }
 
@@ -318,25 +351,31 @@ void tafDCSUnitTest_RunInteractiveTests()
             case 1 :
             {
                 result = CreateProfile();
-                LE_TEST_OK(LE_OK == result, "Create Profile");
+                LE_TEST_OK(LE_OK == result, "Create Profile: %d", result);
                 break;
             }
             case 2 :
             {
                 result = DeleteProfile();
-                LE_TEST_OK(LE_OK == result, "Delete Profile");
+                LE_TEST_OK(LE_OK == result, "Delete Profile: %d", result);
                 break;
             }
             case 3:
             {
                 result = GetDataBearerTechnology();
-                LE_TEST_OK(LE_OK == result, "Get data bearer technology");
+                LE_TEST_OK(LE_OK == result, "Get data bearer technology: %d", result);
                 break;
             }
             case 4:
             {
                 result = GetRoamingStatus();
-                LE_TEST_OK(LE_OK == result, "Get roaming status");
+                LE_TEST_OK(LE_OK == result, "Get roaming status: %d", result);
+                break;
+            }
+            case 5:
+            {
+                result = GetMaxDataBitRates();
+                LE_TEST_OK(LE_OK == result, "Get max data bit rates: %d", result);
                 break;
             }
             default:

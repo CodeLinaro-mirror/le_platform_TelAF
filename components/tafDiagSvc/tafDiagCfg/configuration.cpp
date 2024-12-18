@@ -271,6 +271,186 @@ EXPORT_SYM uint8_t get_security_level_id(std::string level_name)
     return level_id;
 }
 
+static const std::map<std::string, std::vector<uint8_t>> pattern_maps =
+{
+    { "base", {
+        4, /* --> session */
+        0x01, /* default_session */
+        0x02, /* programming_session */
+        0x03, /* extended_diagnostic_session */
+        0x52, /* download_emulated_session */
+        0 /* --> security_level */
+        } },
+    { "did_read_app", {
+        2, /* --> session */
+        0x01, /* default_session */
+        0x03, /* extended_diagnostic_session */
+        0 /* --> security_level */
+        } },
+    { "secured_configuration", {
+        3, /* --> session */
+        0x02, /* programming_session */
+        0x03, /* extended_diagnostic_session */
+        0x52, /* download_emulated_session */
+        1, /* --> security_level */
+        0x01, /* SecAcc_Level_01 */
+        } },
+    { "io_control", {
+        1, /* --> session */
+        0x03, /* extended_diagnostic_session */
+        1, /* --> security_level */
+        0x01, /* SecAcc_Level_01 */
+        } },
+    { "supplier_specific_security_level", {
+        2, /* --> session */
+        0x02, /* programming_session */
+        0x60, /* system_supplier_specific_session */
+        1, /* --> security_level */
+        0x61, /* SecAcc_Level_61 */
+        } },
+    { "test_did_0xA0A0_r", {
+        3, /* --> session */
+        0x01, /* default_session */
+        0x02, /* programming_session */
+        0x03, /* extended_diagnostic_session */
+        0 /* --> security_level */
+        } },
+    { "test_did_0xA0A0_w", {
+        2, /* --> session */
+        0x02, /* programming_session */
+        0x03, /* extended_diagnostic_session */
+        1, /* --> security_level */
+        0x01, /* SecAcc_Level_01 */
+        } },
+    { "test_did_0xA0A1_r", {
+        2, /* --> session */
+        0x02, /* programming_session */
+        0x03, /* extended_diagnostic_session */
+        2, /* --> security_level */
+        0x01, /* SecAcc_Level_01 */
+        0x61, /* SecAcc_Level_61 */
+        } },
+    { "test_did_0xA0A1_w", {
+        2, /* --> session */
+        0x02, /* programming_session */
+        0x03, /* extended_diagnostic_session */
+        1, /* --> security_level */
+        0x61, /* SecAcc_Level_61 */
+        } },
+    { "precheck_to_default_session", {
+        5, /* --> session */
+        0x01, /* default_session */
+        0x02, /* programming_session */
+        0x03, /* extended_diagnostic_session */
+        0x60, /* system_supplier_specific_session */
+        0x52, /* download_emulated_session */
+        0 /* --> security_level */
+        } },
+    { "precheck_to_programming_session", {
+        3, /* --> session */
+        0x01, /* default_session */
+        0x02, /* programming_session */
+        0x03, /* extended_diagnostic_session */
+        0 /* --> security_level */
+        } },
+    { "precheck_to_extended_diagnostic_session", {
+        5, /* --> session */
+        0x01, /* default_session */
+        0x02, /* programming_session */
+        0x03, /* extended_diagnostic_session */
+        0x60, /* system_supplier_specific_session */
+        0x52, /* download_emulated_session */
+        0 /* --> security_level */
+        } },
+    { "precheck_to_download_emulated_session", {
+        2, /* --> session */
+        0x03, /* extended_diagnostic_session */
+        0x52, /* download_emulated_session */
+        1, /* --> security_level */
+        0x01, /* SecAcc_Level_01 */
+        } },
+    { "precheck_to_system_supplier_specific_session", {
+        2, /* --> session */
+        0x02, /* programming_session */
+        0x60, /* system_supplier_specific_session */
+        1, /* --> security_level */
+        0x61, /* SecAcc_Level_61 */
+        } }
+};
+
+static std::string get_pattern(uint8_t session_id)
+{
+    std::string pattern;
+
+    Node & sessions = root.get_child("diagnostic_session");
+
+    for (auto & sess: sessions)
+    {
+        uint8_t sess_id = sess.second.get<uint8_t>("id");
+
+        if (sess_id == session_id)
+        {
+            pattern = sess.second.get<std::string>("execution_authorization_pattern");
+            break;
+        }
+    }
+
+    return pattern;
+}
+
+EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_sessions_by_session_id(uint8_t session_id)
+{
+    NEED_INITED();
+
+    std::shared_ptr<std::vector<uint8_t>> session_list = std::make_shared<std::vector<uint8_t>>();
+    std::string pattern = get_pattern(session_id);
+
+    for (auto & pnode: pattern_maps)
+    {
+        if (pnode.first == pattern)
+        {
+            uint8_t total = pnode.second[0]; /* The number of sessions */
+
+            for (int i = 0; i < total; i++)
+            {
+                session_list->push_back(pnode.second[i+1]); /* Index from 1 */
+            }
+
+            break;
+        }
+    }
+
+    return session_list;
+}
+
+EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_levels_by_session_id(uint8_t session_id)
+{
+    NEED_INITED();
+
+    std::shared_ptr<std::vector<uint8_t>> level_list = std::make_shared<std::vector<uint8_t>>();
+    std::string pattern = get_pattern(session_id);
+
+    for (auto & pnode: pattern_maps)
+    {
+        if (pnode.first == pattern)
+        {
+            uint8_t total_of_sessions = pnode.second[0]; /* The number of sessions */
+
+             /* [total-of-sess, sess_1, sess2, .. , tatal-of-level, level_1, level_2] */
+            uint8_t total_of_levels = pnode.second[total_of_sessions + 1];
+
+            for (int i = 0; i < total_of_levels; i++)
+            {
+                level_list->push_back(pnode.second[total_of_sessions + i + 1]); /* Index from total_of_sessions + 1 */
+            }
+
+            break;
+        }
+    }
+
+    return level_list;
+}
+
 }
 }
 }

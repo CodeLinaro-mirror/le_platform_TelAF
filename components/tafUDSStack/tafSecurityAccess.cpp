@@ -410,6 +410,7 @@ static bool PreConditionIsNotFulfilled(AO_SecurityAccess_t * self, MEvent_t cons
 
         LE_SLS_FOREACH(&sess->level_list, level, SecurityLevel_t, link)
         {
+            LE_DEBUG("Checking level: L%02X <--", level->Security_Level);
             if (level->Security_Level == sub_function) {
                 found = true;
                 break;
@@ -419,7 +420,8 @@ static bool PreConditionIsNotFulfilled(AO_SecurityAccess_t * self, MEvent_t cons
     }
 
     if (found != true) {
-        LE_INFO("[SecAcc] Requested security-access-type is out of range (cfg)");
+        LE_INFO("[SecAcc] Requested security-access-type is out of range (cfg) [L%02X]",
+                sub_function);
         return true;
     }
 

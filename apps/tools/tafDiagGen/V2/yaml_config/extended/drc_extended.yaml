@@ -70,3 +70,8 @@ services_all:
         authentication: true
       0x03:
         authentication: true
+  0x86:
+    supported: true
+    sub_functions:
+      0x01:
+        supported: true

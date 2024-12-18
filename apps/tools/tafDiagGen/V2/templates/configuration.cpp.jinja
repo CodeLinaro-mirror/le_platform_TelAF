@@ -268,6 +268,93 @@ EXPORT_SYM uint8_t get_security_level_id(std::string level_name)
     return level_id;
 }
 
+static const std::map<std::string, std::vector<uint8_t>> pattern_maps =
+{
+{%+ for pname, node in final_pattern.items() %}
+    { "{{ pname }}", {
+{% for node_name, node_values in node.items() %}
+        {{ node_values | length }}{% if not loop.last %},{% else %}{% if node_values|length > 0 %},{% endif %}{% endif +%} /* --> {{ node_name }} */
+{%+ for item in node_values %}
+        {{+ item[1] | f_to_hex_format(2) }}, /* {{ item[0] }} */
+{% endfor %}
+{% endfor %}
+        } }{% if not loop.last %},{% endif +%}
+{% endfor %}
+};
+
+static std::string get_pattern(uint8_t session_id)
+{
+    std::string pattern;
+
+    Node & sessions = root.get_child("diagnostic_session");
+
+    for (auto & sess: sessions)
+    {
+        uint8_t sess_id = sess.second.get<uint8_t>("id");
+
+        if (sess_id == session_id)
+        {
+            pattern = sess.second.get<std::string>("execution_authorization_pattern");
+            break;
+        }
+    }
+
+    return pattern;
+}
+
+EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_sessions_by_session_id(uint8_t session_id)
+{
+    NEED_INITED();
+
+    std::shared_ptr<std::vector<uint8_t>> session_list = std::make_shared<std::vector<uint8_t>>();
+    std::string pattern = get_pattern(session_id);
+
+    for (auto & pnode: pattern_maps)
+    {
+        if (pnode.first == pattern)
+        {
+            uint8_t total = pnode.second[0]; /* The number of sessions */
+
+            for (int i = 0; i < total; i++)
+            {
+                session_list->push_back(pnode.second[i+1]); /* Index from 1 */
+            }
+
+            break;
+        }
+    }
+
+    return session_list;
+}
+
+EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_levels_by_session_id(uint8_t session_id)
+{
+    NEED_INITED();
+
+    std::shared_ptr<std::vector<uint8_t>> level_list = std::make_shared<std::vector<uint8_t>>();
+    std::string pattern = get_pattern(session_id);
+
+    for (auto & pnode: pattern_maps)
+    {
+        if (pnode.first == pattern)
+        {
+            uint8_t total_of_sessions = pnode.second[0]; /* The number of sessions */
+
+             /* [total-of-sess, sess_1, sess2, .. , tatal-of-level, level_1, level_2] */
+            uint8_t total_of_levels = pnode.second[total_of_sessions + 1];
+
+            for (int i = 0; i < total_of_levels; i++)
+            {
+                level_list->push_back(pnode.second[total_of_sessions + i + 1]); /* Index from total_of_sessions + 1 */
+            }
+
+            break;
+        }
+    }
+
+    return level_list;
+}
+
 }
 }
 }

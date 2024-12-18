@@ -225,6 +225,12 @@ EXPORT_SYM uint8_t get_nrc_by_condition_id(uint8_t cond_id);
 
 EXPORT_SYM uint8_t get_security_level_id(std::string level_name);
 
+EXPORT_SYM std::shared_ptr<std::vector<uint8_t>>
+get_pattern_sessions_by_session_id(uint8_t session_id);
+
+EXPORT_SYM std::shared_ptr<std::vector<uint8_t>>
+get_pattern_levels_by_session_id(uint8_t session_id);
+
 template <typename T>
 static inline void fill_list(Node & node, std::vector<T> & to_be_filled)
 {
@@ -395,12 +401,12 @@ Node & top_extended_data_records(std::string field_name, T expected_value)
 
 /* #undef EXPORT_SYM */
 
-#define tafDiagGen_tool_version "tafDiagGen_tool_version: 2.0.0"
-#define tafDiagGen_tool_timestamp  "tafDiagGen_tool_timestamp: 2024_12_17__16_21_57"
-#define tafDiagGen_tool_json_md5 "tafDiagGen_tool_json_md5: 4151dfde766fffd48632b8e83f034c14"
-#define tafDiagGen_tool_evid_h_md5 "tafDiagGen_tool_evid_h_md5: e146872da3171ca6322f732823235b80"
+#define tafDiagGen_tool_version "tafDiagGen_tool_version: 2.0.0_default"
+#define tafDiagGen_tool_timestamp  "tafDiagGen_tool_timestamp: 2024_12_23__14_52_27"
+#define tafDiagGen_tool_json_md5 "tafDiagGen_tool_json_md5: 50d7ef4c27672f0b61110d601d5fe73c"
+#define tafDiagGen_tool_evid_h_md5 "tafDiagGen_tool_evid_h_md5: f7b7efa4e8c063b72749a81762e44b84"
 
-#define TAFDIAGGEN_JSON_MD5 "4151dfde766fffd48632b8e83f034c14"
-#define TAFDIAGGEN_EVID_MD5 "e146872da3171ca6322f732823235b80"
+#define TAFDIAGGEN_JSON_MD5 "50d7ef4c27672f0b61110d601d5fe73c"
+#define TAFDIAGGEN_EVID_MD5 "f7b7efa4e8c063b72749a81762e44b84"
 
 #endif /* __CONFIGURATION_HPP__ */

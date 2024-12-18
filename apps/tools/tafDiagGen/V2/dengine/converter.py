@@ -642,4 +642,4 @@ def convert_to_specific_format(with_default, top_build_layer):
     shutil.copy(os.path.join(top_build_layer, 'final_version.yaml'),
                 os.path.join(top_build_layer, 'diag_template.yaml'))
 
-    return final_yaml
+    return (final_yaml, final_pattern)

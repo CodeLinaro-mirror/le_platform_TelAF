@@ -27,9 +27,13 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /*
- *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Changes from Qualcomm Innovation Center, Inc are provided under the following license:
  *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+/**
+ * Refer the PrintUsage() function for usage instructions.
  */
 
 #include "legato.h"
@@ -38,6 +42,10 @@
 #include <future>
 #include <iostream>
 
+// Function declarations
+void tafDCSUnitTest_RunInteractiveTests();
+
+// Test defines
 #define TAF_CONFIG_SSIM_TEST
 #define TAF_CONFIG_PHONE_ID_1_TEST
 // #define TAF_CONFIG_PHONE_ID_2_TEST
@@ -76,6 +84,39 @@ static taf_dcs_SessionStateHandlerRef_t TestSessionStateRef = NULL, TestSessionS
 static taf_dcs_RoamingStatusHandlerRef_t TestRoamingStatusRef = NULL;
 static taf_dcs_ThrottledStatusHandlerRef_t TestThrottleStatusRef = NULL;
 char ApnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
+
+/**
+ * To run interactively:
+ *      app runProc tafDataCallUnitTest tafDataCallUnitTest -- Interactive
+ * To run profile management tests (create/delete, start/stop data):
+ *      app runProc tafDataCallUnitTest tafDataCallUnitTest -- Profile APN PDP
+ *      PDP: IPV4 / IPV6 / IPV4V6
+ * To run all other previous unit tests(except new profile management APIs):
+ *      app runProc tafDataCallUnitTest tafDataCallUnitTest -- Full
+ *      OR
+ *      app start tafDataCallUnitTest
+ *
+ */
+static void PrintUsage()
+{
+    std::cout << std::endl
+              << "To run tests interactively:"
+              << std::endl
+              << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Interactive"
+              << std::endl
+              << "To run profile management tests (create/delete, start/stop data):"
+              << std::endl
+              << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Profile APN PDP"
+              << std::endl
+              << "\tPDP: IPV4 / IPV6 / IPV4V6"
+              << std::endl
+              << "To run all other previous unit tests(except new profile management APIs):"
+              << std::endl
+              << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Full"
+              << std::endl
+              << "\tOR app start tafDataCallUnitTest"
+              << std::endl;
+}
 
 std::string callEventToString(taf_dcs_ConState_t callEvent)
 {
@@ -726,11 +767,9 @@ void ut_set_pdp_test(taf_dcs_Pdp_t pdp)
 
     LE_TEST_BEGIN_SKIP(!SSIM_TEST && !PHONE_ID_1_TEST, 1);
 
+    // Return LE_BAD_PARAMETER for TAF_DCS_PDP_UNKNOWN
     result = taf_dcs_SetPDP(TestProfileRef, TAF_DCS_PDP_UNKNOWN);
-    LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP UNKNOWN- OK");
-
-    pdpGet = taf_dcs_GetPDP(TestProfileRef);
-    LE_TEST_OK(pdpGet == TAF_DCS_PDP_UNKNOWN, "taf_dcs_GetPDP UNKNOWN- OK");
+    LE_TEST_OK(result == LE_BAD_PARAMETER, "taf_dcs_SetPDP UNKNOWN- OK");
 
     result = taf_dcs_SetPDP(TestProfileRef, TAF_DCS_PDP_IPV4);
     LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP IPV4- OK");
@@ -1156,7 +1195,7 @@ static void* UnitTestThread(void* contextPtr)
 
     LE_TEST_OK(le_thread_Cancel(throttleStatusThRef) == LE_OK, "le_thread_throttle roaming - OK");
 
-    LE_INFO("====all tests are passed");
+    LE_TEST_INFO("Unit tests completed");
     return NULL;
 }
 
@@ -1613,23 +1652,9 @@ static void ut_create_profile_test_data(std::string APNStr, std::string PDPStr)
     LE_TEST_ASSERT(LE_OK == result, "taf_dcs_DeleteProfile");
 }
 
-static void PrintUsage()
-{
-    std::cout << std::endl
-              << "To run profile management tests (create/delete, start/stop data):"
-              << std::endl
-              << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Profile APN PDP"
-              << std::endl
-              << "\tPDP: IPV4 / IPV6 / IPV4V6"
-              << std::endl
-              << "To run all other previous unit tests(except new profile management APIs):"
-              << std::endl
-              << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Full"
-              << std::endl
-              << "\tOR app start tafDataCallUnitTest"
-              << std::endl;
-}
-
+/**
+ * Entry point of this application
+ */
 COMPONENT_INIT
 {
     size_t numArgs = le_arg_NumArgs();
@@ -1676,6 +1701,12 @@ COMPONENT_INIT
     {
         LE_TEST_INFO("Running unit tests");
         UnitTestThread(NULL);
+    }
+    else if ("Interactive" == testName)
+    {
+        // Provide a menu for the user to pick APIs from.
+        LE_TEST_INFO("Showing menu..");
+        tafDCSUnitTest_RunInteractiveTests();
     }
     else
     {

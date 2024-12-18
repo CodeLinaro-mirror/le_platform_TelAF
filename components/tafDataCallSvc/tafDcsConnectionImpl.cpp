@@ -28,39 +28,9 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
- *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *      * Redistributions of source code must retain the above copyright
- *        notice, this list of conditions and the following disclaimer.
- *
- *      * Redistributions in binary form must reproduce the above
- *        copyright notice, this list of conditions and the following
- *        disclaimer in the documentation and/or other materials provided
- *        with the distribution.
- *
- *      * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *        contributors may be used to endorse or promote products derived
- *        from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /*
@@ -139,6 +109,20 @@ void taf_DataConnRequestRoamingStatusCallback::requestRoamingStatus
     le_sem_Post(semaphore);
 }
 
+// TelSDK RequestServiceStatusResponseCb
+void taf_DataConnRequestServiceStatusCallback::requestServiceStatus(
+    telux::data::ServiceStatus serviceStatus,
+    telux::common::ErrorCode error)
+{
+    LE_DEBUG("<SDK Callback> taf_DataConnRequestServiceStatusCallback --> requestServiceStatus");
+    LE_DEBUG("Error code       : %d", static_cast<int>(error));
+    LE_DEBUG("DataServiceState : %d", static_cast<int>(serviceStatus.serviceState));
+    LE_DEBUG("NetworkRat       : %d", static_cast<int>(serviceStatus.networkRat));
+    errorCode = error;
+    status = serviceStatus;
+    le_sem_Post(semaphore);
+}
+
 #endif
 
 taf_DataConnectionListener::taf_DataConnectionListener(SlotId slot) : slotId(slot) {}
@@ -160,7 +144,7 @@ void taf_DataConnectionListener::onDataCallInfoChanged
     taf_dcs_CallCtx_t* callCtxPtr = dataConnection.GetCallCtx(slotId, profileId);
     TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL,
                          "Cannot find call context from slotId(%d) profileId(%d), event(%s)",
-                          slotId, profileId, dataConnection.CallStatusToString(callStatus));
+                          slotId, profileId, taf_DCSHelper::CallStatusToString(callStatus));
 
     callEvent.event         = EVT_STATUS_CHANGED;
     callEvent.profileId     = profileId;
@@ -218,7 +202,7 @@ void taf_DataConnectionListener::onDataCallInfoChanged
     callEvent.dataBearerTech    = iCall->getCurrentBearerTech();
 
     le_event_Report(dataConnection.CallEvent, &callEvent, sizeof(dataCallEvent_t));
-};
+}
 
 void taf_DataAPNThrottleInfoCallback::apnThrottleListResponse(
         const std::vector<telux::data::APNThrottleInfo> &throttleInfoList,
@@ -294,7 +278,7 @@ const std::vector<telux::data::APNThrottleInfo>  &throttleInfoList
 
     LE_INFO("Number of throttled APN: %d",(uint8_t)throttleInfoList.size());
 
-    dataProfile.ProcessThrottledApnInfoChanged(throttleInfoList,slotId);
+    dataProfile.ProcessThrottledApnInfoChanged(throttleInfoList, slotId);
 }
 
 le_result_t taf_DataConnection::GetAPNThrottledStatus
@@ -354,214 +338,6 @@ le_result_t taf_DataConnection::GetAPNThrottledStatus
 }
 
 
-const char* taf_DataConnection::CallStatusToString(telux::data::DataCallStatus status)
-{
-    const char *statusPtr = "";
-
-    switch (status)
-    {
-        case telux::data::DataCallStatus::INVALID:
-            statusPtr = "INVALID";
-        break;
-        case telux::data::DataCallStatus::NET_CONNECTED:
-            statusPtr = "NET_CONNECTED";
-        break;
-        case telux::data::DataCallStatus::NET_NO_NET:
-            statusPtr = "NET_NO_NET";
-        break;
-        case telux::data::DataCallStatus::NET_IDLE:
-            statusPtr = "NET_IDLE";
-        break;
-        case telux::data::DataCallStatus::NET_CONNECTING:
-            statusPtr = "NET_CONNECTING";
-        break;
-        case telux::data::DataCallStatus::NET_DISCONNECTING:
-            statusPtr = "NET_DISCONNECTING";
-        break;
-        case telux::data::DataCallStatus::NET_RECONFIGURED:
-            statusPtr = "NET_RECONFIGURED";
-        break;
-        case telux::data::DataCallStatus::NET_NEWADDR:
-            statusPtr = "NET_NEWADDR";
-        break;
-        case telux::data::DataCallStatus::NET_DELADDR:
-            statusPtr = "NET_DELADDR";
-        break;
-        default:
-            LE_ERROR("call(%d) status error", (int32_t)status);
-            statusPtr = "";
-        break;
-    }
-
-    return statusPtr;
-}
-
-const char*  taf_DataConnection::CallEndReasonToString(EndReasonType type)
-{
-    const char *reasonPtr = "";
-
-    switch (type) {
-        case EndReasonType::CE_MOBILE_IP:
-            reasonPtr = "CE_MOBILE_IP";
-        break;
-        case EndReasonType::CE_INTERNAL:
-            reasonPtr =  "CE_INTERNAL";
-        break;
-        case EndReasonType::CE_CALL_MANAGER_DEFINED:
-            reasonPtr =  "CE_CALL_MANAGER_DEFINED";
-        break;
-        case EndReasonType::CE_3GPP_SPEC_DEFINED:
-            reasonPtr =  "CE_3GPP_SPEC_DEFINED";
-        break;
-        case EndReasonType::CE_PPP:
-            reasonPtr =  "CE_PPP";
-        break;
-        case EndReasonType::CE_EHRPD:
-            reasonPtr =  "CE_EHRPD";
-        break;
-        case EndReasonType::CE_IPV6:
-            reasonPtr =  "CE_IPV6";
-        break;
-        case EndReasonType::CE_UNKNOWN:
-            reasonPtr =  "CE_UNKNOWN";
-        break;
-        default:
-            LE_ERROR("end reason(%d) error", (int32_t)type);
-            reasonPtr = "";
-        break;
-    }
-
-    return reasonPtr;
-}
-
-const char* taf_DataConnection::IpFamilyTypeToString(telux::data::IpFamilyType ipType)
-{
-    const char *ipPtr = "";
-
-    switch(ipType) {
-        case telux::data::IpFamilyType::IPV4:
-            ipPtr = "IPv4";
-        break;
-        case telux::data::IpFamilyType::IPV6:
-            ipPtr = "IPv6";
-        break;
-        case telux::data::IpFamilyType::IPV4V6:
-            ipPtr = "IPv4v6";
-        break;
-        case telux::data::IpFamilyType::UNKNOWN:
-        default:
-            LE_ERROR("unknown ip(%d)", (int32_t)ipType);
-            ipPtr = "";
-        break;
-    }
-
-    return ipPtr;
-}
-
-const char* taf_DataConnection::TechPreferenceToString(telux::data::TechPreference techPref)
-{
-    const char *techPrefPtr = "";
-
-    switch(techPref) {
-        case telux::data::TechPreference::TP_3GPP:
-            techPrefPtr = "3GPP";
-        break;
-        case telux::data::TechPreference::TP_3GPP2:
-            techPrefPtr = "3GPP2";
-        break;
-        case telux::data::TechPreference::TP_ANY:
-            techPrefPtr = "TP_ANY";
-        break;
-        case telux::data::TechPreference::UNKNOWN:
-        default:
-            LE_ERROR("unknown tech preference(%d)", (int32_t)techPref);
-            techPrefPtr = "";
-        break;
-    }
-
-    return techPrefPtr;
-}
-
-const char* taf_DataConnection::DataBearerToString(telux::data::DataBearerTechnology dataBearer)
-{
-    const char *dataBearerPtr = "";
-
-    switch(dataBearer) {
-        case telux::data::DataBearerTechnology::CDMA_1X:
-            dataBearerPtr = "1X technology";
-        break;
-        case telux::data::DataBearerTechnology::EVDO_REV0:
-            dataBearerPtr = "CDMA Rev 0";
-        break;
-        case telux::data::DataBearerTechnology::EVDO_REVA:
-            dataBearerPtr = "CDMA Rev A";
-        break;
-        case telux::data::DataBearerTechnology::EVDO_REVB:
-            dataBearerPtr = "CDMA Rev B";
-        break;
-        case telux::data::DataBearerTechnology::EHRPD:
-            dataBearerPtr = "EHRPD";
-        break;
-        case telux::data::DataBearerTechnology::FMC:
-            dataBearerPtr = "Fixed mobile convergence";
-        break;
-        case telux::data::DataBearerTechnology::HRPD:
-            dataBearerPtr = "HRPD";
-        break;
-        case telux::data::DataBearerTechnology::BEARER_TECH_3GPP2_WLAN:
-            dataBearerPtr = "3GPP2 IWLAN";
-        break;
-        case telux::data::DataBearerTechnology::WCDMA:
-            dataBearerPtr = "WCDMA";
-        break;
-        case telux::data::DataBearerTechnology::GPRS:
-            dataBearerPtr = "GPRS";
-        break;
-        case telux::data::DataBearerTechnology::HSDPA:
-            dataBearerPtr = "HSDPA";
-        break;
-        case telux::data::DataBearerTechnology::HSUPA:
-            dataBearerPtr = "HSUPA";
-        break;
-        case telux::data::DataBearerTechnology::EDGE:
-            dataBearerPtr = "EDGE";
-        break;
-        case telux::data::DataBearerTechnology::LTE:
-            dataBearerPtr = "LTE";
-        break;
-        case telux::data::DataBearerTechnology::HSDPA_PLUS:
-            dataBearerPtr = "HSDPA+";
-        break;
-        case telux::data::DataBearerTechnology::DC_HSDPA_PLUS:
-            dataBearerPtr = "DC HSDPA+.";
-        break;
-        case telux::data::DataBearerTechnology::HSPA:
-            dataBearerPtr = "HSPA";
-        break;
-        case telux::data::DataBearerTechnology::BEARER_TECH_64_QAM:
-            dataBearerPtr = "64 QAM";
-        break;
-        case telux::data::DataBearerTechnology::TDSCDMA:
-            dataBearerPtr = "TDSCDMA";
-        break;
-        case telux::data::DataBearerTechnology::GSM:
-            dataBearerPtr = "GSM";
-        break;
-        case telux::data::DataBearerTechnology::BEARER_TECH_3GPP_WLAN:
-            dataBearerPtr = "3GPP WLAN";
-        break;
-        case telux::data::DataBearerTechnology::BEARER_TECH_5G:
-            dataBearerPtr = "5G";
-        break;
-        default:
-            LE_ERROR("unknown data bearer type(%d)", (int32_t)dataBearer);
-            dataBearerPtr = "UNKNOWN";
-        break;
-    }
-
-    return dataBearerPtr;
-}
-
 void taf_DataConnection::LogDataCallInfo
 (
     const std::shared_ptr<telux::data::IDataCall> &dataCall,
@@ -575,10 +351,14 @@ void taf_DataConnection::LogDataCallInfo
     LE_DEBUG("profile id:           %d", profileId);
     LE_DEBUG("slot id:           %d", slotId);
     LE_DEBUG("interface name:       %s", dataCall->getInterfaceName().c_str());
-    LE_DEBUG("call status:          %s", CallStatusToString(dataCall->getDataCallStatus()));
-    LE_DEBUG("ip type:              %s", IpFamilyTypeToString(dataCall->getIpFamilyType()));
-    LE_DEBUG("ipv4 status:          %s", CallStatusToString(dataCall->getIpv4Info().status));
-    LE_DEBUG("ipv6 status:          %s", CallStatusToString(dataCall->getIpv6Info().status));
+    LE_DEBUG("call status:          %s", taf_DCSHelper::CallStatusToString(
+                                                                dataCall->getDataCallStatus()));
+    LE_DEBUG("ip type:              %s", taf_DCSHelper::IpFamilyTypeToString(
+                                                                dataCall->getIpFamilyType()));
+    LE_DEBUG("ipv4 status:          %s", taf_DCSHelper::CallStatusToString(
+                                                                dataCall->getIpv4Info().status));
+    LE_DEBUG("ipv6 status:          %s", taf_DCSHelper::CallStatusToString(
+                                                                dataCall->getIpv6Info().status));
     std::list<telux::data::IpAddrInfo> ipAddrList = dataCall->getIpAddressInfo();
     for(auto &it : ipAddrList) {
         LE_DEBUG("interface addr:       %s", it.ifAddress.c_str());
@@ -586,9 +366,12 @@ void taf_DataConnection::LogDataCallInfo
         LE_DEBUG("primary dns addr:     %s", it.primaryDnsAddress.c_str());
         LE_DEBUG("secondary dns addr:   %s", it.secondaryDnsAddress.c_str());
     }
-    LE_DEBUG("call end reason:   %s", CallEndReasonToString(dataCall->getDataCallEndReason().type));
-    LE_DEBUG("tech preference:      %s", TechPreferenceToString(dataCall->getTechPreference()));
-    LE_DEBUG("DataBearerTechnology: %s", DataBearerToString(dataCall->getCurrentBearerTech()));
+    LE_DEBUG("call end reason:   %s", taf_DCSHelper::CallEndReasonTypeToString(
+                                                            dataCall->getDataCallEndReason().type));
+    LE_DEBUG("tech preference:      %s", taf_DCSHelper::TechPreferenceToString(
+                                                            dataCall->getTechPreference()));
+    LE_DEBUG("DataBearerTechnology: %s", taf_DCSHelper::DataBearerToString(
+                                                            dataCall->getCurrentBearerTech()));
 
     return;
 }
@@ -682,11 +465,11 @@ void taf_DataConnection::StartDataCallCallback
     }
     callEvent.dataBearerTech    = iCall->getCurrentBearerTech();
     LE_DEBUG("ipv4 status=%s, ipv6 status=%s",
-              dataConnection.CallStatusToString(callEvent.ipv4Status),
-              dataConnection.CallStatusToString(callEvent.ipv6Status));
+              taf_DCSHelper::CallStatusToString(callEvent.ipv4Status),
+              taf_DCSHelper::CallStatusToString(callEvent.ipv6Status));
     LE_DEBUG("Start callback:event=%d,errcode=%d, callstatus=%s, slotId=%d, profileId=%d, ipType=%d",
              (int)callEvent.event, (int)callEvent.errorCode,
-             dataConnection.CallStatusToString(callEvent.callStatus), callEvent.slotId,
+             taf_DCSHelper::CallStatusToString(callEvent.callStatus), callEvent.slotId,
              (int)callEvent.profileId,(int)callEvent.ipType);
     le_event_Report(dataConnection.CallEvent, &callEvent,sizeof(dataCallEvent_t));
 
@@ -769,11 +552,11 @@ void taf_DataConnection::StopDataCallCallback
         callEvent.dataBearerTech    = iCall->getCurrentBearerTech();
     }
     LE_DEBUG("ipv4 status=%s, ipv6 status=%s",
-              dataConnection.CallStatusToString(callEvent.ipv4Status),
-              dataConnection.CallStatusToString(callEvent.ipv6Status));
+              taf_DCSHelper::CallStatusToString(callEvent.ipv4Status),
+              taf_DCSHelper::CallStatusToString(callEvent.ipv6Status));
     LE_DEBUG("stop callback:event=%d, errcode=%d, callstatus=%s, slotId=%d, profileId=%d, ipType=%d",
              (int)callEvent.event,(int)callEvent.errorCode,
-            dataConnection.CallStatusToString(callEvent.callStatus), callEvent.slotId,
+            taf_DCSHelper::CallStatusToString(callEvent.callStatus), callEvent.slotId,
             (int)callEvent.profileId,(int)callEvent.ipType);
 
     le_event_Report(dataConnection.CallEvent, &callEvent,sizeof(dataCallEvent_t));
@@ -1275,10 +1058,10 @@ le_result_t taf_DataConnection::StartSessionCmdSync
     {
         LE_ERROR("waiting promise timeout for %d seconds", SESSION_TIMEOUT);
         LE_INFO("Err slotId(%d) profileId(%d) for Type[%s] IPv4[%s] IPv6[%s]", slotId, profileId,
-                 IpFamilyTypeToString(callCtxPtr->ipType),
-                 CallStatusToString(callCtxPtr->ipv4Status),
-                 CallStatusToString(callCtxPtr->ipv6Status));
-                 result = LE_TIMEOUT;
+                taf_DCSHelper::IpFamilyTypeToString(callCtxPtr->ipType),
+                taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status),
+                taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
+        result = LE_TIMEOUT;
     }
     else
     {
@@ -1795,8 +1578,9 @@ le_result_t taf_DataConnection::GetInterfaceName
     }
 
     LE_DEBUG("Invalid connection status, callstatus: %s, ipv4: %s, ipv6: %s",
-             CallStatusToString(callCtxPtr->callStatus), CallStatusToString(callCtxPtr->ipv4Status),
-             CallStatusToString(callCtxPtr->ipv6Status));
+             taf_DCSHelper::CallStatusToString(callCtxPtr->callStatus),
+             taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status),
+             taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
     return LE_NOT_POSSIBLE;
 }
 
@@ -1963,6 +1747,73 @@ le_result_t taf_DataConnection::GetIpv6Dns
     return LE_OK;
 }
 
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+le_result_t taf_DataConnection::GetServiceStatusFromTelSDK(const uint8_t slotId,
+                                                    telux::data::ServiceStatus &serviceStatus)
+{
+    le_clk_Time_t timeToWait = {TELSDK_ASYNC_REQ_TIMEOUT, 0};
+    le_result_t result;
+
+    LE_INFO("Slot ID: %d", slotId);
+    auto reqServiceStatusCbFunc = std::bind(
+                            &taf_DataConnRequestServiceStatusCallback::requestServiceStatus,
+                            reqServiceStatusCb,
+                            std::placeholders::_1,
+                            std::placeholders::_2);
+
+    telux::common::Status status =
+                    dataServingSystemManagers[(SlotId)slotId]->requestServiceStatus(
+                                                                        reqServiceStatusCbFunc);
+    if (telux::common::Status::SUCCESS != status)
+    {
+        LE_WARN("<TelSDK> requestServiceStatus failed: %d", static_cast<int>(status));
+        return LE_FAULT;
+    }
+
+    // Wait for the callback to be called
+    result = le_sem_WaitWithTimeOut(reqServiceStatusCb->semaphore, timeToWait);
+    if (LE_OK != result)
+    {
+        LE_WARN("le_sem_WaitWithTimeOut failed: %d", result);
+        return LE_TIMEOUT;
+    }
+
+    // Check the error code from the SDK's RequestServiceStatusResponseCb
+    if (telux::common::ErrorCode::SUCCESS != reqServiceStatusCb->errorCode)
+    {
+        LE_WARN("<TelSDK>  RequestServiceStatusResponseCb failed: %d",
+                static_cast<int>(reqServiceStatusCb->errorCode));
+        return LE_FAULT;
+    }
+
+    serviceStatus.serviceState = reqServiceStatusCb->status.serviceState;
+    serviceStatus.networkRat = reqServiceStatusCb->status.networkRat;
+
+    return LE_OK;
+}
+
+taf_dcs_DataBearerTechnology_t taf_DataConnection::MapNwRatToDataBearerTech
+(
+    telux::data::NetworkRat nwRAT
+)
+{
+    switch (nwRAT)
+    {
+        case telux::data::NetworkRat::UNKNOWN:   return TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
+        case telux::data::NetworkRat::CDMA_1X:   return TAF_DCS_DATA_BEARER_TECHNOLOGY_CDMA_1X;
+        case telux::data::NetworkRat::CDMA_EVDO: return TAF_DCS_DATA_BEARER_TECHNOLOGY_CDMA_EVDO;
+        case telux::data::NetworkRat::GSM:       return TAF_DCS_DATA_BEARER_TECHNOLOGY_GSM;
+        case telux::data::NetworkRat::WCDMA:     return TAF_DCS_DATA_BEARER_TECHNOLOGY_WCDMA;
+        case telux::data::NetworkRat::TDSCDMA:   return TAF_DCS_DATA_BEARER_TECHNOLOGY_TD_SCDMA;
+        case telux::data::NetworkRat::LTE:       return TAF_DCS_DATA_BEARER_TECHNOLOGY_LTE;
+        case telux::data::NetworkRat::NR5G:      return TAF_DCS_DATA_BEARER_TECHNOLOGY_5G;
+        default:
+            LE_WARN("Unknown RAT: %d", static_cast<int>(nwRAT));
+            return TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
+    }
+}
+#endif // if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+
 le_result_t taf_DataConnection::GetDataBearerTechnology
 (
     uint8_t slotId,
@@ -1975,17 +1826,70 @@ le_result_t taf_DataConnection::GetDataBearerTechnology
                          LE_NOT_FOUND, "ptr is null");
     taf_dcs_CallCtx_t* callCtxPtr;
 
+    // Set default value
+    *downDataBearerTechPtr = TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
+    *upDataBearerTechPtr = TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
+
     callCtxPtr = GetCallCtx(slotId, profileId);
     if (callCtxPtr == NULL)
     {
+        // Just return if call context cannot be found
         LE_ERROR("Cannot find call context, use unknown data bearer");
+        return LE_NOT_FOUND;
+    }
+
+    if (callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTED ||
+        callCtxPtr->callStatus == telux::data::DataCallStatus::NET_IDLE ||
+        callCtxPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED ||
+        callCtxPtr->ipv4Status == telux::data::DataCallStatus::NET_IDLE ||
+        callCtxPtr->ipv6Status == telux::data::DataCallStatus::NET_CONNECTED ||
+        callCtxPtr->ipv6Status == telux::data::DataCallStatus::NET_IDLE)
+    {
+        // If call is connected, update call data bearer tech
+        *downDataBearerTechPtr = callCtxPtr->dataBearerTech;
+        *upDataBearerTechPtr = callCtxPtr->dataBearerTech;
+    }
+    else
+    {
+        // Call is not connected. Set unknown bearer
+        LE_WARN("Data call is not active for profile id %d", profileId);
         *downDataBearerTechPtr = TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
-        *upDataBearerTechPtr   = TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
+        *upDataBearerTechPtr = TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
+        return LE_UNAVAILABLE;
+    }
+
+    // Check if the network is IN SERVICE
+    // The service still has cached data bearer technology info. Here the service checks if the
+    // NAD is in service with the network. In case of issues in getting the service state, the
+    // API will return TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN.
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+    telux::data::ServiceStatus serviceStatus;
+    le_result_t result = GetServiceStatusFromTelSDK(slotId,serviceStatus);
+    if (result != LE_OK)
+    {
+        LE_WARN("Failed to get service status. Set TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN");
+        // Set TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN
+        *downDataBearerTechPtr = TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
+        *upDataBearerTechPtr = TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
         return LE_OK;
     }
 
-    *downDataBearerTechPtr = callCtxPtr->dataBearerTech;
-    *upDataBearerTechPtr = callCtxPtr->dataBearerTech;
+    // Check if the network is in service
+    if (telux::data::DataServiceState::IN_SERVICE != serviceStatus.serviceState)
+    {
+        LE_WARN("NAD is not IN_SERVICE: %d. Set TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN",
+                                                static_cast<int>(serviceStatus.serviceState));
+        // Set TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN
+        *downDataBearerTechPtr = TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
+        *upDataBearerTechPtr = TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
+        return LE_OK;
+    }
+
+    // Update the correct RAT
+    *downDataBearerTechPtr = MapNwRatToDataBearerTech(serviceStatus.networkRat);
+    *upDataBearerTechPtr   = MapNwRatToDataBearerTech(serviceStatus.networkRat);
+
+#endif // if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     return LE_OK;
 }
 
@@ -2073,10 +1977,10 @@ le_result_t taf_DataConnection::SendStatusChangedNotification
     else
     {
         LE_INFO("skip this event for type[%s] status[%s] IPv4[%s] IPv6[%s]",
-            IpFamilyTypeToString(callCtxPtr->ipType),
-            CallStatusToString(callCtxPtr->callStatus),
-            CallStatusToString(callCtxPtr->ipv4Status),
-            CallStatusToString(callCtxPtr->ipv6Status));
+                taf_DCSHelper::IpFamilyTypeToString(callCtxPtr->ipType),
+                taf_DCSHelper::CallStatusToString(callCtxPtr->callStatus),
+                taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status),
+                taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
     }
 
     return LE_OK;
@@ -2225,8 +2129,9 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
         break;
 
         default:
-            LE_ERROR("cannot handle this event: %s", CallStatusToString(eventPtr->callStatus));
-        break;
+            LE_ERROR("cannot handle this event: %s",
+                            taf_DCSHelper::CallStatusToString(eventPtr->callStatus));
+            break;
 
     }
 
@@ -2332,9 +2237,9 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
                 TAF_ERROR_IF_RET_NIL(isSendNotification != true,
                                      "won't send notification to listener");
                 LE_DEBUG("STARTCALLBACK:callStatus = %s, ipType=%d, ipv4status=%s, ipv6status=%s",
-                dataConnection.CallStatusToString(callCtxPtr->callStatus),(int)callCtxPtr->ipType,
-                dataConnection.CallStatusToString(callCtxPtr->ipv4Status),
-                dataConnection.CallStatusToString(callCtxPtr->ipv6Status));
+                taf_DCSHelper::CallStatusToString(callCtxPtr->callStatus),(int)callCtxPtr->ipType,
+                taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status),
+                taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
                 SendStatusChangedNotification(callCtxPtr,eventPtr);
 
                 // If the call back is from synchronous data call, need to set the result
@@ -2401,9 +2306,9 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
                 TAF_ERROR_IF_RET_NIL(isSendNotification != true,
                                      "won't send notification to listener");
                 LE_DEBUG("STOPCALLBACK:callStatus = %s, ipType=%d, ipv4status=%s, ipv6status=%s",
-                          dataConnection.CallStatusToString(callCtxPtr->callStatus),(int)stateInfo.ipType,
-                          dataConnection.CallStatusToString(callCtxPtr->ipv4Status),
-                          dataConnection.CallStatusToString(callCtxPtr->ipv6Status));
+                          taf_DCSHelper::CallStatusToString(callCtxPtr->callStatus),(int)stateInfo.ipType,
+                          taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status),
+                          taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
                 SendStatusChangedNotification(callCtxPtr,eventPtr);
 
                 // If the call back is from synchronous data call, need to set the result
@@ -2502,9 +2407,9 @@ void taf_DataConnection::SendNotificationStateEvent
               (callCtxPtr->ipv6Status != telux::data::DataCallStatus::INVALID) ) )
         {
             LE_INFO("promise for Type[%s] IPv4[%s] IPv6[%s]",
-                     IpFamilyTypeToString(callCtxPtr->ipType),
-                     CallStatusToString(callCtxPtr->ipv4Status),
-                     CallStatusToString(callCtxPtr->ipv6Status));
+                    taf_DCSHelper::IpFamilyTypeToString(callCtxPtr->ipType),
+                    taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status),
+                    taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
 
             if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_START ||
                 callCtxPtr->funcType == CALL_FUNCTION_SYNC_STOP)
@@ -2589,9 +2494,9 @@ void taf_DataConnection::SendNotificationStateEvent
                    (callCtxPtr->ipv6Status == telux::data::DataCallStatus::NET_NO_NET) ) )
             {
                 LE_INFO("promise for Conn[%d] Type[%s] IPv4[%s] IPv6[%s]", conState,
-                         IpFamilyTypeToString(callCtxPtr->ipType),
-                         CallStatusToString(callCtxPtr->ipv4Status),
-                         CallStatusToString(callCtxPtr->ipv6Status));
+                        taf_DCSHelper::IpFamilyTypeToString(callCtxPtr->ipType),
+                        taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status),
+                        taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
 
                 if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_START ||
                     callCtxPtr->funcType == CALL_FUNCTION_SYNC_STOP)
@@ -2666,25 +2571,25 @@ void taf_DataConnection::SendNotificationStateEvent
             else
             {
                 LE_INFO("no promise for Conn[%d] Type[%s] IPv4[%s] IPv6[%s]", conState,
-                         IpFamilyTypeToString(callCtxPtr->ipType),
-                         CallStatusToString(callCtxPtr->ipv4Status),
-                         CallStatusToString(callCtxPtr->ipv6Status));
+                        taf_DCSHelper::IpFamilyTypeToString(callCtxPtr->ipType),
+                        taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status),
+                        taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
             }
         }
         else
         {
             LE_ERROR("invalid IP type: %s or status IPv4[%s] IPv6[%s]",
-                      IpFamilyTypeToString(callCtxPtr->ipType),
-                      CallStatusToString(callCtxPtr->ipv4Status),
-                      CallStatusToString(callCtxPtr->ipv6Status));
+                     taf_DCSHelper::IpFamilyTypeToString(callCtxPtr->ipType),
+                     taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status),
+                     taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
         }
     }
     else
     {
         LE_INFO("no promise for Conn[%d] Type[%s] IPv4[%s] IPv6[%s]", conState,
-                 IpFamilyTypeToString(callCtxPtr->ipType),
-                 CallStatusToString(callCtxPtr->ipv4Status),
-                  CallStatusToString(callCtxPtr->ipv6Status));
+                taf_DCSHelper::IpFamilyTypeToString(callCtxPtr->ipType),
+                taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status),
+                taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
     }
 
     return;
@@ -2695,25 +2600,6 @@ void taf_DataConnection::RegisterSessionStateHandler(taf_dcs_SessionStateFunc_t 
     TAF_ERROR_IF_RET_NIL(func == NULL, "the registered session state func is null");
     SessionStateFunc = func;
     return;
-}
-
-const char * taf_DataConnection::CallEventToString(taf_dcs_ConState_t callEvent)
-{
-    switch (callEvent)
-    {
-        case TAF_DCS_DISCONNECTED:
-            return "disconnect";
-        case TAF_DCS_CONNECTING:
-            return "connecting";
-        case TAF_DCS_CONNECTED:
-            return "connected";
-        case TAF_DCS_DISCONNECTING:
-            return "disconnecting";
-        default:
-            LE_ERROR("unknown status: %d", callEvent);
-            return "unknow status";
-    }
-    return "unknow status";
 }
 
 bool taf_DataConnection::IsIpv4(uint8_t slotId, int32_t profileId)
@@ -3197,8 +3083,8 @@ void taf_DataConnection::Init(void)
 
     }
 
-    reqSvcStateCb = std::make_shared<taf_DataConnRequestServiceStatusCallback>();
-    reqSvcStateCb->semaphore = le_sem_Create("taf_ConnectionReqSvcStateCbSem", 0);
+    reqServiceStatusCb = std::make_shared<taf_DataConnRequestServiceStatusCallback>();
+    reqServiceStatusCb->semaphore = le_sem_Create("taf_DataConnRequestServiceStatusCallbackSem", 0);
 
     reqRoamingStatusCb = std::make_shared<taf_DataConnRequestRoamingStatusCallback>();
     reqRoamingStatusCb->semaphore = le_sem_Create("taf_ConnReqRoamingStatusCbSem", 0);

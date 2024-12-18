@@ -75,6 +75,7 @@
 #include "tafSvcIF.hpp"
 #include "tafDcsConnectionImpl.hpp"
 #include "tafDcsProfileImpl.hpp"
+#include "tafDcsHelper.hpp"
 
 using namespace telux::data;
 using namespace telux::common;
@@ -434,6 +435,13 @@ le_result_t taf_dcs_SetPDP
     auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
 
+    // Ensure profile ref is not NULL
+    TAF_ERROR_IF_RET_VAL((profileRef == NULL), LE_BAD_PARAMETER, "profileRef is null");
+    // Validate only supported PDP values are passed.
+    TAF_ERROR_IF_RET_VAL(((pdp != TAF_DCS_PDP_IPV4) &&
+                          (pdp != TAF_DCS_PDP_IPV6) &&
+                          (pdp != TAF_DCS_PDP_IPV4V6)),
+                         LE_BAD_PARAMETER, "Invalid PDP type: %d", pdp);
 
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
@@ -744,7 +752,7 @@ static void FirstSessionStateHandler(void* reportPtr, void* subHandlerFunc)
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     LE_INFO("send callback to callRef: %p, callEvent: %s\n", stateEvent->callRef,
-        dataConnection.CallEventToString(stateEvent->callEvent));
+            taf_DCSHelper::CallEventToString(stateEvent->callEvent));
 
     le_result_t result = dataConnection.GetSlotIdAndProfileId(stateEvent->callRef, &slotId,
                                                               &profileId);

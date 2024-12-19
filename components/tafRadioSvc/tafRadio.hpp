@@ -758,12 +758,14 @@ namespace tafsvc {
         static le_result_t result;
         static telux::tel::ImsServiceConfig config;
         static char sipUserAgentPtr[TAF_RADIO_IMS_USER_AGENT_BYTES];
+        static bool vonrConfig;
 
         static void onRequestImsServiceConfig(SlotId slotId,
             telux::tel::ImsServiceConfig configType, telux::common::ErrorCode error);
         static void onResponseCallback(telux::common::ErrorCode error);
         static void onRequestImsSipUserAgentConfig(SlotId slotId, std::string sipUserAgent,
             telux::common::ErrorCode errorCode);
+        static void onRequestImsVonr(SlotId slotId, bool isEnable, telux::common::ErrorCode errorCode);
     };
 
      /*

@@ -538,6 +538,64 @@
    result = taf_radio_GetHardwareSimRatCapabilities(&deviceRatCapMask,&simRatCapMask,phoneId);
  *
    @endcode
+ *
+ * @section c_taf_radio_ims IMS (IP Multimedia Subsystem) Information
+ *
+ * Users can set and get the IMS registration status, service status and configurations in given slot.
+ *
+ *  - taf_radio_GetImsRegStatus() -- Gets the IMS registration status in given slot.
+ *
+ *  - taf_radio_GetImsSvcStatus() -- Gets the IMS service status (including Voice over IMS and SMS) in given slot.
+ *
+ *  - taf_radio_SetImsSvcCfg() -- Sets the IMS service configurations (including IMS, Voice over IMS, Voice
+ *     over NR, SMS over IMS, RTT) in given slot.
+ *    @b WARNING: Disabling Voice over NR will result in the user equipment (UE) defaulting to support NR5G voice
+ *       over EPS fallback. To enable Voice over NR, both IMS and Voice over IMS must be enabled.
+ *
+ *  - taf_radio_GetImsSvcCfg() -- Gets the IMS service (IMS, Voice over IMS, Voice over NR, SMS over IMS, RTT)
+ *    configurations in given slot.
+ *
+ *  - taf_radio_SetImsUserAgent() -- Sets the IMS SIP User Agent configuration in given slot.
+ *
+ *  - taf_radio_GetImsUserAgent() -- Gets the IMS SIP User Agent configuration in given slot.
+ *
+ *  - taf_radio_GetImsPdpError() -- Gets the IMS PDP error in given slot.
+ *
+ *  - taf_radio_AddImsRegStatusChangeHandler() / taf_radio_RemoveImsRegStatusChangeHandler() -- Adds/removes
+ *    handler for IMS registration status change.
+ *
+ *  - taf_radio_AddImsStatusChangeHandler() / taf_radio_RemoveImsStatusChangeHandler() -- Adds/removes
+ *    handler for IMS status change.
+ *
+ * The following example illustrates the API usage.
+ *
+ * @code
+
+   // Sets IMS Voice over NR configuration.
+   bool enable = false;
+   taf_radio_ImsRef_t imsRef = taf_radio_GetIms(phoneId);
+   le_result_t result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, enable);
+   if (result == LE_OK)
+   {
+       LE_INFO("VoNR has been successfully disabled.");
+   } else {
+       LE_ERROR("Failed to disable VoNR.");
+   }
+
+   // Gets IMS Voice over NR configuration.
+   result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, &enable);
+   if (result == LE_OK)
+   {
+       if (enable)
+       {
+           LE_INFO("VoNR is enabled");
+       } else {
+           LE_INFO("VoNR is disabled");
+       }
+   } else {
+       LE_ERROR("Failed to get the configuration of VoNR.");
+   }
+   @endcode
  * <HR>
  *
  */
@@ -899,8 +957,9 @@ ENUM ImsSvcType
 {
     IMS_SVC_TYPE_IMS_REG, ///< IMS normal registration.
     IMS_SVC_TYPE_SMS,     ///< SMS service.
-    IMS_SVC_TYPE_VOIP,    ///< Voice call service.
-    IMS_SVC_TYPE_RTT      ///< Resource translation table.
+    IMS_SVC_TYPE_VOIP,    ///< Voice over IMS.
+    IMS_SVC_TYPE_RTT,     ///< Resource translation table.
+    IMS_SVC_TYPE_VONR     ///< Voice over NR.
 };
 
 //--------------------------------------------------------------------------------------------------

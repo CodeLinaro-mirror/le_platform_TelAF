@@ -670,6 +670,19 @@ namespace tafsvc {
             static void setRFBandPrefResponse(telux::common::ErrorCode error);
     };
 
+    class taf_RadioRFBandInfoResponseCallback
+    {
+        public:
+            static le_sem_Ref_t semaphore;
+            static le_result_t result;
+            static taf_radio_BandBitMask_t band;
+            static uint32_t lteBand;
+            static uint32_t nrBand;
+            static taf_radio_RFBandWidth_t bandwidth;
+            static void rfBandInfoResponse(telux::tel::RFBandInfo bandInfo,
+                telux::common::ErrorCode error);
+    };
+
     /*
      * @brief A RAT preference callback class must be provided when getting rat preference.
      */

@@ -7,6 +7,7 @@ sources:
     diagReset.c
     diagRoutineControl.c
     diagIOCtrl.c
+    diagAuth.c
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
     diagVlan.c
     diagDoIP.c
@@ -17,6 +18,7 @@ sources:
     diagVlanReset.c
     diagVlanRoutineControl.c
     diagVlanSecurityAccess.c
+    diagVlanAuth.c
 #endif
 }
 
@@ -35,6 +37,7 @@ requires:
         taf_appMgmt.api
         taf_fwupdate.api
         taf_diag.api
+        taf_diagAuth.api
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
         taf_diagDoIP.api
 #endif

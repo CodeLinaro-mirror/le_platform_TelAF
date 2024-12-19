@@ -165,6 +165,8 @@ COMPONENT_INIT
                     "diagVlanRoutineControl_Init -> init failed");
             LE_FATAL_IF(diagVlanIOControl_Init() != LE_OK,
                     "diagVlanIOControl_Init -> init failed");
+            LE_FATAL_IF(diagVlanAuth_Init() != LE_OK,
+                    "diagVlanAuth_Init -> init failed");
         }
         else if (strcmp(vlanTypePtr,"nonMultiVlan") == 0)
         {
@@ -183,6 +185,8 @@ COMPONENT_INIT
                     "diagRoutineControl_Init -> init failed");
             LE_FATAL_IF(diagIOControl_Init() != LE_OK,
                     "diagIOControl_Init -> init failed");
+            LE_FATAL_IF(diagAuth_Init() != LE_OK,
+                    "diagAuth_Init -> init failed");
 #ifndef LE_CONFIG_DIAG_VSTACK
             LE_FATAL_IF(diagDoIP_Init() != LE_OK,
                     "diagDoIP_Init -> init failed");

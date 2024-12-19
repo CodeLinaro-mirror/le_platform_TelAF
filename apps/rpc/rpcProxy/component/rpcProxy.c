@@ -458,7 +458,8 @@ static void RpcConfigHandler
 
     if (result == LE_NOT_FOUND)
     {
-        LE_FATAL("No JSON file or invalid JSON file is detected, Stop RPC proxy.");
+        LE_ERROR("No JSON file or invalid JSON file is detected, Stop RPC proxy.");
+        exit(EXIT_SUCCESS);
     }
 
     if (result != LE_OK)

@@ -1,4 +1,6 @@
 username: telaf
+startGroup: 20
+
 sandboxed: false
 start: auto
 maxThreads: 600

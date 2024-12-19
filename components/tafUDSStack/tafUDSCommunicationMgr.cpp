@@ -1626,11 +1626,12 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
             }
 
             //Check R,W attribute for current session
-            cfg::Node & rwAttributes = node.get_child("did_accessibility.diagnostic_session." + curSesName);
+            cfg::Node & rwAttributes = node.get_child("did_accessibility.diagnostic_session." +
+                    curSesName);
             bool isRWTypeMatched = false;
             for (const auto & rw: rwAttributes)
             {
-                string attr = rw.second.get_value<string>("");
+                string attr = rw.first;
                 if(attr == "R")
                 {
                     LE_DEBUG("diagnostic_session is R");
@@ -1661,54 +1662,63 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
             return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
         }
 
-        try
+        if (SessionType != DEFAULT_SESSION)
         {
-            // Check active session type for data ID.
-            cfg::Node & sesType = node.get_child("access.session");
-            bool isSessionPresentInAccess = false;
-
-            for (const auto & session: sesType)
+            try
             {
-                string confAccessSesName = session.second.get_value<string>("");
-                //session is configured in access.session, check the security
-                if(curSesName == confAccessSesName)
+                //check security attribute for current session R attribute.
+                cfg::Node & securityAttributes =
+                        node.get_child("did_accessibility.diagnostic_session." + curSesName);
+                bool isDIDSecured = false;
+                for (const auto & sec: securityAttributes)
                 {
-                    LE_DEBUG("current session type is supported for this data ID");
-                    isSessionPresentInAccess = true;
-                    break;
+                    string attr = sec.first;
+                    if(attr == "R")
+                    {
+                        isDIDSecured = sec.second.get<bool>("security");
+                        break;
+                    }
                 }
-            }
-
-            //security_level check if session configured in access.session
-            if(isSessionPresentInAccess)
-            {
-                //Step 3: Authentication check and Security access check
-                try
+                //Security access check. UDS_0x22_NRC_33
+                if(isDIDSecured)
                 {
-                    int security_type = node.get_child("access").get<int>("security_type");
-                    //Authentication check after authentication service is supported, send NRC 0x34
-                    //Security access check. UDS_0x22_NRC_33
-                    if(security_type == SECURITY_ACCESS_REQUEST_ID
-                    && SecurityAccess_IsUnlocked(this) == false)
+                    cfg::Node & levelList = node.get_child("did_accessibility.diagnostic_session."
+                                                            + curSesName
+                                                            + ".R.security_level");
+
+                    bool levelUnlocked = false;
+                    for (const auto & lvl: levelList)
+                    {
+                        string level_name = lvl.second.get_value<string>("");
+                        uint8_t level_id = cfg::get_security_level_id(level_name);
+                        levelUnlocked = SecurityAccess_IsLevelUnlocked(this, level_id);
+
+                        if (levelUnlocked)
+                        {
+                            LE_INFO("DID is secured, level id: %d is unlockded", level_id);
+                            break;
+                        }
+                    }
+
+                    if (levelUnlocked == false)
                     {
                         LE_WARN("Did is secured, but the server is not unlocked.");
                         return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
                     }
                 }
-                catch (const std::exception& e)
-                {
-                    //security_level is not configured. Don't check it.
-                    LE_WARN("Exception: %s. security_level is not configured for dataId 0x%x",
-                            e.what(), dataId);
-                }
+            }
+            catch (const std::exception& e)
+            {
+                //security_level is not configured. Don't check it.
+                LE_WARN("Exception: %s. security is not configured for dataId 0x%x", e.what(),
+                        dataId);
             }
         }
-        catch (const std::exception& e)
+        else
         {
-            //security_level is not configured. Don't check it.
-            LE_WARN("Exception: %s. security is not configured for dataId 0x%x", e.what(), dataId);
+            LE_DEBUG("Skip SecurityAccess check as current session is default_session");
         }
-#endif
+
         //Store DID in active session.
         updatedRecvBuf[updatedRecvDataLen] = recvBuf[i*UDS_DID_LEN + 1];
         updatedRecvBuf[updatedRecvDataLen+1] = recvBuf[i*UDS_DID_LEN + 2];
@@ -1831,7 +1841,7 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
         bool isRWTypeMatched = false;
         for (const auto & rw: rwAttributes)
         {
-            string attr = rw.second.get_value<string>("");
+            string attr = rw.first.c_str();
             if(attr == "W")
             {
                 LE_DEBUG("diagnostic_session is W");
@@ -1862,52 +1872,61 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
     }
 
-    try
+    if (SessionType != DEFAULT_SESSION)
     {
-        // Check active session type for data ID.
-        cfg::Node & sesType = node.get_child("access.session");
-        bool isSessionPresentInAccess = false;
-
-        for (const auto & session: sesType)
+        try
         {
-            string confAccessSesName = session.second.get_value<string>("");
-            //session is configured in access.session, check the security
-            if(curSesName == confAccessSesName)
-            {
-                LE_DEBUG("current session type is supported for this data ID");
-                isSessionPresentInAccess = true;
-                break;
-            }
-        }
+            //check security attribute for current session W attribute.
+            cfg::Node & securityAttributes = node.get_child("did_accessibility.diagnostic_session."
+                                                             + curSesName);
 
-        //security_level check if session configured in access.session
-        if(isSessionPresentInAccess)
-        {
-            //Step 3: Authentication check and Security access check
-            try
+            bool isDIDSecured = false;
+            for (const auto & sec: securityAttributes)
             {
-                int security_type = node.get_child("access").get<int>("security_type");
-                //Authentication check after authentication service is supported, send NRC 0x34
-                //Security access check. UDS_0x22_NRC_33
-                if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) ==
-                        false)
+                string attr = sec.first.c_str();
+                if(attr == "W")
                 {
-                    LE_WARN("Did is secured and the server is not unlocked.");
+                    isDIDSecured = sec.second.get<bool>("security");
+                    break;
+                }
+            }
+            //Security access check. UDS_0x22_NRC_33
+            if(isDIDSecured)
+            {
+                cfg::Node & levelList = node.get_child("did_accessibility.diagnostic_session."
+                                                        + curSesName
+                                                        + ".W.security_level");
+
+                bool levelUnlocked = false;
+                for (const auto & lvl: levelList)
+                {
+                    string level_name = lvl.second.get_value<string>("");
+                    uint8_t level_id = cfg::get_security_level_id(level_name);
+                    levelUnlocked = SecurityAccess_IsLevelUnlocked(this, level_id);
+
+                    if (levelUnlocked)
+                    {
+                        LE_INFO("DID is secured, level id: %d is unlockded", level_id);
+                        break;
+                    }
+                }
+
+                if (levelUnlocked == false)
+                {
+                    LE_WARN("Did is secured, but the server is not unlocked.");
                     return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
                 }
             }
-            catch (const std::exception& e)
-            {
-                //security_level is not configured. Don't check it.
-                LE_WARN("Exception: %s. security_level is not configured for dataId 0x%x", e.what(),
-                        dataId);
-            }
+        }
+        catch (const std::exception& e)
+        {
+            //security_level is not configured. Don't check it.
+            LE_WARN("Exception: %s. security is not configured for dataId 0x%x", e.what(), dataId);
         }
     }
-    catch (const std::exception& e)
+    else
     {
-        //security_level is not configured. Don't check it.
-        LE_WARN("Exception: %s. security is not configured for dataId 0x%x", e.what(), dataId);
+        LE_DEBUG("Skip SecurityAccess check as current session is default_session");
     }
 
     // Step 3: Maximum length check. UDS_0x2E_NRC_13
@@ -2336,18 +2355,21 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
         return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);//NRC 0x31
     }
 
+    string currSessName;
+
     // Step 3: Session check. UDS_0x2F_NRC_31
     try
     {
-        cfg::Node & sesType = node.get_child("access.session");
+        cfg::Node & currSessNode = cfg::top_diagnostic_session<int>("id", (int)SessionType);
+        currSessName = currSessNode.get<string>("short_name");
+        LE_DEBUG("current session name: %s", currSessName.c_str());
         bool isSessionMatched = false;
-        for (const auto & session: sesType)
-        {
-            string type = session.second.get_value<string>("");
 
-            cfg::Node & sesNode = cfg::top_diagnostic_session<string>("short_name", type);
-            int confSessionId = sesNode.get<int>("id");
-            if ((uint8_t)confSessionId == (uint8_t)SessionType)
+        cfg::Node & diagnosticSession = node.get_child("diagnostic_session");
+        for (const auto & session: diagnosticSession)
+        {
+            string sessName = session.first;
+            if (currSessName == sessName)
             {
                 LE_DEBUG("current session type is supported for this data ID");
                 isSessionMatched = true;
@@ -2363,7 +2385,7 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
     }
     catch (const std::exception& e)
     {
-        LE_WARN("Exception: %s. access.session is not configured for dataId 0x%x", e.what(),
+        LE_WARN("Exception: %s. 'diagnostic_session' is not configured for dataId 0x%x", e.what(),
                 dataId);
         return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);//NRC 0x31
     }
@@ -2439,24 +2461,61 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
     }
 
-    try
+    //Step 7: SecurityAccess check. UDS_0x2F_NRC_33
+    if (SessionType != DEFAULT_SESSION)
     {
-        int security_type = node.get_child("access").get<int>("security_type");
-        LE_INFO("security type=0x%x", security_type);
-        //Security access check. UDS_0x2F_NRC_33
-        if(security_type == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) == false)
+        try
         {
-            LE_WARN("Did is secured and the server is not unlocked.");
-            return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
+            cfg::Node & attrs = node.get_child("diagnostic_session." + currSessName);
+            bool isIODIDSecured = false;
+            for (const auto & attr: attrs)
+            {
+                if (attr.first == "IO")
+                {
+                    isIODIDSecured = attr.second.get<bool>("security");
+                    break;
+                }
+            }
+
+            if (isIODIDSecured)
+            {
+                cfg::Node & levelList = node.get_child("diagnostic_session."
+                                                        + currSessName
+                                                        + ".IO.security_level");
+
+                bool levelUnlocked = false;
+                for (const auto & lvl: levelList)
+                {
+                    string level_name = lvl.second.get_value<string>("");
+                    uint8_t level_id = cfg::get_security_level_id(level_name);
+                    levelUnlocked = SecurityAccess_IsLevelUnlocked(this, level_id);
+
+                    if (levelUnlocked)
+                    {
+                         LE_INFO("IO DID is secured, level id: %d is unlockded", level_id);
+                         break;
+                    }
+                }
+
+                if (levelUnlocked == false)
+                {
+                    LE_WARN("IO Did is secured, but the server is not unlocked.");
+                    return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr);
+                }
+            }
+        }
+        catch (const std::exception& e)
+        {
+            //security_level is not configured. Don't check it.
+            LE_WARN("Exception: %s. security_level is not configured for dataId 0x%x", e.what(),
+                    dataId);
+            *isInternalHandle = false;
+            return LE_OK;
         }
     }
-    catch (const std::exception& e)
+    else
     {
-        //security_level is not configured. Don't check it.
-        LE_WARN("Exception: %s. security_level is not configured for dataId 0x%x", e.what(),
-                dataId);
-        *isInternalHandle = false;
-        return LE_OK;
+        LE_DEBUG("Skip SecurityAccess check as current session is default_session");
     }
 
     //Will send the indication to the diag service

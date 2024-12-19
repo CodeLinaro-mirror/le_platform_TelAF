@@ -31,6 +31,33 @@ typedef struct
     le_result_t responseState;
 } GetRTCRequest_t;
 
+struct timespec bootTimeOnSetRTCTime = {0,0};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get system boot time.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_FAULT -- If any error occurs.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t GetBootTime
+(
+    struct timespec *timeValPtr
+)
+{
+    struct timespec bootTime;
+
+    if ( clock_gettime(CLOCK_BOOTTIME, &bootTime) < 0 )
+    {
+        return LE_FAULT;
+    }
+    timeValPtr->tv_sec = bootTime.tv_sec;
+    timeValPtr->tv_nsec = bootTime.tv_nsec;
+    return LE_OK;
+}
+
 static int WriteTimeToFile(struct TimeSpec timeVal)
 {
     int fd;
@@ -113,6 +140,14 @@ static le_result_t tal_hal_GetRtcTime(struct TimeSpec* timeVal)
 
 #ifdef TAF_HAL_RTC_IS_READ_ONLY
     LE_INFO("TestDrv: %s", __FUNCTION__);
+    struct timespec presentBootTime = {0,0}, deltaBootTime = {0,0};
+    le_result_t result = GetBootTime(&presentBootTime);
+    if (result)
+    {
+        LE_ERROR("Unable to read system boot time\n");
+    }
+    deltaBootTime.tv_sec = presentBootTime.tv_sec - bootTimeOnSetRTCTime.tv_sec;
+    deltaBootTime.tv_nsec = presentBootTime.tv_nsec - bootTimeOnSetRTCTime.tv_nsec;
 
     struct TimeSpec timeInFile;
     ret = ReadTimeFromFile(&timeInFile);
@@ -129,10 +164,10 @@ static le_result_t tal_hal_GetRtcTime(struct TimeSpec* timeVal)
     }
 
     LE_INFO("The RTC time is: %"PRIu64", nanosec: %"PRIu64" from RTC file\n",
-        timeInFile.sec, timeInFile.nanosec);
+        timeInFile.sec + deltaBootTime.tv_sec, timeInFile.nanosec + deltaBootTime.tv_nsec);
 
-    timeVal->sec = timeInFile.sec;
-    timeVal->nanosec = timeInFile.nanosec;
+    timeVal->sec = timeInFile.sec + deltaBootTime.tv_sec;
+    timeVal->nanosec = 0; //dropping the accuracy for simulation test
 
 #else
     LE_INFO("TestDrv: %s", __FUNCTION__);
@@ -189,6 +224,7 @@ static le_result_t tal_hal_GetRtcTime(struct TimeSpec* timeVal)
 static le_result_t tal_hal_SetRtcTime(struct TimeSpec timeVal)
 {
     int ret = 0;
+    timeVal.nanosec = 0; //dropping the accuracy for simulation test
 
 #ifdef TAF_HAL_RTC_IS_READ_ONLY
     /*
@@ -196,6 +232,11 @@ static le_result_t tal_hal_SetRtcTime(struct TimeSpec timeVal)
      * be set. Here define "TAF_HAL_RTC_IS_READ_ONLY" to use write file
      * instead of write RTC for verifying the write logic.
      */
+    le_result_t result = GetBootTime(&bootTimeOnSetRTCTime);
+    if (result)
+    {
+        LE_ERROR("Unable to read system boot time\n");
+    }
     ret = WriteTimeToFile(timeVal);
     if (ret != 0)
     {
@@ -274,6 +315,15 @@ static void ProcessGetRTCRequest(void* param1,void* param2)
 #ifdef TAF_HAL_RTC_IS_READ_ONLY
     int ret = 0;
     struct TimeSpec timeInFile;
+    struct timespec presentBootTime = {0,0}, deltaBootTime = {0,0};
+    le_result_t result = GetBootTime(&presentBootTime);
+    if (result)
+    {
+        LE_ERROR("Unable to read system boot time\n");
+    }
+    deltaBootTime.tv_sec = presentBootTime.tv_sec - bootTimeOnSetRTCTime.tv_sec;
+    deltaBootTime.tv_nsec = presentBootTime.tv_nsec - bootTimeOnSetRTCTime.tv_nsec;
+
 
     ret = ReadTimeFromFile(&timeInFile);
     if (ret != 0)
@@ -289,8 +339,8 @@ static void ProcessGetRTCRequest(void* param1,void* param2)
     }
     else
     {
-        req->timeVal.sec = timeInFile.sec;
-        req->timeVal.nanosec = timeInFile.nanosec;
+        req->timeVal.sec = timeInFile.sec+ deltaBootTime.tv_sec;
+        req->timeVal.nanosec = 0; //dropping the accuracy for simulation test
         req->responseState = LE_OK;
     }
 #else
@@ -349,6 +399,11 @@ static le_result_t taf_hal_setRtcTimeReqAsync(const struct TimeSpec* timeVal,
     LE_INFO("VHAL received new time:  %"PRIu64".%"PRIu64" trying to update to RTC\n", timeVal->sec, timeVal->nanosec);
 #ifdef TAF_HAL_RTC_IS_READ_ONLY
     int ret = 0;
+    le_result_t result = GetBootTime(&bootTimeOnSetRTCTime);
+    if (result)
+    {
+        LE_ERROR("Unable to read system boot time\n");
+    }
     /*
      * Since the RTC in QC was set to read only, so the RTC time cannot
      * be set. Here define "TAF_HAL_RTC_IS_READ_ONLY" to use write file

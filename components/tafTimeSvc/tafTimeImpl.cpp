@@ -270,6 +270,9 @@ const char* taf_Time::SourceAttrToStr
         case TAF_TIME_CONF_PRIORI:
             return "Priority";
 
+        case TAF_TIME_CONF_TOLMILLSEC:
+            return "ToleranceMillsec";
+
         /* Add new source item here */
 
         case TAF_TIME_CONF_MAX_ITEM:
@@ -297,6 +300,7 @@ le_result_t taf_Time::ReadSourceConf
     json_t *arrayData,*itemData, *sourceCfgArray;
     const char* value;
     int priority;
+    long int toleranceMillsec;
     int i, j;
     long int arraySize = 0;
 
@@ -351,6 +355,11 @@ le_result_t taf_Time::ReadSourceConf
                     sscanf(value,"%d", &priority);
                     serviceCfg.addPriority(i, priority);
                 }
+                if (j == TAF_TIME_CONF_TOLMILLSEC)
+                {
+                    sscanf(value,"%ld", &toleranceMillsec);
+                    serviceCfg.addToleranceMillsec(i, toleranceMillsec);
+                }
                 result = LE_OK;
             }
         }
@@ -376,7 +385,7 @@ le_result_t taf_Time::ReadTimeConf
 {
     json_t *itemData;
     const char* value;
-    long int pollingInterval, toleranceMillsec;
+    long int pollingInterval;
     int64_t allowOverrideAfterFail = -1;
     std::vector<std::string> validClientList;
     std::string gptpDeviceName;
@@ -391,17 +400,6 @@ le_result_t taf_Time::ReadTimeConf
     value = json_string_value(itemData);
     sscanf(value,"%ld", &pollingInterval);
     serviceCfg.pollingInterval = pollingInterval;
-
-    itemData = json_object_get(serviceDataPtr, TAF_TIME_TOLERANCES_SETTING_STR);
-    if (!json_is_string(itemData))
-    {
-        LE_WARN("Warning: Tolerances string was not found\n");
-        return LE_NOT_FOUND;
-    }
-
-    value = json_string_value(itemData);
-    sscanf(value,"%ld", &toleranceMillsec);
-    serviceCfg.toleranceMillsec = toleranceMillsec;
 
     itemData = json_object_get(serviceDataPtr, TAF_TIME_ALLOWOVERRIDE_STR);
     if (!json_is_string(itemData))
@@ -709,13 +707,22 @@ le_result_t taf_Time::UpdateLocalTimeCache
         largerDtTime = taf_time_Sub(oldDeltaTime, newDeltaTime);
     }
 
-    if (TimeSourceConf.toleranceMillsec <= 0)
+    int position = TimeSourceConf.findSourcePosition(
+                                SourceNameIndexToStr(sourceName));
+
+    if (position < 0)
+    {
+        LE_ERROR("Source does not exist!");
+        return LE_NOT_FOUND;
+    }
+
+    if (TimeSourceConf.source[position].toleranceMillsec <= 0)
     {
         milliSecThreshold = TAF_TIME_THRESHOLD_MILLISEC;
     }
     else
     {
-        milliSecThreshold = TimeSourceConf.toleranceMillsec;
+        milliSecThreshold = TimeSourceConf.source[position].toleranceMillsec;
     }
 
     deltaMilliSec = largerDtTime.sec * 1000 + largerDtTime.nanosec/1000/1000;
@@ -1650,7 +1657,8 @@ void taf_Time::ReportTimeValueChange
 bool taf_Time::IsThresholdSetTimeAllow
 (
     taf_time_TimeSpec_t timeVal,
-    taf_time_TimeSpec_t systemTime
+    taf_time_TimeSpec_t systemTime,
+    taf_time_TimeSources_t timeSource
 )
 {
     uint64_t deltaMilliSec, milliSecThreshold;
@@ -1665,13 +1673,21 @@ bool taf_Time::IsThresholdSetTimeAllow
         tmpTime = taf_time_Sub(systemTime, timeVal);
     }
 
-    if (TimeSourceConf.toleranceMillsec <= 0)
+    int position = TimeSourceConf.findSourcePosition(SourceNameIndexToStr(timeSource));
+
+    if (position < 0)
+    {
+        LE_ERROR("Source does not exist!");
+        return false;
+    }
+
+    if (TimeSourceConf.source[position].toleranceMillsec <= 0)
     {
         milliSecThreshold = TAF_TIME_THRESHOLD_MILLISEC;
     }
     else
     {
-        milliSecThreshold = TimeSourceConf.toleranceMillsec;
+        milliSecThreshold = TimeSourceConf.source[position].toleranceMillsec;
     }
 
     deltaMilliSec = tmpTime.sec * 1000 + tmpTime.nanosec/1000/1000;
@@ -1808,7 +1824,8 @@ le_result_t taf_Time::SetSystemTime
         LE_ERROR("Get system time failed\n");
         return result;
     }
-    if (IsThresholdSetTimeAllow(timeVal, systemTime))
+
+    if (IsThresholdSetTimeAllow(timeVal, systemTime, timeSource))
     {
         newTime.tv_sec = timeVal.sec;
         newTime.tv_nsec = timeVal.nanosec;

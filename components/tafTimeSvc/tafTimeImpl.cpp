@@ -46,7 +46,7 @@ using namespace std;
 #define TAF_TIME_MAX_SOURCE_NUMBER (TAF_TIME_SRC_NAME_UNKNOWN*3)
 TimeSources TimeSourceConf(TAF_TIME_MAX_SOURCE_NUMBER);
 taf_SourceInf_t *LatestTimeSourceInfo;
-bool GnssStatusUpdateFlag = true;
+bool GnssErrStatusUpdateFlag = true;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -105,24 +105,12 @@ void taf_TimeServingSystemListener::onNetworkTimeChanged
     tafTime.StoreDateTimeInfo(info, sourceId);
     tafTime.ReportTimeValueChange(sourceId, timeVal, &info);
 }
-
 void onGnssUtcTimeUpdateHandler(void* param)
 {
     taf_time_TimeSources_t sourceId = TAF_TIME_SRC_NAME_GNSS;
     auto &tafTime = taf_Time::GetInstance();
-    uint64_t* utc = (uint64_t*) param;
-
-     if (*utc == 0) {
-        if(GnssStatusUpdateFlag == true)
-        {
-            GnssStatusUpdateFlag = false;
-            tafTime.SourceAvailabilityUpdate(LE_FAULT, sourceId);
-        }
-        return;
-    }
-    GnssStatusUpdateFlag = true;
-
-    tafTime.SourceAvailabilityUpdate(LE_OK, sourceId);
+    le_result_t* status = (le_result_t*) param;
+    tafTime.SourceAvailabilityUpdate(*status, sourceId);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -138,10 +126,23 @@ void taf_TimeGnssListener::onGnssUtcTimeUpdate
 {
     taf_time_TimeSpec_t timeVal;
     auto &tafTime = taf_Time::GetInstance();
-    uint64_t arg = utc;
-    le_event_QueueFunctionToThread(tafTime.mainThreadRef, (le_event_DeferredFunc_t)onGnssUtcTimeUpdateHandler,&arg, NULL);
-    if(utc > 0)
+    le_result_t status;
+    if (utc == 0)
     {
+       if(GnssErrStatusUpdateFlag == true)
+       {
+           GnssErrStatusUpdateFlag = false;
+           status = LE_FAULT;
+            le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+                (le_event_DeferredFunc_t)onGnssUtcTimeUpdateHandler, &status, NULL);
+        }
+    }
+
+    else if(utc > 0)
+    {
+        status = LE_OK;
+        le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+            (le_event_DeferredFunc_t)onGnssUtcTimeUpdateHandler,&status, NULL);
         tafTime.UpdateFailedLoops(TAF_TIME_SRC_NAME_GNSS, FAIL_LOOP_NUM_CLEAN);
         timeVal.sec = (utc / 1000);
         timeVal.nanosec = (utc % 1000)*1000*1000;
@@ -150,6 +151,8 @@ void taf_TimeGnssListener::onGnssUtcTimeUpdate
         tafTime.UpdateLocalTimeCache(timeVal, TAF_TIME_SRC_NAME_GNSS, tafTime.GnssDeltaTime);
         tafTime.ReportTimeValueChange(TAF_TIME_SRC_NAME_GNSS, timeVal, NULL);
         tafTime.DeregGnssTimeListener();
+        GnssErrStatusUpdateFlag = true;
+
     }
 }
 

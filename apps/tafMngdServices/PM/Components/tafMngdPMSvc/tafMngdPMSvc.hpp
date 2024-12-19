@@ -10,7 +10,7 @@
 #include "tafHalLib.hpp"
 #include <vector>
 #include <sys/reboot.h>
-
+#include <bitset>
 
 #define VEHICHLE_WAKEUP_REASON_DEFAULT 0
 #define VEHICHLE_WAKEUP_STATUS_AWAKE  0
@@ -26,6 +26,8 @@
 #define RELAX "RELAX"
 #define SHUTDOWN "SHUTDOWN"
 #define INFO_REPORT_MASK_BUB 1
+#define AUTHORIZE_ALL_STAY_AWAKE_REASON 0xFFFFFFFF
+
 namespace telux {
 namespace tafsvc {
 
@@ -90,6 +92,17 @@ typedef struct
     le_dls_Link_t link;                    // Link to handler list
     le_msg_SessionRef_t sessionRef;        // Session reference of a client
     bool isAcquiredLock;                   // boolean to check wakelock acquired
+}taf_nodeWsRefCtx_t;
+
+typedef struct
+{
+    const char* wsTag;                     // wsTag to be sent to VHAL
+    taf_mngdPm_wsRef_t wsRef;              // New wakeup source reference
+    taf_mngdPm_StayAwakeReason_t reason;   // stay awake reason for the wakeup source
+    le_dls_Link_t link;                    // Link to handler list
+    le_msg_SessionRef_t sessionRef;        // Session reference of a client
+    bool isAcquiredLock;                   // boolean to check wakelock acquired
+    taf_mngdPm_WsOpt_t option;             // wake source option for calling stay awake and relax
 }taf_wsRefCtx_t;
 
 typedef struct
@@ -150,6 +163,11 @@ typedef struct
     le_msg_SessionRef_t sessionRef;
 }taf_mngdPm_WakeupSourceCtxt_t;
 
+typedef struct
+{
+    taf_mngdPm_StayAwakeReason_t stayAwakeReason;
+    le_msg_SessionRef_t sessionRef;
+}taf_mngdPm_StayAwakeReasonCtxt_t;
 
 /*
  * @brief The struct of Power state Ref list.
@@ -221,9 +239,16 @@ class tafMngdPMSvc: public ITafSvc
 
         static le_mem_PoolRef_t vmStatePool;
         static le_hashmap_Ref_t vmStateHashmap;
+
+        //List for system level wake sources
         static le_mem_PoolRef_t wsRefPool;
         static le_dls_List_t wsRefList;
         static le_ref_MapRef_t wsRefMap;
+
+        //List for node level wake sources
+        static le_mem_PoolRef_t nodeWsRefPool;
+        static le_dls_List_t nodeWsRefList;
+        static le_ref_MapRef_t nodeWsRefMap;
 
         // resources to communicate with PMS
         static taf_pm_StateChangeHandlerRef_t handlerRef;
@@ -249,7 +274,7 @@ class tafMngdPMSvc: public ITafSvc
         // resources for multi-client management
         static taf_mngdPm_Client_t mngdPmClientInfo;
 
-        // resources to manamge state change handler
+        // resources to manage state change handler
         static le_event_Id_t stateChange;
         static taf_mngdPm_WakeupVehicleCb_t wakeupVehicleCB;
         static le_timer_Ref_t wakeupVehicleTimerRef;
@@ -278,8 +303,13 @@ class tafMngdPMSvc: public ITafSvc
         static void SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_ClientAck_t ackType);
         bool IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState);
         bool IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePowerStateChangeBitMask_t stateMask);
+
         //MPM configuration
         static taf_mngdPm_config_t config;
+
+        //authorize stayawake reason
+        static std::bitset<32> stayAwakeReasonMask;
+        bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason);
 };
 }
 }

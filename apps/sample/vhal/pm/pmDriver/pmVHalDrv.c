@@ -613,14 +613,14 @@ static void taf_hal_nodeInfoNotification
 (
     uint8_t pm_node_id,
     hal_pm_NodeInfo_t info,
-    const char* vhalTag
+    const uint8_t reason
 )
 {
     LE_INFO("PM_VHAL: %s", __FUNCTION__);
 
     LE_INFO("hal_pm_NodeInfo_t: %d", info);
 
-    LE_INFO("vhalTag: %s", vhalTag);
+    LE_INFO("reason: %d", reason);
 }
 
 static le_result_t taf_hal_addNodeEventHanlder

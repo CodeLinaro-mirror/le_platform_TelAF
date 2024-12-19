@@ -680,6 +680,8 @@ static void SwitchSessionBasedOnEvent(AO_SecurityAccess_t * self, MEvent_t const
         SecuritySession_t * sess;
         LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
         {
+            LE_DEBUG(" -> checking session-id: %d", sess->session_id);
+
             if (CURRENT_SESSION_ID(ev) == sess->session_id) {
                 self->current_session = sess;
                 break;
@@ -838,23 +840,25 @@ MState_t State_LockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *ev
         case SESSION_CONTROL_SIG: {
             if (DelayTimerIsNotExpired(self, ev)) {
                 MarkLastPendingSession(self, ev, SESSION_CONTROL_SIG);
-                return M_Handled();
             }
             else {
                 DeactivateAndLock(self);
                 SwitchSessionBasedOnEvent(self, ev);
-                return M_Handled();
             }
+
+            le_sem_Post(EVENT(ev)->report->sem);
             return M_Handled();
         }
         case SESSION_TIMEOUT_SIG: {
             if (DelayTimerIsNotExpired(self, ev)) {
                 MarkLastPendingSession(self, ev, SESSION_TIMEOUT_SIG);
+                le_sem_Post(EVENT(ev)->report->sem);
                 return M_Handled();
             }
             else {
                 DeactivateAndLock(self);
                 self->current_session = self->default_session;
+                le_sem_Post(EVENT(ev)->report->sem);
                 return M_Handled();
             }
         }
@@ -975,11 +979,13 @@ MState_t State_LockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const *e
         case SESSION_CONTROL_SIG: {
             DeactivateAndLock(self);
             SwitchSessionBasedOnEvent(self, ev);
+            le_sem_Post(EVENT(ev)->report->sem);
             return M_Translate(&State_LockedNoActiveSeed);
         }
         case SESSION_TIMEOUT_SIG: {
             DeactivateAndLock(self);
             self->current_session = self->default_session;
+            le_sem_Post(EVENT(ev)->report->sem);
             return M_Translate(&State_LockedNoActiveSeed);
         }
     }
@@ -1059,6 +1065,7 @@ MState_t State_UnlockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *
 
                 /* In unlocked state, lock current-session */
                 LockCurrentSession(self);
+                le_sem_Post(EVENT(ev)->report->sem);
 
                 /* Keep current state, wait for: DELAY_TIMER_EXPIRED_SIG */
                 return M_Handled();
@@ -1066,6 +1073,7 @@ MState_t State_UnlockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *
             else {
                 DeactivateAndLock(self);
                 SwitchSessionBasedOnEvent(self, ev);
+                le_sem_Post(EVENT(ev)->report->sem);
                 return M_Translate(&State_LockedNoActiveSeed);
             }
         }
@@ -1076,12 +1084,15 @@ MState_t State_UnlockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *
                 /* In unlocked state, lock current-session */
                 LockCurrentSession(self);
 
+                le_sem_Post(EVENT(ev)->report->sem);
+
                 /* Keep current state, wait for: DELAY_TIMER_EXPIRED_SIG */
                 return M_Handled();
             }
             else {
                 DeactivateAndLock(self);
                 self->current_session = self->default_session;
+                le_sem_Post(EVENT(ev)->report->sem);
                 return M_Translate(&State_LockedNoActiveSeed);
             }
         }
@@ -1209,11 +1220,13 @@ MState_t State_UnlockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const 
         case SESSION_CONTROL_SIG: {
             DeactivateAndLock(self);
             SwitchSessionBasedOnEvent(self, ev);
+            le_sem_Post(EVENT(ev)->report->sem);
             return M_Translate(&State_LockedNoActiveSeed);
         }
         case SESSION_TIMEOUT_SIG: {
             DeactivateAndLock(self);
             self->current_session = self->default_session;
+            le_sem_Post(EVENT(ev)->report->sem);
             return M_Translate(&State_LockedNoActiveSeed);
         }
     }

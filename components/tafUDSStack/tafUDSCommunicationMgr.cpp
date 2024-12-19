@@ -602,12 +602,17 @@ void UdsCommunicationMgr::S3TimeoutHandler
         return;
     }
 
+    le_sem_Ref_t SecAccSem = le_sem_Create("sync", 0);
+
     LE_INFO("report -> SESSION_TIMEOUT_SIG");
     SecAccReport_t report = {
         .type = SESSION_TIMEOUT_SIG,
+        .sem = SecAccSem,
         .mgr = udsCmMgr,
     };
     le_event_Report(SecAccEventIdRef, &report, sizeof(report));
+
+    le_sem_Wait(SecAccSem);
 
     // Indicate the current tester state is OFF.
     IndicateTesterStateChange(ifName, OFF);
@@ -3559,12 +3564,17 @@ void UdsCommunicationMgr::DiagIndicationHandler
 
         if (udsCmMgr->SessionType != DEFAULT_SESSION)
         {
+            le_sem_Ref_t SecAccSem = le_sem_Create("sync", 0);
+
             LE_INFO("report -> SESSION_CONTROL_SIG (doip-break)");
             SecAccReport_t report = {
                 .type = SESSION_CONTROL_SIG,
+                .sem = SecAccSem,
                 .mgr = udsCmMgr,
             };
             le_event_Report(SecAccEventIdRef, &report, sizeof(report));
+
+            le_sem_Wait(SecAccSem);
         }
 
         IndicateWhenChangingToDefault(addrInfoPtr->ifName);
@@ -4178,12 +4188,17 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
                         });
         if (it != session_mapping.end())
         {
+            le_sem_Ref_t SecAccSem = le_sem_Create("sync", 0);
+
             LE_INFO("report -> SESSION_CONTROL_SIG (d-tool)");
             SecAccReport_t report = {
                 .type = SESSION_CONTROL_SIG,
+                .sem = SecAccSem,
                 .mgr = this,
             };
             le_event_Report(SecAccEventIdRef, &report, sizeof(report));
+
+            le_sem_Wait(SecAccSem);
         }
         else
         {

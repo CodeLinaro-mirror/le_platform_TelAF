@@ -9,6 +9,7 @@ sources:
     diagIOCtrl.c
     diagEnableCondition.c
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
+    diagVlan.c
     diagDoIP.c
     diagVlanDoIP.c
     diagVlanIOCtrl.c

@@ -742,6 +742,39 @@ le_result_t taf_SecuritySvr::GetCurrentSesType
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Releases a session change notification message.
+ */
+//-------------------------------------------------------------------------------------------------
+
+le_result_t taf_SecuritySvr::ReleaseSesChangeMsg
+(
+    taf_diagSecurity_SesChangeRef_t sesChangeRef
+)
+{
+    LE_INFO("ReleaseSesChangeMsg");
+
+    taf_SesChangeMsg_t* rxSesChangMsgPtr =
+            (taf_SesChangeMsg_t*)le_ref_Lookup(SesChangeRefMap, sesChangeRef);
+    TAF_ERROR_IF_RET_VAL(rxSesChangMsgPtr == NULL, LE_BAD_PARAMETER, "Invalid sesChangeRef");
+
+    // Search the service.
+    taf_SecuritySvc_t* servicePtr
+            = (taf_SecuritySvc_t*)GetServiceObj(rxSesChangMsgPtr->addrInfo.vlanId);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid servicePtr");
+
+    // Remove the message from message list.
+    le_dls_Remove(&servicePtr->rxSesChangeList, &rxSesChangMsgPtr->link);
+
+    // Free the message.
+    le_ref_DeleteRef(SesChangeRefMap, sesChangeRef);
+    le_mem_Release(rxSesChangMsgPtr);
+
+    LE_DEBUG("Freed msgRef(%p).", sesChangeRef);
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Internal function to get current session type.
  */
 //-------------------------------------------------------------------------------------------------
@@ -1232,7 +1265,7 @@ le_result_t taf_SecuritySvr::RemoveSvc
 
     // Release session control and security access message resources.
     ClearSesTypeMsgList(servicePtr);
-    ClearSecAccessMsgList(servicePtr);
+    ClearSesChangeMsgList(servicePtr);
     ClearSecAccessMsgList(servicePtr);
 
     // Clear the registered session control handler

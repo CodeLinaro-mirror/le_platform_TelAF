@@ -61,3 +61,103 @@ bool taf_diag_GetEnableConditionStatus
     auto &diag = taf_DiagSvr::GetInstance();
     return diag.GetEnableConditionStatus(enableConditionID);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference to a Diag service, if there's no Diag service, a new one will be created.
+ *
+ * @return
+ *     - Reference to the service instance.
+ *     - NULL if not allowed to create the service.
+ *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_diag_ServiceRef_t taf_diag_GetService
+(
+)
+{
+    LE_DEBUG("taf_diag_GetService");
+    auto &diag = taf_DiagSvr::GetInstance();
+    return diag.GetService();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_diag_TesterState'
+ *
+ * This event provides information on tester present state change.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_diag_TesterStateHandlerRef_t taf_diag_AddTesterStateHandler
+(
+    taf_diag_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    uint16_t vlanId,
+        ///< [IN] VLAN ID. If the interface does not have a VLAN ID, input 0.
+    taf_diag_StateChangeHandlerFunc_t handlerPtr,
+        ///< [IN] Tester present state change handler.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    LE_DEBUG("taf_diag_AddTesterStateHandler");
+    auto &diag = taf_DiagSvr::GetInstance();
+    return diag.AddTesterStateHandler(svcRef, vlanId, handlerPtr, contextPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diag_TesterState'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_diag_RemoveTesterStateHandler
+(
+    taf_diag_TesterStateHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    LE_DEBUG("taf_diag_RemoveTesterStateHandler");
+    auto &diag = taf_DiagSvr::GetInstance();
+    return diag.RemoveTesterStateHandler(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Releases a Tester state notification message.
+ **
+ ** @return
+ **     - LE_OK -- Succeeded.
+ **     - LE_BAD_PARAMETER -- Invalid stateRef or invalid service of the stateRef.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diag_ReleaseTesterStateMsg
+(
+    taf_diag_TesterStateRef_t stateRef
+        ///< [IN] Tester state reference.
+)
+{
+    LE_DEBUG("taf_diag_ReleaseTesterStateMsg");
+    auto &diag = taf_DiagSvr::GetInstance();
+    return diag.ReleaseTesterStateMsg(stateRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes the server service.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diag_RemoveSvc
+(
+    taf_diag_ServiceRef_t svcRef
+        ///< [IN] Service reference.
+)
+{
+    LE_DEBUG("taf_diag_RemoveSvc");
+    auto &diag = taf_DiagSvr::GetInstance();
+    return diag.RemoveSvc(svcRef);
+}

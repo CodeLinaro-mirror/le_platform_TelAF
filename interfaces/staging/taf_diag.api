@@ -12,7 +12,7 @@
  * <HR>
  *
  * Diag Service provides APIs to applications to set enable condition and get enable condition
- * status of enable ID.
+ * status of enable ID and it also provides notifications for tester tool OFF/ON state changes.
  *
  * @section c_taf_diag_binding IPC interfaces binding
  *
@@ -62,6 +62,70 @@
    }
    @endcode
  *
+ * @section c_taf_diag_tester_OFF_ON_state_API Tester OFF/ON notification API
+ *
+ * Get a diag service reference using taf_diag_GetService(). Use the returned
+ * reference for tester state notification operations.
+ *
+ * The following example illustrates how to set up a diag server-service-instance.
+ *
+ * @code
+   taf_diag_ServiceRef_t svcRef;    // Service reference
+
+   // Get the service reference.
+   svcRef = taf_diag_GetService();
+   LE_ERROR_IF((svcRef == NULL), "taf_diag_GetService returns NULL!");
+   @endcode
+ *
+ * After getting the service reference, an application can call taf_diag_AddTesterStateHandler()
+ * to register a handler for tester state (OFF/ON) change notification. Once tester state is
+ * changed, the handler will be called with the message reference, Vlan ID and current tester State
+ * passed as input parameters. Tester state will be OFF, whenever session timeout in non-default
+ * session (S3 timeout) or DoIP disconnect or session switch to default session from non-default
+ * session. Finally call taf_diag_ReleaseTesterStateMsg() to release the tester state message.
+ *
+ * @code
+   // Rx tester state handler function.
+   void TesterStateEventHandler
+   (
+        taf_diag_TesterStateRef_t rxStateRef,
+        uint16_t vlanId,
+        taf_diag_State_t currentTesterState,
+        void* contextPtr
+   )
+   {
+        // Process after tester state change
+   }
+
+   // Register the tester state handler.
+   taf_diag_TesterStateHandlerRef_t handlerRef =
+       taf_diag_AddTesterStateHandler(svcRef, vlanId,
+            (taf_diag_StateChangeHandlerFunc_t)TesterStateEventHandler, NULL);
+   LE_ERROR_IF((handlerRef == NULL), "taf_diag_AddTesterStateHandler returns NULL!");
+
+   // To remove the handler function, when it is not needed.
+   taf_diag_RemoveTesterStateHandler(handlerRef);
+
+   // To relase the tester state msg after getting the state change notification.
+   le_result_t result = taf_diag_ReleaseTesterStateMsg(rxStateRef);
+   if (result != LE_OK)
+   {
+      LE_ERROR("Fail to release msg.");
+      return result;
+   }
+  @endcode
+ *
+ * An application can remove the diag service reference by calling taf_diag_RemoveSvc().
+ *
+ * @code
+   le_result_t result = taf_diag_RemoveSvc(svcRef);
+   if (result != LE_OK)
+   {
+      LE_ERROR("Fail to remove service reference.");
+      return result;
+   }
+   @endcode
+ *
  * <HR>
  *
  */
@@ -96,4 +160,96 @@ FUNCTION le_result_t SetEnableCondition
 FUNCTION bool GetEnableConditionStatus
 (
     uint8 enableConditionID  IN     ///< Enable condition ID.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Tester present state.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM State
+{
+    OFF = 0x00,    ///< Tester present state is OFF.
+    ON             ///< Tester present state is ON.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the Diag service.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE Service;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the tester present OFF/ON state.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE TesterState;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference to a Diag service, if there is no Diag service, a new one will be created.
+ *
+ * @return
+ *     - Reference to the service instance.
+ *     - NULL if not allowed to create the service.
+ *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION Service GetService
+(
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for a tester present state notification.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER StateChangeHandler
+(
+    TesterState stateRef  IN,    ///< Tester state reference.
+    uint16 vlanId IN,            ///< VLAN ID. If no valid VLAN ID, input 0.
+    State state  IN              ///< Tester state.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on tester present state change.
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT TesterState
+(
+    Service svcRef,               ///< Service reference.
+    uint16 vlanId IN,             ///< VLAN ID. If the interface does not have a VLAN ID, input 0.
+    StateChangeHandler handler    ///< Tester present state change handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+* Releases a Tester state notification message.
+*
+* @return
+*     - LE_OK -- Succeeded.
+*     - LE_BAD_PARAMETER -- Invalid stateRef or invalid service of the stateRef.
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ReleaseTesterStateMsg
+(
+    TesterState stateRef  IN    ///< Tester state reference.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Removes the diag service.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveSvc
+(
+    Service svcRef  IN    ///< Service reference.
 );

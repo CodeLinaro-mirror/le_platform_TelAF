@@ -228,6 +228,28 @@ le_result_t taf_diagSecurity_GetCurrentSesType
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Releases a session change notification message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid msgRef or invalid service of the msgRef.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagSecurity_ReleaseSesChangeMsg
+(
+    taf_diagSecurity_SesChangeRef_t sesChangeRef
+        ///< [IN] Session change reference.
+)
+{
+    LE_DEBUG("taf_diagSecurity_ReleaseSesChangeMsg");
+    auto &security = taf_SecuritySvr::GetInstance();
+    return security.ReleaseSesChangeMsg(sesChangeRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add handler function for EVENT 'taf_diagSecurity_RxSecAccessMsg'
  *
  * This event provides information on Rx security access message.

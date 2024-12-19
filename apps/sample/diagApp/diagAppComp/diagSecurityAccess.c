@@ -82,6 +82,10 @@ static void sesChangeHandler
         diagRFT_DeactivateProgramming();
     }
 
+    // Release the session change msg.
+    le_result_t result = taf_diagSecurity_ReleaseSesChangeMsg(sesChangeRef);
+    LE_TEST_OK(result == LE_OK, "Session change msg released successfully");
+
     return;
 }
 

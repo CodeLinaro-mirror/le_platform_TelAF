@@ -196,6 +196,7 @@ namespace telux {
                 void RemoveSesChangeHandler(taf_diagSecurity_SesChangeHandlerRef_t handlerRef);
                 le_result_t GetCurrentSesType(taf_diagSecurity_ServiceRef_t svcRef,
                         uint8_t* currentTypePtr);
+                le_result_t ReleaseSesChangeMsg(taf_diagSecurity_SesChangeRef_t sesChangeRef);
 
                 // internal function to get current session
                 le_result_t GetCurrentSession(uint8_t* currentSesPtr);

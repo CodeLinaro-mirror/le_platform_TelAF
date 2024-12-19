@@ -178,6 +178,9 @@ void UdsCommunicationMgr::UdsTimerHandler
             {
                 LE_DEBUG("Stop S3 timer");
                 le_timer_Stop(udsCmMgr->s3TimerRef);
+
+                // Indicate the current tester state is OFF.
+                IndicateTesterStateChange(eventReq->ifName, OFF);
             }
             break;
 
@@ -192,6 +195,9 @@ void UdsCommunicationMgr::UdsTimerHandler
             {
                 LE_DEBUG("Start S3 timer");
                 le_timer_Start(udsCmMgr->s3TimerRef);
+
+                // Indicate the current tester state is ON.
+                IndicateTesterStateChange(eventReq->ifName, ON);
             }
             break;
 
@@ -444,6 +450,9 @@ void UdsCommunicationMgr::S3TimeoutHandler
         .mgr = udsCmMgr,
     };
     le_event_Report(SecAccEventIdRef, &report, sizeof(report));
+
+    // Indicate the current tester state is OFF.
+    IndicateTesterStateChange(ifName, OFF);
 
     IndicateWhenChangingToDefault(ifName);
 }
@@ -1444,13 +1453,6 @@ le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
         *isInternalHandle = true;
         return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr); // NRC 0x33
     }
-
-    // copy addressInfo localy to use while sending session change indication.
-    addrInfo.sa = addrInfoPtr->sa;
-    addrInfo.ta = addrInfoPtr->ta;
-    addrInfo.taType = addrInfoPtr->taType;
-    addrInfo.vlanId = addrInfoPtr->vlanId;
-    le_utf8_Copy(addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
 
     //Will send indication to the diag service
     *isInternalHandle = false;
@@ -2658,6 +2660,64 @@ le_result_t UdsCommunicationMgr::IndicateReadDTCInfoReq
 }
 
 /**
+ * Indicate tester present state change.
+ */
+void UdsCommunicationMgr::IndicateTesterStateChange
+(
+    const char* ifName,
+    taf_TesterState_t currentState
+)
+{
+    LE_DEBUG("IndicateTesterStateChange");
+
+    auto udsCmMgr = UdsCommunicationMgr::GetInstance(ifName);
+
+    if(udsCmMgr == NULL)
+    {
+        LE_ERROR("Can't get instance by ifName %s", ifName);
+        return;
+    }
+
+    if (currentState == udsCmMgr->PreviousState)
+    {
+        // No state change
+        return;
+    }
+
+    if(udsCmMgr->udsIndicationHandler.safeRef == NULL)
+    {
+        LE_ERROR("Not find handler to notify tester present state change");
+        return;
+    }
+
+    taf_UDSIndicationHandler_t* udsHandler =
+            (taf_UDSIndicationHandler_t*)le_ref_Lookup(udsCmMgr->udsHandlerRefMap,
+                    udsCmMgr->udsIndicationHandler.safeRef);
+
+    if(udsHandler == NULL || udsHandler->funcPtr == NULL)
+    {
+        LE_ERROR("Not find handler to notify tester present state change");
+        return;
+    }
+
+    udsCmMgr->testerStateChangeBuf[0] = udsCmMgr->testerStateId;
+    udsCmMgr->testerStateChangeBuf[1] = udsCmMgr->PreviousState;
+    udsCmMgr->testerStateChangeBuf[2] = currentState;
+    udsCmMgr->stateChangeMsg.dataPtr = udsCmMgr->testerStateChangeBuf;
+    udsCmMgr->stateChangeMsg.dataLen = TESTER_STATE_CHANGE_DATA_SIZE;
+
+    // update the tester state
+    udsCmMgr->PreviousState = currentState;
+    LE_DEBUG("received in VlanId = %d", udsCmMgr->addrInfo.vlanId);
+
+    // Indicate tester present state change to the application.
+    udsHandler->funcPtr(&(udsCmMgr->addrInfo), &udsCmMgr->stateChangeMsg,
+            TAF_DOIP_RESULT_OK, udsHandler->ctxPtr);
+
+    return;
+}
+
+/**
  * Check NRC and Send indication message to Diag service.
  */
 le_result_t UdsCommunicationMgr::CheckAndSendInd
@@ -2758,11 +2818,20 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    // copy addressInfo locally to use while sending internal indication.
+    udsCmMgr->addrInfo.sa = addrInfoPtr->sa;
+    udsCmMgr->addrInfo.ta = addrInfoPtr->ta;
+    udsCmMgr->addrInfo.taType = addrInfoPtr->taType;
+    udsCmMgr->addrInfo.vlanId = addrInfoPtr->vlanId;
+    le_utf8_Copy(udsCmMgr->addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
+
     if (result == TAF_DOIP_RESULT_SA_DEREGISTERED)
     {
         LE_INFO("Disconnected, stopped the running timer");
 
         udsCmMgr->UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0, addrInfoPtr->ifName);
+        // Indicate the current tester state is OFF.
+        IndicateTesterStateChange(addrInfoPtr->ifName, OFF);
         udsCmMgr->UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0, addrInfoPtr->ifName);
 
         udsCmMgr->readyToRecvData = true;
@@ -2800,6 +2869,9 @@ void UdsCommunicationMgr::DiagIndicationHandler
         LE_ERROR("Diag message invalid.");
         return;
     }
+
+    // Indicate the current tester state is ON.
+    IndicateTesterStateChange(addrInfoPtr->ifName, ON);
 
     //Ignore other requests if hardware reset is in progress until system is restarted
     if(udsCmMgr->isResetInProgress)

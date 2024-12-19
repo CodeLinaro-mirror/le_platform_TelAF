@@ -59,6 +59,7 @@ namespace uds{
     #define SHORT_TERM_ADJUSTMENT 3
     #define MAX_INTERFACE_NAME_LEN 30
     #define MAX_TIMER_NAME_LEN 36
+    #define TESTER_STATE_CHANGE_DATA_SIZE 3
 
     // UDS minimal len
     #define UDS_REQ_MIN_LEN 1
@@ -259,7 +260,7 @@ namespace uds{
         void*                                safeRef;
     }taf_UDSIndicationHandler_t;
 
-    // ENUM for session typr.
+    // ENUM for session type.
     typedef enum
     {
         DEFAULT_SESSION = 0x01,
@@ -270,6 +271,13 @@ namespace uds{
         DOWNLOADED_ENUMLATION_SESSION = 0x52,
         SYSTEM_SUPPLIER_SPECIFIC_SESSION = 0x60
     }taf_SessionType_t;
+
+    // ENUM for tester present state.
+    typedef enum
+    {
+        OFF = 0x00,
+        ON = 0x01
+    }taf_TesterState_t;
 
     class UdsCommunicationMgr{
         public:
@@ -320,6 +328,7 @@ namespace uds{
             le_timer_Ref_t p2StarTimerRef;
             le_timer_Ref_t s3TimerRef;
             taf_SessionType_t SessionType = DEFAULT_SESSION;
+            taf_TesterState_t PreviousState = OFF;
 
         private:
             // Indicate recevied service message to Diag service if necessary.
@@ -404,6 +413,13 @@ namespace uds{
             uint8_t sesChangeId = 0xFF;
             taf_doip_AddrInfo_t addrInfo;
             uint8_t sesChangeBuf[UDS_SESSION_CHANGE_DATA_SIZE];
+
+            // Tester present state change notification.
+            static void IndicateTesterStateChange(const char* ifName,
+                    taf_TesterState_t currentState);
+            uint8_t testerStateId = 0xFD;
+            uint8_t testerStateChangeBuf[TESTER_STATE_CHANGE_DATA_SIZE];
+            taf_doip_DiagMsg_t stateChangeMsg;
 
             static taf_doip_Ref_t  DoipEntityRef;
             static taf_doip_DiagIndicationHandlerRef_t IndicationRef;

@@ -722,6 +722,10 @@ void Test_Audio_VoiceCall_Stop()
     taf_audio_Disconnect(txConn, txStreamRef);
     LE_TEST_OK(true, "Successfully txStreamRef disconnected to txConn");
 
+    LE_TEST_INFO("Test taf_audio_Connect to connect rxConn and rxStreamRef");
+    taf_audio_Disconnect(rxConn, rxStreamRef);
+    LE_TEST_OK(true, "Successfully rxStreamRef connected to rxConn");
+
     LE_TEST_INFO("Test taf_audio_Connect to connect rxConn and sinkRef");
     taf_audio_Disconnect(rxConn, sinkRef);
     LE_TEST_OK(true, "Successfully sinkRef connected to rxConn");
@@ -730,9 +734,6 @@ void Test_Audio_VoiceCall_Stop()
     taf_audio_Disconnect(txConn, sourceRef);
     LE_TEST_OK(true, "Successfully sourceRef connected to txConn");
 
-    LE_TEST_INFO("Test taf_audio_Connect to connect rxConn and rxStreamRef");
-    taf_audio_Disconnect(rxConn, rxStreamRef);
-    LE_TEST_OK(true, "Successfully rxStreamRef connected to rxConn");
     isVoiceActive = false;
 }
 

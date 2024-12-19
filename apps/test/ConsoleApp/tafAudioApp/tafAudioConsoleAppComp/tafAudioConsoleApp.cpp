@@ -2125,7 +2125,7 @@ void StartInputMonitoring
             }
             else if (strncmp(inputStr, "Delete player stream", 20) == 0)
             {
-                if(isVoiceActive)
+                if(isVoiceStreamCreated)
                     Test_Audio_Playback_Delete(playerRef, false);
                 else
                     Test_Audio_Playback_Delete(playerRef, true);
@@ -2137,7 +2137,7 @@ void StartInputMonitoring
             }
             else if (strncmp(inputStr, "Delete repeated_player stream", 29) == 0)
             {
-                if(isVoiceActive)
+                if(isVoiceStreamCreated)
                     Test_Audio_Delete_PlayList(playerRef, false);
                 else
                     Test_Audio_Delete_PlayList(playerRef, true);
@@ -2148,7 +2148,7 @@ void StartInputMonitoring
             }
             else if (strncmp(inputStr, "Delete recorder stream", 22) == 0)
             {
-                if(isVoiceActive)
+                if(isVoiceStreamCreated)
                     Test_Audio_Record_Delete(recorderRef, false);
                 else
                     Test_Audio_Record_Delete(recorderRef, true);

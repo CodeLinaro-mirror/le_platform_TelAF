@@ -48,11 +48,6 @@ config AUDIO_MULTI_FORMAT_PB_SUPPORTED
   default "$(b2k,$(AUDIO_MULTI_FORMAT_PB_SUPPORTED))" if !$(empty,$(AUDIO_MULTI_FORMAT_PB_SUPPORTED))
   default y
 
-config REFRESH_AUDIO_SVC
-  bool "Telaf refresh audio service enabled"
-  default "$(b2k,$(REFRESH_AUDIO_SVC))" if !$(empty,$(REFRESH_AUDIO_SVC))
-  default y
-
 # For Vendor Stack
 config DIAG_VSTACK
   bool "QC or VStack"

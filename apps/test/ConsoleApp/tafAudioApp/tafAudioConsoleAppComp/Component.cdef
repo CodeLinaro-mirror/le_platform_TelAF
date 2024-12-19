@@ -8,5 +8,11 @@ requires:
     api:
     {
         taf_audio.api
+        taf_audioVendor.api
     }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
 }

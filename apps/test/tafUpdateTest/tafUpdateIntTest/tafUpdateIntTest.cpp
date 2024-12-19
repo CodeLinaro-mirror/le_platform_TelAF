@@ -297,6 +297,7 @@ COMPONENT_INIT
         printf("Enter s to start A-B sync operation\n");
         printf("Enter p to pause A-B sync operation\n");
         printf("Enter r to resume A-B sync operation\n");
+        printf("Enter c to cancel A-B sync operation\n");
         printf("Enter e to exit\n");
 
         CreateHandlerThread();
@@ -328,6 +329,12 @@ COMPONENT_INIT
                 printf("\nResuming AB Sync..\n");
                 result = taf_update_ResumeSync(sessRef);
                 LE_TEST_OK(result == LE_OK, "taf_update_ResumeSync - OK");
+            }
+            else if(input == 'c')
+            {
+                printf("\nCanceling AB Sync..\n");
+                result = taf_update_CancelSync(sessRef);
+                LE_TEST_OK(result == LE_OK, "taf_update_CancelSync - OK");
             }
             else if(input == 'e')
             {

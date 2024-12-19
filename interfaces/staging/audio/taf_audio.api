@@ -999,6 +999,18 @@
         LE_INFO("taf_audio_StopDtmf - Pass");
     }
 
+    LE_INFO("To test taf_audio_PlaySignallingDtmf");
+    res = taf_audio_PlaySignallingDtmf(slotId, dtmfPtr, duration, pause);
+    if(res == LE_OK) {
+        LE_INFO("taf_audio_PlaySignallingDtmf - Pass");
+    }
+
+    LE_INFO("To test Test_Audio_Stop_Signalling_Dtmf");
+    res = taf_audio_StopSignallingDtmf(slotId);
+    if(res == LE_OK) {
+        LE_INFO("Test_Audio_Stop_Signalling_Dtmf - Pass");
+    }
+
     taf_audio_Disconnect(txConn, txStreamRef);
 
     taf_audio_Disconnect(rxConn, sinkRef);
@@ -1477,6 +1489,7 @@ FUNCTION le_result_t GetVolume
  * @return
  *     - LE_OK                 Success.
  *     - LE_BAD_PARAMETER      Invalid stream reference.
+ *     - LE_BUSY               A DTMF playback is in progress.
  *     - LE_FAULT              Failure.
  */
 FUNCTION le_result_t PlayDtmf
@@ -1490,11 +1503,11 @@ FUNCTION le_result_t PlayDtmf
 );
 
 /**
- * Stops the DTMF playback.
+ * Stops the DTMF playback on voice RX path.
  *
  * @return
  *     - LE_OK                 Success.
- *     - LE_BAD_PARAMETER      Invalid stream reference.
+ *     - LE_BAD_PARAMETER      Invalid parameters.
  *     - LE_FAULT              Failure.
  */
 FUNCTION le_result_t StopDtmf
@@ -1518,4 +1531,38 @@ EVENT DtmfDetector
 (
     Stream       streamRef         IN, ///< Modem Rx stream reference.
     DtmfDetectorHandler handler        ///< DTMF handler.
+);
+
+/**
+ * Starts DTMF signaling on voice TX path.
+ * This function should be called to request the Mobile Network to generate
+ * DTMF tones on the remote audio end.
+ * @b NOTE: This API only supports 12 chars (0 to 9, * and #).
+ * @return
+ *     - LE_OK                 Success.
+ *     - LE_BAD_PARAMETER      Invalid parameters.
+ *     - LE_BUSY               A DTMF playback is in progress.
+ *     - LE_FAULT              Failure.
+ *     - LE_UNSUPPORTED        No active RF call
+ */
+FUNCTION le_result_t PlaySignallingDtmf
+(
+    uint32  slotId             IN, ///< Slot ID.
+    string  dtmf[DTMF_MAXLEN]  IN,  ///< DTMFs to play.
+    uint32  duration           IN,  ///< DTMF duration in milliseconds.
+    uint32  pause              IN  ///< Pause duration between tones in milliseconds.
+);
+
+/**
+ * Stops the DTMF signaling on voice TX path.
+ *
+ * @return
+ *     - LE_OK                 Success.
+ *     - LE_BAD_PARAMETER      Invalid slotId.
+ *     - LE_FAULT              Failure.
+ *     - LE_UNSUPPORTED        No active RF call
+ */
+FUNCTION le_result_t StopSignallingDtmf
+(
+    uint32  slotId             IN ///< Slot ID.
 );

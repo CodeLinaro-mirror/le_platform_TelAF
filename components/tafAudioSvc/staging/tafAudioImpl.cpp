@@ -34,6 +34,7 @@
 
 #include "tafAudio.hpp"
 #include "tafAudioVhal.hpp"
+#include <telux/tel/PhoneFactory.hpp>
 
 using namespace telux::tafsvc;
 using namespace taf::audioVhal;
@@ -383,6 +384,19 @@ void tafPlayListener::onPlayStopped() {
     auto &audio = taf_Audio::GetInstance();
     if(audio.mPlayCompletedSemRef)
         le_sem_Post(audio.mPlayCompletedSemRef);
+}
+
+tafSignallingDtmfListener::tafSignallingDtmfListener(std::string commandName)
+   : commandName_(commandName) {
+}
+
+void tafSignallingDtmfListener::commandResponse(telux::common::ErrorCode error) {
+    if(error == telux::common::ErrorCode::SUCCESS) {
+        LE_DEBUG("%s operation successful, err %d", commandName_.c_str(), (int)error);
+        return;
+    }
+
+    LE_DEBUG("%s operation failed, err %d", commandName_.c_str(), (int)error);
 }
 
 size_t HashRef
@@ -4159,8 +4173,7 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
     bool playingFirstDtmf = true;
 
     for(auto frequencies : dtmfData->frequencyList) {
-        if(audio.mVoiceEnabled1 && (
-                audio.mDtmfStarted || playingFirstDtmf)) {
+        if(audio.mVoiceEnabled1 && (audio.mDtmfStarted || playingFirstDtmf)) {
             resetCallbackPromise();
             auto status = Status::FAILED;
             DtmfTone dtmfTone = {};
@@ -4172,9 +4185,13 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
             uint16_t gain_new = dtmfData->dtmfGain*MAX_DTMF_GAIN;
             if(audio.mAudioVoiceStream) {
                 status = audio.mAudioVoiceStream->playDtmfTone(
-                            dtmfTone, dtmfData->duration, gain_new, PlayDtmfCallback);
+                            dtmfTone, dtmfData->durationRx, gain_new, PlayDtmfCallback);
             } else {
                 LE_ERROR("No voice stream found");
+                if(playingFirstDtmf) {
+                    le_sem_Post(audio.mDtmfStartedSemRef);
+                    playingFirstDtmf = false;
+                }
                 return NULL;
             }
 
@@ -4193,19 +4210,164 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
                     le_sem_Post(audio.mDtmfStartedSemRef);
                     playingFirstDtmf = false;
                 }
-            }else {
-                LE_ERROR("Request to play Dtmf Tone failed");
+            } else {
+                LE_ERROR("Request to play Dtmf Tone failed,err %d", (int)status);
+                if(playingFirstDtmf) {
+                    le_sem_Post(audio.mDtmfStartedSemRef);
+                    playingFirstDtmf = false;
+                }
                 return NULL;
             }
 
+            if(dtmfData->durationRx == INFINITE_TONE_DURATION) {
+                /* Since the duration value is set to INIFINITY, play the DTMF tone till user
+                   stops it.*/
+                break;
+            }
+
             std::this_thread::sleep_for(std::chrono::milliseconds(
-                    dtmfData->pause+dtmfData->duration));
+                    dtmfData->pause+dtmfData->durationRx));
         } else {
             //If the voice call ends in between, exit the thread.
+            if(playingFirstDtmf) {
+                le_sem_Post(audio.mDtmfStartedSemRef);
+                playingFirstDtmf = false;
+            }
             break;
         }
     }
+    audio.mDtmfStarted = false;
     return NULL;
+}
+
+void* taf_Audio::playDTMFonTX(void* dtmfTones) {
+
+    auto &audio = taf_Audio::GetInstance();
+    taf_Dtmf_t* dtmfData = (taf_Dtmf_t*)dtmfTones;
+    bool playingFirstDtmf = true;
+    std::promise<ServiceStatus> callMgrprom;
+    std::shared_ptr<telux::tel::ICall> spCall = nullptr;
+    std::vector<std::shared_ptr<telux::tel::ICall>> inProgressCalls;
+
+    if(!audio.callManager) {
+        auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
+
+        //  Get the PhoneFactory and CallManager instances.
+        audio.callManager = phoneFactory.getCallManager([&](ServiceStatus status) {
+            callMgrprom.set_value(status);
+        });
+        if(!audio.callManager) {
+            LE_ERROR(" Failed to get CallManager instance");
+            dtmfData->result = LE_FAULT;
+            if(playingFirstDtmf) {
+                le_sem_Post(audio.mDtmfStartedSemRefTx);
+            }
+            return NULL;
+        }
+        LE_DEBUG("CallManager subsystem is not ready, Please wait ");
+
+        ServiceStatus callMgrsubSystemStatus = callMgrprom.get_future().get();
+        if(callMgrsubSystemStatus == ServiceStatus::SERVICE_AVAILABLE) {
+            LE_DEBUG("CallManager subsystem is ready ");
+            audio.onStartDtmfTone = std::make_shared<telux::tafsvc::tafSignallingDtmfListener>(
+                    "Start Tone");
+            audio.onStopDtmfTone  = std::make_shared<telux::tafsvc::tafSignallingDtmfListener>(
+                    "Stop Tone");
+        } else {
+            LE_ERROR("Unable to initialise CallManager subsystem ");
+            dtmfData->result = LE_FAULT;
+            if(playingFirstDtmf) {
+                le_sem_Post(audio.mDtmfStartedSemRefTx);
+            }
+            return NULL;
+        }
+    }
+
+    while(*dtmfData->dtmfChars != '\0') {
+        inProgressCalls = audio.callManager->getInProgressCalls();
+
+        // Fetch the list of in progress calls from CallManager and if there is atleast one in
+        // progress calls on user provided slot, send DTMF request
+        for(auto callIterator = std::begin(inProgressCalls);
+            callIterator != std::end(inProgressCalls); ++callIterator) {
+            if ((*callIterator)->getPhoneId() == dtmfData->slotId) {
+                spCall = *callIterator;
+                break;
+            }
+        }
+        if(spCall) {
+            if((audio.mDtmfStartedTx || playingFirstDtmf)) {
+                auto ret = spCall->startDtmfTone(*dtmfData->dtmfChars, audio.onStartDtmfTone);
+                if (ret != telux::common::Status::SUCCESS) {
+                    LE_ERROR("Play tone request failed, err %d", (int)ret);
+                    if(playingFirstDtmf) {
+                        dtmfData->result = LE_FAULT;
+                        le_sem_Post(audio.mDtmfStartedSemRefTx);
+                    }
+                    return NULL;
+                }
+                if(playingFirstDtmf) {
+                    dtmfData->result = LE_OK;
+                    le_sem_Post(audio.mDtmfStartedSemRefTx);
+                    audio.mDtmfStartedTx = true;
+                    playingFirstDtmf = false;
+                }
+
+                LE_DEBUG("Play tone request sent successfully %c", *dtmfData->dtmfChars);
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(dtmfData->durationTx));
+
+                spCall->stopDtmfTone(audio.onStopDtmfTone);
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(dtmfData->pause));
+
+                dtmfData->dtmfChars++;
+            } else {
+                LE_DEBUG("DTMF tone signalling stopped");
+                break;
+            }
+        } else {
+            LE_ERROR("No call found on slot Id: %d", dtmfData->slotId);
+            dtmfData->result = LE_UNSUPPORTED;
+            if(playingFirstDtmf) {
+                le_sem_Post(audio.mDtmfStartedSemRefTx);
+            }
+            break;
+        }
+    }
+    audio.mDtmfStartedTx = false;
+    return NULL;
+}
+
+/**
+ * Play DTMF tone for TX path of voice call
+ */
+le_result_t taf_Audio::PlaySignallingDtmf
+(
+ uint32_t              slotId,
+ const char*           dtmfPtr,
+ uint32_t              uduration,
+ uint32_t              upause
+)
+{
+    TAF_ERROR_IF_RET_VAL(dtmfPtr == NULL, LE_BAD_PARAMETER,"dtmfPtr is nullptr!");
+    TAF_ERROR_IF_RET_VAL(slotId != DEFAULT_SLOT_ID, LE_BAD_PARAMETER,"invalid slot ID");
+    TAF_ERROR_IF_RET_VAL(mDtmfStartedTx == true, LE_BUSY,"A DTMF playback is in progress");
+
+    dtmfDataTx.durationTx = uduration;
+    dtmfDataTx.pause = upause;
+    dtmfDataTx.dtmfChars = dtmfPtr;
+    dtmfDataTx.slotId = slotId;
+    dtmfDataTx.result = LE_FAULT;
+
+    mDtmfStartedSemRefTx = le_sem_Create("tafDtmfStartedSemRefTx", 0);
+    le_thread_Start(le_thread_Create("DtmfThreadTx", playDTMFonTX, &dtmfDataTx));
+    // Wait for DTMF to start successfully
+    le_sem_Wait(mDtmfStartedSemRefTx);
+    le_sem_Delete(mDtmfStartedSemRefTx);
+    mDtmfStartedSemRefTx = nullptr;
+
+    return dtmfDataTx.result;
 }
 
 /**
@@ -4222,21 +4384,23 @@ le_result_t taf_Audio::PlayDtmf
 {
     taf_audio_Stream_t* streamPtr = (taf_audio_Stream_t*)le_ref_Lookup(StreamRefMap,
             rStreamRef);
-
     TAF_ERROR_IF_RET_VAL(streamPtr == NULL, LE_BAD_PARAMETER,"streamPtr is nullptr!");
-
     TAF_ERROR_IF_RET_VAL(streamPtr->interface != TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX,
             LE_BAD_PARAMETER, "Invalid stream reference");
+    TAF_ERROR_IF_RET_VAL(gain < 0 || gain > 1, LE_BAD_PARAMETER, "Invalid gain level");
+    TAF_ERROR_IF_RET_VAL(dtmfPtr == NULL, LE_BAD_PARAMETER,"dtmfPtr is nullptr!");
+    TAF_ERROR_IF_RET_VAL(mDtmfStarted == true, LE_BUSY,"A DTMF playback is in progress");
 
-    dtmfData.duration = uduration;
-    dtmfData.pause = upause;
-    dtmfData.dtmfGain = gain;
-    dtmfData.frequencyList.clear();
+    dtmfDataRx.durationRx = uduration;
+    dtmfDataRx.pause = upause;
+    dtmfDataRx.dtmfGain = gain;
+    dtmfDataRx.frequencyList.clear();
+
     if (mAudioVoiceStream && mVoiceEnabled1) {
         while (*dtmfPtr != '\0') {
             std::pair<int, int> frequencies = getDTMFFrequencies(*dtmfPtr);
             if (frequencies.first != -1) {
-                dtmfData.frequencyList.emplace_back(frequencies);
+                dtmfDataRx.frequencyList.emplace_back(frequencies);
             } else {
                 LE_ERROR("Invalid DTMF key!");
                 return LE_FAULT;
@@ -4247,17 +4411,14 @@ le_result_t taf_Audio::PlayDtmf
         LE_ERROR("Request to play Dtmf Tone failed, no active voice call.");
         return LE_FAULT;
     }
-
     mDtmfStartedSemRef = le_sem_Create("tafDtmfStartedSemRef", 0);
-    le_thread_Start(le_thread_Create("DtmfThread", playAllDtmfTones, &dtmfData));
+    le_thread_Start(le_thread_Create("DtmfThread", playAllDtmfTones, &dtmfDataRx));
     // Wait for DTMF to start successfully
     le_sem_Wait(mDtmfStartedSemRef);
     le_sem_Delete(mDtmfStartedSemRef);
     mDtmfStartedSemRef = nullptr;
-
     if(mDtmfStarted)
         return LE_OK;
-
     return LE_FAULT;
 }
 
@@ -4269,10 +4430,8 @@ le_result_t taf_Audio::StopDtmf(taf_audio_StreamRef_t streamRef)
     taf_audio_Stream_t* streamPtr = (taf_audio_Stream_t*)le_ref_Lookup(StreamRefMap,
             streamRef);
     TAF_ERROR_IF_RET_VAL( streamPtr == NULL, LE_BAD_PARAMETER,"streamPtr is nullptr!");
-
     TAF_ERROR_IF_RET_VAL(streamPtr->interface != TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX,
             LE_BAD_PARAMETER, "Invalid stream reference");
-
     if (mAudioVoiceStream && mVoiceEnabled1 && mDtmfStarted) {
         status = mAudioVoiceStream->stopDtmfTone(StreamDirection::RX, StopDtmfCallback);
         if(status == Status::SUCCESS) {
@@ -4289,6 +4448,40 @@ le_result_t taf_Audio::StopDtmf(taf_audio_StreamRef_t streamRef)
     } else {
         LE_ERROR("Request to play stop Tone failed");
         return LE_FAULT;
+    }
+    return LE_OK;
+}
+
+le_result_t taf_Audio::StopSignallingDtmf(uint32_t slotId) {
+
+    resetCallbackPromise();
+    auto status = Status::FAILED;
+    std::shared_ptr<telux::tel::ICall> spCall = nullptr;
+    std::vector<std::shared_ptr<telux::tel::ICall>> inProgressCalls;
+
+    TAF_ERROR_IF_RET_VAL(slotId != DEFAULT_SLOT_ID, LE_BAD_PARAMETER,"invalid slot ID");
+    TAF_ERROR_IF_RET_VAL(callManager == NULL, LE_BAD_PARAMETER,"No call Manager found");
+
+    inProgressCalls = callManager->getInProgressCalls();
+    // Fetch the list of in progress calls from CallManager and if there is atleast one
+    // in progress calls on user provided slot, send DTMF request
+    for(auto callIterator = std::begin(inProgressCalls);
+        callIterator != std::end(inProgressCalls); ++callIterator) {
+        if ((*callIterator)->getPhoneId() == (int)slotId) {
+            spCall = *callIterator;
+            break;
+        }
+    }
+    if(spCall) {
+        status = spCall->stopDtmfTone(onStopDtmfTone);
+        if(status != Status::SUCCESS) {
+            LE_ERROR("Request to stop Dtmf Tone failed");
+            return LE_FAULT;
+        }
+        mDtmfStartedTx = false;
+    } else {
+        LE_ERROR("No call found on slot Id %d", slotId);
+        return LE_UNSUPPORTED;
     }
 
     return LE_OK;

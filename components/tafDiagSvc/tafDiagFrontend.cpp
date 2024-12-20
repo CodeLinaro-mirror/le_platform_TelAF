@@ -25,6 +25,7 @@
 #include "tafDTCSvr.hpp"
 #include "tafDiagDoIPSvr.hpp"
 #include "tafAuthSvr.hpp"
+#include "tafROESvr.hpp"
 #endif
 
 using namespace telux::tafsvc;
@@ -242,6 +243,11 @@ COMPONENT_INIT
     auto& authSvc = taf_AuthSvr::GetInstance();
     authSvc.Init();
     LE_INFO("TelAF Authentication service initialization end...");
+
+    LE_INFO("TelAF ResponseOnEvent service initialization start...");
+    auto& ROESvc = taf_ROESvr::GetInstance();
+    ROESvc.Init();
+    LE_INFO("TelAF ResponseOnEvent service initialization end...");
 
     LE_INFO("TelAF Diag Backend initialization start...");
     auto& tafBackend = taf_DiagBackend::GetInstance();

@@ -14,7 +14,7 @@ using namespace telux::tafsvc;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get an instance of TelAF IOCtrl server.
+ * Get an instance of TelAF Authentication server.
  */
 //--------------------------------------------------------------------------------------------------
 taf_AuthSvr &taf_AuthSvr::GetInstance
@@ -175,7 +175,7 @@ void taf_AuthSvr::AuthSvcMsgHandler
     memset(rxMsgPtr, 0, sizeof(taf_AuthRxMsg_t));
 
     memcpy(&rxMsgPtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
-    rxMsgPtr->subFunc = subFunc;
+    rxMsgPtr->subFunc = msgPtr[1];
     rxMsgPtr->link = LE_DLS_LINK_INIT;
     rxMsgPtr->rxMsgRef = (taf_diagAuth_RxMsgRef_t)le_ref_CreateRef(RxMsgRefMap, rxMsgPtr);
     rxMsgPtr->respLen = 1; // Return code.

@@ -16,6 +16,8 @@ bundles:
         [rw] configTest-5000.json /data/
         [rw] configTest-errorValue.json /data/
         [rw] configTest-errorFormat.json /data/
+        [rw] configTest-readWrite.json   /data/
+        [r] configTest-readOnly.json     /data/
     }
 }
 

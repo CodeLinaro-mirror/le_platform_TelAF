@@ -120,7 +120,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafRFSTest/tafRFSUnitTest/tafRFSUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdStorageUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSecSharedApp
-
+    // $TELAF_ROOT/apps/test/configtreeImportTest/configUnitTest.adef
 }
 
 commands:

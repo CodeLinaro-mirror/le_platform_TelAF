@@ -456,6 +456,7 @@ le_result_t tafMngdStorageSvc::Rollback(taf_mngdStorCfg_ConfigRef_t configRef){
     snprintf(backUpPath,sizeof(backUpPath),"%s%s",configStorage,CONFIG_FILE_NAME_BAK);
     char ConfigFilePath[LIMIT_MAX_PATH_BYTES] = {0};
     snprintf(ConfigFilePath,sizeof(ConfigFilePath),"%s%s",configStorage,CONFIG_FILE_NAME);
+
     //checks if backup file exists in directory.
     if(IsFileExisting(backUpPath)){
         int output =  taf_rfs_Copy(backUpPath,ConfigFilePath);
@@ -493,12 +494,25 @@ le_result_t tafMngdStorageSvc::Rollback(taf_mngdStorCfg_ConfigRef_t configRef){
             return result;
         }
     }
-    else{
-        LockStorage();
-        LE_ERROR("File not exist at path %s",backUpPath);
-        return LE_FAULT;
+    else
+    {
+         // Delete config.json file
+        if (IsFileExisting(ConfigFilePath))
+        {
+            taf_rfs_Delete(ConfigFilePath);
+            LE_INFO("Successfully deleted file from path %s", ConfigFilePath);
+        }
+        else
+        {
+            LE_ERROR("Unable to find file at %s", ConfigFilePath);
+        }
+        //Clearing the tree.
+        result =  ClearTree();
+        if(result != LE_OK){
+            LockStorage();
+            return result;
+        }
     }
-
     // Lock configStorage and configRfsStorage
     result = LockStorage();
     if(result != LE_OK)
@@ -520,35 +534,30 @@ le_result_t tafMngdStorageSvc::Commit(taf_mngdStorCfg_ConfigRef_t configRef){
         return LE_FAULT;
     }
     LE_INFO("Storage unlocked");
-
     char backUpPath[LIMIT_MAX_PATH_BYTES] = {0};
     snprintf(backUpPath,sizeof(backUpPath),"%s%s",configStorage,CONFIG_FILE_NAME_BAK);
     char ConfigFilePath[LIMIT_MAX_PATH_BYTES] = {0};
     snprintf(ConfigFilePath,sizeof(ConfigFilePath),"%s%s",configStorage,CONFIG_FILE_NAME);
-    //checks if Configuration file exists
-    if(IsFileExisting(ConfigFilePath)){
-        //deletes .bak file if exists
-        if(IsFileExisting(backUpPath)){
-            taf_rfs_Delete(backUpPath);
-            LE_INFO("Successfully deleted backup file at %s",backUpPath);
-        }
-        else{
-            LE_ERROR("File not exists at %s",backUpPath);
-        }
-        char storagePath[LIMIT_MAX_PATH_BYTES] =  {0};
-        result = GetConfigStoragePath(storagePath,sizeof(storagePath));
-        if(!IsFileExisting(storagePath)){
-            LockStorage();
-            LE_ERROR("Unable to find file at %s",storagePath);
-            return LE_OK;
-        }
+    //deletes .bak file if exists
+    if(IsFileExisting(backUpPath))
+    {
+        taf_rfs_Delete(backUpPath);
+        LE_INFO("Successfully deleted backup file at %s",backUpPath);
+    }
+    else
+    {
+        LE_ERROR("File not exists at %s",backUpPath);
+    }
+    char storagePath[LIMIT_MAX_PATH_BYTES] =  {0};
+    result = GetConfigStoragePath(storagePath,sizeof(storagePath));
+    if(IsFileExisting(storagePath))
+    {
         taf_rfs_Delete(storagePath);
         LE_INFO("Successfully deleted file from path %s",storagePath);
     }
-    else{
-        LockStorage();
-        LE_ERROR("Configuation file not exists at %s",ConfigFilePath);
-        return LE_FAULT;
+    else
+    {
+        LE_ERROR("Unable to find file at %s",storagePath);
     }
 
     // Lock configStorage and configRfsStorage

@@ -1112,6 +1112,119 @@ bool UdsCommunicationMgr::IsAuthReqLenCorrect
 }
 
 /*
+ * ResponseOnEvent request length check.
+*/
+bool UdsCommunicationMgr::IsROEReqLenCorrect
+(
+    uint8_t subFunc
+)
+{
+    LE_DEBUG("Subfunction:%d, ReqLen:%d", subFunc, recvDataLen);
+    switch (subFunc)
+    {
+
+        case ROE_SUBFUNC_ONDTCS:
+            {
+                //Minimum length check
+                if(recvDataLen < UDS_ROE_ONDTCS_MIN_LEN)
+                {
+                    LE_WARN("Received data length is less than %d bytes", UDS_ROE_ONDTCS_MIN_LEN);
+                    return false;
+                }
+            }
+            break;
+        default:
+            break;
+    }
+
+    return true;
+}
+
+/*
+ * ResponseOnEvent request out of range check.
+*/
+bool UdsCommunicationMgr::IsROEReqOutOfRange
+(
+    uint8_t subFunc
+)
+{
+    switch (subFunc)
+    {
+        case ROE_SUBFUNC_ONDTCS:
+            {
+                uint8_t eventWindowTime = recvBuf[2];
+                uint8_t storageState = (recvBuf[1] >> 6) & 0x1;
+                uint8_t serviceId = recvBuf[4];
+                uint8_t subfunction = recvBuf[5];
+
+                //Check if eventWindowTime is valid
+                if(eventWindowTime == 0 || eventWindowTime > UDS_ROE_MANUFACTURE_WIN_TIME)
+                {
+                    LE_WARN("Invalid event window time %d", eventWindowTime);
+                    return false;
+                }
+
+                //StorageState should not be equal to storeEvent
+                if(storageState == UDS_ROE_STORE_EVENT)
+                {
+                    LE_WARN("Finite event window with storageState equal to storeEvent");
+                    return false;
+                }
+
+                //Check if suppressPosRspMsgIndicationBit is 1
+                if((subfunction & 0x80) != 0)
+                {
+                    LE_WARN("suppressPosRspMsgIndicationBit is set to 1");
+                    return false;
+                }
+
+                //Check supported service
+                if(serviceId != READ_DTC_INFO_REQUEST_ID)
+                {
+                    LE_WARN("Service is not 0x%x", READ_DTC_INFO_REQUEST_ID);
+                    return false;
+                }
+            }
+            break;
+        default:
+            break;
+    }
+
+    return true;
+}
+
+/*
+ * ResponseOnEvent supported subfunction check in 24.12.
+*/
+bool UdsCommunicationMgr::IsROESubFuncSupported
+(
+    uint8_t subFunc
+)
+{
+    bool subFuncSupported = false;
+
+    switch (subFunc)
+    {
+        case ROE_SUBFUNC_ONDTCS:
+            subFuncSupported = true;
+            break;
+        case ROE_SUBFUNC_OCODID:
+        case ROE_SUBFUNC_OCOV:
+        case ROE_SUBFUNC_RMRDOSC:
+        case ROE_SUBFUNC_RDRIODSC:
+        case ROE_SUBFUNC_STPROE:
+        case ROE_SUBFUNC_RAE:
+        case ROE_SUBFUNC_STRTROE:
+        case ROE_SUBFUNC_CLRROE:
+        default:
+            subFuncSupported = false;
+            break;
+    }
+
+    return subFuncSupported;
+}
+
+/*
  * Service supported check.
 */
 bool UdsCommunicationMgr::IsServiceIDSupported
@@ -3169,6 +3282,102 @@ le_result_t UdsCommunicationMgr::IndicateCtrlDTCSettingReq
 }
 
 /**
+ * Check NRC and Indicate Authentication(0x29) message to Diag service.
+ */
+le_result_t UdsCommunicationMgr::IndicateROEReq
+(
+    taf_doip_AddrInfo_t*  addrInfoPtr,
+    bool* isInternalHandle
+)
+{
+    LE_DEBUG("IndicateROEReq");
+
+    // received service ID and sub function.
+    uint8_t sid = recvBuf[0];
+
+    // Check the pointer.
+    if(addrInfoPtr == NULL || isInternalHandle == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
+
+    *isInternalHandle = true;
+
+    // Received data length shall not be more than the UDS_MAX_DATA_SIZE (MAX limit)
+    if(recvDataLen > UDS_MAX_DATA_SIZE)
+    {
+        LE_WARN("recvDataLen is more than the UDS_MAX_DATA_SIZE.");
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    // Check negative err code for minimum request msg length
+    if(recvDataLen < UDS_ROE_REQ_MIN_LEN)
+    {
+        LE_WARN("recvDataLen is less than the ROE request msg minimum length.");
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    uint8_t subFunc = recvBuf[1] & 0x3F;
+
+    // Step 1: Subfunction length check. UDS_0x86_NRC_13
+    if(!IsROEReqLenCorrect(subFunc))
+    {
+        LE_WARN("Length of ROE subFunction 0x%x is not correct.", subFunc);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    // Step 2: Subfunction supported check. UDS_0x86_NRC_12
+    if(!IsSubFuncSupported(sid, subFunc))
+    {
+        LE_WARN("Requested subfunction type is not configured: 0x%x", subFunc);
+        return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
+    }
+
+    //Check current supported sub function for ROE. UDS_0x86_NRC_12
+    if(!IsROESubFuncSupported(subFunc))
+    {
+        LE_WARN("Requested subfunction type is not supported: 0x%x", subFunc);
+        return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
+    }
+
+    // Step 3: Subfunction Authentication check. UDS_0x86_NRC_34
+    if(!IsSubFuncAuthCheckOK(sid, subFunc))
+    {
+        LE_WARN("Authentication check failed for subfunction: 0x%x", subFunc);
+        return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr); // NRC 0x34
+    }
+
+    // Step 4: Subfunction supported in active session check. UDS_0x86_NRC_7E
+    if(!IsSubFuncSessTypeValid(sid, subFunc))
+    {
+        LE_WARN("Current session type does not support subfunction: 0x%x", subFunc);
+        return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr); // NRC 0x7E
+    }
+
+    //  Step 5: Subfunction security access check. UDS_0x86_NRC_33
+    if (!IsSubFuncSecAccessMatched(sid, subFunc))
+    {
+        LE_WARN("Subfunction is secured and the server is not unlocked for subfunction: 0x%x",
+                subFunc);
+        return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr); // NRC 0x33
+    }
+
+    //  Step 6: Request out of range check. UDS_0x86_NRC_31
+    if (!IsROEReqOutOfRange(subFunc))
+    {
+        LE_WARN("Subfunction is secured and the server is not unlocked for subfunction: 0x%x",
+                subFunc);
+        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr); // NRC 0x31
+    }
+
+    //Will send the indication to the diag service
+    *isInternalHandle = false;
+    return LE_OK;
+}
+
+/**
  * Check NRC and Indicate received ReadDTCInformation (0x19) message to Diag service.
  */
 le_result_t UdsCommunicationMgr::IndicateReadDTCInfoReq
@@ -3676,6 +3885,12 @@ void UdsCommunicationMgr::DiagIndicationHandler
             ret = udsCmMgr->IndicateECUResetReq(addrInfoPtr, &isInternalHandle);
         }
         break;
+        case CLEAR_DIAG_INFO_REQUEST_ID:  // 0x14
+        {
+            // Check NRC and then send indication to TelAf diag service if necessary.
+            ret = udsCmMgr->IndicateClearDiagInfoReq(addrInfoPtr, &isInternalHandle);
+        }
+        break;
         case READ_DTC_INFO_REQUEST_ID:  // 0x19
         {
             // Check NRC and then send indication to TelAf diag service if necessary for ReadDTCInfo
@@ -3750,10 +3965,11 @@ void UdsCommunicationMgr::DiagIndicationHandler
             isInternalHandle = true;
         }
         break;
-        case CLEAR_DIAG_INFO_REQUEST_ID:  // 0x14
+        case RESPONSE_ON_EVENT_REQUEST_ID:  // 0x86
         {
-            // Check NRC and then send indication to TelAf diag service if necessary.
-            ret = udsCmMgr->IndicateClearDiagInfoReq(addrInfoPtr, &isInternalHandle);
+            // Check NRC and then send indication to TelAf diag service if necessary for
+            // Response On Event request msg.
+            ret = udsCmMgr->IndicateROEReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         default:
@@ -3996,6 +4212,9 @@ le_result_t UdsCommunicationMgr::SendUDSResp
         break;
         case CONTROL_DTC_SETTING_REQUEST_ID:
             ret = CtrlDTCSettingResp(serviceId, err);
+        break;
+        case RESPONSE_ON_EVENT_REQUEST_ID:
+            ret = ROEResp(serviceId, dataPtr, dataSize, err);
         break;
         default:
             SetNRC(serviceId, SERVICE_NOT_SUPPORTED);
@@ -4980,6 +5199,78 @@ le_result_t UdsCommunicationMgr::CtrlDTCSettingResp
     sendBuf[0] = CONTROL_DTC_SETTING_RESPONSE_ID;
     sendBuf[1] = settingType;
     sendDataLen = UDS_CTRL_DTC_SETTING_RESP_LEN;
+
+    return LE_OK;
+}
+
+/**
+ * Check error code and Pack ResponseOnEvent message to send to Diag client/tool.
+ */
+le_result_t UdsCommunicationMgr::ROEResp
+(
+    uint8_t serviceId,
+    const uint8_t* dataPtr,
+    uint16_t dataSize,
+    uint8_t err
+)
+{
+    LE_DEBUG("ROEResp");
+
+    uint8_t subFunc = recvBuf[1] & 0x3F;
+
+    if (POSITIVE_RESPONSE != err)
+    {
+        LE_DEBUG("Error code reported from Diag service");
+        SetNRC(serviceId, err);
+        return LE_OK;
+    }
+
+    // Check the dataSize.
+    // The minimum data length is 1 for reportActivatedEvents
+    if(subFunc == ROE_SUBFUNC_RAE)
+    {
+        if (dataSize > UDS_MAX_DATA_SIZE - UDS_ROE_RESP_RAE_MIN_LEN ||
+            dataSize < UDS_ROE_RESP_RAE_MIN_LEN)
+        {
+            LE_ERROR("Data Length :%d is not correct.", dataSize);
+            return LE_FAULT;
+        }
+    }
+    // The minimum data length is 2 for all subfunctions but reportActivatedEvents
+    else
+    {
+        if (dataSize > UDS_MAX_DATA_SIZE - UDS_ROE_RESP_MIN_LEN ||
+            dataSize < UDS_ROE_RESP_MIN_LEN)
+        {
+            LE_ERROR("Data Length :%d is not correct.", dataSize);
+            return LE_FAULT;
+        }
+    }
+
+    if (dataPtr == NULL)
+    {
+        LE_ERROR("dataPtr is NULL.");
+        return LE_FAULT;
+    }
+
+    LE_DEBUG("ResponseOnEvent sub function:%d", subFunc);
+
+    //The SuppressPosRspMsg is only available for stopROE, startROE or clearROE
+    if(subFunc == ROE_SUBFUNC_STPROE || subFunc == ROE_SUBFUNC_STRTROE ||
+            subFunc == ROE_SUBFUNC_CLRROE)
+    {
+        uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
+        if (suppressPosRspFlag == 1)
+        {
+            return LE_FAULT;
+        }
+    }
+
+    sendBuf[0] = RESPONSE_ON_EVENT_RESPONSE_ID;
+    sendBuf[1] = subFunc;
+
+    memcpy(sendBuf + UDS_ROE_RESP_BASE_LEN, dataPtr, dataSize);
+    sendDataLen = UDS_ROE_RESP_BASE_LEN + dataSize;
 
     return LE_OK;
 }

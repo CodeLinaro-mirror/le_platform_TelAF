@@ -15,7 +15,7 @@ find_package(vsomeip3 CONFIG 3.1.0 REQUIRED)
 
 # Source Files
 set(PRJ_SRC_PATH src)
-set(PRJ_SRC_GEN_PATH src-gen/v0/com/qualcomm/qti/modem)
+set(PRJ_SRC_GEN_PATH src-gen)
 set(PRJ_INCLUDE_DIRS src-gen/)
 
 # Paths
@@ -28,7 +28,7 @@ include_directories(
 
 # Application
 FILE(GLOB PRJ_SRC_LIB_SRCS ${PRJ_SRC_PATH}/*cpp)
-FILE(GLOB PRJ_SRC_GEN_SRCS ${PRJ_SRC_GEN_PATH}/*.cpp)
+FILE(GLOB_RECURSE PRJ_SRC_GEN_SRCS ${PRJ_SRC_GEN_PATH}/*.cpp)
 
 add_executable(${PROJECT_NAME}
     ${PRJ_SRC_LIB_SRCS}

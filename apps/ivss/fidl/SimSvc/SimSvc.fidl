@@ -1,113 +1,336 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
-package com.qualcomm.qti.modem
-import com.qualcomm.qti.modem.CommonTypes.* from "../common/CommonTypes.fidl"
+package com.qualcomm.qti.telephony
 
-interface SimSvc
-{
-    version { major 0 minor 1 }
-
-    //------------------------------------------------------------------------------------------
+/**
+    @description :
+        
+            
+**/
+typeCollection SimSvcTypes {
+    version { major 1 minor 0 }
+    
     /**
-    * State of the card.
-    */
-    //------------------------------------------------------------------------------------------
-    enumeration States
-    {
-        PRESENT         ///< SIM card is present.
-        ABSENT          ///< SIM card is absent.
-        READY           ///< SIM card is present and ready to use.
-        RESTRICTED      ///< SIM card is present but not usable due to carrier restrictions
-        ERROR           ///< SIM card has error; either card is removed or not readable.
-        STATE_UNKNOWN   ///< SIM card state is unknown.
+        @description :
+            
+        @experimental: type : uint8
+    **/
+    enumeration PhoneIdT {
+        /** Unknown Phone ID  **/
+        PHONE_ID_T_UNKNOWN = 0
+        
+        /** SIM inserted in slot 1  **/
+        PHONE_ID_T_1 = 1
+        
+        /** SIM inserted in slot 2  **/
+        PHONE_ID_T_2 = 2
+            
     }
-
-    //---------------------------------------------------------------------------------------------
+    
     /**
-    * Retrieves the IMSI for the SIM.
-    *
-    * @return
-    * - OVERFLOW         Buffer size is too small.
-    * - BAD_PARAMETER    Invalid parameters.
-    * - NOT_FOUND        Wrong SIM card to operate on.
-    * - OK               IMSI retrieved successfully.
-    *
-    */
-    //---------------------------------------------------------------------------------------------
-    method GetImsi
-    {
-        in
-        {
-            PhoneId phoneId     ///< Phone ID.
-        }
-        out
-        {
-            String imsi         ///< IMSI as output.
-        }
-        error Result            ///< return result.
+        @description :
+            
+        @experimental: type : uint8
+    **/
+    enumeration TelephonyResultT {
+        /** Unknow result.  **/
+        TELEPHONY_RESULT_T_UNKNOWN = 0
+        
+        /** Successful.  **/
+        TELEPHONY_RESULT_T_OK = 1
+        
+        /** Referenced item does not exist or could not be found.  **/
+        TELEPHONY_RESULT_T_NOT_FOUND = 2
+        
+        /** An index or other value is out of range.  **/
+        TELEPHONY_RESULT_T_OUT_OF_RANGE = 3
+        
+        /** Insufficient memory is available.  **/
+        TELEPHONY_RESULT_T_NO_MEMORY = 4
+        
+        /** Current user does not have permission to perform requested action.  **/
+        TELEPHONY_RESULT_T_NOT_PERMITTED = 5
+        
+        /** Unspecified internal error.  **/
+        TELEPHONY_RESULT_T_FAULT = 6
+        
+        /** Communications error.  **/
+        TELEPHONY_RESULT_T_COMM_ERROR = 7
+        
+        /** A time-out occurred.  **/
+        TELEPHONY_RESULT_T_TIMEOUT = 8
+        
+        /** An overflow occurred or would have occurred.  **/
+        TELEPHONY_RESULT_T_OVERFLOW = 9
+        
+        /** An underflow occurred or would have occurred.  **/
+        TELEPHONY_RESULT_T_UNDERFLOW = 10
+        
+        /** Would have blocked if non-blocking behaviour was not requested.  **/
+        TELEPHONY_RESULT_T_WOULD_BLOCK = 11
+        
+        /** Would have caused a deadlock.  **/
+        TELEPHONY_RESULT_T_DEADLOCK = 12
+        
+        /** Format error.  **/
+        TELEPHONY_RESULT_T_FORMAT_ERROR = 13
+        
+        /** Duplicate entry found or operation already performed.  **/
+        TELEPHONY_RESULT_T_DUPLICATE = 14
+        
+        /** Parameter is invalid.  **/
+        TELEPHONY_RESULT_T_BAD_PARAMETER = 15
+        
+        /** The resource is closed.  **/
+        TELEPHONY_RESULT_T_CLOSED = 16
+        
+        /** The resource is busy.  **/
+        TELEPHONY_RESULT_T_BUSY = 17
+        
+        /** The underlying resource does not support this operation.  **/
+        TELEPHONY_RESULT_T_UNSUPPORTED = 18
+        
+        /** An IO operation failed.  **/
+        TELEPHONY_RESULT_T_IO_ERROR = 19
+        
+        /** Unimplemented functionality.  **/
+        TELEPHONY_RESULT_T_NOT_IMPLEMENTED = 20
+        
+        /** A transient or temporary loss of a service or resource.  **/
+        TELEPHONY_RESULT_T_UNAVAILABLE = 21
+        
+        /** The process, operation, data stream, session, etc. has stopped.  **/
+        TELEPHONY_RESULT_T_TERMINATED = 22
+        
+        /** The operation is in progress.  **/
+        TELEPHONY_RESULT_T_IN_PROGRESS = 23
+        
+        /** The operation is suspended.  **/
+        TELEPHONY_RESULT_T_SUSPENDED = 24
+            
     }
-
-    //---------------------------------------------------------------------------------------------
+    
     /**
-    * Gets the state of the SIM card for the given slotId.
-    *
-    * @return
-    *  - OK                 Succeeded.
-    */
-    //---------------------------------------------------------------------------------------------
-    <** @description: Gets the state of the SIM card **>
-    method GetState
-    {
-        in
-        {
-            PhoneId phoneId     ///< Phone ID.
-        }
-        out
-        {
-            States simState     ///< SIM card State.
-        }
-        error Result            ///< return result.
+        @description :
+            
+        @experimental: type : uint8
+    **/
+    enumeration SimStateT {
+        /** SIM card state is unknown  **/
+        SIM_STATE_T_UNKNOWN = 0
+        
+        /** SIM card is present.  **/
+        SIM_STATE_T_PRESENT = 1
+        
+        /** SIM card is absent  **/
+        SIM_STATE_T_ABSENT = 2
+        
+        /** SIM card is present and ready to use  **/
+        SIM_STATE_T_READY = 3
+        
+        /** SIM card is present but not usable due to carrier restrictions  **/
+        SIM_STATE_T_RESTRICTED = 4
+        
+        /** SIM card has error; either card is removed or not readable.  **/
+        SIM_STATE_T_ERROR = 5
+            
     }
-
-    //---------------------------------------------------------------------------------------------
+    
     /**
-    * Retrieves the SIM's ICCID.
-    *
-    * @return
-    * - OK                  ICCID was read successfully.
-    * - OVERFLOW            Buffer size is too small.
-    * - BAD_PARAMETER       Invalid parameters.
-    * - NOT_FOUND           Wrong SIM card to operate on.
-    *
-    */
-    //---------------------------------------------------------------------------------------------
-    method GetICCID
-    {
-        in
-        {
-            PhoneId phoneId     ///< Phone ID.
-        }
-        out
-        {
-            String iccid        ///< ICC ID as output.
-        }
-        error Result            ///< return result.
+        @description :
+            
+        @experimental: type : uint8
+    **/
+    enumeration ValueState {
+        VALUE_STATE_UNAVAILABLE = 0
+        
+        VALUE_STATE_VALID = 1
+        
+        VALUE_STATE_INVALID = 2
+            
     }
+    
+        
+    
+}
 
-    //---------------------------------------------------------------------------------------------
+/**
+    @description :
+
+**/
+interface SimSvc {
+    version { major 1 minor 0 }
+    
+
     /**
-    * SIM card state change event.
-    */
-    //---------------------------------------------------------------------------------------------
-    broadcast SimState
-    {
-        out
-        {
-            PhoneId phoneId     ///< Phone ID.
-            States simState     ///< SIM card State.
+        
+        @description :
+            * SIM card state change notification via topic SimState
+                        
+        @experimental: asil-level  : ASIL_QM
+        
+        @experimental: exclusion_time  : 500
+    **/
+    broadcast SimState {
+        out {
+
+            /**
+                @description : None 
+                
+            **/
+            SimSvcTypes.ValueState valueState
+
+            /**
+                @description : phone id corresponding to a SIM for which state is requested 
+                
+            **/
+            SimSvcTypes.PhoneIdT phoneId
+
+            /**
+                @description :  SIM state as output. 
+                
+            **/
+            SimSvcTypes.SimStateT simState
+
         }
     }
+    
+    
+    
+        
+            
+    /**
+        @description :
+            Retrieves the SIM's IMSI
+                        
+        @experimental: asil-level  : 
+        @experimental: periodicity :
+        @experimental: exclusion-time : 
+    **/
+    method GetImsi {
+            
+        in {
+
+            /**
+                @description : phone id corresponding to a SIM for which IMSI is requested 
+                
+            **/
+            SimSvcTypes.PhoneIdT phoneId
+
+        }
+            
+            
+        out {
+
+            /**
+                @description : IMSI as output. 
+                
+                    
+                @experimental: max-size: 16
+                    
+                
+            **/
+            String imsi
+
+            /**
+                @description : result code defined in Result. 
+                
+            **/
+            SimSvcTypes.TelephonyResultT result
+
+        }
+            
+    }
+            
+        
+            
+    /**
+        @description :
+            Retrieves the SIM's state
+                        
+        @experimental: asil-level  : 
+        @experimental: periodicity :
+        @experimental: exclusion-time : 
+    **/
+    method GetState {
+            
+        in {
+
+            /**
+                @description : phone id corresponding to a SIM slot for which state is requested 
+                
+            **/
+            SimSvcTypes.PhoneIdT phoneId
+
+        }
+            
+            
+        out {
+
+            /**
+                @description : SIM state as output. 
+                
+            **/
+            SimSvcTypes.SimStateT simState
+
+            /**
+                @description : result code defined in Result. 
+                
+            **/
+            SimSvcTypes.TelephonyResultT result
+
+        }
+            
+    }
+            
+        
+            
+    /**
+        @description :
+            Retrieves the SIM's ICCID
+                        
+        @experimental: asil-level  : 
+        @experimental: periodicity :
+        @experimental: exclusion-time : 
+    **/
+    method GetIccid {
+            
+        in {
+
+            /**
+                @description : phone id corresponding to a SIM slot for which ICCID is requested 
+                
+            **/
+            SimSvcTypes.PhoneIdT phoneId
+
+        }
+            
+            
+        out {
+
+            /**
+                @description : ICC ID as output output. 
+                
+                    
+                @experimental: max-size: 21
+                    
+                
+            **/
+            String iccid
+
+            /**
+                @description : result code defined in Result. 
+                
+            **/
+            SimSvcTypes.TelephonyResultT result
+
+        }
+            
+    }
+            
+        
+    
 }

@@ -1,6 +1,6 @@
 {
-    "unicast" : "192.168.10.1",
-    "device" : "eth0.2",
+    "unicast" : "192.168.225.1",
+    "device" : "bridge0",
     "logging" :
     {
         "level" : "error",
@@ -12,8 +12,8 @@
     "applications" :
     [
         {
-            "name" : "tafSomeipGWSvc_1",
-            "id" : "0x0102"
+            "name" : "tafSomeipGWSvc",
+            "id" : "0x0101"
         },
         {
             "name" : "ivssTelephonySvc",
@@ -52,12 +52,13 @@
             "unreliable" : "31000"
         }
     ],
-    "routing" : "tafSomeipGWSvc_1",
-    "network" : "tafSomeipGWSvc_1",
+    "max-payload-size-unreliable" : "18432",
+    "routing" : "tafSomeipGWSvc",
+    "network" : "tafSomeipGWSvc",
     "service-discovery" :
     {
         "enable" : "true",
-        "multicast" : "225.0.0.1",
+        "multicast" : "224.0.0.1",
         "port" : "30490",
         "protocol" : "udp",
         "initial_delay_min" : "10",

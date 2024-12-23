@@ -5,7 +5,7 @@
 
 #include "tafIvssRadioSvc.hpp"
 
-using namespace v0::com::qualcomm::qti::modem;
+using namespace v2::com::qualcomm::qti::telephony;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -20,118 +20,10 @@ std::shared_ptr<tafIvssRadioSvc> tafIvssRadioSvc::GetInstance()
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler function for method 'SetRadioPower'
+ * Add handler function for method 'GetGsmSignalMetrics'
  */
 //--------------------------------------------------------------------------------------------------
-void tafIvssRadioSvc::SetRadioPowerHandler
-(
-    void* reportPtr
-)
-{
-    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
-
-    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
-    indPtr->result = taf_radio_SetRadioPower(indPtr->setRadioPower.power,
-        indPtr->setRadioPower.phoneId);
-    le_sem_Post(indPtr->semRef);
-
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_radio_SetRadioPower failed - %s",
-        LE_RESULT_TXT(indPtr->result));
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Sets the radio power state.
- */
-//--------------------------------------------------------------------------------------------------
-void tafIvssRadioSvc::SetRadioPower
-(
-    const std::shared_ptr<CommonAPI::ClientId> _client,
-    CommonTypes::PhoneId _phoneId,
-    const CommonTypes::OnOffType _power,
-    SetRadioPowerReply_t _reply
-)
-{
-    // Create a generic response message object.
-    LE_INFO("tafIvssRadioSvc SetRadioPower \n");
-
-    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
-    memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
-    indPtr->semRef = le_sem_Create("Ivss SetRadioPowerSem", 0);
-    indPtr->setRadioPower.phoneId = PhoneIdIvssToUint8(_phoneId);
-    indPtr->setRadioPower.power = OnoffIvssToLe(_power);
-
-    // Report to the common COMMONAPI msg handler in service layer.
-    le_event_ReportWithRefCounting(SetRadioPowerEvent, (void*)indPtr);
-    le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result));
-
-    LE_DEBUG("tafIvssRadioSvc SetRadioPower: %s",
-        ((indPtr->setRadioPower.power == LE_ON) ? "ON" : "OFF"));
-
-    le_sem_Delete(indPtr->semRef);
-    le_mem_Release(indPtr);
-};
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Add handler function for method 'GetRadioPower'
- */
-//--------------------------------------------------------------------------------------------------
-void tafIvssRadioSvc::GetRadioPowerHandler
-(
-    void* reportPtr
-)
-{
-    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
-
-    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
-    indPtr->result = taf_radio_GetRadioPower(&indPtr->getRadioPower.power,
-        indPtr->getRadioPower.phoneId);
-    le_sem_Post(indPtr->semRef);
-
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_radio_GetRadioPower failed - %s",
-        LE_RESULT_TXT(indPtr->result));
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Gets the radio power state.
- */
-//--------------------------------------------------------------------------------------------------
-void tafIvssRadioSvc::GetRadioPower
-(
-    const std::shared_ptr<CommonAPI::ClientId> _client,
-    CommonTypes::PhoneId _phoneId,
-    GetRadioPowerReply_t _reply
-)
-{
-    // Create a generic response message object.
-    LE_INFO("tafIvssRadioSvc GetRadioPower \n");
-
-    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
-    memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
-    indPtr->semRef = le_sem_Create("Ivss GetRadioPowerSem", 0);
-    indPtr->getRadioPower.phoneId = PhoneIdIvssToUint8(_phoneId);
-
-    // Report to the common COMMONAPI msg handler in service layer.
-    le_event_ReportWithRefCounting(GetRadioPowerEvent, (void*)indPtr);
-    le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result), OnoffLeToIvss(indPtr->getRadioPower.power));
-
-    LE_DEBUG("tafIvssRadioSvc GetRadioPower: %s",
-        ((indPtr->getRadioPower.power == LE_ON) ? "ON" : "OFF"));
-
-    le_sem_Delete(indPtr->semRef);
-    le_mem_Release(indPtr);
-};
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Add handler function for method 'GetSignalStrength'
- */
-//--------------------------------------------------------------------------------------------------
-void tafIvssRadioSvc::GetSignalStrengthHandler
+void tafIvssRadioSvc::GetGsmSignalMetricsHandler
 (
     void* reportPtr
 )
@@ -141,50 +33,20 @@ void tafIvssRadioSvc::GetSignalStrengthHandler
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
 
     taf_radio_MetricsRef_t metrics =
-        taf_radio_MeasureSignalMetrics(indPtr->getSignalStrength.phoneId);
+        taf_radio_MeasureSignalMetrics(indPtr->GetGsmSignalMetrics.phoneId);
     if (metrics == nullptr)
     {
         indPtr->result = LE_FAULT;
-        le_sem_Post(indPtr->semRef);
-        LE_ERROR("taf_radio_MeasureSignalMetrics failed - %s", LE_RESULT_TXT(indPtr->result));
-        return;
+        TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+            "taf_radio_MeasureSignalMetrics failed - %s", LE_RESULT_TXT(indPtr->result));
     }
 
-    switch (indPtr->getSignalStrength.rat)
-    {
-        case TAF_RADIO_RAT_GSM:
-            indPtr->result = taf_radio_GetGsmSignalMetrics(metrics,
-                &indPtr->getSignalStrength.strength.gsm.rssi,
-                &indPtr->getSignalStrength.strength.gsm.ber);
-            break;
-        case TAF_RADIO_RAT_UMTS:
-            indPtr->result = taf_radio_GetUmtsSignalMetrics(metrics,
-                &indPtr->getSignalStrength.strength.umts.ss,
-                &indPtr->getSignalStrength.strength.umts.ber,
-                &indPtr->getSignalStrength.strength.umts.rscp);
-            break;
-        case TAF_RADIO_RAT_LTE:
-            indPtr->result = taf_radio_GetLteSignalMetrics(metrics,
-                &indPtr->getSignalStrength.strength.lte.ss,
-                &indPtr->getSignalStrength.strength.lte.rsrq,
-                &indPtr->getSignalStrength.strength.lte.rsrp,
-                &indPtr->getSignalStrength.strength.lte.snr);
-            break;
-        case TAF_RADIO_RAT_NR5G:
-            indPtr->result = taf_radio_GetNr5gSignalMetrics(metrics,
-                &indPtr->getSignalStrength.strength.nr5g.rsrq,
-                &indPtr->getSignalStrength.strength.nr5g.rsrp,
-                &indPtr->getSignalStrength.strength.nr5g.snr);
-            break;
-        default:
-            indPtr->result = LE_BAD_PARAMETER;
-            LE_ERROR("Invalid rat(%d) type", (int32_t)indPtr->getSignalStrength.rat);
-            break;
-    }
+    indPtr->result = taf_radio_GetGsmSignalMetrics(metrics, &indPtr->GetGsmSignalMetrics.rssi,
+        &indPtr->GetGsmSignalMetrics.ber);
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_GetGsmSignalMetrics failed - %s", LE_RESULT_TXT(indPtr->result));
+
     le_sem_Post(indPtr->semRef);
-
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "GetSignalMetrics failed - %s",
-        LE_RESULT_TXT(indPtr->result));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -192,58 +54,215 @@ void tafIvssRadioSvc::GetSignalStrengthHandler
  * Gets signal strength.
  */
 //--------------------------------------------------------------------------------------------------
-void tafIvssRadioSvc::GetSignalStrength
+void tafIvssRadioSvc::GetGsmSignalMetrics
 (
     const std::shared_ptr<CommonAPI::ClientId> _client,
-    CommonTypes::PhoneId _phoneId,
-    RadioSvc::Rat _rat,
-    GetSignalStrengthReply_t _reply
+    RadioSvcTypes::PhoneIdT _phoneId,
+    GetGsmSignalMetricsReply_t _reply
 )
 {
     // Create a generic response message object.
-    LE_INFO("tafIvssRadioSvc GetSignalStrength \n");
+    LE_INFO("tafIvssRadioSvc GetGsmSignalMetrics \n");
 
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
 
-    indPtr->semRef = le_sem_Create("Ivss GetSignalStrengthSem", 0);
-    indPtr->getSignalStrength.phoneId = PhoneIdIvssToUint8(_phoneId);
-    indPtr->getSignalStrength.rat = RatIvssToRadio(_rat);
+    indPtr->semRef = le_sem_Create("Ivss GetGsmSignalMetricsSem", 0);
+    indPtr->GetGsmSignalMetrics.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
 
     // Report to the common COMMONAPI msg handler in service layer.
-    le_event_ReportWithRefCounting(GetSignalStrengthEvent, (void*)indPtr);
+    le_event_ReportWithRefCounting(GetGsmSignalMetricsEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
+    _reply(indPtr->GetGsmSignalMetrics.rssi, indPtr->GetGsmSignalMetrics.ber,
+        ResultLeToIvssRadio(indPtr->result));
 
-    RadioSvc::SignalMetrics signalStrength;
-    switch (indPtr->getSignalStrength.rat)
+    le_sem_Delete(indPtr->semRef);
+    le_mem_Release(indPtr);
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for method 'GetUmtsSignalMetrics'
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::GetUmtsSignalMetricsHandler
+(
+    void* reportPtr
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
+
+    taf_radio_MetricsRef_t metrics =
+        taf_radio_MeasureSignalMetrics(indPtr->GetUmtsSignalMetrics.phoneId);
+    if (metrics == nullptr)
     {
-        case TAF_RADIO_RAT_GSM:
-            signalStrength = RadioSvc::GsmSignalMetrics{indPtr->getSignalStrength.strength.gsm.rssi,
-                indPtr->getSignalStrength.strength.gsm.ber};
-            break;
-        case TAF_RADIO_RAT_UMTS:
-            signalStrength = RadioSvc::UmtsSignalMetrics{indPtr->getSignalStrength.strength.umts.ss,
-                indPtr->getSignalStrength.strength.umts.ber,
-                indPtr->getSignalStrength.strength.umts.rscp};
-            break;
-        case TAF_RADIO_RAT_LTE:
-            signalStrength = RadioSvc::LteSignalMetrics{indPtr->getSignalStrength.strength.lte.ss,
-                indPtr->getSignalStrength.strength.lte.rsrq,
-                indPtr->getSignalStrength.strength.lte.rsrp,
-                indPtr->getSignalStrength.strength.lte.snr};
-            break;
-        case TAF_RADIO_RAT_NR5G:
-            signalStrength = RadioSvc::Nr5gSignalMetrics{
-                indPtr->getSignalStrength.strength.nr5g.rsrq,
-                indPtr->getSignalStrength.strength.nr5g.rsrq,
-                indPtr->getSignalStrength.strength.nr5g.rsrp};
-            break;
-        default:
-            indPtr->result = LE_BAD_PARAMETER;
-            LE_ERROR("Invalid rat(%d) type", (int32_t)indPtr->getSignalStrength.rat);
-            break;
-    }   
-    _reply(ResultLeToIvss(indPtr->result), signalStrength);
+        indPtr->result = LE_FAULT;
+        TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+            "taf_radio_MeasureSignalMetrics failed - %s", LE_RESULT_TXT(indPtr->result));
+    }
+
+    indPtr->result = taf_radio_GetUmtsSignalMetrics(metrics, &indPtr->GetUmtsSignalMetrics.ss,
+        &indPtr->GetUmtsSignalMetrics.ber, &indPtr->GetUmtsSignalMetrics.rscp);
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_GetUmtsSignalMetrics failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    le_sem_Post(indPtr->semRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets signal strength.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::GetUmtsSignalMetrics
+(
+    const std::shared_ptr<CommonAPI::ClientId> _client,
+    RadioSvcTypes::PhoneIdT _phoneId,
+    GetUmtsSignalMetricsReply_t _reply
+)
+{
+    // Create a generic response message object.
+    LE_INFO("tafIvssRadioSvc GetUmtsSignalMetrics \n");
+
+    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
+    memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
+
+    indPtr->semRef = le_sem_Create("Ivss GetUmtsSignalMetricsSem", 0);
+    indPtr->GetUmtsSignalMetrics.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
+
+    // Report to the common COMMONAPI msg handler in service layer.
+    le_event_ReportWithRefCounting(GetUmtsSignalMetricsEvent, (void*)indPtr);
+    le_sem_Wait(indPtr->semRef);
+    _reply(indPtr->GetUmtsSignalMetrics.ss, indPtr->GetUmtsSignalMetrics.ber,
+        indPtr->GetUmtsSignalMetrics.rscp, ResultLeToIvssRadio(indPtr->result));
+
+    le_sem_Delete(indPtr->semRef);
+    le_mem_Release(indPtr);
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for method 'GetLteSignalMetrics'
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::GetLteSignalMetricsHandler
+(
+    void* reportPtr
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
+
+    taf_radio_MetricsRef_t metrics =
+        taf_radio_MeasureSignalMetrics(indPtr->GetLteSignalMetrics.phoneId);
+    if (metrics == nullptr)
+    {
+        indPtr->result = LE_FAULT;
+        TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+            "taf_radio_MeasureSignalMetrics failed - %s", LE_RESULT_TXT(indPtr->result));
+    }
+
+    indPtr->result = taf_radio_GetLteSignalMetrics(metrics, &indPtr->GetLteSignalMetrics.ss,
+        &indPtr->GetLteSignalMetrics.rsrq, &indPtr->GetLteSignalMetrics.rsrp,
+        &indPtr->GetLteSignalMetrics.snr);
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_GetLteSignalMetrics failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    le_sem_Post(indPtr->semRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets signal strength.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::GetLteSignalMetrics
+(
+    const std::shared_ptr<CommonAPI::ClientId> _client,
+    RadioSvcTypes::PhoneIdT _phoneId,
+    GetLteSignalMetricsReply_t _reply
+)
+{
+    // Create a generic response message object.
+    LE_INFO("tafIvssRadioSvc GetLteSignalMetrics \n");
+
+    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
+    memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
+
+    indPtr->semRef = le_sem_Create("Ivss GetLteSignalMetricsSem", 0);
+    indPtr->GetLteSignalMetrics.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
+
+    // Report to the common COMMONAPI msg handler in service layer.
+    le_event_ReportWithRefCounting(GetLteSignalMetricsEvent, (void*)indPtr);
+    le_sem_Wait(indPtr->semRef);
+    _reply(indPtr->GetLteSignalMetrics.ss, indPtr->GetLteSignalMetrics.rsrq,
+        indPtr->GetLteSignalMetrics.rsrp, indPtr->GetLteSignalMetrics.snr,
+        ResultLeToIvssRadio(indPtr->result));
+
+    le_sem_Delete(indPtr->semRef);
+    le_mem_Release(indPtr);
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for method 'GetNr5gSignalMetrics'
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::GetNr5gSignalMetricsHandler
+(
+    void* reportPtr
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
+
+    taf_radio_MetricsRef_t metrics =
+        taf_radio_MeasureSignalMetrics(indPtr->GetNr5gSignalMetrics.phoneId);
+    if (metrics == nullptr)
+    {
+        indPtr->result = LE_FAULT;
+        TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+            "taf_radio_MeasureSignalMetrics failed - %s", LE_RESULT_TXT(indPtr->result));
+    }
+
+    indPtr->result = taf_radio_GetNr5gSignalMetrics(metrics, &indPtr->GetNr5gSignalMetrics.rsrq,
+        &indPtr->GetNr5gSignalMetrics.rsrp, &indPtr->GetNr5gSignalMetrics.snr);
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "GetNr5gSignalMetrics failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    le_sem_Post(indPtr->semRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets signal strength.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::GetNr5gSignalMetrics
+(
+    const std::shared_ptr<CommonAPI::ClientId> _client,
+    RadioSvcTypes::PhoneIdT _phoneId,
+    GetNr5gSignalMetricsReply_t _reply
+)
+{
+    // Create a generic response message object.
+    LE_INFO("tafIvssRadioSvc GetNr5gSignalMetrics \n");
+
+    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
+    memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
+
+    indPtr->semRef = le_sem_Create("Ivss GetNr5gSignalMetricsSem", 0);
+    indPtr->GetNr5gSignalMetrics.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
+
+    // Report to the common COMMONAPI msg handler in service layer.
+    le_event_ReportWithRefCounting(GetNr5gSignalMetricsEvent, (void*)indPtr);
+    le_sem_Wait(indPtr->semRef);
+    _reply(indPtr->GetNr5gSignalMetrics.rsrq, indPtr->GetNr5gSignalMetrics.rsrp,
+        indPtr->GetNr5gSignalMetrics.snr, ResultLeToIvssRadio(indPtr->result));
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);
@@ -266,10 +285,10 @@ void tafIvssRadioSvc::GetRegisterModeHandler
         indPtr->getRegisterMode.mcc, sizeof(indPtr->getRegisterMode.mcc),
         indPtr->getRegisterMode.mnc, sizeof(indPtr->getRegisterMode.mnc),
         indPtr->getRegisterMode.phoneId);
-    le_sem_Post(indPtr->semRef);
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_GetRegisterMode failed - %s", LE_RESULT_TXT(indPtr->result));
 
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_radio_GetRegisterMode failed - %s",
-        LE_RESULT_TXT(indPtr->result));
+    le_sem_Post(indPtr->semRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -280,7 +299,7 @@ void tafIvssRadioSvc::GetRegisterModeHandler
 void tafIvssRadioSvc::GetRegisterMode
 (
     const std::shared_ptr<CommonAPI::ClientId> _client,
-    CommonTypes::PhoneId _phoneId,
+    RadioSvcTypes::PhoneIdT _phoneId,
     GetRegisterModeReply_t _reply
 )
 {
@@ -290,13 +309,13 @@ void tafIvssRadioSvc::GetRegisterMode
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss GetRegisterModeSem", 0);
-    indPtr->getRegisterMode.phoneId = PhoneIdIvssToUint8(_phoneId);
+    indPtr->getRegisterMode.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
 
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(GetRegisterModeEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result), indPtr->getRegisterMode.isManual,
-        std::string(indPtr->getRegisterMode.mcc), std::string(indPtr->getRegisterMode.mnc));
+    _reply(indPtr->getRegisterMode.isManual, std::string(indPtr->getRegisterMode.mcc),
+        std::string(indPtr->getRegisterMode.mnc), ResultLeToIvssRadio(indPtr->result));
 
 
     le_sem_Delete(indPtr->semRef);
@@ -317,10 +336,10 @@ void tafIvssRadioSvc::SetAutomaticRegisterModeHandler
 
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
     indPtr->result = taf_radio_SetAutomaticRegisterMode(indPtr->setAutomaticRegisterMode.phoneId);
-    le_sem_Post(indPtr->semRef);
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_SetAutomaticRegisterMode failed - %s", LE_RESULT_TXT(indPtr->result));
 
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_radio_SetAutomaticRegisterMode failed - %s",
-        LE_RESULT_TXT(indPtr->result));
+    le_sem_Post(indPtr->semRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -331,7 +350,7 @@ void tafIvssRadioSvc::SetAutomaticRegisterModeHandler
 void tafIvssRadioSvc::SetAutomaticRegisterMode
 (
     const std::shared_ptr<CommonAPI::ClientId> _client,
-    CommonTypes::PhoneId _phoneId,
+    RadioSvcTypes::PhoneIdT _phoneId,
     SetAutomaticRegisterModeReply_t _reply
 )
 {
@@ -341,12 +360,12 @@ void tafIvssRadioSvc::SetAutomaticRegisterMode
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss SetAutomaticRegisterModeSem", 0);
-    indPtr->setAutomaticRegisterMode.phoneId = PhoneIdIvssToUint8(_phoneId);
+    indPtr->setAutomaticRegisterMode.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
 
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(SetAutomaticRegisterModeEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result));
+    _reply(ResultLeToIvssRadio(indPtr->result));
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);
@@ -367,20 +386,16 @@ void tafIvssRadioSvc::GetHardwareConfigHandler
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
     indPtr->result = taf_radio_GetHardwareSimConfig(&indPtr->getHardwareConfig.totalSimCount,
         &indPtr->getHardwareConfig.maxActiveSims);
-    if (indPtr->result != LE_OK)
-    {
-        le_sem_Post(indPtr->semRef);
-        TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_radio_GetHardwareSimConfig failed - %s",
-            LE_RESULT_TXT(indPtr->result));
-    }
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_GetHardwareSimConfig failed - %s", LE_RESULT_TXT(indPtr->result));
 
     indPtr->result = taf_radio_GetHardwareSimRatCapabilities(
         &indPtr->getHardwareConfig.deviceRatCapMask, &indPtr->getHardwareConfig.simRatCapMask,
         indPtr->getHardwareConfig.phoneId);
-    le_sem_Post(indPtr->semRef);
-
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
         "taf_radio_GetHardwareSimRatCapabilities failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    le_sem_Post(indPtr->semRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -391,7 +406,7 @@ void tafIvssRadioSvc::GetHardwareConfigHandler
 void tafIvssRadioSvc::GetHardwareConfig
 (
     const std::shared_ptr<CommonAPI::ClientId> _client,
-    CommonTypes::PhoneId _phoneId,
+    RadioSvcTypes::PhoneIdT _phoneId,
     GetHardwareConfigReply_t _reply
 )
 {
@@ -401,15 +416,15 @@ void tafIvssRadioSvc::GetHardwareConfig
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss GetHardwareConfigSem", 0);
-    indPtr->getHardwareConfig.phoneId = PhoneIdIvssToUint8(_phoneId);
+    indPtr->getHardwareConfig.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
 
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(GetHardwareConfigEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result), indPtr->getHardwareConfig.totalSimCount,
-        indPtr->getHardwareConfig.maxActiveSims,
+    _reply( indPtr->getHardwareConfig.totalSimCount, indPtr->getHardwareConfig.maxActiveSims,
         RatBitMaskRadioToIvss(indPtr->getHardwareConfig.deviceRatCapMask),
-        RatBitMaskRadioToIvss(indPtr->getHardwareConfig.simRatCapMask));
+        RatBitMaskRadioToIvss(indPtr->getHardwareConfig.simRatCapMask),
+        ResultLeToIvssRadio(indPtr->result));
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);
@@ -430,10 +445,10 @@ void tafIvssRadioSvc::GetRatPreferencesHandler
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
     indPtr->result = taf_radio_GetRatPreferences(&indPtr->getRatPreferences.ratMask,
         indPtr->getRatPreferences.phoneId);
-    le_sem_Post(indPtr->semRef);
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_GetRatPreferences failed - %s", LE_RESULT_TXT(indPtr->result));
 
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_radio_GetRatPreferences failed - %s",
-        LE_RESULT_TXT(indPtr->result));
+    le_sem_Post(indPtr->semRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -444,7 +459,7 @@ void tafIvssRadioSvc::GetRatPreferencesHandler
 void tafIvssRadioSvc::GetRatPreferences
 (
     const std::shared_ptr<CommonAPI::ClientId> _client,
-    CommonTypes::PhoneId _phoneId,
+    RadioSvcTypes::PhoneIdT _phoneId,
     GetRatPreferencesReply_t _reply
 )
 {
@@ -454,13 +469,13 @@ void tafIvssRadioSvc::GetRatPreferences
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss GetRatPreferencesSem", 0);
-    indPtr->getRatPreferences.phoneId = PhoneIdIvssToUint8(_phoneId);
+    indPtr->getRatPreferences.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
 
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(GetRatPreferencesEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result),
-        RatBitMaskRadioToIvss(indPtr->getRatPreferences.ratMask));
+    _reply(RatBitMaskRadioToIvss(indPtr->getRatPreferences.ratMask),
+        ResultLeToIvssRadio(indPtr->result));
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);
@@ -481,19 +496,15 @@ void tafIvssRadioSvc::GetCurrentNetworkNameHandler
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
     indPtr->result = taf_radio_GetCurrentNetworkLongName(indPtr->getCurrentNetworkName.longName,
         TAF_RADIO_NETWORK_NAME_MAX_LEN, indPtr->getCurrentNetworkName.phoneId);
-    if (indPtr->result != LE_OK)
-    {
-        le_sem_Post(indPtr->semRef);
-        TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
-            "taf_radio_GetCurrentNetworkLongName failed - %s", LE_RESULT_TXT(indPtr->result));
-    }
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_GetCurrentNetworkLongName failed - %s", LE_RESULT_TXT(indPtr->result));
 
     indPtr->result = taf_radio_GetCurrentNetworkName(indPtr->getCurrentNetworkName.shortName,
         TAF_RADIO_NETWORK_NAME_MAX_LEN, indPtr->getCurrentNetworkName.phoneId);
-    le_sem_Post(indPtr->semRef);
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_GetCurrentNetworkName failed - %s", LE_RESULT_TXT(indPtr->result));
 
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_radio_GetCurrentNetworkName failed - %s",
-        LE_RESULT_TXT(indPtr->result));
+    le_sem_Post(indPtr->semRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -504,7 +515,7 @@ void tafIvssRadioSvc::GetCurrentNetworkNameHandler
 void tafIvssRadioSvc::GetCurrentNetworkName
 (
     const std::shared_ptr<CommonAPI::ClientId> _client,
-    CommonTypes::PhoneId _phoneId,
+    RadioSvcTypes::PhoneIdT _phoneId,
     GetCurrentNetworkNameReply_t _reply
 )
 {
@@ -514,13 +525,13 @@ void tafIvssRadioSvc::GetCurrentNetworkName
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss GetCurrentNetworkNameSem", 0);
-    indPtr->getCurrentNetworkName.phoneId = PhoneIdIvssToUint8(_phoneId);
+    indPtr->getCurrentNetworkName.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
 
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(GetCurrentNetworkNameEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result), std::string(indPtr->getCurrentNetworkName.longName),
-        std::string(indPtr->getCurrentNetworkName.shortName));
+    _reply(std::string(indPtr->getCurrentNetworkName.longName),
+        std::string(indPtr->getCurrentNetworkName.shortName), ResultLeToIvssRadio(indPtr->result));
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);
@@ -541,38 +552,29 @@ void tafIvssRadioSvc::GetNetRegStateHandler
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
     indPtr->result = taf_radio_GetRadioAccessTechInUse(&indPtr->getNetRegState.rat,
         indPtr->getNetRegState.phoneId);
-    if (indPtr->result != LE_OK)
-    {
-        le_sem_Post(indPtr->semRef);
-        TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
-            "taf_radio_GetRadioAccessTechInUse failed - %s", LE_RESULT_TXT(indPtr->result));
-    }
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_GetRadioAccessTechInUse failed - %s", LE_RESULT_TXT(indPtr->result));
 
     indPtr->getNetRegState.cellId = taf_radio_GetServingCellId(indPtr->getNetRegState.phoneId);
     if (indPtr->getNetRegState.cellId == UINT32_MAX)
     {
         indPtr->result = LE_FAULT;
-        le_sem_Post(indPtr->semRef);
-        TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
+        TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
             "taf_radio_GetServingCellId failed - %s", LE_RESULT_TXT(indPtr->result));
     }
 
     indPtr->result = taf_radio_GetCurrentNetworkMccMnc(indPtr->getNetRegState.mcc,
         sizeof(indPtr->getNetRegState.mcc), indPtr->getNetRegState.mnc,
         sizeof(indPtr->getNetRegState.mnc), indPtr->getNetRegState.phoneId);
-    if (indPtr->result != LE_OK)
-    {
-        le_sem_Post(indPtr->semRef);
-        TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
-            "taf_radio_GetCurrentNetworkMccMnc failed - %s", LE_RESULT_TXT(indPtr->result));
-    }
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_GetCurrentNetworkMccMnc failed - %s", LE_RESULT_TXT(indPtr->result));
 
     indPtr->result = taf_radio_GetNetRegState(&indPtr->getNetRegState.netReg,
         indPtr->getNetRegState.phoneId);
-    le_sem_Post(indPtr->semRef);
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_GetNetRegState failed - %s", LE_RESULT_TXT(indPtr->result));
 
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_radio_GetNetRegState failed - %s",
-        LE_RESULT_TXT(indPtr->result));
+    le_sem_Post(indPtr->semRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -583,7 +585,7 @@ void tafIvssRadioSvc::GetNetRegStateHandler
 void tafIvssRadioSvc::GetNetRegState
 (
     const std::shared_ptr<CommonAPI::ClientId> _client,
-    CommonTypes::PhoneId _phoneId,
+    RadioSvcTypes::PhoneIdT _phoneId,
     GetNetRegStateReply_t _reply
 )
 {
@@ -593,14 +595,14 @@ void tafIvssRadioSvc::GetNetRegState
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss GetNetRegStateSem", 0);
-    indPtr->getNetRegState.phoneId = PhoneIdIvssToUint8(_phoneId);
+    indPtr->getNetRegState.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
 
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(GetNetRegStateEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result), RatRadioToIvss(indPtr->getNetRegState.rat),
-        indPtr->getNetRegState.cellId, std::string(indPtr->getNetRegState.mcc),
-        std::string(indPtr->getNetRegState.mnc), NetRegRadioToIvss(indPtr->getNetRegState.netReg));
+    _reply(RatRadioToIvss(indPtr->getNetRegState.rat), indPtr->getNetRegState.cellId,
+        std::string(indPtr->getNetRegState.mcc), std::string(indPtr->getNetRegState.mnc),
+        NetRegRadioToIvss(indPtr->getNetRegState.netReg), ResultLeToIvssRadio(indPtr->result));
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);
@@ -624,10 +626,10 @@ void tafIvssRadioSvc::GetNrDualConnectivityStatusHandler
         &endcStatus,
         &indPtr->getNrDualConnectivityStatus.statusDcnr,
         indPtr->getNrDualConnectivityStatus.phoneId);
-    le_sem_Post(indPtr->semRef);
-
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
         "taf_radio_GetNrDualConnectivityStatus failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    le_sem_Post(indPtr->semRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -638,7 +640,7 @@ void tafIvssRadioSvc::GetNrDualConnectivityStatusHandler
 void tafIvssRadioSvc::GetNrDualConnectivityStatus
 (
     const std::shared_ptr<CommonAPI::ClientId> _client,
-    CommonTypes::PhoneId _phoneId,
+    RadioSvcTypes::PhoneIdT _phoneId,
     GetNrDualConnectivityStatusReply_t _reply
 )
 {
@@ -648,13 +650,13 @@ void tafIvssRadioSvc::GetNrDualConnectivityStatus
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss GetNrDualConnectivityStatusSem", 0);
-    indPtr->getNrDualConnectivityStatus.phoneId = PhoneIdIvssToUint8(_phoneId);
+    indPtr->getNrDualConnectivityStatus.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
 
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(GetNrDualConnectivityStatusEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result),
-        NRDcnrRadioToIvss(indPtr->getNrDualConnectivityStatus.statusDcnr));
+    _reply(NRDcnrRadioToIvss(indPtr->getNrDualConnectivityStatus.statusDcnr),
+        ResultLeToIvssRadio(indPtr->result));
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);
@@ -681,33 +683,23 @@ void tafIvssRadioSvc::SetSignalStrengthReportingCriteriaHandler
                 indPtr->setSignalStrengthReportingCriteria.ind.lowerRange,
                 indPtr->setSignalStrengthReportingCriteria.ind.upperRange,
                 indPtr->setSignalStrengthReportingCriteria.phoneId);
-            if (indPtr->result != LE_OK)
-            {
-                le_sem_Post(indPtr->semRef);
-                TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
-                    "taf_radio_SetSignalStrengthIndThresholds failed - %s",
-                    LE_RESULT_TXT(indPtr->result));
-            }
+            TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+                "taf_radio_SetSignalStrengthIndThresholds failed - %s",
+                LE_RESULT_TXT(indPtr->result));
             break;
         case TAF_IVSS_RADIO_SIG_DELTA:
             indPtr->result = taf_radio_SetSignalStrengthIndDelta(
                 indPtr->setSignalStrengthReportingCriteria.sigType,
                 indPtr->setSignalStrengthReportingCriteria.ind.delta,
                 indPtr->setSignalStrengthReportingCriteria.phoneId);
-            if (indPtr->result != LE_OK)
-            {
-                le_sem_Post(indPtr->semRef);
-                TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
-                    "taf_radio_SetSignalStrengthIndDelta failed - %s",
-                    LE_RESULT_TXT(indPtr->result));
-            }
+            TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+                "taf_radio_SetSignalStrengthIndDelta failed - %s", LE_RESULT_TXT(indPtr->result));
             break;
         default:
             indPtr->result = LE_UNSUPPORTED;
-            le_sem_Post(indPtr->semRef);
-            LE_ERROR("Unsupported signal type : %d.",
+            TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+                "Unsupported signal type : %d.",
                 (int32_t)indPtr->setSignalStrengthReportingCriteria.sigType);
-            return;
     }
 
     if (indPtr->setSignalStrengthReportingCriteria.hyst.setThreshold)
@@ -716,13 +708,8 @@ void tafIvssRadioSvc::SetSignalStrengthReportingCriteriaHandler
             indPtr->setSignalStrengthReportingCriteria.sigType,
             indPtr->setSignalStrengthReportingCriteria.hyst.threshold,
             indPtr->setSignalStrengthReportingCriteria.phoneId);
-        if (indPtr->result != LE_OK)
-        {
-            le_sem_Post(indPtr->semRef);
-            TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
-                "taf_radio_SetSignalStrengthIndHysteresis failed - %s",
-                LE_RESULT_TXT(indPtr->result));
-        }
+        TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+            "taf_radio_SetSignalStrengthIndHysteresis failed - %s", LE_RESULT_TXT(indPtr->result));
     }
 
     if (indPtr->setSignalStrengthReportingCriteria.hyst.setTimer)
@@ -730,13 +717,9 @@ void tafIvssRadioSvc::SetSignalStrengthReportingCriteriaHandler
         indPtr->result = taf_radio_SetSignalStrengthIndHysteresisTimer(
             indPtr->setSignalStrengthReportingCriteria.hyst.timer,
             indPtr->setSignalStrengthReportingCriteria.phoneId);
-        if (indPtr->result != LE_OK)
-        {
-            le_sem_Post(indPtr->semRef);
-            TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
-                "taf_radio_SetSignalStrengthIndHysteresisTimer failed - %s",
-                LE_RESULT_TXT(indPtr->result));
-        }
+        TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+            "taf_radio_SetSignalStrengthIndHysteresisTimer failed - %s",
+            LE_RESULT_TXT(indPtr->result));
     }
 
     le_sem_Post(indPtr->semRef);;
@@ -750,10 +733,10 @@ void tafIvssRadioSvc::SetSignalStrengthReportingCriteriaHandler
 void tafIvssRadioSvc::SetSignalStrengthReportingCriteria
 (
     const std::shared_ptr<CommonAPI::ClientId> _client,
-    CommonTypes::PhoneId _phoneId,
-    RadioSvc::SigType _sigType,
-    RadioSvc::SigStrengthIndication _ind,
-    RadioSvc::SigStrengthHysteresis _hyst,
+    RadioSvcTypes::PhoneIdT _phoneId,
+    RadioSvcTypes::RadioSigTypeT _sigType,
+    RadioSvcTypes::RadioSigStrengthIndicationT _ind,
+    RadioSvcTypes::RadioSigStrengthHysteresisT _hyst,
     SetSignalStrengthReportingCriteriaReply_t _reply
 )
 {
@@ -763,7 +746,7 @@ void tafIvssRadioSvc::SetSignalStrengthReportingCriteria
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss SetSignalStrengthReportingCriteriaSem", 0);
-    indPtr->setSignalStrengthReportingCriteria.phoneId = PhoneIdIvssToUint8(_phoneId);
+    indPtr->setSignalStrengthReportingCriteria.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
     indPtr->setSignalStrengthReportingCriteria.sigType = SigTypeIvssToRadio(_sigType);
     indPtr->setSignalStrengthReportingCriteria.ind.type = SigIndTypeIvssToRadio(_ind.getType());
     indPtr->setSignalStrengthReportingCriteria.ind.lowerRange = _ind.getLowerRange();
@@ -777,7 +760,7 @@ void tafIvssRadioSvc::SetSignalStrengthReportingCriteria
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(SetSignalStrengthReportingCriteriaEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result));
+    _reply(ResultLeToIvssRadio(indPtr->result));
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);
@@ -798,10 +781,10 @@ void tafIvssRadioSvc::GetPacketSwitchedStateHandler
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
     indPtr->result = taf_radio_GetPacketSwitchedState(&indPtr->getPacketSwitchedState.netState,
         indPtr->getPacketSwitchedState.phoneId);
-    le_sem_Post(indPtr->semRef);
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_GetPacketSwitchedState failed - %s", LE_RESULT_TXT(indPtr->result));
 
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_radio_GetPacketSwitchedState failed - %s",
-        LE_RESULT_TXT(indPtr->result));
+    le_sem_Post(indPtr->semRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -812,7 +795,7 @@ void tafIvssRadioSvc::GetPacketSwitchedStateHandler
 void tafIvssRadioSvc::GetPacketSwitchedState
 (
     const std::shared_ptr<CommonAPI::ClientId> _client,
-    CommonTypes::PhoneId _phoneId,
+    RadioSvcTypes::PhoneIdT _phoneId,
     GetPacketSwitchedStateReply_t _reply
 )
 {
@@ -822,13 +805,13 @@ void tafIvssRadioSvc::GetPacketSwitchedState
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
     memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
     indPtr->semRef = le_sem_Create("Ivss GetPacketSwitchedStateSem", 0);
-    indPtr->getPacketSwitchedState.phoneId = PhoneIdIvssToUint8(_phoneId);
+    indPtr->getPacketSwitchedState.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
 
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(GetPacketSwitchedStateEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result),
-        NetRegRadioToIvss(indPtr->getPacketSwitchedState.netState));
+    _reply(NetRegRadioToIvss(indPtr->getPacketSwitchedState.netState),
+        ResultLeToIvssRadio(indPtr->result));
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);
@@ -850,8 +833,8 @@ void tafIvssRadioSvc::taf_ivss_radio_GsmSsChangeHandler
     LE_DEBUG("tafIvssRadioSvc GsmSsChange Event");
 
     auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    ivssRadio->fireSignalStrengthEvent(PhoneIdUint8ToIvss(phoneId), RadioSvc::Rat::RAT_GSM, ss,
-        rsrp);
+    ivssRadio->fireSignalStrengthEvent(RadioSvcTypes::ValueState::VALUE_STATE_VALID,
+        PhoneIdUint8ToIvssRadio(phoneId), RadioSvcTypes::RadioRatT::RADIO_RAT_T_GSM, ss, rsrp);
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -870,8 +853,8 @@ void tafIvssRadioSvc::taf_ivss_radio_UmtsSsChangeHandler
     LE_DEBUG("tafIvssRadioSvc GsmSsChange Event");
 
     auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    ivssRadio->fireSignalStrengthEvent(PhoneIdUint8ToIvss(phoneId), RadioSvc::Rat::RAT_UMTS, ss,
-        rsrp);
+    ivssRadio->fireSignalStrengthEvent(RadioSvcTypes::ValueState::VALUE_STATE_VALID,
+        PhoneIdUint8ToIvssRadio(phoneId), RadioSvcTypes::RadioRatT::RADIO_RAT_T_UMTS, ss, rsrp);
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -890,8 +873,8 @@ void tafIvssRadioSvc::taf_ivss_radio_LteSsChangeHandler
     LE_DEBUG("tafIvssRadioSvc LteSsChange Event");
 
     auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    ivssRadio->fireSignalStrengthEvent(PhoneIdUint8ToIvss(phoneId), RadioSvc::Rat::RAT_LTE, ss,
-        rsrp);
+    ivssRadio->fireSignalStrengthEvent(RadioSvcTypes::ValueState::VALUE_STATE_VALID,
+        PhoneIdUint8ToIvssRadio(phoneId), RadioSvcTypes::RadioRatT::RADIO_RAT_T_LTE, ss, rsrp);
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -910,26 +893,8 @@ void tafIvssRadioSvc::taf_ivss_radio_Nr5gSsChangeHandler
     LE_DEBUG("tafIvssRadioSvc Nr5gSsChange Event");
 
     auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    ivssRadio->fireSignalStrengthEvent(PhoneIdUint8ToIvss(phoneId), RadioSvc::Rat::RAT_NR5G, ss,
-        rsrp);
-};
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Handler for Radio Access Technology change.
- */
-//--------------------------------------------------------------------------------------------------
-void tafIvssRadioSvc::taf_ivss_radio_RatChangeHandler
-(
-    taf_radio_RatChangeInd_t* ratChangeIndPtr, ///< [IN] Indication on RAT change.
-    void* contextPtr                           ///< [IN] Handler context.
-)
-{
-    LE_DEBUG("tafIvssRadioSvc RatChange Event");
-
-    auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    ivssRadio->fireRadioRatEvent(PhoneIdUint8ToIvss(ratChangeIndPtr->phoneId),
-        RatRadioToIvss(ratChangeIndPtr->rat));
+    ivssRadio->fireSignalStrengthEvent(RadioSvcTypes::ValueState::VALUE_STATE_VALID,
+        PhoneIdUint8ToIvssRadio(phoneId), RadioSvcTypes::RadioRatT::RADIO_RAT_T_NR5G, ss, rsrp);
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -946,7 +911,8 @@ void tafIvssRadioSvc::taf_ivss_radio_StateChangeHandler
     LE_DEBUG("tafIvssRadioSvc StateChange Event");
 
     auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    ivssRadio->fireRadioStateEvent(StatesRadioToIvss(mode));
+    ivssRadio->fireRadioStateEvent(RadioSvcTypes::ValueState::VALUE_STATE_VALID,
+        StatesRadioToIvss(mode));
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -964,7 +930,8 @@ void tafIvssRadioSvc::taf_ivss_radio_CellInfoChangeHandler
     LE_DEBUG("tafIvssRadioSvc CellInfo Event");
 
     auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    ivssRadio->fireCellInfoEvent(PhoneIdUint8ToIvss(phoneId), CellInfoRadioToIvss(cellStatus));
+    ivssRadio->fireCellInfoEvent(RadioSvcTypes::ValueState::VALUE_STATE_VALID,
+        PhoneIdUint8ToIvssRadio(phoneId), CellInfoRadioToIvss(cellStatus));
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -981,9 +948,10 @@ void tafIvssRadioSvc::Init
     EventPool = le_mem_CreatePool("Ivss Radio EventPool", sizeof(taf_IvssRadio_Ind_t));
 
     // Init events.
-    SetRadioPowerEvent = le_event_CreateIdWithRefCounting("SetRadioPowerEvent");
-    GetRadioPowerEvent = le_event_CreateIdWithRefCounting("GetRadioPowerEvent");
-    GetSignalStrengthEvent = le_event_CreateIdWithRefCounting("GetSignalStrengthEvent");
+    GetGsmSignalMetricsEvent = le_event_CreateIdWithRefCounting("GetGsmSignalMetricsEvent");
+    GetUmtsSignalMetricsEvent = le_event_CreateIdWithRefCounting("GetUmtsSignalMetricsEvent");
+    GetLteSignalMetricsEvent = le_event_CreateIdWithRefCounting("GetLteSignalMetricsEvent");
+    GetNr5gSignalMetricsEvent = le_event_CreateIdWithRefCounting("GetNr5gSignalMetricsEvent");
     GetRegisterModeEvent = le_event_CreateIdWithRefCounting("GetRegisterModeEvent");
     SetAutomaticRegisterModeEvent = le_event_CreateIdWithRefCounting(
         "SetAutomaticRegisterModeEvent");
@@ -998,12 +966,14 @@ void tafIvssRadioSvc::Init
     GetPacketSwitchedStateEvent = le_event_CreateIdWithRefCounting("GetPacketSwitchedStateEvent");
 
     // Init event handler.
-    SetRadioPowerEventHandlerRef = le_event_AddHandler("SetRadioPowerEvent Handler",
-        SetRadioPowerEvent, tafIvssRadioSvc::SetRadioPowerHandler);
-    GetRadioPowerEventHandlerRef = le_event_AddHandler("GetRadioPowerEvent Handler",
-        GetRadioPowerEvent, tafIvssRadioSvc::GetRadioPowerHandler);
-    GetSignalStrengthEventHandlerRef = le_event_AddHandler("GetSignalStrengthEvent Handler",
-        GetSignalStrengthEvent, tafIvssRadioSvc::GetSignalStrengthHandler);
+    GetGsmSignalMetricsEventHandlerRef = le_event_AddHandler("GetGsmSignalMetricsEvent Handler",
+        GetGsmSignalMetricsEvent, tafIvssRadioSvc::GetGsmSignalMetricsHandler);
+    GetUmtsSignalMetricsEventHandlerRef = le_event_AddHandler("GetUmtsSignalMetricsEvent Handler",
+        GetUmtsSignalMetricsEvent, tafIvssRadioSvc::GetUmtsSignalMetricsHandler);
+    GetLteSignalMetricsEventHandlerRef = le_event_AddHandler("GetLteSignalMetricsEvent Handler",
+        GetLteSignalMetricsEvent, tafIvssRadioSvc::GetLteSignalMetricsHandler);
+    GetNr5gSignalMetricsEventHandlerRef = le_event_AddHandler("GetNr5gSignalMetricsEvent Handler",
+        GetNr5gSignalMetricsEvent, tafIvssRadioSvc::GetNr5gSignalMetricsHandler);
     GetRegisterModeEventHandlerRef = le_event_AddHandler("GetRegisterModeEvent Handler",
         GetRegisterModeEvent, tafIvssRadioSvc::GetRegisterModeHandler);
     SetAutomaticRegisterModeEventHandlerRef = le_event_AddHandler(
@@ -1028,8 +998,6 @@ void tafIvssRadioSvc::Init
         tafIvssRadioSvc::GetPacketSwitchedStateHandler);
 
     // Init commonapi event.
-    RatChangeHandlerRef = taf_radio_AddRatChangeHandler(
-        (taf_radio_RatChangeHandlerFunc_t)taf_ivss_radio_RatChangeHandler, NULL);
     GsmSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_GSM,
         (taf_radio_SignalStrengthChangeHandlerFunc_t)taf_ivss_radio_GsmSsChangeHandler, NULL);
     UmtsSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_UMTS,

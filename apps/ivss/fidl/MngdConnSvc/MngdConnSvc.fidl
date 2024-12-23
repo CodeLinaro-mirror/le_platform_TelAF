@@ -3,149 +3,410 @@
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
-package com.qualcomm.qti.modem
-import com.qualcomm.qti.modem.CommonTypes.* from "../common/CommonTypes.fidl"
+package com.qualcomm.qti.telephony
 
-interface MngdConnSvc
-{
-    version { major 0 minor 1 }
-
-    //----------------------------------------------------------------------------------------------
+/**
+    @description :
+        
+            
+**/
+typeCollection MngdConnSvcTypes {
+    version { major 2 minor 0 }
+    
     /**
-    * Maximum number of data in the system.
-    */
-    //----------------------------------------------------------------------------------------------
-    const UInt8 MAX_DATA_NUM = 4
-
-    //----------------------------------------------------------------------------------------------
-    /**
-    * The data state.
-    */
-    //----------------------------------------------------------------------------------------------
-    enumeration DataState
-    {
-        DATA_DISCONNECTED       ///< Transition state to CONNECTED or FAILED.
-        DATA_CONNECTED          ///< Data connected state.
-        DATA_CONNECTION_FAILED  ///< The service is not able to reconnect data even after retries.
-        DATA_CONNECTION_STALLED ///< Transition state to CONNECTED or DISCONNECTED.
+        @description :
+            
+        @experimental: type : uint8
+    **/
+    enumeration TelephonyResultT {
+        /** Unknow result.  **/
+        TELEPHONY_RESULT_T_UNKNOWN = 0
+        
+        /** Successful.  **/
+        TELEPHONY_RESULT_T_OK = 1
+        
+        /** Referenced item does not exist or could not be found.  **/
+        TELEPHONY_RESULT_T_NOT_FOUND = 2
+        
+        /** An index or other value is out of range.  **/
+        TELEPHONY_RESULT_T_OUT_OF_RANGE = 3
+        
+        /** Insufficient memory is available.  **/
+        TELEPHONY_RESULT_T_NO_MEMORY = 4
+        
+        /** Current user does not have permission to perform requested action.  **/
+        TELEPHONY_RESULT_T_NOT_PERMITTED = 5
+        
+        /** Unspecified internal error.  **/
+        TELEPHONY_RESULT_T_FAULT = 6
+        
+        /** Communications error.  **/
+        TELEPHONY_RESULT_T_COMM_ERROR = 7
+        
+        /** A time-out occurred.  **/
+        TELEPHONY_RESULT_T_TIMEOUT = 8
+        
+        /** An overflow occurred or would have occurred.  **/
+        TELEPHONY_RESULT_T_OVERFLOW = 9
+        
+        /** An underflow occurred or would have occurred.  **/
+        TELEPHONY_RESULT_T_UNDERFLOW = 10
+        
+        /** Would have blocked if non-blocking behaviour was not requested.  **/
+        TELEPHONY_RESULT_T_WOULD_BLOCK = 11
+        
+        /** Would have caused a deadlock.  **/
+        TELEPHONY_RESULT_T_DEADLOCK = 12
+        
+        /** Format error.  **/
+        TELEPHONY_RESULT_T_FORMAT_ERROR = 13
+        
+        /** Duplicate entry found or operation already performed.  **/
+        TELEPHONY_RESULT_T_DUPLICATE = 14
+        
+        /** Parameter is invalid.  **/
+        TELEPHONY_RESULT_T_BAD_PARAMETER = 15
+        
+        /** The resource is closed.  **/
+        TELEPHONY_RESULT_T_CLOSED = 16
+        
+        /** The resource is busy.  **/
+        TELEPHONY_RESULT_T_BUSY = 17
+        
+        /** The underlying resource does not support this operation.  **/
+        TELEPHONY_RESULT_T_UNSUPPORTED = 18
+        
+        /** An IO operation failed.  **/
+        TELEPHONY_RESULT_T_IO_ERROR = 19
+        
+        /** Unimplemented functionality.  **/
+        TELEPHONY_RESULT_T_NOT_IMPLEMENTED = 20
+        
+        /** A transient or temporary loss of a service or resource.  **/
+        TELEPHONY_RESULT_T_UNAVAILABLE = 21
+        
+        /** The process, operation, data stream, session, etc. has stopped.  **/
+        TELEPHONY_RESULT_T_TERMINATED = 22
+        
+        /** The operation is in progress.  **/
+        TELEPHONY_RESULT_T_IN_PROGRESS = 23
+        
+        /** The operation is suspended.  **/
+        TELEPHONY_RESULT_T_SUSPENDED = 24
+            
     }
-
-    //----------------------------------------------------------------------------------------------
+    
     /**
-    * The data Ip info structure.
-    */
-    //----------------------------------------------------------------------------------------------
-    struct DataIpInfo
-    {
-        String ipAddr      ///< The Ip address.
-        String gatewayAddr ///< The Ip gateway address.
-        String dns1Addr    ///< The Ip primary DNS address.
-        String dns2Addr    ///< The Ip secondary DNS address.
-        UInt32 ipMask      ///< The Ip mask.
+        @description :
+            
+        @experimental: type : uint8
+    **/
+    enumeration MngdConnDataStateT {
+        /** Data state unknown  **/
+        MNGD_CONN_T_DATA_UNKNOWN = 0
+        
+        /** Data disconnected State  **/
+        MNGD_CONN_T_DATA_DISCONNECTED = 1
+        
+        /** Data connected state.  **/
+        MNGD_CONN_T_DATA_CONNECTED = 2
+        
+        /** The service is not able to reconnect data even after retries.  **/
+        MNGD_CONN_T_DATA_CONNECTION_FAILED = 3
+        
+        /** Intermediate state corresponding to connection tests failed  **/
+        MNGD_CONN_T_DATA_CONNECTION_STALLED = 4
+            
     }
-
-    //----------------------------------------------------------------------------------------------
+    
     /**
-    * Starts a data session for the given data name. This API should be used when the value of
-    * "AutoStart" is "No" in the configuration file.
-    *
-    * The service tracks clients that call StartData for Data objects with AutoStart:No and is used
-    * to manage StopData behavior.
-    *
-    * @return
-    *   - OK -- Succeeded.
-    *   - DUPLICATE -- The data connection is already started.
-    *   - IN_PROGRESS -- The data connection establishment retry is in progress.
-    *   - Appropriate error is returned on failure.
-    */
-    //----------------------------------------------------------------------------------------------
-    method StartData
-    {
-        in
-        {
-            String name         ///< The data name to use.
+        @description :
+            
+        @experimental: type : uint8
+    **/
+    enumeration ValueState {
+        VALUE_STATE_UNAVAILABLE = 0
+        
+        VALUE_STATE_VALID = 1
+        
+        VALUE_STATE_INVALID = 2
+            
+    }
+    
+        
+    
+    /**
+        @description :
+
+    **/
+    struct MngdConnDataIpInfoT {
+        /**
+            @description : The IP address. 
+            @experimental : variable_type_max_size: 46
+        **/
+        String ipAddr
+        
+        /**
+            @description : The IP gateway address. 
+            @experimental : variable_type_max_size: 46
+        **/
+        String gatewayAddr
+        
+        /**
+            @description : The IP primary DNS address. 
+            @experimental : variable_type_max_size: 46
+        **/
+        String dns1Addr
+        
+        /**
+            @description : The IP secondary DNS address. 
+            @experimental : variable_type_max_size: 46
+        **/
+        String dns2Addr
+        
+        /**
+            @description : The IP mask. 
+            @experimental : variable_type_max_size: 46
+        **/
+        UInt32 ipMask
+          
+    }
+    
+}
+
+/**
+    @description :
+
+**/
+interface MngdConnSvc {
+    version { major 2 minor 0 }
+    
+
+    /**
+        
+        @description :
+            Events to report data state.
+                        
+        @experimental: asil-level  : ASIL_QM
+        
+        @experimental: exclusion_time  : 500
+    **/
+    broadcast DataState {
+        out {
+
+            /**
+                @description : None 
+                
+            **/
+            MngdConnSvcTypes.ValueState valueState
+
+            /**
+                @description : The data name to use. 
+                
+                    
+                @experimental: max-size: 128
+                    
+                
+            **/
+            String name
+
+            /**
+                @description :  The data state. 
+                
+            **/
+            MngdConnSvcTypes.MngdConnDataStateT dataState
+
         }
-        error Result            ///< return result.
     }
-
-    //----------------------------------------------------------------------------------------------
+    
+    
+    
+        
+            
     /**
-    * Stops a data cellular session for the given data name.
-    *
-    * Data will be stopped only when all clients that have called StartData for data objects with
-    * AutoStart:No either stop data or exit.
-    *
-    * @return
-    *   - OK -- Succeeded.
-    *   - NOT_PERMITTED -- If data is auto started by the service, application cannot stop data.
-    *   - NOT_POSSIBLE  -- If data start connection test is enabled and it is in progress,
-    *                      NOT_POSSIBLE is returned. Applications can retry StopData after an
-    *                      appropriate delay. Data start connection test is either curl or 5 ping.
-    *   - Appropriate error is returned on failure.
-    */
-    //----------------------------------------------------------------------------------------------
-    method StopData
-    {
-        in
-        {
-            String name         ///< The data name to use.
-        }
-        error Result            ///< return result.
-    }
+        @description :
+            Starts a data session for the given data name.
+                        
+        @experimental: asil-level  : 
+        @experimental: periodicity :
+        @experimental: exclusion-time : 
+    **/
+    method StartData {
+            
+        in {
 
-    //----------------------------------------------------------------------------------------------
-    /**
-    * Gets connection state information for all currently running datas.
-    *
-    * @return
-    *   - OK -- Succeeded.
-    */
-    //----------------------------------------------------------------------------------------------
-    method GetDataList
-    {
-        out
-        {
-            UInt8 dataNum                       ///< The number of data that has already started.
-            String[] name                       ///< The data name to use.
-            DataState[] dataState               ///< The data state.
-        }
-        error Result                            ///< return result.
-    }
+            /**
+                @description : The data name to use. 
+                
+                    
+                @experimental: max-size: 32
+                    
+                
+            **/
+            String name
 
-    //----------------------------------------------------------------------------------------------
-    /**
-    * Gets the data Ipv4 address, gateway, DNS, and mask.
-    *
-    * @return
-    *   - OK -- Succeeded.
-    *   - NOT_FOUND -- Failed.
-    */
-    //----------------------------------------------------------------------------------------------
-    method GetDataIpv4Info
-    {
-        in
-        {
-            String name         ///< The data name to use.
         }
-        out
-        {
-            String ifName       ///< The interface name.
-            DataIpInfo ipv4Info ///< The data Ipv4 info
-        }
-        error Result            ///< return result.
-    }
+            
+            
+        out {
 
-    //----------------------------------------------------------------------------------------------
-    /**
-    * Events to report data state.
-    */
-    //----------------------------------------------------------------------------------------------
-    broadcast DataState
-    {
-        out
-        {
-            String name             ///< The data name to use.
-            DataState dataState     ///< The data state.
+            /**
+                @description : result code defined in Result. 
+                
+            **/
+            MngdConnSvcTypes.TelephonyResultT result
+
         }
+            
     }
+            
+        
+            
+    /**
+        @description :
+            Stops a data cellular session for the given data name.
+                        
+        @experimental: asil-level  : 
+        @experimental: periodicity :
+        @experimental: exclusion-time : 
+    **/
+    method StopData {
+            
+        in {
+
+            /**
+                @description : The data name to use. 
+                
+                    
+                @experimental: max-size: 32
+                    
+                
+            **/
+            String name
+
+        }
+            
+            
+        out {
+
+            /**
+                @description : result code defined in Result. 
+                
+            **/
+            MngdConnSvcTypes.TelephonyResultT result
+
+        }
+            
+    }
+            
+        
+            
+    /**
+        @description :
+            Gets connection state information for all currently running datas.
+                        
+        @experimental: asil-level  : 
+        @experimental: periodicity :
+        @experimental: exclusion-time : 
+    **/
+    method GetDataList {
+            
+            
+        out {
+
+            /**
+                @description : The number of data that has already started. 
+                
+            **/
+            UInt8 dataNum
+
+            /**
+                @description : The data name to use. 
+                
+                    
+                @experimental:
+                        array size: 4
+                        string max-size: 32
+                    
+                
+            **/
+            String [] name
+
+            /**
+                @description : The data state. 
+                
+                    
+                @experimental: size: 4
+                    
+                
+            **/
+            MngdConnSvcTypes.MngdConnDataStateT [] dataState
+
+            /**
+                @description : result code defined in Result. 
+                
+            **/
+            MngdConnSvcTypes.TelephonyResultT result
+
+        }
+            
+    }
+            
+        
+            
+    /**
+        @description :
+            Gets the data Ipv4 address, gateway, DNS, and mask..
+                        
+        @experimental: asil-level  : 
+        @experimental: periodicity :
+        @experimental: exclusion-time : 
+    **/
+    method GetDataIpv4Info {
+            
+        in {
+
+            /**
+                @description : The data name to use. 
+                
+                    
+                @experimental: max-size: 32
+                    
+                
+            **/
+            String name
+
+        }
+            
+            
+        out {
+
+            /**
+                @description : The interface name. 
+                
+                    
+                @experimental: max-size: 64
+                    
+                
+            **/
+            String ifName
+
+            /**
+                @description : The data Ipv4 info. 
+                
+            **/
+            MngdConnSvcTypes.MngdConnDataIpInfoT ipv4Info
+
+            /**
+                @description : result code defined in Result. 
+                
+            **/
+            MngdConnSvcTypes.TelephonyResultT result
+
+        }
+            
+    }
+            
+        
+    
 }

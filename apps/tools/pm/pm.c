@@ -5,7 +5,7 @@
 
 #include "legato.h"
 #include "interfaces.h"
-
+taf_pm_ConsolidatedAckInfoHandlerRef_t ackInfoHandlerRef = NULL;
 //--------------------------------------------------------------------------------------------------
 /**
  * Print the help message to stdout
@@ -82,6 +82,85 @@ const char* tafStateToString(taf_pm_State_t tafState)
     return state;
 }
 
+void ConsolidatedAckInfoHandler
+(
+    taf_pm_ConsolidatedAckInfoRef_t infoRef,
+    bool isAllAcked,
+    taf_pm_State_t state,
+    void* contextPtr
+)
+{
+    LE_INFO("ConsolidatedAckInfoHandler triggered with state: %d, isAllAcked: %d",
+        (int)state, (int)isAllAcked);
+    le_result_t result;
+    uint8_t i;
+
+    if(isAllAcked)
+    {
+        printf("Slave applications successfully acknowledged the %s transition\n",
+            tafStateToString(state));
+        exit(EXIT_SUCCESS);
+    }
+    else
+    {
+        taf_pm_ClientInfo_t nackClients[TAF_PM_MAX_CLIENT_NUMBER] = {};
+        size_t nackClientCount = 0;
+        taf_pm_ClientInfo_t unresClients[TAF_PM_MAX_CLIENT_NUMBER] = {};
+        size_t unresClientCount = 0;
+
+        result = taf_pm_GetUnrespClientInfo(infoRef, unresClients, &unresClientCount);
+        if(result != LE_OK)
+        {
+            printf("Failed to fetch unresponded clients with result %d.\n", result);
+            return;
+        }
+        if(unresClientCount >= TAF_PM_MAX_CLIENT_NUMBER)
+        {
+            printf("Fetched more unresponded clients than expected with %d.\n",
+                (int)unresClientCount);
+            return;
+        }
+        if(unresClientCount > 0)
+        {
+            printf("Timeout occurred while waiting for acknowledgements from slave applications\n");
+            printf("Number of unresponsive clients: %d\n", (int)unresClientCount);
+        }
+
+        for(i = 0; i < unresClientCount; i++)
+        {
+            printf("client name: %s, machine name: %s\n", unresClients[i].clientName,
+                unresClients[i].machineName);
+        }
+        result = taf_pm_GetNackClientInfo(infoRef, nackClients, &nackClientCount);
+        if(result != LE_OK)
+        {
+            printf("Failed to fetch nacked clients with result %d.\n", result);
+            return;
+        }
+        if(nackClientCount >= TAF_PM_MAX_CLIENT_NUMBER)
+        {
+            printf("Fetched more nack clients than expected with %d.\n", (int)nackClientCount);
+            return;
+        }
+        if(nackClientCount > 0)
+        {
+            printf("Number of clients responded with nack: %d\n", (int)nackClientCount);
+        }
+
+        for(i = 0; i < nackClientCount; i++)
+        {
+            printf("client name: %s, machine name: %s\n", nackClients[i].clientName,
+                nackClients[i].machineName);
+        }
+
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
+
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the command handler to call depending on which command was specified on the command-line.
@@ -92,6 +171,11 @@ static void SetCommandHandler
     const char* argPtr                  ///< [IN] Command-line argument.
 )
 {
+    ackInfoHandlerRef =taf_pm_AddConsolidatedAckInfoHandler(
+        (taf_pm_ConsolidatedAckInfoHandlerFunc_t)ConsolidatedAckInfoHandler, NULL);
+    if (ackInfoHandlerRef)
+        LE_INFO("Register Extended state change handler is successfull");
+
     LE_INFO("SetCommandHandler %s", argPtr);
     le_result_t res;
     if (strcmp(argPtr, "suspend") == 0)
@@ -103,6 +187,7 @@ static void SetCommandHandler
             } else {
                 fprintf(stderr, "Failed to request suspend\n");
                 LE_ERROR("Failed to request suspend");
+                exit(EXIT_FAILURE);
             }
         } else if(le_arg_NumArgs() == 2) {
             LE_DEBUG("setVMPowerState suspend to %s", le_arg_GetArg(1));
@@ -124,7 +209,6 @@ static void SetCommandHandler
                     }
                     LE_INFO("Successfully requested suspend for %s VM", vmName);
                     taf_pm_DeleteMachineList(vmListRef);
-                    exit(EXIT_SUCCESS);
                 }
                 res = taf_pm_GetNextMachineName(vmListRef, name, 32);
             }
@@ -139,9 +223,11 @@ static void SetCommandHandler
             res = taf_pm_SetAllVMPowerState(TAF_PM_STATE_RESUME);
             if (res == LE_OK) {
                 LE_INFO("Successfully requested resume");
+                exit(EXIT_SUCCESS);
             } else {
                 fprintf(stderr, "Failed to request resume\n");
                 LE_ERROR("Failed to request resume");
+                exit(EXIT_FAILURE);
             }
         } else if(le_arg_NumArgs() == 2) {
             LE_DEBUG("setVMPowerState resume to %s", le_arg_GetArg(1));
@@ -163,7 +249,6 @@ static void SetCommandHandler
                     }
                     LE_INFO("Successfully requested resume for %s VM", vmName);
                     taf_pm_DeleteMachineList(vmListRef);
-                    exit(EXIT_SUCCESS);
                 }
                 res = taf_pm_GetNextMachineName(vmListRef, name, 32);
             }
@@ -181,6 +266,7 @@ static void SetCommandHandler
             } else {
                 fprintf(stderr, "Failed to request shutdown\n");
                 LE_ERROR("Failed to request shutdown");
+                exit(EXIT_FAILURE);
             }
         } else if(le_arg_NumArgs() == 2) {
             LE_DEBUG("setVMPowerState shutdown to %s", le_arg_GetArg(1));
@@ -202,7 +288,6 @@ static void SetCommandHandler
                     }
                     LE_INFO("Successfully requested shutdown for %s VM", vmName);
                     taf_pm_DeleteMachineList(vmListRef);
-                    exit(EXIT_SUCCESS);
                 }
                 res = taf_pm_GetNextMachineName(vmListRef, name, 32);
             }
@@ -237,6 +322,7 @@ static void SetCommandHandler
     {
         taf_pm_State_t state = taf_pm_GetPowerState();
         fprintf(stdout, "State is %s\n", tafStateToString(state));
+        exit(EXIT_SUCCESS);
     }
     else
     {
@@ -244,7 +330,6 @@ static void SetCommandHandler
         fprintf(stderr, "Please try pm --help\n");
         exit(EXIT_FAILURE);
     }
-    exit(EXIT_SUCCESS);
 }
 
 COMPONENT_INIT
@@ -258,7 +343,4 @@ COMPONENT_INIT
     le_arg_Scan();
 
     LE_INFO("COMPONENT_INIT end");
-
-    // Should not come here.
-    exit(EXIT_SUCCESS);
 }

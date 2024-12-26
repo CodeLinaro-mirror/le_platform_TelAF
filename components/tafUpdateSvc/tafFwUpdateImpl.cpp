@@ -1737,9 +1737,16 @@ void taf_FwUpdate::SyncPartition
     uint8_t dstBuffer[TAF_FWUPDATE_FLASH_PAGE_SIZE];
     size_t rdSize = 0;
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    le_result_t result = LE_OK;
 
     // 1. Get the next partition for sync.
+    le_result_t result = tafFwUpdate.InitPartitionList();
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to get partition list");
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+        return;
+    }
+
     bool hasPartitionToSync = !tafFwUpdate.GetImageForUpdate(TAF_UPDATE_SYNCHRONIZING, partition,
         sizeof(partition));
     while (hasPartitionToSync)

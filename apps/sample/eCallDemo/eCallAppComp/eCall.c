@@ -920,7 +920,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
 static void PrintUsage ()
 {
     puts("\n"
-            "tafECallApp -- setOpMode <NORMAL/ECALL_ONLY/PERSISTENT_ECALL_ONLY> <SLOT1/SLOT2>\n"
+            "tafECallApp -- setOpMode <NORMAL/ECALL_ONLY> <SLOT1/SLOT2>\n"
             "tafECallApp -- getOpMode <SLOT1/SLOT2>\n"
             "tafECallApp -- setPsapNumber <NUMBER>\n"
             "tafECallApp -- getPsapNumber\n"
@@ -1205,10 +1205,6 @@ static int setOpMode()
     {
         result = taf_ecall_ForceOnlyMode(phoneId);
     }
-    else if (strcmp(opMode, "PERSISTENT_ECALL_ONLY") == 0)
-    {
-        result = taf_ecall_ForcePersistentOnlyMode(phoneId);
-    }
     else
     {
         PrintUsage();
@@ -1258,9 +1254,6 @@ static int getOpMode()
                 break;
             case TAF_ECALL_MODE_ECALL:
                 printf("TAF_ECALL_MODE_ECALL\n");
-                break;
-            case TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY:
-                printf("TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY\n");
                 break;
             default:
                 printf("Unknown mode\n");

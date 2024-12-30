@@ -191,6 +191,17 @@ namespace uds{
     #define UDS_CTRL_DTC_SETTING_REQ_MIN_LEN 2
     #define UDS_CTRL_DTC_SETTING_RESP_LEN 2
 
+    // ResponseOnEvent service (0x86)
+    #define UDS_ROE_REQ_MIN_LEN 3
+    #define UDS_ROE_RESP_MIN_LEN 2
+    #define UDS_ROE_RESP_RAE_MIN_LEN 1
+    #define UDS_ROE_RESP_BASE_LEN 2
+    #define UDS_ROE_ONDTCS_MIN_LEN 7
+    #define UDS_ROE_MANUFACTURE_WIN_TIME 8
+    #define UDS_ROE_INFINITE_TIME_TO_RESP 2
+    #define UDS_ROE_DO_NOT_STORE_EVENT 0
+    #define UDS_ROE_STORE_EVENT 1
+
     // S3 timer action
     typedef enum
     {
@@ -228,6 +239,19 @@ namespace uds{
         AUTH_STATE_UNKNOWN                = 0xff
     }taf_UDSAuthState_t;
 
+    typedef enum
+    {
+        ROE_SUBFUNC_STPROE                = 0x00,
+        ROE_SUBFUNC_ONDTCS                = 0x01,
+        ROE_SUBFUNC_OCODID                = 0x03,
+        ROE_SUBFUNC_RAE                   = 0x04,
+        ROE_SUBFUNC_STRTROE               = 0x05,
+        ROE_SUBFUNC_CLRROE                = 0x06,
+        ROE_SUBFUNC_OCOV                  = 0x07,
+        ROE_SUBFUNC_RMRDOSC               = 0x08,
+        ROE_SUBFUNC_RDRIODSC              = 0x09
+    }taf_UDSReqROESubFunc_t;
+
     // RequestFileTranser service mode of operation type
     typedef enum
     {
@@ -256,7 +280,8 @@ namespace uds{
         REQUEST_TRANSFER_EXIT_REQUEST_ID = 0x37,
         REQUEST_FILE_TRANSFER_REQUEST_ID = 0x38,
         TESTER_PRESENT_REQUEST_ID = 0x3E,
-        CONTROL_DTC_SETTING_REQUEST_ID = 0x85
+        CONTROL_DTC_SETTING_REQUEST_ID = 0x85,
+        RESPONSE_ON_EVENT_REQUEST_ID = 0x86
     }taf_UDSReqSvcID_t;
 
     // Diagnostic Response service ID
@@ -276,7 +301,8 @@ namespace uds{
         REQUEST_TRANSFER_EXIT_RESPONSE_ID = 0x77,
         REQUEST_FILE_TRANSFER_RESPONSE_ID = 0x78,
         TESTER_PRESENT_RESPONSE_ID = 0x7E,
-        CONTROL_DTC_SETTING_RESPONSE_ID = 0xC5
+        CONTROL_DTC_SETTING_RESPONSE_ID = 0xC5,
+        RESPONSE_ON_EVENT_RESPONSE_ID = 0xC6
     }taf_UDSRespSvcID_t;
 
     // UDS error code.
@@ -433,6 +459,8 @@ namespace uds{
                     bool* isInternalHandle);    // ControlDTCSetting service (0x85)
             le_result_t IndicateReadDTCInfoReq(taf_doip_AddrInfo_t*  addrInfoPtr,
                     bool* isInternalHandle);    // ReadDTCInfo service (0x19)
+            le_result_t IndicateROEReq(taf_doip_AddrInfo_t*  addrInfoPtr,
+                    bool* isInternalHandle);    // ResponseOnEvent service(0x86)
 
             // Internally check and Respond UDS message to uds client (through DoIP stack).
             le_result_t TesterPresentResp(taf_doip_AddrInfo_t*  addrInfoPtr);    // (0x3E)
@@ -462,6 +490,8 @@ namespace uds{
                     uint16_t dataSize, uint8_t err);
             le_result_t ClearDiagInfoResp(uint8_t serviceId, uint8_t err);
             le_result_t CtrlDTCSettingResp(uint8_t serviceId, uint8_t err);
+            le_result_t ROEResp(uint8_t serviceId, const uint8_t* dataPtr, uint16_t dataSize,
+                        uint8_t err);
 
             static void* UdsTimerThread(void* ctxPtr);
             static void UdsTimerHandler(void* reqPtr);
@@ -480,6 +510,9 @@ namespace uds{
             bool IsAuthCheckOK(uint8_t sid);
             bool IsAuthReqLenCorrect(uint8_t subFunc);
             bool IsAuthSubFuncSupported(uint8_t subFunc);
+            bool IsROESubFuncSupported(uint8_t subFunc);
+            bool IsROEReqLenCorrect(uint8_t subFunc);
+            bool IsROEReqOutOfRange(uint8_t subFunc);
 
             le_result_t GeneralServerResp(taf_doip_AddrInfo_t* addrInfoPtr, uint8_t sid);
 

@@ -88,5 +88,6 @@ sources:
         tafDiagDoIPSvrImpl.cpp
         tafAuthSvc.cpp
         tafAuthSvrImpl.cpp
+        tafROESvrImpl.cpp
 #endif
 }

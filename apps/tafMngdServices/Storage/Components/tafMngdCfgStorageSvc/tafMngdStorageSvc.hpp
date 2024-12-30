@@ -110,6 +110,7 @@ class tafMngdStorageSvc: public ITafSvc
         le_ref_MapRef_t configStorageRefMap;
         le_mem_PoolRef_t configStoragePool;
         le_mem_PoolRef_t versionStoragePool;
+        le_mem_PoolRef_t cfgTempStoragePool;
         cfgStor_Inf_t* cfgStorInf;
         taf_fsc_StorageRef_t cfgFscRef;
         taf_fsc_StorageRef_t cfgRfsFscRef;
@@ -139,7 +140,10 @@ class tafMngdStorageSvc: public ITafSvc
 
         void InitConfigStorage();
 
-        le_result_t ParseServiceJsonConfig();
+        le_result_t ParseServiceJsonConfig(char* configPath);
+
+        // Check the extension json if not valid, then intialized service with base json
+        le_result_t PreCheckExtensionJson();
 
         bool IsFileExisting(const char *path);
 

@@ -154,7 +154,12 @@ class tafMngdSecFileStorageSvc: public ITafSvc
         /**
          * Internal functions
          */
-        le_result_t ParseServiceJsonConfig();
+        le_result_t ParseServiceJsonConfig(char* configPath);
+
+        // Check the extension json if not valid, then intialized service with base json
+        le_result_t PreCheckExtensionJson();
+
+        bool IsFileExisting(const char *path);
 
         le_result_t CreateDirectory(const char *path);
 

@@ -9,7 +9,6 @@ import json, hashlib
 from jinja2 import Environment, FileSystemLoader
 from collections import OrderedDict
 from .logger import logger
-from . import __version__ as tool_version
 from datetime import datetime
 
 JSON_FNAME = "diag_template.yaml.json"
@@ -96,7 +95,7 @@ def compute_file_md5(file_path):
 
     return md5_hash.hexdigest()
 
-def generate_code(root_node, tmpls_layer, build_dir):
+def generate_code(root_node, final_pattern, tmpls_layer, build_dir):
     env = Environment(loader=FileSystemLoader(tmpls_layer),
                       keep_trailing_newline = True,
                       trim_blocks = True,
@@ -118,7 +117,7 @@ def generate_code(root_node, tmpls_layer, build_dir):
                         ev_id_name_max = max([len(ev['mnemonic']) for ev in root_node['events'].values()]),
                         cond_id_name_max = max([len(k) for k in root_node['datas_enable_conditions'].keys()]),
                         oc_id_name_max = max([len(k) for k in root_node['operation_cycle'].keys()]),
-                        tool_version = tool_version,
+                        tool_version = root_node['version'],
                         generated_time = generated_time
                         )
     with open(evid_h_generated, 'w') as evid_h_generated_fd:
@@ -137,9 +136,9 @@ def generate_code(root_node, tmpls_layer, build_dir):
     hpp_generated = get_generated_name(orig_hpp_tmpl, build_dir)
     cpp_template = env.get_template(orig_cpp_tmpl)
     hpp_template = env.get_template(orig_hpp_tmpl)
-    cpp_rendered_code = cpp_template.render(root = root_node)
+    cpp_rendered_code = cpp_template.render(root = root_node, final_pattern = final_pattern)
     hpp_rendered_code = hpp_template.render(root = root_node,
-                                            tool_version = tool_version,
+                                            tool_version = root_node['version'],
                                             generated_time = generated_time,
                                             json_md5 = json_md5_str,
                                             evid_h_md5 = evid_h_md5_str)

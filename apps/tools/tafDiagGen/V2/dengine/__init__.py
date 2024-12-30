@@ -44,10 +44,10 @@ def convert_format(only_yaml_with_default, top_build_layer):
     logger.info("[Stage] --> Convert to specific YAML format [OK]")
     return final_yaml
 
-def generate(final_yaml, tmpls, build_dir):
+def generate(final_yaml, final_pattern, tmpls, build_dir):
     logger.info("[Stage] --> Generate source codes & Json file ...")
     generator.generate_json(final_yaml, build_dir)
-    generator.generate_code(final_yaml, tmpls, build_dir)
+    generator.generate_code(final_yaml, final_pattern, tmpls, build_dir)
     logger.info("[Stage] --> Generate source codes & Json file [OK]")
 
 def try_to_load_ex_schema_checker(exchecker_path):

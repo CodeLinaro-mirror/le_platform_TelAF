@@ -1,5 +1,3 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
-# SPDX-License-Identifier: BSD-3-Clause-Clear
 
 top_of_project=$(CURDIR)/../../../..
 
@@ -47,12 +45,9 @@ setup setup-py-environment: python-version-check
 	@$(PY) -m pip install -r $(CURDIR)/requirements.txt
 	@echo "[Setup] Installed."
 
-install: install-full-feature
-
-install-full install-full-feature: full-feature do-install
-	@echo "[Install] configuration ..full.. feature installed"
-
+install: do-install
 do-install:
+	@echo "[Install] configuration ..full.. feature installed"
 	@cp -f build/* $(diagcfg_of_project)/
 
 clean:

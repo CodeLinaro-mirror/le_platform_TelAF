@@ -16,16 +16,20 @@ current_dir = Path(__file__).parent
 
 checking_customer = Path(current_dir / 'customer')
 
-if Path( checking_customer / 'Generic').is_dir() and not any( Path (checking_customer / 'Generic').iterdir() ):
-    pass
-
 which_one = 'default'
 
-if ((Path( checking_customer / 'Generic').is_dir() and any(Path (checking_customer / 'Generic').iterdir()))
-and
-    (Path( checking_customer / 'IVC3-SA').is_dir() and any(Path (checking_customer / 'Generic').iterdir()))):
+P_generic = Path( checking_customer / 'Generic')
+P_ivc3_sa = Path( checking_customer / 'IVC3-SA')
 
-    which_one = 'customer'
+if P_generic.is_dir() and P_ivc3_sa.is_dir():
+
+    pg_files = [ f for f in P_generic.iterdir() if f.name != '.keep' ]
+    pi_files = [ f for f in P_ivc3_sa.iterdir() if f.name != '.keep' ]
+
+    if pg_files or pi_files:
+        which_one = 'customer'
+
+print(f"which_one => {which_one}")
 
 generic = [ f for f in Path(current_dir / which_one / 'Generic').rglob("*.yaml") if f.is_file() and pattern.match(f.name) ]
 ivc3_sa = [ f for f in Path(current_dir / which_one / 'IVC3-SA').rglob("*.yaml") if f.is_file() and pattern.match(f.name) ]

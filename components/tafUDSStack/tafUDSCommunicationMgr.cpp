@@ -1978,6 +1978,74 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
     return LE_OK;
 }
 
+bool UdsCommunicationMgr::PrecheckForSwitchingSession
+(
+    uint8_t originalSession,
+    uint8_t targetedSession
+)
+{
+    try
+    {
+        /* First, check the session-list to see if the original is in it */
+
+        std::shared_ptr<std::vector<uint8_t>> session_list =
+            cfg::get_pattern_sessions_by_session_id(targetedSession);
+
+        if (session_list->empty())
+        {
+            LE_ERROR("Empty targe session-list when switching !");
+            return true;/* Excepted situation? mark it as pass */
+        }
+
+        auto it = find_if(session_list->begin(), session_list->end(),
+                            [originalSession](uint8_t sess)
+                                { return sess == originalSession; });
+        if (it == session_list->end())
+        {
+            LE_INFO("Can't swith, reason: session 0x%02X is not in white-list",
+                    originalSession);
+            return false;
+        }
+
+        LE_DEBUG("session 0x%02X is in white-list", originalSession);
+
+        /* Second, check if the security level is unlocked in current session */
+
+        std::shared_ptr<std::vector<uint8_t>> level_list =
+            cfg::get_pattern_levels_by_session_id(targetedSession);
+
+        if (level_list->empty())
+        {
+            LE_INFO("No need to check security level from 0x%02X to 0x%02X",
+                originalSession, targetedSession);
+            return true;
+        }
+
+        for (const auto lvl : *level_list)
+        {
+            bool levelUnlocked = SecurityAccess_IsLevelUnlocked(this, lvl);
+
+            if (levelUnlocked)
+            {
+                LE_INFO("Security level 0x%02X is unlocked <.<", lvl);
+                return true;
+            }
+            else
+            {
+                LE_INFO("Security level 0x%02X is locked!", lvl);
+            }
+        }
+
+        return false;
+    }
+    catch (const std::exception& ex)
+    {
+        LE_WARN("Bad pattern configurations related to session-control");
+        /* If got the bad configuration for patterns, pass-through */
+        return true;
+    }
+}
+
 /**
  * Indicate received SessionCtrl message to Diag service.
  */
@@ -2045,6 +2113,15 @@ le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
                 subFunc);
         *isInternalHandle = true;
         return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr); // NRC 0x33
+    }
+
+    // About 'pattern' checking, put them in the last for now
+    uint8_t targetedSession = recvBuf[1];
+    if (!PrecheckForSwitchingSession((uint8_t)SessionType, targetedSession))
+    {
+        LE_WARN("The switch failed, cause of the condition is not satisfied.");
+        *isInternalHandle = true;
+        return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr); // NRC 0x22
     }
 
     //Will send indication to the diag service

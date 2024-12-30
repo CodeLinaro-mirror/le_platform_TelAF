@@ -619,7 +619,12 @@
       "test_did_0xA0A0_r": true,
       "test_did_0xA0A0_w": false,
       "test_did_0xA0A1_r": false,
-      "test_did_0xA0A1_w": false
+      "test_did_0xA0A1_w": false,
+      "precheck_to_default_session": true,
+      "precheck_to_programming_session": true,
+      "precheck_to_extended_diagnostic_session": true,
+      "precheck_to_download_emulated_session": false,
+      "precheck_to_system_supplier_specific_session": false
     },
     "programming_session": {
       "class": "diagnostic_session",
@@ -632,7 +637,12 @@
       "test_did_0xA0A0_r": true,
       "test_did_0xA0A0_w": true,
       "test_did_0xA0A1_r": true,
-      "test_did_0xA0A1_w": true
+      "test_did_0xA0A1_w": true,
+      "precheck_to_default_session": true,
+      "precheck_to_programming_session": true,
+      "precheck_to_extended_diagnostic_session": true,
+      "precheck_to_download_emulated_session": false,
+      "precheck_to_system_supplier_specific_session": true
     },
     "extended_diagnostic_session": {
       "class": "diagnostic_session",
@@ -645,7 +655,12 @@
       "test_did_0xA0A0_r": true,
       "test_did_0xA0A0_w": true,
       "test_did_0xA0A1_r": true,
-      "test_did_0xA0A1_w": true
+      "test_did_0xA0A1_w": true,
+      "precheck_to_default_session": true,
+      "precheck_to_programming_session": true,
+      "precheck_to_extended_diagnostic_session": true,
+      "precheck_to_download_emulated_session": true,
+      "precheck_to_system_supplier_specific_session": false
     },
     "system_supplier_specific_session": {
       "class": "diagnostic_session",
@@ -658,7 +673,12 @@
       "test_did_0xA0A0_r": false,
       "test_did_0xA0A0_w": false,
       "test_did_0xA0A1_r": false,
-      "test_did_0xA0A1_w": false
+      "test_did_0xA0A1_w": false,
+      "precheck_to_default_session": true,
+      "precheck_to_programming_session": false,
+      "precheck_to_extended_diagnostic_session": true,
+      "precheck_to_download_emulated_session": false,
+      "precheck_to_system_supplier_specific_session": true
     },
     "download_emulated_session": {
       "class": "diagnostic_session",
@@ -671,7 +691,12 @@
       "test_did_0xA0A0_r": false,
       "test_did_0xA0A0_w": false,
       "test_did_0xA0A1_r": false,
-      "test_did_0xA0A1_w": false
+      "test_did_0xA0A1_w": false,
+      "precheck_to_default_session": true,
+      "precheck_to_programming_session": false,
+      "precheck_to_extended_diagnostic_session": true,
+      "precheck_to_download_emulated_session": true,
+      "precheck_to_system_supplier_specific_session": false
     },
     "SecAcc_Level_01": {
       "class": "diagnostic_session_security_level",
@@ -684,7 +709,12 @@
       "test_did_0xA0A0_r": false,
       "test_did_0xA0A0_w": true,
       "test_did_0xA0A1_r": true,
-      "test_did_0xA0A1_w": false
+      "test_did_0xA0A1_w": false,
+      "precheck_to_default_session": false,
+      "precheck_to_programming_session": false,
+      "precheck_to_extended_diagnostic_session": false,
+      "precheck_to_download_emulated_session": true,
+      "precheck_to_system_supplier_specific_session": false
     },
     "SecAcc_Level_61": {
       "class": "diagnostic_session_security_level",
@@ -697,7 +727,12 @@
       "test_did_0xA0A0_r": false,
       "test_did_0xA0A0_w": false,
       "test_did_0xA0A1_r": true,
-      "test_did_0xA0A1_w": true
+      "test_did_0xA0A1_w": true,
+      "precheck_to_default_session": false,
+      "precheck_to_programming_session": false,
+      "precheck_to_extended_diagnostic_session": false,
+      "precheck_to_download_emulated_session": false,
+      "precheck_to_system_supplier_specific_session": true
     }
   },
   "operation_cycle": {
@@ -1263,18 +1298,6 @@
         ]
       }
     },
-    "134": {
-      "execution_authorization_pattern": "base",
-      "supported": true,
-      "access": {
-        "session": [
-          "default_session",
-          "programming_session",
-          "extended_diagnostic_session",
-          "download_emulated_session"
-        ]
-      }
-    },
     "49": {
       "supported": true,
       "authentication": true,
@@ -1292,6 +1315,23 @@
           "authentication": true
         }
       }
+    },
+    "134": {
+      "execution_authorization_pattern": "base",
+      "sub_functions": {
+        "1": {
+          "supported": true
+        }
+      },
+      "supported": true,
+      "access": {
+        "session": [
+          "default_session",
+          "programming_session",
+          "extended_diagnostic_session",
+          "download_emulated_session"
+        ]
+      }
     }
   },
   "common_props": {
@@ -1307,7 +1347,7 @@
       "id": 1,
       "p2_server_max": 0.05,
       "p2_start_server_max": 5.0,
-      "execution_authorization_pattern": "base",
+      "execution_authorization_pattern": "precheck_to_default_session",
       "p2_star_server_max": 5.0,
       "origin_short_name": "DefaultSession"
     },
@@ -1316,7 +1356,7 @@
       "id": 2,
       "p2_server_max": 0.05,
       "p2_start_server_max": 5.0,
-      "execution_authorization_pattern": "secured_configuration",
+      "execution_authorization_pattern": "precheck_to_programming_session",
       "p2_star_server_max": 5.0,
       "origin_short_name": "ProgrammingSession"
     },
@@ -1325,7 +1365,7 @@
       "id": 3,
       "p2_server_max": 0.05,
       "p2_start_server_max": 5,
-      "execution_authorization_pattern": "secured_configuration",
+      "execution_authorization_pattern": "precheck_to_extended_diagnostic_session",
       "p2_star_server_max": 5.0,
       "origin_short_name": "ExtendedDiagnosticSession"
     },
@@ -1334,7 +1374,7 @@
       "id": 82,
       "p2_server_max": 0.05,
       "p2_start_server_max": 5.0,
-      "execution_authorization_pattern": "secured_configuration",
+      "execution_authorization_pattern": "precheck_to_download_emulated_session",
       "p2_star_server_max": 5.0,
       "origin_short_name": "DownloadEmulatedSession"
     },
@@ -1343,7 +1383,7 @@
       "id": 96,
       "p2_server_max": 0.05,
       "p2_start_server_max": 5.0,
-      "execution_authorization_pattern": "supplier_specific_security_level",
+      "execution_authorization_pattern": "precheck_to_system_supplier_specific_session",
       "p2_star_server_max": 5.0,
       "origin_short_name": "SystemSupplierSpecificSession"
     },
@@ -1619,5 +1659,6 @@
       "session_id": 66,
       "security_level": []
     }
-  }
+  },
+  "version": "2.0.0_default"
 }

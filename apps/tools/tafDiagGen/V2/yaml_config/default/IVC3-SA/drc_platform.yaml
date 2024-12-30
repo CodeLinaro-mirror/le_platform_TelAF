@@ -19,31 +19,31 @@ diagnostic_session:
     id: 0x01
     p2_server_max: 0.05
     p2_start_server_max: 5.0
-    execution_authorization_pattern: base
+    execution_authorization_pattern: precheck_to_default_session
   programming_session:
     short_name: ProgrammingSession
     id: 0x02
     p2_server_max: 0.05
     p2_start_server_max: 5.0
-    execution_authorization_pattern: secured_configuration
+    execution_authorization_pattern: precheck_to_programming_session
   extended_diagnostic_session:
     short_name: ExtendedDiagnosticSession
     id: 0x03
     p2_server_max: 0.05
     p2_start_server_max: 5
-    execution_authorization_pattern: secured_configuration
+    execution_authorization_pattern: precheck_to_extended_diagnostic_session
   download_emulated_session:
     short_name: DownloadEmulatedSession
     id: 0x52
     p2_server_max: 0.05
     p2_start_server_max: 5.0
-    execution_authorization_pattern: secured_configuration
+    execution_authorization_pattern: precheck_to_download_emulated_session
   system_supplier_specific_session:
     short_name: SystemSupplierSpecificSession
     id: 0x60
     p2_server_max: 0.05
     p2_start_server_max: 5.0
-    execution_authorization_pattern: supplier_specific_security_level
+    execution_authorization_pattern: precheck_to_system_supplier_specific_session
 
 diagnostic_session_security_level:
   SecAcc_Level_01:
@@ -76,6 +76,11 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: False
     test_did_0xA0A1_r: False
     test_did_0xA0A1_w: False
+    precheck_to_default_session: True
+    precheck_to_programming_session: True
+    precheck_to_extended_diagnostic_session: True
+    precheck_to_download_emulated_session: False
+    precheck_to_system_supplier_specific_session: False
   programming_session:
     class: diagnostic_session
     short_name: programming_session
@@ -88,6 +93,11 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: True
     test_did_0xA0A1_r: True
     test_did_0xA0A1_w: True
+    precheck_to_default_session: True
+    precheck_to_programming_session: True
+    precheck_to_extended_diagnostic_session: True
+    precheck_to_download_emulated_session: False
+    precheck_to_system_supplier_specific_session: True
   extended_diagnostic_session:
     class: diagnostic_session
     short_name: extended_diagnostic_session
@@ -100,6 +110,11 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: True
     test_did_0xA0A1_r: True
     test_did_0xA0A1_w: True
+    precheck_to_default_session: True
+    precheck_to_programming_session: True
+    precheck_to_extended_diagnostic_session: True
+    precheck_to_download_emulated_session: True
+    precheck_to_system_supplier_specific_session: False
   system_supplier_specific_session:
     class: diagnostic_session
     short_name: system_supplier_specific_session
@@ -112,6 +127,11 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: False
     test_did_0xA0A1_r: False
     test_did_0xA0A1_w: False
+    precheck_to_default_session: True
+    precheck_to_programming_session: False
+    precheck_to_extended_diagnostic_session: True
+    precheck_to_download_emulated_session: False
+    precheck_to_system_supplier_specific_session: True
   download_emulated_session:
     class: diagnostic_session
     short_name: download_emulated_session
@@ -124,6 +144,11 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: False
     test_did_0xA0A1_r: False
     test_did_0xA0A1_w: False
+    precheck_to_default_session: True
+    precheck_to_programming_session: False
+    precheck_to_extended_diagnostic_session: True
+    precheck_to_download_emulated_session: True
+    precheck_to_system_supplier_specific_session: False
   SecAcc_Level_01:
     class: diagnostic_session_security_level
     short_name: SecAcc_Level_01
@@ -136,6 +161,11 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: True
     test_did_0xA0A1_r: True
     test_did_0xA0A1_w: False
+    precheck_to_default_session: False
+    precheck_to_programming_session: False
+    precheck_to_extended_diagnostic_session: False
+    precheck_to_download_emulated_session: True
+    precheck_to_system_supplier_specific_session: False
   SecAcc_Level_61:
     class: diagnostic_session_security_level
     short_name: SecAcc_Level_61
@@ -148,6 +178,11 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: False
     test_did_0xA0A1_r: True
     test_did_0xA0A1_w: True
+    precheck_to_default_session: False
+    precheck_to_programming_session: False
+    precheck_to_extended_diagnostic_session: False
+    precheck_to_download_emulated_session: False
+    precheck_to_system_supplier_specific_session: True
 
 operation_cycle:
   IGNITION:

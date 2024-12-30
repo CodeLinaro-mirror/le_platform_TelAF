@@ -250,6 +250,12 @@ EXPORT_SYM uint8_t get_nrc_by_condition_id(uint8_t cond_id);
 
 EXPORT_SYM uint8_t get_security_level_id(std::string level_name);
 
+EXPORT_SYM std::shared_ptr<std::vector<uint8_t>>
+get_pattern_sessions_by_session_id(uint8_t session_id);
+
+EXPORT_SYM std::shared_ptr<std::vector<uint8_t>>
+get_pattern_levels_by_session_id(uint8_t session_id);
+
 template <typename T>
 static inline void fill_list(Node & node, std::vector<T> & to_be_filled)
 {

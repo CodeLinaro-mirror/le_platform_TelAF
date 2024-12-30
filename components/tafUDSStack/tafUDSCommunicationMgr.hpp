@@ -487,6 +487,7 @@ namespace uds{
             bool IsSubFuncSessTypeValid(uint8_t sid, uint8_t subFunc);
             bool IsSubFuncSecAccessMatched(uint8_t sid, uint8_t subFunc);
             bool IsSubFuncAuthCheckOK(uint8_t sid, uint8_t subFunc);
+            bool PrecheckForSwitchingSession(uint8_t originalSession, uint8_t targetedSession);
 
             void StoreAttCntToTree();
             void StoreDelayTimeToTree();

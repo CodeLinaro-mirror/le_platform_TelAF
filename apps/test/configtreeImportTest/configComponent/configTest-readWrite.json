@@ -1,0 +1,31 @@
+{
+    "name": "readOnly",
+    "type": "stem",
+    "children": [
+        {
+            "name": "aBoolValue",
+            "type": "bool",
+            "value": true
+        },
+        {
+            "name": "aSecondBoolValue",
+            "type": "bool",
+            "value": false
+        },
+        {
+            "name": "aStringValue",
+            "type": "string",
+            "value": "Something \"wicked\" this way comes!"
+        },
+        {
+            "name": "anIntVal",
+            "type": "int",
+            "value": 1024
+        },
+        {
+            "name": "aFloatVal",
+            "type": "float",
+            "value": 10.24
+        }
+    ]
+}

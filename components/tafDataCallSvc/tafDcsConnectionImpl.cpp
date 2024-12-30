@@ -391,6 +391,10 @@ void taf_DataAPNThrottleInfoCallback::apnThrottleListResponse(
           // Absence of profile id in throttle info considered as the profile is not throttled
           taf_dcs_ProfileCtx_t* profileCtx = dataProfile.GetProfileCtx(throttleStatus.slotId,
                                                                  throttleStatus.profileId);
+          if(profileCtx == NULL)
+          {
+            break;
+          }
           profileCtx->throttleInfo.isThrottled = true;
           throttleStatus.throttleState = true;
 
@@ -428,6 +432,20 @@ const std::vector<telux::data::APNThrottleInfo>  &throttleInfoList
     dataProfile.ProcessThrottledApnInfoChanged(throttleInfoList, slotId);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns whether the APN is throttled or unthrottled.
+ * It gets the remaining throttled time for IPv4 and IPv6 in milliseconds if isThrottled is true
+ * otherwise returns 0.
+ * If profile belongs to only one ipType then FFFF is returned for not supported ipType.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not created.
+ *  - LE_UNAVAILABLE  -- Data profile is not throttled.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t taf_DataConnection::GetAPNThrottledStatus
 (
   taf_dcs_ProfileRef_t    profileRef,
@@ -453,7 +471,15 @@ le_result_t taf_DataConnection::GetAPNThrottledStatus
                                     std::placeholders::_2);
 
     result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,"Unable to get slot ID and profile ID");
+
+    TAF_ERROR_IF_RET_VAL(LE_OK != result,result,
+                        "Unable to get slot Id and profile Id. result = %d", result);
+
+    LE_DEBUG("Slot Id: %d, Profile Id: %d", slotId, profileId);
+
+    // If the proifle ID is TAF_DCS_UNDEFINED_PROFILE_ID, it means the profile has not been created.
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId,LE_NOT_POSSIBLE,
+                        "Profile has not been created yet.");
 
     reqAPNThrottlingStatusCb->throttleStatus.profileId = profileId;
     reqAPNThrottlingStatusCb->throttleStatus.slotId = slotId;

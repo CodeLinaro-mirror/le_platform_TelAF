@@ -313,6 +313,11 @@ void taf_PM::Init(void)
                 LE_INFO(" Registered Listener for TCU-activity state updates");
             }
         }
+        // Creating an ConsolidatedAckInfo event
+        ConsolidatedAckInfoEvent = le_event_CreateId("tafConsolidatedAckInfoEvent",
+                sizeof(taf_FinalAckStatus_t));
+        le_event_AddHandler("ConsolidatedAckInfoEventID",
+            ConsolidatedAckInfoEvent, ConsolidatedAckInfo);
 #endif
     } else {
         LE_ERROR("ERROR Unable to intialize TCU activity service");
@@ -367,6 +372,18 @@ void taf_PM::Init(void)
     powerStateRefPool = le_mem_CreatePool("tafPMPowerStateRefList", sizeof(taf_PmPowerStateRef_t));
     powerStateRefMap = le_ref_CreateMap("tafPMpowrStateRefMap", TAF_POWER_SOURCE_DEFAULT_POOL_SIZE);
 
+    ConsolidatedStateAckPool = le_mem_CreatePool("tafPMConsolidatedStateAckPool",
+        sizeof(taf_FinalAckStatus_t));
+    ConsolidatedStateAckRefMap = le_ref_CreateMap("tafPMConsolidatedStateAckRefMap",
+        TAF_PM_CLIENT_DEFAULT_POOL_SIZE);
+    ConsolidatedStateAckHandlerPool
+        = le_mem_CreatePool("tafConsolidatedStateAckHandlerPool",
+            sizeof(taf_ConsolidatedAckInfoHandler_t));
+    ConsolidatedStateAckHandlerList = LE_DLS_LIST_INIT;
+    ConsolidatedStateAckHandlerRefMap
+        = le_ref_CreateMap("tafConsolidatedStateAckHandlerRefMap",
+            TAF_PM_CLIENT_DEFAULT_POOL_SIZE);
+
     stateChangeExEvent = le_event_CreateId("tafstateChangeExEvent", sizeof(stateEvent_t));
     le_event_AddHandler("tafPMPowerStateChange event", stateChangeExEvent, PowerStateChanged);
 
@@ -375,6 +392,7 @@ void taf_PM::Init(void)
     powerStateHandlerList = LE_DLS_LIST_INIT;
     powerStateHandlerRefMap = le_ref_CreateMap("tafPStateHandler",
         TAF_POWER_SOURCE_DEFAULT_POOL_SIZE);
+
     //Timer Ref to get the ack from pms clients for state change
     pmClientsAckTimerRef = le_timer_Create("PM Clients ACK timer");
     le_timer_SetMsInterval(pmClientsAckTimerRef, PMS_CLNTS_ACK_TIMEOUT);
@@ -1005,6 +1023,106 @@ void taf_PM::RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef)
     LE_INFO("Removed StateChangeHandler");
 }
 
+/**
+ * To add handler for ConsolidatedAck Info notification
+ */
+taf_pm_ConsolidatedAckInfoHandlerRef_t taf_PM::AddConsolidatedAckInfoHandler
+        (taf_pm_ConsolidatedAckInfoHandlerFunc_t handlerPtr, void* contextPtr)
+{
+    LE_INFO("AddConsolidatedAckInfoHandler");
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "INVALID handler reference.");
+
+    taf_ConsolidatedAckInfoHandler_t* handlerObjPtr
+            = (taf_ConsolidatedAckInfoHandler_t*)le_mem_ForceAlloc(ConsolidatedStateAckHandlerPool);
+
+    handlerObjPtr->link = LE_DLS_LINK_INIT;
+    handlerObjPtr->sessionRef = taf_pm_GetClientSessionRef();
+    handlerObjPtr->handlerPtr = handlerPtr;
+    handlerObjPtr->contextPtr = contextPtr;
+    handlerObjPtr->handlerRef = (taf_pm_ConsolidatedAckInfoHandlerRef_t)le_ref_CreateRef(
+        ConsolidatedStateAckHandlerRefMap, handlerObjPtr);
+    le_dls_Queue(&ConsolidatedStateAckHandlerList, &handlerObjPtr->link);
+
+
+    return handlerObjPtr->handlerRef;
+}
+
+void taf_PM::ConsolidatedAckInfo(void* reportPtr)
+{
+    LE_INFO("ConsolidatedAckInfo");
+    taf_PM tafPwrMgr = taf_PM::GetInstance();
+
+    auto event = (taf_FinalAckStatus_t*)reportPtr;
+    taf_FinalAckStatus_t* consolidatedStateAckInfoPtr =
+        (taf_FinalAckStatus_t*)le_mem_ForceAlloc(tafPwrMgr.ConsolidatedStateAckPool);
+    consolidatedStateAckInfoPtr->state = event->state;
+    consolidatedStateAckInfoPtr->isAllAcked = event->isAllAcked;
+    consolidatedStateAckInfoPtr->nackResponseClientsSize = event->nackResponseClientsSize;
+    consolidatedStateAckInfoPtr->unresponsiveClientsSize = event->unresponsiveClientsSize;
+
+    for(size_t i = 0; i < event->unresponsiveClientsSize; i++)
+    {
+        le_utf8_Copy(consolidatedStateAckInfoPtr->unResponsedClntData[i].clientName,
+            event->unResponsedClntData[i].clientName,
+            sizeof(event->unResponsedClntData[i].clientName), NULL);
+        le_utf8_Copy(consolidatedStateAckInfoPtr->unResponsedClntData[i].machineName,
+            event->unResponsedClntData[i].machineName,
+            sizeof(event->unResponsedClntData[i].machineName), NULL);
+    }
+
+    for(size_t i = 0; i < event->nackResponseClientsSize; i++)
+    {
+        le_utf8_Copy(consolidatedStateAckInfoPtr->nackResponsedClntData[i].clientName,
+            event->nackResponsedClntData[i].clientName,
+            sizeof(event->nackResponsedClntData[i].clientName), NULL);
+        le_utf8_Copy(consolidatedStateAckInfoPtr->nackResponsedClntData[i].machineName,
+            event->nackResponsedClntData[i].machineName,
+            sizeof(event->nackResponsedClntData[i].machineName), NULL);
+
+    }
+
+    consolidatedStateAckInfoPtr->ref =
+        (taf_pm_ConsolidatedAckInfoRef_t)le_ref_CreateRef(tafPwrMgr.ConsolidatedStateAckRefMap,
+            consolidatedStateAckInfoPtr);
+
+    le_dls_Link_t* linkHandlerPtr = le_dls_Peek(&(tafPwrMgr.ConsolidatedStateAckHandlerList));
+
+    while(linkHandlerPtr != NULL)
+    {
+       taf_ConsolidatedAckInfoHandler_t* handlerObjPtr = CONTAINER_OF(linkHandlerPtr,
+                                                            taf_ConsolidatedAckInfoHandler_t, link);
+       if(handlerObjPtr->handlerPtr != NULL)
+       {
+            handlerObjPtr->handlerPtr(consolidatedStateAckInfoPtr->ref,
+                consolidatedStateAckInfoPtr->isAllAcked,
+                consolidatedStateAckInfoPtr->state,
+                handlerObjPtr->contextPtr);
+       }
+       linkHandlerPtr = le_dls_PeekNext(&(tafPwrMgr.ConsolidatedStateAckHandlerList),
+                                            linkHandlerPtr);
+    }
+}
+
+/**
+ * Removes ConsolidatedAck Info handler
+ */
+void taf_PM::RemoveConsolidatedAckInfoHandler(taf_pm_ConsolidatedAckInfoHandlerRef_t handlerRef)
+{
+    LE_INFO("Removed ConsolidatedAck Info handler");
+    taf_PM tafPwrMgr = taf_PM::GetInstance();
+    taf_ConsolidatedAckInfoHandler_t* handlerObjPtr
+        = (taf_ConsolidatedAckInfoHandler_t*)le_ref_Lookup(
+            tafPwrMgr.ConsolidatedStateAckHandlerRefMap, handlerRef);
+
+    if (handlerObjPtr != NULL)
+    {
+        le_ref_DeleteRef(ConsolidatedStateAckHandlerRefMap, handlerRef);
+        le_dls_Remove(&ConsolidatedStateAckHandlerList, &(handlerObjPtr->link));
+        le_mem_Release(handlerObjPtr);
+    }
+
+}
+
 #ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
 /**
  * callback function to receive TCU activity state update
@@ -1130,34 +1248,79 @@ void tafTcuStateListener::onMachineUpdate(const string machineName, const Machin
             machineEvt == MachineEvent::AVAILABLE ? "AVAILABLE" : "UNAVAILABLE");
 }
 
-void tafTcuStateListener::onSlaveAckStatusUpdate(const Status status,
-                    const string machineName, const vector<ClientInfo> unresponsiveClients,
-                    const vector<ClientInfo> nackResponseClients)
+void tafTcuStateListener::onSlaveAckStatusUpdate
+(    const Status status,
+     const string machineName,
+     const vector<ClientInfo> unresponsiveClients,
+     const vector<ClientInfo> nackResponseClients
+)
 {
-    LE_INFO("onSlaveAckStatusUpdate machineName : %s", machineName.c_str());
-    if(status == telux::common::Status::SUCCESS) {
-        LE_INFO("Slave applications successfully acknowledged the state transition");
-    } else if(status == telux::common::Status::EXPIRED) {
-        LE_INFO("Timeout occurred while waiting for acknowledgements from slave applications");
-    } else {
-        LE_ERROR("Failed to receive acknowledgements from slave applications");
-    }
-    if(unresponsiveClients.size() > 0) {
-        LE_INFO("Number of unresponsive clients : %" PRIuS, unresponsiveClients.size());
-        for (size_t i = 0; i < unresponsiveClients.size(); i++) {
-            LE_INFO(" client name : %s machine name : %s", unresponsiveClients[i].first.c_str(),
-                    unresponsiveClients[i].second.c_str());
-        }
-    }
+     LE_INFO("onSlaveAckStatusUpdate machineName : %s", machineName.c_str());
+     auto &tafPwrMgr = taf_PM::GetInstance();
 
-    if(nackResponseClients.size() > 0) {
-        LE_INFO("Number of clients responded with nack : %" PRIuS, nackResponseClients.size());
-        for (size_t i = 0; i < nackResponseClients.size(); i++) {
-            LE_INFO(" client name : %s, machine name : %s", nackResponseClients[i].first.c_str(),
-                    nackResponseClients[i].second.c_str());
-        }
-    }
-}
+     taf_FinalAckStatus_t stateAckEvent;
+     stateAckEvent.unresponsiveClientsSize = unresponsiveClients.size();
+     stateAckEvent.nackResponseClientsSize = nackResponseClients.size();
+     stateAckEvent.state = tafPwrMgr.curTcuState;
+
+     if(status == telux::common::Status::SUCCESS) {
+         LE_INFO("Slave applications successfully acknowledged the state transition");
+         stateAckEvent.isAllAcked = true;
+     } else if(status == telux::common::Status::EXPIRED) {
+         LE_INFO("Timeout occurred while waiting for acknowledgements from slave applications");
+         stateAckEvent.isAllAcked = false;
+     } else {
+         LE_ERROR("Failed to receive acknowledgements from slave applications");
+         stateAckEvent.isAllAcked = false;
+     }
+     if(unresponsiveClients.size() > 0) {
+         LE_INFO("Number of unresponsive clients : %" PRIuS, unresponsiveClients.size());
+         for (size_t i = 0; i < unresponsiveClients.size(); i++) {
+             LE_INFO(" client name : %s machine name : %s", unresponsiveClients[i].first.c_str(),
+                     unresponsiveClients[i].second.c_str());
+
+             le_utf8_Copy(stateAckEvent.unResponsedClntData[i].clientName,
+                unresponsiveClients[i].first.c_str(),
+                sizeof(stateAckEvent.unResponsedClntData[i].clientName),
+                NULL);
+             le_utf8_Copy(stateAckEvent.unResponsedClntData[i].machineName,
+                unresponsiveClients[i].second.c_str(),
+                sizeof(stateAckEvent.unResponsedClntData[i].machineName),
+                NULL);
+
+             LE_DEBUG("stateAckEvent.unResponsedClntData[%d].clientName %s", (int)i,
+                     stateAckEvent.unResponsedClntData[i].clientName);
+
+             LE_DEBUG("stateAckEvent.unResponsedClntData[%d].machineName %s", (int)i,
+                     stateAckEvent.unResponsedClntData[i].machineName);
+         }
+     }
+     if(nackResponseClients.size() > 0) {
+         LE_INFO("Number of clients responded with nack : %" PRIuS, nackResponseClients.size());
+         for (size_t i = 0; i < nackResponseClients.size(); i++) {
+             LE_INFO(" client name : %s, machine name : %s", nackResponseClients[i].first.c_str(),
+                     nackResponseClients[i].second.c_str());
+
+             le_utf8_Copy(stateAckEvent.nackResponsedClntData[i].clientName,
+                nackResponseClients[i].first.c_str(),
+                sizeof(stateAckEvent.nackResponsedClntData[i].clientName),
+                NULL);
+             le_utf8_Copy(stateAckEvent.nackResponsedClntData[i].machineName,
+                nackResponseClients[i].second.c_str(),
+                sizeof(stateAckEvent.nackResponsedClntData[i].machineName),
+                NULL);
+
+             LE_DEBUG("stateAckEvent.nackResponsedClntData[%d].clientName %s", (int)i,
+                     stateAckEvent.nackResponsedClntData[i].clientName);
+
+             LE_DEBUG("stateAckEvent.nackResponsedClntData[%d].machineName %s", (int)i,
+                     stateAckEvent.nackResponsedClntData[i].machineName);
+         }
+     }
+     // send state change notification to all the handlers registered
+     LE_INFO("sent ack report state %d\n", tafPwrMgr.curTcuState);
+     le_event_Report(tafPwrMgr.ConsolidatedAckInfoEvent, &stateAckEvent, sizeof(stateAckEvent));
+ }
 #endif
 
 /**
@@ -1252,7 +1415,7 @@ void taf_PM:: SendAckToPmd(taf_pm_State_t state)
     Status ackStatus;
     if(state == TAF_PM_STATE_SUSPEND) {
         ackStatus = tafPwrMgr.tcuSlaveActivityMgr->sendActivityStateAck(
-                            StateChangeResponse::ACK, TcuActivityState::SUSPEND);
+                            StateChangeResponse::NACK, TcuActivityState::SUSPEND);
         if(ackStatus == Status::SUCCESS) {
             LE_INFO("Sent SUSPEND acknowledgement to TCU successfully");
         } else {
@@ -1260,7 +1423,7 @@ void taf_PM:: SendAckToPmd(taf_pm_State_t state)
         }
     } else if(state == TAF_PM_STATE_SHUTDOWN) {
         ackStatus = tafPwrMgr.tcuSlaveActivityMgr->sendActivityStateAck(
-                            StateChangeResponse::ACK, TcuActivityState::SHUTDOWN);
+                            StateChangeResponse::NACK, TcuActivityState::SHUTDOWN);
         if(ackStatus == Status::SUCCESS) {
             LE_INFO("Sent SHUTDOWN acknowledgement to TCU successfully");
         } else {
@@ -1383,5 +1546,70 @@ taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType )
         LE_INFO("Client %s Ack response not sent for current transition %s", pClient->name,
                 tcuStateToString(tcuState));
     }
+}
+/**
+ * Gets nacked client info of a state change.
+ */
+le_result_t taf_PM::GetNackClientInfo
+(
+    taf_pm_ConsolidatedAckInfoRef_t consolidatedAckInfoRef,
+    taf_pm_ClientInfo_t* nackClientsPtr,
+    size_t* nackClientsSizePtr
+)
+{
+    taf_FinalAckStatus_t* infoPtr =
+        (taf_FinalAckStatus_t*)le_ref_Lookup(ConsolidatedStateAckRefMap, consolidatedAckInfoRef);
+    TAF_ERROR_IF_RET_VAL(infoPtr == nullptr, LE_BAD_PARAMETER,
+    "Failed to find the reference of %p", consolidatedAckInfoRef);
+    TAF_ERROR_IF_RET_VAL(nackClientsPtr == nullptr, LE_BAD_PARAMETER,
+    "Param of nackClientsPtr is NULL");
+
+    *nackClientsSizePtr = (size_t)(infoPtr->nackResponseClientsSize);
+    for(size_t i = 0; i < infoPtr->nackResponseClientsSize; i++)
+    {
+        le_utf8_Copy(nackClientsPtr[i].clientName,
+            infoPtr->nackResponsedClntData[i].clientName,
+            sizeof(infoPtr->nackResponsedClntData[i].clientName),
+            NULL);
+        le_utf8_Copy(nackClientsPtr[i].machineName,
+            infoPtr->nackResponsedClntData[i].machineName,
+            sizeof(infoPtr->nackResponsedClntData[i].machineName),
+            NULL);
+
+    }
+
+    return LE_OK;
+}
+/**
+ * Gets unresponsive client info of a state change.
+ */
+le_result_t taf_PM::GetUnrespClientInfo
+(
+    taf_pm_ConsolidatedAckInfoRef_t consolidatedAckInfoRef,
+    taf_pm_ClientInfo_t* unrespClientsPtr,
+    size_t* unrespClientsSizePtr
+)
+{
+    taf_FinalAckStatus_t* infoPtr =
+        (taf_FinalAckStatus_t*)le_ref_Lookup(ConsolidatedStateAckRefMap, consolidatedAckInfoRef);
+    TAF_ERROR_IF_RET_VAL(infoPtr == nullptr, LE_BAD_PARAMETER,
+    "Failed to find the reference of %p", consolidatedAckInfoRef);
+    TAF_ERROR_IF_RET_VAL(unrespClientsPtr == nullptr, LE_BAD_PARAMETER,
+    "Param of nackClientsPtr is NULL");
+
+    *unrespClientsSizePtr = (size_t)(infoPtr->unresponsiveClientsSize);
+    for(size_t i = 0; i < infoPtr->unresponsiveClientsSize; i++)
+    {
+        le_utf8_Copy(unrespClientsPtr[i].clientName,
+            infoPtr->unResponsedClntData[i].clientName,
+            sizeof(infoPtr->unResponsedClntData[i].clientName),
+            NULL);
+        le_utf8_Copy(unrespClientsPtr[i].machineName,
+            infoPtr->unResponsedClntData[i].machineName,
+            sizeof(infoPtr->unResponsedClntData[i].machineName),
+            NULL);
+    }
+
+    return LE_OK;
 }
 #endif

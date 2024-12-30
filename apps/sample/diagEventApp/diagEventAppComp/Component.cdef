@@ -3,6 +3,16 @@ sources:
     diagEventApp.c
 }
 
+cxxflags:
+{
+    -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
+}
+
+cflags:
+{
+    -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
+}
+
 requires:
 {
     api:

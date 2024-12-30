@@ -2781,39 +2781,48 @@ le_result_t tafMngdConnAdmin::InitializeStates()
                 continue;
             }
             profileRef = taf_dcs_GetProfileEx (phoneId, profileNumber);
-            //If APN is not NULL
-            if(strlen(Configuration.Data[dataIdx].Profile.APN) != 0){
-                LE_INFO("apn=%s",Configuration.Data[dataIdx].Profile.APN);
-                const char *setapnPtr = Configuration.Data[dataIdx].Profile.APN;
-                //Set APN if different
-                if(setapnPtr != nullptr)
-                {
-                    char getapnPtr[MCS_MAX_APN_LEN];
 
-                    result = taf_dcs_GetAPN(profileRef, getapnPtr,MCS_MAX_APN_LEN);
-                    if(result != LE_OK)
+            const char *setapnPtr = Configuration.Data[dataIdx].Profile.APN;
+            //Check if APN in JSON is null
+            if(setapnPtr[0]=='\0')
+            {
+                LE_INFO("JSON apn is null");
+            }
+            else
+            {
+                LE_INFO("Set apn=%s",Configuration.Data[dataIdx].Profile.APN);
+                char getapnPtr[MCS_MAX_APN_LEN];
+                //Get the NAD APN
+                result = taf_dcs_GetAPN(profileRef, getapnPtr,MCS_MAX_APN_LEN);
+                if(result != LE_OK)
+                {
+                    LE_ERROR("APN get failed for profile %d ", profileNumber);
+                    return LE_FAULT;
+                }
+                //Compare both the APNs and Set if the criteria is met
+                if(CompareAPN(getapnPtr, setapnPtr))
+                {
+                    //Check if its just a space and set it as an empty string
+                    if(strlen(setapnPtr) == 1 && setapnPtr[0] == ' ')
                     {
-                        LE_ERROR("APN get failed for profile %d ", profileNumber);
-                        return LE_FAULT;
+                        //Set APN as an empty string
+                        LE_INFO("Set apn as an empty string");
+                        result = taf_dcs_SetAPN(profileRef, "");
                     }
-                    size_t getapnLen = strlen(getapnPtr);
-                    if (strncmp(setapnPtr, getapnPtr, getapnLen) == 0)
+                    else
                     {
-                        LE_INFO("APN : %s already present for %d profile",
-                                 setapnPtr, profileNumber);
-                    }
-                    else{
+                        //Set APN
                         result = taf_dcs_SetAPN(profileRef, setapnPtr);
-                        if(result == LE_OK)
-                        {
-                            LE_INFO("APN : %s set for %d profile", setapnPtr, profileNumber);
-                        }
-                        else
-                        {
-                            LE_ERROR("APN : %s  set failed for profile %d ",
-                                      setapnPtr, profileNumber);
-                            return LE_FAULT;
-                        }
+                    }
+                    if(result == LE_OK)
+                    {
+                        LE_INFO("APN : %s set for %d profile", setapnPtr, profileNumber);
+                    }
+                    else
+                    {
+                        LE_ERROR("APN : %s  set failed for profile %d ",
+                                setapnPtr, profileNumber);
+                        return LE_FAULT;
                     }
                 }
             }
@@ -4230,6 +4239,46 @@ std::string tafMngdConnAdmin::RemoveProtocol(const std::string &url)
     std::string new_url = std::regex_replace(url, pattern, "");
     LE_INFO("New URL: %s", new_url.c_str());
     return new_url;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Helper method to compare the Set and Get APNs
+ */
+//--------------------------------------------------------------------------------------------------
+bool tafMngdConnAdmin::CompareAPN(const char *getapnPtr, const char *setapnPtr)
+{
+    size_t getapnPtrLen = strlen(getapnPtr);
+    size_t setapnPtrLen = strlen(setapnPtr);
+    LE_INFO("getapnPtrLen length %d and setapnPtrLen length %d",
+            (int)getapnPtrLen, (int)setapnPtrLen);
+
+    if(getapnPtrLen == 0 && setapnPtrLen == 0)
+    {
+        LE_INFO("APN null for both json and NAD, no need to do anything");
+        return false;
+    }
+    else if((getapnPtrLen > 0 && setapnPtrLen == 0) ||
+            (setapnPtrLen > 0 && getapnPtrLen == 0) )
+    {
+        return true;
+    }
+    else if(getapnPtrLen > 0 && setapnPtrLen > 0)
+    {
+        //check if the APNs are same
+        int compareLen = std::min(std::max(setapnPtrLen, getapnPtrLen),
+                                            (size_t)MCS_MAX_APN_LEN);
+        if (strncmp(setapnPtr, getapnPtr, compareLen) == 0)
+        {
+            LE_INFO("APN : %s already present", setapnPtr);
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 const char * tafMngdConnAdmin::EventToString(mcs_EventType_t event)

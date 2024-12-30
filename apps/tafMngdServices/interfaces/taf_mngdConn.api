@@ -389,7 +389,9 @@
      <td>char</td>
      <td>null</td>
      <td>128</td>
-     <td>If null, do not make any changes to APN.
+     <td>If the value is null or an empty string, do not make any changes to the APN.
+         <br> Otherwise, compare this APN with the NAD APN and update it if they are different.
+         <br> If there is only a single space, set the APN to an empty string.
          <br> If APN set fails, log an ERROR, stop the service.</td>
    </tr>
    <tr>

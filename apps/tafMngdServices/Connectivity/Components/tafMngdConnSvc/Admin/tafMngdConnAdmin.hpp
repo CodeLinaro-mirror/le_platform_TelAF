@@ -424,6 +424,9 @@ namespace tafsvc {
             //Curl Helper Methods
             bool PerformCurl(const char* URLStr);
             std::string RemoveProtocol(const std::string &url);
+
+            //Helper Method to compare APNs
+            bool CompareAPN(const char *getapnPtr, const char *setapnPtr);
 #ifndef LE_CONFIG_TARGET_SIMULATION
             //Async APIs callback handler
             static void RestartReqAsyncCallBack(taf_mngdPm_RestartMode_t RestartMode,

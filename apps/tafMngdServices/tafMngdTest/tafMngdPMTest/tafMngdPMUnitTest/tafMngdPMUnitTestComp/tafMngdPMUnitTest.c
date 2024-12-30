@@ -488,7 +488,7 @@ static int GracefulSystemShutdown()
 }
 
 void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode ,
-        void* contextPtr)
+        le_result_t result, void* contextPtr)
 {
     LE_INFO("RestartCallback response mode is %d", rspmode);
     exit(status);
@@ -500,7 +500,7 @@ static int RestartSystem()
     uint8_t pmNodeId = 0;
     AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE", pmNodeId);
     le_result_t res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,
-            RestartCallback, NULL);
+            RestartCallback, NULL, TAF_MNGDPM_RESTART_REASON_NORMAL);
 
     if(res == LE_OK)
     {
@@ -512,7 +512,7 @@ static int RestartSystem()
 }
 
 void ForcedSystemShutdownCallBack(taf_mngdPm_ShutdownMode_t mode,
-    taf_mngdPm_ResponseMode_t ResponseMode, void* contextPtr)
+    taf_mngdPm_ResponseMode_t ResponseMode, le_result_t result, void* contextPtr)
 {
     LE_INFO("ForcedSystemShutdownCallBack response mode is %d", ResponseMode);
     if(ResponseMode == 0)
@@ -531,7 +531,7 @@ void ForcedSystemShutdown()
     uint8_t pmNodeId = 0;
     AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE", pmNodeId);
     result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
-            ForcedSystemShutdownCallBack, NULL);
+            ForcedSystemShutdownCallBack, NULL, TAF_MNGDPM_SHUTDOWN_REASON_NORMAL);
     if(result != LE_OK)
     {
         LE_ERROR("ForcedSystemShutdown request failed");
@@ -571,7 +571,7 @@ static int RestartNode()
 }
 
 void WakeupVehicleback(int32_t reason, int32_t rspmode ,
-        void* contextPtr)
+        le_result_t result, void* contextPtr)
 {
     LE_INFO("WakeupVehicleback response is %d", rspmode);
     exit(status);

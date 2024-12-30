@@ -382,6 +382,7 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
     uint8_t pmNodeId,
     hal_pm_NodeState_t state,
     hal_pm_PowerMode_t mode,
+    const uint8_t shutdownReason,
     hal_pm_RspReason_t reason
 )
 {
@@ -404,6 +405,7 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
                 shutdownCB.shutdownCallbackFunc(
                     TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
                     TAF_MNGDPM_NOT_READY,
+                    LE_OK,
                     shutdownCB.shutdownCBCtxPtr);
             }
             shutdownCB.shutdownCallbackFunc = nullptr;
@@ -413,7 +415,7 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
         if(shutdownCB.shutdownCallbackFunc)
         {
             shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_READY,
-                    shutdownCB.shutdownCBCtxPtr);
+                    LE_OK, shutdownCB.shutdownCBCtxPtr);
         }
         le_result_t res = ShutdownNAD();
         if(res == LE_OK)
@@ -430,6 +432,7 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
             shutdownCB.shutdownCallbackFunc(
                 TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
                 TAF_MNGDPM_NOT_READY,
+                LE_OK,
                 shutdownCB.shutdownCBCtxPtr);
         }
     }
@@ -444,6 +447,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
     uint8_t pmNodeId,
     hal_pm_NodeState_t state,
     hal_pm_PowerMode_t mode,
+    const uint8_t restartReason,
     hal_pm_RspReason_t reason
 )
 {
@@ -465,7 +469,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
             if(restartCB.restartCallbackFunc)
             {
                 restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_NOT_READY,
-                        restartCB.restartCBCtxPtr);
+                        LE_OK, restartCB.restartCBCtxPtr);
             }
             return;
         }
@@ -473,7 +477,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_READY,
-                    restartCB.restartCBCtxPtr);
+                    LE_OK, restartCB.restartCBCtxPtr);
         }
         le_result_t res = ShutdownNAD();
         if(res == LE_OK)
@@ -488,7 +492,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_NOT_READY,
-                    restartCB.restartCBCtxPtr);
+                    LE_OK, restartCB.restartCBCtxPtr);
         }
     }
     if (mode == HAL_PM_RESTART_MODE_NAD_REBOOT && reason == HAL_PM_RSP_READY)
@@ -498,7 +502,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
             if(restartCB.restartCallbackFunc)
             {
                 restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_NOT_READY,
-                        restartCB.restartCBCtxPtr);
+                        LE_OK, restartCB.restartCBCtxPtr);
             }
             return;
         }
@@ -506,7 +510,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_READY,
-                    restartCB.restartCBCtxPtr);
+                    LE_OK, restartCB.restartCBCtxPtr);
         }
         le_result_t res = RestartNAD();
         if(res == LE_OK)
@@ -521,7 +525,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_NOT_READY,
-                    restartCB.restartCBCtxPtr);
+                    LE_OK, restartCB.restartCBCtxPtr);
         }
     }
     restartCB.restartCallbackFunc = nullptr;
@@ -551,7 +555,7 @@ void tafMngdPMSvc::WakeupVehicleCB
         if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_AWAKE,
-                    wakeupVehicleCB.wakeupVehicleCBCtxPtr);
+                    LE_OK, wakeupVehicleCB.wakeupVehicleCBCtxPtr);
         }
     }
     else if (reason == VEHICHLE_WAKEUP_REASON_DEFAULT && response == HAL_PM_VEHICHLE_WAKEUP_STATUS_INVALID_REQ)
@@ -560,7 +564,7 @@ void tafMngdPMSvc::WakeupVehicleCB
         if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_INVALID_REQ,
-                    wakeupVehicleCB.wakeupVehicleCBCtxPtr);
+                    LE_OK, wakeupVehicleCB.wakeupVehicleCBCtxPtr);
         }
     }
     else if (reason == VEHICHLE_WAKEUP_REASON_DEFAULT && response == HAL_PM_VEHICHLE_WAKEUP_STATUS_UNKNOWN)
@@ -569,7 +573,7 @@ void tafMngdPMSvc::WakeupVehicleCB
         if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_UNKNOWN,
-                    wakeupVehicleCB.wakeupVehicleCBCtxPtr);
+                    LE_OK, wakeupVehicleCB.wakeupVehicleCBCtxPtr);
         }
     }
     wakeupVehicleCB.wakeupVehicleCallbackFunc = nullptr;
@@ -966,7 +970,7 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
         if(shutdownCB.shutdownCallbackFunc)
         {
             shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_TIMEOUT,
-                    shutdownCB.shutdownCBCtxPtr);
+                    LE_OK, shutdownCB.shutdownCBCtxPtr);
         }
     }
     else if (*(state) == RESTART_WITH_NAD_POWER_OFF_ON)
@@ -975,7 +979,7 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_TIMEOUT,
-                    restartCB.restartCBCtxPtr);
+                    LE_OK, restartCB.restartCBCtxPtr);
         }
     }
 }
@@ -1001,7 +1005,7 @@ void tafMngdPMSvc::VehichleWakeupTimerHandler(le_timer_Ref_t timerRef)
         if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(WAKEUP_VEHICHLE_REQ_DEFAULT, TAF_MNGDPM_TIMEOUT,
-                    wakeupVehicleCB.wakeupVehicleCBCtxPtr);
+                    LE_OK, wakeupVehicleCB.wakeupVehicleCBCtxPtr);
         }
         wakeupVehicleCB.wakeupVehicleCallbackFunc = nullptr;
     }

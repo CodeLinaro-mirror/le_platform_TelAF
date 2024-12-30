@@ -431,6 +431,7 @@ namespace tafsvc {
             //Async APIs callback handler
             static void RestartReqAsyncCallBack(taf_mngdPm_RestartMode_t RestartMode,
                                                 taf_mngdPm_ResponseMode_t ResponseMode,
+                                                le_result_t result,
                                                 void *contextPtr);
 #endif // LE_CONFIG_TARGET_SIMULATION
     };

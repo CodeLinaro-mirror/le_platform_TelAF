@@ -4054,11 +4054,13 @@ void tafMngdConnAdmin::EventL3ConnRecoverySchedule(uint8_t dataId)
 //-------------------------------------------------------------------------------------------------
 void tafMngdConnAdmin::RestartReqAsyncCallBack(taf_mngdPm_RestartMode_t RestartMode,
                                                taf_mngdPm_ResponseMode_t ResponseMode,
+                                               le_result_t result,
                                                void *contextPtr)
 {
     auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
     LE_DEBUG("Restart  mode : %d", RestartMode);
     LE_DEBUG("Response mode : %d", ResponseMode);
+    LE_DEBUG("result is : %d", result);
     mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)contextPtr;
     if (TAF_MNGDPM_READY == ResponseMode)
     {
@@ -4119,7 +4121,7 @@ void tafMngdConnAdmin::EventL3ConnRecoveryStart(uint8_t dataId)
                             TAF_MNGDCONN_RECOVERY_NAD_REBOOT);
         // Call API to start NAD reboot
         result = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,
-                                            RestartReqAsyncCallBack, (void *)dataCtxPtr);
+                         RestartReqAsyncCallBack, (void *)dataCtxPtr, TAF_MNGDPM_RESTART_REASON_NORMAL);
         if (LE_OK == result)
         {
             LE_INFO("Restart NAD request sent");

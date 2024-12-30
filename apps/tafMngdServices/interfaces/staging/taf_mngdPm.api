@@ -346,6 +346,65 @@ BITMASK StayAwakeReasonBitMask
 };
 
 /**
+ * Restart Reason type for system restart.
+ * Value range from 5 to 15 is for the platform future extension.
+ * Value range from 16 to 31 is for Tier 1 product specific extension.
+ */
+ENUM RestartReason
+{
+    RESTART_REASON_NORMAL,             ///< Restart Reason normal.
+    RESTART_REASON_SW_UPDATE,       ///< Restart Reason for ecall active.
+    RESTART_REASON_ECALL_RECOVERY,     ///< Restart Reason for ecall callback.
+
+    RESTART_REASON_VENDOR_1 = 16,      ///< Tier-1 product specific Restart Reason.
+                                       ///< For handling bub state.
+    RESTART_REASON_VENDOR_2,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_3,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_4,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_5,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_6,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_7,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_8,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_9,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_10,          ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_11,          ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_12,          ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_13,          ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_14,          ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_15,          ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_16           ///< Tier-1 product specific Restart Reason.
+};
+
+
+/**
+ * Shutdown Reason type for system Shutdown.
+ * Value range from 5 to 15 is for the platform future extension.
+ * Value range from 16 to 31 is for Tier 1 product specific extension.
+ */
+ENUM ShutdownReason
+{
+    SHUTDOWN_REASON_NORMAL,             ///< Shutdown Reason normal.
+    SHUTDOWN_REASON_BUB_ACTIVE,         ///< Shutdown Reason for bub active.
+
+    SHUTDOWN_REASON_VENDOR_1 = 16,      ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_2,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_3,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_4,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_5,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_6,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_7,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_8,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_9,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_10,          ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_11,          ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_12,          ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_13,          ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_14,          ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_15,          ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_16           ///< Tier-1 product specific Shutdown Reason.
+};
+
+/**
  * Wake source option for calling stay awake and relax.
  */
 ENUM WsOpt
@@ -417,7 +476,8 @@ REFERENCE nodePowerState;
 HANDLER AsyncShutdownReqHandler
 (
     ShutdownMode requestedMode IN,   ///< Requested mode.
-    ResponseMode responseMode  IN    ///< Request response.
+    ResponseMode responseMode  IN,   ///< Request response.
+    le_result_t result         IN    ///< Request response result. 
 );
 
 /**
@@ -435,7 +495,8 @@ ENUM RestartMode
 HANDLER AsyncRestartReqHandler
 (
     RestartMode restartMode   IN,    ///< Restart mode.
-    ResponseMode responseMode IN     ///< Request response.
+    ResponseMode responseMode IN,    ///< Request response.
+    le_result_t result        IN     ///< Request response result. 
 );
 
 /**
@@ -444,7 +505,8 @@ HANDLER AsyncRestartReqHandler
 HANDLER AsyncWakeupVehicleReqHandler
 (
     int32 reason IN,    ///< WakeupVehicleReason reason.
-    int32 status IN     ///< Response status.
+    int32 status IN,     ///< Response status.
+    le_result_t result IN     ///< Request response result. 
 );
 
 /**
@@ -537,7 +599,8 @@ FUNCTION le_result_t SetNodeTargetedPowerMode
 FUNCTION le_result_t ShutdownReqAsync
 (
     ShutdownMode              requstedMode  IN,   ///< Requested mode.
-    AsyncShutdownReqHandler   handlerRef    IN    ///< Handler Reference.
+    AsyncShutdownReqHandler   handlerRef    IN,   ///< Handler Reference.
+    ShutdownReason            reason        IN    ///< Shutdown reason.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -553,7 +616,8 @@ FUNCTION le_result_t ShutdownReqAsync
 FUNCTION le_result_t RestartReqAsync
 (
     RestartMode             restartMode  IN,   ///< Restart mode.
-    AsyncRestartReqHandler  handlerRef   IN    ///< Handler reference.
+    AsyncRestartReqHandler  handlerRef   IN,   ///< Handler reference.
+    RestartReason            reason      IN    ///< Restart reason.
 );
 
 //--------------------------------------------------------------------------------------------------

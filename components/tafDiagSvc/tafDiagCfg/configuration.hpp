@@ -28,29 +28,15 @@ namespace cfg {
 
 typedef boost::property_tree::ptree Node;
 
-/* Marco definitions are from datas_enable_conditions */
-#define Condition_distanceTotalizerLowerOrEqual500km 1 /* 0x01 */
-#define Condition_mileageForNormalModeFalse 2 /* 0x02 */
-#define Condition_GADELowerOrEqualSWUpdateModeStatus 3 /* 0x03 */
-#define Condition_GADELowerOrEqualMissionModeStatus 4 /* 0x04 */
-#define Condition_GADEEqualMissionModeStatus 5 /* 0x05 */
-#define Condition_GADEEqualUnavailableStatus 6 /* 0x06 */
-#define Condition_vehicleSpeedBodyEqual0 7 /* 0x07 */
-#define Condition_vehicleSpeedBodyEqual0InPreviousMinute 8 /* 0x08 */
-#define Condition_vehiclePowerModeEqualLifeOnBoard 9 /* 0x09 */
-#define Condition_externalPowerSupplyConnected 10 /* 0x0A */
-#define Condition_vehiclePowerModeEqualPowerOn 11 /* 0x0B */
-#define Condition_callBackTimeoutNotInProgress 12 /* 0x0C */
-#define Condition_vinEmpty 13 /* 0x0D */
-#define Condition_updatableElementsActivated 14 /* 0x0E */
-#define Condition_updatableElementsInstalled 15 /* 0x0F */
+/* Definitions for Enable-Condition-ID & Event-ID ... */
+#include "diag_ids.h"
 
+/* Operation Cycle IDs should be equal 'diag_ids.h' */
 typedef enum operation_cycle_type
 {
     IGNITION,
     DC,
-    POWER,
-    WUC
+    POWER
 } operation_cycle_type_t;
 
 inline static operation_cycle_type_t s_to_operation_cycle_type(std::string s) {
@@ -66,10 +52,6 @@ inline static operation_cycle_type_t s_to_operation_cycle_type(std::string s) {
     else if (std::string("POWER") == s)
     {
         return POWER;
-    }
-    else if (std::string("WUC") == s)
-    {
-        return WUC;
     }
 
     throw std::runtime_error("Not match any operation_cycle_type_t");
@@ -176,19 +158,6 @@ typedef struct { /* <-- from [debounce_time_based_algorithm] */
     std::string debounce_behavior;
 } Timer_t;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 typedef struct { /* <-- from [debounceCustom] */
     std::string short_name;
     bool monitor_internal;
@@ -197,22 +166,8 @@ typedef struct { /* <-- from [debounceCustom] */
 
 
 typedef struct {
-    bool aging_requires_tested_cycle;
-    std::string clear_dtc_limitation;
-    std::string default_endianness;
-    std::string environment_data_capture;
-    std::string event_displacement_strategy;
     int max_number_of_request_correctly_received_response_pending;
     std::string occurrence_counter_processing;
-    bool response_on_all_requests_ids;
-    bool response_on_second_declined_request;
-    std::string status_bit_handling_test_failed_since_last_clear;
-    bool reset_confirmed_bit_on_overflow;
-    bool status_bit_storage_test_failed;
-    std::string type_of_dtc_supported;
-    int security_delay_time_on_boot;
-    int max_number_of_event_entries;
-    std::string memory_entry_storage_trigger;
     float s3_server_max;
     bool ignore_request_for_hardreset;
     int dtc_status_availability_mask;
@@ -398,12 +353,6 @@ Node & top_routine_parameters_all(std::string field_name, T expected_value)
     return match_item<T>(node, field_name, expected_value);
 }
 
-template <typename T = std::string>
-Node & top_datas(std::string field_name, T expected_value)
-{
-    Node & node = get_root_node().get_child("datas");
-    return match_item<T>(node, field_name, expected_value);
-}
 
 template <typename T = std::string>
 Node & top_IO_all(std::string field_name, T expected_value)
@@ -447,11 +396,11 @@ Node & top_extended_data_records(std::string field_name, T expected_value)
 /* #undef EXPORT_SYM */
 
 #define tafDiagGen_tool_version "tafDiagGen_tool_version: 2.0.0"
-#define tafDiagGen_tool_timestamp  "tafDiagGen_tool_timestamp: 2024_12_16__14_27_54"
-#define tafDiagGen_tool_json_md5 "tafDiagGen_tool_json_md5: db3d144a0cdf11f4cc5af498a66de348"
-#define tafDiagGen_tool_evid_h_md5 "tafDiagGen_tool_evid_h_md5: 108c1c4e4e0b4c9f8b9f0fd52ec4ea9a"
+#define tafDiagGen_tool_timestamp  "tafDiagGen_tool_timestamp: 2024_12_17__16_21_57"
+#define tafDiagGen_tool_json_md5 "tafDiagGen_tool_json_md5: 4151dfde766fffd48632b8e83f034c14"
+#define tafDiagGen_tool_evid_h_md5 "tafDiagGen_tool_evid_h_md5: e146872da3171ca6322f732823235b80"
 
-#define TAFDIAGGEN_JSON_MD5 "db3d144a0cdf11f4cc5af498a66de348"
-#define TAFDIAGGEN_EVID_MD5 "108c1c4e4e0b4c9f8b9f0fd52ec4ea9a"
+#define TAFDIAGGEN_JSON_MD5 "4151dfde766fffd48632b8e83f034c14"
+#define TAFDIAGGEN_EVID_MD5 "e146872da3171ca6322f732823235b80"
 
 #endif /* __CONFIGURATION_HPP__ */

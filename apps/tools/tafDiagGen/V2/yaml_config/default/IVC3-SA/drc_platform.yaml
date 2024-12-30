@@ -1,0 +1,228 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+domain_name: IVC3-SA
+
+extended_data_records:
+  CumulativeDistanceWithTestFailed:
+    short_name: CumulativeDistanceWithTestFailed
+    record_element_bit_off_set: 0
+    base_type: uint8
+    record_number: 0x02
+    data_provider: custom
+    trigger: DEM_TRIGGER_ON_FDC_THRESHOLD
+    update: TRUE
+
+diagnostic_session:
+  default_session:
+    short_name: DefaultSession
+    id: 0x01
+    p2_server_max: 0.05
+    p2_start_server_max: 5.0
+    execution_authorization_pattern: base
+  programming_session:
+    short_name: ProgrammingSession
+    id: 0x02
+    p2_server_max: 0.05
+    p2_start_server_max: 5.0
+    execution_authorization_pattern: secured_configuration
+  extended_diagnostic_session:
+    short_name: ExtendedDiagnosticSession
+    id: 0x03
+    p2_server_max: 0.05
+    p2_start_server_max: 5
+    execution_authorization_pattern: secured_configuration
+  download_emulated_session:
+    short_name: DownloadEmulatedSession
+    id: 0x52
+    p2_server_max: 0.05
+    p2_start_server_max: 5.0
+    execution_authorization_pattern: secured_configuration
+  system_supplier_specific_session:
+    short_name: SystemSupplierSpecificSession
+    id: 0x60
+    p2_server_max: 0.05
+    p2_start_server_max: 5.0
+    execution_authorization_pattern: supplier_specific_security_level
+
+diagnostic_session_security_level:
+  SecAcc_Level_01:
+    short_name: SecAcc_Level_01
+    request_seed_id: 0x01
+    key_size: 16
+    num_failed_security_access: 10
+    security_delay_time: 15
+    seed_size: 16
+    execution_authorization_pattern: secured_configuration
+  SecAcc_Level_61:
+    short_name: SecAcc_Level_61
+    request_seed_id: 0x61
+    key_size: 16
+    num_failed_security_access: 12
+    security_delay_time: 20
+    seed_size: 16
+    execution_authorization_pattern: supplier_specific_security_level
+
+execution_authorization_pattern:
+  default_session:
+    class: diagnostic_session
+    short_name: default_session
+    base: True
+    did_read_app: True
+    secured_configuration: False
+    io_control: False
+    supplier_specific_security_level: False
+    test_did_0xA0A0_r: True
+    test_did_0xA0A0_w: False
+    test_did_0xA0A1_r: False
+    test_did_0xA0A1_w: False
+  programming_session:
+    class: diagnostic_session
+    short_name: programming_session
+    base: True
+    did_read_app: False
+    secured_configuration: True
+    io_control: False
+    supplier_specific_security_level: True
+    test_did_0xA0A0_r: True
+    test_did_0xA0A0_w: True
+    test_did_0xA0A1_r: True
+    test_did_0xA0A1_w: True
+  extended_diagnostic_session:
+    class: diagnostic_session
+    short_name: extended_diagnostic_session
+    base: True
+    did_read_app: True
+    secured_configuration: True
+    io_control: True
+    supplier_specific_security_level: False
+    test_did_0xA0A0_r: True
+    test_did_0xA0A0_w: True
+    test_did_0xA0A1_r: True
+    test_did_0xA0A1_w: True
+  system_supplier_specific_session:
+    class: diagnostic_session
+    short_name: system_supplier_specific_session
+    base: False
+    did_read_app: False
+    secured_configuration: False
+    io_control: False
+    supplier_specific_security_level: True
+    test_did_0xA0A0_r: False
+    test_did_0xA0A0_w: False
+    test_did_0xA0A1_r: False
+    test_did_0xA0A1_w: False
+  download_emulated_session:
+    class: diagnostic_session
+    short_name: download_emulated_session
+    base: True
+    did_read_app: False
+    secured_configuration: True
+    io_control: False
+    supplier_specific_security_level: False
+    test_did_0xA0A0_r: False
+    test_did_0xA0A0_w: False
+    test_did_0xA0A1_r: False
+    test_did_0xA0A1_w: False
+  SecAcc_Level_01:
+    class: diagnostic_session_security_level
+    short_name: SecAcc_Level_01
+    base: False
+    did_read_app: False
+    secured_configuration: True
+    io_control: True
+    supplier_specific_security_level: False
+    test_did_0xA0A0_r: False
+    test_did_0xA0A0_w: True
+    test_did_0xA0A1_r: True
+    test_did_0xA0A1_w: False
+  SecAcc_Level_61:
+    class: diagnostic_session_security_level
+    short_name: SecAcc_Level_61
+    base: False
+    did_read_app: False
+    secured_configuration: False
+    io_control: False
+    supplier_specific_security_level: True
+    test_did_0xA0A0_r: False
+    test_did_0xA0A0_w: False
+    test_did_0xA0A1_r: True
+    test_did_0xA0A1_w: True
+
+operation_cycle:
+  IGNITION:
+    short_name: IGNITION
+    type: IGNITION
+  DC:
+    short_name: DC
+    type: OBD-DRIVING-CYCLE
+  POWER:
+    short_name: POWER
+    type: POWER
+
+debounce_algorithm:
+  debounce_counter_based_algorithm:
+    short_name: counter_1
+    counter_based: True
+    debounce_counter_storage: false
+    debounce_behavior: reset
+    counter_decrement_step_size: 1
+    counter_passed_threshold: -10
+    counter_increment_step_size: 1
+    counter_failed_threshold: 10
+    counter_jump_down_value: 0
+    counter_jump_up_value: 0
+    counter_jump_up: true
+    counter_jump_down: false
+  debounce_time_based_algorithm:
+    short_name: Time_1
+    time_based: True
+    time_failed_threshold: 0.1
+    time_passed_threshold: 5
+  debounceCustom:
+    short_name: debounceCustom
+    monitor_internal: True
+
+datas_enable_conditions:
+  tooHigh:
+    description: tooHigh
+    and:
+      - '<=':
+          parameter: tooHigh
+          value: 500
+          nrc: 0x22
+  tooLow:
+    description: tooLow
+    and:
+      - '<=':
+          parameter: tooLow
+          value: 200
+          nrc: 0x22
+  tooBig:
+    description: tooBig
+    and:
+      - '=':
+          parameter: tooBig
+          value: 3
+          nrc: 0x22
+  toSmall:
+    description: toSmall
+    and:
+      - '=':
+          parameter: toSmall
+          value: 2
+          nrc: 0x22
+  vehicleSpeedBodyEqual0:
+    description: vehicleSpeedBodyEqual0
+    and:
+      - '=':
+          parameter: vehicleSpeedBody
+          value: 0.0
+          nrc: 0x88
+  vehiclePowerModeEqualLifeOnBoard:
+    description: vehiclePowerModeEqualLifeOnBoard
+    and:
+      - '=':
+          parameter: vehiclePowerMode
+          value: 3
+          nrc: 0x83

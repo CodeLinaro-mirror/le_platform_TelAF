@@ -29,7 +29,7 @@ do-install:
 	cp -af $(CURDIR)/build/configuration.cpp $(diagcfg_of_project)/
 	cp -af $(CURDIR)/build/configuration.hpp $(diagcfg_of_project)/
 	cp -af $(CURDIR)/build/diag_template.yaml.json $(diagcfg_of_project)/
-	cp -af $(CURDIR)/build/diag_event_id.h $(diagcfg_of_project)/
+	cp -af $(CURDIR)/build/diag_ids.h $(diagcfg_of_project)/
 	@echo "[Install] Done."
 
 clean:

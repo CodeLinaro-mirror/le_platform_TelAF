@@ -84,10 +84,10 @@ def check_yaml_validity(xpath):
 
 
 def get_the_domain_name(xp):
-    assert "customer" in xp.parts
+    assert "yaml_config" in xp.parts
     for idx, part in enumerate(xp.parts):
-        if part == "customer":
-            return xp.parts[idx + 1]
+        if part == "yaml_config":
+            return xp.parts[idx + 2]
 
 def prepare(xpath):
     L.info("[Stage] --> Prepare YAML data structure start...")
@@ -442,16 +442,10 @@ if __name__ == "__main__":
     # Can be broken by any fatal issue
     de.schema_check(only_yaml)
 
-    only_yaml_with_default = \
-        de.resolve_default_values(
-            only_yaml,
-            os.path.join(top_lvl_layer,
-                         'yaml_config/default/drc_default.yaml'),
-            top_build_layer
-        )
+    de.check_all_references(only_yaml)
 
-    de.check_all_references(only_yaml_with_default)
-
-    final_yaml = de.convert_format(only_yaml_with_default, top_build_layer)
+    final_yaml = de.convert_format(only_yaml, top_build_layer)
 
     de.generate(final_yaml, top_tmpls_layer, top_build_layer)
+
+    L.info(f"Finished for variant [{valid_files.which_one}] <--")

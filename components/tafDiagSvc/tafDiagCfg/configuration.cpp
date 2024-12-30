@@ -235,21 +235,12 @@ EXPORT_SYM uint8_t get_nrc_by_condition_id(uint8_t cond_id)
 {
     switch(cond_id)
     {
-        case Condition_distanceTotalizerLowerOrEqual500km /* 1 / 0x01 */: return 0x22;
-        case Condition_mileageForNormalModeFalse /* 2 / 0x02 */: return 0x22;
-        case Condition_GADELowerOrEqualSWUpdateModeStatus /* 3 / 0x03 */: return 0x22;
-        case Condition_GADELowerOrEqualMissionModeStatus /* 4 / 0x04 */: return 0x22;
-        case Condition_GADEEqualMissionModeStatus /* 5 / 0x05 */: return 0x22;
-        case Condition_GADEEqualUnavailableStatus /* 6 / 0x06 */: return 0x22;
-        case Condition_vehicleSpeedBodyEqual0 /* 7 / 0x07 */: return 0x88;
-        case Condition_vehicleSpeedBodyEqual0InPreviousMinute /* 8 / 0x08 */: return 0x88;
-        case Condition_vehiclePowerModeEqualLifeOnBoard /* 9 / 0x09 */: return 0x83;
-        case Condition_externalPowerSupplyConnected /* 10 / 0x0A */: return 0x22;
-        case Condition_vehiclePowerModeEqualPowerOn /* 11 / 0x0B */: return 0x22;
-        case Condition_callBackTimeoutNotInProgress /* 12 / 0x0C */: return 0x22;
-        case Condition_vinEmpty /* 13 / 0x0D */: return 0x22;
-        case Condition_updatableElementsActivated /* 14 / 0x0E */: return 0x22;
-        case Condition_updatableElementsInstalled /* 15 / 0x0F */: return 0x22;
+        case Condition_tooHigh /* 1 / 0x01 */: return 0x22;
+        case Condition_tooLow /* 2 / 0x02 */: return 0x22;
+        case Condition_tooBig /* 3 / 0x03 */: return 0x22;
+        case Condition_toSmall /* 4 / 0x04 */: return 0x22;
+        case Condition_vehicleSpeedBodyEqual0 /* 5 / 0x05 */: return 0x88;
+        case Condition_vehiclePowerModeEqualLifeOnBoard /* 6 / 0x06 */: return 0x83;
     }
 
     throw std::runtime_error("Not found any [NRC] matched condtion id.");

@@ -1,130 +1,32 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
 # domain_name: "Extended"
+common_props:
+  s3_server_max: 5.0
+  ignore_request_for_hardreset: TRUE
+  dtc_status_availability_mask: 0x7F
 
-did_all:
-  0x9006:
-    identification:
-      code: 0x9006
-      did_mnemonic: CONTROL_OF_LED_ECALL
-      description: Control Of Led Ecall
-    implementation:
-      did_size: 1
-      endianness: MSB
-    supported_functions:
-      category: Ecall
-      write_did: False    # 0x2E
-      read_did: True      # 0x22
-      snapshot: False     # 0x1904
-      io_control: True    # 0x2F
-      routine_did: False  # 0x31
-      io_control_description:
-        return_control_to_ecu: true      # 0x00: returnControlToECU
-        reset_to_default: false           # 0x01: resetToDefault
-        freeze_current_state: false       # 0x02: freezeCurrentState
-        short_term_adjustment: true      # 0x03: shortTermAdjustment
-    did_accessibility:
-      diagnostic_session_and_security_level:
-        execution_authorization_pattern_read: did_read_app
-        execution_authorization_pattern_io: io_control
-    functional_specification: REQ_SYS_Ecall_Design_A-IVC - STRComp_ECall_SWEET500_V4.2
-    functional_requirement: REQ_SYS_Ecall_Design_A-IVC_649
-  0xA5A5:
-    identification:
-      code: 0xA5A5
-      did_mnemonic: sample
-      description: sample
-    implementation:
-      did_size: 1
-      endianness: LSB
-    supported_functions:
-      category: Security
-      write_did: True     # 0x2E
-      read_did: True      # 0x22
-      snapshot: False     # 0x1904
-      io_control: False   # 0x2F
-      routine_did: False  # 0x31
-    did_accessibility:
-      diagnostic_session:
-        default_session: [ R, W ]              # 0x1001
-        extended_diagnostic_session: [ R, W ]  # 0x1003
-      diagnostic_session_and_security_level:
-        execution_authorization_pattern_read: base
-    data_enable_condition:
-      and:
-        - distanceTotalizerLowerOrEqual500km
-        - mileageForNormalModeFalse
-    functional_specification: A
-    functional_requirement: A
-  0xA5A6:
-    identification:
-      code: 0xA5A6
-      did_mnemonic: sample
-      description: sample
-    implementation:
-      did_size: 1
-      endianness: LSB
-    supported_functions:
-      category: Security
-      write_did: True     # 0x2E
-      read_did: True      # 0x22
-      snapshot: False     # 0x1904
-      io_control: False   # 0x2F
-      routine_did: False  # 0x31
-    did_accessibility:
-      diagnostic_session:
-        default_session: [ R, W ]              # 0x1001
-        extended_diagnostic_session: [ R, W ]  # 0x1003
-      diagnostic_session_and_security_level:
-        execution_authorization_pattern_read: base
-    data_enable_condition:
-      and:
-        - distanceTotalizerLowerOrEqual500km
-        - mileageForNormalModeFalse
-    functional_specification: B
-    functional_requirement: B
+debounce_algorithm_type: [Counter, Timer, Custom]
 
-dtc_all:
-  0xAB0000:
-    identification:
-      code: 0xAB00
-      fault_type: 0x00
-      priority: 3
-      extended_data_records: [ OccurrenceCounter ]
-    snapshots:
-      snapshot_record_content: base
-      freeze_frames: [ firstOccurrence, lastOccurrence ]
-    functional_conditions:
-      events:
-        - failure_name: KK
-          mnemonic: sample_KK
-          confirmation_threshold: 3
-          operation_cycle: DC
-          debounce_algorithm: counter_1
-          data_enable_condition:
-            or:
-              - GADEEqualMissionModeStatus
-              - GADEEqualUnavailableStatus
-        - failure_name: JJ
-          mnemonic: sample_JJ
-          confirmation_threshold: 3
-          operation_cycle: DC
-          debounce_algorithm: counter_1
-          data_enable_condition:
-            or:
-              - GADEEqualMissionModeStatus
-              - GADEEqualUnavailableStatus
+freeze_frame_trigger_type:
+  - DEM_TRIGGER_ON_CONFIRMED
+  - DEM_TRIGGER_ON_EVERY_TEST_FAILED
+  - DEM_TRIGGER_ON_FDC_THRESHOLD
+  - DEM_TRIGGER_ON_PENDING
+  - DEM_TRIGGER_ON_TEST_FAILED
+  - DEM_TRIGGER_ON_TEST_FAILED_THIS_OPERATION_CYCLE
 
 diagnostic_session:
   vehicle_manufacturer_specific_session:
     short_name: vehicle_manufacturer_specific_session
     id: 0x40
-    jump_to_bootloader: noBoot
     p2_server_max: 0.05
     p2_start_server_max: 5.0
     execution_authorization_pattern: supplier_specific_security_level
   fota_session:
     short_name: fota_session
     id: 0x42
-    jump_to_bootloader: systemSupplierBoot
     p2_server_max: 0.05
     p2_start_server_max: 5.0
     execution_authorization_pattern: supplier_specific_security_level

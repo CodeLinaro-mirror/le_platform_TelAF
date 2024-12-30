@@ -98,11 +98,10 @@ namespace cfg {
 
 typedef boost::property_tree::ptree Node;
 
-/* Marco definitions are from datas_enable_conditions */
-{% for key, value in root.datas_enable_conditions.items() %}
-#define Condition_{{ key }} {{ value.id  }} /* {{ value.id | f_to_hex_format(2) }} */
-{% endfor %}
+/* Definitions for Enable-Condition-ID & Event-ID ... */
+#include "diag_ids.h"
 
+/* Operation Cycle IDs should be equal 'diag_ids.h' */
 typedef enum operation_cycle_type
 {
 {% for key, value in root.operation_cycle.items() %}

@@ -1,0 +1,18 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+domain_name: Generic
+
+common_props:
+  max_number_of_request_correctly_received_response_pending: 0xFF
+  occurrence_counter_processing: TEST-FAILED-BIT
+
+extended_data_records:
+  OccurrenceCounter:
+    short_name: OccurrenceCounter
+    record_element_bit_off_set: 0
+    base_type: uint8
+    record_number: 0x01
+    data_provider: DEM_OCCCTR
+    trigger: DEM_TRIGGER_ON_TEST_FAILED
+    update: True

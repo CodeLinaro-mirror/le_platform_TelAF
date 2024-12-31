@@ -8,6 +8,7 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include "tafDoIPVehicleMgr.hpp"
+#include "tafDoIPCommunicationMgr.hpp"
 
 using namespace taf::doip;
 namespace pt = boost::property_tree;
@@ -56,6 +57,7 @@ void VehicleManager::ParseJsonConfig
     }
 
     auto &vehicleMgr = VehicleManager::GetInstance();
+    auto &tafCmMgr = CommunicationMgr::GetInstance();
 
     if (vehicleMgr.tafDoipConfigPool == NULL)
     {
@@ -172,6 +174,7 @@ void VehicleManager::ParseJsonConfig
             le_utf8_Copy(interfacePtr->ifName, ifName.c_str(),
                     TAF_DOIP_INTERFACE_NAME_MAX_LEN, NULL);
             LE_INFO("ifName: %s", interfacePtr->ifName);
+            interfacePtr->vlanId = tafCmMgr.GetVlanId(interfacePtr->ifName);
             le_dls_Queue(&vehicleMgr.doipConfigPtr->ifaceList, &interfacePtr->link);
             cnt++;
         }

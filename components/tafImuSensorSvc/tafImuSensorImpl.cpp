@@ -616,13 +616,20 @@ le_result_t taf_Sensor::Deactivate(taf_imuSensor_SensorRef_t sensorRef){
     char sensorName[50];
     le_result_t result = taf_imuSensor_GetName(sensorRef,sensorName,sizeof(sensorName));
     TAF_ERROR_IF_RET_VAL( result == LE_FAULT,LE_NOT_FOUND, "Invalid Reference for sensor");
-            telux::common::Status status = telux::common::Status::FAILED;
-            status = clientRequestPtr->currentSensorClient->deactivate();
-            if(status == telux::common::Status::FAILED){
-                LE_DEBUG("Deactivation of %s failed",sensorName);
-                return LE_FAULT;
-            }
-            clientRequestPtr->isSensorActivated = false;
+    telux::common::Status status = telux::common::Status::FAILED;
+    status = clientRequestPtr->currentSensorClient->deactivate();
+    if(status != telux::common::Status::SUCCESS){
+        LE_DEBUG("Deactivation of %s failed",sensorName);
+        return LE_FAULT;
+    }
+    status = clientRequestPtr->currentSensorClient->
+        deregisterListener(clientRequestPtr->eventListener);
+    if(status != telux::common::Status::SUCCESS){
+        LE_ERROR("Unable to deregister client");
+        return LE_FAULT;
+    }
+    clientRequestPtr->currentSensorClient = nullptr;
+    clientRequestPtr->isSensorActivated = false;
     return LE_OK;
 }
 

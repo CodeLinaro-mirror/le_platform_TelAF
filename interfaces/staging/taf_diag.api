@@ -77,12 +77,20 @@
    LE_ERROR_IF((svcRef == NULL), "taf_diag_GetService returns NULL!");
    @endcode
  *
+ * @section c_taf_diag_Set_VlanId Set VLAN ID
+ *
+ * After getting a service reference, an application can set the VLAN ID to the service to filter
+ * Tester state notification using taf_diag_SetVlanId(). It shall be called before registering
+ * handler for Tester state notification message.
+ *
+ * - taf_diagAuth_SetVlanId() -- Sets the VLAN ID.
+ *
  * After getting the service reference, an application can call taf_diag_AddTesterStateHandler()
  * to register a handler for tester state (OFF/ON) change notification. Once tester state is
  * changed, the handler will be called with the message reference, Vlan ID and current tester State
- * passed as input parameters. Tester state will be OFF, whenever session timeout in non-default
- * session (S3 timeout) or DoIP disconnect or session switch to default session from non-default
- * session. Finally call taf_diag_ReleaseTesterStateMsg() to release the tester state message.
+ * passed as input parameters. Tester state will be OFF(0), whenever there is no UDS communication
+ * with IVC for 5 second irrespective of any session. Finally call taf_diag_ReleaseTesterStateMsg()
+ * to release the tester state message.
  *
  * @code
    // Rx tester state handler function.
@@ -99,7 +107,7 @@
 
    // Register the tester state handler.
    taf_diag_TesterStateHandlerRef_t handlerRef =
-       taf_diag_AddTesterStateHandler(svcRef, vlanId,
+       taf_diag_AddTesterStateHandler(svcRef,
             (taf_diag_StateChangeHandlerFunc_t)TesterStateEventHandler, NULL);
    LE_ERROR_IF((handlerRef == NULL), "taf_diag_AddTesterStateHandler returns NULL!");
 
@@ -202,6 +210,24 @@ FUNCTION Service GetService
 (
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets VLAN ID to the service. If the VLAN ID is not found or does not exist, it will return an
+ * error.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_UNSUPPORTED -- VLAN ID is unknown.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetVlanId
+(
+    Service svcRef IN,      ///< Service reference.
+    uint16 vlanId IN        ///< VLAN ID.
+);
+
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a tester present state notification.
@@ -210,7 +236,7 @@ FUNCTION Service GetService
 HANDLER StateChangeHandler
 (
     TesterState stateRef  IN,    ///< Tester state reference.
-    uint16 vlanId IN,            ///< VLAN ID. If no valid VLAN ID, input 0.
+    uint16 vlanId IN,            ///< VLAN ID.
     State state  IN              ///< Tester state.
 );
 
@@ -222,7 +248,6 @@ HANDLER StateChangeHandler
 EVENT TesterState
 (
     Service svcRef,               ///< Service reference.
-    uint16 vlanId IN,             ///< VLAN ID. If the interface does not have a VLAN ID, input 0.
     StateChangeHandler handler    ///< Tester present state change handler.
 );
 

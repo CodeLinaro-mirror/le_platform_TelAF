@@ -246,9 +246,6 @@ void UdsCommunicationMgr::UdsTimerHandler
             {
                 LE_DEBUG("Stop S3 timer");
                 le_timer_Stop(udsCmMgr->s3TimerRef);
-
-                // Indicate the current tester state is OFF.
-                IndicateTesterStateChange(eventReq->ifName, OFF);
             }
             break;
 
@@ -263,9 +260,6 @@ void UdsCommunicationMgr::UdsTimerHandler
             {
                 LE_DEBUG("Start S3 timer");
                 le_timer_Start(udsCmMgr->s3TimerRef);
-
-                // Indicate the current tester state is ON.
-                IndicateTesterStateChange(eventReq->ifName, ON);
             }
             break;
 
@@ -377,6 +371,42 @@ void UdsCommunicationMgr::UdsTimerHandler
             break;
         case TAF_UDS_P2STAR_TIMER_RESTART:
             break;
+        case TAF_UDS_TESTER_STATE_TIMER_STOP:
+            if(le_timer_IsRunning(udsCmMgr->testerStateTimerRef))
+            {
+                LE_DEBUG("Stop tester state timer");
+                le_timer_Stop(udsCmMgr->testerStateTimerRef);
+
+                // Indicate the current tester state is OFF.
+                LE_INFO("Timer stop: Tester state OFF");
+                IndicateTesterStateChange(eventReq->ifName, OFF);
+            }
+            break;
+        case TAF_UDS_TESTER_STATE_TIMER_START:
+            le_timer_SetMsInterval(udsCmMgr->testerStateTimerRef, eventReq->interval);
+            if(le_timer_IsRunning(udsCmMgr->testerStateTimerRef))
+            {
+                LE_DEBUG("Restart tester state timer");
+                le_timer_Restart(udsCmMgr->testerStateTimerRef);
+            }
+            else
+            {
+                LE_DEBUG("Start tester state timer");
+                le_timer_Start(udsCmMgr->testerStateTimerRef);
+
+                LE_INFO("Timer start: Tester state ON");
+                // Indicate the current tester state is ON.
+                IndicateTesterStateChange(eventReq->ifName, ON);
+            }
+            break;
+        case TAF_UDS_TESTER_STATE_TIMER_RESTART:
+            if(le_timer_IsRunning(udsCmMgr->testerStateTimerRef))
+            {
+                LE_DEBUG("Restart Tester state timer");
+                le_timer_SetMsInterval(udsCmMgr->testerStateTimerRef, eventReq->interval);
+                le_timer_Restart(udsCmMgr->testerStateTimerRef);
+            }
+            break;
         default:
             LE_ERROR("Undefined event received.");
             break;
@@ -417,6 +447,7 @@ void* UdsCommunicationMgr::UdsTimerThread
         char s3TimerName[MAX_TIMER_NAME_LEN] = {0};
         char authTimerName[MAX_TIMER_NAME_LEN] = {0};
         char authDelayTimerName[MAX_TIMER_NAME_LEN] = {0};
+        char testerStateTimerName[MAX_TIMER_NAME_LEN] = {0};
 
         //create p2 timer
         snprintf(p2TimerName, sizeof(p2TimerName)-1, "p2-%s", pair.second->interface);
@@ -443,6 +474,13 @@ void* UdsCommunicationMgr::UdsTimerThread
         pair.second->authDelayTimerRef = le_timer_Create(authDelayTimerName);
         le_timer_SetHandler(pair.second->authDelayTimerRef, AuthDelayTimeoutHandler);
         le_timer_SetContextPtr(pair.second->authDelayTimerRef, (void*)pair.first.c_str());
+
+        //create tester state change timer
+        snprintf(testerStateTimerName, sizeof(testerStateTimerName)-1, "testerState-%s",
+                pair.second->interface);
+        pair.second->testerStateTimerRef = le_timer_Create(testerStateTimerName);
+        le_timer_SetHandler(pair.second->testerStateTimerRef, TesterStateTimeoutHandler);
+        le_timer_SetContextPtr(pair.second->testerStateTimerRef, (void*)pair.first.c_str());
     }
 
     le_event_AddHandler("UDS Timer Event Handler", udsTimerEventId, UdsTimerHandler);
@@ -614,9 +652,6 @@ void UdsCommunicationMgr::S3TimeoutHandler
 
     le_sem_Wait(SecAccSem);
 
-    // Indicate the current tester state is OFF.
-    IndicateTesterStateChange(ifName, OFF);
-
     IndicateWhenChangingToDefault(ifName);
 }
 
@@ -667,6 +702,83 @@ void UdsCommunicationMgr::AuthTimeoutHandler
     udsHandler->funcPtr(&(udsCmMgr->addrInfo), &udsCmMgr->dataIndMsg, TAF_DOIP_RESULT_OK,
             udsHandler->ctxPtr);
 
+}
+
+/*
+ * Tester state timeout handler.
+*/
+void UdsCommunicationMgr::TesterStateTimeoutHandler
+(
+    le_timer_Ref_t timerRef
+)
+{
+    LE_INFO("TesterStateTimeoutHandler: Tester state is OFF");
+    char* ifName = (char*)le_timer_GetContextPtr(timerRef);
+
+    UdsCommunicationMgr* udsCmMgr = UdsCommunicationMgr::GetInstance(ifName);
+
+    if(udsCmMgr == NULL)
+    {
+        LE_ERROR("Can't get instance by ifName %s", ifName);
+        return;
+    }
+
+    // Notify tester state is OFF
+    LE_INFO("Tester state timer expire");
+    IndicateTesterStateChange(ifName, OFF);
+}
+
+void UdsCommunicationMgr::CheckAndRestartTesterStateTimer
+(
+)
+{
+    LE_DEBUG("CheckAndRestartTesterStateTimer");
+
+    float p2StarServerInterval;
+    uint32_t maxNumberOfRcrrp, testerStateTimer;
+
+    readyToRecvData = true;
+
+    //Get P2* server interval;
+    try
+    {
+        cfg::Node & node = cfg::top_diagnostic_session<int>("id", (int)SessionType);
+        p2StarServerInterval = node.get<float>("p2_star_server_max") * 1000;//Sec to msec.
+        LE_DEBUG("p2StarServerInterval : %f", p2StarServerInterval);
+        if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX)
+        {
+            p2StarServerInterval = UDS_P2_STAR_SERVER;
+            LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%fms",
+                    p2StarServerInterval);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        p2StarServerInterval = UDS_P2_STAR_SERVER;
+        LE_ERROR("Exception: %s. Use default value:%fms", e.what(), p2StarServerInterval);
+    }
+    //Get P2* server count
+    try
+    {
+        cfg::Node & root = cfg::get_root_node();
+        cfg::Node & common = root.get_child("common_props");
+        maxNumberOfRcrrp = common.get<uint32_t>(
+                "max_number_of_request_correctly_received_response_pending");
+        LE_DEBUG("maxNumberOfRcrrp = %d", maxNumberOfRcrrp);
+    }
+    catch (const std::exception& e)
+    {
+        maxNumberOfRcrrp = UDS_P2_STAR_SERVER_CNT;
+        LE_ERROR("Exception: %s. Use default value:%d", e.what(), maxNumberOfRcrrp);
+    }
+
+    testerStateTimer = TESTER_STATE_CHANGE_TIMER;
+    //If Tester state timer is running, restart it with smaller interval.
+    if(testerStateTimer < p2StarServerInterval*maxNumberOfRcrrp)
+    {
+        UdsTimerEventReport(TAF_UDS_TESTER_STATE_TIMER_RESTART, testerStateTimer,
+                (char*)interface);
+    }
 }
 
 void UdsCommunicationMgr::CheckAndRestartS3Timer
@@ -3688,7 +3800,7 @@ void UdsCommunicationMgr::IndicateTesterStateChange
     taf_TesterState_t currentState
 )
 {
-    LE_DEBUG("IndicateTesterStateChange");
+    LE_INFO("IndicateTesterStateChange");
 
     auto udsCmMgr = UdsCommunicationMgr::GetInstance(ifName);
 
@@ -3729,6 +3841,7 @@ void UdsCommunicationMgr::IndicateTesterStateChange
     // update the tester state
     udsCmMgr->PreviousState = currentState;
     LE_DEBUG("received in VlanId = %d", udsCmMgr->addrInfo.vlanId);
+    LE_INFO("Tester currentState = %d", currentState);
 
     // Indicate tester present state change to the application.
     udsHandler->funcPtr(&(udsCmMgr->addrInfo), &udsCmMgr->stateChangeMsg,
@@ -3850,8 +3963,9 @@ void UdsCommunicationMgr::DiagIndicationHandler
         LE_INFO("Disconnected, stopped the running timer");
 
         udsCmMgr->UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0, addrInfoPtr->ifName);
-        // Indicate the current tester state is OFF.
-        IndicateTesterStateChange(addrInfoPtr->ifName, OFF);
+        // Indicate the Tester state is OFF.
+        LE_INFO("DoIP disconnected: Tester state OFF");
+        udsCmMgr->UdsTimerEventReport(TAF_UDS_TESTER_STATE_TIMER_STOP, 0, addrInfoPtr->ifName);
         udsCmMgr->UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0, addrInfoPtr->ifName);
         udsCmMgr->UdsTimerEventReport(TAF_UDS_AUTH_TIMER_STOP, 0, addrInfoPtr->ifName);
 
@@ -3882,6 +3996,7 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+
     if(diagMsgPtr == NULL)
     {
         LE_ERROR("diagMsgPtr invalid.");
@@ -3896,9 +4011,6 @@ void UdsCommunicationMgr::DiagIndicationHandler
         LE_ERROR("Diag message invalid.");
         return;
     }
-
-    // Indicate the current tester state is ON.
-    IndicateTesterStateChange(addrInfoPtr->ifName, ON);
 
     //Ignore other requests if hardware reset is in progress until system is restarted
     if(udsCmMgr->isResetInProgress)
@@ -3939,8 +4051,9 @@ void UdsCommunicationMgr::DiagIndicationHandler
     // General server response behaviour check, NRC check for 0x11, 0x34, 0x7f, 0x33
     if(udsCmMgr->GeneralServerResp(addrInfoPtr, sid) == LE_OK)
     {
-        LE_DEBUG("General server negative response");
+        LE_DEBUG("General server negative response, Restart S3 and Tester state timer");
         udsCmMgr->CheckAndRestartS3Timer(sid);
+        udsCmMgr->CheckAndRestartTesterStateTimer();
         return;
     }
 
@@ -4064,46 +4177,61 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    float p2StarServerInterval;
+    uint32_t maxNumberOfRcrrp, s3ServerInterval;
+
+    LE_DEBUG("Get P2* timer value from config");
+    //Get P2* server interval;
+    try
+    {
+        cfg::Node & node = cfg::top_diagnostic_session<int>("id", (int)udsCmMgr->SessionType);
+        p2StarServerInterval = node.get<float>("p2_star_server_max") * 1000;//Sec to msec.
+        LE_DEBUG("p2StarServerInterval : %f", p2StarServerInterval);
+        if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX)
+        {
+            p2StarServerInterval = UDS_P2_STAR_SERVER;
+            LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%fms",
+                    p2StarServerInterval);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        p2StarServerInterval = UDS_P2_STAR_SERVER;
+        LE_ERROR("Exception: %s. Use default value:%fms", e.what() , p2StarServerInterval);
+    }
+
+    LE_DEBUG("Get P2* server count value from config");
+    //Get P2* server count
+    try
+    {
+        cfg::Node & root = cfg::get_root_node();
+        cfg::Node & common = root.get_child("common_props");
+        maxNumberOfRcrrp = common.get<uint32_t>(
+                "max_number_of_request_correctly_received_response_pending");
+        LE_DEBUG("maxNumberOfRcrrp = %d", maxNumberOfRcrrp);
+    }
+    catch (const std::exception& e)
+    {
+        maxNumberOfRcrrp = UDS_P2_STAR_SERVER_CNT;
+        LE_ERROR("Exception: %s. Use default value:%d", e.what() , maxNumberOfRcrrp);
+    }
+
+    uint32_t testerStateTimer = TESTER_STATE_CHANGE_TIMER;
+    if(!isInternalHandle && (testerStateTimer < p2StarServerInterval*maxNumberOfRcrrp))
+    {
+        testerStateTimer = p2StarServerInterval*maxNumberOfRcrrp;
+    }
+    LE_DEBUG("Restart tester State timer with %d mili seconds", testerStateTimer);
+    // Indicate the Tester state is ON.
+    udsCmMgr->UdsTimerEventReport(TAF_UDS_TESTER_STATE_TIMER_START, testerStateTimer,
+            addrInfoPtr->ifName);
+
+
     // Keep a diagnostic session other than the defaultSession active while not receiving any
     // diagnostic request message
     if((sid != SESSION_CONTROL_REQUEST_ID) && (udsCmMgr->SessionType != DEFAULT_SESSION))
     {
-        float p2StarServerInterval;
-        uint32_t maxNumberOfRcrrp, s3ServerInterval;
-
         LE_DEBUG("In non-default session, received the request, then restart S3 timer");
-        //Get P2* server interval;
-        try
-        {
-            cfg::Node & node = cfg::top_diagnostic_session<int>("id", (int)udsCmMgr->SessionType);
-            p2StarServerInterval = node.get<float>("p2_star_server_max") * 1000;//Sec to msec.
-            LE_DEBUG("p2StarServerInterval : %f", p2StarServerInterval);
-            if(p2StarServerInterval > UDS_P2_STAR_SERVER_MAX)
-            {
-                p2StarServerInterval = UDS_P2_STAR_SERVER;
-                LE_ERROR("p2_star_server_max > maxmimal value. Use default value:%fms",
-                        p2StarServerInterval);
-            }
-        }
-        catch (const std::exception& e)
-        {
-            p2StarServerInterval = UDS_P2_STAR_SERVER;
-            LE_ERROR("Exception: %s. Use default value:%fms", e.what() , p2StarServerInterval);
-        }
-        //Get P2* server count
-        try
-        {
-            cfg::Node & root = cfg::get_root_node();
-            cfg::Node & common = root.get_child("common_props");
-            maxNumberOfRcrrp = common.get<uint32_t>(
-                    "max_number_of_request_correctly_received_response_pending");
-            LE_DEBUG("maxNumberOfRcrrp = %d", maxNumberOfRcrrp);
-        }
-        catch (const std::exception& e)
-        {
-            maxNumberOfRcrrp = UDS_P2_STAR_SERVER_CNT;
-            LE_ERROR("Exception: %s. Use default value:%d", e.what() , maxNumberOfRcrrp);
-        }
         //Get S3* server interval
         try
         {
@@ -4117,7 +4245,6 @@ void UdsCommunicationMgr::DiagIndicationHandler
             s3ServerInterval = UDS_S3_SERVER;
             LE_ERROR("Exception: %s. Use default value:%dms", e.what(), s3ServerInterval);
         }
-
 
         if(!isInternalHandle && (s3ServerInterval < p2StarServerInterval*maxNumberOfRcrrp))
             s3ServerInterval = p2StarServerInterval*maxNumberOfRcrrp;
@@ -4303,7 +4430,9 @@ le_result_t UdsCommunicationMgr::SendUDSResp
     if (ret == LE_UNSUPPORTED)
     {
         // Suppress positive response.
+        LE_DEBUG("Restart S3 and Tester state timer");
         udsCmMgr->CheckAndRestartS3Timer(serviceId);
+        udsCmMgr->CheckAndRestartTesterStateTimer();
         return LE_OK;
     }
     else if (ret != LE_OK)
@@ -4319,7 +4448,9 @@ le_result_t UdsCommunicationMgr::SendUDSResp
     if (ret == LE_OK)
     {
         LE_DEBUG("Requested Diagnostic message response sent.");
+        LE_DEBUG("Restart S3 and Tester state timer");
         udsCmMgr->CheckAndRestartS3Timer(serviceId);
+        udsCmMgr->CheckAndRestartTesterStateTimer();
     }
 
     return LE_OK;

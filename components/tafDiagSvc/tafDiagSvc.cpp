@@ -84,6 +84,31 @@ taf_diag_ServiceRef_t taf_diag_GetService
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Sets VLAN ID to the service. If the VLAN ID is not found or does not exist, it will return an
+ * error.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_UNSUPPORTED -- VLAN ID is unknown.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diag_SetVlanId
+(
+    taf_diag_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    uint16_t vlanId
+        ///< [IN] VLAN ID.
+)
+{
+    LE_DEBUG("taf_diag_SetVlanId");
+    auto &diag = taf_DiagSvr::GetInstance();
+    return diag.SetVlanId(svcRef, vlanId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add handler function for EVENT 'taf_diag_TesterState'
  *
  * This event provides information on tester present state change.
@@ -93,8 +118,6 @@ taf_diag_TesterStateHandlerRef_t taf_diag_AddTesterStateHandler
 (
     taf_diag_ServiceRef_t svcRef,
         ///< [IN] Service reference.
-    uint16_t vlanId,
-        ///< [IN] VLAN ID. If the interface does not have a VLAN ID, input 0.
     taf_diag_StateChangeHandlerFunc_t handlerPtr,
         ///< [IN] Tester present state change handler.
     void* contextPtr
@@ -103,7 +126,7 @@ taf_diag_TesterStateHandlerRef_t taf_diag_AddTesterStateHandler
 {
     LE_DEBUG("taf_diag_AddTesterStateHandler");
     auto &diag = taf_DiagSvr::GetInstance();
-    return diag.AddTesterStateHandler(svcRef, vlanId, handlerPtr, contextPtr);
+    return diag.AddTesterStateHandler(svcRef, handlerPtr, contextPtr);
 }
 
 //--------------------------------------------------------------------------------------------------

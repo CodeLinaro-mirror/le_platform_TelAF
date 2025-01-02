@@ -1234,7 +1234,7 @@ le_result_t taf_locGnss_GetMinElevation
 * DESCRIPTION  : sets the enabled NMEA sentences using a bit mask.
 * DEPENDECY    :
 * PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED on failed
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed
 */
 
 le_result_t taf_locGnss_SetNmeaSentences
@@ -1251,7 +1251,7 @@ le_result_t taf_locGnss_SetNmeaSentences
 * DESCRIPTION  : Gets the bit mask for the enabled NMEA sentences.
 * DEPENDECY    :
 * PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED on failed
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed
 */
 le_result_t taf_locGnss_GetNmeaSentences
 (

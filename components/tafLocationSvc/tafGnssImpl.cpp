@@ -777,6 +777,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 }
                 LocationData->magneticDeviation = locationInfo->getMagneticDeviation()*10;
                 LocationData->epochTime = locationInfo->getTimeStamp();
+                LE_DEBUG("onDetailedEngineLocationUpdate epochTime is : %" PRIu64"",locationInfo->getTimeStamp());
                 LocationData->horUncEllipseSemiMajor =
                         locationInfo->getHorizontalUncertaintySemiMajor();
                 LocationData->horUncEllipseSemiMinor =
@@ -1852,90 +1853,6 @@ void tafLocationListener::onGnssNmeaInfo(uint64_t timestamp, const std::string &
     LE_DEBUG( "**** Gnss Nmea Information  gnss.mNmeaBitMask: %s****",gnss.mNmeaBitMask.c_str());
     std::unique_lock<std::mutex> lock(clientRequestPtr->mMutex);
 
-    if ((gnss.mNmeaBitMask.compare(3,3,"GGA",0,3)) ==0) //1
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GGA;
-        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
-        {
-            gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GPGGA;
-        }
-        LE_DEBUG("onGnssNmeaInfo: GGA");
-    }
-    if ((gnss.mNmeaBitMask.compare(3,3,"RMC",0,3)) ==0) //2
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_RMC;
-        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
-        {
-            gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GPRMC;
-        }
-        LE_DEBUG("onGnssNmeaInfo: RMC");
-    }
-    if ((gnss.mNmeaBitMask.compare(3,3,"GSA",0,3)) ==0) //4
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GSA;
-        if ((gnss.mNmeaBitMask.compare(1,2,"GN",0,2)) ==0)
-        {
-            gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GNGSA;
-        }
-        LE_DEBUG("onGnssNmeaInfo: GSA");
-    }
-    if ((gnss.mNmeaBitMask.compare(3,3,"VTG",0,3)) ==0) //8
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_VTG;
-        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
-        {
-            gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GPVTG;
-        }
-        LE_DEBUG("onGnssNmeaInfo: VTG");
-    }
-    if ((gnss.mNmeaBitMask.compare(3,3,"GNS",0,3)) ==0) //16
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GNS;
-        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
-        {
-            gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GPGNS;
-        }
-        LE_DEBUG("onGnssNmeaInfo: GNS");
-    }
-    if ((gnss.mNmeaBitMask.compare(3,3,"DTM",0,3)) ==0) //32
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_DTM;
-        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
-        {
-            gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GPDTM;
-        }
-        LE_DEBUG("onGnssNmeaInfo: DTM");
-    }
-    if((gnss.mNmeaBitMask.compare(1,5,"GPGSV",0,5)) ==0) //64
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GPGSV;
-        LE_DEBUG("onGnssNmeaInfo: GPGSV");
-    }
-    if((gnss.mNmeaBitMask.compare(1,5,"GLGSV",0,5)) ==0) //128
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GLGSV;
-        LE_DEBUG("onGnssNmeaInfo: GLGSV");
-    }
-    if ((gnss.mNmeaBitMask.compare(1,5,"GAGSV",0,5)) ==0) //256
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GAGSV;
-        LE_DEBUG("onGnssNmeaInfo: GAGSV");
-    }
-    if((gnss.mNmeaBitMask.compare(1,5,"GQGSV",0,5)) ==0) //512
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GQGSV;
-        LE_DEBUG("onGnssNmeaInfo: GQGSV");
-    }
-    if((gnss.mNmeaBitMask.compare(1,5,"GBGSV",0,5)) ==0) //1024
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GBGSV;
-        LE_DEBUG("onGnssNmeaInfo: GBGSV");
-    }
-    if((gnss.mNmeaBitMask.compare(1,5,"GIGSV",0,5)) ==0) //2048
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GIGSV;
-        LE_DEBUG("onGnssNmeaInfo: GIGSV");
-    }
 
     gnss.mNmeaVar.notify_one();
     le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
@@ -5064,6 +4981,7 @@ le_result_t taf_locGnss::SetNmeaSentences
         switch (clientRequestPtr->GnssState)
         {
             case TAF_LOCGNSS_STATE_READY:
+            case TAF_LOCGNSS_STATE_ACTIVE:
             {
                 // Set the enabled NMEA sentences
                 std::promise<le_result_t> p;
@@ -5075,44 +4993,89 @@ le_result_t taf_locGnss::SetNmeaSentences
                         p.set_value(LE_FAULT);
                     }
                 };
-                if(nmeaMask > TAF_LOCGNSS_NMEA_MASK_GPZDA)
+                if ((nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGSA) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGGA) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGSA) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GARMC) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAVTG) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_PSTIS) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_REMOVED)||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_PTYPE) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGRS) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGLL) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_DEBUG) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGNS) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GNGNS) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGST) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPZDA))
                 {
-                    taf_locGnss_NmeaBitMask_t nmeaSetResult = 0;
-                    if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_GGA)
-                    {
-                        nmeaSetResult |= TAF_LOCGNSS_NMEA_MASK_GPGGA;
-                        LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_GGA");
-                    }
-                    if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_RMC)
-                    {
-                        nmeaSetResult |= TAF_LOCGNSS_NMEA_MASK_GPRMC;
-                        LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_RMC");
-                    }
-                    if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_GSA)
-                    {
-                        nmeaSetResult |= TAF_LOCGNSS_NMEA_MASK_GNGSA;
-                        LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_GSA");
-                    }
-                    if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_VTG)
-                    {
-                        nmeaSetResult |= TAF_LOCGNSS_NMEA_MASK_GPVTG;
-                        LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_VTG");
-                    }
-                    if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_GNS)
-                    {
-                        nmeaSetResult |= TAF_LOCGNSS_NMEA_MASK_GPGNS;
-                        LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_GNS");
-                    }
-                    if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_DTM)
-                    {
-                        nmeaSetResult |= TAF_LOCGNSS_NMEA_MASK_GPDTM;
-                        LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_DTM");
-                    }
-                    nmeaMask |= nmeaSetResult;
+                    LE_ERROR("Unsuported items");
+                    return LE_FAULT;
+                }
+                telux::loc::NmeaSentenceConfig nmeaType = 0;
+                if((nmeaMask & TAF_LOCGNSS_NMEA_MASK_GGA) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGGA))
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GGA;
+                    LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_GGA");
+                }
+                if((nmeaMask & TAF_LOCGNSS_NMEA_MASK_RMC) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPRMC))
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::RMC;
+                    LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_RMC");
+                }
+                if((nmeaMask & TAF_LOCGNSS_NMEA_MASK_GSA) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GNGSA))
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GSA;
+                    LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_GSA");
+                }
+                if((nmeaMask & TAF_LOCGNSS_NMEA_MASK_VTG) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPVTG))
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::VTG;
+                    LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_VTG");
+                }
+                if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_GNS)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GNS;
+                    LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_GNS");
+                }
+                if((nmeaMask & TAF_LOCGNSS_NMEA_MASK_DTM) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPDTM))
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::DTM;
+                    LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_DTM");
+                }
+                if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGSV)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GPGSV;
+                    LE_DEBUG("SetNmeaSentences ->GPGSV");
+                }
+                if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GLGSV)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GLGSV;
+                    LE_DEBUG("SetNmeaSentences ->GLGSV");
+                }
+                if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGSV)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GAGSV;
+                    LE_DEBUG("SetNmeaSentences ->GAGSV");
+                }
+                if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GQGSV)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GQGSV;
+                    LE_DEBUG("SetNmeaSentences ->GQGSV");
+                }
+                if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GBGSV)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GBGSV;
+                    LE_DEBUG("SetNmeaSentences ->GBGSV");
+                }
+                if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GIGSV)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GIGSV;
+                    LE_DEBUG("SetNmeaSentences ->GIGSV");
                 }
                 LE_DEBUG("SetNmeaSentences nmeaMask mask is : %" PRIu64 "", nmeaMask);
 
-                auto status = mLocationConfigurator->configureNmeaTypes(nmeaMask, cb);
+                auto status = mLocationConfigurator->configureNmeaTypes(nmeaType, cb);
                 if(status != telux::common::Status::SUCCESS)
                 {
                     result = LE_FAULT;
@@ -5124,6 +5087,7 @@ le_result_t taf_locGnss::SetNmeaSentences
                     {
                         result = LE_OK;
                         LE_DEBUG("SetNmeaSentences() is success");
+                        SetNmeaConfig(nmeaMask);
                     }
                     else
                     {
@@ -5139,7 +5103,6 @@ le_result_t taf_locGnss::SetNmeaSentences
             }
             break;
             case TAF_LOCGNSS_STATE_UNINITIALIZED:
-            case TAF_LOCGNSS_STATE_ACTIVE:
             case TAF_LOCGNSS_STATE_DISABLED:
             {
                 LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
@@ -5179,18 +5142,12 @@ le_result_t taf_locGnss::GetNmeaSentences
     // Check the GNSS device state
     switch (clientRequestPtr->GnssState)
     {
+        case TAF_LOCGNSS_STATE_READY:
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
             // Get the enabled NMEA sentences
-            std::unique_lock<std::mutex> lock(clientRequestPtr->mMutex);
-            auto nmeaStatus = mNmeaVar.wait_for(lock,std::chrono::seconds(DEFAULT_TIMEOUT_IN_SECONDS));
-            if(nmeaStatus == std::cv_status::timeout)
-            {
-                LE_DEBUG("NmeaSentence type not found within %d seconds",DEFAULT_TIMEOUT_IN_SECONDS);
-                result = LE_TIMEOUT;
-                return result;
-            }
-
+            mNmeaMask = GetNmeaConfig();
+            LE_INFO("the NMEA retrieved from the config is : %" PRIu64"",mNmeaMask);
             if(mNmeaMask != 0)
             {
                 *nmeaMaskPtr = mNmeaMask;
@@ -5210,7 +5167,6 @@ le_result_t taf_locGnss::GetNmeaSentences
             }
         }
         break;
-        case TAF_LOCGNSS_STATE_READY:
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
         case TAF_LOCGNSS_STATE_DISABLED:
         {
@@ -5280,6 +5236,55 @@ le_result_t taf_locGnss::GetSupportedNmeaSentences
     }
 
     return result;
+}
+
+le_result_t taf_locGnss::SetNmeaConfig(const taf_locGnss_NmeaBitMask_t nmeaMask)
+{
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn("tafLocationSvc:/");
+
+    char config_node_nmea_lsb[LENGTH_CFG_NODE] = {};
+    char config_node_nmea_msb[LENGTH_CFG_NODE] = {};
+    snprintf(config_node_nmea_lsb, sizeof(config_node_nmea_lsb), "%s", "nmeaSentences_lsb");
+    le_cfg_SetInt(iteratorRef, "nmea_lsb", nmeaMask);//store LSB 32 bits
+
+    taf_locGnss_NmeaBitMask_t nmea_msb = (taf_locGnss_NmeaBitMask_t) nmeaMask >>32;//store 32 bits(MSB) out of 64 bits
+    snprintf(config_node_nmea_msb, sizeof(config_node_nmea_msb), "%s", "nmeaSentences_msb");
+    le_cfg_SetInt(iteratorRef, "nmea_msb", nmea_msb);
+    le_cfg_CommitTxn(iteratorRef);
+
+    LE_INFO("Set NMEA LSB config node%s as : %" PRIu64"",config_node_nmea_lsb,(nmeaMask &0xffffffff));
+    LE_INFO("Set NMEA MSB config node%s as : %" PRIu64"",config_node_nmea_msb,nmea_msb);
+
+    return LE_OK;
+}
+
+taf_locGnss_NmeaBitMask_t taf_locGnss::GetNmeaConfig()
+{
+    taf_locGnss_NmeaBitMask_t nmea = 0;
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn("tafLocationSvc:/");
+
+    if (le_cfg_NodeExists(iteratorRef, "nmea_lsb"))
+    {
+        uint32_t configNmea = le_cfg_GetInt(iteratorRef,
+                                       "nmea_lsb", 0);
+        nmea = (taf_locGnss_NmeaBitMask_t)configNmea;//fetch LSB 32 bits
+
+        LE_INFO("Get NMEA LSB config node%s as : %" PRIu64"","nmea_lsb",nmea);
+    }
+    if (le_cfg_NodeExists(iteratorRef, "nmea_msb"))
+    {
+        uint64_t configNmea = le_cfg_GetInt(iteratorRef,
+                                       "nmea_msb", 0);
+        nmea = nmea |(taf_locGnss_NmeaBitMask_t)configNmea <<32;//MSB 32 bits and LSB 32 bits
+
+        LE_INFO("Get NMEA MSB config node%s as : %" PRIu64"","nmea_msb",(taf_locGnss_NmeaBitMask_t)configNmea);
+        le_cfg_CancelTxn(iteratorRef);
+        return nmea;
+    }
+    LE_WARN("config node %s doesn't exist", "nmea LSB and MSB");
+
+    le_cfg_CancelTxn(iteratorRef);
+    return 0;
 }
 
 le_result_t taf_locGnss::SetDRConfig(const taf_locGnss_DrParams_t* drParamsPtr)
@@ -7807,7 +7812,12 @@ void taf_locGnss::Init()
     le_msg_ServiceRef_t msgService = taf_locGnss_GetServiceRef();
     le_msg_AddServiceOpenHandler(msgService, OpenEventHandler, NULL);
     le_msg_AddServiceCloseHandler(msgService, CloseEventHandler, NULL);
-
+    if (GetNmeaConfig()== 0)
+    {
+       TAF_LOCGNSS_NMEA_DEFAULT = 0x1f8000fc0;//If value is 0 it will set the default NMEA sentences (all sentences enabled)
+       LE_DEBUG("Nmea node doesn't exist, so set default NMEA value");
+       SetNmeaConfig(TAF_LOCGNSS_NMEA_DEFAULT);
+    }
     return;
 }
 le_result_t taf_locGnss::SetDRConfigValidity(taf_locGnss_DRConfigValidityType_t validMask)

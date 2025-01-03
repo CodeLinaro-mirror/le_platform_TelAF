@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -59,9 +59,16 @@ void AppRadioOpModeChangeCb(taf_radio_OpMode_t mode, void * ctx)
     }
 }
 
-void AppMpmsWakeupVehicleRspCb(int32_t reason, int32_t response, void * ctx)
+void AppMpmsWakeupVehicleRspCb
+(
+int32_t reason,
+int32_t response,
+le_result_t result,
+void * ctx
+)
 {
-    LE_INFO("-- SampleApp AppMpmsWakeupVehicleRspCb reason: %d, response: %d", reason, response);
+    LE_INFO("-- SampleApp AppMpmsWakeupVehicleRspCb reason: %d, response: %d, result: %d",
+              reason, response, (int)result);
 }
 
 static void   *AppTask(void *arg)

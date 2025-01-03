@@ -1255,6 +1255,7 @@ le_result_t taf_AuthSvr::RemoveSvc
 
     // Release Authentication message resources.
     ClearMsgList(servicePtr);
+    ClearVlanList(servicePtr);
 
     // Clear the registered Authentication RxMsg handler
     if (servicePtr->rxHandlerRef != NULL)
@@ -1279,7 +1280,7 @@ le_result_t taf_AuthSvr::RemoveSvc
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Clear IOCtrl message list.
+ * Clear authentication message list.
  */
 //-------------------------------------------------------------------------------------------------
 void taf_AuthSvr::ClearMsgList
@@ -1305,6 +1306,37 @@ void taf_AuthSvr::ClearMsgList
 
         // Process next node.
         linkPtr = le_dls_Pop(&servicePtr->rxMsgList);
+    }
+
+    return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Clear vlan list.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_AuthSvr::ClearVlanList
+(
+    taf_AuthSvc_t* servicePtr
+)
+{
+    LE_DEBUG("ClearVlanList");
+    TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
+
+    // Clear the vlan id list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
+    while (linkPtr != NULL)
+    {
+        taf_AuthVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_AuthVlanIdNode_t, link);
+        if (vlanPtr != NULL)
+        {
+            LE_DEBUG("Release vlan node(id=0x%x)", vlanPtr->vlanId);
+            le_mem_Release(vlanPtr);
+        }
+
+        // Process next node.
+        linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
     }
 
     return;

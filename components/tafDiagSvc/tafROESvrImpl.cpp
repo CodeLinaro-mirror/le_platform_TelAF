@@ -74,7 +74,7 @@ void taf_ROESvr::UDSMsgHandler
     {
         case ON_DTC_STATUS_CHANGE:
         {
-            if (msgLen != MIN_ROE_ON_DTC_STATUS_CHANGE)
+            if (msgLen < MIN_ROE_ON_DTC_STATUS_CHANGE)
             {
                 LE_DEBUG("Invalid length %" PRIuS " for subFunc(0x%x)", msgLen, subFunc);
                 le_ref_DeleteRef(RxMsgRefMap, rxMsgPtr->rxMsgRef);

@@ -623,6 +623,33 @@ taf_diagRoutineCtrl_ServiceRef_t taf_RoutinCtrlSvr::FindOrCreateService
     return servicePtr->ref;
 }
 
+void taf_RoutinCtrlSvr::ClearVlanList
+(
+    taf_RoutineCtrlSvc_t* servicePtr
+)
+{
+    LE_DEBUG("ClearVlanList");
+    TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
+
+    // Clear the vlan id list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
+    while (linkPtr != NULL)
+    {
+        taf_RoutineCtrlVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr,
+            taf_RoutineCtrlVlanIdNode_t, link);
+        if (vlanPtr != NULL)
+        {
+            LE_INFO("Release vlan(id=0x%x)", vlanPtr->vlanId);
+            le_mem_Release(vlanPtr);
+        }
+
+        // Process next node.
+        linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
+    }
+
+    return;
+}
+
 le_result_t taf_RoutinCtrlSvr::RemoveRoutineCtrlSvc
 (
     taf_diagRoutineCtrl_ServiceRef_t svcRef
@@ -634,6 +661,8 @@ le_result_t taf_RoutinCtrlSvr::RemoveRoutineCtrlSvc
         LE_ERROR("Bad parameters");
         return LE_BAD_PARAMETER;
     }
+
+    ClearVlanList(servicePtr);
 
     // Clear the UDS Rx message list.
     le_dls_Link_t* linkPtr = le_dls_Pop(&servicePtr->reqMsgList);

@@ -756,6 +756,37 @@ void taf_IOCtrlSvr::ClearMsgList
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Clear vlan list.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_IOCtrlSvr::ClearVlanList
+(
+    taf_IOCtrlSvc_t* servicePtr
+)
+{
+    LE_DEBUG("ClearVlanList");
+    TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
+
+    // Clear the vlan id list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
+    while (linkPtr != NULL)
+    {
+        taf_IOCtrlVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_IOCtrlVlanIdNode_t, link);
+        if (vlanPtr != NULL)
+        {
+            LE_DEBUG("Release vlan node(id=0x%x)", vlanPtr->vlanId);
+            le_mem_Release(vlanPtr);
+        }
+
+        // Process next node.
+        linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
+    }
+
+    return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Remove the created service and release the alloted memory.
  */
 //-------------------------------------------------------------------------------------------------
@@ -771,6 +802,7 @@ le_result_t taf_IOCtrlSvr::RemoveSvc
 
     // Release IOCtrl message resources.
     ClearMsgList(servicePtr);
+    ClearVlanList(servicePtr);
 
     // Clear the registered IOCtrl handler
     if (servicePtr->handlerRef != NULL)

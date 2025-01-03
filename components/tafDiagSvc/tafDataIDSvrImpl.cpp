@@ -1048,6 +1048,7 @@ le_result_t taf_DataIDSvr::RemoveSvc
     // Release DID message resources.
     ClearReadDIDMsgList(servicePtr);
     ClearWriteDIDMsgList(servicePtr);
+    ClearVlanList(servicePtr);
 
     // Clear the registered readDID handler
     if (servicePtr->readDIDHandlerRef != NULL)
@@ -1131,6 +1132,37 @@ void taf_DataIDSvr::ClearWriteDIDMsgList
 
         // Process next node.
         linkPtr = le_dls_Pop(&servicePtr->writeDIDMsgList);
+    }
+
+    return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Clear vlan list.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_DataIDSvr::ClearVlanList
+(
+    taf_DataIDSvc_t* servicePtr
+)
+{
+    LE_DEBUG("ClearVlanList");
+    TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
+
+    // Clear the vlan id list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
+    while (linkPtr != NULL)
+    {
+        taf_DataIDVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_DataIDVlanIdNode_t, link);
+        if (vlanPtr != NULL)
+        {
+            LE_INFO("Release vlan(id=0x%x)", vlanPtr->vlanId);
+            le_mem_Release(vlanPtr);
+        }
+
+        // Process next node.
+        linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
     }
 
     return;

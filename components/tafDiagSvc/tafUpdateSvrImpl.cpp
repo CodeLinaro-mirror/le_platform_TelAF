@@ -266,6 +266,7 @@ le_result_t taf_UpdateSvr::RemoveUpdateSvc
     ClearFileXferMsgList(svcPtr);
     ClearXferDataMsgList(svcPtr);
     ClearXferExitMsgList(svcPtr);
+    ClearVlanList(svcPtr);
 
     // Clear the registered handler
     if (svcPtr->fileXferRef != NULL)
@@ -365,6 +366,27 @@ void taf_UpdateSvr::ClearXferExitMsgList
 
         // Process next node.
         linkPtr = le_dls_Pop(&svcPtr->reqXferExitMsgList);
+    }
+}
+
+void taf_UpdateSvr::ClearVlanList
+(
+    taf_UpdateSvc_t* svcPtr
+)
+{
+    // Clear the vlan id list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&svcPtr->supportedVlanList);
+    while (linkPtr != NULL)
+    {
+        taf_UpdateVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_UpdateVlanIdNode_t, link);
+        if (vlanPtr != NULL)
+        {
+            LE_INFO("Release vlan node(id=0x%x)", vlanPtr->vlanId);
+            le_mem_Release(vlanPtr);
+        }
+
+        // Process next node.
+        linkPtr = le_dls_Pop(&svcPtr->supportedVlanList);
     }
 }
 

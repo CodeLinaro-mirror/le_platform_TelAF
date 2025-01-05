@@ -273,6 +273,9 @@ const char* taf_Time::SourceAttrToStr
         case TAF_TIME_CONF_TOLMILLSEC:
             return "ToleranceMillsec";
 
+        case TAF_TIME_CONF_SETTIMECOUNTER:
+            return "SetTimeCounter";
+
         /* Add new source item here */
 
         case TAF_TIME_CONF_MAX_ITEM:
@@ -300,7 +303,7 @@ le_result_t taf_Time::ReadSourceConf
     json_t *arrayData,*itemData, *sourceCfgArray;
     const char* value;
     int priority;
-    long int toleranceMillsec;
+    long int toleranceMillsec, setTimeCounter= -1;
     int i, j;
     long int arraySize = 0;
 
@@ -359,6 +362,11 @@ le_result_t taf_Time::ReadSourceConf
                 {
                     sscanf(value,"%ld", &toleranceMillsec);
                     serviceCfg.addToleranceMillsec(i, toleranceMillsec);
+                }
+                if (j == TAF_TIME_CONF_SETTIMECOUNTER)
+                {
+                    sscanf(value,"%ld", &setTimeCounter);
+                    serviceCfg.addSetTimeCounter(i, setTimeCounter);
                 }
                 result = LE_OK;
             }
@@ -1825,8 +1833,14 @@ le_result_t taf_Time::SetSystemTime
         return result;
     }
 
-    if (IsThresholdSetTimeAllow(timeVal, systemTime, timeSource))
+    if (IsThresholdSetTimeAllow(timeVal, systemTime, timeSource) &&
+        (TimeSourceConf.source[position].setTimeCounter != 0))
     {
+        if(TimeSourceConf.source[position].setTimeCounter > 0)
+        {
+            TimeSourceConf.source[position].setTimeCounter-- ;
+        }
+
         newTime.tv_sec = timeVal.sec;
         newTime.tv_nsec = timeVal.nanosec;
 

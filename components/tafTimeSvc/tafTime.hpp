@@ -153,6 +153,7 @@ typedef enum
     TAF_TIME_CONF_SETTIME,   ///< Flag to indicate if set time to system or not
     TAF_TIME_CONF_PRIORI,    ///< Source priority
     TAF_TIME_CONF_TOLMILLSEC,    ///< tolerance millsec
+    TAF_TIME_CONF_SETTIMECOUNTER,    ///< tolerance millsec
 
     TAF_TIME_CONF_MAX_ITEM
 }
@@ -339,9 +340,14 @@ namespace telux
             bool setSystemTime;
             std::string sourceName;
             long int toleranceMillsec;
+            long int setTimeCounter;
 
-            Source(int pri, bool flag, const std::string& name, long int tolMillsec) :
-              priority(pri), setSystemTime(flag), sourceName(name), toleranceMillsec(tolMillsec) {}
+            Source
+            (
+                int pri, bool flag, const std::string& name,long int tolMillsec,long int setTimeCnt
+            ) :
+              priority(pri), setSystemTime(flag), sourceName(name), toleranceMillsec(tolMillsec),
+              setTimeCounter(setTimeCnt) {}
         };
 
         class TimeSources {
@@ -373,6 +379,14 @@ namespace telux
                 }
             }
 
+            // Add a SetTimeCounter to TimeSources
+            void addSetTimeCounter(int position, long int setTimeCnt) {
+                addSizeToSource(position);
+                if (position >= 0 && position < (int)source.size()) {
+                    source[position].setTimeCounter = setTimeCnt;
+                }
+            }
+
             // Add a setSystemTime to TimeSources
             void addSetTimeFlag(int position, bool setSystemTime) {
                 addSizeToSource(position);
@@ -394,7 +408,7 @@ namespace telux
             {
                 if (position == (int)source.size() && position + 1 < sourceVectorSize)
                 {
-                    source.push_back(Source(0, 0, "", TAF_TIME_THRESHOLD_MILLISEC));
+                    source.push_back(Source(0, 0, "", TAF_TIME_THRESHOLD_MILLISEC, 0));
                 }
             }
 
@@ -440,9 +454,10 @@ namespace telux
             // Print the details of all source in time sources configuration
             void printSourceDetails() const {
                 for (const Source& item : source) {
-                    LE_INFO("Name: %s, priority: %d, setTimeFlag: %d, ToleranceMillsec: %ld\n",
-                                item.sourceName.c_str(), item.priority, item.setSystemTime,
-                                item.toleranceMillsec);
+                    LE_INFO("Name: %s, priority: %d, setTimeFlag: %d, ToleranceMillsec: %ld, "
+                        "SetTimeCounter: %ld\n",
+                        item.sourceName.c_str(), item.priority, item.setSystemTime,
+                        item.toleranceMillsec, item.setTimeCounter);
                 }
                 if (pollingInterval) {
                     LE_INFO("PollingInterval: %ld\n", pollingInterval);

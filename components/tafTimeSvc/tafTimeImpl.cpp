@@ -1734,7 +1734,7 @@ le_result_t taf_Time::UpdateDeltaTimeToStorage
 {
     auto &tafTime = taf_Time::GetInstance();
     le_result_t result = LE_OK;
-    uint64_t oldDelta_Msec = 0, newDelta_Msec = 0;
+    int64_t oldDelta_Msec = tafTime.deltaTimeMSec, newDelta_Msec = 0;
     taf_time_TimeSpec_t rtcTimeVal;
 
     result = GetInternalRtcTime(&rtcTimeVal);
@@ -1743,17 +1743,8 @@ le_result_t taf_Time::UpdateDeltaTimeToStorage
         LE_ERROR("Read RTC failed %d\n", result);
         return result;
     }
-
-    if (rtcTimeVal.sec > timeVal.sec)
-    {
-        newDelta_Msec = (rtcTimeVal.sec * 1000) + (rtcTimeVal.nanosec/1000)
-                      - (timeVal.sec * 1000) - (timeVal.nanosec/1000);
-    }
-    else
-    {
-        newDelta_Msec = (timeVal.sec * 1000) + (timeVal.nanosec/1000)
-                      - (rtcTimeVal.sec * 1000) - (rtcTimeVal.nanosec/1000);
-    }
+    newDelta_Msec = (timeVal.sec * 1000) + (timeVal.nanosec/1000)
+                  - (rtcTimeVal.sec * 1000) - (rtcTimeVal.nanosec/1000);
 
     //Check if the delta time is any different
     if((newDelta_Msec > tafTime.deltaTimeMSec + 1000) || (tafTime.deltaTimeMSec > newDelta_Msec + 1000))
@@ -1775,8 +1766,8 @@ le_result_t taf_Time::UpdateDeltaTimeToStorage
         close(fd);
     }
 
-    LE_DEBUG("RTC sec %" PRIu64 ", System sec %" PRIu64 ", oldDlt sec %" PRIu64 ", newDlt sec "
-             "%" PRIu64 "\n", rtcTimeVal.sec, timeVal.sec, oldDelta_Msec/1000, newDelta_Msec/1000);
+    LE_DEBUG("RTC sec %" PRIu64 ", System sec %" PRIu64 ", oldDlt sec %" PRId64 ", newDlt sec "
+             "%" PRId64 "\n", rtcTimeVal.sec, timeVal.sec, oldDelta_Msec/1000, newDelta_Msec/1000);
 
     return LE_OK;
 }

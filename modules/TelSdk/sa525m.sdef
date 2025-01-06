@@ -139,6 +139,7 @@ bindings:
     <telaf>.DeviceManager -> <root>.DeviceManager
     <root>.DeviceManagerTool -> <root>.DeviceManagerTool
     <telaf>.sdirTool -> <root>.sdirTool
+    <telaf>.le_cfg -> <root>.le_cfg
     <system>.taf_flash -> <telaf>.taf_flash
 }
 

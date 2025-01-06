@@ -56,11 +56,12 @@
  * @section taf_mngdPm Configuration
  *
  * Before starting the service, the user should place a JSON file named
- * tafMngdPMConfig.json into /data/ManagedServices directory. This JSON file contains the
- * configurations for trigger sources, e.g., CAN, SMS, and GPIO.
+ * tafMngdPMSvc.json into /data/ManagedServices directory. This JSON file contains the
+ * configurations for bootup system awake time, whether PM HAL is enabled, timeout length
+ * for hal responses.
  *
  * The default configuration file is available at
- * /legato/systems/current/appsWriteable/tafMngdPMSvc/tafMngdPMConfig.json
+ * /legato/systems/current/appsWriteable/tafMngdPMSvc/tafMngdPMSvc.json
  *
  * @section taf_mngdPm_shutdown Shutdown the system forcefully
  *
@@ -71,7 +72,7 @@
  * @verbatim
 
     void ForcedSystemShutdownCallBack(taf_mngdPm_ShutdownMode_t mode,
-        taf_mngdPm_ResponseMode_t ResponseMode, void* contextPtr)
+        taf_mngdPm_ResponseMode_t ResponseMode, le_result_t result, void* contextPtr)
     {
         LE_INFO("ForcedSystemShutdownCallBack ");
     }
@@ -99,7 +100,7 @@
  * @verbatim
 
     void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode,
-            void* contextPtr)
+            le_result_t result, void* contextPtr)
     {
         LE_INFO(" RestartCallback ");
     }
@@ -146,44 +147,42 @@
     }
    @endverbatim
  *
- * @section taf_mngdPm_NewNodeWakeupSource Acquire a wake source
+ * @section taf_mngdPm_CreateWakeupSource Acquire a wake source
  *
- * TelAF Managed Power Management Service's client calls taf_mngdPm_NewNodeWakeupSource() and
- * taf_mngdPm_StayAwakeNode() to acquire a wake source to keep the system awake.
- * The vhalTag parameter in taf_mngdPm_NewNodeWakeupSource() is used as an indication for the service to decide
- * whether a notification is needed to be sent to the VHAL for the actions of taf_mngdPm_StayAwakeNode() and
- * taf_mngdPm_RelaxNode().
- * If the vhalTag is null, no notification will be sent to VHAL. Otherwise, the corresponding notification will be sent
- * to the VHAL with the tag.
+ * TelAF Managed Power Management Service's client calls taf_mngdPm_CreateWakeupSource() and
+ * taf_mngdPm_StayAwake() to acquire a wake source to keep the system awake.
+ * The reason parameter in taf_mngdPm_CreateWakeupSource() is authenticated based on the mask given by
+ * taf_mngdPm_AuthorizeStayAwakeReason() and passed to VHAL.
+ * The authorized wake source keeps the system awake when taf_mngdPm_StayAwake() is called.
+ * By default, all the stake awake reasons are authorized.
  * @verbatim
 
-    void NewNodeWakeupSource()
+    void CreateWakeupSource()
     {
-        const char* vHalTag = "vehicle_on";
-        uint8_t pmNodeId = 0;
-        taf_mngdPm_wsRef_t ref = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_SMS, vHalTag);
+        const char* wsTag = "OEM_Normal";
+        taf_mngdPm_wsRef_t ref = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
         if(ref != NULL)
-            LE_INFO("taf_mngdPm_NewNodeWakeupSource acquired a wake source successfully");
+            LE_INFO("taf_mngdPm_CreateWakeupSource created a wake source successfully");
     }
-    void StayAwakeNode()
+    void StayAwake()
     {
-        le_result_t result = = taf_mngdPm_StayAwakeNode(ref);
+        le_result_t result = = taf_mngdPm_StayAwake(ref);
         if(result == LE_OK)
-            LE_INFO("taf_mngdPm_StayAwakeNode successfully acquire a wake source to keep the system awake");
+            LE_INFO("taf_mngdPm_StayAwake successfully acquire a wake source to keep the system awake");
     }
    @endverbatim
  *
- * @section taf_mngdPm_RelaxNode Release an acquired wake source
+ * @section taf_mngdPm_Relax Release an acquired wake source
  *
- * TelAF Managed Power Management Service's client calls taf_mngdPm_RelaxNode() to request
+ * TelAF Managed Power Management Service's client calls taf_mngdPm_Relax() to request
  * MPMS to release the acquired wake lock.
  * This function returns le_result_t.
  * @verbatim
-    void RelaxNode()
+    void Relax()
     {
-        le_result_t result = = taf_mngdPm_RelaxNode(ref);
+        le_result_t result = = taf_mngdPm_Relax(ref);
         if(result == LE_OK)
-            LE_INFO("taf_mngdPm_RelaxNode successfully released a acquired wake lock");
+            LE_INFO("taf_mngdPm_Relax successfully released a acquired wake lock");
     }
    @endverbatim
  *
@@ -194,7 +193,7 @@
  * This function returns le_result_t.
  * @verbatim
  void wakeupVehicleCB(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode,
-            void* contextPtr)
+            le_result_t result, void* contextPtr)
     {
         LE_INFO(" wakeupVehicleCB ");
     }
@@ -477,7 +476,7 @@ HANDLER AsyncShutdownReqHandler
 (
     ShutdownMode requestedMode IN,   ///< Requested mode.
     ResponseMode responseMode  IN,   ///< Request response.
-    le_result_t result         IN    ///< Request response result. 
+    le_result_t result         IN    ///< Request response result.
 );
 
 /**
@@ -496,7 +495,7 @@ HANDLER AsyncRestartReqHandler
 (
     RestartMode restartMode   IN,    ///< Restart mode.
     ResponseMode responseMode IN,    ///< Request response.
-    le_result_t result        IN     ///< Request response result. 
+    le_result_t result        IN     ///< Request response result.
 );
 
 /**
@@ -506,7 +505,7 @@ HANDLER AsyncWakeupVehicleReqHandler
 (
     int32 reason IN,    ///< WakeupVehicleReason reason.
     int32 status IN,     ///< Response status.
-    le_result_t result IN     ///< Request response result. 
+    le_result_t result IN     ///< Request response result.
 );
 
 /**

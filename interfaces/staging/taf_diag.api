@@ -7,7 +7,7 @@
 /**
  * @page c_tafDiag Diag Service
  *
- * @ref taf_diag_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_diag_interface.h>` @endrst
  *
  * <HR>
  *

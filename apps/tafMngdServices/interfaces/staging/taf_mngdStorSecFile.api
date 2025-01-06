@@ -34,9 +34,9 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_taf_mngdStorSec Managed Storage Service
+ * @page c_taf_mngdStorSecFile Managed Secured File Storage Service
  *
- * @ref taf_mngdStorage_secure_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_mngdStorSecFile_interface.h>` @endrst
  *
  * <HR>
  *

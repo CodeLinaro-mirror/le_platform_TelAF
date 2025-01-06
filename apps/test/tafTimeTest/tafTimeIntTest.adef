@@ -18,6 +18,11 @@ processes:
     faultAction: stopApp
 }
 
+capability:
+{
+        CAP_NET_ADMIN
+}
+
 bindings:
 {
     tafTimeIntTest.tafTimeIntTest.taf_time -> tafTimeSvc.taf_time

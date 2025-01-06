@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -368,11 +368,18 @@ COMPONENT_INIT {
     const char* apIntfName = le_arg_GetArg(1);
 
     LE_TEST_INFO("======== WLAN Access Point Integration Test ========");
+
+    if (NULL == testType)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("Test type is NULL");
+    }
     if (NULL == apIntfName)
     {
         PrintUsage();
-        LE_TEST_FATAL("Invalid AP interface name is NULL");
+        LE_TEST_FATAL("AP interface name is NULL");
     }
+
     LE_TEST_INFO("AP Interface to use: %s", apIntfName);
 
     if (strncasecmp(testType, "Start", strlen("Start")) == 0) {

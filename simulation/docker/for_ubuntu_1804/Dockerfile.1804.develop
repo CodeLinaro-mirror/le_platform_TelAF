@@ -27,7 +27,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install wg
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install git
 RUN apt-get -y --no-install-recommends install python-dev
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install unzip
-RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install openjdk-8-jre
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install openjdk-8-jre-headless
 
 RUN apt-get -y --no-install-recommends install python3-venv
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -42,11 +42,13 @@ RUN python3 -m pip install udsoncan==1.23.2
 RUN python3 -m pip install pyyaml==6.0.1
 RUN python3 -m pip install MarkupSafe==2.0.1
 RUN python3 -m pip install Jinja2==3.0.3
+RUN python3 -m pip install oyaml==1.0
 
 RUN apt-get -y --no-install-recommends install pkg-config
 RUN apt-get -y --no-install-recommends install libsqlite3-dev
 RUN apt-get -y --no-install-recommends install libasound2-dev
 RUN apt-get -y --no-install-recommends install nano
+RUN apt-get -y --no-install-recommends install libglib2.0-dev
 
 ARG DEVELOPER_UID=1000
 ARG DEVELOPER_GID=1000
@@ -60,22 +62,8 @@ RUN adduser developer sudo
 RUN echo 'developer:simula' | chpasswd
 RUN echo 'developer ALL=(ALL:ALL) ALL' >> /etc/sudoers
 
-# Configure fixuid for dynamic uid/gid passing.
-RUN USER=developer && \
-    GROUP=developer && \
-    curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.4.1/fixuid-0.4.1-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
-    chown root:root /usr/local/bin/fixuid && \
-    chmod 4755 /usr/local/bin/fixuid && \
-    mkdir -p /etc/fixuid && \
-    printf "user: $USER\ngroup: $GROUP\npaths:\n  - /tmp\n" > /etc/fixuid/config.yml
-
 WORKDIR /home/developer/
 USER developer:developer
 
 RUN echo 'if [ "`id -u`" -eq 0 ]; then PS1="[Build Your Simulation] \\u:\\w # "; else PS1="[Build Your Simulation] \\u:\\w $ "; fi' >> ~/.bashrc
-
 ENTRYPOINT ["/bin/bash", "/home/developer/simulation_ro/scripts/forward_to_container.sh"]
-
-# You should pass arguments such as : '-u $(id -u):$(id -g)' to 'docker run' command.
-# Caution: please MOUNT your opensource project at the special location.
-# ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/developer/simulation_ro/scripts/forward_to_container.sh"]

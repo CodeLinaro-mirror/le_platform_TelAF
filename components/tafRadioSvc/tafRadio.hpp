@@ -259,6 +259,7 @@ typedef struct
     int ss;   ///< Signal Strength in dBm
     int ber;  ///< Bit error rate
     int sslv; ///< Signal Strength Level
+    int rscp; ///< Received Signal Code Power in dBm.
 } taf_RadioUmtsSignalMetrics_t;
 
 typedef struct

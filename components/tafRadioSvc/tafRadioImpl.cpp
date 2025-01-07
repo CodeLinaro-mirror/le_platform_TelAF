@@ -1190,6 +1190,7 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         ssMetrics.umts.sslv = (int8_t)signalStrength->getWcdmaSignalStrength()->getLevel() + 1;
         ssMetrics.umts.ss = signalStrength->getWcdmaSignalStrength()->getDbm();
         ssMetrics.umts.ber = signalStrength->getWcdmaSignalStrength()->getBitErrorRate();
+        ssMetrics.umts.rscp = signalStrength->getWcdmaSignalStrength()->getRscp();
     }
 
     if (signalStrength->getTdscdmaSignalStrength() != nullptr &&

@@ -2025,6 +2025,8 @@ FUNCTION RatBitMask GetRatOfSignalMetrics
  *  - LE_NOT_FOUND -- Reference not found.
  *  - LE_UNAVAILABLE -- GSM unavailable.
  *  - LE_OK -- Succeeded.
+ *
+ * @deprecated The parameter @ber is deprecated.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetGsmSignalMetrics
@@ -2043,6 +2045,8 @@ FUNCTION le_result_t GetGsmSignalMetrics
  *  - LE_NOT_FOUND -- Reference not found.
  *  - LE_UNAVAILABLE -- UMTS unavailable.
  *  - LE_OK -- Succeeded.
+ *
+ * @deprecated The parameter @ber is deprecated.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetUmtsSignalMetrics

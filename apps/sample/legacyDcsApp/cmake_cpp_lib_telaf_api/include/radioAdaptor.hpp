@@ -45,10 +45,12 @@ extern "C" {
 
 using namespace std;
 
-#define RADIO_DEFAULT_PHONE_ID 0
+#define RADIO_DEFAULT_PHONE_ID 1
 #define RADIO_API_TIMEOUT      5  // 5s
 
 typedef void (*RadioOpModeChangeCb)(taf_radio_OpMode_t mode, void * ctx);
+typedef void (*RegistrationStateChangeCb)(const taf_radio_NetRegStateInd_t *netRegStateIndPtr,
+                                                                                        void *ctx);
 
 typedef struct
 {
@@ -86,6 +88,39 @@ typedef struct
     AddOpModeChangeNotifyCtx_t  *notifyCtx;
 }AddOpModeChangeNotifyResult_t;
 
+
+// Types for handling packet switched network state change events
+typedef struct
+{
+    void *                     objPtr;
+    RegistrationStateChangeCb callback;
+    void *                     ctx;
+}AddRegStateChangeNotifyParm_t;
+
+typedef struct
+{
+    AddRegStateChangeNotifyParm_t        parm;
+    taf_radio_PacketSwitchedChangeHandlerRef_t ref;
+}AddRegStateChangeNotifyCtx_t;
+
+typedef struct
+{
+    le_result_t                         result;
+    AddRegStateChangeNotifyCtx_t  *notifyCtx;
+} AddRegStateChangeNotifyResult_t;
+
+// Types for handling get registration state
+typedef struct
+{
+    void *objPtr;
+} GetRegistrationStateParm_t;
+
+typedef struct
+{
+    le_result_t result;
+    taf_radio_NetRegState_t state;
+} GetRegistrationStateResult_t;
+
 class RadioAdaptor
 {
     public:
@@ -95,6 +130,8 @@ class RadioAdaptor
         le_result_t GetRadioPower(bool *pwr_on);
         le_result_t SetRadioPower(bool pwr_on);
         le_result_t AddOpModeChangeNotify(RadioOpModeChangeCb, void *);
+        le_result_t GetRegistrationState(taf_radio_NetRegState_t *statePtr);
+        le_result_t AddRegistrationStateChangeNotify(RegistrationStateChangeCb, void *);
 
     private:
         pthread_t     radioTid;
@@ -109,6 +146,12 @@ class RadioAdaptor
         le_event_Id_t AddOpModeChangeNotifyEventId;
         std::promise<AddOpModeChangeNotifyResult_t> AddOpModeChangeNotifyPromise;
 
+        le_event_Id_t AddRegStateChangeNotifyEventId;
+        std::promise<AddRegStateChangeNotifyResult_t> AddRegStateChangeNotifyPromise;
+
+        le_event_Id_t GetRegistrationStateEventId;
+        std::promise<GetRegistrationStateResult_t> GetRegistrationStatePromise;
+
         void   AddEventReport();
 
         static void * TelafRadioTask(void *arg);
@@ -117,5 +160,14 @@ class RadioAdaptor
 
         static void   OnAddOpModeChangeNotifyHandler(void* reportPtr);
         static void   OnAddOpModeChangeNotifyCb(taf_radio_OpMode_t mode, void * ctx);
+
+        // Handler for GetRegistrationStateEventId
+        static void   OnGetRegistrationStateHandler(void *reportPtr);
+
+        // Handler for AddRegStateChangeNotifyEventId
+        static void   OnAddRegStateChangeNotifyEventHandler(void* reportPtr);
+        // Call back that will be called by the TelAF radio service
+        static void   OnAddPktSwitchedNwChangeNotifyEventCb(
+                                const taf_radio_NetRegStateInd_t *netRegStateIndPtr, void *ctx);
 };
 #endif

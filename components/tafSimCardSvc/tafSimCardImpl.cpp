@@ -959,9 +959,11 @@ le_result_t taf_sim::SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, boo
     taf_pa_sim_RefreshFile_t refreshPAFiles[clientRequestPtr->refreshRegFilesSize];
 
     for (int i = 0; i < (int) clientRequestPtr->refreshRegFilesSize; i++) {
+        int pathStrLen = 0;
         refreshPAFiles[i].file_id = clientRequestPtr->refreshRegFiles[i].file_id;
         if(clientRequestPtr->refreshRegFiles[i].path != NULL) {
-            refreshPAFiles[i].path_len = (strlen(clientRequestPtr->refreshRegFiles[i].path) - 1)/2;
+            pathStrLen = strlen(clientRequestPtr->refreshRegFiles[i].path);
+            refreshPAFiles[i].path_len = pathStrLen/2;
         } else {
             refreshPAFiles[i].path_len = 0;
         }
@@ -971,7 +973,7 @@ le_result_t taf_sim::SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, boo
 
         uint32_t pathValue =  std::stoul(clientRequestPtr->refreshRegFiles[i].path, nullptr, 16);
 
-        LE_INFO("pathValue string: %s and in hex: %x", clientRequestPtr->refreshRegFiles[i].path, pathValue);
+        LE_INFO("pathValue string: %s, in hex: %x and input path len: %d", clientRequestPtr->refreshRegFiles[i].path, pathValue, pathStrLen);
 
         if (refreshPAFiles[i].path_len == 2) {
             refreshPAFiles[i].path[0] = (pathValue & 0x000000ff);

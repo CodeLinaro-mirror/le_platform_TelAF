@@ -126,9 +126,6 @@ le_result_t taf_mngdStorCfg_GetVersion
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
-
-    TAF_ERROR_IF_RET_VAL(MajorVersionPtr == nullptr || MinorVersionPtr == nullptr
-        || PatchVersionPtr ==nullptr,LE_BAD_PARAMETER, "output pointer is NULL");
     return mss.GetVersion(ConfigRef, MajorVersionPtr,MinorVersionPtr,PatchVersionPtr);
 }
 
@@ -146,9 +143,6 @@ le_result_t taf_mngdStorCfg_GetValue
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
-
-    TAF_ERROR_IF_RET_VAL(typePtr== nullptr || nodeValue== nullptr, LE_BAD_PARAMETER,
-        "output pointer is NULL");
     return mss.GetValue(ConfigRef, groupName, nodeName, typePtr,nodeValue,nodeValueSize);
 }
 
@@ -164,7 +158,6 @@ le_result_t taf_mngdStorCfg_GetType
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(typePtr== nullptr , LE_BAD_PARAMETER, "output pointer is NULL");
     return mss.GetType(ConfigRef, groupName, nodeName, typePtr);
 }
 
@@ -181,7 +174,6 @@ le_result_t taf_mngdStorCfg_GetString
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(nodeValue== nullptr , LE_BAD_PARAMETER, "output pointer is NULL");
     return mss.GetString(ConfigRef,groupName,nodeName,nodeValue,nodeValueSize);
 }
 
@@ -196,7 +188,6 @@ le_result_t taf_mngdStorCfg_GetInt
     int32_t* nodeValuePtr
 ){
     auto &mss = tafMngdStorageSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(nodeValuePtr== nullptr , LE_BAD_PARAMETER, "output pointer is NULL");
     return mss.GetInt(ConfigRef, groupName, nodeName, nodeValuePtr);
 }
 
@@ -211,7 +202,6 @@ le_result_t taf_mngdStorCfg_GetFloat
     double* nodeValuePtr
 ){
     auto &mss = tafMngdStorageSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(nodeValuePtr== nullptr , LE_BAD_PARAMETER, "output pointer is NULL");
     return mss.GetFloat(ConfigRef, groupName, nodeName, nodeValuePtr);
 }
 
@@ -226,7 +216,6 @@ le_result_t taf_mngdStorCfg_GetBool
     int32_t* nodeValuePtr
 ){
     auto &mss = tafMngdStorageSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(nodeValuePtr== nullptr , LE_BAD_PARAMETER, "output pointer is NULL");
     return mss.GetBool(ConfigRef, groupName, nodeName, nodeValuePtr);
 }
 

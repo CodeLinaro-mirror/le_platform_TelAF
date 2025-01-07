@@ -277,3 +277,18 @@ FUNCTION le_result_t GetBasePath
     Storage storageRef                     IN,   ///< Storage reference.
     string basePath[le_limit.MAX_PATH_LEN] OUT   ///< Storage base path to the file storage reference
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the file storage. The storage needs to be cleaned up before deletion.
+ *
+ * @return
+ *     - LE_OK             Sent request successfully.
+ *     - LE_BAD_PARAMETER  The given storage reference is invalid.
+ *     - LE_FAULT          Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteStorage
+(
+    Storage storageRef                     IN  ///< Storage reference.
+);

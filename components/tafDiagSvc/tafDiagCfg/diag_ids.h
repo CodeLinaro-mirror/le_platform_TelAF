@@ -27,6 +27,6 @@
 #define OperationCycle_POWER    0x02 /* 2 */
 
 #define tafDiagGen_tool_version "tafDiagGen_tool_version: 2.0.0_default"
-#define tafDiagGen_tool_timestamp  "tafDiagGen_tool_timestamp: 2025_01_08__16_42_16"
+#define tafDiagGen_tool_timestamp  "tafDiagGen_tool_timestamp: 2025_01_14__19_07_37"
 
 #endif /* __DIAG_IDS_H__ */

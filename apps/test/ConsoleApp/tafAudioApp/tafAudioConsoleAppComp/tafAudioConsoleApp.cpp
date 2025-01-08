@@ -2105,8 +2105,8 @@ void StartInputMonitoring
                 taf_audio_PlayFileConfig_t playFileConfig[numFiles] = {0};
                 for(int i = 0; i<numFiles;i++){
                     cout << "Enter the file source path: ";
-                    cin >> playFileConfig[i].srcPath;
-                    p = fgets(inputStr, sizeof(inputStr), stdin);
+                    p = fgets(playFileConfig[i].srcPath, sizeof(playFileConfig[i].srcPath), stdin);
+                    playFileConfig[i].srcPath[strcspn(playFileConfig[i].srcPath, "\n")] = '\0';
                     cout << "Enter the 0 to play once(repeat 0 times), enter x to play x+1 time(repeat x time)";
                     cout << "Enter the repeat count: ";
                     cin >> playFileConfig[i].repeat;

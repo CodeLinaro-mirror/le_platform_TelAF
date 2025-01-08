@@ -238,7 +238,7 @@ EXPORT_SYM uint8_t get_nrc_by_condition_id(uint8_t cond_id)
         case Condition_tooHigh /* 1 / 0x01 */: return 0x22;
         case Condition_tooLow /* 2 / 0x02 */: return 0x22;
         case Condition_tooBig /* 3 / 0x03 */: return 0x22;
-        case Condition_toSmall /* 4 / 0x04 */: return 0x22;
+        case Condition_tooSmall /* 4 / 0x04 */: return 0x22;
         case Condition_vehicleSpeedBodyEqual0 /* 5 / 0x05 */: return 0x88;
         case Condition_vehiclePowerModeEqualLifeOnBoard /* 6 / 0x06 */: return 0x83;
     }

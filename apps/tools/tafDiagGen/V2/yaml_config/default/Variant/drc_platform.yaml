@@ -1,7 +1,7 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
-domain_name: IVC3-SA
+domain_name: Variant
 
 extended_data_records:
   CumulativeDistanceWithTestFailed:
@@ -240,11 +240,11 @@ datas_enable_conditions:
           parameter: tooBig
           value: 3
           nrc: 0x22
-  toSmall:
-    description: toSmall
+  tooSmall:
+    description: tooSmall
     and:
       - '=':
-          parameter: toSmall
+          parameter: tooSmall
           value: 2
           nrc: 0x22
   vehicleSpeedBodyEqual0:

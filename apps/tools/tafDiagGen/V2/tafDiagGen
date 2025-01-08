@@ -99,7 +99,7 @@ def prepare(xpath):
             domain_name_from_path = get_the_domain_name(xp)
             doc = yaml.safe_load(stream)
             if "domain_name" in doc.keys():
-                if doc["domain_name"] != domain_name_from_path:
+                if doc["domain_name"] not in [domain_name_from_path, 'IVC3-SA']:
                     L.error(f"Why the 'domain_name' is not matched? [{xp.resolve()}]")
                     L.error(f"  domain_name in path is: {domain_name_from_path}")
                     L.error(f"  domain_name in file is: {doc['domain_name']}")
@@ -146,7 +146,7 @@ def combine(pending_same_files):
                         L.debug(f"Drop top_node (not required) -> {top_node_name} in [{short_name}]")
         else: # 2 domains
             generic = OrderedDict()
-            ivc3_sa = OrderedDict()
+            variant = OrderedDict()
             output[short_name] = OrderedDict()
 
             for file_node in files.values():
@@ -159,11 +159,11 @@ def combine(pending_same_files):
                         else:
                             L.debug(f"Drop top_node -> {top_node_name} in [{short_name}]")
 
-                elif file_node['domain'] == "IVC3-SA":
+                elif file_node['domain'] == "IVC3-SA" or file_node['domain'] == "Variant":
                     for top_node_name, top_node_body in file_node['doc'].items():
                         # Ignore all top_node we don't care also
                         if top_node_name in expected_files_mapping[short_name]:
-                            ivc3_sa[top_node_name] = top_node_body
+                            variant[top_node_name] = top_node_body
                         else:
                             L.debug(f"Drop top_node -> {top_node_name} in [{short_name}]")
 
@@ -171,34 +171,34 @@ def combine(pending_same_files):
 
                     # Replace 'set' with 'list' for ordered-items
                     generic_top_nodes = list(generic.keys())
-                    ivc3_sa_top_nodes = list(ivc3_sa.keys())
+                    variant_top_nodes = list(variant.keys())
 
-                    # top_nodes_intersection = generic_top_nodes & ivc3_sa_top_nodes
-                    top_nodes_intersection = utils.do_intersection(generic_top_nodes, ivc3_sa_top_nodes)
+                    # top_nodes_intersection = generic_top_nodes & variant_top_nodes
+                    top_nodes_intersection = utils.do_intersection(generic_top_nodes, variant_top_nodes)
 
-                    # need_to_be_added_ivc3_sa = ivc3_sa_top_nodes - generic_top_nodes
-                    need_to_be_added_ivc3_sa = utils.do_diff_left(ivc3_sa_top_nodes, generic_top_nodes)
+                    # need_to_be_added_variant = variant_top_nodes - generic_top_nodes
+                    need_to_be_added_variant = utils.do_diff_left(variant_top_nodes, generic_top_nodes)
 
-                    # need_to_be_added_generic = generic_top_nodes - ivc3_sa_top_nodes
-                    need_to_be_added_generic = utils.do_diff_left(generic_top_nodes, ivc3_sa_top_nodes)
+                    # need_to_be_added_generic = generic_top_nodes - variant_top_nodes
+                    need_to_be_added_generic = utils.do_diff_left(generic_top_nodes, variant_top_nodes)
 
                     # Add the diff-set directly
                     for node_name in need_to_be_added_generic:
                         output[short_name][node_name] = generic[node_name]
-                    for node_name in need_to_be_added_ivc3_sa:
-                        output[short_name][node_name] = ivc3_sa[node_name]
+                    for node_name in need_to_be_added_variant:
+                        output[short_name][node_name] = variant[node_name]
 
                     # Handle the intersection of them
                     for node_name in top_nodes_intersection:
 
-                        if type(ivc3_sa[node_name]) is not dict:  #
+                        if type(variant[node_name]) is not dict:  #
 
                             # Others, Errors should be raised
                             L.error(f"Duplicate TopNode (non-dict type), which one is correct? [{short_name}]")
                             L.error(f"  domain [Generic]]:")
                             pprint(f"{node_name}: {generic[node_name]}")
-                            L.error(f"  domain [IVC3-SA]:")
-                            pprint(f"{node_name}: {ivc3_sa[node_name]}")
+                            L.error(f"  domain [Variant]:")
+                            pprint(f"{node_name}: {variant[node_name]}")
                             sys.exit(1)
 
                         else: # dict-type, can do some special combination
@@ -206,30 +206,30 @@ def combine(pending_same_files):
 
                             # Replace 'set' with 'list' for ordered-items
                             generic_node_keys = list(generic[node_name].keys())
-                            ivc3_sa_node_keys = list(ivc3_sa[node_name].keys())
+                            variant_node_keys = list(variant[node_name].keys())
 
-                            # keys_intersection = generic_node_keys & ivc3_sa_node_keys
-                            keys_intersection = utils.do_intersection(generic_node_keys, ivc3_sa_node_keys)
+                            # keys_intersection = generic_node_keys & variant_node_keys
+                            keys_intersection = utils.do_intersection(generic_node_keys, variant_node_keys)
 
-                            # only_in_generic_node_keys = generic_node_keys - ivc3_sa_node_keys
-                            only_in_generic_node_keys = utils.do_diff_left(generic_node_keys, ivc3_sa_node_keys)
+                            # only_in_generic_node_keys = generic_node_keys - variant_node_keys
+                            only_in_generic_node_keys = utils.do_diff_left(generic_node_keys, variant_node_keys)
 
-                            # only_in_ivc3_sa_node_keys = ivc3_sa_node_keys - generic_node_keys
-                            only_in_ivc3_sa_node_keys = utils.do_diff_left(ivc3_sa_node_keys, generic_node_keys)
+                            # only_in_variant_node_keys = variant_node_keys - generic_node_keys
+                            only_in_variant_node_keys = utils.do_diff_left(variant_node_keys, generic_node_keys)
 
                             for key in only_in_generic_node_keys:
 
-                                # Only DIDs from IVC3-SA & IVC3-SA's did_ref (refer to Generic)
-                                # Cut down all Generic DIDs are NOT refered by IVC3-SA domain!
+                                # Only DIDs from Variant & Variant's did_ref (refer to Generic)
+                                # Cut down all Generic DIDs are NOT refered by Variant domain!
                                 if short_name != "drc_data_identifiers.yaml":
                                     output[short_name][node_name][key] = generic[node_name][key]
                                 else:
-                                    L.info(f"Cut down DID [{hex(key)}] are NOT refered by IVC3-SA domain!")
+                                    L.info(f"Cut down DID [{hex(key)}] are NOT refered by Variant domain!")
 
-                            for key in only_in_ivc3_sa_node_keys:
-                                output[short_name][node_name][key] = ivc3_sa[node_name][key]
+                            for key in only_in_variant_node_keys:
+                                output[short_name][node_name][key] = variant[node_name][key]
 
-                            # Handle 'services' case: combine 'generic' and 'ivc3-sa'
+                            # Handle 'services' case: combine 'generic' and 'variant'
                             if short_name == "drc_services.yaml":
                                 if len(keys_intersection) != 0:
                                     for key in keys_intersection:
@@ -237,32 +237,32 @@ def combine(pending_same_files):
                                         # Don't use 'update' directly, but same as 'update'
                                         do_recursive_update(
                                             output[short_name][node_name][key],
-                                            ivc3_sa[node_name][key]
+                                            variant[node_name][key]
                                         )
 
                             # Handle 'did_ref' case
                             elif short_name == "drc_data_identifiers.yaml":
                                 if len(keys_intersection) != 0:
                                     for key in keys_intersection:
-                                        assert isinstance(ivc3_sa[node_name][key], dict)
+                                        assert isinstance(variant[node_name][key], dict)
                                         # Checking did_ref
-                                        if 'did_ref' in ivc3_sa[node_name][key].keys():
+                                        if 'did_ref' in variant[node_name][key].keys():
                                             output[short_name][node_name][key] = generic[node_name][key]
-                                            continue # ignore the 'ivc3-sa' additional items
+                                            continue # ignore the 'Variant' additional items
                                         else:
-                                            L.warning(f"Found duplicated DID [{hex(key)}] in Generic & IVC3-SA ! Override !!")
-                                            # 'IVC3-SA' override the 'Generic' parts <--
-                                            output[short_name][node_name][key] = ivc3_sa[node_name][key]
+                                            L.warning(f"Found duplicated DID [{hex(key)}] in Generic & Variant ! Override !!")
+                                            # 'Variant' override the 'Generic' parts <--
+                                            output[short_name][node_name][key] = variant[node_name][key]
                             elif short_name == "drc_datas.yaml":
                                 for key in keys_intersection:
-                                    L.warning(f"Found duplicated data [{key}] in Generic & IVC3-SA ! Override !!")
-                                    # 'IVC3-SA' override the 'Generic' parts <--
-                                    output[short_name][node_name][key] = ivc3_sa[node_name][key]
+                                    L.warning(f"Found duplicated data [{key}] in Generic & Variant ! Override !!")
+                                    # 'Variant' override the 'Generic' parts <--
+                                    output[short_name][node_name][key] = variant[node_name][key]
                             elif short_name == "drc_platform.yaml":
                                 for key in keys_intersection:
-                                    L.warning(f"Found duplicated item [{key}] in Generic & IVC3-SA ! Override !!")
-                                    # 'IVC3-SA' override the 'Generic' parts <--
-                                    output[short_name][node_name][key] = ivc3_sa[node_name][key]
+                                    L.warning(f"Found duplicated item [{key}] in Generic & Variant ! Override !!")
+                                    # 'Variant' override the 'Generic' parts <--
+                                    output[short_name][node_name][key] = variant[node_name][key]
                             else:
                                 if len(keys_intersection) != 0:
                                     L.error("Duplicate Map Item, please check which one is OK:")
@@ -420,7 +420,7 @@ if __name__ == "__main__":
     xpath = valid_files.customer_files
 
     if not xpath:
-        L.error(f"Not found any configuration from 'Generic' & 'IVC3-SA' folders. Please check ~")
+        L.error(f"Not found any configuration from 'Generic' & 'Variant' folders. Please check ~")
         sys.exit(1)
 
     check_yaml_validity(xpath)

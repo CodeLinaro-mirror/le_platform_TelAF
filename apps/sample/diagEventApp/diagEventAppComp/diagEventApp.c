@@ -11,7 +11,7 @@
 #ifdef LE_CONFIG_DIAG_FEATURE_A
 #define Event_Sample_Big Event_ID_0x01
 #define Condition_tooBig 5
-#define Condition_toSmall 6
+#define Condition_tooSmall 6
 #endif
 
 #define SUPPLIER_FAULT_CODE_LEN 5
@@ -629,7 +629,7 @@ static void* changeEventStatus()
     // set enable condition as false
     le_result_t res_5, res_6;
     res_5 = taf_diag_SetEnableCondition(Condition_tooBig, false);
-    res_6 = taf_diag_SetEnableCondition(Condition_toSmall, false);
+    res_6 = taf_diag_SetEnableCondition(Condition_tooSmall, false);
     if((res_5 != LE_OK) || (res_6 != LE_OK))
     {
         LE_ERROR("Failed to set enable condition to false");

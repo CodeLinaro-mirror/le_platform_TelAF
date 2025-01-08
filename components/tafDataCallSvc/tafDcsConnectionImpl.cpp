@@ -29,7 +29,7 @@
 
 /*
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -45,6 +45,9 @@
 #include "tafSvcIF.hpp"
 #include "tafDcsConnectionImpl.hpp"
 #include "tafDcsProfileImpl.hpp"
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <net/if.h>
 
 using namespace telux::data;
 using namespace telux::common;
@@ -2155,6 +2158,43 @@ le_result_t taf_DataConnection::GetIpv6Dns
 
     le_utf8_Copy(dns1Ptr, callCtxPtr->ipv6Dns1, dns1Size, NULL);
     le_utf8_Copy(dns2Ptr, callCtxPtr->ipv6Dns2, dns2Size, NULL);
+
+    return LE_OK;
+}
+
+le_result_t taf_DataConnection::GetMtu
+(
+    uint8_t slotId,
+    int32_t profileId,
+    uint16_t *mtuPtr
+)
+{
+    struct ifreq ifr;
+    int8_t sock;
+    le_result_t result;
+    char interfaceName[TAF_DCS_NAME_MAX_BYTES];
+
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+
+    TAF_ERROR_IF_RET_VAL(sock < 0, LE_FAULT,"socket error %d",sock);
+
+    memset(&ifr, 0, sizeof(struct ifreq));
+    GetInterfaceName(slotId,profileId,interfaceName,sizeof(interfaceName));
+    result = le_utf8_Copy(ifr.ifr_name,interfaceName, sizeof(ifr.ifr_name), NULL);
+    TAF_ERROR_IF_RET_VAL(result == LE_OVERFLOW, LE_OVERFLOW,
+                                               "IOCTL interface name length is smaller");
+
+    if(ioctl(sock, SIOCGIFMTU, &ifr) < 0)
+    {
+        LE_ERROR("ioctl get error %d error:%s",errno,strerror ( errno ));
+        close(sock);
+        return LE_IO_ERROR;
+    }
+
+    *mtuPtr = static_cast<uint16_t>(ifr.ifr_mtu);
+    LE_DEBUG("GetMtu MTU %d", static_cast<uint16_t>(*mtuPtr));
+
+    close(sock);
 
     return LE_OK;
 }

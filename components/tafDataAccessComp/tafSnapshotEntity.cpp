@@ -145,6 +145,12 @@ void SnapshotEntity::SetDidValue
     int32_t didValLen
 )
 {
+    if ((didVal == NULL) || (didValLen <= 0))
+    {
+        LE_ERROR("Unknow DID value");
+        return;
+    }
+
     mDidValLen = didValLen > DATA_ACCESS_DID_DATA_SIZE_MAX ?
         DATA_ACCESS_DID_DATA_SIZE_MAX : didValLen;
 

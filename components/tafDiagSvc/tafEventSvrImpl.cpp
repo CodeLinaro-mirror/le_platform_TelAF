@@ -403,21 +403,24 @@ le_result_t taf_EventSvr::RemoveSvc
     {
         taf_diagEvent_EventCtx_t* eventCtxPtr = (taf_diagEvent_EventCtx_t*)le_ref_GetValue(iterRef);
 
-        if (eventCtxPtr != NULL && eventCtxPtr->svcRef == svcRef)
+        if(eventCtxPtr != NULL)
         {
-            //Remove client session reference from event session reference list
-            if( RemoveSessionFromEventCtx(eventCtxPtr, sessionRef) == LE_OK)
-                LE_DEBUG(" remove session %p, from eventCtxPtr %p with event id %d",
-                        sessionRef, eventCtxPtr, eventCtxPtr->eventId);
-        }
+            if (eventCtxPtr->svcRef == svcRef)
+            {
+                //Remove client session reference from event session reference list
+                if( RemoveSessionFromEventCtx(eventCtxPtr, sessionRef) == LE_OK)
+                    LE_DEBUG(" remove session %p, from eventCtxPtr %p with event id %d",
+                            sessionRef, eventCtxPtr, eventCtxPtr->eventId);
+            }
 
-        //If session number of links is 0, release event context
-        if( le_dls_NumLinks(&eventCtxPtr->sessionRefList)  == 0)
-        {
-            // Clear service object
-            LE_DEBUG(" clear event id %d context", eventCtxPtr->eventId);
-            le_ref_DeleteRef(SvcRefMap, (void*)eventCtxPtr->svcRef);
-            eventCtxPtr->svcRef = NULL;
+            //If session number of links is 0, release event context
+            if( le_dls_NumLinks(&eventCtxPtr->sessionRefList)  == 0)
+            {
+                // Clear service object
+                LE_DEBUG(" clear event id %d context", eventCtxPtr->eventId);
+                le_ref_DeleteRef(SvcRefMap, (void*)eventCtxPtr->svcRef);
+                eventCtxPtr->svcRef = NULL;
+            }
         }
     }
 
@@ -1332,10 +1335,13 @@ le_result_t taf_EventSvr::UpdateDtcOnFailed
                 taf_DiagEvent_EventIdInfo_t, link);
         eventIdLinkPtr = le_dls_PeekNext(&dtcCtxPtr->dtcEventIdList, eventIdLinkPtr);
         eventCtxPtr = GetEventCtxById(eventIdInfoPtr->eventId);
-        LE_DEBUG("DTC failed:event id:%d, dtcCode:0x%x", eventCtxPtr->eventId,
-                eventCtxPtr->dtcCode);
-        //Find the event with the same dtc code
-        dtcCtxPtr->dtcStatus |= eventCtxPtr->eventUdsStatus;
+        if(eventCtxPtr != NULL)
+        {
+            LE_DEBUG("DTC failed:event id:%d, dtcCode:0x%x", eventCtxPtr->eventId,
+                    eventCtxPtr->dtcCode);
+            //Find the event with the same dtc code
+            dtcCtxPtr->dtcStatus |= eventCtxPtr->eventUdsStatus;
+        }
     }
 
     if (dtcCtxPtr->dtcStatus & TAF_DIAGEVENT_UDS_STATUS_TFSLC)
@@ -1418,9 +1424,9 @@ le_result_t taf_EventSvr::UpdateEventOnPassed
 )
 {
     le_result_t result;
-    uint8_t oldEventUdsStatus = eventCtxPtr->eventUdsStatus;
 
     TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_FAULT, "eventCtxPtr is null");
+    uint8_t oldEventUdsStatus = eventCtxPtr->eventUdsStatus;
 
     LE_DEBUG("UpdateEventOnPassed");
     //Set bit 0 to value 0
@@ -1476,11 +1482,14 @@ le_result_t taf_EventSvr::UpdateDtcOnPassed
                 taf_DiagEvent_EventIdInfo_t, link);
         eventIdLinkPtr = le_dls_PeekNext(&dtcCtxPtr->dtcEventIdList, eventIdLinkPtr);
         eventCtxPtr = GetEventCtxById(eventIdInfoPtr->eventId);
-        LE_DEBUG("DTC passed: eventId:%d, dtcCode:0x%x, eventStatus:0x%x, dtcStatus:0x%x",
-                eventIdInfoPtr->eventId, dtcCtxPtr->dtcCode, eventCtxPtr->eventUdsStatus,
-                dtcCtxPtr->dtcStatus);
-        //Find the event with the same dtc code
-        dtcCtxPtr->dtcStatus |= eventCtxPtr->eventUdsStatus;
+        if(eventCtxPtr != NULL)
+        {
+            LE_DEBUG("DTC passed: eventId:%d, dtcCode:0x%x, eventStatus:0x%x, dtcStatus:0x%x",
+                    eventIdInfoPtr->eventId, dtcCtxPtr->dtcCode, eventCtxPtr->eventUdsStatus,
+                    dtcCtxPtr->dtcStatus);
+            //Find the event with the same dtc code
+            dtcCtxPtr->dtcStatus |= eventCtxPtr->eventUdsStatus;
+        }
     }
 
     if (dtcCtxPtr->dtcStatus & TAF_DIAGEVENT_UDS_STATUS_TFSLC)
@@ -3444,15 +3453,15 @@ void taf_EventSvr::OnClientDisconnection
             //Remove client session reference from event session reference list
             if( diagEvent.RemoveSessionFromEventCtx(eventCtxPtr, sessionRef) == LE_OK)
                 LE_DEBUG("remove event from context, event id %d", eventCtxPtr->eventId);
-        }
 
-        //If session number of links is 0, release event context
-        if( le_dls_NumLinks(&eventCtxPtr->sessionRefList)  == 0)
-        {
-            // Clear service object
-            LE_INFO(" clear event id %d context", eventCtxPtr->eventId);
-            le_ref_DeleteRef(diagEvent.SvcRefMap, (void*)eventCtxPtr->svcRef);
-            eventCtxPtr->svcRef = NULL;
+            //If session number of links is 0, release event context
+            if( le_dls_NumLinks(&eventCtxPtr->sessionRefList)  == 0)
+            {
+                // Clear service object
+                LE_INFO(" clear event id %d context", eventCtxPtr->eventId);
+                le_ref_DeleteRef(diagEvent.SvcRefMap, (void*)eventCtxPtr->svcRef);
+                eventCtxPtr->svcRef = NULL;
+            }
         }
     }
 }

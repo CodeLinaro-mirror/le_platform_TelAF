@@ -737,21 +737,24 @@ le_result_t taf_DTCSvr::RemoveSvc
     {
         taf_diagDTC_DtcCtx_t* dtcCtxPtr = (taf_diagDTC_DtcCtx_t*)le_ref_GetValue(iterRef);
 
-        if (dtcCtxPtr != NULL && dtcCtxPtr->svcRef == svcRef)
+        if (dtcCtxPtr != NULL)
         {
-            //Remove client session reference from DTC session reference list
-            if( RemoveSessionFromDtcCtx(dtcCtxPtr, sessionRef) == LE_OK)
-                LE_DEBUG(" remove session %p, from dtcCtxPtr %p with dtc code 0x%x",
-                        sessionRef, dtcCtxPtr, dtcCtxPtr->dtcCode);
-        }
+            if (dtcCtxPtr->svcRef == svcRef)
+            {
+                //Remove client session reference from DTC session reference list
+                if( RemoveSessionFromDtcCtx(dtcCtxPtr, sessionRef) == LE_OK)
+                    LE_DEBUG(" remove session %p, from dtcCtxPtr %p with dtc code 0x%x",
+                            sessionRef, dtcCtxPtr, dtcCtxPtr->dtcCode);
+            }
 
-        //If session number of links is 0, release DTC context
-        if( le_dls_NumLinks(&dtcCtxPtr->sessionRefList)  == 0)
-        {
-            // Clear service object
-            LE_DEBUG(" clear dtc code 0x%x context", dtcCtxPtr->dtcCode);
-            le_ref_DeleteRef(SvcRefMap, (void*)dtcCtxPtr->svcRef);
-            dtcCtxPtr->svcRef = NULL;
+            //If session number of links is 0, release DTC context
+            if( le_dls_NumLinks(&dtcCtxPtr->sessionRefList)  == 0)
+            {
+                // Clear service object
+                LE_DEBUG(" clear dtc code 0x%x context", dtcCtxPtr->dtcCode);
+                le_ref_DeleteRef(SvcRefMap, (void*)dtcCtxPtr->svcRef);
+                dtcCtxPtr->svcRef = NULL;
+            }
         }
     }
 
@@ -1232,15 +1235,15 @@ void taf_DTCSvr::OnClientDisconnection
             //Remove client session reference from DTC session reference list
             if( diagDTC.RemoveSessionFromDtcCtx(dtcCtxPtr, sessionRef) == LE_OK)
                 LE_DEBUG("remove DTC from context, DTC code 0x%x", dtcCtxPtr->dtcCode);
-        }
 
-        //If session number of links is 0, release DTC context
-        if( le_dls_NumLinks(&dtcCtxPtr->sessionRefList) == 0)
-        {
-            // Clear service object
-            LE_INFO(" clear dtc code 0x%x context", dtcCtxPtr->dtcCode);
-            le_ref_DeleteRef(diagDTC.SvcRefMap, (void*)dtcCtxPtr->svcRef);
-            dtcCtxPtr->svcRef = NULL;
+            //If session number of links is 0, release DTC context
+            if( le_dls_NumLinks(&dtcCtxPtr->sessionRefList) == 0)
+            {
+                // Clear service object
+                LE_INFO(" clear dtc code 0x%x context", dtcCtxPtr->dtcCode);
+                le_ref_DeleteRef(diagDTC.SvcRefMap, (void*)dtcCtxPtr->svcRef);
+                dtcCtxPtr->svcRef = NULL;
+            }
         }
     }
 

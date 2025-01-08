@@ -324,6 +324,10 @@ COMPONENT_INIT
         LE_TEST_FATAL("Invalid number of arguments");
     }
     const char *testType = le_arg_GetArg(0);
+    if(testType == NULL){
+        PrintUsage();
+        LE_TEST_FATAL("Test type is null");
+    }
     if (strncmp(testType, "AvailableSensors", strlen(testType)) == 0){
         LE_TEST_INFO("=======Available Sensors Test========");
         CheckNumArgs(numArgs,1);

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -338,6 +338,9 @@ COMPONENT_INIT
         LE_TEST_INFO("=======Sensors Info Test========");
         CheckNumArgs(numArgs,2);
         const char* sensorName = le_arg_GetArg(1);
+        if (sensorName == NULL) {
+            LE_TEST_FATAL("Invalid argument.");
+        }
         status = TestSensorInfo(sensorName);
         if(status == LE_NOT_FOUND){
             LE_TEST_INFO("Sensor Name not found %s",sensorName);
@@ -347,9 +350,15 @@ COMPONENT_INIT
     else if (strncmp(testType, "SetAngle", strlen(testType)) == 0){
         LE_TEST_INFO("=======Set Euler Angle Test========");
         CheckNumArgs(numArgs,4);
-        double pitch = atof(le_arg_GetArg(1));
-        double roll = atof(le_arg_GetArg(2));
-        double yaw = atof(le_arg_GetArg(3));
+        const char* arg1 = le_arg_GetArg(1);
+        const char* arg2 = le_arg_GetArg(2);
+        const char* arg3 = le_arg_GetArg(3);
+        if (arg1 == NULL || arg2 == NULL || arg3 == NULL) {
+            LE_TEST_FATAL("Invalid argument.");
+        }
+        double pitch = atof(arg1);
+        double roll = atof(arg2);
+        double yaw = atof(arg3);
         status = TestEulerAngle(pitch,roll,yaw);
         LE_TEST_OK(status ==LE_OK,"Test taf_imuSensor_SetEulerAngle Succeed");
     }
@@ -357,8 +366,13 @@ COMPONENT_INIT
         LE_TEST_INFO("=======Test Sensor Activation========");
         CheckNumArgs(numArgs,4);
         const char* name = le_arg_GetArg(1);
-        double sampleRate = atof(le_arg_GetArg(2));
-        double BatchCount = atof(le_arg_GetArg(3));
+        const char* arg2 = le_arg_GetArg(2);
+        const char* arg3 = le_arg_GetArg(2);
+        if (name == NULL || arg2 == NULL || arg3 == NULL) {
+            LE_TEST_FATAL("Invalid argument.");
+        }
+        double sampleRate = atof(arg2);
+        double BatchCount = atof(arg3);
         status = TestActivateSensor(name,sampleRate,BatchCount);
         if(status == LE_NOT_FOUND){
             LE_TEST_INFO("Sensor Name not found %s",name);
@@ -370,6 +384,9 @@ COMPONENT_INIT
         CheckNumArgs(numArgs,3);
         const char* name = le_arg_GetArg(1);
         const char* mode = le_arg_GetArg(2);
+        if (name == NULL || mode == NULL) {
+            LE_TEST_FATAL("Invalid argument.");
+        }
         status = TestSelfTest(name,mode);
         if(status != LE_OK){
             LE_TEST_INFO("Sensor Name not found %s",name);

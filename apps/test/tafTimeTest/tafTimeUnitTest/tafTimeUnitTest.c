@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -57,8 +57,11 @@ void ConvertSecToDateTime
     struct tm *timeinfo = gmtime(&epoch_seconds);
     char tmpBuffer[80];
 
-    strftime(tmpBuffer, 80, "%c", timeinfo);
-    LE_INFO("UTC time: %s\n", tmpBuffer);
+    if (timeinfo != NULL)
+    {
+        strftime(tmpBuffer, 80, "%c", timeinfo);
+        LE_INFO("UTC time: %s\n", tmpBuffer);
+    }
 }
 
 //--------------------------------------------------------------------------------------------------

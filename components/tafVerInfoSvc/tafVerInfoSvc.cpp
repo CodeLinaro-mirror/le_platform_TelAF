@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -353,7 +353,7 @@ le_result_t taf_verInfo_GetTelAFHash
         TAF_ERROR_IF_RET_VAL(bank != bootBank, LE_UNSUPPORTED,
             "TelAF hash is only available for boot bank.");
 
-        char version[TAF_VERINFO_VERSION_MAX_BYTES];
+        char version[TAF_VERINFO_VERSION_MAX_BYTES] = { 0 };
         FILE* fp = fopen(TELAF_VERSION_FILE, "r");
         if (fp != NULL)
         {
@@ -369,7 +369,15 @@ le_result_t taf_verInfo_GetTelAFHash
                     break;
             }
 
-            result = tafVerInfo.StringToHash(version + i + 1, hashPtr, hashSizePtr);
+            if (i + 1 < strlen(version))
+            {
+                result = tafVerInfo.StringToHash(version + i + 1, hashPtr, hashSizePtr);
+            }
+            else
+            {
+                LE_ERROR("Fail to find hash in %s.", version);
+                return LE_FAULT;
+            }
         }
     }
 

@@ -28,7 +28,7 @@
  */
 
 /*  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1706,6 +1706,8 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.cdma.bsid = cdmaCellInfo->getCellIdentity().getBaseStationId();
                     cellIdInfo.cdma.ecio = cdmaCellInfo->getSignalStrengthInfo().getCdmaEcio();
                     cellIdInfo.ss = cdmaCellInfo->getSignalStrengthInfo().getDbm();
+                    memset(cellIdInfo.mcc, 0, TAF_RADIO_MCC_BYTES);
+                    memset(cellIdInfo.mnc, 0, TAF_RADIO_MNC_BYTES);
                     if (cdmaCellInfo->isRegistered())
                     {
                         cellListInfo.servingCell.push_back(

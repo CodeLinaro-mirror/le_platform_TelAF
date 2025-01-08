@@ -144,7 +144,7 @@ static void CalculateFileMD5(const char* filePath, char* md5Str, size_t md5StrSi
     unsigned char mdValue[EVP_MAX_MD_SIZE];
     unsigned int mdLen, i;
 
-    if (!EVP_DigestInit_ex(mdCtx, md, NULL))
+    if (mdCtx == NULL || !EVP_DigestInit_ex(mdCtx, md, NULL))
     {
         LE_ERROR("Digest initialization failed.\n");
         fclose(file);

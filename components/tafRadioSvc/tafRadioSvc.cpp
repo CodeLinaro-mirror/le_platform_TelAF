@@ -28,7 +28,7 @@
  */
 
 /*  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -4768,6 +4768,8 @@ le_result_t taf_radio_GetLteCsCap
     uint8_t* phoneIdPtr = (uint8_t*)le_ref_Lookup(tafRadio.netStatusRefMap, netRef);
     TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Fail to look up reference.");
 
+    TAF_ERROR_IF_RET_VAL(capabilitiy == nullptr, LE_BAD_PARAMETER, "Null ptr(capabilitiy)");
+
     uint8_t phoneId = *phoneIdPtr;
     TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
         LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
@@ -5868,6 +5870,8 @@ le_result_t taf_radio_GetServingCellArfcn
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
+    TAF_ERROR_IF_RET_VAL(arfcn == nullptr, LE_BAD_PARAMETER, "Null ptr(arfcn)");
+
     auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
         taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
@@ -5915,6 +5919,8 @@ le_result_t taf_radio_GetServingCellUarfcn
 
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(uarfcn == nullptr, LE_BAD_PARAMETER, "Null ptr(uarfcn)");
 
     auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
         taf_RadioCellInfoCallback::cellInfoListResponse);

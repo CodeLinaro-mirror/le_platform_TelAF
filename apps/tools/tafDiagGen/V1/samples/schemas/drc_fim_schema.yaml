@@ -1,0 +1,9 @@
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+fim_all: map(include('fim_item'), key=str(matches='^\w*$'))
+---
+fim_item:
+  diagnostic_function_identifier: str(matches='^[\w]*$')
+  inhibit_conditions : str(matches='^[\w]*$', required=False)
+  context_sw_component: str(matches='^[\w]*$')

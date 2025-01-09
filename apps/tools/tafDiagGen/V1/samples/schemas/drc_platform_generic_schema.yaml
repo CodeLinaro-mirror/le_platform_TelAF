@@ -1,0 +1,94 @@
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+domain_name: domain_name()
+
+common_props:
+  max_number_of_event_entries: int()
+  memory_entry_storage_trigger: str()
+  aging_requires_tested_cycle: bool()
+  clear_dtc_limitation: str()
+  default_endianness: str()
+  environment_data_capture: str()
+  event_displacement_strategy: str()
+  max_number_of_request_correctly_received_response_pending: hexa()
+  occurrence_counter_processing: str()
+  response_on_all_requests_ids: bool()
+  response_on_second_declined_request: bool()
+  status_bit_handling_test_failed_since_last_clear: str()
+  reset_confirmed_bit_on_overflow: bool()
+  status_bit_storage_test_failed: bool()
+  type_of_dtc_supported: str()
+  security_delay_time_on_boot: int()
+  s3_server_max: float()
+  ignore_request_for_hardreset: bool(required=False)
+  dtc_status_availability_mask: hexa(required=True)
+
+extended_data_records: map(include('extended_data_records_item'), key=str())
+diagnostic_session: map(include('diagnostic_session_item'), key=str())
+connected_indicator_behavior: map(include('connected_indicator_behavior_item'), key=str())
+indicator: map(include('indicator_item'), key=str())
+diagnostic_session_security_level:
+  short_name: camelcase()
+  request_seed_id: hexa()
+  key_size: int()
+  num_failed_security_access: int()
+  security_delay_time: int()
+  seed_size: int()
+  execution_authorization_pattern: ExecutionAuthorizationPattern()
+
+
+diagnostic_session_security_level: map(include("diagnostic_session_security_level_item"), key=str())
+
+diagnostic_session_security_level_item:
+  level_id: hexa()
+  short_name: camelcase()
+  request_seed_id: hexa()
+  key_size: int()
+  num_failed_security_access: int()
+  security_delay_time: int()
+  seed_size: int()
+  static_seed: bool()
+  execution_authorization_pattern: ExecutionAuthorizationPattern()
+
+security_binding: map(include("security_binding_item"), key=str())
+
+security_binding_item:
+    session_id: hexa()
+    security_level: list(str())
+
+authentication_roles: map(include("authentication_roles_item"), key=str())
+
+authentication_roles_item:
+    name: enum('R1','R2','R3','R4','R5')
+    description: str()
+    value: hexa()
+
+---
+extended_data_records_item:
+  short_name: str()
+  record_element_bit_off_set: int()
+  base_type: any(str(equals='uint8'), str(equals='uint8'), str(equals='sint8'), str(equals='uint16'), str(equals='sint16'), str(equals='uint32'), str(equals='sint32'), str(equals='string'), str(equals='boolean'))
+  record_number: hexa()
+  data_provider: str()
+  trigger: str()
+  update: bool()
+
+diagnostic_session_item:
+  short_name: camelcase()
+  id: hexa()
+  jump_to_bootloader: enum('noBoot', 'systemSupplierBoot')
+  p2_server_max: float(min=0.00)
+  p2_star_server_max: int()
+  execution_authorization_pattern: ExecutionAuthorizationPattern(required=False)
+
+---
+connected_indicator_behavior_item:
+  indicator_mnemonic: CapsNDash()
+  conditions: str()
+
+---
+indicator_item:
+  short_name: str()
+  type: CapsNDash()
+

@@ -1,0 +1,51 @@
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+dtc_all: map(include('dtc_items'), key=hexa3bytes())
+
+---
+
+dtc_access_item:
+  session: list(enum('default_session', 'programming_session', 'extended_diagnostic_session', 'vehicle_manufacturer_specific_session', 'fota_session', 'downloaded_enumlation_session', 'system_supplier_specific_session'), required=False)
+  security_type: hexa(required=False)
+  security_level: list(str(),required=False)
+  role: enum('R1','R2','R3','R4','R5',required=False)
+
+---
+
+events: map(include('event_properties'), key=int(), min=1)
+
+---
+dtc_items: include('dtc_items_ref17')
+
+dtc_items_ref17:
+  identification:
+    code: hexa2bytes()
+    fault_type: hexa1byte()
+    description: str(max=2048, required=False)
+    priority: int()
+    dtc_group_number: hexa3bytes(required = False)
+    extended_data_records: list(camelcase(), min=1)
+  snapshots: include('snapshots_item')
+  access: include('dtc_access_item')
+  events: list(int(), min=1)
+
+---
+snapshots_item:
+  snapshot_record_content: camelcase()
+  freeze_frames: list(camelcase(), min=1)
+
+---
+event_properties:
+  id: hexa2bytes()
+  failure_name: str(matches='^[\w_]*$')
+  mnemonic: mnemonic(required=False)
+  event_kind: str(matches='^[A-Z\d_]+$')
+  long_name: str(matches='^[A-Z][\w\d\s/\"\._-]+$', required=False)
+  confirmation_threshold: int()
+  operation_cycle: str(matches='^[A-Z\d_]+$', required=False)
+  debounce_algorithm: camelcase()
+  enable_condition: any(camelcase(), null())
+  storage_condition: any(camelcase(), null(), required=False)
+  fim_fid: list(str(matches='^[A-Z][\w\d_]+$', required=False), required=False)
+  context_sw_component: str(matches='^[\w\d_]+$', required=False)

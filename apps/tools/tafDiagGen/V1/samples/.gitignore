@@ -1,4 +1,3 @@
 customer/*
-schemas/*
 !customer/.keep
 !schemas/.keep

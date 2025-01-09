@@ -1,0 +1,58 @@
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+service_identifier: hexa()
+
+# Full list of routines
+routines_all: include('routine_id')
+---
+routine_id: map(include('Ref17_item'), key=hexa())
+---
+Ref17_item:
+  identifier: hexa()
+  mnemonic: mnemonic()
+  type: int(min=1,max=3)
+  timing_conditions: int(min=0, max=60, required=False) # In seconds
+  description: str(max=2048, required=False)
+  category: enum("Ecall",required=False)
+  execution_conditions: str(matches='^([\d\w\W\s\(\)\.=]+)$',max=200,required=False)
+  access:
+    session: list(enum('default_session', 'programming_session', 'extended_diagnostic_session', 'vehicle_manufacturer_specific_session', 'fota_session', 'downloaded_enumlation_session', 'system_supplier_specific_session'), required=False)
+    security_type: hexa(required=False)
+    security_level: list(str(),required=False)
+  role: list(enum('R1', 'R2', 'R3', 'R4', 'R5'), required=False)
+  request:
+    sub_function: list(hexa())
+    control_option_record: include('control_option_record_item', required=False)
+  positive_response:
+    status_record: include('status_record_item')
+  negative_response:
+    nrc: list(hexa(), required=False)
+  feature: str(matches='^[_\w\d-]+$', required=False)
+  functional_specification: str(max=200, required=False)
+  functional_requirement: str(max=200, required=False)
+
+---
+control_option_record_item:
+  size: int()
+  request_endianness: enum('LSB', 'MSB')
+  bytes: map(include('routine_byte'), key=int(), min=1, max=4000)
+
+---
+status_record_item:
+  info: list(hexa())
+  status: include('status_item',required=False)
+
+---
+status_item:
+  size: int(min=1,max=999)
+  positive_response_endianness: enum('LSB', 'MSB')
+  bytes: map(include('routine_byte'), key=int(), min=1, max=4000)
+
+---
+routine_byte: map(include('routine_bit'), key=int(), min=1, max=8)
+
+---
+routine_bit:
+  bit_size: any(int(), required=False)
+  routine_data_mnemonic: mnemonic()

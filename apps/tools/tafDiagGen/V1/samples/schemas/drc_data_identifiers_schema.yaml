@@ -1,0 +1,73 @@
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+
+did_all: map(include('did_item'), key=hexa())
+
+---
+did_item:
+  identification:
+    code: hexa()
+    did_mnemonic: mnemonic()
+    description: str(max=500, required=False)
+  implementation:
+    did_size: int(min=1, max=65535)
+    endianness: enum("LSB", "MSB")
+    bytes: any(map(include('byte'), key=int(), min=1, max=4000), map(include('dynamic_item'), key=str(equals='dynamic_byte_blocks_list'), min=1, max=1), required=True)
+  supported_functions:
+    category: enum("Configuration","Calibration","Ethernet","Mac","Security","Identification","References","Traceability","DTC snapshot", "SW update", "Fundation", "PWT", "Body", "Chassis", "ADAS", "CCS", "Internal", "Ecall", "Monitoring")
+    write_did: bool()
+    environmental_condition_write: map(include('conditions_item'), key=enum('and', 'or'), required=False)
+    read_did: bool()
+    environmental_condition_read: map(include('conditions_item'), key=enum('and', 'or'), required=False)
+    snapshot: bool()
+    io_control: bool()
+    io_control_description: include('io_control_item', required=False)
+    routine_did: bool()
+  did_accessibility: include('diag_session_ref17_item', required=True)
+  access: include('access_item', required=False)
+  service_data_mapping: include('service_data_mapping_item', required=False)
+  client_server_interface_use_case: include('client_server_interface_use_case_item', required=False)
+  functional_specification: str(max=200)
+  functional_requirement: str(max=200)
+
+---
+diag_session_ref17_item: include('did_diagnostic_session_item')
+
+---
+did_diagnostic_session_item:
+  diagnostic_session: map(include('diagnostic_sub_session'), key=str(matches='^[_a-z]+$'),required=False)
+---
+
+diagnostic_sub_session: map(include('diagnostic_sub_session_level'),key=enum('R','W','IO'),required=False)
+---
+
+diagnostic_sub_session_level:
+  security: bool(required=False)
+  security_level: list(str(),required=False)
+  role: list(enum('R1','R2','R3','R4','R5'),required=False)
+---
+
+io_control_item:
+  reset_to_default: bool()
+  freeze_current_state: bool()
+  environmental_condition_io: map(include('conditions_item'), key=enum('and', 'or'), required=False)
+
+---
+access_item:
+  session: list(enum('default_session', 'programming_session', 'extended_diagnostic_session', 'vehicle_manufacturer_specific_session', 'fota_session', 'downloaded_enumlation_session', 'system_supplier_specific_session'), required=False)
+  security_type: hexa(required=False)
+  security_level: list(str(),required=False)
+  role: enum('R1','R2','R3','R4','R5', required=False)
+
+---
+byte: map(include('bit_item'), key=int(), min=1, max=8)
+
+---
+dynamic_item: list(map(include('bit_item'), key=int(), min=1, max=8))
+
+---
+bit_item:
+  bit_size: int(required=False)
+  data_ref_mnemonic: mnemonic()
+  dynamic_block_id_list: int(required=False) # Only for Dynamic DID definitions structure

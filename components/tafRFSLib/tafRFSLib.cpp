@@ -16,7 +16,9 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <errno.h>
+#ifdef LE_CONFIG_ENABLE_SELINUX
 #include <selinux/selinux.h>
+#endif
 #include <sys/xattr.h>
 #include <string.h>
 #include <openssl/sha.h>
@@ -320,7 +322,10 @@ static le_result_t BackUpFileAndSELinuxContext(const char* sourcePath, const cha
     struct stat stat_buf;
     off_t offset = 0;
     ssize_t sent;
+    #ifdef LE_CONFIG_ENABLE_SELINUX
     char* selinuxContext = NULL;
+    #endif
+
 
     inputFd = open(sourcePath, O_RDONLY);
     if (inputFd < 0)

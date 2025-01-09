@@ -19,7 +19,11 @@ requires:
 
     component:
     {
+#if ${LE_CONFIG_TARGET_SIMULATION} = y
+        $TELAF_ROOT/simulation/stub/keyStore/taf_pa_keystore
+#else
         $TELAF_ROOT/components/stub/keyStore/taf_pa_keystore
+#endif
     }
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -38,6 +38,7 @@
  */
 #include <iostream>
 #include <string>
+#include <sstream>
 #include "legato.h"
 #include "interfaces.h"
 
@@ -307,12 +308,17 @@ static taf_mngdConn_DataRef_t getDataRef(void)
     std::cout << "Do you want to run the test for dataId or dataName" << std::endl;
     std::cout << "1 -> DataId  " << std::endl
               << "2 -> DataName  " << std::endl;
-    std::cin >> option;
+    std::string input;
+    std::getline(std::cin, input);
+    std::stringstream ss(input);
+    ss >> option;
     if (option == 1)
     {
         int dataId = 0;
         std::cout << "Enter the DataId" << std::endl;
-        std::cin >> dataId;
+        std::getline(std::cin, input);
+        std::stringstream ss(input);
+        ss >> dataId;
         dataRef = taf_mngdConn_GetData(dataId);
         if (dataRef == NULL)
         {
@@ -323,7 +329,7 @@ static taf_mngdConn_DataRef_t getDataRef(void)
     {
         char dataName[MCS_MAX_NAME_LEN];
         std::cout << "Enter the DataName" << std::endl;
-        std::cin >> dataName;
+        std::cin.getline(dataName, MCS_MAX_NAME_LEN);
         dataRef = taf_mngdConn_GetDataByName(dataName);
         if (dataRef == NULL)
         {
@@ -350,7 +356,10 @@ COMPONENT_INIT
     while(1){
         PrintUsage();
         std::cout << "Enter the option for the test" << std::endl;
-        std::cin >> option;
+        std::string input;
+        std::getline(std::cin, input);
+        std::stringstream ss(input);
+        ss >> option;
         switch (option)
         {
             case 0:

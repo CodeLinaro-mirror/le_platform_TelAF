@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -1298,8 +1298,6 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
     if (dataCtxPtr == NULL)
     {
         LE_ERROR("Unable to find context for data ID: %d", dataId);
-        dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_FAILED;
-        ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTION_FAILED);
         return LE_FAULT;
     }
 
@@ -1422,6 +1420,11 @@ le_result_t tafMngdConnAdmin::EventStartDataRetryAppReq(uint8_t dataId,
         {
             mcs_RetryClientNode_t* retryClient =
                         (mcs_RetryClientNode_t*)le_hashmap_Get(RetryClients.hashMap, sessionRef);
+            if(retryClient == NULL)
+            {
+                LE_ERROR("retryClient hashmap is null");
+                return LE_FAULT;
+            }
             //If so then check if StartDataRetry is done and go to recovery
             if(retryClient->flag)
             {
@@ -1456,7 +1459,11 @@ le_result_t tafMngdConnAdmin::EventStartDataRetryAppReq(uint8_t dataId,
         LE_INFO("Client %p started data retry for Data ID: %d", sessionRef, dataCtxPtr->dataId);
         mcs_RetryClientNode_t* retryClientNodePtr =
             (mcs_RetryClientNode_t *)le_mem_TryAlloc(RetryClients.memPool);
-
+        if(retryClientNodePtr == NULL)
+        {
+            LE_ERROR("retryClientNodePtr is null");
+            return LE_FAULT;
+        }
         retryClientNodePtr->sessionRef = sessionRef;
         retryClientNodePtr->flag       = true;
         if (le_hashmap_Put(RetryClients.hashMap, sessionRef, retryClientNodePtr))
@@ -3222,6 +3229,11 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
 {
     LE_INFO("DataStartConnectionTest entered");
     mcs_DataCtx_t *dataCtxPtr = GetDataCtx(dataId);
+    if (nullptr == dataCtxPtr)
+    {
+        LE_ERROR("Unable to get reference for data id: %d", dataId);
+        return;
+    }
     std::string url = dataCtxPtr->conn_test_url;
     std::string ipv4add = dataCtxPtr->conn_test_ipv4Addr;
     std::string interfaceName = dataCtxPtr->intfName;
@@ -3313,6 +3325,11 @@ void tafMngdConnAdmin::EventDataPeriodicConnectivityTest(uint8_t dataId)
 {
     LE_DEBUG("PeriodicConnectivityTest entered");
     mcs_DataCtx_t *dataCtxPtr = GetDataCtx(dataId);
+    if (nullptr == dataCtxPtr)
+    {
+        LE_ERROR("Unable to get reference for data id: %d", dataId);
+        return;
+    }
     std::string url = dataCtxPtr->conn_periodic_test_url;
     std::string interfaceName = dataCtxPtr->intfName;
 

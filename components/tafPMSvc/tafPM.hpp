@@ -65,7 +65,8 @@ using namespace std;
 #define TAF_WAKEUP_SOURCE_DEFAULT_POOL_SIZE 64
 #define TAF_PM_REFERENCE_DEFAULT_POOL_SIZE   31
 #define TAF_POWER_SOURCE_DEFAULT_POOL_SIZE 64
-#define TAF_MNGD_PM_SERVICE 13
+#define TAF_MNGD_PM_SVC "tafMngdPMSvc"
+#define TAF_RPC_PROXY "tafRpcProxy"
 #define PMS_CLNTS_ACK_TIMEOUT 350
 #define TAF_CONSILATED_ACK_CLNT_SIZE 100
 /**
@@ -320,8 +321,8 @@ namespace tafsvc {
             taf_pm_ClientInfo_t* unrespClientsPtr,
             size_t* unrespClientsSizePtr
         );
-
         static void ConsolidatedAckInfo(void* reportPtr);
+        bool IsLowPowerMode;
         #endif
     };
 

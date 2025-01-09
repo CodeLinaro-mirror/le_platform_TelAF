@@ -32,6 +32,18 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * System power mode.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM PowerMode
+{
+    POWER_MODE_NORMAL,       ///< Normal power mode.
+    POWER_MODE_LOW_POWER     ///< Low power mode.
+                             ///< Under this mode, wake sources acquired from MPMS only accepted.
+};
+
 //-------------------------------------------------------------------------------------------------
 /**
  * Registers for TCU state change.
@@ -176,4 +188,16 @@ FUNCTION le_result_t shutdownVM
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t shutdown
 (
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Sets the power mode to facilitate the system level power management.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetPowerMode
+(
+    PowerMode powerMode     ///< to set syatem power mode when BUB status has changed.
 );

@@ -1508,6 +1508,24 @@ void tafMngdPMSvc::InfoReportVhalCB(int32_t* reportPtr)
     LE_INFO("InfoReportVhalCB");
     bubStatusEvent_t bubStatusEvent;
     int32_t bubStatus = *reportPtr;
+    if(bubStatus == TAF_MNGDPM_BUB_STATUS_IN_USE)
+    {
+        LE_INFO("Bub is in use");
+        le_result_t res = taf_pm_SetPowerMode(TAF_PM_POWER_MODE_LOW_POWER);
+        if(res == LE_OK)
+        {
+            LE_INFO("Power Mode is set to Low Power");
+        }
+    }
+    else
+    {
+        LE_INFO("Bub is not in low power mode");
+        le_result_t res = taf_pm_SetPowerMode(TAF_PM_POWER_MODE_NORMAL);
+        if(res == LE_OK)
+        {
+            LE_INFO("Power Mode is set to normal");
+        }
+    }
     bubStatusEvent.status = (taf_mngdPm_BubStatus_t)bubStatus;
     le_event_Report(infoReport, &bubStatusEvent, sizeof(bubStatusEvent_t));
 }

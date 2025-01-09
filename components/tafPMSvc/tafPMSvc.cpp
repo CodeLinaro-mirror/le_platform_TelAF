@@ -319,7 +319,6 @@ taf_pm_StateChangeExHandlerRef_t taf_pm_AddStateChangeExHandler
     return NULL;
 }
 
-
 /**
  * FUNCTION     : RemoveStateChangeExHandler
  * DESCRIPTION  : remove state change handler
@@ -335,6 +334,7 @@ void taf_pm_RemoveStateChangeExHandler(taf_pm_StateChangeExHandlerRef_t handlerR
    power.RemoveStateChangeExHandler(handlerRef);
 #endif
 }
+
 /**
  * FUNCTION     : GetNackClientInfo
  * DESCRIPTION  : Gets the info of nacked clients
@@ -356,6 +356,7 @@ le_result_t taf_pm_GetNackClientInfo
     auto &pmInstance = taf_PM::GetInstance();
     return pmInstance.GetNackClientInfo(consolidatedAckInfoRef, nackClientsPtr, nackClientsSizePtr);
 }
+
 /**
  * FUNCTION     : GetUnrespClientInfo
  * DESCRIPTION  : Gets the info of unresponsive clients
@@ -377,4 +378,28 @@ le_result_t taf_pm_GetUnrespClientInfo
     auto &pmInstance = taf_PM::GetInstance();
     return pmInstance.GetUnrespClientInfo(consolidatedAckInfoRef,
                             unrespClientsPtr, unrespClientsSizePtr);
+}
+
+/**
+ * FUNCTION     : SetPowerMode
+ * DESCRIPTION  : Sets the PowerMode from mpms when BUB is active.
+ * DEPENDECY    :
+ * PARAMETERS   : Power mode as input.
+ * RETURN VALUES:
+ */
+le_result_t taf_pm_SetPowerMode(taf_pm_PowerMode_t powerMode)
+{
+    LE_INFO("taf_pm_SetPowerMode");
+    auto &pmInstance = taf_PM::GetInstance();
+    if(powerMode == TAF_PM_POWER_MODE_LOW_POWER)
+    {
+        LE_INFO("Power Mode is TAF_PM_POWER_MODE_LOW_POWER");
+        pmInstance.IsLowPowerMode = true;
+    }
+    else if(powerMode == TAF_PM_POWER_MODE_NORMAL)
+    {
+        LE_INFO("Power Mode is TAF_PM_POWER_MODE_NORMAL");
+        pmInstance.IsLowPowerMode = false;
+    }
+    return LE_OK;
 }

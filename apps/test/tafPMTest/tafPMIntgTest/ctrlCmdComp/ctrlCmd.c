@@ -106,6 +106,10 @@ static void PrintHelp
         "\n"
         "    pmTest shutdown\n"
         "       suspend whole device.\n"
+        "\n"
+        "    pmTest setPowerMode <powerMode>\n"
+        "       sets PowerMode to device.\n"
+
 #endif
         );
 
@@ -183,6 +187,15 @@ static void CommandHandler
         }
         if(res != LE_OK)
             LE_ERROR("Failed to shutdown the device");
+    }else if (strcmp(argPtr, "setPowerMode") == 0 && le_arg_NumArgs() >= 1)
+    {
+        if(le_arg_NumArgs() == 2 && arg != NULL) {
+            res = ctrlCmd_SetPowerMode(atoi(arg));
+        } else if(le_arg_NumArgs() == 1) {
+            printf("power mode is empty!");
+        }
+        if(res != LE_OK)
+            LE_ERROR("Failed to set power mode to the system");
     } else
     {
         fprintf(stderr, "Unknown command.\n");

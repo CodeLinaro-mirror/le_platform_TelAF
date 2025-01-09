@@ -233,6 +233,18 @@ ENUM ClientAck
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * System power mode.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM PowerMode
+{
+    POWER_MODE_NORMAL,       ///< Normal power mode.
+    POWER_MODE_LOW_POWER     ///< Low power mode.
+                             ///< Under this mode, wake sources acquired from MPMS only accepted.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * The struct for the client information.
  */
 //--------------------------------------------------------------------------------------------------
@@ -537,4 +549,16 @@ FUNCTION le_result_t GetUnrespClientInfo
     ConsolidatedAckInfo consolidatedAckInfoRef IN,           ///< The reference of the consolidated
                                                              ///< acknowledgement information.
     ClientInfo unrespClients[MAX_CLIENT_NUMBER] OUT          ///< The unresponsive clients.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Sets the power mode to facilitate the system level power management.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetPowerMode
+(
+    PowerMode powerMode     ///< to set system power mode when BUB status has changed.
 );

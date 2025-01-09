@@ -1462,6 +1462,11 @@ le_result_t taf_UpdateSvr::SendFileXferResp
             uint8_t f_buffer[SIZE_OF_FSDIL + TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN * 2] = {0};
 
             memcpy(f_buffer, mFileSizeOrDirInfoParameterLength, SIZE_OF_FSDIL);
+            if (nCharsToSave > TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN)
+            {
+                LE_ERROR("Buffer size exceeding max limit");
+                return LE_FAULT;
+            }
             memcpy(f_buffer + SIZE_OF_FSDIL,
                    mFileSizeUncompressedOrDirInfoLength + nCharsToNotUsed,
                    nCharsToSave);
@@ -1959,31 +1964,38 @@ le_result_t taf_UpdateSvr::GetVlanIdFromMsg
 
 #ifndef LE_CONFIG_DIAG_VSTACK
     taf_FileXferRxMsg_t* fileXferMsgPtr = (taf_FileXferRxMsg_t*)
-        le_ref_Lookup(RxFileXferMsgRefMap, rxMsgRef);
-    if (fileXferMsgPtr != NULL)
+            le_ref_Lookup(RxFileXferMsgRefMap, rxMsgRef);
+    if (fileXferMsgPtr == NULL)
+    {
+        taf_XferDataRxMsg_t* xferDataMsgPtr = (taf_XferDataRxMsg_t*)
+                le_ref_Lookup(RxXferDataMsgRefMap, rxMsgRef);
+        if (xferDataMsgPtr == NULL)
+        {
+            taf_XferExitRxMsg_t* xferExitMsgPtr = (taf_XferExitRxMsg_t*)
+                    le_ref_Lookup(RxXferExitMsgRefMap, rxMsgRef);
+            if(xferExitMsgPtr == NULL)
+            {
+                LE_ERROR("Can not find the rxMsgRef");
+                return LE_FAULT;
+            }
+            else
+            {
+                *vlanIdPtr = xferExitMsgPtr->addrInfo.vlanId;
+                return LE_OK;
+            }
+        }
+        else
+        {
+            *vlanIdPtr = xferDataMsgPtr->addrInfo.vlanId;
+            return LE_OK;
+        }
+    }
+    else
     {
         *vlanIdPtr = fileXferMsgPtr->addrInfo.vlanId;
         return LE_OK;
     }
 
-    taf_XferDataRxMsg_t* xferDataMsgPtr = (taf_XferDataRxMsg_t*)
-        le_ref_Lookup(RxXferDataMsgRefMap, rxMsgRef);
-    if (xferDataMsgPtr != NULL)
-    {
-        *vlanIdPtr = fileXferMsgPtr->addrInfo.vlanId;
-        return LE_OK;
-    }
-
-    taf_XferExitRxMsg_t* xferExitMsgPtr = (taf_XferExitRxMsg_t*)
-        le_ref_Lookup(RxXferExitMsgRefMap, rxMsgRef);
-    if (xferExitMsgPtr == NULL)
-    {
-        *vlanIdPtr = xferExitMsgPtr->addrInfo.vlanId;
-        return LE_OK;
-    }
-
-    LE_ERROR("Can not find the rxMsgRef");
-    return LE_FAULT;
 #else
     return LE_NOT_IMPLEMENTED;
 #endif

@@ -437,7 +437,14 @@ COMPONENT_INIT
     }
     else if(strcmp(testType, "swapProfiles") == 0)
     {
-        taf_sim_Manufacturer_t manufacturer = (taf_sim_Manufacturer_t) atoi(le_arg_GetArg(2));
+        const char* manufacturerPtr = le_arg_GetArg(2);
+        if (NULL == manufacturerPtr)
+        {
+            LE_ERROR("manufacturerPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        taf_sim_Manufacturer_t manufacturer = (taf_sim_Manufacturer_t) atoi(manufacturerPtr);
         tafSimTest_swapToEmergencyAndBack(simId, manufacturer);
     }
     else if (strcmp(testType, "setPower") == 0)

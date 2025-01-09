@@ -167,12 +167,18 @@ static int AddProfile() {
 
     const char* activationCode = le_arg_GetArg(2);
     const char* userConsentRequired = le_arg_GetArg(3);
-    const char* confirmationCode = "";
-    if (le_arg_NumArgs() > 4) {
-        confirmationCode =  le_arg_GetArg(4);
-    }
-    if (activationCode == NULL) {
+    const char* confirmationCode = le_arg_NumArgs() > 4 ? le_arg_GetArg(4) : "";
+
+    if (NULL == activationCode) {
         printf("\n Activation code is not entered\n");
+        return EXIT_FAILURE;
+    }
+    if (NULL == userConsentRequired) {
+        printf("\nUser consent is not entered\n");
+        return EXIT_FAILURE;
+    }
+    if (NULL == confirmationCode) {
+        printf("\nConfirmation code is not entered\n");
         return EXIT_FAILURE;
     }
     bool isUserConsentRequired = false;
@@ -201,6 +207,10 @@ static int DeleteProfile() {
         return EXIT_FAILURE;
     }
     const char* id = le_arg_GetArg(2);
+    if (NULL == id) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
     uint32_t profileId = atoi(id);
     LE_ASSERT_OK(taf_simRsp_DeleteProfile(SimId, profileId));
     LE_INFO("DeleteProfile done");
@@ -309,6 +319,10 @@ static int GetProfileByIndex() {
         return EXIT_FAILURE;
     }
     const char* id = le_arg_GetArg(2);
+    if (NULL == id) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
     uint32_t profileId = atoi(id);
 
     LE_INFO("GetProfileByIndex: Retrieving profile of index %d", profileId);
@@ -342,6 +356,10 @@ static int EnableProfile() {
         return EXIT_FAILURE;
     }
     const char* id = le_arg_GetArg(2);
+    if (NULL == id) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
     uint32_t profileId = atoi(id);
     LE_ASSERT_OK(taf_simRsp_SetProfile(SimId, profileId, true));
     printf("\nProfile %d enabled \n", profileId);
@@ -354,6 +372,10 @@ static int DisableProfile() {
         return EXIT_FAILURE;
     }
     const char* id = le_arg_GetArg(2);
+    if (NULL == id) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
     uint32_t profileId = atoi(id);
     LE_ASSERT_OK(taf_simRsp_SetProfile(SimId, profileId, false));
     printf("\nProfile %d disabled \n", profileId);
@@ -377,6 +399,10 @@ static int SetServerAddress() {
         return EXIT_FAILURE;
     }
     const char* smdpAddress = le_arg_GetArg(2);
+    if (NULL == smdpAddress) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
     LE_ASSERT_OK(taf_simRsp_SetServerAddress(SimId, smdpAddress));
     printf("\nServer address set successfully\n");
     return EXIT_SUCCESS;
@@ -388,8 +414,16 @@ static int UpdateNickName() {
         return EXIT_FAILURE;
     }
     const char* id = le_arg_GetArg(2);
+    if (NULL == id) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
     uint32_t profileId = atoi(id);
     const char* nickName = le_arg_GetArg(3);
+    if (NULL == nickName) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
     LE_ASSERT_OK(taf_simRsp_UpdateNickName(SimId, profileId, nickName));
     printf("\nNickname updated successfully\n");
     return EXIT_SUCCESS;

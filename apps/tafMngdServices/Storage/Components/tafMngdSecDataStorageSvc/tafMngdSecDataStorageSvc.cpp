@@ -45,7 +45,7 @@ le_result_t taf_mngdStorSecData_GetUsedSize
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
-
+    TAF_ERROR_IF_RET_VAL(sizePtr == nullptr, LE_BAD_PARAMETER, "output pointer is NULL");
     *sizePtr = mss.GetStorageUsedSize(nullptr);
 
     return LE_OK;
@@ -60,7 +60,7 @@ le_result_t taf_mngdStorSecData_GetFreeSize
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
-
+    TAF_ERROR_IF_RET_VAL(sizePtr == nullptr, LE_BAD_PARAMETER, "output pointer is NULL");
     *sizePtr = mss.GetStorageFreeSpace(nullptr);
 
     return LE_OK;
@@ -144,7 +144,7 @@ le_result_t taf_mngdStorSecData_ReadDataFirstChunk
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
-
+    TAF_ERROR_IF_RET_VAL(bufferPtr == nullptr, LE_BAD_PARAMETER, "output pointer is NULL");
     return mss.ReadDataFirstChunk(dataRef, bufferPtr, readSize);
 }
 
@@ -159,7 +159,7 @@ le_result_t taf_mngdStorSecData_ReadDataNextChunk
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
-
+    TAF_ERROR_IF_RET_VAL(bufferPtr == nullptr, LE_BAD_PARAMETER, "output pointer is NULL");
     return mss.ReadDataNextChunk(dataRef, bufferPtr, readSize);
 }
 
@@ -173,7 +173,7 @@ le_result_t taf_mngdStorSecData_GetDataSize
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
-
+    TAF_ERROR_IF_RET_VAL(dataSize == nullptr, LE_BAD_PARAMETER, "output pointer is NULL");
     return mss.GetDataSize(dataRef, dataSize);
 }
 
@@ -231,7 +231,8 @@ le_result_t taf_mngdStorSecData_GetFirstSharedApp
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
-
+    TAF_ERROR_IF_RET_VAL(appName == nullptr || usage == nullptr, LE_BAD_PARAMETER,
+        "output pointer is NULL");
     return mss.GetFirstSharedApp(dataRef, appName, appNameSize, usage);
 }
 
@@ -247,7 +248,8 @@ le_result_t taf_mngdStorSecData_GetNextSharedApp
 )
 {
     auto &mss = tafMngdStorageSvc::GetInstance();
-
+    TAF_ERROR_IF_RET_VAL(appName == nullptr || usage == nullptr, LE_BAD_PARAMETER,
+        "output pointer is NULL");
     return mss.GetNextSharedApp(dataRef, appName, appNameSize, usage);
 }
 

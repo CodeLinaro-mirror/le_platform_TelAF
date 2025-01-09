@@ -601,6 +601,13 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
     else
     {
         clientCtxPtr = (tafMngdSecFileStorage_ClientCxt_t*)le_ref_Lookup(ClientRefMap, storageRef);
+
+    }
+
+    if (clientCtxPtr == nullptr)
+    {
+        LE_ERROR("Memory allocation failed");
+        return nullptr;
     }
 
     // Find or create the directory reference

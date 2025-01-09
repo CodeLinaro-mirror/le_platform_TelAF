@@ -174,6 +174,7 @@ le_result_t taf_Hms::GetCpuLoad
     double* cpuCurrentLoadPtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(cpuCurrentLoadPtr == NULL, LE_BAD_PARAMETER, "cpuCurrentLoadPtr pointer is NULL");
     // Get CPU usage at "START" point
     taf_hms_CPUCore_t start_usage = GetCpuUsage();
 
@@ -274,6 +275,7 @@ le_result_t taf_Hms::GetIndvCoreUsage
         ///< [OUT] cpuUsage
 )
 {
+    TAF_ERROR_IF_RET_VAL(cpuUsagePtr == NULL, LE_BAD_PARAMETER, "cpuUsagePtr pointer is NULL");
     FILE* fp;
     char buffer[1024];
     uint32_t cpu_count = 0;
@@ -372,6 +374,9 @@ le_result_t taf_Hms::GetRamMemInfo
     uint32_t* ramFreeMemPtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(ramTotalMemPtr == NULL || ramUsedMemPtr == NULL || ramFreeMemPtr == NULL,
+                     LE_BAD_PARAMETER,
+                     "One or more input pointers are NULL");
     FILE *file;
     char buffer[128];
     uint32_t total_mem, free_mem, used_mem;
@@ -664,6 +669,7 @@ le_result_t taf_Hms::GetUbiDevId
     uint32_t* ubiDevIdPtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(ubiDevIdPtr == NULL, LE_BAD_PARAMETER, "ubiDevIdPtr pointer is NULL");
     taf_hms_ubiDevInfo_t* ubiDevPtr = (taf_hms_ubiDevInfo_t*)le_ref_Lookup(UbiDevRefMap,
         ubiDevInfoRef);
 
@@ -691,6 +697,7 @@ le_result_t taf_Hms::GetUbiDevMaxEraseCnt
     uint32_t* ubiEraseCntPtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(ubiEraseCntPtr == NULL, LE_BAD_PARAMETER, "ubiEraseCntPtr pointer is NULL");
     taf_hms_ubiDevInfo_t* ubiDevPtr = (taf_hms_ubiDevInfo_t*)le_ref_Lookup(UbiDevRefMap,
         ubiDevInfoRef);
 
@@ -718,6 +725,7 @@ le_result_t taf_Hms::GetUbiDevBadBlkCnt
     uint32_t* ubiBbCntPtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(ubiBbCntPtr == NULL, LE_BAD_PARAMETER, "ubiBbCntPtr pointer is NULL");
     taf_hms_ubiDevInfo_t* ubiDevPtr = (taf_hms_ubiDevInfo_t*)le_ref_Lookup(UbiDevRefMap,
         ubiDevInfoRef);
 
@@ -808,6 +816,7 @@ le_result_t taf_Hms::GetUbiVolId
     uint32_t* ubiVolIdPtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(ubiVolIdPtr == NULL, LE_BAD_PARAMETER, "ubiVolIdPtr pointer is NULL");
     taf_hms_ubiVolInfo_t* ubiVolPtr =
         (taf_hms_ubiVolInfo_t*)le_ref_Lookup(UbiVolRefMap, ubiVolInfoRef);
 
@@ -836,6 +845,7 @@ le_result_t taf_Hms::GetUbiVolName
     size_t ubiVolNameSize
 )
 {
+    TAF_ERROR_IF_RET_VAL(ubiVolName == NULL, LE_BAD_PARAMETER, "ubiVolName pointer is NULL");
     taf_hms_ubiVolInfo_t* ubiVolPtr =
         (taf_hms_ubiVolInfo_t*)le_ref_Lookup(UbiVolRefMap, ubiVolInfoRef);
     TAF_ERROR_IF_RET_VAL(ubiVolPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
@@ -863,6 +873,7 @@ le_result_t taf_Hms::GetUbiVolSize
     uint32_t* ubiVolSizePtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(ubiVolSizePtr == NULL, LE_BAD_PARAMETER, "ubiVolSizePtr pointer is NULL");
     taf_hms_ubiVolInfo_t* ubiVolPtr =
         (taf_hms_ubiVolInfo_t*)le_ref_Lookup(UbiVolRefMap, ubiVolInfoRef);
 
@@ -1081,6 +1092,7 @@ le_result_t taf_Hms::GetMtdDevName
     size_t mtdNameSize
 )
 {
+    TAF_ERROR_IF_RET_VAL(mtdName == NULL, LE_BAD_PARAMETER, "mtdName pointer is NULL");
     taf_hms_mtdInfo_t* mtdDevPtr =
         (taf_hms_mtdInfo_t*)le_ref_Lookup(MtdRefMap, mtdDevInfoRef);
     TAF_ERROR_IF_RET_VAL(mtdDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
@@ -1108,6 +1120,7 @@ le_result_t taf_Hms::GetMtdDevBlkSize
     uint32_t* mtdBlkSizePtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(mtdBlkSizePtr == NULL, LE_BAD_PARAMETER, "mtdBlkSizePtr pointer is NULL");
     taf_hms_mtdInfo_t* mtdDevPtr =
         (taf_hms_mtdInfo_t*)le_ref_Lookup(MtdRefMap, mtdDevInfoRef);
 
@@ -1133,6 +1146,7 @@ le_result_t taf_Hms::GetMtdDevId
     uint32_t* mtdDevIdPtr
 )
 {
+   TAF_ERROR_IF_RET_VAL(mtdDevIdPtr == NULL, LE_BAD_PARAMETER, "mtdDevIdPtr pointer is NULL");
    taf_hms_mtdInfo_t* mtdDevPtr =
         (taf_hms_mtdInfo_t*)le_ref_Lookup(MtdRefMap, mtdDevInfoRef);
 
@@ -1158,6 +1172,7 @@ le_result_t taf_Hms::GetMtdDevBlkCnt
     uint32_t* mtdBlkCntPtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(mtdBlkCntPtr == NULL, LE_BAD_PARAMETER, "mtdBlkCntPtr pointer is NULL");
     taf_hms_mtdInfo_t* mtdDevPtr =
         (taf_hms_mtdInfo_t*)le_ref_Lookup(MtdRefMap, mtdDevInfoRef);
 

@@ -455,9 +455,17 @@ le_result_t OpenDrvToGetInfo
 
     void* drvHandle = nullptr;
     char* errMsg = nullptr;
+    int ret = 0;
 
     // Try to open it first
-    drvHandle = dlopen(drvFile, RTLD_NOW);
+    ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, drvHandle, dlopen(drvFile, RTLD_NOW));
+    EXIT_SAFE_CALL();
+
+    if(ret == -1)
+    {
+        LE_ERROR("Failed to dlopen the driver %s", drvFile);
+        return LE_FAULT;
+    }
 
     if(drvHandle == nullptr)
     {
@@ -1132,7 +1140,14 @@ void ToolMsgReceiveHandler
                 if(drvPtr != nullptr)
                 {
                     // open the so to get real name
-                    drvHandle = dlopen(drvPtr->loc, RTLD_NOW);
+                    ENTER_SAFE_CALL_EX(TIMER_SAFECALL,
+                                        ret, drvHandle, dlopen(drvPtr->loc, RTLD_NOW));
+                    EXIT_SAFE_CALL();
+                    if(ret == -1)
+                    {
+                        LE_ERROR("Failed to dlopen the driver %s", drvPtr->loc);
+                        break;
+                    }
 
                     if((errMsg = dlerror()) != nullptr || drvHandle == nullptr)
                     {

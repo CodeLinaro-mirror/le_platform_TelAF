@@ -2331,7 +2331,7 @@ le_result_t taf_ecall::UpdateMsdInformation(taf_ecall_CallRef_t ecallRef)
             ECallObject.msd.control.vehicleType = (ECallVehicleType)ECALL_HAL_VEHITYPE_PASSENGER_VEHICLE_CLASS_M1;
         }
 
-        taf_hal_eCall_ActivateType actType;
+        taf_hal_eCall_ActivateType actType = ECALL_HAL_ACTTYPE_AUTOMATIC;
 
         ECallObject.msd.control.automaticActivation = false;
         eCallPtr->msd.optionals.numberOfPassengersPresent = false;
@@ -2508,6 +2508,7 @@ void taf_ecall::ALACKTimerEventHandler(void* reqPtr)
 
 le_result_t taf_ecall::IsInProgress(taf_ecall_CallRef_t ecallRef, bool* isInProgress)
 {
+    TAF_ERROR_IF_RET_VAL(isInProgress == NULL, LE_BAD_PARAMETER, "Invalid parameter");
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
 
     if (eCallPtr == NULL)

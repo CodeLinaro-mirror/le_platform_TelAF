@@ -1107,7 +1107,12 @@ static int setNadDeregTime()
         return EXIT_FAILURE;
     }
 
-    uint16_t deregTime = atoi(le_arg_GetArg(2));
+    const char* time = le_arg_GetArg(2);
+    if (NULL == time) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    uint16_t deregTime = atoi(time);
     le_result_t result = taf_ecall_SetNadDeregistrationTime(deregTime);
     LE_TEST_OK(result == LE_OK, "setNadDeregTime - LE_OK");
     printf("Set de-reg time as %d is %s\n", deregTime, result == LE_OK ? "Success." : "Failed!");
@@ -1139,7 +1144,12 @@ static int setNadClearDownFallbackTime()
         return EXIT_FAILURE;
     }
 
-    uint16_t ccftTime = atoi(le_arg_GetArg(2));
+    const char* time = le_arg_GetArg(2);
+    if (NULL == time) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    uint16_t ccftTime = atoi(time);
     le_result_t result = taf_ecall_SetNadClearDownFallbackTime(ccftTime);
     LE_TEST_OK(result == LE_OK, "setNadClearDownFallbackTime - LE_OK");
     printf("Set clear down fallback time as %d is %s\n", ccftTime, result == LE_OK ? "Success." : "Failed!");
@@ -1171,7 +1181,12 @@ static int setNadMinNetworkRegistrationTime()
         return EXIT_FAILURE;
     }
 
-    uint16_t minNwRegTime = atoi(le_arg_GetArg(2));
+    const char* time = le_arg_GetArg(2);
+    if (NULL == time) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    uint16_t minNwRegTime = atoi(time);
     le_result_t result = taf_ecall_SetNadMinNetworkRegistrationTime(minNwRegTime);
     LE_TEST_OK(result == LE_OK, "setNadMinNetworkRegistrationTime - LE_OK");
     printf("Set min network registration time as %d is %s\n", minNwRegTime, result == LE_OK ? "Success." : "Failed!");
@@ -1188,9 +1203,15 @@ static int setOpMode()
         return EXIT_FAILURE;
     }
     const char* opMode =  le_arg_GetArg(2);
-    uint8_t phoneId = 1;
     const char* inputPhoneId = le_arg_GetArg(3);
+    uint8_t phoneId = 1;
     le_result_t result = LE_FAULT;
+
+    if ((NULL == opMode) || (NULL == inputPhoneId))
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
 
     if (strcmp(inputPhoneId, "SLOT2") == 0)
     {
@@ -1234,6 +1255,11 @@ static int getOpMode()
     }
 
     const char* inputPhoneId = le_arg_GetArg(2);
+    if (NULL == inputPhoneId)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
 
     uint8_t phoneId = 1;
 
@@ -1294,7 +1320,13 @@ static int setMsdVersion()
         return EXIT_FAILURE;
     }
 
-    uint32_t msdVersion = atoi(le_arg_GetArg(2));
+    const char* version = le_arg_GetArg(2);
+    if (NULL == version) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    uint32_t msdVersion = atoi(version);
+
     le_result_t result = taf_ecall_SetMsdVersion(msdVersion);
     LE_TEST_OK(result == LE_OK, "setMsdVersion - LE_OK");
     printf("Set msd version as %d %s\n", msdVersion, result == LE_OK ? "Success." : "Failed!");
@@ -1400,6 +1432,10 @@ static int startECall()
     }
 
     const char* eCallType =  le_arg_GetArg(2);
+    if (NULL == eCallType) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
 
     ECallRef = taf_ecall_Create();
 
@@ -1513,7 +1549,12 @@ static int addGPIOHandler()
         PrintUsage();
         return EXIT_FAILURE;
     }
+
     const char* pinNum = le_arg_GetArg(2);
+    if (NULL == pinNum) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
     uint32_t pin = atoi(pinNum);
 
     taf_gpio_SetInput(pin, TAF_GPIO_ACTIVE_HIGH, false);
@@ -1532,7 +1573,12 @@ static int getHlapTimerState()
         return EXIT_FAILURE;
     }
 
-    taf_ecall_HlapTimerType_t hlapTimerType = atoi(le_arg_GetArg(2));
+    const char* timerType = le_arg_GetArg(2);
+    if (NULL == timerType) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    taf_ecall_HlapTimerType_t hlapTimerType = atoi(timerType);
     taf_ecall_HlapTimerStatus_t timerStatus;
     uint16_t elapsedTime;
     le_result_t result = taf_ecall_GetHlapTimerState(hlapTimerType, &timerStatus, &elapsedTime);
@@ -1569,7 +1615,12 @@ static int setInitialDialAttempts()
         return EXIT_FAILURE;
     }
 
-    uint8_t dialAttempts = atoi(le_arg_GetArg(2));
+    const char* attempts = le_arg_GetArg(2);
+    if (NULL == attempts) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    uint8_t dialAttempts = atoi(attempts);
     le_result_t result = taf_ecall_SetInitialDialAttempts(dialAttempts);
     LE_TEST_OK(result == LE_OK, "setInitialDialAttempts - LE_OK");
     printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");

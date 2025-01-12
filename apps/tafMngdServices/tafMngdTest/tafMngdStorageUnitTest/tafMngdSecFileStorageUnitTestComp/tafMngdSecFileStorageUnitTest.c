@@ -11,6 +11,8 @@
 #define FILE_TARGET "targetFile.txt"
 #define FILE_SOURCE "/tmp/sourceFile.txt"
 #define TEST_STORAGE_NAME "testStorage"
+#define TEST_SVC_STORAGE_NAME "testSvcStorage"
+#define TEST_SVC_STORAGE_NAME_INSTANCE "SvcStorageInstance"
 
 // Function prototypes for the test operations
 void Test_Op_create(const char* storageName);
@@ -124,6 +126,38 @@ void Test_DeleteStorage()
 
     le_result_t result = taf_mngdStorSecFile_DeleteStorage(storageRef);
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdtorSecFile_DeleteStorage");
+}
+
+void Test_ServiceStorage()
+{
+    taf_mngdStorSecFile_StorageRef_t storageRef;
+    const char* storageName = TEST_SVC_STORAGE_NAME;
+
+    storageRef = taf_mngdStorSecFile_GetStorageRef(storageName);
+    LE_TEST_ASSERT(storageRef != NULL, "Test taf_mngdStorSecFile_GetStorageRef");
+
+    const char* sourceFilePath = FILE_SOURCE;
+    const char* targetFilePath = FILE_TARGET;
+
+    // Create a source file for testing
+    FILE* sourceFile = fopen(sourceFilePath, "w");
+    if (sourceFile)
+    {
+        fputs("This is a test file.", sourceFile);
+        fclose(sourceFile);
+    }
+
+    le_result_t result = taf_mngdStorSecFile_ImportFile(storageRef, sourceFilePath, targetFilePath);
+    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSecFile_ImportFile");
+
+    result = taf_mngdStorSecFile_DeleteFile(storageRef, targetFilePath);
+    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSecFile_DeleteFile");
+
+    result = taf_mngdStorSecFile_DeleteStorage(storageRef);
+    LE_TEST_ASSERT(result == LE_NOT_PERMITTED, "Test taf_mngdtorSecFile_DeleteStorage");
+
+    storageRef = taf_mngdStorSecFile_GetStorageRef(TEST_SVC_STORAGE_NAME_INSTANCE);
+    LE_TEST_ASSERT(storageRef == NULL, "Test taf_mngdStorSecFile_GetStorageRef");
 }
 
 void PrintUsage()
@@ -330,6 +364,7 @@ COMPONENT_INIT
         LE_TEST_INFO("=== TelAF MngdStorage unit test BEGIN ===");
 
         LE_TEST_INFO("=== Test secure storage management ===");
+        Test_ServiceStorage();
         Test_CreateStorage();
         Test_GetStorageRef();
         Test_UnlockStorage();

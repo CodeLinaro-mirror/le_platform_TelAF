@@ -47,7 +47,7 @@ le_result_t taf_mngdStorSecFile_CreateStorage
 )
 {
     auto &mss = tafMngdSecFileStorageSvc::GetInstance();
-    return mss.CreateStorageRefImpl(storageNamePtr, capMask);
+    return mss.CreateStorageRefImpl(storageNamePtr, capMask, false);
 }
 
 taf_mngdStorSecFile_StorageRef_t taf_mngdStorSecFile_GetStorageRef

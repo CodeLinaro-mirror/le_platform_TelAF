@@ -38,6 +38,11 @@ using namespace telux::tafsvc;
 #include <unistd.h>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <vector>
+#include <cstring>
+
+#include <openssl/evp.h>
+#include <openssl/sha.h>
 
 namespace pt = boost::property_tree;
 
@@ -97,46 +102,94 @@ le_result_t tafMngdSecFileStorageSvc::ParseServiceJsonConfig(char* configPath)
 {
     LE_INFO("Parsing %s", configPath);
     std::ifstream jfile(configPath);
-    if(!jfile.is_open()){
-        LE_WARN ("Unable to open %s", configPath);
+    if (!jfile.is_open())
+    {
+        LE_WARN("Unable to open %s", configPath);
         return LE_FAULT;
     }
 
-    // Create a root
     pt::ptree root;
-    // Load the json file in this ptree
     try
     {
         pt::read_json(configPath, root);
         std::string product = root.get<std::string>("Product");
-        if (product != "TelAF"){
+        if (product != "TelAF")
+        {
             LE_WARN("Invalid JSON property value");
             return LE_FAULT;
         }
         std::string name = root.get<std::string>("Name");
-        if(name != "MSS"){
+        if (name != "MSS")
+        {
             LE_WARN("Invalid JSON property value");
             return LE_FAULT;
         }
         std::string svcJsonVersion = root.get<std::string>("Version");
-        LE_INFO("Version of Json is %s",svcJsonVersion.c_str());
-        for (const auto& item :
-            root.get_child("MSS Secure File Storage.Configuration.StoragePath")) {
-            const boost::property_tree::ptree& uPath = item.second;
-            std::string basePath = uPath.get<std::string>("BasePath");
-            snprintf(secFileStorage,sizeof(secFileStorage),"%s",basePath.c_str());
-            std::string backupPath = uPath.get<std::string>("BackupPath");
-            LE_INFO("Base path is %s",secFileStorage);
-            snprintf(secFileRfsStorage,sizeof(secFileRfsStorage),"%s",backupPath.c_str());
-            LE_INFO("Backup path is %s",secFileRfsStorage);
+        LE_INFO("Version of Json is %s", svcJsonVersion.c_str());
+
+        for (const auto& path : root.get_child("MSS Secure File Storage.Configuration.StoragePath"))
+        {
+            std::string basePath = path.second.get<std::string>("BasePath");
+            snprintf(secFileStorage, sizeof(secFileStorage), "%s", basePath.c_str());
+            std::string backupPath = path.second.get<std::string>("BackupPath");
+            snprintf(secFileRfsStorage, sizeof(secFileRfsStorage), "%s", backupPath.c_str());
+            LE_INFO("Base path is %s", secFileStorage);
+            LE_INFO("Backup path is %s", secFileRfsStorage);
+        }
+
+        for (const auto& item : root.get_child("MSS Secure File Storage.Configuration.Storages"))
+        {
+            tafMngdSecFileStorage_StorageCfg_t storage;
+            std::string storageName = item.second.get<std::string>("StorageName");
+            snprintf(storage.StorageName, sizeof(storage.StorageName), "%s", storageName.c_str());
+            for (const auto& app : item.second.get_child("AccessibleApps"))
+            {
+                std::string appName = app.second.get_value<std::string>();
+                char* appCStr = new char[LIMIT_MAX_APP_NAME_LEN];
+                snprintf(appCStr, LIMIT_MAX_APP_NAME_LEN, "%s", appName.c_str());
+                storage.AccessibleApps.push_back(appCStr);
+            }
+            storageAccessCfg.push_back(storage);
         }
     }
-    catch (const std::exception &e)
+    catch (const std::exception& e)
     {
-        LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
+        LE_WARN("read_json exception: %s. Check validity of JSON.", e.what());
         return LE_FAULT;
     }
     return LE_OK;
+}
+
+bool tafMngdSecFileStorageSvc::IsAppAccessible(const char* storageName, const char* appName)
+{
+    for (const auto& storage : storageAccessCfg)
+    {
+        if (std::strcmp(storage.StorageName, storageName) == 0)
+        {
+            for (const auto& app : storage.AccessibleApps)
+            {
+                if (std::strcmp(app, appName) == 0)
+                {
+                    LE_INFO("%s is in the access list of storage: %s", appName, storageName);
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool tafMngdSecFileStorageSvc::IsServiceStorage(const char* storageName)
+{
+    for (const auto& storage : storageAccessCfg)
+    {
+        if (std::strcmp(storage.StorageName, storageName) == 0)
+        {
+            LE_INFO("%s is a service-created storage", storageName);
+            return true;
+        }
+    }
+    return false;
 }
 
 bool tafMngdSecFileStorageSvc::IsFileExisting(const char *path)
@@ -185,6 +238,8 @@ void tafMngdSecFileStorageSvc::Init(void)
     taf_rfs_Init(true, nullptr);
 
     taf_rfs_SetBackupStorage(secFileRfsStorage);
+
+    CreateServiceStorages();
 }
 
 bool tafMngdSecFileStorageSvc::IsDirExisting(const char *path)
@@ -325,8 +380,8 @@ bool tafMngdSecFileStorageSvc::IsDirectoryEmpty
 
 tafMngdSecFileStorage_DirRef_t tafMngdSecFileStorageSvc::CreateDirRef
 (
-    const char* basePathPtr,
-    const char* storageNamePtr
+    const char* storageNamePtr,
+    bool internal
 )
 {
     LE_INFO("CreateDirRef for '%s'", storageNamePtr);
@@ -334,7 +389,7 @@ tafMngdSecFileStorage_DirRef_t tafMngdSecFileStorageSvc::CreateDirRef
     tafMngdSecFileStorage_Dir_t *dirPtr = nullptr;
     tafMngdSecFileStorage_DirRef_t dirRef = nullptr;
     char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
-    le_result_t res;
+    le_result_t res = LE_OK;
 
     // Allocate memory for the directory structure
     dirPtr = (tafMngdSecFileStorage_Dir_t*)le_mem_ForceAlloc(DirPool);
@@ -357,11 +412,18 @@ tafMngdSecFileStorage_DirRef_t tafMngdSecFileStorageSvc::CreateDirRef
     snprintf(dirPtr->storageName, sizeof(dirPtr->storageName), "%s", storageNamePtr);
 
     // Get appName from client session
-    if (LE_OK != GetAppNameBySessionRef(taf_mngdStorSecFile_GetClientSessionRef(),
-                                        myAppName, sizeof(myAppName)))
+    if(internal == true)
     {
-        LE_ERROR("Failed to get client appName.");
-        goto cleanup;
+        snprintf(myAppName, sizeof(myAppName), "%s", SECFILE_CREATOR_NAME);
+    }
+    else
+    {
+        if (LE_OK != GetAppNameBySessionRef(taf_mngdStorSecFile_GetClientSessionRef(),
+                                        myAppName, sizeof(myAppName)))
+        {
+            LE_ERROR("Failed to get client appName.");
+            goto cleanup;
+        }
     }
 
     snprintf(dirPtr->masterAppName, sizeof(dirPtr->masterAppName), "%s", myAppName);
@@ -455,10 +517,157 @@ le_result_t tafMngdSecFileStorageSvc::FindDirRef
     return LE_NOT_FOUND;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Calculates file path SHA1
+ */
+//--------------------------------------------------------------------------------------------------
+static void CalculateInputStrSHA1(const char* inputPtr, char* outputHashPtr)
+{
+    LE_DEBUG("%s", __FUNCTION__);
+
+    unsigned char hash[SHA_DIGEST_LENGTH];
+    SHA1((unsigned char*)inputPtr, strlen(inputPtr), hash);
+    // transfer SHA1 to a hex string
+    for (int i = 0; i < SHA_DIGEST_LENGTH; i++)
+    {
+        snprintf(outputHashPtr + (i * 2), sizeof(outputHashPtr), "%02x", hash[i]);
+    }
+    outputHashPtr[SHA_DIGEST_LENGTH * 2] = '\0';
+}
+
+le_result_t tafMngdSecFileStorageSvc::SetStorageCreator
+(
+    const char* storageNamePtr,
+    const char* creatorAppPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(storageNamePtr == nullptr,
+                         LE_BAD_PARAMETER,
+                         "Invalid storage string");
+
+    TAF_ERROR_IF_RET_VAL(creatorAppPtr == nullptr,
+                         LE_BAD_PARAMETER,
+                         "Invalid creatorApp string");
+
+    LE_INFO("Set creator for storage %s", storageNamePtr);
+
+    char sha1Hash[SHA_DIGEST_LENGTH * 2 + 1] = {0};
+    char dataName[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES] = {0};
+
+    CalculateInputStrSHA1(storageNamePtr, sha1Hash);
+
+    TAF_ERROR_IF_RET_VAL(strlen(sha1Hash) == 0, LE_FAULT, "Get SHA1 failed");
+
+    snprintf(dataName, sizeof(dataName), "%s", sha1Hash);
+
+    le_result_t res = LE_OK;
+
+    res = taf_mngdStorSecData_CreateData(dataName);
+
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Create data failed");
+
+    taf_mngdStorSecData_DataRef_t dataRef = taf_mngdStorSecData_GetDataRef(dataName);
+
+    TAF_ERROR_IF_RET_VAL(dataRef == nullptr, LE_FAULT, "Invalid data reference");
+
+    res = taf_mngdStorSecData_WriteDataStart(dataRef);
+
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Write data failed");
+
+    res = taf_mngdStorSecData_WriteDataChunk(dataRef,
+                                                (uint8_t*)creatorAppPtr,
+                                                strlen(creatorAppPtr) + 1);
+
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Write data failed");
+
+    res = taf_mngdStorSecData_WriteDataEnd(dataRef);
+
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Write data failed");
+
+    return LE_OK;
+}
+
+le_result_t tafMngdSecFileStorageSvc::CheckStorageCreator
+(
+    const char* storageNamePtr,
+    const char* checkAppPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(storageNamePtr == nullptr,
+                         LE_BAD_PARAMETER,
+                         "Invalid storage string");
+
+    TAF_ERROR_IF_RET_VAL(checkAppPtr == nullptr,
+                         LE_BAD_PARAMETER,
+                         "Invalid checkApp string");
+
+    char sha1Hash[SHA_DIGEST_LENGTH * 2 + 1] = {0};
+    char dataName[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES] = {0};
+
+    CalculateInputStrSHA1(storageNamePtr, sha1Hash);
+
+    TAF_ERROR_IF_RET_VAL(strlen(sha1Hash) == 0, LE_FAULT, "Get SHA1 failed");
+
+    snprintf(dataName, sizeof(dataName), "%s", sha1Hash);
+
+    taf_mngdStorSecData_DataRef_t dataRef = taf_mngdStorSecData_GetDataRef(dataName);
+    TAF_ERROR_IF_RET_VAL(dataRef == nullptr, LE_FAULT, "Invalid data reference");
+
+    uint8_t buffer[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES] = {0};
+    size_t readSize = sizeof(buffer);
+
+    le_result_t res = taf_mngdStorSecData_ReadDataFirstChunk(dataRef, buffer, &readSize);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Read data failed");
+
+    if (strcmp((char*)buffer, checkAppPtr) == 0)
+    {
+        LE_INFO("%s is the creator of storage: %s", checkAppPtr, storageNamePtr);
+        return LE_OK; // The app matches
+    }
+    else
+    {
+        return LE_NOT_PERMITTED; // The app does not match
+    }
+}
+
+le_result_t tafMngdSecFileStorageSvc::ClearStorageCreator
+(
+    const char* storageNamePtr,
+    const char* checkAppPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(storageNamePtr == nullptr,
+                         LE_BAD_PARAMETER,
+                         "Invalid storage string");
+
+    TAF_ERROR_IF_RET_VAL(checkAppPtr == nullptr,
+                         LE_BAD_PARAMETER,
+                         "Invalid checkApp string");
+
+    char sha1Hash[SHA_DIGEST_LENGTH * 2 + 1] = {0};
+    char dataName[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES] = {0};
+
+    CalculateInputStrSHA1(storageNamePtr, sha1Hash);
+
+    TAF_ERROR_IF_RET_VAL(strlen(sha1Hash) == 0, LE_FAULT, "Get SHA1 failed");
+
+    snprintf(dataName, sizeof(dataName), "%s", sha1Hash);
+
+    taf_mngdStorSecData_DataRef_t dataRef = taf_mngdStorSecData_GetDataRef(dataName);
+    TAF_ERROR_IF_RET_VAL(dataRef == nullptr, LE_FAULT, "Invalid data reference");
+
+    le_result_t res = taf_mngdStorSecData_DeleteData(dataRef);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Delete data failed");
+
+    return LE_OK;
+}
+
 le_result_t tafMngdSecFileStorageSvc::CreateStorageRefImpl
 (
     const char* storageNamePtr,
-    taf_mngdStorSecFile_ManagedCapMask_t capMask
+    taf_mngdStorSecFile_ManagedCapMask_t capMask,
+    bool internal
 )
 {
     // Validate the storage name
@@ -467,6 +676,7 @@ le_result_t tafMngdSecFileStorageSvc::CreateStorageRefImpl
                          "Invalid storage string");
 
     char dirPath[LIMIT_MAX_PATH_BYTES] = {0};
+    char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
 
     // Get the storage path
     if (GetStoragePath(secFileStorage, storageNamePtr, dirPath, sizeof(dirPath)) != LE_OK)
@@ -488,12 +698,33 @@ le_result_t tafMngdSecFileStorageSvc::CreateStorageRefImpl
         }
     }
 
+    // Set up creator for the new storage
+    if(internal == true)
+    {
+        snprintf(myAppName, sizeof(myAppName), "%s", SECFILE_CREATOR_NAME);
+    }
+    else
+    {
+        if (LE_OK != GetAppNameBySessionRef(taf_mngdStorSecFile_GetClientSessionRef(),
+                                        myAppName, sizeof(myAppName)))
+        {
+            LE_ERROR("Failed to get client appName.");
+            return LE_FAULT;
+        }
+    }
+
+    if(SetStorageCreator(storageNamePtr, myAppName) != LE_OK)
+    {
+        LE_ERROR("Failed to set creator for storage %s.", storageNamePtr);
+        return LE_FAULT;
+    }
+
     tafMngdSecFileStorage_DirRef_t dirRef = nullptr;
 
     // Find or create the directory reference
     if (FindDirRef(storageNamePtr, &dirRef) == LE_NOT_FOUND)
     {
-        dirRef = CreateDirRef(secFileStorage, storageNamePtr);
+        dirRef = CreateDirRef(storageNamePtr, internal);
     }
     else
     {
@@ -570,6 +801,25 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
         return nullptr;
     }
 
+    char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+
+    if (LE_OK != GetAppNameBySessionRef(taf_mngdStorSecFile_GetClientSessionRef(),
+                                        myAppName, sizeof(myAppName)))
+    {
+        LE_ERROR("Failed to get client appName.");
+        return nullptr;
+    }
+
+    if(CheckStorageCreator(storageNamePtr, myAppName) != LE_OK)
+    {
+        LE_INFO("Calling app is not the creator, check if it is accessible");
+        if(IsAppAccessible(storageNamePtr, myAppName) == false)
+        {
+            LE_ERROR("Calling app is not in the access list");
+            return nullptr;
+        }
+    }
+
     taf_mngdStorSecFile_StorageRef_t storageRef;
     tafMngdSecFileStorage_ClientCxt_t* clientCtxPtr = nullptr;
 
@@ -613,7 +863,7 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
     // Find or create the directory reference
     if (FindDirRef(storageNamePtr, &(clientCtxPtr->dirRef)) == LE_NOT_FOUND)
     {
-        clientCtxPtr->dirRef = CreateDirRef(secFileStorage, storageNamePtr);
+        clientCtxPtr->dirRef = CreateDirRef(storageNamePtr, false);
         if (clientCtxPtr->dirRef == nullptr)
         {
             LE_ERROR("Cannot create directory context reference");
@@ -727,10 +977,15 @@ le_result_t tafMngdSecFileStorageSvc::ImportFileImpl
                          "Invalid target file path");
 
     char storageTargetFilePath[LIMIT_MAX_PATH_BYTES] = {0};
+    char tmpStorageTargetFilePath[LIMIT_MAX_PATH_BYTES] = {0};
 
     // Construct the target file path within the storage directory
     snprintf(storageTargetFilePath, sizeof(storageTargetFilePath),
              "%s/%s", dirPtr->path, targetFilePathPtr);
+
+    // Construct the target file path within the storage directory
+    snprintf(tmpStorageTargetFilePath, sizeof(tmpStorageTargetFilePath),
+             "%s/%s%s", dirPtr->path, targetFilePathPtr, SECFILE_TMP_FILE_NAME_EXTENSION);
 
     // Unlock the storage before performing the file operation
     LE_DEBUG("Unlocking FSC storage for directory: %s", dirPtr->path);
@@ -741,12 +996,22 @@ le_result_t tafMngdSecFileStorageSvc::ImportFileImpl
     // Set the backup storage path
     taf_rfs_SetBackupStorage(dirPtr->rfsPath);
 
-    // Copy the file from the source to the target path
-    if (taf_rfs_Copy(sourceFilePathPtr, storageTargetFilePath) != 0)
+    // For atomic operation, copy the file from the source to the tmp file
+    if(taf_rfs_Copy(sourceFilePathPtr, tmpStorageTargetFilePath) != 0)
     {
         LE_ERROR("Failed to import file from %s to %s", sourceFilePathPtr, storageTargetFilePath);
-        return LE_FAULT;
+        goto cleanup;
     }
+
+    // Rename the file if the copy is successful
+    if(taf_rfs_Rename(tmpStorageTargetFilePath, storageTargetFilePath) != 0)
+    {
+        LE_ERROR("Failed to rename file from %s to %s", tmpStorageTargetFilePath, storageTargetFilePath);
+        goto cleanup;
+    }
+
+    // Delete the tmp file
+    taf_rfs_Delete(tmpStorageTargetFilePath);
 
     // Lock the storage after the file operation
     LE_DEBUG("Locking FSC storage for directory: %s", dirPtr->path);
@@ -756,6 +1021,19 @@ le_result_t tafMngdSecFileStorageSvc::ImportFileImpl
 
     LE_INFO("Successfully imported file from %s to %s", sourceFilePathPtr, storageTargetFilePath);
     return LE_OK;
+
+cleanup:
+
+    // Delete the tmp file
+    taf_rfs_Delete(tmpStorageTargetFilePath);
+
+    // Lock the storage after the file operation
+    LE_DEBUG("Locking FSC storage for directory: %s", dirPtr->path);
+    taf_fsc_LockStorage(dirPtr->fscStorageRef);
+    LE_DEBUG("Locking RFS storage for directory: %s", dirPtr->rfsPath);
+    taf_fsc_LockStorage(dirPtr->rfs_fscStorageRef);
+
+    return LE_FAULT;
 }
 
 le_result_t tafMngdSecFileStorageSvc::ReadFileImpl
@@ -954,6 +1232,19 @@ le_result_t tafMngdSecFileStorageSvc::DeleteStorageImpl
     // Check if the directory reference is valid
     TAF_ERROR_IF_RET_VAL(dirPtr == nullptr, LE_NOT_FOUND, "Invalid secure directory reference");
 
+    // Check if the directory is empty
+    if (!IsDirectoryEmpty(dirPtr->path))
+    {
+        LE_ERROR("The directory '%s' is not empty", dirPtr->path);
+        return LE_NOT_PERMITTED;
+    }
+
+    if(IsServiceStorage(dirPtr->storageName) == true)
+    {
+        LE_ERROR("The service storage '%s' cannot be deleted", dirPtr->storageName);
+        return LE_NOT_PERMITTED;
+    }
+
     result = taf_fsc_DeleteStorage(dirPtr->rfs_fscStorageRef);
     if(result == LE_OK)
     {
@@ -975,6 +1266,17 @@ le_result_t tafMngdSecFileStorageSvc::DeleteStorageImpl
         return LE_FAULT;
     }
 
+    result = ClearStorageCreator(dirPtr->storageName, dirPtr->masterAppName);
+    if(result == LE_OK)
+    {
+        LE_INFO("Successfully clear storage creator");
+    }
+    else
+    {
+        LE_ERROR("Failed to clear storage creator");
+        return LE_FAULT;
+    }
+
     // Free the storage object and reference
     le_ref_DeleteRef(DirRefMap, clienCxtPtr->dirRef);
     le_mem_Release(dirPtr);
@@ -982,4 +1284,21 @@ le_result_t tafMngdSecFileStorageSvc::DeleteStorageImpl
     le_mem_Release(clienCxtPtr);
     return result;
 
+}
+
+void tafMngdSecFileStorageSvc::CreateServiceStorages()
+{
+    taf_mngdStorSecFile_ManagedCapMask_t capMask = TAF_MNGDSTORSECFILE_CAP_RELIABILITY;
+    bool internal = true;
+    le_result_t res = LE_OK;
+
+    for (const auto& storage : storageAccessCfg)
+    {
+        res = CreateStorageRefImpl(storage.StorageName, capMask, internal);
+        if (res != LE_OK)
+        {
+            LE_WARN("Failed to create storage: %s", storage.StorageName);
+        }
+        LE_INFO("Successfully created storage: %s", storage.StorageName);
+    }
 }

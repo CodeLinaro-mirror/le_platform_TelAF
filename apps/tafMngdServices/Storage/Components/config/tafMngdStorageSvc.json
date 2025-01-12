@@ -28,6 +28,16 @@
                     "BasePath": "/persist/fileStorage/",
                     "BackupPath": "/persist/rfs/secFileStorage/"
                 }
+            ],
+            "Storages": [
+                {
+                    "StorageName": "testSvcStorage",
+                    "AccessibleApps": ["tafMngdStorageUnitTest"]
+                },
+                {
+                    "StorageName": "SvcStorageInstance",
+                    "AccessibleApps": ["AppA", "AppB"]
+                }
             ]
         }
     },

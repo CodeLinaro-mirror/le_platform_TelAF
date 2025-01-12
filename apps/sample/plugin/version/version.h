@@ -22,6 +22,10 @@
 #define TELAF_VERSION_MINOR_LEN 2
 #define TELAF_VERSION_PATCH_LEN 2
 
+#define LXC_VERSION_FILE "/lxcrootfs/etc/version"
+#define LXC_VERSION_AU_PREFIX "TARGET_ALL."
+#define LXC_VERSION_LE_PREFIX "LE.UM."
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Version tier enum.

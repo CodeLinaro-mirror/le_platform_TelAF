@@ -81,6 +81,10 @@ int taf_piHash_ParseComponent
     {
         *component = TAF_PI_HASH_COMP_FIRMWARE;
     }
+    else if (strncmp(compStr, "lxc", strlen("lxc")) == 0)
+    {
+        *component = TAF_PI_HASH_COMP_LXC;
+    }
     else
     {
         LE_ERROR("Invalid component : %s", compStr);
@@ -397,36 +401,52 @@ int taf_piHash_GetBuildTimeHash
     size_t* hashSize              ///< [OUT] Size of the hash string.
 )
 {
-    if (component != TAF_PI_HASH_COMP_TELAF)
-    {
-        LE_ERROR("No buildtime hash ia available for the component.");
-        return -1;
-    }
-
     char version[VERSION_BYTES];
-    FILE* fp = fopen(TELAF_VERSION_FILE, "r");
-    if (fp != NULL)
+
+    if (component == TAF_PI_HASH_COMP_TELAF)
     {
-        char* p = fgets(version, VERSION_BYTES, fp);
-        if (p == NULL)
+        FILE* fp = fopen(TELAF_VERSION_FILE, "r");
+        if (fp != NULL)
         {
-            LE_ERROR("Fail to read file %s.", TELAF_VERSION_FILE);
+            char* p = fgets(version, VERSION_BYTES, fp);
+            if (p == NULL)
+            {
+                LE_ERROR("Fail to read file %s.", TELAF_VERSION_FILE);
+                fclose(fp);
+               return -1;
+            }
             fclose(fp);
-            return -1;
-        }
-        fclose(fp);
 
-        size_t i;
-        for (i = 0; i < strlen(version); i++)
+            size_t i;
+            for (i = 0; i < strlen(version); i++)
+            {
+                if (version[i] == '_')
+                    break;
+            }
+
+            return taf_piHash_StringToHash(version + i + 1, hash, hashSize);
+        }
+    }
+    else if (component == TAF_PI_HASH_COMP_LXC)
+    {
+        FILE* fp = fopen(LXC_HASH_FILE, "r");
+        if (fp != NULL)
         {
-            if (version[i] == '_')
-                break;
-        }
+            char* p = fgets(version, VERSION_BYTES, fp);
+            if (p == NULL)
+            {
+                LE_ERROR("Fail to read file %s.", LXC_HASH_FILE);
+                fclose(fp);
+               return -1;
+            }
+            fclose(fp);
 
-        return taf_piHash_StringToHash(version + i + 1, hash, hashSize);
+            return taf_piHash_StringToHash(version, hash, hashSize);
+        }
     }
 
-    return 0;
+    LE_ERROR("No buildtime hash ia available for the component.");
+    return -1;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -462,6 +482,9 @@ int taf_piHash_GetPartitionName
            case TAF_PI_HASH_COMP_TELAF:
                le_utf8_Copy(name, "telaf_a", nameSize, NULL);
                break;
+           case TAF_PI_HASH_COMP_LXC:
+               le_utf8_Copy(name, "lxcrootfs_a", nameSize, NULL);
+               break;
            default:
                LE_ERROR("Unknown component.");
                return -1;
@@ -482,6 +505,9 @@ int taf_piHash_GetPartitionName
                break;
            case TAF_PI_HASH_COMP_TELAF:
                le_utf8_Copy(name, "telaf_b", nameSize, NULL);
+               break;
+           case TAF_PI_HASH_COMP_LXC:
+               le_utf8_Copy(name, "lxcrootfs_b", nameSize, NULL);
                break;
            default:
                LE_ERROR("Unknown component.");

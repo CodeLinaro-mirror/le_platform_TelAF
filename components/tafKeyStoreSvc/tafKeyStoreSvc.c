@@ -319,7 +319,8 @@ static taf_ks_Key_t* SearchProvisionedKey
     {
         taf_ks_Key_t* keyPtr = le_ref_GetValue(iterRef);
 
-        if ((keyPtr->keyType == KS_PROVISIONED_KEY) &&
+        if ((keyPtr != NULL) &&
+            (keyPtr->keyType == KS_PROVISIONED_KEY) &&
             (keyPtr->proKey.keyFileRef == keyFileRef))
         {
             LE_INFO("Found a provisioned key(%p) for key file(%p).",
@@ -347,7 +348,8 @@ static taf_ks_Key_t* SearchNewKey
     {
         taf_ks_Key_t* keyPtr = le_ref_GetValue(iterRef);
 
-        if ((keyPtr->keyType == KS_NEW_CREATED_KEY) &&
+        if ((keyPtr != NULL) &&
+            (keyPtr->keyType == KS_NEW_CREATED_KEY) &&
             (keyPtr->newKey.clientSessionRef == taf_ks_GetClientSessionRef()) &&
             (0 == strcmp(keyId, keyPtr->newKey.keyId)))
         {
@@ -633,9 +635,9 @@ static void RemoveNewKeysForClient
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         keyPtr = le_ref_GetValue(iterRef);
-        LE_ASSERT(keyPtr != NULL);
 
-        if ((keyPtr->keyType == KS_NEW_CREATED_KEY) &&
+        if ((keyPtr != NULL) &&
+            (keyPtr->keyType == KS_NEW_CREATED_KEY) &&
             (keyPtr->newKey.clientSessionRef == sessionRef))
         {
             // Remove the key reference.
@@ -668,7 +670,9 @@ static void RemoveCryptoSessionsForClient
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         cryptoSessionPtr = le_ref_GetValue(iterRef);
-        if (cryptoSessionPtr->clientSessionRef == sessionRef)
+
+        if ((cryptoSessionPtr != NULL) &&
+            (cryptoSessionPtr->clientSessionRef == sessionRef))
         {
             // Remove the crypto session from the key's cryptoSession list.
             keyPtr = le_ref_Lookup(KeyRefMap, cryptoSessionPtr->keyRef);
@@ -695,7 +699,7 @@ static bool HasRunningCryptoSession
     while (linkPtr != NULL)
     {
         taf_ks_CryptoSession_t* sessionPtr = CONTAINER_OF(linkPtr, taf_ks_CryptoSession_t, link);
-        if (sessionPtr->started)
+        if ((sessionPtr != NULL) && (sessionPtr->started))
         {
             return true;
         }
@@ -872,8 +876,9 @@ static void NotifyClientsForKeySharing
             taf_ks_Handler_t* handlerPtr = le_ref_GetValue(iterRef);
 
             // Get client app name.
-            if (LE_OK == GetAppNameBySessionRef(handlerPtr->clientSessionRef,
-                                                appName, sizeof(appName)))
+            if ((handlerPtr != NULL) &&
+                (LE_OK == GetAppNameBySessionRef(handlerPtr->clientSessionRef,
+                                                 appName, sizeof(appName))))
             {
                 // If the key sharing notification is for this client, call the client handler.
                 if ((0 == strcmp(keyIdPtr, handlerPtr->keyId)) &&
@@ -1065,7 +1070,7 @@ static void RemoveAppListsForClient
         keyPtr = le_ref_GetValue(iterRef);
 
         // For provisioned key, check the client session.
-        if (keyPtr->keyType == KS_PROVISIONED_KEY)
+        if ((keyPtr != NULL) && (keyPtr->keyType == KS_PROVISIONED_KEY))
         {
             linkPtr = le_dls_Peek(&(keyPtr->proKey.sharedAppList));
             while (linkPtr != NULL)
@@ -2370,6 +2375,11 @@ le_result_t taf_ks_GetFirstSharedApp
     // Now get the first shareApp object.
     SharedApp_t* appPtr = NULL;
     appListPtr->currPtr = le_sls_Peek(&(appListPtr->appList));
+    if (appListPtr->currPtr == NULL)
+    {
+        return LE_NOT_FOUND;
+    }
+
     appPtr = CONTAINER_OF(appListPtr->currPtr, SharedApp_t, link);
 
     le_utf8_Copy(appName, appPtr->appInfo.appName, appNameSize, NULL);

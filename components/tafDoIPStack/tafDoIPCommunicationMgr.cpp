@@ -1803,7 +1803,7 @@ taf_doip_Result_t CommunicationMgr::CreateSpecIPv4Socket
         goto errOut;
     }
 
-    LE_DEBUG("Get IPv4-%s\n", localIp[index]);
+    LE_INFO("Get IPv4-%s\n", localIp[index]);
 
     tcpDataSockRef[index] = le_socket_Create(NULL, tcpDataPort, localIp[index], TCP_TYPE);
     if (tcpDataSockRef[index] == NULL)

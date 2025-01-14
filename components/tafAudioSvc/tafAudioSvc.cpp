@@ -168,6 +168,8 @@ taf_audio_RouteRef_t taf_audio_OpenRoute
 )
 {
     auto &audio = taf_Audio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(sinkRef == NULL || sourceRef == NULL, NULL,
+            "sinkRef or sourceRef pointer is NULL");
     return audio.OpenRoute(route, mode, sinkRef, sourceRef);
 }
 
@@ -487,6 +489,7 @@ le_result_t taf_audio_GetMute
 )
 {
     LE_DEBUG("taf_audio_GetMute");
+    TAF_ERROR_IF_RET_VAL(isMute == NULL, LE_BAD_PARAMETER, "isMute pointer is NULL");
     auto &audio = taf_Audio::GetInstance();
     return audio.GetMute(streamRef, isMute);
 }
@@ -525,6 +528,7 @@ le_result_t taf_audio_GetVolume
 )
 {
     LE_DEBUG("taf_audio_GetVolume");
+    TAF_ERROR_IF_RET_VAL(volumeLevel == NULL, LE_BAD_PARAMETER, "volumeLevel pointer is NULL");
     auto &audio = taf_Audio::GetInstance();
     return audio.GetVolume(streamRef, volumeLevel);
 }

@@ -89,6 +89,7 @@ le_result_t taf_AudioVhal::GetNodeType( uint8_t audioNodeId,
         taf_audioVendor_NodeType_t *nodeType )
 {
     LE_DEBUG("GetNodeType %d", audioNodeId);
+    TAF_ERROR_IF_RET_VAL(nodeType == NULL, LE_BAD_PARAMETER, "nodeType pointer is NULL");
     hal_audio_NodeType_t halNodeType;
     le_result_t res = audioInf->GetNodeType(audioNodeId, &halNodeType);
     if(res == LE_OK)
@@ -122,6 +123,7 @@ le_result_t taf_AudioVhal::GetNodePowerState(uint8_t audioNodeId,
         taf_audioVendor_NodePowerState_t* state)
 {
     LE_DEBUG("GetNodePowerState node id : %d audioInf %p", audioNodeId, audioInf);
+    TAF_ERROR_IF_RET_VAL(state == NULL, LE_BAD_PARAMETER, "state pointer is NULL");
     hal_audio_PowerState_t vhalState;
     le_result_t res = audioInf->GetNodePowerState(audioNodeId, &vhalState);
 

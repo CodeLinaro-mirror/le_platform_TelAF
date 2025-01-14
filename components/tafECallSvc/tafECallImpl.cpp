@@ -646,15 +646,6 @@ void taf_ecall::Init(void)
     }
 
     InitializeECallPtr();
-    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
-    int opMode = le_cfg_GetInt(iteratorRef, CFG_NODE_OPMODE, 0);
-    le_cfg_CancelTxn(iteratorRef);
-
-    if (opMode == TAF_ECALL_MODE_ECALL) {
-        uint8_t phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
-        le_result_t res = SetECallOperatingMode(phoneId, TAF_ECALL_MODE_NORMAL);
-        LE_INFO("Apply eCall persist only mode in phoneId: %d, result = %d\n", phoneId, res);
-    }
 
     ECallListener =  std::make_shared<tafECallListener>();
     Status ret = CallManager->registerListener(ECallListener);
@@ -813,17 +804,8 @@ le_result_t taf_ecall::GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
                     *opMode = TAF_ECALL_MODE_NORMAL;
                     return LE_OK;
                 } else if (telux::tel::ECallMode::ECALL_ONLY == mode) {
-                    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
-                    int opModeCFG = le_cfg_GetInt(iteratorRef, CFG_NODE_OPMODE, 0);
-                    le_cfg_CancelTxn(iteratorRef);
-                    if ((opModeCFG == TAF_ECALL_MODE_ECALL) ||
-                        (opModeCFG == TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY))
-                    {
-                        *opMode = (taf_ecall_OpMode_t)opModeCFG;
-                        return LE_OK;
-                    } else {
-                        LE_ERROR("Couldn't get the operation mode value from the config tree");
-                    }
+                    *opMode = TAF_ECALL_MODE_ECALL;
+                    return LE_OK;
                 } else {
                     LE_ERROR("Invalid mode");
                 }

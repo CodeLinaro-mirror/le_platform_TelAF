@@ -34,9 +34,9 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_taf_mngdStorSec Managed Storage Service
+ * @page c_taf_mngdStorSecData Managed Secured Data Storage Service
  *
- * @rst :ref:`API reference <File taf_mngdStorSec_interface.h>` @endrst
+ * @rst :ref:`API reference <File taf_mngdStorSecData_interface.h>` @endrst
  *
  * <HR>
  *
@@ -64,7 +64,7 @@
 
     taf_mngdStorSecData_CreateData("DataName");
 
- * @endcode
+   @endcode
  *
  * Optionally, client calls the following interfaces to finish storage management.
  *
@@ -114,7 +114,7 @@
         }
     }
 
- * @endcode
+   @endcode
  *
  * Optionally, client calls the following interfaces to finish the data item manipulations.
  *
@@ -146,7 +146,7 @@
 
     taf_mngdStorSecData_WriteDataEnd(dataRef);
 
- * @endcode
+   @endcode
  *
  * @section taf_mngdStorSecData_data_read Read data from the data item
  *
@@ -171,7 +171,7 @@
         // use the read data from the data buffer
     }
 
- * @endcode
+   @endcode
  *
  * @section taf_mngdStorSecData_data_sharing Share data access to other applications
  *

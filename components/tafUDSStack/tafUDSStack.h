@@ -92,7 +92,8 @@ typedef enum
 //-------------------------------------------------------------------------------------------------
 typedef enum
 {
-    TAF_UDS_DATA_TYPE_ROLE   = 0x00    ///< Role.
+    TAF_UDS_DATA_TYPE_ROLE   = 0x00,              ///< Role.
+    TAF_UDS_DATA_TYPE_FILEXFER_STATE = 0x01       ///< File transfer state
 }taf_uds_DataType_t;
 
 //-------------------------------------------------------------------------------------------------
@@ -114,6 +115,19 @@ typedef struct
     uint8_t*            dataPtr;    ///< Data pointer.
     size_t              dataLen;    ///< Data length.
 }taf_uds_DiagMsg_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * FileXfer state info.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint16_t            vlanId; ///< VLAN ID. =0 if the interface is not vlan port.
+    bool                state;  ///< File transfer state.
+    char                ifName[MAX_INTERFACE_NAME_LEN]; ///< Interface name.
+    le_dls_Link_t       link;
+}taf_uds_FileXferState_t;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -199,6 +213,16 @@ LE_SHARED le_result_t taf_uds_Start(const char* configPathPtr);
 LE_SHARED void taf_uds_RemoveDiagIndicationHandler
 (
     taf_uds_DiagIndicationHandlerRef_t handerRef    ///< [IN] The handler reference.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets file transfer state.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED void taf_uds_GetFileXferActiveStateList
+(
+    le_dls_List_t* fileXferStateListPtr    ///< [IN] The file transfer state list.
 );
 
 #ifdef  __cplusplus

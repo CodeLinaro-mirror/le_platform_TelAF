@@ -38,11 +38,13 @@
 #include "interfaces.h"
 #include "configuration.hpp"
 #include "tafSecurityAccess.hpp"
+#include "tafUDSStack.h"
 
 using namespace telux::tafsvc;
 using namespace std;
 using namespace taf::uds;
 
+le_event_Id_t UdsCommunicationMgr::cancelFileXferEvId = NULL;
 bool UdsCommunicationMgr::isResetInProgress = false;
 std::map<std::string, UdsCommunicationMgr*> UdsCommunicationMgr::instances;
 std::mutex UdsCommunicationMgr::mutex_instance;
@@ -54,6 +56,10 @@ le_sem_Ref_t UdsCommunicationMgr::semRef = NULL;
 taf_doip_DiagIndicationHandlerRef_t UdsCommunicationMgr::IndicationRef = NULL;
 taf_doip_DiagConfirmHandlerRef_t UdsCommunicationMgr::ConfirmRef = NULL;
 taf_UDSIndicationHandler_t UdsCommunicationMgr::udsIndicationHandler;
+le_dls_List_t UdsCommunicationMgr::cancelFileXferReqList = LE_DLS_LIST_INIT;
+le_mutex_Ref_t UdsCommunicationMgr::cancelFileXferListMutex = NULL;
+static le_mem_PoolRef_t FileXferStatePool;
+static le_mem_PoolRef_t CancelFileXferReqPool;
 
 UdsCommunicationMgr* UdsCommunicationMgr::GetInstance
 (
@@ -124,6 +130,12 @@ void UdsCommunicationMgr::InitInstances
         std::string ifName = ifacePtr->ifName;
 
         instances[ifName] = new UdsCommunicationMgr(ifacePtr->ifName);
+        instances[ifName]->vlanId = ifacePtr->vlanId;
+        char fileXferStateMtxName[MAX_FILE_TRANSFER_STATE_MTX_NAME_LEN] = {0};
+        snprintf(fileXferStateMtxName, sizeof(fileXferStateMtxName)-1, "fileXferMtx-%d",
+                ifacePtr->vlanId);
+        instances[ifName]->fileXferStateMutex = le_mutex_CreateNonRecursive(fileXferStateMtxName);
+        LE_INFO("vlanId =%d, ifName=%s", ifacePtr->vlanId, ifacePtr->ifName);
         le_event_QueueFunction(SecurityAccess_CreateActiveObject,
                                instances[ifName], ifacePtr->ifName);
 
@@ -138,13 +150,22 @@ void UdsCommunicationMgr::InitInstances
 
     udsTimerEventId = le_event_CreateId("Uds Timer Event", sizeof(udsTimerEvent_t));
 
+    // Create file transfer state pools.
+    FileXferStatePool = le_mem_CreatePool("FileXferStatePool", sizeof(taf_uds_FileXferState_t));
+    // Create file transfer req pools.
+    CancelFileXferReqPool = le_mem_CreatePool("CancelFileXferReqPool",
+            sizeof(taf_CancelFileXferReq_t));
+
     // Create timer thread.
     le_thread_Ref_t udsTimerThreadRef = le_thread_Create("udsTimerTh", UdsTimerThread, NULL);
 
     le_thread_Start(udsTimerThreadRef);
     le_sem_Wait(semRef);
 
-    InitAuthData(interfaceList);
+    cancelFileXferEvId = le_event_CreateId("cancelFileXferEvId", sizeof(cancelFileXferEvent_t));
+    le_event_AddHandler("cancelFileXferHandler", cancelFileXferEvId, cancelFileXferHandler);
+
+    cancelFileXferListMutex = le_mutex_CreateNonRecursive("cancelFileXferMtx");
 
     LE_INFO("UDS communication manager ok.");
     return;
@@ -535,7 +556,13 @@ void UdsCommunicationMgr::P2StarTimeoutHandler
     }
 
     LE_INFO("P2* timeout");
-    udsCmMgr->readyToRecvData = true;
+    //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
+    if(udsCmMgr->readyToRecvData == false)
+    {
+        udsCmMgr->readyToRecvData = true;
+        udsCmMgr->CheckAndSendCancelFileXferEvent();
+    }
+
     memset(udsCmMgr->recvBuf, 0, UDS_MAX_DATA_SIZE);
     udsCmMgr->recvDataLen = 0;
     udsCmMgr->sendDataLen = 0;
@@ -790,7 +817,12 @@ void UdsCommunicationMgr::CheckAndRestartS3Timer
     uint32_t maxNumberOfRcrrp, s3ServerInterval;
 
     UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0, (char*)interface);
-    readyToRecvData = true;
+    //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
+    if(readyToRecvData == false)
+    {
+        readyToRecvData = true;
+        CheckAndSendCancelFileXferEvent();
+    }
 
     //Get P2* server interval;
     try
@@ -921,6 +953,43 @@ le_result_t UdsCommunicationMgr::UdsStart
     return LE_OK;
 }
 
+/**
+ * Get file transfer active state list.
+ */
+void UdsCommunicationMgr::GetFileXferActiveStateList
+(
+    le_dls_List_t* fileXferStateListPtr
+)
+{
+    for (const auto &pair : instances)
+    {
+        LE_INFO("vlanId=%d, interface =%s, state = %d", pair.second->vlanId, pair.second->interface,
+                pair.second->isXferActive);
+
+        le_mutex_Lock(pair.second->fileXferStateMutex);
+        if(pair.second->isXferActive == false)
+        {
+            le_mutex_Unlock(pair.second->fileXferStateMutex);
+            continue;
+        }
+        le_mutex_Unlock(pair.second->fileXferStateMutex);
+
+        taf_uds_FileXferState_t* fileXferStatePtr = NULL;
+
+        //Need to be released by diag service
+        fileXferStatePtr = (taf_uds_FileXferState_t *)le_mem_ForceAlloc(FileXferStatePool);
+
+        fileXferStatePtr->vlanId = pair.second->vlanId;
+        le_mutex_Lock(pair.second->fileXferStateMutex);
+        fileXferStatePtr->state = pair.second->isXferActive;
+        le_mutex_Unlock(pair.second->fileXferStateMutex);
+        le_utf8_Copy(fileXferStatePtr->ifName, pair.second->interface, MAX_INTERFACE_NAME_LEN,
+                NULL);
+        fileXferStatePtr->link = LE_DLS_LINK_INIT;
+
+        le_dls_Queue(fileXferStateListPtr, &(fileXferStatePtr->link));
+    }
+}
 /**
  * Pack NRC.
  */
@@ -1500,7 +1569,8 @@ bool UdsCommunicationMgr::IsSvcSecAccessMatched
     // Check "security access" for requested service.
     try{
         cfg::Node & svcAllNode = cfg::get_root_node().get_child("services_all");
-        uint8_t secAccessType = svcAllNode.get<uint8_t>(std::to_string(sid) + ".access.security_type");
+        uint8_t secAccessType = svcAllNode.get<uint8_t>(std::to_string(sid) +
+                ".access.security_type");
 
         LE_DEBUG("Security Type = 0x%x", secAccessType);
 
@@ -1733,7 +1803,8 @@ bool UdsCommunicationMgr::IsSubFuncSecAccessMatched
         cfg::Node & svcAllNode = cfg::get_root_node().get_child("services_all");
         cfg::Node & subfuncNode = svcAllNode.get_child(std::to_string(sid) + ".sub_functions");
 
-        uint8_t secAccessType = subfuncNode.get<uint8_t>(std::to_string(subFunc) + ".access.security_type");
+        uint8_t secAccessType = subfuncNode.get<uint8_t>(std::to_string(subFunc) +
+                ".access.security_type");
 
         LE_DEBUG("Security Type = 0x%x", secAccessType);
 
@@ -1841,7 +1912,8 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
         string curSesName;
         try
         {
-            cfg::Node & accessibilitySessions = node.get_child("did_accessibility.diagnostic_session");
+            cfg::Node & accessibilitySessions =
+                    node.get_child("did_accessibility.diagnostic_session");
             cfg::Node & curSesNode = cfg::top_diagnostic_session<int>("id", (int)SessionType);
             curSesName = curSesNode.get<string>("short_name");
             LE_DEBUG("curSesName=%s", curSesName.c_str());
@@ -2957,7 +3029,9 @@ le_result_t UdsCommunicationMgr::IndicateRxXferDataReq
     // Check negative err code for minimum request msg length
     if (recvDataLen < UDS_REQ_XFER_DATA_BASE_LEN)
     {
+        le_mutex_Lock(fileXferStateMutex);
         isXferActive = false;
+        le_mutex_Unlock(fileXferStateMutex);
         LE_ERROR("recvDataLen is less than the RxXferDataReq msg minimum length.");
         *isInternalHandle = true;
         // UDS_0x36_NRC_13: Less than minimum length
@@ -2967,19 +3041,24 @@ le_result_t UdsCommunicationMgr::IndicateRxXferDataReq
     // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
     if(recvDataLen > UDS_DATA_SIZE)
     {
+        le_mutex_Lock(fileXferStateMutex);
         isXferActive = false;
+        le_mutex_Unlock(fileXferStateMutex);
         LE_ERROR("recvDataLen is more than the UDS_DATA_SIZE.");
         *isInternalHandle = true;
         // UDS_0x36_NRC_13: overflow UDS_DATA_SIZE
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
+    le_mutex_Lock(fileXferStateMutex);
     if (!isXferActive)
     {
         *isInternalHandle = true;
+        le_mutex_Unlock(fileXferStateMutex);
         // UDS_0x36_NRC_24: Transfer is NOT in progress
         return SendNRC(sid, REQ_SEQUENCE_ERROR, addrInfoPtr);
     }
+    le_mutex_Unlock(fileXferStateMutex);
 
     //Will send the indication to the diag service
     *isInternalHandle = false;
@@ -3025,12 +3104,15 @@ le_result_t UdsCommunicationMgr::IndicateRxXferExitReq
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
+    le_mutex_Lock(fileXferStateMutex);
     if (!isXferActive)
     {
         *isInternalHandle = true;
+        le_mutex_Unlock(fileXferStateMutex);
         // UDS_0x37_NRC_24: Transfer is not active
         return SendNRC(sid, REQ_SEQUENCE_ERROR, addrInfoPtr);
     }
+    le_mutex_Unlock(fileXferStateMutex);
 
     //Will send indication to the diag service
     *isInternalHandle = false;
@@ -3281,12 +3363,15 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
     }
 
     // Check if in the process of downloading or uploading data
+    le_mutex_Lock(fileXferStateMutex);
     if (isTransferInProgress())
     {
         LE_ERROR("Bad order, transfer is in progress...");
         // UDS_0x38_NRC_22: Transfer is in progress
+        le_mutex_Unlock(fileXferStateMutex);
         return SendNRC(RTF_SID, CONDITIONS_NOT_CORRECT, addrInfoPtr);
     }
+    le_mutex_Unlock(fileXferStateMutex);
 
     //Will send the indication to the diag service
     *isInternalHandle = false;
@@ -3970,8 +4055,16 @@ void UdsCommunicationMgr::DiagIndicationHandler
         udsCmMgr->UdsTimerEventReport(TAF_UDS_AUTH_TIMER_STOP, 0, addrInfoPtr->ifName);
 
         udsCmMgr->authState = AUTH_STATE_UNKNOWN;
-        udsCmMgr->readyToRecvData = true;
+        //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
+        if(udsCmMgr->readyToRecvData == false)
+        {
+            udsCmMgr->readyToRecvData = true;
+            udsCmMgr->CheckAndSendCancelFileXferEvent();
+        }
+
+        le_mutex_Lock(udsCmMgr->fileXferStateMutex);
         udsCmMgr->isXferActive = false;
+        le_mutex_Unlock(udsCmMgr->fileXferStateMutex);
         memset(udsCmMgr->recvBuf, 0, UDS_MAX_DATA_SIZE);
         udsCmMgr->recvDataLen = 0;
         udsCmMgr->sendDataLen = 0;
@@ -4456,6 +4549,215 @@ le_result_t UdsCommunicationMgr::SendUDSResp
     return LE_OK;
 }
 
+le_result_t UdsCommunicationMgr::addCancelFileXferReqInList
+(
+    uint16_t vlanId,
+    const char* ifName
+)
+{
+    taf_CancelFileXferReq_t *cancelFileXferReq;
+
+    TAF_ERROR_IF_RET_VAL(ifName == nullptr, LE_BAD_PARAMETER, "Invalid ifName");
+    cancelFileXferReq = (taf_CancelFileXferReq_t *)le_mem_ForceAlloc(CancelFileXferReqPool);
+    TAF_ERROR_IF_RET_VAL(cancelFileXferReq == nullptr, LE_BAD_PARAMETER, "Memory alloc failed");
+
+    memset(cancelFileXferReq, 0, sizeof(taf_CancelFileXferReq_t));
+    cancelFileXferReq->vlanId = vlanId;
+    le_utf8_Copy(cancelFileXferReq->ifName, ifName, MAX_INTERFACE_NAME_LEN, NULL);
+    cancelFileXferReq->link = LE_DLS_LINK_INIT;
+    le_mutex_Lock(cancelFileXferListMutex);
+    le_dls_Queue(&cancelFileXferReqList, &cancelFileXferReq->link);
+    le_mutex_Unlock(cancelFileXferListMutex);
+    LE_INFO("Add req for vlanId(%d) successfully", vlanId);
+    return LE_OK;
+}
+
+bool UdsCommunicationMgr::IsCancelFileXferReqInList
+(
+    uint16_t vlanId
+)
+{
+    taf_CancelFileXferReq_t *cancelFileXferReq;
+
+    le_mutex_Lock(cancelFileXferListMutex);
+    le_dls_Link_t *handlerLinkPtr = le_dls_Peek(&cancelFileXferReqList);
+    while (handlerLinkPtr)
+    {
+        cancelFileXferReq = CONTAINER_OF(handlerLinkPtr, taf_CancelFileXferReq_t, link);
+        if (cancelFileXferReq->vlanId == vlanId)
+        {
+            LE_INFO("Found it: vlanId=%d", vlanId);
+
+            le_mutex_Unlock(cancelFileXferListMutex);
+            return true;
+        }
+        handlerLinkPtr = le_dls_PeekNext(&cancelFileXferReqList, handlerLinkPtr);
+    }
+
+    le_mutex_Unlock(cancelFileXferListMutex);
+    return false;
+}
+
+void UdsCommunicationMgr::CheckAndSendCancelFileXferEvent
+(
+)
+{
+    le_mutex_Lock(fileXferStateMutex);
+    if(isXferActive == false)
+    {
+        le_mutex_Unlock(fileXferStateMutex);
+        return;
+    }
+    le_mutex_Unlock(fileXferStateMutex);
+
+    taf_CancelFileXferReq_t *cancelFileXferReq;
+
+    le_mutex_Lock(cancelFileXferListMutex);
+    le_dls_Link_t *handlerLinkPtr = le_dls_Peek(&cancelFileXferReqList);
+    while (handlerLinkPtr)
+    {
+        cancelFileXferReq = CONTAINER_OF(handlerLinkPtr, taf_CancelFileXferReq_t, link);
+        if (cancelFileXferReq->vlanId == vlanId)
+        {
+            LE_INFO("CancelFileXferEvent: vlanId=%d", vlanId);
+            cancelFileXferEvent_t cancelReq;
+            cancelReq.event = TAF_CANCEL_FILEXFER_END;
+            le_utf8_Copy(cancelReq.ifName, interface, MAX_INTERFACE_NAME_LEN, NULL);
+            le_event_Report(UdsCommunicationMgr::cancelFileXferEvId, &cancelReq,
+                    sizeof(cancelFileXferEvent_t));
+            le_dls_Remove(&cancelFileXferReqList, &cancelFileXferReq->link);
+            le_mem_Release(cancelFileXferReq);
+            le_mutex_Unlock(cancelFileXferListMutex);
+            return;
+        }
+        handlerLinkPtr = le_dls_PeekNext(&cancelFileXferReqList, handlerLinkPtr);
+    }
+
+    le_mutex_Unlock(cancelFileXferListMutex);
+    return;
+}
+
+void UdsCommunicationMgr::cancelFileXferHandler
+(
+    void* reqPtr
+)
+{
+    cancelFileXferEvent_t* eventReq = (cancelFileXferEvent_t*)reqPtr;
+
+    if(eventReq == NULL)
+    {
+        LE_ERROR ("Invalid Parameters passed");
+        return;
+    }
+
+    auto udsCmMgr = UdsCommunicationMgr::GetInstance(eventReq->ifName);
+
+    if(udsCmMgr == NULL)
+    {
+        LE_ERROR("Can't get instance by ifName %s", eventReq->ifName);
+        return;
+    }
+
+    LE_INFO("cancelFileXferHandler event:%d, ifName:%s", (int)(eventReq->event), eventReq->ifName);
+
+    switch (eventReq->event)
+    {
+        case TAF_CANCEL_FILEXFER_START:
+        {
+            if(udsCmMgr->udsIndicationHandler.safeRef == NULL)
+            {
+                LE_ERROR("Not find handler to notify session change");
+                return;
+            }
+
+            taf_UDSIndicationHandler_t* udsHandler =
+                    (taf_UDSIndicationHandler_t*)le_ref_Lookup(udsCmMgr->udsHandlerRefMap,
+                            udsCmMgr->udsIndicationHandler.safeRef);
+
+            if(udsHandler == NULL || udsHandler->funcPtr == NULL)
+            {
+                LE_ERROR("Not find handler to notify session change");
+                return;
+            }
+
+            //No request is handled in progress, change the state.
+            if(udsCmMgr->readyToRecvData == true)
+            {
+                LE_INFO("Change fileXfer state directly for vlanId:%d", udsCmMgr->vlanId);
+                //Change the state directly
+                le_mutex_Lock(udsCmMgr->fileXferStateMutex);
+                udsCmMgr->isXferActive = false;
+                le_mutex_Unlock(udsCmMgr->fileXferStateMutex);
+
+                udsCmMgr->cancelFileXferBuf[0] = CANCEL_FILE_TRANSFER_RESULT;
+                udsCmMgr->cancelFileXferBuf[1] = 0x0;
+                udsCmMgr->cancelFileXferMsg.dataPtr = udsCmMgr->cancelFileXferBuf;
+                udsCmMgr->cancelFileXferMsg.dataLen = CANCEL_FILE_TRANSFER_IND_LEN;
+
+                // Indicate session change to the application.
+                udsHandler->funcPtr(&(udsCmMgr->addrInfo), &udsCmMgr->cancelFileXferMsg,
+                                    TAF_DOIP_RESULT_OK, udsHandler->ctxPtr);
+            }
+            //State is not set, add in the list, will handle it later
+            else
+            {
+                LE_INFO("Add callback function into list for vlanId:%d", udsCmMgr->vlanId);
+                if(addCancelFileXferReqInList(udsCmMgr->vlanId,udsCmMgr->interface) != LE_OK)
+                {
+                    //If failed to add req in the list, call callback function with LE_FAULT
+                    LE_ERROR("Failed to add callback function into list for vlanId:%d",
+                            udsCmMgr->vlanId);
+                    udsCmMgr->cancelFileXferBuf[0] = CANCEL_FILE_TRANSFER_RESULT;
+                    udsCmMgr->cancelFileXferBuf[1] = 0x1;//LE_FAULT
+                    udsCmMgr->cancelFileXferMsg.dataPtr = udsCmMgr->cancelFileXferBuf;
+                    udsCmMgr->cancelFileXferMsg.dataLen = CANCEL_FILE_TRANSFER_IND_LEN;
+                    // Indicate session change to the application.
+                    udsHandler->funcPtr(&(udsCmMgr->addrInfo), &udsCmMgr->cancelFileXferMsg,
+                                        TAF_DOIP_RESULT_OK, udsHandler->ctxPtr);
+                }
+            }
+        }
+        break;
+        case TAF_CANCEL_FILEXFER_END:
+        {
+
+            if(udsCmMgr->udsIndicationHandler.safeRef == NULL)
+            {
+                LE_ERROR("Not find handler to notify session change");
+                return;
+            }
+
+            taf_UDSIndicationHandler_t* udsHandler =
+                    (taf_UDSIndicationHandler_t*)le_ref_Lookup(udsCmMgr->udsHandlerRefMap,
+                            udsCmMgr->udsIndicationHandler.safeRef);
+
+            if(udsHandler == NULL || udsHandler->funcPtr == NULL)
+            {
+                LE_ERROR("Not find handler to notify session change");
+                return;
+            }
+            LE_INFO("cancelFileXferHandler event: vlanId=%d", udsCmMgr->vlanId);
+            //Change the state directly
+            le_mutex_Lock(udsCmMgr->fileXferStateMutex);
+            udsCmMgr->isXferActive = false;
+            le_mutex_Unlock(udsCmMgr->fileXferStateMutex);
+
+            udsCmMgr->cancelFileXferBuf[0] = CANCEL_FILE_TRANSFER_RESULT;
+            udsCmMgr->cancelFileXferBuf[1] = 0x0;
+            udsCmMgr->cancelFileXferMsg.dataPtr = udsCmMgr->cancelFileXferBuf;
+            udsCmMgr->cancelFileXferMsg.dataLen = CANCEL_FILE_TRANSFER_IND_LEN;
+
+            // Indicate session change to the application.
+            udsHandler->funcPtr(&(udsCmMgr->addrInfo), &udsCmMgr->cancelFileXferMsg,
+                                TAF_DOIP_RESULT_OK, udsHandler->ctxPtr);
+        }
+        break;
+        default:
+        LE_ERROR("Not find handler to notify session change!");
+        break;
+    }
+}
+
 /**
  * Set data to UDS stack.
  */
@@ -4497,6 +4799,34 @@ le_result_t UdsCommunicationMgr::SetUDSData
                 ((uint64_t)dataPtr[6]<< 8) | dataPtr[7];
 
         LE_DEBUG("currentRoleVal: %" PRIuS, udsCmMgr->currentRoleVal);
+        return LE_OK;
+    }
+    else if(dataType == TAF_UDS_DATA_TYPE_FILEXFER_STATE)
+    {
+
+        le_mutex_Lock(fileXferStateMutex);
+        if( dataSize != sizeof(isXferActive))
+        {
+            LE_ERROR("data size:%d is incorrect ", dataSize);
+            le_mutex_Unlock(fileXferStateMutex);
+            return LE_FAULT;
+        }
+        le_mutex_Unlock(fileXferStateMutex);
+
+        if(IsCancelFileXferReqInList(udsCmMgr->vlanId))
+        {
+            LE_ERROR("CancelXferReq is in progress for vlanId %d", udsCmMgr->vlanId);
+            return LE_IN_PROGRESS;
+        }
+
+        LE_INFO("CancelFileXferEvent: vlanId=%d", vlanId);
+        cancelFileXferEvent_t cancelReq;
+        cancelReq.event = TAF_CANCEL_FILEXFER_START;
+        le_utf8_Copy(cancelReq.ifName, ifName, MAX_INTERFACE_NAME_LEN, NULL);
+
+        le_event_Report(UdsCommunicationMgr::cancelFileXferEvId, &cancelReq,
+                sizeof(cancelFileXferEvent_t));
+
         return LE_OK;
     }
     else
@@ -4643,7 +4973,8 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
         }
         else
         {
-            LE_ERROR("The session id [%d/0x%x] was not found in supported list", newSessionType, newSessionType);
+            LE_ERROR("The session id [%d/0x%x] was not found in supported list", newSessionType,
+                    newSessionType);
         }
 
         taf_doip_DiagMsg_t sesChangeMsg;
@@ -5124,7 +5455,9 @@ le_result_t UdsCommunicationMgr::XferDataResp
 
     if (POSITIVE_RESPONSE != err)
     {
+        le_mutex_Lock(fileXferStateMutex);
         isXferActive = false;
+        le_mutex_Unlock(fileXferStateMutex);
         LE_ERROR("Error code reported from Diag service");
         SetNRC(serviceId, err);
         return LE_OK;
@@ -5169,7 +5502,9 @@ le_result_t UdsCommunicationMgr::ReqXferExitResp
     sendBuf[0] = REQUEST_TRANSFER_EXIT_RESPONSE_ID;
     sendDataLen = UDS_RESP_XFER_EXIT_BASE_LEN;
 
+    le_mutex_Lock(fileXferStateMutex);
     isXferActive = false;
+    le_mutex_Unlock(fileXferStateMutex);
 
     return LE_OK;
 }
@@ -5228,7 +5563,9 @@ le_result_t UdsCommunicationMgr::ReqFileXferResp
         case MOOP_REPLACE_FILE:
         case MOOP_RESUME_FILE:
         {
+            le_mutex_Lock(fileXferStateMutex);
             isXferActive = true;
+            le_mutex_Unlock(fileXferStateMutex);
 
             sendBuf[0] = serviceId + 0x40;
             sendBuf[1] = RFT_MOOP;
@@ -5262,7 +5599,9 @@ le_result_t UdsCommunicationMgr::ReqFileXferResp
         case MOOP_READ_FILE:
         case MOOP_READ_DIR:
         {
+            le_mutex_Lock(fileXferStateMutex);
             isXferActive = true;
+            le_mutex_Unlock(fileXferStateMutex);
 
             sendBuf[0] = serviceId + 0x40;
             sendBuf[1] = RFT_MOOP;

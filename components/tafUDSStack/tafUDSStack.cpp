@@ -178,6 +178,16 @@ le_result_t taf_uds_Start
     return UdsCommunicationMgr::UdsStart(configPathPtr);
 }
 
+void taf_uds_GetFileXferActiveStateList
+(
+    le_dls_List_t* fileXferStateListPtr
+)
+{
+    LE_DEBUG("taf_uds_GetFileXferActiveState");
+
+    return UdsCommunicationMgr::GetFileXferActiveStateList(fileXferStateListPtr);
+}
+
 COMPONENT_INIT
 {
     LE_INFO("UDS component init once start...");

@@ -49,38 +49,50 @@ inline void CheckNumArgs(size_t NumArgs, size_t ExpectedNumArgs)
 
 COMPONENT_INIT
 {
-    le_result_t status = LE_FAULT;
+    LE_INFO("%s [start]", __FUNCTION__);
 
+    le_result_t status = LE_FAULT;
     LE_TEST_INIT;
 
     LE_TEST_INFO("======== Device Info Integration Test ========");
     size_t numArgs = le_arg_NumArgs();
 
-    const char *testType = le_arg_GetArg(0);
-    if (strncmp(testType, "imei", strlen(testType)) == 0)
+    if(numArgs == 1)
     {
-        LE_TEST_INFO("======== GetImei Test ========");
-        CheckNumArgs(numArgs,1);
-        status = Test_GetImei();
+        const char *testType = le_arg_GetArg(0);
+        if(testType == NULL)
+        {
+            LE_ERROR("testType is NULL");
+            return;
+        }
+        if (strncmp(testType, "imei", strlen(testType)) == 0)
+        {
+            LE_TEST_INFO("======== GetImei Test ========");
+            CheckNumArgs(numArgs,1);
+            status = Test_GetImei();
 #ifdef LE_CONFIG_GET_IMEI_SUPPORT
-        LE_TEST_OK(status == LE_OK, "Test taf_devInfo_GetImei: End");
+            LE_TEST_OK(status == LE_OK, "Test taf_devInfo_GetImei: End");
 #endif
 #ifndef LE_CONFIG_GET_IMEI_SUPPORT
-        LE_TEST_OK(status == LE_UNSUPPORTED, "UNSUPPORTED :Test taf_devInfo_GetImei End");
+            LE_TEST_OK(status == LE_UNSUPPORTED, "UNSUPPORTED :Test taf_devInfo_GetImei End");
 #endif
-    }
-    else if (strncmp(testType, "model", strlen(testType)) == 0)
-    {
-        LE_TEST_INFO("======== GetDeviceModel========");
-        CheckNumArgs(numArgs,1);
-        status = Test_GetDeviceModel();
-        LE_TEST_OK(LE_OK == status, "GetDeviceModel Test: End");
+       }
+       else if (strncmp(testType, "model", strlen(testType)) == 0)
+       {
+            LE_TEST_INFO("======== GetDeviceModel========");
+            CheckNumArgs(numArgs,1);
+            status = Test_GetDeviceModel();
+            LE_TEST_OK(LE_OK == status, "GetDeviceModel Test: End");
+       }
+       else
+       {
+            LE_TEST_FATAL("Invalid test type %s", testType);
+       }
     }
     else
     {
+        LE_ERROR("Arguments are empty!!");
         PrintUsage();
-        LE_TEST_FATAL("Invalid test type %s", testType);
+        LE_TEST_EXIT;
     }
-
-    LE_TEST_EXIT;
 }

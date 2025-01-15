@@ -134,7 +134,12 @@ void CopyLastEvent(taf_SensorEventList_t* LastEventPtr,taf_SensorEventList_t* cu
     LastEventPtr->listSize = currentEventPtr->listSize;
     LastEventPtr->eventList.clear();
     for(size_t i=0;i<currentEventPtr->eventList.size();i++){
-        std::shared_ptr<taf_SensorEvent_t> eventData = std::make_shared<taf_SensorEvent_t>();
+        std::shared_ptr<taf_SensorEvent_t> eventData;
+        try{
+            eventData = std::make_shared<taf_SensorEvent_t>();
+        } catch(const std::exception &e){
+            LE_FATAL("Not able to intialize eventData with exception %s",e.what());
+        }
         eventData->timestamp = currentEventPtr->eventList[i]->timestamp;
         eventData->x = currentEventPtr->eventList[i]->x;
         eventData->y = currentEventPtr->eventList[i]->y;
@@ -340,6 +345,7 @@ le_result_t taf_Sensor::GetSensorName(taf_imuSensor_SensorRef_t sensorRef,char* 
         (taf_SensorInfo_t*)le_ref_Lookup(tSensorInfoMap, sensorRef);
     TAF_ERROR_IF_RET_VAL(sensorPtr == NULL, LE_FAULT,
             "Invalid reference (%p) provided!",sensorPtr);
+    TAF_ERROR_IF_RET_VAL(sensorName == NULL, LE_FAULT, "Cannot write data to sensorName Ptr");
     snprintf(sensorName, sizeof(sensorPtr->name), "%s", sensorPtr->name);
     TAF_ERROR_IF_RET_VAL(sensorName == NULL, LE_FAULT, "invalid Name for sensor");
     return LE_OK;
@@ -352,6 +358,8 @@ le_result_t taf_Sensor::GetSensorVendorName(taf_imuSensor_SensorRef_t sensorRef,
         (taf_SensorInfo_t*)le_ref_Lookup(tSensorInfoMap, sensorRef);
     TAF_ERROR_IF_RET_VAL(sensorPtr == NULL, LE_FAULT,
             "Invalid reference (%p) provided!",sensorPtr);
+    TAF_ERROR_IF_RET_VAL(sensorVendorName == NULL, LE_FAULT,
+        "Cannot write data to sensorVendorName Ptr");
     snprintf(sensorVendorName, sizeof(sensorPtr->vendor), "%s", sensorPtr->vendor);
     TAF_ERROR_IF_RET_VAL(sensorVendorName == NULL, LE_FAULT, "invalid vendor for sensor");
     return LE_OK;
@@ -670,7 +678,12 @@ void tafSensorListener::onEvent(std::shared_ptr<std::vector<SensorEvent>> events
         taf_SensorEventList_t* triggeredSensorEvent =
             (taf_SensorEventList_t*)le_mem_ForceAlloc(sensorMngr.tSensorEventPool);
         for (SensorEvent s : *(events.get())){
-            std::shared_ptr<taf_SensorEvent_t> eventData = std::make_shared<taf_SensorEvent_t>();
+            std::shared_ptr<taf_SensorEvent_t> eventData;
+            try{
+                eventData = std::make_shared<taf_SensorEvent_t>();
+            } catch(const std::exception &e){
+                LE_FATAL("Not able to intialize eventData with exception %s",e.what());
+            }
             eventData->timestamp = s.timestamp;
         if(clientRequestPtr->isCalibrated==false){
             eventData->x = s.uncalibrated.data.x;

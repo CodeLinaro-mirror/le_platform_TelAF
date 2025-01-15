@@ -17,7 +17,7 @@
 #define Condition_tooHigh                          0x01 /* 1 */
 #define Condition_tooLow                           0x02 /* 2 */
 #define Condition_tooBig                           0x03 /* 3 */
-#define Condition_toSmall                          0x04 /* 4 */
+#define Condition_tooSmall                         0x04 /* 4 */
 #define Condition_vehicleSpeedBodyEqual0           0x05 /* 5 */
 #define Condition_vehiclePowerModeEqualLifeOnBoard 0x06 /* 6 */
 
@@ -27,6 +27,6 @@
 #define OperationCycle_POWER    0x02 /* 2 */
 
 #define tafDiagGen_tool_version "tafDiagGen_tool_version: 2.0.0_default"
-#define tafDiagGen_tool_timestamp  "tafDiagGen_tool_timestamp: 2024_12_23__14_52_27"
+#define tafDiagGen_tool_timestamp  "tafDiagGen_tool_timestamp: 2025_01_08__16_42_16"
 
 #endif /* __DIAG_IDS_H__ */

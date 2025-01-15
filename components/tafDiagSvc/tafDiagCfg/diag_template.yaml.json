@@ -794,7 +794,7 @@
       "nrc": 34,
       "id": 3
     },
-    "toSmall": {
+    "tooSmall": {
       "nrc": 34,
       "id": 4
     },
@@ -1525,7 +1525,7 @@
       "origin_data_enable_condition": {
         "or": [
           "tooBig",
-          "toSmall"
+          "tooSmall"
         ]
       }
     },
@@ -1546,7 +1546,7 @@
       "origin_data_enable_condition": {
         "or": [
           "tooBig",
-          "toSmall"
+          "tooSmall"
         ]
       }
     }
@@ -1588,12 +1588,12 @@
         }
       ]
     },
-    "toSmall": {
-      "description": "toSmall",
+    "tooSmall": {
+      "description": "tooSmall",
       "and": [
         {
           "=": {
-            "parameter": "toSmall",
+            "parameter": "tooSmall",
             "value": 2,
             "nrc": 34
           }

@@ -20,20 +20,37 @@ which_one = 'default'
 
 P_generic = Path( checking_customer / 'Generic')
 P_ivc3_sa = Path( checking_customer / 'IVC3-SA')
+P_variant = Path( checking_customer / 'Variant')
 
-if P_generic.is_dir() and P_ivc3_sa.is_dir():
+# 'Generic' is required, one of 'IVC3-SA' and 'Variant' is required as well.
 
+pg_files = None
+pv_files = None
+pi_files = None
+
+if P_generic.is_dir():
     pg_files = [ f for f in P_generic.iterdir() if f.name != '.keep' ]
+if P_variant.is_dir():
+    pv_files = [ f for f in P_variant.iterdir() if f.name != '.keep' ]
+if P_ivc3_sa.is_dir():
     pi_files = [ f for f in P_ivc3_sa.iterdir() if f.name != '.keep' ]
 
-    if pg_files or pi_files:
-        which_one = 'customer'
+if pg_files and ( pv_files or pi_files ):
+    which_one = 'customer'
 
 print(f"which_one => {which_one}")
 
 generic = [ f for f in Path(current_dir / which_one / 'Generic').rglob("*.yaml") if f.is_file() and pattern.match(f.name) ]
-ivc3_sa = [ f for f in Path(current_dir / which_one / 'IVC3-SA').rglob("*.yaml") if f.is_file() and pattern.match(f.name) ]
 
-customer_files = generic + ivc3_sa
+if which_one == 'default':
+    variant = [ f for f in Path(current_dir / which_one / 'Variant').rglob("*.yaml") if f.is_file() and pattern.match(f.name) ]
+else: # customer <--
+    # The 'IVC3-SA' is higher than 'Variant'
+    if P_ivc3_sa.exists() and pi_files:
+        variant = [ f for f in Path(current_dir / which_one / 'IVC3-SA').rglob("*.yaml") if f.is_file() and pattern.match(f.name) ]
+    elif P_variant.exists() and pv_files:
+        variant = [ f for f in Path(current_dir / which_one / 'Variant').rglob("*.yaml") if f.is_file() and pattern.match(f.name) ]
+
+customer_files = generic + variant
 # print(f"Total valid files in [{current_dir}]:")
 # pprint(customer_files)

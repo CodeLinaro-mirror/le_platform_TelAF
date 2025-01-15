@@ -402,11 +402,11 @@ Node & top_extended_data_records(std::string field_name, T expected_value)
 /* #undef EXPORT_SYM */
 
 #define tafDiagGen_tool_version "tafDiagGen_tool_version: 2.0.0_default"
-#define tafDiagGen_tool_timestamp  "tafDiagGen_tool_timestamp: 2024_12_23__14_52_27"
-#define tafDiagGen_tool_json_md5 "tafDiagGen_tool_json_md5: 50d7ef4c27672f0b61110d601d5fe73c"
-#define tafDiagGen_tool_evid_h_md5 "tafDiagGen_tool_evid_h_md5: f7b7efa4e8c063b72749a81762e44b84"
+#define tafDiagGen_tool_timestamp  "tafDiagGen_tool_timestamp: 2025_01_08__16_42_16"
+#define tafDiagGen_tool_json_md5 "tafDiagGen_tool_json_md5: 2d97741173d666886ca0f9577e1685f8"
+#define tafDiagGen_tool_evid_h_md5 "tafDiagGen_tool_evid_h_md5: 67bb1ccb1c26194e747f95f4249024be"
 
-#define TAFDIAGGEN_JSON_MD5 "50d7ef4c27672f0b61110d601d5fe73c"
-#define TAFDIAGGEN_EVID_MD5 "f7b7efa4e8c063b72749a81762e44b84"
+#define TAFDIAGGEN_JSON_MD5 "2d97741173d666886ca0f9577e1685f8"
+#define TAFDIAGGEN_EVID_MD5 "67bb1ccb1c26194e747f95f4249024be"
 
 #endif /* __CONFIGURATION_HPP__ */

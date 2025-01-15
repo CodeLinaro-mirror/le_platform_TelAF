@@ -1,7 +1,7 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
-domain_name: IVC3-SA
+domain_name: Variant
 
 dtc_all:
   0xAB0000:
@@ -23,7 +23,7 @@ dtc_all:
           data_enable_condition:
             or:
               - tooBig
-              - toSmall
+              - tooSmall
         - failure_name: Small
           mnemonic: Event_Sample_Small
           confirmation_threshold: 3
@@ -32,4 +32,4 @@ dtc_all:
           data_enable_condition:
             or:
               - tooBig
-              - toSmall
+              - tooSmall

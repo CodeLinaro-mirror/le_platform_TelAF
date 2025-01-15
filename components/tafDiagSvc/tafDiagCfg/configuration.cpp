@@ -402,7 +402,17 @@ EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_sessions_by_session
 {
     NEED_INITED();
 
-    std::shared_ptr<std::vector<uint8_t>> session_list = std::make_shared<std::vector<uint8_t>>();
+    std::shared_ptr<std::vector<uint8_t>> session_list(nullptr);
+
+    try
+    {
+        session_list = std::make_shared<std::vector<uint8_t>>();
+    }
+    catch (const std::bad_alloc& e)
+    {
+        throw;
+    }
+
     std::string pattern = get_pattern(session_id);
 
     for (auto & pnode: pattern_maps)
@@ -427,7 +437,17 @@ EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_levels_by_session_i
 {
     NEED_INITED();
 
-    std::shared_ptr<std::vector<uint8_t>> level_list = std::make_shared<std::vector<uint8_t>>();
+    std::shared_ptr<std::vector<uint8_t>> level_list(nullptr);
+
+    try
+    {
+        level_list = std::make_shared<std::vector<uint8_t>>();
+    }
+    catch (const std::bad_alloc& e)
+    {
+        throw;
+    }
+
     std::string pattern = get_pattern(session_id);
 
     for (auto & pnode: pattern_maps)

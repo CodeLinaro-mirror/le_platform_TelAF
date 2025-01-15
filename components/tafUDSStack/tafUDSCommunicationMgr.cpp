@@ -780,13 +780,13 @@ le_result_t UdsCommunicationMgr::UdsStart
     //Get interface list by DoipEntityRef
     le_dls_List_t* interfaceList=taf_doip_GetIfaces(DoipEntityRef);
 
-    LE_INFO("Interface list num=%d", (int)le_dls_NumLinks(interfaceList));
-
     if(interfaceList == NULL || le_dls_NumLinks(interfaceList) == 0)
     {
         LE_FATAL("interface list is empty");
         return LE_FAULT;
     }
+
+    LE_INFO("Interface list num=%d", (int)le_dls_NumLinks(interfaceList));
 
     //Initialize instance with interface name
     InitInstances(interfaceList);
@@ -3054,7 +3054,8 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
                         SIZE_OF_DFI_);
 
             #define MAX_FILE_SIZE_LEN (4)
-            if (fileSizeParameterLength > MAX_FILE_SIZE_LEN) /* 4 byptes == 32 bits --> 4GB */
+            if (fileSizeParameterLength > MAX_FILE_SIZE_LEN /* 4 byptes == 32 bits --> 4GB */
+            ||  fileSizeParameterLength == 0)
             {
                 LE_ERROR("Invalid fileSizeParameterLength for [0x%02X]", RFT_MOOP);
                 // UDS_0x38_NRC_31: Invalid fileSizeParameterLength (moop: 01/03/06)
@@ -5115,6 +5116,12 @@ le_result_t UdsCommunicationMgr::ReqFileXferResp
 
             sendDataLen = RRFT_BASE_LEN + SIZE_OF_LFID + sizeof(maxNumberOfBlockLen) + SIZE_OF_DFI_;
 
+            if ( (sendDataLen + dataSize) > UDS_MAX_DATA_SIZE )
+            {
+                LE_ERROR("The send buffer is overflowing [0x%02x]", RFT_MOOP);
+                return LE_FAULT;
+            }
+
             // For MOOP_RESUME_FILE, filePosition is required
             if (dataPtr)
             {
@@ -5158,6 +5165,12 @@ le_result_t UdsCommunicationMgr::ReqFileXferResp
             sendDataLen = RRFT_BASE_LEN + SIZE_OF_LFID + sizeof(maxNumberOfBlockLen) + SIZE_OF_DFI_;
 
             LE_FATAL_IF(dataPtr == NULL, "No file size or dir info length arguments");
+
+            if ( (sendDataLen + dataSize) > UDS_MAX_DATA_SIZE )
+            {
+                LE_ERROR("The send buffer is overflowing [0x%02x]", RFT_MOOP);
+                return LE_FAULT;
+            }
 
             memcpy(sendBuf + sendDataLen, dataPtr, dataSize);
             sendDataLen += dataSize;

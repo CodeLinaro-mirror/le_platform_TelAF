@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -120,7 +120,16 @@ static void MyMediaEventHandler
             break;
         case TAF_AUDIO_MEDIA_ERROR:
             LE_INFO("File event is TAF_AUDIO_MEDIA_ERROR.");
-            cout<<"****Playback error***"<<endl;
+            if (streamRef == playerRef)
+                cout<<"****Playback error***"<<endl;
+            else if (streamRef == txPlayerRef)
+                cout<<"****Remote playback error***"<<endl;
+            else if (streamRef == recorderRef)
+                cout<<"****Capture error***"<<endl;
+            else if (streamRef == rxRecorderRef)
+                cout<<"****Remote capture error***"<<endl;
+            else
+                LE_INFO(" Unknown stream playback/capture error");
             le_sem_Post(tafAudioAppSem);
             break;
         case TAF_AUDIO_MEDIA_NO_MORE_SAMPLES:

@@ -3792,19 +3792,6 @@ void tafMngdConnAdmin::EventL1ConnRecoveryStart(uint8_t dataId)
             MCS_DATA_CONNECTED_INACTIVE_RETRYING == dataCtxPtr->adminState ||
             MCS_DATA_CONNECTED_IDLE == dataCtxPtr->adminState)
         {
-                // Send a data stop request synchronously
-                stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
-                stateMachineEvt.event = MCS_EVT_DATA_STOP_SYNC;
-                stateMachineEvt.dataId = dataCtxPtr->dataId;
-                le_event_Report(StateMachineEventId, &stateMachineEvt,
-                                sizeof(stateMachineEvent_t));
-                // wait until return
-                std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
-                le_result_t result = futResult.get();
-                if (LE_OK != result)
-                {
-                    LE_WARN("Stop data for Data Id(%d) failed: %d", dataCtxPtr->dataId, result);
-                }
                 // Set the reconnected needed flag to TRUE
                 dataCtxPtr->needReConn = true;
         }
@@ -3977,19 +3964,6 @@ void tafMngdConnAdmin::EventL2ConnRecoveryStart(uint8_t dataId)
             MCS_DATA_CONNECTED_INACTIVE_RETRYING == dataCtxPtr->adminState ||
             MCS_DATA_CONNECTED_IDLE == dataCtxPtr->adminState)
         {
-                // Send a data stop request synchronously
-                stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
-                stateMachineEvt.event = MCS_EVT_DATA_STOP_SYNC;
-                stateMachineEvt.dataId = dataCtxPtr->dataId;
-                le_event_Report(StateMachineEventId, &stateMachineEvt,
-                                sizeof(stateMachineEvent_t));
-                // wait until return
-                std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
-                le_result_t result = futResult.get();
-                if (LE_OK != result)
-                {
-                    LE_WARN("Stop data for Data Id(%d) failed: %d", dataCtxPtr->dataId, result);
-                }
                 // Set the reconnected needed flag to TRUE
                 dataCtxPtr->needReConn = true;
         }

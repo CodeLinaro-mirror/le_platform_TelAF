@@ -1415,7 +1415,7 @@ void taf_PM:: SendAckToPmd(taf_pm_State_t state)
     Status ackStatus;
     if(state == TAF_PM_STATE_SUSPEND) {
         ackStatus = tafPwrMgr.tcuSlaveActivityMgr->sendActivityStateAck(
-                            StateChangeResponse::NACK, TcuActivityState::SUSPEND);
+                            StateChangeResponse::ACK, TcuActivityState::SUSPEND);
         if(ackStatus == Status::SUCCESS) {
             LE_INFO("Sent SUSPEND acknowledgement to TCU successfully");
         } else {
@@ -1423,7 +1423,7 @@ void taf_PM:: SendAckToPmd(taf_pm_State_t state)
         }
     } else if(state == TAF_PM_STATE_SHUTDOWN) {
         ackStatus = tafPwrMgr.tcuSlaveActivityMgr->sendActivityStateAck(
-                            StateChangeResponse::NACK, TcuActivityState::SHUTDOWN);
+                            StateChangeResponse::ACK, TcuActivityState::SHUTDOWN);
         if(ackStatus == Status::SUCCESS) {
             LE_INFO("Sent SHUTDOWN acknowledgement to TCU successfully");
         } else {

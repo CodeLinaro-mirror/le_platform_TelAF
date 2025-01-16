@@ -44,7 +44,8 @@ typedef enum
     TAF_PI_VERSION_COMP_ROOTFS,
     TAF_PI_VERSION_COMP_FIRMWARE,
     TAF_PI_VERSION_COMP_TZ,
-    TAF_PI_VERSION_COMP_TELAF
+    TAF_PI_VERSION_COMP_TELAF,
+    TAF_PI_VERSION_COMP_LXC
 } taf_pi_version_Comp_t;
 
 //--------------------------------------------------------------------------------------------------

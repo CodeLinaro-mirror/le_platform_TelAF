@@ -263,6 +263,46 @@ le_result_t taf_verInfo_GetRootFSVersion
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  Gets the LXC version.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_verInfo_GetLXCVersion
+(
+    char* versionPtr,  ///< [OUT] LXC version.
+    size_t versionSize ///< [IN] LXC version size.
+)
+{
+    TAF_ERROR_IF_RET_VAL(versionPtr == NULL, LE_BAD_PARAMETER, "Null ptr(versionPtr)");
+
+    le_result_t result = LE_OK;
+    ifstream ifs(LXC_VERSION_FILE);
+    string version;
+
+    getline(ifs, version);
+    ifs.close();
+
+    le_utf8_Copy(versionPtr, version.c_str(), versionSize, NULL);
+    size_t baseSize = strlen(versionPtr);
+    auto& tafVerInfo = taf_verInfo::GetInstance();
+    if (tafVerInfo.versionInfPtr != NULL && baseSize < versionSize)
+    {
+        LE_INFO("Baseline version: %s", versionPtr);
+        le_utf8_Append(versionPtr, "<", versionSize, NULL);
+        result = tafVerInfo.GetRevisions(TAF_PI_VERSION_COMP_LXC, versionPtr + baseSize + 1,
+            versionSize - baseSize - 1);
+        le_utf8_Append(versionPtr, ">", versionSize, NULL);
+    }
+
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  *  Gets the TelAF hash.
  *
  * @return
@@ -472,6 +512,73 @@ le_result_t taf_verInfo_GetFirmwareHash
     {
         LE_ERROR("Invalid bank for firmware.");
         return LE_BAD_PARAMETER;
+    }
+
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the LXC hash.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_UNSUPPORTED -- Not supported.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_verInfo_GetLXCHash
+(
+    taf_verInfo_Bank_t bank, ///< [IN] Bank.
+    uint8_t* hashPtr,        ///< [OUT] LXC hash.
+    size_t* hashSizePtr      ///< [OUT] LXC hash size.
+)
+{
+    TAF_ERROR_IF_RET_VAL(hashPtr == NULL, LE_BAD_PARAMETER, "Null ptr(hashPtr)");
+
+    TAF_ERROR_IF_RET_VAL(hashSizePtr == NULL, LE_BAD_PARAMETER, "Null ptr(hashSizePtr)");
+
+    le_result_t result = LE_OK;
+    auto& tafVerInfo = taf_verInfo::GetInstance();
+
+    if (tafVerInfo.hashInfPtr != NULL)
+    {
+        if (bank == TAF_VERINFO_BANK_A)
+        {
+            result = tafVerInfo.GetHash(TAF_PI_HASH_COMP_LXC, TAF_PI_HASH_BANK_A,
+                hashPtr, hashSizePtr);
+        }
+        else if (bank == TAF_VERINFO_BANK_B)
+        {
+            result = tafVerInfo.GetHash(TAF_PI_HASH_COMP_LXC, TAF_PI_HASH_BANK_B,
+                hashPtr, hashSizePtr);
+        }
+        else
+        {
+            LE_ERROR("Invalid bank for LXC.");
+            return LE_BAD_PARAMETER;
+        }
+    }
+    else
+    {
+        taf_verInfo_Bank_t bootBank;
+        result = tafVerInfo.GetBootBank(&bootBank);
+        TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get the boot bank.");
+
+        TAF_ERROR_IF_RET_VAL(bank != bootBank, LE_UNSUPPORTED,
+            "TelAF hash is only available for boot bank.");
+
+        char hashArray[TAF_VERINFO_VERSION_MAX_BYTES];
+        FILE* fp = fopen(LXC_HASH_FILE, "r");
+        if (fp != NULL)
+        {
+            char* p = fgets(hashArray, TAF_VERINFO_VERSION_MAX_BYTES, fp);
+            fclose(fp);
+            TAF_ERROR_IF_RET_VAL(p == NULL, LE_FAULT, "Fail to read hash file.")
+
+            result = tafVerInfo.StringToHash(hashArray, hashPtr, hashSizePtr);
+        }
     }
 
     return result;

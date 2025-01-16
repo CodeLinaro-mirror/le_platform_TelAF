@@ -12,6 +12,7 @@ gen_require(`
     type proc_t;
     type etc_t;
     type telaf_sys_t;
+    type lxcrootfs_t;
     type cert_t;
     type shell_exec_t;
     type mbim_device_t;
@@ -37,6 +38,8 @@ allow telaf_tafVerInfoSvc_t etc_t:file { read_file_perms };
 allow telaf_tafVerInfoSvc_t etc_t:dir { search_dir_perms };
 allow telaf_tafVerInfoSvc_t telaf_sys_t:file { read_file_perms };
 allow telaf_tafVerInfoSvc_t telaf_sys_t:dir { search_dir_perms };
+allow telaf_tafVerInfoSvc_t lxcrootfs_t:dir { search_dir_perms };
+allow telaf_tafVerInfoSvc_t lxcrootfs_t:file { read_file_perms };
 
 # Allow access to ssl library
 allow telaf_tafVerInfoSvc_t cert_t:dir { search };

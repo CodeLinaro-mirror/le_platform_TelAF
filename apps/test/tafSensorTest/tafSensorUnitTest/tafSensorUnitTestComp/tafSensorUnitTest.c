@@ -160,12 +160,12 @@ static void* SensorHandler(void* ctxPtr)
     return NULL;
 }
 
-void TestActivateSensor(){
+void TestActivateSensor(int index){
     LE_TEST_INFO("--------- Testing Activating Sensor----------");
-    config.sensorRef = sensorsArray[0];
+    config.sensorRef = sensorsArray[index];
     config.samplingRate = 104.00;
     config.batchCount = 50;
-    le_result_t result  =  taf_imuSensor_Activate(sensorsArray[0],104.00,50);
+    le_result_t result  =  taf_imuSensor_Activate(sensorsArray[index],104.00,50);
     LE_TEST_OK(result == LE_OK, "taf_imuSensor_Activate Info- LE_OK.");
     if(result!=LE_OK) return;
     threadRef1 = le_thread_Create("Thread1", SensorHandler,&config);
@@ -174,14 +174,14 @@ void TestActivateSensor(){
     taf_imuSensor_RemoveDataHandler(eventHandlerRef);
     LE_TEST_INFO("On Event Handler removed");
     le_thread_Cancel(threadRef1);
-    result = taf_imuSensor_Deactivate(sensorsArray[0]);
-    LE_TEST_OK(result == LE_OK,"Deactivate Accel");
+    result = taf_imuSensor_Deactivate(sensorsArray[index]);
+    LE_TEST_OK(result == LE_OK,"Sensor Deactivate");
     if(result!=LE_OK) return;
 }
 
-void TestSelfTest(){
+void TestSelfTest(int index){
     LE_TEST_INFO("--------- Testing Self Test for Sensor----------");
-    le_result_t result = taf_imuSensor_SelfTest(sensorsArray[0],TAF_IMUSENSOR_POSITIVE);
+    le_result_t result = taf_imuSensor_SelfTest(sensorsArray[index],TAF_IMUSENSOR_POSITIVE);
     LE_TEST_OK(result == LE_OK, "taf_imuSensor_SelfTest Info- LE_OK.");
     if(result == LE_UNSUPPORTED){
         LE_TEST_INFO("Not supported on this target");
@@ -205,8 +205,13 @@ COMPONENT_INIT{
     mSensorMutexRef = le_mutex_CreateRecursive("SensorMutexCl");
     TestAvailableSensor();
     TestSetEulerAngle();
-    TestActivateSensor();
-    TestSelfTest();
+
+    // Testing multiple sequence for activation and deactivation
+    TestActivateSensor(0);
+    TestActivateSensor(1);
+
+    TestSelfTest(0);
+    TestSelfTest(1);
     le_thread_Sleep(2);
     DeleteSensorList();
     exit(EXIT_SUCCESS);

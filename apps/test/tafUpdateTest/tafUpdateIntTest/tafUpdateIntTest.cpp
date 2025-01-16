@@ -147,11 +147,9 @@ void StateHandler(taf_update_StateInd_t* indication, taf_update_SessionRef_t ses
             break;
         case TAF_UPDATE_SYNC_PAUSED:
             printf("\n\nAB Sync was paused\n");
-            le_sem_Post(semaphore);
             break;
         case TAF_UPDATE_SYNC_FAIL:
             printf("\n\nAB Sync failed\n");
-            le_sem_Post(semaphore);
             break;
         default:
             break;
@@ -322,7 +320,6 @@ COMPONENT_INIT
                 printf("\nPausing AB Sync..\n");
                 result = taf_update_PauseSync(sessRef);
                 LE_TEST_OK(result == LE_OK, "taf_update_PauseSync - OK");
-                le_sem_Wait(semaphore);
             }
             else if(input == 'r')
             {

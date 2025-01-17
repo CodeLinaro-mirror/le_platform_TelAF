@@ -269,6 +269,7 @@ namespace tafsvc
             void ClearFileXferMsgList(taf_UpdateSvc_t* svcPtr);
             void ClearXferDataMsgList(taf_UpdateSvc_t* svcPtr);
             void ClearXferExitMsgList(taf_UpdateSvc_t* svcPtr);
+            void ClearVlanList(taf_UpdateSvc_t* svcPtr);
 
             uint8_t reqFileXferSvcId = 0x38;
             uint8_t fileDataXferSvcId = 0x36;

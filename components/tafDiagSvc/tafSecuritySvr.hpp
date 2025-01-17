@@ -242,6 +242,7 @@ namespace telux {
                 void ClearSesTypeMsgList(taf_SecuritySvc_t* servicePtr);
                 void ClearSesChangeMsgList(taf_SecuritySvc_t* servicePtr);
                 void ClearSecAccessMsgList(taf_SecuritySvc_t* servicePtr);
+                void ClearVlanList(taf_SecuritySvc_t* servicePtr);
 
                 // Service and event object
                 le_mem_PoolRef_t SvcPool;

@@ -158,6 +158,7 @@ namespace tafsvc {
             taf_RoutineCtrlSvc_t* GetServiceObj(uint16_t identifier, le_msg_SessionRef_t sessionRef);
             le_result_t SendNRCResp(uint8_t sid, const taf_uds_AddrInfo_t*  addrInfoPtr,
                     uint8_t errCode);
+            void ClearVlanList(taf_RoutineCtrlSvc_t* servicePtr);
     };
 }
 }

@@ -188,6 +188,7 @@ namespace telux
                         uint8_t errCode, uint8_t retVal);
             private:
                 void ClearMsgList(taf_AuthSvc_t* servicePtr);
+                void ClearVlanList(taf_AuthSvc_t* servicePtr);
                 taf_AuthSvc_t* GetServiceObj(le_msg_SessionRef_t sessionRef);
                 taf_AuthSvc_t* GetServiceObj(uint16_t vlanId);
                 le_result_t SendNRCResp(uint8_t sid, const taf_uds_AddrInfo_t* addrInfoPtr,

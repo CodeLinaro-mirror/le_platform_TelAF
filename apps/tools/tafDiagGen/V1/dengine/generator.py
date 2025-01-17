@@ -147,7 +147,8 @@ def generate_code(custom, tmpls_layer, build_dir):
     hpp_rendered_code = hpp_template.render(root = root_node,
                                                    tool_version = tool_version + "_" + "customer",
                                                    generated_time = generated_time,
-                                                   json_md5 = json_md5_str)
+                                                   json_md5 = json_md5_str,
+                                                   evid_h_md5 = evid_h_md5_str)
 
     with open(cpp_generated, 'w') as out_cpp_fd, open(hpp_generated, 'w') as out_hpp_fd:
         out_cpp_fd.write(cpp_rendered_code)

@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -1952,4 +1952,22 @@ FUNCTION le_result_t GetCallEndReason
     Pdp               pdpType           IN,  ///< The packet data protocol type.
     CallEndReasonType callEndReasonType OUT, ///< The call end reason type.
     int32             callEndReason     OUT  ///< The call end reason.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the connected data session MTU.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
+ *  - LE_OVERFLOW -- IOCTL interface name is smaller than profile interface name.
+ *  - LE_IO_ERROR -- IOCTL operation failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetMtu
+(
+    Profile profileRef                      IN,  ///< The profile reference.
+    uint16  mtu                             OUT  ///< The MTU value.
 );

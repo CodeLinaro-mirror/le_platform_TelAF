@@ -854,6 +854,7 @@ void Connection::ConnectionStateMachine
     uint32_t                authenInfo
 )
 {
+    taf_doip_ConnectState_t preConnState = connState;
     connState = state;
 
     switch (state) {
@@ -873,8 +874,11 @@ void Connection::ConnectionStateMachine
         break;
     case TAF_DOIP_CONNECT_STATE_FINALIZE:
         // [DoIP-133] Tcp socket shall be closed and resources shall be freed.
-        connectionMgr->ReportConnectionEvent(testerSA, entitySA,
+        if (preConnState == TAF_DOIP_CONNECT_STATE_REGISTERED_ROUTING_ACTIVE)
+        {
+            connectionMgr->ReportConnectionEvent(testerSA, entitySA,
                 TAF_DOIP_RESULT_SA_DEREGISTERED, localIface);
+        }
         connectionMgr->DeleteConnection(shared_from_this());
         break;
     default:  // TAF_DOIP_CONNECT_STATE_LISTEN

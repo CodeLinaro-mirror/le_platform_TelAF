@@ -66,6 +66,7 @@ namespace uds{
     #define TESTER_STATE_CHANGE_DATA_SIZE 3
     #define MAX_TIMER_NAME_LEN 50
     #define UDS_INDICATION_DATA_LEN_MAX 255
+    #define TESTER_STATE_CHANGE_TIMER 5000 // Tester state timer
 
     // UDS minimal len
     #define UDS_REQ_MIN_LEN 1
@@ -215,7 +216,10 @@ namespace uds{
         TAF_UDS_AUTH_TIMER_START       = 0x07,
         TAF_UDS_AUTH_TIMER_RESTART     = 0x08,
         TAF_UDS_AUTH_DELAY_TIMER_STOP  = 0x09,
-        TAF_UDS_AUTH_DELAY_TIMER_START = 0x0A
+        TAF_UDS_AUTH_DELAY_TIMER_START = 0x0A,
+        TAF_UDS_TESTER_STATE_TIMER_STOP  = 0x0B,
+        TAF_UDS_TESTER_STATE_TIMER_START = 0x0C,
+        TAF_UDS_TESTER_STATE_TIMER_RESTART = 0x0D
     }taf_UDSTimer_EventType_t;
 
     typedef enum
@@ -404,6 +408,7 @@ namespace uds{
             static void S3TimeoutHandler(le_timer_Ref_t timerRef);
             static void AuthTimeoutHandler(le_timer_Ref_t timerRef);
             static void AuthDelayTimeoutHandler(le_timer_Ref_t timerRef);
+            static void TesterStateTimeoutHandler(le_timer_Ref_t timerRef);
             static le_ref_MapRef_t udsHandlerRefMap;
             static taf_UDSIndicationHandler_t udsIndicationHandler;
 
@@ -424,6 +429,7 @@ namespace uds{
             le_timer_Ref_t s3TimerRef;
             le_timer_Ref_t authTimerRef;
             le_timer_Ref_t authDelayTimerRef;
+            le_timer_Ref_t testerStateTimerRef;
             taf_SessionType_t SessionType = DEFAULT_SESSION;
             taf_TesterState_t PreviousState = OFF;
             uint64_t currentRoleVal = 0;
@@ -498,6 +504,7 @@ namespace uds{
             void UdsTimerEventReport(taf_UDSTimer_EventType_t timerEvent, uint32_t interval,
                         const char* ifName);
             void CheckAndRestartS3Timer(uint8_t serviceId);
+            void CheckAndRestartTesterStateTimer();
             bool IsSessTypeMatched(cfg::Node& node);
             bool IsSecurityAccessMatched(cfg::Node& node);
             bool IsAuthRoleMatched(cfg::Node& node);

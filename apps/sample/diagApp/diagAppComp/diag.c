@@ -46,9 +46,8 @@ static void* diagTesterStateThread
 
     taf_diag_ConnectService();
 
-    // Register tester handler for tester state notification for non vlanId = 0
-    uint16_t vlanId = 0;
-    diagTesterStateRef = taf_diag_AddTesterStateHandler(svcRef, vlanId, TesterStateHandler, NULL);
+    // Register tester handler for tester state notification
+    diagTesterStateRef = taf_diag_AddTesterStateHandler(svcRef, TesterStateHandler, NULL);
     LE_TEST_OK(diagTesterStateRef != NULL, "Registered successfully for TesterStateHandler");
 
     le_sem_Post(semRef);

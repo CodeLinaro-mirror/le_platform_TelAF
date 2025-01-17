@@ -35,9 +35,10 @@ typedef struct
 //-------------------------------------------------------------------------------------------------
 typedef struct
 {
-    taf_diag_ServiceRef_t svcRef;           ///< Own reference.
-    le_msg_SessionRef_t sessionRef;         ///< Reference to a client-server session.
-    le_dls_List_t testerStateHandlerList;   ///< Handler list.
+    taf_diag_ServiceRef_t svcRef;                       ///< Own reference.
+    le_msg_SessionRef_t sessionRef;                     ///< Reference to a client-server session.
+    taf_diag_TesterStateHandlerRef_t testerHandlerRef;  ///< Tester state handler ref.
+    le_dls_List_t supportedVlanList;                    ///< VLAN ID list.
 }taf_DiagSvc_t;
 
 //-------------------------------------------------------------------------------------------------
@@ -62,11 +63,20 @@ typedef struct
 {
     taf_diag_TesterStateHandlerRef_t handlerRef;  ///< Own reference.
     taf_diag_ServiceRef_t svcRef;                 ///< Service reference.
-    uint16_t vlanId;                              ///< VLAN Id
     taf_diag_StateChangeHandlerFunc_t func;       ///< Handler function.
     void* ctxPtr;                                 ///< Handler context.
-    le_dls_Link_t  link;
 }taf_TesterStateHandler_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * VLAN ID structure.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_dls_Link_t   link;
+    uint16_t        vlanId;
+}taf_DiagVlanIdNode_t;
 
 // Diag service class
 namespace telux {
@@ -92,10 +102,13 @@ namespace telux {
                 taf_diag_ServiceRef_t GetService();
                 static void TesterStateEventHandler(void* reportPtr);
                 taf_diag_TesterStateHandlerRef_t AddTesterStateHandler(
-                        taf_diag_ServiceRef_t svcRef,  uint16_t vlanId,
+                        taf_diag_ServiceRef_t svcRef,
                                 taf_diag_StateChangeHandlerFunc_t handlerPtr, void* contextPtr);
                 void RemoveTesterStateHandler(taf_diag_TesterStateHandlerRef_t handlerRef);
                 le_result_t ReleaseTesterStateMsg(taf_diag_TesterStateRef_t stateRef);
+
+                // VLAN ID setting/getting.
+                le_result_t SetVlanId(taf_diag_ServiceRef_t svcRef, uint16_t vlanId);
 
                 le_result_t RemoveSvc(taf_diag_ServiceRef_t svcRef);
 
@@ -105,8 +118,10 @@ namespace telux {
 
                 // Internal search function.
                 taf_DiagSvc_t* GetServiceObj(le_msg_SessionRef_t sessionRef);
-                // To clear handler list.
-                void ClearHandlerList(taf_DiagSvc_t* servicePtr);
+                taf_DiagSvc_t* GetServiceObj(uint16_t vlanId);
+
+                // To clear VLAN list.
+                void ClearVlanList(taf_DiagSvc_t* servicePtr);
 
                 uint8_t stateChangeId = 0xFD;   // Tester state change ID.
 
@@ -121,6 +136,8 @@ namespace telux {
                 // Rx request handler object
                 le_mem_PoolRef_t ReqHandlerPool;
                 le_ref_MapRef_t ReqHandlerRefMap;
+
+                le_mem_PoolRef_t VlanPool;
 
                 // Event for service.
                 le_event_Id_t TesterStateEvent;

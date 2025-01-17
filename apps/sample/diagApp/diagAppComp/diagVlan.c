@@ -45,9 +45,8 @@ static void* diagTesterStateMsgThread
     unsigned long idx = (unsigned long)(uintptr_t)ctxPtr;
     taf_diag_ConnectService();
 
-    // Define 2 vlan id
-    uint16_t vlanId_1 = TEST_VLAN_ID_0;
-    uint16_t vlanId_2 = TEST_VLAN_ID_1;
+    // Define vlan id
+    uint16_t vlanId;
 
     // Get diag svc reference
     svcRef[idx] = taf_diag_GetService();
@@ -57,17 +56,28 @@ static void* diagTesterStateMsgThread
         return (void*)LE_FAULT;
     }
 
+    if (idx == 0ul)
+    {
+        vlanId = TEST_VLAN_ID_0;
+    }
+    else
+    {
+        vlanId = TEST_VLAN_ID_1;
+    }
+
+    le_result_t result;
+    result = taf_diag_SetVlanId(svcRef[idx], vlanId);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to set vlan id for this service");
+        return (void*)LE_FAULT;
+    }
+
     // Register tester state notification handler for Vlan id = 10
-    diagTesterMsgRef[idx] = taf_diag_AddTesterStateHandler(svcRef[idx], vlanId_1,
+    diagTesterMsgRef[idx] = taf_diag_AddTesterStateHandler(svcRef[idx],
             TesterStateHandler, NULL);
     LE_TEST_OK(diagTesterMsgRef[idx] != NULL,
             "Registered successfully for TesterStateHandler for vlanId1");
-
-    // Register tester state notification handler for Vlan id = 110
-    diagTesterMsgRef[idx] = taf_diag_AddTesterStateHandler(svcRef[idx], vlanId_2,
-            TesterStateHandler, NULL);
-    LE_TEST_OK(diagTesterMsgRef[idx] != NULL,
-            "Registered successfully for TesterStateHandler for vlanId2");
 
     le_sem_Post(semRef[idx]);
     le_event_RunLoop();
@@ -92,14 +102,13 @@ le_result_t diagVlanDiag_Init
     le_thread_Ref_t testerStateThreadRef1 = le_thread_Create("testerStateThread1",
             diagTesterStateMsgThread, (void *)(uintptr_t)0);
 
-    le_thread_Start(testerStateThreadRef1);
-    le_sem_Wait(semRef[0]);
-
     // Create diag tester state message handler thread. Client session 2
     le_thread_Ref_t testerStateThreadRef2 = le_thread_Create("testerStateThread2",
             diagTesterStateMsgThread, (void *)(uintptr_t)1);
 
+    le_thread_Start(testerStateThreadRef1);
     le_thread_Start(testerStateThreadRef2);
+    le_sem_Wait(semRef[0]);
     le_sem_Wait(semRef[1]);
 
     return LE_OK;

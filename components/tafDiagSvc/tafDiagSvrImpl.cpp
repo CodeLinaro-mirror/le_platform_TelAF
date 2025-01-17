@@ -135,8 +135,11 @@ taf_diag_ServiceRef_t taf_DiagSvr::GetService
         servicePtr->sessionRef = taf_diag_GetClientSessionRef();
         LE_INFO("GetService servicePtr->sessionRef: %p", servicePtr->sessionRef);
 
+        // Init the service Rx Handler.
+        servicePtr->testerHandlerRef = NULL;
+
         // Init message list.
-        servicePtr->testerStateHandlerList = LE_DLS_LIST_INIT;
+        servicePtr->supportedVlanList = LE_DLS_LIST_INIT;
 
         // Create a Safe Reference for this service object
         servicePtr->svcRef = (taf_diag_ServiceRef_t)le_ref_CreateRef(SvcRefMap, servicePtr);
@@ -175,6 +178,98 @@ taf_DiagSvc_t* taf_DiagSvr::GetServiceObj
     }
 
     return NULL;
+}
+
+taf_DiagSvc_t* taf_DiagSvr::GetServiceObj
+(
+    uint16_t vlanId
+)
+{
+    LE_DEBUG("Find the service object for vlan(0x%x)!", vlanId);
+    bool isFound = false;
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
+
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_DiagSvc_t* servicePtr = (taf_DiagSvc_t *)le_ref_GetValue(iterRef);
+        if (servicePtr != NULL)
+        {
+            // In some cases. the interface may not set the vlan.
+            if (vlanId == 0 && le_dls_NumLinks(&servicePtr->supportedVlanList) == 0)
+            {
+                return servicePtr;
+            }
+
+            // Verify if the vlan is match.
+            le_dls_Link_t* linkPtr = NULL;
+            linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+            while (linkPtr)
+            {
+                taf_DiagVlanIdNode_t *vlan = CONTAINER_OF(linkPtr,
+                        taf_DiagVlanIdNode_t, link);
+                if (vlan != NULL && vlan->vlanId == vlanId)
+                {
+                    // Match.
+                    isFound = true;
+                    break;
+                }
+                linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+            }
+
+            if (isFound)
+            {
+                return servicePtr;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * VLAN ID setting.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_DiagSvr::SetVlanId
+(
+    taf_diag_ServiceRef_t svcRef,
+    uint16_t vlanId
+)
+{
+    taf_DiagSvc_t* servicePtr = (taf_DiagSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+
+#ifndef LE_CONFIG_DIAG_VSTACK
+    // Check if the vlan is set.
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+    while (linkPtr)
+    {
+        taf_DiagVlanIdNode_t *vlan = CONTAINER_OF(linkPtr, taf_DiagVlanIdNode_t, link);
+        if (vlan != NULL && vlan->vlanId == vlanId)
+        {
+            LE_INFO("The Vlan id(0x%x) was already set for ref%p", vlanId, svcRef);
+            return LE_OK;
+        }
+        linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+    }
+
+    taf_DiagVlanIdNode_t *vlanPtr = (taf_DiagVlanIdNode_t *)le_mem_ForceAlloc(VlanPool);
+    if (vlanPtr == NULL)
+    {
+        LE_INFO("Failed to allocate memory.");
+        return LE_NO_MEMORY;
+    }
+
+    vlanPtr->vlanId = vlanId;
+    vlanPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&servicePtr->supportedVlanList, &vlanPtr->link);
+
+    return LE_OK;
+#else
+    return LE_NOT_IMPLEMENTED;
+#endif
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -234,7 +329,6 @@ void taf_DiagSvr::UDSMsgHandler
 taf_diag_TesterStateHandlerRef_t taf_DiagSvr::AddTesterStateHandler
 (
     taf_diag_ServiceRef_t svcRef,
-    uint16_t vlanId,
     taf_diag_StateChangeHandlerFunc_t handlerPtr,
     void* contextPtr
 )
@@ -246,19 +340,10 @@ taf_diag_TesterStateHandlerRef_t taf_DiagSvr::AddTesterStateHandler
 
     TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Invalid handlerPtr!");
 
-    // Check given VlanId already registered the handler.
-    le_dls_Link_t* linkPtr = NULL;
-    linkPtr = le_dls_Peek(&servicePtr->testerStateHandlerList);
-    while (linkPtr)
+    if (servicePtr->testerHandlerRef != NULL)
     {
-        taf_TesterStateHandler_t* handlerObjPtr = CONTAINER_OF(linkPtr, taf_TesterStateHandler_t,
-                link);
-        linkPtr = le_dls_PeekNext(&servicePtr->testerStateHandlerList, linkPtr);
-        if (handlerObjPtr->handlerRef && (handlerObjPtr->vlanId == vlanId))
-        {
-            LE_DEBUG("Handler is already registerred for Vlan Id: %d", vlanId);
-            return handlerObjPtr->handlerRef;
-        }
+        LE_ERROR("Tester state handler is already registered");
+        return NULL;
     }
 
     // Register handler for given Vlan id.
@@ -267,15 +352,15 @@ taf_diag_TesterStateHandlerRef_t taf_DiagSvr::AddTesterStateHandler
 
     // Initialize the RxHandler object.
     handlerObjPtr->svcRef     = svcRef;
-    handlerObjPtr->vlanId     = vlanId;
     handlerObjPtr->func       = handlerPtr;
     handlerObjPtr->ctxPtr     = contextPtr;
     handlerObjPtr->handlerRef =
             (taf_diag_TesterStateHandlerRef_t)le_ref_CreateRef(ReqHandlerRefMap, handlerObjPtr);
-    handlerObjPtr->link = LE_DLS_LINK_INIT;
-    le_dls_Queue(&servicePtr->testerStateHandlerList, &handlerObjPtr->link);
 
-    LE_INFO("Registered Tester present state handler for vlanId : %d", vlanId);
+    // Attach handler to service.
+    servicePtr->testerHandlerRef = handlerObjPtr->handlerRef;
+
+    LE_INFO("TesterState: Registered Tester state change Handler");
 
     return handlerObjPtr->handlerRef;
 }
@@ -302,35 +387,35 @@ void taf_DiagSvr::TesterStateEventHandler
     // Notify the repective callbackFunc
     taf_DiagSvc_t* servicePtr = NULL;
     taf_TesterStateHandler_t* handlerObjPtr = NULL;
-    le_ref_IterRef_t iterRef = le_ref_GetIterator(diag.SvcRefMap);
-    while (le_ref_NextNode(iterRef) == LE_OK)
-    {
-        servicePtr = (taf_DiagSvc_t *)le_ref_GetValue(iterRef);
-        if (servicePtr != NULL)
-        {
-            le_dls_Link_t* linkHandlerPtr = NULL;
-            linkHandlerPtr = le_dls_Peek(&servicePtr->testerStateHandlerList);
-            while(linkHandlerPtr)
-            {
-                handlerObjPtr = CONTAINER_OF(linkHandlerPtr,
-                        taf_TesterStateHandler_t, link);
-                linkHandlerPtr = le_dls_PeekNext(&servicePtr->testerStateHandlerList,
-                        linkHandlerPtr);
-                if((handlerObjPtr->func != NULL) && (handlerObjPtr->svcRef == servicePtr->svcRef)
-                        && (handlerObjPtr->vlanId == rxStatePtr->addrInfo.vlanId))
-                {
-                    // Add the message in service message list and notify to application.
-                    LE_DEBUG("current state :%d", rxStatePtr->currentTesterState);
-                    LE_DEBUG("handlerObjPtr->svcRef :%p, handlerObjPtr->handlerRef :%p",
-                            handlerObjPtr->svcRef, handlerObjPtr->handlerRef);
 
-                    // Call the callback function
-                    handlerObjPtr->func(rxStatePtr->rxStateRef, handlerObjPtr->vlanId,
-                            rxStatePtr->currentTesterState, handlerObjPtr->ctxPtr);
-                }
-            }
-        }
+#ifdef LE_CONFIG_DIAG_VSTACK
+    servicePtr = (taf_DiagSvc_t*)diag.GetServiceObj((uint16_t)0);
+#else
+    servicePtr = (taf_DiagSvc_t*)diag.GetServiceObj(rxStatePtr->addrInfo.vlanId);
+#endif
+    if (servicePtr == NULL)
+    {
+        return;
     }
+
+    if (servicePtr->testerHandlerRef == NULL)
+    {
+        LE_WARN("Did not register handler for tester state notfication.");
+        return;
+    }
+
+    // Lookup message handler of this service
+    handlerObjPtr = (taf_TesterStateHandler_t*)le_ref_Lookup(diag.ReqHandlerRefMap,
+            servicePtr->testerHandlerRef);
+    if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
+    {
+        LE_INFO("Did not register handler for tester state notfication.");
+        return;
+    }
+
+    // Add the message in service message list and notify to application.
+    handlerObjPtr->func(rxStatePtr->rxStateRef, rxStatePtr->addrInfo.vlanId,
+            rxStatePtr->currentTesterState, handlerObjPtr->ctxPtr);
 
     LE_INFO("Release the received tester state message ptr");
     le_ref_DeleteRef(diag.RxTesterStateRefMap, rxStatePtr->rxStateRef);
@@ -368,6 +453,7 @@ void taf_DiagSvr::RemoveTesterStateHandler
     handlerObjPtr = (taf_TesterStateHandler_t*)le_ref_Lookup(ReqHandlerRefMap,
             handlerRef);
     TAF_ERROR_IF_RET_NIL(handlerObjPtr == NULL, "Invalid handlerObjPtr");
+    TAF_ERROR_IF_RET_NIL(handlerObjPtr->handlerRef != handlerRef, "Invalid handler reference");
 
     servicePtr = (taf_DiagSvc_t*)le_ref_Lookup(SvcRefMap, handlerObjPtr->svcRef);
     if (servicePtr == NULL)
@@ -379,6 +465,9 @@ void taf_DiagSvr::RemoveTesterStateHandler
         return;
     }
 
+    // Detach the handler from service.
+    servicePtr->testerHandlerRef = NULL;
+
     // Clear Rx Handler resources
     handlerObjPtr->handlerRef = NULL;
     handlerObjPtr->svcRef     = NULL;
@@ -387,7 +476,6 @@ void taf_DiagSvr::RemoveTesterStateHandler
 
     // Free the handler.
     le_ref_DeleteRef(ReqHandlerRefMap, handlerRef);
-    le_dls_Remove(&servicePtr->testerStateHandlerList, &(handlerObjPtr->link));
     le_mem_Release(handlerObjPtr);
 
     return;
@@ -395,33 +483,30 @@ void taf_DiagSvr::RemoveTesterStateHandler
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Clear handler list.
+ * Clear vlan list.
  */
 //-------------------------------------------------------------------------------------------------
-void taf_DiagSvr::ClearHandlerList
+void taf_DiagSvr::ClearVlanList
 (
     taf_DiagSvc_t* servicePtr
 )
 {
-    LE_DEBUG("ClearHandlerList");
+    LE_DEBUG("ClearVlanList");
     TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
 
-    // Clear the handler list.
-    le_dls_Link_t* linkHandlerPtr = le_dls_Pop(&servicePtr->testerStateHandlerList);
-    while (linkHandlerPtr != NULL)
+    // Clear the vlan id list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
+    while (linkPtr != NULL)
     {
-        taf_TesterStateHandler_t* handlerObjPtr =
-                CONTAINER_OF(linkHandlerPtr, taf_TesterStateHandler_t, link);
-        if (handlerObjPtr != NULL)
+        taf_DiagVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_DiagVlanIdNode_t, link);
+        if (vlanPtr != NULL)
         {
-            LE_DEBUG("Release ReqMsg(ref=%p)", handlerObjPtr->handlerRef);
-            // Free the message
-            le_ref_DeleteRef(ReqHandlerRefMap, handlerObjPtr->handlerRef);
-            le_mem_Release(handlerObjPtr);
+            LE_DEBUG("Release vlan node(id=0x%x)", vlanPtr->vlanId);
+            le_mem_Release(vlanPtr);
         }
 
         // Process next node.
-        linkHandlerPtr = le_dls_Pop(&servicePtr->testerStateHandlerList);
+        linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
     }
 
     return;
@@ -442,8 +527,15 @@ le_result_t taf_DiagSvr::RemoveSvc
     taf_DiagSvc_t* servicePtr = (taf_DiagSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid servicePtr");
 
-    // Release registered handler message resources.
-    ClearHandlerList(servicePtr);
+    // Clear VLAn list
+    ClearVlanList(servicePtr);
+
+    // Clear the registered Authentication StateExp handler
+    if (servicePtr->testerHandlerRef != NULL)
+    {
+        RemoveTesterStateHandler(servicePtr->testerHandlerRef);
+        servicePtr->testerHandlerRef = NULL;
+    }
 
     // Clear service object
     le_ref_DeleteRef(SvcRefMap, (void*)servicePtr->svcRef);
@@ -477,12 +569,7 @@ void taf_DiagSvr::OnClientDisconnection
 
         if (servicePtr->sessionRef == sessionRef)
         {
-            // Release registered handler message resources.
-            diag.ClearHandlerList(servicePtr);
-
-            // Clear service object
-            le_ref_DeleteRef(diag.SvcRefMap, (void*)servicePtr->svcRef);
-            le_mem_Release(servicePtr);
+            diag.RemoveSvc(servicePtr->svcRef);
         }
     }
 
@@ -508,6 +595,7 @@ void taf_DiagSvr::Init
     SvcPool = le_mem_CreatePool("DiagSvcPool", sizeof(taf_DiagSvc_t));
     RxMsgPool = le_mem_CreatePool("RxMsgPool", sizeof(taf_RxTesterStateMsg_t));
     ReqHandlerPool = le_mem_CreatePool("ReqHandlerPool", sizeof(taf_TesterStateHandler_t));
+    VlanPool = le_mem_CreatePool("DiagVlanPool", sizeof(taf_DiagVlanIdNode_t));
 
     // Create reference maps
     SvcRefMap = le_ref_CreateMap("DiagSvcRefMap", DEFAULT_SVC_REF_CNT);

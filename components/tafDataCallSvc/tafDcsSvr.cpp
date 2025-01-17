@@ -1667,7 +1667,7 @@ le_result_t taf_dcs_GetAPNThrottledStatus
 {
     auto &dataConnection = taf_DataConnection::GetInstance();
     return dataConnection.GetAPNThrottledStatus(profileRef,isThrottled,ipv4RemainingTime,
-                                                                         ipv4RemainingTime);
+                                                                         ipv6RemainingTime);
 }
 
 le_result_t taf_dcs_GetAPNThrottledPLMN

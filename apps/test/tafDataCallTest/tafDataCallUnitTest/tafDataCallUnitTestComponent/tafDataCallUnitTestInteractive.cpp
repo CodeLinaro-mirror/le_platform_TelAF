@@ -47,7 +47,8 @@ typedef enum
     SESSION_GET_DATA_BEARER_TECH,   //
     SESSION_GET_ROAMING_STATUS,     //
     SESSION_GET_MAX_DATA_BIT_RATES, //
-    SESSION_CALL_END_REASON         //
+    SESSION_CALL_END_REASON,         //
+    APN_GET_THROTTLE_INFO
 } dcsAPIs;
 
 static void ShowMenu()
@@ -92,6 +93,8 @@ static void ShowMenu()
               << SESSION_GET_MAX_DATA_BIT_RATES << " -> Session: Get max data bit rates"
               << std::endl
               << SESSION_CALL_END_REASON        << " -> Session: Get call end reason"
+              << std::endl
+              << APN_GET_THROTTLE_INFO          << " -> Session: Get apn throttle status"
               << std::endl
               << std::endl;
 }
@@ -834,6 +837,78 @@ static le_result_t GetCallEndReason()
     return result;
 }
 
+static le_result_t GetAPNThrottleStatus()
+{
+    LE_TEST_INFO("Get apn throttle information");
+    le_result_t result = LE_OK;
+
+    bool  areAllPLMNsThrottled;
+    char mccStr[TAF_DCS_MCC_BYTES];
+    char mncStr[TAF_DCS_MNC_BYTES];
+
+    bool       isThrottled;
+    uint32_t     ipv4RemainingTime;
+    uint32_t     ipv6RemainingTime;
+
+    taf_dcs_ProfileRef_t ProfileRef = GetProfileRef();
+    if (nullptr == ProfileRef)
+    {
+        LE_TEST_INFO("Failed to get profile ref");
+        return LE_FAULT;
+    }
+
+    result = taf_dcs_GetAPNThrottledStatus(ProfileRef,&isThrottled,&ipv4RemainingTime,
+                                                                       &ipv6RemainingTime);
+    if(result != LE_OK)
+    {
+      LE_TEST_INFO("Failed to get apn throttle status: %d", result);
+      std::cout << "Failed to get apn throttle status: " << result << std::endl;
+      if(result == LE_UNAVAILABLE)
+       LE_TEST_INFO("Data profile is not throttled");
+      else if(result == LE_NOT_POSSIBLE)
+       LE_TEST_INFO("Data profile is not created");
+      else
+       LE_TEST_INFO("Some other error");
+      return result;
+    }
+
+    LE_TEST_INFO("----isThrottled : %d", (bool)isThrottled);
+    LE_TEST_INFO("----ipv4 Time : %d", (int)ipv4RemainingTime);
+    LE_TEST_INFO("----ipv6 Time : %d", (int)ipv6RemainingTime);
+
+    std::cout << "apn throttle status: " << isThrottled << ",ipv4: " << ipv4RemainingTime
+                                                        << ",ipv6: " << ipv6RemainingTime
+                                                                     << std::endl;
+
+    result = taf_dcs_GetAPNThrottledPLMN(ProfileRef, &areAllPLMNsThrottled,
+                                                       mccStr,TAF_DCS_MCC_BYTES,
+                                                       mncStr,TAF_DCS_MNC_BYTES);
+
+    if(result != LE_OK)
+    {
+      LE_TEST_INFO("Failed to get apn throttle plmn: %d", result);
+      std::cout << "Failed to get apn throttle plmn: " << result << std::endl;
+      if(result == LE_UNAVAILABLE)
+       LE_TEST_INFO("Data profile is not throttled");
+      else if(result == LE_NOT_POSSIBLE)
+       LE_TEST_INFO("Data profile is not created");
+      else
+       LE_TEST_INFO("Some other error");
+      return result;
+    }
+
+    LE_TEST_INFO("----areAllPLMNsThrottled : %d", (bool)areAllPLMNsThrottled);
+    LE_TEST_INFO("----MCC : %s", mccStr);
+    LE_TEST_INFO("----MNC : %s", mncStr);
+
+    std::cout << "areAllPLMNsThrottled: " << areAllPLMNsThrottled << ",MCC: " << mccStr
+                                                        << ",MNC: " << mncStr
+                                                                     << std::endl;
+
+    return result;
+}
+
+
 void RoamingStatusHandlerFunc(
     const taf_dcs_RoamingStatusInd_t *LE_NONNULL roamingStatusIndPtr,
     ///< Roaming status indication.
@@ -1199,6 +1274,16 @@ void tafDCSUnitTest_RunInteractiveTests()
                 result = GetAuthentication();
                 logStr.clear();
                 logStr = logStr + "taf_dcs_GetAuthentication: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case APN_GET_THROTTLE_INFO:
+            {
+                result = GetAPNThrottleStatus();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetAPNThrottleStatus: " +
                          std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
                 LE_TEST_INFO("%s", logStr.c_str());
                 std::cout << logStr << std::endl;

@@ -318,7 +318,7 @@ void taf_DataProfile::ProcessThrottledApnInfoChanged(const std::vector<telux::da
           }
         }
       }
-      if(profileFound == false) //check for throttleState. If yes send event with false. 
+      if(profileFound == false) //check for throttleState. If yes send event with false.
       {
         if(profileCtxFromList->throttleInfo.isThrottled == true )
         {
@@ -334,7 +334,17 @@ void taf_DataProfile::ProcessThrottledApnInfoChanged(const std::vector<telux::da
     }
 }
 
-
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the PLMN on which the APN is throttled.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_POSSIBLE -- Data profile is not created.
+ *  - LE_UNAVAILABLE  -- Data profile is not throttled.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t taf_DataProfile::GetAPNThrottledPLMN(taf_dcs_ProfileRef_t    profileRef,
                                                  bool       *areAllPLMNsThrottled,
                                                  char                 *mccPtr,
@@ -349,7 +359,7 @@ le_result_t taf_DataProfile::GetAPNThrottledPLMN(taf_dcs_ProfileRef_t    profile
 
     taf_dcs_ProfileCtx_t* profileCtx = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap,
                                                                            (void*)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtx == NULL, LE_NOT_FOUND, 
+    TAF_ERROR_IF_RET_VAL(profileCtx == NULL, LE_NOT_FOUND,
                                       "cannot get profile context from reference(%p)", profileRef);
 
     TAF_ERROR_IF_RET_VAL(profileCtx->throttleInfo.isThrottled == false, LE_UNAVAILABLE,

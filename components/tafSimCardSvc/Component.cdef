@@ -20,6 +20,11 @@ requires:
         lib/libtelux_tel.so
         lib/libtelux_common.so
     }
+
+    api:
+    {
+        taf_pm.api
+    }
 }
 
 cxxflags:

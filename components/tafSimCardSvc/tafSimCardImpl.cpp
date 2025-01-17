@@ -333,6 +333,104 @@ void tafTransmitApduResponseCallback::onResponse(IccResult result, ErrorCode err
    }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Register listeners.
+ */
+//--------------------------------------------------------------------------------------------------
+void RegisterListeners()
+{
+    auto &sim = taf_sim::GetInstance();
+    telux::common::Status status;
+
+    LE_DEBUG("RegisterListeners");
+    if ((sim.multiSimMgr != nullptr) && (sim.multiSimListener != nullptr))
+    {
+        status = sim.multiSimMgr->registerListener(sim.multiSimListener);
+        if (status != telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Fail to register multi sim listener.");
+        }
+    }
+
+    if ((sim.cardManager != nullptr) && (sim.cardListener != nullptr))
+    {
+        status = sim.cardManager->registerListener(sim.cardListener);
+        if (status != telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Fail to register card listener.");
+        }
+    }
+
+    if ((sim.subMgr != nullptr) && (sim.subscriptionListener != nullptr))
+    {
+        status = sim.subMgr->registerListener(sim.subscriptionListener);
+        if (status != telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Fail to register subscription listener.");
+        }
+    }
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deregister listeners.
+ */
+//--------------------------------------------------------------------------------------------------
+void DeregisterListeners()
+{
+    auto &sim = taf_sim::GetInstance();
+    telux::common::Status status;
+
+    LE_DEBUG("RegisterListeners");
+    if ((sim.multiSimMgr != nullptr) && (sim.multiSimListener != nullptr))
+    {
+        status = sim.multiSimMgr->deregisterListener(sim.multiSimListener);
+        if (status != telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Fail to deregister multi sim listener.");
+        }
+    }
+
+    if ((sim.cardManager != nullptr) && (sim.cardListener != nullptr))
+    {
+        status = sim.cardManager->removeListener(sim.cardListener);
+        if (status != telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Fail to deregister card delistener.");
+        }
+    }
+
+    if ((sim.subMgr != nullptr) && (sim.subscriptionListener != nullptr))
+    {
+        status = sim.subMgr->removeListener(sim.subscriptionListener);
+        if (status != telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Fail to deregister subscription listener.");
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for power state changes
+ */
+//--------------------------------------------------------------------------------------------------
+void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
+{
+    if (state == TAF_PM_STATE_RESUME)
+    {
+        LE_INFO("Power state change to RESUME");
+        RegisterListeners();
+    }
+    else if (state == TAF_PM_STATE_SUSPEND)
+    {
+        LE_INFO("Power state change to SUSPEND");
+        DeregisterListeners();
+    }
+}
+
 void taf_sim::Init(void)
 {
     FPLMNNodePool = le_mem_CreatePool("FPLMNNodePool", sizeof(FPLMNNode_t));
@@ -368,7 +466,6 @@ void taf_sim::Init(void)
     multiSimMgr = phoneFactory.getMultiSimManager();
 
     bool isMultiSimMgrReady = false;
-    telux::common::Status status;
     slotStatusCbPromise = std::promise<telux::common::ErrorCode>();
     telux::common::ErrorCode errorStatus;
 
@@ -393,11 +490,6 @@ void taf_sim::Init(void)
         }
         multiSimListener = std::make_shared<tafMultiSimListener>();
 
-        status = multiSimMgr->registerListener(multiSimListener);
-        if(status != telux::common::Status::SUCCESS) {
-            LE_FATAL("Unable to registerListener");
-        }
-
         auto ret = multiSimMgr->requestSlotStatus(tafMultiSimCallback::requestsSlotsStatusResponse);
         if(ret != telux::common::Status::SUCCESS){
             LE_FATAL("Request slot status failed with error: %d", (int)ret);
@@ -415,12 +507,6 @@ void taf_sim::Init(void)
         // listener
         cardListener = std::make_shared<tafCardListener>();
 
-        // registering Listener
-        status = cardManager->registerListener(cardListener);
-        if(status != telux::common::Status::SUCCESS) {
-            LE_INFO("Unable to registerListener");
-        }
-
         // Create an event Id for change in card info notification
         NewStateEventId = le_event_CreateId("NewStateEventId", sizeof(sim_event_t));
         ResponseEventId = le_event_CreateId("ResponseEventId", sizeof(sim_response_event_t));
@@ -436,15 +522,8 @@ void taf_sim::Init(void)
         subscriptionSubSystemStatus = f.get();
     }
     if(subscriptionSubSystemStatus) {
-
-        telux::common::Status status;
         // registering Listener
         subscriptionListener = std::make_shared<tafSubscriptionListener>();
-        status = subMgr->registerListener(subscriptionListener);
-
-        if(status != telux::common::Status::SUCCESS) {
-            LE_FATAL("Unable to registerListener");
-        }
     }
 
     for (auto i = 0; i < TAF_SIM_ID_MAX; i++)
@@ -457,6 +536,11 @@ void taf_sim::Init(void)
         simList[i].pukTryCount = 10;
     }
 
+    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
+    if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
+    {
+        RegisterListeners();
+    }
 }
 
 taf_sim &taf_sim::GetInstance()

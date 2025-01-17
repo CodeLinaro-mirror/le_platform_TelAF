@@ -1,0 +1,12 @@
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+routine_parameters_all: map(include('routine_parameters_item'), key=str(matches='^[A-Z][A-Z0-9_]*$'))
+---
+routine_parameters_item:
+  name: camelcase()
+  bit_offset: map(include('routine_parameters_byte'), key=int(), min=1, max=4000)
+---
+routine_parameters_byte:
+  data_element: camelcase()
+

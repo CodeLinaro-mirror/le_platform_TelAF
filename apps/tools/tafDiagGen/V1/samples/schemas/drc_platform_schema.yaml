@@ -1,0 +1,97 @@
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+ecu_instance_props:
+  ecu_instance: enum('PCU_CP_1', 'PCU_CP_2', 'PIU_Mst', 'PIU_Hood', 'PIU_Sub')
+  obd_support: enum('noObdSupport', 'ObdSupport')
+
+protocols:
+  DoIP: include('DoIP_Protocol_item')
+  DoCAN: include('DoCAN_Protocol_item', required=False)
+
+execution_authorization_pattern: map(include('execution_authorization_pattern_item'), key=str())
+
+operation_cycle: map(include('operation_cycle_item'), key=str())
+enable_condition: map(include('enable_conditions_item'), key=str())
+storage_condition: map(include('storage_conditions_item'), key=str())
+debounce_algorithm: subset(any(include('debounce_algorithm_monitor_based_item', key=str()), include('debounce_algorithm_counter_based_item', key=str()), include('debounce_algorithm_time_based_item', key=str())))
+memory_destination_user_defined:
+  short_name: str()
+  memory_id: hexa()
+
+---
+DoIP_Protocol_item:
+    short_name: str('DoIP')
+    priority: hexa_bool()
+    protocol_kind: str('DCM_UDS_ON_IP')
+    diagnostic_connection: str(max=200)
+
+---
+DoCAN_Protocol_item:
+    short_name: str('DoCAN')
+    priority: hexa_bool()
+    protocol_kind: str('DCM_UDS_ON_CAN')
+    diagnostic_connection: str(max=200)
+
+execution_authorization_pattern_item:
+  class: str()
+  short_name: str()
+  base: bool()
+  did_read_app: bool()
+  secured_configuration: bool()
+  did_write: bool()
+  io_control: bool()
+  routine_control: bool()
+  expert_read: bool()
+
+
+operation_cycle_item:
+  short_name: str()
+  type: CapsNDash()
+  target_swc_service_dependency: any(str(), required=False)
+  context_sw_component: any(FunctionCase(), swCtxPath(), required=False)
+  cycle_auto_start: any(str(), required=False)
+
+enable_conditions_item:
+  short_name: str()
+  target_swc_service_dependency: any(bool(), required=False)
+  context_sw_component: any(FunctionCase(), swCtxPath())
+
+storage_conditions_item:
+  short_name: str()
+  target_swc_service_dependency: bool()
+  context_sw_component: any(FunctionCase(), swCtxPath())
+
+---
+debounce_algorithm_type: list(str(equals='Counter'), str(equals='Timer'), str(equals='Custom'))
+
+---
+debounce_algorithm_counter_based_item:
+  short_name: any(FunctionCase(), camelcase(), str(matches='^[a-z0-9_]*$'))
+  base: str()
+  debounce_behavior: str()
+  debounce_counter_storage: bool()
+  counter_decrement_step_size: int()
+  counter_passed_threshold: int()
+  counter_increment_step_size: int()
+  counter_failed_threshold: int()
+  counter_jump_down_value: int()
+  counter_jump_up_value: int()
+  counter_jump_up: bool()
+  counter_jump_down: bool()
+  counter_fdc_threshold: int()
+
+---
+debounce_algorithm_time_based_item:
+  short_name: any(FunctionCase(), camelcase(), str(matches='^[a-z0-9_]*$'))
+  base: str()
+  debounce_behavior: str()
+  time_failed_threshold: float(min=0.00)
+  time_passed_threshold: float(min=0.00)
+  time_fdc_threshold: float(min=0.00)
+
+---
+debounce_algorithm_monitor_based_item:
+  short_name: any(FunctionCase(), camelcase(), str(matches='^[a-z0-9_]*$'))
+  base: str()
+  monitor_internal: bool()

@@ -53,7 +53,15 @@ def build_custom(c_path):
     if not os.path.isdir(x_path):
         raise Exception("{} is not a dir for 'config'".format(x_path))
 
-    if not any(os.scandir(x_path)):
+    is_empty = True
+    with os.scandir(x_path) as dirs:
+        for _dir in dirs:
+            if _dir.name.startswith('.'):
+                continue
+            is_empty = False
+            break
+
+    if is_empty:
         raise Exception("{} is a empty dir for 'config'".format(x_path))
 
     return build_custom_tree(x_path)

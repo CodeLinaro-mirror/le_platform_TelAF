@@ -1,0 +1,41 @@
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+specification_version: semver()
+schemas_version: semver()
+services_all: map(include('service_id'), key=hexa())
+---
+service_id: any(include('generic_item'), include('domain_item'))
+
+domain_item:
+  supported: bool()
+  sub_functions: include('sub_functions_item', required=False)
+
+generic_item:
+  name: str(matches='^([\w\s]+)$', required=False)
+  supported: bool()
+  authentication: bool(required=False)
+  mnemonic: mnemonic(required=False)
+  description: str(max=2048, required=False)
+  applicability: enum('Mandatory','Optional','Forbidden', required=False)
+  sessions_supported: list(str(equals='default_session'),str(equals='programming_session'), str(equals='extended_diagnostic_session'), str(equals='fota_session'), str(equals='download_emulated_session'), required=False)
+  access: include('service_access_item', required=False)
+  execution_authorization_pattern: any(ExecutionAuthorizationPattern(), required=False)
+  sub_functions: include('sub_functions_item', required=False)
+
+service_access_item:
+  session: list(enum('default_session', 'programming_session', 'extended_diagnostic_session', 'vehicle_manufacturer_specific_session', 'fota_session', 'downloaded_enumlation_session', 'system_supplier_specific_session'), required=False)
+  security_type: hexa(required=False)
+  security_level: list(str(),required=False)
+  role: enum('R1','R2','R3','R4','R5',required=False)
+
+sub_functions_item: any(map(include('sub_function_item'), key=hexa()), map(include('sub_function_generic_item'), key=hexa()))
+
+sub_function_item:
+  category: str(matches='([_A-Z]+)')
+  execution_authorization_pattern: ExecutionAuthorizationPattern()
+
+sub_function_generic_item:
+  supported: bool()
+  access: include('service_access_item', required=False)
+  authentication: bool(required=False)

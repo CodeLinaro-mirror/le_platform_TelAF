@@ -230,7 +230,7 @@ COMPONENT_INIT
 
         const char* label = le_arg_GetArg(1);
 
-        if(strlen(label) == 0)
+        if(label == NULL || strlen(label) == 0 )
         {
             LE_ERROR("Invalid data label");
             exit(EXIT_FAILURE);
@@ -241,7 +241,7 @@ COMPONENT_INIT
         {
             const char* data = le_arg_GetArg(2);
 
-            if(strlen(data) == 0)
+            if(data ==NULL || strlen(data) == 0 )
             {
                 LE_ERROR("Invalid data label");
                 exit(EXIT_FAILURE);

@@ -294,74 +294,88 @@ COMPONENT_INIT
         LE_TEST_EXIT;
     }
     const char *testType = le_arg_GetArg(0);
-    if (strncmp(testType, "Update", strlen(testType)) == 0){
-        LE_TEST_INFO("Update Process Test");
-        CheckNumArgs(numArgs,2);
-        const char *version = le_arg_GetArg(1);
-        result = Update(version);
-        LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_Update()");
-
-    }
-    else if(strncmp(testType, "Rollback", strlen(testType)) == 0){
-        LE_TEST_INFO("Rollback Process Test");
-        CheckNumArgs(numArgs,1);
-        result = Rollback();
-        LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_Rollback()");
-    }
-    else if(strncmp(testType, "Commit", strlen(testType)) == 0){
-        LE_TEST_INFO("Commit Process Test");
-        CheckNumArgs(numArgs,1);
-        result = Commit();
-        LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_Commit()");
-    }
-    else if(strncmp(testType, "Cancel", strlen(testType)) == 0){
-        LE_TEST_INFO("Cancel Process Test");
-        CheckNumArgs(numArgs,1);
-        result = Cancel();
-        LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_Cancel()");
-    }
-    else if(strncmp(testType, "Activate", strlen(testType)) == 0){
-        LE_TEST_INFO("Activate Process Test");
-        CheckNumArgs(numArgs,1);
-        result = Activate();
-        LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_Activate()");
-    }
-    else if(strncmp(testType, "GetData", strlen(testType)) == 0){
-        LE_TEST_INFO("GetData Process Test");
-        CheckNumArgs(numArgs,3);
-        const char *groupName = le_arg_GetArg(1);
-        const char *nodeName = le_arg_GetArg(2);
-        result = GetData(groupName,nodeName);
-        LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_GetData()");
-    }
-    else if(strncmp(testType, "GetType", strlen(testType)) == 0){
-        LE_TEST_INFO("GetType Process Test");
-        CheckNumArgs(numArgs,3);
-        const char *groupName = le_arg_GetArg(1);
-        const char *nodeName = le_arg_GetArg(2);
-        result = GetType(groupName,nodeName);
-        LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_GetType()");
-    }
-    else if(strncmp(testType, "GetVersion", strlen(testType)) == 0){
-        LE_TEST_INFO("GetVersion Process Test");
-        CheckNumArgs(numArgs,1);
-        result = GetVersion();
-        LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_GetVersion()");
-    }
-    else if(strncmp(testType, "GetNodeInfo", strlen(testType)) == 0){
-        LE_TEST_INFO("GetValue Process Test");
-        CheckNumArgs(numArgs,3);
-        const char *groupName = le_arg_GetArg(1);
-        const char *nodeName = le_arg_GetArg(2);
-        result = GetValue(groupName,nodeName);
-        LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_GetValue()");
-    }
-    else if(strncmp(testType, "help", strlen(testType)) == 0){
-        PrintUsage();
+    if (testType != NULL)
+    {
+        if (strncmp(testType, "Update", strlen(testType)) == 0){
+            LE_TEST_INFO("Update Process Test");
+            CheckNumArgs(numArgs,2);
+            const char *version = le_arg_GetArg(1);
+            if(version != NULL)
+            {
+                result = Update(version);
+                LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_Update()");
+            }
+        }
+        else if(strncmp(testType, "Rollback", strlen(testType)) == 0){
+            LE_TEST_INFO("Rollback Process Test");
+            CheckNumArgs(numArgs,1);
+            result = Rollback();
+            LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_Rollback()");
+        }
+        else if(strncmp(testType, "Commit", strlen(testType)) == 0){
+            LE_TEST_INFO("Commit Process Test");
+            CheckNumArgs(numArgs,1);
+            result = Commit();
+            LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_Commit()");
+        }
+        else if(strncmp(testType, "Cancel", strlen(testType)) == 0){
+            LE_TEST_INFO("Cancel Process Test");
+            CheckNumArgs(numArgs,1);
+            result = Cancel();
+            LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_Cancel()");
+        }
+        else if(strncmp(testType, "Activate", strlen(testType)) == 0){
+            LE_TEST_INFO("Activate Process Test");
+            CheckNumArgs(numArgs,1);
+            result = Activate();
+            LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_Activate()");
+        }
+        else if(strncmp(testType, "GetData", strlen(testType)) == 0){
+            LE_TEST_INFO("GetData Process Test");
+            CheckNumArgs(numArgs,3);
+            const char *groupName = le_arg_GetArg(1);
+            const char *nodeName = le_arg_GetArg(2);
+            if(groupName != NULL && nodeName != NULL){
+                result = GetData(groupName,nodeName);
+                LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_GetData()");
+            }
+        }
+        else if(strncmp(testType, "GetType", strlen(testType)) == 0){
+            LE_TEST_INFO("GetType Process Test");
+            CheckNumArgs(numArgs,3);
+            const char *groupName = le_arg_GetArg(1);
+            const char *nodeName = le_arg_GetArg(2);
+            if(groupName != NULL && nodeName != NULL){
+                result = GetType(groupName,nodeName);
+                LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_GetType()");
+            }
+        }
+        else if(strncmp(testType, "GetVersion", strlen(testType)) == 0){
+            LE_TEST_INFO("GetVersion Process Test");
+            CheckNumArgs(numArgs,1);
+            result = GetVersion();
+            LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_GetVersion()");
+        }
+        else if(strncmp(testType, "GetNodeInfo", strlen(testType)) == 0){
+            LE_TEST_INFO("GetNodeInfo Process Test");
+            CheckNumArgs(numArgs,3);
+            const char *groupName = le_arg_GetArg(1);
+            const char *nodeName = le_arg_GetArg(2);
+            if(groupName != NULL && nodeName != NULL){
+                result = GetValue(groupName,nodeName);
+                LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_GetValue()");
+            }
+        }
+        else if(strncmp(testType, "help", strlen(testType)) == 0){
+            PrintUsage();
+        }
+        else{
+            PrintUsage();
+            LE_TEST_FATAL("Invalid test type %s", testType);
+        }
     }
     else{
-        PrintUsage();
-        LE_TEST_FATAL("Invalid test type %s", testType);
+        LE_TEST_FATAL("Test type is NULL");
     }
     result  =  ReleaseRef();
     LE_TEST_ASSERT(result == LE_OK,"Reference Released");

@@ -80,6 +80,19 @@ void RadioAdaptor::AddEventReport()
     le_event_AddHandler("AddOpModeChangeNotifyHandler",
                          AddOpModeChangeNotifyEventId,
                          RadioAdaptor::OnAddOpModeChangeNotifyHandler);
+
+    // AddRegistrationStateChangeNotify API
+    AddRegStateChangeNotifyEventId = le_event_CreateId("AddPktSwitchedNwChangeNotifyEvent",
+                                                        sizeof(AddRegStateChangeNotifyParm_t));
+    le_event_AddHandler("AddPktSwitchedNwChangeNotifyEventHandler",
+                        AddRegStateChangeNotifyEventId,
+                        RadioAdaptor::OnAddRegStateChangeNotifyEventHandler);
+
+    // GetRegistrationState API
+    GetRegistrationStateEventId = le_event_CreateId("GetRegistrationStateEventId",
+                                                    sizeof(GetRegistrationStateParm_t));
+    le_event_AddHandler("GetRegistrationStateEventEventHandler", GetRegistrationStateEventId,
+                                                RadioAdaptor::OnGetRegistrationStateHandler);
 }
 
 void RadioAdaptor::OnGetRadioPowerHandler(void* reportPtr)
@@ -190,7 +203,7 @@ void RadioAdaptor::OnAddOpModeChangeNotifyHandler(void* reportPtr)
         }
 
         // Evaluating change to use new API in future release
-        eventCtx = (AddOpModeChangeNotifyCtx_t*)malloc(sizeof(AddOpModeChangeNotifyCtx_t));
+        eventCtx = new(std::nothrow)AddOpModeChangeNotifyCtx_t;
 
         if (eventCtx == NULL)
         {
@@ -213,7 +226,7 @@ void RadioAdaptor::OnAddOpModeChangeNotifyHandler(void* reportPtr)
             LE_ERROR("OnAddOpModeChangeNotifyHandler ref == NULL");
             sResult.result = LE_FAULT;
             ((RadioAdaptor*)evtPtr->objPtr)->AddOpModeChangeNotifyPromise.set_value(sResult);
-            free(eventCtx);
+            delete eventCtx;
             return;
         }
 
@@ -235,6 +248,82 @@ void RadioAdaptor::OnAddOpModeChangeNotifyCb(taf_radio_OpMode_t mode, void * ctx
         if (eventCtx->parm.callback != NULL)
         {
             eventCtx->parm.callback(mode, (void*)eventCtx->parm.ctx);
+        }
+    }
+}
+
+void RadioAdaptor::OnAddRegStateChangeNotifyEventHandler(void *reportPtr)
+{
+    AddRegStateChangeNotifyParm_t *evtPtr = (AddRegStateChangeNotifyParm_t *)reportPtr;
+    taf_radio_PacketSwitchedChangeHandlerRef_t ref;
+    AddRegStateChangeNotifyCtx_t *eventCtx;
+    AddRegStateChangeNotifyResult_t sResult;
+
+    if (evtPtr == NULL)
+    {
+        LE_ERROR("OnAddRegStateChangeNotifyEventHandler called with NULL report");
+    }
+    else
+    {
+        if ((evtPtr->objPtr) == NULL)
+        {
+            LE_ERROR("NULL object");
+            return;
+        }
+
+        // Evaluating change to use new API in future release
+        eventCtx = new (std::nothrow) AddRegStateChangeNotifyCtx_t;
+
+        if (eventCtx == NULL)
+        {
+            LE_ERROR("OnAddRegStateChangeNotifyEventHandler eventCtx == NULL");
+
+            sResult.result = LE_FAULT;
+            ((RadioAdaptor *)evtPtr->objPtr)->AddRegStateChangeNotifyPromise.set_value(
+                                                                                        sResult);
+            return;
+        }
+
+        eventCtx->parm.objPtr = evtPtr->objPtr;
+        eventCtx->parm.callback = evtPtr->callback;
+        eventCtx->parm.ctx = evtPtr->ctx;
+
+        ref = taf_radio_AddPacketSwitchedChangeHandler(
+            &RadioAdaptor::OnAddPktSwitchedNwChangeNotifyEventCb,
+            (void *)eventCtx);
+
+        if (ref == NULL)
+        {
+            LE_ERROR("OnAddRegStateChangeNotifyEventHandler ref == NULL");
+            sResult.result = LE_FAULT;
+            ((RadioAdaptor *)evtPtr->objPtr)->AddRegStateChangeNotifyPromise.set_value(
+                                                                                        sResult);
+            delete eventCtx;
+            return;
+        }
+
+        eventCtx->ref = ref;
+        sResult.notifyCtx = eventCtx;
+        sResult.result = LE_OK;
+        ((RadioAdaptor *)evtPtr->objPtr)->AddRegStateChangeNotifyPromise.set_value(sResult);
+    }
+}
+
+void RadioAdaptor::OnAddPktSwitchedNwChangeNotifyEventCb
+(
+    const taf_radio_NetRegStateInd_t *netRegStateIndPtr,
+    void *ctx
+)
+{
+    AddRegStateChangeNotifyCtx_t *eventCtx = (AddRegStateChangeNotifyCtx_t *)ctx;
+
+    LE_INFO("libradio OnAddPktSwitchedNwChangeNotifyEventCb");
+
+    if (eventCtx != NULL)
+    {
+        if (eventCtx->parm.callback != NULL)
+        {
+            eventCtx->parm.callback(netRegStateIndPtr, (void *)eventCtx->parm.ctx);
         }
     }
 }
@@ -369,3 +458,111 @@ le_result_t RadioAdaptor::AddOpModeChangeNotify(RadioOpModeChangeCb callback, vo
     return result;
 }
 
+/**
+ * Implementation of request to add events for packet switched network events.
+ */
+le_result_t RadioAdaptor::AddRegistrationStateChangeNotify
+(
+    RegistrationStateChangeCb callback,
+    void * ctx
+)
+{
+    le_result_t result = LE_OK;
+    AddRegStateChangeNotifyParm_t evt;
+    std::chrono::seconds span(RADIO_API_TIMEOUT);
+
+    AddRegStateChangeNotifyResult_t sResult;
+
+    LE_INFO("libradio RegistrationStateChangeCb called");
+
+    evt.objPtr   = (void*)this;
+    evt.callback = callback;
+    evt.ctx      = ctx;
+
+    AddRegStateChangeNotifyPromise = std::promise<AddRegStateChangeNotifyResult_t>();
+
+    // Send the request to register events to the TelAF thread
+    le_event_Report(AddRegStateChangeNotifyEventId, &evt,
+                                                    sizeof(AddRegStateChangeNotifyParm_t));
+
+    // blocking here to get response
+    std::future<AddRegStateChangeNotifyResult_t> futResult \
+                                               = AddRegStateChangeNotifyPromise.get_future();
+    std::future_status waitStatus = futResult.wait_for(span);
+    if (std::future_status::timeout == waitStatus)
+    {
+        LE_ERROR("AddRegistrationStateChangeNotify waiting promise timeout");
+        return LE_TIMEOUT;
+    }
+
+    sResult    = futResult.get();
+    result     = sResult.result;
+
+    return result;
+}
+
+/**
+ * Get the NAD registration state by calling taf_radio_GetPacketSwitchedState.
+ */
+void RadioAdaptor::OnGetRegistrationStateHandler(void *reportPtr)
+{
+    GetRegistrationStateResult_t sResult;
+    GetRegistrationStateParm_t *evtPtr = (GetRegistrationStateParm_t *)reportPtr;
+
+    if (evtPtr == NULL)
+    {
+        LE_ERROR("OnGetRegistrationStateHandler called with NULL report");
+    }
+    else
+    {
+        le_result_t res;
+        taf_radio_NetRegState_t state;
+
+        res = taf_radio_GetPacketSwitchedState(&state, RADIO_DEFAULT_PHONE_ID);
+
+        if ((evtPtr->objPtr) != NULL)
+        {
+            sResult.result = res;
+            sResult.state = state;
+            ((RadioAdaptor *)evtPtr->objPtr)->GetRegistrationStatePromise.set_value(sResult);
+        }
+        else
+        {
+            LE_ERROR("NULL object");
+        }
+    }
+}
+
+/**
+ * Implementation of GetRegistrationState.
+ */
+le_result_t RadioAdaptor::GetRegistrationState(taf_radio_NetRegState_t *statePtr)
+{
+    GetRegistrationStateParm_t evt;
+    std::chrono::seconds span(RADIO_API_TIMEOUT);
+
+    GetRegistrationStateResult_t sResult;
+
+    LE_INFO("libradio GetRegistrationState called\n");
+
+    evt.objPtr = (void *)this;
+
+    GetRegistrationStatePromise = std::promise<GetRegistrationStateResult_t>();
+
+    // Send an event to the radio service thread to get the registration state
+    le_event_Report(GetRegistrationStateEventId, &evt, sizeof(GetRegistrationStateParm_t));
+
+    // blocking here to get response
+    std::future<GetRegistrationStateResult_t> futResult = GetRegistrationStatePromise.get_future();
+    std::future_status waitStatus = futResult.wait_for(span);
+    if (std::future_status::timeout == waitStatus)
+    {
+        LE_ERROR("GetRegistrationState waiting promise timeout");
+        return LE_TIMEOUT;
+    }
+
+    sResult = futResult.get();
+    *statePtr = sResult.state;
+
+    return sResult.result;
+}

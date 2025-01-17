@@ -184,7 +184,7 @@ void PrintHelpMenu
         "       phone      : '1' or '2'.\n"
         "       mode       : 'status' to show IMS status, 'enable' or 'disable' IMS service, 'user' to "
         "set user agent.\n"
-        "       service    : 'registation', 'voip', 'rtt' or 'sms'.\n"
+        "       service    : 'registation', 'voip', 'vonr', 'rtt' or 'sms'.\n"
         "       user_agent : user agent string.\n"
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- handler <time>\n"
@@ -858,7 +858,7 @@ void PrintImsSvcInfo
             }
             else if (service == TAF_RADIO_IMS_SVC_TYPE_VOIP)
             {
-                LE_INFO("Phone %d IMS-VOIP : Unavailble.", phoneId);
+                LE_INFO("Phone %d IMS-Voice over IMS : Unavailble.", phoneId);
             }
             break;
         case TAF_RADIO_IMS_SVC_STATUS_LIMITED:
@@ -868,7 +868,7 @@ void PrintImsSvcInfo
             }
             else if (service == TAF_RADIO_IMS_SVC_TYPE_VOIP)
             {
-                LE_INFO("Phone %d IMS-VOIP : Limited service.", phoneId);
+                LE_INFO("Phone %d IMS-Voice over IMS : Limited service.", phoneId);
             }
             break;
         case TAF_RADIO_IMS_SVC_STATUS_FULL_SERVICE:
@@ -878,7 +878,7 @@ void PrintImsSvcInfo
             }
             else if (service == TAF_RADIO_IMS_SVC_TYPE_VOIP)
             {
-                LE_INFO("Phone %d IMS-VOIP : Full service.", phoneId);
+                LE_INFO("Phone %d IMS-Voice over IMS : Full service.", phoneId);
             }
             break;
         default:
@@ -888,7 +888,7 @@ void PrintImsSvcInfo
             }
             else if (service == TAF_RADIO_IMS_SVC_TYPE_VOIP)
             {
-                LE_INFO("Phone %d IMS-VOIP : Unknown.", phoneId);
+                LE_INFO("Phone %d IMS-Voice over IMS : Unknown.", phoneId);
             }
             break;
     }
@@ -2773,6 +2773,17 @@ COMPONENT_INIT
                 LE_TEST_OK(result == LE_OK, "taf_radio_GetImsUserAgent - LE_OK");
                 LE_INFO("IMS user agent: %s", userAgent);
             }
+
+            result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, &enable);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcCfg - LE_OK");
+            if (enable)
+            {
+                LE_INFO("IMS VoNR is enabled.");
+            }
+            else
+            {
+                LE_INFO("IMS VoNR is disabled.");
+            }
         }
         else if (strncmp(op, "enable", strlen("enable")) == 0)
         {
@@ -2807,6 +2818,11 @@ COMPONENT_INIT
                 {
                     LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
                 }
+            }
+            else if (strncmp(service, "vonr", strlen("vonr")) == 0)
+            {
+                result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, true);
+                LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
             }
             else
             {
@@ -2846,6 +2862,11 @@ COMPONENT_INIT
                 {
                     LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
                 }
+            }
+            else if (strncmp(service, "vonr", strlen("vonr")) == 0)
+            {
+                result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, false);
+                LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
             }
             else
             {

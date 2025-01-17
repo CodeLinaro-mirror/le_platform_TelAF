@@ -1410,6 +1410,19 @@ void TestTafRadioIms
         LE_TEST_OK(result == LE_OK, "taf_radio_GetImsUserAgent - LE_OK");
     }
 
+    result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, &enable);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcCfg - VoNR as %d - LE_OK", enable);
+    enable = false;
+    result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, enable);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - VoNR as %d - LE_OK", enable);
+    result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, &enable);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcCfg - VoNR as %d - LE_OK", enable);
+    enable = true;
+    result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, enable);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - VoNR as %d - LE_OK", enable);
+    result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, &enable);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcCfg - VoNR as %d - LE_OK", enable);
+
     taf_radio_RemoveImsRegStatusChangeHandler(imsRegStatusChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveImsRegStatusChangeHandler - void");
 

@@ -5056,34 +5056,44 @@ le_result_t taf_radio_SetImsSvcCfg
     TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgr == nullptr, LE_FAULT,
         "Invalid IMS setting manager(slotId:%d)", slotId);
 
-    telux::tel::ImsServiceConfig config{};
-    switch (service)
+    auto ret = telux::common::Status::FAILED;
+    if (service == TAF_RADIO_IMS_SVC_TYPE_VONR)
     {
+        ret = tafRadio.imsSettingMgr->toggleVonr(slotId, enable,
+            taf_RadioImsSettingCallback::onResponseCallback);
+    } else {
+        telux::tel::ImsServiceConfig config{};
+        switch (service)
+        {
 #ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
-        case TAF_RADIO_IMS_SVC_TYPE_SMS:
-            config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_SMS);
-            config.smsEnabled = enable;
-            break;
-        case TAF_RADIO_IMS_SVC_TYPE_RTT:
-            config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_RTT);
-            config.rttEnabled = enable;
-            break;
+            case TAF_RADIO_IMS_SVC_TYPE_SMS:
+                config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_SMS);
+                config.smsEnabled = enable;
+                break;
+            case TAF_RADIO_IMS_SVC_TYPE_RTT:
+                config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_RTT);
+                config.rttEnabled = enable;
+                break;
 #endif
-        case TAF_RADIO_IMS_SVC_TYPE_VOIP:
-            config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_VOIMS);
-            config.voImsEnabled = enable;
-            break;
-        case TAF_RADIO_IMS_SVC_TYPE_IMS_REG:
-            config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_IMS_SERVICE);
-            config.imsServiceEnabled = enable;
-            break;
-        default:
-            LE_ERROR("Invalid IMS service type(service:%d)", service);
-            return LE_UNSUPPORTED;
+                case TAF_RADIO_IMS_SVC_TYPE_VOIP:
+                    config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_VOIMS);
+                    config.voImsEnabled = enable;
+                    break;
+                case TAF_RADIO_IMS_SVC_TYPE_IMS_REG:
+                config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_IMS_SERVICE);
+                config.imsServiceEnabled = enable;
+                break;
+            case TAF_RADIO_IMS_SVC_TYPE_VONR:
+                break;
+            default:
+                LE_ERROR("Invalid IMS service type(service:%d)", service);
+                return LE_UNSUPPORTED;
+            }
+
+        ret = tafRadio.imsSettingMgr->setServiceConfig(slotId, config,
+            taf_RadioImsSettingCallback::onResponseCallback);
     }
 
-    auto ret = tafRadio.imsSettingMgr->setServiceConfig(slotId, config,
-        taf_RadioImsSettingCallback::onResponseCallback);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
 
@@ -5094,6 +5104,11 @@ le_result_t taf_radio_SetImsSvcCfg
     TAF_ERROR_IF_RET_VAL(taf_RadioImsSettingCallback::result != LE_OK,
         LE_FAULT, "Fail to set IMS service enable configuration.");
 
+    if (service == TAF_RADIO_IMS_SVC_TYPE_VONR)
+    {
+        //Waits for modem to finish the process
+        sleep(1);
+    }
     return LE_OK;
 }
 
@@ -5129,8 +5144,16 @@ le_result_t taf_radio_GetImsSvcCfg
     TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgr == nullptr, LE_FAULT,
         "Invalid IMS setting manager(slotId:%d)", slotId);
 
-    auto ret = tafRadio.imsSettingMgr->requestServiceConfig(slotId,
-        taf_RadioImsSettingCallback::onRequestImsServiceConfig);
+    auto ret = telux::common::Status::FAILED;
+    if (service == TAF_RADIO_IMS_SVC_TYPE_VONR)
+    {
+        ret = tafRadio.imsSettingMgr->requestVonrStatus(slotId,
+            taf_RadioImsSettingCallback::onRequestImsVonr);
+    } else {
+        ret = tafRadio.imsSettingMgr->requestServiceConfig(slotId,
+            taf_RadioImsSettingCallback::onRequestImsServiceConfig);
+    }
+
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
 
@@ -5141,35 +5164,43 @@ le_result_t taf_radio_GetImsSvcCfg
     TAF_ERROR_IF_RET_VAL(taf_RadioImsSettingCallback::result != LE_OK,
         LE_FAULT, "Fail to get IMS service enable configuration.");
 
-    telux::tel::ImsServiceConfig config = taf_RadioImsSettingCallback::config;
     *enable = false;
-    switch (service)
+    if (service == TAF_RADIO_IMS_SVC_TYPE_VONR)
     {
+        if (taf_RadioImsSettingCallback::vonrConfig == true)
+        {
+            *enable = true;
+        }
+    } else {
+        telux::tel::ImsServiceConfig config = taf_RadioImsSettingCallback::config;
+        switch (service)
+        {
 #ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
-        case TAF_RADIO_IMS_SVC_TYPE_SMS:
-            if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_SMS]
-                && config.smsEnabled)
-                *enable = true;
-            break;
-        case TAF_RADIO_IMS_SVC_TYPE_RTT:
-            if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_RTT]
-                && config.rttEnabled)
-                *enable = true;
-            break;
+            case TAF_RADIO_IMS_SVC_TYPE_SMS:
+                if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_SMS]
+                    && config.smsEnabled)
+                    *enable = true;
+                break;
+            case TAF_RADIO_IMS_SVC_TYPE_RTT:
+                if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_RTT]
+                    && config.rttEnabled)
+                    *enable = true;
+                break;
 #endif
-        case TAF_RADIO_IMS_SVC_TYPE_VOIP:
-            if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_VOIMS]
-                && config.voImsEnabled)
-                *enable = true;
-            break;
-        case TAF_RADIO_IMS_SVC_TYPE_IMS_REG:
-            if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_IMS_SERVICE]
-                && config.imsServiceEnabled)
-                *enable = true;
+            case TAF_RADIO_IMS_SVC_TYPE_VOIP:
+                if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_VOIMS]
+                    && config.voImsEnabled)
+                    *enable = true;
+                break;
+            case TAF_RADIO_IMS_SVC_TYPE_IMS_REG:
+                if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_IMS_SERVICE]
+                    && config.imsServiceEnabled)
+                    *enable = true;
             break;
         default:
             LE_ERROR("Invalid IMS service type(service:%d)", service);
             return LE_UNSUPPORTED;
+        }
     }
 
     return LE_OK;

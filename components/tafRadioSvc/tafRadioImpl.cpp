@@ -2057,6 +2057,12 @@ char taf_RadioImsSettingCallback::sipUserAgentPtr[TAF_RADIO_IMS_USER_AGENT_BYTES
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * IMS Voice over NR.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_RadioImsSettingCallback::vonrConfig = true;
+//--------------------------------------------------------------------------------------------------
+/**
  * Response for setting IMS configurations.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2135,6 +2141,34 @@ void taf_RadioImsSettingCallback::onRequestImsSipUserAgentConfig
             le_utf8_Copy(sipUserAgentPtr, sipUserAgent.c_str(),
                 TAF_RADIO_IMS_USER_AGENT_BYTES, NULL);
         }
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for getting Voice over NR.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioImsSettingCallback::onRequestImsVonr
+(
+    SlotId slotId,                 ///< [IN] Slot ID.
+    bool isEnable,                 ///< [IN] Voice over NR configurations.
+    telux::common::ErrorCode error ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioImsSettingCallback --> onRequestImsVonr");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        vonrConfig = isEnable;
         result = LE_OK;
     }
 

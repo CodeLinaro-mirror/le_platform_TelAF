@@ -374,7 +374,7 @@
  *
  * @b NOTE: All supported NMEA sentences are enabled by default.
  *
- * The taf_locGnss_GetNmeaSentences() function gets the bitmask of the enabled NMEA sentences.
+ * The taf_locGnss_GetNmeaSentences() function gets the bitmask which are configured by the API taf_locGnss_SetNmeaSentences.
  * @verbatim
    taf_locGnss_NmeaBitMask_t nmeaMask;
    if(taf_locGnss_GetNmeaSentences(&nmeaMask)== LE_OK)
@@ -3007,13 +3007,13 @@ FUNCTION le_result_t GetMinElevation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the enabled NMEA sentences using a bitmask per client session.
+ * Sets the enabled NMEA sentences using a bitmask.
  *
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_BAD_PARAMETER  Bitmask value is zero.
  *  - LE_FAULT          Failed.
- *  - LE_NOT_PERMITTED  Location service is not ready.
+ *  - LE_NOT_PERMITTED  Location service is neither ready nor active.
  *
  * @b WARNING: This function may be subject to limitations depending on the platform.
  *
@@ -3036,8 +3036,7 @@ FUNCTION le_result_t SetNmeaSentences
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
- *  - LE_TIMEOUT        Timeout occurred.
- *  - LE_NOT_PERMITTED  Location service is not active.
+ *  - LE_NOT_PERMITTED  Location service is neither ready nor active.
  *
  * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.

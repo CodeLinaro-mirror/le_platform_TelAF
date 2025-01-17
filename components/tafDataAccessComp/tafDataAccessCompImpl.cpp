@@ -242,7 +242,10 @@ le_result_t DemDataHandler::GetSupportedDtc
 {
     // 1. Get the supported DTCs from YAML file
     // 2. Call int32_t GetStatusByDtc(int32_t dtc) to get status.
-    int32_t status, occurrence, activation, suppression;
+    int32_t status = 0;
+    int32_t occurrence = 0;
+    int32_t activation = 1;
+    int32_t suppression = 0;
     le_result_t ret;
     taf_DataAccess_DTCStatus_t *dtcStaPtr;
 
@@ -362,6 +365,12 @@ le_result_t DemDataHandler::GetSnapshotRecByDtc
     }
     else
     {
+        if (!IsSnapshotDataRecordNumSupported(dtc, recNumber))
+        {
+            LE_INFO("Record number(%d) for DTC0x%x is not supported.", recNumber, dtc);
+            return LE_UNSUPPORTED;
+        }
+
         // return GetSpecSnapshotRecByDtc(dtc, recNumber, &snapshotDataRecPtr->snapshotDataList);
         if (GetSpecSnapshotRecByDtc(dtc, recNumber, &snapshotDataRecPtr->snapshotDataList) != LE_OK)
         {
@@ -1217,4 +1226,56 @@ le_result_t DemDataHandler::GetSpecSnapshotRecByDtc
     le_dls_Queue(list, &ffPtr->link);
 
     return LE_OK;
+}
+
+bool DemDataHandler::IsSnapshotDataRecordNumSupported
+(
+    uint32_t dtc,
+    uint8_t rn
+)
+{
+    bool found = false;
+
+    for (const auto& item : snapshotRnVec)
+    {
+        if (std::get<1>(item) == dtc && std::get<0>(item) == (int)rn)
+        {
+            found = true;
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        LE_WARN("Unknowd snapshot record number(%d) for DTC0x%x.", (int)rn, dtc);
+        return false;
+    }
+
+    return true;
+}
+
+bool DemDataHandler::IsExtendedDataRecordNumSupported
+(
+    uint32_t dtc,
+    uint8_t rn
+)
+{
+    bool found = false;
+
+    for (const auto& item : extendedRnVec)
+    {
+        if (std::get<1>(item) == dtc && std::get<0>(item) == (int)rn)
+        {
+            found = true;
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        LE_WARN("Unknowd exended data record number(%d) for DTC0x%x.", (int)rn, dtc);
+        return false;
+    }
+
+    return true;
 }

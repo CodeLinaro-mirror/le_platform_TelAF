@@ -145,6 +145,8 @@ namespace dataAccess{
             le_result_t GetAllSnapshotRecByDtc(uint32_t        dtc, le_dls_List_t *list);
             le_result_t GetSpecSnapshotRecByDtc(
                     uint32_t dtc, uint8_t recNumber, le_dls_List_t *list);
+            bool IsSnapshotDataRecordNumSupported(uint32_t dtc, uint8_t rn);
+            bool IsExtendedDataRecordNumSupported(uint32_t dtc, uint8_t rn);
     };
 }
 }

@@ -3111,12 +3111,12 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
                     return SendNRC(RTF_SID, REQ_OUT_OF_RANGE, addrInfoPtr);
                 }
             }
-            // Case 03: DFI = 0x01, but UC == C
-            else if (dataFormatIdentifier == 0x01)
+            // Case 03: DFI = (0x10 ~ 0xF0), but UC == C
+            else if ( (dataFormatIdentifier & 0xF0) > 0 )
             {
                 if (fileSizeCompressed == fileSizeUncompressed)
                 {
-                    LE_ERROR("Invalid FSUC & FSC (DFI=0x01, UC==C) for [0x%02X]", RFT_MOOP);
+                    LE_ERROR("Invalid FSUC & FSC (DFI=[0x10-0xF0], UC==C) for [0x%02X]", RFT_MOOP);
                     // UDS_0x38_NRC_31: Invalid FSUC & FSC (moop: 01/03/06)
                     return SendNRC(RTF_SID, REQ_OUT_OF_RANGE, addrInfoPtr);
                 }

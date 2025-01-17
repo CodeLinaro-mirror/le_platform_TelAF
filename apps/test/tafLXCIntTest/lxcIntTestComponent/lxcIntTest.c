@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -234,8 +234,8 @@ static int lxcTestGetContainerStatus()
                 break;
             }
         }
+      pclose(stream);
     }
-    pclose(stream);
     return LE_OK;
 }
 
@@ -248,6 +248,11 @@ COMPONENT_INIT
     if ( (1 == le_arg_NumArgs()) || (2 == le_arg_NumArgs()))
     {
         const char *testType = le_arg_GetArg(0);
+        if (NULL == testType)
+        {
+           PrintUsage();
+           LE_TEST_FATAL("Test type is NULL");
+        }
         if (strncmp(testType, "create", strlen(testType)) == 0)
         {
             LE_TEST_INFO("======== LXC Create Container Test ========");

@@ -528,6 +528,8 @@ FUNCTION le_result_t GetActiveBank
  * - LE_FAULT -- Failed.
  * - LE_OK -- Succeeded.
  * - LE_UNSUPPORTED -- Unsupported.
+ *
+ * @b NOTE: The SBL partition will not be erased.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t EraseBank

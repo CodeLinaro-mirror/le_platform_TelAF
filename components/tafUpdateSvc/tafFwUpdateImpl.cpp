@@ -2668,6 +2668,11 @@ le_result_t taf_FwUpdate::EraseBank
         {
             if (tafFwUpdate.pList.partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
             {
+                if (strncmp(tafFwUpdate.pList.partition[i].name, "sbl", strlen("sbl")) == 0)
+                {
+                    LE_INFO("Skip erasing MTD %s.", tafFwUpdate.pList.partition[i].name);
+                    continue;
+                }
                 LE_INFO("Erasing MTD %s...", tafFwUpdate.pList.partition[i].name);
 
                 result = taf_lib_flash_OpenPartition(&tafFwUpdate.pList.partition[i], O_RDWR);

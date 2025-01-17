@@ -391,10 +391,11 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
     LE_INFO("hal_pm_NodeState_t: %d", state);
     LE_INFO("hal_pm_PowerMode_t: %d", mode);
     LE_INFO("hal_pm_RspReason_t: %d", reason);
-    if(le_timer_IsRunning(vhalAckTimerRef))
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    if(le_timer_IsRunning(mpms.vhalAckTimerRef))
     {
         LE_DEBUG("Stop the timer");
-        le_timer_Stop(vhalAckTimerRef);
+        le_timer_Stop(mpms.vhalAckTimerRef);
     }
     if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_READY)
     {
@@ -436,6 +437,19 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
                 shutdownCB.shutdownCBCtxPtr);
         }
     }
+    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_INVALID_REQUEST)
+    {
+        tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
+        powerMode.isForceful = false;
+        if(shutdownCB.shutdownCallbackFunc)
+        {
+            shutdownCB.shutdownCallbackFunc(
+                TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+                TAF_MNGDPM_INVALID_REQUEST,
+                LE_OK,
+                shutdownCB.shutdownCBCtxPtr);
+        }
+    }
     shutdownCB.shutdownCallbackFunc = nullptr;
 }
 
@@ -456,11 +470,12 @@ void tafMngdPMSvc::RestartPrepareRespCB
     LE_INFO("hal_pm_NodeState_t: %d", state);
     LE_INFO("hal_pm_PowerMode_t: %d", mode);
     LE_INFO("hal_pm_RspReason_t: %d", reason);
-    if(le_timer_IsRunning(vhalAckTimerRef))
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    if(le_timer_IsRunning(mpms.vhalAckTimerRef))
     {
         LE_INFO("vhalAckTimerRef");
         LE_DEBUG("Stop the timer");
-        le_timer_Stop(vhalAckTimerRef);
+        le_timer_Stop(mpms.vhalAckTimerRef);
     }
     if (mode == HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF && reason == HAL_PM_RSP_READY)
     {
@@ -471,6 +486,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
                 restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_NOT_READY,
                         LE_OK, restartCB.restartCBCtxPtr);
             }
+            restartCB.restartCallbackFunc = nullptr;
             return;
         }
 
@@ -495,6 +511,16 @@ void tafMngdPMSvc::RestartPrepareRespCB
                     LE_OK, restartCB.restartCBCtxPtr);
         }
     }
+    else if (mode == HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF && reason == HAL_PM_RSP_INVALID_REQUEST)
+    {
+        tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
+        powerMode.isShutDown = false;
+        if(restartCB.restartCallbackFunc)
+        {
+            restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_INVALID_REQUEST,
+                    LE_OK, restartCB.restartCBCtxPtr);
+        }
+    }
     if (mode == HAL_PM_RESTART_MODE_NAD_REBOOT && reason == HAL_PM_RSP_READY)
     {
         if(RequestStateChange(TAF_MNGDPM_STATE_RESTARTING) != LE_OK)
@@ -504,6 +530,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
                 restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_NOT_READY,
                         LE_OK, restartCB.restartCBCtxPtr);
             }
+            restartCB.restartCallbackFunc = nullptr;
             return;
         }
 
@@ -528,6 +555,16 @@ void tafMngdPMSvc::RestartPrepareRespCB
                     LE_OK, restartCB.restartCBCtxPtr);
         }
     }
+    else if (mode == HAL_PM_RESTART_MODE_NAD_REBOOT && reason == HAL_PM_RSP_INVALID_REQUEST)
+    {
+        tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
+        powerMode.isRestart = false;
+        if(restartCB.restartCallbackFunc)
+        {
+            restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_INVALID_REQUEST,
+                    LE_OK, restartCB.restartCBCtxPtr);
+        }
+    }
     restartCB.restartCallbackFunc = nullptr;
 }
 
@@ -543,11 +580,12 @@ void tafMngdPMSvc::WakeupVehicleCB
     LE_INFO("***** %s *****", __FUNCTION__);
     LE_INFO("hal_pm_WakeupVehicleReason: %d", reason);
     LE_INFO("hal_pm_RspReason_t: %d", response);
-    if(le_timer_IsRunning(wakeupVehicleTimerRef))
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    if(le_timer_IsRunning(mpms.wakeupVehicleTimerRef))
     {
         LE_INFO("wakeupVehicleTimerRef");
         LE_DEBUG("Stop the timer");
-        le_timer_Stop(wakeupVehicleTimerRef);
+        le_timer_Stop(mpms.wakeupVehicleTimerRef);
     }
     if (reason == VEHICHLE_WAKEUP_REASON_DEFAULT && response == HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE)
     {
@@ -640,13 +678,6 @@ void tafMngdPMSvc::OnClientConnection(le_msg_SessionRef_t sessionRef, void *ctxP
 {
     LE_DEBUG("OnClientConnection");
 
-    pid_t pid;
-
-    if (LE_OK != le_msg_GetClientProcessId(sessionRef, &pid))
-    {
-        LE_ERROR("Error, Failed to get client pid.");
-    }
-
     taf_mngdPm_SessionNode_t* sessionNodePtr = nullptr;
 
     sessionNodePtr =
@@ -656,18 +687,16 @@ void tafMngdPMSvc::OnClientConnection(le_msg_SessionRef_t sessionRef, void *ctxP
 
     sessionNodePtr->sessionRef = sessionRef;
 
-    if (LE_OK != le_msg_GetClientProcessId(sessionRef, &sessionNodePtr->pid))
+    if (sessionRef && (LE_OK == le_msg_GetClientProcessId(sessionRef, &sessionNodePtr->procId)) &&
+    (LE_OK == le_appInfo_GetName(sessionNodePtr->procId, sessionNodePtr->name, sizeof(sessionNodePtr->name)-1)))
     {
-        LE_ERROR("Error, Failed to get client pid.");
+        LE_INFO("Client %s/%d connected", sessionNodePtr->name, sessionNodePtr->procId);
     }
-
     // update client record in table
     if (le_hashmap_Put(mngdPmClientInfo.clients, sessionRef, sessionNodePtr))
     {
         LE_ERROR("Failed to add client record for session %p.", sessionRef);
     }
-
-    LE_INFO("Session %p (process %d) connected", sessionRef, sessionNodePtr->pid);
 }
 
 /**
@@ -686,7 +715,7 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
          restartCB.restartCallbackFunc = nullptr;
     if(shutdownCB.sessionRef == sessionRef)
         shutdownCB.shutdownCallbackFunc = nullptr;
-    LE_INFO("Client with sessionRef %p (process %d) disconnected", sessionRef, sessionNodePtr->pid);
+    LE_INFO("Client with sessionRef %p (process %d) disconnected", sessionRef, sessionNodePtr->procId);
     le_mem_Release(sessionNodePtr);
 
     auto &mpms = tafMngdPMSvc::GetInstance();
@@ -789,7 +818,7 @@ bool tafMngdPMSvc::IsClientValid()
                             false,
                             "cannot get process id for session %p", sessionRef);
 
-    TAF_ERROR_IF_RET_VAL(pid != sessionNodePtr->pid,
+    TAF_ERROR_IF_RET_VAL(pid != sessionNodePtr->procId,
                             false,
                             "pid mismatched");
 
@@ -967,23 +996,39 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
       (taf_mngdPm_RequestedState_t*)le_timer_GetContextPtr(timerRef);
     LE_INFO("VhalAckTimer Expired after %ld msec for state %d", mpms.config.hal_state_prepare_timeout,
             *(state));
+    tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
     if(*(state) == SYSTEM_NORMAL_SHUTDOWN)
     {
         LE_INFO("VhalAckTimer expire for SYSTEM_FORCEFUL_SHUTDOWN");
+        mpms.powerMode.isForceful = false;
         if(shutdownCB.shutdownCallbackFunc)
         {
             shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_TIMEOUT,
                     LE_OK, shutdownCB.shutdownCBCtxPtr);
         }
+        shutdownCB.shutdownCallbackFunc = nullptr;
     }
     else if (*(state) == RESTART_WITH_NAD_POWER_OFF_ON)
     {
-            LE_INFO("VhalAckTimer expire for TAF_MNGDPM_RESTART_SYSTEM_OFF_ON");
+        LE_INFO("VhalAckTimer expire for TAF_MNGDPM_RESTART_SYSTEM_OFF_ON");
+        mpms.powerMode.isShutDown = false;
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_TIMEOUT,
                     LE_OK, restartCB.restartCBCtxPtr);
         }
+        restartCB.restartCallbackFunc = nullptr;
+    }
+    else if (*(state) == RESTART_WITH_NAD_REBOOT)
+    {
+        LE_INFO("VhalAckTimer expire for TAF_MNGDPM_RESTART_MODE_NAD_REBOOT");
+        mpms.powerMode.isRestart = false;
+        if(restartCB.restartCallbackFunc)
+        {
+            restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_TIMEOUT,
+                    LE_OK, restartCB.restartCBCtxPtr);
+        }
+        restartCB.restartCallbackFunc = nullptr;
     }
 }
 /**
@@ -1066,13 +1111,13 @@ le_result_t tafMngdPMSvc::InitVHalModule()
         auto &mpms = tafMngdPMSvc::GetInstance();
         // init first
         (*(pmInf->InitHAL))();
-        vhalAckTimerRef = le_timer_Create("VHAL ACK timer");
-        le_timer_SetMsInterval(vhalAckTimerRef, mpms.config.hal_state_prepare_timeout);
-        le_timer_SetHandler(vhalAckTimerRef, VhalAckTimerHandler);
+        mpms.vhalAckTimerRef = le_timer_Create("VHAL ACK timer");
+        le_timer_SetMsInterval(mpms.vhalAckTimerRef, mpms.config.hal_state_prepare_timeout);
+        le_timer_SetHandler(mpms.vhalAckTimerRef, VhalAckTimerHandler);
         //creating the timer for vehichle wakeup
-        wakeupVehicleTimerRef = le_timer_Create("VEHICHLE WAKEUP timer");
-        le_timer_SetMsInterval(wakeupVehicleTimerRef, mpms.config.hal_wakeup_vehicle_timeout);
-        le_timer_SetHandler(wakeupVehicleTimerRef, VehichleWakeupTimerHandler);
+        mpms.wakeupVehicleTimerRef = le_timer_Create("VEHICHLE WAKEUP timer");
+        le_timer_SetMsInterval(mpms.wakeupVehicleTimerRef, mpms.config.hal_wakeup_vehicle_timeout);
+        le_timer_SetHandler(mpms.wakeupVehicleTimerRef, VehichleWakeupTimerHandler);
     }
 
     return LE_OK;
@@ -1627,6 +1672,17 @@ bool tafMngdPMSvc::IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stay
         return true;
     }
     return false;
+}
+
+/**
+ * Type-cast from void *(mpm client table record pointer) to taf_mngdPm_SessionNode_t
+ */
+taf_mngdPm_SessionNode_t* tafMngdPMSvc::To_taf_mngdPm_SessionNode_t(void *c)
+{
+    taf_mngdPm_SessionNode_t *cl = (taf_mngdPm_SessionNode_t *)c;
+    TAF_ERROR_IF_RET_VAL(cl == NULL, NULL, "INVALID conversion.");
+
+    return cl;
 }
 
 /**

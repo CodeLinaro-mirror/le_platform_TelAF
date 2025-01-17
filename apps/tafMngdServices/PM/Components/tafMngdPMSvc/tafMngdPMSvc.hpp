@@ -27,6 +27,7 @@
 #define SHUTDOWN "SHUTDOWN"
 #define INFO_REPORT_MASK_BUB 1
 #define AUTHORIZE_ALL_STAY_AWAKE_REASON 0xFFFFFFFF
+#define TAF_MNGDPM_PROCNAME_LEN 30
 
 namespace telux {
 namespace tafsvc {
@@ -74,7 +75,8 @@ typedef enum
 typedef struct
 {
    le_msg_SessionRef_t sessionRef;
-   pid_t               pid;
+   pid_t               procId;
+   char name[TAF_MNGDPM_PROCNAME_LEN + 1];
 }taf_mngdPm_SessionNode_t;
 
 typedef struct
@@ -303,6 +305,7 @@ class tafMngdPMSvc: public ITafSvc
         static void SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_ClientAck_t ackType);
         bool IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState);
         bool IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePowerStateChangeBitMask_t stateMask);
+        static taf_mngdPm_SessionNode_t* To_taf_mngdPm_SessionNode_t(void *c);
 
         //MPM configuration
         static taf_mngdPm_config_t config;

@@ -103,8 +103,9 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
     if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN ||
             mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN)
     {
-        handlerPtr(mode, TAF_MNGDPM_READY, LE_OK, contextPtr);
-        return LE_OK;
+        handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_BUSY, contextPtr);
+        LE_INFO("ShutdownReqAsync is already in progress");
+        return LE_BUSY;
     }
 
     if (mpms.RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
@@ -118,14 +119,14 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
     {
         LE_INFO("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_NORMAL);
         const uint8_t shutdownReason = (uint8_t)reason;
-        (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_SHUTDOWN,
-                HAL_PM_SHUTDOWN_MODE_NORMAL, shutdownReason, tafMngdPMSvc::ShutdownPrepareRespCB);
         mpms.statePtr = SYSTEM_NORMAL_SHUTDOWN;
         le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
         le_timer_Start(mpms.vhalAckTimerRef);
         mpms.shutdownCB.shutdownCallbackFunc = handlerPtr;
         mpms.shutdownCB.shutdownCBCtxPtr = contextPtr;
         mpms.shutdownCB.sessionRef = taf_mngdPm_GetClientSessionRef();
+        (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_SHUTDOWN,
+                HAL_PM_SHUTDOWN_MODE_NORMAL, shutdownReason, tafMngdPMSvc::ShutdownPrepareRespCB);
     }
     else
     {
@@ -177,9 +178,11 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
         if((mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN) ||
                 (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN))
         {
-            handlerPtr(mode, TAF_MNGDPM_READY, LE_OK, contextPtr);
-            return LE_OK;
+            handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_BUSY, contextPtr);
+            LE_INFO("RestartReqAsync is already in progress");
+            return LE_BUSY;
         }
+
         else {
             if(mpms.RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) == LE_OK)
             {
@@ -198,8 +201,9 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
         if(mpms.stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING ||
                 mpms.stateMachine.currentState == TAF_MNGDPM_STATE_RESTART)
         {
-            handlerPtr(mode, TAF_MNGDPM_READY, LE_OK, contextPtr);
-            return LE_OK;
+            handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_BUSY, contextPtr);
+            LE_INFO("RestartReqAsync is already in progress");
+            return LE_BUSY;
         }
         else {
             if (mpms.RequestStateChange(TAF_MNGDPM_STATE_RESTARTING) == LE_OK)
@@ -221,27 +225,27 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
         {
             LE_INFO("Send restartReqAsync %d", HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF);
             mpms.powerMode.isShutDown = true;
-            (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF,
-                    restartReason, tafMngdPMSvc::RestartPrepareRespCB);
             mpms.statePtr = RESTART_WITH_NAD_POWER_OFF_ON;
             le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
             le_timer_Start(mpms.vhalAckTimerRef);
             mpms.restartCB.restartCallbackFunc = handlerPtr;
             mpms.restartCB.restartCBCtxPtr = contextPtr;
             mpms.restartCB.sessionRef = taf_mngdPm_GetClientSessionRef();
+            (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF,
+                    restartReason, tafMngdPMSvc::RestartPrepareRespCB);
         }
         else if(mode == TAF_MNGDPM_RESTART_MODE_NAD_REBOOT)
         {
             LE_INFO("Send restartReqAsync %d", HAL_PM_RESTART_MODE_NAD_REBOOT);
             mpms.powerMode.isRestart = true;
-            (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_NAD_REBOOT,
-                    restartReason, tafMngdPMSvc::RestartPrepareRespCB);
             mpms.statePtr = RESTART_WITH_NAD_REBOOT;
             le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
             le_timer_Start(mpms.vhalAckTimerRef);
             mpms.restartCB.restartCallbackFunc = handlerPtr;
             mpms.restartCB.restartCBCtxPtr = contextPtr;
             mpms.restartCB.sessionRef = taf_mngdPm_GetClientSessionRef();
+            (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_NAD_REBOOT,
+                    restartReason, tafMngdPMSvc::RestartPrepareRespCB);
         }
     }
     else
@@ -291,7 +295,13 @@ le_result_t taf_mngdPm_WakeupVehicleReqAsync(int32_t reason,
 
     auto &mpms = tafMngdPMSvc::GetInstance();
     TAF_ERROR_IF_RET_VAL(mpms.handlerRef == nullptr, LE_BAD_PARAMETER, "invalid handlerRef");
-
+    if(mpms.wakeupVehicleCB.wakeupVehicleCallbackFunc != nullptr)
+    {
+            mpms.wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_UNKNOWN,
+                    LE_BUSY, contextPtr);
+            LE_INFO("WakeupVehicleReqAsync is already in progress");
+            return LE_BUSY;
+    }
     if(reason == VEHICHLE_WAKEUP_REASON_DEFAULT)
     {
         if(mpms.pmInf && mpms.pmInf->wakeupVehicleReqAsync)
@@ -1118,13 +1128,18 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
         taf_mngdPm_nodePowerStateRef_t Ref, taf_mngdPm_NodeClientAck_t ack)
 {
     LE_INFO("taf_mngdPm_SendNodePowerStateChangeAck");
+    auto &mpms = tafMngdPMSvc::GetInstance();
+
     if(tafMngdPMSvc::IsClientValid() == false)
     {
         return LE_UNSUPPORTED;
     }
+    //Getting the current client data from mngdPmClientInfo
+    taf_mngdPm_SessionNode_t* sessionNodePtr;
+    sessionNodePtr = mpms.To_taf_mngdPm_SessionNode_t(le_hashmap_Get(mpms.mngdPmClientInfo.clients,
+            taf_mngdPm_GetClientSessionRef()));
 
     taf_mngdPm_NodePowerState_t state = TAF_MNGDPM_NODE_STATE_RESUME;
-    auto &mpms = tafMngdPMSvc::GetInstance();
     if(pmNodeId == 1)
     {
         auto &rpcPm = tafMngdRpcPm::GetInstance();
@@ -1146,17 +1161,17 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
         LE_INFO("Client not found in the regClientrecrd");
         return LE_FAULT;
     }
-    if(mpms.IsSameAsCurrentState(state, mpms.stateMachine.currentState))
+    if(mpms.IsSameAsCurrentState(state, mpms.stateMachine.currentState) && sessionNodePtr)
     {
         if(ack == TAF_MNGDPM_CLIENT_NOT_READY)
         {
-            LE_INFO("Received NACK from client");
+            LE_INFO("Received NACK from client %s", sessionNodePtr->name);
             mpms.SendAckToPms(state, TAF_PM_NOT_READY);
             return LE_OK;
         }
         else
         {
-            LE_INFO("Received ACK from client");
+            LE_INFO("Received ACK from client %s", sessionNodePtr->name);
             mpms.ackClientrecrdSize++;
             LE_INFO("regClientrecrd size is %zu ,ackClientrecrd size is:%d", mpms.regClientrecrd.size(),
                     mpms.ackClientrecrdSize);

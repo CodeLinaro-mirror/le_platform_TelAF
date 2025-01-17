@@ -19,4 +19,5 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/components/tafDataCallSvc
+    -I$TELAF_ROOT/include
 }

@@ -886,6 +886,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     }
     else if(state == TAF_PM_STATE_SUSPEND)
     {
+        powerMode.isSuspend = true;
         ProcessStateChange(TAF_MNGDPM_STATE_SUSPEND);
         powerStateChange.state = TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE;
         le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
@@ -899,6 +900,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     }
     else if(state == TAF_PM_STATE_SHUTDOWN)
     {
+        powerMode.isShutDown = true;
         ProcessStateChange(TAF_MNGDPM_STATE_SHUTDOWN);
         if(powerMode.isShutDown)
         {
@@ -925,6 +927,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     }
     else if(state == TAF_PM_STATE_RESTART)
     {
+        powerMode.isRestart = true;
         ProcessStateChange(TAF_MNGDPM_STATE_RESTART);
         if(powerMode.isRestart)
         {

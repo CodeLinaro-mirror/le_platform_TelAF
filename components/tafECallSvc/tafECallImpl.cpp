@@ -69,44 +69,53 @@ void tafECallOperatingModeCallback::getECallOperatingModeResponse(
 void tafCallCommandCallback::makeCallResponse(telux::common::ErrorCode errorCode,
         std::shared_ptr<telux::tel::ICall> call) {
     int32_t callIndex = -1;
+    int8_t phoneId = -1;
     auto &eCall = taf_ecall::GetInstance();
     if(errorCode == telux::common::ErrorCode::SUCCESS) {
         LE_INFO("Call is successful ");
         callIndex = call->getCallIndex();
+        phoneId = call->getPhoneId();
 
     } else {
         LE_ERROR("Call failed with error code: %d ", (static_cast<int>(errorCode)));
     }
     eCall.makeEcallProm.set_value(errorCode);
     eCall.SetCallIndex(callIndex);
+    eCall.SetCallPhoneId(phoneId);
 }
 
 void tafCallCommandCallback::makeECallResponse(telux::common::ErrorCode errorCode,
                                                       std::shared_ptr<telux::tel::ICall> call) {
     int32_t callIndex = -1;
+    int8_t phoneId = -1;
     auto &eCall = taf_ecall::GetInstance();
     if(errorCode == telux::common::ErrorCode::SUCCESS) {
         LE_INFO("Call is successful ");
         callIndex = call->getCallIndex();
+        phoneId = call->getPhoneId();
     } else {
         LE_ERROR("Call failed with error code: %d ", (static_cast<int>(errorCode)));
     }
     eCall.makeEcallProm.set_value(errorCode);
     eCall.SetCallIndex(callIndex);
+    eCall.SetCallPhoneId(phoneId);
 }
 
 void tafPrieCallCommandCallback::makeECallResponse(telux::common::ErrorCode errorCode,
                                                       std::shared_ptr<telux::tel::ICall> call) {
     int32_t callIndex = -1;
+    int8_t phoneId = -1;
     auto &eCall = taf_ecall::GetInstance();
     if(errorCode == telux::common::ErrorCode::SUCCESS) {
         LE_INFO("Call is successful ");
         callIndex = call->getCallIndex();
+        phoneId = call->getPhoneId();
     } else {
         LE_ERROR("Call failed with error code: %d ", (static_cast<int>(errorCode)));
     }
     eCall.makePrieCallProm.set_value(errorCode);
     eCall.SetCallIndex(callIndex);
+    eCall.SetCallPhoneId(phoneId);
 }
 
 void tafUpdateMsdCommandCallback::commandResponse(telux::common::ErrorCode errorCode) {
@@ -189,6 +198,7 @@ void tafECallListener::onIncomingCall(std::shared_ptr<telux::tel::ICall> call) {
                         sessionState = ECALL_INCOMING;
                         eCall.SetSessionState(sessionState);
                         eCall.SetCallIndex(call->getCallIndex());
+                        eCall.SetCallPhoneId(call->getPhoneId());
 
                         StateChangeEvent_t stateEvent = { 0 };
                         le_utf8_Copy(stateEvent.dest, call->getRemotePartyNumber().c_str(), MAX_DESTINATION_LEN, NULL);
@@ -224,9 +234,10 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
 
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(eCall.ECallPtrRefMap, eCall.GetECallReference());
     TAF_ERROR_IF_RET_NIL(eCallPtr == NULL, "cannot get callptr");
-    if (eCallPtr->callIndex != call->getCallIndex())
+    if (((eCallPtr->callIndex != call->getCallIndex()) && (eCallPtr->phoneId == phoneId)) ||
+        (eCallPtr->phoneId != phoneId))
     {
-        LE_ERROR("Cannot match the index");
+        LE_ERROR("Cannot match the index or phoneId");
         return;
     }
 
@@ -265,6 +276,7 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
         } else {
             state = TAF_ECALL_STATE_ENDED;
             eCall.SetCallIndex(-1);
+            eCall.SetCallPhoneId(-1);
         }
         eCallPtr->dialRedial.isRedial = false;
         eCallPtr->isReceivedLLACK = false;
@@ -1676,6 +1688,11 @@ taf_ecall_CallRef_t taf_ecall::GetECallReference()
 void taf_ecall::SetCallIndex(int32_t callIndex)
 {
     ECallObject.callIndex = callIndex;
+}
+
+void taf_ecall::SetCallPhoneId(int8_t phoneId)
+{
+    ECallObject.phoneId = phoneId;
 }
 
 void taf_ecall::SetSessionState(tafECallSession_t session)

@@ -768,13 +768,14 @@ le_result_t tafSimTest_refresh_test(taf_sim_Id_t simId, taf_sim_SessionType_t se
             refresfFiles[i].file_id = atoi(input_str);
 
             printf("Input file path(e.g: 3f007fff): ");
+            memset(input_str, '\0', sizeof(input_str));
             p = fgets(input_str,sizeof(input_str),stdin);
-            le_utf8_Copy((char*) refresfFiles[i].path, (char*) input_str, sizeof(input_str), NULL);
+            le_utf8_Copy((char*) refresfFiles[i].path, (char*) input_str, strlen(input_str), NULL);
 
             printf("Do want to input another refresh file (y/n): ");
             p = fgets(input_str,sizeof(input_str),stdin);
 
-            LE_INFO("SL# %d File id: %d, file path: %s", i, refresfFiles[i].file_id, refresfFiles[i].path);
+            LE_INFO("SL# %d File id: %d, input file path: %s, path len: %d", i, refresfFiles[i].file_id, refresfFiles[i].path, (int) strlen(refresfFiles[i].path));
             i++;
         } while(input_str[0]!='n');
 

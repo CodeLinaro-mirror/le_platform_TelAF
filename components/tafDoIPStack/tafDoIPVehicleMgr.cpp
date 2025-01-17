@@ -106,7 +106,7 @@ void VehicleManager::ParseJsonConfig
         std::string gidIn = root.get<std::string>("vehicleInfo.GID");
         char gidOut[gidIn.length() + 1] = {0};
         RemoveColon(gidIn.c_str(), gidOut);
-        if (strlen(gidOut) != TAF_DOIP_EID_SIZE*2)
+        if (strlen(gidOut) != TAF_DOIP_GID_SIZE*2)
         {
             LE_ERROR("Incorrect GID length");
         }
@@ -256,12 +256,6 @@ taf_doip_Result_t VehicleManager::GetEid
     }
 
     auto &vehicleMgr = VehicleManager::GetInstance();
-
-    if(vehicleMgr.doipConfigPtr->eid[0] == '\0')
-    {
-        LE_ERROR("eid is not set and parsed!");
-        return TAF_DOIP_RESULT_UNSET;
-    }
 
     memcpy(eidPtr, vehicleMgr.doipConfigPtr->eid, TAF_DOIP_EID_SIZE);
     for (int i = 0; i<TAF_DOIP_EID_SIZE; i++)
@@ -760,12 +754,6 @@ taf_doip_Result_t VehicleManager::GetGid
     }
 
     auto &vehicleMgr = VehicleManager::GetInstance();
-
-    if(vehicleMgr.doipConfigPtr->gid[0] == '\0')
-    {
-        LE_ERROR("Gid is not set and paresed!");
-        return TAF_DOIP_RESULT_UNSET;
-    }
 
     memcpy(gidPtr, vehicleMgr.doipConfigPtr->gid, TAF_DOIP_GID_SIZE);
     for (int i = 0; i<TAF_DOIP_GID_SIZE; i++)

@@ -12,7 +12,8 @@
  * <HR>
  *
  * Diag Service provides APIs to applications to set enable condition and get enable condition
- * status of enable ID and it also provides notifications for tester tool OFF/ON state changes.
+ * status of enable ID and it also provides notifications for tester tool OFF/ON state changes and
+ * API to cancel the file transfer operation.
  *
  * @section c_taf_diag_binding IPC interfaces binding
  *
@@ -62,10 +63,10 @@
    }
    @endcode
  *
- * @section c_taf_diag_tester_OFF_ON_state_API Tester OFF/ON notification API
+ *@section c_taf_diag_get_service_API Get diag service reference API
  *
  * Get a diag service reference using taf_diag_GetService(). Use the returned
- * reference for tester state notification operations.
+ * reference for subsequent operations.
  *
  * The following example illustrates how to set up a diag server-service-instance.
  *
@@ -79,11 +80,13 @@
  *
  * @section c_taf_diag_Set_VlanId Set VLAN ID
  *
- * After getting a service reference, an application can set the VLAN ID to the service to filter
- * Tester state notification using taf_diag_SetVlanId(). It shall be called before registering
- * handler for Tester state notification message.
+ * After getting a service reference, an application can set the VLAN ID using taf_diag_SetVlanId().
+ * It shall be called before registering the handler for the Tester state notification message and
+ * API to cancel file transfer operation.
  *
- * - taf_diagAuth_SetVlanId() -- Sets the VLAN ID.
+ * - taf_diag_SetVlanId() -- Sets the VLAN ID.
+ *
+ * @section c_taf_diag_tester_OFF_ON_state_API Tester OFF/ON notification API
  *
  * After getting the service reference, an application can call taf_diag_AddTesterStateHandler()
  * to register a handler for tester state (OFF/ON) change notification. Once tester state is
@@ -114,13 +117,34 @@
    // To remove the handler function, when it is not needed.
    taf_diag_RemoveTesterStateHandler(handlerRef);
 
-   // To relase the tester state msg after getting the state change notification.
+   // To release the tester state msg after getting the state change notification.
    le_result_t result = taf_diag_ReleaseTesterStateMsg(rxStateRef);
    if (result != LE_OK)
    {
       LE_ERROR("Fail to release msg.");
       return result;
    }
+  @endcode
+ *
+ * @section c_taf_diag_cancel_fileXfer_operation_API Cancel fileXfer API
+ *
+ * An application can call taf_diag_CancelFileXferAsync() to cancel the file transfer operation.
+ *
+ * @code
+  void CancelFileXferHandlerFunc
+  (
+      taf_diag_ServiceRef_t svcRef,
+      uint16_t vlanId,
+      le_result_t result,
+      void* contextPtr
+  )
+  {
+      LE_INFO(" CancelFileXferHandlerFunc with vlanId:%d, result: %d", vlanId, result);
+  }
+
+   // Call asynchronous API taf_diag_CancelFileXferAsync.
+   taf_diag_CancelFileXferAsync(svcRef, CancelFileXferHandlerFunc, NULL);
+
   @endcode
  *
  * An application can remove the diag service reference by calling taf_diag_RemoveSvc().
@@ -263,6 +287,36 @@ EVENT TesterState
 FUNCTION le_result_t ReleaseTesterStateMsg
 (
     TesterState stateRef  IN    ///< Tester state reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The handler for asynchronous file transfer cancellation result response.
+ *
+ * @result
+ *     - LE_OK -- Succeeded.
+ *     - LE_IN_PROGRESS -- The same operation is in progress.
+ *     - LE_NOT_POSSIBLE -- No need to perform this operation.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER CancelFileXferCallback
+(
+    Service svcRef                          IN, ///< The profile reference.
+    uint16 vlanId                           IN, ///< VLAN ID. If no valid VLAN ID, input 0.
+    le_result_t result                      IN  ///< The result of canceling file transfer.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancels (asynchronously) ongoing file transfer operation.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION CancelFileXferAsync
+(
+    Service svcRef                          IN, ///< Service reference.
+    CancelFileXferCallback handler          IN  ///< The handler.
 );
 
 //-------------------------------------------------------------------------------------------------

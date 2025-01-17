@@ -69,13 +69,27 @@ typedef struct
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Asynchronous callback function structure.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_diag_ServiceRef_t svcRef;                 ///< Service reference.
+    uint16_t vlanId;                              ///< VLAN Id
+    taf_diag_CancelFileXferCallbackFunc_t func;   ///< Callback function.
+    void* ctxPtr;                                 ///< Handler context.
+    le_dls_Link_t link;                          ///< Link
+}taf_CancelFileXferHandler_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
  * VLAN ID structure.
  */
 //-------------------------------------------------------------------------------------------------
 typedef struct
 {
-    le_dls_Link_t   link;
-    uint16_t        vlanId;
+    uint16_t vlanId;                             ///< VLAN Id
+    le_dls_Link_t link;                          ///< Link
 }taf_DiagVlanIdNode_t;
 
 // Diag service class
@@ -107,11 +121,31 @@ namespace telux {
                 void RemoveTesterStateHandler(taf_diag_TesterStateHandlerRef_t handlerRef);
                 le_result_t ReleaseTesterStateMsg(taf_diag_TesterStateRef_t stateRef);
 
-                // VLAN ID setting/getting.
+                // VLAN ID setting.
                 le_result_t SetVlanId(taf_diag_ServiceRef_t svcRef, uint16_t vlanId);
+
+                //Asynchrous function from API direction
+                void CancelFileXferAsync(taf_diag_ServiceRef_t svcRef,
+                    taf_diag_CancelFileXferCallbackFunc_t callbackFuncPtr, void* contextPtr);
+                //Handler function from UDS indication direction
+                void CancelFileXferMsgHandler(uint16_t vlanId, le_result_t result, void* userPtr);
+                //Add CancelFileXfer callback into list
+                static le_result_t AddCancelFileXferCb(taf_diag_ServiceRef_t svcRef,
+                        uint16_t vlanId, taf_diag_CancelFileXferCallbackFunc_t callbackFuncPtr,
+                        void* contextPtr);
+                //Delete CancelFileXfer callback from list
+                static void DeleteCancelFileXferCb(uint16_t vlanId,
+                        taf_diag_CancelFileXferCallbackFunc_t callbackFunc);
+                //Find CancelFileXfer callback from list
+                static taf_CancelFileXferHandler_t* FindCancelFileXferCb(uint16_t vlanId);
+                static taf_CancelFileXferHandler_t* FindCancelFileXferCb(
+                        taf_diag_ServiceRef_t svcRef, uint16_t vlanId);
 
                 le_result_t RemoveSvc(taf_diag_ServiceRef_t svcRef);
 
+                static le_dls_List_t cancelFileXferCbList;   ///< Callback list.
+                static le_mutex_Ref_t cancelFileXferListCbMtx;
+                static le_mem_PoolRef_t CancelFileXferCbPool;
             private:
                 le_dls_List_t enableStatusList = LE_DLS_LIST_INIT;
                 le_mem_PoolRef_t EnableMemPool;
@@ -120,9 +154,16 @@ namespace telux {
                 taf_DiagSvc_t* GetServiceObj(le_msg_SessionRef_t sessionRef);
                 taf_DiagSvc_t* GetServiceObj(uint16_t vlanId);
 
-                // To clear VLAN list.
+                // To clear handler list.
+                void ClearHandlerList(taf_DiagSvc_t* servicePtr);
+                void ClearCancelFileXferCbList(taf_DiagSvc_t* servicePtr);
                 void ClearVlanList(taf_DiagSvc_t* servicePtr);
 
+                void ClearFileXferStateList(le_dls_List_t* fileXferStateListPtr);
+                le_result_t GetIfNameByVlanIdAndStateList(uint16_t vlanId,
+                        le_dls_List_t* fileXferStateListPtr, char* ifNamePtr);
+
+                uint8_t cancelFileXferRetId = 0xFC;   // CancelFileXfer result.
                 uint8_t stateChangeId = 0xFD;   // Tester state change ID.
 
                 // Service and event object

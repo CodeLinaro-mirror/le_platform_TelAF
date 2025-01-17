@@ -1,0 +1,27 @@
+sandboxed: false
+executables:
+{
+    tafDiagCancelFileXfer = ( diagCancelFileXferComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafDiagCancelFileXfer)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    maxFileBytes: 8192K
+}
+
+start: manual
+
+bindings:
+{
+    tafDiagCancelFileXfer.diagCancelFileXferComp.taf_diag -> tafDiagSvc.taf_diag
+}

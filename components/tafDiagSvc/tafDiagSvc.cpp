@@ -165,6 +165,21 @@ le_result_t taf_diag_ReleaseTesterStateMsg
     return diag.ReleaseTesterStateMsg(stateRef);
 }
 
+void taf_diag_CancelFileXferAsync
+(
+    taf_diag_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    taf_diag_CancelFileXferCallbackFunc_t handlerPtr,
+        ///< [IN] The handler.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    LE_DEBUG("taf_diag_CancelFileXferAsync");
+    auto &diag = taf_DiagSvr::GetInstance();
+    return diag.CancelFileXferAsync(svcRef, handlerPtr, contextPtr);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Removes the server service.

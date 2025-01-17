@@ -40,6 +40,7 @@
 #include "tafSvcIF.hpp"
 #include "configuration.hpp"
 #include <mutex>
+#include "tafUDSStack.h"
 
 using namespace telux::tafsvc;
 
@@ -67,6 +68,8 @@ namespace uds{
     #define MAX_TIMER_NAME_LEN 50
     #define UDS_INDICATION_DATA_LEN_MAX 255
     #define TESTER_STATE_CHANGE_TIMER 5000 // Tester state timer
+    #define CANCEL_FILE_TRANSFER_IND_LEN 2
+    #define MAX_FILE_TRANSFER_STATE_MTX_NAME_LEN 30
 
     // UDS minimal len
     #define UDS_REQ_MIN_LEN 1
@@ -336,10 +339,17 @@ namespace uds{
     // UDS notification message ID
     typedef enum
     {
+        CANCEL_FILE_TRANSFER_RESULT = 0xFC,
         TESTER_STATE_MSG_ID = 0xFD,
         AUTHENTICATION_EXPIRATION_MSG_ID = 0xFE,
         SESSION_CHANGE_MSG_ID = 0xFF
     }taf_UDSIndicationMsg_t;
+
+    typedef enum
+    {
+        TAF_CANCEL_FILEXFER_START,
+        TAF_CANCEL_FILEXFER_END,
+    } taf_UDSCancelFileXferEvent_t;
 
     typedef struct
     {
@@ -355,6 +365,21 @@ namespace uds{
         void*                                ctxPtr;
         void*                                safeRef;
     }taf_UDSIndicationHandler_t;
+
+    // Internal cancelFileXfer event.
+    typedef struct
+    {
+        taf_UDSCancelFileXferEvent_t event;
+        char ifName[MAX_INTERFACE_NAME_LEN];
+    } cancelFileXferEvent_t;
+
+    // Vlan Id list for CancelFileXfer.
+    typedef struct
+    {
+        uint16_t vlanId;
+        char ifName[MAX_INTERFACE_NAME_LEN];
+        le_dls_Link_t  link;
+    }taf_CancelFileXferReq_t;
 
     // ENUM for session type.
     typedef enum
@@ -386,6 +411,8 @@ namespace uds{
             static void InitInstances(le_dls_List_t* interfaceList);
             static void InitAuthData(le_dls_List_t* interfaceList);
             static le_result_t UdsStart(const char* configPathPtr);
+
+            static void GetFileXferActiveStateList(le_dls_List_t* fileXferStateListPtr);
 
             static le_result_t UdsAddDiagIndicationHandler();
             static void DiagIndicationHandler( taf_doip_AddrInfo_t* addrInfoPtr,
@@ -425,6 +452,7 @@ namespace uds{
             uint16_t sendDataLen = 0;
             bool readyToRecvData = true;
             char interface[MAX_INTERFACE_NAME_LEN];
+            uint16_t vlanId = 0;
             le_timer_Ref_t p2StarTimerRef;
             le_timer_Ref_t s3TimerRef;
             le_timer_Ref_t authTimerRef;
@@ -434,7 +462,12 @@ namespace uds{
             taf_TesterState_t PreviousState = OFF;
             uint64_t currentRoleVal = 0;
             taf_UDSAuthState_t authState = AUTH_STATE_UNKNOWN;
+            // update status parameter.
+            bool isXferActive = false;
 
+            static le_event_Id_t cancelFileXferEvId;
+            static le_dls_List_t cancelFileXferReqList;
+            static le_mutex_Ref_t cancelFileXferListMutex;
         private:
             // Indicate recevied service message to Diag service if necessary.
             le_result_t IndicateSessionCtrlReq(taf_doip_AddrInfo_t* addrInfoPtr,
@@ -529,16 +562,19 @@ namespace uds{
             bool IsSubFuncAuthCheckOK(uint8_t sid, uint8_t subFunc);
             bool PrecheckForSwitchingSession(uint8_t originalSession, uint8_t targetedSession);
 
+            //Internal cancelFileXfer event handler
+            static void cancelFileXferHandler(void* reqPtr);
+            void CheckAndSendCancelFileXferEvent();
+            static le_result_t addCancelFileXferReqInList(uint16_t vlanId, const char* ifName);
+            static bool IsCancelFileXferReqInList(uint16_t vlanId);
             void StoreAttCntToTree();
             void StoreDelayTimeToTree();
-
-            // update status parameter.
-            bool isXferActive = false;
 
             //session change parameter.
             taf_doip_AddrInfo_t addrInfo;
             uint8_t sesChangeBuf[UDS_SESSION_CHANGE_DATA_SIZE];
             uint8_t dataIndBuf[UDS_INDICATION_DATA_LEN_MAX];
+            uint8_t cancelFileXferBuf[CANCEL_FILE_TRANSFER_IND_LEN];
             taf_UDSReqAuthSubFunc_t authPreSucReq = AUTH_SUBFUNC_UNKNOWN;
             uint8_t authAttCnt = 0;
             uint16_t authDelayTime = 60; // 1 minute
@@ -560,9 +596,10 @@ namespace uds{
 
             static std::map<std::string, UdsCommunicationMgr*> instances;
             static std::mutex mutex_instance;
-
+            le_mutex_Ref_t fileXferStateMutex;
             taf_doip_DiagMsg_t sesChangeMsg;
             taf_doip_DiagMsg_t dataIndMsg;
+            taf_doip_DiagMsg_t cancelFileXferMsg;
     };
 }
 }

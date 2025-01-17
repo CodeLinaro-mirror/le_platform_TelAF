@@ -1,0 +1,13 @@
+sources:
+{
+    diagCancelFileXfer.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_diag.api
+    }
+}
+

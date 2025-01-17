@@ -715,7 +715,7 @@ namespace telux
                 int64_t AllowOverrideAfterFail = -1;
                 pthread_mutex_t ProtectlocalTime_mutex;
                 taf_gptpTime_Ref_t gptpTimeRef = NULL;
-                uint64_t deltaTimeMSec = 0;
+                int64_t deltaTimeMSec = 0;
         };
     }
 }

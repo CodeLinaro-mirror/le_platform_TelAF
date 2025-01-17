@@ -397,6 +397,8 @@ void taf_PM::Init(void)
     pmClientsAckTimerRef = le_timer_Create("PM Clients ACK timer");
     le_timer_SetMsInterval(pmClientsAckTimerRef, PMS_CLNTS_ACK_TIMEOUT);
     le_timer_SetHandler(pmClientsAckTimerRef, PmsClntsAckTimerHandler);
+    auto &pmInstance = taf_PM::GetInstance();
+    pmInstance.IsLowPowerMode = false;
 #endif
     LE_INFO("tafPM service init done...\n");
 }
@@ -463,6 +465,19 @@ taf_pm_WakeupSourceRef_t taf_PM::NewWakeupSource( uint32_t options, const char *
     return (taf_pm_WakeupSourceRef_t)pWakeSrc->wsRef;
 }
 
+bool IsClientMPMS()
+{
+    LE_INFO("IsClientMPMS");
+    taf_Client_t *pClient;
+    pClient = taf_PM::to_taf_Client_t(le_hashmap_Get(pm_recrd.clients,
+            taf_pm_GetClientSessionRef()));
+    LE_INFO("Client is %s", pClient->name);
+    if(strncmp(pClient->name, TAF_MNGD_PM_SVC, sizeof(TAF_MNGD_PM_SVC)) == 0)
+    {
+        return true;
+    }
+    return false;
+}
 /**
  * Acquire a wakeup source
  *
@@ -472,7 +487,16 @@ le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
     taf_ws_t *ws, *wsEntry;
 
     ws = taf_PM::ToTafWakeupSource(wsRef);
-
+    auto &pmInstance = taf_PM::GetInstance();
+    if(pmInstance.IsLowPowerMode)
+    {
+        LE_INFO("power mode is low power and only mpms is allowed for state change");
+        if(!IsClientMPMS())
+        {
+            LE_INFO("Client is not MPM");
+            return LE_NOT_PERMITTED;
+        }
+    }
     TAF_ERROR_IF_RET_VAL(!ws, LE_BAD_PARAMETER, "Invalid Wakeup source reference.\n");
 
     wsEntry = (taf_ws_t*)le_hashmap_Get(pm_recrd.locks, ws->name);
@@ -534,6 +558,7 @@ le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
  */
 le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
 {
+    auto &pmInstance = taf_PM::GetInstance();
     taf_ws_t *ws, *wsEntry;
 
     ws = taf_PM::ToTafWakeupSource(wsRef);
@@ -546,7 +571,15 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
 
     TAF_ERROR_IF_RET_VAL(!wsEntry->acquired, LE_OK, "Wakeup source '%s' already released",
             wsEntry->name);
-
+    if(pmInstance.IsLowPowerMode)
+    {
+        LE_INFO("power mode is low power and only mpms is allowed for state change");
+        if(!IsClientMPMS())
+        {
+            LE_INFO("Client is not MPM");
+            return LE_NOT_PERMITTED;
+        }
+    }
     if (wsEntry->isRef)
     {
         TAF_ERROR_IF_RET_VAL(UINT_MAX == (wsEntry->acquired - 1), LE_FAULT,
@@ -622,7 +655,8 @@ taf_pm_StateChangeExHandlerRef_t taf_PM::AddStateChangeExHandler
     pClient = taf_PM::to_taf_Client_t(le_hashmap_Get(pm_recrd.clients,
             taf_pm_GetClientSessionRef()));
     LE_INFO("Client is %s", pClient->name);
-    if(strncmp(pClient->name, "tafMngdPMSvc", 12) == 0 || strncmp(pClient->name, "tafRpcProxy", 11) == 0)
+    if(strncmp(pClient->name, TAF_MNGD_PM_SVC, sizeof(TAF_MNGD_PM_SVC)) == 0 ||
+            strncmp(pClient->name, TAF_RPC_PROXY, sizeof(TAF_RPC_PROXY)) == 0)
     {
         LE_INFO("Client is MPM");
         handlerCtxPtr->ismpm = true;

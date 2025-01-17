@@ -194,8 +194,7 @@ static void* changeEventStatus()
     result = taf_diagDTC_GetActivationStatus(diagDtcAB0000SvcRef, &activationStatus);
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to get activation status for DTC code : 0x%x, result : %d", dtcCode,
-                result);
+        LE_ERROR("Failed to get activation status, result : %d", result);
         return NULL;
     }
 
@@ -203,7 +202,7 @@ static void* changeEventStatus()
     result = taf_diagDTC_SetActivationStatus(diagDtcAB0000SvcRef, TAF_DIAGDTC_ACTIVE);
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to activate the DTC, code : 0x%x, result : %d", dtcCode, result);
+        LE_ERROR("Failed to activate the DTC, result : %d", result);
         return NULL;
     }
 
@@ -211,7 +210,7 @@ static void* changeEventStatus()
     result = taf_diagDTC_GetSuppression(diagDtcAB0000SvcRef, &suppressionStatus);
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to get suppression for DTC code : 0x%x, result : %d", dtcCode, result);
+        LE_ERROR("Failed to get suppression, result : %d", result);
         return NULL;
     }
 
@@ -219,7 +218,7 @@ static void* changeEventStatus()
     result = taf_diagDTC_SetSuppression(diagDtcAB0000SvcRef, false);
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to cancel the DTC suppression, code : 0x%x, result : %d", dtcCode, result);
+        LE_ERROR("Failed to cancel the DTC suppression, result : %d", result);
         return NULL;
     }
 

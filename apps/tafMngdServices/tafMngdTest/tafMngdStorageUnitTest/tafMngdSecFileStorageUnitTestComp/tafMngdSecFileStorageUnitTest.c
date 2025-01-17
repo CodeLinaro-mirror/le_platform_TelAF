@@ -113,6 +113,19 @@ void Test_GetBasePath()
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSecFile_GetBasePath");
 }
 
+// Test function for taf_mngdStorSecFile_DeleteStorage
+void Test_DeleteStorage()
+{
+    taf_mngdStorSecFile_StorageRef_t storageRef;
+    const char* storageName = TEST_STORAGE_NAME;
+
+    storageRef = taf_mngdStorSecFile_GetStorageRef(storageName);
+    LE_TEST_ASSERT(storageRef != NULL, "Test taf_mngdStorSecFile_GetStorageRef");
+
+    le_result_t result = taf_mngdStorSecFile_DeleteStorage(storageRef);
+    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdtorSecFile_DeleteStorage");
+}
+
 void PrintUsage()
 {
     puts("\n"
@@ -120,33 +133,36 @@ void PrintUsage()
          "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest \n"
          "\n"
          "-------- To create file storage --------\n"
-         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- create <storageName>\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- createstorage <storageName>\n"
          "\n"
          "-------- To lock the specified storage --------\n"
-         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- lock <storageName>\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- lockstorage <storageName>\n"
          "\n"
          "-------- To Unlock the specified storage --------\n"
-         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- unlock <storageName>\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- unlockstorage <storageName>\n"
          "\n"
          "-------- Import a file to the storage --------\n"
-         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- import <storageName> <filepath>\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- importfile <storageName> <filepath>\n"
          "\n"
          "-------- To Read the file from the storage --------\n"
-         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- read <storageName>\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- readfile <storageName>\n"
          "\n"
-         "-------- To Read the file from the storage --------\n"
-         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- delete <storageName>\n"
+         "-------- To delete the file from the storage --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- deletefile <storageName>\n"
+         "\n"
+         "-------- To delete the storage --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- deletestorage <storageName>\n"
          "\n");
 }
 
 // Implementations of the test operations
-void Test_Op_create(const char* storageName)
+void Test_Op_Create_Storage(const char* storageName)
 {
     le_result_t result = taf_mngdStorSecFile_CreateStorage(storageName, 0x01); // Example capability mask
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSecFile_CreateStorage");
 }
 
-void Test_Op_Write(const char* storageName, const char* data)
+void Test_Op_Write_File(const char* storageName, const char* data)
 {
     taf_mngdStorSecFile_StorageRef_t storageRef = taf_mngdStorSecFile_GetStorageRef(storageName);
     LE_TEST_ASSERT(storageRef != NULL, "Test taf_mngdStorSecFile_GetStorageRef");
@@ -163,7 +179,7 @@ void Test_Op_Write(const char* storageName, const char* data)
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSecFile_ImportFile");
 }
 
-void Test_Op_Read(const char* storageName)
+void Test_Op_Read_File(const char* storageName)
 {
     taf_mngdStorSecFile_StorageRef_t storageRef = taf_mngdStorSecFile_GetStorageRef(storageName);
     LE_TEST_ASSERT(storageRef != NULL, "Test taf_mngdStorSecFile_GetStorageRef");
@@ -177,7 +193,7 @@ void Test_Op_Read(const char* storageName)
     printf("Read content: %.*s\n", (int)bufferSize, buffer);
 }
 
-void Test_Op_Delete(const char* storageName)
+void Test_Op_Delete_File(const char* storageName)
 {
     taf_mngdStorSecFile_StorageRef_t storageRef = taf_mngdStorSecFile_GetStorageRef(storageName);
     LE_TEST_ASSERT(storageRef != NULL, "Test taf_mngdStorSecFile_GetStorageRef");
@@ -187,20 +203,25 @@ void Test_Op_Delete(const char* storageName)
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSecFile_DeleteFile");
 }
 
-void Test_Op_Lock(const char* storageName)
+void Test_Op_Lock_Storage(const char* storageName)
 {
     taf_mngdStorSecFile_StorageRef_t storageRef = taf_mngdStorSecFile_GetStorageRef(storageName);
     le_result_t result = taf_mngdStorSecFile_LockStorage(storageRef);
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSecFile_LockStorage");
 }
 
-void Test_Op_Unlock(const char* storageName)
+void Test_Op_Unlock_Storage(const char* storageName)
 {
     taf_mngdStorSecFile_StorageRef_t storageRef = taf_mngdStorSecFile_GetStorageRef(storageName);
     le_result_t result = taf_mngdStorSecFile_UnlockStorage(storageRef);
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSecFile_UnlockStorage");
 }
-
+void Test_Op_Delete_Storage(const char* storageName)
+{
+    taf_mngdStorSecFile_StorageRef_t storageRef = taf_mngdStorSecFile_GetStorageRef(storageName);
+    le_result_t result = taf_mngdStorSecFile_DeleteStorage(storageRef);
+    LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdtorSecFile_DeleteStorage");
+}
 COMPONENT_INIT
 {
     const char* filePath = FILE_SOURCE;
@@ -259,15 +280,15 @@ COMPONENT_INIT
         {
             PrintUsage();
         }
-        else if (strcmp(operation, "create") == 0)
+        else if (strcmp(operation, "createstorage") == 0)
         {
-            Test_Op_create(op_storage);
+            Test_Op_Create_Storage(op_storage);
         }
-        else if (strcmp(operation, "import") == 0)
+        else if (strcmp(operation, "importfile") == 0)
         {
             if(op_data != NULL)
             {
-                Test_Op_Write(op_storage, op_data);
+                Test_Op_Write_File(op_storage, op_data);
             }
             else
             {
@@ -275,21 +296,25 @@ COMPONENT_INIT
                 exit(EXIT_FAILURE);
             }
         }
-        else if (strcmp(operation, "read") == 0)
+        else if (strcmp(operation, "readfile") == 0)
         {
-            Test_Op_Read(op_storage);
+            Test_Op_Read_File(op_storage);
         }
-        else if (strcmp(operation, "delete") == 0)
+        else if (strcmp(operation, "deletefile") == 0)
         {
-            Test_Op_Delete(op_storage);
+            Test_Op_Delete_File(op_storage);
         }
-        else if (strcmp(operation, "lock") == 0)
+        else if (strcmp(operation, "lockstorage") == 0)
         {
-            Test_Op_Lock(op_storage);
+            Test_Op_Lock_Storage(op_storage);
         }
-        else if (strcmp(operation, "unlock") == 0)
+        else if (strcmp(operation, "unlockstorage") == 0)
         {
-            Test_Op_Unlock(op_storage);
+            Test_Op_Unlock_Storage(op_storage);
+        }
+        else if (strcmp(operation, "deletestorage") == 0)
+        {
+            Test_Op_Delete_Storage(op_storage);
         }
         else
         {
@@ -313,7 +338,7 @@ COMPONENT_INIT
         Test_ReadFile();
         Test_DeleteFile();
         Test_GetBasePath();
-
+        Test_DeleteStorage();
         LE_TEST_INFO("=== TelAF MngdStorage unit test END ===");
     }
     else

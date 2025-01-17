@@ -121,6 +121,15 @@ le_result_t taf_mngdStorSecFile_GetBasePath
     return mss.GetBasePathImpl(storageRef, basePath, pathSize);
 }
 
+le_result_t taf_mngdStorSecFile_DeleteStorage
+(
+    taf_mngdStorSecFile_StorageRef_t storageRef
+)
+{
+    auto &mss = tafMngdSecFileStorageSvc::GetInstance();
+    return mss.DeleteStorageImpl(storageRef);
+}
+
 
 COMPONENT_INIT
 {

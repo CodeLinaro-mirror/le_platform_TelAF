@@ -929,3 +929,57 @@ le_result_t tafMngdSecFileStorageSvc::GetBasePathImpl
     return LE_OK;
 }
 
+le_result_t tafMngdSecFileStorageSvc::DeleteStorageImpl
+(
+    taf_mngdStorSecFile_StorageRef_t storageRef
+)
+{
+    le_result_t result;
+
+    // Check if the storage reference is valid
+    TAF_ERROR_IF_RET_VAL(storageRef == nullptr, LE_BAD_PARAMETER,
+                         "Invalid storage reference");
+
+    // Lookup the client context using the storage reference
+    tafMngdSecFileStorage_ClientCxt_t* clienCxtPtr =
+        (tafMngdSecFileStorage_ClientCxt_t*)le_ref_Lookup(ClientRefMap, storageRef);
+
+    // Check if the client context is valid
+     TAF_ERROR_IF_RET_VAL(clienCxtPtr == nullptr, LE_NOT_FOUND, "Invalid client data reference");
+
+    // Lookup the directory using the client context's directory reference
+    tafMngdSecFileStorage_Dir_t* dirPtr =
+        (tafMngdSecFileStorage_Dir_t*)le_ref_Lookup(DirRefMap, clienCxtPtr->dirRef);
+
+    // Check if the directory reference is valid
+    TAF_ERROR_IF_RET_VAL(dirPtr == nullptr, LE_NOT_FOUND, "Invalid secure directory reference");
+
+    result = taf_fsc_DeleteStorage(dirPtr->rfs_fscStorageRef);
+    if(result == LE_OK)
+    {
+        LE_INFO("Successfully deleted Storage: %s", dirPtr->rfsPath);
+    }
+    else
+    {
+        LE_ERROR("Failed to delete rfsstorage refernce");
+        return LE_FAULT;
+    }
+    result = taf_fsc_DeleteStorage(dirPtr->fscStorageRef);
+    if(result == LE_OK)
+    {
+        LE_INFO("Successfully deleted Storage: %s", dirPtr->path);
+    }
+    else
+    {
+        LE_ERROR("Failed to delete fscstorage refernce");
+        return LE_FAULT;
+    }
+
+    // Free the storage object and reference
+    le_ref_DeleteRef(DirRefMap, clienCxtPtr->dirRef);
+    le_mem_Release(dirPtr);
+    le_ref_DeleteRef(ClientRefMap, storageRef);
+    le_mem_Release(clienCxtPtr);
+    return result;
+
+}

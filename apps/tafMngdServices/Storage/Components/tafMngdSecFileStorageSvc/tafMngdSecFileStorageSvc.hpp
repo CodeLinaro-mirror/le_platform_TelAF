@@ -151,6 +151,8 @@ class tafMngdSecFileStorageSvc: public ITafSvc
         le_result_t GetBasePathImpl(taf_mngdStorSecFile_StorageRef_t storageRef,
                                     char* basePath, size_t pathSize);
 
+        le_result_t DeleteStorageImpl(taf_mngdStorSecFile_StorageRef_t storageRef);
+
         /**
          * Internal functions
          */

@@ -102,7 +102,7 @@ static void AuthVerifyCertUniHandle
     LE_TEST_INFO("AuthVerifyCertUniHandle!");
 
     uint8_t commConf;
-    uint16_t certLen;
+    uint16_t certLen = 0;
     le_result_t ret = taf_diagAuth_GetCommConf(rxMsgRef, &commConf);
     if (ret != LE_OK)
     {
@@ -128,9 +128,9 @@ static void AuthVerifyCertUniHandle
     }
 
     ret = taf_diagAuth_GetCertSize(rxMsgRef, &certLen);
-    if (ret != LE_OK)
+    if (ret != LE_OK || certLen == 0)
     {
-        LE_ERROR("Failed to get certificate size!");
+        LE_ERROR("Failed to get certificate size!ret=%d", ret);
         if (taf_diagAuth_SendResp(rxMsgRef, TAF_DIAGAUTH_CONDITIONS_NOT_CORRECT, 0)
                 != LE_OK)
         {
@@ -167,7 +167,7 @@ static void AuthVerifyCertUniHandle
         free(cert);
         return;
     }
-    else if (certLen == 0)
+    else if (certBufSize == 0)
     {
         LE_ERROR("certificate size is 0!");
         if (taf_diagAuth_SendResp(rxMsgRef, TAF_DIAGAUTH_INCORRECT_MSG_LEN_OR_INVALID_FORMAT, 0)
@@ -175,6 +175,7 @@ static void AuthVerifyCertUniHandle
         {
             LE_ERROR("Send response error");
         }
+        free(cert);
         return;
     }
 
@@ -190,7 +191,6 @@ static void AuthVerifyCertUniHandle
         {
             LE_ERROR("Send response error");
         }
-        free(cert);
         return;
     }
     else if (challengeLen != 0)

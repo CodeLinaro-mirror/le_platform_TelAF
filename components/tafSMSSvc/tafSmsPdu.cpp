@@ -527,29 +527,53 @@ uint8_t GetByteAtPos
     return buf[pos];
 }
 
-uint8_t pduDecodeAddr
-(
-    const unsigned char* buffer,
-    uint8_t addrLen,
-    char* outputAddr
-)
+uint8_t pduDecodeAddr(const unsigned char* buffer, uint8_t addrLen, char* outputAddr)
 {
     LE_DEBUG("pduDecodeAddr");
 
+    uint idx = 0;
+
+    LE_DEBUG("buffer[0]: 0x%.2X", (int)buffer[0]);
+
+    if(buffer[0] == 0x91)
+    {
+        outputAddr[idx++] = '+';
+    }
+
     for (uint8_t i = 0; i < addrLen; ++i)
     {
-        if (i % 2 == 1)
+        uint8_t byte = buffer[(i / 2) + 1];
+        char nibble;
+
+        if (i % 2 == 0)
         {
-            outputAddr[i] = ((buffer[i / 2] & BITMASK_HIGH_4BITS) >> 4) + '0';
+            nibble = (byte & BITMASK_LOW_4BITS) + '0';
         }
         else
         {
-            outputAddr[i] = (buffer[i / 2] & BITMASK_LOW_4BITS) + '0';
+            nibble = ((byte & BITMASK_HIGH_4BITS) >> 4) + '0';
         }
-    }
-    outputAddr[addrLen] = '\0';
 
-    LE_DEBUG("outputAddr: %s", outputAddr);
+        if (nibble > '9')
+        {
+            nibble += 'A' - '0' - 10;
+        }
+
+        if (nibble == 'F')
+        {
+            outputAddr[idx++] = '\0';
+            break;
+        }
+        else
+        {
+            outputAddr[idx++] = nibble;
+        }
+        LE_DEBUG("outputAddr: %s", outputAddr);
+    }
+
+    outputAddr[idx] = '\0';
+
+    LE_INFO("outputAddr: %s", outputAddr);
 
     return addrLen;
 }
@@ -709,7 +733,7 @@ le_result_t sms_DecodeDeliver
     const uint8_t pos_smsDeliver = 1 + GetByteAtPos(dataPtr, 0);
 
     const uint8_t smsAddrLen =  GetByteAtPos(dataPtr, pos_smsDeliver + 1);
-    const uint8_t pos_smsAddr = pos_smsDeliver + 3;
+    const uint8_t pos_smsAddr = pos_smsDeliver + 2;
 
     TAF_ERROR_IF_RET_VAL((uint8_t)(smsAddrLen + 1) > sizeof(smsPduPtr->addr), LE_OVERFLOW, "addr size overflow");
 

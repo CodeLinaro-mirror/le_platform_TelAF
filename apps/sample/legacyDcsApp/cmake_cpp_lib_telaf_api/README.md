@@ -59,8 +59,10 @@ app start tafMngdPMSvc
 app status tafMngdPMSvc
 [running] tafMngdPMSvc
 ```
+Note: The Managed Power Management Service will suspend the device a few seconds after it starts.
+Ensure device is in RESUME state by running "pm resume".
 
-Push libmpmsAdaptor.so and libradioAdaptor.so to /tmp/lib on device, DataAppDemo to /tmp/ on device via ADB.
+Push libmpmsAdaptor.so, libdcsAdaptor.so and libradioAdaptor.so to /tmp/lib on device, DataAppDemo to /tmp/ on device via ADB.
 On device, run the following commands to set external library path and bind the APIs to taf_mngdPm and taf_radio service.
 
 Note: /tmp is a volatile storage and its contents will be cleared after NAD reboot.

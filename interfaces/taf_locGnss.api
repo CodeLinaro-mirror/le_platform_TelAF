@@ -259,14 +259,14 @@
  *
  * @subsection taf_locGnss_SetGetConstellation Control GNSS constellation blacklisting
  *
- * The taf_locGnss_SetConstellation() function blacklists some constellations or subset of SVs from
- * the constellation from being used by the GNSS standard position engine (SPE).
+ * The taf_locGnss_SetConstellation() function blacklists some constellations from
+ * being used by the GNSS standard position engine (SPE).
  * @verbatim
    taf_locGnss_ConstellationBitMask_t constellationMask;
    constellationMask = TAF_LOCGNSS_CONSTELLATION_GPS;
    if(taf_locGnss_SetConstellation(constellationMask)== LE_FAULT)
    {
-     // GPS constellation and SVs cannot be blacklisted.
+     // Process after successfully blacklisting GPS constellation.
    }
 
    constellationMask = TAF_LOCGNSS_CONSTELLATION_SBAS | taf_locGnss_CONSTELLATION_BEIDOU;
@@ -1802,18 +1802,18 @@ FUNCTION le_result_t Stop
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the GNSS constellation bitmask that needs to be blacklisted per client session.
+ * Sets the constellations which need to be blacklisted from being
+ * used by the GNSS standard position engine.
  *
  * @return
  *  - LE_FAULT         Failed.
- *  - LE_NOT_PERMITTED The Location service state is not initialized, disabled, or active.
+ *  - LE_NOT_PERMITTED The Location service state is not ready or active.
  *  - LE_OK            Succeeded.
  *
  * @b WARNING: Some constellation types are unsupported depending on the platform.
  *
  * @b WARNING: The settings are platform dependent.
  *
- * @b NOTE: GPS constellation and SVs cannot be blacklisted.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetConstellation
@@ -1823,14 +1823,15 @@ FUNCTION le_result_t SetConstellation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the GNSS constellation bitmask which are blacklisted per client session.
+ * Gets the constellations that have been blacklisted by the API taf_locGnss_SetConstellation().
+ * The API is not persistent after reboots and will return an error if the
+ * taf_locGnss_SetConstellation() function is not called again.
  *
  * @return
- *  - LE_OK    Succeeded.
- *  - LE_FAULT Failed.
+ *  - LE_OK            Succeeded.
+ *  - LE_NOT_PERMITTED The Location service state is not ready or active.
+ *  - LE_FAULT         Failed.
  *
- * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
- *       client will be killed.
  *
 */
 //--------------------------------------------------------------------------------------------------
@@ -2935,10 +2936,10 @@ FUNCTION le_result_t ForceHotRestart
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Returns a bitmask containing all satellite constellations supported on this platform.
+ * Returns a bitmask containing all constellations supported on this platform.
  *
  * @return LE_OK               Succeeded.
- * @return LE_NOT_PERMITTED    The Location service state is not enabled or not started.
+ * @return LE_NOT_PERMITTED    Location service is not ready or active.
  * @return LE_FAULT            Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3030,7 +3031,7 @@ FUNCTION le_result_t SetNmeaSentences
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the bitmask for the enabled NMEA sentences per client session.
+ * Gets the NMEA sentence types which are configured by the API taf_locGnss_SetNmeaSentences().
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3041,9 +3042,6 @@ FUNCTION le_result_t SetNmeaSentences
  * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
  *
- * @b NOTE: Some NMEA sentences are unsupported depending on the platform.
- *       We cannot receive the NMEA callback function to fetch the unsupported
- *       NMEA sentences.So the bitmask won't get for those NMEA sentences.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNmeaSentences
@@ -3152,15 +3150,13 @@ FUNCTION le_result_t RobustLocationInformation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets default configuration for secondary bands per client session.
+ * Resets the secondary band configurations for constellations as configured by the modem.
  *
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
- * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
- *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DefaultSecondaryBandConstellations
@@ -3169,15 +3165,14 @@ FUNCTION le_result_t DefaultSecondaryBandConstellations
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the (enabled) secondary band GNSS constellation types per client session.
+ * Gets the disabled secondary band configurations for constellations used by the
+ * standard GNSS engine.
  *
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
- * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
- *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RequestSecondaryBandConstellations
@@ -3187,15 +3182,14 @@ FUNCTION le_result_t RequestSecondaryBandConstellations
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Disables the given secondary band GNSS constellation types per client session.
+ * Sets the specified secondary band constellations used by the GNSS standard position
+ * engine that need to be disabled..
  *
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
- * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
- *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ConfigureSecondaryBandConstellations

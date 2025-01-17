@@ -762,7 +762,7 @@ le_result_t taf_locGnss_Enable
 * DESCRIPTION  : Set the GNSS constellation bit mask
 * DEPENDECY    :
 * PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed with reason
 */
 le_result_t taf_locGnss_SetConstellation
 (
@@ -794,7 +794,7 @@ le_result_t taf_locGnss_Start
 * DESCRIPTION  : Get the GNSS constellation bit mask
 * DEPENDECY    :
 * PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_FAULT failed
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed with reason
 */
 le_result_t taf_locGnss_GetConstellation
 (
@@ -1170,7 +1170,7 @@ le_result_t taf_locGnss_ForceHotRestart
 * DESCRIPTION  : Returns all supported satellite constellations
 * DEPENDECY    :
 * PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_UNSUPPORTED on failed
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed
 */
 le_result_t taf_locGnss_GetSupportedConstellations
 (
@@ -1347,11 +1347,11 @@ le_result_t taf_locGnss_RobustLocationInformation
 }
 
 /**
-* FUNCTION     : EmptySecondaryBandConstellation
+* FUNCTION     : DefaultSecondaryBandConstellations
 * DESCRIPTION  : Set the Secondary Band Empty Constellations
 * DEPENDECY    :
 * PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed with reason
 */
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_locGnss_DefaultSecondaryBandConstellations
@@ -1367,7 +1367,7 @@ le_result_t taf_locGnss_DefaultSecondaryBandConstellations
 * DESCRIPTION  : Get the Secondary Band GNSS constellation type disabled
 * DEPENDECY    :
 * PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed with reason
 */
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_locGnss_RequestSecondaryBandConstellations
@@ -1384,7 +1384,7 @@ le_result_t taf_locGnss_RequestSecondaryBandConstellations
 * DESCRIPTION  : Configure Secondary Band GNSS constellation type to be disabled
 * DEPENDECY    :
 * PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed with reason
 */
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_locGnss_ConfigureSecondaryBandConstellations

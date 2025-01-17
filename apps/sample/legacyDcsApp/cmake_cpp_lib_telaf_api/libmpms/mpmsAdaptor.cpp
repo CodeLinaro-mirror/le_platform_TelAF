@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -109,7 +109,13 @@ void MpmsAdaptor::OnTcuWakeupVehicleReqAsyncHandler(void* reportPtr)
     }
 }
 
-void MpmsAdaptor::OnTcuWakeupVehicleReqAsyncCb(int32_t reason, int32_t response, void * ctx)
+void MpmsAdaptor::OnTcuWakeupVehicleReqAsyncCb
+(
+    int32_t reason,
+    int32_t response,
+    le_result_t result,
+    void * ctx
+)
 {
     TcuWakeupVehicleReqAsyncCtx_t * eventCtx = (TcuWakeupVehicleReqAsyncCtx_t *)ctx;
 
@@ -119,7 +125,7 @@ void MpmsAdaptor::OnTcuWakeupVehicleReqAsyncCb(int32_t reason, int32_t response,
     {
         if (eventCtx->parm.callback != NULL)
         {
-            eventCtx->parm.callback(reason, response, (void*)eventCtx->parm.ctx);
+            eventCtx->parm.callback(reason, response, result, (void*)eventCtx->parm.ctx);
         }
 
         // Async CB one time. Evaluating change to use delete API in future release

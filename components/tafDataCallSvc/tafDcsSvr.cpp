@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -1228,6 +1228,26 @@ le_result_t taf_dcs_GetIPv6DNSAddresses
 
     return dataConnection.GetIpv6Dns(slotId, profileId, dns1AddrPtr, dns1AddrSize, dns2AddrPtr,
                                      dns2AddrSize);
+}
+
+ le_result_t taf_dcs_GetMtu
+(
+    taf_dcs_ProfileRef_t    profileRef,
+    uint16_t  *mtuPtr
+)
+{
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    int32_t profileId;
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                        "Profile not created yet.");
+
+    return dataConnection.GetMtu(slotId, profileId,mtuPtr);
 }
 
 /**

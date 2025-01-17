@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -48,7 +48,8 @@ typedef enum
     SESSION_GET_ROAMING_STATUS,     //
     SESSION_GET_MAX_DATA_BIT_RATES, //
     SESSION_CALL_END_REASON,         //
-    APN_GET_THROTTLE_INFO
+    APN_GET_THROTTLE_INFO,           //
+    PROFILE_GET_MTU
 } dcsAPIs;
 
 static void ShowMenu()
@@ -95,6 +96,8 @@ static void ShowMenu()
               << SESSION_CALL_END_REASON        << " -> Session: Get call end reason"
               << std::endl
               << APN_GET_THROTTLE_INFO          << " -> Session: Get apn throttle status"
+              << std::endl
+              << PROFILE_GET_MTU                << " -> Profile: Get MTU"
               << std::endl
               << std::endl;
 }
@@ -908,6 +911,24 @@ static le_result_t GetAPNThrottleStatus()
     return result;
 }
 
+static le_result_t GetMtu()
+{
+    le_result_t result;
+    uint16_t  mtu;
+    taf_dcs_ProfileRef_t ProfileRef = GetProfileRef();
+    if (nullptr == ProfileRef)
+    {
+        LE_TEST_INFO("Failed to get profile ref");
+        return LE_FAULT;
+    }
+    result = taf_dcs_GetMtu(ProfileRef, &mtu);
+    TAF_ERROR_IF_RET_VAL((LE_OK != result), result, "Get MTU failed");
+
+    LE_TEST_INFO("MTU value: %d", mtu);
+    std::cout << "MTU value:   " << mtu << std::endl;
+    return result;
+}
+
 
 void RoamingStatusHandlerFunc(
     const taf_dcs_RoamingStatusInd_t *LE_NONNULL roamingStatusIndPtr,
@@ -1284,6 +1305,16 @@ void tafDCSUnitTest_RunInteractiveTests()
                 result = GetAPNThrottleStatus();
                 logStr.clear();
                 logStr = logStr + "taf_dcs_GetAPNThrottleStatus: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case PROFILE_GET_MTU:
+            {
+                result = GetMtu();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetMtu: " +
                          std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
                 LE_TEST_INFO("%s", logStr.c_str());
                 std::cout << logStr << std::endl;

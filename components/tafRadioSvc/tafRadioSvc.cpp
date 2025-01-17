@@ -1903,6 +1903,7 @@ le_result_t taf_radio_GetUmtsSignalMetrics
     {
         *ssPtr = metricsPtr->umts.ss;
         *berPtr = metricsPtr->umts.ber;
+        *rscpPtr = metricsPtr->umts.rscp;
     }
     else if (metricsPtr->ratMask & TAF_RADIO_RAT_BIT_MASK_TDSCDMA)
     {

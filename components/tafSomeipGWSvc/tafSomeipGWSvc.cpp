@@ -22,6 +22,7 @@
 #define ROUTING_INTF_NAME_SIZE 32
 #define ROUTING_IP_ADDR_SIZE 48
 #define MAX_ADD_ROUTE_RETRIES 5
+
 using namespace telux::tafsvc;
 
 class taf_vsomeipApp
@@ -205,6 +206,22 @@ typedef struct
  */
 //--------------------------------------------------------------------------------------------------
 static taf_vsomeipApp* RoutingManagerTable[VSOMEIP_APP_MAX_CNT] = { NULL };
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Semaphore to indicate all vsomeip apps have stopped
+ */
+//--------------------------------------------------------------------------------------------------
+static le_sem_Ref_t VsomeipStopSem = NULL;
+static int32_t ActiveVsomeipAppCount = 0;
+static le_mutex_Ref_t VsomeipCountMutex = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Auto add route flag based on AUTO_ADD_ROUTE environment variable
+ */
+//--------------------------------------------------------------------------------------------------
+static bool AutoAddRouteFlag = false;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -445,9 +462,21 @@ static void* VSOMEIPThread
 
     LE_INFO("vsomeip routing manager '%s' started.", myRoutingMgrPtr->getRoutingName().c_str());
 
+    le_mutex_Lock(VsomeipCountMutex);
+    ActiveVsomeipAppCount++;
+    le_mutex_Unlock(VsomeipCountMutex);
+
     myRoutingMgrPtr->start();
 
     LE_WARN("vsomeip routing manager '%s' exited.", myRoutingMgrPtr->getRoutingName().c_str());
+
+    le_mutex_Lock(VsomeipCountMutex);
+    ActiveVsomeipAppCount--;
+    if (ActiveVsomeipAppCount == 0)
+    {
+        le_sem_Post(VsomeipStopSem);
+    }
+    le_mutex_Unlock(VsomeipCountMutex);
 
     return NULL;
 }
@@ -622,7 +651,7 @@ void TimerHandler
 
     if (LE_OK == SetIpv4MulticastRouteWithIoctl(multicastAddr, intfName, true))
     {
-        LE_INFO("Retry %d: Successfully added route for %s on %s.", app->getAddRouteRetryCount(),
+        LE_INFO("Retry %d: Completed adding route for %s on %s.", app->getAddRouteRetryCount(),
             multicastAddr, intfName);
         app->setRouteAdded(true);
         app->resetAddRouteRetryCount();
@@ -635,8 +664,8 @@ void TimerHandler
 
         if (app->getAddRouteRetryCount() >= MAX_ADD_ROUTE_RETRIES)
         {
-            LE_ERROR("Retry %d: Exceeded max retries to add route for %s on %s.",
-                app->getAddRouteRetryCount(), multicastAddr, intfName);
+            LE_ERROR("Failed to add route for %s on %s after maximum retries of %d.",
+                multicastAddr, intfName, app->getAddRouteRetryCount());
             app->resetAddRouteRetryCount();
             le_timer_Delete(timerRef);
         }
@@ -664,12 +693,12 @@ static void AddRoutingForMulticastAddr
 
             if (LE_OK == SetIpv4MulticastRouteWithIoctl(multicastAddr, intfName, true))
             {
-                LE_INFO("Successfully added route for %s on %s.", multicastAddr, intfName);
+                LE_INFO("Completed adding route for %s on %s.", multicastAddr, intfName);
                 RoutingManagerTable[id]->setRouteAdded(true);
             }
             else
             {
-                LE_WARN("Init attempt failed to add route for %s on %s.", multicastAddr, intfName);
+                LE_WARN("Failed to add route for %s on %s initially.", multicastAddr, intfName);
 
                 le_timer_Ref_t timerRef = le_timer_Create(timerName);
                 le_timer_SetMsInterval(timerRef, 1000);
@@ -701,7 +730,7 @@ static void DeleteRoutingForMulticastAddr
 
             if (LE_OK == SetIpv4MulticastRouteWithIoctl(multicastAddr, intfName, false))
             {
-                LE_INFO("Successfully deleted route for %s on %s.", multicastAddr, intfName);
+                LE_INFO("Completed deleting route for %s on %s.", multicastAddr, intfName);
                 RoutingManagerTable[id]->setRouteAdded(false);
             }
             else
@@ -714,15 +743,69 @@ static void DeleteRoutingForMulticastAddr
 
 //--------------------------------------------------------------------------------------------------
 /**
- * A SIGTERM event handler which will release route configuration.
+ * Stop all vsomeip applications
  */
 //--------------------------------------------------------------------------------------------------
-static void TafSigTermEventHandler(int tafSigNum)
+static void StopVsomeipApplication
+(
+    void
+)
 {
-    LE_INFO("TafSigTermEventHandler :%d", tafSigNum);
-    DeleteRoutingForMulticastAddr();
-    LE_INFO("unload successful");
+    for (uint8_t id = 0; id < VSOMEIP_APP_MAX_CNT; id++)
+    {
+        if (RoutingManagerTable[id] != NULL)
+        {
+            LE_INFO("Starting to stop vsomeip application id: %u", id);
+            RoutingManagerTable[id]->stop();
+        }
+    }
+
+    le_clk_Time_t timeToWait = {1, 0};
+    if (le_sem_WaitWithTimeOut(VsomeipStopSem, timeToWait) == LE_OK)
+    {
+        LE_INFO("Obtained vsomeip app stop semaphore.");
+    }
+    else
+    {
+        LE_ERROR("Timeout occurred while waiting for vsomeip app stop semaphore");
+    }
+    le_sem_Delete(VsomeipStopSem);
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle safe unloading of the application.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SafeUnloadHandler
+(
+    void* param1Ptr,
+    void* param2Ptr
+)
+{
+    StopVsomeipApplication();
+    if (AutoAddRouteFlag)
+    {
+        DeleteRoutingForMulticastAddr();
+    }
+
+    LE_INFO("Completed unloading.");
     exit(EXIT_SUCCESS);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Signal handler for SIGTERM
+ */
+//--------------------------------------------------------------------------------------------------
+static void TafSigTermEventHandler
+(
+    int sigNum
+)
+{
+    LE_INFO("TafSigTermEventHandler :%d", sigNum);
+    le_event_QueueFunction(SafeUnloadHandler, NULL, NULL);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -738,15 +821,32 @@ COMPONENT_INIT
     mySomeipSvr.Init();
     mySomeipClient.Init();
 
-    memset(RoutingManagerTable, 0, sizeof(RoutingManagerTable));
+    // Create vsomeip app stop semaphore.
+    VsomeipStopSem = le_sem_Create("VsomeipStopSem", 0);
+    VsomeipCountMutex = le_mutex_CreateNonRecursive("VsomeipCountMutex");
 
+    // Set auto add route flag.
+    const char* autoAddRoute = getenv("AUTO_ADD_ROUTE");
+    if (autoAddRoute != NULL && (strcmp(autoAddRoute, "YES") == 0 || strcmp(autoAddRoute, "ON") == 0
+        || strcmp(autoAddRoute, "1") == 0))
+    {
+        AutoAddRouteFlag = true;
+    }
+
+    // Create routing managers.
+    memset(RoutingManagerTable, 0, sizeof(RoutingManagerTable));
     if (LE_OK != StartDefaultRoutingManager())
     {
         LE_FATAL("Failed to start default routing manager.");
     }
-
     StartAdditionalRoutingManagers();
-    AddRoutingForMulticastAddr();
+
+    // Add routing for multicast address.
+    if (AutoAddRouteFlag)
+    {
+        AddRoutingForMulticastAddr();
+    }
+
     le_sig_SetEventHandler(SIGTERM, TafSigTermEventHandler);
 
     LE_INFO("TelAF SOME/IP GateWay Service initialized.");

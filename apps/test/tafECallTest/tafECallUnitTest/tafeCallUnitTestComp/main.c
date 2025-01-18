@@ -64,11 +64,6 @@ static void Test_ECall_OperationMode()
     res = taf_ecall_GetConfiguredOperationMode(DEFAULT_PHONE_ID, &opMode);
     LE_TEST_OK(opMode == TAF_ECALL_MODE_ECALL, "taf_eCall_GetConfiguredOperationMode done");
 
-    res = taf_ecall_ForcePersistentOnlyMode(DEFAULT_PHONE_ID);
-    LE_TEST_OK(LE_OK == res, "taf_ecall_ForcePersistentOnlyMode done");
-    res = taf_ecall_GetConfiguredOperationMode(DEFAULT_PHONE_ID, &opMode);
-    LE_TEST_OK(opMode == TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY, "taf_ecall_GetConfiguredOperationMode done");
-
     res = taf_ecall_ExitOnlyMode(DEFAULT_PHONE_ID);
     LE_TEST_OK(res == LE_OK, "taf_ecall_ExitOnlyMode done");
     res = taf_ecall_GetConfiguredOperationMode(DEFAULT_PHONE_ID, &opMode);

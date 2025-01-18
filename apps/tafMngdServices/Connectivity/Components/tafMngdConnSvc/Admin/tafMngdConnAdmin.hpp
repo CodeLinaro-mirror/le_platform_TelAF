@@ -37,9 +37,11 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include <future>
+#include <curl/curl.h>
 #include "tafMngdConn_Common.hpp"
 #include "tafMngdConnSvcJSONParser.hpp"
 #include <set>
+#include <regex>
 
 #define MCS_MAX_FILE_PATH_LEN    256
 #define MCS_MAX_DATA_OBJ 16
@@ -133,6 +135,7 @@ namespace tafsvc {
             uint8_t                                 slotId;
             uint8_t                                 phoneId;
         };
+        le_msg_SessionRef_t sessionRef;
     } stateMachineEvent_t;
 
     /* Internal structure to report Data State */
@@ -169,6 +172,18 @@ namespace tafsvc {
         le_mem_PoolRef_t memPool;
     } mcs_Clients_t;
 
+    typedef struct
+    {
+        le_hashmap_Ref_t hashMap;
+        le_mem_PoolRef_t memPool;
+    } mcs_RetryClients_t;
+
+    typedef struct
+    {
+        le_msg_SessionRef_t sessionRef;
+        bool flag;
+    } mcs_RetryClientNode_t;
+
 //Context to maintain the state for each data id.
     typedef struct tag_mcs_DataCtx_t
     {
@@ -200,6 +215,10 @@ namespace tafsvc {
         le_timer_Ref_t                recoveryRetryTimerRef; // Recovery schedule timer reference
         le_timer_Ref_t                radioOffOnIntervalTimerRef; //Radio On/Off timer reference
         le_timer_Ref_t                simOffOnIntervalTimerRef; //SIM On/Off timer reference
+        le_timer_Ref_t                minTimeBetweenTriggersRef;
+                                      //minimum time between 2 taf_mngdConn_StartDataRetry() calls
+        le_timer_Ref_t                maxTimeBetweenTriggersRef;
+                                      // maximum time the service will maintain the recovery state.
         le_event_Id_t                 dataStateEvent;         //Data state event
         taf_dcs_Pdp_t                 ipType;                 // Ip type
         taf_mngdConn_DataRef_t        dataRef;
@@ -227,6 +246,8 @@ namespace tafsvc {
                                         //The current recovery operation
         // Clients that have called Data Start
         std::set<le_msg_SessionRef_t> clients;
+        //Session Reference
+        le_msg_SessionRef_t sessionRef;
     } mcs_DataCtx_t;
 
     class tafMngdConnAdmin: public ITafSvc
@@ -297,13 +318,14 @@ namespace tafsvc {
 
             // resources for multi-client management
             static mcs_Clients_t ConnectedClients;
+            static mcs_RetryClients_t RetryClients;
 
             void EventInit();
             le_result_t EventSetPolicyConfigJSONs(const char* ConfigFileNamePtr);
             void EventSetRadioPowerOn();
             le_result_t EventStartData(uint8_t dataId);
             le_result_t EventStartDataRetry(uint8_t dataId);
-            le_result_t EventStartDataRetryAppReq(uint8_t dataId);
+            le_result_t EventStartDataRetryAppReq(uint8_t dataId, le_msg_SessionRef_t sessionRef);
             le_result_t EventStopData(uint8_t dataId);
             le_result_t EventGetConnectionInfo(uint8_t dataId);
             le_result_t EventSimReadyState(uint8_t slotId);
@@ -387,6 +409,8 @@ namespace tafsvc {
             static void RecoveryRetryTimerHandler(le_timer_Ref_t timerRef);
             static void RadioOffOnIntervalTimerHandler(le_timer_Ref_t timerRef);
             static void SimOffOnIntervalTimerHandler(le_timer_Ref_t timerRef);
+            static void MinTimeBetweenTriggersHandler(le_timer_Ref_t timerRef);
+            static void MaxTimeBetweenTriggersHandler(le_timer_Ref_t timerRef);
 
             // Client connect/disconnect handlers
             static void OnClientConnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);
@@ -396,10 +420,18 @@ namespace tafsvc {
             static void FirstLayerDataStateHandler(void *reportPtr, void *secondLayerHandlerFunc);
             static void FirstLayerRecoveryEventHandler(void *reportPtr,
                                                        void *secondLayerHandlerFunc);
+
+            //Curl Helper Methods
+            bool PerformCurl(const char* URLStr);
+            std::string RemoveProtocol(const std::string &url);
+
+            //Helper Method to compare APNs
+            bool CompareAPN(const char *getapnPtr, const char *setapnPtr);
 #ifndef LE_CONFIG_TARGET_SIMULATION
             //Async APIs callback handler
             static void RestartReqAsyncCallBack(taf_mngdPm_RestartMode_t RestartMode,
                                                 taf_mngdPm_ResponseMode_t ResponseMode,
+                                                le_result_t result,
                                                 void *contextPtr);
 #endif // LE_CONFIG_TARGET_SIMULATION
     };

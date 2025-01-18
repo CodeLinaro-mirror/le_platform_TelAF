@@ -1,6 +1,7 @@
 maxThreads: 600
 
 username: telaf
+startGroup: 20
 
 capability:
 {
@@ -65,6 +66,7 @@ bindings:
 #if ${LE_CONFIG_TARGET_SIMULATION} = ""
     tafMngdConnSvc.tafMngdConnSvc.taf_net -> tafNetSvc.taf_net
     tafMngdConnSvc.tafMngdConnSvc.taf_mngdPm -> tafMngdPMSvc.taf_mngdPm
+    tafMngdConnSvc.tafMngdConnSvc.taf_ecall -> tafECallSvc.taf_ecall
 #endif
 }
 

@@ -1903,6 +1903,7 @@ le_result_t taf_radio_GetUmtsSignalMetrics
     {
         *ssPtr = metricsPtr->umts.ss;
         *berPtr = metricsPtr->umts.ber;
+        *rscpPtr = metricsPtr->umts.rscp;
     }
     else if (metricsPtr->ratMask & TAF_RADIO_RAT_BIT_MASK_TDSCDMA)
     {
@@ -5056,34 +5057,44 @@ le_result_t taf_radio_SetImsSvcCfg
     TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgr == nullptr, LE_FAULT,
         "Invalid IMS setting manager(slotId:%d)", slotId);
 
-    telux::tel::ImsServiceConfig config{};
-    switch (service)
+    auto ret = telux::common::Status::FAILED;
+    if (service == TAF_RADIO_IMS_SVC_TYPE_VONR)
     {
+        ret = tafRadio.imsSettingMgr->toggleVonr(slotId, enable,
+            taf_RadioImsSettingCallback::onResponseCallback);
+    } else {
+        telux::tel::ImsServiceConfig config{};
+        switch (service)
+        {
 #ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
-        case TAF_RADIO_IMS_SVC_TYPE_SMS:
-            config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_SMS);
-            config.smsEnabled = enable;
-            break;
-        case TAF_RADIO_IMS_SVC_TYPE_RTT:
-            config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_RTT);
-            config.rttEnabled = enable;
-            break;
+            case TAF_RADIO_IMS_SVC_TYPE_SMS:
+                config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_SMS);
+                config.smsEnabled = enable;
+                break;
+            case TAF_RADIO_IMS_SVC_TYPE_RTT:
+                config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_RTT);
+                config.rttEnabled = enable;
+                break;
 #endif
-        case TAF_RADIO_IMS_SVC_TYPE_VOIP:
-            config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_VOIMS);
-            config.voImsEnabled = enable;
-            break;
-        case TAF_RADIO_IMS_SVC_TYPE_IMS_REG:
-            config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_IMS_SERVICE);
-            config.imsServiceEnabled = enable;
-            break;
-        default:
-            LE_ERROR("Invalid IMS service type(service:%d)", service);
-            return LE_UNSUPPORTED;
+                case TAF_RADIO_IMS_SVC_TYPE_VOIP:
+                    config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_VOIMS);
+                    config.voImsEnabled = enable;
+                    break;
+                case TAF_RADIO_IMS_SVC_TYPE_IMS_REG:
+                config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_IMS_SERVICE);
+                config.imsServiceEnabled = enable;
+                break;
+            case TAF_RADIO_IMS_SVC_TYPE_VONR:
+                break;
+            default:
+                LE_ERROR("Invalid IMS service type(service:%d)", service);
+                return LE_UNSUPPORTED;
+            }
+
+        ret = tafRadio.imsSettingMgr->setServiceConfig(slotId, config,
+            taf_RadioImsSettingCallback::onResponseCallback);
     }
 
-    auto ret = tafRadio.imsSettingMgr->setServiceConfig(slotId, config,
-        taf_RadioImsSettingCallback::onResponseCallback);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
 
@@ -5094,6 +5105,11 @@ le_result_t taf_radio_SetImsSvcCfg
     TAF_ERROR_IF_RET_VAL(taf_RadioImsSettingCallback::result != LE_OK,
         LE_FAULT, "Fail to set IMS service enable configuration.");
 
+    if (service == TAF_RADIO_IMS_SVC_TYPE_VONR)
+    {
+        //Waits for modem to finish the process
+        sleep(1);
+    }
     return LE_OK;
 }
 
@@ -5129,8 +5145,16 @@ le_result_t taf_radio_GetImsSvcCfg
     TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgr == nullptr, LE_FAULT,
         "Invalid IMS setting manager(slotId:%d)", slotId);
 
-    auto ret = tafRadio.imsSettingMgr->requestServiceConfig(slotId,
-        taf_RadioImsSettingCallback::onRequestImsServiceConfig);
+    auto ret = telux::common::Status::FAILED;
+    if (service == TAF_RADIO_IMS_SVC_TYPE_VONR)
+    {
+        ret = tafRadio.imsSettingMgr->requestVonrStatus(slotId,
+            taf_RadioImsSettingCallback::onRequestImsVonr);
+    } else {
+        ret = tafRadio.imsSettingMgr->requestServiceConfig(slotId,
+            taf_RadioImsSettingCallback::onRequestImsServiceConfig);
+    }
+
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
 
@@ -5141,35 +5165,43 @@ le_result_t taf_radio_GetImsSvcCfg
     TAF_ERROR_IF_RET_VAL(taf_RadioImsSettingCallback::result != LE_OK,
         LE_FAULT, "Fail to get IMS service enable configuration.");
 
-    telux::tel::ImsServiceConfig config = taf_RadioImsSettingCallback::config;
     *enable = false;
-    switch (service)
+    if (service == TAF_RADIO_IMS_SVC_TYPE_VONR)
     {
+        if (taf_RadioImsSettingCallback::vonrConfig == true)
+        {
+            *enable = true;
+        }
+    } else {
+        telux::tel::ImsServiceConfig config = taf_RadioImsSettingCallback::config;
+        switch (service)
+        {
 #ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
-        case TAF_RADIO_IMS_SVC_TYPE_SMS:
-            if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_SMS]
-                && config.smsEnabled)
-                *enable = true;
-            break;
-        case TAF_RADIO_IMS_SVC_TYPE_RTT:
-            if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_RTT]
-                && config.rttEnabled)
-                *enable = true;
-            break;
+            case TAF_RADIO_IMS_SVC_TYPE_SMS:
+                if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_SMS]
+                    && config.smsEnabled)
+                    *enable = true;
+                break;
+            case TAF_RADIO_IMS_SVC_TYPE_RTT:
+                if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_RTT]
+                    && config.rttEnabled)
+                    *enable = true;
+                break;
 #endif
-        case TAF_RADIO_IMS_SVC_TYPE_VOIP:
-            if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_VOIMS]
-                && config.voImsEnabled)
-                *enable = true;
-            break;
-        case TAF_RADIO_IMS_SVC_TYPE_IMS_REG:
-            if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_IMS_SERVICE]
-                && config.imsServiceEnabled)
-                *enable = true;
+            case TAF_RADIO_IMS_SVC_TYPE_VOIP:
+                if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_VOIMS]
+                    && config.voImsEnabled)
+                    *enable = true;
+                break;
+            case TAF_RADIO_IMS_SVC_TYPE_IMS_REG:
+                if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_IMS_SERVICE]
+                    && config.imsServiceEnabled)
+                    *enable = true;
             break;
         default:
             LE_ERROR("Invalid IMS service type(service:%d)", service);
             return LE_UNSUPPORTED;
+        }
     }
 
     return LE_OK;
@@ -6058,4 +6090,150 @@ le_result_t taf_radio_GetServingCellRoutingAreaCode
         "Invalid para(phoneId:%d)", phoneId);
 
     return taf_pa_radio_GetServingCellRoutingAreaCode(rac, phoneId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets 2G/3G band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note Only applicable for GSM/WCDMA/TDSCDMA.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellBandInfo
+(
+    taf_radio_BandBitMask_t* bandPtr,      ///< [OUT] 2G/3G active band.
+    taf_radio_RFBandWidth_t* bandWidthPtr, ///< [OUT] RF bandwidth.
+    uint8_t phoneId                        ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(bandPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandPtr)");
+
+    TAF_ERROR_IF_RET_VAL(bandWidthPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandWidthPtr)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandInfo(
+        taf_RadioRFBandInfoResponseCallback::rfBandInfoResponse);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        taf_RadioRFBandInfoResponseCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandInfoResponseCallback::result != LE_OK,
+        taf_RadioRFBandInfoResponseCallback::result, "Fail to get RF band information.");
+
+    *bandPtr = taf_RadioRFBandInfoResponseCallback::band;
+    *bandWidthPtr = taf_RadioRFBandInfoResponseCallback::bandwidth;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets LTE band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellLteBandInfo
+(
+    uint32_t* bandPtr,                     ///< [OUT] LTE active band.
+    taf_radio_RFBandWidth_t* bandWidthPtr, ///< [OUT] RF bandwidth.
+    uint8_t phoneId                        ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(bandPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandPtr)");
+
+    TAF_ERROR_IF_RET_VAL(bandWidthPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandWidthPtr)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandInfo(
+        taf_RadioRFBandInfoResponseCallback::rfBandInfoResponse);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        taf_RadioRFBandInfoResponseCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandInfoResponseCallback::result != LE_OK,
+        taf_RadioRFBandInfoResponseCallback::result, "Fail to get RF band information.");
+
+    *bandPtr = taf_RadioRFBandInfoResponseCallback::lteBand;
+    *bandWidthPtr = taf_RadioRFBandInfoResponseCallback::bandwidth;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NR band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellNrBandInfo
+(
+    uint32_t* bandPtr,                     ///< [OUT] NR active band.
+    taf_radio_RFBandWidth_t* bandWidthPtr, ///< [OUT] RF bandwidth.
+    uint8_t phoneId                        ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(bandPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandPtr)");
+
+    TAF_ERROR_IF_RET_VAL(bandWidthPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandWidthPtr)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandInfo(
+        taf_RadioRFBandInfoResponseCallback::rfBandInfoResponse);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        taf_RadioRFBandInfoResponseCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandInfoResponseCallback::result != LE_OK,
+        taf_RadioRFBandInfoResponseCallback::result, "Fail to get RF band information.");
+
+    *bandPtr = taf_RadioRFBandInfoResponseCallback::nrBand;
+    *bandWidthPtr = taf_RadioRFBandInfoResponseCallback::bandwidth;
+
+    return LE_OK;
 }

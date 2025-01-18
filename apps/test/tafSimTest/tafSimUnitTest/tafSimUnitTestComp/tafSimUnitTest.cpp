@@ -676,6 +676,16 @@ COMPONENT_INIT
         printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> <FPLMN MCC> <FPLMN MNC>\n");
         exit(EXIT_SUCCESS);
     }
+    if (NULL == mcc) {
+        LE_ERROR("Invalid input of MCC. Check usages for details.");
+        printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> <FPLMN MCC> <FPLMN MNC>\n");
+        exit(EXIT_FAILURE);
+    }
+    if (NULL == mnc) {
+        LE_ERROR("Invalid input of MNC. Check usages for details.");
+        printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> <FPLMN MCC> <FPLMN MNC>\n");
+        exit(EXIT_FAILURE);
+    }
     if(mcc && mnc)
     {
        int mccInt = atoi(mcc);

@@ -546,17 +546,17 @@ static le_result_t taf_hal_WakeupVehicleReqAsync
     }
 }
 
-static le_result_t taf_hal_NodeStateChangePrepareAsync
-(
+static le_result_t taf_hal_NodeStateChangePrepareAsync(
    uint8_t pmNodeId,
    hal_pm_NodeState_t state,
    hal_pm_PowerMode_t mode,
+   const uint8_t reason,
    hal_pm_NodeStateChangePrepareCallbackFunc_t callback
 )
 {
     LE_INFO("PM_VHAL: %s", __FUNCTION__);
-
-    callback(pmNodeId, state, mode, HAL_PM_RSP_READY);
+    LE_INFO("reason %d", reason);
+    callback(pmNodeId, state, mode, reason, HAL_PM_RSP_READY);
 
     return LE_OK;
 }
@@ -613,14 +613,14 @@ static void taf_hal_nodeInfoNotification
 (
     uint8_t pm_node_id,
     hal_pm_NodeInfo_t info,
-    const char* vhalTag
+    const uint8_t reason
 )
 {
     LE_INFO("PM_VHAL: %s", __FUNCTION__);
 
     LE_INFO("hal_pm_NodeInfo_t: %d", info);
 
-    LE_INFO("vhalTag: %s", vhalTag);
+    LE_INFO("reason: %d", reason);
 }
 
 static le_result_t taf_hal_addNodeEventHanlder

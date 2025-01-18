@@ -327,6 +327,21 @@ FUNCTION le_result_t GetRootFSVersion
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  Gets the LXC version.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetLXCVersion
+(
+    string version[VERSION_MAX_BYTES] OUT     ///< LXC version
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  *  Gets TelAF hash.
  *
  * @return
@@ -387,4 +402,20 @@ FUNCTION le_result_t GetFirmwareHash
 (
     Bank bank IN,                     ///< Bank
     uint8 hash[HASH_MAX_BYTES] OUT    ///< Firmware hash
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the LXC hash.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetLXCHash
+(
+    Bank bank IN,                     ///< Bank
+    uint8 hash[HASH_MAX_BYTES] OUT    ///< LXC hash
 );

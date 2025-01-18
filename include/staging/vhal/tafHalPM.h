@@ -177,6 +177,7 @@ typedef void (*INIT)(void);
  *  @param    pmNodeId    nodeid for a given node
  *  @param    state       State of the given node
  *  @param    mode        Corresonding shutdown mode to respond
+ *  @param    StateChangeReason     State Change request Reason
  *  @param    reason      Response to the request
  *
  * @return
@@ -187,15 +188,18 @@ typedef void (*hal_pm_NodeStateChangePrepareCallbackFunc_t)
     uint8_t pmNodeId,
     hal_pm_NodeState_t state,
     hal_pm_PowerMode_t mode,
+    const uint8_t StateChangeReason,
     hal_pm_RspReason_t reason
 );
+
 //--------------------------------------------------------------------------------------------------
 /**
- * NodeStateChangePrepare request to the VHAL hardware component.
+ * NodeStateChangeShutdownPrepareAsync request to the VHAL hardware component.
  *
  *  @param    pmNodeId    nodeid for a given node
  *  @param    state       State of the given node
  *  @param    mode        Shutdown mode request to the VHAL compoment
+ *  @param    reason      shutdown/restart reason.
  *  @param    callback    Callback function to response the request
  *
  * @return
@@ -206,8 +210,10 @@ typedef le_result_t (*hal_pm_NodeStateChangePrepareAsync)(
    uint8_t pmNodeId,
    hal_pm_NodeState_t state,
    hal_pm_PowerMode_t mode,
+   const uint8_t reason,
    hal_pm_NodeStateChangePrepareCallbackFunc_t callback
 );
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Callback for response of NodeStateChange request.
@@ -334,7 +340,7 @@ typedef void (*hal_pm_NodeInfoNotificationFunc_t)
 (
     uint8_t pm_node_id,
     hal_pm_NodeInfo_t info,
-    const char* vhalTag
+    const uint8_t reason
 );
 
 //--------------------------------------------------------------------------------------------------

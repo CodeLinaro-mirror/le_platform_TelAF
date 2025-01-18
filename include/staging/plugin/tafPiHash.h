@@ -62,7 +62,8 @@ typedef enum
     TAF_PI_HASH_COMP_BOOT,
     TAF_PI_HASH_COMP_ROOTFS,
     TAF_PI_HASH_COMP_FIRMWARE,
-    TAF_PI_HASH_COMP_TELAF
+    TAF_PI_HASH_COMP_TELAF,
+    TAF_PI_HASH_COMP_LXC
 } taf_pi_hash_Comp_t;
 
 //--------------------------------------------------------------------------------------------------

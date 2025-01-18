@@ -44,7 +44,6 @@ static taf_ecall_StateChangeHandlerRef_t HandlerRef;
 static le_thread_Ref_t ECallCmdThreadRef;
 static taf_ecall_CallRef_t ECallRef = NULL;
 
-#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
 static taf_audio_RouteRef_t routeRef;
 static taf_audio_StreamRef_t MdmRxAudioRef;
 static taf_audio_StreamRef_t MdmTxAudioRef;
@@ -57,7 +56,6 @@ static taf_audio_ConnectorRef_t AudioOutputConnectorRef;
 static taf_audio_MediaHandlerRef_t MediaHandlerRef = NULL;
 static char AudioFilePath[] = "/data/record.wav";
 le_result_t res;
-#endif
 
 static taf_gpio_ChangeEventHandlerRef_t GpioHandlerRef;
 static taf_locGnss_PositionHandlerRef_t PositionHandlerRef;
@@ -250,7 +248,6 @@ char* getCurrentTime() {
    return ctime(&tm);
 }
 
-#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
 static void MyMediaEventHandler
 (
     taf_audio_StreamRef_t          streamRef,
@@ -465,7 +462,6 @@ static void ConnectAudio()
 
     OpenVoiceAudio();
 }
-#endif
 
 static int terminateRegistration()
 {
@@ -693,25 +689,21 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS:
         {
             printf("TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS");
-#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
             taf_audio_Stop(playerRef);
             res = taf_audio_SetMute(MdmRxAudioRef, false);
             LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem RX!");
             res = taf_audio_SetMute(MdmTxAudioRef, false);
             LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem TX!");
-#endif
             break;
         }
         case TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED:
         {
             printf("TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED");
-#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
             taf_audio_Stop(playerRef);
             res = taf_audio_SetMute(MdmRxAudioRef, false);
             LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem RX!");
             res = taf_audio_SetMute(MdmTxAudioRef, false);
             LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem TX!");
-#endif
             break;
         }
         case TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE:
@@ -738,9 +730,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
                 LE_INFO("ECall ENDed, terminate reason  = %d", lcf );
                 printf("Call Termination reason: %d", lcf);
             }
-#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
             DisconnectAllAudio();
-#endif
             break;
         }
         case TAF_ECALL_STATE_RESET:
@@ -822,25 +812,21 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS:
         {
             printf("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS");
-#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
             taf_audio_Stop(playerRef);
             res = taf_audio_SetMute(MdmRxAudioRef, false);
             LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem RX!");
             res = taf_audio_SetMute(MdmTxAudioRef, false);
             LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem TX!");
-#endif
             break;
         }
         case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE:
         {
             printf("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE");
-#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
             taf_audio_Stop(playerRef);
             res = taf_audio_SetMute(MdmRxAudioRef, false);
             LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem RX!");
             res = taf_audio_SetMute(MdmTxAudioRef, false);
             LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem TX!");
-#endif
             break;
         }
         case TAF_ECALL_STATE_T2_STARTED:
@@ -934,7 +920,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
 static void PrintUsage ()
 {
     puts("\n"
-            "tafECallApp -- setOpMode <NORMAL/ECALL_ONLY/PERSISTENT_ECALL_ONLY> <SLOT1/SLOT2>\n"
+            "tafECallApp -- setOpMode <NORMAL/ECALL_ONLY> <SLOT1/SLOT2>\n"
             "tafECallApp -- getOpMode <SLOT1/SLOT2>\n"
             "tafECallApp -- setPsapNumber <NUMBER>\n"
             "tafECallApp -- getPsapNumber\n"
@@ -1121,7 +1107,12 @@ static int setNadDeregTime()
         return EXIT_FAILURE;
     }
 
-    uint16_t deregTime = atoi(le_arg_GetArg(2));
+    const char* time = le_arg_GetArg(2);
+    if (NULL == time) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    uint16_t deregTime = atoi(time);
     le_result_t result = taf_ecall_SetNadDeregistrationTime(deregTime);
     LE_TEST_OK(result == LE_OK, "setNadDeregTime - LE_OK");
     printf("Set de-reg time as %d is %s\n", deregTime, result == LE_OK ? "Success." : "Failed!");
@@ -1153,7 +1144,12 @@ static int setNadClearDownFallbackTime()
         return EXIT_FAILURE;
     }
 
-    uint16_t ccftTime = atoi(le_arg_GetArg(2));
+    const char* time = le_arg_GetArg(2);
+    if (NULL == time) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    uint16_t ccftTime = atoi(time);
     le_result_t result = taf_ecall_SetNadClearDownFallbackTime(ccftTime);
     LE_TEST_OK(result == LE_OK, "setNadClearDownFallbackTime - LE_OK");
     printf("Set clear down fallback time as %d is %s\n", ccftTime, result == LE_OK ? "Success." : "Failed!");
@@ -1185,7 +1181,12 @@ static int setNadMinNetworkRegistrationTime()
         return EXIT_FAILURE;
     }
 
-    uint16_t minNwRegTime = atoi(le_arg_GetArg(2));
+    const char* time = le_arg_GetArg(2);
+    if (NULL == time) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    uint16_t minNwRegTime = atoi(time);
     le_result_t result = taf_ecall_SetNadMinNetworkRegistrationTime(minNwRegTime);
     LE_TEST_OK(result == LE_OK, "setNadMinNetworkRegistrationTime - LE_OK");
     printf("Set min network registration time as %d is %s\n", minNwRegTime, result == LE_OK ? "Success." : "Failed!");
@@ -1202,9 +1203,15 @@ static int setOpMode()
         return EXIT_FAILURE;
     }
     const char* opMode =  le_arg_GetArg(2);
-    uint8_t phoneId = 1;
     const char* inputPhoneId = le_arg_GetArg(3);
+    uint8_t phoneId = 1;
     le_result_t result = LE_FAULT;
+
+    if ((NULL == opMode) || (NULL == inputPhoneId))
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
 
     if (strcmp(inputPhoneId, "SLOT2") == 0)
     {
@@ -1218,10 +1225,6 @@ static int setOpMode()
     else if (strcmp(opMode, "ECALL_ONLY") == 0)
     {
         result = taf_ecall_ForceOnlyMode(phoneId);
-    }
-    else if (strcmp(opMode, "PERSISTENT_ECALL_ONLY") == 0)
-    {
-        result = taf_ecall_ForcePersistentOnlyMode(phoneId);
     }
     else
     {
@@ -1248,6 +1251,11 @@ static int getOpMode()
     }
 
     const char* inputPhoneId = le_arg_GetArg(2);
+    if (NULL == inputPhoneId)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
 
     uint8_t phoneId = 1;
 
@@ -1272,9 +1280,6 @@ static int getOpMode()
                 break;
             case TAF_ECALL_MODE_ECALL:
                 printf("TAF_ECALL_MODE_ECALL\n");
-                break;
-            case TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY:
-                printf("TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY\n");
                 break;
             default:
                 printf("Unknown mode\n");
@@ -1308,7 +1313,13 @@ static int setMsdVersion()
         return EXIT_FAILURE;
     }
 
-    uint32_t msdVersion = atoi(le_arg_GetArg(2));
+    const char* version = le_arg_GetArg(2);
+    if (NULL == version) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    uint32_t msdVersion = atoi(version);
+
     le_result_t result = taf_ecall_SetMsdVersion(msdVersion);
     LE_TEST_OK(result == LE_OK, "setMsdVersion - LE_OK");
     printf("Set msd version as %d %s\n", msdVersion, result == LE_OK ? "Success." : "Failed!");
@@ -1414,6 +1425,10 @@ static int startECall()
     }
 
     const char* eCallType =  le_arg_GetArg(2);
+    if (NULL == eCallType) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
 
     ECallRef = taf_ecall_Create();
 
@@ -1427,24 +1442,18 @@ static int startECall()
     {
         taf_ecall_SetMsdEuroNCAPLocationOfImpact(ECallRef, TAF_ECALL_LOI_FRONT);
         taf_ecall_SetMsdEuroNCAPIIDeltaV(ECallRef, 125, -45, 10);
-#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
         ConnectAudio();
-#endif
         taf_ecall_StartAutomatic(ECallRef);
     }
     else if (strcmp(eCallType, "MANUAL") == 0)
     {
         taf_ecall_ResetMsdAdditionalData(ECallRef);
-#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
         ConnectAudio();
-#endif
         taf_ecall_StartManual(ECallRef);
     }
     else if (strcmp(eCallType, "TEST") == 0)
     {
-#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
         ConnectAudio();
-#endif
         taf_ecall_StartTest(ECallRef);
     }
     else if (strcmp(eCallType, "PRIVATE") == 0)
@@ -1486,9 +1495,7 @@ static int startECall()
             PrintUsage();
             return EXIT_FAILURE;
         }
-#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
         ConnectAudio();
-#endif
         taf_ecall_StartPrivate(ECallRef, psapNumber, contentType, acceptInfo);
     }
     else
@@ -1518,9 +1525,7 @@ static void StartAutoECall()
 
     taf_ecall_SetMsdPassengersCount(ECallRef, 2);
 
-#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
     ConnectAudio();
-#endif
     taf_ecall_StartAutomatic(ECallRef);
 
 }
@@ -1537,7 +1542,12 @@ static int addGPIOHandler()
         PrintUsage();
         return EXIT_FAILURE;
     }
+
     const char* pinNum = le_arg_GetArg(2);
+    if (NULL == pinNum) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
     uint32_t pin = atoi(pinNum);
 
     taf_gpio_SetInput(pin, TAF_GPIO_ACTIVE_HIGH, false);
@@ -1556,7 +1566,12 @@ static int getHlapTimerState()
         return EXIT_FAILURE;
     }
 
-    taf_ecall_HlapTimerType_t hlapTimerType = atoi(le_arg_GetArg(2));
+    const char* timerType = le_arg_GetArg(2);
+    if (NULL == timerType) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    taf_ecall_HlapTimerType_t hlapTimerType = atoi(timerType);
     taf_ecall_HlapTimerStatus_t timerStatus;
     uint16_t elapsedTime;
     le_result_t result = taf_ecall_GetHlapTimerState(hlapTimerType, &timerStatus, &elapsedTime);
@@ -1593,7 +1608,12 @@ static int setInitialDialAttempts()
         return EXIT_FAILURE;
     }
 
-    uint8_t dialAttempts = atoi(le_arg_GetArg(2));
+    const char* attempts = le_arg_GetArg(2);
+    if (NULL == attempts) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    uint8_t dialAttempts = atoi(attempts);
     le_result_t result = taf_ecall_SetInitialDialAttempts(dialAttempts);
     LE_TEST_OK(result == LE_OK, "setInitialDialAttempts - LE_OK");
     printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");

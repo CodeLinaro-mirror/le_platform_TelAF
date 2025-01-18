@@ -64,22 +64,13 @@ static void examples(cfg::Node & node)
     }
 
     {
-        cfg::Node & n = cfg::top_dtc_all<int>("identification.code", 0xAB00CC);
+        cfg::Node & n = cfg::top_dtc_all<int>("identification.code", 0xAB0000);
         std::cout << "Eg. top_dtc_all 1..snapshot_record_content: " << n.get<string>("snapshots.snapshot_record_content") << std::endl;
-
-        cfg::dtc_all_item_t temp;
-        cfg::top_dtc_all<int>("identification.code", 0xAB00CC, &temp);
-        std::cout << "Eg. top_dtc_all 2..snapshot_record_content: " <<temp.snapshots.snapshot_record_content << std::endl;
     }
 
     {
         cfg::Node & n = cfg::top_events<int>("id", 0x0001);
         std::cout << "Eg. top_events ..long_name: " << n.get<string>("long_name") <<std::endl;
-
-        cfg::events_item_t temp;
-        cfg::top_events<int>("id", 0x0005, &temp);
-        std::cout << "Eg. top_events 1..indicator[0]: " <<temp.connected_indicator.indicator[0] << std::endl;
-        std::cout << "Eg. top_events 2..long_name: " << temp.long_name << std::endl;
 
         cfg::Node & nn = cfg::top_events<int>("connected_indicator.indicator_failure_cycle_counter_threshold", 1);
         std::cout << "Eg. top_events 3..debounce_algorithm: " << nn.get<string>("debounce_algorithm") << std::endl;
@@ -109,73 +100,16 @@ static void examples(cfg::Node & node)
     {
         cfg::Node & n = cfg::top_freeze_frames<string>("short_name", "lastOccurrence");
         std::cout << "Eg. top_freeze_frames 1 .. trigger: " << n.get<string>("trigger") << std::endl;
-
-        cfg::freeze_frames_item_t temp;
-        cfg::top_freeze_frames<string>("short_name", "lastOccurrence", &temp);
-        std::cout << "Eg. top_freeze_frames 2 .. trigger: " << temp.trigger << std::endl;
-    }
-
-    {
-        cfg::Node & n = cfg::top_fim_all<string>("diagnostic_function_identifier", "Fim_fid_dma_accelpos_accel_pdl_grd_lim");
-        std::cout << "Eg. top_fim_all 1 .. context_sw_component: " << n.get<string>("context_sw_component") << std::endl;
-
-        cfg::fim_all_item_t temp;
-        cfg::top_fim_all<string>("diagnostic_function_identifier", "Fim_fid_dma_accelpos_accel_pdl_grd_lim", &temp);
-        std::cout << "Eg. top_fim_all 2 .. context_sw_component: " << temp.context_sw_component << std::endl;
-    }
-
-    {
-        cfg::Node & n = cfg::top_storage_condition<string>("short_name", "Storage_2");
-        std::cout << "Eg. top_storage_condition 1 .. context_sw_component: " << n.get<string>("context_sw_component") << std::endl;
-
-        cfg::storage_condition_item_t temp;
-        cfg::top_storage_condition<string>("short_name", "Storage_2", &temp);
-        std::cout << "Eg. top_storage_condition 2 .. context_sw_component: " << temp.context_sw_component << std::endl;
-    }
-
-    {
-        cfg::Node & n = cfg::top_enable_condition<string>("short_name", "Enable_1");
-        std::cout << "Eg. top_enable_condition 1 .. context_sw_component: " << n.get<string>("context_sw_component") << std::endl;
-
-        cfg::enable_condition_item_t temp;
-        cfg::top_enable_condition<string>("short_name", "Enable_1", &temp);
-        std::cout << "Eg. top_enable_condition 2 .. context_sw_component: " << temp.context_sw_component << std::endl;
     }
 
     {
         cfg::Node & n = cfg::top_operation_cycle<string>("short_name", "POWER");
         std::cout << "Eg. top_operation_cycle 1 .. type: " << n.get<string>("type") << std::endl;
-
-        cfg::operation_cycle_item_t temp;
-        cfg::top_operation_cycle<string>("short_name", "POWER", &temp);
-        std::cout << "Eg. top_operation_cycle 2 .. type: " << temp.type << std::endl;
-    }
-
-    {
-        cfg::Node & n = cfg::top_indicator<string>("short_name", "MIL");
-        std::cout << "Eg. top_indicator 1 .. type: " << n.get<string>("type") << std::endl;
-
-        cfg::indicator_item_t temp;
-        cfg::top_indicator<string>("short_name", "MIL", &temp);
-        std::cout << "Eg. top_indicator 2 .. type: " << temp.type << std::endl;
-    }
-
-    {
-        cfg::Node & n = cfg::top_connected_indicator_behavior<string>("indicator_mnemonic", "FAST-FLASHING-MODE");
-        std::cout << "Eg. top_connected_indicator_behavior 1 .. conditions: " << n.get<string>("conditions") << std::endl;
-
-        cfg::connected_indicator_behavior_item_t temp;
-        cfg::top_connected_indicator_behavior<string>("indicator_mnemonic", "FAST-FLASHING-MODE", &temp);
-        std::cout << "Eg. top_connected_indicator_behavior 2 .. conditions: " << temp.conditions << std::endl;
     }
 
     {
         cfg::Node & n = cfg::top_extended_data_records<string>("short_name", "IUMPRNumerator");
         std::cout << "Eg. top_extended_data_records 1 .. trigger: " << n.get<string>("trigger") << std::endl;
-
-        cfg::extended_data_records_item_t temp;
-        cfg::top_extended_data_records<string>("short_name", "IUMPRNumerator", &temp);
-        std::cout << "Eg. top_extended_data_records 2 .. trigger: " << temp.trigger << std::endl;
     }
 
 }

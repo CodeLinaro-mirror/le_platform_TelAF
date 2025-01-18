@@ -651,11 +651,17 @@ void taf_Gpio::removeChangeCallback
         }
     }
 
-    if(isDrvPresent)
+    if (isDrvPresent)
     {
-        if((*(gpioInf->removeCallback)) == nullptr)
+        if ((*(gpioInf->removeCallback)) == nullptr)
         {
             LE_ERROR("removeCallback not initialized");
+            return;
+        }
+
+        if (gpioRef == nullptr)
+        {
+            LE_ERROR("gpioRef not initialized");
             return;
         }
 

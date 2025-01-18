@@ -53,7 +53,11 @@ void tafMngdStorageSvc::Init(void)
 {
     InitStorage();
     taf_rfs_Init(true, nullptr);
-    taf_rfs_SetBackupStorage(secDataRfsStorage);
+    // Set up RFS backup storage to the specified path
+    if (taf_rfs_SetBackupStorage(secDataRfsStorage) != LE_OK)
+    {
+        LE_ERROR("Failed to set rfs backup storage %s", secDataRfsStorage);
+    }
 }
 
 size_t tafMngdStorageSvc::GetFileSize

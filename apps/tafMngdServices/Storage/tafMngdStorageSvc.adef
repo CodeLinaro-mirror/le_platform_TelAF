@@ -6,7 +6,7 @@
 maxThreads: 600
 
 username: telaf
-startGroup: 18
+startGroup: 11
 
 capability:
 {
@@ -61,6 +61,7 @@ bindings:
     tafMngdSecDataStorageSvc.tafMngdSecDataStorageSvc.le_appInfo -> <root>.le_appInfo
     tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.taf_fsc -> tafKeyStoreSvc.taf_fsc
     tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.le_appInfo -> <root>.le_appInfo
+    tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.taf_mngdStorSecData -> tafMngdStorageSvc.taf_mngdStorSecData
 }
 
 bundles:

@@ -1,59 +1,66 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
 import "platform:/plugin/org.genivi.commonapi.someip/deployment/CommonAPI-4-SOMEIP_deployment_spec.fdepl"
-import "platform:/plugin/org.genivi.commonapi.core/deployment/CommonAPI_deployment_spec.fdepl"
+import "platform:/plugin/org.genivi.commonapi.core/deployment/CommonAPI-4_deployment_spec.fdepl"
 import "SimSvc.fidl"
-import "../common/CommonTypes.fdepl"
 
-define org.genivi.commonapi.core.deployment for interface com.qualcomm.qti.modem.SimSvc
+define org.genivi.commonapi.core.deployment for typeCollection com.qualcomm.qti.telephony.SimSvcTypes
 {
-    DefaultEnumBackingType = UInt32
-
-    enumeration States
+    enumeration PhoneIdT
     {
-        EnumBackingType = UInt32
+        EnumBackingType = UInt8
+    }
+
+    enumeration TelephonyResultT
+    {
+        EnumBackingType = UInt8
+    }
+
+    enumeration SimStateT
+    {
+        EnumBackingType = UInt8
+    }
+
+    enumeration ValueState
+    {
+        EnumBackingType = UInt8
     }
 }
 
-define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.modem.SimSvc
+define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.telephony.SimSvc
 {
     SomeIpServiceID = 0xED81
 
-    enumeration States
+    broadcast SimState
     {
-        SomeIpEnumWidth = 4
+        SomeIpEventID = 33169
+        SomeIpEventGroups = { 33169 }
     }
 
     method GetImsi
     {
-        SomeIpMethodID = 0x1101
+        SomeIpMethodID = 401
     }
 
     method GetState
     {
-        SomeIpMethodID = 0x1102
+        SomeIpMethodID = 402
     }
 
-    method GetICCID
+    method GetIccid
     {
-        SomeIpMethodID = 0x1103
-    }
-
-    broadcast SimState
-    {
-        SomeIpEventID = 0x9101
-        SomeIpEventGroups = { 0x9100 }
+        SomeIpMethodID = 403
     }
 }
 
 define org.genivi.commonapi.someip.deployment for provider as Service
 {
-    instance com.qualcomm.qti.modem.SimSvc
+    instance com.qualcomm.qti.telephony.SimSvc
     {
-        InstanceId = "modem.SimSvc"
+        InstanceId = "telephony.SimSvc"
 
         SomeIpInstanceID = 1
     }

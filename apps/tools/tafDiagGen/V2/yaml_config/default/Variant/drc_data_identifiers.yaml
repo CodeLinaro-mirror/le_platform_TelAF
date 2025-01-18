@@ -1,0 +1,148 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+domain_name: Variant
+
+did_all:
+  0xF0D0:
+    did_ref: Mileage
+  0xF0D2:
+    did_ref: DateFirstAndLastOccurrence
+  0xEF01:
+    did_ref: SupplierFaultCode
+  0xF011:
+    did_ref: IndexSrvData
+
+  0x9006:
+    identification:
+      code: 0x9006
+    implementation:
+      did_size: 1
+      endianness: MSB
+    supported_functions:
+      write_did: False
+      read_did: True
+      snapshot: False
+      io_control: True
+      routine_did: False
+      io_control_description:
+        return_control_to_ecu: true
+        reset_to_default: false
+        freeze_current_state: false
+        short_term_adjustment: true
+    did_accessibility:
+      diagnostic_session_and_security_level:
+        execution_authorization_pattern_read: did_read_app
+        execution_authorization_pattern_io: io_control
+  0xA5A5:
+    identification:
+      code: 0xA5A5
+    implementation:
+      did_size: 1
+      endianness: LSB
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session: [ R, W ]
+        extended_diagnostic_session: [ R, W ]
+      diagnostic_session_and_security_level:
+        execution_authorization_pattern_read: base
+    data_enable_condition:
+      and:
+        - tooHigh
+        - tooLow
+  0xA5A6:
+    identification:
+      code: 0xA5A6
+    implementation:
+      did_size: 1
+      endianness: LSB
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session: [ R, W ]
+        extended_diagnostic_session: [ R, W ]
+      diagnostic_session_and_security_level:
+        execution_authorization_pattern_read: base
+    data_enable_condition:
+      and:
+        - tooHigh
+        - tooLow
+
+  0xA0A0:
+    identification:
+      code: 0xA0A0
+    implementation:
+      did_size: 1
+      endianness: LSB
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session: [ R ]
+        extended_diagnostic_session: [ R, W ]
+        programming_session: [ W ]
+      diagnostic_session_and_security_level:
+        execution_authorization_pattern_read: test_did_0xA0A0_r
+        execution_authorization_pattern_write: test_did_0xA0A0_w
+    data_enable_condition:
+      and:
+        - tooHigh
+        - tooLow
+  0xA0A1:
+    identification:
+      code: 0xA0A1
+    implementation:
+      did_size: 1
+      endianness: LSB
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        extended_diagnostic_session: [ R ]
+        programming_session: [ W ]
+      diagnostic_session_and_security_level:
+        execution_authorization_pattern_read: test_did_0xA0A1_r
+        execution_authorization_pattern_write: test_did_0xA0A1_w
+    data_enable_condition:
+      and:
+        - tooHigh
+        - tooLow
+  0xA0A2:
+    identification:
+      code: 0xA0A2
+    implementation:
+      did_size: 1
+      endianness: LSB
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session: [ R, W ]
+        extended_diagnostic_session: [ R, W ]
+    data_enable_condition:
+      and:
+        - tooHigh
+        - tooLow

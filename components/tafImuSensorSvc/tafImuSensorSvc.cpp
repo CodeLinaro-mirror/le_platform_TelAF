@@ -153,8 +153,9 @@ le_result_t taf_imuSensor_GetId
     uint32_t* sensorIdPtr
 )
 {
-     auto& sensorMngr = taf_Sensor::GetInstance();
-     return sensorMngr.GetSensorId(sensorRef,sensorIdPtr);
+    TAF_ERROR_IF_RET_VAL(sensorIdPtr == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.GetSensorId(sensorRef,sensorIdPtr);
 }
 
 /*======================================================================
@@ -182,8 +183,9 @@ le_result_t taf_imuSensor_GetName
     size_t sensorNameSize
 )
 {
-     auto& sensorMngr = taf_Sensor::GetInstance();
-     return sensorMngr.GetSensorName(sensorRef,sensorName,sensorNameSize);
+    TAF_ERROR_IF_RET_VAL(sensorName == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.GetSensorName(sensorRef,sensorName,sensorNameSize);
 }
 
 /*======================================================================
@@ -211,8 +213,9 @@ le_result_t taf_imuSensor_GetVendorName
     size_t sensorVendorNameSize
 )
 {
-     auto& sensorMngr = taf_Sensor::GetInstance();
-     return sensorMngr.GetSensorVendorName(sensorRef,sensorVendorName,sensorVendorNameSize);
+    TAF_ERROR_IF_RET_VAL(sensorVendorName == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.GetSensorVendorName(sensorRef,sensorVendorName,sensorVendorNameSize);
 }
 
 /*======================================================================
@@ -239,8 +242,9 @@ le_result_t taf_imuSensor_GetType
     taf_imuSensor_SensorType_t* sensorTypePtr
 )
 {
-     auto& sensorMngr = taf_Sensor::GetInstance();
-     return sensorMngr.GetSensorType(sensorRef,sensorTypePtr);
+    TAF_ERROR_IF_RET_VAL(sensorTypePtr == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.GetSensorType(sensorRef,sensorTypePtr);
 }
 
 /*======================================================================
@@ -268,8 +272,9 @@ le_result_t taf_imuSensor_GetVersion
     size_t versionSize
 )
 {
-     auto& sensorMngr = taf_Sensor::GetInstance();
-     return sensorMngr.GetSensorVersion(sensorRef,version,versionSize);
+    TAF_ERROR_IF_RET_VAL(version == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.GetSensorVersion(sensorRef,version,versionSize);
 }
 
 /*======================================================================
@@ -297,8 +302,9 @@ le_result_t taf_imuSensor_GetSupportedSamplingRate
     size_t* samplingRatesListSizePtr
 )
 {
-     auto& sensorMngr = taf_Sensor::GetInstance();
-     return sensorMngr.GetSensorSamplingRateInfo(sensorRef,
+    TAF_ERROR_IF_RET_VAL(samplingRatesListPtr == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.GetSensorSamplingRateInfo(sensorRef,
         samplingRatesListPtr,samplingRatesListSizePtr);
 }
 
@@ -327,6 +333,8 @@ le_result_t taf_imuSensor_GetSupportedBatchCount
     uint32_t* minBatchCountSupportedPtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(maxBatchCountSupportedPtr == NULL || minBatchCountSupportedPtr == NULL,
+        LE_BAD_PARAMETER, "output pointer is NULL");
     auto& sensorMngr = taf_Sensor::GetInstance();
     return sensorMngr.GetSensorBatchingInfo(sensorRef,
         maxBatchCountSupportedPtr,minBatchCountSupportedPtr);
@@ -356,6 +364,7 @@ le_result_t taf_imuSensor_GetRange
     double* rangePtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(rangePtr == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
     auto& sensorMngr = taf_Sensor::GetInstance();
     return sensorMngr.GetSensorRangeInfo(sensorRef,rangePtr);
 }
@@ -384,6 +393,7 @@ le_result_t taf_imuSensor_GetResolution
     double* resolutionPtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(resolutionPtr == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
     auto& sensorMngr = taf_Sensor::GetInstance();
     return sensorMngr.GetSensorResolution(sensorRef,resolutionPtr);
 }
@@ -554,6 +564,8 @@ le_result_t taf_imuSensor_GetRotatedData
     size_t* BiasDataSizePtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(RawDataPtr == NULL || BiasDataPtr == NULL,
+        LE_BAD_PARAMETER, "output pointer is NULL");
     auto& sensorMngr = taf_Sensor::GetInstance();
     return sensorMngr.GetData(sampleRef,RawDataPtr, RawDataSizePtr,BiasDataPtr,BiasDataSizePtr);
 }

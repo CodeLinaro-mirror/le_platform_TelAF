@@ -34,7 +34,7 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_taf_mngdStorCfg Managed Storage Service
+ * @page c_taf_mngdStorCfg Managed Configuration Storage Service
  *
  * @rst :ref:`API reference <File taf_mngdStorCfg_interface.h>` @endrst
  *
@@ -72,7 +72,7 @@
 
    taf_mngdStorCfg_ConfigRef_t cRef = taf_mngdStorCfg_GetRef();
 
- * @endcode
+   @endcode
  *
  * @section taf_mngdStorCfg_Update Update the file in config storage
  *
@@ -84,7 +84,7 @@
     le_result_t result;
     result = taf_mngdStorCfg_Update(cRef,"1.0.0");
 
- * @endcode
+   @endcode
  *
  * @section taf_mngdStorCfg_Activate Replace orignal config file with updated file
  *
@@ -96,7 +96,7 @@
     le_result_t result;
     result = taf_mngdStorCfg_Activate(cRef);
 
- * @endcode
+   @endcode
  *
  * @section taf_mngdStorCfg_Cancel Cancel the configuration file update campaign
  *
@@ -108,7 +108,7 @@
     le_result_t result;
     result = taf_mngdStorCfg_Cancel(cRef);
 
- * @endcode
+   @endcode
  *
  * @section taf_mngdStorCfg_Rollback Revert the config file to original version
  *
@@ -120,7 +120,7 @@
     le_result_t result;
     result = taf_mngdStorCfg_Rollback(cRef);
 
- * @endcode
+   @endcode
  *
  *
  * @section taf_mngdStorCfg_Commit Commit data to config storage after successful firmare update
@@ -133,7 +133,7 @@
     le_result_t result;
     result = taf_mngdStorCfg_Commit(cRef);
 
- * @endcode
+   @endcode
  *
  * @section taf_mngdStorCfg_GetVersion Get the version of config storage
  *
@@ -147,7 +147,7 @@
     uint32_t PatchVersionPtr=0;
     result = taf_mngdStorCfg_GetVersion(cRef,&MajorVersionPtr,&MinorVersionPtr,&PatchVersionPtr);
 
- * @endcode
+   @endcode
  *
  * @section taf_mngdStorCfg Get Api's
  *
@@ -176,7 +176,7 @@
     taf_mngdStorCfg_NodeType_t typePtr;
     result = taf_mngdStorCfg_GetValue(cRef, groupName, nodeName, &typePtr, nodeValue, sizeof(nodeValue));
 
- * @endcode
+   @endcode
  *
  * @section taf_mngdStorCfg_ReleaseRef Release reference of config storage
  *
@@ -187,7 +187,7 @@
     le_result_t result;
     result = taf_mngdStorCfg_ReleaseRef(cRef);
 
- * @endcode
+   @endcode
  *
  * <HR>
  *

@@ -653,6 +653,37 @@ void taf_ResetSvr::ClearResetMsgList
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Clear Vlan list.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_ResetSvr::ClearVlanList
+(
+    taf_ResetSvc_t* servicePtr
+)
+{
+    LE_DEBUG("ClearVlanList");
+    TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
+
+    // Clear the vlan id list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
+    while (linkPtr != NULL)
+    {
+        taf_ResetVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_ResetVlanIdNode_t, link);
+        if (vlanPtr != NULL)
+        {
+            LE_INFO("Release vlan(id=0x%x)", vlanPtr->vlanId);
+            le_mem_Release(vlanPtr);
+        }
+
+        // Process next node.
+        linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
+    }
+
+    return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Remove the created service and release the alloted memory.
  */
 //-------------------------------------------------------------------------------------------------
@@ -668,6 +699,7 @@ le_result_t taf_ResetSvr::RemoveSvc
 
     // Release reset message resources.
     ClearResetMsgList(servicePtr);
+    ClearVlanList(servicePtr);
 
     // Clear the registered reset handler
     if (servicePtr->handlerRef != NULL)

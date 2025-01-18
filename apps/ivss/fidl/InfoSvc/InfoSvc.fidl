@@ -3,30 +3,149 @@
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
-package com.qualcomm.qti.modem
-import com.qualcomm.qti.modem.CommonTypes.* from "../common/CommonTypes.fidl"
+package com.qualcomm.qti.telephony
 
-interface InfoSvc
-{
-    version { major 0 minor 1 }
-
-    //----------------------------------------------------------------------------------------------
+/**
+    @description :
+        
+            
+**/
+typeCollection InfoSvcTypes {
+    version { major 1 minor 0 }
+    
     /**
-    * Retrieves the International Mobile Equipment Identity (IMEI).
-    *
-    * @return FAULT         -- Failed to retrieve the IMEI.
-    *         OVERFLOW      -- IMEI length exceeds the maximum length.
-    *         UNSUPPORTED   -- Not Supported.
-    *         OK            -- Succeeded.
-    */
-    //----------------------------------------------------------------------------------------------
-    method GetImei
-    {
-        out
-        {
-            String imei         ///< IMEI number.
+        @description :
+            
+        @experimental: type : uint8
+    **/
+    enumeration TelephonyResultT {
+        /** Unknow result.  **/
+        TELEPHONY_RESULT_T_UNKNOWN = 0
+        
+        /** Successful.  **/
+        TELEPHONY_RESULT_T_OK = 1
+        
+        /** Referenced item does not exist or could not be found.  **/
+        TELEPHONY_RESULT_T_NOT_FOUND = 2
+        
+        /** An index or other value is out of range.  **/
+        TELEPHONY_RESULT_T_OUT_OF_RANGE = 3
+        
+        /** Insufficient memory is available.  **/
+        TELEPHONY_RESULT_T_NO_MEMORY = 4
+        
+        /** Current user does not have permission to perform requested action.  **/
+        TELEPHONY_RESULT_T_NOT_PERMITTED = 5
+        
+        /** Unspecified internal error.  **/
+        TELEPHONY_RESULT_T_FAULT = 6
+        
+        /** Communications error.  **/
+        TELEPHONY_RESULT_T_COMM_ERROR = 7
+        
+        /** A time-out occurred.  **/
+        TELEPHONY_RESULT_T_TIMEOUT = 8
+        
+        /** An overflow occurred or would have occurred.  **/
+        TELEPHONY_RESULT_T_OVERFLOW = 9
+        
+        /** An underflow occurred or would have occurred.  **/
+        TELEPHONY_RESULT_T_UNDERFLOW = 10
+        
+        /** Would have blocked if non-blocking behaviour was not requested.  **/
+        TELEPHONY_RESULT_T_WOULD_BLOCK = 11
+        
+        /** Would have caused a deadlock.  **/
+        TELEPHONY_RESULT_T_DEADLOCK = 12
+        
+        /** Format error.  **/
+        TELEPHONY_RESULT_T_FORMAT_ERROR = 13
+        
+        /** Duplicate entry found or operation already performed.  **/
+        TELEPHONY_RESULT_T_DUPLICATE = 14
+        
+        /** Parameter is invalid.  **/
+        TELEPHONY_RESULT_T_BAD_PARAMETER = 15
+        
+        /** The resource is closed.  **/
+        TELEPHONY_RESULT_T_CLOSED = 16
+        
+        /** The resource is busy.  **/
+        TELEPHONY_RESULT_T_BUSY = 17
+        
+        /** The underlying resource does not support this operation.  **/
+        TELEPHONY_RESULT_T_UNSUPPORTED = 18
+        
+        /** An IO operation failed.  **/
+        TELEPHONY_RESULT_T_IO_ERROR = 19
+        
+        /** Unimplemented functionality.  **/
+        TELEPHONY_RESULT_T_NOT_IMPLEMENTED = 20
+        
+        /** A transient or temporary loss of a service or resource.  **/
+        TELEPHONY_RESULT_T_UNAVAILABLE = 21
+        
+        /** The process, operation, data stream, session, etc. has stopped.  **/
+        TELEPHONY_RESULT_T_TERMINATED = 22
+        
+        /** The operation is in progress.  **/
+        TELEPHONY_RESULT_T_IN_PROGRESS = 23
+        
+        /** The operation is suspended.  **/
+        TELEPHONY_RESULT_T_SUSPENDED = 24
+            
+    }
+    
+        
+    
+}
+
+/**
+    @description :
+
+**/
+interface InfoSvc {
+    version { major 1 minor 0 }
+    
+
+    
+    
+    
+        
+            
+    /**
+        @description :
+            Retrieves the International Mobile Equipment Identity (IMEI).
+                        
+        @experimental: asil-level  : 
+        @experimental: periodicity :
+        @experimental: exclusion-time : 
+    **/
+    method GetImei {
+            
+            
+        out {
+
+            /**
+                @description : IMEI number. 
+                
+                    
+                @experimental: max-size: 16
+                    
+                
+            **/
+            String imei
+
+            /**
+                @description : result code defined in Result. 
+                
+            **/
+            InfoSvcTypes.TelephonyResultT result
 
         }
-        error Result            ///< return result.
+            
     }
+            
+        
+    
 }

@@ -205,6 +205,14 @@
    }
    @endverbatim
  *
+ * The taf_locGnss_DeleteDRSensorCalData() function deletes Dead Reckoning sensor calibration data.
+ * @verbatim
+   if(taf_locGnss_DeleteDRSensorCalData() == LE_OK)
+   {
+     // Process after successfully deleting the Dead Reckoning sensor aiding data.
+   }
+   @endverbatim
+ *
  * @subsubsection taf_locGnss_TTFF Obtain Time To First Fix (TTFF)
  *
  * The taf_locGnss_GetTtff() function provides the TTFF
@@ -251,14 +259,14 @@
  *
  * @subsection taf_locGnss_SetGetConstellation Control GNSS constellation blacklisting
  *
- * The taf_locGnss_SetConstellation() function blacklists some constellations or subset of SVs from
- * the constellation from being used by the GNSS standard position engine (SPE).
+ * The taf_locGnss_SetConstellation() function blacklists some constellations from
+ * being used by the GNSS standard position engine (SPE).
  * @verbatim
    taf_locGnss_ConstellationBitMask_t constellationMask;
    constellationMask = TAF_LOCGNSS_CONSTELLATION_GPS;
    if(taf_locGnss_SetConstellation(constellationMask)== LE_FAULT)
    {
-     // GPS constellation and SVs cannot be blacklisted.
+     // Process after successfully blacklisting GPS constellation.
    }
 
    constellationMask = TAF_LOCGNSS_CONSTELLATION_SBAS | taf_locGnss_CONSTELLATION_BEIDOU;
@@ -366,7 +374,7 @@
  *
  * @b NOTE: All supported NMEA sentences are enabled by default.
  *
- * The taf_locGnss_GetNmeaSentences() function gets the bitmask of the enabled NMEA sentences.
+ * The taf_locGnss_GetNmeaSentences() function gets the bitmask which are configured by the API taf_locGnss_SetNmeaSentences.
  * @verbatim
    taf_locGnss_NmeaBitMask_t nmeaMask;
    if(taf_locGnss_GetNmeaSentences(&nmeaMask)== LE_OK)
@@ -731,6 +739,16 @@
    }
    @endverbatim
  *
+ * - taf_locGnss_GetDRSolutionStatus() -- Triggered inside the PositionHandlerFunction()
+ *                                    function to get dead reckoning solution status from the position sample reference.
+ * @verbatim
+   uint32 solutionStatusPtr;
+   if(taf_locGnss_GetDRSolutionStatus(positionSampleRef,&solutionStatusPtr) == LE_OK)
+   {
+     // Process after successfully getting the dead reckoning solution status.
+   }
+   @endverbatim
+ *
  * - taf_locGnss_GetBodyFrameData() -- Triggered inside the PositionHandlerFunction()
  *                                  function to get body frame data from the positionSampleRef.
  * @verbatim
@@ -854,7 +872,7 @@
    uint64_t realTimeUnc;
    if(taf_locGnss_GetRealTimeInformation(positionSampleRef, &realTime,&realTimeUnc) == LE_OK)
    {
-     // Process after successfully getting elapsed real time and its uncertainity.
+     // Process after successfully getting elapsed real time and its uncertainty.
    }
    @endverbatim
  *
@@ -1076,6 +1094,7 @@
  * and next leap seconds.
  * Insertion of each UTC leap second is usually decided about six months in advance by the
  * International Earth Rotation and Reference Systems Service (IERS).
+ * The leap seconds uncertainty value is retrieved by calling taf_locGnss_GetLeapSecondsUncertainty() API.
  *
  * @section taf_locGnss_usage_flow Typical application call flow
  *
@@ -1783,18 +1802,18 @@ FUNCTION le_result_t Stop
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the GNSS constellation bitmask that needs to be blacklisted per client session.
+ * Sets the constellations which need to be blacklisted from being
+ * used by the GNSS standard position engine.
  *
  * @return
  *  - LE_FAULT         Failed.
- *  - LE_NOT_PERMITTED The Location service state is not initialized, disabled, or active.
+ *  - LE_NOT_PERMITTED The Location service state is not ready or active.
  *  - LE_OK            Succeeded.
  *
  * @b WARNING: Some constellation types are unsupported depending on the platform.
  *
  * @b WARNING: The settings are platform dependent.
  *
- * @b NOTE: GPS constellation and SVs cannot be blacklisted.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetConstellation
@@ -1804,14 +1823,15 @@ FUNCTION le_result_t SetConstellation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the GNSS constellation bitmask which are blacklisted per client session.
+ * Gets the constellations that have been blacklisted by the API taf_locGnss_SetConstellation().
+ * The API is not persistent after reboots and will return an error if the
+ * taf_locGnss_SetConstellation() function is not called again.
  *
  * @return
- *  - LE_OK    Succeeded.
- *  - LE_FAULT Failed.
+ *  - LE_OK            Succeeded.
+ *  - LE_NOT_PERMITTED The Location service state is not ready or active.
+ *  - LE_FAULT         Failed.
  *
- * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
- *       client will be killed.
  *
 */
 //--------------------------------------------------------------------------------------------------
@@ -2002,6 +2022,47 @@ ENUM CalibrationType {
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Status that contributes to the dead reckoning position engine.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK drSolutionStatusType {
+    VEHICLE_SENSOR_SPEED_INPUT_DETECTED,   ///< Vehicle sensor speed input was detected by
+                                           ///< the dead reckoning position engine.
+    VEHICLE_SENSOR_SPEED_INPUT_USED,       ///< Vehicle sensor speed input was used by
+                                           ///< the dead reckoning position engine.
+    WARNING_UNCALIBRATED,                  ///< Dead recokining engine solution disengaged
+                                           ///< due to insufficient calibration.
+    WARNING_GNSS_QUALITY_INSUFFICIENT,     ///< Dead reckoning engine solution disengaged
+                                           ///< due to bad GNSS quality.
+    WARNING_FERRY_DETECTED,                ///< Dead reckoning engine solution disengaged
+                                           ///< as ferry condition detected.
+    ERROR_6DOF_SENSOR_UNAVAILABLE,         ///< Dead reckoning engine solution disengaged
+                                           ///< as 6DOF sensor inputs not available.
+    ERROR_VEHICLE_SPEED_UNAVAILABLE,       ///< Dead reckoning engine solution disengaged
+                                           ///< as vehicle speed inputs not available.
+    ERROR_GNSS_EPH_UNAVAILABLE,            ///< Dead reckoning engine solution disengaged
+                                           ///< as Ephemeris info not available.
+    ERROR_GNSS_MEAS_UNAVAILABLE,           ///< Dead reckoning engine solution disengaged
+                                           ///< as GNSS measurement info not available.
+    WARNING_INIT_POSITION_INVALID,         ///< Dead reckonign engine solution disengaged due
+                                           ///< to non-availability of stored position
+                                           ///< from previous session.
+    WARNING_INIT_POSITION_UNRELIABLE,      ///< Dead reckoning engine solution disengage due to
+                                           ///< vehicle motion detected at session start.
+    WARNING_POSITON_UNRELIABLE,            ///< Dead reckoning engine solution disengage due to
+                                           ///< unreliable position.
+    ERROR_GENERIC,                         ///< Dead reckoning engine solution disengage due
+                                           ///< to a generic error.
+    WARNING_SENSOR_TEMP_OUT_OF_RANGE,      ///< Dead reckoning engine solution disengage due
+                                           ///< to Sensor Temperature being out of range.
+    WARNING_USER_DYNAMICS_INSUFFICIENT,    ///< Dead reckoning engine solution disengage due
+                                           ///< to insufficient user dynamics.
+    WARNING_FACTORY_DATA_INCONSISTENT      ///< Dead reckoning engine solution disengage due
+                                           ///< to inconsistent factory data.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Type of kinematics data validity.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2067,7 +2128,7 @@ BITMASK LocationInfoValidity
     HAS_ELAPSED_REAL_TIME_UNC_BIT,///< Valid elapsed real time uncertainty via
                                   ///  @ref taf_locGnss_GetRealTimeInformation
     HAS_GPTP_TIME_BIT,            ///< Valid gptp time via @ref taf_locGnss_GetGptpTime
-    HAS_GPTP_TIME_UNC_BIT         ///< Valid gptp time uncertainity via @ref taf_locGnss_GetGptpTime
+    HAS_GPTP_TIME_UNC_BIT         ///< Valid gptp time uncertainty via @ref taf_locGnss_GetGptpTime
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2143,7 +2204,9 @@ ENUM LocationInfoExValidity
     HAS_PROTECT_LEVEL_ALONG_TRACK,     ///< Valid protect level along track.
     HAS_PROTECT_LEVEL_CROSS_TRACK,     ///< Valid protect level cross track.
     HAS_PROTECT_LEVEL_VERTICAL,        ///< Valid protect level vertical.
-    HAS_SOLUTION_STATUS                ///< Valid DR Solution status.
+    HAS_SOLUTION_STATUS,               ///< Valid DR Solution status.
+    HAS_LEAP_SECONDS_UNC               ///< Valid leap seconds uncertainty.
+                                       ///< via @ref taf_locGnss_GetLeapSecondsUncertainty
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2873,10 +2936,10 @@ FUNCTION le_result_t ForceHotRestart
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Returns a bitmask containing all satellite constellations supported on this platform.
+ * Returns a bitmask containing all constellations supported on this platform.
  *
  * @return LE_OK               Succeeded.
- * @return LE_NOT_PERMITTED    The Location service state is not enabled or not started.
+ * @return LE_NOT_PERMITTED    Location service is not ready or active.
  * @return LE_FAULT            Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2944,13 +3007,13 @@ FUNCTION le_result_t GetMinElevation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the enabled NMEA sentences using a bitmask per client session.
+ * Sets the enabled NMEA sentences using a bitmask.
  *
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_BAD_PARAMETER  Bitmask value is zero.
  *  - LE_FAULT          Failed.
- *  - LE_NOT_PERMITTED  Location service is not ready.
+ *  - LE_NOT_PERMITTED  Location service is neither ready nor active.
  *
  * @b WARNING: This function may be subject to limitations depending on the platform.
  *
@@ -2968,20 +3031,16 @@ FUNCTION le_result_t SetNmeaSentences
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the bitmask for the enabled NMEA sentences per client session.
+ * Gets the NMEA sentence types which are configured by the API taf_locGnss_SetNmeaSentences().
  *
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
- *  - LE_TIMEOUT        Timeout occurred.
- *  - LE_NOT_PERMITTED  Location service is not active.
+ *  - LE_NOT_PERMITTED  Location service is neither ready nor active.
  *
  * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
  *
- * @b NOTE: Some NMEA sentences are unsupported depending on the platform.
- *       We cannot receive the NMEA callback function to fetch the unsupported
- *       NMEA sentences.So the bitmask won't get for those NMEA sentences.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNmeaSentences
@@ -3090,15 +3149,13 @@ FUNCTION le_result_t RobustLocationInformation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets default configuration for secondary bands per client session.
+ * Resets the secondary band configurations for constellations as configured by the modem.
  *
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
- * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
- *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DefaultSecondaryBandConstellations
@@ -3107,15 +3164,14 @@ FUNCTION le_result_t DefaultSecondaryBandConstellations
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the (enabled) secondary band GNSS constellation types per client session.
+ * Gets the disabled secondary band configurations for constellations used by the
+ * standard GNSS engine.
  *
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
- * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
- *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RequestSecondaryBandConstellations
@@ -3125,15 +3181,14 @@ FUNCTION le_result_t RequestSecondaryBandConstellations
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Disables the given secondary band GNSS constellation types per client session.
+ * Sets the specified secondary band constellations used by the GNSS standard position
+ * engine that need to be disabled..
  *
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
- * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error and the
- *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ConfigureSecondaryBandConstellations
@@ -3496,7 +3551,7 @@ FUNCTION le_result_t GetStdDeviationAzimuthInfo
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the elapsed real time and its uncertainity values in nano-second
+ * Gets the elapsed real time and its uncertainty values in nano-second
  * per client session.
  *
  * @return
@@ -3783,4 +3838,60 @@ FUNCTION le_result_t GetGptpTime
     Sample positionSampleRef IN, ///< Position sample reference.
     uint64 gPtpTime OUT,         ///< Gptp time stamp in nanoseconds.
     uint64 gPtpTimeUnc OUT       ///< Gptp time stamp uncertainty in nanoseconds.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes calibration data from dead reckoning position engine.
+ *
+ * @return
+ *  - LE_FAULT         Failed.
+ *  - LE_NOT_PERMITTED The Location service state is not READY.
+ *  - LE_OK            Succeeded.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteDRSensorCalData
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the dead reckoning solution status.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetDRSolutionStatus
+(
+    Sample positionSampleRef IN, ///< Position sample reference.
+    uint32 solutionStatusPtr OUT ///< Dead reckoning solution status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the position sample's leap seconds associated with the PVT report uncertainty per client session.
+ *
+ * @return
+ *  - LE_FAULT         Failed to get the leap seconds uncertainty.
+ *  - LE_OUT_OF_RANGE  The retrieved seconds is invalid.
+ *  - LE_OK            Succeeded.
+
+ *
+ * @b NOTE: If the caller passes an invalid position sample reference or a null pointer to this
+ *       function, it is a fatal error and the client will be killed.
+ *
+ *
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t  GetLeapSecondsUncertainty
+(
+    Sample positionSampleRef  IN,       ///< Position sample reference.
+    uint8  leapSecondsUncPtr OUT        ///< The leap seconds uncertainty in unit of seconds.
 );

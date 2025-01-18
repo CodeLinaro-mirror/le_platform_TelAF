@@ -133,6 +133,7 @@ namespace telux
 
                 // To clear message list.
                 void ClearMsgList(taf_IOCtrlSvc_t* servicePtr);
+                void ClearVlanList(taf_IOCtrlSvc_t* servicePtr);
 
                 uint8_t reqIOCtrlSvcId = 0x2F;   // IOCtrl request service ID.
                 uint8_t respIOCtrlSvcId = 0x6F;  // IOCtrl response service ID.

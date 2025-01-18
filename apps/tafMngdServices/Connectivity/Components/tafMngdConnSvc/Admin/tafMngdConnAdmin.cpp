@@ -36,8 +36,10 @@
 #include "tafMngdConnData.hpp"
 #include "tafMngdConnRadio.hpp"
 #include "tafMngdConnSim.hpp"
+#include "tafMngdConnECall.hpp"
 #include "tafMngdConnAdmin.hpp"
 #include "limit.h"
+
 
 using namespace telux::tafsvc;
 
@@ -48,12 +50,16 @@ using namespace telux::tafsvc;
  */
 mcs_Clients_t tafMngdConnAdmin::ConnectedClients = {NULL, NULL};
 
+mcs_RetryClients_t tafMngdConnAdmin::RetryClients = {NULL};
+
 /**
  * Initialize static memory pools
  */
 LE_MEM_DEFINE_STATIC_POOL(tafMngdConnMemPool, MCS_MAX_DATA_OBJ,
                                             sizeof(mcs_DataCtx_t));
 LE_MEM_DEFINE_STATIC_POOL(ConnectedClientsCtxMemPool, MCS_MAX_SESSIONS,
+                                            sizeof(mcs_ClientNode_t));
+LE_MEM_DEFINE_STATIC_POOL(RetryClientsCtxMemPool, MCS_MAX_SESSIONS,
                                             sizeof(mcs_ClientNode_t));
 
 tafMngdConnAdmin &tafMngdConnAdmin::GetInstance()
@@ -78,6 +84,14 @@ void Sim_init()
 {
     auto &sim = tafMngdConnSim::GetInstance();
     sim.Init();
+}
+
+void ECall_init()
+{
+#ifndef LE_CONFIG_TARGET_SIMULATION
+    auto &ecall = tafMngdConnECall::GetInstance();
+    ecall.Init();
+#endif
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -137,6 +151,8 @@ void tafMngdConnAdmin::Init(void)
     Radio_init();
     //Initiate sim module.
     Sim_init();
+    //Initiate ECall module.
+    ECall_init();
 
     //Initiate the memory pool.
     DataCtxPool = le_mem_InitStaticPool(tafMngdConnMemPool, MCS_MAX_DATA_OBJ,
@@ -205,6 +221,20 @@ void tafMngdConnAdmin::Init(void)
                                                  le_hashmap_EqualsVoidPointer);
 
     if (NULL == ConnectedClients.hashMap)
+    {
+        LE_FATAL("Failed to create connected client hashmap");
+    }
+
+     // Create memory pool for retry client nodes.
+    RetryClients.memPool = le_mem_InitStaticPool(RetryClientsCtxMemPool,
+                                                        MCS_MAX_SESSIONS,
+                                                        sizeof(mcs_RetryClientNode_t));
+    // Create hash map of retry clients
+    RetryClients.hashMap = le_hashmap_Create("RetryClientsHashMap", MCS_MAX_SESSIONS,
+                                                 le_hashmap_HashVoidPointer,
+                                                 le_hashmap_EqualsVoidPointer);
+
+    if (NULL == RetryClients.hashMap)
     {
         LE_FATAL("Failed to create connected client hashmap");
     }
@@ -629,7 +659,6 @@ le_result_t tafMngdConnAdmin::Startdata(taf_mngdConn_DataRef_t dataRef)
         LE_ERROR("Json is needed");
         return LE_FAULT;
     }
-
     std::string state = StateToString(dataCtxPtr->adminState);
     LE_DEBUG("State is %s", state.c_str());
     //Do action according to the current state.
@@ -894,10 +923,14 @@ le_result_t tafMngdConnAdmin::StartDataRetry(taf_mngdConn_DataRef_t dataRef)
         return LE_NOT_PERMITTED;
     }
 
+    le_msg_SessionRef_t sessionRef = taf_mngdConn_GetClientSessionRef();
+    LE_INFO("StartDataRetry for Client %p", sessionRef);
+
     // Send request to admin to handle this request
     stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
     stateMachineEvt.event = MCS_EVT_DATA_START_RETRY_APP_REQ;
     stateMachineEvt.dataId = dataCtxPtr->dataId;
+    stateMachineEvt.sessionRef = sessionRef;
     le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
     return LE_OK;
 }
@@ -925,6 +958,23 @@ le_result_t tafMngdConnAdmin::CancelRecovery(taf_mngdConn_DataRef_t dataRef)
     {
         LE_WARN("Recovery is not enabled in JSON");
         return LE_NOT_POSSIBLE;
+    }
+
+    if(!Policy.DataSession.ConnectivityRecovery.AllowCancel)
+    {
+        LE_WARN("CancelRecovery is not enabled in JSON");
+        return LE_NOT_PERMITTED;
+    }
+
+    if(Policy.DataSession.ConnectivityRecovery.VerifyCancelingApp)
+    {
+        le_msg_SessionRef_t sessionRef = taf_mngdConn_GetClientSessionRef();
+        // Check if an client exists in the list
+        if (dataCtxPtr->clients.find(sessionRef) == dataCtxPtr->clients.end())
+        {
+            LE_INFO("Client doesnot exists in the list.");
+            return LE_NOT_PERMITTED;
+        }
     }
 
     LE_INFO("Cancel recovery for operation Level %d",dataCtxPtr->recoveryOperation);
@@ -1129,7 +1179,6 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
 {
     auto &data = tafMngdConnData::GetInstance();
     le_result_t result;
-
     mcs_DataCtx_t* dataCtxPtr = GetDataCtx(dataId);
 
     if(dataCtxPtr == NULL)
@@ -1165,7 +1214,6 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
         case MCS_RECOVERY_FAILED_L1:
         case MCS_RECOVERY_FAILED_L2:
         case MCS_RECOVERY_FAILED_L3:
-
             result = data.Startdata(dataCtxPtr->phoneId, dataCtxPtr->profileNumber);
             if (result == LE_OK || result == LE_DUPLICATE) {
                 LE_INFO("StartData returned LE_OK");
@@ -1288,7 +1336,7 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
         if(!dataCtxPtr->clients.empty() &&
             MCS_CONNECTIONRECOVERY_LEVEL_NONE == Policy.DataSession.ConnectivityRecovery.Level)
         {
-	    LE_INFO("Connection Failed. Clear all clients for Data ID: %d", dataCtxPtr->dataId);
+            LE_INFO("Connection Failed. Clear all clients for Data ID: %d", dataCtxPtr->dataId);
             dataCtxPtr->clients.clear();
         }
         ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTION_FAILED);
@@ -1320,15 +1368,43 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
  * When this event is received, it means app has requested the service to perform data start retry.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t tafMngdConnAdmin::EventStartDataRetryAppReq(uint8_t dataId)
+le_result_t tafMngdConnAdmin::EventStartDataRetryAppReq(uint8_t dataId,
+                                                        le_msg_SessionRef_t ref)
 {
     // Get the context for the data ID
     mcs_DataCtx_t *dataCtxPtr = GetDataCtx(dataId);
+    //session reference of the client
+    le_msg_SessionRef_t sessionRef = ref;
+    LE_INFO("EventStartDataRetryAppReq for Client %p", sessionRef);
 
     if (dataCtxPtr == NULL)
     {
         LE_ERROR("Unable to find context for data ID: %d", dataId);
         return LE_FAULT;
+    }
+
+    if(!Policy.DataSession.AppMngdConnectivityRecovery.Enable)
+    {
+        LE_WARN("App triggered StartDataRetry is not enabled in JSON");
+        return LE_NOT_PERMITTED;
+    }
+
+    if(Policy.DataSession.AppMngdConnectivityRecovery.VerifyCallingApp)
+    {
+        // Check if a client exists in the list
+        if (dataCtxPtr->clients.find(sessionRef) == dataCtxPtr->clients.end())
+        {
+            LE_INFO("Client %p doesnot exists in the list.", sessionRef);
+            return LE_NOT_PERMITTED;
+        }
+    }
+
+    // Check if a minTimeBetweenTriggers timer is active
+    // Subsequent calls within this time will return LE_NOT_POSSIBLE.
+    if (le_timer_IsRunning(dataCtxPtr->minTimeBetweenTriggersRef))
+    {
+        LE_WARN("minTimeBetweenTriggers is still running");
+        return LE_NOT_POSSIBLE;
     }
 
     // Check if a periodic connectivity check timer is active and stop it.
@@ -1338,9 +1414,57 @@ le_result_t tafMngdConnAdmin::EventStartDataRetryAppReq(uint8_t dataId)
         le_timer_Stop(dataCtxPtr->periodicConnectivityTestTimerRef);
     }
 
+    // Check if a maxTimeBetweenTriggers timer is active
+    if (le_timer_IsRunning(dataCtxPtr->maxTimeBetweenTriggersRef))
+    {
+        //Check if the same client has called the api
+        if (le_hashmap_ContainsKey(RetryClients.hashMap, sessionRef))
+        {
+            mcs_RetryClientNode_t* retryClient =
+                        (mcs_RetryClientNode_t*)le_hashmap_Get(RetryClients.hashMap, sessionRef);
+            //If so then check if StartDataRetry is done and go to recovery
+            if(retryClient->flag)
+            {
+                LE_INFO("Data (%d) not connected.", dataCtxPtr->dataId);
+                LE_INFO("Scheduling connectivity recovery from app requested DataStartRetry.");
+                stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+                stateMachineEvt.dataId = dataCtxPtr->dataId;
+                stateMachineEvt.event  = MCS_EVT_CONN_RECOVERY_SCHEDULE_L1;
+                le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+                return LE_OK;
+            }
+        }
+        //Else return LE_BUSY
+        {
+            LE_WARN("maxTimeBetweenTriggers is still running for other client");
+            return LE_BUSY;
+        }
+
+    }
+
     // Start the retry procedure only in the active connected state.
     if (MCS_DATA_CONNECTED_ACTIVE == dataCtxPtr->adminState)
     {
+        //Set the context with session ref to be paased for MaxTimeBetweenTriggersHandler
+        dataCtxPtr->sessionRef = sessionRef;
+        le_timer_SetContextPtr(dataCtxPtr->maxTimeBetweenTriggersRef, dataCtxPtr);
+        // Start the maxTimeBetweenTriggers and minTimeBetweenTriggers timer
+        le_timer_Start(dataCtxPtr->minTimeBetweenTriggersRef);
+        le_timer_Start(dataCtxPtr->maxTimeBetweenTriggersRef);
+
+        //Add the new client in the retryClient map and change the flag of DataStartRetried as true
+        LE_INFO("Client %p started data retry for Data ID: %d", sessionRef, dataCtxPtr->dataId);
+        mcs_RetryClientNode_t* retryClientNodePtr =
+            (mcs_RetryClientNode_t *)le_mem_TryAlloc(RetryClients.memPool);
+
+        retryClientNodePtr->sessionRef = sessionRef;
+        retryClientNodePtr->flag       = true;
+        if (le_hashmap_Put(RetryClients.hashMap, sessionRef, retryClientNodePtr))
+        {
+            LE_ERROR("Failed to add retried client record for session %p.", sessionRef);
+        }
+
+        LE_INFO("StartDataRetry triggered for Data (%d)", dataCtxPtr->dataId);
         dataCtxPtr->adminState = MCS_DATA_CONNECTED_INACTIVE_RETRYING;
         stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
         stateMachineEvt.event = MCS_EVT_DATA_STOP;
@@ -1847,6 +1971,7 @@ void *tafMngdConnAdmin::StateMachineEventThreadFunc(void *contextPtr)
 #ifndef LE_CONFIG_TARGET_SIMULATION
     taf_net_ConnectService();
     taf_mngdPm_ConnectService();
+    taf_ecall_ConnectService();
 #endif
 
     // internal event handler
@@ -1980,7 +2105,7 @@ void tafMngdConnAdmin::StateMachineEvtHandlerFunc(void *reqPtr)
             break;
 
         case MCS_EVT_DATA_START_RETRY_APP_REQ:
-            mngdConnAdmin.EventStartDataRetryAppReq(eventReq->dataId);
+            mngdConnAdmin.EventStartDataRetryAppReq(eventReq->dataId, eventReq->sessionRef);
             break;
 
         case MCS_EVT_DATA_STOP_SYNC:
@@ -2303,6 +2428,27 @@ tafMngdConnAdmin::CreateDataCtx(
     LE_INFO("Connectivity Recovery Retry Delay: %d ms", recoveryRetryDelay);
     le_timer_SetMsInterval(dataCtxPtr->recoveryRetryTimerRef, recoveryRetryDelay);
 
+    // Create MinTimeBetweenTriggers timer for DataStartRetry
+    memset(timerName, 0, sizeof(timerName));
+    dataCtxPtr->minTimeBetweenTriggersRef = le_timer_Create(timerName);
+    le_timer_SetHandler(dataCtxPtr->minTimeBetweenTriggersRef, MinTimeBetweenTriggersHandler);
+    le_timer_SetWakeup(dataCtxPtr->minTimeBetweenTriggersRef, false);
+    le_timer_SetContextPtr(dataCtxPtr->minTimeBetweenTriggersRef, dataCtxPtr);
+    uint32_t minTimeBetweenTriggers =
+                Policy.DataSession.AppMngdConnectivityRecovery.MinTimeBetweenTriggers * 1000; //ms
+    LE_INFO("minTimeBetweenTriggers time: %d ms", minTimeBetweenTriggers);
+    le_timer_SetMsInterval(dataCtxPtr->minTimeBetweenTriggersRef, minTimeBetweenTriggers);
+
+    // Create MaxTimeBetweenTriggers timer for DataStartRetry
+    memset(timerName, 0, sizeof(timerName));
+    dataCtxPtr->maxTimeBetweenTriggersRef = le_timer_Create(timerName);
+    le_timer_SetHandler(dataCtxPtr->maxTimeBetweenTriggersRef, MaxTimeBetweenTriggersHandler);
+    le_timer_SetWakeup(dataCtxPtr->maxTimeBetweenTriggersRef, false);
+    uint32_t maxTimeBetweenTriggers =
+                Policy.DataSession.AppMngdConnectivityRecovery.MaxTimeBetweenTriggers * 1000; //ms
+    LE_INFO("maxTimeBetweenTriggers time: %d ms", maxTimeBetweenTriggers);
+    le_timer_SetMsInterval(dataCtxPtr->maxTimeBetweenTriggersRef, maxTimeBetweenTriggers);
+
     //Create PeriodicConnectivityTest timer
     snprintf(timerName, sizeof(timerName)-1, "dataId-%d PeriodicTest Timer", dataId);
     dataCtxPtr->periodicConnectivityTestTimerRef = le_timer_Create(timerName);
@@ -2310,7 +2456,6 @@ tafMngdConnAdmin::CreateDataCtx(
     le_timer_SetWakeup(dataCtxPtr->periodicConnectivityTestTimerRef, false);
     le_timer_SetHandler(dataCtxPtr->periodicConnectivityTestTimerRef,
                         PeriodicConnectivityTestTimerHandler);
-
 
     //Create event id
     snprintf(eventName, sizeof(eventName)-1, "connCtx-%d", dataId);
@@ -2636,39 +2781,48 @@ le_result_t tafMngdConnAdmin::InitializeStates()
                 continue;
             }
             profileRef = taf_dcs_GetProfileEx (phoneId, profileNumber);
-            //If APN is not NULL
-            if(strlen(Configuration.Data[dataIdx].Profile.APN) != 0){
-                LE_INFO("apn=%s",Configuration.Data[dataIdx].Profile.APN);
-                const char *setapnPtr = Configuration.Data[dataIdx].Profile.APN;
-                //Set APN if different
-                if(setapnPtr != nullptr)
-                {
-                    char getapnPtr[MCS_MAX_APN_LEN];
 
-                    result = taf_dcs_GetAPN(profileRef, getapnPtr,MCS_MAX_APN_LEN);
-                    if(result != LE_OK)
+            const char *setapnPtr = Configuration.Data[dataIdx].Profile.APN;
+            //Check if APN in JSON is null
+            if(setapnPtr[0]=='\0')
+            {
+                LE_INFO("JSON apn is null");
+            }
+            else
+            {
+                LE_INFO("Set apn=%s",Configuration.Data[dataIdx].Profile.APN);
+                char getapnPtr[MCS_MAX_APN_LEN];
+                //Get the NAD APN
+                result = taf_dcs_GetAPN(profileRef, getapnPtr,MCS_MAX_APN_LEN);
+                if(result != LE_OK)
+                {
+                    LE_ERROR("APN get failed for profile %d ", profileNumber);
+                    return LE_FAULT;
+                }
+                //Compare both the APNs and Set if the criteria is met
+                if(CompareAPN(getapnPtr, setapnPtr))
+                {
+                    //Check if its just a space and set it as an empty string
+                    if(strlen(setapnPtr) == 1 && setapnPtr[0] == ' ')
                     {
-                        LE_ERROR("APN get failed for profile %d ", profileNumber);
-                        return LE_FAULT;
+                        //Set APN as an empty string
+                        LE_INFO("Set apn as an empty string");
+                        result = taf_dcs_SetAPN(profileRef, "");
                     }
-                    size_t getapnLen = strlen(getapnPtr);
-                    if (strncmp(setapnPtr, getapnPtr, getapnLen) == 0)
+                    else
                     {
-                        LE_INFO("APN : %s already present for %d profile",
-                                 setapnPtr, profileNumber);
-                    }
-                    else{
+                        //Set APN
                         result = taf_dcs_SetAPN(profileRef, setapnPtr);
-                        if(result == LE_OK)
-                        {
-                            LE_INFO("APN : %s set for %d profile", setapnPtr, profileNumber);
-                        }
-                        else
-                        {
-                            LE_ERROR("APN : %s  set failed for profile %d ",
-                                      setapnPtr, profileNumber);
-                            return LE_FAULT;
-                        }
+                    }
+                    if(result == LE_OK)
+                    {
+                        LE_INFO("APN : %s set for %d profile", setapnPtr, profileNumber);
+                    }
+                    else
+                    {
+                        LE_ERROR("APN : %s  set failed for profile %d ",
+                                setapnPtr, profileNumber);
+                        return LE_FAULT;
                     }
                 }
             }
@@ -2997,6 +3151,70 @@ void tafMngdConnAdmin::PeriodicConnectivityTestTimerHandler(le_timer_Ref_t timer
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * MinTimeBetweenTriggers timer handler
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::MinTimeBetweenTriggersHandler(le_timer_Ref_t timerRef)
+{
+    LE_DEBUG("MinTimeBetweenTriggers handler");
+    le_result_t result;
+    mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)le_timer_GetContextPtr(timerRef);
+    if(dataCtxPtr == NULL)
+    {
+        LE_INFO("Stop the timer.");
+        if (le_timer_IsRunning(timerRef))
+        {
+            result = le_timer_Stop(timerRef);
+            if (LE_OK != result)
+            {
+                LE_DEBUG("Stopping timer failed: %d", result);
+            }
+        }
+        return;
+    }
+    LE_INFO("MinTimeBetweenTriggers timer expired.");
+
+    return;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * MaxTimeBetweenTriggers timer handler
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::MaxTimeBetweenTriggersHandler(le_timer_Ref_t timerRef)
+{
+    LE_DEBUG("MaxTimeBetweenTriggers handler");
+    mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)le_timer_GetContextPtr(timerRef);
+    le_result_t result;
+    if(dataCtxPtr == NULL)
+    {
+        LE_INFO("Stop the timer.");
+        if (le_timer_IsRunning(timerRef))
+        {
+            result = le_timer_Stop(timerRef);
+            if (LE_OK != result)
+            {
+                LE_DEBUG("Stopping timer failed: %d", result);
+            }
+        }
+        return;
+    }
+    LE_INFO("MaxTimeBetweenTriggers timer expired.");
+    //Remove the client from the retry clients list
+    mcs_ClientNode_t *clientNodePtr =
+        (mcs_ClientNode_t *)le_hashmap_Remove(RetryClients.hashMap, dataCtxPtr->sessionRef);
+    TAF_ERROR_IF_RET_NIL(clientNodePtr == nullptr,
+                "Failed to get sessionRef %p from RetryClients hashmap", dataCtxPtr->sessionRef);
+    LE_DEBUG("Client %p removed from RetriedClient List for Data ID: %d",
+              dataCtxPtr->sessionRef, dataCtxPtr->dataId);
+    le_mem_Release(clientNodePtr);
+
+    return;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handle the event MCS_EVT_DATA_START_CONNECTIONTEST which is sent when data is started.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3158,23 +3376,17 @@ void tafMngdConnAdmin::EventDataPeriodicConnectivityTest(uint8_t dataId)
 
 bool tafMngdConnAdmin::DataConnectivityTest_URL(std::string url, std::string interfaceName)
 {
-    //Enable LE_CONFIG_DEBUG to get the output of curl in logs
-    #if LE_CONFIG_DEBUG
-        std::string curlCommand = "curl --interface " + interfaceName + " " + url;
-    #else
-        std::string curlCommand = "curl --interface " + interfaceName + " " + url
-                                   + " 1> /dev/null 2> /dev/null";
+    std::string URL = RemoveProtocol(url);
 
-    #endif
-
-    int result = system(curlCommand.c_str());
-    if(result == 0)
+    if (PerformCurl(URL.c_str()))
     {
-        //connection is created.
-        LE_INFO("DataConnectivityTest_URL passed for interface %s",interfaceName.c_str());
+        LE_INFO("DataConnectivityTest_URL passed ");
         return true;
     }
-    LE_INFO ("DataConnectivityTest_URL failed for interface %s",interfaceName.c_str());
+    else
+    {
+        LE_INFO ("DataConnectivityTest_URL failed ");
+    }
     return false;
 }
 
@@ -3526,11 +3738,26 @@ void tafMngdConnAdmin::EventL1ConnRecoveryStart(uint8_t dataId)
 
     // Reset connectivity recovery scheduled flag
     dataCtxPtr->isConnectivityRecoveryScheduled = false;
-    // Mark that connectivity recovery was tried
-    dataCtxPtr->wasL1ConnectivityRecoveryDone = true;
 
     // Set the reconnected needed flag to TRUE
     dataCtxPtr->needReConn = true;
+
+#ifndef LE_CONFIG_TARGET_SIMULATION
+    auto &ecall = tafMngdConnECall::GetInstance();
+    if (ecall.IsECallInProgress())
+    {
+        LE_WARN("eCall is in progress. Cannot proceed with L1 recovery");
+        dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L1;
+        // Inform admin that L1 recovery is interrupted
+        stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+        stateMachineEvt.dataId = dataCtxPtr->dataId;
+        stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_INTERRUPTED;
+        le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+        return;
+    }
+#endif
+    // Mark that connectivity recovery was tried
+    dataCtxPtr->wasL1ConnectivityRecoveryDone = true;
 
     ReportRecoveryEvent(TAF_MNGDCONN_RECOVERY_STARTED, dataCtxPtr,
                         TAF_MNGDCONN_RECOVERY_RADIO_OFF_ON);
@@ -3696,11 +3923,26 @@ void tafMngdConnAdmin::EventL2ConnRecoveryStart(uint8_t dataId)
 
     // Reset connectivity recovery scheduled flag
     dataCtxPtr->isConnectivityRecoveryScheduled = false;
-    // Mark that connectivity recovery was tried
-    dataCtxPtr->wasL2ConnectivityRecoveryDone = true;
 
     // Set the reconnected needed flag to TRUE
     dataCtxPtr->needReConn = true;
+
+#ifndef LE_CONFIG_TARGET_SIMULATION
+    auto &ecall = tafMngdConnECall::GetInstance();
+    if (ecall.IsECallInProgress())
+    {
+        LE_WARN("eCall is in progress. Cannot proceed with L2 recovery");
+        dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L2;
+        // Inform admin that L2 recovery is interrupted
+        stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+        stateMachineEvt.dataId = dataCtxPtr->dataId;
+        stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_INTERRUPTED;
+        le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+        return;
+    }
+#endif
+    // Mark that connectivity recovery was tried
+    dataCtxPtr->wasL2ConnectivityRecoveryDone = true;
 
     ReportRecoveryEvent(TAF_MNGDCONN_RECOVERY_STARTED, dataCtxPtr,
                         TAF_MNGDCONN_RECOVERY_SIM_OFF_ON);
@@ -3812,11 +4054,13 @@ void tafMngdConnAdmin::EventL3ConnRecoverySchedule(uint8_t dataId)
 //-------------------------------------------------------------------------------------------------
 void tafMngdConnAdmin::RestartReqAsyncCallBack(taf_mngdPm_RestartMode_t RestartMode,
                                                taf_mngdPm_ResponseMode_t ResponseMode,
+                                               le_result_t result,
                                                void *contextPtr)
 {
     auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
     LE_DEBUG("Restart  mode : %d", RestartMode);
     LE_DEBUG("Response mode : %d", ResponseMode);
+    LE_DEBUG("result is : %d", result);
     mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)contextPtr;
     if (TAF_MNGDPM_READY == ResponseMode)
     {
@@ -3853,6 +4097,21 @@ void tafMngdConnAdmin::EventL3ConnRecoveryStart(uint8_t dataId)
         return;
     }
 
+#ifndef LE_CONFIG_TARGET_SIMULATION
+    auto &ecall = tafMngdConnECall::GetInstance();
+    if (ecall.IsECallInProgress())
+    {
+        LE_WARN("eCall is in progress. Cannot proceed with L3 recovery");
+        dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L3;
+        // Inform admin that L3 recovery is interrupted
+        stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+        stateMachineEvt.dataId = dataCtxPtr->dataId;
+        stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_INTERRUPTED;
+        le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+        return;
+    }
+#endif
+
     // Ensure service is in the correct state.
     if (MCS_RECOVERY_STARTED_L3 == dataCtxPtr->adminState)
     {
@@ -3862,7 +4121,7 @@ void tafMngdConnAdmin::EventL3ConnRecoveryStart(uint8_t dataId)
                             TAF_MNGDCONN_RECOVERY_NAD_REBOOT);
         // Call API to start NAD reboot
         result = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,
-                                            RestartReqAsyncCallBack, (void *)dataCtxPtr);
+                         RestartReqAsyncCallBack, (void *)dataCtxPtr, TAF_MNGDPM_RESTART_REASON_NORMAL);
         if (LE_OK == result)
         {
             LE_INFO("Restart NAD request sent");
@@ -3915,6 +4174,113 @@ void tafMngdConnAdmin::EventL3ConnRecoveryStart(uint8_t dataId)
                         sizeof(stateMachineEvent_t));
         return;
     }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * CURL helper method to perform the Curl operation
+ */
+//--------------------------------------------------------------------------------------------------
+bool tafMngdConnAdmin::PerformCurl(const char* URLStr)
+{
+    CURL *curl;
+    CURLcode res;
+    bool result;
+
+    LE_INFO("curl URL: %s", URLStr);
+
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+
+    curl = curl_easy_init();
+    if (curl)
+    {
+        curl_easy_setopt(curl, CURLOPT_URL, URLStr);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
+        // Complete within 2s
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
+        // Just check the connection.
+        curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 1L);
+
+        // Perform the request, res will get the return code
+        res = curl_easy_perform(curl);
+        // Check for errors
+        if (res != CURLE_OK)
+        {
+            LE_WARN("cURL to %s error: %s", URLStr, curl_easy_strerror(res));
+            result = false;
+        }
+        else
+        {
+            LE_INFO("cURL to %s succeeded.", URLStr);
+            result = true;
+        }
+
+        // always cleanup
+        curl_easy_cleanup(curl);
+    }
+    else
+    {
+        result = false;
+        LE_WARN("Unable to initialize cURL");
+    }
+
+    curl_global_cleanup();
+
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * CURL helper method to remove the protocol from the URL
+ */
+//--------------------------------------------------------------------------------------------------
+std::string tafMngdConnAdmin::RemoveProtocol(const std::string &url)
+{
+    LE_INFO("URL: %s", url.c_str());
+    std::regex pattern("^https?://");
+    std::string new_url = std::regex_replace(url, pattern, "");
+    LE_INFO("New URL: %s", new_url.c_str());
+    return new_url;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Helper method to compare the Set and Get APNs
+ */
+//--------------------------------------------------------------------------------------------------
+bool tafMngdConnAdmin::CompareAPN(const char *getapnPtr, const char *setapnPtr)
+{
+    size_t getapnPtrLen = strlen(getapnPtr);
+    size_t setapnPtrLen = strlen(setapnPtr);
+    LE_INFO("getapnPtrLen length %d and setapnPtrLen length %d",
+            (int)getapnPtrLen, (int)setapnPtrLen);
+
+    if(getapnPtrLen == 0 && setapnPtrLen == 0)
+    {
+        LE_INFO("APN null for both json and NAD, no need to do anything");
+        return false;
+    }
+    else if((getapnPtrLen > 0 && setapnPtrLen == 0) ||
+            (setapnPtrLen > 0 && getapnPtrLen == 0) )
+    {
+        return true;
+    }
+    else if(getapnPtrLen > 0 && setapnPtrLen > 0)
+    {
+        //check if the APNs are same
+        int compareLen = std::min(std::max(setapnPtrLen, getapnPtrLen),
+                                            (size_t)MCS_MAX_APN_LEN);
+        if (strncmp(setapnPtr, getapnPtr, compareLen) == 0)
+        {
+            LE_INFO("APN : %s already present", setapnPtr);
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 const char * tafMngdConnAdmin::EventToString(mcs_EventType_t event)

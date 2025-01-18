@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -75,6 +75,7 @@
 #include "tafSvcIF.hpp"
 #include "tafDcsConnectionImpl.hpp"
 #include "tafDcsProfileImpl.hpp"
+#include "tafDcsHelper.hpp"
 
 using namespace telux::data;
 using namespace telux::common;
@@ -434,6 +435,13 @@ le_result_t taf_dcs_SetPDP
     auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
 
+    // Ensure profile ref is not NULL
+    TAF_ERROR_IF_RET_VAL((profileRef == NULL), LE_BAD_PARAMETER, "profileRef is null");
+    // Validate only supported PDP values are passed.
+    TAF_ERROR_IF_RET_VAL(((pdp != TAF_DCS_PDP_IPV4) &&
+                          (pdp != TAF_DCS_PDP_IPV6) &&
+                          (pdp != TAF_DCS_PDP_IPV4V6)),
+                         LE_BAD_PARAMETER, "Invalid PDP type: %d", pdp);
 
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
@@ -640,10 +648,14 @@ le_result_t taf_dcs_StartSession(taf_dcs_ProfileRef_t profileRef)
 
     int32_t profileId;
     uint8_t slotId;
+    bool apnThrottled = false;
     le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
     TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
                                                                 "Profile not created yet.");
+    //check if profile's APN is throttled.
+    result = dataProfile.IsAPNThrottled(slotId,profileId,&apnThrottled);
+    TAF_ERROR_IF_RET_VAL(apnThrottled == true, LE_NOT_POSSIBLE, "Profile's APN is throttled");
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     return dataConnection.StartSessionCmdSync(slotId, profileId, pdpType, taf_dcs_GetClientSessionRef());
@@ -740,7 +752,7 @@ static void FirstSessionStateHandler(void* reportPtr, void* subHandlerFunc)
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     LE_INFO("send callback to callRef: %p, callEvent: %s\n", stateEvent->callRef,
-        dataConnection.CallEventToString(stateEvent->callEvent));
+            taf_DCSHelper::CallEventToString(stateEvent->callEvent));
 
     le_result_t result = dataConnection.GetSlotIdAndProfileId(stateEvent->callRef, &slotId,
                                                               &profileId);
@@ -773,6 +785,9 @@ taf_dcs_SessionStateHandlerRef_t taf_dcs_AddSessionStateHandler
     void* contextPtr
 )
 {
+    TAF_ERROR_IF_RET_VAL((profileRef == NULL) || (handlerPtr == NULL) , NULL,
+                          "some pointers may be null");
+
     auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
 
@@ -809,6 +824,7 @@ void taf_dcs_RemoveSessionStateHandler
     taf_dcs_SessionStateHandlerRef_t handlerRef
 )
 {
+    TAF_ERROR_IF_RET_NIL((handlerRef == NULL) , "handlerRef is null");
     le_event_RemoveHandler((le_event_HandlerRef_t) handlerRef);
     return;
 }
@@ -1214,6 +1230,26 @@ le_result_t taf_dcs_GetIPv6DNSAddresses
                                      dns2AddrSize);
 }
 
+ le_result_t taf_dcs_GetMtu
+(
+    taf_dcs_ProfileRef_t    profileRef,
+    uint16_t  *mtuPtr
+)
+{
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    int32_t profileId;
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, LE_NOT_POSSIBLE,
+                                                                        "Profile not created yet.");
+
+    return dataConnection.GetMtu(slotId, profileId,mtuPtr);
+}
+
 /**
  * Get the session state corresponding to specified profile reference.
  *
@@ -1538,6 +1574,186 @@ le_result_t taf_dcs_GetPhoneIdByInterfaceName
     }
 
     return result;
+}
+
+/**
+ * First throttle state handler used by le_event_AddLayeredHandler().
+ *
+ * @param [in] reportPtr               event pointer.
+ * @param [in] subHandlerFunc          The secondary handler pointer, i.e. handlerPtr()
+ * from taf_dcs_AddThrottleStateHandler().
+ */
+static void FirstThrottleStateHandler(void* reportPtr, void* subHandlerFunc)
+{
+    ThrottleStatus_t* stateEvent = (ThrottleStatus_t *)reportPtr;
+    taf_dcs_ThrottledStatusHandlerFunc_t handlerFunc =
+                                                (taf_dcs_ThrottledStatusHandlerFunc_t)subHandlerFunc;
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    taf_dcs_ProfileRef_t profileRef = dataProfile.GetProfileRef(stateEvent->slotId,
+                                                                stateEvent->profileId);
+    TAF_ERROR_IF_RET_NIL(profileRef == NULL, "cannot get profile ref from slot(%d) profile(%d)",
+                         stateEvent->slotId, stateEvent->profileId);
+
+    handlerFunc(profileRef, stateEvent->throttleState, stateEvent->ipv4Time, stateEvent->ipv6Time,
+                                                       le_event_GetContextPtr());
+}
+
+/**
+ * Add a throttle state handler to monitor the specified profile.
+ *
+ * If this profile is not brought up so far, the call context will be created corresponding to
+ * specified profile index.
+ *
+ * @param [in] profileRef               The profile reference to be checked.
+ * @param [in] handlerPtr               The handler function.
+ * @param [in] contextPtr               The handler context.
+ *
+ * @returns reference                   Success to add throttle state handler.
+ *          NULL                        Failed to add throttle state handler.
+ */
+taf_dcs_ThrottledStatusHandlerRef_t taf_dcs_AddThrottledStatusHandler
+(
+    taf_dcs_ProfileRef_t profileRef,
+    taf_dcs_ThrottledStatusHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    int32_t profileId;
+    uint8_t slotId;
+    bool apnThrottled = false;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, NULL, "profile reference(%p) is invalid", profileRef);
+
+    le_event_Id_t throttleStateEvent = dataProfile.GetThrottleStateEvent(slotId, profileId);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler(
+                                                    "DataThrottleState",
+                                                    throttleStateEvent,
+                                                    FirstThrottleStateHandler,
+                                                    (void *)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    //check if profile's APN is throttled; if yes send event.
+    dataProfile.SendAPNThrottledInfo(slotId,profileId,&apnThrottled);
+
+    return (taf_dcs_ThrottledStatusHandlerRef_t)(handlerRef);
+}
+
+/**
+ * Remove session state handler.
+ *
+ * @param [in] handlerRef
+ * The state handler reference returned by taf_dcs_AddThrottledStatusHandler().
+ *
+ * @returns NA
+ *
+ * @note    NA
+ */
+void taf_dcs_RemoveThrottledStatusHandler
+(
+    taf_dcs_ThrottledStatusHandlerRef_t handlerRef
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t) handlerRef);
+    return;
+}
+
+/**
+ * Get the apn throttle and remaining time using profile reference.
+ *
+ * @param [in] intfName                   The profile reference.
+ * @param [out] isThrottled               The throttled status.
+ *                                        True when APN is throttled. False when APN is unthrottled
+ * @param [out] ipv4RemainingTime         The remaining IPv4 throttled time in milliseconds.
+ *                                        0 when throttle status is False.
+ *                                        FFFF when APN does not support ipv4.
+ * @param [out] ipv6RemainingTime         The remaining IPv6 throttled time in milliseconds.
+ *                                        0 when throttle status is False.
+ *                                        FFFF when APN does not support ipv6.
+ *
+ * @returns LE_OK                       Success.
+ *          OTHER                       Failed to get the profile id reference.
+ */
+le_result_t taf_dcs_GetAPNThrottledStatus
+(
+    taf_dcs_ProfileRef_t    profileRef,
+    bool         *isThrottled,
+    uint32_t     *ipv4RemainingTime,
+    uint32_t     *ipv6RemainingTime
+)
+{
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    return dataConnection.GetAPNThrottledStatus(profileRef,isThrottled,ipv4RemainingTime,
+                                                                         ipv6RemainingTime);
+}
+
+le_result_t taf_dcs_GetAPNThrottledPLMN
+(
+    taf_dcs_ProfileRef_t    profileRef,     ///< The profile reference.
+    bool       *areAllPLMNsThrottled,       ///< True if APN is throttled on all PLMNs.
+    char                 *mccPtr,           ///< MCC of the PLMN on which the APN is throttled.
+    size_t                mccSize,
+    char                 *mncPtr,           ///< MNC of the PLMN on which the APN is throttled.
+    size_t                mncSize
+)
+{
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    return dataProfile.GetAPNThrottledPLMN(profileRef,areAllPLMNsThrottled,mccPtr,mccSize,
+                                                                             mncPtr,mncSize);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the maximum Tx and Rx data bit rates for an active data call.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_GetMaxDataBitRates(
+    taf_dcs_ProfileRef_t profileRef,
+    ///< [IN] The profile reference.
+    uint64_t *maxRxBitRatePtr,
+    ///< [OUT] The maximum receive data rate in bits/second.
+    uint64_t *maxTxBitRatePtr
+    ///< [OUT] The maximum transmit data rate in bits/second.
+)
+{
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    return dataConnection.GetMaxDataBitRates(profileRef, maxRxBitRatePtr, maxTxBitRatePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the call end reason. This API can be used to get the extended call end reason after a data
+ * connection is disconnected.
+ *
+ * This API provides the call end reason type and the respective call end reason.
+ *
+ * @return
+ *  - LE_OK            -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Parameter error.
+ *  - LE_NOT_POSSIBLE  -- Data profile is not created.
+ *  - LE_UNAVAILABLE   -- Data call is still active.
+ *  - LE_NOT_FOUND     -- Internal context cannot be found.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_GetCallEndReason
+(
+    taf_dcs_ProfileRef_t profileRef,
+    ///< [IN] The profile reference.
+    taf_dcs_Pdp_t pdpType,
+    ///< [IN] The packet data protocol type.
+    taf_dcs_CallEndReasonType_t *callEndReasonTypePtr,
+    ///< [OUT] The call end reason type.
+    int32_t *callEndReasonPtr
+    ///< [OUT] The call end reason.
+)
+{
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    return dataConnection.GetCallEndReason(profileRef, pdpType, callEndReasonTypePtr,
+                                                                        callEndReasonPtr);
 }
 
 /**

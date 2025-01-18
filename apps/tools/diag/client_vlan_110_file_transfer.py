@@ -104,7 +104,15 @@ def update_workflow():
             response = uds_client.send_key(0x02, key)
             print(response)
 
-            # Step18: Routine Control RUNDTCTEST(RoutineControl). 31 01 02 47 start to update
+            #Step18: Verify_certificate_unidirectional. 29 01
+            response = uds_client.verify_certificate_unidirectional(communication_configuration=0, certificate_client=bytes(4096), challenge_client=bytes(1024),)
+            print(response)
+
+            #Step19: Proof_of_ownership. 29 03
+            response = uds_client.proof_of_ownership(proof_of_ownership_client=bytes(2048))
+            print(response)
+
+            # Step20: Routine Control RUNDTCTEST(RoutineControl). 31 01 02 47 start to update
             response = uds_client.routine_control(routine_id=0x0247, control_type=0x01)
             print(response)
 

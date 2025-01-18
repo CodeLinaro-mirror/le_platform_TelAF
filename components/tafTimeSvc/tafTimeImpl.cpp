@@ -46,7 +46,7 @@ using namespace std;
 #define TAF_TIME_MAX_SOURCE_NUMBER (TAF_TIME_SRC_NAME_UNKNOWN*3)
 TimeSources TimeSourceConf(TAF_TIME_MAX_SOURCE_NUMBER);
 taf_SourceInf_t *LatestTimeSourceInfo;
-bool GnssStatusUpdateFlag = true;
+bool GnssErrStatusUpdateFlag = true;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -105,24 +105,12 @@ void taf_TimeServingSystemListener::onNetworkTimeChanged
     tafTime.StoreDateTimeInfo(info, sourceId);
     tafTime.ReportTimeValueChange(sourceId, timeVal, &info);
 }
-
 void onGnssUtcTimeUpdateHandler(void* param)
 {
     taf_time_TimeSources_t sourceId = TAF_TIME_SRC_NAME_GNSS;
     auto &tafTime = taf_Time::GetInstance();
-    uint64_t* utc = (uint64_t*) param;
-
-     if (*utc == 0) {
-        if(GnssStatusUpdateFlag == true)
-        {
-            GnssStatusUpdateFlag = false;
-            tafTime.SourceAvailabilityUpdate(LE_FAULT, sourceId);
-        }
-        return;
-    }
-    GnssStatusUpdateFlag = true;
-
-    tafTime.SourceAvailabilityUpdate(LE_OK, sourceId);
+    le_result_t* status = (le_result_t*) param;
+    tafTime.SourceAvailabilityUpdate(*status, sourceId);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -138,10 +126,23 @@ void taf_TimeGnssListener::onGnssUtcTimeUpdate
 {
     taf_time_TimeSpec_t timeVal;
     auto &tafTime = taf_Time::GetInstance();
-    uint64_t arg = utc;
-    le_event_QueueFunctionToThread(tafTime.mainThreadRef, (le_event_DeferredFunc_t)onGnssUtcTimeUpdateHandler,&arg, NULL);
-    if(utc > 0)
+    le_result_t status;
+    if (utc == 0)
     {
+       if(GnssErrStatusUpdateFlag == true)
+       {
+           GnssErrStatusUpdateFlag = false;
+           status = LE_FAULT;
+            le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+                (le_event_DeferredFunc_t)onGnssUtcTimeUpdateHandler, &status, NULL);
+        }
+    }
+
+    else if(utc > 0)
+    {
+        status = LE_OK;
+        le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+            (le_event_DeferredFunc_t)onGnssUtcTimeUpdateHandler,&status, NULL);
         tafTime.UpdateFailedLoops(TAF_TIME_SRC_NAME_GNSS, FAIL_LOOP_NUM_CLEAN);
         timeVal.sec = (utc / 1000);
         timeVal.nanosec = (utc % 1000)*1000*1000;
@@ -150,6 +151,8 @@ void taf_TimeGnssListener::onGnssUtcTimeUpdate
         tafTime.UpdateLocalTimeCache(timeVal, TAF_TIME_SRC_NAME_GNSS, tafTime.GnssDeltaTime);
         tafTime.ReportTimeValueChange(TAF_TIME_SRC_NAME_GNSS, timeVal, NULL);
         tafTime.DeregGnssTimeListener();
+        GnssErrStatusUpdateFlag = true;
+
     }
 }
 
@@ -267,6 +270,12 @@ const char* taf_Time::SourceAttrToStr
         case TAF_TIME_CONF_PRIORI:
             return "Priority";
 
+        case TAF_TIME_CONF_TOLMILLSEC:
+            return "ToleranceMillsec";
+
+        case TAF_TIME_CONF_SETTIMECOUNTER:
+            return "SetTimeCounter";
+
         /* Add new source item here */
 
         case TAF_TIME_CONF_MAX_ITEM:
@@ -294,6 +303,7 @@ le_result_t taf_Time::ReadSourceConf
     json_t *arrayData,*itemData, *sourceCfgArray;
     const char* value;
     int priority;
+    long int toleranceMillsec, setTimeCounter= -1;
     int i, j;
     long int arraySize = 0;
 
@@ -348,6 +358,16 @@ le_result_t taf_Time::ReadSourceConf
                     sscanf(value,"%d", &priority);
                     serviceCfg.addPriority(i, priority);
                 }
+                if (j == TAF_TIME_CONF_TOLMILLSEC)
+                {
+                    sscanf(value,"%ld", &toleranceMillsec);
+                    serviceCfg.addToleranceMillsec(i, toleranceMillsec);
+                }
+                if (j == TAF_TIME_CONF_SETTIMECOUNTER)
+                {
+                    sscanf(value,"%ld", &setTimeCounter);
+                    serviceCfg.addSetTimeCounter(i, setTimeCounter);
+                }
                 result = LE_OK;
             }
         }
@@ -373,7 +393,7 @@ le_result_t taf_Time::ReadTimeConf
 {
     json_t *itemData;
     const char* value;
-    long int pollingInterval, toleranceMillsec;
+    long int pollingInterval;
     int64_t allowOverrideAfterFail = -1;
     std::vector<std::string> validClientList;
     std::string gptpDeviceName;
@@ -388,17 +408,6 @@ le_result_t taf_Time::ReadTimeConf
     value = json_string_value(itemData);
     sscanf(value,"%ld", &pollingInterval);
     serviceCfg.pollingInterval = pollingInterval;
-
-    itemData = json_object_get(serviceDataPtr, TAF_TIME_TOLERANCES_SETTING_STR);
-    if (!json_is_string(itemData))
-    {
-        LE_WARN("Warning: Tolerances string was not found\n");
-        return LE_NOT_FOUND;
-    }
-
-    value = json_string_value(itemData);
-    sscanf(value,"%ld", &toleranceMillsec);
-    serviceCfg.toleranceMillsec = toleranceMillsec;
 
     itemData = json_object_get(serviceDataPtr, TAF_TIME_ALLOWOVERRIDE_STR);
     if (!json_is_string(itemData))
@@ -706,13 +715,22 @@ le_result_t taf_Time::UpdateLocalTimeCache
         largerDtTime = taf_time_Sub(oldDeltaTime, newDeltaTime);
     }
 
-    if (TimeSourceConf.toleranceMillsec <= 0)
+    int position = TimeSourceConf.findSourcePosition(
+                                SourceNameIndexToStr(sourceName));
+
+    if (position < 0)
+    {
+        LE_ERROR("Source does not exist!");
+        return LE_NOT_FOUND;
+    }
+
+    if (TimeSourceConf.source[position].toleranceMillsec <= 0)
     {
         milliSecThreshold = TAF_TIME_THRESHOLD_MILLISEC;
     }
     else
     {
-        milliSecThreshold = TimeSourceConf.toleranceMillsec;
+        milliSecThreshold = TimeSourceConf.source[position].toleranceMillsec;
     }
 
     deltaMilliSec = largerDtTime.sec * 1000 + largerDtTime.nanosec/1000/1000;
@@ -1647,7 +1665,8 @@ void taf_Time::ReportTimeValueChange
 bool taf_Time::IsThresholdSetTimeAllow
 (
     taf_time_TimeSpec_t timeVal,
-    taf_time_TimeSpec_t systemTime
+    taf_time_TimeSpec_t systemTime,
+    taf_time_TimeSources_t timeSource
 )
 {
     uint64_t deltaMilliSec, milliSecThreshold;
@@ -1662,13 +1681,21 @@ bool taf_Time::IsThresholdSetTimeAllow
         tmpTime = taf_time_Sub(systemTime, timeVal);
     }
 
-    if (TimeSourceConf.toleranceMillsec <= 0)
+    int position = TimeSourceConf.findSourcePosition(SourceNameIndexToStr(timeSource));
+
+    if (position < 0)
+    {
+        LE_ERROR("Source does not exist!");
+        return false;
+    }
+
+    if (TimeSourceConf.source[position].toleranceMillsec <= 0)
     {
         milliSecThreshold = TAF_TIME_THRESHOLD_MILLISEC;
     }
     else
     {
-        milliSecThreshold = TimeSourceConf.toleranceMillsec;
+        milliSecThreshold = TimeSourceConf.source[position].toleranceMillsec;
     }
 
     deltaMilliSec = tmpTime.sec * 1000 + tmpTime.nanosec/1000/1000;
@@ -1707,7 +1734,7 @@ le_result_t taf_Time::UpdateDeltaTimeToStorage
 {
     auto &tafTime = taf_Time::GetInstance();
     le_result_t result = LE_OK;
-    uint64_t oldDelta_Msec = 0, newDelta_Msec = 0;
+    int64_t oldDelta_Msec = tafTime.deltaTimeMSec, newDelta_Msec = 0;
     taf_time_TimeSpec_t rtcTimeVal;
 
     result = GetInternalRtcTime(&rtcTimeVal);
@@ -1716,17 +1743,8 @@ le_result_t taf_Time::UpdateDeltaTimeToStorage
         LE_ERROR("Read RTC failed %d\n", result);
         return result;
     }
-
-    if (rtcTimeVal.sec > timeVal.sec)
-    {
-        newDelta_Msec = (rtcTimeVal.sec * 1000) + (rtcTimeVal.nanosec/1000)
-                      - (timeVal.sec * 1000) - (timeVal.nanosec/1000);
-    }
-    else
-    {
-        newDelta_Msec = (timeVal.sec * 1000) + (timeVal.nanosec/1000)
-                      - (rtcTimeVal.sec * 1000) - (rtcTimeVal.nanosec/1000);
-    }
+    newDelta_Msec = (timeVal.sec * 1000) + (timeVal.nanosec/1000)
+                  - (rtcTimeVal.sec * 1000) - (rtcTimeVal.nanosec/1000);
 
     //Check if the delta time is any different
     if((newDelta_Msec > tafTime.deltaTimeMSec + 1000) || (tafTime.deltaTimeMSec > newDelta_Msec + 1000))
@@ -1748,8 +1766,8 @@ le_result_t taf_Time::UpdateDeltaTimeToStorage
         close(fd);
     }
 
-    LE_DEBUG("RTC sec %" PRIu64 ", System sec %" PRIu64 ", oldDlt sec %" PRIu64 ", newDlt sec "
-             "%" PRIu64 "\n", rtcTimeVal.sec, timeVal.sec, oldDelta_Msec/1000, newDelta_Msec/1000);
+    LE_DEBUG("RTC sec %" PRIu64 ", System sec %" PRIu64 ", oldDlt sec %" PRId64 ", newDlt sec "
+             "%" PRId64 "\n", rtcTimeVal.sec, timeVal.sec, oldDelta_Msec/1000, newDelta_Msec/1000);
 
     return LE_OK;
 }
@@ -1805,8 +1823,15 @@ le_result_t taf_Time::SetSystemTime
         LE_ERROR("Get system time failed\n");
         return result;
     }
-    if (IsThresholdSetTimeAllow(timeVal, systemTime))
+
+    if (IsThresholdSetTimeAllow(timeVal, systemTime, timeSource) &&
+        (TimeSourceConf.source[position].setTimeCounter != 0))
     {
+        if(TimeSourceConf.source[position].setTimeCounter > 0)
+        {
+            TimeSourceConf.source[position].setTimeCounter-- ;
+        }
+
         newTime.tv_sec = timeVal.sec;
         newTime.tv_nsec = timeVal.nanosec;
 
@@ -2229,11 +2254,12 @@ void taf_Time::InitializeSystemTimeAttr(le_result_t connectStatus)
     LatestTimeSourceInfo->handlerFunc = NULL;
     if(connectStatus == LE_OK)
     {
-        if(taf_mngdStorSecData_CreateData(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId)) == LE_OK)
+        if(taf_mngdStorSecData_CreateData(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId)) == LE_DUPLICATE)
         {
-            LatestTimeSourceInfo->secStrgdataRef =
-                taf_mngdStorSecData_GetDataRef(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
+            LE_DEBUG("Data item already exist");
         }
+        LatestTimeSourceInfo->secStrgdataRef =
+                taf_mngdStorSecData_GetDataRef(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
     }
     LatestTimeSourceInfo->sessionRef = taf_time_GetClientSessionRef();
     LatestTimeSourceInfo->ref = (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, LatestTimeSourceInfo);
@@ -2282,11 +2308,24 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
             src->sessionRef = taf_time_GetClientSessionRef();
             if(connectStatus == LE_OK)
             {
-                if(taf_mngdStorSecData_CreateData(tafTime.SourceNameIndexToStr(src->sourceId)) == LE_OK)
+                if(taf_mngdStorSecData_CreateData(tafTime.SourceNameIndexToStr(src->sourceId)) == LE_DUPLICATE)
                 {
-                    src->secStrgdataRef =
-                        taf_mngdStorSecData_GetDataRef(tafTime.SourceNameIndexToStr(src->sourceId));
+                    LE_DEBUG("Data item already exist");
+                    if((src->sourceId == TAF_TIME_SRC_NAME_RTC) ||
+                       (src->sourceId == TAF_TIME_SRC_NAME_EX_APP))
+                    {
+                        src->secStrgdataRef =
+                            taf_mngdStorSecData_GetDataRef(tafTime.SourceNameIndexToStr(src->sourceId));
+                        bool previousValidity;
+                        le_result_t res = tafTime.ReadValidityFromSecStorage(src, &previousValidity);
+                        if(res == LE_OK)
+                        {
+                            src->sourceValidity = previousValidity;
+                        }
+                    }
                 }
+                src->secStrgdataRef =
+                        taf_mngdStorSecData_GetDataRef(tafTime.SourceNameIndexToStr(src->sourceId));
             }
             src->ref = (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, src);
         }
@@ -3630,6 +3669,7 @@ le_result_t taf_Time::ReadValidityFromSecStorage(taf_SourceInf_t* sourcePtr, boo
         LE_WARN("Failed to read validity from secure storage.");
         return res;
     }
+
     *validity = readBuf == 1 ? true : false;
 
     LE_INFO("readLen = %" PRIuS, readLen);

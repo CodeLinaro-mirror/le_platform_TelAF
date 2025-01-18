@@ -479,6 +479,20 @@ FUNCTION le_result_t ResumeInstall
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Cancel installation.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CancelInstall
+(
+    Session session IN ///< Installation session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Verification post installation, check if flashing properly on inactive bank.
  *
  * @return
@@ -514,6 +528,8 @@ FUNCTION le_result_t GetActiveBank
  * - LE_FAULT -- Failed.
  * - LE_OK -- Succeeded.
  * - LE_UNSUPPORTED -- Unsupported.
+ *
+ * @b NOTE: The SBL partition will not be erased.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t EraseBank
@@ -631,6 +647,20 @@ FUNCTION le_result_t PauseSync
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ResumeSync
+(
+    Session session IN ///< Sync session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancels AB sync.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CancelSync
 (
     Session session IN ///< Sync session reference.
 );

@@ -547,8 +547,10 @@ void TestTafRadioPower
     LE_TEST_OK(opModeChangeHandlerRef != NULL, "taf_radio_AddOpModeChangeHandler - OK");
 
     le_onoff_t power;
+    le_result_t result = taf_radio_SetRadioPower(LE_OFF, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetRadioPower - LE_OK");
 
-    le_result_t result = taf_radio_SetOperatingMode(TAF_RADIO_OP_MODE_AIRPLANE, DEFAULT_PHONE_ID);
+    result = taf_radio_SetOperatingMode(TAF_RADIO_OP_MODE_AIRPLANE, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_SetOperatingMode - LE_OK");
 
     result = taf_radio_SetRadioPower(LE_ON, DEFAULT_PHONE_ID);
@@ -849,6 +851,10 @@ void TestTafRadioServingStatus
     int32_t nrTac;
     uint32_t pcid;
 
+    uint32_t band;
+    taf_radio_BandBitMask_t bandMask;
+    taf_radio_RFBandWidth_t bandWidth;
+
     switch (rat)
     {
         case TAF_RADIO_RAT_GSM:
@@ -868,6 +874,9 @@ void TestTafRadioServingStatus
 
             result = taf_radio_GetServingCellRoutingAreaCode(&rac, DEFAULT_PHONE_ID);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellRoutingAreaCode - LE_OK");
+
+            result = taf_radio_GetServingCellBandInfo(&bandMask, &bandWidth, DEFAULT_PHONE_ID);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellBandInfo - LE_OK");
             break;
         case TAF_RADIO_RAT_UMTS:
             psc = taf_radio_GetServingCellScramblingCode(DEFAULT_PHONE_ID);
@@ -879,6 +888,9 @@ void TestTafRadioServingStatus
 
             result = taf_radio_GetServingCellRoutingAreaCode(&rac, DEFAULT_PHONE_ID);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellRoutingAreaCode - LE_OK");
+
+            result = taf_radio_GetServingCellBandInfo(&bandMask, &bandWidth, DEFAULT_PHONE_ID);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellBandInfo - LE_OK");
             break;
         case TAF_RADIO_RAT_LTE:
             tac = taf_radio_GetServingCellLteTracAreaCode(DEFAULT_PHONE_ID);
@@ -896,6 +908,9 @@ void TestTafRadioServingStatus
             pscid = taf_radio_GetPhysicalServingLteCellId(DEFAULT_PHONE_ID);
             LE_TEST_OK(true, "taf_radio_GetPhysicalServingLteCellId - uint16_t");
             LE_INFO("pysical serving cell id : %d.", pscid);
+
+            result = taf_radio_GetServingCellLteBandInfo(&band, &bandWidth, DEFAULT_PHONE_ID);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellLteBandInfo - LE_OK");
             break;
         case TAF_RADIO_RAT_NR5G:
             nrCid = taf_radio_GetServingNrCellId(DEFAULT_PHONE_ID);
@@ -913,10 +928,16 @@ void TestTafRadioServingStatus
             pcid = taf_radio_GetPhysicalServingNrCellId(DEFAULT_PHONE_ID);
             LE_TEST_OK(true, "taf_radio_GetPhysicalServingNrCellId - OK");
             LE_INFO("pysical serving cell id : %d.", pcid);
+
+            result = taf_radio_GetServingCellNrBandInfo(&band, &bandWidth, DEFAULT_PHONE_ID);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellNrBandInfo - LE_OK");
             break;
         case TAF_RADIO_RAT_TDSCDMA:
             result = taf_radio_GetServingCellRoutingAreaCode(&rac, DEFAULT_PHONE_ID);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellRoutingAreaCode - LE_OK");
+
+            result = taf_radio_GetServingCellBandInfo(&bandMask, &bandWidth, DEFAULT_PHONE_ID);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellBandInfo - LE_OK");
             break;
         default:
             LE_INFO("Unavailble RAT %d for serving system.", rat);
@@ -1388,6 +1409,19 @@ void TestTafRadioIms
     {
         LE_TEST_OK(result == LE_OK, "taf_radio_GetImsUserAgent - LE_OK");
     }
+
+    result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, &enable);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcCfg - VoNR as %d - LE_OK", enable);
+    enable = false;
+    result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, enable);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - VoNR as %d - LE_OK", enable);
+    result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, &enable);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcCfg - VoNR as %d - LE_OK", enable);
+    enable = true;
+    result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, enable);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - VoNR as %d - LE_OK", enable);
+    result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, &enable);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcCfg - VoNR as %d - LE_OK", enable);
 
     taf_radio_RemoveImsRegStatusChangeHandler(imsRegStatusChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveImsRegStatusChangeHandler - void");

@@ -27,7 +27,7 @@
 
 # Changes from Qualcomm Innovation Center are provided under the following license:
 
-# Copyright (c) 2021,2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2021,2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted (subject to the limitations in the
@@ -637,6 +637,9 @@ if (telaf_external_dependencies) {
     allow telaf_admin_t http_port_t:tcp_socket all_tcp_socket_perms;
     allow telaf_admin_t cert_t:file read_file_perms;
     allow telaf_admin_t cert_t:dir search_dir_perms;
+    # Allow ping from cm
+    allow telaf_admin_t ping_exec_t:file { getattr open read execute execute_no_trans};
+    allow telaf_admin_t self:icmp_socket { create setopt getopt write read ioctl };
     # dns setting
     allow telaf_admin_t systemd_resolved_var_run_t:file rw_file_perms;
 

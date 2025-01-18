@@ -46,10 +46,20 @@
 #define SECFILE_MAX_NUM_OF_STORAGE       25
 #define SECFILE_MAX_NUM_OF_FILE          30
 #define SECFILE_MAX_NUM_OF_CLIENT        30
+#define SECFILE_CREATOR_NAME             "MSS_SECFILE"
+#define SECFILE_TMP_FILE_NAME_EXTENSION  ".tmp"
 #define DEFAULT_MSS_CONFIG_NAME "tafMngdStorageSvc.json"
 
 namespace telux {
 namespace tafsvc {
+
+// Storage access configuration
+typedef struct
+{
+    char StorageName[TAF_MNGDSTORSECFILE_MAX_STORAGE_NAME_SIZE];
+    std::vector<char*> AccessibleApps;
+}
+tafMngdSecFileStorage_StorageCfg_t;
 
 typedef struct
 {
@@ -102,7 +112,7 @@ class tafMngdSecFileStorageSvc: public ITafSvc
         static tafMngdSecFileStorageSvc &GetInstance();
 
         /**
-         * Resources for secure data
+         * Resources for secure file
          */
 
         char secFileStorage[TAF_MNGDSTORSECFILE_MAX_STORAGE_NAME_SIZE];
@@ -114,12 +124,15 @@ class tafMngdSecFileStorageSvc: public ITafSvc
         le_ref_MapRef_t ClientRefMap;
         le_mem_PoolRef_t ClientPool;
 
+        std::vector<tafMngdSecFileStorage_StorageCfg_t> storageAccessCfg;
+
         /**
          * Functions for secure storages
          */
 
-        tafMngdSecFileStorage_DirRef_t CreateDirRef(const char* basePathPtr,
-                                                    const char* storageNamePtr);
+        void CreateServiceStorages();
+
+        tafMngdSecFileStorage_DirRef_t CreateDirRef(const char* storageNamePtr, bool internal);
 
         le_result_t FindDirRef(const char* storageNamePtr,
                                 tafMngdSecFileStorage_DirRef_t* dirRef);
@@ -128,7 +141,8 @@ class tafMngdSecFileStorageSvc: public ITafSvc
                                         taf_mngdStorSecFile_StorageRef_t* dataRefPtr);
 
         le_result_t CreateStorageRefImpl(const char* storageName,
-                                        taf_mngdStorSecFile_ManagedCapMask_t capMask);
+                                        taf_mngdStorSecFile_ManagedCapMask_t capMask,
+                                        bool internal);
 
         taf_mngdStorSecFile_StorageRef_t GetStorageRefImpl(const char* storageName);
 
@@ -151,10 +165,31 @@ class tafMngdSecFileStorageSvc: public ITafSvc
         le_result_t GetBasePathImpl(taf_mngdStorSecFile_StorageRef_t storageRef,
                                     char* basePath, size_t pathSize);
 
+        le_result_t DeleteStorageImpl(taf_mngdStorSecFile_StorageRef_t storageRef);
+
         /**
          * Internal functions
          */
-        le_result_t ParseServiceJsonConfig();
+
+        le_result_t SetStorageCreator(const char* storageNamePtr,
+                                        const char* creatorAppPtr);
+
+        le_result_t CheckStorageCreator(const char* storageNamePtr,
+                                        const char* checkAppPtr);
+
+        le_result_t ClearStorageCreator(const char* storageNamePtr,
+                                        const char* checkAppPtr);
+
+        le_result_t ParseServiceJsonConfig(char* configPath);
+
+        // Check the extension json if not valid, then intialized service with base json
+        le_result_t PreCheckExtensionJson();
+
+        bool IsAppAccessible(const char* storageName, const char* appName);
+
+        bool IsServiceStorage(const char* storageName);
+
+        bool IsFileExisting(const char *path);
 
         le_result_t CreateDirectory(const char *path);
 

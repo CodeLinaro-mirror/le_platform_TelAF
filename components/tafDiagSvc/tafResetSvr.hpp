@@ -147,6 +147,7 @@ namespace telux {
 
                 // To clear message list.
                 void ClearResetMsgList(taf_ResetSvc_t* servicePtr);
+                void ClearVlanList(taf_ResetSvc_t* servicePtr);
 
                 uint8_t reqSvcId = 0x11;   // ECUReset request service ID.
                 uint8_t respSvcId = 0x51;  // ECUReset response service ID.

@@ -15,7 +15,7 @@ find_package(CommonAPI 3.2.0 REQUIRED)
 find_package(CommonAPI-SomeIP 3.2.0 REQUIRED)
 
 # Source Files
-set(PRJ_SRC_GEN_PATH src-gen/v0/com/qualcomm/qti/modem)
+set(PRJ_SRC_GEN_PATH src-gen)
 set(PRJ_INCLUDE_DIRS src-gen/)
 
 # Paths
@@ -27,7 +27,7 @@ include_directories(
 )
 
 # SOME/IP library
-FILE(GLOB PRJ_SOMEIP_LIB_SRCS ${PRJ_SRC_GEN_PATH}/*cpp)
+FILE(GLOB_RECURSE PRJ_SOMEIP_LIB_SRCS ${PRJ_SRC_GEN_PATH}/*.cpp)
 
 # Build SOME/IP library
 add_library(${PROJECT_NAME}-someip SHARED ${PRJ_SOMEIP_LIB_SRCS})

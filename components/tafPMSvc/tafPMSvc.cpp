@@ -144,6 +144,35 @@ void taf_pm_RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef)
 }
 
 /**
+ * FUNCTION     : AddConsolidatedAckInfoHandler
+ * DESCRIPTION  : send ConsolidatedAck Info notification
+ * DEPENDECY    :
+ * PARAMETERS   :
+ * RETURN VALUES: handlerRef if registered successfully or else NULL
+ */
+taf_pm_ConsolidatedAckInfoHandlerRef_t taf_pm_AddConsolidatedAckInfoHandler
+(taf_pm_ConsolidatedAckInfoHandlerFunc_t handlerPtr, void* contextPtr)
+{
+    LE_DEBUG("ConsolidatedAckInfoHandler in Service class");
+    auto &power = taf_PM::GetInstance();
+    return power.AddConsolidatedAckInfoHandler(handlerPtr, contextPtr);
+}
+
+/**
+ * FUNCTION     : RemoveConsolidatedAckInfoHandler
+ * DESCRIPTION  : remove ConsolidatedAck Info handler
+ * DEPENDECY    :
+ * PARAMETERS   : ConsolidatedAck Info Handler reference
+ * RETURN VALUES:
+ */
+void taf_pm_RemoveConsolidatedAckInfoHandler(taf_pm_ConsolidatedAckInfoHandlerRef_t handlerRef)
+{
+   LE_DEBUG("taf_pm_RemoveConsolidatedAckInfoHandler");
+   auto &power = taf_PM::GetInstance();
+   power.RemoveConsolidatedAckInfoHandler(handlerRef);
+}
+
+/**
 * FUNCTION     : SetAllVMPowerState
 * DESCRIPTION  : Sets the power state to all Virtual Machines
 * DEPENDECY    :
@@ -290,14 +319,13 @@ taf_pm_StateChangeExHandlerRef_t taf_pm_AddStateChangeExHandler
     return NULL;
 }
 
-
 /**
-* FUNCTION     : RemoveStateChangeExHandler
-* DESCRIPTION  : remove state change handler
-* DEPENDECY    :
-* PARAMETERS   : state change handler reference to be removed
-* RETURN VALUES:
-*/
+ * FUNCTION     : RemoveStateChangeExHandler
+ * DESCRIPTION  : remove state change handler
+ * DEPENDECY    :
+ * PARAMETERS   : state change handler reference to be removed
+ * RETURN VALUES:
+ */
 void taf_pm_RemoveStateChangeExHandler(taf_pm_StateChangeExHandlerRef_t handlerRef)
 {
    LE_DEBUG("RemoveStateChangeExHandler");
@@ -305,4 +333,73 @@ void taf_pm_RemoveStateChangeExHandler(taf_pm_StateChangeExHandlerRef_t handlerR
    auto &power = taf_PM::GetInstance();
    power.RemoveStateChangeExHandler(handlerRef);
 #endif
+}
+
+/**
+ * FUNCTION     : GetNackClientInfo
+ * DESCRIPTION  : Gets the info of nacked clients
+ * DEPENDECY    :
+ * PARAMETERS   : Info reference as input, nackClientPtr and nackClientSize as the output
+ * RETURN VALUES:
+ */
+le_result_t taf_pm_GetNackClientInfo
+(
+    taf_pm_ConsolidatedAckInfoRef_t consolidatedAckInfoRef,
+        ///< [IN] The reference of the consolidated
+        ///< acknowledgement information.
+    taf_pm_ClientInfo_t* nackClientsPtr,
+        ///< [OUT] The nacked clients.
+    size_t* nackClientsSizePtr
+        ///< [INOUT]
+)
+{
+    auto &pmInstance = taf_PM::GetInstance();
+    return pmInstance.GetNackClientInfo(consolidatedAckInfoRef, nackClientsPtr, nackClientsSizePtr);
+}
+
+/**
+ * FUNCTION     : GetUnrespClientInfo
+ * DESCRIPTION  : Gets the info of unresponsive clients
+ * DEPENDECY    :
+ * PARAMETERS   : Info reference as input, unrespClientPtr and unrespClientSize as the output
+ * RETURN VALUES:
+ */
+le_result_t taf_pm_GetUnrespClientInfo
+(
+    taf_pm_ConsolidatedAckInfoRef_t consolidatedAckInfoRef,
+        ///< [IN] The reference of the consolidated
+        ///< acknowledgement information.
+    taf_pm_ClientInfo_t* unrespClientsPtr,
+        ///< [OUT] The unresponsive clients.
+    size_t* unrespClientsSizePtr
+        ///< [INOUT]
+)
+{
+    auto &pmInstance = taf_PM::GetInstance();
+    return pmInstance.GetUnrespClientInfo(consolidatedAckInfoRef,
+                            unrespClientsPtr, unrespClientsSizePtr);
+}
+
+/**
+ * FUNCTION     : SetPowerMode
+ * DESCRIPTION  : Sets the PowerMode from mpms when BUB is active.
+ * DEPENDECY    :
+ * PARAMETERS   : Power mode as input.
+ * RETURN VALUES:
+ */
+le_result_t taf_pm_SetPowerMode(taf_pm_PowerMode_t powerMode)
+{
+    LE_INFO("taf_pm_SetPowerMode");
+    auto &pmInstance = taf_PM::GetInstance();
+    if(powerMode == TAF_PM_POWER_MODE_LOW_POWER)
+    {
+        LE_INFO("Power Mode is TAF_PM_POWER_MODE_LOW_POWER");
+        pmInstance.IsLowPowerMode = true;
+    }
+    else if(powerMode == TAF_PM_POWER_MODE_NORMAL)
+    {
+        LE_INFO("Power Mode is TAF_PM_POWER_MODE_NORMAL");
+        pmInstance.IsLowPowerMode = false;
+    }
+    return LE_OK;
 }

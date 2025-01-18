@@ -16,6 +16,14 @@ function list_between_marks()
 alias mark='append_msg_to_syslogd'
 alias listm='list_between_marks'
 
+# To use a proxy server for your container,remove the comment from the following lines and replace <your_proxy> with your
+# proxy address and replace <your_port> with the appropriate port number for the proxy.
+# Once you have set the proxy,docker will route network requests through the specified proxy server.
+
+# export HTTP_PROXY=http://<your_proxy>:<your_port>
+# export HTTPS_PROXY=http://<your_proxy>:<your_port>
+# export NO_PROXY=localhost,127.0.0.1
+
 # Try to export all environment variables for Common API
 if [ -e /legato/taf_rootfs/etc/vsomeip/E01HelloWorld/commonapi4someip.ini ]; then
     export COMMONAPI_CONFIG=/legato/taf_rootfs/etc/vsomeip/E01HelloWorld/commonapi4someip.ini

@@ -56,11 +56,12 @@
  * @section taf_mngdPm Configuration
  *
  * Before starting the service, the user should place a JSON file named
- * tafMngdPMConfig.json into /data/ManagedServices directory. This JSON file contains the
- * configurations for trigger sources, e.g., CAN, SMS, and GPIO.
+ * tafMngdPMSvc.json into /data/ManagedServices directory. This JSON file contains the
+ * configurations for bootup system awake time, whether PM HAL is enabled, timeout length
+ * for hal responses.
  *
  * The default configuration file is available at
- * /legato/systems/current/appsWriteable/tafMngdPMSvc/tafMngdPMConfig.json
+ * /legato/systems/current/appsWriteable/tafMngdPMSvc/tafMngdPMSvc.json
  *
  * @section taf_mngdPm_shutdown Shutdown the system forcefully
  *
@@ -71,7 +72,7 @@
  * @verbatim
 
     void ForcedSystemShutdownCallBack(taf_mngdPm_ShutdownMode_t mode,
-        taf_mngdPm_ResponseMode_t ResponseMode, void* contextPtr)
+        taf_mngdPm_ResponseMode_t ResponseMode, le_result_t result, void* contextPtr)
     {
         LE_INFO("ForcedSystemShutdownCallBack ");
     }
@@ -99,7 +100,7 @@
  * @verbatim
 
     void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode,
-            void* contextPtr)
+            le_result_t result, void* contextPtr)
     {
         LE_INFO(" RestartCallback ");
     }
@@ -146,44 +147,42 @@
     }
    @endverbatim
  *
- * @section taf_mngdPm_NewNodeWakeupSource Acquire a wake source
+ * @section taf_mngdPm_CreateWakeupSource Acquire a wake source
  *
- * TelAF Managed Power Management Service's client calls taf_mngdPm_NewNodeWakeupSource() and
- * taf_mngdPm_StayAwakeNode() to acquire a wake source to keep the system awake.
- * The vhalTag parameter in taf_mngdPm_NewNodeWakeupSource() is used as an indication for the service to decide
- * whether a notification is needed to be sent to the VHAL for the actions of taf_mngdPm_StayAwakeNode() and
- * taf_mngdPm_RelaxNode().
- * If the vhalTag is null, no notification will be sent to VHAL. Otherwise, the corresponding notification will be sent
- * to the VHAL with the tag.
+ * TelAF Managed Power Management Service's client calls taf_mngdPm_CreateWakeupSource() and
+ * taf_mngdPm_StayAwake() to acquire a wake source to keep the system awake.
+ * The reason parameter in taf_mngdPm_CreateWakeupSource() is authenticated based on the mask given by
+ * taf_mngdPm_AuthorizeStayAwakeReason() and passed to VHAL.
+ * The authorized wake source keeps the system awake when taf_mngdPm_StayAwake() is called.
+ * By default, all the stake awake reasons are authorized.
  * @verbatim
 
-    void NewNodeWakeupSource()
+    void CreateWakeupSource()
     {
-        const char* vHalTag = "vehicle_on";
-        uint8_t pmNodeId = 0;
-        taf_mngdPm_wsRef_t ref = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_SMS, vHalTag);
+        const char* wsTag = "OEM_Normal";
+        taf_mngdPm_wsRef_t ref = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
         if(ref != NULL)
-            LE_INFO("taf_mngdPm_NewNodeWakeupSource acquired a wake source successfully");
+            LE_INFO("taf_mngdPm_CreateWakeupSource created a wake source successfully");
     }
-    void StayAwakeNode()
+    void StayAwake()
     {
-        le_result_t result = = taf_mngdPm_StayAwakeNode(ref);
+        le_result_t result = = taf_mngdPm_StayAwake(ref);
         if(result == LE_OK)
-            LE_INFO("taf_mngdPm_StayAwakeNode successfully acquire a wake source to keep the system awake");
+            LE_INFO("taf_mngdPm_StayAwake successfully acquire a wake source to keep the system awake");
     }
    @endverbatim
  *
- * @section taf_mngdPm_RelaxNode Release an acquired wake source
+ * @section taf_mngdPm_Relax Release an acquired wake source
  *
- * TelAF Managed Power Management Service's client calls taf_mngdPm_RelaxNode() to request
+ * TelAF Managed Power Management Service's client calls taf_mngdPm_Relax() to request
  * MPMS to release the acquired wake lock.
  * This function returns le_result_t.
  * @verbatim
-    void RelaxNode()
+    void Relax()
     {
-        le_result_t result = = taf_mngdPm_RelaxNode(ref);
+        le_result_t result = = taf_mngdPm_Relax(ref);
         if(result == LE_OK)
-            LE_INFO("taf_mngdPm_RelaxNode successfully released a acquired wake lock");
+            LE_INFO("taf_mngdPm_Relax successfully released a acquired wake lock");
     }
    @endverbatim
  *
@@ -194,7 +193,7 @@
  * This function returns le_result_t.
  * @verbatim
  void wakeupVehicleCB(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode,
-            void* contextPtr)
+            le_result_t result, void* contextPtr)
     {
         LE_INFO(" wakeupVehicleCB ");
     }
@@ -281,6 +280,138 @@ ENUM WakeupType
     VOICE_CALL,     ///< The wakeup type is VOICE_CALL for system wakeup.
     MCU_VHAL        ///< The wakeup type is  MCU / VHAL for system wakeup.
 };
+
+/**
+ * StayAwakeReason type for system wakeup.
+ * Value range from 5 to 15 is for the platform future extension.
+ * Value range from 16 to 31 is for Tier 1 product specific extension.
+ */
+ENUM StayAwakeReason
+{
+    STAY_AWAKE_REASON_NORMAL,             ///< StayAwake Reason normal.
+    STAY_AWAKE_REASON_ECALL_ACTIVE,       ///< StayAwake Reason for ecall active.
+    STAY_AWAKE_REASON_ECALL_CALLBACK,     ///< StayAwake Reason for ecall callback.
+    STAY_AWAKE_REASON_SW_UPDATE,          ///< StayAwake Reason for software update.
+    STAY_AWAKE_REASON_VEH_NETWORK,        ///< StayAwake Reason for vehicle network.
+
+    STAY_AWAKE_REASON_VENDOR_1 = 16,      ///< Tier-1 product specific StayAwake Reason.
+                                          ///< For handling bub state.
+    STAY_AWAKE_REASON_VENDOR_2,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_3,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_4,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_5,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_6,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_7,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_8,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_9,           ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_10,          ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_11,          ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_12,          ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_13,          ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_14,          ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_15,          ///< Tier-1 product specific StayAwake Reason.
+    STAY_AWAKE_REASON_VENDOR_16           ///< Tier-1 product specific StayAwake Reason.
+};
+
+/**
+ * StayAwakeReason BitMask for system wakeup.
+ * Value range from 5 to 15 is for the platform future extension.
+ * Value range from 16 to 31 is for Tier 1 product specific extension.
+ */
+BITMASK StayAwakeReasonBitMask
+{
+    STAY_AWAKE_REASON_BIT_MASK_NORMAL,           ///< StayAwake Reason bit mask normal.
+    STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE,     ///< StayAwake Reason bit mask for ecall active.
+    STAY_AWAKE_REASON_BIT_MASK_ECALL_CALLBACK,   ///< StayAwake Reason bit mask for ecall callback.
+    STAY_AWAKE_REASON_BIT_MASK_SW_UPDATE,        ///< StayAwake Reason bit mask for software update.
+    STAY_AWAKE_REASON_BIT_MASK_VEH_NETWORK,      ///< StayAwake Reason bit mask for vehicle net.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_1 = 0x10000, ///< StayAwake Reason bit mask for vendor specific.
+                                                 ///< For handling bub state.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_2,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_3,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_4,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_5,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_6,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_7,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_8,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_9,         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_10,        ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_11,        ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_12,        ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_13,        ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_14,        ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_15,        ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_16         ///< StayAwake Reason bit mask for vendor specific.
+};
+
+/**
+ * Restart Reason type for system restart.
+ * Value range from 5 to 15 is for the platform future extension.
+ * Value range from 16 to 31 is for Tier 1 product specific extension.
+ */
+ENUM RestartReason
+{
+    RESTART_REASON_NORMAL,             ///< Restart Reason normal.
+    RESTART_REASON_SW_UPDATE,       ///< Restart Reason for ecall active.
+    RESTART_REASON_ECALL_RECOVERY,     ///< Restart Reason for ecall callback.
+
+    RESTART_REASON_VENDOR_1 = 16,      ///< Tier-1 product specific Restart Reason.
+                                       ///< For handling bub state.
+    RESTART_REASON_VENDOR_2,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_3,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_4,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_5,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_6,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_7,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_8,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_9,           ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_10,          ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_11,          ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_12,          ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_13,          ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_14,          ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_15,          ///< Tier-1 product specific Restart Reason.
+    RESTART_REASON_VENDOR_16           ///< Tier-1 product specific Restart Reason.
+};
+
+
+/**
+ * Shutdown Reason type for system Shutdown.
+ * Value range from 5 to 15 is for the platform future extension.
+ * Value range from 16 to 31 is for Tier 1 product specific extension.
+ */
+ENUM ShutdownReason
+{
+    SHUTDOWN_REASON_NORMAL,             ///< Shutdown Reason normal.
+    SHUTDOWN_REASON_BUB_ACTIVE,         ///< Shutdown Reason for bub active.
+
+    SHUTDOWN_REASON_VENDOR_1 = 16,      ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_2,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_3,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_4,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_5,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_6,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_7,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_8,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_9,           ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_10,          ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_11,          ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_12,          ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_13,          ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_14,          ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_15,          ///< Tier-1 product specific Shutdown Reason.
+    SHUTDOWN_REASON_VENDOR_16           ///< Tier-1 product specific Shutdown Reason.
+};
+
+/**
+ * Wake source option for calling stay awake and relax.
+ */
+ENUM WsOpt
+{
+    WS_OPT_DEFAULT    ///< With same wake source ref, StayAwake and relax must be called in pairs.
+                      ///< Can be called multiple times.
+};
+
 /**
  * Information data report ID.
  */
@@ -344,7 +475,8 @@ REFERENCE nodePowerState;
 HANDLER AsyncShutdownReqHandler
 (
     ShutdownMode requestedMode IN,   ///< Requested mode.
-    ResponseMode responseMode  IN    ///< Request response.
+    ResponseMode responseMode  IN,   ///< Request response.
+    le_result_t result         IN    ///< Request response result.
 );
 
 /**
@@ -362,7 +494,8 @@ ENUM RestartMode
 HANDLER AsyncRestartReqHandler
 (
     RestartMode restartMode   IN,    ///< Restart mode.
-    ResponseMode responseMode IN     ///< Request response.
+    ResponseMode responseMode IN,    ///< Request response.
+    le_result_t result        IN     ///< Request response result.
 );
 
 /**
@@ -371,7 +504,8 @@ HANDLER AsyncRestartReqHandler
 HANDLER AsyncWakeupVehicleReqHandler
 (
     int32 reason IN,    ///< WakeupVehicleReason reason.
-    int32 status IN     ///< Response status.
+    int32 status IN,     ///< Response status.
+    le_result_t result IN     ///< Request response result.
 );
 
 /**
@@ -464,7 +598,8 @@ FUNCTION le_result_t SetNodeTargetedPowerMode
 FUNCTION le_result_t ShutdownReqAsync
 (
     ShutdownMode              requstedMode  IN,   ///< Requested mode.
-    AsyncShutdownReqHandler   handlerRef    IN    ///< Handler Reference.
+    AsyncShutdownReqHandler   handlerRef    IN,   ///< Handler Reference.
+    ShutdownReason            reason        IN    ///< Shutdown reason.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -480,7 +615,8 @@ FUNCTION le_result_t ShutdownReqAsync
 FUNCTION le_result_t RestartReqAsync
 (
     RestartMode             restartMode  IN,   ///< Restart mode.
-    AsyncRestartReqHandler  handlerRef   IN    ///< Handler reference.
+    AsyncRestartReqHandler  handlerRef   IN,   ///< Handler reference.
+    RestartReason            reason      IN    ///< Restart reason.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -616,3 +752,63 @@ FUNCTION le_result_t SendNodePowerStateChangeAck
     nodePowerState Ref,
     NodeClientAck ack
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Authorize the StayAwake reasons with bit mask.
+ *
+ * @return
+ *     - LE_OK             Successfully authorize the StayAwake reason bitmask.
+ *     - LE_BAD_PARAMETER  Invalid requested StayAwake reason bitmask.
+ *     - LE_FAULT          Failed to Authorize StayAwake reason bitmask.
+ */
+
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t AuthorizeStayAwakeReason
+(
+     StayAwakeReasonBitMask stayAwakeReasonMask
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Creates a new wake lock reference with given StayAwakeReason.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
+ *     - LE_FAULT          Failed to send the request.
+ */
+
+//--------------------------------------------------------------------------------------------------
+FUNCTION ws CreateWakeupSource (
+    StayAwakeReason reason IN,       ///< The wakeup type given.
+    WsOpt option,
+    string wsTag[WSREF_MAXLEN] IN  ///< The HAL tag information.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases the acquired wake source.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Relax (
+    ws wsRef IN    ///< The wakesource reference ID given.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Acquires the wake source to keep the node awake.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StayAwake(
+    ws wsRef IN     ///< The wakesource reference ID given.
+);
+//--------------------------------------------------------------------------------------------------

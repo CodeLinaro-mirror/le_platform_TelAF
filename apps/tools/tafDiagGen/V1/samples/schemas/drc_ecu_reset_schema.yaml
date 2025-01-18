@@ -1,0 +1,27 @@
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+sub_function_identifier_HardReset: str(equals="0x01",required=False)
+sub_function_identifier_KeyOffOnReset: str(equals="0x02",required=False)
+service_nrc: list(hexa(), required=False)
+
+reset_all: map(include('sub_function_id_item'), key=hexa())
+---
+sub_function_id_item: include('sub_function_id_item_ref17')
+---
+sub_function_id_item_ref17:
+  sub_function_identifier: enum(0x01,0x02,0x03,0x04,0x05, etype='int')
+  mnemonic: mnemonic()
+  description: str(max=2048, required=False)
+  minimum_execution_time: int(min=0,max=60,required=False)
+  maximum_execution_time: int(min=0,max=60)
+  execution_conditions: str(matches='^([\d\w\W\s\(\)\.=]+)$',max=200,required=False)
+  access:
+    session: list(enum('default_session', 'programming_session', 'extended_diagnostic_session', 'vehicle_manufacturer_specific_session', 'fota_session', 'downloaded_enumlation_session', 'system_supplier_specific_session'), required=False)
+    security_type: hexa(required=False)
+    security_level: list(str(),required=False)
+    role: enum('R1','R2','R3','R4','R5',required=False)
+  negative_response:
+    nrc: list(hexa())
+  functional_specification: str(max=200)
+  functional_requirement: str(max=200)

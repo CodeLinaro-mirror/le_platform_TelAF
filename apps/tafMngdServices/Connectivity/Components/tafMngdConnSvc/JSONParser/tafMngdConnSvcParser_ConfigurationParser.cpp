@@ -602,6 +602,7 @@ bool mcs_ConfigurationParser::Validate_MCSC_Data_Profile_APN(
     if (MCS_JSON_DATA_TYPE_NULL == DataType)
     {
         memset(Configuration.Data[Index].Profile.APN, 0, MCS_MAX_APN_LEN);
+        LE_DEBUG("Null JSON APN value");
         return true;
     }
     // Valid String.

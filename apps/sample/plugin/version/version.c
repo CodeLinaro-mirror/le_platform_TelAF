@@ -483,6 +483,108 @@ int taf_piVersion_GetTelafVersion
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Get LXC version.
+ */
+//--------------------------------------------------------------------------------------------------
+int taf_piVersion_GetLXCVersion
+(
+    taf_pi_version_Tier_t tier, ///< [IN] Version tier.
+    char* version,              ///< [OUT] Version string.
+    size_t versionSize          ///< [IN] Size of the version string.
+)
+{
+    FILE *fp = fopen(LXC_VERSION_FILE, "r");
+    if (fp == NULL)
+    {
+        LE_ERROR("Can not open file %s.", LXC_VERSION_FILE);
+        return -1;
+    }
+
+    char line[MAX_LINE_LEN];
+    if (fgets(line, sizeof(line), fp) == NULL)
+    {
+        LE_ERROR("Can not read file %s.", LXC_VERSION_FILE);
+        fclose(fp);
+        return -1;
+    }
+
+    bool isAuPrefix = true;
+    char* majorPtr = strstr(line, LXC_VERSION_AU_PREFIX);
+    if (majorPtr == NULL)
+    {
+        majorPtr = strstr(line, LXC_VERSION_LE_PREFIX);
+        if (majorPtr == NULL)
+        {
+            LE_ERROR("Invalid lxc version : %s", line);
+            fclose(fp);
+            return -1;
+        }
+        isAuPrefix = false;
+        majorPtr += strlen(LXC_VERSION_LE_PREFIX);
+    }
+    else
+    {
+        majorPtr += strlen(LXC_VERSION_AU_PREFIX);
+    }
+
+    char* minorPtr = strstr(majorPtr, ".");
+    char* patchPtr = NULL;
+    char* endPtr = NULL;
+    if (minorPtr != NULL)
+    {
+        patchPtr = strstr(minorPtr + 1, ".");
+        if (patchPtr != NULL)
+        {
+            if (isAuPrefix)
+            {
+                endPtr = strstr(patchPtr + 1, "-");
+            }
+            else
+            {
+                endPtr = strstr(patchPtr + 1, ".");
+            }
+        }
+    }
+
+    if (tier == TAF_PI_VERSION_MAJOR)
+    {
+        if (minorPtr != NULL)
+        {
+            versionSize = minorPtr - majorPtr + 1;
+        }
+        le_utf8_Copy(version, majorPtr, versionSize, NULL);
+    }
+    else if (tier == TAF_PI_VERSION_MINOR && minorPtr != NULL)
+    {
+        minorPtr++;
+        if (patchPtr != NULL)
+        {
+            versionSize = patchPtr - minorPtr + 1;
+        }
+        le_utf8_Copy(version, minorPtr, versionSize, NULL);
+    }
+    else if (tier == TAF_PI_VERSION_PATCH && patchPtr != NULL)
+    {
+        patchPtr++;
+        if (endPtr != NULL)
+        {
+            versionSize = endPtr - patchPtr + 1;
+        }
+        le_utf8_Copy(version, patchPtr, versionSize, NULL);
+    }
+    else
+    {
+        LE_ERROR("Invalid tier %d.", tier);
+        fclose(fp);
+        return -1;
+    }
+
+    fclose(fp);
+    return 0;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Get major version.
  */
 //--------------------------------------------------------------------------------------------------
@@ -505,6 +607,8 @@ int taf_piVersion_GetMajor
             return taf_piVersion_GetTzVersion(TAF_PI_VERSION_MAJOR, versionPtr, versionSize);
         case TAF_PI_VERSION_COMP_TELAF:
             return taf_piVersion_GetTelafVersion(TAF_PI_VERSION_MAJOR, versionPtr, versionSize);
+        case TAF_PI_VERSION_COMP_LXC:
+            return taf_piVersion_GetLXCVersion(TAF_PI_VERSION_MAJOR, versionPtr, versionSize);
         default:
             LE_ERROR("Invalid component : %d", component);
     }
@@ -535,6 +639,8 @@ int taf_piVersion_GetMinor
             return taf_piVersion_GetTzVersion(TAF_PI_VERSION_MINOR, versionPtr, versionSize);
         case TAF_PI_VERSION_COMP_TELAF:
             return taf_piVersion_GetTelafVersion(TAF_PI_VERSION_MINOR, versionPtr, versionSize);
+        case TAF_PI_VERSION_COMP_LXC:
+            return taf_piVersion_GetLXCVersion(TAF_PI_VERSION_MINOR, versionPtr, versionSize);
         default:
             LE_ERROR("Invalid component : %d", component);
     }
@@ -565,6 +671,8 @@ int taf_piVersion_GetPatch
             return taf_piVersion_GetTzVersion(TAF_PI_VERSION_PATCH, versionPtr, versionSize);
         case TAF_PI_VERSION_COMP_TELAF:
             return taf_piVersion_GetTelafVersion(TAF_PI_VERSION_PATCH, versionPtr, versionSize);
+        case TAF_PI_VERSION_COMP_LXC:
+            return taf_piVersion_GetLXCVersion(TAF_PI_VERSION_PATCH, versionPtr, versionSize);
         default:
             LE_ERROR("Invalid component : %d", component);
     }

@@ -184,7 +184,7 @@ void PrintHelpMenu
         "       phone      : '1' or '2'.\n"
         "       mode       : 'status' to show IMS status, 'enable' or 'disable' IMS service, 'user' to "
         "set user agent.\n"
-        "       service    : 'registation', 'voip', 'rtt' or 'sms'.\n"
+        "       service    : 'registation', 'voip', 'vonr', 'rtt' or 'sms'.\n"
         "       user_agent : user agent string.\n"
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- handler <time>\n"
@@ -858,7 +858,7 @@ void PrintImsSvcInfo
             }
             else if (service == TAF_RADIO_IMS_SVC_TYPE_VOIP)
             {
-                LE_INFO("Phone %d IMS-VOIP : Unavailble.", phoneId);
+                LE_INFO("Phone %d IMS-Voice over IMS : Unavailble.", phoneId);
             }
             break;
         case TAF_RADIO_IMS_SVC_STATUS_LIMITED:
@@ -868,7 +868,7 @@ void PrintImsSvcInfo
             }
             else if (service == TAF_RADIO_IMS_SVC_TYPE_VOIP)
             {
-                LE_INFO("Phone %d IMS-VOIP : Limited service.", phoneId);
+                LE_INFO("Phone %d IMS-Voice over IMS : Limited service.", phoneId);
             }
             break;
         case TAF_RADIO_IMS_SVC_STATUS_FULL_SERVICE:
@@ -878,7 +878,7 @@ void PrintImsSvcInfo
             }
             else if (service == TAF_RADIO_IMS_SVC_TYPE_VOIP)
             {
-                LE_INFO("Phone %d IMS-VOIP : Full service.", phoneId);
+                LE_INFO("Phone %d IMS-Voice over IMS : Full service.", phoneId);
             }
             break;
         default:
@@ -888,7 +888,7 @@ void PrintImsSvcInfo
             }
             else if (service == TAF_RADIO_IMS_SVC_TYPE_VOIP)
             {
-                LE_INFO("Phone %d IMS-VOIP : Unknown.", phoneId);
+                LE_INFO("Phone %d IMS-Voice over IMS : Unknown.", phoneId);
             }
             break;
     }
@@ -970,6 +970,99 @@ void PrintOperatingMode
         default:
             LE_INFO("Operating Mode : Unknown.");
             break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Print RF bandwidth.
+ */
+//--------------------------------------------------------------------------------------------------
+void PrintRFBandwidth
+(
+    uint8_t phoneId,                  ///< [IN] Phone ID.
+    taf_radio_RFBandWidth_t bandwidth ///< [IN] RF bandwidth.
+)
+{
+    switch (bandwidth)
+    {
+        case TAF_RADIO_RF_BANDWIDTH_GSM_BW_0_2:
+            LE_INFO("Phone %d RF Bandwidth : GSM 0.2 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_WCDMA_BW_5:
+            LE_INFO("Phone %d RF Bandwidth : WCDMA 5 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_WCDMA_BW_10:
+            LE_INFO("Phone %d RF Bandwidth : WCDMA 10 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_TDSCDMA_BW_1_6:
+            LE_INFO("Phone %d RF Bandwidth : TDSCDMA 1.6 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_1_4:
+            LE_INFO("Phone %d RF Bandwidth : LTE 1.4 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_3:
+            LE_INFO("Phone %d RF Bandwidth : LTE 3 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_5:
+            LE_INFO("Phone %d RF Bandwidth : LTE 5 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_10:
+            LE_INFO("Phone %d RF Bandwidth : LTE 10 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_15:
+            LE_INFO("Phone %d RF Bandwidth : LTE 15 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_20:
+            LE_INFO("Phone %d RF Bandwidth : LTE 20 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_5:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 5 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_10:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 10 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_15:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 15 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_20:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 20 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_25:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 25 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_30:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 30 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_40:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 40 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_50:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 50 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_60:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 60 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_70:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 70 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_80:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 80 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_90:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 90 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_100:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 100 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_200:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 200 MHz.", phoneId);
+            break;
+        case TAF_RADIO_RF_BANDWIDTH_NR5G_BW_400:
+            LE_INFO("Phone %d RF Bandwidth : NR5G 400 MHz.", phoneId);
+            break;
+        default:
+            LE_INFO("Phone %d RF Bandwidth : Invalid.", phoneId);
     }
 }
 
@@ -1454,6 +1547,10 @@ void PrintServingStatus
     int32_t nrTac;
     uint32_t pcid;
 
+    uint32_t band;
+    taf_radio_BandBitMask_t bandMask;
+    taf_radio_RFBandWidth_t bandWidth;
+
     switch (rat)
     {
         case TAF_RADIO_RAT_GSM:
@@ -1476,6 +1573,11 @@ void PrintServingStatus
             result = taf_radio_GetServingCellRoutingAreaCode(&rac, phoneId);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellRoutingAreaCode - LE_OK");
             LE_INFO("Phone %d GSM Routing Area Code %d", phoneId, rac);
+
+            result = taf_radio_GetServingCellBandInfo(&bandMask, &bandWidth, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellBandInfo - LE_OK");
+            LE_INFO("Phone %d GSM band 0x%" PRIxS, phoneId, (size_t)bandMask);
+            PrintRFBandwidth(phoneId, bandWidth);
             break;
         case TAF_RADIO_RAT_UMTS:
             psc = taf_radio_GetServingCellScramblingCode(phoneId);
@@ -1489,6 +1591,11 @@ void PrintServingStatus
             result = taf_radio_GetServingCellRoutingAreaCode(&rac, phoneId);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellRoutingAreaCode - LE_OK");
             LE_INFO("Phone %d UMTS Routing Area Code %d", phoneId, rac);
+
+            result = taf_radio_GetServingCellBandInfo(&bandMask, &bandWidth, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellBandInfo - LE_OK");
+            LE_INFO("Phone %d UMTS band 0x%" PRIxS, phoneId, (size_t)bandMask);
+            PrintRFBandwidth(phoneId, bandWidth);
             break;
         case TAF_RADIO_RAT_LTE:
             tac = taf_radio_GetServingCellLteTracAreaCode(phoneId);
@@ -1507,6 +1614,11 @@ void PrintServingStatus
             pscid = taf_radio_GetPhysicalServingLteCellId(phoneId);
             LE_TEST_OK(true, "taf_radio_GetPhysicalServingLteCellId - OK");
             LE_INFO("Phone %d LTE Physical Serving Cell ID %d", phoneId, pscid);
+
+            result = taf_radio_GetServingCellLteBandInfo(&band, &bandWidth, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellLteBandInfo - LE_OK");
+            LE_INFO("Phone %d LTE band %d", phoneId, band);
+            PrintRFBandwidth(phoneId, bandWidth);
             break;
         case TAF_RADIO_RAT_NR5G:
             nrCid = taf_radio_GetServingNrCellId(phoneId);
@@ -1524,11 +1636,21 @@ void PrintServingStatus
             pcid = taf_radio_GetPhysicalServingNrCellId(phoneId);
             LE_TEST_OK(true, "taf_radio_GetPhysicalServingNrCellId - OK");
             LE_INFO("Phone %d NR5G Physical Serving Cell ID %d", phoneId, pcid);
+
+            result = taf_radio_GetServingCellNrBandInfo(&band, &bandWidth, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellNrBandInfo - LE_OK");
+            LE_INFO("Phone %d NR5G band %d", phoneId, band);
+            PrintRFBandwidth(phoneId, bandWidth);
             break;
         case TAF_RADIO_RAT_TDSCDMA:
             result = taf_radio_GetServingCellRoutingAreaCode(&rac, phoneId);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellRoutingAreaCode - LE_OK");
             LE_INFO("Phone %d TDSCDMA Routing Area Code %d", phoneId, rac);
+
+            result = taf_radio_GetServingCellBandInfo(&bandMask, &bandWidth, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellBandInfo - LE_OK");
+            LE_INFO("Phone %d TDSCDMA band 0x%" PRIxS, phoneId, (size_t)bandMask);
+            PrintRFBandwidth(phoneId, bandWidth);
             break;
         default:
             LE_INFO("Unavailble RAT %d for serving system.", rat);
@@ -2651,6 +2773,17 @@ COMPONENT_INIT
                 LE_TEST_OK(result == LE_OK, "taf_radio_GetImsUserAgent - LE_OK");
                 LE_INFO("IMS user agent: %s", userAgent);
             }
+
+            result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, &enable);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcCfg - LE_OK");
+            if (enable)
+            {
+                LE_INFO("IMS VoNR is enabled.");
+            }
+            else
+            {
+                LE_INFO("IMS VoNR is disabled.");
+            }
         }
         else if (strncmp(op, "enable", strlen("enable")) == 0)
         {
@@ -2685,6 +2818,11 @@ COMPONENT_INIT
                 {
                     LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
                 }
+            }
+            else if (strncmp(service, "vonr", strlen("vonr")) == 0)
+            {
+                result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, true);
+                LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
             }
             else
             {
@@ -2724,6 +2862,11 @@ COMPONENT_INIT
                 {
                     LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
                 }
+            }
+            else if (strncmp(service, "vonr", strlen("vonr")) == 0)
+            {
+                result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, false);
+                LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
             }
             else
             {

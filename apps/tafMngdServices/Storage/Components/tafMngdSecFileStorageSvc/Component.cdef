@@ -23,6 +23,7 @@ requires:
     {
         taf_fsc.api
         le_appInfo.api
+        taf_mngdStorSecData.api
     }
 
     component:

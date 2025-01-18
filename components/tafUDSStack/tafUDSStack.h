@@ -87,6 +87,17 @@ typedef enum
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Enumeration of data type.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_UDS_DATA_TYPE_ROLE   = 0x00,              ///< Role.
+    TAF_UDS_DATA_TYPE_FILEXFER_STATE = 0x01       ///< File transfer state
+}taf_uds_DataType_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Logical address information structure in uds communication.
  */
 //-------------------------------------------------------------------------------------------------
@@ -107,6 +118,19 @@ typedef struct
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * FileXfer state info.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint16_t            vlanId; ///< VLAN ID. =0 if the interface is not vlan port.
+    bool                state;  ///< File transfer state.
+    char                ifName[MAX_INTERFACE_NAME_LEN]; ///< Interface name.
+    le_dls_Link_t       link;
+}taf_uds_FileXferState_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Sends a diagnostic message.
  *
  * @return
@@ -121,6 +145,23 @@ LE_SHARED le_result_t taf_uds_SendDiagResp
     const taf_uds_DiagMsg_t*   diagMsgPtr,     ///< [IN] Diagnostic message pointer.
     taf_uds_ServiceId_t serviceId,             ///< [IN] Service Id.
     uint8_t err                                ///< [IN] Error code.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sets data to UDS stack.
+ *
+ * @return
+ *  - LE_OK             Function success.
+ *  - LE_BAD_PARAMETER  Invalid parameter
+ *  - LE_COMM_ERROR     Sending message error.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_uds_SetData
+(
+    const taf_uds_AddrInfo_t*  addrInfoPtr,       ///< [IN] Logical address information pointer.
+    const taf_uds_DiagMsg_t*   diagMsgPtr,        ///< [IN] Data pointer.
+    taf_uds_DataType_t dataType                   ///< [IN] Data type.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -172,6 +213,16 @@ LE_SHARED le_result_t taf_uds_Start(const char* configPathPtr);
 LE_SHARED void taf_uds_RemoveDiagIndicationHandler
 (
     taf_uds_DiagIndicationHandlerRef_t handerRef    ///< [IN] The handler reference.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets file transfer state.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED void taf_uds_GetFileXferActiveStateList
+(
+    le_dls_List_t* fileXferStateListPtr    ///< [IN] The file transfer state list.
 );
 
 #ifdef  __cplusplus

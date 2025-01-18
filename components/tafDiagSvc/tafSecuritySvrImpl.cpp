@@ -742,6 +742,39 @@ le_result_t taf_SecuritySvr::GetCurrentSesType
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Releases a session change notification message.
+ */
+//-------------------------------------------------------------------------------------------------
+
+le_result_t taf_SecuritySvr::ReleaseSesChangeMsg
+(
+    taf_diagSecurity_SesChangeRef_t sesChangeRef
+)
+{
+    LE_INFO("ReleaseSesChangeMsg");
+
+    taf_SesChangeMsg_t* rxSesChangMsgPtr =
+            (taf_SesChangeMsg_t*)le_ref_Lookup(SesChangeRefMap, sesChangeRef);
+    TAF_ERROR_IF_RET_VAL(rxSesChangMsgPtr == NULL, LE_BAD_PARAMETER, "Invalid sesChangeRef");
+
+    // Search the service.
+    taf_SecuritySvc_t* servicePtr
+            = (taf_SecuritySvc_t*)GetServiceObj(rxSesChangMsgPtr->addrInfo.vlanId);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid servicePtr");
+
+    // Remove the message from message list.
+    le_dls_Remove(&servicePtr->rxSesChangeList, &rxSesChangMsgPtr->link);
+
+    // Free the message.
+    le_ref_DeleteRef(SesChangeRefMap, sesChangeRef);
+    le_mem_Release(rxSesChangMsgPtr);
+
+    LE_DEBUG("Freed msgRef(%p).", sesChangeRef);
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Internal function to get current session type.
  */
 //-------------------------------------------------------------------------------------------------
@@ -1217,6 +1250,37 @@ void taf_SecuritySvr::ClearSecAccessMsgList
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Clear vlan list.
+*/
+//-------------------------------------------------------------------------------------------------
+void taf_SecuritySvr::ClearVlanList
+(
+    taf_SecuritySvc_t* servicePtr
+)
+{
+    LE_DEBUG("ClearVlanList");
+    TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
+
+    // Clear the vlan id list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
+    while (linkPtr != NULL)
+    {
+        taf_SecurityVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_SecurityVlanIdNode_t, link);
+        if (vlanPtr != NULL)
+        {
+            LE_INFO("Release vlan node(id=0x%x)", vlanPtr->vlanId);
+            le_mem_Release(vlanPtr);
+        }
+
+        // Process next node.
+        linkPtr = le_dls_Pop(&servicePtr->supportedVlanList);
+    }
+
+    return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Remove the created service and release the alloted memory.
  */
 //-------------------------------------------------------------------------------------------------
@@ -1232,8 +1296,9 @@ le_result_t taf_SecuritySvr::RemoveSvc
 
     // Release session control and security access message resources.
     ClearSesTypeMsgList(servicePtr);
+    ClearSesChangeMsgList(servicePtr);
     ClearSecAccessMsgList(servicePtr);
-    ClearSecAccessMsgList(servicePtr);
+    ClearVlanList(servicePtr);
 
     // Clear the registered session control handler
     if (servicePtr->SesTypeHandlerRef != NULL)

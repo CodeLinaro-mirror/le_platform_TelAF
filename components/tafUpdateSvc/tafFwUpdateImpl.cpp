@@ -49,8 +49,6 @@ using namespace std;
 using namespace telux::tafsvc;
 
 le_event_Id_t taf_FwUpdate::fwUpdateEvId = nullptr;
-le_event_Id_t taf_FwUpdate::fwStartSyncEvId = nullptr;
-le_event_Id_t taf_FwUpdate::fwSyncHandlerEvId = nullptr;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -195,15 +193,57 @@ taf_update_State_t taf_FwUpdate::GetState
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Clean up config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::CleanupContext
+(
+    taf_update_State_t state ///< [IN] Update state.
+)
+{
+    le_cfg_IteratorRef_t wrIter;
+    switch (state)
+    {
+        case TAF_UPDATE_INSTALLING:
+            wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_SYNC_CONTEXT);
+            break;
+        default:
+            LE_ERROR("Can not clean up context.");
+            return;
+    }
+
+    le_cfg_DeleteNode(wrIter, "");
+    le_cfg_CommitTxn(wrIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Set pause action in config tree.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_FwUpdate::SetPauseAction
 (
-    bool paused ///< [IN] Pause state.
+    taf_update_State_t state, ///< [IN] Update state.
+    bool paused               ///< [IN] Pause action.
 )
 {
-    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    le_cfg_IteratorRef_t wrIter;
+    switch (state)
+    {
+        case TAF_UPDATE_INSTALLING:
+            wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_SYNC_CONTEXT);
+            break;
+        default:
+            LE_ERROR("Can not set pause action.");
+            return;
+    }
+
     le_cfg_SetBool(wrIter, "paused", paused);
     le_cfg_CommitTxn(wrIter);
 }
@@ -215,13 +255,84 @@ void taf_FwUpdate::SetPauseAction
 //--------------------------------------------------------------------------------------------------
 bool taf_FwUpdate::GetPauseAction
 (
-    void
+    taf_update_State_t state ///< [IN] Update state.
 )
 {
-    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    le_cfg_IteratorRef_t rdIter;
+    switch (state)
+    {
+        case TAF_UPDATE_INSTALLING:
+            rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_SYNC_CONTEXT);
+            break;
+        default:
+            LE_ERROR("Can not get pause action.");
+            return false;
+    }
+
     bool paused = le_cfg_GetBool(rdIter, "paused", false);
     le_cfg_CancelTxn(rdIter);
     return paused;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set pause action in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SetCancelAction
+(
+    taf_update_State_t state, ///< [IN] Update state.
+    bool cancel               ///< [IN] Cancel action.
+)
+{
+    le_cfg_IteratorRef_t wrIter;
+    switch (state)
+    {
+        case TAF_UPDATE_INSTALLING:
+            wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_SYNC_CONTEXT);
+            break;
+        default:
+            LE_ERROR("Can not set pause action.");
+            return;
+    }
+
+    le_cfg_SetBool(wrIter, "cancel", cancel);
+    le_cfg_CommitTxn(wrIter);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get cancel action from config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::GetCancelAction
+(
+    taf_update_State_t state ///< [IN] Update state.
+)
+{
+    le_cfg_IteratorRef_t rdIter;
+    switch (state)
+    {
+        case TAF_UPDATE_INSTALLING:
+            rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_SYNC_CONTEXT);
+            break;
+        default:
+            LE_ERROR("Can not get cancel action.");
+            return false;
+    }
+
+    bool cancel = le_cfg_GetBool(rdIter, "cancel", false);
+    le_cfg_CancelTxn(rdIter);
+    return cancel;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -231,11 +342,26 @@ bool taf_FwUpdate::GetPauseAction
 //--------------------------------------------------------------------------------------------------
 void taf_FwUpdate::SetPageNumber
 (
-    bool isTotal,   ///< [IN] True if it is total page number.
-    uint32_t number ///< [IN] Page number.
+    taf_update_State_t state, ///< [IN] Update state.
+    bool isTotal,             ///< [IN] True if it is total page number.
+    uint32_t number           ///< [IN] Page number.
 )
 {
-    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    le_cfg_IteratorRef_t wrIter;
+
+    switch (state)
+    {
+        case TAF_UPDATE_INSTALLING:
+            wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_SYNC_CONTEXT);
+            break;
+        default:
+            LE_ERROR("Can not set page number.");
+            return;
+    }
+
     if (isTotal)
     {
         le_cfg_SetInt(wrIter, "total_page", (int)number);
@@ -254,10 +380,24 @@ void taf_FwUpdate::SetPageNumber
 //--------------------------------------------------------------------------------------------------
 uint32_t taf_FwUpdate::GetPageNumber
 (
-    bool isTotal ///< [IN] True if it is total page number.
+    taf_update_State_t state, ///< [IN] Update state.
+    bool isTotal              ///< [IN] True if it is total page number.
 )
 {
-    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    le_cfg_IteratorRef_t rdIter;
+    switch (state)
+    {
+        case TAF_UPDATE_INSTALLING:
+            rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_SYNC_CONTEXT);
+            break;
+        default:
+            LE_ERROR("Can not get page number.");
+            return 0;
+    }
+
     uint32_t pageNum = 0;
     if (isTotal)
     {
@@ -347,42 +487,35 @@ void taf_FwUpdate::GetImageDataPath
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get image data path from config tree.
- */
-//--------------------------------------------------------------------------------------------------
-bool taf_FwUpdate::GetImageStatus
-(
-    const char* image ///< [IN] Image.
-)
-{
-    // 1. Find image node in config tree.
-    char node[LE_CFG_STR_LEN_BYTES] = { 0 };
-    snprintf(node, sizeof(node), TAF_FWUPDATE_INSTALL_IMGAE_NODE, image);
-
-    // 2. Get image state.
-    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(node);
-    bool updated = le_cfg_GetBool(rdIter, "updated", false);
-    le_cfg_CancelTxn(rdIter);
-    return updated;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Set image status in config tree.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_FwUpdate::SetImageStatus
 (
-    const char* image, ///< [IN] Image.
-    bool updated       ///< [IN] True if the image is updated.
+    taf_update_State_t state, ///< [IN] Update state.
+    const char* image,        ///< [IN] Image.
+    bool updated              ///< [IN] True if the image is updated.
 )
 {
     // 1. Find image node in config tree.
     char node[LE_CFG_STR_LEN_BYTES] = { 0 };
-    snprintf(node, sizeof(node), TAF_FWUPDATE_INSTALL_IMGAE_NODE, image);
+    le_cfg_IteratorRef_t wrIter;
 
     // 2. Set image state.
-    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(node);
+    switch (state)
+    {
+        case TAF_UPDATE_INSTALLING:
+            snprintf(node, sizeof(node), TAF_FWUPDATE_INSTALL_IMGAE_NODE, image);
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            snprintf(node, sizeof(node), TAF_FWUPDATE_SYNC_IMGAE_NODE, image);
+            break;
+        default:
+            LE_ERROR("Can not get image status.");
+            return;
+    }
+
+    wrIter = le_cfg_CreateWriteTxn(node);
     le_cfg_SetBool(wrIter, "updated", updated);
     le_cfg_CommitTxn(wrIter);
 }
@@ -394,12 +527,24 @@ void taf_FwUpdate::SetImageStatus
 //--------------------------------------------------------------------------------------------------
 uint32_t taf_FwUpdate::GetImagePageNumber
 (
-    const char* image ///< [IN] Image.
+    taf_update_State_t state, ///< [IN] Update state.
+    const char* image         ///< [IN] Image.
 )
 {
     // 1. Find image node in config tree.
     char node[LE_CFG_STR_LEN_BYTES] = { 0 };
-    snprintf(node, sizeof(node), TAF_FWUPDATE_INSTALL_IMGAE_NODE, image);
+    switch (state)
+    {
+        case TAF_UPDATE_INSTALLING:
+            snprintf(node, sizeof(node), TAF_FWUPDATE_INSTALL_IMGAE_NODE, image);
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            snprintf(node, sizeof(node), TAF_FWUPDATE_SYNC_IMGAE_NODE, image);
+            break;
+        default:
+            LE_ERROR("Can not get page number.");
+            return 0;
+    }
 
     // 2. Get image page number.
     le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(node);
@@ -415,13 +560,25 @@ uint32_t taf_FwUpdate::GetImagePageNumber
 //--------------------------------------------------------------------------------------------------
 void taf_FwUpdate::SetImagePageNumber
 (
-    const char* image, ///< [IN] Image.
-    uint32_t pageNum   ///< [IN] Image page number.
+    taf_update_State_t state, ///< [IN] Update state.
+    const char* image,        ///< [IN] Image.
+    uint32_t pageNum          ///< [IN] Image page number.
 )
 {
     // 1. Find image node in config tree.
     char node[LE_CFG_STR_LEN_BYTES] = { 0 };
-    snprintf(node, sizeof(node), TAF_FWUPDATE_INSTALL_IMGAE_NODE, image);
+    switch (state)
+    {
+        case TAF_UPDATE_INSTALLING:
+            snprintf(node, sizeof(node), TAF_FWUPDATE_INSTALL_IMGAE_NODE, image);
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            snprintf(node, sizeof(node), TAF_FWUPDATE_SYNC_IMGAE_NODE, image);
+            break;
+        default:
+            LE_ERROR("Can not set page number.");
+            return;
+    }
 
     // 2. Set image page number.
     le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(node);
@@ -436,11 +593,25 @@ void taf_FwUpdate::SetImagePageNumber
 //--------------------------------------------------------------------------------------------------
 bool taf_FwUpdate::GetImageForUpdate
 (
-    char* name,    ///< [OUT] Image name.
-    size_t nameLen ///< [IN] Image name length.
+    taf_update_State_t state, ///< [IN] Update state.
+    char* name,               ///< [OUT] Image name.
+    size_t nameLen            ///< [IN] Image name length.
 )
 {
-    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    le_cfg_IteratorRef_t rdIter;
+    switch (state)
+    {
+        case TAF_UPDATE_INSTALLING:
+            rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_SYNC_CONTEXT);
+            break;
+        default:
+            LE_ERROR("Can not get image for update.");
+            return false;
+    }
+
     le_cfg_GoToNode(rdIter, "image");
 
     if (le_cfg_GoToFirstChild(rdIter) == LE_NOT_FOUND)
@@ -747,6 +918,39 @@ uint32_t taf_FwUpdate::GetActivationItemCount
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Intialize partition list.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::InitPartitionList
+(
+    void
+)
+{
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    static bool init = false;
+    le_result_t result = LE_OK;
+
+    if (!init)
+    {
+        LE_INFO("Initializing partition list for flash access.");
+        result = taf_lib_flash_GetPartitionList(&tafFwUpdate.pList);
+        if (result != LE_OK)
+        {
+            init = false;
+            LE_ERROR("Fail to initialize partition list.");
+        }
+        else
+        {
+            init = true;
+            LE_INFO("Initialized partition list for flash access.");
+        }
+    }
+
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Check if bank is swicthed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -805,6 +1009,9 @@ void taf_FwUpdate::UpdateProgress
     // 1. Update state.
     switch (state)
     {
+        case TAF_UPDATE_IDLE:
+            tafFwUpdate.SetState(TAF_UPDATE_IDLE);
+            break;
         case TAF_UPDATE_INSTALLING:
             LE_INFO("Installing %d%%...", tafFwUpdate.percent);
             break;
@@ -1245,8 +1452,7 @@ void taf_FwUpdate::UpdateImage
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
     // 1. Get partition layout.
-    taf_lib_flash_PartitionList_t list;
-    le_result_t result = taf_lib_flash_GetPartitionList(&list);
+    le_result_t result = tafFwUpdate.InitPartitionList();
     if(result != LE_OK)
     {
         LE_ERROR("Failed to get partition list");
@@ -1255,21 +1461,23 @@ void taf_FwUpdate::UpdateImage
     }
 
     // 2. Get the next image for update.
-    bool hasImageToUpdate = !tafFwUpdate.GetImageForUpdate(image, sizeof(image));
+    bool hasImageToUpdate = !tafFwUpdate.GetImageForUpdate(TAF_UPDATE_INSTALLING, image,
+        sizeof(image));
     while (hasImageToUpdate)
     {
-        if (!tafFwUpdate.GetPauseAction())
+        if (!tafFwUpdate.GetPauseAction(TAF_UPDATE_INSTALLING) &&
+            !tafFwUpdate.GetCancelAction(TAF_UPDATE_INSTALLING))
         {
             // 3. Find the partition for flash access.
             uint32_t i =0;
-            for (i = 0; i < list.number; i++)
+            for (i = 0; i < tafFwUpdate.pList.number; i++)
             {
-                if ((strlen(image) == strlen(list.partition[i].name)) &&
-                    (strncmp(image, list.partition[i].name, strlen(image)) == 0))
+                if ((strlen(image) == strlen(tafFwUpdate.pList.partition[i].name)) &&
+                    (strncmp(image, tafFwUpdate.pList.partition[i].name, strlen(image)) == 0))
                     break;
             }
 
-            if (i == list.number)
+            if (i == tafFwUpdate.pList.number)
             {
                 LE_ERROR("Fail to find partition %s from layout.", image);
                 tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
@@ -1323,13 +1531,13 @@ void taf_FwUpdate::UpdateImage
                 }
 
                 snprintf(dataPath, sizeof(dataPath), "%s/%s", dir, partitonTableInfo[j].dataPath);
-                tafFwUpdate.SetImagePageNumber(image, pages);
+                tafFwUpdate.SetImagePageNumber(TAF_UPDATE_INSTALLING, image, pages);
                 tafFwUpdate.SetImageDataPath(image, dataPath);
                 LE_INFO("%s is unpacked from %s.", dataPath, filePath);
             }
             else
             {
-                pages = tafFwUpdate.GetImagePageNumber(image);
+                pages = tafFwUpdate.GetImagePageNumber(TAF_UPDATE_INSTALLING, image);
             }
 
             FILE *fp = fopen(dataPath, "r");
@@ -1341,25 +1549,27 @@ void taf_FwUpdate::UpdateImage
             }
 
             // 6. Open partition for read and write.
-            result = taf_lib_flash_OpenPartition(&list.partition[i], O_RDWR);
+            result = taf_lib_flash_OpenPartition(&tafFwUpdate.pList.partition[i], O_RDWR);
             if (result != LE_OK)
             {
-                LE_ERROR("Fail to open partition %s.", list.partition[i].name);
+                LE_ERROR("Fail to open partition %s.", tafFwUpdate.pList.partition[i].name);
                 tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
                 fclose(fp);
                 return;
             }
 
             // 7. Erase MTD partition or UBI volume.
-            if (list.partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
+            if (tafFwUpdate.pList.partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
             {
-                uint32_t blockNum = list.partition[i].size / list.partition[i].eraseSize;
+                uint32_t blockNum = tafFwUpdate.pList.partition[i].size /
+                    tafFwUpdate.pList.partition[i].eraseSize;
                 LE_INFO("Erasing %d blocks in MTD partition %s.", blockNum,
-                    list.partition[i].name);
+                    tafFwUpdate.pList.partition[i].name);
                 for (uint32_t k = 0; k < blockNum; k++)
                 {
                     bool isBad = false;
-                    result = taf_lib_flash_IsMtdBadBlock(&list.partition[i], k, &isBad);
+                    result = taf_lib_flash_IsMtdBadBlock(&tafFwUpdate.pList.partition[i],
+                        k, &isBad);
                     if (result != LE_OK)
                     {
                         LE_ERROR("Fail to get block %d status.", k);
@@ -1374,7 +1584,7 @@ void taf_FwUpdate::UpdateImage
                     }
                     else
                     {
-                        result = taf_lib_flash_EraseMtdBlock(&list.partition[i], k);
+                        result = taf_lib_flash_EraseMtdBlock(&tafFwUpdate.pList.partition[i], k);
                         if (result != LE_OK)
                         {
                             LE_ERROR("Fail to erase block %d.", i);
@@ -1384,27 +1594,28 @@ void taf_FwUpdate::UpdateImage
                         }
                     }
                 }
-                LE_INFO("MTD partition %s is erased.", list.partition[i].name);
+                LE_INFO("MTD partition %s is erased.", tafFwUpdate.pList.partition[i].name);
             }
             else
             {
-                LE_INFO("Erasing UBI volume %s.", list.partition[i].name);
-                result = taf_lib_flash_EraseUbiVol(&list.partition[i]);
+                LE_INFO("Erasing UBI volume %s.", tafFwUpdate.pList.partition[i].name);
+                result = taf_lib_flash_EraseUbiVol(&tafFwUpdate.pList.partition[i]);
                 if (result != LE_OK)
                 {
-                    LE_ERROR("Fail to erase volume %s.", list.partition[i].name);
+                    LE_ERROR("Fail to erase volume %s.", tafFwUpdate.pList.partition[i].name);
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
                     fclose(fp);
                     return;
                 }
 
-                LE_INFO("UBI volume %s is erased.", list.partition[i].name);
+                LE_INFO("UBI volume %s is erased.", tafFwUpdate.pList.partition[i].name);
 
-                result = taf_lib_flash_SetUbiVolUpSize(&list.partition[i],
+                result = taf_lib_flash_SetUbiVolUpSize(&tafFwUpdate.pList.partition[i],
                     pages * TAF_FWUPDATE_FLASH_PAGE_SIZE);
                 if (result != LE_OK)
                 {
-                    LE_ERROR("Fail to set volume %s upgrade size.", list.partition[i].name);
+                    LE_ERROR("Fail to set volume %s upgrade size.",
+                        tafFwUpdate.pList.partition[i].name);
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
                     fclose(fp);
                     return;
@@ -1412,8 +1623,8 @@ void taf_FwUpdate::UpdateImage
             }
 
             // 8. Perform flash write.
-            uint32_t pageUpdated = tafFwUpdate.GetPageNumber(false);
-            uint32_t totalPages = tafFwUpdate.GetPageNumber(true);
+            uint32_t pageUpdated = tafFwUpdate.GetPageNumber(TAF_UPDATE_INSTALLING, false);
+            uint32_t totalPages = tafFwUpdate.GetPageNumber(TAF_UPDATE_INSTALLING, true);
             uint32_t percent = tafFwUpdate.percent;
             for (uint32_t j = 0; j < pages; j++)
             {
@@ -1422,14 +1633,15 @@ void taf_FwUpdate::UpdateImage
                 {
                     memset(buffer + ret, 0xFF, TAF_FWUPDATE_FLASH_PAGE_SIZE - ret);
                     LE_INFO("Padding 0xFF in %s at page %d, start at %d.\n",
-                        list.partition[i].name, j, ret);
+                        tafFwUpdate.pList.partition[i].name, j, ret);
                 }
 
-                result = taf_lib_flash_WritePartition(&list.partition[i],
+                result = taf_lib_flash_WritePartition(&tafFwUpdate.pList.partition[i],
                     j * TAF_FWUPDATE_FLASH_PAGE_SIZE, buffer, TAF_FWUPDATE_FLASH_PAGE_SIZE);
                 if (result != LE_OK)
                 {
-                    LE_ERROR("Can not to write %s at page %d.", list.partition[i].name, j);
+                    LE_ERROR("Can not to write %s at page %d.",
+                        tafFwUpdate.pList.partition[i].name, j);
                 }
 
                 percent = (pageUpdated + j) * 100 / totalPages;
@@ -1441,10 +1653,10 @@ void taf_FwUpdate::UpdateImage
             }
 
             // 9. Close partition for read and write.
-            result = taf_lib_flash_ClosePartition(&list.partition[i]);
+            result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
             if (result != LE_OK)
             {
-                LE_ERROR("Fail to close partition %s.", list.partition[i].name);
+                LE_ERROR("Fail to close partition %s.", tafFwUpdate.pList.partition[i].name);
                 tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
                 fclose(fp);
                 return;
@@ -1452,18 +1664,28 @@ void taf_FwUpdate::UpdateImage
 
             fclose(fp);
 
-            LE_INFO("%s is updated.", list.partition[i].name);
+            LE_INFO("%s is updated.", tafFwUpdate.pList.partition[i].name);
 
             unlink(dataPath);
-            tafFwUpdate.SetImageStatus(image, true);
-            tafFwUpdate.SetPageNumber(false, pageUpdated + pages);
+            tafFwUpdate.SetImageStatus(TAF_UPDATE_INSTALLING, image, true);
+            tafFwUpdate.SetPageNumber(TAF_UPDATE_INSTALLING, false, pageUpdated + pages);
 
-            hasImageToUpdate = !tafFwUpdate.GetImageForUpdate(image, sizeof(image));
+            hasImageToUpdate = !tafFwUpdate.GetImageForUpdate(TAF_UPDATE_INSTALLING, image,
+                sizeof(image));
         }
         else
         {
-            LE_INFO("Paused during update.");
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_PAUSED);
+            if (tafFwUpdate.GetCancelAction(TAF_UPDATE_INSTALLING))
+            {
+                LE_INFO("Cancelled during update.");
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+            }
+            else
+            {
+                LE_INFO("Paused during update.");
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_PAUSED);
+            }
+
             return;
         }
     }
@@ -1501,6 +1723,334 @@ void taf_FwUpdate::UpdateImage
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Synchronize partitions with sync context in config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SyncPartition
+(
+    void
+)
+{
+    uint32_t pages = 0;
+    char partition[TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN];
+    uint8_t srcBuffer[TAF_FWUPDATE_FLASH_PAGE_SIZE];
+    uint8_t dstBuffer[TAF_FWUPDATE_FLASH_PAGE_SIZE];
+    size_t rdSize = 0;
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    // 1. Get the next partition for sync.
+    le_result_t result = tafFwUpdate.InitPartitionList();
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to get partition list");
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+        return;
+    }
+
+    bool hasPartitionToSync = !tafFwUpdate.GetImageForUpdate(TAF_UPDATE_SYNCHRONIZING, partition,
+        sizeof(partition));
+    while (hasPartitionToSync)
+    {
+        if (!tafFwUpdate.GetPauseAction(TAF_UPDATE_SYNCHRONIZING) &&
+            !tafFwUpdate.GetCancelAction(TAF_UPDATE_SYNCHRONIZING))
+        {
+            // 2. Find the partition for sync.
+            uint32_t i =0;
+            for (i = 0; i < tafFwUpdate.pList.number; i++)
+            {
+                if ((strlen(partition) == strlen(tafFwUpdate.pList.partition[i].name)) &&
+                    (strncmp(partition, tafFwUpdate.pList.partition[i].name,
+                    strlen(partition)) == 0))
+                    break;
+            }
+
+            if (i >= tafFwUpdate.pList.number)
+            {
+                LE_ERROR("Fail to find the partition %s for sync.",partition);
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                return;
+            }
+
+            pages = tafFwUpdate.GetImagePageNumber(TAF_UPDATE_SYNCHRONIZING, partition);
+
+            // 3. Open destinate partition for read and write.
+            result = taf_lib_flash_OpenPartition(&tafFwUpdate.pList.partition[i], O_RDWR);
+            if (result != LE_OK)
+            {
+                LE_ERROR("Fail to open partition %s.", tafFwUpdate.pList.partition[i].name);
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                return;
+            }
+
+            // 4. Open source partition for read.
+            uint32_t j = tafFwUpdate.pList.partition[i].mirrorIndex;
+            result = taf_lib_flash_OpenPartition(&tafFwUpdate.pList.partition[j], O_RDONLY);
+            if (result != LE_OK)
+            {
+                LE_ERROR("Fail to open partition %s.", tafFwUpdate.pList.partition[j].name);
+                result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
+                if (result != LE_OK)
+                {
+                    LE_ERROR("Fail to close partition %s.", tafFwUpdate.pList.partition[i].name);
+                }
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                return;
+            }
+
+            // 5. Check if sync is needed.
+            bool isSynced = true;
+            for (uint32_t k = 0; k < pages; k++)
+            {
+                rdSize = TAF_FWUPDATE_FLASH_PAGE_SIZE;
+                le_result_t result1 = taf_lib_flash_ReadPartition(&tafFwUpdate.pList.partition[i],
+                    k * TAF_FWUPDATE_FLASH_PAGE_SIZE, dstBuffer, &rdSize);
+                if (result1 != LE_OK)
+                {
+                    LE_ERROR("Fail to read partition %s.", tafFwUpdate.pList.partition[i].name);
+                }
+
+                rdSize = TAF_FWUPDATE_FLASH_PAGE_SIZE;
+                le_result_t result2 = taf_lib_flash_ReadPartition(&tafFwUpdate.pList.partition[j],
+                    k * TAF_FWUPDATE_FLASH_PAGE_SIZE, srcBuffer, &rdSize);
+                if (result2 != LE_OK)
+                {
+                    LE_ERROR("Fail to read partition %s.", tafFwUpdate.pList.partition[j].name);
+                }
+
+                if (result1 != LE_OK || result2 != LE_OK)
+                {
+                    result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
+                    if (result != LE_OK)
+                    {
+                        LE_ERROR("Fail to close partition %s.",
+                            tafFwUpdate.pList.partition[i].name);
+                    }
+
+                    result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
+                    if (result != LE_OK)
+                    {
+                        LE_ERROR("Fail to close partition %s.",
+                            tafFwUpdate.pList.partition[j].name);
+                    }
+
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                    return;
+                }
+
+                if (memcmp(srcBuffer, dstBuffer, TAF_FWUPDATE_FLASH_PAGE_SIZE) != 0)
+                {
+                    isSynced = false;
+                    break;
+                }
+            }
+
+            uint32_t pageUpdated = tafFwUpdate.GetPageNumber(TAF_UPDATE_SYNCHRONIZING, false);
+            uint32_t totalPages = tafFwUpdate.GetPageNumber(TAF_UPDATE_SYNCHRONIZING, true);
+
+            if (!isSynced)
+            {
+                // 6. Erase MTD partition or set UBI volume upgrade size.
+                if (tafFwUpdate.pList.partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
+                {
+                    uint32_t blockNum = tafFwUpdate.pList.partition[i].size /
+                        tafFwUpdate.pList.partition[i].eraseSize;
+                    LE_INFO("Erasing %d blocks in MTD partition %s.", blockNum,
+                        tafFwUpdate.pList.partition[i].name);
+                    for (uint32_t k = 0; k < blockNum; k++)
+                    {
+                        bool isBad = false;
+                        result = taf_lib_flash_IsMtdBadBlock(&tafFwUpdate.pList.partition[i],
+                            k, &isBad);
+                        if (result != LE_OK || isBad)
+                        {
+                            if (result != LE_OK)
+                            {
+                                LE_ERROR("Fail to get block %d status.", k);
+                            }
+                            else
+                            {
+                                LE_ERROR("Block %d is bad.", k);
+                            }
+                            result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
+                            if (result != LE_OK)
+                            {
+                                LE_ERROR("Fail to close partition %s.",
+                                tafFwUpdate.pList.partition[i].name);
+                            }
+
+                            result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
+                            if (result != LE_OK)
+                            {
+                                LE_ERROR("Fail to close partition %s.",
+                                tafFwUpdate.pList.partition[j].name);
+                            }
+
+                            tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                            return;
+                        }
+
+                        result = taf_lib_flash_EraseMtdBlock( &tafFwUpdate.pList.partition[i], k);
+                        if (result != LE_OK)
+                        {
+                            LE_ERROR("Fail to erase block %d.", i);
+                            result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
+                            if (result != LE_OK)
+                            {
+                                LE_ERROR("Fail to close partition %s.",
+                                    tafFwUpdate.pList.partition[i].name);
+                            }
+
+                            result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
+                            if (result != LE_OK)
+                            {
+                                LE_ERROR("Fail to close partition %s.",
+                                tafFwUpdate.pList.partition[j].name);
+                            }
+
+                            tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                            return;
+                        }
+                    }
+                    LE_INFO("MTD partition %s is erased.", tafFwUpdate.pList.partition[i].name);
+                }
+                else
+                {
+                    LE_INFO("Setting UBI volume %s upgrade size.", tafFwUpdate.pList.partition[i].name);
+
+                    result = taf_lib_flash_SetUbiVolUpSize(&tafFwUpdate.pList.partition[i],
+                        pages * TAF_FWUPDATE_FLASH_PAGE_SIZE);
+                    if (result != LE_OK)
+                    {
+                        LE_ERROR("Fail to set volume %s upgrade size.",
+                            tafFwUpdate.pList.partition[i].name);
+
+                        result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
+                        if (result != LE_OK)
+                        {
+                            LE_ERROR("Fail to close partition %s.",
+                                tafFwUpdate.pList.partition[j].name);
+                        }
+
+                        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                        return;
+                    }
+                }
+
+                // 7. Perform flash write.
+                uint32_t percent = tafFwUpdate.percent;
+                for (uint32_t k = 0; k < pages; k++)
+                {
+                    rdSize = TAF_FWUPDATE_FLASH_PAGE_SIZE;
+                    result = taf_lib_flash_ReadPartition(&tafFwUpdate.pList.partition[j],
+                        k * TAF_FWUPDATE_FLASH_PAGE_SIZE, srcBuffer, &rdSize);
+                    if (result != LE_OK)
+                    {
+                        LE_ERROR("Fail to read partition %s.",
+                            tafFwUpdate.pList.partition[j].name);
+                        result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
+                        if (result != LE_OK)
+                        {
+                            LE_ERROR("Fail to close partition %s.",
+                                tafFwUpdate.pList.partition[j].name);
+                        }
+
+                        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                        return;
+                    }
+
+                    if (rdSize < TAF_FWUPDATE_FLASH_PAGE_SIZE)
+                    {
+                        memset(srcBuffer + rdSize, 0xFF, TAF_FWUPDATE_FLASH_PAGE_SIZE - rdSize);
+                        LE_INFO("Padding 0xFF in %s at page %d, start at %" PRIuS ".\n",
+                            tafFwUpdate.pList.partition[j].name, k, rdSize);
+                    }
+
+                    result = taf_lib_flash_WritePartition(&tafFwUpdate.pList.partition[i],
+                        k * TAF_FWUPDATE_FLASH_PAGE_SIZE, srcBuffer, TAF_FWUPDATE_FLASH_PAGE_SIZE);
+                    if (result != LE_OK)
+                    {
+                        LE_ERROR("Can not to write %s at page %d.",
+                            tafFwUpdate.pList.partition[i].name, k);
+                        result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
+                        if (result != LE_OK)
+                        {
+                            LE_ERROR("Fail to close partition %s.",
+                                tafFwUpdate.pList.partition[j].name);
+                        }
+
+                        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                        return;
+                    }
+
+                    percent = (pageUpdated + k) * 100 / totalPages;
+                    if (percent != tafFwUpdate.percent)
+                    {
+                        tafFwUpdate.percent = percent;
+                        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
+                    }
+                }
+
+                LE_INFO("%s is synced.", tafFwUpdate.pList.partition[i].name);
+            }
+            else
+            {
+                tafFwUpdate.percent = (pageUpdated + pages) * 100 / totalPages;
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
+
+                LE_INFO("%s is already synced.", tafFwUpdate.pList.partition[i].name);
+            }
+
+            // 9. Close partition.
+            result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
+            if (result != LE_OK)
+            {
+                LE_ERROR("Fail to close partition %s.", tafFwUpdate.pList.partition[i].name);
+                result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
+                if (result != LE_OK)
+                {
+                    LE_ERROR("Fail to close partition %s.", tafFwUpdate.pList.partition[j].name);
+                }
+
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                return;
+            }
+
+            result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
+            if (result != LE_OK)
+            {
+                LE_ERROR("Fail to close partition %s.", tafFwUpdate.pList.partition[j].name);
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                return;
+            }
+
+            tafFwUpdate.SetImageStatus(TAF_UPDATE_SYNCHRONIZING, partition, true);
+            tafFwUpdate.SetPageNumber(TAF_UPDATE_SYNCHRONIZING, false, pageUpdated + pages);
+
+            hasPartitionToSync = !tafFwUpdate.GetImageForUpdate(TAF_UPDATE_SYNCHRONIZING,
+                partition, sizeof(partition));
+        }
+        else
+        {
+            if (tafFwUpdate.GetCancelAction(TAF_UPDATE_SYNCHRONIZING))
+            {
+                LE_INFO("Cancelled during sync.");
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+            }
+            else
+            {
+                LE_INFO("Paused during sync.");
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_PAUSED);
+            }
+
+            return;
+        }
+    }
+
+    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Start installation.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1510,8 +2060,8 @@ void taf_FwUpdate::StartInstall
 )
 {
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    tafFwUpdate.CleanupContext(TAF_UPDATE_INSTALLING);
 
-    tafFwUpdate.SetPauseAction(false);
     taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
     if (tafFwUpdate.GetActiveBank(&bank) != LE_OK)
     {
@@ -1546,8 +2096,8 @@ void taf_FwUpdate::StartInstall
             {
                 snprintf(image, sizeof(image), "%s_b", partitonTableInfo[i].partition);
 
-                tafFwUpdate.SetImageStatus(image, false);
-                tafFwUpdate.SetImagePageNumber(image, imagePage);
+                tafFwUpdate.SetImageStatus(TAF_UPDATE_INSTALLING, image, false);
+                tafFwUpdate.SetImagePageNumber(TAF_UPDATE_INSTALLING, image, imagePage);
                 tafFwUpdate.SetImageDataPath(image, dataPath);
             }
             else if (bank == TAF_UPDATE_BANK_B)
@@ -1555,14 +2105,16 @@ void taf_FwUpdate::StartInstall
                 if (partitonTableInfo[i].hasSuffix)
                 {
                     snprintf(image, sizeof(image), "%s_a", partitonTableInfo[i].partition);
-                    tafFwUpdate.SetImageStatus(image, false);
-                    tafFwUpdate.SetImagePageNumber(image, imagePage);
+                    tafFwUpdate.SetImageStatus(TAF_UPDATE_INSTALLING, image, false);
+                    tafFwUpdate.SetImagePageNumber(TAF_UPDATE_INSTALLING, image, imagePage);
                     tafFwUpdate.SetImageDataPath(image, dataPath);
                 }
                 else
                 {
-                    tafFwUpdate.SetImageStatus(partitonTableInfo[i].partition, false);
-                    tafFwUpdate.SetImagePageNumber(partitonTableInfo[i].partition, imagePage);
+                    tafFwUpdate.SetImageStatus(TAF_UPDATE_INSTALLING,
+                        partitonTableInfo[i].partition, false);
+                    tafFwUpdate.SetImagePageNumber(TAF_UPDATE_INSTALLING,
+                        partitonTableInfo[i].partition, imagePage);
                     tafFwUpdate.SetImageDataPath(partitonTableInfo[i].partition, dataPath);
                 }
             }
@@ -1573,10 +2125,66 @@ void taf_FwUpdate::StartInstall
         i++;
     }
 
-    tafFwUpdate.SetPageNumber(true, totalPage);
-    tafFwUpdate.SetPageNumber(false, 0);
+    tafFwUpdate.SetPageNumber(TAF_UPDATE_INSTALLING, true, totalPage);
+    tafFwUpdate.SetPageNumber(TAF_UPDATE_INSTALLING, false, 0);
 
     tafFwUpdate.UpdateImage();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start synchronization.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::StartSync
+(
+    void
+)
+{
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    tafFwUpdate.CleanupContext(TAF_UPDATE_SYNCHRONIZING);
+
+    taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
+    if (tafFwUpdate.GetActiveBank(&bank) != LE_OK)
+    {
+        LE_ERROR("Fail to get active bank.");
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+        return;
+    }
+
+    // 1. Get partition layout.
+    le_result_t result = tafFwUpdate.InitPartitionList();
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to get partition list");
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+        return;
+    }
+
+    // 2. Initialize the partition for synchronization.
+    uint32_t totalPage = 0;
+    uint32_t partitionPage = 0;
+    for (size_t i = 0; i < tafFwUpdate.pList.number; i++)
+    {
+        if ((bank == TAF_UPDATE_BANK_A && tafFwUpdate.pList.partition[i].bank == DUAL_BANK_B) ||
+            (bank == TAF_UPDATE_BANK_B && tafFwUpdate.pList.partition[i].bank == DUAL_BANK_A))
+        {
+            LE_INFO("Detect %s to be synced.", tafFwUpdate.pList.partition[i].name);
+
+            partitionPage =  tafFwUpdate.pList.partition[i].size / TAF_FWUPDATE_FLASH_PAGE_SIZE;
+            tafFwUpdate.SetImageStatus(TAF_UPDATE_SYNCHRONIZING,
+                tafFwUpdate.pList.partition[i].name, false);
+            tafFwUpdate.SetImagePageNumber(TAF_UPDATE_SYNCHRONIZING,
+                tafFwUpdate.pList.partition[i].name, partitionPage);
+
+            totalPage += partitionPage;
+        }
+    }
+
+    tafFwUpdate.SetPageNumber(TAF_UPDATE_SYNCHRONIZING, true, totalPage);
+    tafFwUpdate.SetPageNumber(TAF_UPDATE_SYNCHRONIZING, false, 0);
+
+    tafFwUpdate.SyncPartition();
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1725,8 +2333,8 @@ le_result_t taf_FwUpdate::CalPartitionHash
     unsigned int* hashLen  ///< [OUT] Hash length.
 )
 {
-    taf_lib_flash_PartitionList_t list;
-    le_result_t result = taf_lib_flash_GetPartitionList(&list);
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    le_result_t result = tafFwUpdate.InitPartitionList();
     if (result != LE_OK)
     {
         LE_ERROR("Get partition list failed.");
@@ -1734,20 +2342,20 @@ le_result_t taf_FwUpdate::CalPartitionHash
     }
 
     uint32_t i = 0;
-    for (i = 0; i < list.number; i++)
+    for (i = 0; i < tafFwUpdate.pList.number; i++)
     {
-        if (strncmp(partition, list.partition[i].name, strlen(partition)) == 0 &&
-            strlen(partition) == strlen(list.partition[i].name))
+        if (strncmp(partition, tafFwUpdate.pList.partition[i].name, strlen(partition)) == 0 &&
+            strlen(partition) == strlen(tafFwUpdate.pList.partition[i].name))
             break;
     }
 
-    if (i == list.number)
+    if (i == tafFwUpdate.pList.number)
     {
         LE_ERROR("Partition %s not found.", partition);
         return LE_FAULT;
     }
 
-    result = taf_lib_flash_OpenPartition(&list.partition[i], O_RDONLY);
+    result = taf_lib_flash_OpenPartition(&tafFwUpdate.pList.partition[i], O_RDONLY);
     if (result != LE_OK)
     {
         LE_ERROR("Fail to open partition %s.", partition);
@@ -1769,8 +2377,8 @@ le_result_t taf_FwUpdate::CalPartitionHash
     for (uint32_t j = 0; j < iteration; j++)
     {
         bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
-        result = taf_lib_flash_ReadPartition(&list.partition[i], j * TAF_FWUPDATE_FLASH_PAGE_SIZE,
-            content, &bytes);
+        result = taf_lib_flash_ReadPartition(&tafFwUpdate.pList.partition[i],
+            j * TAF_FWUPDATE_FLASH_PAGE_SIZE, content, &bytes);
         if (result != LE_OK)
         {
             LE_ERROR("Fail to read partition %s at iteration %d.", partition, j);
@@ -1784,7 +2392,7 @@ le_result_t taf_FwUpdate::CalPartitionHash
     bytes = calSize % TAF_FWUPDATE_FLASH_PAGE_SIZE;
     if (bytes != 0)
     {
-        result = taf_lib_flash_ReadPartition(&list.partition[i],
+        result = taf_lib_flash_ReadPartition(&tafFwUpdate.pList.partition[i],
             iteration * TAF_FWUPDATE_FLASH_PAGE_SIZE, content, &bytes);
         if (result != LE_OK)
         {
@@ -1807,7 +2415,7 @@ le_result_t taf_FwUpdate::CalPartitionHash
     printf("\n");
 
      // 7. Close partition.
-    result = taf_lib_flash_ClosePartition(&list.partition[i]);
+    result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
     if (result != LE_OK)
     {
         LE_ERROR("Fail to close partition.");
@@ -2035,8 +2643,7 @@ le_result_t taf_FwUpdate::EraseBank
     taf_update_Bank_t bank ///< [IN] The bank to be erased.
 )
 {
-
-    taf_lib_flash_PartitionList_t partitionList;
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
     taf_lib_flash_Bank_t eraseBank = NOT_DUAL_BANK;
 
     switch (bank)
@@ -2052,34 +2659,40 @@ le_result_t taf_FwUpdate::EraseBank
             return LE_BAD_PARAMETER;
     }
 
-    le_result_t result = taf_lib_flash_GetPartitionList(&partitionList);
+    le_result_t result = InitPartitionList();
     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can not get partition list.");
 
-    for (uint32_t i = 0; i < partitionList.number; i++)
+    for (uint32_t i = 0; i < tafFwUpdate.pList.number; i++)
     {
-        if (partitionList.partition[i].bank == eraseBank)
+        if (tafFwUpdate.pList.partition[i].bank == eraseBank)
         {
-            if (partitionList.partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
+            if (tafFwUpdate.pList.partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
             {
-                LE_INFO("Erasing MTD %s...", partitionList.partition[i].name);
+                if (strncmp(tafFwUpdate.pList.partition[i].name, "sbl", strlen("sbl")) == 0)
+                {
+                    LE_INFO("Skip erasing MTD %s.", tafFwUpdate.pList.partition[i].name);
+                    continue;
+                }
+                LE_INFO("Erasing MTD %s...", tafFwUpdate.pList.partition[i].name);
 
-                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDWR);
+                result = taf_lib_flash_OpenPartition(&tafFwUpdate.pList.partition[i], O_RDWR);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open MTD partition.");
 
                 uint32_t blockSize = 0;
-                result = taf_lib_flash_GetMtdEraseSize(&partitionList.partition[i], &blockSize);
+                result = taf_lib_flash_GetMtdEraseSize(&tafFwUpdate.pList.partition[i],
+                    &blockSize);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get MTD erase size.");
                 TAF_ERROR_IF_RET_VAL(blockSize == 0, LE_FAULT, "Invalid para(block size is 0)");
 
                 uint32_t size = 0;
-                result = taf_lib_flash_GetMtdSize(&partitionList.partition[i], &size);
+                result = taf_lib_flash_GetMtdSize(&tafFwUpdate.pList.partition[i], &size);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get MTD partition size.");
 
                 uint32_t blockNum = size / blockSize;
                 bool isBad = false;
                 for (uint32_t j = 0; j < blockNum; j++)
                 {
-                    result = taf_lib_flash_IsMtdBadBlock(&partitionList.partition[i], j, &isBad);
+                    result = taf_lib_flash_IsMtdBadBlock(&tafFwUpdate.pList.partition[i], j, &isBad);
                     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
                         "Fail to get block %d status.", j);
 
@@ -2089,19 +2702,19 @@ le_result_t taf_FwUpdate::EraseBank
                     }
                     else
                     {
-                        result = taf_lib_flash_EraseMtdBlock(&partitionList.partition[i], j);
+                        result = taf_lib_flash_EraseMtdBlock(&tafFwUpdate.pList.partition[i], j);
                         TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
                             "Fail to erase block %d.", j);
                     }
                 }
 
-                result = taf_lib_flash_ClosePartition(&partitionList.partition[i]);
+                result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
             }
             else
             {
-                LE_INFO("Erasing UBI %s...", partitionList.partition[i].name);
-                result = taf_lib_flash_EraseUbiVol(&partitionList.partition[i]);
+                LE_INFO("Erasing UBI %s...", tafFwUpdate.pList.partition[i].name);
+                result = taf_lib_flash_EraseUbiVol(&tafFwUpdate.pList.partition[i]);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to erase UBI volume.");
             }
         }
@@ -2127,7 +2740,6 @@ le_result_t taf_FwUpdate::PerformBankSync
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
     taf_update_Bank_t bootBank = TAF_UPDATE_BANK_UNKNOWN;
-    taf_lib_flash_PartitionList_t partitionList;
     taf_lib_flash_Bank_t srcBank = NOT_DUAL_BANK;
 
     if (tafFwUpdate.GetActiveBank(&bootBank) != LE_OK)
@@ -2149,30 +2761,32 @@ le_result_t taf_FwUpdate::PerformBankSync
             return LE_BAD_PARAMETER;
     }
 
-    le_result_t result = taf_lib_flash_GetPartitionList(&partitionList);
+    le_result_t result = tafFwUpdate.InitPartitionList();
     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can not get partition list.");
 
-    for (uint32_t i = 0; i < partitionList.number; i++)
+    for (uint32_t i = 0; i < tafFwUpdate.pList.number; i++)
     {
-        if (partitionList.partition[i].bank == srcBank)
+        if (tafFwUpdate.pList.partition[i].bank == srcBank)
         {
-            uint32_t j = partitionList.partition[i].mirrorIndex;
-            if (partitionList.partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
+            uint32_t j = tafFwUpdate.pList.partition[i].mirrorIndex;
+            if (tafFwUpdate.pList.partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
             {
                 LE_INFO("Perform sync from MTD %s to %s...",
-                    partitionList.partition[i].name, partitionList.partition[j].name);
+                    tafFwUpdate.pList.partition[i].name, tafFwUpdate.pList.partition[j].name);
 
-                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDONLY);
+                result = taf_lib_flash_OpenPartition(&tafFwUpdate.pList.partition[i], O_RDONLY);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open MTD partition.");
 
-                result = taf_lib_flash_OpenPartition(&partitionList.partition[j], O_RDWR);
+                result = taf_lib_flash_OpenPartition(&tafFwUpdate.pList.partition[j], O_RDWR);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open MTD partition.");
 
-                uint32_t blockNum = partitionList.partition[j].size / TAF_LIB_FLASH_MTD_BLOCK_SIZE;
-                uint32_t pageNum = partitionList.partition[j].size / TAF_FWUPDATE_FLASH_PAGE_SIZE;
+                uint32_t blockNum = tafFwUpdate.pList.partition[j].size /
+                    TAF_LIB_FLASH_MTD_BLOCK_SIZE;
+                uint32_t pageNum = tafFwUpdate.pList.partition[j].size /
+                    TAF_FWUPDATE_FLASH_PAGE_SIZE;
                 for (uint32_t k = 0; k < blockNum; k++)
                 {
-                    result = taf_lib_flash_EraseMtdBlock(&partitionList.partition[j], k);
+                    result = taf_lib_flash_EraseMtdBlock(&tafFwUpdate.pList.partition[j], k);
                     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
                         "Fail to erase block %d.", k);
                 }
@@ -2180,56 +2794,57 @@ le_result_t taf_FwUpdate::PerformBankSync
                 {
                     uint8_t data[TAF_FWUPDATE_FLASH_PAGE_SIZE];
                     size_t rdSize = TAF_FWUPDATE_FLASH_PAGE_SIZE;
-                    result = taf_lib_flash_ReadPartition(&partitionList.partition[i],
+                    result = taf_lib_flash_ReadPartition(&tafFwUpdate.pList.partition[i],
                         k * TAF_FWUPDATE_FLASH_PAGE_SIZE, data, &rdSize);
                     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
                         "Fail to read page %d.", k);
 
-                    result = taf_lib_flash_WritePartition(&partitionList.partition[j],
+                    result = taf_lib_flash_WritePartition(&tafFwUpdate.pList.partition[j],
                         k * TAF_FWUPDATE_FLASH_PAGE_SIZE, data, rdSize);
                     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
                         "Fail to write page %d.", k);
                 }
 
-                result = taf_lib_flash_ClosePartition(&partitionList.partition[i]);
+                result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
 
-                result = taf_lib_flash_ClosePartition(&partitionList.partition[j]);
+                result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
             }
             else
             {
                 LE_INFO("Perform sync from UBI %s to %s...",
-                    partitionList.partition[i].name, partitionList.partition[j].name);
+                    tafFwUpdate.pList.partition[i].name, tafFwUpdate.pList.partition[j].name);
 
-                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDONLY);
+                result = taf_lib_flash_OpenPartition(&tafFwUpdate.pList.partition[i], O_RDONLY);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open UBI volume.");
 
-                result = taf_lib_flash_OpenPartition(&partitionList.partition[j], O_RDWR);
+                result = taf_lib_flash_OpenPartition(&tafFwUpdate.pList.partition[j], O_RDWR);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open UBI volume.");
 
-                uint32_t pageNum = partitionList.partition[j].size / TAF_FWUPDATE_FLASH_PAGE_SIZE;
-                result = taf_lib_flash_SetUbiVolUpSize(&partitionList.partition[j],
-                    partitionList.partition[j].size);
+                uint32_t pageNum = tafFwUpdate.pList.partition[j].size /
+                    TAF_FWUPDATE_FLASH_PAGE_SIZE;
+                result = taf_lib_flash_SetUbiVolUpSize(&tafFwUpdate.pList.partition[j],
+                    tafFwUpdate.pList.partition[j].size);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to set UBI upgrade size.");
 
                 for (uint32_t k = 0; k < pageNum; k++)
                 {
                     uint8_t data[TAF_FWUPDATE_FLASH_PAGE_SIZE];
                     size_t rdSize = TAF_FWUPDATE_FLASH_PAGE_SIZE;
-                    result = taf_lib_flash_ReadPartition(&partitionList.partition[i],
+                    result = taf_lib_flash_ReadPartition(&tafFwUpdate.pList.partition[i],
                         k * TAF_FWUPDATE_FLASH_PAGE_SIZE, data, &rdSize);
                     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to read page %d.", k);
 
-                    result = taf_lib_flash_WritePartition(&partitionList.partition[j],
+                    result = taf_lib_flash_WritePartition(&tafFwUpdate.pList.partition[j],
                         k * TAF_FWUPDATE_FLASH_PAGE_SIZE, data, rdSize);
                     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to write page %d.", k);
                 }
 
-                result = taf_lib_flash_ClosePartition(&partitionList.partition[i]);
+                result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
 
-                result = taf_lib_flash_ClosePartition(&partitionList.partition[j]);
+                result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
             }
         }
@@ -2510,1013 +3125,6 @@ void taf_FwUpdate::ActivateComponent
     tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_SUCCESS);
 }
 
-le_result_t taf_FwUpdate::InitPartitionList()
-{
-    le_result_t result = taf_lib_flash_GetPartitionList(&partitionList);
-    if(result != LE_OK)
-    {
-        LE_ERROR("Failed to get partition list");
-        return result;
-    }
-
-    for (uint32_t i = 0; i < partitionList.number; ++i)
-    {
-        taf_lib_flash_Partition_t partition = partitionList.partition[i];
-        partitionMap[partition.name] = i;
-    }
-
-    isPartitionListInit = true;
-    return LE_OK;
-}
-
-le_result_t taf_FwUpdate::EraseAllMTDBlocks(taf_update_Bank_t activeBank)
-{
-    if(!isPartitionListInit)
-    {
-        LE_ERROR("Partition list is not initialised");
-        return LE_FAULT;
-    }
-
-    le_result_t result = LE_OK;
-    for (uint32_t i = 0; i < partitionList.number; ++i)
-    {
-        taf_lib_flash_Partition_t partition = partitionList.partition[i];
-
-        // check if it is a MTD partition
-        if(partition.eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
-        {
-            // if the active bank is 'A' erase dual banked volumes from 'B'
-            // OR if the active bank is 'B' erase dual banked volumes from 'A'
-            if(((activeBank == TAF_UPDATE_BANK_A) && (partition.bank == DUAL_BANK_B))
-                || ((activeBank == TAF_UPDATE_BANK_B) && (partition.bank == DUAL_BANK_A)))
-            {
-                // Open Partition
-                result = taf_lib_flash_OpenPartition(&partition, O_RDWR);
-                if (result != LE_OK)
-                {
-                    LE_ERROR("taf_lib_flash_OpenPartition for %s failed", partition.name);
-                    return result;
-                }
-
-                // Get MTD information
-                uint32_t totalBlocks = 0, badBlocksNumber = 0,
-                    blockSize = 0, pageSize = 0;
-                result = GetMtdInformation(&partition,
-                    &totalBlocks, &badBlocksNumber, &blockSize, &pageSize);
-                if (result != LE_OK)
-                {
-                    LE_ERROR("taf_flash_MtdInformation for %s failed", partition.name);
-                    return result;
-                }
-
-                // Erase all blocks
-                for (uint32_t block = 0; block < totalBlocks; ++block)
-                {
-                    result = taf_lib_flash_EraseMtdBlock(&partition, block);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_EraseMtdBlock at blocksNumber %u failed", block);
-                        return result;
-                    }
-                }
-
-                // close partition
-                result = taf_lib_flash_ClosePartition(&partition);
-                if (result != LE_OK)
-                {
-                    LE_ERROR("taf_lib_flash_ClosePartition for %s failed", partition.name);
-                    return result;
-                }
-            }
-        }
-    }
-
-    tafUpdate_ConfigTree_SetBool(kAreBlocksErased, true);
-    return LE_OK;
-}
-
-le_result_t taf_FwUpdate::GetMtdInformation
-(
-    taf_lib_flash_Partition_t* partition,
-    uint32_t* blocksNumber,
-    uint32_t* badBlocksNumber,
-    uint32_t* blockSize,
-    uint32_t* pageSize
-)
-{
-    TAF_ERROR_IF_RET_VAL(partition == nullptr, LE_BAD_PARAMETER, "Null ptr(partition)");
-    TAF_ERROR_IF_RET_VAL(blocksNumber == nullptr, LE_BAD_PARAMETER, "Null ptr(blocksNumber)");
-    TAF_ERROR_IF_RET_VAL(badBlocksNumber == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(badBlocksNumber)");
-    TAF_ERROR_IF_RET_VAL(blockSize == nullptr, LE_BAD_PARAMETER, "Null ptr(blockSize)");
-    TAF_ERROR_IF_RET_VAL(pageSize == nullptr, LE_BAD_PARAMETER, "Null ptr(pageSize)");
-
-    /* Get mtd information */
-    le_result_t result = taf_lib_flash_GetMtdWriteSize(partition, pageSize);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Failed to get MTD write size.");
-
-    result = taf_lib_flash_GetMtdEraseSize(partition, blockSize);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Failed to get MTD erase size.");
-    TAF_ERROR_IF_RET_VAL(*blockSize == 0, LE_FAULT, "Invalid block size (0)");
-
-    uint32_t mtdSize;
-    result = taf_lib_flash_GetMtdSize(partition, &mtdSize);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get MTD partition size.");
-
-    *blocksNumber = mtdSize / *blockSize;
-
-    *badBlocksNumber = 0;
-    bool isBadBlock = false;
-    for (uint32_t i = 0; i < *blocksNumber; ++i)
-    {
-        result = taf_lib_flash_IsMtdBadBlock(partition, i, &isBadBlock);
-        TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to check MTD block at %d.", i);
-
-        if (isBadBlock)
-        {
-            (*badBlocksNumber)++;
-            LE_WARN("Bad block at %d detected.", i);
-        }
-    }
-    return LE_OK;
-}
-
-le_result_t taf_FwUpdate::GetUbiInformation
-(
-    taf_lib_flash_Partition_t* partition,
-    uint32_t* lebNumber,
-    uint32_t* freeLebNumber,
-    uint32_t* volumeSize
-)
-{
-    TAF_ERROR_IF_RET_VAL(partition == nullptr, LE_BAD_PARAMETER, "Null ptr(partition)");
-    TAF_ERROR_IF_RET_VAL(lebNumber == nullptr, LE_BAD_PARAMETER, "Null ptr(lebNumber)");
-    TAF_ERROR_IF_RET_VAL(freeLebNumber == nullptr, LE_BAD_PARAMETER, "Null ptr(freeLebNumber)");
-    TAF_ERROR_IF_RET_VAL(volumeSize == nullptr, LE_BAD_PARAMETER, "Null ptr(volumeSize)");
-
-    /* Get ubi information */
-    le_result_t result = taf_lib_flash_GetUbiVolResvLebNum(partition, lebNumber);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get UBI reserved LEB number.");
-
-    result = taf_lib_flash_GetUbiAvailLebNum(partition, freeLebNumber);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get UBI available LEB number.");
-
-    result = taf_lib_flash_GetUbiVolSize(partition, volumeSize);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get UBI volume size.");
-
-    return LE_OK;
-}
-
-le_result_t taf_FwUpdate::CalculateTotalPages()
-{
-    if (!isPartitionListInit)
-    {
-        LE_WARN("Partition list is not initialised");
-        InitPartitionList();
-    }
-
-    le_result_t result = LE_OK;
-    uint32_t totalPagesForSync = 0;
-    for (uint32_t i = 0; i < partitionList.number; ++i)
-    {
-        taf_lib_flash_Partition_t *partition = &(partitionList.partition[i]);
-
-        if(partition->eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
-        {
-            std::string mtdName = std::string(partition->name);
-            if(partition->bank == DUAL_BANK_A)
-            {
-                if(partitionMap.find(mtdName + std::string("_b")) != partitionMap.end())
-                {
-                    taf_lib_flash_Partition_t *partition_a = partition;
-
-                    // Open Partition 'A'
-                    result = taf_lib_flash_OpenPartition(partition_a, O_RDONLY);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_OpenPartition for Bank A failed");
-                        return LE_FAULT;
-                    }
-
-                    // Get MTD information for Partition 'A'
-                    uint32_t totalBlocks_a = 0, badBlocksNumber_a = 0,
-                        blockSize_a = 0, pageSize_a = 0;
-                    result = GetMtdInformation(partition_a, &totalBlocks_a, &badBlocksNumber_a,
-                        &blockSize_a, &pageSize_a);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("GetMtdInformation for partition A failed");
-                        return LE_FAULT;
-                    }
-
-                    size_t totalPartitionSize = totalBlocks_a * blockSize_a;
-                    uint32_t totalPages = totalPartitionSize / pageSize_a;
-
-                    totalPagesForSync += totalPages;
-
-                    // close partition 'A'
-                    result = taf_lib_flash_ClosePartition(partition_a);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_ClosePartition for partition A failed");
-                        return LE_FAULT;
-                    }
-                }
-            }
-        }
-
-        else if(partition->eraseSize == TAF_LIB_FLASH_UBI_BLOCK_SIZE)
-        {
-            std::string ubiName = std::string(partition->name);
-            // check if ubiName ends with "_b"
-            if(partition->bank == DUAL_BANK_B)
-            {
-                std::string ubiName_b(partition->name);
-
-                // generate ubiName ending with '_a'
-                std::string suffix("_b");
-                std::string::size_type i = ubiName.find(suffix);
-                if (ubiName.find(suffix) != std::string::npos)
-                {
-                    ubiName.erase(i, suffix.length());
-                }
-                std::string ubiName_a = ubiName + std::string("_a");
-
-                // check if a UBI name with suffix "_a" exists in the map
-                if(partitionMap.find(ubiName_a) != partitionMap.end())
-                {
-                    taf_lib_flash_Partition_t *partition_a =
-                        &(partitionList.partition[partitionMap[ubiName_a]]);
-
-                    // Open Partition 'A'
-                    result = taf_lib_flash_OpenPartition(partition_a, O_RDONLY);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_OpenPartition for Bank A failed");
-                        return LE_FAULT;
-                    }
-
-                    // UBI Information for volume 'A'
-                    uint32_t lebNumber_a = 0, freeLebNumber_a = 0, volumeSize_a = 0;
-                    result = GetUbiInformation(partition_a, &lebNumber_a,
-                                &freeLebNumber_a, &volumeSize_a);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("GetUbiInformation for volume A failed");
-                        return LE_FAULT;
-                    }
-
-                    uint32_t totalPages = volumeSize_a / kPageSize;
-
-                    totalPagesForSync += totalPages;
-
-                    // close volume 'A'
-                    result = taf_lib_flash_ClosePartition(partition_a);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_ClosePartition failed");
-                        return LE_FAULT;
-                    }
-                }
-            }
-        }
-    }
-    tafUpdate_ConfigTree_SetInt(kTotalPages, totalPagesForSync);
-    LE_DEBUG("totalPagesForSync = %u", totalPagesForSync);
-    return LE_OK;
-}
-
-bool taf_FwUpdate::CompareBinaryFiles(const std::string& filename1, const std::string& filename2)
-{
-    // Open the files for binary read
-    std::ifstream file1(filename1, std::ios::binary);
-    std::ifstream file2(filename2, std::ios::binary);
-
-    // Check if both files were successfully opened
-    if (!file1.is_open() || !file2.is_open())
-    {
-        LE_ERROR("Error opening files!");
-        return false;
-    }
-
-    // Compare file sizes
-    file1.seekg(0, std::ios::end);
-    file2.seekg(0, std::ios::end);
-    if (file1.tellg() != file2.tellg())
-    {
-        return false; // Files are of different sizes
-    }
-    file1.seekg(0, std::ios::beg);
-    file2.seekg(0, std::ios::beg);
-
-    // Read and compare the files at page level
-    char buffer1[kPageSize] = {0};
-    char buffer2[kPageSize] = {0};
-
-    while (!file1.eof() && !file2.eof())
-    {
-        file1.read(buffer1, kPageSize);
-        file2.read(buffer2, kPageSize);
-        if (std::memcmp(buffer1, buffer2, kPageSize) != 0)
-        {
-            return false; // Files differ
-        }
-    }
-
-    return true; // Files are identical
-}
-
-le_result_t taf_FwUpdate::SyncMTD(taf_update_Bank_t activeBank)
-{
-    if (!isPartitionListInit)
-    {
-        LE_ERROR("Partition list is not initialised");
-        return LE_FAULT;
-    }
-
-    le_result_t result = LE_OK;
-
-    bool areBlocksErased = tafUpdate_ConfigTree_GetBool(kAreBlocksErased);
-    if(!areBlocksErased)
-    {
-        result = EraseAllMTDBlocks(activeBank);
-        if(result != LE_OK)
-        {
-            LE_ERROR("EraseAllMTDBlocks failed");
-            return result;
-        }
-    }
-
-    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-
-    for (uint32_t i = 0; i < partitionList.number; ++i)
-    {
-        taf_update_State_t state = tafFwUpdate.GetState();
-        if(state == TAF_UPDATE_SYNC_PAUSED)
-        {
-            LE_INFO("Received pause signal in MTD sync, stopping...");
-            return LE_OK;
-        }
-
-        taf_lib_flash_Partition_t *partition = &(partitionList.partition[i]);
-
-        // Not a MTD partition, skip
-        if(partition->eraseSize != TAF_LIB_FLASH_MTD_BLOCK_SIZE)
-        {
-            continue;
-        }
-
-        if(partition->bank == DUAL_BANK_A)
-        {
-            std::string mtdName = std::string(partition->name);
-            if(partitionMap.find(mtdName + std::string("_b")) != partitionMap.end())
-            {
-                taf_lib_flash_Partition_t *partition_a = partition;
-                taf_lib_flash_Partition_t *partition_b =
-                    &(partitionList.partition[partitionMap[std::string(partition->name) + "_b"]]);
-                bool isEqual = CompareBinaryFiles(partition_a->mtdDevPath, partition_b->mtdDevPath);
-                if(isEqual)
-                {
-                    LE_INFO("MTD %s is already synced, skipping it", mtdName.c_str());
-                    continue;
-                }
-                else
-                {
-                    LE_INFO("Syncing MTD %s", mtdName.c_str());
-                }
-
-                // Open Partition 'A'
-                if (activeBank == TAF_UPDATE_BANK_A)
-                {
-                    result = taf_lib_flash_OpenPartition(partition_a, O_RDONLY);
-                }
-                else if (activeBank == TAF_UPDATE_BANK_B)
-                {
-                    result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
-                }
-                else
-                {
-                    LE_ERROR("Unknown bank.");
-                    return LE_FAULT;
-                }
-
-                if (result != LE_OK)
-                {
-                    LE_ERROR("taf_lib_flash_OpenPartition for partition A failed");
-                    return LE_FAULT;
-                }
-
-                // Open Partition 'B'
-                if (activeBank == TAF_UPDATE_BANK_A)
-                {
-                    result = taf_lib_flash_OpenPartition(partition_b, O_RDWR);
-                }
-                else if (activeBank == TAF_UPDATE_BANK_B)
-                {
-                    result = taf_lib_flash_OpenPartition(partition_b, O_RDONLY);
-                }
-                else
-                {
-                    LE_ERROR("Unknown bank.");
-                    return LE_FAULT;
-                }
-
-                if (result != LE_OK)
-                {
-                    // close partition 'A'
-                    result = taf_lib_flash_ClosePartition(partition_a);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_ClosePartition for partition A failed");
-                        return LE_FAULT;
-                    }
-
-                    LE_ERROR("taf_lib_flash_OpenPartition for partition B failed");
-                    return LE_FAULT;
-                }
-
-                // Get MTD information for Partition 'A'
-                uint32_t totalBlocks_a = 0, badBlocksNumber_a = 0,
-                    blockSize_a = 0, pageSize_a = 0;
-                result = GetMtdInformation(partition_a, &totalBlocks_a, &badBlocksNumber_a,
-                    &blockSize_a, &pageSize_a);
-                if (result != LE_OK)
-                {
-                    LE_ERROR("GetMtdInformation for partition A failed");
-                    return LE_FAULT;
-                }
-                if(badBlocksNumber_a > 0)
-                {
-                    LE_ERROR("bad blocks(%u) detected in partition A, stopping sync..",
-                        badBlocksNumber_a);
-                    return LE_FAULT;
-                }
-
-                // Get MTD information for Partition 'B'
-                uint32_t totalBlocks_b = 0, badBlocksNumber_b = 0,
-                    blockSize_b = 0, pageSize_b = 0;
-                result = GetMtdInformation(partition_b, &totalBlocks_b, &badBlocksNumber_b,
-                    &blockSize_b, &pageSize_b);
-                if (result != LE_OK)
-                {
-                    LE_ERROR("GetMtdInformation for partition B failed");
-                    return LE_FAULT;
-                }
-                if(badBlocksNumber_b > 0)
-                {
-                    LE_ERROR("bad blocks(%u) detected in partition B, stopping sync..",
-                        badBlocksNumber_b);
-                    return LE_FAULT;
-                }
-
-                size_t totalPartitionSize = 0;
-                uint32_t totalPages = 0;
-                taf_lib_flash_Partition_t *src = nullptr, *dest = nullptr;
-                if(activeBank == TAF_UPDATE_BANK_A)
-                {
-                    totalPartitionSize = totalBlocks_a * blockSize_a;
-                    totalPages = totalPartitionSize / pageSize_a;
-                    src = partition_a;
-                    dest = partition_b;
-                }
-                else if(activeBank == TAF_UPDATE_BANK_B)
-                {
-                    totalPartitionSize = totalBlocks_b * blockSize_b;
-                    totalPages = totalPartitionSize / pageSize_b;
-                    src = partition_b;
-                    dest = partition_a;
-                }
-
-                size_t pSize = kPageSize;
-                uint8_t page[kPageSize] = { 0 };
-
-                uint32_t totalPagesForSync = tafUpdate_ConfigTree_GetInt(kTotalPages);
-
-                // report sync progress to the user
-                uint32_t pagesSynced = tafUpdate_ConfigTree_GetInt(kPagesSynced);
-                tafFwUpdate.percent = (pagesSynced * 100) / totalPagesForSync;
-                tafFwUpdate.error = TAF_UPDATE_NONE;
-                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
-
-                for(uint32_t p = 0; p < totalPages; ++p)
-                {
-                    result = taf_lib_flash_ReadPartition(src,
-                                p * TAF_FLASH_MTD_PAGE_MAX_READ_SIZE, page, &pSize);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_ReadPartition at page index %u failed", p);
-                        return LE_FAULT;
-                    }
-
-                    result = taf_lib_flash_WritePartition(dest,
-                                p * TAF_FLASH_MTD_PAGE_MAX_WRITE_SIZE, page, pSize);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_WritePartition at page index %u failed", p);
-                        return LE_FAULT;
-                    }
-                }
-                tafUpdate_ConfigTree_SetInt(kPagesSynced, pagesSynced + totalPages);
-
-                // close partition 'A' and 'B'
-                result = taf_lib_flash_ClosePartition(partition_a);
-                if (result != LE_OK)
-                {
-                    LE_ERROR("taf_lib_flash_ClosePartition for partition A failed");
-                    return LE_FAULT;
-                }
-                result = taf_lib_flash_ClosePartition(partition_b);
-                if (result != LE_OK)
-                {
-                    LE_ERROR("taf_lib_flash_ClosePartition for partition B failed");
-                    return LE_FAULT;
-                }
-
-                LE_INFO("Successfully synced MTD %s", mtdName.c_str());
-            }
-            else
-            {
-                LE_DEBUG("Skipping sync for %s, not dual banked", mtdName.c_str());
-            }
-        }
-    }
-
-    tafUpdate_ConfigTree_SetBool(kIsMTDSynced, true);
-    return LE_OK;
-}
-
-le_result_t taf_FwUpdate::SyncUBI(taf_update_Bank_t activeBank)
-{
-    if (!isPartitionListInit)
-    {
-        LE_ERROR("Partition list is not initialised");
-        return LE_FAULT;
-    }
-
-    le_result_t result = LE_OK;
-    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    for (uint32_t i = 0; i < partitionList.number; ++i)
-    {
-        taf_update_State_t state = tafFwUpdate.GetState();
-        if(state == TAF_UPDATE_SYNC_PAUSED)
-        {
-            LE_INFO("Received pause signal in UBI sync, stopping...");
-            return LE_OK;
-        }
-
-        taf_lib_flash_Partition_t *partition = &(partitionList.partition[i]);
-
-        // Not a UBI partition, skip
-        if(partition->eraseSize != TAF_LIB_FLASH_UBI_BLOCK_SIZE)
-        {
-            continue;
-        }
-
-        std::string ubiName = std::string(partition->name);
-
-        // check if ubiName ends with "_b"
-        if(partition->bank == DUAL_BANK_B)
-        {
-            std::string suffix("_b");
-            std::string::size_type i = ubiName.find(suffix);
-            if (ubiName.find(suffix) != std::string::npos)
-            {
-                ubiName.erase(i, suffix.length());
-            }
-
-            std::string ubiName_a = ubiName + std::string("_a");
-            std::string ubiName_b(partition->name);
-
-            // check if a UBI name with suffix "_a" exists in the map
-            if(partitionMap.find(ubiName_a) != partitionMap.end())
-            {
-                taf_lib_flash_Partition_t *partition_a =
-                    &(partitionList.partition[partitionMap[ubiName_a]]);
-                taf_lib_flash_Partition_t *partition_b = partition;
-
-                bool isEqual = CompareBinaryFiles(partition_a->ubiDevPath, partition_b->ubiDevPath);
-                if(isEqual)
-                {
-                    LE_INFO("UBI %s is already synced, skipping it", ubiName.c_str());
-                    continue;
-                }
-
-                LE_INFO("Syncing UBI %s", ubiName.c_str());
-
-                // Open Partition 'A'
-                if (activeBank == TAF_UPDATE_BANK_A)
-                {
-                    result = taf_lib_flash_OpenPartition(partition_a, O_RDONLY);
-                }
-                else if (activeBank == TAF_UPDATE_BANK_B)
-                {
-                    result = taf_lib_flash_OpenPartition(partition_a, O_RDWR);
-                }
-                else
-                {
-                    LE_ERROR("Unknown bank.");
-                    return LE_FAULT;
-                }
-
-                if (result != LE_OK)
-                {
-                    LE_ERROR("taf_lib_flash_OpenPartition for Bank A failed");
-                    return LE_FAULT;
-                }
-
-                // Open Partition 'B'
-                if (activeBank == TAF_UPDATE_BANK_A)
-                {
-                    result = taf_lib_flash_OpenPartition(partition_b, O_RDWR);
-                }
-                else if (activeBank == TAF_UPDATE_BANK_B)
-                {
-                    result = taf_lib_flash_OpenPartition(partition_b, O_RDONLY);
-                }
-                else
-                {
-                    LE_ERROR("Unknown bank.");
-                    return LE_FAULT;
-                }
-
-                if (result != LE_OK)
-                {
-                    // close volume 'A'
-                    result = taf_lib_flash_ClosePartition(partition_a);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_ClosePartition failed");
-                        return LE_FAULT;
-                    }
-                    LE_ERROR("taf_lib_flash_OpenPartition for Bank B failed");
-                    return LE_FAULT;
-                }
-
-                // UBI Information for volume 'A'
-                uint32_t lebNumber_a = 0, freeLebNumber_a = 0, volumeSize_a = 0;
-                result = GetUbiInformation(partition_a, &lebNumber_a,
-                            &freeLebNumber_a, &volumeSize_a);
-                if (result != LE_OK)
-                {
-                    LE_ERROR("GetUbiInformation for volume A failed");
-                    return LE_FAULT;
-                }
-
-                // UBI Information for volume 'B'
-                uint32_t lebNumber_b = 0, freeLebNumber_b = 0, volumeSize_b = 0;
-                result = GetUbiInformation(partition_b, &lebNumber_b,
-                            &freeLebNumber_b, &volumeSize_b);
-                if (result != LE_OK)
-                {
-                    LE_ERROR("GetUbiInformation for volume B failed");
-                    return LE_FAULT;
-                }
-
-                size_t pSize = kPageSize;
-                uint8_t page[kPageSize] = { 0 };
-                uint32_t volumeSize = 0;
-                taf_lib_flash_Partition_t *src = nullptr, *dest = nullptr;
-                if(activeBank == TAF_UPDATE_BANK_A)
-                {
-                    src = partition_a;
-                    dest = partition_b;
-                    volumeSize = volumeSize_b;
-                }
-                else if(activeBank == TAF_UPDATE_BANK_B)
-                {
-                    src = partition_b;
-                    dest = partition_a;
-                    volumeSize = volumeSize_a;
-                }
-
-                result = taf_lib_flash_SetUbiVolUpSize(dest, volumeSize);
-                if (result != LE_OK)
-                {
-                    LE_ERROR("taf_lib_flash_SetUbiVolUpSize failed");
-                    return LE_FAULT;
-                }
-
-                uint32_t totalPages = volumeSize / pSize;
-                LE_DEBUG("volumeSize = %u", volumeSize);
-                LE_DEBUG("totalPages = %u", totalPages);
-
-                uint32_t totalPagesForSync = tafUpdate_ConfigTree_GetInt(kTotalPages);
-
-                // report sync progress to the user
-                uint32_t pagesSynced = tafUpdate_ConfigTree_GetInt(kPagesSynced);
-                tafFwUpdate.percent = (pagesSynced * 100) / totalPagesForSync;
-                tafFwUpdate.error = TAF_UPDATE_NONE;
-                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
-
-                // Read pages from source and write to destination
-                for (uint32_t p = 0; p < totalPages; ++p)
-                {
-                    result = taf_lib_flash_ReadPartition(src, p * pSize, page, &pSize);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_ReadPartition failed at index %u", p);
-                        return LE_FAULT;
-                    }
-
-                    result = taf_lib_flash_WritePartition(dest, 0, page, pSize);
-                    if (result != LE_OK)
-                    {
-                        LE_ERROR("taf_lib_flash_WritePartition failed at index %u", p);
-                        return LE_FAULT;
-                    }
-                }
-                tafUpdate_ConfigTree_SetInt(kPagesSynced, pagesSynced + totalPages);
-
-                // close volume src and dest
-                result = taf_lib_flash_ClosePartition(src);
-                if (result != LE_OK)
-                {
-                    LE_ERROR("taf_lib_flash_ClosePartition failed");
-                    return LE_FAULT;
-                }
-
-                result = taf_lib_flash_ClosePartition(dest);
-                if (result != LE_OK)
-                {
-                    LE_ERROR("taf_lib_flash_ClosePartition failed");
-                    return LE_FAULT;
-                }
-
-                LE_INFO("Successfully synced UBI %s", partition->name);
-            }
-        }
-    }
-    tafUpdate_ConfigTree_SetBool(kIsUBISynced, true);
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Perform A-B bank sync
- *
- * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
- */
-//--------------------------------------------------------------------------------------------------
-void taf_FwUpdate::PerformABSync()
-{
-    le_result_t result = LE_OK;
-
-    /* get active slot */
-    taf_update_Bank_t activeBank = TAF_UPDATE_BANK_UNKNOWN;
-    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    result = tafFwUpdate.GetActiveBank(&activeBank);
-    if (result != LE_OK)
-    {
-        LE_ERROR("Fail to get active bank.");
-        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
-        return;
-    }
-    switch (activeBank)
-    {
-        case TAF_UPDATE_BANK_A:
-            LE_INFO("Active bank is A.");
-            break;
-        case TAF_UPDATE_BANK_B:
-            LE_INFO("Active bank is B.");
-            break;
-        default:
-            LE_INFO("Active bank is Unknown.");
-            break;
-    }
-
-    if(!isPartitionListInit)
-    {
-        InitPartitionList();
-    }
-
-    uint32_t totalPagesForSync = tafUpdate_ConfigTree_GetInt(kTotalPages);
-    if(totalPagesForSync == 0)
-    {
-        CalculateTotalPages();
-    }
-
-    bool isMTDSynced = tafUpdate_ConfigTree_GetBool(kIsMTDSynced);
-    taf_update_State_t state = tafFwUpdate.GetState();
-    if((!isMTDSynced) && (state != TAF_UPDATE_SYNC_PAUSED))
-    {
-        result = SyncMTD(activeBank);
-        if(result != LE_OK)
-        {
-            LE_ERROR("SyncMTD failed");
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
-            return;
-        }
-    }
-
-    bool isUBISynced = tafUpdate_ConfigTree_GetBool(kIsUBISynced);
-    state = tafFwUpdate.GetState();
-    if((!isUBISynced) && (state != TAF_UPDATE_SYNC_PAUSED))
-    {
-        result = SyncUBI(activeBank);
-        if(result != LE_OK)
-        {
-            LE_ERROR("SyncUBI failed");
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
-            return;
-        }
-    }
-
-    isMTDSynced = tafUpdate_ConfigTree_GetBool(kIsMTDSynced);
-    isUBISynced = tafUpdate_ConfigTree_GetBool(kIsUBISynced);
-    if(isMTDSynced && isUBISynced)
-    {
-        LE_INFO("Sync completed successfully");
-        tafFwUpdate.percent = 100;
-        tafFwUpdate.error = TAF_UPDATE_NONE;
-        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
-        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
-    }
-}
-
-/*======================================================================
- FUNCTION        taf_FwUpdate::FwStartSync
- DESCRIPTION     AB start sync handler
- PARAMETERS      [IN] reqPtr: firmware update request
- RETURN VALUE    void
-======================================================================*/
-void taf_FwUpdate::FwStartSync(void* reqPtr)
-{
-    LE_DEBUG("In taf_FwUpdate::FwStartSync");
-    taf_FwUpdateEvent_t evt = *((taf_FwUpdateEvent_t*)reqPtr);
-    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-
-    if((evt == TAF_FWUPDATE_EV_START_SYNC) || (evt == TAF_FWUPDATE_EV_RESUME_SYNC))
-    {
-        tafFwUpdate.PerformABSync();
-    }
-}
-
-/*======================================================================
- FUNCTION        taf_FwUpdate::FwSyncHandler
- DESCRIPTION     AB sync handler
- PARAMETERS      [IN] reqPtr: firmware update request
- RETURN VALUE    void
-======================================================================*/
-void taf_FwUpdate::FwSyncHandler(void* reqPtr)
-{
-    LE_DEBUG("In taf_FwUpdate::FwSyncHandler");
-    taf_FwUpdateReq_t* updateReq = (taf_FwUpdateReq_t*)reqPtr;
-    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    taf_update_State_t state = tafFwUpdate.GetState();
-
-    if (updateReq->event == TAF_FWUPDATE_EV_START_SYNC)
-    {
-        if((state == TAF_UPDATE_SYNCHRONIZING) || (state == TAF_UPDATE_SYNC_PAUSED))
-        {
-            tafFwUpdate.error = TAF_UPDATE_INVALID_OPERATION;
-            tafFwUpdate.UpdateProgress(state);
-            std::string currState = tafFwUpdate.FwUpdateStateToString(state);
-            LE_WARN("Invalid state to start AB sync, current state is %s", currState.c_str());
-            return;
-        }
-
-        // clear the config tree
-        tafUpdate_ConfigTree_ClearTree();
-
-        tafUpdate_ConfigTree_SetInt(kPagesSynced, 0);
-        tafUpdate_ConfigTree_SetInt(kTotalPages, 0);
-        tafUpdate_ConfigTree_SetBool(kAreBlocksErased, false);
-        tafUpdate_ConfigTree_SetBool(kAreBlocksErased, false);
-        tafUpdate_ConfigTree_SetBool(kIsMTDSynced, false);
-        tafUpdate_ConfigTree_SetBool(kIsUBISynced, false);
-
-        LE_INFO("Starting A-B bank synchronization");
-
-        // report current state to the user
-        tafFwUpdate.percent = 0;
-        tafFwUpdate.error = TAF_UPDATE_NONE;
-        tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
-
-        taf_FwUpdateEvent_t req = TAF_FWUPDATE_EV_START_SYNC;
-        le_event_Report(taf_FwUpdate::fwStartSyncEvId, &req, sizeof(taf_FwUpdateEvent_t));
-    }
-    else if (updateReq->event == TAF_FWUPDATE_EV_PAUSE_SYNC)
-    {
-        if(state == TAF_UPDATE_SYNCHRONIZING)
-        {
-            LE_INFO("Pausing A-B bank synchronization");
-            uint32_t totalPagesForSync = tafUpdate_ConfigTree_GetInt(kTotalPages);
-            uint32_t pagesSynced = tafUpdate_ConfigTree_GetInt(kPagesSynced);
-            tafFwUpdate.percent = (pagesSynced * 100) / totalPagesForSync;
-            tafFwUpdate.error = TAF_UPDATE_NONE;
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_PAUSED);
-        }
-        else
-        {
-            tafFwUpdate.error = TAF_UPDATE_INVALID_OPERATION;
-            tafFwUpdate.UpdateProgress(state);
-            std::string currState = tafFwUpdate.FwUpdateStateToString(state);
-            LE_WARN("Invalid state for pause, current state is %s", currState.c_str());
-        }
-    }
-    else if (updateReq->event == TAF_FWUPDATE_EV_RESUME_SYNC)
-    {
-        if(state == TAF_UPDATE_SYNC_PAUSED)
-        {
-            LE_INFO("Resuming A-B bank synchronization");
-            uint32_t totalPagesForSync = tafUpdate_ConfigTree_GetInt(kTotalPages);
-            uint32_t pagesSynced = tafUpdate_ConfigTree_GetInt(kPagesSynced);
-            tafFwUpdate.percent = (pagesSynced * 100) / totalPagesForSync;
-            tafFwUpdate.error = TAF_UPDATE_NONE;
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
-
-            taf_FwUpdateEvent_t req = TAF_FWUPDATE_EV_START_SYNC;
-            le_event_Report(taf_FwUpdate::fwStartSyncEvId, &req, sizeof(taf_FwUpdateEvent_t));
-        }
-        else
-        {
-            tafFwUpdate.error = TAF_UPDATE_INVALID_OPERATION;
-            tafFwUpdate.UpdateProgress(state);
-            std::string currState = tafFwUpdate.FwUpdateStateToString(state);
-            LE_WARN("Invalid state for resume, current state is %s", currState.c_str());
-        }
-    }
-    else
-    {
-        LE_WARN("Unknown event %d", (int)updateReq->event);
-    }
-}
-
-/*======================================================================
- FUNCTION        taf_FwUpdate::FwUpdateStateToString
- DESCRIPTION     Returns FW update state in string format
- PARAMETERS      [IN] state: FW update state
- RETURN VALUE    std::string
-======================================================================*/
-std::string taf_FwUpdate::FwUpdateStateToString(taf_update_State_t state)
-{
-    switch (state)
-    {
-        case TAF_UPDATE_DOWNLOAD_FAIL:
-            return "TAF_UPDATE_DOWNLOAD_FAIL";
-        case TAF_UPDATE_DOWNLOADING:
-            return "TAF_UPDATE_DOWNLOADING";
-        case TAF_UPDATE_DOWNLOAD_SUCCESS:
-            return "TAF_UPDATE_DOWNLOAD_SUCCESS";
-        case TAF_UPDATE_INSTALLING:
-            return "TAF_UPDATE_INSTALLING";
-        case TAF_UPDATE_INSTALL_FAIL:
-            return "TAF_UPDATE_INSTALL_FAIL";
-        case TAF_UPDATE_INSTALL_SUCCESS:
-            return "TAF_UPDATE_INSTALL_SUCCESS";
-        case TAF_UPDATE_PROBATION:
-            return "TAF_UPDATE_PROBATION";
-        case TAF_UPDATE_IDLE:
-            return "TAF_UPDATE_IDLE";
-        case TAF_UPDATE_SYNCHRONIZING:
-            return "TAF_UPDATE_SYNCHRONIZING";
-        case TAF_UPDATE_SYNC_SUCCESS:
-            return "TAF_UPDATE_SYNC_SUCCESS";
-        case TAF_UPDATE_SYNC_PAUSED:
-            return "TAF_UPDATE_SYNC_PAUSED";
-        case TAF_UPDATE_SYNC_FAIL:
-            return "TAF_UPDATE_SYNC_FAIL";
-        default:
-            return "";
-    }
-}
-
-/*======================================================================
- FUNCTION        taf_FwUpdate::FwSyncHandlerThread
- DESCRIPTION     Thread for handling AB Sync operation
- PARAMETERS      [IN] contextPtr: Context of the calling thread
- RETURN VALUE    void*: NULL
-======================================================================*/
-void* taf_FwUpdate::FwSyncHandlerThread(void* contextPtr)
-{
-    le_cfg_ConnectService();
-
-    le_event_AddHandler("fwSyncHandler", fwSyncHandlerEvId, FwSyncHandler);
-    le_sem_Post((le_sem_Ref_t)contextPtr);
-
-    le_event_RunLoop();
-    return nullptr;
-}
-
-/*======================================================================
- FUNCTION        taf_FwUpdate::FwSyncHandlerThread
- DESCRIPTION     Thread for handling AB Sync operation
- PARAMETERS      [IN] contextPtr: Context of the calling thread
- RETURN VALUE    void*: NULL
-======================================================================*/
-void* taf_FwUpdate::FwStartSyncThread(void* contextPtr)
-{
-    le_cfg_ConnectService();
-
-    le_event_AddHandler("fwStartSync", fwStartSyncEvId, FwStartSync);
-    le_sem_Post((le_sem_Ref_t)contextPtr);
-
-    le_event_RunLoop();
-    return nullptr;
-}
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Firmware unpdate handler.
@@ -3563,6 +3171,12 @@ void taf_FwUpdate::FwUpdateHandler
                 tafFwUpdate.SetState(TAF_UPDATE_PROBATION);
                 tafFwUpdate.SetManifest(updateReq->filePath);
                 tafFwUpdate.ActivateComponent();
+            }
+            else if (updateReq->event == TAF_FWUPDATE_EV_START_SYNC)
+            {
+                LE_INFO("NAD sync start.");
+                tafFwUpdate.error = TAF_UPDATE_NONE;
+                tafFwUpdate.StartSync();
             }
             else if (updateReq->event == TAF_FWUPDATE_EV_INSTALL_POST_CHECK)
             {
@@ -3612,9 +3226,22 @@ void taf_FwUpdate::FwUpdateHandler
             if (updateReq->event == TAF_FWUPDATE_EV_RESUME_INSTALL)
             {
                 LE_INFO("Resume NAD update.");
-                tafFwUpdate.SetPauseAction(false);
+                tafFwUpdate.SetPauseAction(TAF_UPDATE_INSTALLING, false);
                 tafFwUpdate.SetState(TAF_UPDATE_INSTALLING);
                 tafFwUpdate.UpdateImage();
+            }
+            else
+            {
+                LE_ERROR("Invalid operation (%d) for installing state.", updateReq->event);
+            }
+            break;
+        case TAF_UPDATE_SYNC_PAUSED:
+            if (updateReq->event == TAF_FWUPDATE_EV_RESUME_SYNC)
+            {
+                LE_INFO("Resume NAD sync.");
+                tafFwUpdate.SetPauseAction(TAF_UPDATE_SYNCHRONIZING, false);
+                tafFwUpdate.SetState(TAF_UPDATE_SYNCHRONIZING);
+                tafFwUpdate.SyncPartition();
             }
             else
             {
@@ -3659,8 +3286,6 @@ void taf_FwUpdate::Init
 
     // 1. Create event for firmware update.
     fwUpdateEvId = le_event_CreateId("fwUpdateEvId", sizeof(taf_FwUpdateReq_t));
-    fwSyncHandlerEvId = le_event_CreateId("fwSyncHandlerEvId", sizeof(taf_FwUpdateEvent_t));
-    fwStartSyncEvId = le_event_CreateId("fwStartSyncEvId", sizeof(taf_FwUpdateEvent_t));
 
     // 2. Create thread for firmware update.
     le_sem_Ref_t semaphore = le_sem_Create("fwUpdateThreadSem", 0);
@@ -3670,23 +3295,7 @@ void taf_FwUpdate::Init
     le_sem_Wait(semaphore);
     le_sem_Delete(semaphore);
 
-    // 4. Create thread for sync handler.
-    semaphore = le_sem_Create("FwSyncHandlerThreadSem", 0);
-    threadRef = le_thread_Create("FwSyncHandlerThread", FwSyncHandlerThread, (void*)semaphore);
-    le_thread_SetStackSize(threadRef, TAF_UPDATE_THREAD_STACK_SIZE);
-    le_thread_Start(threadRef);
-    le_sem_Wait(semaphore);
-    le_sem_Delete(semaphore);
-
-    // 5. Create thread for start sync event.
-    semaphore = le_sem_Create("FwStartSyncThreadSem", 0);
-    threadRef = le_thread_Create("FwStartSyncThread", FwStartSyncThread, (void*)semaphore);
-    le_thread_SetStackSize(threadRef, TAF_UPDATE_THREAD_STACK_SIZE);
-    le_thread_Start(threadRef);
-    le_sem_Wait(semaphore);
-    le_sem_Delete(semaphore);
-
-    // 6. Initiate from current state.
+    // 3. Initiate from current state.
     taf_update_State_t state = GetState();
     switch (state)
     {
@@ -3700,14 +3309,6 @@ void taf_FwUpdate::Init
             break;
         case TAF_UPDATE_SYNC_PAUSED:
             LE_INFO("Sync paused.");
-            break;
-        case TAF_UPDATE_SYNCHRONIZING:
-            {
-                // check if a previous sync was still in progress then complete it first
-                LE_INFO("A-B bank synchronization was stopped aburptly, resuming it..");
-                taf_FwUpdateEvent_t req = TAF_FWUPDATE_EV_START_SYNC;
-                le_event_Report(taf_FwUpdate::fwStartSyncEvId, &req, sizeof(taf_FwUpdateEvent_t));
-            }
             break;
         default:
             LE_ERROR("FOTA invalid state(%d), reset to idle.", state);

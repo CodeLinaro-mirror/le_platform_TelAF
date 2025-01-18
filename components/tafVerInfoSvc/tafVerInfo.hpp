@@ -31,6 +31,14 @@
 #define FIRMWARE_VERSION_FILE "/firmware/image/Ver_Info.txt"
 #define ROOTFS_VERSION_FILE "/etc/version"
 #define TELAF_VERSION_FILE "/legato/systems/current/version"
+#define LXC_VERSION_FILE "/lxcrootfs/etc/version"
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Hash file path.
+ */
+//--------------------------------------------------------------------------------------------------
+#define LXC_HASH_FILE "/lxcrootfs/etc/hash"
 
 namespace telux
 {

@@ -266,6 +266,7 @@ le_result_t taf_UpdateSvr::RemoveUpdateSvc
     ClearFileXferMsgList(svcPtr);
     ClearXferDataMsgList(svcPtr);
     ClearXferExitMsgList(svcPtr);
+    ClearVlanList(svcPtr);
 
     // Clear the registered handler
     if (svcPtr->fileXferRef != NULL)
@@ -365,6 +366,27 @@ void taf_UpdateSvr::ClearXferExitMsgList
 
         // Process next node.
         linkPtr = le_dls_Pop(&svcPtr->reqXferExitMsgList);
+    }
+}
+
+void taf_UpdateSvr::ClearVlanList
+(
+    taf_UpdateSvc_t* svcPtr
+)
+{
+    // Clear the vlan id list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&svcPtr->supportedVlanList);
+    while (linkPtr != NULL)
+    {
+        taf_UpdateVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_UpdateVlanIdNode_t, link);
+        if (vlanPtr != NULL)
+        {
+            LE_INFO("Release vlan node(id=0x%x)", vlanPtr->vlanId);
+            le_mem_Release(vlanPtr);
+        }
+
+        // Process next node.
+        linkPtr = le_dls_Pop(&svcPtr->supportedVlanList);
     }
 }
 
@@ -506,7 +528,7 @@ void taf_UpdateSvr::UDSMsgHandler
         // Format and length of this parameter(s) are vehicle manufacturer specific.
         if ((msgLen - dataPtrPos) > TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE)
         {
-            LE_DEBUG("Message length(%" PRIuS ") is out of range", msgLen - dataPtrPos);
+            LE_ERROR("Message length(%" PRIuS ") is out of range", msgLen - dataPtrPos);
             // UDS_0x36_NRC_13: Block parameter record is overflow
             nrc = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             goto errOut;
@@ -1462,6 +1484,11 @@ le_result_t taf_UpdateSvr::SendFileXferResp
             uint8_t f_buffer[SIZE_OF_FSDIL + TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN * 2] = {0};
 
             memcpy(f_buffer, mFileSizeOrDirInfoParameterLength, SIZE_OF_FSDIL);
+            if (nCharsToSave > TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN)
+            {
+                LE_ERROR("Buffer size exceeding max limit");
+                return LE_FAULT;
+            }
             memcpy(f_buffer + SIZE_OF_FSDIL,
                    mFileSizeUncompressedOrDirInfoLength + nCharsToNotUsed,
                    nCharsToSave);
@@ -1959,31 +1986,38 @@ le_result_t taf_UpdateSvr::GetVlanIdFromMsg
 
 #ifndef LE_CONFIG_DIAG_VSTACK
     taf_FileXferRxMsg_t* fileXferMsgPtr = (taf_FileXferRxMsg_t*)
-        le_ref_Lookup(RxFileXferMsgRefMap, rxMsgRef);
-    if (fileXferMsgPtr != NULL)
+            le_ref_Lookup(RxFileXferMsgRefMap, rxMsgRef);
+    if (fileXferMsgPtr == NULL)
+    {
+        taf_XferDataRxMsg_t* xferDataMsgPtr = (taf_XferDataRxMsg_t*)
+                le_ref_Lookup(RxXferDataMsgRefMap, rxMsgRef);
+        if (xferDataMsgPtr == NULL)
+        {
+            taf_XferExitRxMsg_t* xferExitMsgPtr = (taf_XferExitRxMsg_t*)
+                    le_ref_Lookup(RxXferExitMsgRefMap, rxMsgRef);
+            if(xferExitMsgPtr == NULL)
+            {
+                LE_ERROR("Can not find the rxMsgRef");
+                return LE_FAULT;
+            }
+            else
+            {
+                *vlanIdPtr = xferExitMsgPtr->addrInfo.vlanId;
+                return LE_OK;
+            }
+        }
+        else
+        {
+            *vlanIdPtr = xferDataMsgPtr->addrInfo.vlanId;
+            return LE_OK;
+        }
+    }
+    else
     {
         *vlanIdPtr = fileXferMsgPtr->addrInfo.vlanId;
         return LE_OK;
     }
 
-    taf_XferDataRxMsg_t* xferDataMsgPtr = (taf_XferDataRxMsg_t*)
-        le_ref_Lookup(RxXferDataMsgRefMap, rxMsgRef);
-    if (xferDataMsgPtr != NULL)
-    {
-        *vlanIdPtr = fileXferMsgPtr->addrInfo.vlanId;
-        return LE_OK;
-    }
-
-    taf_XferExitRxMsg_t* xferExitMsgPtr = (taf_XferExitRxMsg_t*)
-        le_ref_Lookup(RxXferExitMsgRefMap, rxMsgRef);
-    if (xferExitMsgPtr == NULL)
-    {
-        *vlanIdPtr = xferExitMsgPtr->addrInfo.vlanId;
-        return LE_OK;
-    }
-
-    LE_ERROR("Can not find the rxMsgRef");
-    return LE_FAULT;
 #else
     return LE_NOT_IMPLEMENTED;
 #endif

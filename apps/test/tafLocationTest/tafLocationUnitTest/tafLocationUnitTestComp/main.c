@@ -158,6 +158,7 @@ static void PositionHandlerFunction
     size_t satelliteElevNumElements = NUM_ARRAY_MEMBERS(satelliteElevPtr);
     uint32_t TimeAccuracy = 0;
     uint64_t EpochTime = 0;
+    uint8_t LeapSecondsUnc = 0;
     uint32_t gpsWeek;
     uint32_t gpsTimeOfWeek;
     taf_locGnss_Resolution_t DopRes;
@@ -173,6 +174,7 @@ static void PositionHandlerFunction
     double indexPtr;
     uint8_t percentPtr;
     uint32_t calibPtr;
+    uint32_t drSolutionPtr;
     double vrpLatitude;
     double vrpLongitude;
     double vrpAltitude;
@@ -339,6 +341,25 @@ static void PositionHandlerFunction
     else
     {
         LE_TEST_INFO("Failed! to get GPS Leap Seconds\n");
+    }
+
+    //Get Leap Seconds uncertainty
+    LE_TEST_INFO("taf_locGnss_GetLeapSecondsUncertainty() API is triggerred to get Leap seconds uncertainty");
+    positionSampleRef = taf_locGnss_GetLastSampleRef();
+    LE_TEST_INFO("taf_locGnss_GetLastSampleRef() API is triggerred to get last sample reference");
+    result = taf_locGnss_GetLeapSecondsUncertainty(positionSampleRef, &LeapSecondsUnc);
+    LE_TEST_OK(((LE_OK == result) || (LE_OUT_OF_RANGE == result)), "taf_locGnss_GetLeapSecondsUncertainty -LE_OK");
+    if (LE_OK == result)
+    {
+        LE_TEST_INFO("Leap Seconds Uncertainty %u s\n", LeapSecondsUnc);
+    }
+    else if (LE_OUT_OF_RANGE == result)
+    {
+        LE_TEST_INFO("Leap Seconds Uncertainty %u s\n", LeapSecondsUnc);
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! to get Leap Seconds Uncertainty\n");
     }
 
     //145. Get Date
@@ -698,6 +719,90 @@ static void PositionHandlerFunction
     else
     {
         LE_TEST_INFO("Failed! See log for details!\n");
+    }
+
+    //GetDRSolutionStatus
+    LE_TEST_INFO("taf_locGnss_GetDRSolutionStatus() API is to get DR solution status");
+    result = taf_locGnss_GetDRSolutionStatus(positionSampleRef,
+                                                     &drSolutionPtr);
+    if (result == LE_OK)
+    {
+        if(drSolutionPtr & TAF_LOCGNSS_VEHICLE_SENSOR_SPEED_INPUT_DETECTED)
+        {
+            printf("Vehicle sensor speed input was detected by DRE\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_VEHICLE_SENSOR_SPEED_INPUT_USED)
+        {
+            printf("Vehicle sensor speed input was used by DRE\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_UNCALIBRATED)
+        {
+            printf("DRE solution disengaged due to insufficient calibration\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_GNSS_QUALITY_INSUFFICIENT)
+        {
+            printf("DRE solution disengaged due to bad GNSS quality\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_FERRY_DETECTED)
+        {
+            printf("DRE solution disengaged as ferry condition detected.\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_ERROR_6DOF_SENSOR_UNAVAILABLE)
+        {
+            printf("DRE solution disengaged as 6DOF sensor inputs not available\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_ERROR_VEHICLE_SPEED_UNAVAILABLE)
+        {
+            printf("DRE solution disengaged as vehicle speed inputs not available\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_ERROR_GNSS_EPH_UNAVAILABLE)
+        {
+            printf("DRE solution disengaged as Ephemeris info not available\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_ERROR_GNSS_MEAS_UNAVAILABLE)
+        {
+            printf("DRE solution disengaged as GNSS measurement info not available\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_INIT_POSITION_INVALID)
+        {
+            printf("DRE solution disengaged due to non-availability of stored position from previous session\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_INIT_POSITION_UNRELIABLE)
+        {
+            printf("DRE solution disengaged due to vehicle motion detected at session start\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_POSITON_UNRELIABLE)
+        {
+            printf("DRE solution disengaged due to unreliable position\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_ERROR_GENERIC)
+        {
+            printf("DRE solution disengaged due to a generic error\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_SENSOR_TEMP_OUT_OF_RANGE)
+        {
+            printf("DRE solution disengaged due to Sensor Temperature being out of range\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_USER_DYNAMICS_INSUFFICIENT)
+        {
+            printf("DRE solution disengaged due to insufficient user dynamics\n");
+        }
+        if(drSolutionPtr & TAF_LOCGNSS_WARNING_FACTORY_DATA_INCONSISTENT)
+        {
+            printf("DRE solution disengaged due to inconsistent factory data\n");
+        }
+        if(drSolutionPtr == 0)
+        {
+            printf("Dead Reckoning solution status not found\n");
+        }
+    }
+    else if (result == LE_OUT_OF_RANGE)
+    {
+        printf("Dr solution status data is invalid\n");
+    }
+    else
+    {
+        printf("Failed! See log for details!\n");
     }
 
     //GetBodyFrameData
@@ -1385,14 +1490,14 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! See log for details\n");
     }
 
-    //Gets the elapsed real time and its uncertainity values.
+    //Gets the elapsed real time and its uncertainty values.
     LE_TEST_INFO("taf_locGnss_GetRealTimeInformation() is called");
     result = taf_locGnss_GetRealTimeInformation(positionSampleRef,&realTime,&realTimeUnc);
     LE_TEST_OK(result == LE_OK, "taf_locGnss_GetRealTimeInformation-LE_OK");
     if (result == LE_OK)
     {
         LE_TEST_INFO("Elapsed real time: %"PRIu64" ns\n",realTime);
-        LE_TEST_INFO("Elapsed real time uncertainity: %"PRIu64" ns\n",realTimeUnc);
+        LE_TEST_INFO("Elapsed real time uncertainty: %"PRIu64" ns\n",realTimeUnc);
     }
     else if(result == LE_OUT_OF_RANGE)
     {
@@ -1504,7 +1609,7 @@ static void PositionHandlerFunction
     if (result == LE_OK)
     {
         LE_TEST_INFO("Gptp Time(in ns) :%"PRIu64"\n",gPtpTime);
-        LE_TEST_INFO("Gptp Time Uncertainity(in ns) :%"PRIu64"\n",gPtpTimeUnc);
+        LE_TEST_INFO("Gptp Time Uncertainty(in ns) :%"PRIu64"\n",gPtpTimeUnc);
     }
 
     LE_TEST_INFO("taf_locGnss_ReleaseSampleRef is triggered");
@@ -2476,29 +2581,29 @@ static void TestTafGnssNmeaSentences
     LE_TEST_OK(result == LE_OK, "taf_locGnss_GetSupportedNmeaSentences-LE_OK");
     if(result == LE_OK)
     {
-        if(nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_GPGGA)
+        if (nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_GGA)
         {
-            LE_TEST_INFO("GPGGA Supported\n");
+            printf("\tGGA Supported\n");
         }
-        if(nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_GPRMC)
+        if (nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_RMC)
         {
-            LE_TEST_INFO("GPRMC Supported\n");
+            printf("\tRMC Supported\n");
         }
-        if(nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_GNGSA)
+        if (nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_GSA)
         {
-            LE_TEST_INFO("GNGSA Supported\n");
+            printf("\tGSA Supported\n");
         }
-        if(nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_GPVTG)
+        if (nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_VTG)
         {
-            LE_TEST_INFO("GPVTG Supported\n");
+            printf("\tVTG Supported\n");
         }
-        if(nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_GPGNS)
+        if (nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_GNS)
         {
-            LE_TEST_INFO("GPGNS Supported\n");
+            printf("\tGNS Supported\n");
         }
-        if(nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_GPDTM)
+        if (nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_DTM)
         {
-            LE_TEST_INFO("GPDTM Supported\n");
+            printf("\tDTM Supported\n");
         }
         if(nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_GPGSV)
         {
@@ -2545,18 +2650,13 @@ static void TestTafGnssNmeaSentences
     LE_TEST_INFO("wait for 3 seconds");
     le_thread_Sleep(3);
 
-    //36.GetSupportedNmeaSentences- LE_NOT_PERMITTED
-    LE_TEST_INFO("GetSupportedNmeaSentences() API is called to get the list of"
-        "supported NMEA sentences");
-    result = taf_locGnss_GetSupportedNmeaSentences(&nmeaMaskPtr);
-    LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_locGnss_GetSupportedNmeaSentences-LE_NOT_PERMITTED");
 
-    //37. SetNmeaSentence - LE_NOT_PERMITTED
-    LE_TEST_INFO("SetNmeaSentences() API is called to check whether it returns"
-        "Not permitted or not");
-    nmeaMaskPtr = TAF_LOCGNSS_NMEA_MASK_GPGGA;
-    result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
-    LE_TEST_OK(result==LE_NOT_PERMITTED, "taf_locGnss_SetNmeaSentences-LE_NOT_PERMITTED");
+
+
+    //39.Stop
+    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
+    result = taf_locGnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //38.GetNmeaSentences- LE_OK
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -2574,10 +2674,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //39.Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //40. SetNmeaSentences - GPGGA
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPGGA NMEA sentence type");
@@ -2586,12 +2682,6 @@ static void TestTafGnssNmeaSentences
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
     //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //41.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -2609,10 +2699,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //42. SetNmeaSentence - GPRMC
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPRMC NMEA sentence type");
@@ -2620,13 +2706,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to start reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //43.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -2644,10 +2723,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //44. SetNmeaSentence - GNGSA
     LE_TEST_INFO("SetNmeaSentences() API is called to set GNGSA NMEA sentence type");
@@ -2655,13 +2730,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //45.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -2679,10 +2747,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //46.SetNmeaSentence - GPVTG
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPVTG NMEA sentence type");
@@ -2690,13 +2754,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //47.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -2714,10 +2771,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //48. SetNmeaSentence - GPGNS
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPGNS NMEA sentence type");
@@ -2725,13 +2778,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //49.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -2749,10 +2795,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //50. SetNmeaSentence - GPDTM
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPDTM NMEA sentence type");
@@ -2760,13 +2802,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //51.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -2784,10 +2819,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //52. SetNmeaSentence - GPGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPGSV NMEA sentence type");
@@ -2795,13 +2826,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //53.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -2819,10 +2843,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //54. SetNmeaSentence - GLGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GLGSV NMEA sentence type");
@@ -2830,13 +2850,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //55.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -2849,19 +2862,11 @@ static void TestTafGnssNmeaSentences
             LE_TEST_INFO("GLGSV enabled\n");
         }
     }
-    else if(result == LE_TIMEOUT)
-    {
-        LE_TEST_INFO("GLGSV NmeaSentence type is not being received\n");
-    }
     else
     {
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //56. SetNmeaSentence - GAGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GAGSV NMEA sentence type");
@@ -2869,13 +2874,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //57.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -2888,20 +2886,11 @@ static void TestTafGnssNmeaSentences
             LE_TEST_INFO("GAGSV enabled\n");
         }
     }
-    else if(result == LE_TIMEOUT)
-    {
-        LE_TEST_OK(result==LE_TIMEOUT, "taf_locGnss_GetNmeaSentences-LE_TIMEOUT");
-        LE_TEST_INFO("GAGSV NmeaSentence type is not being received\n");
-    }
     else
     {
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //58. SetNmeaSentence - GQGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GQGSV NMEA sentence type");
@@ -2909,13 +2898,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //59.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -2928,19 +2910,11 @@ static void TestTafGnssNmeaSentences
             LE_TEST_INFO("GQGSV enabled\n");
         }
     }
-    else if(result == LE_TIMEOUT)
-    {
-        LE_TEST_INFO("GQGSV NmeaSentence type is not being received\n");
-    }
     else
     {
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //60. SetNmeaSentence - GBGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GBGSV NMEA sentence type");
@@ -2948,13 +2922,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //61.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -2972,10 +2939,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //62. SetNmeaSentence - GIGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GIGSV NMEA sentence type");
@@ -2983,18 +2946,11 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //63.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_locGnss_GetNmeaSentences(&nmeaMaskPtr);
-    LE_TEST_OK(((LE_OK == result) || (LE_TIMEOUT == result)), "taf_locGnss_GetNmeaSentences-LE_OK_TIMEOUT");
+    LE_TEST_OK(result==LE_OK, "taf_locGnss_GetNmeaSentences-LE_OK");
     if(result == LE_OK)
     {
         if(nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_GIGSV)
@@ -3007,24 +2963,13 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
-    //64. SetNmeaSentence - Combination of GIGSV,GBGSV&
+    //64. SetNmeaSentence - Combination of GIGSV,GBGSV & GAGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GIGSV NMEA sentence type");
     nmeaMaskPtr = TAF_LOCGNSS_NMEA_MASK_GIGSV|TAF_LOCGNSS_NMEA_MASK_GBGSV|TAF_LOCGNSS_NMEA_MASK_GAGSV;
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //65.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -3050,24 +2995,13 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //66. SetNmeaSentence - 0xFFFFFFFF
     LE_TEST_INFO("SetNmeaSentences() API is called to set 0xFFFFFFFF NMEA sentence type");
     nmeaMaskPtr = 0xFFFFFFFF;
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
-    LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
+    LE_TEST_OK(result==LE_FAULT, "taf_locGnss_SetNmeaSentences-LE_FAULT");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //67.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -3084,10 +3018,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //SetNmeaSentence ->0
     LE_TEST_INFO("SetNmeaSentences() API is called to set 0- NMEA sentence type");
@@ -3099,25 +3029,8 @@ static void TestTafGnssNmeaSentences
     LE_TEST_INFO("SetNmeaSentences() API is called to set 0x1000- NMEA sentence type");
     nmeaMaskPtr = 0x1000;
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
-    LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
+    LE_TEST_OK(result==LE_FAULT, "taf_locGnss_SetNmeaSentences-LE_FAULT");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
-
-    //GetNmeaSentences- LE_TIMEOUT
-    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
-    result = taf_locGnss_GetNmeaSentences(&nmeaMaskPtr);
-    LE_TEST_OK(result==LE_TIMEOUT, "taf_locGnss_GetNmeaSentences-LE_TIMEOUT");
-
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //SetNmeaSentence ->0x8000000
     LE_TEST_INFO("SetNmeaSentences() API is called to set 0x8000000 NMEA sentence type");
@@ -3125,13 +3038,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
-
     //GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_locGnss_GetNmeaSentences(&nmeaMaskPtr);
@@ -3146,25 +3052,12 @@ static void TestTafGnssNmeaSentences
     {
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
-
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
-
     //SetNmeaSentence ->0x10000000
     LE_TEST_INFO("SetNmeaSentences() API is called to set 0x10000000 NMEA sentence type");
     nmeaMaskPtr = TAF_LOCGNSS_NMEA_MASK_RMC;
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
-
     //GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_locGnss_GetNmeaSentences(&nmeaMaskPtr);
@@ -3180,11 +3073,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //SetNmeaSentence ->0x20000000
     LE_TEST_INFO("SetNmeaSentences() API is called to set 0x20000000 NMEA sentence type");
@@ -3192,12 +3080,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -3214,10 +3096,7 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
+
 
     //SetNmeaSentence ->0x40000000
     LE_TEST_INFO("SetNmeaSentences() API is called to set 0x40000000 NMEA sentence type");
@@ -3225,12 +3104,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -3247,10 +3120,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //SetNmeaSentence ->0x80000000
     LE_TEST_INFO("SetNmeaSentences() API is called to set 0x80000000 NMEA sentence type");
@@ -3258,12 +3127,6 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
@@ -3280,10 +3143,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
     //SetNmeaSentence ->0x100000000
     LE_TEST_INFO("SetNmeaSentences() API is called to set 0x100000000 NMEA sentence type");
@@ -3291,17 +3150,11 @@ static void TestTafGnssNmeaSentences
     result = taf_locGnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_locGnss_SetNmeaSentences-LE_OK");
 
-    //Start
-    LE_TEST_INFO("taf_locGnss_Start() API is called to stop reporting");
-    result = taf_locGnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Start-LE_OK");
-    le_thread_Sleep(2);
-    LE_TEST_INFO("wait for 2 seconds");
 
     //GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_locGnss_GetNmeaSentences(&nmeaMaskPtr);
-    LE_TEST_OK(((LE_OK == result) || (LE_TIMEOUT == result)), "taf_locGnss_GetNmeaSentences-LE_OK");//lsc
+    LE_TEST_OK(result==LE_OK, "taf_locGnss_GetNmeaSentences-LE_OK");
     if(result == LE_OK)
     {
 
@@ -3313,10 +3166,6 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
-    result = taf_locGnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
    //68.Disable GNSS
     LE_TEST_INFO("taf_locGnss_Disable() API is called to disable GNSS engine");
@@ -4709,10 +4558,21 @@ static void TestTafGnssRestart
         LE_TEST_INFO("taf_locGnss_GetLeapSeconds is failed");
     }
 
+   //Delete DR sensor calibration data - Not permitted
+    LE_TEST_INFO("taf_locGnss_DeleteDRSensorCalData() API is calledto check whether it returns"
+        " Not permitted state or not");
+    result = taf_locGnss_DeleteDRSensorCalData();
+    LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_locGnss_DeleteDRSensorCalData-LE_NOT_PERMITTED");
+
    //207.Stop
     LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting");
     result = taf_locGnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
+
+   //Delete DR sensor calibration data - LE_OK
+    LE_TEST_INFO("taf_locGnss_DeleteDRSensorCalData() API is called");
+    result = taf_locGnss_DeleteDRSensorCalData();
+    LE_TEST_OK(result == LE_OK, "taf_locGnss_DeleteDRSensorCalData-LE_OK");
 
    //208.Force Warm Restart-Not Permitted
     LE_TEST_INFO("taf_locGnss_ForceWarmRestart() API is called to check whether it returns"
@@ -4731,6 +4591,7 @@ static void TestTafGnssRestart
         " Not permitted state or not");
     result = taf_locGnss_ForceHotRestart();
     LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_locGnss_ForceHotRestart-LE_NOT_PERMITTED");
+
 
    //211.Force Factory Restart- Not Supported
     LE_TEST_INFO("taf_locGnss_ForceFactoryRestart() API is called to check whether it returns"

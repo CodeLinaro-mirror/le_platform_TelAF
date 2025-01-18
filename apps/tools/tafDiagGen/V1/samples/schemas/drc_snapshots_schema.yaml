@@ -1,0 +1,19 @@
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+data_identifier_set: include('data_identifier_set_item', required=True)
+freeze_frames: map(include('freeze_frames_item'), key=str())
+freeze_frame_trigger_type: list(str(equals='DEM_TRIGGER_ON_CONFIRMED'), str(equals='DEM_TRIGGER_ON_EVERY_TEST_FAILED'), str(equals='DEM_TRIGGER_ON_FDC_THRESHOLD'), str(equals='DEM_TRIGGER_ON_PENDING'), str(equals='DEM_TRIGGER_ON_TEST_FAILED'), str(equals='DEM_TRIGGER_ON_TEST_FAILED_THIS_OPERATION_CYCLE'), min=1)
+
+---
+data_identifier_set_item:
+  base: list(hexa())
+  obd_Freeze_frame_1: list(hexa())
+  Freeze_frame_1: list(hexa())
+
+freeze_frames_item:
+  short_name: camelcase()
+  record_number: hexa()
+  trigger: enum('DEM_TRIGGER_ON_CONFIRMED', 'DEM_TRIGGER_ON_EVERY_TEST_FAILED', 'DEM_TRIGGER_ON_FDC_THRESHOLD', 'DEM_TRIGGER_ON_PENDING', 'DEM_TRIGGER_ON_TEST_FAILED', 'DEM_TRIGGER_ON_TEST_FAILED_THIS_OPERATION_CYCLE')
+  update: bool()
+  custom_trigger: str(required=False)

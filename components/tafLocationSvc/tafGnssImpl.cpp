@@ -474,6 +474,10 @@ void taf_locGnss::CopyPositionData
     LastDataPtr->gPtpTime = CurrentDataPtr->gPtpTime;
     LastDataPtr->gPtpTimeUncValid = CurrentDataPtr->gPtpTimeUncValid;
     LastDataPtr->gPtpTimeUnc = CurrentDataPtr->gPtpTimeUnc;
+    LastDataPtr->drSolutionStatus = CurrentDataPtr->drSolutionStatus;
+    LastDataPtr->drSolutionStatusValid = CurrentDataPtr->drSolutionStatusValid;
+    LastDataPtr->leapSecondsUncValid = CurrentDataPtr->leapSecondsUncValid;
+    LastDataPtr->leapSecondsUnc = CurrentDataPtr->leapSecondsUnc;
     LastDataPtr->next = LE_DLS_LINK_INIT;
 
     return;
@@ -644,6 +648,8 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->gnssDataValid = true;
                 LocationData->gPtpTimeValid = true;
                 LocationData->gPtpTimeUncValid = true;
+                LocationData->drSolutionStatusValid = true;
+                LocationData->leapSecondsUncValid = true;
                 if(locationInfo->getAltitudeType() == telux::loc::AltitudeType::CALCULATED)
                 {
                     clientRequestPtr->mAltType = TAF_LOCGNSS_ALT_TYPE_CALCULATED;
@@ -771,6 +777,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 }
                 LocationData->magneticDeviation = locationInfo->getMagneticDeviation()*10;
                 LocationData->epochTime = locationInfo->getTimeStamp();
+                LE_DEBUG("onDetailedEngineLocationUpdate epochTime is : %" PRIu64"",locationInfo->getTimeStamp());
                 LocationData->horUncEllipseSemiMajor =
                         locationInfo->getHorizontalUncertaintySemiMajor();
                 LocationData->horUncEllipseSemiMinor =
@@ -848,6 +855,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 } else {
                     LocationData->leapSeconds = 0;
                 }
+                LocationData->leapSecondsUnc = locationInfo->getLeapSecondsUncertainty();
                 LocationData->satsInViewCount = clientRequestPtr->mSatParams.satsInViewCount;
                 LocationData->satsTrackingCount = clientRequestPtr->mTotalSVTracked;
                 LocationData->satsUsedCount = locationInfo->getNumSvUsed();
@@ -902,6 +910,89 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 {
                     LE_DEBUG("onDetailedEngineLocationUpdate Gyro calibration is needed");
                     LocationData->calibrationStatus |= ((1<<TAF_LOCGNSS_DR_GYRO_CALIBRATION_NEEDED));
+                }
+                telux::loc::DrSolutionStatus solutionStatus =
+                                                locationInfo->getSolutionStatus();//lsc
+                LE_DEBUG("DR solution status %d", solutionStatus);
+                if((solutionStatus & telux::loc::VEHICLE_SENSOR_SPEED_INPUT_DETECTED))
+                {
+                    LE_DEBUG("Vehicle sensor speed input was detected");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_VEHICLE_SENSOR_SPEED_INPUT_DETECTED;
+                }
+                if((solutionStatus & telux::loc::VEHICLE_SENSOR_SPEED_INPUT_USED))
+                {
+                    LE_DEBUG("Vehicle sensor speed input was used");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_VEHICLE_SENSOR_SPEED_INPUT_USED;
+                }
+                if((solutionStatus & telux::loc::WARNING_UNCALIBRATED))
+                {
+                    LE_DEBUG("Dead recokining engine solution disengaged");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_UNCALIBRATED;
+                }
+                if((solutionStatus & telux::loc::WARNING_GNSS_QUALITY_INSUFFICIENT))
+                {
+                    LE_DEBUG("DRE solution disengaged due to bad GNSS quality");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_GNSS_QUALITY_INSUFFICIENT;
+                }
+                if((solutionStatus & telux::loc::WARNING_FERRY_DETECTED))
+                {
+                    LE_DEBUG("DRE solution disengaged as ferry condition detected");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_FERRY_DETECTED;
+                }
+                if((solutionStatus & telux::loc::ERROR_6DOF_SENSOR_UNAVAILABLE))
+                {
+                    LE_DEBUG("DRE solution disengaged as 6DOF sensor inputs not available");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_ERROR_6DOF_SENSOR_UNAVAILABLE;
+                }
+                if((solutionStatus & telux::loc::ERROR_VEHICLE_SPEED_UNAVAILABLE))
+                {
+                    LE_DEBUG("DRE solution disengaged as vehicle speed inputs not available");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_ERROR_VEHICLE_SPEED_UNAVAILABLE;
+                }
+                if((solutionStatus & telux::loc::ERROR_GNSS_EPH_UNAVAILABLE))
+                {
+                    LE_DEBUG("DRE solution disengaged as Ephemeris info not available");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_ERROR_GNSS_EPH_UNAVAILABLE;
+                }
+                if((solutionStatus & telux::loc::ERROR_GNSS_MEAS_UNAVAILABLE))
+                {
+                    LE_DEBUG("DRE solution disengaged as GNSS measurement info not available");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_ERROR_GNSS_MEAS_UNAVAILABLE;
+                }
+                if((solutionStatus & telux::loc::WARNING_INIT_POSITION_INVALID))
+                {
+                    LE_DEBUG("DRE solution disengaged due to non-availability of stored position from previous session");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_INIT_POSITION_INVALID;
+                }
+                if((solutionStatus & telux::loc::WARNING_INIT_POSITION_UNRELIABLE))
+                {
+                    LE_DEBUG("DRE solution dis-engaged due to vehicle motion detected at session start");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_INIT_POSITION_UNRELIABLE;
+                }
+                if((solutionStatus & telux::loc::WARNING_POSITON_UNRELIABLE))
+                {
+                    LE_DEBUG("DRE solution dis-engaged due to unreliable position");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_POSITON_UNRELIABLE;
+                }
+                if((solutionStatus & telux::loc::ERROR_GENERIC))
+                {
+                    LE_DEBUG("DRE solution dis-engaged due to a generic error");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_ERROR_GENERIC;
+                }
+                if((solutionStatus & telux::loc::WARNING_SENSOR_TEMP_OUT_OF_RANGE))
+                {
+                    LE_DEBUG("DRE solution dis-engaged due to Sensor Temperature being out of range");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_SENSOR_TEMP_OUT_OF_RANGE;
+                }
+                if((solutionStatus & telux::loc::WARNING_FACTORY_DATA_INCONSISTENT))
+                {
+                    LE_DEBUG("DRE solution dis-engaged due to insufficient user dynamics");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_USER_DYNAMICS_INSUFFICIENT;
+                }
+                if((solutionStatus & telux::loc::WARNING_USER_DYNAMICS_INSUFFICIENT))
+                {
+                    LE_DEBUG("DRE solution dis-engaged due to inconsistent factory data ");
+                    LocationData->drSolutionStatus |= TAF_LOCGNSS_WARNING_FACTORY_DATA_INCONSISTENT;
                 }
                 LE_DEBUG("onDetailedEngineLocationUpdate Location position dynamic");
                 telux::loc::GnssKinematicsData GnssKinData = locationInfo->getBodyFrameData();
@@ -1364,6 +1455,12 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                                                 (1ULL << TAF_LOCGNSS_HAS_PROTECT_LEVEL_VERTICAL);
                     LE_DEBUG("valid protect vertical");
                 }
+                if((validityExMask & telux::loc::HAS_LEAP_SECONDS_UNC))
+                {
+                    LocationData->validityExMask |=
+                                                (1ULL << TAF_LOCGNSS_HAS_LEAP_SECONDS_UNC);
+                    LE_DEBUG("valid Leap seconds uncertainty");
+                }
                 telux::loc::PositioningEngine posEngineBits = locationInfo->getLocOutputEngMask();
                 if(posEngineBits & telux::loc::STANDARD_POSITIONING_ENGINE)
                 {
@@ -1756,90 +1853,6 @@ void tafLocationListener::onGnssNmeaInfo(uint64_t timestamp, const std::string &
     LE_DEBUG( "**** Gnss Nmea Information  gnss.mNmeaBitMask: %s****",gnss.mNmeaBitMask.c_str());
     std::unique_lock<std::mutex> lock(clientRequestPtr->mMutex);
 
-    if ((gnss.mNmeaBitMask.compare(3,3,"GGA",0,3)) ==0) //1
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GGA;
-        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
-        {
-            gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GPGGA;
-        }
-        LE_DEBUG("onGnssNmeaInfo: GGA");
-    }
-    if ((gnss.mNmeaBitMask.compare(3,3,"RMC",0,3)) ==0) //2
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_RMC;
-        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
-        {
-            gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GPRMC;
-        }
-        LE_DEBUG("onGnssNmeaInfo: RMC");
-    }
-    if ((gnss.mNmeaBitMask.compare(3,3,"GSA",0,3)) ==0) //4
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GSA;
-        if ((gnss.mNmeaBitMask.compare(1,2,"GN",0,2)) ==0)
-        {
-            gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GNGSA;
-        }
-        LE_DEBUG("onGnssNmeaInfo: GSA");
-    }
-    if ((gnss.mNmeaBitMask.compare(3,3,"VTG",0,3)) ==0) //8
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_VTG;
-        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
-        {
-            gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GPVTG;
-        }
-        LE_DEBUG("onGnssNmeaInfo: VTG");
-    }
-    if ((gnss.mNmeaBitMask.compare(3,3,"GNS",0,3)) ==0) //16
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GNS;
-        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
-        {
-            gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GPGNS;
-        }
-        LE_DEBUG("onGnssNmeaInfo: GNS");
-    }
-    if ((gnss.mNmeaBitMask.compare(3,3,"DTM",0,3)) ==0) //32
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_DTM;
-        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
-        {
-            gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GPDTM;
-        }
-        LE_DEBUG("onGnssNmeaInfo: DTM");
-    }
-    if((gnss.mNmeaBitMask.compare(1,5,"GPGSV",0,5)) ==0) //64
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GPGSV;
-        LE_DEBUG("onGnssNmeaInfo: GPGSV");
-    }
-    if((gnss.mNmeaBitMask.compare(1,5,"GLGSV",0,5)) ==0) //128
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GLGSV;
-        LE_DEBUG("onGnssNmeaInfo: GLGSV");
-    }
-    if ((gnss.mNmeaBitMask.compare(1,5,"GAGSV",0,5)) ==0) //256
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GAGSV;
-        LE_DEBUG("onGnssNmeaInfo: GAGSV");
-    }
-    if((gnss.mNmeaBitMask.compare(1,5,"GQGSV",0,5)) ==0) //512
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GQGSV;
-        LE_DEBUG("onGnssNmeaInfo: GQGSV");
-    }
-    if((gnss.mNmeaBitMask.compare(1,5,"GBGSV",0,5)) ==0) //1024
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GBGSV;
-        LE_DEBUG("onGnssNmeaInfo: GBGSV");
-    }
-    if((gnss.mNmeaBitMask.compare(1,5,"GIGSV",0,5)) ==0) //2048
-    {
-        gnss.mNmeaMask |= TAF_LOCGNSS_NMEA_MASK_GIGSV;
-        LE_DEBUG("onGnssNmeaInfo: GIGSV");
-    }
 
     gnss.mNmeaVar.notify_one();
     le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
@@ -2117,6 +2130,12 @@ taf_locGnss_Client_t* taf_locGnss::AcquireSessionRef
 
     if (NULL == clientRequestPtr)
     {
+        //when client count already reached 12
+        if(gnss.mClientRefCount >= (TAF_CONFIG_POSITIONING_ACTIVATION_MAX-1))
+        {
+            LE_DEBUG("Reached maximum clients count: %d",gnss.mClientRefCount);
+            return NULL;
+        }
         clientRequestPtr = (taf_locGnss_Client_t*)le_mem_ForceAlloc(gnss.ClientPoolRef);
 
         clientRequestPtr->sessionRef = sessionRef;
@@ -3559,6 +3578,108 @@ le_result_t taf_locGnss::GetGpsLeapSeconds
     return result;
 }
 
+le_result_t taf_locGnss::DeleteDRSensorCalData
+(
+    void
+)
+{
+    le_result_t result = LE_OK;
+    taf_locGnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
+    {
+        case TAF_LOCGNSS_STATE_ACTIVE:
+        case TAF_LOCGNSS_STATE_DISABLED:
+        case TAF_LOCGNSS_STATE_UNINITIALIZED:
+        {
+            LE_ERROR("Wrong Gnss state [%d]", clientRequestPtr->GnssState);
+            result = LE_NOT_PERMITTED;
+        }
+        break;
+        case TAF_LOCGNSS_STATE_READY:
+        {
+                std::promise<le_result_t> p1;
+
+                auto cb1 = [&p1](telux::common::ErrorCode error) {
+                    if(error == telux::common::ErrorCode::SUCCESS) {
+                        p1.set_value(LE_OK);
+                    }
+                    else {
+                        p1.set_value(LE_FAULT);
+                    }
+                };
+
+                /* Specifies AidingDataType mask */
+                /* 0 - EPHEMERIS 1 - DR_SENSOR_CALIBRATION
+                   AidingData |1UL << 1 which is 2*/
+
+                uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_DR_SENSOR_CALIBRATION;
+                telux::common::Status status =
+                                            mLocationConfigurator->deleteAidingData(AidingData,cb1);
+                if (status != telux::common::Status::SUCCESS)
+                {
+                    if (status == telux::common::Status::NOTIMPLEMENTED)
+                    {
+                        LE_ERROR("DeleteDRSensorCalData failed or Not Implemented");
+                    }
+                    result = LE_FAULT;
+                }
+                else
+                {
+                    std::future<le_result_t> futResult = p1.get_future();
+                    if(futResult.get() != LE_OK)
+                    {
+                        result = LE_FAULT;
+                    }
+                }
+        }
+        break;
+        default:
+        {
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
+            result = LE_FAULT;
+        }
+        break;
+    }
+
+    return result;
+}
+
+le_result_t taf_locGnss::GetLeapSecondsUncertainty
+(
+ taf_locGnss_SampleRef_t positionSampleRef,
+ uint8_t* leapSecondsUncPtr
+)
+{
+    le_result_t result;
+    taf_locGnss_PositionSampleRequest_t* posSampleReqPtr
+                                            = (taf_locGnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL((leapSecondsUncPtr == NULL), LE_FAULT, "Invalid reference");
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    if (posSampleReqPtr->positionSampleNodePtr->leapSecondsUncValid)
+    {
+        result = LE_OK;
+        *leapSecondsUncPtr = posSampleReqPtr->positionSampleNodePtr->leapSecondsUnc;
+    }
+    else
+    {
+        result = LE_OUT_OF_RANGE;
+        *leapSecondsUncPtr = UINT8_MAX;
+    }
+
+    return result;
+}
+
 le_result_t taf_locGnss::GetMagneticDeviation
 (
  taf_locGnss_SampleRef_t positionSampleRef,
@@ -4860,6 +4981,7 @@ le_result_t taf_locGnss::SetNmeaSentences
         switch (clientRequestPtr->GnssState)
         {
             case TAF_LOCGNSS_STATE_READY:
+            case TAF_LOCGNSS_STATE_ACTIVE:
             {
                 // Set the enabled NMEA sentences
                 std::promise<le_result_t> p;
@@ -4871,44 +4993,89 @@ le_result_t taf_locGnss::SetNmeaSentences
                         p.set_value(LE_FAULT);
                     }
                 };
-                if(nmeaMask > TAF_LOCGNSS_NMEA_MASK_GPZDA)
+                if ((nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGSA) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGGA) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGSA) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GARMC) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAVTG) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_PSTIS) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_REMOVED)||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_PTYPE) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGRS) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGLL) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_DEBUG) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGNS) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GNGNS) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGST) ||
+                    (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPZDA))
                 {
-                    taf_locGnss_NmeaBitMask_t nmeaSetResult = 0;
-                    if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_GGA)
-                    {
-                        nmeaSetResult |= TAF_LOCGNSS_NMEA_MASK_GPGGA;
-                        LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_GGA");
-                    }
-                    if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_RMC)
-                    {
-                        nmeaSetResult |= TAF_LOCGNSS_NMEA_MASK_GPRMC;
-                        LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_RMC");
-                    }
-                    if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_GSA)
-                    {
-                        nmeaSetResult |= TAF_LOCGNSS_NMEA_MASK_GNGSA;
-                        LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_GSA");
-                    }
-                    if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_VTG)
-                    {
-                        nmeaSetResult |= TAF_LOCGNSS_NMEA_MASK_GPVTG;
-                        LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_VTG");
-                    }
-                    if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_GNS)
-                    {
-                        nmeaSetResult |= TAF_LOCGNSS_NMEA_MASK_GPGNS;
-                        LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_GNS");
-                    }
-                    if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_DTM)
-                    {
-                        nmeaSetResult |= TAF_LOCGNSS_NMEA_MASK_GPDTM;
-                        LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_DTM");
-                    }
-                    nmeaMask |= nmeaSetResult;
+                    LE_ERROR("Unsuported items");
+                    return LE_FAULT;
+                }
+                telux::loc::NmeaSentenceConfig nmeaType = 0;
+                if((nmeaMask & TAF_LOCGNSS_NMEA_MASK_GGA) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGGA))
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GGA;
+                    LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_GGA");
+                }
+                if((nmeaMask & TAF_LOCGNSS_NMEA_MASK_RMC) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPRMC))
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::RMC;
+                    LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_RMC");
+                }
+                if((nmeaMask & TAF_LOCGNSS_NMEA_MASK_GSA) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GNGSA))
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GSA;
+                    LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_GSA");
+                }
+                if((nmeaMask & TAF_LOCGNSS_NMEA_MASK_VTG) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPVTG))
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::VTG;
+                    LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_VTG");
+                }
+                if(nmeaMask & TAF_LOCGNSS_NMEA_MASK_GNS)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GNS;
+                    LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_GNS");
+                }
+                if((nmeaMask & TAF_LOCGNSS_NMEA_MASK_DTM) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPDTM))
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::DTM;
+                    LE_DEBUG("SetNmeaSentences ->TAF_LOCGNSS_NMEA_MASK_DTM");
+                }
+                if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGSV)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GPGSV;
+                    LE_DEBUG("SetNmeaSentences ->GPGSV");
+                }
+                if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GLGSV)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GLGSV;
+                    LE_DEBUG("SetNmeaSentences ->GLGSV");
+                }
+                if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGSV)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GAGSV;
+                    LE_DEBUG("SetNmeaSentences ->GAGSV");
+                }
+                if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GQGSV)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GQGSV;
+                    LE_DEBUG("SetNmeaSentences ->GQGSV");
+                }
+                if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GBGSV)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GBGSV;
+                    LE_DEBUG("SetNmeaSentences ->GBGSV");
+                }
+                if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GIGSV)
+                {
+                    nmeaType |= telux::loc::NmeaSentenceType::GIGSV;
+                    LE_DEBUG("SetNmeaSentences ->GIGSV");
                 }
                 LE_DEBUG("SetNmeaSentences nmeaMask mask is : %" PRIu64 "", nmeaMask);
 
-                auto status = mLocationConfigurator->configureNmeaTypes(nmeaMask, cb);
+                auto status = mLocationConfigurator->configureNmeaTypes(nmeaType, cb);
                 if(status != telux::common::Status::SUCCESS)
                 {
                     result = LE_FAULT;
@@ -4920,6 +5087,7 @@ le_result_t taf_locGnss::SetNmeaSentences
                     {
                         result = LE_OK;
                         LE_DEBUG("SetNmeaSentences() is success");
+                        SetNmeaConfig(nmeaMask);
                     }
                     else
                     {
@@ -4935,7 +5103,6 @@ le_result_t taf_locGnss::SetNmeaSentences
             }
             break;
             case TAF_LOCGNSS_STATE_UNINITIALIZED:
-            case TAF_LOCGNSS_STATE_ACTIVE:
             case TAF_LOCGNSS_STATE_DISABLED:
             {
                 LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
@@ -4975,18 +5142,12 @@ le_result_t taf_locGnss::GetNmeaSentences
     // Check the GNSS device state
     switch (clientRequestPtr->GnssState)
     {
+        case TAF_LOCGNSS_STATE_READY:
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
             // Get the enabled NMEA sentences
-            std::unique_lock<std::mutex> lock(clientRequestPtr->mMutex);
-            auto nmeaStatus = mNmeaVar.wait_for(lock,std::chrono::seconds(DEFAULT_TIMEOUT_IN_SECONDS));
-            if(nmeaStatus == std::cv_status::timeout)
-            {
-                LE_DEBUG("NmeaSentence type not found within %d seconds",DEFAULT_TIMEOUT_IN_SECONDS);
-                result = LE_TIMEOUT;
-                return result;
-            }
-
+            mNmeaMask = GetNmeaConfig();
+            LE_INFO("the NMEA retrieved from the config is : %" PRIu64"",mNmeaMask);
             if(mNmeaMask != 0)
             {
                 *nmeaMaskPtr = mNmeaMask;
@@ -5006,7 +5167,6 @@ le_result_t taf_locGnss::GetNmeaSentences
             }
         }
         break;
-        case TAF_LOCGNSS_STATE_READY:
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
         case TAF_LOCGNSS_STATE_DISABLED:
         {
@@ -5042,25 +5202,25 @@ le_result_t taf_locGnss::GetSupportedNmeaSentences
     switch (clientRequestPtr->GnssState)
     {
         case TAF_LOCGNSS_STATE_READY:
+        case TAF_LOCGNSS_STATE_ACTIVE:
         {
             //filling the supported bitmask values
-            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GPGGA;
-            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GPRMC;
-            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GNGSA;
-            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GPVTG;
-            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GPGNS;
-            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GPDTM;
             *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GPGSV;
             *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GLGSV;
             *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GAGSV;
             *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GQGSV;
             *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GBGSV;
             *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GIGSV;
+            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GGA;
+            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_RMC;
+            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GSA;
+            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_VTG;
+            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_GNS;
+            *nmeaMaskPtr |= TAF_LOCGNSS_NMEA_MASK_DTM;
             result = LE_OK;
         }
         break;
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
-        case TAF_LOCGNSS_STATE_ACTIVE:
         case TAF_LOCGNSS_STATE_DISABLED:
         {
             LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
@@ -5076,6 +5236,55 @@ le_result_t taf_locGnss::GetSupportedNmeaSentences
     }
 
     return result;
+}
+
+le_result_t taf_locGnss::SetNmeaConfig(const taf_locGnss_NmeaBitMask_t nmeaMask)
+{
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn("tafLocationSvc:/");
+
+    char config_node_nmea_lsb[LENGTH_CFG_NODE] = {};
+    char config_node_nmea_msb[LENGTH_CFG_NODE] = {};
+    snprintf(config_node_nmea_lsb, sizeof(config_node_nmea_lsb), "%s", "nmeaSentences_lsb");
+    le_cfg_SetInt(iteratorRef, "nmea_lsb", nmeaMask);//store LSB 32 bits
+
+    taf_locGnss_NmeaBitMask_t nmea_msb = (taf_locGnss_NmeaBitMask_t) nmeaMask >>32;//store 32 bits(MSB) out of 64 bits
+    snprintf(config_node_nmea_msb, sizeof(config_node_nmea_msb), "%s", "nmeaSentences_msb");
+    le_cfg_SetInt(iteratorRef, "nmea_msb", nmea_msb);
+    le_cfg_CommitTxn(iteratorRef);
+
+    LE_INFO("Set NMEA LSB config node%s as : %" PRIu64"",config_node_nmea_lsb,(nmeaMask &0xffffffff));
+    LE_INFO("Set NMEA MSB config node%s as : %" PRIu64"",config_node_nmea_msb,nmea_msb);
+
+    return LE_OK;
+}
+
+taf_locGnss_NmeaBitMask_t taf_locGnss::GetNmeaConfig()
+{
+    taf_locGnss_NmeaBitMask_t nmea = 0;
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn("tafLocationSvc:/");
+
+    if (le_cfg_NodeExists(iteratorRef, "nmea_lsb"))
+    {
+        uint32_t configNmea = le_cfg_GetInt(iteratorRef,
+                                       "nmea_lsb", 0);
+        nmea = (taf_locGnss_NmeaBitMask_t)configNmea;//fetch LSB 32 bits
+
+        LE_INFO("Get NMEA LSB config node%s as : %" PRIu64"","nmea_lsb",nmea);
+    }
+    if (le_cfg_NodeExists(iteratorRef, "nmea_msb"))
+    {
+        uint64_t configNmea = le_cfg_GetInt(iteratorRef,
+                                       "nmea_msb", 0);
+        nmea = nmea |(taf_locGnss_NmeaBitMask_t)configNmea <<32;//MSB 32 bits and LSB 32 bits
+
+        LE_INFO("Get NMEA MSB config node%s as : %" PRIu64"","nmea_msb",(taf_locGnss_NmeaBitMask_t)configNmea);
+        le_cfg_CancelTxn(iteratorRef);
+        return nmea;
+    }
+    LE_WARN("config node %s doesn't exist", "nmea LSB and MSB");
+
+    le_cfg_CancelTxn(iteratorRef);
+    return 0;
 }
 
 le_result_t taf_locGnss::SetDRConfig(const taf_locGnss_DrParams_t* drParamsPtr)
@@ -6113,6 +6322,41 @@ le_result_t taf_locGnss::GetCalibrationData
     }
     return result;
 }
+
+le_result_t taf_locGnss::GetDRSolutionStatus
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+    uint32_t* solutionStatusPtr
+)
+{
+    le_result_t result = LE_OK;
+    taf_locGnss_PositionSampleRequest_t* posSampleReqPtr
+                                            = (taf_locGnss_PositionSampleRequest_t *)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+    if (solutionStatusPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->drSolutionStatusValid)
+        {
+            *solutionStatusPtr = posSampleReqPtr->positionSampleNodePtr->drSolutionStatus;
+        }
+        else
+        {
+            LE_DEBUG("GetDRSolutionStatus is not valid");
+            result = LE_OUT_OF_RANGE;
+        }
+    }
+    else
+    {
+        result = LE_FAULT;
+    }
+    return result;
+}
+
 
 le_result_t taf_locGnss::GetBodyFrameData
 (
@@ -7396,10 +7640,6 @@ void taf_locGnss::CloseEventHandler
         gnss.Stop();
     }
 
-    if (sessionRef!=nullptr && gnss.mClientRefCount > 0){
-        //External Client release, decrement client ref count
-        gnss.mClientRefCount--;
-    }
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.PositionSampleMap);
     le_result_t result = le_ref_NextNode(iterRef);
@@ -7433,6 +7673,12 @@ void taf_locGnss::CloseEventHandler
 
         if (sessionRef == gnssPtr->sessionRef)
         {
+            if (gnss.mClientRefCount > 0)
+            {
+                //External Client release, decrement client ref count
+                gnss.mClientRefCount--;
+                LE_DEBUG("CloseEventHandler client count: %d",gnss.mClientRefCount);
+            }
             gnss.CleanUp(gnssPtr);
             void* safeRefPtr = (void*)le_ref_GetSafeRef(iterRef);
             LE_DEBUG("Release taf_locGnss_ReleaseClientRef 0x%p, Session 0x%p",
@@ -7566,7 +7812,12 @@ void taf_locGnss::Init()
     le_msg_ServiceRef_t msgService = taf_locGnss_GetServiceRef();
     le_msg_AddServiceOpenHandler(msgService, OpenEventHandler, NULL);
     le_msg_AddServiceCloseHandler(msgService, CloseEventHandler, NULL);
-
+    if (GetNmeaConfig()== 0)
+    {
+       TAF_LOCGNSS_NMEA_DEFAULT = 0x1f8000fc0;//If value is 0 it will set the default NMEA sentences (all sentences enabled)
+       LE_DEBUG("Nmea node doesn't exist, so set default NMEA value");
+       SetNmeaConfig(TAF_LOCGNSS_NMEA_DEFAULT);
+    }
     return;
 }
 le_result_t taf_locGnss::SetDRConfigValidity(taf_locGnss_DRConfigValidityType_t validMask)

@@ -48,11 +48,6 @@ config AUDIO_MULTI_FORMAT_PB_SUPPORTED
   default "$(b2k,$(AUDIO_MULTI_FORMAT_PB_SUPPORTED))" if !$(empty,$(AUDIO_MULTI_FORMAT_PB_SUPPORTED))
   default y
 
-config REFRESH_AUDIO_SVC
-  bool "Telaf refresh audio service enabled"
-  default "$(b2k,$(REFRESH_AUDIO_SVC))" if !$(empty,$(REFRESH_AUDIO_SVC))
-  default y
-
 # For Vendor Stack
 config DIAG_VSTACK
   bool "QC or VStack"
@@ -71,13 +66,13 @@ config DIAG_FEATURE_A
 
 config LIMIT_APP_START_GROUP
   int "Limit start up group number for APP"
-  range 0 256
+  range 0 31
   default 10
   ---help---
   Applications with a startGroup number greater than this value will not
   be started by the supervisor during initialization; they need to be
   started by another group controller. Applications without a startGroup
-  number will be assigned the value 256.
+  number will be assigned the value 31.
 
 menu "apps"
 rsource "apps/KConfig"

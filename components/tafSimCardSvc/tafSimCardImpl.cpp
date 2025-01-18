@@ -70,10 +70,14 @@ void tafSubscriptionListener:: onSubscriptionInfoChanged
     LE_INFO("onSubscriptionInfoChanged");
     auto &sim = taf_sim::GetInstance();
     taf_sim_info_t* simPtr = NULL;
+    telux::common::Status status;
     if(subscription) {
         auto slotWithCard = subscription->getSlotId();
         if(sim.cards[slotWithCard] == nullptr && slotWithCard == DEFAULT_SLOT_ID){
             slotWithCard = SLOT_ID_2;
+            auto card = sim.cardManager->getCard(DEFAULT_SLOT_ID, &status);
+            LE_INFO("Update cards[%d] as %s", slotWithCard, card == nullptr ? "null" : "non-null");
+            sim.cards[slotWithCard] = card;
         }
         sim.InitializeSimInfo(subscription,(taf_sim_Id_t)slotWithCard);
         simPtr = sim.GetSimContext((taf_sim_Id_t)slotWithCard);
@@ -93,19 +97,46 @@ void tafMultiSimListener:: onSlotStatusChanged(std::map<SlotId, telux::tel::Slot
     auto &sim = taf_sim::GetInstance();
     int activeSlotCount = 0;
     telux::common::Status status;
+    int activeSlots = 0;
+
+    for(auto it = slotStatus.begin(); it != slotStatus.end(); ++it) {
+        auto slotStatus = it->second;
+        if (slotStatus.slotState == telux::tel::SlotState::ACTIVE) {
+            activeSlots++;
+        }
+    }
+
     sim.cardManager->getSlotCount(activeSlotCount);
+    if(activeSlotCount == 1){
+        sim.isSingleActive = true;
+    }
+
+    LE_INFO("activeSlotCount: %d, isSingleActive: %d", activeSlots, (int) sim.isSingleActive);
+
     for(auto it = slotStatus.begin(); it != slotStatus.end(); ++it) {
         auto slotId = it->first;
         auto slotStatus = it->second;
 
-        if((slotStatus.slotState == telux::tel::SlotState::ACTIVE)
-                && (activeSlotCount == 1)){
-            LE_INFO("Find card for single active in slot: %d", slotId);
-            auto card = sim.cardManager->getCard(DEFAULT_SLOT_ID, &status);
-            sim.cards[slotId] = card;
-            sim.isSingleActive = true;
+        LE_INFO("Slot: %d, slotState: %d, cardState: %d, cardError: %d", slotId,
+                (int) slotStatus.slotState, (int) slotStatus.cardState,
+                (int) slotStatus.cardError);
+
+        if(activeSlots == 1) { //Single Active slot
+            if (slotStatus.slotState == telux::tel::SlotState::ACTIVE) {
+                sim.slot = slotId;
+            }
+            if (slotStatus.cardState != telux::tel::CardState::CARDSTATE_UNKNOWN
+                    && slotStatus.cardState != telux::tel::CardState::CARDSTATE_ABSENT) {
+                LE_INFO("Find card for single active in slot: %d", slotId);
+                auto card = sim.cardManager->getCard(DEFAULT_SLOT_ID, &status);
+                sim.cards[slotId] = card;
+                LE_INFO("Put card as %s in cards[%d]", card == nullptr ? "null" : "non-null", slotId);
+            } else {
+                sim.cards[slotId] = nullptr;
+                LE_INFO("Update card as null in cards[%d]", slotId);
+            }
         } else if((slotStatus.slotState == telux::tel::SlotState::ACTIVE)
-                && (activeSlotCount == 2)){
+                && (activeSlots == 2)){
             LE_INFO("Find card for dual active in slot: %d", slotId);
             auto card = sim.cardManager->getCard(slotId, &status);
             sim.cards[slotId] = card;
@@ -123,32 +154,45 @@ void tafMultiSimCallback::requestsSlotsStatusResponse(std::map<SlotId,
         sim.slotCount = slotStatus.size();
         LE_INFO("requestsSlotsStatusResponse: slotCount: %d", sim.slotCount);
         telux::common::Status status;
+        int activeSlots = 0;
 
+        for(auto it = slotStatus.begin(); it != slotStatus.end(); ++it) {
+            auto slotStatus = it->second;
+            if (slotStatus.slotState == telux::tel::SlotState::ACTIVE) {
+                activeSlots++;
+            }
+        }
         int activeSlotCount = 0;
         sim.cardManager->getSlotCount(activeSlotCount);
         if(activeSlotCount == 1){
             sim.isSingleActive = true;
         }
+
+        LE_INFO("activeSlotCount: %d, isSingleActive: %d", activeSlots, (int) sim.isSingleActive);
+
         for(auto it = slotStatus.begin(); it != slotStatus.end(); ++it) {
             auto slotId = it->first;
             auto slotStatus = it->second;
-            if((slotStatus.slotState == telux::tel::SlotState::ACTIVE)
-                    && (slotStatus.cardState == telux::tel::CardState::CARDSTATE_PRESENT)){
-                        sim.slot = slotId;
-                        LE_INFO("Init selected slot as %d", (int)sim.slot);
-                        break;
-                    }
-        }
-        for(auto it = slotStatus.begin(); it != slotStatus.end(); ++it) {
-            auto slotId = it->first;
-            auto slotStatus = it->second;
-            if((slotStatus.slotState == telux::tel::SlotState::ACTIVE)
-                    && (activeSlotCount == 1)){
-                LE_INFO("Find card for single active in slot: %d", slotId);
-                auto card = sim.cardManager->getCard(slotId, &status);
-                sim.cards.emplace(slotId, card);
+            LE_INFO("Slot: %d, slotState: %d, cardState: %d, cardError: %d", slotId,
+                    (int) slotStatus.slotState, (int) slotStatus.cardState,
+                    (int) slotStatus.cardError);
+            if(activeSlots == 1) { //Single Active slot
+                if (slotStatus.slotState == telux::tel::SlotState::ACTIVE) {
+                    sim.slot = slotId;
+                }
+                if (slotStatus.cardState != telux::tel::CardState::CARDSTATE_UNKNOWN
+                        && slotStatus.cardState != telux::tel::CardState::CARDSTATE_ABSENT) {
+                    LE_INFO("Find card for single active in slot: %d", slotId);
+                    auto card = sim.cardManager->getCard(DEFAULT_SLOT_ID, &status);
+                    sim.cards[slotId] = card;
+                    LE_INFO("Put card as %s in cards[%d]",
+                            card == nullptr ? "null" : "non-null", slotId);
+                } else {
+                    sim.cards[slotId] = nullptr;
+                    LE_INFO("Update card as null in cards[%d]", slotId);
+                }
             } else if((slotStatus.slotState == telux::tel::SlotState::ACTIVE)
-                    && (activeSlotCount == 2)){
+                    && (activeSlots == 2)){
                 LE_INFO("Find card for dual active in slot: %d", slotId);
                 auto card = sim.cardManager->getCard(slotId, &status);
                 sim.cards.emplace(slotId, card);
@@ -289,8 +333,292 @@ void tafTransmitApduResponseCallback::onResponse(IccResult result, ErrorCode err
    }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Register listeners.
+ */
+//--------------------------------------------------------------------------------------------------
+void RegisterListeners()
+{
+    auto &sim = taf_sim::GetInstance();
+    telux::common::Status status;
+
+    LE_DEBUG("RegisterListeners");
+    if ((sim.multiSimMgr != nullptr) && (sim.multiSimListener != nullptr))
+    {
+        status = sim.multiSimMgr->registerListener(sim.multiSimListener);
+        if (status != telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Fail to register multi sim listener.");
+        }
+    }
+
+    if ((sim.cardManager != nullptr) && (sim.cardListener != nullptr))
+    {
+        status = sim.cardManager->registerListener(sim.cardListener);
+        if (status != telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Fail to register card listener.");
+        }
+    }
+
+    if ((sim.subMgr != nullptr) && (sim.subscriptionListener != nullptr))
+    {
+        status = sim.subMgr->registerListener(sim.subscriptionListener);
+        if (status != telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Fail to register subscription listener.");
+        }
+    }
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deregister listeners.
+ */
+//--------------------------------------------------------------------------------------------------
+void DeregisterListeners()
+{
+    auto &sim = taf_sim::GetInstance();
+    telux::common::Status status;
+
+    LE_DEBUG("RegisterListeners");
+    if ((sim.multiSimMgr != nullptr) && (sim.multiSimListener != nullptr))
+    {
+        status = sim.multiSimMgr->deregisterListener(sim.multiSimListener);
+        if (status != telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Fail to deregister multi sim listener.");
+        }
+    }
+
+    if ((sim.cardManager != nullptr) && (sim.cardListener != nullptr))
+    {
+        status = sim.cardManager->removeListener(sim.cardListener);
+        if (status != telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Fail to deregister card delistener.");
+        }
+    }
+
+    if ((sim.subMgr != nullptr) && (sim.subscriptionListener != nullptr))
+    {
+        status = sim.subMgr->removeListener(sim.subscriptionListener);
+        if (status != telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Fail to deregister subscription listener.");
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for power state changes
+ */
+//--------------------------------------------------------------------------------------------------
+void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
+{
+    if (state == TAF_PM_STATE_RESUME)
+    {
+        LE_INFO("Power state change to RESUME");
+        RegisterListeners();
+    }
+    else if (state == TAF_PM_STATE_SUSPEND)
+    {
+        LE_INFO("Power state change to SUSPEND");
+        DeregisterListeners();
+    }
+}
+
 void taf_sim::Init(void)
 {
+    auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
+
+    std::promise<telux::common::ServiceStatus> subMgrProm;
+    subMgr = phoneFactory.getSubscriptionManager([&](telux::common::ServiceStatus status) {
+        LE_INFO("Getting status:%d from subscription manager", (int)status);
+        if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            subMgrProm.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+        } else {
+            subMgrProm.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+        }
+    });
+
+    if (!subMgr)
+    {
+        LE_FATAL("Failed to get subscription manager.");
+    }
+    else
+    {
+        telux::common::ServiceStatus subMgrStatus = subMgr->getServiceStatus();
+        if (subMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_INFO("Subscription subsystem is not ready, waiting for it to be ready...");
+            std::future<telux::common::ServiceStatus> initFuture = subMgrProm.get_future();
+            std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+                TAF_SIM_SUBSYSTEM_TIMEOUT));
+            if (std::future_status::timeout == waitStatus)
+            {
+                LE_FATAL ("Timeout waiting for subscription susbsytem");
+            }
+            else
+            {
+                subMgrStatus = initFuture.get();
+            }
+        }
+        if (subMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_INFO("Subscription subsystem is ready.");
+        }
+        else
+        {
+            LE_FATAL("Fail to init subscription subsystem");
+        }
+    }
+
+    std::promise<telux::common::ServiceStatus> cardMgrProm;
+    cardManager = phoneFactory.getCardManager([&](telux::common::ServiceStatus status) {
+        LE_INFO("Getting status:%d from card manager", (int)status);
+        if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            cardMgrProm.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+        } else {
+            cardMgrProm.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+        }
+    });
+
+    if (!cardManager)
+    {
+        LE_FATAL("Failed to get card manager.");
+    }
+    else
+    {
+        telux::common::ServiceStatus cardMgrStatus = cardManager->getServiceStatus();
+        if (cardMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_INFO("Card subsystem is not ready, waiting for it to be ready...");
+            std::future<telux::common::ServiceStatus> initFuture = cardMgrProm.get_future();
+            std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+                TAF_SIM_SUBSYSTEM_TIMEOUT));
+            if (std::future_status::timeout == waitStatus)
+            {
+                LE_FATAL ("Timeout waiting for card susbsytem");
+            }
+            else
+            {
+                cardMgrStatus = initFuture.get();
+            }
+        }
+        if (cardMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_INFO("Card subsystem is ready.");
+        }
+        else
+        {
+            LE_FATAL("Fail to init card subsystem");
+        }
+    }
+
+    std::promise<telux::common::ServiceStatus> simProfileMgrProm;
+    simProfileManager = phoneFactory.getSimProfileManager([&](telux::common::ServiceStatus status) {
+        LE_INFO("Getting status:%d from sim profile manager", (int)status);
+        if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            simProfileMgrProm.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+        } else {
+            simProfileMgrProm.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+        }
+    });
+
+    if (!simProfileManager)
+    {
+        LE_FATAL("Failed to get sim profile manager.");
+    }
+    else
+    {
+        telux::common::ServiceStatus simProfileMgrStatus = simProfileManager->getServiceStatus();
+        if (simProfileMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_INFO("Sim profile subsystem is not ready, waiting for it to be ready...");
+            std::future<telux::common::ServiceStatus> initFuture = simProfileMgrProm.get_future();
+            std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+                TAF_SIM_SUBSYSTEM_TIMEOUT));
+            if (std::future_status::timeout == waitStatus)
+            {
+                LE_FATAL ("Timeout waiting for sim profile susbsytem");
+            }
+            else
+            {
+                simProfileMgrStatus = initFuture.get();
+            }
+        }
+        if (simProfileMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_INFO("Sim profile subsystem is ready.");
+        }
+        else
+        {
+            LE_FATAL("Fail to init sim profile subsystem");
+        }
+    }
+
+    std::promise<telux::common::ServiceStatus> multiSimMgrProm;
+    multiSimMgr = phoneFactory.getMultiSimManager([&](telux::common::ServiceStatus status) {
+        LE_INFO("Getting status:%d from multi sim manager", (int)status);
+        if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            multiSimMgrProm.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+        } else {
+            multiSimMgrProm.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+        }
+    });
+
+    if (!multiSimMgr)
+    {
+        LE_FATAL("Failed to get multi sim manager.");
+    }
+    else
+    {
+        telux::common::ServiceStatus multiSimMgrStatus = multiSimMgr->getServiceStatus();
+        if (multiSimMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_INFO("Multi sim subsystem is not ready, waiting for it to be ready...");
+            std::future<telux::common::ServiceStatus> initFuture = multiSimMgrProm.get_future();
+            std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+                TAF_SIM_SUBSYSTEM_TIMEOUT));
+            if (std::future_status::timeout == waitStatus)
+            {
+                LE_FATAL ("Timeout waiting for multi sim susbsytem");
+            }
+            else
+            {
+                multiSimMgrStatus = initFuture.get();
+            }
+        }
+        if (multiSimMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_INFO("Multi sim subsystem is ready.");
+            slotStatusCbPromise = std::promise<telux::common::ErrorCode>();
+            auto ret = multiSimMgr->requestSlotStatus(tafMultiSimCallback::requestsSlotsStatusResponse);
+            if(ret != telux::common::Status::SUCCESS){
+                LE_FATAL("Request slot status failed with error: %d", (int)ret);
+            }
+            telux::common::ErrorCode errorStatus = slotStatusCbPromise.get_future().get();
+            if(errorStatus == telux::common::ErrorCode::SUCCESS){
+                LE_INFO("Initialize slot card map successfully, default selected slot: %d", (int)slot);
+            }
+            if(errorStatus != telux::common::ErrorCode::SUCCESS){
+                LE_FATAL("Initialize slot card map failed with error: %d", (int)errorStatus);
+            }
+        }
+        else
+        {
+            LE_FATAL("Fail to init multi sim subsystem");
+        }
+    }
+
     FPLMNNodePool = le_mem_CreatePool("FPLMNNodePool", sizeof(FPLMNNode_t));
     le_mem_ExpandPool(FPLMNNodePool, TAF_SIM_FPLMN_MAX_LISTS * TAF_SIM_FPLMN_MAX_OPERATORS_PER_LIST);
     FPLMNListPool = le_mem_CreatePool("FPLMNListPool", sizeof(taf_sim_FPLMNList_t));
@@ -301,107 +629,14 @@ void taf_sim::Init(void)
     le_mem_ExpandPool(SessionPool, 12);
     SessionRefMap = le_ref_CreateMap("SessionRefMapRefMap", 10);
     fplmnListIndex = 0;
-    // Get the PhoneFactory and SubscriptionManager instances.
-    auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
-    subMgr = phoneFactory.getSubscriptionManager();
-    cardManager = phoneFactory.getCardManager();
-    simProfileManager = phoneFactory.getSimProfileManager();
-    if (simProfileManager == nullptr)
-    {
-        LE_FATAL("Cannot get SIM manager!");
-    }
 
-    bool subSystemStatus = simProfileManager->isSubsystemReady();
-    if(!subSystemStatus) {
-        LE_INFO("ProfileManager subsystem not ready");
-        LE_INFO("Wait for it to be ready");
-        std::future<bool> f = simProfileManager->onSubsystemReady();
-        subSystemStatus = f.get();
-    }
+    subscriptionListener = std::make_shared<tafSubscriptionListener>();
+    cardListener = std::make_shared<tafCardListener>();
+    multiSimListener = std::make_shared<tafMultiSimListener>();
 
-    //  Check if telephony subsystem is ready
-    subSystemStatus = cardManager->isSubsystemReady();
-    multiSimMgr = phoneFactory.getMultiSimManager();
-
-    bool isMultiSimMgrReady = false;
-    telux::common::Status status;
-    slotStatusCbPromise = std::promise<telux::common::ErrorCode>();
-    telux::common::ErrorCode errorStatus;
-
-    // If telephony subsystem is not ready, wait for it to be ready
-    if(!subSystemStatus) {
-        LE_INFO("CardManager subsystem is not ready" );
-        LE_INFO( "wait for it to be ready " );
-        std::future<bool> f = cardManager->onSubsystemReady();
-        // If we want to wait unconditionally for telephony subsystem to be ready
-        subSystemStatus = f.get();
-    }
-
-    if(multiSimMgr){
-
-        isMultiSimMgrReady = multiSimMgr->isSubsystemReady();
-
-        if(!isMultiSimMgrReady) {
-            LE_INFO("MultiSimManager subsystem is not ready, wait for it to be ready." );
-            std::future<bool> fStatus = multiSimMgr->onSubsystemReady();
-            // If we want to wait unconditionally for telephony subsystem to be ready
-            isMultiSimMgrReady = fStatus.get();
-        }
-        multiSimListener = std::make_shared<tafMultiSimListener>();
-
-        status = multiSimMgr->registerListener(multiSimListener);
-        if(status != telux::common::Status::SUCCESS) {
-            LE_FATAL("Unable to registerListener");
-        }
-
-        auto ret = multiSimMgr->requestSlotStatus(tafMultiSimCallback::requestsSlotsStatusResponse);
-        if(ret != telux::common::Status::SUCCESS){
-            LE_FATAL("Request slot status failed with error: %d", (int)ret);
-        }
-        errorStatus = slotStatusCbPromise.get_future().get();
-        if(errorStatus == telux::common::ErrorCode::SUCCESS){
-            LE_INFO("Initialize slot card map successfully, default selected slot: %d", (int)slot);
-        }
-        if(errorStatus != telux::common::ErrorCode::SUCCESS){
-            LE_FATAL("Initialize slot card map failed with error: %d", (int)errorStatus);
-        }
-    }
-
-    if(subSystemStatus) {
-        // listener
-        cardListener = std::make_shared<tafCardListener>();
-
-        // registering Listener
-        status = cardManager->registerListener(cardListener);
-        if(status != telux::common::Status::SUCCESS) {
-            LE_INFO("Unable to registerListener");
-        }
-
-        // Create an event Id for change in card info notification
-        NewStateEventId = le_event_CreateId("NewStateEventId", sizeof(sim_event_t));
-        ResponseEventId = le_event_CreateId("ResponseEventId", sizeof(sim_response_event_t));
-        IccidChangeEventId = le_event_CreateId("IccidChangeEventId", sizeof(sim_iccid_event_t));
-    }
-
-    bool subscriptionSubSystemStatus = subMgr->isSubsystemReady();
-    if(!subscriptionSubSystemStatus) {
-        LE_INFO("Subscription subsystem is not ready" );
-        LE_INFO( "wait for it to be ready " );
-        std::future<bool> f = subMgr->onSubsystemReady();
-        // If we want to wait unconditionally for telephony subsystem to be ready
-        subscriptionSubSystemStatus = f.get();
-    }
-    if(subscriptionSubSystemStatus) {
-
-        telux::common::Status status;
-        // registering Listener
-        subscriptionListener = std::make_shared<tafSubscriptionListener>();
-        status = subMgr->registerListener(subscriptionListener);
-
-        if(status != telux::common::Status::SUCCESS) {
-            LE_FATAL("Unable to registerListener");
-        }
-    }
+    NewStateEventId = le_event_CreateId("NewStateEventId", sizeof(sim_event_t));
+    ResponseEventId = le_event_CreateId("ResponseEventId", sizeof(sim_response_event_t));
+    IccidChangeEventId = le_event_CreateId("IccidChangeEventId", sizeof(sim_iccid_event_t));
 
     for (auto i = 0; i < TAF_SIM_ID_MAX; i++)
     {
@@ -413,6 +648,11 @@ void taf_sim::Init(void)
         simList[i].pukTryCount = 10;
     }
 
+    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
+    if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
+    {
+        RegisterListeners();
+    }
 }
 
 taf_sim &taf_sim::GetInstance()
@@ -430,7 +670,7 @@ taf_sim_States_t taf_sim::getState(taf_sim_Id_t simId) {
     }
 
     if (simId != TAF_SIM_UNSPECIFIED) {
-        if (simId > slotCount) {
+        if (simId > cards.size()) {
             return TAF_SIM_STATE_UNKNOWN;
         }
     }
@@ -456,6 +696,8 @@ taf_sim_States_t taf_sim::getState(taf_sim_Id_t simId) {
             }
             return TAF_SIM_PRESENT;
         }
+    } else {
+        return TAF_SIM_ABSENT;
     }
     return cardStateToTafSimStates(cardState);
 }
@@ -689,6 +931,8 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
     clientRequestPtr = DiscoverSessionRef((taf_sim_RefreshRef_t) contextPtr);
 
     LE_INFO("NotifyRefreshEvent contextPtr: %p, clientRequestPtr: %p", contextPtr, clientRequestPtr);
+
+    TAF_ERROR_IF_RET_NIL(NULL == clientRequestPtr, "clientRequestPtr is NULL");
 
     if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_WAIT_FOR_OK) {
         if (clientRequestPtr != NULL && ((1 << ind->refreshMode) & clientRequestPtr->refreshMode) != 0) {
@@ -957,9 +1201,11 @@ le_result_t taf_sim::SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, boo
     taf_pa_sim_RefreshFile_t refreshPAFiles[clientRequestPtr->refreshRegFilesSize];
 
     for (int i = 0; i < (int) clientRequestPtr->refreshRegFilesSize; i++) {
+        int pathStrLen = 0;
         refreshPAFiles[i].file_id = clientRequestPtr->refreshRegFiles[i].file_id;
         if(clientRequestPtr->refreshRegFiles[i].path != NULL) {
-            refreshPAFiles[i].path_len = (strlen(clientRequestPtr->refreshRegFiles[i].path) - 1)/2;
+            pathStrLen = strlen(clientRequestPtr->refreshRegFiles[i].path);
+            refreshPAFiles[i].path_len = pathStrLen/2;
         } else {
             refreshPAFiles[i].path_len = 0;
         }
@@ -969,7 +1215,7 @@ le_result_t taf_sim::SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, boo
 
         uint32_t pathValue =  std::stoul(clientRequestPtr->refreshRegFiles[i].path, nullptr, 16);
 
-        LE_INFO("pathValue string: %s and in hex: %x", clientRequestPtr->refreshRegFiles[i].path, pathValue);
+        LE_INFO("pathValue string: %s, in hex: %x and input path len: %d", clientRequestPtr->refreshRegFiles[i].path, pathValue, pathStrLen);
 
         if (refreshPAFiles[i].path_len == 2) {
             refreshPAFiles[i].path[0] = (pathValue & 0x000000ff);
@@ -1038,7 +1284,7 @@ void taf_sim::InitializeSimInfo(std::shared_ptr<telux::tel::ISubscription> subsc
     taf_sim_info_t* simPtr = NULL;
     simPtr = GetSimContext(simId);
     if (subscription) {
-        simPtr->simId = (taf_sim_Id_t)subscription->getSlotId();
+        simPtr->simId = simId;
          le_utf8_Copy(simPtr->ICCID, subscription->getIccId().c_str() ,TAF_SIM_ICCID_BYTES, NULL);
          le_utf8_Copy(simPtr->IMSI, subscription->getImsi().c_str() ,TAF_SIM_IMSI_BYTES, NULL);
          le_utf8_Copy(simPtr->phoneNumber, subscription->getPhoneNumber().c_str() ,TAF_SIM_PHONE_NUM_MAX_BYTES, NULL);
@@ -1493,9 +1739,8 @@ le_result_t taf_sim::OpenLogicalChannel( taf_sim_Id_t simId, taf_sim_AppType_t a
     auto openLogicalCb = std::make_shared<tafOpenLogicalChannelCallback>();
     std::string aid;
     if(!card) {
-        LE_INFO("Card not found, try to retrieve it from cardManager with given simId");
-        telux::common::Status status;
-        card = cardManager->getCard(simId, &status);
+        LE_INFO("Card not found!");
+        return LE_BAD_PARAMETER;
     }
     if(card) {
         LE_INFO("card found with given simId");
@@ -1591,6 +1836,12 @@ le_result_t taf_sim::SendApduOnChannel( taf_sim_Id_t simId, uint8_t channel,
     }
     LE_DEBUG("SendApduOnChannel: channel id: %d", channel);
     auto card = cards[slot];
+
+    if (card == nullptr) {
+        LE_ERROR("Card not found so SendApduOnChannel failed!");
+        return LE_NOT_FOUND;
+    }
+
     auto ret = card->transmitApduLogicalChannel(channel, cla, instruction,
                                                    p1, p2, p3, data,
                                                        tafTransmitApduCb);
@@ -1633,6 +1884,12 @@ le_result_t taf_sim::SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr,
         return LE_NOT_FOUND;
     }
     auto card = cards[slot];
+
+    if (card == nullptr) {
+        LE_ERROR("Card not found so SendApdu failed!");
+        return LE_NOT_FOUND;
+    }
+
     auto ret = card->transmitApduBasicChannel(cla, instruction,
                                                    p1, p2, p3, data,
                                                        tafTransmitApduCb);
@@ -1665,6 +1922,11 @@ le_result_t taf_sim::SendCommand(
     LE_INFO("field: %d", field);
 
     auto card = cards[slot];
+    if (card == nullptr) {
+        LE_ERROR("Card not found so SendCommand failed!");
+        return LE_NOT_FOUND;
+    }
+
     string filePath = std::string(pathPtr, 5);
     std::vector<uint8_t> data(dataPtr, dataPtr+dataNumElements);
     auto tafTransmitApduCb = std::make_shared<tafTransmitApduResponseCallback>();
@@ -1709,7 +1971,7 @@ le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
     }
     telux::common::Status status;
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    auto ICard = cardManager->getCard(simId, &status);
+    auto ICard = cards[slot];
 
     if (ICard == nullptr) {
         LE_ERROR("Card not found so set power failed!");

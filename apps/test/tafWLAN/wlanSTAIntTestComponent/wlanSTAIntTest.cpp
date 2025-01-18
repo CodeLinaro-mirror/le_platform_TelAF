@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -190,8 +190,16 @@ static le_result_t wlanSTATestGetIPConfig(taf_wlanSta_WlanSTARef_t staRef)
 
 static le_result_t wlanSTATestSetMode(taf_wlanSta_WlanSTARef_t staRef)
 {
-    taf_wlanSta_Mode_t StaMode
-        = (taf_wlanSta_Mode_t)strtol((const char*)le_arg_GetArg(1), nullptr, 10);
+    const char *SetModeStr = le_arg_GetArg(1);
+    if (NULL == SetModeStr)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("Mode value is NULL");
+    }
+
+    std::string mode(SetModeStr);
+
+    taf_wlanSta_Mode_t StaMode = static_cast<taf_wlanSta_Mode_t>(strtol(mode.c_str(), nullptr, 10));
 
     if (StaMode != TAF_WLANSTA_MODE_ROUTER && StaMode != TAF_WLANSTA_MODE_BRIDGE) {
         LE_TEST_INFO("Invalid StaMode value");
@@ -238,7 +246,14 @@ static le_result_t wlanSTATestSetWpa2Psk(taf_wlanSta_WlanSTARef_t staRef)
         return LE_FAULT;
     }
 
-    std::string ssid(le_arg_GetArg(2));
+    const char* ssidStr = le_arg_GetArg(2);
+    if (NULL == ssidStr)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("ssid value is NULL");
+    }
+
+    std::string ssid(ssidStr);
 
     taf_wlanSta_APInfo_t APInfoConnect;
     uint16_t numScanedAPs = 0;
@@ -264,9 +279,16 @@ static le_result_t wlanSTATestSetWpa2Psk(taf_wlanSta_WlanSTARef_t staRef)
     }
 
     std::string psk = "";
+
     if(APInfoConnect.secAuthMethod == TAF_WLAN_SEC_AUTH_METHOD_PSK)
     {
-        psk = std::string(le_arg_GetArg(3));
+        const char* pskStr = le_arg_GetArg(3);
+        if (NULL == pskStr)
+        {
+          PrintUsage();
+          LE_TEST_FATAL("password value is NULL for auth type PSK");
+        }
+        psk = std::string(pskStr);
     }
 
     le_result_t result = taf_wlanSta_SetWpa2Psk(staRef, &APInfoConnect, psk.c_str());
@@ -282,7 +304,15 @@ static le_result_t wlanSTATestConnect(taf_wlanSta_WlanSTARef_t staRef)
         return LE_FAULT;
     }
 
-    std::string ssid(le_arg_GetArg(2));
+    const char* ssidStr = le_arg_GetArg(2);
+    if (NULL == ssidStr)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("ssid value is NULL");
+    }
+
+    std::string ssid(ssidStr);
+
     uint16_t numScanedAPs = 0;
     size_t APInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
     taf_wlanSta_APInfo_t ApInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = { 0 };
@@ -340,7 +370,15 @@ static le_result_t wlanSTATestDisconnect(taf_wlanSta_WlanSTARef_t staRef)
         fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
         return LE_FAULT;
     }
-    std::string ssid(le_arg_GetArg(2));
+    const char* ssidStr = le_arg_GetArg(2);
+    if (NULL == ssidStr)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("ssid value is NULL");
+    }
+
+    std::string ssid(ssidStr);
+
     uint16_t numScanedAPs = 0;
     size_t APInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
     taf_wlanSta_APInfo_t ApInfos[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = { 0 };
@@ -519,19 +557,26 @@ COMPONENT_INIT {
         LE_TEST_FATAL("Invalid number of arguments");
     }
 
-    const char* testType = le_arg_GetArg(0);
+    const char* testTypeStr = le_arg_GetArg(0);
     const char *staIntfName = le_arg_GetArg(1);
 
     LE_TEST_INFO("======== WLAN Station Integration Test ========");
-    LE_TEST_INIT;
-
+    if (NULL == testTypeStr)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("Test type is NULL");
+    }
     if (NULL == staIntfName)
     {
         PrintUsage();
-        LE_TEST_FATAL("Invalid STA interface name is NULL");
+        LE_TEST_FATAL("STA interface name is NULL");
     }
     LE_TEST_INFO("STA Interface to use: %s", staIntfName);
 
+    char testType[20]="";   // NULL appended string
+    le_utf8_Copy(testType,testTypeStr,20,NULL);
+
+    LE_TEST_INIT;
     // Register for events
     LE_TEST_INFO("======== Register for events ========");
     wlanSemRef = le_sem_Create("wlanSem", 0);

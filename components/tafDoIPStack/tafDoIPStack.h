@@ -147,6 +147,7 @@ typedef struct
 {
     le_dls_Link_t link;
     char ifName[TAF_DOIP_INTERFACE_NAME_MAX_LEN];
+    uint16_t vlanId;     ///< VLAN ID. =0 if the interface is not vlan port.
 }taf_doip_Iface_t;
 
 //-------------------------------------------------------------------------------------------------

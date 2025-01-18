@@ -365,3 +365,17 @@ EVENT Event
                                 ///< If the interface does not have a VLAN ID, input 0.
     EventHandler handler IN     ///< DoIP event handler.
 );
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Removes the diag DoIP service.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveSvc
+(
+    Service svcRef  IN    ///< Service reference.
+);

@@ -27,6 +27,8 @@ endif
 # SDK configurations
 include config.mk
 
+include $(TELAF_ROOT)/apps/tools/tafDiagGen/dgtool.mk
+
 $(TARGETS):
 	@ln -sf $(LEGATO_RELATIVE_PATH)/build ./build
 	$(shell $(GEN_FILE_CONTEXTS))

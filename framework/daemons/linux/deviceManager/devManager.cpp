@@ -486,9 +486,10 @@ le_result_t OpenDrvToGetInfo
     // cast the info table to mgr interface
     mgrInf = (TAF_HAL_MGR_INF_t*)dlsym(drvHandle, TAF_HAL_INFO_TAB_STR);
 
-    if((errMsg = dlerror()) != nullptr)
+    if((errMsg = dlerror()) != nullptr || mgrInf == nullptr)
     {
-        LE_ERROR("Failed to load the driver %s", drvFile);
+        LE_ERROR("Failed to load the driver %s with error: %s",
+                    drvFile, errMsg ? errMsg : "mgrInf is null");
 
         snprintf(respPtr, DEV_MANAGER_MAX_RESP_MSG_BYTES, "***ERROR: Failed to load the driver");
 
@@ -586,9 +587,9 @@ le_result_t InstallDrvToDevManager
     // cast the info table to mgr interface
     mgrInf = (TAF_HAL_MGR_INF_t *)dlsym(drvPtr->drvHandle, TAF_HAL_INFO_TAB_STR);
 
-    if((errMsg = dlerror()) != nullptr)
+    if((errMsg = dlerror()) != nullptr || mgrInf == nullptr)
     {
-        LE_ERROR("No valid vendor name\n");
+        LE_ERROR("No valid symbol name with error: %s", errMsg ? errMsg : "mgrInf is null");
 
         return LE_UNAVAILABLE;
     }
@@ -1133,12 +1134,11 @@ void ToolMsgReceiveHandler
                     // open the so to get real name
                     drvHandle = dlopen(drvPtr->loc, RTLD_NOW);
 
-                    if(drvHandle == nullptr)
+                    if((errMsg = dlerror()) != nullptr || drvHandle == nullptr)
                     {
-                        errMsg = dlerror();
-
-                        LE_ERROR("Failed to load the driver %s %s",drvPtr->loc,dlerror());
-                        snprintf(respPtr, sizeof(respPtr), "***ERROR: Failed to load the driver: %s", errMsg);
+                        LE_ERROR("Failed to load the driver %s %s",drvPtr->loc, errMsg);
+                        snprintf(respPtr, sizeof(respPtr), "***ERROR: Failed to load the driver: %s",
+                                    errMsg ? errMsg : "mgrInf is null");
                         SendToDrvTool(ipcSessionRef,respPtr);
 
                         //remove the driver
@@ -1148,14 +1148,13 @@ void ToolMsgReceiveHandler
 
                     mgrInf = (TAF_HAL_MGR_INF_t *)dlsym(drvHandle, TAF_HAL_INFO_TAB_STR);
 
-                    errMsg = dlerror();
-
-                    if(errMsg != nullptr)
+                    if((errMsg = dlerror()) != nullptr || mgrInf == nullptr)
                     {
                         LE_ERROR("No HAL Information table");
 
                         // close later
-                        snprintf(respPtr, sizeof(respPtr), "***ERROR: Invalid TelAF HAL module: %s", errMsg);
+                        snprintf(respPtr, sizeof(respPtr), "***ERROR: Invalid TelAF HAL module: %s",
+                                    errMsg ? errMsg : "mgrInf is null");
                         SendToDrvTool(ipcSessionRef, respPtr);
 
                         // we need to close this so

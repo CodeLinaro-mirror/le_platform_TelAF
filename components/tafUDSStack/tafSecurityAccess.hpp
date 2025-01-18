@@ -56,6 +56,11 @@ void SecurityAccess_CreateActiveObject(void * mgr, void * ifname);
 void SecurityAccess_StartWorker(void * u, void *p);
 
 bool SecurityAccess_IsUnlocked(UdsCommunicationMgr * mgr);
+bool SecurityAccess_IsLevelUnlocked
+(
+    UdsCommunicationMgr * mgr,
+    uint8_t level
+);
 
 #ifdef __cplusplus
 }

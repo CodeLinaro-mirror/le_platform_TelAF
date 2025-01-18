@@ -1,0 +1,26 @@
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+datas: map(include('datas_item'), key=mnemonic())
+---
+datas_item:
+  mnemonic: mnemonic()
+  description: str(max=200, required=False)
+  functional_definition:
+    short_name:  any(camelcase(), required=False)
+    data_type: enum('Numeric', 'Numeric list', 'Not numeric')
+    data_type_encoding: enum('ASCII', 'HEX', 'BCD', 'UTF-8', required=False)
+    value_type: enum('boolean', 'uint8', 'sint8', 'uint16', 'sint16', 'uint32', 'sint32')
+    bit_size: int(min=1, max=999)
+    unit: unit(required=False)
+    value_offset: int(required=False)
+    resolution: float(required=False)
+    min: int(required=False)
+    max: int(required=False)
+    coding: any(subset(any(include('coding_item', key=int()))), HexaOrBin(), HexaRange(), required=False)
+    forbidden_characters: any(list(HexaRange(), HexaOrBin()), required=False)
+    feature: enum('Generic_DID_DRC62', 'FOTA', 'SW_Update', 'Part_Installation', 'Ecall','Generic_DID_ETHSW1','Domain_specific', 'Body', 'AVM')
+
+
+---
+coding_item: any(str(), int(), bool())

@@ -1,0 +1,10 @@
+sources:
+{
+    pmVHalDrvTest.c
+}
+
+cflags:
+{
+    -I $TELAF_ROOT/include
+    -I $TELAF_ROOT/include/staging/vhal
+}

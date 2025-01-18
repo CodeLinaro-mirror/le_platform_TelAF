@@ -1,6 +1,8 @@
 sources:
 {
     tafDataCallUnitTest.cpp
+    tafDataCallUnitTestInteractive.cpp
+    $TELAF_ROOT/components/tafDataCallSvc/tafDcsHelper.cpp
 }
 
 requires:
@@ -9,10 +11,13 @@ requires:
     {
         taf_dcs.api
         taf_mdc.api
+        taf_sim.api
     }
 }
 
 cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/components/tafDataCallSvc
+    -I$TELAF_ROOT/include
 }

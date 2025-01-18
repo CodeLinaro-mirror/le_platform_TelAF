@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -75,6 +75,7 @@
 #include "telux/data/DataProfile.hpp"
 #include "telux/tel/PhoneFactory.hpp"
 #include "telux/common/CommonDefines.hpp"
+#include "tafDcsHelper.hpp"
 
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 #include <telux/tel/ServingSystemManager.hpp>
@@ -92,6 +93,7 @@ using namespace telux::common;
 
 #define SESSION_TIMEOUT 60
 #define DATA_SUBSYSTEM_INIT_TIMEOUT 5
+#define TELSDK_ASYNC_REQ_TIMEOUT 2
 
 namespace telux {
 namespace tafsvc {
@@ -128,6 +130,22 @@ namespace tafsvc {
         le_dls_Link_t       link;
     } taf_SessionRef_t;
 
+    typedef struct
+    {
+        taf_dcs_CallEndReasonType_t callEndReasonType;
+        union
+        {
+            taf_dcs_CallEndMobileIpReasonCode_t    reasonMIP;
+            taf_dcs_CallEndInternalReasonCode_t    reasonInternal;
+            taf_dcs_CallEndCallManagerReasonCode_t reasonCallManager;
+            taf_dcs_CallEnd3GPPSpecReasonCode_t    reasonSpec;
+            taf_dcs_CallEndPPPReasonCode_t         reasonPPP;
+            taf_dcs_CallEndEHRPDReasonCode_t       reasonEHRPD;
+            taf_dcs_CallEndIPv6ReasonCode_t        reasonIPv6;
+            taf_dcs_CallEndHandoffReasonCode_t     reasonHandOff;
+        };
+    }taf_dcs_callEndReason_t;
+
     typedef struct tag_taf_dcs_Call_Ctx
     {
         taf_dcs_CallRef_t                       callRef;
@@ -156,8 +174,12 @@ namespace tafsvc {
         char                                    ipv6Dns2[TAF_DCS_IPV6_ADDR_MAX_LEN];
         taf_dcs_DataBearerTechnology_t          dataBearerTech;
         le_event_Id_t                           sessionStateEvent;
-        uint32_t                                 ipv4Mask;      // Profile id
-        uint32_t                                 ipv6Mask;      // Profile id
+        uint32_t                                ipv4Mask;
+        uint32_t                                ipv6Mask;
+        uint64_t                                maxRxBitRate;
+        uint64_t                                maxTxBitRate;
+        taf_dcs_callEndReason_t                 callEndReasonIPv4;
+        taf_dcs_callEndReason_t                 callEndReasonIPv6;
     } taf_dcs_CallCtx_t;
 
     typedef struct IpAddrInfo
@@ -184,6 +206,10 @@ namespace tafsvc {
         taf_dcs_IpAddrInfo_t                    ipv4AddrInfo;
         taf_dcs_IpAddrInfo_t                    ipv6AddrInfo;
         telux::data::DataBearerTechnology       dataBearerTech;
+        uint64_t                                maxRxBitRate;
+        uint64_t                                maxTxBitRate;
+        taf_dcs_callEndReason_t                 callEndReasonIPv4;
+        taf_dcs_callEndReason_t                 callEndReasonIPv6;
     } dataCallEvent_t;
 
     typedef struct
@@ -196,6 +222,15 @@ namespace tafsvc {
         le_dls_Link_t handlerLink;   ///< double link list's link element
     }HandlerSessionMapping_t;
 
+    typedef struct
+    {
+      int32_t      profileId;
+      uint8_t      slotId;
+      bool         throttleState;
+      uint32_t     ipv4Time;
+      uint32_t     ipv6Time;
+    } ThrottleStatus_t;
+
     typedef void (*taf_dcs_SessionStateFunc_t)(taf_dcs_ConState_t event,
                                                taf_dcs_StateInfo_t *infoPtr,
                                                taf_dcs_CallCtx_t *callCtxPtr);
@@ -203,7 +238,13 @@ namespace tafsvc {
     class taf_DataConnectionListener : public telux::data::IDataConnectionListener
     {
         public:
+          taf_DataConnectionListener(SlotId slot);
+
           void onDataCallInfoChanged(const std::shared_ptr<telux::data::IDataCall> &iCall) override;
+          void onThrottledApnInfoChanged(const std::vector<telux::data::APNThrottleInfo> &throttleInfoList) override;
+
+        private:
+            SlotId slotId;
     };
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     class taf_DataConnServingSystemListener : public telux::data::IServingSystemListener
@@ -226,6 +267,7 @@ namespace tafsvc {
         public:
             le_sem_Ref_t semaphore;
             telux::data::ServiceStatus status;
+            telux::common::ErrorCode errorCode;
             void requestServiceStatus(telux::data::ServiceStatus serviceStatus,
                                       telux::common::ErrorCode error);
     };
@@ -239,6 +281,27 @@ namespace tafsvc {
             void requestRoamingStatus(telux::data::RoamingStatus roamingStatus,
                                       telux::common::ErrorCode error);
     };
+
+        /*
+     * @brief A apn throttle information callback class must be provided when requesting throttle
+     * information.
+     */
+    class taf_DataAPNThrottleInfoCallback {
+    public:
+        le_sem_Ref_t semaphore;
+        le_result_t result;
+        ThrottleStatus_t throttleStatus;
+        /*
+         * This function is called after requesting apn throttle information.
+         *
+         * @param [in] throttleInfoList    Pointer of apn throttle information list.
+         * @param [in] error               The error code of the result.
+         */
+        void apnThrottleListResponse(
+        const std::vector<telux::data::APNThrottleInfo> &throttleInfoList,
+        telux::common::ErrorCode error);
+    };
+
 
 #endif
     // Data connection component implementation
@@ -294,15 +357,9 @@ namespace tafsvc {
             le_result_t SetDefaultProfileIdSync(uint8_t slotId, uint32_t profileId);
             le_result_t GetDefaultProfileIdSync(uint8_t *slotId, uint32_t *profileId);
 
-            static void EventHandler(void* reportPtr);
-            void InternalEventHandler(void* reportPtr);
+            static void DataCnxCallEventHandler(void *reportPtr);
+            void InternalDataCallEventHandler(void* reportPtr);
             taf_dcs_CallCtx_t* CreateDataCallCtx(uint8_t slotId, int32_t profileId);
-            const char * CallEventToString(taf_dcs_ConState_t callEvent);
-            const char* CallStatusToString(telux::data::DataCallStatus status);
-            const char* CallEndReasonToString(EndReasonType type);
-            const char* IpFamilyTypeToString(telux::data::IpFamilyType ipType);
-            const char* TechPreferenceToString(telux::data::TechPreference techPref);
-            const char* DataBearerToString(telux::data::DataBearerTechnology techPref);
             taf_dcs_CallCtx_t* GetCallCtx(uint8_t slotId, int32_t profileId);
             taf_dcs_CallCtx_t* GetCallCtx(taf_dcs_CallRef_t reference);
             le_result_t GetSlotIdAndProfileId(taf_dcs_CallRef_t reference, uint8_t *slotId,
@@ -338,6 +395,7 @@ namespace tafsvc {
                                        size_t addrSize);
             le_result_t GetIpv6Dns(uint8_t slotId, int32_t profileId, char* dns1Ptr,
                                    size_t dns1Size, char* dns2Ptr, size_t dns2Size);
+            le_result_t GetMtu(uint8_t slotId, int32_t profileId, uint16_t *mtuPtr);
             le_result_t GetConnectionState(uint8_t slotId, int32_t profileId,
                                            taf_dcs_ConState_t* statePtr);
             le_result_t GetDataBearerTechnology(uint8_t slotId, int32_t profileId,
@@ -350,6 +408,18 @@ namespace tafsvc {
                                                       dataCallEvent_t *eventPtr);
             taf_dcs_DataBearerTechnology_t updateDataBearerTech(
                                                   telux::data::DataBearerTechnology dataBearerTech);
+            le_result_t GetAPNThrottledStatus(taf_dcs_ProfileRef_t    profileRef,
+                                                      bool         *isThrottledPtr,
+                                                      uint32_t     *ipv4RemainingTimePtr,
+                                                      uint32_t     *ipv6RemainingTimePtr);
+            le_result_t GetMaxDataBitRates( taf_dcs_ProfileRef_t profileRef,
+                                            uint64_t *maxRxBitRatePtr,
+                                            uint64_t *maxTxBitRatePtr);
+            le_result_t GetCallEndReason( taf_dcs_ProfileRef_t profileRef,
+                                          taf_dcs_Pdp_t pdpType,
+                                          taf_dcs_CallEndReasonType_t *callEndReasonTypePtr,
+                                          int32_t *callEndReasonPtr);
+
             le_event_Id_t CallEvent;
             bool IsIpv4(uint8_t slotId, int32_t profileId);
             bool IsIpv6(uint8_t slotId, int32_t profileId);
@@ -373,11 +443,16 @@ namespace tafsvc {
                                                                          dataServingSystemListeners;
             std::map<SlotId, std::shared_ptr<taf_DataConnServingSystemListener>>
                                                                    connectionServingSystemlisteners;
-            std::shared_ptr<taf_DataConnRequestServiceStatusCallback> reqSvcStateCb;
+            std::shared_ptr<taf_DataConnRequestServiceStatusCallback> reqServiceStatusCb;
             std::shared_ptr<taf_DataConnRequestRoamingStatusCallback> reqRoamingStatusCb;
-        #endif
-            std::map<SlotId, std::shared_ptr<telux::data::IDataConnectionManager>>
-                                                                          dataConnectionManagers;
+            std::shared_ptr<taf_DataAPNThrottleInfoCallback> reqAPNThrottlingStatusCb;
+
+            // Function to get data service status from TelSDK.
+            le_result_t GetServiceStatusFromTelSDK( const uint8_t slotId,
+                                                    telux::data::ServiceStatus &serviceStatus);
+            taf_dcs_DataBearerTechnology_t MapNwRatToDataBearerTech(telux::data::NetworkRat nwRAT);
+#endif
+            std::map<SlotId, std::shared_ptr<telux::data::IDataConnectionManager>> dataConnectionManagers;
             std::shared_ptr<telux::data::IDataConnectionListener> DataConnectionListener;
         private:
             le_dls_List_t    DataCallCtxList = LE_DLS_LIST_INIT;
@@ -392,8 +467,7 @@ namespace tafsvc {
             le_thread_Ref_t ConnectionEventThreadRef = NULL;
             int32_t DefaultProfileId = TAF_DCS_DEFAULT_PROFILE;
             int32_t DefaultSlotId = SLOT_ID_1;
+            int32_t ConvertCEReason(taf_dcs_callEndReason_t ceReason);
     };
-
 }
 }
-

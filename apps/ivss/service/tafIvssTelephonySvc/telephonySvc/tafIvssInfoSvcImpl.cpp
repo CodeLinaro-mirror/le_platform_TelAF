@@ -5,7 +5,7 @@
 
 #include "tafIvssInfoSvc.hpp"
 
-using namespace v0::com::qualcomm::qti::modem;
+using namespace v1::com::qualcomm::qti::telephony;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -32,10 +32,10 @@ void tafIvssInfoSvc::GetImeiHandler
 
     taf_IvssInfo_Ind_t* indPtr = (taf_IvssInfo_Ind_t*)reportPtr;
     indPtr->result = taf_devInfo_GetImei(indPtr->getImei.imei, TAF_DEVINFO_IMEI_MAX_BYTES);
-    le_sem_Post(indPtr->semRef);
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_devInfo_GetImei fail - %s", LE_RESULT_TXT(indPtr->result));
 
-    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_devInfo_GetImei fail - %s",
-        LE_RESULT_TXT(indPtr->result));
+    le_sem_Post(indPtr->semRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -56,7 +56,7 @@ void tafIvssInfoSvc::GetImei(const std::shared_ptr<CommonAPI::ClientId> _client,
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(GetImeiEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result), std::string(indPtr->getImei.imei));
+    _reply(std::string(indPtr->getImei.imei), ResultLeToIvssInfo(indPtr->result));
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);

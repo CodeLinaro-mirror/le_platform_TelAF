@@ -3,6 +3,7 @@ sandboxed: false
 start: manual
 
 maxThreads: 600
+startGroup: 20
 
 username: telaf
 

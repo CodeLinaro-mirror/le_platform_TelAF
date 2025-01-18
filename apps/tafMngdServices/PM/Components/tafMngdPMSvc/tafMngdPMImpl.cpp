@@ -382,6 +382,7 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
     uint8_t pmNodeId,
     hal_pm_NodeState_t state,
     hal_pm_PowerMode_t mode,
+    const uint8_t shutdownReason,
     hal_pm_RspReason_t reason
 )
 {
@@ -404,6 +405,7 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
                 shutdownCB.shutdownCallbackFunc(
                     TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
                     TAF_MNGDPM_NOT_READY,
+                    LE_OK,
                     shutdownCB.shutdownCBCtxPtr);
             }
             shutdownCB.shutdownCallbackFunc = nullptr;
@@ -413,7 +415,7 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
         if(shutdownCB.shutdownCallbackFunc)
         {
             shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_READY,
-                    shutdownCB.shutdownCBCtxPtr);
+                    LE_OK, shutdownCB.shutdownCBCtxPtr);
         }
         le_result_t res = ShutdownNAD();
         if(res == LE_OK)
@@ -430,6 +432,7 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
             shutdownCB.shutdownCallbackFunc(
                 TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
                 TAF_MNGDPM_NOT_READY,
+                LE_OK,
                 shutdownCB.shutdownCBCtxPtr);
         }
     }
@@ -444,6 +447,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
     uint8_t pmNodeId,
     hal_pm_NodeState_t state,
     hal_pm_PowerMode_t mode,
+    const uint8_t restartReason,
     hal_pm_RspReason_t reason
 )
 {
@@ -465,7 +469,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
             if(restartCB.restartCallbackFunc)
             {
                 restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_NOT_READY,
-                        restartCB.restartCBCtxPtr);
+                        LE_OK, restartCB.restartCBCtxPtr);
             }
             return;
         }
@@ -473,7 +477,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_READY,
-                    restartCB.restartCBCtxPtr);
+                    LE_OK, restartCB.restartCBCtxPtr);
         }
         le_result_t res = ShutdownNAD();
         if(res == LE_OK)
@@ -488,7 +492,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_NOT_READY,
-                    restartCB.restartCBCtxPtr);
+                    LE_OK, restartCB.restartCBCtxPtr);
         }
     }
     if (mode == HAL_PM_RESTART_MODE_NAD_REBOOT && reason == HAL_PM_RSP_READY)
@@ -498,7 +502,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
             if(restartCB.restartCallbackFunc)
             {
                 restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_NOT_READY,
-                        restartCB.restartCBCtxPtr);
+                        LE_OK, restartCB.restartCBCtxPtr);
             }
             return;
         }
@@ -506,7 +510,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_READY,
-                    restartCB.restartCBCtxPtr);
+                    LE_OK, restartCB.restartCBCtxPtr);
         }
         le_result_t res = RestartNAD();
         if(res == LE_OK)
@@ -521,7 +525,7 @@ void tafMngdPMSvc::RestartPrepareRespCB
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_NOT_READY,
-                    restartCB.restartCBCtxPtr);
+                    LE_OK, restartCB.restartCBCtxPtr);
         }
     }
     restartCB.restartCallbackFunc = nullptr;
@@ -551,7 +555,7 @@ void tafMngdPMSvc::WakeupVehicleCB
         if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_AWAKE,
-                    wakeupVehicleCB.wakeupVehicleCBCtxPtr);
+                    LE_OK, wakeupVehicleCB.wakeupVehicleCBCtxPtr);
         }
     }
     else if (reason == VEHICHLE_WAKEUP_REASON_DEFAULT && response == HAL_PM_VEHICHLE_WAKEUP_STATUS_INVALID_REQ)
@@ -560,7 +564,7 @@ void tafMngdPMSvc::WakeupVehicleCB
         if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_INVALID_REQ,
-                    wakeupVehicleCB.wakeupVehicleCBCtxPtr);
+                    LE_OK, wakeupVehicleCB.wakeupVehicleCBCtxPtr);
         }
     }
     else if (reason == VEHICHLE_WAKEUP_REASON_DEFAULT && response == HAL_PM_VEHICHLE_WAKEUP_STATUS_UNKNOWN)
@@ -569,7 +573,7 @@ void tafMngdPMSvc::WakeupVehicleCB
         if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_UNKNOWN,
-                    wakeupVehicleCB.wakeupVehicleCBCtxPtr);
+                    LE_OK, wakeupVehicleCB.wakeupVehicleCBCtxPtr);
         }
     }
     wakeupVehicleCB.wakeupVehicleCallbackFunc = nullptr;
@@ -713,7 +717,7 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
         }
     }
 
-    //Clear WsReflist
+    //Clear system WsReflist
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
 
     while (linkHandlerPtr)
@@ -733,6 +737,31 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
             else {
                 le_ref_DeleteRef(mpms.wsRefMap, wsRefCtxPtr->wsRef);
                 le_dls_Remove(&(mpms.wsRefList), &wsRefCtxPtr->link);
+                free((void*)wsRefCtxPtr->wsTag);
+                le_mem_Release((void*)wsRefCtxPtr);
+            }
+        }
+    }
+    //Clear node nodeWsRefList
+    le_dls_Link_t* linkNodeHandlerPtr = le_dls_PeekTail(&(mpms.nodeWsRefList));
+
+    while (linkNodeHandlerPtr)
+    {
+        taf_nodeWsRefCtx_t * wsRefCtxPtr =
+                CONTAINER_OF(linkNodeHandlerPtr, taf_nodeWsRefCtx_t, link);
+        linkNodeHandlerPtr = le_dls_PeekPrev(&(mpms.nodeWsRefList), linkNodeHandlerPtr);
+        if (wsRefCtxPtr && wsRefCtxPtr->sessionRef == sessionRef && wsRefCtxPtr->isAcquiredLock)
+        {
+            LE_INFO("Client with sessionRef %p", wsRefCtxPtr->sessionRef);
+            le_result_t res = tafMngdPMSvc::ReleaseWakeLock();
+            if(res == LE_OK)
+            {
+                LE_INFO("Released lock");
+                wsRefCtxPtr->isAcquiredLock = false;
+            }
+            else {
+                le_ref_DeleteRef(mpms.nodeWsRefMap, wsRefCtxPtr->wsRef);
+                le_dls_Remove(&(mpms.nodeWsRefList), &wsRefCtxPtr->link);
                 free((void*)wsRefCtxPtr->vhalTag);
                 le_mem_Release((void*)wsRefCtxPtr);
             }
@@ -857,6 +886,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     }
     else if(state == TAF_PM_STATE_SUSPEND)
     {
+        powerMode.isSuspend = true;
         ProcessStateChange(TAF_MNGDPM_STATE_SUSPEND);
         powerStateChange.state = TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE;
         le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
@@ -870,6 +900,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     }
     else if(state == TAF_PM_STATE_SHUTDOWN)
     {
+        powerMode.isShutDown = true;
         ProcessStateChange(TAF_MNGDPM_STATE_SHUTDOWN);
         if(powerMode.isShutDown)
         {
@@ -896,6 +927,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     }
     else if(state == TAF_PM_STATE_RESTART)
     {
+        powerMode.isRestart = true;
         ProcessStateChange(TAF_MNGDPM_STATE_RESTART);
         if(powerMode.isRestart)
         {
@@ -941,7 +973,7 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
         if(shutdownCB.shutdownCallbackFunc)
         {
             shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_TIMEOUT,
-                    shutdownCB.shutdownCBCtxPtr);
+                    LE_OK, shutdownCB.shutdownCBCtxPtr);
         }
     }
     else if (*(state) == RESTART_WITH_NAD_POWER_OFF_ON)
@@ -950,7 +982,7 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
         if(restartCB.restartCallbackFunc)
         {
             restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_TIMEOUT,
-                    restartCB.restartCBCtxPtr);
+                    LE_OK, restartCB.restartCBCtxPtr);
         }
     }
 }
@@ -976,7 +1008,7 @@ void tafMngdPMSvc::VehichleWakeupTimerHandler(le_timer_Ref_t timerRef)
         if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(WAKEUP_VEHICHLE_REQ_DEFAULT, TAF_MNGDPM_TIMEOUT,
-                    wakeupVehicleCB.wakeupVehicleCBCtxPtr);
+                    LE_OK, wakeupVehicleCB.wakeupVehicleCBCtxPtr);
         }
         wakeupVehicleCB.wakeupVehicleCallbackFunc = nullptr;
     }
@@ -1083,6 +1115,26 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
 }
 
 /**
+* Clear non authorized syatem wake sources
+*/
+void ClearUnauthorizedWs()
+{
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
+    while (linkHandlerPtr)
+    {
+        taf_wsRefCtx_t * wsRefCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
+        if (wsRefCtxPtr && wsRefCtxPtr->sessionRef && wsRefCtxPtr->isAcquiredLock)
+        {
+            LE_INFO("Clear non authorized wake source with sessionRef %p", wsRefCtxPtr->sessionRef);
+            wsRefCtxPtr->isAcquiredLock = false;
+        }
+    }
+}
+
+/**
  * Release wakesource
  */
 le_result_t tafMngdPMSvc::ReleaseWakeLock()
@@ -1102,6 +1154,7 @@ le_result_t tafMngdPMSvc::ReleaseWakeLock()
                 {
                     return res;
                 }
+                ClearUnauthorizedWs();
                 res = taf_pm_Relax(ws);
                 if(res == LE_OK) {
                     LE_INFO("Wake source from pms released successfully");
@@ -1455,8 +1508,50 @@ void tafMngdPMSvc::InfoReportVhalCB(int32_t* reportPtr)
     LE_INFO("InfoReportVhalCB");
     bubStatusEvent_t bubStatusEvent;
     int32_t bubStatus = *reportPtr;
+    if(bubStatus == TAF_MNGDPM_BUB_STATUS_IN_USE)
+    {
+        LE_INFO("Bub is in use");
+        le_result_t res = taf_pm_SetPowerMode(TAF_PM_POWER_MODE_LOW_POWER);
+        if(res == LE_OK)
+        {
+            LE_INFO("Power Mode is set to Low Power");
+        }
+    }
+    else
+    {
+        LE_INFO("Bub is not in low power mode");
+        le_result_t res = taf_pm_SetPowerMode(TAF_PM_POWER_MODE_NORMAL);
+        if(res == LE_OK)
+        {
+            LE_INFO("Power Mode is set to normal");
+        }
+    }
     bubStatusEvent.status = (taf_mngdPm_BubStatus_t)bubStatus;
     le_event_Report(infoReport, &bubStatusEvent, sizeof(bubStatusEvent_t));
+}
+
+/**
+ * Authorize StayAwake Reason for a given reason.
+ */
+bool tafMngdPMSvc::IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason)
+{
+    LE_INFO("AuthorizeStayAwakeReason");
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    unsigned int clientMask;
+
+    if(stayAwakeReason < 32)
+    {
+        //getting decimal value for given stay awake reason.
+        clientMask = (unsigned int)pow(2, (unsigned int)stayAwakeReason);
+    }
+    //Converting to binary format to check the given stay awake reason is authorized.
+    std::bitset<32> clientStayAwakeReasonMask(clientMask);
+    if((clientStayAwakeReasonMask & mpms.stayAwakeReasonMask) == clientStayAwakeReasonMask)
+    {
+        LE_INFO("stayAwakeReason is authorized");
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -1483,6 +1578,10 @@ le_hashmap_Ref_t tafMngdPMSvc::vmStateHashmap;
 le_mem_PoolRef_t tafMngdPMSvc::wsRefPool;
 le_dls_List_t tafMngdPMSvc::wsRefList;
 le_ref_MapRef_t tafMngdPMSvc::wsRefMap;
+
+le_mem_PoolRef_t tafMngdPMSvc::nodeWsRefPool;
+le_dls_List_t tafMngdPMSvc::nodeWsRefList;
+le_ref_MapRef_t tafMngdPMSvc::nodeWsRefMap;
 
 taf_pm_StateChangeHandlerRef_t tafMngdPMSvc::handlerRef = nullptr;
 taf_pm_StateChangeExHandlerRef_t tafMngdPMSvc::handlerExRef = nullptr;
@@ -1523,3 +1622,6 @@ le_ref_MapRef_t tafMngdPMSvc::nodePowerStateRefMap;
 int8_t tafMngdPMSvc::clientSize;
 int8_t tafMngdPMSvc::ackClientrecrdSize;
 taf_mngdPm_config_t tafMngdPMSvc::config;
+
+//authorize stayawake reason
+std::bitset<32>  tafMngdPMSvc::stayAwakeReasonMask;

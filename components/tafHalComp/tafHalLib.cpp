@@ -291,10 +291,9 @@ extern "C" LE_SHARED void* taf_devMgr_LoadDrv(const char* drvName, const char* d
     // find the interface
     mgrInf = (TAF_HAL_MGR_INF_t*)dlsym(drvHandle, TAF_HAL_INFO_TAB_STR);
 
-    errMsg = dlerror();
-    if (errMsg != nullptr)
+    if((errMsg = dlerror()) != nullptr || mgrInf == nullptr)
     {
-        LE_ERROR("Failed to get the hal information table");
+        LE_ERROR("Failed to get the hal information table: %s", errMsg ? errMsg : "mgrInf is null");
         return nullptr;
     }
 
@@ -345,10 +344,9 @@ extern "C" LE_SHARED bool taf_devMgr_UnloadDrv(void* handle)
 
     mgrInf = (TAF_HAL_MGR_INF_t*)dlsym(drvHandle, TAF_HAL_INFO_TAB_STR);
 
-    errMsg = dlerror();
-    if (errMsg != nullptr)
+    if((errMsg = dlerror()) != nullptr || mgrInf == nullptr)
     {
-        LE_ERROR("Failed to get the hal information table");
+        LE_ERROR("Failed to get the hal information table: %s", errMsg ? errMsg : "mgrInf is null");
         ret = false;
     }
 

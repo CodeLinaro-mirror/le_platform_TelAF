@@ -237,6 +237,9 @@ namespace doip{
             taf_doip_PowerMode_t QueryPowerMode();
             taf_doip_UserConfirmResult_t ConfirmRoutingActivation(uint16_t sa, uint16_t ta);
             std::shared_ptr<ConnectionManager> GetConnectionMgr();
+
+            // If not set vlan, this function will return 0.
+            uint16_t GetVlanId(const char *ifacePtr);
         private:
             taf_doip_Result_t GetLocalIPv4Addr(std::string& ifname, char *ip, socklen_t size);
             taf_doip_Result_t GetLocalIPv6Addr(std::string& ifname, char *ip, socklen_t size);
@@ -264,9 +267,6 @@ namespace doip{
             void RespondHeaderNegativeACK(const char* ipPtr, uint16_t port,
                     taf_doipHeaderNACKCode_t nackCode);
 
-            // If not set vlan, this function will return 0.
-            uint16_t GetVlanId(const char *ifacePtr);
-
             taf_doip_Result_t CreateIPv4SocketRes();
             taf_doip_Result_t CreateIPv6SocketRes();
             taf_doip_Result_t CreateSpecIPv4Socket(uint32_t index, const char* ifNamePtr,
@@ -285,7 +285,7 @@ namespace doip{
             //uint16_t sa;     // Source logical address.
             //uint32_t authenInfo;
             //char multiAddr[TAF_DOIP_IP_ADDR_MAX_LEN];
-            char localIp[TAF_DOIP_IP_ADDR_MAX_LEN][MAX_INF_NUM];
+            char localIp[MAX_INF_NUM][TAF_DOIP_IP_ADDR_MAX_LEN];
 
             taf_doipState_t state = TAF_DOIP_STATE_FINAL;
 

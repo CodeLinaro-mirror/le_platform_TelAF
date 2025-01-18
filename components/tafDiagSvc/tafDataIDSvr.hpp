@@ -208,6 +208,7 @@ namespace telux
                 // To clear message list.
                 void ClearReadDIDMsgList(taf_DataIDSvc_t* servicePtr);
                 void ClearWriteDIDMsgList(taf_DataIDSvc_t* servicePtr);
+                void ClearVlanList(taf_DataIDSvc_t* servicePtr);
 
                 uint16_t logAddr;                 // Service logic address.
 

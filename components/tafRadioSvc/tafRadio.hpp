@@ -259,6 +259,7 @@ typedef struct
     int ss;   ///< Signal Strength in dBm
     int ber;  ///< Bit error rate
     int sslv; ///< Signal Strength Level
+    int rscp; ///< Received Signal Code Power in dBm.
 } taf_RadioUmtsSignalMetrics_t;
 
 typedef struct
@@ -670,6 +671,19 @@ namespace tafsvc {
             static void setRFBandPrefResponse(telux::common::ErrorCode error);
     };
 
+    class taf_RadioRFBandInfoResponseCallback
+    {
+        public:
+            static le_sem_Ref_t semaphore;
+            static le_result_t result;
+            static taf_radio_BandBitMask_t band;
+            static uint32_t lteBand;
+            static uint32_t nrBand;
+            static taf_radio_RFBandWidth_t bandwidth;
+            static void rfBandInfoResponse(telux::tel::RFBandInfo bandInfo,
+                telux::common::ErrorCode error);
+    };
+
     /*
      * @brief A RAT preference callback class must be provided when getting rat preference.
      */
@@ -745,12 +759,14 @@ namespace tafsvc {
         static le_result_t result;
         static telux::tel::ImsServiceConfig config;
         static char sipUserAgentPtr[TAF_RADIO_IMS_USER_AGENT_BYTES];
+        static bool vonrConfig;
 
         static void onRequestImsServiceConfig(SlotId slotId,
             telux::tel::ImsServiceConfig configType, telux::common::ErrorCode error);
         static void onResponseCallback(telux::common::ErrorCode error);
         static void onRequestImsSipUserAgentConfig(SlotId slotId, std::string sipUserAgent,
             telux::common::ErrorCode errorCode);
+        static void onRequestImsVonr(SlotId slotId, bool isEnable, telux::common::ErrorCode errorCode);
     };
 
      /*

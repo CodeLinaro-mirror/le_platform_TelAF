@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+import os
+import argparse
+import logging
+
+top_lvl_layer = os.path.dirname(os.path.abspath(__file__))
+
+def main():
+    import dengine as de
+
+    parser = argparse.ArgumentParser(prog="tafDiagGen",
+                                     description="Parse schema-syntax files"
+                                                +"and auto-generate some configuration source code")
+    parser.add_argument("-v", "--version", action='version', version="%(prog)s " + "1.0.0")
+    parser.add_argument("-l", "--log-level",
+                        dest="log_level", action="store",
+                        choices = de.LOG_LEVEL_MAPPING, default='INFO',
+                        help="set logging level")
+    parser.add_argument("-s", "--schema-file-or-dir", required = True,
+                        dest="schema_path", action="store",
+                        help="One file or directory includes schema syntax limitation")
+    parser.add_argument("-c", "--custom-file-or-dir", required = True,
+                        dest="custom_path", action="store",
+                        help="One file or directory includes custom configuration based on schemas")
+    parser.add_argument("-e", "--extended-syntax-path",
+                        default = os.path.join(top_lvl_layer, "samples", "extended"),
+                        dest="ex_syn_path", action="store",
+                        help="One extended <PATH> for python runtime searching modules")
+
+    args = parser.parse_args()
+
+    de.logf.setLevel(args.log_level)
+    de.logc.setLevel(args.log_level)
+
+    de.logf.debug(args)
+
+    schema = de.build_schema(args.schema_path)
+    schema.extend(args.ex_syn_path)
+    schema.transform()
+
+    custom = de.build_custom(args.custom_path)
+    schema.check(custom)
+
+    build_dir   = os.path.join(top_lvl_layer, "build")
+    tmpls_layer = os.path.join(top_lvl_layer, "templates")
+    de.generate(schema, custom, tmpls_layer, build_dir)
+
+if __name__ == "__main__": main()

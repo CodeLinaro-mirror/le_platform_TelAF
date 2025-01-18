@@ -46,13 +46,15 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
 RUN /usr/bin/python3.8 -m venv /venv
 ENV PATH=/venv/bin:$PATH
 RUN python3 -m pip install doipclient==1.1.1
-RUN python3 -m pip install udsoncan==1.17.1
+RUN python3 -m pip install udsoncan==1.23.2
 RUN python3 -m pip install pyyaml==6.0.1
+RUN python3 -m pip install oyaml==1.0
 RUN python3 -m pip install supervisor==4.2.5
 RUN python3 -m pip install supervisor-stdout==0.1.1
 
 RUN apt-get -y --no-install-recommends install libsqlite3-dev
 RUN apt-get -y --no-install-recommends install nano
+RUN apt-get -y --no-install-recommends install libglib2.0-dev
 
 # Make root password to: [simula]
 RUN echo 'root:simula' | chpasswd

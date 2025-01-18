@@ -22,17 +22,10 @@
 // DID length definition
 #define DID_LEN  2
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Diag DID storage service structure.
- */
-//--------------------------------------------------------------------------------------------------
-typedef struct
-{
-    taf_diagDidStore_ServiceRef_t svcRef;                            ///< own reference.
-    taf_diagDidStore_DataIdChangeHandlerRef_t msgDIDStorgHandlerRef; ///< Handler ref of DID notify.
-    le_msg_SessionRef_t sessionRef;                                  ///< Ref to a client-svr session.
-}taf_DidStore_t;
+#define TAF_REQ_OUT_OF_RANGE 0x31
+
+// Semaphore wait time
+#define SEM_TIME_TO_WAIT 5
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -46,6 +39,25 @@ typedef struct
     uint16_t didDataLen;
     uint8_t result;
 }taf_ReadDidStorg_t;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Diag DID storage service structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_diagDidStore_ServiceRef_t svcRef;                            ///< own reference.
+    taf_diagDidStore_DataIdChangeHandlerRef_t msgDIDStorgHandlerRef; ///< HandlerRef of DID notify.
+    le_msg_SessionRef_t sessionRef;                                  ///< Client-svr session ref.
+    le_dls_List_t list;                                              ///< Link for dynamic list
+    le_sem_Ref_t readSemaphore;                                      ///< Semaphore for read op
+    le_sem_Ref_t writeSemaphore;                                     ///< Semaphore for write op
+    uint8_t writeResult;                                             ///< Result of last write op
+    taf_ReadDidStorg_t readStrg;
+}taf_DidStore_t;
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -120,7 +132,7 @@ class taf_diagDidStore: public ITafSvc
 
         private:
 
-            taf_DidStore_t* GetServiceObj();
+            taf_DidStore_t* GetServiceObj(le_msg_SessionRef_t sessionRef);
 
             uint8_t writeDIDPIResult;
 

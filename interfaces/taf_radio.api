@@ -431,6 +431,15 @@
  *  - taf_radio_GetServingCellScramblingCode() -- Gets the primary scrambling code.
  *     @b WARNING: Only applicable for WCDMA.
  *
+ *  - taf_radio_GetServingCellBandInfo() -- Gets 2G/3G band information.
+ *     @b WARNING: Only applicable for GSM/WCDMA/TDSCDMA.
+ *
+ *  - taf_radio_GetServingCellLteBandInfo() -- Gets LTE band information.
+ *     @b WARNING: Only applicable for LTE.
+ *
+ *  - taf_radio_GetServingCellNrBandInfo() -- Gets NR band information.
+ *     @b WARNING: Only applicable for NR.
+ *
  * @section c_taf_radio_network Network Information
  *
  * Users can use the following APIs to get the current network and discover nearby networks
@@ -528,6 +537,64 @@
    taf_radio_RatBitMask_t simRatCapMask;
    result = taf_radio_GetHardwareSimRatCapabilities(&deviceRatCapMask,&simRatCapMask,phoneId);
  *
+   @endcode
+ *
+ * @section c_taf_radio_ims IMS (IP Multimedia Subsystem) Information
+ *
+ * Users can set and get the IMS registration status, service status and configurations in given slot.
+ *
+ *  - taf_radio_GetImsRegStatus() -- Gets the IMS registration status in given slot.
+ *
+ *  - taf_radio_GetImsSvcStatus() -- Gets the IMS service status (including Voice over IMS and SMS) in given slot.
+ *
+ *  - taf_radio_SetImsSvcCfg() -- Sets the IMS service configurations (including IMS, Voice over IMS, Voice
+ *     over NR, SMS over IMS, RTT) in given slot.
+ *    @b WARNING: Disabling Voice over NR will result in the user equipment (UE) defaulting to support NR5G voice
+ *       over EPS fallback. To enable Voice over NR, both IMS and Voice over IMS must be enabled.
+ *
+ *  - taf_radio_GetImsSvcCfg() -- Gets the IMS service (IMS, Voice over IMS, Voice over NR, SMS over IMS, RTT)
+ *    configurations in given slot.
+ *
+ *  - taf_radio_SetImsUserAgent() -- Sets the IMS SIP User Agent configuration in given slot.
+ *
+ *  - taf_radio_GetImsUserAgent() -- Gets the IMS SIP User Agent configuration in given slot.
+ *
+ *  - taf_radio_GetImsPdpError() -- Gets the IMS PDP error in given slot.
+ *
+ *  - taf_radio_AddImsRegStatusChangeHandler() / taf_radio_RemoveImsRegStatusChangeHandler() -- Adds/removes
+ *    handler for IMS registration status change.
+ *
+ *  - taf_radio_AddImsStatusChangeHandler() / taf_radio_RemoveImsStatusChangeHandler() -- Adds/removes
+ *    handler for IMS status change.
+ *
+ * The following example illustrates the API usage.
+ *
+ * @code
+
+   // Sets IMS Voice over NR configuration.
+   bool enable = false;
+   taf_radio_ImsRef_t imsRef = taf_radio_GetIms(phoneId);
+   le_result_t result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, enable);
+   if (result == LE_OK)
+   {
+       LE_INFO("VoNR has been successfully disabled.");
+   } else {
+       LE_ERROR("Failed to disable VoNR.");
+   }
+
+   // Gets IMS Voice over NR configuration.
+   result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, &enable);
+   if (result == LE_OK)
+   {
+       if (enable)
+       {
+           LE_INFO("VoNR is enabled");
+       } else {
+           LE_INFO("VoNR is disabled");
+       }
+   } else {
+       LE_ERROR("Failed to get the configuration of VoNR.");
+   }
    @endcode
  * <HR>
  *
@@ -890,8 +957,9 @@ ENUM ImsSvcType
 {
     IMS_SVC_TYPE_IMS_REG, ///< IMS normal registration.
     IMS_SVC_TYPE_SMS,     ///< SMS service.
-    IMS_SVC_TYPE_VOIP,    ///< Voice call service.
-    IMS_SVC_TYPE_RTT      ///< Resource translation table.
+    IMS_SVC_TYPE_VOIP,    ///< Voice over IMS.
+    IMS_SVC_TYPE_RTT,     ///< Resource translation table.
+    IMS_SVC_TYPE_VONR     ///< Voice over NR.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -974,6 +1042,41 @@ ENUM CellInfoStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * RF bandwidth information
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM RFBandWidth
+{
+    RF_BANDWIDTH_INVALID = -1,   ///< Invalid bandwidth.
+    RF_BANDWIDTH_GSM_BW_0_2,     ///< GSM 0.2 MHz.
+    RF_BANDWIDTH_WCDMA_BW_5,     ///< WCDMA 5 MHz.
+    RF_BANDWIDTH_WCDMA_BW_10,    ///< WCDMA 10 MHz.
+    RF_BANDWIDTH_TDSCDMA_BW_1_6, ///< TDSCDMA 1.6 MHz.
+    RF_BANDWIDTH_LTE_BW_1_4,     ///< LTE 1.4 MHz.
+    RF_BANDWIDTH_LTE_BW_3,       ///< LTE 3 MHz.
+    RF_BANDWIDTH_LTE_BW_5,       ///< LTE 5 MHz.
+    RF_BANDWIDTH_LTE_BW_10,      ///< LTE 10 MHz.
+    RF_BANDWIDTH_LTE_BW_15,      ///< LTE 15 MHz.
+    RF_BANDWIDTH_LTE_BW_20,      ///< LTE 20 MHz.
+    RF_BANDWIDTH_NR5G_BW_5,      ///< NR5G 5 MHz.
+    RF_BANDWIDTH_NR5G_BW_10,     ///< NR5G 10 MHz.
+    RF_BANDWIDTH_NR5G_BW_15,     ///< NR5G 15 MHz.
+    RF_BANDWIDTH_NR5G_BW_20,     ///< NR5G 20 MHz.
+    RF_BANDWIDTH_NR5G_BW_25,     ///< NR5G 25 MHz.
+    RF_BANDWIDTH_NR5G_BW_30,     ///< NR5G 30 MHz.
+    RF_BANDWIDTH_NR5G_BW_40,     ///< NR5G 40 MHz.
+    RF_BANDWIDTH_NR5G_BW_50,     ///< NR5G 50 MHz.
+    RF_BANDWIDTH_NR5G_BW_60,     ///< NR5G 60 MHz.
+    RF_BANDWIDTH_NR5G_BW_70,     ///< NR5G 70 MHz.
+    RF_BANDWIDTH_NR5G_BW_80,     ///< NR5G 80 MHz.
+    RF_BANDWIDTH_NR5G_BW_90,     ///< NR5G 90 MHz.
+    RF_BANDWIDTH_NR5G_BW_100,    ///< NR5G 100 MHz.
+    RF_BANDWIDTH_NR5G_BW_200,    ///< NR5G 200 MHz.
+    RF_BANDWIDTH_NR5G_BW_400     ///< NR5G 400 MHz.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * RAT bitmask.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1028,12 +1131,12 @@ BITMASK BandBitMask
     BAND_BIT_MASK_CLASS_14,                    ///< Band Class 14.
     BAND_BIT_MASK_RESERVED_0,                  ///< Reserved.
     BAND_BIT_MASK_CLASS_15,                    ///< Band Class 15.
-    BAND_BIT_MASK_RESERVED_1,                  ///< Reserved.
-    BAND_BIT_MASK_RESERVED_2,                  ///< Reserved.
-    BAND_BIT_MASK_RESERVED_3,                  ///< Reserved.
-    BAND_BIT_MASK_RESERVED_4,                  ///< Reserved.
-    BAND_BIT_MASK_RESERVED_5,                  ///< Reserved.
-    BAND_BIT_MASK_RESERVED_6,                  ///< Reserved.
+    BAND_BIT_MASK_TDSCDMA_BAND_A,              ///< TDSCDMA band A, 1880-1900 MHz.
+    BAND_BIT_MASK_TDSCDMA_BAND_B,              ///< TDSCDMA band B, 1900-1920 MHz
+    BAND_BIT_MASK_TDSCDMA_BAND_C,              ///< TDSCDMA band C, 2010-2025 MHz
+    BAND_BIT_MASK_TDSCDMA_BAND_D,              ///< TDSCDMA band D, 2300-2320 MHz
+    BAND_BIT_MASK_TDSCDMA_BAND_E,              ///< TDSCDMA band E, 2320-2340 MHz
+    BAND_BIT_MASK_TDSCDMA_BAND_F,              ///< TDSCDMA band F, 2570-2620 MHz
     BAND_BIT_MASK_RESERVED_7,                  ///< Reserved.
     BAND_BIT_MASK_RESERVED_8,                  ///< Reserved.
     BAND_BIT_MASK_RESERVED_9,                  ///< Reserved.
@@ -1922,6 +2025,8 @@ FUNCTION RatBitMask GetRatOfSignalMetrics
  *  - LE_NOT_FOUND -- Reference not found.
  *  - LE_UNAVAILABLE -- GSM unavailable.
  *  - LE_OK -- Succeeded.
+ *
+ * @deprecated The parameter @ber is deprecated.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetGsmSignalMetrics
@@ -1940,6 +2045,8 @@ FUNCTION le_result_t GetGsmSignalMetrics
  *  - LE_NOT_FOUND -- Reference not found.
  *  - LE_UNAVAILABLE -- UMTS unavailable.
  *  - LE_OK -- Succeeded.
+ *
+ * @deprecated The parameter @ber is deprecated.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetUmtsSignalMetrics
@@ -3047,4 +3154,60 @@ FUNCTION le_result_t GetServingCellRoutingAreaCode
 (
     uint8 rac OUT,   ///< Routing area code.
     uint8 phoneId IN ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets 2G/3G band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @b NOTE: Only applicable for GSM/WCDMA/TDSCDMA.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetServingCellBandInfo
+(
+    BandBitMask bandPtr OUT,      ///< 2G/3G active band.
+    RFBandWidth bandWidthPtr OUT, ///< RF bandwidth information.
+    uint8 phoneId IN              ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets LTE band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetServingCellLteBandInfo
+(
+    uint32 bandPtr OUT,           ///< LTE active band.
+    RFBandWidth bandWidthPtr OUT, ///< RF bandwidth information.
+    uint8 phoneId IN              ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NR band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetServingCellNrBandInfo
+(
+    uint32 bandPtr OUT,           ///< NR active band.
+    RFBandWidth bandWidthPtr OUT, ///< RF bandwidth information.
+    uint8 phoneId IN              ///< Phone ID.
 );

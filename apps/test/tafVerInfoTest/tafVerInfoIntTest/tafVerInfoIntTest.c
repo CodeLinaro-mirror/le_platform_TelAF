@@ -68,6 +68,10 @@ static void Test_GetVersion
     result = taf_verInfo_GetTelAFVersion(version, sizeof(version));
     LE_TEST_OK(result == LE_OK, "taf_verInfo_GetTelAFVersion - OK");
     LE_INFO("TelAF version : %s", version);
+
+    result = taf_verInfo_GetLXCVersion(version, sizeof(version));
+    LE_TEST_OK(result == LE_OK, "taf_verInfo_GetLXCVersion - OK");
+    LE_INFO("LXC version : %s", version);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -180,6 +184,32 @@ static void Test_GetHash
     {
         LE_TEST_OK(result == LE_OK, "taf_verInfo_GetFirmwareHash - OK");
         printf("firmware_b hash : ");
+        size_t i;
+        for (i = 0; i < hashSize; i++)
+        {
+            printf("%02x", hash[i]);
+        }
+        printf("\n");
+    }
+
+    result = taf_verInfo_GetLXCHash(TAF_VERINFO_BANK_A, hash, &hashSize);
+    if (result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_verInfo_GetLXCHash - OK");
+        printf("lxcrootfs_a hash : ");
+        size_t i;
+        for (i = 0; i < hashSize; i++)
+        {
+            printf("%02x", hash[i]);
+        }
+        printf("\n");
+    }
+
+    result = taf_verInfo_GetLXCHash(TAF_VERINFO_BANK_B, hash, &hashSize);
+    if (result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_verInfo_GetLXCHash - OK");
+        printf("lxcrootfs_b hash : ");
         size_t i;
         for (i = 0; i < hashSize; i++)
         {

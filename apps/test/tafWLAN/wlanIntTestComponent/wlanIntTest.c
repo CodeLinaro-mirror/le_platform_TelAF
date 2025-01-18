@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -87,7 +87,17 @@ static le_result_t wlanTestGetMode() {
 }
 
 static le_result_t wlanTestSetMode() {
-    int mode = strtol((const char*)le_arg_GetArg(1), NULL, 10);
+    const char *SetModeStr = le_arg_GetArg(1);
+    if (NULL == SetModeStr)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("Mode value is NULL");
+    }
+
+    char modeStr[10]="";   // NULL appended string
+    le_utf8_Copy(modeStr,SetModeStr,10,NULL);
+
+    int mode = strtol(modeStr, NULL, 10);
     LE_TEST_INFO("Mode: %d", mode);
     le_result_t result = taf_wlan_SetMode(NULL, (taf_wlan_DeviceMode_t)mode);
     fprintf(stderr, "taf_wlan_SetMode Return:%d\n", result);
@@ -136,6 +146,12 @@ COMPONENT_INIT {
     }
 
     const char* testType = le_arg_GetArg(0);
+    if (NULL == testType)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("Test type is NULL");
+    }
+
     if (strncasecmp(testType, "On", strlen("On")) == 0) {
         LE_TEST_INFO("======== WLAN Test: On ========");
         CheckNumArgs(numArgs, 1);

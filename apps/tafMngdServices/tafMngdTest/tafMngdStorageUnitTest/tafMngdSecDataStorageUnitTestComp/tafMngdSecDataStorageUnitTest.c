@@ -596,47 +596,38 @@ COMPONENT_INIT
         char* op_label = NULL;
         char* op_para1 = NULL;
         char* op_para2 = NULL;
-
-        if (NULL == operation)
+        if (operation == NULL)
         {
             LE_ERROR("operation is NULL");
             exit(EXIT_FAILURE);
         }
         LE_INFO("operation: %s", operation);
-
         const char* label = le_arg_GetArg(1);
-
-        if(strlen(label) == 0)
+        if(label == NULL || strlen(label) == 0 )
         {
             LE_ERROR("Invalid data label");
+            exit(EXIT_FAILURE);
         }
         op_label = (char*)label;
-
         if (le_arg_NumArgs() > 2)
         {
             const char* data = le_arg_GetArg(2);
-
-            if(strlen(data) == 0)
+            if(data == NULL || strlen(data) == 0)
             {
-                LE_ERROR("Invalid data");
+                LE_ERROR("op_para1 is invalid");
+                exit(EXIT_FAILURE);
             }
             op_para1 = (char*)data;
         }
-
         if (le_arg_NumArgs() > 3)
         {
             const char* data = le_arg_GetArg(3);
-
-            if(strlen(data) == 0)
+            if(data == NULL || strlen(data) == 0)
             {
-                LE_ERROR("Invalid data");
+                LE_ERROR("op_para2 is invalid");
+                exit(EXIT_FAILURE);
             }
             op_para2 = (char*)data;
-        }
-
-        if(op_label == NULL || strlen(op_label) == 0)
-        {
-            LE_ERROR("Invalid operation");
         }
 
         if (strcmp(operation, OP_HELP) == 0)

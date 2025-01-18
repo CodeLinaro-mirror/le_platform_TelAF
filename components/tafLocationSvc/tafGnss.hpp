@@ -88,6 +88,7 @@ const int DEFAULT_UNKNOWN = 0;
 #define DEFAULT_TIMEOUT_IN_SECONDS 5
 #define VERTICAL_SPEED_SIZE 3
 #define VERTICAL_SPEED_ACCURACY_INDEX 2
+#define LENGTH_CFG_NODE 50
 
 enum DataType
 {
@@ -197,6 +198,8 @@ namespace tafsvc {
         bool     confidencePercentValid;
         uint8_t  calibrationStatus;
         uint8_t  calibrationStatusValid;
+        uint32_t  drSolutionStatus;
+        uint32_t  drSolutionStatusValid;
         taf_locGnss_KinematicsData_t GnssKinematicsData;
         bool     GnssKinematicsDataValid;
         double   vrpLatitude;
@@ -247,6 +250,8 @@ namespace tafsvc {
         uint64_t gPtpTime;
         bool gPtpTimeUncValid;
         uint64_t gPtpTimeUnc;
+        bool   leapSecondsUncValid;
+        uint8_t leapSecondsUnc;
         le_dls_Link_t   next;
     }
     taf_locGnss_PositionSample_t;
@@ -437,6 +442,7 @@ namespace tafsvc {
             le_result_t ForceColdRestart();
             le_result_t ForceWarmRestart();
             le_result_t ForceHotRestart();
+            le_result_t DeleteDRSensorCalData();
             le_result_t GetSupportedConstellations(taf_locGnss_ConstellationBitMask_t* constellationMaskPtr);
             le_result_t SetMinElevation( uint8_t  minElevation);
             le_result_t StartMode(taf_locGnss_StartMode_t mode);
@@ -467,6 +473,8 @@ namespace tafsvc {
             le_result_t GetConformityIndex(taf_locGnss_SampleRef_t positionSampleRef,double* indexPtr);
             le_result_t GetCalibrationData(taf_locGnss_SampleRef_t positionSampleRef,
                     uint32_t* calibPtr,uint8_t* percentPtr);
+            le_result_t GetDRSolutionStatus(taf_locGnss_SampleRef_t positionSampleRef,
+                    uint32_t* solutionStatusPtr);
             le_result_t GetBodyFrameData(taf_locGnss_SampleRef_t positionSampleRef,
                     taf_locGnss_KinematicsData_t* bodyDataPtr);
             le_result_t GetVRPBasedLLA(taf_locGnss_SampleRef_t positionSampleRef,
@@ -503,6 +511,9 @@ namespace tafsvc {
 
             le_result_t SetDRConfigValidity(taf_locGnss_DRConfigValidityType_t validMask);
             le_result_t GetGptpTime(taf_locGnss_SampleRef_t positionSampleRef,uint64_t* gPtpTime,uint64_t* gPtpTimeUnc);
+            le_result_t GetLeapSecondsUncertainty(taf_locGnss_SampleRef_t positionSampleRef,uint8_t* leapSecondsUncPtr);
+            le_result_t SetNmeaConfig(const taf_locGnss_NmeaBitMask_t nmea);
+            taf_locGnss_NmeaBitMask_t GetNmeaConfig();
             void CleanUp(taf_locGnss_Client_t*);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
@@ -530,6 +541,7 @@ namespace tafsvc {
             taf_locGnss_ConstellationBitMask_t mConstellationMask;
             taf_locGnss_NmeaBitMask_t mNmeaMask = 0;
             uint8_t mMinSvEle;
+            uint64_t TAF_LOCGNSS_NMEA_DEFAULT = 0;
 
         private:
             std::shared_ptr<ILocationConfigurator> mLocationConfigurator = nullptr;

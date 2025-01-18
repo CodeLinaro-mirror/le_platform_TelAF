@@ -318,6 +318,9 @@ taf_mngdStorSecData_DataRef_t tafMngdStorageSvc::GetDataRef
         clientDataPtr = (tafMngdStorage_ClientData_t*)le_ref_Lookup(ClientDataRefMap, dataRef);
     }
 
+    // Check if the clientData is valid
+    TAF_ERROR_IF_RET_VAL(clientDataPtr == nullptr,nullptr, "Invalid client data reference");
+
     if(FindSecDataRef(dataNamePtr, ownerAppPtr, &(clientDataPtr->secDataRef)) == LE_NOT_FOUND)
     {
         clientDataPtr->secDataRef = CreateSecDataRef(dataNamePtr, ownerAppPtr);
@@ -1911,6 +1914,9 @@ taf_mngdStorSecData_DataStateChangeHandlerRef_t tafMngdStorageSvc::AddDataStateC
         tafMngdStorage_SecData_t* dataPtr =
         (tafMngdStorage_SecData_t*)le_ref_Lookup(SecDataRefMap, dataRef);
 
+        // Check if the data refernce is valid
+        TAF_ERROR_IF_RET_VAL(dataPtr == nullptr, nullptr, "Invalid data reference");
+
         // Check if the calling app is already one of the shared apps
         for(uint i = 0; i < dataPtr->sharedAppList.appCount; i++)
         {
@@ -2020,8 +2026,8 @@ void tafMngdStorageSvc::NotifyClientsForDataChange
                 (tafMngdStorage_DataChangeHandler_t*)le_ref_GetValue(iterRef);
 
             // Get client app name.
-            if (LE_OK == GetAppNameBySessionRef(handlerPtr->clientSessionRef,
-                                                appName, sizeof(appName)))
+            if ((handlerPtr != nullptr) && (LE_OK == GetAppNameBySessionRef(handlerPtr->clientSessionRef,
+                                                appName, sizeof(appName))))
             {
                 // If the data sharing notification is for this client, call the client handler.
                 if ((0 == strcmp(dataNamePtr, handlerPtr->dataName)) &&

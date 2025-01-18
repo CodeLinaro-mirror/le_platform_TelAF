@@ -1001,6 +1001,11 @@ le_event_Id_t taf_doip_GetStatusEvent
     taf_doipSession_t*  doipSessionPtr;
     auto& cmMgr = CommunicationMgr::GetInstance();
     doipSessionPtr = cmMgr.FindDoipSession(sa);
+    if (doipSessionPtr == NULL)
+    {
+        LE_ERROR("Failed to get doip session");
+        return (le_event_Id_t)NULL;
+    }
 
     return doipSessionPtr->statusEvtId;
 }

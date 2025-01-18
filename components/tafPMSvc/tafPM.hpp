@@ -65,9 +65,10 @@ using namespace std;
 #define TAF_WAKEUP_SOURCE_DEFAULT_POOL_SIZE 64
 #define TAF_PM_REFERENCE_DEFAULT_POOL_SIZE   31
 #define TAF_POWER_SOURCE_DEFAULT_POOL_SIZE 64
-#define TAF_MNGD_PM_SERVICE 13
+#define TAF_MNGD_PM_SVC "tafMngdPMSvc"
+#define TAF_RPC_PROXY "tafRpcProxy"
 #define PMS_CLNTS_ACK_TIMEOUT 350
-
+#define TAF_CONSILATED_ACK_CLNT_SIZE 100
 /**
  * Wakeup source record definition
  */
@@ -82,6 +83,18 @@ typedef struct
     void          *wsRef;
 }
 taf_ws_t;
+
+typedef struct
+{
+    taf_pm_ConsolidatedAckInfoRef_t ref;
+    taf_pm_State_t state;
+    bool isAllAcked;
+    taf_pm_ClientInfo_t unResponsedClntData[TAF_CONSILATED_ACK_CLNT_SIZE];
+    taf_pm_ClientInfo_t nackResponsedClntData[TAF_CONSILATED_ACK_CLNT_SIZE];
+    unsigned int unresponsiveClientsSize;
+    unsigned int nackResponseClientsSize;
+}
+taf_FinalAckStatus_t;
 
 #if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
 
@@ -125,10 +138,25 @@ typedef struct
 {
     taf_pm_StateChangeExHandlerRef_t handlerRef;     // this handler ref
     taf_pm_StateChangeExHandlerFunc_t handlerPtr;    // this function ptr
-    bool             ismpm;                          // Var to find MPM handler
-    void *           contextPtr;                     // clientt context data
+    bool             ismpm;                          // variable to find MPM handler
+    void *           contextPtr;                     // client context data
     le_dls_Link_t    link;                           // link to handler list
 } taf_PStateHandlerCtx_t;
+
+/**
+ * @brief Consolidated state ack context struct
+ *
+ */
+typedef struct
+{
+    taf_pm_ConsolidatedAckInfoHandlerRef_t handlerRef;
+    taf_pm_ConsolidatedAckInfoHandlerFunc_t handlerPtr;
+    void* contextPtr;
+    le_msg_SessionRef_t sessionRef;
+    le_dls_Link_t link;
+}
+taf_ConsolidatedAckInfoHandler_t;
+
 #endif
 
 #define TAF_PM_WAKEUP_SOURCE_COOKIE 0xa1f6337b
@@ -236,8 +264,10 @@ namespace tafsvc {
         taf_pm_StateChangeHandlerRef_t AddStateChangeHandler
                 (taf_pm_StateChangeHandlerFunc_t handlerPtr, void* contextPtr);
         void RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef);
+
         #if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
         taf_pm_State_t curTcuState;
+        taf_FinalAckStatus_t consolidateStateAckInfo;
         le_mem_PoolRef_t vmListPool;
         le_mem_PoolRef_t vmInfoPool;
         le_ref_MapRef_t vmListRefMap;
@@ -251,6 +281,14 @@ namespace tafsvc {
         le_mem_PoolRef_t powerStateRefPool;
         le_ref_MapRef_t powerStateRefMap;
         le_event_Id_t stateChangeExEvent;
+
+        le_mem_PoolRef_t ConsolidatedStateAckHandlerPool;
+        le_dls_List_t ConsolidatedStateAckHandlerList;
+        le_ref_MapRef_t ConsolidatedStateAckHandlerRefMap;
+        le_mem_PoolRef_t ConsolidatedStateAckPool;
+        le_ref_MapRef_t ConsolidatedStateAckRefMap;
+        le_event_Id_t ConsolidatedAckInfoEvent;
+
         static void PowerStateChanged(void* reportPtr);
         void CallClientHandlerFunc(taf_pm_State_t state);
         le_mem_PoolRef_t powerStateHandlerPool;
@@ -267,6 +305,24 @@ namespace tafsvc {
         le_timer_Ref_t pmClientsAckTimerRef;
         taf_pm_State_t statePtr;
         static void PmsClntsAckTimerHandler(le_timer_Ref_t timerRef);
+        //ConsolidatedAckInfoHandler
+        taf_pm_ConsolidatedAckInfoHandlerRef_t AddConsolidatedAckInfoHandler
+                (taf_pm_ConsolidatedAckInfoHandlerFunc_t handlerPtr, void* contextPtr);
+        void RemoveConsolidatedAckInfoHandler(taf_pm_ConsolidatedAckInfoHandlerRef_t handlerRef);
+        le_result_t GetNackClientInfo
+        (
+            taf_pm_ConsolidatedAckInfoRef_t consolidatedAckInfoRef,
+            taf_pm_ClientInfo_t* nackClientsPtr,
+            size_t* nackClientsSizePtr
+        );
+        le_result_t GetUnrespClientInfo
+        (
+            taf_pm_ConsolidatedAckInfoRef_t consolidatedAckInfoRef,
+            taf_pm_ClientInfo_t* unrespClientsPtr,
+            size_t* unrespClientsSizePtr
+        );
+        static void ConsolidatedAckInfo(void* reportPtr);
+        bool IsLowPowerMode;
         #endif
     };
 

@@ -4,144 +4,160 @@
 */
 
 import "platform:/plugin/org.genivi.commonapi.someip/deployment/CommonAPI-4-SOMEIP_deployment_spec.fdepl"
-import "platform:/plugin/org.genivi.commonapi.core/deployment/CommonAPI_deployment_spec.fdepl"
+import "platform:/plugin/org.genivi.commonapi.core/deployment/CommonAPI-4_deployment_spec.fdepl"
 import "RadioSvc.fidl"
-import "../common/CommonTypes.fdepl"
 
-define org.genivi.commonapi.core.deployment for interface com.qualcomm.qti.modem.RadioSvc
+define org.genivi.commonapi.core.deployment for typeCollection com.qualcomm.qti.telephony.RadioSvcTypes
 {
-    DefaultEnumBackingType = UInt32
+    enumeration PhoneIdT
+    {
+        EnumBackingType = UInt8
+    }
 
-    enumeration Rat
+    enumeration TelephonyResultT
+    {
+        EnumBackingType = UInt8
+    }
+
+    enumeration RadioRatBitMaskValueT
     {
         EnumBackingType = UInt32
     }
 
-    enumeration NetRegState
+    enumeration RadioRatT
     {
-        EnumBackingType = UInt32
+        EnumBackingType = UInt8
     }
 
-    enumeration NRDcnrRestriction
+    enumeration RadioNetRegStateT
     {
-        EnumBackingType = UInt32
+        EnumBackingType = UInt8
     }
 
-    enumeration States
+    enumeration RadioNrDcnrRestrictionT
     {
-        EnumBackingType = UInt32
+        EnumBackingType = UInt8
     }
 
-    enumeration CellInfoStatus
+    enumeration RadioSigTypeT
     {
-        EnumBackingType = UInt32
+        EnumBackingType = UInt8
     }
 
-    enumeration SigType
+    enumeration RadioSigIndicationTypeT
     {
-        EnumBackingType = UInt32
+        EnumBackingType = UInt8
     }
 
-    enumeration SigIndicationType
+    enumeration ValueState
     {
-        EnumBackingType = UInt32
+        EnumBackingType = UInt8
+    }
+
+    enumeration RadioStateT
+    {
+        EnumBackingType = UInt8
+    }
+
+    enumeration RadioCellInfoStatusT
+    {
+        EnumBackingType = UInt8
     }
 }
 
-define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.modem.RadioSvc
+define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.telephony.RadioSvc
 {
     SomeIpServiceID = 0xED80
 
-    method SetRadioPower
-    {
-        SomeIpMethodID = 0x1001
-    }
-
-    method GetRadioPower
-    {
-        SomeIpMethodID = 0x1002
-    }
-
-    method GetSignalStrength
-    {
-        SomeIpMethodID = 0x1003
-    }
-
-    method GetRegisterMode
-    {
-        SomeIpMethodID = 0x1004
-    }
-
-    method SetAutomaticRegisterMode
-    {
-        SomeIpMethodID = 0x1005
-    }
-
-    method GetHardwareConfig
-    {
-        SomeIpMethodID = 0x1006
-    }
-
-    method GetRatPreferences
-    {
-        SomeIpMethodID = 0x1007
-    }
-
-    method GetCurrentNetworkName
-    {
-        SomeIpMethodID = 0x1008
-    }
-
-    method GetNetRegState
-    {
-        SomeIpMethodID = 0x1009
-    }
-
-    method GetNrDualConnectivityStatus
-    {
-        SomeIpMethodID = 0x100A
-    }
-
-    method SetSignalStrengthReportingCriteria
-    {
-        SomeIpMethodID = 0x100B
-    }
-
-    method GetPacketSwitchedState
-    {
-        SomeIpMethodID = 0x100C
-    }
-
     broadcast SignalStrength
     {
-        SomeIpEventID = 0x9001
-        SomeIpEventGroups = { 0x9000 }
-    }
-
-    broadcast RadioRat
-    {
-        SomeIpEventID = 0x9002
-        SomeIpEventGroups = { 0x9000 }
+        SomeIpEventID = 33069
+        SomeIpEventGroups = { 33069 }
     }
 
     broadcast RadioState
     {
-        SomeIpEventID = 0x9003
-        SomeIpEventGroups = { 0x9000 }
+        SomeIpEventID = 33070
+        SomeIpEventGroups = { 33070 }
     }
 
     broadcast CellInfo
     {
-        SomeIpEventID = 0x9004
-        SomeIpEventGroups = { 0x9000 }
+        SomeIpEventID = 33071
+        SomeIpEventGroups = { 33071 }
+    }
+
+    method GetGsmSignalMetrics
+    {
+        SomeIpMethodID = 301
+    }
+
+    method GetUmtsSignalMetrics
+    {
+        SomeIpMethodID = 302
+    }
+
+    method GetLteSignalMetrics
+    {
+        SomeIpMethodID = 303
+    }
+
+    method GetNr5gSignalMetrics
+    {
+        SomeIpMethodID = 304
+    }
+
+    method GetRegisterMode
+    {
+        SomeIpMethodID = 305
+    }
+
+    method SetAutomaticRegisterMode
+    {
+        SomeIpMethodID = 306
+    }
+
+    method GetHardwareConfig
+    {
+        SomeIpMethodID = 307
+    }
+
+    method GetRatPreferences
+    {
+        SomeIpMethodID = 308
+    }
+
+    method GetCurrentNetworkName
+    {
+        SomeIpMethodID = 309
+    }
+
+    method GetNetRegState
+    {
+        SomeIpMethodID = 310
+    }
+
+    method GetNrDualConnectivityStatus
+    {
+        SomeIpMethodID = 311
+    }
+
+    method SetSignalStrengthReportingCriteria
+    {
+        SomeIpMethodID = 312
+    }
+
+    method GetPacketSwitchedState
+    {
+        SomeIpMethodID = 313
     }
 }
 
 define org.genivi.commonapi.someip.deployment for provider as Service
 {
-    instance com.qualcomm.qti.modem.RadioSvc
+    instance com.qualcomm.qti.telephony.RadioSvc
     {
-        InstanceId = "modem.RadioSvc"
+        InstanceId = "telephony.RadioSvc"
 
         SomeIpInstanceID = 1
     }

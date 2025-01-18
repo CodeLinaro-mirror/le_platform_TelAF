@@ -250,7 +250,7 @@ le_result_t ctrlCmd_test7()
     taf_pm_WakeupSourceRef_t ref;
     char tag[10];
 
-    snprintf(tag, sizeof(tag), "testpm");
+    snprintf(tag, sizeof(tag), "testWLs");
     ref = taf_pm_NewWakeupSource(1, tag);
 
     for(int i = 0; i < 5; i++) {
@@ -363,6 +363,15 @@ le_result_t ctrlCmd_shutdown()
     le_result_t res = taf_pm_SetAllVMPowerState(TAF_PM_STATE_SHUTDOWN);
     if(res != LE_OK)
         LE_ERROR("Failed to shutdown");
+    return res;
+}
+
+le_result_t ctrlCmd_SetPowerMode(ctrlCmd_PowerMode_t powerMode)
+{
+    LE_INFO("ctrlCmd_SetPowerMode");
+    le_result_t res = taf_pm_SetPowerMode(powerMode);
+    if(res != LE_OK)
+        LE_ERROR("Failed to SetPowerMode");
     return res;
 }
 

@@ -1803,7 +1803,7 @@ taf_doip_Result_t CommunicationMgr::CreateSpecIPv4Socket
         goto errOut;
     }
 
-    LE_DEBUG("Get IPv4-%s\n", localIp[index]);
+    LE_INFO("Get IPv4-%s\n", localIp[index]);
 
     tcpDataSockRef[index] = le_socket_Create(NULL, tcpDataPort, localIp[index], TCP_TYPE);
     if (tcpDataSockRef[index] == NULL)
@@ -1945,8 +1945,14 @@ taf_doip_Result_t CommunicationMgr::CreateIPv4SocketRes
     LE_DEBUG("TCP_DATA is %d, UDP_DISCOVEERY is %d",
             tcpDataPort, udpDiscoveryPort);
 
-    le_dls_List_t *ifaces = vehicleMgr.GetIfaceList();
-    if (le_dls_IsEmpty(ifaces))
+    le_dls_List_t *ifaceListPtr = vehicleMgr.GetIfaceList();
+    if (ifaceListPtr == NULL)
+    {
+        LE_ERROR("Interface is empty.");
+        return TAF_DOIP_RESULT_NO_LINK;
+    }
+
+    if (le_dls_IsEmpty(ifaceListPtr))
     {
         result = CreateSpecIPv4Socket(0, TAF_DOIP_INTERFACE_DEFAULT,
                 udpDiscoveryPort, tcpDataPort);
@@ -1960,7 +1966,7 @@ taf_doip_Result_t CommunicationMgr::CreateIPv4SocketRes
     {
         uint32_t cnt = 0;
         le_dls_Link_t* linkPtr = NULL;
-        linkPtr = le_dls_Peek(ifaces);
+        linkPtr = le_dls_Peek(ifaceListPtr);
         while (linkPtr)
         {
             taf_doip_Iface_t *ifacePtr = CONTAINER_OF(linkPtr, taf_doip_Iface_t, link);
@@ -1971,7 +1977,7 @@ taf_doip_Result_t CommunicationMgr::CreateIPv4SocketRes
                 return result;
             }
 
-            linkPtr = le_dls_PeekNext(ifaces, linkPtr);
+            linkPtr = le_dls_PeekNext(ifaceListPtr, linkPtr);
             cnt++;
         }
     }
@@ -2028,8 +2034,14 @@ taf_doip_Result_t CommunicationMgr::CreateIPv6SocketRes
     LE_DEBUG("TCP_DATA is %d, UDP_DISCOVEERY is %d",
             tcpDataPort, udpDiscoveryPort);
 
-    le_dls_List_t *ifaces = vehicleMgr.GetIfaceList();
-    if (le_dls_IsEmpty(ifaces))
+    le_dls_List_t *ifaceListPtr = vehicleMgr.GetIfaceList();
+    if (ifaceListPtr == NULL)
+    {
+        LE_ERROR("Interface is empty.");
+        return TAF_DOIP_RESULT_NO_LINK;
+    }
+
+    if (le_dls_IsEmpty(ifaceListPtr))
     {
         result = CreateSpecIPv6Socket(0, TAF_DOIP_INTERFACE_DEFAULT,
             udpDiscoveryPort, tcpDataPort);
@@ -2043,7 +2055,7 @@ taf_doip_Result_t CommunicationMgr::CreateIPv6SocketRes
     {
         uint32_t cnt = 0;
         le_dls_Link_t* linkPtr = NULL;
-        linkPtr = le_dls_Peek(ifaces);
+        linkPtr = le_dls_Peek(ifaceListPtr);
         while (linkPtr)
         {
             taf_doip_Iface_t *ifacePtr = CONTAINER_OF(linkPtr, taf_doip_Iface_t, link);
@@ -2054,7 +2066,7 @@ taf_doip_Result_t CommunicationMgr::CreateIPv6SocketRes
                 return result;
             }
 
-            linkPtr = le_dls_PeekNext(ifaces, linkPtr);
+            linkPtr = le_dls_PeekNext(ifaceListPtr, linkPtr);
             cnt++;
         }
     }

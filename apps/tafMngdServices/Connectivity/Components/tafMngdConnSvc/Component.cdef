@@ -5,6 +5,7 @@ sources:
     Data/tafMngdConnData.cpp
     Radio/tafMngdConnRadio.cpp
     Sim/tafMngdConnSim.cpp
+    ECall/tafMngdConnECall.cpp
     JSONParser/tafMngdConnSvcJSONParser.cpp
     JSONParser/tafMngdSvcJSONParser_Helper.cpp
     JSONParser/tafMngdConnSvcParser_PolicyParser.cpp
@@ -30,10 +31,18 @@ requires:
         le_cfg.api
         le_appInfo.api
 #if ${LE_CONFIG_TARGET_SIMULATION} = ""
+        taf_ecall.api
         taf_net.api
         $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdPm.api
 #endif
     }
+
+
+    lib:
+    {
+        curl
+    }
+
 }
 
 cxxflags:
@@ -44,6 +53,7 @@ cxxflags:
     -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/Data
     -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/Radio
     -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/Sim
+    -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/ECall
     -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/JSONParser
     -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc
     -I$LEGATO_ROOT/framework/liblegato

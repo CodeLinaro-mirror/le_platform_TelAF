@@ -147,11 +147,9 @@ void StateHandler(taf_update_StateInd_t* indication, taf_update_SessionRef_t ses
             break;
         case TAF_UPDATE_SYNC_PAUSED:
             printf("\n\nAB Sync was paused\n");
-            le_sem_Post(semaphore);
             break;
         case TAF_UPDATE_SYNC_FAIL:
             printf("\n\nAB Sync failed\n");
-            le_sem_Post(semaphore);
             break;
         default:
             break;
@@ -247,17 +245,25 @@ COMPONENT_INIT
 {
     LE_TEST_PLAN(LE_TEST_NO_PLAN);
 
-    if(le_arg_NumArgs() == 0) {
+    if(le_arg_NumArgs() == 0)
+    {
         printf("No arguments provided\n");
         PrintHelpMenu();
         LE_TEST_EXIT;
     }
 
     const char* cmd = le_arg_GetArg(0);
+    if(cmd == nullptr)
+    {
+        PrintHelpMenu();
+        LE_TEST_EXIT;
+    }
+
     semaphore = le_sem_Create("semaphore", 0);
     le_result_t result;
     taf_update_SessionRef_t sessRef = nullptr;
-    if (strncmp(cmd, "download", strlen("download")) == 0) {
+    if (strncmp(cmd, "download", strlen("download")) == 0)
+    {
         LE_TEST_INFO("======== Download Test ========");
         CreateHandlerThread();
         result = taf_update_GetDownloadSession(SESSION_CONF_FILE, &sessRef);
@@ -268,7 +274,8 @@ COMPONENT_INIT
         taf_update_RemoveStateHandler(handlerRef);
         LE_TEST_OK(true, "taf_update_RemoveStateHandler - OK");
     }
-    else if (strncmp(cmd, "start-bank-sync", strlen("start-bank-sync")) == 0) {
+    else if (strncmp(cmd, "start-bank-sync", strlen("start-bank-sync")) == 0)
+    {
         LE_TEST_INFO("======== Start Bank Sync Test ========");
         result = taf_update_GetInstallationSession(
             TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP, SESSION_CONF_FILE, &sessRef);
@@ -276,7 +283,8 @@ COMPONENT_INIT
         result = taf_update_StartSync(sessRef);
         LE_TEST_OK(result == LE_OK, "taf_update_StartSync - OK");
     }
-    else if (strncmp(cmd, "pause-bank-sync", strlen("pause-bank-sync")) == 0) {
+    else if (strncmp(cmd, "pause-bank-sync", strlen("pause-bank-sync")) == 0)
+    {
         LE_TEST_INFO("======== Pause Bank Sync Test ========");
         result = taf_update_GetInstallationSession(
             TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP, SESSION_CONF_FILE, &sessRef);
@@ -284,7 +292,8 @@ COMPONENT_INIT
         result = taf_update_PauseSync(sessRef);
         LE_TEST_OK(result == LE_OK, "taf_update_PauseSync - OK");
     }
-    else if (strncmp(cmd, "resume-bank-sync", strlen("resume-bank-sync")) == 0) {
+    else if (strncmp(cmd, "resume-bank-sync", strlen("resume-bank-sync")) == 0)
+    {
         LE_TEST_INFO("======== Resume Bank Sync Test ========");
         result = taf_update_GetInstallationSession(
             TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP, SESSION_CONF_FILE, &sessRef);
@@ -292,11 +301,13 @@ COMPONENT_INIT
         result = taf_update_ResumeSync(sessRef);
         LE_TEST_OK(result == LE_OK, "taf_update_ResumeSync - OK");
     }
-    else if (strncmp(cmd, "sync-console", strlen("sync-console")) == 0) {
+    else if (strncmp(cmd, "sync-console", strlen("sync-console")) == 0)
+    {
         printf("A-B bank sync menu:\n");
         printf("Enter s to start A-B sync operation\n");
         printf("Enter p to pause A-B sync operation\n");
         printf("Enter r to resume A-B sync operation\n");
+        printf("Enter c to cancel A-B sync operation\n");
         printf("Enter e to exit\n");
 
         CreateHandlerThread();
@@ -321,13 +332,18 @@ COMPONENT_INIT
                 printf("\nPausing AB Sync..\n");
                 result = taf_update_PauseSync(sessRef);
                 LE_TEST_OK(result == LE_OK, "taf_update_PauseSync - OK");
-                le_sem_Wait(semaphore);
             }
             else if(input == 'r')
             {
                 printf("\nResuming AB Sync..\n");
                 result = taf_update_ResumeSync(sessRef);
                 LE_TEST_OK(result == LE_OK, "taf_update_ResumeSync - OK");
+            }
+            else if(input == 'c')
+            {
+                printf("\nCanceling AB Sync..\n");
+                result = taf_update_CancelSync(sessRef);
+                LE_TEST_OK(result == LE_OK, "taf_update_CancelSync - OK");
             }
             else if(input == 'e')
             {
@@ -365,6 +381,11 @@ COMPONENT_INIT
         LE_TEST_INFO("======== Install Test ========");
         CreateHandlerThread();
         const char* name = le_arg_GetArg(1);
+        if(name == nullptr)
+        {
+            PrintHelpMenu();
+            LE_TEST_EXIT;
+        }
         if (strncmp(name, "firmware", strlen("firmware")) == 0) {
             result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP,
                 SESSION_CONF_FILE, &sessRef);
@@ -375,6 +396,7 @@ COMPONENT_INIT
                 LE_INFO("Enter s to start installation.");
                 LE_INFO("Enter p to pause installation.");
                 LE_INFO("Enter r to resume installation.");
+                LE_INFO("Enter c to cancel installation.");
                 LE_INFO("Enter e to exit installation.");
                 while (true)
                 {
@@ -398,6 +420,12 @@ COMPONENT_INIT
                         result = taf_update_ResumeInstall(sessRef);
                         LE_TEST_OK(result == LE_OK, "taf_update_ResumeInstall - OK");
                     }
+                    else if (input == 'c')
+                    {
+                        LE_INFO("Cancel install.");
+                        result = taf_update_CancelInstall(sessRef);
+                        LE_TEST_OK(result == LE_OK, "taf_update_CancelInstall - OK");
+                    }
                     else if (input == 'e')
                     {
                         LE_INFO("Exit install.");
@@ -405,7 +433,9 @@ COMPONENT_INIT
                     }
                 }
             }
-        } else if (name != nullptr) {
+        }
+        else if (name != nullptr)
+        {
             result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_TELAF_APP,
                 SESSION_CONF_FILE, &sessRef);
             LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
@@ -499,6 +529,12 @@ COMPONENT_INIT
         LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
 
         const char* bank = le_arg_GetArg(1);
+        if(bank == nullptr)
+        {
+            PrintHelpMenu();
+            LE_TEST_EXIT;
+        }
+
         if (strncmp(bank, "A", strlen("A")) == 0)
         {
             result = taf_update_EraseBank(sessRef, TAF_UPDATE_BANK_A);
@@ -520,53 +556,99 @@ COMPONENT_INIT
         result = taf_update_Rollback(sessRef);
         LE_TEST_OK(result == LE_OK, "taf_update_Rollback - OK");
     }
-	else if (strncmp(cmd, "version", strlen("version")) == 0) {
+    else if (strncmp(cmd, "version", strlen("version")) == 0)
+    {
         LE_TEST_INFO("======== Version Test ========");
         const char* name = le_arg_GetArg(1);
-        if (strncmp(name, "firmware", strlen("firmware")) == 0) {
+        if(name == nullptr)
+        {
+            PrintHelpMenu();
+            LE_TEST_EXIT;
+        }
+        if (strncmp(name, "firmware", strlen("firmware")) == 0)
+        {
             char version[TAF_FWUPDATE_MAX_VERS_LEN];
             result = taf_fwupdate_GetFirmwareVersion(version, sizeof(version));
             LE_INFO("firmware version: %s", version);
             LE_TEST_OK(result == LE_OK, "taf_fwupdate_GetFirmwareVersion - OK");
-        } else if (name != nullptr) {
+        }
+        else if (name != nullptr)
+        {
             char version[TAF_APPMGMT_APP_VERSION_BYTES];
             result = taf_appMgmt_GetVersion(name, version, sizeof(version));
             LE_INFO("app(%s) version:: %s", name, version);
             LE_TEST_OK(result == LE_OK, "taf_appMgmt_GetVersion - OK");
         }
-    } else if (strncmp(cmd, "reboot", strlen("reboot")) == 0) {
+    }
+    else if (strncmp(cmd, "reboot", strlen("reboot")) == 0)
+    {
         LE_TEST_INFO("======== Reboot Test ========");
         taf_fwupdate_RebootToActive();
-    } else if (strncmp(cmd, "start", strlen("start")) == 0) {
+    }
+    else if (strncmp(cmd, "start", strlen("start")) == 0)
+    {
         LE_TEST_INFO("======== App Start Test ========");
         const char* name = le_arg_GetArg(1);
+        if(name == nullptr)
+        {
+            PrintHelpMenu();
+            LE_TEST_EXIT;
+        }
         result = taf_appMgmt_Start(name);
         LE_TEST_OK(result == LE_OK, "taf_appMgmt_Start - OK");
-    } else if (strncmp(cmd, "stop", strlen("stop")) == 0) {
+    }
+    else if (strncmp(cmd, "stop", strlen("stop")) == 0)
+    {
         LE_TEST_INFO("======== App Stop Test ========");
         const char* name = le_arg_GetArg(1);
+        if(name == nullptr)
+        {
+            PrintHelpMenu();
+            LE_TEST_EXIT;
+        }
         result = taf_appMgmt_Stop(name);
         LE_TEST_OK(result == LE_OK, "taf_appMgmt_Stop - OK");
-    } else if (strncmp(cmd, "uninstall", strlen("uninstall")) == 0) {
+    }
+    else if (strncmp(cmd, "uninstall", strlen("uninstall")) == 0)
+    {
         LE_TEST_INFO("======== App Uninstall Test ========");
         const char* name = le_arg_GetArg(1);
+        if(name == nullptr)
+        {
+            PrintHelpMenu();
+            LE_TEST_EXIT;
+        }
         result = taf_appMgmt_Uninstall(name);
         LE_TEST_OK(result == LE_OK, "taf_appMgmt_Uninstall - OK");
-    } else if (strncmp(cmd, "appState", strlen("appState")) == 0) {
+    }
+    else if (strncmp(cmd, "appState", strlen("appState")) == 0)
+    {
         LE_TEST_INFO("======== App State Test ========");
         const char* name = le_arg_GetArg(1);
+        if(name == nullptr)
+        {
+            PrintHelpMenu();
+            LE_TEST_EXIT;
+        }
         taf_appMgmt_AppState_t state = taf_appMgmt_GetState(name);
-        if (state == TAF_APPMGMT_STATE_STOPPED) {
+        if (state == TAF_APPMGMT_STATE_STOPPED)
+        {
             LE_INFO("app %s is not running.", name);
-        } else {
+        }
+        else
+        {
             LE_INFO("app %s is running.", name);
         }
         LE_TEST_OK(true, "taf_appMgmt_GetState - OK");
-    } else if (strncmp(cmd, "appInfo", strlen("appInfo")) == 0) {
+    }
+    else if (strncmp(cmd, "appInfo", strlen("appInfo")) == 0)
+    {
         LE_TEST_INFO("======== App Info Test ========");
         GetAppInfo(semaphore);
         le_sem_Wait(semaphore);
-    } else {
+    }
+    else
+    {
         PrintHelpMenu();
     }
 

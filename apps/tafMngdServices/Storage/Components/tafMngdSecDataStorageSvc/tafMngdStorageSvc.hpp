@@ -199,7 +199,10 @@ class tafMngdStorageSvc: public ITafSvc
          */
         void InitStorage();
 
-        le_result_t ParseServiceJsonConfig();
+        le_result_t ParseServiceJsonConfig(char* configPath);
+
+        // Check the extension json if not valid, then intialized service with base json
+        le_result_t PreCheckExtensionJson();
 
         le_result_t GetStoragePath(char* bufferPtr, size_t bufferSize);
 

@@ -69,6 +69,18 @@
    }
    @endcode
  *
+ * @section c_taf_diag_routine_ctrl_Set_VlanId Set and Get VLAN ID
+ *
+ * After getting a service reference, an application can set the VLAN ID to the service to filter
+ * routine control requests using taf_diagRoutineCtrl_SetVlanId(). It shall be called before
+ * registering the handler for the RoutineControl(0x31) request message. An application can get the
+ * VLAN ID of the request message using taf_diagRoutineCtrl_GetVlanIdFromMsg().
+ *
+ * - taf_diagRoutineCtrl_SetVlanId() -- Sets the VLAN ID.
+ * - taf_diagRoutineCtrl_GetVlanIdFromMsg() -- Gets the VLAN ID of the request message.
+ *
+ * @section c_taf_diag_routine_control(0x31) Routine control service
+ *
  * After getting a reference, an application registers a message handler using
  * taf_diagRoutineCtrl_AddRxMsgHandler(). Once a routine control request message is received, the
  * handler will be called indicating the new message.

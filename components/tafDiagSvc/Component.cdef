@@ -13,6 +13,7 @@ provides:
         taf_diagEvent.api
         taf_diagDTC.api
         taf_diagDoIP.api
+        taf_diagAuth.api
 #endif
     }
 }
@@ -85,5 +86,8 @@ sources:
         tafSnapshotSvc.cpp
         tafDiagDoIPSvc.cpp
         tafDiagDoIPSvrImpl.cpp
+        tafAuthSvc.cpp
+        tafAuthSvrImpl.cpp
+        tafROESvrImpl.cpp
 #endif
 }

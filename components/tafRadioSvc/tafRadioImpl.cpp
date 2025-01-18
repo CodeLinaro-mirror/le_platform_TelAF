@@ -151,6 +151,408 @@ taf_radio_BandBitMask_t taf_radio_CovertRFBand
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Covert RF bandwidth.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_RFBandWidth_t taf_radio_CovertRFBandwidth
+(
+    telux::tel::RFBandWidth bandwidth ///< [IN] RF bandwidth.
+)
+{
+    switch (bandwidth)
+    {
+        case telux::tel::RFBandWidth::GSM_BW_NRB_2:
+            return TAF_RADIO_RF_BANDWIDTH_GSM_BW_0_2;
+        case telux::tel::RFBandWidth::WCDMA_BW_NRB_5:
+            return TAF_RADIO_RF_BANDWIDTH_WCDMA_BW_5;
+        case telux::tel::RFBandWidth::WCDMA_BW_NRB_10:
+            return TAF_RADIO_RF_BANDWIDTH_WCDMA_BW_10;
+        case telux::tel::RFBandWidth::TDSCDMA_BW_NRB_2:
+            return TAF_RADIO_RF_BANDWIDTH_TDSCDMA_BW_1_6;
+        case telux::tel::RFBandWidth::LTE_BW_NRB_6:
+            return TAF_RADIO_RF_BANDWIDTH_LTE_BW_1_4;
+        case telux::tel::RFBandWidth::LTE_BW_NRB_15:
+            return TAF_RADIO_RF_BANDWIDTH_LTE_BW_3;
+        case telux::tel::RFBandWidth::LTE_BW_NRB_25:
+            return TAF_RADIO_RF_BANDWIDTH_LTE_BW_5;
+        case telux::tel::RFBandWidth::LTE_BW_NRB_50:
+            return TAF_RADIO_RF_BANDWIDTH_LTE_BW_10;
+        case telux::tel::RFBandWidth::LTE_BW_NRB_75:
+            return TAF_RADIO_RF_BANDWIDTH_LTE_BW_15;
+        case telux::tel::RFBandWidth::LTE_BW_NRB_100:
+            return TAF_RADIO_RF_BANDWIDTH_LTE_BW_20;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_5:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_5;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_10:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_10;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_15:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_15;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_20:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_20;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_25:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_25;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_30:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_30;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_40:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_40;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_50:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_50;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_60:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_60;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_70:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_70;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_80:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_80;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_90:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_90;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_100:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_100;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_200:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_200;
+        case telux::tel::RFBandWidth::NR5G_BW_NRB_400:
+            return TAF_RADIO_RF_BANDWIDTH_NR5G_BW_400;
+        default:
+            LE_DEBUG("Invalid bandwidth.");
+    }
+
+    return TAF_RADIO_RF_BANDWIDTH_INVALID;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Covert 2G/3G RF active band.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_BandBitMask_t taf_radio_CovertRFBand
+(
+    telux::tel::RFBand band ///< [IN] 2G/3G active band
+)
+{
+    switch (band)
+    {
+        case telux::tel::RFBand::GSM_450:
+            return TAF_RADIO_BAND_BIT_MASK_GSM_BAND_450;
+        case telux::tel::RFBand::GSM_480:
+            return TAF_RADIO_BAND_BIT_MASK_GSM_BAND_480;
+        case telux::tel::RFBand::GSM_750:
+            return TAF_RADIO_BAND_BIT_MASK_GSM_BAND_750;
+        case telux::tel::RFBand::GSM_850:
+            return TAF_RADIO_BAND_BIT_MASK_GSM_BAND_850;
+        case telux::tel::RFBand::GSM_900_EXTENDED:
+            return TAF_RADIO_BAND_BIT_MASK_CLASS_E_GSM_900_BAND;
+        case telux::tel::RFBand::GSM_900_PRIMARY:
+            return TAF_RADIO_BAND_BIT_MASK_CLASS_P_GSM_900_BAND;
+        case telux::tel::RFBand::GSM_900_RAILWAYS:
+            return TAF_RADIO_BAND_BIT_MASK_GSM_BAND_RAILWAYS_900_BAND;
+        case telux::tel::RFBand::GSM_1800:
+            return TAF_RADIO_BAND_BIT_MASK_CLASS_GSM_DCS_1800_BAND;
+        case telux::tel::RFBand::GSM_1900:
+            return TAF_RADIO_BAND_BIT_MASK_GSM_PCS_1900_BAND;
+        case telux::tel::RFBand::WCDMA_2100:
+            return TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_J_CH_IMT_2100_BAND;
+        case telux::tel::RFBand::WCDMA_PCS_1900:
+            return TAF_RADIO_BAND_BIT_MASK_WCDMA_US_PCS_1900_BAND;
+        case telux::tel::RFBand::WCDMA_DCS_1800:
+            return TAF_RADIO_BAND_BIT_MASK_EU_CH_DCS_1800_BAND;
+        case telux::tel::RFBand::WCDMA_1700_US:
+            return TAF_RADIO_BAND_BIT_MASK_WCDMA_US_1700_BAND;
+        case telux::tel::RFBand::WCDMA_850:
+            return TAF_RADIO_BAND_BIT_MASK_WCDMA_US_850_BAND;
+        case telux::tel::RFBand::WCDMA_800:
+            return TAF_RADIO_BAND_BIT_MASK_WCDMA_JAPAN_800_BAND;
+        case telux::tel::RFBand::WCDMA_2600:
+            return TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_2600_BAND;
+        case telux::tel::RFBand::WCDMA_900:
+            return TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_J_900_BAND;
+        case telux::tel::RFBand::WCDMA_1700_JAPAN:
+            return TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_J_1700_BAND;
+        case telux::tel::RFBand::WCDMA_1500_JAPAN:
+            return TAF_RADIO_BAND_BIT_MASK_WCDMA_JAPAN_1500_BAND;
+        case telux::tel::RFBand::WCDMA_850_JAPAN:
+            return TAF_RADIO_BAND_BIT_MASK_WCDMA_JAPAN_850_BAND;
+        case telux::tel::RFBand::TDSCDMA_BAND_A:
+            return TAF_RADIO_BAND_BIT_MASK_TDSCDMA_BAND_A;
+        case telux::tel::RFBand::TDSCDMA_BAND_B:
+            return TAF_RADIO_BAND_BIT_MASK_TDSCDMA_BAND_B;
+        case telux::tel::RFBand::TDSCDMA_BAND_C:
+            return TAF_RADIO_BAND_BIT_MASK_TDSCDMA_BAND_C;
+        case telux::tel::RFBand::TDSCDMA_BAND_D:
+            return TAF_RADIO_BAND_BIT_MASK_TDSCDMA_BAND_D;
+        case telux::tel::RFBand::TDSCDMA_BAND_E:
+            return TAF_RADIO_BAND_BIT_MASK_TDSCDMA_BAND_E;
+        case telux::tel::RFBand::TDSCDMA_BAND_F:
+            return TAF_RADIO_BAND_BIT_MASK_TDSCDMA_BAND_F;
+        default:
+            LE_DEBUG("Invalid active band.");
+    }
+
+    return 0;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Covert LTE active band.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_radio_CovertLteActiveBand
+(
+    telux::tel::RFBand band ///< [IN] LTE active band
+)
+{
+    switch (band)
+    {
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_1:
+            return 1;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_2:
+            return 2;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_3:
+            return 3;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_4:
+            return 4;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_5:
+            return 5;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_6:
+            return 6;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_7:
+            return 7;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_8:
+            return 8;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_9:
+            return 9;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_10:
+            return 10;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_11:
+            return 11;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_12:
+            return 12;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_13:
+            return 13;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_14:
+            return 14;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_17:
+            return 17;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_18:
+            return 18;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_19:
+            return 19;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_20:
+            return 20;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_21:
+            return 21;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_23:
+            return 23;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_24:
+            return 24;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_25:
+            return 25;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_26:
+            return 26;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_27:
+            return 27;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_28:
+            return 28;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_29:
+            return 29;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_30:
+            return 30;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_31:
+            return 31;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_32:
+            return 32;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_33:
+            return 33;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_34:
+            return 34;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_35:
+            return 35;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_36:
+            return 36;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_37:
+            return 37;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_38:
+            return 38;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_39:
+            return 39;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_40:
+            return 40;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_41:
+            return 41;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_42:
+            return 42;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_43:
+            return 43;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_46:
+            return 46;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_47:
+            return 47;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_48:
+            return 48;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_49:
+            return 49;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_53:
+            return 53;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_66:
+            return 66;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_67:
+            return 67;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_68:
+            return 68;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_70:
+            return 70;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_71:
+            return 71;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_72:
+            return 72;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_73:
+            return 73;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_85:
+            return 85;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_86:
+            return 86;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_87:
+            return 87;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_88:
+            return 88;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_125:
+            return 125;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_126:
+            return 126;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_127:
+            return 127;
+        case telux::tel::RFBand::E_UTRA_OPERATING_BAND_250:
+            return 250;
+        default:
+            LE_DEBUG("Invalid LTE active band.");
+    }
+
+    return 0;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Covert NR5G active band.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_radio_CovertNrActiveBand
+(
+    telux::tel::RFBand band ///< [IN] NR5G active band
+)
+{
+    switch (band)
+    {
+        case telux::tel::RFBand::NR5G_BAND_1:
+            return 1;
+        case telux::tel::RFBand::NR5G_BAND_2:
+            return 2;
+        case telux::tel::RFBand::NR5G_BAND_3:
+            return 3;
+        case telux::tel::RFBand::NR5G_BAND_5:
+            return 5;
+        case telux::tel::RFBand::NR5G_BAND_7:
+            return 7;
+        case telux::tel::RFBand::NR5G_BAND_8:
+            return 8;
+        case telux::tel::RFBand::NR5G_BAND_12:
+            return 12;
+        case telux::tel::RFBand::NR5G_BAND_13:
+            return 13;
+        case telux::tel::RFBand::NR5G_BAND_14:
+            return 14;
+        case telux::tel::RFBand::NR5G_BAND_18:
+            return 18;
+        case telux::tel::RFBand::NR5G_BAND_20:
+            return 20;
+        case telux::tel::RFBand::NR5G_BAND_25:
+            return 25;
+        case telux::tel::RFBand::NR5G_BAND_26:
+            return 26;
+        case telux::tel::RFBand::NR5G_BAND_28:
+            return 28;
+        case telux::tel::RFBand::NR5G_BAND_29:
+            return 29;
+        case telux::tel::RFBand::NR5G_BAND_30:
+            return 30;
+        case telux::tel::RFBand::NR5G_BAND_34:
+            return 34;
+        case telux::tel::RFBand::NR5G_BAND_38:
+            return 38;
+        case telux::tel::RFBand::NR5G_BAND_39:
+            return 39;
+        case telux::tel::RFBand::NR5G_BAND_40:
+            return 40;
+        case telux::tel::RFBand::NR5G_BAND_41:
+            return 41;
+        case telux::tel::RFBand::NR5G_BAND_46:
+            return 46;
+        case telux::tel::RFBand::NR5G_BAND_48:
+            return 48;
+        case telux::tel::RFBand::NR5G_BAND_50:
+            return 50;
+        case telux::tel::RFBand::NR5G_BAND_51:
+            return 51;
+        case telux::tel::RFBand::NR5G_BAND_53:
+            return 53;
+        case telux::tel::RFBand::NR5G_BAND_65:
+            return 65;
+        case telux::tel::RFBand::NR5G_BAND_66:
+            return 66;
+        case telux::tel::RFBand::NR5G_BAND_70:
+            return 70;
+        case telux::tel::RFBand::NR5G_BAND_71:
+            return 71;
+        case telux::tel::RFBand::NR5G_BAND_74:
+            return 74;
+        case telux::tel::RFBand::NR5G_BAND_75:
+            return 75;
+        case telux::tel::RFBand::NR5G_BAND_76:
+            return 76;
+        case telux::tel::RFBand::NR5G_BAND_77:
+            return 77;
+        case telux::tel::RFBand::NR5G_BAND_78:
+            return 78;
+        case telux::tel::RFBand::NR5G_BAND_79:
+            return 79;
+        case telux::tel::RFBand::NR5G_BAND_80:
+            return 80;
+        case telux::tel::RFBand::NR5G_BAND_81:
+            return 81;
+        case telux::tel::RFBand::NR5G_BAND_82:
+            return 82;
+        case telux::tel::RFBand::NR5G_BAND_83:
+            return 83;
+        case telux::tel::RFBand::NR5G_BAND_84:
+            return 84;
+        case telux::tel::RFBand::NR5G_BAND_85:
+            return 85;
+        case telux::tel::RFBand::NR5G_BAND_86:
+            return 86;
+        case telux::tel::RFBand::NR5G_BAND_91:
+            return 91;
+        case telux::tel::RFBand::NR5G_BAND_92:
+            return 92;
+        case telux::tel::RFBand::NR5G_BAND_93:
+            return 93;
+        case telux::tel::RFBand::NR5G_BAND_94:
+            return 94;
+        case telux::tel::RFBand::NR5G_BAND_257:
+            return 257;
+        case telux::tel::RFBand::NR5G_BAND_258:
+            return 258;
+        case telux::tel::RFBand::NR5G_BAND_259:
+            return 259;
+        case telux::tel::RFBand::NR5G_BAND_260:
+            return 260;
+        case telux::tel::RFBand::NR5G_BAND_261:
+            return 261;
+        default:
+            LE_DEBUG("Invalid NR5G active band.");
+    }
+
+    return 0;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Listener for network scan results.
  */
 //--------------------------------------------------------------------------------------------------
@@ -788,6 +1190,7 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         ssMetrics.umts.sslv = (int8_t)signalStrength->getWcdmaSignalStrength()->getLevel() + 1;
         ssMetrics.umts.ss = signalStrength->getWcdmaSignalStrength()->getDbm();
         ssMetrics.umts.ber = signalStrength->getWcdmaSignalStrength()->getBitErrorRate();
+        ssMetrics.umts.rscp = signalStrength->getWcdmaSignalStrength()->getRscp();
     }
 
     if (signalStrength->getTdscdmaSignalStrength() != nullptr &&
@@ -1655,6 +2058,12 @@ char taf_RadioImsSettingCallback::sipUserAgentPtr[TAF_RADIO_IMS_USER_AGENT_BYTES
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * IMS Voice over NR.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_RadioImsSettingCallback::vonrConfig = true;
+//--------------------------------------------------------------------------------------------------
+/**
  * Response for setting IMS configurations.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1733,6 +2142,34 @@ void taf_RadioImsSettingCallback::onRequestImsSipUserAgentConfig
             le_utf8_Copy(sipUserAgentPtr, sipUserAgent.c_str(),
                 TAF_RADIO_IMS_USER_AGENT_BYTES, NULL);
         }
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for getting Voice over NR.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioImsSettingCallback::onRequestImsVonr
+(
+    SlotId slotId,                 ///< [IN] Slot ID.
+    bool isEnable,                 ///< [IN] Voice over NR configurations.
+    telux::common::ErrorCode error ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioImsSettingCallback --> onRequestImsVonr");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        vonrConfig = isEnable;
         result = LE_OK;
     }
 
@@ -1957,6 +2394,79 @@ void taf_RadioRFBandPrefResponseCallback::rfBandPrefResponse
             }
         }
         result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Semaphore for RF band information.
+ */
+//--------------------------------------------------------------------------------------------------
+le_sem_Ref_t taf_RadioRFBandInfoResponseCallback::semaphore = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Result of RF band information.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_RadioRFBandInfoResponseCallback::result = LE_OK;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * GSM/WCDMA/TDSCDMA RF band information.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_BandBitMask_t taf_RadioRFBandInfoResponseCallback::band = 0;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * LTE RF band information.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_RadioRFBandInfoResponseCallback::lteBand = 0;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * NR5G RF band information.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_RadioRFBandInfoResponseCallback::nrBand = 0;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * RF bandwidth information.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_RFBandWidth_t taf_RadioRFBandInfoResponseCallback::bandwidth =
+    TAF_RADIO_RF_BANDWIDTH_INVALID;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for getting RF band information.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioRFBandInfoResponseCallback::rfBandInfoResponse
+(
+    telux::tel::RFBandInfo bandInfo, ///< [IN] RF band information.
+    telux::common::ErrorCode error   ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioRFBandInfoResponseCallback --> rfBandInfoResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        result = LE_OK;
+        bandwidth = taf_radio_CovertRFBandwidth(bandInfo.bandWidth);
+        band = taf_radio_CovertRFBand(bandInfo.band);
+        lteBand = taf_radio_CovertLteActiveBand(bandInfo.band);
+        nrBand = taf_radio_CovertNrActiveBand(bandInfo.band);
     }
 
     le_sem_Post(semaphore);
@@ -2697,6 +3207,8 @@ void taf_Radio::Init(void)
         le_sem_Create("taf_RadioBandCapCbSem", 0);
     taf_RadioRFBandPrefResponseCallback::semaphore =
         le_sem_Create("taf_RadioBandPrefCbSem", 0);
+    taf_RadioRFBandInfoResponseCallback::semaphore =
+        le_sem_Create("taf_RadioBandInfoCbSem", 0);
 
     imsRegStatusChangeId = le_event_CreateIdWithRefCounting("ImsRegStatus");
     opModeChangeId = le_event_CreateIdWithRefCounting("OpMode");

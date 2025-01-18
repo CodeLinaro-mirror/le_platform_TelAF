@@ -4,57 +4,63 @@
 */
 
 import "platform:/plugin/org.genivi.commonapi.someip/deployment/CommonAPI-4-SOMEIP_deployment_spec.fdepl"
-import "platform:/plugin/org.genivi.commonapi.core/deployment/CommonAPI_deployment_spec.fdepl"
+import "platform:/plugin/org.genivi.commonapi.core/deployment/CommonAPI-4_deployment_spec.fdepl"
 import "MngdConnSvc.fidl"
-import "../common/CommonTypes.fdepl"
 
-define org.genivi.commonapi.core.deployment for interface com.qualcomm.qti.modem.MngdConnSvc
+define org.genivi.commonapi.core.deployment for typeCollection com.qualcomm.qti.telephony.MngdConnSvcTypes
 {
-    DefaultEnumBackingType = UInt32
-
-    enumeration DataState
+    enumeration TelephonyResultT
     {
-        EnumBackingType = UInt32
+        EnumBackingType = UInt8
+    }
+
+    enumeration MngdConnDataStateT
+    {
+        EnumBackingType = UInt8
+    }
+
+    enumeration ValueState
+    {
+        EnumBackingType = UInt8
     }
 }
 
-define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.modem.MngdConnSvc
+define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.telephony.MngdConnSvc
 {
     SomeIpServiceID = 0xED83
 
+    broadcast DataState
+    {
+        SomeIpEventID = 33369
+        SomeIpEventGroups = { 33369 }
+    }
+
     method StartData
     {
-        SomeIpMethodID = 0x1301
+        SomeIpMethodID = 601
     }
 
     method StopData
     {
-        SomeIpMethodID = 0x1302
+        SomeIpMethodID = 602
     }
 
     method GetDataList
     {
-        SomeIpMethodID = 0x1303
+        SomeIpMethodID = 603
     }
 
     method GetDataIpv4Info
     {
-        SomeIpMethodID = 0x1304
-    }
-
-
-    broadcast DataState
-    {
-        SomeIpEventID = 0x9301
-        SomeIpEventGroups = { 0x9300 }
+        SomeIpMethodID = 604
     }
 }
 
 define org.genivi.commonapi.someip.deployment for provider as Service
 {
-    instance com.qualcomm.qti.modem.MngdConnSvc
+    instance com.qualcomm.qti.telephony.MngdConnSvc
     {
-        InstanceId = "modem.MngdConnSvc"
+        InstanceId = "telephony.MngdConnSvc"
 
         SomeIpInstanceID = 1
     }

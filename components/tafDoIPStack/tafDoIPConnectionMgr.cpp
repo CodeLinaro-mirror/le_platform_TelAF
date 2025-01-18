@@ -202,7 +202,9 @@ std::shared_ptr<Connection> ConnectionManager::FindConnectionByLogicalAddr
 
     for (uint32_t i = 0; i < connectionBox.size(); i++)
     {
-        if (connectionBox[i]->IsLogicalAddressMatch(logicalAddr)) {
+        if (connectionBox[i]->IsLogicalAddressMatch(logicalAddr) &&
+            connectionBox[i]->IsConnectionRegitered())
+        {
             LE_DEBUG("Find a connection(%d-%d).\n", connectionBox[i]->GetLogicalSourceAddr(),
                     connectionBox[i]->GetLogicalTargetAddr());
             connTmp = connectionBox[i];

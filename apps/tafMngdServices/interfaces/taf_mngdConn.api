@@ -175,23 +175,45 @@
                 ],
 
                 "MultiDataSession": {
-                    "Enable": "Yes",           ///< Yes for enabling multiple data session support.
-                                               ///  No for disabling multiple data session support.
-                    "NumConnections": 2        ///< The maximum number of concurrent data sessions.
+                    "Enable": "Yes",            ///< Yes for enabling multiple data session support.
+                                                ///  No for disabling multiple data session support.
+                    "NumConnections": 2         ///< The maximum number of concurrent data sessions.
                 },
-                "ConnectivityRecovery": {      ///< Recovery mechanism that will kick in after
-                                               ///  DataStartRetry fails.
-                    "Level": "None",           ///< Level of recovery.
-                    "StartWaitTime": 30,       ///< Time in seconds the service will wait between
-                                               ///  connectivity recovery scheduled and started
-                                               ///  events.
-                    "RetryWaitTime" : 300,     ///< Time in seconds the service will wait before
-                                               ///  retrying a recovery process that was canceled or
-                                               ///  failed.
-                    "RadioOffOnInterval" : 5,  ///< Time in seconds between radio off and on for
-                                               ///  radio off-on recovery operation.
-                    "SimOffOnInterval" : 5     ///< Time in seconds between sim off and on for
-                                               ///  sim off-on recovery operation.
+                "ConnectivityRecovery": {       ///< Recovery mechanism that will kick in after
+                                                ///  DataStartRetry fails.
+                    "Level": "None",            ///< Level of recovery.
+                    "StartWaitTime": 30,        ///< Time in seconds the service will wait between
+                                                ///  connectivity recovery scheduled and started
+                                                ///  events.
+                    "RetryWaitTime" : 300,      ///< Time in seconds the service will wait before
+                                                ///  retrying a recovery process that was canceled
+                                                ///  or failed.
+                    "RadioOffOnInterval" : 5,   ///< Time in seconds between radio off and on for
+                                                ///  radio off-on recovery operation.
+                    "SimOffOnInterval" : 5,     ///< Time in seconds between sim off and on for
+                                                ///  sim off-on recovery operation.
+                    "AllowCancel": "No",        ///< Allow applications to cancel a scheduled
+                                                ///  recovery.
+                    "VerifyCancelingApp": "Yes" ///< Verify if calling app had previously requested
+                                                ///  a data session using taf_mngdConn_StartData().
+                },
+                "AppManagedConnectivityRecovery": {
+                    "Enable": "No",               ///< Enable/disable app triggered connectivity
+                                                  ///  recovery.
+                    "VerifyCallingApp": "Yes",    ///< Verify if calling app had previously
+                                                  ///  requested a data session using
+                                                  ///  taf_dcs_StartData().
+                    "MinTimeBetweenTriggers": 30, ///< The minimum time between 2
+                                                  ///  taf_mngdConn_StartDataRetry() calls in
+                                                  ///  seconds.
+                    "MaxTimeBetweenTriggers": 300 ///< The maximum time between 2
+                                                  ///  taf_mngdConn_StartDataRetry() calls in
+                                                  ///  seconds. The service will maintain the
+                                                  ///  recovery state during this time.
+                                                  ///  If the taf_mngdConn_StartDataRetry()API is
+                                                  ///  called again within this period by the same
+                                                  ///  client, then the service will trigger the
+                                                  ///   next level of recovery.
                 }
             }
         }
@@ -207,7 +229,7 @@
  <table border="1">
  <thead>
    <tr>
-     <th colspan="4" width="12%">Object (and subobjects)</th>
+     <th colspan="4" width="12%">Objects (and subobjects)</th>
      <th width="6%">Property</th>
      <th width="6%">TelAF data type</th>
      <th width="6%">Default value</th>
@@ -233,7 +255,7 @@
      <td>Optional and not used by the service.</td>
    </tr>
    <tr>
-     <td rowspan="36">ManagedConnectivityService</td>
+     <td rowspan="42">ManagedConnectivityService</td>
      <td colspan="3">Version</td>
      <td>Version</td>
      <td>char</td>
@@ -367,7 +389,9 @@
      <td>char</td>
      <td>null</td>
      <td>128</td>
-     <td>If null, do not make any changes to APN.
+     <td>If the value is null or an empty string, do not make any changes to the APN.
+         <br> Otherwise, compare this APN with the NAD APN and update it if they are different.
+         <br> If there is only a single space, set the APN to an empty string.
          <br> If APN set fails, log an ERROR, stop the service.</td>
    </tr>
    <tr>
@@ -481,7 +505,7 @@
      <td>URL to use for periodic connectivity test.</td>
    </tr>
    <tr>
-     <td rowspan="10">Policy</td>
+     <td rowspan="16">Policy</td>
      <td colspan="2">Name</td>
      <td>Name</td>
      <td>char</td>
@@ -490,7 +514,7 @@
      <td>Optional and not used by the service.</td>
    </tr>
    <tr>
-     <td rowspan="10">DataSession</td>
+     <td rowspan="15">DataSession</td>
      <td rowspan="2">DataConnection</td>
      <td>Priority</td>
      <td>uint8_t</td>
@@ -524,7 +548,7 @@
           in order of priority.</td>
    </tr>
    <tr>
-     <td rowspan="5">ConnectivityRecovery</td>
+     <td rowspan="7">ConnectivityRecovery</td>
      <td>Level</td>
      <td>char</td>
      <td>None</td>
@@ -552,7 +576,6 @@
                 Power Management service.
                 Enabling L3 also enables L1 and L2 recoveries. The service will try L1 recovery
                 followed by L2 recovery and then L3 recovery.
-
      </td>
    </tr>
    <tr>
@@ -590,6 +613,95 @@
      <td>240</td>
      <td>Time to wait in seconds between the SIM off and on operations.</td>
    </tr>
+   <tr>
+     <td>AllowCancel</td>
+     <td>char</td>
+     <td>No</td>
+     <td>Yes<br>No<br></td>
+     <td>
+        Allow applications to cancel a scheduled recovery.
+        <br>Yes → Allow applications to cancel a scheduled recovery.
+        <br>No → Do not allow applications to cancel a scheduled recovery.
+            taf_mngdConn_CancelRecoveryOperation() will return LE_NOT_PERMITTED
+       </td>
+   </tr>
+    <tr>
+     <td>VerifyCancelingApp</td>
+     <td>char</td>
+     <td>No</td>
+     <td>Yes<br>No<br></td>
+     <td>
+        Service to verify if calling app had previously requested a data session using
+        taf_mngdConn_StartData().<br>
+        Yes → taf_mngdConn_CancelRecoveryOperation() will only be allowed if the calling app had
+              previously requested data using taf_mngdConn_StartData(). If the app that calls
+              taf_mngdConn_CancelRecoveryOperation() had not previously called
+              taf_mngdConn_StartData(), the service will return LE_NOT_PERMITTED.<br>
+        No → Service will not check if the app calling taf_mngdConn_CancelRecoveryOperation() had
+             previously called taf_mngdConn_StartData().
+       </td>
+   </tr>
+   <tr>
+    <td rowspan="5">AppManagedConnectivityRecovery</td>
+     <td>Enable</td>
+     <td>char</td>
+     <td>No</td>
+     <td>Yes<br>No<br></td>
+     <td>
+        Allow app triggered recovery mechanisms.
+        <br>Yes → Allow applications to trigger recovery.
+        <br>No → Do not allow applications to trigger recovery.<br>
+                 taf_mngdConn_StartDataRetry() will return LE_NOT_PERMITTED.
+     </td>
+   </tr>
+   <tr>
+    <td>VerifyCallingApp</td>
+    <td>char</td>
+    <td>Yes</td>
+    <td>Yes<br>No<br></td>
+    <td>
+        Service to verify if calling app had previously requested a data session using
+        taf_mngdConn_StartData().<br>
+        If enabled, taf_mngdConn_StartDataRetry()  will only be allowed if the calling app had
+        previously requested data using taf_mngdConn_StartData(). If the app that calls
+        taf_mngdConn_StartDataRetry() API had not previously called taf_dcs_StartData(), the service
+        will return LE_NOT_PERMITTED.<br>
+        After a client calls taf_mngdConn_StartDataRetry(), the service will save the calling
+        client's ID until the "MaxTimeBetweenTriggers" expires. If another client calls
+        taf_mngdConn_StartDataRetry() when "MaxTimeBetweenTriggers" is active, the service will
+        return LE_BUSY.<br>
+        Note: taf_mngdConn_StartDataRetry() API is not multi app safe, as it does not wait for all
+              apps that requested data to either call taf_mngdConn_StartData() or disconnect. 
+    </td>
+   </tr>
+   <tr>
+    <td>MinTimeBetweenTriggers</td>
+    <td>uint16_t</td>
+    <td>30</td>
+    <td>3600</td>
+    <td>
+        Time period in seconds.<br>
+        The minimum time between 2 taf_mngdConn_StartDataRetry() calls, either from the same or
+        different apps. The timer is started after the first call is made and subsequent calls
+        within this time will return LE_NOT_POSSIBLE.
+    </td>
+   </tr>
+   <tr>
+    <td>MaxTimeBetweenTriggers</td>
+    <td>uint16_t</td>
+    <td>300</td>
+    <td>3600</td>
+    <td>
+        Time period in seconds.<br>
+        The maximum time the service will maintain the recovery state. If the
+        taf_mngdConn_StartDataRetry()API is called again within this period by the same client, then
+        the service will trigger the next level of recovery in the following order:
+        StartRetry → L1 → L2 → L3.<br>
+        After this timer expires, the calling client information will be cleared. On the next
+        invocation of taf_mngdConn_StartDataRetry(), the service will start a new recovery process.
+    </td>
+   </tr>
+   </tr>
  </tbody>
  </table>
  @endrst
@@ -603,6 +715,7 @@
       -- 24.06.00
       -- 24.07.00
       -- 24.09.00
+      -- 24.12.00
  @endverbatim
  * @par Multiple Data Sessions:
  *      For multiple data sessions, add Data object(s) and matching DataConnection object(s).

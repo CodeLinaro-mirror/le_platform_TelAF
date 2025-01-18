@@ -1,0 +1,453 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+import oyaml as yaml
+from pathlib import Path
+import os, sys, copy, re
+from pprint import pprint
+from collections import OrderedDict
+
+top_lvl_layer = os.path.dirname(os.path.abspath(__file__))
+top_build_layer = os.path.join(top_lvl_layer, "build")
+top_tmpls_layer = os.path.join(top_lvl_layer, "templates")
+
+top_yaml_merged_outdir = os.path.join(top_build_layer, "merged_same_name_files")
+
+os.makedirs(top_build_layer, exist_ok=True)
+os.makedirs(top_yaml_merged_outdir, exist_ok=True)
+
+import dengine as de
+from dengine import logger as L
+from dengine import __version__ as version
+from dengine import utils
+
+# Add one system path for Yaml files
+extended_sys_path = os.path.abspath("yaml_config")
+sys.path.append(extended_sys_path)
+import valid_files
+
+def check_yaml_validity(xpath):
+    L.info("[Stage] --> Checking YAML encoding format ...")
+    need_to_stop = False
+
+    for xp in xpath:
+        # Need to ensure all the configurations to be 'ascii'
+        with open(xp, "r") as stream:
+            try:
+                # For configuraitons (non-schemas), only support one-Document in YAML file
+                # Example for error output: found another document expected a single document in the stream
+
+                # Trigger the decoding detection
+                docs = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                need_to_stop = True
+                L.error(f"Error while parsing YAML file: [{xp.resolve()}]")
+                if hasattr(exc, "problem_mark"):
+                    if exc.context != None:
+                        L.error(
+                            "  parser says\n"
+                            + str(exc.problem_mark)
+                            + "\n  "
+                            + str(exc.problem)
+                            + " "
+                            + str(exc.context)
+                            + "\nPlease correct data and retry."
+                        )
+                    else:
+                        L.error(
+                            "  parser says\n"
+                            + str(exc.problem_mark)
+                            + "\n  "
+                            + str(exc.problem)
+                            + "\nPlease correct data and retry."
+                        )
+                else:
+                    L.error("Something went wrong while parsing yaml file")
+                continue  # Report all errors once
+
+            except UnicodeDecodeError as e:
+                need_to_stop = True
+                L.error(f"Error while parsing YAML file: [{xp.resolve()}]")
+                L.error(f"  UnicodeDecodeError: {e}")
+                L.error(f"  Error details: {e.reason}")
+                L.error(f"  Error position: {e.start} to {e.end}")
+                L.error(f"  Problematic bytes: {e.object[e.start:e.end]}")
+                L.error(r"Please check the encoding with regex: [^\x00-\x7F]")
+                continue
+
+    if need_to_stop is True:
+        sys.exit(1)
+    L.info("[Stage] --> Checking YAML encoding format [OK]")
+
+
+def get_the_domain_name(xp):
+    assert "yaml_config" in xp.parts
+    for idx, part in enumerate(xp.parts):
+        if part == "yaml_config":
+            return xp.parts[idx + 2]
+
+def prepare(xpath):
+    L.info("[Stage] --> Prepare YAML data structure start...")
+    ingredient = OrderedDict()
+
+    for xp in xpath:
+        part = OrderedDict()
+        with open(xp, "r") as stream:
+            domain_name_from_path = get_the_domain_name(xp)
+            doc = yaml.safe_load(stream)
+            if "domain_name" in doc.keys():
+                if doc["domain_name"] not in [domain_name_from_path, 'IVC3-SA']:
+                    L.error(f"Why the 'domain_name' is not matched? [{xp.resolve()}]")
+                    L.error(f"  domain_name in path is: {domain_name_from_path}")
+                    L.error(f"  domain_name in file is: {doc['domain_name']}")
+                    sys.exit(1)
+
+                part["domain"] = doc["domain_name"]
+                part["doc"] = doc
+
+                ingredient[xp] = part
+                # Example:
+                # ingredient items -> { xPath : { 'domain' : <variant-domain>, 'doc' : <yaml-doc> }, ...}
+            else:
+                L.info(f"Exclude file [{xp.resolve()}] that does't contain 'domain_name' TopNode")
+
+    L.info("[Stage] --> Prepare YAML data structure [OK]")
+    return ingredient
+
+# The action likes 'update'
+def do_recursive_update(target, input):
+    for key, value in input.items():
+        if isinstance(value, dict) and key in target.keys():
+            do_recursive_update(target[key], value)
+        else:
+            target[key] = value # 'input' will overwrite 'target'
+
+def combine(pending_same_files):
+    L.info("Combination start...")
+    output = OrderedDict()
+    for short_name, files in pending_same_files.items():
+
+        assert len(files) <= 2, "Currently, only support two domains to do the combination"
+        L.info(f"Combining: [{short_name}]")
+
+        # Check the 'expected_files_mapping' to identify which one we need to handle
+
+        if len(files) == 1: # unique
+            for file_node in files.values():
+                output[short_name] = OrderedDict()
+                for top_node_name, top_node_body in file_node['doc'].items():
+                    # Ignore all top_node we don't care
+                    if top_node_name in expected_files_mapping[short_name]:
+                        output[short_name][top_node_name] = top_node_body
+                    else:
+                        L.debug(f"Drop top_node (not required) -> {top_node_name} in [{short_name}]")
+        else: # 2 domains
+            generic = OrderedDict()
+            variant = OrderedDict()
+            output[short_name] = OrderedDict()
+
+            for file_node in files.values():
+
+                if file_node['domain'] == "Generic":
+                    for top_node_name, top_node_body in file_node['doc'].items():
+                        # Ignore all top_node we don't care
+                        if top_node_name in expected_files_mapping[short_name]:
+                            generic[top_node_name] = top_node_body
+                        else:
+                            L.debug(f"Drop top_node -> {top_node_name} in [{short_name}]")
+
+                elif file_node['domain'] == "IVC3-SA" or file_node['domain'] == "Variant":
+                    for top_node_name, top_node_body in file_node['doc'].items():
+                        # Ignore all top_node we don't care also
+                        if top_node_name in expected_files_mapping[short_name]:
+                            variant[top_node_name] = top_node_body
+                        else:
+                            L.debug(f"Drop top_node -> {top_node_name} in [{short_name}]")
+
+                    # Start combination ...
+
+                    # Replace 'set' with 'list' for ordered-items
+                    generic_top_nodes = list(generic.keys())
+                    variant_top_nodes = list(variant.keys())
+
+                    # top_nodes_intersection = generic_top_nodes & variant_top_nodes
+                    top_nodes_intersection = utils.do_intersection(generic_top_nodes, variant_top_nodes)
+
+                    # need_to_be_added_variant = variant_top_nodes - generic_top_nodes
+                    need_to_be_added_variant = utils.do_diff_left(variant_top_nodes, generic_top_nodes)
+
+                    # need_to_be_added_generic = generic_top_nodes - variant_top_nodes
+                    need_to_be_added_generic = utils.do_diff_left(generic_top_nodes, variant_top_nodes)
+
+                    # Add the diff-set directly
+                    for node_name in need_to_be_added_generic:
+                        output[short_name][node_name] = generic[node_name]
+                    for node_name in need_to_be_added_variant:
+                        output[short_name][node_name] = variant[node_name]
+
+                    # Handle the intersection of them
+                    for node_name in top_nodes_intersection:
+
+                        if type(variant[node_name]) is not dict:  #
+
+                            # Others, Errors should be raised
+                            L.error(f"Duplicate TopNode (non-dict type), which one is correct? [{short_name}]")
+                            L.error(f"  domain [Generic]]:")
+                            pprint(f"{node_name}: {generic[node_name]}")
+                            L.error(f"  domain [Variant]:")
+                            pprint(f"{node_name}: {variant[node_name]}")
+                            sys.exit(1)
+
+                        else: # dict-type, can do some special combination
+                            output[short_name][node_name] = OrderedDict()
+
+                            # Replace 'set' with 'list' for ordered-items
+                            generic_node_keys = list(generic[node_name].keys())
+                            variant_node_keys = list(variant[node_name].keys())
+
+                            # keys_intersection = generic_node_keys & variant_node_keys
+                            keys_intersection = utils.do_intersection(generic_node_keys, variant_node_keys)
+
+                            # only_in_generic_node_keys = generic_node_keys - variant_node_keys
+                            only_in_generic_node_keys = utils.do_diff_left(generic_node_keys, variant_node_keys)
+
+                            # only_in_variant_node_keys = variant_node_keys - generic_node_keys
+                            only_in_variant_node_keys = utils.do_diff_left(variant_node_keys, generic_node_keys)
+
+                            for key in only_in_generic_node_keys:
+
+                                # Only DIDs from Variant & Variant's did_ref (refer to Generic)
+                                # Cut down all Generic DIDs are NOT refered by Variant domain!
+                                if short_name != "drc_data_identifiers.yaml":
+                                    output[short_name][node_name][key] = generic[node_name][key]
+                                else:
+                                    L.info(f"Cut down DID [{hex(key)}] are NOT refered by Variant domain!")
+
+                            for key in only_in_variant_node_keys:
+                                output[short_name][node_name][key] = variant[node_name][key]
+
+                            # Handle 'services' case: combine 'generic' and 'variant'
+                            if short_name == "drc_services.yaml":
+                                if len(keys_intersection) != 0:
+                                    for key in keys_intersection:
+                                        output[short_name][node_name][key] = generic[node_name][key]
+                                        # Don't use 'update' directly, but same as 'update'
+                                        do_recursive_update(
+                                            output[short_name][node_name][key],
+                                            variant[node_name][key]
+                                        )
+
+                            # Handle 'did_ref' case
+                            elif short_name == "drc_data_identifiers.yaml":
+                                if len(keys_intersection) != 0:
+                                    for key in keys_intersection:
+                                        assert isinstance(variant[node_name][key], dict)
+                                        # Checking did_ref
+                                        if 'did_ref' in variant[node_name][key].keys():
+                                            output[short_name][node_name][key] = generic[node_name][key]
+                                            continue # ignore the 'Variant' additional items
+                                        else:
+                                            L.warning(f"Found duplicated DID [{hex(key)}] in Generic & Variant ! Override !!")
+                                            # 'Variant' override the 'Generic' parts <--
+                                            output[short_name][node_name][key] = variant[node_name][key]
+                            elif short_name == "drc_datas.yaml":
+                                for key in keys_intersection:
+                                    L.warning(f"Found duplicated data [{key}] in Generic & Variant ! Override !!")
+                                    # 'Variant' override the 'Generic' parts <--
+                                    output[short_name][node_name][key] = variant[node_name][key]
+                            elif short_name == "drc_platform.yaml":
+                                for key in keys_intersection:
+                                    L.warning(f"Found duplicated item [{key}] in Generic & Variant ! Override !!")
+                                    # 'Variant' override the 'Generic' parts <--
+                                    output[short_name][node_name][key] = variant[node_name][key]
+                            else:
+                                if len(keys_intersection) != 0:
+                                    L.error("Duplicate Map Item, please check which one is OK:")
+                                    for key in keys_intersection:
+                                        L.error(f"{short_name} . {node_name} . {key} <--")
+                                        if type(key) is int:
+                                            L.error(f"  {hex(key)}")
+                                        else:
+                                            L.error(f"  {key}")
+                                    sys.exit(1)
+                else:
+                    assert False, "Out of range about domain"
+    L.info("combination [OK]")
+    return output
+
+def required_top_nodes_check(mapping):
+    checked = {}
+    need_to_stop = False
+    for file_name, lst in mapping.items():
+        for item in lst:
+            if item not in checked.keys():
+                checked[item] = [file_name]
+            else:
+                need_to_stop = True
+                checked[item].append(file_name)
+
+    if need_to_stop is True:
+        for item, files in checked.items():
+            L.error(f"Error: item '{item}' is duplicate in files:")
+            for idx, file in enumerate(files):
+                L.error(f"  [{idx}] --> {file}")
+        sys.exit(1)
+
+def handle_same_files(ingredient):
+    L.info("[Stage] --> Combine pending files with same names ...")
+    # Ensure the required Files are unique
+    assert len(set(expected_files_mapping.keys())) == len(expected_files_mapping.keys())
+
+    # Ensure the required TopNodes are unique
+    required_top_nodes_check(expected_files_mapping)
+
+    pending_same_files = OrderedDict()
+
+    for file in ingredient.keys():
+        if file.name not in expected_files_mapping.keys():
+            L.debug(f"Ignore: {file}")
+            continue # ignore the files not in expected list
+        L.debug(f"Pick: [{file}]")
+        if file.name not in pending_same_files.keys():
+            pending_same_files[file.name] = OrderedDict()
+        pending_same_files[file.name][file] = ingredient[file]
+        # Example:
+        # pending_same_files -> {<short-name-of-file> : { xPath : { 'domain': ..., 'doc': ... },
+        #                                                      xPath : { 'domain': ..., 'doc': ... } } ,
+        #                <another-short-name-of-file> : { xPath : { 'domain': ..., 'doc': ... }, ... }
+
+    output = combine(pending_same_files)
+
+    for file_name, content in output.items():
+        with open(os.path.join(top_yaml_merged_outdir, file_name), "w") as file:
+            yaml.dump(content, file, default_flow_style=False, sort_keys=False)
+
+    L.info("[Stage] --> Combine pending files with same names [OK]")
+    return copy.deepcopy(output)
+
+
+def merge_into_one(mapping):
+    L.info("[Stage] --> Merging file into only one Yaml ...")
+    only_yaml = OrderedDict()
+    for top_nodes in mapping.values():
+        only_yaml.update(top_nodes)
+
+    with open(os.path.join(top_build_layer, 'merged_origin.yaml'), "w") as file:
+        yaml.dump(only_yaml, file, default_flow_style=False, sort_keys=False)
+    L.info("[Stage] --> Merging file into only one Yaml [OK]")
+    return only_yaml
+
+def show_help():
+    print(f"Usage(v: {version}): python3 {sys.argv[0]} [version]|[help]")
+
+def show_version():
+    print(f"Version of the tafDiagGen tool : {version}")
+
+def parse_parameters():
+
+    if len(sys.argv) > 2:
+        show_help()
+        sys.exit(1)
+
+    if len(sys.argv) == 1: return # continue..
+
+    # case == 2
+    if sys.argv[1] == 'version':
+        show_version()
+        sys.exit(0)
+    elif sys.argv[1] == 'help':
+        show_help()
+        sys.exit(0)
+    else:
+        show_help()
+        sys.exit(1)
+
+expected_files_mapping = {
+    # File-Name : Top-Node-List <--
+
+    "drc_platform.yaml": [
+        "common_props",
+        "diagnostic_session",
+        "diagnostic_session_security_level",
+        "execution_authorization_pattern",
+        "operation_cycle",
+        "datas_enable_conditions",
+        "debounce_algorithm",
+        "extended_data_records",
+        "authentication_roles",
+    ],
+    "drc_services.yaml": ["services_all"],
+    "drc_data_identifiers.yaml": ["did_all"],
+    "drc_datas.yaml": ["datas"],
+    "drc_dtcs.yaml": ["dtc_all"],
+    "drc_snapshots.yaml": ["data_identifier_set", "freeze_frames"],
+    "drc_ecu_reset.yaml": ["reset_all"],
+    "drc_routines.yaml": ["routines_all"],
+    "drc_routine_parameters.yaml": ["routine_parameters_all"],
+}
+
+
+def extend_configuration(only_yaml_without_ex, ex_cfg_path):
+    only_yaml = only_yaml_without_ex
+    if not os.path.exists(ex_cfg_path):
+        return only_yaml
+
+    with open(ex_cfg_path, "r") as stream:
+        ex_root = yaml.safe_load(stream)
+
+        if not ex_root:
+            L.info(f"Empty file ? [{ex_cfg_path}], Skipping extended configurations...")
+            return only_yaml
+
+        L.info("Handling the extended YAML files ... (Recursively)")
+
+        # Reuse the default value method to handle the cases of recursion
+        from dengine import default_value
+        only_yaml = default_value.recursive_diff(only_yaml, ex_root)
+
+    return only_yaml
+
+# Ordered dictionary load/dump solution:
+# https://stackoverflow.com/questions/5121931/in-python-how-can-you-load-yaml-mappings-as-ordereddicts
+# https://stackoverflow.com/questions/16782112/can-pyyaml-dump-dict-items-in-non-alphabetical-order
+
+if __name__ == "__main__":
+    parse_parameters()
+
+    xpath = valid_files.customer_files
+
+    if not xpath:
+        L.error(f"Not found any configuration from 'Generic' & 'Variant' folders. Please check ~")
+        sys.exit(1)
+
+    check_yaml_validity(xpath)
+
+    ingredient = prepare(xpath)
+
+    output = handle_same_files(ingredient)
+
+    only_yaml_without_ex = merge_into_one(output)
+
+    only_yaml = extend_configuration(
+                    only_yaml_without_ex,
+                    os.path.join(top_lvl_layer,'yaml_config/extended/drc_extended.yaml'))
+
+    de.try_to_load_ex_schema_checker(
+                    os.path.join(top_lvl_layer,
+                         'yaml_config/extended/exchecker.py'))
+
+    # Can be broken by any fatal issue
+    de.schema_check(only_yaml)
+
+    de.check_all_references(only_yaml)
+
+    final_yaml, final_pattern = de.convert_format(only_yaml, top_build_layer)
+
+    final_yaml['version'] = version + "_" + valid_files.which_one
+
+    de.generate(final_yaml, final_pattern, top_tmpls_layer, top_build_layer)
+
+    L.info(f"Finished for variant [{valid_files.which_one}] <--")

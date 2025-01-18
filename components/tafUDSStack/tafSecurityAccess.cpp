@@ -215,8 +215,12 @@ void TryToCreateStorageFromTree(AO_SecurityAccess_t *self)
 
         LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
         {
+            LE_ASSERT(sess != NULL);
+
             LE_SLS_FOREACH(&sess->level_list, level, SecurityLevel_t, link)
             {
+                LE_ASSERT(level != NULL);
+
                 /* Example: if-name/session-id/level/Att_Cnt */
                 snprintf(nodePath, sizeof(nodePath),
                          "%s/%02X/%02X/Att_Cnt", self->ifname,
@@ -374,8 +378,12 @@ static void LoadAttCntAndDelayTimer(AO_SecurityAccess_t * self, MEvent_t const *
 
     LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
     {
+        LE_ASSERT(sess != NULL);
+
         LE_SLS_FOREACH(&sess->level_list, level, SecurityLevel_t, link)
         {
+            LE_ASSERT(level != NULL);
+
             snprintf(nodePath, sizeof(nodePath),
                      "%s/%02X/%02X/Att_Cnt", self->ifname,
                      sess->session_id, level->Security_Level);
@@ -404,12 +412,17 @@ static bool PreConditionIsNotFulfilled(AO_SecurityAccess_t * self, MEvent_t cons
     bool found = false;
     LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
     {
+        LE_ASSERT(sess != NULL);
+
         if (sess->session_id != current_session_id) {
             continue;
         }
 
         LE_SLS_FOREACH(&sess->level_list, level, SecurityLevel_t, link)
         {
+            LE_ASSERT(level != NULL);
+
+            LE_DEBUG("Checking level: L%02X <--", level->Security_Level);
             if (level->Security_Level == sub_function) {
                 found = true;
                 break;
@@ -419,7 +432,8 @@ static bool PreConditionIsNotFulfilled(AO_SecurityAccess_t * self, MEvent_t cons
     }
 
     if (found != true) {
-        LE_INFO("[SecAcc] Requested security-access-type is out of range (cfg)");
+        LE_INFO("[SecAcc] Requested security-access-type is out of range (cfg) [L%02X]",
+                sub_function);
         return true;
     }
 
@@ -449,12 +463,16 @@ static bool MsgLengthIsNok(AO_SecurityAccess_t * self, MEvent_t const *ev, SecAc
 
             LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
             {
+                LE_ASSERT(sess != NULL);
+
                 if (sess->session_id != current_session_id) {
                     continue;
                 }
 
                 LE_SLS_FOREACH(&sess->level_list, level, SecurityLevel_t, link)
                 {
+                    LE_ASSERT(level != NULL);
+
                     if (level->Security_Level == sub_function) {
 
                         uint32_t seed_byte_size = (level->seed_size % 8)
@@ -516,8 +534,12 @@ static bool DelayTimerIsNotExpired(AO_SecurityAccess_t * self, MEvent_t const *e
 
     LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
     {
+        LE_ASSERT(sess != NULL);
+
         LE_SLS_FOREACH(&sess->level_list, level, SecurityLevel_t, link)
         {
+            LE_ASSERT(level != NULL);
+
             /* At the same time, only one takes effect for the Delay_Timer */
 
             if (level->Att_Cnt == level->Att_Cnt_Limit) {
@@ -551,12 +573,16 @@ static void ActivateSubfunction(AO_SecurityAccess_t * self, MEvent_t const *ev)
 
     LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
     {
+        LE_ASSERT(sess != NULL);
+
         if (sess->session_id != current_session_id) {
             continue;
         }
 
         LE_SLS_FOREACH(&sess->level_list, level, SecurityLevel_t, link)
         {
+            LE_ASSERT(level != NULL);
+
             if (level->Security_Level == sub_function) {
                 self->current_session->active_level = level;
                 break;
@@ -611,6 +637,8 @@ static bool RequestedSubFunctionIsStaticSeed(AO_SecurityAccess_t * self, MEvent_
     SecurityLevel_t * level;
     LE_SLS_FOREACH(&self->current_session->level_list, level, SecurityLevel_t, link)
     {
+        LE_ASSERT(level != NULL);
+
         if (level->Security_Level == sub_function) {
             break;
         }
@@ -680,6 +708,10 @@ static void SwitchSessionBasedOnEvent(AO_SecurityAccess_t * self, MEvent_t const
         SecuritySession_t * sess;
         LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
         {
+            LE_ASSERT(sess != NULL);
+
+            LE_DEBUG(" -> checking session-id: %d", sess->session_id);
+
             if (CURRENT_SESSION_ID(ev) == sess->session_id) {
                 self->current_session = sess;
                 break;
@@ -730,6 +762,8 @@ static void SwitchSessionAfterDelayTimerTimeout(AO_SecurityAccess_t * self)
         SecuritySession_t * sess;
         LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
         {
+            LE_ASSERT(sess != NULL);
+
             if (self->last_pending_session_id == sess->session_id) {
                 self->current_session = sess;
                 break;
@@ -838,23 +872,25 @@ MState_t State_LockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *ev
         case SESSION_CONTROL_SIG: {
             if (DelayTimerIsNotExpired(self, ev)) {
                 MarkLastPendingSession(self, ev, SESSION_CONTROL_SIG);
-                return M_Handled();
             }
             else {
                 DeactivateAndLock(self);
                 SwitchSessionBasedOnEvent(self, ev);
-                return M_Handled();
             }
+
+            le_sem_Post(EVENT(ev)->report->sem);
             return M_Handled();
         }
         case SESSION_TIMEOUT_SIG: {
             if (DelayTimerIsNotExpired(self, ev)) {
                 MarkLastPendingSession(self, ev, SESSION_TIMEOUT_SIG);
+                le_sem_Post(EVENT(ev)->report->sem);
                 return M_Handled();
             }
             else {
                 DeactivateAndLock(self);
                 self->current_session = self->default_session;
+                le_sem_Post(EVENT(ev)->report->sem);
                 return M_Handled();
             }
         }
@@ -975,11 +1011,13 @@ MState_t State_LockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const *e
         case SESSION_CONTROL_SIG: {
             DeactivateAndLock(self);
             SwitchSessionBasedOnEvent(self, ev);
+            le_sem_Post(EVENT(ev)->report->sem);
             return M_Translate(&State_LockedNoActiveSeed);
         }
         case SESSION_TIMEOUT_SIG: {
             DeactivateAndLock(self);
             self->current_session = self->default_session;
+            le_sem_Post(EVENT(ev)->report->sem);
             return M_Translate(&State_LockedNoActiveSeed);
         }
     }
@@ -1059,6 +1097,7 @@ MState_t State_UnlockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *
 
                 /* In unlocked state, lock current-session */
                 LockCurrentSession(self);
+                le_sem_Post(EVENT(ev)->report->sem);
 
                 /* Keep current state, wait for: DELAY_TIMER_EXPIRED_SIG */
                 return M_Handled();
@@ -1066,6 +1105,7 @@ MState_t State_UnlockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *
             else {
                 DeactivateAndLock(self);
                 SwitchSessionBasedOnEvent(self, ev);
+                le_sem_Post(EVENT(ev)->report->sem);
                 return M_Translate(&State_LockedNoActiveSeed);
             }
         }
@@ -1076,12 +1116,15 @@ MState_t State_UnlockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *
                 /* In unlocked state, lock current-session */
                 LockCurrentSession(self);
 
+                le_sem_Post(EVENT(ev)->report->sem);
+
                 /* Keep current state, wait for: DELAY_TIMER_EXPIRED_SIG */
                 return M_Handled();
             }
             else {
                 DeactivateAndLock(self);
                 self->current_session = self->default_session;
+                le_sem_Post(EVENT(ev)->report->sem);
                 return M_Translate(&State_LockedNoActiveSeed);
             }
         }
@@ -1209,11 +1252,13 @@ MState_t State_UnlockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const 
         case SESSION_CONTROL_SIG: {
             DeactivateAndLock(self);
             SwitchSessionBasedOnEvent(self, ev);
+            le_sem_Post(EVENT(ev)->report->sem);
             return M_Translate(&State_LockedNoActiveSeed);
         }
         case SESSION_TIMEOUT_SIG: {
             DeactivateAndLock(self);
             self->current_session = self->default_session;
+            le_sem_Post(EVENT(ev)->report->sem);
             return M_Translate(&State_LockedNoActiveSeed);
         }
     }
@@ -1224,6 +1269,21 @@ MState_t State_UnlockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const 
 bool SecurityAccess_IsUnlocked(UdsCommunicationMgr * mgr)
 {
     return (mgr->mSecurityAccess->current_session->unlocked_level != NULL);
+}
+
+bool SecurityAccess_IsLevelUnlocked
+(
+    UdsCommunicationMgr * mgr,
+    uint8_t level
+)
+{
+    SecurityLevel_t * ulevel =
+        mgr->mSecurityAccess->current_session->unlocked_level;
+
+    if (ulevel != NULL && level == (uint8_t) ulevel->Security_Level)
+        return true; /* Unlocked */
+
+    return false; /* Locked */
 }
 
 static void SecAcc_DelayTimerHandler(le_timer_Ref_t timerRef)

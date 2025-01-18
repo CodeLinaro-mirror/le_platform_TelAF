@@ -91,7 +91,7 @@ le_result_t taf_diagSecurity_SetVlanId
         ///< [IN] VLAN ID
 )
 {
-    LE_DEBUG("taf_diagSecurity_GetService");
+    LE_DEBUG("taf_diagSecurity_SetVlanId, vlan id is 0x%x", vlanId);
     auto &security = taf_SecuritySvr::GetInstance();
 
     return security.SetVlanId(svcRef, vlanId);
@@ -224,6 +224,28 @@ le_result_t taf_diagSecurity_GetCurrentSesType
     LE_DEBUG("taf_diagSecurity_GetCurrentSesType");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.GetCurrentSesType(svcRef, currentTypePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases a session change notification message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid msgRef or invalid service of the msgRef.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagSecurity_ReleaseSesChangeMsg
+(
+    taf_diagSecurity_SesChangeRef_t sesChangeRef
+        ///< [IN] Session change reference.
+)
+{
+    LE_DEBUG("taf_diagSecurity_ReleaseSesChangeMsg");
+    auto &security = taf_SecuritySvr::GetInstance();
+    return security.ReleaseSesChangeMsg(sesChangeRef);
 }
 
 //--------------------------------------------------------------------------------------------------

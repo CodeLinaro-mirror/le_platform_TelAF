@@ -2,7 +2,7 @@
     "Product": "TelAF",
     "Name": "MngdConn",
     "ManagedConnectivityService": {
-        "Version": "24.09.00",
+        "Version": "24.12.00",
         "Configuration": {
             "Name": "Default",
             "Sim":[
@@ -96,7 +96,15 @@
                     "StartWaitTime": 30,
                     "RetryWaitTime": 300,
                     "RadioOffOnInterval": 5,
-                    "SimOffOnInterval": 5
+                    "SimOffOnInterval": 5,
+                    "AllowCancel": "No",
+                    "VerifyCancelingApp": "Yes"
+                },
+                "AppManagedConnectivityRecovery": {
+                    "Enable": "No",
+                    "VerifyCallingApp": "Yes",
+                    "MinTimeBetweenTriggers": 30,
+                    "MaxTimeBetweenTriggers": 300
                 }
             }
         }

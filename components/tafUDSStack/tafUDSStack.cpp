@@ -78,6 +78,34 @@ le_result_t taf_uds_SendDiagResp
     }
 }
 
+le_result_t taf_uds_SetData
+(
+    const taf_uds_AddrInfo_t*  addrInfoPtr,       ///< [IN] Logical address information pointer.
+    const taf_uds_DiagMsg_t*   diagMsgPtr,        ///< [IN] Data pointer.
+    taf_uds_DataType_t dataType                   ///< [IN] Data type.
+)
+{
+    LE_DEBUG("taf_uds_SetData");
+
+    if(addrInfoPtr == NULL || diagMsgPtr == NULL || diagMsgPtr->dataPtr == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_BAD_PARAMETER;
+    }
+
+    LE_DEBUG("ifName=%s", addrInfoPtr->ifName);
+    auto udsCmMgr = UdsCommunicationMgr::GetInstance(addrInfoPtr->ifName);
+    if(udsCmMgr == NULL)
+    {
+        LE_ERROR("Can't get instance by ifName %s", addrInfoPtr->ifName);
+        return LE_FAULT;
+    }
+
+    return udsCmMgr->SetUDSData(addrInfoPtr->ifName, (uint8_t)dataType, diagMsgPtr->dataPtr,
+            diagMsgPtr->dataLen);
+
+}
+
 taf_uds_DiagIndicationHandlerRef_t taf_uds_AddDiagIndicationHandler
 (
     taf_uds_DiagIndicationHandlerFunc_t  indicationHandlerPtr,   ///< [IN] Hander function.
@@ -148,6 +176,16 @@ le_result_t taf_uds_Start
     LE_DEBUG("taf_uds_Start");
 
     return UdsCommunicationMgr::UdsStart(configPathPtr);
+}
+
+void taf_uds_GetFileXferActiveStateList
+(
+    le_dls_List_t* fileXferStateListPtr
+)
+{
+    LE_DEBUG("taf_uds_GetFileXferActiveState");
+
+    return UdsCommunicationMgr::GetFileXferActiveStateList(fileXferStateListPtr);
 }
 
 COMPONENT_INIT

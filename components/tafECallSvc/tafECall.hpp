@@ -52,7 +52,6 @@ using namespace std;
 #define CFG_NODE_MSDVERSION "msdVersion"
 #define CFG_NODE_MSDVEHTYPE "msdVehicleType"
 #define CFG_NODE_MSDVIN "msdVehIdentNum"
-#define CFG_NODE_OPMODE "operatingMode"
 #define CFG_ECALL_PROPULSIONTYPE_PATH "tafeCallSvc:/eCall/msdPropulsionType"
 #define CFG_NODE_PROPULSION_GASOLINE "Gasoline"
 #define CFG_NODE_PROPULSION_DIESEL "Diesel"
@@ -139,6 +138,7 @@ namespace telux {
             std::shared_ptr<telux::tel::ICall>  iCall;
             taf_DialRedial_t                    dialRedial;
             bool                                isReceivedLLACK;
+            int8_t                              phoneId;
         }
         taf_ECall_t;
 
@@ -298,6 +298,7 @@ namespace telux {
                 void ClearPduMsd();
                 taf_ecall_CallRef_t GetECallReference();
                 void SetCallIndex(int32_t callIndex);
+                void SetCallPhoneId(int8_t phoneId);
                 le_event_Id_t StateChangeEventId;
 
                 std::promise<telux::tel::ECallMode> getOpModeProm;

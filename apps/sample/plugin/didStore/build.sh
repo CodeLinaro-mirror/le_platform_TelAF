@@ -14,7 +14,7 @@ then
         -X "-fPIC" \
         -X "-shared" \
         -X "-std=c++11" \
-        -o sa525m/tafPiDidStore.so \
+        -o sa525m/TafPiDiagDID.so \
         .
 
 elif [ $TARGET == 'sa515m' ]
@@ -26,7 +26,7 @@ then
         -X "-fPIC" \
         -X "-shared" \
         -X "-std=c++11" \
-        -o sa515m/tafPiDidStore.so \
+        -o sa515m/TafPiDiagDID.so \
         .
 
 else

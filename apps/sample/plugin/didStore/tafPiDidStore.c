@@ -4,7 +4,7 @@
  */
 
 #include "legato.h"
-#include "interfaces.h"
+#include "le_cfg_interface.h"
 #include "tafPiDidStore.h"
 #include "tafPiDiagDID.h"
 
@@ -36,8 +36,11 @@ void* taf_hal_GetModInf()
     return &(TAF_HAL_INFO_TAB.diagInf);
 }
 
-
-// Used in QueueFunction to process Value change request
+//--------------------------------------------------------------------------------------------------
+/**
+* Used in QueueFunction to process Value change request
+*/
+//--------------------------------------------------------------------------------------------------
 static void ValueChangeRequest
 (
     void* param1,
@@ -48,98 +51,128 @@ static void ValueChangeRequest
 
     valueChangeReq_t* req = (valueChangeReq_t*)(param1);
 
+    // Ensure the le_cfg service is connected
+    le_cfg_ConnectService();
+
+    char didPath[128] = {0};
+    snprintf(didPath, sizeof(didPath), "diag/DID/%u", req->did);
+
     switch (req->Vrequest)
     {
         case VALUE_REQUEST_GET:
         {
-            LE_INFO("send the value change request with request: %u ......",
-                    req->Vrequest);
-            // Initialize a ReadDIDResp_t structure to store the response of the read operation
-            ReadDIDResp_t readDIDResp = {0};
+            LE_INFO("Processing VALUE_REQUEST_GET for DID: %u", req->did);
 
-            // Copy the request's DID, value, length, and result to the readDIDResp structure
-            readDIDResp.did = req->did;
-
-            if (req->len > sizeof(readDIDResp.value))
+            le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn(didPath);
+            if (!iteratorRef)
             {
-                req->len = sizeof(readDIDResp.value);
+                LE_ERROR("Failed to create read transaction for DID path: %s", didPath);
+                req->result = LE_FAULT;
+                break;
             }
-            memcpy(readDIDResp.value, req->value, req->len);
-            readDIDResp.len = req->len;
-            readDIDResp.result = req->result;
 
-            if(readDIDResp.value)
+            if (le_cfg_NodeExists(iteratorRef, "value"))
             {
-                // Call the callback function to handle the read DID response
-                getCallBackFunc(readDIDResp.did, readDIDResp.value, readDIDResp.len,
-                    readDIDResp.result);
+                uint8_t defaultValue[256] = {0}; // Default value in case the key doesn't exist
+                size_t valueSize = sizeof(req->value);
+
+                le_cfg_GetBinary(iteratorRef, "value", req->value, &valueSize, defaultValue,
+                    sizeof(defaultValue));
+
+                req->len = valueSize;
+                req->result = LE_OK;
+
+                LE_INFO("Retrieved value for DID %u, size: %zu", req->did, valueSize);
+            }
+            else
+            {
+                LE_ERROR("DID %u not found in configTree.", req->did);
+                req->result = LE_NOT_FOUND;
+            }
+
+            le_cfg_CancelTxn(iteratorRef);
+
+            if (req->result == LE_OK)
+            {
+                if(getCallBackFunc != NULL)
+                {
+                    getCallBackFunc(req->did, req->value, req->len, req->result);
+                }
+                else
+                {
+                    LE_ERROR("getCallBackFunc is NULL.");
+                }
             }
             break;
         }
         case VALUE_REQUEST_SET:
         {
-            LE_INFO("send the value change request with request: %u ......",
-                    req->Vrequest);
+            LE_INFO("Processing VALUE_REQUEST_SET for DID: %u", req->did);
 
-            // Initialize a WriteDIDResp_t structure to store the response of the write operation
-            WriteDIDResp_t writeDIDResp = {0};
+            le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn(didPath);
+            if (!iteratorRef)
+            {
+                LE_ERROR("Failed to create write transaction for DID path: %s", didPath);
+                req->result = LE_FAULT;
+                break;
+            }
 
-            // Copy the request's DID and result to the writeDIDResp structure
-            writeDIDResp.did = req->did;
-            writeDIDResp.result = req->result;
+            // Write the value into the configTree
+            le_cfg_SetBinary(iteratorRef, "value", req->value, req->len);
 
-            // Call the callback function to handle the write DID response
-            setCallbackFunc(writeDIDResp.did, writeDIDResp.result);
+            // Commit the transaction
+            le_cfg_CommitTxn(iteratorRef);
+
+            LE_INFO("Successfully set value for DID %u, size: %zu", req->did, req->len);
+
+            req->result = LE_OK;
+
+            if(setCallbackFunc != NULL)
+            {
+                setCallbackFunc(req->did, req->result);
+            }
+            else
+            {
+                LE_ERROR("setCallbackFunc is NULL.");
+            }
+            // Fire event for DID change notification
+            le_event_Report(NotifyDidEventId, (void*)&req->did, sizeof(req->did));
+
             break;
         }
         default:
             LE_ERROR("Invalid request type: %u", req->Vrequest);
-            // Release the memory allocated for the request
             le_mem_Release(req);
             return;
     }
-
-    le_mem_Release(req);
 }
 
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets DID value asynchronously.
- */
+* Gets DID value asynchronously.
+*/
 //--------------------------------------------------------------------------------------------------
-static le_result_t taf_pi_didStorg_GetAsync
+le_result_t taf_pi_didStorg_GetAsync
 (
     uint16_t dataID,
     TAF_PI_DIAGDID_GETHANDLER handler
 )
 {
-    LE_INFO("taf_pi_didStorg_GetAsync");
+    LE_INFO("taf_pi_didStorg_GetAsync for DID: %u", dataID);
+
     valueChangeReq_t* req = (valueChangeReq_t *)le_mem_ForceAlloc(ValueRequestPoolRef);
-    if(req == NULL)
+    if (req == NULL)
     {
         return LE_NO_MEMORY;
     }
 
-    bool isAvailable = false;
-    for (size_t i = 0; i < num_did_entries; ++i) {
-        if (did_entries[i].did == dataID) {
-            req->did = dataID;
-            req->value = did_entries[i].value;
-            req->len = did_entries[i].len;
-            isAvailable = true;
-            break;
-        }
-    }
-
-    if (isAvailable){
-        req->result = LE_OK;
-    }
-    else{
-        req->result = LE_NOT_FOUND;
-    }
-
     req->Vrequest = VALUE_REQUEST_GET;
+    req->did = dataID;
+    req->value = calloc(1, 256); // Allocate space for value
+    req->len = 0;
+    req->result = LE_OK;
+
     getCallBackFunc = handler;
 
     le_event_QueueFunction(ValueChangeRequest, (void*)(req), NULL);
@@ -149,10 +182,10 @@ static le_result_t taf_pi_didStorg_GetAsync
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets DID value asynchronously.
- */
+* Sets DID value asynchronously.
+*/
 //--------------------------------------------------------------------------------------------------
-static le_result_t taf_pi_didStorg_SetAsync
+le_result_t taf_pi_didStorg_SetAsync
 (
     uint16_t dataID,
     uint8_t *value,
@@ -160,32 +193,31 @@ static le_result_t taf_pi_didStorg_SetAsync
     TAF_PI_DIAGDID_SETHANDLER handler
 )
 {
-    LE_INFO("taf_pi_didStorg_SetAsync");
+    LE_INFO("taf_pi_didStorg_SetAsync for DID: %u", dataID);
+
     valueChangeReq_t* req = (valueChangeReq_t *)le_mem_ForceAlloc(ValueRequestPoolRef);
-    if(req == NULL)
+    if (req == NULL)
     {
         return LE_NO_MEMORY;
     }
+
     req->Vrequest = VALUE_REQUEST_SET;
     req->did = dataID;
-    req->value = value;
+    req->value = calloc(1, len); // Allocate space for value
+    if (req->value == NULL)
+    {
+        le_mem_Release(req);
+        return LE_NO_MEMORY;
+    }
+    memcpy(req->value, value, len);
     req->len = len;
     req->result = LE_OK;
+
     setCallbackFunc = handler;
 
-    for (size_t i = 0; i < num_did_entries; ++i)
-    {
-        if (did_entries[i].did == req->did)
-        {
-            if (req->len > sizeof(did_entries[i].value))
-            {
-                req->result = LE_FAULT;
-            }
-            memcpy(did_entries[i].value,  req->value, req->len);
-            did_entries[i].len = req->len;
-            req->result = LE_OK;
-        }
-    }
+    // Notify all clients of the DID change
+    LE_INFO("Notifying clients about the DID change: %u", dataID);
+    le_event_Report(NotifyDidEventId, &dataID, sizeof(dataID));
 
     le_event_QueueFunction(ValueChangeRequest, (void*)(req), NULL);
 

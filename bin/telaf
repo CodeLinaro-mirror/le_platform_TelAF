@@ -123,6 +123,7 @@ StartTelafAppGroup()
         # In LXC & Docker containers, don't use systemd
         /legato/systems/current/bin/app startGroup
     else
+        systemctl stop  telaf.app
         systemctl start telaf.app
     fi
     if [ $? -ne 0 ] ; then
@@ -130,20 +131,24 @@ StartTelafAppGroup()
         return 1
     fi
 
-    echo "Start TelAF APP group successful"
+    echo "Start TelAF APP group successfully"
     return 0
 }
 
 StopTelafAppGroup()
 {
-
-    systemctl stop telaf.app
+    if [ -n "${TELAF_IN_CONTAINER}" ]; then
+        # In LXC & Docker containers, don't use systemd
+        /legato/systems/current/bin/app stopGroup
+    else
+        systemctl stop telaf.app
+    fi
     if [ $? -ne 0 ] ; then
-        echo "Start TelAF App group failed"
+        echo "Stop TelAF App group failed"
         return 1
     fi
 
-    echo "Start TelAF APP group successful"
+    echo "Stop TelAF APP group successfully"
     return 0
 }
 

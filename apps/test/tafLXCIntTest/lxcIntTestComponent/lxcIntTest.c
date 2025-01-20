@@ -91,12 +91,16 @@ static int lxcTestCreateContainer()
 
     if (2 == le_arg_NumArgs())
     {
-        // Use user provided configuration file
-        snprintf(systemCmd, MAX_SYSTEM_CMD_LENGTH,
-                 "lxc-create -n %s -f %s -t none -o %s/lxc-create.log -l TRACE",
-                            lxcContainerNameStr,
-                            le_arg_GetArg(1),
-                            lxcLogPathStr);
+        const char* arg1 = le_arg_GetArg(1);
+        if (arg1 != NULL)
+        {
+            // Use user provided configuration file
+            snprintf(systemCmd, MAX_SYSTEM_CMD_LENGTH,
+                     "lxc-create -n %s -f %s -t none -o %s/lxc-create.log -l TRACE",
+                                lxcContainerNameStr,
+                                arg1,
+                                lxcLogPathStr);
+        }
     }
     else
     {

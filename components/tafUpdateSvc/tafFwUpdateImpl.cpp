@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -166,9 +166,16 @@ void taf_FwUpdate::SetState
 {
 
     FILE* fp = fopen(TAF_FWUPDATE_FOTA_STATE, "w");
-    fwrite(&state, sizeof(taf_update_State_t), 1, fp);
-    fflush(fp);
-    fclose(fp);
+    if (fp == NULL)
+    {
+        LE_ERROR("Can not open state file %s.", TAF_FWUPDATE_FOTA_STATE);
+    }
+    else
+    {
+        fwrite(&state, sizeof(taf_update_State_t), 1, fp);
+        fflush(fp);
+        fclose(fp);
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -185,8 +192,15 @@ taf_update_State_t taf_FwUpdate::GetState
     if (access(TAF_FWUPDATE_FOTA_STATE, F_OK) == 0)
     {
         FILE* fp = fopen(TAF_FWUPDATE_FOTA_STATE, "r");
-        fread(&state, sizeof(taf_update_State_t), 1, fp);
-        fclose(fp);
+        if (fp == NULL)
+        {
+            LE_ERROR("Can not open state file %s.", TAF_FWUPDATE_FOTA_STATE);
+        }
+        else
+        {
+            fread(&state, sizeof(taf_update_State_t), 1, fp);
+            fclose(fp);
+        }
     }
     return state;
 }
@@ -2290,6 +2304,12 @@ le_result_t taf_FwUpdate::CalFileHash
     }
 
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
+    if (md_ctx == NULL)
+    {
+        LE_ERROR("md_ctx is NULL.");
+        return LE_FAULT;
+    }
+
     const EVP_MD *md = EVP_sha1();
     if (EVP_DigestInit_ex(md_ctx, md, NULL) != 1)
     {
@@ -2363,6 +2383,12 @@ le_result_t taf_FwUpdate::CalPartitionHash
     }
 
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
+    if (md_ctx == NULL)
+    {
+        LE_ERROR("md_ctx is NULL.");
+        return LE_FAULT;
+    }
+
     const EVP_MD *md = EVP_sha1();
     if (EVP_DigestInit_ex(md_ctx, md, NULL) != 1)
     {

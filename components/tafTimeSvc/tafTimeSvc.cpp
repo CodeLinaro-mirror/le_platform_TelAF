@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -183,6 +183,7 @@ le_result_t taf_time_GetTime
     taf_time_TimeSpec_t* timeValPtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(timeValPtr == NULL, LE_BAD_PARAMETER, "timeValPtr is NULL");
     auto &tafTime = taf_Time::GetInstance();
     return tafTime.GetTime(timeSrcRef, timeValPtr);
 }
@@ -218,6 +219,7 @@ le_result_t taf_time_GetRefSystemTime
     taf_time_TimeSpec_t* timeValPtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(timeValPtr == NULL, LE_BAD_PARAMETER, "timeValPtr is NULL");
     auto &tafTime = taf_Time::GetInstance();
     return tafTime.GetRefSystemTime(timeSrcRef, timeValPtr);
 }
@@ -253,6 +255,7 @@ le_result_t taf_time_GetRefGptpTime
     taf_time_TimeSpec_t* timeValPtr
 )
 {
+    TAF_ERROR_IF_RET_VAL(timeValPtr == NULL, LE_BAD_PARAMETER, "timeValPtr is NULL");
     auto &tafTime = taf_Time::GetInstance();
     return tafTime.GetRefGptpTime(timeSrcRef, timeValPtr);
 }
@@ -451,6 +454,8 @@ le_result_t taf_time_GetFailedLoops
     int64_t* loopIntervalSec
 )
 {
+    TAF_ERROR_IF_RET_VAL(failedLoops == NULL, LE_BAD_PARAMETER, "failedLoops is NULL");
+    TAF_ERROR_IF_RET_VAL(loopIntervalSec == NULL, LE_BAD_PARAMETER, "loopIntervalSec is NULL");
     auto& tafTime = taf_Time::GetInstance();
     return tafTime.GetFailedLoops(sourceRef, failedLoops, loopIntervalSec);
 }
@@ -539,6 +544,7 @@ le_result_t taf_time_GetTimeZone
    int8_t* timeZone
 )
 {
+    TAF_ERROR_IF_RET_VAL(timeZone == NULL, LE_BAD_PARAMETER, "timeZone is NULL");
     auto& tafTime = taf_Time::GetInstance();
     return tafTime.GetTimeZone(sourceRef, timeZone);
 }
@@ -568,6 +574,7 @@ le_result_t taf_time_GetTimeDayAdj
    uint8_t* dayltSavAdj
 )
 {
+    TAF_ERROR_IF_RET_VAL(dayltSavAdj == NULL, LE_BAD_PARAMETER, "dayltSavAdj is NULL");
     auto& tafTime = taf_Time::GetInstance();
     return tafTime.GetTimeDayAdj(sourceRef, dayltSavAdj);
 }

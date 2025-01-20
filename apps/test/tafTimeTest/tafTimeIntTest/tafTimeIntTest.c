@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -141,8 +141,11 @@ void ConvertSecToDateTime
     struct tm *timeinfo = gmtime(&epoch_seconds);
     char tmpBuffer[80];
 
-    strftime(tmpBuffer, 80, "%c", timeinfo);
-    LE_INFO("UTC time: %s\n", tmpBuffer);
+    if (timeinfo != NULL)
+    {
+        strftime(tmpBuffer, 80, "%c", timeinfo);
+        LE_INFO("UTC time: %s\n", tmpBuffer);
+    }
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -265,7 +268,13 @@ void TestGetTimeRef
 {
     le_result_t result;
     taf_time_TimeSpec_t time;
-    uint8_t sourceId = strtol(le_arg_GetArg(2), NULL, 10);
+    const char* arg2 = le_arg_GetArg(2);
+    if (arg2 == NULL)
+    {
+        LE_ERROR("Invalid arguments.");
+        return;
+    }
+    uint8_t sourceId = strtol(arg2, NULL, 10);
     taf_time_TimeRef_t timeSrcRef;
 
     timeSrcRef = taf_time_GetTimeRef(sourceId);
@@ -344,7 +353,13 @@ void* TimeValueChangeHandlerTestThread
     void* contextPtr ///< [IN] Thread context.
 )
 {
-    uint8_t sourceId = strtol(le_arg_GetArg(2), NULL, 10);
+    const char* arg2 = le_arg_GetArg(2);
+    if (arg2 == NULL)
+    {
+        LE_ERROR("Invalid arguments.");
+        return NULL;
+    }
+    uint8_t sourceId = strtol(arg2, NULL, 10);
 
     // Connect to service.
     taf_time_ConnectService();
@@ -491,7 +506,7 @@ void AsyncGetCmdTest(void)
 {
     TimeCheckArgs(2);
     const char* cmd = le_arg_GetArg(1);
-    if (strncmp(cmd, "rtcTime", strlen(cmd)) == 0)
+    if (cmd != NULL && strncmp(cmd, "rtcTime", strlen(cmd)) == 0)
     {
         CreateGetRtcVhalTestThread();
     }
@@ -512,7 +527,13 @@ void TestGetSourceDetails
     void
 )
 {
-    uint8_t sourceId = strtol(le_arg_GetArg(2), NULL, 10);
+    const char* arg2 = le_arg_GetArg(2);
+    if (arg2 == NULL)
+    {
+        LE_ERROR("Invalid arguments.");
+        return;
+    }
+    uint8_t sourceId = strtol(arg2, NULL, 10);
     taf_time_SourceRef_t srcRef;
 
     srcRef = taf_time_GetSourceRef(sourceId);
@@ -598,7 +619,13 @@ void TestGetTimeZone
     void
 )
 {
-    uint8_t sourceId = strtol(le_arg_GetArg(2), NULL, 10);
+    const char* arg2 = le_arg_GetArg(2);
+    if (arg2 == NULL)
+    {
+        LE_ERROR("Invalid arguments.");
+        return;
+    }
+    uint8_t sourceId = strtol(arg2, NULL, 10);
     taf_time_SourceRef_t srcRef;
 
     srcRef = taf_time_GetSourceRef(sourceId);
@@ -614,7 +641,13 @@ void TestGetDayAdj
     void
 )
 {
-    uint8_t sourceId = strtol(le_arg_GetArg(2), NULL, 10);
+    const char* arg2 = le_arg_GetArg(2);
+    if (arg2 == NULL)
+    {
+        LE_ERROR("Invalid arguments.");
+        return;
+    }
+    uint8_t sourceId = strtol(arg2, NULL, 10);
     taf_time_SourceRef_t srcRef;
 
     srcRef = taf_time_GetSourceRef(sourceId);
@@ -630,8 +663,16 @@ void TestSetValidity
     void
 )
 {
-    uint8_t sourceId = strtol(le_arg_GetArg(2), NULL, 10);
-    uint8_t validity = strtol(le_arg_GetArg(3), NULL, 10);
+    const char* arg2 = le_arg_GetArg(2);
+    const char* arg3 = le_arg_GetArg(3);
+    if (arg2 == NULL || arg3 == NULL)
+    {
+        LE_ERROR("Invalid arguments.");
+        return;
+    }
+
+    uint8_t sourceId = strtol(arg2, NULL, 10);
+    uint8_t validity = strtol(arg3, NULL, 10);
     bool validityFlag = (validity == 0) ? false : true;
     taf_time_SourceRef_t srcRef;
 
@@ -656,6 +697,11 @@ void TimeGetCmdTest(void)
 {
     TimeCheckArgs(2);
     const char* cmd = le_arg_GetArg(1);
+    if (cmd == NULL)
+    {
+        LE_ERROR("cmd is NULL.");
+        return;
+    }
 
     if (strncmp(cmd, "GetTime", strlen(cmd)) == 0)
     {
@@ -691,15 +737,24 @@ void TimeSetCmdTest(void)
 
     TimeCheckArgs(2);
     const char* cmd = le_arg_GetArg(1);
+    if (cmd == NULL)
+    {
+        LE_ERROR("cmd is NULL.");
+        return;
+    }
 
     if (strncmp(cmd, "time", strlen(cmd)) == 0)
     {
         TimeCheckArgs(4);
         NewTimePool = le_mem_CreatePool("NewTimePool", sizeof(taf_time_TimeSpec_t));
         newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
-
-        newTimePtr->sec = strtol(le_arg_GetArg(2), NULL, 10);;
-        newTimePtr->nanosec = strtol(le_arg_GetArg(3), NULL, 10);;
+        const char* arg2 = le_arg_GetArg(2);
+        const char* arg3 = le_arg_GetArg(3);
+        if (arg2 != NULL && arg3 != NULL)
+        {
+            newTimePtr->sec = strtol(arg2, NULL, 10);
+            newTimePtr->nanosec = strtol(arg3, NULL, 10);
+        }
         LE_INFO("======== Test set system time ========\n");
 
         result = taf_time_SetSystemTime(newTimePtr, true);
@@ -712,8 +767,13 @@ void TimeSetCmdTest(void)
         TimeCheckArgs(4);
         NewTimePool = le_mem_CreatePool("NewTimePool", sizeof(taf_time_TimeSpec_t));
         newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
-        newTimePtr->sec = strtol(le_arg_GetArg(2), NULL, 10);;
-        newTimePtr->nanosec = strtol(le_arg_GetArg(3), NULL, 10);;
+        const char* arg2 = le_arg_GetArg(2);
+        const char* arg3 = le_arg_GetArg(3);
+        if (arg2 != NULL && arg3 != NULL)
+        {
+            newTimePtr->sec = strtol(arg2, NULL, 10);
+            newTimePtr->nanosec = strtol(arg3, NULL, 10);
+        }
         LE_INFO("======== Test set time to RTC ========\n");
 
         TestSetTimeToRtc(newTimePtr);
@@ -724,11 +784,16 @@ void TimeSetCmdTest(void)
         TimeCheckArgs(5);
         NewTimePool = le_mem_CreatePool("NewTimePool", sizeof(taf_time_TimeSpec_t));
         newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
-
-        newTimePtr->sec = strtol(le_arg_GetArg(2), NULL, 10);;
-        newTimePtr->nanosec = strtol(le_arg_GetArg(3), NULL, 10);;
-        long time = strtol(le_arg_GetArg(4), NULL, 10);
-
+        const char* arg2 = le_arg_GetArg(2);
+        const char* arg3 = le_arg_GetArg(3);
+        const char* arg4 = le_arg_GetArg(4);
+        long time = 0;
+        if (arg2 != NULL && arg3 != NULL && arg4 != NULL)
+        {
+            newTimePtr->sec = strtol(arg2, NULL, 10);
+            newTimePtr->nanosec = strtol(arg3, NULL, 10);
+            time = strtol(arg4, NULL, 10);
+        }
         // Register handler to receive notification if any
         CreateTimeHandlerTestThread();
 
@@ -756,16 +821,20 @@ void TimeHandlerTest(void)
     TimeCheckArgs(2);
     LE_TEST_INFO("======== Handler Test ========\n");
 
-    long time = strtol(le_arg_GetArg(1), NULL, 10);
-    CreateTimeHandlerTestThread();
+    const char* arg1 = le_arg_GetArg(1);
+    if (arg1 != NULL)
+    {
+        long time = strtol(arg1, NULL, 10);
+        CreateTimeHandlerTestThread();
 
-    //Try to trigger response
-    TestSetSystemTime();
+        //Try to trigger response
+        TestSetSystemTime();
 
-    // Wait for handler's response.
-    le_thread_Sleep(time);
+        // Wait for handler's response.
+        le_thread_Sleep(time);
 
-    RemoveTestHandler();
+        RemoveTestHandler();
+    }
 }
 
 void TimeValueChangeHandlerTest(void)
@@ -773,10 +842,14 @@ void TimeValueChangeHandlerTest(void)
     TimeCheckArgs(3);
     LE_TEST_INFO("======== Handler Test ========\n");
 
-    long time = strtol(le_arg_GetArg(1), NULL, 10);
-    CreateTimeValueChangeHandlerTestThread(time);
+    const char* arg1 = le_arg_GetArg(1);
+    if (arg1 != NULL)
+    {
+        long time = strtol(arg1, NULL, 10);
+        CreateTimeValueChangeHandlerTestThread(time);
 
-    RemoveRefTimeTestHandler();
+        RemoveRefTimeTestHandler();
+    }
 }
 
 void setRTCTimeAsync(le_result_t responseState, void* contextPtr)
@@ -792,8 +865,13 @@ void* TestSetRTCAsync(void* cxtPtr)
         taf_time_TimeSpec_t* newTimePtr;
         NewTimePool = le_mem_CreatePool("TimePool", sizeof(taf_time_TimeSpec_t));
         newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
-        newTimePtr->sec = strtol(le_arg_GetArg(2), NULL, 10);;
-        newTimePtr->nanosec = strtol(le_arg_GetArg(3), NULL, 10);;
+        const char* arg2 = le_arg_GetArg(2);
+        const char* arg3 = le_arg_GetArg(3);
+        if (arg2 != NULL && arg3 != NULL)
+        {
+            newTimePtr->sec = strtol(arg2, NULL, 10);
+            newTimePtr->nanosec = strtol(arg3, NULL, 10);
+        }
         le_result_t res = taf_time_SetRtcTimeReqAsync(newTimePtr, setRTCTimeAsync, (void*)cxtPtr);
         LE_TEST_ASSERT(res == LE_OK || res == LE_UNSUPPORTED,
             "Test: taf_time_SetRtcTimeReqAsync() APIs - ok");
@@ -828,7 +906,7 @@ void AsyncSetCmdTest(void)
 {
     TimeCheckArgs(2);
     const char* cmd = le_arg_GetArg(1);
-    if (strncmp(cmd, "rtcTime", strlen(cmd)) == 0)
+    if (cmd != NULL && strncmp(cmd, "rtcTime", strlen(cmd)) == 0)
     {
         CreateSetRtcVhalTestThread();
 
@@ -883,20 +961,25 @@ void* TimeSourceStatusHandlerTestThread(
 {
     // Connect to service.
     taf_time_ConnectService();
-    uint8_t sourceid = strtol(le_arg_GetArg(1), NULL, 10);
-    uint8_t eventType = strtol(le_arg_GetArg(2), NULL, 10);
-    taf_time_SourceRef_t sourceRef = NULL;
-    sourceRef = taf_time_GetSourceRef(sourceid);
+    const char* arg1 = le_arg_GetArg(1);
+    const char* arg2 = le_arg_GetArg(2);
+    if (arg1 != NULL && arg2 != NULL)
+    {
+        uint8_t sourceid = strtol(arg1, NULL, 10);
+        uint8_t eventType = strtol(arg2, NULL, 10);
+        taf_time_SourceRef_t sourceRef = NULL;
+        sourceRef = taf_time_GetSourceRef(sourceid);
 
-    LE_ASSERT(sourceRef != NULL);
+        LE_ASSERT(sourceRef != NULL);
 
-    TimeSourceStatusHandlerRef = taf_time_AddTimeSourceStatusHandler(sourceRef, eventType,
-        (taf_time_TimeSourceStatusHandlerFunc_t)TimeSourceStatusHandler, NULL);
+        TimeSourceStatusHandlerRef = taf_time_AddTimeSourceStatusHandler(sourceRef, eventType,
+            (taf_time_TimeSourceStatusHandlerFunc_t)TimeSourceStatusHandler, NULL);
 
-    LE_ASSERT(TimeSourceStatusHandlerRef != NULL);
-    LE_INFO("Handler registered successfully!.");
-    le_sem_Post((le_sem_Ref_t)contextPtr);
-    le_event_RunLoop();
+        LE_ASSERT(TimeSourceStatusHandlerRef != NULL);
+        LE_INFO("Handler registered successfully!.");
+        le_sem_Post((le_sem_Ref_t)contextPtr);
+        le_event_RunLoop();
+    }
     return NULL;
 }
 
@@ -926,17 +1009,21 @@ void TimeSourceStatusHandlerTest(void)
     TimeCheckArgs(4);
     LE_TEST_INFO("======== Time Source Status Change Handler Test ========\n");
 
-    long time = strtol(le_arg_GetArg(3), NULL, 10);
-    le_sem_Ref_t semaphore = le_sem_Create("timeSourceStatusSemaphore", 0);
-    le_thread_Ref_t threadRef = le_thread_Create("TimeSourceStatusThread",
-        TimeSourceStatusHandlerTestThread, (void*)semaphore);
-    le_thread_Start(threadRef);
+    const char* arg3 = le_arg_GetArg(3);
+    if (arg3 != NULL)
+    {
+        long time = strtol(arg3, NULL, 10);
+        le_sem_Ref_t semaphore = le_sem_Create("timeSourceStatusSemaphore", 0);
+        le_thread_Ref_t threadRef = le_thread_Create("TimeSourceStatusThread",
+            TimeSourceStatusHandlerTestThread, (void*)semaphore);
+        le_thread_Start(threadRef);
 
-    le_thread_Sleep(time);
-    le_sem_Wait(semaphore);
-    le_sem_Delete(semaphore);
+        le_thread_Sleep(time);
+        le_sem_Wait(semaphore);
+        le_sem_Delete(semaphore);
 
-    RemoveRefTimeSourceStatusTestHandler();
+        RemoveRefTimeSourceStatusTestHandler();
+    }
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -975,6 +1062,11 @@ COMPONENT_INIT
 
     TimeCheckArgs(1);
     const char* cmd = le_arg_GetArg(0);
+    if (cmd == NULL)
+    {
+        LE_ERROR("cmd is NULL");
+        LE_TEST_EXIT;
+    }
 
     LE_TEST_INFO("======== Time Service int Test ========");
 

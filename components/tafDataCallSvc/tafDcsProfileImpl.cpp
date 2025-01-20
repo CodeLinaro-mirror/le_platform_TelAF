@@ -28,7 +28,7 @@
  */
 
 /*  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -253,7 +253,7 @@ void taf_DataProfile::ProcessThrottledApnInfoChanged(const std::vector<telux::da
           linkPtr = le_dls_PeekNext(&ProfileCtxList, linkPtr);
           if(profileCtx == NULL)
           {
-            LE_DEBUG("Profile context not found slot %d Id %d", slotId,profileCtx->info.index);
+            LE_DEBUG("Profile context not found slot %d", slotId);
             continue;
           }
           if((slotId == profileCtx->slotId) && (profileCtx->throttleInfo.isThrottled == true))

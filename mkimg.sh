@@ -76,6 +76,15 @@ do
     fi
 done
 
+if [ -n "${VENDOR_ROOT}" ] && [ -d "${VENDOR_ROOT}" ]; then
+    echo "*** searching path: ${VENDOR_ROOT} ***"
+    for so_file in `find ${VENDOR_ROOT} -type f -name "*.so"`
+    do
+        echo "*** installing ${so_file} to ${TARGET_STAGE_DIR}/systems/current/modules/ ***"
+        cp -rf ${so_file} ${TARGET_STAGE_DIR}/systems/current/modules/
+    done
+fi
+
 mklegatoimg -t "${TARGET}" \
             -d "${TARGET_STAGE_DIR}/" \
             -o "${OUTPUT_STAGE}"

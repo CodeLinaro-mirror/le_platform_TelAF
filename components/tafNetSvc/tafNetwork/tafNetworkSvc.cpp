@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -1700,6 +1700,7 @@ le_result_t taf_netIpPass_GetIPPTOperation
 
     auto &tafVlan = taf_Vlan::GetInstance();
     TAF_ERROR_IF_RET_VAL(interfaceRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+    TAF_ERROR_IF_RET_VAL(operation == nullptr , LE_BAD_PARAMETER, "operation is null");
     result=tafVlan.GetIPPTOperation(interfaceRef,operation);
 
     return result;
@@ -1717,6 +1718,7 @@ le_result_t taf_netIpPass_GetIPPTDeviceMacAddress
 
     auto &tafVlan = taf_Vlan::GetInstance();
     TAF_ERROR_IF_RET_VAL(interfaceRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+    TAF_ERROR_IF_RET_VAL(ifType == nullptr , LE_BAD_PARAMETER, "ifType is null");
     result=tafVlan.GetIPPTDeviceMacAddress(interfaceRef,ifType,macAddr,macAddrSize);
 
     return result;
@@ -1816,6 +1818,8 @@ le_result_t taf_netIpPass_GetIPConfigParams
 
     auto &tafVlan = taf_Vlan::GetInstance();
     TAF_ERROR_IF_RET_VAL(vlanIPRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+    TAF_ERROR_IF_RET_VAL(ipOpr == nullptr , LE_BAD_PARAMETER, "ipOpr is null");
+    TAF_ERROR_IF_RET_VAL(ipType == nullptr , LE_BAD_PARAMETER, "ipType is null");
     result=tafVlan.GetIPConfigParams(vlanIPRef,ipOpr,ipType);
     return result;
 }

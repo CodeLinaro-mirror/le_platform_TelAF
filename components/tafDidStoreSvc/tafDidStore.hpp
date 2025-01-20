@@ -52,10 +52,6 @@ typedef struct
     taf_diagDidStore_DataIdChangeHandlerRef_t msgDIDStorgHandlerRef; ///< HandlerRef of DID notify.
     le_msg_SessionRef_t sessionRef;                                  ///< Client-svr session ref.
     le_dls_List_t list;                                              ///< Link for dynamic list
-    le_sem_Ref_t readSemaphore;                                      ///< Semaphore for read op
-    le_sem_Ref_t writeSemaphore;                                     ///< Semaphore for write op
-    uint8_t writeResult;                                             ///< Result of last write op
-    taf_ReadDidStorg_t readStrg;
 }taf_DidStore_t;
 
 

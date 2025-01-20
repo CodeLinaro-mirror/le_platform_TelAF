@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -335,7 +335,7 @@ COMPONENT_INIT
         {
             const char* path = le_arg_GetArg(1);
 
-            if(strlen(path) > 0)
+            if(path != NULL && strlen(path) > 0)
             {
                 le_result_t res = taf_rfs_SetBackupStorage(path);
 

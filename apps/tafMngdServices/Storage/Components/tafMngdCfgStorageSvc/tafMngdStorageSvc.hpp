@@ -49,6 +49,7 @@
 #define CONFIG_FILE_NAME_BAK "Config.json.bak"
 #define DEFAULT_MSS_CONFIG_NAME "tafMngdStorageSvc.json"
 #define TAF_MNGD_CFG_STORAGE_SVC_PATH "tafMngdCfgStorageSvc:/configuration/"
+#define TAF_MNGD_CFG_STORAGE_UPDATE_TREE_PATH "tafMngdCfgUpdateState:/UpdateState/"
 #define MAX_OEM_CONFIG_FILES 5
 #define MAX_QCM_CONFIG_FILES 1
 #define MAX_NUM_OF_CONFIG_STORAGE 20
@@ -56,6 +57,7 @@
 #define CFG_NODE_MAJORVERSION "MajorVersion"
 #define CFG_NODE_MINORVERSION "MinorVersion"
 #define CFG_NODE_PATCHVERSION "PatchVersion"
+#define CFG_NODE_STATE "State"
 #define CFG_NODE_MAJORVERSION_FULLPATH TAF_MNGD_CFG_STORAGE_SVC_PATH CFG_NODE_MAJORVERSION
 #define CFG_NODE_MINORVERSION_FULLPATH TAF_MNGD_CFG_STORAGE_SVC_PATH CFG_NODE_MINORVERSION
 #define CFG_NODE_PATCHVERSION_FULLPATH TAF_MNGD_CFG_STORAGE_SVC_PATH CFG_NODE_PATCHVERSION
@@ -92,6 +94,20 @@ typedef struct{
 
 }
 tafMngdStorage_ConfigStorage_t;
+
+typedef enum{
+    UPDATE_COMPLETED,
+    UPDATE_FAILED,
+    ACTIVATE_COMPLETED,
+    ACTIVATE_FAILED,
+    CANCEL_COMPLETED,
+    CANCEL_FAILED,
+    ROLLBACK_COMPLETED,
+    ROLLBACK_FAILED,
+    COMMIT_COMPLETED,
+    COMMIT_FAILED
+}
+tafMngdStorage_UpdateState_t;
 
 class tafMngdStorageSvc: public ITafSvc
 {
@@ -178,6 +194,10 @@ class tafMngdStorageSvc: public ITafSvc
         le_result_t ReleaseRef(taf_mngdStorCfg_ConfigRef_t);
 
         le_result_t Commit(taf_mngdStorCfg_ConfigRef_t);
+
+        le_result_t GetUpdateCampaignState(tafMngdStorage_UpdateState_t*);
+
+        le_result_t SetUpdateCampaignState(tafMngdStorage_UpdateState_t);
 
         le_result_t ClearTree();
 

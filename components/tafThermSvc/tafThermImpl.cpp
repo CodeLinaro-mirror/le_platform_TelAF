@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -916,9 +916,10 @@ le_result_t taf_Therm::GetThermalZoneType(
     TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, LE_FAULT,
             "Invalid reference (%p) provided!", tZonePtr);
 
+    TAF_ERROR_IF_RET_VAL(thermalZoneType == NULL, LE_FAULT, "Thermal zone type is NULL.");
+
     snprintf(thermalZoneType, sizeof(tZonePtr->Type), "%s", tZonePtr->Type);
 
-    TAF_ERROR_IF_RET_VAL(thermalZoneType == NULL, LE_FAULT, "Failed to return thermal zone type.");
     return LE_OK;
 }
 
@@ -1069,10 +1070,11 @@ le_result_t taf_Therm::GetCDevDescription(
 
     TAF_ERROR_IF_RET_VAL(cDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",cDevPtr);
 
-    snprintf(description, sizeof(cDevPtr->description), "%s", cDevPtr->description);
-
     TAF_ERROR_IF_RET_VAL(description == NULL, LE_FAULT,
             "Failed to return cooling device description.");
+
+    snprintf(description, sizeof(cDevPtr->description), "%s", cDevPtr->description);
+
     return LE_OK;
 }
 

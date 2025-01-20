@@ -28,7 +28,7 @@
  */
 /*
  *  Changes from Qualcomm Innovation Center, Inc are provided under the following license:
- *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1763,8 +1763,6 @@ COMPONENT_INIT
 {
     size_t numArgs = le_arg_NumArgs();
     std::string testName;
-    std::string APNStr;
-    std::string PDPStr = "IPV4";
 
     if (0 == numArgs)
     {
@@ -1773,7 +1771,13 @@ COMPONENT_INIT
     }
     else
     {
-        testName = le_arg_GetArg(0);
+        const char *testNameStr = le_arg_GetArg(0);
+        if (NULL == testNameStr)
+        {
+            PrintUsage();
+            LE_TEST_FATAL("Test name is empty");
+        }
+        testName = testNameStr;
     }
 
     LE_TEST_INIT;
@@ -1788,16 +1792,28 @@ COMPONENT_INIT
         {
             if (3 == numArgs)
             {
-                APNStr = le_arg_GetArg(1);
-                PDPStr = le_arg_GetArg(2);
-
-                LE_TEST_INFO("APN: %s, PDP: %s", APNStr.c_str(), PDPStr.c_str());
-                if (PDPStr != "IPV4" && PDPStr != "IPV6" && PDPStr != "IPV4V6")
+                const char* APNStr = le_arg_GetArg(1);
+                const char *PDPStr = le_arg_GetArg(2);
+                if (NULL == APNStr)
                 {
                     PrintUsage();
-                    LE_TEST_FATAL("Invalid PDP type: %s", PDPStr.c_str());
+                    LE_TEST_FATAL("APN is empty");
                 }
-                ut_create_profile_test_data(APNStr, PDPStr);
+                if (NULL == PDPStr)
+                {
+                    PrintUsage();
+                    LE_TEST_FATAL("PDP is empty");
+                }
+                std::string APN = APNStr;
+                std::string PDP = PDPStr;
+
+                LE_TEST_INFO("APN: %s, PDP: %s", APN.c_str(), PDP.c_str());
+                if (PDP != "IPV4" && PDP != "IPV6" && PDP != "IPV4V6")
+                {
+                    PrintUsage();
+                    LE_TEST_FATAL("Invalid PDP type: %s", PDP.c_str());
+                }
+                ut_create_profile_test_data(APN, PDP);
             }
             else
             {
@@ -1810,8 +1826,26 @@ COMPONENT_INIT
     {
         if (3 == numArgs)
         {
-            TEST_PROFILE_PHONEID_1 = std::stoul(le_arg_GetArg(1));
-            TEST_PROFILE_PHONEID_2 = std::stoul(le_arg_GetArg(2));
+            const char *arg1Str = le_arg_GetArg(1);
+            if (NULL == arg1Str)
+            {
+                LE_TEST_INFO("Using predefined profile ID with phone ID 1");
+            }
+            else
+            {
+                TEST_PROFILE_PHONEID_1 = std::stoul(arg1Str);
+            }
+
+            const char *arg2Str = le_arg_GetArg(2);
+            if (NULL == arg2Str)
+            {
+                LE_TEST_INFO("Using predefined profile ID with phone ID 2");
+            }
+            else
+            {
+                TEST_PROFILE_PHONEID_2 = std::stoul(arg2Str);
+            }
+
             LE_TEST_INFO("Profile ID used for tests with phone ID 1: %d", TEST_PROFILE_PHONEID_1);
             LE_TEST_INFO("Profile ID used for tests with phone ID 2: %d", TEST_PROFILE_PHONEID_2);
             LE_TEST_INFO("Running unit tests");

@@ -28,7 +28,7 @@
  */
 
 /*  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -89,6 +89,7 @@ taf_sim_RefreshChangeHandlerRef_t taf_sim_AddRefreshChangeHandler(taf_sim_Refres
 }
 
 le_result_t taf_sim_CreateSession(taf_sim_SessionType_t sessionType, taf_sim_RefreshRef_t* refreshSessionRef) {
+    TAF_ERROR_IF_RET_VAL(refreshSessionRef == NULL, LE_BAD_PARAMETER, "refreshSessionRef is NULL");
     LE_INFO("tafSimCard taf_sim_CreateSession sessionType: %d", (int) sessionType);
     auto &sim = taf_sim::GetInstance();
     return sim.CreateSession(sessionType, refreshSessionRef);
@@ -285,6 +286,7 @@ int32_t taf_sim_GetRemainingPINTries( taf_sim_Id_t slotId) {
 
 le_result_t taf_sim_GetRemainingPUKTries( taf_sim_Id_t slotId,
         uint32_t* remainingPukTriesPtr) {
+    TAF_ERROR_IF_RET_VAL(remainingPukTriesPtr == NULL, LE_BAD_PARAMETER, "remainingPukTriesPtr is NULL");
     auto &sim = taf_sim::GetInstance();
     return sim.GetRemainingPukTries(slotId, remainingPukTriesPtr);
 }
@@ -432,6 +434,8 @@ le_result_t taf_sim_SendCommand
         TAF_ERROR_IF_RET_VAL(responsePtr==NULL, LE_BAD_PARAMETER, "responsePtr is NULL");
         TAF_ERROR_IF_RET_VAL(dataNumElements > TAF_SIM_DATA_MAX_BYTES, LE_BAD_PARAMETER, "Too many elements for data");
         TAF_ERROR_IF_RET_VAL(*responseNumElementsPtr > TAF_SIM_RESPONSE_MAX_BYTES, LE_BAD_PARAMETER, "Too many elements for response");
+        TAF_ERROR_IF_RET_VAL(sw1 == NULL, LE_BAD_PARAMETER, "sw1 is NULL");
+        TAF_ERROR_IF_RET_VAL(sw2 == NULL, LE_BAD_PARAMETER, "sw2 is NULL");
         auto &sim = taf_sim::GetInstance();
         return sim.SendCommand(simId, command, fileIdentifierPtr, &p1, &p2, &p3, dataPtr, dataNumElements, pathPtr, sw1, sw2, responsePtr, responseNumElementsPtr);
 }

@@ -1,22 +1,32 @@
 {
     "telaf" : {
-        "Commit-ID": "7984597152840e7ec9d8f1e3510873a4936a525a",
+        "Remote-Repo-Name": "origin",
+        "Remote-Branch-Name" : "telaf.lnx.1.1",
+        "Commit-ID": "106ae8aeb8b74a66d25caa1b303c8f22bda7c2fc",
         "Patch-Cmd-List": []
     },
     "legato/legato-af" : {
-        "Commit-ID": "3ff91b6a84ae9e1ee5c4ea43694f2d917acc27aa",
+        "Remote-Repo-Name": "origin",
+        "Remote-Branch-Name": "telaf.lnx.1.1",
+        "Commit-ID": "a6192f6907167bf7adcbc93db6e0f5041dae2876",
         "Patch-Cmd-List": []
     },
-    "legato/3rdParty/jansson/" : {
+    "legato/3rdParty/jansson" : {
+        "Remote-Repo-Name": "origin",
+        "Remote-Branch-Name": "caf_migration/refs/tags/20.04.0",
         "Commit-ID": "cfed4c57d3deffab23e2e368d264a4087afc46ab",
         "Patch-Cmd-List": []
     },
-    "legato/3rdParty/Kconfiglib/" : {
+    "legato/3rdParty/Kconfiglib" : {
+        "Remote-Repo-Name": "origin",
+        "Remote-Branch-Name": "caf_migration/refs/tags/20.04.0",
         "Commit-ID": "ae147b3d2727b222653183b5abf77e38c052b595",
         "Patch-Cmd-List": []
     },
     "sdk" : {
-        "Commit-ID": "LE.UM.7.4.1.r1-14600-sa525m-tele",
+        "Remote-Repo-Name": "origin",
+        "Remote-Branch-Name": "telsdk.lnx.2.0.r11-rel",
+        "Commit-ID": "4891282b16c4c26fe8724ec5b63e99f09940c47f",
         "Patch-Cmd-List": []
     }
 }

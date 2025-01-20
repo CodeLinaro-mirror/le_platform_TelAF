@@ -63,7 +63,8 @@ _post_deps:
 
 .PHONY: _boost simula-boost boost_
 
-BOOST_URL?=https://boostorg.jfrog.io/artifactory/main/release/1.74.0/source/boost_1_74_0.tar.gz
+# Deprecated link: https://boostorg.jfrog.io/artifactory/main/release/1.74.0/source/boost_1_74_0.tar.gz
+BOOST_URL?=https://archives.boost.io/release/1.78.0/source/boost_1_78_0.tar.gz
 _BOOST_VERSION=$(notdir $(lastword $(subst /, ,$(BOOST_URL))))
 BOOST_VERSION=$(_BOOST_VERSION:%.tar.gz=%)
 
@@ -136,9 +137,8 @@ cmake_:
 
 .PHONY: _vsomeip simula-vsomeip vsomeip_
 
-# VSOMEIP_URL?=https://github.com/COVESA/vsomeip/archive/refs/tags/3.1.20.3.tar.gz
 # NOTE: cmake >= 3.13.xx is required for vsomeip 3.4.9-r1
-VSOMEIP_URL?=https://github.com/COVESA/vsomeip/archive/refs/tags/3.4.9-r1.tar.gz
+VSOMEIP_URL?=https://github.com/COVESA/vsomeip/archive/refs/tags/3.4.10.tar.gz
 _VSOMEIP_VERSION=$(notdir $(lastword $(subst /, ,$(VSOMEIP_URL))))
 VSOMEIP_VERSION=$(_VSOMEIP_VERSION:%.tar.gz=vsomeip-%)
 

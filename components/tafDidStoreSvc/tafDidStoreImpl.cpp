@@ -9,8 +9,8 @@
 
 using namespace telux::tafsvc;
 
-le_sem_Ref_t read_semaphore;
-le_sem_Ref_t write_semaphore;
+le_sem_Ref_t read_semaphore = NULL;
+le_sem_Ref_t write_semaphore = NULL;
 le_mem_PoolRef_t WriteRequestPool;
 le_mem_PoolRef_t ReadRequestPool;
 le_thread_Ref_t ReadThreadRef;
@@ -64,10 +64,6 @@ taf_diagDidStore_ServiceRef_t taf_diagDidStore::GetService
         servicePtr = (taf_DidStore_t*)le_mem_ForceAlloc(SvcPool);
         memset(servicePtr, 0, sizeof(taf_DidStore_t));
         servicePtr->sessionRef = sessionRef;
-
-        // Initialize semaphores
-        servicePtr->readSemaphore = le_sem_Create("ReadSemaphore", 0);
-        servicePtr->writeSemaphore = le_sem_Create("WriteSemaphore", 0);
 
         // Add to the map
         servicePtr->svcRef = (taf_diagDidStore_ServiceRef_t)le_ref_CreateRef(SvcRefMap, servicePtr);
@@ -123,41 +119,30 @@ void taf_diagDidStore::didReadCb
 
     auto &didStore = taf_diagDidStore::GetInstance();
 
-    // Get the session reference of the client that initiated the read request
-    le_msg_SessionRef_t clientSessionRef = taf_diagDidStore_GetClientSessionRef();
-    if (!clientSessionRef)
-    {
-        LE_ERROR("Unable to retrieve client session reference.");
-        return;
-    }
+    // Store the read result in the client-specific structure
+    didStore.readStrg.readDID = dataID;
 
-    // Find the client-specific service object
-    taf_DidStore_t* servicePtr = (taf_DidStore_t*)didStore.GetServiceObj(clientSessionRef);
-
-    if (!servicePtr)
-    {
-        LE_ERROR("Service object not found for client session %p", clientSessionRef);
-        return;
-    }
-
-     // Store the read result in the client-specific structure
-    servicePtr->readStrg.readDID = dataID;
-
-    if (value == NULL || len == 0 || len > sizeof(servicePtr->readStrg.didData))
+    if (value == NULL || len == 0 || len > sizeof(didStore.readStrg.didData))
     {
         LE_ERROR("Invalid read response: dataID %u, len %zu", dataID, len);
-        servicePtr->readStrg.result = TAF_REQ_OUT_OF_RANGE;
-        le_sem_Post(servicePtr->readSemaphore); // Signal client-specific semaphore
-        return;
+        didStore.readStrg.result = TAF_REQ_OUT_OF_RANGE;
+        if (read_semaphore != NULL)
+        {
+            le_sem_Post(read_semaphore); // Signal client-specific semaphore
+            return;
+        }
     }
 
     // Copy data to the client-specific structure
-    memcpy(servicePtr->readStrg.didData, value, len);
-    servicePtr->readStrg.didDataLen = len;
-    servicePtr->readStrg.result = result;
+    memcpy(didStore.readStrg.didData, value, len);
+    didStore.readStrg.didDataLen = len;
+    didStore.readStrg.result = result;
 
     // Signal the client-specific semaphore
-    le_sem_Post(servicePtr->readSemaphore);
+    if (read_semaphore != NULL)
+    {
+        le_sem_Post(read_semaphore);
+    }
 }
 
 
@@ -168,28 +153,12 @@ le_result_t taf_diagDidStore::Read
     size_t* dataRecordSizePtr
 )
 {
-    LE_DEBUG("taf_diagDidStore_Read! DataID: 0x%04X", dataId);
+    LE_DEBUG("Read! DataID: 0x%04X", dataId);
 
     // Check if dataRecordPtr or dataRecordSizePtr is NULL
     if(dataRecordPtr == NULL || dataRecordSizePtr == NULL)
     {
         LE_ERROR("Invalid parameter: dataRecordPtr or dataRecordSizePtr is NULL");
-        return LE_FAULT;
-    }
-
-    // Get the session reference of the current client
-    le_msg_SessionRef_t clientSessionRef = taf_diagDidStore_GetClientSessionRef();
-    if (!clientSessionRef)
-    {
-        LE_ERROR("Unable to retrieve client session reference.");
-        return LE_FAULT;
-    }
-
-    // Find the client-specific service object
-    taf_DidStore_t* servicePtr = taf_diagDidStore::GetServiceObj(clientSessionRef);
-    if (!servicePtr)
-    {
-        LE_ERROR("Service object not found for client session %p", clientSessionRef);
         return LE_FAULT;
     }
 
@@ -199,6 +168,12 @@ le_result_t taf_diagDidStore::Read
     {
         LE_ERROR("Failed to allocate memory for read request.");
         return LE_FAULT;
+    }
+
+    // Create semaphore.
+    if (read_semaphore == NULL)
+    {
+        read_semaphore = le_sem_Create("ReadDID Semaphore", 0);
     }
 
     // Initialize read request structure
@@ -213,24 +188,26 @@ le_result_t taf_diagDidStore::Read
 
     // Wait for the read operation to complete
     le_clk_Time_t time = {SEM_TIME_TO_WAIT, 0};
-    le_result_t ret = le_sem_WaitWithTimeOut(servicePtr->readSemaphore, time);
+    le_result_t ret = le_sem_WaitWithTimeOut(read_semaphore, time);
     if (ret != LE_OK)
     {
         LE_ERROR("Read operation timeout");
+        le_sem_Delete(read_semaphore);
+        read_semaphore = NULL;
         return ret;
     }
 
     // Retrieve the result from the client-specific structure
-    if (servicePtr->readStrg.result != 0) // Assuming 0 indicates success
+    if (readStrg.result != 0) // Assuming 0 indicates success
     {
         LE_ERROR("Read operation failed for dataID %u, result %d", dataId,
-                servicePtr->readStrg.result);
+                readStrg.result);
         return LE_FAULT;
     }
 
     // Copy the read data to the caller's buffer
-    memcpy(dataRecordPtr, servicePtr->readStrg.didData, servicePtr->readStrg.didDataLen);
-    *dataRecordSizePtr = servicePtr->readStrg.didDataLen;
+    memcpy(dataRecordPtr, readStrg.didData, readStrg.didDataLen);
+    *dataRecordSizePtr = readStrg.didDataLen;
     LE_DEBUG("Successfully read from DID 0x%04X, length: %zu", dataId, *dataRecordSizePtr);
 
     return LE_OK;
@@ -246,35 +223,26 @@ void taf_diagDidStore::didWriteCb
     LE_DEBUG("didWriteCb!");
     auto &didStore = taf_diagDidStore::GetInstance();
 
-    // Get the session reference of the client that initiated the write request
-    le_msg_SessionRef_t clientSessionRef = taf_diagDidStore_GetClientSessionRef();
-    if (!clientSessionRef)
-    {
-        LE_ERROR("Unable to retrieve client session reference.");
-        return;
-    }
-
-    // Find the client-specific service object
-    taf_DidStore_t* servicePtr = (taf_DidStore_t*)didStore.GetServiceObj(clientSessionRef);
-
-    if (!servicePtr)
-    {
-        LE_ERROR("Service object not found for client session %p", clientSessionRef);
-        return;
-    }
-
     // Store the result in the client-specific structure
-    servicePtr->writeResult = result;
+    didStore.writeDIDPIResult = result;
     // Check for failure condition
     if (result != 0)
     {
         LE_ERROR("Write operation failed for DataID %u with result %d", dataID, result);
+        if (write_semaphore != NULL)
+        {
+            le_sem_Post(write_semaphore);
+        }
+        return;
     }
 
     LE_DEBUG("Write operation for DataID %u completed with result %d", dataID, result);
 
     // Signal the client-specific semaphore
-    le_sem_Post(servicePtr->writeSemaphore);
+    if (write_semaphore != NULL)
+    {
+        le_sem_Post(write_semaphore);
+    }
 }
 
 
@@ -290,23 +258,6 @@ le_result_t taf_diagDidStore::Write
 {
     LE_DEBUG("taf_diagDidStore_Write!");
 
-    // Get the session reference of the current client
-    le_msg_SessionRef_t clientSessionRef = taf_diagDidStore_GetClientSessionRef();
-    if (!clientSessionRef)
-    {
-        LE_ERROR("Unable to retrieve client session reference.");
-        return LE_FAULT;
-    }
-
-    // Find the client-specific service object
-    taf_DidStore_t* servicePtr = GetServiceObj(clientSessionRef);
-
-    if (!servicePtr)
-    {
-        LE_ERROR("Service object not found for client session %p", clientSessionRef);
-        return LE_FAULT;
-    }
-
     // Prepare a write request
     ReadWriteRequest_t* requestPtr = (ReadWriteRequest_t*)le_mem_ForceAlloc(WriteRequestPool);
 
@@ -314,6 +265,12 @@ le_result_t taf_diagDidStore::Write
     {
         LE_ERROR("Failed to allocate memory for write request.");
         return LE_FAULT;
+    }
+
+    // Create semaphore.
+    if (write_semaphore == NULL)
+    {
+        write_semaphore = le_sem_Create("WriteDID Semaphore", 0);
     }
 
     requestPtr->request = WRITE_REQUEST_PI;
@@ -327,17 +284,19 @@ le_result_t taf_diagDidStore::Write
 
     // Wait for the write operation to complete
     le_clk_Time_t time = {SEM_TIME_TO_WAIT, 0};
-    le_result_t ret = le_sem_WaitWithTimeOut(servicePtr->writeSemaphore, time);
+    le_result_t ret = le_sem_WaitWithTimeOut(write_semaphore, time);
     if (ret != LE_OK)
     {
         LE_ERROR("Write operation timeout");
+        le_sem_Delete(write_semaphore);
+        write_semaphore = NULL;
         return ret;
     }
 
     // Retrieve the result from the client-specific structure
-    if (servicePtr->writeResult != 0)
+    if (writeDIDPIResult != 0)
     {
-        LE_ERROR("Write operation failed for dataID %u, res %d", dataId, servicePtr->writeResult);
+        LE_ERROR("Write operation failed for dataID %u, res %d", dataId, writeDIDPIResult);
         return LE_FAULT;
     }
 
@@ -350,8 +309,11 @@ void taf_diagDidStore::HandleReadWriteReq
     void* param2Ptr
 )
 {
+    LE_DEBUG("HandleReadWriteReq!");
     auto &didStore = taf_diagDidStore::GetInstance();
+
     ReadWriteRequest_t* req = (ReadWriteRequest_t*)(param1Ptr);
+    TAF_ERROR_IF_RET_NIL(req == NULL, "req is Null");
 
     switch (req->request)
     {
@@ -360,6 +322,7 @@ void taf_diagDidStore::HandleReadWriteReq
             if(!didStore.didStorInf)
             {
                 LE_ERROR("Plugin not initialized");
+                le_mem_Release(req);
                 return;
             }
 
@@ -378,6 +341,7 @@ void taf_diagDidStore::HandleReadWriteReq
             if(!didStore.didStorInf)
             {
                 LE_ERROR("Plugin not initialized");
+                le_mem_Release(req);
                 return;
             }
 
@@ -456,20 +420,13 @@ taf_diagDidStore_DataIdChangeHandlerRef_t taf_diagDidStore::AddDataIdChangeHandl
     LE_DEBUG("AddDataIdChangeHandler!");
 
     taf_DidStore_t* servicePtr = (taf_DidStore_t*)le_ref_Lookup(SvcRefMap, svcRef);
-    if(servicePtr == NULL)
-    {
-        return NULL;
-    }
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, NULL, "Invalid service reference provided");
 
-    if(handlerPtr == NULL)
-    {
-        return NULL;
-    }
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Invalid handlerPtr!");
 
     if (servicePtr->msgDIDStorgHandlerRef != NULL)
     {
         LE_ERROR("DID notification handler is already registered");
-
         return NULL;
     }
 
@@ -666,10 +623,10 @@ void taf_diagDidStore::writeDataIDMsgHandler
     ret = didStore.Write(dataId, recordData, dataLen);
     if (ret != LE_OK)
     {
-        LE_DEBUG("Sending positive response for writeDID req!");
+        LE_DEBUG("Sending NRC for writeDID req!");
         // send NRC
         result = taf_diagDataID_SendWriteDIDResp( rxMsgRef,
-                TAF_DIAGDATAID_WRITE_DID_CONDITIONS_NOT_CORRECT, dataId);
+                TAF_REQ_OUT_OF_RANGE, dataId);
     }
     else
     {
@@ -741,8 +698,6 @@ void taf_diagDidStore::OnClientDisconnection
 
             // Deleting the reference and releasing the service object
             le_ref_DeleteRef(didStore.SvcRefMap, (void*)servicePtr->svcRef);
-            le_sem_Delete(servicePtr->readSemaphore);
-            le_sem_Delete(servicePtr->writeSemaphore);
             le_mem_Release(servicePtr);
         }
     }
@@ -760,9 +715,6 @@ void taf_diagDidStore::Init
 )
 {
     LE_INFO("taf_diagDidStore Init!");
-
-    read_semaphore = le_sem_Create("Did read Semaphore", 0);
-    write_semaphore = le_sem_Create("Did write Semaphore", 0);
 
     // Create memory pools.
     SvcPool = le_mem_CreatePool("didStoreSvcPool", sizeof(taf_DidStore_t));

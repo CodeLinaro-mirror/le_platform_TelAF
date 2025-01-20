@@ -356,8 +356,6 @@ namespace tafsvc {
         taf_locGnss_AltType_t mAltType;
         std::mutex mMutex;
         le_mutex_Ref_t mGnssMutexRef;
-        bool mSvEnabled = false;
-        bool mGnssSigEnabled = false;
         taf_locGnss_DRConfigValidityType_t drParamsMask;
         le_dls_Link_t               next;
     }

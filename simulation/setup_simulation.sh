@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 # set -Eeo pipefail
@@ -22,10 +22,8 @@ function try_create_dir()
     return $RESULT
 }
 
-function try_clone ()
+function try_clone()
 {
-    RESULT=0
-
     BNAME=${BNAME:="mhead"}
 
     if [ -e "$3" ] && [ -e "$3/.git" ]; then

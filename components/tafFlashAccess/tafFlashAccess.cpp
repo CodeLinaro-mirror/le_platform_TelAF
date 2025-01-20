@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -216,7 +216,17 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetPartitionList
 
                             char dirName[TAF_LIB_FLASH_UBI_DEV_INFO_PATH_LEN] = "";
                             le_path_GetDir(entPtr->fts_path, "/", dirName, sizeof(dirName));
-                            dirName[strlen(dirName) - 1] = '\0';
+                            if (strlen(dirName) > 0 &&
+                                strlen(dirName) < TAF_LIB_FLASH_UBI_DEV_INFO_PATH_LEN)
+                            {
+                                dirName[strlen(dirName) - 1] = '\0';
+                            }
+                            else
+                            {
+                                LE_ERROR("Invalid directory length.");
+                                fclose(fp);
+                                break;
+                            }
                             char* ubiBase = le_path_GetBasenamePtr(dirName, "/");
                             le_utf8_Copy(listPtr->partition[i].ubiDevPath, "/dev/",
                                 TAF_LIB_FLASH_DEV_PATH_LEN, NULL);

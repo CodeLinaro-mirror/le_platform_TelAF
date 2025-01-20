@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -344,10 +344,17 @@ extern "C" LE_SHARED bool taf_devMgr_UnloadDrv(void* handle)
 
     mgrInf = (TAF_HAL_MGR_INF_t*)dlsym(drvHandle, TAF_HAL_INFO_TAB_STR);
 
-    if((errMsg = dlerror()) != nullptr || mgrInf == nullptr)
+    errMsg = dlerror();
+    if (errMsg != nullptr)
     {
-        LE_ERROR("Failed to get the hal information table: %s", errMsg ? errMsg : "mgrInf is null");
+        LE_ERROR("Failed to get the hal information table");
         ret = false;
+    }
+
+    if (mgrInf == nullptr)
+    {
+        LE_ERROR("mgrInf is null");
+        return false;
     }
 
     if (le_utf8_Copy(drvName, mgrInf->name, sizeof(drvName), nullptr) != LE_OK)

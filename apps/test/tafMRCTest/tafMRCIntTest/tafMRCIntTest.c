@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -107,6 +107,11 @@ COMPONENT_INIT
 
     le_result_t result;
     const char* cmd = le_arg_GetArg(0);
+    if (cmd == NULL)
+    {
+        PrintHelpMenu();
+        exit(EXIT_FAILURE);
+    }
 
     LE_TEST_INFO("======== MRC OTA Test ========");
 
@@ -129,12 +134,12 @@ COMPONENT_INIT
     {
         CheckArgs(2);
         const char* status = le_arg_GetArg(1);
-        if (strncmp(status, "success", strlen("success")) == 0)
+        if (status != NULL && strncmp(status, "success", strlen("success")) == 0)
         {
             result = taf_mrc_SendOtaEndMsg(TAF_MRC_OTA_OP_STATUS_SUCCESS);
             LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaEndMsg - LE_OK");
         }
-        else if (strncmp(status, "failure", strlen("failure")) == 0)
+        else if (status != NULL && strncmp(status, "failure", strlen("failure")) == 0)
         {
             result = taf_mrc_SendOtaEndMsg(TAF_MRC_OTA_OP_STATUS_FAILURE);
             LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaEndMsg - LE_OK");

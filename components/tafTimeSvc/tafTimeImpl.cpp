@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -1140,18 +1140,21 @@ le_result_t taf_Time::UpdateDateTimeInfo
         time_info.tm_min = minute;        // Minutes (0-59)
         time_info.tm_sec = second;        // Seconds (0-61, including leap seconds)
         */
-        ret = snprintf(timeSrcRefPrt->dateTimeInf.nitzTime, NITZ_STR_BUF_MAX,
-               "%04d/%02d/%02d,%02d:%02d:%02d%s", time_info->tm_year + 1900,
-              time_info->tm_mon + 1, time_info->tm_mday, time_info->tm_hour,
-                 time_info->tm_min, time_info->tm_sec, timeZoneStr.c_str());
-
-        if (ret >= NITZ_STR_BUF_MAX)
+        if (time_info != NULL)
         {
-            LE_ERROR("snprintf failed for nitzTime\n");
-            return LE_FAULT;
+            ret = snprintf(timeSrcRefPrt->dateTimeInf.nitzTime, NITZ_STR_BUF_MAX,
+                   "%04d/%02d/%02d,%02d:%02d:%02d%s", time_info->tm_year + 1900,
+                  time_info->tm_mon + 1, time_info->tm_mday, time_info->tm_hour,
+                     time_info->tm_min, time_info->tm_sec, timeZoneStr.c_str());
+
+            if (ret >= NITZ_STR_BUF_MAX)
+            {
+                LE_ERROR("snprintf failed for nitzTime\n");
+                return LE_FAULT;
+            }
+            LE_DEBUG("Old: %s\n", nitzTimeStr.c_str());
+            LE_INFO("New: %s\n", timeSrcRefPrt->dateTimeInf.nitzTime);
         }
-        LE_DEBUG("Old: %s\n", nitzTimeStr.c_str());
-        LE_INFO("New: %s\n", timeSrcRefPrt->dateTimeInf.nitzTime);
     }
     else
     {
@@ -1276,6 +1279,7 @@ le_result_t taf_Time::GetTime
         (taf_SourceInf_t*)SearchAvailableSourceInfList(srcTimePtr->sourceId);
 
     TAF_ERROR_IF_RET_VAL(srcTimePtr == NULL, LE_NOT_FOUND, "Source Reference is not found!");
+    TAF_ERROR_IF_RET_VAL(srcValidityTimePtr == NULL, LE_FAULT, "srcValidityTimePtr is NULL!");
     srcTimePtr->dateTimeInf.sourceValidity = srcValidityTimePtr->sourceValidity;
 
     return LE_OK;
@@ -3299,35 +3303,37 @@ void taf_Time::printSourceInfo()
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         taf_SourceInf_t* sourcePtr = (taf_SourceInf_t*)le_ref_GetValue(iterRef);
-        LE_INFO("Source ID: %s", time.SourceNameIndexToStr(sourcePtr->sourceId));
-        LE_INFO("Failed Loop: %d", sourcePtr->failedLoops);
+        if (sourcePtr != NULL)
+        {
+            LE_INFO("Source ID: %s", time.SourceNameIndexToStr(sourcePtr->sourceId));
+            LE_INFO("Failed Loop: %d", sourcePtr->failedLoops);
 
-        LE_INFO("Reference is: %p", sourcePtr->ref);
-        if (sourcePtr->isAvailable == true)
-        {
-            LE_INFO("Source is available");
+            LE_INFO("Reference is: %p", sourcePtr->ref);
+            if (sourcePtr->isAvailable == true)
+            {
+                LE_INFO("Source is available");
+            }
+            else
+            {
+                LE_INFO("Source is NOT available");
+            }
+            if (sourcePtr->handlerRef != NULL)
+            {
+                LE_INFO("Handler Reference is: %p", sourcePtr->handlerRef);
+            }
+            else
+            {
+                LE_INFO("Handler Reference does not exit");
+            }
+            if (sourcePtr->handlerFunc != NULL)
+            {
+                LE_INFO("Handler Function is: %p", sourcePtr->handlerFunc);
+            }
+            else
+            {
+                LE_INFO("Function does not exit");
+            }
         }
-        else
-        {
-            LE_INFO("Source is NOT available");
-        }
-        if (sourcePtr->handlerRef != NULL)
-        {
-            LE_INFO("Handler Reference is: %p", sourcePtr->handlerRef);
-        }
-        else
-        {
-            LE_INFO("Handler Reference does not exit");
-        }
-        if (sourcePtr->handlerFunc != NULL)
-        {
-            LE_INFO("Handler Function is: %p", sourcePtr->handlerFunc);
-        }
-        else
-        {
-            LE_INFO("Function does not exit");
-        }
-
     }
 }
 

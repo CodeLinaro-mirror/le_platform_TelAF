@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -1390,11 +1390,11 @@ static le_result_t taf_ecall_startECall_test
 
     if (strcmp(eCallType, "TEST") == 0)
     {
-        if (strcmp(useUsimNumber, "True") == 0)
+        if (useUsimNumber != NULL && strcmp(useUsimNumber, "True") == 0)
         {
             taf_ecall_UseUSimNumbers_test();
         }
-        if (strcmp(psapNumber, "None") != 0)
+        if (psapNumber != NULL && strcmp(psapNumber, "None") != 0)
         {
             result = taf_ecall_SetPsapNumber(psapNumber);
             LE_TEST_OK(result == LE_OK, "taf_ecall_SetPsapNumber - LE_OK");

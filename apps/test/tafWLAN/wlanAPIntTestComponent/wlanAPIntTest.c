@@ -306,7 +306,8 @@ static le_result_t wlanAPTestDeviceConnectionEvents(taf_wlanAp_WlanAPRef_t apRef
 }
 
 inline void CheckNumArgs(size_t NumArgs, size_t ExpectedNumArgs) {
-    if ((NumArgs == 1) && (strncasecmp(le_arg_GetArg(0), "help", strlen("help")) == 0)) {
+    const char* arg0 = le_arg_GetArg(0);
+    if ((NumArgs == 1) && (arg0 == NULL || strncasecmp(arg0, "help", strlen("help")) == 0)) {
         PrintUsage();
         LE_TEST_EXIT;
     }

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -279,7 +279,7 @@ le_result_t taf_Hms::GetIndvCoreUsage
     FILE* fp;
     char buffer[1024];
     uint32_t cpu_count = 0;
-    taf_hms_CPUCore_t cpu_usage[MAX_CORES];
+    taf_hms_CPUCore_t cpu_usage[MAX_CORES] = {0};
 
     fp = fopen("/proc/stat", "r");
     if (fp == NULL)
@@ -379,7 +379,7 @@ le_result_t taf_Hms::GetRamMemInfo
                      "One or more input pointers are NULL");
     FILE *file;
     char buffer[128];
-    uint32_t total_mem, free_mem, used_mem;
+    uint32_t total_mem = 0, free_mem = 0, used_mem = 0;
 
     file = fopen("/proc/meminfo", "r");
     if (file == NULL)

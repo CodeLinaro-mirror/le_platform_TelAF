@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -115,6 +115,8 @@ le_result_t taf_update_GetDownloadSession
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(sessionRef == NULL, LE_BAD_PARAMETER, "Session reference is NULL.");
 
     TAF_ERROR_IF_RET_VAL(tafUpdate.daInfPtr == NULL, LE_UNSUPPORTED,
         "Please install DA module to support download.");
@@ -470,6 +472,8 @@ le_result_t taf_update_GetInstallationSession
     taf_update_SessionRef_t* sessionRef ///< [OUT] Installation session reference.
 )
 {
+    TAF_ERROR_IF_RET_VAL(sessionRef == NULL, LE_BAD_PARAMETER, "Session reference is NULL.");
+
     auto &tafUpdate = taf_Update::GetInstance();
     taf_UpdateSession_t* sessPtr = NULL;
     int ret = 0;
@@ -906,6 +910,8 @@ le_result_t taf_update_GetActiveBank
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
     TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+
+    TAF_ERROR_IF_RET_VAL(bankPtr == NULL, LE_BAD_PARAMETER, "bankPtr is NULL.");
 
     TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
         "Unsupported session type (%d) for getting active bank.", sessPtr->sessType);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -484,11 +484,11 @@ COMPONENT_INIT
     taf_flash_Init();
     LE_TEST_OK(true, "taf_flash_Init - void");
 
-    if (strncmp(type, "mtd", strlen("mtd")) == 0)
+    if (type != NULL && strncmp(type, "mtd", strlen("mtd")) == 0)
     {
         const char* cmd = le_arg_GetArg(1);
         const char* partition = le_arg_GetArg(2);
-        if (partition != NULL)
+        if (cmd != NULL && partition != NULL)
         {
             if (strncmp(cmd, "info", strlen("info")) == 0)
             {
@@ -512,11 +512,11 @@ COMPONENT_INIT
             }
         }
     }
-    else if (strncmp(type, "ubi", strlen("ubi")) == 0)
+    else if (type != NULL && strncmp(type, "ubi", strlen("ubi")) == 0)
     {
         const char* cmd = le_arg_GetArg(1);
         const char* volume = le_arg_GetArg(2);
-        if (volume != NULL)
+        if (cmd != NULL && volume != NULL)
         {
             if (strncmp(cmd, "info", strlen("info")) == 0)
             {

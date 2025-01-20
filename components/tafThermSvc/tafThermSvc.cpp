@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -63,6 +63,7 @@ taf_therm_ThermalZoneListRef_t taf_therm_GetThermalZonesList()
 le_result_t taf_therm_GetThermalZonesListSize(
              taf_therm_ThermalZoneListRef_t listRef, uint32_t* listSize)
 {
+    TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_BAD_PARAMETER, "listSize is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetThermalZonesListSize(listRef, listSize);
 }
@@ -262,6 +263,7 @@ taf_therm_CoolingDeviceListRef_t taf_therm_GetCoolingDeviceList()
 le_result_t taf_therm_GetCoolingDeviceListSize(
          taf_therm_CoolingDeviceListRef_t listRef, uint32_t* listSize)
 {
+    TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_BAD_PARAMETER, "listSize is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetCoolingDeviceListSize(listRef, listSize);
 }
@@ -402,6 +404,7 @@ taf_therm_CoolingDeviceRef_t taf_therm_GetCoolingDeviceByName(const char* coolin
 ======================================================================*/
 le_result_t taf_therm_GetThermalZoneID(taf_therm_ThermalZoneRef_t listRef,uint32_t* thermalZoneID)
 {
+    TAF_ERROR_IF_RET_VAL(thermalZoneID == NULL, LE_BAD_PARAMETER, "thermalZoneID is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetThermalZoneID(listRef, thermalZoneID);
 }
@@ -425,6 +428,7 @@ le_result_t taf_therm_GetThermalZoneType(
     taf_therm_ThermalZoneRef_t listRef, char* thermalZoneType, size_t listSize
 )
 {
+    TAF_ERROR_IF_RET_VAL(thermalZoneType == NULL, LE_BAD_PARAMETER, "thermalZoneType is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetThermalZoneType(listRef, thermalZoneType, listSize);
 }
@@ -447,6 +451,7 @@ le_result_t taf_therm_GetThermalZoneType(
 le_result_t taf_therm_GetThermalZoneCurrentTemp(
          taf_therm_ThermalZoneRef_t listRef, uint32_t* currTemp)
 {
+    TAF_ERROR_IF_RET_VAL(currTemp == NULL, LE_BAD_PARAMETER, "currTemp is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetThermalZoneCurrentTemp(listRef, currTemp);
 }
@@ -469,6 +474,7 @@ le_result_t taf_therm_GetThermalZoneCurrentTemp(
 le_result_t taf_therm_GetThermalZonePassiveTemp(
          taf_therm_ThermalZoneRef_t listRef, uint32_t* passiveTemp)
 {
+    TAF_ERROR_IF_RET_VAL(passiveTemp == NULL, LE_BAD_PARAMETER, "passiveTemp is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetThermalZonePassiveTemp(listRef, passiveTemp);
 }
@@ -490,6 +496,7 @@ le_result_t taf_therm_GetThermalZonePassiveTemp(
 ======================================================================*/
 le_result_t taf_therm_GetTripPointListSize(taf_therm_ThermalZoneRef_t listRef, uint32_t* listSize)
 {
+    TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_BAD_PARAMETER, "listSize is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetTripPointListSize(listRef, listSize);
 }
@@ -513,6 +520,7 @@ le_result_t taf_therm_GetTripPointListSize(taf_therm_ThermalZoneRef_t listRef, u
 le_result_t taf_therm_GetBoundCoolingDeviceListSize(
          taf_therm_ThermalZoneRef_t listRef, uint32_t* listSize)
 {
+    TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_BAD_PARAMETER, "listSize is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundCoolingDeviceListSize(listRef, listSize);
 }
@@ -537,6 +545,7 @@ le_result_t taf_therm_GetTripPointType(
     taf_therm_TripPointRef_t listRef,  char* tripType, size_t listSize
 )
 {
+    TAF_ERROR_IF_RET_VAL(tripType == NULL, LE_BAD_PARAMETER, "tripType is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetTripPointType(listRef, tripType, listSize);
 }
@@ -558,6 +567,7 @@ le_result_t taf_therm_GetTripPointType(
 ======================================================================*/
 le_result_t taf_therm_GetTripPointThreshold(taf_therm_TripPointRef_t listRef, uint32_t* threshold)
 {
+    TAF_ERROR_IF_RET_VAL(threshold == NULL, LE_BAD_PARAMETER, "threshold is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetTripPointThreshold(listRef, threshold);
 }
@@ -580,6 +590,7 @@ le_result_t taf_therm_GetTripPointThreshold(taf_therm_TripPointRef_t listRef, ui
 ======================================================================*/
 le_result_t taf_therm_GetTripPointHysterisis(taf_therm_TripPointRef_t listRef,uint32_t* hysterisis)
 {
+    TAF_ERROR_IF_RET_VAL(hysterisis == NULL, LE_BAD_PARAMETER, "hysterisis is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetTripPointHysterisis(listRef, hysterisis);
 }
@@ -602,6 +613,7 @@ le_result_t taf_therm_GetTripPointHysterisis(taf_therm_TripPointRef_t listRef,ui
 le_result_t taf_therm_GetTripPointTripID(taf_therm_TripPointRef_t listRef, uint32_t* tripID)
 {
     #if LE_CONFIG_ENABLE_THERMAL_GET_TRIP_ID
+        TAF_ERROR_IF_RET_VAL(tripID == NULL, LE_BAD_PARAMETER, "tripID is NULL");
         auto& tafTherm = taf_Therm::GetInstance();
         return tafTherm.GetTripPointTripID(listRef, tripID);
     #endif
@@ -626,6 +638,7 @@ le_result_t taf_therm_GetTripPointTripID(taf_therm_TripPointRef_t listRef, uint3
 le_result_t taf_therm_GetTripPointThermalZoneID(taf_therm_TripPointRef_t listRef,uint32_t* tZoneID)
 {
     #if LE_CONFIG_ENABLE_THERMAL_GET_ZONE_ID
+        TAF_ERROR_IF_RET_VAL(tZoneID == NULL, LE_BAD_PARAMETER, "tZoneID is NULL");
         auto& tafTherm = taf_Therm::GetInstance();
         return tafTherm.GetTripPointThermalZoneID(listRef, tZoneID);
     #endif
@@ -649,6 +662,7 @@ le_result_t taf_therm_GetTripPointThermalZoneID(taf_therm_TripPointRef_t listRef
 ======================================================================*/
 le_result_t taf_therm_GetCDevID(taf_therm_CoolingDeviceRef_t listRef, uint32_t* cDevID)
 {
+    TAF_ERROR_IF_RET_VAL(cDevID == NULL, LE_BAD_PARAMETER, "cDevID is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetCDevID(listRef, cDevID);
 }
@@ -671,6 +685,7 @@ le_result_t taf_therm_GetCDevID(taf_therm_CoolingDeviceRef_t listRef, uint32_t* 
 le_result_t taf_therm_GetCDevMaxCoolingLevel(
         taf_therm_CoolingDeviceRef_t listRef, uint32_t* maxCoolingLevel)
 {
+    TAF_ERROR_IF_RET_VAL(maxCoolingLevel == NULL, LE_BAD_PARAMETER, "maxCoolingLevel is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetCDevMaxCoolingLevel(listRef, maxCoolingLevel);
 }
@@ -693,6 +708,7 @@ le_result_t taf_therm_GetCDevMaxCoolingLevel(
 le_result_t taf_therm_GetCDevCurrentCoolingLevel(
         taf_therm_CoolingDeviceRef_t listRef, uint32_t* currentCoolingLevel)
 {
+    TAF_ERROR_IF_RET_VAL(currentCoolingLevel == NULL, LE_BAD_PARAMETER, "currentCoolingLevel is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetCDevCurrentCoolingLevel(listRef, currentCoolingLevel);
 }
@@ -718,6 +734,7 @@ le_result_t taf_therm_GetCDevDescription(
         taf_therm_CoolingDeviceRef_t listRef, char* description, size_t listSize
 )
 {
+    TAF_ERROR_IF_RET_VAL(description == NULL, LE_BAD_PARAMETER, "description is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetCDevDescription(listRef, description, listSize);
 }
@@ -741,6 +758,7 @@ le_result_t taf_therm_GetCDevDescription(
 le_result_t taf_therm_GetBoundCoolingId(
         taf_therm_BoundCoolingDeviceRef_t listRef, uint32_t* boundCoolingId)
 {
+    TAF_ERROR_IF_RET_VAL(boundCoolingId == NULL, LE_BAD_PARAMETER, "boundCoolingId is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundCoolingId(listRef, boundCoolingId);
 }
@@ -764,6 +782,7 @@ le_result_t taf_therm_GetBoundCoolingId(
 le_result_t taf_therm_GetBoundTripPointListSize(
          taf_therm_BoundCoolingDeviceRef_t listRef, uint32_t* listSize)
 {
+    TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_BAD_PARAMETER, "listSize is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundTripPointListSize(listRef, listSize);
 }
@@ -839,6 +858,7 @@ le_result_t taf_therm_GetBoundTripPointType(
         taf_therm_TripPointRef_t listRef, char* boundTripType, size_t listSize
 )
 {
+    TAF_ERROR_IF_RET_VAL(boundTripType == NULL, LE_BAD_PARAMETER, "boundTripType is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundTripPointType(listRef, boundTripType, listSize);
 }
@@ -861,6 +881,7 @@ le_result_t taf_therm_GetBoundTripPointType(
 le_result_t taf_therm_GetBoundTripPointThreshold(
         taf_therm_TripPointRef_t listRef, uint32_t* boundThreshold)
 {
+    TAF_ERROR_IF_RET_VAL(boundThreshold == NULL, LE_BAD_PARAMETER, "boundThreshold is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundTripPointThreshold(listRef, boundThreshold);
 }
@@ -883,6 +904,7 @@ le_result_t taf_therm_GetBoundTripPointThreshold(
 le_result_t taf_therm_GetBoundTripPointHysterisis(
         taf_therm_TripPointRef_t listRef, uint32_t* boundHysterisis)
 {
+    TAF_ERROR_IF_RET_VAL(boundHysterisis == NULL, LE_BAD_PARAMETER, "boundHysterisis is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundTripPointHysterisis(listRef, boundHysterisis);
 }
@@ -906,6 +928,7 @@ le_result_t taf_therm_GetBoundTripPointTripID(
          taf_therm_TripPointRef_t listRef, uint32_t* boundTripID)
 {
 #if LE_CONFIG_ENABLE_THERMAL_GET_TRIP_ID
+    TAF_ERROR_IF_RET_VAL(boundTripID == NULL, LE_BAD_PARAMETER, "boundTripID is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundTripPointTripID(listRef, boundTripID);
 #endif
@@ -931,6 +954,7 @@ le_result_t taf_therm_GetBoundTripPointThermalZoneID(
         taf_therm_TripPointRef_t listRef, uint32_t* boundTZoneID)
 {
 #if LE_CONFIG_ENABLE_THERMAL_GET_ZONE_ID
+    TAF_ERROR_IF_RET_VAL(boundTZoneID == NULL, LE_BAD_PARAMETER, "boundTZoneID is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundTripPointThermalZoneID(listRef, boundTZoneID);
 #endif

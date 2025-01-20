@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -558,17 +558,17 @@ void RemoveTestHandler() {
 COMPONENT_INIT
 {
     int args = le_arg_NumArgs();
-    int time;
-    const char* arg1;
+    int time = 20;
+    const char* arg1 = NULL;
     if (args == 1)
     {
         arg1 = le_arg_GetArg(0);
     }
-    else
+
+    if (arg1 != NULL)
     {
-        arg1 = "20";
+        time = atoi(arg1);
     }
-    time = atoi(arg1);
 
     CreateHandlerTestThread();
 

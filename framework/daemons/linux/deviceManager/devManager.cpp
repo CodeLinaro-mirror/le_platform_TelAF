@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1191,7 +1191,7 @@ void ToolMsgReceiveHandler
                         break;
                     }
 
-                    if(mgrInf->moduleType == TAF_MODULETYPE_HAL)
+                    if(mgrInf != nullptr && mgrInf->moduleType == TAF_MODULETYPE_HAL)
                     {
                         // 2 turn off the power
                         ENTER_SAFE_CALL(TIMER_SAFECALL, ret, (*(mgrInf->powerOffInf)));

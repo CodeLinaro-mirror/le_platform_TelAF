@@ -240,6 +240,7 @@ FUNCTION Config GetRef
  * @return
  *     - LE_OK             Successfully updated the file.
  *     - LE_FAULT          Failed to update file.
+ *     - LE_NOT_PERMITTED  Update not permitted.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Update
@@ -256,6 +257,7 @@ FUNCTION le_result_t Update
  * @return
  *     - LE_OK             Successfully synced the file.
  *     - LE_FAULT          Failed to sync the file.
+ *     - LE_NOT_PERMITTED  Activate not permitted.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Activate
@@ -271,6 +273,7 @@ FUNCTION le_result_t Activate
  * @return
  *     - LE_OK             Successfully cancel the update campaign.
  *     - LE_FAULT          Failed to cancel update campaign.
+ *     - LE_NOT_PERMITTED  Cancel not permitted.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Cancel
@@ -286,6 +289,7 @@ FUNCTION le_result_t Cancel
  * @return
  *     - LE_OK             Successfully rollback the file.
  *     - LE_FAULT          Failed to rollback file.
+ *     - LE_NOT_PERMITTED  Rollback not permitted.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Rollback
@@ -300,6 +304,7 @@ FUNCTION le_result_t Rollback
  * @return
  *     - LE_OK             Successfully commit to config storage.
  *     - LE_FAULT          Failed to commit config storage.
+ *     - LE_NOT_PERMITTED  Commit not permitted.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Commit

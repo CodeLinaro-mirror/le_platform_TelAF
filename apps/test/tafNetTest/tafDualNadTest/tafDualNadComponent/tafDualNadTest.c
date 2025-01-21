@@ -99,6 +99,10 @@ static void PrintUsage ()
             "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcstartdatansetipconfig <Remote profile id> <vlan id> <ifType> <ip type> <ip Opr> <assign type>\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- getIPConfig <vlan id> <ifType> <ip type>\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcstopdatacall <Remote profile id>\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- setIPPTNATConfig <ipptNATConfig value 0/1>\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- getIPPTNATConfig \n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcsetIPPTNATConfig <ipptNATConfig value 0/1>\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcgetIPPTNATConfig \n"
             "\n");
 }
 
@@ -1853,6 +1857,130 @@ static int RpcStopDataCall()
     return EXIT_SUCCESS;
 }
 
+static int GetIPPTNATConfig()
+{
+
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=1)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    bool ipptNatConfig = false;
+    taf_net_VlanRef_t vlanRef=NULL;
+
+    ret = taf_netIpPass_GetIPPTNatConfig(vlanRef,&ipptNatConfig);
+    if(ret == LE_OK)
+    {
+        printf("----GetIPPTNAT config ok value %d \n",ipptNatConfig);
+    }
+    else
+    {
+        printf("----GetIPPTNAT config error: %s\n", LE_RESULT_TXT(ret));
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int SetIPPTNATConfig()
+{
+
+    le_result_t ret;
+
+    if (le_arg_NumArgs() < 2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* setIPPTNATPtr = le_arg_GetArg(1);
+    taf_net_VlanRef_t vlanRef=NULL;
+
+    if(setIPPTNATPtr == NULL)
+    {
+        LE_ERROR("setIPPTNATPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    bool ipptNatConfig = strtol(setIPPTNATPtr, NULL, 0);
+
+    ret = taf_netIpPass_SetIPPTNatConfig(vlanRef,ipptNatConfig);
+    if(ret == LE_OK)
+    {
+        printf("----SetIPPTNAT config ok\n");
+    }
+    else
+    {
+        printf("----SetIPPTNAT config error: %s\n", LE_RESULT_TXT(ret));
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int RpcGetIPPTNATConfig()
+{
+
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=1)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    bool ipptNatConfig = false;
+    taf_net_VlanRef_t vlanRef=NULL;
+
+    ret = rpc_taf_netIpPass_GetIPPTNatConfig(vlanRef,&ipptNatConfig);
+    if(ret == LE_OK)
+    {
+        printf("----GetIPPTNAT config ok value %d \n",ipptNatConfig);
+    }
+    else
+    {
+        printf("----GetIPPTNAT config error: %s\n", LE_RESULT_TXT(ret));
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int RpcSetIPPTNATConfig()
+{
+
+    le_result_t ret;
+
+    if (le_arg_NumArgs() < 2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* setIPPTNATPtr = le_arg_GetArg(1);
+    taf_net_VlanRef_t vlanRef=NULL;
+
+    if(setIPPTNATPtr == NULL)
+    {
+        LE_ERROR("setIPPTNATPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    bool ipptNatConfig = strtol(setIPPTNATPtr, NULL, 0);
+
+    ret = rpc_taf_netIpPass_SetIPPTNatConfig(vlanRef,ipptNatConfig);
+    if(ret == LE_OK)
+    {
+        printf("----SetIPPTNAT config ok\n");
+    }
+    else
+    {
+        printf("----SetIPPTNAT config error: %s\n", LE_RESULT_TXT(ret));
+    }
+
+    return EXIT_SUCCESS;
+}
+
 
 COMPONENT_INIT
 {
@@ -2035,6 +2163,22 @@ COMPONENT_INIT
         else if(strcmp(testType, "datacall") == 0)
         {
             status = DataCallTest(NULL);
+        }
+        else if(strcmp(testType, "setIPPTNATConfig") == 0)
+        {
+            status = SetIPPTNATConfig();
+        }
+        else if(strcmp(testType, "getIPPTNATConfig") == 0)
+        {
+            status = GetIPPTNATConfig();
+        }
+        else if(strcmp(testType, "rpcsetIPPTNATConfig") == 0)
+        {
+            status = RpcSetIPPTNATConfig();
+        }
+        else if(strcmp(testType, "rpcgetIPPTNATConfig") == 0)
+        {
+            status = RpcGetIPPTNATConfig();
         }
 
         exit(status);

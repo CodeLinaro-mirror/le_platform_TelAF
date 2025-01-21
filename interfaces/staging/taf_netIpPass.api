@@ -546,3 +546,40 @@ FUNCTION Interface GetIPConfig
     uint16 vlanId                             IN///< VLAN identifier i.e., 1-4094.
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IP Passthrough configuration for Network Address Translation (NAT).
+ *
+ * @b NOTE: The input vlanRef is not considered in this API call. It is added for future extensions.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIPPTNatConfig
+(
+    taf_net.Vlan vlanRef          IN, ///< VLAN reference.
+    bool       isNATEnabled       OUT ///< True when NAT enabled.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the configuration of IP Passthrough for Network Address Translation (NAT).
+ * Configuration changes will be persistent across reboots.
+ * All active data calls must be disconnected before invoking this API.
+ *
+ * @b NOTE: The input vlanRef is not considered in this API call. It is added for future extensions.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetIPPTNatConfig
+(
+    taf_net.Vlan vlanRef          IN, ///< VLAN reference.
+    bool       isNATEnabled       IN  ///< True to enable NAT. False to disable NAT.
+);
+

@@ -3282,6 +3282,40 @@ taf_netIpPass_InterfaceRef_t taf_Vlan::GetIPConfig
     return (taf_netIpPass_InterfaceRef_t)le_ref_CreateRef(interfaceIPRefMap, (void*)interfacePtr);
 }
 
+le_result_t taf_Vlan::SetIPPassThroughNatConfig(bool isEnabled)
+{
+    telux::common::ErrorCode error = dataSettingsManager->setIpPassThroughNatConfig(isEnabled);
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("ERROR - Failed to get get ippt NAT config , error:%d ",static_cast<int>(error));
+        return LE_FAULT;
+    }
+    else
+    {
+        LE_INFO("set ippt NAT config is success...");
+    }
+    LE_DEBUG("SetIPPassThroughNatConfig %d", static_cast<int>(isEnabled));
+    return LE_OK;
+}
+
+le_result_t taf_Vlan::GetIPPassThroughNatConfig(bool *isEnabledPtr)
+{
+    TAF_ERROR_IF_RET_VAL(isEnabledPtr == NULL, LE_BAD_PARAMETER, "isEnabledPtr is null");
+
+    telux::common::ErrorCode error = dataSettingsManager->getIpPassThroughNatConfig(*isEnabledPtr);
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("ERROR - Failed to get ippt NAT config , error:%d ",static_cast<int>(error));
+        return LE_FAULT;
+    }
+    else
+    {
+        LE_INFO("get ippt NAT config is success...");
+    }
+    LE_DEBUG("GetIPPassThroughNatConfig %d", static_cast<int>(*isEnabledPtr));
+    return LE_OK;
+}
+
 
 
 

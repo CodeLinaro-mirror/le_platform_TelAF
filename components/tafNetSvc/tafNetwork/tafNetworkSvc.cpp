@@ -1849,6 +1849,51 @@ taf_netIpPass_InterfaceRef_t taf_netIpPass_GetIPConfig
     return tafVlan.GetIPConfig(ipType,ifType,vlanId);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IP Passthrough feature configuration Network Address Translation (NAT) is enabled or not.
+ * IP Passthrough with NAT or without NAT is a device level configuration.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_netIpPass_GetIPPTNatConfig
+(
+    taf_net_VlanRef_t vlanRef,
+    bool       *isNatEnabled       ///< True when NAT enabled.
+)
+{
+    LE_UNUSED(vlanRef);   // as of now IPPT NAT config is device level hence vlanRef is not needed.
+    auto &tafVlan = taf_Vlan::GetInstance();
+    return tafVlan.GetIPPassThroughNatConfig(isNatEnabled);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Allows the client to configure the Network Address Translation (NAT) for IP passthrough
+ * feature. Network Address Translation (NAT) is enabled or not.
+ * IP Passthrough with NAT or without NAT is a device level configuration.
+ * Configuration changes will be persistent across reboots.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_netIpPass_SetIPPTNatConfig
+(
+    taf_net_VlanRef_t vlanRef,
+    bool       isNatEnabled
+)
+{
+    LE_UNUSED(vlanRef);   // as of now IPPT NAT config is device level hence vlanRef is not needed.
+    auto &tafVlan = taf_Vlan::GetInstance();
+    return tafVlan.SetIPPassThroughNatConfig(isNatEnabled);
+}
+
 
 /*=========================================L2TP=========================================*/
 

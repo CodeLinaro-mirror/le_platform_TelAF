@@ -168,7 +168,8 @@ taf_audio_RouteRef_t taf_audio_OpenRoute
 )
 {
     auto &audio = taf_Audio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(sinkRef == NULL || sourceRef == NULL, NULL,
+    TAF_ERROR_IF_RET_VAL(mode != TAF_AUDIO_LOCAL_LOOPBACK
+            && (sinkRef == NULL || sourceRef == NULL), NULL,
             "sinkRef or sourceRef pointer is NULL");
     return audio.OpenRoute(route, mode, sinkRef, sourceRef);
 }

@@ -53,6 +53,15 @@
    }
    @endverbatim
  *
+ * @section taf_mngdStorSecData Configuration
+ *
+ * The service configuration file will be bundled when building the service. The path of default
+ * file in the project is apps/tafMngdServices/Storage/Components/config/tafMngdStorageConfig.json.
+ * The client can also provide its own service configuration file at the extension path mentioned
+ * in default service json. Then service will be initialized with that service json.
+ *
+ * @b NOTE: It is advised to provide absolute paths in service configuration json.
+ *
  * @section taf_mngdStorSec Manage secure storage
  *
  * The client is allocated the secure storage when it connects to the service. When it calls

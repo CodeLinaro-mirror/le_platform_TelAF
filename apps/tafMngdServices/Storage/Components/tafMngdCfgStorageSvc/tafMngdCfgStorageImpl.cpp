@@ -100,7 +100,6 @@ void tafMngdStorageSvc::InitConfigStorage()
     if(res != LE_OK){
         LE_FATAL("Unable to create directory %s",configRfsStorage);
     }
-
     le_result_t result = LE_OK;
 
     // Initialize FSC storage for configStorage and configRfsStorage
@@ -199,6 +198,20 @@ le_result_t tafMngdStorageSvc::PreCheckExtensionJson()
     return res;
 }
 
+inline le_result_t CheckValidPath(std::string& str){
+    if(str.size() == 0){
+        LE_ERROR("Storage Path len is 0");
+        return LE_FAULT;
+    }
+    if(str[0] != '/'){
+        str = '/'+str;
+    }
+    if(str[str.size()-1] != '/'){
+        str = str+'/';
+    }
+    return LE_OK;
+}
+
 le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(char* configPath){
     LE_INFO("Parsing %s", configPath);
     std::ifstream jfile(configPath);
@@ -236,9 +249,15 @@ le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(char* configPath){
         for (const auto& item : root.get_child("MSS Config Storage.Configuration.StoragePath")) {
             const boost::property_tree::ptree& uPath = item.second;
             std::string basePath = uPath.get<std::string>("BasePath");
+            if(CheckValidPath(basePath) != LE_OK){
+                return LE_BAD_PARAMETER;
+            }
             snprintf(configStorage,sizeof(configStorage),"%s",basePath.c_str());
             std::string backupPath = uPath.get<std::string>("BackupPath");
             LE_INFO("Base path is %s",configStorage);
+            if(CheckValidPath(backupPath) != LE_OK){
+                return LE_BAD_PARAMETER;
+            }
             snprintf(configRfsStorage,sizeof(configRfsStorage),"%s",backupPath.c_str());
             LE_INFO("Backup path is %s",configRfsStorage);
         }

@@ -40,7 +40,7 @@ void TestDidStorgRead(void)
         LE_TEST_INFO("Reading DID: 0x%04X", read_did);
 
         le_result_t read_res = taf_diagDidStore_Read(diagStorgSvcRef, read_did, read_data,
-            &read_dataSize);
+                &read_dataSize);
 
         if (read_res == LE_OK && read_dataSize > 0)
         {
@@ -81,12 +81,13 @@ void TestDidStorgWrite(void)
 
     // Array of DIDs and data to test writing multiple values
     uint16_t write_dids[] = {0xA5A6, 0xF011, 0xF0D0};  // Add more DIDs as needed
-    uint8_t write_data[][3] = {
+    uint8_t write_data[][17] = {
         {0x34},            // Data for DID 0xA5A6
-        {0x01, 0x02, 0x03}, // Data for DID 0xF011
-        {0x11, 0x22, 0x33}  // Data for DID 0xF0D0
+        {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A}, // Data for DID 0xF011
+        {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+        0x0F, 0x10, 0x11}  // Data for DID 0xF0D0
     };
-    size_t data_sizes[] = {1, 3, 3};
+    size_t data_sizes[] = {1, 10, 17};
 
     for (size_t i = 0; i < sizeof(write_dids) / sizeof(write_dids[0]); i++)
     {
@@ -97,7 +98,7 @@ void TestDidStorgWrite(void)
         LE_TEST_INFO("Writing DID: 0x%04X", write_did);
 
         le_result_t write_res = taf_diagDidStore_Write(diagStorgSvcRef, write_did,
-            data_ptr, data_size);
+                data_ptr, data_size);
         if (write_res == LE_OK)
         {
             LE_TEST_INFO("Successfully wrote to DID Storage 0x%04X", write_did);

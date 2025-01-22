@@ -15,6 +15,9 @@
 static le_event_Id_t NotifyDidEventId;
 static le_mem_PoolRef_t ValueRequestPoolRef;
 
+#define DID_NODE_LEN       100
+#define DID_DATA_FORMAT    "data%d"
+
 typedef enum
 {
     VALUE_REQUEST_GET,
@@ -27,6 +30,7 @@ typedef struct {
     uint8_t* value;
     size_t len;
     le_result_t result;
+    void* ctxPtr;
 }valueChangeReq_t;
 
 typedef struct {

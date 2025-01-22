@@ -75,8 +75,8 @@ FUNCTION Service GetService
  * @instaging
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Invalid MsgRef.
- *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -96,8 +96,8 @@ FUNCTION le_result_t Read
  * @instaging
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Invalid MsgRef.
- *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------

@@ -55,7 +55,7 @@ static void ValueChangeRequest
     le_cfg_ConnectService();
 
     char didPath[128] = {0};
-    snprintf(didPath, sizeof(didPath), "diag/DID/%u", req->did);
+    snprintf(didPath, sizeof(didPath), "diag/DID/%2x", req->did);
 
     switch (req->Vrequest)
     {
@@ -64,31 +64,26 @@ static void ValueChangeRequest
             LE_INFO("Processing VALUE_REQUEST_GET for DID: %u", req->did);
 
             le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn(didPath);
-            if (!iteratorRef)
+            if (iteratorRef == NULL || (le_cfg_GoToFirstChild (iteratorRef) != LE_OK))
             {
-                LE_ERROR("Failed to create read transaction for DID path: %s", didPath);
+                LE_ERROR("No DID node");
+                le_cfg_CancelTxn(iteratorRef);
                 req->result = LE_FAULT;
                 break;
             }
 
-            if (le_cfg_NodeExists(iteratorRef, "value"))
-            {
-                uint8_t defaultValue[256] = {0}; // Default value in case the key doesn't exist
-                size_t valueSize = sizeof(req->value);
+            size_t readLen = 0;
+            uint8_t data;
+            do{
+                data = le_cfg_GetInt(iteratorRef, "", 0);
+                req->value[readLen] = data;
+                readLen++;
+                LE_DEBUG("Read value: %x", req->value[readLen]);
+            }while (le_cfg_GoToNextSibling(iteratorRef) == LE_OK);
 
-                le_cfg_GetBinary(iteratorRef, "value", req->value, &valueSize, defaultValue,
-                    sizeof(defaultValue));
-
-                req->len = valueSize;
-                req->result = LE_OK;
-
-                LE_INFO("Retrieved value for DID %u, size: %zu", req->did, valueSize);
-            }
-            else
-            {
-                LE_ERROR("DID %u not found in configTree.", req->did);
-                req->result = LE_NOT_FOUND;
-            }
+            req->len = readLen;
+            req->result = LE_OK;
+            LE_DEBUG("Read data size: %zu", req->len);
 
             le_cfg_CancelTxn(iteratorRef);
 
@@ -96,7 +91,7 @@ static void ValueChangeRequest
             {
                 if(getCallBackFunc != NULL)
                 {
-                    getCallBackFunc(req->did, req->value, req->len, req->result);
+                    getCallBackFunc(req->did, req->value, req->len, req->result, req->ctxPtr);
                 }
                 else
                 {
@@ -117,8 +112,20 @@ static void ValueChangeRequest
                 break;
             }
 
-            // Write the value into the configTree
-            le_cfg_SetBinary(iteratorRef, "value", req->value, req->len);
+            if(le_cfg_IsEmpty(iteratorRef, "") == false)
+            {
+                le_cfg_SetEmpty(iteratorRef, "");
+                LE_DEBUG("after clear, dataId=0x%x",req->did);
+                le_cfg_CommitTxn(iteratorRef);
+                iteratorRef = le_cfg_CreateWriteTxn(didPath);
+            }
+
+            for(int i=0; i < req->len; i++)
+            {
+                char nodeDataStr[DID_NODE_LEN] = {0};
+                snprintf(nodeDataStr, sizeof(nodeDataStr), DID_DATA_FORMAT, i+1);
+                le_cfg_SetInt(iteratorRef, nodeDataStr, req->value[i]); //Store data
+            }
 
             // Commit the transaction
             le_cfg_CommitTxn(iteratorRef);
@@ -129,7 +136,7 @@ static void ValueChangeRequest
 
             if(setCallbackFunc != NULL)
             {
-                setCallbackFunc(req->did, req->result);
+                setCallbackFunc(req->did, req->result, req->ctxPtr);
             }
             else
             {
@@ -156,7 +163,8 @@ static void ValueChangeRequest
 le_result_t taf_pi_didStorg_GetAsync
 (
     uint16_t dataID,
-    TAF_PI_DIAGDID_GETHANDLER handler
+    TAF_PI_DIAGDID_GETHANDLER handler,
+    void* ctxPtr
 )
 {
     LE_INFO("taf_pi_didStorg_GetAsync for DID: %u", dataID);
@@ -172,6 +180,7 @@ le_result_t taf_pi_didStorg_GetAsync
     req->value = calloc(1, 256); // Allocate space for value
     req->len = 0;
     req->result = LE_OK;
+    req->ctxPtr = ctxPtr;
 
     getCallBackFunc = handler;
 
@@ -190,7 +199,8 @@ le_result_t taf_pi_didStorg_SetAsync
     uint16_t dataID,
     uint8_t *value,
     size_t len,
-    TAF_PI_DIAGDID_SETHANDLER handler
+    TAF_PI_DIAGDID_SETHANDLER handler,
+    void* ctxPtr
 )
 {
     LE_INFO("taf_pi_didStorg_SetAsync for DID: %u", dataID);
@@ -212,6 +222,7 @@ le_result_t taf_pi_didStorg_SetAsync
     memcpy(req->value, value, len);
     req->len = len;
     req->result = LE_OK;
+    req->ctxPtr = ctxPtr;
 
     setCallbackFunc = handler;
 

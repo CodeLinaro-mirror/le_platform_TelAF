@@ -1,0 +1,19 @@
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+domain_name: Generic
+
+datas:
+  VIN:
+    mnemonic: VIN
+    description: VIN code
+    functional_definition:
+      data_type: Not numeric
+      data_type_encoding: ASCII
+      value_type: uint8
+      bit_size: 136
+      default_value: 0x0000000000000000000000000000000000
+      forbidden_characters:
+        - (0x00..0x1F)
+        - (0x3A..0x40)
+        - (0x7B..0x7F)

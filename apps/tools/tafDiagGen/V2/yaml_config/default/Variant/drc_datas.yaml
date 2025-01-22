@@ -1,0 +1,134 @@
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+domain_name: Variant
+
+datas:
+  Green_Light:
+    mnemonic: Green_Light
+    description: Do NOT ban any thing
+    functional_definition:
+      data_type: Not numeric
+      data_type_encoding: HEX
+      value_type: uint8
+      bit_size: 8
+      # NOTE:
+      # > data_type == Not numeric
+      # 1. No 'forbidden_characters'
+      # 2. No 'forbidden_values'
+      # Don't check for this data item !!
+
+  Not_numeric_with_forbidden_characters:
+    mnemonic: Not_numeric_with_forbidden_characters
+    description: Not_numeric_with_forbidden_characters
+    functional_definition:
+      data_type: Not numeric
+      data_type_encoding: HEX
+      value_type: uint8
+      bit_size: 8
+      forbidden_characters:
+        - (0x00..0x2F)
+        - (0x3A..0x40)
+        - (0x5B..0x7F)
+
+  Not_numeric_with_forbidden_values:
+    mnemonic: Not_numeric_with_forbidden_values
+    description: Not_numeric_with_forbidden_values
+    functional_definition:
+      data_type: Not numeric
+      data_type_encoding: HEX
+      value_type: uint8
+      bit_size: 16
+      forbidden_values:
+        - 0xFFCC
+        - 0xFFDD
+        - 0xAACC
+
+  Not_numeric_with_forbidden:
+    mnemonic: Not_numeric_with_forbidden
+    description: Not_numeric_with_forbidden
+    functional_definition:
+      data_type: Not numeric
+      data_type_encoding: HEX
+      value_type: uint8
+      bit_size: 16
+      forbidden_characters:
+        - (0x00..0x1F)
+      forbidden_values:
+        - 0xFFFF
+        - 0xCCAA
+
+  Numeric_with_Coding_List:
+    mnemonic: Numeric_with_Coding_List
+    description: Numeric_with_Coding_List
+    functional_definition:
+      data_type: Numeric
+      value_type: uint8
+      bit_size: 2
+      coding:
+        0b00: _00
+        0b01: _01
+        0b10: _10
+        # forbid '0b11' <--
+
+  Numeric_with_Min_Max:
+    mnemonic: Numeric_with_Min_Max
+    description: Numeric_with_Min_Max
+    functional_definition:
+      data_type: Numeric
+      value_type: uint8
+      bit_size: 8
+      min: 0
+      max: 20
+      coding: balabala # Ignore the coding, min & max have the high priority
+
+  Numeric_list_binary_2:
+    mnemonic: Numeric_list_binary_2
+    description: Numeric_list_binary_2
+    functional_definition:
+      data_type: Numeric list
+      value_type: uint8
+      bit_size: 2
+      coding:
+        0b00: _00
+        0b01: _01
+        0b10: _10
+
+  Numeric_list_binary_4:
+    mnemonic: Numeric_list_binary_4
+    description: Numeric_list_binary_4
+    functional_definition:
+      data_type: Numeric list
+      value_type: uint8
+      bit_size: 4
+      coding:
+        0b1010: _1010
+        0b0101: _0101
+
+  Numeric_list_hex_8:
+    mnemonic: Numeric_list_hex_8
+    description: Numeric_list_hex_8
+    functional_definition:
+      data_type: Numeric list
+      value_type: uint8
+      bit_size: 8
+      coding:
+        0x00: _no_info
+        0x01: _no_info
+        0x02: _no_info
+        0x03: _no_info
+        0x04: _no_info
+        0x05: _no_info
+        0x06: _no_info
+        0x07: _no_info
+
+  Numeric_with_Min_Max_Sign:
+    mnemonic: Numeric_with_Min_Max_Sign
+    description: Numeric_with_Min_Max_Sign
+    functional_definition:
+      data_type: Numeric
+      value_type: sint8
+      bit_size: 8
+      min: -10
+      max: 10
+      coding: balabala # Ignore the coding, min & max have the high priority

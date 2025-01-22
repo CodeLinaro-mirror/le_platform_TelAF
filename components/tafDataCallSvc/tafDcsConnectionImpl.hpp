@@ -442,7 +442,7 @@ namespace tafsvc {
             std::map<SlotId, std::shared_ptr<telux::data::IServingSystemListener>>
                                                                          dataServingSystemListeners;
             std::map<SlotId, std::shared_ptr<taf_DataConnServingSystemListener>>
-                                                                   connectionServingSystemlisteners;
+                                                                tafDataConnServingSystemListeners;
             std::shared_ptr<taf_DataConnRequestServiceStatusCallback> reqServiceStatusCb;
             std::shared_ptr<taf_DataConnRequestRoamingStatusCallback> reqRoamingStatusCb;
             std::shared_ptr<taf_DataAPNThrottleInfoCallback> reqAPNThrottlingStatusCb;
@@ -452,8 +452,13 @@ namespace tafsvc {
                                                     telux::data::ServiceStatus &serviceStatus);
             taf_dcs_DataBearerTechnology_t MapNwRatToDataBearerTech(telux::data::NetworkRat nwRAT);
 #endif
-            std::map<SlotId, std::shared_ptr<telux::data::IDataConnectionManager>> dataConnectionManagers;
-            std::shared_ptr<telux::data::IDataConnectionListener> DataConnectionListener;
+            std::map<SlotId, std::shared_ptr<telux::data::IDataConnectionManager>>
+                                                                            dataConnectionManagers;
+            std::map<SlotId, std::shared_ptr<telux::data::IDataConnectionListener>>
+                                                                            dataConnectionListeners;
+            std::map<SlotId, std::shared_ptr<taf_DataConnectionListener>>
+                                                                        tafDataConnectionListeners;
+
         private:
             le_dls_List_t    DataCallCtxList = LE_DLS_LIST_INIT;
             le_dls_List_t HandlerSessionMappingList = LE_DLS_LIST_INIT;

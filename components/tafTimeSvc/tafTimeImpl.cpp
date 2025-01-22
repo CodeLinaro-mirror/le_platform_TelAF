@@ -1834,6 +1834,8 @@ le_result_t taf_Time::SetSystemTime
         if(TimeSourceConf.source[position].setTimeCounter > 0)
         {
             TimeSourceConf.source[position].setTimeCounter-- ;
+            LE_DEBUG("Set time counter for the time source %s is %ld", SourceNameIndexToStr(timeSource),
+                TimeSourceConf.source[position].setTimeCounter);
         }
 
         newTime.tv_sec = timeVal.sec;
@@ -1872,6 +1874,12 @@ le_result_t taf_Time::SetSystemTime
             (long long)newTime.tv_sec, newTime.tv_nsec, systemTime.sec, systemTime.nanosec,
                                                      SourceNameIndexToStr(timeSource));
 
+    }
+    else if(TimeSourceConf.source[position].setTimeCounter > 0)
+    {
+        TimeSourceConf.source[position].setTimeCounter-- ;
+        LE_DEBUG("Set time counter for the time source %s is %ld", SourceNameIndexToStr(timeSource),
+            TimeSourceConf.source[position].setTimeCounter);
     }
 
     if(access(TAF_TIME_DELTA_TIME_DIR, F_OK) != -1)

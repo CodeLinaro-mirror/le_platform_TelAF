@@ -97,6 +97,25 @@ std::vector<telux::data::VlanConfig> tafVlanCallback::vlanEntryInfo;
 le_sem_Ref_t tafVlanMappingCallback::semaphore = nullptr;
 le_sem_Ref_t tafVlanCallback::semaphore = nullptr;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Semaphore for Backhaul preference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_sem_Ref_t tafVlanBackhaulPrefCallback::semaphore = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Result of Backhaul preference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafVlanBackhaulPrefCallback::result = LE_OK;
+
+taf_net_BackhaulType_t tafVlanBackhaulPrefCallback::backhaulPrefListPtr[TAF_NET_MAX_BH_NUM];
+
+size_t tafVlanBackhaulPrefCallback::backhaulPrefListSize = 0;
+
+
 
 /*======================================================================
 
@@ -121,7 +140,7 @@ void taf_Vlan::Init(void)
     // 1. Initiate the semaphore
     tafVlanCallback::semaphore = le_sem_Create("taf_VlanRespCbSem", 0);
     tafVlanMappingCallback::semaphore = le_sem_Create("taf_VlanMappingRespCbSem", 0);
-
+    tafVlanBackhaulPrefCallback::semaphore = le_sem_Create("taf_VlanBackhaulRespCbSem", 0);
 
     // 2. Initiate the memory pool
 
@@ -484,6 +503,68 @@ void tafVlanMappingCallback::onVlanMappingListResponse
     }
 
     slotVlanMappingInfo[slotId]=mapping;
+
+    le_sem_Post(semaphore);
+}
+
+void tafVlanBackhaulPrefCallback::backhaulPrefResponse(
+                const std::vector<telux::data::BackhaulType> backhaulPref,
+                telux::common::ErrorCode error)
+{
+    LE_DEBUG("<SDK Callback> tafVlanBackhaulPrefCallback --> backhaulPrefResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        uint8_t index = 0;
+        for (auto type : backhaulPref)
+        {
+            switch (type)
+            {
+               case telux::data::BackhaulType::ETH:
+                   backhaulPrefListPtr[index] = TAF_NET_BH_ETH;
+                   break;
+               case telux::data::BackhaulType::USB:
+                   backhaulPrefListPtr[index] =  TAF_NET_BH_USB;
+                   break;
+               case telux::data::BackhaulType::WLAN:
+                   backhaulPrefListPtr[index] = TAF_NET_BH_WLAN;
+                   break;
+               case telux::data::BackhaulType::WWAN:
+                   backhaulPrefListPtr[index] = TAF_NET_BH_WWAN;
+                   break;
+               case telux::data::BackhaulType::BLE:
+                   backhaulPrefListPtr[index] = TAF_NET_BH_BLE;
+                   break;
+               default:
+               LE_DEBUG("Invalid backhaul preference.");
+            }
+            index++;
+        }
+        result = LE_OK;
+        backhaulPrefListSize = index;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+void tafVlanBackhaulPrefCallback::setBackhaulPrefResponse(telux::common::ErrorCode error)
+{
+     LE_DEBUG("<SDK Callback> tafVlanBackhaulPrefCallback --> setBackhaulPrefResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        result = LE_OK;
+    }
 
     le_sem_Post(semaphore);
 }
@@ -3330,6 +3411,84 @@ le_result_t taf_Vlan::GetIPPassThroughNatConfig(bool *isEnabledPtr)
         LE_INFO("get ippt NAT config is success...");
     }
     LE_DEBUG("GetIPPassThroughNatConfig %d", static_cast<int>(*isEnabledPtr));
+    return LE_OK;
+}
+
+le_result_t taf_Vlan::GetBackhaulPreference(taf_net_BackhaulType_t* bhPrefListPtr,
+                                              size_t* bhPrefListSizePtr)
+{
+    TAF_ERROR_IF_RET_VAL(bhPrefListPtr == NULL, LE_BAD_PARAMETER, "GetBackhaulPreference is null");
+
+    telux::common::Status status = dataSettingsManager->requestBackhaulPreference(
+                                          tafVlanBackhaulPrefCallback::backhaulPrefResponse);
+
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Failed to get backhaul pref %d",static_cast<int>(status));
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        tafVlanBackhaulPrefCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(tafVlanBackhaulPrefCallback::result != LE_OK,
+        tafVlanBackhaulPrefCallback::result, "Fail to get backhaul preference.");
+
+    for(uint8_t index = 0;index < tafVlanBackhaulPrefCallback::backhaulPrefListSize;index++)
+    {
+       bhPrefListPtr[index] = tafVlanBackhaulPrefCallback::backhaulPrefListPtr[index];
+       LE_DEBUG("GetBackhaulPreference %d", static_cast<int>(bhPrefListPtr[index]));
+    }
+
+    *bhPrefListSizePtr = tafVlanBackhaulPrefCallback::backhaulPrefListSize;
+
+    return LE_OK;
+}
+
+le_result_t taf_Vlan::SetBackhaulPreference(const taf_net_BackhaulType_t* bhPrefListPtr,
+                                              size_t bhPrefListSize)
+{
+
+    std::vector<telux::data::BackhaulType> backhaulPref;
+
+    //LE_DEBUG("SetBackhaulPreference %d", static_cast<int>(bhTypeMask));
+    for(uint8_t index = 0;index < bhPrefListSize;index++)
+        {
+            switch (bhPrefListPtr[index])
+            {
+               case TAF_NET_BH_ETH:
+                   backhaulPref.emplace_back(telux::data::BackhaulType::ETH);
+                   break;
+               case TAF_NET_BH_USB:
+                   backhaulPref.emplace_back(telux::data::BackhaulType::USB);
+                   break;
+               case TAF_NET_BH_WLAN:
+                   backhaulPref.emplace_back(telux::data::BackhaulType::WLAN);
+                   break;
+               case TAF_NET_BH_WWAN:
+                   backhaulPref.emplace_back(telux::data::BackhaulType::WWAN);
+                   break;
+               case TAF_NET_BH_BLE:
+                   backhaulPref.emplace_back(telux::data::BackhaulType::BLE);
+                   break;
+               default:
+               LE_DEBUG("Invalid backhaul preference.");
+            }
+        }
+
+    telux::common::Status status = dataSettingsManager->setBackhaulPreference(backhaulPref,
+                                             tafVlanBackhaulPrefCallback::setBackhaulPrefResponse);
+
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Failed to set backhaul pref %d",static_cast<int>(status));
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        tafVlanBackhaulPrefCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(tafVlanBackhaulPrefCallback::result != LE_OK,
+        tafVlanBackhaulPrefCallback::result, "Fail to set backhaul preference.");
+
     return LE_OK;
 }
 

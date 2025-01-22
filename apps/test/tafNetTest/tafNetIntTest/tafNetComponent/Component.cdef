@@ -1,6 +1,6 @@
 sources:
 {
-    tafNetIntTest.c
+    tafNetIntTest.cpp
 }
 
 requires:

@@ -45,7 +45,6 @@
 
 #define OPERATION_TIMEOUT 30
 #define OPERATION_DATA_SETTINGS 60
-
 using namespace telux::tafsvc;
 
 //Interface IP definition for LOCAL
@@ -90,6 +89,127 @@ LE_MEM_DEFINE_STATIC_POOL(vlanIfSafeRefPool, TAF_NET_MAX_VLAN_INTERFACE,
 LE_REF_DEFINE_STATIC_MAP(vlanIfListRefMap, TAF_NET_MAX_VLAN_ENTRY);
 
 LE_REF_DEFINE_STATIC_MAP(vlanIfSafeRefMap, TAF_NET_MAX_VLAN_ENTRY);
+
+LE_MEM_DEFINE_STATIC_POOL(vlanHwAccelerationStateEvtPool, TAF_NET_MAX_VLAN_INTERFACE,
+                                                                sizeof(VlanHwAccelerationState_t));
+
+#define MAX_SLOT_NUM   2
+
+static bool bVlanListenerRegistered = {false};
+
+//--------------------------------------------------------------------------------------------------
+
+/**
+ * Mutex used to protect shared data structures in this module.
+ */
+//--------------------------------------------------------------------------------------------------
+
+static pthread_mutex_t Mutex = PTHREAD_MUTEX_INITIALIZER;   // POSIX "Fast" mutex.
+
+/// Locks the mutex.
+#define LOCK    LE_ASSERT(pthread_mutex_lock(&Mutex) == 0);
+
+/// Unlocks the mutex.
+#define UNLOCK  LE_ASSERT(pthread_mutex_unlock(&Mutex) == 0);
+
+//--------------------------------------------------------------------------------------------------
+
+/**
+ * Register listeners.
+ */
+//--------------------------------------------------------------------------------------------------
+void RegisterListeners()
+{
+
+    LE_INFO("Registering listeners.");
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+        LOCK
+        // Register vlan listener for each slot it
+        if (bVlanListenerRegistered)
+        {
+            LE_INFO("Vlan listener already registered.");
+        }
+        else
+        {
+            if (tafVlan.vlanManager)
+            {
+                tafVlan.tafVlanListener = std::make_shared<taf_VlanListener>();
+                tafVlan.vlanListener = tafVlan.tafVlanListener;
+                if (tafVlan.vlanManager-> registerListener(tafVlan.vlanListener) ==
+                                                                 telux::common::Status::SUCCESS)
+                {
+                    LE_INFO("Vlan listener registered.");
+                    bVlanListenerRegistered = true;
+                }
+                else
+                {
+                    LE_ERROR("Fail to register vlan listener.");
+                }
+            }
+        }
+
+        UNLOCK
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deregister listeners.
+ */
+//--------------------------------------------------------------------------------------------------
+
+void DeregisterListeners()
+{
+    LE_INFO("Deregistering listeners.");
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+        LOCK
+
+        // Deregister vlan listener for each slot it
+        if (!bVlanListenerRegistered)
+        {
+            LE_INFO("Vlan listeners already deregistered.");
+        }
+        else
+        {
+            if (tafVlan.vlanManager)
+            {
+                if (tafVlan.vlanManager-> deregisterListener(tafVlan.vlanListener) ==
+                                                                  telux::common::Status::SUCCESS)
+                {
+                    LE_INFO("Vlan listener registered.");
+                    bVlanListenerRegistered = false;
+                }
+                else
+                {
+                    LE_ERROR("Fail to register serving system listener.");
+                }
+            }
+        }
+        UNLOCK
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for power state changes.
+ */
+//--------------------------------------------------------------------------------------------------
+void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
+{
+    if (state == TAF_PM_STATE_RESUME)
+    {
+        LE_INFO("Power state change to RESUME");
+        RegisterListeners();
+    }
+    else if (state == TAF_PM_STATE_SUSPEND)
+    {
+        LE_INFO("Power state change to SUSPEND");
+        DeregisterListeners();
+    }
+
+}
+
+
 
 std::map<SlotId, std::list<std::pair<int, int>>> tafVlanMappingCallback::slotVlanMappingInfo;
 std::vector<telux::data::VlanConfig> tafVlanCallback::vlanEntryInfo;
@@ -186,6 +306,12 @@ void taf_Vlan::Init(void)
     vlanIfListRefMap = le_ref_InitStaticMap(vlanIfListRefMap, TAF_NET_MAX_VLAN_ENTRY);
 
     vlanIfSafeRefMap = le_ref_InitStaticMap(vlanIfSafeRefMap, TAF_NET_MAX_VLAN_ENTRY);
+
+    // Event and data pool for HW accleration related events
+    vlanHwAccelerationStateEvtId   = le_event_CreateIdWithRefCounting("VlanHwAccelerationStateEvt");
+    vlanHwAccelerationStateEvtPool = le_mem_InitStaticPool(vlanHwAccelerationStateEvtPool,
+                                                       TAF_NET_MAX_VLAN_INTERFACE,
+                                                       sizeof(VlanHwAccelerationState_t));
 
     // 4. Get the DataFactory and static VlanManager instances
     if (vlanManager == nullptr)
@@ -314,6 +440,13 @@ void taf_Vlan::Init(void)
 
     // Add a handler for client session close
     le_msg_AddServiceCloseHandler( taf_net_GetServiceRef(), ClientCloseSessionHandler, NULL );
+
+    // Add power state change handle.
+    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
+    if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
+    {
+        RegisterListeners();
+    }
 
     return;
 }
@@ -3492,7 +3625,29 @@ le_result_t taf_Vlan::SetBackhaulPreference(const taf_net_BackhaulType_t* bhPref
     return LE_OK;
 }
 
+taf_net_VlanHwAccelerationState_t taf_Vlan::ConvertHwAccelerationSate(
+                                                        const telux::data::ServiceState state)
+{
+    // If active, return TAF_NET_VLAN_HW_ACC_STATE_ACTIVE
+    if (telux::data::ServiceState::ACTIVE   == state) {return TAF_NET_VLAN_HW_ACC_STATE_ACTIVE;}
+
+    // Return TAF_NET_VLAN_HW_ACC_STATE_INACTIVE in all other cases
+    return TAF_NET_VLAN_HW_ACC_STATE_INACTIVE;
+}
+
+taf_VlanListener::taf_VlanListener() {}
 
 
+void taf_VlanListener::onHwAccelerationChanged(const telux::data::ServiceState state)
+{
+    VlanHwAccelerationState_t *reportPtr = NULL;
+    auto &tafVlan = taf_Vlan::GetInstance();
+    reportPtr = static_cast<VlanHwAccelerationState_t *>(
+        le_mem_ForceAlloc(tafVlan.vlanHwAccelerationStateEvtPool));
+    TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
+    reportPtr->state   = taf_Vlan::ConvertHwAccelerationSate(state);
+    LE_DEBUG("VlanHWAccelerationState: %d", reportPtr->state);
+    le_event_ReportWithRefCounting(tafVlan.vlanHwAccelerationStateEvtId, (void *)reportPtr);
+}
 
 

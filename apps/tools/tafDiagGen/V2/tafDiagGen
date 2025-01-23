@@ -444,6 +444,8 @@ if __name__ == "__main__":
 
     de.check_all_references(only_yaml)
 
+    de.forbidden_check(only_yaml)
+
     final_yaml, final_pattern = de.convert_format(only_yaml, top_build_layer)
 
     final_yaml['version'] = version + "_" + valid_files.which_one

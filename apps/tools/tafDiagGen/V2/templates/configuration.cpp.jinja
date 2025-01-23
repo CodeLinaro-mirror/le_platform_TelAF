@@ -9,8 +9,11 @@
 #include "configuration.hpp"
 #include "legato.h"
 
-#include <iostream>
 #include <typeinfo>
+#include <stdexcept>
+#include <algorithm>
+#include <tuple>
+#include <unordered_map>
 
 namespace telux {
 namespace tafsvc {
@@ -375,13 +378,594 @@ EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_levels_by_session_i
     return level_list;
 }
 
+
+class DynamicBitArray {
+private:
+    std::vector<uint8_t> data;
+    size_t bit_count = 0;
+
+    std::pair<size_t, size_t> get_pos(size_t bit_index) const
+    {
+        return {bit_index / 8, bit_index % 8};
+    }
+
+public:
+    DynamicBitArray() = default;
+
+    explicit DynamicBitArray(uint32_t value)
+    {
+        for (int i = 31; i >= 0; --i)
+        {
+            push_back((value >> i) & 1);
+        }
+    }
+
+    DynamicBitArray(const uint8_t* payload, uint32_t plen, size_t start_bit, size_t bit_len)
+    {
+        if (plen * 8 < bit_len || plen * 8 < (start_bit + bit_len))
+        {
+            throw std::invalid_argument("Payload length is invalid!");
+        }
+
+        size_t current_bit = start_bit;
+
+        for (size_t i = 0; i < bit_len; ++i)
+        {
+            size_t byte_index = current_bit / 8;
+            size_t bit_offset = 7 - (current_bit % 8);
+            bool bit = (payload[byte_index] >> bit_offset) & 1;
+            push_back(bit);
+            current_bit++;
+        }
+    }
+
+    size_t size() const
+    {
+        return bit_count;
+    }
+
+    void push_back(bool bit)
+    {
+        size_t byte_index, bit_offset;
+        std::tie(byte_index, bit_offset) = get_pos(bit_count);
+
+        if (byte_index >= data.size())
+        {
+            data.push_back(0);
+        }
+
+        if (bit)
+        {
+            data[byte_index] |= (1 << (7 - bit_offset));
+        }
+
+        bit_count++;
+    }
+
+    bool at(size_t bit_index) const
+    {
+        if (bit_index >= bit_count)
+        {
+            throw std::out_of_range("Bit index out of range");
+        }
+
+        size_t byte_index, bit_offset;
+        std::tie(byte_index, bit_offset) = get_pos(bit_index);
+
+        return (data[byte_index] >> (7 - bit_offset)) & 1;
+    }
+
+    bool operator==(const DynamicBitArray &other) const
+    {
+        if (bit_count != other.bit_count)
+        {
+            return false;
+        }
+        for (size_t i = 0; i < bit_count; i++)
+        {
+            if (at(i) != other.at(i))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    uint32_t to_uint32_t() const
+    {
+        if (bit_count > 32)
+        {
+            throw std::invalid_argument("Cannot convert more than 32 bits to integer");
+        }
+
+        uint32_t result = 0;
+        for (size_t i = 0; i < bit_count; i++)
+        {
+            if (at(i))
+            {
+                result |= (uint32_t(1) << (bit_count - 1 - i));
+            }
+        }
+        return result;
+    }
+
+    int32_t to_int32_t() const
+    {
+        if (bit_count > 32)
+        {
+            throw std::invalid_argument("Cannot convert more than 32 bits to int32_t");
+        }
+        if (bit_count == 0)
+        {
+            throw std::invalid_argument("No bits to convert");
+        }
+
+        uint32_t unsigned_value = 0;
+
+        for (size_t i = 0; i < bit_count; i++)
+        {
+            if (at(i))
+            {
+                unsigned_value |= (1 << (bit_count - 1 - i));
+            }
+        }
+
+        bool is_negative = at(0);
+        if (is_negative)
+        {
+            unsigned_value |= (~0u << bit_count);
+        }
+
+        return static_cast<int32_t>(unsigned_value);
+    }
+
+    std::string to_string() const
+    {
+        std::string result;
+        for (size_t i = 0; i < bit_count; i++)
+        {
+            result += at(i) ? '1' : '0';
+        }
+        return result;
+    }
+};
+
+typedef enum {
+    eNumeric_List = 0,
+    eNumeric      = 1,
+    eNot_Numeric  = 2,
+} data_item_type_t;
+
+static const char * get_type_name(data_item_type_t type)
+{
+    switch(type)
+    {
+        case eNumeric_List:
+            return "Numeric List";
+        case eNumeric:
+            return "Numeric";
+        case eNot_Numeric:
+            return "Not numeric";
+        default:
+            return "(unknown)";
+    }
+}
+
+struct Checker
+{
+    data_item_type_t type_;
+
+    uint32_t bit_start_;
+    uint32_t bit_size_;
+
+    Checker(data_item_type_t type, uint32_t bit_start, uint32_t bit_size)
+        :type_(type), bit_start_(bit_start), bit_size_(bit_size) {}
+
+    virtual bool banned(const uint8_t * payload, uint32_t plen) = 0;
+};
+
+struct NumericList: public Checker
+{
+    /* coding item type: uint8_t, uint16_t, uint32_t */
+
+    std::shared_ptr<std::vector<uint32_t>> coding_list = nullptr;
+
+    NumericList(uint32_t bit_start, uint32_t bit_size, std::shared_ptr<std::vector<uint32_t>> codings)
+    :Checker(eNumeric_List, bit_start, bit_size), coding_list(codings) {}
+
+    bool banned(const uint8_t * payload, uint32_t plen)
+    {
+        if (plen * 8 < bit_size_)
+        {
+            return true;
+        }
+
+        if (plen * 8 < bit_start_ + bit_size_)
+        {
+            return true;
+        }
+
+        DynamicBitArray pending_data(payload, plen, bit_start_, bit_size_);
+
+        LE_DEBUG("(%s): binary: [%s]", get_type_name(type_), pending_data.to_string().c_str());
+
+        uint32_t pending_value;
+        try
+        {
+            pending_value = pending_data.to_uint32_t();
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Payload to (uint32_t) failed!");
+            return true; /* Parse failed -> Ban it */
+        }
+
+        auto it = std::find(coding_list->begin(),
+                            coding_list->end(),
+                            pending_value);
+
+        /* Coding list is whitelist */
+        if (it == coding_list->end())
+        {
+            return true; /* Not found -> Ban it */
+        }
+
+        return false;
+    }
+};
+
+struct Numeric: public Checker
+{
+    std::shared_ptr<std::vector<uint32_t>> coding_list = nullptr;
+    bool coding_selected = false;
+
+    int32_t min_;
+    int32_t max_;
+
+    Numeric(uint32_t bit_start, uint32_t bit_size, std::shared_ptr<std::vector<uint32_t>> codings)
+    :Checker(eNumeric, bit_start, bit_size), coding_list(codings), coding_selected(true) {}
+
+    Numeric(uint32_t bit_start, uint32_t bit_size, int32_t _min, int32_t _max)
+    :Checker(eNumeric, bit_start, bit_size), min_(_min), max_(_max) {}
+
+    bool banned(const uint8_t * payload, uint32_t plen)
+    {
+        if (plen * 8 < bit_size_)
+        {
+            return true;
+        }
+
+        if (plen * 8 < bit_start_ + bit_size_)
+        {
+            return true;
+        }
+
+        DynamicBitArray pending_data(payload, plen, bit_start_, bit_size_);
+
+        LE_DEBUG("(%s): binary: [%s]", get_type_name(type_), pending_data.to_string().c_str());
+
+        if (coding_selected)
+        {
+            /* Same to 'coding_list' for 'Numeric List', whitelist for checking */
+
+            uint32_t pending_value;
+            try
+            {
+                pending_value = pending_data.to_uint32_t();
+            }
+            catch (const std::exception& e)
+            {
+                LE_ERROR("Payload to (uint32_t) failed!");
+                return true; /* Parse failed -> Ban it */
+            }
+
+            auto it = std::find(coding_list->begin(),
+                                coding_list->end(),
+                                pending_value);
+
+            if (it == coding_list->end())
+            {
+                return true; /* Not found -> Ban it */
+            }
+        }
+        else /* min, max selected */
+        {
+            int32_t pending_value;
+            try
+            {
+                pending_value = pending_data.to_int32_t();
+            }
+            catch (const std::exception& e)
+            {
+                LE_ERROR("Payload to (int32_t) failed!");
+                return true; /* Parse failed -> Ban it */
+            }
+
+            if (pending_value < min_ || pending_value > max_)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+};
+
+struct NotNumeric: public Checker
+{
+    bool forbidden_characters_selected = false;
+    bool forbidden_values_selected = false;
+
+    std::shared_ptr<std::vector<uint8_t>> forbidden_characters_ = nullptr;
+    std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values_ = nullptr;
+
+    NotNumeric(
+        uint32_t bit_start, uint32_t bit_size,
+        std::shared_ptr<std::vector<uint8_t>> forbidden_characters,
+        std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values)
+    :Checker(eNot_Numeric, bit_start, bit_size)
+    {
+        if (bit_start % 8 != 0)
+        {
+            throw std::invalid_argument("forbidden characters bit_start % 8 != 0");
+        }
+
+        if (bit_size % 8 != 0 || bit_size == 0)
+        {
+            throw std::invalid_argument("forbidden characters bit_size % 8 != 0 or bit_size == 0");
+        }
+
+        if (forbidden_characters != nullptr)
+        {
+            forbidden_characters_ = forbidden_characters;
+            forbidden_characters_selected = true;
+        }
+
+        if (forbidden_values != nullptr)
+        {
+            forbidden_values_ = forbidden_values;
+            forbidden_values_selected = true;
+        }
+    }
+
+    bool banned(const uint8_t * payload, uint32_t plen)
+    {
+        if (plen * 8 < bit_size_)
+        {
+            return true;
+        }
+
+        if (plen * 8 < (bit_start_ + bit_size_))
+        {
+            return true;
+        }
+
+        if (forbidden_values_selected)
+        {
+            DynamicBitArray pending_data(payload, plen, bit_start_, bit_size_);
+
+            for (auto & forbidden_values : *forbidden_values_)
+            {
+                DynamicBitArray forbidden_value(
+                                    forbidden_values->data(),
+                                    (uint32_t) forbidden_values->size(),
+                                    0,
+                                    (uint32_t) (forbidden_values->size() * 8));
+
+                LE_INFO("(bits) pending_data size: %u, forbidden_value size: %u",
+                        (uint32_t) bit_size_,
+                        (uint32_t) (forbidden_values->size() * 8));
+
+                LE_INFO("(%s): pending_data binary:    [%s]", get_type_name(type_), pending_data.to_string().c_str());
+                LE_INFO("(%s): forbidden_value binary: [%s]", get_type_name(type_), forbidden_value.to_string().c_str());
+
+                if (pending_data == forbidden_value)
+                {
+                    return true;
+                }
+            }
+        }
+
+        if (forbidden_characters_selected)
+        {
+            uint32_t start_byte = bit_start_ / 8;
+            uint32_t nbytes = bit_size_ / 8;
+
+            for (uint32_t i = 0; i < nbytes; i++)
+            {
+                uint8_t value = payload[start_byte + i];
+
+                auto it = std::find(forbidden_characters_->begin(),
+                                    forbidden_characters_->end(),
+                                    value);
+
+                if (it != forbidden_characters_->end())
+                {
+                    return true; /* (Black List) Found ? Ban it */
+                }
+            }
+        }
+
+        return false;
+    }
+};
+
+struct DidChecker
+{
+    uint16_t did_code_;
+    uint32_t did_size_;
+    std::vector< std::shared_ptr<Checker> > checker_list_;
+
+    DidChecker(uint16_t did_code, uint32_t did_size)
+        : did_code_(did_code), did_size_(did_size) {}
+
+    void append(std::shared_ptr<Checker> checker)
+    {
+        if (checker != nullptr)
+        {
+            this->checker_list_.push_back(checker);
+        }
+        else
+        {
+            LE_ERROR("Why the checker is nullptr ?");
+        }
+    }
+
+    bool do_check(const uint8_t * payload, uint32_t plen)
+    {
+        /*
+            True:  forbidden
+            False: not forbidden
+        */
+
+        LE_INFO("Checkers for DID: [0x%04X] / size: [%u]", did_code_, did_size_);
+
+        if (payload == nullptr || plen == 0)
+        {
+            LE_ERROR("Bad parameters for did do_check !");
+            return true; /* Ban it */
+        }
+
+        for (auto & checker: this->checker_list_)
+        {
+            LE_DEBUG("> %s (%d) <-", get_type_name(checker->type_), checker->type_);
+        }
+
+        for (auto & checker: this->checker_list_)
+        {
+            LE_INFO(">> %s (%d)", get_type_name(checker->type_), checker->type_);
+
+            if (checker->banned(payload, plen))
+            {
+                LE_INFO("Checking stop at -> (%s) Banned!", get_type_name(checker->type_));
+                return true; /* Ban it */
+            }
+        }
+
+        LE_INFO("Checking done <- Pass!");
+        return false; /* All pass or Empty checker list */
+    }
+};
+
+static std::shared_ptr<std::unordered_map<uint16_t, std::shared_ptr<DidChecker>>> checker_map = nullptr;
+
+EXPORT_SYM bool is_forbidden(uint16_t did_code, const uint8_t *payload, uint32_t plen)
+{
+    auto checker = checker_map->find(did_code);
+
+    if (checker != checker_map->end())
+    {
+        return checker->second->do_check(payload, plen);
+    }
+    else /* Not Found -> Pass */
+    {
+        return false;
+    }
+}
+
 }
 }
 }
 
+using namespace telux::tafsvc::cfg;
+
 COMPONENT_INIT
 {
-    LE_INFO("Diagnostic Configuration Inited (v:%s, t:%s)",
+    LE_INFO("Diagnostic Configuration (v:%s, t:%s)",
             tafDiagGen_tool_version,
             tafDiagGen_tool_timestamp);
+
+    try
+    {
+        checker_map = std::make_shared<std::unordered_map<uint16_t, std::shared_ptr<DidChecker>>>();
+
+        {% for did_code, did_node in root.did_all.items() if did_node.supported_functions.write_did == true %}
+        {
+            /* -- DID: {{ did_code | f_to_hex_format(4) }} -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>({{ did_code | f_to_hex_format(4) }}, {{ did_node.implementation.did_size }} /* did_size Bytes */);
+
+        {% for byte_start_idx, data_ref_map in did_node.implementation.bytes.items() %}
+            {% for bit_start_idx, data_ref in data_ref_map.items() %}
+            {% set data_item = data_ref.data_ref_mnemonic | f_to_data_item(root) -%}
+            {# ----------------------------------------------------------------------------------- #}
+            {% if data_item.functional_definition.data_type == "Not numeric" %}
+                {% if 'forbidden_characters' in data_item.functional_definition %}
+            std::shared_ptr<std::vector<uint8_t>> forbidden_characters_{{byte_start_idx}}_{{bit_start_idx}} =
+                std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t> {{ data_item.functional_definition.forbidden_characters | f_forbidden_characters_conversion(data_item) }});
+                {% else %}
+            std::shared_ptr<std::vector<uint8_t>> forbidden_characters_{{byte_start_idx}}_{{bit_start_idx}} = nullptr;
+                {% endif %}
+
+                {% if 'forbidden_values' in data_item.functional_definition %}
+            std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values_{{byte_start_idx}}_{{bit_start_idx}} =
+                std::make_shared<std::vector<std::shared_ptr<std::vector<uint8_t>>>>(
+                    std::initializer_list<std::shared_ptr<std::vector<uint8_t>>>{{ data_item.functional_definition.forbidden_values | f_forbidden_values_conversion(data_item) }}
+                );
+                {% else %}
+            std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values_{{byte_start_idx}}_{{bit_start_idx}} = nullptr;
+                {% endif %}
+
+            std::shared_ptr<NotNumeric> checker_{{byte_start_idx}}_{{bit_start_idx}} = std::make_shared<NotNumeric>
+            (
+                {{byte_start_idx}} * 8 + (7 - {{bit_start_idx}}),
+                {{data_item.functional_definition.bit_size}},
+                forbidden_characters_{{byte_start_idx}}_{{bit_start_idx}},
+                forbidden_values_{{byte_start_idx}}_{{bit_start_idx}}
+            );
+
+            {# ----------------------------------------------------------------------------------- #}
+            {% elif data_item.functional_definition.data_type == "Numeric" %}
+
+                {% if 'min' in data_item.functional_definition and 'max' in data_item.functional_definition %}
+                {{ data_item|f_check_min_max(data_item.functional_definition.min, data_item.functional_definition.max) }}
+            std::shared_ptr<Numeric> checker_{{byte_start_idx}}_{{bit_start_idx}} = std::make_shared<Numeric>
+            (
+                {{byte_start_idx}} * 8 + (7 - {{bit_start_idx}}),
+                {{data_item.functional_definition.bit_size}},
+                {{data_item.functional_definition.min}},
+                {{data_item.functional_definition.max}}
+            );
+                {% elif 'coding' in data_item.functional_definition %}
+            std::shared_ptr<std::vector<uint32_t>> coding_{{byte_start_idx}}_{{bit_start_idx}} =
+                std::make_shared<std::vector<uint32_t>>(std::initializer_list<uint32_t> {{ data_item.functional_definition.coding | f_coding_list_conversion() }});
+
+            std::shared_ptr<Numeric> checker_{{byte_start_idx}}_{{bit_start_idx}} = std::make_shared<Numeric>
+            (
+                {{byte_start_idx}} * 8 + (7 - {{bit_start_idx}}),
+                {{data_item.functional_definition.bit_size}},
+                coding_{{byte_start_idx}}_{{bit_start_idx}}
+            );
+                {% else %}
+                {{ raise_exception("Bad Not numeric data item") }}
+                {% endif %}
+
+            {# ----------------------------------------------------------------------------------- #}
+            {% elif data_item.functional_definition.data_type == "Numeric list" %}
+
+            std::shared_ptr<std::vector<uint32_t>> coding_{{byte_start_idx}}_{{bit_start_idx}} =
+                std::make_shared<std::vector<uint32_t>>(std::initializer_list<uint32_t> {{ data_item.functional_definition.coding | f_coding_list_conversion() }});
+
+            std::shared_ptr<NumericList> checker_{{byte_start_idx}}_{{bit_start_idx}} = std::make_shared<NumericList>
+            (
+                {{byte_start_idx}} * 8 + (7 - {{ bit_start_idx }}),
+                {{data_item.functional_definition.bit_size}},
+                coding_{{byte_start_idx}}_{{bit_start_idx}}
+            );
+
+            {% else %}
+                {{ raise_exception("Unknow type({}) for data item".format(data_item.functional_definition.data_type)) }}
+            {% endif %}
+            did_checker->append(checker_{{byte_start_idx}}_{{bit_start_idx}});
+            {% endfor %}
+        {% endfor %}
+
+            checker_map->emplace({{ did_code | f_to_hex_format(4) }}, did_checker);
+        }
+        {% endfor %}
+    }
+    catch (const std::exception& e)
+    {
+        LE_FATAL("Initialization failed: (%s) <-", e.what());
+    }
 }

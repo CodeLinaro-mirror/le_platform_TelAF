@@ -144,7 +144,7 @@ def create_security_binding(final_yaml, final_pattern):
 def convert_patterns_in_did_all(final_yaml, final_pattern):
     logger.info("Extend executilon_authorization_pattern to did_all")
 
-    # Don't care the 'access' attribute anymore !! But IO_all care about that !!
+    # Don't care the 'access' attribute anymore !!
 
     for did_name, did_node in final_yaml['did_all'].items():
         if 'did_accessibility' not in did_node.keys():

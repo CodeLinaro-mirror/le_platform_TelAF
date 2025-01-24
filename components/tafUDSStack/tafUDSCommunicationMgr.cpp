@@ -59,6 +59,7 @@ taf_UDSIndicationHandler_t UdsCommunicationMgr::udsIndicationHandler;
 le_dls_List_t UdsCommunicationMgr::cancelFileXferReqList = LE_DLS_LIST_INIT;
 le_mutex_Ref_t UdsCommunicationMgr::cancelFileXferListMutex = NULL;
 static le_mem_PoolRef_t FileXferStatePool;
+static le_mem_PoolRef_t VlanIdPool;
 static le_mem_PoolRef_t CancelFileXferReqPool;
 
 UdsCommunicationMgr* UdsCommunicationMgr::GetInstance
@@ -155,6 +156,9 @@ void UdsCommunicationMgr::InitInstances
     // Create file transfer req pools.
     CancelFileXferReqPool = le_mem_CreatePool("CancelFileXferReqPool",
             sizeof(taf_CancelFileXferReq_t));
+
+    // Create vlan ID pools.
+    VlanIdPool = le_mem_CreatePool("VlanIdPool", sizeof(taf_uds_VlanId_t));
 
     // Create timer thread.
     le_thread_Ref_t udsTimerThreadRef = le_thread_Create("udsTimerTh", UdsTimerThread, NULL);
@@ -990,6 +994,35 @@ void UdsCommunicationMgr::GetFileXferActiveStateList
         le_dls_Queue(fileXferStateListPtr, &(fileXferStatePtr->link));
     }
 }
+
+/**
+ * Get vlan ID list.
+ */
+void UdsCommunicationMgr::GetVlanIdList
+(
+    le_dls_List_t* vlanIDListPtr
+)
+{
+    LE_DEBUG("GetVlanIdList");
+
+    // Store VLAN id in list. In non-VLAN case, vlanId will be 0.
+    for (const auto &pair : instances)
+    {
+        LE_INFO("vlanId=%d", pair.second->vlanId);
+
+        taf_uds_VlanId_t* vlanIdPtr = NULL;
+
+        // Need to be released by diag service
+        vlanIdPtr = (taf_uds_VlanId_t *)le_mem_ForceAlloc(VlanIdPool);
+
+        vlanIdPtr->vlanId = pair.second->vlanId;
+        vlanIdPtr->link = LE_DLS_LINK_INIT;
+        LE_DEBUG("Supported vlanId : %x", vlanIdPtr->vlanId);
+
+        le_dls_Queue(vlanIDListPtr, &(vlanIdPtr->link));
+    }
+}
+
 /**
  * Pack NRC.
  */

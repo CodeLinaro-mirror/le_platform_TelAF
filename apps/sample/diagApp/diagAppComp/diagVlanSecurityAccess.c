@@ -60,6 +60,9 @@ static void sesChangeHandler
 {
     LE_TEST_INFO("Previous session type: %x, Current session type: %x", PreviousType, CurrentType);
 
+    unsigned long idx = (unsigned long)(uintptr_t)contextPtr;
+    uint8_t currentSesType;
+
     uint16_t vlanId = 0;
     le_result_t result = LE_OK;
 
@@ -70,6 +73,18 @@ static void sesChangeHandler
     {
         LE_INFO("Deactivate programming --> release all resources");
         diagRFT_DeactivateProgrammingByVlanId((uint32_t)vlanId);
+    }
+
+    result = taf_diagSecurity_SelectTargetVlanID(diagVlanSecSvcRef[idx], vlanId);
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("VlanId selected for session type %x", vlanId);
+    }
+
+    result = taf_diagSecurity_GetCurrentSesType(diagVlanSecSvcRef[idx], &currentSesType);
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("Current active session type is %x", currentSesType);
     }
 
     // Release the session change msg.
@@ -266,6 +281,12 @@ static void* diagSecurityMsgThread(void* ctxPtr)
         return (void*)LE_FAULT;
     }
 
+    result = taf_diagSecurity_SelectTargetVlanID(diagVlanSecSvcRef[idx], vlanId);
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("VlanId selected for session type %x", vlanId);
+    }
+
     result = taf_diagSecurity_GetCurrentSesType(diagVlanSecSvcRef[idx], &currentSesType);
     if (result == LE_OK)
     {
@@ -277,7 +298,7 @@ static void* diagSecurityMsgThread(void* ctxPtr)
     LE_TEST_OK(diagVlanSesTypeMsgRef[idx] != NULL, "Registered successfully for sesTypeMsgHandler");
 
     diagVlanSesChangeRef[idx] = taf_diagSecurity_AddSesChangeHandler( diagVlanSecSvcRef[idx],
-            sesChangeHandler, NULL);
+            sesChangeHandler, ctxPtr);
     LE_TEST_OK(diagVlanSesChangeRef[idx] != NULL, "Registered successfully for sesChangeHandler");
 
     diagVlanSecMsgRef[idx] = taf_diagSecurity_AddRxSecAccessMsgHandler( diagVlanSecSvcRef[idx],

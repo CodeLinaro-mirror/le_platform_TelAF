@@ -139,26 +139,27 @@ namespace telux
                         const uint8_t* dataPtr, size_t dataLen);
 
                 // Subfunction reportNumberOfDTCByStatusMask (0x01)
-                le_result_t GetNumOfDtcByStatusMask(uint8_t statusMask);
+                le_result_t GetNumOfDtcByStatusMask(uint8_t statusMask, uint16_t vlanId);
 
                 // Subfunction reportDTCByStatusMask (0x02)
-                le_result_t GetDtcByStatusMask(uint8_t statusMask);
+                le_result_t GetDtcByStatusMask(uint8_t statusMask, uint16_t vlanId);
 
                 // Subfunction reportDTCSnapshotIdentification (0x03)
-                le_result_t GetDtcSnapshotID();
+                le_result_t GetDtcSnapshotID(uint16_t vlanId);
 
                 // Subfunction reportDTCSnapshotRecordByDTCNumber (0x04)
                 le_result_t GetDtcSnapshotRecordByDTCNum(uint32_t dtcMaskRec,
-                        uint8_t dtcRecNum);
+                        uint8_t dtcRecNum, uint16_t vlanId);
 
                 // Subfunction reportDTCExtDataRecordByDTCNumber (0x06)
-                le_result_t GetExtDataRecordByDTCNum(uint32_t dtcMaskRec, uint8_t dtcExtDataRec);
+                le_result_t GetExtDataRecordByDTCNum(uint32_t dtcMaskRec, uint8_t dtcExtDataRec,
+                        uint16_t vlanId);
 
                 // Subfunction reportSupportedDTC (0x0A)
-                le_result_t GetSupportedDtc();
+                le_result_t GetSupportedDtc(uint16_t vlanId);
 
                 // Subfunction reportDTCFaultDetectionCounter (0x14)
-                le_result_t GetFaultDetCounter();
+                le_result_t GetFaultDetCounter(uint16_t vlanId);
 
                 // ClearDiagnosticInformation service (0x14)
                 le_result_t GetClearDTCResp(uint32_t grpOfDTC);

@@ -65,6 +65,7 @@ typedef struct
     taf_diagSecurity_RxSecAccessMsgHandlerRef_t handlerRef;        ///< Rx SecAccess handler ref.
     le_msg_SessionRef_t sessionRef;                                ///< Client-server session ref.
     le_dls_List_t supportedVlanList;
+    uint16_t selectedVlanId;
 }taf_SecuritySvc_t;
 
 //-------------------------------------------------------------------------------------------------
@@ -156,6 +157,7 @@ typedef struct
     uint16_t        vlanId;
 }taf_SecurityVlanIdNode_t;
 
+
 // Security access service class
 namespace telux {
     namespace tafsvc {
@@ -194,12 +196,14 @@ namespace telux {
                                 taf_diagSecurity_SesChangeHandlerFunc_t handlerPtr,
                                         void* contextPtr);
                 void RemoveSesChangeHandler(taf_diagSecurity_SesChangeHandlerRef_t handlerRef);
+                le_result_t SelectTargetVlanID(taf_diagSecurity_ServiceRef_t svcRef,
+                        uint16_t vlanId);
                 le_result_t GetCurrentSesType(taf_diagSecurity_ServiceRef_t svcRef,
                         uint8_t* currentTypePtr);
                 le_result_t ReleaseSesChangeMsg(taf_diagSecurity_SesChangeRef_t sesChangeRef);
 
                 // internal function to get current session
-                le_result_t GetCurrentSession(uint8_t* currentSesPtr);
+                void UpdateCurrentSesType(uint16_t vlanId, uint8_t CurrentSesType);
 
                 // SecurityAccess 0x11
                 static void RxSecAccessEventHandler(void* reportPtr);
@@ -247,9 +251,6 @@ namespace telux {
                 // Service and event object
                 le_mem_PoolRef_t SvcPool;
                 le_ref_MapRef_t SvcRefMap;
-
-                // Maintain current session type and set default session on starting of service.
-                uint8_t currentSesType = 0x01;
 
                 // Rx message resource
                 le_mem_PoolRef_t RxSesTypePool;

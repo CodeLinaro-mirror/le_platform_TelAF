@@ -79,6 +79,13 @@ namespace tafsvc {
         TAF_DIAG_REQUEST_OUT_OF_RANGE = 0x31              ///< Parameter is out of range.
     }taf_diag_ErrorCode_t;
 
+    typedef struct
+    {
+        uint16_t       vlanId;
+        uint8_t        currentSesType; // Default value
+        le_dls_Link_t  link;
+    }taf_RxVlanCurrentSesType_t;
+
     // Define the interface for each service.
     class taf_UDSInterface
     {
@@ -115,10 +122,23 @@ namespace tafsvc {
             le_result_t RespDiagPositive(uint8_t sid, const taf_uds_AddrInfo_t* addrInfoPtr,
                 const uint8_t* dataPtr, size_t dataLen);
             le_result_t RespDiagPositive(uint8_t sid, const taf_uds_AddrInfo_t* addrInfoPtr);
-            le_result_t RespDiagNegative(uint8_t sid, const taf_uds_AddrInfo_t* addrInfoPtr, uint8_t nrc);
+            le_result_t RespDiagNegative(uint8_t sid, const taf_uds_AddrInfo_t* addrInfoPtr,
+                    uint8_t nrc);
+
+            // Internal function to check application requested VLAN id is valid or not.
+            bool isVlanIdValid(uint16_t vlanId);
+            // Internal function to get the cuurent session type per vlanID,
+            // For non vlan case vlanId = 0.
+            le_result_t GetCurrentSesType(uint16_t vlanId, uint8_t* currentSesTypePtr);
+
+            le_dls_List_t VlanAndSesTypeList = LE_DLS_LIST_INIT;
+
         private:
             le_result_t InitUdsStack();
             void DeInitUdsStack();
+
+            le_mem_PoolRef_t VlanAndSesTypeMemPool;
+            void ClearUDSVlanList(le_dls_List_t* vlanIdListPtr);
 #ifndef LE_CONFIG_DIAG_VSTACK
             taf_uds_DiagIndicationHandlerRef_t udsIndHandlerRef = NULL;
 #else

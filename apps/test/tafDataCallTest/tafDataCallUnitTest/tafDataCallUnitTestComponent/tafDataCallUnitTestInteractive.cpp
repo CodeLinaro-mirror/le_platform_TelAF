@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -22,6 +22,7 @@ using namespace tafsvc;
 static taf_dcs_RoamingStatusHandlerRef_t                                g_roamingStatusHandlerRef;
 static std::map<uint32_t, taf_dcs_SessionStateHandlerRef_t>  g_Profile_SessionStateHandlerRef_Map;
 static std::map<uint32_t, taf_dcs_QosStatusHandlerRef_t>    g_Profile_QosStatusHandlerRef_Map;
+static std::map<uint32_t, taf_dcs_HwAccelerationStateHandlerRef_t> g_Profile_HwAccelHandlerRef_Map;
 
 // Callback thread reference
 le_thread_Ref_t callbackThreadRef = nullptr;
@@ -929,6 +930,22 @@ static le_result_t GetMtu()
     return result;
 }
 
+static void HwAccStateHandlerFunc(  taf_dcs_ProfileRef_t profileRef,
+                                    taf_dcs_HwAccelerationState_t state,
+                                    void *contextPtr)
+{
+    LE_UNUSED(contextPtr);
+
+    uint32_t profileId = 0;
+    le_result_t result = taf_dcs_GetProfileId(profileRef, &profileId);
+    LE_TEST_INFO("taf_dcs_GetProfileId result: %d", result);
+
+    LE_TEST_INFO("Profile %d Hw accel state : %d(%s)", profileId, state,
+                                                            (state ? "ACTIVE" : "INACTIVE"));
+    std::cout   << "Profile " << profileId
+                << " Hw accel state    : " << state << "(" << (state ? "ACTIVE" : "INACTIVE") << ")"
+                << std::endl;
+}
 
 void RoamingStatusHandlerFunc(
     const taf_dcs_RoamingStatusInd_t *LE_NONNULL roamingStatusIndPtr,
@@ -1056,7 +1073,7 @@ static void *callback_thread_handler(void *ctxPtr)
     le_result_t result;
 
     // Add roaming status handler
-    g_roamingStatusHandlerRef = taf_dcs_AddRoamingStatusHandler(RoamingStatusHandlerFunc, NULL);
+    g_roamingStatusHandlerRef  = taf_dcs_AddRoamingStatusHandler(RoamingStatusHandlerFunc, NULL);
 
     // Add session state handler for all existing profiles for PHONE_ID_1
     result = taf_dcs_GetProfileListEx(phoneId, profilesInfoPtr, &listSize);
@@ -1067,6 +1084,7 @@ static void *callback_thread_handler(void *ctxPtr)
     {
         taf_dcs_SessionStateHandlerRef_t handlerRef = nullptr;
         taf_dcs_QosStatusHandlerRef_t handlerQosRef = nullptr;
+        taf_dcs_HwAccelerationStateHandlerRef_t handlerHwAccelRef = nullptr;
 
         taf_dcs_ProfileRef_t profileRef = nullptr;
         const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
@@ -1085,16 +1103,27 @@ static void *callback_thread_handler(void *ctxPtr)
         LE_TEST_ASSERT(nullptr != handlerQosRef, "taf_dcs_AddQosStatusHandler: phone id(%d), \
                                                 profile id: %d", phoneId, profileInfoPtr->index);
 
+        // Add HW acceleration state handler
+        handlerHwAccelRef = taf_dcs_AddHwAccelerationStateHandler(profileRef, HwAccStateHandlerFunc,
+                                                                                              NULL);
+        LE_TEST_ASSERT(nullptr != handlerHwAccelRef, "taf_dcs_AddHwAccelerationStateHandler: \
+                                                                    phone id(%d),profile id: %d",
+                                                                    phoneId, profileInfoPtr->index);
+
         // Add the handler ref to the profile and session handler map
         g_Profile_SessionStateHandlerRef_Map[profileInfoPtr->index] = handlerRef;
 
         // Add the handler ref to the profile and qos handler map
         g_Profile_QosStatusHandlerRef_Map[profileInfoPtr->index] = handlerQosRef;
 
+        // Add the handler ref to the profile and HW acceleration handler map
+        g_Profile_HwAccelHandlerRef_Map[profileInfoPtr->index] = handlerHwAccelRef;
+
         // Set the references to nullptr
         profileRef = nullptr;
         handlerRef = nullptr;
         handlerQosRef = nullptr;
+        handlerHwAccelRef = nullptr;
     }
 
     // Start the event loop
@@ -1132,6 +1161,7 @@ static void UnRegister_Callbacks()
 
     // Remove handlers
     taf_dcs_RemoveRoamingStatusHandler(g_roamingStatusHandlerRef);
+
     for (const auto &pair : g_Profile_SessionStateHandlerRef_Map)
     {
         uint32_t profileId = pair.first;
@@ -1150,6 +1180,16 @@ static void UnRegister_Callbacks()
         // Remove the qos state handler
         LE_TEST_INFO("Removed qos state hander for profile ID: %d", profileId);
         taf_dcs_RemoveQosStatusHandler(handlerRef);
+    }
+
+    for (const auto &pair : g_Profile_HwAccelHandlerRef_Map)
+    {
+        uint32_t profileId = pair.first;
+        taf_dcs_HwAccelerationStateHandlerRef_t handlerRef = pair.second;
+
+        // Remove the qos state handler
+        LE_TEST_INFO("Removed HW accel state hander for profile ID: %d", profileId);
+        taf_dcs_RemoveHwAccelerationStateHandler(handlerRef);
     }
 
 

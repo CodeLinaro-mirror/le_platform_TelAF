@@ -29,7 +29,7 @@
 
 /*
  *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -60,6 +60,13 @@ typedef struct
     char mnc[TAF_DCS_MNC_BYTES];                  /**< Mobile Network Code */
 }throttleInfo_t;
 
+// Internal message structure for onHwAccelerationChanged events
+typedef struct
+{
+    taf_dcs_ProfileRef_t profileRef;
+    taf_dcs_HwAccelerationState_t state;
+} HwAccelStatus_t;
+
 typedef struct
 {
     bool                                     isValid;
@@ -75,6 +82,7 @@ typedef struct
     le_event_Id_t                            throttleStateEvent;
     throttleInfo_t                           throttleInfo;
     le_dls_Link_t                            link;
+    le_event_Id_t                            HwAccelStateEvent;
 } taf_dcs_ProfileCtx_t;
 
 typedef struct
@@ -116,6 +124,7 @@ namespace tafsvc {
     class taf_DataProfile: public ITafSvc
     {
         public:
+
             void Init(void);
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
                 void onInitCompleted(telux::common::ServiceStatus status);
@@ -128,6 +137,7 @@ namespace tafsvc {
             le_result_t GetSlotIdAndProfileId(taf_dcs_ProfileRef_t profileRef, uint8_t *slotId,
                                               int32_t *profileId);
             le_event_Id_t GetThrottleStateEvent(uint8_t slotId, int32_t profileId);
+            le_event_Id_t GetProfileCtxHWAccelStateEvent(uint8_t slotId, int32_t profileId);
 
             le_result_t MapProfileCtxToParams(taf_dcs_ProfileCtx_t *ctxPtr,
                                               telux::data::ProfileParams &params);
@@ -196,6 +206,11 @@ namespace tafsvc {
                 return ListEventPool;
             }
 
+            // Functions for HW acceleration event
+            le_event_Id_t   GetHwAccelStatusEvent();
+            le_mem_PoolRef_t GetHwAccelEventMemPool();
+            static void ProcessHwAccelStatusEvent(void *eventPtr);
+
             le_dls_List_t                     ProfileReqHandlerList = LE_DLS_LIST_INIT;
             taf_dcs_ProfileInfo_t             ProfileInfo[TAF_DCS_PROFILE_LIST_MAX_ENTRY];
             taf_dcs_Pdp_t  MapIpFamily(telux::data::IpFamilyType ipFamily);
@@ -211,8 +226,10 @@ namespace tafsvc {
             le_mem_PoolRef_t ListEventPool = NULL;
             le_mem_PoolRef_t ProfilePool = NULL;
             le_mem_PoolRef_t ListHandlerPool = NULL;
+            le_mem_PoolRef_t HwAccelEvtPoolRef;
             le_ref_MapRef_t  ProfileRefMap = NULL;
             le_event_Id_t    ListReqEvent;
+            le_event_Id_t    HwAccelStatusEvent; // Handle HWAccel events from taf_DataConnection.
             le_dls_List_t    ProfileCtxList;
             taf_dcs_ProfileCtxs_t ProfilesListPtr = { 0 };
             le_thread_Ref_t ProfileEventThreadRef = NULL;

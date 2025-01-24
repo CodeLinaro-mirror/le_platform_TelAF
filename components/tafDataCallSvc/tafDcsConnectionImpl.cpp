@@ -29,7 +29,7 @@
 
 /*
  *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -65,7 +65,6 @@ LE_MEM_DEFINE_STATIC_POOL(QosStatusPool, TAF_DCS_MAX_SESSION_REF,sizeof(QOSFlowC
 
 LE_REF_DEFINE_STATIC_MAP(QosStatusRefMap, TAF_DCS_MAX_SESSION_REF);
 
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 taf_DataConnServingSystemListener::taf_DataConnServingSystemListener(SlotId slot) : slotId(slot) {}
 
 void taf_DataConnServingSystemListener::onServiceStateChanged(telux::data::ServiceStatus status)
@@ -74,7 +73,8 @@ void taf_DataConnServingSystemListener::onServiceStateChanged(telux::data::Servi
     LE_DEBUG("<SDK Listener> taf_DataConnServingSystemListener --> onServiceStateChanged");
 
     dsStatus = status.serviceState;
-    LE_DEBUG("status = %d", (int)dsStatus);
+    LE_DEBUG("Status = %d", (int)dsStatus);
+    LE_DEBUG("RAT    = %d", (int)status.networkRat);
     if (dsStatus == telux::data::DataServiceState::IN_SERVICE) {
         conVar.notify_all();
     }
@@ -128,8 +128,6 @@ void taf_DataConnRequestServiceStatusCallback::requestServiceStatus(
     status = serviceStatus;
     le_sem_Post(semaphore);
 }
-
-#endif
 
 taf_DataConnectionListener::taf_DataConnectionListener(SlotId slot) : slotId(slot) {}
 
@@ -437,6 +435,28 @@ const std::vector<telux::data::APNThrottleInfo>  &throttleInfoList
     LE_INFO("Number of throttled APN: %d",(uint8_t)throttleInfoList.size());
 
     dataProfile.ProcessThrottledApnInfoChanged(throttleInfoList, slotId);
+}
+taf_dcs_HwAccelerationState_t taf_DataConnection::ConvertHwAccelSate(
+    const telux::data::ServiceState state)
+{
+    // If active, return TAF_DCS_HW_ACCELERATION_ACTIVE
+    if (telux::data::ServiceState::ACTIVE == state)
+    {
+        return TAF_DCS_HW_ACCELERATION_ACTIVE;
+    }
+
+    // Return TAF_DCS_HW_ACCELERATION_INACTIVE in all other cases
+    return TAF_DCS_HW_ACCELERATION_INACTIVE;
+}
+
+void taf_DataConnectionListener::onHwAccelerationChanged(const telux::data::ServiceState state)
+{
+    LE_DEBUG("HW acceleration state: %d", static_cast<int>(state));
+    // Send event to taf_DataProfile to handle this event
+    HwAccelStatus_t event = {nullptr, TAF_DCS_HW_ACCELERATION_INACTIVE};
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    event.state = taf_DataConnection::ConvertHwAccelSate(state);
+    le_event_Report(dataProfile.GetHwAccelStatusEvent(), &event, sizeof(event));
 }
 
 taf_dcs_QosFlowBitMask_t taf_DataConnection::fillQosFlowMask(
@@ -3597,6 +3617,7 @@ void taf_DataConnection::CloseEventHandler
 
     // Find the data calls brought up by the sessionRef , and then stop them one by one
     le_mutex_Lock(dataConnection.callCtxMutex);
+
     linkPtr = le_dls_Peek(&dataConnection.DataCallCtxList);
     le_mutex_Unlock(dataConnection.callCtxMutex);
     while (linkPtr)
@@ -3980,7 +4001,7 @@ void taf_DataConnection::Init(void)
     reqAPNThrottlingStatusCb = std::make_shared<taf_DataAPNThrottleInfoCallback>();
     reqAPNThrottlingStatusCb->semaphore = le_sem_Create("taf_ConnReqRoamingStatusCbSem", 0);
 
-#else
+#else // #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
     auto ConnectionMgr = dataFactory.getDataConnectionManager();
 

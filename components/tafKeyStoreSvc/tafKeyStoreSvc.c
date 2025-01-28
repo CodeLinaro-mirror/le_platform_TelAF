@@ -3191,6 +3191,38 @@ COMPONENT_INIT
     }
     else
     {
-        LE_FATAL("taf_pa_ks_Init() failed.");
+        int retry = 0;
+        while(retry < 30)
+        {
+            sleep(1);
+            if(LE_OK == taf_pa_ks_Init())
+            {
+                LE_INFO("taf_pa_ks_Init successful");
+                // Advertise the service.
+                taf_ks_AdvertiseService();
+
+                // Set session close handlers.
+                le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(),
+                        RemoveNewKeysForClient, NULL);
+                le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(),
+                        RemoveCryptoSessionsForClient, NULL);
+                le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(),
+                        RemoveAppListsForClient, NULL);
+
+                LE_INFO("Telaf keyStore Service initialized with retry count %d.", retry++);
+                break;
+            }
+            else
+            {
+                LE_ERROR("taf_pa_ks_Init failed try again");
+            }
+            retry++;
+            LE_INFO("Retry count %d", retry);
+        }
+        if(retry == 30)
+        {
+            LE_FATAL("taf_pa_ks_Init() failed.");
+        }
+
     }
 }

@@ -605,38 +605,6 @@ le_result_t AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr)
 }
 
 /**
- * Local api which Releases the acquired wake lock for the given reference.
- */
-le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr)
-{
-    LE_INFO("ReleaseWakeSource");
-    auto &mpms = tafMngdPMSvc::GetInstance();
-    le_result_t res = LE_FAULT;
-    res = tafMngdPMSvc::RequestStateChange(
-            TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
-    if(res != LE_OK)
-    {
-        return res;
-    }
-    res = tafMngdPMSvc::ReleaseWakeLock();
-    if(res == LE_OK)
-    {
-        LE_INFO("client Released WakeLock");
-        tafMngdPMSvc::ProcessStateChange(
-                TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
-        wsRefCtxPtr->isAcquiredLock = false;
-        //sending notification to VHAL
-        if((mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
-        {
-            LE_INFO("notify node info for reason: %d", wsRefCtxPtr->reason);
-            (*(mpms.pmInf->nodeInfoNotification))(NODE_ID,
-                    HAL_PM_NODE_INFO_LOCK_RELEASED, (const uint8_t)wsRefCtxPtr->reason);
-        }
-    }
-    return res;
-}
-
-/**
  * Creates the system wakeupSource reference for a given StayAwake Reason.
  */
 taf_mngdPm_wsRef_t taf_mngdPm_CreateWakeupSource (
@@ -678,7 +646,7 @@ le_result_t taf_mngdPm_AuthorizeStayAwakeReason (
 taf_mngdPm_StayAwakeReasonBitMask_t stayAwakeReasonBitMask
 )
 {
-    LE_INFO("taf_mngdPm_AuthorizeStayAwakeReason");
+    LE_INFO("taf_mngdPm_AuthorizeStayAwakeReason %u", stayAwakeReasonBitMask);
     auto &mpms = tafMngdPMSvc::GetInstance();
     mpms.stayAwakeReasonMask.reset();
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL)) != 0)
@@ -786,11 +754,7 @@ taf_mngdPm_StayAwakeReasonBitMask_t stayAwakeReasonBitMask
         LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_16");
         mpms.stayAwakeReasonMask.set(31);
     }
-    else
-    {
-        return LE_BAD_PARAMETER;
-    }
-
+    mpms.ClearUnAuthorizedWakeSources();
     return LE_OK;
 }
 
@@ -868,7 +832,7 @@ le_result_t taf_mngdPm_Relax(taf_mngdPm_wsRef_t wsRef)
             {
                 if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason))
                 {
-                    res = ReleaseWakeSource(wsRefCtxPtr);
+                    res = mpms.ReleaseWakeSource(wsRefCtxPtr);
                 }
                 else
                 {
@@ -1254,7 +1218,7 @@ COMPONENT_INIT
 
     mpms.nodePowerStateChange = le_event_CreateId("nodePowerStateChange", sizeof(taf_mngdPm_NodePowerStateChange_t));
     le_event_AddHandler("tafNodePowerStateChange event", mpms.nodePowerStateChange, mpms.NodePowerStateChanged);
-    mpms.nodePowerStateRefPool = le_mem_CreatePool("nodePowerStateHandlerList", sizeof(taf_NodePowerStateRef_t));
+    mpms.nodePowerStateRefPool = le_mem_CreatePool("nodePowerStateRef", sizeof(taf_NodePowerStateRef_t));
     mpms.nodePowerStateHandlerMap = le_ref_CreateMap("nodePowerStateHandlerMap", TAF_REF_POOL_SIZE);
     mpms.nodePowerStateRefMap = le_ref_CreateMap("nodePowerStateRefMap", TAF_REF_POOL_SIZE);
     mpms.nodePowerStateHandlerPool = le_mem_CreatePool("nodePowerStateHandlerList",

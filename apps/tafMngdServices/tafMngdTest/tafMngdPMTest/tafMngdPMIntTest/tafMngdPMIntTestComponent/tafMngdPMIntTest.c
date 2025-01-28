@@ -87,8 +87,8 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- KeepAwakeThenRestartSystem \n"
         "------------To ForcedSystemShutdownAndSuspend-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdownAndSuspend\n"
-        "------------To Create a CreateMutlipleClients-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- CreateMutlipleClients\n"
+        "------------To Create a CreateMultipleClients-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- CreateMultipleClients\n"
         "------------To  test AllowWakingupDuringSuspending-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- AllowWakingupDuringSuspending\n"
         "------------To Test System Resume and Suspend -----------\n"
@@ -98,7 +98,9 @@ static void PrintUsage ()
         "------------To Test Bub with ecall use cases-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestBubCases\n"
         "------------To Test Test NonAuthorized StayAwake wake source-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestNonAuthorizedStayAwake\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestNonAuthorizedStayAwake\n"
+        "------------To Test clearing of unauthorized wake source after calling AuthorizeStayAwakeReason-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestClearUnAuthorizedWakeSource\n");
 }
 
 
@@ -1311,7 +1313,7 @@ static void* connect_service(void* ctxPtr)
                 le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(AUTHORIZE_ALL_STAY_AWAKE_REASON);
                 if(res == LE_OK) {
                     printf("'AuthorizeStayAwakeReason for ALL bitmask is set'\n");
-                    LE_INFO("AUTHORIZE_ALL_STAY_AWAKE_REASON %d", AUTHORIZE_ALL_STAY_AWAKE_REASON);
+                    LE_INFO("AUTHORIZE_ALL_STAY_AWAKE_REASON %u", AUTHORIZE_ALL_STAY_AWAKE_REASON);
                }
             }
             else
@@ -1397,7 +1399,36 @@ void* ThreadFunction(void* threadID) {
     le_event_RunLoop();
 }
 
-void CreateMutlipleClients()
+void ReAuthorizeStayAwakeReason() {
+
+    taf_mngdPm_ConnectService();
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(4);
+    if(res == LE_OK) {
+        printf("AuthorizeStayAwakeReason is set to ecall callback");
+        exit(EXIT_SUCCESS);
+    }
+}
+
+void TestClearUnAuthorizedWakeSource()
+{
+    taf_mngdPm_ConnectService();
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(1);
+    if(res == LE_OK)
+        printf("AuthorizeStayAwakeReason is set to normal");
+    wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+            TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRef)
+        printf("CreateWakeupSource for TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL\n");
+    if(wsRef != NULL) {
+        res = taf_mngdPm_StayAwake(wsRef);
+        if(res == LE_OK) {
+            printf("'Resumed sysytem'\n");
+         }
+    }
+    ReAuthorizeStayAwakeReason();
+}
+
+void CreateMultipleClients()
 {
     long t;
     semRef = le_sem_Create("MngdIntTestApp", 0);
@@ -1618,9 +1649,9 @@ COMPONENT_INIT
         {
             TestBubCases();
         }
-        else if(strcmp(testType, "CreateMutlipleClients") == 0)
+        else if(strcmp(testType, "CreateMultipleClients") == 0)
         {
-            CreateMutlipleClients();
+            CreateMultipleClients();
         }
         else if(strcmp(testType, "AllowWakingupDuringSuspending") == 0)
         {
@@ -1629,6 +1660,10 @@ COMPONENT_INIT
         else if(strcmp(testType, "TestNonAuthorizedStayAwake") == 0)
         {
             TestNonAuthorizedStayAwake();
+        }
+        else if(strcmp(testType, "TestClearUnAuthorizedWakeSource") == 0)
+        {
+            TestClearUnAuthorizedWakeSource();
         }
         else
         {

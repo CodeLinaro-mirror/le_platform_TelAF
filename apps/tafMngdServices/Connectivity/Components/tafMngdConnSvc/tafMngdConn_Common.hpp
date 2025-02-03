@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -213,16 +213,11 @@ namespace tafsvc {
         MCS_JSON_VERSION_24_06_00 = 240600, //"TAF_24.06.00"
         MCS_JSON_VERSION_24_07_00 = 240700,  //"TAF_24.07.00"
         MCS_JSON_VERSION_24_09_00 = 240900,  //"TAF_24.09.00"
-        MCS_JSON_VERSION_24_12_00 = 241200  //"TAF_24.12.00"
+        MCS_JSON_VERSION_24_12_00 = 241200,  //"TAF_24.12.00"
+        MCS_JSON_VERSION_25_02_00 = 250200  //"TAF_25.02.00"
     } mcs_JSON_Version_t;
 
     // Constant Strings
-
-    /**
-     * \brief Default Location for Configuration JSONs
-     *
-     */
-    const std::string MCS_DefaultLocation_Configuration("/data/ManagedServices");
 
     /**
      * \brief Value for Product in mngdConnectivity.json should be TelAF

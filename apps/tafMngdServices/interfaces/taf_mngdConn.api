@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -55,18 +55,23 @@
  *
  * @section taf_mngdConn_Connectivity Managed Connectivity
  *
- * Before starting the service, the user should place a JSON file named
- * mngdConnectivity.json into /data/ManagedServices directory. This JSON file contains a
- * Configuration object and a Policy object. The Policy object manages the execution of the service
- * using the parameters provided via the Configuration object.
+ * The service requires a valid mngdConnectivity.json file for its normal operation.
+ * The objects and values for this JSON are documented below.
+ * By default, the service will use mngdConnectivity.json, which is bundled with the service
+ * from the TelAF RO location.
+ * Upon startup, the service will examine the path specified in the "Extension" object to verify
+ * the presence of a valid JSON file. Should a valid JSON be located at the "Extension" path,
+ * the service will utilize that JSON. In the event that the JSON is either unavailable or invalid,
+ * the service will revert to using the JSON bundled with the service.
  *
  * Template of mngdConnectivity.json:
  * @verbatim
  {
     "Product": "TelAF",
-    "Name": "Managed Connectivity Service",
+    "Name": "MngdConn",
+    "Extension": "/data/persist/telaf/",   ///< Extension Path for the JSON
     "ManagedConnectivityService": {
-        "Version": "24.09.00",
+        "Version": "25.02.00",             ///< Version of the JSON
         "Configuration": {                 ///< Configuration Object.
             "Name": "Default",
             "Sim":[
@@ -253,6 +258,16 @@
      <td>Managed Connectivity Service</td>
      <td>32</td>
      <td>Optional and not used by the service.</td>
+   </tr>
+   <tr>
+     <td colspan="4">Extension</td>
+     <td>Extension</td>
+     <td>char</td>
+     <td>"/data/persist/telaf/"</td>
+     <td>511</td>
+     <td>If user provided JSON is available in this location, use that JSON.
+         <br>
+         Otherwise, use the JSON that is bundled with the service.</td>
    </tr>
    <tr>
      <td rowspan="42">ManagedConnectivityService</td>
@@ -716,6 +731,7 @@
       -- 24.07.00
       -- 24.09.00
       -- 24.12.00
+      -- 25.02.00
  @endverbatim
  * @par Multiple Data Sessions:
  *      For multiple data sessions, add Data object(s) and matching DataConnection object(s).

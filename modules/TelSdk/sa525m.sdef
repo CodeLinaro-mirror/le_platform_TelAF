@@ -122,6 +122,7 @@ apps:
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdStorageUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSecSharedApp
     // $TELAF_ROOT/apps/test/configtreeImportTest/configUnitTest.adef
+    // $TELAF_ROOT/apps/sample/configTree/configTreeSample.adef
 }
 
 commands:

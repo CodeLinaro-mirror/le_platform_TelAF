@@ -459,21 +459,24 @@ def convert_dtc_all_and_events(final_yaml):
         assert 'events' in dtc_node['functional_conditions'].keys()
 
         events = dtc_node['functional_conditions']['events']
-        current_events_list = []
         for evt in events:
-            current_idx = len(dtc_events) + 1
-            current_events_list.append(current_idx)
-            dtc_events[current_idx] = copy.deepcopy(evt)
-            dtc_events[current_idx]['origin_id'] = current_idx
-        dtc_node['events'] = current_events_list
-        del dtc_node['functional_conditions'] # Remove the original 'functional_conditions'.'events'
+            assert evt['mnemonic'] not in dtc_events
+            dtc_events[evt['mnemonic']] = copy.deepcopy(evt)
 
     # By default, Alphabetical order should be used
     sorted_dtc_events = OrderedDict(
                             sorted(dtc_events.items(),
-                                   key=lambda evt: evt[1]['mnemonic']))
-    for idx, evt in enumerate(sorted_dtc_events.values()):
-        evt['id'] = idx + 1 # Event ID start from 0x01
+                                   key=lambda evt: evt[0])) # [0] = mnemonic
+    # Event ID start from 0x01
+    for idx, evt in enumerate(sorted_dtc_events.values(), start=1):
+        evt['id'] = idx
+
+    for dtc_node in final_yaml['dtc_all'].values():
+        current_dtc_events = []
+        for evt_in_dtc in dtc_node['functional_conditions']['events']:
+            current_dtc_events.append(sorted_dtc_events[evt_in_dtc['mnemonic']]['id'])
+        dtc_node['events'] = current_dtc_events
+        del dtc_node['functional_conditions'] # Remove the original 'functional_conditions'.'events'
 
     def find_dup_event_id_mnemonic(events):
         element_count = {}

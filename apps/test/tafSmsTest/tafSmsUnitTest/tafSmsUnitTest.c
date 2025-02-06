@@ -722,6 +722,7 @@ __attribute__((unused)) static void RxHandler
 
     RxSmsContent_t rxContent;
     size_t len = 0;
+    size_t checkLen = 0;
 
     memset(rxContent.text, 0, TAF_SMS_TEXT_BYTES);
 
@@ -738,6 +739,10 @@ __attribute__((unused)) static void RxHandler
     LE_INFO("PDU len = %" PRIuS, len);
 
     LE_TEST_ASSERT(len > 0, "Test taf_sms_GetPDU length");
+
+    checkLen = taf_sms_GetPDULen(msgRef);
+
+    LE_TEST_ASSERT(checkLen == len, "Test taf_sms_GetPDULen");
 
     bool PDU_IsEmpty = true;
 

@@ -317,8 +317,7 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
 
    auto &sms = taf_Sms::GetInstance();
 
-   taf_sms_Msg_t *tafNewMsg = (taf_sms_Msg_t*)le_mem_ForceAlloc(sms.MsgPool);
-   memset(tafNewMsg, 0, sizeof(taf_sms_Msg_t));
+   taf_sms_Msg_t *tafNewMsg = sms.CreateRxMsgNode(nullptr);
 
    tafNewMsg->phoneId = newMsgPtr->phoneId;
 
@@ -328,6 +327,8 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
 
    pduMsg.length = strlen(newMsgPtr->pdu) / 2;
    LE_DEBUG("pduMsg.length = %d", pduMsg.length);
+
+   tafNewMsg->pduReady = true;
 
    if(sms.sysPrefStorage == TAF_SMS_STORAGE_HLOS)
    {
@@ -793,21 +794,24 @@ taf_sms_Msg_t* taf_Sms::CreateRxMsgNode
 
    memset(msgPtr, 0, sizeof(taf_sms_Msg_t));
 
-   memcpy(&(msgPtr->pdu), pduMsg, sizeof(taf_sms_Pdu_t));
-   msgPtr->pduReady = true;
-
-   msgPtr->readStatus = pduMsg->rxStatus;
-   msgPtr->lockStatus = pduMsg->lkStatus;
-   msgPtr->storage = pduMsg->storage;
-   msgPtr->storageIdx = pduMsg->index;
-   msgPtr->phoneId = pduMsg->phoneId;
-
    msgPtr->type = TAF_SMS_TYPE_RX;
    msgPtr->applyDel = false;
 
    msgPtr->tel[0] = '\0';
    msgPtr->text[0] = '\0';
    msgPtr->timestamp[0] = '\0';
+
+   if(pduMsg != nullptr)
+   {
+      memcpy(&(msgPtr->pdu), pduMsg, sizeof(taf_sms_Pdu_t));
+      msgPtr->pduReady = true;
+
+      msgPtr->readStatus = pduMsg->rxStatus;
+      msgPtr->lockStatus = pduMsg->lkStatus;
+      msgPtr->storage = pduMsg->storage;
+      msgPtr->storageIdx = pduMsg->index;
+      msgPtr->phoneId = pduMsg->phoneId;
+   }
 
    return msgPtr;
 }

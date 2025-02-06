@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -587,6 +587,8 @@ taf_net_VlanRef_t taf_Vlan::CreateVlan
         vlanPtr->isAccelerated=isAccelerated;
         vlanPtr->priority=priority;
         vlanPtr->sessionRef=sessionRef;
+        //To support backward compatibility for network type
+        vlanPtr->nwType=TAF_NETIPPASS_NETWORK_UNKNOWN;
         //set vlan bind values to default values
         //because for backhaul type WWAN profile/slot are not needed
         vlanPtr->vlanBindConfig.profileId = -1;
@@ -751,6 +753,13 @@ taf_net_VlanRef_t taf_Vlan::GetVlanRefById
         vlanPtr->isAccelerated=IsAcceleratedInDb;
         vlanPtr->priority=priority;
         vlanPtr->sessionRef=sessionRef;
+        //To support backward compatibility for network type
+        vlanPtr->nwType=TAF_NETIPPASS_NETWORK_UNKNOWN;
+        //set vlan bind values to default values
+        //because for backhaul type WWAN profile/slot are not needed
+        vlanPtr->vlanBindConfig.profileId = -1;
+        vlanPtr->vlanBindConfig.slotId = DEFAULT_SLOT_ID;
+        vlanPtr->vlanBindConfig.vlanIdBackhaul = -1;
         return (taf_net_VlanRef_t)le_ref_CreateRef(vlanRefMap, (void*)vlanPtr);
     }
 }
@@ -798,11 +807,19 @@ le_result_t taf_Vlan::AddVlanInterface
     vconfig.vlanId = vlanPtr->vlanId;
     vconfig.isAccelerated = vlanPtr->isAccelerated;
     vconfig.priority = vlanPtr->priority;
-    vconfig.nwType = (telux::data::NetworkType)vlanPtr->nwType;
 
-    if (vconfig.nwType != NetworkType::LAN) {
+    if(vlanPtr->nwType != TAF_NETIPPASS_NETWORK_UNKNOWN)
+    {
+        vconfig.nwType = (telux::data::NetworkType)vlanPtr->nwType;
+    }
+    //else pick default value sdk value which are nwType=LAN and createBridge=true
+
+    if (vconfig.nwType == NetworkType::WAN) { // bridge is not supported for WAN network type
         vconfig.createBridge = false;
     }
+
+    LE_DEBUG("NetworkType %d createBridge %d ", static_cast<int>(vconfig.nwType),
+                                                static_cast<int>(vconfig.createBridge));
 
     interfacePresent=IsVlanInterfacePresentInDb(vconfig.vlanId, ifType);
     if(interfacePresent)

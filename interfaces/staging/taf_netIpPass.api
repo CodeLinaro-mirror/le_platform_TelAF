@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -160,7 +160,9 @@ STRUCT IpAddressInfo
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the network type to a VLAN. By default, the network type is LAN.
+ * Sets the network type to a VLAN.
+ * By default, the network type is LAN and bridge will be created.
+ * For network type WAN, bridge creation is not allowed.
  *
  * @return
  *   - LE_OK -- Succeeded.

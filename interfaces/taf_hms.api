@@ -164,6 +164,51 @@
    }
    @endverbatim
  *
+ * @section c_taf_hms_ModemEvtHandler_API Modem event notification
+ *
+ * taf_hms_AddModemEvtHandler() is for the application to register an event handler for modem
+ * event. When the status of modem changes, the service will notify the client through
+ * that registered event handler.
+ *
+ * When the notification is not needed, taf_hms_RemoveModemEvtHandler() is used to de-register
+ * the event handler to release.
+ *
+ * The following example illustrates how to register and get the modem information,
+ * @verbatim
+    // Event handler for receiving notification from hms service
+    void ModemStatusHandler
+    (
+        taf_hms_ModemEvtType_t eventType,
+        taf_hms_ModemEvtSeverity_t eventLevel,
+        taf_hms_ModemEventRef_t eventRef,
+        void* contextPtr
+    )
+    {
+        LE_INFO("Event Type: %s. Event Level: %s Event Reference: %p\n",
+            ModemEventTypeToStr(eventType), ModemEventLevelToStr(eventLevel), eventRef);
+        le_result_t result = taf_hms_ReleaseModemEvt(eventRef);
+    }
+
+    taf_hms_ModemEvtHandlerRef_t modemStatusHandlerRef = NULL;
+    // Thread to register the handler
+
+    void* Test_taf_Hms_AddModemEvtHandler(void* cxtPtr)
+    {
+        taf_hms_ConnectService();
+        modemStatusHandlerRef = taf_hms_AddModemEvtHandler(
+            (taf_hms_ModemEvtHandlerFunc_t)ModemStatusHandler, NULL);
+        le_event_RunLoop();
+        return NULL;
+    }
+
+    //Creates a thread to register the handler and receive notification.
+    le_thread_Ref_t threadRef = le_thread_Create("ModemCrashMonitorThread",
+        Test_taf_Hms_AddModemEvtHandler, (void*)semRef);
+
+    // De-register the hanlder when not need.
+    taf_hms_RemoveModemEvtHandler(modemStatusHandlerRef);
+    @endverbatim
+ *
  * <HR>
  *
  */
@@ -214,6 +259,39 @@ REFERENCE MtdDevInfoList;
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE MtdDevInfo;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference type for modem event.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE ModemEvent;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of modem event maintained by health monitor service.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ModemEvtType
+{
+    MODEM_EVENT_TYPE_CONTINUE_REBOOT
+};
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of modem event severity level maintained by health monitor service.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ModemEvtSeverity
+{
+    MODEM_EVENT_SEVERITY_LOW,
+    MODEM_EVENT_SEVERITY_MEDIUM,
+    MODEM_EVENT_SEVERITY_HIGH
+};
 
 
 ///------------------------------------------------------------------------------------------------
@@ -592,4 +670,43 @@ FUNCTION le_result_t GetMtdDevBlkCnt
 (
     MtdDevInfo mtdDevInfoRef  IN,      ///< MTD Info reference.
     uint32 mtdBlkCnt OUT       ///< Block count.
+);
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for change in modem event.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER ModemEvtHandler
+(
+    ModemEvtType eventType   IN,             ///< Modem event
+    ModemEvtSeverity eventSeverity IN,       ///< Modem event level
+    ModemEvent eventRef                  ///< Modem status change event reference
+);
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report the modem status change and relevant information.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT ModemEvt
+(
+    ModemEvtHandler handler    ///< Modem status handler.
+);
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Release modem event reference.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ReleaseModemEvt
+(
+    ModemEvent eventRef                  ///< Modem status change event reference
 );

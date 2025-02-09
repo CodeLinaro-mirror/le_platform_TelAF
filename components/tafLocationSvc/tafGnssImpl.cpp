@@ -560,20 +560,26 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
     }
 
     for (auto locationInfo : locationEngineInfo) {
+        std::chrono::time_point<std::chrono::system_clock> mEndTime = std::chrono::system_clock::now();
+        if (clientRequestPtr->mTtffReportCount < TTFF_REPORT_COUNT)
+        {
+            LE_DEBUG("TTFF reportStatus = %d, received report time = %" PRIu64 ", utc timeStamp = %" PRIu64 "", (int)(locationInfo->getReportStatus()), mEndTime.time_since_epoch().count(), locationInfo->getTimeStamp());
+            (clientRequestPtr->mTtffReportCount)++;
+        }
         if ((clientRequestPtr->mFirstFix) &&
             (locationInfo->getReportStatus() == telux::loc::ReportStatus::SUCCESS) &&
             (locationInfo->getLatitude() != NAN) &&
             (locationInfo->getLongitude() != NAN))
         {
-            std::chrono::time_point<std::chrono::system_clock> mEndTime = std::chrono::system_clock::now();
-            std::chrono::duration<double> elapsedTime = mEndTime - clientRequestPtr->mStartTime;
-            clientRequestPtr->mTtffPtr = elapsedTime.count() * 1e+3;
-
-            if ((int)clientRequestPtr->mTtffPtr >= clientRequestPtr->mAcqRate)
+            if (locationInfo->getPositionTechnology() == telux::loc::GnssPositionTechType::GNSS_PROPAGATED)
             {
-                clientRequestPtr->mFirstFix = false;
-            } else{
+                LE_DEBUG("The position technology of this position report is PROPAGATED");
                 clientRequestPtr->mTtffPtr=  0;
+            } else{
+                clientRequestPtr->mFirstFix = false;
+                std::chrono::duration<double> elapsedTime = mEndTime - clientRequestPtr->mStartTime;
+                clientRequestPtr->mTtffPtr = elapsedTime.count() * 1e+3;
+                LE_DEBUG("TTFF mEndTime = %ld, TTFF value = %d", mEndTime.time_since_epoch().count(), clientRequestPtr->mTtffPtr);
             }
         }
     }
@@ -2195,6 +2201,8 @@ void taf_locGnss::ConfigureAcqStartInfo(taf_locGnss_Client_t* clientRequestPtr) 
     clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_ACTIVE;
     clientRequestPtr->mTtffPtr = 0;
     clientRequestPtr->mStartTime = std::chrono::system_clock::now();
+    clientRequestPtr->mTtffReportCount = 0;
+    LE_DEBUG("TTFF mStartTime = %ld", (clientRequestPtr->mStartTime).time_since_epoch().count());//Amy
     clientRequestPtr->mFirstFix = true;
 }
 
@@ -4062,6 +4070,43 @@ le_result_t taf_locGnss::ForceColdRestart
         break;
         case TAF_LOCGNSS_STATE_ACTIVE:
             {
+            LE_DEBUG("ForceColdRestart mStarted: %d", clientRequestPtr->mStarted);
+            // stop Detailed Reports
+            if (clientRequestPtr->mStarted)
+            {
+                std::promise<le_result_t> p;
+                auto cb = [&p](telux::common::ErrorCode error) {
+                    if(error == telux::common::ErrorCode::SUCCESS) {
+                        p.set_value(LE_OK);
+                    }
+                    else {
+                        p.set_value(LE_FAULT);
+                    }
+                };
+                telux::common::Status status = clientRequestPtr->locationManager->stopReports(cb);
+                if(status != telux::common::Status::SUCCESS)
+                {
+                    result = LE_FAULT;
+                }
+                else
+                {
+                    std::future<le_result_t> futResult = p.get_future();
+                    if(futResult.get() == LE_OK)
+                    {
+                        clientRequestPtr->mStarted = false;
+                        clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
+                        LE_DEBUG("ForceColdRestart->Stop() is success");
+                    }
+                    else
+                    {
+                        LE_DEBUG("ForceColdRestart->Stop() is failed");
+                        result = LE_FAULT;
+                    }
+                }
+            }
+
+            if(result == LE_OK)
+            {
                //Delete All Aiding Data
                 std::promise<le_result_t> p1;
                 auto cb1 = [&p1](telux::common::ErrorCode error) {
@@ -4092,93 +4137,58 @@ le_result_t taf_locGnss::ForceColdRestart
                         result = LE_FAULT;
                     }
                 }
-                if(result == LE_OK)
-                {
-                    // stop Detailed Reports
-                    if (clientRequestPtr->mStarted)
+            }
+            if(result == LE_OK)
+            {
+                //start Detailed Engine report
+                if (!clientRequestPtr->mStarted) {
+                    int optInterval = clientRequestPtr->mAcqRate;
+                    LE_DEBUG("ForceColdRestart->  optInterval: %d",optInterval);
+                    if( optInterval == 0  || optInterval < 100) {
+                        LE_DEBUG("ForceColdRestart mAcqRate is zero, so set default to 100ms");
+                        optInterval = 100;
+                        clientRequestPtr->mAcqRate = optInterval;
+                    }
+
+                    LocReqEngine engineType = DEFAULT_UNKNOWN;
+                    GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
+                    reportMask = 0x7f;//all reports are enabled
+                    LE_DEBUG("ForceColdRestart->reportMask : %u",reportMask);
+                    engineType |= (1UL << clientRequestPtr->mEngineType);
+
+                    std::promise<le_result_t> p2;
+                    auto cb2 = [&p2](telux::common::ErrorCode error) {
+                        if(error == telux::common::ErrorCode::SUCCESS) {
+                            p2.set_value(LE_OK);
+                        }
+                        else {
+                            p2.set_value(LE_FAULT);
+                        }
+                    };
+                    sleep(1);
+                    LE_DEBUG("ForceColdRestart ->startDetailedEngineReports()");
+                    telux::common::Status status = clientRequestPtr->locationManager->startDetailedEngineReports(
+                        (uint32_t)optInterval, engineType, cb2, reportMask);
+                    if(status != telux::common::Status::SUCCESS)
                     {
-                        std::promise<le_result_t> p2;
-                        auto cb2 = [&p2](telux::common::ErrorCode error) {
-                            if(error == telux::common::ErrorCode::SUCCESS) {
-                                p2.set_value(LE_OK);
-                            }
-                            else {
-                                p2.set_value(LE_FAULT);
-                            }
-                        };
-                        auto status = clientRequestPtr->locationManager->stopReports(cb2);
-                        if(status != telux::common::Status::SUCCESS)
+                        result = LE_FAULT;
+                    }
+                    else
+                    {
+                        std::future<le_result_t> futResult = p2.get_future();
+                        if(futResult.get() == LE_OK)
                         {
-                            result = LE_FAULT;
+                            ConfigureAcqStartInfo(clientRequestPtr);
+                            LE_DEBUG("ForceColdRestart->Start() is success");
                         }
                         else
                         {
-                            std::future<le_result_t> futResult = p2.get_future();
-                            if(futResult.get() == LE_OK)
-                            {
-                                clientRequestPtr->mStarted = false;
-                                clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
-                                LE_DEBUG("ForceColdRestart->Stop() is success");
-                            }
-                            else
-                            {
-                                LE_DEBUG("ForceColdRestart->Stop() is failed");
-                                result = LE_FAULT;
-                            }
-                        }
-                    }
-                }
-                if(result == LE_OK)
-                {
-                    //start Detailed Engine report
-                    if (!clientRequestPtr->mStarted) {
-                        int optInterval = clientRequestPtr->mAcqRate;
-                        LE_DEBUG("ForceColdRestart->  optInterval: %d",optInterval);
-                        if( optInterval == 0  || optInterval < 100) {
-                            LE_DEBUG("ForceColdRestart mAcqRate is zero, so set default to 100ms");
-                            optInterval = 100;
-                            clientRequestPtr->mAcqRate = optInterval;
-                        }
-
-                        LocReqEngine engineType = DEFAULT_UNKNOWN;
-                        GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
-                        reportMask = 0x7f;//all reports are enabled
-                        LE_DEBUG("ForceColdRestart->reportMask : %u",reportMask);
-                        engineType |= (1UL << clientRequestPtr->mEngineType);
-
-                        std::promise<le_result_t> p;
-                        auto cb = [&p](telux::common::ErrorCode error) {
-                            if(error == telux::common::ErrorCode::SUCCESS) {
-                                p.set_value(LE_OK);
-                            }
-                            else {
-                                p.set_value(LE_FAULT);
-                            }
-                        };
-
-                        LE_DEBUG("ForceColdRestart ->startDetailedEngineReports()");
-                        auto status = clientRequestPtr->locationManager->startDetailedEngineReports(
-                            (uint32_t)optInterval, engineType, cb, reportMask);
-                        if(status != telux::common::Status::SUCCESS)
-                        {
+                            LE_ERROR("ForceColdRestart->Start() is failed");
                             result = LE_FAULT;
                         }
-                        else
-                        {
-                            std::future<le_result_t> futResult = p.get_future();
-                            if(futResult.get() == LE_OK)
-                            {
-                                ConfigureAcqStartInfo(clientRequestPtr);
-                                LE_DEBUG("ForceColdRestart->Start() is success");
-                            }
-                            else
-                            {
-                                LE_DEBUG("ForceColdRestart->Start() is failed");
-                                result = LE_FAULT;
-                            }
-                        }
                     }
                 }
+            }
             }
         break;
         default:
@@ -4215,6 +4225,46 @@ le_result_t taf_locGnss::ForceWarmRestart
         break;
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
+            // stop Detailed Reports
+            if (clientRequestPtr->mStarted)
+            {
+                std::promise<le_result_t> p;
+                auto cb = [&p](telux::common::ErrorCode error) {
+                    if(error == telux::common::ErrorCode::SUCCESS) {
+                        p.set_value(LE_OK);
+                    }
+                    else {
+                         p.set_value(LE_FAULT);
+                    }
+                };
+
+                telux::common::Status status = clientRequestPtr->locationManager->stopReports(cb);
+                if(status != telux::common::Status::SUCCESS)
+                {
+                    result = LE_FAULT;
+                }
+                else
+                {
+                    std::future<le_result_t> futResult = p.get_future();
+                    if(futResult.get() == LE_OK)
+                    {
+                        clientRequestPtr->mStarted = false;
+                        clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
+                        LE_DEBUG("ForceWarmRestart->Stop() is success");
+                    }
+                    else
+                    {
+                        LE_ERROR("borqs ForceWarmRestart->Stop() is failed");
+                        result = LE_FAULT;
+                    }
+                }
+            }
+            else
+            {
+                result = LE_FAULT;
+            }
+            if(result == LE_OK)
+            {
                 std::promise<le_result_t> p1;
 
                 auto cb1 = [&p1](telux::common::ErrorCode error) {
@@ -4225,10 +4275,6 @@ le_result_t taf_locGnss::ForceWarmRestart
                         p1.set_value(LE_FAULT);
                     }
                 };
-
-                /* Specifies AidingDataType mask */
-                /* 0 - EPHEMERIS 1 - DR_SENSOR_CALIBRATION
-                   AidingData |1UL << 0 which is 1*/
 
                 uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_EPHEMERIS;
                 telux::common::Status status = mLocationConfigurator->deleteAidingData(AidingData, cb1);
@@ -4248,12 +4294,12 @@ le_result_t taf_locGnss::ForceWarmRestart
                         result = LE_FAULT;
                     }
                 }
-
+            }
                 if(result == LE_OK)
                 {
-                    // stop Detailed Reports
-                    if (clientRequestPtr->mStarted)
-                    {
+                    //start Detailed Engine report
+                    if (!clientRequestPtr->mStarted) {
+                        int optInterval = clientRequestPtr->mAcqRate;
                         std::promise<le_result_t> p2;
                         auto cb2 = [&p2](telux::common::ErrorCode error) {
                             if(error == telux::common::ErrorCode::SUCCESS) {
@@ -4263,8 +4309,22 @@ le_result_t taf_locGnss::ForceWarmRestart
                                 p2.set_value(LE_FAULT);
                             }
                         };
+                        LE_DEBUG("ForceWarmRestart->  optInterval: %d",optInterval);
+                        if( optInterval == 0  || optInterval < 100) {
+                            LE_DEBUG("ForceWarmRestart mAcqRate is zero, so set default to 100ms");
+                            optInterval = 100;
+                            clientRequestPtr->mAcqRate = optInterval;
+                        }
+                        LocReqEngine engineType = DEFAULT_UNKNOWN;
+                        GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
+                        reportMask = 0x7f;//all reports are enabled
+                        LE_DEBUG("ForceWarmRestart->reportMask : %u",reportMask);
+                        engineType |= (1UL << clientRequestPtr->mEngineType);
+                        sleep(1);
+                        LE_DEBUG("ForceWarmRestart ->startDetailedEngineReports()");
+                        telux::common::Status status = clientRequestPtr->locationManager->startDetailedEngineReports((uint32_t)optInterval,
+                            engineType, cb2, reportMask);
 
-                        status = clientRequestPtr->locationManager->stopReports(cb2);
                         if(status != telux::common::Status::SUCCESS)
                         {
                             result = LE_FAULT;
@@ -4272,60 +4332,6 @@ le_result_t taf_locGnss::ForceWarmRestart
                         else
                         {
                             std::future<le_result_t> futResult = p2.get_future();
-                            if(futResult.get() == LE_OK)
-                            {
-                                clientRequestPtr->mStarted = false;
-                                clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
-                                LE_DEBUG("ForceWarmRestart->Stop() is success");
-                            }
-                            else
-                            {
-                                LE_DEBUG("ForceWarmRestart->Stop() is failed");
-                                result = LE_FAULT;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        result = LE_FAULT;
-                    }
-                }
-                if(result == LE_OK)
-                {
-                    //start Detailed Engine report
-                    if (!clientRequestPtr->mStarted) {
-                        int optInterval = clientRequestPtr->mAcqRate;
-                        std::promise<le_result_t> p;
-                        auto cb = [&p](telux::common::ErrorCode error) {
-                            if(error == telux::common::ErrorCode::SUCCESS) {
-                                p.set_value(LE_OK);
-                            }
-                            else {
-                                p.set_value(LE_FAULT);
-                            }
-                        };
-                        LE_DEBUG("ForceWarmRestart->  optInterval: %d",optInterval);
-                        if( optInterval == 0  || optInterval < 100) {
-                            LE_DEBUG("ForceWarmRestart mAcqRate is zero, so set default to 100ms");
-                            optInterval = 100;
-                            clientRequestPtr->mAcqRate = optInterval;
-                        }
-
-                        LocReqEngine engineType = DEFAULT_UNKNOWN;
-                        GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
-                        reportMask = 0x7f;//all reports are enabled
-                        LE_DEBUG("ForceWarmRestart->reportMask : %u",reportMask);
-                        engineType |= (1UL << clientRequestPtr->mEngineType);
-                        LE_DEBUG("ForceWarmRestart ->startDetailedEngineReports()");
-                        status = clientRequestPtr->locationManager->startDetailedEngineReports((uint32_t)optInterval,
-                                engineType, cb, reportMask);
-                        if(status != telux::common::Status::SUCCESS)
-                        {
-                            result = LE_FAULT;
-                        }
-                        else
-                        {
-                            std::future<le_result_t> futResult = p.get_future();
                             if(futResult.get() == LE_OK)
                             {
                                 ConfigureAcqStartInfo(clientRequestPtr);
@@ -4409,54 +4415,55 @@ le_result_t taf_locGnss::ForceHotRestart
                         }
                     }
                 }
-                sleep(5); // 5sec sleep required to stop and start Gnss engine
-
-                //start Detailed report
-                if (!clientRequestPtr->mStarted) {
-                    int optInterval = clientRequestPtr->mAcqRate;
-                    std::promise<le_result_t> p;
-                    auto cb = [&p](telux::common::ErrorCode error) {
-                        if(error == telux::common::ErrorCode::SUCCESS) {
-                            p.set_value(LE_OK);
-                        }
-                        else {
-                            p.set_value(LE_FAULT);
-                        }
-                    };
-                    LE_DEBUG("ForceHotRestart->  optInterval: %d",optInterval);
-                    if( optInterval == 0  || optInterval < 100) {
-                        LE_DEBUG("ForceHotRestart()->mAcqRate is zero, so set default to 100ms");
-                        optInterval = 100;
-                        clientRequestPtr->mAcqRate = optInterval;
+            //start Detailed report
+            if (!clientRequestPtr->mStarted)
+            {
+                int optInterval = clientRequestPtr->mAcqRate;
+                std::promise<le_result_t> p1;
+                auto cb1 = [&p1](telux::common::ErrorCode error) {
+                    if(error == telux::common::ErrorCode::SUCCESS) {
+                        p1.set_value(LE_OK);
                     }
-                    LocReqEngine engineType = DEFAULT_UNKNOWN;
-                    GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
-                    reportMask = 0x7f;//all reports are enabled
-                    LE_DEBUG("ForceHotRestart->reportMask : %u",reportMask);
-                    engineType |= (1UL << clientRequestPtr->mEngineType);
-                    auto status = clientRequestPtr->locationManager->startDetailedEngineReports((uint32_t)optInterval,
-                        engineType, cb, reportMask);
-                    if(status != telux::common::Status::SUCCESS)
+                    else {
+                        p1.set_value(LE_FAULT);
+                    }
+                };
+                LE_DEBUG("ForceHotRestart->  optInterval: %d",optInterval);
+                if( optInterval == 0  || optInterval < 100) {
+                    LE_INFO("borqs ForceHotRestart()->mAcqRate is zero, so set default to 100ms");
+                    optInterval = 100;
+                    clientRequestPtr->mAcqRate = optInterval;
+                }
+                LocReqEngine engineType = DEFAULT_UNKNOWN;
+                GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
+                reportMask = 0x7f;//all reports are enabled
+                LE_DEBUG("ForceHotRestart->reportMask : %u",reportMask);
+                sleep(1);
+                engineType |= (1UL << clientRequestPtr->mEngineType);
+                telux::common::Status status = clientRequestPtr->locationManager->startDetailedEngineReports((uint32_t)optInterval,
+                    engineType, cb1, reportMask);
+
+                if(status != telux::common::Status::SUCCESS)
+                {
+                    result = LE_FAULT;
+                }
+                else
+                {
+                    LE_DEBUG("ForceHotRestart()->startDetailedEngineReports");
+                    std::future<le_result_t> futResult = p1.get_future();
+                    if(futResult.get() == LE_OK)
                     {
-                        result = LE_FAULT;
+                        ConfigureAcqStartInfo(clientRequestPtr);
+                        LE_DEBUG("ForceHotRestart->Start() is success");
                     }
                     else
                     {
-                        LE_DEBUG("ForceHotRestart()->startDetailedEngineReports");
-                        std::future<le_result_t> futResult = p.get_future();
-                        if(futResult.get() == LE_OK)
-                        {
-                            ConfigureAcqStartInfo(clientRequestPtr);
-                            LE_DEBUG("ForceHotRestart->Start() is success");
-                        }
-                        else
-                        {
-                            result = LE_FAULT;
-                            LE_DEBUG("ForceHotRestart->Stop() is failed");
-                        }
+                        result = LE_FAULT;
+                        LE_ERROR("ForceHotRestart->Stop() is failed");
                     }
                 }
             }
+        }
         break;
         default:
         {

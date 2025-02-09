@@ -89,6 +89,7 @@ const int DEFAULT_UNKNOWN = 0;
 #define VERTICAL_SPEED_SIZE 3
 #define VERTICAL_SPEED_ACCURACY_INDEX 2
 #define LENGTH_CFG_NODE 50
+#define TTFF_REPORT_COUNT 10
 
 enum DataType
 {
@@ -340,6 +341,7 @@ namespace tafsvc {
         taf_locGnss_PositionSample_t mSatParams;
         std::vector<float> mVerticalSpeed;
         std::vector<float> mVerticalSpeedAccuracy;
+        uint8_t mTtffReportCount;
         uint32_t mTtffPtr;
         uint8_t mTotalSVTracked;
         uint64_t mGpsTime;

@@ -2252,7 +2252,7 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
-    //Step 5: Data record check. UDS_0x2E_NRC_31
+    //Step 5: Data record size check. UDS_0x2E_NRC_31
     try
     {
         int dataRecordSize = node.get_child("implementation").get<int>("did_size");
@@ -2265,8 +2265,28 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
     }
     catch (const std::exception& e)
     {
-        //security_level is not configured. Don't check it.
+        // DID dataRecord size is not configured. Don't check it.
         LE_WARN("Exception: %s. did_size is not configured for dataId 0x%x", e.what(), dataId);
+    }
+
+    // Forbidden check for WDID data record. UDS_0x2E_NRC_31
+    try
+    {
+        const uint8_t* dataRecPtr = recvBuf + UDS_WRITE_DID_REQ_BASE_LEN;
+        bool isForbidden = cfg::is_forbidden(dataId, dataRecPtr,
+                (recvDataLen - UDS_WRITE_DID_REQ_BASE_LEN));
+
+        // If dataRec forbidded then send NRC.
+        if(isForbidden)
+        {
+            LE_WARN("Data record is forbidded");
+            return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        // DataRecord forbidden check not define. Don't check it.
+        LE_WARN("Exception: %s. Forbidden check not define for dataId 0x%x", e.what(), dataId);
     }
 
     //Will send indication to the diag service

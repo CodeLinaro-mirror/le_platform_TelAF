@@ -251,6 +251,8 @@ get_pattern_sessions_by_session_id(uint8_t session_id);
 EXPORT_SYM std::shared_ptr<std::vector<uint8_t>>
 get_pattern_levels_by_session_id(uint8_t session_id);
 
+EXPORT_SYM bool is_forbidden(uint16_t did_code, const uint8_t *payload, uint32_t plen);
+
 template <typename T>
 static inline void fill_list(Node & node, std::vector<T> & to_be_filled)
 {

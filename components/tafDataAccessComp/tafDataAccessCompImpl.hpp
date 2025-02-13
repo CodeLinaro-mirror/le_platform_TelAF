@@ -50,7 +50,12 @@ namespace dataAccess{
     #define DEM_DATABASE_NAME   DEM_DATABASE_DIR"dem.db"
     #define DEM_DATABASE_CONTEXT    "system_u:system_r:telaf_sys_t:s0-s15"
     #define DEM_DTC_AVAILABLE_MASK_DEF  0x7F
-    #define DEM_DTC_FORMAT_IDENTIFIER_DEF   DTC_FORMAT_IDENTIFIER_ISO_14229
+
+    #ifdef LE_CONFIG_DIAG_FEATURE_A
+        #define DEM_DTC_FORMAT_IDENTIFIER_DEF   DTC_FORMAT_IDENTIFIER_SAE_J2012_04
+    #else
+        #define DEM_DTC_FORMAT_IDENTIFIER_DEF   DTC_FORMAT_IDENTIFIER_ISO_14229
+    #endif
 
     #define DEM_RECORD_DATA_SIZE        2
     #define DEM_RECORD_DATA_BYTES       128

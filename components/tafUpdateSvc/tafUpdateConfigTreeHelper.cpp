@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -7,7 +7,7 @@
 
 #define TXN_NAME "tafUpdateConfigTreeHelper"
 
-bool telux::tafsvc::tafUpdate_ConfigTree_GetBool
+bool tafsvc::tafUpdate_ConfigTree_GetBool
 (
     const std::string key
 )
@@ -26,7 +26,7 @@ bool telux::tafsvc::tafUpdate_ConfigTree_GetBool
     return ret;
 }
 
-void telux::tafsvc::tafUpdate_ConfigTree_SetBool
+void tafsvc::tafUpdate_ConfigTree_SetBool
 (
     const std::string key,
     const bool value
@@ -45,7 +45,7 @@ void telux::tafsvc::tafUpdate_ConfigTree_SetBool
         value ? "true" : "false");
 }
 
-uint32_t telux::tafsvc::tafUpdate_ConfigTree_GetInt
+uint32_t tafsvc::tafUpdate_ConfigTree_GetInt
 (
     const std::string key
 )
@@ -64,7 +64,7 @@ uint32_t telux::tafsvc::tafUpdate_ConfigTree_GetInt
     return static_cast<uint32_t>(ret);
 }
 
-void telux::tafsvc::tafUpdate_ConfigTree_SetInt
+void tafsvc::tafUpdate_ConfigTree_SetInt
 (
     const std::string key,
     const uint32_t value
@@ -82,7 +82,7 @@ void telux::tafsvc::tafUpdate_ConfigTree_SetInt
     LE_DEBUG("Setting value of %s as %u", key.c_str(), value);
 }
 
-le_result_t telux::tafsvc::tafUpdate_ConfigTree_GetString
+le_result_t tafsvc::tafUpdate_ConfigTree_GetString
 (
     const std::string key,
     std::string &value
@@ -120,7 +120,7 @@ le_result_t telux::tafsvc::tafUpdate_ConfigTree_GetString
     return leRet;
 }
 
-le_result_t telux::tafsvc::tafUpdate_ConfigTree_SetString
+le_result_t tafsvc::tafUpdate_ConfigTree_SetString
 (
     const std::string key,
     const std::string value
@@ -139,7 +139,7 @@ le_result_t telux::tafsvc::tafUpdate_ConfigTree_SetString
     return LE_OK;
 }
 
-void telux::tafsvc::tafUpdate_ConfigTree_ClearTree()
+void tafsvc::tafUpdate_ConfigTree_ClearTree()
 {
     LE_DEBUG("Clearing entire config tree");
     le_cfg_IteratorRef_t iterRef = le_cfg_CreateWriteTxn(TXN_NAME);

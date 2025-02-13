@@ -27,10 +27,12 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+/*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "legato.h"
 #include "interfaces.h"
@@ -97,7 +99,6 @@ typedef struct
     char                           profileName[100];
 }taf_simRsp_ConfirmationCodeEvent_t;
 
-namespace telux {
     namespace tafsvc {
         class tafRspListener : public telux::tel::ISimProfileListener {
             public:
@@ -208,4 +209,3 @@ namespace telux {
                 uint32_t GetMask(taf_simRsp_ProfileListNodeRef_t profileRef);
         };
     }
-}

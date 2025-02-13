@@ -27,12 +27,19 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+
 #ifndef TAFSVCIF_HPP
 #define TAFSVCIF_HPP
 
 #include <string>
 
-
+// This is a workaround to keep tafsvc under telux.
 namespace telux {
 
 #define TAF_ERROR_IF_RET_NIL(condition, formatString, ...) \
@@ -80,6 +87,50 @@ namespace tafsvc {
     };
 
 }
+}
+
+#define TAF_ERROR_IF_RET_NIL(condition, formatString, ...) \
+    do { \
+        if (condition) { \
+            LE_ERROR(formatString, ##__VA_ARGS__); \
+            return; \
+        } \
+    } while(0);
+
+#define TAF_ERROR_IF_RET_VAL(condition, val, formatString, ...) \
+    do { \
+        if (condition) { \
+            LE_ERROR(formatString, ##__VA_ARGS__); \
+            return (val); \
+        } \
+    } while(0);
+
+#define TAF_KILL_CLIENT_IF_RET_NIL(condition, formatString, ...) \
+    do { \
+        if (condition) { \
+            LE_KILL_CLIENT(formatString, ##__VA_ARGS__); \
+            return; \
+        } \
+    } while(0);
+
+#define TAF_KILL_CLIENT_IF_RET_VAL(condition, val, formatString, ...) \
+    do { \
+        if (condition) { \
+            LE_KILL_CLIENT(formatString, ##__VA_ARGS__); \
+            return (val); \
+        } \
+    } while(0);
+
+namespace tafsvc {
+
+    class ITafSvc {
+        public:
+            virtual void Init(void) = 0;
+
+            virtual ~ITafSvc(){
+
+            }
+    };
 
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <chrono>
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace std;
 
 LE_MEM_DEFINE_STATIC_POOL(tafDtcSessionRef, TAF_DTC_MAX_SESSION_REF,

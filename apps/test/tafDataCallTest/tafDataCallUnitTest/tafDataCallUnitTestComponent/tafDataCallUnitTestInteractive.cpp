@@ -17,7 +17,7 @@
 #include <iostream>
 #include <map>
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 static taf_dcs_RoamingStatusHandlerRef_t                                g_roamingStatusHandlerRef;
 static std::map<uint32_t, taf_dcs_SessionStateHandlerRef_t>  g_Profile_SessionStateHandlerRef_Map;

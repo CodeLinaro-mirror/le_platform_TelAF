@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -23,7 +23,7 @@
 #define ROUTING_IP_ADDR_SIZE 48
 #define MAX_ADD_ROUTE_RETRIES 5
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 class taf_vsomeipApp
 {

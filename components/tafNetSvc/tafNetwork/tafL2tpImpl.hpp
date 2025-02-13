@@ -31,6 +31,12 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+ 
+/*  
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include "legato.h"
 #include "interfaces.h"
@@ -203,7 +209,6 @@ typedef struct
     le_dls_Link_t handlerLink;                     ///< double link list's link element
 }TunnelHandlerMapping_t;
 
-namespace telux{
 namespace tafsvc {
 
     /*
@@ -365,6 +370,5 @@ namespace tafsvc {
 #endif
     };
 
-}
 }
 

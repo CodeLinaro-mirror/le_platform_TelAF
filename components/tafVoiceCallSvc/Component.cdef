@@ -11,27 +11,17 @@ requires:
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
+        $TELAF_PA_DEFAULT/component/taf_pa_voicecallDef
+        // stub component only for build purpose
+        $LEGATO_BUILD/stub/component/taf_pa_voicecall
     }
-
-    lib:
-    {
-        lib/libtelux_tel.so
-    }
-
 }
 
 cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
-    -ltelux_tel
-    //-DLEGATO_API_COMPAT
-}
-
-cflags:
-{
-    -I$LEGATO_ROOT/components/watchdogChain
-    //-DLEGATO_API_COMPAT
+	-I$TELAF_PA_DEFAULT/include
 }
 
 sources:

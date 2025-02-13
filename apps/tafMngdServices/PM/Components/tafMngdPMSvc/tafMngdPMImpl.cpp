@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -9,7 +9,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include "limit.h"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 namespace pt = boost::property_tree;
 
 /**

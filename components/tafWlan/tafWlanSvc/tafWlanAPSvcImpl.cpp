@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -16,7 +16,7 @@
 #include <wpa_ctrl.h>
 #include "limit.h"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 // Memory pool for AP contexts
 LE_MEM_DEFINE_STATIC_POOL(tafWlanAPCtxPool, TAF_WLAN_MAX_NUM_AP, sizeof(taf_wlan_AP_Ctx_t));

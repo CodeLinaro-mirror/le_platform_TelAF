@@ -27,8 +27,9 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+/*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -89,7 +90,6 @@ typedef struct
     taf_dcs_ProfileCtxs_t                    *profilesListPtr;
 } Profile_List_Event_t;
 
-namespace telux {
 namespace tafsvc {
     class taf_ProfileListCallback : public telux::data::IDataProfileListCallback
     {
@@ -228,5 +228,4 @@ namespace tafsvc {
 
     };
 
-}
 }

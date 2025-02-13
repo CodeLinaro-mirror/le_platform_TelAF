@@ -25,18 +25,20 @@
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *  ​​​​​Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ */
 
+/*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *  Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "tafAudio.hpp"
 #include "tafAudioVhal.hpp"
 #include <telux/tel/PhoneFactory.hpp>
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace taf::audioVhal;
 using namespace std;
 
@@ -4308,9 +4310,9 @@ void* taf_Audio::playDTMFonTX(void* dtmfTones) {
         ServiceStatus callMgrsubSystemStatus = callMgrprom.get_future().get();
         if(callMgrsubSystemStatus == ServiceStatus::SERVICE_AVAILABLE) {
             LE_DEBUG("CallManager subsystem is ready ");
-            audio.onStartDtmfTone = std::make_shared<telux::tafsvc::tafSignallingDtmfListener>(
+            audio.onStartDtmfTone = std::make_shared<tafsvc::tafSignallingDtmfListener>(
                     "Start Tone");
-            audio.onStopDtmfTone  = std::make_shared<telux::tafsvc::tafSignallingDtmfListener>(
+            audio.onStopDtmfTone  = std::make_shared<tafsvc::tafSignallingDtmfListener>(
                     "Stop Tone");
         } else {
             LE_ERROR("Unable to initialise CallManager subsystem ");

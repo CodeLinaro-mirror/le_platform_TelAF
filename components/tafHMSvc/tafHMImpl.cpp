@@ -24,7 +24,7 @@
 #include <unordered_map>
 
 using namespace std;
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 le_timer_Ref_t HmsTimerRef = NULL;
 le_sem_Ref_t SemRef = NULL;

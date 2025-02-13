@@ -27,10 +27,12 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2023-24 Qualcomm Innovation Center, Inc. All rights reserved.
+/*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "legato.h"
 #include "interfaces.h"
@@ -40,7 +42,7 @@
 
 using namespace telux::tel;
 using namespace telux::common;
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace std;
 
 static taf_sim_info_t simList[TAF_SIM_ID_MAX];

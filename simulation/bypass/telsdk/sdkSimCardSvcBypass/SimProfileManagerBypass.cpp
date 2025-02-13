@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -9,7 +9,6 @@
 
 #define DEFAULT_NUM_SLOTS 1
 
-namespace telux {
 namespace tel {
 
 SimProfileManagerBypass::SimProfileManagerBypass() {
@@ -225,5 +224,4 @@ telux::common::Status SimProfileManagerBypass::memoryReset(SlotId slotId, ResetO
     return telux::common::Status::SUCCESS;
 }
 
-}
 }

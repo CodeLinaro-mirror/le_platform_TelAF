@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -29,7 +29,6 @@
 #define AUTHORIZE_ALL_STAY_AWAKE_REASON 0xFFFFFFFF
 #define TAF_MNGDPM_PROCNAME_LEN 30
 
-namespace telux {
 namespace tafsvc {
 
 typedef struct
@@ -324,5 +323,4 @@ class tafMngdPMSvc: public ITafSvc
         static void StateChangeAckTimerHandler(le_timer_Ref_t timerRef);
         static taf_mngdPm_NodePowerState_t currentStateChangePtr;
 };
-}
 }

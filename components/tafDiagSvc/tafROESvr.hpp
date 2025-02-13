@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #ifndef TAF_ROE_SERVER_HPP
@@ -53,8 +53,6 @@ typedef struct
  * Diag ResponseOnEvent Server Service Class
  */
 //--------------------------------------------------------------------------------------------------
-namespace telux
-{
     namespace tafsvc
     {
         class taf_ROESvr : public ITafSvc, public taf_UDSInterface
@@ -89,5 +87,4 @@ namespace telux
                 le_event_HandlerRef_t ReqEventHandlerRef;
         };
     }
-}
 #endif /* TAF_ROE_SERVER_HPP */

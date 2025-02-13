@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -236,7 +236,6 @@ taf_hms_SubReason_t;
  * Health Monitor Service Class
  */
 //--------------------------------------------------------------------------------------------------
-namespace telux {
 namespace tafsvc {
     class tafHmsListener : public telux::platform::ISubsystemListener {
         public:
@@ -341,4 +340,3 @@ namespace tafsvc {
             std::shared_ptr<tafHmsListener> stateListener;
     };
   }
-}

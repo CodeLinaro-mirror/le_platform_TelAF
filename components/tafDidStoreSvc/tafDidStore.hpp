@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -117,7 +117,6 @@ typedef struct
     std::vector<uint16_t> ReadAccessDID;
 }tafDidStore_Config_t;
 
-namespace telux {
 namespace tafsvc {
 class taf_diagDidStore: public ITafSvc
     {
@@ -188,6 +187,5 @@ class taf_diagDidStore: public ITafSvc
             le_thread_Ref_t ReadThreadRef;
             le_thread_Ref_t WriteThreadRef;
     };
-}
 }
 #endif /* #ifndef TAF_DID_STOR_HPP */

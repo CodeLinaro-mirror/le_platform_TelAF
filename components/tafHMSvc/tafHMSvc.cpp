@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -7,7 +7,7 @@
 #include "interfaces.h"
 #include "tafHMS.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace std;
 
 
@@ -538,16 +538,6 @@ le_result_t taf_hms_ReleaseModemEvt(taf_hms_ModemEventRef_t eventRef)
     return hms.ReleaseModemEvt(eventRef);
 }
 
-/**
- * The initialization of TelAF Health Monitor component.
-*/
-COMPONENT_INIT
-{
-    LE_INFO("TelAF Health Monitor Service init Started...");
-    auto &hms = taf_Hms::GetInstance();
-    hms.Init();
-    LE_INFO("TelAF Health Monitor Service init completed...");
-}
 //--------------------------------------------------------------------------------------------------
 /**
  * Get the last reset information reason
@@ -579,5 +569,16 @@ le_result_t taf_hms_GetResetInformation
     }
 
     return hms.GetResetInformation(resetPtr, resetSpecificInfoStr, resetSpecificInfoStrSize);
+}
+
+/**
+ * The initialization of TelAF Health Monitor component.
+*/
+COMPONENT_INIT
+{
+    LE_INFO("TelAF Health Monitor Service init Started...");
+    auto &hms = taf_Hms::GetInstance();
+    hms.Init();
+    LE_INFO("TelAF Health Monitor Service init completed...");
 }
 

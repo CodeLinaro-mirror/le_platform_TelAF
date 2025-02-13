@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /* Auto-generated file.  DO NOT EDIT !! */
@@ -15,7 +15,6 @@
 #include <tuple>
 #include <unordered_map>
 
-namespace telux {
 namespace tafsvc {
 namespace cfg {
 
@@ -967,9 +966,8 @@ EXPORT_SYM bool is_forbidden(uint16_t did_code, const uint8_t *payload, uint32_t
 
 }
 }
-}
 
-using namespace telux::tafsvc::cfg;
+using namespace tafsvc::cfg;
 
 COMPONENT_INIT
 {

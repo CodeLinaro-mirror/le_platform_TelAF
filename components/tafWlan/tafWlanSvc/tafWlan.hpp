@@ -61,8 +61,6 @@
 // SecurityEncryptionMethod strings
 #define TAF_WLAN_WPS_STR "WPS"
 
-namespace telux
-{
     namespace tafsvc
     {
         //------------------------------------------------------------------------------------------
@@ -192,7 +190,7 @@ namespace telux
             // The WLAN Device Manager
             std::shared_ptr<telux::wlan::IWlanDeviceManager> wlanDevMgr = nullptr;
             // The WLAN Listener class object
-            std::shared_ptr<telux::tafsvc::taf_WlanListener> wlanListener;
+            std::shared_ptr<tafsvc::taf_WlanListener> wlanListener;
             // WLAN Subsystem status
             telux::common::ServiceStatus wlanSubSystemState =
                                                 telux::common::ServiceStatus::SERVICE_FAILED;
@@ -202,4 +200,3 @@ namespace telux
             le_mutex_Ref_t wlanMutexRef = NULL;
         };
     } //namespace tafsvc
-} //namespace telux

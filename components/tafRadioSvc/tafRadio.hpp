@@ -32,6 +32,12 @@
  */
 
 /*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+/*
  * @file       tafRadio.hpp
  * @brief      Internal interface for Radio Service object. The functions
  *             in this file are impletmented internally.
@@ -458,7 +464,6 @@ typedef struct
     taf_radio_NrIconType_t type;
 } taf_RadioNrIconTypeInd_t;
 
-namespace telux {
 namespace tafsvc {
     /*
      * @brief The network listener is registered for the network selection mode updates.
@@ -941,7 +946,6 @@ namespace tafsvc {
         uint16_t hysteresisTimer[TAF_RADIO_PHONE_NUM] = {0,0};
         std::vector<taf_RadioHysteresisConfig_t> hysteresisConfigs;
     };
-}
 }
 
 #endif /* #ifndef TAFRADIO_H */

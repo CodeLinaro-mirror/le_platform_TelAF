@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -121,7 +121,6 @@ typedef struct
     le_mutex_Ref_t mSensorMutexRef;
 }taf_SensorClient_t;
 
-namespace telux {
 namespace tafsvc {
     class taf_Sensor: public ITafSvc
     {
@@ -186,5 +185,4 @@ namespace tafsvc {
             std::vector<telux::sensor::SensorInfo> sList;
             telux::common::ServiceStatus SensorManagerInit(taf_SensorClient_t* clientRequestPtr);
     };
-}
 }

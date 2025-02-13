@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -7,7 +7,7 @@
 #include "interfaces.h"
 #include "tafDiagSvr.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 le_dls_List_t taf_DiagSvr::cancelFileXferCbList = LE_DLS_LIST_INIT;
 le_mutex_Ref_t taf_DiagSvr::cancelFileXferListCbMtx = NULL;

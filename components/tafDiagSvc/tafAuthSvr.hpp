@@ -130,8 +130,6 @@ typedef struct
  * Diag Auth Server Service Class
  */
 //--------------------------------------------------------------------------------------------------
-namespace telux
-{
     namespace tafsvc
     {
         class taf_AuthSvr : public ITafSvc, public taf_UDSInterface
@@ -226,5 +224,4 @@ namespace telux
                 le_event_HandlerRef_t AuthNotifyEventHandlerRef;
         };
     }
-}
 #endif /* TAF_AUTH_SERVER_HPP */

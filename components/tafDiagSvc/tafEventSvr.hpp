@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -12,6 +12,7 @@
 #include "configuration.hpp"
 
 using namespace std;
+using namespace tafsvc::cfg;
 
 #define MAX_ENABLE_CONDITION_NUM 64
 #define MAX_OPERATION_CYCLE_NUM 32
@@ -33,8 +34,6 @@ using namespace std;
  * Diag Event Server Service Class
  */
 //--------------------------------------------------------------------------------------------------
-namespace telux
-{
     namespace tafsvc
     {
 
@@ -289,5 +288,4 @@ namespace telux
 
         };
     }
-}
 #endif /* #ifndef TAF_EVENT_SVR_HPP */

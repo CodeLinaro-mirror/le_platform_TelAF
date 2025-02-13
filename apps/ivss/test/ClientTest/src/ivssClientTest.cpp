@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -15,7 +15,7 @@
 #include <v2/com/qualcomm/qti/telephony/RadioSvcProxy.hpp>
 #include <v1/com/qualcomm/qti/telephony/SimSvcProxy.hpp>
 #include <v1/com/qualcomm/qti/telephony/InfoSvcProxy.hpp>
-#include <v2/com/qualcomm/qti/telephony/MngdConnSvcProxy.hpp>
+#include <v3/com/qualcomm/qti/telephony/MngdConnSvcProxy.hpp>
 
 #define IVSS_TEST_SVC_RADIO_MASK 0x1
 #define IVSS_TEST_SVC_SIM_MASK 0x10
@@ -26,7 +26,7 @@
 namespace RadioSvc = v2::com::qualcomm::qti::telephony;
 namespace SimSvc = v1::com::qualcomm::qti::telephony;
 namespace InfoSvc = v1::com::qualcomm::qti::telephony;
-namespace MngdConnSvc = v2::com::qualcomm::qti::telephony;
+namespace MngdConnSvc = v3::com::qualcomm::qti::telephony;
 using RadioSvcTypes = RadioSvc::RadioSvcTypes;
 using SimSvcTypes = SimSvc::SimSvcTypes;
 using InfoSvcTypes = InfoSvc::InfoSvcTypes;
@@ -337,6 +337,22 @@ int main(int argc, char* argv[])
             }
         );
 
+        radioProxyKeep->getRadioRatEvent().subscribe
+        ([&]
+            (
+                const RadioSvcTypes::ValueState& valueState, const RadioSvcTypes::PhoneIdT& phoneId,
+                const RadioSvcTypes::RadioRatT& radioRat
+            )
+            {
+                std::cout << "======== RadioRatTEvent Test ========" << std::endl;
+                std::cout << "ValueState: " << static_cast<unsigned int>(valueState) << std::endl;
+                std::cout << "phoneId = " << static_cast<unsigned int>(phoneId)
+                    << std::endl << std::endl;
+                std::cout << "Radio Rat change to :" << RatToString(radioRat)
+                    << std::endl << std::endl;
+            }
+        );
+
         // Request method
         RadioSvcTypes::TelephonyResultT radioResult =
             RadioSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_UNKNOWN;
@@ -504,6 +520,17 @@ int main(int argc, char* argv[])
             "radioResult!", radioResult)
         std::cout << "GetPacketSwitchedState: netState=" << static_cast<unsigned int>(netState)
             << std::endl << std::endl;
+
+        std::cout << "======== Get RadioState Test ========" << "'\n";
+        RadioSvcTypes::RadioStateT radioState =
+            RadioSvcTypes::RadioStateT::RADIO_STATE_T_UNKNOWN;
+        radioProxyKeep->GetRadioState(phoneId, callStatus, radioState, radioResult);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(radioResult == RadioSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_OK,
+            "radioResult!", radioResult)
+        std::cout << "GetRadioState: radioState=" << RadioStatesToString(radioState)
+            << std::endl << std::endl;
     }
 
     if (svcMask & IVSS_TEST_SVC_SIM_MASK)
@@ -643,6 +670,7 @@ int main(int argc, char* argv[])
         std::cout << "Dns1: " << ipv4Info1.getDns1Addr() << "'\n";
         std::cout << "Dns2: " << ipv4Info1.getDns2Addr() << "'\n";
         std::cout << "Mask: 0x" << std::hex << ipv4Info1.getIpMask() << "'\n";
+        std::cout << "Mtu: " << ipv4Info1.getMtu() << "'\n";
 
         std::cout << "======== Get Data2 Ipv4Info Test ========" << "'\n";
         std::string ifName2;
@@ -659,6 +687,7 @@ int main(int argc, char* argv[])
         std::cout << "Dns1: " << ipv4Info2.getDns1Addr() << "'\n";
         std::cout << "Dns2: " << ipv4Info2.getDns2Addr() << "'\n";
         std::cout << "Mask: 0x" << std::hex << ipv4Info2.getIpMask() << "'\n";
+        std::cout << "Mtu: " << ipv4Info2.getMtu() << "'\n";
 
         std::cout << "======== StopData1 Test ========" << "'\n";
         mngdConnProxyKeep->StopData(name1, callStatus, mngdConnResult);

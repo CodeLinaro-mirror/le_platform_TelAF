@@ -464,7 +464,7 @@ int main(int argc, char* argv[])
         CHECK_RETURN_VALUE(radioResult == RadioSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_OK,
             "radioResult!", radioResult)
         std::cout << "GetNetRegState: getRat= " << RatToString(getRat) << " , cellId=" << cellId
-            << " , mcc=" << mcc << " , mnc=" << mnc << " , netReg="
+            << " , getMcc=" << getMcc << " , getMnc=" << getMnc << " , netReg="
             << static_cast<unsigned int>(netReg) << std::endl << std::endl;
 
         std::cout << "======== Get NrDualConnectivityStatus Test ========" << "'\n";

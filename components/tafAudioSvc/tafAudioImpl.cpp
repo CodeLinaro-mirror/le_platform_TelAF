@@ -3275,15 +3275,18 @@ void taf_Audio::PlayAudioFile
     } else {
         currentPbFile = fileToPlay;
         currentRepeat = 0;
-        res = SetVolume(fileToPlay.streamPtr->streamRef,
-               fileToPlay.streamPtr->volLevel, false);
-        if (res == LE_OK)
+        if (fileToPlay.streamPtr->direction == TAF_AUDIO_RX)
         {
-            LE_INFO("Successfully set the vol level to player stream");
-        }
-        else
-        {
-            LE_ERROR("Failed to set the vol level to player stream");
+            res = SetVolume(fileToPlay.streamPtr->streamRef,
+                fileToPlay.streamPtr->volLevel, false);
+            if (res == LE_OK)
+            {
+                LE_INFO("Successfully set the vol level to player stream");
+            }
+            else
+            {
+                LE_ERROR("Failed to set the vol level to player stream");
+            }
         }
         mPbFileFormat = fileToPlay.config.format;
     }
@@ -3381,7 +3384,7 @@ void taf_Audio::PlayAudioFile
         }
     }
     // Set the mute status of the stream.
-    if(fileToPlay.streamPtr->isMute)
+    if(fileToPlay.streamPtr->direction == TAF_AUDIO_RX && fileToPlay.streamPtr->isMute)
     {
         res = SetMute(fileToPlay.streamPtr->streamRef,
                 fileToPlay.streamPtr->isMute);
@@ -3659,26 +3662,29 @@ le_result_t taf_Audio::PlayList
         }
     }
 
-    // Set volume and mute status of stream to player
-    le_result_t resVol = SetVolume(streamRef, streamPtr->volLevel, false);
-    if (resVol == LE_OK)
+    // Set volume and mute status to local stream
+    if(streamPtr->direction == TAF_AUDIO_RX)
     {
-        LE_INFO("Successfully set the vol level to player stream");
-    }
-    else
-    {
-        LE_ERROR("Failed to set the vol level to player stream");
-    }
-    if(streamPtr->isMute)
-    {
-        resVol = SetMute(streamRef, streamPtr->isMute);
+        le_result_t resVol = SetVolume(streamRef, streamPtr->volLevel, false);
         if (resVol == LE_OK)
         {
-            LE_INFO("Successfully set the mute status to player stream");
+            LE_INFO("Successfully set the vol level to player stream");
         }
         else
         {
-            LE_ERROR("Failed to set mute status to player stream");
+            LE_ERROR("Failed to set the vol level to player stream");
+        }
+        if(streamPtr->isMute)
+        {
+            resVol = SetMute(streamRef, streamPtr->isMute);
+            if (resVol == LE_OK)
+            {
+                LE_INFO("Successfully set the mute status to player stream");
+            }
+            else
+            {
+                LE_ERROR("Failed to set mute status to player stream");
+            }
         }
     }
 #else
@@ -3720,16 +3726,16 @@ le_result_t taf_Audio::SetMute
     {
         LE_DEBUG("Set the mute status to player stream reference");
 #if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
-        if(streamPtr->direction == TAF_AUDIO_RX ? !mIsPlaying : !mIsTxPlaying) {
+        TAF_ERROR_IF_RET_VAL(streamPtr->direction == TAF_AUDIO_TX, LE_UNSUPPORTED,
+                "Mute API is not supported on remote stream");
+
+        if(!mIsPlaying) {
             LE_DEBUG("Stream is not active, update the mute status to stream reference");
             streamPtr->isMute = isMute;
             return LE_OK;
         }
-        ErrorCode err;
-        if(streamPtr->direction == TAF_AUDIO_RX)
-            err = mAudioPlayer->setMute(isMute);
-        else
-            err = mTxAudioPlayer->setMute(isMute);
+        ErrorCode err = mAudioPlayer->setMute(isMute);
+
         if (ErrorCode::SUCCESS != err) {
             if (isMute) {
                 LE_ERROR("Request to Mute failed err: %d", int (err));
@@ -3753,20 +3759,16 @@ le_result_t taf_Audio::SetMute
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)
     {
         LE_DEBUG("Set the mute status to recorder stream reference");
-        if(streamPtr->direction == TAF_AUDIO_TX ? !mAudioCaptureStream : !mAudioRxCaptureStream) {
+        TAF_ERROR_IF_RET_VAL(streamPtr->direction == TAF_AUDIO_RX, LE_UNSUPPORTED,
+                "Mute API is not supported on remote stream");
+
+        if(!mAudioCaptureStream) {
             LE_DEBUG("Stream is not active, update the mute status to stream reference");
             streamPtr->isMute = isMute;
             return LE_OK;
         }
-        if(streamPtr->direction == TAF_AUDIO_TX) {
-            muteObj.dir = StreamDirection::TX;
-            status = mAudioCaptureStream->setMute(muteObj, StreamMuteUnmuteCallback);
-        }
-        else
-        {
-            muteObj.dir = StreamDirection::RX;
-            status = mAudioRxCaptureStream->setMute(muteObj, StreamMuteUnmuteCallback);
-        }
+        muteObj.dir = StreamDirection::TX;
+        status = mAudioCaptureStream->setMute(muteObj, StreamMuteUnmuteCallback);
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX)
     {
         LE_DEBUG("Set the mute status to voice RX stream reference");
@@ -3836,16 +3838,14 @@ le_result_t taf_Audio::GetMute
     {
         LE_DEBUG("Get mute status of player stream reference");
 #if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
-        if(streamPtr->direction == TAF_AUDIO_RX ? !mIsPlaying : !mIsTxPlaying) {
+        TAF_ERROR_IF_RET_VAL(streamPtr->direction == TAF_AUDIO_TX, LE_UNSUPPORTED,
+                "Mute API is not supported on remote stream");
+        if(!mIsPlaying) {
             LE_DEBUG("Stream is not active, update the mute status of stream reference");
             *isMute = streamPtr->isMute;
             return LE_OK;
         }
-        ErrorCode err;
-        if(streamPtr->direction == TAF_AUDIO_RX)
-            err = mAudioPlayer->getMute(*isMute);
-        else
-            err = mTxAudioPlayer->getMute(*isMute);
+        ErrorCode err = mAudioPlayer->getMute(*isMute);
         if (ErrorCode::SUCCESS != err) {
             LE_ERROR("Request to get Mute status failed err: %d", int (err));
             return LE_FAULT;
@@ -3875,24 +3875,15 @@ le_result_t taf_Audio::GetMute
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)
     {
         LE_DEBUG("Get mute status of recorder stream reference");
-        if(streamPtr->direction == TAF_AUDIO_TX ? !mAudioCaptureStream : !mAudioRxCaptureStream) {
+        TAF_ERROR_IF_RET_VAL(streamPtr->direction == TAF_AUDIO_RX, LE_UNSUPPORTED,
+                "Mute API is not supported on remote stream");
+        if(!mAudioCaptureStream) {
             LE_DEBUG("Stream is not active, update the mute status of stream reference");
             *isMute = streamPtr->isMute;
             return LE_OK;
         }
-        StreamDirection dir;
-        std::shared_ptr<telux::audio::IAudioCaptureStream> captureStream;
-        if(streamPtr->direction == TAF_AUDIO_TX)
-        {
-            dir = StreamDirection::TX;
-            captureStream = mAudioCaptureStream;
-        }
-        else
-        {
-            dir = StreamDirection::RX;
-            captureStream = mAudioRxCaptureStream;
-        }
-        status = captureStream->getMute(dir,
+        StreamDirection dir = StreamDirection::TX;
+        status = mAudioCaptureStream->getMute(dir,
                 [&p, &responseStatus, &muteObj, this](StreamMute mute, ErrorCode error) {
             if (error == ErrorCode::SUCCESS) {
                 responseStatus = telux::common::Status::SUCCESS;
@@ -3994,16 +3985,14 @@ le_result_t taf_Audio::SetVolume
     {
         LE_DEBUG("Set volume to player stream reference");
 #if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
-        if(streamPtr->direction == TAF_AUDIO_RX ? !mIsPlaying : !mIsTxPlaying) {
+        TAF_ERROR_IF_RET_VAL(streamPtr->direction == TAF_AUDIO_TX, LE_UNSUPPORTED,
+                "Volume API is not supported on remote stream");
+        if(!mIsPlaying) {
             LE_DEBUG("Stream is not active, update the volume level to stream reference");
             streamPtr->volLevel = volLevel;
             return LE_OK;
         }
-        ErrorCode err;
-        if(streamPtr->direction == TAF_AUDIO_RX)
-            err = mAudioPlayer->setVolume(volLevel);
-        else
-            err = mTxAudioPlayer->setVolume(volLevel);
+        ErrorCode err = mAudioPlayer->setVolume(volLevel);
         if (ErrorCode::SUCCESS != err) {
             LE_ERROR("Request to set volume failed err: %d", int (err));
             return LE_FAULT;
@@ -4035,23 +4024,15 @@ le_result_t taf_Audio::SetVolume
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)
     {
         LE_DEBUG("Set volume to recorder stream reference");
-        if(streamPtr->direction == TAF_AUDIO_TX ? !mAudioCaptureStream : !mAudioRxCaptureStream) {
+        TAF_ERROR_IF_RET_VAL(streamPtr->direction == TAF_AUDIO_RX, LE_UNSUPPORTED,
+                "Volume API is not supported on remote stream");
+        if(!mAudioCaptureStream) {
             LE_DEBUG("Stream is not active, update the volume level to stream reference");
             streamPtr->volLevel = volLevel;
             return LE_OK;
         }
-        std::shared_ptr<telux::audio::IAudioCaptureStream> captureStream;
-        if(streamPtr->direction == TAF_AUDIO_TX)
-        {
-            streamVol.dir = StreamDirection::TX;
-            captureStream = mAudioCaptureStream;
-        }
-        else
-        {
-            streamVol.dir = StreamDirection::RX;
-            captureStream = mAudioRxCaptureStream;
-        }
-        status = captureStream->setVolume(streamVol,
+        streamVol.dir = StreamDirection::TX;
+        status = mAudioCaptureStream->setVolume(streamVol,
                 [&p, this](ErrorCode error) {
             if (error == ErrorCode::SUCCESS) {
                 p.set_value(true);
@@ -4115,17 +4096,15 @@ le_result_t taf_Audio::GetVolume
         LE_DEBUG("Get volume to player stream reference");
 
 #if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
-        if(streamPtr->direction == TAF_AUDIO_RX ? !mIsPlaying : !mIsTxPlaying) {
+        TAF_ERROR_IF_RET_VAL(streamPtr->direction == TAF_AUDIO_TX, LE_UNSUPPORTED,
+                "Volume API is not supported on remote stream");
+        if(!mIsPlaying) {
             LE_DEBUG("Stream is not active,  share local stream reference volume");
             *volLevel = streamPtr->volLevel;
             return LE_OK;
         }
-        ErrorCode err;
         float volume;
-        if(streamPtr->direction == TAF_AUDIO_RX)
-            err = mAudioPlayer->getVolume(volume);
-        else
-            err = mTxAudioPlayer->getVolume(volume);
+        ErrorCode err = mAudioPlayer->getVolume(volume);
         if (ErrorCode::SUCCESS != err) {
             LE_ERROR("Request to get volume failed err: %d", int (err));
             return LE_FAULT;
@@ -4154,24 +4133,15 @@ le_result_t taf_Audio::GetVolume
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)
     {
         LE_DEBUG("Get volume to recorder stream reference");
-        if(streamPtr->direction == TAF_AUDIO_TX ? !mAudioCaptureStream : !mAudioRxCaptureStream) {
+        TAF_ERROR_IF_RET_VAL(streamPtr->direction == TAF_AUDIO_RX, LE_UNSUPPORTED,
+                "Volume API is not supported on remote stream");
+        if(!mAudioCaptureStream) {
             LE_DEBUG("Stream is not active,  share local stream reference volume");
             *volLevel = streamPtr->volLevel;
             return LE_OK;
         }
-        StreamDirection dir;
-        std::shared_ptr<telux::audio::IAudioCaptureStream> captureStream;
-        if(streamPtr->direction == TAF_AUDIO_TX)
-        {
-            dir = StreamDirection::TX;
-            captureStream = mAudioCaptureStream;
-        }
-        else
-        {
-            dir = StreamDirection::RX;
-            captureStream = mAudioRxCaptureStream;
-        }
-        status = captureStream->getVolume(dir,
+        StreamDirection dir = StreamDirection::TX;;
+        status = mAudioCaptureStream->getVolume(dir,
                 [&p, &streamVol, this](telux::audio::StreamVolume volume, ErrorCode error) {
             if (error == ErrorCode::SUCCESS) {
                 streamVol = volume;

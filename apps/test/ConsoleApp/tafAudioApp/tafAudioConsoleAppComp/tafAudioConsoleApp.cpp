@@ -1502,6 +1502,8 @@ void StartInputMonitoring
                 LE_TEST_OK(res == LE_OK, "Successfully set the volume");
                 if(res == LE_OK)
                     cout<< "Successfully set the volume" << endl;
+                else if(res == LE_UNSUPPORTED)
+                    cout << "SetVolume on remote stream is not supported" << endl;
                 else
                     cout<< "Failed to set the volume" << endl;
             }
@@ -1662,7 +1664,12 @@ void StartInputMonitoring
 
                 }
                 LE_TEST_OK(res == LE_OK, "Successfully get the volume level");
-                cout << "Volume level is " << getVolLevel << endl;
+                if(res == LE_OK)
+                    cout << "Volume level is " << getVolLevel << endl;
+                else if(res == LE_UNSUPPORTED)
+                    cout << "GetVolume on remote stream is not supported" << endl;
+                else
+                    cout << "Failed to get the volume" << endl;
             }
             else if (strncmp(inputStr, "setMute", 7) == 0)
             {
@@ -1852,6 +1859,12 @@ void StartInputMonitoring
                     }
                 }
                 LE_TEST_OK(res == LE_OK, "Successfully set the mute status");
+                if(res == LE_OK)
+                    cout<< "Successfully set the mute status" << endl;
+                else if(res == LE_UNSUPPORTED)
+                    cout << "SetMute on remote stream is not supported" << endl;
+                else
+                    cout<< "Failed to set the mute status" << endl;
             }
             else if (strncmp(inputStr, "getMute", 7) == 0)
             {
@@ -2035,7 +2048,12 @@ void StartInputMonitoring
                     }
                 }
                 LE_TEST_OK(res == LE_OK, "Successfully got the mute status");
-                cout << "Mute status is " << isMute << endl;
+                if(res == LE_OK)
+                    cout << "Mute status is " << isMute << endl;
+                else if(res == LE_UNSUPPORTED)
+                    cout << "GetMute on remote stream is not supported" << endl;
+                else
+                    cout<< "Failed to get the mute status" << endl;
             }
             else if (strncmp(inputStr, "start voice", 11) == 0)
             {

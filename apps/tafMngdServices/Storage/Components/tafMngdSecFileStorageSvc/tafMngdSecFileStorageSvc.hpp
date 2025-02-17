@@ -75,6 +75,8 @@ typedef struct
     // RFS FSC storage path
     char rfsPath[TAF_MNGDSTORSECFILE_MAX_STORAGE_NAME_SIZE];
 
+    uint32_t userCount;
+
     taf_fsc_StorageRef_t fscStorageRef;
 
     taf_fsc_StorageRef_t rfs_fscStorageRef;
@@ -99,6 +101,9 @@ typedef struct
 
     // Storage name
     char storageName[TAF_MNGDSTORSECFILE_MAX_STORAGE_NAME_SIZE];
+
+    // lock  State
+    bool lockState;
 }
 tafMngdSecFileStorage_ClientCxt_t;
 
@@ -170,6 +175,8 @@ class tafMngdSecFileStorageSvc: public ITafSvc
         /**
          * Internal functions
          */
+
+        static void SessionCloseHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
 
         le_result_t SetStorageCreator(const char* storageNamePtr,
                                         const char* creatorAppPtr);

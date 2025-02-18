@@ -51,6 +51,7 @@ taf_radio_OpModeChangeHandlerRef_t opModeChangeHandlerRef;
 taf_radio_NetStatusChangeHandlerRef_t netStatusChangeHandlerRef;
 taf_radio_ImsStatusChangeHandlerRef_t imsStatusChangeHandlerRef;
 taf_radio_CellInfoChangeHandlerRef_t cellInfoChangeHandlerRef;
+taf_radio_NrIconTypeHandlerRef_t nrIconTypeHandlerRef;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -292,10 +293,31 @@ void PrintRAT
             LE_INFO("RAT : LTE");
             break;
         case TAF_RADIO_RAT_NR5G:
-            LE_INFO("RAT : NR5G");
+            LE_INFO("RAT : 5G SA");
             break;
         default:
             LE_INFO("RAT : Unknown");
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Print NR icon type.
+ */
+//--------------------------------------------------------------------------------------------------
+void PrintNrIcon
+(
+    taf_radio_NrIconType_t icon ///< [IN] NR icon type enum.
+)
+{
+    switch (icon)
+    {
+        case TAF_RADIO_NR_ICON_5G:
+            LE_INFO("NR icon type: 5G.");
+            break;
+        default:
+            LE_INFO("NR icon type: Uknown.");
             break;
     }
 }
@@ -1264,6 +1286,22 @@ void RatChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for NR icon type change.
+ */
+//--------------------------------------------------------------------------------------------------
+void NrIconTypeHandler
+(
+    taf_radio_NrIconType_t type, ///< [IN] Nr icon type.
+    uint8_t phoneId,             ///< [IN] Phone ID.
+    void* contextPtr             ///< [IN] Handler context.
+)
+{
+    LE_INFO("Phone %d NR icon type change.", phoneId);
+    PrintNrIcon(type);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for GSM signal strength changes.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1764,6 +1802,10 @@ void* HandlerTestThread
         (taf_radio_ImsStatusChangeHandlerFunc_t)ImsStatusHandler, NULL);
     LE_TEST_OK(imsStatusChangeHandlerRef != NULL, "taf_radio_AddImsStatusChangeHandler - OK");
 
+    nrIconTypeHandlerRef = taf_radio_AddNrIconTypeHandler(
+        (taf_radio_NrIconTypeHandlerFunc_t)NrIconTypeHandler, NULL);
+    LE_TEST_OK(nrIconTypeHandlerRef != NULL, "taf_radio_AddNrIconTypeHandler - !NULL");
+
     le_sem_Post((le_sem_Ref_t)contextPtr);
     le_event_RunLoop();
 
@@ -1823,6 +1865,9 @@ void RemoveTestHandler
 
     taf_radio_RemoveImsStatusChangeHandler(imsStatusChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveImsStatusChangeHandler - OK");
+
+    taf_radio_RemoveNrIconTypeHandler(nrIconTypeHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveNrIconTypeHandler - void");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2285,6 +2330,18 @@ COMPONENT_INIT
                 result = taf_radio_GetLteCsCap(netRef, &cap);
                 LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCsCap - OK");
                 PrintCsCap(cap);
+
+                taf_radio_NrIconType_t icon = TAF_RADIO_NR_ICON_TYPE_NONE;
+                result = taf_radio_GetNrIconType(&icon, phoneId);
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetNrIconType - OK");
+                PrintNrIcon(icon);
+            }
+            else if(rat == TAF_RADIO_RAT_NR5G)
+            {
+                taf_radio_NrIconType_t icon = TAF_RADIO_NR_ICON_TYPE_NONE;
+                result = taf_radio_GetNrIconType(&icon, phoneId);
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetNrIconType - OK");
+                PrintNrIcon(icon);
             }
 
             taf_radio_RatSvcStatus_t svcStatus = TAF_RADIO_RAT_SVC_STATUS_UNKNOWN;

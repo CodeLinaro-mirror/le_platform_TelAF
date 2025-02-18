@@ -374,6 +374,19 @@ typedef struct
     le_result_t result;
     taf_radio_NetRegState_t psState;
 } taf_RadioDataCallbackInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * NR icon type structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_sem_Ref_t semaphore;
+    le_result_t result;
+    taf_radio_NrIconType_t type;
+} taf_RadioNrIconCallbackInfo_t;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Operator Name callback information structure
@@ -433,6 +446,17 @@ typedef struct
     taf_radio_NetStatusIndBitMask_t bitmask;
     taf_radio_NetStatusRef_t netStatusRef;
 } taf_RadioNetStatusInd_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * NR icon type indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;
+    taf_radio_NrIconType_t type;
+} taf_RadioNrIconTypeInd_t;
 
 namespace telux {
 namespace tafsvc {
@@ -496,6 +520,7 @@ namespace tafsvc {
             bool isRoaming = false;
 
             taf_RadioDataServSysListener(SlotId slotId);
+            void onNrIconTypeChanged(telux::data::NrIconType type) override;
             void onServiceStateChanged(telux::data::ServiceStatus status) override;
             void onRoamingStatusChanged(telux::data::RoamingStatus status) override;
     };
@@ -807,6 +832,7 @@ namespace tafsvc {
         static taf_Radio &GetInstance();
 
         taf_radio_Rat_t taf_radio_CovertRat(telux::tel::RadioTechnology rat);
+        taf_radio_NrIconType_t taf_radio_ConvertNrIconType(telux::data::NrIconType type);
         static void taf_radio_LayerImsRegStateHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerOpModeHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerNetRegStateHandler(void* reportPtr, void* layerHandlerFunc);
@@ -816,6 +842,7 @@ namespace tafsvc {
         static void taf_radio_LayerNetStatusHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerRatChangeHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerNetRejectHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerNrIconTypeHandler(void* reportPtr, void* layerHandlerFunc);
 
         /*
          * Command thread in radio service.
@@ -858,6 +885,7 @@ namespace tafsvc {
         le_mem_PoolRef_t ratChangePool;
         le_mem_PoolRef_t netStatusPool;
         le_mem_PoolRef_t netRegRejPool;
+        le_mem_PoolRef_t nrIconTypePool;
 
         le_ref_MapRef_t prefOpListRefMap;
         le_ref_MapRef_t prefOpSafeRefMap;
@@ -883,10 +911,12 @@ namespace tafsvc {
         le_event_Id_t ratChangeEvId;
         le_event_Id_t netStatusEvId;
         le_event_Id_t netRegRejEvId;
+        le_event_Id_t nrIconTypeEvId;
         static le_event_Id_t radioCmdEvId;
 
         int32_t netRejectCause = TAF_RADIO_NET_REJ_CAUSE_UNDEFINED;
         taf_RadioDataCallbackInfo_t dataInfoCb;
+        taf_RadioNrIconCallbackInfo_t nrIconCb;
         taf_OperatorNameCallbackInfo_t opNameCb;
         std::shared_ptr<taf_RadioSignalStrengthCallback> signalStrengthCb;
         std::shared_ptr<taf_RadioVoiceServiceStateCallback> voiceSrvStateCb;

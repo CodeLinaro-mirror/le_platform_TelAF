@@ -144,6 +144,29 @@ void NetStatusChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for NR icon type.
+ */
+//--------------------------------------------------------------------------------------------------
+void NrIconTypeHandler
+(
+    taf_radio_NrIconType_t type, ///< [IN] Nr icon type.
+    uint8_t phoneId,             ///< [IN] Phone ID.
+    void* contextPtr             ///< [IN] Handler context.
+)
+{
+    switch (type)
+    {
+        case TAF_RADIO_NR_ICON_5G:
+            LE_INFO("Phone %d NR icon type: 5G.", phoneId);
+            break;
+        default:
+            LE_INFO("Phone %d NR icon type: Uknown.", phoneId);
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for GSM signal strength changes.
  */
 //--------------------------------------------------------------------------------------------------
@@ -668,6 +691,11 @@ void TestTafRadioAccessTechnoloy
         (taf_radio_NetStatusHandlerFunc_t)NetStatusChangeHandler, NULL);
     LE_TEST_OK(netStatusChangeHandlerRef != NULL, "taf_radio_AddNetStatusChangeHandler - !NULL");
 
+    taf_radio_NrIconTypeHandlerRef_t nrIconTypeHandlerRef =
+        taf_radio_AddNrIconTypeHandler(
+        (taf_radio_NrIconTypeHandlerFunc_t)NrIconTypeHandler, NULL);
+    LE_TEST_OK(nrIconTypeHandlerRef != NULL, "taf_radio_AddNrIconTypeHandler - !NULL");
+
     taf_radio_RatBitMask_t ratMask;
     le_result_t result = taf_radio_GetRatPreferences(&ratMask, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetRatPreferences - LE_OK");
@@ -693,6 +721,13 @@ void TestTafRadioAccessTechnoloy
     taf_radio_CsCap_t cap = TAF_RADIO_CS_CAP_UNKNOWN;
     result = taf_radio_GetLteCsCap(netRef, &cap);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCsCap - OK");
+
+    taf_radio_NrIconType_t icon = TAF_RADIO_NR_ICON_TYPE_NONE;
+    result = taf_radio_GetNrIconType(&icon, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetNrIconType - OK");
+
+    taf_radio_RemoveNrIconTypeHandler(nrIconTypeHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveNrIconTypeHandler - void");
 
     taf_radio_RemoveRatChangeHandler(ratChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveRatChangeHandler - void");

@@ -73,8 +73,9 @@
  * the "[appName::]" is optional and only needed when the calling application wants to get another
  * application's key if the key owner application has shared that key to the calling application.
  * For example, if the calling application gets its own key ID "myKey1", the key name is "myKey1".
- * If the calling application gets the Key ID "myKey2" of application "app2", then the key name is
- * "app2::myKey2".
+ * If the calling application gets the Key ID "myKey2" of TelAF application "app2", the key name is
+ * "app2::myKey2". If the calling application gets the Key ID "myKey3" of the legacy application
+ * "/bin/app3", the key name is "/bin/app3::myKey3".
  *
  * New keys initially have no value and cannot be used for any cryptographic operations. Applications
  * shall call taf_ks_ProvisionXXX() API to provision or import the key value and save the key into backend
@@ -177,15 +178,18 @@
  *
  */
 //--------------------------------------------------------------------------------------------------
-
-USETYPES le_limit.api;
-
-//--------------------------------------------------------------------------------------------------
 /**
  * The maximum size of the key name in bytes.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MAX_KEY_ID_SIZE = 256;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the app name in bytes.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_APP_NAME_SIZE = 128;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -762,7 +766,7 @@ FUNCTION le_result_t ExportKey
  * and exporting key if needed.
  *
  * Only the key owner app can share the key after provisioning. One key can be shared to at most
- * 5 applications to use.
+ * 12 applications to use.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -775,7 +779,7 @@ FUNCTION le_result_t ExportKey
 FUNCTION le_result_t ShareKey
 (
     Key    keyRef                         IN, ///< Key reference.
-    string appName[le_limit.APP_NAME_LEN] IN, ///< Shared application name.
+    string appName[MAX_APP_NAME_SIZE]     IN, ///< Shared application name.
     KeyUsage keyCap                       IN, ///< Shared key capability.
     AppCapMask appCap                     IN  ///< Shared application capability.
 );
@@ -797,7 +801,18 @@ FUNCTION le_result_t ShareKey
 FUNCTION le_result_t CancelKeySharing
 (
     Key    keyRef                         IN, ///< Key reference.
-    string appName[le_limit.APP_NAME_LEN] IN  ///< Name of the app that the key is shared to before.
+    string appName[MAX_APP_NAME_SIZE]     IN  ///< Name of the app that the key is shared to before.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the application name of the calling client. It returns app name for a TelAF application
+ * or returns the full path of the executable for a legacy application.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCallingAppName
+(
+    string appName[MAX_APP_NAME_SIZE]     OUT ///< Application name.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -815,7 +830,7 @@ FUNCTION le_result_t CancelKeySharing
 FUNCTION le_result_t GetFirstSharedApp
 (
     Key    keyRef                         IN,  ///< Key reference.
-    string appName[le_limit.APP_NAME_LEN] OUT, ///< Shared application name.
+    string appName[MAX_APP_NAME_SIZE]     OUT, ///< Shared application name.
     KeyUsage keyCap                       OUT, ///< Shared key capability.
     AppCapMask appCap                     OUT  ///< Shared application capability.
 );
@@ -835,7 +850,7 @@ FUNCTION le_result_t GetFirstSharedApp
 FUNCTION le_result_t GetNextSharedApp
 (
     Key    keyRef                         IN,  ///< Key reference.
-    string appName[le_limit.APP_NAME_LEN] OUT, ///< Shared application name.
+    string appName[MAX_APP_NAME_SIZE]     OUT, ///< Shared application name.
     KeyUsage keyCap                       OUT, ///< Shared key capability.
     AppCapMask appCap                     OUT  ///< Shared application capability.
 );
@@ -849,7 +864,7 @@ FUNCTION le_result_t GetNextSharedApp
 HANDLER KeySharingHandler
 (
     string keyId[MAX_KEY_ID_SIZE]          IN, ///< Key ID.
-    string appName[le_limit.APP_NAME_LEN]  IN, ///< Key owner application name.
+    string appName[MAX_APP_NAME_SIZE]      IN, ///< Key owner application name.
     SharingState state                     IN  ///< Sharing state.
 );
 
@@ -866,7 +881,7 @@ HANDLER KeySharingHandler
 EVENT KeySharing
 (
     string keyId[MAX_KEY_ID_SIZE]          IN,  ///< Key ID.
-    string appName[le_limit.APP_NAME_LEN]  IN,  ///< Key owner app.
+    string appName[MAX_APP_NAME_SIZE]      IN,  ///< Key owner app.
     KeySharingHandler handler              IN   ///< Handler is called when the required key of the
                                                 ///< application shared to the calling application.
 );

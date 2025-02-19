@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -32,73 +32,100 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TAF_PA_FSCRYPT_H
-#define TAF_PA_FSCRYPT_H
-
-#include "legato.h"
-#include "interfaces.h"
+//--------------------------------------------------------------------------------------------------
+/**
+ * Key owner app name.
+ */
+//--------------------------------------------------------------------------------------------------
+#define OWNER_APP "keySharingOwnerTest"
 
 //--------------------------------------------------------------------------------------------------
 /**
- * FS-Crypt key definitions
+ * Key shared app name.
  */
 //--------------------------------------------------------------------------------------------------
-#define FSC_MAX_KEY_SIZE 64
+#define SHARED_APP "keySharingClientTest"
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Reference to a key file object
+ * Non-existed key.
  */
 //--------------------------------------------------------------------------------------------------
-typedef void* KeyMgt_KeyFileRef_t;
+#define NONEXIST_KEY "nonexistKey"
 
 //--------------------------------------------------------------------------------------------------
 /**
- * PA initialization.
+ * Unshared key. (Never shared to other apps).
  */
 //--------------------------------------------------------------------------------------------------
-LE_SHARED void taf_pa_fsc_Init
-(
-    void* cryptoFunc
-);
+#define UNSHARED_KEY "unsharedKey"
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get a key file reference by key name.
+ * Shared key that only allows to use for 10 times, then cancels the sharing.
  */
 //--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_fsc_GetKey
-(
-    le_msg_SessionRef_t clientSessionRef,   ///< [IN] Client session reference
-    const char* dirName,                    ///< [IN] dir Name
-    KeyMgt_KeyFileRef_t* keyFileRefPtr,     ///< [OUT] Key file reference.
-    uint8_t* key,                           ///< [OUT] Raw key
-    size_t keyLen                           ///< [OUT] Length of raw key
-);
+#define SHORT_SHARED_KEY "shortSharedKey"
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Create AES key and return a key file reference.
+ * Shared key that allows to use permanently, never cancels the sharing.
  */
 //--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_fsc_GenerateAesKey
-(
-    le_msg_SessionRef_t clientSessionRef,   ///< [IN] Client session reference
-    const char* dirName,                    ///< [IN] dir Name
-    KeyMgt_KeyFileRef_t* keyFileRefPtr,     ///< [OUT] Key file reference
-    uint8_t* key,                           ///< [OUT] Raw key
-    size_t keyLen                           ///< [OUT] Length of raw key
-);
+#define PERM_SHARED_KEY "permanentSharedKey"
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Delete a key file.
+ * Shared key that allows to be deleted by shared app.
  */
 //--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_fsc_DeleteKey
-(
-    le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
-    KeyMgt_KeyFileRef_t keyFileRef        ///< [IN] Key file reference
-);
+#define DELE_SHARED_KEY "deletableSharedKey"
 
-#endif // TAF_PA_FSCRYPT_H
+//--------------------------------------------------------------------------------------------------
+/**
+ * Shared key that allows to be exported by shared app.
+ */
+//--------------------------------------------------------------------------------------------------
+#define EXPO_SHARED_KEY "exportableSharedKey"
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Shared key that allows to get shared app list by shared app.
+ */
+//--------------------------------------------------------------------------------------------------
+#define LIST_SHARED_KEY "listableSharedKey"
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Plain and Cipher data max size.
+ */
+//--------------------------------------------------------------------------------------------------
+#define TEXT_MAX_SIZE 256
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * AEAD used by AES ECM key.
+ */
+//--------------------------------------------------------------------------------------------------
+#define AES_AEAD "KEY_SHARING_TESTING_AEAD"
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * NONCE used by AES ECM key (fixed 12 bytes)
+ */
+//--------------------------------------------------------------------------------------------------
+#define AES_NONCE "MY_KEY_NONCE"
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data chunk size.
+ */
+//--------------------------------------------------------------------------------------------------
+#define CHUNK_SIZE TEXT_MAX_SIZE
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Message to indicate the client test is done.
+ */
+//--------------------------------------------------------------------------------------------------
+#define KEY_SHARING_TEST_DONE "KeySharingTestIsDone"

@@ -109,6 +109,30 @@ le_result_t taf_diag_SetVlanId
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Select traget VLAN ID.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_NOT_FOUND -- Vlan ID not found.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diag_SelectTargetVlanID
+(
+    taf_diag_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    uint16_t vlanId
+        ///< [IN] VLAN ID.
+)
+{
+    LE_DEBUG("taf_diag_SelectTargetVlanID");
+    auto &diag = taf_DiagSvr::GetInstance();
+    return diag.SelectTargetVlanID(svcRef, vlanId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add handler function for EVENT 'taf_diag_TesterState'
  *
  * This event provides information on tester present state change.

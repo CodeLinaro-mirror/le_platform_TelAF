@@ -86,6 +86,23 @@
  *
  * - taf_diag_SetVlanId() -- Sets the VLAN ID.
  *
+ * @section c_taf_diag_Select_TargetVlanId Select target VLAN ID
+ *
+ * An application can select the VLAN ID by calling taf_diag_SelectTargetVlanID(). If the service is
+ * bound to multiple VLANs, the application needs to select a VLAN ID for subsequent operation on
+ * target VLAN, otherwise the last VLAN ID set using taf_diag_SetVlanId() is considered.
+ *
+ * @code
+   // Select the VLAN ID.
+   uint16_t vlanId = 10;
+   le_result_t result = taf_diag_SelectTargetVlanID(SvcRef, vlanId);
+   if (result != LE_OK)
+   {
+      LE_ERROR("Fail to select vlan Id.");
+      return result;
+   }
+   @endcode
+ *
  * @section c_taf_diag_tester_OFF_ON_state_API Tester OFF/ON notification API
  *
  * After getting the service reference, an application can call taf_diag_AddTesterStateHandler()
@@ -128,7 +145,10 @@
  *
  * @section c_taf_diag_cancel_fileXfer_operation_API Cancel fileXfer API
  *
- * An application can call taf_diag_CancelFileXferAsync() to cancel the file transfer operation.
+ * An application can cancel the file transfer operation by calling taf_diag_CancelFileXferAsync().
+ * If the service is bound to multiple VLANs, then the application needs to select a VLAN ID first
+ * to cancel the file transfer operation of the selected VLAN. If the VLAN ID is not selected then
+ * it will cancel the file transfer operation of the last VLAN ID set by taf_diag_SetVlanId().
  *
  * @code
   void CancelFileXferHandlerFunc
@@ -242,7 +262,7 @@ FUNCTION Service GetService
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_NOT_FOUND -- Reference not found.
- *     - LE_UNSUPPORTED -- VLAN ID is unknown.
+ *     - LE_UNSUPPORTED -- VLAN ID is unsupported.
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -287,6 +307,23 @@ EVENT TesterState
 FUNCTION le_result_t ReleaseTesterStateMsg
 (
     TesterState stateRef  IN    ///< Tester state reference.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Selects a target VLAN ID
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_NOT_FOUND -- VLAN ID not found.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SelectTargetVlanID
+(
+    Service svcRef IN,    ///< Service reference.
+    uint16 vlanId IN      ///< VLAN ID.
 );
 
 //--------------------------------------------------------------------------------------------------

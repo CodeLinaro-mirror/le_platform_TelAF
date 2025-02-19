@@ -5842,8 +5842,8 @@ le_result_t UdsCommunicationMgr::ROEResp
     // The minimum data length is 1 for reportActivatedEvents
     if(subFunc == ROE_SUBFUNC_RAE)
     {
-        if (dataSize > UDS_MAX_DATA_SIZE - UDS_ROE_RESP_RAE_MIN_LEN ||
-            dataSize < UDS_ROE_RESP_RAE_MIN_LEN)
+        if ((dataSize > (UDS_MAX_DATA_SIZE - UDS_ROE_RESP_MIN_LEN)) ||
+            (dataSize < UDS_ROE_RESP_RAE_MIN_LEN))
         {
             LE_ERROR("Data Length :%d is not correct.", dataSize);
             return LE_FAULT;
@@ -5852,8 +5852,8 @@ le_result_t UdsCommunicationMgr::ROEResp
     // The minimum data length is 2 for all subfunctions but reportActivatedEvents
     else
     {
-        if (dataSize > UDS_MAX_DATA_SIZE - UDS_ROE_RESP_MIN_LEN ||
-            dataSize < UDS_ROE_RESP_MIN_LEN)
+        if ((dataSize > (UDS_MAX_DATA_SIZE - UDS_ROE_RESP_MIN_LEN)) ||
+            (dataSize < UDS_ROE_RESP_MIN_LEN))
         {
             LE_ERROR("Data Length :%d is not correct.", dataSize);
             return LE_FAULT;

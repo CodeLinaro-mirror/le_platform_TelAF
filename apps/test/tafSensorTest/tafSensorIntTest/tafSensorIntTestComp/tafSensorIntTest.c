@@ -367,7 +367,7 @@ COMPONENT_INIT
         CheckNumArgs(numArgs,4);
         const char* name = le_arg_GetArg(1);
         const char* arg2 = le_arg_GetArg(2);
-        const char* arg3 = le_arg_GetArg(2);
+        const char* arg3 = le_arg_GetArg(3);
         if (name == NULL || arg2 == NULL || arg3 == NULL) {
             LE_TEST_FATAL("Invalid argument.");
         }

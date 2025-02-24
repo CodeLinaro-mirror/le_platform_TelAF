@@ -725,21 +725,21 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
         taf_wsRefCtx_t * wsRefCtxPtr =
                 CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
         linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
-        if (wsRefCtxPtr && wsRefCtxPtr->sessionRef == sessionRef && wsRefCtxPtr->isAcquiredLock)
+        if (wsRefCtxPtr && wsRefCtxPtr->sessionRef == sessionRef)
         {
             LE_INFO("Client with sessionRef %p", wsRefCtxPtr->sessionRef);
-            le_result_t res = tafMngdPMSvc::ReleaseWakeLock();
-            if(res == LE_OK)
-            {
-                LE_INFO("Released lock");
-                wsRefCtxPtr->isAcquiredLock = false;
+            if(wsRefCtxPtr->isAcquiredLock) {
+                le_result_t res = tafMngdPMSvc::ReleaseWakeLock();
+                if(res == LE_OK)
+                {
+                    LE_INFO("Released lock");
+                    wsRefCtxPtr->isAcquiredLock = false;
+                }
             }
-            else {
-                le_ref_DeleteRef(mpms.wsRefMap, wsRefCtxPtr->wsRef);
-                le_dls_Remove(&(mpms.wsRefList), &wsRefCtxPtr->link);
-                free((void*)wsRefCtxPtr->wsTag);
-                le_mem_Release((void*)wsRefCtxPtr);
-            }
+            le_ref_DeleteRef(mpms.wsRefMap, wsRefCtxPtr->wsRef);
+            le_dls_Remove(&(mpms.wsRefList), &wsRefCtxPtr->link);
+            free((void*)wsRefCtxPtr->wsTag);
+            le_mem_Release((void*)wsRefCtxPtr);
         }
     }
     //Clear node nodeWsRefList
@@ -750,21 +750,21 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
         taf_nodeWsRefCtx_t * wsRefCtxPtr =
                 CONTAINER_OF(linkNodeHandlerPtr, taf_nodeWsRefCtx_t, link);
         linkNodeHandlerPtr = le_dls_PeekPrev(&(mpms.nodeWsRefList), linkNodeHandlerPtr);
-        if (wsRefCtxPtr && wsRefCtxPtr->sessionRef == sessionRef && wsRefCtxPtr->isAcquiredLock)
+        if (wsRefCtxPtr && wsRefCtxPtr->sessionRef == sessionRef)
         {
             LE_INFO("Client with sessionRef %p", wsRefCtxPtr->sessionRef);
-            le_result_t res = tafMngdPMSvc::ReleaseWakeLock();
-            if(res == LE_OK)
-            {
-                LE_INFO("Released lock");
-                wsRefCtxPtr->isAcquiredLock = false;
+            if(wsRefCtxPtr->isAcquiredLock) {
+                le_result_t res = tafMngdPMSvc::ReleaseWakeLock();
+                if(res == LE_OK)
+                {
+                    LE_INFO("Released lock");
+                    wsRefCtxPtr->isAcquiredLock = false;
+                }
             }
-            else {
-                le_ref_DeleteRef(mpms.nodeWsRefMap, wsRefCtxPtr->wsRef);
-                le_dls_Remove(&(mpms.nodeWsRefList), &wsRefCtxPtr->link);
-                free((void*)wsRefCtxPtr->vhalTag);
-                le_mem_Release((void*)wsRefCtxPtr);
-            }
+            le_ref_DeleteRef(mpms.nodeWsRefMap, wsRefCtxPtr->wsRef);
+            le_dls_Remove(&(mpms.nodeWsRefList), &wsRefCtxPtr->link);
+            free((void*)wsRefCtxPtr->vhalTag);
+            le_mem_Release((void*)wsRefCtxPtr);
         }
     }
 }
@@ -1115,7 +1115,7 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
 }
 
 /**
-* Clear non authorized syatem wake sources
+* Local api to clear non authorized system wake sources acquired by client after filter set.
 */
 void ClearUnauthorizedWs()
 {
@@ -1132,6 +1132,81 @@ void ClearUnauthorizedWs()
             wsRefCtxPtr->isAcquiredLock = false;
         }
     }
+}
+
+/**
+* Local api to clear non authorized syatem wake sources after AuthorizeStayAwakeReason api called.
+*/
+void tafMngdPMSvc::ClearUnAuthorizedWakeSources()
+{
+    LE_INFO("ClearUnAuthorizedWakeSources");
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    le_result_t res = LE_FAULT;
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
+    while (linkHandlerPtr)
+    {
+        taf_wsRefCtx_t * wsRefCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
+
+        if (wsRefCtxPtr)
+        {
+            if(wsRefCtxPtr->isAcquiredLock)
+            {
+                if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason))
+                {
+                    LE_INFO("stayAwakeReason is in authorized stayAwakeReasonList");
+                    continue;
+                }
+                else
+                {
+                    LE_INFO("stayAwakeReason is not in authorized stayAwakeReasonList");
+                    res = mpms.ReleaseWakeSource(wsRefCtxPtr);
+                    if(res == LE_OK)
+                    {
+                         LE_INFO("Unauthorized WakeLock released successfully");
+                    }
+                }
+            }
+            else
+            {
+                LE_INFO("WakeLock not acquired");
+                continue;
+            }
+        }
+    }
+}
+
+/**
+ * Local api which Releases the acquired wake lock for the given reference.
+ */
+le_result_t tafMngdPMSvc::ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr)
+{
+    LE_INFO("ReleaseWakeSource");
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    le_result_t res = LE_FAULT;
+    res = tafMngdPMSvc::RequestStateChange(
+            TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
+    if(res != LE_OK)
+    {
+        return res;
+    }
+    res = tafMngdPMSvc::ReleaseWakeLock();
+    if(res == LE_OK)
+    {
+        LE_INFO("client Released WakeLock");
+        tafMngdPMSvc::ProcessStateChange(
+                TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
+        wsRefCtxPtr->isAcquiredLock = false;
+        //sending notification to VHAL
+        if((mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
+        {
+            LE_INFO("notify node info for reason: %d", wsRefCtxPtr->reason);
+            (*(mpms.pmInf->nodeInfoNotification))(NODE_ID,
+                    HAL_PM_NODE_INFO_LOCK_RELEASED, (const uint8_t)wsRefCtxPtr->reason);
+        }
+    }
+    return res;
 }
 
 /**

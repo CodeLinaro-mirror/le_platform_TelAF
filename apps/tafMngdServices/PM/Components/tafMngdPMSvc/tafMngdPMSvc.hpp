@@ -310,6 +310,8 @@ class tafMngdPMSvc: public ITafSvc
         //authorize stayawake reason
         static std::bitset<32> stayAwakeReasonMask;
         bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason);
+        void ClearUnAuthorizedWakeSources();
+        le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
 };
 }
 }

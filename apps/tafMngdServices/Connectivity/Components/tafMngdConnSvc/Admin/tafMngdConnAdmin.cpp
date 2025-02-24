@@ -2700,14 +2700,14 @@ void tafMngdConnAdmin::ReportRecoveryEvent(
 //--------------------------------------------------------------------------------------------------
 le_result_t tafMngdConnAdmin::InitializeStates()
 {
-    uint8_t sessionIdx, dataIdx, networkIdx, simIdx;
+    uint8_t sessionIdx = 0, dataIdx = 0, networkIdx = 0, simIdx = 0;
     uint8_t dataId = 0, phoneId = 0, slotNumber = 0;
     uint32_t profileNumber = 0;
     bool autoStart = false;
-    char conn_test_url [MCS_MAX_CONNECTION_URL_LEN];
-    char conn_test_ipv4Addr [MCS_MAX_IPV4_LEN];
-    char dataName [MCS_MAX_NAME_LEN];
-    le_result_t result;
+    char conn_test_url[MCS_MAX_CONNECTION_URL_LEN] = {'\0'};
+    char conn_test_ipv4Addr[MCS_MAX_IPV4_LEN] = {'\0'};
+    char dataName[MCS_MAX_NAME_LEN] = {'\0'};
+    le_result_t result = LE_OK;
     mcs_DataCtx_t* dataCtxPtr = NULL;
     auto &radio = tafMngdConnRadio::GetInstance();
     auto &sim = tafMngdConnSim::GetInstance();

@@ -1440,6 +1440,10 @@ le_result_t tafMngdStorageSvc::DeleteData
                             LE_BAD_PARAMETER,
                             "cannot find data");
 
+    TAF_ERROR_IF_RET_VAL(clientDataPtr->sharedClient == true,
+                            LE_NOT_PERMITTED,
+                            "shared app is not permitted to delete file");
+
     // Notify registered shared app before cleaning data
     for(uint i = 0; i < dataPtr->sharedAppList.appCount; i++)
     {

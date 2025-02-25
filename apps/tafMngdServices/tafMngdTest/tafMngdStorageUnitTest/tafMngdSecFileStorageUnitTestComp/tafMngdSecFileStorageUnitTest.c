@@ -179,10 +179,10 @@ void PrintUsage()
          "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- importfile <storageName> <filepath>\n"
          "\n"
          "-------- To Read the file from the storage --------\n"
-         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- readfile <storageName>\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- readfile <storageName> <filepath>\n"
          "\n"
          "-------- To delete the file from the storage --------\n"
-         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- deletefile <storageName>\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- deletefile <storageName> <filepath>\n"
          "\n"
          "-------- To delete the storage --------\n"
          "app runProc tafMngdStorageUnitTest --exe=tafMngdSecFileStorageUnitTest -- deletestorage <storageName>\n"
@@ -196,43 +196,33 @@ void Test_Op_Create_Storage(const char* storageName)
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSecFile_CreateStorage");
 }
 
-void Test_Op_Write_File(const char* storageName, const char* data)
+void Test_Op_Import_File(const char* storageName, const char* data, const char* target_path)
 {
     taf_mngdStorSecFile_StorageRef_t storageRef = taf_mngdStorSecFile_GetStorageRef(storageName);
     LE_TEST_ASSERT(storageRef != NULL, "Test taf_mngdStorSecFile_GetStorageRef");
-
-    // Create a source file for testing
-    FILE* sourceFile = fopen(data, "w");
-    if (sourceFile)
-    {
-        fputs("This is a test file.", sourceFile);
-        fclose(sourceFile);
-    }
-
-    le_result_t result = taf_mngdStorSecFile_ImportFile(storageRef, data, FILE_TARGET);
+    le_result_t result = taf_mngdStorSecFile_ImportFile(storageRef, data, target_path);
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSecFile_ImportFile");
 }
 
-void Test_Op_Read_File(const char* storageName)
+void Test_Op_Read_File(const char* storageName, const char* filePath)
 {
     taf_mngdStorSecFile_StorageRef_t storageRef = taf_mngdStorSecFile_GetStorageRef(storageName);
     LE_TEST_ASSERT(storageRef != NULL, "Test taf_mngdStorSecFile_GetStorageRef");
 
     uint8_t buffer[1024];
     size_t bufferSize = sizeof(buffer);
-    le_result_t result = taf_mngdStorSecFile_ReadFile(storageRef, FILE_TARGET, buffer, &bufferSize);
+    le_result_t result = taf_mngdStorSecFile_ReadFile(storageRef, filePath, buffer, &bufferSize);
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSecFile_ReadFile");
 
     // Print the content of the buffer
     printf("Read content: %.*s\n", (int)bufferSize, buffer);
 }
 
-void Test_Op_Delete_File(const char* storageName)
+void Test_Op_Delete_File(const char* storageName, const char* filePath)
 {
     taf_mngdStorSecFile_StorageRef_t storageRef = taf_mngdStorSecFile_GetStorageRef(storageName);
     LE_TEST_ASSERT(storageRef != NULL, "Test taf_mngdStorSecFile_GetStorageRef");
 
-    const char* filePath = FILE_TARGET;
     le_result_t result = taf_mngdStorSecFile_DeleteFile(storageRef, filePath);
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSecFile_DeleteFile");
 }
@@ -276,6 +266,7 @@ COMPONENT_INIT
         const char* operation = le_arg_GetArg(0);
         char* op_storage = NULL;
         char* op_data = NULL;
+        char* op_target_path = NULL;
 
         if (NULL == operation)
         {
@@ -303,7 +294,18 @@ COMPONENT_INIT
             }
             op_data = (char*)data;
         }
+        if (le_arg_NumArgs() > 3)
+        {
+            const char* target_path = le_arg_GetArg(3);
 
+            if(target_path == NULL || strlen(target_path) == 0 )
+            {
+                LE_ERROR("Invalid target path");
+                exit(EXIT_FAILURE);
+            }
+            op_target_path = (char*)target_path;
+
+        }
         if(op_storage == NULL || strlen(op_storage) == 0)
         {
             LE_ERROR("Invalid operation");
@@ -320,23 +322,39 @@ COMPONENT_INIT
         }
         else if (strcmp(operation, "importfile") == 0)
         {
-            if(op_data != NULL)
+            if(op_data != NULL && op_target_path != NULL)
             {
-                Test_Op_Write_File(op_storage, op_data);
+                Test_Op_Import_File(op_storage, op_data, op_target_path);
             }
             else
             {
-                LE_ERROR("Data is required for write operation");
+                LE_ERROR("Souce and target file paths are required for importing file operation");
                 exit(EXIT_FAILURE);
             }
         }
         else if (strcmp(operation, "readfile") == 0)
         {
-            Test_Op_Read_File(op_storage);
+            if(op_data != NULL)
+            {
+                Test_Op_Read_File(op_storage,op_data);
+            }
+            else
+            {
+                LE_ERROR("File is required for read file operation");
+                exit(EXIT_FAILURE);
+            }
         }
         else if (strcmp(operation, "deletefile") == 0)
         {
-            Test_Op_Delete_File(op_storage);
+            if(op_data != NULL)
+            {
+                Test_Op_Delete_File(op_storage,op_data);
+            }
+             else
+            {
+                LE_ERROR("File is required for delete file operation");
+                exit(EXIT_FAILURE);
+            }
         }
         else if (strcmp(operation, "lockstorage") == 0)
         {
@@ -385,4 +403,3 @@ COMPONENT_INIT
 
     LE_TEST_EXIT;
 }
-

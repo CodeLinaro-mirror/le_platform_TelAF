@@ -188,6 +188,16 @@ void taf_uds_GetFileXferActiveStateList
     return UdsCommunicationMgr::GetFileXferActiveStateList(fileXferStateListPtr);
 }
 
+void taf_uds_GetVlanIdList
+(
+    le_dls_List_t* vlanIDListPtr
+)
+{
+    LE_DEBUG("taf_uds_GetVlanIdList");
+
+    return UdsCommunicationMgr::GetVlanIdList(vlanIDListPtr);
+}
+
 COMPONENT_INIT
 {
     LE_INFO("UDS component init once start...");

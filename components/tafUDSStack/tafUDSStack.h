@@ -131,6 +131,17 @@ typedef struct
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Vlan Id info.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint16_t            vlanId;
+    le_dls_Link_t       link;
+}taf_uds_VlanId_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Sends a diagnostic message.
  *
  * @return
@@ -223,6 +234,16 @@ LE_SHARED void taf_uds_RemoveDiagIndicationHandler
 LE_SHARED void taf_uds_GetFileXferActiveStateList
 (
     le_dls_List_t* fileXferStateListPtr    ///< [IN] The file transfer state list.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets Vlan ID list. If the interface is not vlan port then VLAN list will provide VLAN ID = 0.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED void taf_uds_GetVlanIdList
+(
+    le_dls_List_t* vlanIDListPtr    ///< [IN] Vlan ID list.
 );
 
 #ifdef  __cplusplus

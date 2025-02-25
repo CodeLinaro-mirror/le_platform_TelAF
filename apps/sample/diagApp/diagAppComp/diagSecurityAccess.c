@@ -82,6 +82,15 @@ static void sesChangeHandler
         diagRFT_DeactivateProgramming();
     }
 
+    // Get the current session type
+    le_result_t res;
+    uint8_t currentSesType;
+    res = taf_diagSecurity_GetCurrentSesType(diagSecuritySvcRef, &currentSesType);
+    if (res == LE_OK)
+    {
+        LE_TEST_INFO("Current active session type is %x", currentSesType);
+    }
+
     // Release the session change msg.
     le_result_t result = taf_diagSecurity_ReleaseSesChangeMsg(sesChangeRef);
     LE_TEST_OK(result == LE_OK, "Session change msg released successfully");

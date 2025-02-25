@@ -203,11 +203,36 @@ void taf_diagSecurity_RemoveSesChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Select traget VLAN ID.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_NOT_FOUND -- Vlan ID not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagSecurity_SelectTargetVlanID
+(
+    taf_diagSecurity_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    uint16_t vlanId
+        ///< [IN] VLAN ID.
+)
+{
+    LE_DEBUG("taf_diagSecurity_SelectTargetVlanID");
+    auto &security = taf_SecuritySvr::GetInstance();
+    return security.SelectTargetVlanID(svcRef, vlanId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the current session control type.
  *
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
  * @note The process exits if an invalid reference is passed.

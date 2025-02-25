@@ -219,6 +219,7 @@ le_result_t taf_DiagBackend::InitUdsStack
 (
 )
 {
+    LE_DEBUG("InitUdsStack");
 #ifndef LE_CONFIG_DIAG_VSTACK
     le_result_t ret;
 
@@ -228,6 +229,37 @@ le_result_t taf_DiagBackend::InitUdsStack
         LE_ERROR("Failed to start uds stack.(%d)", ret);
         return ret;
     }
+
+    // Create memory pools.
+    VlanAndSesTypeMemPool = le_mem_CreatePool("VlanAndSesTypeMemPool",
+            sizeof(taf_RxVlanCurrentSesType_t));
+
+    taf_RxVlanCurrentSesType_t* VlanAndSesTypePtr = NULL;
+
+    le_dls_List_t VlanIdList = LE_DLS_LIST_INIT;
+    taf_uds_GetVlanIdList(&VlanIdList);
+
+    // Check enable id already present.
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&VlanIdList);
+    while (linkPtr)
+    {
+        taf_uds_VlanId_t* vlanIdPtr = CONTAINER_OF(linkPtr, taf_uds_VlanId_t,
+                link);
+        linkPtr = le_dls_PeekNext(&VlanIdList, linkPtr);
+
+        VlanAndSesTypePtr = (taf_RxVlanCurrentSesType_t *)le_mem_ForceAlloc(VlanAndSesTypeMemPool);
+        VlanAndSesTypePtr->vlanId = vlanIdPtr->vlanId;
+        VlanAndSesTypePtr->currentSesType = 0x01; // Set Default value on starting
+        LE_DEBUG("vlanId: %x", VlanAndSesTypePtr->vlanId);
+        VlanAndSesTypePtr->link = LE_DLS_LINK_INIT;
+
+        // add this event context to list
+        le_dls_Queue(&VlanAndSesTypeList, &VlanAndSesTypePtr->link);
+    }
+
+    // Release UDS Vlan List
+    ClearUDSVlanList(&VlanIdList);
 
     // Register the callback for receiving uds message.
     udsIndHandlerRef = taf_uds_AddDiagIndicationHandler(UdsIndicationHanler, NULL);
@@ -246,6 +278,100 @@ le_result_t taf_DiagBackend::InitUdsStack
     }
 #endif
     return LE_OK;
+}
+
+/*
+ * Clear UDS vlan list.
+*/
+void taf_DiagBackend::ClearUDSVlanList
+(
+    le_dls_List_t* vlanIdListPtr
+)
+{
+    LE_DEBUG("ClearUDSVlanList");
+
+    le_dls_Link_t* linkPtr = NULL;
+
+    TAF_ERROR_IF_RET_NIL(vlanIdListPtr == NULL, "vlanListPtr is null");
+
+    linkPtr = le_dls_Pop(vlanIdListPtr);
+    while (linkPtr)
+    {
+        taf_uds_VlanId_t* vlanIdPtr = CONTAINER_OF(linkPtr, taf_uds_VlanId_t,
+                link);
+
+        if (vlanIdPtr != NULL)
+        {
+             //Release memory in the list
+            le_mem_Release(vlanIdPtr);
+        }
+
+        // Removes and returns the link at the head of the list.
+        linkPtr = le_dls_Pop(vlanIdListPtr);
+    }
+
+    return;
+}
+
+/*
+ * Check VlanId is valid or not
+*/
+bool taf_DiagBackend::isVlanIdValid
+(
+    uint16_t vlanId
+)
+{
+    LE_INFO("isVlanIdValid");
+    le_dls_Link_t* linkPtr = NULL;
+
+    linkPtr = le_dls_Peek(&VlanAndSesTypeList);
+    while (linkPtr)
+    {
+        taf_RxVlanCurrentSesType_t* vlanSesTypePtr = CONTAINER_OF(linkPtr,
+                taf_RxVlanCurrentSesType_t, link);
+        linkPtr = le_dls_PeekNext(&VlanAndSesTypeList, linkPtr);
+
+        if (vlanSesTypePtr->vlanId == vlanId)
+        {
+            LE_DEBUG("VlanId is valid %d", vlanId);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/*
+ * Get current session type for request vlanId, if VlanId is valid.
+*/
+le_result_t taf_DiagBackend::GetCurrentSesType
+(
+    uint16_t vlanId,
+    uint8_t* currentSesTypePtr
+)
+{
+    LE_DEBUG("GetCurrentSesType");
+
+    // Check session type for respective VLAN ID
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&VlanAndSesTypeList);
+    while (linkPtr)
+    {
+        taf_RxVlanCurrentSesType_t* vlanSesTypePtr = CONTAINER_OF(linkPtr,
+                taf_RxVlanCurrentSesType_t, link);
+        linkPtr = le_dls_PeekNext(&VlanAndSesTypeList, linkPtr);
+
+        if (vlanSesTypePtr->vlanId == vlanId)
+        {
+            LE_DEBUG("Current session type is %d for vlanId %d", vlanSesTypePtr->currentSesType,
+                    vlanId);
+            *currentSesTypePtr = vlanSesTypePtr->currentSesType;
+            return LE_OK;
+        }
+    }
+
+    LE_ERROR("Vlan ID is not valid: %d", vlanId);
+    return LE_NOT_FOUND;
 }
 
 void taf_DiagBackend::DeInitUdsStack
@@ -366,4 +492,5 @@ void taf_DiagBackend::Init
             regstFlag = 1;
         }
     }
+
 }

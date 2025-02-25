@@ -3411,7 +3411,8 @@ static pthread_mutex_t Mutex = PTHREAD_MUTEX_INITIALIZER;   // POSIX "Fast" mute
 
 #define MAX_SLOT_NUM   2
 
-static bool registered[MAX_SLOT_NUM] = {false};
+static bool bServingSystemListenersRegistered [MAX_SLOT_NUM] = {false};
+static bool bDataConnectionListenersRegistered[MAX_SLOT_NUM] = {false};
 
 //--------------------------------------------------------------------------------------------------
 
@@ -3428,32 +3429,55 @@ void RegisterListeners()
     for(auto slotIdx = 1; slotIdx <= MAX_SLOT_NUM; slotIdx++)
     {
         LOCK
-        if(registered[slotIdx-1])
+        // Register serving system listener for each slot it
+        if(bServingSystemListenersRegistered[slotIdx-1])
         {
-            LE_INFO("Listeners already registered.");
-            UNLOCK
-            continue;
+            LE_INFO("Serving System listeners already registered.");
+        }
+        else
+        {
+            if ( dataConnection.dataServingSystemManagers.find((SlotId)slotIdx) !=
+                                                    dataConnection.dataServingSystemManagers.end())
+            {
+                if( dataConnection.dataServingSystemManagers[(SlotId)slotIdx]->registerListener(
+                        dataConnection.dataServingSystemListeners[(SlotId)slotIdx]) ==
+                                                                    telux::common::Status::SUCCESS)
+                {
+                    LE_INFO("Serving system listener for slot ID %d registered.", slotIdx);
+                    bServingSystemListenersRegistered[slotIdx-1] = true;
+                }
+                else
+                {
+                    LE_ERROR("Fail to register serving system listener %d.", slotIdx);
+                }
+            }
         }
 
-        if ( dataConnection.dataServingSystemManagers.find((SlotId)slotIdx) !=
-                                                     dataConnection.dataServingSystemManagers.end())
+        // Register data connection listener for each slot it
+        if (bDataConnectionListenersRegistered[slotIdx - 1])
         {
-            if( dataConnection.dataServingSystemManagers[(SlotId)slotIdx]->registerListener(
-                     dataConnection.dataServingSystemListeners[(SlotId)slotIdx]) ==
-                                                                     telux::common::Status::SUCCESS)
+            LE_INFO("Data connection listeners already registered.");
+        }
+        else
+        {
+            if (dataConnection.dataConnectionManagers.find((SlotId)slotIdx) !=
+                dataConnection.dataConnectionManagers.end())
             {
-                LE_INFO("Serving system listener %d registered.", slotIdx);
-                registered[slotIdx-1] = true;
-            }
-            else
-            {
-                LE_ERROR("Fail to register serving system listener %d.", slotIdx);
+                if (dataConnection.dataConnectionManagers[(SlotId)slotIdx] -> registerListener(
+                                    dataConnection.dataConnectionListeners[(SlotId)slotIdx]) ==
+                                                                    telux::common::Status::SUCCESS)
+                {
+                    LE_INFO("Data connection listener for slot ID %d registered.", slotIdx);
+                    bDataConnectionListenersRegistered[slotIdx - 1] = true;
+                }
+                else
+                {
+                    LE_ERROR("Fail to register serving system listener %d.", slotIdx);
+                }
             }
         }
-
         UNLOCK
     }
-
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3470,29 +3494,53 @@ void DeregisterListeners()
     for(auto slotIdx = 1; slotIdx <= MAX_SLOT_NUM; slotIdx++)
     {
         LOCK
-        if(!registered[slotIdx-1])
+        // Deregister serving system listeners
+        if(!bServingSystemListenersRegistered[slotIdx-1])
         {
-            LE_INFO("Listeners already deregistered.");
-            UNLOCK
-            continue;
+            LE_INFO("Serving system listeners already deregistered.");
+        }
+        else
+        {
+            if ( dataConnection.dataServingSystemManagers.find((SlotId)slotIdx) !=
+                                                    dataConnection.dataServingSystemManagers.end())
+            {
+                if( dataConnection.dataServingSystemManagers[(SlotId)slotIdx]->deregisterListener(
+                        dataConnection.dataServingSystemListeners[(SlotId)slotIdx]) ==
+                                                                    telux::common::Status::SUCCESS)
+                {
+                    LE_INFO("Serving system listener %d deregistered.", slotIdx);
+                    bServingSystemListenersRegistered[slotIdx - 1] = false;
+                }
+                else
+                {
+                    LE_ERROR("Fail to deregister serving system listener %d.", slotIdx);
+                }
+            }
         }
 
-        if ( dataConnection.dataServingSystemManagers.find((SlotId)slotIdx) !=
-                                                     dataConnection.dataServingSystemManagers.end())
+        // Deregister data connection listener for each slot it
+        if (!bDataConnectionListenersRegistered[slotIdx - 1])
         {
-            if( dataConnection.dataServingSystemManagers[(SlotId)slotIdx]->deregisterListener(
-                     dataConnection.dataServingSystemListeners[(SlotId)slotIdx]) ==
-                                                                     telux::common::Status::SUCCESS)
+            LE_INFO("Data connection listeners already deregistered.");
+        }
+        else
+        {
+            if (dataConnection.dataConnectionManagers.find((SlotId)slotIdx) !=
+                dataConnection.dataConnectionManagers.end())
             {
-                LE_INFO("Serving system listener %d deregistered.", slotIdx);
-                registered[slotIdx-1] = false;
-            }
-            else
-            {
-                LE_ERROR("Fail to deregister serving system listener %d.", slotIdx);
+                if (dataConnection.dataConnectionManagers[(SlotId)slotIdx] -> deregisterListener(
+                                    dataConnection.dataConnectionListeners[(SlotId)slotIdx]) ==
+                                                                    telux::common::Status::SUCCESS)
+                {
+                    LE_INFO("Data connection listener for slot ID %d registered.", slotIdx);
+                    bDataConnectionListenersRegistered[slotIdx - 1] = false;
+                }
+                else
+                {
+                    LE_ERROR("Fail to register serving system listener %d.", slotIdx);
+                }
             }
         }
-
         UNLOCK
     }
 }
@@ -3579,16 +3627,15 @@ void taf_DataConnection::Init(void)
         }
 
         /* register data connection status listener */
-        DataConnectionListener = std::make_shared<taf_DataConnectionListener>((SlotId)slotIdx);
-        telux::common::Status status =  conneMgr->registerListener(DataConnectionListener);
-        TAF_ERROR_IF_RET_NIL(status != telux::common::Status::SUCCESS,
-                             "register listener failed, status: %d", (int32_t)status);
+        tafDataConnectionListeners[(SlotId)slotIdx] =
+                                std::make_shared<taf_DataConnectionListener>((SlotId)slotIdx);
+        dataConnectionListeners[(SlotId)slotIdx] = tafDataConnectionListeners[(SlotId)slotIdx];
 
         /* register data serving system manager */
-        connectionServingSystemlisteners[(SlotId)slotIdx] =
+        tafDataConnServingSystemListeners[(SlotId)slotIdx] =
                               std::make_shared<taf_DataConnServingSystemListener>((SlotId)slotIdx);
         dataServingSystemListeners[(SlotId)slotIdx] =
-                                                 connectionServingSystemlisteners[(SlotId)slotIdx];
+                                                 tafDataConnServingSystemListeners[(SlotId)slotIdx];
 
         subSystemStatusUpdated = false;
             auto initSvrCb = std::bind(&taf_DataConnection::onInitCompleted, this,
@@ -3666,10 +3713,12 @@ void taf_DataConnection::Init(void)
     }
 
     /* register data connection status listener */
-    DataConnectionListener = std::make_shared<taf_DataConnectionListener>((SlotId)SLOT_ID_1);
-    telux::common::Status status =  ConnectionMgr->registerListener(DataConnectionListener);
+    dataConnectionListeners[(SlotId)SLOT_ID_1] =
+                                    std::make_shared<taf_DataConnectionListener>((SlotId)SLOT_ID_1);
+    telux::common::Status status =
+                        ConnectionMgr->registerListener(dataConnectionListeners[(SlotId)SLOT_ID_1]);
     TAF_ERROR_IF_RET_NIL(status != telux::common::Status::SUCCESS,
-                         "register listener failed, status: %d", (int32_t)status);
+                         "register listener for SLOT_ID_1 failed, status: %d", (int32_t)status);
 
 #endif
 

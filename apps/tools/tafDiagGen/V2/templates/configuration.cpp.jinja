@@ -93,7 +93,7 @@ EXPORT_SYM Node & get_event_node(uint16_t event_id)
 
     for (auto & ev: evs)
     {
-        int this_event_id = std::stoi(ev.first);
+        int this_event_id = std::stoi(ev.second.get<std::string>("id"));
 
         if ((uint16_t)this_event_id == event_id)
         {

@@ -98,6 +98,20 @@ le_result_t tafMngdSecFileStorageSvc::PreCheckExtensionJson()
     return res;
 }
 
+inline le_result_t CheckValidPath(std::string& str){
+    if(str.size() == 0){
+        LE_ERROR("Storage Path len is 0");
+        return LE_FAULT;
+    }
+    if(str[0] != '/'){
+        str = '/'+str;
+    }
+    if(str[str.size()-1] != '/'){
+        str = str+'/';
+    }
+    return LE_OK;
+}
+
 le_result_t tafMngdSecFileStorageSvc::ParseServiceJsonConfig(char* configPath)
 {
     LE_INFO("Parsing %s", configPath);
@@ -127,16 +141,6 @@ le_result_t tafMngdSecFileStorageSvc::ParseServiceJsonConfig(char* configPath)
         std::string svcJsonVersion = root.get<std::string>("Version");
         LE_INFO("Version of Json is %s", svcJsonVersion.c_str());
 
-        for (const auto& path : root.get_child("MSS Secure File Storage.Configuration.StoragePath"))
-        {
-            std::string basePath = path.second.get<std::string>("BasePath");
-            snprintf(secFileStorage, sizeof(secFileStorage), "%s", basePath.c_str());
-            std::string backupPath = path.second.get<std::string>("BackupPath");
-            snprintf(secFileRfsStorage, sizeof(secFileRfsStorage), "%s", backupPath.c_str());
-            LE_INFO("Base path is %s", secFileStorage);
-            LE_INFO("Backup path is %s", secFileRfsStorage);
-        }
-
         for (const auto& item : root.get_child("MSS Secure File Storage.Configuration.Storages"))
         {
             tafMngdSecFileStorage_StorageCfg_t storage;
@@ -150,6 +154,23 @@ le_result_t tafMngdSecFileStorageSvc::ParseServiceJsonConfig(char* configPath)
                 storage.AccessibleApps.push_back(appCStr);
             }
             storageAccessCfg.push_back(storage);
+        }
+        LE_INFO("Version of Json is %s",svcJsonVersion.c_str());
+        for (const auto& item :
+            root.get_child("MSS Secure File Storage.Configuration.StoragePath")) {
+            const boost::property_tree::ptree& uPath = item.second;
+            std::string basePath = uPath.get<std::string>("BasePath");
+            if(CheckValidPath(basePath) != LE_OK){
+                return LE_BAD_PARAMETER;
+            }
+            snprintf(secFileStorage,sizeof(secFileStorage),"%s",basePath.c_str());
+            std::string backupPath = uPath.get<std::string>("BackupPath");
+            if(CheckValidPath(backupPath) != LE_OK){
+                return LE_BAD_PARAMETER;
+            }
+            LE_INFO("Base path is %s",secFileStorage);
+            snprintf(secFileRfsStorage,sizeof(secFileRfsStorage),"%s",backupPath.c_str());
+            LE_INFO("Backup path is %s",secFileRfsStorage);
         }
     }
     catch (const std::exception& e)

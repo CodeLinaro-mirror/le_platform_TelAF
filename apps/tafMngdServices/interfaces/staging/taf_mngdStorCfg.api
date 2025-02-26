@@ -55,8 +55,12 @@
  *
  * @section taf_mngdStorCfg Configuration
  *
- * The service configuration file will be bundled during building the service. The path of default
- * file in the project is apps/tafMngdServices/Storage/Components/tafMngdCfgStorageSvc/config/tafMngdStorageConfig.json.
+ * The service configuration file will be bundled when building the service. The path of default
+ * file in the project is apps/tafMngdServices/Storage/Components/config/tafMngdStorageConfig.json.
+ * The client can also provide its own service configuration file at the extension path mentioned
+ * in default service json. Then service will be initialized with that service json.
+ *
+ * @b NOTE: It is advised to provide absolute paths in service configuration json.
  *
  * @section taf_mngdStorCfg Manage config storage
  *
@@ -154,6 +158,7 @@
  * The managed config storage provide get Api's which help to get the data type of the node and
  * also help to read the data of the nodes based on their types like string, integer etc. The
  * client should know the groupName and nodeName for that which wants to read the data.
+
  *
  * @code
 

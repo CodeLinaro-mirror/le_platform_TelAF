@@ -97,6 +97,20 @@ le_result_t tafMngdStorageSvc::PreCheckExtensionJson()
     return res;
 }
 
+inline le_result_t CheckValidPath(std::string& str){
+    if(str.size() == 0){
+        LE_ERROR("Storage Path len is 0");
+        return LE_FAULT;
+    }
+    if(str[0] != '/'){
+        str = '/'+str;
+    }
+    if(str[str.size()-1] != '/'){
+        str = str+'/';
+    }
+    return LE_OK;
+}
+
 le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(char* configPath)
 {
     LE_INFO("Parsing %s", configPath);
@@ -128,8 +142,14 @@ le_result_t tafMngdStorageSvc::ParseServiceJsonConfig(char* configPath)
         {
             const boost::property_tree::ptree &uPath = item.second;
             std::string basePath = uPath.get<std::string>("BasePath");
+            if(CheckValidPath(basePath) != LE_OK){
+                return LE_BAD_PARAMETER;
+            }
             snprintf(secDataStorage, sizeof(secDataStorage), "%s", basePath.c_str());
             std::string backupPath = uPath.get<std::string>("BackupPath");
+            if(CheckValidPath(backupPath) != LE_OK){
+                return LE_BAD_PARAMETER;
+            }
             LE_INFO("Base path is %s", secDataStorage);
             snprintf(secDataRfsStorage, sizeof(secDataRfsStorage), "%s", backupPath.c_str());
             LE_INFO("Backup path is %s", secDataRfsStorage);

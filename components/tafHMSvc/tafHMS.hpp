@@ -11,6 +11,10 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
+#include <telux/platform/SubsystemFactory.hpp>
+#include <telux/platform/SubsystemManager.hpp>
+#include <telux/common/CommonDefines.hpp>
+
 
 using namespace std;
 
@@ -49,6 +53,13 @@ using namespace std;
 #define MTD_DEV_MAJ_MIN_PATH     MTD_DEV_PATH MTD_DEV_MAJ_MIN
 
 #define UNUSED(arg) (arg = arg)
+
+#define TAF_HMS_MAX_EVENT_POOL_SIZE 10
+#define TAF_HMS_MODEM_RESET_TIMER 120000
+#define TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_LOW 1
+#define TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_MEDIUM 2
+#define TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_HIGH 3
+#define TAF_HMS_SUBSYSTEM_MANAGER_TIMEOUT 30
 
 
 //-------------------------------------------------------------------------------------------------
@@ -168,10 +179,42 @@ typedef struct
     taf_hms_MtdDevInfoListRef_t ref;
 }taf_hms_mtdInfoList_t;
 
+//-------------------------------------------------------------------------------------------------
+/**
+* Structure to hold the Modem Event Info
+*/
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_hms_ModemEvtType_t eventType;
+    taf_hms_ModemEvtSeverity_t eventLevel;
+    taf_hms_ModemEventRef_t  ref;
+}taf_hms_modemEventInfo_t;
 
 namespace telux {
 namespace tafsvc {
-class taf_Hms: public ITafSvc
+    class tafHmsListener : public telux::platform::ISubsystemListener {
+        public:
+        tafHmsListener() {};
+        ~tafHmsListener() {};
+        static tafHmsListener& GetInstance()
+        {
+            static tafHmsListener instance;
+            return instance;
+        }
+        void onStateChange(telux::common::SubsystemInfo subsystemInfo,
+            telux::common::OperationalStatus newOperationalStatus) override;
+
+        void StartResetTimer();
+        void DeleteResetTime();
+        static uint8_t ModemCrashCounter;
+
+        private:
+            le_timer_Ref_t resetTimer;
+            static bool ModemAvailability;
+    };
+
+    class taf_Hms: public ITafSvc
     {
         public:
             taf_Hms() {};
@@ -220,13 +263,22 @@ class taf_Hms: public ITafSvc
                 uint32_t* mtdBlkCntPtr);
             le_result_t GetMtdDevId(taf_hms_MtdDevInfoRef_t mtdDevInfoRef,
                 uint32_t* mtdDevIdPtr);
+            taf_hms_ModemEvtHandlerRef_t AddModemEvtHandler(
+                taf_hms_ModemEvtHandlerFunc_t handlerPtr, void* contextPtr);
+            static void ModemStatusChangeNotify(void* reportPtr,void* secondLayerHandlerFunc);
+            void RemoveModemEvtHandler(taf_hms_ModemEvtHandlerRef_t handlerRef);
+            le_result_t ReleaseModemEvt(taf_hms_ModemEventRef_t  eventRef);
+            bool isModemMonitorHandlerRegisterd = false;
+            le_event_Id_t ModemStatusChangeId;
 
+        private:
             le_mem_PoolRef_t UbiDevListPool;
             le_mem_PoolRef_t UbiDevInfoPool;
             le_mem_PoolRef_t UbiVolListPool;
             le_mem_PoolRef_t UbiVolInfoPool;
             le_mem_PoolRef_t MtdListPool;
             le_mem_PoolRef_t MtdInfoPool;
+            le_mem_PoolRef_t ModemStatuChangeInfoPool;
 
             le_ref_MapRef_t UbiDevListRefMap;
             le_ref_MapRef_t UbiDevRefMap;
@@ -234,6 +286,10 @@ class taf_Hms: public ITafSvc
             le_ref_MapRef_t UbiVolRefMap;
             le_ref_MapRef_t MtdListRefMap;
             le_ref_MapRef_t MtdRefMap;
+            le_ref_MapRef_t ModemStatuChangeRefMap;
+
+            std::shared_ptr<telux::platform::ISubsystemManager> subsystemMgr;
+            std::shared_ptr<tafHmsListener> stateListener;
     };
   }
 }

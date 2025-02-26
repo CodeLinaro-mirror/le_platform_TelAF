@@ -19,7 +19,7 @@
 #include <chrono>
 #include <thread>
 #include <dirent.h>
-
+#include <future>
 
 using namespace std;
 using namespace telux::tafsvc;
@@ -38,6 +38,7 @@ LE_MEM_DEFINE_STATIC_POOL(UbiVolInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
     sizeof(taf_hms_ubiVolInfo_t));
 LE_MEM_DEFINE_STATIC_POOL(MtdListPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_mtdInfoList_t));
 LE_MEM_DEFINE_STATIC_POOL(MtdInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_mtdInfo_t));
+LE_MEM_DEFINE_STATIC_POOL(ModemStatuChangeInfoPool, TAF_HMS_MAX_EVENT_POOL_SIZE, sizeof(taf_hms_modemEventInfo_t));
 
 
 LE_REF_DEFINE_STATIC_MAP(UbiDevListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
@@ -46,7 +47,10 @@ LE_REF_DEFINE_STATIC_MAP(UbiVolListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(UbiVolRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(MtdListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(MtdRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(ModemStatuChangeRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
 
+uint8_t tafHmsListener::ModemCrashCounter = 0;
+bool tafHmsListener::ModemAvailability = false;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1184,6 +1188,143 @@ le_result_t taf_Hms::GetMtdDevBlkCnt
     return LE_OK;
 }
 
+void ResetModemStatusCounterHandler(le_timer_Ref_t timerRef)
+{
+    tafHmsListener* mppsListener =
+                            (tafHmsListener*)le_timer_GetContextPtr(timerRef);
+    TAF_ERROR_IF_RET_NIL(mppsListener == NULL, "Not able to get reference pointer!");
+
+    mppsListener->ModemCrashCounter = 0;
+    LE_INFO("Reseting the timer for modem crash monitor");
+}
+
+void tafHmsListener::StartResetTimer()
+{
+    resetTimer = le_timer_Create("ResetTimer");
+    le_timer_SetMsInterval(resetTimer, TAF_HMS_MODEM_RESET_TIMER);
+    le_timer_SetRepeat(resetTimer, 0);
+    le_timer_SetHandler(resetTimer, ResetModemStatusCounterHandler);
+    le_timer_SetContextPtr(resetTimer, this);
+
+    // Start the timer
+    le_timer_Start(resetTimer);
+}
+
+void tafHmsListener::onStateChange(telux::common::SubsystemInfo subsystemInfo,
+                telux::common::OperationalStatus newOperationalStatus) {
+    auto &hms = taf_Hms::GetInstance();
+    //Check if the modem has crashed
+    if(newOperationalStatus == telux::common::OperationalStatus::UNAVAILABLE)
+    {
+        ModemAvailability = false;
+        return;
+    }
+
+    //Check if it is a reboot i.e. UNAVAILABLE --> OPERATIONAL
+    if(newOperationalStatus == telux::common::OperationalStatus::OPERATIONAL &&
+        ModemAvailability != false)
+    {
+        return;
+    }
+    ModemAvailability = true;
+
+    //Check if client has registered for monitoring modem
+    if (hms.isModemMonitorHandlerRegisterd != true)
+    {
+        LE_DEBUG("No handler registered for monitoring modem status");
+        return;
+    }
+
+    taf_hms_modemEventInfo_t evt;
+    ModemCrashCounter++;
+
+    if (ModemCrashCounter <= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_LOW) {
+        evt.eventLevel = TAF_HMS_MODEM_EVENT_SEVERITY_LOW;
+    }
+    else if (ModemCrashCounter <= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_MEDIUM) {
+        evt.eventLevel = TAF_HMS_MODEM_EVENT_SEVERITY_MEDIUM;
+    }
+    else if (ModemCrashCounter >= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_HIGH) {
+        evt.eventLevel = TAF_HMS_MODEM_EVENT_SEVERITY_HIGH;
+    }
+
+    if(newOperationalStatus == telux::common::OperationalStatus::OPERATIONAL)
+    {
+        evt.eventType = TAF_HMS_MODEM_EVENT_TYPE_CONTINUE_REBOOT;
+    }
+
+    le_event_Report(hms.ModemStatusChangeId, &evt, sizeof(evt));
+}
+
+void taf_Hms::ModemStatusChangeNotify(void* reportPtr,void* secondLayerHandlerFunc)
+{
+    auto hms = taf_Hms::GetInstance();
+    taf_hms_modemEventInfo_t* evt = (taf_hms_modemEventInfo_t*)le_mem_ForceAlloc(hms.ModemStatuChangeInfoPool);
+    TAF_ERROR_IF_RET_NIL(evt == NULL, "Not able to allocate memory for modem event info!");
+    evt->eventType = ((taf_hms_modemEventInfo_t*)reportPtr)->eventType;
+    evt->eventLevel = ((taf_hms_modemEventInfo_t*)reportPtr)->eventLevel;
+    evt->ref = (taf_hms_ModemEventRef_t)le_ref_CreateRef(hms.ModemStatuChangeRefMap, (void*)evt);
+
+    taf_hms_ModemEvtHandlerFunc_t clientHandlerFunc = (taf_hms_ModemEvtHandlerFunc_t)secondLayerHandlerFunc;
+    TAF_ERROR_IF_RET_NIL(clientHandlerFunc == NULL, "clientHandlerFunc is NULL !");
+
+    clientHandlerFunc(evt->eventType, evt->eventLevel, evt->ref, le_event_GetContextPtr());
+}
+
+
+taf_hms_ModemEvtHandlerRef_t taf_Hms::AddModemEvtHandler
+(
+    taf_hms_ModemEvtHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    auto hms = taf_Hms::GetInstance();
+    auto &mppsListener = tafHmsListener::GetInstance();
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "INVALID handler reference.");
+    ModemStatusChangeId =
+        le_event_CreateId("ModemStatusChangeId", sizeof(taf_hms_modemEventInfo_t));
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ModemStatusChangeIdHandlerRef",
+        ModemStatusChangeId, hms.ModemStatusChangeNotify, (void*)handlerPtr);
+    TAF_ERROR_IF_RET_VAL(handlerRef == NULL, NULL, "Failed to create handler reference!");
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    //Start the timer
+    mppsListener.StartResetTimer();
+    isModemMonitorHandlerRegisterd = true;
+    return (taf_hms_ModemEvtHandlerRef_t)handlerRef;
+}
+
+void tafHmsListener::DeleteResetTime()
+{
+    if (resetTimer != NULL)
+    {
+        LE_INFO("StopResetTimer");
+        le_timer_Stop(resetTimer);
+    }
+}
+
+void taf_Hms::RemoveModemEvtHandler(taf_hms_ModemEvtHandlerRef_t handlerRef)
+{
+    auto &mppsListener = tafHmsListener::GetInstance();
+    TAF_ERROR_IF_RET_NIL(handlerRef == nullptr, "Invalid para(null reference)");
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+    mppsListener.DeleteResetTime();
+    isModemMonitorHandlerRegisterd = false;
+    LE_INFO("Removed ModemStatusHandler");
+}
+
+le_result_t taf_Hms::ReleaseModemEvt(taf_hms_ModemEventRef_t eventRef)
+{
+    TAF_ERROR_IF_RET_VAL(eventRef == nullptr, LE_NOT_FOUND, "Invalid para(null reference)");
+    taf_hms_modemEventInfo_t* evtPtr =
+        (taf_hms_modemEventInfo_t*)le_ref_Lookup(ModemStatuChangeRefMap, eventRef);
+    TAF_ERROR_IF_RET_VAL(evtPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
+    LE_DEBUG("ReleaseModemEvt : %p", eventRef);
+    le_ref_DeleteRef(ModemStatuChangeRefMap, eventRef);
+    le_mem_Release(evtPtr);
+    return LE_OK;
+}
+
 void taf_Hms::Init()
 {
     LE_INFO("tafHMSvc started");
@@ -1200,6 +1341,8 @@ void taf_Hms::Init()
         sizeof(taf_hms_mtdInfoList_t));
     MtdInfoPool = le_mem_InitStaticPool(MtdInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
         sizeof(taf_hms_mtdInfo_t));
+    ModemStatuChangeInfoPool = le_mem_InitStaticPool(ModemStatuChangeInfoPool, TAF_HMS_MAX_EVENT_POOL_SIZE,
+        sizeof(taf_hms_modemEventInfo_t));
 
     UbiDevListRefMap = le_ref_InitStaticMap(UbiDevListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
     UbiDevRefMap = le_ref_InitStaticMap(UbiDevRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
@@ -1207,4 +1350,52 @@ void taf_Hms::Init()
     UbiVolRefMap = le_ref_InitStaticMap(UbiVolRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
     MtdListRefMap = le_ref_InitStaticMap(MtdListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
     MtdRefMap = le_ref_InitStaticMap(MtdRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+    ModemStatuChangeRefMap = le_ref_InitStaticMap(ModemStatuChangeRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
+
+    //Modem monitor
+    telux::common::ErrorCode ec;
+    telux::common::ServiceStatus serviceStatus;
+    std::promise<telux::common::ServiceStatus> p{};
+
+    auto &subsystemFact = telux::platform::SubsystemFactory::getInstance();
+
+    subsystemMgr = subsystemFact.getSubsystemManager(
+            [&p](telux::common::ServiceStatus srvStatus) {
+        p.set_value(srvStatus);
+    });
+    if (!subsystemMgr) {
+        LE_ERROR("Couldn't get the subsystemMgr");
+        return;
+    }
+
+    auto future = p.get_future();
+    if (future.wait_for(std::chrono::seconds(TAF_HMS_SUBSYSTEM_MANAGER_TIMEOUT))
+            == std::future_status::ready)
+    {
+        serviceStatus = future.get();
+        LE_INFO("serviceStatus get the callback waiting");
+        if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+            LE_ERROR("ISubsystemManager unavailable");
+            return;
+        }
+    }
+    else
+    {
+        LE_ERROR("Timeout waiting for serviceStatus callback");
+        return;
+    }
+
+    telux::common::SubsystemInfo subsysInfo{};
+    std::vector<telux::common::SubsystemInfo> listOfSubsystems;
+    stateListener = std::make_shared<tafHmsListener>();
+
+    subsysInfo.location = telux::common::ProcType::LOCAL_PROC;
+    subsysInfo.subsystems = telux::common::Subsystem::MPSS;
+    listOfSubsystems.push_back(subsysInfo);
+    ec = subsystemMgr->registerListener(stateListener, listOfSubsystems);
+    if (ec != telux::common::ErrorCode::SUCCESS) {
+        LE_ERROR("Can't register listener, err ");
+        return;
+    }
+    LE_INFO("registerListener ok");
 }

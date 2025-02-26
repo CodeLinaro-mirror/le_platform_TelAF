@@ -82,6 +82,64 @@ void PrintHelpMenu()
     printf("appInfo                 : Show app information.\n");
 }
 
+std::string GetErrorCodeString(taf_update_Error_t errCode)
+{
+    std::string ret;
+    if(errCode == TAF_UPDATE_BAD_PACKAGE)
+    {
+        ret = "TAF_UPDATE_BAD_PACKAGE";
+    }
+    else if(errCode == TAF_UPDATE_INTERNAL_ERROR)
+    {
+        ret = "TAF_UPDATE_INTERNAL_ERROR";
+    }
+    else if(errCode == TAF_UPDATE_SECURITY_FAILURE)
+    {
+        ret = "TAF_UPDATE_SECURITY_FAILURE";
+    }
+    else if(errCode == TAF_UPDATE_PACKAGE_NOT_FOUND)
+    {
+        ret = "TAF_UPDATE_PACKAGE_NOT_FOUND";
+    }
+    else if(errCode == TAF_UPDATE_APP_NOT_RUNNING)
+    {
+        ret = "TAF_UPDATE_APP_NOT_RUNNING";
+    }
+    else if(errCode == TAF_UPDATE_INVALID_OPERATION)
+    {
+        ret = "TAF_UPDATE_INVALID_OPERATION";
+    }
+    else if(errCode == TAF_UPDATE_IMAGE_NOT_VERFIED)
+    {
+        ret = "TAF_UPDATE_IMAGE_NOT_VERFIED";
+    }
+    else if(errCode == TAF_UPDATE_IO_ERROR)
+    {
+        ret = "TAF_UPDATE_IO_ERROR";
+    }
+    else if(errCode == TAF_UPDATE_NO_MEM_ERROR)
+    {
+        ret = "TAF_UPDATE_NO_MEM_ERROR";
+    }
+    else if(errCode == TAF_UPDATE_INVAL_ARG_ERROR)
+    {
+        ret = "TAF_UPDATE_INVAL_ARG_ERROR";
+    }
+    else if(errCode == TAF_UPDATE_BUSY_ERROR)
+    {
+        ret = "TAF_UPDATE_BUSY_ERROR";
+    }
+    else if(errCode == TAF_UPDATE_NODEV_ERROR)
+    {
+        ret = "TAF_UPDATE_NODEV_ERROR";
+    }
+    else
+    {
+        ret = "TAF_UPDATE_NONE";
+    }
+    return ret;
+}
+
 /*======================================================================
  FUNCTION        StateHandler
  DESCRIPTION     Handler function for update state
@@ -91,11 +149,16 @@ void PrintHelpMenu()
 ======================================================================*/
 void StateHandler(taf_update_StateInd_t* indication, taf_update_SessionRef_t sessRef, void* contextPtr)
 {
-    if(indication->error == TAF_UPDATE_INVALID_OPERATION)
+    if(indication->error != TAF_UPDATE_NONE)
     {
-        printf("Invalid operation requested\n");
-        le_sem_Post(semaphore);
-        return;
+        std::string errStr = GetErrorCodeString(indication->error);
+        LE_ERROR("Error code received: %s", errStr.c_str());
+        if(indication->error == TAF_UPDATE_INVALID_OPERATION)
+        {
+            printf("Invalid operation requested\n");
+            le_sem_Post(semaphore);
+            return;
+        }
     }
 
     switch (indication->state)

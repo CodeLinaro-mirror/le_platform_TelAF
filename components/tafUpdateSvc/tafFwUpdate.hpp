@@ -136,6 +136,7 @@ namespace tafsvc {
 
         void ReportStatus(taf_update_State_t state, uint32_t percent, taf_update_Error_t error);
         void UpdateProgress(taf_update_State_t state);
+        void SetErrorCode(int err);
 
         void GetRootfsVersion(char* version);
         void GetTelafVersion(char* version);

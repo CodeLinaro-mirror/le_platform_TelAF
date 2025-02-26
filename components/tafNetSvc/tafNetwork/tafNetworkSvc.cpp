@@ -1894,6 +1894,57 @@ le_result_t taf_netIpPass_SetIPPTNatConfig
     return tafVlan.SetIPPassThroughNatConfig(isNatEnabled);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the backhaul preference for default bridge.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_net_GetBackhaulPreference
+(
+    taf_net_VlanRef_t       vlanRef,
+    taf_net_BackhaulType_t* backhaulPrefListPtr,
+    size_t* backhaulPrefListSizePtr
+)
+{
+    LE_UNUSED(vlanRef);  //as of now only default bridge is allowed hence vlanRef is not needed.
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(backhaulPrefListPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(profileList)");
+    TAF_ERROR_IF_RET_VAL(backhaulPrefListSizePtr == nullptr, LE_BAD_PARAMETER, "Null ptr(listSize)");
+
+    return tafVlan.GetBackhaulPreference(backhaulPrefListPtr,backhaulPrefListSizePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the backhaul preference for default bridge.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_net_SetBackhaulPreference
+(
+    taf_net_VlanRef_t       vlanRef,
+    const taf_net_BackhaulType_t* backhaulPrefListPtr,
+    size_t backhaulPrefListSize
+)
+{
+    LE_UNUSED(vlanRef);  //as of now only default bridge is allowed hence vlanRef is not needed.
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(backhaulPrefListPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(profileList)");
+
+    return tafVlan.SetBackhaulPreference(backhaulPrefListPtr,backhaulPrefListSize);
+}
+
 
 /*=========================================L2TP=========================================*/
 
@@ -2926,6 +2977,7 @@ int32_t taf_net_GetGsbBandWidth
 
     return tafGsb.GetGsbBandWidth(gsbRef);
 }
+
 
 COMPONENT_INIT
 {

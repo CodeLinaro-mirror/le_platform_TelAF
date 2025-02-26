@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -593,6 +593,13 @@ DEFINE  MAX_GSB_NUM = (10);
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * The maximum number for backhaul types.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE  MAX_BH_NUM = (5);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * IP protocol.
  */
 //--------------------------------------------------------------------------------------------------
@@ -734,6 +741,21 @@ ENUM GsbIfType
     GSB_WLAN_AP,                      // WLAN AP.
     GSB_WLAN_STA,                     // WLAN station.
     GSB_ETH                           // Ethernet.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Backhaul type
+ */
+ //-------------------------------------------------------------------------------------------------
+ENUM BackhaulType
+{
+    BH_ETH = 0,///< Ethernet backhaul.
+    BH_USB,    ///< USB backhaul.
+    BH_WLAN,   ///< WLAN backhaul.
+    BH_WWAN,   ///< WWAN backhaul with default profile ID.
+    BH_BLE,    ///< Bluetooth backhaul.
+    BH_MAX     ///< Maximum supported.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2454,4 +2476,48 @@ FUNCTION GsbIfType GetGsbInterfaceType
 FUNCTION int32 GetGsbBandWidth
 (
     Gsb gsbRef                                IN  ///< GSB reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the backhaul preference for a bridge. The priority of the output list is ranked
+ * from highest to lowest.
+ *
+ * @b NOTE: Currently only the default bridge is supported, i.e. bridge0 hence vlanRef
+ * is not considered in this API call. It is added for future extensions.
+ *
+ * @b STAGING: This is a staging API and is subject to change.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBackhaulPreference
+(
+    Vlan       vlanRef                         IN,     ///< VLAN reference.
+    BackhaulType backhaulPrefList[MAX_BH_NUM]  OUT     ///< Backhaul preference list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the backhaul preference for a bridge. The priority of the input list is taken from
+ * highest to lowest.
+ *
+ * @b NOTE: Currently only the default bridge is supported, i.e. bridge0 hence vlanRef
+ * is not considered in this API call. It is added for future extensions.
+ *
+ * @b STAGING: This is a staging API and is subject to change.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetBackhaulPreference
+(
+   Vlan       vlanRef                         IN, ///< VLAN reference.
+   BackhaulType backhaulPrefList[MAX_BH_NUM]  IN  ///< Backhaul preference list.
 );

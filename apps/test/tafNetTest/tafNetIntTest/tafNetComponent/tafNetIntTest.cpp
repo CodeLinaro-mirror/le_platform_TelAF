@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -37,6 +37,8 @@
  * @brief      This file includes integration test functions of the Networking Service.
  */
 
+#include <iostream>
+#include <string>
 #include "legato.h"
 #include "interfaces.h"
 
@@ -97,6 +99,9 @@ static void PrintUsage ()
 <peersessionId>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- removetunnel <locId>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- gettunnelinfo\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- getbackhaulpreference\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- setbackhaulpreference\n"
+
             "\n");
 }
 
@@ -263,7 +268,7 @@ static int TafNetGetInterfaceList()
 
     result = taf_net_GetInterfaceList(intfInfoListPtr,&listSize);
     LE_INFO("----interface number=%" PRIuS ",result=%d\n",listSize,result);
-    for(int i=0;i<listSize;i++)
+    for(uint32_t i = 0;i<listSize;i++)
     {
         LE_INFO("----interface name =%s,technology =%d,state =%d",intfInfoListPtr[i].interfaceName,
                 intfInfoListPtr[i].tech,intfInfoListPtr[i].state);
@@ -299,7 +304,7 @@ static int TafNetChangeIpRoute()
     }
 
     uint16_t metric = strtol(metricPtr, NULL, 0);
-    uint8_t isAdd = strtol(isAddPtr, NULL, 0);
+    taf_net_NetAction_t isAdd = static_cast<taf_net_NetAction_t>(strtol(isAddPtr, nullptr, 0));
 
     result=taf_net_ChangeRoute(intfName,destAddr,prefixLength,metric,isAdd);
     LE_INFO("----result =%d" ,result);
@@ -508,7 +513,9 @@ static int TafNatAddDestNatOnDefaultPdn()
         exit(EXIT_FAILURE);
     }
 
-    result=taf_net_AddDestNatEntryOnDefaultPdn(privateIpaddr,priPort,gblPort,protonum);
+    taf_net_IpProto_t proto = static_cast<taf_net_IpProto_t>(protonum);
+
+    result=taf_net_AddDestNatEntryOnDefaultPdn(privateIpaddr,priPort,gblPort,proto);
     LE_INFO("----add dest nat result=%d",result);
 
     return EXIT_SUCCESS;
@@ -552,7 +559,9 @@ static int TafNatDelDestNatOnDefaultPdn()
         exit(EXIT_FAILURE);
     }
 
-    result=taf_net_RemoveDestNatEntryOnDefaultPdn(privateIpaddr,priPort,gblPort,protonum);
+    taf_net_IpProto_t proto = static_cast<taf_net_IpProto_t>(protonum);
+
+    result=taf_net_RemoveDestNatEntryOnDefaultPdn(privateIpaddr,priPort,gblPort,proto);
     LE_INFO("----delete dest nat result=%d",result);
 
     return EXIT_SUCCESS;
@@ -643,7 +652,9 @@ static int TafNatAddDestNatOnDemandPdn()
         exit(EXIT_FAILURE);
     }
 
-    result=taf_net_AddDestNatEntryOnDemandPdn(profileId,privateIpaddr,priPort,gblPort,protonum);
+    taf_net_IpProto_t proto = static_cast<taf_net_IpProto_t>(protonum);
+
+    result=taf_net_AddDestNatEntryOnDemandPdn(profileId,privateIpaddr,priPort,gblPort,proto);
     LE_INFO("----add dest nat result=%d",result);
 
     return EXIT_SUCCESS;
@@ -690,7 +701,9 @@ static int TafNatDelDestNatOnDemandPdn()
         exit(EXIT_FAILURE);
     }
 
-    result=taf_net_RemoveDestNatEntryOnDemandPdn(profileId,privateIpaddr,priPort,gblPort,protonum);
+    taf_net_IpProto_t proto = static_cast<taf_net_IpProto_t>(protonum);
+
+    result=taf_net_RemoveDestNatEntryOnDemandPdn(profileId,privateIpaddr,priPort,gblPort,proto);
     LE_INFO("----delete dest nat result=%d",result);
 
     return EXIT_SUCCESS;
@@ -1086,6 +1099,93 @@ static int TafVlanUnBindWithProfile()
     return EXIT_SUCCESS;
 }
 
+static int TafSetBackhaulPref()
+{
+    le_result_t ret;
+
+    printf("Set Backhaul Preference \n");
+
+    taf_net_BackhaulType_t bhPrefListPtr[TAF_NET_MAX_BH_NUM];
+    taf_net_VlanRef_t       vlanRef = NULL;
+
+    int backhaul;
+    for(int i=0; i < TAF_NET_MAX_BH_NUM; i++) {
+              std::cout << "Enter Backhaul ";
+              std::cout << " (0-ETH, 1-USB, 2-WLAN, 3-WWAN, 4-BLE): ";
+              std::cin >> backhaul;
+              std::cout << std::endl;
+              bhPrefListPtr[i] = static_cast<taf_net_BackhaulType_t>(backhaul);
+          }
+
+    ret=taf_net_SetBackhaulPreference(vlanRef,bhPrefListPtr,TAF_NET_MAX_BH_NUM);
+    if(ret == LE_OK)
+    {
+        LE_TEST_INFO("---Set BH Pref OK---");
+        printf("---Set BH Pref OK---\n");
+    }
+    else
+    {
+        LE_TEST_INFO("---Set BH Pref error---");
+        printf("---Set BH Pref error %d---\n",ret);
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafGetBackhaulPref()
+{
+    le_result_t ret;
+
+    printf("Get Backhaul Preference \n");
+
+    printf(" (0-ETH, 1-USB, 2-WLAN, 3-WWAN, 4-BLE): \n");
+
+    taf_net_BackhaulType_t bhPrefListPtr[TAF_NET_MAX_BH_NUM];
+    taf_net_VlanRef_t       vlanRef = NULL;
+    size_t listSize = 0;
+    ret=taf_net_GetBackhaulPreference(vlanRef,bhPrefListPtr,&listSize);
+
+    if(ret != LE_OK)
+    {
+      LE_TEST_INFO("taf_net_GetBackhaulPreference failed");
+      printf("taf_net_GetBackhaulPreference failed %d\n",ret);
+      exit(EXIT_FAILURE);
+    }
+    else
+    {
+      LE_TEST_INFO("---Get BH Pref OK---");
+      printf("---Get BH Pref OK---\n");
+    }
+
+    for(uint32_t i = 0; i < listSize; i++) {
+              printf("preference[%d] ",i);
+              switch(bhPrefListPtr[i]) {
+                      case TAF_NET_BH_ETH:
+                          printf("Ethernet\n");
+                          break;
+                      case TAF_NET_BH_USB:
+                          printf("USB\n");
+                          break;
+                      case TAF_NET_BH_WLAN:
+                          printf("WLAN\n");
+                          break;
+                      case TAF_NET_BH_WWAN:
+                          printf("WWAN\n");
+                          break;
+                      case TAF_NET_BH_BLE:
+                          printf("BLE\n");
+                          break;
+                      default:
+                          printf("Unsupported Backhaul\n");
+                  }
+
+              printf("\n");
+          }
+
+    return EXIT_SUCCESS;
+}
+
+
 static int TafEnableL2tp()
 {
     le_result_t ret;
@@ -1189,7 +1289,7 @@ static int TafGetL2tpInfo()
 */
 static int TafCreateL2tpTunnel()
 {
-    int paramIndex=1, i = 0;
+    int paramIndex=1;
     le_result_t ret = LE_OK;
     uint32_t localtunnelId = 0, peertunnelId=0, encaproto = 0, localudpport = 0, peerudpport = 0;
     const char* peerIpAddrPtr = NULL;
@@ -1324,7 +1424,7 @@ static int TafCreateL2tpTunnel()
     }
 
     //Get local session ids and peer session ids
-    for(i=0;i<sessionNum;i++)
+    for(uint32_t i = 0;i<sessionNum;i++)
     {
         localsessionId[i] = strtol(le_arg_GetArg(paramIndex), NULL, 0);
         paramIndex++;
@@ -1354,7 +1454,7 @@ static int TafCreateL2tpTunnel()
     }
 
     //Add session into tunnel
-    for(i=0;i<sessionNum;i++)
+    for(uint32_t i = 0;i<sessionNum;i++)
     {
         ret = taf_net_AddSession(tunnelRef, localsessionId[i], peersessionId[i]);
         if(ret != LE_OK)
@@ -1375,7 +1475,7 @@ static int TafCreateL2tpTunnel()
     if(ret != LE_OK)
     {
         puts("----Failed to start tunnel");
-        for(i=0;i<sessionNum;i++)
+        for(uint32_t i = 0;i<sessionNum;i++)
             taf_net_RemoveSession(tunnelRef, localsessionId[i], peersessionId[i]);
 
         //Restore session number
@@ -1498,7 +1598,7 @@ static int TafGetTunnelInfo()
             if(ret == LE_OK)
             {
 
-                for(int i=0;i<sessionNum;i++)
+                for(uint32_t i = 0;i<sessionNum;i++)
                 {
                     LE_INFO("----session %d local id is %d", i, sessionConfig[i].locId);
                     LE_INFO("----session %d peer id is %d",i, sessionConfig[i].peerId);
@@ -1977,6 +2077,16 @@ COMPONENT_INIT
         else if(strcmp(testType, "gettunnelinfo") == 0)
         {
             status=TafGetTunnelInfo();
+            LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "setbackhaulpreference") == 0)
+        {
+            status=TafSetBackhaulPref();
+            LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "getbackhaulpreference") == 0)
+        {
+            status=TafGetBackhaulPref();
             LE_INFO("status =%d",status);
         }
 #if 0

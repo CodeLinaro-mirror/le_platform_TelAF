@@ -218,6 +218,20 @@ namespace tafsvc {
         private:
             SlotId slotId;
     };
+
+    class tafVlanBackhaulPrefCallback
+    {
+        public:
+            static le_sem_Ref_t semaphore;
+            static le_result_t result;
+            static taf_net_BackhaulType_t backhaulPrefListPtr[TAF_NET_MAX_BH_NUM];
+            static size_t backhaulPrefListSize;
+
+            static void backhaulPrefResponse(
+                const std::vector<telux::data::BackhaulType> backhaulPref,
+                telux::common::ErrorCode error);
+            static void setBackhaulPrefResponse(telux::common::ErrorCode error);
+    };
     /*
      * @brief taf_Vlan class defined as a middleware between interfaces and implementation.
      */
@@ -322,6 +336,12 @@ namespace tafsvc {
                                                  uint16_t vlanId);
             le_result_t SetIPPassThroughNatConfig(bool isEnabled);
             le_result_t GetIPPassThroughNatConfig(bool *isEnabledPtr);
+
+            le_result_t GetBackhaulPreference(taf_net_BackhaulType_t* backhaulPrefListPtr,
+                                              size_t* backhaulPrefListSizePtr);
+            le_result_t SetBackhaulPreference(const taf_net_BackhaulType_t* backhaulPrefListPtr,
+                                              size_t backhaulPrefListSize);
+
 
             static bool sort_vlanId(const telux::data::VlanConfig& s1,
                                     const telux::data::VlanConfig& s2);

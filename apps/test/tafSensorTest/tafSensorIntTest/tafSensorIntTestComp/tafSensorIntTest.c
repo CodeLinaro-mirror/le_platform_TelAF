@@ -11,6 +11,7 @@
 #define SENSOR_NUMS 2
 taf_imuSensor_SensorRef_t sensorsList[SENSOR_NUMS];
 taf_imuSensor_DataHandlerRef_t eventHandlerRef;
+taf_imuSensor_SelfTestFailedHandlerRef_t selfTestHandlerRef;
 le_thread_Ref_t threadRef1 =NULL;
 taf_imuSensor_SensorListRef_t Head;
 static le_sem_Ref_t semRef1;
@@ -31,8 +32,8 @@ void PrintUsage(void)
          "app runProc tafSensorIntTest tafSensorIntTest -- AvailableSensors\n"
          "app runProc tafSensorIntTest tafSensorIntTest -- SensorInfo <name>\n"
          "app runProc tafSensorIntTest tafSensorIntTest -- SetAngle <Pitch> <Roll> <Yaw>\n"
-         "app runProc tafSensorIntTest tafSensorIntTest -- Activate <SensorName> <SamplingRate> <BatchCount>"
-         "app runProc tafSensorIntTest tafSensorIntTest -- SelfTest <sensorName> <Mode>"
+         "app runProc tafSensorIntTest tafSensorIntTest -- Activate <SensorName> <SamplingRate> <BatchCount>\n"
+         "app runProc tafSensorIntTest tafSensorIntTest -- SelfTest <sensorName> <Mode>\n"
          "\n");
 }
 
@@ -98,44 +99,41 @@ static le_result_t TestSensorInfo(const char* name)
         char version[10];
         taf_imuSensor_SensorType_t sensorType;
         result = taf_imuSensor_GetId(sensorRef,&id);
-        LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetId- LE_OK. id: %d",id);
+        LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetId- LE_OK.");
         printf("id = %d\n",id);
         result = taf_imuSensor_GetVendorName(sensorRef,sensorVendorName,sizeof(sensorVendorName));
-        LE_TEST_OK(result == LE_OK,"taf_imuSensor_GetVendorName- LE_OK. vendor = %s",sensorVendorName);
+        LE_TEST_OK(result == LE_OK,"taf_imuSensor_GetVendorName - LE_OK.");
         printf("vendorName = %s\n",sensorVendorName);
         result = taf_imuSensor_GetType(sensorRef,&sensorType);
-        LE_TEST_OK(result == LE_OK,"taf_imuSensor_GetType - LE_OK. type = %d",sensorType);
+        LE_TEST_OK(result == LE_OK,"taf_imuSensor_GetType - LE_OK.");
         printf("SensorType = %d\n",sensorType);
         result = taf_imuSensor_GetVersion(sensorRef,version,sizeof(version));
-        LE_TEST_OK(result == LE_OK,"taf_imuSensor_GetVersion - LE_OK. version = %s",version);
+        LE_TEST_OK(result == LE_OK,"taf_imuSensor_GetVersion - LE_OK.");
         printf("SensorVersion = %s\n",version);
 
         double sampleRateList[TAF_IMUSENSOR_MAX_NUM_SUPPORTED_SAMPLE_RATE];
         size_t size = sizeof(sampleRateList)/sizeof(double);
         result = taf_imuSensor_GetSupportedSamplingRate(sensorRef,sampleRateList,&size);
         for(uint32_t i=0;i<size;i++){
-            LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetSamplingRateInfo - LE_OK. Sample%d %f",
-                i+1,sampleRateList[i]);
+            LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetSamplingRateInfo - LE_OK.");
             printf("Supported Sample: %d. %f\n",i+1,sampleRateList[i]);
         }
 
         uint32_t maxBatchCount;
         uint32_t minBatchCount;
         result = taf_imuSensor_GetSupportedBatchCount(sensorRef,&maxBatchCount,&minBatchCount);
-         LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetBatchingInfo- LE_OK."
-        " MaxBatchCount =  %d , MinBatchCount = %d",maxBatchCount,minBatchCount);
+        LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetBatchingInfo- LE_OK.");
         printf("MaxBatchCount =  %d\n",maxBatchCount);
         printf("MinBatchCount = %d\n",minBatchCount);
 
         double range;
         result = taf_imuSensor_GetRange(sensorRef,&range);
-        LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetRange Info- LE_OK."
-        " range = %f",range);
+        LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetRange Info- LE_OK.");
         printf("range = %f\n",range);
 
         double resolution;
         result = taf_imuSensor_GetResolution(sensorRef,&resolution);
-        LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetSensorResolution- LE_OK.%f",resolution);
+        LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetSensorResolution- LE_OK");
         printf("resolution = %f\n",resolution);
         return LE_OK;
         }
@@ -146,7 +144,7 @@ static le_result_t TestSensorInfo(const char* name)
 static le_result_t TestEulerAngle(double pitch, double roll , double yaw)
 {
     le_result_t result;
-    LE_TEST_INFO("Testing Setting euler angle for Sensor with -taf_imuSensor_SetRefCoordinateByEulerAngle");
+    LE_TEST_INFO("Testing - taf_imuSensor_SetRefCoordinateByEulerAngle");
     result = taf_imuSensor_SetRefCoordinateByEulerAngle(NULL,pitch, roll, yaw);
     if(result != LE_OK){
         return LE_FAULT;
@@ -199,6 +197,17 @@ void TestSensorOnEventFunc(taf_imuSensor_SensorRef_t sensorRef,taf_imuSensor_Sam
     le_mutex_Unlock(mSensorMutexRef);
 }
 
+void TestSensorFailedEvent(taf_imuSensor_SelfTestEventRef_t eventRef,
+    taf_imuSensor_SensorRef_t sensorRef,uint64_t timestamp,void* contextPtr){
+    char sensorName[50];
+    le_result_t result = taf_imuSensor_GetName(sensorRef,sensorName,sizeof(sensorName));
+    if(result !=LE_OK){
+        LE_TEST_INFO("sensor ref not found %p", sensorRef);
+        return;
+    }
+    printf("SelfTest Failed for %s at timestamp %ld \n", sensorName ,timestamp);
+}
+
 static void* SensorHandler(void* ctxPtr)
 {
     taf_imuSensor_ConnectService();
@@ -207,9 +216,11 @@ static void* SensorHandler(void* ctxPtr)
     eventHandlerRef = taf_imuSensor_AddDataHandler(config->sensorRef,TestSensorOnEventFunc,NULL);
     LE_TEST_OK(eventHandlerRef != NULL, "Register AddOnEventHandler handler"
         " is successfull");
-
+    selfTestHandlerRef =
+        taf_imuSensor_AddSelfTestFailedHandler(config->sensorRef,TestSensorFailedEvent,NULL);
+    LE_TEST_OK(selfTestHandlerRef != NULL, "Register AddSelfTestFailedHandler handler"
+        " is successfull");
     le_thread_Sleep(2);
-
     le_result_t result = taf_imuSensor_Activate(config->sensorRef,config->samplingRate,
         config->batchCount);
     LE_INFO("SensorHandler Result of activating sensor: %d", (int)result);
@@ -237,6 +248,7 @@ static le_result_t TestActivateSensor(const char* name,double SamplingRate,
             threadRef1 = le_thread_Create("Thread1", SensorHandler,&config);
             le_thread_Start(threadRef1);
             le_thread_Sleep(30);
+            taf_imuSensor_RemoveSelfTestFailedHandler(selfTestHandlerRef);
             taf_imuSensor_RemoveDataHandler(eventHandlerRef);
             le_thread_Cancel(threadRef1);
             result = taf_imuSensor_Deactivate(sensorRef);
@@ -251,11 +263,15 @@ static le_result_t TestActivateSensor(const char* name,double SamplingRate,
 static le_result_t TestSelfTest(const char* name,const char* mode){
     le_result_t result;
     taf_imuSensor_SelfTestMode_t modeType;
+    uint64_t timestamp=0;
     if(strncmp(mode,"n",strlen(mode)) == 0 || strncmp(mode,"N",strlen(mode)) == 0  ){
         modeType = TAF_IMUSENSOR_NEGATIVE;
     }
     else if(strncmp(mode,"p",strlen(mode)) == 0 || strncmp(mode,"P",strlen(mode)) == 0){
        modeType =  TAF_IMUSENSOR_POSITIVE;
+    }
+    else if(strncmp(mode,"b",strlen(mode)) == 0 || strncmp(mode,"B",strlen(mode)) == 0){
+       modeType =  TAF_IMUSENSOR_BOTH;
     }
     else{
         return LE_NOT_FOUND;
@@ -266,7 +282,7 @@ static le_result_t TestSelfTest(const char* name,const char* mode){
         result = taf_imuSensor_GetName(sensorRef,sensorName,sizeof(sensorName));
         if(result != LE_OK) return result;
         if(strncmp(name,sensorName, strlen(name)) == 0){
-            le_result_t result = taf_imuSensor_SelfTest(sensorRef,modeType);
+            le_result_t result = taf_imuSensor_SelfTest(sensorRef,modeType,&timestamp);
             LE_TEST_OK(result == LE_OK, "taf_imuSensor_SelfTest Info- LE_OK.");
             if(result ==  LE_UNSUPPORTED ){
                 printf("\033[1;31m Self Test not supported on this target. \033[0m\n");
@@ -276,8 +292,15 @@ static le_result_t TestSelfTest(const char* name,const char* mode){
                     sensorName,modeType);
             }
             else if(result == LE_OK){
-                printf("\033[1;31m Self Test for %s in mode %d is Passed. \033[0m\n",
-                    sensorName,modeType);
+                printf("\033[1;31m Self Test for %s in mode %d is Passed at %ld . \033[0m\n",
+                    sensorName,modeType,timestamp);
+            }
+            else if(result == LE_BUSY){
+                printf("\033[1;31m Sensor is Busy. Previous Self Test for %s in mode %d is Passed"
+                    "at %ld . \033[0m\n",sensorName,modeType,timestamp);
+            }
+            else if(result == LE_UNAVAILABLE){
+              printf("\033[1;31m Previous Self Test info not available \033[0m\n");
             }
             else{
                 printf("\033[1;31m Self Test for %s in mode %d is Failed. \033[0m\n",
@@ -392,7 +415,6 @@ COMPONENT_INIT
             LE_TEST_INFO("Sensor Name not found %s",name);
         }
         LE_TEST_OK(status ==LE_OK,"Test taf_imuSensor_SelfTest Succeed %d",status);
-
     }
     else{
         PrintUsage();

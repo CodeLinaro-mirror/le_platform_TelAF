@@ -618,9 +618,83 @@ le_result_t taf_imuSensor_DeleteData
 le_result_t taf_imuSensor_SelfTest
 (
     taf_imuSensor_SensorRef_t sensorRef,
-    taf_imuSensor_SelfTestMode_t mode
+    taf_imuSensor_SelfTestMode_t mode,
+    uint64_t* timestampPtr
 )
 {
     auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.SelfTest(sensorRef,mode);
+    return sensorMngr.SelfTest(sensorRef,mode,timestampPtr);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_imuSensor_AddSelfTestFailedHandler
+
+ DESCRIPTION    Sends sensor self test failed notification.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     Self test failed handler function.
+
+ RETURN VALUE   taf_imuSensor_SelfTestFailedHandlerRef_t if registered successfully else NULL.
+
+ SIDE EFFECTS
+
+======================================================================*/
+taf_imuSensor_SelfTestFailedHandlerRef_t taf_imuSensor_AddSelfTestFailedHandler
+(
+    taf_imuSensor_SensorRef_t sensorRef,
+    taf_imuSensor_SelfTestFailedHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.AddSelfTestFailedHandler(sensorRef,handlerPtr,contextPtr);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_imuSensor_RemoveSelfTestFailedHandler
+
+ DESCRIPTION    Removes selfTest Handler.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     Self test handler reference.
+
+ RETURN VALUE
+
+ SIDE EFFECTS
+
+======================================================================*/
+void taf_imuSensor_RemoveSelfTestFailedHandler
+(
+    taf_imuSensor_SelfTestFailedHandlerRef_t handlerRef
+)
+{
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    sensorMngr.RemoveSelfTestFailedHandler(handlerRef);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_imuSensor_ReleaseSelfTestRef
+
+ DESCRIPTION    Release Self test event reference.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     Self test event reference.
+
+ RETURN VALUE
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_imuSensor_ReleaseSelfTestRef
+(
+    taf_imuSensor_SelfTestEventRef_t handlerRef
+)
+{
+    return LE_OK;
 }

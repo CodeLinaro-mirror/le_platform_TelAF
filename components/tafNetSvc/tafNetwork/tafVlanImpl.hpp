@@ -320,6 +320,8 @@ namespace tafsvc {
             taf_netIpPass_InterfaceRef_t GetIPConfig(taf_net_NetIpType_t  ipType,
                                                  taf_net_VlanIfType_t ifType,
                                                  uint16_t vlanId);
+            le_result_t SetIPPassThroughNatConfig(bool isEnabled);
+            le_result_t GetIPPassThroughNatConfig(bool *isEnabledPtr);
 
             static bool sort_vlanId(const telux::data::VlanConfig& s1,
                                     const telux::data::VlanConfig& s2);

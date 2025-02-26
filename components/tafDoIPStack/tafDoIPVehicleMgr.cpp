@@ -667,6 +667,7 @@ taf_doip_Result_t VehicleManager::SetVin
 )
 {
     LE_DEBUG("SetVin!");
+    taf_doip_Result_t ret;
 
     if (vinPtr == NULL || strlen(vinPtr) != TAF_DOIP_VIN_SIZE)
     {
@@ -674,10 +675,72 @@ taf_doip_Result_t VehicleManager::SetVin
         return TAF_DOIP_RESULT_PARAM_ERROR;
     }
 
-    auto &vehicleMgr = VehicleManager::GetInstance();
+    ret=SetVinInStorage(vinPtr);
+    if(ret != TAF_DOIP_RESULT_OK)
+    {
+        LE_ERROR("Failed to store Vin");
+        return ret;
+    }
 
-    le_utf8_Copy(vehicleMgr.doipConfigPtr->vin, vinPtr, TAF_DOIP_VIN_SIZE + 1, NULL);
-    LE_DEBUG("Set VIN is %s!", vehicleMgr.doipConfigPtr->vin);
+    LE_DEBUG("Set VIN %s!", vinPtr);
+
+    return TAF_DOIP_RESULT_OK;
+}
+
+le_result_t VehicleManager::CheckVIN
+(
+    const char* vinPtr
+)
+{
+    char c;
+
+    while (*vinPtr)
+    {
+        c= (char)(*vinPtr);
+        if (( (c >= 'A') && (c <= 'H') ) ||
+            ( (c >= 'J') && (c <= 'N') ) ||
+            ( c == 'P' ) ||
+            ( (c >= 'R') && (c <= 'Z') ) ||
+            ( (c >= '0') && (c <= '9') ) )
+        {
+            vinPtr++;
+        }
+        else
+        {
+            LE_ERROR("%c is not allowed", *vinPtr);
+            return LE_FAULT;
+        }
+    }
+
+    return LE_OK;
+}
+
+taf_doip_Result_t VehicleManager::SetVinInStorage
+(
+    const char* vinPtr
+)
+{
+    LE_DEBUG("SetVinInStorage!");
+
+    if (vinPtr == NULL || strlen(vinPtr) != TAF_DOIP_VIN_SIZE)
+    {
+        LE_ERROR("VinPtr is null or vinPtr length is not correct");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    if (CheckVIN(vinPtr) != LE_OK)
+    {
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    LE_INFO(" vehicle idendification number =  %s", vinPtr);
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_DOIP_VIN_PATH );
+
+    le_cfg_SetString(iteratorRef, CFG_DOIP_VIN_NODE, vinPtr);
+
+    le_cfg_CommitTxn(iteratorRef);
+
+    LE_DEBUG("Set Vehicle Identification Number to %s", vinPtr);
 
     return TAF_DOIP_RESULT_OK;
 }
@@ -689,6 +752,7 @@ taf_doip_Result_t VehicleManager::GetVin
 {
     LE_DEBUG("GetVin!");
 
+    taf_doip_Result_t ret;
     if (vinPtr == NULL)
     {
         LE_ERROR("vinPtr is null!");
@@ -697,16 +761,64 @@ taf_doip_Result_t VehicleManager::GetVin
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if(vehicleMgr.doipConfigPtr->vin[0] == '\0')
+    ret = GetVinFromStorage(vinPtr);
+    if(ret == TAF_DOIP_RESULT_OK)
     {
-        LE_ERROR("vin is not set and parsed!");
-        return TAF_DOIP_RESULT_UNSET;
+        LE_INFO("Get Vin:%s from storage", vinPtr);
+        return TAF_DOIP_RESULT_OK;
+    }
+    else
+    {
+        if(vehicleMgr.doipConfigPtr->vin[0] == '\0')
+        {
+            LE_ERROR("vin is not set and parsed!");
+            return TAF_DOIP_RESULT_UNSET;
+        }
+        le_utf8_Copy(vinPtr, vehicleMgr.doipConfigPtr->vin, TAF_DOIP_VIN_SIZE + 1, NULL);
+        LE_INFO("Get VIN:%s from Json!", vinPtr);
+
+        return TAF_DOIP_RESULT_OK;
     }
 
-    le_utf8_Copy(vinPtr, vehicleMgr.doipConfigPtr->vin, TAF_DOIP_VIN_SIZE + 1, NULL);
-    LE_DEBUG("Get VIN is %s!", vinPtr);
+}
 
-    return TAF_DOIP_RESULT_OK;
+taf_doip_Result_t VehicleManager::GetVinFromStorage
+(
+    char* vinPtr
+)
+{
+    LE_DEBUG("GetVinFromStorage!");
+
+    if (vinPtr == NULL)
+    {
+        LE_ERROR("vinPtr is null!");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_DOIP_VIN_PATH);
+
+    if (le_cfg_NodeExists(iteratorRef, CFG_DOIP_VIN_NODE))
+    {
+        le_cfg_GetString(iteratorRef, CFG_DOIP_VIN_NODE, vinPtr, TAF_DOIP_VIN_SIZE + 1, "");
+
+        if(strlen(vinPtr) != TAF_DOIP_VIN_SIZE)
+        {
+            LE_ERROR("vin length is wrong in storage");
+            le_cfg_CancelTxn(iteratorRef);
+            return TAF_DOIP_RESULT_UNSET;
+        }
+
+        LE_DEBUG("Vehicle idendification number =  %s", vinPtr);
+
+        le_cfg_CancelTxn(iteratorRef);
+
+        return TAF_DOIP_RESULT_OK;
+    } else {
+        LE_WARN("Unable to get the vin from storage");
+    }
+
+    le_cfg_CancelTxn(iteratorRef);
+    return TAF_DOIP_RESULT_UNSET;
 }
 
 taf_doip_Result_t VehicleManager::SetGid

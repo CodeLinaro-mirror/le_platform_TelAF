@@ -673,6 +673,7 @@ void taf_RadioServSysListener::onNetworkRejection
             break;
     }
     netRegRejIndPtr->phoneId = phone;
+    netRegRejIndPtr->cause = (taf_radio_NetRejCause_t)rejectInfo.rejectCause;
     tafRadio.netRejectCause = (int32_t)rejectInfo.rejectCause;
     le_event_ReportWithRefCounting(tafRadio.netRegRejEvId, (void*)netRegRejIndPtr);
 }
@@ -1151,6 +1152,29 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
 
     ssMetrics.ratMask = 0x0;
 
+    ssMetrics.gsm.ss = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.gsm.ber = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+
+    ssMetrics.cdma.ss = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.cdma.ecio = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.cdma.io = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.cdma.snr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+
+    ssMetrics.umts.ss = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.umts.ber = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.umts.rscp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+
+    ssMetrics.tdscdma.rscp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+
+    ssMetrics.lte.ss = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.lte.rsrq = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.lte.rsrp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.lte.snr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+
+    ssMetrics.nr5g.rsrq = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.nr5g.rsrp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.nr5g.snr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+
     if (error != telux::common::ErrorCode::SUCCESS)
     {
         LE_ERROR("Error(%d)", (int)error);
@@ -1161,9 +1185,7 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         result = LE_OK;
     }
 
-    if (signalStrength->getGsmSignalStrength() != nullptr &&
-        signalStrength->getGsmSignalStrength()->getGsmSignalStrength() !=
-        INVALID_SIGNAL_STRENGTH_VALUE)
+    if (signalStrength->getGsmSignalStrength() != nullptr)
     {
         ssMetrics.ratMask |= TAF_RADIO_RAT_BIT_MASK_GSM;
         ssMetrics.gsm.sslv = (int8_t)signalStrength->getGsmSignalStrength()->getLevel() + 1;
@@ -1171,8 +1193,7 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         ssMetrics.gsm.ber = signalStrength->getGsmSignalStrength()->getGsmBitErrorRate();
     }
 
-    if (signalStrength->getCdmaSignalStrength() != nullptr &&
-        signalStrength->getCdmaSignalStrength()->getDbm() != INVALID_SIGNAL_STRENGTH_VALUE)
+    if (signalStrength->getCdmaSignalStrength() != nullptr)
     {
         ssMetrics.ratMask |= TAF_RADIO_RAT_BIT_MASK_CDMA;
         ssMetrics.cdma.sslv = (int8_t)signalStrength->getCdmaSignalStrength()->getLevel() + 1;
@@ -1182,9 +1203,7 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         ssMetrics.cdma.snr = signalStrength->getCdmaSignalStrength()->getEvdoSignalNoiseRatio();
     }
 
-    if (signalStrength->getWcdmaSignalStrength() != nullptr &&
-        signalStrength->getWcdmaSignalStrength()->getSignalStrength() !=
-        INVALID_SIGNAL_STRENGTH_VALUE)
+    if (signalStrength->getWcdmaSignalStrength() != nullptr)
     {
         ssMetrics.ratMask |= TAF_RADIO_RAT_BIT_MASK_UMTS;
         ssMetrics.umts.sslv = (int8_t)signalStrength->getWcdmaSignalStrength()->getLevel() + 1;
@@ -1193,16 +1212,13 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         ssMetrics.umts.rscp = signalStrength->getWcdmaSignalStrength()->getRscp();
     }
 
-    if (signalStrength->getTdscdmaSignalStrength() != nullptr &&
-        signalStrength->getTdscdmaSignalStrength()->getRscp() != INVALID_SIGNAL_STRENGTH_VALUE)
+    if (signalStrength->getTdscdmaSignalStrength() != nullptr)
     {
         ssMetrics.ratMask |= TAF_RADIO_RAT_BIT_MASK_TDSCDMA;
         ssMetrics.tdscdma.rscp = signalStrength->getTdscdmaSignalStrength()->getRscp();
     }
 
-    if (signalStrength->getLteSignalStrength() != nullptr &&
-        signalStrength->getLteSignalStrength()->getLteSignalStrength() !=
-        INVALID_SIGNAL_STRENGTH_VALUE)
+    if (signalStrength->getLteSignalStrength() != nullptr)
     {
         ssMetrics.ratMask |= TAF_RADIO_RAT_BIT_MASK_LTE;
         ssMetrics.lte.sslv = (int8_t)signalStrength->getLteSignalStrength()->getLevel() + 1;
@@ -1212,8 +1228,7 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         ssMetrics.lte.snr = signalStrength->getLteSignalStrength()->getLteReferenceSignalSnr();
     }
 
-    if (signalStrength->getNr5gSignalStrength() != nullptr &&
-        signalStrength->getNr5gSignalStrength()->getDbm() != INVALID_SIGNAL_STRENGTH_VALUE)
+    if (signalStrength->getNr5gSignalStrength() != nullptr)
     {
         ssMetrics.ratMask |= TAF_RADIO_RAT_BIT_MASK_NR5G;
         ssMetrics.nr5g.sslv = (int8_t)signalStrength->getNr5gSignalStrength()->getLevel() + 1;

@@ -274,6 +274,7 @@ namespace telux
                 le_result_t ClearSingleDtc(uint32_t dtcCode);
                 le_result_t ClearAllDtc();
                 static void ClearDTCAndEventData(void* param1Ptr, void* param2Ptr);
+                static void ClearAllDTCAndEventData(void* param1Ptr, void* param2Ptr);
 
                 void TriggerSnapshotData(uint8_t oldEventUdsStatus,
                         taf_diagEvent_EventCtx_t* eventCtxPtr);

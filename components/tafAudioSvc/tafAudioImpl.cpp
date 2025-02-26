@@ -2750,6 +2750,10 @@ le_result_t taf_Audio::StopAudio(taf_audio_Stream_t* streamPtr)
                 LE_ERROR("failed stoping playback, err %d",static_cast<int>(ec));
                 return LE_FAULT;
             }
+            if(streamPtr->direction == TAF_AUDIO_RX)
+                mIsPlaying = false;
+            else
+                mIsTxPlaying = false;
 #else
             mIsPlaying = false;
             if (mPbFileFormat == AudioFormat::PCM_16BIT_SIGNED)

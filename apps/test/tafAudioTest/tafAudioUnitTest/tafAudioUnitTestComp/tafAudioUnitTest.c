@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -639,6 +639,28 @@ void TEST_ACTIVE_VOICE_PLAYBACK(bool isRemote)
         playerRef = taf_audio_OpenPlayer(TAF_AUDIO_TX);
         LE_TEST_OK(playerRef != NULL, "Successfully opened the TX player stream");
 
+        double volLevel = 1.0;
+        LE_TEST_INFO("Test taf_audio_SetVolume");
+        res = taf_audio_SetVolume(playerRef, volLevel);
+        LE_TEST_OK(res == LE_UNSUPPORTED,
+                "Successfully returned UNSUPPORTED for SetVolume to the TX player stream");
+
+        LE_TEST_INFO("Test taf_audio_GetVolume");
+        res = taf_audio_GetVolume(playerRef, &volLevel);
+        LE_TEST_OK(res == LE_UNSUPPORTED,
+                "Successfully returned UNSUPPORTED for SetVolume to the TX player stream");
+
+        LE_TEST_INFO("Test taf_audio_SetMute");
+        res = taf_audio_SetMute(playerRef, true);
+        LE_TEST_OK(res == LE_UNSUPPORTED,
+                "Successfully returned UNSUPPORTED for SetMute to the TX player stream");
+
+        bool isMute;
+        LE_TEST_INFO("Test taf_audio_GetMute");
+        res = taf_audio_GetMute(playerRef, &isMute);
+        LE_TEST_OK(res == LE_UNSUPPORTED,
+                "Successfully returned UNSUPPORTED for GetMute to the TX player stream");
+
         LE_TEST_INFO("Test taf_audio_Connect to connect playerConnRef and txStreamRef");
         res = taf_audio_Connect(playerConnRef, txStreamRef);
         LE_TEST_OK(res == LE_OK, "Successfully txStreamRef connected to playerConnRef");
@@ -725,6 +747,28 @@ void TEST_INCALL_AUDIO_RECORDING(bool isRemote)
         LE_TEST_INFO("Test taf_audio_OpenRecorder(TAF_AUDIO_RX)");
         recorderRef = taf_audio_OpenRecorder(TAF_AUDIO_RX);
         LE_TEST_OK(recorderRef != NULL, "Successfully opened the RX recorder stream");
+
+        double volLevel = 1.0;
+        LE_TEST_INFO("Test taf_audio_SetVolume");
+        res = taf_audio_SetVolume(recorderRef, volLevel);
+        LE_TEST_OK(res == LE_UNSUPPORTED,
+                "Successfully returned UNSUPPORTED for SetVolume to the RX recorder stream");
+
+        LE_TEST_INFO("Test taf_audio_GetVolume");
+        res = taf_audio_GetVolume(recorderRef, &volLevel);
+        LE_TEST_OK(res == LE_UNSUPPORTED,
+                "Successfully returned UNSUPPORTED for SetVolume to the RX recorder stream");
+
+        LE_TEST_INFO("Test taf_audio_SetMute");
+        res = taf_audio_SetMute(recorderRef, true);
+        LE_TEST_OK(res == LE_UNSUPPORTED,
+                "Successfully returned UNSUPPORTED for SetMute to the RX recorder stream");
+
+        bool isMute;
+        LE_TEST_INFO("Test taf_audio_GetMute");
+        res = taf_audio_GetMute(recorderRef, &isMute);
+        LE_TEST_OK(res == LE_UNSUPPORTED,
+                "Successfully returned UNSUPPORTED for GetMute to the RX recorder stream");
 
         LE_TEST_INFO("Test taf_audio_Connect to connect rxStreamRef and connRef");
         res = taf_audio_Connect(connRef, rxStreamRef);

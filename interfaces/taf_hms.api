@@ -298,6 +298,7 @@ ENUM ModemEvtSeverity
 /**
 * Gets the total CPU usage from " /proc/stat ".
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -313,6 +314,7 @@ FUNCTION le_result_t  GetCpuLoad
 /**
 * Gets number of CPU core from " /proc/cpuinfo ".
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -328,6 +330,8 @@ FUNCTION uint32 GetCpuCoreNum
 * Gets the CPU usage of each core from " /proc/stat ".
 * The API provides total CPU usage of each core ranging from 0 to 100 %.
 * The coreID range can be 0 - (cpuCoreNum-1), the result value can be LE_OK.
+*
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -344,6 +348,7 @@ FUNCTION le_result_t GetIndvCoreUsage
 /**
 * Gets the meminfo value from " /proc/meminfo ".
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -361,6 +366,7 @@ FUNCTION le_result_t  GetRamMemInfo
 /**
 * Gets the list of available UBI device information.
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
  *  - NULL                            No information found.
  *  - taf_hms_UbiDevInfoListRef    The UBI device Info list object reference.
@@ -376,6 +382,7 @@ FUNCTION UbiDevInfoList GetUbiDevInfoList
  * Gets the first UBI device Info object reference in the list of the
  * UbiDevInfoList retrieved with taf_hms_GetUbiDevInfoList().
  *
+ * @b STAGING: This is a staging API and is subject to change.
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_UbiDevInfoListRef      The UBI device Info object reference.
@@ -391,6 +398,7 @@ FUNCTION UbiDevInfo GetFirstUbiDevInfo
 /**
 * Deletes the UbiDevInfoList list retrieved with taf_hms_GetUbiDevInfoList().
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 *  - LE_BAD_PARAMETER -- Bad parameters.
 *  - LE_OK -- Succeeded.
@@ -407,6 +415,7 @@ FUNCTION le_result_t DeleteUbiDevInfoList
  * Gets the next UBI device Info object reference in the list of the
  * UBIInfoList retrieved with taf_hms_GetUBIInfoList().
  *
+ * @b STAGING: This is a staging API and is subject to change.
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_UbiDevInfoListRef      The UBI device Info object reference.
@@ -422,6 +431,7 @@ FUNCTION UbiDevInfo GetNextUbiDevInfo
 /**
 * Gets UBI device ID
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -438,6 +448,7 @@ FUNCTION le_result_t GetUbiDevId
 /**
 * Gets UBI information for current maximum erase count from " /sys/class/ubi/ubi%d/ ".
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -454,6 +465,7 @@ FUNCTION le_result_t GetUbiDevMaxEraseCnt
 /**
 * Gets UBI information for bad block count from " /sys/class/ubi/ubi%d/ ".
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -471,6 +483,7 @@ FUNCTION le_result_t GetUbiDevBadBlkCnt
  * Gets the first UBI volume Info object reference in the list of the
  * UbiVolInfoList retrieved with taf_hms_GetUbiDevInfoList().
  *
+ * @b STAGING: This is a staging API and is subject to change.
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_UbiVolInfoListRef      The UBI device Info object reference.
@@ -487,6 +500,7 @@ FUNCTION UbiVolInfo GetFirstUbiVolInfo
  * Gets the next UBI volume Info object reference in the list of the
  * UbiVolInfoList retrieved with taf_hms_GetUbiDevInfoList().
  *
+ * @b STAGING: This is a staging API and is subject to change.
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_UbiVolInfoListRef      The UBI volume Info object reference.
@@ -502,6 +516,7 @@ FUNCTION UbiVolInfo GetNextUbiVolInfo
 /**
 * Gets UBI volume ID.
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -518,6 +533,7 @@ FUNCTION le_result_t GetUbiVolId
 /**
 * Gets name of UBI volume.
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -534,6 +550,7 @@ FUNCTION le_result_t GetUbiVolName
 /**
 * Gets size of UBI volume in bytes.
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -552,6 +569,7 @@ FUNCTION le_result_t GetUbiVolSize
 /**
 * Gets the list of available MTD Node.
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
  *  - NULL                            No information found.
  *  - taf_hms_MtdInfoListRef    The MtdInfo list object reference.
@@ -566,6 +584,7 @@ FUNCTION MtdDevInfoList GetMtdDevInfoList
 /**
 * Deletes the MtdInfoList list retrieved with taf_hms_GetMtdInfoList().
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 *  - LE_BAD_PARAMETER -- Bad parameters.
 *  - LE_OK -- Succeeded.
@@ -582,6 +601,7 @@ FUNCTION le_result_t DeleteMtdDevInfoList
  * Gets the first MtdInfo object reference in the list of the
  * MtdInfoList retrieved with taf_hms_GetMtdInfoList().
  *
+ * @b STAGING: This is a staging API and is subject to change.
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_MtdInfoListRef      The MtdInfo object reference.
@@ -598,6 +618,7 @@ FUNCTION MtdDevInfo GetFirstMtdDevInfo
  * Gets the next MtdInfo object reference in the list of the
  * MtdInfoList retrieved with taf_hms_GetMtdInfoList().
  *
+ * @b STAGING: This is a staging API and is subject to change.
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_MtdInfoListRef      The MtdInfo object reference.
@@ -613,6 +634,7 @@ FUNCTION MtdDevInfo GetNextMtdDevInfo
 /**
 * Gets MTD information for name from " /sys/class/mtd/mtd%d/ ".
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -629,6 +651,7 @@ FUNCTION le_result_t GetMtdDevName
 /**
 * Gets MTD information for block size in bytes.
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -645,6 +668,7 @@ FUNCTION le_result_t GetMtdDevBlkSize
 /**
 * Gets MTD information for device ID.
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -661,6 +685,7 @@ FUNCTION le_result_t GetMtdDevId
 /**
 * Gets MTD information for block count.
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -689,6 +714,8 @@ HANDLER ModemEvtHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Event to report the modem status change and relevant information.
+ *
+ * @b STAGING: This is a staging API and is subject to change.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT ModemEvt
@@ -701,6 +728,7 @@ EVENT ModemEvt
 /**
 * Release modem event reference.
 *
+* @b STAGING: This is a staging API and is subject to change.
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.

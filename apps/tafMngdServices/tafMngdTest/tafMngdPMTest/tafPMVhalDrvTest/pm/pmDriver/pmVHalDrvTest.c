@@ -671,6 +671,10 @@ static le_result_t taf_hal_NodeStateChangePrepareAsync(
     LE_INFO("reason %d", reason);
 
     hal_pm_RspReason_t responseReason = (hal_pm_RspReason_t)GetConfig_Ack();
+    if(responseReason == 2)
+    {
+        return LE_OK;
+    }
     callback(pmNodeId, state, mode, reason, responseReason);
 
     return LE_OK;

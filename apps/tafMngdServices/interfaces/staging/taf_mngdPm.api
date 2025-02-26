@@ -259,7 +259,8 @@ ENUM ResponseMode
 {
     READY,           ///< The request is accepted.
     NOT_READY,       ///< The request is rejected.
-    TIMEOUT          ///< The request to get the response is timed out.
+    TIMEOUT,         ///< The request to get the response is timed out.
+    INVALID_REQUEST  ///< The request sent is invalid.
 };
 
 /**

@@ -100,7 +100,13 @@ static void PrintUsage ()
         "------------To Test Test NonAuthorized StayAwake wake source-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestNonAuthorizedStayAwake\n"
         "------------To Test clearing of unauthorized wake source after calling AuthorizeStayAwakeReason-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestClearUnAuthorizedWakeSource\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestClearUnAuthorizedWakeSource\n"
+        "------------To Test Test ForcedSysShutdown with multiple clients-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- MultiClntForcedSysShutdown\n"
+        "------------To Test Test System Restart with multiple clients-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- MultiClntRestartSystem\n"
+        "------------To Test Test Wakeup Vehicle with multiple clients-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- MultiClntWakeupVehicle\n");
 }
 
 
@@ -173,7 +179,7 @@ void AddNodePowerStateChangeHandler
 void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode ,
         le_result_t result, void* contextPtr)
 {
-    LE_INFO("RestartCallback response mode is %d", rspmode);
+    LE_INFO("RestartCallback response mode is %d and result %d", rspmode, result);
     if(rspmode == 0)
     {
         LE_INFO("----Restart System success----");
@@ -328,13 +334,162 @@ static void RestartSystemWithReason()
 void ForcedSystemShutdownCallBack(taf_mngdPm_ShutdownMode_t mode,
      taf_mngdPm_ResponseMode_t ResponseMode, le_result_t result, void* contextPtr)
 {
-    LE_INFO("ForcedSystemShutdownCallBack response mode is %d", ResponseMode);
+    LE_INFO("ForcedSystemShutdownCallBack response mode is %d and result %d", ResponseMode, result);
     if(ResponseMode == 0)
     {
         LE_INFO("----ForcedSystemShutdown success----");
     }
     else{
         exit(EXIT_FAILURE);
+    }
+}
+
+void MultiClntRestartSystemCB(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode ,
+        le_result_t result, void* contextPtr)
+{
+    LE_INFO("MultiClntRestartSystemCB response mode is %d and result %d", rspmode, result);
+    if(rspmode == 0)
+    {
+        LE_INFO("----Restart System success----");
+    }
+}
+
+void* MultiClntRestartSystemFunction(void* threadID) {
+
+    taf_mngdPm_ConnectService();
+    le_result_t res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT,
+                MultiClntRestartSystemCB, NULL, TAF_MNGDPM_RESTART_REASON_NORMAL);
+    if(res == LE_OK)
+    {
+            printf("MultiClntRestartSystem Requested\n");
+    }
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+}
+
+void MultiClntRestartSystem()
+{
+    long t;
+    semRef = le_sem_Create("MngdIntTestApp", 0);
+    int NUM_THREADS = 0;
+    char buffer[100];
+    while(NUM_THREADS >= 0)
+    {
+    printf("Enter the number of clients\nEnter'-1' to exit\n");
+    if(fgets(buffer, sizeof(buffer), stdin))
+        LE_INFO("Value read successfully");
+    buffer[strcspn(buffer, "\n")] = '\0';
+    NUM_THREADS = atoi(buffer);
+    for (t = 0; t < NUM_THREADS; t++) {
+        threadRef = le_thread_Create("inttestapp",
+                                    MultiClntRestartSystemFunction, NULL);
+        if (threadRef) {
+            fprintf(stderr, "create thread :%ld \n", t);
+        }
+        le_thread_Start(threadRef);
+        le_sem_Wait(semRef);
+    }
+    printf("All threads completed successfully.\n");
+    if(NUM_THREADS == -1)
+        exit(EXIT_SUCCESS);
+    }
+}
+
+void MultiClntForcedSysShutdownCB(taf_mngdPm_ShutdownMode_t mode,
+     taf_mngdPm_ResponseMode_t ResponseMode, le_result_t result, void* contextPtr)
+{
+    LE_INFO("MultiClntForcedSysShutdownCB response mode is %d and result %d", ResponseMode, result);
+    if(ResponseMode == 0)
+    {
+        LE_INFO("----MultiClntForcedSysShutdown success----");
+    }
+}
+
+void* MultiClntForcedSysShutdownFunction(void* threadID) {
+
+    taf_mngdPm_ConnectService();
+    le_result_t res = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+            MultiClntForcedSysShutdownCB, NULL, TAF_MNGDPM_SHUTDOWN_REASON_NORMAL);
+    if(res == LE_OK)
+    {
+            printf("ForcedSysShutdown Requested\n");
+    }
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+}
+
+void MultiClntForcedSysShutdown()
+{
+    long t;
+    semRef = le_sem_Create("MngdIntTestApp", 0);
+    int NUM_THREADS = 0;
+    char buffer[100];
+    while(NUM_THREADS >= 0)
+    {
+    printf("Enter the number of clients\nEnter'-1' to exit\n");
+    if(fgets(buffer, sizeof(buffer), stdin))
+        LE_INFO("Value read successfully");
+    buffer[strcspn(buffer, "\n")] = '\0';
+    NUM_THREADS = atoi(buffer);
+    for (t = 0; t < NUM_THREADS; t++) {
+        threadRef = le_thread_Create("inttestapp",
+                                    MultiClntForcedSysShutdownFunction, NULL);
+        if (threadRef) {
+            fprintf(stderr, "create thread :%ld \n", t);
+        }
+        le_thread_Start(threadRef);
+        le_sem_Wait(semRef);
+    }
+    printf("All threads completed successfully.\n");
+    if(NUM_THREADS == -1)
+        exit(EXIT_SUCCESS);
+    }
+}
+
+void MultiClntWakeupVehicleCB(int32_t reason, int32_t rspmode ,
+        le_result_t result, void* contextPtr)
+{
+    LE_INFO("WakeupVehicleback response is %d and result %d", rspmode, result);
+}
+
+void* MultiClntWakeupVehicleFunction(void* threadID) {
+
+    taf_mngdPm_ConnectService();
+    le_result_t res = taf_mngdPm_WakeupVehicleReqAsync(VEHICHLE_WAKEUP_REASON_DEFAULT,
+            MultiClntWakeupVehicleCB, NULL);
+    if(res == LE_OK)
+    {
+            printf("WakeupVehicle Requested\n");
+    }
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+}
+
+void MultiClntWakeupVehicle()
+{
+    long t;
+    semRef = le_sem_Create("MngdIntTestApp", 0);
+    int NUM_THREADS = 0;
+    char buffer[100];
+    while(NUM_THREADS >= 0)
+    {
+    printf("Enter the number of clients\nEnter'-1' to exit\n");
+    if(fgets(buffer, sizeof(buffer), stdin))
+        LE_INFO("Value read successfully");
+    buffer[strcspn(buffer, "\n")] = '\0';
+    NUM_THREADS = atoi(buffer);
+    for (t = 0; t < NUM_THREADS; t++) {
+        threadRef = le_thread_Create("inttestapp",
+                                    MultiClntWakeupVehicleFunction, NULL);
+        if (threadRef) {
+            fprintf(stderr, "create thread :%ld \n", t);
+        }
+        le_thread_Start(threadRef);
+        le_sem_Wait(semRef);
+    }
+    printf("All threads completed successfully.\n");
+    if(NUM_THREADS == -1)
+        exit(EXIT_SUCCESS);
     }
 }
 
@@ -554,7 +709,7 @@ static int ShutdownNode(const char* node_id)
 void WakeupVehicleback(int32_t reason, int32_t rspmode ,
         le_result_t result, void* contextPtr)
 {
-    LE_INFO("WakeupVehicleback response is %d", rspmode);
+    LE_INFO("WakeupVehicleback response is %d and result %d", rspmode, result);
     exit(status);
 }
 
@@ -1382,7 +1537,6 @@ static void* connect_service(void* ctxPtr)
 void* ThreadFunction(void* threadID) {
 
     taf_mngdPm_ConnectService();
-    // You can add any additional processing here
     le_result_t res = taf_mngdPm_SetModemWakeupSource(1);
     if(res == LE_OK)
         printf("SetModemWakeupSource for wakeuptype SMS is set\n");
@@ -1395,6 +1549,7 @@ void* ThreadFunction(void* threadID) {
             printf("Resumed sysytem\n");
          }
     }
+
     le_sem_Post(semRef);
     le_event_RunLoop();
 }
@@ -1664,6 +1819,18 @@ COMPONENT_INIT
         else if(strcmp(testType, "TestClearUnAuthorizedWakeSource") == 0)
         {
             TestClearUnAuthorizedWakeSource();
+        }
+        else if(strcmp(testType, "MultiClntForcedSysShutdown") == 0)
+        {
+            MultiClntForcedSysShutdown();
+        }
+        else if(strcmp(testType, "MultiClntRestartSystem") == 0)
+        {
+            MultiClntRestartSystem();
+        }
+        else if(strcmp(testType, "MultiClntWakeupVehicle") == 0)
+        {
+            MultiClntWakeupVehicle();
         }
         else
         {

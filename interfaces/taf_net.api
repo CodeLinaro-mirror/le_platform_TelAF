@@ -745,6 +745,17 @@ ENUM GsbIfType
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * VLAN Hardware acceleration service state.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM VlanHwAccelerationState
+{
+    VLAN_HW_ACC_STATE_INACTIVE = 0,
+    VLAN_HW_ACC_STATE_ACTIVE
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Backhaul type
  */
  //-------------------------------------------------------------------------------------------------
@@ -1029,6 +1040,45 @@ HANDLER AsyncL2tpHandler
 HANDLER AsyncSocksHandler
 (
     le_result_t  result                       IN   ///< The result of enabling or disabling SOCKS.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for VLAN hardware accelaration state.
+ *
+ * @b NOTE: The input vlanRef is not considered in this API call. It is added for future extensions.
+ *
+ * @b STAGING: This is a staging API and is subject to change.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER VlanHwAccelerationStateHandler
+(
+   Vlan vlanRef                     IN, ///< VLAN reference.
+   VlanHwAccelerationState state    IN  ///< The VLAN hardware acceleration state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report when a change occurs in the VLAN hardware acceleration service.
+ *
+ * @b NOTE: The input vlanRef is not considered in this API call. It is added for future extensions.
+ *
+ * If reported state is TAF_NET_VLAN_HW_ACC_STATE_INACTIVE, all existing data calls will take
+ * software acceleration path.
+ * If reported state is TAF_NET_VLAN_HW_ACC_STATE_ACTIVE, all new data calls that are started after
+ * the TAF_NET_VLAN_HW_ACC_STATE_ACTIVE event will be hardware accelerated.
+ * Data calls that existed before TAF_NET_VLAN_HW_ACC_STATE_ACTIVE event will continue without
+ * hardware acceleration.
+ * Clients could stop and re-start pre-existing data calls in order to use hardware acceleration.
+ *
+ * @b STAGING: This is a staging API and is subject to change.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT VlanHwAccelerationState
+(
+    Vlan vlanRef,                              ///< VLAN reference.
+    VlanHwAccelerationStateHandler handler     ///< Handler for hardware acceleration state.
 );
 
 //--------------------------------------------------------------------------------------------------

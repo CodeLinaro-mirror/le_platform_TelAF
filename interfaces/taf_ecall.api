@@ -149,12 +149,7 @@
  *
  * - taf_ecall_StartPrivate() -- Initiates a private eCall session
  *
- * The eCall session can be ended by calling taf_ecall_End(). Note that sometimes, the ongoing eCall
- * session cannot be stopped until a specific eCall state is entered as in the following use cases.
- * - When an automatic eCall session is in progress, it is not possible to stop the ongoing session
- *   until @ref TAF_ECALL_STATE_ENDED event is reached.
- * - For a manual eCall session, it is allowed to end the ongoing session if eCall is not connected/active
- *   (@ref TAF_ECALL_STATE_ACTIVE not yet come) and after the @ref TAF_ECALL_STATE_ENDED event is received.
+ * The eCall can be ended by calling taf_ecall_End().
  *
  * taf_ecall_Answer() is used to answer an incoming eCall when the minimum network registration
  * timer is active.
@@ -1237,7 +1232,7 @@ FUNCTION le_result_t StartPrivate
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Ends the ongoing eCall according to the given eCall reference.
+ *  Ends the ongoing eCall according to the given eCall reference for test purpose.
  *
  * @return
  *      - LE_OK -- Succeeded.

@@ -232,6 +232,7 @@ void taf_DataConnectionListener::onDataCallInfoChanged
             else
             {
                 LE_WARN("requestDataCallBitRateCb error: %d", static_cast<int>(errorCode));
+                p.set_value(true);
             }
         };
         telux::common::Status status = iCall->requestDataCallBitRate(respCb);

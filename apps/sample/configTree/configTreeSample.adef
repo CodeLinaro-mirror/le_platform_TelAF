@@ -1,0 +1,43 @@
+maxThreads: 600
+start: manual
+
+username: telaf
+sandboxed: false
+
+requires:
+{
+    configTree:
+    {
+        [w] .
+        [w] customer
+    }
+}
+
+capability:
+{
+    CAP_WAKE_ALARM
+    CAP_FOWNER
+    CAP_SYS_ADMIN
+    CAP_BLOCK_SUSPEND
+    CAP_DAC_READ_SEARCH
+    CAP_DAC_OVERRIDE
+}
+
+executables:
+{
+     configTreeSample = (configTreeComponent)
+}
+
+bindings:
+{
+    configTreeSample.configTreeComponent.le_cfg -> <root>.le_cfg
+    configTreeSample.configTreeComponent.le_cfgAdmin -> <root>.le_cfgAdmin
+}
+
+processes:
+{
+    run:
+    {
+        (configTreeSample)
+    }
+}

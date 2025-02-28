@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <net/route.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -808,6 +809,21 @@ static void TafSigTermEventHandler
     le_event_QueueFunction(SafeUnloadHandler, NULL, NULL);
 }
 
+static void SetBootKpiMarker(const char* markerPtr){
+    const char *kpi_file = "/sys/kernel/boot_kpi/kpi_values";
+    FILE *file = fopen(kpi_file, "w");
+    if (file == NULL)
+    {
+        LE_ERROR("%s not able to open due to %s", kpi_file,strerror(errno));
+        return;
+    }
+    if (fwrite(markerPtr, sizeof(char), strlen(markerPtr), file) != strlen(markerPtr))
+    {
+        LE_ERROR("failed to write %s to %s", markerPtr, kpi_file);
+    }
+    fclose(file);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * The initialization of TelAF SOME/IP GW service component.
@@ -850,6 +866,8 @@ COMPONENT_INIT
     le_sig_SetEventHandler(SIGTERM, TafSigTermEventHandler);
 
     LE_INFO("TelAF SOME/IP GateWay Service initialized.");
+    // Add boot KPI marker
+    SetBootKpiMarker("L - TelAF SomeipGW service is ready");
 }
 
 //--------------------------------------------------------------------------------------------------

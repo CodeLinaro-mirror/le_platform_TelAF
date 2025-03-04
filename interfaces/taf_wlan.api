@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 **/
 //------------------------------------------------------------------------------------------------
@@ -246,6 +246,9 @@ REFERENCE Wlan;
 //-------------------------------------------------------------------------------------------------
 /*
  * The WLAN device state event handler.
+ *
+ * @instaging
+ *
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER DeviceStateHandler
@@ -257,6 +260,9 @@ HANDLER DeviceStateHandler
 //-------------------------------------------------------------------------------------------------
 /*
  * Event to report the WLAN device state.
+ *
+ * @instaging
+ *
  */
 //-------------------------------------------------------------------------------------------------
 EVENT DeviceState
@@ -275,6 +281,8 @@ EVENT DeviceState
 /**
  * Turns WLAN device ON. This action brings up the respective WLAN host interface.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK            Succeeded.
  * - Appropriate error is returned on failure.
@@ -290,6 +298,8 @@ FUNCTION le_result_t TurnOn
 /**
  * Turns WLAN device OFF. This action removes the respective WLAN host interface.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK            Succeeded.
  * - Appropriate error is returned on failure.
@@ -304,6 +314,8 @@ FUNCTION le_result_t TurnOff
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the WLAN Device state.
+ *
+ * @instaging
  *
  * @return
  * - LE_OK            Succeeded.
@@ -321,6 +333,8 @@ FUNCTION le_result_t GetState
 /**
  * Sets the WLAN operating mode. Mode changes will take effect after a device off/on.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK            Succeeded.
  * - Appropriate error is returned on failure.
@@ -336,6 +350,8 @@ FUNCTION le_result_t SetMode
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the WLAN operating mode
+ *
+ * @instaging
  *
  * @return
  * - LE_OK            Succeeded.
@@ -353,6 +369,8 @@ FUNCTION le_result_t GetMode
 /**
  * Gets active WLAN interface(s) information.
  * The information returned should be used to get the AP and STA reference(s) respectively.
+ *
+ * @instaging
  *
  * @return
  * - LE_OK            Succeeded.

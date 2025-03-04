@@ -1,12 +1,12 @@
 /**
-* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 **/
 //------------------------------------------------------------------------------------------------
 /**
  * @page c_tafwlansta Wireless LAN Station Management Service
  *
- * @rst :ref:`API reference <File taf_wlansta_interface.h>` @endrst
+ * @rst :ref:`API reference <File taf_wlanSta_interface.h>` @endrst
  *
  * <HR>
  *
@@ -123,6 +123,9 @@ REFERENCE WlanSTA;
 //-------------------------------------------------------------------------------------------------
 /*
  * The WLAN STA event handler.
+ *
+ * @instaging
+ *
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER Handler
@@ -134,6 +137,9 @@ HANDLER Handler
 //-------------------------------------------------------------------------------------------------
 /*
  * STA events to report.
+ *
+ * @instaging
+ *
  */
 //-------------------------------------------------------------------------------------------------
 EVENT Event
@@ -152,6 +158,8 @@ EVENT Event
 /**
  * Returns the WLAN STA reference.
  *
+ * @instaging
+ *
  * @return
  * - Valid reference on success.
  *
@@ -159,13 +167,15 @@ EVENT Event
 //--------------------------------------------------------------------------------------------------
 FUNCTION WlanSTA GetWlanSTA
 (
-    taf_wlan.STAid STAid IN,                                ///< STA identifier
+    taf_wlan.STAid STAid IN,                                ///< STA identifier.
     string STAIntfName[taf_net.INTERFACE_NAME_MAX_LEN] IN   ///< STA associated host interface name.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Starts the specified station.
+ *
+ * @instaging
  *
  * @return
  * - LE_OK  -- Succeeded.
@@ -181,6 +191,8 @@ FUNCTION le_result_t Start
 /**
  * Stops the specified station.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK  -- Succeeded.
  * - Others -- Failed.
@@ -195,6 +207,8 @@ FUNCTION le_result_t Stop
 /**
  * Restarts the specified station.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK  -- Succeeded.
  * - Others -- Failed.
@@ -208,6 +222,8 @@ FUNCTION le_result_t Restart
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the station to Bridged or Router mode.
+ *
+ * @instaging
  *
  * @return
  * - LE_OK  -- Succeeded.
@@ -224,6 +240,8 @@ FUNCTION le_result_t SetMode
 /**
  * Gets the station mode.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK  -- Succeeded.
  * - Others -- Failed.
@@ -238,6 +256,8 @@ FUNCTION le_result_t GetMode
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the IP configuration of the station.
+ *
+ * @instaging
  *
  * @return
  * - LE_OK  -- Succeeded.
@@ -254,6 +274,8 @@ FUNCTION le_result_t SetStaticIPConfig
 /**
  * Gets the IP configuration of the station.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK  -- Succeeded.
  * - Others -- Failed.
@@ -269,6 +291,8 @@ FUNCTION le_result_t GetIPConfig
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the station state.
+ *
+ * @instaging
  *
  * @return
  * - LE_OK  -- Succeeded.
@@ -292,6 +316,8 @@ FUNCTION le_result_t GetStatus
  * Use GetAPScanResults to get the results of the scan.
  * When a scan is started, it will clear the results from earlier scans.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK  -- Succeeded.
  * - Others -- Failed.
@@ -305,6 +331,8 @@ FUNCTION le_result_t DoAPScan
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the list of scanned access points. This list is updated after every call to DoScan.
+ *
+ * @instaging
  *
  * @return
  * - LE_OK  -- Succeeded.
@@ -322,6 +350,8 @@ FUNCTION le_result_t GetAPScanResults
 /**
  * Sets WPA2 PSK for an access point that the WLAN station should connect with.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK  -- Succeeded.
  * - Others -- Failed.
@@ -338,6 +368,8 @@ FUNCTION le_result_t SetWpa2Psk(
  * Connects to an AP. This is an asynchronous operation and will trigger event STATE_CONNECTED
  * on successful connection or STATE_ASSOCIATION_FAILED if association fails.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK  -- Succeeded.
  * - Others -- Failed.
@@ -352,6 +384,8 @@ FUNCTION le_result_t Connect(
 /**
  * Disconnects from an AP. This is an asynchronous operation and will trigger event
  * STATE_DISCONNECTED on completion.
+ *
+ * @instaging
  *
  * @return
  * - LE_OK  -- Succeeded.

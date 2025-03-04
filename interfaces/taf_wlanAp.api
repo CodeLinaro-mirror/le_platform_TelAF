@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 **/
 //------------------------------------------------------------------------------------------------
@@ -111,6 +111,9 @@ ENUM DeviceConnectionEvent{
 //--------------------------------------------------------------------------------------------------
 /*
  * Device connection with AP event handler.
+ *
+ * @instaging
+ *
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER DeviceConnectionEventHandler(
@@ -122,6 +125,9 @@ HANDLER DeviceConnectionEventHandler(
 //--------------------------------------------------------------------------------------------------
 /*
  * Device connection with AP events to report.
+ *
+ * @instaging
+ *
  */
 //--------------------------------------------------------------------------------------------------
 EVENT DeviceConnectionEvent
@@ -140,19 +146,23 @@ EVENT DeviceConnectionEvent
 /**
  * Returns the WLAN AP reference.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION WlanAP GetWlanAP(
-    taf_wlan.APid APid IN,                                  ///< AP identifier
-    string APIntfName[taf_net.INTERFACE_NAME_MAX_LEN]  IN   ///< AP assocaited host interface name.
+    taf_wlan.APid APid IN,                                  ///< AP identifier.
+    string APIntfName[taf_net.INTERFACE_NAME_MAX_LEN]  IN   ///< AP associated host interface name.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Starts the specified Access Point.
+ *
+ * @instaging
  *
  * @return
  * - LE_OK -- Succeeded.
@@ -168,6 +178,8 @@ FUNCTION le_result_t Start
 /**
  * Stops the specified Access Point.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK -- Succeeded.
  * - Others -- Failed.
@@ -182,6 +194,8 @@ FUNCTION le_result_t Stop
 /**
  * Restarts the specified Access Point.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK -- Succeeded.
  * - Others -- Failed.
@@ -195,6 +209,8 @@ FUNCTION le_result_t Restart
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the configuration for the specified Access Point.
+ *
+ * @instaging
  *
  * @return
  * - LE_OK -- Succeeded.
@@ -211,6 +227,8 @@ FUNCTION le_result_t SetConfig
 /**
  * Gets the configuration for the specified Access Point.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK -- Succeeded.
  * - Others -- Failed.
@@ -225,6 +243,8 @@ FUNCTION le_result_t GetConfig
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the security configuration for the specified Access Point.
+ *
+ * @instaging
  *
  * @return
  * - LE_OK -- Succeeded.
@@ -241,6 +261,8 @@ FUNCTION le_result_t SetSecurityConfig
 /**
  * Gets the security configuration for the specified Access Point.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK -- Succeeded.
  * - Others -- Failed.
@@ -256,6 +278,8 @@ FUNCTION le_result_t GetSecurityConfig
 /**
  * Gets the status of the specified Access Point.
  *
+ * @instaging
+ *
  * @return
  * - LE_OK -- Succeeded.
  * - Others -- Failed.
@@ -269,7 +293,9 @@ FUNCTION le_result_t GetStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the list of devices connected to the AP
+ * Gets the list of devices connected to the AP.
+ *
+ * @instaging
  *
  * @return
  * - LE_OK -- Succeeded.

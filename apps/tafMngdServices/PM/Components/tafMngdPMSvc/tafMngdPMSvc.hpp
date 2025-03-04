@@ -157,6 +157,7 @@ typedef struct
     taf_mngdPm_nodePowerStateRef_t nodeStateRef;
     le_msg_SessionRef_t sessionRef;
     taf_mngdPm_NodePowerState_t state;
+    bool isAcked;
 }taf_mngdPm_NodePowerStateChangeCtxt_t;
 
 typedef struct
@@ -187,6 +188,7 @@ typedef struct
     long int bootup_awake_time;
     long int hal_state_prepare_timeout;
     long int hal_wakeup_vehicle_timeout;
+    long int state_change_ack_timeout;
     bool hal_enabled;
 } taf_mngdPm_config_t;
 
@@ -315,6 +317,11 @@ class tafMngdPMSvc: public ITafSvc
         bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason);
         void ClearUnAuthorizedWakeSources();
         le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
+
+        //resources for clients state change acknowledgement
+        static le_timer_Ref_t stateChangeAckTimerRef;
+        static void StateChangeAckTimerHandler(le_timer_Ref_t timerRef);
+        static taf_mngdPm_NodePowerState_t currentStateChangePtr;
 };
 }
 }

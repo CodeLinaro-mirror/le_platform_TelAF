@@ -1160,6 +1160,11 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
     }
     if(mpms.IsSameAsCurrentState(state, mpms.stateMachine.currentState) && sessionNodePtr)
     {
+        if(!(le_timer_IsRunning(mpms.stateChangeAckTimerRef)))
+        {
+            LE_ERROR("State change Ack timer expired for current state");
+            return LE_OK;
+        }
         if(ack == TAF_MNGDPM_CLIENT_NOT_READY)
         {
             LE_INFO("Received NACK from client %s", sessionNodePtr->name);
@@ -1169,12 +1174,27 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
         else
         {
             LE_INFO("Received ACK from client %s", sessionNodePtr->name);
+            //mark the client as acknowledged for state change
+            for(auto it = mpms.regClientrecrd.begin(); it != mpms.regClientrecrd.end(); it++)
+            {
+                if(it->sessionRef == taf_mngdPm_GetClientSessionRef())
+                {
+                    LE_INFO("Client with sessionRef %p", it->sessionRef);
+                    it->isAcked = true;
+                    break;
+                }
+            }
             mpms.ackClientrecrdSize++;
             LE_INFO("regClientrecrd size is %zu ,ackClientrecrd size is:%d", mpms.regClientrecrd.size(),
                     mpms.ackClientrecrdSize);
             //If Last acknowledged client , proceed for ack state change
             if((int8_t)mpms.regClientrecrd.size() == mpms.ackClientrecrdSize)
             {
+                if(le_timer_IsRunning(mpms.stateChangeAckTimerRef))
+                {
+                    LE_INFO("Stop the stateChangeAckTimer");
+                    le_timer_Stop(mpms.stateChangeAckTimerRef);
+                }
                 mpms.clientSize = 0;
                 mpms.ackClientrecrdSize = 0;
                 mpms.SendAckToPms(state, TAF_PM_READY);
@@ -1309,5 +1329,10 @@ COMPONENT_INIT
     le_event_AddHandler("tafPMInfoReporCbtevent", mpms.infoReport, mpms.InfoReportCB);
     //All supported stay awake reasons are authorized by default.
     taf_mngdPm_AuthorizeStayAwakeReason(AUTHORIZE_ALL_STAY_AWAKE_REASON);
+
+    //creating the timer for vehichle wakeup
+    mpms.stateChangeAckTimerRef = le_timer_Create("STATE CHANGE ACK timer");
+    le_timer_SetMsInterval(mpms.stateChangeAckTimerRef, mpms.config.state_change_ack_timeout);
+    le_timer_SetHandler(mpms.stateChangeAckTimerRef, mpms.StateChangeAckTimerHandler);
     LE_INFO("COMPONENT end init");
 }

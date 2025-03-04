@@ -988,6 +988,7 @@ taf_mngdPm_InfoReportHandlerRef_t taf_mngdPm_AddInfoReportHandler(taf_mngdPm_Inf
             mpms.infoReportHandlerRefMap, handlerCtxPtr);
     handlerCtxPtr->link = LE_DLS_LINK_INIT;
     handlerCtxPtr->infoReportHandlerCtxPtr = contextPtr;
+    handlerCtxPtr->sessionRef = taf_mngdPm_GetClientSessionRef();
     le_dls_Queue((&(mpms.infoReportHandlerList)), &handlerCtxPtr->link);
 
     LE_INFO("Send addBubStatusHandler request to VHAL");

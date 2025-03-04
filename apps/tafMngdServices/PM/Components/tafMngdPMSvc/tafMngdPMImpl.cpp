@@ -633,6 +633,21 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
             le_mem_Release((void*)wsRefCtxPtr);
         }
     }
+    //Clear infoReportHandlerList
+    le_dls_Link_t* infoReportLinkHandlerPtr = le_dls_PeekTail(&infoReportHandlerList);
+    while (infoReportLinkHandlerPtr)
+    {
+        taf_mngdPm_InfoReportCb_t * handlerCtxPtr =
+                CONTAINER_OF(infoReportLinkHandlerPtr, taf_mngdPm_InfoReportCb_t, link);
+        infoReportLinkHandlerPtr = le_dls_PeekPrev(&infoReportHandlerList, infoReportLinkHandlerPtr);
+        if (handlerCtxPtr && handlerCtxPtr->sessionRef == sessionRef)
+        {
+            LE_INFO("Clearing Bub state change handler reg client");
+            le_ref_DeleteRef(mpms.infoReportHandlerRefMap, handlerCtxPtr->handlerRef);
+            le_dls_Remove(&(mpms.infoReportHandlerList), &handlerCtxPtr->link);
+            le_mem_Release((void*)handlerCtxPtr);
+        }
+    }
 }
 
 /**
@@ -1455,17 +1470,7 @@ void tafMngdPMSvc::InfoReportCB(void* reportPtr)
             handlerCtxPtr->handlerPtr(stateEvent->status, handlerCtxPtr->infoReportHandlerCtxPtr);
         }
     }
-}
-
-/**
- * VHAL callback for Bub Status Event notification
- */
-void tafMngdPMSvc::InfoReportVhalCB(int32_t* reportPtr)
-{
-    LE_INFO("InfoReportVhalCB");
-    bubStatusEvent_t bubStatusEvent;
-    int32_t bubStatus = *reportPtr;
-    if(bubStatus == TAF_MNGDPM_BUB_STATUS_IN_USE)
+    if(stateEvent->status == TAF_MNGDPM_BUB_STATUS_IN_USE)
     {
         LE_INFO("Bub is in use");
         le_result_t res = taf_pm_SetPowerMode(TAF_PM_POWER_MODE_LOW_POWER);
@@ -1483,6 +1488,16 @@ void tafMngdPMSvc::InfoReportVhalCB(int32_t* reportPtr)
             LE_INFO("Power Mode is set to normal");
         }
     }
+}
+
+/**
+ * VHAL callback for Bub Status Event notification
+ */
+void tafMngdPMSvc::InfoReportVhalCB(int32_t* reportPtr)
+{
+    LE_INFO("InfoReportVhalCB");
+    bubStatusEvent_t bubStatusEvent;
+    int32_t bubStatus = *reportPtr;
     bubStatusEvent.status = (taf_mngdPm_BubStatus_t)bubStatus;
     le_event_Report(infoReport, &bubStatusEvent, sizeof(bubStatusEvent_t));
 }

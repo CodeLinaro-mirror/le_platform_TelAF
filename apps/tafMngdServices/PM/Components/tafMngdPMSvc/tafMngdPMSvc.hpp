@@ -129,6 +129,7 @@ typedef struct
     le_dls_Link_t link;                     // Link to handler list
     taf_mngdPm_InfoReportHandlerRef_t handlerRef;
     void* infoReportHandlerCtxPtr;
+    le_msg_SessionRef_t sessionRef;
 }taf_mngdPm_InfoReportCb_t;
 
 typedef struct

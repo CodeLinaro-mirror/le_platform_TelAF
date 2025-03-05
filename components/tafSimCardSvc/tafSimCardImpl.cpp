@@ -1995,12 +1995,33 @@ le_result_t taf_sim::SendCommand(
     LE_INFO("field: %d", field);
 
     auto card = cards[slot];
+    std::string aid;
     if (card == nullptr) {
         LE_ERROR("Card not found so SendCommand failed!");
         return LE_NOT_FOUND;
     }
+    if (card)
+    {
+        LE_INFO("card found with given simId");
+        std::vector<std::shared_ptr<ICardApp>> applications;
+        applications = card->getApplications();
+        for (auto cardApp : applications)
+        {
+            LE_INFO("Applications exist for given card");
+            if (cardApp->getAppType() == (AppType)TAF_SIM_APPTYPE_USIM)
+            {
+                aid = cardApp->getAppId();
+                break;
+            }
+        }
+    }
+    if(aid.empty())
+    {
+        LE_ERROR("AID is NULL");
+        return LE_FAULT;
 
-    string filePath = std::string(pathPtr, 5);
+    }
+    string filePath = std::string(pathPtr);
     std::vector<uint8_t> data(dataPtr, dataPtr+dataNumElements);
     auto tafTransmitApduCb = std::make_shared<tafTransmitApduResponseCallback>();
     auto returnStatus = card->exchangeSimIO(field,
@@ -2011,7 +2032,7 @@ le_result_t taf_sim::SendCommand(
                                             filePath,
                                             data,
                                             "",
-                                            "",
+                                            aid,
                                             tafTransmitApduCb);
     if(returnStatus != Status::SUCCESS){
         return LE_FAULT;

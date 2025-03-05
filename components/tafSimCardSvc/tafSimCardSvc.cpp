@@ -436,6 +436,7 @@ le_result_t taf_sim_SendCommand
         TAF_ERROR_IF_RET_VAL(*responseNumElementsPtr > TAF_SIM_RESPONSE_MAX_BYTES, LE_BAD_PARAMETER, "Too many elements for response");
         TAF_ERROR_IF_RET_VAL(sw1 == NULL, LE_BAD_PARAMETER, "sw1 is NULL");
         TAF_ERROR_IF_RET_VAL(sw2 == NULL, LE_BAD_PARAMETER, "sw2 is NULL");
+        TAF_ERROR_IF_RET_VAL(pathPtr == NULL, LE_BAD_PARAMETER, "pathPtr is NULL");
         auto &sim = taf_sim::GetInstance();
         return sim.SendCommand(simId, command, fileIdentifierPtr, &p1, &p2, &p3, dataPtr, dataNumElements, pathPtr, sw1, sw2, responsePtr, responseNumElementsPtr);
 }

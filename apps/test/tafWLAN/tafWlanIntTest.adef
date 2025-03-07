@@ -3,7 +3,7 @@ sandboxed: true
 
 executables:
 {
-    wlanAPTest = ( wlanAPIntTestComponent )
+    tafWlanIntTest = ( wlanIntTestComponent )
 }
 
 start: manual
@@ -12,7 +12,7 @@ processes:
 {
     run:
     {
-        (wlanAPTest)
+        (tafWlanIntTest)
     }
 
     faultAction: stopApp
@@ -26,6 +26,5 @@ processes:
 
 bindings:
 {
-    wlanAPTest.wlanAPIntTestComponent.taf_wlan -> tafWlanSvc.taf_wlan
-    wlanAPTest.wlanAPIntTestComponent.taf_wlanAp -> tafWlanSvc.taf_wlanAp
+    tafWlanIntTest.wlanIntTestComponent.taf_wlan -> tafWlanSvc.taf_wlan
 }

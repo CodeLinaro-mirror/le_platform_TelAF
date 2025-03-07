@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -231,6 +231,117 @@ le_result_t taf_wlan_GetIntfInfo
     return myWlan.GetIntfInfo(APIntfinfoPtr,APIntfinfoSizePtr,STAIntfinfoPtr,STAIntfinfoSizePtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the wait time for WLAN 5GHz and 5G N79 bands if enabled.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlan_SetBandIntWaitTime
+(
+    taf_wlan_WlanRef_t WlanRef,
+        ///< [IN] The WLAN reference. Reserved for future use.
+    taf_wlan_BandIntPriority_t band,
+        ///< [IN] The band interference configuration.
+    uint32_t waitTime
+        ///< [IN] The wait time in seconds.
+)
+{
+    LE_UNUSED(WlanRef);
+    auto &myWlan = taf_WlanSvcImpl::GetInstance();
+    return myWlan.SetBandIntWaitTime(band, waitTime);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the wait time for WLAN 5GHz and 5G N79 bands.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlan_GetBandIntWaitTime
+(
+    taf_wlan_WlanRef_t WlanRef,
+        ///< [IN] The WLAN reference. Reserved for future use.
+    taf_wlan_BandIntPriority_t band,
+        ///< [IN] The band interference configuration.
+    uint32_t* waitTimePtr
+        ///< [OUT] The wait time in seconds.
+)
+{
+    LE_UNUSED(WlanRef);
+    auto &myWlan = taf_WlanSvcImpl::GetInstance();
+    return myWlan.GetBandIntWaitTime(band, waitTimePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the WLAN 5GHz and N79 5G band interference priority.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlan_SetBandIntPriority
+(
+    taf_wlan_WlanRef_t WlanRef,
+        ///< [IN] The WLAN reference. Reserved for future use.
+    taf_wlan_BandIntPriority_t bandPriority
+        ///< [IN] The band interference priority.
+)
+{
+    LE_UNUSED(WlanRef);
+    auto &myWlan = taf_WlanSvcImpl::GetInstance();
+    return myWlan.SetBandIntPriority(bandPriority);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the WLAN 5GHz and N79 5G band interference priority.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlan_GetBandIntPriority
+(
+    taf_wlan_WlanRef_t WlanRef,
+        ///< [IN] The WLAN reference. Reserved for future use.
+    taf_wlan_BandIntPriority_t* bandPriorityPtr
+        ///< [OUT] The band interference priority.
+)
+{
+    LE_UNUSED(WlanRef);
+    auto &myWlan = taf_WlanSvcImpl::GetInstance();
+    return myWlan.GetBandIntPriority(bandPriorityPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the WLAN 5GHz and N79 5G band interference state.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlan_SetBandIntState
+(
+    taf_wlan_WlanRef_t WlanRef,
+        ///< [IN] The WLAN reference. Reserved for future use.
+    taf_wlan_BandIntState_t state
+        ///< [IN] The band interference configuration state.
+)
+{
+    LE_UNUSED(WlanRef);
+    auto &myWlan = taf_WlanSvcImpl::GetInstance();
+    return myWlan.SetBandIntState(state);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the WLAN 5GHz and N79 5G band interference state.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlan_GetBandIntState
+(
+    taf_wlan_WlanRef_t WlanRef,
+        ///< [IN] The WLAN reference. Reserved for future use.
+    taf_wlan_BandIntState_t* statePtr
+        ///< [OUT] The band interference configuration state.
+)
+{
+    LE_UNUSED (WlanRef);
+    auto &myWlan = taf_WlanSvcImpl::GetInstance();
+    return myWlan.GetBandIntState(statePtr);
+}
 
 //--------------------------------------------------------------------------------------------------
 /**

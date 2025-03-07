@@ -1,6 +1,6 @@
 sources:
 {
-    wlanIntTest.c
+    wlanIntTest.cpp
 }
 
 requires:

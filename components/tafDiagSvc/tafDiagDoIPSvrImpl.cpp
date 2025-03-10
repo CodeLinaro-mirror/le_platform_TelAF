@@ -449,6 +449,8 @@ le_result_t taf_DiagDoIPSvr::SetSessionEventHandler
                 le_dls_Remove(&(sessionPtr->vlanInfoList), &(vlanPtr->link));
                 le_ref_DeleteRef(vlanRefMap, vlanPtr->safeRef);
                 le_mem_Release(vlanPtr);
+                LE_DEBUG("Release resources for vlanId:%d", vlanId);
+                return LE_OK;
             }
             linkPtr = le_dls_PeekNext(&(sessionPtr->vlanInfoList), linkPtr);
         }

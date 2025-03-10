@@ -377,32 +377,40 @@ void taf_Vlan::Init(void)
     // Get the iDataSettingsManager
     if(dataSettingsManager == nullptr)
     {
-            auto &dataFactory = telux::data::DataFactory::getInstance();
-            isReady = false;
-            std::promise<telux::common::ServiceStatus> promSetting;
-            dataSettingsManager = dataFactory.getDataSettingsManager(
+        auto &dataFactory = telux::data::DataFactory::getInstance();
+        isReady = false;
+        //Use getDataSettingsManager without callback to get ServiceStatus
+        dataSettingsManager = dataFactory.getDataSettingsManager(
+                                                           telux::data::OperationType::DATA_LOCAL);
+
+        if (!dataSettingsManager)
+        {
+            LE_FATAL("Failed to get Data Settings instance.");
+        }
+        else
+        {
+            telux::common::ServiceStatus dataSettingsManagerStatus =
+                                                           dataSettingsManager->getServiceStatus();
+            if (dataSettingsManagerStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+            {
+                //Use getDataSettingsManager with callback as ServiceStatus was not AVAILABLE
+                //so that TelAF waits until AVAILABLE.
+                std::promise<telux::common::ServiceStatus> promSetting;
+                dataSettingsManager = dataFactory.getDataSettingsManager(
                 telux::data::OperationType::DATA_LOCAL,
                 [&](telux::common::ServiceStatus svcStatus)
                 {
                     if (svcStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
                     {
+                        LE_INFO("iDataSettingsManager promSetting.set_value AVAILABLE...");
                         promSetting.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
                     }
                     else
                     {
+                        LE_INFO("iDataSettingsManager promSetting.set_value FAILED...");
                         promSetting.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
                     }
                 });
-
-            if (!dataSettingsManager)
-            {
-                LE_ERROR("Failed to get Data Settings instance.");
-            }
-            else
-            {
-                telux::common::ServiceStatus dataSettingsManagerStatus = dataSettingsManager->getServiceStatus();
-                if (dataSettingsManagerStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
-                {
                     LE_INFO("Data setting subsystem wait to be ready...");
                     std::future<telux::common::ServiceStatus> initFuture = promSetting.get_future();
                     std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
@@ -415,28 +423,18 @@ void taf_Vlan::Init(void)
                     {
                         dataSettingsManagerStatus = initFuture.get();
                     }
-                }
-                if (dataSettingsManagerStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-                {
-                    isReady = true;
-                    LE_INFO("iDataSettingsManager is ready...");
-                }
-                else
-                {
-                    LE_FATAL("Fail to init Data Setting Manager subsystem");
-                }
+            }
+            if (dataSettingsManagerStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+            {
+                isReady = true;
+                LE_INFO("iDataSettingsManager is ready...");
+            }
+            else
+            {
+                LE_FATAL("Fail to init Data Setting Manager subsystem");
             }
         }
-
-    if(isReady)
-    {
-        LE_INFO("data settings manager is ready...");
     }
-    else
-    {
-        LE_CRIT("unable to init data settings manager!");
-    }
-
 
     // Add a handler for client session close
     le_msg_AddServiceCloseHandler( taf_net_GetServiceRef(), ClientCloseSessionHandler, NULL );

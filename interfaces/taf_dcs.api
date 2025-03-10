@@ -332,6 +332,13 @@ REFERENCE Call;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Reference to the QOS flow.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE QosFlow;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * The maximum number of entries for cellular profiles.
  */
 //--------------------------------------------------------------------------------------------------
@@ -495,6 +502,21 @@ BITMASK ApnType
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * QOS flow bitmask.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK QosFlowBitMask
+{
+    QOS_BIT_MASK_FLOW_NONE,          ///< No parameters set.
+    QOS_BIT_MASK_FLOW_TX_GRANTED,    ///< Tx Granted flow set.
+    QOS_BIT_MASK_FLOW_RX_GRANTED,    ///< Rx Granted flow set.
+    QOS_BIT_MASK_FLOW_TX_FILTERS,    ///< Tx filters set.
+    QOS_BIT_MASK_FLOW_RX_FILTERS     ///< Rx filters set.
+};
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * The data profile technology type.
  */
 //--------------------------------------------------------------------------------------------------
@@ -522,6 +544,19 @@ ENUM CallEndReasonType
     CE_TYPE_EHRPD = 0x08,                ///< EHRPD defined.
     CE_TYPE_IPV6 = 0x09,                 ///< IPv6 reason.
     CE_TYPE_HANDOFF = 0x0C               ///< Handoff reason.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+* QOS flow state change type.
+*/
+//--------------------------------------------------------------------------------------------------
+ENUM QosFlowState
+{
+    QOS_UNKNOWN = 0,   ///< QOS unknown state
+    QOS_ACTIVATED,     ///< Flow activated
+    QOS_MODIFIED,      ///< Flow modified
+    QOS_DELETED        ///< Flow deleted
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -1175,6 +1210,39 @@ EVENT ThrottledStatus
 (
     Profile                profileRef,         ///< The profile reference.
     ThrottledStatusHandler handler             ///< Handler for throttled status.
+);
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for QOS status.
+ *
+ * @instaging
+ *
+ * @param[in] profileRef The profile reference.
+ * @param[in] qosState   The QOS state.
+ * @param[in] qosFlowRef The QOS flow reference.
+ *
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER QosStatusHandler
+(
+    QosFlow qosFlowRef IN,     ///< The QOS flow reference.
+    QosFlowState qosState IN   ///< QOS state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The QOS flow change event.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT QosStatus
+(
+    Profile profileRef,      ///< The profile reference.
+    QosStatusHandler handler ///< Handler for QOS flow status.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1970,4 +2038,58 @@ FUNCTION le_result_t GetMtu
 (
     Profile profileRef                      IN,  ///< The profile reference.
     uint16  mtu                             OUT  ///< The MTU value.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the QOS flow ID.
+ *
+ * @instaging
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- QOS flow not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetQosId
+(
+    QosFlow qosFlowRef IN,           ///< The QOS flow reference.
+    uint32 qosFlowId OUT             ///< QOS ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the details of the given QOS flow parameter mask.
+ *
+ * @instaging
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- QOS flow not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetQosParameterMask
+(
+    QosFlow qosFlowRef IN,                     ///< The QOS flow reference.
+    QosFlowBitMask qosFlowMask OUT             ///< QOS flow bitmask.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the profile reference associated with the QOS flow.
+ *
+ * @instaging
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- QOS flow not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetQosProfile
+(
+    QosFlow qosFlowRef IN,                     ///< The QOS flow reference.
+    Profile profileRef OUT
 );

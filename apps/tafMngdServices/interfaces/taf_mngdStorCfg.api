@@ -38,6 +38,8 @@
  *
  * @rst :ref:`API reference <File taf_mngdStorCfg_interface.h>` @endrst
  *
+ * @rst :ref:`Plugin APIs <File TafPiCfgStor.h>` @endrst
+ *
  * <HR>
  *
  * The Managed Storage service APIs provides applications to use encrypted and reliable
@@ -227,6 +229,7 @@ ENUM NodeType
 /**
  * Gets the configuration storage reference.
  *
+ * @instaging
  * @return
  *     - Config            Configuration storage reference.
  *     - NULL              Invalid file name.
@@ -242,6 +245,7 @@ FUNCTION Config GetRef
  * Copies the file from the paths configured in the MSS configuration JSON file to the configuration
  * storage and also checks the validity of the file.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully updated the file.
  *     - LE_FAULT          Failed to update file.
@@ -259,6 +263,7 @@ FUNCTION le_result_t Update
  * Replaces the orignal configuration file with the updated file. It is advised to use this API if
  * the update file operation is successful.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully synced the file.
  *     - LE_FAULT          Failed to sync the file.
@@ -275,6 +280,7 @@ FUNCTION le_result_t Activate
  * Cancels the config file update campaign. It is advised to use this API if the update file
  * operation fails.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully cancel the update campaign.
  *     - LE_FAULT          Failed to cancel update campaign.
@@ -291,6 +297,7 @@ FUNCTION le_result_t Cancel
  * Reverts to orignal version of configuration file. It is advised to use in case of failure in
  * firmware update or anything wrong with new config file.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully rollback the file.
  *     - LE_FAULT          Failed to rollback file.
@@ -306,6 +313,7 @@ FUNCTION le_result_t Rollback
 /**
  * Commits data to config storage after successfull firmare update.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully commit to config storage.
  *     - LE_FAULT          Failed to commit config storage.
@@ -321,6 +329,7 @@ FUNCTION le_result_t Commit
 /**
  * Gets the major, minor and patch version of the given configuration file reference.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
  *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
@@ -339,6 +348,7 @@ FUNCTION le_result_t GetVersion
 /**
  * Gets the value and data type of the node.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
  *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
@@ -358,6 +368,7 @@ FUNCTION le_result_t GetValue
 /**
  * Gets the data type of the node.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
  *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
@@ -376,6 +387,7 @@ FUNCTION le_result_t GetType
 /**
  * Gets the value of the node with the data type string.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
  *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
@@ -394,6 +406,7 @@ FUNCTION le_result_t GetString
 /**
  * Gets the value of the node with the data type integer.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
  *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
@@ -412,6 +425,7 @@ FUNCTION le_result_t GetInt
 /**
  * Gets the value of the node with the data type float.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
  *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
@@ -430,6 +444,7 @@ FUNCTION le_result_t GetFloat
 /**
  * Gets the value of the node with the data type boolean.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
  *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
@@ -448,6 +463,7 @@ FUNCTION le_result_t GetBool
 /**
  * Releases the config storage reference.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully release reference.
  *     - LE_FAULT          Failed to release reference.

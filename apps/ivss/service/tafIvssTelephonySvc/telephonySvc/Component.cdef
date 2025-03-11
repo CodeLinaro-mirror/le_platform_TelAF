@@ -9,7 +9,7 @@ requires:
     {
         $TELAF_ROOT/interfaces/taf_radio.api
         $TELAF_ROOT/interfaces/taf_sim.api
-        $TELAF_ROOT/interfaces/staging/taf_devInfo.api
+        $TELAF_ROOT/interfaces/taf_devInfo.api
     }
 }
 

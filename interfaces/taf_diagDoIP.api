@@ -212,11 +212,13 @@ REFERENCE Service;
  * Gets the reference of a diag DoIP service. If there is no diag DoIP service, a new one will be
  * created.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - Reference to the service instance.
  *     - NULL if not allowed to create the service.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
@@ -228,13 +230,15 @@ FUNCTION Service GetService
 /**
  * Sets the VIN(Vehicle Identification Number) into DoIP stack.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid VIN size.
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Internal error.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetVIN
@@ -246,13 +250,15 @@ FUNCTION le_result_t SetVIN
 /**
  * Gets the VIN(Vehicle Identification Number) from DoIP stack.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid VIN size.
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Internal error.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetVIN
@@ -264,15 +270,17 @@ FUNCTION le_result_t GetVIN
 /**
  * Sets the EID(Entify Identification) into DoIP stack.
  *
- * @note if the EID is "a2:8c:ed:3e:38:14", please input "a28ced3e3814".
+ * @b NOTE: if the EID is "a2:8c:ed:3e:38:14", please input "a28ced3e3814".
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid EID size.
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Internal error.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetEID
@@ -284,13 +292,15 @@ FUNCTION le_result_t SetEID
 /**
  * Gets the EID(Entify Identification) from DoIP stack.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid EID size.
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Internal error.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetEID
@@ -302,15 +312,17 @@ FUNCTION le_result_t GetEID
 /**
  * Sets the GID(Group Identification) into DoIP stack.
  *
- * @note if the GID is "a2:8c:ed:3e:38:14", please input "a28ced3e3814".
+ * @b NOTE: if the GID is "a2:8c:ed:3e:38:14", please input "a28ced3e3814".
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid GID size.
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Internal error.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetGID
@@ -322,13 +334,15 @@ FUNCTION le_result_t SetGID
 /**
  * Gets the GID(Group Identification) from DoIP stack.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid GID size.
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Internal error.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetGID
@@ -339,6 +353,8 @@ FUNCTION le_result_t GetGID
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a DoIP event.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER EventHandler
@@ -354,7 +370,9 @@ HANDLER EventHandler
 /**
  * This event provides DoIP event on DoIP service.
  *
- * @note Only support to register one handler for each client.
+ * @b NOTE: Only support to register one handler for each client.
+ *
+ * @instaging
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -370,6 +388,7 @@ EVENT Event
 /**
  * Removes the diag DoIP service.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid svcRef.

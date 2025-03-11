@@ -364,11 +364,13 @@ REFERENCE StateExpMsg;
  * Gets the reference to an Authentication service, if there is no Authentication service,
  * a new one will be created.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - Reference to the service instance.
  *     - NULL if not allowed to create the service.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
@@ -381,12 +383,14 @@ FUNCTION Service GetService
  * If the VLAN ID is not found or does not exist, it will return an error.
  * This function shall be called before registering RxMsgHandler and AuthStateExpHandler.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_UNSUPPORTED -- VLAN ID is unknown.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetVlanId
@@ -398,6 +402,8 @@ FUNCTION le_result_t SetVlanId
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for an Rx Authentication message.
+ *
+ * @instaging
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER RxMsgHandler
@@ -409,6 +415,8 @@ HANDLER RxMsgHandler
 //-------------------------------------------------------------------------------------------------
 /**
  * This event provides information on Rx Authentication message.
+ *
+ * @instaging
  */
 //-------------------------------------------------------------------------------------------------
 EVENT RxMsg
@@ -420,6 +428,8 @@ EVENT RxMsg
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for the authentication expiry.
+ *
+ * @instaging
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER AuthStateExpHandler
@@ -432,6 +442,8 @@ HANDLER AuthStateExpHandler
 //-------------------------------------------------------------------------------------------------
 /**
  * This event provides information on Rx Authentication message.
+ *
+ * @instaging
  */
 //-------------------------------------------------------------------------------------------------
 EVENT AuthStateExp
@@ -445,12 +457,14 @@ EVENT AuthStateExp
  * Gets the communication configuration of the Rx VERIFY_CERT_UNI
  * Authentication message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCommConf
@@ -464,12 +478,14 @@ FUNCTION le_result_t GetCommConf
  * Gets the size of client certificate of the Rx VERIFY_CERT_UNI/TRANSMIT_CERT
  * Authentication message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCertSize
@@ -483,12 +499,14 @@ FUNCTION le_result_t GetCertSize
  * Gets the size of client certificate of the Rx VERIFY_CERT_UNI/VERIFY_CERT_BI/TRANSMIT_CERT
  * Authentication message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCert
@@ -502,12 +520,14 @@ FUNCTION le_result_t GetCert
  * Gets the size of client challenge of the Rx VERIFY_CERT_UNI/VERIFY_CERT_BI
  * Authentication message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetChallengeSize
@@ -521,12 +541,13 @@ FUNCTION le_result_t GetChallengeSize
  * Gets the data of client challenge of the Rx VERIFY_CERT_UNI/VERIFY_CERT_BI/
  * Authentication message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
- *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetChallenge
@@ -540,12 +561,13 @@ FUNCTION le_result_t GetChallenge
  * Gets the size of proof of ownership in the Rx PROOF_OF_OWNERSHIP
  * Authentication message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
- *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPOWNSize
@@ -559,12 +581,14 @@ FUNCTION le_result_t GetPOWNSize
  * Gets the data of proof of ownership in the Rx PROOF_OF_OWNERSHIP
  * Authentication message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPOWN
@@ -578,12 +602,14 @@ FUNCTION le_result_t GetPOWN
  * Gets the size of public key of proof of ownership in the Rx PROOF_OF_OWNERSHIP
  * Authentication message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPublicKeySize
@@ -597,12 +623,14 @@ FUNCTION le_result_t GetPublicKeySize
  * Gets the public key of proof of ownership of the Rx PROOF_OF_OWNERSHIP
  * Authentication message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPublicKey
@@ -615,12 +643,14 @@ FUNCTION le_result_t GetPublicKey
 /**
  * Sets the role of the Rx PROOF_OF_OWNERSHIP Authentication message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetRole
@@ -634,12 +664,14 @@ FUNCTION le_result_t SetRole
  * Gets the certificate evaluation ID of the Rx TRANSMIT_CERT
  * Authentication message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCertEvalId
@@ -652,12 +684,14 @@ FUNCTION le_result_t GetCertEvalId
 /**
  * Gets the VLAN ID of the Rx authenticate message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- VLAN ID not found.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetVlanIdFromMsg
@@ -670,12 +704,14 @@ FUNCTION le_result_t GetVlanIdFromMsg
 /**
  * Sets the server challenge for the response of the Rx Authentication VERIFY_CERT_UNI message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetChallenge
@@ -689,12 +725,14 @@ FUNCTION le_result_t SetChallenge
  * Sets the server public key for the response of the Rx Authentication VERIFY_CERT_UNI message.
  * It shall be called after SetChallenge.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetPublicKey
@@ -708,12 +746,14 @@ FUNCTION le_result_t SetPublicKey
  * Sets the session key information for the response of the Rx Authentication
  * PROOF_OF_OWNERSHIP message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetSessKeyInfo
@@ -728,13 +768,15 @@ FUNCTION le_result_t SetSessKeyInfo
  *
  * @b NOTE: This function must be called to send a response if receiving a message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
- * @b NOTE: The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendResp
@@ -746,12 +788,13 @@ FUNCTION le_result_t SendResp
 
 //--------------------------------------------------------------------------------------------------
 /**
-* Releases an authentication expiry notification message.
-*
-* @return
-*     - LE_OK -- Succeeded.
-*     - LE_BAD_PARAMETER -- Invalid msgRef or invalid service of the msgRef.
-*/
+ * Releases an authentication expiry notification message.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid msgRef or invalid service of the msgRef.
+ */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReleaseAuthExpMsg
 (
@@ -762,6 +805,7 @@ FUNCTION le_result_t ReleaseAuthExpMsg
 /**
  * Removes the Authentication server service.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid svcRef.

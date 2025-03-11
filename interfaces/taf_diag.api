@@ -187,6 +187,7 @@
 /**
  * Sets an enable condition.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_FAULT -- Failed.
@@ -203,6 +204,7 @@ FUNCTION le_result_t SetEnableCondition
 /**
  * Gets an enable condition status.
  *
+ * @instaging
  * @return
  *     - TRUE -- Succeeded.
  *     - FALSE -- Failed.
@@ -243,6 +245,7 @@ REFERENCE TesterState;
 /**
  * Gets the reference to a Diag service, if there is no Diag service, a new one will be created.
  *
+ * @instaging
  * @return
  *     - Reference to the service instance.
  *     - NULL if not allowed to create the service.
@@ -259,6 +262,7 @@ FUNCTION Service GetService
  * Sets VLAN ID to the service. If the VLAN ID is not found or does not exist, it will return an
  * error.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_NOT_FOUND -- Reference not found.
@@ -275,6 +279,8 @@ FUNCTION le_result_t SetVlanId
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a tester present state notification.
+ *
+ * @instaging
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER StateChangeHandler
@@ -287,6 +293,8 @@ HANDLER StateChangeHandler
 //-------------------------------------------------------------------------------------------------
 /**
  * This event provides information on tester present state change.
+ *
+ * @instaging
  */
 //-------------------------------------------------------------------------------------------------
 EVENT TesterState
@@ -297,12 +305,13 @@ EVENT TesterState
 
 //--------------------------------------------------------------------------------------------------
 /**
-* Releases a Tester state notification message.
-*
-* @return
-*     - LE_OK -- Succeeded.
-*     - LE_BAD_PARAMETER -- Invalid stateRef or invalid service of the stateRef.
-*/
+ * Releases a Tester state notification message.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid stateRef or invalid service of the stateRef.
+ */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReleaseTesterStateMsg
 (
@@ -313,6 +322,7 @@ FUNCTION le_result_t ReleaseTesterStateMsg
 /**
  * Selects a target VLAN ID
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid svcRef.
@@ -329,6 +339,8 @@ FUNCTION le_result_t SelectTargetVlanID
 //--------------------------------------------------------------------------------------------------
 /**
  * The handler for asynchronous file transfer cancellation result response.
+ *
+ * @instaging
  *
  * @result
  *     - LE_OK -- Succeeded.
@@ -348,6 +360,7 @@ HANDLER CancelFileXferCallback
 /**
  * Cancels (asynchronously) ongoing file transfer operation.
  *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION CancelFileXferAsync
@@ -360,6 +373,7 @@ FUNCTION CancelFileXferAsync
 /**
  * Removes the diag service.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid svcRef.

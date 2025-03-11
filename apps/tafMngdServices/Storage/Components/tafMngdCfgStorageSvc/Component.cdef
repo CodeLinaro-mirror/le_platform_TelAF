@@ -8,7 +8,7 @@ provides:
 {
     api:
     {
-        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdStorCfg.api
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/taf_mngdStorCfg.api
     }
 }
 
@@ -32,9 +32,8 @@ cxxflags:
 {
     -I$TELAF_ROOT/include
     -I${LEGATO_ROOT}/framework/liblegato
-    -I$TELAF_ROOT/include/staging
     -I$TELAF_ROOT/components/tafHalComp
-    -I$TELAF_ROOT/include/staging/plugin
+    -I$TELAF_ROOT/include/plugin
     -DMSS_SEC_STORE_SIZE=8192
 }
 

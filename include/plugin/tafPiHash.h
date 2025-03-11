@@ -76,6 +76,8 @@ typedef void (*TAF_PI_HASH_INIT)(void);
 //--------------------------------------------------------------------------------------------------
 /**
  * Get hash type.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 typedef int (*TAF_PI_HASH_GET_TYPE)(taf_pi_hash_Comp_t component, taf_pi_hash_Type_t* type);
@@ -83,6 +85,8 @@ typedef int (*TAF_PI_HASH_GET_TYPE)(taf_pi_hash_Comp_t component, taf_pi_hash_Ty
 //--------------------------------------------------------------------------------------------------
 /**
  * Get hash algorithm.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 typedef int (*TAF_PI_HASH_GET_ALG)(taf_pi_hash_Comp_t component, taf_pi_hash_Algorithm_t* alg);
@@ -90,6 +94,8 @@ typedef int (*TAF_PI_HASH_GET_ALG)(taf_pi_hash_Comp_t component, taf_pi_hash_Alg
 //--------------------------------------------------------------------------------------------------
 /**
  * Get hash of a component.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 typedef int (*TAF_PI_HASH_GET_HASH)(taf_pi_hash_Comp_t component, taf_pi_hash_Bank_t bank,

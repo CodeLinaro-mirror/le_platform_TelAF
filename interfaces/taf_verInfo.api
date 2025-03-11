@@ -9,6 +9,10 @@
  *
  * @rst :ref:`API reference <File taf_verInfo_interface.h>` @endrst
  *
+ * @rst :ref:`Plugin APIs for hash <File tafPiHash.h>` @endrst
+ *
+ * @rst :ref:`Plugin APIs for version <File tafPiVersion.h>` @endrst
+ *
  * <HR>
  *
  * The Version Information Service can be used to obtain version information (like TelAF)
@@ -252,8 +256,9 @@ ENUM Bank
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the kernel version.
+ * Gets the kernel version.
  *
+ * @instaging
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
@@ -267,8 +272,9 @@ FUNCTION le_result_t GetKernelVersion
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the firmware version.
+ * Gets the firmware version.
  *
+ * @instaging
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
@@ -282,8 +288,9 @@ FUNCTION le_result_t GetFirmwareVersion
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the TZ version.
+ * Gets the TZ version.
  *
+ * @instaging
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
@@ -297,8 +304,9 @@ FUNCTION le_result_t GetTZVersion
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the TelAF version.
+ * Gets the TelAF version.
  *
+ * @instaging
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
@@ -312,8 +320,9 @@ FUNCTION le_result_t GetTelAFVersion
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the rootFS version.
+ * Gets the rootFS version.
  *
+ * @instaging
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
@@ -327,8 +336,9 @@ FUNCTION le_result_t GetRootFSVersion
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the LXC version.
+ * Gets the LXC version.
  *
+ * @instaging
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
@@ -342,8 +352,9 @@ FUNCTION le_result_t GetLXCVersion
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets TelAF hash.
+ * Gets TelAF hash.
  *
+ * @instaging
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
@@ -358,8 +369,9 @@ FUNCTION le_result_t GetTelAFHash
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets boot hash.
+ * Gets boot hash.
  *
+ * @instaging
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
@@ -374,8 +386,9 @@ FUNCTION le_result_t GetBootHash
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the rootFS hash.
+ * Gets the rootFS hash.
  *
+ * @instaging
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
@@ -390,8 +403,9 @@ FUNCTION le_result_t GetRootFSHash
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the firmware hash.
+ * Gets the firmware hash.
  *
+ * @instaging
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
@@ -406,8 +420,9 @@ FUNCTION le_result_t GetFirmwareHash
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the LXC hash.
+ * Gets the LXC hash.
  *
+ * @instaging
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.

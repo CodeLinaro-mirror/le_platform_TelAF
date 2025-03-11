@@ -174,11 +174,12 @@ typedef void (*INIT)(void);
 /**
  * Callback for response of NodeStateChangePrepare request.
  *
- *  @param    pmNodeId    nodeid for a given node
- *  @param    state       State of the given node
- *  @param    mode        Corresonding shutdown mode to respond
- *  @param    StateChangeReason     State Change request Reason
- *  @param    reason      Response to the request
+ * @instaging
+ * @param    pmNodeId    nodeid for a given node
+ * @param    state       State of the given node
+ * @param    mode        Corresonding shutdown mode to respond
+ * @param    StateChangeReason     State Change request Reason
+ * @param    reason      Response to the request
  *
  * @return
  */
@@ -196,11 +197,12 @@ typedef void (*hal_pm_NodeStateChangePrepareCallbackFunc_t)
 /**
  * NodeStateChangeShutdownPrepareAsync request to the VHAL hardware component.
  *
- *  @param    pmNodeId    nodeid for a given node
- *  @param    state       State of the given node
- *  @param    mode        Shutdown mode request to the VHAL compoment
- *  @param    reason      shutdown/restart reason.
- *  @param    callback    Callback function to response the request
+ * @instaging
+ * @param    pmNodeId    nodeid for a given node
+ * @param    state       State of the given node
+ * @param    mode        Shutdown mode request to the VHAL compoment
+ * @param    reason      shutdown/restart reason.
+ * @param    callback    Callback function to response the request
  *
  * @return
  *      result for sending the request
@@ -218,9 +220,10 @@ typedef le_result_t (*hal_pm_NodeStateChangePrepareAsync)(
 /**
  * Callback for response of NodeStateChange request.
  *
- *  @param    pmNodeId    nodeid for a given node
- *  @param    state       State of the given node
- *  @param    mode        Corresonding shutdown mode to respond
+ * @instaging
+ * @param    pmNodeId    nodeid for a given node
+ * @param    state       State of the given node
+ * @param    mode        Corresonding shutdown mode to respond
  *
  * @return
  */
@@ -235,10 +238,11 @@ hal_pm_PowerMode_t mode
 /**
  * NodeStateChange request to the VHAL hardware component.
  *
- *  @param    pmNodeId    nodeid for a given node
- *  @param    state       State of the given node
- *  @param    mode        Shutdown mode request to the VHAL compoment
- *  @param    callback    Callback function to response the request
+ * @instaging
+ * @param    pmNodeId    nodeid for a given node
+ * @param    state       State of the given node
+ * @param    mode        Shutdown mode request to the VHAL compoment
+ * @param    callback    Callback function to response the request
  *
  * @return
  *      result for sending the request
@@ -260,8 +264,9 @@ typedef le_result_t (*hal_pm_NodeStateChangeReqAsync)(
 /**
  * Suspend response callback function.
  *
- *  @param    mode    Corresonding suspend mode to respond
- *  @param    reason  Response to the request
+ * @instaging
+ * @param    mode    Corresonding suspend mode to respond
+ * @param    reason  Response to the request
  *
  * @return void
  */
@@ -276,8 +281,9 @@ typedef void (*hal_pm_WakeupVehicleRspCallbackFunc_t)
 /**
  * Suspend request to the VHAL hardware component asynchronously.
  *
- *  @param    mode        Suspend mode request to the VHAL compoment
- *  @param    callback    Callback function to response the request
+ * @instaging
+ * @param    mode        Suspend mode request to the VHAL compoment
+ * @param    callback    Callback function to response the request
  *
  * @return
  *      result for sending the request
@@ -293,9 +299,10 @@ typedef le_result_t (*hal_pm_WakeupVehicleReqAsyncFunc_t)
 /**
  * Node state change notification callback function.
  *
- *  @param    pm_node_id    Corresonding node to respond
- *  @param    state         Corresonding node state to respond
- *  @param    status        Confirm status for the notification
+ * @instaging
+ * @param    pm_node_id    Corresonding node to respond
+ * @param    state         Corresonding node state to respond
+ * @param    status        Confirm status for the notification
  * @return void
  */
 //--------------------------------------------------------------------------------------------------
@@ -310,9 +317,10 @@ typedef void (*hal_pm_NodeStateChangeNotificationConfirmCallbackFunc_t)
 /**
  * Node state change notification to the VHAL hardware component.
  *
- *  @param    pm_node_id    Notification is from which node
- *  @param    state         State that the node is going to be
- *  @param    callback      Callback function to respond the request
+ * @instaging
+ * @param    pm_node_id    Notification is from which node
+ * @param    state         State that the node is going to be
+ * @param    callback      Callback function to respond the request
  *
  * @return void
  */
@@ -328,9 +336,10 @@ typedef void (*hal_pm_NodeStateChangeNotificationFunc_t)
 /**
  * Node information notification to the VHAL hardware component.
  *
- *  @param    pm_node_id    Notification is from which node
- *  @param    info          Information that the node is sending to the VHAL compoment
- *  @param    callback      Callback function to respond the request
+ * @instaging
+ * @param    pm_node_id    Notification is from which node
+ * @param    info          Information that the node is sending to the VHAL compoment
+ * @param    callback      Callback function to respond the request
  *
  * @return
  *      result for sending the notification
@@ -347,8 +356,9 @@ typedef void (*hal_pm_NodeInfoNotificationFunc_t)
 /**
  * Node event callback function.
  *
- *  @param    pm_node_id          Corresonding node to respond
- *  @param    pm_node_event_info  Corresonding node info to respond
+ * @instaging
+ * @param    pm_node_id          Corresonding node to respond
+ * @param    pm_node_event_info  Corresonding node info to respond
  * @return void
  */
 //--------------------------------------------------------------------------------------------------
@@ -362,9 +372,10 @@ typedef void (*hal_pm_NodeEventCallbackFunc_t)
 /**
  * Add node event handler to VHAL component.
  *
- *  @param    pm_node_id    Corresonding node to respond
- *  @param    state         Corresonding node state to respond
- *  @param    status        Confirm status for the notification
+ * @instaging
+ * @param    pm_node_id    Corresonding node to respond
+ * @param    state         Corresonding node state to respond
+ * @param    status        Confirm status for the notification
  * @return
  *      result for adding the handler
  */
@@ -377,6 +388,8 @@ typedef le_result_t (*hal_pm_AddNodeEventHandlerFunc_t)
 //--------------------------------------------------------------------------------------------------
 /**
  * Bub status callback function.
+ *
+ * @instaging
  * @param
  *      status    Bub status pointer
  * @return void
@@ -389,6 +402,8 @@ typedef void (*hal_pm_AddBubStatusCallbackFunc_t)
 //--------------------------------------------------------------------------------------------------
 /**
  * Add Bub status handler to VHAL component.
+ *
+ * @instaging
  * @param
  *      handlerRef      Bub status handler callback function
  * @return
@@ -402,6 +417,8 @@ typedef le_result_t (*hal_pm_AddBubStatusHandlerFunc_t)
 //--------------------------------------------------------------------------------------------------
 /**
  * BuB status query to the VHAL hardware component.
+ *
+ * @instaging
  * @param
  *      status    Bub status pointer
  *

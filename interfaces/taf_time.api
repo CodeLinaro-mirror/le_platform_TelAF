@@ -39,6 +39,8 @@
  *
  * @rst :ref:`API reference <File taf_time_interface.h>` @endrst
  *
+ * @rst :ref:`HAL APIs <File tafHalTime.h>` @endrst
+ *
  * <HR>
  *
  * The Time Service provides APIs that allow customer applications to set the system time
@@ -591,6 +593,7 @@ STRUCT TimeSpec
 /**
  * Sets the system time.
  *
+ * @instaging
  * @return
  * - LE_OK            Succeeded.
  * - Appropriate error is returned on failure.
@@ -606,6 +609,8 @@ FUNCTION le_result_t SetSystemTime
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for source change event for the time source that system time is sycned to.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER TimeSourceChangeHandler
@@ -617,6 +622,8 @@ HANDLER TimeSourceChangeHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Event to report the new time source that system time is synced to.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 EVENT TimeSourceChange
@@ -627,6 +634,8 @@ EVENT TimeSourceChange
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for time value change event.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER TimeValueChangeHandler
@@ -638,6 +647,8 @@ HANDLER TimeValueChangeHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * This event provides information for registered time source.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 EVENT TimeValueChange
@@ -650,6 +661,7 @@ EVENT TimeValueChange
 /**
  * Gets the reference object for a time source.
  *
+ * @instaging
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Something went wrong.
@@ -664,6 +676,7 @@ FUNCTION Time GetTimeRef
 /**
  * Gets the time source and added related time information to its reference object.
  *
+ * @instaging
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Something went wrong.
@@ -681,14 +694,16 @@ FUNCTION le_result_t GetTime
  *
  * - It returns the system time in seconds/nanoseconds since epoch via output 'timeVal'.
  *
+ * @b NOTE: This function must be called after the reference object was created, and related time
+ * information has been saved to the structure for that reference object.
+ *
+ * @instaging
  * @return
  *  - LE_FAULT -- Something went wrong.
  *  - LE_UNAVAILABLE -- This reference time is currently not unavailable.
  *  - LE_UNSUPPORTED -- Not supported for current time source.
  *  - LE_OK -- Succeeded.
  *
- * @note This function must be called after the reference object was created, and related time
- * information has been saved to the structure for that reference object.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRefSystemTime
@@ -703,14 +718,16 @@ FUNCTION le_result_t GetRefSystemTime
  *
  * - It returns the GPTP time in seconds/nanoseconds since epoch via output 'timeVal'.
  *
+ * @b NOTE: This function must be called after the reference object was created, and related time
+ * information has been saved to the structure for that reference object.
+ *
+ * @instaging
  * @return
  *  - LE_FAULT -- Something went wrong.
  *  - LE_UNAVAILABLE -- This reference time is currently not unavailable.
  *  - LE_UNSUPPORTED -- Not supported for current time source.
  *  - LE_OK -- Succeeded.
  *
- * @note This function must be called after the reference object was created, and related time
- * information has been saved to the structure for that reference object.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRefGptpTime
@@ -723,6 +740,7 @@ FUNCTION le_result_t GetRefGptpTime
 /**
  * Releases a 'Time' reference.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_FAULT -- Something went wrong.
@@ -733,6 +751,13 @@ FUNCTION le_result_t ReleaseTimeRef
     Time  timeSrcRef  IN  ///< Time source reference.
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for asynchronous getting time request.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
 HANDLER AsyncGetTimeReqHandler
 (
     TimeSpec    timeVal   IN,            ///< Time in seconds/nanoseconds.
@@ -745,6 +770,7 @@ HANDLER AsyncGetTimeReqHandler
  *
  * It returns the RTC time in seconds/nanoseconds since epoch via output timeVal.
  *
+ * @instaging
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_UNAVAILABLE -- The RTC time is not available.
@@ -761,6 +787,7 @@ FUNCTION le_result_t GetRtcTimeReqAsync
 /**
  * Sets the time to RTC device.
  *
+ * @instaging
  * @return
  * - LE_OK            Succeeded.
  * - Appropriate error is returned on failure.
@@ -772,7 +799,12 @@ FUNCTION le_result_t SetTimeToRtc
     TimeSpec timeVal IN ///< Time in seconds/nanoseconds
 );
 
-
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for asynchronous setting time request.
+ *
+ * @instaging
+ */
 HANDLER AsyncSetTimeReqHandler
 (
     le_result_t responseState     IN    ///< Status response.
@@ -782,6 +814,7 @@ HANDLER AsyncSetTimeReqHandler
 /**
  * Sets RTC time asynchronously.
  *
+ * @instaging
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_UNAVAILABLE -- The rtc time is not available.
@@ -798,6 +831,7 @@ FUNCTION le_result_t SetRtcTimeReqAsync
 /**
  * Gets the reference object for a source.
  *
+ * @instaging
  * @return
  *  - Source -- Succeeded.
  *  - NULL -- Source is not available.
@@ -812,6 +846,7 @@ FUNCTION Source GetSourceRef
 /**
  * Gets the number of failed loops for a source.
  *
+ * @instaging
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Something went wrong.
@@ -828,6 +863,7 @@ FUNCTION le_result_t GetFailedLoops
 /**
  * Gets the availability of a source.
  *
+ * @instaging
  * @return
  *  - true -- Available.
  *  - false -- Not available.
@@ -842,6 +878,7 @@ FUNCTION bool IsAvailable
 /**
  * Gets the name of latest time source to which system time is synced.
  *
+ * @instaging
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Something went wrong.
@@ -857,6 +894,8 @@ FUNCTION le_result_t GetSystemTimeSourceID
  * Handler for time soure status change event.
  *
  * @note The handler is not supported for getting the availability change for system time source.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER TimeSourceStatusHandler
@@ -869,6 +908,8 @@ HANDLER TimeSourceStatusHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Event to report the time source status change or there is no available time source.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 EVENT TimeSourceStatus
@@ -884,6 +925,7 @@ EVENT TimeSourceStatus
  * in increments of 15 minutes (signed value). The time zone offset range is [-48, 48], so the
  * range of minutes is [-720, 720].
  *
+ * @instaging
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Something went wrong.
@@ -908,6 +950,7 @@ FUNCTION le_result_t GetTimeZone
  *
  * - 3: reserved.
  *
+ * @instaging
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Something went wrong.
@@ -923,6 +966,7 @@ FUNCTION le_result_t GetTimeDayAdj
 /**
  * Checks whether a time source is valid.
  *
+ * @instaging
  * @return
  *  - true -- Valid.
  *  - false -- Not valid.
@@ -937,6 +981,7 @@ FUNCTION bool IsSourceValid
 /**
  * Sets the validity of a source.
  *
+ * @instaging
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Something went wrong.

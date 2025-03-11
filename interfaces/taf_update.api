@@ -38,6 +38,10 @@
  *
  * @rst :ref:`API reference <File taf_update_interface.h>` @endrst
  *
+ * @rst :ref:`Plugin APIs for download agent <File tafPiDA.h>` @endrst
+ *
+ * @rst :ref:`Plugin APIs for user agent <File tafPiUA.h>` @endrst
+ *
  * <HR>
  *
  * The Update Service APIs are designed for over-the-air (OTA) solutions. The OTA package is encapsulated

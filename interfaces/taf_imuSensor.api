@@ -268,6 +268,7 @@ ENUM SelfTestMode
 /**
  * Gets the list of available sensors.
  *
+ * @instaging
  * @return
  *  - NULL                            No sensor information available.
  *  - taf_imuSensor_SensorListRef     Sensor list object reference.
@@ -282,6 +283,7 @@ FUNCTION SensorList GetSensorList
  * Gets the first sensor object reference in the list of the
  * sensors retrieved with taf_imuSensor_GetAvailableSensors().
  *
+ * @instaging
  * @return
  *  - NULL                          No sensor information available.
  *  - taf_imuSensor_SensorRef       The sensor object reference.
@@ -297,6 +299,7 @@ FUNCTION Sensor GetFirstSensor
  * Gets the next sensor object reference in the list of the
  * sensors retrieved with taf_imuSensor_GetAvailableSensors().
  *
+ * @instaging
  * @return
  *  - NULL                          No sensor information available.
  *  - taf_imuSensor_SensorRef       The sensor object reference.
@@ -311,6 +314,7 @@ FUNCTION Sensor GetNextSensor
 /**
  *  Retrieves the ID for the given sensor reference.
  *
+ * @instaging
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -326,6 +330,7 @@ FUNCTION le_result_t GetId
 /**
  *  Retrieves the name of the given sensor reference.
  *
+ * @instaging
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -342,6 +347,7 @@ FUNCTION le_result_t GetName
 /**
  *  Retrieves the vendor name for the given sensor reference.
  *
+ * @instaging
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -357,6 +363,7 @@ FUNCTION le_result_t GetVendorName
 /**
  *  Retrieves the version for the given sensor reference.
  *
+ * @instaging
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -373,6 +380,7 @@ FUNCTION le_result_t GetVersion
 /**
  *  Retrieves the type for the given sensor reference.
  *
+ * @instaging
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -387,8 +395,9 @@ FUNCTION le_result_t GetType
 
 //------------------------------------------------------------------------------------------------
 /**
- *  Retrieves the supported sensor sampling rates information for the given sensor reference.
+ * Retrieves the supported sensor sampling rates information for the given sensor reference.
  *
+ * @instaging
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -402,9 +411,10 @@ FUNCTION le_result_t GetSupportedSamplingRate
 
 //------------------------------------------------------------------------------------------------
 /**
- *  Retrieves the sensor batch information like maximum and minimum batch count supported
- *  for the given sensor reference.
+ * Retrieves the sensor batch information like maximum and minimum batch count supported
+ * for the given sensor reference.
  *
+ * @instaging
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -419,8 +429,9 @@ FUNCTION le_result_t GetSupportedBatchCount
 
 //------------------------------------------------------------------------------------------------
 /**
- *  Retrieves the sensor range supported for the given sensor reference.
+ * Retrieves the sensor range supported for the given sensor reference.
  *
+ * @instaging
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -439,6 +450,7 @@ FUNCTION le_result_t GetRange
 /**
  *  Retrieves the sensor resolution for the given sensor reference.
  *
+ * @instaging
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -456,6 +468,7 @@ FUNCTION le_result_t GetResolution
 /**
  * Deletes the list of the available sensors.
  *
+ * @instaging
  * @return
  * - LE_BAD_PARAMETER  Bad parameters.
  * - LE_OK             Succeeded.
@@ -472,6 +485,7 @@ FUNCTION le_result_t DeleteSensorList
  * advised to use this api before activating the sensor. The angle values should be in
  * range of [0 , 360] degrees.
  *
+ * @instaging
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -487,8 +501,9 @@ FUNCTION le_result_t SetRefCoordinateByEulerAngle
 
 //------------------------------------------------------------------------------------------------
 /**
- *  Sets the configuration and activate the sensor.
+ * Sets the configuration and activate the sensor.
  *
+ * @instaging
  * @return
  * - LE_UNSUPPORTED   Sampling rate or batch count not supported.
  * - LE_UNAVAILABLE   If sensor is activated.
@@ -506,8 +521,9 @@ FUNCTION le_result_t Activate
 
 //------------------------------------------------------------------------------------------------
 /**
- *  Deactivates the sensor.
+ * Deactivates the sensor.
  *
+ * @instaging
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -525,6 +541,7 @@ FUNCTION le_result_t Deactivate
  * for given sensor. If there are no active data acquisition sessions corresponding to sensor, then
  * the self test performed for given sensor.
  *
+ * @instaging
  * @return
  * - LE_NOT_SUPPORTED Not supported on target platform.
  * - LE_UNAVAILABLE   Previous self test info not available.
@@ -543,6 +560,8 @@ FUNCTION le_result_t SelfTest
 //------------------------------------------------------------------------------------------------
 /**
  * Handler for sensor data.
+ *
+ * @instaging
  */
 //------------------------------------------------------------------------------------------------
 HANDLER DataHandler
@@ -554,6 +573,8 @@ HANDLER DataHandler
 //------------------------------------------------------------------------------------------------
 /**
  * The sensor data event.
+ *
+ * @instaging
  */
 //------------------------------------------------------------------------------------------------
 EVENT Data
@@ -565,6 +586,8 @@ EVENT Data
 //------------------------------------------------------------------------------------------------
 /**
  * Handler for self test failure.
+ *
+ * @instaging
  */
 //------------------------------------------------------------------------------------------------
 HANDLER SelfTestFailedHandler
@@ -577,6 +600,8 @@ uint64 timestamp                                        IN  ///< Timestamp of se
 //------------------------------------------------------------------------------------------------
 /**
  * The sensor self test failed event.
+ *
+ * @instaging
  */
 //------------------------------------------------------------------------------------------------
 EVENT SelfTestFailed
@@ -587,8 +612,9 @@ SelfTestFailedHandler handler         ///< Self test event handler
 
 //-----------------------------------------------------------------------------------------------
 /**
- *  Gets the rotated raw data and bias of sensor.
+ * Gets the rotated raw data and bias of sensor.
  *
+ * @instaging
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -605,6 +631,7 @@ FUNCTION le_result_t GetRotatedData
 /**
  * Deletes the sample reference of sensor data.
  *
+ * @instaging
  * @return
  * - LE_BAD_PARAMETER  Bad parameters.
  * - LE_OK             Succeeded.
@@ -619,6 +646,7 @@ FUNCTION le_result_t DeleteData
 /**
  * Release the self test event reference.
  *
+ * @instaging
  * @return
  * - LE_BAD_PARAMETER  Bad parameters.
  * - LE_OK             Succeeded.

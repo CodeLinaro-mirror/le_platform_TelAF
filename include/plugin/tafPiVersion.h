@@ -58,6 +58,8 @@ typedef void (*TAF_PI_VERSION_INIT)(void);
 //--------------------------------------------------------------------------------------------------
 /**
  * Get version format.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 typedef uint32_t (*TAF_PI_VERSION_GET_FORMAT)(void);
@@ -65,6 +67,8 @@ typedef uint32_t (*TAF_PI_VERSION_GET_FORMAT)(void);
 //--------------------------------------------------------------------------------------------------
 /**
  * Get revision.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 typedef int (*TAF_PI_VERSION_GET_REVISION)(taf_pi_version_Comp_t component, char* versionPtr,

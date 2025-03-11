@@ -3,161 +3,180 @@
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#ifndef TAFPIDA_H
-#define TAFPIDA_H
+#ifndef TAFPIUA_H
+#define TAFPIUA_H
 
 #include "tafHalIF.hpp"
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Download agent module name.
+ * Update agent module name.
  */
 //--------------------------------------------------------------------------------------------------
-#define TAF_DA_MODULE_NAME "TafPiDA"
+#define TAF_UA_MODULE_NAME "TafPiUA"
 
-//--------------------------------------------------------------------------------------------------
+ //--------------------------------------------------------------------------------------------------
 /**
- * Download session reference.
- */
-//--------------------------------------------------------------------------------------------------
-typedef struct taf_pi_da_Session* taf_pi_da_SessionRef_t;
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Download status enum.
+ * Update agent type enum.
  */
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    TAF_PI_DA_STATUS_INIT,        ///< Download initialized.
-    TAF_PI_DA_STATUS_DOWNLOADING, ///< Downloading.
-    TAF_PI_DA_STATUS_PAUSED,      ///< Download paused.
-    TAF_PI_DA_STATUS_FINISH,      ///< Download finished.
-    TAF_PI_DA_STATUS_ERROR        ///< Download failed with error.
-} taf_pi_da_Status_t;
+    TAF_PI_UA_TYPE_DELTA_XDELTA, ///< Delta update with XDelta.
+    TAF_PI_UA_TYPE_DELTA_BSDIFF  ///< Delta update with bsdiff.
+} taf_pi_ua_UAType_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Initialize download agent.
+ * Update status enum.
  */
 //--------------------------------------------------------------------------------------------------
-typedef void (*TAF_PI_DA_INIT)(void);
+typedef enum
+{
+    TAF_PI_UA_STATUS_INIT,     ///< Update initialized.
+    TAF_PI_UA_STATUS_UPDATING, ///< Updating.
+    TAF_PI_UA_STATUS_PAUSED,   ///< Update paused.
+    TAF_PI_UA_STATUS_FINISH,   ///< Update finished.
+    TAF_PI_UA_STATUS_ERROR     ///< Update failed with error.
+} taf_pi_ua_Status_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get download session.
+ * Update session reference.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct taf_pi_ua_Session* taf_pi_ua_SessionRef_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Initialize update agent.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*TAF_PI_UA_INIT)(void);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get update session.
  *
- * @param[in]  confFile Download session configuration file.
- * @param[out] sessRef  Download session reference.
+ * @instaging
+ * @param[in]  confFile Update session configuration file.
+ * @param[out] sessRef  Update session reference.
  *
  * @return
  * - 0      -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-typedef int (*TAF_PI_DA_GET_SESSION)(const char* confFile, taf_pi_da_SessionRef_t* sessRef);
+typedef int (*TAF_PI_UA_GET_SESSION)(const char* confFile, taf_pi_ua_SessionRef_t* sessRef);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Start download.
+ * Get update agent type.
  *
- * @param[in] sessRef  Download session reference.
+ * @instaging
+ * @param[in] sessRef Update session reference.
+ * @param[out] uaType Updater agent type.
  *
  * @return
  * - 0      -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-typedef int (*TAF_PI_DA_START)(taf_pi_da_SessionRef_t sessRef);
+typedef int (*TAF_PI_UA_GET_UA_TYPE)(taf_pi_ua_SessionRef_t sessRef, taf_pi_ua_UAType_t* uaType);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Pause download.
+ * Start install package
  *
- * @param[in] sessRef Download session reference.
+ * @instaging
+ * @param[in]  sessRef Update session reference.
+ * @param[in]  pkgFile Package file for installation.
  *
  * @return
  * - 0      -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-typedef int (*TAF_PI_DA_PAUSE)(taf_pi_da_SessionRef_t sessRef);
+typedef int (*TAF_PI_UA_START_INSTALL)(taf_pi_ua_SessionRef_t sessRef, const char* pkgFile);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Resume download.
+ * Pause installation
  *
- * @param[in] sessRef Download session reference.
+ * @instaging
+ * @param[in]  sessRef Update session reference.
  *
  * @return
  * - 0      -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-typedef int (*TAF_PI_DA_RESUME)(taf_pi_da_SessionRef_t sessRef);
+typedef int (*TAF_PI_UA_PAUSE_INSTALL)(taf_pi_ua_SessionRef_t sessRef);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Cancel download.
+ * Resume installation
  *
- * @param[in] sessRef Download session reference.
+ * @instaging
+ * @param[in]  sessRef Update session reference.
  *
  * @return
  * - 0      -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-typedef int (*TAF_PI_DA_CANCEL)(taf_pi_da_SessionRef_t sessRef);
+typedef int (*TAF_PI_UA_RESUME_INSTALL)(taf_pi_ua_SessionRef_t sessRef);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get download progress.
+ * Get update progress.
  *
- * @param[in]  sessRef Download session reference.
- * @param[out] status  Download status.
- * @param[out] percent Download percentage.
- * @param[out] error   Error code in download process
+ * @instaging
+ * @param[in]  sessRef Update session reference.
+ * @param[out] status  Update status.
+ * @param[out] percent Update percentage.
+ * @param[out] error   Error code in update process.
  *
  * @return
  * - 0      -- Succeeded.
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-typedef int (*TAF_PI_DA_GET_PROGRESS)(taf_pi_da_SessionRef_t sessRef,
-    taf_pi_da_Status_t* status, int* percent, int* error);
+typedef int (*TAF_PI_UA_GET_PROGRESS)(taf_pi_ua_SessionRef_t sessRef, taf_pi_ua_Status_t* status,
+    int* percent, int* error);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Download agent information structure.
+ * Update agent information structure.
  */
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
     // Initialization.
-    TAF_PI_DA_INIT init;
+    TAF_PI_UA_INIT init;
 
-    // Download session.
-    TAF_PI_DA_GET_SESSION getSess;
+    // Update session.
+    TAF_PI_UA_GET_SESSION getSess;
+    TAF_PI_UA_GET_UA_TYPE getUAType;
 
-    // Download action.
-    TAF_PI_DA_START startDownload;
-    TAF_PI_DA_PAUSE pauseDownload;
-    TAF_PI_DA_RESUME resumeDownload;
-    TAF_PI_DA_CANCEL cancelDownload;
+    // Update action.
+    TAF_PI_UA_START_INSTALL startInstall;
+    TAF_PI_UA_PAUSE_INSTALL pauseInstall;
+    TAF_PI_UA_RESUME_INSTALL resumeInstall;
 
-    // Download status.
-    TAF_PI_DA_GET_PROGRESS getProgress;
-} da_Inf_t;
+    // Update status.
+    TAF_PI_UA_GET_PROGRESS getProgress;
+} ua_Inf_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Download agent information table structure.
+ * Update agent information table structure.
  */
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
     TAF_HAL_MGR_INF_t mgrInf; ///< Device manager information.
-    da_Inf_t daInf;           ///< Download agent information.
-} da_InfoTab_t;
+    ua_Inf_t uaInf;           ///< Update agent information.
+} ua_InfoTab_t;
 
 #endif

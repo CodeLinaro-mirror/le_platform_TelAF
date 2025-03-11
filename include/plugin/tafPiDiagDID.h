@@ -27,10 +27,11 @@ typedef void (*INIT)(void);
 /**
  * Handler to return the value of getting DID request.
  *
- *  @param    dataID      DID
- *  @param    value       Value of the DID
- *  @param    len         Length of the DID value
- *  @param    result      Returned error code of getting DID value
+ * @instaging
+ * @param    dataID      DID
+ * @param    value       Value of the DID
+ * @param    len         Length of the DID value
+ * @param    result      Returned error code of getting DID value
  *
  * @return void
  *
@@ -48,8 +49,9 @@ typedef void (*TAF_PI_DIAGDID_GETHANDLER)
 /**
  * Gets DID value asynchronously.
  *
- *  @param    dataID      DID
- *  @param    handler     Callback handler
+ * @instaging
+ * @param    dataID      DID
+ * @param    handler     Callback handler
  *
  * @return
  *      result of registering call back
@@ -65,8 +67,9 @@ typedef le_result_t (*TAF_PI_DIAGDID_GETASYNC)
 /**
  * Hander to return the result of setting DID request.
  *
- *  @param    dataID     DID
- *  @param    result     Returned error code of setting DID value
+ * @instaging
+ * @param    dataID     DID
+ * @param    result     Returned error code of setting DID value
  *
  * @return void
  *
@@ -82,9 +85,10 @@ typedef void (*TAF_PI_DIAGDID_SETHANDLER)
 /**
  * Sets DID value asynchronously.
  *
- *  @param    dataID      DID
- *  @param    context     Handler function context
- *  @param    handler     Callback handler
+ * @instaging
+ * @param    dataID      DID
+ * @param    context     Handler function context
+ * @param    handler     Callback handler
  *
  * @return
  *      result of registering call back
@@ -102,9 +106,10 @@ typedef le_result_t (*TAF_PI_DIAGDID_SETASYNC)
 /**
  * Handler to notify the changed DID and its value.
  *
- *  @param    dataID      Changed DID
- *  @param    value       Value of the DID
- *  @param    len         Length of the DID value
+ * @instaging
+ * @param    dataID      Changed DID
+ * @param    value       Value of the DID
+ * @param    len         Length of the DID value
  *
  * @return void
  *
@@ -123,7 +128,8 @@ typedef void (*TAF_PI_DIAGDID_DATACHANGECALLBACK)
  * (To specify by default, no DID changes will be notified until service calls this API to add the
  * DID in the whitelist.)
  *
- *  @param    callback    Callback function pointer for notification
+ * @instaging
+ * @param    callback    Callback function pointer for notification
  * @return
  *      result for adding the handler
  */
@@ -137,7 +143,8 @@ typedef le_result_t (*TAF_PI_DIAGDID_ADDDATACHANGEHANDLER)
 /**
  * Add DID for data change notification
  *
- *  @param    dataID     Specified DID that is added for notification
+ * @instaging
+ * @param    dataID     Specified DID that is added for notification
  * @return
  *      result for adding the DID for notification
  */
@@ -151,7 +158,8 @@ typedef le_result_t (*TAF_PI_DIAGDID_ADDDATACHANGENOTIFICATION)
 /**
  * Remove DID for data change notification
  *
- *  @param    dataID      Specified DID that is removed for notification
+ * @instaging
+ * @param    dataID      Specified DID that is removed for notification
  * @return
  *      result for removing the DID for notification
  */

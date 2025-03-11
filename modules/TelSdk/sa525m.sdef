@@ -155,7 +155,6 @@ interfaceSearch:
     $TELAF_ROOT/interfaces/tafVNW
     $TELAF_ROOT/interfaces/staging
     $TELAF_ROOT/apps/tafMngdServices/interfaces
-    $TELAF_ROOT/apps/tafMngdServices/interfaces/staging
     $TELAF_ROOT/interfaces/tafDiagBackend
     interfaces/positioning
     $LEGATO_ROOT/apps/sample/voiceCallApp

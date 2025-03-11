@@ -30,6 +30,8 @@ typedef void (*pi_cfgStor_init_t)(void);
 //--------------------------------------------------------------------------------------------------
 /**
  * Authenticate file.
+ *
+ * @instaging
  * @param
  *      filePath    File to be authenticated
  *
@@ -46,6 +48,8 @@ typedef le_result_t (*pi_cfgStor_auth_t)
 //--------------------------------------------------------------------------------------------------
 /**
  * Merge file.
+ *
+ * @instaging
  * @param
  *      outputFilePath    - the output file
  *      configFilePath    - the file to be merged

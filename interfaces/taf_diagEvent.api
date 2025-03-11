@@ -183,6 +183,7 @@ REFERENCE Service;
  * Gets the reference to a Event Management service, if there is no Event Management service, a new
  * one will be created.
  *
+ * @instaging
  * @return
  *     - Reference to the service instance.
  *     - NULL if not allowed to create the service.
@@ -198,6 +199,7 @@ FUNCTION Service GetService
 /**
  * Gets the event ID for the given event reference.
  *
+ * @instaging
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameter.
@@ -214,6 +216,7 @@ FUNCTION le_result_t GetId
 /**
  * Sets the event status.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid service reference.
@@ -231,6 +234,7 @@ FUNCTION le_result_t SetStatus
 /**
  * Sets the event status with supplier fault code.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid service reference.
@@ -249,6 +253,7 @@ FUNCTION le_result_t SetStatusWithSupplierFaultCode
 /**
  * Gets the event UDS status.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid service reference.
@@ -266,6 +271,7 @@ FUNCTION le_result_t GetUdsStatus
 /**
  * Resets the debounce status.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid service reference.
@@ -282,6 +288,8 @@ FUNCTION le_result_t ResetDebounceStatus
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a UDS status.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER UdsStatusHandler
@@ -293,6 +301,8 @@ HANDLER UdsStatusHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * This event provides information on UDS status.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 EVENT UdsStatus
@@ -304,6 +314,8 @@ EVENT UdsStatus
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a Enable Condition state.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER EnableCondStateHandler
@@ -315,6 +327,8 @@ HANDLER EnableCondStateHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * This event provides information on Enable Condition state.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 EVENT EnableCondState
@@ -327,6 +341,7 @@ EVENT EnableCondState
 /**
  * Sets the state of an operation cycle.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_FAULT -- Failed.
@@ -343,6 +358,7 @@ FUNCTION le_result_t SetOperationCycleState
 /**
  * Removes the Event Management service.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_FAULT -- Failed.

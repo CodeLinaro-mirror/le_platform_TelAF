@@ -161,6 +161,7 @@ BITMASK ManagedCapMask
  *
  * The created data will be owned by the calling app.
  *
+ * @instaging
  * @return
  *     - LE_OK             Sent request successfully.
  *     - LE_BAD_PARAMETER  The storage name is invalid.
@@ -177,6 +178,7 @@ FUNCTION le_result_t CreateStorage
  * Gets the storage reference for the storage name. The storage name shall follow POSIX folder file name
  * convention.
  *
+ * @instaging
  * @return
  *     - Storage    New storage reference.
  *     - NULL       Invalid storage name, or the storage name does not exist.
@@ -191,6 +193,7 @@ FUNCTION Storage GetStorageRef
 /**
  * Sends the request to unlock the storage.
  *
+ * @instaging
  * @return
  *     - LE_OK             Sent request successfully.
  *     - LE_BAD_PARAMETER  The storage reference is invalid.
@@ -206,6 +209,7 @@ FUNCTION le_result_t UnlockStorage
 /**
  * Sends the request to lock the storage.
  *
+ * @instaging
  * @return
  *     - LE_OK             Sent request successfully.
  *     - LE_BAD_PARAMETER  The storage reference is invalid.
@@ -221,6 +225,7 @@ FUNCTION le_result_t LockStorage
 /**
  * Imports the source file to the storage.
  *
+ * @instaging
  * @return
  *     - LE_OK             Imported successfully.
  *     - LE_BAD_PARAMETER  The source file path or the target file patch is invalid.
@@ -240,6 +245,7 @@ FUNCTION le_result_t ImportFile
 /**
  * Reads the file from the storage.
  *
+ * @instaging
  * @return
  *     - LE_OK             Sent request successfully.
  *     - LE_BAD_PARAMETER  The file path is invalid.
@@ -258,6 +264,7 @@ FUNCTION le_result_t ReadFile
 /**
  * Deletes the file from the storage.
  *
+ * @instaging
  * @return
  *     - LE_OK             Sent request successfully.
  *     - LE_BAD_PARAMETER  The file path is invalid.
@@ -275,6 +282,7 @@ FUNCTION le_result_t DeleteFile
 /**
  * Gets the file storage base path.
  *
+ * @instaging
  * @return
  *     - LE_OK             Sent request successfully.
  *     - LE_BAD_PARAMETER  The given storage reference is invalid.
@@ -291,6 +299,7 @@ FUNCTION le_result_t GetBasePath
 /**
  * Deletes the file storage. The storage needs to be cleaned up before deletion.
  *
+ * @instaging
  * @return
  *     - LE_OK             Sent request successfully.
  *     - LE_BAD_PARAMETER  The given storage reference is invalid.

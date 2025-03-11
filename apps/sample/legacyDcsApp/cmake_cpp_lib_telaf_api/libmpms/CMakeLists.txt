@@ -9,7 +9,7 @@ set(TELAF_INTERFACES  $ENV{TELAF_INTERFACES})
 find_package(Legato REQUIRED)
 
 # include the service which is using
-generate_client(${TELAF_ROOT}/apps/tafMngdServices/interfaces/staging/taf_mngdPm.api)
+generate_client(${TELAF_ROOT}/apps/tafMngdServices/interfaces/taf_mngdPm.api)
 
 add_library(mpmsAdaptor SHARED mpmsAdaptor.cpp
  ${CMAKE_CURRENT_BINARY_DIR}/taf_mngdPm_client.c

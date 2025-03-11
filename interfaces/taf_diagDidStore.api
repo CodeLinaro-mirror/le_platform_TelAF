@@ -9,6 +9,8 @@
  *
  * @rst :ref:`API reference <File taf_diagDidStore_interface.h>` @endrst
  *
+ * @rst :ref:`Plugin APIs <File tafPiDiagDID.h>` @endrst
+ *
  * <HR>
  *
  * The diag DataIDStore service provides APIs for read, write and DID change notification.
@@ -53,6 +55,7 @@ REFERENCE Service;
 /**
  * Gets the reference of a DataIDStorg service.
  *
+ * @instaging
  * @return
  *     - Reference to the service instance.
  *     - NULL if errors.
@@ -67,12 +70,14 @@ FUNCTION Service GetService
 /**
  * Gets the data record of the data ID.
  *
+ * @note The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid MsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Read
@@ -86,12 +91,14 @@ FUNCTION le_result_t Read
 /**
  * Writes the data record to given data ID.
  *
+ * @note The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid MsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Write
@@ -104,6 +111,8 @@ FUNCTION le_result_t Write
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a Data ID change notification.
+ *
+ * @instaging
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER DataIdChangeHandler
@@ -115,6 +124,8 @@ HANDLER DataIdChangeHandler
 //-------------------------------------------------------------------------------------------------
 /**
  * This event provides information about the Data ID change notification.
+ *
+ * @instaging
  */
 //-------------------------------------------------------------------------------------------------
 EVENT DataIdChange

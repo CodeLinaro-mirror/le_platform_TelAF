@@ -167,11 +167,13 @@ REFERENCE RxMsg;
  * Gets the reference to a InputOutputControlByIdentifier service, if there is no
  * InputOutputControlByIdentifier service, a new one will be created.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - Reference to the service instance.
  *     - NULL if not allowed to create the service.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
@@ -185,12 +187,14 @@ FUNCTION Service GetService
  * If the VLAN ID is not found or does not existed, it will return an error.
  * This function shall be called before registering RxMsgHandler.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_UNSUPPORTED -- VLAN ID is unknown.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetVlanId
@@ -202,6 +206,8 @@ FUNCTION le_result_t SetVlanId
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a Rx InputOutputControlByIdentifier message.
+ *
+ * @instaging
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER RxMsgHandler
@@ -214,6 +220,8 @@ HANDLER RxMsgHandler
 //-------------------------------------------------------------------------------------------------
 /**
  * This event provides information on Rx InputOutputControlByIdentifier message.
+ *
+ * @instaging
  */
 //-------------------------------------------------------------------------------------------------
 EVENT RxMsg
@@ -226,12 +234,14 @@ EVENT RxMsg
 /**
  * Gets the control state of the Rx input output control parameter.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCtrlState
@@ -244,12 +254,14 @@ FUNCTION le_result_t GetCtrlState
 /**
  * Gets the control enable mask record of the Rx InputOutputControlByIdentifier message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCtrlEnableMaskRecd
@@ -262,12 +274,14 @@ FUNCTION le_result_t GetCtrlEnableMaskRecd
 /**
  * Gets the VLAN ID of the Rx InputOutputControlByIdentifier message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- VLAN ID not found.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetVlanIdFromMsg
@@ -280,15 +294,17 @@ FUNCTION le_result_t GetVlanIdFromMsg
 /**
  * Sends a response message for the Rx InputOutputControlByIdentifier message.
  *
- * @note This function must be called to send a response if receiving a message.
+ * @b NOTE: This function must be called to send a response if receiving a message.
  *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
- * @note The process exits if an invalid reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendResp
@@ -302,6 +318,7 @@ FUNCTION le_result_t SendResp
 /**
  * Removes the InputOutputControlByIdentifier server service.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid svcRef.

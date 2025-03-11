@@ -31,4 +31,4 @@ target_include_directories(TafPiDiagDID_shared_lib PUBLIC "${TELAF_ROOT}/include
 target_include_directories(TafPiDiagDID_shared_lib PUBLIC "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(TafPiDiagDID_shared_lib PUBLIC "${PROJECT_SOURCE_DIR}")
 target_include_directories(TafPiDiagDID_shared_lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
-target_include_directories(TafPiDiagDID_shared_lib PUBLIC "${TELAF_ROOT}/include/staging/plugin")
+target_include_directories(TafPiDiagDID_shared_lib PUBLIC "${TELAF_ROOT}/include/plugin")

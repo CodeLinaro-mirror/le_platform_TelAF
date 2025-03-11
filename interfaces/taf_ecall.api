@@ -74,6 +74,8 @@
  *
  * @rst :ref:`API reference <File taf_ecall_interface.h>` @endrst
  *
+ * @rst :ref:`HAL APIs <File tafHalECall.h>` @endrst
+ *
  * <HR>
  *
  * eCall is a technology initiative intended to bring rapid assistance to automotive accidents

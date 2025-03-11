@@ -38,6 +38,8 @@
  *
  * @rst :ref:`API reference <File taf_audio_interface.h>` @endrst
  *
+ * @rst :ref:`HAL APIs <File tafHalAudio.h>` @endrst
+ *
  * <HR>
  *
  * The Audio service APIs help to do audio operations on the NAD/TCU.

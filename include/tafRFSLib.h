@@ -80,8 +80,9 @@ typedef enum
 /**
  * Callback for response of file robustness functions.
  *
- *  @param    error         Error code
- *  @param    filePathPtr   Error to the file
+ * @instaging
+ * @param    error         Error code
+ * @param    filePathPtr   Error to the file
  *
  * @return
  */
@@ -96,8 +97,9 @@ typedef void (*taf_rfs_ErrorHandler_t)
 /**
  * Initializes RFS component.
  *
- *  @param    enableBackup  Enable backup mechanism or not
- *  @param    callback      Callback function to respond error occurrence
+ * @instaging
+ * @param    enableBackup  Enable backup mechanism or not
+ * @param    callback      Callback function to respond error occurrence
  *
  * @return
  *      Result for initialization
@@ -112,6 +114,8 @@ LE_SHARED le_result_t taf_rfs_Init
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets backup storage for RFS component.
+ *
+ * @instaging
  * @param
  *      filePathPtr  Path name of backup storage
  *
@@ -128,6 +132,7 @@ LE_SHARED le_result_t taf_rfs_SetBackupStorage
 /**
  * Sets backup storage capacity for RFS component.
  *
+ * @instaging
  * @param     maxFileSizeBytes Max file size in byte
  * @param     maxFileCount     Max file count in backup storage
  *
@@ -145,9 +150,10 @@ LE_SHARED le_result_t taf_rfs_SetBackupCapacity
 /**
  * Opens a file and returns a file descriptor.
  *
- *  @param    filePathPtr   Path name of file
- *  @param    flags         File open flags
- *  @param    mode          File open mode
+ * @instaging
+ * @param    filePathPtr   Path name of file
+ * @param    flags         File open flags
+ * @param    mode          File open mode
  *
  * @return
  *      The non-negative integer on successful open, others for failed
@@ -163,6 +169,8 @@ LE_SHARED int taf_rfs_Open
 //--------------------------------------------------------------------------------------------------
 /**
  * Closes the opened file descriptor.
+ *
+ * @instaging
  * @param
  *      fd    Opened file descriptor
  *
@@ -179,9 +187,10 @@ LE_SHARED int taf_rfs_Close
 /**
  * Reads data with specified length for an opened file descriptor.
  *
- *  @param    fd       Opened file descriptor
- *  @param    butPtr   Buffer to save the read data
- *  @param    sizePtr  Maximal length of data buffer
+ * @instaging
+ * @param    fd       Opened file descriptor
+ * @param    butPtr   Buffer to save the read data
+ * @param    sizePtr  Maximal length of data buffer
  *
  * @return
  *      The actual read data length
@@ -198,9 +207,10 @@ LE_SHARED int taf_rfs_Read
 /**
  * Writes data with specified length for an opened file descriptor.
  *
- *  @param    fd       Opened file descriptor
- *  @param    butPtr   Buffer to be written
- *  @param    sizePtr  Buffer length
+ * @instaging
+ * @param    fd       Opened file descriptor
+ * @param    butPtr   Buffer to be written
+ * @param    sizePtr  Buffer length
  *
  * @return
  *      The actual written data length
@@ -216,6 +226,8 @@ LE_SHARED int taf_rfs_Write
 //--------------------------------------------------------------------------------------------------
 /**
  * Deletes a file.
+ *
+ * @instaging
  * @param
  *      filePathPtr    Path name of file
  *
@@ -232,8 +244,9 @@ LE_SHARED void taf_rfs_Delete
 /**
  * Copy a file.
  *
- *  @param    sourcePath  Source file path
- *  @param    destPath    Destination file path
+ * @instaging
+ * @param    sourcePath  Source file path
+ * @param    destPath    Destination file path
  *
  * @return
  *      Zero on successful copy, others to indicate errno
@@ -249,8 +262,9 @@ LE_SHARED int taf_rfs_Copy
 /**
  * Rename a file.
  *
- *  @param    sourcePath  Source file path
- *  @param    destPath    Destination file path
+ * @instaging
+ * @param    sourcePath  Source file path
+ * @param    destPath    Destination file path
  *
  * @return
  *      Zero on successful copy, others to indicate errno

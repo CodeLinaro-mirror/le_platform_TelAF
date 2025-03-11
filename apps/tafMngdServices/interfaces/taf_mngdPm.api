@@ -38,6 +38,8 @@
  *
  * @rst :ref:`API reference <File taf_mngdPm_interface.h>` @endrst
  *
+ * @rst :ref:`HAL APIs <File tafHalPM.h>` @endrst
+ *
  * <HR>
  *
  * The Managed Power Management service APIs help to manage power on the NAD/TCU.
@@ -472,6 +474,8 @@ REFERENCE nodePowerState;
 
 /**
  * Handler for async shutdown request.
+ *
+ * @instaging
  */
 HANDLER AsyncShutdownReqHandler
 (
@@ -491,6 +495,8 @@ ENUM RestartMode
 
 /**
  * Handler for async restart request.
+ *
+ * @instaging
  */
 HANDLER AsyncRestartReqHandler
 (
@@ -501,6 +507,8 @@ HANDLER AsyncRestartReqHandler
 
 /**
  * Handler for async Wake up Vehicle request.
+ *
+ * @instaging
  */
 HANDLER AsyncWakeupVehicleReqHandler
 (
@@ -519,6 +527,8 @@ STRUCT StateInd
 
 /**
  * Handler for state change.
+ *
+ * @instaging
  */
 HANDLER StateChangeHandler
 (
@@ -527,6 +537,8 @@ HANDLER StateChangeHandler
 
 /**
  * State change event.
+ *
+ * @instaging
  */
 EVENT StateChange
 (
@@ -535,6 +547,8 @@ EVENT StateChange
 
 /**
  * Handler for information report.
+ *
+ * @instaging
  */
 HANDLER InfoReportHandler
 (
@@ -543,6 +557,8 @@ HANDLER InfoReportHandler
 
 /**
  * Information data report event.
+ *
+ * @instaging
  */
 EVENT InfoReport
 (
@@ -552,6 +568,8 @@ EVENT InfoReport
 
 /**
  * Handler for node power state change.
+ *
+ * @instaging
  */
 HANDLER NodePowerStateChangeHandler
 (
@@ -562,6 +580,8 @@ HANDLER NodePowerStateChangeHandler
 
 /**
  * State change event.
+ *
+ * @instaging
  */
 EVENT NodePowerStateChange
 (
@@ -574,6 +594,8 @@ EVENT NodePowerStateChange
 /**
  * Sets the targeted power mode for the node.
  * Node will initiate the requested power state once all wake sources are released.
+ *
+ * @instaging
  * @return
  *     - LE_OK             Successfully sets the targeted power mode.
  *     - LE_BAD_PARAMETER  The given pmNodeId is invalid.
@@ -590,6 +612,7 @@ FUNCTION le_result_t SetNodeTargetedPowerMode
 /**
  * Forcefully shuts down the system.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
@@ -607,6 +630,7 @@ FUNCTION le_result_t ShutdownReqAsync
 /**
  * Forcefully restarts the system.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
@@ -624,6 +648,7 @@ FUNCTION le_result_t RestartReqAsync
 /**
  * Request for the vehicle wakeup with wake up reason.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
@@ -640,6 +665,7 @@ FUNCTION le_result_t WakeupVehicleReqAsync
 /**
  * Creates a new wake lock reference.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
@@ -657,6 +683,7 @@ FUNCTION ws NewNodeWakeupSource (
  * Sets the allowed Modem wakeup source type.
  * Currently the SMS, incoming call, and MCU_VHAL sources are supported to be set.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_BAD_PARAMETER  Invalid wakeupSource type.
@@ -672,6 +699,7 @@ FUNCTION le_result_t SetModemWakeupSource (
 /**
  * Releases the acquired wake source.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_FAULT          Failed to send the request.
@@ -685,6 +713,7 @@ FUNCTION le_result_t RelaxNode (
 /**
  * Acquires the wake source to keep the node awake.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_FAULT          Failed to send the request.
@@ -697,6 +726,8 @@ FUNCTION le_result_t StayAwakeNode(
 //--------------------------------------------------------------------------------------------------
 /**
  * Initiates the forceful shutdown for the given node.
+ *
+ * @instaging
  * @return
  *     - LE_OK             Successfully shuts down for the given node.
  *     - LE_BAD_PARAMETER  The given pmNodeId is invalid.
@@ -712,6 +743,7 @@ FUNCTION le_result_t ShutdownNode
 /**
  * Initiates the forceful restart for the given node.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully restarts for the given node.
  *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
@@ -726,6 +758,7 @@ FUNCTION le_result_t RestartNode
 /**
  * Gets the status information report based on the given report ID.
  *
+ * @instaging
  * @return
  *     - LE_OK             Succeed.
  *     - LE_BAD_PARAMETER  Invalid report ID.
@@ -741,6 +774,7 @@ FUNCTION le_result_t GetInfoReport
 /**
  * Sends the acknowledgement for the node power state change notification.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully restarts for the given node.
  *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
@@ -758,6 +792,7 @@ FUNCTION le_result_t SendNodePowerStateChangeAck
 /**
  * Authorize the StayAwake reasons with bit mask.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully authorize the StayAwake reason bitmask.
  *     - LE_BAD_PARAMETER  Invalid requested StayAwake reason bitmask.
@@ -774,6 +809,7 @@ FUNCTION le_result_t AuthorizeStayAwakeReason
 /**
  * Creates a new wake lock reference with given StayAwakeReason.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
@@ -791,6 +827,7 @@ FUNCTION ws CreateWakeupSource (
 /**
  * Releases the acquired wake source.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_FAULT          Failed to send the request.
@@ -804,6 +841,7 @@ FUNCTION le_result_t Relax (
 /**
  * Acquires the wake source to keep the node awake.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_FAULT          Failed to send the request.

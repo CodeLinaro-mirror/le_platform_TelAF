@@ -262,6 +262,7 @@ STRUCT SharedAppInfo
 /**
  * Gets the used size of the storage in bytes.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_BAD_PARAMETER  Invalid size buffer.
@@ -277,6 +278,7 @@ FUNCTION le_result_t GetUsedSize
 /**
  * Gets the free size of the storage in bytes.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_BAD_PARAMETER  Invalid size buffer.
@@ -295,6 +297,7 @@ FUNCTION le_result_t GetFreeSize
  *
  * The created data will be owned by the calling app.
  *
+ * @instaging
  * @return
  *     - Date       New data reference.
  *     - NULL       Invalid data name, or the data name already exists.
@@ -310,6 +313,7 @@ FUNCTION le_result_t CreateData
  * Gets the data reference for the data label. The label name shall follow POSIX portable file name
  * convention.
  *
+ * @instaging
  * @return
  *     - Date       Data reference.
  *     - NULL       Invalid data label, or the data label does not exist.
@@ -324,6 +328,7 @@ FUNCTION Data GetDataRef
 /**
  * Starts writing data operation for the data.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully initializes the operation.
  *     - LE_BAD_PARAMETER  The given data label is invalid.
@@ -340,6 +345,7 @@ FUNCTION le_result_t WriteDataStart
  * Processes writing data operation for the data chunk. This API can be called for multiple times if
  * the size of written data is greater than MAX_DATA_CHUNK_SIZE.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully processes the operation.
  *     - LE_BAD_PARAMETER  The given data label is invalid.
@@ -356,6 +362,7 @@ FUNCTION le_result_t WriteDataChunk
 /**
  * Ends writing data operation for the data.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully ends the operation.
  *     - LE_BAD_PARAMETER  The given data label is invalid.
@@ -371,6 +378,7 @@ FUNCTION le_result_t WriteDataEnd
 /**
  * Reads the first chunk from the given data item.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully reads the data.
  *     - LE_BAD_PARAMETER  The given data label is invalid.
@@ -388,6 +396,7 @@ FUNCTION le_result_t ReadDataFirstChunk
  * Reads the next data chunk from the given data item. To get the entire data, the client should
  * keep calling this API after calling ReadDataFirstChunk(), until the return output length is 0.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully reads the data.
  *     - LE_BAD_PARAMETER  The given data label is invalid.
@@ -405,6 +414,7 @@ FUNCTION le_result_t ReadDataNextChunk
  * Gets the data size for the given data item in bytes. If the data item is empty, the returned data
  * size will be 0.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully deletes the data.
  *     - LE_BAD_PARAMETER  The given data label is invalid.
@@ -423,6 +433,7 @@ FUNCTION le_result_t GetDataSize
  *
  * Only the data owner app is allowed to delete the data.
  *
+ * @instaging
  * @return
  *     - LE_OK             Successfully deletes the data.
  *     - LE_BAD_PARAMETER  The given data label is invalid.
@@ -446,6 +457,7 @@ FUNCTION le_result_t DeleteData
  * app, it is necessary to call CancelDataSharing() to cancel the sharing and call ShareData() again
  * to set up the new data usage.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameter(s).
@@ -465,6 +477,7 @@ FUNCTION le_result_t ShareData
 /**
  * Cancels the data sharing. Only the data owner app can cancel the data sharing.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameter(s).
@@ -484,6 +497,7 @@ FUNCTION le_result_t CancelDataSharing
 /**
  * Gets the first application that the given data is shared to.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameter(s).
@@ -503,6 +517,7 @@ FUNCTION le_result_t GetFirstSharedApp
 /**
  * Gets the next application that the given data is shared to.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameter(s).
@@ -522,6 +537,8 @@ FUNCTION le_result_t GetNextSharedApp
 /**
  * Handler for data state change.
  *
+ * @instaging
+ *
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER DataStateChangeHandler
@@ -539,6 +556,7 @@ HANDLER DataStateChangeHandler
  * The handler will be also triggered on registration if the required data has already been shared to the
  * calling application before.
  *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 EVENT DataStateChange

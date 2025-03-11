@@ -215,6 +215,8 @@ typedef void (*INIT)(void);
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the vehicle information of eCall MSD from the vehicle.
+ *
+ * @instaging
  * @param
  *      vehInfo        - Vehicle information
  *
@@ -230,6 +232,8 @@ typedef le_result_t (*TAF_HAL_ECALL_GETVEHICLEINFO)
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the vehicle information of eCall MSD from the vehicle.
+ *
+ * @instaging
  * @param
  *      actType        - Activate type
  *
@@ -245,6 +249,8 @@ typedef le_result_t (*TAF_HAL_ECALL_GETACTIVATETYPE)
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the passenger count of eCall MSD from the vehicle.
+ *
+ * @instaging
  * @param
  *      passCount        - Passenger count
  *
@@ -260,6 +266,8 @@ typedef le_result_t (*TAF_HAL_ECALL_GETPASSENGERCOUNT)
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the impact of location of eCall MSD from the vehicle.
+ *
+ * @instaging
  * @param
  *      iILocations        - Location of impact
  *
@@ -275,6 +283,8 @@ typedef le_result_t (*TAF_HAL_ECALL_GETIILOCATIONS)
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the rollover detected of eCall MSD from the vehicle.
+ *
+ * @instaging
  * @param
  *      rollDetected        - Rollover detected information
  *
@@ -290,6 +300,8 @@ typedef le_result_t (*TAF_HAL_ECALL_GETROLLOVERDETECTED)
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the deltaV of eCall MSD from the vehicle.
+ *
+ * @instaging
  * @param
  *      deltaV         - DeltaV information
  *

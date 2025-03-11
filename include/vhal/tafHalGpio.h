@@ -56,6 +56,8 @@ typedef void (*INIT)(void);
 //--------------------------------------------------------------------------------------------------
 /**
  * Releases the allocated resources
+ *
+ * @instaging
  * @param
  *
  * @return
@@ -67,6 +69,8 @@ typedef void (*RELEASE)(void);
 //--------------------------------------------------------------------------------------------------
 /**
  * Send sleep request to device.
+ *
+ * @instaging
  * @param
  *
  * @return
@@ -78,6 +82,8 @@ typedef void (*TAF_HAL_GPIO_SLEEP)(void);
 //--------------------------------------------------------------------------------------------------
 /**
  * Send wake-up request to device.
+ *
+ * @instaging
  * @param
  *
  * @return
@@ -89,11 +95,13 @@ typedef void (*TAF_HAL_GPIO_WAKEUP)(void);
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets GPIO pins number
+ *
+ * @instaging
  * @param
  *
  * @return
  *      returns the number of available GPIOs in the device
- * 
+ *
  * @note
  *      the number has to be consective, returning 1 means gpio number 0 and 1 is available.
  *
@@ -105,7 +113,9 @@ typedef size_t (*TAF_HAL_GPIO_GETTOTALGPIOPINS)
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Hander to get gpio pin state change 
+ * Hander to get gpio pin state change
+ *
+ * @instaging
  * @param
  *      pinNum      - pin number with state change
  *      edgeType    - edge type for the state change
@@ -123,6 +133,8 @@ typedef void (*TAF_HAL_GPIO_GPIOHANDLER)
 //--------------------------------------------------------------------------------------------------
 /**
  * Registers callback for pin state change with the input edge type
+ *
+ * @instaging
  * @param
  *      pinNum      - pin number for which callback needs to be registered
  *      edgeType    - edge type to trigger callback
@@ -142,6 +154,8 @@ typedef le_result_t (*TAF_HAL_GPIO_REGISTERCALLBACK)
 //--------------------------------------------------------------------------------------------------
 /**
  * Remove callback for the requested pin and edge type
+ *
+ * @instaging
  * @param
  *      pinNum      - requested pin number
  *      edgeType    - requested edge type
@@ -159,6 +173,8 @@ typedef le_result_t (*TAF_HAL_GPIO_REMOVECALLBACK)
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets direction for requested pin number
+ *
+ * @instaging
  * @param
  *      pinNum      - requested pin number
  *
@@ -174,6 +190,8 @@ typedef taf_hal_gpio_Direction (*TAF_HAL_GPIO_GETDIRECTION)
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets polarity for requested output pin number
+ *
+ * @instaging
  * @param
  *      pinNum      - requested pin number
  *
@@ -189,6 +207,8 @@ typedef taf_hal_gpio_ActiveType_t (*TAF_HAL_GPIO_GETPOLARITY)
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets polarity for requested output pin number
+ *
+ * @instaging
  * @param
  *      pinNum      - requested pin number
  *      type        - polarity
@@ -206,6 +226,8 @@ typedef le_result_t (*TAF_HAL_GPIO_SETPOLARITY)
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets direction for requested pin number
+ *
+ * @instaging
  * @param
  *      pinNum      - requested pin number
  *      direction   - direction
@@ -223,6 +245,8 @@ typedef le_result_t (*TAF_HAL_GPIO_SETDIRECTION)
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets state for the requested input pin number
+ *
+ * @instaging
  * @param
  *      pinNum      - requested pin number
  *
@@ -238,6 +262,8 @@ typedef taf_hal_gpio_State (*TAF_HAL_GPIO_GETSTATE)
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets state for the requested output pin number
+ *
+ * @instaging
  * @param
  *      pinNum      - requested pin number
  *      state       - state that is needed to be written
@@ -255,6 +281,8 @@ typedef le_result_t (*TAF_HAL_GPIO_SETOUTPUTSTATE)
 //--------------------------------------------------------------------------------------------------
 /**
  * Set detection mode of edge type for the requested input pin number
+ *
+ * @instaging
  * @param
  *      pinNum      - requested pin number
  *      edge        - edge type
@@ -272,6 +300,8 @@ typedef le_result_t (*TAF_HAL_GPIO_SETEDGESENSE)
 //--------------------------------------------------------------------------------------------------
 /**
  * Get detection mode of edge type for the requested input pin number
+ *
+ * @instaging
  * @param
  *      pinNum      - requested pin number
  *      edge        - edge type
@@ -288,6 +318,8 @@ typedef taf_hal_gpio_Edge (*TAF_HAL_GPIO_GETEDGESENSE)
 //--------------------------------------------------------------------------------------------------
 /**
  * Disable detection mode of edge type for the input pin number
+ *
+ * @instaging
  * @param
  *      pinNum      - requested pin number
  *      edge        - edge type
@@ -304,6 +336,8 @@ typedef le_result_t (*TAF_HAL_GPIO_DISABLEEDGESENSE)
 //--------------------------------------------------------------------------------------------------
 /**
  * Get alias name for the requested output pin number
+ *
+ * @instaging
  * @param
  *      pinNum      - pin number for which name is needed
  *

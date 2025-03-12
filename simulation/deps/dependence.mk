@@ -160,6 +160,9 @@ vsomeip_: _cmake _boost
 	  && cd $(SIMULATION_DEPS_SOURCE) \
 	  && tar xfz $(_VSOMEIP_VERSION) && mv $(VSOMEIP_VERSION) $@
 #-> 3. [compile]
+	$Q echo "[$@] patch to  support multiple routing managers in single process"
+	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
+	&& patch -p1 < $(SIMULATION_HOME)/deps/patches/0001-Fix-bug-to-support-multiple-routing-managers.patch
 	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
 	  && echo "[$@] configure firstly" \
 	    && mkdir -p build && cd build \
@@ -167,6 +170,7 @@ vsomeip_: _cmake _boost
 	      -DBoost_INCLUDE_DIR=$(SIMULATION_DEPS_ROOTFS)/include \
 	      -DBoost_LIBRARY_DIR=$(SIMULATION_DEPS_ROOTFS)/lib \
 	      -DENABLE_SIGNAL_HANDLING=1 \
+	      -DENABLE_MULTIPLE_ROUTING_MANAGERS=1 \
 	      -DCMAKE_INSTALL_PREFIX=$(SIMULATION_DEPS_ROOTFS) -DCMAKE_PREFIX_PATH=$(SIMULATION_DEPS_ROOTFS) .. > ./__config.log 2>&1 \
 	  && echo "[$@] compiling ..." \
 	    && $(SIMULATION_HOST_XTOOLS)/bin/cmake --build . -- -j $(shell nproc) > ./__build.log 2>&1

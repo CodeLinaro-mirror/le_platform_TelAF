@@ -110,7 +110,7 @@ telux::common::ServiceStatus taf_Sensor::SensorManagerInit(taf_SensorClient_t* c
         clientRequestPtr->SensorOnEventId, taf_Sensor::DataEventHandler);
     le_result_t result = InitializeSensorList(clientRequestPtr);
     if(result != LE_OK){
-        LE_INFO("SensorClients created succesfully");
+        LE_INFO("SensorList created succesfully");
     }
     }else{
         LE_INFO("Sensor manager already initialized");
@@ -543,9 +543,7 @@ le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
     LE_INFO("Start: sensorClientPtr %p, sensorClientPtr->sessionRef %p, num of active client %d",
             clientRequestPtr, clientRequestPtr->sessionRef, mClientRefCount);
     taf_SensorInfo_t* sensorPtr = (taf_SensorInfo_t*)le_ref_Lookup(tSensorInfoMap, sensorRef);
-    LE_INFO("sensor pointer finding");
     TAF_ERROR_IF_RET_VAL(sensorPtr == NULL,LE_FAULT,"Invalid reference (%p) provided!",sensorPtr);
-    LE_INFO("sensor pointer found");
     telux::common::Status status = telux::common::Status::FAILED;
     status = clientRequestPtr->mSensorManager->getSensorClient(
         clientRequestPtr->selfTestClient,sensorPtr->name);
@@ -588,7 +586,6 @@ le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
     if(status == telux::common::Status::SUCCESS){
         std::future<le_result_t> futResult = p1.get_future();
         //wait for result with 3 second time out.
-        LE_INFO("Waiting for result");
         if(futResult.wait_for(std::chrono::seconds(3)) == std::future_status::ready){
             le_result_t selfResult = futResult.get();
             if(selfResult != LE_OK){
@@ -612,13 +609,11 @@ le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
         clientRequestPtr->selfTestClient = NULL;
         return LE_FAULT;
     }
-    LE_INFO("successfully initiated self test wait for callback");
     clientRequestPtr->selfTestClient = NULL;
     return LE_OK;
 }
 
 void taf_Sensor::FirstLayerSelfTestHandler(void* reportPtr,void* secondLayerHandlerFunc){
-    LE_INFO("FirstLayerSelfTestHandler");
     taf_SensorSelfTest_t* ptr = (taf_SensorSelfTest_t*) reportPtr;
     TAF_ERROR_IF_RET_NIL(ptr == NULL,"ptr is NULL");
     taf_imuSensor_SelfTestFailedHandlerFunc_t clientHandlerFunc =
@@ -629,7 +624,7 @@ void taf_Sensor::FirstLayerSelfTestHandler(void* reportPtr,void* secondLayerHand
 taf_imuSensor_SelfTestFailedHandlerRef_t taf_Sensor::AddSelfTestFailedHandler
     (taf_imuSensor_SensorRef_t sensorRef,taf_imuSensor_SelfTestFailedHandlerFunc_t handlerPtr,
     void* contextPtr){
-    LE_INFO("AddSelfTestFailedHandler1");
+    LE_DEBUG("AddSelfTestFailedHandler");
     le_event_HandlerRef_t handlerRef;
     TAF_KILL_CLIENT_IF_RET_VAL(handlerPtr == NULL, NULL, "Handler pointer is NULL");
     taf_SensorClient_t* clientRequestPtr = NULL;
@@ -653,7 +648,6 @@ void taf_Sensor::RemoveSelfTestFailedHandler(taf_imuSensor_SelfTestFailedHandler
 
 void tafSensorListener::onSelfTestFailed(){
     LE_INFO("onSelfTestFailed");
-    LE_DEBUG("onSelfTestFailed for *sessionRef: %p", *clientSessionRef);
     auto &sensorMngr = taf_Sensor::GetInstance();
     taf_SensorClient_t* clientRequestPtr = NULL;
     clientRequestPtr = sensorMngr.DiscoverSessionRef(*clientSessionRef);
@@ -751,7 +745,6 @@ void tafSensorListener::onEvent(std::shared_ptr<std::vector<SensorEvent>> events
     }
     le_mutex_Lock(clientRequestPtr->mSensorMutexRef);
     if(sensorMngr.numofSensorEventHandlers){
-        LE_INFO("onEvent numofEventHandler %d",sensorMngr.numofSensorEventHandlers);
         taf_SensorEventList_t* triggeredSensorEvent =
             (taf_SensorEventList_t*)le_mem_ForceAlloc(sensorMngr.tSensorEventPool);
         for (SensorEvent s : *(events.get())){
@@ -779,9 +772,6 @@ void tafSensorListener::onEvent(std::shared_ptr<std::vector<SensorEvent>> events
         }
         triggeredSensorEvent->eventList.push_back(eventData);
     }
-    LE_DEBUG("Event Recieved for %s  %" PRIu64 ", %" PRIu64 "",
-        clientRequestPtr->currentSensorClient->getSensorInfo().name.c_str(),
-        events->at(0).timestamp,events->at(events->size()-1).timestamp);
     triggeredSensorEvent->sensorRef = clientRequestPtr->CurrentSensorRef;
     triggeredSensorEvent->listSize = events->size();
     triggeredSensorEvent->sessionRef = clientRequestPtr->sessionRef;
@@ -793,9 +783,8 @@ void tafSensorListener::onEvent(std::shared_ptr<std::vector<SensorEvent>> events
 }
 
 void tafSensorListener::onConfigurationUpdate(SensorConfiguration configuration){
-    LE_INFO("onConfigurationUpdate");
-    auto &sensorMngr = taf_Sensor::GetInstance();
     LE_DEBUG("onConfiguration for *sessionRef: %p", *clientSessionRef);
+    auto &sensorMngr = taf_Sensor::GetInstance();
     taf_SensorClient_t* clientRequestPtr = NULL;
     clientRequestPtr = sensorMngr.DiscoverSessionRef(*clientSessionRef);
     if (NULL == clientRequestPtr) {
@@ -816,7 +805,7 @@ void tafSensorListener::onConfigurationUpdate(SensorConfiguration configuration)
 
 le_result_t taf_Sensor::GetData( taf_imuSensor_SampleRef_t eventList,taf_imuSensor_DataValue_t*
     RawData,size_t* RawDataSizePtr,taf_imuSensor_DataValue_t*BiasData,size_t* BiasDataSizePtr){
-    LE_DEBUG("GetData");
+    LE_DEBUG("GetData of list with ref %p",eventList);
     taf_SensorEventInfo_t* ptr =
     (taf_SensorEventInfo_t*)le_ref_Lookup(tSensorEventMap,eventList);
     TAF_ERROR_IF_RET_VAL(ptr == NULL, LE_NOT_FOUND,
@@ -839,7 +828,7 @@ le_result_t taf_Sensor::GetData( taf_imuSensor_SampleRef_t eventList,taf_imuSens
 }
 
 le_result_t taf_Sensor::DeleteData(taf_imuSensor_SampleRef_t eventListRef){
-    LE_INFO("DeleteData of list with ref %p",eventListRef);
+    LE_DEBUG("DeleteData of list with ref %p",eventListRef);
     TAF_ERROR_IF_RET_VAL(eventListRef == nullptr,LE_BAD_PARAMETER,"Null reference(eventListRef)");
     taf_SensorEventInfo_t* listPtr =
         (taf_SensorEventInfo_t*)le_ref_Lookup(tSensorEventMap,eventListRef);

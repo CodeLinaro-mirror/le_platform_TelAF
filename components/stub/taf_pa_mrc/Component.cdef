@@ -1,0 +1,9 @@
+sources:
+{
+    taf_pa_mrc_qmi.cpp
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+}

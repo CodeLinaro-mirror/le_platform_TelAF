@@ -64,6 +64,13 @@ extern "C"
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Page size.
+ */
+//--------------------------------------------------------------------------------------------------
+#define TAF_LIB_FLASH_PAGE_SIZE 0x1000
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Bank enum.
  */
 //--------------------------------------------------------------------------------------------------
@@ -257,6 +264,23 @@ le_result_t taf_lib_flash_ReadPartition
     uint8_t *dataPtr,                        ///< [OUT] Buffer read from partition.
     size_t *sizePtr,                         ///< [INOUT] Buffer size.
     int *errCode                             ///< [OUT] Error code.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check if a page is erased.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_IsPageErased
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
+    uint32_t page,                           ///< [IN] Page index.
+    bool *erasedPtr                          ///< [OUT] Is page erased.
 );
 
 //--------------------------------------------------------------------------------------------------

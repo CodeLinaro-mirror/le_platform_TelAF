@@ -84,6 +84,77 @@ le_result_t taf_Mrc::SendOtaMsg(taf_MrcOtaMsgType_t type)
     return LE_OK;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler preference for operation status.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_pa_mrc_OpStatusHandlerRef_t taf_Mrc::opStatusHandlerRef = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Platform event thread.
+ */
+//--------------------------------------------------------------------------------------------------
+void* taf_Mrc::PAEventThread
+(
+    void* contextPtr ///< [IN] Context
+)
+{
+    opStatusHandlerRef = taf_pa_mrc_AddOpStatusHandler(OpStatusHandler, NULL);
+    le_sem_Post((le_sem_Ref_t)contextPtr);
+
+    le_event_RunLoop();
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for operation status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Mrc::OpStatusHandler
+(
+    taf_pa_mrc_OperationIndication_t* indPtr, ///< [IN] Indication for operation status.
+    void* contextPtr                          ///< [IN] Context.
+)
+{
+    auto &tafMrc = taf_Mrc::GetInstance();
+
+    switch (indPtr->status)
+    {
+        case TAF_PA_MRC_OP_STATUS_SUCCESS:
+            LE_INFO("MRC indicates operation is Successful.");
+            break;
+        case TAF_PA_MRC_OP_STATUS_FAILURE:
+            LE_ERROR("MRC indicates operation is Failed.");
+            break;
+        default:
+            LE_WARN("MRC indicates operation is Unknown.");
+            break;
+    }
+
+    switch (indPtr->operation)
+    {
+        case TAF_PA_MRC_OP_OTA_START:
+            LE_INFO("MRC indicates OTA Started.");
+            break;
+        case TAF_PA_MRC_OP_OTA_RESUME:
+            LE_INFO("MRC indicates OTA resumed.");
+            break;
+        case TAF_PA_MRC_OP_OTA_END:
+            LE_INFO("MRC indicates OTA ended.");
+            break;
+        case TAF_PA_MRC_OP_ABSYNC:
+            LE_INFO("MRC indicates AB sync.");
+            le_sem_Post(tafMrc.syncSem);
+            break;
+        default:
+            LE_WARN("MRC indicates Unknown operation.");
+            break;
+    }
+}
+
 void taf_Mrc::Init(void)
 {
     // 1. Get platform factory.
@@ -110,4 +181,35 @@ void taf_Mrc::Init(void)
     // 5. Create the listener object and register as a listener.
     otaOperationsListener = std::make_shared<taf_MrcOtaOperationsListener>();
     fsManager->registerListener(otaOperationsListener);
+
+    syncSem = le_sem_Create("syncSem", 0);
+    le_result_t result = taf_pa_mrc_Initialize(TAF_MRC_SVC_READY_TIMEOUT, TAF_MRC_MSG_RESP_TIMEOUT);
+    if (result != LE_OK)
+    {
+        paReady = false;
+        LE_WARN("Fail to initialize MRC platform adaptor.");
+    }
+    else
+    {
+        result = taf_pa_mrc_IndicationRegistration(TAF_PA_MRC_IND_BIT_MASK_OTA_ABSYNC_STATUS
+            | TAF_PA_MRC_IND_BIT_MASK_IMMINENT, 1);
+        if (result != LE_OK)
+        {
+            paReady = false;
+            LE_ERROR("Fail to register MRC indications.");
+        }
+        else
+        {
+            // Create thread for platform adaptor event.
+            le_sem_Ref_t semaphore = le_sem_Create("PAEventThreadSem", 0);
+            le_thread_Ref_t threadRef = le_thread_Create("PAEventThread", PAEventThread, (void*)semaphore);
+            le_thread_Start(threadRef);
+            le_sem_Wait(semaphore);
+            le_sem_Delete(semaphore);
+
+            paReady = true;
+            LE_INFO("MRC platform adaptor is ready.");
+        }
+       
+    }
 }

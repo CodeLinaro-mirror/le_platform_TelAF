@@ -1297,6 +1297,7 @@ static void SecAcc_DelayTimerHandler(le_timer_Ref_t timerRef)
     LE_INFO("report -> DELAY_TIMER_EXPIRED_SIG");
     SecAccReport_t report = {
         .type = DELAY_TIMER_EXPIRED_SIG,
+        .sem = NULL,
         .mgr = object->mMgr,
     };
     le_event_Report(SecAccEventIdRef, &report, sizeof(report));

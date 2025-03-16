@@ -27,6 +27,10 @@ endif
 # SDK configurations
 include config.mk
 
+default:
+	@echo "Nothing to do, without any target"
+
+# Diagnostic Gen-Tool sub-makefile
 include $(TELAF_ROOT)/apps/tools/tafDiagGen/dgtool.mk
 
 $(TARGETS):

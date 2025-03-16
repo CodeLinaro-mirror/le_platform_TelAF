@@ -93,10 +93,6 @@ ifneq ($(TELAF_SIMULATION_ENABLE_RPC),n)
   TELAF_SIMULATION_ENABLE_SOMEIP_GW := y
 endif
 
-ifneq ($(TELAF_SIMULATION_ENABLE_DIAG),n)
-export TELAF_SIMULATION_DIAG_SINC ?= $(TELAF_ROOT)/simulation/diag.sinc
-endif
-
 SIMULATION_SOMEIP_GW_DEPS_y := _vsomeip
 SIMULATION_COMMON_API_DEPS_y := _capi_core_rt _capi_someip_rt _capi_tools
 SIMULATION_DEPS += \
@@ -162,11 +158,6 @@ endif
 	                                -C $(SIMULATION_HOME)/deps taf_rootfs
 ifneq ($(CHECK_SDK_ROOTFS),n)
 	$Q tar rf $(SIMULATION_TARBALL) --transform 's/rootfs/sdk_rootfs/' -C $(sdk_rootfs)/../ rootfs
-endif
-ifneq ($(TELAF_SIMULATION_ENABLE_DIAG),n)
-	$Q cp $(TELAF_ROOT)/apps/tools/diag/diag_test_38_36_37.py $(SIMULATION_WORKDIR)/
-else
-	$Q if [ -e "$(SIMULATION_WORKDIR)/diag_test_38_36_37.py" ]; then rm -f $(SIMULATION_WORKDIR)/diag_test_38_36_37.py ; fi
 endif
 	$Q gzip -f $(SIMULATION_TARBALL)
 	$Q echo "[Simulation]: Tarball $(SIMULATION_TARBALL).gz done."

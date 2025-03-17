@@ -3656,6 +3656,8 @@ le_result_t taf_Time::WriteValidtyToSecStorage(taf_SourceInf_t* sourcePtr, bool 
         LE_DEBUG("Cannot end writing validity in secure storage.");
         return res;
     }
+    LE_DEBUG("Validity %d for %s written to secore storage sucessfully.",
+        validityToSet, SourceNameIndexToStr(sourcePtr->sourceId));
     return res;
 }
 
@@ -3727,12 +3729,21 @@ le_result_t taf_Time::SetValidity
             ReportValidityChange(sourcePtr);
         }
     }
-    if(sourcePtr->sourceId == TAF_TIME_SRC_NAME_EX_APP &&
-       LatestTimeSourceInfo->systemSourceId == TAF_TIME_SRC_NAME_EX_APP &&
-       LatestTimeSourceInfo->sourceValidity != sourcePtr->sourceValidity)
+    //if ExApp/RTC has set the system time and client has registered for
+    //validity change event for SYSTEM then report the change.
+    if((LatestTimeSourceInfo->systemSourceId == sourcePtr->sourceId) &&
+       (LatestTimeSourceInfo->sourceValidity != sourcePtr->sourceValidity))
     {
+        //Change the validity and write to MSS
         LatestTimeSourceInfo->sourceValidity = sourcePtr->sourceValidity;
         WriteValidtyToSecStorage(LatestTimeSourceInfo, LatestTimeSourceInfo->sourceValidity);
+
+        //Report event if registered
+        if(LatestTimeSourceInfo->handlerFunc != NULL &&
+            LatestTimeSourceInfo->eventType == TAF_TIME_STATUS_EVENT_VALIDITY)
+        {
+            ReportValidityChange(LatestTimeSourceInfo);
+        }
     }
     return LE_OK;
 }

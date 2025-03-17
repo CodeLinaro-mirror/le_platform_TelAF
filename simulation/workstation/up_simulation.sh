@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 if [[ "$0" = "$BASH_SOURCE" ]]; then
@@ -14,11 +14,11 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     # Once again to ensure the 'ssh-server' to be accessed normally
     export TELAF_IN_CONTAINER=yes
 
-    PATH=/legato/systems/current/bin:$PATH
-    PATH=/legato/taf_rootfs/bin:$PATH
-    PATH=/legato/sdk_rootfs/bin:$PATH
-    PATH=/venv/bin:$PATH
-    export PATH
+    # Modify global environment variables for all users
+    TOP_ENV=/etc/environment
+    echo 'PATH="/legato/systems/current/bin:/legato/taf_rootfs/bin:/legato/sdk_rootfs/bin:/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"' >> $TOP_ENV
+    echo 'TELAF_IN_CONTAINER=yes' >> $TOP_ENV
+    source "$TOP_ENV"
 
     source $HOME/simulation/framework/environ.sh
 
@@ -122,9 +122,18 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     groupadd sensors
 
     # Create some default users
+    useradd -m --shell /bin/bash tafcore
     useradd -M --no-log-init --shell /bin/bash telaf
     useradd -M --no-log-init --shell /bin/bash appdefault
     useradd -M --no-log-init --gid root --shell /bin/bash securityunpack
+
+    usermod -aG root tafcore
+    usermod -aG tafcore root
+
+    # Add 'tafcore' to sudoer list
+    echo 'tafcore:simula' | chpasswd
+    echo "tafcore ALL=(ALL:ALL) ALL" >> /etc/sudoers
+    echo 'tafcore ALL=(ALL:ALL) NOPASSWD: /usr/sbin/setcap' >> /etc/sudoers
 
     echo "/mnt/legato/system/lib" > /tmp/ld.so.conf
 
@@ -149,6 +158,12 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     # Also be used for syslog tag
     hostname simulation
 
+    # Maping 'simulation' to localhost
+    echo '127.0.1.1   simulation' >> /etc/hosts
+
+    # Initialize the 'locale' for system
+    echo 'LANG="en_US.UTF-8"' >> /etc/default/locale
+
     # Busybox syslogd on Ubuntu
     /sbin/syslogd -C20000
 
@@ -165,6 +180,7 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     mkdir -p /data/le_fs
     mkdir -p /data/persist
     mkdir -p /data/ManagedServices
+
     chmod 0777 /data/le_fs
 
     MOUNTPOINT_TELAF="/mnt/legato"

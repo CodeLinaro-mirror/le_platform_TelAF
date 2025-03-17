@@ -1926,28 +1926,56 @@ void tafMngdConnAdmin::EventDataDisconnected(uint8_t dataId)
 {
     LE_DEBUG("EventDataDisconnected-Start");
     mcs_DataCtx_t* dataCtxPtr = NULL;
-
+    auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
     dataCtxPtr = GetDataCtx(dataId);
     if(dataCtxPtr == NULL)
     {
         LE_ERROR("Can't find the context for dataId(%d)", dataId);
         return;
     }
+
+
+    LE_DEBUG("AdminState : %d(%s)", dataCtxPtr->adminState,
+                                    mngdConnAdmin.StateToString(dataCtxPtr->adminState));
+
+    stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT,0};
     //Do action according to the current state.
     switch(dataCtxPtr->adminState)
     {
         // Data disconnected from ACTIVE state
         case MCS_DATA_NOT_CONNECTED_INACTIVE_RETRYING:
-        case MCS_DATA_CONNECTED_ACTIVE:
-        {
+
+            //No need to check for autoStart as this will come in case of StartDataRetryAppReq
+            //So we directly go for retrying state
             dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_RETRYING;
             LE_INFO("Data call disconnected, retrying");
             ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
             // Send MCS_EVT_DATA_START_RETRY event to the admin to handle accordingly
-            stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT,0};
+
             stateMachineEvt.event = MCS_EVT_DATA_START_RETRY;
             stateMachineEvt.dataId = dataCtxPtr->dataId;
             le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+            break;
+
+        case MCS_DATA_CONNECTED_ACTIVE:
+        {
+            // Check if autoStart is true before starting the retry mechanism
+            if (dataCtxPtr->autoStart)
+            {
+                dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_RETRYING;
+                LE_INFO("Data call disconnected, retrying");
+                ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
+                // Send MCS_EVT_DATA_START_RETRY event to the admin to handle accordingly
+                stateMachineEvt.event = MCS_EVT_DATA_START_RETRY;
+                stateMachineEvt.dataId = dataCtxPtr->dataId;
+                le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+            }
+            else
+            {
+                // If autoStart is false, do not start the retry mechanism
+                dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED;
+                ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
+            }
             break;
         }
     // If DataStartConnectionTest fails, we stop the data and then let the state handler to retry

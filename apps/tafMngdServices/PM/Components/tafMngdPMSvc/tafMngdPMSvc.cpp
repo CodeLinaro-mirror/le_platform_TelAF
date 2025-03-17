@@ -5,9 +5,6 @@
 
 #include "tafMngdPMSvc.hpp"
 #include "tafMngdPMCommon.hpp"
-#include "can/tafMngdPMCan.hpp"
-#include "sms/tafMngdPMSms.hpp"
-#include "gpio/tafMngdPMGpio.hpp"
 #include "rpcPm/tafMngdRpcPm.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -1256,22 +1253,6 @@ COMPONENT_INIT
         LE_ERROR("Exception while parsing the ParseJsonConfiguration");
     }
 
-    try
-    {
-        le_result_t res = tafMngdPMSvc::ParseJsonConfig(TAF_MNGDPM_CONFIG_PATH);
-        if (res == LE_OK)
-        {
-            LE_INFO("Successfully parsed the JSON");
-        }
-        else
-        {
-            LE_ERROR("Failed to parse the JSON");
-        }
-    }
-    catch (const std::exception &e)
-    {
-        LE_ERROR("Exception while parsing the JSON");
-    }
     mpms.wsRefPool = le_mem_CreatePool("tafwsRefList", sizeof(taf_wsRefCtx_t));
     mpms.wsRefList = LE_DLS_LIST_INIT;
     mpms.wsRefMap = le_ref_CreateMap("tafwsRef", TAF_REF_POOL_SIZE);

@@ -43,7 +43,7 @@ provides:
 {
     api:
     {
-        taf_time.api [direct]
+         taf_time.api  [manual-start]
     }
 }
 

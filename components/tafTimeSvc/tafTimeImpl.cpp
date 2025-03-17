@@ -2280,6 +2280,16 @@ void taf_Time::InitializeSystemTimeAttr(le_result_t connectStatus)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Advertising time service to clients.
+ */
+//--------------------------------------------------------------------------------------------------
+void AdvertiseTimeService()
+{
+    taf_time_AdvertiseService();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Active time related tasks according to the JSON configuration.
  *
  * @return
@@ -2416,7 +2426,8 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
     {
         LE_WARN("No time source found\n");
     }
-
+    le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+        (le_event_DeferredFunc_t)AdvertiseTimeService,NULL, NULL);
     le_event_RunLoop();
 
     LE_WARN("Warning: SyncTimeTasks exit!\n");
@@ -3792,6 +3803,8 @@ void taf_Time::Init(void)
         TimeSourceConf.printSourceDetails();
     }
 
+    mainThreadRef = le_thread_GetCurrent();
+
     // 3. Create thread for runtime sync time.
     le_thread_Ref_t threadRunTimeSyncRef = le_thread_Create("SyncTimeThread", SyncTimeTasks, NULL);
     le_thread_Start(threadRunTimeSyncRef);
@@ -3805,7 +3818,6 @@ void taf_Time::Init(void)
     le_event_AddHandler("TimeSourceStatusHandlerRef",
         timeSourceStatusEventId, timeSourceStatusHandler);
 
-    mainThreadRef = le_thread_GetCurrent();
     if(access(TAF_TIME_DELTA_TIME_DIR, F_OK) != -1)
     {
         UpdateDeltaTimeToRAM();

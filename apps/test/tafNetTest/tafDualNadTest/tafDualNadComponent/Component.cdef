@@ -13,8 +13,6 @@ requires:
         rpc_taf_dcs = taf_dcs.api [manual-start]
         taf_mdc.api
         rpc_taf_mdc = taf_mdc.api [manual-start]
-        taf_netIpPass.api
-        rpc_taf_netIpPass = taf_netIpPass.api [manual-start]
     }
 }
 

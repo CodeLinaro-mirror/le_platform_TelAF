@@ -920,10 +920,10 @@ taf_net_VlanRef_t taf_net_CreateVlan
  *          LE_FAULT                    Failed to set priority to a VLAN.
  *
  */
-le_result_t taf_netIpPass_SetVlanNetworkType
+le_result_t taf_net_SetVlanNetworkType
 (
     taf_net_VlanRef_t vlanRef,
-    taf_netIpPass_NetworkType_t nwType
+    taf_net_NetworkType_t nwType
 )
 {
     auto &tafVlan = taf_Vlan::GetInstance();
@@ -945,10 +945,10 @@ le_result_t taf_netIpPass_SetVlanNetworkType
  *          LE_FAULT                    Failed to set priority to a VLAN.
  *
  */
-le_result_t taf_netIpPass_SetVlanBackhaulType
+le_result_t taf_net_SetVlanBackhaulType
 (
     taf_net_VlanRef_t vlanRef,
-    taf_netIpPass_BackhaulType_t bhType
+    taf_net_BackhaulType_t bhType
 )
 {
     auto &tafVlan = taf_Vlan::GetInstance();
@@ -970,7 +970,7 @@ le_result_t taf_netIpPass_SetVlanBackhaulType
  *          LE_FAULT                    Failed to set priority to a VLAN.
  *
  */
-le_result_t taf_netIpPass_SetVlanBackhaulVlanId
+le_result_t taf_net_SetVlanBackhaulVlanId
 (
     taf_net_VlanRef_t vlanRef,
     uint16_t vlanId
@@ -995,7 +995,7 @@ le_result_t taf_netIpPass_SetVlanBackhaulVlanId
  *          LE_FAULT                    Failed to set priority to a VLAN.
  *
  */
-le_result_t taf_netIpPass_SetVlanBackhaulPhoneId
+le_result_t taf_net_SetVlanBackhaulPhoneId
 (
     taf_net_VlanRef_t vlanRef,
     uint8_t phoneId
@@ -1026,7 +1026,7 @@ le_result_t taf_netIpPass_SetVlanBackhaulPhoneId
  *          LE_FAULT                    Failed to set priority to a VLAN.
  *
  */
-le_result_t taf_netIpPass_SetVlanBackhaulProfileId
+le_result_t taf_net_SetVlanBackhaulProfileId
 (
     taf_net_VlanRef_t vlanRef,
     uint32_t profileId
@@ -1385,10 +1385,10 @@ le_result_t taf_net_IsVlanAccelerated
  *          LE_NOT_FOUND                VLAN is not present.
  *          LE_BAD_PARAMETER            Invalid parameter.
  */
-le_result_t taf_netIpPass_GetVlanNetworkType
+le_result_t taf_net_GetVlanNetworkType
 (
     taf_net_VlanEntryRef_t vlanEntryRef,
-    taf_netIpPass_NetworkType_t* nwType
+    taf_net_NetworkType_t* nwType
 )
 {
     auto &tafVlan = taf_Vlan::GetInstance();
@@ -1629,7 +1629,7 @@ void taf_net_RemoveVlanHwAccelerationStateHandler
  * @note  If bind VLAN with default profile id and phone id, the system will auto reboot after 5
  *        seconds
  */
- le_result_t taf_netIpPass_BindVlanWithBackhaul
+ le_result_t taf_net_BindVlanWithBackhaul
 (
     taf_net_VlanRef_t vlanRef
 )
@@ -1656,7 +1656,7 @@ void taf_net_RemoveVlanHwAccelerationStateHandler
  *
  * @note if unbind VLAN from default profile id, the system will auto reboot after 5 seconds
  */
-le_result_t taf_netIpPass_UnbindVlanFromBackhaul
+le_result_t taf_net_UnbindVlanFromBackhaul
 (
     taf_net_VlanRef_t vlanRef
 )
@@ -1670,7 +1670,7 @@ le_result_t taf_netIpPass_UnbindVlanFromBackhaul
     return result;
 }
 
-taf_netIpPass_InterfaceRef_t taf_netIpPass_GetInterface
+taf_net_InterfaceRef_t taf_net_GetInterface
 (
      taf_net_VlanIfType_t ifType
 )
@@ -1679,19 +1679,19 @@ taf_netIpPass_InterfaceRef_t taf_netIpPass_GetInterface
     return tafVlan.GetInterface(ifType);
 }
 
-le_result_t taf_netIpPass_RemoveInterface
+le_result_t taf_net_RemoveInterface
 (
-    taf_netIpPass_InterfaceRef_t interfaceRef
+    taf_net_InterfaceRef_t interfaceRef
 )
 {
     auto &tafVlan = taf_Vlan::GetInstance();
     return tafVlan.RemoveInterface(interfaceRef);
 }
 
-le_result_t taf_netIpPass_SetIPPTOperation
+le_result_t taf_net_SetIPPTOperation
 (
-    taf_netIpPass_InterfaceRef_t  interfaceRef,
-    taf_netIpPass_Operation_t  operation
+    taf_net_InterfaceRef_t  interfaceRef,
+    taf_net_Operation_t  operation
 )
 {
     le_result_t result;
@@ -1704,9 +1704,9 @@ le_result_t taf_netIpPass_SetIPPTOperation
 
 }
 
-le_result_t taf_netIpPass_SetIPPTDeviceMacAddress
+le_result_t taf_net_SetIPPTDeviceMacAddress
 (
-    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_net_InterfaceRef_t  interfaceRef,
     taf_net_VlanIfType_t ifType,
     const char *macAddr
 )
@@ -1738,9 +1738,9 @@ le_result_t taf_netIpPass_SetIPPTDeviceMacAddress
   *  - LE_BAD_PARAMETER -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_netIpPass_SetIPPassThroughConfig
+le_result_t taf_net_SetIPPassThroughConfig
 (
-    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_net_InterfaceRef_t  interfaceRef,
     uint16_t vlanid
 )
 {
@@ -1762,7 +1762,7 @@ le_result_t taf_netIpPass_SetIPPassThroughConfig
  *   - NULL -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-taf_netIpPass_InterfaceRef_t taf_netIpPass_GetIPPassThroughConfig
+taf_net_InterfaceRef_t taf_net_GetIPPassThroughConfig
 (
     uint16_t vlanId
 )
@@ -1771,10 +1771,10 @@ taf_netIpPass_InterfaceRef_t taf_netIpPass_GetIPPassThroughConfig
     return tafVlan.GetIPPassThroughConfig(vlanId);
 }
 
-le_result_t taf_netIpPass_GetIPPTOperation
+le_result_t taf_net_GetIPPTOperation
 (
-    taf_netIpPass_InterfaceRef_t interfaceRef,
-    taf_netIpPass_Operation_t*  operation
+    taf_net_InterfaceRef_t interfaceRef,
+    taf_net_Operation_t*  operation
 )
 {
     le_result_t result;
@@ -1787,9 +1787,9 @@ le_result_t taf_netIpPass_GetIPPTOperation
     return result;
 }
 
-le_result_t taf_netIpPass_GetIPPTDeviceMacAddress
+le_result_t taf_net_GetIPPTDeviceMacAddress
 (
-    taf_netIpPass_InterfaceRef_t interfaceRef,
+    taf_net_InterfaceRef_t interfaceRef,
     taf_net_VlanIfType_t *ifType,
     char *macAddr,
     size_t macAddrSize
@@ -1825,9 +1825,9 @@ le_result_t taf_netIpPass_GetIPPTDeviceMacAddress
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_netIpPass_SetIPConfig
+le_result_t taf_net_SetIPConfig
 (
-    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_net_InterfaceRef_t  interfaceRef,
     taf_net_NetIpType_t  ipType,
     taf_net_VlanIfType_t ifType,
     uint16_t vlanId
@@ -1842,11 +1842,11 @@ le_result_t taf_netIpPass_SetIPConfig
     return result;
 }
 
-le_result_t taf_netIpPass_SetIPConfigParams
+le_result_t taf_net_SetIPConfigParams
 (
-    taf_netIpPass_InterfaceRef_t  interfaceRef,
-    taf_netIpPass_IpAssignOperation_t ipOpr,
-    taf_netIpPass_IpAssignType_t ipType
+    taf_net_InterfaceRef_t  interfaceRef,
+    taf_net_IpAssignOperation_t ipOpr,
+    taf_net_IpAssignType_t ipType
 )
 {
     le_result_t result;
@@ -1858,10 +1858,10 @@ le_result_t taf_netIpPass_SetIPConfigParams
     return result;
 }
 
-le_result_t taf_netIpPass_SetIPConfigAddressParams
+le_result_t taf_net_SetIPConfigAddressParams
 (
-    taf_netIpPass_InterfaceRef_t  interfaceRef,
-    const taf_netIpPass_IpAddressInfo_t*  ipAddrInfo
+    taf_net_InterfaceRef_t  interfaceRef,
+    const taf_net_IpAddressInfo_t*  ipAddrInfo
 )
 {
     le_result_t result;
@@ -1888,11 +1888,11 @@ le_result_t taf_netIpPass_SetIPConfigAddressParams
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_netIpPass_GetIPConfigParams
+le_result_t taf_net_GetIPConfigParams
 (
-    taf_netIpPass_InterfaceRef_t vlanIPRef,
-    taf_netIpPass_IpAssignOperation_t* ipOpr,
-    taf_netIpPass_IpAssignType_t* ipType
+    taf_net_InterfaceRef_t vlanIPRef,
+    taf_net_IpAssignOperation_t* ipOpr,
+    taf_net_IpAssignType_t* ipType
 )
 {
     le_result_t result;
@@ -1905,10 +1905,10 @@ le_result_t taf_netIpPass_GetIPConfigParams
     return result;
 }
 
-le_result_t taf_netIpPass_GetIPConfigAddressParams
+le_result_t taf_net_GetIPConfigAddressParams
 (
-    taf_netIpPass_InterfaceRef_t vlanIPRef,
-    taf_netIpPass_IpAddressInfo_t*  ipAddrInfo
+    taf_net_InterfaceRef_t vlanIPRef,
+    taf_net_IpAddressInfo_t*  ipAddrInfo
 )
 {
     le_result_t result;
@@ -1919,7 +1919,7 @@ le_result_t taf_netIpPass_GetIPConfigAddressParams
     return result;
 }
 
-taf_netIpPass_InterfaceRef_t taf_netIpPass_GetIPConfig
+taf_net_InterfaceRef_t taf_net_GetIPConfig
 (
     taf_net_NetIpType_t  ipType,
     taf_net_VlanIfType_t ifType,
@@ -1940,7 +1940,7 @@ taf_netIpPass_InterfaceRef_t taf_netIpPass_GetIPConfig
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_netIpPass_GetIPPTNatConfig
+le_result_t taf_net_GetIPPTNatConfig
 (
     taf_net_VlanRef_t vlanRef,
     bool       *isNatEnabled       ///< True when NAT enabled.
@@ -1964,7 +1964,7 @@ le_result_t taf_netIpPass_GetIPPTNatConfig
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_netIpPass_SetIPPTNatConfig
+le_result_t taf_net_SetIPPTNatConfig
 (
     taf_net_VlanRef_t vlanRef,
     bool       isNatEnabled

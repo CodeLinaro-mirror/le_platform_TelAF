@@ -116,6 +116,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeIntTest
     // $TELAF_ROOT/apps/test/tafLXCIntTest/tafLXCIntTest.adef
     // $TELAF_ROOT/apps/test/tafHMSTest/tafHMSUnitTest
+    // $TELAF_ROOT/apps/test/tafHMSTest/tafHMSIntTest
     // $TELAF_ROOT/apps/test/tafWLAN/tafWLANUnitTest.adef
     // $TELAF_ROOT/apps/test/tafWLAN/tafWLANIntTest.adef
     // $TELAF_ROOT/apps/test/tafWLAN/tafWLANAPIntTest.adef

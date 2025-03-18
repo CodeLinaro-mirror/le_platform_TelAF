@@ -8,10 +8,6 @@
 
 #define NAME_SIZE 32
 
-taf_hms_ModemEvtHandlerRef_t modemStatusHandlerRef = NULL;
-le_sem_Ref_t semRef;
-uint8_t modemEventCounter = 0;
-
 /*======================================================================
  FUNCTION        TestGetCPULoad
  DESCRIPTION     Get current CPU Load API test
@@ -221,34 +217,18 @@ void ModemStatusHandler
         ModemEventTypeToStr(eventType), ModemEventLevelToStr(eventLevel), eventRef);
     le_result_t result = taf_hms_ReleaseModemEvt(eventRef);
     LE_TEST_OK(result == LE_OK, "taf_hms_ReleaseModemEvt - LE_OK.");
-    modemEventCounter++;
-    if(modemEventCounter == 10)
-    {
-        le_sem_Post(semRef);
-    }
 }
 
-void* Test_taf_Hms_AddModemEvtHandler(void* cxtPtr)
+void TestModemEventHandlerRegistration()
 {
-    taf_hms_ConnectService();
-    //Check with valid callback function
-    modemStatusHandlerRef = taf_hms_AddModemEvtHandler(
+    taf_hms_ModemEvtHandlerRef_t modemStatusHandlerRef = taf_hms_AddModemEvtHandler(
         (taf_hms_ModemEvtHandlerFunc_t)ModemStatusHandler, NULL);
 
     LE_TEST_OK(modemStatusHandlerRef != NULL, "taf_Hms_AddModemEvtHandler - OK for !NULL Ref");
-    le_event_RunLoop();
-    return NULL;
 
-}
-
-void CreateThreadForModemMonitor(void)
-{
-    semRef = le_sem_Create("ModemCrashMonitor", 0);
-    le_thread_Ref_t threadRef = le_thread_Create("ModemCrashMonitorThread",
-        Test_taf_Hms_AddModemEvtHandler, (void*)semRef);
-    le_thread_Start(threadRef);
-    le_sem_Wait(semRef);
-    le_sem_Delete(semRef);
+    taf_hms_RemoveModemEvtHandler(modemStatusHandlerRef);
+    LE_TEST_OK(true, "taf_hms_RemoveModemStatusHandler - void");
+    LE_INFO("===== UnitTest Completed for registering Modem event handler =====");
 }
 
 
@@ -265,10 +245,7 @@ COMPONENT_INIT
 
     Test_taf_Hms_MtdDevInfo();
 
-    CreateThreadForModemMonitor();
-
-    taf_hms_RemoveModemEvtHandler(modemStatusHandlerRef);
-    LE_TEST_OK(true, "taf_hms_RemoveModemStatusHandler - void");
+    TestModemEventHandlerRegistration();
 
     LE_INFO("---------- All Tests Complete --------------------------");
     exit(EXIT_SUCCESS);

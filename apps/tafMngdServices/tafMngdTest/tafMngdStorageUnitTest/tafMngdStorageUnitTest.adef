@@ -3,13 +3,13 @@ sandboxed: false
 
 executables:
 {
-    tafMngdSecDataStorageUnitTest =
+    tafMngdSecData =
             ($TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSecDataStorageUnitTestComp)
 
-    tafMngdCfgStorageUnitTest =
+    tafMngdCfg =
             ($TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdCfgStorageUnitTestComp)
 
-    tafMngdSecFileStorageUnitTest =
+    tafMngdSecFile =
             ($TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSecFileStorageUnitTestComp)
 
 }
@@ -30,8 +30,8 @@ processes:
 
 bindings:
 {
-    tafMngdCfgStorageUnitTest.tafMngdCfgStorageUnitTestComp.taf_mngdStorCfg -> tafMngdStorageSvc.taf_mngdStorCfg
-    tafMngdSecDataStorageUnitTest.tafMngdSecDataStorageUnitTestComp.taf_mngdStorSecData -> tafMngdStorageSvc.taf_mngdStorSecData
-    tafMngdSecFileStorageUnitTest.tafMngdSecFileStorageUnitTestComp.taf_mngdStorSecFile -> tafMngdStorageSvc.taf_mngdStorSecFile
+    tafMngdCfg.tafMngdCfgStorageUnitTestComp.taf_mngdStorCfg -> tafMngdStorageSvc.taf_mngdStorCfg
+    tafMngdSecData.tafMngdSecDataStorageUnitTestComp.taf_mngdStorSecData -> tafMngdStorageSvc.taf_mngdStorSecData
+    tafMngdSecFile.tafMngdSecFileStorageUnitTestComp.taf_mngdStorSecFile -> tafMngdStorageSvc.taf_mngdStorSecFile
 }
 

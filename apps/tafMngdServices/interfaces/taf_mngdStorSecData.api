@@ -185,7 +185,7 @@
  * @section taf_mngdStorSecData_data_sharing Share data access to other applications
  *
  * To share data from the data item, the client calls taf_mngdStorSecData_ShareData() with the specified
- * access and the shared app name, at most 5 applications can be shared for a data. Data sharing for
+ * access and the shared app name, at most 12 applications can be shared for a data. Data sharing for
  * application can be canceled by calling taf_mngdStorSecData_CancelDataSharing().
  *
  * The following storage API is supported to get the information of shared applications.
@@ -214,7 +214,7 @@ DEFINE MAX_DATA_CHUNK_SIZE = taf_ks.MAX_PACKET_SIZE;
 /**
  * Maximum number of bytes for each data chunk in secure storage.
  */
-DEFINE MAX_SHARED_APP_NUM = 5;
+DEFINE MAX_SHARED_APP_NUM = 12;
 
 /**
  * Secure storage data reference.
@@ -451,7 +451,7 @@ FUNCTION le_result_t DeleteData
  * taf_mngdStorSecData_CancelDataSharing().
  *
  * Only the data owner app can share the data after provisioning. One data can be shared to at most
- * 5 applications to read/write.
+ * 12 applications to read/write.
  *
  * If the data owner app intends to change the usage of the data that has been shared to the shared
  * app, it is necessary to call CancelDataSharing() to cancel the sharing and call ShareData() again

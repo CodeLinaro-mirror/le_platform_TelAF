@@ -44,6 +44,12 @@ using namespace telux::tafsvc;
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 
+#include <sys/stat.h>
+#include <sys/vfs.h>
+#include <errno.h>
+#include <stdio.h>
+#include <fcntl.h>
+
 namespace pt = boost::property_tree;
 
 /**
@@ -1087,6 +1093,19 @@ le_result_t tafMngdSecFileStorageSvc::ImportFileImpl
                          LE_BAD_PARAMETER,
                          "Invalid target file path");
 
+    size_t availableSize = GetAvailableSpace(dirPtr->path);
+    size_t fileSize = GetFileSize(sourceFilePathPtr);
+
+    LE_INFO("Storage size %" PRIuS ", file size %" PRIuS, availableSize, fileSize);
+
+    if(availableSize < fileSize)
+    {
+        LE_ERROR("Storage size %" PRIuS " is not enough for the file size %" PRIuS,
+                    availableSize, fileSize);
+
+        return LE_NO_MEMORY;
+    }
+
     char storageTargetFilePath[LIMIT_MAX_PATH_BYTES] = {0};
     char tmpStorageTargetFilePath[LIMIT_MAX_PATH_BYTES] = {0};
 
@@ -1414,3 +1433,41 @@ void tafMngdSecFileStorageSvc::CreateServiceStorages()
     }
 }
 
+size_t tafMngdSecFileStorageSvc::GetFileSize
+(
+    const char *filePath
+)
+{
+    struct stat fileStat;
+
+    // Get file statistics
+    if (stat(filePath, &fileStat) == -1)
+    {
+        LE_ERROR("Failed to get file status for %s", filePath);
+        return 0;
+    }
+
+    // Check if the entry is a regular file
+    if (S_ISREG(fileStat.st_mode))
+    {
+        return (size_t)fileStat.st_size;
+    }
+    else
+    {
+        LE_ERROR("%s is not a regular file", filePath);
+        return 0;
+    }
+}
+
+size_t tafMngdSecFileStorageSvc::GetAvailableSpace
+(
+    const char *path
+)
+{
+    struct statfs stat;
+    if (statfs(path, &stat) == 0)
+    {
+        return (size_t)stat.f_bsize * stat.f_bavail;
+    }
+    return (size_t)-1;
+}

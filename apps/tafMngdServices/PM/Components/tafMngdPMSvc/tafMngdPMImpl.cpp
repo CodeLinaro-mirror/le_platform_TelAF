@@ -107,6 +107,10 @@ le_result_t tafMngdPMSvc::ParseJsonConfiguration(std::string configPath)
     LE_INFO("hal_wakeup_vehicle_timeout is %ld", hal_wakeup_vehicle_timeout);
     mpms.config.hal_wakeup_vehicle_timeout = hal_wakeup_vehicle_timeout;
 
+    long int state_change_ack_timeout = root.get<int>("state_change_ack_timeout");
+    LE_INFO("state_change_ack_timeout is %ld", state_change_ack_timeout);
+    mpms.config.state_change_ack_timeout = state_change_ack_timeout;
+
     return LE_OK;
 }
 
@@ -1375,6 +1379,38 @@ void tafMngdPMSvc::SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_Client
 }
 
 /**
+ * State change ack timer handler
+ */
+void tafMngdPMSvc::StateChangeAckTimerHandler(le_timer_Ref_t timerRef)
+{
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    taf_mngdPm_SessionNode_t* sessionNodePtr;
+    int8_t UnresponsiveClients = (int8_t)mpms.regClientrecrd.size() -  mpms.ackClientrecrdSize;
+    LE_WARN("No of Unresponsive clients %d", UnresponsiveClients);
+    for (const auto &client : mpms.regClientrecrd )
+    {
+        if(!client.isAcked)
+        {
+            //Getting the current client data from mngdPmClientInfo
+            sessionNodePtr = mpms.To_taf_mngdPm_SessionNode_t(le_hashmap_Get(mpms.mngdPmClientInfo.clients,
+                    client.sessionRef));
+            LE_WARN("client %s not acknowledged for state change", sessionNodePtr->name);
+        }
+    }
+    mpms.clientSize = 0;
+    mpms.ackClientrecrdSize = 0;
+    taf_mngdPm_NodePowerState_t* state = (taf_mngdPm_NodePowerState_t*)le_timer_GetContextPtr(timerRef);
+    if (state == nullptr) {
+        LE_ERROR("State pointer is null");
+        return;
+    }
+    LE_INFO("StateChangeAckTimer Expired after %ld msec for state %d", mpms.config.state_change_ack_timeout,
+            *(state));
+    mpms.SendAckToPms(*(state), TAF_PM_READY);
+    return;
+}
+
+/**
  * To Call Clients for Extend power state change notification
  */
 void tafMngdPMSvc::CallNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t state)
@@ -1403,7 +1439,7 @@ void tafMngdPMSvc::CallNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t sta
                         (taf_mngdPm_nodePowerStateRef_t)le_ref_CreateRef(mpms.nodePowerStateRefMap,
                                 nodeStateListPtr);
                 mpms.regClientrecrd.push_back({nodeStateListPtr->nodeStateRef,
-                        handlerCtxPtr->sessionRef, state});
+                        handlerCtxPtr->sessionRef, state, false});
                 handlerCtxPtr->handlerPtr(handlerCtxPtr->pmNodeId, nodeStateListPtr->nodeStateRef,
                         state, handlerCtxPtr->nodePowerStateHandlerCtxPtr);
                 LE_INFO("Notified to Client");
@@ -1418,6 +1454,13 @@ void tafMngdPMSvc::CallNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t sta
     {
         LE_INFO("No client registered in MPMS, ack to PMS immediately for state:%d", state);
         mpms.SendAckToPms(state, TAF_PM_READY);
+    }
+    else
+    {
+        mpms.currentStateChangePtr = state;
+        le_timer_SetContextPtr(mpms.stateChangeAckTimerRef, &(mpms.currentStateChangePtr));
+        le_timer_Start(mpms.stateChangeAckTimerRef);
+        LE_INFO("stateChangeAck Timer has started");
     }
 }
 
@@ -1608,3 +1651,7 @@ taf_mngdPm_config_t tafMngdPMSvc::config;
 
 //authorize stayawake reason
 std::bitset<32>  tafMngdPMSvc::stayAwakeReasonMask;
+
+//resources for clients state change acknowledgement
+le_timer_Ref_t tafMngdPMSvc::stateChangeAckTimerRef;
+taf_mngdPm_NodePowerState_t tafMngdPMSvc::currentStateChangePtr;

@@ -17,6 +17,7 @@ taf_mngdPm_wsRef_t wsRef1 = NULL;
 taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = 0;
 static le_sem_Ref_t tafMpmAppSem;
 le_clk_Time_t Timeout = { 5 , 0 };
+le_clk_Time_t AckTimeout = { 1 , 0 };
 
 static le_sem_Ref_t tafMpmEcallSem;
 le_clk_Time_t EcallTimeout = { 10 , 0 };
@@ -26,6 +27,7 @@ const char* wsTag = "testWsTag";
 static le_sem_Ref_t semRef = NULL, queueSemRef = NULL;
 static le_thread_Ref_t threadRef = NULL;
 
+int stateChangeAck = 1;
 #define VEHICHLE_WAKEUP_REASON_DEFAULT 0
 #define AUTHORIZE_ALL_STAY_AWAKE_REASON 0xFFFFFFFF
 
@@ -101,14 +103,19 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestNonAuthorizedStayAwake\n"
         "------------To Test clearing of unauthorized wake source after calling AuthorizeStayAwakeReason-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestClearUnAuthorizedWakeSource\n"
-        "------------To Test Test ForcedSysShutdown with multiple clients-----------\n"
+        "------------To Test ForcedSysShutdown with multiple clients-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- MultiClntForcedSysShutdown\n"
-        "------------To Test Test System Restart with multiple clients-----------\n"
+        "------------To Test System Restart with multiple clients-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- MultiClntRestartSystem\n"
-        "------------To Test Test Wakeup Vehicle with multiple clients-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- MultiClntWakeupVehicle\n");
+        "------------To Test Wakeup Vehicle with multiple clients-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- MultiClntWakeupVehicle\n"
+        "------------To set NodePowerStateChangeAck for state change acknowledgement-----------\n"
+        "------  1   -> ACK ------------\n"
+        "-----  -1   -> NACK ------------\n"
+        "------  2   -> NO_RESP ------------\n"
+        "------  3   -> ACK_AFTER_TIMEOUT ------------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GracefulSysSuspendWithAckType <ACK_TYPE>\n");
 }
-
 
 void NodePowerStateChangeHandlerCB(
      uint8_t pmNodeId,
@@ -118,7 +125,22 @@ void NodePowerStateChangeHandlerCB(
 {
     LE_INFO("NodePowerStateChangeHandlerFunc callback");
     le_result_t res = LE_FAULT;
-    res = taf_mngdPm_SendNodePowerStateChangeAck(pmNodeId, nodePowerStateRef, TAF_MNGDPM_CLIENT_READY);
+    if(stateChangeAck == 2)
+        return;
+    else if(stateChangeAck == 3)
+    {
+        tafMpmAppSem = le_sem_Create("tafMpmAppSem", 0);
+        le_sem_WaitWithTimeOut(tafMpmAppSem, AckTimeout);
+        LE_INFO("state change ack timer expired");
+        le_sem_Delete(tafMpmAppSem);
+        res = taf_mngdPm_SendNodePowerStateChangeAck(pmNodeId, nodePowerStateRef, stateChangeAck);
+        if(res == LE_OK)
+        {
+            LE_INFO("SendNodePowerStateChangeAck is success");
+            exit(EXIT_SUCCESS);
+        }
+    }
+    res = taf_mngdPm_SendNodePowerStateChangeAck(pmNodeId, nodePowerStateRef, stateChangeAck);
     if(res == LE_OK)
     {
         LE_INFO("SendNodePowerStateChangeAck is success");
@@ -668,6 +690,16 @@ void GracefulSysSuspend(uint8_t pmNodeId)
         exit(EXIT_FAILURE);
     }
 
+}
+
+
+void GracefulSysSuspendWithAckType(const char* status)
+{
+   LE_INFO("GracefulSysSuspendWithAckType");
+    int Result = (int)atoi(status);
+   stateChangeAck = Result;
+   GracefulSysSuspend(0);
+   LE_INFO("stateChangeAck is %d", stateChangeAck);
 }
 
 static int RestartNode(const char* node_id)
@@ -1831,6 +1863,16 @@ COMPONENT_INIT
         else if(strcmp(testType, "MultiClntWakeupVehicle") == 0)
         {
             MultiClntWakeupVehicle();
+        }
+        else if(strcmp(testType, "GracefulSysSuspendWithAckType") == 0)
+        {
+            if(testPar) {
+                GracefulSysSuspendWithAckType(testPar);
+            }
+            else {
+                printf("Enter PowerStateChangeAck");
+                exit(EXIT_FAILURE);
+            }
         }
         else
         {

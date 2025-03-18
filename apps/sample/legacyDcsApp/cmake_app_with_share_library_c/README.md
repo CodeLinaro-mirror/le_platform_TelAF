@@ -35,8 +35,8 @@ On device, run the following commands to set external library path and bind the 
 Lastly run the executable file.
 ```bash
 export LD_LIBRARY_PATH=/data/lib/
-sdir bind "<root>.taf_dcs" "<root>.taf_dcs"
-sdir bind "<root>.taf_radio" "<root>.taf_radio"
+sdir bind "<root>.taf_dcs" "<telaf>.taf_dcs"
+sdir bind "<root>.taf_radio" "<telaf>.taf_radio"
 ./DataAppDemo
 ```
 

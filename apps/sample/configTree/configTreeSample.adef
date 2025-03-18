@@ -30,8 +30,8 @@ executables:
 
 bindings:
 {
-    configTreeSample.configTreeComponent.le_cfg -> <root>.le_cfg
-    configTreeSample.configTreeComponent.le_cfgAdmin -> <root>.le_cfgAdmin
+    configTreeSample.configTreeComponent.le_cfg -> <tafcore>.le_cfg
+    configTreeSample.configTreeComponent.le_cfgAdmin -> <tafcore>.le_cfgAdmin
 }
 
 processes:

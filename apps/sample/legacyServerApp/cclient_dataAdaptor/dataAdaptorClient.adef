@@ -17,5 +17,5 @@ processes:
 
 bindings:
 {
-    dataAdaptorClient.clientComp.taf_dataAdaptor -> <root>.taf_dataAdaptor
+    dataAdaptorClient.clientComp.taf_dataAdaptor -> <tafcore>.taf_dataAdaptor
 }

@@ -15,13 +15,13 @@ apps:
     // RPC proxy
     $TELAF_ROOT/apps/rpc/rpcProxy/tafRpcProxy
 
-     // eCall Application
+    // eCall Application
     $TELAF_ROOT/apps/sample/eCallDemo/tafECallAppLxc.adef
 }
 
 bindings:
 {
-    <telaf>.sdirTool -> <root>.sdirTool
+    <telaf>.sdirTool -> <tafcore>.sdirTool
 }
 
 interfaceSearch:

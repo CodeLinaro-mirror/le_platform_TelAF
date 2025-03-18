@@ -146,10 +146,11 @@ commands:
 
 bindings:
 {
-    <telaf>.DeviceManager -> <root>.DeviceManager
-    <root>.DeviceManagerTool -> <root>.DeviceManagerTool
-    <telaf>.sdirTool -> <root>.sdirTool
-    <telaf>.le_cfg -> <root>.le_cfg
+    <telaf>.DeviceManager -> <tafcore>.DeviceManager
+    <tafcore>.DeviceManagerTool -> <tafcore>.DeviceManagerTool
+    <root>.DeviceManagerTool -> <tafcore>.DeviceManagerTool
+    <telaf>.sdirTool -> <tafcore>.sdirTool
+    <telaf>.le_cfg -> <tafcore>.le_cfg
     <system>.taf_flash -> <telaf>.taf_flash
 }
 

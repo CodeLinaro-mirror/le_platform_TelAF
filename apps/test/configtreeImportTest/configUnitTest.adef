@@ -27,8 +27,8 @@ executables:
 
 bindings:
 {
-    testConfigTree.configComponent.le_cfg -> <root>.le_cfg
-    testConfigTree.configComponent.le_cfgAdmin -> <root>.le_cfgAdmin
+    testConfigTree.configComponent.le_cfg -> <tafcore>.le_cfg
+    testConfigTree.configComponent.le_cfgAdmin -> <tafcore>.le_cfgAdmin
 }
 
 processes:

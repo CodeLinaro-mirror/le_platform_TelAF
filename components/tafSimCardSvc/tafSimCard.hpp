@@ -72,7 +72,8 @@ namespace telux {
             taf_pa_sim_RefreshChangeHandlerRef_t paHandlerRef;
             le_event_Id_t RefreshChangeEventId;
             bool refreshAllow;
-            char activeProfileIccid[TAF_SIMRSP_ICCID_BYTES];
+            char simProfileIccid1[TAF_SIM_ICCID_BYTES];
+            char simProfileIccid2[TAF_SIM_ICCID_BYTES];
             bool refreshResetStart;
             size_t refreshRegFilesSize;
             taf_sim_RefreshRegFile_t refreshRegFiles[TAF_SIM_MAX_SIM_REFRESH_FILES];
@@ -224,6 +225,7 @@ namespace telux {
                 le_event_Id_t ProfileListEventId;
                 le_event_Id_t IccidChangeEventId;
                 bool EnableAutoSelection = false;
+                bool isPsEventInProgress = false;
 
                 void RemoveStateHandler(taf_sim_NewStateHandlerRef_t handlerRef);
                 taf_sim_States_t getState(taf_sim_Id_t simId);
@@ -307,6 +309,7 @@ namespace telux {
                 taf_sim_RefreshChangeHandlerRef_t AddRefreshChangeHandler(taf_sim_RefreshChangeHandlerFunc_t handlerPtr, void* contextPtr);
                 void RemoveRefreshChangeHandler(taf_sim_RefreshChangeHandlerRef_t handlerRef);
                 void NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* contextPtr);
+                void CheckAndSendProfileSwitchEvent();
                 le_result_t CreateSession(taf_sim_SessionType_t sessionType, taf_sim_RefreshRef_t* refreshSessionRef);
                 le_result_t SetRefreshRegisterFiles(taf_sim_RefreshRef_t refreshSessionRef, const taf_sim_RefreshRegFile_t* filesPtr, size_t filesSize);
                 le_result_t SetRefreshMode(taf_sim_RefreshRef_t refreshSessionRef, taf_sim_RefreshMode_t refreshMode);

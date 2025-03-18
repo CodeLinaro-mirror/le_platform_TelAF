@@ -93,21 +93,6 @@ void tafMngdConnData::SessionStateChangeHandler
         return;
     }
 
-    // Get call end reason for IPv4
-    result = taf_dcs_GetCallEndReason(profileRef, TAF_DCS_PDP_IPV4,
-                                                        &callEndReasonType, &callEndReasonCode);
-    if (LE_OK != result)
-    {
-        LE_ERROR("Can't get the CallEndReason for profileRef(%p)", profileRef);
-        return;
-    }
-    const char *CallEndReasonTypeStr4 = taf_DCSHelper::CallEndReasonTypeToString(callEndReasonType);
-    const char *CallEndReasonCodeStr4 = taf_DCSHelper::CallEndReasonCodeToString(
-                                                             callEndReasonType, callEndReasonCode);
-
-    LE_DEBUG("IPv4 Call end reason type: %d(%s)", callEndReasonType, CallEndReasonTypeStr4);
-    LE_DEBUG("IPv4 Call end reason code: %d(%s)", callEndReasonCode, CallEndReasonCodeStr4);
-
     LE_DEBUG ("Data Connection State: %d, phoneid: %d, profileId: %d", state, phoneId, profileId);
     dataCtxPtr = mngdConnAdmin.GetDataCtx(phoneId, profileId);
     //The connection is not created by tafMngdConnSvc, don't report the event.
@@ -122,6 +107,25 @@ void tafMngdConnData::SessionStateChangeHandler
             LE_DEBUG ("Data Disconnected Event called for dataID  %d", dataCtxPtr->dataId);
             stateMachineEvt.event = MCS_EVT_DATA_CONNECTION_DISCONNECTED;
             stateMachineEvt.dataId = dataCtxPtr->dataId;
+            // Get call end reason for IPv4
+            result = taf_dcs_GetCallEndReason(profileRef, TAF_DCS_PDP_IPV4,
+                                              &callEndReasonType, &callEndReasonCode);
+            if (LE_OK != result)
+            {
+                LE_ERROR("Can't get the CallEndReason for profileId(%d) : %d", profileId, result);
+            }
+            else
+            {
+                const char *CallEndReasonTypeStr4 =
+                                        taf_DCSHelper::CallEndReasonTypeToString(callEndReasonType);
+                const char *CallEndReasonCodeStr4 = taf_DCSHelper::CallEndReasonCodeToString(
+                                                    callEndReasonType, callEndReasonCode);
+
+                LE_INFO("IPv4 Call end reason type: %d(%s)",
+                        callEndReasonType, CallEndReasonTypeStr4);
+                LE_INFO("IPv4 Call end reason code: %d(%s)",
+                        callEndReasonCode, CallEndReasonCodeStr4);
+            }
             break;
         case TAF_DCS_CONNECTED:
             LE_DEBUG ("Data connected Event called for dataID  %d", dataCtxPtr->dataId);

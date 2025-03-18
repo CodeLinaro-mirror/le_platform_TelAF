@@ -56,7 +56,7 @@
  */
 //--------------------------------------------------------------------------------------------------
 #define INT_KEY_NONCE_LEN 12
-#define INT_KEY_AEAD_LEN  32
+#define INT_KEY_AEAD_LEN  MD5_DIGEST_LENGTH
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -900,7 +900,8 @@ static void RemoveSessionFromStorage
 le_result_t InternalCryptoProcess
 (
     taf_ks_CryptoPurpose_t  purpose,
-    Sha256_t*               fileIdPtr,
+    const uint8_t*          md5DataPtr,
+    size_t                  md5DataSize,
     const uint8_t*          plainTextPtr,
     size_t                  plainTextSize,
     uint8_t*                encryptedDataPtr,
@@ -909,29 +910,18 @@ le_result_t InternalCryptoProcess
 {
     uint8_t nonce[INT_KEY_NONCE_LEN] = {0};
     uint8_t aead[INT_KEY_AEAD_LEN] = {0};
-    uint8_t md5Digest[EVP_MAX_MD_SIZE] = {0};
 
-    uint md5_hash_length = 0;
-
-    // Caculate the md5 of the file ID, later use the md5 as the nonce.
-    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-    if(ctx == NULL)
+    if ((md5DataPtr == NULL) || (md5DataSize != MD5_DIGEST_LENGTH))
     {
-        LE_ERROR("ctx is NULL");
-        return LE_FAULT;
+        LE_ERROR("Bad parameter.");
+        return LE_BAD_PARAMETER;
     }
 
-    const EVP_MD* method = EVP_md5();
-
-    EVP_DigestInit_ex(ctx, method, NULL);
-    EVP_DigestUpdate(ctx, fileIdPtr->data, sizeof(fileIdPtr->data));
-    EVP_DigestFinal_ex(ctx, md5Digest, &md5_hash_length);
-    EVP_MD_CTX_free(ctx);
-
-    memscpy(nonce, INT_KEY_NONCE_LEN, md5Digest, md5_hash_length);
+    // Set the Nonce.
+    memcpy(nonce, md5DataPtr, INT_KEY_NONCE_LEN);
 
     // Set the AEAD before data encryption/decryption.
-    memscpy(aead, INT_KEY_AEAD_LEN, fileIdPtr, sizeof(fileIdPtr->data));
+    memcpy(aead, md5DataPtr, INT_KEY_AEAD_LEN);
 
     // Encrypt the data using internal key
     const char keyId[] = FSC_INT_KEY_NAME;

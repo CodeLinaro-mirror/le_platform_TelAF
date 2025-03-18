@@ -50,14 +50,14 @@ void taf_pa_fsc_Init
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get a key file reference by key name.
+ * Get a key file reference by directory name.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_pa_fsc_GetKey
 (
     le_msg_SessionRef_t clientSessionRef,   ///< [IN] Client session reference
     const char* dirName,                    ///< [IN] dir Name
-    taf_pa_fsc_KeyFileRef_t* keyFileRefPtr, ///< [OUT] Key file reference.
+    KeyMgt_KeyFileRef_t* keyFileRefPtr,     ///< [OUT] Key file reference.
     uint8_t* key,                           ///< [OUT] Raw key
     size_t keyLen                           ///< [OUT] Length of raw key
 )
@@ -74,7 +74,7 @@ le_result_t taf_pa_fsc_GenerateAesKey
 (
     le_msg_SessionRef_t clientSessionRef,   ///< [IN] Client session reference
     const char* dirName,                    ///< [IN] dir Name
-    taf_pa_fsc_KeyFileRef_t* keyFileRefPtr, ///< [OUT] Key file reference
+    KeyMgt_KeyFileRef_t* keyFileRefPtr,     ///< [OUT] Key file reference
     uint8_t* key,                           ///< [OUT] Raw key
     size_t keyLen                           ///< [OUT] Length of raw key
 )
@@ -90,7 +90,7 @@ le_result_t taf_pa_fsc_GenerateAesKey
 le_result_t taf_pa_fsc_DeleteKey
 (
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
-    taf_pa_fsc_KeyFileRef_t keyFileRef     ///< [IN] Key file reference
+    KeyMgt_KeyFileRef_t keyFileRef        ///< [IN] Key file reference
 )
 {
     return LE_OK;

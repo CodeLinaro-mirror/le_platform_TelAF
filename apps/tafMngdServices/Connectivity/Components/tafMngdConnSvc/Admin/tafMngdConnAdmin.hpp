@@ -248,6 +248,9 @@ namespace tafsvc {
         std::set<le_msg_SessionRef_t> clients;
         //Session Reference
         le_msg_SessionRef_t sessionRef;
+        //Timeout
+        uint8_t                       startDataTimeout;
+        uint8_t                       stopDataTimeout;
     } mcs_DataCtx_t;
 
     class tafMngdConnAdmin: public ITafSvc

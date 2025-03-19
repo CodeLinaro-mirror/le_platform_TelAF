@@ -90,12 +90,19 @@ namespace tafsvc {
 
     typedef struct
     {
+        uint8_t StartDataTimeout;
+        uint8_t StopDataTimeout;
+    } mcs_Policy_APIManagement_t;
+
+    typedef struct
+    {
         uint8_t dataConnectionCount; // Not part of the JSON. It is filled by the parser.
         mcs_Policy_DataConnection_t \
                             DataConnection[MCS_MAX_DATA_CONNECION_OBJECT_COUNT];
         mcs_Policy_MultiDataSession_t MultiDataSession;
         mcs_Policy_ConnectivityRecovery_t ConnectivityRecovery;
         mcs_Policy_AppMngdConnectivityRecovery_t AppMngdConnectivityRecovery;
+        mcs_Policy_APIManagement_t APIManagement;
     } mcs_Policy_DataSession_t;
 
     typedef struct
@@ -182,6 +189,12 @@ private:
                                                         std::string Value,
                                                         int Index);
     static bool Validate_DS_AMCR_MaxTimeBetweenTriggers (mcs_Policy_t &Policy,
+                                                        std::string Value,
+                                                        int Index);
+    static bool Validate_DS_APIM_StartDataTimeout (mcs_Policy_t &Policy,
+                                                        std::string Value,
+                                                        int Index);
+    static bool Validate_DS_APIM_StopDataTimeout (mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
 

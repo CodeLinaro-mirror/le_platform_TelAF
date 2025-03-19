@@ -214,7 +214,8 @@ namespace tafsvc {
         MCS_JSON_VERSION_24_07_00 = 240700,  //"TAF_24.07.00"
         MCS_JSON_VERSION_24_09_00 = 240900,  //"TAF_24.09.00"
         MCS_JSON_VERSION_24_12_00 = 241200,  //"TAF_24.12.00"
-        MCS_JSON_VERSION_25_02_00 = 250200  //"TAF_25.02.00"
+        MCS_JSON_VERSION_25_02_00 = 250200,  //"TAF_25.02.00"
+        MCS_JSON_VERSION_25_03_00 = 250300  //"TAF_25.03.00"
     } mcs_JSON_Version_t;
 
     // Constant Strings

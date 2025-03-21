@@ -21,7 +21,7 @@ using namespace telux::tafsvc;
 
 static taf_dcs_RoamingStatusHandlerRef_t                                g_roamingStatusHandlerRef;
 static std::map<uint32_t, taf_dcs_SessionStateHandlerRef_t>  g_Profile_SessionStateHandlerRef_Map;
-
+static std::map<uint32_t, taf_dcs_QosStatusHandlerRef_t>    g_Profile_QosStatusHandlerRef_Map;
 
 // Callback thread reference
 le_thread_Ref_t callbackThreadRef = nullptr;
@@ -972,6 +972,80 @@ void SessionStateHandlerFunc
                                     << std::endl;
 }
 
+void QosStatusHandlerFunc
+(
+    taf_dcs_QosFlowRef_t         qosFlowRef,
+    taf_dcs_QosFlowState_t       qosState,
+    void* contextPtr
+)
+{
+    LE_TEST_INFO("**** Handler for qos status Indication (Begin)****");
+    std::cout << "**** Handler for qos status Indication (Begin)****" << std::endl;
+
+    LE_TEST_INFO("----QOS State : %d", (int)qosState);
+
+    std::cout << "\t\tQOS State id: " << qosState << std::endl;
+
+    uint32_t qosFlowId = 0;
+    le_result_t result = taf_dcs_GetQosId(qosFlowRef,&qosFlowId);
+    if(result == LE_OK)
+    {
+      LE_TEST_INFO("----Qos ID : %d", (int)qosFlowId);
+      std::cout << "\t\tQos ID id: " << qosFlowId << std::endl;
+    }
+    else
+    {
+      LE_TEST_INFO("----qos ID get error---");
+      std::cout << "\t\t---qos ID get error---" << std::endl;
+      return;
+    }
+
+    taf_dcs_QosFlowBitMask_t mask = 0;
+    result = taf_dcs_GetQosParameterMask(qosFlowRef,&mask);
+    if(result == LE_OK)
+    {
+      LE_TEST_INFO("----Qos Mask : %d", (int)mask);
+      std::cout << "\t\tQos Mask id: " << mask << std::endl;
+    }
+    else
+    {
+      LE_TEST_INFO("----qos mask get error---");
+      std::cout << "\t\t---Qos Mask get error---" << std::endl;
+    }
+
+   if(mask & TAF_DCS_QOS_BIT_MASK_FLOW_NONE)
+   {
+       LE_TEST_INFO("No QOS flow mask installed");
+       std::cout << "\t\tNo QOS flow mask installed" << std::endl;
+
+       return ;
+   }
+   if (mask & TAF_DCS_QOS_BIT_MASK_FLOW_TX_GRANTED)
+   {
+       LE_TEST_INFO("QOS Mask == MASK_FLOW_TX_GRANTED");
+       std::cout << "\t\tQOS Mask == MASK_FLOW_TX_GRANTED" << std::endl;
+   }
+   if (mask & TAF_DCS_QOS_BIT_MASK_FLOW_RX_GRANTED)
+   {
+       LE_TEST_INFO("QOS Mask == MASK_FLOW_RX_GRANTED");
+       std::cout << "\t\tQOS Mask == MASK_FLOW_RX_GRANTED" << std::endl;
+   }
+   if (mask & TAF_DCS_QOS_BIT_MASK_FLOW_TX_FILTERS)
+   {
+       LE_TEST_INFO("QOS Mask == MASK_FLOW_TX_FILTERS");
+       std::cout << "\t\tQOS Mask == MASK_FLOW_TX_FILTERS" << std::endl;
+   }
+   if (mask & TAF_DCS_QOS_BIT_MASK_FLOW_RX_FILTERS)
+   {
+       LE_TEST_INFO("QOS Mask == MASK_FLOW_RX_FILTERS");
+       std::cout << "\t\tQOS Mask == MASK_FLOW_RX_FILTERS" << std::endl;
+   }
+
+    LE_TEST_INFO("**** Handler for qos status Indication (End)****");
+    std::cout << "****Handler for qos status Indication (End)****" << std::endl;
+}
+
+
 static void *callback_thread_handler(void *ctxPtr)
 {
     taf_dcs_ConnectService();
@@ -992,21 +1066,35 @@ static void *callback_thread_handler(void *ctxPtr)
     for (size_t i = 0; i < listSize; i++)
     {
         taf_dcs_SessionStateHandlerRef_t handlerRef = nullptr;
+        taf_dcs_QosStatusHandlerRef_t handlerQosRef = nullptr;
+
         taf_dcs_ProfileRef_t profileRef = nullptr;
         const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
         profileRef = taf_dcs_GetProfileEx(phoneId, profileInfoPtr->index);
         LE_TEST_ASSERT(nullptr != profileRef, "taf_dcs_GetProfileEx: phone id(%d), \
                                                 profile id: %d",
                        phoneId, profileInfoPtr->index);
+
+        // add session state handler
         handlerRef = taf_dcs_AddSessionStateHandler(profileRef, SessionStateHandlerFunc, NULL);
         LE_TEST_ASSERT(nullptr != handlerRef, "taf_dcs_AddSessionStateHandler: phone id(%d), \
                                                 profile id: %d", phoneId, profileInfoPtr->index);
 
-        // Add the handler ref to the profile and handler map
+        // add qos state handler
+        handlerQosRef = taf_dcs_AddQosStatusHandler(profileRef, QosStatusHandlerFunc, NULL);
+        LE_TEST_ASSERT(nullptr != handlerQosRef, "taf_dcs_AddQosStatusHandler: phone id(%d), \
+                                                profile id: %d", phoneId, profileInfoPtr->index);
+
+        // Add the handler ref to the profile and session handler map
         g_Profile_SessionStateHandlerRef_Map[profileInfoPtr->index] = handlerRef;
+
+        // Add the handler ref to the profile and qos handler map
+        g_Profile_QosStatusHandlerRef_Map[profileInfoPtr->index] = handlerQosRef;
+
         // Set the references to nullptr
         profileRef = nullptr;
         handlerRef = nullptr;
+        handlerQosRef = nullptr;
     }
 
     // Start the event loop
@@ -1053,6 +1141,17 @@ static void UnRegister_Callbacks()
         LE_TEST_INFO("Removed session hander for profile ID: %d", profileId);
         taf_dcs_RemoveSessionStateHandler(handlerRef);
     }
+
+    for (const auto &pair : g_Profile_QosStatusHandlerRef_Map)
+    {
+        uint32_t profileId = pair.first;
+        taf_dcs_QosStatusHandlerRef_t handlerRef = pair.second;
+
+        // Remove the qos state handler
+        LE_TEST_INFO("Removed qos state hander for profile ID: %d", profileId);
+        taf_dcs_RemoveQosStatusHandler(handlerRef);
+    }
+
 
     // Stop the callback thread
     le_thread_Cancel(callbackThreadRef);

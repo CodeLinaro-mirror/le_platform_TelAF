@@ -61,6 +61,9 @@ LE_MEM_DEFINE_STATIC_POOL(HandlerSessionMappingPool,
 LE_MEM_DEFINE_STATIC_POOL(RoamingStatusPool, TAF_DCS_MAX_SESSION_REF,
                           sizeof(taf_dcs_RoamingStatusInd_t));
 
+LE_MEM_DEFINE_STATIC_POOL(QosStatusPool, TAF_DCS_MAX_SESSION_REF,sizeof(QOSFlowCtxStatus_t));
+
+LE_REF_DEFINE_STATIC_MAP(QosStatusRefMap, TAF_DCS_MAX_SESSION_REF);
 
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 taf_DataConnServingSystemListener::taf_DataConnServingSystemListener(SlotId slot) : slotId(slot) {}
@@ -434,6 +437,256 @@ const std::vector<telux::data::APNThrottleInfo>  &throttleInfoList
     LE_INFO("Number of throttled APN: %d",(uint8_t)throttleInfoList.size());
 
     dataProfile.ProcessThrottledApnInfoChanged(throttleInfoList, slotId);
+}
+
+taf_dcs_QosFlowBitMask_t taf_DataConnection::fillQosFlowMask(
+    telux::data::QosFlowMask mask)
+{
+    taf_dcs_QosFlowBitMask_t qosFlowMask = 0x0;
+    if (mask.test(telux::data::QosFlowMaskType::MASK_FLOW_NONE))
+    {
+        qosFlowMask = qosFlowMask | TAF_DCS_QOS_BIT_MASK_FLOW_NONE;
+        LE_DEBUG("No QOS flow mask installed");
+        return qosFlowMask;
+    }
+    if (mask.test(telux::data::QosFlowMaskType::MASK_FLOW_TX_GRANTED))
+    {
+        qosFlowMask = qosFlowMask | TAF_DCS_QOS_BIT_MASK_FLOW_TX_GRANTED;
+        LE_DEBUG("MASK_FLOW_TX_GRANTED");
+    }
+    if (mask.test(telux::data::QosFlowMaskType::MASK_FLOW_RX_GRANTED))
+    {
+        qosFlowMask = qosFlowMask | TAF_DCS_QOS_BIT_MASK_FLOW_RX_GRANTED;
+        LE_DEBUG("MASK_FLOW_RX_GRANTED");
+    }
+    if (mask.test(telux::data::QosFlowMaskType::MASK_FLOW_TX_FILTERS))
+    {
+        qosFlowMask = qosFlowMask | TAF_DCS_QOS_BIT_MASK_FLOW_TX_FILTERS;
+        LE_DEBUG("MASK_FLOW_TX_FILTERS");
+    }
+    if (mask.test(telux::data::QosFlowMaskType::MASK_FLOW_RX_FILTERS))
+    {
+        qosFlowMask = qosFlowMask | TAF_DCS_QOS_BIT_MASK_FLOW_RX_FILTERS;
+        LE_DEBUG("MASK_FLOW_RX_FILTERS");
+    }
+    return qosFlowMask;
+}
+
+void taf_DataConnection::fillQosDetails(std::shared_ptr<telux::data::TrafficFlowTemplate> &tft,
+                                        telux::data::QosFlowStateChangeEvent stateChange,
+                                        int32_t profileId, uint8_t slotId)
+{
+    LE_DEBUG(" QoS Flow Identifier : %d ", tft->qosId);
+    LE_DEBUG(" QOS Flow Old State : %d ", static_cast<int>(tft->stateChange));
+
+    switch (stateChange)
+    {
+    case telux::data::QosFlowStateChangeEvent::ACTIVATED:
+    {
+        LE_DEBUG("QOS FLOW ACTIVATED");
+
+        taf_dcs_CallCtx_t *callCtxPtr = NULL;
+
+        callCtxPtr = GetCallCtx(slotId, profileId);
+        if (callCtxPtr == NULL)
+        {
+            LE_ERROR("Cannot find call context slotId(%d) profileId(%d)", slotId, profileId);
+            return;
+        }
+
+        taf_dcs_QosFlowRef_t qosRef = callCtxPtr->qosFlowRef;
+        if (qosRef)
+        {
+            // only 1 QOS ID is supported . TBD : multiple QOS IDs.
+            LE_DEBUG("QOS ID already exists hence return");
+            return;
+        }
+        QOSFlowCtxStatus_t *qosStatusPtr = NULL;
+        qosStatusPtr = (QOSFlowCtxStatus_t *)le_mem_ForceAlloc(QosStatusPool);
+        qosStatusPtr->profileId = profileId;
+        qosStatusPtr->slotId = slotId;
+        qosStatusPtr->qosID = tft->qosId;
+        qosStatusPtr->qosState = TAF_DCS_QOS_ACTIVATED;
+        qosStatusPtr->qosMask = fillQosFlowMask(tft->mask);
+        qosRef = (taf_dcs_QosFlowRef_t)le_ref_CreateRef(QosStatusRefMap, (void *)qosStatusPtr);
+        if (qosRef)
+        {
+            callCtxPtr->qosFlowRef = qosRef;
+            // send event to client app with qosRef
+            QOSFlowStatus_t stateEvent;
+            stateEvent.profileId = profileId;
+            stateEvent.slotId = slotId;
+            stateEvent.qosID = tft->qosId;
+            stateEvent.qosState = TAF_DCS_QOS_ACTIVATED;
+            stateEvent.qosRef = qosRef;
+            le_event_Report(callCtxPtr->qosStateEvent, &stateEvent, sizeof(stateEvent));
+        }
+    }
+    break;
+    case telux::data::QosFlowStateChangeEvent::MODIFIED:
+        LE_DEBUG("QOS FLOW MODIFIED");
+        break;
+    case telux::data::QosFlowStateChangeEvent::DELETED:
+    {
+        LE_DEBUG("QOS FLOW DELETED");
+        taf_dcs_CallCtx_t *callCtxPtr = NULL;
+
+        callCtxPtr = GetCallCtx(slotId, profileId);
+        if (callCtxPtr == NULL)
+        {
+            LE_ERROR("Cannot find call context slotId(%d) profileId(%d)", slotId, profileId);
+            return;
+        }
+        taf_dcs_QosFlowRef_t qosRef = callCtxPtr->qosFlowRef;
+        QOSFlowCtxStatus_t *qosStatus = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap,
+                                                                            qosRef);
+
+        if (qosStatus)
+        {
+            if (qosStatus->qosID == tft->qosId)
+            {
+                // send event to client app
+                QOSFlowStatus_t stateEvent;
+                stateEvent.profileId = profileId;
+                stateEvent.slotId = slotId;
+                stateEvent.qosID = tft->qosId;
+                stateEvent.qosState = TAF_DCS_QOS_DELETED;
+                stateEvent.qosRef = qosRef;
+
+                le_event_Report(callCtxPtr->qosStateEvent, &stateEvent, sizeof(stateEvent));
+                // delete the qosRef and the pointer associated
+                le_ref_DeleteRef(QosStatusRefMap, qosRef);
+                le_mem_Release(qosStatus);
+                callCtxPtr->qosFlowRef = NULL;
+            }
+            else
+            {
+                LE_DEBUG("QOS ID Not found in Data call list");
+                return;
+            }
+        }
+        else
+        {
+            LE_DEBUG("QOS ID Not found in Data call list");
+            return;
+        }
+    }
+    break;
+    default:
+    {
+        LE_DEBUG("UNKNOWN");
+    }
+    }
+
+    LE_DEBUG("QosFlowMaskType Mask size %ld ", tft->mask.size());
+    LE_DEBUG("QosFlowMaskType Mask size %s ", tft->mask.to_string().c_str());
+
+    if (tft->mask.test(telux::data::QosFlowMaskType::MASK_FLOW_TX_GRANTED) &&
+        (tft->txGrantedFlow.mask.test(
+             telux::data::QosIPFlowMaskType::MASK_IP_FLOW_TRF_CLASS) ||
+         tft->txGrantedFlow.mask.test(
+             telux::data::QosIPFlowMaskType::MASK_IP_FLOW_DATA_RATE_MIN_MAX)))
+    {
+        LE_DEBUG(" TX QOS FLow Granted: ");
+
+        if (tft->txGrantedFlow.mask.test(
+                telux::data::QosIPFlowMaskType::MASK_IP_FLOW_TRF_CLASS))
+        {
+            LE_DEBUG("IP FLow Traffic class: ");
+            // trafficClassToString(tft->txGrantedFlow.tfClass);
+        }
+    }
+
+    if (tft->mask.test(telux::data::QosFlowMaskType::MASK_FLOW_RX_GRANTED) &&
+        (tft->rxGrantedFlow.mask.test(
+             telux::data::QosIPFlowMaskType::MASK_IP_FLOW_TRF_CLASS) ||
+         tft->rxGrantedFlow.mask.test(
+             telux::data::QosIPFlowMaskType::MASK_IP_FLOW_DATA_RATE_MIN_MAX)))
+    {
+        LE_DEBUG(" RX QOS FLow Granted: ");
+
+        if (tft->rxGrantedFlow.mask.test(
+                telux::data::QosIPFlowMaskType::MASK_IP_FLOW_TRF_CLASS))
+        {
+            LE_DEBUG("IP FLow Traffic class: ");
+            // trafficClassToString(tft->rxGrantedFlow.tfClass);
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the QOS flow Id.
+ *
+ * @instaging
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- QOS flow not found.
+ *  - LE_OK -- Succeeded.
+ */
+le_result_t taf_DataConnection::GetQosID(taf_dcs_QosFlowRef_t qosFlowRef, uint32_t *qosFlowIdPtr)
+{
+    TAF_ERROR_IF_RET_VAL((qosFlowIdPtr == NULL), LE_BAD_PARAMETER, "qosFlowIdPtr is null");
+
+    TAF_ERROR_IF_RET_VAL((qosFlowRef == NULL), LE_BAD_PARAMETER, "qosFlowRef is null");
+
+    QOSFlowCtxStatus_t *qosStatus = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap,
+                                                                        (void *)qosFlowRef);
+    TAF_ERROR_IF_RET_VAL(qosStatus == NULL, LE_NOT_FOUND, "cannot get qos from ref(%p)",
+                         qosFlowRef);
+
+    *qosFlowIdPtr = qosStatus->qosID;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the details of the given QOS flow parameter mask.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- QOS flow not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_DataConnection::GetQosMask(taf_dcs_QosFlowRef_t qosFlowRef,
+                                           taf_dcs_QosFlowBitMask_t *qosFlowMaskPtr)
+{
+    TAF_ERROR_IF_RET_VAL((qosFlowMaskPtr == NULL), LE_BAD_PARAMETER, "qosFlowMaskPtr is null");
+
+    TAF_ERROR_IF_RET_VAL((qosFlowRef == NULL), LE_BAD_PARAMETER, "qosFlowRef is null");
+
+    QOSFlowCtxStatus_t *qosStatus = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap,
+                                                                        (void *)qosFlowRef);
+    TAF_ERROR_IF_RET_VAL(qosStatus == NULL, LE_NOT_FOUND, "cannot get qos from ref(%p)", qosFlowRef);
+
+    *qosFlowMaskPtr = qosStatus->qosMask;
+
+    return LE_OK;
+}
+
+void taf_DataConnectionListener::onTrafficFlowTemplateChange(
+    const std::shared_ptr<telux::data::IDataCall> &iCall,
+    const std::vector<std::shared_ptr<telux::data::TftChangeInfo>> &tfts)
+{
+
+    LE_DEBUG("<SDK Callback> taf_DataConnectionListener --> onTrafficFlowTemplateChange");
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    TAF_ERROR_IF_RET_NIL(iCall == nullptr, "iCall is null");
+    int32_t profileId = iCall->getProfileId();
+    uint8_t slotId = (uint8_t)iCall->getSlotId();
+
+    for (auto tft_iter : tfts)
+    {
+        LE_DEBUG(" ** TFT Details ** ");
+
+        LE_DEBUG(" QOS Flow ID %d ", tft_iter->tft->qosId);
+        LE_DEBUG(" QOS Flow New State %d ", static_cast<int>(tft_iter->stateChange));
+
+        dataConnection.fillQosDetails(tft_iter->tft, tft_iter->stateChange, profileId, slotId);
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1042,8 +1295,13 @@ taf_dcs_CallCtx_t* taf_DataConnection::CreateDataCallCtx(uint8_t slotId, int32_t
 
     snprintf(name, sizeof(name)-1, "callCtx-%d-%d", slotId, profileId);
     callCtxPtr->sessionStateEvent = le_event_CreateId(name, sizeof(DataCallState_t));
+
+    snprintf(name, sizeof(name)-1, "callQos-%d-%d", slotId, profileId);
+    callCtxPtr->qosStateEvent = le_event_CreateId(name, sizeof(QOSFlowStatus_t));
+
     callCtxPtr->maxRxBitRate = 0;
     callCtxPtr->maxTxBitRate = 0;
+    callCtxPtr->qosFlowRef = NULL;
     callCtxPtr->callEndReasonIPv4.callEndReasonType = TAF_DCS_CE_TYPE_UNKNOWN;
     callCtxPtr->callEndReasonIPv4.reasonInternal    = TAF_DCS_CE_INTERNAL_UNKNOWN;
     callCtxPtr->callEndReasonIPv6.callEndReasonType = TAF_DCS_CE_TYPE_UNKNOWN;
@@ -2398,6 +2656,21 @@ le_event_Id_t taf_DataConnection::GetSessionStateEvent(uint8_t slotId, int32_t p
     return callCtxPtr->sessionStateEvent;
 }
 
+le_event_Id_t taf_DataConnection::GetQosStateEvent(uint8_t slotId, int32_t profileId)
+{
+    taf_dcs_CallCtx_t* callCtxPtr;
+
+    callCtxPtr = GetCallCtx(slotId, profileId);
+    if (callCtxPtr == NULL)
+    {
+        TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, NULL,
+                         "Cannot find call context slotId(%d) profileId(%d)",
+                         slotId, profileId);
+    }
+
+    return callCtxPtr->qosStateEvent;
+}
+
 le_result_t taf_DataConnection::SendStatusChangedNotification
 (
     taf_dcs_CallCtx_t *callCtxPtr,
@@ -2524,6 +2797,8 @@ taf_dcs_DataBearerTechnology_t taf_DataConnection::updateDataBearerTech
 bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEvent_t *eventPtr)
 {
     bool isSendEvent = false;
+    taf_dcs_QosFlowRef_t qosRef = NULL;
+    QOSFlowCtxStatus_t* qosStatus = NULL;
 
     callCtxPtr->callStatus = eventPtr->callStatus;
     callCtxPtr->ipv4Status = eventPtr->ipv4Status;
@@ -2588,6 +2863,18 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
             memset(callCtxPtr->intfName, 0, sizeof(callCtxPtr->intfName));
             callCtxPtr->maxRxBitRate = 0;
             callCtxPtr->maxTxBitRate = 0;
+
+            //delete QOS flow for this data call
+            qosRef = callCtxPtr->qosFlowRef;
+            qosStatus = (QOSFlowCtxStatus_t*)le_ref_Lookup(QosStatusRefMap, qosRef);
+            if(qosStatus)
+            {
+              //when dataCall is disconnected , it implicitly means QOS is deleted.
+              LE_DEBUG("QOS flow released ID %d",qosStatus->qosID);
+              le_ref_DeleteRef(QosStatusRefMap, qosRef);
+              le_mem_Release(qosStatus);
+              callCtxPtr->qosFlowRef = NULL;
+            }
 
             // IPv4 call end reason
             callCtxPtr->callEndReasonIPv4.callEndReasonType =
@@ -3736,6 +4023,10 @@ void taf_DataConnection::Init(void)
     RoamingStatusPool = le_mem_InitStaticPool(RoamingStatusPool,
                                                       TAF_DCS_MAX_SESSION_REF,
                                                       sizeof(taf_dcs_RoamingStatusInd_t));
+    //TFT QOS Flow Reference
+    QosStatusPool = le_mem_InitStaticPool(QosStatusPool,TAF_DCS_MAX_SESSION_REF,
+                                                      sizeof(QOSFlowCtxStatus_t));
+    QosStatusRefMap = le_ref_InitStaticMap(QosStatusRefMap, TAF_DCS_MAX_SESSION_REF);
 
     DataCallRefMap = le_ref_CreateMap("Call Context Reference", TAF_DCS_MAX_CALL_OBJ);
 

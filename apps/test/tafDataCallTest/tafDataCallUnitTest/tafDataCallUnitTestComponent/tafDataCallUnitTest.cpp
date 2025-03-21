@@ -83,6 +83,7 @@ le_thread_Ref_t dataSessionThRef = NULL, dataSessionThRef2 = NULL;
 static taf_dcs_SessionStateHandlerRef_t TestSessionStateRef = NULL, TestSessionStateRef2 = NULL;
 static taf_dcs_RoamingStatusHandlerRef_t TestRoamingStatusRef = NULL;
 static taf_dcs_ThrottledStatusHandlerRef_t TestThrottleStatusRef = NULL;
+static taf_dcs_QosStatusHandlerRef_t TestQosStatusRef = NULL;
 char ApnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
 
 /**
@@ -294,6 +295,62 @@ static void throttle_status_handler
     LE_TEST_INFO("**** Handler for throttle status Indication (End)****");
 }
 
+static void qos_status_handler
+(
+    taf_dcs_QosFlowRef_t       qosFlowRef,
+    taf_dcs_QosFlowState_t  qosState,
+    void* contextPtr
+){
+    LE_TEST_INFO("**** Handler for qos status Indication (Begin)****");
+
+    LE_TEST_INFO("----qosState : %d", (int)qosState);
+
+    uint32_t qosFlowId = 0;
+    le_result_t result = taf_dcs_GetQosId(qosFlowRef,&qosFlowId);
+    if(result == LE_OK)
+      LE_TEST_INFO("----qos ID : %d", (int)qosFlowId);
+    else
+      LE_TEST_INFO("----qos ID get error---");
+
+    taf_dcs_QosFlowBitMask_t mask = 0;
+    result = taf_dcs_GetQosParameterMask(qosFlowRef,&mask);
+    if(result == LE_OK)
+      LE_TEST_INFO("----qos mask : %d", (int)mask);
+    else
+    {
+      LE_TEST_INFO("----qos mask get error---");
+      return;
+    }
+
+   if(mask & TAF_DCS_QOS_BIT_MASK_FLOW_NONE)
+   {
+       LE_TEST_INFO("No QOS flow mask installed");
+       return ;
+   }
+   if (mask & TAF_DCS_QOS_BIT_MASK_FLOW_TX_GRANTED)
+   {
+       LE_TEST_INFO("QOS Mask == MASK_FLOW_TX_GRANTED");
+   }
+   if (mask & TAF_DCS_QOS_BIT_MASK_FLOW_RX_GRANTED)
+   {
+       LE_TEST_INFO("QOS Mask == MASK_FLOW_RX_GRANTED");
+   }
+   if (mask & TAF_DCS_QOS_BIT_MASK_FLOW_TX_FILTERS)
+   {
+       LE_TEST_INFO("QOS Mask == MASK_FLOW_TX_FILTERS");
+   }
+   if (mask & TAF_DCS_QOS_BIT_MASK_FLOW_RX_FILTERS)
+   {
+       LE_TEST_INFO("QOS Mask == MASK_FLOW_RX_FILTERS");
+   }
+
+
+
+    LE_TEST_INFO("**** Handler for qos status Indication (End)****");
+}
+
+
+
 static void* ut_taf_roaming_status_handler(void* ctxPtr)
 {
     taf_dcs_ConnectService();
@@ -327,6 +384,24 @@ static void* ut_taf_throttle_status_handler(void* ctxPtr)
 
     return NULL;
 }
+
+static void* ut_taf_qos_status_handler(void* ctxPtr)
+{
+    taf_dcs_ConnectService();
+
+    TestQosStatusRef = taf_dcs_AddQosStatusHandler(TestProfileRef,
+                           (taf_dcs_QosStatusHandlerFunc_t)qos_status_handler,
+                            ctxPtr);
+
+    LE_TEST_OK(TestQosStatusRef != NULL, "ut_taf_qos_status_handler - void");
+
+    le_sem_Post(TestSemRef);
+
+    le_event_RunLoop();
+
+    return NULL;
+}
+
 
 void ut_profile_list_test()
 {
@@ -1264,6 +1339,13 @@ static void* UnitTestThread(void* contextPtr)
 
     le_sem_Wait(TestSemRef);
 
+    le_thread_Ref_t qosStatusThRef = le_thread_Create("QosStatusTh",
+                                                           ut_taf_qos_status_handler, NULL);
+
+    le_thread_Start(qosStatusThRef);
+
+    le_sem_Wait(TestSemRef);
+
     ut_ipv4v6_datacall_test();
 
     ut_ipv4_datacall_test();
@@ -1297,7 +1379,11 @@ static void* UnitTestThread(void* contextPtr)
 
     taf_dcs_RemoveThrottledStatusHandler(TestThrottleStatusRef);
 
-    LE_TEST_OK(le_thread_Cancel(throttleStatusThRef) == LE_OK, "le_thread_throttle roaming - OK");
+    LE_TEST_OK(le_thread_Cancel(throttleStatusThRef) == LE_OK, "le_thread_Cancel throttle- OK");
+
+    taf_dcs_RemoveQosStatusHandler(TestQosStatusRef);
+
+    LE_TEST_OK(le_thread_Cancel(qosStatusThRef) == LE_OK, "le_thread_Cancel qos - OK");
 
     LE_TEST_INFO("Unit tests completed");
     return NULL;

@@ -1705,6 +1705,171 @@ le_result_t taf_dcs_GetAPNThrottledPLMN
                                                                              mncPtr,mncSize);
 }
 
+/**
+ * First QOS flow state handler used by le_event_AddLayeredHandler().
+ *
+ * @param [in] reportPtr               event pointer.
+ * @param [in] subHandlerFunc          The secondary handler pointer, i.e. handlerPtr()
+ * from taf_dcs_AddQosStateHandler().
+ */
+static void FirstQosStateHandler(void* reportPtr, void* subHandlerFunc)
+{
+    QOSFlowStatus_t* stateEvent = (QOSFlowStatus_t *)reportPtr;
+    taf_dcs_QosStatusHandlerFunc_t handlerFunc = (taf_dcs_QosStatusHandlerFunc_t)subHandlerFunc;
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    taf_dcs_ProfileRef_t profileRef = dataProfile.GetProfileRef(stateEvent->slotId,
+                                                                stateEvent->profileId);
+    TAF_ERROR_IF_RET_NIL(profileRef == NULL, "cannot get profile ref from slot(%d) profile(%d)",
+                         stateEvent->slotId, stateEvent->profileId);
+
+    handlerFunc(stateEvent->qosRef , stateEvent->qosState, le_event_GetContextPtr());
+
+}
+
+/**
+ * Add a QOS flow state handler to monitor the specified data connection.
+ *
+ * If this profile is not brought up so far, the call context will be created corresponding to
+ * specified profile index.
+ *
+ * @param [in] callRef                  The call reference to be checked.
+ * @param [in] handlerPtr               The handler function.
+ * @param [in] contextPtr               The handler context.
+ *
+ * @returns reference                   Success to add qos flow state handler.
+ *          NULL                        Failed to add qos flow state handler.
+ */
+taf_dcs_QosStatusHandlerRef_t taf_dcs_AddQosStatusHandler
+(
+    taf_dcs_ProfileRef_t profileRef,
+    taf_dcs_QosStatusHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL((handlerPtr == NULL) , NULL,"handlerPtr is null");
+
+    TAF_ERROR_IF_RET_VAL((profileRef == NULL), NULL,"profileRef is null");
+
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    LE_DEBUG("taf_dcs_AddQosStatusHandler enter");
+
+    int32_t profileId;
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, NULL, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, NULL,
+                                                                        "Profile not created yet.");
+
+    le_event_Id_t qosStateEvent = dataConnection.GetQosStateEvent(slotId, profileId);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler(
+                                                    "QosFlowState",
+                                                    qosStateEvent,
+                                                    FirstQosStateHandler,
+                                                    (void *)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    LE_DEBUG("taf_dcs_AddQosStatusHandler exit");
+
+
+    return (taf_dcs_QosStatusHandlerRef_t)(handlerRef);
+}
+
+/**
+ * Remove QOS flow state handler.
+ *
+ * @param [in] handlerRef
+ * The state handler reference returned by taf_dcs_AddQosStatusHandler().
+ *
+ * @returns NA
+ *
+ * @note    NA
+ */
+void taf_dcs_RemoveQosStatusHandler
+(
+    taf_dcs_QosStatusHandlerRef_t handlerRef
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t) handlerRef);
+    return;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the QOS flow Id.
+ *
+ * @instaging
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- QOS flow not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_GetQosId
+(
+    taf_dcs_QosFlowRef_t qosFlowRef,  ///< The QOS flow reference.
+    uint32_t* qosFlowId                ///< QOS Id.
+)
+{
+    auto &dataConnection = taf_DataConnection::GetInstance();
+
+    dataConnection.GetQosID(qosFlowRef,qosFlowId);
+
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the details of the given QOS flow parameter mask.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- QOS flow not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_GetQosParameterMask
+(
+    taf_dcs_QosFlowRef_t qosFlowRef,                      ///< The QOS flow reference.
+    taf_dcs_QosFlowBitMask_t* qosFlowMask                 ///< QOS flow bitmask.
+)
+{
+    auto &dataConnection = taf_DataConnection::GetInstance();
+
+    dataConnection.GetQosMask(qosFlowRef,qosFlowMask);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the profile reference associated with the QOS flow.
+ *
+ * @instaging
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- QOS flow not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_GetQosProfile
+(
+    taf_dcs_QosFlowRef_t qosFlowRef,                     ///< The QOS flow reference.
+    taf_dcs_ProfileRef_t* profileRef
+)
+{
+    LE_UNUSED(qosFlowRef);
+    LE_UNUSED(profileRef);
+
+    return LE_OK;
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the maximum Tx and Rx data bit rates for an active data call.

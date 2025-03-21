@@ -180,6 +180,8 @@ namespace tafsvc {
         uint64_t                                maxTxBitRate;
         taf_dcs_callEndReason_t                 callEndReasonIPv4;
         taf_dcs_callEndReason_t                 callEndReasonIPv6;
+        le_event_Id_t                           qosStateEvent;
+        taf_dcs_QosFlowRef_t                    qosFlowRef;
     } taf_dcs_CallCtx_t;
 
     typedef struct IpAddrInfo
@@ -231,6 +233,24 @@ namespace tafsvc {
       uint32_t     ipv6Time;
     } ThrottleStatus_t;
 
+    typedef struct
+    {
+        int32_t profileId;
+        uint8_t slotId;
+        uint32_t qosID;
+        taf_dcs_QosFlowState_t qosState; ///< QOS state.
+        taf_dcs_QosFlowRef_t qosRef;
+    } QOSFlowStatus_t;
+
+    typedef struct
+    {
+        int32_t profileId;
+        uint8_t slotId;
+        uint32_t qosID;
+        taf_dcs_QosFlowState_t qosState;  ///< QOS state.
+        taf_dcs_QosFlowBitMask_t qosMask; ///< QOS mask.
+    } QOSFlowCtxStatus_t;
+
     typedef void (*taf_dcs_SessionStateFunc_t)(taf_dcs_ConState_t event,
                                                taf_dcs_StateInfo_t *infoPtr,
                                                taf_dcs_CallCtx_t *callCtxPtr);
@@ -241,10 +261,14 @@ namespace tafsvc {
           taf_DataConnectionListener(SlotId slot);
 
           void onDataCallInfoChanged(const std::shared_ptr<telux::data::IDataCall> &iCall) override;
-          void onThrottledApnInfoChanged(const std::vector<telux::data::APNThrottleInfo> &throttleInfoList) override;
+          void onThrottledApnInfoChanged(
+              const std::vector<telux::data::APNThrottleInfo> &throttleInfoList) override;
+          void onTrafficFlowTemplateChange(
+              const std::shared_ptr<telux::data::IDataCall> &dataCall,
+              const std::vector<std::shared_ptr<telux::data::TftChangeInfo>> &tft) override;
 
-        private:
-            SlotId slotId;
+      private:
+          SlotId slotId;
     };
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     class taf_DataConnServingSystemListener : public telux::data::IServingSystemListener
@@ -419,14 +443,24 @@ namespace tafsvc {
                                           taf_dcs_Pdp_t pdpType,
                                           taf_dcs_CallEndReasonType_t *callEndReasonTypePtr,
                                           int32_t *callEndReasonPtr);
+            void fillQosDetails(std::shared_ptr<telux::data::TrafficFlowTemplate> &tft,
+                                telux::data::QosFlowStateChangeEvent changeState,
+                                int32_t profileId,uint8_t slotId);
+            taf_dcs_QosFlowBitMask_t fillQosFlowMask(telux::data::QosFlowMask mask);
+            le_result_t GetQosID(taf_dcs_QosFlowRef_t qosFlowRef,uint32_t* qosFlowIdPtr);
+            le_result_t GetQosMask(taf_dcs_QosFlowRef_t qosFlowRef,
+                                   taf_dcs_QosFlowBitMask_t* qosFlowMaskPtr);
 
             le_event_Id_t CallEvent;
             bool IsIpv4(uint8_t slotId, int32_t profileId);
             bool IsIpv6(uint8_t slotId, int32_t profileId);
             void RegisterSessionStateHandler(taf_dcs_SessionStateFunc_t func);
             le_event_Id_t GetSessionStateEvent(uint8_t slotId, int32_t profileId);
+            le_event_Id_t GetQosStateEvent(uint8_t slotId, int32_t profileId);
+
             le_event_Id_t RoamingStatusEvtId;
             le_mem_PoolRef_t RoamingStatusPool;
+
             std::promise<le_result_t> CmdSynchronousPromise;
             std::promise<le_result_t> EventSynchronousPromise;
             static void* ConnectionEventThread(void* contextPtr);
@@ -466,6 +500,8 @@ namespace tafsvc {
             le_mem_PoolRef_t SessionRefPool = NULL;
             le_mem_PoolRef_t DataCallCtxPool = NULL;
             le_ref_MapRef_t  DataCallRefMap = NULL;
+            le_mem_PoolRef_t QosStatusPool = NULL;
+            le_ref_MapRef_t  QosStatusRefMap = NULL;
             le_mutex_Ref_t callCtxMutex = NULL; // Mutex for DataCallCtxList
             le_mutex_Ref_t handlerlistMutex = NULL; // Mutex for HandlerSessionMappingList
             taf_dcs_SessionStateFunc_t SessionStateFunc = NULL;

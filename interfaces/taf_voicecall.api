@@ -28,9 +28,9 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- *  Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -120,6 +120,10 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+API_MSG_SIZE = 100;
 
 USETYPES taf_types.api;
 
@@ -220,7 +224,7 @@ HANDLER StateHandler
 EVENT State
 (
     StateHandler handler
-);
+) = (0,1);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -236,7 +240,7 @@ FUNCTION Call Start
     string destinationID[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN, ///< Destination phone number for
                                                                    ///< call establishment.
     uint8 phoneId                                                  ///< SIM slot ID.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -250,7 +254,7 @@ FUNCTION Call Start
 FUNCTION le_result_t End
 (
     Call reference IN                                              ///< The call reference.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -264,7 +268,7 @@ FUNCTION le_result_t End
 FUNCTION le_result_t Delete
 (
     Call reference IN                                              ///< The call reference.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -284,7 +288,7 @@ FUNCTION le_result_t Delete
 FUNCTION le_result_t Answer
 (
     Call reference IN                                              ///< The call reference.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -300,7 +304,7 @@ FUNCTION le_result_t GetEndCause
 (
     Call reference IN,                                             ///< The call reference.
     CallEndCause cause OUT                                         ///< The end cause enumeration.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -314,7 +318,7 @@ FUNCTION le_result_t GetEndCause
 FUNCTION le_result_t Hold
 (
     Call reference IN                                              ///< The call reference.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -328,7 +332,7 @@ FUNCTION le_result_t Hold
 FUNCTION le_result_t Resume
 (
     Call reference IN                                              ///< The call reference.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -343,6 +347,6 @@ FUNCTION le_result_t Resume
 FUNCTION le_result_t Swap
 (
     Call reference IN                                              ///< The call reference.
-);
+) = 9;
 
 

@@ -28,9 +28,9 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- *  Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -123,6 +123,9 @@
  *
  */
 //------------------------------------------------------------------------------------------------
+
+API_VERSION = 1;
+SERVING_VERSION = 1;
 
 
 USETYPES taf_sim.api;
@@ -244,7 +247,7 @@ HANDLER  ProfileDownloadHandler
 EVENT  ProfileDownload
 (
     ProfileDownloadHandler handler    ///< Handler for profile download.
-);
+) = (0,1);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -271,7 +274,7 @@ HANDLER  ProfileUserConsentHandler
 EVENT  ProfileUserConsent
 (
     ProfileUserConsentHandler handler    ///< Handler of user consent.
-);
+) = (2,3);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -296,7 +299,7 @@ HANDLER  ProfileConfirmationCodeHandler
 EVENT  ProfileConfirmationCode
 (
     ProfileConfirmationCodeHandler handler    ///< Handler of profile confirmation code.
-);
+) = (4,5);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -312,7 +315,7 @@ FUNCTION le_result_t GetEID
 (
     taf_sim.Id       slotId IN,                 ///< SIM slot ID.
     string           eid[EID_LEN] OUT           ///< EID as output.
-);
+) = 6;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -331,7 +334,7 @@ FUNCTION le_result_t AddProfile
     string           confirmationCode[CODE_LEN] IN,             ///< Confirmation code.
     bool             userConsentSupported IN                    ///< Whether user consent is
                                                                 ///< supported or not.
-);
+) = 7;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -347,7 +350,7 @@ FUNCTION le_result_t DeleteProfile
 (
     taf_sim.Id       slotId IN,      ///< SIM slot ID.
     uint32           profileId IN    ///< Profile ID.
-);
+) = 8;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -364,7 +367,7 @@ FUNCTION le_result_t SetProfile
     taf_sim.Id       slotId IN,     ///< SIM slot ID.
     uint32           profileId IN,  ///< Profile ID.
     bool             enable    IN   ///< Enabled or not; true if enabling, false if disabling.
-);
+) = 9;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -381,7 +384,7 @@ FUNCTION le_result_t UpdateNickName
     taf_sim.Id       slotId IN,                  ///< SIM slot ID.
     uint32           profileId IN,               ///< Profile ID.
     string           nickName[NICKNAME_LEN] IN   ///< Nick name.
-);
+) = 10;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -397,7 +400,7 @@ FUNCTION le_result_t GetProfileList
 (
     taf_sim.Id        slotId IN,                      ///< SIM slot ID.
     ProfileListNode   profileList[MAX_PROFILE] OUT    ///< Profile list as output.
-);
+) = 11;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -414,7 +417,7 @@ FUNCTION le_result_t SetServerAddress
 (
     taf_sim.Id       slotId IN,                ///< SIM slot ID.
     string           smdpAdress[SMDP_LEN] IN   ///< SM-DP+ address.
-);
+) = 12;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -432,7 +435,7 @@ FUNCTION le_result_t GetServerAddress
     taf_sim.Id           slotId IN,                   ///< SIM slot ID.
     string               smdpAdress[SMDP_LEN]  OUT,   ///< SM-DP+ address.
     string               smdsdress[SMDP_LEN] OUT      ///< SMDS address.
-);
+) = 13;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -450,7 +453,7 @@ FUNCTION le_result_t ProvideUserConsent
     taf_sim.Id              slotId IN,       ///< SIM slot ID.
     bool                    userConsent IN,  ///< User consent.
     UserConsentReasonType   reason           ///< User consent reason.
-);
+) = 14;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -467,7 +470,7 @@ FUNCTION le_result_t ProvideConfirmationCode
 (
     taf_sim.Id              slotId IN,          ///< SIM slot ID.
     string                  code[CODE_LEN] IN   ///< Confirmation code.
-);
+) = 15;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -482,7 +485,7 @@ FUNCTION le_result_t ProvideConfirmationCode
 FUNCTION ProfileListNode GetProfile
 (
     uint32 index ///< Profile index.
-);
+) = 16;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -496,7 +499,7 @@ FUNCTION ProfileListNode GetProfile
 FUNCTION uint32 GetProfileIndex
 (
     ProfileListNode profileRef
-);
+) = 17;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -510,7 +513,7 @@ FUNCTION uint32 GetProfileIndex
 FUNCTION ProfileType GetProfileType
 (
     ProfileListNode profileRef
-);
+) = 18;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -526,7 +529,7 @@ FUNCTION le_result_t GetIccid
 (
     ProfileListNode profileRef IN,
     string          iccid[taf_sim.ICCID_LEN] OUT
-);
+) = 19;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -541,7 +544,7 @@ FUNCTION le_result_t GetIccid
 FUNCTION bool GetProfileActiveStatus
 (
     ProfileListNode profileRef
-);
+) = 20;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -557,7 +560,7 @@ FUNCTION le_result_t GetNickName
 (
     ProfileListNode profileRef IN,
     string          nickName[NICKNAME_LEN] OUT
-);
+) = 21;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -573,7 +576,7 @@ FUNCTION le_result_t GetName
 (
     ProfileListNode profileRef IN,
     string          name[NAME_LEN] OUT
-);
+) = 22;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -589,7 +592,7 @@ FUNCTION le_result_t GetSpn
 (
     ProfileListNode profileRef IN,
     string          spn[SPN_LEN] OUT
-);
+) = 23;
 
 
 //-------------------------------------------------------------------------------------------------
@@ -604,7 +607,7 @@ FUNCTION le_result_t GetSpn
 FUNCTION IconType GetIconType
 (
     ProfileListNode profileRef IN
-);
+) = 24;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -618,7 +621,7 @@ FUNCTION IconType GetIconType
 FUNCTION ProfileClass GetProfileClass
 (
     ProfileListNode profileRef IN
-);
+) = 25;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -632,4 +635,4 @@ FUNCTION ProfileClass GetProfileClass
 FUNCTION uint32 GetMask
 (
     ProfileListNode profileRef IN
-);
+) = 26;

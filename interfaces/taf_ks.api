@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -219,6 +219,11 @@
  * <HR>
  *
  */
+//--------------------------------------------------------------------------------------------------
+
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * The maximum size of the key name in bytes.
@@ -493,7 +498,7 @@ FUNCTION le_result_t CreateKey
     string   keyId[MAX_KEY_ID_SIZE]   IN, ///< Key ID.
     KeyUsage keyUsage                 IN, ///< Key usage.
     Key      keyRef                   OUT ///< Key reference.
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -511,7 +516,7 @@ FUNCTION le_result_t GetKey
 (
     string keyName[MAX_KEY_ID_SIZE] IN, ///< Key name.
     Key    keyRef                   OUT ///< Key reference.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -528,7 +533,7 @@ FUNCTION le_result_t GetKey
 FUNCTION le_result_t DeleteKey
 (
     Key    keyRef                   IN  ///< Key reference.
-);
+) =  2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -550,7 +555,7 @@ FUNCTION le_result_t GetKeyUsage
 (
     Key       keyRef                      IN, ///< Key reference.
     KeyUsage  keyUsage                    OUT ///< Key usage.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -568,7 +573,7 @@ FUNCTION le_result_t SetKeyMaxUsesPerBoot
 (
     Key    keyRef        IN,  ///< Key reference.
     uint32 value         IN   ///< Uses per boot.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -586,7 +591,7 @@ FUNCTION le_result_t SetKeyMinSecondsBetweenOps
 (
     Key    keyRef        IN,  ///< Key reference.
     uint32 value         IN   ///< Seconds interval between allowed operations.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -608,7 +613,7 @@ FUNCTION le_result_t SetKeyAppData
 (
     Key   keyRef                IN,  ///< Key reference.
     uint8 data[MAX_PACKET_SIZE] IN   ///< Data buffer to hold the application data.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -627,7 +632,7 @@ FUNCTION le_result_t SetKeyActiveDateTime
 (
     Key    keyRef        IN,  ///< Key reference.
     uint64 value         IN   ///< Milliseconds since January 1, 1970.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -646,7 +651,7 @@ FUNCTION le_result_t SetKeyOriginationExpireDateTime
 (
     Key    keyRef        IN,  ///< Key reference.
     uint64 value         IN   ///< Milliseconds since January 1, 1970.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -665,7 +670,7 @@ FUNCTION le_result_t SetKeyUsageExpireDateTime
 (
     Key    keyRef        IN,  ///< Key reference.
     uint64 value         IN   ///< Milliseconds since January 1, 1970.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -689,7 +694,7 @@ FUNCTION le_result_t ProvisionRsaEncKeyValue
                                                   ///< impData is provided.
     RsaEncPadding    padding                  IN, ///< Padding type of RSA encryption key.
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -713,7 +718,7 @@ FUNCTION le_result_t ProvisionRsaSigKeyValue
                                                   ///< impData is provided.
     RsaSigPadding    padding                  IN, ///< Padding type of RSA signing key.
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data.
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -737,7 +742,7 @@ FUNCTION le_result_t ProvisionEcdsaKeyValue
                                                   ///< impData is provided.
     Digest           digest                   IN, ///< Digest.
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data.
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -761,7 +766,7 @@ FUNCTION le_result_t ProvisionAesKeyValue
                                                   ///< impData is provided.
     AesBlockMode     mode                     IN, ///< AES block mode.
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data.
-);
+) = 13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -785,7 +790,7 @@ FUNCTION le_result_t ProvisionHmacKeyValue
                                                   ///< impData is provided.
     Digest           digest                   IN, ///< Digest.
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data.
-);
+) = 14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -808,7 +813,7 @@ FUNCTION le_result_t ExportKey
     Key    keyRef                         IN, ///< Key reference.
     uint8  appData[MAX_PACKET_SIZE]       IN, ///< Data buffer to hold the application data.
     uint8  expData[MAX_PACKET_SIZE]       OUT ///< Exported key data.
-);
+) = 15;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -841,7 +846,7 @@ FUNCTION le_result_t ShareKey
     string appName[MAX_APP_NAME_SIZE]     IN, ///< Shared application name.
     KeyUsage keyCap                       IN, ///< Shared key capability.
     AppCapMask appCap                     IN  ///< Shared application capability.
-);
+) = 16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -861,7 +866,7 @@ FUNCTION le_result_t CancelKeySharing
 (
     Key    keyRef                         IN, ///< Key reference.
     string appName[MAX_APP_NAME_SIZE]     IN  ///< Name of the app that the key is shared to before.
-);
+) = 17;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -872,7 +877,7 @@ FUNCTION le_result_t CancelKeySharing
 FUNCTION le_result_t GetCallingAppName
 (
     string appName[MAX_APP_NAME_SIZE]     OUT ///< Application name.
-);
+) = 18;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -892,7 +897,7 @@ FUNCTION le_result_t GetFirstSharedApp
     string appName[MAX_APP_NAME_SIZE]     OUT, ///< Shared application name.
     KeyUsage keyCap                       OUT, ///< Shared key capability.
     AppCapMask appCap                     OUT  ///< Shared application capability.
-);
+) = 19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -912,7 +917,7 @@ FUNCTION le_result_t GetNextSharedApp
     string appName[MAX_APP_NAME_SIZE]     OUT, ///< Shared application name.
     KeyUsage keyCap                       OUT, ///< Shared key capability.
     AppCapMask appCap                     OUT  ///< Shared application capability.
-);
+) = 20;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -947,7 +952,7 @@ EVENT KeySharing
     string appName[MAX_APP_NAME_SIZE]      IN,  ///< Key owner app.
     KeySharingHandler handler              IN   ///< Handler is called when the required key of the
                                                 ///< application shared to the calling application.
-);
+) = (21,22);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -965,7 +970,7 @@ FUNCTION le_result_t CryptoSessionCreate
 (
     Key           keyRef      IN,     ///< Key to use for this cryptographic session.
     CryptoSession sessionRef  OUT     ///< Session reference.
-);
+) = 23;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -985,7 +990,7 @@ FUNCTION le_result_t CryptoSessionSetAesNonce
 (
     CryptoSession   sessionRef     IN,  ///< Session reference.
     uint8 data[MAX_AES_NONCE_SIZE] IN   ///< Data buffer to hold the nonce or IV.
-);
+) = 24;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1005,7 +1010,7 @@ FUNCTION le_result_t CryptoSessionSetRsaPadding
 (
     CryptoSession   sessionRef     IN,  ///< [IN] Session reference for a RSA signing key.
     RsaPaddingType  paddingType    IN   ///< [IN] General padding type.
-);
+) = 25;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1027,7 +1032,7 @@ FUNCTION le_result_t CryptoSessionSetAppData
 (
     CryptoSession   sessionRef     IN,  ///< Session reference.
     uint8 data[MAX_PACKET_SIZE]    IN   ///< Data buffer to hold the application data.
-);
+) =26;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1047,7 +1052,7 @@ FUNCTION le_result_t CryptoSessionStart
 (
     CryptoSession sessionRef         IN,  ///< Session reference.
     CryptoPurpose cryptoPurpose      IN   ///< Cryptographic operation purpose.
-);
+) =27;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1067,7 +1072,7 @@ FUNCTION le_result_t CryptoSessionProcessAead
 (
     CryptoSession   sessionRef     IN,  ///< Session reference.
     uint8 data[MAX_PACKET_SIZE]    IN   ///< Data buffer to hold the AEAD data.
-);
+) =28;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1096,7 +1101,7 @@ FUNCTION le_result_t CryptoSessionProcess
                                                ///< 2. Decrypted data for decryption session.
                                                ///< 3. Shall set NULL for signing and verification
                                                ///<    sessions.
-);
+) =29;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1121,7 +1126,7 @@ FUNCTION le_result_t CryptoSessionEnd
                                                ///< 2. Decrypted data for decryption session.
                                                ///< 3. Signature for signing session.
                                                ///< 4. Shall set to NULL for verfication session.
-);
+) =30;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1138,4 +1143,4 @@ FUNCTION le_result_t CryptoSessionEnd
 FUNCTION le_result_t CryptoSessionAbort
 (
     CryptoSession sessionRef               IN  ///< Session reference.
-);
+) =31;

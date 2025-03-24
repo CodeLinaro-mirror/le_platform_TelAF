@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -137,6 +137,10 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 USETYPES taf_types.api;
 
 //--------------------------------------------------------------------------------------------------
@@ -194,7 +198,7 @@ REFERENCE RxMsg;
 FUNCTION Service GetService
 (
     uint8 resetType
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -214,7 +218,7 @@ FUNCTION le_result_t SetVlanId
 (
     Service svcRef IN,      ///< Service reference.
     uint16 vlanId IN        ///< VLAN ID
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -240,7 +244,7 @@ EVENT RxMsg
 (
     Service svcRef IN,      ///< Service reference.
     RxMsgHandler handler    ///< Received message handler.
-);
+) = (2,3);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -258,7 +262,7 @@ FUNCTION le_result_t GetVlanIdFromMsg
 (
     RxMsg rxMsgRef  IN,    ///< Receive message reference.
     uint16 vlanId   OUT    ///< VLAN ID.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -279,7 +283,7 @@ FUNCTION le_result_t SendResp
 (
     RxMsg rxMsgRef  IN,      ///< Received message reference.
     uint8 errCode  IN        ///< Error code type.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -293,4 +297,4 @@ FUNCTION le_result_t SendResp
 FUNCTION le_result_t RemoveSvc
 (
     Service svcRef  IN    ///< Service reference.
-);
+) = 6;

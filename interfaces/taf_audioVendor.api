@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -154,6 +154,10 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 DEFINE MAX_CONFIG_LEN = 32;
 
 /**
@@ -202,7 +206,7 @@ FUNCTION le_result_t GetNodeType
 (
     uint8    nodeId   IN,   ///< The audio node ID.
     NodeType nodeType OUT   ///< The node type.
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -220,7 +224,7 @@ FUNCTION le_result_t SendNodeVendorConfig
 (
     uint8  nodeId                      IN,    ///< The audio node ID.
     string configPath[MAX_CONFIG_LEN]  IN     ///< The config path.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -235,7 +239,7 @@ FUNCTION le_result_t SendNodeVendorConfig
 FUNCTION le_result_t SendVendorConfig
 (
     string configPath[MAX_CONFIG_LEN]  IN     ///< The configuration path.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -252,7 +256,7 @@ FUNCTION le_result_t SetNodePowerState
 (
     uint8             nodeId  IN,    ///< The audio node ID.
     NodePowerState    state   IN     ///< The Power state to be set.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -269,7 +273,7 @@ FUNCTION le_result_t GetNodePowerState
 (
     uint8           nodeId  IN,      ///< The audio node ID.
     NodePowerState  state   OUT      ///< The Power state of the audio device.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -286,7 +290,7 @@ FUNCTION le_result_t SetNodeMuteState
 (
     uint8   nodeId   IN,    ///< The audio node ID.
     bool    mute     IN     ///< True to mute, false to unmute.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -303,7 +307,7 @@ FUNCTION le_result_t GetNodeMuteState
 (
     uint8   nodeId   IN,      ///< The audio node ID.
     bool    isMuted  OUT      ///< The mute status of the audio device.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -323,7 +327,7 @@ FUNCTION le_result_t SetNodeGain
     uint8     nodeId    IN,    ///< The audio node ID.
     Direction direction IN,    ///< Audio node direction to set gain.
     double    gain      IN     ///< Gain percentage ranged 0 to 1.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -343,7 +347,7 @@ FUNCTION le_result_t GetNodeGain
     uint8     nodeId    IN,      ///< The audio node ID.
     Direction direction IN,      ///< Audio node direction to set gain.
     double    gain      OUT      ///< Gain percentage ranged 0 to 1.
-);
+) = 8;
 
 /**
  * Audio device events.
@@ -375,4 +379,4 @@ EVENT NodeStateChange
 (
     uint8               nodeId  IN, ///< The audio node ID.
     NodeStateHandler    handler     ///< NodeStateHandler handler.
-);
+) = (9,10);

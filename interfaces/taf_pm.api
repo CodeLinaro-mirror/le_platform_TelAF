@@ -110,6 +110,10 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Maximum string length for a wake-up source tag (not including the null-terminator).
@@ -312,7 +316,7 @@ HANDLER StateChangeHandler
 EVENT StateChange
 (
     StateChangeHandler handler  ///< The state change handler.
-);
+) = (0,1);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -343,7 +347,7 @@ HANDLER StateChangeExHandler
 EVENT StateChangeEx
 (
     StateChangeExHandler handler  ///< The PmMasterWake source change handler.
-);
+) = (2,3);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -389,7 +393,7 @@ HANDLER ConsolidatedAckInfoHandler
 EVENT ConsolidatedAckInfo
 (
     ConsolidatedAckInfoHandler handler  ///< The ConsolidatedAck Info handler.
-);
+) = (4,5);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -419,7 +423,7 @@ EVENT ModemAwake
 (
     ModemAwakeHandler handler,  ///< The modem awake event handler.
     NodeModemWsBitMask wsBitmask
-);
+) = (6,7);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -434,7 +438,7 @@ FUNCTION WakeupSource NewWakeupSource
 (
     uint32 createOpts IN,       ///< Wakeup source options.
     string wsTag[TAG_LEN] IN    ///< Context-specific wakeup source tag.
-);
+) =8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -449,7 +453,7 @@ FUNCTION WakeupSource NewWakeupSource
 FUNCTION le_result_t StayAwake
 (
     WakeupSource wsRef IN      ///< Reference to the wakeup source to be acquired.
-);
+) =9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -464,7 +468,7 @@ FUNCTION le_result_t StayAwake
 FUNCTION le_result_t Relax
 (
     WakeupSource wsRef IN     ///< Reference to the wakeup source to be released.
-);
+) =10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -476,7 +480,7 @@ FUNCTION le_result_t Relax
 //--------------------------------------------------------------------------------------------------
 FUNCTION State GetPowerState
 (
-);
+) =11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -495,7 +499,7 @@ FUNCTION State GetPowerState
 FUNCTION le_result_t SetAllVMPowerState
 (
     State   state IN                         ///< State to be set.
-);
+) =12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -515,7 +519,7 @@ FUNCTION le_result_t SetVMPowerState
 (
     State   state IN,                         ///< State to be set.
     string  machineName[MACHINE_NAME_LEN]  IN ///< Virtual Machine name of the state to be changed.
-);
+) =13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -532,7 +536,7 @@ FUNCTION le_result_t SetVMPowerState
 //--------------------------------------------------------------------------------------------------
 FUNCTION VMList GetMachineList
 (
-);
+) =14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -551,7 +555,7 @@ FUNCTION le_result_t GetFirstMachineName
 (
     VMList vmListRef IN,                  ///< Virtual Machine list reference.
     string name[MACHINE_NAME_LEN] OUT     ///< The name of the Virtual Machine.
-);
+) =15;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -571,7 +575,7 @@ FUNCTION le_result_t GetNextMachineName
 (
     VMList vmListRef IN,                  ///< Virtual Machine list reference.
     string name[MACHINE_NAME_LEN] OUT     ///< The name of the Virtual Machine.
-);
+) =16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -589,7 +593,7 @@ FUNCTION le_result_t GetNextMachineName
 FUNCTION le_result_t DeleteMachineList
 (
     VMList vmLsitRef IN                  ///< Virtual Machine list reference.
-);
+) =17;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -606,7 +610,7 @@ FUNCTION SendStateChangeAck
     State state IN,               ///< The system state.
     NadVm vm IN,                  ///< The VM ID of the machine.
     ClientAck ack IN              ///< The acknowledgement type.
-);
+) =18;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -622,7 +626,7 @@ FUNCTION le_result_t GetNackClientInfo
     ConsolidatedAckInfo consolidatedAckInfoRef IN,           ///< The reference of the consolidated
                                                              ///< acknowledgement information.
     ClientInfo nackClients[MAX_CLIENT_NUMBER] OUT            ///< The nacked clients.
-);
+) =19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -638,7 +642,7 @@ FUNCTION le_result_t GetUnrespClientInfo
     ConsolidatedAckInfo consolidatedAckInfoRef IN,           ///< The reference of the consolidated
                                                              ///< acknowledgement information.
     ClientInfo unrespClients[MAX_CLIENT_NUMBER] OUT          ///< The unresponsive clients.
-);
+) =20;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -650,7 +654,7 @@ FUNCTION le_result_t GetUnrespClientInfo
 FUNCTION le_result_t SetPowerMode
 (
     PowerMode powerMode     ///< to set system power mode when BUB status has changed.
-);
+) =21;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -664,7 +668,7 @@ FUNCTION le_result_t SetPowerMode
 FUNCTION le_result_t SetModemWakeupSel
 (
     NodeModemWsBitMask wsBitmask     ///< Modem wakeup selection to be whitelisted.
-);
+) =22;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -678,7 +682,7 @@ FUNCTION le_result_t SetModemWakeupSel
 FUNCTION le_result_t GetModemWakeupSel
 (
     NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup selection to be whitelisted.
-);
+) =23;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -692,4 +696,4 @@ FUNCTION le_result_t GetModemWakeupSel
 FUNCTION le_result_t GetModemAwakeReason
 (
     NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup reason.
-);
+) =24;

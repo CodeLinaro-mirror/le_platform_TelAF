@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -140,6 +140,10 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * DTC data maximum length.
@@ -223,7 +227,7 @@ REFERENCE Data;
 FUNCTION Service GetService
 (
     uint32 dtcCode IN
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -253,7 +257,7 @@ EVENT ActivationStatus
 (
     Service  svcRef,                   ///< Service reference.
     ActivationStatusHandler  handler   ///< DTC activation status handler.
-);
+) = (1,2);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -283,7 +287,7 @@ EVENT Status
 (
     Service  svcRef,                   ///< Service reference.
     StatusHandler  handler             ///< DTC handler.
-);
+) =(3,4);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -313,7 +317,7 @@ EVENT ClearStatus
 (
     Service  svcRef,                        ///< Service reference.
     ClearStatusHandler  handler             ///< Clear DTC status handler.
-);
+) = (5,6);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -330,7 +334,7 @@ FUNCTION le_result_t GetCode
 (
     Service svcRef  IN,                ///< The DTC reference.
     uint32 dtcCode  OUT                ///< The DTC code.
-);
+) =7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -347,7 +351,7 @@ FUNCTION le_result_t GetFaultDetectionCounter
 (
     Service svcRef  IN,                ///< The DTC reference.
     uint8 faultDetectionCounter  OUT   ///< The fault detection counter.
-);
+) =8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -367,7 +371,7 @@ FUNCTION le_result_t ReadStatus
 (
     Service svcRef  IN,                ///< Service reference.
     uint8 status  OUT                  ///< DTC status.
-);
+) =9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -387,7 +391,7 @@ FUNCTION le_result_t SetActivationStatus
 (
     Service svcRef  IN,                ///< Service reference.
     ActivationStatus status  IN        ///< Activation status.
-);
+) =10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -406,7 +410,7 @@ FUNCTION le_result_t GetActivationStatus
 (
     Service svcRef  IN,                ///< Service reference.
     ActivationStatus status  OUT       ///< Activation status.
-);
+) =11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -425,7 +429,7 @@ FUNCTION le_result_t SetSuppression
 (
     Service svcRef  IN,                ///< Service reference.
     bool suppressionStatus  IN         ///< Set or clear DTC suppression status.
-);
+) =12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -443,7 +447,7 @@ FUNCTION le_result_t GetSuppression
 (
     Service svcRef  IN,                ///< Service reference.
     bool suppressionStatus  OUT        ///< DTC suppression status.
-);
+) =13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -462,7 +466,7 @@ FUNCTION le_result_t GetSuppression
 FUNCTION le_result_t ClearInfo
 (
     Service svcRef  IN                 ///< Service reference.
-);
+) =14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -477,7 +481,7 @@ FUNCTION le_result_t ClearInfo
 FUNCTION DataList GetDataList
 (
     Service svcRef  IN                 ///< Service reference.
-);
+) =15;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -492,7 +496,7 @@ FUNCTION DataList GetDataList
 FUNCTION Data GetFirstData
 (
     DataList  dataListRef  IN          ///< Reference of a DTC data list.
-);
+) =16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -507,7 +511,7 @@ FUNCTION Data GetFirstData
 FUNCTION Data GetNextData
 (
     DataList  dataListRef  IN          ///< Reference of a DTC data list.
-);
+) =17;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -523,7 +527,7 @@ FUNCTION Data GetNextData
 FUNCTION le_result_t DeleteDataList
 (
     DataList  dataListRef  IN          ///< Reference of a DTC data list.
-);
+) =18;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -541,7 +545,7 @@ FUNCTION le_result_t GetDataDtcCode
 (
     Data dataRef  IN,                  ///< DTC data reference.
     uint32 dtcCode  OUT                ///< DTC code.
-);
+) =19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -559,7 +563,7 @@ FUNCTION le_result_t GetDataType
 (
     Data dataRef  IN,                  ///< DTC data reference.
     DataType dataType  OUT             ///< Data type.
-);
+) =20;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -577,7 +581,7 @@ FUNCTION le_result_t GetRecordNumber
 (
     Data dataRef  IN,                  ///< DTC data reference.
     uint8 recordNumber  OUT            ///< Record number.
-);
+) =21;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -596,7 +600,7 @@ FUNCTION le_result_t GetDataId
 (
     Data dataRef  IN,                  ///< DTC data reference.
     uint16 dataId  OUT                 ///< Data ID.
-);
+) =22;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -614,7 +618,7 @@ FUNCTION le_result_t GetDataValue
 (
     Data dataRef  IN,                          ///< DTC data reference.
     uint8 value[DATA_VALUE_MAX_BYTES]  OUT     ///< Data ID.
-);
+) =23;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -629,7 +633,7 @@ FUNCTION le_result_t GetDataValue
 FUNCTION le_result_t RemoveSvc
 (
     Service svcRef  IN                 ///< Service reference.
-);
+) =24;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -644,7 +648,7 @@ FUNCTION le_result_t RemoveSvc
 //--------------------------------------------------------------------------------------------------
 FUNCTION AllService GetAllService
 (
-);
+) =25;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -676,7 +680,7 @@ EVENT AllStatus
 (
     AllService  svcRef,                 ///< Service reference for all DTC.
     AllStatusHandler  handler           ///< All DTC handler.
-);
+) =(26,27);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -706,7 +710,7 @@ EVENT ClearAllStatus
 (
     AllService  svcRef,                        ///< Service reference for all DTC.
     ClearAllStatusHandler  handler             ///< DTC handler.
-);
+) = (28,29);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -723,7 +727,7 @@ EVENT ClearAllStatus
 FUNCTION le_result_t ClearAllInfo
 (
     AllService svcRef  IN               ///< Service reference for all DTC.
-);
+) =30;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -741,7 +745,7 @@ FUNCTION le_result_t SetAllSuppression
 (
     AllService svcRef  IN,              ///< Service reference for all DTC.
     bool suppressionStatus  IN          ///< Set or clear all DTC suppression status.
-);
+) =31;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -756,4 +760,4 @@ FUNCTION le_result_t SetAllSuppression
 FUNCTION le_result_t RemoveAllSvc
 (
     AllService svcRef  IN    ///< Service reference for all DTC.
-);
+) =32;

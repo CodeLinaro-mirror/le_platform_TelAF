@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -395,6 +395,8 @@
  */
 //------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -507,7 +509,7 @@ HANDLER TripEventHandler
 EVENT TripEvent
 (
     TripEventHandler handler  ///< The Trip Event handler.
-);
+) = (0,1);
 
 /**
  * Handler for cooling level change event.
@@ -528,7 +530,7 @@ HANDLER CoolingLevelChangeEventHandler
 EVENT CoolingLevelChangeEvent
 (
     CoolingLevelChangeEventHandler handler
-);
+) = (2,3);
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -541,7 +543,7 @@ EVENT CoolingLevelChangeEvent
 //------------------------------------------------------------------------------------------------
 FUNCTION ThermalZoneList GetThermalZonesList
 (
-);
+) = 4;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -556,7 +558,7 @@ FUNCTION le_result_t  GetThermalZonesListSize
 (
     ThermalZoneList ThermalZoneListRef        IN,        ///< Thermal zone list reference.
     uint32      thermalZoneListSize           OUT      ///< List size.
-);
+) = 5;
 
 
 //------------------------------------------------------------------------------------------------
@@ -572,7 +574,7 @@ FUNCTION le_result_t  GetThermalZonesListSize
 FUNCTION ThermalZone GetFirstThermalZone
 (
     ThermalZoneList ThermalZoneListRef        IN        ///< Thermal zone list reference
-);
+) = 6;
 
 
 //------------------------------------------------------------------------------------------------
@@ -588,7 +590,7 @@ FUNCTION ThermalZone GetFirstThermalZone
 FUNCTION ThermalZone GetNextThermalZone
 (
     ThermalZoneList ThermalZoneListRef        IN        ///< Thermal zone list reference
-);
+) = 7;
 
 
 //------------------------------------------------------------------------------------------------
@@ -604,7 +606,7 @@ FUNCTION ThermalZone GetNextThermalZone
 FUNCTION TripPoint GetFirstTripPoint
 (
     ThermalZone ThermalZoneRef        IN        ///< Thermal zone reference
-);
+) = 8;
 
 
 //------------------------------------------------------------------------------------------------
@@ -620,7 +622,7 @@ FUNCTION TripPoint GetFirstTripPoint
 FUNCTION TripPoint GetNextTripPoint
 (
     ThermalZone ThermalZoneRef        IN        ///< Thermal zone reference
-);
+) = 9;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -635,7 +637,7 @@ FUNCTION TripPoint GetNextTripPoint
 FUNCTION BoundCoolingDevice GetFirstBoundCDev
 (
     ThermalZone ThermalZoneRef        IN        ///< Thermal zone reference
-);
+) = 10;
 
 
 //------------------------------------------------------------------------------------------------
@@ -651,7 +653,7 @@ FUNCTION BoundCoolingDevice GetFirstBoundCDev
 FUNCTION BoundCoolingDevice GetNextBoundCDev
 (
     ThermalZone ThermalZoneRef        IN        ///< Thermal zone reference
-);
+) = 11;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -665,7 +667,7 @@ FUNCTION BoundCoolingDevice GetNextBoundCDev
 FUNCTION TripPoint GetFirstBoundTripPoint
 (
     BoundCoolingDevice BoundCoolingDeviceRef    IN        ///< Bound cooling device reference
-);
+) = 12;
 
 
 //------------------------------------------------------------------------------------------------
@@ -680,7 +682,7 @@ FUNCTION TripPoint GetFirstBoundTripPoint
 FUNCTION TripPoint GetNextBoundTripPoint
 (
     BoundCoolingDevice BoundCoolingDeviceRef    IN        ///< Bound cooling device reference
-);
+) = 13;
 
 
 //------------------------------------------------------------------------------------------------
@@ -697,8 +699,7 @@ FUNCTION le_result_t GetThermalZoneID
     ThermalZone ThermalZoneRef       IN,       ///< Thermal zone reference
     uint32      thermalZoneID        OUT       ///< Thermal zone ID associated with
                                                ///< the input thermal zone reference
-);
-
+) = 14;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -713,7 +714,7 @@ FUNCTION le_result_t GetThermalZoneType
 (
     ThermalZone ThermalZoneRef                   IN,        ///< Thermal zone reference
     string ThermalZoneType[TYPE_MAX_SIZE]        OUT        ///< Thermal zone type
-);
+) = 15;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -729,7 +730,7 @@ FUNCTION le_result_t GetThermalZoneCurrentTemp
     ThermalZone ThermalZoneRef  IN,      ///< Thermal zone reference
     uint32      currTemp        OUT      ///< Thermal zone current temperature associated with
                                          ///< the input thermal zone reference
-);
+) = 16;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -745,7 +746,7 @@ FUNCTION le_result_t GetThermalZonePassiveTemp
     ThermalZone ThermalZoneRef  IN,       ///< Thermal zone reference
     uint32      passiveTemp     OUT       ///< Thermal zone passive temperature associated with
                                           ///< the input thermal zone reference
-);
+) = 17;
 
 
 //------------------------------------------------------------------------------------------------
@@ -761,7 +762,7 @@ FUNCTION le_result_t GetTripPointListSize
 (
     ThermalZone ThermalZoneRef        IN,       ///< Thermal zone reference
     uint32      tripPointListSize     OUT      ///< The trip point device list size
-);
+) = 18;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -776,7 +777,7 @@ FUNCTION le_result_t GetBoundCoolingDeviceListSize
 (
     ThermalZone ThermalZoneRef                IN,       ///< Thermal zone reference
     uint32      boundCoolingDeviceListSize    OUT      ///< The bound cooling device list size
-);
+) = 19;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -791,7 +792,7 @@ FUNCTION le_result_t GetTripPointType
 (
     TripPoint TripPointRef                    IN,         ///< Trip point reference
     string TripType[TYPE_MAX_SIZE]            OUT        ///< Trip type associated with trip point
-);
+) = 20;
 
 
 //------------------------------------------------------------------------------------------------
@@ -808,7 +809,7 @@ FUNCTION le_result_t GetTripPointThreshold
     TripPoint TripPointRef       IN,        ///< Trip point reference
     uint32    threshold          OUT        ///< The threshold associated with the input
                                             ///< trip point reference
-);
+) = 21;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -823,8 +824,8 @@ FUNCTION le_result_t GetTripPointHysterisis
 (
     TripPoint TripPointRef        IN,       ///< Trip point reference
     uint32    hysterisis          OUT       ///< The hysteresis associated with the input
-                                            ///< trip point reference
-);
+                                            /// trip point reference
+) = 22;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -843,7 +844,7 @@ FUNCTION le_result_t GetTripPointTripID
     TripPoint TripPointRef        IN,      ///< Trip point reference
     uint32    tripID              OUT      ///< The trip ID associated with the input
                                            ///< trip point reference
-);
+) = 23;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -862,7 +863,7 @@ FUNCTION le_result_t GetTripPointThermalZoneID
     TripPoint TripPointRef        IN,      ///< Trip point reference
     uint32    tZoneID             OUT      ///< The thermal zone ID associated with
                                            ///< the input trip point reference
-);
+) = 24;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -878,7 +879,7 @@ FUNCTION le_result_t GetBoundCoolingId
     BoundCoolingDevice BoundCoolingDeviceRef  IN,      ///< The bound cooling device reference
     uint32      boundCoolingId                OUT      ///< The cooling device ID associated with
                                                        ///< the input bound cooling device object
-);
+) = 25;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -894,7 +895,7 @@ FUNCTION le_result_t GetBoundTripPointListSize
     BoundCoolingDevice BoundCoolingDeviceRef    IN,      ///< The bound cooling device reference
     uint32      boundTripPointListSize          OUT      ///< The bound cooling device trip
                                                          ///< point list size
-);
+) = 26;
 
 
 //------------------------------------------------------------------------------------------------
@@ -910,7 +911,7 @@ FUNCTION le_result_t GetBoundTripPointType
 (
     TripPoint TripPointRef                   IN,          ///< Trip point reference
     string BoundTripType[TYPE_MAX_SIZE]      OUT          ///< Bound trip type associated with trip point
-);
+) = 27;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -926,7 +927,7 @@ FUNCTION le_result_t GetBoundTripPointThreshold
     TripPoint TripPointRef       IN,       ///< Trip point reference
     uint32    boundThreshold     OUT       ///< The threshold associated with the input bound
                                            ///< cooling device's trip point object
-);
+) = 28;
 
 
 //------------------------------------------------------------------------------------------------
@@ -943,7 +944,7 @@ FUNCTION le_result_t GetBoundTripPointHysterisis
     TripPoint TripPointRef        IN,      ///< Trip point reference
     uint32    boundHysterisis     OUT      ///< The hysteresis associated with the input bound cooling device's trip point object.
                                            ///< cooling device's trip point object
-);
+) = 29;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -961,7 +962,7 @@ FUNCTION le_result_t GetBoundTripPointTripID
     TripPoint TripPointRef       IN,       ///< Trip point reference
     uint32    boundTripID        OUT       ///< The bound trip point trip ID associated with
                                            ///< the input trip point reference
-);
+) = 30;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -979,7 +980,7 @@ FUNCTION le_result_t GetBoundTripPointThermalZoneID
     TripPoint TripPointRef        IN,      ///< Trip point reference
     uint32    boundTZoneID        OUT      ///< The bound thermal zone ID associated with
                                            ///< the input trip point reference
-);
+) = 31;
 
 
 //------------------------------------------------------------------------------------------------
@@ -994,7 +995,7 @@ FUNCTION le_result_t GetBoundTripPointThermalZoneID
 FUNCTION le_result_t DeleteThermalZoneList
 (
     ThermalZoneList ThermalZoneListRef        IN        ///< Thermal Zone list reference
-);
+) = 32;
 
 
 //------------------------------------------------------------------------------------------------
@@ -1008,7 +1009,7 @@ FUNCTION le_result_t DeleteThermalZoneList
 //------------------------------------------------------------------------------------------------
 FUNCTION CoolingDeviceList GetCoolingDeviceList
 (
-);
+) = 33;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -1023,7 +1024,7 @@ FUNCTION le_result_t GetCoolingDeviceListSize
 (
     CoolingDeviceList CDevListRef        IN,        ///< Thermal zone list reference
     uint32      listSize                 OUT      ///< List size
-);
+) = 34;
 
 
 //------------------------------------------------------------------------------------------------
@@ -1039,7 +1040,7 @@ FUNCTION le_result_t GetCoolingDeviceListSize
 FUNCTION CoolingDevice GetFirstCoolingDevice
 (
     CoolingDeviceList CDevListRef        IN        ///< Cooling device list reference
-);
+) = 35;
 
 
 //------------------------------------------------------------------------------------------------
@@ -1055,7 +1056,7 @@ FUNCTION CoolingDevice GetFirstCoolingDevice
 FUNCTION CoolingDevice GetNextCoolingDevice
 (
     CoolingDeviceList CDevListRef        IN        ///< Cooling device reference
-);
+) = 36;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -1071,7 +1072,7 @@ FUNCTION le_result_t GetCDevID
     CoolingDevice CDevListRef    IN,      ///< Cooling device reference
     uint32      cDevID           OUT      ///< The cooling device ID associated with the
                                           ///< input cooling device object reference
-);
+) = 37;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -1087,7 +1088,7 @@ FUNCTION le_result_t GetCDevDescription
     CoolingDevice CDevListRef               IN,   ///< Cooling device reference
     string Description[TYPE_MAX_SIZE]       OUT   ///< The cooling device description associated
                                                   ///< with input cooling device object reference
-);
+) = 38;
 
 
 //------------------------------------------------------------------------------------------------
@@ -1104,7 +1105,7 @@ FUNCTION le_result_t GetCDevMaxCoolingLevel
     CoolingDevice CDevListRef        IN,      ///< Cooling device reference
     uint32      maxCoolingLevel      OUT      ///< The maximum cooling level associated with
                                               ///< the input cooling device object reference
-);
+) = 39;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -1120,7 +1121,7 @@ FUNCTION le_result_t GetCDevCurrentCoolingLevel
     CoolingDevice CDevListRef              IN,       ///< Cooling device reference
     uint32      currentCoolingLevel        OUT       ///< The current cooling level associated with
                                                      ///< the input cooling device object reference
-);
+) = 40;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -1134,7 +1135,7 @@ FUNCTION le_result_t GetCDevCurrentCoolingLevel
 FUNCTION le_result_t DeleteCoolingDeviceList
 (
     CoolingDeviceList CDevListRef        IN        ///< Cooling device list reference
-);
+) = 41;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -1148,7 +1149,7 @@ FUNCTION le_result_t DeleteCoolingDeviceList
 FUNCTION ThermalZone GetThermalZoneByName
 (
     string ThermalZone[TYPE_MAX_SIZE]            IN        ///< Thermal zone name
-);
+) = 42;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -1162,7 +1163,7 @@ FUNCTION ThermalZone GetThermalZoneByName
 FUNCTION CoolingDevice GetCoolingDeviceByName
 (
     string CoolingDevice[TYPE_MAX_SIZE]            IN        ///< The cooling device name
-);
+) = 43;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1176,7 +1177,7 @@ FUNCTION CoolingDevice GetCoolingDeviceByName
 FUNCTION le_result_t ReleaseTripEventRef
 (
     TripPoint tripEventRef    IN        ///< Trip event sample reference
-);
+) = 44;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1190,7 +1191,7 @@ FUNCTION le_result_t ReleaseTripEventRef
 FUNCTION le_result_t ReleaseCoolingDeviceRef
 (
     CoolingDevice coolingDeviceRef    IN        ///< Cooling device sample reference
-);
+) = 45;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1204,4 +1205,4 @@ FUNCTION le_result_t ReleaseCoolingDeviceRef
 FUNCTION le_result_t ReleaseThermalZoneRef
 (
     ThermalZone thermalZoneeRef    IN        ///< Thermal zone reference
-);
+) = 46;

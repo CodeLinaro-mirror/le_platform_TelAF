@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -117,6 +117,9 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * The maximum size of the directory path in bytes.
@@ -144,7 +147,7 @@ FUNCTION Storage GetStorageRef
 (
     string      dirPath[MAX_STORAGE_NAME_SIZE] IN,  ///< Storage name.
     le_result_t result                        OUT   ///< Error status.
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -160,7 +163,7 @@ FUNCTION Storage GetStorageRef
 FUNCTION le_result_t LockStorage
 (
     Storage StorageRef ///< Storage reference.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -176,7 +179,7 @@ FUNCTION le_result_t LockStorage
 FUNCTION le_result_t UnlockStorage
 (
     Storage StorageRef ///< Storage reference.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -192,4 +195,4 @@ FUNCTION le_result_t UnlockStorage
 FUNCTION le_result_t DeleteStorage
 (
     Storage StorageRef ///< Storage reference.
-);
+) = 3;

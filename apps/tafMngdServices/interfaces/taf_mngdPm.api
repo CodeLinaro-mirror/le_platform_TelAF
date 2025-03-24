@@ -217,6 +217,10 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 /**
  * Maximum string length for the Virtual Machine name.
  */
@@ -611,7 +615,7 @@ HANDLER StateChangeHandler
 EVENT StateChange
 (
     StateChangeHandler handler  ///< The state change handler.
-);
+) =(0,1);
 
 /**
  * Handler for information report.
@@ -635,7 +639,7 @@ EVENT InfoReport
 (
     InfoReportBitMask infoReportMask,  ///< Bit mask for the data report.
     InfoReportHandler handler    ///< The data report handler.
-);
+) =(2,3);
 
 /**
  * Handler for node power state change.
@@ -664,7 +668,7 @@ EVENT NodePowerStateChange
     NodePowerStateChangeHandler handler,  ///< The state change handler.
     uint8 pmNodeId,
     NodePowerStateChangeBitMask bitmask
-);
+) =(4,5);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -697,7 +701,7 @@ EVENT NodeModemAwake
     NodeModemAwakeHandler handler,  ///< The modem awake event handler.
     uint8 pmNodeId,
     NodeModemWsBitMask wsBitmask
-);
+) =(6,7);
 
 
 //--------------------------------------------------------------------------------------------------
@@ -716,7 +720,7 @@ FUNCTION le_result_t SetNodeTargetedPowerMode
 (
     uint8 pmNodeId IN,               ///< The Node ID given.
     TargetedPowerMode powerMode IN   ///< The power mode to be set.
-);
+) =8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -734,7 +738,7 @@ FUNCTION le_result_t ShutdownReqAsync
     ShutdownMode              requstedMode  IN,   ///< Requested mode.
     AsyncShutdownReqHandler   handlerRef    IN,   ///< Handler Reference.
     ShutdownReason            reason        IN    ///< Shutdown reason.
-);
+) =9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -752,7 +756,7 @@ FUNCTION le_result_t RestartReqAsync
     RestartMode             restartMode  IN,   ///< Restart mode.
     AsyncRestartReqHandler  handlerRef   IN,   ///< Handler reference.
     RestartReason            reason      IN    ///< Restart reason.
-);
+) =10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -769,7 +773,7 @@ FUNCTION le_result_t WakeupVehicleReqAsync
 (
     int32           reason  IN,   ///< WakeupVehicle Reason.
     AsyncWakeupVehicleReqHandler  handlerRef   IN    ///< AsyncWakeupVehicleReq Handler reference.
-);
+) =11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -786,7 +790,7 @@ FUNCTION ws NewNodeWakeupSource (
     uint8 pmNodeId IN,               ///< The Node ID given.
     WakeupType  wakeupType IN,       ///< The wakeup type given.
     string vhalTag[WSREF_MAXLEN] IN  ///< The HAL tag information.
-);
+) =12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -805,7 +809,7 @@ FUNCTION ws NewNodeWakeupSource (
 FUNCTION le_result_t SetModemWakeupSource (
     uint32 wakeupSource IN       ///< The allowed wakeup sources bit map.
                                  ///< Bit 0 is for SMS, bit 1 is for incoming call, bit 2 is for MCU_VHAL.
-);
+) =13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -819,7 +823,7 @@ FUNCTION le_result_t SetModemWakeupSource (
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RelaxNode (
     ws wsRef IN    ///< The wakesource reference ID given.
-);
+) =14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -833,7 +837,7 @@ FUNCTION le_result_t RelaxNode (
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StayAwakeNode(
     ws wsRef IN     ///< The wakesource reference ID given.
-);
+) =15;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -849,7 +853,7 @@ FUNCTION le_result_t StayAwakeNode(
 FUNCTION le_result_t ShutdownNode
 (
     uint8 pmNodeId IN   ///< The Node ID given.
-);
+) =16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -865,7 +869,7 @@ FUNCTION le_result_t ShutdownNode
 FUNCTION le_result_t RestartNode
 (
     uint8 pmNodeId IN   ///< The Node ID given.
-);
+) =17;
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the status information report based on the given report ID.
@@ -881,7 +885,7 @@ FUNCTION le_result_t GetInfoReport
 (
     InfoDataId reportId IN,  ///< The status report ID.
     int32 report  OUT      ///< The status report.
-);
+) =18;
 //--------------------------------------------------------------------------------------------------
 /**
  * Sends the acknowledgement for the node power state change notification.
@@ -898,7 +902,7 @@ FUNCTION le_result_t SendNodePowerStateChangeAck
     uint8 pmNodeId IN,   ///< The Node ID given.
     nodePowerState Ref,
     NodeClientAck ack
-);
+) =19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -915,7 +919,7 @@ FUNCTION le_result_t SendNodePowerStateChangeAck
 FUNCTION le_result_t AuthorizeStayAwakeReason
 (
      StayAwakeReasonBitMask stayAwakeReasonMask
-);
+) =20;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -933,7 +937,7 @@ FUNCTION ws CreateWakeupSource (
     StayAwakeReason reason IN,       ///< The wakeup type given.
     WsOpt option,
     string wsTag[WSREF_MAXLEN] IN  ///< The HAL tag information.
-);
+) =21;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -947,7 +951,7 @@ FUNCTION ws CreateWakeupSource (
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Relax (
     ws wsRef IN    ///< The wakesource reference ID given.
-);
+) =22;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -961,7 +965,7 @@ FUNCTION le_result_t Relax (
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StayAwake(
     ws wsRef IN     ///< The wakesource reference ID given.
-);
+) =23;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -976,7 +980,7 @@ FUNCTION le_result_t SetNodeModemWakeupSel
 (
     uint8 pmNodeId IN,               ///< The Node ID given.
     NodeModemWsBitMask wsBitmask     ///< Modem wakeup selection to be whitelisted.
-);
+) =24;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -991,7 +995,7 @@ FUNCTION le_result_t GetNodeModemWakeupSel
 (
     uint8 pmNodeId IN,                   ///< The Node ID given.
     NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup selection to be whitelisted.
-);
+) =25;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1006,7 +1010,7 @@ FUNCTION le_result_t GetNodeModemAwakeReason
 (
     uint8 pmNodeId IN,                   ///< The Node ID given.
     NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup reason.
-);
+) =26;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1018,4 +1022,4 @@ FUNCTION le_result_t GetNodeModemAwakeReason
 FUNCTION le_result_t DeleteWakeupSource
 (
     ws wsRef IN     ///< The wakesource reference ID given.
-);
+) =27;

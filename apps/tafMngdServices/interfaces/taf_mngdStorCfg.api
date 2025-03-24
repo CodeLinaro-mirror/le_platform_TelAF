@@ -201,6 +201,10 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 /**
  * Maximum length of string data.
  */
@@ -237,7 +241,7 @@ ENUM NodeType
 //--------------------------------------------------------------------------------------------------
 FUNCTION Config GetRef
 (
-);
+) = 0;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -256,7 +260,7 @@ FUNCTION le_result_t Update
 (
     Config configRef              IN,   ///< Configuration storage reference.
     string version[MAX_STR_LEN]    IN    ///< Version of the Config Storage.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -273,7 +277,7 @@ FUNCTION le_result_t Update
 FUNCTION le_result_t Activate
 (
     Config configRef              IN   ///< Configuration storage reference.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -290,7 +294,7 @@ FUNCTION le_result_t Activate
 FUNCTION le_result_t VerifyActivation
 (
     Config configRef              IN   ///< Configuration storage reference.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -307,7 +311,7 @@ FUNCTION le_result_t VerifyActivation
 FUNCTION le_result_t Cancel
 (
     Config configRef              IN   ///< Configuration storage reference.
-);
+) =4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -324,7 +328,7 @@ FUNCTION le_result_t Cancel
 FUNCTION le_result_t Rollback
 (
     Config configRef              IN   ///< Configuration storage reference.
-);
+) =5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -340,7 +344,7 @@ FUNCTION le_result_t Rollback
 FUNCTION le_result_t Commit
 (
     Config configRef              IN   ///< Configuration storage reference.
-);
+) =6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -359,7 +363,7 @@ FUNCTION le_result_t GetVersion
     uint32    majorVersion            OUT,   ///< Major version of the configuration file.
     uint32    minorVersion            OUT,   ///< Minor version of the configuration file.
     uint32    patchVersion            OUT    ///< Patch version of the configuration file.
-);
+) =7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -379,7 +383,7 @@ FUNCTION le_result_t GetValue
     string    nodeName[MAX_STR_LEN]   IN,    ///< Name of the node.
     NodeType  type                    OUT,   ///< Data type of the node.
     string    nodeValue[MAX_STR_LEN]  OUT    ///< Value of the node.
-);
+) =8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -398,7 +402,7 @@ FUNCTION le_result_t GetType
     string    groupName[MAX_STR_LEN]  IN,    ///< Name of the group of the node.
     string    nodeName[MAX_STR_LEN]   IN,    ///< Name of the node.
     NodeType  type                    OUT    ///< Data type of the node.
-);
+) =9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -417,7 +421,7 @@ FUNCTION le_result_t GetString
     string    groupName[MAX_STR_LEN]  IN,    ///< Name of the group of the node.
     string    nodeName[MAX_STR_LEN]   IN,    ///< Name of the node.
     string    nodeValue[MAX_STR_LEN]  OUT    ///< Value of the node.
-);
+) =10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -436,7 +440,7 @@ FUNCTION le_result_t GetInt
     string    groupName[MAX_STR_LEN]  IN,    ///< Name of the group of the node.
     string    nodeName[MAX_STR_LEN]   IN,    ///< Name of the node.
     int32     nodeValue               OUT    ///< Value of the node.
-);
+) =11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -455,7 +459,7 @@ FUNCTION le_result_t GetFloat
     string    groupName[MAX_STR_LEN]  IN,    ///< Name of the group of the node.
     string    nodeName[MAX_STR_LEN]   IN,    ///< Name of the node.
     double    nodeValue               OUT    ///< Value of the node.
-);
+) =12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -474,7 +478,7 @@ FUNCTION le_result_t GetBool
     string    groupName[MAX_STR_LEN]  IN,    ///< Name of the group of the node.
     string    nodeName[MAX_STR_LEN]   IN,    ///< Name of the node.
     int32     nodeValue               OUT    ///< Value of the node.
-);
+) =13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -489,4 +493,4 @@ FUNCTION le_result_t GetBool
 FUNCTION le_result_t ReleaseRef
 (
     Config    configRef               IN    ///< Configuration storage reference.
-);
+) =14;

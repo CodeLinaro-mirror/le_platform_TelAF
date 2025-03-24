@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -343,6 +343,9 @@
  *
  */
 //--------------------------------------------------------------------------------------------------
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 
 USETYPES taf_someipDef.api;
 //--------------------------------------------------------------------------------------------------
@@ -373,7 +376,7 @@ FUNCTION Service GetService
 (
     uint16   serviceId                IN, ///< Service ID.
     uint16   instanceId               IN  ///< Instance ID.
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -390,7 +393,7 @@ FUNCTION Service GetServiceEx
     uint16   serviceId                                IN, ///< Service ID.
     uint16   instanceId                               IN, ///< Instance ID.
     string   ifName[taf_someipDef.MAX_IFNAME_LENGTH]  IN  ///< Network interface name.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -410,7 +413,7 @@ FUNCTION le_result_t SetServiceVersion
     Service  serviceRef               IN, ///< Service Reference.
     uint8    majVer                   IN, ///< Major Version.
     uint32   minVer                   IN  ///< Minor Version.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -433,7 +436,7 @@ FUNCTION le_result_t SetServicePort
                                          ///< service. 0 means no TCP server is set up.
    bool enableMagicCookies           IN  ///< If TCP magic cookie is enabled when TCP server is set
                                          ///< up.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -450,7 +453,7 @@ FUNCTION le_result_t SetServicePort
 FUNCTION le_result_t OfferService
 (
     Service serviceRef                IN  ///< Service Reference.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -466,7 +469,7 @@ FUNCTION le_result_t OfferService
 FUNCTION le_result_t StopOfferService
 (
     Service serviceRef                IN  ///< Service Reference.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -487,7 +490,7 @@ FUNCTION le_result_t EnableEvent
     Service   serviceRef               IN, ///< Service Reference.
     uint16    eventId                  IN, ///< Event ID, valid range: 0x8001 to 0xFFFE.
     uint16    eventgroupId             IN  ///< Event Group ID, valid range: 0x0001 to 0xFFFE.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -507,7 +510,7 @@ FUNCTION le_result_t SetEventType
     Service serviceRef                 IN, ///< Service Reference.
     uint16  eventId                    IN, ///< Event ID.
     taf_someipDef.EventType eventType  IN  ///< Event Type.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -529,7 +532,7 @@ FUNCTION le_result_t SetEventCycleTime
     Service   serviceRef               IN, ///< Service Reference.
     uint16    eventId                  IN, ///< Event ID.
     uint32    cycleTime                IN  ///< Cycle Time in milliseconds.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -548,7 +551,7 @@ FUNCTION le_result_t DisableEvent
 (
     Service   serviceRef               IN, ///< Service Reference.
     uint16    eventId                  IN  ///< Event ID.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -568,7 +571,7 @@ FUNCTION le_result_t OfferEvent
 (
     Service   serviceRef              IN, ///< Service Reference.
     uint16    eventId                 IN  ///< Event ID.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -586,7 +589,7 @@ FUNCTION le_result_t StopOfferEvent
 (
     Service   serviceRef              IN, ///< Service Reference.
     uint16    eventId                 IN  ///< Event ID.
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -608,7 +611,7 @@ FUNCTION le_result_t Notify
     Service serviceRef                           IN, ///< Service Reference.
     uint16  eventId                              IN, ///< Event ID.
     uint8   data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload Data.
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -632,7 +635,7 @@ EVENT RxMsg
 (
     Service               serviceRef  IN, ///< Service Reference.
     RxMsgHandler          handler
-);
+) = (13,14);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -662,7 +665,7 @@ EVENT Subscription
     Service serviceRef                IN, ///< Service Reference.
     uint16 eventGroupId               IN, ///< Event Group ID.
     SubscriptionHandler  handler
-);
+) = (15,16);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -678,7 +681,7 @@ FUNCTION le_result_t GetServiceId
     RxMsg    msgRef                   IN, ///< Rx Message Reference.
     uint16   serviceId                OUT,///< Service ID.
     uint16   instanceId               OUT ///< Instance ID.
-);
+) = 17;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -693,7 +696,7 @@ FUNCTION le_result_t GetMethodId
 (
     RxMsg    msgRef                   IN, ///< Rx Message reference.
     uint16   methodId                 OUT ///< Method ID.
-);
+) = 18;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -708,7 +711,7 @@ FUNCTION le_result_t GetClientId
 (
     RxMsg    msgRef                   IN, ///< Rx Message reference.
     uint16   clientId                 OUT ///< Client ID.
-);
+) = 19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -724,7 +727,7 @@ FUNCTION le_result_t GetMsgType
 (
     RxMsg    msgRef                   IN, ///< Rx Message reference.
     uint8    msgType                  OUT ///< Message Type.
-);
+) = 20;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -739,7 +742,7 @@ FUNCTION le_result_t GetPayloadSize
 (
     RxMsg    msgRef                   IN, ///< Rx Message reference.
     uint32   payloadSize              OUT ///< Payload Size in bytes.
-);
+) = 21;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -754,7 +757,7 @@ FUNCTION le_result_t GetPayloadData
 (
     RxMsg   msgRef                               IN, ///< Rx Message reference.
     uint8   data[taf_someipDef.MAX_PAYLOAD_SIZE] OUT ///< Payload Data.
-);
+) = 22;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -778,7 +781,7 @@ FUNCTION le_result_t SendResponse
                                                      ///< otherwise MT_RESPONSE(0x80).
     uint8   returnCode                           IN, ///< Return Code.
     uint8   data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload Data.
-);
+) = 23;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -793,4 +796,4 @@ FUNCTION le_result_t SendResponse
 FUNCTION le_result_t ReleaseRxMsg
 (
     RxMsg   msgRef                               IN  ///< Rx Message reference.
-);
+) = 24;

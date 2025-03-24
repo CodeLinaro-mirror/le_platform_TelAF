@@ -28,7 +28,7 @@
  *
  *  ​​​​​Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
 
- *  Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -76,7 +76,7 @@
     taf_audio_StreamRef_t sourceRef = NULL;
     taf_audio_RouteRef_t routeRef = NULL;
     routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_VOICE_CALL,
-            &sinkRef, &sourceRef);
+            &sinkRef, &sourceRef) = (1,2);
     if(routeRef != NULL) {
         LE_INFO("OpenRoute successfull sinkRef %p sourceRef %p", sinkRef, sourceRef);
     }
@@ -1121,6 +1121,10 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 /**
  * Reference type for audio stream.
  */
@@ -1198,7 +1202,7 @@ ENUM MediaEvent
 //--------------------------------------------------------------------------------------------------
 FUNCTION Connector CreateConnector
 (
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1210,7 +1214,7 @@ FUNCTION Connector CreateConnector
 FUNCTION DeleteConnector
 (
     Connector connRef IN ///< Connector reference.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1222,7 +1226,7 @@ FUNCTION DeleteConnector
 FUNCTION Close
 (
     Stream sRef IN ///< Audio stream reference.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1239,7 +1243,7 @@ FUNCTION le_result_t Connect
 (
     Connector connRef IN, ///< Connector reference.
     Stream    sRef    IN  ///< Audio stream reference.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1252,7 +1256,7 @@ FUNCTION Disconnect
 (
     Connector connRef IN, ///< Connector reference.
     Stream    sRef IN     ///< Audio stream reference.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1266,7 +1270,7 @@ FUNCTION Disconnect
 FUNCTION Stream OpenModemVoiceRx
 (
     uint32 slotId IN    ///< Slot ID.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1281,7 +1285,7 @@ FUNCTION Stream OpenModemVoiceTx
 (
     uint32 slotId IN,    ///< Slot ID.
     bool enableEcnr IN   ///< Enable ECNR.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1304,7 +1308,7 @@ FUNCTION Route OpenRoute
     Mode      mode      IN,      ///< Mode type.
     Stream    sinkRef   OUT,     ///< Sink stream reference.
     Stream    sourceRef OUT      ///< Source stream reference.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1319,7 +1323,7 @@ FUNCTION Route OpenRoute
 FUNCTION le_result_t CloseRoute
 (
     Route routeRef  IN      ///< Route reference created on OpenRoute.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1333,7 +1337,7 @@ FUNCTION le_result_t CloseRoute
 FUNCTION Stream OpenPlayer
 (
     Direction direction  IN      ///< RX for local playback and TX for remote playback.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1349,7 +1353,7 @@ FUNCTION le_result_t PlayFile
 (
     Stream streamRef                 IN,     ///< Player stream reference created on OpenPlayer.
     string scrPath[MAX_SRC_PATH_LEN] IN      ///< The absolute audio file path.
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1363,7 +1367,7 @@ FUNCTION le_result_t PlayFile
 FUNCTION Stream OpenRecorder
 (
     Direction direction  IN      ///< TX for local recorder and RX for remote recorder.
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1381,7 +1385,7 @@ FUNCTION le_result_t RecordFile
 (
     Stream streamRef                 IN,     ///< Recoder stream reference created on OpenRecorder.
     string scrPath[MAX_SRC_PATH_LEN] IN      ///< The absolute audio file path.
-);
+) = 13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1396,7 +1400,7 @@ FUNCTION le_result_t RecordFile
 FUNCTION le_result_t Stop
 (
     Stream streamRef  IN   ///< Player/Recoder stream reference created on OpenPlayer/OpenRecorder.
-);
+) = 14;
 
 /**
  * Handler for audio stream event.
@@ -1418,7 +1422,7 @@ EVENT Media
 (
     Stream       streamRef IN, ///< Audio stream reference.
     MediaHandler handler       ///< Media handler.
-);
+) = (15,16);
 
 /**
  * Audio file configuration.
@@ -1443,7 +1447,7 @@ FUNCTION le_result_t PlayFileList
 (
     Stream streamRef   IN,                                    ///< Audio stream reference.
     PlayFileConfig fileConfig[MAX_NUM_OF_PLAYBACK_FILES] IN   ///< Array of PlayFileConfig.
-);
+) = 17;
 
 /**
  * Sets the mute status to the modem RX/TX, player and recorder stream reference.
@@ -1460,7 +1464,7 @@ FUNCTION le_result_t SetMute
 (
     Stream streamRef IN,      ///< Audio stream reference.
     bool isMute               ///< True to mute, false to unmute.
-);
+) = 18;
 
 /**
  * Gets the mute status of modem RX/TX, player and recorder stream reference.
@@ -1477,7 +1481,7 @@ FUNCTION le_result_t GetMute
 (
     Stream streamRef IN,      ///< Audio stream reference.
     bool isMute      OUT      ///< Mute status.
-);
+) = 19;
 
 /**
  * Sets the volume to the modem RX, player and recorder stream reference.
@@ -1494,7 +1498,7 @@ FUNCTION le_result_t SetVolume
 (
     Stream streamRef     IN,      ///< Audio stream reference.
     double  volumeLevel  IN       ///< Volume level.
-);
+) = 20;
 
 /**
  * Gets the volume of modem RX, player and recorder stream reference.
@@ -1511,7 +1515,7 @@ FUNCTION le_result_t GetVolume
 (
     Stream streamRef      IN,      ///< Audio stream reference.
     double  volumeLevel   OUT      ///< Volume level.
-);
+) = 21;
 
 /**
  * Starts DTMF playback on voice TX path.
@@ -1531,7 +1535,7 @@ FUNCTION le_result_t PlaySignallingDtmf
     string  dtmf[DTMF_MAXLEN]  IN,  ///< DTMFs to play.
     uint32  duration           IN,  ///< DTMF duration in milliseconds.
     uint32  pause              IN  ///< Pause duration between tones in milliseconds.
-);
+) = 22;
 
 /**
  * Starts DTMF playback on voice RX path.
@@ -1550,7 +1554,7 @@ FUNCTION le_result_t PlayDtmf
                                      ///< generation it can be 0xFFFF.
     uint32  pause               IN,  ///< Pause duration between tones in milliseconds.
     double gain                 IN   ///< Range 0.0 - 1.0.
-);
+) = 23;
 
 /**
  * Stops the DTMF playback on voice RX path.
@@ -1563,7 +1567,7 @@ FUNCTION le_result_t PlayDtmf
 FUNCTION le_result_t StopDtmf
 (
     Stream  streamRef           IN   ///< Modem RX stream reference.
-);
+) = 24;
 
 /**
  * Stops the DTMF playback on voice TX path.
@@ -1577,7 +1581,7 @@ FUNCTION le_result_t StopDtmf
 FUNCTION le_result_t StopSignallingDtmf
 (
     uint32  slotId             IN ///< Slot ID.
-);
+) = 25;
 
 /**
  * Handler for DTMF tone detection.
@@ -1599,4 +1603,4 @@ EVENT DtmfDetector
 (
     Stream       streamRef         IN, ///< Modem RX stream reference.
     DtmfDetectorHandler handler        ///< DTMF handler.
-);
+) = (26,27);

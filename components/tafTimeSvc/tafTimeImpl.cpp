@@ -46,7 +46,15 @@ using namespace std;
 #define TAF_TIME_MAX_SOURCE_NUMBER (TAF_TIME_SRC_NAME_UNKNOWN*3)
 TimeSources TimeSourceConf(TAF_TIME_MAX_SOURCE_NUMBER);
 taf_SourceInf_t *LatestTimeSourceInfo;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Global variables for logic control.
+ */
+//--------------------------------------------------------------------------------------------------
 bool GnssErrStatusUpdateFlag = true;
+le_result_t InitGnssTimeStatus = LE_UNAVAILABLE;
+le_result_t InitNetworkTimeStatus = LE_UNAVAILABLE;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -78,10 +86,19 @@ void taf_TimeServingSystemListener::onNetworkTimeChanged
     telux::tel::NetworkTimeInfo info ///< [IN] Network time information.
 )
 {
-    auto &tafTime = taf_Time::GetInstance();
     taf_time_TimeSpec_t timeVal = {0};
     taf_time_TimeSources_t sourceId;
     le_result_t result = LE_OK;
+
+    if (InitNetworkTimeStatus == LE_OK)
+    {
+        // This is used to avoid 'pure virtual method called' crash issue during shut down.
+        // 1. Don't use the destructor of "taf_Time::".
+        // 2. Need to exit at once before sending another event to event loop.
+        return;
+    }
+
+    auto &tafTime = taf_Time::GetInstance();
 
     LE_INFO("Phone %d, NITZ:%s\n", phone, info.nitzTime.c_str());
     result = tafTime.ConvertNetworkTimeToSec(info, &timeVal);
@@ -125,6 +142,15 @@ void taf_TimeGnssListener::onGnssUtcTimeUpdate
 )
 {
     taf_time_TimeSpec_t timeVal;
+
+    if (InitGnssTimeStatus != LE_OK)
+    {
+        // This is used to avoid 'pure virtual method called' crash issue during shut down.
+        // 1. Don't use the destructor of "taf_Time::".
+        // 2. Need to exit at once before sending another event to event loop.
+        return;
+    }
+
     auto &tafTime = taf_Time::GetInstance();
     le_result_t status;
     if (utc == 0)
@@ -2358,8 +2384,8 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
     // Check if the network time source is required
     if (TimeSourceConf.IsSourceExist(tafTime.SourceNameIndexToStr(TAF_TIME_SRC_NAME_NETWORK)))
     {
-        tafTime.InitNetworkTimeStatus = tafTime.InitNetworkTime();
-        if (tafTime.InitNetworkTimeStatus == LE_OK)
+        InitNetworkTimeStatus = tafTime.InitNetworkTime();
+        if (InitNetworkTimeStatus == LE_OK)
         {
             regNetworkTimeStatus = tafTime.RegNetworkTimeListener();
             if (regNetworkTimeStatus != LE_OK)
@@ -2375,9 +2401,9 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
     // Check if the GNSS time source is required
     if (TimeSourceConf.IsSourceExist(tafTime.SourceNameIndexToStr(TAF_TIME_SRC_NAME_GNSS)))
     {
-        tafTime.InitGnssTimeStatus = tafTime.InitGnssTime();
+        InitGnssTimeStatus = tafTime.InitGnssTime();
 
-        if (tafTime.InitGnssTimeStatus == LE_OK)
+        if (InitGnssTimeStatus == LE_OK)
         {
             regGnssTimeStatus = tafTime.RegGnssTimeListener();
             if (regGnssTimeStatus != LE_OK)
@@ -2503,12 +2529,12 @@ void taf_Time::SyncTimeTimerHandler(le_timer_Ref_t timerRef)
 {
     auto &tafTime = taf_Time::GetInstance();
 
-    if (tafTime.InitGnssTimeStatus == LE_OK)
+    if (InitGnssTimeStatus == LE_OK)
     {
         tafTime.RegGnssTimeListener();
     }
 
-    if (tafTime.InitNetworkTimeStatus == LE_OK)
+    if (InitNetworkTimeStatus == LE_OK)
     {
         tafTime.RequestNetworkTime();
     }
@@ -3031,7 +3057,7 @@ void PowerStateChangeHandler
     if (state == TAF_PM_STATE_RESUME)
     {
         LE_DEBUG("Power state change to RESUME");
-        if (tafTime.InitNetworkTimeStatus == LE_OK)
+        if (InitNetworkTimeStatus == LE_OK)
         {
             tafTime.RegNetworkTimeListener();
         }
@@ -3039,12 +3065,12 @@ void PowerStateChangeHandler
     else if (state == TAF_PM_STATE_SUSPEND)
     {
         LE_DEBUG("Power state change to SUSPEND");
-        if (tafTime.InitNetworkTimeStatus == LE_OK)
+        if (InitNetworkTimeStatus == LE_OK)
         {
             tafTime.DeregNetworkTimeListener();
         }
 
-        if (tafTime.InitGnssTimeStatus == LE_OK)
+        if (InitGnssTimeStatus == LE_OK)
         {
             tafTime.DeregGnssTimeListener();
         }
@@ -3757,6 +3783,61 @@ le_result_t taf_Time::SetValidity
     }
     return LE_OK;
 }
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle safe exiting after releasing all the resources.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SafeExitAfterClearUp
+(
+    void* param1Ptr,
+    void* param2Ptr
+)
+{
+    LE_INFO("Clean done, last event exiting....");
+    exit(EXIT_SUCCESS);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Signal handler for SIGTERM to clear up the resource.
+ */
+//--------------------------------------------------------------------------------------------------
+static void TafSigTermEventHandler
+(
+    int sigNum
+)
+{
+    auto &tafTime = taf_Time::GetInstance();
+
+    LE_INFO("TafSigTermEventHandler :%d", sigNum);
+
+    if (tafTime.syncTimeTimerRef)
+    {
+        le_timer_Stop(tafTime.syncTimeTimerRef);
+    }
+
+    if (tafTime.sysTimeUdTimerRef)
+    {
+        le_timer_Stop(tafTime.syncTimeTimerRef);
+    }
+
+    if (InitNetworkTimeStatus == LE_OK)
+    {
+        InitNetworkTimeStatus = LE_UNAVAILABLE;
+        tafTime.DeregNetworkTimeListener();
+    }
+
+    if (InitGnssTimeStatus == LE_OK)
+    {
+        InitGnssTimeStatus = LE_UNAVAILABLE;
+        tafTime.DeregGnssTimeListener();
+    }
+    le_event_QueueFunction(SafeExitAfterClearUp, NULL, NULL);
+}
+
 /*======================================================================
 
  FUNCTION        taf_Time::Init
@@ -3775,6 +3856,12 @@ le_result_t taf_Time::SetValidity
 void taf_Time::Init(void)
 {
     le_result_t result;
+
+    // Block the signal
+    le_sig_Block(SIGTERM);
+
+    // Setup signal's event handler.
+    le_sig_SetEventHandler(SIGTERM, TafSigTermEventHandler);
 
     // 1. Create memory pools and initialization
     SetTimeStatusPool = le_mem_CreatePool("TimeSvc SetStatusPool", sizeof(SetTimeStatus));

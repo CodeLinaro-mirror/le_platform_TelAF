@@ -2214,7 +2214,31 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
         return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
     }
 
-    // Step 2: Authentication check. UDS_0x2E_NRC_34
+    // Step 3: Maximum length check. UDS_0x2E_NRC_13
+    if(recvDataLen > UDS_DATA_SIZE)
+    {
+        LE_WARN("recvDataLen is more than the UDS_DATA_SIZE.");
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    //Step 4: Data record size check. UDS_0x2E_NRC_13
+    try
+    {
+        int dataRecordSize = node.get_child("implementation").get<int>("did_size");
+        //Only check size here, will check data later.
+        if(dataRecordSize != (recvDataLen - UDS_WRITE_DID_REQ_BASE_LEN))
+        {
+            LE_WARN("Data record size is invalid");
+            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        // DID dataRecord size is not configured. Don't check it.
+        LE_WARN("Exception: %s. did_size is not configured for dataId 0x%x", e.what(), dataId);
+    }
+
+    // Step 5: Authentication check. UDS_0x2E_NRC_34
     if (!IsAuthRoleMatched(node))
     {
         LE_DEBUG("DID0x%x is authenticated and authentication state is incorrect.", dataId);
@@ -2276,30 +2300,6 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
     else
     {
         LE_DEBUG("Skip SecurityAccess check as current session is default_session");
-    }
-
-    // Step 3: Maximum length check. UDS_0x2E_NRC_13
-    if(recvDataLen > UDS_DATA_SIZE)
-    {
-        LE_WARN("recvDataLen is more than the UDS_DATA_SIZE.");
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
-
-    //Step 5: Data record size check. UDS_0x2E_NRC_31
-    try
-    {
-        int dataRecordSize = node.get_child("implementation").get<int>("did_size");
-        //Only check size here, will check data later.
-        if(dataRecordSize != (recvDataLen - UDS_WRITE_DID_REQ_BASE_LEN))
-        {
-            LE_WARN("Data record size is invalid");
-            return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
-        }
-    }
-    catch (const std::exception& e)
-    {
-        // DID dataRecord size is not configured. Don't check it.
-        LE_WARN("Exception: %s. did_size is not configured for dataId 0x%x", e.what(), dataId);
     }
 
     // Forbidden check for WDID data record. UDS_0x2E_NRC_31

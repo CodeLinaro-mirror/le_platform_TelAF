@@ -56,7 +56,7 @@ typedef enum
 }
 fs_crypt_operation;
 
-static char DIR_TEST[TAF_FSC_MAX_STORAGE_NAME_SIZE/2] = "/app/fs-crypt";
+static char DIR_TEST[TAF_FSC_MAX_STORAGE_NAME_SIZE/2] = "/persist/fs-crypt";
 static char FILE_TEST[TAF_FSC_MAX_STORAGE_NAME_SIZE/2] = "test.txt";
 
 #define TEST_CONTENT_LEN 100
@@ -152,9 +152,9 @@ __attribute__((unused)) static void DeleteStorageTest(void)
 /**
  * Start app : app start tafFSCryptUnitTest
  * Execute app : app runProc tafFSCryptUnitTest tafFSCryptUnitTest -- <operation> <dir>
- * e.g. app runProc tafFSCryptUnitTest tafFSCryptUnitTest -- get /app/test
+ * e.g. app runProc tafFSCryptUnitTest tafFSCryptUnitTest -- get /persist/test
  *
- * The default testing path is "/app/fs-crypt" if ignoring <dir> parameter.
+ * The default testing path is "/persist/fs-crypt" if ignoring <dir> parameter.
  * If no <operation> is input, test app will run get, lock, unlock and delete functions in sequence.
  */
 COMPONENT_INIT

@@ -2,15 +2,15 @@
 
 apps:
 {
-    $TELAF_ROOT/apps/rpc/rpcTest/helloRpcServer/printServer.adef
-    $TELAF_ROOT/apps/rpc/rpcTest/helloRpcClient/printClient.adef
+    $TELAF_ROOT/apps/rpc/rpcTest/helloRpcServer/RpcPrintServer.adef
+    $TELAF_ROOT/apps/rpc/rpcTest/helloRpcClient/RpcPrintClient.adef
 }
 
 // The RPC system ID of my system is 0x102, the peer system ID is 0x101
 // So here we shall bind to peer system for RPC test.
 bindings:
 {
-    printClient.rpcClientPrinter -> <telaf>.rpcServer_101_root_printer
+    RpcPrintClient.rpcClientPrinter -> <telaf>.rpcServer_101_root_printer
 }
 
 interfaceSearch:

@@ -6,16 +6,16 @@ executables:
    tafMngdSecSharedApp =
             ($TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSecDataStorageUnitTestComp)
 
+    tafMngdSecFileStorageUnitTest =
+            ($TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSecFileStorageUnitTestComp)
+
 }
 
 start: manual
 
 processes:
 {
-    run:
-    {
-        (tafMngdSecSharedApp)
-    }
+
 
     faultAction: stopApp
 
@@ -30,5 +30,6 @@ bindings:
 {
 
     tafMngdSecSharedApp.tafMngdSecDataStorageUnitTestComp.taf_mngdStorSecData -> tafMngdStorageSvc.taf_mngdStorSecData
+    tafMngdSecFileStorageUnitTest.tafMngdSecFileStorageUnitTestComp.taf_mngdStorSecFile -> tafMngdStorageSvc.taf_mngdStorSecFile
 }
 

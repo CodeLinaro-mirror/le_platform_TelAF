@@ -1941,8 +1941,18 @@ le_result_t taf_UpdateSvr::SetVlanId
 {
     taf_UpdateSvc_t* servicePtr = (taf_UpdateSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+    TAF_ERROR_IF_RET_VAL(vlanId == 0, LE_BAD_PARAMETER, "Invalid vlan Id");
 
 #ifndef LE_CONFIG_DIAG_VSTACK
+
+    // Check Vlan Id is valid or not.
+    auto& backend = taf_DiagBackend::GetInstance();
+    if (!backend.isVlanIdValid(vlanId))
+    {
+        LE_ERROR("VlanId is unknown");
+        return LE_UNSUPPORTED;
+    }
+
     // Check if the vlan is set.
     le_dls_Link_t* linkPtr = NULL;
     linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);

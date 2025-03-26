@@ -13,6 +13,7 @@ __version__ = "2.0.0"
 from . import generator
 from .schema import schema_mapping
 from .schema.resolve_references import resolve_all_references
+from .schema.forbidden_check import forbidden_feature_check
 from . import default_value
 from . import converter
 from .logger import logger
@@ -37,6 +38,11 @@ def check_all_references(only_yaml_with_default):
     logger.info("[Stage] --> Check all references of top-nodes ...")
     resolve_all_references(only_yaml_with_default)
     logger.info("[Stage] --> Check all references of top-nodes [OK]")
+
+def forbidden_check(only_yaml_with_default):
+    logger.info("[Stage] --> forbidden check of did_all node ...")
+    forbidden_feature_check(only_yaml_with_default)
+    logger.info("[Stage] --> forbidden check of did_all node [OK]")
 
 def convert_format(only_yaml_with_default, top_build_layer):
     logger.info("[Stage] --> Convert to specific YAML format ...")

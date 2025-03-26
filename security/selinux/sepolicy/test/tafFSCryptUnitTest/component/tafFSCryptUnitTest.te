@@ -5,6 +5,7 @@ policy_module(tafFSCryptUnitTest, 1.0)
 
 gen_require(`
   type telaf_tafKeyStoreSvc_t;
+  type persist_t;
 ')
 
 type telaf_tafFSCryptUnitTest_data_t;
@@ -26,3 +27,4 @@ telaf_tafKeyStoreSvc_FscInit(telaf_tafFSCryptUnitTest_t, telaf_tafFSCryptUnitTes
 allow telaf_tafFSCryptUnitTest_t telaf_tafFSCryptUnitTest_data_t:dir { search_dir_perms rw_dir_perms rw_file_perms };
 allow telaf_tafFSCryptUnitTest_t telaf_tafFSCryptUnitTest_data_t:file { manage_file_perms delete_file_perms };
 allow telaf_tafFSCryptUnitTest_t self:capability { dac_read_search };
+allow telaf_tafFSCryptUnitTest_t persist_t:dir { search_dir_perms };

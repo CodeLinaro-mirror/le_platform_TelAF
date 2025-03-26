@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -64,6 +64,7 @@ static const char *JSON_Version_24_06_00 = "24.06.00";
 static const char *JSON_Version_24_07_00 = "24.07.00";
 static const char *JSON_Version_24_09_00 = "24.09.00";
 static const char *JSON_Version_24_12_00 = "24.12.00";
+static const char *JSON_Version_25_02_00 = "25.02.00";
 
 /**
  * Validate ManagedConnectivityService:Version
@@ -141,6 +142,13 @@ static bool Validate_MCS_Version(mcs_Policy_t &Policy,
         LE_INFO("Valid JSON Version: %s", Value.c_str());
         return true;
     }
+    else if (Value == JSON_Version_25_02_00)
+    {
+        Policy.Version        = MCS_JSON_VERSION_25_02_00;
+        Configuration.Version = MCS_JSON_VERSION_25_02_00;
+        LE_INFO("Valid JSON Version: %s", Value.c_str());
+        return true;
+    }
 
     LE_WARN("Invalid JSON Version: %s", Value.c_str());
     return false;
@@ -169,25 +177,69 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
     mcs_Configuration_t &ConfigurationStructRef,
     std::string ConfigurationFileName)
 {
-    std::string newConfFileName;
+    le_result_t result;
+    result = PreCheckExtensionJson(ConfigurationFileName, PolicyStructRef, ConfigurationStructRef);
+    if(result == LE_OK)
+    {
+        return true;
+    }
+    return false;
+}
+
+le_result_t telux::tafsvc::PreCheckExtensionJson(std::string ConfigurationFileName,
+                            mcs_Policy_t &PolicyStructRef,
+                            mcs_Configuration_t &ConfigurationStructRef)
+{
+    // Create a root
+    pt::ptree root;
+    std::string version = "";
+    // Load the json file in this ptree
+    try
+    {
+        pt::read_json(ConfigurationFileName, root);
+        std::string extension = root.get<std::string>("Extension");
+        if (extension != ""){
+            char extensionPath[LE_LIMIT_MAX_PATH_LEN];
+            snprintf(extensionPath,LE_LIMIT_MAX_PATH_LEN,"%s%s",extension.c_str(),
+                ConfigurationFileName.c_str());
+            if(DoesFileExist(extensionPath)){
+                LE_INFO("Intializing with extension json");
+                //Parse the JSON file, if fails initialize with default JSON file
+                if(ParseJSON(extensionPath, PolicyStructRef, ConfigurationStructRef)){
+                    LE_INFO("Service Initialize with extension json %s",extensionPath);
+                    return LE_OK;
+                }
+            }
+        }
+    }
+    catch (const std::exception &e)
+    {
+        LE_ERROR("read_json exception: %s. Check validity of JSON.", e.what());
+        return LE_FAULT;
+    }
+    LE_INFO("Unable to intialize with extension json ,Intializing with default json");
+    //Initializing with default json
+    bool res = ParseJSON(ConfigurationFileName, PolicyStructRef, ConfigurationStructRef);
+    if(res){
+        return LE_OK;
+    }
+    return LE_FAULT;
+}
+
+bool telux::tafsvc::ParseJSON(std::string ConfigurationFileName,
+                            mcs_Policy_t &PolicyStructRef,
+                            mcs_Configuration_t &ConfigurationStructRef)
+{
     mcs_PolicyParser &PolicyParserRef = mcs_PolicyParser::getInstance();
     mcs_ConfigurationParser &ConfigurationParserRef =
                                                 mcs_ConfigurationParser::getInstance();
-
-    newConfFileName = ConfigurationFileName;
-    // Check if only Configuration file name is path or if path is also provided.
-    // If path is not provided, add the default path
-    if ('/' != newConfFileName[0])
-    {
-        newConfFileName.insert (0, (MCS_DefaultLocation_Configuration + "/"));
-    }
     // Update the properties and validation functions map
     UpdateValidConnectivityFuncMap();
 
     // Try opening an input file stream
-    std::ifstream jsonFile(newConfFileName);
+    std::ifstream jsonFile(ConfigurationFileName);
     if (!jsonFile.is_open()) {
-        LE_WARN ("Unable to open %s", newConfFileName.c_str());
+        LE_WARN ("Unable to open %s", ConfigurationFileName.c_str());
         return false;
     }
 
@@ -280,7 +332,7 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
                 if("Policy" == property.first){
                     // Mark Policy is present
                     bPolicyAvailable = true;
-                    if (PolicyParserRef.GetPolicy(PolicyStructRef, newConfFileName))
+                    if (PolicyParserRef.GetPolicy(PolicyStructRef, ConfigurationFileName))
                     {
                         LE_INFO("Policy Parsing Successful");
                     }
@@ -295,7 +347,7 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
                     // Mark Configuration is present
                     bConfigurationAvailable = true;
                     if ( ConfigurationParserRef.GetConfiguration(ConfigurationStructRef,
-                                                                        newConfFileName) )
+                                                                        ConfigurationFileName) )
                     {
                         LE_INFO("Configuration Parsing Successful");
                     }
@@ -444,6 +496,12 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
 
     LE_INFO("Parsing of JSON file and Updation of Policy and Configuration structures successful");
     return true;
+}
+
+bool telux::tafsvc::DoesFileExist(const char *path)
+{
+    struct stat buffer;
+    return (stat(path, &buffer) == 0);
 }
 
 /**

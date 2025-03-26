@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -120,7 +120,16 @@ static void MyMediaEventHandler
             break;
         case TAF_AUDIO_MEDIA_ERROR:
             LE_INFO("File event is TAF_AUDIO_MEDIA_ERROR.");
-            cout<<"****Playback error***"<<endl;
+            if (streamRef == playerRef)
+                cout<<"****Playback error***"<<endl;
+            else if (streamRef == txPlayerRef)
+                cout<<"****Remote playback error***"<<endl;
+            else if (streamRef == recorderRef)
+                cout<<"****Capture error***"<<endl;
+            else if (streamRef == rxRecorderRef)
+                cout<<"****Remote capture error***"<<endl;
+            else
+                LE_INFO(" Unknown stream playback/capture error");
             le_sem_Post(tafAudioAppSem);
             break;
         case TAF_AUDIO_MEDIA_NO_MORE_SAMPLES:
@@ -1493,6 +1502,8 @@ void StartInputMonitoring
                 LE_TEST_OK(res == LE_OK, "Successfully set the volume");
                 if(res == LE_OK)
                     cout<< "Successfully set the volume" << endl;
+                else if(res == LE_UNSUPPORTED)
+                    cout << "SetVolume on remote stream is not supported" << endl;
                 else
                     cout<< "Failed to set the volume" << endl;
             }
@@ -1653,7 +1664,12 @@ void StartInputMonitoring
 
                 }
                 LE_TEST_OK(res == LE_OK, "Successfully get the volume level");
-                cout << "Volume level is " << getVolLevel << endl;
+                if(res == LE_OK)
+                    cout << "Volume level is " << getVolLevel << endl;
+                else if(res == LE_UNSUPPORTED)
+                    cout << "GetVolume on remote stream is not supported" << endl;
+                else
+                    cout << "Failed to get the volume" << endl;
             }
             else if (strncmp(inputStr, "setMute", 7) == 0)
             {
@@ -1843,6 +1859,12 @@ void StartInputMonitoring
                     }
                 }
                 LE_TEST_OK(res == LE_OK, "Successfully set the mute status");
+                if(res == LE_OK)
+                    cout<< "Successfully set the mute status" << endl;
+                else if(res == LE_UNSUPPORTED)
+                    cout << "SetMute on remote stream is not supported" << endl;
+                else
+                    cout<< "Failed to set the mute status" << endl;
             }
             else if (strncmp(inputStr, "getMute", 7) == 0)
             {
@@ -2026,7 +2048,12 @@ void StartInputMonitoring
                     }
                 }
                 LE_TEST_OK(res == LE_OK, "Successfully got the mute status");
-                cout << "Mute status is " << isMute << endl;
+                if(res == LE_OK)
+                    cout << "Mute status is " << isMute << endl;
+                else if(res == LE_UNSUPPORTED)
+                    cout << "GetMute on remote stream is not supported" << endl;
+                else
+                    cout<< "Failed to get the mute status" << endl;
             }
             else if (strncmp(inputStr, "start voice", 11) == 0)
             {

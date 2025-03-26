@@ -29,6 +29,10 @@
 #include "tafHalIF.hpp"
 #include <ctype.h>
 #include <dlfcn.h>
+#include <setjmp.h>
+
+#define TIMER_SAFECALL 5
+DECLARE_SAFE_CALL();
 
 // hash map for module interface and the so handle
 static le_hashmap_Ref_t tafModInfMap = nullptr;
@@ -182,6 +186,7 @@ __attribute__((destructor)) void _telaf_unInitHal(
 extern "C" LE_SHARED void* taf_devMgr_LoadDrv(const char* drvName, const char* drvVer)
 {
     le_msg_MessageRef_t responseMsgRef;
+    int ret = 0;
     char drvFile[256];
     size_t numBytes = 0;
     void* drvHandle = nullptr;
@@ -252,6 +257,7 @@ extern "C" LE_SHARED void* taf_devMgr_LoadDrv(const char* drvName, const char* d
 
     // send the request, as we do not maintain a session between client and server
     responseMsgRef = le_msg_RequestSyncResponse(msgRef);
+    LE_INFO("Got response from devManager");
 
     isReady = false;
 
@@ -278,7 +284,13 @@ extern "C" LE_SHARED void* taf_devMgr_LoadDrv(const char* drvName, const char* d
 
     // open the so on behalf of the app
     // Try to open it first
-    drvHandle = dlopen(drvFile, RTLD_NOW);
+    ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, drvHandle, dlopen(drvFile, RTLD_NOW));
+    EXIT_SAFE_CALL();
+    if(ret == -1)
+    {
+        LE_ERROR("Failed to dlopen the driver %s", drvFile);
+        return nullptr;
+    }
 
     if (drvHandle == nullptr)
     {

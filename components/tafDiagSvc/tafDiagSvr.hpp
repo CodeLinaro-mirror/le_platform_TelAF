@@ -39,6 +39,7 @@ typedef struct
     le_msg_SessionRef_t sessionRef;                     ///< Reference to a client-server session.
     taf_diag_TesterStateHandlerRef_t testerHandlerRef;  ///< Tester state handler ref.
     le_dls_List_t supportedVlanList;                    ///< VLAN ID list.
+    uint16_t targetVlanId;                              ///< Target VLAN ID
 }taf_DiagSvc_t;
 
 //-------------------------------------------------------------------------------------------------
@@ -121,8 +122,9 @@ namespace telux {
                 void RemoveTesterStateHandler(taf_diag_TesterStateHandlerRef_t handlerRef);
                 le_result_t ReleaseTesterStateMsg(taf_diag_TesterStateRef_t stateRef);
 
-                // VLAN ID setting.
+                // VLAN ID setting and selecting.
                 le_result_t SetVlanId(taf_diag_ServiceRef_t svcRef, uint16_t vlanId);
+                le_result_t SelectTargetVlanID(taf_diag_ServiceRef_t svcRef, uint16_t vlanId);
 
                 //Asynchrous function from API direction
                 void CancelFileXferAsync(taf_diag_ServiceRef_t svcRef,

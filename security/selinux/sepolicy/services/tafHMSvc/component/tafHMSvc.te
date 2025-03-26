@@ -19,3 +19,17 @@ kernel_read_system_state(telaf_tafHMSvc_t)
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafHMSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafHMSvc_exec_t)
+
+require {
+    type mm_socket_device_t;
+    type modem_monitor_t;
+    type telaf_tafHMSvc_t;
+    class sock_file write;
+    class unix_stream_socket connectto;
+}
+
+# Allow tafHMSvc to write to ssr_notify
+allow telaf_tafHMSvc_t mm_socket_device_t:sock_file write;
+
+# Allow tafHMSvc to connect to modem_monitor
+allow telaf_tafHMSvc_t modem_monitor_t:unix_stream_socket connectto;

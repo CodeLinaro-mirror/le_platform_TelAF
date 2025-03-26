@@ -413,6 +413,7 @@ namespace uds{
             static le_result_t UdsStart(const char* configPathPtr);
 
             static void GetFileXferActiveStateList(le_dls_List_t* fileXferStateListPtr);
+            static void GetVlanIdList(le_dls_List_t* vlanIDListPtr);
 
             static le_result_t UdsAddDiagIndicationHandler();
             static void DiagIndicationHandler( taf_doip_AddrInfo_t* addrInfoPtr,

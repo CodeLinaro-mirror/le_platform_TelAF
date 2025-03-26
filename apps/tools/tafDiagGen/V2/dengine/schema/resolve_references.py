@@ -169,26 +169,6 @@ def resolve_all_references(only_yaml_with_default):
 
     logger.info("[freeze_frames.triger] reference check in [freeze_frame_trigger_type]----- End")
 
-    logger.info("[routines_all.xx.request.control_option_record] reference check in [routine_parameters_all] ----- Start")
-
-    routine_parameters_all_content = []
-    control_option_record_list = ['start', 'stop', 'result']
-
-    for key,value in only_yaml_with_default['routine_parameters_all'].items():
-        if 'name' in value.keys():
-            routine_parameters_all_content.append(value['name'])
-
-    for key,value in only_yaml_with_default['routines_all'].items():
-        if 'request' in value.keys():
-            for name,node in value['request'].items():
-                if 'control_option_record' in name:
-                    for rec,val in node.items():
-                        if rec in control_option_record_list:
-                            if val not in routine_parameters_all_content:
-                                assert routine_parameters_all_content.count(val) == 1, f"Reference check failed as [{val}] not found."
-
-    logger.info("[routines_all.xx.request.control_option_record] reference check in [routine_parameters_all] ----- End")
-
     logger.info("[access.session] reference check in [did_all] ---- Start")
 
     diagnostic_session_content = []

@@ -2377,7 +2377,7 @@ static void TestTafGnssConstellations
     constellationMask = TAF_LOCGNSS_CONSTELLATION_GPS;
     LE_TEST_INFO("taf_locGnss_SetConstellation() API is called to set GPS constellation type");
     result = taf_locGnss_SetConstellation(constellationMask);
-    LE_TEST_OK(result == LE_FAULT,"taf_locGnss_SetConstellation-Not Implemented");
+    LE_TEST_OK(result == LE_OK,"taf_locGnss_SetConstellation-LE_OK");
 
    //22.SetConstellation-GLONASS
     constellationMask = TAF_LOCGNSS_CONSTELLATION_GLONASS;
@@ -2453,7 +2453,7 @@ static void TestTafGnssConstellations
     #endif
     LE_TEST_INFO("taf_locGnss_SetConstellation() API is called to set All constellation types");
     result = taf_locGnss_SetConstellation(constellationMask);
-    LE_TEST_OK(result == LE_FAULT,"taf_locGnss_SetConstellation-LE_FAULT");
+    LE_TEST_OK(result == LE_OK,"taf_locGnss_SetConstellation-LE_OK");
 
     //29.GetConstellation
     LE_TEST_INFO("taf_locGnss_GetConstellation() API is called to get constellation types enabled");

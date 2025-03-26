@@ -22,7 +22,6 @@ def schema__datas(top_node):
             return True
 
     def check_item(value, key):
-
         nonlocal need_to_stop
 
         required = ['mnemonic', 'functional_definition']
@@ -63,6 +62,23 @@ def schema__datas(top_node):
             logger.error(f"{Tname} . {key} . functional_definition . bit_size <-- Invalid value")
             need_to_stop = True
             return False
+
+        for x,y in functional_definition.items():
+            if x == "coding" and functional_definition['data_type'] == "Numeric list":
+                if isinstance(y, dict):
+                    for _x,_y in y.items():
+                        if functional_definition['bit_size'] % 8 == 0:
+                            if not HexaOrBin()(hex(_x)):
+                                logger.error(f"{_x} .  functional_definition . coding <-- Invalid value")
+                                need_to_stop = True
+                                return False
+                        if functional_definition['bit_size'] % 2 == 0:
+                            if not HexaOrBin()(bin(_x)):
+                                logger.error(f"{_x} .  functional_definition . coding <-- Invalid value")
+                                need_to_stop = True
+                                return False
+            else:
+                continue
 
         return True # No error
 

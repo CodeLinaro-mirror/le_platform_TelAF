@@ -15,6 +15,7 @@ requires:
     }
     lib:
     {
+        lib/libtelux_platform.so
     }
 }
 

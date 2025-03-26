@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -34,6 +34,7 @@
 
 #include "tafMngdConnData.hpp"
 #include "tafMngdConnAdmin.hpp"
+#include "tafDcsHelper.hpp"
 
 #define MIN_PHONE_ID 1
 #define MAX_PHONE_ID 2
@@ -70,6 +71,8 @@ void tafMngdConnData::SessionStateChangeHandler
     stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT,0};
     mcs_DataCtx_t* dataCtxPtr = NULL;
     le_result_t result;
+    taf_dcs_CallEndReasonType_t callEndReasonType = TAF_DCS_CE_TYPE_UNKNOWN;
+    int32_t callEndReasonCode = -1;
 
     profileId = taf_dcs_GetProfileIndex(profileRef);
     result = taf_dcs_GetPhoneId(profileRef, &phoneId);
@@ -104,6 +107,25 @@ void tafMngdConnData::SessionStateChangeHandler
             LE_DEBUG ("Data Disconnected Event called for dataID  %d", dataCtxPtr->dataId);
             stateMachineEvt.event = MCS_EVT_DATA_CONNECTION_DISCONNECTED;
             stateMachineEvt.dataId = dataCtxPtr->dataId;
+            // Get call end reason for IPv4
+            result = taf_dcs_GetCallEndReason(profileRef, TAF_DCS_PDP_IPV4,
+                                              &callEndReasonType, &callEndReasonCode);
+            if (LE_OK != result)
+            {
+                LE_ERROR("Can't get the CallEndReason for profileId(%d) : %d", profileId, result);
+            }
+            else
+            {
+                const char *CallEndReasonTypeStr4 =
+                                        taf_DCSHelper::CallEndReasonTypeToString(callEndReasonType);
+                const char *CallEndReasonCodeStr4 = taf_DCSHelper::CallEndReasonCodeToString(
+                                                    callEndReasonType, callEndReasonCode);
+
+                LE_INFO("IPv4 Call end reason type: %d(%s)",
+                        callEndReasonType, CallEndReasonTypeStr4);
+                LE_INFO("IPv4 Call end reason code: %d(%s)",
+                        callEndReasonCode, CallEndReasonCodeStr4);
+            }
             break;
         case TAF_DCS_CONNECTED:
             LE_DEBUG ("Data connected Event called for dataID  %d", dataCtxPtr->dataId);

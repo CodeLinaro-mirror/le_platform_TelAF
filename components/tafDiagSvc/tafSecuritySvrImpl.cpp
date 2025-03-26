@@ -57,6 +57,8 @@ taf_diagSecurity_ServiceRef_t taf_SecuritySvr::GetService
         // Attach the service to the client.
         servicePtr->sessionRef = taf_diagSecurity_GetClientSessionRef();
 
+        servicePtr->selectedVlanId = 0;
+
         // Create a Safe Reference for this service object
         servicePtr->svcRef = (taf_diagSecurity_ServiceRef_t)le_ref_CreateRef(SvcRefMap,
                 servicePtr);
@@ -199,11 +201,9 @@ void taf_SecuritySvr::UDSMsgHandler
         msgPos += 1;
 
         sesChangePtr->currentSesType = msgPtr[msgPos];
+        // Update the session type with current session type for received VlanId/non-vlanId.
+        UpdateCurrentSesType(addrPtr->vlanId, msgPtr[msgPos]);
         msgPos += 1;
-
-        // Update the local session type with current active session type and
-        // maintain it in service.
-        currentSesType = sesChangePtr->currentSesType;
 
         sesChangePtr->link = LE_DLS_LINK_INIT;
         sesChangePtr->sesChangeRef = (taf_diagSecurity_SesChangeRef_t)le_ref_CreateRef(
@@ -270,6 +270,102 @@ void taf_SecuritySvr::UDSMsgHandler
     }
 
     return;
+}
+
+void taf_SecuritySvr::UpdateCurrentSesType
+(
+    uint16_t vlanId,
+    uint8_t RxCurrentSesType
+)
+{
+    LE_DEBUG("UpdateCurrentSesType for ID: %x", vlanId);
+
+    auto& backend = taf_DiagBackend::GetInstance();
+
+    // Update with the latest session type.
+    le_dls_Link_t* linkPtr = NULL;
+
+    linkPtr = le_dls_Peek(&backend.VlanAndSesTypeList);
+    while (linkPtr)
+    {
+        taf_RxVlanCurrentSesType_t* vlanSesTypePtr = CONTAINER_OF(linkPtr,
+                taf_RxVlanCurrentSesType_t, link);
+        linkPtr = le_dls_PeekNext(&backend.VlanAndSesTypeList, linkPtr);
+
+        if (vlanSesTypePtr->vlanId == vlanId)
+        {
+            LE_DEBUG("Current ses type is %d for VlanId valid %d",RxCurrentSesType, vlanId);
+            vlanSesTypePtr->currentSesType = RxCurrentSesType;
+            return;
+        }
+    }
+
+}
+
+le_result_t taf_SecuritySvr::SelectTargetVlanID
+(
+    taf_diagSecurity_ServiceRef_t svcRef,
+    uint16_t vlanId
+)
+{
+    LE_INFO("SelectTargetVlanID");
+
+    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER,
+            "Invalid service reference provided");
+    TAF_ERROR_IF_RET_VAL(vlanId == 0, LE_BAD_PARAMETER, "Invalid vlan Id");
+
+    // Check Vlan Id is already set or not.
+    bool isFound = false;
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+    while (linkPtr)
+    {
+        taf_SecurityVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr,
+                taf_SecurityVlanIdNode_t, link);
+        if (vlanPtr != NULL && vlanPtr->vlanId == vlanId)
+        {
+            // Match.
+            isFound = true;
+            break;
+        }
+        linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+    }
+
+    if (!isFound)
+    {
+        LE_ERROR("VlanId is not set");
+        return LE_NOT_FOUND;
+    }
+
+    servicePtr->selectedVlanId = vlanId;
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the current active session type.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_SecuritySvr::GetCurrentSesType
+(
+    taf_diagSecurity_ServiceRef_t svcRef,
+    uint8_t* currentTypePtr
+)
+{
+    LE_DEBUG("GetCurrentSesType!");
+
+    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER,
+            "Invalid service reference provided");
+
+    auto& backend = taf_DiagBackend::GetInstance();
+
+    le_result_t result = backend.GetCurrentSesType(servicePtr->selectedVlanId,
+            currentTypePtr);
+    LE_INFO("Current session type is %d", *currentTypePtr);
+
+    return result;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -714,34 +810,6 @@ void taf_SecuritySvr::RemoveSesChangeHandler
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets the current active session type.
- */
-//-------------------------------------------------------------------------------------------------
-le_result_t taf_SecuritySvr::GetCurrentSesType
-(
-    taf_diagSecurity_ServiceRef_t svcRef,
-    uint8_t* currentTypePtr
-)
-{
-    LE_DEBUG("GetCurrentSesType!");
-
-    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
-    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER,
-            "Invalid service reference provided");
-
-    if (currentTypePtr == NULL)
-    {
-        LE_ERROR("Cannot find the currentTypePtr");
-        return LE_NOT_FOUND;
-    }
-
-    *currentTypePtr = currentSesType;
-
-    return LE_OK;
-}
-
-//-------------------------------------------------------------------------------------------------
-/**
  * Releases a session change notification message.
  */
 //-------------------------------------------------------------------------------------------------
@@ -770,28 +838,6 @@ le_result_t taf_SecuritySvr::ReleaseSesChangeMsg
     le_mem_Release(rxSesChangMsgPtr);
 
     LE_DEBUG("Freed msgRef(%p).", sesChangeRef);
-    return LE_OK;
-}
-
-//-------------------------------------------------------------------------------------------------
-/**
- * Internal function to get current session type.
- */
-//-------------------------------------------------------------------------------------------------
-le_result_t taf_SecuritySvr::GetCurrentSession
-(
-    uint8_t* currentSesPtr
-)
-{
-    LE_INFO("GetCurrentSession!");
-
-    if (currentSesPtr == NULL)
-    {
-        LE_ERROR("Cannot find the currentSesPtr");
-        return LE_NOT_FOUND;
-    }
-
-    *currentSesPtr = currentSesType;
     return LE_OK;
 }
 
@@ -1367,8 +1413,18 @@ le_result_t taf_SecuritySvr::SetVlanId
 {
     taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+    TAF_ERROR_IF_RET_VAL(vlanId == 0, LE_BAD_PARAMETER, "Invalid vlan Id");
 
 #ifndef LE_CONFIG_DIAG_VSTACK
+
+    // Check Vlan Id is valid or not.
+    auto& backend = taf_DiagBackend::GetInstance();
+    if (!backend.isVlanIdValid(vlanId))
+    {
+        LE_ERROR("VlanId is unknown");
+        return LE_UNSUPPORTED;
+    }
+
     // Check if the vlan is set.
     le_dls_Link_t* linkPtr = NULL;
     linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
@@ -1392,6 +1448,8 @@ le_result_t taf_SecuritySvr::SetVlanId
 
     vlanPtr->vlanId = vlanId;
     vlanPtr->link = LE_DLS_LINK_INIT;
+    // update the target vlan ID with the last set vlan ID.
+    servicePtr->selectedVlanId = vlanId;
     le_dls_Queue(&servicePtr->supportedVlanList, &vlanPtr->link);
 
     return LE_OK;

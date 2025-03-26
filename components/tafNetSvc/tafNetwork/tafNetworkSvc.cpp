@@ -1535,6 +1535,87 @@ le_result_t taf_net_UnbindVlanFromProfile
 }
 
 /**
+ * First event handler used by taf_net_AddHwAccelerationStateHandler().
+ *
+ * @param [in] reportPtr          event pointer.
+ * @param [in] subHandlerFunc     Callback function from taf_net_AddHwAccelerationStateHandler().
+ */
+static void FirstHwAccelerationStateHandler(void *reportPtr, void *subHandlerFunc)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
+
+    TAF_ERROR_IF_RET_NIL(subHandlerFunc == nullptr, "Null ptr(subHandlerFunc)");
+
+    taf_net_VlanHwAccelerationStateHandlerFunc_t handlerFunc =
+                                (taf_net_VlanHwAccelerationStateHandlerFunc_t)subHandlerFunc;
+    VlanHwAccelerationState_t *statePtr = static_cast<VlanHwAccelerationState_t *>(reportPtr);
+    LE_DEBUG("VLANHWAccelerationState: %d", statePtr->state);
+    handlerFunc(NULL, statePtr->state, le_event_GetContextPtr());
+
+    // Release memory back to the hw acceleration event pool
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_net_VlanHwAccelerationState'
+ *
+ * Event to report when a change occurs in hardware acceleration state.<br>
+ * If reported state is TAF_NET_VLAN_HW_ACC_INACTIVE: All existing data calls will take software
+ * acceleration path.<br>
+ * If reported state is TAF_NET_VLAN_HW_ACC_ACTIVE: All new data calls that are started after
+ * this event invocation will be hardware accelerated. Data calls that are already started will
+ * continue without hardware acceleration. Clients could stop and re-start active data calls in
+ * order to use hardware acceleration.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+taf_net_VlanHwAccelerationStateHandlerRef_t taf_net_AddVlanHwAccelerationStateHandler
+(
+    taf_net_VlanRef_t vlanRef,
+    taf_net_VlanHwAccelerationStateHandlerFunc_t handlerPtr,
+        ///< [IN] Handler for hardware acceleration state.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    LE_DEBUG("taf_net_AddVlanHwAccelerationStateHandler");
+
+    LE_UNUSED(vlanRef);   // as of now acceleration is system level only hence vlanRef is not needed
+                          // TBD will be implemented in later releases to notify per vlanRef
+
+    TAF_ERROR_IF_RET_VAL((handlerPtr == NULL), nullptr, "Null ptr(handlerPtr)");
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler(
+                                            "VlanHwAccelerationStateEvent",
+                                            tafVlan.vlanHwAccelerationStateEvtId,
+                                            FirstHwAccelerationStateHandler,
+                                            (void *)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_net_VlanHwAccelerationStateHandlerRef_t)(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_dcs_HwAccelerationState'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_net_RemoveVlanHwAccelerationStateHandler
+(
+    taf_net_VlanHwAccelerationStateHandlerRef_t handlerRef
+)
+{
+    TAF_ERROR_IF_RET_NIL((handlerRef == NULL), "Null ptr(handlerRef)");
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+
+    return;
+}
+
+
+/**
  * Binds a VLAN with a specified backhaul config.
  *
  * @param [in] vlanRef                  The VLAN Reference.
@@ -1847,6 +1928,102 @@ taf_netIpPass_InterfaceRef_t taf_netIpPass_GetIPConfig
 {
     auto &tafVlan = taf_Vlan::GetInstance();
     return tafVlan.GetIPConfig(ipType,ifType,vlanId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IP Passthrough feature configuration Network Address Translation (NAT) is enabled or not.
+ * IP Passthrough with NAT or without NAT is a device level configuration.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_netIpPass_GetIPPTNatConfig
+(
+    taf_net_VlanRef_t vlanRef,
+    bool       *isNatEnabled       ///< True when NAT enabled.
+)
+{
+    LE_UNUSED(vlanRef);   // as of now IPPT NAT config is device level hence vlanRef is not needed.
+    auto &tafVlan = taf_Vlan::GetInstance();
+    return tafVlan.GetIPPassThroughNatConfig(isNatEnabled);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Allows the client to configure the Network Address Translation (NAT) for IP passthrough
+ * feature. Network Address Translation (NAT) is enabled or not.
+ * IP Passthrough with NAT or without NAT is a device level configuration.
+ * Configuration changes will be persistent across reboots.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_netIpPass_SetIPPTNatConfig
+(
+    taf_net_VlanRef_t vlanRef,
+    bool       isNatEnabled
+)
+{
+    LE_UNUSED(vlanRef);   // as of now IPPT NAT config is device level hence vlanRef is not needed.
+    auto &tafVlan = taf_Vlan::GetInstance();
+    return tafVlan.SetIPPassThroughNatConfig(isNatEnabled);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the backhaul preference for default bridge.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_net_GetBackhaulPreference
+(
+    taf_net_VlanRef_t       vlanRef,
+    taf_net_BackhaulType_t* backhaulPrefListPtr,
+    size_t* backhaulPrefListSizePtr
+)
+{
+    LE_UNUSED(vlanRef);  //as of now only default bridge is allowed hence vlanRef is not needed.
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(backhaulPrefListPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(profileList)");
+    TAF_ERROR_IF_RET_VAL(backhaulPrefListSizePtr == nullptr, LE_BAD_PARAMETER, "Null ptr(listSize)");
+
+    return tafVlan.GetBackhaulPreference(backhaulPrefListPtr,backhaulPrefListSizePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the backhaul preference for default bridge.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_net_SetBackhaulPreference
+(
+    taf_net_VlanRef_t       vlanRef,
+    const taf_net_BackhaulType_t* backhaulPrefListPtr,
+    size_t backhaulPrefListSize
+)
+{
+    LE_UNUSED(vlanRef);  //as of now only default bridge is allowed hence vlanRef is not needed.
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(backhaulPrefListPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(profileList)");
+
+    return tafVlan.SetBackhaulPreference(backhaulPrefListPtr,backhaulPrefListSize);
 }
 
 
@@ -2881,6 +3058,7 @@ int32_t taf_net_GetGsbBandWidth
 
     return tafGsb.GetGsbBandWidth(gsbRef);
 }
+
 
 COMPONENT_INIT
 {

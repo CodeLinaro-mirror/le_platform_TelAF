@@ -1,8 +1,9 @@
 {
     "Product": "TelAF",
     "Name": "MngdConn",
+    "Extension": "/data/persist/telaf/",
     "ManagedConnectivityService": {
-        "Version": "24.12.00",
+        "Version": "25.02.00",
         "Configuration": {
             "Name": "Default",
             "Sim":[

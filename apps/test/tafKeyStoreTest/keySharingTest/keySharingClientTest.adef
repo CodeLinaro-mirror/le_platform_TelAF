@@ -1,0 +1,20 @@
+sandboxed: false
+start: manual
+executables:
+{
+    keySharingClient = (clientAppComp)
+}
+
+processes:
+{
+    run:
+    {
+        (keySharingClient)
+    }
+}
+
+bindings:
+{
+    keySharingClient.clientAppComp.cryptPrinter -> keySharingOwnerTest.cryptPrinter
+    keySharingClient.clientAppComp.taf_ks -> tafKeyStoreSvc.taf_ks
+}

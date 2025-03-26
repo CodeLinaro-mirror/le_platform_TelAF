@@ -147,7 +147,7 @@ namespace doip{
         private:
             taf_doip_Result_t SendTCPData(char* buffer, uint32_t length);
 
-            taf_doip_Result_t CheckDoipHeader(taf_doipHeader_t& header);
+            taf_doip_Result_t CheckDoipHeader(taf_doipHeader_t& header, taf_doip_Buffer_t* buffer);
             void ProcessDoipMessage(uint16_t payloadType, taf_doip_Buffer_t* buffer,
                     uint32_t payloadLen);
             void RoutingActiveReqHandler(char *payload, uint32_t payloadLen);
@@ -164,7 +164,8 @@ namespace doip{
             void DiagnosticMsgSecondHandler();
             void DiagnosticMsgCliSecondHandler();
             void DiagnosticMsgSvrSecondHandler();
-            void RespondHeaderNegativeACK(taf_doipHeaderNACKCode_t nackCode);
+            void RespondHeaderNegativeACK(taf_doipHeaderNACKCode_t nackCode, uint32_t left);
+            void ReadAndDiscardMsg(size_t len);
 
             uint16_t                testerSA;   // Tester source logical address.
                                                 // It will be assigned after regitered.

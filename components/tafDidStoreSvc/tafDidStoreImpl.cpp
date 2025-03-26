@@ -131,6 +131,7 @@ void taf_diagDidStore::didReadCb
             le_sem_Post(read_semaphore); // Signal client-specific semaphore
             return;
         }
+        return;
     }
 
     // Copy data to the client-specific structure

@@ -6,7 +6,8 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#define VLAN_ID 10
+#define VLAN_ID_10 10
+#define VLAN_ID_110 110
 static void CancelFileXferHandlerFunc
 (
     taf_diag_ServiceRef_t svcRef,
@@ -33,6 +34,7 @@ void TestCancelFileXferWithoutVlan()
 
 void TestCancelFileXferWithVlan()
 {
+    le_result_t result;
     // Get diag svc reference
     taf_diag_ServiceRef_t svcRef = taf_diag_GetService();
     if(svcRef == NULL)
@@ -41,14 +43,38 @@ void TestCancelFileXferWithVlan()
         return;
     }
 
-    le_result_t result = taf_diag_SetVlanId(svcRef, VLAN_ID);
+    result = taf_diag_SetVlanId(svcRef, VLAN_ID_10);
     if(result != LE_OK)
     {
         LE_ERROR("Set VLAN Id error");
         return;
     }
 
-     taf_diag_CancelFileXferAsync(svcRef, CancelFileXferHandlerFunc, NULL);
+    //Only VLAN Id 10 in the list, target VLAN Id is 10
+    LE_INFO("Cancel FileXfer for VLAN Id 10");
+    taf_diag_CancelFileXferAsync(svcRef, CancelFileXferHandlerFunc, NULL);
+
+    result = taf_diag_SetVlanId(svcRef, VLAN_ID_110);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Set VLAN Id error");
+        return;
+    }
+
+    //VLAN Id 10 and VLANId 110 are in the list, target VLAN Id is 110 since last set VLAN Id is 110
+    LE_INFO("Cancel FileXfer for VLAN Id 110");
+    taf_diag_CancelFileXferAsync(svcRef, CancelFileXferHandlerFunc, NULL);
+
+    result = taf_diag_SelectTargetVlanID(svcRef, VLAN_ID_10);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Select target VLAN Id 10 error");
+        return;
+    }
+
+    //VLAN Id 10 and VLANId 110 are in the list, target VLAN Id is set to VLAN Id 10
+    LE_INFO("Cancel FileXfer for VLAN Id 10");
+    taf_diag_CancelFileXferAsync(svcRef, CancelFileXferHandlerFunc, NULL);
 }
 
 

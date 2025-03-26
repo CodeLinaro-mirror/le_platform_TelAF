@@ -140,9 +140,10 @@ __attribute__((unused)) static void KeySharingTest(void)
     const char invalidKeyId[] ="Wrong#&keyId";
     const char nonExistSharedKeyId[] = "NonExistApp::NonExistKeyId";
     const char* sharedAppNameList[] = {"Shared_App1", "Shared_App2", "Shared_App3", "Shared_App4",
-                                       "Shared_App5"};
-    char appName[LE_LIMIT_APP_NAME_LEN+1] = { 0 };
-    char keyName[256] = { 0 };
+        "Shared_App5", "shared_App6", "Shared_app7", "Shared_App8","Shared_app9", "shared_App10",
+        "Shared_app11", "shared_app12"};
+    char appName[TAF_KS_MAX_APP_NAME_SIZE+1] = { 0 };
+    char keyName[TAF_KS_MAX_KEY_ID_SIZE+1] = { 0 };
     taf_ks_KeyRef_t keyRef;
     taf_ks_KeyRef_t keyRef1;
     taf_ks_KeyUsage_t keyCap;
@@ -188,7 +189,7 @@ __attribute__((unused)) static void KeySharingTest(void)
                            "Share key to app: '%s'.", sharedAppNameList[i]);
         }
 
-        // Share to one more app will fail since we only support to share at most 5 apps.
+        // Share to one more app will fail since we only support to share at most 12 apps.
         LE_TEST_ASSERT(LE_NO_MEMORY == taf_ks_ShareKey(keyRef, "Shared_AppY",
                                                        TAF_KS_RSA_ENCRYPT_DECRYPT, 0),
                        "Share key to the 6th app: '%s'.", "Shared_AppY");
@@ -209,9 +210,13 @@ __attribute__((unused)) static void KeySharingTest(void)
     {
         // Get the key by keyName="<appName>::<keyId>", Shall return the same key reference
         // If the appName is our own app.
-        snprintf(keyName, sizeof(keyName), "tafKeyStoreUnitTest::%s", keyId);
+
+        LE_TEST_ASSERT (LE_OK == taf_ks_GetCallingAppName(appName, sizeof(appName)),
+                        " Get calling app name: '%s'", appName);
+
+        snprintf(keyName, sizeof(keyName), "%s::%s", appName, keyId);
         LE_TEST_ASSERT((LE_OK == taf_ks_GetKey(keyName, &keyRef1)) && (keyRef == keyRef1),
-                       "Get the same key again.");
+                       "Get the same key again (%s).", keyName);
 
         // Get sharedApp list.
         LE_TEST_ASSERT(LE_OK == taf_ks_GetFirstSharedApp(keyRef, appName, sizeof(appName),

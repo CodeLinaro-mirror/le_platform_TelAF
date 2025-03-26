@@ -1,0 +1,18 @@
+sources:
+{
+    keySharingClient.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_ks.api
+        cryptPrinter = $CURDIR/../cryptPrinter.api
+    }
+}
+
+cflags:
+{
+    -I$CURDIR/../common
+}

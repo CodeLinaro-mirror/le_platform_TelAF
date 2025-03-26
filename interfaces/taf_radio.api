@@ -305,7 +305,11 @@
  *  - taf_radio_GetRatOfSignalMetrics() -- Gets RATs of signal metrics.
  *
  *  - taf_radio_GetGsmSignalMetrics() / taf_radio_GetUmtsSignalMetrics() / taf_radio_GetLteSignalMetrics() /
- *    taf_radio_GetCdmaSignalMetrics() -- Gets GSM/UMTS/LTE/CDMA signal metrics.
+ *    taf_radio_GetCdmaSignalMetrics() / taf_radio_GetNr5gSignalMetrics() -- Gets
+ *    GSM/UMTS/LTE/CDMA/NR5G signal metrics, these APIs should be called after calling
+ *    taf_radio_GetRatOfSignalMetrics to get the valid RAT. If the return value is
+ *    INVALID_SIGNAL_STRENGTH_VALUE, it indicates that the signal metrics are unknown or not
+ *    detectable.
  *
  *  - taf_radio_AddSignalStrengthChangeHandler() / taf_radio_RemoveSignalStrengthChangeHandler() --
  *    Adds/removes signal strength change handler.
@@ -656,6 +660,13 @@ DEFINE LTE_BAND_GROUP_NUM = 4;
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE IMS_USER_AGENT_BYTES = 1024;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Invalid signal strength value.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE INVALID_SIGNAL_STRENGTH_VALUE = 0x7FFFFFFF;
 
 //--------------------------------------------------------------------------------------------------
 

@@ -707,22 +707,22 @@ void tafMngdRpcPm::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
         taf_nodeWsRefCtx_t * wsRefCtxPtr =
                 CONTAINER_OF(linkHandlerPtr, taf_nodeWsRefCtx_t, link);
         linkHandlerPtr = le_dls_PeekPrev(&(rpcPm.rpcWsRefList), linkHandlerPtr);
-        if (wsRefCtxPtr && wsRefCtxPtr->sessionRef == sessionRef && wsRefCtxPtr->isAcquiredLock)
+        if (wsRefCtxPtr && wsRefCtxPtr->sessionRef == sessionRef)
         {
-            LE_INFO("Client with sessionRef %p", wsRefCtxPtr->sessionRef);
-            le_result_t res = tafMngdRpcPm::ReleaseRpcNodeWakeLock();
-
-            if(res == LE_OK)
+            if(wsRefCtxPtr->isAcquiredLock)
             {
-                LE_INFO("Released lock");
-                wsRefCtxPtr->isAcquiredLock = false;
+                LE_INFO("Client with sessionRef %p", wsRefCtxPtr->sessionRef);
+                le_result_t res = tafMngdRpcPm::ReleaseRpcNodeWakeLock();
+                if(res == LE_OK)
+                {
+                    LE_INFO("Released lock");
+                    wsRefCtxPtr->isAcquiredLock = false;
+                }
             }
-            else {
-                le_ref_DeleteRef(rpcPm.rpcWsRefMap, wsRefCtxPtr->wsRef);
-                le_dls_Remove(&(rpcPm.rpcWsRefList), &wsRefCtxPtr->link);
-                free((void*)wsRefCtxPtr->vhalTag);
-                le_mem_Release((void*)wsRefCtxPtr);
-            }
+            le_ref_DeleteRef(rpcPm.rpcWsRefMap, wsRefCtxPtr->wsRef);
+            le_dls_Remove(&(rpcPm.rpcWsRefList), &wsRefCtxPtr->link);
+            free((void*)wsRefCtxPtr->vhalTag);
+            le_mem_Release((void*)wsRefCtxPtr);
         }
     }
 }
@@ -755,7 +755,7 @@ void tafMngdRpcPm::Init(void)
 
     rpcPm.rpcNodePowerStateChange = le_event_CreateId("rpcNodePowerStateChange", sizeof(taf_mngdPm_NodePowerStateChange_t));
     le_event_AddHandler("tafNodePowerStateChange event", rpcPm.rpcNodePowerStateChange, rpcPm.RpcNodePowerStateChanged);
-    rpcPm.rpcNodePowerStateRefPool = le_mem_CreatePool("rpcNodePowerStateHandlerList", sizeof(taf_NodePowerStateRef_t));
+    rpcPm.rpcNodePowerStateRefPool = le_mem_CreatePool("rpcNodePowerStateRef", sizeof(taf_NodePowerStateRef_t));
     rpcPm.rpcNodePowerStateHandlerMap = le_ref_CreateMap("rpcNodePowerStateHandlerMap", TAF_REF_POOL_SIZE);
     rpcPm.rpcNodePowerStateRefMap = le_ref_CreateMap("rpcNodePowerStateRefMap", TAF_REF_POOL_SIZE);
     rpcPm.rpcNodePowerStateHandlerPool = le_mem_CreatePool("rpcNodePowerStateHandlerList",

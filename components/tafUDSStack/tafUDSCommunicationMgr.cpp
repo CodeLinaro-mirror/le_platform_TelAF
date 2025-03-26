@@ -59,6 +59,7 @@ taf_UDSIndicationHandler_t UdsCommunicationMgr::udsIndicationHandler;
 le_dls_List_t UdsCommunicationMgr::cancelFileXferReqList = LE_DLS_LIST_INIT;
 le_mutex_Ref_t UdsCommunicationMgr::cancelFileXferListMutex = NULL;
 static le_mem_PoolRef_t FileXferStatePool;
+static le_mem_PoolRef_t VlanIdPool;
 static le_mem_PoolRef_t CancelFileXferReqPool;
 
 UdsCommunicationMgr* UdsCommunicationMgr::GetInstance
@@ -155,6 +156,9 @@ void UdsCommunicationMgr::InitInstances
     // Create file transfer req pools.
     CancelFileXferReqPool = le_mem_CreatePool("CancelFileXferReqPool",
             sizeof(taf_CancelFileXferReq_t));
+
+    // Create vlan ID pools.
+    VlanIdPool = le_mem_CreatePool("VlanIdPool", sizeof(taf_uds_VlanId_t));
 
     // Create timer thread.
     le_thread_Ref_t udsTimerThreadRef = le_thread_Create("udsTimerTh", UdsTimerThread, NULL);
@@ -990,6 +994,35 @@ void UdsCommunicationMgr::GetFileXferActiveStateList
         le_dls_Queue(fileXferStateListPtr, &(fileXferStatePtr->link));
     }
 }
+
+/**
+ * Get vlan ID list.
+ */
+void UdsCommunicationMgr::GetVlanIdList
+(
+    le_dls_List_t* vlanIDListPtr
+)
+{
+    LE_DEBUG("GetVlanIdList");
+
+    // Store VLAN id in list. In non-VLAN case, vlanId will be 0.
+    for (const auto &pair : instances)
+    {
+        LE_INFO("vlanId=%d", pair.second->vlanId);
+
+        taf_uds_VlanId_t* vlanIdPtr = NULL;
+
+        // Need to be released by diag service
+        vlanIdPtr = (taf_uds_VlanId_t *)le_mem_ForceAlloc(VlanIdPool);
+
+        vlanIdPtr->vlanId = pair.second->vlanId;
+        vlanIdPtr->link = LE_DLS_LINK_INIT;
+        LE_DEBUG("Supported vlanId : %x", vlanIdPtr->vlanId);
+
+        le_dls_Queue(vlanIDListPtr, &(vlanIdPtr->link));
+    }
+}
+
 /**
  * Pack NRC.
  */
@@ -2252,7 +2285,7 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
-    //Step 5: Data record check. UDS_0x2E_NRC_31
+    //Step 5: Data record size check. UDS_0x2E_NRC_31
     try
     {
         int dataRecordSize = node.get_child("implementation").get<int>("did_size");
@@ -2265,8 +2298,28 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
     }
     catch (const std::exception& e)
     {
-        //security_level is not configured. Don't check it.
+        // DID dataRecord size is not configured. Don't check it.
         LE_WARN("Exception: %s. did_size is not configured for dataId 0x%x", e.what(), dataId);
+    }
+
+    // Forbidden check for WDID data record. UDS_0x2E_NRC_31
+    try
+    {
+        const uint8_t* dataRecPtr = recvBuf + UDS_WRITE_DID_REQ_BASE_LEN;
+        bool isForbidden = cfg::is_forbidden(dataId, dataRecPtr,
+                (recvDataLen - UDS_WRITE_DID_REQ_BASE_LEN));
+
+        // If dataRec forbidded then send NRC.
+        if(isForbidden)
+        {
+            LE_WARN("Data record is forbidded");
+            return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        // DataRecord forbidden check not define. Don't check it.
+        LE_WARN("Exception: %s. Forbidden check not define for dataId 0x%x", e.what(), dataId);
     }
 
     //Will send indication to the diag service
@@ -5789,8 +5842,8 @@ le_result_t UdsCommunicationMgr::ROEResp
     // The minimum data length is 1 for reportActivatedEvents
     if(subFunc == ROE_SUBFUNC_RAE)
     {
-        if (dataSize > UDS_MAX_DATA_SIZE - UDS_ROE_RESP_RAE_MIN_LEN ||
-            dataSize < UDS_ROE_RESP_RAE_MIN_LEN)
+        if ((dataSize > (UDS_MAX_DATA_SIZE - UDS_ROE_RESP_MIN_LEN)) ||
+            (dataSize < UDS_ROE_RESP_RAE_MIN_LEN))
         {
             LE_ERROR("Data Length :%d is not correct.", dataSize);
             return LE_FAULT;
@@ -5799,8 +5852,8 @@ le_result_t UdsCommunicationMgr::ROEResp
     // The minimum data length is 2 for all subfunctions but reportActivatedEvents
     else
     {
-        if (dataSize > UDS_MAX_DATA_SIZE - UDS_ROE_RESP_MIN_LEN ||
-            dataSize < UDS_ROE_RESP_MIN_LEN)
+        if ((dataSize > (UDS_MAX_DATA_SIZE - UDS_ROE_RESP_MIN_LEN)) ||
+            (dataSize < UDS_ROE_RESP_MIN_LEN))
         {
             LE_ERROR("Data Length :%d is not correct.", dataSize);
             return LE_FAULT;

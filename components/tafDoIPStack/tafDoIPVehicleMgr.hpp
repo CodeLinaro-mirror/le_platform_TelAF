@@ -11,6 +11,9 @@
 #include "tafDoIPStack.h"
 #include "tafDoIPCommon.hpp"
 
+#define CFG_DOIP_VIN_PATH "tafDiagSvc:/doip"
+#define CFG_DOIP_VIN_NODE "VehIdentNum"
+
 typedef struct
 {
     le_dls_Link_t link;
@@ -103,6 +106,11 @@ namespace doip{
             bool IsFunctionalAddress(uint16_t logicalAddr);
             le_dls_List_t *GetIfaceList();
         private:
+
+            taf_doip_Result_t SetVinInStorage(const char* vinPtr);
+            taf_doip_Result_t GetVinFromStorage(char* vinPtr);
+            le_result_t CheckVIN(const char* vinPtr);
+
             le_mem_PoolRef_t tafDoipConfigPool = NULL;
             le_mem_PoolRef_t funcGroupPool = NULL;
             le_mem_PoolRef_t ifNamePool = NULL;

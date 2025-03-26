@@ -95,6 +95,7 @@ taf_net_RouteChangeHandlerRef_t routeChangeHandlerRef;
 taf_net_GatewayChangeHandlerRef_t gatewayChangeHandlerRef;
 taf_net_DNSChangeHandlerRef_t DNSChangeHandlerRef;
 taf_net_DestNatChangeHandlerRef_t DestNatChangeHandlerRef;
+taf_net_VlanHwAccelerationStateHandlerRef_t VlanHwAccelerationStateHandlerRef;
 
 static void NetRouteChangeHandlerFunc
 (
@@ -163,6 +164,20 @@ static void* DestNatThread(void* contextPtr){
     le_event_RunLoop();
     return NULL;
 }
+static void VlanHwAccelerationStateHandlerFunc(taf_net_VlanRef_t vlanRef,taf_net_VlanHwAccelerationState_t state,void* contextPtr){
+    LE_INFO("**** Handler for VLAN HW Accerelation Change Indication (Begin)****");
+    LE_INFO("----state: %d", state);
+    LE_INFO("**** Handler for VLAN HW Accerelation Change Indication (End)****");
+}
+static void* VlanHwAccThread(void* contextPtr){
+    taf_net_ConnectService();
+    VlanHwAccelerationStateHandlerRef = taf_net_AddVlanHwAccelerationStateHandler(NULL,(taf_net_VlanHwAccelerationStateHandlerFunc_t)VlanHwAccelerationStateHandlerFunc, NULL);
+    LE_ASSERT(VlanHwAccelerationStateHandlerRef != NULL);
+    le_sem_Post(semaphore);
+    le_event_RunLoop();
+    return NULL;
+}
+
 static void NetworkGetInterfaceListTest(){
     taf_net_InterfaceInfo_t intfInfoListPtr[50];
     size_t listSize = 0;
@@ -710,6 +725,10 @@ static void* UnitTestNetThread(void* contextPtr){
         threadRef = le_thread_Create("DestNatChgTh", DestNatThread, NULL);
         le_thread_Start(threadRef);
         LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
+        LE_INFO("======== 1.4 VLAN HW ACC change Handler ========");
+        threadRef = le_thread_Create("VlanHwAccChgTh", VlanHwAccThread, NULL);
+        le_thread_Start(threadRef);
+        LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
         LE_INFO("======== 2 Network unit test start========");
         NetworkUnitTestFunc();
         le_thread_Sleep(1);
@@ -724,6 +743,7 @@ static void* UnitTestNetThread(void* contextPtr){
         taf_net_RemoveGatewayChangeHandler(gatewayChangeHandlerRef);
         taf_net_RemoveDNSChangeHandler(DNSChangeHandlerRef);
         taf_net_RemoveDestNatChangeHandler(DestNatChangeHandlerRef);
+        taf_net_RemoveVlanHwAccelerationStateHandler(VlanHwAccelerationStateHandlerRef);
     }else if(strcmp(testType, "vlan") == 0){
         LE_INFO("======== VLAN unit test start========");
         VlanUnitTestFunc();

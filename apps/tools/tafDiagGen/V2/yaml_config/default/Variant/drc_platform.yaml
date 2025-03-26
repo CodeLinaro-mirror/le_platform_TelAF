@@ -76,6 +76,7 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: False
     test_did_0xA0A1_r: False
     test_did_0xA0A1_w: False
+    test_did_write: False
     precheck_to_default_session: True
     precheck_to_programming_session: True
     precheck_to_extended_diagnostic_session: True
@@ -93,6 +94,7 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: True
     test_did_0xA0A1_r: True
     test_did_0xA0A1_w: True
+    test_did_write: False
     precheck_to_default_session: True
     precheck_to_programming_session: True
     precheck_to_extended_diagnostic_session: True
@@ -110,6 +112,7 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: True
     test_did_0xA0A1_r: True
     test_did_0xA0A1_w: True
+    test_did_write: True
     precheck_to_default_session: True
     precheck_to_programming_session: True
     precheck_to_extended_diagnostic_session: True
@@ -127,6 +130,7 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: False
     test_did_0xA0A1_r: False
     test_did_0xA0A1_w: False
+    test_did_write: False
     precheck_to_default_session: True
     precheck_to_programming_session: False
     precheck_to_extended_diagnostic_session: True
@@ -144,6 +148,7 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: False
     test_did_0xA0A1_r: False
     test_did_0xA0A1_w: False
+    test_did_write: False
     precheck_to_default_session: True
     precheck_to_programming_session: False
     precheck_to_extended_diagnostic_session: True
@@ -161,6 +166,7 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: True
     test_did_0xA0A1_r: True
     test_did_0xA0A1_w: False
+    test_did_write: True
     precheck_to_default_session: False
     precheck_to_programming_session: False
     precheck_to_extended_diagnostic_session: False
@@ -178,6 +184,7 @@ execution_authorization_pattern:
     test_did_0xA0A0_w: False
     test_did_0xA0A1_r: True
     test_did_0xA0A1_w: True
+    test_did_write: False
     precheck_to_default_session: False
     precheck_to_programming_session: False
     precheck_to_extended_diagnostic_session: False

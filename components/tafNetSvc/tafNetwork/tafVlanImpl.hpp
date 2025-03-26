@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -179,6 +179,12 @@ typedef struct
     le_sls_Link_t link;
 } taf_VlanIfSafeRef_t;
 
+// Internal message structure for onHwAccelerationChanged events
+typedef struct
+{
+    taf_net_VlanHwAccelerationState_t state;
+} VlanHwAccelerationState_t;
+
 namespace telux{
 namespace tafsvc {
     /*
@@ -217,6 +223,28 @@ namespace tafsvc {
             static le_sem_Ref_t semaphore;
         private:
             SlotId slotId;
+    };
+
+    class tafVlanBackhaulPrefCallback
+    {
+        public:
+            static le_sem_Ref_t semaphore;
+            static le_result_t result;
+            static taf_net_BackhaulType_t backhaulPrefListPtr[TAF_NET_MAX_BH_NUM];
+            static size_t backhaulPrefListSize;
+
+            static void backhaulPrefResponse(
+                const std::vector<telux::data::BackhaulType> backhaulPref,
+                telux::common::ErrorCode error);
+            static void setBackhaulPrefResponse(telux::common::ErrorCode error);
+    };
+
+    class taf_VlanListener : public  telux::data::net::IVlanListener
+    {
+        public:
+          taf_VlanListener();
+
+          void onHwAccelerationChanged(const telux::data::ServiceState state) override;
     };
     /*
      * @brief taf_Vlan class defined as a middleware between interfaces and implementation.
@@ -320,6 +348,14 @@ namespace tafsvc {
             taf_netIpPass_InterfaceRef_t GetIPConfig(taf_net_NetIpType_t  ipType,
                                                  taf_net_VlanIfType_t ifType,
                                                  uint16_t vlanId);
+            le_result_t SetIPPassThroughNatConfig(bool isEnabled);
+            le_result_t GetIPPassThroughNatConfig(bool *isEnabledPtr);
+
+            le_result_t GetBackhaulPreference(taf_net_BackhaulType_t* backhaulPrefListPtr,
+                                              size_t* backhaulPrefListSizePtr);
+            le_result_t SetBackhaulPreference(const taf_net_BackhaulType_t* backhaulPrefListPtr,
+                                              size_t backhaulPrefListSize);
+
 
             static bool sort_vlanId(const telux::data::VlanConfig& s1,
                                     const telux::data::VlanConfig& s2);
@@ -345,8 +381,17 @@ namespace tafsvc {
             le_mem_PoolRef_t vlanIfSafeRefPool;
             le_ref_MapRef_t vlanIfListRefMap;
             le_ref_MapRef_t vlanIfSafeRefMap;
-        private:
+
+            // Hardware acceleration state event related declarations and functions
+            le_event_Id_t vlanHwAccelerationStateEvtId;
+            le_mem_PoolRef_t vlanHwAccelerationStateEvtPool;
+            static taf_net_VlanHwAccelerationState_t ConvertHwAccelerationSate(
+                                                            const telux::data::ServiceState state);
+            std::shared_ptr<telux::data::net::IVlanListener>   vlanListener;
+            std::shared_ptr<taf_VlanListener>   tafVlanListener;
             std::shared_ptr<telux::data::net::IVlanManager> vlanManager = nullptr;
+
+        private:
             std::shared_ptr<telux::data::IDataSettingsManager> dataSettingsManager = nullptr;
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             bool IsSubSystemStatusUpdated=false;

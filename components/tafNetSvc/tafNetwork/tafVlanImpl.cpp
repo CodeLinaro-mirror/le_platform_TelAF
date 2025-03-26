@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -45,7 +45,6 @@
 
 #define OPERATION_TIMEOUT 30
 #define OPERATION_DATA_SETTINGS 60
-
 using namespace telux::tafsvc;
 
 //Interface IP definition for LOCAL
@@ -91,11 +90,151 @@ LE_REF_DEFINE_STATIC_MAP(vlanIfListRefMap, TAF_NET_MAX_VLAN_ENTRY);
 
 LE_REF_DEFINE_STATIC_MAP(vlanIfSafeRefMap, TAF_NET_MAX_VLAN_ENTRY);
 
+LE_MEM_DEFINE_STATIC_POOL(vlanHwAccelerationStateEvtPool, TAF_NET_MAX_VLAN_INTERFACE,
+                                                                sizeof(VlanHwAccelerationState_t));
+
+#define MAX_SLOT_NUM   2
+
+static bool bVlanListenerRegistered = {false};
+
+//--------------------------------------------------------------------------------------------------
+
+/**
+ * Mutex used to protect shared data structures in this module.
+ */
+//--------------------------------------------------------------------------------------------------
+
+static pthread_mutex_t Mutex = PTHREAD_MUTEX_INITIALIZER;   // POSIX "Fast" mutex.
+
+/// Locks the mutex.
+#define LOCK    LE_ASSERT(pthread_mutex_lock(&Mutex) == 0);
+
+/// Unlocks the mutex.
+#define UNLOCK  LE_ASSERT(pthread_mutex_unlock(&Mutex) == 0);
+
+//--------------------------------------------------------------------------------------------------
+
+/**
+ * Register listeners.
+ */
+//--------------------------------------------------------------------------------------------------
+void RegisterListeners()
+{
+
+    LE_INFO("Registering listeners.");
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+        LOCK
+        // Register vlan listener for each slot it
+        if (bVlanListenerRegistered)
+        {
+            LE_INFO("Vlan listener already registered.");
+        }
+        else
+        {
+            if (tafVlan.vlanManager)
+            {
+                tafVlan.tafVlanListener = std::make_shared<taf_VlanListener>();
+                tafVlan.vlanListener = tafVlan.tafVlanListener;
+                if (tafVlan.vlanManager-> registerListener(tafVlan.vlanListener) ==
+                                                                 telux::common::Status::SUCCESS)
+                {
+                    LE_INFO("Vlan listener registered.");
+                    bVlanListenerRegistered = true;
+                }
+                else
+                {
+                    LE_ERROR("Fail to register vlan listener.");
+                }
+            }
+        }
+
+        UNLOCK
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deregister listeners.
+ */
+//--------------------------------------------------------------------------------------------------
+
+void DeregisterListeners()
+{
+    LE_INFO("Deregistering listeners.");
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+        LOCK
+
+        // Deregister vlan listener for each slot it
+        if (!bVlanListenerRegistered)
+        {
+            LE_INFO("Vlan listeners already deregistered.");
+        }
+        else
+        {
+            if (tafVlan.vlanManager)
+            {
+                if (tafVlan.vlanManager-> deregisterListener(tafVlan.vlanListener) ==
+                                                                  telux::common::Status::SUCCESS)
+                {
+                    LE_INFO("Vlan listener registered.");
+                    bVlanListenerRegistered = false;
+                }
+                else
+                {
+                    LE_ERROR("Fail to register serving system listener.");
+                }
+            }
+        }
+        UNLOCK
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for power state changes.
+ */
+//--------------------------------------------------------------------------------------------------
+void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
+{
+    if (state == TAF_PM_STATE_RESUME)
+    {
+        LE_INFO("Power state change to RESUME");
+        RegisterListeners();
+    }
+    else if (state == TAF_PM_STATE_SUSPEND)
+    {
+        LE_INFO("Power state change to SUSPEND");
+        DeregisterListeners();
+    }
+
+}
+
+
+
 std::map<SlotId, std::list<std::pair<int, int>>> tafVlanMappingCallback::slotVlanMappingInfo;
 std::vector<telux::data::VlanConfig> tafVlanCallback::vlanEntryInfo;
 
 le_sem_Ref_t tafVlanMappingCallback::semaphore = nullptr;
 le_sem_Ref_t tafVlanCallback::semaphore = nullptr;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Semaphore for Backhaul preference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_sem_Ref_t tafVlanBackhaulPrefCallback::semaphore = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Result of Backhaul preference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafVlanBackhaulPrefCallback::result = LE_OK;
+
+taf_net_BackhaulType_t tafVlanBackhaulPrefCallback::backhaulPrefListPtr[TAF_NET_MAX_BH_NUM];
+
+size_t tafVlanBackhaulPrefCallback::backhaulPrefListSize = 0;
+
 
 
 /*======================================================================
@@ -121,7 +260,7 @@ void taf_Vlan::Init(void)
     // 1. Initiate the semaphore
     tafVlanCallback::semaphore = le_sem_Create("taf_VlanRespCbSem", 0);
     tafVlanMappingCallback::semaphore = le_sem_Create("taf_VlanMappingRespCbSem", 0);
-
+    tafVlanBackhaulPrefCallback::semaphore = le_sem_Create("taf_VlanBackhaulRespCbSem", 0);
 
     // 2. Initiate the memory pool
 
@@ -167,6 +306,12 @@ void taf_Vlan::Init(void)
     vlanIfListRefMap = le_ref_InitStaticMap(vlanIfListRefMap, TAF_NET_MAX_VLAN_ENTRY);
 
     vlanIfSafeRefMap = le_ref_InitStaticMap(vlanIfSafeRefMap, TAF_NET_MAX_VLAN_ENTRY);
+
+    // Event and data pool for HW accleration related events
+    vlanHwAccelerationStateEvtId   = le_event_CreateIdWithRefCounting("VlanHwAccelerationStateEvt");
+    vlanHwAccelerationStateEvtPool = le_mem_InitStaticPool(vlanHwAccelerationStateEvtPool,
+                                                       TAF_NET_MAX_VLAN_INTERFACE,
+                                                       sizeof(VlanHwAccelerationState_t));
 
     // 4. Get the DataFactory and static VlanManager instances
     if (vlanManager == nullptr)
@@ -295,6 +440,13 @@ void taf_Vlan::Init(void)
 
     // Add a handler for client session close
     le_msg_AddServiceCloseHandler( taf_net_GetServiceRef(), ClientCloseSessionHandler, NULL );
+
+    // Add power state change handle.
+    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
+    if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
+    {
+        RegisterListeners();
+    }
 
     return;
 }
@@ -488,6 +640,68 @@ void tafVlanMappingCallback::onVlanMappingListResponse
     le_sem_Post(semaphore);
 }
 
+void tafVlanBackhaulPrefCallback::backhaulPrefResponse(
+                const std::vector<telux::data::BackhaulType> backhaulPref,
+                telux::common::ErrorCode error)
+{
+    LE_DEBUG("<SDK Callback> tafVlanBackhaulPrefCallback --> backhaulPrefResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        uint8_t index = 0;
+        for (auto type : backhaulPref)
+        {
+            switch (type)
+            {
+               case telux::data::BackhaulType::ETH:
+                   backhaulPrefListPtr[index] = TAF_NET_BH_ETH;
+                   break;
+               case telux::data::BackhaulType::USB:
+                   backhaulPrefListPtr[index] =  TAF_NET_BH_USB;
+                   break;
+               case telux::data::BackhaulType::WLAN:
+                   backhaulPrefListPtr[index] = TAF_NET_BH_WLAN;
+                   break;
+               case telux::data::BackhaulType::WWAN:
+                   backhaulPrefListPtr[index] = TAF_NET_BH_WWAN;
+                   break;
+               case telux::data::BackhaulType::BLE:
+                   backhaulPrefListPtr[index] = TAF_NET_BH_BLE;
+                   break;
+               default:
+               LE_DEBUG("Invalid backhaul preference.");
+            }
+            index++;
+        }
+        result = LE_OK;
+        backhaulPrefListSize = index;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+void tafVlanBackhaulPrefCallback::setBackhaulPrefResponse(telux::common::ErrorCode error)
+{
+     LE_DEBUG("<SDK Callback> tafVlanBackhaulPrefCallback --> setBackhaulPrefResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 /*======================================================================
 
@@ -587,6 +801,8 @@ taf_net_VlanRef_t taf_Vlan::CreateVlan
         vlanPtr->isAccelerated=isAccelerated;
         vlanPtr->priority=priority;
         vlanPtr->sessionRef=sessionRef;
+        //To support backward compatibility for network type
+        vlanPtr->nwType=TAF_NETIPPASS_NETWORK_UNKNOWN;
         //set vlan bind values to default values
         //because for backhaul type WWAN profile/slot are not needed
         vlanPtr->vlanBindConfig.profileId = -1;
@@ -751,6 +967,13 @@ taf_net_VlanRef_t taf_Vlan::GetVlanRefById
         vlanPtr->isAccelerated=IsAcceleratedInDb;
         vlanPtr->priority=priority;
         vlanPtr->sessionRef=sessionRef;
+        //To support backward compatibility for network type
+        vlanPtr->nwType=TAF_NETIPPASS_NETWORK_UNKNOWN;
+        //set vlan bind values to default values
+        //because for backhaul type WWAN profile/slot are not needed
+        vlanPtr->vlanBindConfig.profileId = -1;
+        vlanPtr->vlanBindConfig.slotId = DEFAULT_SLOT_ID;
+        vlanPtr->vlanBindConfig.vlanIdBackhaul = -1;
         return (taf_net_VlanRef_t)le_ref_CreateRef(vlanRefMap, (void*)vlanPtr);
     }
 }
@@ -798,11 +1021,19 @@ le_result_t taf_Vlan::AddVlanInterface
     vconfig.vlanId = vlanPtr->vlanId;
     vconfig.isAccelerated = vlanPtr->isAccelerated;
     vconfig.priority = vlanPtr->priority;
-    vconfig.nwType = (telux::data::NetworkType)vlanPtr->nwType;
 
-    if (vconfig.nwType != NetworkType::LAN) {
+    if(vlanPtr->nwType != TAF_NETIPPASS_NETWORK_UNKNOWN)
+    {
+        vconfig.nwType = (telux::data::NetworkType)vlanPtr->nwType;
+    }
+    //else pick default value sdk value which are nwType=LAN and createBridge=true
+
+    if (vconfig.nwType == NetworkType::WAN) { // bridge is not supported for WAN network type
         vconfig.createBridge = false;
     }
+
+    LE_DEBUG("NetworkType %d createBridge %d ", static_cast<int>(vconfig.nwType),
+                                                static_cast<int>(vconfig.createBridge));
 
     interfacePresent=IsVlanInterfacePresentInDb(vconfig.vlanId, ifType);
     if(interfacePresent)
@@ -3282,7 +3513,141 @@ taf_netIpPass_InterfaceRef_t taf_Vlan::GetIPConfig
     return (taf_netIpPass_InterfaceRef_t)le_ref_CreateRef(interfaceIPRefMap, (void*)interfacePtr);
 }
 
+le_result_t taf_Vlan::SetIPPassThroughNatConfig(bool isEnabled)
+{
+    telux::common::ErrorCode error = dataSettingsManager->setIpPassThroughNatConfig(isEnabled);
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("ERROR - Failed to get get ippt NAT config , error:%d ",static_cast<int>(error));
+        return LE_FAULT;
+    }
+    else
+    {
+        LE_INFO("set ippt NAT config is success...");
+    }
+    LE_DEBUG("SetIPPassThroughNatConfig %d", static_cast<int>(isEnabled));
+    return LE_OK;
+}
+
+le_result_t taf_Vlan::GetIPPassThroughNatConfig(bool *isEnabledPtr)
+{
+    TAF_ERROR_IF_RET_VAL(isEnabledPtr == NULL, LE_BAD_PARAMETER, "isEnabledPtr is null");
+
+    telux::common::ErrorCode error = dataSettingsManager->getIpPassThroughNatConfig(*isEnabledPtr);
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("ERROR - Failed to get ippt NAT config , error:%d ",static_cast<int>(error));
+        return LE_FAULT;
+    }
+    else
+    {
+        LE_INFO("get ippt NAT config is success...");
+    }
+    LE_DEBUG("GetIPPassThroughNatConfig %d", static_cast<int>(*isEnabledPtr));
+    return LE_OK;
+}
+
+le_result_t taf_Vlan::GetBackhaulPreference(taf_net_BackhaulType_t* bhPrefListPtr,
+                                              size_t* bhPrefListSizePtr)
+{
+    TAF_ERROR_IF_RET_VAL(bhPrefListPtr == NULL, LE_BAD_PARAMETER, "GetBackhaulPreference is null");
+
+    telux::common::Status status = dataSettingsManager->requestBackhaulPreference(
+                                          tafVlanBackhaulPrefCallback::backhaulPrefResponse);
+
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Failed to get backhaul pref %d",static_cast<int>(status));
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        tafVlanBackhaulPrefCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(tafVlanBackhaulPrefCallback::result != LE_OK,
+        tafVlanBackhaulPrefCallback::result, "Fail to get backhaul preference.");
+
+    for(uint8_t index = 0;index < tafVlanBackhaulPrefCallback::backhaulPrefListSize;index++)
+    {
+       bhPrefListPtr[index] = tafVlanBackhaulPrefCallback::backhaulPrefListPtr[index];
+       LE_DEBUG("GetBackhaulPreference %d", static_cast<int>(bhPrefListPtr[index]));
+    }
+
+    *bhPrefListSizePtr = tafVlanBackhaulPrefCallback::backhaulPrefListSize;
+
+    return LE_OK;
+}
+
+le_result_t taf_Vlan::SetBackhaulPreference(const taf_net_BackhaulType_t* bhPrefListPtr,
+                                              size_t bhPrefListSize)
+{
+
+    std::vector<telux::data::BackhaulType> backhaulPref;
+
+    //LE_DEBUG("SetBackhaulPreference %d", static_cast<int>(bhTypeMask));
+    for(uint8_t index = 0;index < bhPrefListSize;index++)
+        {
+            switch (bhPrefListPtr[index])
+            {
+               case TAF_NET_BH_ETH:
+                   backhaulPref.emplace_back(telux::data::BackhaulType::ETH);
+                   break;
+               case TAF_NET_BH_USB:
+                   backhaulPref.emplace_back(telux::data::BackhaulType::USB);
+                   break;
+               case TAF_NET_BH_WLAN:
+                   backhaulPref.emplace_back(telux::data::BackhaulType::WLAN);
+                   break;
+               case TAF_NET_BH_WWAN:
+                   backhaulPref.emplace_back(telux::data::BackhaulType::WWAN);
+                   break;
+               case TAF_NET_BH_BLE:
+                   backhaulPref.emplace_back(telux::data::BackhaulType::BLE);
+                   break;
+               default:
+               LE_DEBUG("Invalid backhaul preference.");
+            }
+        }
+
+    telux::common::Status status = dataSettingsManager->setBackhaulPreference(backhaulPref,
+                                             tafVlanBackhaulPrefCallback::setBackhaulPrefResponse);
+
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+        "Failed to set backhaul pref %d",static_cast<int>(status));
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        tafVlanBackhaulPrefCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(tafVlanBackhaulPrefCallback::result != LE_OK,
+        tafVlanBackhaulPrefCallback::result, "Fail to set backhaul preference.");
+
+    return LE_OK;
+}
+
+taf_net_VlanHwAccelerationState_t taf_Vlan::ConvertHwAccelerationSate(
+                                                        const telux::data::ServiceState state)
+{
+    // If active, return TAF_NET_VLAN_HW_ACC_STATE_ACTIVE
+    if (telux::data::ServiceState::ACTIVE   == state) {return TAF_NET_VLAN_HW_ACC_STATE_ACTIVE;}
+
+    // Return TAF_NET_VLAN_HW_ACC_STATE_INACTIVE in all other cases
+    return TAF_NET_VLAN_HW_ACC_STATE_INACTIVE;
+}
+
+taf_VlanListener::taf_VlanListener() {}
 
 
+void taf_VlanListener::onHwAccelerationChanged(const telux::data::ServiceState state)
+{
+    VlanHwAccelerationState_t *reportPtr = NULL;
+    auto &tafVlan = taf_Vlan::GetInstance();
+    reportPtr = static_cast<VlanHwAccelerationState_t *>(
+        le_mem_ForceAlloc(tafVlan.vlanHwAccelerationStateEvtPool));
+    TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
+    reportPtr->state   = taf_Vlan::ConvertHwAccelerationSate(state);
+    LE_DEBUG("VlanHWAccelerationState: %d", reportPtr->state);
+    le_event_ReportWithRefCounting(tafVlan.vlanHwAccelerationStateEvtId, (void *)reportPtr);
+}
 
 

@@ -1,36 +1,17 @@
-# NOTE: The TelAF RPC test can performed between two SA515Ms or two SA525Ms,
-  Here means between "SA515M_1" <-> "SA515M_2", and between "SA525M_1" <-> "SA525M_2". 
+# NOTE: The TelAF RPC test can performed between 2 SA525Ms,
 
 # The RPC system name/ID assigned for each system are as below:
-
-"SA515M_1" -> "0x101"
-"SA515M_2" -> "0x102"
-
 "SA525M_1" -> "0x101"
 "SA525M_2" -> "0x102" 
 
 # Modify the RPC system ID as required above before test. The RPC system ID is configured in
 # "/legato/systems/current/appsWriteable/tafSomeipGWSvc/tafSomeipGWSvc.json".
 
-# The RPC system "SA515M_1" and "SA515M_2" shall use the RPC JSON file "sa515m_rpc_test.json"
 # The RPC system "SA525M_1" and "SA525M_2" shall use the RPC JSON file "sa525m_rpc_test.json"
 # Copy the JSON file to "/legato/systems/current/appsWriteable/tafRpcProxy", and rename it
 # to "taf_rpc.json".
 
 # Once the System ID and JSON file are set correctly, run "telaf restart" or "reboot" to take effect.
-
-# To build telaf image of RPC system "SA515M_1", run:
-
-source set_af_env.sh sa515m
-export SDEF_TO_USE=${TELAF_ROOT}/apps/rpc/rpcTest/sa515m_1.sdef
-build-distclean-af; build-sa515m-af
-
-# To build telaf image of RPC system "SA515M_2", run:
-
-source set_af_env.sh sa515m
-export SDEF_TO_USE=${TELAF_ROOT}/apps/rpc/rpcTest/sa515m_2.sdef
-build-distclean-af; build-sa515m-af
-
 
 # To build telaf image of RPC system "SA525M_1", run:
 

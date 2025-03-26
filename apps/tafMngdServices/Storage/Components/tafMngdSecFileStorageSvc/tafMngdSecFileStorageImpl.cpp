@@ -98,6 +98,20 @@ le_result_t tafMngdSecFileStorageSvc::PreCheckExtensionJson()
     return res;
 }
 
+inline le_result_t CheckValidPath(std::string& str){
+    if(str.size() == 0){
+        LE_ERROR("Storage Path len is 0");
+        return LE_FAULT;
+    }
+    if(str[0] != '/'){
+        str = '/'+str;
+    }
+    if(str[str.size()-1] != '/'){
+        str = str+'/';
+    }
+    return LE_OK;
+}
+
 le_result_t tafMngdSecFileStorageSvc::ParseServiceJsonConfig(char* configPath)
 {
     LE_INFO("Parsing %s", configPath);
@@ -127,16 +141,6 @@ le_result_t tafMngdSecFileStorageSvc::ParseServiceJsonConfig(char* configPath)
         std::string svcJsonVersion = root.get<std::string>("Version");
         LE_INFO("Version of Json is %s", svcJsonVersion.c_str());
 
-        for (const auto& path : root.get_child("MSS Secure File Storage.Configuration.StoragePath"))
-        {
-            std::string basePath = path.second.get<std::string>("BasePath");
-            snprintf(secFileStorage, sizeof(secFileStorage), "%s", basePath.c_str());
-            std::string backupPath = path.second.get<std::string>("BackupPath");
-            snprintf(secFileRfsStorage, sizeof(secFileRfsStorage), "%s", backupPath.c_str());
-            LE_INFO("Base path is %s", secFileStorage);
-            LE_INFO("Backup path is %s", secFileRfsStorage);
-        }
-
         for (const auto& item : root.get_child("MSS Secure File Storage.Configuration.Storages"))
         {
             tafMngdSecFileStorage_StorageCfg_t storage;
@@ -150,6 +154,23 @@ le_result_t tafMngdSecFileStorageSvc::ParseServiceJsonConfig(char* configPath)
                 storage.AccessibleApps.push_back(appCStr);
             }
             storageAccessCfg.push_back(storage);
+        }
+        LE_INFO("Version of Json is %s",svcJsonVersion.c_str());
+        for (const auto& item :
+            root.get_child("MSS Secure File Storage.Configuration.StoragePath")) {
+            const boost::property_tree::ptree& uPath = item.second;
+            std::string basePath = uPath.get<std::string>("BasePath");
+            if(CheckValidPath(basePath) != LE_OK){
+                return LE_BAD_PARAMETER;
+            }
+            snprintf(secFileStorage,sizeof(secFileStorage),"%s",basePath.c_str());
+            std::string backupPath = uPath.get<std::string>("BackupPath");
+            if(CheckValidPath(backupPath) != LE_OK){
+                return LE_BAD_PARAMETER;
+            }
+            LE_INFO("Base path is %s",secFileStorage);
+            snprintf(secFileRfsStorage,sizeof(secFileRfsStorage),"%s",backupPath.c_str());
+            LE_INFO("Backup path is %s",secFileRfsStorage);
         }
     }
     catch (const std::exception& e)
@@ -235,11 +256,70 @@ void tafMngdSecFileStorageSvc::Init(void)
     // Create reference maps
     ClientRefMap = le_ref_CreateMap("ClientRefMap", SECFILE_MAX_NUM_OF_CLIENT);
 
+    // Set session close handlers
+    le_msg_AddServiceCloseHandler(taf_mngdStorSecFile_GetServiceRef(), SessionCloseHandler, nullptr);
+
     taf_rfs_Init(true, nullptr);
 
     taf_rfs_SetBackupStorage(secFileRfsStorage);
 
     CreateServiceStorages();
+}
+
+void tafMngdSecFileStorageSvc::SessionCloseHandler
+(
+    le_msg_SessionRef_t sessionRef,
+    void* contextPtr
+)
+{
+    LE_DEBUG("SessionCloseHandler for session (%p)", sessionRef);
+
+    auto &mss = tafMngdSecFileStorageSvc::GetInstance();
+
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(mss.ClientRefMap);
+
+    // Scan all the data nodes
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        tafMngdSecFileStorage_ClientCxt_t* clientPtr =
+            (tafMngdSecFileStorage_ClientCxt_t*)le_ref_GetValue(iterRef);
+
+        if (clientPtr == nullptr)
+        {
+            LE_ERROR("clientPtr is nullptr");
+            return;
+        }
+
+        // Find the node that matches the current session
+        if (clientPtr->clientSessionRef == sessionRef)
+        {
+            // Lock the storage
+            tafMngdSecFileStorage_Dir_t* dirPtr =
+                (tafMngdSecFileStorage_Dir_t*)le_ref_Lookup(mss.DirRefMap, clientPtr->dirRef);
+
+            // Check if the directory reference is valid
+            if (dirPtr == nullptr)
+            {
+                LE_ERROR( "Invalid secure directory reference");
+            }
+
+            if(clientPtr->lockState == false)
+            {
+                dirPtr->userCount--;
+                if(dirPtr->userCount == 0)
+                {
+                    LE_DEBUG("Locking FSC storage for directory: %s", dirPtr->path);
+                    taf_fsc_LockStorage(dirPtr->fscStorageRef);
+                    LE_DEBUG("Locking RFS storage for directory: %s", dirPtr->rfsPath);
+                    taf_fsc_LockStorage(dirPtr->rfs_fscStorageRef);
+                }
+            }
+
+            // Release the client context
+            le_ref_DeleteRef(mss.ClientRefMap, clientPtr->storageRef);
+            le_mem_Release(clientPtr);
+        }
+    }
 }
 
 bool tafMngdSecFileStorageSvc::IsDirExisting(const char *path)
@@ -473,7 +553,7 @@ tafMngdSecFileStorage_DirRef_t tafMngdSecFileStorageSvc::CreateDirRef
         LE_ERROR("Cannot lock RFS FSC storage");
         goto cleanup;
     }
-
+    dirPtr->userCount = 0;
     return dirRef;
 
 cleanup:
@@ -846,6 +926,8 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
         snprintf(clientCtxPtr->storageName, sizeof(clientCtxPtr->storageName),
                  "%s", storageNamePtr);
 
+        clientCtxPtr->lockState= true;
+
         storageRef = clientCtxPtr->storageRef;
     }
     else
@@ -899,13 +981,20 @@ le_result_t tafMngdSecFileStorageSvc::UnlockStorageImpl
     // Check if the directory reference is valid
     TAF_ERROR_IF_RET_VAL(dirPtr == nullptr, LE_NOT_FOUND, "Invalid secure directory reference");
 
-    // Unlock the RFS storage
-    LE_DEBUG("Unlocking RFS storage for directory: %s", dirPtr->rfsPath);
-    taf_fsc_UnlockStorage(dirPtr->rfs_fscStorageRef);
+    if(dirPtr->userCount == 0)
+    {
+        // Unlock the RFS storage
+        LE_DEBUG("Unlocking RFS storage for directory: %s", dirPtr->rfsPath);
+        taf_fsc_UnlockStorage(dirPtr->rfs_fscStorageRef);
 
-    // Unlock the FSC storage
-    LE_DEBUG("Unlocking FSC storage for directory: %s", dirPtr->path);
-    return taf_fsc_UnlockStorage(dirPtr->fscStorageRef);
+        // Unlock the FSC storage
+        LE_DEBUG("Unlocking FSC storage for directory: %s", dirPtr->path);
+        taf_fsc_UnlockStorage(dirPtr->fscStorageRef);
+    }
+    dirPtr->userCount++;
+    clienCxtPtr->lockState = false;
+    LE_DEBUG("Unlocking  with userCount and lockstate: %d,%d", dirPtr->userCount,clienCxtPtr->lockState);
+    return LE_OK;
 }
 
 le_result_t tafMngdSecFileStorageSvc::LockStorageImpl
@@ -931,13 +1020,35 @@ le_result_t tafMngdSecFileStorageSvc::LockStorageImpl
     // Check if the directory reference is valid
     TAF_ERROR_IF_RET_VAL(dirPtr == nullptr, LE_NOT_FOUND, "Invalid secure directory reference");
 
-    // Lock the RFS storage
-    LE_DEBUG("Locking RFS storage for directory: %s", dirPtr->rfsPath);
-    taf_fsc_LockStorage(dirPtr->rfs_fscStorageRef);
+    if(clienCxtPtr->lockState  == true)
+    {
+        LE_ERROR("Locking Failed: %s", dirPtr->rfsPath);
+        return LE_NOT_PERMITTED;
+    }
 
-    // Lock the FSC storage
-    LE_DEBUG("Locking FSC storage for directory: %s", dirPtr->path);
-    return taf_fsc_LockStorage(dirPtr->fscStorageRef);
+    if(dirPtr->userCount != 0)
+    {
+        dirPtr->userCount --;
+    }
+    else
+    {
+        LE_ERROR("Locking Failed: %s", dirPtr->rfsPath);
+        return LE_NOT_PERMITTED;
+    }
+
+    clienCxtPtr->lockState = true;
+    if(dirPtr->userCount == 0)
+    {
+        // Lock the RFS storage
+        LE_DEBUG("Locking RFS storage for directory: %s", dirPtr->rfsPath);
+        taf_fsc_LockStorage(dirPtr->rfs_fscStorageRef);
+
+        // Lock the FSC storage
+        LE_DEBUG("Locking FSC storage for directory: %s", dirPtr->path);
+        taf_fsc_LockStorage(dirPtr->fscStorageRef);
+    }
+    LE_DEBUG("Locking with userCount lockState : %d %d", dirPtr->userCount,clienCxtPtr->lockState);
+    return LE_OK;
 }
 
 le_result_t tafMngdSecFileStorageSvc::ImportFileImpl
@@ -1302,3 +1413,4 @@ void tafMngdSecFileStorageSvc::CreateServiceStorages()
         LE_INFO("Successfully created storage: %s", storage.StorageName);
     }
 }
+

@@ -91,6 +91,8 @@ apps:
     // $TELAF_ROOT/apps/test/tafNetTest/tafDualNadTest/tafDualNadTest
     // $TELAF_ROOT/apps/test/tafNetTest/tafNetIntTest/tafNetIntTest
     // $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeyStoreUnitTest/tafKeyStoreUnitTest
+    // $TELAF_ROOT/apps/test/tafKeyStoreTest/keySharingTest/keySharingOwnerTest
+    // $TELAF_ROOT/apps/test/tafKeyStoreTest/keySharingTest/keySharingClientTest
     // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMUnitTest
     // $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest/tafPMIntgTest
     // $TELAF_ROOT/apps/test/tafGpioTest/tafGpioUnitTest.adef
@@ -121,7 +123,9 @@ apps:
     // $TELAF_ROOT/apps/test/tafRFSTest/tafRFSUnitTest/tafRFSUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdStorageUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSecSharedApp
+    // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSec2ndSharedApp
     // $TELAF_ROOT/apps/test/configtreeImportTest/configUnitTest.adef
+    // $TELAF_ROOT/apps/sample/configTree/configTreeSample.adef
 }
 
 commands:

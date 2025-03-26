@@ -1834,6 +1834,8 @@ le_result_t taf_Time::SetSystemTime
         if(TimeSourceConf.source[position].setTimeCounter > 0)
         {
             TimeSourceConf.source[position].setTimeCounter-- ;
+            LE_DEBUG("Set time counter for the time source %s is %ld", SourceNameIndexToStr(timeSource),
+                TimeSourceConf.source[position].setTimeCounter);
         }
 
         newTime.tv_sec = timeVal.sec;
@@ -1872,6 +1874,12 @@ le_result_t taf_Time::SetSystemTime
             (long long)newTime.tv_sec, newTime.tv_nsec, systemTime.sec, systemTime.nanosec,
                                                      SourceNameIndexToStr(timeSource));
 
+    }
+    else if(TimeSourceConf.source[position].setTimeCounter > 0)
+    {
+        TimeSourceConf.source[position].setTimeCounter-- ;
+        LE_DEBUG("Set time counter for the time source %s is %ld", SourceNameIndexToStr(timeSource),
+            TimeSourceConf.source[position].setTimeCounter);
     }
 
     if(access(TAF_TIME_DELTA_TIME_DIR, F_OK) != -1)
@@ -2272,6 +2280,16 @@ void taf_Time::InitializeSystemTimeAttr(le_result_t connectStatus)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Advertising time service to clients.
+ */
+//--------------------------------------------------------------------------------------------------
+void AdvertiseTimeService()
+{
+    taf_time_AdvertiseService();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Active time related tasks according to the JSON configuration.
  *
  * @return
@@ -2408,7 +2426,8 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
     {
         LE_WARN("No time source found\n");
     }
-
+    le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+        (le_event_DeferredFunc_t)AdvertiseTimeService,NULL, NULL);
     le_event_RunLoop();
 
     LE_WARN("Warning: SyncTimeTasks exit!\n");
@@ -3648,6 +3667,8 @@ le_result_t taf_Time::WriteValidtyToSecStorage(taf_SourceInf_t* sourcePtr, bool 
         LE_DEBUG("Cannot end writing validity in secure storage.");
         return res;
     }
+    LE_DEBUG("Validity %d for %s written to secore storage sucessfully.",
+        validityToSet, SourceNameIndexToStr(sourcePtr->sourceId));
     return res;
 }
 
@@ -3719,12 +3740,21 @@ le_result_t taf_Time::SetValidity
             ReportValidityChange(sourcePtr);
         }
     }
-    if(sourcePtr->sourceId == TAF_TIME_SRC_NAME_EX_APP &&
-       LatestTimeSourceInfo->systemSourceId == TAF_TIME_SRC_NAME_EX_APP &&
-       LatestTimeSourceInfo->sourceValidity != sourcePtr->sourceValidity)
+    //if ExApp/RTC has set the system time and client has registered for
+    //validity change event for SYSTEM then report the change.
+    if((LatestTimeSourceInfo->systemSourceId == sourcePtr->sourceId) &&
+       (LatestTimeSourceInfo->sourceValidity != sourcePtr->sourceValidity))
     {
+        //Change the validity and write to MSS
         LatestTimeSourceInfo->sourceValidity = sourcePtr->sourceValidity;
         WriteValidtyToSecStorage(LatestTimeSourceInfo, LatestTimeSourceInfo->sourceValidity);
+
+        //Report event if registered
+        if(LatestTimeSourceInfo->handlerFunc != NULL &&
+            LatestTimeSourceInfo->eventType == TAF_TIME_STATUS_EVENT_VALIDITY)
+        {
+            ReportValidityChange(LatestTimeSourceInfo);
+        }
     }
     return LE_OK;
 }
@@ -3773,6 +3803,8 @@ void taf_Time::Init(void)
         TimeSourceConf.printSourceDetails();
     }
 
+    mainThreadRef = le_thread_GetCurrent();
+
     // 3. Create thread for runtime sync time.
     le_thread_Ref_t threadRunTimeSyncRef = le_thread_Create("SyncTimeThread", SyncTimeTasks, NULL);
     le_thread_Start(threadRunTimeSyncRef);
@@ -3786,7 +3818,6 @@ void taf_Time::Init(void)
     le_event_AddHandler("TimeSourceStatusHandlerRef",
         timeSourceStatusEventId, timeSourceStatusHandler);
 
-    mainThreadRef = le_thread_GetCurrent();
     if(access(TAF_TIME_DELTA_TIME_DIR, F_OK) != -1)
     {
         UpdateDeltaTimeToRAM();

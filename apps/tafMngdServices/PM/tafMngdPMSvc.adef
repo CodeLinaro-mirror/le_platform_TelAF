@@ -35,7 +35,7 @@ processes:
         }
 
         maxFileBytes: 8192K
-        faultAction: stopApp
+        faultAction: restart
 }
 
 sandboxed: false
@@ -43,9 +43,6 @@ sandboxed: false
 bindings:
 {
     tafMngdPMSvc.tafMngdPMSvc.taf_pm -> tafPMSvc.taf_pm
-    tafMngdPMSvc.tafMngdPMSvc.taf_gpio -> tafGpioSvc.taf_gpio
-    tafMngdPMSvc.tafMngdPMSvc.taf_can -> tafCanSvc.taf_can
-    tafMngdPMSvc.tafMngdPMSvc.taf_sms -> tafSMSSvc.taf_sms
     tafMngdPMSvc.tafMngdPMSvc.le_appInfo -> <root>.le_appInfo
     tafMngdPMSvc.tafMngdPMSvc.taf_rpcPm -> <telaf>.rpcServer_102_telaf_taf_pm
 }
@@ -54,7 +51,6 @@ bundles:
 {
     file:
     {
-        [rw]    $TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/config/tafMngdPMConfig.json   /
         [rw]    $TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/config/tafMngdPMSvc.json   /
     }
 }

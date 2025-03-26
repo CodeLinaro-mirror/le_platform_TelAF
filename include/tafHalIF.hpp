@@ -149,6 +149,39 @@ typedef struct {
         } \
     }while(0)
 
+#define ENTER_SAFE_CALL_EX(sec,ret,funcRet,func,...) \
+        do { \
+            sigemptyset(&act.sa_mask); \
+            act.sa_flags = SA_RESTART; \
+            act.sa_handler = handler; \
+            signal(SIGALRM, handler); \
+            \
+            if(sigaction(SIGSEGV,&act,&oldAct1)<0) \
+            { \
+                 LE_ERROR("install signal error"); \
+                exit(-1); \
+            } \
+               \
+            if(sigaction(SIGALRM,&act,&oldAct2)<0) \
+            { \
+                LE_ERROR("install signal error"); \
+                exit(-1); \
+            } \
+            \
+            alarm(sec); \
+               \
+            if(sigsetjmp(env, 1)==0)    \
+            {   \
+                safeRun = 1; \
+                funcRet = func; \
+            } \
+            else \
+            { \
+                LE_INFO("now recovery\n"); \
+                ret = -1; \
+            \
+            } \
+        }while(0)
 
 #define EXIT_SAFE_CALL()	\
     do {	\

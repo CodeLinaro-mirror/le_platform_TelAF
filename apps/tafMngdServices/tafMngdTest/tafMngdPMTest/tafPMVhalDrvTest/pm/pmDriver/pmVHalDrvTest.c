@@ -148,13 +148,6 @@ static le_event_Id_t NodeEventEventId;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Event ID for node event callback.
- */
-//--------------------------------------------------------------------------------------------------
-static le_event_Id_t BubStatusEventId;
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Handler to process a shutdown response.
  */
 //--------------------------------------------------------------------------------------------------
@@ -279,29 +272,6 @@ static void ProcessNodeEventHandler
     }
 }
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Handler to process a Bub Status event.
- */
-//--------------------------------------------------------------------------------------------------
-static void ProcessBubStatusHandler
-(
-    void* context
-)
-{
-    LE_INFO("PM_Drv: %s", __FUNCTION__);
-    if(bubStatusEventCallback)
-    {
-        int32_t* bubstatus = (int32_t*)context;
-        LE_INFO("bubstatus: %d", *bubstatus);
-        bubStatusEventCallback(bubstatus);
-    }
-    else
-    {
-        LE_ERROR("Bub Status event callback function is NULL");
-    }
-}
-
 static void taf_hal_PowerOn()
 {
     LE_INFO("PM_VHAL: %s", __FUNCTION__);
@@ -383,8 +353,16 @@ static void* BubStatusThread
            if(prevAck != ack)
            {
            // fire event to call bub status handler
-               le_event_Report(BubStatusEventId, (void*)&ack, sizeof(ack));
-               prevAck = ack;
+               if(bubStatusEventCallback)
+               {
+                   int32_t* bubstatus = &ack;
+                   LE_INFO("bubstatus: %d", *bubstatus);
+                   bubStatusEventCallback(bubstatus);
+               }
+               else
+               {
+                   LE_ERROR("Bub Status event callback function is NULL");
+               }               prevAck = ack;
            }
            else
            {
@@ -671,6 +649,10 @@ static le_result_t taf_hal_NodeStateChangePrepareAsync(
     LE_INFO("reason %d", reason);
 
     hal_pm_RspReason_t responseReason = (hal_pm_RspReason_t)GetConfig_Ack();
+    if(responseReason == 2)
+    {
+        return LE_OK;
+    }
     callback(pmNodeId, state, mode, reason, responseReason);
 
     return LE_OK;
@@ -848,15 +830,6 @@ static void Init(void)
                                                     NodeEventThread,
                                                     NULL);
     le_thread_Start(NodeEventThreadRef);
-
-    // Create an event Id for bub status event.
-    BubStatusEventId = le_event_CreateId("BubStatusEventId",
-                                         (sizeof(char) * 100));
-
-    // Register handler for bub status events.
-    le_event_AddHandler("ProcessBubStatusHandler",
-                            BubStatusEventId,
-                            ProcessBubStatusHandler);
 
     le_thread_Ref_t BubStatusThreadRef = le_thread_Create(
                                                     "BubStatusThread",

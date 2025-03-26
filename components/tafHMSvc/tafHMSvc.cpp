@@ -484,8 +484,59 @@ le_result_t taf_hms_GetMtdDevBlkCnt
     auto &hms = taf_Hms::GetInstance();
     return hms.GetMtdDevBlkCnt(mtdDevInfoRef, mtdBlkCntPtr);
 }
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for the modem status change and its reference object.
+ *
+ *
+ * PARAMETERS      [IN] Handler function pointer.
+ *                 [IN] Handler context.
+ *
+ * @return
+ *  - taf_hms_ModemEventHandlerRef_t Handler reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_hms_ModemEvtHandlerRef_t taf_hms_AddModemEvtHandler
+(
+    taf_hms_ModemEvtHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    auto &hms = taf_Hms::GetInstance();
+    return hms.AddModemEvtHandler(handlerPtr, contextPtr);
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for the modem status change.
+ *
+ *
+ * PARAMETERS      [IN] Handler reference.
 
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_hms_RemoveModemEvtHandler(taf_hms_ModemEvtHandlerRef_t handlerRef)
+{
+    auto &hms = taf_Hms::GetInstance();
+    return hms.RemoveModemEvtHandler(handlerRef);
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove event reference for the modem status change.
+ *
+ *
+ * PARAMETERS      [IN] event reference.
+ * 
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
 
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_hms_ReleaseModemEvt(taf_hms_ModemEventRef_t eventRef)
+{
+    auto &hms = taf_Hms::GetInstance();
+    return hms.ReleaseModemEvt(eventRef);
+}
 
 /**
  * The initialization of TelAF Health Monitor component.

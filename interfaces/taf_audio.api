@@ -1441,6 +1441,9 @@ FUNCTION le_result_t PlayFileList
  *
  * @return
  *     - LE_OK                 Success.
+ *     - LE_UNSUPPORTED        Given stream is not supported. Applicable for remote player
+ *                             stream (with Tx direction) and remote recorder
+ *                             stream (with Rx direction).
  *     - LE_BAD_PARAMETER      Invalid stream reference.
  *     - LE_FAULT              Failure.
  */
@@ -1455,6 +1458,9 @@ FUNCTION le_result_t SetMute
  *
  * @return
  *     - LE_OK                 Success.
+ *     - LE_UNSUPPORTED        Given stream is not supported. Applicable for remote player
+ *                             stream (with Tx direction) and remote recorder
+ *                             stream (with Rx direction).
  *     - LE_BAD_PARAMETER      Invalid stream reference.
  *     - LE_FAULT              Failure.
  */
@@ -1469,6 +1475,9 @@ FUNCTION le_result_t GetMute
  *
  * @return
  *     - LE_OK                 Success.
+ *     - LE_UNSUPPORTED        Given stream is not supported. Applicable for remote player
+ *                             stream (with Tx direction) and remote recorder
+ *                             stream (with Rx direction).
  *     - LE_BAD_PARAMETER      Invalid stream reference.
  *     - LE_FAULT              Failure.
  */
@@ -1483,6 +1492,9 @@ FUNCTION le_result_t SetVolume
  *
  * @return
  *     - LE_OK                 Success.
+ *     - LE_UNSUPPORTED        Given stream is not supported. Applicable for remote player
+ *                             stream (with Tx direction) and remote recorder
+ *                             stream (with Rx direction).
  *     - LE_BAD_PARAMETER      Invalid stream reference.
  *     - LE_FAULT              Failure.
  */

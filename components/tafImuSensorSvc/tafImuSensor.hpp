@@ -19,6 +19,7 @@
 #define TAF_SENSOR_LIST_POOL_SIZE 20
 #define TAF_SENSOR_POOL_SIZE 10
 #define NAME_MAX_SIZE 50
+#define SEC_TO_NANOS 1000000000
 
 using namespace telux::sensor;
 
@@ -89,9 +90,17 @@ class tafSensorListener: public ISensorEventListener
     public:
         void onEvent(std::shared_ptr<std::vector<SensorEvent>> events) override;
         void onConfigurationUpdate(SensorConfiguration configuration) override;
+        void onSelfTestFailed();
         le_msg_SessionRef_t* clientSessionRef;
         ~tafSensorListener() {};
 };
+
+typedef struct
+{
+    uint64_t timestamp;
+    taf_imuSensor_SensorRef_t cSensorRef;
+}
+taf_SensorSelfTest_t;
 
 typedef struct
 {
@@ -100,14 +109,15 @@ typedef struct
     std::shared_ptr<ISensorManager> mSensorManager;
     std::shared_ptr<tafSensorListener> eventListener;
     le_event_Id_t SensorOnEventId;
+    le_event_Id_t SelfTestEventId;
     taf_SensorEventList_t lastEvent;
-    std::vector<std::shared_ptr<ISensorClient>> mSensorClient;
     uint32_t mBatchCount;
     bool isCalibrated;
     le_event_HandlerRef_t HandlerRef;
     bool isSensorActivated;
     taf_imuSensor_SensorRef_t CurrentSensorRef;
     std::shared_ptr<ISensorClient> currentSensorClient;
+    std::shared_ptr<ISensorClient> selfTestClient;
     le_mutex_Ref_t mSensorMutexRef;
 }taf_SensorClient_t;
 
@@ -120,6 +130,7 @@ namespace tafsvc {
             ~taf_Sensor();
             void Init();
             int32_t mClientRefCount;
+            int32_t numOfSelfTestEventHandler;
             int32_t numofSensorEventHandlers;
             le_mem_PoolRef_t tSensorListPool;
             le_mem_PoolRef_t tSensorInfoPool;
@@ -133,7 +144,7 @@ namespace tafsvc {
             static taf_Sensor &GetInstance();
             le_result_t SetEulerAngle(double,double,double);
             static void InitializeClient(taf_SensorClient_t* clientRequestPtr);
-            le_result_t InitializeSensorClient(taf_SensorClient_t* clientRequestPtr);
+            le_result_t InitializeSensorList(taf_SensorClient_t* clientRequestPtr);
             static taf_SensorClient_t* DiscoverSessionRef(le_msg_SessionRef_t sessionRef);
             static taf_SensorClient_t* AcquireSessionRef(void);
             void ReleaseClientRef(void* RefPtr);
@@ -151,8 +162,12 @@ namespace tafsvc {
             le_result_t GetSensorBatchingInfo(taf_imuSensor_SensorRef_t,uint32_t*,uint32_t*);
             le_result_t GetSensorRangeInfo(taf_imuSensor_SensorRef_t,double*);
             le_result_t GetSensorResolution(taf_imuSensor_SensorRef_t,double*);
+            taf_imuSensor_SelfTestFailedHandlerRef_t AddSelfTestFailedHandler
+                (taf_imuSensor_SensorRef_t,taf_imuSensor_SelfTestFailedHandlerFunc_t,void*);
+            void RemoveSelfTestFailedHandler(taf_imuSensor_SelfTestFailedHandlerRef_t);
+            static void FirstLayerSelfTestHandler(void*,void*);
             le_result_t Activate(taf_imuSensor_SensorRef_t,double ,uint32_t);
-            le_result_t SelfTest(taf_imuSensor_SensorRef_t,taf_imuSensor_SelfTestMode_t);
+            le_result_t SelfTest(taf_imuSensor_SensorRef_t,taf_imuSensor_SelfTestMode_t,uint64_t*);
             le_result_t Deactivate(taf_imuSensor_SensorRef_t sensorRef);
             void CleanUp(taf_SensorClient_t*);
             taf_imuSensor_DataHandlerRef_t AddDataHandler(taf_imuSensor_SensorRef_t,

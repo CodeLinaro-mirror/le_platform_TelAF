@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -217,6 +217,17 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the radio state structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;         ///< [IN] Phone ID.
+    taf_radio_OpMode_t mode; ///< [OUT] Radio state.
+}taf_IvssRadio_GetRadioState_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Ivss radio method indication structure
  */
 //--------------------------------------------------------------------------------------------------
@@ -239,6 +250,7 @@ typedef struct
         taf_IvssRadio_GetNrDualConnectivityStatus_t getNrDualConnectivityStatus;
         taf_IvssRadio_SetSignalStrengthReportingCriteria_t setSignalStrengthReportingCriteria;
         taf_IvssRadio_GetPacketSwitchedState_t getPacketSwitchedState;
+        taf_IvssRadio_GetRadioState_t GetRadioState;
     };
 }taf_IvssRadio_Ind_t;
 
@@ -835,7 +847,7 @@ static inline RadioSvcTypes::RadioCellInfoStatusT CellInfoRadioToIvss
  * IVSS radio service class
  */
 //--------------------------------------------------------------------------------------------------
-class tafIvssRadioSvc: public v2_0::com::qualcomm::qti::telephony::RadioSvcStubDefault
+class tafIvssRadioSvc: public v2_1::com::qualcomm::qti::telephony::RadioSvcStubDefault
 {
 public:
     tafIvssRadioSvc() {};
@@ -876,6 +888,8 @@ public:
         SetSignalStrengthReportingCriteriaReply_t _reply);
     virtual void GetPacketSwitchedState(const std::shared_ptr<CommonAPI::ClientId> _client,
         RadioSvcTypes::PhoneIdT _phoneId, GetPacketSwitchedStateReply_t _reply);
+    virtual void GetRadioState(const std::shared_ptr<CommonAPI::ClientId> _client,
+        RadioSvcTypes::PhoneIdT _phoneId, GetRadioStateReply_t _reply);
 
     // ivss method function handler.
     static void GetGsmSignalMetricsHandler(void* reportPtr);
@@ -891,6 +905,7 @@ public:
     static void GetNrDualConnectivityStatusHandler(void* reportPtr);
     static void SetSignalStrengthReportingCriteriaHandler(void* reportPtr);
     static void GetPacketSwitchedStateHandler(void* reportPtr);
+    static void GetRadioStateHandler(void* reportPtr);
 
     // ivss event function handler.
     static void taf_ivss_radio_GsmSsChangeHandler(int32_t ss, int32_t rsrp, uint8_t phoneId,
@@ -904,6 +919,8 @@ public:
     static void taf_ivss_radio_StateChangeHandler(taf_radio_OpMode_t mode, void *contextPtr);
     static void taf_ivss_radio_CellInfoChangeHandler(taf_radio_CellInfoStatus_t cellStatus,
         uint8_t phoneId, void* contextPtr);
+    static void taf_ivss_radio_RatChangeHandler(taf_radio_RatChangeInd_t* ratChangeIndPtr,
+        void *contextPtr);
 
     // memory pools.
     le_mem_PoolRef_t EventPool;
@@ -922,6 +939,7 @@ public:
     le_event_Id_t GetNrDualConnectivityStatusEvent = NULL;
     le_event_Id_t SetSignalStrengthReportingCriteriaEvent = NULL;
     le_event_Id_t GetPacketSwitchedStateEvent = NULL;
+    le_event_Id_t GetRadioStateEvent = NULL;
 
     le_event_HandlerRef_t GetGsmSignalMetricsEventHandlerRef;
     le_event_HandlerRef_t GetUmtsSignalMetricsEventHandlerRef;
@@ -936,6 +954,7 @@ public:
     le_event_HandlerRef_t GetNrDualConnectivityStatusEventHandlerRef;
     le_event_HandlerRef_t SetSignalStrengthReportingCriteriaEventHandlerRef;
     le_event_HandlerRef_t GetPacketSwitchedStateEventHandlerRef;
+    le_event_HandlerRef_t GetRadioStateEventHandlerRef;
 
     // ivss event ref.
     taf_radio_SignalStrengthChangeHandlerRef_t GsmSsChangeHandlerRef;
@@ -944,6 +963,7 @@ public:
     taf_radio_SignalStrengthChangeHandlerRef_t Nr5gSsChangeHandlerRef;
     taf_radio_OpModeChangeHandlerRef_t StateChangeHandlerRef;
     taf_radio_CellInfoChangeHandlerRef_t CellInfoChangeHandlerRef;
+    taf_radio_RatChangeHandlerRef_t RatChangeHandlerRef;
 };
 
 #endif // TAFIVSSRADIOSVC_HPP_

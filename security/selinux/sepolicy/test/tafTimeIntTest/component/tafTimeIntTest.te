@@ -22,3 +22,6 @@ init_telaf_app_domain(telaf_tafTimeIntTest_t,telaf_tafTimeIntTest_exec_t)
 
 gptp_rw_qgptp_device(telaf_tafTimeIntTest_t);
 allow telaf_admin_t telaf_tafTimeIntTest_exec_t:lnk_file { read };
+
+# Allow time service to create netlink socket
+allow telaf_tafTimeIntTest_t telaf_tafTimeIntTest_t:netlink_route_socket *;

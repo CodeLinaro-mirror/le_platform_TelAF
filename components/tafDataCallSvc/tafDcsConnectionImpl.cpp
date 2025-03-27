@@ -2251,7 +2251,7 @@ le_result_t taf_DataConnection::GetInterfaceName
         return LE_OK;
     }
 
-    LE_DEBUG("Invalid connection status, callstatus: %s, ipv4: %s, ipv6: %s",
+    LE_WARN("Invalid connection status, callstatus: %s, ipv4: %s, ipv6: %s",
              taf_DCSHelper::CallStatusToString(callCtxPtr->callStatus),
              taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status),
              taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
@@ -2438,7 +2438,9 @@ le_result_t taf_DataConnection::GetMtu
     TAF_ERROR_IF_RET_VAL(sock < 0, LE_FAULT,"socket error %d",sock);
 
     memset(&ifr, 0, sizeof(struct ifreq));
-    GetInterfaceName(slotId,profileId,interfaceName,sizeof(interfaceName));
+    result = GetInterfaceName(slotId, profileId, interfaceName, sizeof(interfaceName));
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "GetInterfaceName error %d",result);
+
     result = le_utf8_Copy(ifr.ifr_name,interfaceName, sizeof(ifr.ifr_name), NULL);
     TAF_ERROR_IF_RET_VAL(result == LE_OVERFLOW, LE_OVERFLOW,
                                                "IOCTL interface name length is smaller");

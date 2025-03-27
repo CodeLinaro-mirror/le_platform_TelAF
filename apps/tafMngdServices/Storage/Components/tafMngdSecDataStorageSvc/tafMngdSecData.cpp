@@ -1527,6 +1527,9 @@ le_result_t tafMngdStorageSvc::ShareData
     TAF_ERROR_IF_RET_VAL(clientDataPtr->sharedClient == true,
                             LE_NOT_PERMITTED, "calling client is not the data owner");
 
+    TAF_ERROR_IF_RET_VAL(dataPtr->sharedAppList.appCount >= TAF_MNGDSTORSECDATA_MAX_SHARED_APP_NUM,
+        LE_OUT_OF_RANGE, "the number of shared apps has reached the limit.");
+
     char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
 
     // Get appName from clientSession.
@@ -1787,6 +1790,9 @@ le_result_t tafMngdStorageSvc::GetFirstSharedApp
 
     TAF_ERROR_IF_RET_VAL(clientDataPtr == nullptr, LE_NOT_FOUND, "invalid client data ref");
 
+    TAF_ERROR_IF_RET_VAL(clientDataPtr->sharedClient == true,
+        LE_NOT_PERMITTED, "calling client is not the data owner");
+
     tafMngdStorage_SecData_t* dataPtr =
         (tafMngdStorage_SecData_t*)le_ref_Lookup(SecDataRefMap, clientDataPtr->secDataRef);
 
@@ -1822,6 +1828,9 @@ le_result_t tafMngdStorageSvc::GetNextSharedApp
 
     TAF_ERROR_IF_RET_VAL(clientDataPtr == nullptr, LE_NOT_FOUND, "invalid client data ref");
 
+    TAF_ERROR_IF_RET_VAL(clientDataPtr->sharedClient == true,
+        LE_NOT_PERMITTED, "calling client is not the data owner");
+
     tafMngdStorage_SecData_t* dataPtr =
         (tafMngdStorage_SecData_t*)le_ref_Lookup(SecDataRefMap, clientDataPtr->secDataRef);
 
@@ -1835,7 +1844,8 @@ le_result_t tafMngdStorageSvc::GetNextSharedApp
     // check if the iterator reaches to the end of the app list
     if(dataPtr->sharedAppList.getIterIndex >= dataPtr->sharedAppList.appCount)
     {
-        dataPtr->sharedAppList.getIterIndex = 0; // reset interator
+        dataPtr->sharedAppList.getIterIndex = 0; // reset iterator
+        LE_WARN("reset iterator for shared app list");
         return LE_NOT_FOUND;
     }
 

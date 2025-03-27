@@ -200,6 +200,10 @@ class tafMngdSecFileStorageSvc: public ITafSvc
 
         le_result_t CreateDirectory(const char *path);
 
+        size_t GetFileSize(const char *filePath);
+
+        size_t GetAvailableSpace(const char *path);
+
         static bool IsDirExisting(const char *path);
 
         static le_result_t CheckValidPosixFileName(const char *fileName);

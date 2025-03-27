@@ -6,6 +6,7 @@ policy_module(tafMngdStorageSvc, 1.0)
 gen_require(`
   type telaf_devmgr_data_t;
   type telaf_devmgr_t;
+  type fs_t;
 ')
 
 # Framework definition for telaf
@@ -88,3 +89,4 @@ telaf_tafKeyStoreSvc_FscInit(telaf_tafMngdSecFileStorageSvc_t, telaf_tafMngdSecF
 
 allow telaf_tafMngdSecFileStorageSvc_t self:capability { sys_admin };
 allow telaf_tafMngdSecFileStorageSvc_t init_t:key { search };
+allow telaf_tafMngdSecFileStorageSvc_t fs_t:filesystem { getattr };

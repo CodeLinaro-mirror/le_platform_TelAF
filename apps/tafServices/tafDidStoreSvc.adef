@@ -14,6 +14,8 @@ capability:
         CAP_BLOCK_SUSPEND
         CAP_DAC_READ_SEARCH
         CAP_DAC_OVERRIDE
+        CAP_SYS_ADMIN
+        CAP_SYS_PTRACE
 }
 
 executables:
@@ -38,6 +40,7 @@ processes:
 bindings:
 {
     tafDidStoreSvc.tafDidStoreSvc.taf_diagDataID -> tafDiagSvc.taf_diagDataID
+    tafDidStoreSvc.tafDidStoreSvc.le_appInfo -> <root>.le_appInfo
 }
 
 extern:

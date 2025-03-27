@@ -32,6 +32,7 @@ typedef void (*INIT)(void);
  * @param    value       Value of the DID
  * @param    len         Length of the DID value
  * @param    result      Returned error code of getting DID value
+ * @param    ctxPtr      context pointer
  *
  * @return void
  *
@@ -42,7 +43,8 @@ typedef void (*TAF_PI_DIAGDID_GETHANDLER)
     uint16_t dataID,
     uint8_t *value,
     size_t len,
-    uint8_t result
+    uint8_t result,
+    void* ctxPtr
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -52,6 +54,7 @@ typedef void (*TAF_PI_DIAGDID_GETHANDLER)
  * @instaging
  * @param    dataID      DID
  * @param    handler     Callback handler
+ * @param    ctxPtr      Context pointer
  *
  * @return
  *      result of registering call back
@@ -60,7 +63,8 @@ typedef void (*TAF_PI_DIAGDID_GETHANDLER)
 typedef le_result_t (*TAF_PI_DIAGDID_GETASYNC)
 (
     uint16_t dataID,
-    TAF_PI_DIAGDID_GETHANDLER handler
+    TAF_PI_DIAGDID_GETHANDLER handler,
+    void* ctxPtr
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -70,6 +74,7 @@ typedef le_result_t (*TAF_PI_DIAGDID_GETASYNC)
  * @instaging
  * @param    dataID     DID
  * @param    result     Returned error code of setting DID value
+ * @param    ctxPtr     Context pointer
  *
  * @return void
  *
@@ -78,7 +83,8 @@ typedef le_result_t (*TAF_PI_DIAGDID_GETASYNC)
 typedef void (*TAF_PI_DIAGDID_SETHANDLER)
 (
     uint16_t dataID,
-    uint8_t result
+    uint8_t result,
+    void* ctxPtr
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -89,6 +95,7 @@ typedef void (*TAF_PI_DIAGDID_SETHANDLER)
  * @param    dataID      DID
  * @param    context     Handler function context
  * @param    handler     Callback handler
+ * @param    ctxPtr      Context pointer
  *
  * @return
  *      result of registering call back
@@ -99,7 +106,8 @@ typedef le_result_t (*TAF_PI_DIAGDID_SETASYNC)
     uint16_t dataID,
     uint8_t *value,
     size_t len,
-    TAF_PI_DIAGDID_SETHANDLER handler
+    TAF_PI_DIAGDID_SETHANDLER handler,
+    void* ctxPtr
 );
 
 //--------------------------------------------------------------------------------------------------

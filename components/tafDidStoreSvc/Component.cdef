@@ -15,6 +15,7 @@ requires:
     api:
     {
         taf_diagDataID.api
+        le_appInfo.api
     }
 }
 
@@ -24,6 +25,7 @@ cxxflags:
     -I$TELAF_ROOT/include
     -I$TELAF_ROOT/components/tafHalComp
     -I$TELAF_ROOT/include/plugin
+    -I${LEGATO_ROOT}/framework/liblegato
 }
 
 cflags:
@@ -36,4 +38,13 @@ sources:
 {
         tafDidStoreSvc.cpp
         tafDidStoreImpl.cpp
+}
+
+bundles:
+{
+    file:
+    {
+        // Include a default DID config file
+        [r] tafDidStore.json   /
+    }
 }

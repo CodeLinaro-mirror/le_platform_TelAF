@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -204,7 +204,8 @@ void taf_Socks::SocksEvtHandler(void* cmdReqPtr)
     switch(cmdReq->event)
     {
         case EVT_ENABLE_SOCKS_ASYNC_CALLBACK:
-            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS)
+            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS &&
+                cmdReq->errorCode != telux::common::ErrorCode::NO_EFFECT)
             {
                 LE_ERROR( "ENABLE_SOCKS_ASYNC_EVT failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
@@ -228,7 +229,8 @@ void taf_Socks::SocksEvtHandler(void* cmdReqPtr)
 
         break;
         case EVT_DISABLE_SOCKS_ASYNC_CALLBACK:
-            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS)
+            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS &&
+                cmdReq->errorCode != telux::common::ErrorCode::NO_EFFECT)
             {
                 LE_ERROR( "DISABLE_SOCKS_ASYNC_EVT failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
@@ -400,7 +402,12 @@ void tafSocksCallback::enableSocksResponse(telux::common::ErrorCode error)
     auto &tafSocks = taf_Socks::GetInstance();
     le_result_t result = LE_OK;
 
-    if (error != telux::common::ErrorCode::SUCCESS)
+    if (error == telux::common::ErrorCode::NO_EFFECT)
+    {
+        LE_INFO("NO_EFFECT");
+        result = LE_OK;
+    }
+    else if (error != telux::common::ErrorCode::SUCCESS)
     {
         LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
         result = LE_FAULT;
@@ -431,7 +438,12 @@ void tafSocksCallback::disableSocksResponse(telux::common::ErrorCode error)
     auto &tafSocks = taf_Socks::GetInstance();
     le_result_t result = LE_OK;
 
-    if (error != telux::common::ErrorCode::SUCCESS)
+    if (error == telux::common::ErrorCode::NO_EFFECT)
+    {
+        LE_INFO("NO_EFFECT");
+        result = LE_OK;
+    }
+    else if (error != telux::common::ErrorCode::SUCCESS)
     {
         LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
         result = LE_FAULT;

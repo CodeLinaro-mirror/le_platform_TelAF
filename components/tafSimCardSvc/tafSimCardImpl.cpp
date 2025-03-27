@@ -90,6 +90,11 @@ void tafSubscriptionListener:: onSubscriptionInfoChanged
     simIccidEvent.simId = (taf_sim_Id_t)simPtr->simId;
     simIccidEvent.ICCID = simPtr->ICCID;
     le_event_Report(sim.IccidChangeEventId, &simIccidEvent, sizeof(simIccidEvent));
+
+    if(!sim.isPsEventInProgress) {
+        sim.isPsEventInProgress = true;
+        sim.CheckAndSendProfileSwitchEvent();
+    }
 }
 
 void tafMultiSimListener:: onSlotStatusChanged(std::map<SlotId, telux::tel::SlotStatus> slotStatus) {
@@ -919,11 +924,100 @@ taf_sim_RefreshStatus_t taf_sim::ConvertPaRefreshStageToTafRefreshStatus
     return TAF_SIM_REFRESH_STATUS_FAILURE;
 }
 
+void taf_sim::CheckAndSendProfileSwitchEvent() {
+    auto &sim = taf_sim::GetInstance();
+
+    char iccid1[TAF_SIM_ICCID_BYTES];
+    char iccid2[TAF_SIM_ICCID_BYTES];
+
+    sim_refresh_event_t simRefreshEvent;
+    simRefreshEvent.refreshStatus = 0;
+
+    LE_DEBUG("ICCID change and profile swap");
+
+    le_result_t result = LE_FAULT;
+    string iccId = "";
+    memset(iccid1, 0, TAF_SIM_ICCID_BYTES);
+    memset(iccid2, 0, TAF_SIM_ICCID_BYTES);
+
+    auto subscription = getSubscription((taf_sim_Id_t) DEFAULT_SLOT_ID);
+
+    if (!subscription) {
+        LE_ERROR("subscription is null for slot1");
+    } else {
+        iccId = subscription->getIccId();
+        le_utf8_Copy(iccid1, iccId.c_str(), TAF_SIM_ICCID_BYTES, NULL);
+    }
+
+    iccId = "";
+
+    subscription = getSubscription((taf_sim_Id_t) (DEFAULT_SLOT_ID+1));
+
+    if (!subscription) {
+        LE_ERROR("subscription is null for slot2");
+    } else {
+        iccId = subscription->getIccId();
+        le_utf8_Copy(iccid2, iccId.c_str(), TAF_SIM_ICCID_BYTES, NULL);
+    }
+
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(sim.SessionRefMap);
+    result = le_ref_NextNode(iterRef);
+
+    while (LE_OK == result)
+    {
+        taf_sim_Session_t* sessionPtr = (taf_sim_Session_t*) le_ref_GetValue(iterRef);
+        if(sessionPtr == NULL) {
+            LE_INFO("CheckAndSendProfileSwitchEvent sessionPtr null!");
+            continue;
+        }
+
+        LE_DEBUG("ClientSessionRef %p, refreshResetStart: %d", sessionPtr->clientSessionRef, (int) sessionPtr->refreshResetStart);
+
+        if (sessionPtr->refreshResetStart)
+        {
+            sessionPtr->refreshResetStart = false;
+            LE_INFO("Notify: current iccid1: %s, previous iccid1: %s and result: %s", iccid1, sessionPtr->simProfileIccid1, LE_RESULT_TXT(result));
+            LE_INFO("Notify: current iccid2: %s, previous iccid2: %s", iccid2, sessionPtr->simProfileIccid2);
+
+            //Send profile switch notification.
+            if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV)
+            {
+                if (strncmp(iccid1, sessionPtr->simProfileIccid1, TAF_SIM_ICCID_BYTES) != 0)
+                {
+                    simRefreshEvent.refreshStatus = TAF_SIM_REFRESH_STATUS_PROFILE_SWITCH;
+                    le_utf8_Copy(sessionPtr->simProfileIccid1, iccid1, TAF_SIM_ICCID_BYTES, NULL);
+                    le_event_Report(sessionPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
+                }
+            }
+            else if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV)
+            {
+                if (strncmp(iccid2, sessionPtr->simProfileIccid2, TAF_SIM_ICCID_BYTES) != 0)
+                {
+                    simRefreshEvent.refreshStatus = TAF_SIM_REFRESH_STATUS_PROFILE_SWITCH;
+                    le_utf8_Copy(sessionPtr->simProfileIccid2, iccid2, TAF_SIM_ICCID_BYTES, NULL);
+                    le_event_Report(sessionPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
+                }
+            }
+        }
+
+        if (strncmp(iccid1, sessionPtr->simProfileIccid1, TAF_SIM_ICCID_BYTES) != 0)
+        {
+            le_utf8_Copy(sessionPtr->simProfileIccid1, iccid1, TAF_SIM_ICCID_BYTES, NULL);
+        }
+        if (strncmp(iccid2, sessionPtr->simProfileIccid2, TAF_SIM_ICCID_BYTES) != 0)
+        {
+            le_utf8_Copy(sessionPtr->simProfileIccid2, iccid2, TAF_SIM_ICCID_BYTES, NULL);
+        }
+
+        result = le_ref_NextNode(iterRef);
+    }
+    sim.isPsEventInProgress = false;
+}
+
 void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* contextPtr) {
     LE_INFO("RefreshEvent: sessionType = %d, refreshMode = %d, refreshStage = %d", ind->sessionType, ind->refreshMode, ind->refreshStage);
 
     le_result_t res = LE_FAULT;
-    char iccid[TAF_SIMRSP_ICCID_BYTES];
 
     taf_sim_Session_t* clientRequestPtr = NULL;
     sim_refresh_event_t simRefreshEvent;
@@ -953,40 +1047,11 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
     } else if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_START && ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_RESET) {
         LE_INFO("RefreshStart for reset mode");
         clientRequestPtr->refreshResetStart = true;
-        le_clk_Time_t timeToWait = {120, 0};
-        res = le_sem_WaitWithTimeOut(clientRequestPtr->semaphore, timeToWait);
-        LE_INFO("Timer elapsed res: %s", LE_RESULT_TXT(res));
-        if (res == LE_OK || res == LE_TIMEOUT)
-        {
-            LE_INFO("ICCID change and profile swap");
-            taf_simRsp_ProfileListNodeRef_t    profileListPtr[TAF_SIMRSP_MAX_PROFILE];
-            size_t count = 0;
-            le_result_t result = LE_FAULT;
-
-            memset(iccid, 0, TAF_SIMRSP_ICCID_BYTES);
-            result = taf_simRsp_GetProfileList((taf_sim_Id_t)slot, profileListPtr, &count);
-
-            for (int i = 0; i < (int) count; i++) {
-                if (profileListPtr[i] != NULL) {
-                    if (taf_simRsp_GetProfileActiveStatus(profileListPtr[i])) {
-                        result = taf_simRsp_GetIccid(profileListPtr[i], iccid, TAF_SIMRSP_ICCID_BYTES);
-                    }
-                }
-            }
-
-            LE_INFO("Notify: current iccid: %s, previous iccid: %s and result: %s", iccid, clientRequestPtr->activeProfileIccid, LE_RESULT_TXT(result));
-
-            if (strncmp(iccid, clientRequestPtr->activeProfileIccid, TAF_SIMRSP_ICCID_BYTES) != 0)
-            {
-                simRefreshEvent.refreshStatus = TAF_SIM_REFRESH_STATUS_PROFILE_SWITCH;
-                le_utf8_Copy(clientRequestPtr->activeProfileIccid, iccid, TAF_SIMRSP_ICCID_BYTES, NULL);
-            }
-        }
+        return;
     }
 
     bool notifyClient = (ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_END_WITH_SUCCESS)
-            || (ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_END_WITH_FAILURE)
-            || clientRequestPtr->refreshResetStart;
+            || (ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_END_WITH_FAILURE);
 
     if (notifyClient) {
 
@@ -1008,7 +1073,6 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
 
         if (clientRequestPtr != NULL) {
             le_event_Report(clientRequestPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
-            clientRequestPtr->refreshResetStart = false;
         }
     }
 }
@@ -1133,22 +1197,31 @@ le_result_t taf_sim::CreateSession(taf_sim_SessionType_t sessionType, taf_sim_Re
 
     LE_INFO("res->sessionRef %p, *reference %p", res->ref, *refreshSessionRef);
 
-    taf_simRsp_ProfileListNodeRef_t    profileListPtr[TAF_SIMRSP_MAX_PROFILE];
-    size_t count = 0;
-    le_result_t result = LE_FAULT;
-    memset(res->activeProfileIccid, 0, TAF_SIMRSP_ICCID_BYTES);
+    string iccId = "";
+    memset(res->simProfileIccid1, 0, TAF_SIM_ICCID_BYTES);
+    memset(res->simProfileIccid2, 0, TAF_SIM_ICCID_BYTES);
 
-    result = taf_simRsp_GetProfileList((taf_sim_Id_t)slot, profileListPtr, &count);
+    auto subscription = getSubscription((taf_sim_Id_t) DEFAULT_SLOT_ID);
 
-    for (int i = 0; i < (int) count; i++) {
-        if (profileListPtr[i] != NULL) {
-            if (taf_simRsp_GetProfileActiveStatus(profileListPtr[i])) {
-                result = taf_simRsp_GetIccid(profileListPtr[i], res->activeProfileIccid, TAF_SIMRSP_ICCID_BYTES);
-            }
-        }
+    if (!subscription) {
+        LE_ERROR("subscription is null for slot1");
+    } else {
+        iccId = subscription->getIccId();
+        le_utf8_Copy(res->simProfileIccid1, iccId.c_str(), TAF_SIM_ICCID_BYTES, NULL);
     }
 
-    LE_INFO("Refresh create session done: iccid: %s, result: %s", res->activeProfileIccid, LE_RESULT_TXT(result));
+    iccId = "";
+
+    subscription = getSubscription((taf_sim_Id_t) (DEFAULT_SLOT_ID+1));
+
+    if (!subscription) {
+        LE_ERROR("subscription is null for slot2");
+    } else {
+        iccId = subscription->getIccId();
+        le_utf8_Copy(res->simProfileIccid2, iccId.c_str(), TAF_SIM_ICCID_BYTES, NULL);
+    }
+
+    LE_INFO("Refresh create session done: iccid1: %s, iccid2: %s", res->simProfileIccid1, res->simProfileIccid2);
 
     if (sessionRef!=nullptr) {
         //External client increase Client ref count

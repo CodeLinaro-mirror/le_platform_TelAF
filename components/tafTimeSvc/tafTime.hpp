@@ -493,7 +493,10 @@ namespace telux
         {
             public:
                 taf_Time(){};
-                ~taf_Time(){};
+                ~taf_Time()
+                {
+                    LE_INFO("taf_Time destructor called");
+                };
 
                 /*
                  * This function is used to get the taf_Time instance
@@ -621,15 +624,14 @@ namespace telux
 
                 le_event_Id_t timeSourceChangeId;
 
-                le_timer_Ref_t syncTimeTimerRef;
-                le_timer_Ref_t sysTimeUdTimerRef;
+                le_timer_Ref_t syncTimeTimerRef = NULL;
+                le_timer_Ref_t sysTimeUdTimerRef = NULL;
 
 
                 le_mem_PoolRef_t SetTimeStatusPool = NULL;
                 le_mem_PoolRef_t timeSourceChangePool = NULL;
 
                 taf_time_TimeSpec_t* GnssDeltaTime = NULL;
-                le_result_t InitGnssTimeStatus = LE_UNAVAILABLE;
                 le_mem_PoolRef_t GnssDeltaTimePool = NULL;
 
 
@@ -648,7 +650,6 @@ namespace telux
                 taf_time_TimeSpec_t* NetworkDeltaTime = NULL;
                 taf_time_TimeSpec_t* NetworkDeltaTime2 = NULL;
 
-                le_result_t InitNetworkTimeStatus = LE_UNAVAILABLE;
                 le_event_Id_t RefTimeEventId;
                 le_event_HandlerRef_t RefTimeEventHandlerRef;
 

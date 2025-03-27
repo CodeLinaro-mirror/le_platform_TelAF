@@ -6243,3 +6243,99 @@ le_result_t taf_radio_GetServingCellNrBandInfo
 
     return LE_OK;
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NR icon type.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetNrIconType
+(
+    taf_radio_NrIconType_t* typePtr, ///< [OUT] NR icon type.
+    uint8_t phoneId                  ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(typePtr == NULL, LE_BAD_PARAMETER, "Null ptr(typePtr)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(phoneId);
+    TAF_ERROR_IF_RET_VAL(tafRadio.dataServSysManagers[slotId] == nullptr, LE_FAULT,
+        "Invalid Data Serving manager(slotId:%d)", slotId);
+
+    auto iconTypeCb = [&tafRadio](telux::data::NrIconType type, telux::common::ErrorCode error)
+    {
+        LE_DEBUG("<SDK Callback> lamda --> requestNrIconType");
+        if (error == telux::common::ErrorCode::SUCCESS)
+        {
+            tafRadio.nrIconCb.type = tafRadio.taf_radio_ConvertNrIconType(type);
+            tafRadio.nrIconCb.result = LE_OK;
+        }
+        else
+        {
+            LE_ERROR("Error(%d)", (int)error);
+            tafRadio.nrIconCb.result = LE_FAULT;
+        }
+
+        le_sem_Post(tafRadio.nrIconCb.semaphore);
+    };
+
+    auto ret = tafRadio.dataServSysManagers[slotId]->requestNrIconType(iconTypeCb);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.nrIconCb.semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.nrIconCb.result != LE_OK,
+        tafRadio.nrIconCb.result, "Fail to get NR icon type.");
+
+    *typePtr = tafRadio.nrIconCb.type;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for NR icon type changes.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_NrIconTypeHandlerRef_t taf_radio_AddNrIconTypeHandler
+(
+    taf_radio_NrIconTypeHandlerFunc_t handlerFuncPtr,
+        ///< [IN] Handler function for NR icon type changes.
+    void* contextPtr
+        ///< [IN] Context.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("NrIconTypeHandler",
+        tafRadio.nrIconTypeEvId, taf_Radio::taf_radio_LayerNrIconTypeHandler,
+        (void*)handlerFuncPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_radio_NrIconTypeHandlerRef_t)(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for NR icon type changes.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveNrIconTypeHandler
+(
+    taf_radio_NrIconTypeHandlerRef_t handlerRef  ///< [IN] Handler reference.
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}

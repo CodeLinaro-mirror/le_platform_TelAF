@@ -444,6 +444,9 @@
  *  - taf_radio_GetServingCellNrBandInfo() -- Gets NR band information.
  *     @b WARNING: Only applicable for NR.
  *
+ *  - taf_radio_GetNrIconType() -- Gets NR icon type.
+ *     @b WARNING: Applicable for NR (basic or uwb) and also appliable for LTE and LTE will return NONE.
+ *
  * @section c_taf_radio_network Network Information
  *
  * Users can use the following APIs to get the current network and discover nearby networks
@@ -1088,6 +1091,17 @@ ENUM RFBandWidth
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * NR icon type
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM NrIconType
+{
+    NR_ICON_TYPE_NONE,  ///< Unknown.
+    NR_ICON_5G          ///< 5G basic or ultrawide band.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * RAT bitmask.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1287,6 +1301,17 @@ HANDLER PacketSwitchedChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for NR icon type change.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER NrIconTypeHandler
+(
+    NrIconType type IN, ///< NR icon type.
+    uint8 phoneId IN    ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for signal strength change.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1412,6 +1437,16 @@ EVENT NetRegStateEvent
 EVENT PacketSwitchedChange
 (
     PacketSwitchedChangeHandler handler ///< Handler for packet switched state changes.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report NR icon type changes.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT NrIconType
+(
+    NrIconTypeHandler handler ///< Handler for NR icon type changes.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -3221,4 +3256,21 @@ FUNCTION le_result_t GetServingCellNrBandInfo
     uint32 bandPtr OUT,           ///< NR active band.
     RFBandWidth bandWidthPtr OUT, ///< RF bandwidth information.
     uint8 phoneId IN              ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NR icon type.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNrIconType
+(
+    NrIconType type OUT, ///< NR icon type.
+    uint8 phoneId IN     ///< Phone ID.
 );

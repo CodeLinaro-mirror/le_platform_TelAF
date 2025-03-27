@@ -1800,17 +1800,16 @@ le_result_t taf_Time::SetSystemTime
     taf_time_TimeSpec_t systemTime;
     struct timespec newTime;
 
+    position = TimeSourceConf.findSourcePosition(SourceNameIndexToStr(timeSource));
+    if (position < 0)
+    {
+        LE_ERROR("ackTimeSvc was set to %d, but %s is not found\n",
+            ackTimeSvc, SourceNameIndexToStr(TAF_TIME_SRC_NAME_EX_APP));
+        return LE_NOT_FOUND;
+    }
+
     if (ackTimeSvc)
     {
-        position = TimeSourceConf.findSourcePosition(
-                                SourceNameIndexToStr(TAF_TIME_SRC_NAME_EX_APP));
-        if (position < 0)
-        {
-            LE_ERROR("ackTimeSvc was set to %d, but %s is not found\n",
-                    ackTimeSvc, SourceNameIndexToStr(TAF_TIME_SRC_NAME_EX_APP));
-            return LE_NOT_FOUND;
-        }
-
         UpdateFailedLoops(TAF_TIME_SRC_NAME_EX_APP, FAIL_LOOP_NUM_CLEAN);
         SourceAvailabilityUpdate(LE_OK, TAF_TIME_SRC_NAME_EX_APP);
 

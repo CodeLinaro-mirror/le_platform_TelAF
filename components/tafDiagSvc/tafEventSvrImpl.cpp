@@ -47,7 +47,7 @@ taf_diagEvent_ServiceRef_t taf_EventSvr::GetService
     // Search the service.
     taf_diagEvent_EventCtx_t* eventCtxPtr = GetEventCtxById(eventId);
 
-    TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, NULL, "Event id is not supported");
+    TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, NULL, "Event id:%d is not supported", eventId);
 
     le_msg_SessionRef_t sessionRef = taf_diagEvent_GetClientSessionRef();
     //Service reference is not created
@@ -2960,6 +2960,33 @@ void taf_EventSvr::ClearDTCAndEventData
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Clear all DTC and event data.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_EventSvr::ClearAllDTCAndEventData
+(
+    void* param1Ptr,
+    void* param2Ptr
+)
+{
+    le_dls_Link_t* linkPtr = NULL;
+
+    auto &diagEvent = taf_EventSvr::GetInstance();
+
+    //Init dtc and event data in memory
+    linkPtr = le_dls_Peek(&diagEvent.DtcCtxList);
+    while (linkPtr)
+    {
+        taf_diagEvent_DtcCtx_t* dtcCtxPtr = CONTAINER_OF(linkPtr, taf_diagEvent_DtcCtx_t, link);
+        linkPtr = le_dls_PeekNext(&diagEvent.DtcCtxList, linkPtr);
+
+        ClearDTCAndEventData(dtcCtxPtr, NULL);
+    }
+
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Clear all DTC.
  */
 //-------------------------------------------------------------------------------------------------
@@ -2967,8 +2994,6 @@ le_result_t taf_EventSvr::ClearAllDtc
 (
 )
 {
-    le_dls_Link_t* linkPtr = NULL;
-
     //Call data handle module api to delete data from database;
     le_result_t result = taf_DataAccess_DeleteAllData();
     LE_INFO("Database: delete all data");
@@ -2979,15 +3004,7 @@ le_result_t taf_EventSvr::ClearAllDtc
         return result;
     }
 
-    //Init dtc data in memory
-    linkPtr = le_dls_Peek(&DtcCtxList);
-    while (linkPtr)
-    {
-        taf_diagEvent_DtcCtx_t* dtcCtxPtr = CONTAINER_OF(linkPtr, taf_diagEvent_DtcCtx_t, link);
-        linkPtr = le_dls_PeekNext(&DtcCtxList, linkPtr);
-
-        le_event_QueueFunctionToThread(mainThrRef, ClearDTCAndEventData, dtcCtxPtr, NULL);
-    }
+    le_event_QueueFunctionToThread(mainThrRef, ClearAllDTCAndEventData, NULL, NULL);
 
     return LE_OK;
 }

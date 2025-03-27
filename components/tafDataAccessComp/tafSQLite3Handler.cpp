@@ -57,6 +57,15 @@ SQLite3DbUtil::~SQLite3DbUtil
 {
 }
 
+SQLite3DbUtil &SQLite3DbUtil::GetInstance
+(
+)
+{
+    static SQLite3DbUtil instance;
+
+    return instance;
+}
+
 le_result_t SQLite3DbUtil::Open
 (
     const char *dbNamePtr
@@ -150,7 +159,7 @@ int SQLite3DbUtil::ExecSQL
 )
 {
     int nb;
-    char *errMsg = 0;
+    char *errMsg = nullptr;
 
     if (mDbPtr == nullptr)
     {

@@ -55,6 +55,8 @@ namespace dataAccess{
             SQLite3DbUtil();
             ~SQLite3DbUtil();
 
+            static SQLite3DbUtil& GetInstance();
+
             le_result_t Open(const char *dbNamePtr);
             le_result_t Close();
             bool IsOpen();
@@ -543,7 +545,7 @@ namespace dataAccess{
             std::unique_ptr<DataStatement> mpUpdateStatement;   // For update.
             std::unique_ptr<DataStatement> mpDeleteStatement;   // For delete.
             std::string mDbName;
-            SQLite3DbUtil mDb;
+            SQLite3DbUtil& mDb = SQLite3DbUtil::GetInstance();
     };
 }
 }

@@ -78,6 +78,8 @@ apps:
     // $TELAF_ROOT/apps/sample/diagEventApp/tafDiagEventApp
     // $TELAF_ROOT/apps/sample/diagCfg/tafDiagCfgSample
     // $TELAF_ROOT/apps/sample/diagCancelFileXfer/tafDiagCancelFileXfer
+    // $TELAF_ROOT/apps/test/tafSomeipGWTest/multiRoutingManagersTest/multiRoutMgrsTestAppB
+    // $TELAF_ROOT/apps/test/tafSomeipGWTest/multiRoutingManagersTest/multiRoutMgrsTestAppA
 }
 
 commands:

@@ -1698,78 +1698,76 @@ void tafLocationListener::onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSV
         }
     }
     le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
-    if(gnss.NumOfPositionHandlers ) {
-        LE_DEBUG("**** Satellite Vehicle Information ****");
-        int i = 0;
-        clientRequestPtr->mSatParams.satsInViewCount = gnssSVInfo->getSVInfoList().size();
-        clientRequestPtr->mTotalSVTracked = 0;
-        memset(&clientRequestPtr->mSatInfo, 0, sizeof(clientRequestPtr->mSatInfo));
-        for(auto svInfo : gnssSVInfo->getSVInfoList()) {
+    LE_DEBUG("**** Satellite Vehicle Information ****");
+    int i = 0;
+    clientRequestPtr->mSatParams.satsInViewCount = gnssSVInfo->getSVInfoList().size();
+    clientRequestPtr->mTotalSVTracked = 0;
+    memset(&clientRequestPtr->mSatInfo, 0, sizeof(clientRequestPtr->mSatInfo));
+    for(auto svInfo : gnssSVInfo->getSVInfoList()) {
 
-            if(i >= TAF_LOCGNSS_SV_INFO_MAX_LEN)
-            {
-                LE_WARN("SvInfo overflows");
-                continue;
-            }
-
-            switch(svInfo->getConstellation()) {
-                case telux::loc::GnssConstellationType::GPS:
-                    clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_GPS;
-                    break;
-                case telux::loc::GnssConstellationType::GLONASS:
-                    clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_GLONASS;
-                    break;
-                case telux::loc::GnssConstellationType::BDS:
-                    clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_BEIDOU;
-                    break;
-                case telux::loc::GnssConstellationType::GALILEO:
-                    clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_GALILEO;
-                    break;
-                case telux::loc::GnssConstellationType::SBAS:
-                    clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_SBAS;
-                    break;
-                case telux::loc::GnssConstellationType::QZSS:
-                    clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_QZSS;
-                    break;
-                case telux::loc::GnssConstellationType::NAVIC:
-                    clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_NAVIC;
-                    break;
-                default:
-                    clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_UNDEFINED;
-                    LE_ERROR("Constellation type: UNKNOWN");
-                    break;
-            }
-
-            clientRequestPtr->mSatInfo[i].satId = svInfo->getId();
-            if(svInfo->getHasFix() == SVInfoAvailability::YES)
-            {
-                clientRequestPtr->mSatInfo[i].satUsed = true;
-                LE_DEBUG("onGnssSVInfo: svInfo->getHasFix()->SVInfoAvailability::YES");
-            }
-            else
-            {
-                clientRequestPtr->mSatInfo[i].satUsed = false;
-            }
-            if(svInfo->getSnr()!=0)
-            {
-                clientRequestPtr->mTotalSVTracked++;
-                clientRequestPtr->mSatInfo[i].satTracked = true;
-                LE_DEBUG("onGnssSVInfo: svInfo->getSnr() is NON ZERO");
-            }
-            else
-            {
-            clientRequestPtr->mSatInfo[i].satTracked = false;
-            }
-            clientRequestPtr->mSatInfo[i].satSnr = svInfo->getSnr();
-            clientRequestPtr->mSatInfo[i].satAzim = svInfo->getAzimuth();
-            clientRequestPtr->mSatInfo[i].satElev = svInfo->getElevation();
-            clientRequestPtr->mSatInfo[i].signalType = (uint32_t) svInfo->getSignalType();
-            clientRequestPtr->mSatInfo[i].glonassFcn = svInfo->getGlonassFcn();
-            clientRequestPtr->mSatInfo[i].baseBandCnr = svInfo->getBasebandCnr();
-            i++;
+        if(i >= TAF_LOCGNSS_SV_INFO_MAX_LEN)
+        {
+            LE_WARN("SvInfo overflows");
+            continue;
         }
-          clientRequestPtr->mSatParams.satsTrackingCount = clientRequestPtr->mTotalSVTracked;
+
+        switch(svInfo->getConstellation()) {
+            case telux::loc::GnssConstellationType::GPS:
+                clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_GPS;
+                break;
+            case telux::loc::GnssConstellationType::GLONASS:
+                clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_GLONASS;
+                break;
+            case telux::loc::GnssConstellationType::BDS:
+                clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_BEIDOU;
+                break;
+            case telux::loc::GnssConstellationType::GALILEO:
+                clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_GALILEO;
+                break;
+            case telux::loc::GnssConstellationType::SBAS:
+                clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_SBAS;
+                break;
+            case telux::loc::GnssConstellationType::QZSS:
+                clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_QZSS;
+                break;
+            case telux::loc::GnssConstellationType::NAVIC:
+                clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_NAVIC;
+                break;
+            default:
+                clientRequestPtr->mSatInfo[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_UNDEFINED;
+                LE_ERROR("Constellation type: UNKNOWN");
+                break;
+        }
+
+        clientRequestPtr->mSatInfo[i].satId = svInfo->getId();
+        if(svInfo->getHasFix() == SVInfoAvailability::YES)
+        {
+            clientRequestPtr->mSatInfo[i].satUsed = true;
+            LE_DEBUG("onGnssSVInfo: svInfo->getHasFix()->SVInfoAvailability::YES");
+        }
+        else
+        {
+            clientRequestPtr->mSatInfo[i].satUsed = false;
+        }
+        if(svInfo->getSnr()!=0)
+        {
+            clientRequestPtr->mTotalSVTracked++;
+            clientRequestPtr->mSatInfo[i].satTracked = true;
+            LE_DEBUG("onGnssSVInfo: svInfo->getSnr() is NON ZERO");
+        }
+        else
+        {
+            clientRequestPtr->mSatInfo[i].satTracked = false;
+        }
+        clientRequestPtr->mSatInfo[i].satSnr = svInfo->getSnr();
+        clientRequestPtr->mSatInfo[i].satAzim = svInfo->getAzimuth();
+        clientRequestPtr->mSatInfo[i].satElev = svInfo->getElevation();
+        clientRequestPtr->mSatInfo[i].signalType = (uint32_t) svInfo->getSignalType();
+        clientRequestPtr->mSatInfo[i].glonassFcn = svInfo->getGlonassFcn();
+        clientRequestPtr->mSatInfo[i].baseBandCnr = svInfo->getBasebandCnr();
+        i++;
     }
+    clientRequestPtr->mSatParams.satsTrackingCount = clientRequestPtr->mTotalSVTracked;
     le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
 }
 

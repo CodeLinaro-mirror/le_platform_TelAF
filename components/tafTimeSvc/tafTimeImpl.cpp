@@ -90,11 +90,12 @@ void taf_TimeServingSystemListener::onNetworkTimeChanged
     taf_time_TimeSources_t sourceId;
     le_result_t result = LE_OK;
 
-    if (InitNetworkTimeStatus == LE_OK)
+    if (InitNetworkTimeStatus != LE_OK)
     {
         // This is used to avoid 'pure virtual method called' crash issue during shut down.
         // 1. Don't use the destructor of "taf_Time::".
         // 2. Need to exit at once before sending another event to event loop.
+        LE_DEBUG("Flag 'InitNetworkTimeStatus' was disabled, do nothing.");
         return;
     }
 
@@ -148,6 +149,7 @@ void taf_TimeGnssListener::onGnssUtcTimeUpdate
         // This is used to avoid 'pure virtual method called' crash issue during shut down.
         // 1. Don't use the destructor of "taf_Time::".
         // 2. Need to exit at once before sending another event to event loop.
+        LE_DEBUG("Flag 'InitGnssTimeStatus' was disabled, do nothing.");
         return;
     }
 

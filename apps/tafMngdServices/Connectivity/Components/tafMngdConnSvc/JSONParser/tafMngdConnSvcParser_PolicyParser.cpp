@@ -119,7 +119,7 @@ bool mcs_PolicyParser::Validate_DS_DC_Priority(mcs_Policy_t &Policy,
     }
 
     //Check for Duplicates
-    for (int i = 0; i <= Policy.DataSession.dataConnectionCount; i++) {
+    for (int i = 0; i < Policy.DataSession.dataConnectionCount; i++) {
             if (std::stoi(Value) == Policy.DataSession.DataConnection[i].Priority) {
                 LE_WARN("Duplicate Priority");
                 return false;
@@ -587,6 +587,72 @@ bool mcs_PolicyParser::Validate_DS_AMCR_MaxTimeBetweenTriggers(mcs_Policy_t &Pol
 }
 
 /**
+ * Validate DataSession:APIManagement:StartDataTimeout
+ */
+bool mcs_PolicyParser::Validate_DS_APIM_StartDataTimeout(mcs_Policy_t &Policy,
+                                                    std::string Value,
+                                                    int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    // Check the JSON version to be atleast 25.03.00
+    if (Policy.Version < MCS_JSON_VERSION_25_03_00)
+    {
+        LE_ERROR("Invalid JSON version");
+        return false;
+    }
+    int localInt = 0;
+
+    if (MCS_JSON_DATA_TYPE_NULL == mcs_GetDataType(Value))
+    {
+        LE_ERROR("Null value");
+        return false;
+    }
+
+    if (MCS_JSON_DATA_TYPE_NUMBER != mcs_GetDataType(Value))
+    {
+        LE_ERROR("Incorrect data type");
+        return false;
+    }
+    localInt = std::stoi(Value);
+    // Valid value. Update Policy.
+    Policy.DataSession.APIManagement.StartDataTimeout = static_cast<uint8_t>(localInt);
+    return true;
+}
+
+/**
+ * Validate DataSession:APIManagement:StopDataTimeout
+ */
+bool mcs_PolicyParser::Validate_DS_APIM_StopDataTimeout(mcs_Policy_t &Policy,
+                                                    std::string Value,
+                                                    int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    // Check the JSON version to be atleast 25.03.00
+    if (Policy.Version < MCS_JSON_VERSION_25_03_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+    int localInt = 0;
+
+    if (MCS_JSON_DATA_TYPE_NULL == mcs_GetDataType(Value))
+    {
+        LE_WARN("Null value");
+        return false;
+    }
+
+    if (MCS_JSON_DATA_TYPE_NUMBER != mcs_GetDataType(Value))
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    localInt = std::stoi(Value);
+    // Valid value. Update Policy.
+    Policy.DataSession.APIManagement.StopDataTimeout = static_cast<uint8_t>(localInt);
+    return true;
+}
+
+/**
  * Check if the value for the property is of the correct type and also contains valid value.
  * The function to validate each value will be called. The respective function will update the
  * Policy structure if the value is valid.
@@ -808,6 +874,34 @@ bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
                                             }
                                         }
                                 }
+                                if ("APIManagement" == child.first) {
+                                 // Use an iterator to go through  the
+                                 // APIManagement elements
+                                    for (auto &it: child.second) {
+                                            log.clear();
+                                            log.append ( std::string ("\t") + "Key: "
+                                                        + it.first +
+                                                        ", Value: " + it.second.data() );
+                                            LE_DEBUG ("%s", log.c_str() );
+                                            JSON_Property.clear();
+                                            JSON_Property.append(parent.first + ":"
+                                            + child.first + ":" +
+                                            it.first);
+                                            JSON_Value.clear();
+                                            JSON_Value.append(it.second.data());
+                                            // Validate values. Index is set to correct value
+                                            // as this is an array.
+                                            if (!ValidateValue(Policy, JSON_Property, JSON_Value,
+                                            MCS_INVALID_INDEX))
+                                            {
+                                                LE_WARN("Invalid JSON_Property Value");
+                                                LE_INFO("JSON_Property: %s, Value: %s",
+                                                JSON_Property.c_str(),
+                                                JSON_Value.c_str());
+                                                return false;
+                                            }
+                                        }
+                                }
                             }
                         }
                     }
@@ -930,6 +1024,10 @@ void mcs_PolicyParser::UpdateValidPolicyFuncMap(void)
                                                         &Validate_DS_AMCR_MinTimeBetweenTriggers;
     PolicyValidationFuncMap["DataSession:AppManagedConnectivityRecovery:MaxTimeBetweenTriggers"] =
                                                         &Validate_DS_AMCR_MaxTimeBetweenTriggers;
+    PolicyValidationFuncMap["DataSession:APIManagement:StartDataTimeout"] =
+                                                        &Validate_DS_APIM_StartDataTimeout;
+    PolicyValidationFuncMap["DataSession:APIManagement:StopDataTimeout"] =
+                                                        &Validate_DS_APIM_StopDataTimeout;
 }
 
 /**

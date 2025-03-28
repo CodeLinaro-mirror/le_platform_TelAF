@@ -1223,7 +1223,7 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                             return false;
                                         }
                                     }
-                                    if ("Use_Network_ID" == iter.first ||
+                                    else if ("Use_Network_ID" == iter.first ||
                                         "AutoStart" == iter.first )
                                     {
                                         bAutoStartAvailable = true;
@@ -1491,7 +1491,6 @@ void mcs_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
                                 = &Validate_MCSC_Data_PeriodicConnectivityCheck_Interval;
     ConfigurationValidationFuncMap["Data:PeriodicConnectivityCheck:RetryCount"]
                                 = &Validate_MCSC_Data_PeriodicConnectivityCheck_RetryCount;
-
 }
 
 void mcs_ConfigurationParser::ResetConfigurationStructure (

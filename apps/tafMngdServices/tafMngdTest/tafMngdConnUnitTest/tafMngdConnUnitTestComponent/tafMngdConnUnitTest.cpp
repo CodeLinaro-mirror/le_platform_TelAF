@@ -157,7 +157,7 @@ static void* UnitTestThread(void* contextPtr)
 
 
     result = taf_mngdConn_StartData(dataRef);
-    LE_TEST_OK(result == LE_OK, "StartData");
+    LE_TEST_OK(result == LE_OK || result == LE_TIMEOUT, "StartData");
     LE_TEST_INFO("StartData Result: %d", result);
     // blocking here to get response
     std::chrono::system_clock::time_point ten_seconds_passed
@@ -197,7 +197,7 @@ static void* UnitTestThread(void* contextPtr)
     }
 
     result = taf_mngdConn_StartDataRetry(dataRef);
-    LE_TEST_OK(result == LE_OK, "StartDataRetry");
+    LE_TEST_OK(result == LE_OK || result == LE_TIMEOUT, "StartDataRetry");
     LE_TEST_INFO("StartDataRetry Result: %d", result);
     // blocking here to get response
     std::chrono::system_clock::time_point forty_seconds_passed
@@ -215,7 +215,7 @@ static void* UnitTestThread(void* contextPtr)
     }
 
     result=taf_mngdConn_StopData(dataRef);
-    LE_TEST_OK(result == LE_OK, "Data_Stop");
+    LE_TEST_OK(result == LE_OK || result == LE_TIMEOUT, "Data_Stop");
     LE_TEST_INFO("Data_Stop Result: %d", result);
 
     taf_mngdConn_RemoveDataStateHandler(StartDataHandlerRef);

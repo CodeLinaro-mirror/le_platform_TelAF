@@ -525,7 +525,7 @@ void taf_hms_RemoveModemEvtHandler(taf_hms_ModemEvtHandlerRef_t handlerRef)
  *
  *
  * PARAMETERS      [IN] event reference.
- * 
+ *
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -548,3 +548,36 @@ COMPONENT_INIT
     hms.Init();
     LE_INFO("TelAF Health Monitor Service init completed...");
 }
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the last reset information reason
+ *
+ * @return
+ *      - LE_OK          on success
+ *      - LE_UNSUPPORTED if it is not supported by the platform
+ *        LE_OVERFLOW    specific reset information length exceeds the maximum length.
+ *      - LE_FAULT       for any other errors
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_hms_GetResetInformation
+(
+    taf_hms_Reset_t* resetPtr,       ///< [OUT] Reset information
+    char* resetSpecificInfoStr,      ///< [OUT] Reset specific information
+    size_t resetSpecificInfoStrSize  ///< [IN]
+)
+{
+    auto &hms = taf_Hms::GetInstance();
+    if (resetPtr == NULL)
+    {
+        LE_ERROR("resetPtr is NULL !");
+        return LE_FAULT;
+    }
+    if (resetSpecificInfoStr == NULL)
+    {
+        LE_ERROR("resetSpecificInfoStr is NULL !");
+        return LE_FAULT;
+    }
+
+    return hms.GetResetInformation(resetPtr, resetSpecificInfoStr, resetSpecificInfoStrSize);
+}
+

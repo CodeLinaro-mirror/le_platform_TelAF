@@ -209,6 +209,19 @@
     taf_hms_RemoveModemEvtHandler(modemStatusHandlerRef);
     @endverbatim
  *
+ * @section taf_hms_GetResetInformation Get the (re)boot reason
+ * The API of taf_hms_GetResetInformation() provides the (re)boot reason for this boot up.
+ * @verbatim
+   le_result_t result;
+   taf_hms_Reset_t reset;
+   char resetSpecificInfoStr[TAF_HMS_MAX_RESET_LEN] ={0};
+
+   // Get the (re)boot reason.
+   result = taf_hms_GetResetInformation(&reset, resetSpecificInfoStr, TAF_HMS_MAX_RESET_LEN);
+   LE_INFO("Reset info - type: %d, sub string: %s", (int)reset, resetSpecificInfoStr);
+
+   @endverbatim
+ *
  * <HR>
  *
  */
@@ -739,4 +752,51 @@ EVENT ModemEvt
 FUNCTION le_result_t ReleaseModemEvt
 (
     ModemEvent eventRef                  ///< Modem status change event reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum length of a reset specific information string, excluding any termination character.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_RESET_LEN   = 50;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reset type enum
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM Reset
+{
+    RESET_UNKNOWN,  ///< Unknown
+    RESET_USER,     ///< User request
+    RESET_HARD,     ///< Hardware switch
+    RESET_UPDATE,   ///< Software update
+    RESET_CRASH,    ///< Software crash
+    RESET_WDOG,     ///< Watchdog bark
+    POWER_DOWN,     ///< Power Down
+    VOLT_CRIT,      ///< Power Down due to a critical voltage level
+    TEMP_CRIT       ///< Power Down due to a critical temperature level
+};
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the last reset information reason
+ *
+ * @return
+ *      - LE_OK          on success
+ *      - LE_UNSUPPORTED if it is not supported by the platform
+ *        LE_OVERFLOW    specific reset information length exceeds the maximum length.
+ *      - LE_FAULT       for any other errors
+ *
+ * @note If the caller is passing a bad pointer into this function, it is a fatal error, the
+ *       function will not return.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetResetInformation
+(
+    Reset reset OUT,                                ///< Reset information
+    string resetSpecificInfoStr[MAX_RESET_LEN] OUT  ///< Reset specific information
 );

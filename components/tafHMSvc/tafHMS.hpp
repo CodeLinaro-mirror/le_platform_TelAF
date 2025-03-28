@@ -61,6 +61,9 @@ using namespace std;
 #define TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_HIGH 3
 #define TAF_HMS_SUBSYSTEM_MANAGER_TIMEOUT 30
 
+// For reset reason
+#define TAF_HMS_BOOT_REASON_PATH "/sys/kernel/reboot_reason/reason"
+
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -206,6 +209,33 @@ typedef struct
     taf_hms_modemInfo_t* modemInfo;
 }taf_hms_modemEventInfo_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reset type enum
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_HMS_BOOTREASON_NORMAL = 0,
+    TAF_HMS_BOOTREASON_RECOVERY = 1,
+    TAF_HMS_BOOTREASON_BOOTLOADER = 2,
+    TAF_HMS_BOOTREASON_RTC = 3,
+    TAF_HMS_BOOTREASON_DMVERITY_DEV_CORRUPTED = 4,
+    TAF_HMS_BOOTREASON_DMVERITY_ENFORCING = 5,
+    TAF_HMS_BOOTREASON_DMVERITY_KEYS_CLEAR = 6,
+    TAF_HMS_BOOTREASON_PANIC = 7,
+    TAF_HMS_BOOTREASON_WATCHDOG_BARK = 8,
+    TAF_HMS_BOOTREASON_ADMIN_TRIGGER = 9,
+    TAF_HMS_BOOTREASON_USER = 10,
+    TAF_HMS_BOOTREASON_UNKNOWN
+}
+taf_hms_SubReason_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Health Monitor Service Class
+ */
+//--------------------------------------------------------------------------------------------------
 namespace telux {
 namespace tafsvc {
     class tafHmsListener : public telux::platform::ISubsystemListener {
@@ -286,6 +316,10 @@ namespace tafsvc {
             le_ref_MapRef_t ModemEventInfoRefMap;
             le_mem_PoolRef_t ModemEventInfoPool;
 
+            le_result_t ReadReason(const std::string& filePath,
+                taf_hms_SubReason_t* reason, char* reasonStr);
+            le_result_t GetResetInformation(taf_hms_Reset_t* resetPtr,
+                char* resetSpecificInfoStr, size_t resetSpecificInfoStrSize);
 
         private:
             le_mem_PoolRef_t UbiDevListPool;

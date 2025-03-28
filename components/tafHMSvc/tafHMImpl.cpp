@@ -21,6 +21,8 @@
 #include <dirent.h>
 #include <future>
 
+#include <unordered_map>
+
 using namespace std;
 using namespace telux::tafsvc;
 
@@ -1361,6 +1363,174 @@ le_result_t taf_Hms::ReleaseModemEvt(taf_hms_ModemEventRef_t eventRef)
     return LE_OK;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reset reason map
+ */
+//--------------------------------------------------------------------------------------------------
+std::unordered_map<std::string, taf_hms_SubReason_t> BtReasonMap =
+{
+    {"normal", TAF_HMS_BOOTREASON_NORMAL},
+    {"recovery", TAF_HMS_BOOTREASON_RECOVERY},
+    {"bootloader", TAF_HMS_BOOTREASON_BOOTLOADER},
+    {"rtc", TAF_HMS_BOOTREASON_RTC},
+    {"dm-verity device corrupted", TAF_HMS_BOOTREASON_DMVERITY_DEV_CORRUPTED},
+    {"dm-verity enforcing", TAF_HMS_BOOTREASON_DMVERITY_ENFORCING},
+    {"keys clear", TAF_HMS_BOOTREASON_DMVERITY_KEYS_CLEAR},
+    {"panic", TAF_HMS_BOOTREASON_PANIC},
+    {"watchdog bark", TAF_HMS_BOOTREASON_WATCHDOG_BARK},
+    {"admin-trigger", TAF_HMS_BOOTREASON_ADMIN_TRIGGER},
+    {"user", TAF_HMS_BOOTREASON_USER},
+    {"unknown", TAF_HMS_BOOTREASON_UNKNOWN}
+};
+
+std::string BootReasonToString(taf_hms_SubReason_t reason)
+{
+    switch (reason)
+    {
+        case TAF_HMS_BOOTREASON_NORMAL:
+            return "Normal";
+        case TAF_HMS_BOOTREASON_RECOVERY:
+            return "Recovery";
+        case TAF_HMS_BOOTREASON_BOOTLOADER:
+            return "Bootloader";
+        case TAF_HMS_BOOTREASON_RTC:
+            return "RTC";
+        case TAF_HMS_BOOTREASON_DMVERITY_DEV_CORRUPTED:
+            return "DM-Verity Device Corrupted";
+        case TAF_HMS_BOOTREASON_DMVERITY_ENFORCING:
+            return "DM-Verity Enforcing";
+        case TAF_HMS_BOOTREASON_DMVERITY_KEYS_CLEAR:
+            return "Keys Clear";
+        case TAF_HMS_BOOTREASON_PANIC:
+            return "Panic";
+        case TAF_HMS_BOOTREASON_WATCHDOG_BARK:
+            return "Watchdog Bark";
+        case TAF_HMS_BOOTREASON_ADMIN_TRIGGER:
+            return "Admin Trigger";
+        case TAF_HMS_BOOTREASON_USER:
+            return "User";
+        case TAF_HMS_BOOTREASON_UNKNOWN:
+        default:
+            return "Unknown";
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Reads the boot reason for a file.
+ **
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::ReadReason
+(
+    const std::string& filePath,
+    taf_hms_SubReason_t* reason,
+    char* reasonStr
+)
+{
+    std::string tmpStr;
+    std::ifstream file(filePath);
+    if (!file.is_open())
+    {
+        LE_ERROR("Failed to open file: %s", filePath.c_str());
+        *reason = TAF_HMS_BOOTREASON_UNKNOWN;
+        return LE_NOT_FOUND;
+    }
+
+    std::getline(file, tmpStr);
+    file.close();
+    LE_DEBUG("Reboot reason string: %s",tmpStr.c_str());
+
+    auto it = BtReasonMap.find(tmpStr);
+    if (it != BtReasonMap.end())
+    {
+        *reason = it->second;
+    }
+    else
+    {
+        *reason = TAF_HMS_BOOTREASON_UNKNOWN;
+    }
+    le_utf8_Copy(reasonStr, tmpStr.c_str(), TAF_HMS_MAX_RESET_LEN, NULL);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the last reset information reason
+ *
+ * @return
+ *      - LE_OK          on success
+ *      - LE_UNSUPPORTED if it is not supported by the platform
+ *        LE_OVERFLOW    specific reset information length exceeds the maximum length.
+ *      - LE_FAULT       for any other errors
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::GetResetInformation
+(
+    taf_hms_Reset_t* resetPtr,          ///< [OUT] Reset information
+    char* resetSpecificInfoStrPtr,      ///< [OUT] Reset specific information
+    size_t resetSpecificInfoStrSize     ///< [IN]  The length of specific information string.
+)
+{
+    le_result_t res = LE_OK;
+    taf_hms_SubReason_t subReason = TAF_HMS_BOOTREASON_UNKNOWN;
+
+    if (resetSpecificInfoStrSize <= 0)
+    {
+        LE_ERROR("resetSpecificInfoStrSize is not correct: %zu", resetSpecificInfoStrSize);
+        return LE_BAD_PARAMETER;
+    }
+    res = ReadReason(TAF_HMS_BOOT_REASON_PATH, &subReason, resetSpecificInfoStrPtr);
+    if (LE_OK != res)
+    {
+        return res;
+    }
+
+    taf_hms_Reset_t reason = TAF_HMS_RESET_UNKNOWN;
+    switch(subReason)
+    {
+        case TAF_HMS_BOOTREASON_DMVERITY_DEV_CORRUPTED:
+        case TAF_HMS_BOOTREASON_DMVERITY_ENFORCING:
+        case TAF_HMS_BOOTREASON_DMVERITY_KEYS_CLEAR:
+        case TAF_HMS_BOOTREASON_PANIC:
+            reason = TAF_HMS_RESET_CRASH;
+            break;
+
+        case TAF_HMS_BOOTREASON_WATCHDOG_BARK:
+            reason = TAF_HMS_RESET_WDOG;
+            break;
+
+        case TAF_HMS_BOOTREASON_RECOVERY:
+            reason = TAF_HMS_RESET_UPDATE;
+            break;
+
+        case TAF_HMS_BOOTREASON_RTC:
+        case TAF_HMS_BOOTREASON_BOOTLOADER:
+        case TAF_HMS_BOOTREASON_NORMAL:
+        case TAF_HMS_BOOTREASON_USER:
+            reason = TAF_HMS_RESET_USER;
+            break;
+
+        case TAF_HMS_BOOTREASON_ADMIN_TRIGGER:
+        case TAF_HMS_BOOTREASON_UNKNOWN:
+        default:
+            reason = TAF_HMS_RESET_UNKNOWN;
+            break;
+    }
+
+    LE_INFO("Reset info - type: %d, subType: %d, string: %s",
+                (int)reason, (int)subReason, resetSpecificInfoStrPtr);
+    *resetPtr = reason;
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Initialization.
+ */
+//--------------------------------------------------------------------------------------------------
 void taf_Hms::Init()
 {
     LE_INFO("tafHMSvc started");

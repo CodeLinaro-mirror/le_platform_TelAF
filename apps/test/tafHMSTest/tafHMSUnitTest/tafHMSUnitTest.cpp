@@ -231,7 +231,30 @@ void TestModemEventHandlerRegistration()
     LE_INFO("===== UnitTest Completed for registering Modem event handler =====");
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Get the last reset information reason.
+ **
+ */
+//--------------------------------------------------------------------------------------------------
+void Test_taf_Hms_GetbootInfo(void)
+{
+    le_result_t result;
+    taf_hms_Reset_t reset;
+    char resetSpecificInfoStr[TAF_HMS_MAX_RESET_LEN] ={0};
 
+    result = taf_hms_GetResetInformation(&reset, resetSpecificInfoStr, TAF_HMS_MAX_RESET_LEN);
+    LE_TEST_OK((result == LE_OK && resetSpecificInfoStr != NULL),
+        "taf_hms_GetResetInformation - LE_OK.");
+    LE_INFO("Reset info - type: %d, sub string: %s", (int)reset, resetSpecificInfoStr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Component initialization.
+ **
+ */
+//--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
     LE_INFO("---------- TelAF Health Monitor Service Tests Start --------------------------");
@@ -244,6 +267,8 @@ COMPONENT_INIT
     Test_taf_Hms_UbiDevInfo();
 
     Test_taf_Hms_MtdDevInfo();
+
+    Test_taf_Hms_GetbootInfo();
 
     TestModemEventHandlerRegistration();
 

@@ -8,6 +8,7 @@ gen_require(`
   type unreserved_port_t;
   type telaf_update_t;
   type load_policy_t;
+  type proc_net_t;
 ')
 
 
@@ -33,3 +34,5 @@ allow telaf_tafDoIPStackUnitTest_t telaf_tafDoIPStackUnitTest_t:netlink_route_so
 allow telaf_tafDoIPStackUnitTest_t telaf_tafDoIPStackUnitTest_t:udp_socket *;
 allow telaf_tafDoIPStackUnitTest_t telaf_tafDoIPStackUnitTest_t:tcp_socket *;
 allow telaf_tafDoIPStackUnitTest_t node_t:tcp_socket { node_bind };
+allow telaf_tafDoIPStackUnitTest_t proc_net_t:dir { search };
+allow telaf_tafDoIPStackUnitTest_t proc_net_t:file { read open getattr };

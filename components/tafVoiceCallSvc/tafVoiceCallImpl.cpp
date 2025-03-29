@@ -96,14 +96,14 @@ void Handler::PaEventListener(taf_pa_voicecall_Ref_t reference, taf_pa_voicecall
     // To fix the corner case, iCall is released later when testing with telsdk app,
     // callRef is used for the event report.
     taf_VoiceCtrl_t* callCtxPtr = myCall.GetCallCtx(phoneId, destinationPtr, myCall.DirConvert(direction));
-    if ((callCtxPtr == NULL) && (event != TAF_PA_VOICECALL_EVENT_INCOMING))
+    if ((callCtxPtr == NULL) && (event != TAF_PA_VOICECALL_EVENT_INCOMING) && (event != TAF_PA_VOICECALL_EVENT_WAITING))
     {
         LE_ERROR("Cannot get ctx from phone %d and dest: %s, state: %s", phoneId, destinationPtr, myCall.PaEventToString(event));
         return;
     }
     else
     {
-        LE_DEBUG("Incoming call Id: %d, CtxPtr: %p, event: %s", phoneId, callCtxPtr, myCall.PaEventToString(event));
+        LE_DEBUG("Incoming or waiting call Id: %d, CtxPtr: %p, event: %s", phoneId, callCtxPtr, myCall.PaEventToString(event));
     }
 
     if (callCtxPtr != NULL)
@@ -281,7 +281,7 @@ le_result_t VoiceCallSvc::SendCallEventToClient(taf_VoiceCtrl_t *callCtxPtr)
 {
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_BAD_PARAMETER, "callCtxPtr is null");
     bool isIncomingCall = false;
-    if (callCtxPtr->event == TAF_VOICECALL_EVENT_INCOMING)
+    if ((callCtxPtr->event == TAF_VOICECALL_EVENT_INCOMING) || (callCtxPtr->event == TAF_VOICECALL_EVENT_WAITING))
     {
         isIncomingCall = true;
     }
@@ -357,7 +357,8 @@ void VoiceCallSvc::CallHandler(CallEvent_t *eventVoicePtr)
     TAF_ERROR_IF_RET_NIL((callCtxPtr == NULL) && (eventVoicePtr->event != TAF_VOICECALL_EVENT_INCOMING) && (eventVoicePtr->event != TAF_VOICECALL_EVENT_WAITING),
         "cannot found callCtx for event: %s", EventToString(eventVoicePtr->event));
 
-    LE_INFO("Event: %s, callRef: %p, callCtx: %p", EventToString(eventVoicePtr->event), eventVoicePtr->callRef, callCtxPtr);
+    LE_INFO("Event: %s, callRef: %p, callCtx: %p, dest: %s",
+        EventToString(eventVoicePtr->event), eventVoicePtr->callRef, callCtxPtr, eventVoicePtr->dest);
 
     // for incoming call, may need to create callCtx if cannot found
     if ((callCtxPtr == NULL) && 
@@ -653,7 +654,7 @@ taf_SessionRef_t* VoiceCallSvc::GetSessionRefNodeFromCallCtx(taf_VoiceCtrl_t* ca
         taf_SessionRef_t* sessionRefPtr = CONTAINER_OF(linkPtr, taf_SessionRef_t, link);
         linkPtr = le_dls_PeekNext(&(callCtxPtr->sessionRefList), linkPtr);
 
-        LE_INFO("xxx callPtr %p sessionRef %p, sessionRefPtr->sessionRef: %p",
+        LE_INFO("callPtr %p sessionRef %p, sessionRefPtr->sessionRef: %p",
             callCtxPtr, sessionRef, sessionRefPtr->sessionRef);
         if (sessionRefPtr->sessionRef == sessionRef)
         {
@@ -681,37 +682,32 @@ le_result_t VoiceCallSvc::MakeCall(taf_VoiceCtrl_t *callCtxPtr, const char *dial
     {
         if (result != LE_OK)
         {
-            LE_ERROR("Callback is failed: %d, callRef: %p", result, contextPtr);
-            auto &myCall = VoiceCallSvc::GetInstance();
-            CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
-                "", (taf_voicecall_CallRef_t)contextPtr,
-                TAF_VOICECALL_EVENT_RESOURCE_BUSY, TAF_VOICECALL_END_UNDEFINED};
-            le_event_Report(myCall.CallEvent, &msgCallEvent, sizeof(CallEvent_t));
+            LE_ERROR("Make call callback failed: %d, callRef: %p", result, contextPtr);
         }
         else
         {
-            LE_INFO("Callback done");
+            LE_INFO("Make call callback done");
         }
-        TAF_ERROR_IF_RET_NIL(taf_pa_voicecall_DeleteReference(reference) != LE_OK, "Cannot free call reference");
     };
 
     taf_pa_voicecall_Ref_t callInfoRef = taf_pa_voicecall_CreateReference(phoneId, dialNumber, TAF_PA_VOICECALL_DIR_OUTGOING);
     TAF_ERROR_IF_RET_VAL(callInfoRef == nullptr, LE_FAULT, "Cannot create call reference");
     le_result_t result = taf_pa_voicecall_Make(callInfoRef, callback, callCtxPtr->callRef);
+    TAF_ERROR_IF_RET_VAL(taf_pa_voicecall_DeleteReference(callInfoRef) != LE_OK, LE_FAULT,  "Cannot free call reference");
     if (result != LE_OK)
     {
         LE_ERROR("Make call failed, return value: %d", result);
         CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
-            "", callCtxPtr->callRef, TAF_VOICECALL_EVENT_RESOURCE_BUSY, TAF_VOICECALL_END_UNDEFINED};
+            "", callCtxPtr->callRef,
+            TAF_VOICECALL_EVENT_RESOURCE_BUSY, TAF_VOICECALL_END_UNDEFINED};
         le_event_Report(CallEvent, &msgCallEvent, sizeof(CallEvent_t));
-        return LE_FAULT;
+        return LE_OK; /* return OK as the error event will be reported by listener */
     }
-
     // set to dailing status for default MO call
     callCtxPtr->event = TAF_VOICECALL_EVENT_DIALING;
     callCtxPtr->isInProgress = true;
 
-    LE_DEBUG("MakeCall[%p] done", callCtxPtr);
+    LE_DEBUG("Make call[%p] done", callCtxPtr);
     ShowAll();
     return LE_OK;
 }
@@ -728,30 +724,26 @@ le_result_t VoiceCallSvc::AnswerCall(taf_voicecall_CallRef_t callRef, le_msg_Ses
     {
         if (result != LE_OK)
         {
-            LE_ERROR("Callback is failed: %d, callRef: %p", result, contextPtr);
-            auto &myCall = VoiceCallSvc::GetInstance();
-            CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
-                "", (taf_voicecall_CallRef_t)contextPtr,
-                TAF_VOICECALL_EVENT_CALL_ANSWER_FAILED, TAF_VOICECALL_END_UNDEFINED};
-            le_event_Report(myCall.CallEvent, &msgCallEvent, sizeof(CallEvent_t));
+            LE_ERROR("Answer call callback failed: %d, callRef: %p", result, contextPtr);
         }
         else
         {
-            LE_INFO("Callback done");
+            LE_INFO("Answer call callback done");
         }
-        TAF_ERROR_IF_RET_NIL(taf_pa_voicecall_DeleteReference(reference) != LE_OK, "Cannot free call reference");
     };
 
-    taf_pa_voicecall_Ref_t callInfoRef = taf_pa_voicecall_CreateReference(callCtxPtr->phoneId, callCtxPtr->destId, TAF_PA_VOICECALL_DIR_NONE);
+    taf_pa_voicecall_Ref_t callInfoRef = taf_pa_voicecall_CreateReference(callCtxPtr->phoneId, callCtxPtr->destId, TAF_PA_VOICECALL_DIR_INCOMING);
     TAF_ERROR_IF_RET_VAL(callInfoRef == nullptr, LE_FAULT, "Cannot create call reference");
     le_result_t result = taf_pa_voicecall_Answer(callInfoRef, callCallback, callCtxPtr->callRef);
+    TAF_ERROR_IF_RET_VAL(taf_pa_voicecall_DeleteReference(callInfoRef) != LE_OK, LE_FAULT,  "Cannot free call reference");
     if (result != LE_OK)
     {
         LE_ERROR("Answer call failed, return value: 0x%x", (uint32_t)result);
         CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
-            "", callCtxPtr->callRef, TAF_VOICECALL_EVENT_CALL_ANSWER_FAILED, TAF_VOICECALL_END_UNDEFINED};
+            "", callCtxPtr->callRef,
+            TAF_VOICECALL_EVENT_CALL_ANSWER_FAILED, TAF_VOICECALL_END_UNDEFINED};
         le_event_Report(CallEvent, &msgCallEvent, sizeof(CallEvent_t));
-        return LE_FAULT;
+        return LE_OK; /* return OK as the error event will be reported by listener */
     }
 
     le_dls_Link_t* linkPtr = le_dls_Peek(&SessionCtxList);
@@ -783,32 +775,27 @@ le_result_t VoiceCallSvc::StopCall(taf_voicecall_CallRef_t callRef, le_msg_Sessi
     {
         if (result != LE_OK)
         {
-            LE_ERROR("Callback is failed: %d, callRef: %p", result, contextPtr);
-            auto &myCall = VoiceCallSvc::GetInstance();
-            CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
-                "", (taf_voicecall_CallRef_t)contextPtr,
-                TAF_VOICECALL_EVENT_CALL_ANSWER_FAILED, TAF_VOICECALL_END_UNDEFINED};
-            le_event_Report(myCall.CallEvent, &msgCallEvent, sizeof(CallEvent_t));
+            LE_ERROR("Stop callback failed: %d, callRef: %p", result, contextPtr);
         }
         else
         {
-            LE_INFO("Callback done");
+            LE_INFO("Stop callback done");
         }
-        TAF_ERROR_IF_RET_NIL(taf_pa_voicecall_DeleteReference(reference) != LE_OK, "Cannot free call reference");
     };
 
     taf_pa_voicecall_Ref_t callInfoRef = taf_pa_voicecall_CreateReference(callCtxPtr->phoneId, callCtxPtr->destId, DirToPADir(callCtxPtr->dir));
     TAF_ERROR_IF_RET_VAL(callInfoRef == nullptr, LE_FAULT, "Cannot create call reference");
     le_result_t result = taf_pa_voicecall_Stop(callInfoRef, callCallback, callCtxPtr->callRef);
+    TAF_ERROR_IF_RET_VAL(taf_pa_voicecall_DeleteReference(callInfoRef) != LE_OK, LE_FAULT,  "Cannot free call reference");
     if (result != LE_OK)
     {
-        LE_ERROR("Answer call failed, return value: 0x%x", (uint32_t)result);
+        LE_ERROR("Stop call failed, return value: 0x%x", (uint32_t)result);
         CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
-            "", callCtxPtr->callRef, TAF_VOICECALL_EVENT_CALL_END_FAILED, TAF_VOICECALL_END_UNDEFINED};
+            "", callCtxPtr->callRef,
+            TAF_VOICECALL_EVENT_CALL_END_FAILED, TAF_VOICECALL_END_UNDEFINED};
         le_event_Report(CallEvent, &msgCallEvent, sizeof(CallEvent_t));
-        return LE_FAULT;
+        return LE_OK; /* return OK as the error event will be reported by listener */
     }
-
     return LE_OK;
 }
 
@@ -821,31 +808,26 @@ le_result_t VoiceCallSvc::HoldCall(taf_voicecall_CallRef_t callRef, le_msg_Sessi
     {
         if (result != LE_OK)
         {
-            LE_ERROR("Callback is failed: %d, callRef: %p", result, contextPtr);
-            auto &myCall = VoiceCallSvc::GetInstance();
-            CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
-                "", (taf_voicecall_CallRef_t)contextPtr,
-                TAF_VOICECALL_EVENT_CALL_ANSWER_FAILED, TAF_VOICECALL_END_UNDEFINED};
-            le_event_Report(myCall.CallEvent, &msgCallEvent, sizeof(CallEvent_t));
+            LE_ERROR("Hold callback failed: %d, callRef: %p", result, contextPtr);
         }
         else
         {
-            LE_INFO("Callback done");
+            LE_INFO("Hold callback done");
         }
-        TAF_ERROR_IF_RET_NIL(taf_pa_voicecall_DeleteReference(reference) != LE_OK, "Cannot free call reference");
     };
 
     taf_pa_voicecall_Ref_t callInfoRef = taf_pa_voicecall_CreateReference(callCtxPtr->phoneId, callCtxPtr->destId, DirToPADir(callCtxPtr->dir));
     TAF_ERROR_IF_RET_VAL(callInfoRef == nullptr, LE_FAULT, "Cannot create call reference");
     le_result_t result = taf_pa_voicecall_Hold(callInfoRef, callCallback, callCtxPtr->callRef);
-
+    TAF_ERROR_IF_RET_VAL(taf_pa_voicecall_DeleteReference(callInfoRef) != LE_OK, LE_FAULT,  "Cannot free call reference");
     if (result != LE_OK)
     {
-        LE_ERROR("Answer call failed, return value: 0x%x", (uint32_t)result);
+        LE_ERROR("Hold call failed, return value: 0x%x", (uint32_t)result);
         CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
-            "", callCtxPtr->callRef, TAF_VOICECALL_EVENT_CALL_HOLD_FAILED, TAF_VOICECALL_END_UNDEFINED};
+            "", callCtxPtr->callRef,
+            TAF_VOICECALL_EVENT_CALL_HOLD_FAILED, TAF_VOICECALL_END_UNDEFINED};
         le_event_Report(CallEvent, &msgCallEvent, sizeof(CallEvent_t));
-        return LE_FAULT;
+        return LE_OK; /* return OK as the error event will be reported by listener */
     }
 
     return LE_OK;
@@ -860,31 +842,26 @@ le_result_t VoiceCallSvc::ResumeCall(taf_voicecall_CallRef_t callRef, le_msg_Ses
     {
         if (result != LE_OK)
         {
-            LE_ERROR("Callback is failed: %d, callRef: %p", result, contextPtr);
-            auto &myCall = VoiceCallSvc::GetInstance();
-            CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
-                "", (taf_voicecall_CallRef_t)contextPtr,
-                TAF_VOICECALL_EVENT_CALL_ANSWER_FAILED, TAF_VOICECALL_END_UNDEFINED};
-            le_event_Report(myCall.CallEvent, &msgCallEvent, sizeof(CallEvent_t));
+            LE_ERROR("Resume callback is failed: %d, callRef: %p", result, contextPtr);
         }
         else
         {
-            LE_INFO("Callback done");
+            LE_INFO("Resume callback done");
         }
-        TAF_ERROR_IF_RET_NIL(taf_pa_voicecall_DeleteReference(reference) != LE_OK, "Cannot free call reference");
     };
 
     taf_pa_voicecall_Ref_t callInfoRef = taf_pa_voicecall_CreateReference(callCtxPtr->phoneId, callCtxPtr->destId, DirToPADir(callCtxPtr->dir));
     TAF_ERROR_IF_RET_VAL(callInfoRef == nullptr, LE_FAULT, "Cannot create call reference");
     le_result_t result = taf_pa_voicecall_Resume(callInfoRef, callCallback, callCtxPtr->callRef);
-
+    TAF_ERROR_IF_RET_VAL(taf_pa_voicecall_DeleteReference(callInfoRef) != LE_OK, LE_FAULT,  "Cannot free call reference");
     if (result != LE_OK)
     {
-        LE_ERROR("Answer call failed, return value: 0x%x", (uint32_t)result);
+        LE_ERROR("Resume call failed, return value: 0x%x", (uint32_t)result);
         CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
-            "", callCtxPtr->callRef, TAF_VOICECALL_EVENT_CALL_RESUME_FAILED, TAF_VOICECALL_END_UNDEFINED};
+            "", callCtxPtr->callRef,
+            TAF_VOICECALL_EVENT_CALL_RESUME_FAILED, TAF_VOICECALL_END_UNDEFINED};
         le_event_Report(CallEvent, &msgCallEvent, sizeof(CallEvent_t));
-        return LE_FAULT;
+        return LE_OK; /* return OK as the error event will be reported by listener */
     }
 
     return LE_OK;
@@ -926,33 +903,27 @@ le_result_t VoiceCallSvc::SwapCall(taf_voicecall_CallRef_t callRef, le_msg_Sessi
     {
         if (result != LE_OK)
         {
-            LE_ERROR("Callback is failed: %d, callRef: %p", result, contextPtr);
-            auto &myCall = VoiceCallSvc::GetInstance();
-            CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
-                "", (taf_voicecall_CallRef_t)contextPtr,
-                TAF_VOICECALL_EVENT_CALL_ANSWER_FAILED, TAF_VOICECALL_END_UNDEFINED};
-            le_event_Report(myCall.CallEvent, &msgCallEvent, sizeof(CallEvent_t));
+            LE_ERROR("Swap callback failed: %d, callRef: %p", result, contextPtr);
         }
         else
         {
-            LE_INFO("Callback done");
+            LE_INFO("Swap callback done");
         }
-        TAF_ERROR_IF_RET_NIL(taf_pa_voicecall_DeleteReference(reference) != LE_OK, "Cannot free call reference");
     };
 
     taf_pa_voicecall_Ref_t callInfoRef = taf_pa_voicecall_CreateReference(callCtxPtr->phoneId, callCtxPtr->destId, DirToPADir(callCtxPtr->dir));
     TAF_ERROR_IF_RET_VAL(callInfoRef == nullptr, LE_FAULT, "Cannot create call reference");
     le_result_t result = taf_pa_voicecall_Swap(callInfoRef, callCallback, callCtxPtr->callRef);
-
+    TAF_ERROR_IF_RET_VAL(taf_pa_voicecall_DeleteReference(callInfoRef) != LE_OK, LE_FAULT,  "Cannot free call reference");
     if (result != LE_OK)
     {
-        LE_ERROR("Answer call failed, return value: 0x%x", (uint32_t)result);
+        LE_ERROR("Swap call failed, return value: 0x%x", (uint32_t)result);
         CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
-            "", callCtxPtr->callRef, TAF_VOICECALL_EVENT_CALL_SWAP_FAILED, TAF_VOICECALL_END_UNDEFINED};
+            "", callCtxPtr->callRef,
+            TAF_VOICECALL_EVENT_CALL_SWAP_FAILED, TAF_VOICECALL_END_UNDEFINED};
         le_event_Report(CallEvent, &msgCallEvent, sizeof(CallEvent_t));
-        return LE_FAULT;
+        return LE_OK; /* return OK as the error event will be reported by listener */
     }
-
     return LE_OK;
 }
 
@@ -983,11 +954,11 @@ taf_voicecall_Event_t VoiceCallSvc::EventConvert(taf_pa_voicecall_event_t event)
         case TAF_PA_VOICECALL_EVENT_ALERTING: return TAF_VOICECALL_EVENT_ALERTING;
         case TAF_PA_VOICECALL_EVENT_ACTIVE: return TAF_VOICECALL_EVENT_ACTIVE;
         case TAF_PA_VOICECALL_EVENT_ENDED: return TAF_VOICECALL_EVENT_ENDED;
-        case TAF_PA_VOICECALL_EVENT_OFFLINE: return TAF_VOICECALL_EVENT_ALERTING;
-        case TAF_PA_VOICECALL_EVENT_WAITING: return TAF_VOICECALL_EVENT_OFFLINE;
-        case TAF_PA_VOICECALL_EVENT_RESOURCE_BUSY: return TAF_VOICECALL_EVENT_ALERTING;
-        case TAF_PA_VOICECALL_EVENT_CALL_END_FAILED: return TAF_VOICECALL_EVENT_ALERTING;
-        case TAF_PA_VOICECALL_EVENT_CALL_ANSWER_FAILED: return TAF_VOICECALL_EVENT_ALERTING;
+        case TAF_PA_VOICECALL_EVENT_OFFLINE: return TAF_VOICECALL_EVENT_OFFLINE;
+        case TAF_PA_VOICECALL_EVENT_WAITING: return TAF_VOICECALL_EVENT_WAITING;
+        case TAF_PA_VOICECALL_EVENT_RESOURCE_BUSY: return TAF_VOICECALL_EVENT_RESOURCE_BUSY;
+        case TAF_PA_VOICECALL_EVENT_CALL_END_FAILED: return TAF_VOICECALL_EVENT_CALL_END_FAILED;
+        case TAF_PA_VOICECALL_EVENT_CALL_ANSWER_FAILED: return TAF_VOICECALL_EVENT_CALL_ANSWER_FAILED;
         case TAF_PA_VOICECALL_EVENT_INCOMING: return TAF_VOICECALL_EVENT_INCOMING;
         case TAF_PA_VOICECALL_EVENT_ONHOLD: return TAF_VOICECALL_EVENT_ONHOLD;
         case TAF_PA_VOICECALL_EVENT_DIALING: return TAF_VOICECALL_EVENT_DIALING;

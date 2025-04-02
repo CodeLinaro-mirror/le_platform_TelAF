@@ -297,7 +297,8 @@ le_result_t taf_DTCSvr::GetSuppression
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_DTCSvr::ClearInfo
 (
-    taf_diagDTC_ServiceRef_t svcRef
+    taf_diagDTC_ServiceRef_t svcRef,
+    taf_diagDTC_ReqClientType_t clientType
 )
 {
     auto &diagEvent = taf_EventSvr::GetInstance();
@@ -315,7 +316,7 @@ le_result_t taf_DTCSvr::ClearInfo
         return LE_UNAVAILABLE;
     }
 
-    return diagEvent.ClearDtc(dtcCtxPtr->dtcCode);
+    return diagEvent.ClearDtc(dtcCtxPtr->dtcCode, clientType);
 
 }
 
@@ -864,6 +865,32 @@ void taf_DTCSvr::FirstLayerStatusHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * FirstLayerClearDTCStatusHandler.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_DTCSvr::FirstLayerClearDtcStatusHandler
+(
+    void* reportPtr,
+    void* secondLayerHandlerFunc
+)
+{
+    LE_INFO("FirstLayerClearDtcStatusHandler!!");
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_diagDTC_ClearStatus_t* clearDtcStatusEvent = (taf_diagDTC_ClearStatus_t *)reportPtr;
+    TAF_ERROR_IF_RET_NIL(secondLayerHandlerFunc == NULL, "Null ptr(secondLayerHandlerFunc)");
+
+    taf_diagDTC_ClearStatusHandlerFunc_t handlerFunc =
+            (taf_diagDTC_ClearStatusHandlerFunc_t)secondLayerHandlerFunc;
+
+    handlerFunc(clearDtcStatusEvent->svcRef, clearDtcStatusEvent->clientType,
+            le_event_GetContextPtr());
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Report DTC status.
  */
 //--------------------------------------------------------------------------------------------------
@@ -910,6 +937,72 @@ void taf_DTCSvr::ReportDTCStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Report Clear DTC status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_DTCSvr::ReportClearDTCStatus
+(
+    uint32_t dtcCode,
+    taf_diagDTC_ReqClientType_t clientType
+)
+{
+    LE_DEBUG("ReportClearDTCStatus!!");
+
+    // Search the service.
+    taf_diagDTC_DtcCtx_t* dtcCtxPtr = GetDtcCtxByCode(dtcCode);
+
+    TAF_ERROR_IF_RET_NIL(dtcCtxPtr == NULL, "DTC code is not supported");
+
+    if(dtcCtxPtr->svcRef != NULL)
+    {
+        LE_DEBUG("Report Single DTC!!");
+        taf_diagDTC_ClearStatus_t* clearDtcStatusIndPtr =
+                (taf_diagDTC_ClearStatus_t*)le_mem_ForceAlloc(ClearDtcStatusPool);
+
+        clearDtcStatusIndPtr->svcRef = dtcCtxPtr->svcRef;
+        clearDtcStatusIndPtr->clientType = clientType;
+
+        le_event_ReportWithRefCounting(dtcCtxPtr->clearDtcStatusEventId,
+                (void*)clearDtcStatusIndPtr);
+    }
+    else
+    {
+        LE_ERROR("Service reference not found to notify");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Report Clear All DTC status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_DTCSvr::ReportClearAllDTCStatus
+(
+    taf_diagDTC_ReqClientType_t clientType
+)
+{
+    LE_DEBUG("ReportClearAllDTCStatus!!");
+
+    if(AllDtcCtx.svcRef != NULL)
+    {
+        LE_DEBUG("Report Clear All DTC!!");
+        taf_diagDTC_ClearAllStatus_t* clearAllDtcStatusIndPtr =
+                (taf_diagDTC_ClearAllStatus_t*)le_mem_ForceAlloc(ClearAllDtcStatusPool);
+
+        clearAllDtcStatusIndPtr->svcRef = AllDtcCtx.svcRef;
+        clearAllDtcStatusIndPtr->clientType = clientType;
+
+        le_event_ReportWithRefCounting(AllDtcCtx.clearAllDtcStatusEventId,
+                (void*)clearAllDtcStatusIndPtr);
+    }
+    else
+    {
+        LE_ERROR("Service reference not found to notify");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Get DTC status event ID, used to notify the status change.
  */
 //--------------------------------------------------------------------------------------------------
@@ -925,6 +1018,27 @@ le_event_Id_t taf_DTCSvr::GetDtcStatusEvent
     TAF_ERROR_IF_RET_VAL(dtcCtxPtr == NULL, NULL, "dtcCtxPtr is null");
 
     return dtcCtxPtr->dtcStatusEventId;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get Clear DTC status event ID, used to notify the status change.
+ */
+//--------------------------------------------------------------------------------------------------
+le_event_Id_t taf_DTCSvr::GetClearDtcStatusEvent
+(
+    taf_diagDTC_ServiceRef_t svcRef
+)
+{
+    LE_DEBUG("GetClearDtcStatusEvent!!");
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, NULL, "svcRef is null");
+
+    taf_diagDTC_DtcCtx_t* dtcCtxPtr = GetDtcCtx(svcRef);
+
+    TAF_ERROR_IF_RET_VAL(dtcCtxPtr == NULL, NULL, "dtcCtxPtr is null");
+
+    LE_INFO("dtcCtxPtr->clearDtcStatusEventId: %p",dtcCtxPtr->clearDtcStatusEventId);
+    return dtcCtxPtr->clearDtcStatusEventId;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -990,6 +1104,21 @@ le_event_Id_t taf_DTCSvr::GetAllDtcStatusEvent
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Get all Clear DTC status event ID, used to notify the status change.
+ */
+//--------------------------------------------------------------------------------------------------
+le_event_Id_t taf_DTCSvr::GetClearAllDtcStatusEvent
+(
+    taf_diagDTC_AllServiceRef_t svcRef
+)
+{
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, NULL, "Null ptr(svcRef)");
+
+    return AllDtcCtx.clearAllDtcStatusEventId;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * FirstLayerUdsStatusHandler.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1012,6 +1141,32 @@ void taf_DTCSvr::FirstLayerAllDtcStatusHandler
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * FirstLayerClearAllDtcStatusHandler.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_DTCSvr::FirstLayerClearAllDtcStatusHandler
+(
+    void* reportPtr,
+    void* secondLayerHandlerFunc
+)
+{
+    LE_DEBUG("FirstLayerClearAllDtcStatusHandler!!");
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_diagDTC_ClearAllStatus_t* clearAllDtcStatusEvent = (taf_diagDTC_ClearAllStatus_t*)reportPtr;
+    TAF_ERROR_IF_RET_NIL(secondLayerHandlerFunc == NULL, "Null ptr(secondLayerHandlerFunc)");
+
+    taf_diagDTC_ClearAllStatusHandlerFunc_t handlerFunc =
+              (taf_diagDTC_ClearAllStatusHandlerFunc_t)secondLayerHandlerFunc;
+
+    handlerFunc(clearAllDtcStatusEvent->svcRef, clearAllDtcStatusEvent->clientType,
+              le_event_GetContextPtr());
+
+    le_mem_Release(reportPtr);
+}
+
 //-------------------------------------------------------------------------------------------------
 /**
  * Clear All DTC information.
@@ -1019,14 +1174,15 @@ void taf_DTCSvr::FirstLayerAllDtcStatusHandler
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_DTCSvr::ClearAllInfo
 (
-    taf_diagDTC_AllServiceRef_t svcRef
+    taf_diagDTC_AllServiceRef_t svcRef,
+    taf_diagDTC_ReqClientType_t clientType
 )
 {
     auto &diagEvent = taf_EventSvr::GetInstance();
 
     TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "svcRef is null");
 
-    return diagEvent.ClearDtc(ALL_DTC_GROUP);
+    return diagEvent.ClearDtc(ALL_DTC_GROUP, clientType);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1160,6 +1316,7 @@ void taf_DTCSvr::InitDtcCtx
     taf_diagDTC_DtcCtx_t* dtcCtxPtr = NULL;
     auto& diagDTC = taf_DTCSvr::GetInstance();
     char dtcStatusName[32] = {0};
+    char clearDtcStatusName[32] = {0};
 
     dtcCtxPtr = (taf_diagDTC_DtcCtx_t *)le_mem_ForceAlloc(diagDTC.DtcPool);
     TAF_ERROR_IF_RET_NIL(dtcCtxPtr == NULL, "cannot alloc dtcCtxPtr");
@@ -1171,6 +1328,11 @@ void taf_DTCSvr::InitDtcCtx
     //Create event id for DTC
     snprintf(dtcStatusName, sizeof(dtcStatusName)-1, "dtcCtx-%x", dtcCode);
     dtcCtxPtr->dtcStatusEventId = le_event_CreateIdWithRefCounting(dtcStatusName);
+
+    //Create event id for clear DTC
+    snprintf(clearDtcStatusName, sizeof(clearDtcStatusName)-1, "clearDtcCtx-%x", dtcCode);
+    dtcCtxPtr->clearDtcStatusEventId = le_event_CreateIdWithRefCounting(clearDtcStatusName);
+
 
     //Get suppression status from database
     dtcCtxPtr->suppressionStatus = taf_DataAccess_GetDTCSuppression(dtcCode);
@@ -1196,6 +1358,10 @@ void taf_DTCSvr::InitAllDtcCtx
 {
     //Create event id for allDTC
     AllDtcCtx.allDtcStatusEventId = le_event_CreateIdWithRefCounting("AllDtcCtx");
+
+    //Create event id for clear all DTC
+    AllDtcCtx.clearAllDtcStatusEventId = le_event_CreateIdWithRefCounting("ClearAllDtcCtx");
+
     AllDtcCtx.sessionRefList = LE_DLS_LIST_INIT;
 
     // Create a Safe Reference for service object
@@ -1296,8 +1462,15 @@ void taf_DTCSvr::Init
     // Create memory pools for DTC status.
     DtcStatusPool = le_mem_CreatePool("dtcStatusPool", sizeof(taf_diagDTC_Status_t));
 
+    // Create memory pools for clear DTC status.
+    ClearDtcStatusPool = le_mem_CreatePool("clearDtcStatusPool", sizeof(taf_diagDTC_ClearStatus_t));
+
     // Create memory pools for all DTC status.
     AllDtcStatusPool = le_mem_CreatePool("AllDtcStatusPool", sizeof(taf_diagDTC_AllStatus_t));
+
+    // Create memory pools for clear DTC status.
+    ClearAllDtcStatusPool = le_mem_CreatePool("clearAllDtcStatusPool",
+            sizeof(taf_diagDTC_ClearAllStatus_t));
 
     // DTC data value pool allocation
     DtcDataValuePool = le_mem_InitStaticPool(DtcDataValueString,

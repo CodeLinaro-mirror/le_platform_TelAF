@@ -2330,6 +2330,42 @@ void taf_EventSvr::ReportDtcStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Report Clear DTC status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_EventSvr::ReportClearDtcStatus
+(
+    taf_diagEvent_DtcCtx_t* dtcCtxPtr
+)
+{
+    LE_DEBUG("ReportClearDtcStatus!!");
+    auto &diagDTC = taf_DTCSvr::GetInstance();
+
+    TAF_ERROR_IF_RET_NIL(dtcCtxPtr == NULL, "Null pointer");
+
+    diagDTC.ReportClearDTCStatus(dtcCtxPtr->dtcCode,
+            (taf_diagDTC_ReqClientType_t)dtcCtxPtr->reqClientType);
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Report Clear All DTC status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_EventSvr::ReportClearAllDtcStatus
+(
+    taf_diagDTC_ReqClientType_t clientType
+)
+{
+    LE_DEBUG("ReportClearAllDtcStatus!!");
+    auto &diagDTC = taf_DTCSvr::GetInstance();
+
+    diagDTC.ReportClearAllDTCStatus(clientType);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Get uds status event ID, used to notify the status change.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2973,6 +3009,10 @@ void taf_EventSvr::ClearAllDTCAndEventData
 
     auto &diagEvent = taf_EventSvr::GetInstance();
 
+    taf_diagDTC_ReqClientType_t reqType = (taf_diagDTC_ReqClientType_t)(intptr_t)param1Ptr;
+
+    TAF_ERROR_IF_RET_NIL((int)reqType != 0 && (int)reqType != 1, "reqType is Invalid");
+
     //Init dtc and event data in memory
     linkPtr = le_dls_Peek(&diagEvent.DtcCtxList);
     while (linkPtr)
@@ -2982,7 +3022,7 @@ void taf_EventSvr::ClearAllDTCAndEventData
 
         ClearDTCAndEventData(dtcCtxPtr, NULL);
     }
-
+    diagEvent.ReportClearAllDtcStatus(reqType);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -2992,6 +3032,7 @@ void taf_EventSvr::ClearAllDTCAndEventData
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::ClearAllDtc
 (
+    taf_diagDTC_ReqClientType_t clientType
 )
 {
     //Call data handle module api to delete data from database;
@@ -3004,7 +3045,20 @@ le_result_t taf_EventSvr::ClearAllDtc
         return result;
     }
 
-    le_event_QueueFunctionToThread(mainThrRef, ClearAllDTCAndEventData, NULL, NULL);
+    if(clientType == TAF_DIAGDTC_DTOOL)
+    {
+        le_event_QueueFunctionToThread(mainThrRef, ClearAllDTCAndEventData,
+                (void*)(intptr_t)clientType, NULL);
+    }
+    else if(clientType == TAF_DIAGDTC_APP)
+    {
+        ClearAllDTCAndEventData((void*)(intptr_t)clientType, NULL);
+    }
+    else
+    {
+        LE_ERROR("Unknown Client Type");
+        return LE_UNAVAILABLE;
+    }
 
     return LE_OK;
 }
@@ -3016,13 +3070,19 @@ le_result_t taf_EventSvr::ClearAllDtc
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::ClearSingleDtc
 (
-    uint32_t dtcCode
+    uint32_t dtcCode,
+    taf_diagDTC_ReqClientType_t clientType
 )
 {
+
+    auto &diagEvent = taf_EventSvr::GetInstance();
+
     le_result_t result;
     taf_diagEvent_DtcCtx_t* dtcCtxPtr = GetDtcCtxByCode(dtcCode);
 
     TAF_ERROR_IF_RET_VAL(dtcCtxPtr == NULL, LE_UNSUPPORTED, "DTC code is not supported");
+
+    dtcCtxPtr->reqClientType = (taf_diagDTC_ReqClientType_t)clientType;
 
     //Check if DTC is suppressed
     if(dtcCtxPtr->suppressionStatus == true)
@@ -3040,8 +3100,21 @@ le_result_t taf_EventSvr::ClearSingleDtc
         return result;
     }
 
-    le_event_QueueFunctionToThread(mainThrRef, ClearDTCAndEventData, dtcCtxPtr, NULL);
+    if(clientType == TAF_DIAGDTC_DTOOL)
+    {
+        le_event_QueueFunctionToThread(mainThrRef, ClearDTCAndEventData, dtcCtxPtr, NULL);
+    }
+    else if(clientType == TAF_DIAGDTC_APP)
+    {
+        ClearDTCAndEventData(dtcCtxPtr, NULL);
+    }
+    else
+    {
+        LE_ERROR("Unknown Client Type");
+        return LE_UNAVAILABLE;
+    }
 
+    diagEvent.ReportClearDtcStatus(dtcCtxPtr);
     return LE_OK;
 
 }
@@ -3053,16 +3126,17 @@ le_result_t taf_EventSvr::ClearSingleDtc
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::ClearDtc
 (
-    uint32_t dtcCode
+    uint32_t dtcCode,
+    taf_diagDTC_ReqClientType_t clientType
 )
 {
 
     LE_DEBUG("ClearDtc: DTC CODE:0x%x", dtcCode);
     //All group
     if(dtcCode == 0xFFFFFF)
-        return ClearAllDtc();
+        return ClearAllDtc(clientType);
     else
-        return ClearSingleDtc(dtcCode);
+        return ClearSingleDtc(dtcCode, clientType);
 }
 
 //-------------------------------------------------------------------------------------------------

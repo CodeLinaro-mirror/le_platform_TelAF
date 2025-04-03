@@ -89,6 +89,23 @@ using namespace tafsvc::cfg;
             bool  state;
         } taf_diagEvent_EnableCondState_t;
 
+        // used to send event when operation cycle state changed
+        typedef struct
+        {
+            taf_diagEvent_OpCycleRef_t operCycleRef;
+            taf_diagEvent_OperationCycleState_t  state;
+        } taf_diagEvent_OperCycleState_t;
+
+        typedef struct
+        {
+            uint8_t operCycleId;
+            taf_diagEvent_OperationCycleState_t  state;
+            le_event_Id_t operCycleEvId;
+            le_dls_List_t sessionRefList; // The list of clients
+            taf_diagEvent_OpCycleRef_t operCycleRef;
+            le_dls_Link_t link;
+        }taf_diagEvent_OperCycleCtx_t;
+
         //Counterbased debounce config structure
         typedef struct {
             int16_t  decrementStepSize;
@@ -174,8 +191,24 @@ using namespace tafsvc::cfg;
                 taf_diagEvent_ServiceRef_t GetService(uint16_t eventId);
                 le_result_t GetId(taf_diagEvent_ServiceRef_t svcRef, uint16_t* eventIdPtr);
 
+                le_result_t GetOperationCycleId(taf_diagEvent_ServiceRef_t svcRef,
+                        uint8_t* operationCycleIdPtr);
+                le_result_t GetDTCCode(taf_diagEvent_ServiceRef_t svcRef, uint32_t* dtcCodePtr);
+                le_result_t GetEnableCondState(taf_diagEvent_ServiceRef_t svcRef, bool* statePtr);
+
                 le_event_Id_t GetUdsStatusEvent(taf_diagEvent_ServiceRef_t svcRef);
                 le_event_Id_t GetEnableCondStateEvent(taf_diagEvent_ServiceRef_t svcRef);
+
+                taf_diagEvent_OpCycleRef_t GetOperCycle(uint8_t operCycleId);
+                le_event_Id_t GetOperCycleStateEvent(taf_diagEvent_OpCycleRef_t operCycleRef);
+                le_result_t SetOperCycleState(taf_diagEvent_OpCycleRef_t operCycleRef,
+                        taf_diagEvent_OperationCycleState_t state);
+                le_result_t GetOperCycleState(taf_diagEvent_OpCycleRef_t operCycleRef,
+                        taf_diagEvent_OperationCycleState_t* statePtr);
+                le_result_t GetOperCycleIdByRef(taf_diagEvent_OpCycleRef_t operCycleRef,
+                        uint8_t* operCycleIdPtr);
+                le_result_t RemoveOperCycle(taf_diagEvent_OpCycleRef_t operCycleRef);
+
                 le_result_t SetStatus(taf_diagEvent_ServiceRef_t svcRef,
                         taf_diagEvent_StatusType_t eventStatus);
                 le_result_t SetStatusWithSupplierFaultCode(taf_diagEvent_ServiceRef_t svcRef,
@@ -205,6 +238,8 @@ using namespace tafsvc::cfg;
                         void* secondLayerHandlerFunc);
                 static void FirstLayerEnableCondStateHandler(void* reportPtr,
                         void* secondLayerHandlerFunc);
+                static void FirstLayerOperCycleStateHandler(void* reportPtr,
+                        void* secondLayerHandlerFunc);
 
                 //Interface function for DTC interface module and DTC service module
                 le_result_t ClearDtc(uint32_t dtcCode, taf_diagDTC_ReqClientType_t clientType);
@@ -225,6 +260,11 @@ using namespace tafsvc::cfg;
                 le_dls_List_t fdcInfoList = LE_DLS_LIST_INIT;
                 le_mem_PoolRef_t FdcInfoPool = NULL;
                 le_thread_Ref_t mainThrRef = NULL; // Current main thread.
+                le_mem_PoolRef_t OperCyclePool = NULL;
+                le_dls_List_t OperCycleCtxList = LE_DLS_LIST_INIT;
+
+                le_mem_PoolRef_t OperCycleEvIdPool = NULL;
+                uint8_t maxNumOfOperCycle = 0;
 
             private:
 
@@ -236,8 +276,17 @@ using namespace tafsvc::cfg;
                 void InitEventIdListForDtc(taf_diagEvent_DtcCtx_t* dtcCtxPtr, uint16_t eventId);
                 taf_diagEvent_DtcCtx_t* GetDtcCtxByCode(uint32_t dtcCode);
 
-                bool IsEventConditionOK(taf_diagEvent_EventCtx_t* eventCtxPtr);
+                le_result_t CheckEventCondition(taf_diagEvent_EventCtx_t* eventCtxPtr);
                 taf_diagEvent_EventCtx_t* GetEventCtx(taf_diagEvent_ServiceRef_t svcRef);
+
+                void InitOperCycleContext();
+                void ReportOperCycleState(taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr,
+                        taf_diagEvent_OperationCycleState_t state);
+                taf_diagEvent_OperCycleCtx_t* GetOperCycleCtxById(uint8_t operCycleId);
+                le_result_t RemoveSessionFromOperCycleCtx(taf_diagEvent_OperCycleCtx_t*
+                        operCycleCtxPtr, le_msg_SessionRef_t sessionRef);
+                le_result_t AddSessionToOperCycleCtx(taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr,
+                        le_msg_SessionRef_t sessionRef);
 
                 void ReportEventUdsStatus(taf_diagEvent_EventCtx_t* eventCtxPtr);
                 void ReportEnableCondState(taf_diagEvent_EventCtx_t* eventCtxPtr, bool state);
@@ -284,10 +333,10 @@ using namespace tafsvc::cfg;
                 void UpdateAllDtcSuppressionStatus(bool suppressionStatus);
 
                 le_ref_MapRef_t SvcRefMap;
+                le_ref_MapRef_t OperCycleRefMap;
                 le_mem_PoolRef_t SessionRefPool = NULL;
                 le_mem_PoolRef_t EventUdsStatusPool;
                 le_mem_PoolRef_t EnableCondStatePool;
-                taf_diagEvent_OperationCycleState_t OperationCycleStates[MAX_OPERATION_CYCLE_NUM];
 
         };
     }

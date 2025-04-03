@@ -82,7 +82,6 @@ fill_list<{{ value | f_get_list_elm_type}}>({{ node }}.get_child("{{key}}"), {{ 
 
 #define EXPORT_SYM __attribute__((visibility ("default")))
 
-namespace telux {
 namespace tafsvc {
 namespace cfg {
 
@@ -439,7 +438,6 @@ Node & top_extended_data_records(std::string field_name, T expected_value)
 }
 {% endif %}
 
-}
 }
 }
 

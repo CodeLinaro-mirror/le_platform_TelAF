@@ -21,8 +21,10 @@
 #include <dirent.h>
 #include <future>
 
+#include <unordered_map>
+
 using namespace std;
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 le_timer_Ref_t HmsTimerRef = NULL;
 le_sem_Ref_t SemRef = NULL;
@@ -38,7 +40,10 @@ LE_MEM_DEFINE_STATIC_POOL(UbiVolInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
     sizeof(taf_hms_ubiVolInfo_t));
 LE_MEM_DEFINE_STATIC_POOL(MtdListPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_mtdInfoList_t));
 LE_MEM_DEFINE_STATIC_POOL(MtdInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_mtdInfo_t));
-LE_MEM_DEFINE_STATIC_POOL(ModemStatuChangeInfoPool, TAF_HMS_MAX_EVENT_POOL_SIZE, sizeof(taf_hms_modemEventInfo_t));
+LE_MEM_DEFINE_STATIC_POOL(ModemEventInfoPool, TAF_HMS_MAX_EVENT_POOL_SIZE,
+    sizeof(taf_hms_modemEventInfo_t));
+LE_MEM_DEFINE_STATIC_POOL(ModemInfoPool, TAF_HMS_MAX_EVENT_POOL_SIZE,
+    sizeof(taf_hms_modemInfo_t));
 
 
 LE_REF_DEFINE_STATIC_MAP(UbiDevListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
@@ -47,9 +52,9 @@ LE_REF_DEFINE_STATIC_MAP(UbiVolListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(UbiVolRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(MtdListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(MtdRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-LE_REF_DEFINE_STATIC_MAP(ModemStatuChangeRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(ModemEventInfoRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(ModemInfoRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
 
-uint8_t tafHmsListener::ModemCrashCounter = 0;
 bool tafHmsListener::ModemAvailability = false;
 
 //--------------------------------------------------------------------------------------------------
@@ -1190,24 +1195,31 @@ le_result_t taf_Hms::GetMtdDevBlkCnt
 
 void ResetModemStatusCounterHandler(le_timer_Ref_t timerRef)
 {
-    tafHmsListener* mppsListener =
-                            (tafHmsListener*)le_timer_GetContextPtr(timerRef);
-    TAF_ERROR_IF_RET_NIL(mppsListener == NULL, "Not able to get reference pointer!");
+    taf_hms_modemInfo_t* modemEventInfoPtr = (taf_hms_modemInfo_t*)le_timer_GetContextPtr(timerRef);
+    TAF_ERROR_IF_RET_NIL(modemEventInfoPtr == NULL, "Not able to get reference pointer!");
 
-    mppsListener->ModemCrashCounter = 0;
+    modemEventInfoPtr->ModemCrashCounter = 0;
     LE_INFO("Reseting the timer for modem crash monitor");
 }
 
-void tafHmsListener::StartResetTimer()
+void tafHmsListener::StartResetTimer(taf_hms_modemInfo_t* modemEventInfoPtr)
 {
-    resetTimer = le_timer_Create("ResetTimer");
-    le_timer_SetMsInterval(resetTimer, TAF_HMS_MODEM_RESET_TIMER);
-    le_timer_SetRepeat(resetTimer, 0);
-    le_timer_SetHandler(resetTimer, ResetModemStatusCounterHandler);
-    le_timer_SetContextPtr(resetTimer, this);
+    if(modemEventInfoPtr->resetTimer == NULL)
+    {
+        modemEventInfoPtr->resetTimer = le_timer_Create("ResetTimer");
+        le_timer_SetMsInterval(modemEventInfoPtr->resetTimer, TAF_HMS_MODEM_RESET_TIMER);
+        le_timer_SetRepeat(modemEventInfoPtr->resetTimer, 0);
+        le_timer_SetHandler(modemEventInfoPtr->resetTimer, ResetModemStatusCounterHandler);
+        le_timer_SetContextPtr(modemEventInfoPtr->resetTimer, modemEventInfoPtr);
 
-    // Start the timer
-    le_timer_Start(resetTimer);
+        // Start the timer
+        le_timer_Start(modemEventInfoPtr->resetTimer);
+    }
+    else
+    {
+        LE_ERROR("Timer already in use!");
+    }
+
 }
 
 void tafHmsListener::onStateChange(telux::common::SubsystemInfo subsystemInfo,
@@ -1228,78 +1240,99 @@ void tafHmsListener::onStateChange(telux::common::SubsystemInfo subsystemInfo,
     }
     ModemAvailability = true;
 
-    //Check if client has registered for monitoring modem
-    if (hms.isModemMonitorHandlerRegisterd != true)
+    // traverse throught all the clients which registered for the modem
+    // event and set value as per counter
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(hms.ModemInfoRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
     {
-        LE_DEBUG("No handler registered for monitoring modem status");
-        return;
-    }
+        taf_hms_modemInfo_t* clientInfo  = (taf_hms_modemInfo_t*)le_ref_GetValue(iterRef);
+        TAF_ERROR_IF_RET_NIL(clientInfo == nullptr, "No registered client for modem info");
 
-    taf_hms_modemEventInfo_t evt;
-    ModemCrashCounter++;
+        taf_hms_modemEventInfo_t newEvent;
+        newEvent.modemInfo = clientInfo;
 
-    if (ModemCrashCounter <= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_LOW) {
-        evt.eventLevel = TAF_HMS_MODEM_EVENT_SEVERITY_LOW;
-    }
-    else if (ModemCrashCounter <= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_MEDIUM) {
-        evt.eventLevel = TAF_HMS_MODEM_EVENT_SEVERITY_MEDIUM;
-    }
-    else if (ModemCrashCounter >= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_HIGH) {
-        evt.eventLevel = TAF_HMS_MODEM_EVENT_SEVERITY_HIGH;
-    }
+        //Check if client has registered for monitoring modem
+        if (clientInfo->handlerFunc == NULL)
+        {
+            continue;
+        }
 
-    if(newOperationalStatus == telux::common::OperationalStatus::OPERATIONAL)
-    {
-        evt.eventType = TAF_HMS_MODEM_EVENT_TYPE_CONTINUE_REBOOT;
-    }
+        clientInfo->ModemCrashCounter++;
 
-    le_event_Report(hms.ModemStatusChangeId, &evt, sizeof(evt));
+        if (clientInfo->ModemCrashCounter <= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_LOW) {
+            newEvent.eventLevel = TAF_HMS_MODEM_EVENT_SEVERITY_LOW;
+        }
+        else if (clientInfo->ModemCrashCounter <= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_MEDIUM) {
+            newEvent.eventLevel = TAF_HMS_MODEM_EVENT_SEVERITY_MEDIUM;
+        }
+        else if (clientInfo->ModemCrashCounter >= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_HIGH) {
+            newEvent.eventLevel = TAF_HMS_MODEM_EVENT_SEVERITY_HIGH;
+        }
+
+        if(newOperationalStatus == telux::common::OperationalStatus::OPERATIONAL)
+        {
+            newEvent.eventType = TAF_HMS_MODEM_EVENT_TYPE_CONTINUE_REBOOT;
+        }
+
+        le_event_Report(hms.ModemStatusChangeId, &newEvent, sizeof(taf_hms_modemEventInfo_t));
+
+    }
 }
 
-void taf_Hms::ModemStatusChangeNotify(void* reportPtr,void* secondLayerHandlerFunc)
+void taf_Hms::ModemStatusChangeNotify(void* reportPtr)
 {
     auto hms = taf_Hms::GetInstance();
-    taf_hms_modemEventInfo_t* evt = (taf_hms_modemEventInfo_t*)le_mem_ForceAlloc(hms.ModemStatuChangeInfoPool);
-    TAF_ERROR_IF_RET_NIL(evt == NULL, "Not able to allocate memory for modem event info!");
+    taf_hms_modemEventInfo_t* evt = (taf_hms_modemEventInfo_t*)le_mem_ForceAlloc(hms.ModemEventInfoPool);
     evt->eventType = ((taf_hms_modemEventInfo_t*)reportPtr)->eventType;
     evt->eventLevel = ((taf_hms_modemEventInfo_t*)reportPtr)->eventLevel;
-    evt->ref = (taf_hms_ModemEventRef_t)le_ref_CreateRef(hms.ModemStatuChangeRefMap, (void*)evt);
+    evt->modemInfo = ((taf_hms_modemEventInfo_t*)reportPtr)->modemInfo;
+    evt->ref = (taf_hms_ModemEventRef_t)le_ref_CreateRef(hms.ModemEventInfoRefMap, (void*)evt);
 
-    taf_hms_ModemEvtHandlerFunc_t clientHandlerFunc = (taf_hms_ModemEvtHandlerFunc_t)secondLayerHandlerFunc;
-    TAF_ERROR_IF_RET_NIL(clientHandlerFunc == NULL, "clientHandlerFunc is NULL !");
+    TAF_ERROR_IF_RET_NIL(evt->modemInfo->handlerFunc == NULL, "clientHandlerFunc is NULL !");
 
-    clientHandlerFunc(evt->eventType, evt->eventLevel, evt->ref, le_event_GetContextPtr());
+    evt->modemInfo->handlerFunc(evt->eventType, evt->eventLevel, evt->ref, evt->modemInfo->contextPtr);
 }
 
 
 taf_hms_ModemEvtHandlerRef_t taf_Hms::AddModemEvtHandler
 (
-    taf_hms_ModemEvtHandlerFunc_t handlerPtr,
+    taf_hms_ModemEvtHandlerFunc_t handlerFuncPtr,
     void* contextPtr
 )
 {
     auto hms = taf_Hms::GetInstance();
     auto &mppsListener = tafHmsListener::GetInstance();
-    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "INVALID handler reference.");
-    ModemStatusChangeId =
-        le_event_CreateId("ModemStatusChangeId", sizeof(taf_hms_modemEventInfo_t));
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ModemStatusChangeIdHandlerRef",
-        ModemStatusChangeId, hms.ModemStatusChangeNotify, (void*)handlerPtr);
-    TAF_ERROR_IF_RET_VAL(handlerRef == NULL, NULL, "Failed to create handler reference!");
-    le_event_SetContextPtr(handlerRef, contextPtr);
+    TAF_ERROR_IF_RET_VAL(handlerFuncPtr == NULL, NULL, "INVALID handler reference.");
+    taf_hms_modemInfo_t* newEvt = (taf_hms_modemInfo_t*)le_mem_ForceAlloc(hms.ModemInfoPool);
+    TAF_ERROR_IF_RET_VAL(newEvt == NULL, NULL, "Not able to allocate memory for the event.");
+
+    newEvt->handlerFunc = handlerFuncPtr;
+    newEvt->contextPtr = contextPtr;
+    newEvt->handlerRef = (taf_hms_ModemEvtHandlerRef_t)le_ref_CreateRef(ModemInfoRefMap, newEvt);
+
+    TAF_ERROR_IF_RET_VAL(newEvt->handlerRef == NULL, NULL, "Failed to create handler reference!");
 
     //Start the timer
-    mppsListener.StartResetTimer();
-    isModemMonitorHandlerRegisterd = true;
-    return (taf_hms_ModemEvtHandlerRef_t)handlerRef;
+    mppsListener.StartResetTimer(newEvt);
+    LE_DEBUG("Handler registered for Modem event with reference: %p", newEvt->handlerRef);
+    return (taf_hms_ModemEvtHandlerRef_t)newEvt->handlerRef;
 }
 
-void tafHmsListener::DeleteResetTime()
+void tafHmsListener::DeleteResetTime(taf_hms_modemInfo_t* handlerPtr)
 {
-    if (resetTimer != NULL)
+    TAF_ERROR_IF_RET_NIL(handlerPtr == nullptr, "Invalid para(null reference ptr)");
+    if (handlerPtr->resetTimer != NULL)
     {
-        LE_INFO("StopResetTimer");
-        le_timer_Stop(resetTimer);
+        le_result_t res = le_timer_Stop(handlerPtr->resetTimer);
+        if(res == LE_OK)
+        {
+            LE_DEBUG("Timer stopped for device");
+            handlerPtr->resetTimer = NULL;
+        }
+        else
+        {
+            LE_ERROR("Failed to stop timer: %s", LE_RESULT_TXT(res));
+        }
     }
 }
 
@@ -1307,9 +1340,14 @@ void taf_Hms::RemoveModemEvtHandler(taf_hms_ModemEvtHandlerRef_t handlerRef)
 {
     auto &mppsListener = tafHmsListener::GetInstance();
     TAF_ERROR_IF_RET_NIL(handlerRef == nullptr, "Invalid para(null reference)");
-    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
-    mppsListener.DeleteResetTime();
-    isModemMonitorHandlerRegisterd = false;
+
+    taf_hms_modemInfo_t* handlerPtr =
+        (taf_hms_modemInfo_t*)le_ref_Lookup(ModemInfoRefMap, handlerRef);
+    TAF_ERROR_IF_RET_NIL(handlerPtr == nullptr, "Invalid para(null reference ptr)");
+
+    mppsListener.DeleteResetTime(handlerPtr);
+    le_ref_DeleteRef(ModemInfoRefMap, handlerRef);
+    le_mem_Release(handlerPtr);
     LE_INFO("Removed ModemStatusHandler");
 }
 
@@ -1317,14 +1355,182 @@ le_result_t taf_Hms::ReleaseModemEvt(taf_hms_ModemEventRef_t eventRef)
 {
     TAF_ERROR_IF_RET_VAL(eventRef == nullptr, LE_NOT_FOUND, "Invalid para(null reference)");
     taf_hms_modemEventInfo_t* evtPtr =
-        (taf_hms_modemEventInfo_t*)le_ref_Lookup(ModemStatuChangeRefMap, eventRef);
+        (taf_hms_modemEventInfo_t*)le_ref_Lookup(ModemEventInfoRefMap, eventRef);
     TAF_ERROR_IF_RET_VAL(evtPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
     LE_DEBUG("ReleaseModemEvt : %p", eventRef);
-    le_ref_DeleteRef(ModemStatuChangeRefMap, eventRef);
+    le_ref_DeleteRef(ModemEventInfoRefMap, eventRef);
     le_mem_Release(evtPtr);
     return LE_OK;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reset reason map
+ */
+//--------------------------------------------------------------------------------------------------
+std::unordered_map<std::string, taf_hms_SubReason_t> BtReasonMap =
+{
+    {"normal", TAF_HMS_BOOTREASON_NORMAL},
+    {"recovery", TAF_HMS_BOOTREASON_RECOVERY},
+    {"bootloader", TAF_HMS_BOOTREASON_BOOTLOADER},
+    {"rtc", TAF_HMS_BOOTREASON_RTC},
+    {"dm-verity device corrupted", TAF_HMS_BOOTREASON_DMVERITY_DEV_CORRUPTED},
+    {"dm-verity enforcing", TAF_HMS_BOOTREASON_DMVERITY_ENFORCING},
+    {"keys clear", TAF_HMS_BOOTREASON_DMVERITY_KEYS_CLEAR},
+    {"panic", TAF_HMS_BOOTREASON_PANIC},
+    {"watchdog bark", TAF_HMS_BOOTREASON_WATCHDOG_BARK},
+    {"admin-trigger", TAF_HMS_BOOTREASON_ADMIN_TRIGGER},
+    {"user", TAF_HMS_BOOTREASON_USER},
+    {"unknown", TAF_HMS_BOOTREASON_UNKNOWN}
+};
+
+std::string BootReasonToString(taf_hms_SubReason_t reason)
+{
+    switch (reason)
+    {
+        case TAF_HMS_BOOTREASON_NORMAL:
+            return "Normal";
+        case TAF_HMS_BOOTREASON_RECOVERY:
+            return "Recovery";
+        case TAF_HMS_BOOTREASON_BOOTLOADER:
+            return "Bootloader";
+        case TAF_HMS_BOOTREASON_RTC:
+            return "RTC";
+        case TAF_HMS_BOOTREASON_DMVERITY_DEV_CORRUPTED:
+            return "DM-Verity Device Corrupted";
+        case TAF_HMS_BOOTREASON_DMVERITY_ENFORCING:
+            return "DM-Verity Enforcing";
+        case TAF_HMS_BOOTREASON_DMVERITY_KEYS_CLEAR:
+            return "Keys Clear";
+        case TAF_HMS_BOOTREASON_PANIC:
+            return "Panic";
+        case TAF_HMS_BOOTREASON_WATCHDOG_BARK:
+            return "Watchdog Bark";
+        case TAF_HMS_BOOTREASON_ADMIN_TRIGGER:
+            return "Admin Trigger";
+        case TAF_HMS_BOOTREASON_USER:
+            return "User";
+        case TAF_HMS_BOOTREASON_UNKNOWN:
+        default:
+            return "Unknown";
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Reads the boot reason for a file.
+ **
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::ReadReason
+(
+    const std::string& filePath,
+    taf_hms_SubReason_t* reason,
+    char* reasonStr
+)
+{
+    std::string tmpStr;
+    std::ifstream file(filePath);
+    if (!file.is_open())
+    {
+        LE_ERROR("Failed to open file: %s", filePath.c_str());
+        *reason = TAF_HMS_BOOTREASON_UNKNOWN;
+        return LE_NOT_FOUND;
+    }
+
+    std::getline(file, tmpStr);
+    file.close();
+    LE_DEBUG("Reboot reason string: %s",tmpStr.c_str());
+
+    auto it = BtReasonMap.find(tmpStr);
+    if (it != BtReasonMap.end())
+    {
+        *reason = it->second;
+    }
+    else
+    {
+        *reason = TAF_HMS_BOOTREASON_UNKNOWN;
+    }
+    le_utf8_Copy(reasonStr, tmpStr.c_str(), TAF_HMS_MAX_RESET_LEN, NULL);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the last reset information reason
+ *
+ * @return
+ *      - LE_OK          on success
+ *      - LE_UNSUPPORTED if it is not supported by the platform
+ *        LE_OVERFLOW    specific reset information length exceeds the maximum length.
+ *      - LE_FAULT       for any other errors
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::GetResetInformation
+(
+    taf_hms_Reset_t* resetPtr,          ///< [OUT] Reset information
+    char* resetSpecificInfoStrPtr,      ///< [OUT] Reset specific information
+    size_t resetSpecificInfoStrSize     ///< [IN]  The length of specific information string.
+)
+{
+    le_result_t res = LE_OK;
+    taf_hms_SubReason_t subReason = TAF_HMS_BOOTREASON_UNKNOWN;
+
+    if (resetSpecificInfoStrSize <= 0)
+    {
+        LE_ERROR("resetSpecificInfoStrSize is not correct: %zu", resetSpecificInfoStrSize);
+        return LE_BAD_PARAMETER;
+    }
+    res = ReadReason(TAF_HMS_BOOT_REASON_PATH, &subReason, resetSpecificInfoStrPtr);
+    if (LE_OK != res)
+    {
+        return res;
+    }
+
+    taf_hms_Reset_t reason = TAF_HMS_RESET_UNKNOWN;
+    switch(subReason)
+    {
+        case TAF_HMS_BOOTREASON_DMVERITY_DEV_CORRUPTED:
+        case TAF_HMS_BOOTREASON_DMVERITY_ENFORCING:
+        case TAF_HMS_BOOTREASON_DMVERITY_KEYS_CLEAR:
+        case TAF_HMS_BOOTREASON_PANIC:
+            reason = TAF_HMS_RESET_CRASH;
+            break;
+
+        case TAF_HMS_BOOTREASON_WATCHDOG_BARK:
+            reason = TAF_HMS_RESET_WDOG;
+            break;
+
+        case TAF_HMS_BOOTREASON_RECOVERY:
+            reason = TAF_HMS_RESET_UPDATE;
+            break;
+
+        case TAF_HMS_BOOTREASON_RTC:
+        case TAF_HMS_BOOTREASON_BOOTLOADER:
+        case TAF_HMS_BOOTREASON_NORMAL:
+        case TAF_HMS_BOOTREASON_USER:
+            reason = TAF_HMS_RESET_USER;
+            break;
+
+        case TAF_HMS_BOOTREASON_ADMIN_TRIGGER:
+        case TAF_HMS_BOOTREASON_UNKNOWN:
+        default:
+            reason = TAF_HMS_RESET_UNKNOWN;
+            break;
+    }
+
+    LE_INFO("Reset info - type: %d, subType: %d, string: %s",
+                (int)reason, (int)subReason, resetSpecificInfoStrPtr);
+    *resetPtr = reason;
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Initialization.
+ */
+//--------------------------------------------------------------------------------------------------
 void taf_Hms::Init()
 {
     LE_INFO("tafHMSvc started");
@@ -1341,8 +1547,10 @@ void taf_Hms::Init()
         sizeof(taf_hms_mtdInfoList_t));
     MtdInfoPool = le_mem_InitStaticPool(MtdInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
         sizeof(taf_hms_mtdInfo_t));
-    ModemStatuChangeInfoPool = le_mem_InitStaticPool(ModemStatuChangeInfoPool, TAF_HMS_MAX_EVENT_POOL_SIZE,
+    ModemEventInfoPool = le_mem_InitStaticPool(ModemEventInfoPool, TAF_HMS_MAX_EVENT_POOL_SIZE,
         sizeof(taf_hms_modemEventInfo_t));
+    ModemInfoPool = le_mem_InitStaticPool(ModemInfoPool, TAF_HMS_MAX_EVENT_POOL_SIZE,
+            sizeof(taf_hms_modemInfo_t));
 
     UbiDevListRefMap = le_ref_InitStaticMap(UbiDevListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
     UbiDevRefMap = le_ref_InitStaticMap(UbiDevRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
@@ -1350,7 +1558,9 @@ void taf_Hms::Init()
     UbiVolRefMap = le_ref_InitStaticMap(UbiVolRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
     MtdListRefMap = le_ref_InitStaticMap(MtdListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
     MtdRefMap = le_ref_InitStaticMap(MtdRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-    ModemStatuChangeRefMap = le_ref_InitStaticMap(ModemStatuChangeRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
+    ModemInfoRefMap = le_ref_InitStaticMap(ModemInfoRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
+    ModemEventInfoRefMap = le_ref_InitStaticMap(ModemEventInfoRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE*3);
+
 
     //Modem monitor
     telux::common::ErrorCode ec;
@@ -1398,4 +1608,10 @@ void taf_Hms::Init()
         return;
     }
     LE_INFO("registerListener ok");
+
+    ModemStatusChangeId =
+        le_event_CreateId("ModemStatusChangeId", sizeof(taf_hms_modemEventInfo_t));
+
+    le_event_AddHandler("ModemStatusChangeIdHandlerRef",
+        ModemStatusChangeId, ModemStatusChangeNotify);
 }

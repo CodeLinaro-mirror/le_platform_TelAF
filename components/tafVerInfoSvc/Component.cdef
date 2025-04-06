@@ -20,7 +20,7 @@ cxxflags:
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/components/tafHalComp
     -I$TELAF_ROOT/include
-    -I$TELAF_ROOT/include/staging/plugin
+    -I$TELAF_ROOT/include/plugin
 }
 
 sources:

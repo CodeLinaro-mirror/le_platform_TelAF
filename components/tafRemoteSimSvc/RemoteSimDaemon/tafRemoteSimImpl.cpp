@@ -26,11 +26,19 @@
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+/*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+
 #include "tafRemoteSim.hpp"
 
 using namespace telux::tel;
 using namespace telux::common;
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 LE_MEM_DEFINE_STATIC_POOL(RsimMsgs, MSG_POOL_SIZE, sizeof(taf_RsimMsg_Client_t));
 
@@ -993,7 +1001,6 @@ le_result_t taf_simRsim::HandleCardInserted(const uint8_t* messagePtr, size_t me
             LE_ERROR("Failed to send card inserted event request to the modem!\n");
             return LE_FAULT;
         }
-   // }
     return LE_OK;
 }
 

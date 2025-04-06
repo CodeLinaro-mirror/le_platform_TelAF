@@ -9,7 +9,7 @@
 #include "tafVerInfo.hpp"
 
 using namespace std;
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 //--------------------------------------------------------------------------------------------------
 /**

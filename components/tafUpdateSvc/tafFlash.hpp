@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -14,8 +14,6 @@
 #include "tafSvcIF.hpp"
 #include "tafFlashAccess.hpp"
 
-namespace telux
-{
     namespace tafsvc
     {
         class taf_FlashAccess : public ITafSvc
@@ -33,6 +31,5 @@ namespace telux
                 std::map<std::string, uint32_t> partitionMap;
         };
     }
-}
 
 #endif

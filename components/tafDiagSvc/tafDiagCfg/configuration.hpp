@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -22,7 +22,6 @@
 
 #define EXPORT_SYM __attribute__((visibility ("default")))
 
-namespace telux {
 namespace tafsvc {
 namespace cfg {
 
@@ -403,7 +402,6 @@ Node & top_extended_data_records(std::string field_name, T expected_value)
     return match_item<T>(node, field_name, expected_value);
 }
 
-}
 }
 }
 

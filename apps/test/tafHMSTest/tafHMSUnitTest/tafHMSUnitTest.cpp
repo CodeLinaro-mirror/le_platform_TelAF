@@ -8,10 +8,6 @@
 
 #define NAME_SIZE 32
 
-taf_hms_ModemEvtHandlerRef_t modemStatusHandlerRef = NULL;
-le_sem_Ref_t semRef;
-uint8_t modemEventCounter = 0;
-
 /*======================================================================
  FUNCTION        TestGetCPULoad
  DESCRIPTION     Get current CPU Load API test
@@ -221,37 +217,44 @@ void ModemStatusHandler
         ModemEventTypeToStr(eventType), ModemEventLevelToStr(eventLevel), eventRef);
     le_result_t result = taf_hms_ReleaseModemEvt(eventRef);
     LE_TEST_OK(result == LE_OK, "taf_hms_ReleaseModemEvt - LE_OK.");
-    modemEventCounter++;
-    if(modemEventCounter == 10)
-    {
-        le_sem_Post(semRef);
-    }
 }
 
-void* Test_taf_Hms_AddModemEvtHandler(void* cxtPtr)
+void TestModemEventHandlerRegistration()
 {
-    taf_hms_ConnectService();
-    //Check with valid callback function
-    modemStatusHandlerRef = taf_hms_AddModemEvtHandler(
+    taf_hms_ModemEvtHandlerRef_t modemStatusHandlerRef = taf_hms_AddModemEvtHandler(
         (taf_hms_ModemEvtHandlerFunc_t)ModemStatusHandler, NULL);
 
     LE_TEST_OK(modemStatusHandlerRef != NULL, "taf_Hms_AddModemEvtHandler - OK for !NULL Ref");
-    le_event_RunLoop();
-    return NULL;
 
+    taf_hms_RemoveModemEvtHandler(modemStatusHandlerRef);
+    LE_TEST_OK(true, "taf_hms_RemoveModemStatusHandler - void");
+    LE_INFO("===== UnitTest Completed for registering Modem event handler =====");
 }
 
-void CreateThreadForModemMonitor(void)
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Get the last reset information reason.
+ **
+ */
+//--------------------------------------------------------------------------------------------------
+void Test_taf_Hms_GetbootInfo(void)
 {
-    semRef = le_sem_Create("ModemCrashMonitor", 0);
-    le_thread_Ref_t threadRef = le_thread_Create("ModemCrashMonitorThread",
-        Test_taf_Hms_AddModemEvtHandler, (void*)semRef);
-    le_thread_Start(threadRef);
-    le_sem_Wait(semRef);
-    le_sem_Delete(semRef);
+    le_result_t result;
+    taf_hms_Reset_t reset;
+    char resetSpecificInfoStr[TAF_HMS_MAX_RESET_LEN] ={0};
+
+    result = taf_hms_GetResetInformation(&reset, resetSpecificInfoStr, TAF_HMS_MAX_RESET_LEN);
+    LE_TEST_OK((result == LE_OK && resetSpecificInfoStr != NULL),
+        "taf_hms_GetResetInformation - LE_OK.");
+    LE_INFO("Reset info - type: %d, sub string: %s", (int)reset, resetSpecificInfoStr);
 }
 
-
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Component initialization.
+ **
+ */
+//--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
     LE_INFO("---------- TelAF Health Monitor Service Tests Start --------------------------");
@@ -265,10 +268,9 @@ COMPONENT_INIT
 
     Test_taf_Hms_MtdDevInfo();
 
-    CreateThreadForModemMonitor();
+    Test_taf_Hms_GetbootInfo();
 
-    taf_hms_RemoveModemEvtHandler(modemStatusHandlerRef);
-    LE_TEST_OK(true, "taf_hms_RemoveModemStatusHandler - void");
+    TestModemEventHandlerRegistration();
 
     LE_INFO("---------- All Tests Complete --------------------------");
     exit(EXIT_SUCCESS);

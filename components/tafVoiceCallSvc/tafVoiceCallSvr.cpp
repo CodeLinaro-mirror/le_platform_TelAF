@@ -28,6 +28,13 @@
  */
 
 /*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+
+/*
  * @file       tafVoiceCallSvr.cpp
  * @brief      This file provides the taf voice call service as interfaces described
  *             in taf_voicecall.api. The voice call service will be started automatically.
@@ -42,17 +49,14 @@
 
 using namespace telux::tel;
 using namespace telux::common;
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 
 COMPONENT_INIT
 {
     LE_INFO("tafVoiceCall Service Init...\n");
-    auto &myCall = taf_VoiceCall::GetInstance();
+    auto &myCall = VoiceCallSvc::GetInstance();
     myCall.Init();
-
-    // install the handler
-    taf_Handler myHandler;
 
     LE_INFO(" Voice Call service Ready...\n");
 
@@ -75,7 +79,7 @@ taf_voicecall_StateHandlerRef_t taf_voicecall_AddStateHandler
 {
     TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Input handlerPtr is NULL!");
 
-    auto &myCall = taf_VoiceCall::GetInstance();
+    auto &myCall = VoiceCallSvc::GetInstance();
     taf_voicecall_StateHandlerRef_t  handlerRef;
 
     taf_SessionCtx_t* sessionCtxPtr = myCall.GetSessionCtx(taf_voicecall_GetClientSessionRef());
@@ -108,7 +112,7 @@ void taf_voicecall_RemoveStateHandler
 )
 {
     TAF_ERROR_IF_RET_NIL(handlerRef == NULL, "HandlerPtr is NULL!");
-    auto &myCall = taf_VoiceCall::GetInstance();
+    auto &myCall = VoiceCallSvc::GetInstance();
     myCall.RemoveStateHandlerCtx(taf_voicecall_GetClientSessionRef(), handlerRef);
 }
 
@@ -130,8 +134,7 @@ taf_voicecall_CallRef_t taf_voicecall_Start
     TAF_ERROR_IF_RET_VAL(destinationID == NULL, NULL, "destinationID is NULL!");
     TAF_ERROR_IF_RET_VAL(phoneId > MAX_PHONE_ID, NULL, "phoneId[%d] is invalid!", MAX_PHONE_ID);
 
-    auto &myCall = taf_VoiceCall::GetInstance();
-    callReq_t req;
+    auto &myCall = VoiceCallSvc::GetInstance();
     taf_voicecall_CallRef_t callRef = NULL;
 
     taf_SessionCtx_t* sessionCtxPtr = myCall.GetSessionCtx(taf_voicecall_GetClientSessionRef());
@@ -141,39 +144,39 @@ taf_voicecall_CallRef_t taf_voicecall_Start
         TAF_ERROR_IF_RET_VAL((!sessionCtxPtr), NULL, "Impossible to create the session context");
     }
 
-    req.callCtrlPtr = myCall.GetCallCtx(phoneId, destinationID);
-    if (req.callCtrlPtr != NULL)
+    taf_VoiceCtrl_t *callCtrlPtr = myCall.GetCallCtx(phoneId, destinationID, taf_voicecall_Direction_t::OUTGOING);
+    if (callCtrlPtr != NULL)
     {
+        LE_INFO("callCtx is created: %p", callCtrlPtr);
         // if this callCtrl is already created, and the call is in progress, return error
-        if ((req.callCtrlPtr->isInProgress == true) && (req.callCtrlPtr->event != TAF_VOICECALL_EVENT_ENDED))
+        if ((callCtrlPtr->isInProgress == true) && (callCtrlPtr->event != TAF_VOICECALL_EVENT_ENDED))
         {
             LE_ERROR("The callCtrl bind with phone(%d) and number(%s) is in progress!", phoneId, destinationID);
             return NULL;
         }
         // the case callCtx is not owned by this session, add sessionRef to it and add 1 to mem_ref
-        else if (myCall.GetSessionRefNodeFromCallCtx(req.callCtrlPtr, taf_voicecall_GetClientSessionRef()) == NULL)
+        else if (myCall.GetSessionRefNodeFromCallCtx(callCtrlPtr, taf_voicecall_GetClientSessionRef()) == NULL)
         {
             LE_INFO("Cannot get sessionRef from callCtrlPtr!");
-            myCall.SetSessionRefToCallCtx(req.callCtrlPtr, taf_voicecall_GetClientSessionRef());
+            myCall.SetSessionRefToCallCtx(callCtrlPtr, taf_voicecall_GetClientSessionRef());
         }
 
-        callRef = req.callCtrlPtr->callRef;
+        callRef = callCtrlPtr->callRef;
     }
     else
     {
         LE_INFO("Create callCtrl for phone(%d) and dest(%s)", phoneId, destinationID);
-        req.callCtrlPtr = myCall.CreateCallCtx(phoneId, destinationID);
-        TAF_ERROR_IF_RET_VAL((req.callCtrlPtr == NULL), NULL, "Cannot create callCtrl for phone(%d) dest(%s)", phoneId, destinationID);
+        callCtrlPtr = myCall.CreateCallCtx(phoneId, destinationID, taf_voicecall_Direction_t::OUTGOING);
+        TAF_ERROR_IF_RET_VAL((callCtrlPtr == NULL), NULL, "Cannot create callCtrl for phone(%d) dest(%s)", phoneId, destinationID);
 
-        callRef = myCall.SetCallRef(req.callCtrlPtr); //myCall.setCallRefToSessionCtx(req.callCtrlPtr, sessionCtxPtr);
+        callRef = myCall.SetCallRef(callCtrlPtr); //myCall.setCallRefToSessionCtx(req.callCtrlPtr, sessionCtxPtr);
         TAF_ERROR_IF_RET_VAL((callRef == NULL), NULL, "cannot link callRef to SessionCtx");
 
-        le_result_t leRet = myCall.SetSessionRefToCallCtx(req.callCtrlPtr, taf_voicecall_GetClientSessionRef());
+        le_result_t leRet = myCall.SetSessionRefToCallCtx(callCtrlPtr, taf_voicecall_GetClientSessionRef());
         TAF_ERROR_IF_RET_VAL((leRet != LE_OK), NULL, "set sessionRef to callCtx failed");
     }
 
-    req.cmdID = CMD_START_CALL;
-    le_event_Report(myCall.ReqEvent, &req, sizeof(callReq_t));
+    myCall.MakeCall(callCtrlPtr, destinationID, phoneId);
 
     return callRef;
 }
@@ -193,18 +196,13 @@ le_result_t taf_voicecall_End
     taf_voicecall_CallRef_t reference
 )
 {
-    callReq_t req;
-    auto &myCall = taf_VoiceCall::GetInstance();
+    //callReq_t req;
+    auto &myCall = VoiceCallSvc::GetInstance();
 
     taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(myCall.CallCtrlRefMap, (void*)reference);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get callCtx from ref(%p)", reference);
 
-    req.cmdID = CMD_END_CALL;
-    req.callRef = reference;
-    req.sessionRef = taf_voicecall_GetClientSessionRef();
-    le_event_Report(myCall.ReqEvent, &req, sizeof(callReq_t));
-
-    return LE_OK;
+    return myCall.StopCall(reference, taf_voicecall_GetClientSessionRef());
 }
 
 /*======================================================================
@@ -222,7 +220,7 @@ le_result_t taf_voicecall_Delete
     taf_voicecall_CallRef_t reference
 )
 {
-    auto &myCall = taf_VoiceCall::GetInstance();
+    auto &myCall = VoiceCallSvc::GetInstance();
 
     taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(myCall.CallCtrlRefMap, (void*)reference);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get callCtx from ref(%p)", reference);
@@ -245,18 +243,13 @@ le_result_t taf_voicecall_Answer
     taf_voicecall_CallRef_t reference
 )
 {
-    callReq_t req;
-    auto &myCall = taf_VoiceCall::GetInstance();
+    //callReq_t req;
+    auto &myCall = VoiceCallSvc::GetInstance();
 
     taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(myCall.CallCtrlRefMap, (void*)reference);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get callCtx from ref(%p)", reference);
 
-    req.cmdID = CMD_ANSWER_CALL;
-    req.callRef = reference;
-    req.sessionRef = taf_voicecall_GetClientSessionRef();
-    le_event_Report(myCall.ReqEvent, &req, sizeof(callReq_t));
-
-    return LE_OK;
+    return myCall.AnswerCall(reference, taf_voicecall_GetClientSessionRef());
 }
 
 /*======================================================================
@@ -278,7 +271,7 @@ le_result_t taf_voicecall_GetEndCause
 {
     TAF_ERROR_IF_RET_VAL(causePtr == NULL, LE_FAULT, "causePtr is NULL");
 
-    auto &myCall = taf_VoiceCall::GetInstance();
+    auto &myCall = VoiceCallSvc::GetInstance();
 
     taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(myCall.CallCtrlRefMap, (void*)reference);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get callCtx from ref(%p)", reference);
@@ -303,18 +296,13 @@ le_result_t taf_voicecall_Hold
     taf_voicecall_CallRef_t reference
 )
 {
-    callReq_t req;
-    auto &myCall = taf_VoiceCall::GetInstance();
+    //callReq_t req;
+    auto &myCall = VoiceCallSvc::GetInstance();
 
     taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(myCall.CallCtrlRefMap, (void*)reference);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get callCtx from ref(%p)", reference);
 
-    req.cmdID = CMD_HOLD_CALL;
-    req.callRef = reference;
-    req.sessionRef = taf_voicecall_GetClientSessionRef();
-    le_event_Report(myCall.ReqEvent, &req, sizeof(callReq_t));
-
-    return LE_OK;
+    return myCall.HoldCall(reference, taf_voicecall_GetClientSessionRef());
 }
 
 /*======================================================================
@@ -331,16 +319,13 @@ le_result_t taf_voicecall_Resume
     taf_voicecall_CallRef_t reference
 )
 {
-    callReq_t req;
-    auto &myCall = taf_VoiceCall::GetInstance();
+    //callReq_t req;
+    auto &myCall = VoiceCallSvc::GetInstance();
 
     taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(myCall.CallCtrlRefMap, (void*)reference);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get callCtx from ref(%p)", reference);
 
-    req.cmdID = CMD_RESUME_CALL;
-    req.callRef = reference;
-    req.sessionRef = taf_voicecall_GetClientSessionRef();
-    le_event_Report(myCall.ReqEvent, &req, sizeof(callReq_t));
+    myCall.ResumeCall(reference, taf_voicecall_GetClientSessionRef());
 
     return LE_OK;
 }
@@ -359,17 +344,11 @@ le_result_t taf_voicecall_Swap
     taf_voicecall_CallRef_t reference
 )
 {
-    callReq_t req;
-    auto &myCall = taf_VoiceCall::GetInstance();
+    auto &myCall = VoiceCallSvc::GetInstance();
 
     taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(myCall.CallCtrlRefMap, (void*)reference);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get callCtx from ref(%p)", reference);
 
-    req.cmdID = CMD_SWAP_CALL;
-    req.callRef = reference;
-    req.sessionRef = taf_voicecall_GetClientSessionRef();
-    le_event_Report(myCall.ReqEvent, &req, sizeof(callReq_t));
-
-    return LE_OK;
+    return myCall.SwapCall(reference, taf_voicecall_GetClientSessionRef());
 }
 

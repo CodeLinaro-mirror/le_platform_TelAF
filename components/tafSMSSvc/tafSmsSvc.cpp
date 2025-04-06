@@ -25,12 +25,14 @@
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
+
+/*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 
 /*
  * @file       tafSMSSvc.cpp
@@ -55,7 +57,7 @@
 
 using namespace telux::tel;
 using namespace telux::common;
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace std;
 
 /*======================================================================

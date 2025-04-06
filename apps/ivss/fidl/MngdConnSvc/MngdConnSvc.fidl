@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -11,7 +11,7 @@ package com.qualcomm.qti.telephony
             
 **/
 typeCollection MngdConnSvcTypes {
-    version { major 2 minor 0 }
+    version { major 3 minor 0 }
     
     /**
         @description :
@@ -93,6 +93,9 @@ typeCollection MngdConnSvcTypes {
         
         /** The operation is suspended.  **/
         TELEPHONY_RESULT_T_SUSPENDED = 24
+        
+        /** @deprecated It is not possible to perform the requested action.  **/
+        TELEPHONY_RESULT_T_NOT_POSSIBLE = 25
             
     }
     
@@ -169,7 +172,11 @@ typeCollection MngdConnSvcTypes {
             @experimental : variable_type_max_size: 46
         **/
         UInt32 ipMask
-          
+        
+        /**
+            @description : The maximum transmission unit. 
+        **/
+        UInt16 mtu
     }
     
 }
@@ -179,7 +186,7 @@ typeCollection MngdConnSvcTypes {
 
 **/
 interface MngdConnSvc {
-    version { major 2 minor 0 }
+    version { major 3 minor 0 }
     
 
     /**

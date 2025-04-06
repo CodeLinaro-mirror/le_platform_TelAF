@@ -36,7 +36,7 @@ cxxflags:
     -I$LEGATO_BUILD/framework/libjansson/include
     -I$TELAF_ROOT/include
     -I$TELAF_ROOT/components/tafHalComp
-    -I$TELAF_ROOT/include/staging/plugin
+    -I$TELAF_ROOT/include/plugin
 }
 
 cflags:

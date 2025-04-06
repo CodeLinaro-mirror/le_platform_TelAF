@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -11,7 +11,7 @@ package com.qualcomm.qti.telephony
             
 **/
 typeCollection RadioSvcTypes {
-    version { major 2 minor 0 }
+    version { major 2 minor 1 }
     
     /**
         @description :
@@ -110,6 +110,9 @@ typeCollection RadioSvcTypes {
         
         /** The operation is suspended.  **/
         TELEPHONY_RESULT_T_SUSPENDED = 24
+        
+        /** @deprecated It is not possible to perform the requested action.  **/
+        TELEPHONY_RESULT_T_NOT_POSSIBLE = 25
             
     }
     
@@ -395,7 +398,7 @@ typeCollection RadioSvcTypes {
 
 **/
 interface RadioSvc {
-    version { major 2 minor 0 }
+    version { major 2 minor 1 }
     
 
     /**
@@ -500,7 +503,39 @@ interface RadioSvc {
 
         }
     }
-    
+   /**
+        
+        @description :
+            Event to report radio access technology change.
+                        
+        @experimental: asil-level  : ASIL_QM
+        
+        @experimental: Exclusion_time  : 500 ms
+    **/
+    broadcast RadioRat {
+        out 
+        {
+
+            /**
+                @description : None 
+                
+            **/
+            RadioSvcTypes.ValueState valueState
+
+            /**
+                @description : Phone ID. 
+                
+            **/
+            RadioSvcTypes.PhoneIdT phoneId
+
+            /**
+                @description : Radio Access Technology 
+                
+            **/
+            RadioSvcTypes.RadioRatT radioRat
+
+        }
+    }
     
     
         
@@ -529,13 +564,13 @@ interface RadioSvc {
         out {
 
             /**
-                @description : Received signal strength indicator in dBm. 
+                @description : Received signal strength indicator in dBm, 0x7FFFFFFF is unavailable. 
                 
             **/
             Int32 rssi
 
             /**
-                @description : Bit error rate, valid from 0 to 7. 
+                @description : Bit error rate, valid from 0 to 7, 0x7FFFFFFF is unavailable. 
                 
             **/
             UInt32 ber
@@ -576,7 +611,7 @@ interface RadioSvc {
         out {
 
             /**
-                @description : Signal strength in dBm. 
+                @description : Signal strength in dBm, 0x7FFFFFFF is unavailable. 
                 
             **/
             Int32 ss
@@ -588,7 +623,7 @@ interface RadioSvc {
             UInt32 ber
 
             /**
-                @description : Receive signal channel power in dBm. 
+                @description : Receive signal channel power in dBm, 0x7FFFFFFF is unavailable. 
                 
             **/
             Int32 rscp
@@ -629,25 +664,25 @@ interface RadioSvc {
         out {
 
             /**
-                @description : Signal strength in dBm. 
+                @description : Signal strength in dBm, 0x7FFFFFFF is unavailable. 
                 
             **/
             Int32 ss
 
             /**
-                @description : Reference signal receive quality in dB. 
+                @description : Reference signal receive quality in dB, 0x7FFFFFFF is unavailable. 
                 
             **/
             Int32 rsrq
 
             /**
-                @description : Reference signal receive power in dBm. 
+                @description : Reference signal receive power in dBm, 0x7FFFFFFF is unavailable. 
                 
             **/
             Int32 rsrp
 
             /**
-                @description : Signal-to-noise ratio in units of 0.1 dB. 
+                @description : Signal-to-noise ratio in units of 0.1 dB, 0x7FFFFFFF is unavailable. 
                 
             **/
             Int32 snr
@@ -688,19 +723,19 @@ interface RadioSvc {
         out {
 
             /**
-                @description : Reference Signal Receive Quality in dB. 
+                @description : Reference Signal Receive Quality in dB, 0x7FFFFFFF is unavailable. 
                 
             **/
             Int32 rsrq
 
             /**
-                @description : Reference Signal Receive Power in dBm. 
+                @description : Reference Signal Receive Power in dBm, 0x7FFFFFFF is unavailable. 
                 
             **/
             Int32 rsrp
 
             /**
-                @description : Signal-to-Noise Ratio in units of 0.1 dB. 
+                @description : Signal-to-Noise Ratio in units of 0.1 dB, 0x7FFFFFFF is unavailable. 
                 
             **/
             Int32 snr
@@ -1164,6 +1199,48 @@ interface RadioSvc {
                 
             **/
             RadioSvcTypes.RadioNetRegStateT netReg
+
+            /**
+                @description : result code defined in Result. 
+                
+            **/
+            RadioSvcTypes.TelephonyResultT result
+
+        }
+            
+    }
+            
+        
+            
+    /**
+        @description :
+            Gets the radio state.
+                        
+        @experimental: asil-level  : 
+        @experimental: Periodicity : ms
+        @experimental: Exclusion_time :  ms
+    **/
+    method GetRadioState {
+            
+        in 
+        {
+
+            /**
+                @description : Phone ID. 
+                
+            **/
+            RadioSvcTypes.PhoneIdT phoneId
+
+        }
+            
+            
+        out {
+
+            /**
+                @description : Radio state 
+                
+            **/
+            RadioSvcTypes.RadioStateT radioState
 
             /**
                 @description : result code defined in Result. 

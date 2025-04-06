@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -20,9 +20,8 @@
 #include <telux/platform/PlatformFactory.hpp>
 
 using namespace telux::common;
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace telux::platform;
-namespace telux {
 namespace tafsvc {
 #ifdef LE_CONFIG_GET_IMEI_SUPPORT
     class tafdevinfoServiceStatusListener : public telux::platform::IDeviceInfoListener {
@@ -46,7 +45,6 @@ namespace tafsvc {
         std::shared_ptr<IDeviceInfoManager> deviceInfoManager = nullptr;
 #endif
     };
-}
 }
 
 #endif

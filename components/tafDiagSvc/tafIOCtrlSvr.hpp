@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -85,8 +85,6 @@ typedef struct
  * Diag IOCtrl Server Service Class
  */
 //--------------------------------------------------------------------------------------------------
-namespace telux
-{
     namespace tafsvc
     {
         class taf_IOCtrlSvr : public ITafSvc, public taf_UDSInterface
@@ -157,5 +155,4 @@ namespace telux
                 le_event_HandlerRef_t ReqEventHandlerRef;
         };
     }
-}
 #endif /* #ifndef TAF_IO_CTRL_SVR_HPP */

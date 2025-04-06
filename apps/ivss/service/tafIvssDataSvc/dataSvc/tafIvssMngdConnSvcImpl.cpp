@@ -1,11 +1,11 @@
 /*
-* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
 #include "tafIvssMngdConnSvc.hpp"
 
-using namespace v2::com::qualcomm::qti::telephony;
+using namespace v3::com::qualcomm::qti::telephony;
 
 taf_IvssMngdConn_DataInfo_t DataTable[IVSS_MAX_DATA_NUM] = {};
 taf_mngdConn_DataStateHandlerRef_t DataStateHandlerRef[IVSS_MAX_DATA_NUM] = {};
@@ -313,6 +313,10 @@ void tafIvssMngdConnSvc::GetDataIpv4InfoHandler
     TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
         "taf_dcs_GetIPv4SubnetMask failed - %s", LE_RESULT_TXT(indPtr->result));
 
+    indPtr->result = taf_dcs_GetMtu(profileRef, &indPtr->getDataIpv4Info.mtu);
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_dcs_GetMtu failed - %s", LE_RESULT_TXT(indPtr->result));
+
     le_sem_Post(indPtr->semRef);
 }
 
@@ -343,7 +347,8 @@ void tafIvssMngdConnSvc::GetDataIpv4Info
     _reply(std::string(indPtr->getDataIpv4Info.ifName), MngdConnSvcTypes::MngdConnDataIpInfoT{
         indPtr->getDataIpv4Info.ipAddr, indPtr->getDataIpv4Info.gatewayAddr,
         indPtr->getDataIpv4Info.dns1Addr, indPtr->getDataIpv4Info.dns2Addr,
-        indPtr->getDataIpv4Info.ipMask}, ResultLeToIvssMngdConn(indPtr->result));
+        indPtr->getDataIpv4Info.ipMask, indPtr->getDataIpv4Info.mtu},
+        ResultLeToIvssMngdConn(indPtr->result));
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);

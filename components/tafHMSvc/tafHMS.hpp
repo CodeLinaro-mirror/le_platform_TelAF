@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -60,6 +60,9 @@ using namespace std;
 #define TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_MEDIUM 2
 #define TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_HIGH 3
 #define TAF_HMS_SUBSYSTEM_MANAGER_TIMEOUT 30
+
+// For reset reason
+#define TAF_HMS_BOOT_REASON_PATH "/sys/kernel/reboot_reason/reason"
 
 
 //-------------------------------------------------------------------------------------------------
@@ -181,7 +184,21 @@ typedef struct
 
 //-------------------------------------------------------------------------------------------------
 /**
-* Structure to hold the Modem Event Info
+* Structure to hold the Modem Info
+*/
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_hms_ModemEvtHandlerRef_t handlerRef = NULL;
+    taf_hms_ModemEvtHandlerFunc_t handlerFunc = NULL;
+    uint8_t ModemCrashCounter = 0;
+    le_timer_Ref_t resetTimer = NULL;
+    void* contextPtr;
+}taf_hms_modemInfo_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+* Structure to hold the Modem Info
 */
 //-------------------------------------------------------------------------------------------------
 typedef struct
@@ -189,9 +206,36 @@ typedef struct
     taf_hms_ModemEvtType_t eventType;
     taf_hms_ModemEvtSeverity_t eventLevel;
     taf_hms_ModemEventRef_t  ref;
+    taf_hms_modemInfo_t* modemInfo;
 }taf_hms_modemEventInfo_t;
 
-namespace telux {
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reset type enum
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_HMS_BOOTREASON_NORMAL = 0,
+    TAF_HMS_BOOTREASON_RECOVERY = 1,
+    TAF_HMS_BOOTREASON_BOOTLOADER = 2,
+    TAF_HMS_BOOTREASON_RTC = 3,
+    TAF_HMS_BOOTREASON_DMVERITY_DEV_CORRUPTED = 4,
+    TAF_HMS_BOOTREASON_DMVERITY_ENFORCING = 5,
+    TAF_HMS_BOOTREASON_DMVERITY_KEYS_CLEAR = 6,
+    TAF_HMS_BOOTREASON_PANIC = 7,
+    TAF_HMS_BOOTREASON_WATCHDOG_BARK = 8,
+    TAF_HMS_BOOTREASON_ADMIN_TRIGGER = 9,
+    TAF_HMS_BOOTREASON_USER = 10,
+    TAF_HMS_BOOTREASON_UNKNOWN
+}
+taf_hms_SubReason_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Health Monitor Service Class
+ */
+//--------------------------------------------------------------------------------------------------
 namespace tafsvc {
     class tafHmsListener : public telux::platform::ISubsystemListener {
         public:
@@ -205,12 +249,10 @@ namespace tafsvc {
         void onStateChange(telux::common::SubsystemInfo subsystemInfo,
             telux::common::OperationalStatus newOperationalStatus) override;
 
-        void StartResetTimer();
-        void DeleteResetTime();
-        static uint8_t ModemCrashCounter;
+        void StartResetTimer(taf_hms_modemInfo_t* modemEventInfoPtr);
+        void DeleteResetTime(taf_hms_modemInfo_t* modemEventInfoPtr);
 
         private:
-            le_timer_Ref_t resetTimer;
             static bool ModemAvailability;
     };
 
@@ -265,11 +307,18 @@ namespace tafsvc {
                 uint32_t* mtdDevIdPtr);
             taf_hms_ModemEvtHandlerRef_t AddModemEvtHandler(
                 taf_hms_ModemEvtHandlerFunc_t handlerPtr, void* contextPtr);
-            static void ModemStatusChangeNotify(void* reportPtr,void* secondLayerHandlerFunc);
+            static void ModemStatusChangeNotify(void* reportPtr);
             void RemoveModemEvtHandler(taf_hms_ModemEvtHandlerRef_t handlerRef);
             le_result_t ReleaseModemEvt(taf_hms_ModemEventRef_t  eventRef);
-            bool isModemMonitorHandlerRegisterd = false;
             le_event_Id_t ModemStatusChangeId;
+            le_ref_MapRef_t ModemInfoRefMap;
+            le_ref_MapRef_t ModemEventInfoRefMap;
+            le_mem_PoolRef_t ModemEventInfoPool;
+
+            le_result_t ReadReason(const std::string& filePath,
+                taf_hms_SubReason_t* reason, char* reasonStr);
+            le_result_t GetResetInformation(taf_hms_Reset_t* resetPtr,
+                char* resetSpecificInfoStr, size_t resetSpecificInfoStrSize);
 
         private:
             le_mem_PoolRef_t UbiDevListPool;
@@ -278,7 +327,7 @@ namespace tafsvc {
             le_mem_PoolRef_t UbiVolInfoPool;
             le_mem_PoolRef_t MtdListPool;
             le_mem_PoolRef_t MtdInfoPool;
-            le_mem_PoolRef_t ModemStatuChangeInfoPool;
+            le_mem_PoolRef_t ModemInfoPool;
 
             le_ref_MapRef_t UbiDevListRefMap;
             le_ref_MapRef_t UbiDevRefMap;
@@ -286,10 +335,8 @@ namespace tafsvc {
             le_ref_MapRef_t UbiVolRefMap;
             le_ref_MapRef_t MtdListRefMap;
             le_ref_MapRef_t MtdRefMap;
-            le_ref_MapRef_t ModemStatuChangeRefMap;
 
             std::shared_ptr<telux::platform::ISubsystemManager> subsystemMgr;
             std::shared_ptr<tafHmsListener> stateListener;
     };
   }
-}

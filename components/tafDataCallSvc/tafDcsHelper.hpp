@@ -14,8 +14,6 @@
 #include "telux/data/DataDefines.hpp"
 #include "telux/common/ConnectivityDefines.hpp"
 
-namespace telux
-{
     namespace tafsvc
     {
         class taf_DCSHelper
@@ -78,5 +76,4 @@ namespace telux
                                             (telux::common::HandoffReasonCode endReasonCode);
         };
     } // namespace tafsvc
-} // namespace telux
 

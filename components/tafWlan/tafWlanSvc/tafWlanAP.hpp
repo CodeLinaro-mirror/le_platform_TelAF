@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -18,8 +18,6 @@
 
 #define HOSTAPD_LOCATION_PATH "/var/run/hostapd/"
 
-namespace telux
-{
     namespace tafsvc
     {
         typedef struct
@@ -112,7 +110,7 @@ namespace telux
             std::shared_ptr<telux::wlan::IApInterfaceManager> wlanAPMgr;
 
             // The WLAN AP Listener class object
-            std::shared_ptr<telux::tafsvc::taf_WlanAPListener> wlanAPListener;
+            std::shared_ptr<tafsvc::taf_WlanAPListener> wlanAPListener;
 
             // AP Reference map
             le_ref_MapRef_t APRefMap = nullptr;
@@ -148,4 +146,3 @@ namespace telux
             static void OnWlanSvcClientDisconnect(le_msg_SessionRef_t sessionRef, void *context);
         };
     } // namespace tafsvc
-} // namespace telux

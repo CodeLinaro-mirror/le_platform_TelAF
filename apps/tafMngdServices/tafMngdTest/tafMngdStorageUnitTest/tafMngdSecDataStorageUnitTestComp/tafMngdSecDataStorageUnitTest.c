@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "legato.h"
 #include "interfaces.h"
@@ -44,6 +16,7 @@
 #define OP_SHARE     "share"
 #define OP_CANCEL    "cancel"
 #define OP_GET       "get"
+#define OP_NEXT      "next"
 
 #define TEST_DATA_LABEL "testdata"
 #define MSS_SECURE_STORAGE_SIZE 8192
@@ -85,8 +58,8 @@ __attribute__((unused)) static void PrintUsage()
          "-------- To get the name of application that the given data is shared to. --------\n"
          "app runProc tafMngdStorageUnitTest --exe=tafMngdSecDataStorageUnitTest -- get <label>\n"
          "\n"
-         "-------- To Get the next application that the given data is shared to --------\n"
-         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecDataStorageUnitTest -- next <label>\n"
+         "-------- To get the next <n> applications that the given data is shared to --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdSecDataStorageUnitTest -- next <label> <n>\n"
          "\n");
 }
 
@@ -303,16 +276,26 @@ __attribute__((unused)) static void Test_Secure_Data_Sharing()
 {
     const char* sharedAppNameList[] = {"Shared_App1", "Shared_App2",
                                        "Shared_App3", "Shared_App4",
-                                       "Shared_App5"};
+                                       "Shared_App5", "Shared_App6",
+                                       "Shared_App7", "Shared_App8",
+                                       "Shared_App9", "Shared_App10",
+                                       "Shared_App11", "Shared_App12"};
 
-    const taf_mngdStorSecData_DataUsage_t usageList[] = {TAF_MNGDSTORSECDATA_USAGE_READ,
-                                                         TAF_MNGDSTORSECDATA_USAGE_WRITE,
-                                                         TAF_MNGDSTORSECDATA_USAGE_READ,
-                                                         TAF_MNGDSTORSECDATA_USAGE_WRITE,
-                                                         TAF_MNGDSTORSECDATA_USAGE_READ_WRITE};
+const taf_mngdStorSecData_DataUsage_t usageList[] = {TAF_MNGDSTORSECDATA_USAGE_READ,
+                                                     TAF_MNGDSTORSECDATA_USAGE_WRITE,
+                                                     TAF_MNGDSTORSECDATA_USAGE_READ,
+                                                     TAF_MNGDSTORSECDATA_USAGE_WRITE,
+                                                     TAF_MNGDSTORSECDATA_USAGE_READ_WRITE,
+                                                     TAF_MNGDSTORSECDATA_USAGE_READ,
+                                                     TAF_MNGDSTORSECDATA_USAGE_WRITE,
+                                                     TAF_MNGDSTORSECDATA_USAGE_READ,
+                                                     TAF_MNGDSTORSECDATA_USAGE_WRITE,
+                                                     TAF_MNGDSTORSECDATA_USAGE_READ_WRITE,
+                                                     TAF_MNGDSTORSECDATA_USAGE_READ,
+                                                     TAF_MNGDSTORSECDATA_USAGE_WRITE};
 
-    char appName[5][LE_LIMIT_APP_NAME_LEN + 1] = { 0 };
-    taf_mngdStorSecData_DataUsage_t usage[5] = { 0 };
+    char appName[TAF_MNGDSTORSECDATA_MAX_SHARED_APP_NUM][LE_LIMIT_APP_NAME_LEN + 1] = { 0 };
+    taf_mngdStorSecData_DataUsage_t usage[TAF_MNGDSTORSECDATA_MAX_SHARED_APP_NUM] = { 0 };
 
     le_result_t res;
 
@@ -356,8 +339,8 @@ __attribute__((unused)) static void Test_Secure_Data_Sharing()
     {
         LE_TEST_ASSERT(LE_OK ==
                         taf_mngdStorSecData_GetNextSharedApp(dataRef,
-                                                                appName[0], LE_LIMIT_APP_NAME_LEN + 1,
-                                                                &usage[0]),
+                                                             appName[0], LE_LIMIT_APP_NAME_LEN + 1,
+                                                             &usage[0]),
                     "Test taf_mngdStorSecData_GetNextSharedApp");
         i++;
     }
@@ -577,12 +560,52 @@ __attribute__((unused)) static void Test_Op_Get
 
     printf("Get data: %s first shared app '%s' usage %d succussfully\n", label, appName, usage);
 
-    uint i = 1;
-    while (LE_OK == taf_mngdStorSecData_GetNextSharedApp(dataRef,                                                            appName, LE_LIMIT_APP_NAME_LEN + 1,
-                                                            &usage))
+    fflush(stdout);
+}
+
+
+__attribute__((unused)) static void Test_Op_Next
+(
+    const char* label,
+    const char* times
+)
+{
+    if(label == NULL)
     {
+        LE_ERROR("Bad paremeter");
+        exit(1);
+    }
+
+    if(times == NULL)
+    {
+        LE_ERROR("Bad paremeter");
+        exit(1);
+    }
+
+    uint n = 0;
+
+    n = strtoul(times, NULL, 10);
+
+    le_result_t res;
+
+    dataRef = taf_mngdStorSecData_GetDataRef(label);
+
+    LE_TEST_ASSERT(dataRef != NULL, "Test taf_mngdStorSecData_GetDataRef");
+
+    char appName[LE_LIMIT_APP_NAME_LEN + 1];
+    taf_mngdStorSecData_DataUsage_t usage;
+
+    res = taf_mngdStorSecData_GetFirstSharedApp(dataRef, appName, sizeof(appName), &usage);
+
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSecData_GetFirstSharedApp");
+
+    for(uint i = 0; i < n; i++)
+    {
+        res = taf_mngdStorSecData_GetNextSharedApp(dataRef, appName, sizeof(appName), &usage);
+
+        LE_TEST_ASSERT(res == LE_OK, "Test taf_mngdStorSecData_GetNextSharedApp");
+
         printf("Get data: %s next shared app '%s' usage %d succussfully\n", label, appName, usage);
-        i++;
     }
 
     fflush(stdout);
@@ -664,6 +687,10 @@ COMPONENT_INIT
         else if (strcmp(operation, OP_GET) == 0)
         {
             Test_Op_Get(op_label);
+        }
+        else if (strcmp(operation, OP_NEXT) == 0)
+        {
+            Test_Op_Next(op_label, op_para1);
         }
         else
         {

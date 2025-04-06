@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -7,7 +7,7 @@
 #include "interfaces.h"
 #include "tafHMS.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace std;
 
 
@@ -525,7 +525,7 @@ void taf_hms_RemoveModemEvtHandler(taf_hms_ModemEvtHandlerRef_t handlerRef)
  *
  *
  * PARAMETERS      [IN] event reference.
- * 
+ *
  * @return
  * - LE_FAULT         Failed.
  * - LE_OK            Succeeded.
@@ -538,6 +538,39 @@ le_result_t taf_hms_ReleaseModemEvt(taf_hms_ModemEventRef_t eventRef)
     return hms.ReleaseModemEvt(eventRef);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the last reset information reason
+ *
+ * @return
+ *      - LE_OK          on success
+ *      - LE_UNSUPPORTED if it is not supported by the platform
+ *        LE_OVERFLOW    specific reset information length exceeds the maximum length.
+ *      - LE_FAULT       for any other errors
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_hms_GetResetInformation
+(
+    taf_hms_Reset_t* resetPtr,       ///< [OUT] Reset information
+    char* resetSpecificInfoStr,      ///< [OUT] Reset specific information
+    size_t resetSpecificInfoStrSize  ///< [IN]
+)
+{
+    auto &hms = taf_Hms::GetInstance();
+    if (resetPtr == NULL)
+    {
+        LE_ERROR("resetPtr is NULL !");
+        return LE_FAULT;
+    }
+    if (resetSpecificInfoStr == NULL)
+    {
+        LE_ERROR("resetSpecificInfoStr is NULL !");
+        return LE_FAULT;
+    }
+
+    return hms.GetResetInformation(resetPtr, resetSpecificInfoStr, resetSpecificInfoStrSize);
+}
+
 /**
  * The initialization of TelAF Health Monitor component.
 */
@@ -548,3 +581,4 @@ COMPONENT_INIT
     hms.Init();
     LE_INFO("TelAF Health Monitor Service init completed...");
 }
+

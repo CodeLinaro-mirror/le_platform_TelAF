@@ -592,10 +592,11 @@ int taf_piHash_GetRunTimeHash
 )
 {
     // 1. Open partition.
-    le_result_t result = taf_lib_flash_OpenPartition(partitionPtr, O_RDONLY);
+    int errCode = 0;
+    le_result_t result = taf_lib_flash_OpenPartition(partitionPtr, O_RDONLY, &errCode);
     if (result != LE_OK)
     {
-        LE_ERROR("Fail to open partition.");
+        LE_ERROR("Fail to open partition, error: %s", strerror(errCode));
         return -1;
     }
 
@@ -637,10 +638,10 @@ int taf_piHash_GetRunTimeHash
     {
         if (partitionPtr->eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
         {
-            result = taf_lib_flash_GetMtdSize(partitionPtr, &cfgPtr->imageSize);
+            result = taf_lib_flash_GetMtdSize(partitionPtr, &cfgPtr->imageSize, &errCode);
             if (result != LE_OK)
             {
-                LE_ERROR("Fail to get mtd partition size.");
+                LE_ERROR("Fail to get mtd partition size, error: %s", strerror(errCode));
                 EVP_MD_CTX_free(md_ctx);
                 return -1;
             }
@@ -665,10 +666,10 @@ int taf_piHash_GetRunTimeHash
     for (i = 0; i < iteration; i++)
     {
         rdSize = HASH_PAGE_SIZE;
-        result = taf_lib_flash_ReadPartition(partitionPtr, i * HASH_PAGE_SIZE, content, &rdSize);
+        result = taf_lib_flash_ReadPartition(partitionPtr, i * HASH_PAGE_SIZE, content, &rdSize, &errCode);
         if (result != LE_OK)
         {
-            LE_ERROR("Fail to read partition at iteration %d.", i);
+            LE_ERROR("Fail to read partition at iteration %d, error: %s", i, strerror(errCode));
             EVP_MD_CTX_free(md_ctx);
             return -1;
         }
@@ -682,10 +683,10 @@ int taf_piHash_GetRunTimeHash
     if (rdSize != 0)
     {
         result = taf_lib_flash_ReadPartition(partitionPtr,
-            iteration * HASH_PAGE_SIZE, content, &rdSize);
+            iteration * HASH_PAGE_SIZE, content, &rdSize, &errCode);
         if (result != LE_OK)
         {
-            LE_ERROR("Fail to read the reset of partition.");
+            LE_ERROR("Fail to read the reset of partition, error: %s", strerror(errCode));
             EVP_MD_CTX_free(md_ctx);
             return -1;
         }

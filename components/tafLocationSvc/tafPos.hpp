@@ -25,11 +25,15 @@
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
+
+/*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
+
 
 #include "legato.h"
 #include "interfaces.h"
@@ -60,7 +64,6 @@ using namespace telux::common;
 #define HOURS_TO_SEC           3600
 #define CHECK_VALIDITY(_par_,_max_) (((_par_) == (_max_))? false : true)
 
-namespace telux {
 namespace tafsvc {
 
         typedef struct
@@ -226,4 +229,3 @@ namespace tafsvc {
                 int CurrentActivationsCount;
         };
     }
-}

@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include <string>
 #include "tafUDSCommunicationMgr.hpp"
@@ -40,7 +12,7 @@
 #include "tafSecurityAccess.hpp"
 #include "tafUDSStack.h"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace std;
 using namespace taf::uds;
 
@@ -2214,7 +2186,31 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
         return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
     }
 
-    // Step 2: Authentication check. UDS_0x2E_NRC_34
+    // Step 3: Maximum length check. UDS_0x2E_NRC_13
+    if(recvDataLen > UDS_DATA_SIZE)
+    {
+        LE_WARN("recvDataLen is more than the UDS_DATA_SIZE.");
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    //Step 4: Data record size check. UDS_0x2E_NRC_13
+    try
+    {
+        int dataRecordSize = node.get_child("implementation").get<int>("did_size");
+        //Only check size here, will check data later.
+        if(dataRecordSize != (recvDataLen - UDS_WRITE_DID_REQ_BASE_LEN))
+        {
+            LE_WARN("Data record size is invalid");
+            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        // DID dataRecord size is not configured. Don't check it.
+        LE_WARN("Exception: %s. did_size is not configured for dataId 0x%x", e.what(), dataId);
+    }
+
+    // Step 5: Authentication check. UDS_0x2E_NRC_34
     if (!IsAuthRoleMatched(node))
     {
         LE_DEBUG("DID0x%x is authenticated and authentication state is incorrect.", dataId);
@@ -2276,30 +2272,6 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
     else
     {
         LE_DEBUG("Skip SecurityAccess check as current session is default_session");
-    }
-
-    // Step 3: Maximum length check. UDS_0x2E_NRC_13
-    if(recvDataLen > UDS_DATA_SIZE)
-    {
-        LE_WARN("recvDataLen is more than the UDS_DATA_SIZE.");
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
-
-    //Step 5: Data record size check. UDS_0x2E_NRC_31
-    try
-    {
-        int dataRecordSize = node.get_child("implementation").get<int>("did_size");
-        //Only check size here, will check data later.
-        if(dataRecordSize != (recvDataLen - UDS_WRITE_DID_REQ_BASE_LEN))
-        {
-            LE_WARN("Data record size is invalid");
-            return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
-        }
-    }
-    catch (const std::exception& e)
-    {
-        // DID dataRecord size is not configured. Don't check it.
-        LE_WARN("Exception: %s. did_size is not configured for dataId 0x%x", e.what(), dataId);
     }
 
     // Forbidden check for WDID data record. UDS_0x2E_NRC_31

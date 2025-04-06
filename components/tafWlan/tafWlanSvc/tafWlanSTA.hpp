@@ -24,8 +24,6 @@
 
 #define WPA_SUPPLICANT_LOCATION_PATH "/var/run/wpa_supplicant/"
 
-namespace telux
-{
     namespace tafsvc
     {
         //------------------------------------------------------------------------------------------
@@ -207,7 +205,7 @@ namespace telux
             // The WLAN STA Manager
             std::shared_ptr<telux::wlan::IStaInterfaceManager> wlanSTAMgr;
             // The WLAN STA Listener class object
-            std::shared_ptr<telux::tafsvc::taf_WlanSTAListener> wlanSTAListener;
+            std::shared_ptr<tafsvc::taf_WlanSTAListener> wlanSTAListener;
 
             // Memory pool for STA context(s)
             le_mem_PoolRef_t STACtxPoolRef = NULL;
@@ -229,4 +227,3 @@ namespace telux
             le_thread_Ref_t  StaCmdThreadRef;
         };
     } // namespace tafsvc
-} // namespace telux

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -13,11 +13,11 @@
 #include <cstring>
 #include <CommonAPI/CommonAPI.hpp>
 #include <tafIvssCommon.hpp>
-#include <v2/com/qualcomm/qti/telephony/MngdConnSvcStubDefault.hpp>
+#include <v3/com/qualcomm/qti/telephony/MngdConnSvcStubDefault.hpp>
 
 #define IVSS_MAX_DATA_NUM 4
 
-using namespace v2::com::qualcomm::qti::telephony;
+using namespace v3::com::qualcomm::qti::telephony;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -68,6 +68,7 @@ typedef struct
     char dns1Addr[TAF_DCS_IPV4_ADDR_MAX_LEN];    ///< [OUT] The Ipv4 primary DNS address.
     char dns2Addr[TAF_DCS_IPV4_ADDR_MAX_LEN];    ///< [OUT] The Ipv4 secondary DNS address.
     uint32_t ipMask;                             ///< [OUT] The Ipv4 mask.
+    uint16_t mtu;                                ///< [OUT] The maximum transmission unit.
 }taf_IvssMngdConn_GetDataIpv4Info_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -301,7 +302,7 @@ inline MngdConnSvcTypes::MngdConnDataStateT DataStateMngdConnToIvss(taf_mngdConn
  * IVSS radio service class
  */
 //--------------------------------------------------------------------------------------------------
-class tafIvssMngdConnSvc: public v2_0::com::qualcomm::qti::telephony::MngdConnSvcStubDefault
+class tafIvssMngdConnSvc: public v3_0::com::qualcomm::qti::telephony::MngdConnSvcStubDefault
 {
 public:
     tafIvssMngdConnSvc() {};

@@ -6,5 +6,5 @@ sources:
 cflags:
 {
     -I $TELAF_ROOT/include
-    -I $TELAF_ROOT/include/staging/vhal
+    -I $TELAF_ROOT/include/vhal
 }

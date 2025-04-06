@@ -56,3 +56,5 @@ allow telaf_tafTimeSvc_t etc_t:file { open read getattr };
 # For updating the delta mseconds to storage
 time_delta_read_write(telaf_tafTimeSvc_t)
 
+# Allow time service to create netlink socket
+allow telaf_tafTimeSvc_t telaf_tafTimeSvc_t:netlink_route_socket *;

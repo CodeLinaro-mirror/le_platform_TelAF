@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -251,8 +251,6 @@ typedef struct
  * SOME/IP Client Service Class
  */
 //--------------------------------------------------------------------------------------------------
-namespace telux
-{
     namespace tafsvc
     {
         class taf_SomeipClient: public ITafSvc
@@ -408,5 +406,4 @@ namespace telux
                 le_event_HandlerRef_t VsMsgEventHandlerRef;
         };
     }
-}
 #endif /* #ifndef TAFCAN_HPP */

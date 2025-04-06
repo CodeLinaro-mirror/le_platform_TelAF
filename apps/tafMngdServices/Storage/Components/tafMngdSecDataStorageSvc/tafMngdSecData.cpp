@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "tafMngdStorageSvc.hpp"
 #include "limit.h"
@@ -47,7 +19,7 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 /**
  * Create secure data reference and item
@@ -1527,6 +1499,9 @@ le_result_t tafMngdStorageSvc::ShareData
     TAF_ERROR_IF_RET_VAL(clientDataPtr->sharedClient == true,
                             LE_NOT_PERMITTED, "calling client is not the data owner");
 
+    TAF_ERROR_IF_RET_VAL(dataPtr->sharedAppList.appCount >= TAF_MNGDSTORSECDATA_MAX_SHARED_APP_NUM,
+        LE_OUT_OF_RANGE, "the number of shared apps has reached the limit.");
+
     char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
 
     // Get appName from clientSession.
@@ -1787,6 +1762,9 @@ le_result_t tafMngdStorageSvc::GetFirstSharedApp
 
     TAF_ERROR_IF_RET_VAL(clientDataPtr == nullptr, LE_NOT_FOUND, "invalid client data ref");
 
+    TAF_ERROR_IF_RET_VAL(clientDataPtr->sharedClient == true,
+        LE_NOT_PERMITTED, "calling client is not the data owner");
+
     tafMngdStorage_SecData_t* dataPtr =
         (tafMngdStorage_SecData_t*)le_ref_Lookup(SecDataRefMap, clientDataPtr->secDataRef);
 
@@ -1822,6 +1800,9 @@ le_result_t tafMngdStorageSvc::GetNextSharedApp
 
     TAF_ERROR_IF_RET_VAL(clientDataPtr == nullptr, LE_NOT_FOUND, "invalid client data ref");
 
+    TAF_ERROR_IF_RET_VAL(clientDataPtr->sharedClient == true,
+        LE_NOT_PERMITTED, "calling client is not the data owner");
+
     tafMngdStorage_SecData_t* dataPtr =
         (tafMngdStorage_SecData_t*)le_ref_Lookup(SecDataRefMap, clientDataPtr->secDataRef);
 
@@ -1835,7 +1816,8 @@ le_result_t tafMngdStorageSvc::GetNextSharedApp
     // check if the iterator reaches to the end of the app list
     if(dataPtr->sharedAppList.getIterIndex >= dataPtr->sharedAppList.appCount)
     {
-        dataPtr->sharedAppList.getIterIndex = 0; // reset interator
+        dataPtr->sharedAppList.getIterIndex = 0; // reset iterator
+        LE_WARN("reset iterator for shared app list");
         return LE_NOT_FOUND;
     }
 

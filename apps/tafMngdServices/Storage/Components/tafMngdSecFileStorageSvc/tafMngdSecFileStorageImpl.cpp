@@ -1,40 +1,12 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "tafMngdSecFileStorageSvc.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 #include <unistd.h>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -43,6 +15,12 @@ using namespace telux::tafsvc;
 
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+
+#include <sys/stat.h>
+#include <sys/vfs.h>
+#include <errno.h>
+#include <stdio.h>
+#include <fcntl.h>
 
 namespace pt = boost::property_tree;
 
@@ -1087,6 +1065,19 @@ le_result_t tafMngdSecFileStorageSvc::ImportFileImpl
                          LE_BAD_PARAMETER,
                          "Invalid target file path");
 
+    size_t availableSize = GetAvailableSpace(dirPtr->path);
+    size_t fileSize = GetFileSize(sourceFilePathPtr);
+
+    LE_INFO("Storage size %" PRIuS ", file size %" PRIuS, availableSize, fileSize);
+
+    if(availableSize < fileSize)
+    {
+        LE_ERROR("Storage size %" PRIuS " is not enough for the file size %" PRIuS,
+                    availableSize, fileSize);
+
+        return LE_NO_MEMORY;
+    }
+
     char storageTargetFilePath[LIMIT_MAX_PATH_BYTES] = {0};
     char tmpStorageTargetFilePath[LIMIT_MAX_PATH_BYTES] = {0};
 
@@ -1414,3 +1405,41 @@ void tafMngdSecFileStorageSvc::CreateServiceStorages()
     }
 }
 
+size_t tafMngdSecFileStorageSvc::GetFileSize
+(
+    const char *filePath
+)
+{
+    struct stat fileStat;
+
+    // Get file statistics
+    if (stat(filePath, &fileStat) == -1)
+    {
+        LE_ERROR("Failed to get file status for %s", filePath);
+        return 0;
+    }
+
+    // Check if the entry is a regular file
+    if (S_ISREG(fileStat.st_mode))
+    {
+        return (size_t)fileStat.st_size;
+    }
+    else
+    {
+        LE_ERROR("%s is not a regular file", filePath);
+        return 0;
+    }
+}
+
+size_t tafMngdSecFileStorageSvc::GetAvailableSpace
+(
+    const char *path
+)
+{
+    struct statfs stat;
+    if (statfs(path, &stat) == 0)
+    {
+        return (size_t)stat.f_bsize * stat.f_bavail;
+    }
+    return (size_t)-1;
+}

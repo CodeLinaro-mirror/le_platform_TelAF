@@ -27,8 +27,9 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+/*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -49,7 +50,7 @@
 
 using namespace telux::data;
 using namespace telux::common;
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 LE_MEM_DEFINE_STATIC_POOL(tafProfilePool, TAF_DCS_PROFILE_LIST_MAX_ENTRY, sizeof(taf_dcs_ProfileCtx_t));
 LE_MEM_DEFINE_STATIC_POOL(tafProfileEvent, TAF_DCS_PROFILE_LIST_MAX_ENTRY, sizeof(taf_dcs_ProfileCtxs_t));

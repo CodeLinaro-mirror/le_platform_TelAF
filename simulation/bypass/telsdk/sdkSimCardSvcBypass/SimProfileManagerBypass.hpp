@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -23,7 +23,6 @@
 #include "telux/common/DeviceConfig.hpp"
 #include "common/Logger.hpp"
 
-namespace telux {
 namespace tel {
 
 struct RemoteSimProfileUserData {
@@ -171,7 +170,6 @@ class SimProfileManagerBypass : public ISimProfileManager,
     void fakeRefrashRegResponse();
 
 };  // end of SimProfileManagerBypass class
-}
 }
 
 #endif

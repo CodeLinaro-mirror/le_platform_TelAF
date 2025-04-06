@@ -172,8 +172,7 @@ static void ConfigTreeQuickFunctionTest()
 
     // Quick Binary Test
     LE_TEST_INFO("---- Quick Binary Test --------------------------------------------------------");
-    LE_ASSERT(snprintf(pathBuffer, LE_CFG_STR_LEN_BYTES, "%s/quickFunctions/binVal",
-                    ConfigTreeTestRootDir)
+    LE_ASSERT(snprintf(pathBuffer, LE_CFG_STR_LEN_BYTES, "tafAdefUnitTest:/quickFunctions/binVal")
                                     <= LE_CFG_STR_LEN_BYTES);
     uint8_t writeBuf[LE_CFG_BINARY_LEN] = {0};
     uint8_t readBuf[LE_CFG_BINARY_LEN] = {0};
@@ -212,7 +211,6 @@ static void TestAppUsername
     le_result_t result;
 
     char ConfigTreepathConfigTreeBuffer[LE_CFG_STR_LEN_BYTES] = "";
-    char appConfigTreepathConfigTreeBuffer[LE_CFG_STR_LEN_BYTES] = "";
 
     LE_TEST_INFO("---- Username Test ------------------------------------------------------");
     le_cfg_IteratorRef_t iterRef = le_cfg_CreateReadTxn("system:/apps");
@@ -222,38 +220,35 @@ static void TestAppUsername
         LE_DEBUG("There are no installed apps.");
     }
 
-    // Iterate over the list of apps.
     do
     {
         char appName[CNFG_LIMIT_MAX_APP_NAME_BYTES];
-
         LE_FATAL_IF(le_cfg_GetNodeName(iterRef, "", appName, sizeof(appName)) != LE_OK,
-                        "Application name in config is too long.");
-        LE_ASSERT(snprintf(appConfigTreepathConfigTreeBuffer, LE_CFG_STR_LEN_BYTES,
-                        "%s%s%s%s",ConfigTreeTestAppRootDir,"/",
-                                   appName,"/username")
-                  <= LE_CFG_STR_LEN_BYTES);
-        LE_TEST_INFO("User name path found for the TelAF app: '%s'.",
-                        appConfigTreepathConfigTreeBuffer);
+                    "Application name in config is too long.");
 
+        // Construct the full config tree path
         LE_ASSERT(snprintf(ConfigTreepathConfigTreeBuffer, LE_CFG_STR_LEN_BYTES,
-                        appConfigTreepathConfigTreeBuffer,ConfigTreeTestAppRootDir)
-                  <= LE_CFG_STR_LEN_BYTES);
+                         "system:/apps/%s/username", appName)
+                 <= LE_CFG_STR_LEN_BYTES);
+        LE_TEST_INFO("User name path found for the TelAF app: '%s'.",
+                    ConfigTreepathConfigTreeBuffer);
 
         char ConfigTreestrConfigTreeBuffer[513] = "";
         result = le_cfg_QuickGetString(ConfigTreepathConfigTreeBuffer,
-                        ConfigTreestrConfigTreeBuffer, 513, "");
+                                     ConfigTreestrConfigTreeBuffer, 513, "");
         LE_FATAL_IF(result != LE_OK,
-                    "Test: %s - Test failure, result == %s.",
-                    ConfigTreeTestAppRootDir,
-                    LE_RESULT_TXT(result));
-        LE_DEBUG("<<< Get USERNAME STRING <%s>", ConfigTreestrConfigTreeBuffer);
+                   "Test: system:/apps/%s/username - Test failure, result == %s.",
+                   appName,
+                   LE_RESULT_TXT(result));
+        LE_DEBUG("<<< Get USERNAME STRING <%s> from path <%s>",
+                ConfigTreestrConfigTreeBuffer, ConfigTreepathConfigTreeBuffer);
+
         if(strncmp(ConfigTreestrConfigTreeBuffer, "telaf", LE_CFG_STR_LEN_BYTES) != 0)
         {
-            LE_TEST_INFO ("Test: %s - Expected '%s' but got '%s' instead.",
-                ConfigTreeTestAppRootDir,
-                "telaf",
-                ConfigTreestrConfigTreeBuffer);
+            LE_TEST_INFO("Test: system:/apps/%s/username - Expected '%s' but got '%s' instead.",
+                        appName,
+                        "telaf",
+                        ConfigTreestrConfigTreeBuffer);
         }
         else
         {

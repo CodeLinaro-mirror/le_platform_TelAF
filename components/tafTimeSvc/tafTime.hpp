@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #ifndef TAF_TIME_HEADER
 #define TAF_TIME_HEADER
@@ -330,8 +302,6 @@ struct NetworkInfoUpdateArgs_t
  */
 //--------------------------------------------------------------------------------------------------
 
-namespace telux
-{
     namespace tafsvc
     {
         class Source {
@@ -493,7 +463,10 @@ namespace telux
         {
             public:
                 taf_Time(){};
-                ~taf_Time(){};
+                ~taf_Time()
+                {
+                    LE_INFO("taf_Time destructor called");
+                };
 
                 /*
                  * This function is used to get the taf_Time instance
@@ -621,15 +594,14 @@ namespace telux
 
                 le_event_Id_t timeSourceChangeId;
 
-                le_timer_Ref_t syncTimeTimerRef;
-                le_timer_Ref_t sysTimeUdTimerRef;
+                le_timer_Ref_t syncTimeTimerRef = NULL;
+                le_timer_Ref_t sysTimeUdTimerRef = NULL;
 
 
                 le_mem_PoolRef_t SetTimeStatusPool = NULL;
                 le_mem_PoolRef_t timeSourceChangePool = NULL;
 
                 taf_time_TimeSpec_t* GnssDeltaTime = NULL;
-                le_result_t InitGnssTimeStatus = LE_UNAVAILABLE;
                 le_mem_PoolRef_t GnssDeltaTimePool = NULL;
 
 
@@ -648,7 +620,6 @@ namespace telux
                 taf_time_TimeSpec_t* NetworkDeltaTime = NULL;
                 taf_time_TimeSpec_t* NetworkDeltaTime2 = NULL;
 
-                le_result_t InitNetworkTimeStatus = LE_UNAVAILABLE;
                 le_event_Id_t RefTimeEventId;
                 le_event_HandlerRef_t RefTimeEventHandlerRef;
 
@@ -718,5 +689,4 @@ namespace telux
                 int64_t deltaTimeMSec = 0;
         };
     }
-}
 #endif

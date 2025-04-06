@@ -34,7 +34,7 @@ requires:
 #if ${LE_CONFIG_TARGET_SIMULATION} = ""
         taf_ecall.api
         taf_net.api
-        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdPm.api
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/taf_mngdPm.api
 #endif
     }
 

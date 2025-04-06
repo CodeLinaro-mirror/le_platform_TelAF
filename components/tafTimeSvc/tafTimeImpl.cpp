@@ -1,41 +1,13 @@
 /*
- * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "tafTime.hpp"
 #include "taf_gptpTime.h"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace std;
 
 //--------------------------------------------------------------------------------------------------
@@ -46,7 +18,15 @@ using namespace std;
 #define TAF_TIME_MAX_SOURCE_NUMBER (TAF_TIME_SRC_NAME_UNKNOWN*3)
 TimeSources TimeSourceConf(TAF_TIME_MAX_SOURCE_NUMBER);
 taf_SourceInf_t *LatestTimeSourceInfo;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Global variables for logic control.
+ */
+//--------------------------------------------------------------------------------------------------
 bool GnssErrStatusUpdateFlag = true;
+le_result_t InitGnssTimeStatus = LE_UNAVAILABLE;
+le_result_t InitNetworkTimeStatus = LE_UNAVAILABLE;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -78,10 +58,20 @@ void taf_TimeServingSystemListener::onNetworkTimeChanged
     telux::tel::NetworkTimeInfo info ///< [IN] Network time information.
 )
 {
-    auto &tafTime = taf_Time::GetInstance();
     taf_time_TimeSpec_t timeVal = {0};
     taf_time_TimeSources_t sourceId;
     le_result_t result = LE_OK;
+
+    if (InitNetworkTimeStatus != LE_OK)
+    {
+        // This is used to avoid 'pure virtual method called' crash issue during shut down.
+        // 1. Don't use the destructor of "taf_Time::".
+        // 2. Need to exit at once before sending another event to event loop.
+        LE_DEBUG("Flag 'InitNetworkTimeStatus' was disabled, do nothing.");
+        return;
+    }
+
+    auto &tafTime = taf_Time::GetInstance();
 
     LE_INFO("Phone %d, NITZ:%s\n", phone, info.nitzTime.c_str());
     result = tafTime.ConvertNetworkTimeToSec(info, &timeVal);
@@ -125,6 +115,16 @@ void taf_TimeGnssListener::onGnssUtcTimeUpdate
 )
 {
     taf_time_TimeSpec_t timeVal;
+
+    if (InitGnssTimeStatus != LE_OK)
+    {
+        // This is used to avoid 'pure virtual method called' crash issue during shut down.
+        // 1. Don't use the destructor of "taf_Time::".
+        // 2. Need to exit at once before sending another event to event loop.
+        LE_DEBUG("Flag 'InitGnssTimeStatus' was disabled, do nothing.");
+        return;
+    }
+
     auto &tafTime = taf_Time::GetInstance();
     le_result_t status;
     if (utc == 0)
@@ -1800,17 +1800,16 @@ le_result_t taf_Time::SetSystemTime
     taf_time_TimeSpec_t systemTime;
     struct timespec newTime;
 
+    position = TimeSourceConf.findSourcePosition(SourceNameIndexToStr(timeSource));
+    if (position < 0)
+    {
+        LE_ERROR("ackTimeSvc was set to %d, but %s is not found\n",
+            ackTimeSvc, SourceNameIndexToStr(TAF_TIME_SRC_NAME_EX_APP));
+        return LE_NOT_FOUND;
+    }
+
     if (ackTimeSvc)
     {
-        position = TimeSourceConf.findSourcePosition(
-                                SourceNameIndexToStr(TAF_TIME_SRC_NAME_EX_APP));
-        if (position < 0)
-        {
-            LE_ERROR("ackTimeSvc was set to %d, but %s is not found\n",
-                    ackTimeSvc, SourceNameIndexToStr(TAF_TIME_SRC_NAME_EX_APP));
-            return LE_NOT_FOUND;
-        }
-
         UpdateFailedLoops(TAF_TIME_SRC_NAME_EX_APP, FAIL_LOOP_NUM_CLEAN);
         SourceAvailabilityUpdate(LE_OK, TAF_TIME_SRC_NAME_EX_APP);
 
@@ -2359,8 +2358,8 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
     // Check if the network time source is required
     if (TimeSourceConf.IsSourceExist(tafTime.SourceNameIndexToStr(TAF_TIME_SRC_NAME_NETWORK)))
     {
-        tafTime.InitNetworkTimeStatus = tafTime.InitNetworkTime();
-        if (tafTime.InitNetworkTimeStatus == LE_OK)
+        InitNetworkTimeStatus = tafTime.InitNetworkTime();
+        if (InitNetworkTimeStatus == LE_OK)
         {
             regNetworkTimeStatus = tafTime.RegNetworkTimeListener();
             if (regNetworkTimeStatus != LE_OK)
@@ -2376,9 +2375,9 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
     // Check if the GNSS time source is required
     if (TimeSourceConf.IsSourceExist(tafTime.SourceNameIndexToStr(TAF_TIME_SRC_NAME_GNSS)))
     {
-        tafTime.InitGnssTimeStatus = tafTime.InitGnssTime();
+        InitGnssTimeStatus = tafTime.InitGnssTime();
 
-        if (tafTime.InitGnssTimeStatus == LE_OK)
+        if (InitGnssTimeStatus == LE_OK)
         {
             regGnssTimeStatus = tafTime.RegGnssTimeListener();
             if (regGnssTimeStatus != LE_OK)
@@ -2504,12 +2503,12 @@ void taf_Time::SyncTimeTimerHandler(le_timer_Ref_t timerRef)
 {
     auto &tafTime = taf_Time::GetInstance();
 
-    if (tafTime.InitGnssTimeStatus == LE_OK)
+    if (InitGnssTimeStatus == LE_OK)
     {
         tafTime.RegGnssTimeListener();
     }
 
-    if (tafTime.InitNetworkTimeStatus == LE_OK)
+    if (InitNetworkTimeStatus == LE_OK)
     {
         tafTime.RequestNetworkTime();
     }
@@ -3032,7 +3031,7 @@ void PowerStateChangeHandler
     if (state == TAF_PM_STATE_RESUME)
     {
         LE_DEBUG("Power state change to RESUME");
-        if (tafTime.InitNetworkTimeStatus == LE_OK)
+        if (InitNetworkTimeStatus == LE_OK)
         {
             tafTime.RegNetworkTimeListener();
         }
@@ -3040,12 +3039,12 @@ void PowerStateChangeHandler
     else if (state == TAF_PM_STATE_SUSPEND)
     {
         LE_DEBUG("Power state change to SUSPEND");
-        if (tafTime.InitNetworkTimeStatus == LE_OK)
+        if (InitNetworkTimeStatus == LE_OK)
         {
             tafTime.DeregNetworkTimeListener();
         }
 
-        if (tafTime.InitGnssTimeStatus == LE_OK)
+        if (InitGnssTimeStatus == LE_OK)
         {
             tafTime.DeregGnssTimeListener();
         }
@@ -3268,9 +3267,9 @@ le_result_t taf_Time::GetRtcTimeReqAsync(taf_time_AsyncGetTimeReqHandlerFunc_t h
             return LE_FAULT;
         }
 
-        (telux::tafsvc::taf_Time::getRTCCB).getRTCCallbackFunc = handlerPtr;
-        (telux::tafsvc::taf_Time::getRTCCB).getRTCCtxPtr = contextPtr;
-        (telux::tafsvc::taf_Time::getRTCCB).sessionRef = taf_time_GetClientSessionRef();
+        (taf_Time::getRTCCB).getRTCCallbackFunc = handlerPtr;
+        (tafsvc::taf_Time::getRTCCB).getRTCCtxPtr = contextPtr;
+        (tafsvc::taf_Time::getRTCCB).sessionRef = taf_time_GetClientSessionRef();
 
         result = (*(timeInf->getRtcTimeReqAsync))(taf_Time::getRTCRespCB);
     }
@@ -3296,9 +3295,9 @@ le_result_t taf_Time::SetRtcTimeReqAsync(const taf_time_TimeSpec_t* timeValPtr,
             return LE_FAULT;
         }
 
-        (telux::tafsvc::taf_Time::setRTCCB).setRTCCallbackFunc = handlerPtr;
-        (telux::tafsvc::taf_Time::setRTCCB).setRTCCtxPtr = contextPtr;
-        (telux::tafsvc::taf_Time::setRTCCB).sessionRef = taf_time_GetClientSessionRef();
+        (tafsvc::taf_Time::setRTCCB).setRTCCallbackFunc = handlerPtr;
+        (tafsvc::taf_Time::setRTCCB).setRTCCtxPtr = contextPtr;
+        (tafsvc::taf_Time::setRTCCB).sessionRef = taf_time_GetClientSessionRef();
 
         struct TimeSpec timeSpec;
         timeSpec.sec = timeValPtr->sec;
@@ -3758,6 +3757,61 @@ le_result_t taf_Time::SetValidity
     }
     return LE_OK;
 }
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle safe exiting after releasing all the resources.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SafeExitAfterClearUp
+(
+    void* param1Ptr,
+    void* param2Ptr
+)
+{
+    LE_INFO("Clean done, last event exiting....");
+    exit(EXIT_SUCCESS);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Signal handler for SIGTERM to clear up the resource.
+ */
+//--------------------------------------------------------------------------------------------------
+static void TafSigTermEventHandler
+(
+    int sigNum
+)
+{
+    auto &tafTime = taf_Time::GetInstance();
+
+    LE_INFO("TafSigTermEventHandler :%d", sigNum);
+
+    if (tafTime.syncTimeTimerRef)
+    {
+        le_timer_Stop(tafTime.syncTimeTimerRef);
+    }
+
+    if (tafTime.sysTimeUdTimerRef)
+    {
+        le_timer_Stop(tafTime.syncTimeTimerRef);
+    }
+
+    if (InitNetworkTimeStatus == LE_OK)
+    {
+        InitNetworkTimeStatus = LE_UNAVAILABLE;
+        tafTime.DeregNetworkTimeListener();
+    }
+
+    if (InitGnssTimeStatus == LE_OK)
+    {
+        InitGnssTimeStatus = LE_UNAVAILABLE;
+        tafTime.DeregGnssTimeListener();
+    }
+    le_event_QueueFunction(SafeExitAfterClearUp, NULL, NULL);
+}
+
 /*======================================================================
 
  FUNCTION        taf_Time::Init
@@ -3776,6 +3830,12 @@ le_result_t taf_Time::SetValidity
 void taf_Time::Init(void)
 {
     le_result_t result;
+
+    // Block the signal
+    le_sig_Block(SIGTERM);
+
+    // Setup signal's event handler.
+    le_sig_SetEventHandler(SIGTERM, TafSigTermEventHandler);
 
     // 1. Create memory pools and initialization
     SetTimeStatusPool = le_mem_CreatePool("TimeSvc SetStatusPool", sizeof(SetTimeStatus));
@@ -3825,5 +3885,5 @@ void taf_Time::Init(void)
 
 }
 
-taf_time_setRTCCb_t telux::tafsvc::taf_Time::setRTCCB;
-taf_time_getRTCCb_t telux::tafsvc::taf_Time::getRTCCB;
+taf_time_setRTCCb_t tafsvc::taf_Time::setRTCCB;
+taf_time_getRTCCb_t tafsvc::taf_Time::getRTCCB;

@@ -27,10 +27,12 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+/*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "legato.h"
 #include "interfaces.h"
@@ -42,7 +44,7 @@
 
 using namespace telux::tel;
 using namespace telux::common;
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 LE_MEM_DEFINE_STATIC_POOL(tafProfileListPool, TAF_SIMRSP_MAX_PROFILE,
                            sizeof(taf_simRsp_ProfileListNode_t));

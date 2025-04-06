@@ -1,0 +1,19 @@
+{
+    "did_access":[
+        {
+            "AppName": "tafDidStoreUnitTest",
+            "WriteAccessibleDID": ["0xA5A5", "0xA5A6", "0xF011", "F0D0"],
+            "ReadAccessibleDID": ["0xA5A6", "0xF011", "F0D0"]
+        },
+        {
+            "AppName": "app2",
+            "WriteAccessibleDID": ["0xA5A5", "0xA5A6"],
+            "ReadAccessibleDID": ["0xA5A6"]
+        },
+        {
+            "AppName": "app3",
+            "WriteAccessibleDID": ["0xA5A5"],
+            "ReadAccessibleDID": ["0xA5A5", "0xA5A6"]
+        }
+    ]
+}

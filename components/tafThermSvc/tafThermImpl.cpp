@@ -16,7 +16,7 @@
 #include <string>
 #include <iomanip>
 #include <csignal>
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 /**
  * Class Handler Implementations

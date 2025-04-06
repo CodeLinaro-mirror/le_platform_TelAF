@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -94,7 +94,6 @@ typedef struct
 }taf_DiagVlanIdNode_t;
 
 // Diag service class
-namespace telux {
     namespace tafsvc {
         class taf_DiagSvr : public ITafSvc, public taf_UDSInterface
         {
@@ -187,5 +186,4 @@ namespace telux {
                 le_event_HandlerRef_t TesterStateEventHandlerRef;
         };
     }
-}
 #endif /* #ifndef TAF_DIAG_SVR_HPP */

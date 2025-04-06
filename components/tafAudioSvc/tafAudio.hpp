@@ -305,7 +305,6 @@ typedef struct
     taf_audio_Stream_t*  streamPtr;
 } taf_audio_BufferEvent_t;
 
-namespace telux {
 namespace tafsvc {
 
     class tafPromptsStatusListener : public telux::audio::IPlayListListener {
@@ -543,5 +542,4 @@ class taf_Audio : public ITafSvc
         static void* playDTMFonTX(void* dtmfTones);
         static void BufferEventHandler(void* contextPtr);
 };
-}
 }

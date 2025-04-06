@@ -37,6 +37,7 @@ TARGET=$1
 OUTPUT=$2
 NOSHIP_BUILD_DIR=$3
 PROP_BUILD_DIR=$4
+PA_BUILD_DIR=$5
 OUTPUT_STAGE=${TELAF_ROOT}/build/${TARGET}/mkimg/
 
 if [ "$NOSHIP_BUILD_DIR" == "" ]; then
@@ -45,6 +46,10 @@ fi
 
 if [ "$PROP_BUILD_DIR" == "" ]; then
     PROP_BUILD_DIR=${TELAF_PROP}
+fi
+
+if [ "$PA_BUILD_DIR" == "" ]; then
+    PA_BUILD_DIR=${TELAF_PA}
 fi
 
 cd ${LEGATO_ROOT} && source ${LEGATO_ROOT}/bin/configlegatoenv
@@ -67,6 +72,20 @@ for full_name_noship in `find ${NOSHIP_BUILD_DIR} -maxdepth 1 -type f -name "*.s
 do
     base_name=`basename ${full_name_noship}`
     echo "*** try to use ${base_name} replace telaf-noship stub library ***"
+    full_name_telaf=`find ${TARGET_STAGE_DIR} -type f -name ${base_name}`
+    if [ -n "${full_name_telaf}" ]; then
+        for each_lib_name in ${full_name_telaf}
+        do
+            cp -rf ${full_name_noship} ${each_lib_name}
+        done
+    fi
+done
+
+echo "*** searching path: ${PA_BUILD_DIR} ***"
+for full_name_noship in `find ${PA_BUILD_DIR} -maxdepth 1 -type f -name "*.so"`
+do
+    base_name=`basename ${full_name_noship}`
+    echo "*** try to use ${base_name} replace telaf-pa stub library ***"
     full_name_telaf=`find ${TARGET_STAGE_DIR} -type f -name ${base_name}`
     if [ -n "${full_name_telaf}" ]; then
         for each_lib_name in ${full_name_telaf}

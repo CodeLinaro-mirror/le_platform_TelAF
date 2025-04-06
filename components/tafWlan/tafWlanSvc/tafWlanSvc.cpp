@@ -14,7 +14,7 @@
 
 #include "tafWlan.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 //--------------------------------------------------------------------------------------------------
 /**

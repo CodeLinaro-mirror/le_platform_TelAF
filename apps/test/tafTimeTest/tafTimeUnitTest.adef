@@ -17,6 +17,11 @@ processes:
     faultAction: stopApp
 }
 
+capability:
+{
+        CAP_NET_ADMIN
+}
+
 bindings:
 {
     tafTimeUnitTest.tafTimeUnitTest.taf_time -> tafTimeSvc.taf_time
@@ -25,5 +30,5 @@ bindings:
 // Add SELinux module
 components:
 {
-    $TELAF_ROOT/security/selinux/sepolicy/test/tafTimeUnitTest/component
+    //$TELAF_ROOT/security/selinux/sepolicy/test/tafTimeUnitTest/component
 }

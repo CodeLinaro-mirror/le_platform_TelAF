@@ -1,0 +1,386 @@
+/**
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+**/
+//------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafwlan Wireless LAN Device Management Service
+ *
+ * @rst :ref:`API reference <File taf_wlan_interface.h>` @endrst
+ *
+ * <HR>
+ *
+ * Wireless LAN(WLAN) Management Service provides APIs for applications to manage the WLAN
+ * chipset. Before a WLAN access point or station can be started, this service's APIs should be used
+ * to enable and configure the WLAN chipset for proper use.
+ *
+ * @section taf_wlan_binding IPC interfaces binding
+ *
+ * The functions of this service are provided by the @b tafWlanSvc application service.
+ *
+ * The following example illustrates how to bind to the WLAN service.
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_wlan -> tafWlanSvc.taf_wlan
+   }
+   @endverbatim
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+USETYPES taf_net.api;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN SSID max length.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_SSID_LENGTH = 32;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN Passphrase max length.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_PASSPHRASE_LENGTH = 63;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN connected client name max length.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_DEVICE_NAME_LENGTH = 32;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN BSSID(Basic Service Set Identifier) max length.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_BSSID_LENGTH = 17;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum number of access points supported.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_NUM_AP = 2;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum number of stations supported.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_NUM_STA = 1;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN supported radio bands.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM Band
+{
+    BAND_UNKNOWN,   ///< To skip setting band, pass UNKNOWN.
+    BAND_5_GHZ,     ///< 5 GHz band.
+    BAND_2P4_GHZ    ///< 2.4 GHz band.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN AP type.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM APType
+{
+    UNKNOWN_AP,   ///< To skip setting AP type, pass UNKNOWN.
+    PRIVATE_AP,   ///< Private AP.
+    GUEST_AP      ///< Guest AP.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN security mode.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SecurityMode
+{
+    SEC_MODE_UNKNOWN, ///< To skip setting security mode, pass UNKNOWN.
+    SEC_MODE_OPEN,    ///< Open System Architecture.
+    SEC_MODE_WEP,     ///< Wired Equivalent Privacy.
+    SEC_MODE_WPA,     ///< Wi-Fi Protected Access.
+    SEC_MODE_WPA2,    ///< Wi-Fi Protected Access II.
+    SEC_MODE_WPA3     ///< Wi-Fi Protected Access III.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN security authentication methods.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SecurityAuthMethod
+{
+    SEC_AUTH_METHOD_UNKNOWN,    ///< To skip setting auth method, pass UNKNOWN.
+    SEC_AUTH_METHOD_NONE,       ///< No Authentication - Open System.
+    SEC_AUTH_METHOD_PSK,        ///< Pre-Shared Key.
+    SEC_AUTH_METHOD_EAP_SIM,    ///< EAP - Subscriber Identity Module.
+    SEC_AUTH_METHOD_EAP_AKA,    ///< EAP - Authentication and Key Agreement.
+    SEC_AUTH_METHOD_EAP_LEAP,   ///< EAP - Lightweight Extensible Authentication Protocol.
+    SEC_AUTH_METHOD_EAP_TLS,    ///< EAP - Transport Layer Security.
+    SEC_AUTH_METHOD_EAP_TTLS,   ///< EAP - Tunneled Transport Layer Security.
+    SEC_AUTH_METHOD_EAP_PEAP,   ///< EAP - Protected EAP.
+    SEC_AUTH_METHOD_EAP_FAST,   ///< EAP - Flexible Authentication via Secure Tunneling.
+    SEC_AUTH_METHOD_EAP_PSK,    ///< EAP - Pre-Shared Key.
+    SEC_AUTH_METHOD_SAE         ///< Simultaneous Authentication of Equals.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN encryption methods.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SecurityEncryptionMethod
+{
+    SEC_ENCRYPT_METHOD_UNKNOWN,   ///< To skip setting encryption method, pass UNKNOWN.
+    SEC_ENCRYPT_METHOD_RC4,       ///< Rivest Cipher 4.
+    SEC_ENCRYPT_METHOD_TKIP,      ///< Temporal Key Integrity Protocol.
+    SEC_ENCRYPT_METHOD_AES,       ///< Advanced Encryption Standard.
+    SEC_ENCRYPT_METHOD_GCMP       ///< Galois/Counter Mode Protocol.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN Service Set type.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ServiceSet
+{
+    SS_UNKNOWN,    ///< To skip setting encryption method, pass UNKNOWN.
+    SS_BASIC,      ///< Basic Service Set(BSS).
+    SS_EXTENDED    ///< Extended Service Set(ESS).
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * WLAN Device state.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM DeviceState
+{
+    OFF,          ///< WLAN device is OFF.
+    ON,           ///< WLAN device is ON.
+    UNAVAILABLE   ///< WLAN device state is not available.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Supported WLAN Device modes.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM DeviceMode
+{
+    MODE_UNKNOWN   = -1,    ///< Unsupported mode.
+    MODE_AP        = 1,     ///< Single access point.
+    MODE_STA       = 2,     ///< Single station.
+    MODE_STA_AP    = 3,     ///< AP + STA.
+    MODE_AP_AP     = 4,     ///< AP + AP.
+    MODE_AP_AP_STA = 5      ///< AP + AP + STA.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * AP identifier. Maximum number of identifiers will be MAX_NUM_AP.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM APid
+{
+    AP_ID1 = 1,
+    AP_ID2 = 2
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * STA identifier. Maximum number of identifiers will be MAX_NUM_STA.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM STAid
+{
+    STA_ID1 = 1
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * AP interface information. This should be used to get AP reference.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+STRUCT APIntfInfo
+{
+    APid id;                                         ///< AP identifier
+    string IntfName[taf_net.INTERFACE_NAME_MAX_LEN]; ///< Associated host interface name.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * STA interface information. This should be used to get STA reference.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+STRUCT STAIntfInfo
+{
+    STAid id;                                         ///< STA identifier
+    string IntfName[taf_net.INTERFACE_NAME_MAX_LEN];  ///< Associated host interface name.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference to the WLAN manager.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Wlan;
+
+//-------------------------------------------------------------------------------------------------
+/*
+ * Events avaiable in WLAN Device Management service.
+ */
+//-------------------------------------------------------------------------------------------------
+
+//-------------------------------------------------------------------------------------------------
+/*
+ * The WLAN device state event handler.
+ *
+ * @instaging
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER DeviceStateHandler
+(
+    Wlan WlanRef      IN, ///< The WLAN reference. Set to NULL. Reserved for future use.
+    DeviceState state IN
+);
+
+//-------------------------------------------------------------------------------------------------
+/*
+ * Event to report the WLAN device state.
+ *
+ * @instaging
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT DeviceState
+(
+    Wlan WlanRef               IN, ///< The WLAN reference. Reserved for future use.
+    DeviceStateHandler handler IN
+);
+
+//-------------------------------------------------------------------------------------------------
+/*
+ * APIs avaiable in WLAN Device Management service.
+ */
+//-------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Turns WLAN device ON. This action brings up the respective WLAN host interface.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t TurnOn
+(
+    Wlan WlanRef      IN ///< The WLAN reference. Reserved for future use.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Turns WLAN device OFF. This action removes the respective WLAN host interface.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t TurnOff
+(
+    Wlan WlanRef      IN ///< The WLAN reference. Reserved for future use.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the WLAN Device state.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetState
+(
+    Wlan WlanRef      IN,     ///< The WLAN reference. Reserved for future use.
+    DeviceState state OUT     ///< WLAN device state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the WLAN operating mode. Mode changes will take effect after a device off/on.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetMode
+(
+    Wlan WlanRef         IN, ///< The WLAN reference. Reserved for future use.
+    DeviceMode wlanMode  IN  ///< The WLAN device mode.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the WLAN operating mode
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetMode
+(
+    Wlan WlanRef         IN,  ///< The WLAN reference. Reserved for future use.
+    DeviceMode wlanMode  OUT  ///< The WLAN device mode.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets active WLAN interface(s) information.
+ * The information returned should be used to get the AP and STA reference(s) respectively.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIntfInfo
+(
+    Wlan WlanRef IN,                           ///< The WLAN reference. Reserved for future use.
+    APIntfInfo  APIntfinfo[MAX_NUM_AP] OUT,    ///< The WLAN AP interfaces information.
+    STAIntfInfo STAIntfinfo[MAX_NUM_STA] OUT   ///< The WLAN STA interfaces information.
+);

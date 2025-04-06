@@ -51,6 +51,12 @@ apps:
     $TELAF_ROOT/apps/tafMngdServices/Storage/tafMngdStorageSvc
 #endif
 
+#if ${TELAF_SIMULATION_ENABLE_DIAG} = y
+    $TELAF_ROOT/apps/tafServices/tafDiagSvc
+    // from --> $TELAF_ROOT/apps/tafServices/tafUpdateSvc
+    $TELAF_ROOT/simulation/stub/taf_simula_update/tafUpdateSvc
+#endif
+
     $LEGATO_ROOT/apps/sample/helloIpc/printClient
     $LEGATO_ROOT/apps/sample/helloIpc/printServer
 
@@ -68,16 +74,13 @@ apps:
     // $TELAF_ROOT/apps/rpc/rpcTest/helloRpcClient/RpcPrintClient
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdStorageUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSecSharedApp
+    // $TELAF_ROOT/apps/sample/diagApp/tafDiagApp
+    // $TELAF_ROOT/apps/sample/diagEventApp/tafDiagEventApp
+    // $TELAF_ROOT/apps/sample/diagCfg/tafDiagCfgSample
+    // $TELAF_ROOT/apps/sample/diagCancelFileXfer/tafDiagCancelFileXfer
+    // $TELAF_ROOT/apps/test/tafSomeipGWTest/multiRoutingManagersTest/multiRoutMgrsTestAppB
+    // $TELAF_ROOT/apps/test/tafSomeipGWTest/multiRoutingManagersTest/multiRoutMgrsTestAppA
 }
-
-#if ${TELAF_SIMULATION_ENABLE_DIAG} = y
-#if file_exists(${TELAF_SIMULATION_DIAG_SINC})
-#include "${TELAF_SIMULATION_DIAG_SINC}"
-#else
-// You enable diag feature, but not specify the diag.sinc file.
-apps: { NOT.FOUND.DIAG.FEATURE }
-#endif
-#endif
 
 commands:
 {
@@ -101,7 +104,6 @@ interfaceSearch:
     $TELAF_ROOT/interfaces/staging
     $TELAF_ROOT/interfaces/tafVNW
     $TELAF_ROOT/interfaces/someipGW
-    $TELAF_ROOT/apps/tafMngdServices/interfaces/staging
     $TELAF_ROOT/apps/tafMngdServices/interfaces
     $LEGATO_ROOT/apps/sample/helloIpc
 

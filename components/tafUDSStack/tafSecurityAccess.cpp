@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "tafSecurityAccess.hpp"
 #include "configuration.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 namespace taf {
 namespace uds {
@@ -1297,6 +1297,7 @@ static void SecAcc_DelayTimerHandler(le_timer_Ref_t timerRef)
     LE_INFO("report -> DELAY_TIMER_EXPIRED_SIG");
     SecAccReport_t report = {
         .type = DELAY_TIMER_EXPIRED_SIG,
+        .sem = NULL,
         .mgr = object->mMgr,
     };
     le_event_Report(SecAccEventIdRef, &report, sizeof(report));

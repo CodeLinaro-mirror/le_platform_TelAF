@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include <exception>
 #include <stdexcept>
@@ -45,8 +17,8 @@
 using std::to_string;
 
 namespace pt = boost::property_tree;
-using namespace telux::tafsvc;
-using telux::tafsvc::mcs_PolicyParser;
+using namespace tafsvc;
+using tafsvc::mcs_PolicyParser;
 
 /**
  * Validate DataSession:DataConnection:Use_Data_ID
@@ -119,7 +91,7 @@ bool mcs_PolicyParser::Validate_DS_DC_Priority(mcs_Policy_t &Policy,
     }
 
     //Check for Duplicates
-    for (int i = 0; i <= Policy.DataSession.dataConnectionCount; i++) {
+    for (int i = 0; i < Policy.DataSession.dataConnectionCount; i++) {
             if (std::stoi(Value) == Policy.DataSession.DataConnection[i].Priority) {
                 LE_WARN("Duplicate Priority");
                 return false;
@@ -587,6 +559,72 @@ bool mcs_PolicyParser::Validate_DS_AMCR_MaxTimeBetweenTriggers(mcs_Policy_t &Pol
 }
 
 /**
+ * Validate DataSession:APIManagement:StartDataTimeout
+ */
+bool mcs_PolicyParser::Validate_DS_APIM_StartDataTimeout(mcs_Policy_t &Policy,
+                                                    std::string Value,
+                                                    int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    // Check the JSON version to be atleast 25.03.00
+    if (Policy.Version < MCS_JSON_VERSION_25_03_00)
+    {
+        LE_ERROR("Invalid JSON version");
+        return false;
+    }
+    int localInt = 0;
+
+    if (MCS_JSON_DATA_TYPE_NULL == mcs_GetDataType(Value))
+    {
+        LE_ERROR("Null value");
+        return false;
+    }
+
+    if (MCS_JSON_DATA_TYPE_NUMBER != mcs_GetDataType(Value))
+    {
+        LE_ERROR("Incorrect data type");
+        return false;
+    }
+    localInt = std::stoi(Value);
+    // Valid value. Update Policy.
+    Policy.DataSession.APIManagement.StartDataTimeout = static_cast<uint8_t>(localInt);
+    return true;
+}
+
+/**
+ * Validate DataSession:APIManagement:StopDataTimeout
+ */
+bool mcs_PolicyParser::Validate_DS_APIM_StopDataTimeout(mcs_Policy_t &Policy,
+                                                    std::string Value,
+                                                    int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    // Check the JSON version to be atleast 25.03.00
+    if (Policy.Version < MCS_JSON_VERSION_25_03_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+    int localInt = 0;
+
+    if (MCS_JSON_DATA_TYPE_NULL == mcs_GetDataType(Value))
+    {
+        LE_WARN("Null value");
+        return false;
+    }
+
+    if (MCS_JSON_DATA_TYPE_NUMBER != mcs_GetDataType(Value))
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    localInt = std::stoi(Value);
+    // Valid value. Update Policy.
+    Policy.DataSession.APIManagement.StopDataTimeout = static_cast<uint8_t>(localInt);
+    return true;
+}
+
+/**
  * Check if the value for the property is of the correct type and also contains valid value.
  * The function to validate each value will be called. The respective function will update the
  * Policy structure if the value is valid.
@@ -808,6 +846,34 @@ bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
                                             }
                                         }
                                 }
+                                if ("APIManagement" == child.first) {
+                                 // Use an iterator to go through  the
+                                 // APIManagement elements
+                                    for (auto &it: child.second) {
+                                            log.clear();
+                                            log.append ( std::string ("\t") + "Key: "
+                                                        + it.first +
+                                                        ", Value: " + it.second.data() );
+                                            LE_DEBUG ("%s", log.c_str() );
+                                            JSON_Property.clear();
+                                            JSON_Property.append(parent.first + ":"
+                                            + child.first + ":" +
+                                            it.first);
+                                            JSON_Value.clear();
+                                            JSON_Value.append(it.second.data());
+                                            // Validate values. Index is set to correct value
+                                            // as this is an array.
+                                            if (!ValidateValue(Policy, JSON_Property, JSON_Value,
+                                            MCS_INVALID_INDEX))
+                                            {
+                                                LE_WARN("Invalid JSON_Property Value");
+                                                LE_INFO("JSON_Property: %s, Value: %s",
+                                                JSON_Property.c_str(),
+                                                JSON_Value.c_str());
+                                                return false;
+                                            }
+                                        }
+                                }
                             }
                         }
                     }
@@ -930,6 +996,10 @@ void mcs_PolicyParser::UpdateValidPolicyFuncMap(void)
                                                         &Validate_DS_AMCR_MinTimeBetweenTriggers;
     PolicyValidationFuncMap["DataSession:AppManagedConnectivityRecovery:MaxTimeBetweenTriggers"] =
                                                         &Validate_DS_AMCR_MaxTimeBetweenTriggers;
+    PolicyValidationFuncMap["DataSession:APIManagement:StartDataTimeout"] =
+                                                        &Validate_DS_APIM_StartDataTimeout;
+    PolicyValidationFuncMap["DataSession:APIManagement:StopDataTimeout"] =
+                                                        &Validate_DS_APIM_StopDataTimeout;
 }
 
 /**

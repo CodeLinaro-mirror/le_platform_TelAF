@@ -92,6 +92,40 @@
  *       LE_ERROR("Unexpected MNC.");
  *
  *   @endcode
+ ** @section c_taf_radio_service_domain Service Domain
+ *
+ * Users can get the registration domain for the current serving RAT.
+ *
+ *  - taf_radio_GetServiceDomain() -- Get the registration domain for the current serving RAT.
+ *
+ *  - taf_radio_SetServiceDomainPreferences() -- Sets the service domain preferences.
+ *
+ *  - taf_radio_GetServiceDomainPreferences() -- Gets the network register mode.
+ *
+ * The following example illustrates getting service domain.
+ *
+ * @code
+ *
+ *    taf_radio_ServiceDomainState_t domain;
+ *    le_result_t result = taf_radio_GetServiceDomainPreferences(&domain, phoneId);
+ *    if (result != LE_OK)
+ *       LE_ERROR("Fail to get service domain.");
+ *    switch (domain)
+ *    {
+ *        case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_ONLY:
+ *            LE_INFO("Domain : CS Only");
+ *            break;
+ *        case TAF_RADIO_SERVICE_DOMAIN_STATE_PS_ONLY:
+ *            LE_INFO("Domain : PS Only");
+ *            break;
+ *        case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_AND_PS:
+ *            LE_INFO("Domain : CS and PS");
+ *            break;
+ *        default:
+ *            LE_ERROR("Domain : Unknown");
+ *    }
+ *
+ *   @endcode
  *
  * @section c_taf_radio_preferred_operator Preferred Operators
  *
@@ -525,6 +559,35 @@ taf_radio_NetRegStateEventHandlerRef_t taf_radio_AddNetRegStateEventHandler
 void taf_radio_RemoveNetRegStateEventHandler
 (
     taf_radio_NetRegStateEventHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_radio_NrIconType'
+ *
+ * Event to report NR icon type changes.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_NrIconTypeHandlerRef_t taf_radio_AddNrIconTypeHandler
+(
+    taf_radio_NrIconTypeHandlerFunc_t handlerPtr,
+        ///< [IN] Handler for NR icon type changes.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    return NULL;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_radio_NrIconType'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveNrIconTypeHandler
+(
+    taf_radio_NrIconTypeHandlerRef_t handlerRef
         ///< [IN]
 )
 {
@@ -1269,6 +1332,68 @@ le_result_t taf_radio_GetPacketSwitchedState
     // Z:FIXME
     *statePtr = TAF_RADIO_NET_REG_STATE_HOME;
     return LE_OK;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the registration domain for the current serving RAT.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServiceDomain
+(
+    taf_radio_ServiceDomainState_t* domainPtr,
+        ///< [OUT] Service domain.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Sets the service domain preferences.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetServiceDomainPreferences
+(
+    taf_radio_ServiceDomainState_t domain,
+        ///< [IN] Service domain preferences.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the service domain preferences.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServiceDomainPreferences
+(
+    taf_radio_ServiceDomainState_t* domainPtrPtr,
+        ///< [OUT] Service domain preferences.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
 }
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2720,9 +2845,206 @@ le_result_t taf_radio_SetSignalStrengthIndHysteresisTimer
 {
     return LE_NOT_IMPLEMENTED;
 }
-
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell absolute radio frequency channel number.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @b NOTE: Only applicable for GSM.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellArfcn
+(
+    int32_t* arfcnPtr,
+        ///< [OUT] Absolute radio frequency channel number.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell UTRA absolute radio frequency channel number.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @b NOTE: Only applicable for UMTS.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellUarfcn
+(
+    int32_t* uarfcnPtr,
+        ///< [OUT] UTRA absolute radio frequency channel number.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the operating mode.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetOperatingMode
+(
+    taf_radio_OpMode_t mode,
+        ///< [IN] Operating mode.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the operating mode.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetOperatingMode
+(
+    taf_radio_OpMode_t* modePtr,
+        ///< [OUT] Operating mode.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets routing area code.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note Only applicable for GSM/WCDMA/TDSCDMA.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellRoutingAreaCode
+(
+    uint8_t* racPtr,
+        ///< [OUT] Routing area code.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets 2G/3G band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @b NOTE: Only applicable for GSM/WCDMA/TDSCDMA.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellBandInfo
+(
+    taf_radio_BandBitMask_t* bandPtrPtr,
+        ///< [OUT] 2G/3G active band.
+    taf_radio_RFBandWidth_t* bandWidthPtrPtr,
+        ///< [OUT] RF bandwidth information.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets LTE band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellLteBandInfo
+(
+    uint32_t* bandPtrPtr,
+        ///< [OUT] LTE active band.
+    taf_radio_RFBandWidth_t* bandWidthPtrPtr,
+        ///< [OUT] RF bandwidth information.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NR band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellNrBandInfo
+(
+    uint32_t* bandPtrPtr,
+        ///< [OUT] NR active band.
+    taf_radio_RFBandWidth_t* bandWidthPtrPtr,
+        ///< [OUT] RF bandwidth information.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NR icon type.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetNrIconType
+(
+    taf_radio_NrIconType_t* typePtr,
+        ///< [OUT] NR icon type.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
 COMPONENT_INIT
 {
     LE_INFO("%s --> DONE", __FUNCTION__);
 }
-

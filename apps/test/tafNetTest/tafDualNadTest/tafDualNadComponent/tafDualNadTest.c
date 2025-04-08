@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -99,6 +99,10 @@ static void PrintUsage ()
             "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcstartdatansetipconfig <Remote profile id> <vlan id> <ifType> <ip type> <ip Opr> <assign type>\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- getIPConfig <vlan id> <ifType> <ip type>\n"
             "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcstopdatacall <Remote profile id>\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- setIPPTNATConfig <ipptNATConfig value 0/1>\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- getIPPTNATConfig \n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcsetIPPTNATConfig <ipptNATConfig value 0/1>\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- rpcgetIPPTNATConfig \n"
             "\n");
 }
 
@@ -208,7 +212,7 @@ static int TafCreateVlan()
     const char* nwPtr = le_arg_GetArg(4);
     uint32_t networkType = strtol(nwPtr, NULL, 0);
 
-    ret = taf_netIpPass_SetVlanNetworkType(vlanRef, (taf_netIpPass_NetworkType_t) networkType);
+    ret = taf_net_SetVlanNetworkType(vlanRef, (taf_net_NetworkType_t) networkType);
 
     if(le_arg_NumArgs() == 6)
     {
@@ -303,7 +307,7 @@ static int RpcTafCreateVlan()
     const char* nwPtr = le_arg_GetArg(4);
     uint32_t networkType = strtol(nwPtr, NULL, 0);
 
-    ret = rpc_taf_netIpPass_SetVlanNetworkType(vlanRef, (taf_netIpPass_NetworkType_t) networkType);
+    ret = rpc_taf_net_SetVlanNetworkType(vlanRef, (taf_net_NetworkType_t) networkType);
 
     if(le_arg_NumArgs() == 6)
     {
@@ -575,11 +579,11 @@ static int TafVlanBindWithBackhaul()
 
     taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanid);
 
-    ret = taf_netIpPass_SetVlanBackhaulVlanId(vlanRef, backhaulVlanId);
+    ret = taf_net_SetVlanBackhaulVlanId(vlanRef, backhaulVlanId);
 
-    ret = taf_netIpPass_SetVlanBackhaulType(vlanRef, (taf_netIpPass_BackhaulType_t) backHaulType);
+    ret = taf_net_SetVlanBackhaulType(vlanRef, (taf_net_BackhaulType_t) backHaulType);
 
-    ret = taf_netIpPass_BindVlanWithBackhaul(vlanRef);
+    ret = taf_net_BindVlanWithBackhaul(vlanRef);
 
     if(ret == LE_OK)
     {
@@ -630,14 +634,14 @@ static int TafVlanBindWithBackhaulEx()
 
     if (numArgs == 5) {
         //User input phoneid (i.e. slot id)
-        ret = taf_netIpPass_SetVlanBackhaulPhoneId(vlanRef, phoneid);
+        ret = taf_net_SetVlanBackhaulPhoneId(vlanRef, phoneid);
     }
 
-    ret = taf_netIpPass_SetVlanBackhaulProfileId(vlanRef, profileid);
+    ret = taf_net_SetVlanBackhaulProfileId(vlanRef, profileid);
 
-    ret = taf_netIpPass_SetVlanBackhaulType(vlanRef, (taf_netIpPass_BackhaulType_t) backHaulType);
+    ret = taf_net_SetVlanBackhaulType(vlanRef, (taf_net_BackhaulType_t) backHaulType);
 
-    ret = taf_netIpPass_BindVlanWithBackhaul(vlanRef);
+    ret = taf_net_BindVlanWithBackhaul(vlanRef);
 
     if(ret == LE_OK)
     {
@@ -673,7 +677,7 @@ static int TafVlanUnBindWithBackhaul()
 
     taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanid);
 
-    ret = taf_netIpPass_UnbindVlanFromBackhaul(vlanRef);
+    ret = taf_net_UnbindVlanFromBackhaul(vlanRef);
     if(ret == LE_OK)
     {
         printf("----unbind vlan with backhaul OK\n");
@@ -712,10 +716,10 @@ static int RpcTafVlanBindWithBackhaul()
 
     taf_net_VlanRef_t vlanRef=rpc_taf_net_GetVlanById(vlanid);
 
-    ret = rpc_taf_netIpPass_SetVlanBackhaulProfileId(vlanRef, backhaulProfileId);
-    ret = rpc_taf_netIpPass_SetVlanBackhaulType(vlanRef, (taf_netIpPass_BackhaulType_t) backHaulType);
+    ret = rpc_taf_net_SetVlanBackhaulProfileId(vlanRef, backhaulProfileId);
+    ret = rpc_taf_net_SetVlanBackhaulType(vlanRef, (taf_net_BackhaulType_t) backHaulType);
 
-    ret = rpc_taf_netIpPass_BindVlanWithBackhaul(vlanRef);
+    ret = rpc_taf_net_BindVlanWithBackhaul(vlanRef);
 
     if(ret == LE_OK)
     {
@@ -767,14 +771,14 @@ static int RpcTafVlanBindWithBackhaulEx()
 
     if (numArgs == 5) {
         //User input phoneid (i.e. slot id)
-        ret = rpc_taf_netIpPass_SetVlanBackhaulPhoneId(vlanRef, phoneid);
+        ret = rpc_taf_net_SetVlanBackhaulPhoneId(vlanRef, phoneid);
     }
 
-    ret = rpc_taf_netIpPass_SetVlanBackhaulProfileId(vlanRef, profileid);
+    ret = rpc_taf_net_SetVlanBackhaulProfileId(vlanRef, profileid);
 
-    ret = rpc_taf_netIpPass_SetVlanBackhaulType(vlanRef, (taf_netIpPass_BackhaulType_t) backHaulType);
+    ret = rpc_taf_net_SetVlanBackhaulType(vlanRef, (taf_net_BackhaulType_t) backHaulType);
 
-    ret = rpc_taf_netIpPass_BindVlanWithBackhaul(vlanRef);
+    ret = rpc_taf_net_BindVlanWithBackhaul(vlanRef);
 
     if(ret == LE_OK)
     {
@@ -810,7 +814,7 @@ static int RpcTafVlanUnBindWithBackhaul()
 
     taf_net_VlanRef_t vlanRef=rpc_taf_net_GetVlanById(vlanid);
 
-    ret = rpc_taf_netIpPass_UnbindVlanFromBackhaul(vlanRef);
+    ret = rpc_taf_net_UnbindVlanFromBackhaul(vlanRef);
     if(ret == LE_OK)
     {
         printf("----rpc unbind vlan with backhaul OK\n");
@@ -959,11 +963,11 @@ static int RpcTafSetIPPTOperation()
     taf_net_VlanIfType_t ifType = (taf_net_VlanIfType_t)strtol(ifTypePtr, NULL, 0);
     uint32_t operation = strtol(operationPtr, NULL, 0);
 
-    taf_netIpPass_InterfaceRef_t ipptInterfaceRef = rpc_taf_netIpPass_GetInterface(ifType);
+    taf_net_InterfaceRef_t ipptInterfaceRef = rpc_taf_net_GetInterface(ifType);
 
-    ret = rpc_taf_netIpPass_SetIPPTOperation(ipptInterfaceRef, (taf_netIpPass_Operation_t) operation);
-    ret = rpc_taf_netIpPass_SetIPPTDeviceMacAddress(ipptInterfaceRef, ifType, macAddrPtr);
-    ret = rpc_taf_netIpPass_SetIPPassThroughConfig(ipptInterfaceRef, vlanid);
+    ret = rpc_taf_net_SetIPPTOperation(ipptInterfaceRef, (taf_net_Operation_t) operation);
+    ret = rpc_taf_net_SetIPPTDeviceMacAddress(ipptInterfaceRef, ifType, macAddrPtr);
+    ret = rpc_taf_net_SetIPPassThroughConfig(ipptInterfaceRef, vlanid);
 
     if(ret == LE_OK)
     {
@@ -998,15 +1002,15 @@ static int RpcTafGetIPPTConfig()
 
     uint32_t vlanid = strtol(vlanIdPtr, NULL, 0);
 
-    taf_netIpPass_Operation_t operation = TAF_NETIPPASS_IPPT_UNKNOWN;
+    taf_net_Operation_t operation = TAF_NET_IPPT_UNKNOWN;
     taf_net_VlanIfType_t ifType = TAF_NET_IFACE_UNKNOWN;
     char macAddr[TAF_NET_MAC_ADDR_MAX_LEN] = "";
 
-    taf_netIpPass_InterfaceRef_t ipptInterfaceRef = rpc_taf_netIpPass_GetIPPassThroughConfig(vlanid);
+    taf_net_InterfaceRef_t ipptInterfaceRef = rpc_taf_net_GetIPPassThroughConfig(vlanid);
 
-    ret = rpc_taf_netIpPass_GetIPPTOperation(ipptInterfaceRef, &operation);
+    ret = rpc_taf_net_GetIPPTOperation(ipptInterfaceRef, &operation);
     printf("----rpc GetIPPTOperation %s and Operation: %d\n", ret == LE_OK ? "success" : "failed", (int) operation);
-    ret = rpc_taf_netIpPass_GetIPPTDeviceMacAddress(ipptInterfaceRef, &ifType, macAddr, TAF_NET_MAC_ADDR_MAX_LEN);
+    ret = rpc_taf_net_GetIPPTDeviceMacAddress(ipptInterfaceRef, &ifType, macAddr, TAF_NET_MAC_ADDR_MAX_LEN);
     printf("----rpc GetIPPTDeviceMacAddress %s, ifType: %d and macAddr: %s\n", ret == LE_OK ? "success" : "failed", (int) ifType, macAddr);
 
     return EXIT_SUCCESS;
@@ -1037,11 +1041,11 @@ static int TafSetIPPTOperation()
     taf_net_VlanIfType_t ifType = (taf_net_VlanIfType_t)strtol(ifTypePtr, NULL, 0);
     uint32_t operation = strtol(operationPtr, NULL, 0);
 
-    taf_netIpPass_InterfaceRef_t ipptInterfaceRef = taf_netIpPass_GetInterface(ifType);
+    taf_net_InterfaceRef_t ipptInterfaceRef = taf_net_GetInterface(ifType);
 
-    ret = taf_netIpPass_SetIPPTOperation(ipptInterfaceRef, (taf_netIpPass_Operation_t) operation);
-    ret = taf_netIpPass_SetIPPTDeviceMacAddress(ipptInterfaceRef, ifType, macAddrPtr);
-    ret = taf_netIpPass_SetIPPassThroughConfig(ipptInterfaceRef, vlanid);
+    ret = taf_net_SetIPPTOperation(ipptInterfaceRef, (taf_net_Operation_t) operation);
+    ret = taf_net_SetIPPTDeviceMacAddress(ipptInterfaceRef, ifType, macAddrPtr);
+    ret = taf_net_SetIPPassThroughConfig(ipptInterfaceRef, vlanid);
 
     if(ret == LE_OK)
     {
@@ -1051,7 +1055,7 @@ static int TafSetIPPTOperation()
     {
         printf("---- SetIPPTOperation error: %s\n", LE_RESULT_TXT(ret));
     }
-    taf_netIpPass_RemoveInterface(ipptInterfaceRef);
+    taf_net_RemoveInterface(ipptInterfaceRef);
     return EXIT_SUCCESS;
 }
 
@@ -1076,18 +1080,18 @@ static int TafGetIPPTConfig()
 
     uint32_t vlanid = strtol(vlanIdPtr, NULL, 0);
 
-    taf_netIpPass_Operation_t operation = TAF_NETIPPASS_IPPT_UNKNOWN;
+    taf_net_Operation_t operation = TAF_NET_IPPT_UNKNOWN;
     taf_net_VlanIfType_t ifType = TAF_NET_IFACE_UNKNOWN;
     char macAddr[TAF_NET_MAC_ADDR_MAX_LEN] = "";
 
-    taf_netIpPass_InterfaceRef_t ipptInterfaceRef = taf_netIpPass_GetIPPassThroughConfig(vlanid);
+    taf_net_InterfaceRef_t ipptInterfaceRef = taf_net_GetIPPassThroughConfig(vlanid);
 
-    ret = taf_netIpPass_GetIPPTOperation(ipptInterfaceRef, &operation);
+    ret = taf_net_GetIPPTOperation(ipptInterfaceRef, &operation);
     printf("---- GetIPPTOperation %s and Operation: %d\n", ret == LE_OK ? "success" : "failed", (int) operation);
-    ret = taf_netIpPass_GetIPPTDeviceMacAddress(ipptInterfaceRef, &ifType, macAddr, TAF_NET_MAC_ADDR_MAX_LEN);
+    ret = taf_net_GetIPPTDeviceMacAddress(ipptInterfaceRef, &ifType, macAddr, TAF_NET_MAC_ADDR_MAX_LEN);
     printf("---- GetIPPTDeviceMacAddress %s, ifType: %d and macAddr: %s\n", ret == LE_OK ? "success" : "failed", (int) ifType, macAddr);
 
-    taf_netIpPass_RemoveInterface(ipptInterfaceRef);
+    taf_net_RemoveInterface(ipptInterfaceRef);
     return EXIT_SUCCESS;
 }
 
@@ -1099,8 +1103,8 @@ static int TafSetIPConfig(int cmdOffset, bool takeIpInfoFromDataCall)
 
     if (numArgs != 11+cmdOffset)
     {
-        if ((numArgs < 6+cmdOffset) || ((numArgs == 6+cmdOffset) && atoi(le_arg_GetArg(5+cmdOffset)) == TAF_NETIPPASS_STATIC_IP && !takeIpInfoFromDataCall)) {
-            //IpAssignType is TAF_NETIPPASS_STATIC_IP but neither input IP, GW, DNS0, DNS1 nor started data call and ask to take these from data call.
+        if ((numArgs < 6+cmdOffset) || ((numArgs == 6+cmdOffset) && atoi(le_arg_GetArg(5+cmdOffset)) == TAF_NET_STATIC_IP && !takeIpInfoFromDataCall)) {
+            //IpAssignType is TAF_NET_STATIC_IP but neither input IP, GW, DNS0, DNS1 nor started data call and ask to take these from data call.
             LE_INFO("TafSetIPConfig numArgs: %d and IpAssignType: %d", numArgs, (numArgs < 6+cmdOffset) ? -1 : atoi(le_arg_GetArg(5+cmdOffset)));
             PrintUsage();
             exit(EXIT_FAILURE);
@@ -1120,7 +1124,7 @@ static int TafSetIPConfig(int cmdOffset, bool takeIpInfoFromDataCall)
     const char* ifMaskAddrPtr = "";
 
     if (numArgs == 11+cmdOffset) {
-        //IpAssignType is TAF_NETIPPASS_STATIC_IP and user input the IP Addr Details
+        //IpAssignType is TAF_NET_STATIC_IP and user input the IP Addr Details
         interfaceAddrPtr = le_arg_GetArg(6+cmdOffset);
         gwAddrPtr = le_arg_GetArg(7+cmdOffset);
         primaryDnsAddrPtr = le_arg_GetArg(8+cmdOffset);
@@ -1137,20 +1141,20 @@ static int TafSetIPConfig(int cmdOffset, bool takeIpInfoFromDataCall)
     uint32_t vlanid = strtol(vlanIdPtr, NULL, 0);
     taf_net_VlanIfType_t ifType = (taf_net_VlanIfType_t)strtol(ifTypePtr, NULL, 0);
     taf_net_NetIpType_t  ipType = (taf_net_NetIpType_t)strtol(ipTypePtr, NULL, 0);
-    taf_netIpPass_IpAssignOperation_t ipOpr = (taf_netIpPass_IpAssignOperation_t)strtol(ipOprPtr, NULL, 0);
-    taf_netIpPass_IpAssignType_t ipAssignType = (taf_netIpPass_IpAssignType_t)strtol(ipAssignTypePtr, NULL, 0);
+    taf_net_IpAssignOperation_t ipOpr = (taf_net_IpAssignOperation_t)strtol(ipOprPtr, NULL, 0);
+    taf_net_IpAssignType_t ipAssignType = (taf_net_IpAssignType_t)strtol(ipAssignTypePtr, NULL, 0);
 
-    taf_netIpPass_IpAddressInfo_t ipAddrInfo;
+    taf_net_IpAddressInfo_t ipAddrInfo;
 
-    if (ipAssignType == TAF_NETIPPASS_STATIC_IP && numArgs == 11+cmdOffset) {
-        //Take IP details from user input if IpAssignType is TAF_NETIPPASS_STATIC_IP
+    if (ipAssignType == TAF_NET_STATIC_IP && numArgs == 11+cmdOffset) {
+        //Take IP details from user input if IpAssignType is TAF_NET_STATIC_IP
         le_utf8_Copy(ipAddrInfo.interfaceAddress, interfaceAddrPtr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
         le_utf8_Copy(ipAddrInfo.gwAddress, gwAddrPtr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
         le_utf8_Copy(ipAddrInfo.primaryDnsAddress, primaryDnsAddrPtr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
         le_utf8_Copy(ipAddrInfo.secondaryDnsAddress, secondaryDnsAddrPtr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
         ipAddrInfo.interfaceMask = (uint32_t)strtol(ifMaskAddrPtr, NULL, 0);
-    } else if (ipAssignType == TAF_NETIPPASS_STATIC_IP && takeIpInfoFromDataCall) {
-        //Take IP details from data call in IpAssignType as TAF_NETIPPASS_STATIC_IP
+    } else if (ipAssignType == TAF_NET_STATIC_IP && takeIpInfoFromDataCall) {
+        //Take IP details from data call in IpAssignType as TAF_NET_STATIC_IP
         le_utf8_Copy(ipAddrInfo.interfaceAddress, ifaddress, TAF_NET_IP_ADDR_MAX_LEN, NULL);
         le_utf8_Copy(ipAddrInfo.gwAddress, gwaddress, TAF_NET_IP_ADDR_MAX_LEN, NULL);
         le_utf8_Copy(ipAddrInfo.primaryDnsAddress, pDNSaddress, TAF_NET_IP_ADDR_MAX_LEN, NULL);
@@ -1158,21 +1162,21 @@ static int TafSetIPConfig(int cmdOffset, bool takeIpInfoFromDataCall)
         ipAddrInfo.interfaceMask = ifsubnetMask;
     }
 
-    if (ipAssignType == TAF_NETIPPASS_STATIC_IP) {
+    if (ipAssignType == TAF_NET_STATIC_IP) {
         LE_INFO("IPv4 info Addr: %s, GW: %s, DNS0: %s, DNS1: %s and Subnet Mask: %u\n",
                 ipAddrInfo.interfaceAddress, ipAddrInfo.gwAddress, ipAddrInfo.primaryDnsAddress,
                 ipAddrInfo.secondaryDnsAddress,
                 takeIpInfoFromDataCall ? ifsubnetMask : (uint32_t) strtol(ifMaskAddrPtr, NULL, 0));
     }
 
-    taf_netIpPass_InterfaceRef_t ipptInterfaceRef = taf_netIpPass_GetInterface(ifType);
+    taf_net_InterfaceRef_t ipptInterfaceRef = taf_net_GetInterface(ifType);
 
-    ret = taf_netIpPass_SetIPConfigParams(ipptInterfaceRef, ipOpr, ipAssignType);
-    if(ipAssignType == TAF_NETIPPASS_STATIC_IP)
+    ret = taf_net_SetIPConfigParams(ipptInterfaceRef, ipOpr, ipAssignType);
+    if(ipAssignType == TAF_NET_STATIC_IP)
     {
-      ret = taf_netIpPass_SetIPConfigAddressParams(ipptInterfaceRef, &ipAddrInfo);
+      ret = taf_net_SetIPConfigAddressParams(ipptInterfaceRef, &ipAddrInfo);
     }
-    ret = taf_netIpPass_SetIPConfig(ipptInterfaceRef, ipType, ifType, vlanid);
+    ret = taf_net_SetIPConfig(ipptInterfaceRef, ipType, ifType, vlanid);
 
     if(ret == LE_OK)
     {
@@ -1182,7 +1186,7 @@ static int TafSetIPConfig(int cmdOffset, bool takeIpInfoFromDataCall)
     {
         printf("---- SetIPConfig error: %s\n", LE_RESULT_TXT(ret));
     }
-    taf_netIpPass_RemoveInterface(ipptInterfaceRef);
+    taf_net_RemoveInterface(ipptInterfaceRef);
     return EXIT_SUCCESS;
 }
 
@@ -1210,17 +1214,17 @@ static int TafGetIPConfig(int cmdOffset)
     taf_net_VlanIfType_t ifType = (taf_net_VlanIfType_t)strtol(ifTypePtr, NULL, 0);
     taf_net_NetIpType_t ipType = (taf_net_NetIpType_t)strtol(ipTypePtr, NULL, 0);
 
-    taf_netIpPass_IpAssignOperation_t ipOpr = TAF_NETIPPASS_IP_UNKNOWN;
-    taf_netIpPass_IpAssignType_t ipTypeOut = TAF_NETIPPASS_UNKNOWN_IP;
+    taf_net_IpAssignOperation_t ipOpr = TAF_NET_IP_UNKNOWN;
+    taf_net_IpAssignType_t ipTypeOut = TAF_NET_UNKNOWN_IP;
 
-    taf_netIpPass_IpAddressInfo_t ipAddrInfo;
+    taf_net_IpAddressInfo_t ipAddrInfo;
 
-    taf_netIpPass_InterfaceRef_t ipptInterfaceRef = taf_netIpPass_GetIPConfig(ipType, ifType, vlanid);
+    taf_net_InterfaceRef_t ipptInterfaceRef = taf_net_GetIPConfig(ipType, ifType, vlanid);
 
-    ret = taf_netIpPass_GetIPConfigParams(ipptInterfaceRef, &ipOpr, &ipTypeOut);
+    ret = taf_net_GetIPConfigParams(ipptInterfaceRef, &ipOpr, &ipTypeOut);
     printf("---- GetIPConfigParams %s, ipOpr: %d and ipType: %d\n", ret == LE_OK ? "success" : "failed", (int) ipOpr, (int) ipType);
 
-    ret = taf_netIpPass_GetIPConfigAddressParams(ipptInterfaceRef, &ipAddrInfo);
+    ret = taf_net_GetIPConfigAddressParams(ipptInterfaceRef, &ipAddrInfo);
 
     if(ret == LE_OK)
     {
@@ -1235,7 +1239,7 @@ static int TafGetIPConfig(int cmdOffset)
     {
         printf("---- TafGetIPConfig error: %s\n", LE_RESULT_TXT(ret));
     }
-    taf_netIpPass_RemoveInterface(ipptInterfaceRef);
+    taf_net_RemoveInterface(ipptInterfaceRef);
     return EXIT_SUCCESS;
 }
 
@@ -1853,6 +1857,130 @@ static int RpcStopDataCall()
     return EXIT_SUCCESS;
 }
 
+static int GetIPPTNATConfig()
+{
+
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=1)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    bool ipptNatConfig = false;
+    taf_net_VlanRef_t vlanRef=NULL;
+
+    ret = taf_net_GetIPPTNatConfig(vlanRef,&ipptNatConfig);
+    if(ret == LE_OK)
+    {
+        printf("----GetIPPTNAT config ok value %d \n",ipptNatConfig);
+    }
+    else
+    {
+        printf("----GetIPPTNAT config error: %s\n", LE_RESULT_TXT(ret));
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int SetIPPTNATConfig()
+{
+
+    le_result_t ret;
+
+    if (le_arg_NumArgs() < 2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* setIPPTNATPtr = le_arg_GetArg(1);
+    taf_net_VlanRef_t vlanRef=NULL;
+
+    if(setIPPTNATPtr == NULL)
+    {
+        LE_ERROR("setIPPTNATPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    bool ipptNatConfig = strtol(setIPPTNATPtr, NULL, 0);
+
+    ret = taf_net_SetIPPTNatConfig(vlanRef,ipptNatConfig);
+    if(ret == LE_OK)
+    {
+        printf("----SetIPPTNAT config ok\n");
+    }
+    else
+    {
+        printf("----SetIPPTNAT config error: %s\n", LE_RESULT_TXT(ret));
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int RpcGetIPPTNATConfig()
+{
+
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=1)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    bool ipptNatConfig = false;
+    taf_net_VlanRef_t vlanRef=NULL;
+
+    ret = rpc_taf_net_GetIPPTNatConfig(vlanRef,&ipptNatConfig);
+    if(ret == LE_OK)
+    {
+        printf("----GetIPPTNAT config ok value %d \n",ipptNatConfig);
+    }
+    else
+    {
+        printf("----GetIPPTNAT config error: %s\n", LE_RESULT_TXT(ret));
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int RpcSetIPPTNATConfig()
+{
+
+    le_result_t ret;
+
+    if (le_arg_NumArgs() < 2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* setIPPTNATPtr = le_arg_GetArg(1);
+    taf_net_VlanRef_t vlanRef=NULL;
+
+    if(setIPPTNATPtr == NULL)
+    {
+        LE_ERROR("setIPPTNATPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    bool ipptNatConfig = strtol(setIPPTNATPtr, NULL, 0);
+
+    ret = rpc_taf_net_SetIPPTNatConfig(vlanRef,ipptNatConfig);
+    if(ret == LE_OK)
+    {
+        printf("----SetIPPTNAT config ok\n");
+    }
+    else
+    {
+        printf("----SetIPPTNAT config error: %s\n", LE_RESULT_TXT(ret));
+    }
+
+    return EXIT_SUCCESS;
+}
+
 
 COMPONENT_INIT
 {
@@ -1862,14 +1990,14 @@ COMPONENT_INIT
 
     le_result_t res = rpc_taf_net_TryConnectService();
 
-    le_result_t result = rpc_taf_netIpPass_TryConnectService();
+    le_result_t result = rpc_taf_net_TryConnectService();
 
     isRpcNetConnected = (res == LE_OK && result == LE_OK);
 
     if(isRpcNetConnected) {
-        LE_INFO("Client connected successfully to the remote taf_net and taf_netIpPass services.");
+        LE_INFO("Client connected successfully to the remote taf_net and taf_net services.");
     } else {
-        LE_INFO("Client unable to connect the remote taf_net and/or taf_netIpPass service!");
+        LE_INFO("Client unable to connect the remote taf_net and/or taf_net service!");
     }
 
     res = rpc_taf_dcs_TryConnectService();
@@ -2035,6 +2163,22 @@ COMPONENT_INIT
         else if(strcmp(testType, "datacall") == 0)
         {
             status = DataCallTest(NULL);
+        }
+        else if(strcmp(testType, "setIPPTNATConfig") == 0)
+        {
+            status = SetIPPTNATConfig();
+        }
+        else if(strcmp(testType, "getIPPTNATConfig") == 0)
+        {
+            status = GetIPPTNATConfig();
+        }
+        else if(strcmp(testType, "rpcsetIPPTNATConfig") == 0)
+        {
+            status = RpcSetIPPTNATConfig();
+        }
+        else if(strcmp(testType, "rpcgetIPPTNATConfig") == 0)
+        {
+            status = RpcGetIPPTNATConfig();
         }
 
         exit(status);

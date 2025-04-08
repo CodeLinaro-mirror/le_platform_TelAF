@@ -139,3 +139,13 @@ def ExecutionAuthorizationPattern():
     def _ExecutionAuthorizationPattern(value):
         return isinstance(value, str)
     return _ExecutionAuthorizationPattern
+
+def HexaOrBin():
+    def _HexaOrBin(value):
+        if value.startswith('0x') or value.startswith('0X'):
+            return True
+        if value.startswith('0b') or value.startswith('0B'):
+            return True
+
+        return False
+    return _HexaOrBin

@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 /*
  * @file       tafKeyStoreUnitTest.c
@@ -140,9 +112,10 @@ __attribute__((unused)) static void KeySharingTest(void)
     const char invalidKeyId[] ="Wrong#&keyId";
     const char nonExistSharedKeyId[] = "NonExistApp::NonExistKeyId";
     const char* sharedAppNameList[] = {"Shared_App1", "Shared_App2", "Shared_App3", "Shared_App4",
-                                       "Shared_App5"};
-    char appName[LE_LIMIT_APP_NAME_LEN+1] = { 0 };
-    char keyName[256] = { 0 };
+        "Shared_App5", "shared_App6", "Shared_app7", "Shared_App8","Shared_app9", "shared_App10",
+        "Shared_app11", "shared_app12"};
+    char appName[TAF_KS_MAX_APP_NAME_SIZE+1] = { 0 };
+    char keyName[TAF_KS_MAX_KEY_ID_SIZE+1] = { 0 };
     taf_ks_KeyRef_t keyRef;
     taf_ks_KeyRef_t keyRef1;
     taf_ks_KeyUsage_t keyCap;
@@ -188,7 +161,7 @@ __attribute__((unused)) static void KeySharingTest(void)
                            "Share key to app: '%s'.", sharedAppNameList[i]);
         }
 
-        // Share to one more app will fail since we only support to share at most 5 apps.
+        // Share to one more app will fail since we only support to share at most 12 apps.
         LE_TEST_ASSERT(LE_NO_MEMORY == taf_ks_ShareKey(keyRef, "Shared_AppY",
                                                        TAF_KS_RSA_ENCRYPT_DECRYPT, 0),
                        "Share key to the 6th app: '%s'.", "Shared_AppY");
@@ -209,9 +182,13 @@ __attribute__((unused)) static void KeySharingTest(void)
     {
         // Get the key by keyName="<appName>::<keyId>", Shall return the same key reference
         // If the appName is our own app.
-        snprintf(keyName, sizeof(keyName), "tafKeyStoreUnitTest::%s", keyId);
+
+        LE_TEST_ASSERT (LE_OK == taf_ks_GetCallingAppName(appName, sizeof(appName)),
+                        " Get calling app name: '%s'", appName);
+
+        snprintf(keyName, sizeof(keyName), "%s::%s", appName, keyId);
         LE_TEST_ASSERT((LE_OK == taf_ks_GetKey(keyName, &keyRef1)) && (keyRef == keyRef1),
-                       "Get the same key again.");
+                       "Get the same key again (%s).", keyName);
 
         // Get sharedApp list.
         LE_TEST_ASSERT(LE_OK == taf_ks_GetFirstSharedApp(keyRef, appName, sizeof(appName),

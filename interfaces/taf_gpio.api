@@ -38,6 +38,8 @@
  *
  * @rst :ref:`API reference <File taf_gpio_interface.h>` @endrst
  *
+ * @rst :ref:`HAL APIs <File tafHalGpio.h>` @endrst
+ *
  * <HR>
  *
  * This API is used by apps to control general-purpose digital input/output pins.

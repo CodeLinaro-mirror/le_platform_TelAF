@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -100,7 +100,6 @@ typedef struct
     taf_CoolingDevice_t* cDevice;
 }coolingLevelChangeInfo_t;
 
-namespace telux {
     namespace tafsvc {
 
         class taf_ThermServiceListener : public telux::therm::IThermalListener {
@@ -234,4 +233,3 @@ namespace telux {
          static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void* contextPtr);
         };
     }
-}

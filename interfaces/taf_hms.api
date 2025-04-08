@@ -164,6 +164,64 @@
    }
    @endverbatim
  *
+ * @section c_taf_hms_ModemEvtHandler_API Modem event notification
+ *
+ * taf_hms_AddModemEvtHandler() is for the application to register an event handler for modem
+ * event. When the status of modem changes, the service will notify the client through
+ * that registered event handler.
+ *
+ * When the notification is not needed, taf_hms_RemoveModemEvtHandler() is used to de-register
+ * the event handler to release.
+ *
+ * The following example illustrates how to register and get the modem information,
+ * @verbatim
+    // Event handler for receiving notification from hms service
+    void ModemStatusHandler
+    (
+        taf_hms_ModemEvtType_t eventType,
+        taf_hms_ModemEvtSeverity_t eventLevel,
+        taf_hms_ModemEventRef_t eventRef,
+        void* contextPtr
+    )
+    {
+        LE_INFO("Event Type: %s. Event Level: %s Event Reference: %p\n",
+            ModemEventTypeToStr(eventType), ModemEventLevelToStr(eventLevel), eventRef);
+        le_result_t result = taf_hms_ReleaseModemEvt(eventRef);
+    }
+
+    taf_hms_ModemEvtHandlerRef_t modemStatusHandlerRef = NULL;
+    // Thread to register the handler
+
+    void* Test_taf_Hms_AddModemEvtHandler(void* cxtPtr)
+    {
+        taf_hms_ConnectService();
+        modemStatusHandlerRef = taf_hms_AddModemEvtHandler(
+            (taf_hms_ModemEvtHandlerFunc_t)ModemStatusHandler, NULL);
+        le_event_RunLoop();
+        return NULL;
+    }
+
+    //Creates a thread to register the handler and receive notification.
+    le_thread_Ref_t threadRef = le_thread_Create("ModemCrashMonitorThread",
+        Test_taf_Hms_AddModemEvtHandler, (void*)semRef);
+
+    // De-register the hanlder when not need.
+    taf_hms_RemoveModemEvtHandler(modemStatusHandlerRef);
+    @endverbatim
+ *
+ * @section taf_hms_GetResetInformation Get the (re)boot reason
+ * The API of taf_hms_GetResetInformation() provides the (re)boot reason for this boot up.
+ * @verbatim
+   le_result_t result;
+   taf_hms_Reset_t reset;
+   char resetSpecificInfoStr[TAF_HMS_MAX_RESET_LEN] ={0};
+
+   // Get the (re)boot reason.
+   result = taf_hms_GetResetInformation(&reset, resetSpecificInfoStr, TAF_HMS_MAX_RESET_LEN);
+   LE_INFO("Reset info - type: %d, sub string: %s", (int)reset, resetSpecificInfoStr);
+
+   @endverbatim
+ *
  * <HR>
  *
  */
@@ -215,11 +273,45 @@ REFERENCE MtdDevInfoList;
 //--------------------------------------------------------------------------------------------------
 REFERENCE MtdDevInfo;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference type for modem event.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE ModemEvent;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of modem event maintained by health monitor service.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ModemEvtType
+{
+    MODEM_EVENT_TYPE_CONTINUE_REBOOT
+};
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of modem event severity level maintained by health monitor service.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ModemEvtSeverity
+{
+    MODEM_EVENT_SEVERITY_LOW,
+    MODEM_EVENT_SEVERITY_MEDIUM,
+    MODEM_EVENT_SEVERITY_HIGH
+};
+
 
 ///------------------------------------------------------------------------------------------------
 /**
 * Gets the total CPU usage from " /proc/stat ".
 *
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -235,6 +327,7 @@ FUNCTION le_result_t  GetCpuLoad
 /**
 * Gets number of CPU core from " /proc/cpuinfo ".
 *
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -250,6 +343,8 @@ FUNCTION uint32 GetCpuCoreNum
 * Gets the CPU usage of each core from " /proc/stat ".
 * The API provides total CPU usage of each core ranging from 0 to 100 %.
 * The coreID range can be 0 - (cpuCoreNum-1), the result value can be LE_OK.
+*
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -266,6 +361,7 @@ FUNCTION le_result_t GetIndvCoreUsage
 /**
 * Gets the meminfo value from " /proc/meminfo ".
 *
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -283,6 +379,7 @@ FUNCTION le_result_t  GetRamMemInfo
 /**
 * Gets the list of available UBI device information.
 *
+* @instaging
 * @return
  *  - NULL                            No information found.
  *  - taf_hms_UbiDevInfoListRef    The UBI device Info list object reference.
@@ -298,6 +395,7 @@ FUNCTION UbiDevInfoList GetUbiDevInfoList
  * Gets the first UBI device Info object reference in the list of the
  * UbiDevInfoList retrieved with taf_hms_GetUbiDevInfoList().
  *
+ * @instaging
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_UbiDevInfoListRef      The UBI device Info object reference.
@@ -313,6 +411,7 @@ FUNCTION UbiDevInfo GetFirstUbiDevInfo
 /**
 * Deletes the UbiDevInfoList list retrieved with taf_hms_GetUbiDevInfoList().
 *
+* @instaging
 * @return
 *  - LE_BAD_PARAMETER -- Bad parameters.
 *  - LE_OK -- Succeeded.
@@ -329,6 +428,7 @@ FUNCTION le_result_t DeleteUbiDevInfoList
  * Gets the next UBI device Info object reference in the list of the
  * UBIInfoList retrieved with taf_hms_GetUBIInfoList().
  *
+ * @instaging
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_UbiDevInfoListRef      The UBI device Info object reference.
@@ -344,6 +444,7 @@ FUNCTION UbiDevInfo GetNextUbiDevInfo
 /**
 * Gets UBI device ID
 *
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -360,6 +461,7 @@ FUNCTION le_result_t GetUbiDevId
 /**
 * Gets UBI information for current maximum erase count from " /sys/class/ubi/ubi%d/ ".
 *
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -376,6 +478,7 @@ FUNCTION le_result_t GetUbiDevMaxEraseCnt
 /**
 * Gets UBI information for bad block count from " /sys/class/ubi/ubi%d/ ".
 *
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -393,6 +496,7 @@ FUNCTION le_result_t GetUbiDevBadBlkCnt
  * Gets the first UBI volume Info object reference in the list of the
  * UbiVolInfoList retrieved with taf_hms_GetUbiDevInfoList().
  *
+ * @instaging
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_UbiVolInfoListRef      The UBI device Info object reference.
@@ -409,6 +513,7 @@ FUNCTION UbiVolInfo GetFirstUbiVolInfo
  * Gets the next UBI volume Info object reference in the list of the
  * UbiVolInfoList retrieved with taf_hms_GetUbiDevInfoList().
  *
+ * @instaging
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_UbiVolInfoListRef      The UBI volume Info object reference.
@@ -424,6 +529,7 @@ FUNCTION UbiVolInfo GetNextUbiVolInfo
 /**
 * Gets UBI volume ID.
 *
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -440,6 +546,7 @@ FUNCTION le_result_t GetUbiVolId
 /**
 * Gets name of UBI volume.
 *
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -456,6 +563,7 @@ FUNCTION le_result_t GetUbiVolName
 /**
 * Gets size of UBI volume in bytes.
 *
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -474,6 +582,7 @@ FUNCTION le_result_t GetUbiVolSize
 /**
 * Gets the list of available MTD Node.
 *
+* @instaging
 * @return
  *  - NULL                            No information found.
  *  - taf_hms_MtdInfoListRef    The MtdInfo list object reference.
@@ -488,6 +597,7 @@ FUNCTION MtdDevInfoList GetMtdDevInfoList
 /**
 * Deletes the MtdInfoList list retrieved with taf_hms_GetMtdInfoList().
 *
+* @instaging
 * @return
 *  - LE_BAD_PARAMETER -- Bad parameters.
 *  - LE_OK -- Succeeded.
@@ -504,6 +614,7 @@ FUNCTION le_result_t DeleteMtdDevInfoList
  * Gets the first MtdInfo object reference in the list of the
  * MtdInfoList retrieved with taf_hms_GetMtdInfoList().
  *
+ * @instaging
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_MtdInfoListRef      The MtdInfo object reference.
@@ -520,6 +631,7 @@ FUNCTION MtdDevInfo GetFirstMtdDevInfo
  * Gets the next MtdInfo object reference in the list of the
  * MtdInfoList retrieved with taf_hms_GetMtdInfoList().
  *
+ * @instaging
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_MtdInfoListRef      The MtdInfo object reference.
@@ -535,6 +647,7 @@ FUNCTION MtdDevInfo GetNextMtdDevInfo
 /**
 * Gets MTD information for name from " /sys/class/mtd/mtd%d/ ".
 *
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -551,6 +664,7 @@ FUNCTION le_result_t GetMtdDevName
 /**
 * Gets MTD information for block size in bytes.
 *
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -567,6 +681,7 @@ FUNCTION le_result_t GetMtdDevBlkSize
 /**
 * Gets MTD information for device ID.
 *
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -583,6 +698,7 @@ FUNCTION le_result_t GetMtdDevId
 /**
 * Gets MTD information for block count.
 *
+* @instaging
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -592,4 +708,95 @@ FUNCTION le_result_t GetMtdDevBlkCnt
 (
     MtdDevInfo mtdDevInfoRef  IN,      ///< MTD Info reference.
     uint32 mtdBlkCnt OUT       ///< Block count.
+);
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for change in modem event.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER ModemEvtHandler
+(
+    ModemEvtType eventType   IN,             ///< Modem event
+    ModemEvtSeverity eventSeverity IN,       ///< Modem event level
+    ModemEvent eventRef                  ///< Modem status change event reference
+);
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report the modem status change and relevant information.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT ModemEvt
+(
+    ModemEvtHandler handler    ///< Modem status handler.
+);
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Release modem event reference.
+*
+* @instaging
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ReleaseModemEvt
+(
+    ModemEvent eventRef                  ///< Modem status change event reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum length of a reset specific information string, excluding any termination character.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_RESET_LEN   = 50;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reset type enum
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM Reset
+{
+    RESET_UNKNOWN,  ///< Unknown
+    RESET_USER,     ///< User request
+    RESET_HARD,     ///< Hardware switch
+    RESET_UPDATE,   ///< Software update
+    RESET_CRASH,    ///< Software crash
+    RESET_WDOG,     ///< Watchdog bark
+    POWER_DOWN,     ///< Power Down
+    VOLT_CRIT,      ///< Power Down due to a critical voltage level
+    TEMP_CRIT       ///< Power Down due to a critical temperature level
+};
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the last reset information reason
+ *
+ * @return
+ *      - LE_OK          on success
+ *      - LE_UNSUPPORTED if it is not supported by the platform
+ *        LE_OVERFLOW    specific reset information length exceeds the maximum length.
+ *      - LE_FAULT       for any other errors
+ *
+ * @note If the caller is passing a bad pointer into this function, it is a fatal error, the
+ *       function will not return.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetResetInformation
+(
+    Reset reset OUT,                                ///< Reset information
+    string resetSpecificInfoStr[MAX_RESET_LEN] OUT  ///< Reset specific information
 );

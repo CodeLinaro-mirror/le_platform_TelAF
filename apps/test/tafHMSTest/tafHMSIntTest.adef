@@ -1,0 +1,27 @@
+maxThreads: 600
+sandboxed: false
+
+executables:
+{
+    tafHMSIntTest = ( tafHMSIntTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafHMSIntTest)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+    faultAction: stopApp
+}
+
+bindings:
+{
+    tafHMSIntTest.tafHMSIntTest.taf_hms -> tafHMSvc.taf_hms
+}

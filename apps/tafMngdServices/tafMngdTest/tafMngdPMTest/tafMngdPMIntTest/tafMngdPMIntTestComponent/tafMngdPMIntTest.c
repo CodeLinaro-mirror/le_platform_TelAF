@@ -17,6 +17,7 @@ taf_mngdPm_wsRef_t wsRef1 = NULL;
 taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = 0;
 static le_sem_Ref_t tafMpmAppSem;
 le_clk_Time_t Timeout = { 5 , 0 };
+le_clk_Time_t AckTimeout = { 1 , 0 };
 
 static le_sem_Ref_t tafMpmEcallSem;
 le_clk_Time_t EcallTimeout = { 10 , 0 };
@@ -26,6 +27,7 @@ const char* wsTag = "testWsTag";
 static le_sem_Ref_t semRef = NULL, queueSemRef = NULL;
 static le_thread_Ref_t threadRef = NULL;
 
+int stateChangeAck = 1;
 #define VEHICHLE_WAKEUP_REASON_DEFAULT 0
 #define AUTHORIZE_ALL_STAY_AWAKE_REASON 0xFFFFFFFF
 
@@ -87,8 +89,8 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- KeepAwakeThenRestartSystem \n"
         "------------To ForcedSystemShutdownAndSuspend-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdownAndSuspend\n"
-        "------------To Create a CreateMutlipleClients-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- CreateMutlipleClients\n"
+        "------------To Create a CreateMultipleClients-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- CreateMultipleClients\n"
         "------------To  test AllowWakingupDuringSuspending-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- AllowWakingupDuringSuspending\n"
         "------------To Test System Resume and Suspend -----------\n"
@@ -98,9 +100,22 @@ static void PrintUsage ()
         "------------To Test Bub with ecall use cases-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestBubCases\n"
         "------------To Test Test NonAuthorized StayAwake wake source-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestNonAuthorizedStayAwake\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestNonAuthorizedStayAwake\n"
+        "------------To Test clearing of unauthorized wake source after calling AuthorizeStayAwakeReason-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestClearUnAuthorizedWakeSource\n"
+        "------------To Test ForcedSysShutdown with multiple clients-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- MultiClntForcedSysShutdown\n"
+        "------------To Test System Restart with multiple clients-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- MultiClntRestartSystem\n"
+        "------------To Test Wakeup Vehicle with multiple clients-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- MultiClntWakeupVehicle\n"
+        "------------To set NodePowerStateChangeAck for state change acknowledgement-----------\n"
+        "------  1   -> ACK ------------\n"
+        "-----  -1   -> NACK ------------\n"
+        "------  2   -> NO_RESP ------------\n"
+        "------  3   -> ACK_AFTER_TIMEOUT ------------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GracefulSysSuspendWithAckType <ACK_TYPE>\n");
 }
-
 
 void NodePowerStateChangeHandlerCB(
      uint8_t pmNodeId,
@@ -110,7 +125,22 @@ void NodePowerStateChangeHandlerCB(
 {
     LE_INFO("NodePowerStateChangeHandlerFunc callback");
     le_result_t res = LE_FAULT;
-    res = taf_mngdPm_SendNodePowerStateChangeAck(pmNodeId, nodePowerStateRef, TAF_MNGDPM_CLIENT_READY);
+    if(stateChangeAck == 2)
+        return;
+    else if(stateChangeAck == 3)
+    {
+        tafMpmAppSem = le_sem_Create("tafMpmAppSem", 0);
+        le_sem_WaitWithTimeOut(tafMpmAppSem, AckTimeout);
+        LE_INFO("state change ack timer expired");
+        le_sem_Delete(tafMpmAppSem);
+        res = taf_mngdPm_SendNodePowerStateChangeAck(pmNodeId, nodePowerStateRef, stateChangeAck);
+        if(res == LE_OK)
+        {
+            LE_INFO("SendNodePowerStateChangeAck is success");
+            exit(EXIT_SUCCESS);
+        }
+    }
+    res = taf_mngdPm_SendNodePowerStateChangeAck(pmNodeId, nodePowerStateRef, stateChangeAck);
     if(res == LE_OK)
     {
         LE_INFO("SendNodePowerStateChangeAck is success");
@@ -171,7 +201,7 @@ void AddNodePowerStateChangeHandler
 void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode ,
         le_result_t result, void* contextPtr)
 {
-    LE_INFO("RestartCallback response mode is %d", rspmode);
+    LE_INFO("RestartCallback response mode is %d and result %d", rspmode, result);
     if(rspmode == 0)
     {
         LE_INFO("----Restart System success----");
@@ -326,13 +356,162 @@ static void RestartSystemWithReason()
 void ForcedSystemShutdownCallBack(taf_mngdPm_ShutdownMode_t mode,
      taf_mngdPm_ResponseMode_t ResponseMode, le_result_t result, void* contextPtr)
 {
-    LE_INFO("ForcedSystemShutdownCallBack response mode is %d", ResponseMode);
+    LE_INFO("ForcedSystemShutdownCallBack response mode is %d and result %d", ResponseMode, result);
     if(ResponseMode == 0)
     {
         LE_INFO("----ForcedSystemShutdown success----");
     }
     else{
         exit(EXIT_FAILURE);
+    }
+}
+
+void MultiClntRestartSystemCB(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode ,
+        le_result_t result, void* contextPtr)
+{
+    LE_INFO("MultiClntRestartSystemCB response mode is %d and result %d", rspmode, result);
+    if(rspmode == 0)
+    {
+        LE_INFO("----Restart System success----");
+    }
+}
+
+void* MultiClntRestartSystemFunction(void* threadID) {
+
+    taf_mngdPm_ConnectService();
+    le_result_t res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT,
+                MultiClntRestartSystemCB, NULL, TAF_MNGDPM_RESTART_REASON_NORMAL);
+    if(res == LE_OK)
+    {
+            printf("MultiClntRestartSystem Requested\n");
+    }
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+}
+
+void MultiClntRestartSystem()
+{
+    long t;
+    semRef = le_sem_Create("MngdIntTestApp", 0);
+    int NUM_THREADS = 0;
+    char buffer[100];
+    while(NUM_THREADS >= 0)
+    {
+    printf("Enter the number of clients\nEnter'-1' to exit\n");
+    if(fgets(buffer, sizeof(buffer), stdin))
+        LE_INFO("Value read successfully");
+    buffer[strcspn(buffer, "\n")] = '\0';
+    NUM_THREADS = atoi(buffer);
+    for (t = 0; t < NUM_THREADS; t++) {
+        threadRef = le_thread_Create("inttestapp",
+                                    MultiClntRestartSystemFunction, NULL);
+        if (threadRef) {
+            fprintf(stderr, "create thread :%ld \n", t);
+        }
+        le_thread_Start(threadRef);
+        le_sem_Wait(semRef);
+    }
+    printf("All threads completed successfully.\n");
+    if(NUM_THREADS == -1)
+        exit(EXIT_SUCCESS);
+    }
+}
+
+void MultiClntForcedSysShutdownCB(taf_mngdPm_ShutdownMode_t mode,
+     taf_mngdPm_ResponseMode_t ResponseMode, le_result_t result, void* contextPtr)
+{
+    LE_INFO("MultiClntForcedSysShutdownCB response mode is %d and result %d", ResponseMode, result);
+    if(ResponseMode == 0)
+    {
+        LE_INFO("----MultiClntForcedSysShutdown success----");
+    }
+}
+
+void* MultiClntForcedSysShutdownFunction(void* threadID) {
+
+    taf_mngdPm_ConnectService();
+    le_result_t res = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+            MultiClntForcedSysShutdownCB, NULL, TAF_MNGDPM_SHUTDOWN_REASON_NORMAL);
+    if(res == LE_OK)
+    {
+            printf("ForcedSysShutdown Requested\n");
+    }
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+}
+
+void MultiClntForcedSysShutdown()
+{
+    long t;
+    semRef = le_sem_Create("MngdIntTestApp", 0);
+    int NUM_THREADS = 0;
+    char buffer[100];
+    while(NUM_THREADS >= 0)
+    {
+    printf("Enter the number of clients\nEnter'-1' to exit\n");
+    if(fgets(buffer, sizeof(buffer), stdin))
+        LE_INFO("Value read successfully");
+    buffer[strcspn(buffer, "\n")] = '\0';
+    NUM_THREADS = atoi(buffer);
+    for (t = 0; t < NUM_THREADS; t++) {
+        threadRef = le_thread_Create("inttestapp",
+                                    MultiClntForcedSysShutdownFunction, NULL);
+        if (threadRef) {
+            fprintf(stderr, "create thread :%ld \n", t);
+        }
+        le_thread_Start(threadRef);
+        le_sem_Wait(semRef);
+    }
+    printf("All threads completed successfully.\n");
+    if(NUM_THREADS == -1)
+        exit(EXIT_SUCCESS);
+    }
+}
+
+void MultiClntWakeupVehicleCB(int32_t reason, int32_t rspmode ,
+        le_result_t result, void* contextPtr)
+{
+    LE_INFO("WakeupVehicleback response is %d and result %d", rspmode, result);
+}
+
+void* MultiClntWakeupVehicleFunction(void* threadID) {
+
+    taf_mngdPm_ConnectService();
+    le_result_t res = taf_mngdPm_WakeupVehicleReqAsync(VEHICHLE_WAKEUP_REASON_DEFAULT,
+            MultiClntWakeupVehicleCB, NULL);
+    if(res == LE_OK)
+    {
+            printf("WakeupVehicle Requested\n");
+    }
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+}
+
+void MultiClntWakeupVehicle()
+{
+    long t;
+    semRef = le_sem_Create("MngdIntTestApp", 0);
+    int NUM_THREADS = 0;
+    char buffer[100];
+    while(NUM_THREADS >= 0)
+    {
+    printf("Enter the number of clients\nEnter'-1' to exit\n");
+    if(fgets(buffer, sizeof(buffer), stdin))
+        LE_INFO("Value read successfully");
+    buffer[strcspn(buffer, "\n")] = '\0';
+    NUM_THREADS = atoi(buffer);
+    for (t = 0; t < NUM_THREADS; t++) {
+        threadRef = le_thread_Create("inttestapp",
+                                    MultiClntWakeupVehicleFunction, NULL);
+        if (threadRef) {
+            fprintf(stderr, "create thread :%ld \n", t);
+        }
+        le_thread_Start(threadRef);
+        le_sem_Wait(semRef);
+    }
+    printf("All threads completed successfully.\n");
+    if(NUM_THREADS == -1)
+        exit(EXIT_SUCCESS);
     }
 }
 
@@ -513,6 +692,16 @@ void GracefulSysSuspend(uint8_t pmNodeId)
 
 }
 
+
+void GracefulSysSuspendWithAckType(const char* status)
+{
+   LE_INFO("GracefulSysSuspendWithAckType");
+    int Result = (int)atoi(status);
+   stateChangeAck = Result;
+   GracefulSysSuspend(0);
+   LE_INFO("stateChangeAck is %d", stateChangeAck);
+}
+
 static int RestartNode(const char* node_id)
 {
     LE_INFO("RestartNode");
@@ -552,7 +741,7 @@ static int ShutdownNode(const char* node_id)
 void WakeupVehicleback(int32_t reason, int32_t rspmode ,
         le_result_t result, void* contextPtr)
 {
-    LE_INFO("WakeupVehicleback response is %d", rspmode);
+    LE_INFO("WakeupVehicleback response is %d and result %d", rspmode, result);
     exit(status);
 }
 
@@ -1311,7 +1500,7 @@ static void* connect_service(void* ctxPtr)
                 le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(AUTHORIZE_ALL_STAY_AWAKE_REASON);
                 if(res == LE_OK) {
                     printf("'AuthorizeStayAwakeReason for ALL bitmask is set'\n");
-                    LE_INFO("AUTHORIZE_ALL_STAY_AWAKE_REASON %d", AUTHORIZE_ALL_STAY_AWAKE_REASON);
+                    LE_INFO("AUTHORIZE_ALL_STAY_AWAKE_REASON %u", AUTHORIZE_ALL_STAY_AWAKE_REASON);
                }
             }
             else
@@ -1380,7 +1569,6 @@ static void* connect_service(void* ctxPtr)
 void* ThreadFunction(void* threadID) {
 
     taf_mngdPm_ConnectService();
-    // You can add any additional processing here
     le_result_t res = taf_mngdPm_SetModemWakeupSource(1);
     if(res == LE_OK)
         printf("SetModemWakeupSource for wakeuptype SMS is set\n");
@@ -1393,11 +1581,41 @@ void* ThreadFunction(void* threadID) {
             printf("Resumed sysytem\n");
          }
     }
+
     le_sem_Post(semRef);
     le_event_RunLoop();
 }
 
-void CreateMutlipleClients()
+void ReAuthorizeStayAwakeReason() {
+
+    taf_mngdPm_ConnectService();
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(4);
+    if(res == LE_OK) {
+        printf("AuthorizeStayAwakeReason is set to ecall callback");
+        exit(EXIT_SUCCESS);
+    }
+}
+
+void TestClearUnAuthorizedWakeSource()
+{
+    taf_mngdPm_ConnectService();
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(1);
+    if(res == LE_OK)
+        printf("AuthorizeStayAwakeReason is set to normal");
+    wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+            TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRef)
+        printf("CreateWakeupSource for TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL\n");
+    if(wsRef != NULL) {
+        res = taf_mngdPm_StayAwake(wsRef);
+        if(res == LE_OK) {
+            printf("'Resumed sysytem'\n");
+         }
+    }
+    ReAuthorizeStayAwakeReason();
+}
+
+void CreateMultipleClients()
 {
     long t;
     semRef = le_sem_Create("MngdIntTestApp", 0);
@@ -1618,9 +1836,9 @@ COMPONENT_INIT
         {
             TestBubCases();
         }
-        else if(strcmp(testType, "CreateMutlipleClients") == 0)
+        else if(strcmp(testType, "CreateMultipleClients") == 0)
         {
-            CreateMutlipleClients();
+            CreateMultipleClients();
         }
         else if(strcmp(testType, "AllowWakingupDuringSuspending") == 0)
         {
@@ -1629,6 +1847,32 @@ COMPONENT_INIT
         else if(strcmp(testType, "TestNonAuthorizedStayAwake") == 0)
         {
             TestNonAuthorizedStayAwake();
+        }
+        else if(strcmp(testType, "TestClearUnAuthorizedWakeSource") == 0)
+        {
+            TestClearUnAuthorizedWakeSource();
+        }
+        else if(strcmp(testType, "MultiClntForcedSysShutdown") == 0)
+        {
+            MultiClntForcedSysShutdown();
+        }
+        else if(strcmp(testType, "MultiClntRestartSystem") == 0)
+        {
+            MultiClntRestartSystem();
+        }
+        else if(strcmp(testType, "MultiClntWakeupVehicle") == 0)
+        {
+            MultiClntWakeupVehicle();
+        }
+        else if(strcmp(testType, "GracefulSysSuspendWithAckType") == 0)
+        {
+            if(testPar) {
+                GracefulSysSuspendWithAckType(testPar);
+            }
+            else {
+                printf("Enter PowerStateChangeAck");
+                exit(EXIT_FAILURE);
+            }
         }
         else
         {

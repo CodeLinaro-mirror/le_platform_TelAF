@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 /*
  * @file       tafUpdateIntTest.cpp
@@ -82,6 +54,64 @@ void PrintHelpMenu()
     printf("appInfo                 : Show app information.\n");
 }
 
+std::string GetErrorCodeString(taf_update_Error_t errCode)
+{
+    std::string ret;
+    if(errCode == TAF_UPDATE_BAD_PACKAGE)
+    {
+        ret = "TAF_UPDATE_BAD_PACKAGE";
+    }
+    else if(errCode == TAF_UPDATE_INTERNAL_ERROR)
+    {
+        ret = "TAF_UPDATE_INTERNAL_ERROR";
+    }
+    else if(errCode == TAF_UPDATE_SECURITY_FAILURE)
+    {
+        ret = "TAF_UPDATE_SECURITY_FAILURE";
+    }
+    else if(errCode == TAF_UPDATE_PACKAGE_NOT_FOUND)
+    {
+        ret = "TAF_UPDATE_PACKAGE_NOT_FOUND";
+    }
+    else if(errCode == TAF_UPDATE_APP_NOT_RUNNING)
+    {
+        ret = "TAF_UPDATE_APP_NOT_RUNNING";
+    }
+    else if(errCode == TAF_UPDATE_INVALID_OPERATION)
+    {
+        ret = "TAF_UPDATE_INVALID_OPERATION";
+    }
+    else if(errCode == TAF_UPDATE_IMAGE_NOT_VERFIED)
+    {
+        ret = "TAF_UPDATE_IMAGE_NOT_VERFIED";
+    }
+    else if(errCode == TAF_UPDATE_IO_ERROR)
+    {
+        ret = "TAF_UPDATE_IO_ERROR";
+    }
+    else if(errCode == TAF_UPDATE_NO_MEM_ERROR)
+    {
+        ret = "TAF_UPDATE_NO_MEM_ERROR";
+    }
+    else if(errCode == TAF_UPDATE_INVAL_ARG_ERROR)
+    {
+        ret = "TAF_UPDATE_INVAL_ARG_ERROR";
+    }
+    else if(errCode == TAF_UPDATE_BUSY_ERROR)
+    {
+        ret = "TAF_UPDATE_BUSY_ERROR";
+    }
+    else if(errCode == TAF_UPDATE_NODEV_ERROR)
+    {
+        ret = "TAF_UPDATE_NODEV_ERROR";
+    }
+    else
+    {
+        ret = "TAF_UPDATE_NONE";
+    }
+    return ret;
+}
+
 /*======================================================================
  FUNCTION        StateHandler
  DESCRIPTION     Handler function for update state
@@ -91,11 +121,16 @@ void PrintHelpMenu()
 ======================================================================*/
 void StateHandler(taf_update_StateInd_t* indication, taf_update_SessionRef_t sessRef, void* contextPtr)
 {
-    if(indication->error == TAF_UPDATE_INVALID_OPERATION)
+    if(indication->error != TAF_UPDATE_NONE)
     {
-        printf("Invalid operation requested\n");
-        le_sem_Post(semaphore);
-        return;
+        std::string errStr = GetErrorCodeString(indication->error);
+        LE_ERROR("Error code received: %s", errStr.c_str());
+        if(indication->error == TAF_UPDATE_INVALID_OPERATION)
+        {
+            printf("Invalid operation requested\n");
+            le_sem_Post(semaphore);
+            return;
+        }
     }
 
     switch (indication->state)

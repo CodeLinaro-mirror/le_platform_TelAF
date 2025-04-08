@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -15,7 +15,7 @@
 #include <iostream>
 #include "tafDidStore.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -68,6 +68,22 @@ le_result_t taf_diagDidStore_Read
     if(servicePtr == NULL)
     {
         LE_ERROR("Invalid service reference provided");
+        return LE_BAD_PARAMETER;
+    }
+
+    // Get and Check client app name is configured for requested read DID.
+    char readAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+
+    if (LE_OK != didStore.GetAppNameBySessionRef(taf_diagDidStore_GetClientSessionRef(),
+            readAppName, sizeof(readAppName)))
+    {
+        LE_ERROR("Failed to get client appName.");
+        return LE_FAULT;
+    }
+
+    if(didStore.IsReadAppAccessible(dataId, readAppName) == false)
+    {
+        LE_ERROR("Calling app is not in the read access list");
         return LE_FAULT;
     }
 
@@ -104,7 +120,25 @@ le_result_t taf_diagDidStore_Write
     if(servicePtr == NULL)
     {
         LE_ERROR("Invalid service reference provided");
+        return LE_BAD_PARAMETER;
     }
+
+    // Get and Check client app name is configured for requested read DID.
+    char writeAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+
+    if (LE_OK != didStore.GetAppNameBySessionRef(taf_diagDidStore_GetClientSessionRef(),
+            writeAppName, sizeof(writeAppName)))
+    {
+        LE_ERROR("Failed to get client appName.");
+        return LE_FAULT;
+    }
+
+    if(didStore.IsWriteAppAccessible(dataId, writeAppName) == false)
+    {
+        LE_ERROR("Calling app is not in the write access list");
+        return LE_FAULT;
+    }
+
     return didStore.Write(dataId, dataPtr, dataSize);
 }
 //--------------------------------------------------------------------------------------------------

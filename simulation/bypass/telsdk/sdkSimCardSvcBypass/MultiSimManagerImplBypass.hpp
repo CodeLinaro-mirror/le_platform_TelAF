@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -16,7 +16,6 @@
 
 #define INVALID_SLOT_COUNT -1
 
-namespace telux {
 namespace tel {
 
 struct MultiSimUserData {
@@ -85,6 +84,5 @@ private:
 };
 
 }  // end of namespace tel
-}  // end of namespace telux
 
 #endif

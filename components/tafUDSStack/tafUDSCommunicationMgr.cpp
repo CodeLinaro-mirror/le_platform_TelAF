@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include <string>
 #include "tafUDSCommunicationMgr.hpp"
@@ -40,7 +12,7 @@
 #include "tafSecurityAccess.hpp"
 #include "tafUDSStack.h"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace std;
 using namespace taf::uds;
 
@@ -59,6 +31,7 @@ taf_UDSIndicationHandler_t UdsCommunicationMgr::udsIndicationHandler;
 le_dls_List_t UdsCommunicationMgr::cancelFileXferReqList = LE_DLS_LIST_INIT;
 le_mutex_Ref_t UdsCommunicationMgr::cancelFileXferListMutex = NULL;
 static le_mem_PoolRef_t FileXferStatePool;
+static le_mem_PoolRef_t VlanIdPool;
 static le_mem_PoolRef_t CancelFileXferReqPool;
 
 UdsCommunicationMgr* UdsCommunicationMgr::GetInstance
@@ -155,6 +128,9 @@ void UdsCommunicationMgr::InitInstances
     // Create file transfer req pools.
     CancelFileXferReqPool = le_mem_CreatePool("CancelFileXferReqPool",
             sizeof(taf_CancelFileXferReq_t));
+
+    // Create vlan ID pools.
+    VlanIdPool = le_mem_CreatePool("VlanIdPool", sizeof(taf_uds_VlanId_t));
 
     // Create timer thread.
     le_thread_Ref_t udsTimerThreadRef = le_thread_Create("udsTimerTh", UdsTimerThread, NULL);
@@ -990,6 +966,35 @@ void UdsCommunicationMgr::GetFileXferActiveStateList
         le_dls_Queue(fileXferStateListPtr, &(fileXferStatePtr->link));
     }
 }
+
+/**
+ * Get vlan ID list.
+ */
+void UdsCommunicationMgr::GetVlanIdList
+(
+    le_dls_List_t* vlanIDListPtr
+)
+{
+    LE_DEBUG("GetVlanIdList");
+
+    // Store VLAN id in list. In non-VLAN case, vlanId will be 0.
+    for (const auto &pair : instances)
+    {
+        LE_INFO("vlanId=%d", pair.second->vlanId);
+
+        taf_uds_VlanId_t* vlanIdPtr = NULL;
+
+        // Need to be released by diag service
+        vlanIdPtr = (taf_uds_VlanId_t *)le_mem_ForceAlloc(VlanIdPool);
+
+        vlanIdPtr->vlanId = pair.second->vlanId;
+        vlanIdPtr->link = LE_DLS_LINK_INIT;
+        LE_DEBUG("Supported vlanId : %x", vlanIdPtr->vlanId);
+
+        le_dls_Queue(vlanIDListPtr, &(vlanIdPtr->link));
+    }
+}
+
 /**
  * Pack NRC.
  */
@@ -2181,7 +2186,31 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
         return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
     }
 
-    // Step 2: Authentication check. UDS_0x2E_NRC_34
+    // Step 3: Maximum length check. UDS_0x2E_NRC_13
+    if(recvDataLen > UDS_DATA_SIZE)
+    {
+        LE_WARN("recvDataLen is more than the UDS_DATA_SIZE.");
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    //Step 4: Data record size check. UDS_0x2E_NRC_13
+    try
+    {
+        int dataRecordSize = node.get_child("implementation").get<int>("did_size");
+        //Only check size here, will check data later.
+        if(dataRecordSize != (recvDataLen - UDS_WRITE_DID_REQ_BASE_LEN))
+        {
+            LE_WARN("Data record size is invalid");
+            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        // DID dataRecord size is not configured. Don't check it.
+        LE_WARN("Exception: %s. did_size is not configured for dataId 0x%x", e.what(), dataId);
+    }
+
+    // Step 5: Authentication check. UDS_0x2E_NRC_34
     if (!IsAuthRoleMatched(node))
     {
         LE_DEBUG("DID0x%x is authenticated and authentication state is incorrect.", dataId);
@@ -2245,28 +2274,24 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
         LE_DEBUG("Skip SecurityAccess check as current session is default_session");
     }
 
-    // Step 3: Maximum length check. UDS_0x2E_NRC_13
-    if(recvDataLen > UDS_DATA_SIZE)
-    {
-        LE_WARN("recvDataLen is more than the UDS_DATA_SIZE.");
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
-
-    //Step 5: Data record check. UDS_0x2E_NRC_31
+    // Forbidden check for WDID data record. UDS_0x2E_NRC_31
     try
     {
-        int dataRecordSize = node.get_child("implementation").get<int>("did_size");
-        //Only check size here, will check data later.
-        if(dataRecordSize != (recvDataLen - UDS_WRITE_DID_REQ_BASE_LEN))
+        const uint8_t* dataRecPtr = recvBuf + UDS_WRITE_DID_REQ_BASE_LEN;
+        bool isForbidden = cfg::is_forbidden(dataId, dataRecPtr,
+                (recvDataLen - UDS_WRITE_DID_REQ_BASE_LEN));
+
+        // If dataRec forbidded then send NRC.
+        if(isForbidden)
         {
-            LE_WARN("Data record size is invalid");
+            LE_WARN("Data record is forbidded");
             return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
         }
     }
     catch (const std::exception& e)
     {
-        //security_level is not configured. Don't check it.
-        LE_WARN("Exception: %s. did_size is not configured for dataId 0x%x", e.what(), dataId);
+        // DataRecord forbidden check not define. Don't check it.
+        LE_WARN("Exception: %s. Forbidden check not define for dataId 0x%x", e.what(), dataId);
     }
 
     //Will send indication to the diag service
@@ -5789,8 +5814,8 @@ le_result_t UdsCommunicationMgr::ROEResp
     // The minimum data length is 1 for reportActivatedEvents
     if(subFunc == ROE_SUBFUNC_RAE)
     {
-        if (dataSize > UDS_MAX_DATA_SIZE - UDS_ROE_RESP_RAE_MIN_LEN ||
-            dataSize < UDS_ROE_RESP_RAE_MIN_LEN)
+        if ((dataSize > (UDS_MAX_DATA_SIZE - UDS_ROE_RESP_MIN_LEN)) ||
+            (dataSize < UDS_ROE_RESP_RAE_MIN_LEN))
         {
             LE_ERROR("Data Length :%d is not correct.", dataSize);
             return LE_FAULT;
@@ -5799,8 +5824,8 @@ le_result_t UdsCommunicationMgr::ROEResp
     // The minimum data length is 2 for all subfunctions but reportActivatedEvents
     else
     {
-        if (dataSize > UDS_MAX_DATA_SIZE - UDS_ROE_RESP_MIN_LEN ||
-            dataSize < UDS_ROE_RESP_MIN_LEN)
+        if ((dataSize > (UDS_MAX_DATA_SIZE - UDS_ROE_RESP_MIN_LEN)) ||
+            (dataSize < UDS_ROE_RESP_MIN_LEN))
         {
             LE_ERROR("Data Length :%d is not correct.", dataSize);
             return LE_FAULT;

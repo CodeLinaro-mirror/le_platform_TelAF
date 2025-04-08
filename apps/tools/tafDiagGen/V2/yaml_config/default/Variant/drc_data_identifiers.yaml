@@ -12,6 +12,8 @@ did_all:
     did_ref: SupplierFaultCode
   0xF011:
     did_ref: IndexSrvData
+  0xF190:
+    did_ref: VIN
 
   0x9006:
     identification:
@@ -34,12 +36,17 @@ did_all:
       diagnostic_session_and_security_level:
         execution_authorization_pattern_read: did_read_app
         execution_authorization_pattern_io: io_control
+
   0xA5A5:
     identification:
       code: 0xA5A5
     implementation:
-      did_size: 1
-      endianness: LSB
+      did_size: 2
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Green_Light
     supported_functions:
       write_did: True
       read_did: True
@@ -56,12 +63,17 @@ did_all:
       and:
         - tooHigh
         - tooLow
+
   0xA5A6:
     identification:
       code: 0xA5A6
     implementation:
       did_size: 1
-      endianness: LSB
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Green_Light
     supported_functions:
       write_did: True
       read_did: True
@@ -84,7 +96,11 @@ did_all:
       code: 0xA0A0
     implementation:
       did_size: 1
-      endianness: LSB
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Green_Light
     supported_functions:
       write_did: True
       read_did: True
@@ -103,12 +119,17 @@ did_all:
       and:
         - tooHigh
         - tooLow
+
   0xA0A1:
     identification:
       code: 0xA0A1
     implementation:
       did_size: 1
-      endianness: LSB
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Green_Light
     supported_functions:
       write_did: True
       read_did: True
@@ -126,12 +147,17 @@ did_all:
       and:
         - tooHigh
         - tooLow
+
   0xA0A2:
     identification:
       code: 0xA0A2
     implementation:
       did_size: 1
-      endianness: LSB
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Green_Light
     supported_functions:
       write_did: True
       read_did: True
@@ -146,3 +172,170 @@ did_all:
       and:
         - tooHigh
         - tooLow
+
+  0xACC0:
+    identification:
+      code: 0xACC0
+    implementation:
+      did_size: 1
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Not_numeric_with_forbidden_characters
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        extended_diagnostic_session: [ R, W ]
+
+  0xACC1:
+    identification:
+      code: 0xACC1
+    implementation:
+      did_size: 2
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Not_numeric_with_forbidden_values
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        extended_diagnostic_session: [ R, W ]
+
+  0xACC2:
+    identification:
+      code: 0xACC2
+    implementation:
+      did_size: 2
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Not_numeric_with_forbidden
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        extended_diagnostic_session: [ R, W ]
+
+  0xACC3:
+    identification:
+      code: 0xACC3
+    implementation:
+      did_size: 1
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Numeric_with_Coding_List
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        extended_diagnostic_session: [ R, W ]
+
+  0xACC4:
+    identification:
+      code: 0xACC4
+    implementation:
+      did_size: 1
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Numeric_with_Min_Max
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        extended_diagnostic_session: [ R, W ]
+
+  0xACC5:
+    identification:
+      code: 0xACC5
+    implementation:
+      did_size: 1
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Numeric_list_binary_2
+          5:
+            data_ref_mnemonic: Numeric_list_binary_4
+          1:
+            data_ref_mnemonic: Numeric_list_binary_2
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        extended_diagnostic_session: [ R, W ]
+
+  0xACC6:
+    identification:
+      code: 0xACC6
+    implementation:
+      did_size: 2
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Numeric_list_hex_8
+        1:
+          7:
+            data_ref_mnemonic: Numeric_list_hex_8
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        extended_diagnostic_session: [ R, W ]
+
+  0xACC7:
+    identification:
+      code: 0xACC7
+    implementation:
+      did_size: 1
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Numeric_with_Min_Max_Sign
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        extended_diagnostic_session: [ R, W ]

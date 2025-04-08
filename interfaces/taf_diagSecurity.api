@@ -165,8 +165,26 @@
    }
    @endcode
  *
- * An application can get the current active session type by calling
- * taf_diagSecurity_GetCurrentSesType().
+ * An application can select the VLAN ID by calling taf_diagSecurity_SelectTargetVlanID().
+ * If the service is bound to multiple VLANs, the application needs to select a VLAN ID for
+ * subsequent operation on target VLAN, otherwise the last VLAN ID set using
+ * taf_diagSecurity_SetVlanId() is considered.
+ *
+ * @code
+   // Select the VLAN ID.
+   uint16_t vlanId = 10;
+   le_result_t result = taf_diagSecurity_SelectTargetVlanID(SvcRef, vlanId);
+   if (result != LE_OK)
+   {
+      LE_ERROR("Fail to select vlan Id.");
+      return result;
+   }
+   @endcode
+ *
+ * An application can get the current session type by calling taf_diagSecurity_GetCurrentSesType().
+ * If the service is bound to multiple VLANs, then the application needs to select a VLAN ID first
+ * to get the session type of selected VLAN, if VLAN ID is not selected then it will provide the
+ * session type of the last VLAN ID set by taf_diagSecurity_SetVlanId().
  *
  * @code
    // Get the current active session type.
@@ -442,12 +460,31 @@ EVENT SesChange
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets the current session control type.
+ * Select a target VLAN ID.
  *
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid svcRef.
- *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_NOT_FOUND -- VLAN ID not found.
+ *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SelectTargetVlanID
+(
+    Service svcRef IN,    ///< Service reference.
+    uint16 vlanId IN      ///< VLAN ID.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the current session control type. In multi-VLAN case, this function will provide the
+ * current session type of selected VLAN ID or last set VLAN ID.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_NOT_FOUND -- In multi-VLAN case, VLAN ID not found.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
  */

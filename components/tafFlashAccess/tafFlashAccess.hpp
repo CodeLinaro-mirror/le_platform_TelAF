@@ -135,7 +135,8 @@ le_result_t taf_lib_flash_GetPartitionList
 le_result_t taf_lib_flash_OpenPartition
 (
     taf_lib_flash_Partition_t *partitionPtr, ///< [INOUT] Partition.
-    mode_t mode                              ///< [IN] Open mode.
+    mode_t mode,                             ///< [IN] Open mode.
+    int *errCode                             ///< [OUT] Error code.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -166,7 +167,8 @@ le_result_t taf_lib_flash_ClosePartition
 le_result_t taf_lib_flash_GetMtdWriteSize
 (
     taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
-    uint32_t *sizePtr                        ///< [OUT] Minimal writable flash unit size.
+    uint32_t *sizePtr,                       ///< [OUT] Minimal writable flash unit size.
+    int *errCode                             ///< [OUT] Error code.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -182,7 +184,8 @@ le_result_t taf_lib_flash_GetMtdWriteSize
 le_result_t taf_lib_flash_GetMtdEraseSize
 (
     taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
-    uint32_t *sizePtr                        ///< [OUT] Erase block size of the partition.
+    uint32_t *sizePtr,                       ///< [OUT] Erase block size of the partition.
+    int *errCode                             ///< [OUT] Error code.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -198,7 +201,8 @@ le_result_t taf_lib_flash_GetMtdEraseSize
 le_result_t taf_lib_flash_GetMtdSize
 (
     taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
-    uint32_t *sizePtr                        ///< [OUT] Partition size.
+    uint32_t *sizePtr,                       ///< [OUT] Partition size.
+    int *errCode                             ///< [OUT] Error code.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -215,7 +219,8 @@ le_result_t taf_lib_flash_IsMtdBadBlock
 (
     taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
     uint32_t blockIndex,                     ///< [IN] Block index.
-    bool* isBadBlock                         ///< [OUT] True if bad block, false if good block.
+    bool* isBadBlock,                        ///< [OUT] True if bad block, false if good block.
+    int *errCode                             ///< [OUT] Error code.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -231,7 +236,8 @@ le_result_t taf_lib_flash_IsMtdBadBlock
 le_result_t taf_lib_flash_EraseMtdBlock
 (
     taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
-    uint32_t blockIndex                      ///< [IN] Block index.
+    uint32_t blockIndex,                     ///< [IN] Block index.
+    int *errCode                             ///< [OUT] Error code.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -249,7 +255,8 @@ le_result_t taf_lib_flash_ReadPartition
     taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
     uint32_t offset,                         ///< [IN] Partition offset.
     uint8_t *dataPtr,                        ///< [OUT] Buffer read from partition.
-    size_t *sizePtr                          ///< [INOUT] Buffer size.
+    size_t *sizePtr,                         ///< [INOUT] Buffer size.
+    int *errCode                             ///< [OUT] Error code.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -267,7 +274,8 @@ le_result_t taf_lib_flash_WritePartition
     taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
     uint32_t offset,                         ///< [IN] Partition offset.
     const uint8_t *dataPtr,                  ///< [OUT] Buffer to be written on partition.
-    size_t size                              ///< [IN] Buffer size.
+    size_t size,                             ///< [IN] Buffer size.
+    int *errCode                             ///< [OUT] Error code.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -331,7 +339,8 @@ le_result_t taf_lib_flash_GetUbiAvailLebNum
 le_result_t taf_lib_flash_SetUbiVolUpSize
 (
     taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Volume.
-    int64_t size                             ///< [IN] Volume update size.
+    int64_t size,                            ///< [IN] Volume update size.
+    int *errCode                             ///< [OUT] Error code.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -346,7 +355,8 @@ le_result_t taf_lib_flash_SetUbiVolUpSize
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_lib_flash_EraseUbiVol
 (
-    taf_lib_flash_Partition_t *partitionPtr ///< [IN] Volume.
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Volume.
+    int *errCode                             ///< [OUT] Error code.
 );
 
 #ifdef __cplusplus

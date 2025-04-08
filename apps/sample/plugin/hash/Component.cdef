@@ -8,7 +8,7 @@ cflags:
 {
     -DFRAMEWORK_WDOG_NAME=DevManagerWdog
     -I$TELAF_ROOT/include
-    -I$TELAF_ROOT/include/staging/plugin
+    -I$TELAF_ROOT/include/plugin
     -I$LEGATO_BUILD/framework/libjansson/include
     -I$TELAF_ROOT/components/tafFlashAccess
 }

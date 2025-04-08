@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -22,7 +22,6 @@
 
 #define EXPORT_SYM __attribute__((visibility ("default")))
 
-namespace telux {
 namespace tafsvc {
 namespace cfg {
 
@@ -231,6 +230,8 @@ get_pattern_sessions_by_session_id(uint8_t session_id);
 EXPORT_SYM std::shared_ptr<std::vector<uint8_t>>
 get_pattern_levels_by_session_id(uint8_t session_id);
 
+EXPORT_SYM bool is_forbidden(uint16_t did_code, const uint8_t *payload, uint32_t plen);
+
 template <typename T>
 static inline void fill_list(Node & node, std::vector<T> & to_be_filled)
 {
@@ -359,6 +360,12 @@ Node & top_routine_parameters_all(std::string field_name, T expected_value)
     return match_item<T>(node, field_name, expected_value);
 }
 
+template <typename T = std::string>
+Node & top_datas(std::string field_name, T expected_value)
+{
+    Node & node = get_root_node().get_child("datas");
+    return match_item<T>(node, field_name, expected_value);
+}
 
 template <typename T = std::string>
 Node & top_IO_all(std::string field_name, T expected_value)
@@ -397,16 +404,15 @@ Node & top_extended_data_records(std::string field_name, T expected_value)
 
 }
 }
-}
 
 /* #undef EXPORT_SYM */
 
 #define tafDiagGen_tool_version "tafDiagGen_tool_version: 2.0.0_default"
-#define tafDiagGen_tool_timestamp  "tafDiagGen_tool_timestamp: 2025_01_14__19_07_37"
-#define tafDiagGen_tool_json_md5 "tafDiagGen_tool_json_md5: 2d97741173d666886ca0f9577e1685f8"
-#define tafDiagGen_tool_evid_h_md5 "tafDiagGen_tool_evid_h_md5: 7ae68c00ca23017f6b6623e9a3388c9a"
+#define tafDiagGen_tool_timestamp  "tafDiagGen_tool_timestamp: 2025_02_18__15_49_32"
+#define tafDiagGen_tool_json_md5 "tafDiagGen_tool_json_md5: 35ec45c3a4c0128571008ccb616ae0ca"
+#define tafDiagGen_tool_evid_h_md5 "tafDiagGen_tool_evid_h_md5: 82dd9f48525eab54d8ec0768dfd8b9b6"
 
-#define TAFDIAGGEN_JSON_MD5 "2d97741173d666886ca0f9577e1685f8"
-#define TAFDIAGGEN_EVID_MD5 "7ae68c00ca23017f6b6623e9a3388c9a"
+#define TAFDIAGGEN_JSON_MD5 "35ec45c3a4c0128571008ccb616ae0ca"
+#define TAFDIAGGEN_EVID_MD5 "82dd9f48525eab54d8ec0768dfd8b9b6"
 
 #endif /* __CONFIGURATION_HPP__ */

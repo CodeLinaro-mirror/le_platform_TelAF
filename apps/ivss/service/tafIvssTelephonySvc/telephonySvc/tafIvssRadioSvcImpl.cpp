@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -819,6 +819,56 @@ void tafIvssRadioSvc::GetPacketSwitchedState
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Add handler function for method 'GetRadioState'
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::GetRadioStateHandler
+(
+    void* reportPtr
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
+    indPtr->result = taf_radio_GetOperatingMode(&indPtr->GetRadioState.mode,
+        indPtr->GetRadioState.phoneId);
+    TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
+        "taf_radio_GetOperatingMode failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    le_sem_Post(indPtr->semRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the radio state.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::GetRadioState
+(
+    const std::shared_ptr<CommonAPI::ClientId> _client,
+    RadioSvcTypes::PhoneIdT _phoneId,
+    GetRadioStateReply_t _reply
+)
+{
+    // Create a generic response message object.
+    LE_INFO("tafIvssRadioSvc GetRadioState \n");
+
+    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
+    memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
+    indPtr->semRef = le_sem_Create("Ivss GetRadioStateSem", 0);
+    indPtr->GetRadioState.phoneId = PhoneIdIvssRadioToUint8(_phoneId);
+
+    // Report to the common COMMONAPI msg handler in service layer.
+    le_event_ReportWithRefCounting(GetRadioStateEvent, (void*)indPtr);
+    le_sem_Wait(indPtr->semRef);
+    _reply(StatesRadioToIvss(indPtr->GetRadioState.mode), ResultLeToIvssRadio(indPtr->result));
+
+    le_sem_Delete(indPtr->semRef);
+    le_mem_Release(indPtr);
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for GSM signal strength changes.
  */
 //--------------------------------------------------------------------------------------------------
@@ -936,6 +986,24 @@ void tafIvssRadioSvc::taf_ivss_radio_CellInfoChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for Radio Access Technology change.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::taf_ivss_radio_RatChangeHandler
+(
+    taf_radio_RatChangeInd_t* ratChangeIndPtr, ///< [IN] Indication on RAT change.
+    void* contextPtr                           ///< [IN] Handler context.
+)
+{
+    LE_DEBUG("tafIvssRadioSvc RatChange Event");
+
+    auto ivssRadio = tafIvssRadioSvc::GetInstance();
+    ivssRadio->fireRadioRatEvent(RadioSvcTypes::ValueState::VALUE_STATE_VALID,
+        PhoneIdUint8ToIvssRadio(ratChangeIndPtr->phoneId), RatRadioToIvss(ratChangeIndPtr->rat));
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Initialization.
  */
 //--------------------------------------------------------------------------------------------------
@@ -964,6 +1032,7 @@ void tafIvssRadioSvc::Init
     SetSignalStrengthReportingCriteriaEvent = le_event_CreateIdWithRefCounting(
         "SetSignalStrengthReportingCriteriaEvent");
     GetPacketSwitchedStateEvent = le_event_CreateIdWithRefCounting("GetPacketSwitchedStateEvent");
+    GetRadioStateEvent = le_event_CreateIdWithRefCounting("GetRadioStateEvent");
 
     // Init event handler.
     GetGsmSignalMetricsEventHandlerRef = le_event_AddHandler("GetGsmSignalMetricsEvent Handler",
@@ -996,6 +1065,8 @@ void tafIvssRadioSvc::Init
     GetPacketSwitchedStateEventHandlerRef = le_event_AddHandler(
         "GetPacketSwitchedStateEvent Handler", GetPacketSwitchedStateEvent,
         tafIvssRadioSvc::GetPacketSwitchedStateHandler);
+    GetRadioStateEventHandlerRef = le_event_AddHandler("GetRadioStateEvent Handler",
+        GetRadioStateEvent, tafIvssRadioSvc::GetRadioStateHandler);
 
     // Init commonapi event.
     GsmSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_GSM,
@@ -1010,6 +1081,8 @@ void tafIvssRadioSvc::Init
         (taf_radio_OpModeChangeHandlerFunc_t)taf_ivss_radio_StateChangeHandler, NULL);
     CellInfoChangeHandlerRef = taf_radio_AddCellInfoChangeHandler(
         (taf_radio_CellInfoChangeHandlerFunc_t)taf_ivss_radio_CellInfoChangeHandler, NULL);
+    RatChangeHandlerRef = taf_radio_AddRatChangeHandler(
+        (taf_radio_RatChangeHandlerFunc_t)taf_ivss_radio_RatChangeHandler, NULL);
 
     LE_INFO("tafIvssRadioSvc Service initialized");
 };

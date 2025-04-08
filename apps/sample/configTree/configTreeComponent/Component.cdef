@@ -1,0 +1,27 @@
+requires:
+{
+    api:
+    {
+        le_cfg.api
+        le_cfgAdmin.api
+    }
+}
+
+bundles:
+{
+    file:
+    {
+        // File with ".cfg" extension will be considered as  config tree data
+        // and will be imported to the config tree of this APP.
+        [r] readOnlyConfig.cfg         /
+
+        // Currently, only support bundling the config tree file with ".scissors" extension.
+        [r] TestConfigTree.scissors    /
+    }
+}
+
+
+sources:
+{
+    configTreeSample.c
+}

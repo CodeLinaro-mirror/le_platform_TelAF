@@ -12,7 +12,7 @@
 #include <vector>
 #include <unistd.h>
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace telux::therm;
 
 COMPONENT_INIT

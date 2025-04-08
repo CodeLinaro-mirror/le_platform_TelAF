@@ -173,9 +173,91 @@ void Test_taf_Hms_MtdDevInfo()
     LE_INFO("===== UnitTest Completed for MTD device information =====");
 }
 
+const char* ModemEventTypeToStr
+(
+    taf_hms_ModemEvtType_t eventType
+)
+{
+    switch (eventType)
+    {
+        case TAF_HMS_MODEM_EVENT_TYPE_CONTINUE_REBOOT:
+            return "CONTINUE_REBOOT";
+    }
+    return "UNKNOWN";
+}
 
+const char* ModemEventLevelToStr
+(
+    taf_hms_ModemEvtSeverity_t eventLevel
+)
+{
+    switch (eventLevel)
+    {
+        case TAF_HMS_MODEM_EVENT_SEVERITY_LOW:
+            return "LOW";
+
+        case TAF_HMS_MODEM_EVENT_SEVERITY_MEDIUM:
+            return "MEDIUM";
+
+        case TAF_HMS_MODEM_EVENT_SEVERITY_HIGH:
+            return "HIGH";
+    }
+    return "UNKNOWN";
+}
+
+void ModemStatusHandler
+(
+    taf_hms_ModemEvtType_t eventType,
+    taf_hms_ModemEvtSeverity_t eventLevel,
+    taf_hms_ModemEventRef_t eventRef,
+    void* contextPtr
+)
+{
+    LE_INFO("Event Type: %s. Event Level: %s Event Reference: %p\n",
+        ModemEventTypeToStr(eventType), ModemEventLevelToStr(eventLevel), eventRef);
+    le_result_t result = taf_hms_ReleaseModemEvt(eventRef);
+    LE_TEST_OK(result == LE_OK, "taf_hms_ReleaseModemEvt - LE_OK.");
+}
+
+void TestModemEventHandlerRegistration()
+{
+    taf_hms_ModemEvtHandlerRef_t modemStatusHandlerRef = taf_hms_AddModemEvtHandler(
+        (taf_hms_ModemEvtHandlerFunc_t)ModemStatusHandler, NULL);
+
+    LE_TEST_OK(modemStatusHandlerRef != NULL, "taf_Hms_AddModemEvtHandler - OK for !NULL Ref");
+
+    taf_hms_RemoveModemEvtHandler(modemStatusHandlerRef);
+    LE_TEST_OK(true, "taf_hms_RemoveModemStatusHandler - void");
+    LE_INFO("===== UnitTest Completed for registering Modem event handler =====");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Get the last reset information reason.
+ **
+ */
+//--------------------------------------------------------------------------------------------------
+void Test_taf_Hms_GetbootInfo(void)
+{
+    le_result_t result;
+    taf_hms_Reset_t reset;
+    char resetSpecificInfoStr[TAF_HMS_MAX_RESET_LEN] ={0};
+
+    result = taf_hms_GetResetInformation(&reset, resetSpecificInfoStr, TAF_HMS_MAX_RESET_LEN);
+    LE_TEST_OK((result == LE_OK && resetSpecificInfoStr != NULL),
+        "taf_hms_GetResetInformation - LE_OK.");
+    LE_INFO("Reset info - type: %d, sub string: %s", (int)reset, resetSpecificInfoStr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Component initialization.
+ **
+ */
+//--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
+    LE_INFO("---------- TelAF Health Monitor Service Tests Start --------------------------");
     TestGetCPULoad();
 
     TestGetIndvCoreUsage();
@@ -185,6 +267,10 @@ COMPONENT_INIT
     Test_taf_Hms_UbiDevInfo();
 
     Test_taf_Hms_MtdDevInfo();
+
+    Test_taf_Hms_GetbootInfo();
+
+    TestModemEventHandlerRegistration();
 
     LE_INFO("---------- All Tests Complete --------------------------");
     exit(EXIT_SUCCESS);

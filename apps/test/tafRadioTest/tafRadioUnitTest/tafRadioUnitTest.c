@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "legato.h"
 #include "interfaces.h"
@@ -139,6 +111,29 @@ void NetStatusChangeHandler
         taf_radio_ServiceDomainState_t domain = TAF_RADIO_SERVICE_DOMAIN_STATE_UNKNOWN;
         le_result_t result = taf_radio_GetServiceDomain(&domain, phoneId);
         LE_TEST_OK(result == LE_OK, "taf_radio_GetServiceDomain - OK");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for NR icon type.
+ */
+//--------------------------------------------------------------------------------------------------
+void NrIconTypeHandler
+(
+    taf_radio_NrIconType_t type, ///< [IN] Nr icon type.
+    uint8_t phoneId,             ///< [IN] Phone ID.
+    void* contextPtr             ///< [IN] Handler context.
+)
+{
+    switch (type)
+    {
+        case TAF_RADIO_NR_ICON_5G:
+            LE_INFO("Phone %d NR icon type: 5G.", phoneId);
+            break;
+        default:
+            LE_INFO("Phone %d NR icon type: Uknown.", phoneId);
+            break;
     }
 }
 
@@ -668,6 +663,11 @@ void TestTafRadioAccessTechnoloy
         (taf_radio_NetStatusHandlerFunc_t)NetStatusChangeHandler, NULL);
     LE_TEST_OK(netStatusChangeHandlerRef != NULL, "taf_radio_AddNetStatusChangeHandler - !NULL");
 
+    taf_radio_NrIconTypeHandlerRef_t nrIconTypeHandlerRef =
+        taf_radio_AddNrIconTypeHandler(
+        (taf_radio_NrIconTypeHandlerFunc_t)NrIconTypeHandler, NULL);
+    LE_TEST_OK(nrIconTypeHandlerRef != NULL, "taf_radio_AddNrIconTypeHandler - !NULL");
+
     taf_radio_RatBitMask_t ratMask;
     le_result_t result = taf_radio_GetRatPreferences(&ratMask, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetRatPreferences - LE_OK");
@@ -693,6 +693,13 @@ void TestTafRadioAccessTechnoloy
     taf_radio_CsCap_t cap = TAF_RADIO_CS_CAP_UNKNOWN;
     result = taf_radio_GetLteCsCap(netRef, &cap);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCsCap - OK");
+
+    taf_radio_NrIconType_t icon = TAF_RADIO_NR_ICON_TYPE_NONE;
+    result = taf_radio_GetNrIconType(&icon, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetNrIconType - OK");
+
+    taf_radio_RemoveNrIconTypeHandler(nrIconTypeHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveNrIconTypeHandler - void");
 
     taf_radio_RemoveRatChangeHandler(ratChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveRatChangeHandler - void");

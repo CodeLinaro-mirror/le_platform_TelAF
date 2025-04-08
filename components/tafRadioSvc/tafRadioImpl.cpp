@@ -27,10 +27,12 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*  Changes from Qualcomm Innovation Center are provided under the following license:
+/*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *  Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 /*
  * @file       tafRadioImpl.cpp
@@ -45,7 +47,7 @@
 #include "taf_pa_radio.hpp"
 
 using namespace std;
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -673,6 +675,7 @@ void taf_RadioServSysListener::onNetworkRejection
             break;
     }
     netRegRejIndPtr->phoneId = phone;
+    netRegRejIndPtr->cause = (taf_radio_NetRejCause_t)rejectInfo.rejectCause;
     tafRadio.netRejectCause = (int32_t)rejectInfo.rejectCause;
     le_event_ReportWithRefCounting(tafRadio.netRegRejEvId, (void*)netRegRejIndPtr);
 }
@@ -1087,6 +1090,27 @@ void taf_RadioDataServSysListener::onRoamingStatusChanged
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Listener for NR icon type.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioDataServSysListener::onNrIconTypeChanged
+(
+    telux::data::NrIconType type ///< [IN] Data roaming state.
+)
+{
+    LE_DEBUG("<SDK Listener> taf_RadioDataServSysListener --> onNrIconTypeChanged");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioNrIconTypeInd_t* indPtr = (taf_RadioNrIconTypeInd_t*)le_mem_ForceAlloc(
+        tafRadio.nrIconTypePool);
+    indPtr->phoneId = phone;
+    indPtr->type = tafRadio.taf_radio_ConvertNrIconType(type);
+    le_event_ReportWithRefCounting(tafRadio.nrIconTypeEvId, (void*)indPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Response for setting operating mode.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1151,6 +1175,29 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
 
     ssMetrics.ratMask = 0x0;
 
+    ssMetrics.gsm.ss = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.gsm.ber = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+
+    ssMetrics.cdma.ss = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.cdma.ecio = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.cdma.io = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.cdma.snr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+
+    ssMetrics.umts.ss = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.umts.ber = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.umts.rscp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+
+    ssMetrics.tdscdma.rscp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+
+    ssMetrics.lte.ss = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.lte.rsrq = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.lte.rsrp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.lte.snr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+
+    ssMetrics.nr5g.rsrq = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.nr5g.rsrp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    ssMetrics.nr5g.snr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+
     if (error != telux::common::ErrorCode::SUCCESS)
     {
         LE_ERROR("Error(%d)", (int)error);
@@ -1161,9 +1208,7 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         result = LE_OK;
     }
 
-    if (signalStrength->getGsmSignalStrength() != nullptr &&
-        signalStrength->getGsmSignalStrength()->getGsmSignalStrength() !=
-        INVALID_SIGNAL_STRENGTH_VALUE)
+    if (signalStrength->getGsmSignalStrength() != nullptr)
     {
         ssMetrics.ratMask |= TAF_RADIO_RAT_BIT_MASK_GSM;
         ssMetrics.gsm.sslv = (int8_t)signalStrength->getGsmSignalStrength()->getLevel() + 1;
@@ -1171,8 +1216,7 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         ssMetrics.gsm.ber = signalStrength->getGsmSignalStrength()->getGsmBitErrorRate();
     }
 
-    if (signalStrength->getCdmaSignalStrength() != nullptr &&
-        signalStrength->getCdmaSignalStrength()->getDbm() != INVALID_SIGNAL_STRENGTH_VALUE)
+    if (signalStrength->getCdmaSignalStrength() != nullptr)
     {
         ssMetrics.ratMask |= TAF_RADIO_RAT_BIT_MASK_CDMA;
         ssMetrics.cdma.sslv = (int8_t)signalStrength->getCdmaSignalStrength()->getLevel() + 1;
@@ -1182,9 +1226,7 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         ssMetrics.cdma.snr = signalStrength->getCdmaSignalStrength()->getEvdoSignalNoiseRatio();
     }
 
-    if (signalStrength->getWcdmaSignalStrength() != nullptr &&
-        signalStrength->getWcdmaSignalStrength()->getSignalStrength() !=
-        INVALID_SIGNAL_STRENGTH_VALUE)
+    if (signalStrength->getWcdmaSignalStrength() != nullptr)
     {
         ssMetrics.ratMask |= TAF_RADIO_RAT_BIT_MASK_UMTS;
         ssMetrics.umts.sslv = (int8_t)signalStrength->getWcdmaSignalStrength()->getLevel() + 1;
@@ -1193,16 +1235,13 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         ssMetrics.umts.rscp = signalStrength->getWcdmaSignalStrength()->getRscp();
     }
 
-    if (signalStrength->getTdscdmaSignalStrength() != nullptr &&
-        signalStrength->getTdscdmaSignalStrength()->getRscp() != INVALID_SIGNAL_STRENGTH_VALUE)
+    if (signalStrength->getTdscdmaSignalStrength() != nullptr)
     {
         ssMetrics.ratMask |= TAF_RADIO_RAT_BIT_MASK_TDSCDMA;
         ssMetrics.tdscdma.rscp = signalStrength->getTdscdmaSignalStrength()->getRscp();
     }
 
-    if (signalStrength->getLteSignalStrength() != nullptr &&
-        signalStrength->getLteSignalStrength()->getLteSignalStrength() !=
-        INVALID_SIGNAL_STRENGTH_VALUE)
+    if (signalStrength->getLteSignalStrength() != nullptr)
     {
         ssMetrics.ratMask |= TAF_RADIO_RAT_BIT_MASK_LTE;
         ssMetrics.lte.sslv = (int8_t)signalStrength->getLteSignalStrength()->getLevel() + 1;
@@ -1212,8 +1251,7 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         ssMetrics.lte.snr = signalStrength->getLteSignalStrength()->getLteReferenceSignalSnr();
     }
 
-    if (signalStrength->getNr5gSignalStrength() != nullptr &&
-        signalStrength->getNr5gSignalStrength()->getDbm() != INVALID_SIGNAL_STRENGTH_VALUE)
+    if (signalStrength->getNr5gSignalStrength() != nullptr)
     {
         ssMetrics.ratMask |= TAF_RADIO_RAT_BIT_MASK_NR5G;
         ssMetrics.nr5g.sslv = (int8_t)signalStrength->getNr5gSignalStrength()->getLevel() + 1;
@@ -2625,6 +2663,29 @@ taf_radio_Rat_t taf_Radio::taf_radio_CovertRat
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Convert NR icon type.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_NrIconType_t taf_Radio::taf_radio_ConvertNrIconType
+(
+    telux::data::NrIconType type ///< [IN] NR icon type
+)
+{
+    switch(type)
+    {
+        case telux::data::NrIconType::BASIC:
+        case telux::data::NrIconType::UWB:
+            LE_DEBUG("5G NR icon type.");
+            return TAF_RADIO_NR_ICON_5G;
+        default:
+            LE_DEBUG("Unknown NR icon type.");
+    }
+
+    return TAF_RADIO_NR_ICON_TYPE_NONE;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Layered handler for IMS registration state.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2843,6 +2904,32 @@ void taf_Radio::taf_radio_LayerNetRejectHandler
 
     le_mem_Release(reportPtr);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Layered handler for NR icon type change.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::taf_radio_LayerNrIconTypeHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_radio_NrIconTypeHandlerFunc_t handlerFunc =
+        (taf_radio_NrIconTypeHandlerFunc_t)layerHandlerFunc;
+
+    taf_RadioNrIconTypeInd_t* indPtr = (taf_RadioNrIconTypeInd_t*)reportPtr;
+    if (handlerFunc)
+    {
+        handlerFunc(indPtr->type, indPtr->phoneId, le_event_GetContextPtr());
+    }
+
+    le_mem_Release(reportPtr);
+}
+
 
 /*======================================================================
 
@@ -3226,6 +3313,7 @@ void taf_Radio::Init(void)
     ratChangeEvId = le_event_CreateIdWithRefCounting("RatChange");
     netStatusEvId = le_event_CreateIdWithRefCounting("netStatus");
     netRegRejEvId = le_event_CreateIdWithRefCounting("NetRegRej");
+    nrIconTypeEvId = le_event_CreateIdWithRefCounting("NrIconType");
 
     // 2. Initiate the memory pool
     prefOpsListPool = le_mem_InitStaticPool(prefOpsListPool,
@@ -3259,6 +3347,7 @@ void taf_Radio::Init(void)
     ratChangePool = le_mem_CreatePool("ratChangePool", sizeof(taf_radio_RatChangeInd_t));
     netStatusPool = le_mem_CreatePool("netStatusPool", sizeof(taf_RadioNetStatusInd_t));
     netRegRejPool = le_mem_CreatePool("netRegRejPool", sizeof(taf_radio_NetRegRejInd_t));
+    nrIconTypePool = le_mem_CreatePool("nrIconTypePool", sizeof(taf_RadioNrIconTypeInd_t));
 
     // 3. Initiate the reference map.
     prefOpListRefMap = le_ref_InitStaticMap(prefOpListRefMap,TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);
@@ -3431,6 +3520,7 @@ void taf_Radio::Init(void)
         getOperatingModeCb->semaphore = le_sem_Create("taf_RadioGetOpModeCbSem", 0);
         cellularCapsCb->semaphore = le_sem_Create("CellCapsCbSem", 0);
         dataInfoCb.semaphore = le_sem_Create("dataInfoCbSem", 0);
+        nrIconCb.semaphore = le_sem_Create("nrIconCbSem", 0);
         opNameCb.semaphore = le_sem_Create("OopNameCbSem", 0);
         memset(opNameCb.longOpNamePtr, 0, TAF_RADIO_NETWORK_NAME_MAX_LEN);
         memset(opNameCb.shortOpNamePtr, 0, TAF_RADIO_NETWORK_NAME_MAX_LEN);

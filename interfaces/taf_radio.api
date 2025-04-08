@@ -305,7 +305,11 @@
  *  - taf_radio_GetRatOfSignalMetrics() -- Gets RATs of signal metrics.
  *
  *  - taf_radio_GetGsmSignalMetrics() / taf_radio_GetUmtsSignalMetrics() / taf_radio_GetLteSignalMetrics() /
- *    taf_radio_GetCdmaSignalMetrics() -- Gets GSM/UMTS/LTE/CDMA signal metrics.
+ *    taf_radio_GetCdmaSignalMetrics() / taf_radio_GetNr5gSignalMetrics() -- Gets
+ *    GSM/UMTS/LTE/CDMA/NR5G signal metrics, these APIs should be called after calling
+ *    taf_radio_GetRatOfSignalMetrics to get the valid RAT. If the return value is
+ *    INVALID_SIGNAL_STRENGTH_VALUE, it indicates that the signal metrics are unknown or not
+ *    detectable.
  *
  *  - taf_radio_AddSignalStrengthChangeHandler() / taf_radio_RemoveSignalStrengthChangeHandler() --
  *    Adds/removes signal strength change handler.
@@ -439,6 +443,9 @@
  *
  *  - taf_radio_GetServingCellNrBandInfo() -- Gets NR band information.
  *     @b WARNING: Only applicable for NR.
+ *
+ *  - taf_radio_GetNrIconType() -- Gets NR icon type.
+ *     @b WARNING: Applicable for NR (basic or uwb) and also appliable for LTE and LTE will return NONE.
  *
  * @section c_taf_radio_network Network Information
  *
@@ -656,6 +663,13 @@ DEFINE LTE_BAND_GROUP_NUM = 4;
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE IMS_USER_AGENT_BYTES = 1024;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Invalid signal strength value.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE INVALID_SIGNAL_STRENGTH_VALUE = 0x7FFFFFFF;
 
 //--------------------------------------------------------------------------------------------------
 
@@ -1077,6 +1091,17 @@ ENUM RFBandWidth
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * NR icon type
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM NrIconType
+{
+    NR_ICON_TYPE_NONE,  ///< Unknown.
+    NR_ICON_5G          ///< 5G basic or ultrawide band.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * RAT bitmask.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1276,6 +1301,17 @@ HANDLER PacketSwitchedChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for NR icon type change.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER NrIconTypeHandler
+(
+    NrIconType type IN, ///< NR icon type.
+    uint8 phoneId IN    ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for signal strength change.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1401,6 +1437,16 @@ EVENT NetRegStateEvent
 EVENT PacketSwitchedChange
 (
     PacketSwitchedChangeHandler handler ///< Handler for packet switched state changes.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report NR icon type changes.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT NrIconType
+(
+    NrIconTypeHandler handler ///< Handler for NR icon type changes.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -3210,4 +3256,21 @@ FUNCTION le_result_t GetServingCellNrBandInfo
     uint32 bandPtr OUT,           ///< NR active band.
     RFBandWidth bandWidthPtr OUT, ///< RF bandwidth information.
     uint8 phoneId IN              ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NR icon type.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNrIconType
+(
+    NrIconType type OUT, ///< NR icon type.
+    uint8 phoneId IN     ///< Phone ID.
 );

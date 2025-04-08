@@ -48,9 +48,10 @@ processes:
 bindings:
 {
     tafNetSvc.tafNetwork.taf_dcs -> tafDataCallSvc.taf_dcs
+    tafNetSvc.tafNetwork.taf_pm -> tafPMSvc.taf_pm
+
 }
 extern:
 {
        tafNetSvc.tafNetwork.taf_net
-       tafNetSvc.tafNetwork.taf_netIpPass
 }

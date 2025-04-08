@@ -21,6 +21,11 @@ cflags:
 
 requires:
 {
+    api:
+    {
+        le_cfg.api
+    }
+
     component:
     {
         $LEGATO_ROOT/components/socketLibrary

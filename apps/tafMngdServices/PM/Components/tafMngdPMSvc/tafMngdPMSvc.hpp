@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -27,8 +27,8 @@
 #define SHUTDOWN "SHUTDOWN"
 #define INFO_REPORT_MASK_BUB 1
 #define AUTHORIZE_ALL_STAY_AWAKE_REASON 0xFFFFFFFF
+#define TAF_MNGDPM_PROCNAME_LEN 30
 
-namespace telux {
 namespace tafsvc {
 
 typedef struct
@@ -74,7 +74,8 @@ typedef enum
 typedef struct
 {
    le_msg_SessionRef_t sessionRef;
-   pid_t               pid;
+   pid_t               procId;
+   char name[TAF_MNGDPM_PROCNAME_LEN + 1];
 }taf_mngdPm_SessionNode_t;
 
 typedef struct
@@ -127,6 +128,7 @@ typedef struct
     le_dls_Link_t link;                     // Link to handler list
     taf_mngdPm_InfoReportHandlerRef_t handlerRef;
     void* infoReportHandlerCtxPtr;
+    le_msg_SessionRef_t sessionRef;
 }taf_mngdPm_InfoReportCb_t;
 
 typedef struct
@@ -155,6 +157,7 @@ typedef struct
     taf_mngdPm_nodePowerStateRef_t nodeStateRef;
     le_msg_SessionRef_t sessionRef;
     taf_mngdPm_NodePowerState_t state;
+    bool isAcked;
 }taf_mngdPm_NodePowerStateChangeCtxt_t;
 
 typedef struct
@@ -185,6 +188,7 @@ typedef struct
     long int bootup_awake_time;
     long int hal_state_prepare_timeout;
     long int hal_wakeup_vehicle_timeout;
+    long int state_change_ack_timeout;
     bool hal_enabled;
 } taf_mngdPm_config_t;
 
@@ -303,6 +307,7 @@ class tafMngdPMSvc: public ITafSvc
         static void SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_ClientAck_t ackType);
         bool IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState);
         bool IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePowerStateChangeBitMask_t stateMask);
+        static taf_mngdPm_SessionNode_t* To_taf_mngdPm_SessionNode_t(void *c);
 
         //MPM configuration
         static taf_mngdPm_config_t config;
@@ -310,6 +315,12 @@ class tafMngdPMSvc: public ITafSvc
         //authorize stayawake reason
         static std::bitset<32> stayAwakeReasonMask;
         bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason);
+        void ClearUnAuthorizedWakeSources();
+        le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
+
+        //resources for clients state change acknowledgement
+        static le_timer_Ref_t stateChangeAckTimerRef;
+        static void StateChangeAckTimerHandler(le_timer_Ref_t timerRef);
+        static taf_mngdPm_NodePowerState_t currentStateChangePtr;
 };
-}
 }

@@ -41,7 +41,7 @@ OS_VERSION=$(shell grep -oP 'VERSION_ID=\K"(.+)"' /etc/os-release | tr -d '"')
 # Sub-Makefile to handle all target dependencies and extended host tools
 include $(SIMULATION_HOME)/deps/dependence.mk
 
-SIMULATION_DEPS += _openssl _curl
+SIMULATION_DEPS += _openssl _curl _boost
 SIMULATION_DEPS_ALL = _pre_deps $(SIMULATION_DEPS) _post_deps
 
 # [1] Another way: (not in container)
@@ -91,10 +91,6 @@ export TELAF_SIMULATION_ENABLE_MNGD_STRG ?= n
 export TELAF_SIMULATION_ENABLE_RPC ?= n
 ifneq ($(TELAF_SIMULATION_ENABLE_RPC),n)
   TELAF_SIMULATION_ENABLE_SOMEIP_GW := y
-endif
-
-ifneq ($(TELAF_SIMULATION_ENABLE_DIAG),n)
-export TELAF_SIMULATION_DIAG_SINC ?= $(TELAF_ROOT)/simulation/diag.sinc
 endif
 
 SIMULATION_SOMEIP_GW_DEPS_y := _vsomeip
@@ -162,11 +158,6 @@ endif
 	                                -C $(SIMULATION_HOME)/deps taf_rootfs
 ifneq ($(CHECK_SDK_ROOTFS),n)
 	$Q tar rf $(SIMULATION_TARBALL) --transform 's/rootfs/sdk_rootfs/' -C $(sdk_rootfs)/../ rootfs
-endif
-ifneq ($(TELAF_SIMULATION_ENABLE_DIAG),n)
-	$Q cp $(TELAF_ROOT)/apps/tools/diag/diag_test_38_36_37.py $(SIMULATION_WORKDIR)/
-else
-	$Q if [ -e "$(SIMULATION_WORKDIR)/diag_test_38_36_37.py" ]; then rm -f $(SIMULATION_WORKDIR)/diag_test_38_36_37.py ; fi
 endif
 	$Q gzip -f $(SIMULATION_TARBALL)
 	$Q echo "[Simulation]: Tarball $(SIMULATION_TARBALL).gz done."

@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 #include "legato.h"
 #include "interfaces.h"
 #include "tafDiagBackend.hpp"
@@ -39,7 +11,7 @@
 #include "tafUDSStack.h"
 #endif
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace std;
 
 //--------------------------------------------------------------------------------------------------
@@ -219,6 +191,7 @@ le_result_t taf_DiagBackend::InitUdsStack
 (
 )
 {
+    LE_DEBUG("InitUdsStack");
 #ifndef LE_CONFIG_DIAG_VSTACK
     le_result_t ret;
 
@@ -228,6 +201,37 @@ le_result_t taf_DiagBackend::InitUdsStack
         LE_ERROR("Failed to start uds stack.(%d)", ret);
         return ret;
     }
+
+    // Create memory pools.
+    VlanAndSesTypeMemPool = le_mem_CreatePool("VlanAndSesTypeMemPool",
+            sizeof(taf_RxVlanCurrentSesType_t));
+
+    taf_RxVlanCurrentSesType_t* VlanAndSesTypePtr = NULL;
+
+    le_dls_List_t VlanIdList = LE_DLS_LIST_INIT;
+    taf_uds_GetVlanIdList(&VlanIdList);
+
+    // Check enable id already present.
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&VlanIdList);
+    while (linkPtr)
+    {
+        taf_uds_VlanId_t* vlanIdPtr = CONTAINER_OF(linkPtr, taf_uds_VlanId_t,
+                link);
+        linkPtr = le_dls_PeekNext(&VlanIdList, linkPtr);
+
+        VlanAndSesTypePtr = (taf_RxVlanCurrentSesType_t *)le_mem_ForceAlloc(VlanAndSesTypeMemPool);
+        VlanAndSesTypePtr->vlanId = vlanIdPtr->vlanId;
+        VlanAndSesTypePtr->currentSesType = 0x01; // Set Default value on starting
+        LE_DEBUG("vlanId: %x", VlanAndSesTypePtr->vlanId);
+        VlanAndSesTypePtr->link = LE_DLS_LINK_INIT;
+
+        // add this event context to list
+        le_dls_Queue(&VlanAndSesTypeList, &VlanAndSesTypePtr->link);
+    }
+
+    // Release UDS Vlan List
+    ClearUDSVlanList(&VlanIdList);
 
     // Register the callback for receiving uds message.
     udsIndHandlerRef = taf_uds_AddDiagIndicationHandler(UdsIndicationHanler, NULL);
@@ -246,6 +250,100 @@ le_result_t taf_DiagBackend::InitUdsStack
     }
 #endif
     return LE_OK;
+}
+
+/*
+ * Clear UDS vlan list.
+*/
+void taf_DiagBackend::ClearUDSVlanList
+(
+    le_dls_List_t* vlanIdListPtr
+)
+{
+    LE_DEBUG("ClearUDSVlanList");
+
+    le_dls_Link_t* linkPtr = NULL;
+
+    TAF_ERROR_IF_RET_NIL(vlanIdListPtr == NULL, "vlanListPtr is null");
+
+    linkPtr = le_dls_Pop(vlanIdListPtr);
+    while (linkPtr)
+    {
+        taf_uds_VlanId_t* vlanIdPtr = CONTAINER_OF(linkPtr, taf_uds_VlanId_t,
+                link);
+
+        if (vlanIdPtr != NULL)
+        {
+             //Release memory in the list
+            le_mem_Release(vlanIdPtr);
+        }
+
+        // Removes and returns the link at the head of the list.
+        linkPtr = le_dls_Pop(vlanIdListPtr);
+    }
+
+    return;
+}
+
+/*
+ * Check VlanId is valid or not
+*/
+bool taf_DiagBackend::isVlanIdValid
+(
+    uint16_t vlanId
+)
+{
+    LE_INFO("isVlanIdValid");
+    le_dls_Link_t* linkPtr = NULL;
+
+    linkPtr = le_dls_Peek(&VlanAndSesTypeList);
+    while (linkPtr)
+    {
+        taf_RxVlanCurrentSesType_t* vlanSesTypePtr = CONTAINER_OF(linkPtr,
+                taf_RxVlanCurrentSesType_t, link);
+        linkPtr = le_dls_PeekNext(&VlanAndSesTypeList, linkPtr);
+
+        if (vlanSesTypePtr->vlanId == vlanId)
+        {
+            LE_DEBUG("VlanId is valid %d", vlanId);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/*
+ * Get current session type for request vlanId, if VlanId is valid.
+*/
+le_result_t taf_DiagBackend::GetCurrentSesType
+(
+    uint16_t vlanId,
+    uint8_t* currentSesTypePtr
+)
+{
+    LE_DEBUG("GetCurrentSesType");
+
+    // Check session type for respective VLAN ID
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&VlanAndSesTypeList);
+    while (linkPtr)
+    {
+        taf_RxVlanCurrentSesType_t* vlanSesTypePtr = CONTAINER_OF(linkPtr,
+                taf_RxVlanCurrentSesType_t, link);
+        linkPtr = le_dls_PeekNext(&VlanAndSesTypeList, linkPtr);
+
+        if (vlanSesTypePtr->vlanId == vlanId)
+        {
+            LE_DEBUG("Current session type is %d for vlanId %d", vlanSesTypePtr->currentSesType,
+                    vlanId);
+            *currentSesTypePtr = vlanSesTypePtr->currentSesType;
+            return LE_OK;
+        }
+    }
+
+    LE_ERROR("Vlan ID is not valid: %d", vlanId);
+    return LE_NOT_FOUND;
 }
 
 void taf_DiagBackend::DeInitUdsStack
@@ -366,4 +464,5 @@ void taf_DiagBackend::Init
             regstFlag = 1;
         }
     }
+
 }

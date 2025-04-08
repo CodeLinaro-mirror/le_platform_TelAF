@@ -28,7 +28,7 @@
  *
  *  ​​​​​Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
 
- *  Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -305,7 +305,6 @@ typedef struct
     taf_audio_Stream_t*  streamPtr;
 } taf_audio_BufferEvent_t;
 
-namespace telux {
 namespace tafsvc {
 
     class tafPromptsStatusListener : public telux::audio::IPlayListListener {
@@ -350,13 +349,20 @@ class taf_Audio : public ITafSvc
         ~taf_Audio() {};
 
         std::promise<telux::common::ErrorCode> gCallbackPromise, gDelCbPromise;
-        bool mIsPlaying = false, mIsTxPlaying = false, mIsPbError = false;
+        bool mIsPlaying = false;
+        bool mIsTxPlaying = false;
+        bool mIsPbError = false;
+        bool mIsRecError = false;
+        bool mIsRxRecError = false;
         bool mEmptyPipeline = false;
-        bool isRecMuteSet = false, isRxRecMuteSet = false;
+        bool isRecMuteSet = false;
+        bool isRxRecMuteSet = false;
         AudioFormat mPbFileFormat = AudioFormat::UNKNOWN;
         le_sem_Ref_t mPlayCompletedSemRef;
         le_dls_List_t  EventIdList = LE_DLS_LIST_INIT;
         taf_audio_StreamRef_t mDtmfAudioRef = NULL;
+        taf_audio_Stream_t* mTxRecStreamPtr = NULL;
+        taf_audio_Stream_t* mRxRecStreamPtr = NULL;
         le_event_Id_t bufferEventId;
 
         void Init(void);
@@ -445,7 +451,7 @@ class taf_Audio : public ITafSvc
         FILE *mFile, // File ptr for local recording
                 *mRxFile; //File ptr for incall downlink recording
         FILE *mPlayFile;
-        le_sem_Ref_t mRecordSemRef, mRxRecordSemRef, mPbStartedSemRef, mRecStartedSemRef,
+        le_sem_Ref_t mRecordSemRef, mRxRecordSemRef, mPbStartedSemRef,
                 mDtmfStartedSemRef, mDtmfStartedSemRefTx;
         SlotId mRxSlotId = INVALID_SLOT_ID , mTxSlotId = INVALID_SLOT_ID;
         StreamConfig voiceStreamConfig = {};
@@ -500,7 +506,9 @@ class taf_Audio : public ITafSvc
         void RemoveStreamEventHandler( StreamEventHandlerRef_t handlerRef );
         le_result_t StopandDelete(taf_audio_Stream_t* strmPtr, le_hashmap_Ref_t strmListPtr);
         void PlayAudioFile( taf_PlaybackFile_t fileToPlay);
+        le_result_t startRecording(taf_audio_Stream_t* streamPtr);
         void PbBufferHandler();
+        void RecBufferHandler(taf_audio_Stream_t* streamPtr);
 
         static void ClientSessionCloseEventHandler( le_msg_SessionRef_t sessionRef,
                             void* contextPtr);
@@ -514,6 +522,7 @@ class taf_Audio : public ITafSvc
         static void* Record( void* ctxPtr);
         static void* PlayList( void* ctxPtr);
         static void* RegisterBufferEvent( void* ctxPtr);
+        static void* RegisterRecBufferEvent( void* ctxPtr);
         static void ReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
                     telux::common::ErrorCode error);
         static void RxReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
@@ -533,5 +542,4 @@ class taf_Audio : public ITafSvc
         static void* playDTMFonTX(void* dtmfTones);
         static void BufferEventHandler(void* contextPtr);
 };
-}
 }

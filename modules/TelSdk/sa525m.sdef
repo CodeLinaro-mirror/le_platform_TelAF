@@ -91,6 +91,8 @@ apps:
     // $TELAF_ROOT/apps/test/tafNetTest/tafDualNadTest/tafDualNadTest
     // $TELAF_ROOT/apps/test/tafNetTest/tafNetIntTest/tafNetIntTest
     // $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeyStoreUnitTest/tafKeyStoreUnitTest
+    // $TELAF_ROOT/apps/test/tafKeyStoreTest/keySharingTest/keySharingOwnerTest
+    // $TELAF_ROOT/apps/test/tafKeyStoreTest/keySharingTest/keySharingClientTest
     // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMUnitTest
     // $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest/tafPMIntgTest
     // $TELAF_ROOT/apps/test/tafGpioTest/tafGpioUnitTest.adef
@@ -114,6 +116,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeIntTest
     // $TELAF_ROOT/apps/test/tafLXCIntTest/tafLXCIntTest.adef
     // $TELAF_ROOT/apps/test/tafHMSTest/tafHMSUnitTest
+    // $TELAF_ROOT/apps/test/tafHMSTest/tafHMSIntTest
     // $TELAF_ROOT/apps/test/tafWLAN/tafWLANUnitTest.adef
     // $TELAF_ROOT/apps/test/tafWLAN/tafWLANIntTest.adef
     // $TELAF_ROOT/apps/test/tafWLAN/tafWLANAPIntTest.adef
@@ -121,7 +124,9 @@ apps:
     // $TELAF_ROOT/apps/test/tafRFSTest/tafRFSUnitTest/tafRFSUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdStorageUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSecSharedApp
+    // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSec2ndSharedApp
     // $TELAF_ROOT/apps/test/configtreeImportTest/configUnitTest.adef
+    // $TELAF_ROOT/apps/sample/configTree/configTreeSample.adef
 }
 
 commands:
@@ -151,7 +156,6 @@ interfaceSearch:
     $TELAF_ROOT/interfaces/tafVNW
     $TELAF_ROOT/interfaces/staging
     $TELAF_ROOT/apps/tafMngdServices/interfaces
-    $TELAF_ROOT/apps/tafMngdServices/interfaces/staging
     $TELAF_ROOT/interfaces/tafDiagBackend
     interfaces/positioning
     $LEGATO_ROOT/apps/sample/voiceCallApp

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -34,7 +34,7 @@
 #include "legato.h"
 #include "configuration.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 extern "C" {
 void ConfigModuleInit()

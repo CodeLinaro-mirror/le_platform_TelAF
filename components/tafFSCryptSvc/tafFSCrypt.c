@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "legato.h"
 #include "interfaces.h"
@@ -56,7 +28,7 @@
  */
 //--------------------------------------------------------------------------------------------------
 #define INT_KEY_NONCE_LEN 12
-#define INT_KEY_AEAD_LEN  32
+#define INT_KEY_AEAD_LEN  MD5_DIGEST_LENGTH
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -900,7 +872,8 @@ static void RemoveSessionFromStorage
 le_result_t InternalCryptoProcess
 (
     taf_ks_CryptoPurpose_t  purpose,
-    Sha256_t*               fileIdPtr,
+    const uint8_t*          md5DataPtr,
+    size_t                  md5DataSize,
     const uint8_t*          plainTextPtr,
     size_t                  plainTextSize,
     uint8_t*                encryptedDataPtr,
@@ -909,29 +882,18 @@ le_result_t InternalCryptoProcess
 {
     uint8_t nonce[INT_KEY_NONCE_LEN] = {0};
     uint8_t aead[INT_KEY_AEAD_LEN] = {0};
-    uint8_t md5Digest[EVP_MAX_MD_SIZE] = {0};
 
-    uint md5_hash_length = 0;
-
-    // Caculate the md5 of the file ID, later use the md5 as the nonce.
-    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-    if(ctx == NULL)
+    if ((md5DataPtr == NULL) || (md5DataSize != MD5_DIGEST_LENGTH))
     {
-        LE_ERROR("ctx is NULL");
-        return LE_FAULT;
+        LE_ERROR("Bad parameter.");
+        return LE_BAD_PARAMETER;
     }
 
-    const EVP_MD* method = EVP_md5();
-
-    EVP_DigestInit_ex(ctx, method, NULL);
-    EVP_DigestUpdate(ctx, fileIdPtr->data, sizeof(fileIdPtr->data));
-    EVP_DigestFinal_ex(ctx, md5Digest, &md5_hash_length);
-    EVP_MD_CTX_free(ctx);
-
-    memscpy(nonce, INT_KEY_NONCE_LEN, md5Digest, md5_hash_length);
+    // Set the Nonce.
+    memcpy(nonce, md5DataPtr, INT_KEY_NONCE_LEN);
 
     // Set the AEAD before data encryption/decryption.
-    memscpy(aead, INT_KEY_AEAD_LEN, fileIdPtr, sizeof(fileIdPtr->data));
+    memcpy(aead, md5DataPtr, INT_KEY_AEAD_LEN);
 
     // Encrypt the data using internal key
     const char keyId[] = FSC_INT_KEY_NAME;

@@ -1,35 +1,6 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *      * Redistributions of source code must retain the above copyright
- *        notice, this list of conditions and the following disclaimer.
- *
- *      * Redistributions in binary form must reproduce the above
- *        copyright notice, this list of conditions and the following
- *        disclaimer in the documentation and/or other materials provided
- *        with the distribution.
- *
- *      * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *        contributors may be used to endorse or promote products derived
- *        from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
@@ -59,7 +30,7 @@ typedef struct
 {
     taf_net_VlanIfType_t ifType;
     char macAddr[TAF_NET_MAC_ADDR_MAX_LEN + 1];
-    taf_netIpPass_Operation_t operation;
+    taf_net_Operation_t operation;
 } taf_InterfaceIPPTConfig_t;
 
 /*
@@ -67,10 +38,10 @@ typedef struct
  */
 typedef struct
 {
-    taf_netIpPass_IpAssignOperation_t ipOpr;    // disable /enable /reconfigure
-    taf_netIpPass_IpAssignType_t ipAssignType;  // static / dynamic
+    taf_net_IpAssignOperation_t ipOpr;    // disable /enable /reconfigure
+    taf_net_IpAssignType_t ipAssignType;  // static / dynamic
     taf_net_NetIpType_t  ipType;          // ipv4/ipv6/ipv4v6
-    taf_netIpPass_IpAddressInfo_t  ipAddrInfo;
+    taf_net_IpAddressInfo_t  ipAddrInfo;
 } taf_InterfaceIPConfig_t;
 
 typedef struct
@@ -88,7 +59,7 @@ typedef struct
 {
     uint8_t slotId;                  //optional slotId , otherwise default slotId
     int32_t profileId;               //mandatory if backhaul type is WWAN.
-    taf_netIpPass_BackhaulType_t backhaulType; //VLAN bind config item for backhaul type.
+    taf_net_BackhaulType_t backhaulType; //VLAN bind config item for backhaul type.
     int16_t vlanIdBackhaul;          //optional VLAN bind config item if Backhaul is not WWAN.
 } taf_VlanBHBindConfig_t;
 
@@ -100,7 +71,7 @@ typedef struct
     int16_t vlanId;
     bool isAccelerated;
     uint8_t priority;
-    taf_netIpPass_NetworkType_t nwType;
+    taf_net_NetworkType_t nwType;
     taf_net_VlanRef_t vlanRef;
     le_msg_SessionRef_t sessionRef;
     taf_VlanBHBindConfig_t vlanBindConfig;
@@ -118,7 +89,7 @@ typedef struct
     int32_t profileId;
     int16_t vlanId;
     bool isAccelerated;
-    taf_netIpPass_NetworkType_t nwType;
+    taf_net_NetworkType_t nwType;
 } taf_VlanInfo_t;
 
 /*
@@ -179,7 +150,12 @@ typedef struct
     le_sls_Link_t link;
 } taf_VlanIfSafeRef_t;
 
-namespace telux{
+// Internal message structure for onHwAccelerationChanged events
+typedef struct
+{
+    taf_net_VlanHwAccelerationState_t state;
+} VlanHwAccelerationState_t;
+
 namespace tafsvc {
     /*
      * @brief A callback class must be provided when invoke teladk API.
@@ -218,6 +194,28 @@ namespace tafsvc {
         private:
             SlotId slotId;
     };
+
+    class tafVlanBackhaulPrefCallback
+    {
+        public:
+            static le_sem_Ref_t semaphore;
+            static le_result_t result;
+            static taf_net_BackhaulType_t backhaulPrefListPtr[TAF_NET_MAX_BH_NUM];
+            static size_t backhaulPrefListSize;
+
+            static void backhaulPrefResponse(
+                const std::vector<telux::data::BackhaulType> backhaulPref,
+                telux::common::ErrorCode error);
+            static void setBackhaulPrefResponse(telux::common::ErrorCode error);
+    };
+
+    class taf_VlanListener : public  telux::data::net::IVlanListener
+    {
+        public:
+          taf_VlanListener();
+
+          void onHwAccelerationChanged(const telux::data::ServiceState state) override;
+    };
     /*
      * @brief taf_Vlan class defined as a middleware between interfaces and implementation.
      */
@@ -236,7 +234,7 @@ namespace tafsvc {
             void onInitComplete(telux::common::ServiceStatus status);
             void onInitCompleteDataSettings(telux::common::ServiceStatus status);
             uint16_t GetBackhaulVlanIdBoundWithVlan(uint16_t vlanId,
-                                         taf_netIpPass_BackhaulType_t backhaulType, SlotId slot);
+                                         taf_net_BackhaulType_t backhaulType, SlotId slot);
             uint16_t GetBoundVlanIdFromSlotAndProfile(uint8_t slotId, uint32_t profileId);
             le_result_t GetBoundSlotIdProfileIdFromVlan(uint16_t vlanId, uint8_t* slotId,
                                                         uint32_t* profileId);
@@ -251,10 +249,10 @@ namespace tafsvc {
             le_result_t AddVlanInterface(taf_net_VlanRef_t vlanRef, taf_net_VlanIfType_t ifType);
             le_result_t SetVlanPriority(taf_net_VlanRef_t vlanRef, uint8_t priority);
             le_result_t SetVlanNetworkType(taf_net_VlanRef_t vlanRef,
-                                                              taf_netIpPass_NetworkType_t nwType);
+                                                              taf_net_NetworkType_t nwType);
             //Bind Parameters in REF
             le_result_t SetVlanBackhaulType(taf_net_VlanRef_t vlanRef,
-                                            taf_netIpPass_BackhaulType_t bhType);
+                                            taf_net_BackhaulType_t bhType);
             le_result_t SetVlanBackhaulVlanId(taf_net_VlanRef_t vlanRef,uint16_t vlanId);
             le_result_t SetVlanBackhaulProfileId(taf_net_VlanRef_t vlanRef,uint32_t profileId);
             le_result_t SetVlanBackhaulSlotId(taf_net_VlanRef_t vlanRef,uint8_t slotId);
@@ -275,7 +273,7 @@ namespace tafsvc {
             int32_t GetVlanProfileId(taf_net_VlanEntryRef_t vlanEntryRef);
             le_result_t GetVlanPhoneId(taf_net_VlanEntryRef_t vlanEntryRef, uint8_t* phoneIdPtr);
             le_result_t GetVlanNetworkType(taf_net_VlanEntryRef_t vlanEntryRef,
-                                                     taf_netIpPass_NetworkType_t  *networkType);
+                                                     taf_net_NetworkType_t  *networkType);
             //Interface REF APIs which give only create info.
             taf_net_VlanIfListRef_t GetVlanInterfaceList(taf_net_VlanRef_t vlanRef);
             taf_net_VlanIfRef_t GetFirstVlanInterface(taf_net_VlanIfListRef_t vlanIfListRef);
@@ -286,40 +284,48 @@ namespace tafsvc {
             le_result_t CleanListRef(taf_net_VlanEntryListRef_t vlanEntryListRef);
             le_result_t CleanVlanInterfaceListRef(taf_net_VlanIfListRef_t vlanIfListRef);
             // IP Pass through
-            taf_netIpPass_InterfaceRef_t GetInterface(taf_net_VlanIfType_t ifType);
-            le_result_t RemoveInterface(taf_netIpPass_InterfaceRef_t interfaceRef);
-            le_result_t SetIPPTOperation(taf_netIpPass_InterfaceRef_t  interfaceRef,
-                                                 taf_netIpPass_Operation_t  operation);
-            le_result_t SetIPPTDeviceMacAddress(taf_netIpPass_InterfaceRef_t  interfaceRef,
+            taf_net_InterfaceRef_t GetInterface(taf_net_VlanIfType_t ifType);
+            le_result_t RemoveInterface(taf_net_InterfaceRef_t interfaceRef);
+            le_result_t SetIPPTOperation(taf_net_InterfaceRef_t  interfaceRef,
+                                                 taf_net_Operation_t  operation);
+            le_result_t SetIPPTDeviceMacAddress(taf_net_InterfaceRef_t  interfaceRef,
                                                 taf_net_VlanIfType_t ifType,
                                                 const char *macAddr);
-            le_result_t SetIPPassThroughConfig(taf_netIpPass_InterfaceRef_t  interfaceRef,
+            le_result_t SetIPPassThroughConfig(taf_net_InterfaceRef_t  interfaceRef,
                                                uint16_t vlanid);
 
-            taf_netIpPass_InterfaceRef_t GetIPPassThroughConfig(uint16_t vlanId);
-            le_result_t GetIPPTOperation(taf_netIpPass_InterfaceRef_t vlanIPRef,
-                                                 taf_netIpPass_Operation_t*  operation);
-            le_result_t GetIPPTDeviceMacAddress(taf_netIpPass_InterfaceRef_t vlanIPRef,
+            taf_net_InterfaceRef_t GetIPPassThroughConfig(uint16_t vlanId);
+            le_result_t GetIPPTOperation(taf_net_InterfaceRef_t vlanIPRef,
+                                                 taf_net_Operation_t*  operation);
+            le_result_t GetIPPTDeviceMacAddress(taf_net_InterfaceRef_t vlanIPRef,
                                                 taf_net_VlanIfType_t *ifType,
                                                 char *macAddr, size_t macAddrSize);
             // IP config
-            le_result_t SetIPConfig(taf_netIpPass_InterfaceRef_t  interfaceRef,
+            le_result_t SetIPConfig(taf_net_InterfaceRef_t  interfaceRef,
                                     taf_net_NetIpType_t  ipType,
                                     taf_net_VlanIfType_t ifType,
                                     uint16_t vlanid);
-            le_result_t SetIPConfigParams(taf_netIpPass_InterfaceRef_t  interfaceRef,
-                                          taf_netIpPass_IpAssignOperation_t ipOpr,
-                                          taf_netIpPass_IpAssignType_t ipType);
-            le_result_t SetIPConfigAddressParams(taf_netIpPass_InterfaceRef_t  interfaceRef,
-                                          const taf_netIpPass_IpAddressInfo_t*  ipAddrInfo);
-            le_result_t GetIPConfigParams(taf_netIpPass_InterfaceRef_t vlanRef,
-                                          taf_netIpPass_IpAssignOperation_t* ipOpr,
-                                          taf_netIpPass_IpAssignType_t* ipType);
-            le_result_t GetIPConfigAddressParams(taf_netIpPass_InterfaceRef_t vlanRef,
-                                                 taf_netIpPass_IpAddressInfo_t*  ipAddrInfo);
-            taf_netIpPass_InterfaceRef_t GetIPConfig(taf_net_NetIpType_t  ipType,
+            le_result_t SetIPConfigParams(taf_net_InterfaceRef_t  interfaceRef,
+                                          taf_net_IpAssignOperation_t ipOpr,
+                                          taf_net_IpAssignType_t ipType);
+            le_result_t SetIPConfigAddressParams(taf_net_InterfaceRef_t  interfaceRef,
+                                          const taf_net_IpAddressInfo_t*  ipAddrInfo);
+            le_result_t GetIPConfigParams(taf_net_InterfaceRef_t vlanRef,
+                                          taf_net_IpAssignOperation_t* ipOpr,
+                                          taf_net_IpAssignType_t* ipType);
+            le_result_t GetIPConfigAddressParams(taf_net_InterfaceRef_t vlanRef,
+                                                 taf_net_IpAddressInfo_t*  ipAddrInfo);
+            taf_net_InterfaceRef_t GetIPConfig(taf_net_NetIpType_t  ipType,
                                                  taf_net_VlanIfType_t ifType,
                                                  uint16_t vlanId);
+            le_result_t SetIPPassThroughNatConfig(bool isEnabled);
+            le_result_t GetIPPassThroughNatConfig(bool *isEnabledPtr);
+
+            le_result_t GetBackhaulPreference(taf_net_BackhaulType_t* backhaulPrefListPtr,
+                                              size_t* backhaulPrefListSizePtr);
+            le_result_t SetBackhaulPreference(const taf_net_BackhaulType_t* backhaulPrefListPtr,
+                                              size_t backhaulPrefListSize);
+
 
             static bool sort_vlanId(const telux::data::VlanConfig& s1,
                                     const telux::data::VlanConfig& s2);
@@ -345,8 +351,17 @@ namespace tafsvc {
             le_mem_PoolRef_t vlanIfSafeRefPool;
             le_ref_MapRef_t vlanIfListRefMap;
             le_ref_MapRef_t vlanIfSafeRefMap;
-        private:
+
+            // Hardware acceleration state event related declarations and functions
+            le_event_Id_t vlanHwAccelerationStateEvtId;
+            le_mem_PoolRef_t vlanHwAccelerationStateEvtPool;
+            static taf_net_VlanHwAccelerationState_t ConvertHwAccelerationSate(
+                                                            const telux::data::ServiceState state);
+            std::shared_ptr<telux::data::net::IVlanListener>   vlanListener;
+            std::shared_ptr<taf_VlanListener>   tafVlanListener;
             std::shared_ptr<telux::data::net::IVlanManager> vlanManager = nullptr;
+
+        private:
             std::shared_ptr<telux::data::IDataSettingsManager> dataSettingsManager = nullptr;
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             bool IsSubSystemStatusUpdated=false;
@@ -355,6 +370,5 @@ namespace tafsvc {
 #endif
     };
 
-}
 }
 

@@ -10,6 +10,9 @@ export TELAF_ROOT := $(CURDIR)
 export TELAF_BUILD := $(CURDIR)/build
 export LEGATO_ROOT := $(CURDIR)/../legato/legato-af
 export LEGATO_BUILD := $(CURDIR)/../legato/legato-af/build
+export TELAF_PA_DEFAULT := $(CURDIR)/../telaf-pa-default
+export TELAF_PA := $(CURDIR)/../telaf-pa
+
 export GEN_FILE_CONTEXTS := $(CURDIR)/security/selinux/tools/generate_telaf_file_contexts.sh
 export SELINUX_FILE_CONTEXTS := ${CURDIR}/security/selinux/sepolicy/files/file_contexts
 
@@ -27,11 +30,41 @@ endif
 # SDK configurations
 include config.mk
 
+default:
+	@echo "Nothing to do, without any target"
+
+# Diagnostic Gen-Tool sub-makefile
 include $(TELAF_ROOT)/apps/tools/tafDiagGen/dgtool.mk
 
+# Macro to check and copy stub directories
+define PREBUILD_PA
+	@echo "Finding and creating stub PA.."
+	@find $(TELAF_ROOT) -name Component.cdef | while read -r cdef_file; do \
+		base_name=""; \
+		while IFS= read -r line; do \
+			if echo "$$line" | grep -q '$$LEGATO_BUILD/stub/component/'; then \
+				base_name=$$(echo "$$line" | sed -n 's|.*$$LEGATO_BUILD/stub/component/\([^ ]*\).*|\1|p'); \
+				echo "Required stub PA: $$base_name"; \
+				target_stub_dir=$(LEGATO_RELATIVE_PATH)/build/$(1)/stub/component/$$base_name; \
+				if [ ! -d "$$target_stub_dir" ]; then \
+					mkdir -p $$target_stub_dir; \
+				else \
+					echo "PA folder is created: $$target_stub_dir"; \
+				fi; \
+				stub_dir=$(TELAF_PA_DEFAULT)/component/taf_pa_stub; \
+				echo "Copy $$stub_dir to $$target_stub_dir"; \
+				cp -r $$stub_dir/* $$target_stub_dir; \
+			fi; \
+		done < "$$cdef_file"; \
+	done
+endef
+
+
+$(TARGETS): TARGET=$@
 $(TARGETS):
 	@ln -sf $(LEGATO_RELATIVE_PATH)/build ./build
 	$(shell $(GEN_FILE_CONTEXTS))
+	$(call PREBUILD_PA,$(TARGET))
 	$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT=$(TELAF_ROOT)
 
 $(UTILITIES):

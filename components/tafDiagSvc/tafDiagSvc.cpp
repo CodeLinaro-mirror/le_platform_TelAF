@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -16,7 +16,7 @@
 #include <memory>
 #include "tafDiagSvr.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -105,6 +105,30 @@ le_result_t taf_diag_SetVlanId
     LE_DEBUG("taf_diag_SetVlanId");
     auto &diag = taf_DiagSvr::GetInstance();
     return diag.SetVlanId(svcRef, vlanId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Select traget VLAN ID.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_NOT_FOUND -- Vlan ID not found.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diag_SelectTargetVlanID
+(
+    taf_diag_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    uint16_t vlanId
+        ///< [IN] VLAN ID.
+)
+{
+    LE_DEBUG("taf_diag_SelectTargetVlanID");
+    auto &diag = taf_DiagSvr::GetInstance();
+    return diag.SelectTargetVlanID(svcRef, vlanId);
 }
 
 //--------------------------------------------------------------------------------------------------

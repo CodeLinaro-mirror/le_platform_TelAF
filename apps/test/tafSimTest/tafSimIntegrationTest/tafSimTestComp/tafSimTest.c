@@ -521,9 +521,11 @@ void tafSimTest_sim_access
     LE_INFO("responsee");
     size_t responseSize = sizeof(response)/sizeof(response[0]);
     LE_INFO("responseSize");
+    size_t dataSize = sizeof(data)/sizeof(data[0]);
+    LE_INFO("dataSize");
     char filePath[5] = {'3', 'F', '0', '0', '\0'};
     LE_INFO("filePath");
-    reqStatus = taf_sim_SendCommand(simId, command, fileIdentifier, p1, p2, p3, data, sizeof(data)/sizeof(data[0]), filePath, &sw1, &sw2, response, &responseSize);
+    reqStatus = taf_sim_SendCommand(simId, command, fileIdentifier, p1, p2, p3, data, dataSize, filePath, &sw1, &sw2, response, &responseSize);
     LE_INFO("REQSTATUS");
     if(reqStatus != LE_OK) {
         LE_INFO("reqStatus is %d", reqStatus);
@@ -532,6 +534,26 @@ void tafSimTest_sim_access
     LE_INFO("SendCommand API working");
     LE_INFO("APDU response sw1 = 0x%02X",sw1);
     LE_INFO("APDU response sw2 = 0x%02X",sw2);
+    for(size_t i=0; i < dataSize ; i++)
+    {
+        printf("Response :%d\n",response[i]);
+    }
+    char imsiFileId[5]={'6', 'f', '0', '7', '\0'};
+    char imsiFilePath[9] = {'3', 'F', '0', '0', '7', 'F', 'F', 'F','\0'};
+    p3 = 9;
+    reqStatus = taf_sim_SendCommand(simId, command, imsiFileId, p1, p2, p3, data, dataSize,imsiFilePath, &sw1, &sw2, response, &responseSize);
+    LE_INFO("REQSTATUS");
+    if(reqStatus != LE_OK) {
+        LE_INFO("reqStatus is %d", reqStatus);
+        return;
+    }
+    LE_INFO("SendCommand API working\n");
+    LE_INFO("\n APDU response sw1 = 0x%02X",sw1);
+    LE_INFO("APDU response sw2 = 0x%02X",sw2);
+    for(size_t i=0; i < dataSize ; i++)
+    {
+        printf("Response :%d\n",response[i]);
+    }
 }
 
 void tafSimTest_SetPowerCheck

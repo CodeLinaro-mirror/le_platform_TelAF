@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -472,6 +472,49 @@
  * - taf_net_SetVlanPriority() -- Sets VLAN priority.
  * - taf_net_GetVlanPriority() -- Gets VLAN priority.
  *
+ * The following APIs are supported for binding VLAN to a backhaul.
+ *
+ * - taf_net_SetVlanBackhaulType()            -- Sets backhaul type for the VLAN binding.
+ * - taf_net_SetVlanBackhaulVlanId()          -- Sets backhaul's VLAN ID for the VLAN binding.
+ * - taf_net_SetVlanBackhaulPhoneId()         -- Sets backhaul's phone ID for the VLAN binding.
+ * - taf_net_SetVlanBackhaulProfileId()       -- Sets backhaul's profile ID for the VLAN binding.
+ * - taf_net_BindVlanWithBackhaul()           -- Binds to backhaul defined by above values.
+ * - taf_net_UnbindVlanFromBackhaul()         -- Unbinds VLAN from a backhaul.
+ *
+ *
+ * The following APIs are supported to provision network type for a VLAN.
+ *
+ * - taf_net_SetVlanNetworkType()             -- Sets network type of the VLAN.
+ * - taf_net_GetVlanNetworkType()             -- Gets network type of the VLAN.
+ *
+ * The following APIs are supported to set IP passthrough config to REMOTE system.
+ *
+ * - taf_net_GetInterface()                   -- Gets the interface reference to set the config.
+ * - taf_net_SetIPPTOperation()               -- Sets the operation parameter to the IP PASS reference.
+ * - taf_net_SetIPPTDeviceMacAddress()        -- Sets the device config parameters to the IP PASS reference.
+ * - taf_net_SetIPPassThroughConfig()         -- Sets IP passthrough config of the WWAN backhaul.
+ *
+ * The following APIs are supported to get IP passthrough config from REMOTE system.
+ *
+ * - taf_net_GetIPPassThroughConfig()         -- Gets IP passthrough config of the WWAN backhaul.
+ *                                                     Returns a reference to IP passthrough config.
+ * - taf_net_GetIPPTOperation()               -- Gets the operation parameter to the IP PASS reference.
+ * - taf_net_GetIPPTDeviceMacAddress()        -- Gets the device config parameters to the IP config reference.
+ *
+ * The following APIs are supported to set IP config to LOCAL system.
+ *
+ * - taf_net_GetInterface()                   -- Gets the interface Reference to set the config.
+ * - taf_net_SetIPConfigParams()              -- Sets the parameters to the IP config reference.
+ * - taf_net_SetIPConfigAddressParams()       -- Sets the address information to the IP config reference.
+ * - taf_net_SetIPConfig()                    -- Sets IP config to the LOCAL system.
+ *
+ * The following APIs are supported to get IP config for the LOCAL system.
+ *
+ * - taf_net_GetIPConfig()                    -- Gets IP config of the LOCAL system.
+ *                                                     Returns a reference to config.
+ * - taf_net_GetIPConfigParams()              -- Gets the parameters to the IP config reference.
+ * - taf_net_GetIPConfigAddressParams()       -- Gets the address information to the IP config reference.
+ *
  * <HR>
  *
  */
@@ -590,6 +633,13 @@ DEFINE  MAX_GSB_LIST_NUM = (2);
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE  MAX_GSB_NUM = (10);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum number for backhaul types.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE  MAX_BH_NUM = (5);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -738,6 +788,83 @@ ENUM GsbIfType
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * VLAN Hardware acceleration service state.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM VlanHwAccelerationState
+{
+    VLAN_HW_ACC_STATE_INACTIVE = 0,
+    VLAN_HW_ACC_STATE_ACTIVE
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Backhaul type
+ */
+ //-------------------------------------------------------------------------------------------------
+ENUM BackhaulType
+{
+    BH_ETH = 0,///< Ethernet backhaul.
+    BH_USB,    ///< USB backhaul.
+    BH_WLAN,   ///< WLAN backhaul.
+    BH_WWAN,   ///< WWAN backhaul with default profile ID.
+    BH_BLE,    ///< Bluetooth backhaul.
+    BH_MAX     ///< Maximum supported.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Network type
+ */
+ //-------------------------------------------------------------------------------------------------
+ENUM NetworkType
+{
+    NETWORK_UNKNOWN = -1,      ///< UNKNOWN network type.
+    LAN = 1,                   ///< LAN network type.
+    WAN = 2,                   ///< WAN network type.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * The IP Passthrough operation type.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM Operation
+{
+    IPPT_UNKNOWN = -1,        ///< UNKNOWN operation.
+    IPPT_DISABLE = 0,         ///< DISABLE operation.
+    IPPT_ENABLE = 1,          ///< ENABLE operation.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * The IPConfig Assign type.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM IpAssignType
+{
+    UNKNOWN_IP = -1,            ///< UNKNOWN IP Type.
+    STATIC_IP = 0,              ///< STATIC IP.
+    DYNAMIC_IP = 1,             ///< DYNAMIC IP.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * The IPConfig Assign operation.
+ */
+//--------------------------------------------------------------------------------------------------
+
+ENUM IpAssignOperation
+{
+    IP_UNKNOWN     = -1,       ///< UNKNOWN IP assign operation.
+    IP_DISABLE = 0,            ///< DISABLE IP assignment.
+    IP_ENABLE = 1,             ///< ENABLE IP assignment.
+    IP_RECONFIGURE = 2,        ///< RECONFIGURE IP assignment.
+};
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * The destination NAT change indication.
  */
 //--------------------------------------------------------------------------------------------------
@@ -823,6 +950,21 @@ STRUCT L2tpSessionConfig
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * The IP address information.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT IpAddressInfo
+{
+    string interfaceAddress[IP_ADDR_MAX_LEN];        ///< The interface IP address.
+    uint16 interfaceMask;                            ///< The interface subnet mask.
+    string gwAddress[IP_ADDR_MAX_LEN];               ///< Gateway IP address.
+    string primaryDnsAddress[IP_ADDR_MAX_LEN];       ///< Primary DNS IP address.
+    string secondaryDnsAddress[IP_ADDR_MAX_LEN];     ///< Secondary DNS IP address.
+};
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Destination NAT entry list reference.
  */
 //--------------------------------------------------------------------------------------------------
@@ -904,6 +1046,14 @@ REFERENCE GsbList;
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE Gsb;
+
+//--------------------------------------------------------------------------------------------------
+/**
+
+ * Interface IP passthrough reference for setting config.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Interface;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1007,6 +1157,45 @@ HANDLER AsyncL2tpHandler
 HANDLER AsyncSocksHandler
 (
     le_result_t  result                       IN   ///< The result of enabling or disabling SOCKS.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for VLAN hardware accelaration state.
+ *
+ * @b NOTE: The input vlanRef is not considered in this API call. It is added for future extensions.
+ *
+ * @instaging
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER VlanHwAccelerationStateHandler
+(
+   Vlan vlanRef                     IN, ///< VLAN reference.
+   VlanHwAccelerationState state    IN  ///< The VLAN hardware acceleration state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report when a change occurs in the VLAN hardware acceleration service.
+ *
+ * @b NOTE: The input vlanRef is not considered in this API call. It is added for future extensions.
+ *
+ * If reported state is TAF_NET_VLAN_HW_ACC_STATE_INACTIVE, all existing data calls will take
+ * software acceleration path.
+ * If reported state is TAF_NET_VLAN_HW_ACC_STATE_ACTIVE, all new data calls that are started after
+ * the TAF_NET_VLAN_HW_ACC_STATE_ACTIVE event will be hardware accelerated.
+ * Data calls that existed before TAF_NET_VLAN_HW_ACC_STATE_ACTIVE event will continue without
+ * hardware acceleration.
+ * Clients could stop and re-start pre-existing data calls in order to use hardware acceleration.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT VlanHwAccelerationState
+(
+    Vlan vlanRef,                              ///< VLAN reference.
+    VlanHwAccelerationStateHandler handler     ///< Handler for hardware acceleration state.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -2454,4 +2643,525 @@ FUNCTION GsbIfType GetGsbInterfaceType
 FUNCTION int32 GetGsbBandWidth
 (
     Gsb gsbRef                                IN  ///< GSB reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the backhaul preference for a bridge. The priority of the output list is ranked
+ * from highest to lowest.
+ *
+ * @b NOTE: Currently only the default bridge is supported, i.e. bridge0 hence vlanRef
+ * is not considered in this API call. It is added for future extensions.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBackhaulPreference
+(
+    Vlan       vlanRef                         IN,     ///< VLAN reference.
+    BackhaulType backhaulPrefList[MAX_BH_NUM]  OUT     ///< Backhaul preference list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the backhaul preference for a bridge. The priority of the input list is taken from
+ * highest to lowest.
+ *
+ * @b NOTE: Currently only the default bridge is supported, i.e. bridge0 hence vlanRef
+ * is not considered in this API call. It is added for future extensions.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetBackhaulPreference
+(
+   Vlan       vlanRef                         IN, ///< VLAN reference.
+   BackhaulType backhaulPrefList[MAX_BH_NUM]  IN  ///< Backhaul preference list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the network type to a VLAN.
+ * By default, the network type is LAN and bridge will be created.
+ * For network type WAN, bridge creation is not allowed.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetVlanNetworkType
+(
+    Vlan vlanRef                                      IN, ///< VLAN reference.
+    NetworkType nwType                                IN  ///< Network type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the network type of VLAN by the VLAN entry reference.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVlanNetworkType
+(
+    VlanEntry vlanEntryRef                            IN,  ///< VLAN entry reference.
+    NetworkType nwType                                OUT  ///< Network type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the backhaul type to a VLAN binding.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetVlanBackhaulType
+(
+    Vlan vlanRef                                      IN, ///< VLAN reference.
+    BackhaulType bhType                               IN ///< Backhaul type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the VLAN ID of backhaul to a VLAN binding if backhaul type is not WWAN.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetVlanBackhaulVlanId
+(
+    Vlan vlanRef                                IN, ///< VLAN reference.
+    uint16 vlanId                               IN  ///< VLAN identifier for backhaul, i.e., 1-4094.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the phone ID of backhaul to a VLAN binding if backhaul type is WWAN.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetVlanBackhaulPhoneId
+(
+    Vlan vlanRef                              IN, ///< VLAN reference.
+    uint8 phoneId                             IN  ///< Phone ID of backhaul for VLAN association.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the profile ID of backhaul to a VLAN binding if backhaul type is WWAN.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetVlanBackhaulProfileId
+(
+    Vlan vlanRef                              IN, ///< VLAN reference.
+    uint32 profileId                          IN ///< Profile ID of backhaul for VLAN association.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Binds a VLAN with a specified backhaul config.
+ *
+ *
+ *
+ * @note ProfileId and SlotId are needed only for WWAN backhaul Type.
+ *
+ * @instaging
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t BindVlanWithBackhaul
+(
+    Vlan vlanRef                            IN ///< VLAN reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Unbinds a VLAN from previous profile ID.
+ *
+ *
+ *
+ * @note Unbinding VLAN from the default profile ID in case of WWAN results in the system
+ * automatically rebooting after 5 seconds.
+ *
+ * @instaging
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UnbindVlanFromBackhaul
+(
+    Vlan vlanRef                              IN ///< VLAN reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the interface reference for IP PASS and IP config operations.
+ *
+ * @instaging
+ *
+ * @return
+ *   - NULL -- Failure.
+ *   - Others -- The reference of interface.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Interface GetInterface
+(
+    VlanIfType ifType                     IN ///< Interface type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes the interface reference of IP PASS and IP config operations.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- Interface reference was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveInterface
+(
+    Interface interfaceRef                        IN ///< Interface reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the IP passthrough operation of the interface to the interface entry reference.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetIPPTOperation
+(
+    Interface interfaceRef               IN,///< Interface reference.
+    Operation  operation                 IN ///< IP passthrough operation.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the IP passthrough device config of the interface to the interface entry reference.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetIPPTDeviceMacAddress
+(
+    Interface interfaceRef                IN,///< Interface reference.
+    VlanIfType ifType                     IN, ///< Interface type.
+    string macAddr[MAC_ADDR_MAX_LEN]      IN  ///< Device MAC address.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the IP passthrough configuration for a specific VLAN ID.
+ * When operation is set to ENABLE, the client can add a new ipptconfig or modify an existing
+ * configuration.
+ *
+ * If ipptConfig is not provided, the system will perform an IP passthrough operation on the
+ * existing configuration.
+ *
+ * Configuration changes will be persistent across reboots.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetIPPassThroughConfig
+(
+    Interface interfaceRef                IN,///< Interface reference.
+    uint16 vlanId                         IN ///< VLAN identifier i.e., 1-4094.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the current IP passthrough configuration for a specific VLAN ID.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Interface GetIPPassThroughConfig
+(
+    uint16 vlanId                          IN ///< VLAN identifier i.e., 1-4094.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IP passthrough operation of the interface by the interface entry reference.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIPPTOperation
+(
+    Interface  interfaceRef                      IN, ///< VLAN interface reference.
+    Operation  operation                         OUT ///< IP passthrough operation.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IP passthrough device config of the interface by the interface entry reference.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIPPTDeviceMacAddress
+(
+    Interface  interfaceRef               IN, ///< VLAN interface reference.
+    VlanIfType ifType                     OUT,///< Interface type.
+    string macAddr[MAC_ADDR_MAX_LEN]      OUT ///< Device MAC address.
+);
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the IP configuration for an interface.
+ * Prior to invoking this API, the data call should be up and running.
+ *
+ * Provides the ability to configure STATIC_IP or DYNAMIC_IP to a specified InterfaceType.
+ *
+ * When DataCallStatus, whose IP address is being passed through to this NAD, changes to NET_NO_NET,
+ * this API must be invoked again with the operation set to DISABLE.
+ * When DataCallStatus, whose IP address is being passed through to this NAD, changes to
+ * NET_CONNECTED, this API must be invoked again with the operation set to ENABLE.
+ * When DataCallStatus, whose IP address is being passed through to this NAD, changes to
+ * NET_RECONFIGURED, this API must be invoked again with the operation set to RECONFIG.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetIPConfig
+(
+    Interface  interfaceRef                   IN,///< interface reference.
+    NetIpType  ipType                         IN,///< IP type.
+    VlanIfType ifType                         IN,///< Interface type.
+    uint16 vlanId                             IN ///< VLAN identifier i.e., 1-4094.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the IP config parameters of the interface to the interface entry reference.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetIPConfigParams
+(
+    Interface  interfaceRef           IN, ///< Interface reference.
+    IpAssignOperation ipOpr           IN, ///< IP assign operation.
+    IpAssignType ipType               IN  ///< IP assign type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the IP config address parameters of the interface to the interface entry reference.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetIPConfigAddressParams
+(
+    Interface  interfaceRef       IN, ///< Interface reference.
+    IpAddressInfo  ipAddrInfo     IN  ///< IP configuration. This is needed only for STATIC type IP.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IP config parameters of the interface by the interface entry reference.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIPConfigParams
+(
+    Interface  interfaceRef           IN,  ///< VLAN interface reference.
+    IpAssignOperation ipOpr           OUT, ///< IP assign operation.
+    IpAssignType ipType               OUT  ///< IP assign type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IP config address information of the interface by the interface entry reference.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIPConfigAddressParams
+(
+    Interface  interfaceRef      IN,  ///< VLAN interface reference.
+    IpAddressInfo  ipAddrInfo    OUT  ///< IP configuration. This is needed only for STATIC type IP.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IP configuration for an interface.
+ * Provides the ability to get the configuration for STATIC_IP or DYNAMIC_IP for a specific
+ * InterfaceType and IpFamilyType.
+ *
+ * This API does not support IpFamilyType::IPV4V6. The client must invoke this
+ * API multiple times to get IP configuration for IpFamilyType::IPV4 and IpFamilyType::IPV6.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Interface GetIPConfig
+(
+    NetIpType  ipType                 IN,///< IP type.
+    VlanIfType ifType                 IN,///< Interface type.
+    uint16 vlanId                     IN ///< VLAN identifier i.e., 1-4094.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IP Passthrough configuration for Network Address Translation (NAT).
+ *
+ * @b NOTE: The input vlanRef is not considered in this API call. It is added for future extensions.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIPPTNatConfig
+(
+    Vlan vlanRef          IN, ///< VLAN reference.
+    bool isNATEnabled     OUT ///< True when NAT enabled.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the configuration of IP Passthrough for Network Address Translation (NAT).
+ * Configuration changes will be persistent across reboots.
+ * All active data calls must be disconnected before invoking this API.
+ *
+ * @b NOTE: The input vlanRef is not considered in this API call. It is added for future extensions.
+ *
+ * @instaging
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetIPPTNatConfig
+(
+    Vlan  vlanRef            IN, ///< VLAN reference.
+    bool  isNATEnabled       IN  ///< True to enable NAT. False to disable NAT.
 );

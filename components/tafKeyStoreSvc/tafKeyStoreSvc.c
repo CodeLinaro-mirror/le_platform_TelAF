@@ -1,40 +1,12 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "legato.h"
 #include "interfaces.h"
-
+#include "limit.h"
 #include "taf_pa_keystore.h"
 
 //--------------------------------------------------------------------------------------------------
@@ -94,8 +66,8 @@ typedef struct
 {
     taf_ks_SharingState_t state;                   ///< Key sharing state
     char keyId[TAF_KS_MAX_KEY_ID_SIZE + 1];        ///< Key ID
-    char ownerAppName[LIMIT_MAX_APP_NAME_LEN + 1]; ///< Owner app name
-    char sharedAppName[LIMIT_MAX_APP_NAME_LEN + 1];///< Shared app name
+    char ownerAppName[TAF_KS_MAX_APP_NAME_SIZE + 1]; ///< Owner app name
+    char sharedAppName[TAF_KS_MAX_APP_NAME_SIZE + 1];///< Shared app name
 }
 KeySharing_t;
 
@@ -182,7 +154,7 @@ typedef struct
 {
    le_msg_SessionRef_t clientSessionRef;             ///< Client session reference
    char keyId[TAF_KS_MAX_KEY_ID_SIZE + 1];           ///< Key ID string
-   char ownerAppName[LIMIT_MAX_APP_NAME_LEN + 1];    ///< Key owner application
+   char ownerAppName[TAF_KS_MAX_APP_NAME_SIZE + 1];  ///< Key owner application
    taf_ks_SharingState_t state;                      ///< Sharing state
    taf_ks_KeySharingHandlerFunc_t handleFunc;        ///< Handler function
    void* context;                                    ///< Handler context
@@ -722,7 +694,6 @@ static le_result_t GetAppNameBySessionRef
 )
 {
     pid_t pid;
-    const char* namePtr = NULL;
     char procPath[LIMIT_MAX_PATH_BYTES] = {0};
     char appPath[LIMIT_MAX_PATH_BYTES] = {0};
 
@@ -740,11 +711,11 @@ static le_result_t GetAppNameBySessionRef
         return LE_FAULT;
     }
 
-    // Get the app name from the pid.
+    // Get the app name from the pid for telaf app.
     if (le_appInfo_GetName(pid, appPath, sizeof(appPath)) != LE_OK)
     {
-        // It's not a telaf app but should a legacy app.
-        // Read the program name from the softlink of /proc/<pid>/exe .
+        // It's not a telaf app but a legacy app.
+        // Read the executable full path from the softlink of /proc/<pid>/exe .
         LE_ASSERT(snprintf(procPath, sizeof(procPath), "/proc/%d/exe", pid)
                   < sizeof(procPath));
 
@@ -754,17 +725,9 @@ static le_result_t GetAppNameBySessionRef
             LE_ERROR("readlink(%s) failed %s", procPath, LE_ERRNO_TXT(errno));
             return LE_FAULT;
         }
-
-        // Get the program name from the executable Path.
-        namePtr = le_path_GetBasenamePtr(appPath, "/");
-    }
-    else
-    {
-        // It's a telaf app.
-        namePtr = appPath;
     }
 
-    return le_utf8_Copy(appNameStr, namePtr, appNameSize, NULL);
+    return le_utf8_Copy(appNameStr, appPath, appNameSize, NULL);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -868,7 +831,7 @@ static void NotifyClientsForKeySharing
 {
     if ((keyIdPtr != NULL) && (ownerAppNamePtr != NULL) && (sharedAppNamePtr != NULL))
     {
-        char appName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+        char appName[TAF_KS_MAX_APP_NAME_SIZE + 1] = { 0 };
 
         le_ref_IterRef_t iterRef = le_ref_GetIterator(HandlerRefMap);
         while (le_ref_NextNode(iterRef) == LE_OK)
@@ -1017,7 +980,7 @@ static SharedAppList_t* UpdateAppListForClient
                taf_ks_KeyUsage_t keyCap = sharedAppListPtr->appInfo[i].keyCap;
                taf_ks_AppCapMask_t appCap = sharedAppListPtr->appInfo[i].appCap;
 
-               if ((len > 0) && (len <= LIMIT_MAX_APP_NAME_LEN))
+               if ((len > 0) && (len <= TAF_KS_MAX_APP_NAME_SIZE))
                {
                    // Create a sharedApp object for each shared app.
                    SharedApp_t* appPtr = le_mem_ForceAlloc(SharedAppPool);
@@ -1147,7 +1110,7 @@ le_result_t taf_ks_CreateKey
     KeyMgt_KeyFileRef_t keyFileRef = NULL;
     le_msg_SessionRef_t clientSessionRef = taf_ks_GetClientSessionRef();
     taf_ks_Key_t* keyPtr;
-    char appName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+    char appName[TAF_KS_MAX_APP_NAME_SIZE + 1] = { 0 };
 
     // Parameter check.
     if ((keyId == NULL) || (keyRefPtr == NULL) || (keyUsage >= TAF_KS_KEYUSAGE_MAX))
@@ -1248,8 +1211,8 @@ le_result_t taf_ks_GetKey
     KeyMgt_KeyFileRef_t keyFileRef = NULL;
     le_msg_SessionRef_t clientSessionRef = taf_ks_GetClientSessionRef();
     taf_ks_Key_t* keyPtr;
-    char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
-    char ownerAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+    char myAppName[TAF_KS_MAX_APP_NAME_SIZE + 1] = { 0 };
+    char ownerAppName[TAF_KS_MAX_APP_NAME_SIZE + 1] = { 0 };
     const char* keyIdPtr = NULL;
     const char* ownerAppPtr = NULL;
 
@@ -2210,7 +2173,7 @@ le_result_t taf_ks_ShareKey
         return LE_BAD_PARAMETER;
     }
 
-    char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+    char myAppName[TAF_KS_MAX_APP_NAME_SIZE + 1] = { 0 };
 
     // Get appName from clientSession.
     if (LE_OK != GetAppNameBySessionRef(taf_ks_GetClientSessionRef(),
@@ -2302,6 +2265,23 @@ le_result_t taf_ks_CancelKeySharing
     return taf_pa_ks_CancelKeySharing(taf_ks_GetClientSessionRef(),
                                       keyPtr->proKey.keyFileRef,
                                       appName);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the application name of the calling client. It returns app name for a TelAF application
+ * or returns the full path of the executable for a legacy application.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_ks_GetCallingAppName
+(
+    char* appName,
+        ///< [OUT] Application name.
+    size_t appNameSize
+        ///< [IN]
+)
+{
+    return GetAppNameBySessionRef(taf_ks_GetClientSessionRef(), appName, appNameSize);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2503,7 +2483,7 @@ taf_ks_KeySharingHandlerRef_t taf_ks_AddKeySharingHandler
         return NULL;
     }
 
-    char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+    char myAppName[TAF_KS_MAX_APP_NAME_SIZE + 1] = { 0 };
 
     // Get appName from clientSession.
     if (LE_OK != GetAppNameBySessionRef(taf_ks_GetClientSessionRef(),

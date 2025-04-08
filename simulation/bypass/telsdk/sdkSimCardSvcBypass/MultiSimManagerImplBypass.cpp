@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -11,7 +11,6 @@
 // #include "MultiSimHelper.hpp"
 #include "common/Logger.hpp"
 
-namespace telux {
 namespace tel {
 
 static SlotId activeSlotId = SlotId::SLOT_ID_1;
@@ -19,7 +18,6 @@ static SlotId activeSlotId = SlotId::SLOT_ID_1;
 static std::map<SlotId, SlotStatus> slotStatusMap =
 {
     {SlotId::SLOT_ID_1, {SlotState::ACTIVE, CardState::CARDSTATE_PRESENT,CardError::UNKNOWN}},
-    // {SlotId::SLOT_ID_2, {SlotState::INACTIVE, CardState::CARDSTATE_UNKNOWN,CardError::UNKNOWN}},
 };
 
 MultiSimManagerBypass::MultiSimManagerBypass() {
@@ -209,5 +207,4 @@ MultiSimManagerBypass::deregisterListener(std::weak_ptr<IMultiSimListener> liste
     return status;
 }
 
-}
 }

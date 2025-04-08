@@ -32,6 +32,12 @@
  */
 
 /*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+/*
  * @file       tafRadio.hpp
  * @brief      Internal interface for Radio Service object. The functions
  *             in this file are impletmented internally.
@@ -74,7 +80,7 @@
 #define TAF_RADIO_NEIGHBOR_CELLS_MAX_NUM 10
 #define TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM 6
 
-#define TAF_RADIO_SUBSYSTEM_TIMEOUT 15
+#define TAF_RADIO_SUBSYSTEM_TIMEOUT 8
 
 #define TAF_RADIO_BAND_NUM_PER_GROUP 64
 
@@ -374,6 +380,19 @@ typedef struct
     le_result_t result;
     taf_radio_NetRegState_t psState;
 } taf_RadioDataCallbackInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * NR icon type structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_sem_Ref_t semaphore;
+    le_result_t result;
+    taf_radio_NrIconType_t type;
+} taf_RadioNrIconCallbackInfo_t;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Operator Name callback information structure
@@ -434,7 +453,17 @@ typedef struct
     taf_radio_NetStatusRef_t netStatusRef;
 } taf_RadioNetStatusInd_t;
 
-namespace telux {
+//--------------------------------------------------------------------------------------------------
+/**
+ * NR icon type indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;
+    taf_radio_NrIconType_t type;
+} taf_RadioNrIconTypeInd_t;
+
 namespace tafsvc {
     /*
      * @brief The network listener is registered for the network selection mode updates.
@@ -496,6 +525,7 @@ namespace tafsvc {
             bool isRoaming = false;
 
             taf_RadioDataServSysListener(SlotId slotId);
+            void onNrIconTypeChanged(telux::data::NrIconType type) override;
             void onServiceStateChanged(telux::data::ServiceStatus status) override;
             void onRoamingStatusChanged(telux::data::RoamingStatus status) override;
     };
@@ -807,6 +837,7 @@ namespace tafsvc {
         static taf_Radio &GetInstance();
 
         taf_radio_Rat_t taf_radio_CovertRat(telux::tel::RadioTechnology rat);
+        taf_radio_NrIconType_t taf_radio_ConvertNrIconType(telux::data::NrIconType type);
         static void taf_radio_LayerImsRegStateHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerOpModeHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerNetRegStateHandler(void* reportPtr, void* layerHandlerFunc);
@@ -816,6 +847,7 @@ namespace tafsvc {
         static void taf_radio_LayerNetStatusHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerRatChangeHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerNetRejectHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerNrIconTypeHandler(void* reportPtr, void* layerHandlerFunc);
 
         /*
          * Command thread in radio service.
@@ -858,6 +890,7 @@ namespace tafsvc {
         le_mem_PoolRef_t ratChangePool;
         le_mem_PoolRef_t netStatusPool;
         le_mem_PoolRef_t netRegRejPool;
+        le_mem_PoolRef_t nrIconTypePool;
 
         le_ref_MapRef_t prefOpListRefMap;
         le_ref_MapRef_t prefOpSafeRefMap;
@@ -883,10 +916,12 @@ namespace tafsvc {
         le_event_Id_t ratChangeEvId;
         le_event_Id_t netStatusEvId;
         le_event_Id_t netRegRejEvId;
+        le_event_Id_t nrIconTypeEvId;
         static le_event_Id_t radioCmdEvId;
 
         int32_t netRejectCause = TAF_RADIO_NET_REJ_CAUSE_UNDEFINED;
         taf_RadioDataCallbackInfo_t dataInfoCb;
+        taf_RadioNrIconCallbackInfo_t nrIconCb;
         taf_OperatorNameCallbackInfo_t opNameCb;
         std::shared_ptr<taf_RadioSignalStrengthCallback> signalStrengthCb;
         std::shared_ptr<taf_RadioVoiceServiceStateCallback> voiceSrvStateCb;
@@ -911,7 +946,6 @@ namespace tafsvc {
         uint16_t hysteresisTimer[TAF_RADIO_PHONE_NUM] = {0,0};
         std::vector<taf_RadioHysteresisConfig_t> hysteresisConfigs;
     };
-}
 }
 
 #endif /* #ifndef TAFRADIO_H */

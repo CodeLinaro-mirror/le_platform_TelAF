@@ -1440,7 +1440,9 @@ ENUM Resolution
  * @return A reference to the last position sample.
  *
  * @b NOTE:
- *      On failure, the process exits.
+ *      On failure, NULL is returned.
+ *      When the GNSS session was not started, last position sample reference cannot be fetched,
+ *      so null position sample reference will be returned.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Sample GetLastSampleRef
@@ -2669,9 +2671,15 @@ FUNCTION le_result_t GetAcquisitionRate
  *  - LE_OK            Succeeded.
  *  - LE_FAULT         Failed.
  *
- * @b NOTE: In case of cold start and warm start, the aiding data for the GNSS engine is deleted and
- *       the TTFF in these cases would be precise. The TTFF accuracy is lower with higher
- *       acquisition rate and is the most precise acquisition at 100ms (10Hz).
+ * @b NOTE: This API is intended exclusively for testing purposes.
+ *
+ *       Please follow these steps before initiating the tests:
+ *       1.Set the AUTO_START_GNSS parameter in the /etc/gps.conf file to zero and reboot the device
+ *       to apply the changes.
+ *       2.Ensure all other GNSS clients are disabled.
+ *
+ *       The TTFF in these cases would be precise. The TTFF accuracy is lower with higher acquisition
+ *       rate and is the most precise acquisition at 100ms (10Hz).
  *
  *       In case of start and hot start, the TTFF only represents the time between starting or
  *       restarting to receive the reports and receiving first fix reports since these APIs do not

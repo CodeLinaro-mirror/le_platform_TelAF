@@ -35,7 +35,7 @@
 #define TAF_DOIP_UNIT_TEST_H
 
 #define DOIP_CONFIG_PATH        "./tafDoIP.json"
-#define DOIP_TEST_VIN           "IVI88ABCD19800418"
+#define DOIP_TEST_VIN           "LE40BBEB4NL921057"
 #define DOIP_TEST_GID           "180373CB0011"
 
 // Create DoIP entity reference

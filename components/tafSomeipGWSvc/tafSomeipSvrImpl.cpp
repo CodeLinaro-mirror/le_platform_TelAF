@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "tafSomeipSvr.hpp"
 #include "tafSomeipGWSvc.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace std;
 
 //--------------------------------------------------------------------------------------------------

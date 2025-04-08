@@ -1,48 +1,31 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "tafMngdConnData.hpp"
 #include "tafMngdConnAdmin.hpp"
+#include "tafDcsHelper.hpp"
 
 #define MIN_PHONE_ID 1
 #define MAX_PHONE_ID 2
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
+
+//Initialize static variables
+std::promise<le_result_t> tafMngdConnData::AsyncAPIPromise;
+le_thread_Ref_t tafMngdConnData::dataThreadRef = NULL;
+le_sem_Ref_t tafMngdConnData::semRef = NULL;
 
 void tafMngdConnData::Init(void)
 {
-     LE_INFO("tafMngdConnData: init");
+    LE_INFO("tafMngdConnData: init");
+    semRef = le_sem_Create("SmThreadSem", 0);
+    dataThreadRef = le_thread_Create("DataSessionThread",
+                                               DataThreadHandler,  (void*)semRef);
+    le_thread_Start (dataThreadRef);
+    le_sem_Wait(semRef);
 }
 
 tafMngdConnData &tafMngdConnData::GetInstance()
@@ -70,6 +53,8 @@ void tafMngdConnData::SessionStateChangeHandler
     stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT,0};
     mcs_DataCtx_t* dataCtxPtr = NULL;
     le_result_t result;
+    taf_dcs_CallEndReasonType_t callEndReasonType = TAF_DCS_CE_TYPE_UNKNOWN;
+    int32_t callEndReasonCode = -1;
 
     profileId = taf_dcs_GetProfileIndex(profileRef);
     result = taf_dcs_GetPhoneId(profileRef, &phoneId);
@@ -104,6 +89,25 @@ void tafMngdConnData::SessionStateChangeHandler
             LE_DEBUG ("Data Disconnected Event called for dataID  %d", dataCtxPtr->dataId);
             stateMachineEvt.event = MCS_EVT_DATA_CONNECTION_DISCONNECTED;
             stateMachineEvt.dataId = dataCtxPtr->dataId;
+            // Get call end reason for IPv4
+            result = taf_dcs_GetCallEndReason(profileRef, TAF_DCS_PDP_IPV4,
+                                              &callEndReasonType, &callEndReasonCode);
+            if (LE_OK != result)
+            {
+                LE_ERROR("Can't get the CallEndReason for profileRef(%p)", profileRef);
+            }
+            else
+            {
+                const char *CallEndReasonTypeStr4 =
+                                        taf_DCSHelper::CallEndReasonTypeToString(callEndReasonType);
+                const char *CallEndReasonCodeStr4 = taf_DCSHelper::CallEndReasonCodeToString(
+                                                    callEndReasonType, callEndReasonCode);
+
+                LE_INFO("IPv4 Call end reason type: %d(%s)",
+                        callEndReasonType, CallEndReasonTypeStr4);
+                LE_INFO("IPv4 Call end reason code: %d(%s)",
+                        callEndReasonCode, CallEndReasonCodeStr4);
+            }
             break;
         case TAF_DCS_CONNECTED:
             LE_DEBUG ("Data connected Event called for dataID  %d", dataCtxPtr->dataId);
@@ -209,6 +213,143 @@ le_result_t tafMngdConnData::Startdata(uint8_t phoneId, uint32_t profileId)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Start a data session with timeout.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnData::Startdata(uint8_t phoneId, uint32_t profileId, uint8_t timeout)
+{
+    le_result_t result;
+    taf_dcs_ProfileRef_t profileRef = NULL;
+    uint8_t defaultPhoneId = 0;
+    uint32_t defaultProfileId = 0;
+
+    result = taf_dcs_GetDefaultPhoneIdAndProfileId(&defaultPhoneId, &defaultProfileId);
+
+    if(result == LE_OK)
+    {
+        if(defaultProfileId != profileId)
+        {
+            LE_INFO("Profile %d is not a default profile", profileId);
+        }
+        if (defaultPhoneId != phoneId)
+        {
+            LE_WARN("Phone ID %d is not default phone ID", phoneId);
+            return LE_UNSUPPORTED;
+        }
+    }
+    else
+    {
+        LE_ERROR("Getting default profile failed");
+        return LE_FAULT;
+    }
+
+    profileRef = taf_dcs_GetProfileEx (phoneId, profileId);
+
+    if(profileRef == NULL)
+    {
+        LE_ERROR("profileRef Not found");
+        return LE_FAULT;
+    }
+
+    AsyncAPIPromise = std::promise<le_result_t>();
+    le_event_QueueFunctionToThread(dataThreadRef,(le_event_DeferredFunc_t)StartDataAsync,
+                                   profileRef, NULL);
+
+     // blocking here to get response
+    std::chrono::system_clock::time_point timeoutsec
+        = std::chrono::system_clock::now() + std::chrono::seconds(timeout);
+    std::future<le_result_t> futResult = AsyncAPIPromise.get_future();
+    std::future_status status = futResult.wait_until(timeoutsec);
+    if (status == std::future_status::ready) {
+        // Result is available
+        // getting and printing the result
+        if (futResult.valid()) {
+            result = futResult.get();
+        }
+        else {
+            LE_ERROR("Invalid state %d", result);
+            result = LE_FAULT;
+        }
+    } else if (status == std::future_status::timeout) {
+        // Timeout occurred
+        LE_ERROR("Timeout occurred while starting data Result: %d", result);
+        result = LE_TIMEOUT;
+    }
+
+    LE_INFO("Startdata: result =%d " ,result);
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * DataStartSession event handler.
+ */
+//--------------------------------------------------------------------------------------------------
+void *tafMngdConnData::DataThreadHandler(void *contextPtr)
+{
+    LE_DEBUG("DataThreadHandler Entry");
+    le_sem_Ref_t semRef = (le_sem_Ref_t)contextPtr;
+
+    taf_dcs_ConnectService();
+
+    le_sem_Post(semRef);
+
+    le_event_RunLoop();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start a data session asynchronously.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnData::StartDataAsync(void *contextPtr)
+{
+    LE_DEBUG("StartDataAsync session");
+    taf_dcs_ProfileRef_t profileRef = (taf_dcs_ProfileRef_t)contextPtr;
+    //Call async start session API in DataSvc
+    taf_dcs_StartSessionAsync(profileRef, StartSessionAsyncHandlerFunc, NULL);
+    return;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Stop a data session asynchronously.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnData::StopDataAsync(void *contextPtr)
+{
+    LE_DEBUG("StopDataAsync session");
+    taf_dcs_ProfileRef_t profileRef = (taf_dcs_ProfileRef_t)contextPtr;
+    //Call async start session API in DataSvc
+    taf_dcs_StopSessionAsync(profileRef, StopSessionAsyncHandlerFunc, NULL);
+    return;
+}
+
+void tafMngdConnData::StartSessionAsyncHandlerFunc(taf_dcs_ProfileRef_t profileRef,
+                                            le_result_t result,
+                                            void* contextPtr)
+{
+    int32_t profileId = taf_dcs_GetProfileIndex(profileRef);
+    LE_DEBUG("Handler for Asynchornous session -- Begin");
+    LE_INFO("profileId= %d, result: %d", profileId, result);
+    LE_DEBUG("Handler for Asynchornous session -- End");
+    AsyncAPIPromise.set_value(result);
+}
+
+void tafMngdConnData::StopSessionAsyncHandlerFunc(taf_dcs_ProfileRef_t profileRef,
+                                            le_result_t result,
+                                            void* contextPtr)
+{
+    int32_t profileId = taf_dcs_GetProfileIndex(profileRef);
+    LE_DEBUG("Handler for Asynchornous session -- Begin");
+    LE_INFO("profileId= %d, result: %d", profileId, result);
+    LE_DEBUG("Handler for Asynchornous session -- End");
+    AsyncAPIPromise.set_value(result);
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Stop a data session.
  */
 //--------------------------------------------------------------------------------------------------
@@ -219,6 +360,47 @@ le_result_t tafMngdConnData::Stopdata(uint8_t phoneId, uint32_t profileId)
     profileRef = taf_dcs_GetProfileEx (phoneId, profileId);
 
     return taf_dcs_StopSession(profileRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Stop a data session with timeout
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnData::Stopdata(uint8_t phoneId, uint32_t profileId, uint8_t timeout)
+{
+    le_result_t result = LE_OK;
+    taf_dcs_ProfileRef_t profileRef = NULL;
+
+    profileRef = taf_dcs_GetProfileEx (phoneId, profileId);
+
+    AsyncAPIPromise = std::promise<le_result_t>();
+    le_event_QueueFunctionToThread(dataThreadRef,(le_event_DeferredFunc_t)StopDataAsync,
+                                   profileRef, NULL);
+
+     // blocking here to get response
+    std::chrono::system_clock::time_point timeoutsec
+        = std::chrono::system_clock::now() + std::chrono::seconds(timeout);
+    std::future<le_result_t> futResult = AsyncAPIPromise.get_future();
+    std::future_status status = futResult.wait_until(timeoutsec);
+    if (status == std::future_status::ready) {
+        // Result is available
+        // getting and printing the result
+        if (futResult.valid()) {
+            result = futResult.get();
+        }
+        else {
+            LE_ERROR("Invalid state %d", result);
+            result = LE_FAULT;
+        }
+    } else if (status == std::future_status::timeout) {
+        // Timeout occurred
+        LE_ERROR("Timeout occurred while stoping data Result: %d", result);
+        result = LE_TIMEOUT;
+    }
+
+    LE_INFO("StopData: result =%d " ,result);
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------

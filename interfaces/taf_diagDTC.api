@@ -1,0 +1,616 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafDiagDtc Diag DTC Service
+ *
+ * @rst :ref:`API reference <File taf_diagDtc_interface.h>` @endrst
+ *
+ * <HR>
+ *
+* Diag DTC Service provides APIs for applications to manage DTC.
+ *
+ * @section c_taf_diagDTC_binding IPC interfaces binding
+ *
+ * The functions of this API are provided by the @b tafDiagSvc platform service.
+ *
+ * The following example illustrates how to bind to the diag DTC service.
+ *
+ * @verbatim
+   bindings:
+   {
+        clientExe.clientComponent.taf_diagDTC -> tafDiagSvc.taf_diagDTC
+   }
+   @endverbatim
+ *
+ * @section c_taf_diagDTC_server_API Server Service APIs
+ *
+ * A diag DTC service reference should be got using taf_diagDTC_GetService() or
+ * taf_diagDTC_GetAllService(). Use the
+ * returned reference for subsequent operations.
+ *
+ * The following example illustrates how to set up a diag DTC server-service-instance for single
+ * DTC.
+ *
+ * @code
+   taf_diagDTC_ServiceRef_t singleSvcRef;    // Service reference for single DTC
+ *
+   // Get the service reference for single DTC.
+   singleSvcRef = taf_diagDTC_GetService(dtcCode);
+   LE_ASSERT(singleSvcRef != NULL);
+   @endcode
+ *
+ * The following example illustrates how to set up a diag DTC server-service-instance for all DTC.
+ *
+ * @code
+   taf_diagDTC_AllServiceRef_t allSvcRef;    // Service reference for all DTC
+ *
+   // Get the service reference for all DTC.
+   allSvcRef = taf_diagDTC_GetAllService();
+   LE_ASSERT(allSvcRef != NULL);
+   @endcode
+ *
+ * After getting the service reference, an application can call taf_diagDTC_AddStatusHandler() or
+ * taf_diagDTC_GetAllService() to register a status change handler.
+ *
+ * The following example illustrates how to register a status change handler for single DTC.
+ *
+ * @code
+   dtcStatusRef = taf_diagDTC_AddStatusHandler(singleSvcRef,
+            (taf_diagDTC_StatusHandlerFunc_t)dtcStatusChangeHandler, NULL);
+   @endcode
+ *
+ * The following example illustrates how to register a status change handler for all DTC.
+ *
+ * @code
+   allDtcStatusRef = taf_diagDTC_AddAllStatusHandler(allSvcRef,
+            (taf_diagDTC_AllStatusHandlerFunc_t)allDtcStatusChangeHandler, NULL);
+   @endcode
+ *
+ * The following APIs are supported for single DTC:
+ *
+ * - taf_diagDTC_GetService() -- Gets service reference for single DTC.
+ * - taf_diagDTC_GetCode() -- Gets the DTC code for the given DTC reference.
+ * - taf_diagDTC_ReadStatus() -- Reads DTC status.
+ * - taf_diagDTC_SetActivationStatus() -- Sets activation status.
+ * - taf_diagDTC_GetActivationStatus() -- Gets activation status.
+ * - taf_diagDTC_SetSuppression() -- Sets DTC suppression status.
+ * - taf_diagDTC_GetSuppression() -- Gets DTC suppression status.
+ * - taf_diagDTC_ClearInfo() -- Clears DTC information.
+ * - taf_diagDTC_AddStatusHandler() -- Adds handler function for EVENT 'taf_diagDTC_Status'
+ * - taf_diagDTC_RemoveStatusHandler() -- Removes handler function.
+ * - taf_diagDTC_GetDataList() -- Gets DTC data list.
+ * - taf_diagDTC_GetFirstData() -- Gets the first DTC data reference.
+ * - taf_diagDTC_GetNextData() -- Gets the next DTC data reference.
+ * - taf_diagDTC_DeleteDataList() -- Deletes the DTC data list.
+ * - taf_diagDTC_GetDataDtcCode() -- Gets DTC code by the DTC data reference.
+ * - taf_diagDTC_GetDataType() -- Gets data type.
+ * - taf_diagDTC_GetRecordNumber() -- Gets record number.
+ * - taf_diagDTC_GetDataId() -- Gets data Id.
+ * - taf_diagDTC_GetDataValue() -- Gets data value.
+ * - taf_diagDTC_RemoveSvc() -- Removes the DTC service.
+ *
+ * The following APIs are supported for all DTC:
+ *
+ * - taf_diagDTC_GetAllService() -- Gets service reference for all DTC.
+ * - taf_diagDTC_SetAllSuppression() -- Sets all DTC suppression status.
+ * - taf_diagDTC_ClearAllInfo() -- Clears all DTC information.
+ * - taf_diagDTC_AddAllStatusHandler() -- Adds handler function for EVENT 'taf_diagDTC_AllStatus'
+ * - taf_diagDTC_RemoveAllStatusHandler() -- Removes handler function.
+ * - taf_diagDTC_RemoveAllSvc() -- Removes the all DTC service.
+ *
+ * <HR>
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * DTC data maximum length.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE DATA_VALUE_MAX_BYTES = (1024);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * DTC activation status.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ActivationStatus
+{
+    INACTIVE = 0x00,                   ///< Inactive.
+    ACTIVE                             ///< Active.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * DTC data type.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM DataType
+{
+    SNAPSHOT_DATA = 0x00,              ///< Snapshot data.
+    EXTENDED_DATA,                     ///< Extended data.
+    UNKNOWN_DATA                       ///< Unknown data.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * DTC reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Service;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * All DTC reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE AllService;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * DTC data list reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE DataList;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * DTC data reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Data;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the DTC reference, if there is no DTC service, a new one will be created.
+ *
+ * @instaging
+ * @return
+ *     - Reference to the service instance.
+ *     - NULL if not allowed to create the service.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Service GetService
+(
+    uint32 dtcCode IN
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for a DTC status.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER StatusHandler
+(
+    Service svcRef  IN,                ///< Service reference.
+    uint8 status  IN                   ///< DTC status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on DTC status.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT Status
+(
+    Service  svcRef,                   ///< Service reference.
+    StatusHandler  handler             ///< DTC handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the DTC code for the given DTC reference.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter.
+ *     - LE_UNSUPPORTED -- DTC is not configured.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCode
+(
+    Service svcRef  IN,                ///< The DTC reference.
+    uint32 dtcCode  OUT                ///< The DTC code.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the fault detection counter for the given DTC reference.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter.
+ *     - LE_UNSUPPORTED -- DTC is not configured.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetFaultDetectionCounter
+(
+    Service svcRef  IN,                ///< The DTC reference.
+    uint8 faultDetectionCounter  OUT   ///< The fault detection counter.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reads the DTC status.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_UNAVAILABLE -- DTC is suppressed.
+ *     - LE_UNSUPPORTED -- DTC is not configured.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ReadStatus
+(
+    Service svcRef  IN,                ///< Service reference.
+    uint8 status  OUT                  ///< DTC status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the DTC activation status.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_UNAVAILABLE -- DTC is suppressed.
+ *     - LE_UNSUPPORTED -- DTC is not configured.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetActivationStatus
+(
+    Service svcRef  IN,                ///< Service reference.
+    ActivationStatus status  IN        ///< Activation status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the DTC activation status.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_UNAVAILABLE -- DTC is suppressed.
+ *     - LE_UNSUPPORTED -- DTC is not configured.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetActivationStatus
+(
+    Service svcRef  IN,                ///< Service reference.
+    ActivationStatus status  OUT       ///< Activation status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the DTC suppression.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_UNSUPPORTED -- DTC is not configured.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetSuppression
+(
+    Service svcRef  IN,                ///< Service reference.
+    bool suppressionStatus  IN         ///< Set or clear DTC suppression status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the DTC suppression status.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_UNSUPPORTED -- DTC is not configured.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSuppression
+(
+    Service svcRef  IN,                ///< Service reference.
+    bool suppressionStatus  OUT        ///< DTC suppression status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Clears the DTC information.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_UNAVAILABLE -- DTC is suppressed.
+ *     - LE_UNSUPPORTED -- DTC is not configured.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ClearInfo
+(
+    Service svcRef  IN                 ///< Service reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the DTC data list, including snapshot data, extended data, etc.
+ *
+ * @instaging
+ * @return
+ *     - NULL -- If the DTC was not found or the DTC data list is empty.
+ *     - Others -- The DTC data list reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION DataList GetDataList
+(
+    Service svcRef  IN                 ///< Service reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the first DTC data reference with a list.
+ *
+ * @instaging
+ * @return
+ *     - NULL -- The DTC data list does not exist.
+ *     - Others -- The first DTC data reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Data GetFirstData
+(
+    DataList  dataListRef  IN          ///< Reference of a DTC data list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the next DTC data reference with a list.
+ *
+ * @instaging
+ * @return
+ *     - NULL -- The DTC data list or the next interface does not exist.
+ *     - Others -- The next DTC data reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Data GetNextData
+(
+    DataList  dataListRef  IN          ///< Reference of a DTC data list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the DTC data list.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- DTC data list was not found.
+ *     - LE_BAD_PARAMETER -- Bad parameter.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteDataList
+(
+    DataList  dataListRef  IN          ///< Reference of a DTC data list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data code by the DTC data reference.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- DTC data was not found.
+ *     - LE_BAD_PARAMETER -- Bad parameter.
+ *     - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetDataDtcCode
+(
+    Data dataRef  IN,                  ///< DTC data reference.
+    uint32 dtcCode  OUT                ///< DTC code.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data type by the DTC data reference.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- DTC data was not found.
+ *     - LE_BAD_PARAMETER -- Bad parameter.
+ *     - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetDataType
+(
+    Data dataRef  IN,                  ///< DTC data reference.
+    DataType dataType  OUT             ///< Data type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the record number by the DTC data reference.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- DTC data was not found.
+ *     - LE_BAD_PARAMETER -- Bad parameter.
+ *     - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRecordNumber
+(
+    Data dataRef  IN,                  ///< DTC data reference.
+    uint8 recordNumber  OUT            ///< Record number.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data ID by the DTC data reference if the data type is snapshot data.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- DTC data was not found.
+ *     - LE_BAD_PARAMETER -- Bad parameter.
+ *     - LE_FORMAT_ERROR -- Data type is not snapshot data.
+ *     - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetDataId
+(
+    Data dataRef  IN,                  ///< DTC data reference.
+    uint16 dataId  OUT                 ///< Data ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data value by the DTC data reference.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_NOT_FOUND -- DTC data was not found.
+ *     - LE_BAD_PARAMETER -- Bad parameter.
+ *     - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetDataValue
+(
+    Data dataRef  IN,                          ///< DTC data reference.
+    uint8 value[DATA_VALUE_MAX_BYTES]  OUT     ///< Data ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes the DTC service.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveSvc
+(
+    Service svcRef  IN                 ///< Service reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets a reference of all DTC, if there is no service, a new one will be created.
+ *
+ * @instaging
+ * @return
+ *     - Reference to the service instance.
+ *     - NULL if not allowed to create the service.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION AllService GetAllService
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for all DTC status.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER AllStatusHandler
+(
+    AllService  svcRef  IN,             ///< Service reference for all DTC.
+    uint32 dtcCode  IN,                 ///< DTC code.
+    uint8 status  IN                    ///< DTC status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on DTC status.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT AllStatus
+(
+    AllService  svcRef,                 ///< Service reference for all DTC.
+    AllStatusHandler  handler           ///< All DTC handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Clears all DTC information.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ClearAllInfo
+(
+    AllService svcRef  IN               ///< Service reference for all DTC.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets all DTC suppression.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetAllSuppression
+(
+    AllService svcRef  IN,              ///< Service reference for all DTC.
+    bool suppressionStatus  IN          ///< Set or clear all DTC suppression status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes service for all DTC.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveAllSvc
+(
+    AllService svcRef  IN    ///< Service reference for all DTC.
+);

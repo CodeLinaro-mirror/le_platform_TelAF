@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -7,14 +7,11 @@
 #include "interfaces.h"
 #include "tafDidStore.hpp"
 
-using namespace telux::tafsvc;
+namespace pt = boost::property_tree;
+using namespace tafsvc;
 
 le_sem_Ref_t read_semaphore = NULL;
 le_sem_Ref_t write_semaphore = NULL;
-le_mem_PoolRef_t WriteRequestPool;
-le_mem_PoolRef_t ReadRequestPool;
-le_thread_Ref_t ReadThreadRef;
-le_thread_Ref_t WriteThreadRef;
 
 // Diag RDBI/WDBI
 static taf_diagDataID_ServiceRef_t DiagDataIDSvcRef = NULL;
@@ -106,13 +103,218 @@ taf_DidStore_t* taf_diagDidStore::GetServiceObj
     return NULL;
 }
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * Parse json configuration.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_diagDidStore::ParseDidStoreJsonConfig
+(
+    const char* configPathPtr
+)
+{
+    LE_INFO("ParseDidStoreJsonConfig");
 
+    if (configPathPtr == NULL)
+    {
+        LE_ERROR("configPathPtr is null!");
+    }
+
+    std::ifstream jfile(configPathPtr);
+    if (!jfile.is_open())
+    {
+        LE_WARN("Unable to open %s", configPathPtr);
+        return LE_FAULT;
+    }
+
+    // Read json config file
+    try{
+        // Create a root
+        pt::ptree root;
+
+        // Load the json file in this ptree
+        pt::read_json(configPathPtr, root);
+
+        for (const auto& item : root.get_child("did_access"))
+        {
+            tafDidStore_Config_t didConfigStore;
+
+            // App name
+            std::string appName = item.second.get<std::string>("AppName");
+            LE_DEBUG("App name is %s", appName.c_str());
+            snprintf(didConfigStore.AppName, LIMIT_MAX_APP_NAME_LEN, "%s", appName.c_str());
+
+            // Write DID accessible list
+            for (const auto& writeAccessDID : item.second.get_child("WriteAccessibleDID"))
+            {
+                std::string writableDID = writeAccessDID.second.get_value<std::string>();
+                uint16_t writeDID;
+                writeDID = std::stoul(writableDID, nullptr, 16);
+                didConfigStore.WriteAccessDID.push_back(writeDID);
+            }
+
+            // Read DID accessable list
+            for (const auto& readAccessDID : item.second.get_child("ReadAccessibleDID"))
+            {
+                std::string readableDID = readAccessDID.second.get_value<std::string>();
+                uint16_t readDID;
+                readDID = std::stoul(readableDID, nullptr, 16);
+                didConfigStore.ReadAccessDID.push_back(readDID);
+            }
+
+            dataIdStoreAccessCfg.push_back(didConfigStore);
+        }
+    }
+    catch (std::exception const& exp)
+    {
+        LE_WARN("Exception caught while reading json file: %s", exp.what());
+        return LE_FAULT;
+    }
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the application name of the process with the specified client session reference.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_diagDidStore::GetAppNameBySessionRef
+(
+    le_msg_SessionRef_t clientSessionRef,
+    char *appNameStr,
+    size_t appNameSize
+)
+{
+    LE_DEBUG("GetAppNameBySessionRef");
+
+    pid_t pid;
+    const char* namePtr = NULL;
+    char procPath[LIMIT_MAX_PATH_BYTES] = {0};
+    char appPath[LIMIT_MAX_PATH_BYTES] = {0};
+
+    // Parameter check.
+    if ((clientSessionRef == NULL) || (appNameStr == NULL) || (appNameSize == 0))
+    {
+        LE_ERROR("Bad parameters.");
+        return LE_BAD_PARAMETER;
+    }
+
+    // Get pid from the sessionRef.
+    if (le_msg_GetClientProcessId(clientSessionRef, &pid) != LE_OK)
+    {
+        LE_ERROR("Failed to get the pid from client session reference.");
+        return LE_FAULT;
+    }
+
+    LE_INFO("PID : %d", pid);
+
+    // Get the app name from the pid.
+    if (le_appInfo_GetName(pid, appPath, sizeof(appPath)) != LE_OK)
+    {
+        // It's not a telaf app but should a legacy app.
+        // Read the program name from the softlink of /proc/<pid>/exe .
+        LE_ASSERT(snprintf(procPath, sizeof(procPath), "/proc/%d/exe", pid)
+                < static_cast<int>(sizeof(procPath)));
+
+        memset(appPath, 0, sizeof(appPath));
+        if (readlink(procPath, appPath, sizeof(appPath)) < 0)
+        {
+            LE_ERROR("readlink(%s) failed %s", procPath, LE_ERRNO_TXT(errno));
+            return LE_FAULT;
+        }
+
+        // Get the program name from the executable Path.
+        namePtr = le_path_GetBasenamePtr(appPath, "/");
+    }
+    else
+    {
+        // It's a telaf app.
+        namePtr = appPath;
+    }
+
+    snprintf(appNameStr, appNameSize, "%s", namePtr);
+    LE_INFO("Get appName: %s", appNameStr);
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Check the read DID is accessible by the application.
+ */
+//-------------------------------------------------------------------------------------------------
+bool taf_diagDidStore::IsReadAppAccessible
+(
+    uint16_t dataId,
+    const char* appName
+)
+{
+    LE_DEBUG("IsReadAppAccessible");
+
+    for (const auto& didStore : dataIdStoreAccessCfg)
+    {
+        if (std::strcmp(didStore.AppName, appName) == 0)
+        {
+            for (const auto& readDID : didStore.ReadAccessDID)
+            {
+                if (readDID == dataId)
+                {
+                    LE_INFO("dataId %x is in the access list of app %s", dataId, appName);
+                    return true;
+                }
+            }
+        }
+    }
+
+    LE_DEBUG("dataId %x is not in the access list of app %s", dataId, appName);
+    return false;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Check the write DID is accessible by the application.
+ */
+//-------------------------------------------------------------------------------------------------
+bool taf_diagDidStore::IsWriteAppAccessible
+(
+    uint16_t dataId,
+    const char* appName
+)
+{
+    LE_DEBUG("IsWriteAppAccessible");
+
+    for (const auto& didStore : dataIdStoreAccessCfg)
+    {
+        if (std::strcmp(didStore.AppName, appName) == 0)
+        {
+            for (const auto& writeDID : didStore.WriteAccessDID)
+            {
+                if (writeDID == dataId)
+                {
+                    LE_INFO("dataId %x is in the access list of app %s", dataId, appName);
+                    return true;
+                }
+            }
+        }
+    }
+
+    LE_DEBUG("dataId %x is not in the access list of app %s", dataId, appName);
+    return false;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * ReadDID callback.
+ */
+//-------------------------------------------------------------------------------------------------
 void taf_diagDidStore::didReadCb
 (
     uint16_t dataID,
-    uint8_t *value,
+    uint8_t* dataRecPtr,
     size_t len,
-    uint8_t result
+    uint8_t result,
+    void* contextPtr
 )
 {
     LE_DEBUG("didReadCb!");
@@ -122,19 +324,43 @@ void taf_diagDidStore::didReadCb
     // Store the read result in the client-specific structure
     didStore.readStrg.readDID = dataID;
 
-    if (value == NULL || len == 0 || len > sizeof(didStore.readStrg.didData))
+    if (contextPtr == NULL)
+    {
+        LE_ERROR("contextPtr is NULL");
+        didStore.readStrg.result = LE_FAULT;
+        if (read_semaphore != NULL)
+        {
+            le_sem_Post(read_semaphore); // Signal client-specific semaphore
+        }
+        return;
+    }
+
+    ReadWriteRequest_t* requestPtr =
+            (ReadWriteRequest_t*)le_ref_Lookup(didStore.ReadDIDRefMap, contextPtr);
+    if (requestPtr == NULL)
+    {
+        LE_ERROR("Invalid requestPtr");
+        didStore.readStrg.result = LE_FAULT;
+        if (read_semaphore != NULL)
+        {
+            le_sem_Post(read_semaphore); // Signal client-specific semaphore
+        }
+        return;
+    }
+
+    if (dataRecPtr == NULL || len == 0 || len > sizeof(didStore.readStrg.didData))
     {
         LE_ERROR("Invalid read response: dataID %u, len %zu", dataID, len);
         didStore.readStrg.result = TAF_REQ_OUT_OF_RANGE;
         if (read_semaphore != NULL)
         {
             le_sem_Post(read_semaphore); // Signal client-specific semaphore
-            return;
         }
+        return;
     }
 
     // Copy data to the client-specific structure
-    memcpy(didStore.readStrg.didData, value, len);
+    memcpy(didStore.readStrg.didData, dataRecPtr, len);
     didStore.readStrg.didDataLen = len;
     didStore.readStrg.result = result;
 
@@ -143,9 +369,15 @@ void taf_diagDidStore::didReadCb
     {
         le_sem_Post(read_semaphore);
     }
+
+    return;
 }
 
-
+//-------------------------------------------------------------------------------------------------
+/**
+ * Read the data record for data ID.
+ */
+//-------------------------------------------------------------------------------------------------
 le_result_t taf_diagDidStore::Read
 (
     uint16_t dataId,
@@ -162,18 +394,18 @@ le_result_t taf_diagDidStore::Read
         return LE_FAULT;
     }
 
-    // Prepare a read request
-    ReadWriteRequest_t* requestPtr = (ReadWriteRequest_t*)le_mem_ForceAlloc(ReadRequestPool);
-    if (!requestPtr)
-    {
-        LE_ERROR("Failed to allocate memory for read request.");
-        return LE_FAULT;
-    }
-
     // Create semaphore.
     if (read_semaphore == NULL)
     {
         read_semaphore = le_sem_Create("ReadDID Semaphore", 0);
+    }
+
+    // Prepare a read request
+    ReadWriteRequest_t* requestPtr = (ReadWriteRequest_t*)le_mem_ForceAlloc(ReadRequestPool);
+    if (requestPtr == NULL)
+    {
+        LE_ERROR("Failed to allocate memory for read request.");
+        return LE_FAULT;
     }
 
     // Initialize read request structure
@@ -181,21 +413,37 @@ le_result_t taf_diagDidStore::Read
     requestPtr->dataId = dataId;
     requestPtr->dataRecordPtr = dataRecordPtr;
     requestPtr->dataRecordSizePtr = dataRecordSizePtr;
+    requestPtr->readDIDRef = le_ref_CreateRef(ReadDIDRefMap, requestPtr);
+    requestPtr->writeDIDRef = NULL;
     requestPtr->requestingThreadRef = le_thread_GetCurrent();
 
     // Queue the request to the read thread
     le_event_QueueFunctionToThread(ReadThreadRef, HandleReadWriteReq, requestPtr, NULL);
 
-    // Wait for the read operation to complete
+    // Wait for the read operation to complete for the defined time period
     le_clk_Time_t time = {SEM_TIME_TO_WAIT, 0};
     le_result_t ret = le_sem_WaitWithTimeOut(read_semaphore, time);
+    isReadDIDLock.store(true);
     if (ret != LE_OK)
     {
         LE_ERROR("Read operation timeout");
+
         le_sem_Delete(read_semaphore);
         read_semaphore = NULL;
-        return ret;
+        isReadDIDLock.store(false);
+
+        le_ref_DeleteRef(ReadDIDRefMap, requestPtr->readDIDRef);
+        le_mem_Release(requestPtr);
+
+        return LE_FAULT;
     }
+    else
+    {
+        le_ref_DeleteRef(ReadDIDRefMap, requestPtr->readDIDRef);
+        le_mem_Release(requestPtr);
+    }
+
+    isReadDIDLock.store(false);
 
     // Retrieve the result from the client-specific structure
     if (readStrg.result != 0) // Assuming 0 indicates success
@@ -213,29 +461,49 @@ le_result_t taf_diagDidStore::Read
     return LE_OK;
 }
 
-
+//-------------------------------------------------------------------------------------------------
+/**
+ * WriteDID callback.
+ */
+//-------------------------------------------------------------------------------------------------
 void taf_diagDidStore::didWriteCb
 (
     uint16_t dataID,
-    uint8_t result
+    uint8_t result,
+    void* contextPtr
 )
 {
     LE_DEBUG("didWriteCb!");
     auto &didStore = taf_diagDidStore::GetInstance();
 
-    // Store the result in the client-specific structure
-    didStore.writeDIDPIResult = result;
-    // Check for failure condition
-    if (result != 0)
+    if (contextPtr == NULL)
     {
-        LE_ERROR("Write operation failed for DataID %u with result %d", dataID, result);
+        LE_ERROR("contextPtr is NULL");
+        didStore.writeDIDPIResult = LE_FAULT;
         if (write_semaphore != NULL)
         {
             le_sem_Post(write_semaphore);
         }
+
         return;
     }
 
+    ReadWriteRequest_t* requestPtr = (ReadWriteRequest_t*)le_ref_Lookup(didStore.WriteDIDRefMap,
+            contextPtr);
+    if (requestPtr == NULL)
+    {
+        LE_ERROR("Invalid requestPtr");
+        didStore.writeDIDPIResult = LE_FAULT;
+        if (write_semaphore != NULL)
+        {
+            le_sem_Post(write_semaphore);
+        }
+
+        return;
+    }
+
+    // Store the result in the client-specific structure
+    didStore.writeDIDPIResult = result;
     LE_DEBUG("Write operation for DataID %u completed with result %d", dataID, result);
 
     // Signal the client-specific semaphore
@@ -243,9 +511,15 @@ void taf_diagDidStore::didWriteCb
     {
         le_sem_Post(write_semaphore);
     }
+
+    return;
 }
 
-
+//-------------------------------------------------------------------------------------------------
+/**
+ * Write the data record to data ID.
+ */
+//-------------------------------------------------------------------------------------------------
 le_result_t taf_diagDidStore::Write
 (
     uint16_t dataId,
@@ -256,7 +530,7 @@ le_result_t taf_diagDidStore::Write
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagDidStore_Write!");
+    LE_DEBUG("Write DataID: 0x%04X", dataId);
 
     // Prepare a write request
     ReadWriteRequest_t* requestPtr = (ReadWriteRequest_t*)le_mem_ForceAlloc(WriteRequestPool);
@@ -277,6 +551,8 @@ le_result_t taf_diagDidStore::Write
     requestPtr->dataId = dataId;
     requestPtr->dataRecordPtr = (uint8_t*)dataPtr;
     requestPtr->dataRecordSizePtr = &dataSize;
+    requestPtr->writeDIDRef = le_ref_CreateRef(WriteDIDRefMap, requestPtr);
+    requestPtr->readDIDRef = NULL;
     requestPtr->requestingThreadRef = le_thread_GetCurrent();
 
     // Queue the request to the write thread
@@ -285,13 +561,27 @@ le_result_t taf_diagDidStore::Write
     // Wait for the write operation to complete
     le_clk_Time_t time = {SEM_TIME_TO_WAIT, 0};
     le_result_t ret = le_sem_WaitWithTimeOut(write_semaphore, time);
+    isWriteDIDLock.store(true);
     if (ret != LE_OK)
     {
         LE_ERROR("Write operation timeout");
+
         le_sem_Delete(write_semaphore);
         write_semaphore = NULL;
-        return ret;
+        isWriteDIDLock.store(false);
+
+        le_ref_DeleteRef(WriteDIDRefMap, requestPtr->writeDIDRef);
+        le_mem_Release(requestPtr);
+
+        return LE_FAULT;
     }
+    else
+    {
+        le_ref_DeleteRef(WriteDIDRefMap, requestPtr->writeDIDRef);
+        le_mem_Release(requestPtr);
+    }
+
+    isWriteDIDLock.store(false);
 
     // Retrieve the result from the client-specific structure
     if (writeDIDPIResult != 0)
@@ -312,55 +602,67 @@ void taf_diagDidStore::HandleReadWriteReq
     LE_DEBUG("HandleReadWriteReq!");
     auto &didStore = taf_diagDidStore::GetInstance();
 
-    ReadWriteRequest_t* req = (ReadWriteRequest_t*)(param1Ptr);
-    TAF_ERROR_IF_RET_NIL(req == NULL, "req is Null");
+    ReadWriteRequest_t* reqPtr = (ReadWriteRequest_t*)(param1Ptr);
+    TAF_ERROR_IF_RET_NIL(reqPtr == NULL, "reqPtr is Null");
 
-    switch (req->request)
+    switch (reqPtr->request)
     {
         case READ_REQUEST_PI:
         {
+            LE_DEBUG("ReadDID Request!");
             if(!didStore.didStorInf)
             {
                 LE_ERROR("Plugin not initialized");
-                le_mem_Release(req);
+                didStore.readStrg.result = LE_FAULT;
                 return;
             }
 
-            le_result_t result = (*(didStore.didStorInf->diagDIDGetAsync))
-                (req->dataId, didStore.didReadCb);
-
-            if (result != LE_OK)
+            if (!didStore.isReadDIDLock.load())
             {
-                LE_ERROR("Fail to get from DID Storage Plugin");
-                didStore.readStrg.result = result;
+                le_result_t result = (*(didStore.didStorInf->diagDIDGetAsync))
+                        (reqPtr->dataId, didStore.didReadCb, (void *)reqPtr->readDIDRef);
+
+                if (result != LE_OK)
+                {
+                    LE_ERROR("Fail to get from DID Storage Plugin");
+                    didStore.readStrg.result = result;
+                }
             }
+
             break;
         }
         case WRITE_REQUEST_PI:
         {
+            LE_DEBUG("WriteDID Request!");
             if(!didStore.didStorInf)
             {
                 LE_ERROR("Plugin not initialized");
-                le_mem_Release(req);
+                didStore.writeDIDPIResult = LE_FAULT;
                 return;
             }
 
-            le_result_t result = (*(didStore.didStorInf->diagDIDSetAsync))
-                (req->dataId, const_cast<uint8_t*>(req->dataRecordPtr),
-                    *(req->dataRecordSizePtr), didStore.didWriteCb);
-            if (result != LE_OK)
+            if (!didStore.isWriteDIDLock.load())
             {
-                LE_ERROR("Fail to get from DID Storage Plugin");
+                le_result_t result = (*(didStore.didStorInf->diagDIDSetAsync))
+                        (reqPtr->dataId, const_cast<uint8_t*>(reqPtr->dataRecordPtr),
+                                *(reqPtr->dataRecordSizePtr), didStore.didWriteCb,
+                                        (void *)reqPtr->writeDIDRef);
+                if (result != LE_OK)
+                {
+                    LE_ERROR("Fail to get from DID Storage Plugin");
+                    didStore.writeDIDPIResult = result;
+                }
             }
+
             break;
         }
         default:
-            LE_ERROR("Invalid request type: %u", req->request);
-            le_mem_Release(req);
+            LE_ERROR("Invalid request type: %u", reqPtr->request);
+            le_mem_Release(reqPtr);
             return;
     }
 
-    le_mem_Release(req);
+    return;
 }
 
 static void* ReadThreadMain
@@ -514,7 +816,7 @@ void taf_diagDidStore::readDataIDMsgHandler
     void* contextPtr
 )
 {
-    LE_INFO("readDataIDMsgHandler!");
+    LE_DEBUG("readDataIDMsgHandler!");
     auto &didStore = taf_diagDidStore::GetInstance();
 
     uint8_t sendBuf[TAF_DIAGDATAID_MAX_READ_DID_PAYLOAD_SIZE];
@@ -556,8 +858,8 @@ void taf_diagDidStore::readDataIDMsgHandler
             if (totalBufLen + sendBufLen + DID_LEN > TAF_DIAGDATAID_MAX_READ_DID_PAYLOAD_SIZE)
             {
                 result = taf_diagDataID_SendReadDIDResp( rxMsgRef,
-                    TAF_DIAGDATAID_READ_DID_RESPONSE_TOO_LONG, NULL, 0);
-                    return;
+                        TAF_DIAGDATAID_READ_DID_RESPONSE_TOO_LONG, NULL, 0);
+                return;
             }
 
             // Fill data id
@@ -600,7 +902,7 @@ void taf_diagDidStore::writeDataIDMsgHandler
     void* contextPtr
 )
 {
-    LE_INFO("writeDataIDMsgHandler!");
+    LE_DEBUG("writeDataIDMsgHandler!");
     auto &didStore = taf_diagDidStore::GetInstance();
 
     uint8_t recordData[TAF_DIAGDATAID_MAX_DID_DATA_RECORD_SIZE];
@@ -716,6 +1018,12 @@ void taf_diagDidStore::Init
 {
     LE_INFO("taf_diagDidStore Init!");
 
+    // parse json configuration
+    le_result_t result = ParseDidStoreJsonConfig(DEFAULT_DID_STORE_CONFIG_PATH);
+    if(result != LE_OK){
+        LE_FATAL("Failed to read json");
+    }
+
     // Create memory pools.
     SvcPool = le_mem_CreatePool("didStoreSvcPool", sizeof(taf_DidStore_t));
     // Create reference maps
@@ -728,12 +1036,14 @@ void taf_diagDidStore::Init
 
     //Read DID Plugin thread
     ReadRequestPool = le_mem_CreatePool("Read plugin Request", sizeof(ReadWriteRequest_t));
+    ReadDIDRefMap = le_ref_CreateMap("ReadDIDRefMap", DEFAULT_READ_DID_REF_CNT);
     ReadThreadRef = le_thread_Create("Background Thread", ReadThreadMain, NULL);
     le_thread_SetPriority(ReadThreadRef, LE_THREAD_PRIORITY_IDLE);
     le_thread_Start(ReadThreadRef);
 
     //write DID Plugin thread
     WriteRequestPool = le_mem_CreatePool("Write plugin Request", sizeof(ReadWriteRequest_t));
+    WriteDIDRefMap = le_ref_CreateMap("WriteDIDRefMap", DEFAULT_WRITE_DID_REF_CNT);
     WriteThreadRef = le_thread_Create("Background Thread", WriteThreadMain, NULL);
     le_thread_SetPriority(WriteThreadRef, LE_THREAD_PRIORITY_IDLE);
     le_thread_Start(WriteThreadRef);
@@ -768,7 +1078,7 @@ void taf_diagDidStore::Init
         return;
     }
 
-     DiagReadDataIDMsgRef = taf_diagDataID_AddRxReadDIDMsgHandler(DiagDataIDSvcRef,
+    DiagReadDataIDMsgRef = taf_diagDataID_AddRxReadDIDMsgHandler(DiagDataIDSvcRef,
             readDataIDMsgHandler, NULL);
     TAF_ERROR_IF_RET_NIL(DiagReadDataIDMsgRef == NULL,
             "Not Registered successfully for readDataIDMsgHandler");

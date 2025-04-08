@@ -13,7 +13,7 @@
 
 #include "tafWlan.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 LE_MEM_DEFINE_STATIC_POOL(DeviceStatusPool, TAF_WLAN_MAX_SESSION_REF,
                           sizeof(taf_wlan_DeviceState_t));

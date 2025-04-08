@@ -37,14 +37,20 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include "keyMgt.h"
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Max number of shared applications for a key.
  */
 //--------------------------------------------------------------------------------------------------
-#define TAF_PA_KS_MAX_SHARED_APPS 5
+#define TAF_PA_KS_MAX_SHARED_APPS 12
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference to a key file object
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void* KeyMgt_KeyFileRef_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -55,7 +61,7 @@ typedef struct
 {
     taf_ks_KeyUsage_t keyCap;                    ///< Shared key capability.
     taf_ks_AppCapMask_t appCap;                  ///< Shared app capability.
-    char appName[LIMIT_MAX_APP_NAME_LEN + 1];    ///< Shared app name.
+    char appName[TAF_KS_MAX_APP_NAME_SIZE + 1];  ///< Shared app name.
 }
 taf_pa_ks_SharedApp_t;
 

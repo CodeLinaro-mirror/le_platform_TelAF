@@ -4,7 +4,7 @@ cxxflags:
     -I$LEGATO_ROOT/components/watchdogChain
     -I$LEGATO_BUILD/framework/libjansson/include
     -I$TELAF_ROOT/components/tafHalComp
-    -I$TELAF_ROOT/include/staging/vhal
+    -I$TELAF_ROOT/include/vhal
     -ltelux_common
     -ltelux_tel
     -I$TELAF_ROOT/components/tafGptpLibrary
@@ -43,7 +43,7 @@ provides:
 {
     api:
     {
-        taf_time.api [direct]
+         taf_time.api  [manual-start]
     }
 }
 

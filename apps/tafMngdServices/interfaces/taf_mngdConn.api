@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -55,18 +55,23 @@
  *
  * @section taf_mngdConn_Connectivity Managed Connectivity
  *
- * Before starting the service, the user should place a JSON file named
- * mngdConnectivity.json into /data/ManagedServices directory. This JSON file contains a
- * Configuration object and a Policy object. The Policy object manages the execution of the service
- * using the parameters provided via the Configuration object.
+ * The service requires a valid mngdConnectivity.json file for its normal operation.
+ * The objects and values for this JSON are documented below.
+ * By default, the service will use mngdConnectivity.json, which is bundled with the service
+ * from the TelAF RO location.
+ * Upon startup, the service will examine the path specified in the "Extension" object to verify
+ * the presence of a valid JSON file. Should a valid JSON be located at the "Extension" path,
+ * the service will utilize that JSON. In the event that the JSON is either unavailable or invalid,
+ * the service will revert to using the JSON bundled with the service.
  *
  * Template of mngdConnectivity.json:
  * @verbatim
  {
     "Product": "TelAF",
-    "Name": "Managed Connectivity Service",
+    "Name": "MngdConn",
+    "Extension": "/data/persist/telaf/",   ///< Extension Path for the JSON
     "ManagedConnectivityService": {
-        "Version": "24.09.00",
+        "Version": "25.02.00",             ///< Version of the JSON
         "Configuration": {                 ///< Configuration Object.
             "Name": "Default",
             "Sim":[
@@ -214,6 +219,10 @@
                                                   ///  called again within this period by the same
                                                   ///  client, then the service will trigger the
                                                   ///   next level of recovery.
+                },
+                "APIManagement": {
+                    "StartDataTimeout": 5,      ///< Timeout for StartData API.
+                    "StopDataTimeout": 5        ///< Timeout for StopData API.
                 }
             }
         }
@@ -255,7 +264,17 @@
      <td>Optional and not used by the service.</td>
    </tr>
    <tr>
-     <td rowspan="42">ManagedConnectivityService</td>
+     <td colspan="4">Extension</td>
+     <td>Extension</td>
+     <td>char</td>
+     <td>"/data/persist/telaf/"</td>
+     <td>511</td>
+     <td>If user provided JSON is available in this location, use that JSON.
+         <br>
+         Otherwise, use the JSON that is bundled with the service.</td>
+   </tr>
+   <tr>
+     <td rowspan="44">ManagedConnectivityService</td>
      <td colspan="3">Version</td>
      <td>Version</td>
      <td>char</td>
@@ -505,7 +524,7 @@
      <td>URL to use for periodic connectivity test.</td>
    </tr>
    <tr>
-     <td rowspan="16">Policy</td>
+     <td rowspan="18">Policy</td>
      <td colspan="2">Name</td>
      <td>Name</td>
      <td>char</td>
@@ -514,7 +533,7 @@
      <td>Optional and not used by the service.</td>
    </tr>
    <tr>
-     <td rowspan="15">DataSession</td>
+     <td rowspan="17">DataSession</td>
      <td rowspan="2">DataConnection</td>
      <td>Priority</td>
      <td>uint8_t</td>
@@ -642,7 +661,7 @@
        </td>
    </tr>
    <tr>
-    <td rowspan="5">AppManagedConnectivityRecovery</td>
+    <td rowspan="4">AppManagedConnectivityRecovery</td>
      <td>Enable</td>
      <td>char</td>
      <td>No</td>
@@ -701,6 +720,23 @@
         invocation of taf_mngdConn_StartDataRetry(), the service will start a new recovery process.
     </td>
    </tr>
+   <tr>
+     <td rowspan="2">APIManagement</td>
+     <td>StartDataTimeout</td>
+     <td>uint8_t</td>
+     <td>5</td>
+     <td>240</td>
+     <td> Timeout for StartData API </td>
+     </td>
+   </tr>
+   <tr>
+     <td>StopDataTimeout</td>
+     <td>uint8_t</td>
+     <td>5</td>
+     <td>240</td>
+     <td> Timeout for StopData API </td>
+     </td>
+   </tr>
    </tr>
  </tbody>
  </table>
@@ -716,6 +752,8 @@
       -- 24.07.00
       -- 24.09.00
       -- 24.12.00
+      -- 25.02.00
+      -- 25.03.00
  @endverbatim
  * @par Multiple Data Sessions:
  *      For multiple data sessions, add Data object(s) and matching DataConnection object(s).
@@ -1115,6 +1153,8 @@ FUNCTION le_result_t GetPhoneIdByRef
  *   - LE_OK -- Succeeded.
  *   - LE_DUPLICATE -- The data connection is already started.
  *   - LE_IN_PROGRESS -- The data connection establishment retry is in progress.
+ *   - LE_TIMEOUT -- The API is taking longer than StartDataTimeout seconds. This is not a failure.
+ *                   Application should monitor DataState events for actual data state.
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1137,6 +1177,8 @@ FUNCTION le_result_t StartData
  *                         LE_NOT_POSSIBLE is returned. Applications can retry StopData after an
  *                         appropriate delay. Data start connection test is either curl or 5 ping
  *                         packets, which typically takes around 5s.
+ *   - LE_TIMEOUT -- The API is taking longer than StopDataTimeout seconds. This is not a failure.
+ *                   Application should monitor DataState events for actual data state.
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------

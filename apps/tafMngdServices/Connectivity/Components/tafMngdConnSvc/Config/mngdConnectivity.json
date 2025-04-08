@@ -1,8 +1,9 @@
 {
     "Product": "TelAF",
     "Name": "MngdConn",
+    "Extension": "/data/persist/telaf/",
     "ManagedConnectivityService": {
-        "Version": "24.12.00",
+        "Version": "25.03.00",
         "Configuration": {
             "Name": "Default",
             "Sim":[
@@ -105,6 +106,10 @@
                     "VerifyCallingApp": "Yes",
                     "MinTimeBetweenTriggers": 30,
                     "MaxTimeBetweenTriggers": 300
+                },
+                "APIManagement": {
+                    "StartDataTimeout": 5,
+                    "StopDataTimeout": 5
                 }
             }
         }

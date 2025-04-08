@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "tafMngdConn_ConfigTreeHelper.hpp"
 #include "tafMngdConnData.hpp"
@@ -41,7 +13,7 @@
 #include "limit.h"
 
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 #define CONFIG_FILE_NAME "mngdConnectivity.json"
 
@@ -1214,13 +1186,20 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
         case MCS_RECOVERY_FAILED_L1:
         case MCS_RECOVERY_FAILED_L2:
         case MCS_RECOVERY_FAILED_L3:
-            result = data.Startdata(dataCtxPtr->phoneId, dataCtxPtr->profileNumber);
+            result = data.Startdata(dataCtxPtr->phoneId, dataCtxPtr->profileNumber,
+                                    dataCtxPtr->startDataTimeout);
             if (result == LE_OK || result == LE_DUPLICATE) {
                 LE_INFO("StartData returned LE_OK");
                 // connection is created. Now we will go for DataStartConnectionTest
                 dataCtxPtr->adminState = MCS_DATA_CONNECTED_INACTIVE;
                 return result;
-            } else {
+            }
+            else if(result == LE_TIMEOUT)
+            {
+                LE_INFO("StartData timedout. Monitor DataState Events");
+                return result;
+            }
+            else {
                 LE_ERROR("Starting a data call failed. Retrying ...");
                 dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_RETRYING;
                 ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
@@ -1527,7 +1506,8 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
             LE_ERROR("Data not started. DataStart should be called first.");
             return LE_FAULT;
         case MCS_DATA_CONNECTED_INACTIVE_RETRYING:
-            result = data.Stopdata(dataCtxPtr->phoneId, dataCtxPtr->profileNumber);
+            result = data.Stopdata(dataCtxPtr->phoneId, dataCtxPtr->profileNumber,
+                                    dataCtxPtr->stopDataTimeout);
             if(result == LE_OK)
             {
                 dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_INACTIVE_RETRYING;
@@ -1558,6 +1538,10 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
                 dataCtxPtr->needReConn = false;
                 return LE_OK;
             }
+            else if(result == LE_TIMEOUT)
+            {
+                LE_INFO("StopData timedout. Monitor DataState Events");
+            }
             else
             {
                 dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED;
@@ -1567,7 +1551,8 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
             }
             break;
         case MCS_DATA_CONNECTED_ACTIVE:
-            result = data.Stopdata(dataCtxPtr->phoneId, dataCtxPtr->profileNumber);
+            result = data.Stopdata(dataCtxPtr->phoneId, dataCtxPtr->profileNumber,
+                                    dataCtxPtr->stopDataTimeout);
             if(result == LE_OK)
             {
                 dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED;
@@ -1575,6 +1560,10 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
                 //If manually stopped the data successfully. Set reconnection flag to false.
                 dataCtxPtr->needReConn = false;
                 return LE_OK;
+            }
+            else if(result == LE_TIMEOUT)
+            {
+                LE_INFO("StopData timedout. Monitor DataState Events");
             }
             else
             {
@@ -1926,28 +1915,56 @@ void tafMngdConnAdmin::EventDataDisconnected(uint8_t dataId)
 {
     LE_DEBUG("EventDataDisconnected-Start");
     mcs_DataCtx_t* dataCtxPtr = NULL;
-
+    auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
     dataCtxPtr = GetDataCtx(dataId);
     if(dataCtxPtr == NULL)
     {
         LE_ERROR("Can't find the context for dataId(%d)", dataId);
         return;
     }
+
+
+    LE_DEBUG("AdminState : %d(%s)", dataCtxPtr->adminState,
+                                    mngdConnAdmin.StateToString(dataCtxPtr->adminState));
+
+    stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT,0};
     //Do action according to the current state.
     switch(dataCtxPtr->adminState)
     {
         // Data disconnected from ACTIVE state
         case MCS_DATA_NOT_CONNECTED_INACTIVE_RETRYING:
-        case MCS_DATA_CONNECTED_ACTIVE:
-        {
+
+            //No need to check for autoStart as this will come in case of StartDataRetryAppReq
+            //So we directly go for retrying state
             dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_RETRYING;
             LE_INFO("Data call disconnected, retrying");
             ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
             // Send MCS_EVT_DATA_START_RETRY event to the admin to handle accordingly
-            stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT,0};
+
             stateMachineEvt.event = MCS_EVT_DATA_START_RETRY;
             stateMachineEvt.dataId = dataCtxPtr->dataId;
             le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+            break;
+
+        case MCS_DATA_CONNECTED_ACTIVE:
+        {
+            // Check if autoStart is true before starting the retry mechanism
+            if (dataCtxPtr->autoStart)
+            {
+                dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_RETRYING;
+                LE_INFO("Data call disconnected, retrying");
+                ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
+                // Send MCS_EVT_DATA_START_RETRY event to the admin to handle accordingly
+                stateMachineEvt.event = MCS_EVT_DATA_START_RETRY;
+                stateMachineEvt.dataId = dataCtxPtr->dataId;
+                le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+            }
+            else
+            {
+                // If autoStart is false, do not start the retry mechanism
+                dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED;
+                ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
+            }
             break;
         }
     // If DataStartConnectionTest fails, we stop the data and then let the state handler to retry
@@ -2464,6 +2481,10 @@ tafMngdConnAdmin::CreateDataCtx(
     le_timer_SetHandler(dataCtxPtr->periodicConnectivityTestTimerRef,
                         PeriodicConnectivityTestTimerHandler);
 
+    //Create API Management timeouts
+    dataCtxPtr->startDataTimeout = Policy.DataSession.APIManagement.StartDataTimeout;
+    dataCtxPtr->stopDataTimeout = Policy.DataSession.APIManagement.StopDataTimeout;
+
     //Create event id
     snprintf(eventName, sizeof(eventName)-1, "connCtx-%d", dataId);
     dataCtxPtr->dataStateEvent = le_event_CreateIdWithRefCounting(eventName);
@@ -2700,14 +2721,14 @@ void tafMngdConnAdmin::ReportRecoveryEvent(
 //--------------------------------------------------------------------------------------------------
 le_result_t tafMngdConnAdmin::InitializeStates()
 {
-    uint8_t sessionIdx, dataIdx, networkIdx, simIdx;
+    uint8_t sessionIdx = 0, dataIdx = 0, networkIdx = 0, simIdx = 0;
     uint8_t dataId = 0, phoneId = 0, slotNumber = 0;
     uint32_t profileNumber = 0;
     bool autoStart = false;
-    char conn_test_url [MCS_MAX_CONNECTION_URL_LEN];
-    char conn_test_ipv4Addr [MCS_MAX_IPV4_LEN];
-    char dataName [MCS_MAX_NAME_LEN];
-    le_result_t result;
+    char conn_test_url[MCS_MAX_CONNECTION_URL_LEN] = {'\0'};
+    char conn_test_ipv4Addr[MCS_MAX_IPV4_LEN] = {'\0'};
+    char dataName[MCS_MAX_NAME_LEN] = {'\0'};
+    le_result_t result = LE_OK;
     mcs_DataCtx_t* dataCtxPtr = NULL;
     auto &radio = tafMngdConnRadio::GetInstance();
     auto &sim = tafMngdConnSim::GetInstance();
@@ -2840,7 +2861,7 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             if(dataCtxPtr == NULL)
             {
                 dataCtxPtr = CreateDataCtx(dataId, slotNumber, phoneId, profileNumber, dataName,
-                                         autoStart, conn_test_url, conn_test_ipv4Addr);
+                                    autoStart, conn_test_url, conn_test_ipv4Addr);
                 if(dataCtxPtr == NULL)
                 {
                     LE_ERROR("Creating connection context failed");

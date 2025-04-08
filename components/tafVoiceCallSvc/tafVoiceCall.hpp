@@ -1,30 +1,6 @@
 /*
- *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions are
- *  met:
- *    * Redistributions of source code must retain the above copyright
- *      notice, this list of conditions and the following disclaimer.
- *    * Redistributions in binary form must reproduce the above
- *      copyright notice, this list of conditions and the following
- *      disclaimer in the documentation and/or other materials provided
- *      with the distribution.
- *    * Neither the name of The Linux Foundation nor the names of its
- *      contributors may be used to endorse or promote products derived
- *      from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
- *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
- *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
- *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
- *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
@@ -32,261 +8,181 @@
 #include <string>
 #include <memory>
 #include <vector>
-#include <telux/tel/PhoneFactory.hpp>
-#include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
+#include "taf_pa_voicecall.h"
 
-using namespace telux::tel;
-using namespace telux::common;
-
-// Max tafcall objects at one time
-#define    MAX_TAFCALL_OBJ    20
-
-// Max session/client support simultaneously
-#define MAX_TAFCALL_SESSION 5
-
-// Max voice call support,DSDA, two calls
-#define MAX_VOICECALL_SUPPORT 2
-
-// Call Requst destination len
-#define MAX_DESTINATION_LEN 50
-#define MAX_DESTINATION_LEN_BYTE (MAX_DESTINATION_LEN+1)
-
-// The invalid call index
-#define INVALID_CALL_IDX -1
-
-// The max phone ID is 2
-#define MAX_PHONE_ID 2
-
-#define TIMEOUT_CALLCOMMAND_CB 2
-
-#define MAX_INIT_TIMEOUT 5
-
-typedef struct
-{
-    taf_voicecall_CallRef_t  callRef;
-    le_dls_Link_t            link;
-} taf_CallRefNode_t;
-
-typedef struct
-{
-    le_msg_SessionRef_t sessionRef;
-    le_dls_Link_t       link;
-} taf_SessionRef_t;
-
-typedef struct
-{
-    le_msg_SessionRef_t    sessionRef;          // this client ref
-    le_dls_List_t          handlerList;         // this client handler list
-    le_dls_List_t          callRefList;         // this client call reference list
-    le_dls_Link_t          link;                // link to SessionCtxList
-} taf_SessionCtx_t;
-
-typedef struct
-{
-    taf_voicecall_StateHandlerRef_t handlerRef;     // this handler ref
-    taf_voicecall_StateHandlerFunc_t handlerPtr;    // this function ptr
-    void *    usrContext;
-    taf_SessionCtx_t*    sessionCtxPtr;             // this handler's session
-    le_dls_Link_t    link;                          // link to handler list
-} taf_HandlerCtx_t;
-
-// internal cmd
-typedef enum
-{
-    CMD_START_CALL,     // start a call
-    CMD_END_CALL,       // end a call
-    CMD_ANSWER_CALL,    // answer a call
-    CMD_DELETE_CALL,    // delete a call
-    CMD_HOLD_CALL,      // hold a call
-    CMD_RESUME_CALL,    // resume a call
-    CMD_SWAP_CALL,      // make a call hold and another call active
-} tafCallCmd_t;
-
-namespace telux {
 namespace tafsvc {
 
-    // define the listener for state change for telsdk
-    class tafCallListener : public ICallListener {
-        public:
-            void onIncomingCall(std::shared_ptr<telux::tel::ICall> tafCall) override;
-            void onCallInfoChange(std::shared_ptr<telux::tel::ICall> tafCall) override;
-            const char * callStateToString(telux::tel::CallState state);
-            const char* callDirectionToString(telux::tel::CallDirection direction);
-            taf_voicecall_Event_t stateToEvent(telux::tel::CallState state);
-            taf_voicecall_CallEndCause_t endCauseToTermination(telux::tel::CallEndCause endCause);
-            ~tafCallListener(){
-            };
-    };
+// Maximum number of tafcall objects
+constexpr int MAX_TAFCALL_OBJ = 20;
 
-    // define the Callback Class for telsdk
-    class tafDialCallback : public IMakeCallCallback {
-        public:
-            tafDialCallback() {}
-            ~tafDialCallback() {}
-            void makeCallResponse(telux::common::ErrorCode error, std::shared_ptr<telux::tel::ICall> call) override;
-    };
+// Maximum number of sessions/clients supported simultaneously
+constexpr int MAX_TAFCALL_SESSION = 5;
 
-    // define the other Callback Class for telsdk
-    class tafCallCommandCallback : public telux::common::ICommandResponseCallback {
-        public:
-            tafCallCommandCallback() {}
-            ~tafCallCommandCallback() {}
-            void commandResponse(telux::common::ErrorCode error);
-    };
+// Maximum voice call support, DSDA, two calls
+constexpr int MAX_VOICECALL_SUPPORT = 2;
 
-    typedef struct tagVoiceCtrl
-    {
-        int8_t phoneId;
-        char destId[MAX_DESTINATION_LEN_BYTE];
-        std::shared_ptr<telux::tel::ICall> iCall;
+// Call request destination length
+constexpr int MAX_DESTINATION_LEN = 50;
+constexpr int MAX_DESTINATION_LEN_BYTE = MAX_DESTINATION_LEN + 1;
 
-        taf_voicecall_CallRef_t callRef;
+// Invalid call index
+constexpr int INVALID_CALL_IDX = -1;
 
-        //std::shared_ptr<tafDialCallback>    iCallCb;  // ICall callback
-        le_dls_List_t  sessionRefList;                // session list for clients
-        le_dls_Link_t  link;                          // link for call ctrl list
+// Maximum phone ID
+constexpr int MAX_PHONE_ID = 2;
 
-        telux::common::Status             tafCallStatus;
-        telux::common::ErrorCode          callRspErrCode;
-        taf_voicecall_Event_t             event;
-        taf_voicecall_Event_t             lastEvent;
-        taf_voicecall_CallEndCause_t      termination;
-        int32_t                           terminationCode;
-        bool                              isInProgress;
-    } taf_VoiceCtrl_t;
+constexpr int TIMEOUT_CALLCOMMAND_CB = 2;
+constexpr int MAX_INIT_TIMEOUT = 5;
 
-    typedef struct
-    {
-        bool                                inComingCall;
-        int8_t                              phoneId;
-        char                                dest[MAX_DESTINATION_LEN];
-        std::shared_ptr<telux::tel::ICall>  iCall;
-        taf_voicecall_CallRef_t             callRef;
-        taf_voicecall_Event_t               event;
-        taf_voicecall_CallEndCause_t        termination;
-    } callEvent_t;
+enum class taf_voicecall_Direction_t {
+    NONE = 0,
+    INCOMING = 1,
+    OUTGOING = 2,
+};
 
-    typedef struct
-    {
-        tafCallCmd_t             cmdID;
-        taf_voicecall_CallRef_t  callRef;
-        le_msg_SessionRef_t      sessionRef;
-        taf_VoiceCtrl_t          *callCtrlPtr;
-    } callReq_t;
+struct taf_CallRefNode_t {
+    taf_voicecall_CallRef_t callRef;
+    le_dls_Link_t link;
+};
 
-    // define our class to handler the call with telsdk
-    class taf_VoiceCall : public ITafSvc {
-    public:
-        void Init(void);
+struct taf_SessionRef_t {
+    le_msg_SessionRef_t sessionRef;
+    le_dls_Link_t link;
+};
 
-        static taf_VoiceCall &GetInstance();
+struct taf_SessionCtx_t {
+    le_msg_SessionRef_t sessionRef; // Client reference
+    le_dls_List_t handlerList; // Client handler list
+    le_dls_List_t callRefList; // Client call reference list
+    le_dls_Link_t link; // Link to SessionCtxList
+};
 
-        taf_VoiceCall() {};
-        ~taf_VoiceCall() {};
+struct taf_HandlerCtx_t {
+    taf_voicecall_StateHandlerRef_t handlerRef; // Handler reference
+    taf_voicecall_StateHandlerFunc_t handlerPtr; // Function pointer
+    void* usrContext;
+    taf_SessionCtx_t* sessionCtxPtr; // Handler's session
+    le_dls_Link_t link; // Link to handler list
+};
 
-        le_result_t ChecktafCallCommandCallbackResult(void);
+struct taf_VoiceCtrl_t {
+    int8_t phoneId;
+    char destId[MAX_DESTINATION_LEN_BYTE];
+    taf_voicecall_Direction_t dir;
 
-        // call interfaces
-        le_result_t MakeCall(taf_VoiceCtrl_t *callCtxPtr, const char* dialNumber,int phoneId);
-        le_result_t AnswerCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
-        le_result_t DeleteCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
-        le_result_t StopCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
-        le_result_t HoldCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
-        le_result_t ResumeCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
-        le_result_t SwapCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
+    taf_voicecall_CallRef_t callRef;
 
-        // callCtx interfaces
-        taf_VoiceCtrl_t* CreateCallCtx(int8_t phoneId, const char* destinationPtr);
-        void DestructorCallCtx(void* objPtr);
-        taf_VoiceCtrl_t* GetCallCtx(int8_t phoneId, const char* destinationPtr);
-        taf_VoiceCtrl_t* GetCallCtx(std::shared_ptr<telux::tel::ICall> iCall);
-        taf_VoiceCtrl_t* GetCallCtx(taf_voicecall_CallRef_t reference);
-        taf_SessionRef_t* GetSessionRefNodeFromCallCtx(taf_VoiceCtrl_t* callCtxPtr, le_msg_SessionRef_t sessionRef);
-        le_result_t SetSessionRefToCallCtx(taf_VoiceCtrl_t* callCtxPtr, le_msg_SessionRef_t sessionRef);
-        le_result_t UnsetSessionRefToCallCtx(taf_VoiceCtrl_t* callCtxPtr, le_msg_SessionRef_t sessionRef);
+    le_dls_List_t sessionRefList; // Session list for clients
+    le_dls_Link_t link; // Link to call control list
 
-        // callRef interfaces
-        taf_voicecall_CallRef_t SetCallRef(taf_VoiceCtrl_t* callCtxPtr);
+    taf_voicecall_Event_t event;
+    taf_voicecall_Event_t lastEvent;
+    taf_voicecall_CallEndCause_t termination;
+    int32_t terminationCode;
+    bool isInProgress;
+};
 
-        // sessionCtx interfaces
-        taf_SessionCtx_t* CreateSessionCtx(void);
-        taf_SessionCtx_t* GetSessionCtx(le_msg_SessionRef_t sessionRef);
-        taf_CallRefNode_t* GetCallRefNodeFromSessionCtx(taf_VoiceCtrl_t* callCtxPtr, taf_SessionCtx_t* sessionCtxPtr);
-        taf_voicecall_CallRef_t SetCallRefToSessionCtx(taf_VoiceCtrl_t* callCtxPtr, taf_SessionCtx_t* sessionCtxPtr);
+struct CallEvent_t {
+    int8_t phoneId;
+    taf_voicecall_Direction_t direction;
+    char dest[MAX_DESTINATION_LEN];
+    taf_voicecall_CallRef_t callRef;
+    taf_voicecall_Event_t event;
+    taf_voicecall_CallEndCause_t termination;
+};
 
-        // sessionRef interfaces
-        le_result_t ReleaseSession(le_msg_SessionRef_t sessionRef, void* ctxPtr);
+// Define the class to handle the call with telsdk
+class VoiceCallSvc : public ITafSvc {
+public:
+    void Init();
 
-        // handler interfaces
-        taf_voicecall_StateHandlerRef_t CreateStateHandlerCtx(taf_SessionCtx_t* sessionCtxPtr, taf_voicecall_StateHandlerFunc_t handlerPtr, void* contextPtr);
-        le_result_t RemoveStateHandlerCtx(le_msg_SessionRef_t sessionRef, taf_voicecall_StateHandlerRef_t handlerRef);
-        le_result_t RemoveStateHandlerCtx(le_msg_SessionRef_t sessionRef);
-        void CallHandler(callEvent_t *eventVoicePtr);
-        le_result_t SendCallEventToClient(taf_VoiceCtrl_t *callCtxPtr, bool incomingCall);
+    static VoiceCallSvc& GetInstance();
 
-        // dfx interfaces
-        static bool isEnableDebug;
-        const char * EventToString(taf_voicecall_Event_t event);
-        const char * TerminationToString(taf_voicecall_CallEndCause_t termination);
-        void ShowAll();
+    VoiceCallSvc() = default;
+    ~VoiceCallSvc() = default;
 
-        // TelAF side interface
-        le_mem_PoolRef_t CallCtrlPool = NULL;
-        le_mem_PoolRef_t CallRefPool = NULL;
-        le_mem_PoolRef_t SessionCtxPool = NULL;
-        le_mem_PoolRef_t SessionRefPool = NULL;
-        le_mem_PoolRef_t HandlerPool = NULL;
-        le_ref_MapRef_t  CallCtrlRefMap = NULL;
-        le_ref_MapRef_t  HandlerRefMap = NULL;
+    // Call interfaces
+    le_result_t MakeCall(taf_VoiceCtrl_t* callCtxPtr, const char* dialNumber, int phoneId);
+    le_result_t AnswerCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
+    le_result_t DeleteCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
+    le_result_t StopCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
+    le_result_t HoldCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
+    le_result_t ResumeCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
+    le_result_t SwapCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
 
-        // to handle the request from clients
-        le_event_Id_t ReqEvent;
+    // CallCtx interfaces
+    taf_VoiceCtrl_t* CreateCallCtx(int8_t phoneId, const char* destinationPtr, taf_voicecall_Direction_t dir);
+    void DestructorCallCtx(void* objPtr);
+    taf_VoiceCtrl_t* GetCallCtx(int8_t phoneId, const char* destinationPtr, taf_voicecall_Direction_t dir);
+    taf_VoiceCtrl_t* GetCallCtx(taf_voicecall_CallRef_t reference);
+    taf_SessionRef_t* GetSessionRefNodeFromCallCtx(taf_VoiceCtrl_t* callCtxPtr, le_msg_SessionRef_t sessionRef);
+    le_result_t SetSessionRefToCallCtx(taf_VoiceCtrl_t* callCtxPtr, le_msg_SessionRef_t sessionRef);
+    le_result_t UnsetSessionRefToCallCtx(taf_VoiceCtrl_t* callCtxPtr, le_msg_SessionRef_t sessionRef);
 
-        // to handle the call event/state from telsdk
-        le_event_Id_t CallEvent;
+    // CallRef interfaces
+    taf_voicecall_CallRef_t SetCallRef(taf_VoiceCtrl_t* callCtxPtr);
 
-        // Lists for session and call
-        le_dls_List_t    SessionCtxList = LE_DLS_LIST_INIT;
-        le_dls_List_t    CallCtrlList = LE_DLS_LIST_INIT;
+    // SessionCtx interfaces
+    taf_SessionCtx_t* CreateSessionCtx();
+    taf_SessionCtx_t* GetSessionCtx(le_msg_SessionRef_t sessionRef);
 
-        // objects used by telSdk interfaces
-        std::shared_ptr<tafCallListener> CallLsn;
-        std::shared_ptr<telux::tel::ICallManager> CallMgr;
-        std::shared_ptr<tafDialCallback>    CallCb;
-        std::shared_ptr<tafCallCommandCallback>    AnswerCb;
-        std::shared_ptr<tafCallCommandCallback>    HangupCb;
-        std::shared_ptr<tafCallCommandCallback>    RejectCb;
-        std::shared_ptr<tafCallCommandCallback>    HoldCb;
-        std::shared_ptr<tafCallCommandCallback>    ResumeCb;
-        std::shared_ptr<tafCallCommandCallback>    SwapCb;
+    // SessionRef interfaces
+    le_result_t ReleaseSession(le_msg_SessionRef_t sessionRef, void* ctxPtr);
 
-        std::promise<le_result_t> CBCallCommandSynePromise;
-    };
+    // Handler interfaces
+    taf_voicecall_StateHandlerRef_t CreateStateHandlerCtx(taf_SessionCtx_t* sessionCtxPtr, taf_voicecall_StateHandlerFunc_t handlerPtr, void* contextPtr);
+    le_result_t RemoveStateHandlerCtx(le_msg_SessionRef_t sessionRef, taf_voicecall_StateHandlerRef_t handlerRef);
+    le_result_t RemoveStateHandlerCtx(le_msg_SessionRef_t sessionRef);
+    void CallHandler(CallEvent_t* eventVoicePtr);
+    le_result_t SendCallEventToClient(taf_VoiceCtrl_t* callCtxPtr);
+    taf_voicecall_Event_t EventConvert(taf_pa_voicecall_event_t event);
+    taf_voicecall_Direction_t DirConvert(taf_pa_voicecall_dir_t paDir);
+    taf_pa_voicecall_dir_t DirToPADir(taf_voicecall_Direction_t dir);
 
-    // define handler class for telaf's call back
-    class taf_Handler: public ITafSvc {
-        public:
-            void Init(void);
+    // DFX interfaces
+    void ShowAll();
+    static bool isEnableDebug;
+    const char* EventToString(taf_voicecall_Event_t event);
+    const char* TerminationToString(taf_voicecall_CallEndCause_t termination);
+    const char* PaEventToString(taf_pa_voicecall_event_t event);
 
-            taf_Handler();
-            ~taf_Handler();
+    // TelAF side interface
+    le_mem_PoolRef_t CallCtrlPool = nullptr;
+    le_mem_PoolRef_t CallRefPool = nullptr;
+    le_mem_PoolRef_t SessionCtxPool = nullptr;
+    le_mem_PoolRef_t SessionRefPool = nullptr;
+    le_mem_PoolRef_t HandlerPool = nullptr;
+    le_ref_MapRef_t CallCtrlRefMap = nullptr;
+    le_ref_MapRef_t HandlerRefMap = nullptr;
 
-            // Taf Service handlers
-            static void CloseSessHandler(le_msg_SessionRef_t sessionRef,void* ctxPtr);
+    // Handle call events/states from telsdk
+    le_event_Id_t CallEvent;
 
-            // handler for the call request
-            static void ProcessReq(void* callReq);
+    // Lists for session and call
+    le_dls_List_t SessionCtxList = LE_DLS_LIST_INIT;
+    le_dls_List_t CallCtrlList = LE_DLS_LIST_INIT;
+};
 
-            // handler for the call request
-            static void ProcessStateChanged(void* reportPtr);
+// Define handler class for telaf's callback
+class Handler : public ITafSvc {
+public:
+    void Init() {
+        return;
+    }
+    // Taf service handlers
+    static void CloseSessHandler(le_msg_SessionRef_t sessionRef, void* ctxPtr);
 
-            // define the call ctrl for release handler
-            static void ReleaseCallCtrlHandler(void* objPtr);
+    // Handler for the call request
+    static void ProcessStateChanged(void* reportPtr);
 
-            // tafVoiceCall obj needs to be realized first
-            static taf_VoiceCall *TafCallPtr;
-    };
-}
-}
+    // Define the call ctrl for release handler
+    static void ReleaseCallCtrlHandler(void* objPtr);
+
+    static void PaEventListener(taf_pa_voicecall_Ref_t reference, taf_pa_voicecall_event_t event, void *contextPtr);
+};
+
+} // namespace tafsvc
+
+
 

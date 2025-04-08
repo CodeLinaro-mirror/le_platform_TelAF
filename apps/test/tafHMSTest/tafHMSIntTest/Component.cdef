@@ -1,0 +1,13 @@
+
+sources:
+{
+    tafHMSIntTest.cpp
+}
+
+requires:
+{
+    api:
+    {
+        taf_hms.api
+    }
+}

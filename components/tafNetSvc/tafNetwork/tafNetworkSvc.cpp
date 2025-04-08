@@ -1,35 +1,6 @@
 /*
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *      * Redistributions of source code must retain the above copyright
- *        notice, this list of conditions and the following disclaimer.
- *
- *      * Redistributions in binary form must reproduce the above
- *        copyright notice, this list of conditions and the following
- *        disclaimer in the documentation and/or other materials provided
- *        with the distribution.
- *
- *      * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *        contributors may be used to endorse or promote products derived
- *        from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /*
@@ -49,7 +20,7 @@
 #include "tafGsbImpl.hpp"
 #include "taf_pa_net.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 void taf_net_init()
 {
@@ -920,10 +891,10 @@ taf_net_VlanRef_t taf_net_CreateVlan
  *          LE_FAULT                    Failed to set priority to a VLAN.
  *
  */
-le_result_t taf_netIpPass_SetVlanNetworkType
+le_result_t taf_net_SetVlanNetworkType
 (
     taf_net_VlanRef_t vlanRef,
-    taf_netIpPass_NetworkType_t nwType
+    taf_net_NetworkType_t nwType
 )
 {
     auto &tafVlan = taf_Vlan::GetInstance();
@@ -945,10 +916,10 @@ le_result_t taf_netIpPass_SetVlanNetworkType
  *          LE_FAULT                    Failed to set priority to a VLAN.
  *
  */
-le_result_t taf_netIpPass_SetVlanBackhaulType
+le_result_t taf_net_SetVlanBackhaulType
 (
     taf_net_VlanRef_t vlanRef,
-    taf_netIpPass_BackhaulType_t bhType
+    taf_net_BackhaulType_t bhType
 )
 {
     auto &tafVlan = taf_Vlan::GetInstance();
@@ -970,7 +941,7 @@ le_result_t taf_netIpPass_SetVlanBackhaulType
  *          LE_FAULT                    Failed to set priority to a VLAN.
  *
  */
-le_result_t taf_netIpPass_SetVlanBackhaulVlanId
+le_result_t taf_net_SetVlanBackhaulVlanId
 (
     taf_net_VlanRef_t vlanRef,
     uint16_t vlanId
@@ -995,7 +966,7 @@ le_result_t taf_netIpPass_SetVlanBackhaulVlanId
  *          LE_FAULT                    Failed to set priority to a VLAN.
  *
  */
-le_result_t taf_netIpPass_SetVlanBackhaulPhoneId
+le_result_t taf_net_SetVlanBackhaulPhoneId
 (
     taf_net_VlanRef_t vlanRef,
     uint8_t phoneId
@@ -1026,7 +997,7 @@ le_result_t taf_netIpPass_SetVlanBackhaulPhoneId
  *          LE_FAULT                    Failed to set priority to a VLAN.
  *
  */
-le_result_t taf_netIpPass_SetVlanBackhaulProfileId
+le_result_t taf_net_SetVlanBackhaulProfileId
 (
     taf_net_VlanRef_t vlanRef,
     uint32_t profileId
@@ -1385,10 +1356,10 @@ le_result_t taf_net_IsVlanAccelerated
  *          LE_NOT_FOUND                VLAN is not present.
  *          LE_BAD_PARAMETER            Invalid parameter.
  */
-le_result_t taf_netIpPass_GetVlanNetworkType
+le_result_t taf_net_GetVlanNetworkType
 (
     taf_net_VlanEntryRef_t vlanEntryRef,
-    taf_netIpPass_NetworkType_t* nwType
+    taf_net_NetworkType_t* nwType
 )
 {
     auto &tafVlan = taf_Vlan::GetInstance();
@@ -1535,6 +1506,87 @@ le_result_t taf_net_UnbindVlanFromProfile
 }
 
 /**
+ * First event handler used by taf_net_AddHwAccelerationStateHandler().
+ *
+ * @param [in] reportPtr          event pointer.
+ * @param [in] subHandlerFunc     Callback function from taf_net_AddHwAccelerationStateHandler().
+ */
+static void FirstHwAccelerationStateHandler(void *reportPtr, void *subHandlerFunc)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
+
+    TAF_ERROR_IF_RET_NIL(subHandlerFunc == nullptr, "Null ptr(subHandlerFunc)");
+
+    taf_net_VlanHwAccelerationStateHandlerFunc_t handlerFunc =
+                                (taf_net_VlanHwAccelerationStateHandlerFunc_t)subHandlerFunc;
+    VlanHwAccelerationState_t *statePtr = static_cast<VlanHwAccelerationState_t *>(reportPtr);
+    LE_DEBUG("VLANHWAccelerationState: %d", statePtr->state);
+    handlerFunc(NULL, statePtr->state, le_event_GetContextPtr());
+
+    // Release memory back to the hw acceleration event pool
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_net_VlanHwAccelerationState'
+ *
+ * Event to report when a change occurs in hardware acceleration state.<br>
+ * If reported state is TAF_NET_VLAN_HW_ACC_INACTIVE: All existing data calls will take software
+ * acceleration path.<br>
+ * If reported state is TAF_NET_VLAN_HW_ACC_ACTIVE: All new data calls that are started after
+ * this event invocation will be hardware accelerated. Data calls that are already started will
+ * continue without hardware acceleration. Clients could stop and re-start active data calls in
+ * order to use hardware acceleration.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+taf_net_VlanHwAccelerationStateHandlerRef_t taf_net_AddVlanHwAccelerationStateHandler
+(
+    taf_net_VlanRef_t vlanRef,
+    taf_net_VlanHwAccelerationStateHandlerFunc_t handlerPtr,
+        ///< [IN] Handler for hardware acceleration state.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    LE_DEBUG("taf_net_AddVlanHwAccelerationStateHandler");
+
+    LE_UNUSED(vlanRef);   // as of now acceleration is system level only hence vlanRef is not needed
+                          // TBD will be implemented in later releases to notify per vlanRef
+
+    TAF_ERROR_IF_RET_VAL((handlerPtr == NULL), nullptr, "Null ptr(handlerPtr)");
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler(
+                                            "VlanHwAccelerationStateEvent",
+                                            tafVlan.vlanHwAccelerationStateEvtId,
+                                            FirstHwAccelerationStateHandler,
+                                            (void *)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_net_VlanHwAccelerationStateHandlerRef_t)(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_dcs_HwAccelerationState'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_net_RemoveVlanHwAccelerationStateHandler
+(
+    taf_net_VlanHwAccelerationStateHandlerRef_t handlerRef
+)
+{
+    TAF_ERROR_IF_RET_NIL((handlerRef == NULL), "Null ptr(handlerRef)");
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+
+    return;
+}
+
+
+/**
  * Binds a VLAN with a specified backhaul config.
  *
  * @param [in] vlanRef                  The VLAN Reference.
@@ -1548,7 +1600,7 @@ le_result_t taf_net_UnbindVlanFromProfile
  * @note  If bind VLAN with default profile id and phone id, the system will auto reboot after 5
  *        seconds
  */
- le_result_t taf_netIpPass_BindVlanWithBackhaul
+ le_result_t taf_net_BindVlanWithBackhaul
 (
     taf_net_VlanRef_t vlanRef
 )
@@ -1575,7 +1627,7 @@ le_result_t taf_net_UnbindVlanFromProfile
  *
  * @note if unbind VLAN from default profile id, the system will auto reboot after 5 seconds
  */
-le_result_t taf_netIpPass_UnbindVlanFromBackhaul
+le_result_t taf_net_UnbindVlanFromBackhaul
 (
     taf_net_VlanRef_t vlanRef
 )
@@ -1589,7 +1641,7 @@ le_result_t taf_netIpPass_UnbindVlanFromBackhaul
     return result;
 }
 
-taf_netIpPass_InterfaceRef_t taf_netIpPass_GetInterface
+taf_net_InterfaceRef_t taf_net_GetInterface
 (
      taf_net_VlanIfType_t ifType
 )
@@ -1598,19 +1650,19 @@ taf_netIpPass_InterfaceRef_t taf_netIpPass_GetInterface
     return tafVlan.GetInterface(ifType);
 }
 
-le_result_t taf_netIpPass_RemoveInterface
+le_result_t taf_net_RemoveInterface
 (
-    taf_netIpPass_InterfaceRef_t interfaceRef
+    taf_net_InterfaceRef_t interfaceRef
 )
 {
     auto &tafVlan = taf_Vlan::GetInstance();
     return tafVlan.RemoveInterface(interfaceRef);
 }
 
-le_result_t taf_netIpPass_SetIPPTOperation
+le_result_t taf_net_SetIPPTOperation
 (
-    taf_netIpPass_InterfaceRef_t  interfaceRef,
-    taf_netIpPass_Operation_t  operation
+    taf_net_InterfaceRef_t  interfaceRef,
+    taf_net_Operation_t  operation
 )
 {
     le_result_t result;
@@ -1623,9 +1675,9 @@ le_result_t taf_netIpPass_SetIPPTOperation
 
 }
 
-le_result_t taf_netIpPass_SetIPPTDeviceMacAddress
+le_result_t taf_net_SetIPPTDeviceMacAddress
 (
-    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_net_InterfaceRef_t  interfaceRef,
     taf_net_VlanIfType_t ifType,
     const char *macAddr
 )
@@ -1657,9 +1709,9 @@ le_result_t taf_netIpPass_SetIPPTDeviceMacAddress
   *  - LE_BAD_PARAMETER -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_netIpPass_SetIPPassThroughConfig
+le_result_t taf_net_SetIPPassThroughConfig
 (
-    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_net_InterfaceRef_t  interfaceRef,
     uint16_t vlanid
 )
 {
@@ -1681,7 +1733,7 @@ le_result_t taf_netIpPass_SetIPPassThroughConfig
  *   - NULL -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-taf_netIpPass_InterfaceRef_t taf_netIpPass_GetIPPassThroughConfig
+taf_net_InterfaceRef_t taf_net_GetIPPassThroughConfig
 (
     uint16_t vlanId
 )
@@ -1690,10 +1742,10 @@ taf_netIpPass_InterfaceRef_t taf_netIpPass_GetIPPassThroughConfig
     return tafVlan.GetIPPassThroughConfig(vlanId);
 }
 
-le_result_t taf_netIpPass_GetIPPTOperation
+le_result_t taf_net_GetIPPTOperation
 (
-    taf_netIpPass_InterfaceRef_t interfaceRef,
-    taf_netIpPass_Operation_t*  operation
+    taf_net_InterfaceRef_t interfaceRef,
+    taf_net_Operation_t*  operation
 )
 {
     le_result_t result;
@@ -1706,9 +1758,9 @@ le_result_t taf_netIpPass_GetIPPTOperation
     return result;
 }
 
-le_result_t taf_netIpPass_GetIPPTDeviceMacAddress
+le_result_t taf_net_GetIPPTDeviceMacAddress
 (
-    taf_netIpPass_InterfaceRef_t interfaceRef,
+    taf_net_InterfaceRef_t interfaceRef,
     taf_net_VlanIfType_t *ifType,
     char *macAddr,
     size_t macAddrSize
@@ -1744,9 +1796,9 @@ le_result_t taf_netIpPass_GetIPPTDeviceMacAddress
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_netIpPass_SetIPConfig
+le_result_t taf_net_SetIPConfig
 (
-    taf_netIpPass_InterfaceRef_t  interfaceRef,
+    taf_net_InterfaceRef_t  interfaceRef,
     taf_net_NetIpType_t  ipType,
     taf_net_VlanIfType_t ifType,
     uint16_t vlanId
@@ -1761,11 +1813,11 @@ le_result_t taf_netIpPass_SetIPConfig
     return result;
 }
 
-le_result_t taf_netIpPass_SetIPConfigParams
+le_result_t taf_net_SetIPConfigParams
 (
-    taf_netIpPass_InterfaceRef_t  interfaceRef,
-    taf_netIpPass_IpAssignOperation_t ipOpr,
-    taf_netIpPass_IpAssignType_t ipType
+    taf_net_InterfaceRef_t  interfaceRef,
+    taf_net_IpAssignOperation_t ipOpr,
+    taf_net_IpAssignType_t ipType
 )
 {
     le_result_t result;
@@ -1777,10 +1829,10 @@ le_result_t taf_netIpPass_SetIPConfigParams
     return result;
 }
 
-le_result_t taf_netIpPass_SetIPConfigAddressParams
+le_result_t taf_net_SetIPConfigAddressParams
 (
-    taf_netIpPass_InterfaceRef_t  interfaceRef,
-    const taf_netIpPass_IpAddressInfo_t*  ipAddrInfo
+    taf_net_InterfaceRef_t  interfaceRef,
+    const taf_net_IpAddressInfo_t*  ipAddrInfo
 )
 {
     le_result_t result;
@@ -1807,11 +1859,11 @@ le_result_t taf_netIpPass_SetIPConfigAddressParams
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_netIpPass_GetIPConfigParams
+le_result_t taf_net_GetIPConfigParams
 (
-    taf_netIpPass_InterfaceRef_t vlanIPRef,
-    taf_netIpPass_IpAssignOperation_t* ipOpr,
-    taf_netIpPass_IpAssignType_t* ipType
+    taf_net_InterfaceRef_t vlanIPRef,
+    taf_net_IpAssignOperation_t* ipOpr,
+    taf_net_IpAssignType_t* ipType
 )
 {
     le_result_t result;
@@ -1824,10 +1876,10 @@ le_result_t taf_netIpPass_GetIPConfigParams
     return result;
 }
 
-le_result_t taf_netIpPass_GetIPConfigAddressParams
+le_result_t taf_net_GetIPConfigAddressParams
 (
-    taf_netIpPass_InterfaceRef_t vlanIPRef,
-    taf_netIpPass_IpAddressInfo_t*  ipAddrInfo
+    taf_net_InterfaceRef_t vlanIPRef,
+    taf_net_IpAddressInfo_t*  ipAddrInfo
 )
 {
     le_result_t result;
@@ -1838,7 +1890,7 @@ le_result_t taf_netIpPass_GetIPConfigAddressParams
     return result;
 }
 
-taf_netIpPass_InterfaceRef_t taf_netIpPass_GetIPConfig
+taf_net_InterfaceRef_t taf_net_GetIPConfig
 (
     taf_net_NetIpType_t  ipType,
     taf_net_VlanIfType_t ifType,
@@ -1847,6 +1899,102 @@ taf_netIpPass_InterfaceRef_t taf_netIpPass_GetIPConfig
 {
     auto &tafVlan = taf_Vlan::GetInstance();
     return tafVlan.GetIPConfig(ipType,ifType,vlanId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IP Passthrough feature configuration Network Address Translation (NAT) is enabled or not.
+ * IP Passthrough with NAT or without NAT is a device level configuration.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_net_GetIPPTNatConfig
+(
+    taf_net_VlanRef_t vlanRef,
+    bool       *isNatEnabled       ///< True when NAT enabled.
+)
+{
+    LE_UNUSED(vlanRef);   // as of now IPPT NAT config is device level hence vlanRef is not needed.
+    auto &tafVlan = taf_Vlan::GetInstance();
+    return tafVlan.GetIPPassThroughNatConfig(isNatEnabled);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Allows the client to configure the Network Address Translation (NAT) for IP passthrough
+ * feature. Network Address Translation (NAT) is enabled or not.
+ * IP Passthrough with NAT or without NAT is a device level configuration.
+ * Configuration changes will be persistent across reboots.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_net_SetIPPTNatConfig
+(
+    taf_net_VlanRef_t vlanRef,
+    bool       isNatEnabled
+)
+{
+    LE_UNUSED(vlanRef);   // as of now IPPT NAT config is device level hence vlanRef is not needed.
+    auto &tafVlan = taf_Vlan::GetInstance();
+    return tafVlan.SetIPPassThroughNatConfig(isNatEnabled);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the backhaul preference for default bridge.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_net_GetBackhaulPreference
+(
+    taf_net_VlanRef_t       vlanRef,
+    taf_net_BackhaulType_t* backhaulPrefListPtr,
+    size_t* backhaulPrefListSizePtr
+)
+{
+    LE_UNUSED(vlanRef);  //as of now only default bridge is allowed hence vlanRef is not needed.
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(backhaulPrefListPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(profileList)");
+    TAF_ERROR_IF_RET_VAL(backhaulPrefListSizePtr == nullptr, LE_BAD_PARAMETER, "Null ptr(listSize)");
+
+    return tafVlan.GetBackhaulPreference(backhaulPrefListPtr,backhaulPrefListSizePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the backhaul preference for default bridge.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_net_SetBackhaulPreference
+(
+    taf_net_VlanRef_t       vlanRef,
+    const taf_net_BackhaulType_t* backhaulPrefListPtr,
+    size_t backhaulPrefListSize
+)
+{
+    LE_UNUSED(vlanRef);  //as of now only default bridge is allowed hence vlanRef is not needed.
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(backhaulPrefListPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(profileList)");
+
+    return tafVlan.SetBackhaulPreference(backhaulPrefListPtr,backhaulPrefListSize);
 }
 
 
@@ -2881,6 +3029,7 @@ int32_t taf_net_GetGsbBandWidth
 
     return tafGsb.GetGsbBandWidth(gsbRef);
 }
+
 
 COMPONENT_INIT
 {

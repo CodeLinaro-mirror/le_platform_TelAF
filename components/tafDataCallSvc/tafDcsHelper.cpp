@@ -9,7 +9,7 @@
  */
 
 #include "tafDcsHelper.hpp"
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 std::string taf_DCSHelper::ApnTypeMaskToString(taf_dcs_ApnType_t apnTypeMask)
 {

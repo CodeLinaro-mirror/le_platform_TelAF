@@ -1,35 +1,6 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef TAF_SECURITY_SVR_HPP
@@ -65,6 +36,7 @@ typedef struct
     taf_diagSecurity_RxSecAccessMsgHandlerRef_t handlerRef;        ///< Rx SecAccess handler ref.
     le_msg_SessionRef_t sessionRef;                                ///< Client-server session ref.
     le_dls_List_t supportedVlanList;
+    uint16_t selectedVlanId;
 }taf_SecuritySvc_t;
 
 //-------------------------------------------------------------------------------------------------
@@ -156,8 +128,9 @@ typedef struct
     uint16_t        vlanId;
 }taf_SecurityVlanIdNode_t;
 
+
 // Security access service class
-namespace telux {
+//namespace telux {
     namespace tafsvc {
         class taf_SecuritySvr : public ITafSvc, public taf_UDSInterface
         {
@@ -194,12 +167,14 @@ namespace telux {
                                 taf_diagSecurity_SesChangeHandlerFunc_t handlerPtr,
                                         void* contextPtr);
                 void RemoveSesChangeHandler(taf_diagSecurity_SesChangeHandlerRef_t handlerRef);
+                le_result_t SelectTargetVlanID(taf_diagSecurity_ServiceRef_t svcRef,
+                        uint16_t vlanId);
                 le_result_t GetCurrentSesType(taf_diagSecurity_ServiceRef_t svcRef,
                         uint8_t* currentTypePtr);
                 le_result_t ReleaseSesChangeMsg(taf_diagSecurity_SesChangeRef_t sesChangeRef);
 
                 // internal function to get current session
-                le_result_t GetCurrentSession(uint8_t* currentSesPtr);
+                void UpdateCurrentSesType(uint16_t vlanId, uint8_t CurrentSesType);
 
                 // SecurityAccess 0x11
                 static void RxSecAccessEventHandler(void* reportPtr);
@@ -248,9 +223,6 @@ namespace telux {
                 le_mem_PoolRef_t SvcPool;
                 le_ref_MapRef_t SvcRefMap;
 
-                // Maintain current session type and set default session on starting of service.
-                uint8_t currentSesType = 0x01;
-
                 // Rx message resource
                 le_mem_PoolRef_t RxSesTypePool;
                 le_ref_MapRef_t RxSesTypeRefMap;
@@ -278,5 +250,5 @@ namespace telux {
                 le_event_HandlerRef_t SecAccessEventHandlerRef;
         };
     }
-} /* #ifndef TAF_SECURITY_SVR_HPP */
+//} /* #ifndef TAF_SECURITY_SVR_HPP */
 #endif

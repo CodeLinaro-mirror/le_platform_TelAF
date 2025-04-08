@@ -11,6 +11,7 @@ sources:
     JSONParser/tafMngdConnSvcParser_PolicyParser.cpp
     JSONParser/tafMngdConnSvcParser_ConfigurationParser.cpp
     ConfigTreeHelper/tafMngdConn_ConfigTreeHelper.cpp
+    $TELAF_ROOT/components/tafDataCallSvc/tafDcsHelper.cpp
 }
 
 provides:
@@ -33,7 +34,7 @@ requires:
 #if ${LE_CONFIG_TARGET_SIMULATION} = ""
         taf_ecall.api
         taf_net.api
-        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdPm.api
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/taf_mngdPm.api
 #endif
     }
 
@@ -56,6 +57,7 @@ cxxflags:
     -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/ECall
     -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/JSONParser
     -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc
+    -I$TELAF_ROOT/components/tafDataCallSvc
     -I$LEGATO_ROOT/framework/liblegato
 }
 

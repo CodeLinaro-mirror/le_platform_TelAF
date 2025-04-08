@@ -15,6 +15,9 @@ export LEGATO_VERSION=$(cat "${TELAF_ROOT}/VERSION" 2>/dev/null)
 export TELAF_PROP=${CURDIR}/../telaf-prop
 export TELAF_NOSHIP=${CURDIR}/../telaf-noship
 
+export TELAF_PA_DEFAULT=${CURDIR}/../telaf-pa-default
+export TELAF_PA=${CURDIR}/../telaf-pa
+
 # Setup toolchain from default location
 setup_toolchain_default_location() {
     local TARGET=$1
@@ -128,6 +131,7 @@ build_extras() {
     declare -A EXTRA_ENUM=(
         [prop]="TELAF_PROP"         # Map 'prop' to 'TELAF_PROP'
         [noship]="TELAF_NOSHIP"     # Map 'noship' to 'TELAF_NOSHIP'
+		[pa]="TELAF_PA"
     )
 
     local EXTRA_TYPE=$1
@@ -181,16 +185,20 @@ function build_target() {
     # Build telaf-noship source code if exists
     build_extras "noship" "${TARGET}"
 
+    build_extras "pa" "${TARGET}"
+
     # Repack TelAF image
     local TELAF_REPACK_DIR="${TELAF_ROOT}/build/${TARGET}/"
     local TELAF_NOSHIP_BUILD_DIR="${TELAF_ROOT}/build/${TARGET}/telaf-noship"
     local TELAF_PROP_BUILD_DIR="${TELAF_ROOT}/build/${TARGET}/telaf-prop"
+    local TELAF_PA_BUILD_DIR="${TELAF_ROOT}/build/${TARGET}/telaf-pa"
+
     [[ ! -d $TELAF_NOSHIP_BUILD_DIR ]] && TELAF_NOSHIP_BUILD_DIR=$TELAF_NOSHIP
     [[ ! -d $TELAF_PROP_BUILD_DIR ]] && TELAF_PROP_BUILD_DIR=$TELAF_PROP
 
     echo "### telaf-noship dir: ${TELAF_NOSHIP_BUILD_DIR} ###"
     echo "### telaf-prop dir: ${TELAF_PROP_BUILD_DIR} ###"
-    ${TELAF_ROOT}/mkimg.sh "${TARGET}" "$TELAF_REPACK_DIR" "$TELAF_NOSHIP_BUILD_DIR" "$TELAF_PROP_BUILD_DIR"
+    ${TELAF_ROOT}/mkimg.sh "${TARGET}" "$TELAF_REPACK_DIR" "$TELAF_NOSHIP_BUILD_DIR" "$TELAF_PROP_BUILD_DIR" "$TELAF_PA_BUILD_DIR"
     if [ $? -ne 0 ]; then
         echo "Error: ${TELAF_ROOT}/mkimg.sh ${TARGET} "$TELAF_REPACK_DIR" "$TELAF_NOSHIP_BUILD_DIR" "$TELAF_PROP_BUILD_DIR""
         return

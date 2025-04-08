@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -110,7 +110,10 @@ typeCollection SimSvcTypes {
         
         /** The operation is suspended.  **/
         TELEPHONY_RESULT_T_SUSPENDED = 24
-            
+        
+        /** @deprecated It is not possible to perform the requested action.  **/
+        TELEPHONY_RESULT_T_NOT_POSSIBLE = 25
+               
     }
     
     /**

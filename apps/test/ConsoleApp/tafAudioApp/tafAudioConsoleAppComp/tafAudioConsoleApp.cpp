@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include <iostream>
 #include <string>
@@ -120,7 +92,16 @@ static void MyMediaEventHandler
             break;
         case TAF_AUDIO_MEDIA_ERROR:
             LE_INFO("File event is TAF_AUDIO_MEDIA_ERROR.");
-            cout<<"****Playback error***"<<endl;
+            if (streamRef == playerRef)
+                cout<<"****Playback error***"<<endl;
+            else if (streamRef == txPlayerRef)
+                cout<<"****Remote playback error***"<<endl;
+            else if (streamRef == recorderRef)
+                cout<<"****Capture error***"<<endl;
+            else if (streamRef == rxRecorderRef)
+                cout<<"****Remote capture error***"<<endl;
+            else
+                LE_INFO(" Unknown stream playback/capture error");
             le_sem_Post(tafAudioAppSem);
             break;
         case TAF_AUDIO_MEDIA_NO_MORE_SAMPLES:
@@ -1493,6 +1474,8 @@ void StartInputMonitoring
                 LE_TEST_OK(res == LE_OK, "Successfully set the volume");
                 if(res == LE_OK)
                     cout<< "Successfully set the volume" << endl;
+                else if(res == LE_UNSUPPORTED)
+                    cout << "SetVolume on remote stream is not supported" << endl;
                 else
                     cout<< "Failed to set the volume" << endl;
             }
@@ -1653,7 +1636,12 @@ void StartInputMonitoring
 
                 }
                 LE_TEST_OK(res == LE_OK, "Successfully get the volume level");
-                cout << "Volume level is " << getVolLevel << endl;
+                if(res == LE_OK)
+                    cout << "Volume level is " << getVolLevel << endl;
+                else if(res == LE_UNSUPPORTED)
+                    cout << "GetVolume on remote stream is not supported" << endl;
+                else
+                    cout << "Failed to get the volume" << endl;
             }
             else if (strncmp(inputStr, "setMute", 7) == 0)
             {
@@ -1843,6 +1831,12 @@ void StartInputMonitoring
                     }
                 }
                 LE_TEST_OK(res == LE_OK, "Successfully set the mute status");
+                if(res == LE_OK)
+                    cout<< "Successfully set the mute status" << endl;
+                else if(res == LE_UNSUPPORTED)
+                    cout << "SetMute on remote stream is not supported" << endl;
+                else
+                    cout<< "Failed to set the mute status" << endl;
             }
             else if (strncmp(inputStr, "getMute", 7) == 0)
             {
@@ -2026,7 +2020,12 @@ void StartInputMonitoring
                     }
                 }
                 LE_TEST_OK(res == LE_OK, "Successfully got the mute status");
-                cout << "Mute status is " << isMute << endl;
+                if(res == LE_OK)
+                    cout << "Mute status is " << isMute << endl;
+                else if(res == LE_UNSUPPORTED)
+                    cout << "GetMute on remote stream is not supported" << endl;
+                else
+                    cout<< "Failed to get the mute status" << endl;
             }
             else if (strncmp(inputStr, "start voice", 11) == 0)
             {

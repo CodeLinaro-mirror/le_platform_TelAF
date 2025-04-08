@@ -32,7 +32,7 @@
             "Storages": [
                 {
                     "StorageName": "testSvcStorage",
-                    "AccessibleApps": ["tafMngdStorageUnitTest"]
+                    "AccessibleApps": ["tafMngdStorageUnitTest", "tafMngdSec2ndSharedApp", "tafMngdSecSharedApp"]
                 },
                 {
                     "StorageName": "SvcStorageInstance",

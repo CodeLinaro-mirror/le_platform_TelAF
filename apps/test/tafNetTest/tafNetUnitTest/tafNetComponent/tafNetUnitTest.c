@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -95,6 +95,7 @@ taf_net_RouteChangeHandlerRef_t routeChangeHandlerRef;
 taf_net_GatewayChangeHandlerRef_t gatewayChangeHandlerRef;
 taf_net_DNSChangeHandlerRef_t DNSChangeHandlerRef;
 taf_net_DestNatChangeHandlerRef_t DestNatChangeHandlerRef;
+taf_net_VlanHwAccelerationStateHandlerRef_t VlanHwAccelerationStateHandlerRef;
 
 static void NetRouteChangeHandlerFunc
 (
@@ -163,6 +164,20 @@ static void* DestNatThread(void* contextPtr){
     le_event_RunLoop();
     return NULL;
 }
+static void VlanHwAccelerationStateHandlerFunc(taf_net_VlanRef_t vlanRef,taf_net_VlanHwAccelerationState_t state,void* contextPtr){
+    LE_INFO("**** Handler for VLAN HW Accerelation Change Indication (Begin)****");
+    LE_INFO("----state: %d", state);
+    LE_INFO("**** Handler for VLAN HW Accerelation Change Indication (End)****");
+}
+static void* VlanHwAccThread(void* contextPtr){
+    taf_net_ConnectService();
+    VlanHwAccelerationStateHandlerRef = taf_net_AddVlanHwAccelerationStateHandler(NULL,(taf_net_VlanHwAccelerationStateHandlerFunc_t)VlanHwAccelerationStateHandlerFunc, NULL);
+    LE_ASSERT(VlanHwAccelerationStateHandlerRef != NULL);
+    le_sem_Post(semaphore);
+    le_event_RunLoop();
+    return NULL;
+}
+
 static void NetworkGetInterfaceListTest(){
     taf_net_InterfaceInfo_t intfInfoListPtr[50];
     size_t listSize = 0;
@@ -539,43 +554,76 @@ static void L2tpUnitTestFunc(void){
     le_event_RunLoop();
 }
 static void StopSocksAsyncHandlerFunc( le_result_t result, void* contextPtr){
-    LE_INFO("**** Handler for stop socks Asynchronously (Begin)****");
-    LE_INFO("result: %d", result);
-    if(result == LE_OK){
-        LE_INFO("======== SOCKS test successfully ========");
-        exit(EXIT_SUCCESS);
-    }else
-        exit(EXIT_FAILURE);
+    LE_TEST_INFO("**** Handler for stop socks Asynchronously (Begin)****");
+    LE_TEST_INFO("result: %d", result);
+    LE_TEST_OK(LE_OK == result, "taf_net_DisableSocksAsync result: %d", result);
+
+    LE_TEST_INFO("======== SOCKS tests completed ========");
+    LE_TEST_EXIT;
+    exit(result);
 }
 static void StartSocksAsyncHandlerFunc(le_result_t result, void* contextPtr){
-    LE_INFO("**** Handler for start socks Asynchronously (Begin)****");
-    LE_INFO("result: %d", result);
+    LE_TEST_INFO("**** Handler for start socks Asynchronously (Begin)****");
+    LE_TEST_INFO("result: %d", result);
     le_thread_Sleep(1);
+    LE_TEST_OK(LE_OK == result, "taf_net_EnableSocksAsync result: %d", result);
     if(result == LE_OK)
         taf_net_DisableSocksAsync(StopSocksAsyncHandlerFunc,NULL);
-    LE_INFO("**** Handler for start socks Asynchronously (End)****");
+    LE_TEST_INFO("**** Handler for start socks Asynchronously (End)****");
 }
 static void SocksUnitTestFunc(void){
     char ifName[50];
-    taf_net_AuthMethod_t authType;
-    LE_ASSERT(taf_net_SetSocksAuthMethod(TAF_NET_SOCKS_NONE) == LE_OK);
-    authType = taf_net_GetSocksAuthMethod();
-    LE_ASSERT(authType == TAF_NET_SOCKS_NONE);
-    LE_ASSERT(taf_net_SetSocksAuthMethod(TAF_NET_SOCKS_USER_PASSWD) == LE_OK);
-    authType = taf_net_GetSocksAuthMethod();
-    LE_ASSERT(authType == TAF_NET_SOCKS_USER_PASSWD);
-    LE_ASSERT(taf_net_SetSocksLanInterface("eth0.5") == LE_OK);
-    LE_ASSERT(taf_net_GetSocksLanInterface(ifName,50) == LE_OK);
-    LE_ASSERT(strncmp(ifName,"eth0.5", 50) == 0);
-    LE_ASSERT(taf_net_SetSocksLanInterface("bridge0") == LE_OK);
-    LE_ASSERT(taf_net_AddSocksAssociation("test",4) == LE_OK);
-    LE_ASSERT(taf_net_RemoveSocksAssociation("test") == LE_OK);
-    LE_ASSERT(taf_net_AddSocksAssociation("testnew",5) == LE_OK);
-    LE_ASSERT(taf_net_RemoveSocksAssociation("testnew") == LE_OK);
+    taf_net_AuthMethod_t authTypeGet, authTypeSet;
+    le_result_t result;
+
+    LE_TEST_PLAN(LE_TEST_NO_PLAN);
+
+    authTypeGet = taf_net_GetSocksAuthMethod();
+    LE_TEST_INFO("SOCKS Auth method: %d", authTypeGet);
+
+    // Switch the auth type
+    if (TAF_NET_SOCKS_NONE == authTypeGet)
+    {
+        authTypeSet = TAF_NET_SOCKS_USER_PASSWD;
+    }
+    else
+    {
+        authTypeSet = TAF_NET_SOCKS_NONE;
+    }
+    result = taf_net_SetSocksAuthMethod(authTypeSet);
+    LE_TEST_OK(LE_OK == result, "taf_net_SetSocksAuthMethod, type: %d result: %d",
+                                                                    authTypeSet, result);
+    authTypeGet = taf_net_GetSocksAuthMethod();
+    LE_TEST_OK(authTypeGet == authTypeSet, "taf_net_GetSocksAuthMethod");
+
+    result = taf_net_SetSocksLanInterface("eth0.5");
+    LE_TEST_OK(LE_OK == result, "taf_net_SetSocksLanInterface(eth0.5), result: %d",result);
+
+    result = taf_net_GetSocksLanInterface(ifName,50);
+    LE_TEST_OK(LE_OK == result, "taf_net_GetSocksLanInterface, result: %d", result);
+    LE_TEST_OK(strncmp(ifName, "eth0.5", 50) == 0, "ifName %s", ifName);
+
+    result = taf_net_SetSocksLanInterface("bridge0");
+    LE_TEST_OK(LE_OK == result, "taf_net_SetSocksLanInterface(bridge0), result: %d", result);
+
+    result = taf_net_AddSocksAssociation("test",4);
+    LE_TEST_OK(LE_OK == result, "taf_net_AddSocksAssociation(test), result: %d", result);
+    result = taf_net_RemoveSocksAssociation("test");
+    LE_TEST_OK(LE_OK == result, "taf_net_RemoveSocksAssociation(test), result: %d", result);
+
+    result = taf_net_AddSocksAssociation("testnew",5);
+    LE_TEST_OK(LE_OK == result, "taf_net_AddSocksAssociation(testnew), result: %d", result);
+    result = taf_net_RemoveSocksAssociation("testnew");
+    LE_TEST_OK(LE_OK == result, "taf_net_RemoveSocksAssociation(testnew), result: %d", result);
+
     LE_INFO("Enabling SOCKS...");
-    LE_ASSERT(taf_net_EnableSocks()== LE_OK);
+    result = taf_net_EnableSocks();
+    LE_TEST_OK(LE_OK == result, "taf_net_EnableSocks, result: %d", result);
     le_thread_Sleep(2);
-    taf_net_DisableSocks();
+    LE_TEST_INFO("Disabling SOCKS...");
+    result = taf_net_DisableSocks();
+    LE_TEST_OK(LE_OK == result, "taf_net_DisableSocks, result: %d", result);
+
     LE_INFO("======== Async socks Test ========");
     le_thread_Sleep(2);
     taf_net_EnableSocksAsync(StartSocksAsyncHandlerFunc,NULL);
@@ -710,6 +758,10 @@ static void* UnitTestNetThread(void* contextPtr){
         threadRef = le_thread_Create("DestNatChgTh", DestNatThread, NULL);
         le_thread_Start(threadRef);
         LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
+        LE_INFO("======== 1.4 VLAN HW ACC change Handler ========");
+        threadRef = le_thread_Create("VlanHwAccChgTh", VlanHwAccThread, NULL);
+        le_thread_Start(threadRef);
+        LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
         LE_INFO("======== 2 Network unit test start========");
         NetworkUnitTestFunc();
         le_thread_Sleep(1);
@@ -724,6 +776,7 @@ static void* UnitTestNetThread(void* contextPtr){
         taf_net_RemoveGatewayChangeHandler(gatewayChangeHandlerRef);
         taf_net_RemoveDNSChangeHandler(DNSChangeHandlerRef);
         taf_net_RemoveDestNatChangeHandler(DestNatChangeHandlerRef);
+        taf_net_RemoveVlanHwAccelerationStateHandler(VlanHwAccelerationStateHandlerRef);
     }else if(strcmp(testType, "vlan") == 0){
         LE_INFO("======== VLAN unit test start========");
         VlanUnitTestFunc();

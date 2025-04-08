@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -13,7 +13,6 @@
 #include "tafDataIDSvr.hpp"
 #include "tafDataAccessComp.h"
 
-namespace telux {
 namespace tafsvc {
 
 typedef struct SnapshotItem {
@@ -86,7 +85,6 @@ private:
 
 };
 
-}
 }
 
 #endif /* TAF_SNAPSHOT_SVR_HPP */

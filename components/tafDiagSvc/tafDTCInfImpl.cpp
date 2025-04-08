@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #include "legato.h"
 #include "interfaces.h"
@@ -39,7 +11,7 @@
 #include "tafEventSvr.hpp"
 #include "tafSecuritySvr.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -98,7 +70,7 @@ void taf_DTCInf::UDSMsgHandler
                 }
 
                 uint8_t dtcStatusMask = msgPtr[2];
-                result = GetNumOfDtcByStatusMask(dtcStatusMask);
+                result = GetNumOfDtcByStatusMask(dtcStatusMask, addrPtr->vlanId);
                 if(result != LE_OK)
                 {
                     LE_ERROR("Error while getting data for no of dtc by status mask!");
@@ -124,7 +96,7 @@ void taf_DTCInf::UDSMsgHandler
 
                 uint8_t statusMask = msgPtr[2];
 
-                result = GetDtcByStatusMask(statusMask);
+                result = GetDtcByStatusMask(statusMask, addrPtr->vlanId);
                 if(result != LE_OK)
                 {
                     LE_ERROR("Error while getting data for dtc for status mask!");
@@ -148,7 +120,7 @@ void taf_DTCInf::UDSMsgHandler
                     return;
                 }
 
-                result = GetDtcSnapshotID();
+                result = GetDtcSnapshotID(addrPtr->vlanId);
                 if(result != LE_OK)
                 {
                     LE_ERROR("Error while getting data for dtc snapshot ID!");
@@ -174,7 +146,7 @@ void taf_DTCInf::UDSMsgHandler
                 uint32_t dtcMaskRec = ((msgPtr[2] << 16) + (msgPtr[3] << 8) + (msgPtr[4]));
                 uint8_t dtcRecNum = msgPtr[5];
 
-                result = GetDtcSnapshotRecordByDTCNum(dtcMaskRec, dtcRecNum);
+                result = GetDtcSnapshotRecordByDTCNum(dtcMaskRec, dtcRecNum, addrPtr->vlanId);
                 if (result == LE_OK)
                 {
                     LE_DEBUG("Send positive response msg!");
@@ -204,7 +176,7 @@ void taf_DTCInf::UDSMsgHandler
                 uint32_t dtcMaskRec = ((msgPtr[2] << 16) + (msgPtr[3] << 8) + (msgPtr[4]));
                 uint8_t dtcExtDataRec = msgPtr[5];
 
-                result = GetExtDataRecordByDTCNum(dtcMaskRec, dtcExtDataRec);
+                result = GetExtDataRecordByDTCNum(dtcMaskRec, dtcExtDataRec, addrPtr->vlanId);
                 if (result == LE_OK)
                 {
                     LE_DEBUG("Send positive response msg!");
@@ -232,7 +204,7 @@ void taf_DTCInf::UDSMsgHandler
                     return;
                 }
 
-                result = GetSupportedDtc();
+                result = GetSupportedDtc(addrPtr->vlanId);
                 if(result != LE_OK)
                 {
                     LE_ERROR("Error while getting data for dtc report supported DTC!");
@@ -256,7 +228,7 @@ void taf_DTCInf::UDSMsgHandler
                     return;
                 }
 
-                result = GetFaultDetCounter();
+                result = GetFaultDetCounter(addrPtr->vlanId);
                 if(result != LE_OK)
                 {
                     LE_ERROR("Error while getting data for fault detection counter!");
@@ -346,7 +318,8 @@ void taf_DTCInf::UDSMsgHandler
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_DTCInf::GetNumOfDtcByStatusMask
 (
-    uint8_t statusMask
+    uint8_t statusMask,
+    uint16_t vlanId
 )
 {
     LE_DEBUG("GetNumOfDtcByStatusMask");
@@ -355,12 +328,12 @@ le_result_t taf_DTCInf::GetNumOfDtcByStatusMask
     bool isSesTypeConfig = false;
 
     // Get the current active session type.
-    auto &security = taf_SecuritySvr::GetInstance();
+    auto& backend = taf_DiagBackend::GetInstance();
     uint8_t currentSesType;
-    result = security.GetCurrentSession(&currentSesType);
+    result = backend.GetCurrentSesType(vlanId, &currentSesType);
     if (result != LE_OK)
     {
-        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
     LE_DEBUG("Current session is %x", currentSesType);
@@ -435,7 +408,8 @@ le_result_t taf_DTCInf::GetNumOfDtcByStatusMask
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_DTCInf::GetDtcByStatusMask
 (
-    uint8_t statusMask
+    uint8_t statusMask,
+    uint16_t vlanId
 )
 {
     LE_DEBUG("GetDtcByStatusMask");
@@ -444,12 +418,12 @@ le_result_t taf_DTCInf::GetDtcByStatusMask
     bool isSesTypeConfig = false;
 
     // Get the current active session type.
-    auto &security = taf_SecuritySvr::GetInstance();
+    auto& backend = taf_DiagBackend::GetInstance();
     uint8_t currentSesType;
-    result = security.GetCurrentSession(&currentSesType);
+    result = backend.GetCurrentSesType(vlanId, &currentSesType);
     if (result != LE_OK)
     {
-        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
     LE_DEBUG("Current session is %x", currentSesType);
@@ -526,6 +500,7 @@ le_result_t taf_DTCInf::GetDtcByStatusMask
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_DTCInf::GetDtcSnapshotID
 (
+    uint16_t vlanId
 )
 {
     LE_DEBUG("GetDtcSnapshotID");
@@ -534,12 +509,12 @@ le_result_t taf_DTCInf::GetDtcSnapshotID
     bool isSesTypeConfig = false;
 
     // Get the current active session type.
-    auto &security = taf_SecuritySvr::GetInstance();
+    auto& backend = taf_DiagBackend::GetInstance();
     uint8_t currentSesType;
-    result = security.GetCurrentSession(&currentSesType);
+    result = backend.GetCurrentSesType(vlanId, &currentSesType);
     if (result != LE_OK)
     {
-        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
     LE_DEBUG("Current session is %x", currentSesType);
@@ -612,7 +587,8 @@ le_result_t taf_DTCInf::GetDtcSnapshotID
 le_result_t taf_DTCInf::GetDtcSnapshotRecordByDTCNum
 (
     uint32_t dtcMaskRec,
-    uint8_t dtcRecNum
+    uint8_t dtcRecNum,
+    uint16_t vlanId
 )
 {
     LE_DEBUG("GetDtcSnapshotRecordByDTCNum");
@@ -621,12 +597,12 @@ le_result_t taf_DTCInf::GetDtcSnapshotRecordByDTCNum
     bool isSesTypeConfig = false;
 
     // Get the current active session type.
-    auto &security = taf_SecuritySvr::GetInstance();
+    auto& backend = taf_DiagBackend::GetInstance();
     uint8_t currentSesType;
-    result = security.GetCurrentSession(&currentSesType);
+    result = backend.GetCurrentSesType(vlanId, &currentSesType);
     if (result != LE_OK)
     {
-        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
     LE_DEBUG("Current session is %x", currentSesType);
@@ -709,7 +685,8 @@ le_result_t taf_DTCInf::GetDtcSnapshotRecordByDTCNum
 le_result_t taf_DTCInf::GetExtDataRecordByDTCNum
 (
     uint32_t dtcMaskRcd,
-    uint8_t dtcExtDataRec
+    uint8_t dtcExtDataRec,
+    uint16_t vlanId
 )
 {
     LE_DEBUG("GetExtDataRecordByDTCNum");
@@ -718,12 +695,12 @@ le_result_t taf_DTCInf::GetExtDataRecordByDTCNum
     bool isSesTypeConfig = false;
 
     // Get the current active session type.
-    auto &security = taf_SecuritySvr::GetInstance();
+    auto& backend = taf_DiagBackend::GetInstance();
     uint8_t currentSesType;
-    result = security.GetCurrentSession(&currentSesType);
+    result = backend.GetCurrentSesType(vlanId, &currentSesType);
     if (result != LE_OK)
     {
-        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
     LE_DEBUG("Current session is %x", currentSesType);
@@ -796,6 +773,7 @@ le_result_t taf_DTCInf::GetExtDataRecordByDTCNum
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_DTCInf::GetSupportedDtc
 (
+    uint16_t vlanId
 )
 {
     LE_DEBUG("GetSupportedDtc");
@@ -804,12 +782,12 @@ le_result_t taf_DTCInf::GetSupportedDtc
     bool isSesTypeConfig = false;
 
     // Get the current active session type.
-    auto &security = taf_SecuritySvr::GetInstance();
+    auto& backend = taf_DiagBackend::GetInstance();
     uint8_t currentSesType;
-    result = security.GetCurrentSession(&currentSesType);
+    result = backend.GetCurrentSesType(vlanId, &currentSesType);
     if (result != LE_OK)
     {
-        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
     LE_DEBUG("Current session is %x", currentSesType);
@@ -886,6 +864,7 @@ le_result_t taf_DTCInf::GetSupportedDtc
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_DTCInf::GetFaultDetCounter
 (
+    uint16_t vlanId
 )
 {
     LE_DEBUG("GetFaultDetCounter");
@@ -894,12 +873,12 @@ le_result_t taf_DTCInf::GetFaultDetCounter
     bool isSesTypeConfig = false;
 
     // Get the current active session type.
-    auto &security = taf_SecuritySvr::GetInstance();
+    auto& backend = taf_DiagBackend::GetInstance();
     uint8_t currentSesType;
-    result = security.GetCurrentSession(&currentSesType);
+    result = backend.GetCurrentSesType(vlanId, &currentSesType);
     if (result != LE_OK)
     {
-        LE_ERROR("GetCurrentSession function return type is incorrect!");
+        LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
     LE_DEBUG("Current session is %x", currentSesType);

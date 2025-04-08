@@ -1,36 +1,8 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 
 #ifndef TAF_DTC_SVR_HPP
 #define TAF_DTC_SVR_HPP
@@ -116,8 +88,6 @@ typedef enum
     REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING = 0x78
 }taf_DTCErrorCode_t;
 
-namespace telux
-{
     namespace tafsvc
     {
         class taf_DTCInf : public ITafSvc, public taf_UDSInterface
@@ -139,26 +109,27 @@ namespace telux
                         const uint8_t* dataPtr, size_t dataLen);
 
                 // Subfunction reportNumberOfDTCByStatusMask (0x01)
-                le_result_t GetNumOfDtcByStatusMask(uint8_t statusMask);
+                le_result_t GetNumOfDtcByStatusMask(uint8_t statusMask, uint16_t vlanId);
 
                 // Subfunction reportDTCByStatusMask (0x02)
-                le_result_t GetDtcByStatusMask(uint8_t statusMask);
+                le_result_t GetDtcByStatusMask(uint8_t statusMask, uint16_t vlanId);
 
                 // Subfunction reportDTCSnapshotIdentification (0x03)
-                le_result_t GetDtcSnapshotID();
+                le_result_t GetDtcSnapshotID(uint16_t vlanId);
 
                 // Subfunction reportDTCSnapshotRecordByDTCNumber (0x04)
                 le_result_t GetDtcSnapshotRecordByDTCNum(uint32_t dtcMaskRec,
-                        uint8_t dtcRecNum);
+                        uint8_t dtcRecNum, uint16_t vlanId);
 
                 // Subfunction reportDTCExtDataRecordByDTCNumber (0x06)
-                le_result_t GetExtDataRecordByDTCNum(uint32_t dtcMaskRec, uint8_t dtcExtDataRec);
+                le_result_t GetExtDataRecordByDTCNum(uint32_t dtcMaskRec, uint8_t dtcExtDataRec,
+                        uint16_t vlanId);
 
                 // Subfunction reportSupportedDTC (0x0A)
-                le_result_t GetSupportedDtc();
+                le_result_t GetSupportedDtc(uint16_t vlanId);
 
                 // Subfunction reportDTCFaultDetectionCounter (0x14)
-                le_result_t GetFaultDetCounter();
+                le_result_t GetFaultDetCounter(uint16_t vlanId);
 
                 // ClearDiagnosticInformation service (0x14)
                 le_result_t GetClearDTCResp(uint32_t grpOfDTC);
@@ -181,5 +152,4 @@ namespace telux
                 uint16_t respBufLen = 0;
         };
     }
-}
 #endif /* TAF_DTC_SVR_HPP */

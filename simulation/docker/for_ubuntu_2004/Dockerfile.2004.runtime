@@ -51,6 +51,7 @@ RUN python3 -m pip install supervisor-stdout==0.1.1
 RUN apt-get -y --no-install-recommends install libsqlite3-dev
 RUN apt-get -y --no-install-recommends install nano
 RUN apt-get -y --no-install-recommends install libglib2.0-dev
+RUN apt-get -y --no-install-recommends install vlan
 
 # Make root password to: [simula]
 RUN echo 'root:simula' | chpasswd

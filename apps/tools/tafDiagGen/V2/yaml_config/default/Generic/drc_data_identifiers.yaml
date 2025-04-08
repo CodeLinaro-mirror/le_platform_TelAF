@@ -63,4 +63,27 @@ did_all:
         extended_diagnostic_session: [ R ]
       diagnostic_session_and_security_level:
         execution_authorization_pattern_read: base
-
+  0xF190:
+    identification:
+      code: 0xF190
+      did_mnemonic: VIN
+    implementation:
+      did_size: 17
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: VIN
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session: [ R ]
+        extended_diagnostic_session: [ R, W ]
+      diagnostic_session_and_security_level:
+        execution_authorization_pattern_read: base
+        execution_authorization_pattern_write: test_did_write

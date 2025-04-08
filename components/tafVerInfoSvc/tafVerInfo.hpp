@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -40,8 +40,6 @@
 //--------------------------------------------------------------------------------------------------
 #define LXC_HASH_FILE "/lxcrootfs/etc/hash"
 
-namespace telux
-{
     namespace tafsvc
     {
         class taf_verInfo : public ITafSvc
@@ -63,6 +61,5 @@ namespace telux
                 hash_Inf_t* hashInfPtr;
 		};
     }
-}
 
 #endif

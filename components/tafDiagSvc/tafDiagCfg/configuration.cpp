@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /* Auto-generated file.  DO NOT EDIT !! */
@@ -9,10 +9,12 @@
 #include "configuration.hpp"
 #include "legato.h"
 
-#include <iostream>
 #include <typeinfo>
+#include <stdexcept>
+#include <algorithm>
+#include <tuple>
+#include <unordered_map>
 
-namespace telux {
 namespace tafsvc {
 namespace cfg {
 
@@ -90,7 +92,7 @@ EXPORT_SYM Node & get_event_node(uint16_t event_id)
 
     for (auto & ev: evs)
     {
-        int this_event_id = std::stoi(ev.first);
+        int this_event_id = std::stoi(ev.second.get<std::string>("id"));
 
         if ((uint16_t)this_event_id == event_id)
         {
@@ -337,6 +339,12 @@ static const std::map<std::string, std::vector<uint8_t>> pattern_maps =
         1, /* --> security_level */
         0x61, /* SecAcc_Level_61 */
         } },
+    { "test_did_write", {
+        1, /* --> session */
+        0x03, /* extended_diagnostic_session */
+        1, /* --> security_level */
+        0x01, /* SecAcc_Level_01 */
+        } },
     { "precheck_to_default_session", {
         5, /* --> session */
         0x01, /* default_session */
@@ -471,13 +479,841 @@ EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_levels_by_session_i
     return level_list;
 }
 
+
+class DynamicBitArray {
+private:
+    std::vector<uint8_t> data;
+    size_t bit_count = 0;
+
+    std::pair<size_t, size_t> get_pos(size_t bit_index) const
+    {
+        return {bit_index / 8, bit_index % 8};
+    }
+
+public:
+    DynamicBitArray() = default;
+
+    explicit DynamicBitArray(uint32_t value)
+    {
+        for (int i = 31; i >= 0; --i)
+        {
+            push_back((value >> i) & 1);
+        }
+    }
+
+    DynamicBitArray(const uint8_t* payload, uint32_t plen, size_t start_bit, size_t bit_len)
+    {
+        if (plen * 8 < bit_len || plen * 8 < (start_bit + bit_len))
+        {
+            throw std::invalid_argument("Payload length is invalid!");
+        }
+
+        size_t current_bit = start_bit;
+
+        for (size_t i = 0; i < bit_len; ++i)
+        {
+            size_t byte_index = current_bit / 8;
+            size_t bit_offset = 7 - (current_bit % 8);
+            bool bit = (payload[byte_index] >> bit_offset) & 1;
+            push_back(bit);
+            current_bit++;
+        }
+    }
+
+    size_t size() const
+    {
+        return bit_count;
+    }
+
+    void push_back(bool bit)
+    {
+        size_t byte_index, bit_offset;
+        std::tie(byte_index, bit_offset) = get_pos(bit_count);
+
+        if (byte_index >= data.size())
+        {
+            data.push_back(0);
+        }
+
+        if (bit)
+        {
+            data[byte_index] |= (1 << (7 - bit_offset));
+        }
+
+        bit_count++;
+    }
+
+    bool at(size_t bit_index) const
+    {
+        if (bit_index >= bit_count)
+        {
+            throw std::out_of_range("Bit index out of range");
+        }
+
+        size_t byte_index, bit_offset;
+        std::tie(byte_index, bit_offset) = get_pos(bit_index);
+
+        return (data[byte_index] >> (7 - bit_offset)) & 1;
+    }
+
+    bool operator==(const DynamicBitArray &other) const
+    {
+        if (bit_count != other.bit_count)
+        {
+            return false;
+        }
+        for (size_t i = 0; i < bit_count; i++)
+        {
+            if (at(i) != other.at(i))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    uint32_t to_uint32_t() const
+    {
+        if (bit_count > 32)
+        {
+            throw std::invalid_argument("Cannot convert more than 32 bits to integer");
+        }
+
+        uint32_t result = 0;
+        for (size_t i = 0; i < bit_count; i++)
+        {
+            if (at(i))
+            {
+                result |= (uint32_t(1) << (bit_count - 1 - i));
+            }
+        }
+        return result;
+    }
+
+    int32_t to_int32_t() const
+    {
+        if (bit_count > 32)
+        {
+            throw std::invalid_argument("Cannot convert more than 32 bits to int32_t");
+        }
+        if (bit_count == 0)
+        {
+            throw std::invalid_argument("No bits to convert");
+        }
+
+        uint32_t unsigned_value = 0;
+
+        for (size_t i = 0; i < bit_count; i++)
+        {
+            if (at(i))
+            {
+                unsigned_value |= (1 << (bit_count - 1 - i));
+            }
+        }
+
+        bool is_negative = at(0);
+        if (is_negative)
+        {
+            unsigned_value |= (~0u << bit_count);
+        }
+
+        return static_cast<int32_t>(unsigned_value);
+    }
+
+    std::string to_string() const
+    {
+        std::string result;
+        for (size_t i = 0; i < bit_count; i++)
+        {
+            result += at(i) ? '1' : '0';
+        }
+        return result;
+    }
+};
+
+typedef enum {
+    eNumeric_List = 0,
+    eNumeric      = 1,
+    eNot_Numeric  = 2,
+} data_item_type_t;
+
+static const char * get_type_name(data_item_type_t type)
+{
+    switch(type)
+    {
+        case eNumeric_List:
+            return "Numeric List";
+        case eNumeric:
+            return "Numeric";
+        case eNot_Numeric:
+            return "Not numeric";
+        default:
+            return "(unknown)";
+    }
 }
+
+struct Checker
+{
+    data_item_type_t type_;
+
+    uint32_t bit_start_;
+    uint32_t bit_size_;
+
+    Checker(data_item_type_t type, uint32_t bit_start, uint32_t bit_size)
+        :type_(type), bit_start_(bit_start), bit_size_(bit_size) {}
+
+    virtual bool banned(const uint8_t * payload, uint32_t plen) = 0;
+};
+
+struct NumericList: public Checker
+{
+    /* coding item type: uint8_t, uint16_t, uint32_t */
+
+    std::shared_ptr<std::vector<uint32_t>> coding_list = nullptr;
+
+    NumericList(uint32_t bit_start, uint32_t bit_size, std::shared_ptr<std::vector<uint32_t>> codings)
+    :Checker(eNumeric_List, bit_start, bit_size), coding_list(codings) {}
+
+    bool banned(const uint8_t * payload, uint32_t plen)
+    {
+        if (plen * 8 < bit_size_)
+        {
+            return true;
+        }
+
+        if (plen * 8 < bit_start_ + bit_size_)
+        {
+            return true;
+        }
+
+        DynamicBitArray pending_data(payload, plen, bit_start_, bit_size_);
+
+        LE_DEBUG("(%s): binary: [%s]", get_type_name(type_), pending_data.to_string().c_str());
+
+        uint32_t pending_value;
+        try
+        {
+            pending_value = pending_data.to_uint32_t();
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Payload to (uint32_t) failed!");
+            return true; /* Parse failed -> Ban it */
+        }
+
+        auto it = std::find(coding_list->begin(),
+                            coding_list->end(),
+                            pending_value);
+
+        /* Coding list is whitelist */
+        if (it == coding_list->end())
+        {
+            return true; /* Not found -> Ban it */
+        }
+
+        return false;
+    }
+};
+
+struct Numeric: public Checker
+{
+    std::shared_ptr<std::vector<uint32_t>> coding_list = nullptr;
+    bool coding_selected = false;
+
+    int32_t min_;
+    int32_t max_;
+
+    Numeric(uint32_t bit_start, uint32_t bit_size, std::shared_ptr<std::vector<uint32_t>> codings)
+    :Checker(eNumeric, bit_start, bit_size), coding_list(codings), coding_selected(true) {}
+
+    Numeric(uint32_t bit_start, uint32_t bit_size, int32_t _min, int32_t _max)
+    :Checker(eNumeric, bit_start, bit_size), min_(_min), max_(_max) {}
+
+    bool banned(const uint8_t * payload, uint32_t plen)
+    {
+        if (plen * 8 < bit_size_)
+        {
+            return true;
+        }
+
+        if (plen * 8 < bit_start_ + bit_size_)
+        {
+            return true;
+        }
+
+        DynamicBitArray pending_data(payload, plen, bit_start_, bit_size_);
+
+        LE_DEBUG("(%s): binary: [%s]", get_type_name(type_), pending_data.to_string().c_str());
+
+        if (coding_selected)
+        {
+            /* Same to 'coding_list' for 'Numeric List', whitelist for checking */
+
+            uint32_t pending_value;
+            try
+            {
+                pending_value = pending_data.to_uint32_t();
+            }
+            catch (const std::exception& e)
+            {
+                LE_ERROR("Payload to (uint32_t) failed!");
+                return true; /* Parse failed -> Ban it */
+            }
+
+            auto it = std::find(coding_list->begin(),
+                                coding_list->end(),
+                                pending_value);
+
+            if (it == coding_list->end())
+            {
+                return true; /* Not found -> Ban it */
+            }
+        }
+        else /* min, max selected */
+        {
+            int32_t pending_value;
+            try
+            {
+                pending_value = pending_data.to_int32_t();
+            }
+            catch (const std::exception& e)
+            {
+                LE_ERROR("Payload to (int32_t) failed!");
+                return true; /* Parse failed -> Ban it */
+            }
+
+            if (pending_value < min_ || pending_value > max_)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+};
+
+struct NotNumeric: public Checker
+{
+    bool forbidden_characters_selected = false;
+    bool forbidden_values_selected = false;
+
+    std::shared_ptr<std::vector<uint8_t>> forbidden_characters_ = nullptr;
+    std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values_ = nullptr;
+
+    NotNumeric(
+        uint32_t bit_start, uint32_t bit_size,
+        std::shared_ptr<std::vector<uint8_t>> forbidden_characters,
+        std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values)
+    :Checker(eNot_Numeric, bit_start, bit_size)
+    {
+        if (bit_start % 8 != 0)
+        {
+            throw std::invalid_argument("forbidden characters bit_start % 8 != 0");
+        }
+
+        if (bit_size % 8 != 0 || bit_size == 0)
+        {
+            throw std::invalid_argument("forbidden characters bit_size % 8 != 0 or bit_size == 0");
+        }
+
+        if (forbidden_characters != nullptr)
+        {
+            forbidden_characters_ = forbidden_characters;
+            forbidden_characters_selected = true;
+        }
+
+        if (forbidden_values != nullptr)
+        {
+            forbidden_values_ = forbidden_values;
+            forbidden_values_selected = true;
+        }
+    }
+
+    bool banned(const uint8_t * payload, uint32_t plen)
+    {
+        if (plen * 8 < bit_size_)
+        {
+            return true;
+        }
+
+        if (plen * 8 < (bit_start_ + bit_size_))
+        {
+            return true;
+        }
+
+        if (forbidden_values_selected)
+        {
+            DynamicBitArray pending_data(payload, plen, bit_start_, bit_size_);
+
+            for (auto & forbidden_values : *forbidden_values_)
+            {
+                DynamicBitArray forbidden_value(
+                                    forbidden_values->data(),
+                                    (uint32_t) forbidden_values->size(),
+                                    0,
+                                    (uint32_t) (forbidden_values->size() * 8));
+
+                LE_INFO("(bits) pending_data size: %u, forbidden_value size: %u",
+                        (uint32_t) bit_size_,
+                        (uint32_t) (forbidden_values->size() * 8));
+
+                LE_INFO("(%s): pending_data binary:    [%s]", get_type_name(type_), pending_data.to_string().c_str());
+                LE_INFO("(%s): forbidden_value binary: [%s]", get_type_name(type_), forbidden_value.to_string().c_str());
+
+                if (pending_data == forbidden_value)
+                {
+                    return true;
+                }
+            }
+        }
+
+        if (forbidden_characters_selected)
+        {
+            uint32_t start_byte = bit_start_ / 8;
+            uint32_t nbytes = bit_size_ / 8;
+
+            for (uint32_t i = 0; i < nbytes; i++)
+            {
+                uint8_t value = payload[start_byte + i];
+
+                auto it = std::find(forbidden_characters_->begin(),
+                                    forbidden_characters_->end(),
+                                    value);
+
+                if (it != forbidden_characters_->end())
+                {
+                    return true; /* (Black List) Found ? Ban it */
+                }
+            }
+        }
+
+        return false;
+    }
+};
+
+struct DidChecker
+{
+    uint16_t did_code_;
+    uint32_t did_size_;
+    std::vector< std::shared_ptr<Checker> > checker_list_;
+
+    DidChecker(uint16_t did_code, uint32_t did_size)
+        : did_code_(did_code), did_size_(did_size) {}
+
+    void append(std::shared_ptr<Checker> checker)
+    {
+        if (checker != nullptr)
+        {
+            this->checker_list_.push_back(checker);
+        }
+        else
+        {
+            LE_ERROR("Why the checker is nullptr ?");
+        }
+    }
+
+    bool do_check(const uint8_t * payload, uint32_t plen)
+    {
+        /*
+            True:  forbidden
+            False: not forbidden
+        */
+
+        LE_INFO("Checkers for DID: [0x%04X] / size: [%u]", did_code_, did_size_);
+
+        if (payload == nullptr || plen == 0)
+        {
+            LE_ERROR("Bad parameters for did do_check !");
+            return true; /* Ban it */
+        }
+
+        for (auto & checker: this->checker_list_)
+        {
+            LE_DEBUG("> %s (%d) <-", get_type_name(checker->type_), checker->type_);
+        }
+
+        for (auto & checker: this->checker_list_)
+        {
+            LE_INFO(">> %s (%d)", get_type_name(checker->type_), checker->type_);
+
+            if (checker->banned(payload, plen))
+            {
+                LE_INFO("Checking stop at -> (%s) Banned!", get_type_name(checker->type_));
+                return true; /* Ban it */
+            }
+        }
+
+        LE_INFO("Checking done <- Pass!");
+        return false; /* All pass or Empty checker list */
+    }
+};
+
+static std::shared_ptr<std::unordered_map<uint16_t, std::shared_ptr<DidChecker>>> checker_map = nullptr;
+
+EXPORT_SYM bool is_forbidden(uint16_t did_code, const uint8_t *payload, uint32_t plen)
+{
+    auto checker = checker_map->find(did_code);
+
+    if (checker != checker_map->end())
+    {
+        return checker->second->do_check(payload, plen);
+    }
+    else /* Not Found -> Pass */
+    {
+        return false;
+    }
+}
+
 }
 }
 
+using namespace tafsvc::cfg;
+
 COMPONENT_INIT
 {
-    LE_INFO("Diagnostic Configuration Inited (v:%s, t:%s)",
+    LE_INFO("Diagnostic Configuration (v:%s, t:%s)",
             tafDiagGen_tool_version,
             tafDiagGen_tool_timestamp);
+
+    try
+    {
+        checker_map = std::make_shared<std::unordered_map<uint16_t, std::shared_ptr<DidChecker>>>();
+
+        {
+            /* -- DID: 0xA5A5 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xA5A5, 2 /* did_size Bytes */);
+
+            std::shared_ptr<std::vector<uint8_t>> forbidden_characters_0_7 = nullptr;
+
+            std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values_0_7 = nullptr;
+
+            std::shared_ptr<NotNumeric> checker_0_7 = std::make_shared<NotNumeric>
+            (
+                0 * 8 + (7 - 7),
+                8,
+                forbidden_characters_0_7,
+                forbidden_values_0_7
+            );
+
+            did_checker->append(checker_0_7);
+
+            checker_map->emplace(0xA5A5, did_checker);
+        }
+        {
+            /* -- DID: 0xA5A6 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xA5A6, 1 /* did_size Bytes */);
+
+            std::shared_ptr<std::vector<uint8_t>> forbidden_characters_0_7 = nullptr;
+
+            std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values_0_7 = nullptr;
+
+            std::shared_ptr<NotNumeric> checker_0_7 = std::make_shared<NotNumeric>
+            (
+                0 * 8 + (7 - 7),
+                8,
+                forbidden_characters_0_7,
+                forbidden_values_0_7
+            );
+
+            did_checker->append(checker_0_7);
+
+            checker_map->emplace(0xA5A6, did_checker);
+        }
+        {
+            /* -- DID: 0xA0A0 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xA0A0, 1 /* did_size Bytes */);
+
+            std::shared_ptr<std::vector<uint8_t>> forbidden_characters_0_7 = nullptr;
+
+            std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values_0_7 = nullptr;
+
+            std::shared_ptr<NotNumeric> checker_0_7 = std::make_shared<NotNumeric>
+            (
+                0 * 8 + (7 - 7),
+                8,
+                forbidden_characters_0_7,
+                forbidden_values_0_7
+            );
+
+            did_checker->append(checker_0_7);
+
+            checker_map->emplace(0xA0A0, did_checker);
+        }
+        {
+            /* -- DID: 0xA0A1 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xA0A1, 1 /* did_size Bytes */);
+
+            std::shared_ptr<std::vector<uint8_t>> forbidden_characters_0_7 = nullptr;
+
+            std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values_0_7 = nullptr;
+
+            std::shared_ptr<NotNumeric> checker_0_7 = std::make_shared<NotNumeric>
+            (
+                0 * 8 + (7 - 7),
+                8,
+                forbidden_characters_0_7,
+                forbidden_values_0_7
+            );
+
+            did_checker->append(checker_0_7);
+
+            checker_map->emplace(0xA0A1, did_checker);
+        }
+        {
+            /* -- DID: 0xA0A2 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xA0A2, 1 /* did_size Bytes */);
+
+            std::shared_ptr<std::vector<uint8_t>> forbidden_characters_0_7 = nullptr;
+
+            std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values_0_7 = nullptr;
+
+            std::shared_ptr<NotNumeric> checker_0_7 = std::make_shared<NotNumeric>
+            (
+                0 * 8 + (7 - 7),
+                8,
+                forbidden_characters_0_7,
+                forbidden_values_0_7
+            );
+
+            did_checker->append(checker_0_7);
+
+            checker_map->emplace(0xA0A2, did_checker);
+        }
+        {
+            /* -- DID: 0xACC0 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xACC0, 1 /* did_size Bytes */);
+
+            std::shared_ptr<std::vector<uint8_t>> forbidden_characters_0_7 =
+                std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t> {0x0,0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xa,0xb,0xc,0xd,0xe,0xf,0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e,0x1f,0x20,0x21,0x22,0x23,0x24,0x25,0x26,0x27,0x28,0x29,0x2a,0x2b,0x2c,0x2d,0x2e,0x2f,0x3a,0x3b,0x3c,0x3d,0x3e,0x3f,0x40,0x5b,0x5c,0x5d,0x5e,0x5f,0x60,0x61,0x62,0x63,0x64,0x65,0x66,0x67,0x68,0x69,0x6a,0x6b,0x6c,0x6d,0x6e,0x6f,0x70,0x71,0x72,0x73,0x74,0x75,0x76,0x77,0x78,0x79,0x7a,0x7b,0x7c,0x7d,0x7e,0x7f,});
+
+            std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values_0_7 = nullptr;
+
+            std::shared_ptr<NotNumeric> checker_0_7 = std::make_shared<NotNumeric>
+            (
+                0 * 8 + (7 - 7),
+                8,
+                forbidden_characters_0_7,
+                forbidden_values_0_7
+            );
+
+            did_checker->append(checker_0_7);
+
+            checker_map->emplace(0xACC0, did_checker);
+        }
+        {
+            /* -- DID: 0xACC1 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xACC1, 2 /* did_size Bytes */);
+
+            std::shared_ptr<std::vector<uint8_t>> forbidden_characters_0_7 = nullptr;
+
+            std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values_0_7 =
+                std::make_shared<std::vector<std::shared_ptr<std::vector<uint8_t>>>>(
+                    std::initializer_list<std::shared_ptr<std::vector<uint8_t>>>{std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t>{0xFF, 0xCC, }),std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t>{0xFF, 0xDD, }),std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t>{0xAA, 0xCC, }),}
+                );
+
+            std::shared_ptr<NotNumeric> checker_0_7 = std::make_shared<NotNumeric>
+            (
+                0 * 8 + (7 - 7),
+                16,
+                forbidden_characters_0_7,
+                forbidden_values_0_7
+            );
+
+            did_checker->append(checker_0_7);
+
+            checker_map->emplace(0xACC1, did_checker);
+        }
+        {
+            /* -- DID: 0xACC2 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xACC2, 2 /* did_size Bytes */);
+
+            std::shared_ptr<std::vector<uint8_t>> forbidden_characters_0_7 =
+                std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t> {0x0,0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xa,0xb,0xc,0xd,0xe,0xf,0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e,0x1f,});
+
+            std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values_0_7 =
+                std::make_shared<std::vector<std::shared_ptr<std::vector<uint8_t>>>>(
+                    std::initializer_list<std::shared_ptr<std::vector<uint8_t>>>{std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t>{0xFF, 0xFF, }),std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t>{0xCC, 0xAA, }),}
+                );
+
+            std::shared_ptr<NotNumeric> checker_0_7 = std::make_shared<NotNumeric>
+            (
+                0 * 8 + (7 - 7),
+                16,
+                forbidden_characters_0_7,
+                forbidden_values_0_7
+            );
+
+            did_checker->append(checker_0_7);
+
+            checker_map->emplace(0xACC2, did_checker);
+        }
+        {
+            /* -- DID: 0xACC3 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xACC3, 1 /* did_size Bytes */);
+
+
+            std::shared_ptr<std::vector<uint32_t>> coding_0_7 =
+                std::make_shared<std::vector<uint32_t>>(std::initializer_list<uint32_t> {0x0, 0x1, 0x2, });
+
+            std::shared_ptr<Numeric> checker_0_7 = std::make_shared<Numeric>
+            (
+                0 * 8 + (7 - 7),
+                2,
+                coding_0_7
+            );
+
+            did_checker->append(checker_0_7);
+
+            checker_map->emplace(0xACC3, did_checker);
+        }
+        {
+            /* -- DID: 0xACC4 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xACC4, 1 /* did_size Bytes */);
+
+
+                
+            std::shared_ptr<Numeric> checker_0_7 = std::make_shared<Numeric>
+            (
+                0 * 8 + (7 - 7),
+                8,
+                0,
+                20
+            );
+
+            did_checker->append(checker_0_7);
+
+            checker_map->emplace(0xACC4, did_checker);
+        }
+        {
+            /* -- DID: 0xACC5 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xACC5, 1 /* did_size Bytes */);
+
+
+            std::shared_ptr<std::vector<uint32_t>> coding_0_7 =
+                std::make_shared<std::vector<uint32_t>>(std::initializer_list<uint32_t> {0x0, 0x1, 0x2, });
+
+            std::shared_ptr<NumericList> checker_0_7 = std::make_shared<NumericList>
+            (
+                0 * 8 + (7 - 7),
+                2,
+                coding_0_7
+            );
+
+            did_checker->append(checker_0_7);
+
+            std::shared_ptr<std::vector<uint32_t>> coding_0_5 =
+                std::make_shared<std::vector<uint32_t>>(std::initializer_list<uint32_t> {0xA, 0x5, });
+
+            std::shared_ptr<NumericList> checker_0_5 = std::make_shared<NumericList>
+            (
+                0 * 8 + (7 - 5),
+                4,
+                coding_0_5
+            );
+
+            did_checker->append(checker_0_5);
+
+            std::shared_ptr<std::vector<uint32_t>> coding_0_1 =
+                std::make_shared<std::vector<uint32_t>>(std::initializer_list<uint32_t> {0x0, 0x1, 0x2, });
+
+            std::shared_ptr<NumericList> checker_0_1 = std::make_shared<NumericList>
+            (
+                0 * 8 + (7 - 1),
+                2,
+                coding_0_1
+            );
+
+            did_checker->append(checker_0_1);
+
+            checker_map->emplace(0xACC5, did_checker);
+        }
+        {
+            /* -- DID: 0xACC6 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xACC6, 2 /* did_size Bytes */);
+
+
+            std::shared_ptr<std::vector<uint32_t>> coding_0_7 =
+                std::make_shared<std::vector<uint32_t>>(std::initializer_list<uint32_t> {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, });
+
+            std::shared_ptr<NumericList> checker_0_7 = std::make_shared<NumericList>
+            (
+                0 * 8 + (7 - 7),
+                8,
+                coding_0_7
+            );
+
+            did_checker->append(checker_0_7);
+
+            std::shared_ptr<std::vector<uint32_t>> coding_1_7 =
+                std::make_shared<std::vector<uint32_t>>(std::initializer_list<uint32_t> {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, });
+
+            std::shared_ptr<NumericList> checker_1_7 = std::make_shared<NumericList>
+            (
+                1 * 8 + (7 - 7),
+                8,
+                coding_1_7
+            );
+
+            did_checker->append(checker_1_7);
+
+            checker_map->emplace(0xACC6, did_checker);
+        }
+        {
+            /* -- DID: 0xACC7 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xACC7, 1 /* did_size Bytes */);
+
+
+                
+            std::shared_ptr<Numeric> checker_0_7 = std::make_shared<Numeric>
+            (
+                0 * 8 + (7 - 7),
+                8,
+                -10,
+                10
+            );
+
+            did_checker->append(checker_0_7);
+
+            checker_map->emplace(0xACC7, did_checker);
+        }
+        {
+            /* -- DID: 0xF190 -- */
+
+            std::shared_ptr<DidChecker> did_checker = std::make_shared<DidChecker>(0xF190, 17 /* did_size Bytes */);
+
+            std::shared_ptr<std::vector<uint8_t>> forbidden_characters_0_7 =
+                std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t> {0x0,0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xa,0xb,0xc,0xd,0xe,0xf,0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e,0x1f,0x3a,0x3b,0x3c,0x3d,0x3e,0x3f,0x40,0x7b,0x7c,0x7d,0x7e,0x7f,});
+
+            std::shared_ptr<std::vector< std::shared_ptr<std::vector<uint8_t>> >> forbidden_values_0_7 = nullptr;
+
+            std::shared_ptr<NotNumeric> checker_0_7 = std::make_shared<NotNumeric>
+            (
+                0 * 8 + (7 - 7),
+                136,
+                forbidden_characters_0_7,
+                forbidden_values_0_7
+            );
+
+            did_checker->append(checker_0_7);
+
+            checker_map->emplace(0xF190, did_checker);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LE_FATAL("Initialization failed: (%s) <-", e.what());
+    }
 }

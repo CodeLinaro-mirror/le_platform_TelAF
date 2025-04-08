@@ -25,12 +25,14 @@
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
+
+/*
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 
 #include "legato.h"
 #include "interfaces.h"
@@ -42,7 +44,7 @@
 
 using namespace telux::tel;
 using namespace telux::common;
-using namespace telux::tafsvc;
+using namespace tafsvc;
 using namespace std;
 
 LE_MEM_DEFINE_STATIC_POOL(SmsMsg, MAX_OF_SMS_MSG, sizeof(taf_sms_Msg_t));
@@ -317,8 +319,7 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
 
    auto &sms = taf_Sms::GetInstance();
 
-   taf_sms_Msg_t *tafNewMsg = (taf_sms_Msg_t*)le_mem_ForceAlloc(sms.MsgPool);
-   memset(tafNewMsg, 0, sizeof(taf_sms_Msg_t));
+   taf_sms_Msg_t *tafNewMsg = sms.CreateRxMsgNode(nullptr);
 
    tafNewMsg->phoneId = newMsgPtr->phoneId;
 
@@ -328,6 +329,8 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
 
    pduMsg.length = strlen(newMsgPtr->pdu) / 2;
    LE_DEBUG("pduMsg.length = %d", pduMsg.length);
+
+   tafNewMsg->pduReady = true;
 
    if(sms.sysPrefStorage == TAF_SMS_STORAGE_HLOS)
    {
@@ -793,21 +796,24 @@ taf_sms_Msg_t* taf_Sms::CreateRxMsgNode
 
    memset(msgPtr, 0, sizeof(taf_sms_Msg_t));
 
-   memcpy(&(msgPtr->pdu), pduMsg, sizeof(taf_sms_Pdu_t));
-   msgPtr->pduReady = true;
-
-   msgPtr->readStatus = pduMsg->rxStatus;
-   msgPtr->lockStatus = pduMsg->lkStatus;
-   msgPtr->storage = pduMsg->storage;
-   msgPtr->storageIdx = pduMsg->index;
-   msgPtr->phoneId = pduMsg->phoneId;
-
    msgPtr->type = TAF_SMS_TYPE_RX;
    msgPtr->applyDel = false;
 
    msgPtr->tel[0] = '\0';
    msgPtr->text[0] = '\0';
    msgPtr->timestamp[0] = '\0';
+
+   if(pduMsg != nullptr)
+   {
+      memcpy(&(msgPtr->pdu), pduMsg, sizeof(taf_sms_Pdu_t));
+      msgPtr->pduReady = true;
+
+      msgPtr->readStatus = pduMsg->rxStatus;
+      msgPtr->lockStatus = pduMsg->lkStatus;
+      msgPtr->storage = pduMsg->storage;
+      msgPtr->storageIdx = pduMsg->index;
+      msgPtr->phoneId = pduMsg->phoneId;
+   }
 
    return msgPtr;
 }

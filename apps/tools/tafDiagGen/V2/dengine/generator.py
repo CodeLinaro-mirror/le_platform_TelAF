@@ -4,7 +4,7 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
-import os
+import os, re
 import json, hashlib
 from jinja2 import Environment, FileSystemLoader
 from collections import OrderedDict
@@ -41,10 +41,125 @@ def f_to_hex_format(value, width=0):
     assert type(value) is int
     return f"0x{value:0{width}X}"
 
+def f_to_data_item(mnemonic, root):
+    data_item = root['datas'][mnemonic]
+    return data_item
+
+def f_coding_list_conversion(coding_list):
+
+    assert isinstance(coding_list, dict)
+
+    statement = "{"
+    for codev, desc in coding_list.items():
+        # coding item size <= uint32_t
+        assert (type(codev) is int) and (codev < 2**32)
+        statement += f"0x{codev:X}, "
+    statement += "}"
+    return statement
+
+def iterate_hex_string(hex_str):
+    if hex_str.startswith("0x"):
+        hex_str = hex_str[2:]
+    for i in range(0, len(hex_str), 2):
+        yield hex_str[i:i+2]
+
+def format_hex(value):
+    hex_str = f"{value:X}"
+    if len(hex_str) % 2 != 0:
+        hex_str = "0" + hex_str
+    return f"0x{hex_str}"
+
+def f_forbidden_values_conversion(forbidden_values, data_item):
+    assert data_item['functional_definition']['bit_size'] % 8 == 0
+    assert isinstance(forbidden_values, list)
+    assert len(forbidden_values) > 0
+
+    # Usage for below format:
+    # auto outer_vector = std::make_shared<std::vector<std::shared_ptr<std::vector<uint8_t>>>>(
+    #     std::initializer_list<std::shared_ptr<std::vector<uint8_t>>>{
+    #         std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t>{1, 2, 3}),
+    #         std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t>{4, 5, 6}),
+    #         std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t>{7, 8, 9})
+    #     }
+    # );
+
+    statement = "{"
+
+    for byte_queue in forbidden_values:
+
+        each_forbidden_block = "std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t>{"
+
+        value = format_hex(byte_queue)
+        for byte in iterate_hex_string(value):
+            each_forbidden_block += "0x" + byte
+            each_forbidden_block += ", "
+
+        each_forbidden_block += "}),"
+
+        statement += each_forbidden_block
+
+    statement += "}"
+    return statement
+
+range_match = re.compile(r"\s*\((0x[0-9A-Fa-f]+)\.\.(0x[0-9A-Fa-f]+)\)\s*")
+
+def f_forbidden_characters_conversion(forbidden_characters, data_item):
+    assert data_item['functional_definition']['bit_size'] % 8 == 0
+    assert isinstance(forbidden_characters, list)
+
+    statement = "{"
+    for forbidden_range in forbidden_characters:
+        hit = range_match.match(forbidden_range)
+        if hit:
+            start_hex, stop_hex = hit.groups()
+            assert stop_hex >= start_hex
+
+            # (0x00..0x1F)  -> closed-range [0x00:0x1F]
+            for val in range(int(start_hex,16), int(stop_hex,16) + 1):
+                statement += hex(val) + ","
+        else:
+            raise Exception(f"Bad forbidden_characters range provided: {forbidden_range}!")
+    statement += "}"
+    return statement
+
+def signed_range(bits):
+    max_signed = (1 << (bits - 1)) - 1   # 2^(n-1) - 1
+    min_signed = -(1 << (bits - 1))      # -2^(n-1)
+    return min_signed, max_signed
+
+def unsigned_range(bits):
+    max_unsigned = (1 << bits) - 1   # 2^n - 1
+    min_unsigned = 0                 # 0
+    return min_unsigned, max_unsigned
+
+def f_check_min_max(data_item, _min, _max):
+    assert isinstance(data_item, dict)
+    assert 'value_type' in data_item['functional_definition']
+
+    bit_size = data_item['functional_definition']['bit_size']
+    sign = data_item['functional_definition']['value_type']
+
+    if (sign == "sint8"
+    or  sign == "sint16"
+    or  sign == "sint32"):
+        v_min, v_max = signed_range(bit_size)
+        assert _min >= v_min
+        assert _max <= v_max
+    else:
+        v_min, v_max = unsigned_range(bit_size)
+        assert _min >= v_min
+        assert _max <= v_max
+    return ""
+
 Filters = {
     'f_get_list_elm_type': f_get_list_elm_type,
     'f_get_value_type' : f_get_value_type,
     'f_to_hex_format' : f_to_hex_format,
+    'f_to_data_item' : f_to_data_item,
+    'f_coding_list_conversion' : f_coding_list_conversion,
+    'f_forbidden_values_conversion' : f_forbidden_values_conversion,
+    'f_forbidden_characters_conversion' : f_forbidden_characters_conversion,
+    'f_check_min_max': f_check_min_max,
 }
 
 def t_string(value):

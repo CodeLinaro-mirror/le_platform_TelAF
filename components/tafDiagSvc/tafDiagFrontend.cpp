@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -28,7 +28,7 @@
 #include "tafROESvr.hpp"
 #endif
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 static le_result_t ComputeFileMD5
 (

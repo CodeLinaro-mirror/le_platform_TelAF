@@ -256,11 +256,30 @@ RestartTelaf()
 
 TelafStorage()
 {
-    echo "TelAF type :"
-    mount | grep telaf | grep squashfs
-    echo
-    echo "Disk/Flash usage of TelAF:"
-    df app
+    UBI_DVE_NUMBER=`ubinfo -a | grep telaf_a -wB 5 \
+                              | grep "Volume ID" | awk -F '[()]' '{print $2}' | grep -o '[0-9]'`
+    if [ ! "x$UBI_DVE_NUMBER" = x ]; then
+        echo ""
+        ubinfo -d $UBI_DVE_NUMBER -N telaf_a | grep -E "Volume|Size|Name"
+    fi
+
+    UBI_DVE_NUMBER=`ubinfo -a | grep telaf_b -wB 5 \
+                              | grep "Volume ID" | awk -F '[()]' '{print $2}' | grep -o '[0-9]'`
+    if [ ! "x$UBI_DVE_NUMBER" = x ]; then
+        echo ""
+        ubinfo -d $UBI_DVE_NUMBER -N telaf_b | grep -E "Volume|Size|Name"
+    fi
+
+    UBI_DVE_NUMBER=`ubinfo -a | grep telaf_app -wB 5 \
+                              | grep "Volume ID" | awk -F '[()]' '{print $2}' | grep -o '[0-9]'`
+    if [ ! "x$UBI_DVE_NUMBER" = x ]; then
+        echo ""
+        ubinfo -d $UBI_DVE_NUMBER -N telaf_app | grep -E "Volume|Size|Name"
+    fi
+
+    echo ""
+    df -h | head -n 1
+    df -h | grep -w "/mnt/legato"
 }
 
 TelafMemory()

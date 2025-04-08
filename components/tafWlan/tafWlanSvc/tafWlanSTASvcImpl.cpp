@@ -16,7 +16,7 @@
 #include <wpa_ctrl.h>
 #include <errno.h>
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 // Memory pool for STA events for applications
 LE_MEM_DEFINE_STATIC_POOL(StaEventsPool,

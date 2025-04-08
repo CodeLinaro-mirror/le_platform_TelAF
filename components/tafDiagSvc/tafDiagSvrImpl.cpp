@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -7,7 +7,7 @@
 #include "interfaces.h"
 #include "tafDiagSvr.hpp"
 
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 le_dls_List_t taf_DiagSvr::cancelFileXferCbList = LE_DLS_LIST_INIT;
 le_mutex_Ref_t taf_DiagSvr::cancelFileXferListCbMtx = NULL;
@@ -148,6 +148,8 @@ taf_diag_ServiceRef_t taf_DiagSvr::GetService
         // Create a Safe Reference for this service object
         servicePtr->svcRef = (taf_diag_ServiceRef_t)le_ref_CreateRef(SvcRefMap, servicePtr);
 
+        servicePtr->targetVlanId = 0;
+
         LE_INFO("svcRef %p of client %p is created",
                 servicePtr->svcRef, servicePtr->sessionRef);
     }
@@ -246,6 +248,14 @@ le_result_t taf_DiagSvr::SetVlanId
     TAF_ERROR_IF_RET_VAL(vlanId == 0, LE_BAD_PARAMETER, "Invalid vlan Id");
 
 #ifndef LE_CONFIG_DIAG_VSTACK
+    // Check Vlan Id is valid or not.
+    auto& backend = taf_DiagBackend::GetInstance();
+    if (!backend.isVlanIdValid(vlanId))
+    {
+        LE_ERROR("VlanId is unknown");
+        return LE_UNSUPPORTED;
+    }
+
     // Check if the vlan is set.
     le_dls_Link_t* linkPtr = NULL;
     linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
@@ -268,6 +278,8 @@ le_result_t taf_DiagSvr::SetVlanId
     }
 
     vlanPtr->vlanId = vlanId;
+    //Set target VLAN ID with last set VLAN ID
+    servicePtr->targetVlanId = vlanId;
     vlanPtr->link = LE_DLS_LINK_INIT;
     le_dls_Queue(&servicePtr->supportedVlanList, &vlanPtr->link);
 
@@ -275,6 +287,44 @@ le_result_t taf_DiagSvr::SetVlanId
 #else
     return LE_NOT_IMPLEMENTED;
 #endif
+}
+
+le_result_t taf_DiagSvr::SelectTargetVlanID
+(
+    taf_diag_ServiceRef_t svcRef,
+    uint16_t vlanId
+)
+{
+    LE_DEBUG("SelectTargetVlanID");
+
+    taf_DiagSvc_t* servicePtr = (taf_DiagSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+    TAF_ERROR_IF_RET_VAL(vlanId == 0, LE_BAD_PARAMETER, "Invalid vlan Id");
+
+    // Check if Vlan Id is in supported VLAN list.
+    bool isFound = false;
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+    while (linkPtr)
+    {
+        taf_DiagVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_DiagVlanIdNode_t, link);
+        if (vlanPtr != NULL && vlanPtr->vlanId == vlanId)
+        {
+            // Match.
+            isFound = true;
+            break;
+        }
+        linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+    }
+
+    if (!isFound)
+    {
+        LE_ERROR("VlanId is not set");
+        return LE_NOT_FOUND;
+    }
+
+    servicePtr->targetVlanId = vlanId;
+    return LE_OK;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -643,7 +693,7 @@ le_result_t taf_DiagSvr::GetIfNameByVlanIdAndStateList
 
         if (fileXferStatePtr != NULL)
         {
-            LE_INFO("Vlan ID =%d", fileXferStatePtr->vlanId);
+            LE_DEBUG("VLAN ID =%d", fileXferStatePtr->vlanId);
             //Find the first one
             if (vlanId == fileXferStatePtr->vlanId)
             {
@@ -717,55 +767,18 @@ void taf_DiagSvr::CancelFileXferAsync
     le_dls_List_t FileXferStateList = LE_DLS_LIST_INIT;
     taf_uds_GetFileXferActiveStateList(&FileXferStateList);
 
-    //Vlan Id is not set, find ifName with active filexfer state by Vlan Id 0
-    if(le_dls_NumLinks(&servicePtr->supportedVlanList) == 0)
-    {
-        addrInfo.vlanId = 0;
-        LE_INFO("Find ifName with active fileXfer state for vlan Id 0");
+    addrInfo.vlanId = servicePtr->targetVlanId;
+    LE_INFO("Find ifName with active fileXfer state for vlan Id:%d", addrInfo.vlanId);
 
-        result = GetIfNameByVlanIdAndStateList(0, &FileXferStateList, ifName);
-        if(result == LE_OK)
-        {
-            LE_DEBUG("Get active fileXfer state successfully with ifName:%s", ifName);
-            le_utf8_Copy(addrInfo.ifName, ifName, MAX_INTERFACE_NAME_LEN, NULL);
-        }
-        //List is empty, set result to LE_NOT_POSSIBLE.
-        else if(result == LE_NOT_FOUND)
-        {
-            result = LE_NOT_POSSIBLE;
-        }
+    result = GetIfNameByVlanIdAndStateList(addrInfo.vlanId, &FileXferStateList, ifName);
+    if(result == LE_OK)
+    {
+        LE_DEBUG("Get active fileXfer state successfully with ifName:%s", ifName);
+        le_utf8_Copy(addrInfo.ifName, ifName, MAX_INTERFACE_NAME_LEN, NULL);
     }
-    //Vlan Id is set, find ifname with active filexfer state by Vlan Id one by one
-    else
+    else if(result == LE_NOT_FOUND)
     {
-        le_dls_Link_t* linkPtr = NULL;
-
-        linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
-        while (linkPtr)
-        {
-            taf_DiagVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_DiagVlanIdNode_t, link);
-
-            if (vlanPtr != NULL)
-            {
-                addrInfo.vlanId = vlanPtr->vlanId;
-                LE_INFO("Find filexfer state with vlanId:%d", vlanPtr->vlanId);
-                result = GetIfNameByVlanIdAndStateList(vlanPtr->vlanId, &FileXferStateList, ifName);
-                if(result == LE_OK)
-                {
-                    le_utf8_Copy(addrInfo.ifName, ifName, MAX_INTERFACE_NAME_LEN, NULL);
-                    break;
-                }
-                //List is empty, don't need to find the next.
-                else if(result == LE_NOT_FOUND)
-                {
-                    result = LE_NOT_POSSIBLE;
-                    break;
-                }
-            }
-
-            linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
-        }
-
+        result = LE_NOT_POSSIBLE;
     }
 
     //Release FileXferStateList

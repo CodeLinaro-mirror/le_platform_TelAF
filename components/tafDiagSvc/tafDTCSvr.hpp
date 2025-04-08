@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -30,8 +30,6 @@ using namespace std;
  * Diag DTC Server Service Class
  */
 //--------------------------------------------------------------------------------------------------
-namespace telux
-{
     namespace tafsvc
     {
         // used to send event when dtc status change
@@ -201,5 +199,4 @@ namespace telux
 
         };
     }
-}
 #endif /* #ifndef TAF_DTC_SERVER_HPP */

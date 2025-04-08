@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -9,7 +9,7 @@
 #include "tafFlash.hpp"
 
 using namespace std;
-using namespace telux::tafsvc;
+using namespace tafsvc;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -117,9 +117,11 @@ le_result_t taf_flash_MtdOpen
     TAF_ERROR_IF_RET_VAL(it == tafFlashAccess.partitionMap.end(), LE_BAD_PARAMETER,
         "Invalid partition name %s.", partitionNameStr);
 
+    int errCode = 0;
     le_result_t result = taf_lib_flash_OpenPartition(
-        &tafFlashAccess.partitionList.partition[it->second], openMode);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open partition %s", partitionNameStr);
+        &tafFlashAccess.partitionList.partition[it->second], openMode, &errCode);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+        "Fail to open partition %s, error: %s", partitionNameStr, strerror(errCode));
 
     *partitionRef = (taf_flash_PartitionRef_t)le_ref_CreateRef(tafFlashAccess.partitionRefMap,
         (void*)&tafFlashAccess.partitionList.partition[it->second]);
@@ -194,16 +196,22 @@ le_result_t taf_flash_MtdInformation
     TAF_ERROR_IF_RET_VAL(partition == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
 
     /* Get mtd information */
-    le_result_t result = taf_lib_flash_GetMtdWriteSize(partition, pageSize);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get MTD write size.");
+    int errCode = 0;
+    le_result_t result = taf_lib_flash_GetMtdWriteSize(partition, pageSize, &errCode);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+        "Fail to get MTD write size, error: %s", strerror(errCode));
 
-    result = taf_lib_flash_GetMtdEraseSize(partition, blockSize);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get MTD erase size.");
+    errCode = 0;
+    result = taf_lib_flash_GetMtdEraseSize(partition, blockSize, &errCode);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+        "Fail to get MTD erase size, error: %s", strerror(errCode));
     TAF_ERROR_IF_RET_VAL(*blockSize == 0, LE_FAULT, "Invalid para(block size is 0)");
 
     uint32_t size;
-    result = taf_lib_flash_GetMtdSize(partition, &size);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get MTD partition size.");
+    errCode = 0;
+    result = taf_lib_flash_GetMtdSize(partition, &size, &errCode);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+        "Fail to get MTD partition size, errCode: %s", strerror(errCode));
 
     *blocksNumber = size / *blockSize;
 
@@ -211,8 +219,10 @@ le_result_t taf_flash_MtdInformation
     bool isBadBlock = false;
     for (uint32_t index = 0; index < *blocksNumber; index++)
     {
-        result = taf_lib_flash_IsMtdBadBlock(partition, index, &isBadBlock);
-        TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to check MTD block at %d.", index);
+        errCode = 0;
+        result = taf_lib_flash_IsMtdBadBlock(partition, index, &isBadBlock, &errCode);
+        TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+            "Fail to check MTD block at %d, error: %s", index, strerror(errCode));
 
         if (isBadBlock)
         {
@@ -248,7 +258,13 @@ le_result_t taf_flash_MtdEraseBlock
         tafFlashAccess.partitionRefMap, partitionRef);
     TAF_ERROR_IF_RET_VAL(partition == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
 
-    return taf_lib_flash_EraseMtdBlock(partition, blockIndex);
+    int errCode = 0;
+    le_result_t res = taf_lib_flash_EraseMtdBlock(partition, blockIndex, &errCode);
+    if(res != LE_OK)
+    {
+        LE_ERROR("taf_lib_flash_EraseMtdBlock failed, error: %s", strerror(errCode));
+    }
+    return res;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -274,21 +290,28 @@ le_result_t taf_flash_MtdErase
         tafFlashAccess.partitionRefMap, partitionRef);
     TAF_ERROR_IF_RET_VAL(partition == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
 
+
+    int errCode = 0;
     uint32_t blockSize = 0;
-    le_result_t result = taf_lib_flash_GetMtdEraseSize(partition, &blockSize);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get MTD erase size.");
+    le_result_t result = taf_lib_flash_GetMtdEraseSize(partition, &blockSize, &errCode);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+        "Fail to get MTD erase size, error = %s", strerror(errCode));
     TAF_ERROR_IF_RET_VAL(blockSize == 0, LE_FAULT, "Invalid para(block size is 0)");
 
     uint32_t size = 0;
-    result = taf_lib_flash_GetMtdSize(partition, &size);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get MTD partition size.");
+    errCode = 0;
+    result = taf_lib_flash_GetMtdSize(partition, &size, &errCode);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+        "Fail to get MTD partition size, error: %s", strerror(errCode));
 
     uint32_t blockNum = size / blockSize;
     bool isBadBlock = false;
     for (uint32_t i = 0; i < blockNum; i++)
     {
-        result = taf_lib_flash_IsMtdBadBlock(partition, i, &isBadBlock);
-        TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get block %d status.", i);
+        errCode = 0;
+        result = taf_lib_flash_IsMtdBadBlock(partition, i, &isBadBlock, &errCode);
+        TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+            "Fail to get block %d status, error: %s", i, strerror(errCode));
 
         if (isBadBlock)
         {
@@ -296,8 +319,10 @@ le_result_t taf_flash_MtdErase
         }
         else
         {
-            result = taf_lib_flash_EraseMtdBlock(partition, i);
-            TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to erase block %d.", i);
+            errCode = 0;
+            result = taf_lib_flash_EraseMtdBlock(partition, i, &errCode);
+            TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+                "Fail to erase block %d, error: %s", i, strerror(errCode));
         }
     }
 
@@ -330,8 +355,15 @@ le_result_t taf_flash_MtdReadPage
         tafFlashAccess.partitionRefMap, partitionRef);
     TAF_ERROR_IF_RET_VAL(partition == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
 
-    return taf_lib_flash_ReadPartition(partition, pageIndex * TAF_FLASH_MTD_PAGE_MAX_READ_SIZE,
-        readData, sizePtr);
+    int err = 0;
+    le_result_t res = taf_lib_flash_ReadPartition(
+        partition, pageIndex * TAF_FLASH_MTD_PAGE_MAX_READ_SIZE, readData, sizePtr, &err);
+    if(res != LE_OK)
+    {
+        LE_ERROR("taf_lib_flash_ReadPartition failed, error: %s", strerror(err));
+    }
+
+    return res;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -360,7 +392,14 @@ le_result_t taf_flash_MtdRead
         tafFlashAccess.partitionRefMap, partitionRef);
     TAF_ERROR_IF_RET_VAL(partition == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
 
-    return taf_lib_flash_ReadPartition(partition, offset, readData, sizePtr);
+    int err = 0;
+    le_result_t res = taf_lib_flash_ReadPartition(
+        partition, offset, readData, sizePtr, &err);
+    if(res != LE_OK)
+    {
+        LE_ERROR("taf_lib_flash_ReadPartition failed, error: %s", strerror(err));
+    }
+    return res;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -389,8 +428,14 @@ le_result_t taf_flash_MtdWritePage
         tafFlashAccess.partitionRefMap, partitionRef);
     TAF_ERROR_IF_RET_VAL(partition == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
 
-    return taf_lib_flash_WritePartition(partition, pageIndex * TAF_FLASH_MTD_PAGE_MAX_WRITE_SIZE,
-        writeData, size);
+    int err = 0;
+    le_result_t res = taf_lib_flash_WritePartition(
+        partition, pageIndex * TAF_FLASH_MTD_PAGE_MAX_WRITE_SIZE, writeData, size, &err);
+    if(res != LE_OK)
+    {
+        LE_ERROR("taf_lib_flash_WritePartition failed, error: %s", strerror(err));
+    }
+    return res;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -419,7 +464,14 @@ le_result_t taf_flash_MtdWrite
         tafFlashAccess.partitionRefMap, partitionRef);
     TAF_ERROR_IF_RET_VAL(partition == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
 
-    return taf_lib_flash_WritePartition(partition, offset, writeData, size);
+    int err = 0;
+    le_result_t res = taf_lib_flash_WritePartition(
+        partition, offset, writeData, size, &err);
+    if(res != LE_OK)
+    {
+        LE_ERROR("taf_lib_flash_WritePartition failed, error: %s", strerror(err));
+    }
+    return res;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -445,8 +497,11 @@ bool taf_flash_MtdIsBlockGood
     TAF_ERROR_IF_RET_VAL(partition == NULL, false, "Invalid para(null reference ptr)");
 
     bool isBadBlock = false;
-    le_result_t result = taf_lib_flash_IsMtdBadBlock(partition, blockIndex, &isBadBlock);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, false, "Fail to check block status.");
+    int errCode = 0;
+    le_result_t result = taf_lib_flash_IsMtdBadBlock(
+        partition, blockIndex, &isBadBlock, &errCode);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, false,
+        "Fail to check block status, error: %s", strerror(errCode));
 
     return !isBadBlock;
 }
@@ -497,9 +552,11 @@ le_result_t taf_flash_UbiOpen
     TAF_ERROR_IF_RET_VAL(it == tafFlashAccess.partitionMap.end(), LE_BAD_PARAMETER,
         "Invalid volume name %s.", volumeNameStr);
 
+    int errCode = 0;
     le_result_t result = taf_lib_flash_OpenPartition(
-        &tafFlashAccess.partitionList.partition[it->second], openMode);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open volume %s", volumeNameStr);
+        &tafFlashAccess.partitionList.partition[it->second], openMode, &errCode);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+        "Fail to open volume %s, error: %s", volumeNameStr, strerror(errCode));
 
     *volumeRef = (taf_flash_VolumeRef_t)le_ref_CreateRef(tafFlashAccess.partitionRefMap,
         (void*)&tafFlashAccess.partitionList.partition[it->second]);
@@ -608,7 +665,14 @@ le_result_t taf_flash_UbiRead
         tafFlashAccess.partitionRefMap, volumeRef);
     TAF_ERROR_IF_RET_VAL(partition == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
 
-    return taf_lib_flash_ReadPartition(partition, offset, readData, sizePtr);
+    int err = 0;
+    le_result_t res = taf_lib_flash_ReadPartition(
+        partition, offset, readData, sizePtr, &err);
+    if(res != LE_OK)
+    {
+        LE_ERROR("taf_lib_flash_ReadPartition failed, error: %s", strerror(err));
+    }
+    return res;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -637,7 +701,13 @@ le_result_t taf_flash_UbiInitWrite
         tafFlashAccess.partitionRefMap, volumeRef);
     TAF_ERROR_IF_RET_VAL(partition == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
 
-    return taf_lib_flash_SetUbiVolUpSize(partition, writeSize);
+    int err = 0;
+    le_result_t res = taf_lib_flash_SetUbiVolUpSize(partition, writeSize, &err);
+    if(res != LE_OK)
+    {
+        LE_ERROR("taf_lib_flash_SetUbiVolUpSize failed, error: %s", strerror(err));
+    }
+    return res;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -667,7 +737,14 @@ le_result_t taf_flash_UbiWrite
         tafFlashAccess.partitionRefMap, volumeRef);
     TAF_ERROR_IF_RET_VAL(partition == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
 
-    return taf_lib_flash_WritePartition(partition, 0, writeData, size);
+    int err = 0;
+    le_result_t res = taf_lib_flash_WritePartition(
+        partition, 0, writeData, size, &err);
+    if(res != LE_OK)
+    {
+        LE_ERROR("taf_lib_flash_WritePartition failed, error: %s", strerror(err));
+    }
+    return res;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -692,8 +769,10 @@ le_result_t taf_flash_UbiErase
         tafFlashAccess.partitionRefMap, volumeRef);
     TAF_ERROR_IF_RET_VAL(partition == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
 
-    le_result_t result = taf_lib_flash_EraseUbiVol(partition);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to erase volume.");
+    int err = 0;
+    le_result_t result = taf_lib_flash_EraseUbiVol(partition, &err);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+        "Fail to erase volume, error: %s", strerror(err));
 
     return LE_OK;
 }

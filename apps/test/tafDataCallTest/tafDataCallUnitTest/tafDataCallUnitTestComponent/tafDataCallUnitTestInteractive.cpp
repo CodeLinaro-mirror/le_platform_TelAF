@@ -485,6 +485,7 @@ static le_result_t SetProfileName(taf_dcs_ProfileRef_t ProfileRef)
     char profileName[TAF_DCS_NAME_MAX_LEN + 1] = {0}; // 1 for trailing null
     std::cout << "Enter profile name(max " << TAF_DCS_NAME_MAX_LEN << " characters):  ";
     std::cin.clear();
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     std::cin.getline(profileName, (TAF_DCS_NAME_MAX_LEN));
     result = taf_dcs_SetProfileName(ProfileRef, profileName);
     if (LE_OK != result)

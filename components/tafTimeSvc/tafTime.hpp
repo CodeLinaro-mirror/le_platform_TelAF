@@ -237,7 +237,7 @@ typedef struct
                                                  ///  Actual value = field value * 15 minutes.
     uint8_t dstAdj = 0;                          ///< Daylight saving adjustment in hours to obtain
                                                  ///  local time. Possible values: 0, 1, and 2.
-    taf_mngdStorSecData_DataRef_t secStrgdataRef = NULL; ///< Managed storage service reference
+    taf_mngdStorSecData_DataRef_t secStrgdataRef = nullptr; ///< Managed storage service reference
                                                  /// for storing
     le_msg_SessionRef_t sessionRef;              ///< Client that connected to the service.
     taf_time_StatusEventType_t eventType;        ///< Type of event to which client want to
@@ -295,6 +295,13 @@ struct NetworkInfoUpdateArgs_t
     telux::tel::NetworkTimeInfo info;   ///< [IN] Network time information.
     telux::common::ErrorCode error;    ///< [IN] Error code.
 };
+
+struct ValidityParams
+{
+    taf_SourceInf_t* sourcePtr;
+    bool validity;
+};
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -666,10 +673,11 @@ struct NetworkInfoUpdateArgs_t
                     taf_time_TimeSources_t sourceIndex);
                 void UpdateFailedLoops(taf_time_TimeSources_t sourceIndex,
                     taf_TimeFailLoopAction_t action);
-                void InitializeSystemTimeAttr(le_result_t connectStatus);
+                void InitTimeSource(void);
+                void InitializeSystemTimeAttr(void);
                 bool IsSourceValid(taf_time_SourceRef_t sourceRef);
                 le_result_t SetValidity(taf_time_SourceRef_t sourceRef, bool validity);
-                le_result_t CheckSetValidityPermission();
+                le_result_t CheckSetValidityPermission(void);
                 void ReportValidityChange(taf_SourceInf_t* sourcePtr);
                 le_result_t WriteValidtyToSecStorage(taf_SourceInf_t* sourcePtr, bool newvalidity);
                 le_result_t ReadValidityFromSecStorage(taf_SourceInf_t* sourcePtr, bool* validity);

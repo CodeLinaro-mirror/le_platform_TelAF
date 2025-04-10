@@ -156,7 +156,7 @@ void taf_AuthSvr::AuthSvcMsgHandler
 )
 {
     uint8_t errCode = 0;
-    uint8_t msgPos = 1;  // Skip sid
+    uint16_t msgPos = 1;  // Skip sid
     uint8_t subFunc = msgPtr[msgPos] & 0x7F;
     if (subFunc != TAF_DIAGAUTH_DEAUTH &&
         subFunc != TAF_DIAGAUTH_VERIFY_CERT_UNI &&

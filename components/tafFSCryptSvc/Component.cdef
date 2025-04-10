@@ -6,15 +6,15 @@ sources:
 cflags:
 {
     -I${LEGATO_ROOT}/framework/liblegato
-    -I$TELAF_ROOT/components/stub/keyStore/taf_pa_fscrypt
-    -I$TELAF_ROOT/components/stub/keyStore/Common
+    -I$TELAF_PA_DEFAULT/include/keyStore
 }
 
 requires:
 {
     component:
     {
-        $TELAF_ROOT/components/stub/keyStore/taf_pa_fscrypt
+        $TELAF_PA_DEFAULT/component/keyStore/taf_pa_fscrypt_default
+        $TELAF_PA_DEFAULT/component/keyStore/stub/taf_pa_fscrypt
     }
 
     api:

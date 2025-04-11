@@ -283,6 +283,39 @@ EXPORT_SYM bool is_forbidden(uint16_t did_code, const uint8_t *payload, uint32_t
     return false; /*  skipping forbidden check */
 }
 
+EXPORT_SYM std::map<std::string, uint64_t> get_authentication_roles()
+{
+    NEED_INITED();
+
+    std::map<std::string, uint64_t> authentication_roles;
+
+    Node & roles = root.get_child("authentication_timeout_extended");
+
+    for (const auto& role : roles)
+    {
+        uint64_t roleValue = role.second.get<int>("value");
+
+        authentication_roles[role.first] = roleValue;
+
+    }
+
+    return authentication_roles;
+}
+
+EXPORT_SYM uint32_t get_authentication_timeout()
+{
+    NEED_INITED();
+
+    return {{ root.authentication_antibruteforce["authentication_antibruteforce_default"]["AuthenticationTimeout"] }};
+}
+
+EXPORT_SYM int get_operation_cycle_count()
+{
+    NEED_INITED();
+
+    return {{ root.operation_cycle | length }};
+}
+
 }
 }
 

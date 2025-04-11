@@ -1093,6 +1093,11 @@ le_result_t taf_ecall::SetMsdPosition (taf_ecall_CallRef_t ecallRef, bool isTrus
         LE_ERROR("Invalid longitude value");
         longitude=0x7FFFFFFF;
     }
+    if (direction < 0 || direction > 179)
+    {
+        LE_ERROR("Invalid direction value");
+        direction=0xFF;
+    }
     LE_INFO("SetMsdPosition isTrusted = %d ", isTrusted);
     LE_INFO("SetMsdPosition latitude = %d ", latitude);
     LE_INFO("SetMsdPosition longitude = %d ", longitude);

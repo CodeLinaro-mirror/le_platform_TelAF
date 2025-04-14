@@ -3,4 +3,50 @@
 
 ## <summary> devices interface </summary>
 
+#######################################
+# <summary>
+#        Allow tafMngdSecDataStorageSvc to read client's proc data
+# </summary>
+# <param name="domain">
+#        <summary>
+#        Type to be used as a daemon domain.
+#        </summary>
+# </param>
+# <param name="entry_point">
+#        <summary>
+#        Type of the program to be used as an entry point to this domain
+#        </summary>
+# </param>
 
+interface(`telaf_tafMngdSecDataStorageSvc_getProcId',`
+    gen_require(`
+            type telaf_tafMngdSecDataStorageSvc_t;
+    ')
+
+    ps_process_pattern(telaf_tafMngdSecDataStorageSvc_t, $1);
+
+')
+
+#######################################
+# <summary>
+#        Allow tafMngdSecFileStorageSvc to read client's proc data
+# </summary>
+# <param name="domain">
+#        <summary>
+#        Type to be used as a daemon domain.
+#        </summary>
+# </param>
+# <param name="entry_point">
+#        <summary>
+#        Type of the program to be used as an entry point to this domain
+#        </summary>
+# </param>
+
+interface(`telaf_tafMngdSecFileStorageSvc_getProcId',`
+    gen_require(`
+            type telaf_tafMngdSecFileStorageSvc_t;
+    ')
+
+    ps_process_pattern(telaf_tafMngdSecFileStorageSvc_t, $1);
+
+')

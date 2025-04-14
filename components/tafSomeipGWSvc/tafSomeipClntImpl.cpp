@@ -588,6 +588,9 @@ void taf_SomeipClient::ProcessStateChangeMessage
                      routingId, serviceId, instanceId);
             return;
         }
+
+        LE_INFO("Service(%u:0x%x/0x%x) is available with Version(%u.%u).",
+                routingId, serviceId, instanceId, majVer, minVer);
     }
 
     // Search the service.
@@ -595,6 +598,20 @@ void taf_SomeipClient::ProcessStateChangeMessage
 
     if (servicePtr != NULL)
     {
+        uint8_t reqMajVer = servicePtr->reqMajVer;
+        uint32_t reqMinVer = servicePtr->reqMinVer;
+
+        // Check if the version is we requested.
+        if (isAvailable &&
+            (((reqMajVer != TAF_SOMEIPDEF_ANY_MAJOR) && (reqMajVer != majVer)) ||
+            ((reqMinVer != TAF_SOMEIPDEF_ANY_MINOR) && (reqMinVer != minVer))))
+        {
+            LE_ERROR("Service(%u:0x%x/0x%x) versions don't match. reqVersion=(%u.%u)," \
+                     "curVersion=(%u.%u).", routingId, serviceId, instanceId,
+                     reqMajVer, reqMinVer, majVer, minVer);
+            return;
+        }
+
         // Update the service state and version.
         taf_someipClnt_State_t state =
             isAvailable ? TAF_SOMEIPCLNT_AVAILABLE : TAF_SOMEIPCLNT_UNAVAILABLE;
@@ -881,13 +898,15 @@ void taf_SomeipClient::VSOMEIPRequestService
                                               this, servicePtr->routingId, std::placeholders::_1,
                                               std::placeholders::_2,
                                               std::placeholders::_3),
-                                              vsomeip::ANY_MAJOR, vsomeip::ANY_MINOR);
+                                              servicePtr->reqMajVer, servicePtr->reqMinVer);
 
     // Request the service.
-    routingApp->request_service(servicePtr->serviceId, servicePtr->instanceId);
+    routingApp->request_service(servicePtr->serviceId, servicePtr->instanceId,
+                                servicePtr->reqMajVer, servicePtr->reqMinVer);
 
-    LE_INFO("VSOMEIP Requested Service(%u:0x%x/0x%x).", servicePtr->routingId,
-            servicePtr->serviceId, servicePtr->instanceId);
+    LE_INFO("VSOMEIP Requested Service(%u:0x%x/0x%x) with Ver(%u.%u).", servicePtr->routingId,
+            servicePtr->serviceId, servicePtr->instanceId,
+            servicePtr->reqMajVer, servicePtr->reqMinVer);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -908,13 +927,15 @@ void taf_SomeipClient::VSOMEIPReleaseService
         someip_GetRoutingManager(servicePtr->routingId);
 
     // Unregister availability handler for this service instance.
-    routingApp->unregister_availability_handler(servicePtr->serviceId, servicePtr->instanceId);
+    routingApp->unregister_availability_handler(servicePtr->serviceId, servicePtr->instanceId,
+                                                servicePtr->reqMajVer, servicePtr->reqMinVer);
 
     // Release the service.
     routingApp->release_service(servicePtr->serviceId, servicePtr->instanceId);
 
-    LE_INFO("VSOMEIP Released Service(%u:0x%x/0x%x).", servicePtr->routingId, servicePtr->serviceId,
-            servicePtr->instanceId);
+    LE_INFO("VSOMEIP Released Service(%u:0x%x/0x%x) with Ver(%u.%u).", servicePtr->routingId,
+            servicePtr->serviceId, servicePtr->instanceId,
+            servicePtr->reqMajVer, servicePtr->reqMinVer);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1015,8 +1036,8 @@ bool taf_SomeipClient::VSOMEIPGetServiceInfo
                     majVer = foundVersion->first;
                     minVer = foundVersion->second;
                     isAvailable = true;
-                    LE_DEBUG("VSOMEIP Service(%u:0x%x/0x%x): Version=(0x%x/0x%x)",
-                            routingId, serviceId, instanceId, majVer, minVer);
+                    LE_DEBUG("VSOMEIP Service(%u:0x%x/0x%x): Version=(%u.%u)",
+                             routingId, serviceId, instanceId, majVer, minVer);
                 }
             }
         }
@@ -1095,7 +1116,7 @@ void taf_SomeipClient::VSOMEIPSubscribeEventGroup
     // Subscribe the group.
     routingApp->subscribe(servicePtr->serviceId, servicePtr->instanceId,
                           groupId, servicePtr->majorVersion);
-    LE_INFO("VSOMEIP Subscribe group(0x%x) for service(%u:0x%x/0x%x) of interfaceVer(0x%x).",
+    LE_INFO("VSOMEIP Subscribe group(0x%x) for service(%u:0x%x/0x%x) of interfaceVer(%u).",
              groupId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId,
              servicePtr->majorVersion);
 
@@ -1445,7 +1466,9 @@ taf_someipClnt_ServiceRef_t taf_SomeipClient::RequestService
 (
     uint8_t routingId,
     uint16_t serviceId,
-    uint16_t instanceId
+    uint16_t instanceId,
+    uint8_t majVer,
+    uint32_t minVer
 )
 {
     // Check the valid serviceId and instanceId according to [PRS_SOMEIPSD_00515] and
@@ -1467,8 +1490,8 @@ taf_someipClnt_ServiceRef_t taf_SomeipClient::RequestService
     // Create a client-service-instance object if it's not in the service list.
     if (servicePtr == NULL)
     {
-        uint8_t majVer;
-        uint32_t minVer;
+        uint8_t curMajVer;
+        uint32_t curMinVer;
 
         isServiceCreated = true;
 
@@ -1479,6 +1502,10 @@ taf_someipClnt_ServiceRef_t taf_SomeipClient::RequestService
         servicePtr->routingId = routingId;
         servicePtr->serviceId = serviceId;
         servicePtr->instanceId = instanceId;
+
+        // Init requested version.
+        servicePtr->reqMajVer = majVer;
+        servicePtr->reqMinVer = minVer;
 
         // Init the service version.
         servicePtr->majorVersion = TAF_SOMEIPDEF_DEFAULT_MAJOR;
@@ -1492,11 +1519,26 @@ taf_someipClnt_ServiceRef_t taf_SomeipClient::RequestService
         servicePtr->state = SERVICE_STATE_UNKNOWN;
 
         // Update the service state if it's available.
-        if (VSOMEIPGetServiceInfo(routingId, serviceId, instanceId, &majVer, &minVer) == true)
+        if (VSOMEIPGetServiceInfo(routingId, serviceId, instanceId, &curMajVer, &curMinVer) == true)
         {
+            // Check if the version is we requested.
+            if (((majVer != TAF_SOMEIPDEF_ANY_MAJOR) && (majVer != curMajVer)) ||
+                ((minVer != TAF_SOMEIPDEF_ANY_MINOR) && (minVer != curMinVer)))
+            {
+                LE_ERROR("Service(%u:0x%x/0x%x) versions don't match. reqVersion=(%u.%u)," \
+                         "curVersion=(%u.%u).", routingId, serviceId, instanceId,
+                         majVer, minVer, curMajVer, curMinVer);
+
+                le_mem_Release(servicePtr);
+                return NULL;
+            }
+
             servicePtr->state = SERVICE_STATE_AVAILABLE;
-            servicePtr->majorVersion = majVer;
-            servicePtr->minorVersion = minVer;
+            servicePtr->majorVersion = curMajVer;
+            servicePtr->minorVersion = curMinVer;
+
+            LE_INFO("Service(%u:0x%x/0x%x) is available with Version(%u.%u).",
+                    routingId, serviceId, instanceId, curMajVer, curMinVer);
         }
 
         // Add to the service list.
@@ -1505,6 +1547,16 @@ taf_someipClnt_ServiceRef_t taf_SomeipClient::RequestService
 
         LE_DEBUG("Created SOME/IP servicePtr(%p) for Service(%u:0x%x/0x%x).",
                 servicePtr, routingId, serviceId, instanceId);
+    }
+
+    // Check if requested versions match.
+    if ((servicePtr->reqMajVer != majVer) || (servicePtr->reqMinVer != minVer))
+    {
+        LE_ERROR("Service(%u:0x%x/0x%x) versions don't match. OldReqVersion=(%u.%u)," \
+                 "NewReqVersion=(%u.%u).", routingId, serviceId, instanceId,
+                 servicePtr->reqMajVer, servicePtr->reqMinVer, majVer, minVer);
+
+        return NULL;
     }
 
     // Search the client-service-session object in the list.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 from .top_node_common_props import schema__common_props
@@ -21,8 +21,8 @@ from .top_node_reset_all import schema__reset_all
 from .top_node_routine_parameters_all import schema__routine_parameters_all
 from .top_node_routines_all import schema__routines_all
 from .top_node_services_all import schema__services_all
-from .top_node_authentication_roles import schema__authentication_roles
-
+from .top_node_authentication_antibruteforce import schema__authentication_antibruteforce
+from .top_node_authentication_timeout import schema__authentication_timeout
 
 # All schemas to be checked for all top nodes.
 schema_mapping = {
@@ -44,6 +44,8 @@ schema_mapping = {
     'datas_enable_conditions' : schema__datas_enable_conditions,
     'debounce_algorithm' : schema__debounce_algorithm,
     'extended_data_records' : schema__extended_data_records,
+    'authentication_antibruteforce' : schema__authentication_antibruteforce,
+    'authentication_timeout' : schema__authentication_timeout,
 
     # drc_services
     'services_all' : schema__services_all,

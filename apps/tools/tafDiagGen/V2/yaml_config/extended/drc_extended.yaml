@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 # domain_name: "Extended"
@@ -30,48 +30,3 @@ diagnostic_session:
     p2_server_max: 0.05
     p2_start_server_max: 5.0
     execution_authorization_pattern: supplier_specific_security_level
-
-# Role list for Authentication
-authentication_roles:
-  R1:
-    name: R1
-    description: R_Factory (bit0 = 1)
-    value: 0x01
-  R2:
-    name: R2
-    description: R_ePTI (bit1 = 1)
-    value: 0x02
-  R3:
-    name: R3
-    description: R_observer (bit2 = 1)
-    value: 0x04
-  R4:
-    name: R4
-    description: R_advanced_repairer (bit3 = 1)
-    value: 0x08
-  R5:
-    name: R5
-    description: R_logger (bit4 = 1)
-    value: 0x10
-
-routines_all:
-  0x0246:
-    role: [R1]
-  0x0247:
-    role: [R1]
-
-services_all:
-  0x31:
-    authentication: true
-    sub_functions:
-      0x01:
-        authentication: true
-      0x02:
-        authentication: true
-      0x03:
-        authentication: true
-  0x86:
-    supported: true
-    sub_functions:
-      0x01:
-        supported: true

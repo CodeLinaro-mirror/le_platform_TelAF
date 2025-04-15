@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 domain_name: Generic
@@ -16,3 +16,26 @@ extended_data_records:
     data_provider: DEM_OCCCTR
     trigger: DEM_TRIGGER_ON_TEST_FAILED
     update: True
+
+#Authentication
+authentication_antibruteforce:
+  authentication_antibruteforce_default:
+    AntiBruteForceCounterMaxValue: 10
+    DelayTimerInvokingValueInit: 60
+    DelayTimerInvokingValueMax: 960
+
+authentication_timeout:
+  b0:
+    AuthenticationTimeout: 30
+  b1:
+    AuthenticationTimeout: 30
+  b2:
+    AuthenticationTimeout: 30
+  b3:
+    AuthenticationTimeout: 30
+  b4:
+    AuthenticationTimeout: 30
+  b5:
+    AuthenticationTimeout: 30
+  b6:
+    AuthenticationTimeout: 30

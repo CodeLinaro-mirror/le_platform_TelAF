@@ -1,0 +1,46 @@
+maxThreads: 600
+start: manual
+sandboxed: false
+
+requires:
+{
+    dir:
+    {
+        // Below directories need to be ready before running this application
+
+        /data/TestDir    /
+        /data/TestSubDir /data/SubDir
+    }
+
+    file:
+    {
+        // Below files need to be ready before running this application
+
+        /data/file1 /
+        /data/file2 /data/
+        /data/file3 /data/file3
+    }
+}
+
+capability:
+{
+    CAP_WAKE_ALARM
+    CAP_FOWNER
+    CAP_SYS_ADMIN
+    CAP_BLOCK_SUSPEND
+    CAP_DAC_READ_SEARCH
+    CAP_DAC_OVERRIDE
+}
+
+executables:
+{
+     linkRequireUnitTest = (linkReqComponent)
+}
+
+processes:
+{
+    run:
+    {
+        (linkRequireUnitTest)
+    }
+}

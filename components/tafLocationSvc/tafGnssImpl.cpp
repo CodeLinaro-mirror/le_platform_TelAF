@@ -28,8 +28,8 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1820,12 +1820,7 @@ void tafLocationListener::onGnssNmeaInfo(uint64_t timestamp, const std::string &
         return;
     }
     //Format : $GPGGA,075446.90,00-0.000000,S,00000.000000,E,1,00,1.0,936.4,M,-936.4,M,,*7D^M
-    gnss.mNmeaBitMask = nmea;
-    LE_DEBUG( "**** Gnss Nmea Information  gnss.mNmeaBitMask: %s****",gnss.mNmeaBitMask.c_str());
-    std::unique_lock<std::mutex> lock(clientRequestPtr->mMutex);
-
-
-    gnss.mNmeaVar.notify_one();
+    LE_DEBUG( "****[NMEATEST] Gnss Nmea Information  nmea: %s****",nmea.c_str());
     le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
     LE_DEBUG("onGnssNmeaInfo: NumOfNmeaHandlers = %d", gnss.NumOfNmeaHandlers);
     if(gnss.NumOfNmeaHandlers) {
@@ -1835,11 +1830,11 @@ void tafLocationListener::onGnssNmeaInfo(uint64_t timestamp, const std::string &
 
         NmeaInfoEvent_t nmeaEvent;
         nmeaEvent.timestamp = timestamp;
-        const int length = gnss.mNmeaBitMask.length();
+        const int length = nmea.length();
         nmeaEvent.nmeaMask[length] ='\0';
         for (int i = 0; i < length; i++)
         {
-            nmeaEvent.nmeaMask[i] = gnss.mNmeaBitMask.c_str()[i];
+            nmeaEvent.nmeaMask[i] = nmea.c_str()[i];
         }
         LE_DEBUG( "**** NMEA handler string copied is: %s****",nmeaEvent.nmeaMask);
         le_event_Report(gnss.nmeaEventId, &nmeaEvent, sizeof(nmeaEvent));
@@ -6876,7 +6871,7 @@ le_result_t taf_locGnss::GetStdDeviationAzimuthInfo
     }
     if (northDevPtr)
     {
-        if (posSampleReqPtr->positionSampleNodePtr->eastDevValid)
+        if (posSampleReqPtr->positionSampleNodePtr->northDevValid)
         {
             *northDevPtr = posSampleReqPtr->positionSampleNodePtr->northDev;
         }

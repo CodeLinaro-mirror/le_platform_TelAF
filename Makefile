@@ -17,6 +17,7 @@ export GEN_FILE_CONTEXTS := $(CURDIR)/security/selinux/tools/generate_telaf_file
 export SELINUX_FILE_CONTEXTS := ${CURDIR}/security/selinux/sepolicy/files/file_contexts
 
 export PKG_CONFIG_SYSROOT_DIR ?=
+DGTOOL ?= dgtool-V2
 
 SE_FILES = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name *.pp -type f)
 SE_MODS = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name tmp -type d)
@@ -33,13 +34,12 @@ include config.mk
 default:
 	@echo "Nothing to do, without any target"
 
-# Diagnostic Gen-Tool sub-makefile
-include $(TELAF_ROOT)/apps/tools/tafDiagGen/dgtool.mk
-
+# No PA for the LXC contianer
+ifneq ($(BUILD_FLAVOR),lxc)
 # Macro to check and copy stub directories
 define PREBUILD_PA
 	@echo "Finding and creating stub PA.."
-	@find $(TELAF_ROOT) -name Component.cdef | while read -r cdef_file; do \
+	@find $(TELAF_ROOT) -name '.ssh' -prune -o -name Component.cdef | while read -r cdef_file; do \
 		base_name=""; \
 		while IFS= read -r line; do \
 			if echo "$$line" | grep -q '$$LEGATO_BUILD/stub/component/'; then \
@@ -58,6 +58,7 @@ define PREBUILD_PA
 		done < "$$cdef_file"; \
 	done
 endef
+endif # ($(BUILD_FLAVOR),lxc)
 
 
 $(TARGETS): TARGET=$@
@@ -65,10 +66,13 @@ $(TARGETS):
 	@ln -sf $(LEGATO_RELATIVE_PATH)/build ./build
 	$(shell $(GEN_FILE_CONTEXTS))
 	$(call PREBUILD_PA,$(TARGET))
+	$(MAKE) --no-print-directory -C $(TELAF_ROOT)/apps/tools/tafDiagGen -f dgtool.mk $(DGTOOL) DGTOOL_TARGET=$(TARGET)
 	$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT=$(TELAF_ROOT)
 
 $(UTILITIES):
 	@$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT=$(TELAF_ROOT)
+	@$(MAKE) --no-print-directory -C $(TELAF_ROOT)/apps/tools/tafDiagGen -f dgtool.mk cleanall-venv
 	@rm -rf $(TELAF_BUILD)
 	@rm -fr $(SE_FILES) $(SE_MODS)
 	@rm -f simulation/workstation/.check_done
+

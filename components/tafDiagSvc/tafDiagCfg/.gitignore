@@ -1,0 +1,4 @@
+configuration.cpp
+configuration.hpp
+diag_ids.h
+diag_template.yaml.json

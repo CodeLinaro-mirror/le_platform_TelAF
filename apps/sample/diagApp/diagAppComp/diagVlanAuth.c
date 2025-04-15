@@ -13,7 +13,7 @@ static taf_diagAuth_AuthStateExpHandlerRef_t expHandlerRef[2] = {NULL};
 static le_sem_Ref_t semRef[2];
 
 static uint8_t challengeSvr[4096];
-static uint64_t role = 0x01;
+static uint64_t role = 0x03;
 
 static void AuthTransCertHandle
 (

@@ -138,6 +138,8 @@ void UdsCommunicationMgr::InitInstances
     le_thread_Start(udsTimerThreadRef);
     le_sem_Wait(semRef);
 
+    InitAuthData(interfaceList);
+
     cancelFileXferEvId = le_event_CreateId("cancelFileXferEvId", sizeof(cancelFileXferEvent_t));
     le_event_AddHandler("cancelFileXferHandler", cancelFileXferEvId, cancelFileXferHandler);
 
@@ -696,6 +698,8 @@ void UdsCommunicationMgr::AuthTimeoutHandler
     udsCmMgr->dataIndBuf[6] = (udsCmMgr->currentRoleVal >> 16) & 0xff;
     udsCmMgr->dataIndBuf[7] = (udsCmMgr->currentRoleVal >> 8) & 0xff;
     udsCmMgr->dataIndBuf[8] = udsCmMgr->currentRoleVal & 0xff;
+
+    udsCmMgr->currentRoleVal = 0;
 
     udsCmMgr->dataIndMsg.dataPtr = udsCmMgr->dataIndBuf;
     udsCmMgr->dataIndMsg.dataLen = UDS_AUTH_EXPIRATION_DATA_SIZE;
@@ -1481,7 +1485,7 @@ bool UdsCommunicationMgr::IsAuthCheckOK
     }
     catch (const std::exception& e)
     {
-        LE_WARN("Authentication is not configured for serivce 0x%02X %s in YAML", sid, e.what());
+        LE_DEBUG("Authentication is not configured for serivce 0x%02X %s in YAML", sid, e.what());
         return true;
     }
 }
@@ -1587,7 +1591,7 @@ bool UdsCommunicationMgr::IsSvcSecAccessMatched
     }
     catch (const std::exception& e)
     {
-        LE_WARN("Exception: %s", e.what());
+        LE_DEBUG("Exception: %s", e.what());
         return true; // Mark the exception as TRUE, to assume security check not require.
     }
 
@@ -1622,8 +1626,19 @@ le_result_t UdsCommunicationMgr::GeneralServerResp
     //Restart authentication timer when receiving any supported UDS request
     if(authState == AUTH_STATE_AUTHENTICATED)
     {
-        uint32_t authTimeVal = MAX_AUTH_TIME*1000;//get auth timeout val with current role from yaml
-        LE_DEBUG("Restart authentication timer");
+        uint32_t authTimeVal;
+
+        try
+        {
+            authTimeVal = cfg::get_authentication_timeout()*1000;
+        }
+        catch (const std::exception& e)
+        {
+            authTimeVal = MAX_AUTH_TIME*1000;
+            LE_ERROR("Exception: %s. Use default value:%d", e.what() , MAX_AUTH_TIME);
+        }
+
+        LE_DEBUG("Restart authentication timer, authentication timeout value=%d", authTimeVal);
         UdsTimerEventReport(TAF_UDS_AUTH_TIMER_RESTART, authTimeVal, interface);
     }
 
@@ -1977,7 +1992,7 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
         }
 
         // Authentication check. UDS_0x22_NRC_34
-        if (!IsAuthRoleMatched(node))
+        if (!IsAuthRoleMatched(READ_DID_REQUEST_ID, node))
         {
             LE_DEBUG("DID0x%x is authenticated and authentication state is incorrect.", dataId);
             return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
@@ -2211,7 +2226,7 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
     }
 
     // Step 5: Authentication check. UDS_0x2E_NRC_34
-    if (!IsAuthRoleMatched(node))
+    if (!IsAuthRoleMatched(WRITE_DID_REQUEST_ID, node))
     {
         LE_DEBUG("DID0x%x is authenticated and authentication state is incorrect.", dataId);
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
@@ -2873,7 +2888,7 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
     }
 
     //Step 6: Authentication check. UDS_0x2F_NRC_34
-    if (!IsAuthRoleMatched(node))
+    if (!IsAuthRoleMatched(INPUT_OUTPUT_CONTROL_REQUEST_ID, node))
     {
         LE_DEBUG("DID0x%x is authenticated and authentication state is incorrect.", dataId);
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
@@ -2993,7 +3008,7 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
         return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
     }
 
-    if (!IsAuthRoleMatched(node))
+    if (!IsAuthRoleMatched(ROUTINE_CONTROL_REQUEST_ID, node))
     {
         LE_DEBUG("RID0x%x is authenticated and authentication state is incorrect.", rid);
         *isInternalHandle = true;
@@ -5327,9 +5342,17 @@ le_result_t UdsCommunicationMgr::AuthenticationResp
             {
                 uint32_t  authTimeVal;
                 authState = AUTH_STATE_AUTHENTICATED;
-                authTimeVal = MAX_AUTH_TIME*1000;//get auth timeout val with current role from yaml
+                try
+                {
+                    authTimeVal = cfg::get_authentication_timeout()*1000;
+                }
+                catch (const std::exception& e)
+                {
+                    authTimeVal = MAX_AUTH_TIME*1000;
+                    LE_ERROR("Exception: %s. Use default value:%d", e.what() , MAX_AUTH_TIME);
+                }
                 //POWN successfully, start authentication timer
-                LE_DEBUG("POWN successful");
+                LE_DEBUG("POWN successful, start authentication timer with value %d", authTimeVal);
                 UdsTimerEventReport(TAF_UDS_AUTH_TIMER_START, authTimeVal, interface);
 
                 //reset counter
@@ -5899,6 +5922,7 @@ bool UdsCommunicationMgr::IsSessTypeMatched
  */
 bool UdsCommunicationMgr::IsAuthRoleMatched
 (
+    taf_UDSReqSvcID_t serviceType,
     cfg::Node& node
 )
 {
@@ -5906,7 +5930,29 @@ bool UdsCommunicationMgr::IsAuthRoleMatched
     cfg::Node roleNames;
     try
     {
-        roleNames = node.get_child("role");
+        LE_DEBUG(" Service type = 0x%x", serviceType);
+        switch(serviceType)
+        {
+            case READ_DID_REQUEST_ID:
+                //Get config roles for read pattern
+                roleNames = node.get_child(AUTH_ROLE_READ_PATTERN);
+            break;
+            case WRITE_DID_REQUEST_ID:
+                //Get config roles for written pattern
+                roleNames = node.get_child(AUTH_ROLE_WRITE_PATTERN);
+            break;
+            case INPUT_OUTPUT_CONTROL_REQUEST_ID:
+                //Get config roles for io control pattern
+                roleNames = node.get_child(AUTH_ROLE_IOCTL_PATTERN);
+            break;
+            case ROUTINE_CONTROL_REQUEST_ID:
+                //Get config roles for routine control pattern
+                roleNames = node.get_child(AUTH_ROLE_ROUTINE_PATTERN);
+            break;
+            default:
+                LE_ERROR("Role check is not supported for service %d", serviceType);
+                return false;
+        }
     }
     catch (const std::exception& e)
     {
@@ -5915,11 +5961,10 @@ bool UdsCommunicationMgr::IsAuthRoleMatched
     }
 
     //Get authentication_roles configuration
-    cfg::Node authRoles;
+    std::map<std::string, uint64_t> authentication_roles;
     try
     {
-        cfg::Node & root = cfg::get_root_node();
-        authRoles = root.get_child("authentication_roles");
+        authentication_roles = cfg::get_authentication_roles();
     }
     catch (const std::exception& e)
     {
@@ -5934,10 +5979,15 @@ bool UdsCommunicationMgr::IsAuthRoleMatched
         for (const auto & roleName: roleNames)
         {
             string name = roleName.second.get_value<string>("");
-            uint64_t role_value = authRoles.get_child(name).get<int>("value");
+            LE_DEBUG(" role name =%s", name.c_str());
+            auto it = authentication_roles.find(name);
+            if (it == authentication_roles.end())
+                continue;
+
+            uint64_t role_value = it->second;
             LE_DEBUG("roleVal= %" PRIuS ", currentRoleVal = %" PRIuS " ", role_value,
                     currentRoleVal);
-            if(role_value == currentRoleVal)
+            if((role_value & currentRoleVal) != 0)
             {
                 isRoleMatched = true;
                 break;

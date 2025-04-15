@@ -121,25 +121,11 @@ def update_workflow():
                 tr.start()
                 tr.join()
 
-            # Step7: InputOutputControl--Short Term Adjustment: 2F 90 06 03 xx xx
-            ioctrlvalues = {'Led_Ecall': 0x3C}
-            response = uds_client.io_control(control_param=3, did=0x9006, values=ioctrlvalues)
-            print('dataId:%#x'%response.service_data.did_echo)
-
-            # Step8. InputOutputControl--returnControlToECU: 2F 90 06 00
-            response = uds_client.io_control(control_param=0, did=0x9006)
-            print(response)
-
-            for i in range(3):
-                tr = threading.Timer(2,sendPresent)
-                tr.start()
-                tr.join()
-
-            # Step9: Write digest(WriteDataByIdentifier): 2E xx xx
+            # Step7: Write digest(WriteDataByIdentifier): 2E xx xx
             response = uds_client.write_data_by_identifier(did=digest_did2, value=digest_data)
             print(response)
 
-            # Step10: Read data(ReadDataByIdentifier): 22 xx xx
+            # Step8: Read data(ReadDataByIdentifier): 22 xx xx
             response = uds_client.read_data_by_identifier(didlist=digest_did2)
             values = response.service_data.values
 
@@ -148,35 +134,35 @@ def update_workflow():
                 tr.start()
                 tr.join()
 
-            # Step11: Entering programming session(DiagnosticSessionControl). 10 02
+            # Step9: Entering programming session(DiagnosticSessionControl). 10 02
             response = uds_client.change_session(DiagnosticSessionControl.Session.programmingSession)
             print(response)
 
-            # Step12.1: Read DTC(reportNumberOfDTCByStatusMask). 19 01
+            # Step10.1: Read DTC(reportNumberOfDTCByStatusMask). 19 01
             response = uds_client.get_number_of_dtc_by_status_mask(status_mask)
             print(response)
 
-            # Step12.2: Read DTC(reportDTCByStatusMask). 19 02
+            # Step10.2: Read DTC(reportDTCByStatusMask). 19 02
             response = uds_client.get_dtc_by_status_mask(status_mask)
             print(response)
 
-            # Step12.3: Read DTC(reportDTCSnapshotIdentification). 19 03
+            # Step10.3: Read DTC(reportDTCSnapshotIdentification). 19 03
             response = uds_client.get_dtc_snapshot_identification()
             print(response)
 
-            # Step12.4: Read DTC(reportDTCSnapshotRecordByDTCNumber). 19 04
+            # Step10.4: Read DTC(reportDTCSnapshotRecordByDTCNumber). 19 04
             response = uds_client.get_dtc_snapshot_by_dtc_number(dtc_mask, rcd_num)
             print(response)
 
-            # Step12.5: Read DTC(reportDTCExtDataRecordByDTCNumber). 19 06
+            # Step10.5: Read DTC(reportDTCExtDataRecordByDTCNumber). 19 06
             response = uds_client.get_dtc_extended_data_by_dtc_number(dtc_mask, rcd_num, data_size)
             print(response)
 
-            # Step12.4: Read DTC(reportSupportedDTC). 19 0A
+            # Step10.4: Read DTC(reportSupportedDTC). 19 0A
             response = uds_client.get_supported_dtc()
             print(response)
 
-            # Step12.5: Read DTC(reportDTCFaultDetectionCounter). 19 14
+            # Step10.5: Read DTC(reportDTCFaultDetectionCounter). 19 14
             response = uds_client.get_dtc_fault_counter()
             print(response)
 
@@ -185,31 +171,56 @@ def update_workflow():
                 tr.start()
                 tr.join()
 
-            # Step13: ClearDiagnosticInformation. 14
+            # Step11: ClearDiagnosticInformation. 14
             response = uds_client.clear_dtc(grp_of_dtc)
             print(response)
 
-            # Step14: Transmit_certificate. 29 04
+            # Step12: Transmit_certificate. 29 04
             response = uds_client.transmit_certificate(certificate_evaluation_id=0x1122, certificate_data=bytes(8000),)
             print(response)
 
-            #Step15: Verify_certificate_unidirectional. 29 01
+            #Step13: Verify_certificate_unidirectional. 29 01
             response = uds_client.verify_certificate_unidirectional(communication_configuration=0, certificate_client=bytes(4096), challenge_client=bytes(1024),)
             print(response)
 
-            #Step16: Proof_of_ownership. 29 03
+            #Step14: Proof_of_ownership. 29 03
             response = uds_client.proof_of_ownership(proof_of_ownership_client=bytes(2048))
             print(response)
 
-            #Step17: Authentication configuration. 29 08
+            #Step15: Authentication configuration. 29 08
             response = uds_client.authentication_configuration()
             print(response)
 
-            #Step18: Routine control. 31 01 02 46 start the routine
+            # Step16: InputOutputControl--Short Term Adjustment: 2F 90 06 03 xx xx
+            ioctrlvalues = {'Led_Ecall': 0x3C}
+            response = uds_client.io_control(control_param=3, did=0x9006, values=ioctrlvalues)
+            print('dataId:%#x'%response.service_data.did_echo)
+
+            # Step17. InputOutputControl--returnControlToECU: 2F 90 06 00
+            response = uds_client.io_control(control_param=0, did=0x9006)
+            print(response)
+
+            for i in range(3):
+                tr = threading.Timer(2,sendPresent)
+                tr.start()
+                tr.join()
+
+            # Step18: Security access #1-Request seed(SecurityAccess). 27 01
+            response = uds_client.request_seed(0x01)
+            seed = response.service_data.seed
+
+            # Calculate key via seed.
+            key = dummy_send2key(level=0x01, seed=seed)
+
+            # Step19: Security access #2-Send key(SecurityAccess). 27 02
+            response = uds_client.send_key(0x02, key)
+            print(response)
+
+            #Step20: Routine control. 31 01 02 46 start the routine
             response = uds_client.routine_control(routine_id=0x0246, control_type=0x01)
             print(response)
 
-            #Step19: Deauthenticate. 29 00
+            #Step21: Deauthenticate. 29 00
             response = uds_client.deauthenticate()
             print(response)
 

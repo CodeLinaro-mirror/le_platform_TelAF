@@ -4875,7 +4875,7 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     float p2StarServerInterval, p2ServerInterval;
     uint32_t maxNumberOfRcrrp, s3ServerInterval;
 
-    LE_INFO("SessionCtrlResp");
+    LE_DEBUG("SessionCtrlResp");
 
     if (POSITIVE_RESPONSE != err)
     {
@@ -4886,10 +4886,8 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
 
     taf_SessionType_t oldSessionType;
     taf_SessionType_t newSessionType;
-    uint8_t suppressPosRspFlag;
 
     newSessionType = (taf_SessionType_t)(recvBuf[1] & 0x7F);
-    suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
 
     // copy the previous session type as old session locally.
     oldSessionType = SessionType;
@@ -5030,22 +5028,16 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     }
 
 out:
-    if (suppressPosRspFlag == 0)
-    {
-        // Fill the response data to send the session response msg to DTool
-        sendBuf[0] = SESSION_CONTROL_RESPONSE_ID;
-        sendBuf[1] = recvBuf[1] & 0x7F;
-        sendBuf[2] = (uint32_t(p2ServerInterval) & 0xff00) >> 8;
-        sendBuf[3] = uint32_t(p2ServerInterval) & 0xff;
-        sendBuf[4] = (uint32_t((p2StarServerInterval)/10) & 0xff00) >> 8; // The resolution for P2* is 10ms
-        sendBuf[5] = (uint32_t(p2StarServerInterval)/10) & 0xff; // The resolution for P2* is 10ms
-        sendDataLen = UDS_SESSION_CTRL_RESP_LEN;
-        return LE_OK;
-    }
-    else
-    {
-        return LE_UNSUPPORTED;
-    }
+    // Fill the response data to send the session response msg to DTool
+    sendBuf[0] = SESSION_CONTROL_RESPONSE_ID;
+    sendBuf[1] = recvBuf[1] & 0x7F;
+    sendBuf[2] = (uint32_t(p2ServerInterval) & 0xff00) >> 8;
+    sendBuf[3] = uint32_t(p2ServerInterval) & 0xff;
+    sendBuf[4] = (uint32_t((p2StarServerInterval)/10) & 0xff00) >> 8;//The resolution for P2* is 10ms
+    sendBuf[5] = (uint32_t(p2StarServerInterval)/10) & 0xff; // The resolution for P2* is 10ms
+    sendDataLen = UDS_SESSION_CTRL_RESP_LEN;
+    //Send a final positive response after NRC 0x78
+    return LE_OK;
 }
 
 /**

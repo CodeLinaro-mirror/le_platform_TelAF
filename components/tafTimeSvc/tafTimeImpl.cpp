@@ -2847,6 +2847,7 @@ void taf_Time::DeregNetworkTimeListener
         {
             tafTime.servingSystemManagers[i]->deregisterListener(
                 tafTime.servSysListeners[i]);
+            tafTime.servSysListeners[i] = nullptr;
         }
     }
     tafTime.servSysListeners.clear();

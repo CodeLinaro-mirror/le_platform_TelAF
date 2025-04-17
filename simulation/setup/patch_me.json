@@ -2,13 +2,15 @@
     "telaf" : {
         "Remote-Repo-Name": "origin",
         "Remote-Branch-Name" : "telaf.lnx.1.1",
-        "Commit-ID": "106ae8aeb8b74a66d25caa1b303c8f22bda7c2fc",
+        "Commit-ID": "1f87dcf16f09cf89dfb6ba7f4aa4d831a0759caa",
+        "Description": "taf_25.03.00",
         "Patch-Cmd-List": []
     },
     "legato/legato-af" : {
         "Remote-Repo-Name": "origin",
         "Remote-Branch-Name": "telaf.lnx.1.1",
-        "Commit-ID": "a6192f6907167bf7adcbc93db6e0f5041dae2876",
+        "Commit-ID": "56d9fbf8a58ad1877b4cdf028614693991d04df6",
+        "Description": "taf_25.03.00",
         "Patch-Cmd-List": []
     },
     "legato/3rdParty/jansson" : {
@@ -26,7 +28,8 @@
     "sdk" : {
         "Remote-Repo-Name": "origin",
         "Remote-Branch-Name": "telsdk.lnx.2.0.r11-rel",
-        "Commit-ID": "4891282b16c4c26fe8724ec5b63e99f09940c47f",
+        "Commit-ID": "3e95dd2761b64d51cbd42b6501705ab0633ce828",
+        "Description": "CS[1]",
         "Patch-Cmd-List": []
     }
 }

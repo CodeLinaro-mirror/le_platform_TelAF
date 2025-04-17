@@ -653,14 +653,15 @@ le_result_t tafMngdConnAdmin::Startdata(taf_mngdConn_DataRef_t dataRef)
     // If data start is success and the data id is not auto started, then add this client to the
     // list of clients that have requested data start with this data id.
     le_msg_SessionRef_t sessionRef = taf_mngdConn_GetClientSessionRef();
-    if ((LE_OK == result || LE_DUPLICATE == result) && (!dataCtxPtr->autoStart))
+    if ((LE_OK == result || LE_DUPLICATE == result || LE_TIMEOUT == result )
+                                                        && (!dataCtxPtr->autoStart))
     {
         LE_INFO("Client %p started data for Data ID: %d", sessionRef, dataCtxPtr->dataId);
         dataCtxPtr->clients.insert(sessionRef);
     }
 
     // If start data failed, check if data start retry is enabled with count greated than 0.
-    // If yes, add this client and also mar for reconnection
+    // If yes, add this client and also mark for reconnection
     if (LE_OK != result && dataCtxPtr->dataRetry && dataCtxPtr->dataStartRetryCount > 0)
     {
         LE_INFO("Client %p requested data for Data ID: %d", sessionRef, dataCtxPtr->dataId);
@@ -1427,7 +1428,7 @@ le_result_t tafMngdConnAdmin::EventStartDataRetryAppReq(uint8_t dataId,
     // Start the retry procedure only in the active connected state.
     if (MCS_DATA_CONNECTED_ACTIVE == dataCtxPtr->adminState)
     {
-        //Set the context with session ref to be paased for MaxTimeBetweenTriggersHandler
+        //Set the context with session ref to be passed for MaxTimeBetweenTriggersHandler
         dataCtxPtr->sessionRef = sessionRef;
         le_timer_SetContextPtr(dataCtxPtr->maxTimeBetweenTriggersRef, dataCtxPtr);
         // Start the maxTimeBetweenTriggers and minTimeBetweenTriggers timer

@@ -75,7 +75,7 @@ void taf_TimeServingSystemListener::onNetworkTimeChanged
 
     LE_INFO("Phone %d, NITZ:%s\n", phone, info.nitzTime.c_str());
     result = tafTime.ConvertNetworkTimeToSec(info, &timeVal);
-    if (phone == 1)
+    if (tafTime.phoneManager->getPhoneIdFromSlotId(phone)  == 1)
     {
         sourceId = TAF_TIME_SRC_NAME_NETWORK;
         if (LE_OK == result)
@@ -2631,7 +2631,7 @@ void taf_Time::NetworkTimeResponseUpdate
     le_result_t result;
     static bool initFlag = true;
     auto &tafTime = taf_Time::GetInstance();
-    if(phoneId == 1)
+    if(phoneManager->getSlotIdFromPhoneId(phoneId) == 1)
     {
         sourceId = TAF_TIME_SRC_NAME_NETWORK;
     }
@@ -2651,7 +2651,14 @@ void taf_Time::NetworkTimeResponseUpdate
     if (LE_OK == result)
     {
         UpdateFailedLoops(sourceId, FAIL_LOOP_NUM_CLEAN);
-        UpdateLocalTimeCache(timeVal, sourceId, NetworkDeltaTime);
+        if(sourceId == TAF_TIME_SRC_NAME_NETWORK)
+        {
+            UpdateLocalTimeCache(timeVal, sourceId, NetworkDeltaTime);
+        }
+        else
+        {
+            UpdateLocalTimeCache(timeVal, sourceId, NetworkDeltaTime2);
+        }
         tafTime.SourceAvailabilityUpdate(result, sourceId);
     }
 
@@ -2778,7 +2785,6 @@ void taf_Time::RequestNetworkTime(    void)
             {
                 LE_DEBUG("Total phones: %zu, synching network time from phone %zu\n",
                                           tafTime.servingSystemManagers.size(), i+1);
-                break;
             }
         }
     }
@@ -2802,10 +2808,9 @@ le_result_t taf_Time::RegNetworkTimeListener
     for (size_t i = 0; i < tafTime.servingSystemManagers.size(); i++)
     {
 
-        LE_DEBUG("Trying to Register the servSysListener, size: %zu\n",
-                                                       servingSystemManagers.size());
-        auto servSysListener = std::make_shared<taf_TimeServingSystemListener>(
-                                phoneManager->getPhoneIdFromSlotId(i+1));
+        LE_DEBUG("Trying to Register the servSysListener, size: %zu, phoneID: %zu",
+                                                       servingSystemManagers.size(), i+1);
+        auto servSysListener = std::make_shared<taf_TimeServingSystemListener>(i+1);
 
         status = tafTime.servingSystemManagers[i]->registerListener(servSysListener);
         if (status != telux::common::Status::SUCCESS)

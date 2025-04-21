@@ -234,7 +234,6 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
         sessionState = ECALL_DIALING;
         state = TAF_ECALL_STATE_DIALING;
         isCallStateSet = true;
-        eCallPtr->dialRedial.isRedial = false;
     }
     else if (callState == CallState::CALL_INCOMING)
     {
@@ -242,24 +241,21 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
     }
     else if (callState == CallState::CALL_ENDED)
     {
-        if (eCallPtr->dialRedial.isRedial == true)
+        if ((call->getCallDirection() == CallDirection::INCOMING) ||
+            ((eCallPtr->type != TAF_ECALL_TYPE_TEST) &&
+             (eCallPtr->type != TAF_ECALL_TYPE_AUTO) &&
+             (eCallPtr->type != TAF_ECALL_TYPE_MANUAL) &&
+             (call->getCallDirection() == CallDirection::OUTGOING))
+        )
         {
-            state = TAF_ECALL_STATE_END_OF_REDIAL_PERIOD;
-        } else {
             state = TAF_ECALL_STATE_ENDED;
-            eCall.SetCallIndex(-1);
-            eCall.SetCallPhoneId(-1);
+            isCallStateSet = true;
         }
-        eCallPtr->dialRedial.isRedial = false;
+
         eCallPtr->isReceivedLLACK = false;
         sessionState = ECALL_ENDED;
         eCall.CallEndError = call->getCallEndCause();
         LE_INFO("ECall ENDed terminate reason = %d", (int) eCall.CallEndError);
-        isCallStateSet = true;
-        if (eCall.t9StartTimeSet == true)
-        {
-            eCall.t9StartTime = std::chrono::system_clock::now();
-        }
     }
     eCall.SetSessionState(sessionState);
     eCall.SetECallState(state);
@@ -364,79 +360,119 @@ void tafECallListener::onECallMsdTransmissionStatus(
 }
 
 void tafECallListener::onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEvents) {
-    LE_DEBUG("onECallHlapTimerEvent ");
+    LE_DEBUG("onECallHlapTimerEvent t2: %d, t5: %d, t6: %d, t7:  %d, t9: %d, t10: %d",
+        static_cast<int>(timerEvents.t2), static_cast<int>(timerEvents.t5), static_cast<int>(timerEvents.t6),
+        static_cast<int>(timerEvents.t7), static_cast<int>(timerEvents.t9), static_cast<int>(timerEvents.t10));
+
     taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
     auto &eCall = taf_ecall::GetInstance();
-    if(timerEvents.t2 == HlapTimerEvent::EXPIRED) {
-        state = TAF_ECALL_STATE_T2_EXPIRED;
-        eCall.t2StartTimeSet = false;
+    StateChangeEvent_t stateEvent;
+    stateEvent.eCallRef = eCall.GetECallReference();
+
+    if ((timerEvents.t2 != HlapTimerEvent::UNCHANGED)
+        && (timerEvents.t2 != HlapTimerEvent::UNKNOWN)) {
+        if(timerEvents.t2 == HlapTimerEvent::EXPIRED) {
+            state = TAF_ECALL_STATE_T2_EXPIRED;
+            eCall.t2StartTimeSet = false;
+        }
+        if(timerEvents.t2 == HlapTimerEvent::STARTED) {
+            state = TAF_ECALL_STATE_T2_STARTED;
+            eCall.t2StartTime = std::chrono::steady_clock::now();
+            eCall.t2StartTimeSet = true;
+        }
+        if(timerEvents.t2 == HlapTimerEvent::STOPPED) {
+            state = TAF_ECALL_STATE_T2_STOPPED;
+            eCall.t2StartTimeSet = false;
+        }
+
+        stateEvent.state = state;
+        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
     }
-    if(timerEvents.t5 == HlapTimerEvent::EXPIRED) {
-        state = TAF_ECALL_STATE_T5_EXPIRED;
+
+    if ((timerEvents.t5 != HlapTimerEvent::UNCHANGED)
+        && (timerEvents.t5 != HlapTimerEvent::UNKNOWN)) {
+        if(timerEvents.t5 == HlapTimerEvent::EXPIRED) {
+            state = TAF_ECALL_STATE_T5_EXPIRED;
+        }
+        if(timerEvents.t5 == HlapTimerEvent::STARTED) {
+            state = TAF_ECALL_STATE_T5_STARTED;
+        }
+        if(timerEvents.t5 == HlapTimerEvent::STOPPED) {
+            state = TAF_ECALL_STATE_T5_STOPPED;
+        }
+
+        stateEvent.state = state;
+        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
     }
-    if(timerEvents.t6 == HlapTimerEvent::EXPIRED) {
-        state = TAF_ECALL_STATE_T6_EXPIRED;
+
+    if ((timerEvents.t6 != HlapTimerEvent::UNCHANGED)
+        && (timerEvents.t6 != HlapTimerEvent::UNKNOWN)) {
+        if(timerEvents.t6 == HlapTimerEvent::EXPIRED) {
+            state = TAF_ECALL_STATE_T6_EXPIRED;
+        }
+        if(timerEvents.t6 == HlapTimerEvent::STARTED) {
+            state = TAF_ECALL_STATE_T6_STARTED;
+        }
+        if(timerEvents.t6 == HlapTimerEvent::STOPPED) {
+            state = TAF_ECALL_STATE_T6_STOPPED;
+        }
+
+        stateEvent.state = state;
+        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
     }
-    if(timerEvents.t7 == HlapTimerEvent::EXPIRED) {
-        state = TAF_ECALL_STATE_T7_EXPIRED;
+
+    if ((timerEvents.t7 != HlapTimerEvent::UNCHANGED)
+        && (timerEvents.t7 != HlapTimerEvent::UNKNOWN)) {
+        if(timerEvents.t7 == HlapTimerEvent::EXPIRED) {
+            state = TAF_ECALL_STATE_T7_EXPIRED;
+        }
+        if(timerEvents.t7 == HlapTimerEvent::STARTED) {
+            state = TAF_ECALL_STATE_T7_STARTED;
+        }
+        if(timerEvents.t7 == HlapTimerEvent::STOPPED) {
+            state = TAF_ECALL_STATE_T7_STOPPED;
+        }
+
+        stateEvent.state = state;
+        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
     }
-    if(timerEvents.t9 == HlapTimerEvent::EXPIRED) {
-        state = TAF_ECALL_STATE_T9_EXPIRED;
-        eCall.t9StartTimeSet = false;
+
+    if ((timerEvents.t9 != HlapTimerEvent::UNCHANGED)
+        && (timerEvents.t9 != HlapTimerEvent::UNKNOWN)) {
+        if(timerEvents.t9 == HlapTimerEvent::EXPIRED) {
+            state = TAF_ECALL_STATE_T9_EXPIRED;
+            eCall.t9StartTimeSet = false;
+        }
+        if(timerEvents.t9 == HlapTimerEvent::STARTED) {
+            state = TAF_ECALL_STATE_T9_STARTED;
+            eCall.t9StartTime = std::chrono::steady_clock::now();
+            eCall.t9StartTimeSet = true;
+        }
+        if(timerEvents.t9 == HlapTimerEvent::STOPPED) {
+            state = TAF_ECALL_STATE_T9_STOPPED;
+            eCall.t9StartTimeSet = false;
+        }
+
+        stateEvent.state = state;
+        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
     }
-    if(timerEvents.t10 == HlapTimerEvent::EXPIRED) {
-        state = TAF_ECALL_STATE_T10_EXPIRED;
-        eCall.t10StartTimeSet = false;
-    }
-    if(timerEvents.t2 == HlapTimerEvent::STARTED) {
-        state = TAF_ECALL_STATE_T2_STARTED;
-        eCall.t2StartTime = std::chrono::system_clock::now();
-        eCall.t2StartTimeSet = true;
-    }
-    if(timerEvents.t5 == HlapTimerEvent::STARTED) {
-        state = TAF_ECALL_STATE_T5_STARTED;
-    }
-    if(timerEvents.t6 == HlapTimerEvent::STARTED) {
-        state = TAF_ECALL_STATE_T6_STARTED;
-    }
-    if(timerEvents.t7 == HlapTimerEvent::STARTED) {
-        state = TAF_ECALL_STATE_T7_STARTED;
-    }
-    if(timerEvents.t9 == HlapTimerEvent::STARTED) {
-        state = TAF_ECALL_STATE_T9_STARTED;
-        eCall.t9StartTime = std::chrono::system_clock::now();
-        eCall.t9StartTimeSet = true;
-    }
-    if(timerEvents.t10 == HlapTimerEvent::STARTED) {
-        state = TAF_ECALL_STATE_T10_STARTED;
-        eCall.t10StartTime = std::chrono::system_clock::now();
-        eCall.t10StartTimeSet = true;
-    }
-    if(timerEvents.t2 == HlapTimerEvent::STOPPED) {
-        state = TAF_ECALL_STATE_T2_STOPPED;
-        eCall.t2StartTimeSet = false;
-    }
-    if(timerEvents.t5 == HlapTimerEvent::STOPPED) {
-        state = TAF_ECALL_STATE_T5_STOPPED;
-    }
-    if(timerEvents.t6 == HlapTimerEvent::STOPPED) {
-        state = TAF_ECALL_STATE_T6_STOPPED;
-    }
-    if(timerEvents.t7 == HlapTimerEvent::STOPPED) {
-        state = TAF_ECALL_STATE_T7_STOPPED;
-    }
-    if(timerEvents.t9 == HlapTimerEvent::STOPPED) {
-        state = TAF_ECALL_STATE_T9_STOPPED;
-        eCall.t9StartTimeSet = false;
-    }
-    if(timerEvents.t10 == HlapTimerEvent::STOPPED) {
-        state = TAF_ECALL_STATE_T10_STOPPED;
-        eCall.t10StartTimeSet = false;
-    }
-    if (state != TAF_ECALL_STATE_UNKNOWN) {
-        auto &eCall = taf_ecall::GetInstance();
-        StateChangeEvent_t stateEvent;
-        stateEvent.eCallRef = eCall.GetECallReference();
+
+    if ((timerEvents.t10 != HlapTimerEvent::UNCHANGED)
+        && (timerEvents.t10 != HlapTimerEvent::UNKNOWN)) {
+        if(timerEvents.t10 == HlapTimerEvent::EXPIRED) {
+            state = TAF_ECALL_STATE_T10_EXPIRED;
+            eCall.t10StartTimeSet = false;
+        }
+        if(timerEvents.t10 == HlapTimerEvent::STARTED) {
+            state = TAF_ECALL_STATE_T10_STARTED;
+            eCall.t10StartTime = std::chrono::steady_clock::now();
+            eCall.t10StartTimeSet = true;
+        }
+        if(timerEvents.t10 == HlapTimerEvent::STOPPED) {
+            state = TAF_ECALL_STATE_T10_STOPPED;
+            eCall.t10StartTimeSet = false;
+        }
+
         stateEvent.state = state;
         le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
     }
@@ -459,9 +495,21 @@ void tafECallListener::OnMsdUpdateRequest(int phoneId) {
 void tafECallListener::onECallRedial(int phoneId, ECallRedialInfo info) {
     LE_DEBUG("onECallRedial");
     auto &eCall = taf_ecall::GetInstance();
-    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(eCall.ECallPtrRefMap, eCall.GetECallReference());
-    TAF_ERROR_IF_RET_NIL(eCallPtr == NULL, "cannot get callptr");
-    eCallPtr->dialRedial.isRedial = info.willECallRedial;
+    taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
+    StateChangeEvent_t stateEvent;
+
+    if (info.willECallRedial == true)
+    {
+        state = TAF_ECALL_STATE_END_OF_REDIAL_PERIOD;
+    } else {
+        state = TAF_ECALL_STATE_ENDED;
+        eCall.SetCallIndex(-1);
+        eCall.SetCallPhoneId(-1);
+    }
+
+    stateEvent.eCallRef = eCall.GetECallReference();
+    stateEvent.state = state;
+    le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
 }
 
 void taf_ecall::InitializeECallPtr()
@@ -532,7 +580,6 @@ void taf_ecall::InitializeECallPtr()
 
     ECallObject.isPrieCallOngoing = false;
     ECallObject.type = TAF_ECALL_TYPE_UNKNOWN;
-    ECallObject.dialRedial.isRedial = false;
     ECallObject.dialRedial.dialAttempts = TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH;
     std::vector<int> redialPara({5000, 60000, 60000, 60000, 180000, 180000, 180000, 180000, 180000, 180000});
     for (size_t i = 0; i < TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH; ++i) {
@@ -738,7 +785,6 @@ void taf_ecall::Delete(taf_ecall_CallRef_t ecallRef)
 {
     return;
 }
-
 
 le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t eCallMode) {
     if (Phones.size() >= phoneId) {
@@ -2144,9 +2190,9 @@ taf_ecall_HlapTimerStatus_t taf_ecall::ConvertHlapTimerStatus(telux::tel::HlapTi
     }
 }
 
-uint16_t taf_ecall::ConvertElapsedTime(std::chrono::time_point<std::chrono::system_clock> startTime)
+uint16_t taf_ecall::ConvertElapsedTime(std::chrono::time_point<std::chrono::steady_clock> startTime)
 {
-    std::chrono::duration<double> duration = std::chrono::system_clock::now() - startTime;
+    std::chrono::duration<double> duration = std::chrono::steady_clock::now() - startTime;
     uint16_t elapsedTime = static_cast<uint16_t>(duration.count());
     return elapsedTime;
 }

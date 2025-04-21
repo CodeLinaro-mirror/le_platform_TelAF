@@ -84,7 +84,6 @@ using namespace std;
 
         typedef struct
         {
-            bool                                isRedial = false;
             uint8_t                             dialAttempts;
             uint16_t                            dialInterval[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH];
         }
@@ -242,7 +241,7 @@ using namespace std;
                 le_result_t GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, taf_ecall_HlapTimerStatus_t* timerStatus, uint16_t* elapsedTime);
                 taf_ecall_HlapTimerStatus_t GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType);
                 taf_ecall_HlapTimerStatus_t ConvertHlapTimerStatus(telux::tel::HlapTimerStatus status);
-                uint16_t ConvertElapsedTime(std::chrono::time_point<std::chrono::system_clock> startTime);
+                uint16_t ConvertElapsedTime(std::chrono::time_point<std::chrono::steady_clock> startTime);
                 static void ReportPositiveALACKTimerHandler(le_timer_Ref_t timerRef);
                 static void ALACKTimerEventHandler(void* reqPtr);
                 le_result_t IsInProgress(taf_ecall_CallRef_t ecallRef, bool* isInProgress);
@@ -283,9 +282,9 @@ using namespace std;
                 std::promise<telux::common::ErrorCode> configRedialProm;
                 CallEndCause CallEndError = telux::tel::CallEndCause::NORMAL;
 
-                std::chrono::time_point<std::chrono::system_clock> t2StartTime;
-                std::chrono::time_point<std::chrono::system_clock> t9StartTime;
-                std::chrono::time_point<std::chrono::system_clock> t10StartTime;
+                std::chrono::time_point<std::chrono::steady_clock> t2StartTime;
+                std::chrono::time_point<std::chrono::steady_clock> t9StartTime;
+                std::chrono::time_point<std::chrono::steady_clock> t10StartTime;
                 bool t2StartTimeSet = false;
                 bool t9StartTimeSet = false;
                 bool t10StartTimeSet = false;

@@ -8,10 +8,6 @@ executables:
 
 processes:
 {
-    run:
-    {
-        (tafDiagApp)
-    }
     envVars:
     {
         LE_LOG_LEVEL = DEBUG

@@ -1429,6 +1429,14 @@ bool taf_FwUpdate::UnpackImage
         return false;
     }
 
+    struct stat st;
+    if (stat(filePath, &st) == -1)
+    {
+        LE_WARN("%s not exists.", filePath);
+        *pageNum = 0;
+        return false;
+    }
+
     snprintf(tmp, sizeof(tmp), "unzip -o %s %s -d %s", filePath, imagePath, dir);
 
     tafFwUpdate.SendPipeCmd(tmp, "w");
@@ -1436,7 +1444,6 @@ bool taf_FwUpdate::UnpackImage
 
     snprintf(tmp, sizeof(tmp), "%s/%s", dir, imagePath);
 
-    struct stat st;
     if (stat(tmp, &st) == -1)
     {
         LE_WARN("%s not exists.", tmp);
@@ -3301,6 +3308,7 @@ void taf_FwUpdate::FwUpdateHandler
             else if (updateReq->event == TAF_FWUPDATE_EV_INSTALL_POST_CHECK)
             {
                 LE_INFO("Installation post check.");
+                tafFwUpdate.GetPackageDataPath(updateReq->filePath, TAF_UPDATE_FILE_PATH_LEN);
                 tafFwUpdate.InstallPostCheck(updateReq->filePath);
             }
             else if (updateReq->event == TAF_FWUPDATE_EV_ROLLBACK)

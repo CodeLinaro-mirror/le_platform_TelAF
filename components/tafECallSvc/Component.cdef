@@ -27,6 +27,7 @@ requires:
     lib:
     {
         lib/libtelux_tel.so
+        lib/libtelux_platform.so
     }
 
 }

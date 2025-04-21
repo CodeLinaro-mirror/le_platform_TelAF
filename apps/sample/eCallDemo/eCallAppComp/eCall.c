@@ -899,6 +899,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             printf("TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY");
             break;
         }
+        case TAF_ECALL_STATE_T9_RESUMED:
+        {
+            printf("TAF_ECALL_STATE_T9_RESUMED");
+            break;
+        }
         default:
         {
             printf("Unknown state");

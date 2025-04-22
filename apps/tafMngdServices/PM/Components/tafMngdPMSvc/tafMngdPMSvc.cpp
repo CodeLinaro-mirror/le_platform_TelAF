@@ -1336,6 +1336,7 @@ COMPONENT_INIT
 
     //creating the timer for vehichle wakeup
     mpms.stateChangeAckTimerRef = le_timer_Create("STATE CHANGE ACK timer");
+    le_timer_SetWakeup(mpms.stateChangeAckTimerRef, false);
     le_timer_SetMsInterval(mpms.stateChangeAckTimerRef, mpms.config.state_change_ack_timeout);
     le_timer_SetHandler(mpms.stateChangeAckTimerRef, mpms.StateChangeAckTimerHandler);
     LE_INFO("COMPONENT end init");

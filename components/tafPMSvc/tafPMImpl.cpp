@@ -395,6 +395,7 @@ void taf_PM::Init(void)
 
     //Timer Ref to get the ack from pms clients for state change
     pmClientsAckTimerRef = le_timer_Create("PM Clients ACK timer");
+    le_timer_SetWakeup(pmClientsAckTimerRef, false);
     le_timer_SetMsInterval(pmClientsAckTimerRef, PMS_CLNTS_ACK_TIMEOUT);
     le_timer_SetHandler(pmClientsAckTimerRef, PmsClntsAckTimerHandler);
     auto &pmInstance = taf_PM::GetInstance();

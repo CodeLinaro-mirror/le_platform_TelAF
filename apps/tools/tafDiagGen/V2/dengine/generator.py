@@ -83,18 +83,27 @@ def f_forbidden_values_conversion(forbidden_values, data_item):
     #     }
     # );
 
+    byte_size = data_item['functional_definition']['bit_size'] // 8
+
     statement = "{"
 
     for byte_queue in forbidden_values:
 
         each_forbidden_block = "std::make_shared<std::vector<uint8_t>>(std::initializer_list<uint8_t>{"
 
-        value = format_hex(byte_queue)
-        for byte in iterate_hex_string(value):
-            each_forbidden_block += "0x" + byte
-            each_forbidden_block += ", "
+        if byte_queue == 0:
+            # For 0, generate byte_size number of 0x00
+            byte_list = ["0x00"] * byte_size
+            each_forbidden_block += ", ".join(byte_list)
+            each_forbidden_block += "}),"
+        else:
 
-        each_forbidden_block += "}),"
+            value = format_hex(byte_queue)
+            for byte in iterate_hex_string(value):
+                each_forbidden_block += "0x" + byte
+                each_forbidden_block += ", "
+
+            each_forbidden_block += "}),"
 
         statement += each_forbidden_block
 

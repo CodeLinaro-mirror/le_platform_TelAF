@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import sys
@@ -53,6 +53,32 @@ def schema__routines_all(top_node):
                 need_to_stop = True
                 return
 
+        if 'access' in value.keys():
+            if 'role' in value['access'].keys():
+                if type(value['access']['role']) is not list:
+                    logger.error(f"{Tname} . {key} . access . role <-- Not a LIST")
+                    need_to_stop = True
+                    return
+
+                # Need to check the empty list
+                if len(value['access']['role']) == 0:
+                    logger.error(f"{Tname} . {key} . access . role <-- empty attribute list")
+                    need_to_stop = True
+                    return
+
+                # The duplicate attributes in list are not allowed
+                if len(value['access']['role']) != len(set(value['access']['role'])):
+                    logger.error(f"{Tname} . {key} . access. role <-- duplicate attribute in list")
+                    need_to_stop = True
+                    return
+
+                role_list = ['b0', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6']
+                for v in value['access']['role']:
+                    if v not in role_list:
+                        logger.error(f"{Tname} . {key} . access . role . {v} <-- Invalid value")
+                        need_to_stop = True
+                        return
+
         # Optional -> data_enable_condition
 
         if 'data_enable_condition' in value.keys():
@@ -72,6 +98,30 @@ def schema__routines_all(top_node):
                     need_to_stop = True
                     return
 
+        if 'execution_authentication_pattern' in value.keys():
+            if type(value['execution_authentication_pattern']) is not list:
+                    logger.error(f"{Tname} . execution_authentication_pattern <-- Not a LIST")
+                    need_to_stop = True
+                    return
+
+            # Need to check the empty list
+            if len(value['execution_authentication_pattern']) == 0:
+                logger.error(f"{Tname} . execution_authentication_pattern  <-- empty attribute list")
+                need_to_stop = True
+                return
+
+            # The duplicate attributes in list are not allowed
+            if len(value['execution_authentication_pattern']) != len(set(value['execution_authentication_pattern'])):
+                logger.error(f"{Tname} . execution_authentication_pattern  <-- duplicate attribute in list")
+                need_to_stop = True
+                return
+
+            role_list = ['b0', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6']
+            for v in value['execution_authentication_pattern']:
+                if v not in role_list:
+                    logger.error(f"{Tname} . execution_authentication_pattern . {v} <-- Invalid value")
+                    need_to_stop = True
+                    return
 
     logger.info(f"Checking top-node: [{Tname}]")
     for key, value in top_node.items():

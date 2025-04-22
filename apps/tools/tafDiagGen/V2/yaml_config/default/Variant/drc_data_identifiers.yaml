@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 domain_name: Variant
@@ -35,7 +35,8 @@ did_all:
     did_accessibility:
       diagnostic_session_and_security_level:
         execution_authorization_pattern_read: did_read_app
-        execution_authorization_pattern_io: io_control
+        execution_authorization_pattern_io: pattern_s29
+        execution_authentication_pattern_io: [ b1 ]
 
   0xA5A5:
     identification:
@@ -339,3 +340,61 @@ did_all:
     did_accessibility:
       diagnostic_session:
         extended_diagnostic_session: [ R, W ]
+
+  0xACC8:
+    identification:
+      code: 0xACC8
+    implementation:
+      did_size: 1
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Green_Light
+    supported_functions:
+      write_did: False
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session: [ R, W ]
+        extended_diagnostic_session: [ R, W ]
+      diagnostic_session_and_security_level:
+        execution_authorization_pattern_read: pattern_s29
+        execution_authentication_pattern_read: [ b1 ]
+    data_enable_condition:
+      and:
+        - tooHigh
+        - tooLow
+
+  0xACC9:
+    identification:
+      code: 0xACC9
+    implementation:
+      did_size: 1
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: Green_Light
+    supported_functions:
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session: [ R, W ]
+        extended_diagnostic_session: [ R, W ]
+      diagnostic_session_and_security_level:
+        execution_authorization_pattern_read: pattern_s29
+        execution_authorization_pattern_write: pattern_s29
+        execution_authentication_pattern_read: [ b1 ]
+        execution_authentication_pattern_write: [ b1, b2]
+    data_enable_condition:
+      and:
+        - tooHigh
+        - tooLow

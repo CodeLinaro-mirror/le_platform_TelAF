@@ -1,11 +1,3 @@
-requires:
-{
-    api:
-    {
-        taf_net.api      [types-only]
-    }
-}
-
 sources:
 {
     taf_pa_net_qcmap.cpp

@@ -252,6 +252,12 @@ get_pattern_levels_by_session_id(uint8_t session_id);
 
 EXPORT_SYM bool is_forbidden(uint16_t did_code, const uint8_t *payload, uint32_t plen);
 
+EXPORT_SYM std::map<std::string, uint64_t> get_authentication_roles();
+
+EXPORT_SYM uint32_t get_authentication_timeout();
+
+EXPORT_SYM int get_operation_cycle_count();
+
 template <typename T>
 static inline void fill_list(Node & node, std::vector<T> & to_be_filled)
 {

@@ -35,6 +35,7 @@ allow telaf_tafGpioSvc_t proc_t:file { read_file_perms };
 # run insmod
 typeattribute telaf_tafGpioSvc_t can_load_kernmodule;
 allow telaf_tafGpioSvc_t kmod_exec_t:file { exec_file_perms };
+mls_key_write_to_clearance(telaf_tafGpioSvc_t)
 modutils_read_module_deps(telaf_tafGpioSvc_t)
 
 # read gpioWakeupPin.conf

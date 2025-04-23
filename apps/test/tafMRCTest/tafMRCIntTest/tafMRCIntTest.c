@@ -69,7 +69,7 @@ void PrintHelpMenu
         "    app runProc tafMRCIntTest tafMRCIntTest -- end <success|failure>\n"
         "       Send OTA end message.\n"
         "\n"
-        "    app runProc tafMRCIntTest tafMRCIntTest -- sync\n"
+        "    app runProc tafMRCIntTest tafMRCIntTest -- sync <init/forced/success/failure>\n"
         "       Send OTA sync message.\n"
         "\n"
     );
@@ -127,8 +127,39 @@ COMPONENT_INIT
     }
     else if (strncmp(cmd, "sync", strlen("sync")) == 0)
     {
-        result = taf_mrc_SendOtaAbsyncMsg();
-        LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaAbsyncMsg - LE_OK");
+        CheckArgs(2);
+        const char* status = le_arg_GetArg(1);
+        if (status == NULL)
+        {
+			PrintHelpMenu();
+        }
+        else if (strncmp(status, "forced", strlen("forced")) == 0)
+        {
+            result = taf_mrc_SendOtaAbsyncMsg();
+            LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaAbsyncMsg - LE_OK");
+        }
+        else
+        {
+            if (strncmp(status, "init", strlen("init")) == 0)
+            {
+                result = taf_mrc_SendSyncStatusMsg(TAF_MRC_SYNC_STATUS_INIT);
+                LE_TEST_OK(result == LE_OK, "taf_mrc_SendSyncStatusMsg - LE_OK");
+            }
+            else if (strncmp(status, "success", strlen("success")) == 0)
+            {
+                result = taf_mrc_SendSyncStatusMsg(TAF_MRC_SYNC_STATUS_SUCCESS);
+                LE_TEST_OK(result == LE_OK, "taf_mrc_SendSyncStatusMsg - LE_OK");
+            }
+            else if (strncmp(status, "failure", strlen("failure")) == 0)
+            {
+                result = taf_mrc_SendSyncStatusMsg(TAF_MRC_SYNC_STATUS_FAILURE);
+                LE_TEST_OK(result == LE_OK, "taf_mrc_SendSyncStatusMsg - LE_OK");
+            }
+            else
+            {
+                PrintHelpMenu();
+            }
+        }
     }
     else if (strncmp(cmd, "end", strlen("end")) == 0)
     {

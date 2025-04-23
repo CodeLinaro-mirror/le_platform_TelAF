@@ -45,3 +45,59 @@ le_result_t taf_mrc_SendOtaAbsyncMsg()
     auto &tafMrc = taf_Mrc::GetInstance();
     return tafMrc.SendOtaMsg(TAF_MRC_OTA_MSG_TYPE_ABSYNC);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends sync staus to MRCD.
+ *
+ * @return
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_SendSyncStatusMsg
+(
+    taf_mrc_SyncStatus_t status ///< Sync status.
+)
+{
+    auto &tafMrc = taf_Mrc::GetInstance();
+    if (!tafMrc.paReady)
+    {
+        LE_ERROR("MRC platform adaptor is not available.");
+        return LE_FAULT;
+    }
+
+    taf_pa_mrc_ABSyncStatus_t paStatus;
+    switch (status)
+    {
+        case TAF_MRC_SYNC_STATUS_INIT:
+            paStatus = TAF_PA_MRC_ABSYNC_STARTED;
+            break;
+        case TAF_MRC_SYNC_STATUS_SUCCESS:
+            paStatus = TAF_PA_MRC_ABSYNC_WITH_SUCCESS;
+            break;
+        case TAF_MRC_SYNC_STATUS_FAILURE:
+            paStatus = TAF_PA_MRC_ABSYNC_WITH_FAILURE;
+            break;
+        default:
+            LE_ERROR("Invalid status %d.", status);
+            return LE_FAULT;
+    }
+
+    le_result_t result = taf_pa_mrc_NotifyABSyncStatus(paStatus);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to notify AB sycn status.");
+        return LE_FAULT;
+    }
+
+    le_clk_Time_t time = { .sec = TAF_MRC_MSG_RESP_TIMEOUT };
+    result = le_sem_WaitWithTimeOut(tafMrc.syncSem, time);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Timeout for MRC to handle AB sync status.");
+        return LE_FAULT;
+    }
+
+    return LE_OK;
+}

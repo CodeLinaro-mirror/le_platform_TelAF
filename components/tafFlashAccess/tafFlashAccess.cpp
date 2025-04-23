@@ -607,6 +607,53 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetMtdSize
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Get MTD partition oob size.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+extern "C" LE_SHARED le_result_t taf_lib_flash_GetMtdOobSize
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
+    uint32_t *sizePtr                        ///< [OUT] Partition size.
+)
+{
+    if (partitionPtr == NULL)
+    {
+        LE_ERROR("Partition is NULL.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (sizePtr == NULL)
+    {
+        LE_ERROR("Size is NULL.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (partitionPtr->mtdFd < 0)
+    {
+        LE_ERROR("Partition is closed.");
+        return LE_FAULT;
+    }
+
+    mtd_info_t mtdInfo;
+    int ret = ioctl(partitionPtr->mtdFd, MEMGETINFO, &mtdInfo);
+    if (ret)
+    {
+        LE_ERROR("Fail to iotcl(MEMGETINFO) with fd%d,", partitionPtr->mtdFd);
+        return LE_FAULT;
+    }
+
+    *sizePtr = mtdInfo.oobsize;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Check if a block is bad block in MTD partition..
  *
  * @return
@@ -769,6 +816,154 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_ReadPartition
         LE_INFO("%d bytes at offset %d is read, < %" PRIuS " bytes.", ret, offset, *sizePtr);
         *sizePtr = ret;
     }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check if a page is erased.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+extern "C" LE_SHARED le_result_t taf_lib_flash_IsPageErased
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
+    uint32_t page,                           ///< [IN] Page index.
+    bool *erasedPtr                          ///< [OUT] Is page erased.
+)
+{
+    if (partitionPtr == NULL)
+    {
+        LE_ERROR("Partition is NULL.");
+        return LE_BAD_PARAMETER;
+    }
+
+    int fd = -1;
+    if (partitionPtr->eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
+    {
+        fd = partitionPtr->mtdFd;
+    }
+    else
+    {
+        LE_ERROR("UBI not supported.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (fd < 0)
+    {
+        LE_ERROR("Partition is closed.");
+        return LE_FAULT;
+    }
+
+    unsigned int dataPtr[TAF_LIB_FLASH_PAGE_SIZE];
+    lseek(fd, TAF_LIB_FLASH_PAGE_SIZE * page, SEEK_SET);
+    int ret = read(fd, dataPtr, TAF_LIB_FLASH_PAGE_SIZE);
+    if (ret < 0)
+    {
+        LE_ERROR("Fail to read with fd%d,", fd);
+        return LE_FAULT;
+    }
+
+    size_t rdSize = 0;
+    if (ret != TAF_LIB_FLASH_PAGE_SIZE)
+    {
+        LE_WARN("%d bytes at is read, < %d bytes.", ret, TAF_LIB_FLASH_PAGE_SIZE);
+        rdSize = (size_t)ret;
+    }
+
+    *erasedPtr = false;
+
+    unsigned char *testBuf = (unsigned char*)malloc(rdSize);
+    memset(testBuf, 0xFF, rdSize);
+    if (memcmp(dataPtr, testBuf, rdSize) == 0)
+    {
+        uint32_t writeSize = 0;
+        int errCode = 0;
+        le_result_t result = taf_lib_flash_GetMtdWriteSize(partitionPtr, &writeSize, &errCode);
+        if (result != LE_OK)
+        {
+            LE_ERROR("Fail to get write size, error = %d.", errCode);
+            free(testBuf);
+            return LE_FAULT;
+        }
+
+        if (page != (partitionPtr->size / writeSize) - 1)
+        {
+            uint32_t oobSize = 0;
+            le_result_t result = taf_lib_flash_GetMtdOobSize(partitionPtr, &oobSize);
+            if (result != LE_OK)
+            {
+                LE_ERROR("Fail to get oob size.");
+                free(testBuf);
+                return LE_FAULT;
+            }
+
+            ret = ioctl(fd, MTDFILEMODE, MTD_FILE_MODE_RAW);
+            if (ret < 0)
+            {
+                LE_ERROR("Fail to set RAW mode.");
+                free(testBuf);
+                return LE_FAULT;
+            }
+
+            unsigned char *buffer = (unsigned char *)malloc(writeSize + oobSize);
+            if (buffer == NULL)
+            {
+                LE_ERROR("Fail to allocate buffer.");
+                free(testBuf);
+                return LE_FAULT;
+            }
+
+            lseek(fd, page * writeSize, SEEK_SET);
+
+            ret = read(fd, buffer, writeSize + oobSize);
+            if (ret < 0)
+            {
+                LE_ERROR("Fail to RAW read.");
+                free(testBuf);
+                free(buffer);
+                return LE_FAULT;
+            }
+
+            unsigned char *testBufEx = (unsigned char *)malloc(writeSize + oobSize);
+            if (testBufEx == NULL)
+            {
+                LE_ERROR("Fail to allocate buffer.");
+                free(testBuf);
+                free(buffer);
+                return LE_FAULT;
+            }
+
+            memset(testBufEx, 0xFF, writeSize + oobSize);
+            if (memcmp(buffer, testBufEx, writeSize + oobSize) == 0)
+            {
+                *erasedPtr = true;
+            }
+
+            free(buffer);
+            free(testBufEx);
+
+            ret = ioctl(fd, MTDFILEMODE,  MTD_FILE_MODE_NORMAL);
+            if (ret < 0)
+            {
+                LE_ERROR("Fail to set NORMAL mode.");
+                free(testBuf);
+                return LE_FAULT;
+            }
+        }
+        else
+        {
+            LE_INFO("Last page is reserved as erased page.");
+            *erasedPtr = true;
+        }
+    }
+
+    free(testBuf);
 
     return LE_OK;
 }

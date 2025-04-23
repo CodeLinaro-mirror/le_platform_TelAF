@@ -110,6 +110,21 @@ ENUM OtaOperationStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Sync status enum.
+ *
+ * @b NOTE: Sync status notified to MRCD.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SyncStatus
+{
+    SYNC_STATUS_INIT = 0,    ///< Sync is initialized by client.
+    SYNC_STATUS_SUCCESS,     ///< Sync status is success.
+    SYNC_STATUS_FAILURE      ///< Sync status is failure.
+};
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Sends an OTA start message to MRCD.
  *
  * @return
@@ -159,4 +174,18 @@ FUNCTION le_result_t SendOtaEndMsg
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendOtaAbsyncMsg
 (
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends sync staus to MRCD.
+ *
+ * @return
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendSyncStatusMsg
+(
+    SyncStatus status IN ///< Sync status.
 );

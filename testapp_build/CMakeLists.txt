@@ -7,6 +7,12 @@ set(LEGATO_TARGET $ENV{LEGATO_TARGET} )
 set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Unit_testapp)
 set(Interfaces $ENV{TELAF_ROOT}/interfaces)
 
+# Get the DGTOOL from environment first, otherwise using V2
+set(DGTOOL "$ENV{DGTOOL}")
+if("${DGTOOL}" STREQUAL "")
+    set(DGTOOL "dgtool-V2")
+endif()
+
 set(MKTOOLS_X_C_FLAGS  $ENV{MKTOOLS_X_C_FLAGS})
 message(STATUS "MKTOOLS_X_C_FLAGS: ${MKTOOLS_X_C_FLAGS}")
 
@@ -18,6 +24,15 @@ message(STATUS "legato root dir: ${LEGATO_ROOT}")
 set(Legato_DIR ${LEGATO_ROOT}/cmake)
 set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/test)
 find_package(Legato REQUIRED)
+
+# Add one step to generate the diag_ids.h for diag app from the dgtool
+add_custom_target(
+    BuildDgtool
+    COMMAND ${CMAKE_MAKE_PROGRAM} -C $ENV{TELAF_ROOT}/apps/tools/tafDiagGen -f dgtool.mk ${DGTOOL} DGTOOL_TARGET=${LEGATO_TARGET}
+    WORKING_DIRECTORY $ENV{TELAF_ROOT}
+    COMMENT "Leverage the external dgtool.mk to get the generated stuff for diag apps"
+)
+add_custom_target(All ALL DEPENDS BuildDgtool)
 
 # Build unit test apps
 file(GLOB_RECURSE UNITTEST_ADEF_FILES ${TESTAPP_PATH}/*UnitTest*.adef)

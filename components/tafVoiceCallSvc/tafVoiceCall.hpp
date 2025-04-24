@@ -139,6 +139,7 @@ public:
     taf_voicecall_Event_t EventConvert(taf_pa_voicecall_event_t event);
     taf_voicecall_Direction_t DirConvert(taf_pa_voicecall_dir_t paDir);
     taf_pa_voicecall_dir_t DirToPADir(taf_voicecall_Direction_t dir);
+    taf_voicecall_CallEndCause_t EndCauseConvert(taf_pa_voicecall_termination_t paTerm);
 
     // DFX interfaces
     void ShowAll();

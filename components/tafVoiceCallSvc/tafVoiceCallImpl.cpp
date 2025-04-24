@@ -89,6 +89,19 @@ void Handler::PaEventListener(taf_pa_voicecall_Ref_t reference, taf_pa_voicecall
     taf_pa_voicecall_dir_t direction = taf_pa_voicecall_GetCallDirection(reference);
     char destinationPtr[PA_MAX_DESTINATION_LEN_BYTE];
     TAF_ERROR_IF_RET_NIL(taf_pa_voicecall_GetCallDestination(reference, destinationPtr, PA_MAX_DESTINATION_LEN_BYTE) != LE_OK, "Cannot get dest ID");
+    if (event == TAF_PA_VOICECALL_EVENT_ENDED)
+    {
+        taf_pa_voicecall_termination_t termination;
+        if (taf_pa_voicecall_GetCallTermination(reference, &termination) == LE_OK)
+        {
+            msgCallEvent.termination = myCall.EndCauseConvert(termination);
+        }
+        else
+        {
+            LE_ERROR("Cannot get termination code from: %p!", reference);
+        }
+    }
+
     taf_pa_voicecall_DeleteReference(reference);
 
     LE_INFO("On call phoneId: %d, %s, event: %s", phoneId, destinationPtr, myCall.PaEventToString(event));
@@ -986,6 +999,22 @@ taf_pa_voicecall_dir_t VoiceCallSvc::DirToPADir(taf_voicecall_Direction_t dir)
         case taf_voicecall_Direction_t::OUTGOING: return TAF_PA_VOICECALL_DIR_OUTGOING;
         case taf_voicecall_Direction_t::NONE: return TAF_PA_VOICECALL_DIR_NONE;
         default: return TAF_PA_VOICECALL_DIR_NONE;
+    }
+}
+
+taf_voicecall_CallEndCause_t VoiceCallSvc::EndCauseConvert(taf_pa_voicecall_termination_t paTerm)
+{
+    switch (paTerm) {
+        case TAF_PA_VOICECALL_TERM_NORMAL: return TAF_VOICECALL_END_NORMAL;
+        case TAF_PA_VOICECALL_TERM_NETWORK_FAIL: return TAF_VOICECALL_END_NETWORK_FAIL;
+        case TAF_PA_VOICECALL_TERM_UNOBTAINABLE_NUMBER: return TAF_VOICECALL_END_UNOBTAINABLE_NUMBER;
+        case TAF_PA_VOICECALL_TERM_BUSY: return TAF_VOICECALL_END_BUSY;
+        case TAF_PA_VOICECALL_TERM_LOCAL: return TAF_VOICECALL_END_LOCAL;
+        case TAF_PA_VOICECALL_TERM_REMOTE: return TAF_VOICECALL_END_REMOTE;
+        case TAF_PA_VOICECALL_TERM_UNDEFINED: return TAF_VOICECALL_END_UNDEFINED;
+        case TAF_PA_VOICECALL_TERM_REJECTED: return TAF_VOICECALL_END_REJECTED;
+        case TAF_PA_VOICECALL_TERM_NORESPONSE: return TAF_VOICECALL_END_NORESPONSE;
+        default: return TAF_VOICECALL_END_UNDEFINED;
     }
 }
 

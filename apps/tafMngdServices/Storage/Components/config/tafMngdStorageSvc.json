@@ -32,11 +32,17 @@
             "Storages": [
                 {
                     "StorageName": "testSvcStorage",
-                    "AccessibleApps": ["tafMngdStorageUnitTest", "tafMngdSec2ndSharedApp", "tafMngdSecSharedApp"]
+                    "AccessibleApps": {
+                        "Read": ["tafMngdStorageUnitTest", "tafMngdSecSharedApp"],
+                        "Write": ["tafMngdStorageUnitTest","tafMngdSec2ndSharedApp"]
+                    }
                 },
                 {
                     "StorageName": "SvcStorageInstance",
-                    "AccessibleApps": ["AppA", "AppB"]
+                    "AccessibleApps": {
+                        "Read": ["AppA"],
+                        "Write": ["AppB"]
+                    }
                 }
             ]
         }

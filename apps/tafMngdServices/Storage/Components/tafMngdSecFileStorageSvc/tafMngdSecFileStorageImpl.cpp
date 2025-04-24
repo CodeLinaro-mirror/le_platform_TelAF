@@ -119,36 +119,78 @@ le_result_t tafMngdSecFileStorageSvc::ParseServiceJsonConfig(char* configPath)
         std::string svcJsonVersion = root.get<std::string>("Version");
         LE_INFO("Version of Json is %s", svcJsonVersion.c_str());
 
-        for (const auto& item : root.get_child("MSS Secure File Storage.Configuration.Storages"))
+        // Parse "MSS Secure File Storage" section
+        auto mssSecureFileStorage = root.get_child("MSS Secure File Storage");
+        if (!mssSecureFileStorage.empty())
         {
-            tafMngdSecFileStorage_StorageCfg_t storage;
-            std::string storageName = item.second.get<std::string>("StorageName");
-            snprintf(storage.StorageName, sizeof(storage.StorageName), "%s", storageName.c_str());
-            for (const auto& app : item.second.get_child("AccessibleApps"))
+            auto configuration = mssSecureFileStorage.get_child("Configuration");
+            if (!configuration.empty())
             {
-                std::string appName = app.second.get_value<std::string>();
-                char* appCStr = new char[LIMIT_MAX_APP_NAME_LEN];
-                snprintf(appCStr, LIMIT_MAX_APP_NAME_LEN, "%s", appName.c_str());
-                storage.AccessibleApps.push_back(appCStr);
+                // Parse "StoragePath" section
+                auto storagePath = configuration.get_child("StoragePath");
+                if (!storagePath.empty())
+                {
+                    for (const auto& item : storagePath)
+                    {
+                        const boost::property_tree::ptree& uPath = item.second;
+                        std::string basePath = uPath.get<std::string>("BasePath");
+                        if(CheckValidPath(basePath) != LE_OK){
+                            return LE_BAD_PARAMETER;
+                        }
+                        snprintf(secFileStorage,sizeof(secFileStorage),"%s",basePath.c_str());
+                        std::string backupPath = uPath.get<std::string>("BackupPath");
+                        if(CheckValidPath(backupPath) != LE_OK){
+                            return LE_BAD_PARAMETER;
+                        }
+                        LE_INFO("Base path is %s",secFileStorage);
+                        snprintf(secFileRfsStorage,sizeof(secFileRfsStorage),"%s",backupPath.c_str());
+                        LE_INFO("Backup path is %s",secFileRfsStorage);
+                    }
+                }
+
+                // Parse "Storages" section
+                auto storages = configuration.get_child("Storages");
+                if (!storages.empty())
+                {
+                    for (const auto& item : storages)
+                    {
+                        tafMngdSecFileStorage_StorageCfg_t storage;
+                        std::string storageName = item.second.get<std::string>("StorageName");
+                        snprintf(storage.StorageName, sizeof(storage.StorageName), "%s", storageName.c_str());
+
+                        // Parse "AccessibleApps" section with "Read" and "Write" permissions
+                        auto accessibleApps = item.second.get_child("AccessibleApps");
+                        if (!accessibleApps.empty())
+                        {
+                            auto readApps = accessibleApps.get_child("Read");
+                            if (!readApps.empty())
+                            {
+                                for (const auto& app : readApps)
+                                {
+                                    std::string appName = app.second.get_value<std::string>();
+                                    char* appCStr = new char[LIMIT_MAX_APP_NAME_LEN];
+                                    snprintf(appCStr, LIMIT_MAX_APP_NAME_LEN, "%s", appName.c_str());
+                                    storage.ReadAccessibleApps.push_back(appCStr);
+                                }
+                            }
+
+                            auto writeApps = accessibleApps.get_child("Write");
+                            if (!writeApps.empty())
+                            {
+                                for (const auto& app : writeApps)
+                                {
+                                    std::string appName = app.second.get_value<std::string>();
+                                    char* appCStr = new char[LIMIT_MAX_APP_NAME_LEN];
+                                    snprintf(appCStr, LIMIT_MAX_APP_NAME_LEN, "%s", appName.c_str());
+                                    storage.WriteAccessibleApps.push_back(appCStr);
+                                }
+                            }
+                        }
+
+                        storageAccessCfg.push_back(storage);
+                    }
+                }
             }
-            storageAccessCfg.push_back(storage);
-        }
-        LE_INFO("Version of Json is %s",svcJsonVersion.c_str());
-        for (const auto& item :
-            root.get_child("MSS Secure File Storage.Configuration.StoragePath")) {
-            const boost::property_tree::ptree& uPath = item.second;
-            std::string basePath = uPath.get<std::string>("BasePath");
-            if(CheckValidPath(basePath) != LE_OK){
-                return LE_BAD_PARAMETER;
-            }
-            snprintf(secFileStorage,sizeof(secFileStorage),"%s",basePath.c_str());
-            std::string backupPath = uPath.get<std::string>("BackupPath");
-            if(CheckValidPath(backupPath) != LE_OK){
-                return LE_BAD_PARAMETER;
-            }
-            LE_INFO("Base path is %s",secFileStorage);
-            snprintf(secFileRfsStorage,sizeof(secFileRfsStorage),"%s",backupPath.c_str());
-            LE_INFO("Backup path is %s",secFileRfsStorage);
         }
     }
     catch (const std::exception& e)
@@ -159,23 +201,53 @@ le_result_t tafMngdSecFileStorageSvc::ParseServiceJsonConfig(char* configPath)
     return LE_OK;
 }
 
-bool tafMngdSecFileStorageSvc::IsAppAccessible(const char* storageName, const char* appName)
+/**
+ * Check if an application has read access to a storage.
+ */
+bool tafMngdSecFileStorageSvc::IsReadable(const char* storageName, const char* appName)
 {
     for (const auto& storage : storageAccessCfg)
     {
         if (std::strcmp(storage.StorageName, storageName) == 0)
         {
-            for (const auto& app : storage.AccessibleApps)
+            for (const auto& app : storage.ReadAccessibleApps)
             {
                 if (std::strcmp(app, appName) == 0)
                 {
-                    LE_INFO("%s is in the access list of storage: %s", appName, storageName);
+                    LE_INFO("%s has read access to storage: %s", appName, storageName);
                     return true;
                 }
             }
         }
     }
     return false;
+}
+
+/**
+ * Check if an application has write access to a storage.
+ */
+bool tafMngdSecFileStorageSvc::IsWritable(const char* storageName, const char* appName)
+{
+    for (const auto& storage : storageAccessCfg)
+    {
+        if (std::strcmp(storage.StorageName, storageName) == 0)
+        {
+            for (const auto& app : storage.WriteAccessibleApps)
+            {
+                if (std::strcmp(app, appName) == 0)
+                {
+                    LE_INFO("%s has write access to storage: %s", appName, storageName);
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool tafMngdSecFileStorageSvc::IsAppAccessible(const char* storageName, const char* appName)
+{
+    return IsReadable(storageName, appName) || IsWritable(storageName, appName);
 }
 
 bool tafMngdSecFileStorageSvc::IsServiceStorage(const char* storageName)
@@ -685,7 +757,7 @@ le_result_t tafMngdSecFileStorageSvc::CheckStorageCreator
     }
     else
     {
-        return LE_NOT_PERMITTED; // The app does not match
+        return LE_NOT_FOUND; // The app does not match
     }
 }
 
@@ -844,6 +916,8 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
                          "Invalid storage string");
 
     char dirPath[LIMIT_MAX_PATH_BYTES] = {0};
+    char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+    bool isCreator = false;
 
     // Get the storage path
     if (GetStoragePath(secFileStorage, storageNamePtr, dirPath, sizeof(dirPath)) != LE_OK)
@@ -859,8 +933,6 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
         return nullptr;
     }
 
-    char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
-
     if (LE_OK != GetAppNameBySessionRef(taf_mngdStorSecFile_GetClientSessionRef(),
                                         myAppName, sizeof(myAppName)))
     {
@@ -868,7 +940,12 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
         return nullptr;
     }
 
-    if(CheckStorageCreator(storageNamePtr, myAppName) != LE_OK)
+    if(CheckStorageCreator(storageNamePtr, myAppName) == LE_OK)
+    {
+        LE_INFO("Calling app is the creator");
+        isCreator = true;
+    }
+    else
     {
         LE_INFO("Calling app is not the creator, check if it is accessible");
         if(IsAppAccessible(storageNamePtr, myAppName) == false)
@@ -905,6 +982,29 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
                  "%s", storageNamePtr);
 
         clientCtxPtr->lockState= true;
+
+        clientCtxPtr->IsReadable = false;
+
+        clientCtxPtr->IsWritable = false;
+
+        if(IsReadable(storageNamePtr, myAppName) == true)
+        {
+            LE_DEBUG("This client has read access");
+            clientCtxPtr->IsReadable = true;
+        }
+
+        if(IsWritable(storageNamePtr, myAppName) == true)
+        {
+            LE_DEBUG("This client has write access");
+            clientCtxPtr->IsWritable = true;
+        }
+
+        if(isCreator == true)
+        {
+            clientCtxPtr->IsCreator = true;
+            clientCtxPtr->IsReadable = true;
+            clientCtxPtr->IsWritable = true;
+        }
 
         storageRef = clientCtxPtr->storageRef;
     }
@@ -1048,6 +1148,10 @@ le_result_t tafMngdSecFileStorageSvc::ImportFileImpl
     // Check if the client context is valid
     TAF_ERROR_IF_RET_VAL(clienCxtPtr == nullptr, LE_NOT_FOUND, "Invalid client data reference");
 
+    // Check client access
+    TAF_ERROR_IF_RET_VAL(clienCxtPtr->IsWritable != true, LE_NOT_PERMITTED,
+                            "Client doesn't hava write access");
+
     // Lookup the directory using the client context's directory reference
     tafMngdSecFileStorage_Dir_t* dirPtr =
         (tafMngdSecFileStorage_Dir_t*)le_ref_Lookup(DirRefMap, clienCxtPtr->dirRef);
@@ -1157,6 +1261,10 @@ le_result_t tafMngdSecFileStorageSvc::ReadFileImpl
 
     // Check if the client context is valid
     TAF_ERROR_IF_RET_VAL(clienCxtPtr == nullptr, LE_NOT_FOUND, "Invalid client data reference");
+
+    // Check client access
+    TAF_ERROR_IF_RET_VAL(clienCxtPtr->IsReadable != true, LE_NOT_PERMITTED,
+                            "Client doesn't hava read access");
 
     // Lookup the directory using the client context's directory reference
     tafMngdSecFileStorage_Dir_t* dirPtr =

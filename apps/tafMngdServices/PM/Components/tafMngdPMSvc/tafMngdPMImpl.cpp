@@ -598,13 +598,16 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
         if (wsRefCtxPtr && wsRefCtxPtr->sessionRef == sessionRef)
         {
             LE_INFO("Client with sessionRef %p", wsRefCtxPtr->sessionRef);
-            if(wsRefCtxPtr->isAcquiredLock) {
+            if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_ACQUIRED) {
                 le_result_t res = tafMngdPMSvc::ReleaseWakeLock();
                 if(res == LE_OK)
                 {
                     LE_INFO("Released lock");
-                    wsRefCtxPtr->isAcquiredLock = false;
+                    wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
                 }
+            }
+            else if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_IGNORED) {
+                wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
             }
             le_ref_DeleteRef(mpms.wsRefMap, wsRefCtxPtr->wsRef);
             le_dls_Remove(&(mpms.wsRefList), &wsRefCtxPtr->link);
@@ -1027,10 +1030,10 @@ void ClearUnauthorizedWs()
         taf_wsRefCtx_t * wsRefCtxPtr =
                 CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
         linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
-        if (wsRefCtxPtr && wsRefCtxPtr->sessionRef && wsRefCtxPtr->isAcquiredLock)
+        if (wsRefCtxPtr && wsRefCtxPtr->sessionRef && wsRefCtxPtr->wakeSourceState)
         {
             LE_INFO("Clear non authorized wake source with sessionRef %p", wsRefCtxPtr->sessionRef);
-            wsRefCtxPtr->isAcquiredLock = false;
+            wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
         }
     }
 }
@@ -1038,9 +1041,9 @@ void ClearUnauthorizedWs()
 /**
 * Local api to clear non authorized syatem wake sources after AuthorizeStayAwakeReason api called.
 */
-void tafMngdPMSvc::ClearUnAuthorizedWakeSources()
+void tafMngdPMSvc::RefreshWakeSources()
 {
-    LE_INFO("ClearUnAuthorizedWakeSources");
+    LE_INFO("RefreshWakeSources");
     auto &mpms = tafMngdPMSvc::GetInstance();
     le_result_t res = LE_FAULT;
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
@@ -1052,21 +1055,27 @@ void tafMngdPMSvc::ClearUnAuthorizedWakeSources()
 
         if (wsRefCtxPtr)
         {
-            if(wsRefCtxPtr->isAcquiredLock)
+            if(wsRefCtxPtr->wakeSourceState)
             {
                 if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason))
                 {
                     LE_INFO("stayAwakeReason is in authorized stayAwakeReasonList");
-                    continue;
+                    if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_IGNORED)
+                    {
+                        LE_INFO("wakeSource unignored , it is in authorized stayAwakeReasonList");
+                        wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_ACQUIRED;
+                        wsCount++;
+                    }
+                    else
+                    {
+                        continue;
+                    }
                 }
-                else
+                else if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_ACQUIRED)
                 {
                     LE_INFO("stayAwakeReason is not in authorized stayAwakeReasonList");
-                    res = mpms.ReleaseWakeSource(wsRefCtxPtr);
-                    if(res == LE_OK)
-                    {
-                         LE_INFO("Unauthorized WakeLock released successfully");
-                    }
+                    wsCount--;
+                    wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_IGNORED;
                 }
             }
             else
@@ -1074,6 +1083,14 @@ void tafMngdPMSvc::ClearUnAuthorizedWakeSources()
                 LE_INFO("WakeLock not acquired");
                 continue;
             }
+        }
+    }
+    if(wsCount == 0)
+    {
+        res = mpms.ReleaseWakeLock();
+        if(res == LE_OK)
+        {
+            LE_INFO("ReleaseWakeLock is success when no active wakeSource");
         }
     }
 }
@@ -1098,7 +1115,7 @@ le_result_t tafMngdPMSvc::ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr)
         LE_INFO("client Released WakeLock");
         tafMngdPMSvc::ProcessStateChange(
                 TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
-        wsRefCtxPtr->isAcquiredLock = false;
+        wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
         //sending notification to VHAL
         if((mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
         {
@@ -1115,6 +1132,7 @@ le_result_t tafMngdPMSvc::ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr)
  */
 le_result_t tafMngdPMSvc::ReleaseWakeLock()
 {
+    LE_INFO("ReleaseWakeLock");
     le_result_t res = LE_FAULT;
     if(wsCount > 0 )
     {
@@ -1122,33 +1140,28 @@ le_result_t tafMngdPMSvc::ReleaseWakeLock()
         wsCount--;
         LE_INFO("ReleaseWakeLock wsCount:%d", wsCount);
         res = LE_OK;
-        if(wsCount == 0 )
+    }
+    if(wsCount == 0 )
+    {
+        if (ws != nullptr && powerMode.isWsAcquired)
         {
-            if (ws != nullptr && powerMode.isWsAcquired)
+            if(tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE) != LE_OK)
             {
-                if(tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE) != LE_OK)
-                {
-                    return res;
-                }
-                ClearUnauthorizedWs();
-                res = taf_pm_Relax(ws);
-                if(res == LE_OK) {
-                    LE_INFO("Wake source from pms released successfully");
-                    powerMode.isWsAcquired = false;
-                }
+                return res;
             }
-            else
-            {
-                LE_ERROR("Failed to release wakeup lock!");
-                res = LE_FAULT;
+            ClearUnauthorizedWs();
+            res = taf_pm_Relax(ws);
+            if(res == LE_OK) {
+                LE_INFO("Wake source from pms released successfully");
+                powerMode.isWsAcquired = false;
             }
         }
+        else
+        {
+            LE_ERROR("Failed to release wakeup lock!");
+            res = LE_FAULT;
+        }
     }
-    else
-    {
-        LE_ERROR("No wakeup lock acquired to release !");
-    }
-
     return res;
 }
 

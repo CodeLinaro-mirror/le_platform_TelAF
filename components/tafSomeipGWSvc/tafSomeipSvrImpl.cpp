@@ -167,7 +167,7 @@ void taf_SomeipSvr::VSOMEIPOfferService
 
     // Service is marked as offered.
     servicePtr->isOffered = true;
-    LE_INFO("VSOMEIP offered Service(%u:0x%x/0x%x) of version(0x%x/0x%x).",
+    LE_INFO("VSOMEIP offered Service(%u:0x%x/0x%x) of version(%u.%u).",
             servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId,
             servicePtr->majorVersion, servicePtr->minorVersion);
 }
@@ -213,7 +213,7 @@ void taf_SomeipSvr::VSOMEIPStopOfferService
 
     // Service is marked as stopped.
     servicePtr->isOffered = false;
-    LE_INFO("VSOMEIP stopped Service(%u:0x%x/0x%x) of version(0x%x/0x%x).",
+    LE_INFO("VSOMEIP stopped Service(%u:0x%x/0x%x) of version(%u.%u).",
             servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId,
             servicePtr->majorVersion, servicePtr->minorVersion);
 }
@@ -991,7 +991,7 @@ le_result_t taf_SomeipSvr::SetServiceVersion
     servicePtr->majorVersion = majVer;
     servicePtr->minorVersion = minVer;
 
-    LE_DEBUG("Set majVer=0x%x minVer=0x%x for serviceRef %p.", majVer, minVer, serviceRef);
+    LE_DEBUG("Set majVer=%u minVer=%u for serviceRef %p.", majVer, minVer, serviceRef);
     return LE_OK;
 }
 

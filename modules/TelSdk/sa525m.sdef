@@ -102,6 +102,8 @@ apps:
     // $TELAF_ROOT/apps/test/tafFSCryptTest/tafFSCryptUnitTest/tafFSCryptUnitTest
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipSvrUnitTest/tafSomeipSvrUnitTest
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest
+    // $TELAF_ROOT/apps/test/tafSomeipGWTest/multiVersionsTest/tafSomeipVersionClntTest
+    // $TELAF_ROOT/apps/test/tafSomeipGWTest/multiVersionsTest/tafSomeipVersionSvrTest
     // $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTest/tafAudioUnitTest
     // $TELAF_ROOT/apps/test/ConsoleApp/tafAudioApp/tafAudioConsoleApp
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdConnIntTest/tafMngdConnIntTest

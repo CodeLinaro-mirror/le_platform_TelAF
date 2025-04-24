@@ -1,0 +1,20 @@
+start: manual
+sandboxed: false
+
+executables:
+{
+    VersionClientTest = ( ClientComp )
+}
+
+processes:
+{
+    run:
+    {
+        ( VersionClientTest )
+    }
+}
+
+bindings:
+{
+    VersionClientTest.ClientComp.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
+}

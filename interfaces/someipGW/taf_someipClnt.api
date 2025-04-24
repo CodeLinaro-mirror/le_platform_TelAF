@@ -434,8 +434,8 @@ FUNCTION le_result_t GetClientIdEx
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Requests a client-service-instance on default network interface and returns the reference to the
- * client-service-instance.
+ * Requests a client-service-instance with any major/minor version on default network interface and
+ * returns the reference to the client-service-instance.
  *
  * @return
  *     - Reference to the client-service-instance.
@@ -450,9 +450,9 @@ FUNCTION Service RequestService
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Requests a client-service-instance on a dedicated network interface and returns the reference to
- * the client-service-instance. The ifName shall match the device name specified in one of the JSON
- * files.
+ * Requests a client-service-instance with any major/minor version on a dedicated network interface
+ * and returns the reference to the client-service-instance. The ifName shall match the device name
+ * specified in one of the JSON files.
  *
  * @return
  *     - Reference to the client-service-instance.
@@ -463,6 +463,30 @@ FUNCTION Service RequestServiceEx
 (
     uint16   serviceId                                IN, ///< Service ID.
     uint16   instanceId                               IN, ///< Instance ID.
+    string   ifName[taf_someipDef.MAX_IFNAME_LENGTH]  IN  ///< Network interface name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Requests a client-service-instance with specified major/minor version on a dedicated network
+ * interface and returns the reference to the client-service-instance. The ifName shall match the
+ * device name specified in one of the JSON files.
+ *
+ * @b NOTE: The possible majorVersion range is 0 - 0xFF, while minorVersion range is 0 - 0xFFFFFFFF.
+ * TAF_SOMEIPDEF_ANY_MAJOR(0xFF) and TAF_SOMEIPDEF_ANY_MAJOR(0XFFFFFFFF) can be used to specify
+ * any major/minor version if needed.
+ *
+ * @return
+ *     - Reference to the client-service-instance.
+ *     - NULL if invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Service RequestServiceWithVersion
+(
+    uint16   serviceId                                IN, ///< Service ID.
+    uint16   instanceId                               IN, ///< Instance ID.
+    uint8    majorVer                                 IN, ///< Major version.
+    uint32   minorVer                                 IN, ///< Minor version.
     string   ifName[taf_someipDef.MAX_IFNAME_LENGTH]  IN  ///< Network interface name.
 );
 
@@ -658,7 +682,7 @@ HANDLER RespMsgHandler
  * Sends an asynchronous request message. The response handler will be called once the response is
  * received or any errors occur.
  *
- * NOTE: The request message will be automatically deleted after calling this API.
+ * @b NOTE: The request message will be automatically deleted after calling this API.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION RequestResponse
@@ -671,8 +695,8 @@ FUNCTION RequestResponse
 /**
  * Enables an event group by adding an event into the group.
  *
- * NOTE: This API can be called multiple times if there is more than one event to be added into the
- * group. Currently, one event can only be added into one group, and one event group can be enabled
+ * @b NOTE: This API can be called multiple times if there is more than one event to be added into
+ * the group. Currently one event can only be added into one group, one event group can be enabled
  * only by one client.
  *
  * @return

@@ -2169,7 +2169,7 @@ COMPONENT_INIT
    // install the handler
    taf_Handler myHandler;
 
-   mySms.StorageEvent = le_event_CreateId("StorageEventId", sizeof(taf_sms_StorageFullType_t));
+   mySms.StorageEvent = le_event_CreateId("StorageEvent", sizeof(taf_sms_StorageFullType_t));
 
    LE_INFO("tafSms service Ready...\n");
 }

@@ -100,16 +100,7 @@
 class taf_sms_hlos
 {
 public:
-    void Init(void);
     static taf_sms_hlos& GetInstance();
-
-    taf_sms_hlos(){};
-    ~taf_sms_hlos(){};
-
-    le_event_Id_t rxMsgEventId;
-    le_event_Id_t StorageEventId;
-    le_event_Id_t prcessMsgToHLOSEventId;
-
     taf_sms_Storage_t sysPrefStorage;
 };
 

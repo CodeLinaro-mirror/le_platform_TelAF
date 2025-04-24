@@ -39,6 +39,13 @@ using namespace std;
             uint8_t  dtcStatus;
         } taf_diagDTC_Status_t;
 
+        // used to send event when dtc activation status change
+        typedef struct
+        {
+            taf_diagDTC_ServiceRef_t  svcRef;
+            taf_diagDTC_ActivationStatus_t  actStatus;
+        } taf_diagDTC_ActStatus_t;
+
         typedef struct
         {
             taf_diagDTC_AllServiceRef_t  svcRef;
@@ -71,6 +78,7 @@ using namespace std;
             uint32_t dtcCode;
             le_event_Id_t dtcStatusEventId;// event for notification
             le_event_Id_t clearDtcStatusEventId;
+            le_event_Id_t actStatusEvId; // event for activation status notification
             bool suppressionStatus;
             le_dls_List_t sessionRefList; // The list of clients
             taf_diagDTC_ServiceRef_t svcRef;
@@ -174,6 +182,10 @@ using namespace std;
                 void ReportClearDTCStatus(uint32_t dtcCode, taf_diagDTC_ReqClientType_t clientType);
                 void ReportClearAllDTCStatus(taf_diagDTC_ReqClientType_t clientType);
 
+                static void FirstLayerActStatusHandler(void* reportPtr,
+                        void* secondLayerHandlerFunc);
+                le_event_Id_t GetActStatusEvent(taf_diagDTC_ServiceRef_t svcRef);
+
                 //For all DTC
                 taf_diagDTC_AllServiceRef_t GetAllService();
                 le_event_Id_t GetAllDtcStatusEvent(taf_diagDTC_AllServiceRef_t svcRef);
@@ -225,6 +237,8 @@ using namespace std;
                 le_mem_PoolRef_t AllDtcStatusPool;
                 le_ref_MapRef_t AllSvcRefMap;
                 taf_diagDTC_AllDtcCtx_t AllDtcCtx;
+
+                le_mem_PoolRef_t ActStatusPool;
 
         };
     }

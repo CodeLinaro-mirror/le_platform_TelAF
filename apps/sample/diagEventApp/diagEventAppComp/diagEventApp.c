@@ -23,6 +23,9 @@
 
 static le_sem_Ref_t semRef;
 
+//Operation cycle
+static taf_diagEvent_OpCycleRef_t opCycleSvcRef = NULL;
+
 //Diag Event
 static taf_diagEvent_ServiceRef_t diagEvent0001SvcRef = NULL;
 static taf_diagEvent_UdsStatusHandlerRef_t udsStatusRef = NULL;
@@ -152,6 +155,86 @@ static void getDTCData(taf_diagDTC_ServiceRef_t dtcSvcRef)
     return;
 }
 
+le_result_t getEventPrecondition()
+{
+    uint8_t operationCycleId = 0;
+    taf_diagEvent_OperationCycleState_t OperCycleState;
+    taf_diagEvent_OpCycleRef_t eventOperCycleRef;
+    bool enableCondState = false;
+    uint32_t dtcCode;
+    taf_diagDTC_ActivationStatus_t actStatus;
+    taf_diagDTC_ServiceRef_t eventAssociatedDtcSvcRef = NULL;
+    le_result_t result;
+
+    // Get event precondition: 1. Get operation cycle state
+    result = taf_diagEvent_GetOperationCycleId(diagEvent0001SvcRef, &operationCycleId);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to get OperationCycle id for event id : %d, result : %d", Event_Sample_Big,
+                result);
+        return result;
+    }
+
+    //Get the operation cycle reference
+    eventOperCycleRef = taf_diagEvent_GetOpCycle(operationCycleId);
+    if(eventOperCycleRef == NULL)
+    {
+        LE_ERROR("Failed to get operation cycle reference");
+        return LE_FAULT;
+    }
+
+    result = taf_diagEvent_GetOpCycleState(eventOperCycleRef, &OperCycleState);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to get operation cycle state, result:%d, operation Cycle Id :%d",
+                result, operationCycleId);
+        return result;
+    }
+
+    LE_INFO("Precondition:--- Operation Cycle Id : %d, state : %d", operationCycleId,
+            (int)OperCycleState);
+
+    // Get event precondition: 2. Get enable condition
+    result = taf_diagEvent_GetEnableCondState(diagEvent0001SvcRef, &enableCondState);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to get enable condition state for event id : %d, result : %d",
+                Event_Sample_Big, result);
+        return result;
+    }
+
+    LE_INFO("Precondition:--- Enable condition state : %d", enableCondState);
+
+    // Get event precondition: 3. Get associated DTC activation state
+    result = taf_diagEvent_GetDTCCode(diagEvent0001SvcRef, &dtcCode);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to get OperationCycle id for event id : %d, result : %d", Event_Sample_Big,
+                result);
+        return result;
+    }
+
+    eventAssociatedDtcSvcRef = taf_diagDTC_GetService(dtcCode);
+    if(eventAssociatedDtcSvcRef == NULL)
+    {
+        LE_ERROR("Get associated diag DTC service");
+        return result;
+    }
+
+    result = taf_diagDTC_GetActivationStatus(eventAssociatedDtcSvcRef, &actStatus);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to get activation status, result : %d", result);
+        return result;
+    }
+
+    LE_INFO("Precondition:--- Event id : %d, DTC Code : 0x%x, activation status: %d",
+            Event_Sample_Big, dtcCode, (int)actStatus);
+
+    return LE_OK;
+
+}
+
 //Sample for event API call and DTC API call
 static void* changeEventStatus()
 {
@@ -163,6 +246,14 @@ static void* changeEventStatus()
     uint8_t supplierFaultCode2[SUPPLIER_FAULT_CODE_LEN]={0x11, 0x12, 0x13, 0x14, 0x15};
     bool suppressionStatus;
     taf_diagDTC_ActivationStatus_t activationStatus;
+
+    //Get the operation cycle reference
+    opCycleSvcRef = taf_diagEvent_GetOpCycle(OperationCycle_DC);
+    if(opCycleSvcRef == NULL)
+    {
+        LE_ERROR("Failed to get operation cycle reference");
+        return NULL;
+    }
 
     //Get the diag event service
     diagEvent0001SvcRef = taf_diagEvent_GetService(Event_Sample_Big);
@@ -214,6 +305,14 @@ static void* changeEventStatus()
         return NULL;
     }
 
+    //Deactivate the DTC
+    result = taf_diagDTC_SetActivationStatus(diagDtcAB0000SvcRef, TAF_DIAGDTC_INACTIVE);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to deactivate the DTC, result : %d", result);
+        return NULL;
+    }
+
     //Activate the DTC
     result = taf_diagDTC_SetActivationStatus(diagDtcAB0000SvcRef, TAF_DIAGDTC_ACTIVE);
     if(result != LE_OK)
@@ -258,13 +357,17 @@ static void* changeEventStatus()
     LE_INFO("Start first operation cycle");
 
     //failureCounter =0
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
                 result, eventId, OperationCycle_DC);
         return NULL;
     }
+
+    result = getEventPrecondition();
+    if(result != LE_OK)
+        LE_ERROR("The precondition is not met");
 
     result=taf_diagEvent_SetStatusWithSupplierFaultCode(diagEvent0001SvcRef,TAF_DIAGEVENT_FAILED,
             supplierFaultCode, SUPPLIER_FAULT_CODE_LEN);
@@ -276,7 +379,7 @@ static void* changeEventStatus()
     }
 
     //failureCounter is 1
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
@@ -395,7 +498,7 @@ static void* changeEventStatus()
     //failureCounter is 0 after the clear
 
     LE_INFO("Start second operation cycle");
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
@@ -421,7 +524,7 @@ static void* changeEventStatus()
         return NULL;
     }
 
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
@@ -430,7 +533,7 @@ static void* changeEventStatus()
     }
 
     LE_INFO("Start third operation cycle");
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
@@ -448,7 +551,7 @@ static void* changeEventStatus()
     }
 
     //failureCounter is 2
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
@@ -457,7 +560,7 @@ static void* changeEventStatus()
     }
 
     LE_INFO("Start fourth operation cycle");
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
@@ -475,7 +578,7 @@ static void* changeEventStatus()
     }
 
     //DTC is confirmed(confirmation_threshold = 3 in YAML file ), failureCounter is 0
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
@@ -503,7 +606,7 @@ static void* changeEventStatus()
     LE_INFO("DTC code : 0x%x, DTC status : 0x%x", dtcCode, dtcStatus);
 
     LE_INFO("Start fifth operation cycle");
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
@@ -537,7 +640,7 @@ static void* changeEventStatus()
         return NULL;
     }
 
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
@@ -566,7 +669,7 @@ static void* changeEventStatus()
 
     //test counter based debounce , set prefailed 20 times which is more than
     //counter_failed_threshold which is 10
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
@@ -602,7 +705,7 @@ static void* changeEventStatus()
         }
     }
 
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
@@ -611,7 +714,7 @@ static void* changeEventStatus()
     }
 
     //test counter based , set prefailed 8 times, counter_failed_threshold is 10
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_START);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_START);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to start operation cycle, result:%d, eventId:%d, operation cycle id:%d",
@@ -673,7 +776,7 @@ static void* changeEventStatus()
         }
      }
 
-    result = taf_diagEvent_SetOperationCycleState(OperationCycle_DC, TAF_DIAGEVENT_CYCLE_STOP);
+    result = taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_STOP);
     if(result != LE_OK)
     {
         LE_ERROR("Failed to stop operation cycle, result:%d, eventId:%d, operation cycle id:%d",
@@ -768,13 +871,56 @@ void dtcStatusChangeHandler
     LE_INFO("########Diag DTC 0x%x, change status to 0x%x########", dtcCode, dtcStatus);
 }
 
+//DTC activation status change handler
+void dtcActStatusChangeHandler
+(
+        taf_diagDTC_ServiceRef_t svcRef,
+        taf_diagDTC_ActivationStatus_t actStatus,
+        void* contextPtr
+)
+{
+    le_result_t result;
+    uint32_t dtcCode;
+
+    result = taf_diagDTC_GetCode(svcRef, &dtcCode);
+    if( result != LE_OK)
+    {
+        LE_ERROR("Failed to get DTC code");
+        return;
+    }
+
+    LE_INFO("####Diag DTC 0x%x, change activation status to 0x%x####", dtcCode, (int)actStatus);
+}
+
+//Operation cycle state change handler
+void operCycleStateChangeHandler
+(
+    taf_diagEvent_OpCycleRef_t operCycleRef,
+    taf_diagEvent_OperationCycleState_t state,
+    void* contextPtr
+)
+{
+    uint8_t operCycleId;
+    le_result_t result;
+
+    result = taf_diagEvent_GetOpCycleIdByRef(operCycleRef, &operCycleId);
+    if(result == LE_OK)
+    {
+        LE_INFO("####Operation cycle ID: %d, change state to %d ####", operCycleId, (int)state);
+    }
+    else
+    {
+        LE_ERROR("Failed to get operation cycle Id by reference");
+    }
+}
+
 //all DTC status change handler
 void allDtcStatusChangeHandler
 (
-        taf_diagDTC_AllServiceRef_t svcRef,
-        uint32_t dtcCode,
-        uint8_t dtcStatus,
-        void* contextPtr
+    taf_diagDTC_AllServiceRef_t svcRef,
+    uint32_t dtcCode,
+    uint8_t dtcStatus,
+    void* contextPtr
 )
 {
     LE_INFO("########Diag one of all DTC 0x%x, change status to 0x%x########", dtcCode, dtcStatus);
@@ -907,6 +1053,60 @@ static void* diagDtcStatusTheadFunc(void* ctxPtr)
     return NULL;
 }
 
+//Diag DTC activation status thread
+static void* diagDtcActStatusTheadFunc(void* ctxPtr)
+{
+    taf_diagDTC_ServiceRef_t diagDtcRef = NULL;
+    taf_diagDTC_ActivationStatusHandlerRef_t actStatusRef = NULL;
+    taf_diagDTC_ConnectService();
+
+    //Get the diag DTC service
+    diagDtcRef = taf_diagDTC_GetService(DTC_CODE_AB0000);
+    if(diagDtcRef == NULL)
+    {
+        LE_ERROR("Get diag DTC service");
+        return NULL;
+    }
+
+    actStatusRef = taf_diagDTC_AddActivationStatusHandler(diagDtcRef,
+            (taf_diagDTC_ActivationStatusHandlerFunc_t)dtcActStatusChangeHandler, ctxPtr);
+
+    if(actStatusRef == NULL)
+    {
+        LE_ERROR("Add DTC activation status handler");
+        return NULL;
+    }
+
+    le_sem_Post(semRef);
+
+    le_event_RunLoop();
+
+    return NULL;
+}
+
+//Operation cycle state thread
+static void* operCycleStateTheadFunc(void* ctxPtr)
+{
+    taf_diagEvent_ConnectService();
+    taf_diagEvent_OpCycleRef_t operCycleRef = taf_diagEvent_GetOpCycle(OperationCycle_DC);
+    taf_diagEvent_OpCycleStateHandlerRef_t ocStateRef = NULL;
+
+    ocStateRef = taf_diagEvent_AddOpCycleStateHandler(operCycleRef,
+            (taf_diagEvent_OpCycleStateHandlerFunc_t)operCycleStateChangeHandler, ctxPtr);
+
+    if(ocStateRef == NULL)
+    {
+        LE_ERROR("Add operation cycle state handler");
+        return NULL;
+    }
+
+    le_sem_Post(semRef);
+
+    le_event_RunLoop();
+
+    return NULL;
+}
+
 //Diag all DTC status thread
 static void* diagAllDtcStatusTheadFunc(void* ctxPtr)
 {
@@ -1026,6 +1226,20 @@ COMPONENT_INIT
             enableCondStateTheadFunc, NULL);
 
     le_thread_Start(enableCondStateThreadRef);
+    le_sem_Wait(semRef);
+
+    // Create DTC activation status change thread
+    le_thread_Ref_t dtcActStatusThreadRef = le_thread_Create("dtcActStatusTh",
+        diagDtcActStatusTheadFunc, NULL);
+
+    le_thread_Start(dtcActStatusThreadRef);
+    le_sem_Wait(semRef);
+
+    // Create operation cycle state change thread
+    le_thread_Ref_t operCycleStateThreadRef = le_thread_Create("ocStateTh",
+        operCycleStateTheadFunc, NULL);
+
+    le_thread_Start(operCycleStateThreadRef);
     le_sem_Wait(semRef);
 
     // Create DTC status change thread

@@ -552,6 +552,58 @@ le_result_t taf_diagDTC_GetDataValue
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Add handler function for EVENT 'taf_diagDTC_ActivationStatus'
+ *
+ * This event provides information on DTC activation status.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_diagDTC_ActivationStatusHandlerRef_t taf_diagDTC_AddActivationStatusHandler
+(
+    taf_diagDTC_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    taf_diagDTC_ActivationStatusHandlerFunc_t handlerPtr,
+        ///< [IN] DTC activation status handler.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    auto &diagDTC = taf_DTCSvr::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, NULL, "Null ptr(svcRef)");
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Null ptr(handlerPtr)");
+
+    le_event_Id_t actStatusEvId = diagDTC.GetActStatusEvent(svcRef);
+    if(actStatusEvId == NULL)
+    {
+        LE_ERROR("DTC status event is not initialized");
+        return NULL;
+    }
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ActStatusHandler",
+        actStatusEvId, diagDTC.FirstLayerActStatusHandler, (void*)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_diagDTC_ActivationStatusHandlerRef_t)(handlerRef);
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diagDTC_ActivationStatus'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_diagDTC_RemoveActivationStatusHandler
+(
+    taf_diagDTC_ActivationStatusHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets a reference for all DTC, if there is no service, a new one will be created.
  *
  * @return

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -28,23 +28,52 @@
    }
    @endverbatim
  *
- * @section c_taf_diagEvent_SetOperationCycleState_API Operation Cycle API
+ * @section c_taf_diagEvent_OpCycleState_API Operation Cycle APIs
  *
- * taf_diagEvent_SetOperationCycleState() can be used to set operation cycle state for the specified
- * operation cycle id.
+ * An operation cycle reference should be got using taf_diagEvent_GetOpCycle(). Use the returned
+ * reference for subsequent operations.
  *
- * The following example illustrates how to start the operation cycle.
+ * The following example illustrates how to set up an operation cycle service-instance.
  *
  * @code
+   taf_diagEvent_OpCycleRef_t opCycleSvcRef;    // Operation cycle reference
  *
-   le_result_t result = taf_diagEvent_SetOperationCycleState(DRIVING_CYCLE,
-        TAF_DIAGEVENT_CYCLE_START);
+   // Get the service reference.
+   opCycleSvcRef = taf_diagEvent_GetOpCycle(operationCycleId);
+   LE_ASSERT(opCycleSvcRef != NULL);
+   @endcode
+ *
+ * @section c_taf_diag_event_op_cycle_state Operation cycle state
+ *
+ * After getting the reference, an application can call taf_diagEvent_SetOpCycleState() to set the
+ * operation cycle state.
+ *
+ * @code
+   le_result_t result=taf_diagEvent_SetOpCycleState(opCycleSvcRef, TAF_DIAGEVENT_CYCLE_START);
    if (result != LE_OK)
    {
-      LE_ERROR("Fail to start operation.");
+      LE_ERROR("Fail to start the operation cycle.");
       return result;
    }
    @endcode
+ *
+ * Before starting an operation cycle, an application registers a state handler using
+ * taf_diagEvent_AddOpCycleStateHandler(). Once the operation cycle state changes, the handler
+ * will be called indicating the new state.
+ *
+ * @verbatim
+   ocStateRef = taf_diagEvent_AddOpCycleStateHandler(opCycleSvcRef,
+                    (taf_diagEvent_OpCycleStateHandlerFunc_t)opCycleHandler, NULL);
+   @endverbatim
+ *
+ * The following APIs are supported for operation cycle state management:
+ *
+ * - taf_diagEvent_GetOpCycle() -- Gets the operation cycle reference.
+ * - taf_diagEvent_SetOpCycleState() -- Sets the state of an operation cycle.
+ * - taf_diagEvent_GetOpCycleState() -- Gets the state of an operation cycle.
+ * - taf_diagEvent_AddOpCycleStateHandler() -- Adds handler function for EVENT 'taf_diagEvent_OpCycleState'
+ * - taf_diagEvent_RemoveOpCycleStateHandler() -- Removes handler function for EVENT 'taf_diagEvent_OpCycleState'.
+ * - taf_diagEvent_RemoveOpCycle() -- Removes the operation cycle service.
  *
  * @section c_taf_diagEvent_server_API Server Service APIs
  *
@@ -80,6 +109,9 @@
  * The following APIs are supported for event management:
  *
  * - taf_diagEvent_GetId() -- Gets the event ID for the given service reference.
+ * - taf_diagEvent_GetOperationCycleId() -- Gets the operation cycle ID for the given event reference.
+ * - taf_diagEvent_GetDTCCode() -- Gets the DTC code for the given event reference.
+ * - taf_diagEvent_GetEnableCondState() -- Gets the Enable Condition state for the given event reference.
  * - taf_diagEvent_SetStatus() -- Gets event status.
  * - taf_diagEvent_SetStatusWithSupplierFaultCode() -- Sets event status with supplier fault code.
  * - taf_diagEvent_GetUdsStatus() -- Gets event UDS status.
@@ -180,6 +212,13 @@ REFERENCE Service;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Reference to the Operation Cycle.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE OpCycle;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the reference to a Event Management service, if there is no Event Management service, a new
  * one will be created.
  *
@@ -238,6 +277,9 @@ FUNCTION le_result_t SetStatus
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid service reference.
+ *     - LE_NOT_POSSIBLE -- Operation cycle not started.
+ *     - LE_NOT_PERMITTED -- Enable condition not fullfilled.
+ *     - LE_UNSUPPORTED -- Inactive associated DTC.
  *     - LE_FAULT -- Failed.
  *
  */
@@ -265,6 +307,60 @@ FUNCTION le_result_t GetUdsStatus
 (
     Service svcRef  IN,              ///< Service reference.
     uint8 eventUdsStatus  OUT        ///< Event UDS status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the operation cycle ID for the given event reference.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid service reference.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetOperationCycleId
+(
+    Service svcRef  IN,              ///< Service reference.
+    uint8 operationCycleId  OUT      ///< Operation cycle ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the DTC code for the given event reference.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid service reference.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetDTCCode
+(
+    Service svcRef  IN,              ///< Service reference.
+    uint32 dtcCode  OUT              ///< DTC code.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the Enable Condition state for the given event reference.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid service reference.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetEnableCondState
+(
+    Service svcRef  IN,              ///< Service reference.
+    bool state  OUT                  ///< Enable Condition state.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -339,23 +435,6 @@ EVENT EnableCondState
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the state of an operation cycle.
- *
- * @instaging
- * @return
- *     - LE_OK -- Succeeded.
- *     - LE_FAULT -- Failed.
- *
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetOperationCycleState
-(
-    uint8 operationCycleId  IN,           ///< Operation cycle ID.
-    OperationCycleState state  IN         ///< Operation cycle state.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Removes the Event Management service.
  *
  * @instaging
@@ -368,3 +447,115 @@ FUNCTION le_result_t RemoveSvc
 (
     Service svcRef  IN    ///< Service reference.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the operation cycle reference for the given operation cycle ID.
+ *
+ * @instaging
+ * @return
+ *  - NULL -- Error.
+ *  - Others -- The Operation cycle reference.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION OpCycle GetOpCycle
+(
+    uint8 opCycleId IN
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for an Operation Cycle state.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER OpCycleStateHandler
+(
+    OpCycle  opCycleRef  IN,                       ///< Operation Cycle reference.
+    OperationCycleState state  IN                  ///< Operation Cycle state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information for the Operation Cycle state.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT OpCycleState
+(
+    OpCycle  opCycleRef  ,                       ///< Operation Cycle reference.
+    OpCycleStateHandler  handler                 ///< Operation Cycle state handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the state of an operation cycle.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid reference.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetOpCycleState
+(
+    OpCycle  opCycleRef IN,                        ///< Operation Cycle reference.
+    OperationCycleState state  IN                  ///< Operation Cycle state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the state of an operation cycle.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid reference.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetOpCycleState
+(
+    OpCycle  opCycleRef IN,                        ///< Operation Cycle reference.
+    OperationCycleState state  OUT                 ///< Operation Cycle state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the operation cycle ID for the given operation cycle reference.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid reference.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetOpCycleIdByRef
+(
+    OpCycle  opCycleRef IN,                      ///< Operation Cycle reference.
+    uint8 opCycleId  OUT                         ///< Operation Cycle state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes the operation cycle with the given reference. Once an operation cycle is deleted, the
+ * operation cycle reference is no longer valid.
+ *
+ * @instaging
+ * @return
+ *  - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid reference.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveOpCycle
+(
+    OpCycle  opCycleRef IN                       ///< Operation Cycle reference.
+);
+

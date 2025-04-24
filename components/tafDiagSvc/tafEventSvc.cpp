@@ -285,24 +285,235 @@ le_result_t taf_diagEvent_RemoveSvc
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the state of an operation cycle.
+ * Gets the DTC code.
  *
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Invalid operationCycleId.
+ *     - LE_BAD_PARAMETER -- Invalid service reference.
  *     - LE_FAULT -- Failed.
  *
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_diagEvent_SetOperationCycleState
+le_result_t taf_diagEvent_GetDTCCode
 (
-    uint8_t operationCycleId,
-        ///< [IN] Operation cycle ID.
+    taf_diagEvent_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    uint32_t* dtcCodePtr
+        ///< [OUT] DTC code.
+)
+{
+    auto &diagEvent = taf_EventSvr::GetInstance();
+
+    return diagEvent.GetDTCCode(svcRef, dtcCodePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the Enable Condition state.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid service reference.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagEvent_GetEnableCondState
+(
+    taf_diagEvent_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    bool* statePtr
+        ///< [OUT] Enable Condition state.
+)
+{
+    auto &diagEvent = taf_EventSvr::GetInstance();
+
+    return diagEvent.GetEnableCondState(svcRef, statePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the operation cycle ID.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid service reference.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagEvent_GetOperationCycleId
+(
+    taf_diagEvent_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    uint8_t* operationCycleIdPtr
+        ///< [OUT] Operation cycle ID.
+)
+{
+    auto &diagEvent = taf_EventSvr::GetInstance();
+
+    return diagEvent.GetOperationCycleId(svcRef, operationCycleIdPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the operation cycle reference for the given operation cycle ID.
+ *
+ * @return
+ *  - NULL -- Error.
+ *  - Others -- The operation cycle reference.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+taf_diagEvent_OpCycleRef_t taf_diagEvent_GetOpCycle
+(
+    uint8_t opCycleId
+        ///< [IN]
+)
+{
+    auto &diagEvent = taf_EventSvr::GetInstance();
+
+    return diagEvent.GetOperCycle(opCycleId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_diagEvent_OpCycleState'
+ *
+ * This event provides information on Operation Cycle state.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_diagEvent_OpCycleStateHandlerRef_t taf_diagEvent_AddOpCycleStateHandler
+(
+    taf_diagEvent_OpCycleRef_t opCycleRef,
+        ///< [IN] Operation Cycle reference.
+    taf_diagEvent_OpCycleStateHandlerFunc_t handlerPtr,
+        ///< [IN] Operation Cycle state handler.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    auto &diagEvent = taf_EventSvr::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Null ptr(handlerPtr)");
+
+    le_event_Id_t operCycleStateEventId = diagEvent.GetOperCycleStateEvent(opCycleRef);
+    if(operCycleStateEventId == NULL)
+    {
+        LE_ERROR("opCycleRef is invalid");
+        return NULL;
+    }
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("OperCycleStateHandler",
+        operCycleStateEventId, diagEvent.FirstLayerOperCycleStateHandler, (void*)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_diagEvent_OpCycleStateHandlerRef_t)(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diagEvent_OperationCycleState'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_diagEvent_RemoveOpCycleStateHandler
+(
+    taf_diagEvent_OpCycleStateHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the state of an operation cycle.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagEvent_SetOpCycleState
+(
+    taf_diagEvent_OpCycleRef_t opCycleRef,
+        ///< [IN] Operation Cycle reference.
     taf_diagEvent_OperationCycleState_t state
         ///< [IN] Operation cycle state.
 )
 {
     auto &diagEvent = taf_EventSvr::GetInstance();
 
-    return diagEvent.SetOperationCycleState(operationCycleId, state);
+    return diagEvent.SetOperCycleState(opCycleRef, state);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the state of an operation cycle.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagEvent_GetOpCycleState
+(
+    taf_diagEvent_OpCycleRef_t opCycleRef,
+        ///< [IN] Operation Cycle reference.
+    taf_diagEvent_OperationCycleState_t* statePtr
+        ///< [OUT] Operation cycle state.
+)
+{
+    auto &diagEvent = taf_EventSvr::GetInstance();
+
+    return diagEvent.GetOperCycleState(opCycleRef, statePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the operation cycle ID for the given operation cycle reference.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid reference.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagEvent_GetOpCycleIdByRef
+(
+    taf_diagEvent_OpCycleRef_t opCycleRef,
+        ///< [IN] Operation Cycle reference.
+    uint8_t* opCycleIdPtr
+        ///< [OUT] Operation cycle ID.
+)
+{
+    auto &diagEvent = taf_EventSvr::GetInstance();
+
+    return diagEvent.GetOperCycleIdByRef(opCycleRef, opCycleIdPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes the operation cycle with the given reference. Once an operation cycle is deleted, the
+ * operation cycle reference is no longer valid.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagEvent_RemoveOpCycle
+(
+    taf_diagEvent_OpCycleRef_t opCycleRef
+        ///< [IN] Operation Cycle reference.
+)
+{
+    auto &diagEvent = taf_EventSvr::GetInstance();
+
+    return diagEvent.RemoveOperCycle(opCycleRef);
 }

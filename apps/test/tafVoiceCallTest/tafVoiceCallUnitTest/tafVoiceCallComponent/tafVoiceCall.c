@@ -337,7 +337,6 @@ le_result_t ut_tafVoiceCall_ValidCall_Start()
         else
         {
             readCnt = le_fd_Read(fd, AppCtx.destId, sizeof(AppCtx.destId));
-            AppCtx.destId[MAX_DESTINATION_LEN-1] = '\0';
             if (readCnt != strlen(AppCtx.destId))
             {
                 LE_INFO("read call number file failed! %" PRIuS" %" PRIuS, readCnt, strlen(AppCtx.destId));
@@ -345,9 +344,10 @@ le_result_t ut_tafVoiceCall_ValidCall_Start()
             }
             else
             {
+                AppCtx.destId[readCnt-1] = '\0';
                 if(isCallNumberValid(AppCtx.destId) != LE_OK)
                 {
-                    LE_INFO("Phone number is not valid and use the default call number!");
+                    LE_INFO("Phone number %s is not valid and use the default call number!, readCnt:%ld", AppCtx.destId, readCnt);
                     le_utf8_Copy(AppCtx.destId, "10010", MAX_DESTINATION_LEN, NULL);
                 }
             }

@@ -699,6 +699,7 @@ if (telaf_external_dependencies) {
 
     #=========== Update Service Command =============
     allow telaf_sdir_t user_tmp_t:file { manage_file_perms };
+    allow telaf_admin_t user_tmp_t:file { manage_file_perms };
 
     #============ persist path ==================
     allow telaf_admin_t persist_t:dir { write add_name remove_name create setattr getattr};

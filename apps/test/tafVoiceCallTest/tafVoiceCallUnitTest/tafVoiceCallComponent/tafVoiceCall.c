@@ -137,6 +137,7 @@ static void ut_tafVoiceCall_get_endcause(void* ctxPtr, void* param)
     le_result_t leRet;
 
     leRet = taf_voicecall_GetEndCause(appCtxPtr->requestRef, &appCtxPtr->appCause);
+    LE_INFO("End cause: %d", (int)appCtxPtr->appCause);
     LE_ASSERT(leRet == LE_OK);
     le_sem_Post(appCtxPtr->semaphore);
 
@@ -384,16 +385,16 @@ le_result_t ut_tafVoiceCall_ValidCall_Start()
 
 le_result_t ut_tafVoiceCall_ValidCall_get_endcause()
 {
-    AppCtx.appCause = TAF_VOICECALL_END_REMOTE;
+    AppCtx.appCause = TAF_VOICECALL_END_UNDEFINED;
     le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_get_endcause, &AppCtx, NULL);
     LE_ASSERT_OK(wait_call(5));
-    LE_ASSERT(AppCtx.appCause != TAF_VOICECALL_END_REMOTE);
+    LE_ASSERT(AppCtx.appCause != TAF_VOICECALL_END_UNDEFINED);
     return LE_OK;
 }
 
 le_result_t ut_tafVoiceCall_Invalid_get_endcause()
 {
-    AppCtx.appCause = TAF_VOICECALL_END_REMOTE;
+    AppCtx.appCause = TAF_VOICECALL_END_UNDEFINED;
     le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_get_endcause_invalid, &AppCtx, NULL);
     LE_ASSERT_OK(wait_call(5));
     // Actually framework will reset AppCtx.appCause
@@ -553,7 +554,7 @@ static void* UnitTestThread
     LE_INFO("===== call number can be configured at /tmp/callnumber =====");
     // handler test
     LE_INFO("===== state handler test =====");
-    AppCtx.threadRef = le_thread_Create("taf_voiceCall_handler", ut_tafVoiceCall_StateHandler, &AppCtx);
+    AppCtx.threadRef = le_thread_Create("stateThread", ut_tafVoiceCall_StateHandler, &AppCtx);
     le_thread_Start(AppCtx.threadRef);
 
     wait_call(5);

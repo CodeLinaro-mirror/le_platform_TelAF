@@ -17,6 +17,7 @@ capability:
         CAP_DAC_OVERRIDE
         CAP_FOWNER
         CAP_SYS_ADMIN
+        CAP_SYS_PTRACE
 }
 
 groups:

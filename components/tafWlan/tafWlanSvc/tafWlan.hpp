@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -19,6 +19,7 @@
 #include <telux/wlan/WlanDefines.hpp>
 #include <telux/wlan/WlanFactory.hpp>
 #include <telux/wlan/WlanDeviceManager.hpp>
+#include <telux/data/DataFactory.hpp>
 
 #include <future>
 #include <sstream>
@@ -27,6 +28,9 @@
 #include "tafWlanSTA.hpp"
 
 #define TAF_WLAN_MAX_SESSION_REF 20
+
+#define TAF_WLAN_GET_DATA_SETTINGS_TIMEOUT 60
+#define TAF_WLAN_CMD_TIMEOUT 30
 
 // ServiceSet string
 #define TAF_WLAN_ESS_STR "ESS"
@@ -61,142 +65,272 @@
 // SecurityEncryptionMethod strings
 #define TAF_WLAN_WPS_STR "WPS"
 
-    namespace tafsvc
+// Seconds in a day
+#define SECONDS_IN_A_DAY 86400
+
+namespace tafsvc
+{
+    //----------------------------------------------------------------------------------------------
+    /**
+    * WLAN device state change event structure.
+    */
+    //----------------------------------------------------------------------------------------------
+    typedef struct
     {
-        //------------------------------------------------------------------------------------------
-        /**
-        * WLAN device state change event structure.
-        */
-        //------------------------------------------------------------------------------------------
-        typedef struct
-        {
-            taf_wlan_DeviceState_t wlanDeviceState;
-        }
-        WlanDevStateChangeEvent_t;
+        taf_wlan_DeviceState_t wlanDeviceState;
+    }
+    WlanDevStateChangeEvent_t;
 
-        //------------------------------------------------------------------------------------------
-        /**
-        * The TelAF WLAN helper class. It provides the following:
-        *   - Functions to transform TelAF to TelSDK values and vice-versa
-        */
-        //------------------------------------------------------------------------------------------
-        class taf_WlanHelper
-        {
-            public:
+    //----------------------------------------------------------------------------------------------
+    /**
+     * Internal commands to handle band interference config get and set
+     */
+    //----------------------------------------------------------------------------------------------
+    typedef enum
+    {
+        WLAN_DSCMD_BAND_INT_CFG_GET = 1,
+        WLAN_DSCMD_BAND_INT_CFG_SET = 2
+    }
+    WlanDataSettingsCmdType_t;
 
-            // String helper functions
-            static std::string StrTrimEndSpace(const std::string &str);
-            static std::vector<std::string> StrSplit(const std::string &str, char delim);
+    //----------------------------------------------------------------------------------------------
+    /**
+     * Band interference configuration structure.
+     */
+    //----------------------------------------------------------------------------------------------
+    typedef struct
+    {
+        taf_wlan_BandIntState_t    state;     // The band interference state.
+        taf_wlan_BandIntPriority_t prioBand;  // The band to prioritize.
+        uint32_t wlanUnavailableTime;         // WLAN 5Ghz band unavailable time in seconds.
+        uint32_t n79UnavailableTime;          // 5G band N79 unavailable time in seconds.
+    }
+    WlanBandIntCfg_t;
 
-            // BandType conversion
-            static taf_wlan_Band_t BandTypeToTAF (telux::wlan::BandType bandType);
-            static telux::wlan::BandType BandTypeToTelux (taf_wlan_Band_t bandType);
+    //----------------------------------------------------------------------------------------------
+    /**
+     * Internal band interference get command.
+     */
+    //----------------------------------------------------------------------------------------------
+    typedef struct
+    {
+        void *contextPtr;        // The app provided context pointer.
+    } WlanGetBandIntCmd_t;
 
-            ///////////////////////////////////////
-            // APType conversion
-            static taf_wlan_APType_t APTypeToTAF (telux::wlan::ApType APType);
-            static telux::wlan::ApType APTypeToTelux(taf_wlan_APType_t APType);
+    //----------------------------------------------------------------------------------------------
+    /**
+     * Internal band interference get command response.
+     */
+    //----------------------------------------------------------------------------------------------
+    typedef struct
+    {
+        le_result_t       result;         // The result of the command.
+        WlanBandIntCfg_t  config;         // Band interference configuration.
+        void             *contextPtr;     // The app provided context pointer.
+    }
+    WlanGetBandIntCmdRsp_t;
 
-            // SecMode conversion
-            static taf_wlan_SecurityMode_t SecModeToTAF(telux::wlan::SecMode SecMode);
-            static telux::wlan::SecMode SecModeToTelux(taf_wlan_SecurityMode_t SecMode);
+    //----------------------------------------------------------------------------------------------
+    /**
+     * Internal band interference set command.
+     */
+    //----------------------------------------------------------------------------------------------
+    typedef struct
+    {
+        WlanBandIntCfg_t  config;         // Band interference configuration.
+        void             *contextPtr;     // The app provided context pointer.
+    }
+    WlanSetBandIntCmd_t;
 
-            // SecAuth conversion
-            static taf_wlan_SecurityAuthMethod_t SecAuthToTAF(telux::wlan::SecAuth SecAuth);
-            static telux::wlan::SecAuth SecAuthToTelux(taf_wlan_SecurityAuthMethod_t SecAuth);
+    //----------------------------------------------------------------------------------------------
+    /**
+     * Internal data settings command structure.
+     */
+    //----------------------------------------------------------------------------------------------
+    typedef struct
+    {
+        WlanDataSettingsCmdType_t cmdType;
+        WlanGetBandIntCmd_t       bandIntGetCmd;
+        WlanSetBandIntCmd_t       bandIntSetCmd;
+    }
+    WlanDataSettingsCmd_t;
 
-            // SecEncrypt conversion
-            static taf_wlan_SecurityEncryptionMethod_t
-                            SecEncryptToTAF(telux::wlan::SecEncrypt SecEncrypt);
-            static telux::wlan::SecEncrypt
-            SecEncryptToTelux(taf_wlan_SecurityEncryptionMethod_t SecEncrypt);
-
-            // WLAN AP ID conversion
-            static taf_wlan_APid_t TeluxIdtoTAFAPId(telux::wlan::Id id);
-            static telux::wlan::Id TAFAPidtoTeluxId(taf_wlan_APid_t id);
-
-            ////////////////////////////////////////////////
-            // Station Mode(Bridge/Router) conversion
-            static taf_wlanSta_Mode_t
-            StaModeToTAF(telux::wlan::StaBridgeMode Mode);
-            static telux::wlan::StaBridgeMode StaModeToTelux(taf_wlanSta_Mode_t Mode);
-
-            // Station IP Type conversion
-            static taf_wlanSta_IPType_t StaIPTypeToTAF(telux::wlan::StaIpConfig IPMode);
-            static telux::wlan::StaIpConfig StaIPTypeToTelux(taf_wlanSta_IPType_t IPMode);
-
-            // Station state conversion
-            static taf_wlanSta_State_t StaIntfStatusToTAF(telux::wlan::StaInterfaceStatus State);
-
-            // WLAN STA ID conversion
-            static taf_wlan_STAid_t TeluxIdtoTAFSTAId(telux::wlan::Id id);
-            static telux::wlan::Id TAFSTAidtoTeluxId(taf_wlan_STAid_t id);
-        };
-
-        //------------------------------------------------------------------------------------------
-        /**
-        * The TelAF WLAN listener class for TelSDK notifications.
-        */
-        //------------------------------------------------------------------------------------------
-        class taf_WlanListener: public telux::wlan::IWlanListener
-        {
-            public:
-                // Subsystem state change handler
-                void onServiceStatusChange (telux::common::ServiceStatus status);
-                // Device enalbe/disable handler
-                void onEnableChanged (bool enable);
-                bool getEnableStatus();
-                void resetPromise();
-            private:
-                std::promise<bool> promise_;
-        };
-
-        //------------------------------------------------------------------------------------------
-        /**
-        * The TelAF WLAN APIs implementation class.
-        */
-        //------------------------------------------------------------------------------------------
-        class taf_WlanSvcImpl : public ITafSvc
-        {
+    //----------------------------------------------------------------------------------------------
+    /**
+     * The TelAF WLAN helper class. It provides the following:
+     *   - Functions to transform TelAF to TelSDK values and vice-versa
+     */
+    //----------------------------------------------------------------------------------------------
+    class taf_WlanHelper
+    {
         public:
-            // Inherited functions
-            void Init(void);
-            taf_WlanSvcImpl() {};
-            ~taf_WlanSvcImpl() {};
 
-            static taf_WlanSvcImpl &GetInstance();
+        // String helper functions
+        static std::string StrTrimEndSpace(const std::string &str);
+        static std::vector<std::string> StrSplit(const std::string &str, char delim);
 
-            // WLan Service Implementations
-            le_result_t SetON             ( void );
-            le_result_t SetOFF            ( void );
-            le_result_t SetMode           ( taf_wlan_DeviceMode_t wlanMode );
-            le_result_t GetMode           ( taf_wlan_DeviceMode_t* wlanModePtr );
-            le_result_t GetState          ( taf_wlan_DeviceState_t* statePtr );
-            le_result_t GetIntfInfo       ( taf_wlan_APIntfInfo_t* APIntfinfoPtr,
-                                            size_t* APIntfinfoSizePtr,
-                                            taf_wlan_STAIntfInfo_t* STAIntfinfoPtr,
-                                            size_t* STAIntfinfoSizePtr);
+        // BandType conversion
+        static taf_wlan_Band_t BandTypeToTAF (telux::wlan::BandType bandType);
+        static telux::wlan::BandType BandTypeToTelux (taf_wlan_Band_t bandType);
 
-            // Set/Get fucntions for private variables.
-            void SetSubsystemState ( telux::common::ServiceStatus status );
-            void SetDeviceState    ( bool enable );
-            le_event_Id_t GetStateChangeEventID();
+        ///////////////////////////////////////
+        // APType conversion
+        static taf_wlan_APType_t APTypeToTAF (telux::wlan::ApType APType);
+        static telux::wlan::ApType APTypeToTelux(taf_wlan_APType_t APType);
 
+        // SecMode conversion
+        static taf_wlan_SecurityMode_t SecModeToTAF(telux::wlan::SecMode SecMode);
+        static telux::wlan::SecMode SecModeToTelux(taf_wlan_SecurityMode_t SecMode);
+
+        // SecAuth conversion
+        static taf_wlan_SecurityAuthMethod_t SecAuthToTAF(telux::wlan::SecAuth SecAuth);
+        static telux::wlan::SecAuth SecAuthToTelux(taf_wlan_SecurityAuthMethod_t SecAuth);
+
+        // SecEncrypt conversion
+        static taf_wlan_SecurityEncryptionMethod_t
+                        SecEncryptToTAF(telux::wlan::SecEncrypt SecEncrypt);
+        static telux::wlan::SecEncrypt
+        SecEncryptToTelux(taf_wlan_SecurityEncryptionMethod_t SecEncrypt);
+
+        // WLAN AP ID conversion
+        static taf_wlan_APid_t TeluxIdtoTAFAPId(telux::wlan::Id id);
+        static telux::wlan::Id TAFAPidtoTeluxId(taf_wlan_APid_t id);
+
+        ////////////////////////////////////////////////
+        // Station Mode(Bridge/Router) conversion
+        static taf_wlanSta_Mode_t
+        StaModeToTAF(telux::wlan::StaBridgeMode Mode);
+        static telux::wlan::StaBridgeMode StaModeToTelux(taf_wlanSta_Mode_t Mode);
+
+        // Station IP Type conversion
+        static taf_wlanSta_IPType_t StaIPTypeToTAF(telux::wlan::StaIpConfig IPMode);
+        static telux::wlan::StaIpConfig StaIPTypeToTelux(taf_wlanSta_IPType_t IPMode);
+
+        // Station state conversion
+        static taf_wlanSta_State_t StaIntfStatusToTAF(telux::wlan::StaInterfaceStatus State);
+
+        // WLAN STA ID conversion
+        static taf_wlan_STAid_t TeluxIdtoTAFSTAId(telux::wlan::Id id);
+        static telux::wlan::Id TAFSTAidtoTeluxId(taf_wlan_STAid_t id);
+
+        static taf_wlan_BandIntPriority_t ConvertInterferenceBand(telux::data::BandPriority);
+        static telux::data::BandPriority ConvertInterferenceBand(taf_wlan_BandIntPriority_t);
+    };
+
+    //----------------------------------------------------------------------------------------------
+    /**
+     * The TelAF WLAN listener class for TelSDK notifications.
+     */
+    //----------------------------------------------------------------------------------------------
+    class taf_WlanListener: public telux::wlan::IWlanListener
+    {
+        public:
+            // Subsystem state change handler
+            void onServiceStatusChange (telux::common::ServiceStatus status);
+            // Device enable/disable handler
+            void onEnableChanged (bool enable);
+            bool getEnableStatus();
+            void resetPromise();
         private:
-            le_result_t FillIntfInfo(taf_wlan_APIntfInfo_t *APIntfinfoPtr,
-                                     size_t *APIntfinfoSizePtr,
-                                     taf_wlan_STAIntfInfo_t *STAIntfinfoPtr,
-                                     size_t *STAIntfinfoSizePtr);
-            // The WLAN Device Manager
-            std::shared_ptr<telux::wlan::IWlanDeviceManager> wlanDevMgr = nullptr;
-            // The WLAN Listener class object
-            std::shared_ptr<tafsvc::taf_WlanListener> wlanListener;
-            // WLAN Subsystem status
-            telux::common::ServiceStatus wlanSubSystemState =
-                                                telux::common::ServiceStatus::SERVICE_FAILED;
+            std::promise<bool> promise_;
+    };
 
-            le_event_Id_t wlanDevStateChangeEvID; // The WLAN device state change event ID
-            le_mem_PoolRef_t DeviceStatusPoolRef = NULL;
-            le_mutex_Ref_t wlanMutexRef = NULL;
-        };
-    } //namespace tafsvc
+    //----------------------------------------------------------------------------------------------
+    /**
+     * The TelAF WLAN APIs implementation class.
+     */
+    //----------------------------------------------------------------------------------------------
+    class taf_WlanSvcImpl : public ITafSvc
+    {
+    public:
+        // Inherited functions
+        void Init(void);
+        taf_WlanSvcImpl() {};
+        ~taf_WlanSvcImpl() {};
+
+        static taf_WlanSvcImpl &GetInstance();
+
+        // WLan Service Implementations
+        le_result_t SetON             ( void );
+        le_result_t SetOFF            ( void );
+        le_result_t SetMode           ( taf_wlan_DeviceMode_t wlanMode );
+        le_result_t GetMode           ( taf_wlan_DeviceMode_t* wlanModePtr );
+        le_result_t GetState          ( taf_wlan_DeviceState_t* statePtr );
+        le_result_t GetIntfInfo       ( taf_wlan_APIntfInfo_t* APIntfinfoPtr,
+                                        size_t* APIntfinfoSizePtr,
+                                        taf_wlan_STAIntfInfo_t* STAIntfinfoPtr,
+                                        size_t* STAIntfinfoSizePtr);
+
+        /* Band interference related service APIs implementation */
+        le_result_t SetBandIntWaitTime (taf_wlan_BandIntPriority_t band, uint32_t waitTime);
+        le_result_t GetBandIntWaitTime (taf_wlan_BandIntPriority_t band, uint32_t *waitTimePtr);
+        le_result_t SetBandIntPriority (taf_wlan_BandIntPriority_t bandPriority);
+        le_result_t GetBandIntPriority (taf_wlan_BandIntPriority_t *bandPriorityPtr);
+        le_result_t SetBandIntState    (taf_wlan_BandIntState_t state);
+        le_result_t GetBandIntState    (taf_wlan_BandIntState_t *statePtr);
+
+        // Set/Get functions for private variables.
+        void
+        SetSubsystemState(telux::common::ServiceStatus status);
+        void SetDeviceState    ( bool enable );
+        le_event_Id_t GetStateChangeEventID();
+
+    private:
+        le_result_t FillIntfInfo(taf_wlan_APIntfInfo_t *APIntfinfoPtr,
+                                    size_t *APIntfinfoSizePtr,
+                                    taf_wlan_STAIntfInfo_t *STAIntfinfoPtr,
+                                    size_t *STAIntfinfoSizePtr);
+        // The WLAN Device Manager
+        std::shared_ptr<telux::wlan::IWlanDeviceManager> wlanDevMgr = nullptr;
+        // The WLAN Listener class object
+        std::shared_ptr<tafsvc::taf_WlanListener> wlanListener;
+        // WLAN Subsystem status
+        telux::common::ServiceStatus wlanSubSystemState =
+                                            telux::common::ServiceStatus::SERVICE_FAILED;
+
+        le_event_Id_t wlanDevStateChangeEvID; // The WLAN device state change event ID
+        le_mem_PoolRef_t DeviceStatusPoolRef = NULL;
+        le_mutex_Ref_t wlanMutexRef = NULL;
+
+        /**
+         * This section is for data settings commands.
+         */
+        // Thread to handle data settings commands
+        std::promise<le_result_t> promDataSettingThreadStart;
+        le_thread_Ref_t dataSettingsThreadRef = NULL;
+        static void *DataSettingsThreadHdlr(void *context);
+
+        // The data settings manager that is needed to set/get band interference settings.
+        std::shared_ptr<telux::data::IDataSettingsManager> dataSettingsManager = nullptr;
+
+        // Variable to check if the data settings manager is ready or not.
+        bool bDataSettingManagerReady = false;
+
+        // The internal data settings command event ID and handler.
+        le_event_Id_t dataSettingsCmd;
+        static void DataSettingsCmdHandler(void *PayloadPtrPtr);
+
+        // Promises to handle band interference commands.
+        std::promise<le_result_t>            promSetBandIntConfig;
+        std::promise<WlanGetBandIntCmdRsp_t> promGetBandIntConfig;
+
+        // Functions to handle band interference commands.
+        void HandleBandIntSet(WlanSetBandIntCmd_t bandIntSet);
+        void HandleBandIntGet(WlanGetBandIntCmd_t bandIntGet);
+
+        /**
+         * This section is for band interference management.
+         */
+        // Variables
+        WlanBandIntCfg_t bandIntCfgCurrent;     // The current band interference config details.
+        WlanBandIntCfg_t bandIntCfgToSet;       // The band interference config details to set.
+        // Timer to get the config after service init.
+        const uint32_t GetFirstBandIntConfigInterval = 500; // 500ms
+        le_timer_Ref_t  getFirstBandIntConfigTimerRef = NULL;
+        static void GetFirstBandIntConfigTimerHdlr(le_timer_Ref_t timerRef);
+
+        // Functions to handle band interference management.
+        // Reset the band interference config details.
+        void ResetBandIntCfg(WlanBandIntCfg_t &config);
+    };
+} //namespace tafsvc

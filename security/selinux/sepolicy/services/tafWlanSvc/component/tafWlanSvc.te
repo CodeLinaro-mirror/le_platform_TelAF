@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafWlanSvc, 1.0)
@@ -54,5 +54,7 @@ telux_allow_wlan_device_config(telaf_tafWlanSvc_t)
 telux_allow_wlan_ap_config(telaf_tafWlanSvc_t)
 telux_allow_wlan_sta_config(telaf_tafWlanSvc_t)
 telux_allow_wlan_ap_devices(telaf_tafWlanSvc_t)
+telux_allow_data(telaf_tafWlanSvc_t)
+telux_allow_data_setting(telaf_tafWlanSvc_t)
 
 telux_allow_wlan(telaf_tafWlanSvc_t)

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -539,7 +539,7 @@ taf_wlan_STAid_t taf_WlanHelper::TeluxIdtoTAFSTAId(telux::wlan::Id id)
     return TAF_WLAN_STA_ID1;
 }
 
-////--------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 /**
  * Convert TelAF STA ID to Telux WLAN ID
  */
@@ -554,4 +554,30 @@ telux::wlan::Id taf_WlanHelper::TAFSTAidtoTeluxId(taf_wlan_STAid_t id)
     // To avoid error "control reaches end of non-void function", return some value with warning
     LE_WARN("Control should not reach here");
     return telux::wlan::Id::PRIMARY;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert TelAF band priority to Telux band priority
+ */
+//--------------------------------------------------------------------------------------------------
+telux::data::BandPriority taf_WlanHelper::ConvertInterferenceBand(taf_wlan_BandIntPriority_t band)
+{
+    if (TAF_WLAN_PRIO_BAND_N79 == band)
+        return telux::data::BandPriority::N79;
+
+    return telux::data::BandPriority::WLAN;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert Telux band priority to TelAF band priority
+ */
+//--------------------------------------------------------------------------------------------------
+taf_wlan_BandIntPriority_t taf_WlanHelper::ConvertInterferenceBand(telux::data::BandPriority band)
+{
+    if (telux::data::BandPriority::N79 == band)
+        return TAF_WLAN_PRIO_BAND_N79;
+
+    return TAF_WLAN_PRIO_BAND_WLAN_5_GHZ;
 }

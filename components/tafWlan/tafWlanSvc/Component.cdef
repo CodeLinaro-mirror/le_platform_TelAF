@@ -13,6 +13,7 @@ requires:
     lib:
     {
         lib/libtelux_wlan.so
+        lib/libtelux_data.so
         lib/libtelux_common.so
     }
     api:

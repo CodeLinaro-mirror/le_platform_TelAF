@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -163,10 +163,12 @@ le_result_t taf_wlanSta_GetMode
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_wlanSta_SetStaticIPConfig
+le_result_t taf_wlanSta_SetIPConfig
 (
     taf_wlanSta_WlanSTARef_t wlanSTARef,
         ///< [IN] The WLAN STA reference.
+    taf_wlanSta_IPType_t StaIPType,
+        ///< [IN] Dynamic or Static IP address.
     const taf_wlanSta_IPConfig_t * LE_NONNULL StaIPConfigPtr
         ///< [IN] IP address to set for static IP address mode.
 )
@@ -174,7 +176,7 @@ le_result_t taf_wlanSta_SetStaticIPConfig
     TAF_ERROR_IF_RET_VAL(NULL == StaIPConfigPtr, LE_BAD_PARAMETER,
                                                      "StaIPConfigPtr is NULL!");
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
-    return myWlanSta.SetStaticIPConfig(wlanSTARef, StaIPConfigPtr);
+    return myWlanSta.SetIPConfig(wlanSTARef, StaIPType, StaIPConfigPtr);
 }
 
 //--------------------------------------------------------------------------------------------------

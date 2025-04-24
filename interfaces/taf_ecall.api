@@ -510,7 +510,8 @@ ENUM State
     STATE_T9_STOPPED,                         ///< T9 Timer stopped.
     STATE_T10_STOPPED,                        ///< T10 Timer stopped.
     STATE_INCOMING,                           ///< Incoming eCall.
-    STATE_LL_NACK_DUE_TO_T7_EXPIRY            ///< Link-Layer Acknowledgement (LL-NACK) is received during in-band MSD transmission due to expiry of T7 Timer.
+    STATE_LL_NACK_DUE_TO_T7_EXPIRY,           ///< Link-Layer Acknowledgement (LL-NACK) is received during in-band MSD transmission due to expiry of T7 Timer.
+    STATE_T9_RESUMED                          ///< T9 Timer resumed.
 };
 
 //-------------------------------------------------------------------------------------------------

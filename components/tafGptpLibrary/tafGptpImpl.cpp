@@ -307,6 +307,7 @@ void handleGptpReference(struct ifinfomsg *ifi, bool isPtpDown)
                 le_timer_SetMsInterval(gptpTime->deviceOpenTimer, 1000); // 1 second interval
                 le_timer_SetRepeat(gptpTime->deviceOpenTimer, 0); // Repeat indefinitely
                 le_timer_SetHandler(gptpTime->deviceOpenTimer, DeviceOpenTimerHandler);
+                le_timer_SetWakeup(gptpTime->deviceOpenTimer, false);
                 le_timer_SetContextPtr(gptpTime->deviceOpenTimer, gptpTime);
                 le_timer_Start(gptpTime->deviceOpenTimer);
             }

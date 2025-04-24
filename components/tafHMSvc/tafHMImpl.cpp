@@ -161,6 +161,7 @@ static void* SubThreadMain(void* context)
     HmsTimerRef = le_timer_Create("hmsTimer");     //create timer
     le_timer_SetMsInterval(HmsTimerRef, 1000);        //update every 1 seconds
     le_timer_SetHandler(HmsTimerRef, TimerExpiryHandler);
+    le_timer_SetWakeup(HmsTimerRef, false);
     le_timer_SetRepeat(HmsTimerRef, 1);                   //set no repeat
     le_timer_Start(HmsTimerRef);
     le_event_RunLoop();
@@ -1210,6 +1211,7 @@ void tafHmsListener::StartResetTimer(taf_hms_modemInfo_t* modemEventInfoPtr)
         le_timer_SetMsInterval(modemEventInfoPtr->resetTimer, TAF_HMS_MODEM_RESET_TIMER);
         le_timer_SetRepeat(modemEventInfoPtr->resetTimer, 0);
         le_timer_SetHandler(modemEventInfoPtr->resetTimer, ResetModemStatusCounterHandler);
+        le_timer_SetWakeup(modemEventInfoPtr->resetTimer, false);
         le_timer_SetContextPtr(modemEventInfoPtr->resetTimer, modemEventInfoPtr);
 
         // Start the timer

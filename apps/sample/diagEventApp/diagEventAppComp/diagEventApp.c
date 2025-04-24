@@ -30,10 +30,12 @@ static taf_diagEvent_UdsStatusHandlerRef_t udsStatusRef = NULL;
 //Diag DTC
 static taf_diagDTC_ServiceRef_t diagDtcAB0000SvcRef = NULL;
 static taf_diagDTC_StatusHandlerRef_t dtcStatusRef = NULL;
+static taf_diagDTC_ClearStatusHandlerRef_t clearDtcStatusRef = NULL;
 
 //Diag all DTC
 static taf_diagDTC_AllServiceRef_t diagDtcAllSvcRef = NULL;
 static taf_diagDTC_AllStatusHandlerRef_t allDtcStatusRef = NULL;
+static taf_diagDTC_ClearAllStatusHandlerRef_t clearAllDtcStatusRef = NULL;
 
 const char *dataTypeToString(taf_diagDTC_DataType_t dataType)
 {
@@ -46,6 +48,20 @@ const char *dataTypeToString(taf_diagDTC_DataType_t dataType)
         default:
             LE_ERROR("unknown data type");
             return "unknow data type";
+    }
+}
+
+const char* GetClientTypeString(taf_diagDTC_ReqClientType_t clientType)
+{
+    switch (clientType)
+    {
+        case TAF_DIAGDTC_DTOOL:
+            return "Client Tool";
+        case TAF_DIAGDTC_APP:
+            return "Sample App";
+        default:
+            LE_ERROR("Unknown client");
+            return "Unknown client";
     }
 }
 
@@ -764,6 +780,42 @@ void allDtcStatusChangeHandler
     LE_INFO("########Diag one of all DTC 0x%x, change status to 0x%x########", dtcCode, dtcStatus);
 }
 
+//Clear DTC status change handler
+void clearDtcStatusChangeHandler
+(
+        taf_diagDTC_ServiceRef_t svcRef,
+        taf_diagDTC_ReqClientType_t clientType,
+        void* contextPtr
+)
+{
+    le_result_t result;
+    uint32_t dtcCode;
+
+    LE_INFO("clearDtcStatusChangeHandler!!");
+    result = taf_diagDTC_GetCode(svcRef, &dtcCode);
+    if( result != LE_OK)
+    {
+        LE_ERROR("Failed to get DTC code");
+        return;
+    }
+
+    LE_INFO("########Diag DTC 0x%x, cleared successfully by %s########", dtcCode,
+            GetClientTypeString(clientType));
+}
+
+//all DTC status change handler
+void clearAllDtcStatusChangeHandler
+(
+        taf_diagDTC_AllServiceRef_t svcRef,
+        taf_diagDTC_ReqClientType_t clientType,
+        void* contextPtr
+)
+{
+    LE_INFO("clearAllDtcStatusChangeHandler!!");
+    LE_INFO("########Diag all DTC cleared successfully by %s########",
+            GetClientTypeString(clientType));
+}
+
 //Diag event UDS status thread
 static void* diagEventUdsStatusTheadFunc(void* ctxPtr)
 {
@@ -885,6 +937,66 @@ static void* diagAllDtcStatusTheadFunc(void* ctxPtr)
     return NULL;
 }
 
+//Diag clear DTC status thread
+static void* diagClearDtcStatusTheadFunc(void* ctxPtr)
+{
+    taf_diagDTC_ServiceRef_t diagClearDtcRef = NULL;
+    taf_diagDTC_ConnectService();
+
+    //Get the diag DTC service
+    diagClearDtcRef = taf_diagDTC_GetService(DTC_CODE_AB0000);
+    if(diagClearDtcRef == NULL)
+    {
+        LE_ERROR("Get diag DTC service");
+        return NULL;
+    }
+
+    clearDtcStatusRef = taf_diagDTC_AddClearStatusHandler(diagClearDtcRef,
+            (taf_diagDTC_ClearStatusHandlerFunc_t)clearDtcStatusChangeHandler, ctxPtr);
+
+    if(clearDtcStatusRef == NULL)
+    {
+        LE_ERROR("Add Clear DTC status handler");
+        return NULL;
+    }
+
+    le_sem_Post(semRef);
+
+    le_event_RunLoop();
+
+    return NULL;
+}
+
+//Diag clear all DTC status thread
+static void* diagClearAllDtcStatusTheadFunc(void* ctxPtr)
+{
+    taf_diagDTC_AllServiceRef_t diagClearAllDtcRef = NULL;
+    taf_diagDTC_ConnectService();
+
+    //Get the diag all DTC service
+    diagClearAllDtcRef = taf_diagDTC_GetAllService();
+    if(diagClearAllDtcRef == NULL)
+    {
+        LE_ERROR("Get diag all DTC service");
+        return NULL;
+    }
+
+    clearAllDtcStatusRef = taf_diagDTC_AddClearAllStatusHandler(diagClearAllDtcRef,
+            (taf_diagDTC_ClearAllStatusHandlerFunc_t)clearAllDtcStatusChangeHandler, ctxPtr);
+
+    if(clearAllDtcStatusRef == NULL)
+    {
+        LE_ERROR("Add all DTC status handler");
+        return NULL;
+    }
+
+    le_sem_Post(semRef);
+
+    le_event_RunLoop();
+
+    return NULL;
+}
+
 COMPONENT_INIT
 {
     LE_INFO("diagEventApp starting");
@@ -928,6 +1040,20 @@ COMPONENT_INIT
             diagAllDtcStatusTheadFunc, NULL);
 
     le_thread_Start(allDtcStatusThreadRef);
+    le_sem_Wait(semRef);
+
+    // Create Clear DTC status change thread
+    le_thread_Ref_t clearDtcStatusThreadRef = le_thread_Create("cleardtcStatusTh",
+            diagClearDtcStatusTheadFunc, NULL);
+
+    le_thread_Start(clearDtcStatusThreadRef);
+    le_sem_Wait(semRef);
+
+    // Create Clear all DTC status change thread
+    le_thread_Ref_t clearAllDtcStatusThreadRef = le_thread_Create("clearalldtcStatusTh",
+            diagClearAllDtcStatusTheadFunc, NULL);
+
+    le_thread_Start(clearAllDtcStatusThreadRef);
     le_sem_Wait(semRef);
 
     changeEventStatus();

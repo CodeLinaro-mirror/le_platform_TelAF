@@ -124,6 +124,7 @@ using namespace tafsvc::cfg;
             int16_t faultDetectionCounter;
             bool activationStatus;
             bool suppressionStatus;
+            taf_diagDTC_ReqClientType_t reqClientType;
 #ifdef LE_CONFIG_DIAG_FEATURE_A
             taf_diagEvent_DTC_Type_t dtcType;
 #endif
@@ -206,7 +207,7 @@ using namespace tafsvc::cfg;
                         void* secondLayerHandlerFunc);
 
                 //Interface function for DTC interface module and DTC service module
-                le_result_t ClearDtc(uint32_t dtcCode);
+                le_result_t ClearDtc(uint32_t dtcCode, taf_diagDTC_ReqClientType_t clientType);
                 le_result_t EnableDTCSetting(uint32_t dtcCode);
                 le_result_t DisableDTCSetting(uint32_t dtcCode);
                 //Interface function for DTC interface module
@@ -241,6 +242,8 @@ using namespace tafsvc::cfg;
                 void ReportEventUdsStatus(taf_diagEvent_EventCtx_t* eventCtxPtr);
                 void ReportEnableCondState(taf_diagEvent_EventCtx_t* eventCtxPtr, bool state);
                 void ReportDtcStatus(taf_diagEvent_DtcCtx_t* dtcCtxPtr);
+                void ReportClearDtcStatus(taf_diagEvent_DtcCtx_t* dtcCtxPtr);
+                void ReportClearAllDtcStatus(taf_diagDTC_ReqClientType_t clientType);
                 le_result_t StoreAndReportDTCStatus(taf_diagEvent_DtcCtx_t* dtcCtxPtr);
                 le_result_t StoreAndReportEventUdsStatus(taf_diagEvent_EventCtx_t* eventCtxPtr);
 
@@ -270,8 +273,8 @@ using namespace tafsvc::cfg;
                 le_result_t UpdateDtcOnFailed(taf_diagEvent_DtcCtx_t* dtcCtxPtr);
                 le_result_t UpdateDtcOnPassed(taf_diagEvent_DtcCtx_t* dtcCtxPtr);
 
-                le_result_t ClearSingleDtc(uint32_t dtcCode);
-                le_result_t ClearAllDtc();
+                le_result_t ClearSingleDtc(uint32_t dtcCode,taf_diagDTC_ReqClientType_t clientType);
+                le_result_t ClearAllDtc(taf_diagDTC_ReqClientType_t clientType);
                 static void ClearDTCAndEventData(void* param1Ptr, void* param2Ptr);
                 static void ClearAllDTCAndEventData(void* param1Ptr, void* param2Ptr);
 

@@ -31,5 +31,5 @@ bindings:
 // Add SELinux module
 components:
 {
-    $TELAF_ROOT/security/selinux/sepolicy/test/tafTimeIntTest/component
+//    $TELAF_ROOT/security/selinux/sepolicy/test/tafTimeIntTest/component
 }

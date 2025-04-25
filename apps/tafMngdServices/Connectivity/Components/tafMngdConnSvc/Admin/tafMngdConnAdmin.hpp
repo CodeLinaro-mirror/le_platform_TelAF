@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -15,10 +15,10 @@
 #include <regex>
 
 #define MCS_MAX_FILE_PATH_LEN    256
-#define MCS_MAX_DATA_OBJ 16
 
-// Maximum nmber of client sessions
-#define MCS_MAX_SESSIONS 16
+// These values are defined in MngdConn.kconfig
+#define MCS_MAX_DATA_OBJ LE_CONFIG_TAFMNGDCONNSVC_MAX_DATA_OBJECTS
+#define MCS_MAX_SESSIONS LE_CONFIG_TAFMNGDCONNSVC_MAX_CLIENT_SESSIONS
 
 namespace tafsvc {
     //----------------------------------------------------------------------------------------------

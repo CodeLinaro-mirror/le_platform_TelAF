@@ -1,0 +1,14 @@
+#
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+#
+
+config TAFMNGDCONNSVC_MAX_DATA_OBJECTS
+  int "Maximum number of JSON data objects supported by the service."
+  default 2
+  range 1 16
+
+config TAFMNGDCONNSVC_MAX_CLIENT_SESSIONS
+  int "Maximum number of client sessions supported by the service."
+  default 8
+  range 1 20

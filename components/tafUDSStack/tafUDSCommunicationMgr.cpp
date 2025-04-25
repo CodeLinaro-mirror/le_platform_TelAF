@@ -452,6 +452,7 @@ void* UdsCommunicationMgr::UdsTimerThread
         snprintf(p2TimerName, sizeof(p2TimerName)-1, "p2-%s", pair.second->interface);
         pair.second->p2StarTimerRef = le_timer_Create(p2TimerName);
         le_timer_SetHandler(pair.second->p2StarTimerRef, P2StarTimeoutHandler);
+        le_timer_SetWakeup(pair.second->p2StarTimerRef, false);
         le_timer_SetContextPtr(pair.second->p2StarTimerRef, (void*)pair.first.c_str());
 
         //create s3 timer
@@ -459,12 +460,14 @@ void* UdsCommunicationMgr::UdsTimerThread
         pair.second->s3TimerRef = le_timer_Create(s3TimerName);
         le_timer_SetRepeat(pair.second->s3TimerRef, 1);
         le_timer_SetHandler(pair.second->s3TimerRef, S3TimeoutHandler);
+        le_timer_SetWakeup(pair.second->s3TimerRef, false);
         le_timer_SetContextPtr(pair.second->s3TimerRef, (void*)pair.first.c_str());
 
         //create authentication timer
         snprintf(authTimerName, sizeof(authTimerName)-1, "auth-%s", pair.second->interface);
         pair.second->authTimerRef = le_timer_Create(authTimerName);
         le_timer_SetHandler(pair.second->authTimerRef, AuthTimeoutHandler);
+        le_timer_SetWakeup(pair.second->authTimerRef, false);
         le_timer_SetContextPtr(pair.second->authTimerRef, (void*)pair.first.c_str());
 
         //create authentication delay timer
@@ -472,6 +475,7 @@ void* UdsCommunicationMgr::UdsTimerThread
                 pair.second->interface);
         pair.second->authDelayTimerRef = le_timer_Create(authDelayTimerName);
         le_timer_SetHandler(pair.second->authDelayTimerRef, AuthDelayTimeoutHandler);
+        le_timer_SetWakeup(pair.second->authDelayTimerRef, false);
         le_timer_SetContextPtr(pair.second->authDelayTimerRef, (void*)pair.first.c_str());
 
         //create tester state change timer
@@ -479,6 +483,7 @@ void* UdsCommunicationMgr::UdsTimerThread
                 pair.second->interface);
         pair.second->testerStateTimerRef = le_timer_Create(testerStateTimerName);
         le_timer_SetHandler(pair.second->testerStateTimerRef, TesterStateTimeoutHandler);
+        le_timer_SetWakeup(pair.second->testerStateTimerRef, false);
         le_timer_SetContextPtr(pair.second->testerStateTimerRef, (void*)pair.first.c_str());
     }
 

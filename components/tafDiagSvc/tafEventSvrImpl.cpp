@@ -2845,6 +2845,7 @@ void taf_EventSvr::InitEventContext
         eventCtxPtr->timerRef = le_timer_Create(timerName);
         le_timer_SetHandler(eventCtxPtr->timerRef, TimeBasedDebounceTimerHandler);
         le_timer_SetRepeat(eventCtxPtr->timerRef, 1);
+        le_timer_SetWakeup(eventCtxPtr->timerRef, false);
         le_timer_SetContextPtr(eventCtxPtr->timerRef, eventCtxPtr);
 
         // Create fault detection counter timer for timer based debounce.
@@ -2856,6 +2857,7 @@ void taf_EventSvr::InitEventContext
                 eventCtxPtr->debounceTimeBasedConfig.fdcThreshold);
         le_timer_SetHandler(eventCtxPtr->fdcTimerRef, FdcTimerHandler);
         le_timer_SetRepeat(eventCtxPtr->fdcTimerRef, 1);
+        le_timer_SetWakeup(eventCtxPtr->fdcTimerRef, false);
         le_timer_SetContextPtr(eventCtxPtr->fdcTimerRef, eventCtxPtr);
 
     }

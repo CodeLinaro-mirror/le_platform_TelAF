@@ -927,6 +927,7 @@ void tafMngdPMSvc::WaitWakeSourceTimer()
     le_result_t res;
     //timer to wait for wake source from apps
     wakeSourceTimerRef = le_timer_Create("WAKE SOURCE timer");
+    le_timer_SetWakeup(mpms.wakeSourceTimerRef, false);
     le_timer_SetMsInterval(wakeSourceTimerRef, mpms.config.bootup_awake_time);
     le_timer_SetHandler(wakeSourceTimerRef, WakeSourceTimerHandler);
     //acquire wakesource
@@ -971,10 +972,12 @@ le_result_t tafMngdPMSvc::InitVHalModule()
         // init first
         (*(pmInf->InitHAL))();
         mpms.vhalAckTimerRef = le_timer_Create("VHAL ACK timer");
+        le_timer_SetWakeup(mpms.vhalAckTimerRef, false);
         le_timer_SetMsInterval(mpms.vhalAckTimerRef, mpms.config.hal_state_prepare_timeout);
         le_timer_SetHandler(mpms.vhalAckTimerRef, VhalAckTimerHandler);
         //creating the timer for vehichle wakeup
         mpms.wakeupVehicleTimerRef = le_timer_Create("VEHICHLE WAKEUP timer");
+        le_timer_SetWakeup(mpms.wakeupVehicleTimerRef, false);
         le_timer_SetMsInterval(mpms.wakeupVehicleTimerRef, mpms.config.hal_wakeup_vehicle_timeout);
         le_timer_SetHandler(mpms.wakeupVehicleTimerRef, VehichleWakeupTimerHandler);
     }

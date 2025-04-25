@@ -1,10 +1,8 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-
-#include "tafMngdConn_ConfigTreeHelper.hpp"
 #include "tafMngdConnData.hpp"
 #include "tafMngdConnRadio.hpp"
 #include "tafMngdConnSim.hpp"
@@ -64,55 +62,6 @@ void ECall_init()
     auto &ecall = tafMngdConnECall::GetInstance();
     ecall.Init();
 #endif
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Read JSON file names from Config Tree nodes
- */
-//--------------------------------------------------------------------------------------------------
-bool tafMngdConnAdmin::ReadJSONFileNamesFromConfigTree
-(
-    char *ConfigurationFileNamePtr
-)
-{
-    le_result_t result = LE_OK;
-    char ConfigFileNameUpdate[MCS_MAX_YES_NO_LEN] = {0};
-
-    if (ConfigurationFileNamePtr == NULL )
-    {
-        LE_WARN ("Invalid Parameters passed");
-        return false;
-    }
-
-    // The Config Tree Node names are defined in tafMngdConn_ConfigTreeHelper.hpp
-
-    // Read Configuration File Name
-    result = tafMngd_ConfigTree_Read(MCS_ct_node_ConfigurationFileName,
-                                    ConfigurationFileNamePtr,
-                                    MCS_MAX_FILE_NAME_LEN);
-    if ( result != LE_OK )
-    {
-        LE_WARN ("Error in reading Configuration File Name");
-        return false;
-    }
-    else if ( strlen(ConfigurationFileNamePtr) == 0 )
-    {
-        LE_WARN("Configuration Filename not present in Config Tree");
-        return false;
-    }
-    LE_INFO("Configuration File Name: %s", ConfigurationFileNamePtr);
-
-    // Read if the Configuration File Name was overridden
-    result = tafMngd_ConfigTree_Read(MCS_ct_node_ConfigurationFileNameOverride,
-                                                                    ConfigFileNameUpdate,
-                                                                    MCS_MAX_YES_NO_LEN);
-    if ( result != LE_OK )
-    {
-        LE_INFO ("Configuration File Name overridden by API provided value");
-        return false;
-    }
-    return true;
 }
 
 void tafMngdConnAdmin::Init(void)
@@ -382,60 +331,6 @@ void *tafMngdConnAdmin::callback_thread_func(void *contextPtr)
 }
 
 /*========================== API functions. Called by tafMngdSvc.cpp==============================*/
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Set policy and configuration JSONs to config tree, and start the data connections if needed.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t tafMngdConnAdmin::SetPolicyConfigurationJSONs
-(
-    const char* ConfigFileNamePtr
-)
-{
-    le_result_t result = LE_OK;
-    CmdSynchronousPromise = std::promise<le_result_t>();
-
-    if(ConfigFileNamePtr == NULL)
-    {
-        LE_ERROR ("Invalid Parameters passed");
-        return LE_FAULT;
-    }
-
-    //Check if at least one connection is created.
-    if(IsStateConnected())
-    {
-        LE_ERROR("Some connections are already active");
-        return LE_FAULT;
-    }
-
-    // Check if ConfigTree has the Configuration File name
-    char PresentConfFileName[MCS_MAX_FILE_NAME_LEN]={0};
-    if (IsJsonValid && ReadJSONFileNamesFromConfigTree(PresentConfFileName))
-    {
-        if ((strncmp(PresentConfFileName, ConfigFileNamePtr, sizeof(PresentConfFileName)) == 0))
-        {
-            LE_ERROR ("Policy and Configuration file names are same");
-            return LE_DUPLICATE;
-        }
-        else
-        {
-            LE_ERROR ("Policy and Configuration file names are already configured");
-            return LE_FAULT;
-        }
-    }
-
-    le_utf8_Copy(ConfigFileName, ConfigFileNamePtr, MCS_MAX_FILE_PATH_LEN,NULL);
-
-    stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
-    stateMachineEvt.event=MCS_EVT_SET_POLICY_CONF_SYNC;
-    le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
-
-    // blocking here to get response
-    std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
-    result = futResult.get();
-    return result;
-}
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1819,12 +1714,8 @@ le_result_t tafMngdConnAdmin::EventNetworkUnregState(uint8_t phoneId)
 void tafMngdConnAdmin::EventDataConnected(uint8_t dataId)
 {
     le_result_t result;
-    mcs_DataCtx_t* dataCtxPtr = NULL;
-
     taf_dcs_ProfileRef_t profileRef = NULL;
-
-    dataCtxPtr = GetDataCtx(dataId);
-
+    mcs_DataCtx_t* dataCtxPtr = GetDataCtx(dataId);
     if(dataCtxPtr == NULL)
     {
         LE_ERROR("Can't find the context for dataId(%d)", dataId);
@@ -1865,9 +1756,12 @@ void tafMngdConnAdmin::EventDataConnected(uint8_t dataId)
 #else
     LE_ERROR("DNS not set for Simulation target");
 #endif
+
+    // Set the correct data context state
+    dataCtxPtr->adminState = MCS_DATA_START_CONNECTIONTEST_START;
+
     // Send an event to start DataStartConnectionTest
     LE_INFO("Sending event to start DataStartConnectionTest for ID: %d", dataId);
-    dataCtxPtr->adminState = MCS_DATA_START_CONNECTIONTEST_START;
     stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
     stateMachineEvt.event = MCS_EVT_DATA_START_CONNECTIONTEST;
     stateMachineEvt.dataId = dataCtxPtr->dataId;
@@ -1989,7 +1883,6 @@ void *tafMngdConnAdmin::StateMachineEventThreadFunc(void *contextPtr)
 
     auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
 
-    le_cfg_ConnectService();
     taf_radio_ConnectService();
     taf_dcs_ConnectService();
     taf_sim_ConnectService();
@@ -3416,12 +3309,19 @@ void tafMngdConnAdmin::EventDataPeriodicConnectivityTest(uint8_t dataId)
 bool tafMngdConnAdmin::DataConnectivityTest_URL(std::string url, std::string interfaceName)
 {
     std::string URL = RemoveProtocol(url);
-
+#ifdef LE_CONFIG_TAFMNGDCONNSVC_USE_CURL
     if (PerformCurl(URL.c_str()))
     {
-        LE_INFO("DataConnectivityTest_URL passed ");
+        LE_INFO("DataConnectivityTest_URL cURL passed ");
         return true;
     }
+#else
+    if (DataConnectivityTest_IPv4(URL, interfaceName))
+    {
+        LE_INFO("DataConnectivityTest_URL IPv4 passed ");
+        return true;
+    }
+#endif
     else
     {
         LE_INFO ("DataConnectivityTest_URL failed ");
@@ -3433,13 +3333,13 @@ bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4, std::string i
 {
     //Enable LE_CONFIG_DEBUG to get the output of ping in logs
     LE_INFO("DataConnectivityTest_IPv4 entered for interface %s",interfaceName.c_str());
-    #if LE_CONFIG_DEBUG
+#if LE_CONFIG_DEBUG
         std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+ ipv4;
         //5 is the number of ping pockets
-    #else
+#else
         std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+  ipv4
                                   + " 1> /dev/null 2> /dev/null";
-    #endif
+#endif
     LE_DEBUG("%s", pingCommand.c_str());
     int result = system(pingCommand.c_str());
 
@@ -4194,6 +4094,7 @@ void tafMngdConnAdmin::EventL3ConnRecoveryStart(uint8_t dataId)
  * CURL helper method to perform the Curl operation
  */
 //--------------------------------------------------------------------------------------------------
+#ifdef LE_CONFIG_TAFMNGDCONNSVC_USE_CURL
 bool tafMngdConnAdmin::PerformCurl(const char* URLStr)
 {
     CURL *curl;
@@ -4241,6 +4142,13 @@ bool tafMngdConnAdmin::PerformCurl(const char* URLStr)
 
     return result;
 }
+#else
+bool tafMngdConnAdmin::PerformCurl(const char* URLStr)
+{
+    LE_WARN("cURL is not enabled");
+    return false;
+}
+#endif // #ifdef LE_CONFIG_TAFMNGDCONNSVC_USE_CURL
 
 //--------------------------------------------------------------------------------------------------
 /**

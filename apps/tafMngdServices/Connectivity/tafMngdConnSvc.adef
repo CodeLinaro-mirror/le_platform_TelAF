@@ -19,14 +19,6 @@ groups:
     locclient
 }
 
-requires:
-{
-    configTree:
-    {
-        [w] .       // Request write access to Managed Connectivity Service's Config Tree
-    }
-}
-
 executables:
 {
     tafMngdConnSvc = ( $TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc )

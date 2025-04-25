@@ -1,8 +1,7 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 
 //-----------------------------------------------------------
 #include <vector>
@@ -12,13 +11,10 @@
 #include <boost/exception/diagnostic_information.hpp>
 #include <boost/exception_ptr.hpp>
 #include "tafMngdConnSvcJSONParser.hpp"
-#include "tafMngdConn_ConfigTreeHelper.hpp"
 
 using namespace tafsvc;
 using std::string;
 using std::to_string;
-
-namespace pt = boost::property_tree;
 
 // Map of properties and validation function pointers
 static std::map<std::string, ConnectivityValidationFunction_t> ConnectivityValidationFuncMap;
@@ -171,19 +167,19 @@ le_result_t tafsvc::PreCheckExtensionJson(std::string ConfigurationFileName,
                             mcs_Configuration_t &ConfigurationStructRef)
 {
     // Create a root
-    pt::ptree root;
+    boost::property_tree::ptree root;
     std::string version = "";
     // Load the json file in this ptree
     try
     {
-        pt::read_json(ConfigurationFileName, root);
+        boost::property_tree::read_json(ConfigurationFileName, root);
         std::string extension = root.get<std::string>("Extension");
         if (extension != ""){
             char extensionPath[LE_LIMIT_MAX_PATH_LEN];
             snprintf(extensionPath,LE_LIMIT_MAX_PATH_LEN,"%s%s",extension.c_str(),
                 ConfigurationFileName.c_str());
             if(DoesFileExist(extensionPath)){
-                LE_INFO("Intializing with extension json");
+                LE_INFO("Initializing with extension json");
                 //Parse the JSON file, if fails initialize with default JSON file
                 if(ParseJSON(extensionPath, PolicyStructRef, ConfigurationStructRef)){
                     LE_INFO("Service Initialize with extension json %s",extensionPath);
@@ -216,17 +212,10 @@ bool tafsvc::ParseJSON(std::string ConfigurationFileName,
     // Update the properties and validation functions map
     UpdateValidConnectivityFuncMap();
 
-    // Try opening an input file stream
-    std::ifstream jsonFile(ConfigurationFileName);
-    if (!jsonFile.is_open()) {
-        LE_WARN ("Unable to open %s", ConfigurationFileName.c_str());
-        return false;
-    }
-
     // Try parsing the JSON
-    pt::ptree tree;
+    boost::property_tree::ptree tree;
     try {
-        read_json(jsonFile, tree);
+        read_json(ConfigurationFileName, tree);
     }
     catch (const std::exception &e) {
         LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
@@ -342,35 +331,18 @@ bool tafsvc::ParseJSON(std::string ConfigurationFileName,
     }
 
     // Validate presence of mandatory objects
-    // The checking is done separately to return specific error logs.
-    if (!bProductAvailable)
+    if (bProductAvailable &&
+        bNameAvailable &&
+        bMngdConnSvcAvailable &&
+        bVersionAvailable &&
+        bPolicyAvailable &&
+        bConfigurationAvailable)
     {
-        LE_ERROR("Product object is missing");
-        return false;
+        LE_DEBUG("Mandatory objects are available");
     }
-    if (!bNameAvailable)
+    else
     {
-        LE_ERROR("Name object is missing");
-        return false;
-    }
-    if (!bMngdConnSvcAvailable)
-    {
-        LE_ERROR("ManagedConnectivityService object is missing");
-        return false;
-    }
-    if (!bVersionAvailable)
-    {
-        LE_ERROR("Version object is missing");
-        return false;
-    }
-    if (!bPolicyAvailable)
-    {
-        LE_ERROR("Policy object is missing");
-        return false;
-    }
-    if (!bConfigurationAvailable)
-    {
-        LE_ERROR("Configuration object is missing");
+        LE_ERROR("Mandatory objects are missing");
         return false;
     }
 

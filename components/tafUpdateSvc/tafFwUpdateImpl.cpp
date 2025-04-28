@@ -128,6 +128,83 @@ bool taf_FwUpdate::GetUnpackDir
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Get post script.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::GetPostScript
+(
+    taf_update_State_t state, ///< [IN] Update state.
+    char* scriptPath,         ///< [OUT] Script path.
+    size_t pathLen            ///< [IN] Script path length.
+)
+{
+    json_t *root;
+    json_error_t error;
+
+    // Load entire JSON file.
+    root = json_load_file(TAF_FWUPDATE_CFG_FILE, 0, &error);
+    if (root == NULL)
+    {
+        LE_ERROR("JSON file error: line: %d, column: %d, position: %d, source: '%s', error: %s",
+            error.line, error.column, error.position, error.source, error.text);
+        return LE_FAULT;
+    }
+
+    // Check if "root" is an object.
+    if (!json_is_object(root))
+    {
+        LE_ERROR("root is not an object.");
+        json_decref(root);
+        return LE_FAULT;
+    }
+
+    // Load the 'firmware' object.
+    json_t* js_firmware = json_object_get(root, "firmware");
+    if (!json_is_object(js_firmware))
+    {
+        LE_ERROR("firmware object is not set in JSON file %s.", TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    json_t* js_post;
+    if (state == TAF_UPDATE_INSTALL_SUCCESS)
+    {
+        // Load the 'post-install' object.
+        js_post = json_object_get(js_firmware, "post-install");
+    }
+    else if (state == TAF_UPDATE_ROLLBACK_SUCCESS)
+    {
+        // Load the 'post-rollback' object.
+        js_post = json_object_get(js_firmware, "post-rollback");
+    }
+    else
+    {
+        LE_ERROR("Invalid state for hook function.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (!json_is_object(js_post))
+    {
+        LE_ERROR("post-install or post-rollback object is not set in JSON file %s.",
+            TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    // Load the 'user-script' object.
+    json_t* js_user_script = json_object_get(js_post, "user-script");
+    if (!json_is_string(js_user_script))
+    {
+        LE_ERROR("user-script string is not set in JSON file %s.", TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    le_utf8_Copy(scriptPath, json_string_value(js_user_script), pathLen, NULL);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Set update state.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1764,8 +1841,15 @@ void taf_FwUpdate::UpdateImage
             tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
             return;
         }
-
+        // Post process for install success.
+        result = tafFwUpdate.PostProcess(TAF_UPDATE_INSTALL_SUCCESS);
+        if (result != LE_OK)
+        {
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+            return;
+        }
         tafFwUpdate.SetActivationContext(TAF_UPDATE_INSTALL_SUCCESS, bank);
+
         tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
     }
 }
@@ -2332,7 +2416,13 @@ void taf_FwUpdate::InstallFirmware
         return;
     }
 
-    // 7. Install successfully.
+    // 7. Post process for install success.
+    ret = tafFwUpdate.PostProcess(TAF_UPDATE_INSTALL_SUCCESS);
+    if (ret != LE_OK)
+    {
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        return;
+    }
     tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
 
     // 8. Synchronize state to storage.
@@ -3315,7 +3405,11 @@ void taf_FwUpdate::FwUpdateHandler
             {
                 LE_INFO("Start to rollback.");
                 tafFwUpdate.SetState(TAF_UPDATE_ROLLBACK);
-                if (tafFwUpdate.Rollback() != LE_OK)
+                le_result_t result = tafFwUpdate.Rollback();
+                if (result == LE_OK)
+                    result = tafFwUpdate.PostProcess(TAF_UPDATE_ROLLBACK_SUCCESS);
+
+                if (result != LE_OK)
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_FAIL);
                 else
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_SUCCESS);
@@ -3398,6 +3492,47 @@ void* taf_FwUpdate::FwUpdateThread
 
     le_event_RunLoop();
     return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Post process.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::PostProcess
+(
+    taf_update_State_t state ///< [IN] Update state.
+)
+{
+    char script[TAF_FWUPDATE_POST_SCRIPT_PATH_LEN];
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    le_result_t result = tafFwUpdate.GetPostScript(state, script, TAF_FWUPDATE_POST_SCRIPT_PATH_LEN);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Can not get user script.");
+        return LE_FAULT;
+    }
+
+    if (access(TAF_FWUPDATE_POST_HOOK, 0) == 0 && access(script, 0) == 0)
+    {
+        LE_INFO("Post processing...");
+
+        char cmd[TAF_FWUPDATE_CMD_LEN];
+        snprintf(cmd, sizeof(cmd), "%s %s", TAF_FWUPDATE_POST_HOOK, script);
+
+        result = tafFwUpdate.SendPipeCmd(cmd, "w");
+        if (result != LE_OK)
+        {
+            LE_ERROR("Post processing failed.");
+            return LE_FAULT;
+        }
+
+        LE_INFO("Post processing successfully.");
+        return LE_OK;
+    }
+
+    LE_INFO("Skip post processing.");
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------

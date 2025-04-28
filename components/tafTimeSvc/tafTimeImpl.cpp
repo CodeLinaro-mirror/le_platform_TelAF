@@ -27,6 +27,7 @@ taf_SourceInf_t *LatestTimeSourceInfo;
 bool GnssErrStatusUpdateFlag = true;
 le_result_t InitGnssTimeStatus = LE_UNAVAILABLE;
 le_result_t InitNetworkTimeStatus = LE_UNAVAILABLE;
+le_result_t MssConnectStatusMainThread = LE_FAULT;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1776,6 +1777,16 @@ le_result_t taf_Time::UpdateDeltaTimeToStorage
     return LE_OK;
 }
 
+void WriteValidtyToSecStorageHandler(void* context)
+{
+    ValidityParams* params = static_cast<ValidityParams*>(context);
+    taf_SourceInf_t* sourcePtr = params->sourcePtr;
+    bool validity = params->validity;
+    taf_Time& tafTime = taf_Time::GetInstance();
+    tafTime.WriteValidtyToSecStorage(sourcePtr, validity);
+    delete params; // Clean up the allocated memory
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Set system 'CLOCK_REAL' time.
@@ -1900,7 +1911,10 @@ le_result_t taf_Time::SetSystemTime
     if(sourcePtr != NULL &&
        LatestTimeSourceInfo->sourceValidity != sourcePtr->sourceValidity)
     {
-        tafTime.WriteValidtyToSecStorage(LatestTimeSourceInfo,sourcePtr->sourceValidity);
+        le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+        (le_event_DeferredFunc_t)WriteValidtyToSecStorageHandler,
+        new ValidityParams{LatestTimeSourceInfo, sourcePtr->sourceValidity},
+        NULL);
         LatestTimeSourceInfo->sourceValidity = sourcePtr->sourceValidity;
         if(LatestTimeSourceInfo->handlerFunc != NULL &&
             LatestTimeSourceInfo->eventType == TAF_TIME_STATUS_EVENT_VALIDITY)
@@ -2031,7 +2045,10 @@ void taf_Time::SourceAvailabilityUpdate(le_result_t result, taf_time_TimeSources
                 oldValidity = sourcePtr->sourceValidity;
                 if(oldValidity != true)
                 {
-                    tafTime.WriteValidtyToSecStorage(sourcePtr, true);
+                    le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+                        (le_event_DeferredFunc_t)WriteValidtyToSecStorageHandler,
+                        new ValidityParams{sourcePtr, true},
+                        NULL);
                 }
                 sourcePtr->sourceValidity = true;
             }
@@ -2049,7 +2066,10 @@ void taf_Time::SourceAvailabilityUpdate(le_result_t result, taf_time_TimeSources
                 oldValidity = sourcePtr->sourceValidity;
                 if(oldValidity != false)
                 {
-                    tafTime.WriteValidtyToSecStorage(sourcePtr, false);
+                    le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+                        (le_event_DeferredFunc_t)WriteValidtyToSecStorageHandler,
+                        new ValidityParams{sourcePtr, false},
+                        NULL);
                 }
                 sourcePtr->sourceValidity = false;
             }
@@ -2252,7 +2272,21 @@ void taf_Time::SystemTimeUpdateTimerHandler
     }
 }
 
-void taf_Time::InitializeSystemTimeAttr(le_result_t connectStatus)
+bool tryConnectService(le_result_t& status)
+{
+    status = taf_mngdStorSecData_TryConnectService();
+    if(status == LE_OK)
+    {
+        LE_INFO("Successfully connected to secure storage service");
+    }
+    else
+    {
+        LE_ERROR("Not able to connect to secure storage service");
+    }
+    return status == LE_OK;
+}
+
+void taf_Time::InitializeSystemTimeAttr(void)
 {
     taf_Time& tafTime = taf_Time::GetInstance();
     LatestTimeSourceInfo = (taf_SourceInf_t*)le_mem_ForceAlloc(tafTime.SrcPool);
@@ -2263,53 +2297,48 @@ void taf_Time::InitializeSystemTimeAttr(le_result_t connectStatus)
     LatestTimeSourceInfo->sourceValidity = false;
     LatestTimeSourceInfo->handlerRef = NULL;
     LatestTimeSourceInfo->handlerFunc = NULL;
-    if(connectStatus == LE_OK)
+    LatestTimeSourceInfo->sessionRef = taf_time_GetClientSessionRef();
+    LatestTimeSourceInfo->ref =
+        (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, LatestTimeSourceInfo);
+
+    if((MssConnectStatusMainThread == LE_OK) ||
+        tryConnectService(MssConnectStatusMainThread  ))
     {
-        if(taf_mngdStorSecData_CreateData(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId)) == LE_DUPLICATE)
+        if(taf_mngdStorSecData_CreateData(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId))==LE_DUPLICATE)
         {
             LE_DEBUG("Data item already exist");
         }
         LatestTimeSourceInfo->secStrgdataRef =
-                taf_mngdStorSecData_GetDataRef(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
+            taf_mngdStorSecData_GetDataRef(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
     }
-    LatestTimeSourceInfo->sessionRef = taf_time_GetClientSessionRef();
-    LatestTimeSourceInfo->ref = (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, LatestTimeSourceInfo);
-    return;
+    else
+    {
+        LatestTimeSourceInfo->secStrgdataRef = nullptr;
+        LE_ERROR("Unable to connect to managed secure storage service.");
+    }
 }
+
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Advertising time service to clients.
  */
 //--------------------------------------------------------------------------------------------------
-void AdvertiseTimeService()
+void AdvertiseTimeService(void)
 {
     taf_time_AdvertiseService();
 }
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Active time related tasks according to the JSON configuration.
- *
- * @return
- *     - NULL -- If any error occurs.
- */
-//--------------------------------------------------------------------------------------------------
-void *taf_Time::SyncTimeTasks(void* contextPtr)
+void taf_Time:: InitTimeSource(void)
 {
-    le_result_t connectStatus = taf_mngdStorSecData_TryConnectService();
-    le_result_t regGnssTimeStatus = LE_UNAVAILABLE;
-    le_result_t regNetworkTimeStatus = LE_UNAVAILABLE;
-    long int interval;
     taf_Time& tafTime = taf_Time::GetInstance();
-    // Create reference maps.
     tafTime.TimeRefMap = le_ref_CreateMap("TimeRefMap", TAF_TIME_SRC_NAME_UNKNOWN);
     tafTime.TimePool = le_mem_CreatePool("Time Pool", sizeof(taf_TimeInf_t));
     tafTime.SrcRefMap = le_ref_CreateMap("SrcRefMap", TAF_TIME_SRC_NAME_UNKNOWN + 1);
     tafTime.SrcPool = le_mem_CreatePool("Available Source Pool", sizeof(taf_SourceInf_t));
 
-    //Initialise system time structure and register in the SrcRefMap
-    tafTime.InitializeSystemTimeAttr(connectStatus);
+    tafTime.InitializeSystemTimeAttr();
+    tafTime.gptpTimeRef = taf_gptpTime_CreateRef(TimeSourceConf.gptpDeviceName.c_str());
 
     //Populate the available source information
     if (TimeSourceConf.source.size() > 0)
@@ -2327,7 +2356,9 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
             src->handlerFunc = NULL;
             src->sourceValidity = false;
             src->sessionRef = taf_time_GetClientSessionRef();
-            if(connectStatus == LE_OK)
+            src->ref = (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, src);
+
+            if(MssConnectStatusMainThread == LE_OK || tryConnectService(MssConnectStatusMainThread ))
             {
                 if(taf_mngdStorSecData_CreateData(tafTime.SourceNameIndexToStr(src->sourceId)) == LE_DUPLICATE)
                 {
@@ -2348,12 +2379,31 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
                 src->secStrgdataRef =
                         taf_mngdStorSecData_GetDataRef(tafTime.SourceNameIndexToStr(src->sourceId));
             }
-            src->ref = (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, src);
+            else
+            {
+                src->secStrgdataRef = nullptr;
+                LE_ERROR("Not able to connect to secure storage service");
+            }
         }
     }
     tafTime.printSourceInfo();
+}
 
-    tafTime.gptpTimeRef = taf_gptpTime_CreateRef(TimeSourceConf.gptpDeviceName.c_str());
+//--------------------------------------------------------------------------------------------------
+/**
+ * Active time related tasks according to the JSON configuration.
+ *
+ * @return
+ *     - NULL -- If any error occurs.
+ */
+//--------------------------------------------------------------------------------------------------
+void *taf_Time::SyncTimeTasks(void* contextPtr)
+{
+    le_result_t regGnssTimeStatus = LE_UNAVAILABLE;
+    le_result_t regNetworkTimeStatus = LE_UNAVAILABLE;
+    long int interval;
+    taf_Time& tafTime = taf_Time::GetInstance();
+    // Create reference maps.
 
     // Check if the network time source is required
     if (TimeSourceConf.IsSourceExist(tafTime.SourceNameIndexToStr(TAF_TIME_SRC_NAME_NETWORK)))
@@ -3609,7 +3659,7 @@ bool taf_Time::IsSourceValid
     return sourcePtr->sourceValidity;
 }
 
-le_result_t taf_Time::CheckSetValidityPermission()
+le_result_t taf_Time::CheckSetValidityPermission(void)
 {
     le_msg_SessionRef_t clientSessionRef = taf_time_GetClientSessionRef();
     pid_t pid;
@@ -3639,57 +3689,99 @@ le_result_t taf_Time::CheckSetValidityPermission()
 
 le_result_t taf_Time::WriteValidtyToSecStorage(taf_SourceInf_t* sourcePtr, bool newvalidity)
 {
-    le_result_t connectStatus = taf_mngdStorSecData_TryConnectService();
-    if(connectStatus != LE_OK)
+    if((MssConnectStatusMainThread != LE_OK) &&
+        !tryConnectService(MssConnectStatusMainThread )
+    )
     {
+        LE_ERROR("Unable to connect to managed secure storage service.");
         return LE_FAULT;
     }
+
     le_result_t res = LE_FAULT;
-    taf_mngdStorSecData_DataRef_t dataRef = sourcePtr->secStrgdataRef;
+
+    taf_mngdStorSecData_DataRef_t dataRef =
+        taf_mngdStorSecData_GetDataRef(SourceNameIndexToStr(sourcePtr->sourceId));
     uint8_t validityToSet = newvalidity == true ? 1 : 0;
-    if(dataRef == NULL)
+
+    // if data reference is NULL, try to get the reference from MSS
+    // if no reference exist, try creating storage for time source first
+    // and then get the reference
+    if (dataRef == nullptr)
     {
-        LE_DEBUG("Unable to get data reference for storing validity in secure storage");
-        return LE_NOT_FOUND;
+        LE_DEBUG("Creating storage for %s", SourceNameIndexToStr(sourcePtr->sourceId));
+
+        le_result_t  res = taf_mngdStorSecData_CreateData(SourceNameIndexToStr(sourcePtr->sourceId));
+        if(res == LE_OK || res == LE_DUPLICATE)
+        {
+            dataRef =
+                taf_mngdStorSecData_GetDataRef(SourceNameIndexToStr(sourcePtr->sourceId));
+            TAF_ERROR_IF_RET_VAL(dataRef == nullptr, LE_NOT_FOUND, "data ref does not exist");
+        }
+        else
+        {
+            LE_ERROR("Not able to create storage for %s",SourceNameIndexToStr(sourcePtr->sourceId));
+            return LE_FAULT;
+        }
     }
+
+    //Updating reference for time source if NULL
+    if(sourcePtr->secStrgdataRef == nullptr)
+    {
+        sourcePtr->secStrgdataRef = dataRef;
+    }
+
     res = taf_mngdStorSecData_WriteDataStart(dataRef);
     if(res != LE_OK)
     {
         LE_DEBUG("Cannot start writing validity in secure storage.");
-        return res;
+        goto writeErr;
     }
     res = taf_mngdStorSecData_WriteDataChunk(dataRef, &validityToSet, sizeof(validityToSet));
 
     if(res != LE_OK)
     {
         LE_DEBUG("Cannot write validity in secure storage.");
-        return res;
+        goto writeErr;
     }
     res = taf_mngdStorSecData_WriteDataEnd(dataRef);
 
     if(res != LE_OK)
     {
         LE_DEBUG("Cannot end writing validity in secure storage.");
-        return res;
+        goto writeErr;
     }
     LE_DEBUG("Validity %d for %s written to secore storage sucessfully.",
         validityToSet, SourceNameIndexToStr(sourcePtr->sourceId));
-    return res;
+
+    writeErr:
+        return res;
 }
 
 le_result_t taf_Time::ReadValidityFromSecStorage(taf_SourceInf_t* sourcePtr, bool* validity)
 {
-    le_result_t connectStatus = taf_mngdStorSecData_TryConnectService();
-    if(connectStatus != LE_OK)
+    if((MssConnectStatusMainThread != LE_OK) &&
+        !tryConnectService(MssConnectStatusMainThread ))
     {
+        LE_ERROR("Unable to connect to managed secure storage service.");
         return LE_FAULT;
     }
+
     le_result_t res;
-    taf_mngdStorSecData_DataRef_t dataRef = sourcePtr->secStrgdataRef;
-    if(dataRef == NULL)
+    taf_mngdStorSecData_DataRef_t dataRef =
+        taf_mngdStorSecData_GetDataRef(SourceNameIndexToStr(sourcePtr->sourceId));
+
+    // if data reference is NULL, try to get the reference from MSS first
+    if (dataRef == NULL)
     {
-        LE_WARN("Unable to read validity in secure storage.No ref available for time source");
-        return LE_NOT_FOUND;
+        LE_ERROR("MSS storage reference not found for %s time source",
+            SourceNameIndexToStr(sourcePtr->sourceId));
+        return LE_FAULT;
+    }
+
+    //Updating reference for time source if NULL
+    if(sourcePtr->secStrgdataRef == nullptr)
+    {
+        sourcePtr->secStrgdataRef = dataRef;
     }
 
     uint8_t readBuf;
@@ -3815,6 +3907,13 @@ static void TafSigTermEventHandler
         InitGnssTimeStatus = LE_UNAVAILABLE;
         tafTime.DeregGnssTimeListener();
     }
+
+    if(MssConnectStatusMainThread == LE_OK)
+    {
+        LE_INFO("Disconnecting from MSS");
+        MssConnectStatusMainThread = LE_UNAVAILABLE;
+        taf_mngdStorSecData_DisconnectService();
+    }
     le_event_QueueFunction(SafeExitAfterClearUp, NULL, NULL);
 }
 
@@ -3843,6 +3942,17 @@ void taf_Time::Init(void)
     // Setup signal's event handler.
     le_sig_SetEventHandler(SIGTERM, TafSigTermEventHandler);
 
+    //Connect to secure storage service from main thread
+    MssConnectStatusMainThread = taf_mngdStorSecData_TryConnectService();
+    if(MssConnectStatusMainThread == LE_OK)
+    {
+        LE_INFO("Successfully connected to secure storage service");
+    }
+    else
+    {
+        LE_ERROR("Not able to connect to secure storage service");
+    }
+
     // 1. Create memory pools and initialization
     SetTimeStatusPool = le_mem_CreatePool("TimeSvc SetStatusPool", sizeof(SetTimeStatus));
     SetTimeSt = (SetTimeStatus *)le_mem_ForceAlloc(SetTimeStatusPool);
@@ -3870,7 +3980,7 @@ void taf_Time::Init(void)
     }
 
     mainThreadRef = le_thread_GetCurrent();
-
+    InitTimeSource();
     // 3. Create thread for runtime sync time.
     le_thread_Ref_t threadRunTimeSyncRef = le_thread_Create("SyncTimeThread", SyncTimeTasks, NULL);
     le_thread_Start(threadRunTimeSyncRef);
@@ -3888,7 +3998,6 @@ void taf_Time::Init(void)
     {
         UpdateDeltaTimeToRAM();
     }
-
 }
 
 taf_time_setRTCCb_t tafsvc::taf_Time::setRTCCB;

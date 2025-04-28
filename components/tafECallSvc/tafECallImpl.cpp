@@ -266,7 +266,7 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
             isCallStateSet = true;
         }
 
-        eCallPtr->isReceivedLLACK = false;
+        eCallPtr->waitForALACKPos = false;
         sessionState = ECALL_ENDED;
         eCall.CallEndError = call->getCallEndCause();
         LE_INFO("ECall ENDed terminate reason = %d", (int) eCall.CallEndError);
@@ -293,10 +293,7 @@ void tafECallListener::onEmergencyNetworkScanFail(int phoneId) {
 taf_ecall_State_t tafECallListener::eCallMsdTransmissionStatusToState(
    telux::tel::ECallMsdTransmissionStatus status)
 {
-    taf_ecall_State_t state = TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED;
     auto &eCall = taf_ecall::GetInstance();
-    StateChangeEvent_t stateEvent;
-    ALACKTimerEvent_t timerEvent;
 
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(eCall.ECallPtrRefMap, eCall.GetECallReference());
     if (eCallPtr == nullptr)
@@ -307,22 +304,25 @@ taf_ecall_State_t tafECallListener::eCallMsdTransmissionStatusToState(
 
     LE_DEBUG("eCallMsdTransmissionStatusToState status = %d", (int)status);
 
+    taf_ecall_State_t state = TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED;
+    StateChangeEvent_t stateEvent;
+    stateEvent.eCallRef = eCall.GetECallReference();
     switch(status) {
         case telux::tel::ECallMsdTransmissionStatus::SUCCESS:
-            state = TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS;
-            if(eCallPtr->isReceivedLLACK == true)
+            if (eCallPtr->waitForALACKPos)
             {
-                LE_INFO("Start the ALACK timer");
-                timerEvent.alackTimer = ALACK_TIMER_START;
-                le_event_Report(eCall.ALACKTimerEventId, &timerEvent, sizeof(ALACKTimerEvent_t));
+                stateEvent.state = TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE;
+                le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+                eCallPtr->waitForALACKPos = false;
             }
+            state = TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS;
             break;
         case telux::tel::ECallMsdTransmissionStatus::FAILURE:
             state = TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED;
             break;
         case telux::tel::ECallMsdTransmissionStatus::MSD_TRANSMISSION_STARTED:
             state = TAF_ECALL_STATE_MSD_TRANSMISSION_STARTED;
-            eCallPtr->isReceivedLLACK = false;
+            eCallPtr->waitForALACKPos = false;
             break;
         case telux::tel::ECallMsdTransmissionStatus::NACK_OUT_OF_ORDER:
             state = TAF_ECALL_STATE_NACK_OUT_OF_ORDER;
@@ -335,14 +335,11 @@ taf_ecall_State_t tafECallListener::eCallMsdTransmissionStatusToState(
             break;
         case telux::tel::ECallMsdTransmissionStatus::LL_ACK_RECEIVED:
             state = TAF_ECALL_STATE_LL_ACK_RECEIVED;
-            eCallPtr->isReceivedLLACK = true;
+            eCallPtr->waitForALACKPos = true;
             break;
         case telux::tel::ECallMsdTransmissionStatus::MSD_AL_ACK_CLEARDOWN:
-            LE_INFO("Stop the ALACK timer");
             state = TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN;
-            ALACKTimerEvent_t timerEvent;
-            timerEvent.alackTimer = ALACK_TIMER_STOP;
-            le_event_Report(eCall.ALACKTimerEventId, &timerEvent, sizeof(ALACKTimerEvent_t));
+            eCallPtr->waitForALACKPos = false;
             break;
         case telux::tel::ECallMsdTransmissionStatus::LL_NACK_DUE_TO_T7_EXPIRY:
             state = TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY;
@@ -360,7 +357,6 @@ taf_ecall_State_t tafECallListener::eCallMsdTransmissionStatusToState(
             LE_ERROR( "Unknown ECallMsdTransmissionStatus  = %d", (int)status);
     }
 
-    stateEvent.eCallRef = eCall.GetECallReference();
     stateEvent.state = state;
 
     le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
@@ -654,7 +650,7 @@ void taf_ecall::InitializeECallPtr()
         }
     }
 
-    ECallObject.isReceivedLLACK = false;
+    ECallObject.waitForALACKPos = false;
     UpdateMsd();
 }
 
@@ -826,16 +822,8 @@ void taf_ecall::Init(void)
     AnswerCb = std::make_shared<tafAnswerCommandCallback>();
 
     StateChangeEventId = le_event_CreateId("NewStateEventId", sizeof(StateChangeEvent_t));
-    ALACKTimerEventId = le_event_CreateId("ALACKEventId", sizeof(ALACKTimerEvent_t));
 
     le_cfg_AddChangeHandler(CFG_MODEMSERVICE_ECALL_PATH, ConfigChangeHandler, NULL);
-
-    positiveALACKTimerRef = le_timer_Create("Positive ALACK Timer");
-    le_timer_SetMsInterval(positiveALACKTimerRef, 500);
-    le_timer_SetHandler(positiveALACKTimerRef, ReportPositiveALACKTimerHandler);
-
-
-    le_event_AddHandler("ALACK Timer Event Handler", ALACKTimerEventId, ALACKTimerEventHandler);
 
     ResumeHlapTimerEventId = le_event_CreateId("ResumeHlapTimerEventId", sizeof(ResumeHlapTimerEvent_t));
     le_event_AddHandler("Resume Hlap Timer Event Handler", ResumeHlapTimerEventId, ResumeHlapTimerEventHandler);
@@ -2958,54 +2946,6 @@ le_result_t taf_ecall::UpdateMsdInformation(taf_ecall_CallRef_t ecallRef)
         return LE_OK;
     } else {
         return LE_FAULT;
-    }
-}
-
-void taf_ecall::ReportPositiveALACKTimerHandler
-(
-    le_timer_Ref_t timerRef
-)
-{
-    auto &eCall = taf_ecall::GetInstance();
-    StateChangeEvent_t stateEvent = { 0 };
-    stateEvent.eCallRef = eCall.ECallObject.reference;
-    stateEvent.state = TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE;
-    if (eCall.ECallObject.eCallSession == ECALL_ACTIVE)
-    {
-        LE_INFO("Reports the AL-ACK(positive)");
-        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
-    }
-    if(le_timer_IsRunning(eCall.positiveALACKTimerRef))
-    {
-        le_timer_Stop(eCall.positiveALACKTimerRef);
-    }
-}
-
-void taf_ecall::ALACKTimerEventHandler(void* reqPtr)
-{
-    ALACKTimerEvent_t* eventReq = (ALACKTimerEvent_t*)reqPtr;
-    auto &eCall = taf_ecall::GetInstance();
-
-    if(eventReq == NULL)
-    {
-        LE_ERROR ("Invalid Parameters");
-        return;
-    }
-
-    switch (eventReq->alackTimer) {
-        case ALACK_TIMER_START:
-            LE_INFO("Start the ALACK timer");
-            le_timer_Start(eCall.positiveALACKTimerRef);
-            break;
-
-        case ALACK_TIMER_STOP:
-            LE_INFO("Stop the ALACK timer");
-            le_timer_Stop(eCall.positiveALACKTimerRef);
-            break;
-
-        default:
-            LE_ERROR("Undefined event received.");
-            break;
     }
 }
 

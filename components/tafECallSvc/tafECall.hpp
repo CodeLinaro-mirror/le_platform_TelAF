@@ -112,7 +112,7 @@ using namespace std;
             taf_ecall_Type_t                    type;
             std::shared_ptr<telux::tel::ICall>  iCall;
             taf_DialRedial_t                    dialRedial;
-            bool                                isReceivedLLACK;
+            bool                                waitForALACKPos;
             int8_t                              phoneId;
         }
         taf_ECall_t;
@@ -294,8 +294,6 @@ using namespace std;
                 static void ResumeHlapTimerEventHandler(void* reqPtr);
                 static void SimStateHandler(taf_sim_Id_t simId, taf_sim_States_t simState, void* contextPtr);
                 static void* SimStateAddHandlerThread(void* contextPtr);
-                static void ReportPositiveALACKTimerHandler(le_timer_Ref_t timerRef);
-                static void ALACKTimerEventHandler(void* reqPtr);
                 le_result_t IsInProgress(taf_ecall_CallRef_t ecallRef, bool* isInProgress);
                 le_result_t ConfigureInitialDialRedial(std::vector<int> redialPara);
                 le_result_t SetInitialDialAttempts(uint8_t attempts);
@@ -349,10 +347,7 @@ using namespace std;
                 std::shared_ptr<telux::platform::ISubsystemManager> subsystemMgr;
                 le_ref_MapRef_t ECallPtrRefMap = NULL;
 
-                le_timer_Ref_t positiveALACKTimerRef;
-                le_event_Id_t ALACKTimerEventId;
                 le_event_Id_t ResumeHlapTimerEventId;
-
                 le_timer_Ref_t elapsedTimeT9Ref;
             private:
                 std::shared_ptr<telux::tel::IPhoneManager> PhoneManager;

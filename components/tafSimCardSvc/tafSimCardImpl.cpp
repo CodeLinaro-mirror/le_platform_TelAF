@@ -681,6 +681,10 @@ taf_sim_States_t taf_sim::getState(taf_sim_Id_t simId) {
             return TAF_SIM_STATE_UNKNOWN;
         }
     }
+    if(simId == TAF_SIM_UNSPECIFIED) {
+        LE_INFO("Sim Id as Unknown");
+        simId = taf_sim_GetSelectedCard();
+    }
     auto card = cards[simId];
     telux::tel::CardState cardState = telux::tel::CardState::CARDSTATE_UNKNOWN;
     if(card != nullptr) {
@@ -1458,37 +1462,52 @@ le_result_t taf_sim::getIMSI(taf_sim_Id_t simId, char *imsi, int length) {
 }
 
 le_result_t taf_sim::getHomeNetworkOperator(taf_sim_Id_t simId, char *name, int length) {
+    taf_sim_info_t* simPtr = NULL;
     string nameString = "";
     if (selectSimSlot(simId) != LE_OK) {
         return LE_BAD_PARAMETER;
     }
-    auto subscription = getSubscription(simId);
-    if (!subscription) {
-        LE_ERROR("subscription is null");
-        return LE_NOT_FOUND;
+    simPtr = GetSimContext(simId);
+    if(simPtr != NULL)
+    {
+        auto subscription = getSubscription(simPtr->simId);
+        if (!subscription) {
+            LE_ERROR("subscription is null");
+            return LE_NOT_FOUND;
+        }
+        nameString = subscription->getCarrierName();
     }
-
-    nameString = subscription->getCarrierName();
-
+    else
+    {
+        return LE_BAD_PARAMETER;
+    }
     return le_utf8_Copy(name, nameString.c_str(), length, NULL);
 }
 
 le_result_t taf_sim::getHomeNetworkMccMnc(taf_sim_Id_t simId, char *mccPtr,
         int mccPtrSize, char *mncPtr, int mncPtrSize) {
+    taf_sim_info_t* simPtr = NULL;
     int mcc = 0;
     int mnc = 0;
     if (selectSimSlot(simId) != LE_OK) {
         return LE_BAD_PARAMETER;
     }
-    auto subscription = getSubscription(simId);
-    if (!subscription) {
-        LE_ERROR("subscription is null");
-        return LE_NOT_FOUND;
+
+    simPtr = GetSimContext(simId);
+    if(simPtr != NULL)
+    {
+        auto subscription = getSubscription(simPtr->simId);
+        if (!subscription) {
+            LE_ERROR("subscription is null");
+            return LE_NOT_FOUND;
+        }
+        mcc = subscription->getMcc();
+        mnc = subscription->getMnc();
     }
-
-    mcc = subscription->getMcc();
-    mnc = subscription->getMnc();
-
+    else
+    {
+        return LE_BAD_PARAMETER;
+    }
     le_utf8_Copy(mccPtr, to_string(mcc).c_str(), mccPtrSize, NULL);
     le_utf8_Copy(mncPtr, to_string(mnc).c_str(), mncPtrSize, NULL);
     return LE_OK;

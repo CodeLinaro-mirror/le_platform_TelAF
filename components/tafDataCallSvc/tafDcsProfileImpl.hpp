@@ -99,6 +99,55 @@ typedef struct
 } Profile_List_Event_t;
 
 namespace tafsvc {
+
+    // Mapping of taf_dcs_ApnType_t to telux::data::ApnMaskType
+    const std::map<taf_dcs_ApnType_t, ApnMaskType> taf_dcs_ApnType_to_ApnMaskType = {
+        {TAF_DCS_APN_TYPE_DEFAULT  , ApnMaskType::APN_MASK_TYPE_DEFAULT},
+        {TAF_DCS_APN_TYPE_IMS      , ApnMaskType::APN_MASK_TYPE_IMS},
+        {TAF_DCS_APN_TYPE_MMS      , ApnMaskType::APN_MASK_TYPE_MMS},
+        {TAF_DCS_APN_TYPE_DUN      , ApnMaskType::APN_MASK_TYPE_DUN},
+        {TAF_DCS_APN_TYPE_SUPL     , ApnMaskType::APN_MASK_TYPE_SUPL},
+        {TAF_DCS_APN_TYPE_HIPRI    , ApnMaskType::APN_MASK_TYPE_HIPRI},
+        {TAF_DCS_APN_TYPE_FOTA     , ApnMaskType::APN_MASK_TYPE_FOTA},
+        {TAF_DCS_APN_TYPE_CBS      , ApnMaskType::APN_MASK_TYPE_CBS},
+        {TAF_DCS_APN_TYPE_IA       , ApnMaskType::APN_MASK_TYPE_IA},
+        {TAF_DCS_APN_TYPE_EMERGENCY, ApnMaskType::APN_MASK_TYPE_EMERGENCY},
+        {TAF_DCS_APN_TYPE_UT       , ApnMaskType::APN_MASK_TYPE_UT},
+        {TAF_DCS_APN_TYPE_MCX      , ApnMaskType::APN_MASK_TYPE_MCX},
+    };
+
+    // Mapping of telux::data::ApnMaskType to taf_dcs_ApnType_t
+    const std::map<ApnMaskType, taf_dcs_ApnType_t> ApnMaskType_to_taf_dcs_ApnType = {
+        {ApnMaskType::APN_MASK_TYPE_DEFAULT  , TAF_DCS_APN_TYPE_DEFAULT},
+        {ApnMaskType::APN_MASK_TYPE_IMS      , TAF_DCS_APN_TYPE_IMS},
+        {ApnMaskType::APN_MASK_TYPE_MMS      , TAF_DCS_APN_TYPE_MMS},
+        {ApnMaskType::APN_MASK_TYPE_DUN      , TAF_DCS_APN_TYPE_DUN},
+        {ApnMaskType::APN_MASK_TYPE_SUPL     , TAF_DCS_APN_TYPE_SUPL},
+        {ApnMaskType::APN_MASK_TYPE_HIPRI    , TAF_DCS_APN_TYPE_HIPRI},
+        {ApnMaskType::APN_MASK_TYPE_FOTA     , TAF_DCS_APN_TYPE_FOTA},
+        {ApnMaskType::APN_MASK_TYPE_CBS      , TAF_DCS_APN_TYPE_CBS},
+        {ApnMaskType::APN_MASK_TYPE_IA       , TAF_DCS_APN_TYPE_IA},
+        {ApnMaskType::APN_MASK_TYPE_EMERGENCY, TAF_DCS_APN_TYPE_EMERGENCY},
+        {ApnMaskType::APN_MASK_TYPE_UT       , TAF_DCS_APN_TYPE_UT},
+        {ApnMaskType::APN_MASK_TYPE_MCX      , TAF_DCS_APN_TYPE_MCX},
+    };
+
+    // Mapping of telux::data::ApnMaskType to its index
+    const std::map<ApnMaskType, int> apnMaskTypeToIndex = {
+        {ApnMaskType::APN_MASK_TYPE_DEFAULT  , 0},
+        {ApnMaskType::APN_MASK_TYPE_IMS      , 1},
+        {ApnMaskType::APN_MASK_TYPE_MMS      , 2},
+        {ApnMaskType::APN_MASK_TYPE_DUN      , 3},
+        {ApnMaskType::APN_MASK_TYPE_SUPL     , 4},
+        {ApnMaskType::APN_MASK_TYPE_HIPRI    , 5},
+        {ApnMaskType::APN_MASK_TYPE_FOTA     , 6},
+        {ApnMaskType::APN_MASK_TYPE_CBS      , 7},
+        {ApnMaskType::APN_MASK_TYPE_IA       , 8},
+        {ApnMaskType::APN_MASK_TYPE_EMERGENCY, 9},
+        {ApnMaskType::APN_MASK_TYPE_UT       , 10},
+        {ApnMaskType::APN_MASK_TYPE_MCX      , 11},
+    };
+
     class taf_ProfileListCallback : public telux::data::IDataProfileListCallback
     {
         public:
@@ -235,8 +284,13 @@ namespace tafsvc {
             le_thread_Ref_t ProfileEventThreadRef = NULL;
             std::map<SlotId, uint32_t> ProfileNum;
 
+            // Function to convert from taf_dcs_ApnType_t to telux::data::ApnTypes
+            ApnTypes convertApnTypes(taf_dcs_ApnType_t taf_dcs_ApnType);
+            // Function to convert from telux::data::ApnTypes to taf_dcs_ApnType_t
+            taf_dcs_ApnType_t convertApnTypes(const ApnTypes &apnTypes);
+
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            bool subSystemStatusUpdated;
+                bool subSystemStatusUpdated;
             std::mutex mtx;
             std::condition_variable conVar;
 #endif

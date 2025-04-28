@@ -525,7 +525,9 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
       const std::vector<std::shared_ptr<telux::loc::ILocationInfoEx> > &locationEngineInfo) {
     auto &gnss = taf_locGnss::GetInstance();
     taf_locGnss_Client_t* clientRequestPtr = NULL;
+    LE_INFO("[GAP] onDetailedEngineLocationUpdate before DiscoverSessionRef");
     clientRequestPtr = gnss.DiscoverSessionRef(*clientSessionRef);
+    LE_INFO("[GAP] onDetailedEngineLocationUpdate after DiscoverSessionRef");
 
     if (NULL == clientRequestPtr) {
         return;
@@ -554,6 +556,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LE_DEBUG("TTFF mEndTime = %ld, TTFF value = %d", mEndTime.time_since_epoch().count(), clientRequestPtr->mTtffPtr);
             }
         }
+        LE_INFO("[GAP] onDetailedEngineLocationUpdate after starting a session: epochTime is : %" PRIu64"",locationInfo->getTimeStamp());
     }
     le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
     if(gnss.NumOfPositionHandlers )
@@ -659,11 +662,11 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
             std::vector<uint16_t> SVIds;
             locationInfo->getSVIds(SVIds);
 
+            LocationData->SVIdsCount = 0;
             if(SVIds.size() > 0) {
                 for (auto i = 0; i < TAF_LOCGNSS_MEASUREMENT_INFO_MAX; i++) {
                     LocationData->SVIds[i] = 0;
                 }
-                LocationData->SVIdsCount = 0;
                 for (auto i = 0; i < (int) SVIds.size(); i++) {
                     if (LocationData->SVIdsCount < TAF_LOCGNSS_MEASUREMENT_INFO_MAX) {
                         LocationData->SVIds[LocationData->SVIdsCount] = SVIds.at(i);
@@ -755,7 +758,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
             }
             LocationData->magneticDeviation = locationInfo->getMagneticDeviation()*10;
             LocationData->epochTime = locationInfo->getTimeStamp();
-            LE_DEBUG("onDetailedEngineLocationUpdate epochTime is : %" PRIu64"",locationInfo->getTimeStamp());
+            LE_INFO("[GAP] onDetailedEngineLocationUpdate epochTime after getting position handler is : %" PRIu64"",locationInfo->getTimeStamp());
             LocationData->horUncEllipseSemiMajor =
                     locationInfo->getHorizontalUncertaintySemiMajor();
             LocationData->horUncEllipseSemiMinor =
@@ -7035,11 +7038,10 @@ le_result_t taf_locGnss::GetSVIds
         return result;
     }
 
+    *sVIdsLen = posSampleReqPtr->positionSampleNodePtr->SVIdsCount;
     for (auto i = 0; i < (int) *sVIdsLen; i++) {
         sVIdsPtr[i] = posSampleReqPtr->positionSampleNodePtr->SVIds[i];
     }
-
-    *sVIdsLen = posSampleReqPtr->positionSampleNodePtr->SVIdsCount;
 
     return LE_OK;
 }

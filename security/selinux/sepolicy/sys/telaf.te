@@ -282,7 +282,7 @@ allow telaf_admin_domain { fs_t tmpfs_t }:filesystem { unmount };
 allow telaf_admin_domain device_t:chr_file { manage_file_perms relabelfrom relabelto };
 allow telaf_admin_domain device_t:dir { manage_dir_perms relabelfrom relabelto };
 allow telaf_admin_domain { devlog_t device_t }:sock_file { getattr relabelto relabelfrom write open };
-allow telaf_admin_domain { null_device_t urandom_device_t zero_device_t }:chr_file { unlink };
+allow telaf_admin_domain { null_device_t urandom_device_t zero_device_t }:chr_file { unlink read open mounton };
 
 # Context "telaf_bin_t" will be transition to "telaf_app_t" domain by default
 type telaf_app_t;
@@ -557,6 +557,10 @@ ifdef(`kirkstone',`
     # A workaround to support .update file instsallation
     allow telaf_update_t unconfined_t:fd { use };
     allow telaf_core_domain unconfined_t:fd { use };
+
+    # Support framework to prepare bind mount or link for the application
+    allow telaf_admin_t init_runtime_t:dir { write add_name remove_name };
+    allow telaf_admin_t init_runtime_t:file { create read write open setattr rename };
 ')
 
 # Local rules

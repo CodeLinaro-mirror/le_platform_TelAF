@@ -223,13 +223,11 @@
  * @section taf_ecall_redial_configuration NAD eCall initial failed
  *
  * The dial parameters for a failed initial call in the Europe regulatory eCall system can be set using the following
- * APIs. Note that this configuration is not persistent after modem reboots. The number of redial attempts and the interval
- * between these attempts follows the 3GPP ESTI 122 001 Annex. The range of the number of redial attempts is [1,10] and
- * the default value is 10. The default dial intervals between dial attempts are follows and users can set the initial
- * dial interval to be equal to or greater than the default value.
- * - 1st redial interval: 5 seconds.
- * - 2nd-4th redial intervals: 60 seconds.
- * - 5th-10th redial intervals: 180 seconds.
+ * APIs. Note that this configuration is not persistent after modem reboots. The range of the number of redial attempts
+ * is [1,10] and the default value is 10. The default dial intervals between dial attempts are follows and users can
+ * set the initial dial interval to be equal to or greater than the default value.
+ * - 1st redial interval: the default value is 5 seconds and the supported range is from 5 to 30 seconds.
+ * - 2nd-10th redial intervals: the default value is 30 seconds and the supported range is from 30 to 60 seconds.
  *
  * - taf_ecall_SetInitialDialAttempts() -- Sets the number of dial attempts.
  * - taf_ecall_SetInitialDialIntervalBetweenDialAttempts() -- Sets the dial interval value between dial attempts.

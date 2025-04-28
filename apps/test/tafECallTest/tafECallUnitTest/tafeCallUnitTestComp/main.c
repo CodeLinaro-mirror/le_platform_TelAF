@@ -348,7 +348,7 @@ static void Test_ECall_DialRedial() {
 
     uint16_t dialIntervalErr[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH] = {60, 60, 60};
     res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialIntervalErr, 3);
-    LE_TEST_OK(res == LE_OK, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    LE_TEST_OK(res == LE_FAULT, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
     uint16_t dialInterval[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH] = {5, 60, 60};
     res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialInterval, 3);
     LE_TEST_OK(res == LE_OK, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");

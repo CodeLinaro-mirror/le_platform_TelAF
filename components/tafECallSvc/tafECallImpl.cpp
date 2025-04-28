@@ -621,14 +621,37 @@ void taf_ecall::InitializeECallPtr()
 
     ECallObject.isPrieCallOngoing = false;
     ECallObject.type = TAF_ECALL_TYPE_UNKNOWN;
-    ECallObject.dialRedial.dialAttempts = TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH;
-    std::vector<int> redialPara({5000, 60000, 60000, 60000, 180000, 180000, 180000, 180000, 180000, 180000});
-    for (size_t i = 0; i < TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH; ++i) {
-        ECallObject.dialRedial.dialInterval[i] = redialPara[i] / 1000;
-    }
-    if ( LE_OK != ConfigureInitialDialRedial(redialPara))
-    {
-        LE_ERROR("Failed to configureInitialDialRedial with the default value");
+
+    ECallObject.dialRedial.dialAttempts = 0;
+    memset(ECallObject.dialRedial.dialInterval, 0, sizeof(ECallObject.dialRedial.dialInterval));
+    if(!CallManager) {
+        LE_ERROR("Can't get call manager");
+    } else {
+        std::vector<int> initFailPara = {};
+        std::vector<int> callDropPara = {};
+        telux::common::ErrorCode errorCode = CallManager->getECallRedialConfig(initFailPara, callDropPara);
+        if(errorCode == telux::common::ErrorCode::SUCCESS) {
+            if (initFailPara.size() > TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH)
+            {
+                initFailPara.resize(TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH);
+                if ( LE_OK != ConfigureInitialDialRedial(initFailPara))
+                {
+                    LE_ERROR("Failed to configureInitialDialRedial values");
+                } else {
+                    ECallObject.dialRedial.dialAttempts = TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH;
+                    for (size_t i = 0; i < ECallObject.dialRedial.dialAttempts; ++i) {
+                        ECallObject.dialRedial.dialInterval[i] = initFailPara[i] / 1000;
+                    }
+                }
+            } else {
+                ECallObject.dialRedial.dialAttempts = initFailPara.size();
+                for (size_t i = 0; i < ECallObject.dialRedial.dialAttempts; ++i) {
+                    ECallObject.dialRedial.dialInterval[i] = initFailPara[i] / 1000;
+                }
+            }
+        } else {
+            LE_ERROR("Failed to get eCall redial configuration parameters");
+        }
     }
 
     ECallObject.isReceivedLLACK = false;
@@ -3044,6 +3067,20 @@ le_result_t taf_ecall::ConfigureInitialDialRedial(std::vector<int> redialPara)
 
 le_result_t taf_ecall::SetInitialDialAttempts(uint8_t attempts)
 {
+    size_t count = 0;
+    for (size_t i = 0; i < TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH; ++i) {
+        if (ECallObject.dialRedial.dialInterval[i] == 0) {
+            break;
+        }
+        ++count;
+    }
+
+    if (attempts > count)
+    {
+        LE_ERROR("attempts should be set smaller than the the length of dialInterval");
+        return LE_FAULT;
+    }
+
     std::vector<int> redialPara;
     for (uint i = 0; i < attempts; i++)
     {

@@ -1798,7 +1798,12 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
     std::promise<telux::common::ErrorCode> p;
     int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
 
-    eCallPtr->msd.messageIdentifier++;
+    if ((eCallPtr->msd.messageIdentifier >= MIN_MSD_MESSAGE_IDENTIFIER) && (eCallPtr->msd.messageIdentifier < MAX_MSD_MESSAGE_IDENTIFIER))
+    {
+        eCallPtr->msd.messageIdentifier++;
+    } else {
+        eCallPtr->msd.messageIdentifier = MIN_MSD_MESSAGE_IDENTIFIER;
+    }
 
     LE_INFO("Send msd in phoneId: %d, isMsdUpdated: %d\n", phoneId, (int)eCallPtr->isMsdUpdated);
 

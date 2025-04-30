@@ -2445,13 +2445,6 @@ le_result_t taf_FwUpdate::CalFileHash
     unsigned int* hashLen ///< [OUT] Hash length.
 )
 {
-    FILE *file = fopen(filePath, "rb");
-    if (!file)
-    {
-        LE_ERROR("Fail to open %s.", filePath);
-        return LE_FAULT;
-    }
-
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
     if (md_ctx == NULL)
     {
@@ -2469,16 +2462,22 @@ le_result_t taf_FwUpdate::CalFileHash
 
     uint8_t content[TAF_FWUPDATE_FLASH_PAGE_SIZE];
     int bytes = 0;
+    FILE *file = fopen(filePath, "rb");
+    if (!file)
+    {
+        LE_ERROR("Fail to open %s.", filePath);
+        return LE_FAULT;
+    }
     while ((bytes = fread(content, 1, TAF_FWUPDATE_FLASH_PAGE_SIZE, file)) != 0)
     {
         EVP_DigestUpdate(md_ctx, content, bytes);
         *calSize += bytes;
     }
+    fclose(file);
 
     EVP_DigestFinal_ex(md_ctx, hash, hashLen);
     EVP_MD_CTX_free(md_ctx);
 
-    fclose(file);
     LE_INFO("%s sha1 hash calculated.", filePath);
     for (unsigned int i = 0; i < *hashLen; ++i)
     {

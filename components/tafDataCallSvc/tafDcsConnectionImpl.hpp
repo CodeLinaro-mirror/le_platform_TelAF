@@ -350,6 +350,7 @@ namespace tafsvc {
                                      le_msg_SessionRef_t sessionRef);
             le_result_t SetDefaultProfileIdSync(uint8_t slotId, uint32_t profileId);
             le_result_t GetDefaultProfileIdSync(uint8_t *slotId, uint32_t *profileId);
+            le_result_t GetDefaultProfileIdForSlotIdSync(uint8_t slotId, uint32_t& profileIdGet);
 
             static void DataCnxCallEventHandler(void *reportPtr);
             void InternalDataCallEventHandler(void* reportPtr);
@@ -365,7 +366,7 @@ namespace tafsvc {
             le_result_t StopCall(uint8_t slotId, int32_t profileId,
                                  telux::data::IpFamilyType ipType);
             le_result_t SendSettingDefaultProfileIdCmd(uint8_t slotId, int32_t profileId);
-            le_result_t SendGettingDefaultProfileIdCmd();
+            le_result_t SendGettingDefaultProfileIdCmd(uint8_t slotId);
             bool IsCallCtxCreated(uint8_t slotId, int32_t profileId);
             le_result_t AddSessionToCallCtx(taf_dcs_CallCtx_t* callCtxPtr,
                                             le_msg_SessionRef_t sessionRef);
@@ -480,8 +481,10 @@ namespace tafsvc {
             le_mutex_Ref_t handlerlistMutex = NULL; // Mutex for HandlerSessionMappingList
             taf_dcs_SessionStateFunc_t SessionStateFunc = NULL;
             le_thread_Ref_t ConnectionEventThreadRef = NULL;
-            int32_t DefaultProfileId = TAF_DCS_DEFAULT_PROFILE;
+            //int32_t DefaultProfileId = TAF_DCS_DEFAULT_PROFILE;
+            std::map<uint8_t, int32_t> DefaultProfileIdMap;
             int32_t DefaultSlotId = SLOT_ID_1;
             int32_t ConvertCEReason(taf_dcs_callEndReason_t ceReason);
+            bool bMultiSimSupported;
     };
 }

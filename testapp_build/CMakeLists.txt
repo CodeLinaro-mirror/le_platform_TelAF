@@ -32,7 +32,7 @@ add_custom_target(
     WORKING_DIRECTORY $ENV{TELAF_ROOT}
     COMMENT "Leverage the external dgtool.mk to get the generated stuff for diag apps"
 )
-add_custom_target(All ALL DEPENDS BuildDgtool)
+# add_custom_target(All ALL DEPENDS BuildDgtool)
 
 # Build unit test apps
 file(GLOB_RECURSE UNITTEST_ADEF_FILES ${TESTAPP_PATH}/*UnitTest*.adef)
@@ -65,10 +65,8 @@ file(GLOB_RECURSE CONSOLEAPP_ADEF_FILES ${TESTAPP_PATH}/*.adef)
 foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
     if((${consoleappfile} MATCHES "tafRSPApp.adef$") OR
        (${consoleappfile} MATCHES "tafRSimApp.adef$") OR
-       (${consoleappfile} MATCHES "tafDiagApp.adef") OR
        (${consoleappfile} MATCHES "tafSAPProviderApp.adef$") OR
-       (${consoleappfile} MATCHES "tafECallApp.adef$") OR
-       (${consoleappfile} MATCHES "tafDiagEventApp.adef$"))
+       (${consoleappfile} MATCHES "tafECallApp.adef$"))
            message(STATUS "adef file: ${consoleappfile}")
            mkapp( ${consoleappfile} -i ${Interfaces} -i ${Interfaces}/staging ${MKAPP_CFLAGS_LIST})
     endif()

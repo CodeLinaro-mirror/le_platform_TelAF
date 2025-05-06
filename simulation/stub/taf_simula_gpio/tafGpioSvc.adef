@@ -2,18 +2,16 @@ maxThreads: 600
 
 username: telaf
 
-startGroup: 12
+startGroup: 25
 
 capability:
 {
         CAP_WAKE_ALARM
-        CAP_NET_BIND_SERVICE
-        CAP_NET_ADMIN
+        CAP_SYS_MODULE
         CAP_BLOCK_SUSPEND
-
+        CAP_DAC_OVERRIDE
 #if ${LE_CONFIG_TEST_COVERAGE} = y
         CAP_DAC_READ_SEARCH
-        CAP_DAC_OVERRIDE
 #endif
 }
 
@@ -30,28 +28,34 @@ sandboxed: false
 
 executables:
 {
-    tafRadioSvc = ( tafRadioSvc )
+    tafGpioSvc = ( tafGpioSvc )
 }
-
 start: auto
 
 processes:
 {
     run:
     {
-        (tafRadioSvc)
+        (tafGpioSvc)
     }
 
     maxFileBytes: 8192K
     faultAction: restart
 }
 
-components:
+bundles:
 {
-    tafRadioHelper
+    file:
+    {
+        [rw]     $TELAF_ROOT/components/tafGpioSvc/gpioWakeupPin.conf     /
+    }
+}
+
+bindings:
+{
 }
 
 extern:
 {
-    tafRadioSvc.tafRadioSvc.taf_radio
+    tafGpioSvc.tafGpioSvc.taf_gpio
 }

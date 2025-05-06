@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include <errno.h>
@@ -1150,11 +1150,11 @@ void Connection::DiagnosticMsgSvrSecondHandler
     logicalTargetAddr = ntohs(logicalTargetAddr);
     pos += TAF_DOIP_LOGICAL_ADDRESS_LENGTH;
 
-    // [DoIP-131]
+    // [DoIP-070]
     if (connState != TAF_DOIP_CONNECT_STATE_REGISTERED_ROUTING_ACTIVE)
     {
         LE_ERROR("Connection don't active.Discard message\n");
-        nackCode = TAF_DOIP_DIAGNOSTIC_NACK_TARGET_UNREACHABLE;
+        nackCode = TAF_DOIP_DIAGNOSTIC_NACK_INVALID_SA;
         goto errOut1;
     }
 

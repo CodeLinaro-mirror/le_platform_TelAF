@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -15,7 +15,7 @@ le_result_t diagReset_Init(void);
 le_result_t diagRoutineControl_Init(void);
 le_result_t diagIOControl_Init(void);
 le_result_t diagCommon_Init(void);
-le_result_t diagAuth_Init(void);
+le_result_t diagAuth_Init(uint64_t roleValue);
 
 #ifndef LE_CONFIG_DIAG_VSTACK
 le_result_t diagDoIP_Init(void);
@@ -28,7 +28,7 @@ le_result_t diagVlanReset_Init(void);
 le_result_t diagVlanRoutineControl_Init(void);
 le_result_t diagVlanIOControl_Init(void);
 le_result_t diagVlanDoIP_Init(void);
-le_result_t diagVlanAuth_Init(void);
+le_result_t diagVlanAuth_Init(uint64_t roleValue);
 le_result_t diagVlanDiag_Init(void);
 
 #endif

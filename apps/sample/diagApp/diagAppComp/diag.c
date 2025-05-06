@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -96,15 +96,34 @@ COMPONENT_INIT
     int numberOfArgs = le_arg_NumArgs();
     LE_INFO("Total numberOfArgs count: %d", numberOfArgs);
 
-    if (numberOfArgs == 2)
+    if ((numberOfArgs == 2) || (numberOfArgs == 3))
     {
         LE_INFO("set enable status and multiLkan from cmd line argument");
         const char* enableStatusPtr = le_arg_GetArg(0);
         const char* vlanTypePtr = le_arg_GetArg(1);
+        const char* roleValuePtr = NULL;
+        uint64_t roleValue = 0x3; //Default value 0x3
+
         if (enableStatusPtr == NULL || vlanTypePtr == NULL)
         {
             LE_ERROR("enableStatusPtr or vlanTypePtr is NULL");
             return;
+        }
+
+        //Support to set role value;
+        if(numberOfArgs == 3)
+        {
+            roleValuePtr = le_arg_GetArg(2);
+            if (roleValuePtr == NULL)
+            {
+                LE_ERROR("roleValuePtr is NULL");
+                return;
+            }
+
+            char *endptr;
+            LE_INFO("Current role value :  %" PRIuS, roleValue);
+            roleValue = strtoull(roleValuePtr, &endptr, 0);
+            LE_INFO("New role value :  %" PRIuS, roleValue);
         }
 
         le_result_t result;
@@ -164,7 +183,7 @@ COMPONENT_INIT
                     "diagVlanRoutineControl_Init -> init failed");
             LE_FATAL_IF(diagVlanIOControl_Init() != LE_OK,
                     "diagVlanIOControl_Init -> init failed");
-            LE_FATAL_IF(diagVlanAuth_Init() != LE_OK,
+            LE_FATAL_IF(diagVlanAuth_Init(roleValue) != LE_OK,
                     "diagVlanAuth_Init -> init failed");
         }
         else if (strcmp(vlanTypePtr,"nonMultiVlan") == 0)
@@ -184,7 +203,7 @@ COMPONENT_INIT
                     "diagRoutineControl_Init -> init failed");
             LE_FATAL_IF(diagIOControl_Init() != LE_OK,
                     "diagIOControl_Init -> init failed");
-            LE_FATAL_IF(diagAuth_Init() != LE_OK,
+            LE_FATAL_IF(diagAuth_Init(roleValue) != LE_OK,
                     "diagAuth_Init -> init failed");
 #ifndef LE_CONFIG_DIAG_VSTACK
             LE_FATAL_IF(diagDoIP_Init() != LE_OK,
@@ -201,8 +220,10 @@ COMPONENT_INIT
     else
     {
         printf("Please follow the instructions and passed argument as mentioned\n");
-        printf("Set argument with enableStatusTrue/enableStatusFalse multiVlan/nonMultiVlan\n");
-        printf("=== eg: app runProc tafDiagApp --exe=tafDiagApp -- enableStatusTrue multiVlan \n");
+        printf("Set argument with enableStatusTrue/enableStatusFalse multiVlan/nonMultiVlan \
+roleValue\n");
+        printf("=== eg: /legato/systems/current/appsWriteable/tafDiagApp/bin/tafDiagApp \
+enableStatusTrue nonMultiVlan 0x3\n");
         LE_TEST_EXIT;
     }
 

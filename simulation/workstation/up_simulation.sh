@@ -322,12 +322,14 @@ else # [Non-Docker-Container-Env]
     SML_DATA_VOLUME=${CONTAINER_NAME}_sml_data
     SML_PERSIST_VOLUME=${CONTAINER_NAME}_sml_persist
     SML_MNT_LEGATO_VOLUME=${CONTAINER_NAME}_sml_mnt_legato
+    SML_SSH_INFO_VOLUME=telaf_simulation_common_sml_ssh_info
 
     echo "[Prepare] Create or Reuse docker volumes for persistently data"
     try_to_create_volume $SML_APP_VOLUME
     try_to_create_volume $SML_DATA_VOLUME
     try_to_create_volume $SML_PERSIST_VOLUME
     try_to_create_volume $SML_MNT_LEGATO_VOLUME
+    try_to_create_volume $SML_SSH_INFO_VOLUME
 
     networks=$(docker network ls --format "{{.Name}}")
 
@@ -353,6 +355,7 @@ else # [Non-Docker-Container-Env]
         -v $SML_DATA_VOLUME:/data:rw \
         -v $SML_PERSIST_VOLUME:/persist:rw \
         -v $SML_MNT_LEGATO_VOLUME:/mnt/legato:rw \
+        -v $SML_SSH_INFO_VOLUME:/root/simulation/.ssh:rw \
         $IMG_NAME:$IMG_VERSION /bin/bash"
     echo
     echo "> "$CMD
@@ -373,15 +376,21 @@ else # [Non-Docker-Container-Env]
     # master record the container names & IP addresses from slave-x.
     if [ "$CONTAINER_WHO_AM_I" == "master" ]; then
         if [ -f $SML_WORKSPACE/.slavex ]; then
+
+            # Ensure the .slavex was deleted after stop-actions
+            cp -af $SML_WORKSPACE/.slavex /tmp/.slavex
+            rm -f $SML_WORKSPACE/.slavex
+
             while IFS=' ' read -r cname ipaddr;
             do
                 echo "> Stop [$cname] partner @ [$ipaddr] ..."
                 docker stop $cname > /dev/null 2>&1
                 echo "> Stop [$cname] partner @ [$ipaddr] done."
-            done < "$SML_WORKSPACE/.slavex"
+            done < /tmp/.slavex
 
-            rm -f $SML_WORKSPACE/.slavex $SML_WORKSPACE/.simula.slave $SML_WORKSPACE/.simula.master
+            rm -f /tmp/.slavex $SML_WORKSPACE/.simula.slave $SML_WORKSPACE/.simula.master
             exit $?
+
         else
             # no partner ? ok, exit directly.
             exit 0

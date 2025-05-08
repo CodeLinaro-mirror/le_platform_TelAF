@@ -1,6 +1,5 @@
 /*
-* Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
-* SPDX-License-Identifier: BSD-3-Clause-Clear
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 */
 
 #include <iostream>
@@ -670,7 +669,7 @@ int main(int argc, char* argv[])
         std::cout << "Dns1: " << ipv4Info1.getDns1Addr() << "'\n";
         std::cout << "Dns2: " << ipv4Info1.getDns2Addr() << "'\n";
         std::cout << "Mask: 0x" << std::hex << ipv4Info1.getIpMask() << "'\n";
-        std::cout << "Mtu: " << ipv4Info1.getMtu() << "'\n";
+        std::cout << "Mtu: " << std::dec << ipv4Info1.getMtu() << "'\n";
 
         std::cout << "======== Get Data2 Ipv4Info Test ========" << "'\n";
         std::string ifName2;
@@ -687,7 +686,7 @@ int main(int argc, char* argv[])
         std::cout << "Dns1: " << ipv4Info2.getDns1Addr() << "'\n";
         std::cout << "Dns2: " << ipv4Info2.getDns2Addr() << "'\n";
         std::cout << "Mask: 0x" << std::hex << ipv4Info2.getIpMask() << "'\n";
-        std::cout << "Mtu: " << ipv4Info2.getMtu() << "'\n";
+        std::cout << "Mtu: " << std::dec << ipv4Info2.getMtu() << "'\n";
 
         std::cout << "======== StopData1 Test ========" << "'\n";
         mngdConnProxyKeep->StopData(name1, callStatus, mngdConnResult);

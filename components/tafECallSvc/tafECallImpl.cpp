@@ -395,8 +395,10 @@ void tafECallListener::onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents t
             eCall.t2StartTimeSet = false;
         }
 
-        stateEvent.state = state;
-        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+        if (state != TAF_ECALL_STATE_UNKNOWN) {
+            stateEvent.state = state;
+            le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+        }
     }
 
     if ((timerEvents.t5 != HlapTimerEvent::UNCHANGED)
@@ -411,8 +413,10 @@ void tafECallListener::onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents t
             state = TAF_ECALL_STATE_T5_STOPPED;
         }
 
-        stateEvent.state = state;
-        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+        if (state != TAF_ECALL_STATE_UNKNOWN) {
+            stateEvent.state = state;
+            le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+        }
     }
 
     if ((timerEvents.t6 != HlapTimerEvent::UNCHANGED)
@@ -427,8 +431,10 @@ void tafECallListener::onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents t
             state = TAF_ECALL_STATE_T6_STOPPED;
         }
 
-        stateEvent.state = state;
-        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+        if (state != TAF_ECALL_STATE_UNKNOWN) {
+            stateEvent.state = state;
+            le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+        }
     }
 
     if ((timerEvents.t7 != HlapTimerEvent::UNCHANGED)
@@ -443,8 +449,10 @@ void tafECallListener::onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents t
             state = TAF_ECALL_STATE_T7_STOPPED;
         }
 
-        stateEvent.state = state;
-        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+        if (state != TAF_ECALL_STATE_UNKNOWN) {
+            stateEvent.state = state;
+            le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+        }
     }
 
     if ((timerEvents.t9 != HlapTimerEvent::UNCHANGED)
@@ -463,15 +471,22 @@ void tafECallListener::onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents t
             state = TAF_ECALL_STATE_T9_STOPPED;
             eCall.t9StartTimeSet = false;
         }
+        if(timerEvents.t9 == HlapTimerEvent::RESUMED) {
+            state = TAF_ECALL_STATE_T9_RESUMED;
+            eCall.t9StartTime = std::chrono::steady_clock::now();
+            eCall.t9StartTimeSet = true;
+        }
 
-        stateEvent.state = state;
-        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+        if (state != TAF_ECALL_STATE_UNKNOWN) {
+            stateEvent.state = state;
+            le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
 
-        ResumeHlapTimerEvent_t resumeEvent;
-        resumeEvent.event  = EVENT_SAVE_HLAP_TIMER_ELAPSED;
-        resumeEvent.hlapTimerType  = HLAP_TIMER_TYPE_T9;
-        resumeEvent.hlapTimerEventType = eCall.ConvertHlapTimerEvent(timerEvents.t9);
-        le_event_Report(eCall.ResumeHlapTimerEventId, &resumeEvent, sizeof(ResumeHlapTimerEvent_t));
+            ResumeHlapTimerEvent_t resumeEvent;
+            resumeEvent.event  = EVENT_SAVE_HLAP_TIMER_ELAPSED;
+            resumeEvent.hlapTimerType  = HLAP_TIMER_TYPE_T9;
+            resumeEvent.hlapTimerEventType = eCall.ConvertHlapTimerEvent(timerEvents.t9);
+            le_event_Report(eCall.ResumeHlapTimerEventId, &resumeEvent, sizeof(ResumeHlapTimerEvent_t));
+        }
     }
 
     if ((timerEvents.t10 != HlapTimerEvent::UNCHANGED)
@@ -490,8 +505,10 @@ void tafECallListener::onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents t
             eCall.t10StartTimeSet = false;
         }
 
-        stateEvent.state = state;
-        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+        if (state != TAF_ECALL_STATE_UNKNOWN) {
+            stateEvent.state = state;
+            le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+        }
     }
 }
 
@@ -2522,18 +2539,6 @@ le_result_t taf_ecall::ResumeHlapTimer(taf_ecall_HlapTimerType_t timerType) {
     } else {
         LE_ERROR("The duration is incorrect");
         return LE_FAULT;
-    }
-
-    if (timerType == TAF_ECALL_TIMER_TYPE_T9)
-    {
-        t9StartTime = std::chrono::steady_clock::now();
-        t9StartTimeSet = true;
-        StartHlapElapsedTimer(HLAP_TIMER_TYPE_T9, HLAP_TIMER_EVENT_TYPE_RESUMED);
-
-        StateChangeEvent_t stateEvent;
-        stateEvent.eCallRef = GetECallReference();
-        stateEvent.state = TAF_ECALL_STATE_T9_RESUMED;
-        le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
     }
 
     return LE_OK;

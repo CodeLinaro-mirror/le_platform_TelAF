@@ -1,7 +1,35 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 domain_name: Variant
 routine_parameters_all:
-  Base:
-    name: Base
+  Base1:
+    name: Base1
+    bit_offset:
+      0:
+        dataElement: Green_Light
+  Base2:
+    name: Base2
+    bit_offset:
+      0:
+        dataElement: Not_numeric_with_forbidden_characters
+  Base3:
+    name: Base3
+    bit_offset:
+      0:
+        dataElement: Numeric_with_Min_Max
+  Base4:
+    name: Base4
+    bit_offset:
+      0:
+        dataElement: Green_Light
+  Base5:
+    name: Base5
+    bit_offset:
+      0:
+        dataElement: Numeric_list_hex_8
+  Base6:
+    name: Base6
+    bit_offset:
+      0:
+        dataElement: Numeric_with_Min_Max_Sign

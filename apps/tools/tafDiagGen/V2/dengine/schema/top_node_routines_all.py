@@ -35,6 +35,19 @@ def schema__routines_all(top_node):
                     if not Int()(n): # Hexa()
                         logger.error(f"{prefix_log} . sub_function <-- Invalid value")
                         return False
+                if 'control_option_record' in node.keys():
+                    if 'start' in node['control_option_record'].keys():
+                        if node['control_option_record']['start'] != None and not Str()(node['control_option_record']['start']):
+                            logger.error(f" request . control_option_record . start <-- Invalid value")
+                            return False
+                    if 'stop' in node['control_option_record'].keys():
+                        if node['control_option_record']['stop'] != None and not Str()(node['control_option_record']['stop']):
+                            logger.error(f" request . control_option_record . stop <-- Invalid value")
+                            return False
+                    if 'result' in node['control_option_record'].keys():
+                        if node['control_option_record']['result'] != None and not Str()(node['control_option_record']['result']):
+                            logger.error(f" request . control_option_record . result <-- Invalid value")
+                            return False
                 return True
             return _check_request_subnode
 

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -519,6 +519,9 @@ namespace uds{
             bool IsSecurityAccessMatched(cfg::Node& node);
             bool IsAuthRoleMatched(taf_UDSReqSvcID_t serviceType, cfg::Node& node);
             bool IsRequestSubFuncSupported(cfg::Node& node, uint8_t subFunc);
+            bool IsControlOptionRecordValid(uint16_t rid, uint8_t subFunc, const uint8_t* dataRec,
+                    size_t dataRecLen);
+            bool IsTotalLengthCheckValid(uint16_t rid, uint8_t subFunc, size_t dataRecLen);
 
             std::map<std::string, uint8_t>& GetSessionMap(void);
             bool IsServiceIDSupported(uint8_t sid);

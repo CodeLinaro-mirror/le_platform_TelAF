@@ -425,6 +425,83 @@ EXPORT_SYM int get_operation_cycle_count()
     return {{ root.operation_cycle | length }};
 }
 
+EXPORT_SYM std::string get_routine_record(uint16_t rid, uint8_t subFunc)
+{
+    NEED_INITED();
+
+    Node & routines = root.get_child("routines_all");
+
+    for (auto & routine: routines)
+    {
+        uint16_t routine_code = (uint16_t) std::stol(routine.first);
+
+        if (routine_code == rid)
+        {
+            if(subFunc == 0x01)
+            {
+                 try
+                 {
+                    return routine.second.get<std::string>("request.control_option_record.start");
+                 }
+                 catch (const std::exception& e)
+                 {
+                    LE_INFO("start node not found!");
+                    return "null";
+                 }
+            }
+            else if(subFunc == 0x02)
+            {
+                try
+                {
+                    return routine.second.get<std::string>("request.control_option_record.stop");
+                }
+                catch (const std::exception& e)
+                {
+                    LE_INFO("stop node not found!");
+                    return "null";
+                }
+            }
+            else if(subFunc == 0x03)
+            {
+                try
+                {
+                    return routine.second.get<std::string>("request.control_option_record.result");
+                }
+                catch (const std::exception& e)
+                {
+                    LE_INFO("result node not found!");
+                    return "null";
+                }
+            }
+        }
+    }
+
+    return "null";
+}
+
+EXPORT_SYM size_t get_routine_record_size(std::string recordName)
+{
+    NEED_INITED();
+
+    Node & routine_params = root.get_child("routine_parameters_all");
+
+    for(auto & routine_param:routine_params)
+    {
+        if(routine_param.first == recordName)
+        {
+            try
+            {
+                return (size_t) routine_param.second.get<int>("size");
+            }
+            catch (const std::exception& e)
+            {
+                LE_INFO("Size not configured!");  /* skip size check */
+            }
+        }
+    }
+    return 0;
+}
+
 class DynamicBitArray {
 private:
     std::vector<uint8_t> data;
@@ -907,6 +984,228 @@ EXPORT_SYM bool is_forbidden(uint16_t did_code, const uint8_t *payload, uint32_t
     {
         return false;
     }
+}
+
+/* Function to extract bits starting from bitOffset in data having bitSize */
+inline uint32_t extractBits(const uint8_t* data, size_t recordLength, uint16_t bitOffset, uint8_t bitSize) {
+    uint32_t result = 0;
+    for (uint8_t i = 0; i < bitSize; ++i) {
+        uint16_t totalBitIndex = bitOffset + i;
+        size_t byteIndex = totalBitIndex / 8;
+        if (byteIndex > recordLength) {
+            throw std::out_of_range("Bit offset exceeds dataRecord length");
+        }
+        uint8_t bitInByte = 7 - (totalBitIndex % 8);
+        uint8_t bitValue = (data[byteIndex] >> bitInByte) & 0x01;
+        result = (result << 1) | bitValue;
+    }
+    return result;
+}
+
+{% set nodes_to_include = [] %}
+
+{% for routine_id, routine in root.routines_all.items() %}
+    {% if routine.request and routine.request.control_option_record %}
+        {% for key in ['start', 'stop', 'result'] %}
+            {% if routine.request.control_option_record[key] %}
+                {% set node_name = routine.request.control_option_record[key] %}
+                {% if node_name not in nodes_to_include %}
+                    {% set _ = nodes_to_include.append(node_name) %}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{% endfor %}
+
+
+{% set generated_validators = [] %}
+{% for node_name, node_info in root.routine_parameters_all.items() %}
+ {% for bit_offset, element in node_info.bit_offset.items() %}
+   {% if element.dataElement not in generated_validators and node_name in nodes_to_include %}
+   {% set data = root.datas[element.dataElement] %}
+     {% if 'functional_definition' in data %}
+     {% set _ = generated_validators.append(element.dataElement) %}
+class Validator_{{ element.dataElement }} {
+    {% if data.functional_definition.data_type == 'Numeric' %}
+    uint32_t min, max;
+    std::vector<uint32_t> allowedValues;
+    {% elif data.functional_definition.data_type == 'Not numeric' %}
+    std::vector<uint32_t> forbiddenValues;
+    std::vector<uint32_t> forbiddenRanges;
+    {% elif data.functional_definition.data_type == 'Numeric list' %}
+    std::vector<uint32_t> allowedValues;
+    {% endif %}
+public:
+    {% if data.functional_definition.data_type == 'Numeric' %}
+    Validator_{{ element.dataElement }}(uint32_t min, uint32_t max, const std::vector<uint32_t>& values)
+    : min(min), max(max), allowedValues(values) {}
+    {% elif data.functional_definition.data_type == 'Not numeric' %}
+    Validator_{{ element.dataElement }}(const std::vector<uint32_t>& values, const std::vector<uint32_t>& ranges)
+    : forbiddenValues(values), forbiddenRanges(ranges) {}
+    {% elif data.functional_definition.data_type == 'Numeric list' %}
+    Validator_{{ element.dataElement }}(const std::vector<uint32_t>& values)
+    : allowedValues(values) {}
+    {% endif %}
+
+    bool validate(uint32_t value) {
+        {% if data.functional_definition.data_type == 'Numeric' %}
+        LE_DEBUG("Numeric!!");
+        if (min != max) {
+            LE_DEBUG("Numeric---> Min/Max");
+            LE_DEBUG("min: %" PRIu32 "",min);
+            LE_DEBUG("max: %" PRIu32 "",max);
+            if (value < min || value > max)
+            {
+                LE_DEBUG("Found Banned value: %" PRIu32 "",value);
+                return true; /* Found Banned value */
+            }
+        } else if (!allowedValues.empty()) {
+            LE_DEBUG("Numeric---> coding");
+
+            auto it = std::find(allowedValues.begin(),
+                                allowedValues.end(),
+                                value);
+
+            if (it == allowedValues.end())
+            {
+                LE_DEBUG("Found Banned value: %" PRIu32 "",value);
+                return true; /* Not found -> Ban it */
+            }
+        }
+        return false;
+        {% elif data.functional_definition.data_type == 'Not numeric' %}
+        LE_DEBUG("Not numeric!!");
+        if(forbiddenValues.size() > 0){
+            LE_DEBUG("Not numeric---> forbidden_values");
+            for (auto forbidden : forbiddenValues) {
+                if (value == forbidden)
+                {
+                    LE_DEBUG("Found Banned value: %" PRIu32 "",value);
+                    return true;    /* Found Banned value */
+                }
+            }
+        } else {
+            LE_DEBUG("Not numeric---> forbidden_characters");
+            for (auto range : forbiddenRanges) {
+                if (value == range)
+                {
+                    LE_DEBUG("Found Banned value: %" PRIu32 "",value);
+                    return true;   /* Found Banned value */
+                }
+            }
+        }
+        return false;
+        {% elif data.functional_definition.data_type == 'Numeric list' %}
+        LE_DEBUG("Numeric list!!");
+        auto it = std::find(allowedValues.begin(),
+                            allowedValues.end(),
+                            value);
+
+        if (it == allowedValues.end())
+        {
+            LE_DEBUG("Found Banned value: %" PRIu32 "",value);
+            return true; /* Not found -> Ban it */
+        }
+        return false;
+        {% endif %}
+     }
+};
+     {% endif %}
+   {% endif %}
+  {% endfor %}
+{% endfor %}
+
+{# ------------------ Marco Bag ------------------ #}
+{% macro generate_validation_loop_for_node(nodeName) %}
+    {% set node_info = root.routine_parameters_all[nodeName] %}
+    for (auto i : nodeValidators[nodeName]) {
+        {% for bit_offset, element in node_info.bit_offset.items() %}
+            {% if 'functional_definition' in root.datas[element.dataElement] %}
+                {% set bitSize = root.datas[element.dataElement].functional_definition.bit_size %}
+                if(i.first == {{ bit_offset }})
+                {
+                    LE_DEBUG("bitOffset: %u", i.first);
+                    uint32_t value = extractBits(dataRecord, recordLength, i.first, {{ bitSize }});
+                    LE_DEBUG("value: %" PRIu32 "", value);
+                    if (i.second(value)) return true;
+                }
+            {% endif %}
+        {% endfor %}
+            }
+{% endmacro %}
+{# ------------------ Marco End ------------------ #}
+
+class BaseValidator {
+public:
+    static bool validate(const uint8_t* dataRecord, size_t recordLength, const std::string& nodeName) {
+
+        LE_INFO("recordLength: %d",(int)recordLength);
+        LE_INFO("nodeName: %s",nodeName.c_str());
+
+        std::map<std::string, std::map<uint16_t, std::function<bool(uint32_t)>>> nodeValidators;
+
+        {% for node_name, node_info in root.routine_parameters_all.items() %}
+            {% if node_name in nodes_to_include %}
+            nodeValidators["{{ node_name }}"] = {
+                {% for bit_offset, element in node_info.bit_offset.items() %}
+                    {% if 'functional_definition' in root.datas[element.dataElement] %}
+                        { {{ bit_offset }},
+                          std::bind(&Validator_{{ element.dataElement }}::validate,
+                          Validator_{{ element.dataElement }}(
+                              {% if root.datas[element.dataElement].functional_definition.data_type == 'Numeric' %}
+                                  {% if root.datas[element.dataElement].functional_definition.max != root.datas[element.dataElement].functional_definition.min %}
+                                      {{ root.datas[element.dataElement].functional_definition.min }},
+                                      {{ root.datas[element.dataElement].functional_definition.max }},
+                                      {}
+                                  {% else %}
+                                      0,0,
+                                      { {% for k, v in root.datas[element.dataElement].functional_definition.coding.items() %} {{ k }} {% if not loop.last %}, {% endif %} {% endfor %} }
+                                  {% endif %}
+                              {% elif root.datas[element.dataElement].functional_definition.data_type == 'Not numeric' %}
+                                  {% if root.datas[element.dataElement].functional_definition.forbidden_values and root.datas[element.dataElement].functional_definition.forbidden_values | length > 0 %}
+                                      {% if root.datas[element.dataElement].functional_definition.forbidden_values %}
+                                      { {% for v in root.datas[element.dataElement].functional_definition.forbidden_values %} {{ v }} {% if not loop.last %}, {% endif %} {% endfor %} },
+                                      {% else %}
+                                      {},
+                                      {% endif %}
+                                      {}
+                                  {% else %}
+                                      {},
+                                      {% if root.datas[element.dataElement].functional_definition.forbidden_characters %}
+                                      {{ root.datas[element.dataElement].functional_definition.forbidden_characters | f_forbidden_characters_conversion(root.datas[element.dataElement]) }}
+                                      {% else %}
+                                      {}
+                                      {% endif %}
+                                  {% endif %}
+                            {% elif root.datas[element.dataElement].functional_definition.data_type == 'Numeric list' %}
+                                { {% for k, v in root.datas[element.dataElement].functional_definition.coding.items() %} {{ k }} {% if not loop.last %}, {% endif %} {% endfor %} }
+                            {% endif %}
+                        ),
+                        std::placeholders::_1)
+                      },
+                    {% endif %}
+                {% endfor %}
+            };
+            {% endif %}
+        {% endfor %}
+
+        if (nodeValidators.find(nodeName) == nodeValidators.end()) return false; /* Skipping check */
+
+        {% for nodeName in root.routine_parameters_all.keys() %}
+        {% if nodeName in nodes_to_include %}
+        if (nodeName == "{{ nodeName }}")
+        {
+        {{ generate_validation_loop_for_node(nodeName) }}
+        }
+        {% endif %}
+        {% endfor %}
+
+        return false;
+    }
+};
+
+EXPORT_SYM bool validate_base_record(const uint8_t* dataRecord, size_t recordLength, const std::string nodeName) {
+        return BaseValidator::validate(dataRecord, recordLength, nodeName);
 }
 
 }

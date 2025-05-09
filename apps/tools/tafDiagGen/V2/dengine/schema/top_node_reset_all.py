@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import sys
@@ -32,7 +32,7 @@ def schema__reset_all(top_node):
                 need_to_stop = True
                 return False
 
-        if not Enum(0x01, 0x02, 0x03, 0x04, 0x05, etype=int)(value['SubFunctionNumber']):
+        if not Int()(value['SubFunctionNumber']):
             logger.error(f"{Tname} . {key} . SubFunctionNumber <-- Invalid value")
             need_to_stop = True
             return False

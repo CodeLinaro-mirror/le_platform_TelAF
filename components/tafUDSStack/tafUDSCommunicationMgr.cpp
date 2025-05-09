@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -3045,6 +3045,32 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
+    const uint8_t* dataRecPtr = recvBuf + UDS_ROUTINE_CTRL_REQ_MIN_LEN;
+    size_t dataRecLen = recvDataLen - UDS_ROUTINE_CTRL_REQ_MIN_LEN;
+
+    if (dataRecLen > 0)
+    {
+        if (!IsTotalLengthCheckValid(rid, subFunc, dataRecLen))
+        {
+            LE_DEBUG("Subfunction0x%x RID0x%x Total Lenth check is invalid.",
+                subFunc, rid);
+            *isInternalHandle = true;
+            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+        }
+
+        if (!IsControlOptionRecordValid(rid, subFunc, dataRecPtr, dataRecLen))
+        {
+            LE_DEBUG("Subfunction 0x%x RID: 0x%x Option Record is not valid.",
+                subFunc, rid);
+            *isInternalHandle = true;
+            return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+        }
+    }
+    else
+    {
+        LE_WARN("Control Option Record not found. Skip check!!");
+    }
+
     //Will send the indication to the diag service
     *isInternalHandle = false;
     return LE_OK;
@@ -6069,6 +6095,65 @@ bool UdsCommunicationMgr::IsRequestSubFuncSupported
     LE_DEBUG("subFunction(0x%x) is unsupported for node", subFunc);
 
     return false;
+}
+
+bool UdsCommunicationMgr::IsControlOptionRecordValid
+(
+    uint16_t rid,
+    uint8_t subFunc,
+    const uint8_t* dataRec,
+    size_t dataRecLen
+)
+{
+    LE_DEBUG("dataRecLen: %d", (int)dataRecLen);
+    LE_DEBUG("subFunc: %x", subFunc);
+    LE_DEBUG("Routine DID: %u", rid);
+
+    string recordName = cfg::get_routine_record(rid, subFunc);
+    LE_DEBUG("recordName: %s", recordName.c_str());
+
+    if(recordName != "null")
+    {
+        try
+        {
+            bool IsOptionRecValid = cfg::validate_base_record(dataRec, dataRecLen, recordName);
+            if(IsOptionRecValid)
+            {
+                LE_DEBUG("Forbidden data found!!");
+                return false;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LE_WARN("Exception: %s", e.what());
+        }
+    }
+    else
+    {
+        LE_DEBUG("Routine Control Option check skipped as Record Name not found");
+    }
+    return true;
+}
+
+bool UdsCommunicationMgr::IsTotalLengthCheckValid
+(
+    uint16_t rid,
+    uint8_t subFunc,
+    size_t dataRecLen
+)
+{
+    string recordName = cfg::get_routine_record(rid, subFunc);
+    LE_DEBUG("recordName: %s", recordName.c_str());
+
+    if(recordName != "null")
+    {
+        size_t recordNameLength = cfg::get_routine_record_size(recordName);
+        if(recordNameLength != dataRecLen)
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 void UdsCommunicationMgr::StoreAttCntToTree

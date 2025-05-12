@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 domain_name: Variant
@@ -132,3 +132,14 @@ datas:
       min: -10
       max: 10
       coding: balabala # Ignore the coding, min & max have the high priority
+
+  IO_Control_LED:
+    mnemonic: IO_Control_LED
+    description: IO_Control
+    functional_definition:
+      data_type: Numeric
+      value_type: uint8
+      bit_size: 8
+      min: 0
+      max: 100
+      feature: Ecall

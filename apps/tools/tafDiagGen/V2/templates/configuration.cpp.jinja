@@ -924,7 +924,7 @@ COMPONENT_INIT
     {
         checker_map = std::make_shared<std::unordered_map<uint16_t, std::shared_ptr<DidChecker>>>();
 
-        {% for did_code, did_node in root.did_all.items() if did_node.supported_functions.write_did == true %}
+        {% for did_code, did_node in root.did_all.items() if did_node.supported_functions.write_did == true or did_node.supported_functions.io_control == true %}
         {
             /* -- DID: {{ did_code | f_to_hex_format(4) }} -- */
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -314,6 +314,27 @@ EXPORT_SYM int get_operation_cycle_count()
     NEED_INITED();
 
     return {{ root.operation_cycle | length }};
+}
+
+EXPORT_SYM std::string get_routine_record(uint16_t rid, uint8_t subFunc)
+{
+    NEED_INITED();
+
+    return "null";
+}
+
+EXPORT_SYM size_t get_routine_record_size(std::string recordName)
+{
+    NEED_INITED();
+
+    return 0;
+}
+
+EXPORT_SYM bool validate_base_record(const uint8_t* dataRecord, size_t recordLength, const std::string nodeName)
+{
+    NEED_INITED();
+
+    return false;
 }
 
 }

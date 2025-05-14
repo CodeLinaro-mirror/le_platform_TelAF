@@ -591,6 +591,21 @@ def convert_datas_enable_conditions(final_yaml):
     convert_data_enable_condition(final_yaml, 'IO_all')
     convert_data_enable_condition(final_yaml, 'routines_all')
 
+def extend_size_to_routine_parameters(final_yaml):
+    for node_name, node_info in final_yaml['routine_parameters_all'].items():
+        total_bits = 0
+        reserved = False
+        for bit_offset, element in node_info['bit_offset'].items():
+            if element['dataElement'] != 'Reserved':
+                for data,data_info in final_yaml['datas'].items():
+                    if data == element['dataElement']:
+                        if 'functional_definition' in data_info.keys():
+                            total_bits += data_info['functional_definition']['bit_size']
+            else:
+                reserved = True
+
+        if not reserved:
+            node_info['size'] = total_bits//8
 
 def convert_to_specific_format(with_default, top_build_layer):
 
@@ -613,6 +628,8 @@ def convert_to_specific_format(with_default, top_build_layer):
     extend_role_to_did_all(final_yaml)
 
     extend_role_to_routines_all(final_yaml)
+
+    extend_size_to_routine_parameters(final_yaml)
 
     # Conversion -> execution_authorization_pattern
     logger.info("Conversion -> execution_authorization_pattern")

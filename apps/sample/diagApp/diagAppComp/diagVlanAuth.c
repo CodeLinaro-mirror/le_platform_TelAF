@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -514,10 +514,11 @@ static void *diagAuthMsgThread
 
 le_result_t diagVlanAuth_Init
 (
-    void
+    uint64_t roleValue
 )
 {
-    LE_TEST_INFO("diagVlanAuth_Init");
+    LE_TEST_INFO("diagVlanAuth_Init with role value: %" PRIuS, roleValue);
+    role = roleValue;
 
     semRef[0] = le_sem_Create("SemRef0", 0);
     semRef[1] = le_sem_Create("SemRef1", 0);

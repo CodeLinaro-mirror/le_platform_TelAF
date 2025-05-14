@@ -1,6 +1,6 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 
@@ -278,8 +278,8 @@ static void fileXferMsgHandler
             if(mIncompleteFileObject == NULL)
             {
                 LE_ERROR("Fail to create file |%s|", mIncompleteFileAndPathName);
-                // UDS_0x38_NRC_22: Create Incomplete-File failed (moop: 01/03)
-                DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT);
+                // UDS_0x38_NRC_31: Create Incomplete-File failed (moop: 01/03)
+                DIAG_38_RESPONSE(TAF_DIAGUPDATE_FILE_XFER_REQUEST_OUT_OF_RANGE);
             }
 
             LE_INFO("File: |%s| is created", mIncompleteFileAndPathName);

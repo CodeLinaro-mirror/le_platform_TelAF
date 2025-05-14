@@ -1519,7 +1519,7 @@ le_result_t taf_ecall::SetMsdAdditionalData(taf_ecall_CallRef_t ecallRef, const 
         oadDataString.append(1,s1);
         oadDataString.append(1,s2);
     }
-    LE_DEBUG("Euro NCAP MSD OAD data = %s", oadDataString.c_str());
+    LE_INFO("Euro NCAP MSD OAD data = %s", oadDataString.c_str());
     std::vector<uint8_t> oadData(oadDataString.begin(), oadDataString.end());
     eCallPtr->msd.optionalPdu.data = oadData;
 #endif
@@ -1709,16 +1709,18 @@ uint16_t taf_ecall::PutTwoBytes(uint16_t  msgOffset, uint16_t elmtLen, uint16_t*
 
 int32_t taf_ecall::msd_EncodeOptionalDataForEuroNCAP(taf_EuroNCAPData_t* euroNCAPDataPtr, uint8_t* outDataPtr)
 {
-    uint8_t off=0;
+    uint8_t extendFlag=0;
     int offset=0;
     uint16_t msdMsgLen=0;
 
     if (outDataPtr)
     {
-        offset = PutBits(offset, 1, &off, outDataPtr);
+        offset = PutBits(offset, 1, &extendFlag, outDataPtr);
         offset = PutBits(offset, 1,(uint8_t*)&euroNCAPDataPtr->rolloverDetectedPresent
                         , outDataPtr);
-        offset = PutBits(offset, 4,(uint8_t*)&euroNCAPDataPtr->locationOfImpact
+        offset = PutBits(offset, 1,(uint8_t*)&extendFlag
+                        , outDataPtr);
+        offset = PutBits(offset, 3,(uint8_t*)&euroNCAPDataPtr->locationOfImpact
                         , outDataPtr);
 
         if (euroNCAPDataPtr->rolloverDetectedPresent)
@@ -1731,9 +1733,12 @@ int32_t taf_ecall::msd_EncodeOptionalDataForEuroNCAP(taf_EuroNCAPData_t* euroNCA
         uint8_t rangeLimitTmp = euroNCAPDataPtr->rangeLimit - 100;
         int16_t deltaVXTmp = euroNCAPDataPtr->deltaVX + 255;
         int16_t deltaVYTmp = euroNCAPDataPtr->deltaVY + 255;
+        LE_INFO("rangeLimit = %d, deltaVX  = %d, deltaVY = %d", rangeLimitTmp, deltaVXTmp, deltaVYTmp);
 
-        offset = PutTwoBytes(offset, 9
-                         , (uint16_t*)&rangeLimitTmp
+        offset = PutBits(offset, 1, &extendFlag, outDataPtr);
+
+        offset = PutBits(offset, 8
+                         , (uint8_t*)&rangeLimitTmp
                          , outDataPtr);
         offset = PutTwoBytes(offset, 9
                          , (uint16_t*)&deltaVXTmp

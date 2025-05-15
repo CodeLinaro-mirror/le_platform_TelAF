@@ -311,6 +311,7 @@ using namespace std;
                 void RemoveRefreshChangeHandler(taf_sim_RefreshChangeHandlerRef_t handlerRef);
                 void NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* contextPtr);
                 void CheckAndSendProfileSwitchEvent();
+                void CheckAndSendRefreshEvent(taf_sim_Id_t SimId);
                 le_result_t CreateSession(taf_sim_SessionType_t sessionType, taf_sim_RefreshRef_t* refreshSessionRef);
                 le_result_t SetRefreshRegisterFiles(taf_sim_RefreshRef_t refreshSessionRef, const taf_sim_RefreshRegFile_t* filesPtr, size_t filesSize);
                 le_result_t SetRefreshMode(taf_sim_RefreshRef_t refreshSessionRef, taf_sim_RefreshMode_t refreshMode);

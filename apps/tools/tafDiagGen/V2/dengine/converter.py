@@ -447,6 +447,7 @@ def create_io_all(final_yaml):
 
         # Drop 'control_state' item from IO_all_item, add 'did_size' for checking
         control_option_record['did_size'] = did_node['implementation']['did_size'] # unit by byte
+        control_option_record['bytes'] = did_node['implementation']['bytes'] # bytes info
 
         if 'access' in did_node.keys():
             IO_all[did_id]['access'] = copy.deepcopy(did_node['access'])

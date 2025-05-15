@@ -2883,6 +2883,25 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
             LE_WARN("Exception: %s", e.what());
             return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);//NRC 0x31
         }
+
+        // Control Option record check for IO Ctrl request. UDS_0x2F_NRC_31
+        try
+        {
+            const uint8_t* controlRecPtr = recvBuf + UDS_IOCBID_REQ_MIN_LEN;
+            bool isForbidden = cfg::is_forbidden(dataId, controlRecPtr, controlStateSize);
+
+            // If controlRecord is forbidden then send NRC.
+            if(isForbidden)
+            {
+                LE_WARN("Control option record is forbidden");
+                return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+            }
+        }
+        catch (const std::exception& e)
+        {
+            // Control Option record check not define. Don't check it.
+            LE_WARN("Exception: %s. ControlRec check not define for dataId 0x%x", e.what(), dataId);
+        }
     }
 
     //Step 5: Total length check. UDS_0x2F_NRC_13

@@ -21,6 +21,10 @@ did_all:
     implementation:
       did_size: 1
       endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: IO_Control_LED
     supported_functions:
       write_did: False
       read_did: True

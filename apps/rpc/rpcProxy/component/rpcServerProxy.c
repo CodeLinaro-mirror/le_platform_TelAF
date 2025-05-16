@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -247,7 +247,7 @@ static void RpcDeleteSessionRespHandler
     {
         case RPC_SESSION_DELETE_RESPONSE:
         {
-            LE_INFO("Deleted RPC session(ID=0x%x rID=0x%x, result='%s')",
+            LE_DEBUG("Deleted RPC session(ID=0x%x rID=0x%x, result='%s')",
                     proxySessionPtr->rpcSessionId, sessionId, LE_RESULT_TXT(result));
 
             if (result == LE_OK)
@@ -429,7 +429,7 @@ static void RpcCreateSessionRespHandler
             }
             else
             {
-                LE_INFO("Created RPC session(ID=0x%x) for proxy session(%p).",
+                LE_DEBUG("Created RPC session(ID=0x%x) for proxy session(%p).",
                         sessionId, proxySessionPtr->sessionRef);
 
                 if (proxySessionPtr->sessionRef != NULL)
@@ -512,7 +512,7 @@ static void ProxySessionOpenHandler
     RpcServerProxy_t* rpcServerPtr = contextPtr;
     LE_ASSERT(sessionRef != NULL && rpcServerPtr != NULL);
 
-    LE_INFO("client-server session(%p) to proxy service(%s) is opened.",
+    LE_DEBUG("client-server session(%p) to proxy service(%s) is opened.",
             sessionRef, rpcServerPtr->bindingInterface);
 
     // Create and save the proxy session.
@@ -567,7 +567,7 @@ static void ProxySessionCloseHandler
         return;
     }
 
-    LE_INFO("client-server session(ID=0x%x) of proxy service(%s) is closed(remoteClosed=%s).",
+    LE_DEBUG("client-server session(ID=0x%x) of proxy service(%s) is closed(remoteClosed=%s).",
             proxySessionPtr->rpcSessionId, rpcServerPtr->bindingInterface,
             proxySessionPtr->isRemoteClosed ? "TRUE" : "FALSE");
 

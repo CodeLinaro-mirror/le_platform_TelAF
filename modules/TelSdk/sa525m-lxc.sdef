@@ -7,7 +7,7 @@
 apps:
 {
     // Sample Applications
-    $LEGATO_ROOT/apps/sample/helloWorld/helloWorld.adef
+    //$LEGATO_ROOT/apps/sample/helloWorld/helloWorld.adef
 
     // Platform Services
     $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -654,6 +654,13 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
             le_dls_Remove(&(mpms.infoReportHandlerList), &handlerCtxPtr->link);
             le_mem_Release((void*)handlerCtxPtr);
         }
+    }
+    //Clear wakeupVehicle client's data
+    if(mpms.wakeupVehicleCB.sessionRef == sessionRef)
+    {
+        mpms.wakeupVehicleCB.wakeupVehicleCallbackFunc = nullptr;
+        mpms.wakeupVehicleCB.wakeupVehicleCBCtxPtr = nullptr;
+        mpms.wakeupVehicleCB.sessionRef = nullptr;
     }
 }
 

@@ -9,7 +9,6 @@ capability:
         CAP_WAKE_ALARM
         CAP_NET_ADMIN
         CAP_BLOCK_SUSPEND
-        CAP_DAC_READ_SEARCH
         CAP_DAC_OVERRIDE
         CAP_FOWNER
         CAP_SYS_ADMIN
@@ -54,6 +53,7 @@ bindings:
     tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.taf_fsc -> tafKeyStoreSvc.taf_fsc
     tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_cfg -> <tafcore>.le_cfg
     tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_cfgAdmin -> <tafcore>.le_cfgAdmin
+    tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.taf_mngdStorSecData -> tafMngdStorageSvc.taf_mngdStorSecData
     tafMngdSecDataStorageSvc.tafMngdSecDataStorageSvc.taf_ks -> tafKeyStoreSvc.taf_ks
     tafMngdSecDataStorageSvc.tafMngdSecDataStorageSvc.le_appInfo -> <tafcore>.le_appInfo
     tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.taf_fsc -> tafKeyStoreSvc.taf_fsc

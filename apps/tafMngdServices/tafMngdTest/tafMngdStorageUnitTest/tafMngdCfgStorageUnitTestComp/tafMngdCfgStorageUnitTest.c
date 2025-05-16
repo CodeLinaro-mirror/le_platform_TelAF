@@ -1,7 +1,9 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
- */
+*
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+
 
 
 #include "legato.h"
@@ -30,6 +32,9 @@ void PrintUsage(void)
          "\n"
          "-------- To Activate by replacing the orignal config file with the updated --------\n"
          "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest -- Activate\n"
+         "\n"
+         "-------- To Verify Activation for the activated config file --------\n"
+         "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest -- VerifyAct\n"
          "\n"
          "-------- To Commit data to config storage after successful firmare update --------\n"
          "app runProc tafMngdStorageUnitTest --exe=tafMngdCfgStorageUnitTest -- Commit\n"
@@ -92,6 +97,19 @@ static le_result_t Activate(){
     }
     else{
         printf("Failed to Activate Storage !! you may Rollback and try activating again.\n");
+    }
+    return result;
+}
+
+static le_result_t VerifyActivation(){
+    le_result_t result;
+    result = taf_mngdStorCfg_VerifyActivation(cRef);
+    if(result == LE_OK) printf("Storage Activation verified!!\n");
+    else if(result == LE_NOT_PERMITTED){
+       printf("Verify Activation not permitted at this point!!\n");
+    }
+    else{
+        printf("Failed to Verify activation !! you may Rollback and try activating again.\n");
     }
     return result;
 }
@@ -214,6 +232,8 @@ static void Test_cfg_UpdateProcess(){
             result = taf_mngdStorCfg_Rollback(cRef);
             LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Rollback");
         }
+        result = taf_mngdStorCfg_VerifyActivation(cRef);
+        LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_VerifyActivation");
         result = taf_mngdStorCfg_Commit(cRef);
         LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorCfg_Commit");
     }
@@ -316,6 +336,12 @@ COMPONENT_INIT
             CheckNumArgs(numArgs,1);
             result = Activate();
             LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_Activate()");
+        }
+        else if(strncmp(testType, "VerifyAct", strlen(testType)) == 0){
+            LE_TEST_INFO("VerifyActivation Process Test");
+            CheckNumArgs(numArgs,1);
+            result = VerifyActivation();
+            LE_TEST_OK(result == LE_OK,"Test taf_mngdStorCfg_VerifyActivation()");
         }
         else if(strncmp(testType, "GetData", strlen(testType)) == 0){
             LE_TEST_INFO("GetData Process Test");

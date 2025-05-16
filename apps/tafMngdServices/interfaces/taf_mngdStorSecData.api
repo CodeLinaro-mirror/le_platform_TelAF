@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -101,6 +101,15 @@
  *
  * @code
 
+    le_result_t res = taf_mngdStorSecData_CreateData(dataLabel);
+
+    // Check if the data creation failed
+    if (res != LE_DUPLICATE && res != LE_OK)
+    {
+        LE_ERROR("Create data failed");
+        return LE_FAULT;
+    }
+
     taf_mngdStorSecData_DataRef_t dataRef
         = taf_mngdStorSecData_GetDataRef("DataName");
 
@@ -110,17 +119,7 @@
     }
     else
     {
-        taf_mngdStorSecData_DataRef_t dataRef
-            = taf_mngdStorSecData_CreateData("DataName");
-
-        if(dataRef)
-        {
-            // Process of the data access
-        }
-        else
-        {
-            // Check input data label
-        }
+        // Check if the input data label is valid
     }
 
    @endcode
@@ -331,8 +330,12 @@ FUNCTION Data GetDataRef
  * @instaging
  * @return
  *     - LE_OK             Successfully initializes the operation.
+ *     - LE_NOT_FOUND      The data reference is invalid.
  *     - LE_BAD_PARAMETER  The given data label is invalid.
  *     - LE_FAULT          Failed.
+ *     - LE_BUSY           The data is in reading/writing process.
+ *     - LE_NOT_PERMITTED  The calling app does not have the access to write the data.
+ *     - LE_UNAVAILABLE    The data does not exist.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t WriteDataStart
@@ -348,8 +351,13 @@ FUNCTION le_result_t WriteDataStart
  * @instaging
  * @return
  *     - LE_OK             Successfully processes the operation.
+ *     - LE_NOT_FOUND      The data reference is invalid.
  *     - LE_BAD_PARAMETER  The given data label is invalid.
  *     - LE_FAULT          Failed.
+ *     - LE_BUSY           Data is in writing by another sessions.
+ *     - LE_UNAVAILABLE    The data is not in writing process.
+ *     - LE_OVERFLOW       The input size is greater than the maximum data size.
+ *     - LE_NO_MEMORY      The input size is greater than the remaining data size.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t WriteDataChunk
@@ -365,8 +373,11 @@ FUNCTION le_result_t WriteDataChunk
  * @instaging
  * @return
  *     - LE_OK             Successfully ends the operation.
+ *     - LE_NOT_FOUND      The data reference is invalid.
  *     - LE_BAD_PARAMETER  The given data label is invalid.
  *     - LE_FAULT          Failed.
+ *     - LE_UNAVAILABLE    The data is not in writing process.
+ *     - LE_BUSY           Data is in writing by another session.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t WriteDataEnd
@@ -381,8 +392,12 @@ FUNCTION le_result_t WriteDataEnd
  * @instaging
  * @return
  *     - LE_OK             Successfully reads the data.
+ *     - LE_NOT_FOUND      The data reference is invalid.
  *     - LE_BAD_PARAMETER  The given data label is invalid.
  *     - LE_FAULT          Failed.
+ *     - LE_BUSY           The data is in reading/writing process.
+ *     - LE_OUT_OF_RANGE   The input read size is too large.
+ *     - LE_NOT_PERMITTED  The calling app does not have the access to read the data.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReadDataFirstChunk
@@ -399,8 +414,12 @@ FUNCTION le_result_t ReadDataFirstChunk
  * @instaging
  * @return
  *     - LE_OK             Successfully reads the data.
+ *     - LE_NOT_FOUND      The data reference is invalid.
  *     - LE_BAD_PARAMETER  The given data label is invalid.
  *     - LE_FAULT          Failed.
+ *     - LE_BUSY           The data is in writing process or being read by another session.
+ *     - LE_OUT_OF_RANGE   The input read size is too large.
+ *     - LE_UNAVAILABLE    The data is not in reading process.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReadDataNextChunk

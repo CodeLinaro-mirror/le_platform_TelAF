@@ -1,7 +1,8 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
- */
+*
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
 
 
 #include "tafMngdStorageSvc.hpp"
@@ -12,6 +13,12 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <fstream>
+#include <cstdint>
+
+#include <openssl/sha.h>
+#include <openssl/evp.h>
+#include <openssl/crypto.h>
+
 
 using namespace tafsvc;
 namespace pt = boost::property_tree;
@@ -277,7 +284,7 @@ le_result_t tafMngdStorageSvc::Update(taf_mngdStorCfg_ConfigRef_t configStor,
 
     // Will only permit update if last state was not found , commit or cancel.
     if(result != LE_NOT_FOUND && state != CANCEL_COMPLETED && state != COMMIT_COMPLETED){
-        LE_ERROR("Operation Not Permitted");
+        LE_ERROR("Operation Not Permitted with state: %d", state);
         return LE_NOT_PERMITTED;
     }
 
@@ -391,10 +398,10 @@ le_result_t tafMngdStorageSvc::Update(taf_mngdStorCfg_ConfigRef_t configStor,
     return LE_OK;
 }
 
-le_result_t tafMngdStorageSvc::Activate(taf_mngdStorCfg_ConfigRef_t configRef){
+le_result_t tafMngdStorageSvc::Activate(taf_mngdStorCfg_ConfigRef_t configRef)
+{
 
     //Checking state of update campaign
-
     tafMngdStorage_UpdateState_t state;
     le_result_t result = GetUpdateCampaignState(&state);
     if(result != LE_OK){
@@ -402,7 +409,7 @@ le_result_t tafMngdStorageSvc::Activate(taf_mngdStorCfg_ConfigRef_t configRef){
         return result;
     }
     if(state != UPDATE_COMPLETED){
-        LE_ERROR("Operation Not Permitted");
+        LE_ERROR("Operation Not Permitted with state: %d", state);
         return LE_NOT_PERMITTED;
     }
 
@@ -440,6 +447,11 @@ le_result_t tafMngdStorageSvc::Activate(taf_mngdStorCfg_ConfigRef_t configRef){
     }
     LE_INFO("successfully sync the file to path %s",renamePath);
 
+    if(SetActivatedConfigHash() != LE_OK)
+    {
+        LE_ERROR("Failed to store hash data for the activated config file");
+    }
+
     //Clear Config Tree
     result = ClearTree();
     if(result != LE_OK){
@@ -462,7 +474,6 @@ le_result_t tafMngdStorageSvc::Activate(taf_mngdStorCfg_ConfigRef_t configRef){
     }
     LE_INFO("Storage Locked");
 
-
     result = SetUpdateCampaignState(ACTIVATE_COMPLETED);
     if(result != LE_OK){
         return result;
@@ -470,7 +481,266 @@ le_result_t tafMngdStorageSvc::Activate(taf_mngdStorCfg_ConfigRef_t configRef){
     return LE_OK;
 }
 
-le_result_t tafMngdStorageSvc::Cancel(taf_mngdStorCfg_ConfigRef_t configRef){
+le_result_t tafMngdStorageSvc::VerifyActivation(taf_mngdStorCfg_ConfigRef_t configRef)
+{
+    LE_DEBUG("VerifyActivation() started");
+
+    // Check the state of the update campaign
+    tafMngdStorage_UpdateState_t state;
+    le_result_t result = GetUpdateCampaignState(&state);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get update campaign state");
+        return result;
+    }
+    if (state != ACTIVATE_COMPLETED)
+    {
+        LE_ERROR("Operation not permitted with state: %d", state);
+        return LE_NOT_PERMITTED;
+    }
+
+    // Unlock the config storage and config RFS storage
+    result = UnlockStorage();
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to unlock storage");
+        return result;
+    }
+
+    // Verify the activated configuration hash
+    result = CheckActivatedConfigHash();
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to verify activated configuration hash");
+        LockStorage(); // Lock the storage to prevent data corruption
+        return result;
+    }
+
+    // Clear the config tree
+    result = ClearTree();
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to clear config tree");
+        LockStorage(); // Lock the storage to prevent data corruption
+        return result;
+    }
+
+    // Import the config tree
+    char filePath[LIMIT_MAX_PATH_BYTES] = {0};
+    snprintf(filePath, sizeof(filePath), "%s%s", configStorage, CONFIG_FILE_NAME);
+    result = ImportTree(filePath);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to import config tree");
+        LockStorage(); // Lock the storage to prevent data corruption
+        return result;
+    }
+
+    // Lock the config storage and config RFS storage
+    result = LockStorage();
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to lock storage");
+        return result;
+    }
+
+    LE_DEBUG("VerifyActivation() completed successfully");
+    return LE_OK;
+}
+
+/**
+ * Calculates the SHA-256 hash of a file.
+ *
+ * @param filePath The path to the file to calculate the hash for.
+ * @param hash The buffer to store the calculated hash in.
+ */
+void tafMngdStorageSvc::CalculateSHA256(const char* filePath, unsigned char* hash)
+{
+    // Open the file in binary mode
+    std::ifstream file(filePath, std::ios::binary);
+
+    if (!file)
+    {
+        // Throw an error if the file cannot be opened
+        throw std::runtime_error("Unable to open file");
+    }
+
+    // Initialize the SHA-256 context
+    EVP_MD_CTX* mdCtx = EVP_MD_CTX_new();
+
+    if (mdCtx == nullptr)
+    {
+        // Throw an error if the SHA-256 context cannot be initialized
+        throw std::runtime_error("Failed to initialize SHA-256 context");
+    }
+
+    // Initialize the SHA-256 digest
+    if (EVP_DigestInit_ex(mdCtx, EVP_sha256(), nullptr) != 1)
+    {
+        // Throw an error if the SHA-256 digest cannot be initialized
+        throw std::runtime_error("Failed to initialize SHA-256 digest");
+    }
+
+    // Read the file in chunks and update the SHA-256 context
+    char buffer[8192];
+
+    while (file.read(buffer, sizeof(buffer)))
+    {
+        // Update the SHA-256 context with the current chunk
+        if (EVP_DigestUpdate(mdCtx, buffer, file.gcount()) != 1)
+        {
+            // Throw an error if the SHA-256 context cannot be updated
+            throw std::runtime_error("Failed to update SHA-256 context");
+        }
+    }
+
+    // Update the SHA-256 context with the remaining bytes
+    if (EVP_DigestUpdate(mdCtx, buffer, file.gcount()) != 1)
+    {
+        // Throw an error if the SHA-256 context cannot be updated
+        throw std::runtime_error("Failed to update SHA-256 context");
+    }
+
+    // Finalize the SHA-256 context and get the calculated hash
+    if (EVP_DigestFinal_ex(mdCtx, hash, nullptr) != 1)
+    {
+        // Throw an error if the SHA-256 context cannot be finalized
+        throw std::runtime_error("Failed to finalize SHA-256 context");
+    }
+
+    // Free the SHA-256 context
+    EVP_MD_CTX_free(mdCtx);
+}
+
+/**
+ * Sets the activated configuration hash in secure data storage.
+ *
+ * @return LE_OK on success, LE_FAULT on failure.
+ */
+le_result_t tafMngdStorageSvc::SetActivatedConfigHash()
+{
+    // Get the path to the configuration file
+    char filePath[LIMIT_MAX_PATH_BYTES] = {0};
+    snprintf(filePath, sizeof(filePath), "%s%s", configStorage, CONFIG_FILE_NAME);
+
+    // Calculate the SHA-256 hash of the configuration file
+    uint8_t hash[SHA256_DIGEST_LENGTH];
+    try
+    {
+        CalculateSHA256(filePath, hash);
+    }
+    catch (const std::exception& e)
+    {
+        // Log an error if the hash calculation fails
+        LE_ERROR("Failed to calculate SHA-256 hash: %s", e.what());
+        return LE_FAULT;
+    }
+
+    // Get the data label for the activated configuration hash
+    char dataLabel[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES] = {0};
+    snprintf(dataLabel, sizeof(dataLabel), "%s", DATA_LABEL_ACTIVATED_CONFIG_HASH);
+
+    // Create the data in secure storage if it does not exist
+    le_result_t res = LE_OK;
+    res = taf_mngdStorSecData_CreateData(dataLabel);
+
+    // Check if the data creation failed
+    if (res != LE_DUPLICATE && res != LE_OK)
+    {
+        // Log an error if the data creation fails
+        LE_ERROR("Create data failed");
+        return LE_FAULT;
+    }
+
+    // Get a reference to the data in secure storage
+    taf_mngdStorSecData_DataRef_t dataRef = taf_mngdStorSecData_GetDataRef(dataLabel);
+
+    // Check if the data reference is valid
+    TAF_ERROR_IF_RET_VAL(dataRef == nullptr, LE_FAULT, "Invalid data reference");
+
+    // Start writing the data to secure storage
+    res = taf_mngdStorSecData_WriteDataStart(dataRef);
+
+    // Check if the data writing fails
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Write data failed");
+
+    // Write the calculated hash to secure storage
+    res = taf_mngdStorSecData_WriteDataChunk(dataRef, (uint8_t*)hash, sizeof(hash));
+
+    // Check if the data writing fails
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Write data failed");
+
+    // End writing the data to secure storage
+    res = taf_mngdStorSecData_WriteDataEnd(dataRef);
+
+    // Check if the data writing fails
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Write data failed");
+
+    // Return success
+    return LE_OK;
+}
+
+/**
+ * Checks the activated configuration hash in secure data storage.
+ *
+ * @return LE_OK if the hash matches, LE_FAULT if the hash does not match.
+ */
+le_result_t tafMngdStorageSvc::CheckActivatedConfigHash()
+{
+    // Get the path to the configuration file
+    char filePath[LIMIT_MAX_PATH_BYTES] = {0};
+    snprintf(filePath, sizeof(filePath), "%s%s", configStorage, CONFIG_FILE_NAME);
+
+    // Calculate the SHA-256 hash of the configuration file
+    uint8_t hash[SHA256_DIGEST_LENGTH];
+    try
+    {
+        CalculateSHA256(filePath, hash);
+    }
+    catch (const std::exception& e)
+    {
+        // Log an error if the hash calculation fails
+        LE_ERROR("Failed to calculate SHA-256 hash: %s", e.what());
+        return LE_FAULT;
+    }
+
+    // Get the data label for the activated configuration hash
+    char dataLabel[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES] = {0};
+    snprintf(dataLabel, sizeof(dataLabel), "%s", DATA_LABEL_ACTIVATED_CONFIG_HASH);
+
+    // Get a reference to the data in secure storage
+    taf_mngdStorSecData_DataRef_t dataRef = taf_mngdStorSecData_GetDataRef(dataLabel);
+
+    // Check if the data reference is valid
+    TAF_ERROR_IF_RET_VAL(dataRef == nullptr, LE_FAULT, "Invalid data reference");
+
+    // Read the stored hash from secure storage
+    uint8_t buffer[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES] = {0};
+    size_t readSize = sizeof(buffer);
+
+    // Start reading the data from secure storage
+    le_result_t res = taf_mngdStorSecData_ReadDataFirstChunk(dataRef, buffer, &readSize);
+
+    // Check if the data reading fails
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Read data failed");
+
+    // Compare the calculated hash with the stored hash
+    if (CRYPTO_memcmp(hash, buffer, SHA256_DIGEST_LENGTH) == 0)
+    {
+        // Log a message if the hash matches
+        LE_INFO("Activated config is valid");
+        // Return success
+        return LE_OK; // The hash matches
+    }
+    else
+    {
+        // Return failure if the hash does not match
+        return LE_FAULT; // The hash does not match
+    }
+}
+
+le_result_t tafMngdStorageSvc::Cancel(taf_mngdStorCfg_ConfigRef_t configRef)
+{
     LE_DEBUG("Cancel the update campaign");
 
     //Checking state of update campaign
@@ -482,7 +752,7 @@ le_result_t tafMngdStorageSvc::Cancel(taf_mngdStorCfg_ConfigRef_t configRef){
         return result;
     }
     if(state != UPDATE_COMPLETED && state != UPDATE_FAILED){
-        LE_ERROR("Operation Not Permitted");
+        LE_ERROR("Operation Not Permitted with state: %d", state);
         return LE_NOT_PERMITTED;
     }
 
@@ -556,7 +826,7 @@ le_result_t tafMngdStorageSvc::Rollback(taf_mngdStorCfg_ConfigRef_t configRef){
         return result;
     }
     if(state != ACTIVATE_COMPLETED && state != ACTIVATE_FAILED){
-        LE_ERROR("Operation Not Permitted");
+        LE_ERROR("Operation Not Permitted with state: %d", state);
         return LE_NOT_PERMITTED;
     }
 
@@ -656,7 +926,7 @@ le_result_t tafMngdStorageSvc::Commit(taf_mngdStorCfg_ConfigRef_t configRef){
         return result;
     }
     if(state != ACTIVATE_COMPLETED && state != ROLLBACK_COMPLETED){
-        LE_ERROR("Operation Not Permitted");
+        LE_ERROR("Operation Not Permitted with state: %d", state);
         return LE_NOT_PERMITTED;
     }
 

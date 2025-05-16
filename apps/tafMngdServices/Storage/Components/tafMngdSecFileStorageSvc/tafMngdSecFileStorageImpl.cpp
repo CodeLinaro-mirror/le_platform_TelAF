@@ -1,7 +1,8 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
- */
+*
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
 
 
 #include "tafMngdSecFileStorageSvc.hpp"
@@ -1340,6 +1341,10 @@ le_result_t tafMngdSecFileStorageSvc::DeleteFileImpl
 
     // Check if the client context is valid
     TAF_ERROR_IF_RET_VAL(clienCxtPtr == nullptr, LE_NOT_FOUND, "Invalid client data reference");
+
+    // Check client access
+    TAF_ERROR_IF_RET_VAL(clienCxtPtr->IsWritable != true, LE_NOT_PERMITTED,
+        "Client doesn't hava write access");
 
     // Lookup the directory using the client context's directory reference
     tafMngdSecFileStorage_Dir_t* dirPtr =

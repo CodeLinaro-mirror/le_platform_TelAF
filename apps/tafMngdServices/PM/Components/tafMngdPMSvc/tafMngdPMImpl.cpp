@@ -790,7 +790,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     {
         powerMode.isShutDown = true;
         ProcessStateChange(TAF_MNGDPM_STATE_SHUTDOWN);
-        if(powerMode.isShutDown)
+        if(powerMode.isShutDown ||  powerMode.isForceful)
         {
              powerStateChange.state = TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE;
              le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
@@ -1232,7 +1232,10 @@ le_result_t tafMngdPMSvc::RequestStateChange(taf_mngdPm_State_t requestedState)
             break;
 
         case TAF_MNGDPM_STATE_WAKING_UP:
-            if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN || stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING)
+            if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN
+                    || stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING
+                            ||  stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN
+                                    ||  stateMachine.currentState == TAF_MNGDPM_STATE_RESTART)
             {
                 res = LE_NOT_PERMITTED;
             }

@@ -1,6 +1,6 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 
@@ -2355,6 +2355,8 @@ void taf_Time:: InitTimeSource(void)
             src->handlerRef = NULL;
             src->handlerFunc = NULL;
             src->sourceValidity = false;
+            src->isSyncedWithStorage = false;
+            src->isSyncedWithSetCmd = false;
             src->sessionRef = taf_time_GetClientSessionRef();
             src->ref = (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, src);
 
@@ -2368,11 +2370,12 @@ void taf_Time:: InitTimeSource(void)
                     {
                         src->secStrgdataRef =
                             taf_mngdStorSecData_GetDataRef(tafTime.SourceNameIndexToStr(src->sourceId));
-                        bool previousValidity;
-                        le_result_t res = tafTime.ReadValidityFromSecStorage(src, &previousValidity);
-                        if(res == LE_OK)
+
+                        le_result_t rst = tafTime.ReadValidityFromSecStorage(src, &src->sourceValidity);
+                        if (rst == LE_OK)
                         {
-                            src->sourceValidity = previousValidity;
+                            // Mark the storage synced-flag as true.
+                            src->isSyncedWithStorage = true;
                         }
                     }
                 }
@@ -3656,6 +3659,51 @@ bool taf_Time::IsSourceValid
     TAF_ERROR_IF_RET_VAL(sourceRef == NULL, false, "Source Reference is NULL.");
     taf_SourceInf_t* sourcePtr = (taf_SourceInf_t*)le_ref_Lookup(SrcRefMap, sourceRef);
     TAF_ERROR_IF_RET_VAL(sourcePtr == NULL, false, "Source Reference is not registered.");
+
+    if (sourcePtr->sourceId == TAF_TIME_SRC_NAME_RTC ||
+        sourcePtr->sourceId == TAF_TIME_SRC_NAME_EX_APP )
+    {
+
+        if (sourcePtr->isSyncedWithSetCmd == true)
+        {
+            LE_DEBUG("Return [validity], after SetCmd=ture");
+        }
+        else
+        {
+            if (sourcePtr->isSyncedWithStorage == true)
+            {
+                LE_DEBUG("Return [validity], after !SetCmd && SyncedMss");
+            }
+            else
+            {
+                LE_DEBUG("Return [validity], after !SetCmd && !SyncedMss");
+
+                taf_Time& tafTime = taf_Time::GetInstance();
+
+                // SyncedMss == false, try to connect the storage once.
+                bool validity = false;
+                le_result_t rst =
+                    tafTime.ReadValidityFromSecStorage(sourcePtr, &validity);
+
+                if (rst == LE_OK)
+                {
+                    LE_DEBUG("!SetCmd && !SyncedMss, touched the storage");
+
+                    // Mark the flag to reflect the storage has been touched.
+                    sourcePtr->isSyncedWithStorage = true;
+                    sourcePtr->sourceValidity = validity;
+                }
+                else
+                {
+                    LE_DEBUG("!SetCmd && !SyncedMss, can't access the storage");
+                }
+            }
+        }
+    }
+
+    // Eventually, return the 'ram-value' in all ways.
+    // Note: for the improper-source requests, such as: NETWORK..
+    //       just return the ram-value.
     return sourcePtr->sourceValidity;
 }
 
@@ -3796,7 +3844,9 @@ le_result_t taf_Time::ReadValidityFromSecStorage(taf_SourceInf_t* sourcePtr, boo
 
     *validity = readBuf == 1 ? true : false;
 
-    LE_INFO("readLen = %" PRIuS, readLen);
+    // Output the validity value for trace.
+    LE_INFO("Read [validity] = %s (size:%" PRIuS ")",
+            *validity == true ? "true" : "false", readLen);
     return res;
 }
 
@@ -3824,19 +3874,54 @@ le_result_t taf_Time::SetValidity
         LE_ERROR("Client is not allowed to change source validity.");
         return LE_BAD_PARAMETER;
     }
-    //Check if the validity is changed and trigger notification accordingly
-    bool oldValidity = sourcePtr->sourceValidity;
 
-    if(oldValidity != newvalidity)
+    // Regardless the access for the storage is OK or not, the ram-value should be updated.
+    sourcePtr->sourceValidity = newvalidity;
+
+    // Mark the 'SetValidity' API to 'called'.
+    sourcePtr->isSyncedWithSetCmd = true;
+
+    // Read validity once from the storage.
+    bool mssStoragedValidity = false;
+    le_result_t rst = ReadValidityFromSecStorage(sourcePtr, &mssStoragedValidity);
+    if (rst == LE_OK)
     {
-        WriteValidtyToSecStorage(sourcePtr, newvalidity);
-        sourcePtr->sourceValidity = newvalidity;
-        if(sourcePtr->handlerFunc != NULL &&
-           (sourcePtr->eventType & TAF_TIME_STATUS_EVENT_VALIDITY) != 0)
+        if (newvalidity != mssStoragedValidity)
         {
-            ReportValidityChange(sourcePtr);
+            LE_INFO("Try to update Validity from %d to %d",
+                     mssStoragedValidity, newvalidity);
+
+            rst = WriteValidtyToSecStorage(sourcePtr, newvalidity);
+            if (rst != LE_OK)
+            {
+                // Mark the flag to indicate the inconsistence between ram and rom.
+                sourcePtr->isSyncedWithStorage = false;
+                LE_WARN("Access the storage failed, isSyncedWithStorage = false");
+            }
+            else
+            {
+                sourcePtr->isSyncedWithStorage = true;
+                LE_DEBUG("Access the storage successfully, isSyncedWithStorage = true");
+            }
+
+            if(sourcePtr->handlerFunc != NULL &&
+               (sourcePtr->eventType & TAF_TIME_STATUS_EVENT_VALIDITY) != 0)
+            {
+                ReportValidityChange(sourcePtr);
+            }
+        }
+        else
+        {
+            sourcePtr->isSyncedWithStorage = true;
+            LE_DEBUG("New-validity is equal to the storaged");
         }
     }
+    else
+    {
+        sourcePtr->isSyncedWithStorage = false;
+        LE_WARN("Can't access the storage for reading");
+    }
+
     //if ExApp/RTC has set the system time and client has registered for
     //validity change event for SYSTEM then report the change.
     if((LatestTimeSourceInfo->systemSourceId == sourcePtr->sourceId) &&

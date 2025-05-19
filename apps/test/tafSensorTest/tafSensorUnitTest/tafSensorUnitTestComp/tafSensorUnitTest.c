@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -121,6 +121,7 @@ void TestSensorOnEventFunc(taf_imuSensor_SensorRef_t sensorRef,taf_imuSensor_Sam
         le_result_t result = taf_imuSensor_GetName(sensorRef,sensorName,sizeof(sensorName));
         if(result !=LE_OK){
             LE_TEST_INFO("sensor ref not found %p", sensorRef);
+            le_mutex_Unlock(mSensorMutexRef);
             return;
         }
         LE_TEST_INFO("Test onEvent Retrieval for SensorName %s",sensorName);
@@ -129,6 +130,8 @@ void TestSensorOnEventFunc(taf_imuSensor_SensorRef_t sensorRef,taf_imuSensor_Sam
         size_t  size = sizeof(rawData)/sizeof(taf_imuSensor_DataValue_t);
         result = taf_imuSensor_GetRotatedData(ref,rawData,&size,biasData,&size);
         LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetRotatedData- LE_OK. Event size %zu",size);
+        result = taf_imuSensor_DeleteData(ref);
+        LE_TEST_OK(result == LE_OK, "taf_imuSensor_DeleteData- LE_OK.");
         uint64_t eventTimeStamp = 0;
         uint32_t count = 0;
         float samplingRateAggregate = 0.0;
@@ -145,8 +148,6 @@ void TestSensorOnEventFunc(taf_imuSensor_SensorRef_t sensorRef,taf_imuSensor_Sam
         LE_TEST_INFO("%s [%f HZ, %d] Event [%f HZ, %"PRIu64" ns, %"PRIu64" ns]\n",sensorName,
             sampleRate,batch,samplingRateAggregate/count,rawData[0].timestamp,
             rawData[size-1].timestamp);
-        result = taf_imuSensor_DeleteData(ref);
-        LE_TEST_OK(result == LE_OK, "taf_imuSensor_DeleteData- LE_OK.");
         le_sem_Post(semRef1);
         }
     }
@@ -169,7 +170,6 @@ static void TestDeactivateHandler(le_timer_Ref_t timerRef){
     pthread_mutex_lock(&mutex);
     le_result_t res = taf_imuSensor_Deactivate(configList[0].sensorRef);
     LE_TEST_OK(res == LE_OK,"Sensor deactivate successfully");
-    le_thread_Sleep(2);
     res = taf_imuSensor_Deactivate(configList[1].sensorRef);
     LE_TEST_OK(res == LE_OK,"Sensor deactivate successfully");
     isDeactivate=1;
@@ -200,7 +200,6 @@ static void* SensorHandler(void* ctxPtr)
     le_result_t result = taf_imuSensor_Activate(configList[0].sensorRef,configList[0].samplingRate,
         configList[0].batchCount);
     LE_INFO("SensorHandler Result of activating sensor: %d", (int)result);
-    le_thread_Sleep(2);
     result = taf_imuSensor_Activate(configList[1].sensorRef,configList[1].samplingRate,
         configList[1].batchCount);
     LE_INFO("SensorHandler Result of activating sensor: %d", (int)result);
@@ -245,7 +244,6 @@ void TestActivateSensor(){
     taf_imuSensor_RemoveDataHandler(eventHandlerRef1);
     taf_imuSensor_RemoveDataHandler(eventHandlerRef2);
     LE_TEST_INFO("On Event Handler removed");
-    le_thread_Cancel(threadRef1);
     isDeactivate=0;
 }
 
@@ -270,10 +268,8 @@ COMPONENT_INIT{
 
     // Testing multiple sequence for activation and deactivation
     TestActivateSensor();
-    le_thread_Sleep(3);
     TestSelfTest(0);
     TestSelfTest(1);
     DeleteSensorList();
-    mSensorMutexRef = NULL;
     exit(EXIT_SUCCESS);
 }

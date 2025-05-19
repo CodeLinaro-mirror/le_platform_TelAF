@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -833,7 +833,7 @@ le_result_t taf_Sensor::GetData( taf_imuSensor_SampleRef_t eventList,taf_imuSens
     (taf_SensorEventInfo_t*)le_ref_Lookup(tSensorEventMap,eventList);
     TAF_ERROR_IF_RET_VAL(ptr == NULL, LE_NOT_FOUND,
         "Invalid reference (%p) provided!", ptr);
-    size_t j=0;
+    size_t j = 0;
     for(uint32_t i=0;i<ptr->eventPtr->eventList.size();i++){
         RawData[j].timestamp = ptr->eventPtr->eventList[i]->timestamp;
         RawData[j].x = ptr->eventPtr->eventList[i]->x;
@@ -974,13 +974,15 @@ void taf_Sensor::CloseEventHandler(le_msg_SessionRef_t sessionRef, void* context
     {
         taf_SensorEventInfo_t* dataEventPtr =
                 (taf_SensorEventInfo_t*)le_ref_GetValue(iterRef);
-        if(dataEventPtr ==NULL){
-            return ;
+        if(dataEventPtr ==NULL || dataEventPtr->eventPtr == NULL){
+            LE_DEBUG("Unable to dereference the ptr");
+            return;
         }
         if(dataEventPtr->sessionRef == sessionRef){
             taf_imuSensor_SampleRef_t  safeRef =
                 (taf_imuSensor_SampleRef_t)le_ref_GetSafeRef(iterRef);
             LE_DEBUG("Release taf_imuSensor_DeleteData 0x%p, Session 0x%p", safeRef, sessionRef);
+            dataEventPtr->eventPtr->eventList.clear();
             le_ref_DeleteRef(sensorMngr.tSensorEventMap, safeRef);
             le_mem_Release(dataEventPtr->eventPtr);
             le_mem_Release(dataEventPtr);

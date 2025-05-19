@@ -145,6 +145,7 @@
  * - taf_dcs_GetProfileListEx() -- Gets the data profile list with the specified phone ID.
  * - taf_dcs_GetDefaultPhoneIdAndProfileId() -- Gets the default phone ID and profile index.
  * - taf_dcs_SetDefaultProfileIndexEx() -- Sets the default profile corresponding to the specified phone ID and profile index.
+ * - taf_dcs_GetDefaultProfileIndexEx() -- Gets the default profile corresponding to the specified phone ID.
  * - taf_dcs_GetProfileEx() -- Gets the profile reference for the given phone ID and profile index.
  * - taf_dcs_GetPhoneId() -- Gets the phone ID for the given profile reference.
  * - taf_dcs_GetPhoneIdByInterfaceName() -- Gets the phone ID by the interface name.
@@ -1525,6 +1526,9 @@ FUNCTION uint32 GetDefaultProfileIndex
 /**
  * Gets the default phone ID and profile index.
  *
+ * @b NOTE: For Dual Sim-Single Active (DSSA) mode and Dual Sim-Dual Active (DSDA) mode, this API
+ * gets the default data profile ID with default phone ID 1.
+ *
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameter.
@@ -1567,6 +1571,23 @@ FUNCTION le_result_t SetDefaultProfileIndexEx
 (
     uint8 phoneId                           IN,///< The phone ID.
     uint32 profileId                        IN ///< The profile index.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the default profile corresponding to the specified phone ID.
+ *
+ * @instaging
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetDefaultProfileIndexEx
+(
+    uint8 phoneId                           IN, ///< The phone ID.
+    uint32 profileId                        OUT ///< The profile index.
 );
 
 //--------------------------------------------------------------------------------------------------

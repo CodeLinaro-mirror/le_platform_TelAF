@@ -38,18 +38,20 @@ typedef enum
     PROFILE_SET_APN_TYPE_MASK,      //
     PROFILE_SET_PDP,                //
     PROFILE_SET_AUTHENTICATION,     //
+    PROFILE_SET_DEFAULT,            //
     PROFILE_GET_ID,                 //
-    PROFILE_GET_APN,               //
+    PROFILE_GET_APN,                //
     PROFILE_GET_NAME,               //
     PROFILE_GET_TECH_PREF,          //
     PROFILE_GET_APN_TYPE_MASK,      //
     PROFILE_GET_PDP,                //
     PROFILE_GET_AUTHENTICATION,     //
+    PROFILE_GET_DEFAULT,            //
     SESSION_GET_DATA_BEARER_TECH,   //
     SESSION_GET_ROAMING_STATUS,     //
     SESSION_GET_MAX_DATA_BIT_RATES, //
-    SESSION_CALL_END_REASON,         //
-    APN_GET_THROTTLE_INFO,           //
+    SESSION_CALL_END_REASON,        //
+    APN_GET_THROTTLE_INFO,          //
     PROFILE_GET_MTU
 } dcsAPIs;
 
@@ -74,6 +76,10 @@ static void ShowMenu()
               << std::endl
               << PROFILE_SET_PDP                << " -> Profile: Set PDP(IP family type)"
               << std::endl
+              << PROFILE_SET_AUTHENTICATION     << " -> Profile: Set authentication"
+              << std::endl
+              << PROFILE_SET_DEFAULT            << " -> Profile: Set default"
+              << std::endl
               << PROFILE_GET_ID                 << " -> Profile: Get Id"
               << std::endl
               << PROFILE_GET_APN                << " -> Profile: Get APN"
@@ -87,6 +93,8 @@ static void ShowMenu()
               << PROFILE_GET_PDP                << " -> Profile: Get PDP(IP family type)"
               << std::endl
               << PROFILE_GET_AUTHENTICATION     << " -> Profile: Get authentication"
+              << std::endl
+              << PROFILE_GET_DEFAULT            << " -> Profile: Get default"
               << std::endl
               << SESSION_GET_DATA_BEARER_TECH   << " -> Session: Get data bearer technology"
               << std::endl
@@ -1063,6 +1071,44 @@ void QosStatusHandlerFunc
     std::cout << "****Handler for qos status Indication (End)****" << std::endl;
 }
 
+static le_result_t GetDefaultProfileIndex()
+{
+    uint32_t profileId = 1;
+    int phoneID = 1;
+
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+
+    le_result_t result = taf_dcs_GetDefaultProfileIndexEx(static_cast<uint8_t>(phoneID),
+                                                        &profileId);
+    LE_TEST_INFO("taf_dcs_SetDefaultProfileIndex result: %d", result);
+    if (LE_OK == result)
+    {
+        LE_TEST_INFO("Default profile: %d", profileId);
+        std::cout << "Default profile : " << profileId << std::endl;
+    }
+    return result;
+}
+
+static le_result_t SetDefaultProfileIndex()
+{
+    int profileId = 1;
+    int phoneID = 1;
+
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+
+    std::cout << "Enter profile id:  ";
+    std::cin.clear();
+    std::cin >> profileId;
+
+    le_result_t result = taf_dcs_SetDefaultProfileIndexEx(static_cast<uint8_t>(phoneID),
+                                                        static_cast<uint32_t>(profileId));
+    LE_TEST_INFO("taf_dcs_SetDefaultProfileIndex result: %d", result);
+    return result;
+}
 
 static void *callback_thread_handler(void *ctxPtr)
 {
@@ -1455,6 +1501,26 @@ void tafDCSUnitTest_RunInteractiveTests()
                 result = GetMtu();
                 logStr.clear();
                 logStr = logStr + "taf_dcs_GetMtu: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case PROFILE_SET_DEFAULT:
+            {
+                result = SetDefaultProfileIndex();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_SetDefaultProfileIndexEx: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case PROFILE_GET_DEFAULT:
+            {
+                result = GetDefaultProfileIndex();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetDefaultProfileIndexEx: " +
                          std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
                 LE_TEST_INFO("%s", logStr.c_str());
                 std::cout << logStr << std::endl;

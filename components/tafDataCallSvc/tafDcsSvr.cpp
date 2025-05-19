@@ -1364,7 +1364,7 @@ le_result_t taf_dcs_SetDefaultProfileIndex(uint32_t profileId)
 }
 
 /**
- * Set the deafult data profile index and phone id.
+ * Set the default data profile index and phone id.
  *
  * @param [in] phoneId                      The default phone id.
  * @param [in] profileId                    The default profile index.
@@ -1397,7 +1397,37 @@ le_result_t taf_dcs_SetDefaultProfileIndexEx(uint8_t phoneId, uint32_t profileId
 }
 
 /**
- * Get the deafult data profile index.
+ * Gets the default data profile index and for the specified phone id.
+ *
+ * @param [in] phoneId                      The default phone id.
+ * @param [in] profileId                    The default profile index.
+ *
+ * @returns LE_OK                       Success.
+ *          OTHER                       Failed to set default profile.
+ */
+le_result_t taf_dcs_GetDefaultProfileIndexEx(uint8_t phoneId, uint32_t *profileIdPtr)
+{
+    TAF_ERROR_IF_RET_VAL(nullptr == profileIdPtr, LE_BAD_PARAMETER, "Null ptr(profileIdPtr)");
+
+    le_result_t result = LE_OK;
+    uint32_t profileIdGet;
+    uint8_t slotId;
+
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    result = dataProfile.getSlotIdFromPhoneId(phoneId, &slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Failed to get slot id from phone id");
+
+    result = dataConnection.GetDefaultProfileIdForSlotIdSync(slotId, profileIdGet);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting default profile failed");
+
+    *profileIdPtr = profileIdGet;
+    return result;
+}
+
+/**
+ * Get the default data profile index.
  *
  * @returns default profile index
  */

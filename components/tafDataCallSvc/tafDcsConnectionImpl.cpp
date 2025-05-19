@@ -1422,18 +1422,18 @@ le_result_t taf_DataConnection::SendSettingDefaultProfileIdCmd(uint8_t slotId, i
     return LE_OK;
 }
 
-le_result_t taf_DataConnection::SendGettingDefaultProfileIdCmd()
+le_result_t taf_DataConnection::SendGettingDefaultProfileIdCmd(uint8_t slotId)
 {
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
-    if(dataConnectionManagers.find((SlotId)SLOT_ID_1) == dataConnectionManagers.end())
+    if (dataConnectionManagers.find((SlotId)slotId) == dataConnectionManagers.end())
     {
-        LE_ERROR("Connection manager is not init for slot %d", SLOT_ID_1);
+        LE_ERROR("Connection manager is not init for slot %d", slotId);
         return LE_FAULT;
     }
 
     telux::common::Status status =
-                          dataConnectionManagers[static_cast<SlotId>(SLOT_ID_1)]->getDefaultProfile(
+                          dataConnectionManagers[static_cast<SlotId>(slotId)]->getDefaultProfile(
                                                             telux::data::OperationType::DATA_LOCAL,
                                                             GetDefaultProfileCallCallback);
 
@@ -2160,6 +2160,16 @@ void taf_DataConnection::StopSessionCmdAsync
 
 le_result_t taf_DataConnection::SetDefaultProfileIdSync(uint8_t slotId, uint32_t profileId)
 {
+    // Ensure slot id is valid
+    if (bMultiSimSupported)
+    {
+        TAF_ERROR_IF_RET_VAL(slotId != SLOT_ID_1 && slotId != SLOT_ID_2,
+                                                        LE_BAD_PARAMETER, "Invalid slot id.");
+    }
+    else
+    {
+        TAF_ERROR_IF_RET_VAL(slotId != SLOT_ID_1, LE_BAD_PARAMETER, "Invalid slot id.");
+    }
     // initialize the synchronous promise
     CmdSynchronousPromise = std::promise<le_result_t>();
 
@@ -2178,6 +2188,7 @@ le_result_t taf_DataConnection::SetDefaultProfileIdSync(uint8_t slotId, uint32_t
     return result;
 }
 
+// This function returns the default profile ID for the default slot ID 1
 le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint8_t *slotId, uint32_t *profileId)
 {
     TAF_ERROR_IF_RET_VAL(slotId == NULL || profileId == NULL, LE_BAD_PARAMETER, "Null pointer");
@@ -2185,8 +2196,8 @@ le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint8_t *slotId, uint32_
     // initialize the synchronous promise
     CmdSynchronousPromise = std::promise<le_result_t>();
 
-    le_result_t result = SendGettingDefaultProfileIdCmd();
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Setting default profile is failed");
+    le_result_t result = SendGettingDefaultProfileIdCmd(SLOT_ID_1);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting default profile failed");
 
 // In SA415M with old telsdk version, there is no getDefaultProfile function which will not set
 // CmdSynchronousPromise value
@@ -2200,7 +2211,7 @@ le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint8_t *slotId, uint32_
 
     if (result == LE_OK)
     {
-        *profileId = DefaultProfileId;
+        *profileId = DefaultProfileIdMap[SLOT_ID_1];
         *slotId = DefaultSlotId;
     }
     else
@@ -2209,6 +2220,45 @@ le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint8_t *slotId, uint32_
                   SLOT_ID_1, TAF_DCS_DEFAULT_PROFILE);
         *profileId = TAF_DCS_DEFAULT_PROFILE;
         *slotId = SLOT_ID_1;
+    }
+
+    return result;
+}
+
+le_result_t taf_DataConnection::GetDefaultProfileIdForSlotIdSync
+(
+    uint8_t slotId,
+    uint32_t& profileIdGet
+)
+{
+    // Ensure slot id is valid
+    if (bMultiSimSupported)
+    {
+        TAF_ERROR_IF_RET_VAL(slotId != SLOT_ID_1 && slotId != SLOT_ID_2,
+                                                        LE_BAD_PARAMETER, "Invalid slot id.");
+    }
+    else
+    {
+        TAF_ERROR_IF_RET_VAL(slotId != SLOT_ID_1, LE_BAD_PARAMETER, "Invalid slot id.");
+    }
+
+    // initialize the synchronous promise
+    CmdSynchronousPromise = std::promise<le_result_t>();
+
+    le_result_t result = SendGettingDefaultProfileIdCmd(slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting default profile failed");
+    // blocking here to get response
+    std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+    result = futResult.get();
+    if (result == LE_OK)
+    {
+        profileIdGet = DefaultProfileIdMap[slotId];
+    }
+    else
+    {
+        LE_ERROR("Getting default profile failed, set default profileId(%d)",
+                                                                    TAF_DCS_DEFAULT_PROFILE);
+        profileIdGet = TAF_DCS_DEFAULT_PROFILE;
     }
 
     return result;
@@ -3210,14 +3260,14 @@ void taf_DataConnection::InternalDataCallEventHandler(void *reportPtr)
         case EVT_GET_DEFAULT_PROFILE:
             if (eventPtr->errorCode != telux::common::ErrorCode::SUCCESS)
             {
-                LE_ERROR("Setting profile is failed from callback, errorCode: %d",
+                LE_ERROR("Getting profile is failed from callback, errorCode: %d",
                           (uint32_t)eventPtr->errorCode);
                 result = LE_FAULT;
             }
             else
             {
-                DefaultProfileId = profileId;
-                DefaultSlotId = slotId;
+                LE_INFO("Default profile ID for slotId(%d) is %d", slotId, profileId);
+                DefaultProfileIdMap[slotId] = profileId;
             }
             CmdSynchronousPromise.set_value(result);
         break;
@@ -3876,14 +3926,22 @@ void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
 void taf_DataConnection::Init(void)
 {
     auto &dataFactory = telux::data::DataFactory::getInstance();
+    bMultiSimSupported = false;
+
+    // Initialize the default profile ID map
+    DefaultProfileIdMap.clear();
+    DefaultProfileIdMap.insert(std::pair<uint8_t, uint32_t>(SLOT_ID_1, TAF_DCS_DEFAULT_PROFILE));
 
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
     int noOfSlots = MIN_SLOT_COUNT;
     if(telux::common::DeviceConfig::isMultiSimSupported())
     {
-       noOfSlots = MAX_SLOT_COUNT;
-       LE_INFO("MultiSim supported");
+        bMultiSimSupported = true;
+        // Update the default profile ID map with the second slot ID
+        DefaultProfileIdMap.insert(std::pair<uint8_t,uint32_t>(SLOT_ID_2, TAF_DCS_DEFAULT_PROFILE));
+        noOfSlots = MAX_SLOT_COUNT;
+        LE_INFO("MultiSim supported");
     }
 
     for(auto slotIdx = 1; slotIdx <= noOfSlots; slotIdx++)
@@ -4003,7 +4061,7 @@ void taf_DataConnection::Init(void)
 
 #else // #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
-    auto ConnectionMgr = dataFactory.getDataConnectionManager();
+        auto ConnectionMgr = dataFactory.getDataConnectionManager();
 
     bool isReady = ConnectionMgr->isSubsystemReady();
     if(isReady == false)

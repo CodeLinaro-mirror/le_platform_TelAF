@@ -66,12 +66,12 @@ $(TARGETS):
 	@ln -sf $(LEGATO_RELATIVE_PATH)/build ./build
 	$(shell $(GEN_FILE_CONTEXTS))
 	$(call PREBUILD_PA,$(TARGET))
-# $(MAKE) --no-print-directory -C $(TELAF_ROOT)/apps/tools/tafDiagGen -f dgtool.mk $(DGTOOL) DGTOOL_TARGET=$(TARGET)
+	$(MAKE) --no-print-directory -C $(TELAF_ROOT)/apps/tools/tafDiagGen -f dgtool.mk $(DGTOOL) DGTOOL_TARGET=$(TARGET)
 	$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT=$(TELAF_ROOT)
 
 $(UTILITIES):
 	@$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT=$(TELAF_ROOT)
-# @$(MAKE) --no-print-directory -C $(TELAF_ROOT)/apps/tools/tafDiagGen -f dgtool.mk cleanall-venv
+	@$(MAKE) --no-print-directory -C $(TELAF_ROOT)/apps/tools/tafDiagGen -f dgtool.mk cleanall-venv
 	@rm -rf $(TELAF_BUILD)
 	@rm -fr $(SE_FILES) $(SE_MODS)
 	@rm -f simulation/workstation/.check_done

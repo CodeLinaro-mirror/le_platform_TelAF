@@ -34,7 +34,7 @@ apps:
     $TELAF_ROOT/apps/tafMngdServices/Connectivity/tafMngdConnSvc
     $TELAF_ROOT/apps/tafMngdServices/PM/tafMngdPMSvc
     $TELAF_ROOT/apps/tafMngdServices/Storage/tafMngdStorageSvc
-    // $TELAF_ROOT/apps/tafServices/tafDiagSvc
+    $TELAF_ROOT/apps/tafServices/tafDiagSvc
     $TELAF_ROOT/apps/tafServices/tafTimeSvc
     $TELAF_ROOT/apps/tafServices/tafHMSvc
     $TELAF_ROOT/apps/tafServices/tafImuSensorSvc
@@ -43,7 +43,7 @@ apps:
 #if ${LE_CONFIG_DIAG_VSTACK} = y
     $TELAF_ROOT/apps/tafServices/tafDiagBackendSvc
 #endif
-    // $TELAF_ROOT/apps/tafServices/tafDidStoreSvc
+    $TELAF_ROOT/apps/tafServices/tafDidStoreSvc
 
     // IVSS services.
     $TELAF_ROOT/apps/ivss/service/tafIvssTelephonySvc/tafIvssTelephonySvc

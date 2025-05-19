@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -3946,15 +3946,40 @@ void taf_EventSvr::OnClientDisconnection
         {
             //Remove client session reference from event session reference list
             if( diagEvent.RemoveSessionFromEventCtx(eventCtxPtr, sessionRef) == LE_OK)
-                LE_DEBUG("remove event from context, event id %d", eventCtxPtr->eventId);
+                LE_DEBUG("remove client session from context, event id %d", eventCtxPtr->eventId);
 
-            //If session number of links is 0, release event context
+            //If session number of links is 0, release event service reference.
             if( le_dls_NumLinks(&eventCtxPtr->sessionRefList)  == 0)
             {
                 // Clear service object
-                LE_INFO(" clear event id %d context", eventCtxPtr->eventId);
+                LE_INFO(" clear event id %d reference", eventCtxPtr->eventId);
                 le_ref_DeleteRef(diagEvent.SvcRefMap, (void*)eventCtxPtr->svcRef);
                 eventCtxPtr->svcRef = NULL;
+            }
+        }
+    }
+
+    //Find operation cycle context one by one
+    iterRef = le_ref_GetIterator(diagEvent.OperCycleRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_diagEvent_OperCycleCtx_t* opCycleCtxPtr =
+            (taf_diagEvent_OperCycleCtx_t*)le_ref_GetValue(iterRef);
+
+        if (opCycleCtxPtr != NULL)
+        {
+            //Remove client session reference from oc session reference list
+            if( diagEvent.RemoveSessionFromOperCycleCtx(opCycleCtxPtr, sessionRef) == LE_OK)
+                LE_DEBUG("Remove client session from context, OC id %d",
+                        opCycleCtxPtr->operCycleId);
+
+            //If session number of links is 0, release operation cycle reference.
+            if( le_dls_NumLinks(&opCycleCtxPtr->sessionRefList)  == 0)
+            {
+                // Clear service object
+                LE_INFO("Clear operation cycle id %d reference", opCycleCtxPtr->operCycleId);
+                le_ref_DeleteRef(diagEvent.OperCycleRefMap, (void*)opCycleCtxPtr->operCycleRef);
+                opCycleCtxPtr->operCycleRef = NULL;
             }
         }
     }

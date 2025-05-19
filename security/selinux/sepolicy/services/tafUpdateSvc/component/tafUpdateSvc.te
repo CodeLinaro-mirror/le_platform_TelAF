@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafUpdateSvc, 1.0)
@@ -164,3 +164,6 @@ allow telaf_tafUpdateSvc_t syslogd_var_run_t:sock_file { rw_file_perms };
 # Allow access to search and read/write files under /tmp
 allow telaf_tafUpdateSvc_t user_tmp_t:file { rw_file_perms };
 allow telaf_tafUpdateSvc_t user_tmp_t:dir { search_dir_perms };
+
+# Support deprivilege
+allow telaf_tafUpdateSvc_t self:capability { setgid setuid };

@@ -2028,84 +2028,80 @@ void taf_Time::SourceAvailabilityUpdate(le_result_t result, taf_time_TimeSources
     taf_Time& tafTime = taf_Time::GetInstance();
     bool previousAvailablility = (tafTime.PrevSrcAvailabiltyMap >> sourceIndex) & 1;
     taf_SourceInf_t* sourcePtr = tafTime.SearchAvailableSourceInfList(sourceIndex);
-    bool oldValidity = false;
+    TAF_ERROR_IF_RET_NIL(sourcePtr == NULL, "Source reference not found");
+    bool oldValidity = sourcePtr->sourceValidity;
 
-    if (sourcePtr != NULL)
-    {
-        if (result == LE_OK)
-        {
-            sourcePtr->isAvailable = true;
-            tafTime.PrevSrcAvailabiltyMap = tafTime.PrevSrcAvailabiltyMap | (1 << sourceIndex);
-            if
-            (
-                sourcePtr->sourceId != TAF_TIME_SRC_NAME_RTC &&
-                sourcePtr->sourceId != TAF_TIME_SRC_NAME_EX_APP
-            )
-            {
-                oldValidity = sourcePtr->sourceValidity;
-                if(oldValidity != true)
-                {
-                    le_event_QueueFunctionToThread(tafTime.mainThreadRef,
-                        (le_event_DeferredFunc_t)WriteValidtyToSecStorageHandler,
-                        new ValidityParams{sourcePtr, true},
-                        NULL);
-                }
-                sourcePtr->sourceValidity = true;
-            }
-        }
-        else
-        {
-            sourcePtr->isAvailable = false;
-            tafTime.PrevSrcAvailabiltyMap = tafTime.PrevSrcAvailabiltyMap & (~(1 << sourceIndex));
-            if
-            (
-                sourcePtr->sourceId != TAF_TIME_SRC_NAME_RTC &&
-                sourcePtr->sourceId != TAF_TIME_SRC_NAME_EX_APP
-            )
-            {
-                oldValidity = sourcePtr->sourceValidity;
-                if(oldValidity != false)
-                {
-                    le_event_QueueFunctionToThread(tafTime.mainThreadRef,
-                        (le_event_DeferredFunc_t)WriteValidtyToSecStorageHandler,
-                        new ValidityParams{sourcePtr, false},
-                        NULL);
-                }
-                sourcePtr->sourceValidity = false;
-            }
-        }
+      if (result == LE_OK)
+      {
+          sourcePtr->isAvailable = true;
+          tafTime.PrevSrcAvailabiltyMap = tafTime.PrevSrcAvailabiltyMap | (1 << sourceIndex);
+          if
+          (
+              sourcePtr->sourceId != TAF_TIME_SRC_NAME_RTC &&
+              sourcePtr->sourceId != TAF_TIME_SRC_NAME_EX_APP
+          )
+          {
+              if(oldValidity != true)
+              {
+                  le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+                      (le_event_DeferredFunc_t)WriteValidtyToSecStorageHandler,
+                      new ValidityParams{sourcePtr, true},
+                      NULL);
+              }
+              sourcePtr->sourceValidity = true;
+          }
+      }
+      else
+      {
+          sourcePtr->isAvailable = false;
+          tafTime.PrevSrcAvailabiltyMap = tafTime.PrevSrcAvailabiltyMap & (~(1 << sourceIndex));
+          if
+          (
+              sourcePtr->sourceId != TAF_TIME_SRC_NAME_RTC &&
+              sourcePtr->sourceId != TAF_TIME_SRC_NAME_EX_APP
+          )
+          {
+              if(oldValidity != false)
+              {
+                  le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+                      (le_event_DeferredFunc_t)WriteValidtyToSecStorageHandler,
+                      new ValidityParams{sourcePtr, false},
+                      NULL);
+              }
+              sourcePtr->sourceValidity = false;
+          }
+      }
 
-        LE_DEBUG("For source %s: previousAvailablility %d and currentAvailability %d ",
-            SourceNameIndexToStr(sourceIndex), previousAvailablility, sourcePtr->isAvailable);
+      LE_DEBUG("For source %s: previousAvailablility %d and currentAvailability %d ",
+          SourceNameIndexToStr(sourceIndex), previousAvailablility, sourcePtr->isAvailable);
 
-        // Check if time source status is changed or not
-        if (previousAvailablility != sourcePtr->isAvailable)
-        {
-            // Check if a handler is registered for the time source by user
-            if
-            (
-                sourcePtr->handlerFunc != NULL &&
-                (sourcePtr->eventType & TAF_TIME_STATUS_EVENT_AVAILABILITY) != 0
-            )
-            {
-                SourceStatusChange_Event_t evt;
-                evt.sourcePtr = sourcePtr;
-                evt.status = sourcePtr->isAvailable;
-                evt.eventType = TAF_TIME_STATUS_EVENT_AVAILABILITY;
-                le_event_Report(timeSourceStatusEventId, &evt, sizeof(evt));
-            }
-        }
+      // Check if time source status is changed or not
+      if (previousAvailablility != sourcePtr->isAvailable)
+      {
+          // Check if a handler is registered for the time source by user
+          if
+          (
+              sourcePtr->handlerFunc != NULL &&
+              (sourcePtr->eventType & TAF_TIME_STATUS_EVENT_AVAILABILITY) != 0
+          )
+          {
+              SourceStatusChange_Event_t evt;
+              evt.sourcePtr = sourcePtr;
+              evt.status = sourcePtr->isAvailable;
+              evt.eventType = TAF_TIME_STATUS_EVENT_AVAILABILITY;
+              le_event_Report(timeSourceStatusEventId, &evt, sizeof(evt));
+          }
+      }
 
-        if
-        (
-            oldValidity != sourcePtr->sourceValidity &&
-            sourcePtr->handlerFunc != NULL &&
-            (sourcePtr->eventType & TAF_TIME_STATUS_EVENT_VALIDITY) != 0
-        )
-        {
-            ReportValidityChange(sourcePtr);
-        }
-    }
+      if
+      (
+          oldValidity != sourcePtr->sourceValidity &&
+          sourcePtr->handlerFunc != NULL &&
+          (sourcePtr->eventType & TAF_TIME_STATUS_EVENT_VALIDITY) != 0
+      )
+      {
+          ReportValidityChange(sourcePtr);
+      }
 }
 
 void taf_Time::ReportValidityChange(taf_SourceInf_t* sourcePtr)

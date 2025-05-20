@@ -513,6 +513,7 @@ namespace tafsvc {
             taf_locGnss_NmeaBitMask_t mNmeaMask = 0;
             uint8_t mMinSvEle;
             uint64_t TAF_LOCGNSS_NMEA_DEFAULT = 0;
+            std::mutex mtx;
 
         private:
             std::shared_ptr<ILocationConfigurator> mLocationConfigurator = nullptr;

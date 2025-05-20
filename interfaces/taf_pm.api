@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -331,6 +331,8 @@ REFERENCE VMList;
 //--------------------------------------------------------------------------------------------------
 /**
  * State change ConsolidatedAck Info handler.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ConsolidatedAckInfoHandler
@@ -344,6 +346,8 @@ HANDLER ConsolidatedAckInfoHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * ConsolidatedAckInfo event.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 EVENT ConsolidatedAckInfo
@@ -412,11 +416,14 @@ FUNCTION State GetPowerState
 /**
 * Sets the power state to all the Virtual Machines.
 *
+* @b NOTE: This is supported only on SA525M.
+*
+* @instaging
 * @return
 *     - LE_OK          Successfully changed the state of device.
 *     - LE_FAULT       Failed.
 *
-* @b NOTE: This is supported only on SA525M.
+
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAllVMPowerState
@@ -428,11 +435,14 @@ FUNCTION le_result_t SetAllVMPowerState
 /**
 * Sets the power state to the respective Virtual Machine.
 *
+* @b NOTE: This is supported only on SA525M.
+*
+* @instaging
 * @return
 *     - LE_OK          Successfully changed the state of Virtual Machine.
 *     - LE_FAULT       Failed.
 *
-* @b NOTE: This is supported only on SA525M.
+
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetVMPowerState
@@ -445,11 +455,13 @@ FUNCTION le_result_t SetVMPowerState
 /**
  * Gets the list of available Virtual Machines.
  *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
  * @return
  *     - non-null pointer -- The Virtual Machines List reference.
  *     - null pointer -- Internal error.
  *
- * @b NOTE: This is supported only on SA525M.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION VMList GetMachineList
@@ -460,6 +472,7 @@ FUNCTION VMList GetMachineList
 /**
  * Gets the first Virtual Machine name.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameters.
@@ -478,12 +491,14 @@ FUNCTION le_result_t GetFirstMachineName
 /**
  * Gets the next Virtual Machine name based on the current position in the list.
  *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameters.
  *     - LE_NOT_FOUND -- The end of the list.
  *
- * @b NOTE: This is supported only on SA525M.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNextMachineName
@@ -495,6 +510,8 @@ FUNCTION le_result_t GetNextMachineName
 //--------------------------------------------------------------------------------------------------
 /**
  *  Deletes the Vitual Machine list.
+ *
+ * @instaging
  *
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
@@ -513,6 +530,8 @@ FUNCTION le_result_t DeleteMachineList
  *  Receives the acknowledgement from clients for state change.
  *
  * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION SendStateChangeAck
@@ -528,6 +547,8 @@ FUNCTION SendStateChangeAck
  *  Gets the information of nacked clients for a state change.
  *
  * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNackClientInfo
@@ -542,6 +563,8 @@ FUNCTION le_result_t GetNackClientInfo
  *  Gets the information of unresponsive clients for a state change.
  *
  * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetUnrespClientInfo

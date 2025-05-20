@@ -795,7 +795,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     else if(state == TAF_PM_STATE_SHUTDOWN)
     {
         ProcessStateChange(TAF_MNGDPM_STATE_SHUTDOWN);
-        if(powerMode.isShutDown ||  powerMode.isForceful)
+        if(powerMode.isShutDown ||  powerMode.isForceful || powerMode.isGraceful)
         {
             powerStateChange.state = TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE;
             le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));

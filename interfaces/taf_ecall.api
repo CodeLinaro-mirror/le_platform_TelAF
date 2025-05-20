@@ -220,7 +220,7 @@
  * the taf_ecall_ExportMsd() API.
  *
  * @b NOTE: The user application should perform the MSD transmission by using taf_ecall_SendMsd() when the
- * @ref TAF_ECALL_STATE_PSAP_START_RECEIVED event arrives.
+ * @ref TAF_ECALL_STATE_MSD_UPDATE_REQ event arrives.
  * The MSD may be modified before calling taf_ecall_SendMsd() by the e_ecall_ImportMsd() API
  * or the taf_ecall_SetMsdXxx() APIs.
  *

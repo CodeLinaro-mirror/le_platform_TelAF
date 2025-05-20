@@ -524,6 +524,7 @@ void tafECallListener::onECallRedial(int phoneId, ECallRedialInfo info) {
         eCall.SetCallPhoneId(-1);
     }
 
+    eCall.SetECallState(state);
     stateEvent.eCallRef = eCall.GetECallReference();
     stateEvent.state = state;
     le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));

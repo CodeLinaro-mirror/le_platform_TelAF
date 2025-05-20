@@ -1,7 +1,9 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
- */
+*
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+
 
 
 #include "tafMngdStorageSvc.hpp"
@@ -771,7 +773,7 @@ le_result_t tafMngdStorageSvc::WriteDataChunk
 
     TAF_ERROR_IF_RET_VAL(dataPtr->writeOp.clientSessionRef !=
                             taf_mngdStorSecData_GetClientSessionRef(),
-                            LE_UNAVAILABLE,
+                            LE_BUSY,
                             "Data is in writing by another session");
 
     TAF_ERROR_IF_RET_VAL(bufferSize > TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE,
@@ -853,7 +855,7 @@ le_result_t tafMngdStorageSvc::WriteDataEnd
 
     TAF_ERROR_IF_RET_VAL(dataPtr->writeOp.clientSessionRef !=
                             taf_mngdStorSecData_GetClientSessionRef(),
-                            LE_UNAVAILABLE,
+                            LE_BUSY,
                             "Data is in writing by another session");
 
     taf_ks_CryptoSessionRef_t* sessionRefPtr = &(dataPtr->writeOp.sessionRef);
@@ -941,7 +943,7 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
                             "data is in reading process");
 
     TAF_ERROR_IF_RET_VAL(*readSize > TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE,
-                            LE_OVERFLOW,
+                            LE_OUT_OF_RANGE,
                             "Read size %" PRIuS " is larger than the limitation %d",
                             *readSize, TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE);
 
@@ -1135,7 +1137,7 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
         {
             LE_ERROR("Total decrypted data size = %" PRIuS, totalDecryptedSize);
 
-            return LE_OVERFLOW;
+            return LE_OK;
         }
     }
     else
@@ -1181,7 +1183,7 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
 
                 taf_rfs_Close(dataPtr->readOp.outputFd);
 
-                return LE_OVERFLOW;
+                return LE_OK;
             }
             else
             {
@@ -1221,16 +1223,16 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
                             "data is in writing process");
 
     TAF_ERROR_IF_RET_VAL(dataPtr->isInReadingProcess == false,
-                            LE_BUSY,
+                            LE_UNAVAILABLE,
                             "data is not in reading process");
 
     TAF_ERROR_IF_RET_VAL(dataPtr->readOp.clientSessionRef !=
                             taf_mngdStorSecData_GetClientSessionRef(),
-                            LE_UNAVAILABLE,
+                            LE_BUSY,
                             "Data is in reading by another session");
 
     TAF_ERROR_IF_RET_VAL(*readSize > TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE,
-                            LE_OVERFLOW,
+                            LE_OUT_OF_RANGE,
                             "Read size %" PRIuS " is larger than the limitation %d",
                             *readSize, TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE);
 
@@ -1290,7 +1292,7 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
 
             taf_rfs_Close(dataPtr->readOp.outputFd);
 
-            return LE_OVERFLOW;
+            return LE_OK;
         }
         else
         {
@@ -1325,7 +1327,7 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
 
             taf_rfs_Close(dataPtr->readOp.outputFd);
 
-            return LE_OVERFLOW;
+            return LE_OK;
         }
         else
         {

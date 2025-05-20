@@ -118,13 +118,11 @@ static void TestNewSimStateHandler(taf_sim_Id_t simId, taf_sim_States_t simState
         void* contextPtr){
     LE_INFO("New SIM event for SIM card: %d", simId);
     LE_INFO("SIM state: %s", SimStateToString(simState));
-    exit(EXIT_SUCCESS);
 }
 
 static void TestIccidChangeHandler(taf_sim_Id_t simId, const char* Iccid, void* contextPtr) {
     LE_INFO("Iccid Change event for SIM card: %d", simId);
     LE_INFO("ICCID is: %s", (const char*)Iccid);
-    exit(EXIT_SUCCESS);
 }
 
 static void TestAuthenticationResponse

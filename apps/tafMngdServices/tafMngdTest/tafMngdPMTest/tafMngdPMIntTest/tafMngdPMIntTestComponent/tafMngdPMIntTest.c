@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -120,7 +120,9 @@ static void PrintUsage ()
         "------  3   -> ACK_AFTER_TIMEOUT ------------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GracefulSysSuspendWithAckType <ACK_TYPE>\n"
         "------------To Test Refresh Authorized Wake Source Cases-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestRefreshAuthorizedWsCases\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestRefreshAuthorizedWsCases\n"
+        "------------To Test stayawake request during shutdown-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdownAndResume\n");
 }
 
 void NodePowerStateChangeHandlerCB(
@@ -1891,6 +1893,45 @@ void TestNonAuthorizedStayAwake()
     }
 }
 
+static void ForcedSystemShutdownAndResume() //TELAF-3169 [Conti] 07743357 MPMS State Transition Issue: Stay Awake Request During Shutdown
+{
+    LE_INFO("----ForcedSystemShutdown test----");
+    le_result_t result;
+    uint8_t pmNodeId = 0;
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE", pmNodeId);
+
+    result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+            ForcedSystemShutdownCallBack, NULL, TAF_MNGDPM_SHUTDOWN_REASON_NORMAL);
+
+    if(result == LE_OK)
+    {
+         LE_INFO("----ForcedSystemShutdown success----");
+         if(wsRef == NULL)
+             wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+                     TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+         if(wsRef)
+             LE_INFO("CreateWakeupSource for TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL\n");
+
+         if(wsRef != NULL) {
+             result = taf_mngdPm_StayAwake(wsRef);
+             if(result == LE_OK) {
+                 printf("'Resumed sysytem'\n");
+              }
+              else {
+                  LE_INFO("Failed to acquire Wake source");
+              }
+         }
+         else {
+             LE_ERROR("Failed to create wakeup source!");
+         }
+    }
+    else
+    {
+        LE_ERROR("ForcedSystemShutdown request failed");
+        exit(EXIT_FAILURE);
+    }
+}
+
 COMPONENT_INIT
 {
     const char* testType = "";
@@ -2081,6 +2122,10 @@ COMPONENT_INIT
         else if(strcmp(testType, "TestRefreshAuthorizedWsCases") == 0)
         {
             TestAuthorizeWakeSourceCases();
+        }
+        else if(strcmp(testType, "ForcedSystemShutdownAndResume") == 0)
+        {
+            ForcedSystemShutdownAndResume();
         }
         else
         {

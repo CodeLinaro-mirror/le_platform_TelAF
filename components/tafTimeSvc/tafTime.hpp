@@ -681,11 +681,14 @@ struct ValidityParams
                 void ReportValidityChange(taf_SourceInf_t* sourcePtr);
                 le_result_t WriteValidtyToSecStorage(taf_SourceInf_t* sourcePtr, bool newvalidity);
                 le_result_t ReadValidityFromSecStorage(taf_SourceInf_t* sourcePtr, bool* validity);
+                void ReleasePtpDevice(void);
+                void RegisterPtpDevice(void);
                 uint64_t PrevSrcAvailabiltyMap = 0x0;
                 struct SetTimeStatus* SetTimeSt = NULL;
                 NetworkInfoUpdateArgs_t NetworkUpdateInfo1 = {};
                 NetworkInfoUpdateArgs_t NetworkUpdateInfo2 = {};
                 le_thread_Ref_t mainThreadRef = NULL;
+                int sigTermSignalNum = -1;
 
             private:
                 std::shared_ptr<ITimeListener> gnssTimeListener = nullptr;

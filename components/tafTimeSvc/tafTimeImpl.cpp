@@ -2334,7 +2334,7 @@ void taf_Time:: InitTimeSource(void)
     tafTime.SrcPool = le_mem_CreatePool("Available Source Pool", sizeof(taf_SourceInf_t));
 
     tafTime.InitializeSystemTimeAttr();
-    tafTime.gptpTimeRef = taf_gptpTime_CreateRef(TimeSourceConf.gptpDeviceName.c_str());
+    RegisterPtpDevice();
 
     //Populate the available source information
     if (TimeSourceConf.source.size() > 0)
@@ -2385,6 +2385,103 @@ void taf_Time:: InitTimeSource(void)
     tafTime.printSourceInfo();
 }
 
+void taf_Time::ReleasePtpDevice(void)
+{
+    auto &tafTime = taf_Time::GetInstance();
+
+    if(tafTime.gptpTimeRef != NULL)
+    {
+        le_result_t res = taf_gptpTime_DeleteRef(tafTime.gptpTimeRef);
+        if(res == LE_OK)
+        {
+            tafTime.gptpTimeRef = NULL;
+        }
+        else
+        {
+            LE_ERROR("Not able to delete gptp time reference");
+        }
+    }
+}
+
+void taf_Time::RegisterPtpDevice(void)
+{
+    auto &tafTime = taf_Time::GetInstance();
+    LE_INFO("Creating gptpTimeRef");
+
+    if(tafTime.gptpTimeRef == NULL)
+    {
+        tafTime.gptpTimeRef = taf_gptpTime_CreateRef(TimeSourceConf.gptpDeviceName.c_str());
+        if(tafTime.gptpTimeRef == NULL)
+        {
+            LE_WARN("Create gptpTimeRef failed.");
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Signal handler for SIGTERM to clear up the resource.
+ */
+//--------------------------------------------------------------------------------------------------
+static void TafSigTermEventHandler
+(
+    int sigNum
+)
+{
+    auto &tafTime = taf_Time::GetInstance();
+
+    LE_INFO("TafSigTermEventHandler :%d", sigNum);
+
+    tafTime.ReleasePtpDevice();
+
+    if (tafTime.syncTimeTimerRef)
+    {
+        le_timer_Stop(tafTime.syncTimeTimerRef);
+    }
+
+    if (tafTime.sysTimeUdTimerRef)
+    {
+        le_timer_Stop(tafTime.sysTimeUdTimerRef);
+    }
+
+    if (InitNetworkTimeStatus == LE_OK)
+    {
+        InitNetworkTimeStatus = LE_UNAVAILABLE;
+        tafTime.DeregNetworkTimeListener();
+    }
+
+    if (InitGnssTimeStatus == LE_OK)
+    {
+        InitGnssTimeStatus = LE_UNAVAILABLE;
+        tafTime.DeregGnssTimeListener();
+    }
+
+    if(MssConnectStatusMainThread == LE_OK)
+    {
+        LE_INFO("Disconnecting from MSS");
+        MssConnectStatusMainThread = LE_UNAVAILABLE;
+        taf_mngdStorSecData_DisconnectService();
+    }
+}
+
+void DeferSigTermToMainThread(void* param)
+{
+    int* sigNum = (int*) param;
+    TafSigTermEventHandler(*sigNum);
+}
+
+static void TafSigTermEventHandlerForSyncTimeTh
+(
+    int sigNum
+)
+{
+    auto &tafTime = taf_Time::GetInstance();
+    tafTime.sigTermSignalNum = sigNum;
+    LE_INFO("TafSigTermEventHandlerForSyncTimeTh :%d", tafTime.sigTermSignalNum);
+    le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+        (le_event_DeferredFunc_t)DeferSigTermToMainThread,&tafTime.sigTermSignalNum, NULL);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Active time related tasks according to the JSON configuration.
@@ -2395,6 +2492,9 @@ void taf_Time:: InitTimeSource(void)
 //--------------------------------------------------------------------------------------------------
 void *taf_Time::SyncTimeTasks(void* contextPtr)
 {
+     // Setup signal's event handler.
+     le_sig_SetEventHandler(SIGTERM, TafSigTermEventHandlerForSyncTimeTh);
+
     le_result_t regGnssTimeStatus = LE_UNAVAILABLE;
     le_result_t regNetworkTimeStatus = LE_UNAVAILABLE;
     long int interval;
@@ -3087,6 +3187,7 @@ void PowerStateChangeHandler
         {
             tafTime.RegNetworkTimeListener();
         }
+        tafTime.RegisterPtpDevice();
     }
     else if (state == TAF_PM_STATE_SUSPEND)
     {
@@ -3100,6 +3201,7 @@ void PowerStateChangeHandler
         {
             tafTime.DeregGnssTimeListener();
         }
+        tafTime.ReleasePtpDevice();
     }
 }
 
@@ -3852,67 +3954,6 @@ le_result_t taf_Time::SetValidity
     return LE_OK;
 }
 
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Handle safe exiting after releasing all the resources.
- */
-//--------------------------------------------------------------------------------------------------
-static void SafeExitAfterClearUp
-(
-    void* param1Ptr,
-    void* param2Ptr
-)
-{
-    LE_INFO("Clean done, last event exiting....");
-    exit(EXIT_SUCCESS);
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Signal handler for SIGTERM to clear up the resource.
- */
-//--------------------------------------------------------------------------------------------------
-static void TafSigTermEventHandler
-(
-    int sigNum
-)
-{
-    auto &tafTime = taf_Time::GetInstance();
-
-    LE_INFO("TafSigTermEventHandler :%d", sigNum);
-
-    if (tafTime.syncTimeTimerRef)
-    {
-        le_timer_Stop(tafTime.syncTimeTimerRef);
-    }
-
-    if (tafTime.sysTimeUdTimerRef)
-    {
-        le_timer_Stop(tafTime.syncTimeTimerRef);
-    }
-
-    if (InitNetworkTimeStatus == LE_OK)
-    {
-        InitNetworkTimeStatus = LE_UNAVAILABLE;
-        tafTime.DeregNetworkTimeListener();
-    }
-
-    if (InitGnssTimeStatus == LE_OK)
-    {
-        InitGnssTimeStatus = LE_UNAVAILABLE;
-        tafTime.DeregGnssTimeListener();
-    }
-
-    if(MssConnectStatusMainThread == LE_OK)
-    {
-        LE_INFO("Disconnecting from MSS");
-        MssConnectStatusMainThread = LE_UNAVAILABLE;
-        taf_mngdStorSecData_DisconnectService();
-    }
-    le_event_QueueFunction(SafeExitAfterClearUp, NULL, NULL);
-}
-
 /*======================================================================
 
  FUNCTION        taf_Time::Init
@@ -3931,9 +3972,6 @@ static void TafSigTermEventHandler
 void taf_Time::Init(void)
 {
     le_result_t result;
-
-    // Block the signal
-    le_sig_Block(SIGTERM);
 
     // Setup signal's event handler.
     le_sig_SetEventHandler(SIGTERM, TafSigTermEventHandler);

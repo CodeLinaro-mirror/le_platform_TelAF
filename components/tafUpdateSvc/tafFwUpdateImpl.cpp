@@ -1943,6 +1943,13 @@ void taf_FwUpdate::SyncPartition
             for (uint32_t k = 0; k < pages; k++)
             {
                 int errCode = 0;
+                if (tafFwUpdate.pList.partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
+                {
+                    // OOB can not be checked by partition data, MTD should be synced.
+                    isSynced = false;
+                    break;
+                }
+
                 rdSize = TAF_FWUPDATE_FLASH_PAGE_SIZE;
                 le_result_t result1 = taf_lib_flash_ReadPartition(&tafFwUpdate.pList.partition[i],
                     k * TAF_FWUPDATE_FLASH_PAGE_SIZE, dstBuffer, &rdSize, &errCode);
@@ -2094,6 +2101,46 @@ void taf_FwUpdate::SyncPartition
                 for (uint32_t k = 0; k < pages; k++)
                 {
                     int err = 0;
+                    if (tafFwUpdate.pList.partition[j].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
+                    {
+                        bool isErased = false;
+                        result = taf_lib_flash_IsPageErased(&tafFwUpdate.pList.partition[j],
+                            k, &isErased);
+                        if (result != LE_OK)
+                        {
+                            LE_ERROR("Fail to check erased page for partition %s.",
+                               tafFwUpdate.pList.partition[j].name);
+                            result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
+                            if (result != LE_OK)
+                            {
+                                LE_ERROR("Fail to close partition %s.",
+                                    tafFwUpdate.pList.partition[i].name);
+                            }
+
+                            result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
+                            if (result != LE_OK)
+                            {
+                                LE_ERROR("Fail to close partition %s.",
+                                tafFwUpdate.pList.partition[j].name);
+                            }
+
+                            tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                            return;
+                        }
+
+                        if (isErased)
+                        {
+                            LE_INFO("Page %d is erased.", k);
+                            percent = (pageUpdated + pages - 1) * 100 / totalPages;
+                            if (percent != tafFwUpdate.percent)
+                            {
+                                tafFwUpdate.percent = percent;
+                                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
+                            }
+                            break;
+                        }
+                    }
+
                     rdSize = TAF_FWUPDATE_FLASH_PAGE_SIZE;
                     result = taf_lib_flash_ReadPartition(&tafFwUpdate.pList.partition[j],
                         k * TAF_FWUPDATE_FLASH_PAGE_SIZE, srcBuffer, &rdSize, &err);
@@ -3007,6 +3054,36 @@ le_result_t taf_FwUpdate::PerformBankSync
                 }
                 for (uint32_t k = 0; k < pageNum; k++)
                 {
+                    bool isErased = false;
+                    result = taf_lib_flash_IsPageErased(&tafFwUpdate.pList.partition[i],
+                        k, &isErased);
+                    if (result != LE_OK)
+                    {
+                        result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
+                        if (result != LE_OK)
+                        {
+                            LE_ERROR("Fail to close partition %s.",
+                                tafFwUpdate.pList.partition[i].name);
+                        }
+
+                        result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
+                        if (result != LE_OK)
+                        {
+                            LE_ERROR("Fail to close partition %s.",
+                            tafFwUpdate.pList.partition[j].name);
+                        }
+
+                        LE_ERROR("Fail to check erased page for partition %s.",
+                             tafFwUpdate.pList.partition[i].name);
+                        return LE_FAULT;
+                    }
+
+                    if (isErased)
+                    {
+                        LE_INFO("Page %d is erased.", k);
+                        break;
+                    }
+
                     uint8_t data[TAF_FWUPDATE_FLASH_PAGE_SIZE];
                     size_t rdSize = TAF_FWUPDATE_FLASH_PAGE_SIZE;
                     int err = 0;

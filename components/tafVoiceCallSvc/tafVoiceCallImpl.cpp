@@ -28,8 +28,8 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -233,6 +233,26 @@ const char * VoiceCallSvc::EventToString(taf_voicecall_Event_t event)
             retPtr = "ended";
         break;
 
+        case TAF_VOICECALL_EVENT_CALL_END_FAILED:
+            retPtr = "end_failed";
+        break;
+
+        case TAF_VOICECALL_EVENT_CALL_ANSWER_FAILED:
+            retPtr = "answer_failed";
+        break;
+
+        case TAF_VOICECALL_EVENT_CALL_HOLD_FAILED:
+            retPtr = "hold_failed";
+        break;
+
+        case TAF_VOICECALL_EVENT_CALL_RESUME_FAILED:
+            retPtr = "resume_failed";
+        break;
+
+        case TAF_VOICECALL_EVENT_CALL_SWAP_FAILED:
+            retPtr = "swap_failed";
+        break;
+
         default:
         break;
     }
@@ -293,14 +313,14 @@ const char * VoiceCallSvc::TerminationToString(taf_voicecall_CallEndCause_t term
 le_result_t VoiceCallSvc::SendCallEventToClient(taf_VoiceCtrl_t *callCtxPtr)
 {
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_BAD_PARAMETER, "callCtxPtr is null");
-    bool isIncomingCall = false;
+    bool isIncomingCallWaiting = false;
     if ((callCtxPtr->event == TAF_VOICECALL_EVENT_INCOMING) || (callCtxPtr->event == TAF_VOICECALL_EVENT_WAITING))
     {
-        isIncomingCall = true;
+        isIncomingCallWaiting = true;
     }
 
-    // for incoming call, boardcast its events to all sessions if not session is link to this callCtx
-    if ((isIncomingCall == true) && (le_dls_NumLinks(&callCtxPtr->sessionRefList) == 0))
+    // for incoming call, boardcast its events to all sessions
+    if (isIncomingCallWaiting == true)
     {
         LE_DEBUG("link sessionRef to callCtx for incoming call");
         le_dls_Link_t* linkPtr = le_dls_Peek(&SessionCtxList);
@@ -354,7 +374,7 @@ le_result_t VoiceCallSvc::SendCallEventToClient(taf_VoiceCtrl_t *callCtxPtr)
         // if the call have been ended, unlink this session from the call context
         if (callCtxPtr->event == TAF_VOICECALL_EVENT_ENDED)
         {
-            LE_INFO("Unbind sessionRef %p from callCtx %p in ENDED", sessionCtxPtr->sessionRef, callCtxPtr);
+            LE_INFO("Unbind sessionRef %p from callCtx %p: %s in ENDED", sessionCtxPtr->sessionRef, callCtxPtr, callCtxPtr->destId);
             UnsetSessionRefToCallCtx(callCtxPtr, sessionCtxPtr->sessionRef);
         }
     }
@@ -802,7 +822,12 @@ le_result_t VoiceCallSvc::StopCall(taf_voicecall_CallRef_t callRef, le_msg_Sessi
     TAF_ERROR_IF_RET_VAL(callInfoRef == nullptr, LE_FAULT, "Cannot create call reference");
     le_result_t result = taf_pa_voicecall_Stop(callInfoRef, callCallback, callCtxPtr->callRef);
     TAF_ERROR_IF_RET_VAL(taf_pa_voicecall_DeleteReference(callInfoRef) != LE_OK, LE_FAULT,  "Cannot free call reference");
-    if (result != LE_OK)
+    if ((result == LE_DUPLICATE) || (result == LE_NOT_FOUND))
+    {
+        LE_INFO("The call %p has been already stopped previously", callCtxPtr);
+        return LE_OK;
+    }
+    else if (result != LE_OK)
     {
         LE_ERROR("Stop call failed, return value: 0x%x", (uint32_t)result);
         CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
@@ -811,6 +836,7 @@ le_result_t VoiceCallSvc::StopCall(taf_voicecall_CallRef_t callRef, le_msg_Sessi
         le_event_Report(CallEvent, &msgCallEvent, sizeof(CallEvent_t));
         return LE_OK; /* return OK as the error event will be reported by listener */
     }
+
     return LE_OK;
 }
 
@@ -887,9 +913,10 @@ le_result_t VoiceCallSvc::DeleteCall(taf_voicecall_CallRef_t callRef, le_msg_Ses
     taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(CallCtrlRefMap, (void*)callRef);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot found callCtxPtr");
 
-    if ((callCtxPtr->event != TAF_VOICECALL_EVENT_ENDED) || (callCtxPtr->isInProgress == true))
+    if (!((callCtxPtr->event == TAF_VOICECALL_EVENT_ENDED) || (callCtxPtr->event == TAF_VOICECALL_EVENT_CALL_END_FAILED)) ||
+        (callCtxPtr->isInProgress == true))
     {
-        LE_ERROR("Error state: Event(%s) inprogress(%d), cannot delete", EventToString(callCtxPtr->event), callCtxPtr->isInProgress);
+        LE_ERROR("Error state: event(%s) inprogress(%d), cannot delete", EventToString(callCtxPtr->event), callCtxPtr->isInProgress);
         return LE_FAULT;
     }
 
@@ -903,6 +930,9 @@ le_result_t VoiceCallSvc::DeleteCall(taf_voicecall_CallRef_t callRef, le_msg_Ses
     {
         LE_ERROR("SessionRef %p does not bind with callRef %p, skip", sessionRef, callRef);
     }
+
+    size_t refCount = le_mem_GetRefCount(callCtxPtr);
+    LE_INFO("CallRef %p has been used by %ld sessions", callRef, refCount);
 
     le_mem_Release(callCtxPtr);
 

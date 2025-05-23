@@ -1,6 +1,6 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 
@@ -230,6 +230,8 @@ typedef struct
     taf_time_TimeSources_t systemSourceId;       ///< System time source ID.
     taf_time_SourceRef_t ref;                    ///< own reference.
     bool sourceValidity;                         ///< The validity for current time source.
+    bool isSyncedWithStorage;                    ///< The flag to indicate the storage has been touched.
+    bool isSyncedWithSetCmd;                     ///< Indicate the 'SetValidity' API has been called ever.
     int32_t failedLoops = -1;                    ///< Number of loop failure for time source.
     bool isAvailable;
     int8_t timeZone = 0;                         ///< Offset between UTC and local time in units

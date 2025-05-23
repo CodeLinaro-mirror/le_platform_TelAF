@@ -404,6 +404,7 @@ seutil_manage_module_store(telaf_admin_t);
 seutil_manage_file_contexts(telaf_admin_t);
 allow telaf_admin_t semanage_trans_lock_t:file { getattr read lock open };
 allow telaf_admin_t semanage_read_lock_t:file { getattr read lock open };
+auth_read_shadow(telaf_admin_t)
 
 # support system reboot
 allow telaf_admin_domain init_t:file { exec_file_perms };

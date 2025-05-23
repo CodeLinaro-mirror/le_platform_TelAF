@@ -1,8 +1,7 @@
 /*
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 
 #include <iostream>
 #include <string>
@@ -420,6 +419,14 @@ void set_apn_test(const char *testApnStr)
     }
     TC_No += 1;
 
+    // Test Case - Set APN type to unspecified
+    std::cout << "*** ApnTypes to set: TAF_DCS_APN_TYPE_UNSPECIFIED" << endl;
+    result = taf_dcs_SetApnTypes(TestProfileRef, TAF_DCS_APN_TYPE_UNSPECIFIED);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetApnTypes to unspecified - LE_OK");
+    report(LE_OK, result, "taf_dcs_SetApnTypes to unspecified");
+
+    TC_No += 1;
+
     // Test Case - Set APN type back to what was first read
     std::cout << "*** ApnTypes to set: " << apnType << endl;
     result = taf_dcs_SetApnTypes(TestProfileRef, apnType);
@@ -699,7 +706,7 @@ COMPONENT_INIT
             exit(EXIT_FAILURE);
         }
     }
-    else // if no arguements passed in the command line argument
+    else // if no arguments passed in the command line argument
     {
         LE_ERROR("NumberOfArgs: %d", NumberOfArgs);
         std::cout <<"No Parameters passed, provide apn name. Exiting the application"<< endl;

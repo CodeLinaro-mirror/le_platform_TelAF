@@ -1026,7 +1026,6 @@ le_result_t taf_DataProfile::SetApnTypes
     uint8_t slotId;
 
     TAF_ERROR_IF_RET_VAL((profileRef == NULL), LE_BAD_PARAMETER, "profileRef is null");
-    TAF_ERROR_IF_RET_VAL(0 == apnType, LE_BAD_PARAMETER, "0 is not valid apnType");
     taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap,
                                                                                 (void*)profileRef);
     TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
@@ -1044,8 +1043,11 @@ le_result_t taf_DataProfile::SetApnTypes
     }
 
     MapProfileCtxToParams(profileCtxPtr, params);
-    params.apnTypes = apnType;
-
+    params.apnTypes = convertApnTypes(apnType);
+    if (TAF_DCS_APN_TYPE_UNSPECIFIED == apnType)
+    {
+        LE_INFO("APN type is UNSPECIFIED");
+    }
     result = SendProfileModificationReq(slotId, profileId, params);
     if (result != LE_OK)
     {
@@ -1148,6 +1150,54 @@ le_result_t taf_DataProfile::GetTechPreference
     return LE_OK;
 }
 
+/**
+ * Converts taf_dcs_ApnType_t to telux::data::ApnTypes.
+ *
+ * @param taf_dcs_ApnType The taf_dcs_ApnType_t to convert.
+ * @return The converted ApnTypes.
+ */
+ApnTypes taf_DataProfile::convertApnTypes(taf_dcs_ApnType_t taf_dcs_ApnType)
+{
+    if (TAF_DCS_APN_TYPE_UNSPECIFIED == taf_dcs_ApnType)
+    {
+        LE_INFO("taf_dcs_ApnType is UNSPECIFIED");
+        return ApnTypes(TAF_DCS_APN_TYPE_UNSPECIFIED);
+    }
+    ApnTypes apnTypes;
+    for (const auto& pair : taf_dcs_ApnType_to_ApnMaskType) {
+        if (taf_dcs_ApnType & pair.first) {
+            apnTypes.set(apnMaskTypeToIndex.at(pair.second));
+        }
+    }
+    return apnTypes;
+}
+
+/**
+ * Converts telux::data::ApnTypes to taf_dcs_ApnType_t.
+ *
+ * @param apnTypes The ApnTypes to convert.
+ * @return The converted taf_dcs_ApnType_t.
+ */
+taf_dcs_ApnType_t taf_DataProfile::convertApnTypes(const ApnTypes &apnTypes)
+{
+    if (ApnTypes(TAF_DCS_APN_TYPE_UNSPECIFIED) == apnTypes)
+    {
+        LE_INFO("ApnTypes is UNSPECIFIED");
+        return TAF_DCS_APN_TYPE_UNSPECIFIED;
+    }
+    taf_dcs_ApnType_t taf_dcs_ApnType = 0;
+    for (size_t i = 0; i < apnTypes.size(); ++i) {
+        if (apnTypes.test(i)) {
+            for (const auto& pair : apnMaskTypeToIndex) {
+                if (pair.second == static_cast<int>(i)) {
+                    taf_dcs_ApnType |= ApnMaskType_to_taf_dcs_ApnType.at(pair.first);
+                }
+            }
+        }
+    }
+    return taf_dcs_ApnType;
+}
+
 le_result_t taf_DataProfile::MapProfileCtxToParams(taf_dcs_ProfileCtx_t *ctxPtr, telux::data::ProfileParams &params)
 {
     params.profileName = ctxPtr->info.name;
@@ -1157,7 +1207,7 @@ le_result_t taf_DataProfile::MapProfileCtxToParams(taf_dcs_ProfileCtx_t *ctxPtr,
     params.apn = ctxPtr->apn;
     params.userName = ctxPtr->authUsername;
     params.password = ctxPtr->authPassword;
-
+    params.apnTypes = convertApnTypes(ctxPtr->apnType);
     return LE_OK;
 }
 

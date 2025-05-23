@@ -453,11 +453,13 @@ BITMASK Auth
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The APN type mask.
+ * The APN type mask. Clients can specify TAF_DCS_APN_TYPE_UNSPECIFIED and indicate that APN
+ * type is not specified.
  */
 //--------------------------------------------------------------------------------------------------
 BITMASK ApnType
 {
+    APN_TYPE_UNSPECIFIED = 0,               ///< APN type is not specified.
     APN_TYPE_DEFAULT,                       ///< APN type for default/internet traffic.
     APN_TYPE_IMS,                           ///< APN type for the IP multimedia subsystem.
     APN_TYPE_MMS,                           ///< APN type for the multimedia messaging service.

@@ -39,4 +39,6 @@ allow telaf_tafDiagSvc_t proc_t:file {read_file_perms};
 # /data/diag
 allow telaf_tafDiagSvc_t data_t:dir {relabelfrom};
 
+allow telaf_tafDiagSvc_t self:capability2 { mac_admin };
+
 unconfined_domain(telaf_tafDiagSvc_t)

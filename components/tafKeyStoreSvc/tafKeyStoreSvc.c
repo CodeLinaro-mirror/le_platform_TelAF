@@ -255,6 +255,13 @@ static le_event_Id_t KeyEventId;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Timer used to for PA initialization.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_timer_Ref_t InitTimer;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Check if the string follows POSIX file name format. It only contains character in [A-Za-z0-9._-].
  */
 //--------------------------------------------------------------------------------------------------
@@ -295,7 +302,7 @@ static taf_ks_Key_t* SearchProvisionedKey
             (keyPtr->keyType == KS_PROVISIONED_KEY) &&
             (keyPtr->proKey.keyFileRef == keyFileRef))
         {
-            LE_INFO("Found a provisioned key(%p) for key file(%p).",
+            LE_DEBUG("Found a provisioned key(%p) for key file(%p).",
                     keyPtr->keyRef, keyPtr->proKey.keyFileRef);
 
             return keyPtr;
@@ -325,7 +332,7 @@ static taf_ks_Key_t* SearchNewKey
             (keyPtr->newKey.clientSessionRef == taf_ks_GetClientSessionRef()) &&
             (0 == strcmp(keyId, keyPtr->newKey.keyId)))
         {
-            LE_INFO("Found a new key(%p) for keyId '%s' of client(%p).", keyPtr->keyRef, keyId,
+            LE_DEBUG("Found a new key(%p) for keyId '%s' of client(%p).", keyPtr->keyRef, keyId,
                     keyPtr->newKey.clientSessionRef);
 
             return keyPtr;
@@ -361,7 +368,7 @@ static void SetTag
             if (tagPtr->id == setTagPtr->id)
             {
                 // Remove the old tag from the tagList of the new key.
-                LE_INFO("Remove old tag(%u) for new keyId '%s'.",
+                LE_WARN("Remove old tag(%u) for new keyId '%s'.",
                         tagPtr->id, keyPtr->newKey.keyId);
                 le_dls_Remove(&(keyPtr->newKey.tagList), &(tagPtr->link));
 
@@ -379,7 +386,7 @@ static void SetTag
         }
 
         // Create a new tag with sepcified id/value for the new key.
-        LE_INFO("Add tag(%u) for new keyId '%s' for client(%p).",
+        LE_DEBUG("Add tag(%u) for new keyId '%s' for client(%p).",
                 setTagPtr->id, keyPtr->newKey.keyId,
                 keyPtr->newKey.clientSessionRef);
 
@@ -414,7 +421,7 @@ static void SetParam
             if (paramPtr->id == setParamPtr->id)
             {
                 // Remove the parameter from the paramList for the session.
-                LE_INFO("Remove old param(%u) for crypto session(%p) of key(%p).",
+                LE_WARN("Remove old param(%u) for crypto session(%p) of key(%p).",
                         paramPtr->id, sessionPtr->cryptoSessionRef, sessionPtr->keyRef);
                 le_dls_Remove(&(sessionPtr->paramList), &(paramPtr->link));
 
@@ -427,6 +434,9 @@ static void SetParam
 
                     case TAF_PA_KS_PARAM_APPLICATION_DATA:
                         le_mem_Release(paramPtr->appDataPtr);
+                        break;
+
+                    case TAF_PA_KS_PARAM_RSA_PADDING_TYPE:
                         break;
 
                     default:
@@ -442,7 +452,7 @@ static void SetParam
         }
 
         // Create a new parameter with sepcified id/value for the session.
-        LE_INFO("Add parameter(%u) for crypto session(%p) of key(%p).",
+        LE_DEBUG("Add parameter(%u) for crypto session(%p) of key(%p).",
                 setParamPtr->id, sessionPtr->cryptoSessionRef, sessionPtr->keyRef);
 
         // Add the paramter into the paramList of the session
@@ -470,7 +480,7 @@ static void ClearTagList
         {
             tagPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Tag_t, link);
 
-            LE_INFO("Removed the tag(%u) of new Key ID '%s'.",
+            LE_DEBUG("Removed the tag(%u) of new Key ID '%s'.",
                     tagPtr->id, keyPtr->newKey.keyId);
             // Release the tag object
             if ((tagPtr->id == TAF_PA_KS_TAG_APPLICATION_DATA) && (tagPtr->appDataPtr != NULL))
@@ -505,7 +515,7 @@ static void ClearParamList
         {
             paramPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Param_t, link);
 
-            LE_INFO("Removed the param(%u) for crypto session(%p) of key(%p)",
+            LE_DEBUG("Removed the param(%u) for crypto session(%p) of key(%p)",
                     paramPtr->id, sessionPtr->cryptoSessionRef, sessionPtr->keyRef);
             // Free the sub parameter.
             switch(paramPtr->id)
@@ -516,6 +526,9 @@ static void ClearParamList
 
                 case TAF_PA_KS_PARAM_APPLICATION_DATA:
                     le_mem_Release(paramPtr->appDataPtr);
+                    break;
+
+                case TAF_PA_KS_PARAM_RSA_PADDING_TYPE:
                     break;
 
                 default:
@@ -555,7 +568,8 @@ static void RemoveCryptoSession
         ClearParamList(sessionPtr);
 
         // Delete the sessionRef and free the session.
-        LE_INFO("Deleted the crypto session(%p)", sessionPtr->cryptoSessionRef);
+        LE_DEBUG("Deleted the crypto session(%p) for provisioned key(%p).",
+                sessionPtr->cryptoSessionRef, sessionPtr->keyRef);
 
         le_ref_DeleteRef(CryptoSessionRefMap, sessionPtr->cryptoSessionRef);
         le_mem_Release(sessionPtr);
@@ -586,7 +600,7 @@ static void ClearCryptoSessionList
             linkPtr = le_dls_Pop(&(keyPtr->proKey.cryptoSessionList));
         }
 
-        LE_INFO("Cleared crypto session list of key(%p)", keyPtr->keyRef);
+        LE_DEBUG("Cleared crypto session list of key(%p)", keyPtr->keyRef);
     }
 }
 
@@ -1164,7 +1178,7 @@ le_result_t taf_ks_CreateKey
         taf_ks_Key_t* keyPtr = SearchProvisionedKey(keyFileRef);
         if (keyPtr != NULL)
         {
-            LE_INFO("An obselete provisioned key(%p) deleted.", keyPtr->keyRef);
+            LE_WARN("An obselete provisioned key(%p) deleted.", keyPtr->keyRef);
 
             ClearCryptoSessionList(keyPtr);
             ClearSharedAppList(keyPtr);
@@ -1268,13 +1282,13 @@ le_result_t taf_ks_GetKey
 
     if (ownerAppPtr != NULL)
     {
-        LE_INFO("Get keyId('%s') of app('%s').", keyIdPtr, ownerAppPtr);
+        LE_DEBUG("Get keyId('%s') of app('%s').", keyIdPtr, ownerAppPtr);
         result = taf_pa_ks_GetSharedKey(clientSessionRef, keyIdPtr, ownerAppPtr, &keyFileRef);
     }
     else
     {
         // Get the key file of our own key.
-        LE_INFO("Get keyId('%s').", keyIdPtr);
+        LE_DEBUG("Get keyId('%s').", keyIdPtr);
         result = taf_pa_ks_GetKey(clientSessionRef, keyIdPtr, &keyFileRef);
     }
 
@@ -1309,7 +1323,7 @@ le_result_t taf_ks_GetKey
         keyPtr = SearchProvisionedKey(keyFileRef);
         if (keyPtr != NULL)
         {
-            LE_INFO("An obselete provisioned key(%p) deleted.", keyPtr->keyRef);
+            LE_WARN("An obselete provisioned key(%p) deleted.", keyPtr->keyRef);
 
             ClearCryptoSessionList(keyPtr);
             ClearSharedAppList(keyPtr);
@@ -2615,8 +2629,8 @@ le_result_t taf_ks_CryptoSessionCreate
     le_dls_Queue(&(keyPtr->proKey.cryptoSessionList), &(sessionPtr->link));
     *sessionRefPtr = sessionPtr->cryptoSessionRef;
 
-    LE_INFO("A new crypto session(%p) for provisioned key(%p) created.",
-            sessionPtr, keyPtr->keyRef);
+    LE_DEBUG("A new crypto session(%p) for provisioned key(%p) created.",
+            sessionPtr->cryptoSessionRef, keyPtr->keyRef);
     return LE_OK;
 }
 
@@ -2680,6 +2694,70 @@ le_result_t taf_ks_CryptoSessionSetAesNonce
 
     memcpy(newParamPtr->nonceDataPtr->data, dataPtr, dataSize);
     newParamPtr->nonceDataPtr->size = dataSize;
+    SetParam(sessionPtr, newParamPtr);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the general padding type used for a RSA signing/verification cryptographic session.
+ * By default RSA_PKCS1_V15 is used.
+ *
+ * This API must be called before taf_ks_CryptoSessionStart().
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameters.
+ *     - LE_NOT_FOUND -- Session does not exist.
+ *     - LE_NOT_PERMITTED -- Session is already started or calling application is not session owner.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_ks_CryptoSessionSetRsaPadding
+(
+    taf_ks_CryptoSessionRef_t sessionRef,
+        ///< [IN] [IN] Session reference for a RSA signing key.
+    taf_ks_RsaPaddingType_t paddingType
+        ///< [IN] [IN] General padding type.
+)
+{
+    taf_ks_CryptoSession_t* sessionPtr = NULL;
+    taf_ks_Key_t* keyPtr = NULL;
+
+    if ((paddingType != TAF_KS_RSA_PKCS1_V15) && (paddingType != TAF_KS_RSA_PSS))
+    {
+        LE_ERROR("Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    sessionPtr = le_ref_Lookup(CryptoSessionRefMap, sessionRef);
+    if (sessionPtr == NULL)
+    {
+        LE_ERROR("Session is not found.");
+        return LE_NOT_FOUND;
+    }
+
+    keyPtr = le_ref_Lookup(KeyRefMap, sessionPtr->keyRef);
+    if (keyPtr == NULL)
+    {
+        LE_ERROR("key is not found.");
+        return LE_NOT_FOUND;
+    }
+
+    // Check if it's a provisioned key, only provisioned key is allowed.
+    if ((keyPtr->keyType != KS_PROVISIONED_KEY) ||
+        (sessionPtr->clientSessionRef != taf_ks_GetClientSessionRef()))
+    {
+        LE_ERROR("Not permitted.");
+        return LE_NOT_PERMITTED;
+    }
+
+    taf_pa_ks_Param_t* newParamPtr = le_mem_ForceAlloc(ParamPool);
+    memset(newParamPtr, 0, sizeof(taf_pa_ks_Param_t));
+
+    newParamPtr->id = TAF_PA_KS_PARAM_RSA_PADDING_TYPE;
+    newParamPtr->rsaPaddingType = paddingType;
+
     SetParam(sessionPtr, newParamPtr);
 
     return LE_OK;
@@ -3125,6 +3203,50 @@ le_result_t taf_ks_CryptoSessionAbort
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * The handler for PA initialization check.
+ */
+//--------------------------------------------------------------------------------------------------
+static void InitTimerHandler
+(
+    le_timer_Ref_t timerRef
+)
+{
+    static uint8_t Count = 0;
+
+    le_result_t result = taf_pa_ks_Init();
+    if (result == LE_OK)
+    {
+        LE_INFO("Telaf keyStore Service initialized (count=%d).", Count);
+
+        // Advertise the service.
+        taf_ks_AdvertiseService();
+
+        // Set session close handlers.
+        le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(), RemoveNewKeysForClient, NULL);
+        le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(), RemoveCryptoSessionsForClient, NULL);
+        le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(), RemoveAppListsForClient, NULL);
+
+        le_timer_Delete(timerRef);
+        InitTimer = NULL;
+
+        return;
+    }
+
+    if ((result == LE_IO_ERROR) && (Count++ < 10))
+    {
+        LE_WARN("Continue for service initialization (count=%d).", Count);
+    }
+    else
+    {
+        le_timer_Delete(timerRef);
+        InitTimer = NULL;
+
+        LE_FATAL("Service initialization failed.");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * The keyStore daemon's initialization function.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3157,7 +3279,8 @@ COMPONENT_INIT
     taf_pa_ks_RegKeyCreationHandler(KeyCreationPAHandler);
     taf_pa_ks_RegKeySharingHandler(KeySharingPAHandler);
 
-    if (LE_OK == taf_pa_ks_Init())
+    le_result_t result = taf_pa_ks_Init();
+    if (LE_OK == result)
     {
         // Advertise the service.
         taf_ks_AdvertiseService();
@@ -3169,40 +3292,18 @@ COMPONENT_INIT
 
         LE_INFO("Telaf keyStore Service initialized.");
     }
+    else if (LE_IO_ERROR == result)
+    {
+        // keyMaster initialization failed, start a timer for later initialization.
+        InitTimer = le_timer_Create("InitTimer");
+        le_timer_SetMsInterval(InitTimer, 1000);
+        le_timer_SetHandler(InitTimer, InitTimerHandler);
+        le_timer_SetRepeat(InitTimer, 0); // repeat indefinitely
+        le_timer_SetWakeup(InitTimer, false); // Non-wakeup
+        le_timer_Start(InitTimer);
+    }
     else
     {
-        int retry = 0;
-        while(retry < 30)
-        {
-            sleep(1);
-            if(LE_OK == taf_pa_ks_Init())
-            {
-                LE_INFO("taf_pa_ks_Init successful");
-                // Advertise the service.
-                taf_ks_AdvertiseService();
-
-                // Set session close handlers.
-                le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(),
-                        RemoveNewKeysForClient, NULL);
-                le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(),
-                        RemoveCryptoSessionsForClient, NULL);
-                le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(),
-                        RemoveAppListsForClient, NULL);
-
-                LE_INFO("Telaf keyStore Service initialized with retry count %d.", retry++);
-                break;
-            }
-            else
-            {
-                LE_ERROR("taf_pa_ks_Init failed try again");
-            }
-            retry++;
-            LE_INFO("Retry count %d", retry);
-        }
-        if(retry == 30)
-        {
-            LE_FATAL("taf_pa_ks_Init() failed.");
-        }
-
+        LE_FATAL("taf_pa_ks_Init() failed.");
     }
 }

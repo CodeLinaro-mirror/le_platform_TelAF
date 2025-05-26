@@ -19,6 +19,141 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Paddings for RSA signing/verification.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    NO_PADDING,
+    PKCS_V15_PADDING,
+    PSS_PADDING,
+}
+RsaPadding_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Paddings for RSA signing/verification.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    DIGEST_MD5,
+    DIGEST_SHA1,
+    DIGEST_SHA2_224,
+    DIGEST_SHA2_256,
+    DIGEST_SHA2_384,
+    DIGEST_SHA2_512,
+}
+Digest_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Tests for key management APIs.
+ */
+//--------------------------------------------------------------------------------------------------
+__attribute__((unused)) static le_result_t OpensslVerifySignature
+(
+    const uint8_t* messagePtr,
+    size_t messageSize,
+    const uint8_t* pubKeyDataPtr,
+    size_t pubKeyDataSize,
+    const uint8_t* signaturePtr,
+    size_t signatureSize,
+    Digest_t digest,
+    RsaPadding_t padding
+)
+{
+    // Check parameter.
+    if ((messagePtr == NULL) || (pubKeyDataPtr == NULL) || (signaturePtr == NULL) ||
+        (messageSize == 0) || (pubKeyDataSize == 0) || (signatureSize == 0))
+    {
+        LE_ERROR("Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    // Check digest.
+    const EVP_MD* method = NULL;
+    switch (digest)
+    {
+        case DIGEST_MD5:
+            method = EVP_md5();
+            break;
+        case DIGEST_SHA1:
+            method = EVP_sha1();
+            break;
+        case DIGEST_SHA2_224:
+            method = EVP_sha224();
+            break;
+        case DIGEST_SHA2_256:
+            method = EVP_sha256();
+            break;
+        case DIGEST_SHA2_384:
+            method = EVP_sha384();
+            break;
+        case DIGEST_SHA2_512:
+            method = EVP_sha512();
+            break;
+        default:
+            LE_ERROR("unknown digest(%d).", digest);
+            return LE_FAULT;
+            break;
+    }
+
+    // Import a x.509 public key and get the Openssl pubKey object.
+    const uint8_t* expDataPtr = pubKeyDataPtr;
+    EVP_PKEY* evpPubKey = d2i_PUBKEY(NULL, &expDataPtr, pubKeyDataSize);
+    if (evpPubKey == NULL)
+    {
+        LE_ERROR("Failed to import the RSA public key to OpenSSL key object.");
+        return LE_FAULT;
+    }
+
+    // Create an openssl context for verification.
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if(ctx == NULL)
+    {
+        LE_ERROR("ctx is NULL");
+        EVP_PKEY_free(evpPubKey);
+        return LE_FAULT;
+    }
+
+    // Create a key context for setting the PSS padding.
+    EVP_PKEY_CTX *pKeyCtx= NULL;
+    EVP_DigestVerifyInit(ctx, &pKeyCtx, method, NULL, evpPubKey);
+
+    // Set RSA-PSS padding if required.
+    if (padding == PSS_PADDING)
+    {
+        if ((EVP_PKEY_CTX_set_rsa_padding(pKeyCtx, RSA_PKCS1_PSS_PADDING) <= 0) ||
+            (EVP_PKEY_CTX_set_rsa_pss_saltlen(pKeyCtx, -1) <= 0))
+        {
+            LE_ERROR("Failed to set RSA-PSS padding.");
+            EVP_PKEY_free(evpPubKey);
+            EVP_MD_CTX_free(ctx);
+            return LE_FAULT;
+        }
+    }
+
+    int err = 0;
+    if(EVP_DigestVerifyUpdate(ctx, messagePtr, messageSize) == 1)
+    {
+        err = EVP_DigestVerifyFinal(ctx, signaturePtr, signatureSize);
+    }
+
+    EVP_MD_CTX_free(ctx);
+    EVP_PKEY_free(evpPubKey);
+
+    if (err != 1)
+    {
+        LE_ERROR("Verification failed.");
+        return LE_FAULT;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Tests for key management APIs.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1501,13 +1636,13 @@ __attribute__((unused)) static void RsaKeyExportTest(void)
     const char keyId[] = "rsaExportKeySigningTest";
     taf_ks_KeyRef_t keyRef;
     taf_ks_CryptoSessionRef_t sessionRef;
-    const uint8_t message[] =
-        "Keystore service export RSA key Signing Verification test message.";
+    uint8_t message[] = "Keystore service export RSA key Signing Verification test message.";
     uint8_t signature[TAF_KS_MAX_PACKET_SIZE] = { 0 };
     size_t signatureSize = sizeof(signature);
     uint8_t expKeyData[TAF_KS_MAX_PACKET_SIZE] = { 0 };
     size_t expKeySize = sizeof(expKeyData);
 
+    // Get a RSA signing key.
     if (LE_NOT_FOUND == taf_ks_GetKey(keyId, &keyRef))
     {
         LE_TEST_ASSERT(LE_OK == taf_ks_CreateKey(keyId, TAF_KS_RSA_SIGN_VERIFY, &keyRef),
@@ -1518,6 +1653,11 @@ __attribute__((unused)) static void RsaKeyExportTest(void)
                                                 NULL, 0);
         LE_TEST_ASSERT(LE_OK == result, "Test RSA export signing key value provision.");
     }
+
+    // Export the RSA pub key.
+    result = taf_ks_ExportKey(keyRef, NULL, 0, expKeyData, &expKeySize);
+    LE_TEST_ASSERT(LE_OK == result, "Test export RSA public key with X.509 format.");
+    LE_INFO("x.509 public key size = %"PRIuS"", expKeySize);
 
     LE_TEST_ASSERT(LE_OK == taf_ks_CryptoSessionCreate(keyRef, &sessionRef),
                    "Test session creation.");
@@ -1535,73 +1675,120 @@ __attribute__((unused)) static void RsaKeyExportTest(void)
                                      &signatureSize);
     LE_TEST_ASSERT(LE_OK == result, "Test signature size = %"PRIuS".", signatureSize);
 
-    // Export the RSA signing key.
+    // Verify with correct pub key.
+    LE_TEST_ASSERT(LE_OK == OpensslVerifySignature(message, sizeof(message), expKeyData, expKeySize,
+                   signature, signatureSize, DIGEST_MD5, PKCS_V15_PADDING),
+                   "Verify with correct pub key.");
+
+    // Verify with wrong pub key.
+    memset(expKeyData, 0, sizeof(expKeyData));
+    LE_TEST_ASSERT(LE_OK != OpensslVerifySignature(message, sizeof(message), expKeyData, expKeySize,
+                   signature, signatureSize, DIGEST_MD5, PKCS_V15_PADDING),
+                   "Verify with wrong pub key.");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * RSA multiple padding test
+ */
+//--------------------------------------------------------------------------------------------------
+__attribute__((unused)) static void RsaMultiPaddingTest(void)
+{
+    le_result_t result;
+    const char keyId[] = "rsaMultiPaddingTest";
+    taf_ks_KeyRef_t keyRef;
+    taf_ks_CryptoSessionRef_t sessionRef;
+    uint8_t message[] = "Keystore service RSA multiple padding test message.";
+    uint8_t signature[TAF_KS_MAX_PACKET_SIZE] = { 0 };
+    size_t signatureSize = sizeof(signature);
+    uint8_t expKeyData[TAF_KS_MAX_PACKET_SIZE] = { 0 };
+    size_t expKeySize = sizeof(expKeyData);
+
+    // Get RSA multiple padding test key.
+    if (LE_NOT_FOUND == taf_ks_GetKey(keyId, &keyRef))
+    {
+        LE_TEST_ASSERT(LE_OK == taf_ks_CreateKey(keyId, TAF_KS_RSA_SIGN_VERIFY, &keyRef),
+                       "Test RSA multiple padding key creation");
+        result = taf_ks_ProvisionRsaSigKeyValue(keyRef,
+                                                TAF_KS_RSA_SIZE_4096,
+                                                TAF_KS_RSA_SIG_PAD_PKCS1_V15_AND_PSS_SHA2_512,
+                                                NULL, 0);
+        LE_TEST_ASSERT(LE_OK == result, "Test RSA multiple padding  key value provision.");
+    }
+
+    // Export the RSA pub key.
     result = taf_ks_ExportKey(keyRef, NULL, 0, expKeyData, &expKeySize);
     LE_TEST_ASSERT(LE_OK == result, "Test export RSA public key with X.509 format.");
     LE_INFO("x.509 public key size = %"PRIuS"", expKeySize);
 
-    // Verify the signature using the OpenSSL APIs.
-    uint8_t md5Digest[EVP_MAX_MD_SIZE] = {0};
-    const uint8_t* expDataPtr = expKeyData;
+    // Create a RSA-PSS signing session.
+    LE_TEST_ASSERT(LE_OK == taf_ks_CryptoSessionCreate(keyRef, &sessionRef),
+                   "Test RSA-PSS session creation.");
+    LE_TEST_ASSERT(LE_OK == taf_ks_CryptoSessionSetRsaPadding(sessionRef, TAF_KS_RSA_PSS),
+                   "Test RSA-PSS padding.");
+    LE_TEST_ASSERT(LE_OK == taf_ks_CryptoSessionStart(sessionRef, TAF_KS_CRYPTO_SIGN),
+                   "Test start RSA-PSS session for data signing.");
+    result = taf_ks_CryptoSessionProcess(sessionRef,
+                                         message,
+                                         sizeof(message),
+                                         NULL, 0);
+    LE_TEST_ASSERT(LE_OK == result,
+                   "Message to RSA-PSS sign(size = %"PRIuS"): %s", sizeof(message), message);
+    result = taf_ks_CryptoSessionEnd(sessionRef,
+                                     NULL, 0,
+                                     signature,
+                                     &signatureSize);
+    LE_TEST_ASSERT(LE_OK == result, "Test RSA-PSS signature size = %"PRIuS".", signatureSize);
 
-    // Import a x.509 public key.
-    EVP_PKEY* evpPubKey = d2i_PUBKEY(NULL, &expDataPtr, expKeySize);
-    LE_TEST_ASSERT(evpPubKey != NULL, "Test import the RSA public key to OpenSSL key object.");
+    // Verify with wrong padding.
+    LE_TEST_ASSERT(LE_OK != OpensslVerifySignature(message, sizeof(message), expKeyData, expKeySize,
+                   signature, signatureSize, DIGEST_SHA2_512, PKCS_V15_PADDING),
+                   "Verify with wrong padding.");
+    // Verify with wrong digest.
+    LE_TEST_ASSERT(LE_OK != OpensslVerifySignature(message, sizeof(message), expKeyData, expKeySize,
+                   signature, signatureSize, DIGEST_SHA2_256, PSS_PADDING),
+                   "Verify with wrong digest.");
+    // Verify with correct padding and digest.
+    LE_TEST_ASSERT(LE_OK == OpensslVerifySignature(message, sizeof(message), expKeyData, expKeySize,
+                   signature, signatureSize, DIGEST_SHA2_512, PSS_PADDING),
+                   "Verify with correct padding and digest.");
 
-    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-    if(ctx == NULL)
-    {
-        LE_ERROR("ctx is NULL");
-        return;
-    }
 
-    const EVP_MD* method = EVP_md5();
+    // Create a RSA-PCKS1-V1.5 signing session.
+    memset(signature, 0, sizeof(signature));
+    signatureSize = sizeof(signature);
+    LE_TEST_ASSERT(LE_OK == taf_ks_CryptoSessionCreate(keyRef, &sessionRef),
+                   "Test RSA-PKCS1_V15 session creation.");
 
-    EVP_DigestInit_ex(ctx, method, NULL);
-    EVP_DigestUpdate(ctx, message, sizeof(message));
-    EVP_DigestFinal_ex(ctx, md5Digest, NULL);
-    EVP_MD_CTX_free(ctx);
+    LE_TEST_ASSERT(LE_OK == taf_ks_CryptoSessionSetRsaPadding(sessionRef, TAF_KS_RSA_PKCS1_V15),
+                   "Test RSA-PKCS1_V15 padding.");
 
-    ctx = EVP_MD_CTX_new();
-    if(ctx == NULL)
-    {
-        LE_ERROR("ctx is NULL");
-        return;
-    }
+    LE_TEST_ASSERT(LE_OK == taf_ks_CryptoSessionStart(sessionRef, TAF_KS_CRYPTO_SIGN),
+                   "Test start RSA-PKCS1_V15 session for data signing.");
+    result = taf_ks_CryptoSessionProcess(sessionRef,
+                                         message,
+                                         sizeof(message),
+                                         NULL, 0);
+    LE_TEST_ASSERT(LE_OK == result,
+                   "Message to RSA-PKCS1_V15 sign(size = %"PRIuS"): %s", sizeof(message), message);
+    result = taf_ks_CryptoSessionEnd(sessionRef,
+                                     NULL, 0,
+                                     signature,
+                                     &signatureSize);
+    LE_TEST_ASSERT(LE_OK == result, "Test RSA-PKCS1_V15 signature size = %"PRIuS".", signatureSize);
 
-    method = EVP_md5();
-
-    EVP_DigestVerifyInit(ctx, NULL, method, NULL, evpPubKey);
-    int err = 0;
-    if(EVP_DigestVerifyUpdate(ctx, message, sizeof(message)) == 1)
-    {
-        err = EVP_DigestVerifyFinal(ctx, signature, signatureSize);
-    }
-    EVP_MD_CTX_free(ctx);
-
-    LE_TEST_ASSERT(err == 1, "Verify the signature with OpenSSL API.");
-
-    memset(signature, 0, signatureSize);
-
-    ctx = EVP_MD_CTX_new();
-    if(ctx == NULL)
-    {
-        LE_ERROR("ctx is NULL");
-        return;
-    }
-
-    method = EVP_md5();
-
-    EVP_DigestVerifyInit(ctx, NULL, method, NULL, evpPubKey);
-    err = 0;
-    if(EVP_DigestVerifyUpdate(ctx, message, sizeof(message)) == 1)
-    {
-        err = EVP_DigestVerifyFinal(ctx, signature, signatureSize);
-    }
-    EVP_MD_CTX_free(ctx);
-    EVP_PKEY_free(evpPubKey);
-
-    LE_TEST_ASSERT(err != 1, "Verify wrong signature with OpenSSL API.");
+    // Verify with wrong padding.
+    LE_TEST_ASSERT(LE_OK != OpensslVerifySignature(message, sizeof(message), expKeyData, expKeySize,
+                   signature, signatureSize, DIGEST_SHA2_512, PSS_PADDING),
+                   "Verify with wrong padding.");
+    // Verify with wrong digest.
+    LE_TEST_ASSERT(LE_OK != OpensslVerifySignature(message, sizeof(message), expKeyData, expKeySize,
+                   signature, signatureSize, DIGEST_SHA2_224, PKCS_V15_PADDING),
+                   "Verify with wrong digest.");
+    // Verify with correct padding and digest.
+    LE_TEST_ASSERT(LE_OK == OpensslVerifySignature(message, sizeof(message), expKeyData, expKeySize,
+                   signature, signatureSize, DIGEST_SHA2_512, PKCS_V15_PADDING),
+                   "Verify with correct padding and digest.");
 }
 
 COMPONENT_INIT
@@ -1613,6 +1800,7 @@ COMPONENT_INIT
     KeyManagementTest();       // Basic key management API test
     RsaEncTest();              // RSA Encryption/Decryption test
     RsaSigTest();              // RSA signing/verfication test
+    RsaMultiPaddingTest();     // RSA multiple padding test
     EcdsaSigTest();            // ECDSA signing/verfication test
     HmacSigTest();             // HMAC signing/verification test
     AesEcbTest();              // AES ECB test

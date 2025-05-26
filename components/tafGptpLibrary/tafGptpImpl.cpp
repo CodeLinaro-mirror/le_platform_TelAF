@@ -31,11 +31,8 @@ le_ref_MapRef_t GptpTimeRefMap;
 int ifindex = 0;
 bool isPTPDevDown = false;
 int sockfd = -1;
-le_fdMonitor_Ref_t monitorRef = NULL;
+le_fdMonitor_Ref_t netlinkMonitorRef = NULL;
 int clientRefCount = 0;
-
-le_result_t SetupNetlinkSocket(void);
-void TeardownNetlinkSocket(void);
 
 typedef struct
 {
@@ -45,6 +42,11 @@ typedef struct
     taf_gptpTime_Ref_t safeRef;
     le_timer_Ref_t deviceOpenTimer = NULL;
 } taf_GptpTime_t;
+
+le_result_t SetupNetlinkSocket(void);
+void TeardownNetlinkSocket(void);
+void StartTimerToReopenPtp(taf_GptpTime_t* gptpTime);
+void StopTimerToReopenPtp(taf_GptpTime_t* gptpTime);
 
 taf_GptpTime_t* isGptpRefExist(const char* deviceName)
 {
@@ -75,21 +77,17 @@ LE_SHARED taf_gptpTime_Ref_t taf_gptpTime_CreateRef
         return NULL;
     }
 
-    if (monitorRef == NULL)
-    {
-        if (LE_OK != SetupNetlinkSocket())
-        {
-            LE_ERROR("Create netlink socket failed");
-            return NULL;
-        }
-    }
-
     taf_GptpTime_t* gptpTime = isGptpRefExist(deviceName);
     if(gptpTime != NULL)
     {
         return gptpTime->safeRef;
     }
     gptpTime = (taf_GptpTime_t*)le_mem_ForceAlloc(GptpTimeMemPoolRef);
+    if(gptpTime == NULL)
+    {
+        LE_ERROR("Not able to create memory. Please try again");
+        return NULL;
+    }
     int fd = open(deviceName, O_RDONLY);
     if (-1 == fd)
     {
@@ -115,11 +113,26 @@ LE_SHARED taf_gptpTime_Ref_t taf_gptpTime_CreateRef
         le_mem_Release(gptpTime);
         return NULL;
     }
+    gptpTime->deviceOpenTimer = NULL;
+
     gptpTime->clkid = TAF_TIME_FD_TO_CLOCKID(fd);
     le_utf8_Copy(gptpTime->deviceName, deviceName, sizeof(gptpTime->deviceName), NULL);
     gptpTime->fd = fd;
     gptpTime->safeRef = (taf_gptpTime_Ref_t)le_ref_CreateRef(GptpTimeRefMap, gptpTime);
+
+    if (netlinkMonitorRef == NULL)
+    {
+        if (LE_OK != SetupNetlinkSocket())
+        {
+            LE_ERROR("Create netlink socket failed");
+            le_fd_Close(gptpTime->fd);
+            le_ref_DeleteRef(GptpTimeRefMap, gptpTime);
+            le_mem_Release(gptpTime);
+            return NULL;
+        }
+    }
     clientRefCount++;
+    LE_DEBUG("ClientRefCount %d", clientRefCount);
     return gptpTime->safeRef;
 }
 
@@ -139,6 +152,11 @@ LE_SHARED le_result_t taf_gptpTime_GetTimeValue
     if(gptpPtr->fd == -1)
     {
         LE_ERROR("PTP Device is down, please try after some time");
+        if(isPTPDevDown == false)
+        {
+            LE_DEBUG("Starting timer to access PTP");
+            StartTimerToReopenPtp(gptpPtr);
+        }
         return LE_UNAVAILABLE;
     }
 
@@ -165,7 +183,7 @@ LE_SHARED le_result_t taf_gptpTime_GetTimeValue
     gptpTimeValuePtr->tv_nsec = ts.tv_nsec;
     return LE_OK;
 }
- 
+
 LE_SHARED le_result_t taf_gptpTime_DeleteRef
 (
     taf_gptpTime_Ref_t gptpTimeRef
@@ -178,23 +196,32 @@ LE_SHARED le_result_t taf_gptpTime_DeleteRef
         LE_ERROR("GPTP Reference is not found!");
         return LE_BAD_PARAMETER;
     }
+    //Stopping the timer
+    StopTimerToReopenPtp(gptpPtr);
+    //delete the timer
+    if(gptpPtr->deviceOpenTimer != NULL)
+    {
+        le_timer_Delete(gptpPtr->deviceOpenTimer);
+        gptpPtr->deviceOpenTimer = NULL;
+    }
+
     if (gptpPtr->fd != -1)
     {
         result = le_fd_Close(gptpPtr->fd);
         if (result != 0)
         {
             LE_ERROR("Failed to close file descriptor %d. Errno = %d.", gptpPtr->fd, errno);
-            return LE_FAULT;
         }
         gptpPtr->fd = -1;
     }
-    le_ref_DeleteRef(GptpTimeRefMap, gptpTimeRef);
-    le_mem_Release(gptpPtr);
     clientRefCount--;
+    LE_DEBUG("ClientRefCount %d", clientRefCount);
     if(clientRefCount == 0)
     {
         TeardownNetlinkSocket();
     }
+    le_ref_DeleteRef(GptpTimeRefMap, gptpTimeRef);
+    le_mem_Release(gptpPtr);
     return LE_OK;
 }
 
@@ -202,6 +229,11 @@ LE_SHARED le_result_t taf_gptpTime_DeleteRef
 void DeviceOpenTimerHandler(le_timer_Ref_t timerRef)
 {
     taf_GptpTime_t* gptpTime = (taf_GptpTime_t*)le_timer_GetContextPtr(timerRef);
+    if(gptpTime == NULL)
+    {
+        LE_ERROR("Null ptr(gptpTimePtr)");
+        return;
+    }
     int fd = open(gptpTime->deviceName, O_RDONLY);
     if (fd != -1)
     {
@@ -210,16 +242,17 @@ void DeviceOpenTimerHandler(le_timer_Ref_t timerRef)
         gptpTime->fd = fd;
         LE_INFO("Successfully opened device %s\n", gptpTime->deviceName);
 
+        if (netlinkMonitorRef == NULL)
+        {
+            if (LE_OK != SetupNetlinkSocket())
+            {
+                LE_ERROR("Create netlink socket failed");
+                le_fd_Close(gptpTime->fd);
+                return;
+            }
+        }
         // Stop the timer
-        le_result_t res = le_timer_Stop(timerRef);
-        if(res == LE_OK)
-        {
-            LE_INFO("Timer stopped for device: %s", gptpTime->deviceName);
-        }
-        else
-        {
-            LE_ERROR("Not able to stop timer for device: %s", gptpTime->deviceName);
-        }
+        StopTimerToReopenPtp(gptpTime);
     }
     else
     {
@@ -263,14 +296,50 @@ void DeviceOpenTimerHandler(le_timer_Ref_t timerRef)
                 break;
         }
         // Stop the timer
-        le_result_t res = le_timer_Stop(timerRef);
-        if(res == LE_OK)
+        StopTimerToReopenPtp(gptpTime);
+    }
+}
+
+void StartTimerToReopenPtp(taf_GptpTime_t* gptpTime)
+{
+    if(gptpTime == NULL)
+    {
+        LE_ERROR("Null ptr provided!");
+        return;
+    }
+    if(gptpTime->deviceOpenTimer != NULL)
+    {
+        if(le_timer_IsRunning(gptpTime->deviceOpenTimer))
         {
-            LE_INFO("Timer stopped for device: %s", gptpTime->deviceName);
+            LE_INFO("A process is already attempting to open the PTP device.");
+            return;
         }
         else
         {
-            LE_ERROR("Not able to stop timer for device: %s", gptpTime->deviceName);
+            LE_INFO("Staring timer to reopen ptp device.");
+            le_timer_Start(gptpTime->deviceOpenTimer);
+        }
+    }
+    else
+    {
+        gptpTime->deviceOpenTimer = le_timer_Create("DeviceOpenTimer");
+        le_timer_SetMsInterval(gptpTime->deviceOpenTimer, 1000); // 1 second interval
+        le_timer_SetRepeat(gptpTime->deviceOpenTimer, 0); // Repeat indefinitely
+        le_timer_SetHandler(gptpTime->deviceOpenTimer, DeviceOpenTimerHandler);
+        le_timer_SetWakeup(gptpTime->deviceOpenTimer, false);
+        le_timer_SetContextPtr(gptpTime->deviceOpenTimer, gptpTime);
+        le_timer_Start(gptpTime->deviceOpenTimer);
+    }
+}
+
+void StopTimerToReopenPtp(taf_GptpTime_t* gptpTime)
+{
+    if(gptpTime != NULL && gptpTime->deviceOpenTimer)
+    {
+        if(le_timer_IsRunning(gptpTime->deviceOpenTimer))
+        {
+            LE_DEBUG("Stopping timer for acessing PTP");
+            le_timer_Stop(gptpTime->deviceOpenTimer);
         }
     }
 }
@@ -289,6 +358,7 @@ void handleGptpReference(struct ifinfomsg *ifi, bool isPtpDown)
         if (isPtpDown)
         {
             LE_INFO("Interface %s (index %d) is going down\n", ifname, ifi->ifi_index);
+            StopTimerToReopenPtp(gptpTime);
 
             if (gptpTime->fd != -1)
             {
@@ -297,36 +367,18 @@ void handleGptpReference(struct ifinfomsg *ifi, bool isPtpDown)
                 {
                     LE_ERROR("Failed to close file descriptor %d. Errno = %d.",
                         gptpTime->fd, errno);
+                        continue;
                 }
                 gptpTime->fd = -1;
             }
-
-            if(gptpTime->deviceOpenTimer)
-            {
-                le_result_t res = le_timer_Stop(gptpTime->deviceOpenTimer);
-                if(res == LE_OK)
-                {
-                    LE_INFO("Timer stopped for device: %s", gptpTime->deviceName);
-                }
-                else
-                {
-                    LE_ERROR("Not able to stop timer for device: %s", gptpTime->deviceName);
-                }
-            }
-
             LE_INFO("Successfully closed device %s\n", gptpTime->deviceName);
         }
         else
         {
             LE_INFO("Interface %s (index %d) is going up\n", ifname, ifi->ifi_index);
             // Create and start the timer to try opening the device every 1 second
-            gptpTime->deviceOpenTimer = le_timer_Create("DeviceOpenTimer");
-            le_timer_SetMsInterval(gptpTime->deviceOpenTimer, 1000); // 1 second interval
-            le_timer_SetRepeat(gptpTime->deviceOpenTimer, 0); // Repeat indefinitely
-            le_timer_SetHandler(gptpTime->deviceOpenTimer, DeviceOpenTimerHandler);
-            le_timer_SetWakeup(gptpTime->deviceOpenTimer, false);
-            le_timer_SetContextPtr(gptpTime->deviceOpenTimer, gptpTime);
-            le_timer_Start(gptpTime->deviceOpenTimer);
+            StartTimerToReopenPtp(gptpTime);
+
         }
     }
 }
@@ -406,9 +458,9 @@ le_result_t SetupNetlinkSocket(void)
         goto NetlinkErr;
     }
 
-    monitorRef = le_fdMonitor_Create("NetlinkMonitorForEth0",
+    netlinkMonitorRef = le_fdMonitor_Create("NetlinkMonitorForEth0",
                                         sockfd, NetlinkEventHandler, POLLIN);
-    if (monitorRef == NULL) {
+    if (netlinkMonitorRef == NULL) {
         LE_ERROR("Failed to create fd monitor\n");
         goto NetlinkErr;
     }
@@ -425,9 +477,9 @@ NetlinkErr:
 
 void TeardownNetlinkSocket(void)
 {
-    if (monitorRef) {
-        le_fdMonitor_Delete(monitorRef);
-        monitorRef = NULL;
+    if (netlinkMonitorRef) {
+        le_fdMonitor_Delete(netlinkMonitorRef);
+        netlinkMonitorRef = NULL;
     }
 
     if (sockfd >= 0) {
@@ -455,10 +507,5 @@ COMPONENT_INIT {
         return;
     }
 
-    if (LE_OK != SetupNetlinkSocket())
-    {
-        LE_WARN("Create netlink socket failed, needs to try later.");
-    }
     LE_INFO("GPTP component initialization done.");
 }
-

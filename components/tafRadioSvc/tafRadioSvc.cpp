@@ -28,10 +28,10 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
- */
+*/
 
 /*
  * @file       tafRadioSvc.cpp
@@ -117,7 +117,7 @@ le_result_t taf_radio_SetRadioPower(le_onoff_t power, uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
 
-    le_clk_Time_t timeToWait = {1, 0};
+    le_clk_Time_t timeToWait = {5, 0};
     le_result_t res = le_sem_WaitWithTimeOut(tafRadio.setOperatingModeCb->semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout.");
 
@@ -157,7 +157,7 @@ le_result_t taf_radio_GetRadioPower(le_onoff_t* powerPtr, uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
 
-    le_clk_Time_t timeToWait = {1, 0};
+    le_clk_Time_t timeToWait = {5, 0};
     le_result_t res = le_sem_WaitWithTimeOut(tafRadio.getOperatingModeCb->semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
 
@@ -6000,7 +6000,7 @@ le_result_t taf_radio_SetOperatingMode
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
 
-    le_clk_Time_t timeToWait = {1, 0};
+    le_clk_Time_t timeToWait = {5, 0};
     le_result_t res = le_sem_WaitWithTimeOut(tafRadio.setOperatingModeCb->semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout.");
 
@@ -6034,7 +6034,7 @@ le_result_t taf_radio_GetOperatingMode
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
 
-    le_clk_Time_t timeToWait = {1, 0};
+    le_clk_Time_t timeToWait = {5, 0};
     le_result_t res = le_sem_WaitWithTimeOut(tafRadio.getOperatingModeCb->semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
 

@@ -1026,19 +1026,6 @@ void taf_Sensor::OpenEventHandler(le_msg_SessionRef_t sessionRef, void* contextP
 taf_Sensor::~taf_Sensor()
 {
     LE_INFO("~taf_Sensor");
-    auto &sensorMngr = taf_Sensor::GetInstance();
-    le_ref_IterRef_t iterRef = le_ref_GetIterator(sensorMngr.ClientRequestRefMap);
-    le_result_t result = le_ref_NextNode(iterRef);
-    while (LE_OK == result)
-    {
-        LE_DEBUG("~taf_sensor %d", result);
-        taf_SensorClient_t* clientPtr = (taf_SensorClient_t*) le_ref_GetValue(iterRef);
-        sensorMngr.CleanUp(clientPtr);
-        result = le_ref_NextNode(iterRef);
-    }
-    if(sensorMngr.mSensorManager){
-        sensorMngr.mSensorManager = NULL;
-    }
 }
 
 void taf_Sensor::Init()

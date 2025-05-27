@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -803,7 +803,7 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
             else
             {
                 LE_INFO("Non authorized StayAwakeReason for stayawake");
-                wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_ACQUIRED;
+                wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_ACQUIRED;  //IGNORED
                 return LE_OK;
             }
             break;
@@ -1216,6 +1216,42 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
         LE_ERROR("Client Ack response not sent for current transition");
     }
     return LE_FAULT;
+}
+
+/**
+ * Sets the whitelisted modem wakeup selection.
+ */
+le_result_t taf_mngdPm_SetNodeModemWakeupSel
+(
+    uint8_t pmNodeId,
+    taf_mngdPm_NodeModemWsBitMask_t wsBitmask
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+/**
+ * Gets the whitelisted modem wakeup selection.
+ */
+le_result_t taf_mngdPm_GetNodeModemWakeupSel
+(
+    uint8_t pmNodeId,
+    taf_mngdPm_NodeModemWsBitMask_t* wsBitmaskPtr
+        ///< [OUT] Modem wakeup selection to be whitelisted.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+/**
+ * Deletes the given wake source.
+ */
+le_result_t taf_mngdPm_DeleteWakeupSource
+(
+    taf_mngdPm_wsRef_t wsRef
+)
+{
+    return LE_NOT_IMPLEMENTED;
 }
 
 COMPONENT_INIT

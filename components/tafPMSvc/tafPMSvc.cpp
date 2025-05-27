@@ -1,6 +1,6 @@
 /*
- *  Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 
@@ -374,4 +374,35 @@ le_result_t taf_pm_SetPowerMode(taf_pm_PowerMode_t powerMode)
         pmInstance.IsLowPowerMode = false;
     }
     return LE_OK;
+}
+
+/**
+ * FUNCTION     : SetNodeModemWs
+ * DESCRIPTION  : Sets the whitelisted modem wakeup selection.
+ * DEPENDECY    :
+ * PARAMETERS   : Modem wakeup selection mask as input.
+ * RETURN VALUES:
+ */
+le_result_t taf_pm_SetNodeModemWakeupSel
+(
+    taf_pm_NodeModemWsBitMask_t wsBitmask
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+/**
+ * FUNCTION     : GetNodeModemWs
+ * DESCRIPTION  : Gets the whitelisted modem wakeup selection.
+ * DEPENDECY    :
+ * PARAMETERS   : Modem wakeup selection mask as output.
+ * RETURN VALUES:
+ */
+le_result_t taf_pm_GetNodeModemWakeupSel
+(
+    taf_pm_NodeModemWsBitMask_t* wsBitmaskPtr
+        ///< [OUT] Modem wakeup selection to be whitelisted.
+)
+{
+    return LE_NOT_IMPLEMENTED;
 }

@@ -2785,10 +2785,10 @@ FUNCTION le_result_t SetVlanBackhaulProfileId
  * @b NOTE: ProfileId and SlotId are needed only for WWAN backhaul Type.
             Binding VLAN with the default profile ID will associate it with bridge0 and results in
  *          the system automatically rebooting after 5 seconds.
-            Binding VLAN to any other profile id will associate it with own bridge.
+            Binding VLAN to any other profile ID will associate with its own bridge.
  *
- * @b NOTE: Multiple VLAN binding attempt to any profile id will result in error LE_FAULT.
- *          This setting will be persistent across multiple boots.
+ * @b NOTE: Multiple VLAN binding attempts to any profile ID results in an LE_FAULT error.
+ *          This setting persists across multiple boots.
  *
  * @instaging
  * @return

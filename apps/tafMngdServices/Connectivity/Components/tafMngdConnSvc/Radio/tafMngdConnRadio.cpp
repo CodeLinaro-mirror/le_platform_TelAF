@@ -157,19 +157,6 @@ void tafMngdConnRadio::PackSwStateHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Unregister radio events.
- */
-//--------------------------------------------------------------------------------------------------
-void tafMngdConnRadio::UnregisterEvents()
-{
-    if (packSwStateHandlerRef)
-    {
-        taf_radio_RemovePacketSwitchedChangeHandler(packSwStateHandlerRef);
-        packSwStateHandlerRef = NULL;
-    }
-}
-//--------------------------------------------------------------------------------------------------
-/**
  * Register radio event handler.
  */
 //--------------------------------------------------------------------------------------------------
@@ -213,9 +200,9 @@ void tafMngdConnRadio::RegisterEvents()
     if(nr5gSsChangeHandlerRef == NULL)
         LE_ERROR("Adding NR5G signal strength change handler failed");
 */
-    packSwStateHandlerRef = taf_radio_AddPacketSwitchedChangeHandler(
+    taf_radio_PacketSwitchedChangeHandlerRef_t packSwStateHandlerRef =
+                            taf_radio_AddPacketSwitchedChangeHandler(
                             (taf_radio_PacketSwitchedChangeHandlerFunc_t)PackSwStateHandler, NULL);
-
     if(packSwStateHandlerRef == NULL)
         LE_ERROR("Adding packet switched change handler failed");
 

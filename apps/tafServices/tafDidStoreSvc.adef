@@ -42,7 +42,7 @@ processes:
 bindings:
 {
     tafDidStoreSvc.tafDidStoreSvc.taf_diagDataID -> tafDiagSvc.taf_diagDataID
-    tafDidStoreSvc.tafDidStoreSvc.le_appInfo -> <root>.le_appInfo
+    tafDidStoreSvc.tafDidStoreSvc.le_appInfo -> <tafcore>.le_appInfo
 }
 
 extern:

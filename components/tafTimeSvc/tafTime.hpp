@@ -1,6 +1,6 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 
@@ -230,6 +230,8 @@ typedef struct
     taf_time_TimeSources_t systemSourceId;       ///< System time source ID.
     taf_time_SourceRef_t ref;                    ///< own reference.
     bool sourceValidity;                         ///< The validity for current time source.
+    bool isSyncedWithStorage;                    ///< The flag to indicate the storage has been touched.
+    bool isSyncedWithSetCmd;                     ///< Indicate the 'SetValidity' API has been called ever.
     int32_t failedLoops = -1;                    ///< Number of loop failure for time source.
     bool isAvailable;
     int8_t timeZone = 0;                         ///< Offset between UTC and local time in units
@@ -237,7 +239,7 @@ typedef struct
                                                  ///  Actual value = field value * 15 minutes.
     uint8_t dstAdj = 0;                          ///< Daylight saving adjustment in hours to obtain
                                                  ///  local time. Possible values: 0, 1, and 2.
-    taf_mngdStorSecData_DataRef_t secStrgdataRef = NULL; ///< Managed storage service reference
+    taf_mngdStorSecData_DataRef_t secStrgdataRef = nullptr; ///< Managed storage service reference
                                                  /// for storing
     le_msg_SessionRef_t sessionRef;              ///< Client that connected to the service.
     taf_time_StatusEventType_t eventType;        ///< Type of event to which client want to
@@ -295,6 +297,13 @@ struct NetworkInfoUpdateArgs_t
     telux::tel::NetworkTimeInfo info;   ///< [IN] Network time information.
     telux::common::ErrorCode error;    ///< [IN] Error code.
 };
+
+struct ValidityParams
+{
+    taf_SourceInf_t* sourcePtr;
+    bool validity;
+};
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -666,18 +675,22 @@ struct NetworkInfoUpdateArgs_t
                     taf_time_TimeSources_t sourceIndex);
                 void UpdateFailedLoops(taf_time_TimeSources_t sourceIndex,
                     taf_TimeFailLoopAction_t action);
-                void InitializeSystemTimeAttr(le_result_t connectStatus);
+                void InitTimeSource(void);
+                void InitializeSystemTimeAttr(void);
                 bool IsSourceValid(taf_time_SourceRef_t sourceRef);
                 le_result_t SetValidity(taf_time_SourceRef_t sourceRef, bool validity);
-                le_result_t CheckSetValidityPermission();
+                le_result_t CheckSetValidityPermission(void);
                 void ReportValidityChange(taf_SourceInf_t* sourcePtr);
                 le_result_t WriteValidtyToSecStorage(taf_SourceInf_t* sourcePtr, bool newvalidity);
                 le_result_t ReadValidityFromSecStorage(taf_SourceInf_t* sourcePtr, bool* validity);
+                void ReleasePtpDevice(void);
+                void RegisterPtpDevice(void);
                 uint64_t PrevSrcAvailabiltyMap = 0x0;
                 struct SetTimeStatus* SetTimeSt = NULL;
                 NetworkInfoUpdateArgs_t NetworkUpdateInfo1 = {};
                 NetworkInfoUpdateArgs_t NetworkUpdateInfo2 = {};
                 le_thread_Ref_t mainThreadRef = NULL;
+                int sigTermSignalNum = -1;
 
             private:
                 std::shared_ptr<ITimeListener> gnssTimeListener = nullptr;

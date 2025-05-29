@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2882,29 +2882,30 @@ void tafL2tpCallback::requestConfigResponse
 )
 {
     LE_DEBUG("<SDK Callback> tafL2tpCallback --> requestConfigResponse");
-
-// NOT_SUPPORTED means that L2TP is disabled
-    if (error == telux::common::ErrorCode::NOT_SUPPORTED)
+    LE_INFO("Get L2TP Config Response from SDK %s",
+                        (telux::common::ErrorCode::SUCCESS == error) ? "is successful" : "failed");
+    // SUCCESS means that L2TP is enabled
+    if(error == telux::common::ErrorCode::SUCCESS)
     {
-        l2tpConfig.enableL2tp = false;
-        l2tpConfig.enableMtu=false;
-        l2tpConfig.enableTcpMss=false;
-        l2tpConfig.mtuSize=0;
+        l2tpConfig.enableL2tp = l2tpSysConfig.enableMtu || l2tpSysConfig.enableTcpMss;
+        l2tpConfig.enableMtu=l2tpSysConfig.enableMtu;
+        l2tpConfig.enableTcpMss=l2tpSysConfig.enableTcpMss;
+        l2tpConfig.mtuSize=l2tpSysConfig.mtuSize;
+        configList.assign(l2tpSysConfig.configList.begin(), l2tpSysConfig.configList.end());
         le_sem_Post(semaphore);
         return;
     }
-
-    l2tpConfig.enableL2tp = true;
-    l2tpConfig.enableMtu=l2tpSysConfig.enableMtu;
-    l2tpConfig.enableTcpMss=l2tpSysConfig.enableTcpMss;
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    l2tpConfig.mtuSize=l2tpSysConfig.mtuSize;
-#else
-    l2tpConfig.mtuSize=DEFAULT_MTU_SIZE;
-#endif
-
-    configList.assign(l2tpSysConfig.configList.begin(), l2tpSysConfig.configList.end());
-
+    // ERROR
+    LE_ERROR("ErrorCode %d", static_cast<int>(error));
+    // NOT_SUPPORTED means that L2TP is disabled
+    if(error == telux::common::ErrorCode::NOT_SUPPORTED){
+        LE_ERROR("L2TP Unmanaged tunnel state is not enabled");
+    }
+    l2tpConfig.enableL2tp = false;
+    l2tpConfig.enableMtu=false;
+    l2tpConfig.enableTcpMss=false;
+    l2tpConfig.mtuSize=0;
+    configList.clear();
     le_sem_Post(semaphore);
 }
 

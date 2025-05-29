@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import sys
@@ -18,6 +18,32 @@ def schema__did_all(top_node):
             logger.error(f"{Tname} . {hex(key)} <-- Bad key")
             need_to_stop = True
             return False
+        return True
+
+    def check_authentication_pattern_value(auth_data):
+        if type(auth_data) is not list:
+            logger.error(f"{auth_data} <-- Not a LIST")
+            need_to_stop = True
+            return False
+
+        # Need to check the empty list
+        if len(auth_data) == 0:
+            logger.error(f"{auth_data}  <-- empty attribute list")
+            need_to_stop = True
+            return False
+
+        # The duplicate attributes in list are not allowed
+        if len(auth_data) != len(set(auth_data)):
+            logger.error(f"{auth_data}  <-- duplicate attribute in list")
+            need_to_stop = True
+            return False
+
+        role_list = ['b0', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6']
+        for v in auth_data:
+            if v not in role_list:
+                logger.error(f"{auth_data} . {v} <-- Invalid value")
+                need_to_stop = True
+                return False
         return True
 
     def check_item(value, key):
@@ -116,10 +142,31 @@ def schema__did_all(top_node):
                             return
 
                 if 'diagnostic_session_and_security_level' in value['did_accessibility'].keys():
-                    if not isinstance(value['did_accessibility']['diagnostic_session_and_security_level'], dict):
+
+                    did_secure_node = value['did_accessibility']['diagnostic_session_and_security_level']
+
+                    if not isinstance(did_secure_node, dict):
                         logger.error(f"{Tname} . {key} . did_accessibility . diagnostic_session_and_security_level <-- Not a DICT")
                         need_to_stop = True
                         return
+
+                    if 'execution_authentication_pattern_read' in did_secure_node.keys():
+                        if not check_authentication_pattern_value(did_secure_node['execution_authentication_pattern_read']):
+                            logger.error(f"{Tname} . {key} . did_accessibility . diagnostic_session_and_security_level. execution_authentication_pattern_read")
+                            need_to_stop = True
+                            return
+
+                    if 'execution_authentication_pattern_write' in did_secure_node.keys():
+                        if not check_authentication_pattern_value(did_secure_node['execution_authentication_pattern_write']):
+                            logger.error(f"{Tname} . {key} . did_accessibility . diagnostic_session_and_security_level . execution_authentication_pattern_write")
+                            need_to_stop = True
+                            return
+
+                    if 'execution_authentication_pattern_io' in did_secure_node.keys():
+                        if not check_authentication_pattern_value(did_secure_node['execution_authentication_pattern_io']):
+                            logger.error(f"{Tname} . {key} . did_accessibility . diagnostic_session_and_security_level . execution_authentication_pattern_io")
+                            need_to_stop = True
+                            return
 
         if 'access' in value.keys():
             for required_key, check_fn in {
@@ -139,6 +186,31 @@ def schema__did_all(top_node):
                     logger.error(f"{Tname} . {key} . access . session <-- Not a LIST")
                     need_to_stop = True
                     return
+
+            if 'role' in value['access'].keys():
+                if type(value['access']['role']) is not list:
+                    logger.error(f"{Tname} . {key} . access . role <-- Not a LIST")
+                    need_to_stop = True
+                    return
+
+                # Need to check the empty list
+                if len(value['access']['role']) == 0:
+                    logger.error(f"{Tname} . {key} . access . role <-- empty attribute list")
+                    need_to_stop = True
+                    return
+
+                # The duplicate attributes in list are not allowed
+                if len(value['access']['role']) != len(set(value['access']['role'])):
+                    logger.error(f"{Tname} . {key} . access. role <-- duplicate attribute in list")
+                    need_to_stop = True
+                    return
+
+                role_list = ['b0', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6']
+                for v in value['access']['role']:
+                    if v not in role_list:
+                        logger.error(f"{Tname} . {key} . access . role . {v} <-- Invalid value")
+                        need_to_stop = True
+                        return
 
             # Check more for 'access'?
 

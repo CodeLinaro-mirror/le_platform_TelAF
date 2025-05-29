@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -137,6 +137,8 @@ void UdsCommunicationMgr::InitInstances
 
     le_thread_Start(udsTimerThreadRef);
     le_sem_Wait(semRef);
+
+    InitAuthData(interfaceList);
 
     cancelFileXferEvId = le_event_CreateId("cancelFileXferEvId", sizeof(cancelFileXferEvent_t));
     le_event_AddHandler("cancelFileXferHandler", cancelFileXferEvId, cancelFileXferHandler);
@@ -450,6 +452,7 @@ void* UdsCommunicationMgr::UdsTimerThread
         snprintf(p2TimerName, sizeof(p2TimerName)-1, "p2-%s", pair.second->interface);
         pair.second->p2StarTimerRef = le_timer_Create(p2TimerName);
         le_timer_SetHandler(pair.second->p2StarTimerRef, P2StarTimeoutHandler);
+        le_timer_SetWakeup(pair.second->p2StarTimerRef, false);
         le_timer_SetContextPtr(pair.second->p2StarTimerRef, (void*)pair.first.c_str());
 
         //create s3 timer
@@ -457,12 +460,14 @@ void* UdsCommunicationMgr::UdsTimerThread
         pair.second->s3TimerRef = le_timer_Create(s3TimerName);
         le_timer_SetRepeat(pair.second->s3TimerRef, 1);
         le_timer_SetHandler(pair.second->s3TimerRef, S3TimeoutHandler);
+        le_timer_SetWakeup(pair.second->s3TimerRef, false);
         le_timer_SetContextPtr(pair.second->s3TimerRef, (void*)pair.first.c_str());
 
         //create authentication timer
         snprintf(authTimerName, sizeof(authTimerName)-1, "auth-%s", pair.second->interface);
         pair.second->authTimerRef = le_timer_Create(authTimerName);
         le_timer_SetHandler(pair.second->authTimerRef, AuthTimeoutHandler);
+        le_timer_SetWakeup(pair.second->authTimerRef, false);
         le_timer_SetContextPtr(pair.second->authTimerRef, (void*)pair.first.c_str());
 
         //create authentication delay timer
@@ -470,6 +475,7 @@ void* UdsCommunicationMgr::UdsTimerThread
                 pair.second->interface);
         pair.second->authDelayTimerRef = le_timer_Create(authDelayTimerName);
         le_timer_SetHandler(pair.second->authDelayTimerRef, AuthDelayTimeoutHandler);
+        le_timer_SetWakeup(pair.second->authDelayTimerRef, false);
         le_timer_SetContextPtr(pair.second->authDelayTimerRef, (void*)pair.first.c_str());
 
         //create tester state change timer
@@ -477,6 +483,7 @@ void* UdsCommunicationMgr::UdsTimerThread
                 pair.second->interface);
         pair.second->testerStateTimerRef = le_timer_Create(testerStateTimerName);
         le_timer_SetHandler(pair.second->testerStateTimerRef, TesterStateTimeoutHandler);
+        le_timer_SetWakeup(pair.second->testerStateTimerRef, false);
         le_timer_SetContextPtr(pair.second->testerStateTimerRef, (void*)pair.first.c_str());
     }
 
@@ -696,6 +703,8 @@ void UdsCommunicationMgr::AuthTimeoutHandler
     udsCmMgr->dataIndBuf[6] = (udsCmMgr->currentRoleVal >> 16) & 0xff;
     udsCmMgr->dataIndBuf[7] = (udsCmMgr->currentRoleVal >> 8) & 0xff;
     udsCmMgr->dataIndBuf[8] = udsCmMgr->currentRoleVal & 0xff;
+
+    udsCmMgr->currentRoleVal = 0;
 
     udsCmMgr->dataIndMsg.dataPtr = udsCmMgr->dataIndBuf;
     udsCmMgr->dataIndMsg.dataLen = UDS_AUTH_EXPIRATION_DATA_SIZE;
@@ -1481,7 +1490,7 @@ bool UdsCommunicationMgr::IsAuthCheckOK
     }
     catch (const std::exception& e)
     {
-        LE_WARN("Authentication is not configured for serivce 0x%02X %s in YAML", sid, e.what());
+        LE_DEBUG("Authentication is not configured for serivce 0x%02X %s in YAML", sid, e.what());
         return true;
     }
 }
@@ -1587,7 +1596,7 @@ bool UdsCommunicationMgr::IsSvcSecAccessMatched
     }
     catch (const std::exception& e)
     {
-        LE_WARN("Exception: %s", e.what());
+        LE_DEBUG("Exception: %s", e.what());
         return true; // Mark the exception as TRUE, to assume security check not require.
     }
 
@@ -1622,8 +1631,19 @@ le_result_t UdsCommunicationMgr::GeneralServerResp
     //Restart authentication timer when receiving any supported UDS request
     if(authState == AUTH_STATE_AUTHENTICATED)
     {
-        uint32_t authTimeVal = MAX_AUTH_TIME*1000;//get auth timeout val with current role from yaml
-        LE_DEBUG("Restart authentication timer");
+        uint32_t authTimeVal;
+
+        try
+        {
+            authTimeVal = cfg::get_authentication_timeout()*1000;
+        }
+        catch (const std::exception& e)
+        {
+            authTimeVal = MAX_AUTH_TIME*1000;
+            LE_ERROR("Exception: %s. Use default value:%d", e.what() , MAX_AUTH_TIME);
+        }
+
+        LE_DEBUG("Restart authentication timer, authentication timeout value=%d", authTimeVal);
         UdsTimerEventReport(TAF_UDS_AUTH_TIMER_RESTART, authTimeVal, interface);
     }
 
@@ -1977,7 +1997,7 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
         }
 
         // Authentication check. UDS_0x22_NRC_34
-        if (!IsAuthRoleMatched(node))
+        if (!IsAuthRoleMatched(READ_DID_REQUEST_ID, node))
         {
             LE_DEBUG("DID0x%x is authenticated and authentication state is incorrect.", dataId);
             return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
@@ -2211,7 +2231,7 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
     }
 
     // Step 5: Authentication check. UDS_0x2E_NRC_34
-    if (!IsAuthRoleMatched(node))
+    if (!IsAuthRoleMatched(WRITE_DID_REQUEST_ID, node))
     {
         LE_DEBUG("DID0x%x is authenticated and authentication state is incorrect.", dataId);
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
@@ -2863,6 +2883,25 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
             LE_WARN("Exception: %s", e.what());
             return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);//NRC 0x31
         }
+
+        // Control Option record check for IO Ctrl request. UDS_0x2F_NRC_31
+        try
+        {
+            const uint8_t* controlRecPtr = recvBuf + UDS_IOCBID_REQ_MIN_LEN;
+            bool isForbidden = cfg::is_forbidden(dataId, controlRecPtr, controlStateSize);
+
+            // If controlRecord is forbidden then send NRC.
+            if(isForbidden)
+            {
+                LE_WARN("Control option record is forbidden");
+                return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+            }
+        }
+        catch (const std::exception& e)
+        {
+            // Control Option record check not define. Don't check it.
+            LE_WARN("Exception: %s. ControlRec check not define for dataId 0x%x", e.what(), dataId);
+        }
     }
 
     //Step 5: Total length check. UDS_0x2F_NRC_13
@@ -2873,7 +2912,7 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
     }
 
     //Step 6: Authentication check. UDS_0x2F_NRC_34
-    if (!IsAuthRoleMatched(node))
+    if (!IsAuthRoleMatched(INPUT_OUTPUT_CONTROL_REQUEST_ID, node))
     {
         LE_DEBUG("DID0x%x is authenticated and authentication state is incorrect.", dataId);
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
@@ -2993,7 +3032,7 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
         return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
     }
 
-    if (!IsAuthRoleMatched(node))
+    if (!IsAuthRoleMatched(ROUTINE_CONTROL_REQUEST_ID, node))
     {
         LE_DEBUG("RID0x%x is authenticated and authentication state is incorrect.", rid);
         *isInternalHandle = true;
@@ -3023,6 +3062,32 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
         LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    const uint8_t* dataRecPtr = recvBuf + UDS_ROUTINE_CTRL_REQ_MIN_LEN;
+    size_t dataRecLen = recvDataLen - UDS_ROUTINE_CTRL_REQ_MIN_LEN;
+
+    if (dataRecLen > 0)
+    {
+        if (!IsTotalLengthCheckValid(rid, subFunc, dataRecLen))
+        {
+            LE_DEBUG("Subfunction0x%x RID0x%x Total Lenth check is invalid.",
+                subFunc, rid);
+            *isInternalHandle = true;
+            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+        }
+
+        if (!IsControlOptionRecordValid(rid, subFunc, dataRecPtr, dataRecLen))
+        {
+            LE_DEBUG("Subfunction 0x%x RID: 0x%x Option Record is not valid.",
+                subFunc, rid);
+            *isInternalHandle = true;
+            return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+        }
+    }
+    else
+    {
+        LE_WARN("Control Option Record not found. Skip check!!");
     }
 
     //Will send the indication to the diag service
@@ -4875,7 +4940,7 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     float p2StarServerInterval, p2ServerInterval;
     uint32_t maxNumberOfRcrrp, s3ServerInterval;
 
-    LE_INFO("SessionCtrlResp");
+    LE_DEBUG("SessionCtrlResp");
 
     if (POSITIVE_RESPONSE != err)
     {
@@ -4886,10 +4951,8 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
 
     taf_SessionType_t oldSessionType;
     taf_SessionType_t newSessionType;
-    uint8_t suppressPosRspFlag;
 
     newSessionType = (taf_SessionType_t)(recvBuf[1] & 0x7F);
-    suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
 
     // copy the previous session type as old session locally.
     oldSessionType = SessionType;
@@ -5030,22 +5093,16 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     }
 
 out:
-    if (suppressPosRspFlag == 0)
-    {
-        // Fill the response data to send the session response msg to DTool
-        sendBuf[0] = SESSION_CONTROL_RESPONSE_ID;
-        sendBuf[1] = recvBuf[1] & 0x7F;
-        sendBuf[2] = (uint32_t(p2ServerInterval) & 0xff00) >> 8;
-        sendBuf[3] = uint32_t(p2ServerInterval) & 0xff;
-        sendBuf[4] = (uint32_t((p2StarServerInterval)/10) & 0xff00) >> 8; // The resolution for P2* is 10ms
-        sendBuf[5] = (uint32_t(p2StarServerInterval)/10) & 0xff; // The resolution for P2* is 10ms
-        sendDataLen = UDS_SESSION_CTRL_RESP_LEN;
-        return LE_OK;
-    }
-    else
-    {
-        return LE_UNSUPPORTED;
-    }
+    // Fill the response data to send the session response msg to DTool
+    sendBuf[0] = SESSION_CONTROL_RESPONSE_ID;
+    sendBuf[1] = recvBuf[1] & 0x7F;
+    sendBuf[2] = (uint32_t(p2ServerInterval) & 0xff00) >> 8;
+    sendBuf[3] = uint32_t(p2ServerInterval) & 0xff;
+    sendBuf[4] = (uint32_t((p2StarServerInterval)/10) & 0xff00) >> 8;//The resolution for P2* is 10ms
+    sendBuf[5] = (uint32_t(p2StarServerInterval)/10) & 0xff; // The resolution for P2* is 10ms
+    sendDataLen = UDS_SESSION_CTRL_RESP_LEN;
+    //Send a final positive response after NRC 0x78
+    return LE_OK;
 }
 
 /**
@@ -5327,9 +5384,17 @@ le_result_t UdsCommunicationMgr::AuthenticationResp
             {
                 uint32_t  authTimeVal;
                 authState = AUTH_STATE_AUTHENTICATED;
-                authTimeVal = MAX_AUTH_TIME*1000;//get auth timeout val with current role from yaml
+                try
+                {
+                    authTimeVal = cfg::get_authentication_timeout()*1000;
+                }
+                catch (const std::exception& e)
+                {
+                    authTimeVal = MAX_AUTH_TIME*1000;
+                    LE_ERROR("Exception: %s. Use default value:%d", e.what() , MAX_AUTH_TIME);
+                }
                 //POWN successfully, start authentication timer
-                LE_DEBUG("POWN successful");
+                LE_DEBUG("POWN successful, start authentication timer with value %d", authTimeVal);
                 UdsTimerEventReport(TAF_UDS_AUTH_TIMER_START, authTimeVal, interface);
 
                 //reset counter
@@ -5899,6 +5964,7 @@ bool UdsCommunicationMgr::IsSessTypeMatched
  */
 bool UdsCommunicationMgr::IsAuthRoleMatched
 (
+    taf_UDSReqSvcID_t serviceType,
     cfg::Node& node
 )
 {
@@ -5906,7 +5972,29 @@ bool UdsCommunicationMgr::IsAuthRoleMatched
     cfg::Node roleNames;
     try
     {
-        roleNames = node.get_child("role");
+        LE_DEBUG(" Service type = 0x%x", serviceType);
+        switch(serviceType)
+        {
+            case READ_DID_REQUEST_ID:
+                //Get config roles for read pattern
+                roleNames = node.get_child(AUTH_ROLE_READ_PATTERN);
+            break;
+            case WRITE_DID_REQUEST_ID:
+                //Get config roles for written pattern
+                roleNames = node.get_child(AUTH_ROLE_WRITE_PATTERN);
+            break;
+            case INPUT_OUTPUT_CONTROL_REQUEST_ID:
+                //Get config roles for io control pattern
+                roleNames = node.get_child(AUTH_ROLE_IOCTL_PATTERN);
+            break;
+            case ROUTINE_CONTROL_REQUEST_ID:
+                //Get config roles for routine control pattern
+                roleNames = node.get_child(AUTH_ROLE_ROUTINE_PATTERN);
+            break;
+            default:
+                LE_ERROR("Role check is not supported for service %d", serviceType);
+                return false;
+        }
     }
     catch (const std::exception& e)
     {
@@ -5915,11 +6003,10 @@ bool UdsCommunicationMgr::IsAuthRoleMatched
     }
 
     //Get authentication_roles configuration
-    cfg::Node authRoles;
+    std::map<std::string, uint64_t> authentication_roles;
     try
     {
-        cfg::Node & root = cfg::get_root_node();
-        authRoles = root.get_child("authentication_roles");
+        authentication_roles = cfg::get_authentication_roles();
     }
     catch (const std::exception& e)
     {
@@ -5934,10 +6021,15 @@ bool UdsCommunicationMgr::IsAuthRoleMatched
         for (const auto & roleName: roleNames)
         {
             string name = roleName.second.get_value<string>("");
-            uint64_t role_value = authRoles.get_child(name).get<int>("value");
+            LE_DEBUG(" role name =%s", name.c_str());
+            auto it = authentication_roles.find(name);
+            if (it == authentication_roles.end())
+                continue;
+
+            uint64_t role_value = it->second;
             LE_DEBUG("roleVal= %" PRIuS ", currentRoleVal = %" PRIuS " ", role_value,
                     currentRoleVal);
-            if(role_value == currentRoleVal)
+            if((role_value & currentRoleVal) != 0)
             {
                 isRoleMatched = true;
                 break;
@@ -6022,6 +6114,65 @@ bool UdsCommunicationMgr::IsRequestSubFuncSupported
     LE_DEBUG("subFunction(0x%x) is unsupported for node", subFunc);
 
     return false;
+}
+
+bool UdsCommunicationMgr::IsControlOptionRecordValid
+(
+    uint16_t rid,
+    uint8_t subFunc,
+    const uint8_t* dataRec,
+    size_t dataRecLen
+)
+{
+    LE_DEBUG("dataRecLen: %d", (int)dataRecLen);
+    LE_DEBUG("subFunc: %x", subFunc);
+    LE_DEBUG("Routine DID: %u", rid);
+
+    string recordName = cfg::get_routine_record(rid, subFunc);
+    LE_DEBUG("recordName: %s", recordName.c_str());
+
+    if(recordName != "null")
+    {
+        try
+        {
+            bool IsOptionRecValid = cfg::validate_base_record(dataRec, dataRecLen, recordName);
+            if(IsOptionRecValid)
+            {
+                LE_DEBUG("Forbidden data found!!");
+                return false;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LE_WARN("Exception: %s", e.what());
+        }
+    }
+    else
+    {
+        LE_DEBUG("Routine Control Option check skipped as Record Name not found");
+    }
+    return true;
+}
+
+bool UdsCommunicationMgr::IsTotalLengthCheckValid
+(
+    uint16_t rid,
+    uint8_t subFunc,
+    size_t dataRecLen
+)
+{
+    string recordName = cfg::get_routine_record(rid, subFunc);
+    LE_DEBUG("recordName: %s", recordName.c_str());
+
+    if(recordName != "null")
+    {
+        size_t recordNameLength = cfg::get_routine_record_size(recordName);
+        if(recordNameLength != dataRecLen)
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 void UdsCommunicationMgr::StoreAttCntToTree

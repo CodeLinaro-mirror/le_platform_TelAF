@@ -161,6 +161,7 @@ static void* SubThreadMain(void* context)
     HmsTimerRef = le_timer_Create("hmsTimer");     //create timer
     le_timer_SetMsInterval(HmsTimerRef, 1000);        //update every 1 seconds
     le_timer_SetHandler(HmsTimerRef, TimerExpiryHandler);
+    le_timer_SetWakeup(HmsTimerRef, false);
     le_timer_SetRepeat(HmsTimerRef, 1);                   //set no repeat
     le_timer_Start(HmsTimerRef);
     le_event_RunLoop();
@@ -1210,6 +1211,7 @@ void tafHmsListener::StartResetTimer(taf_hms_modemInfo_t* modemEventInfoPtr)
         le_timer_SetMsInterval(modemEventInfoPtr->resetTimer, TAF_HMS_MODEM_RESET_TIMER);
         le_timer_SetRepeat(modemEventInfoPtr->resetTimer, 0);
         le_timer_SetHandler(modemEventInfoPtr->resetTimer, ResetModemStatusCounterHandler);
+        le_timer_SetWakeup(modemEventInfoPtr->resetTimer, false);
         le_timer_SetContextPtr(modemEventInfoPtr->resetTimer, modemEventInfoPtr);
 
         // Start the timer
@@ -1418,6 +1420,35 @@ std::string BootReasonToString(taf_hms_SubReason_t reason)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ ** Reads the boot sub-reason from a file.
+ **
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::ReadSubReason
+(
+    const std::string& filePath,
+    char* subReasonStr,
+    size_t subReasonSize
+)
+{
+    std::string tmpStr;
+    std::ifstream file(filePath);
+    if (!file.is_open())
+    {
+        LE_ERROR("Failed to open file: %s", filePath.c_str());
+        return LE_NOT_FOUND;
+    }
+
+    std::getline(file, tmpStr);
+    file.close();
+
+    LE_DEBUG("Reboot sub-reason string: %s",tmpStr.c_str());
+
+    return le_utf8_Copy(subReasonStr, tmpStr.c_str(), subReasonSize, NULL);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  ** Reads the boot reason for a file.
  **
  */
@@ -1426,7 +1457,8 @@ le_result_t taf_Hms::ReadReason
 (
     const std::string& filePath,
     taf_hms_SubReason_t* reason,
-    char* reasonStr
+    char* reasonStr,
+    size_t reasonSize
 )
 {
     std::string tmpStr;
@@ -1451,8 +1483,15 @@ le_result_t taf_Hms::ReadReason
     {
         *reason = TAF_HMS_BOOTREASON_UNKNOWN;
     }
-    le_utf8_Copy(reasonStr, tmpStr.c_str(), TAF_HMS_MAX_RESET_LEN, NULL);
-    return LE_OK;
+
+    if (*reason == TAF_HMS_BOOTREASON_ADMIN_TRIGGER)
+    {
+        return  ReadSubReason(TAF_HMS_BOOT_SUB_REASON_PATH, reasonStr, reasonSize);
+    }
+    else
+    {
+        return le_utf8_Copy(reasonStr, tmpStr.c_str(), reasonSize, NULL);
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1481,7 +1520,8 @@ le_result_t taf_Hms::GetResetInformation
         LE_ERROR("resetSpecificInfoStrSize is not correct: %zu", resetSpecificInfoStrSize);
         return LE_BAD_PARAMETER;
     }
-    res = ReadReason(TAF_HMS_BOOT_REASON_PATH, &subReason, resetSpecificInfoStrPtr);
+    res = ReadReason(TAF_HMS_BOOT_REASON_PATH, &subReason, resetSpecificInfoStrPtr,
+        resetSpecificInfoStrSize);
     if (LE_OK != res)
     {
         return res;
@@ -1513,6 +1553,9 @@ le_result_t taf_Hms::GetResetInformation
             break;
 
         case TAF_HMS_BOOTREASON_ADMIN_TRIGGER:
+            reason = TAF_HMS_RESET_CRASH;
+            break;
+
         case TAF_HMS_BOOTREASON_UNKNOWN:
         default:
             reason = TAF_HMS_RESET_UNKNOWN;

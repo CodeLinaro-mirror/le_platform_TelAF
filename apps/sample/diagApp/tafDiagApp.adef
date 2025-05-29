@@ -8,10 +8,6 @@ executables:
 
 processes:
 {
-    run:
-    {
-        (tafDiagApp)
-    }
     envVars:
     {
         LE_LOG_LEVEL = DEBUG
@@ -45,6 +41,6 @@ bindings:
 components:
 {
 #if ${LE_CONFIG_TARGET_SIMULATION} = ""
-    $TELAF_ROOT/security/selinux/sepolicy/sample/diagApp/component
+//    $TELAF_ROOT/security/selinux/sepolicy/sample/diagApp/component
 #endif
 }

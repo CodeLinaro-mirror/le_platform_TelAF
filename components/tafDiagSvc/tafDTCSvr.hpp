@@ -39,12 +39,33 @@ using namespace std;
             uint8_t  dtcStatus;
         } taf_diagDTC_Status_t;
 
+        // used to send event when dtc activation status change
+        typedef struct
+        {
+            taf_diagDTC_ServiceRef_t  svcRef;
+            taf_diagDTC_ActivationStatus_t  actStatus;
+        } taf_diagDTC_ActStatus_t;
+
         typedef struct
         {
             taf_diagDTC_AllServiceRef_t  svcRef;
             uint32_t dtcCode;
             uint8_t  dtcStatus;
         } taf_diagDTC_AllStatus_t;
+
+        // used to send event when clear dtc status is cleared
+        typedef struct
+        {
+            taf_diagDTC_ServiceRef_t svcRef;
+            taf_diagDTC_ReqClientType_t clientType;
+        } taf_diagDTC_ClearStatus_t;
+
+        // used to send event when clear all dtc status is cleared
+        typedef struct
+        {
+            taf_diagDTC_AllServiceRef_t svcRef;
+            taf_diagDTC_ReqClientType_t clientType;
+        } taf_diagDTC_ClearAllStatus_t;
 
         typedef struct
         {
@@ -56,6 +77,8 @@ using namespace std;
         {
             uint32_t dtcCode;
             le_event_Id_t dtcStatusEventId;// event for notification
+            le_event_Id_t clearDtcStatusEventId;
+            le_event_Id_t actStatusEvId; // event for activation status notification
             bool suppressionStatus;
             le_dls_List_t sessionRefList; // The list of clients
             taf_diagDTC_ServiceRef_t svcRef;
@@ -65,6 +88,7 @@ using namespace std;
         typedef struct
         {
             le_event_Id_t allDtcStatusEventId;// event for notification
+            le_event_Id_t clearAllDtcStatusEventId;
             le_dls_List_t sessionRefList; // The list of clients
             taf_diagDTC_AllServiceRef_t svcRef;
         }taf_diagDTC_AllDtcCtx_t;
@@ -130,9 +154,11 @@ using namespace std;
                 le_result_t SetSuppression(taf_diagDTC_ServiceRef_t svcRef, bool suppressionStatus);
                 le_result_t GetSuppression(taf_diagDTC_ServiceRef_t svcRef,
                         bool* suppressionStatusPtr);
-                le_result_t ClearInfo(taf_diagDTC_ServiceRef_t svcRef);
+                le_result_t ClearInfo(taf_diagDTC_ServiceRef_t svcRef,
+                        taf_diagDTC_ReqClientType_t clientType);
                 le_result_t RemoveSvc(taf_diagDTC_ServiceRef_t svcRef);
                 le_event_Id_t GetDtcStatusEvent(taf_diagDTC_ServiceRef_t svcRef);
+                le_event_Id_t GetClearDtcStatusEvent(taf_diagDTC_ServiceRef_t svcRef);
 
                 taf_diagDTC_DataListRef_t GetDataList(taf_diagDTC_ServiceRef_t svcRef);
                 taf_diagDTC_DataRef_t GetFirstData(taf_diagDTC_DataListRef_t dataListRef);
@@ -148,17 +174,30 @@ using namespace std;
                         size_t* valueSizePtr);
 
                 static void FirstLayerStatusHandler(void* reportPtr, void* secondLayerHandlerFunc);
+                static void FirstLayerClearDtcStatusHandler(void* reportPtr,
+                        void* secondLayerHandlerFunc);
+
                 //Interface function for tafEvent module
                 void ReportDTCStatus(uint32_t dtcCode, uint8_t dtcStatus);
+                void ReportClearDTCStatus(uint32_t dtcCode, taf_diagDTC_ReqClientType_t clientType);
+                void ReportClearAllDTCStatus(taf_diagDTC_ReqClientType_t clientType);
+
+                static void FirstLayerActStatusHandler(void* reportPtr,
+                        void* secondLayerHandlerFunc);
+                le_event_Id_t GetActStatusEvent(taf_diagDTC_ServiceRef_t svcRef);
 
                 //For all DTC
                 taf_diagDTC_AllServiceRef_t GetAllService();
                 le_event_Id_t GetAllDtcStatusEvent(taf_diagDTC_AllServiceRef_t svcRef);
-                le_result_t ClearAllInfo(taf_diagDTC_AllServiceRef_t svcRef);
+                le_event_Id_t GetClearAllDtcStatusEvent(taf_diagDTC_AllServiceRef_t svcRef);
+                le_result_t ClearAllInfo(taf_diagDTC_AllServiceRef_t svcRef,
+                        taf_diagDTC_ReqClientType_t clientType);
                 le_result_t SetAllSuppression(taf_diagDTC_AllServiceRef_t svcRef,
                         bool suppressionStatus);
                 le_result_t RemoveAllSvc(taf_diagDTC_AllServiceRef_t svcRef);
                 static void FirstLayerAllDtcStatusHandler(void* reportPtr,
+                        void* secondLayerHandlerFunc);
+                static void FirstLayerClearAllDtcStatusHandler(void* reportPtr,
                         void* secondLayerHandlerFunc);
 
             private:
@@ -189,6 +228,8 @@ using namespace std;
                 le_mem_PoolRef_t DtcDataPool;
                 le_mem_PoolRef_t DtcDataSafeRefPool;
                 le_mem_PoolRef_t  DtcDataValuePool;
+                le_mem_PoolRef_t ClearDtcStatusPool;
+                le_mem_PoolRef_t ClearAllDtcStatusPool;
 
                 le_ref_MapRef_t DtcDataListRefMap;
                 le_ref_MapRef_t DtcDataSafeRefMap;
@@ -196,6 +237,8 @@ using namespace std;
                 le_mem_PoolRef_t AllDtcStatusPool;
                 le_ref_MapRef_t AllSvcRefMap;
                 taf_diagDTC_AllDtcCtx_t AllDtcCtx;
+
+                le_mem_PoolRef_t ActStatusPool;
 
         };
     }

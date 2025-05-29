@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <net/route.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -808,6 +809,21 @@ static void TafSigTermEventHandler
     le_event_QueueFunction(SafeUnloadHandler, NULL, NULL);
 }
 
+static void SetBootKpiMarker(const char* markerPtr){
+    const char *kpi_file = "/sys/kernel/boot_kpi/kpi_values";
+    FILE *file = fopen(kpi_file, "w");
+    if (file == NULL)
+    {
+        LE_ERROR("%s not able to open due to %s", kpi_file,strerror(errno));
+        return;
+    }
+    if (fwrite(markerPtr, sizeof(char), strlen(markerPtr), file) != strlen(markerPtr))
+    {
+        LE_ERROR("failed to write %s to %s", markerPtr, kpi_file);
+    }
+    fclose(file);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * The initialization of TelAF SOME/IP GW service component.
@@ -850,6 +866,8 @@ COMPONENT_INIT
     le_sig_SetEventHandler(SIGTERM, TafSigTermEventHandler);
 
     LE_INFO("TelAF SOME/IP GateWay Service initialized.");
+    // Add boot KPI marker
+    SetBootKpiMarker("L - TelAF SomeipGW service is ready");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1491,7 +1509,8 @@ taf_someipClnt_ServiceRef_t taf_someipClnt_RequestService
 )
 {
     taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
-    return mySomeipClient.RequestService(0, serviceId, instanceId);
+    return mySomeipClient.RequestService(0, serviceId, instanceId,
+                                         TAF_SOMEIPDEF_ANY_MAJOR, TAF_SOMEIPDEF_ANY_MINOR);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1522,7 +1541,48 @@ taf_someipClnt_ServiceRef_t taf_someipClnt_RequestServiceEx
     }
 
     taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
-    return mySomeipClient.RequestService(routingId, serviceId, instanceId);
+    return mySomeipClient.RequestService(routingId, serviceId, instanceId,
+                                         TAF_SOMEIPDEF_ANY_MAJOR, TAF_SOMEIPDEF_ANY_MINOR);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Requests a client-service-instance with specified major/minor version on a dedicated network
+ * interface and returns the reference to the client-service-instance. The ifName shall match the
+ * device name specified in one of the JSON files.
+ *
+ * NOTE: The possible majorVersion range is 0 - 0xFF, while minorVersion range is 0 - 0xFFFFFFFF.
+ * TAF_SOMEIPDEF_ANY_MAJOR(0xFF) and TAF_SOMEIPDEF_ANY_MAJOR(0XFFFFFFFF) can be used to specify
+ * any major/minor version if needed.
+ *
+ * @return
+ *     - Reference to the client-service-instance.
+ *     - NULL if invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_someipClnt_ServiceRef_t taf_someipClnt_RequestServiceWithVersion
+(
+    uint16_t serviceId,
+        ///< [IN] Service ID.
+    uint16_t instanceId,
+        ///< [IN] Instance ID.
+    uint8_t  majVer,
+        ///< [OUT] Major Version.
+    uint32_t minVer,
+        ///< [OUT] Minor Version.
+    const char* LE_NONNULL ifName
+        ///< [IN] Network interface name.
+)
+{
+    uint8_t routingId;
+
+    if (GetRoutingIdByIntfName(ifName, &routingId) != LE_OK)
+    {
+        return NULL;
+    }
+
+    taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
+    return mySomeipClient.RequestService(routingId, serviceId, instanceId, majVer, minVer);
 }
 
 //--------------------------------------------------------------------------------------------------

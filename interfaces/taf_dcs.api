@@ -28,39 +28,10 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *      * Redistributions of source code must retain the above copyright
- *        notice, this list of conditions and the following disclaimer.
- *
- *      * Redistributions in binary form must reproduce the above
- *        copyright notice, this list of conditions and the following
- *        disclaimer in the documentation and/or other materials provided
- *        with the distribution.
- *
- *      * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *        contributors may be used to endorse or promote products derived
- *        from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /**
@@ -174,6 +145,7 @@
  * - taf_dcs_GetProfileListEx() -- Gets the data profile list with the specified phone ID.
  * - taf_dcs_GetDefaultPhoneIdAndProfileId() -- Gets the default phone ID and profile index.
  * - taf_dcs_SetDefaultProfileIndexEx() -- Sets the default profile corresponding to the specified phone ID and profile index.
+ * - taf_dcs_GetDefaultProfileIndexEx() -- Gets the default profile corresponding to the specified phone ID.
  * - taf_dcs_GetProfileEx() -- Gets the profile reference for the given phone ID and profile index.
  * - taf_dcs_GetPhoneId() -- Gets the phone ID for the given profile reference.
  * - taf_dcs_GetPhoneIdByInterfaceName() -- Gets the phone ID by the interface name.
@@ -481,11 +453,13 @@ BITMASK Auth
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The APN type mask.
+ * The APN type mask. Clients can specify TAF_DCS_APN_TYPE_UNSPECIFIED and indicate that APN
+ * type is not specified.
  */
 //--------------------------------------------------------------------------------------------------
 BITMASK ApnType
 {
+    APN_TYPE_UNSPECIFIED = 0,               ///< APN type is not specified.
     APN_TYPE_DEFAULT,                       ///< APN type for default/internet traffic.
     APN_TYPE_IMS,                           ///< APN type for the IP multimedia subsystem.
     APN_TYPE_MMS,                           ///< APN type for the multimedia messaging service.
@@ -987,6 +961,17 @@ ENUM CallEndHandoffReasonCode
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Hardware acceleration state.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM HwAccelerationState
+{
+    HW_ACCELERATION_INACTIVE = 0,
+    HW_ACCELERATION_ACTIVE
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Additional state information.
  *
  * @struct taf_dcs_StateInfo_t
@@ -1243,6 +1228,40 @@ EVENT QosStatus
 (
     Profile profileRef,      ///< The profile reference.
     QosStatusHandler handler ///< Handler for QOS flow status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for hardware acceleration state change events.
+ *
+ * @instaging
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER HwAccelerationStateHandler
+(
+    Profile             profileRef IN, ///< The profile reference.
+    HwAccelerationState state      IN  ///< The hardware acceleration state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report when a change occurs in hardware acceleration state.<br>
+ * If reported state is TAF_DCS_HW_ACCELERATION_INACTIVE: Data calls will take software
+ * acceleration path.<br>
+ * If reported state is TAF_DCS_HW_ACCELERATION_ACTIVE: Data calls that are started after
+ * this event invocation will be hardware accelerated. Data calls that are already started will
+ * continue without hardware acceleration. Clients could stop and restart active data calls in
+ * order to use hardware acceleration.
+ *
+ * @instaging
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT HwAccelerationState
+(
+    Profile profileRef,                            ///< The profile reference.
+    HwAccelerationStateHandler handler             ///< Handler for hardware acceleration state.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1509,6 +1528,9 @@ FUNCTION uint32 GetDefaultProfileIndex
 /**
  * Gets the default phone ID and profile index.
  *
+ * @b NOTE: For Dual Sim-Single Active (DSSA) mode and Dual Sim-Dual Active (DSDA) mode, this API
+ * gets the default data profile ID with default phone ID 1.
+ *
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameter.
@@ -1551,6 +1573,23 @@ FUNCTION le_result_t SetDefaultProfileIndexEx
 (
     uint8 phoneId                           IN,///< The phone ID.
     uint32 profileId                        IN ///< The profile index.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the default profile corresponding to the specified phone ID.
+ *
+ * @instaging
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetDefaultProfileIndexEx
+(
+    uint8 phoneId                           IN, ///< The phone ID.
+    uint32 profileId                        OUT ///< The profile index.
 );
 
 //--------------------------------------------------------------------------------------------------

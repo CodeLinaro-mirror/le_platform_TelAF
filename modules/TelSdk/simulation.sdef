@@ -93,9 +93,10 @@ commands:
 
 bindings:
 {
-    <telaf>.DeviceManager -> <root>.DeviceManager
-    <root>.DeviceManagerTool -> <root>.DeviceManagerTool
-    <telaf>.sdirTool -> <root>.sdirTool
+    <telaf>.DeviceManager -> <tafcore>.DeviceManager
+    <tafcore>.DeviceManagerTool -> <tafcore>.DeviceManagerTool
+    <root>.DeviceManagerTool -> <tafcore>.DeviceManagerTool
+    <telaf>.sdirTool -> <tafcore>.sdirTool
 }
 
 interfaceSearch:

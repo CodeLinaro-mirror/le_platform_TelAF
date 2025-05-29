@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 domain_name: Variant
@@ -82,6 +82,7 @@ execution_authorization_pattern:
     precheck_to_extended_diagnostic_session: True
     precheck_to_download_emulated_session: False
     precheck_to_system_supplier_specific_session: False
+    pattern_s29: False
   programming_session:
     class: diagnostic_session
     short_name: programming_session
@@ -100,6 +101,7 @@ execution_authorization_pattern:
     precheck_to_extended_diagnostic_session: True
     precheck_to_download_emulated_session: False
     precheck_to_system_supplier_specific_session: True
+    pattern_s29: True
   extended_diagnostic_session:
     class: diagnostic_session
     short_name: extended_diagnostic_session
@@ -118,6 +120,7 @@ execution_authorization_pattern:
     precheck_to_extended_diagnostic_session: True
     precheck_to_download_emulated_session: True
     precheck_to_system_supplier_specific_session: False
+    pattern_s29: False
   system_supplier_specific_session:
     class: diagnostic_session
     short_name: system_supplier_specific_session
@@ -136,6 +139,7 @@ execution_authorization_pattern:
     precheck_to_extended_diagnostic_session: True
     precheck_to_download_emulated_session: False
     precheck_to_system_supplier_specific_session: True
+    pattern_s29: False
   download_emulated_session:
     class: diagnostic_session
     short_name: download_emulated_session
@@ -154,6 +158,7 @@ execution_authorization_pattern:
     precheck_to_extended_diagnostic_session: True
     precheck_to_download_emulated_session: True
     precheck_to_system_supplier_specific_session: False
+    pattern_s29: False
   SecAcc_Level_01:
     class: diagnostic_session_security_level
     short_name: SecAcc_Level_01
@@ -172,6 +177,7 @@ execution_authorization_pattern:
     precheck_to_extended_diagnostic_session: False
     precheck_to_download_emulated_session: True
     precheck_to_system_supplier_specific_session: False
+    pattern_s29: False
   SecAcc_Level_61:
     class: diagnostic_session_security_level
     short_name: SecAcc_Level_61
@@ -190,6 +196,7 @@ execution_authorization_pattern:
     precheck_to_extended_diagnostic_session: False
     precheck_to_download_emulated_session: False
     precheck_to_system_supplier_specific_session: True
+    pattern_s29: False
 
 operation_cycle:
   IGNITION:

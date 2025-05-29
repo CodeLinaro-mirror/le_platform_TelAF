@@ -13,7 +13,9 @@ capability:
         CAP_WAKE_ALARM
         CAP_NET_ADMIN
         CAP_BLOCK_SUSPEND
+#if ${LE_CONFIG_TEST_COVERAGE} = y
         CAP_DAC_READ_SEARCH
+#endif
         CAP_DAC_OVERRIDE
 }
 

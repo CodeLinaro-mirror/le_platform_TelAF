@@ -948,7 +948,7 @@ le_result_t taf_DTCInf::GetClearDTCResp
     le_result_t result;
     auto &diagEvent = taf_EventSvr::GetInstance();
 
-    result = diagEvent.ClearDtc(grpOfDTC);
+    result = diagEvent.ClearDtc(grpOfDTC, TAF_DIAGDTC_DTOOL);
 
     if (result == LE_UNAVAILABLE)    // Check for NRC 0x22
     {

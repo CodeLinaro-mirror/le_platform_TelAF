@@ -19,14 +19,6 @@ groups:
     locclient
 }
 
-requires:
-{
-    configTree:
-    {
-        [w] .       // Request write access to Managed Connectivity Service's Config Tree
-    }
-}
-
 executables:
 {
     tafMngdConnSvc = ( $TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc )
@@ -62,7 +54,7 @@ bindings:
     tafMngdConnSvc.tafMngdConnSvc.taf_dcs -> tafDataCallSvc.taf_dcs
     tafMngdConnSvc.tafMngdConnSvc.taf_radio -> tafRadioSvc.taf_radio
     tafMngdConnSvc.tafMngdConnSvc.taf_sim -> tafSimCardSvc.taf_sim
-    tafMngdConnSvc.tafMngdConnSvc.le_appInfo -> <root>.le_appInfo
+    tafMngdConnSvc.tafMngdConnSvc.le_appInfo -> <tafcore>.le_appInfo
 #if ${LE_CONFIG_TARGET_SIMULATION} = ""
     tafMngdConnSvc.tafMngdConnSvc.taf_net -> tafNetSvc.taf_net
     tafMngdConnSvc.tafMngdConnSvc.taf_mngdPm -> tafMngdPMSvc.taf_mngdPm

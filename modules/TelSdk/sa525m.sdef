@@ -66,6 +66,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafLxcInitApp/tafLxcInitApp
     // $TELAF_ROOT/apps/test/tafThermTest/tafThermUnitTest
     // $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
+    // $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallIntTest/tafDataCallIntTest
     // $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallUnitTest
     // $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest
     // $TELAF_ROOT/apps/test/tafRadioTest/tafRadioIntTest
@@ -102,6 +103,8 @@ apps:
     // $TELAF_ROOT/apps/test/tafFSCryptTest/tafFSCryptUnitTest/tafFSCryptUnitTest
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipSvrUnitTest/tafSomeipSvrUnitTest
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest
+    // $TELAF_ROOT/apps/test/tafSomeipGWTest/multiVersionsTest/tafSomeipVersionClntTest
+    // $TELAF_ROOT/apps/test/tafSomeipGWTest/multiVersionsTest/tafSomeipVersionSvrTest
     // $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTest/tafAudioUnitTest
     // $TELAF_ROOT/apps/test/ConsoleApp/tafAudioApp/tafAudioConsoleApp
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdConnIntTest/tafMngdConnIntTest
@@ -117,16 +120,18 @@ apps:
     // $TELAF_ROOT/apps/test/tafLXCIntTest/tafLXCIntTest.adef
     // $TELAF_ROOT/apps/test/tafHMSTest/tafHMSUnitTest
     // $TELAF_ROOT/apps/test/tafHMSTest/tafHMSIntTest
-    // $TELAF_ROOT/apps/test/tafWLAN/tafWLANUnitTest.adef
-    // $TELAF_ROOT/apps/test/tafWLAN/tafWLANIntTest.adef
-    // $TELAF_ROOT/apps/test/tafWLAN/tafWLANAPIntTest.adef
-    // $TELAF_ROOT/apps/test/tafWLAN/tafWLANSTAIntTest.adef
+    // $TELAF_ROOT/apps/test/tafWLAN/tafWlanUnitTest.adef
+    // $TELAF_ROOT/apps/test/tafWLAN/tafWlanIntTest.adef
+    // $TELAF_ROOT/apps/test/tafWLAN/tafWlanAPIntTest.adef
+    // $TELAF_ROOT/apps/test/tafWLAN/tafWlanSTAIntTest.adef
     // $TELAF_ROOT/apps/test/tafRFSTest/tafRFSUnitTest/tafRFSUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdStorageUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSecSharedApp
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSec2ndSharedApp
     // $TELAF_ROOT/apps/test/configtreeImportTest/configUnitTest.adef
     // $TELAF_ROOT/apps/sample/configTree/configTreeSample.adef
+    // $TELAF_ROOT/framework/test/linkTest/linkDeviceUnitTest.adef
+    // $TELAF_ROOT/framework/test/linkTest/linkRequireUnitTest.adef
 }
 
 commands:
@@ -142,10 +147,11 @@ commands:
 
 bindings:
 {
-    <telaf>.DeviceManager -> <root>.DeviceManager
-    <root>.DeviceManagerTool -> <root>.DeviceManagerTool
-    <telaf>.sdirTool -> <root>.sdirTool
-    <telaf>.le_cfg -> <root>.le_cfg
+    <telaf>.DeviceManager -> <tafcore>.DeviceManager
+    <tafcore>.DeviceManagerTool -> <tafcore>.DeviceManagerTool
+    <root>.DeviceManagerTool -> <tafcore>.DeviceManagerTool
+    <telaf>.sdirTool -> <tafcore>.sdirTool
+    <telaf>.le_cfg -> <tafcore>.le_cfg
     <system>.taf_flash -> <telaf>.taf_flash
 }
 

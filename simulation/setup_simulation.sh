@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 # set -Eeo pipefail
@@ -146,7 +146,11 @@ IFS=$OLD_IFS
 echo
 echo "Now simulation projects are ready, maybe you need to do as follows:"
 echo "   1. Please have a look at 'simulation_env/patch_me.json' and give some changes on demand"
-echo "   2. Just run 'cd simulation_env && make update' to update simulation repos"
+echo "   2. Just run 'cd simulation_env && make help'"
 echo
+
+if ! command -v docker &> /dev/null; then
+    echo '[docker] is not found, please install it first, refer to: [https://docs.docker.com/engine/install]'
+fi
 
 exit 0

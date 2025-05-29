@@ -92,3 +92,17 @@ indicator_item:
   short_name: str()
   type: CapsNDash()
 
+---
+authentication_antibruteforce: map(include('authentication_antibruteforce_item'), key=camelcase(), min=1)
+authentication_timeout_extended: map(include('authentication_timeout_item'), key=camelcase(), min=1)
+
+---
+authentication_antibruteforce_item:
+  AntiBruteForceCounterMaxValue: int()
+  DelayTimerInvokingValueInit: int()
+  DelayTimerInvokingValueMax: int()
+  AuthenticationTimeout: int()
+---
+authentication_timeout_item:
+  name: str()
+  value: int()

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include <errno.h>
@@ -92,6 +92,7 @@ taf_doip_Result_t Connection::Start()
     le_timer_SetRepeat(initialTimerRef, 1);
     le_timer_SetContextPtr(initialTimerRef, cliSockRef);
     le_timer_SetHandler(initialTimerRef, InitialTimerHandler);
+    le_timer_SetWakeup(initialTimerRef, false);
 
     generalTimerRef = le_timer_Create("General inactivity timer");
     if (vehicleMgr.GetGenInactivityTime(&interval) != TAF_DOIP_RESULT_OK)
@@ -103,6 +104,7 @@ taf_doip_Result_t Connection::Start()
     le_timer_SetRepeat(generalTimerRef, 1);
     le_timer_SetContextPtr(generalTimerRef, cliSockRef);
     le_timer_SetHandler(generalTimerRef, GeneralTimerHandler);
+    le_timer_SetWakeup(generalTimerRef, false);
 
     aliveCheckTimerRef = le_timer_Create("Alive check timer");
     if (vehicleMgr.GetAliveCheckTime(&interval) != TAF_DOIP_RESULT_OK)
@@ -114,6 +116,7 @@ taf_doip_Result_t Connection::Start()
     le_timer_SetRepeat(aliveCheckTimerRef, 1);
     le_timer_SetContextPtr(aliveCheckTimerRef, cliSockRef);
     le_timer_SetHandler(aliveCheckTimerRef, AliveCheckTimerHandler);
+    le_timer_SetWakeup(aliveCheckTimerRef, false);
 
     if (LE_OK != le_socket_SetTimeout(cliSockRef, SOCKET_TIMEOUT_MS))
     {
@@ -1147,11 +1150,11 @@ void Connection::DiagnosticMsgSvrSecondHandler
     logicalTargetAddr = ntohs(logicalTargetAddr);
     pos += TAF_DOIP_LOGICAL_ADDRESS_LENGTH;
 
-    // [DoIP-131]
+    // [DoIP-070]
     if (connState != TAF_DOIP_CONNECT_STATE_REGISTERED_ROUTING_ACTIVE)
     {
         LE_ERROR("Connection don't active.Discard message\n");
-        nackCode = TAF_DOIP_DIAGNOSTIC_NACK_TARGET_UNREACHABLE;
+        nackCode = TAF_DOIP_DIAGNOSTIC_NACK_INVALID_SA;
         goto errOut1;
     }
 

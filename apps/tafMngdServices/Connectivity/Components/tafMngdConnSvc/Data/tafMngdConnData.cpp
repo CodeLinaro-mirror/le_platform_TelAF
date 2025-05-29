@@ -1,8 +1,7 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 
 #include "tafMngdConnData.hpp"
 #include "tafMngdConnAdmin.hpp"
@@ -12,6 +11,9 @@
 #define MAX_PHONE_ID 2
 
 using namespace tafsvc;
+// Boolean variable to indicate if we are waiting for a promise to be fulfilled
+// This tracks if async data start/stop times out and the promise is not needed anymore.
+static std::atomic<bool> bWaitingForPromise = {false};
 
 //Initialize static variables
 std::promise<le_result_t> tafMngdConnData::AsyncAPIPromise;
@@ -259,11 +261,14 @@ le_result_t tafMngdConnData::Startdata(uint8_t phoneId, uint32_t profileId, uint
     std::chrono::system_clock::time_point timeoutsec
         = std::chrono::system_clock::now() + std::chrono::seconds(timeout);
     std::future<le_result_t> futResult = AsyncAPIPromise.get_future();
+    // Set waiting for promise
+    bWaitingForPromise.store(true);
     std::future_status status = futResult.wait_until(timeoutsec);
     if (status == std::future_status::ready) {
         // Result is available
         // getting and printing the result
         if (futResult.valid()) {
+            LE_DEBUG("futResult.get_future");
             result = futResult.get();
         }
         else {
@@ -275,7 +280,8 @@ le_result_t tafMngdConnData::Startdata(uint8_t phoneId, uint32_t profileId, uint
         LE_ERROR("Timeout occurred while starting data Result: %d", result);
         result = LE_TIMEOUT;
     }
-
+    // Reset waiting for promise
+    bWaitingForPromise.store(false);
     LE_INFO("Startdata: result =%d " ,result);
     return result;
 }
@@ -333,7 +339,13 @@ void tafMngdConnData::StartSessionAsyncHandlerFunc(taf_dcs_ProfileRef_t profileR
     LE_DEBUG("Handler for Asynchornous session -- Begin");
     LE_INFO("profileId= %d, result: %d", profileId, result);
     LE_DEBUG("Handler for Asynchornous session -- End");
-    AsyncAPIPromise.set_value(result);
+    if (bWaitingForPromise.load()) {
+        LE_DEBUG("AsyncAPIPromise.set_value");
+        AsyncAPIPromise.set_value(result);
+    }
+    else {
+        LE_DEBUG("Promise already satisfied");
+    }
 }
 
 void tafMngdConnData::StopSessionAsyncHandlerFunc(taf_dcs_ProfileRef_t profileRef,
@@ -344,7 +356,15 @@ void tafMngdConnData::StopSessionAsyncHandlerFunc(taf_dcs_ProfileRef_t profileRe
     LE_DEBUG("Handler for Asynchornous session -- Begin");
     LE_INFO("profileId= %d, result: %d", profileId, result);
     LE_DEBUG("Handler for Asynchornous session -- End");
-    AsyncAPIPromise.set_value(result);
+    if (bWaitingForPromise.load())
+    {
+        LE_DEBUG("AsyncAPIPromise.set_value");
+        AsyncAPIPromise.set_value(result);
+    }
+    else
+    {
+        LE_DEBUG("Promise already satisfied");
+    }
 }
 
 
@@ -382,11 +402,14 @@ le_result_t tafMngdConnData::Stopdata(uint8_t phoneId, uint32_t profileId, uint8
     std::chrono::system_clock::time_point timeoutsec
         = std::chrono::system_clock::now() + std::chrono::seconds(timeout);
     std::future<le_result_t> futResult = AsyncAPIPromise.get_future();
+    // Set waiting for promise
+    bWaitingForPromise.store(true);
     std::future_status status = futResult.wait_until(timeoutsec);
     if (status == std::future_status::ready) {
         // Result is available
         // getting and printing the result
         if (futResult.valid()) {
+            LE_DEBUG("futResult.get_future");
             result = futResult.get();
         }
         else {
@@ -398,7 +421,8 @@ le_result_t tafMngdConnData::Stopdata(uint8_t phoneId, uint32_t profileId, uint8
         LE_ERROR("Timeout occurred while stoping data Result: %d", result);
         result = LE_TIMEOUT;
     }
-
+    // Reset waiting for promise
+    bWaitingForPromise.store(false);
     LE_INFO("StopData: result =%d " ,result);
     return result;
 }

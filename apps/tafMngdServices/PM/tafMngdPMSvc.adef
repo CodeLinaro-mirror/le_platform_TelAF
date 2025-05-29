@@ -43,7 +43,7 @@ sandboxed: false
 bindings:
 {
     tafMngdPMSvc.tafMngdPMSvc.taf_pm -> tafPMSvc.taf_pm
-    tafMngdPMSvc.tafMngdPMSvc.le_appInfo -> <root>.le_appInfo
+    tafMngdPMSvc.tafMngdPMSvc.le_appInfo -> <tafcore>.le_appInfo
     tafMngdPMSvc.tafMngdPMSvc.taf_rpcPm -> <telaf>.rpcServer_102_telaf_taf_pm
 }
 

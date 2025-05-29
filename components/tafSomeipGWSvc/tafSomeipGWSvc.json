@@ -16,6 +16,14 @@
             "id" : "0x0101"
         },
         {
+            "name" : "ivssTelephonySvc",
+            "id" : "0x0201"
+        },
+        {
+            "name" : "ivssDataSvc",
+            "id" : "0x0202"
+        },
+        {
             "name" : "location-fidl-service",
             "id" : "0x301"
         },
@@ -34,6 +42,30 @@
     ],
     "services" :
     [
+        {
+            "service" : "0xED80",
+            "instance" : "0x0001",
+            "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
+            "unreliable" : "31000"
+        },
+        {
+            "service" : "0xED81",
+            "instance" : "0x0001",
+            "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
+            "unreliable" : "31000"
+        },
+        {
+            "service" : "0xED82",
+            "instance" : "0x0001",
+            "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
+            "unreliable" : "31000"
+        },
+        {
+            "service" : "0xED83",
+            "instance" : "0x0001",
+            "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
+            "unreliable" : "31000"
+        },
         {
             "service" : "0xEE00",
             "instance" : "0x01",
@@ -65,7 +97,7 @@
         "initial_delay_max" : "100",
         "repetitions_base_delay" : "200",
         "repetitions_max" : "3",
-        "ttl" : "3",
+        "ttl" : "5",
         "cyclic_offer_delay" : "2000",
         "request_response_delay" : "1500"
     }

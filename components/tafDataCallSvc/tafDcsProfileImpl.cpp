@@ -28,8 +28,8 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -54,7 +54,7 @@ using namespace tafsvc;
 
 LE_MEM_DEFINE_STATIC_POOL(tafProfilePool, TAF_DCS_PROFILE_LIST_MAX_ENTRY, sizeof(taf_dcs_ProfileCtx_t));
 LE_MEM_DEFINE_STATIC_POOL(tafProfileEvent, TAF_DCS_PROFILE_LIST_MAX_ENTRY, sizeof(taf_dcs_ProfileCtxs_t));
-
+LE_MEM_DEFINE_STATIC_POOL(HwAccelStateEvtPool, TAF_DCS_PROFILE_LIST_MAX_ENTRY, sizeof(HwAccelStatus_t));
 
 // require profile list handler
 void taf_ProfileListCallback::onProfileListResponse(
@@ -1026,7 +1026,6 @@ le_result_t taf_DataProfile::SetApnTypes
     uint8_t slotId;
 
     TAF_ERROR_IF_RET_VAL((profileRef == NULL), LE_BAD_PARAMETER, "profileRef is null");
-    TAF_ERROR_IF_RET_VAL(0 == apnType, LE_BAD_PARAMETER, "0 is not valid apnType");
     taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap,
                                                                                 (void*)profileRef);
     TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
@@ -1044,8 +1043,11 @@ le_result_t taf_DataProfile::SetApnTypes
     }
 
     MapProfileCtxToParams(profileCtxPtr, params);
-    params.apnTypes = apnType;
-
+    params.apnTypes = convertApnTypes(apnType);
+    if (TAF_DCS_APN_TYPE_UNSPECIFIED == apnType)
+    {
+        LE_INFO("APN type is UNSPECIFIED");
+    }
     result = SendProfileModificationReq(slotId, profileId, params);
     if (result != LE_OK)
     {
@@ -1148,6 +1150,54 @@ le_result_t taf_DataProfile::GetTechPreference
     return LE_OK;
 }
 
+/**
+ * Converts taf_dcs_ApnType_t to telux::data::ApnTypes.
+ *
+ * @param taf_dcs_ApnType The taf_dcs_ApnType_t to convert.
+ * @return The converted ApnTypes.
+ */
+ApnTypes taf_DataProfile::convertApnTypes(taf_dcs_ApnType_t taf_dcs_ApnType)
+{
+    if (TAF_DCS_APN_TYPE_UNSPECIFIED == taf_dcs_ApnType)
+    {
+        LE_INFO("taf_dcs_ApnType is UNSPECIFIED");
+        return ApnTypes(TAF_DCS_APN_TYPE_UNSPECIFIED);
+    }
+    ApnTypes apnTypes;
+    for (const auto& pair : taf_dcs_ApnType_to_ApnMaskType) {
+        if (taf_dcs_ApnType & pair.first) {
+            apnTypes.set(apnMaskTypeToIndex.at(pair.second));
+        }
+    }
+    return apnTypes;
+}
+
+/**
+ * Converts telux::data::ApnTypes to taf_dcs_ApnType_t.
+ *
+ * @param apnTypes The ApnTypes to convert.
+ * @return The converted taf_dcs_ApnType_t.
+ */
+taf_dcs_ApnType_t taf_DataProfile::convertApnTypes(const ApnTypes &apnTypes)
+{
+    if (ApnTypes(TAF_DCS_APN_TYPE_UNSPECIFIED) == apnTypes)
+    {
+        LE_INFO("ApnTypes is UNSPECIFIED");
+        return TAF_DCS_APN_TYPE_UNSPECIFIED;
+    }
+    taf_dcs_ApnType_t taf_dcs_ApnType = 0;
+    for (size_t i = 0; i < apnTypes.size(); ++i) {
+        if (apnTypes.test(i)) {
+            for (const auto& pair : apnMaskTypeToIndex) {
+                if (pair.second == static_cast<int>(i)) {
+                    taf_dcs_ApnType |= ApnMaskType_to_taf_dcs_ApnType.at(pair.first);
+                }
+            }
+        }
+    }
+    return taf_dcs_ApnType;
+}
+
 le_result_t taf_DataProfile::MapProfileCtxToParams(taf_dcs_ProfileCtx_t *ctxPtr, telux::data::ProfileParams &params)
 {
     params.profileName = ctxPtr->info.name;
@@ -1157,7 +1207,7 @@ le_result_t taf_DataProfile::MapProfileCtxToParams(taf_dcs_ProfileCtx_t *ctxPtr,
     params.apn = ctxPtr->apn;
     params.userName = ctxPtr->authUsername;
     params.password = ctxPtr->authPassword;
-
+    params.apnTypes = convertApnTypes(ctxPtr->apnType);
     return LE_OK;
 }
 
@@ -1366,7 +1416,7 @@ void taf_DataProfile::CleanupAllProfiles(Profile_List_Event_t *listEvent)
 le_result_t taf_DataProfile::CreateIndividualProfile(taf_dcs_ProfileCtx_t *info)
 {
     taf_dcs_ProfileCtx_t* profileCtx = NULL;
-    char throttlename[18] = {0};
+    char nameStr[18] = {0};
 
     profileCtx = (taf_dcs_ProfileCtx_t *)le_mem_ForceAlloc(ProfilePool);
     TAF_ERROR_IF_RET_VAL(profileCtx == NULL, LE_NO_MEMORY, "cannot alloc profileCtx");
@@ -1379,9 +1429,13 @@ le_result_t taf_DataProfile::CreateIndividualProfile(taf_dcs_ProfileCtx_t *info)
 
     profileCtx->reference = profileRef;
 
-    snprintf(throttlename, sizeof(throttlename)-1, "Throttle-%d-%d", profileCtx->slotId,
+    snprintf(nameStr, sizeof(nameStr)-1, "Throttle-%d-%d", profileCtx->slotId,
                                                                      profileCtx->info.index);
-    profileCtx->throttleStateEvent = le_event_CreateId(throttlename, sizeof(ThrottleStatus_t));
+    profileCtx->throttleStateEvent = le_event_CreateId(nameStr, sizeof(ThrottleStatus_t));
+
+    snprintf(nameStr, sizeof(nameStr) - 1, "HwAccelEvt-%d-%d", profileCtx->slotId,
+                                                                        profileCtx->info.index);
+    profileCtx->HwAccelStateEvent = le_event_CreateIdWithRefCounting(nameStr);
 
     // add this profile context to list
     le_dls_Queue(&ProfileCtxList, &profileCtx->link);
@@ -1512,6 +1566,57 @@ void taf_DataProfile::ProcessListReq(void *listEvent)
     return;
 }
 
+/**
+ * This returns the profile context specific hw acceleration state event that is used to send
+ * notifications to registered clients.
+ */
+le_event_Id_t taf_DataProfile::GetProfileCtxHWAccelStateEvent(uint8_t slotId, int32_t profileId)
+{
+    taf_dcs_ProfileCtx_t *profileCtxPtr = GetProfileCtx(slotId, profileId);
+    TAF_ERROR_IF_RET_VAL(profileCtxPtr == nullptr, nullptr,
+                         "Cannot find profile context for slotId(%d) profileId(%d)",
+                         slotId, profileId);
+
+    return profileCtxPtr->HwAccelStateEvent;
+}
+
+// This returns the taf_DataProfile object's HW status event id.
+le_event_Id_t taf_DataProfile::GetHwAccelStatusEvent()
+{
+    return HwAccelStatusEvent;
+}
+
+le_mem_PoolRef_t taf_DataProfile::GetHwAccelEventMemPool()
+{
+    return HwAccelEvtPoolRef;
+}
+
+void taf_DataProfile::ProcessHwAccelStatusEvent(void *eventPtr)
+{
+    TAF_ERROR_IF_RET_NIL(eventPtr == NULL, "eventPtr is NULL!");
+    HwAccelStatus_t *hwAccelStatusEventPtr = static_cast<HwAccelStatus_t *>(eventPtr);
+    auto &myProfile = taf_DataProfile::GetInstance();
+
+    LE_DEBUG("HwAccelStatus: %d", hwAccelStatusEventPtr->state);
+
+    le_dls_Link_t *linkPtr = NULL;
+    linkPtr = le_dls_Peek(&myProfile.ProfileCtxList);
+    while (linkPtr)
+    {
+        taf_dcs_ProfileCtx_t *profileCtx = CONTAINER_OF(linkPtr, taf_dcs_ProfileCtx_t, link);
+        {
+            HwAccelStatus_t *reportPtr =
+                static_cast<HwAccelStatus_t *>(le_mem_ForceAlloc(myProfile.GetHwAccelEventMemPool()));
+            reportPtr->state = hwAccelStatusEventPtr->state;
+            reportPtr->profileRef = profileCtx->reference;
+            le_event_ReportWithRefCounting(profileCtx->HwAccelStateEvent, (void *)reportPtr);
+        }
+        linkPtr = le_dls_PeekNext(&myProfile.ProfileCtxList, linkPtr);
+    }
+
+    return;
+}
+
 void* taf_DataProfile::ProfileEventThread(void* contextPtr)
 {
     auto &myProfile = taf_DataProfile::GetInstance();
@@ -1521,9 +1626,13 @@ void* taf_DataProfile::ProfileEventThread(void* contextPtr)
     myProfile.ListReqEvent = le_event_CreateId("Profile List Request Event", sizeof(Profile_List_Event_t));
     le_event_AddHandler("Profile List Request Event", myProfile.ListReqEvent, ProcessListReq);
 
+    myProfile.HwAccelStatusEvent = le_event_CreateId("HwAccelStatusEvent", sizeof(HwAccelStatus_t));
+    le_event_AddHandler("HwAccelStatusEventHdlr", myProfile.HwAccelStatusEvent,
+                                                                        ProcessHwAccelStatusEvent);
+
     le_sem_Post(semRef);
 
-    LE_INFO("Create event loop for connection event");
+    LE_INFO("Create event loop for profile events");
     // start event loop
     le_event_RunLoop();
     return NULL;
@@ -1647,6 +1756,10 @@ void taf_DataProfile::Init(void)
 
     // this pool is for allocing profile list events, support up to 32 profile list events
     ListEventPool   = le_mem_InitStaticPool(tafProfileEvent, TAF_DCS_PROFILE_LIST_MAX_ENTRY, sizeof(taf_dcs_ProfileCtxs_t));
+
+    // Data pool for HW accleration related events
+    HwAccelEvtPoolRef = le_mem_InitStaticPool(HwAccelStateEvtPool, TAF_DCS_PROFILE_LIST_MAX_ENTRY,
+                                                                        sizeof(HwAccelStatus_t));
 
     // this reference map is for profile context
     ProfileRefMap = le_ref_CreateMap("tafDataProfileRef", TAF_DCS_PROFILE_LIST_MAX_ENTRY);

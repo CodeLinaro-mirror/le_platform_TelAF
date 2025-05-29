@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -256,6 +256,18 @@ EXPORT_SYM std::shared_ptr<std::vector<uint8_t>>
 get_pattern_levels_by_session_id(uint8_t session_id);
 
 EXPORT_SYM bool is_forbidden(uint16_t did_code, const uint8_t *payload, uint32_t plen);
+
+EXPORT_SYM std::map<std::string, uint64_t> get_authentication_roles();
+
+EXPORT_SYM uint32_t get_authentication_timeout();
+
+EXPORT_SYM int get_operation_cycle_count();
+
+EXPORT_SYM std::string get_routine_record(uint16_t rid, uint8_t subFunc);
+
+EXPORT_SYM size_t get_routine_record_size(std::string recordName);
+
+EXPORT_SYM bool validate_base_record(const uint8_t* dataRecord, size_t recordLength, const std::string nodeName);
 
 template <typename T>
 static inline void fill_list(Node & node, std::vector<T> & to_be_filled)

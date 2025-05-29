@@ -178,8 +178,10 @@ typedef struct
     uint16_t serviceId;                             ///< Service Identifier.
     uint16_t instanceId;                            ///< Instance Identifier.
     ServiceState_t state;                           ///< Service state.
-    uint8_t majorVersion;                           ///< Major Version retrived from VSOMEIP stack.
-    uint32_t minorVersion;                          ///< Minor version retrived from VSOMEIP stack.
+    uint8_t reqMajVer;                              ///< Requested major version.
+    uint32_t reqMinVer;                             ///< Requested minor version.
+    uint8_t majorVersion;                           ///< Current major version.
+    uint32_t minorVersion;                          ///< Current minor version.
     le_dls_List_t groupList;                        ///< Enabled Event group list.
     le_dls_List_t eventList;                        ///< Enabled Event list
 }SomeipClnt_Service_t;
@@ -292,7 +294,8 @@ typedef struct
                 // Pubilc methods for API handler wrapper.
                 uint16_t GetClientId(uint8_t routingId);
                 taf_someipClnt_ServiceRef_t RequestService(uint8_t routingId, uint16_t serviceId,
-                                                                uint16_t instanceId);
+                                                                uint16_t instanceId, uint8_t majVer,
+                                                                uint32_t minVer);
                 le_result_t ReleaseService(taf_someipClnt_ServiceRef_t serviceRef);
                 le_result_t GetState(taf_someipClnt_ServiceRef_t serviceRef,
                                         taf_someipClnt_State_t* statePtr);

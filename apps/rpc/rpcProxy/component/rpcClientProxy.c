@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -193,6 +193,14 @@ static le_dls_List_t RpcClientProxyList = LE_DLS_LIST_INIT;
  */
 //--------------------------------------------------------------------------------------------------
 static uint8_t RxMessageBuffer[TAF_SOMEIPDEF_MAX_PAYLOAD_SIZE];
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference to IPC session with the Service Directory.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_msg_SessionRef_t SdirSessionRef = NULL;
 
 
 //--------------------------------------------------------------------------------------------------
@@ -446,47 +454,6 @@ static void AppUpdateHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Data struct initialization.
- */
-//--------------------------------------------------------------------------------------------------
-static void DataInit
-(
-    void
-)
-{
-    // Initialize RPC client node object pool.
-    RpcClientProxyNodePoolRef = le_mem_InitStaticPool(RpcClientProxyNodePool,
-                                                      (RPC_MAX_SYSTEMS*RPC_MAX_SERVICES),
-                                                      sizeof(RpcClientProxyNode_t));
-
-    // Initialize RPC client proxy pool.
-    RpcClientProxyPoolRef = le_mem_InitStaticPool(RpcClientProxyPool,
-                                                  RPC_MAX_SERVICES,
-                                                  sizeof(RpcClientProxy_t));
-
-    // Initialize local client proxy session pool.
-    LocalClientProxySessionPoolRef = le_mem_CreatePool("LocalClientProxySessionPool",
-                                                       sizeof(ClientProxySession_t));
-
-    // Initialize local message pool.
-    ClientProxyMsgPoolRef = le_mem_CreatePool("ClientProxyMessagePool",
-                                              sizeof(ClientProxyMsg_t));
-
-    // Create internal event and add event handler.
-    RpcClientNodeEvent = le_event_CreateId("RpcClientNodeEvent", sizeof(ClientNodeEvent_t));
-    RpcClientNodeEventHandlerRef = le_event_AddHandler("RpcClientNodeEvent Handler",
-                                                       RpcClientNodeEvent,
-                                                       RpcClientNodeEventHandler);
-
-    // Register handlers for app installation/un-installiation events to
-    // recreate the proxy node bindings.
-    le_instStat_AddAppInstallEventHandler(AppUpdateHandler, NULL);
-    le_instStat_AddAppUninstallEventHandler(AppUpdateHandler, NULL);
-}
-
-
-//--------------------------------------------------------------------------------------------------
-/**
  * RPC client node initialization function.
  */
 //--------------------------------------------------------------------------------------------------
@@ -580,114 +547,6 @@ static le_result_t RpcClientNodeInit
 
 //--------------------------------------------------------------------------------------------------
 /**
- * RPC client proxy initialization function.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t rpcClientProxy_Init
-(
-    const OfferServiceConfigEntry_t* serviceConfigPtr, ///< [IN] Offer service configuration table.
-    uint8_t number                                     ///< [IN] Number of the table.
-)
-{
-    if (number == 0)
-    {
-        // Simply return LE_OK if no RPC clients configured.
-        LE_INFO("No RPC clientProxy is configured.");
-        return LE_NOT_FOUND;
-    }
-
-    if (serviceConfigPtr == NULL)
-    {
-        LE_ERROR("serviceConfigPtr is NULL.");
-        return LE_BAD_PARAMETER;
-    }
-
-    // Data struct init.
-    DataInit();
-
-    uint8_t cnt;
-    RpcClientProxy_t* rpcClientProxyPtr;
-    le_result_t result;
-    SystemLink_t mySystemLink;
-
-    // Get my system info.
-    memset(&mySystemLink, 0, sizeof(mySystemLink));
-    rpcProxy_GetMySystemLink(&mySystemLink);
-
-    // Create RPC client proxies and nodes.
-    for(cnt = 0; cnt < number; cnt++)
-    {
-        rpcClientProxyPtr = le_mem_TryAlloc(RpcClientProxyPoolRef);
-        if (rpcClientProxyPtr == NULL)
-        {
-            LE_ERROR("rpcClientProxyPtr is NULL.");
-            return LE_NO_MEMORY;
-        }
-
-        // Initialize data struct.
-        memset(rpcClientProxyPtr, 0, sizeof(RpcClientProxy_t));
-
-        // Set base service info.
-        rpcClientProxyPtr->serviceCfg.id = serviceConfigPtr->service.id;
-        le_utf8_Copy(rpcClientProxyPtr->serviceCfg.user, serviceConfigPtr->service.user,
-                     sizeof(rpcClientProxyPtr->serviceCfg.user), NULL);
-        le_utf8_Copy(rpcClientProxyPtr->serviceCfg.name, serviceConfigPtr->service.name,
-                     sizeof(rpcClientProxyPtr->serviceCfg.name), NULL);
-        le_utf8_Copy(rpcClientProxyPtr->serviceCfg.protocolId, serviceConfigPtr->service.protocolId,
-                     sizeof(rpcClientProxyPtr->serviceCfg.protocolId), NULL);
-
-        // Set maxMessageSize and version to 0, later they will be set once the service
-        // info is retrieved from serviceDirectory.
-        rpcClientProxyPtr->maxMessageSize = 0;
-        rpcClientProxyPtr->version[0] = '\0';
-
-        // Initialize timer ref.
-        rpcClientProxyPtr->timerRef = NULL;
-
-        // Set SOME/IP server parameters. The service instance ID is equal to the local
-        // system ID.
-        rpcClientProxyPtr->someipServer.instanceId = mySystemLink.id;
-        rpcClientProxyPtr->someipServer.serviceId = serviceConfigPtr->service.id;
-        rpcClientProxyPtr->someipServer.isReliable = serviceConfigPtr->port.isReliable;
-        rpcClientProxyPtr->someipServer.port = serviceConfigPtr->port.number;
-        rpcClientProxyPtr->someipServer.serviceRef = NULL;
-        rpcClientProxyPtr->someipServer.rxMsgHandlerRef = NULL;
-        rpcClientProxyPtr->someipServer.isOffered = false;
-
-        rpcClientProxyPtr->rpcClientNodeList = LE_DLS_LIST_INIT;
-        rpcClientProxyPtr->link = LE_DLS_LINK_INIT;
-
-        // Add the proxy object into list.
-        le_dls_Queue(&RpcClientProxyList, &rpcClientProxyPtr->link);
-
-        LE_INFO("Created rpcClientNode for" \
-                " svrId=0x%x/0x%x svrName='%s' user='%s' protoId='%s'",
-                rpcClientProxyPtr->someipServer.serviceId,
-                rpcClientProxyPtr->someipServer.instanceId,
-                rpcClientProxyPtr->serviceCfg.name,
-                rpcClientProxyPtr->serviceCfg.user,
-                rpcClientProxyPtr->serviceCfg.protocolId);
-
-        // Create and initialize all client nodes of this RPC client proxy.
-        result = RpcClientNodeInit(rpcClientProxyPtr,
-                                   serviceConfigPtr->clientSystems,
-                                   serviceConfigPtr->systemCnt);
-
-        if (result != LE_OK)
-        {
-            return result;
-        }
-
-        // Move to the next entry in the offer service configuration table.
-        serviceConfigPtr++;
-    }
-
-    return LE_OK;
-}
-
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Check if the service is up and running and get the service info if possible.
  */
 //--------------------------------------------------------------------------------------------------
@@ -706,30 +565,18 @@ static le_result_t SdirGetServiceInfo
         return LE_BAD_PARAMETER;
     }
 
-    le_msg_ProtocolRef_t protocolRef;
-    le_msg_SessionRef_t sessionRef;
     le_msg_MessageRef_t msgRef;
-    le_sdtp_Msg_t* reqPayloadPtr;
-    le_sdtp_resp_t* resPayloadPtr;
-
-    // Try to connect to service directory.
-    protocolRef = le_msg_GetProtocolRef(LE_SDTP_PROTOCOL_ID, sizeof(le_sdtp_Msg_t));
-    sessionRef = le_msg_CreateSession(protocolRef, LE_SDTP_INTERFACE_NAME);
-
-    if (LE_OK != le_msg_TryOpenSessionSync(sessionRef))
-    {
-        LE_ERROR("Failed to connect serviceDirectory.");
-        le_msg_DeleteSession(sessionRef);
-        return LE_FAULT;
-    }
+    le_sdtp_Msg_t* reqMsgPtr;
+    le_sdtp_resp_t* rspMsgPtr;
 
     // Construct the get service info request message.
-    msgRef = le_msg_CreateMsg(sessionRef);
-    reqPayloadPtr = le_msg_GetPayloadPtr(msgRef);
-    reqPayloadPtr->msgType = LE_SDTP_MSGID_FIND_SERVICE;
-    reqPayloadPtr->server = serviceUid;
-    le_utf8_Copy(reqPayloadPtr->serverInterfaceName, serviceNamePtr,
-                 sizeof(reqPayloadPtr->serverInterfaceName), NULL);
+    msgRef = le_msg_CreateMsg(SdirSessionRef);
+    reqMsgPtr = le_msg_GetPayloadPtr(msgRef);
+
+    reqMsgPtr->msgType = LE_SDTP_MSGID_FIND_SERVICE;
+    reqMsgPtr->server = serviceUid;
+    le_utf8_Copy(reqMsgPtr->serverInterfaceName, serviceNamePtr,
+                 sizeof(reqMsgPtr->serverInterfaceName), NULL);
 
     // Send the message and wait for a response.
     msgRef = le_msg_RequestSyncResponse(msgRef);
@@ -738,39 +585,35 @@ static le_result_t SdirGetServiceInfo
     if (msgRef == NULL)
     {
         LE_ERROR("Communication with Service Directory failed.");
-        le_msg_DeleteSession(sessionRef);
         return LE_FAULT;
     }
 
     // Get the response.
-    resPayloadPtr = le_msg_GetPayloadPtr(msgRef);
-    if (resPayloadPtr->result != LE_OK)
+    rspMsgPtr = le_msg_GetPayloadPtr(msgRef);
+    if (rspMsgPtr->result != LE_OK)
     {
-        LE_ERROR("Failed to get service info (%s).", LE_RESULT_TXT(resPayloadPtr->result));
+        LE_ERROR("Failed to get service info (%s).", LE_RESULT_TXT(rspMsgPtr->result));
         le_msg_ReleaseMsg(msgRef);
-        le_msg_DeleteSession(sessionRef);
         return LE_FAULT;
     }
 
     // Check if service versions match.
     if ((strcmp(protocolIdPtr, "ANY_VERSION") == 0) ||
-        (strcmp(protocolIdPtr, resPayloadPtr->id) == 0))
+        (strcmp(protocolIdPtr, rspMsgPtr->id) == 0))
     {
         // Copy and return the service info.
-        serviceInfoPtr->maxPayloadSize = resPayloadPtr->maxPayloadSize;
-        le_utf8_Copy(serviceInfoPtr->version, resPayloadPtr->id,
+        serviceInfoPtr->maxPayloadSize = rspMsgPtr->maxPayloadSize;
+        le_utf8_Copy(serviceInfoPtr->version, rspMsgPtr->id,
                      sizeof(serviceInfoPtr->version), NULL);
 
         // Release the message ref and session ref.
         le_msg_ReleaseMsg(msgRef);
-        le_msg_DeleteSession(sessionRef);
         return LE_OK;
     }
 
     LE_ERROR("Service versions mismatch(reqService version='%s', getService version='%s').",
-             protocolIdPtr, resPayloadPtr->id);
+             protocolIdPtr, rspMsgPtr->id);
     le_msg_ReleaseMsg(msgRef);
-    le_msg_DeleteSession(sessionRef);
 
     return LE_FAULT;
 }
@@ -796,23 +639,11 @@ static le_result_t SdirCreateBindingEntry
         return LE_BAD_PARAMETER;
     }
 
-    le_msg_ProtocolRef_t protocolRef;
-    le_msg_SessionRef_t sessionRef;
     le_msg_MessageRef_t msgRef;
     le_sdtp_Msg_t* msgPtr;
 
-    // Try to connect to service directory.
-    protocolRef = le_msg_GetProtocolRef(LE_SDTP_PROTOCOL_ID, sizeof(le_sdtp_Msg_t));
-    sessionRef = le_msg_CreateSession(protocolRef, LE_SDTP_INTERFACE_NAME);
-    if (LE_OK != le_msg_TryOpenSessionSync(sessionRef))
-    {
-        LE_ERROR("Failed to connect serviceDirectory.");
-        le_msg_DeleteSession(sessionRef);
-        return LE_FAULT;
-    }
-
     // Construct the request message.
-    msgRef = le_msg_CreateMsg(sessionRef);
+    msgRef = le_msg_CreateMsg(SdirSessionRef);
     msgPtr = le_msg_GetPayloadPtr(msgRef);
     msgPtr->msgType = LE_SDTP_MSGID_BIND;
 
@@ -833,12 +664,10 @@ static le_result_t SdirCreateBindingEntry
     if (msgRef == NULL)
     {
         LE_ERROR("Communication with Service Directory failed.");
-        le_msg_DeleteSession(sessionRef);
         return LE_FAULT;
     }
 
     le_msg_ReleaseMsg(msgRef);
-    le_msg_DeleteSession(sessionRef);
 
     return LE_OK;
 }
@@ -1235,7 +1064,7 @@ static void RpcRxMessageHandler
             // Send RPC createSession response.
             rpcProxyMessage_ResponseSession(rpcMsgRef, clientProxySessionPtr->rpcSessionId);
 
-            LE_INFO("Created proxy session(ID=0x%x) for interface '%s'" \
+            LE_DEBUG("Created proxy session(ID=0x%x) for interface '%s'" \
                     "(proto='%s', msgSize=%"PRIuS").", clientProxySessionPtr->rpcSessionId,
                     rpcClientNodePtr->bindingInterface, rpcClientPtr->version,
                     rpcClientPtr->maxMessageSize);
@@ -1284,7 +1113,7 @@ static void RpcRxMessageHandler
             if (le_dls_IsEmpty(&clientProxySessionPtr->msgList))
             {
                 le_mem_Release(clientProxySessionPtr);
-                LE_INFO("Deleted proxy session(ID=0x%x) for interface '%s'.",
+                LE_DEBUG("Deleted proxy session(ID=0x%x) for interface '%s'.",
                         rpcSessionId, rpcClientNodePtr->bindingInterface);
             }
 
@@ -1488,6 +1317,66 @@ static le_result_t EnableProxyNode
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Disable the proxy node.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t DisableProxyNode
+(
+    RpcClientProxyNode_t* nodePtr
+)
+{
+    // Parameter check.
+    if (nodePtr == NULL)
+    {
+        LE_ERROR("nodePtr is NULL.");
+        return LE_BAD_PARAMETER;
+    }
+
+    RpcClientProxy_t* rpcClientPtr = nodePtr->rpcClientPtr;
+    if (rpcClientPtr == NULL)
+    {
+        LE_ERROR("rpcClientPtr is NULL.");
+        return LE_BAD_PARAMETER;
+    }
+
+    uint16_t systemId = rpcProxy_GetRemoteSystemId(nodePtr->systemRef);
+    SomeipServer_t* someipServerPtr = &rpcClientPtr->someipServer;
+    uint16_t serviceId = someipServerPtr->serviceId;
+    uint16_t instanceId = someipServerPtr->instanceId;
+
+    // Check if associated system is registered.
+    if (!(nodePtr->enabled))
+    {
+        LE_WARN("Remote system(id=0x%x) for service(0x%x/0x%x) is already de-registered.",
+                systemId, serviceId, instanceId);
+        return LE_DUPLICATE;
+    }
+
+    //  the RPC events and event group and then offer the events.
+    taf_someipSvr_ServiceRef_t serviceRef = someipServerPtr->serviceRef;
+    uint16_t eventId = nodePtr->sysEventId;
+
+    if ((LE_OK != taf_someipSvr_StopOfferEvent(serviceRef, eventId)) ||
+        (LE_OK != taf_someipSvr_DisableEvent(serviceRef, eventId)))
+    {
+        LE_ERROR("Failed to de-register RPC events of service(0x%x/0x%x) for remote system(id=%d).",
+                 serviceId, instanceId, systemId);
+        return LE_FAULT;
+    }
+
+    // Remove a subscription Handler for the remote system.
+    taf_someipSvr_RemoveSubscriptionHandler(nodePtr->subsHandlerRef);
+
+    // Finally disable this remote system.
+    nodePtr->subsHandlerRef = NULL;
+    nodePtr->enabled = false;
+
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Offer a TelAF RPC service remotely.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1534,7 +1423,8 @@ static le_result_t OfferRpcService
                                                 rpcProxyConfig_GetRoutingName());
     }
 
-    if (serviceRef == NULL)
+    if ((serviceRef == NULL) ||
+       ((someipServerPtr->serviceRef != NULL) && (someipServerPtr->serviceRef != serviceRef)))
     {
         LE_ERROR("Failed to get SOME/IP service (0x%x/0x%x).", serviceId, instanceId);
         return LE_FAULT;
@@ -1567,13 +1457,6 @@ static le_result_t OfferRpcService
         return LE_FAULT;
     }
 
-    // Offer the service.
-    if (LE_OK != taf_someipSvr_OfferService(serviceRef))
-    {
-        LE_ERROR("Failed to offer service(0x%x/0x%x).", serviceId, instanceId);
-        return LE_FAULT;
-    }
-
     // Register RPC Rx message Handler.
     rxMsgHanderRef = taf_someipSvr_AddRxMsgHandler(serviceRef, RpcRxMessageHandler,
                                                        (void*)rpcClientProxyPtr);
@@ -1583,7 +1466,14 @@ static le_result_t OfferRpcService
         return LE_FAULT;
     }
 
-    // Save the server service reference, rx handler and mark the service as "offered".
+    // Offer the service.
+    if (LE_OK != taf_someipSvr_OfferService(serviceRef))
+    {
+        LE_ERROR("Failed to offer service(0x%x/0x%x).", serviceId, instanceId);
+        return LE_FAULT;
+    }
+
+    // Save the references and set the flag.
     someipServerPtr->serviceRef = serviceRef;
     someipServerPtr->rxMsgHandlerRef = rxMsgHanderRef;
     someipServerPtr->isOffered = true;
@@ -1594,32 +1484,165 @@ static le_result_t OfferRpcService
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The handler for service availability check timer.
+ * Stop a TelAF RPC service remotely.
  */
 //--------------------------------------------------------------------------------------------------
-static void ServiceAvailabilityCheckHandler
+static le_result_t StopOfferRpcService
 (
-    le_timer_Ref_t timerRef
+    RpcClientProxy_t* rpcClientProxyPtr               ///< [IN] RPC client proxy pointer.
 )
 {
-    RpcClientProxy_t* rpcClientPtr = le_timer_GetContextPtr(timerRef);
-    LE_ASSERT(rpcClientPtr != NULL);
+    // Parameter check.
+    if (rpcClientProxyPtr == NULL)
+    {
+        LE_ERROR("rpcClientProxyPtr is NULL.");
+        return LE_BAD_PARAMETER;
+    }
 
-    const char* userPtr = rpcClientPtr->serviceCfg.user;
-    const char* namePtr = rpcClientPtr->serviceCfg.name;
-    const char* protoIdPtr = rpcClientPtr->serviceCfg.protocolId;
+    SomeipServer_t* someipServerPtr = &rpcClientProxyPtr->someipServer;
+    uint16_t serviceId = someipServerPtr->serviceId;
+    uint16_t instanceId = someipServerPtr->instanceId;
+
+    // Check if TelAF RPC service info is retrieved.
+    if ((rpcClientProxyPtr->version[0] == '\0') || (rpcClientProxyPtr->maxMessageSize == 0))
+    {
+        LE_ERROR("RPC service(0x%x/0x%x) info is not retrieved.", serviceId, instanceId);
+        return LE_NOT_PERMITTED;
+    }
+
+    // Check if TelAF RPC service is already stopped.
+    if (!(someipServerPtr->isOffered))
+    {
+        LE_WARN("RPC service(0x%x/0x%x) is already stopped.", serviceId, instanceId);
+        return LE_DUPLICATE;
+    }
+
+    // Stop the service.
+    if (LE_OK != taf_someipSvr_StopOfferService(someipServerPtr->serviceRef))
+    {
+        LE_ERROR("Failed to stop service(0x%x/0x%x).", serviceId, instanceId);
+        return LE_FAULT;
+    }
+
+    // Remove the RxMsg handler for this service.
+    taf_someipSvr_RemoveRxMsgHandler(someipServerPtr->rxMsgHandlerRef);
+
+    // Clear the reference and the flag.
+    someipServerPtr->rxMsgHandlerRef = NULL;
+    someipServerPtr->isOffered = false;
+
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Find rpcClientProxy object by userName and interfaceName.
+ */
+//--------------------------------------------------------------------------------------------------
+static RpcClientProxy_t* FindRpcClientProxy
+(
+    const char* userNamePtr,
+    const char* interfaceNamePtr
+)
+{
+    RpcClientProxy_t* rpcClientProxyPtr = NULL;
+    le_dls_Link_t* linkPtr = NULL;
+
+    if ((userNamePtr != NULL) && (interfaceNamePtr != NULL))
+    {
+        linkPtr = le_dls_Peek(&RpcClientProxyList);
+        while (linkPtr != NULL)
+        {
+            rpcClientProxyPtr = CONTAINER_OF(linkPtr, RpcClientProxy_t, link);
+            linkPtr = le_dls_PeekNext(&RpcClientProxyList, linkPtr);
+            if((rpcClientProxyPtr != NULL) &&
+               (strcmp(rpcClientProxyPtr->serviceCfg.user, userNamePtr) == 0) &&
+               (strcmp(rpcClientProxyPtr->serviceCfg.name, interfaceNamePtr) == 0))
+            {
+                return rpcClientProxyPtr;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Process service availability event.
+ */
+//--------------------------------------------------------------------------------------------------
+static void ProcessServiceAvailabilityEvent
+(
+    const char* userNamePtr,
+    const char* interfaceNamePtr,
+    bool isAvailable
+)
+{
+    // Sanity check for parameters.
+    if ((userNamePtr == NULL) || (interfaceNamePtr == NULL))
+    {
+        LE_ERROR("Wrong parameters.");
+        return;
+    }
+
+    // Find rpcClientProxy object by id and interfaceName.
+    RpcClientProxy_t* rpcClientProxyPtr = FindRpcClientProxy(userNamePtr, interfaceNamePtr);
+    if (rpcClientProxyPtr == NULL)
+    {
+        LE_ERROR("No RPC service '<%s>.%s' found.", userNamePtr, interfaceNamePtr);
+        return;
+    }
+
+    // Skipping duplicate events.
+    if ((rpcClientProxyPtr->someipServer.isOffered && isAvailable) ||
+        ((!(rpcClientProxyPtr->someipServer.isOffered)) && (!isAvailable)))
+    {
+        LE_WARN("Dropped duplicate event for service '<%s>.%s'.", userNamePtr, interfaceNamePtr);
+        return;
+    }
+
+    const char* userPtr = rpcClientProxyPtr->serviceCfg.user;
+    const char* namePtr = rpcClientProxyPtr->serviceCfg.name;
+    const char* protoIdPtr = rpcClientProxyPtr->serviceCfg.protocolId;
+    le_dls_Link_t* linkPtr = NULL;
+    RpcClientProxyNode_t* nodePtr;
     ServiceInfo_t serviceInfo;
     uid_t uid;
 
     // Check if RPC client proxy is already enabled.
-    if (rpcClientPtr->someipServer.isOffered)
+    if (rpcClientProxyPtr->someipServer.isOffered)
     {
-        LE_WARN("service(0x%x/0x%x) is already offered.",
-                rpcClientPtr->someipServer.serviceId,
-                rpcClientPtr->someipServer.instanceId);
+        // Disable all remote nodes for this RPC client proxy.
+        linkPtr = le_dls_Peek(&rpcClientProxyPtr->rpcClientNodeList);
+        while (linkPtr != NULL)
+        {
+            nodePtr = CONTAINER_OF(linkPtr, RpcClientProxyNode_t, link);
+            linkPtr = le_dls_PeekNext(&rpcClientProxyPtr->rpcClientNodeList, linkPtr);
+            if (LE_OK != DisableProxyNode(nodePtr))
+            {
+                LE_ERROR("Failed to disable Remote system (id=0x%x) for Service '<%s>.%s'",
+                         rpcProxy_GetRemoteSystemId(nodePtr->systemRef), userPtr, namePtr);
+            }
+            else
+            {
+                LE_INFO("Disable Remote system (id=0x%x) for Service '<%s>.%s'",
+                        rpcProxy_GetRemoteSystemId(nodePtr->systemRef), userPtr, namePtr);
+            }
+        }
 
-        le_timer_Delete(timerRef);
-        rpcClientPtr->timerRef = NULL;
+        // Stop offer RPC service.
+        if (LE_OK != StopOfferRpcService(rpcClientProxyPtr))
+        {
+            LE_ERROR("Failed to stop offer Service '<%s>.%s'", userPtr, namePtr);
+        }
+        else
+        {
+            LE_INFO("Service '<%s>.%s' is stopped.", userPtr, namePtr);
+        }
+
         return;
     }
 
@@ -1627,9 +1650,6 @@ static void ServiceAvailabilityCheckHandler
     if (user_GetUid(userPtr, &uid) != LE_OK)
     {
         LE_ERROR("Failed to get the uid of user '%s'.", userPtr);
-
-        le_timer_Delete(timerRef);
-        rpcClientPtr->timerRef = NULL;
         return;
     }
 
@@ -1652,45 +1672,185 @@ static void ServiceAvailabilityCheckHandler
     }
 
     // Save the service version and maxMessage size.
-    le_utf8_Copy(rpcClientPtr->version, serviceInfo.version,
-                 sizeof(rpcClientPtr->version), NULL);
-    rpcClientPtr->maxMessageSize = serviceInfo.maxPayloadSize;
+    le_utf8_Copy(rpcClientProxyPtr->version, serviceInfo.version,
+                 sizeof(rpcClientProxyPtr->version), NULL);
+    rpcClientProxyPtr->maxMessageSize = serviceInfo.maxPayloadSize;
 
-    LE_INFO("Service '<%s>.%s' (version='%s' maxMsgSize=%"PRIxS") is now running.",
-            userPtr, namePtr, rpcClientPtr->version, rpcClientPtr->maxMessageSize);
-    if (LE_OK != OfferRpcService(rpcClientPtr))
+    if (LE_OK != OfferRpcService(rpcClientProxyPtr))
     {
-        LE_ERROR("Failed to offer service.");
-        le_timer_Delete(timerRef);
-        rpcClientPtr->timerRef = NULL;
+        LE_ERROR("Failed to offer Service '<%s>.%s'.", userPtr, namePtr);
         return;
     }
 
-    // Enable all nodes under this RPC proxy.
-    le_dls_Link_t* linkPtr = le_dls_Peek(&rpcClientPtr->rpcClientNodeList);
+    LE_INFO("Service '<%s>.%s' (version='%s' maxMsgSize=%"PRIxS") is offered.",
+            userPtr, namePtr, rpcClientProxyPtr->version, rpcClientProxyPtr->maxMessageSize);
+
+    // Enable all nodes for this RPC client proxy.
+    linkPtr = le_dls_Peek(&rpcClientProxyPtr->rpcClientNodeList);
     while (linkPtr != NULL)
     {
-        RpcClientProxyNode_t* nodePtr = CONTAINER_OF(linkPtr, RpcClientProxyNode_t, link);
+        nodePtr = CONTAINER_OF(linkPtr, RpcClientProxyNode_t, link);
+        linkPtr = le_dls_PeekNext(&rpcClientProxyPtr->rpcClientNodeList, linkPtr);
         if (LE_OK != EnableProxyNode(nodePtr))
         {
-            LE_ERROR("Failed to enabled Remote system (id=0x%x) for service(0x%x/0x%x).",
-                      rpcProxy_GetRemoteSystemId(nodePtr->systemRef),
-                      rpcClientPtr->someipServer.serviceId,
-                      rpcClientPtr->someipServer.instanceId);
+            LE_ERROR("Failed to enabled Remote system (id=0x%x) for Service '<%s>.%s'.",
+                      rpcProxy_GetRemoteSystemId(nodePtr->systemRef), userPtr, namePtr);
         }
         else
         {
-            LE_INFO("Enabled Remote system (id=0x%x) for service(0x%x/0x%x).",
-                     rpcProxy_GetRemoteSystemId(nodePtr->systemRef),
-                     rpcClientPtr->someipServer.serviceId,
-                     rpcClientPtr->someipServer.instanceId);
+            LE_INFO("Enabled Remote system (id=0x%x) for Service '<%s>.%s'.",
+                     rpcProxy_GetRemoteSystemId(nodePtr->systemRef), userPtr, namePtr);
         }
-
-        linkPtr = le_dls_PeekNext(&rpcClientPtr->rpcClientNodeList, linkPtr);
     }
 
-    le_timer_Delete(timerRef);
-    rpcClientPtr->timerRef = NULL;
+    return;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Enable service availability event for a given rpcClientProxy object.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t EnableServiceAvailabilityEvent
+(
+    uid_t uid,
+    const char* interfaceNamePtr
+)
+{
+    if (interfaceNamePtr == NULL)
+    {
+        return LE_BAD_PARAMETER;
+    }
+
+    // Construct the request message.
+    le_msg_MessageRef_t msgRef = le_msg_CreateMsg(SdirSessionRef);
+    le_sdtp_Msg_t* reqMsgPtr = le_msg_GetPayloadPtr(msgRef);
+
+    reqMsgPtr->msgType = LE_SDTP_MSGID_SUBSCRIBE_EVENT;
+    reqMsgPtr->server = uid;
+    le_utf8_Copy(reqMsgPtr->serverInterfaceName,  interfaceNamePtr,
+                 sizeof(reqMsgPtr->serverInterfaceName), NULL);
+
+    // Send the message and wait for a response.
+    msgRef = le_msg_RequestSyncResponse(msgRef);
+
+    // If a response message was not received, then the operation failed.
+    if (msgRef == NULL)
+    {
+        return LE_FAULT;
+    }
+
+    // Get the response and result code.
+    le_sdtp_resp_t* rspMsgPtr = le_msg_GetPayloadPtr(msgRef);
+    le_result_t result = rspMsgPtr->result;
+
+    le_msg_ReleaseMsg(msgRef);
+    return result;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handles events received from the Service directory.
+ **/
+//--------------------------------------------------------------------------------------------------
+static void EventReceiveHandler
+(
+    le_msg_MessageRef_t msgRef,
+    void* contextPtr // not used.
+)
+{
+    le_sdtp_Msg_t* eventMsgPtr = le_msg_GetPayloadPtr(msgRef);
+    if ((eventMsgPtr != NULL) &&
+       ((eventMsgPtr->msgType == LE_SDTP_MSGID_SERVICE_AVAIL) ||
+        (eventMsgPtr->msgType == LE_SDTP_MSGID_SERVICE_UNAVAIL)))
+    {
+        char userName[LIMIT_MAX_USER_NAME_BYTES] = { 0 };
+        if (LE_OK == user_GetName(eventMsgPtr->server, userName, sizeof(userName)))
+        {
+            LE_INFO("Received (%s) event for server(<%s>.%s).",
+                eventMsgPtr->msgType == LE_SDTP_MSGID_SERVICE_AVAIL ? "AVAILABLE" : "UNAVAILABLE",
+                userName, eventMsgPtr->serverInterfaceName);
+
+            bool isAvailable = eventMsgPtr->msgType == LE_SDTP_MSGID_SERVICE_AVAIL ? true : false;
+            ProcessServiceAvailabilityEvent(userName,
+                                            eventMsgPtr->serverInterfaceName, isAvailable);
+        }
+    }
+
+    le_msg_ReleaseMsg(msgRef);
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Opens an IPC session with the Service Directory.
+ */
+//--------------------------------------------------------------------------------------------------
+static void ConnectToServiceDirectory
+(
+    void
+)
+//--------------------------------------------------------------------------------------------------
+{
+    le_msg_ProtocolRef_t protocolRef = le_msg_GetProtocolRef(LE_SDTP_PROTOCOL_ID,
+                                                             sizeof(le_sdtp_Msg_t));
+    SdirSessionRef = le_msg_CreateSession(protocolRef, LE_SDTP_INTERFACE_NAME);
+
+    le_msg_SetSessionRecvHandler(SdirSessionRef, EventReceiveHandler, NULL);
+
+    if (LE_OK != le_msg_TryOpenSessionSync(SdirSessionRef))
+    {
+        le_msg_DeleteSession(SdirSessionRef);
+        SdirSessionRef = NULL;
+
+        LE_FATAL("Unable to connect to service directory.");
+    }
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data struct initialization.
+ */
+//--------------------------------------------------------------------------------------------------
+static void DataInit
+(
+    void
+)
+{
+    // Initialize RPC client node object pool.
+    RpcClientProxyNodePoolRef = le_mem_InitStaticPool(RpcClientProxyNodePool,
+                                                      (RPC_MAX_SYSTEMS*RPC_MAX_SERVICES),
+                                                      sizeof(RpcClientProxyNode_t));
+
+    // Initialize RPC client proxy pool.
+    RpcClientProxyPoolRef = le_mem_InitStaticPool(RpcClientProxyPool,
+                                                  RPC_MAX_SERVICES,
+                                                  sizeof(RpcClientProxy_t));
+
+    // Initialize local client proxy session pool.
+    LocalClientProxySessionPoolRef = le_mem_CreatePool("LocalClientProxySessionPool",
+                                                       sizeof(ClientProxySession_t));
+
+    // Initialize local message pool.
+    ClientProxyMsgPoolRef = le_mem_CreatePool("ClientProxyMessagePool",
+                                              sizeof(ClientProxyMsg_t));
+
+    // Create internal event and add event handler.
+    RpcClientNodeEvent = le_event_CreateId("RpcClientNodeEvent", sizeof(ClientNodeEvent_t));
+    RpcClientNodeEventHandlerRef = le_event_AddHandler("RpcClientNodeEvent Handler",
+                                                       RpcClientNodeEvent,
+                                                       RpcClientNodeEventHandler);
+
+    // Register handlers for app installation/un-installiation events to
+    // recreate the proxy node bindings.
+    le_instStat_AddAppInstallEventHandler(AppUpdateHandler, NULL);
+    le_instStat_AddAppUninstallEventHandler(AppUpdateHandler, NULL);
+
+    // Connect to service directory.
+    ConnectToServiceDirectory();
 }
 
 
@@ -1721,22 +1881,19 @@ le_result_t rpcClientProxy_Start
     }
 
     SomeipServer_t* someipServerPtr = &rpcClientPtr->someipServer;
-    uint16_t serviceId = someipServerPtr->serviceId;
-    uint16_t instanceId = someipServerPtr->instanceId;
     const char* userPtr = rpcClientPtr->serviceCfg.user;
     const char* namePtr = rpcClientPtr->serviceCfg.name;
     const char* protoIdPtr = rpcClientPtr->serviceCfg.protocolId;
     ServiceInfo_t serviceInfo;
     uid_t uid;
 
-    // Try to get the service info before offering service. Start a timer to periodically
-    // check the availability of the service if the service is not up and running yet.
     if (!someipServerPtr->isOffered)
     {
-        if (rpcClientPtr->timerRef != NULL)
+        // Check if the service availability event is subscribed.
+        if (le_dls_IsInList(&RpcClientProxyList, &rpcClientPtr->link))
         {
-            LE_WARN("ServiceAvailabilityCheck timer for Service '<%s>.%s' is running," \
-                    " skip client proxy.", userPtr, namePtr);
+            LE_WARN("Service '<%s>.%s' availability event is already subscribed.",
+                    userPtr, namePtr);
             return LE_OK;
         }
 
@@ -1747,28 +1904,26 @@ le_result_t rpcClientProxy_Start
             return LE_FAULT;
         }
 
-        // Check if the TelAF RPC service of this client proxy is up and running and
+        // Register service availability event.
+        if (EnableServiceAvailabilityEvent(uid, namePtr) != LE_OK)
+        {
+            LE_ERROR("Failed to subscribe availability event for service '<%s>.%s'",
+                      userPtr, namePtr);
+            return LE_FAULT;
+        }
+
+        // Add to the list to indicate the event is enabled.
+        le_dls_Queue(&RpcClientProxyList, &rpcClientPtr->link);
+        LE_INFO("Service '<%s>.%s' availability event is subscribed.", userPtr, namePtr);
+
+        // Check if the TelAF RPC service is already up and running and
         // get the service info before offering the service.
         memset(&serviceInfo, 0, sizeof(serviceInfo));
         if ((LE_OK != SdirGetServiceInfo(uid, namePtr, protoIdPtr, &serviceInfo)) ||
             (serviceInfo.maxPayloadSize > TAF_SOMEIPDEF_MAX_PAYLOAD_SIZE))
         {
-            LE_WARN("Service '<%s>.%s' not running, start ServiceAvailabilityCheck timer.",
+            LE_WARN("Service '<%s>.%s' is not running, monitor availability event.",
                     userPtr, namePtr);
-
-            char timerName[LIMIT_MAX_USER_NAME_BYTES+LIMIT_MAX_IPC_INTERFACE_NAME_BYTES + 2]={0};
-            snprintf(timerName, sizeof(timerName), "<%s>.%s", userPtr, namePtr);
-
-            // Create service check timer.
-            rpcClientPtr->timerRef = le_timer_Create(timerName);
-            le_timer_SetMsInterval(rpcClientPtr->timerRef, 2000);
-            le_timer_SetHandler(rpcClientPtr->timerRef, ServiceAvailabilityCheckHandler);
-            le_timer_SetWakeup(rpcClientPtr->timerRef, false);
-            le_timer_SetRepeat(rpcClientPtr->timerRef, 0);
-            le_timer_SetContextPtr(rpcClientPtr->timerRef, rpcClientPtr);
-
-            // Start the timer.
-            le_timer_Start(rpcClientPtr->timerRef);
 
             return LE_OK;
         }
@@ -1778,26 +1933,28 @@ le_result_t rpcClientProxy_Start
                      sizeof(rpcClientPtr->version), NULL);
         rpcClientPtr->maxMessageSize = serviceInfo.maxPayloadSize;
 
-        LE_INFO("Service '<%s>.%s' (version='%s' maxMsgSize=%"PRIuS") is now running.",
-                userPtr, namePtr, rpcClientPtr->version, rpcClientPtr->maxMessageSize);
-
         // Offer the SOME/IP service binding to this RPC service.
         if (LE_OK != OfferRpcService(rpcClientPtr))
         {
+            LE_ERROR("Failed to offer Service '<%s>.%s'.", userPtr, namePtr);
             return LE_FAULT;
         }
+
+        LE_INFO("Service '<%s>.%s' (version='%s' maxMsgSize=%"PRIuS") is offered.",
+                userPtr, namePtr, rpcClientPtr->version, rpcClientPtr->maxMessageSize);
     }
 
     // Enable the remote system of this proxy node.
     if( LE_OK != EnableProxyNode(nodePtr))
     {
-        LE_ERROR("Failed to enable remote system (id=0x%x) for service(0x%x/0x%x).",
-                 systemId, serviceId, instanceId);
+        LE_ERROR("Failed to enable remote system (id=0x%x) for Service '<%s>.%s'.",
+                 systemId, userPtr, namePtr);
         return LE_FAULT;
     }
 
-    LE_INFO("Enabled remote system (id=0x%x) for service(0x%x/0x%x).",
-            systemId, serviceId, instanceId);
+    LE_INFO("Enabled remote system (id=0x%x) for Service '<%s>.%s'.",
+            systemId, userPtr, namePtr);
+
     return LE_OK;
 }
 
@@ -1838,3 +1995,109 @@ void rpcClientProxy_CreateBinding
         }
     }
 }
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * RPC client proxy initialization function.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t rpcClientProxy_Init
+(
+    const OfferServiceConfigEntry_t* serviceConfigPtr, ///< [IN] Offer service configuration table.
+    uint8_t number                                     ///< [IN] Number of the table.
+)
+{
+    if (number == 0)
+    {
+        // Simply return LE_OK if no RPC clients configured.
+        LE_INFO("No RPC clientProxy is configured.");
+        return LE_NOT_FOUND;
+    }
+
+    if (serviceConfigPtr == NULL)
+    {
+        LE_ERROR("serviceConfigPtr is NULL.");
+        return LE_BAD_PARAMETER;
+    }
+
+    // Data struct init.
+    DataInit();
+
+    uint8_t cnt;
+    RpcClientProxy_t* rpcClientProxyPtr;
+    le_result_t result;
+    SystemLink_t mySystemLink;
+
+    // Get my system info.
+    memset(&mySystemLink, 0, sizeof(mySystemLink));
+    rpcProxy_GetMySystemLink(&mySystemLink);
+
+    // Create RPC client proxies and nodes.
+    for(cnt = 0; cnt < number; cnt++)
+    {
+        rpcClientProxyPtr = le_mem_TryAlloc(RpcClientProxyPoolRef);
+        if (rpcClientProxyPtr == NULL)
+        {
+            LE_ERROR("rpcClientProxyPtr is NULL.");
+            return LE_NO_MEMORY;
+        }
+
+        // Initialize data struct.
+        memset(rpcClientProxyPtr, 0, sizeof(RpcClientProxy_t));
+
+        // Set base service info.
+        rpcClientProxyPtr->serviceCfg.id = serviceConfigPtr->service.id;
+        le_utf8_Copy(rpcClientProxyPtr->serviceCfg.user, serviceConfigPtr->service.user,
+                     sizeof(rpcClientProxyPtr->serviceCfg.user), NULL);
+        le_utf8_Copy(rpcClientProxyPtr->serviceCfg.name, serviceConfigPtr->service.name,
+                     sizeof(rpcClientProxyPtr->serviceCfg.name), NULL);
+        le_utf8_Copy(rpcClientProxyPtr->serviceCfg.protocolId, serviceConfigPtr->service.protocolId,
+                     sizeof(rpcClientProxyPtr->serviceCfg.protocolId), NULL);
+
+        // Set maxMessageSize and version to 0, later they will be set once the service
+        // info is retrieved from serviceDirectory.
+        rpcClientProxyPtr->maxMessageSize = 0;
+        rpcClientProxyPtr->version[0] = '\0';
+
+        // Initialize timer ref.
+        rpcClientProxyPtr->timerRef = NULL;
+
+        // Set SOME/IP server parameters. The service instance ID is equal to the local
+        // system ID.
+        rpcClientProxyPtr->someipServer.instanceId = mySystemLink.id;
+        rpcClientProxyPtr->someipServer.serviceId = serviceConfigPtr->service.id;
+        rpcClientProxyPtr->someipServer.isReliable = serviceConfigPtr->port.isReliable;
+        rpcClientProxyPtr->someipServer.port = serviceConfigPtr->port.number;
+        rpcClientProxyPtr->someipServer.serviceRef = NULL;
+        rpcClientProxyPtr->someipServer.rxMsgHandlerRef = NULL;
+        rpcClientProxyPtr->someipServer.isOffered = false;
+
+        rpcClientProxyPtr->rpcClientNodeList = LE_DLS_LIST_INIT;
+        rpcClientProxyPtr->link = LE_DLS_LINK_INIT;
+
+        LE_INFO("Created rpcClientProxy object for" \
+                " svrId=0x%x/0x%x svrName='%s' user='%s' protoId='%s'",
+                rpcClientProxyPtr->someipServer.serviceId,
+                rpcClientProxyPtr->someipServer.instanceId,
+                rpcClientProxyPtr->serviceCfg.name,
+                rpcClientProxyPtr->serviceCfg.user,
+                rpcClientProxyPtr->serviceCfg.protocolId);
+
+        // Create and initialize all client nodes of this RPC client proxy.
+        result = RpcClientNodeInit(rpcClientProxyPtr,
+                                   serviceConfigPtr->clientSystems,
+                                   serviceConfigPtr->systemCnt);
+
+        if (result != LE_OK)
+        {
+            return result;
+        }
+
+        // Move to the next entry in the offer service configuration table.
+        serviceConfigPtr++;
+    }
+
+    return LE_OK;
+}
+

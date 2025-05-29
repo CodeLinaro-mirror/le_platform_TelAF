@@ -7,6 +7,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "limit.h"
+#include <errno.h>
 #include "taf_pa_keystore.h"
 
 //--------------------------------------------------------------------------------------------------
@@ -3123,6 +3124,21 @@ le_result_t taf_ks_CryptoSessionAbort
     return result;
 }
 
+static void SetBootKpiMarker(const char* markerPtr){
+    const char *kpi_file = "/sys/kernel/boot_kpi/kpi_values";
+    FILE *file = fopen(kpi_file, "w");
+    if (file == NULL)
+    {
+        LE_ERROR("%s not able to open due to %s", kpi_file,strerror(errno));
+        return;
+    }
+    if (fwrite(markerPtr, sizeof(char), strlen(markerPtr), file) != strlen(markerPtr))
+    {
+        LE_ERROR("failed to write %s to %s", markerPtr, kpi_file);
+    }
+    fclose(file);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * The keyStore daemon's initialization function.
@@ -3166,8 +3182,8 @@ COMPONENT_INIT
         le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(), RemoveNewKeysForClient, NULL);
         le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(), RemoveCryptoSessionsForClient, NULL);
         le_msg_AddServiceCloseHandler(taf_ks_GetServiceRef(), RemoveAppListsForClient, NULL);
-
-        LE_INFO("Telaf keyStore Service initialized.");
+        // Add boot KPI marker
+        SetBootKpiMarker("L - TelAF keystore service is ready");
     }
     else
     {

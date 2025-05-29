@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -14,6 +14,7 @@
 
 taf_mngdPm_wsRef_t wsRef = NULL;
 taf_mngdPm_wsRef_t wsRef1 = NULL;
+taf_mngdPm_wsRef_t wsRef2 = NULL;
 taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = 0;
 static le_sem_Ref_t tafMpmAppSem;
 le_clk_Time_t Timeout = { 5 , 0 };
@@ -26,7 +27,10 @@ const char* wsTag = "testWsTag";
 
 static le_sem_Ref_t semRef = NULL, queueSemRef = NULL;
 static le_thread_Ref_t threadRef = NULL;
-
+static le_sem_Ref_t semRef1 = NULL;
+static le_thread_Ref_t threadRef1 = NULL;
+static le_sem_Ref_t semRef2 = NULL;
+static le_thread_Ref_t threadRef2 = NULL;
 int stateChangeAck = 1;
 #define VEHICHLE_WAKEUP_REASON_DEFAULT 0
 #define AUTHORIZE_ALL_STAY_AWAKE_REASON 0xFFFFFFFF
@@ -114,7 +118,11 @@ static void PrintUsage ()
         "-----  -1   -> NACK ------------\n"
         "------  2   -> NO_RESP ------------\n"
         "------  3   -> ACK_AFTER_TIMEOUT ------------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GracefulSysSuspendWithAckType <ACK_TYPE>\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GracefulSysSuspendWithAckType <ACK_TYPE>\n"
+        "------------To Test Refresh Authorized Wake Source Cases-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestRefreshAuthorizedWsCases\n"
+        "------------To Test stayawake request during shutdown-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdownAndResume\n");
 }
 
 void NodePowerStateChangeHandlerCB(
@@ -1654,6 +1662,204 @@ void TestWakeSourceCases()
         le_sem_Wait(semRef);
 }
 
+static void* acquireWakeLock1(void* ctxPtr)
+{
+    LE_INFO("acquireWakeLock1");
+    taf_mngdPm_ConnectService();
+    int reason = 0;
+    le_result_t res = LE_FAULT;
+    int *entry = (int*)(ctxPtr);
+    LE_INFO("entry %u", *entry);
+    if(*entry == 1)
+        reason = 0;
+    else if(*entry == 5)
+        reason = 2;
+
+    wsRef1 = taf_mngdPm_CreateWakeupSource(reason, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRef1) {
+        printf("Created WakeupSource ref for reason %d\n", reason);
+        if(wsRef1 != NULL) {
+            res = taf_mngdPm_StayAwake(wsRef1);
+            if(res == LE_OK) {
+                printf("'Resumed sysytem with wsRef1'\n");
+             }
+        }
+    }
+    else
+        printf("Failed to Create WakeupSource ref for reason %d\n", reason);
+
+    le_sem_Post(semRef1);
+    le_event_RunLoop();
+}
+
+static void* acquireWakeLock2(void* ctxPtr)
+{
+    LE_INFO("acquireWakeLock2");
+    taf_mngdPm_ConnectService();
+    int reason = 0;
+    le_result_t res = LE_FAULT;
+    int *entry = (int*)(ctxPtr);
+    res = taf_mngdPm_AuthorizeStayAwakeReason(*entry);
+    LE_INFO("entry %u", *entry);
+    if(*entry == 1)
+        reason = 0;
+    else if(*entry == 5)
+        reason = 2;
+
+    wsRef2 = taf_mngdPm_CreateWakeupSource(reason, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRef2) {
+        printf("Created WakeupSource ref for reason %d\n", reason);
+        if(wsRef2 != NULL) {
+            res = taf_mngdPm_StayAwake(wsRef2);
+            if(res == LE_OK) {
+                printf("'Resumed sysytem with wsRef2'\n");
+             }
+        }
+    }
+    else
+        printf("Failed to Create WakeupSource ref for reason %d\n", reason);
+
+    le_sem_Post(semRef2);
+    le_event_RunLoop();
+}
+
+void authorizeAndAcquireLocks(int entry, bool isLocksRequired)
+{
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(entry);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", entry);
+        LE_INFO("entry %u", entry);
+        if(isLocksRequired) {
+            void *ptr = &entry;
+            semRef1 = le_sem_Create("MngdIntTestApp", 0);
+            threadRef1 = le_thread_Create("inttestapp",
+                                        acquireWakeLock1, ptr);
+            le_thread_Start(threadRef1);
+            le_sem_Wait(semRef1);
+
+            semRef2 = le_sem_Create("MngdIntTestApp", 0);
+            threadRef2 = le_thread_Create("inttestapp",
+                                        acquireWakeLock2, ptr);
+            le_thread_Start(threadRef2);
+            le_sem_Wait(semRef2);
+        }
+    }
+}
+
+void* connect_service1(void* ctxPtr)
+{
+    LE_INFO("TestWakeSourceSampleApp");
+    taf_mngdPm_ConnectService();
+    int input = 1;
+    char buffer[100];
+
+    while(input != -1)
+    {
+        printf("Choose the TestRefreshAuthorizedWakeSources Test Case\n -1.Exit\n "
+        "1:       Authorize 1       -> acquire multiple locks\n "
+        "         Authorize 4 and 1 -> acquire locks with 4\n "
+        "         Authorize only 4  -> mark 1 locks as ignored.\n "
+        "         Authorize 2       -> Should release locks and mark ws as not acquired.\n "
+        "\n"
+        "2:       Authorize 1       -> acquire multiple locks\n "
+        "        Authorize 4 and 1 -> acquire locks with 4\n "
+        "        Authorize only 4  -> mark 1 locks as ignored.\n "
+        "        Authorize 1 and 4 -> Locks of 1 should be unignored.\n "
+        "\n"
+        "3:       Authorize 1       -> acquire multiple locks\n "
+        "        Authorize 4 and 1 -> acquire locks with 4\n "
+        "        Authorize only 4  -> mark 1 locks as ignored.\n "
+        "        Authorize 1 and 4 -> Locks of 1 should be unignored.\n "
+        "        Authorize 2       -> Should release all locks and suspend and mark the locks as not acquired.\n "
+        "        Authorize 1 and 4 -> Should display the old locks as not acquired.\n "
+        "\n"
+        "4:       Authorize 1       -> acquire multiple locks\n "
+        "        Authorize 4 and 1 -> acquire locks with 4\n "
+        "        Authorize 1 and 4 -> Locks of 1 should be unignored.\n "
+        "        Authorize 2       -> Should release all locks and suspend and mark the locks as not acquired.\n "
+        "        Authorize 1 and 4 -> Should display the old locks as not acquired.\n "
+        "        Kill the clients  -> Should clear all the wake sources cache data and should release lock if any active.\n "
+        "\n"
+        "5 :      Authorize 1       -> acquire multiple locks\n "
+        "        Authorize 2       -> Should release locks and mark ws as not acquired.\n "
+        "\n"
+        "6 :      Non authorized stay awake wakelock should not affect the state changes\n "
+        "        Authorize 1       -> acquire multiple locks\n "
+        "        Call from different client, CreateWakeSource()  -> returns wakesource reference of non authorized.\n "
+        "        Acquire wakelock from other client -> Not increase the wsCount, since it is non authorized ws and marked as not acquired.\n "
+        "        Authorize 2       -> Should release locks and mark ws as not acquired.\n ");
+        if(fgets(buffer, sizeof(buffer), stdin))
+            LE_INFO("Value read successfully");
+        buffer[strcspn(buffer, "\n")] = '\0';
+        input = atoi(buffer);
+        LE_INFO("input: %d", input);
+        if(input == -1)
+        {
+            exit(EXIT_SUCCESS);
+        }
+        if(input == 1)
+        {
+            authorizeAndAcquireLocks(1, true);
+            authorizeAndAcquireLocks(5, true);
+            authorizeAndAcquireLocks(4, false);
+            authorizeAndAcquireLocks(2, false);
+        }
+        if(input == 2)
+        {
+            authorizeAndAcquireLocks(1, true);
+            authorizeAndAcquireLocks(5, true);
+            authorizeAndAcquireLocks(4, false);
+            authorizeAndAcquireLocks(5, false);
+        }
+        if(input == 3)
+        {
+            authorizeAndAcquireLocks(1, true);
+            authorizeAndAcquireLocks(5, true);
+            authorizeAndAcquireLocks(4, false);
+            authorizeAndAcquireLocks(5, false);
+            authorizeAndAcquireLocks(2, false);
+            authorizeAndAcquireLocks(5, false);
+        }
+        if(input == 4)
+        {
+            authorizeAndAcquireLocks(1, true);
+            authorizeAndAcquireLocks(5, true);
+            authorizeAndAcquireLocks(4, false);
+            authorizeAndAcquireLocks(5, false);
+            authorizeAndAcquireLocks(2, false);
+            authorizeAndAcquireLocks(5, false);
+            exit(EXIT_SUCCESS);
+        }
+        if(input == 5)
+        {
+            authorizeAndAcquireLocks(1, true);
+            authorizeAndAcquireLocks(2, false);
+        }
+        if(input == 6)
+        {
+            authorizeAndAcquireLocks(1, true);
+            int entry = 4;
+            void *ptr = &entry;
+            semRef1 = le_sem_Create("MngdIntTestApp", 0);
+            threadRef1 = le_thread_Create("inttestapp",
+                                        acquireWakeLock1, ptr);
+            authorizeAndAcquireLocks(2, false);
+        }
+    }
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+}
+
+void TestAuthorizeWakeSourceCases()
+{
+    semRef = le_sem_Create("tafMngdIntTestApp", 0);
+    LE_INFO("createapp1 start");
+        threadRef = le_thread_Create("inttestapp",
+                                    connect_service1, NULL);
+        le_thread_Start(threadRef);
+        le_sem_Wait(semRef);
+}
+
 void TestNonAuthorizedStayAwake()
 {
     uint8_t pmNodeId = 0;
@@ -1683,6 +1889,45 @@ void TestNonAuthorizedStayAwake()
     else
     {
         LE_ERROR("GracefulSysSuspend request failed");
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void ForcedSystemShutdownAndResume() //TELAF-3169 [Conti] 07743357 MPMS State Transition Issue: Stay Awake Request During Shutdown
+{
+    LE_INFO("----ForcedSystemShutdown test----");
+    le_result_t result;
+    uint8_t pmNodeId = 0;
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE", pmNodeId);
+
+    result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+            ForcedSystemShutdownCallBack, NULL, TAF_MNGDPM_SHUTDOWN_REASON_NORMAL);
+
+    if(result == LE_OK)
+    {
+         LE_INFO("----ForcedSystemShutdown success----");
+         if(wsRef == NULL)
+             wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+                     TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+         if(wsRef)
+             LE_INFO("CreateWakeupSource for TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL\n");
+
+         if(wsRef != NULL) {
+             result = taf_mngdPm_StayAwake(wsRef);
+             if(result == LE_OK) {
+                 printf("'Resumed sysytem'\n");
+              }
+              else {
+                  LE_INFO("Failed to acquire Wake source");
+              }
+         }
+         else {
+             LE_ERROR("Failed to create wakeup source!");
+         }
+    }
+    else
+    {
+        LE_ERROR("ForcedSystemShutdown request failed");
         exit(EXIT_FAILURE);
     }
 }
@@ -1873,6 +2118,14 @@ COMPONENT_INIT
                 printf("Enter PowerStateChangeAck");
                 exit(EXIT_FAILURE);
             }
+        }
+        else if(strcmp(testType, "TestRefreshAuthorizedWsCases") == 0)
+        {
+            TestAuthorizeWakeSourceCases();
+        }
+        else if(strcmp(testType, "ForcedSystemShutdownAndResume") == 0)
+        {
+            ForcedSystemShutdownAndResume();
         }
         else
         {

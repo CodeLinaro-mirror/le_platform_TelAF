@@ -1,8 +1,7 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 
 #include <exception>
 #include <stdexcept>
@@ -16,7 +15,6 @@
 
 using std::to_string;
 
-namespace pt = boost::property_tree;
 using namespace tafsvc;
 using tafsvc::mcs_PolicyParser;
 
@@ -661,20 +659,14 @@ bool mcs_PolicyParser::ValidateValue(mcs_Policy_t &Policy,
 bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
                                                                     std::string filename)
 {
-    // Try opening an input file stream
-    std::ifstream jsonFile(filename);
-    if (!jsonFile.is_open()) {
-        LE_WARN ("Unable to open %s", filename.c_str());
-        return false;
-    }
-
     // Try parsing the JSON
-    pt::ptree tree;
+    boost::property_tree::ptree tree;
     try {
-        read_json(jsonFile, tree);
+        boost::property_tree::read_json(filename, tree);
     }
-    catch (const std::exception &e) {
-        LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
+    catch (const boost::property_tree::json_parser_error &e)
+    {
+        LE_ERROR ("read_json exception: %s. Check validity of JSON.", e.what());
         return false;
     }
 
@@ -883,28 +875,19 @@ bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
     }
 
     // Validate presence of mandatory objects
-    // The checking is done separately to return specific error logs.
-    if (!bDataConnectionAvailable)
+    if (bDataConnectionAvailable&&
+        bMultiDataSessionAvailable&&
+        bConnectivityRecoveryAvailable&&
+        bAppManagedConnectivityRecovery)
     {
-        LE_ERROR("DataConnection object is missing");
+        LE_DEBUG("All mandatory objects are present");
+    }
+    else
+    {
+        LE_ERROR("Mandatory objects are missing");
         return false;
     }
-    if (!bMultiDataSessionAvailable)
-    {
-        LE_ERROR("MultiDataSession object is missing");
-        return false;
-    }
-    if (!bConnectivityRecoveryAvailable)
-    {
-        LE_ERROR("ConnectivityRecovery object is missing");
-        return false;
-    }
-    if (!bAppManagedConnectivityRecovery)
-    {
-        LE_ERROR("AppManagedConnectivityRecovery object is missing");
-        return false;
-    }
-    return true;
+        return true;
 }
 
 void mcs_PolicyParser::ResetPolicyStructure(mcs_Policy_t &Policy)

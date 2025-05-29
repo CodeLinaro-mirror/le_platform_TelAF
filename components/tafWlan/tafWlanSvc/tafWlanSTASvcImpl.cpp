@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1268,10 +1268,11 @@ le_result_t taf_WlanSTASvcImpl::GetMode
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_WlanSTASvcImpl::SetStaticIPConfig
+le_result_t taf_WlanSTASvcImpl::SetIPConfig
 (
     taf_wlanSta_WlanSTARef_t staRef,
     ///< [IN] The WLAN STA reference.
+    taf_wlanSta_IPType_t StaIPType,
     const taf_wlanSta_IPConfig_t *LE_NONNULL StaStaticIPConfigPtr)
 {
     StaCtx_t *staCtxPtr = NULL;
@@ -1283,13 +1284,17 @@ le_result_t taf_WlanSTASvcImpl::SetStaticIPConfig
     TAF_ERROR_IF_RET_VAL(NULL == staCtxPtr, LE_FAULT, "Unable to find context");
 
     telux::wlan::StaStaticIpConfig staticIpConfig;
-    // Static IP. Populate the static IP structure.
-    staticIpConfig.ipAddr   = StaStaticIPConfigPtr->IPv4Addr;
-    staticIpConfig.gwIpAddr = StaStaticIPConfigPtr->GWAddr;
-    staticIpConfig.netMask  = StaStaticIPConfigPtr->NetMask;
-    staticIpConfig.dnsAddr  = StaStaticIPConfigPtr->DNSAddr;
+    if (TAF_WLANSTA_IPTYPE_STATIC == StaIPType)
+    {
+        LE_INFO("Static IP configuration");
+        // Static IP. Populate the static IP structure.
+        staticIpConfig.ipAddr   = StaStaticIPConfigPtr->IPv4Addr;
+        staticIpConfig.gwIpAddr = StaStaticIPConfigPtr->GWAddr;
+        staticIpConfig.netMask  = StaStaticIPConfigPtr->NetMask;
+        staticIpConfig.dnsAddr  = StaStaticIPConfigPtr->DNSAddr;
+    }
     errCode = wlanSTAMgr->setIpConfig(taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id),
-                                      taf_WlanHelper::StaIPTypeToTelux(TAF_WLANSTA_IPTYPE_STATIC),
+                                      taf_WlanHelper::StaIPTypeToTelux(StaIPType),
                                       staticIpConfig);
     if (telux::common::ErrorCode::SUCCESS != errCode)
     {

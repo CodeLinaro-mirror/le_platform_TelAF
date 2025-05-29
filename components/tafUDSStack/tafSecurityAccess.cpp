@@ -1371,6 +1371,7 @@ void SecurityAccess_CreateActiveObject(void * mgr_, void * ifname)
 
     le_timer_SetRepeat(mgr->mSecurityAccess->delay_timer_ref, 1);
     le_timer_SetHandler(mgr->mSecurityAccess->delay_timer_ref, SecAcc_DelayTimerHandler);
+    le_timer_SetWakeup(mgr->mSecurityAccess->delay_timer_ref, false);
 
     /* Trigger the initial stage */
     MFsm_init((MFsm_t *)mgr->mSecurityAccess, (MEvent_t*)0);

@@ -28,8 +28,8 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -491,12 +491,10 @@ namespace tafsvc {
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_mem_PoolRef_t   PositionSamplePoolRef;
-            std::condition_variable mNmeaVar;
             int32_t NumOfPositionHandlers;
             int32_t NumOfCapabilityHandlers;
             int32_t mClientRefCount;
             int32_t NumOfNmeaHandlers;
-            std::string mNmeaBitMask;
             uint8_t mEnable;
             uint8_t mEnabled911;
             uint8_t mMajorVersion;

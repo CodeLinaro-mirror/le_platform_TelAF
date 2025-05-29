@@ -20,7 +20,7 @@ Ref17_item:
     session: list(enum('default_session', 'programming_session', 'extended_diagnostic_session', 'vehicle_manufacturer_specific_session', 'fota_session', 'downloaded_enumlation_session', 'system_supplier_specific_session'), required=False)
     security_type: hexa(required=False)
     security_level: list(str(),required=False)
-  role: list(enum('R1', 'R2', 'R3', 'R4', 'R5'), required=False)
+  routine_role: list(enum('b1','b2','b3','b4','b5','b6'),required=False)
   request:
     sub_function: list(hexa())
     control_option_record: include('control_option_record_item', required=False)

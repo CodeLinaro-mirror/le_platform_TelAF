@@ -1,7 +1,7 @@
 /*
-* Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
-* SPDX-License-Identifier: BSD-3-Clause-Clear
-*/
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include "legato.h"
 #include "interfaces.h"
@@ -10,7 +10,7 @@
 #define MAX_SYSTEM_CMD_LENGTH 200
 #define SENSOR_NUMS 2
 taf_imuSensor_SensorRef_t sensorsList[SENSOR_NUMS];
-taf_imuSensor_DataHandlerRef_t eventHandlerRef;
+taf_imuSensor_DataHandlerRef_t eventHandlerRef,eventHandlerRef1;
 taf_imuSensor_SelfTestFailedHandlerRef_t selfTestHandlerRef;
 le_thread_Ref_t threadRef1 =NULL;
 taf_imuSensor_SensorListRef_t Head;
@@ -23,7 +23,7 @@ typedef struct{
     uint32_t batchCount;
 } SensorConfig;
 
-SensorConfig config;
+SensorConfig configList[SENSOR_NUMS];
 
 void PrintUsage(void)
 {
@@ -33,6 +33,7 @@ void PrintUsage(void)
          "app runProc tafSensorIntTest tafSensorIntTest -- SensorInfo <name>\n"
          "app runProc tafSensorIntTest tafSensorIntTest -- SetAngle <Pitch> <Roll> <Yaw>\n"
          "app runProc tafSensorIntTest tafSensorIntTest -- Activate <SensorName> <SamplingRate> <BatchCount>\n"
+         "app runProc tafSensorIntTest tafSensorIntTest -- ActivateAll <SamplingRate1> <BatchCount1> <SamplingRate2> <BatchCount2>\n"
          "app runProc tafSensorIntTest tafSensorIntTest -- SelfTest <sensorName> <Mode>\n"
          "\n");
 }
@@ -159,40 +160,43 @@ static le_result_t TestEulerAngle(double pitch, double roll , double yaw)
 void TestSensorOnEventFunc(taf_imuSensor_SensorRef_t sensorRef,taf_imuSensor_SampleRef_t ref,
     void* contextPtr){
     le_mutex_Lock(mSensorMutexRef);
-    if(sensorRef == config.sensorRef){
-    char sensorName[50];
-    le_result_t result = taf_imuSensor_GetName(sensorRef,sensorName,sizeof(sensorName));
-    if(result !=LE_OK){
-        LE_TEST_INFO("sensor ref not found %p", sensorRef);
-        return;
-    }
-    double sampleRate = config.samplingRate;
-    uint32_t batch = config.batchCount;
-    LE_TEST_INFO("Test onEvent Retrieval for SensorName %s",sensorName);
-    taf_imuSensor_DataValue_t rawData[TAF_IMUSENSOR_MAX_SUPPORTED_BATCH_COUNT];
-    taf_imuSensor_DataValue_t biasData[TAF_IMUSENSOR_MAX_SUPPORTED_BATCH_COUNT];
-    size_t  size = sizeof(rawData)/sizeof(taf_imuSensor_DataValue_t);
-    result = taf_imuSensor_GetRotatedData(ref,rawData,&size,biasData,&size);
-    LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetRotatedData- LE_OK. Event size %zu",size);
-    uint64_t eventTimeStamp = 0;
-    uint32_t count = 0;
-    float samplingRateAggregate = 0.0;
-    for(uint32_t i=0;i<size;i++){
-        float samplingRate = 0.0;
-        if (eventTimeStamp > 0) {
-            ++count;
-            // Instantaneous sampling rate, calculated between consecutive samples
-            samplingRate = 1.0 / (rawData[i].timestamp - eventTimeStamp) * 1000000000;
+    for(int i=0;i<SENSOR_NUMS;i++){
+        if(sensorRef == configList[i].sensorRef){
+        char sensorName[50];
+        le_result_t result = taf_imuSensor_GetName(sensorRef,sensorName,sizeof(sensorName));
+        if(result !=LE_OK){
+            LE_TEST_INFO("sensor ref not found %p", sensorRef);
+            le_mutex_Unlock(mSensorMutexRef);
+            return;
         }
-        samplingRateAggregate += samplingRate;
-        eventTimeStamp = rawData[i].timestamp;
-    }
-    printf("\033[1;31m %s [%f HZ, %d] Event [%lf Hz, %"PRIu64" ns, %"PRIu64" ns].\033[0m\n",
-        sensorName,sampleRate,batch,samplingRateAggregate/count, rawData[0].timestamp,
-        rawData[size-1].timestamp);
-    result = taf_imuSensor_DeleteData(ref);
-    LE_TEST_OK(result == LE_OK, "taf_imuSensor_DeleteData- LE_OK.");
-    le_sem_Post(semRef1);
+        double sampleRate = configList[i].samplingRate;
+        uint32_t batch = configList[i].batchCount;
+        LE_TEST_INFO("Test onEvent Retrieval for SensorName %s",sensorName);
+        taf_imuSensor_DataValue_t rawData[TAF_IMUSENSOR_MAX_SUPPORTED_BATCH_COUNT];
+        taf_imuSensor_DataValue_t biasData[TAF_IMUSENSOR_MAX_SUPPORTED_BATCH_COUNT];
+        size_t  size = sizeof(rawData)/sizeof(taf_imuSensor_DataValue_t);
+        result = taf_imuSensor_GetRotatedData(ref,rawData,&size,biasData,&size);
+        LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetRotatedData- LE_OK. Event size %zu",size);
+        result = taf_imuSensor_DeleteData(ref);
+        LE_TEST_OK(result == LE_OK, "taf_imuSensor_DeleteData- LE_OK.");
+        uint64_t eventTimeStamp = 0;
+        uint32_t count = 0;
+        float samplingRateAggregate = 0.0;
+        for(uint32_t i=0;i<size;i++){
+            float samplingRate = 0.0;
+            if (eventTimeStamp > 0) {
+                ++count;
+                // Instantaneous sampling rate, calculated between consecutive samples
+                samplingRate = 1.0 / (rawData[i].timestamp - eventTimeStamp) * 1000000000;
+            }
+            samplingRateAggregate += samplingRate;
+            eventTimeStamp = rawData[i].timestamp;
+        }
+        printf("\033[1;31m %s [%f HZ, %d] Event [%lf Hz, %d, %"PRIu64" ns, %"PRIu64" ns].\033[0m\n",
+          sensorName,sampleRate,batch,samplingRateAggregate/(count+1),count+1,rawData[0].timestamp,
+          rawData[size-1].timestamp);
+        le_sem_Post(semRef1);
+        }
     }
     le_mutex_Unlock(mSensorMutexRef);
 }
@@ -238,19 +242,22 @@ static le_result_t TestActivateSensor(const char* name,double SamplingRate,
         if(result != LE_OK) return result;
         if(strncmp(name,sensorName, strlen(name)) == 0)
         {
-            config.sensorRef = sensorRef;
-            config.samplingRate = SamplingRate;
-            config.batchCount = BatchCount;
+            SensorConfig c1 = {sensorRef,SamplingRate,BatchCount};
+            c1.sensorRef = sensorRef;
+            c1.samplingRate = SamplingRate;
+            c1.batchCount = BatchCount;
+            configList[0] = c1;
+            SensorConfig c2 = {NULL,0,0};
+            configList[1] = c2;
             result  =  taf_imuSensor_Activate(sensorRef,SamplingRate,BatchCount);
             LE_TEST_OK(result == LE_OK,"Activate %s",name);
             if(result!=LE_OK) return result;
             le_thread_Sleep(3);
-            threadRef1 = le_thread_Create("Thread1", SensorHandler,&config);
+            threadRef1 = le_thread_Create("Thread1", SensorHandler,&c1);
             le_thread_Start(threadRef1);
             le_thread_Sleep(30);
             taf_imuSensor_RemoveSelfTestFailedHandler(selfTestHandlerRef);
             taf_imuSensor_RemoveDataHandler(eventHandlerRef);
-            le_thread_Cancel(threadRef1);
             result = taf_imuSensor_Deactivate(sensorRef);
             LE_TEST_OK(result == LE_OK,"Deactivate %s",name);
             if(result!=LE_OK) return result;
@@ -258,6 +265,46 @@ static le_result_t TestActivateSensor(const char* name,double SamplingRate,
         }
     }
     return LE_NOT_FOUND;
+}
+
+static void* AllSensorHandler(void* ctxPtr)
+{
+    taf_imuSensor_ConnectService();
+    eventHandlerRef = taf_imuSensor_AddDataHandler(sensorsList[0],TestSensorOnEventFunc,NULL);
+    LE_TEST_OK(eventHandlerRef != NULL, "Register AddOnEventHandler handler"
+        " is successfull");
+
+    eventHandlerRef1 = taf_imuSensor_AddDataHandler(sensorsList[1],TestSensorOnEventFunc,NULL);
+    LE_TEST_OK(eventHandlerRef1 != NULL, "Register AddOnEventHandler1 handler"
+        " is successfull");
+
+    le_thread_Sleep(2);
+
+    le_result_t result = taf_imuSensor_Activate(sensorsList[0],configList[0].samplingRate,configList[0].batchCount);
+    LE_INFO("SensorHandler Result of activating sensor: %d", (int)result);
+
+    result = taf_imuSensor_Activate(sensorsList[1],configList[1].samplingRate,configList[1].batchCount);
+    LE_INFO("SensorHandler Result of activating sensor: %d", (int)result);
+
+    le_event_RunLoop();
+    return NULL;
+}
+
+static le_result_t TestActivateAllSensor(double sampleRate1,uint32_t BatchCount1,
+    double sampleRate2,uint32_t BatchCount2){
+
+    SensorConfig c1 = {sensorsList[0],sampleRate1,BatchCount1};
+    SensorConfig c2 = {sensorsList[1],sampleRate2,BatchCount2};
+
+    configList[0] = c1;
+    configList[1] = c2;
+
+    threadRef1 = le_thread_Create("Thread1", AllSensorHandler,NULL);
+    le_thread_Start(threadRef1);
+    le_thread_Sleep(30);
+    taf_imuSensor_RemoveDataHandler(eventHandlerRef);
+    taf_imuSensor_RemoveDataHandler(eventHandlerRef1);
+    return LE_OK;
 }
 
 static le_result_t TestSelfTest(const char* name,const char* mode){
@@ -400,6 +447,23 @@ COMPONENT_INIT
         if(status == LE_NOT_FOUND){
             LE_TEST_INFO("Sensor Name not found %s",name);
         }
+        LE_TEST_OK(status ==LE_OK,"Test taf_imuSensor_Activate Succeed %d",status);
+    }
+    else if(strncmp(testType, "ActivateAll", strlen(testType)) == 0){
+        LE_TEST_INFO("=======Test Sensor Activation========");
+        CheckNumArgs(numArgs,5);
+        const char* arg1 = le_arg_GetArg(1);
+        const char* arg2 = le_arg_GetArg(2);
+        const char* arg3 = le_arg_GetArg(3);
+        const char* arg4 = le_arg_GetArg(4);
+        if (arg1 == NULL || arg2 == NULL || arg3 == NULL || arg1 == NULL) {
+            LE_TEST_FATAL("Invalid argument.");
+        }
+        double sampleRate1 = atof(arg1);
+        double BatchCount1 = atof(arg2);
+        double sampleRate2 = atof(arg3);
+        double BatchCount2 = atof(arg4);
+        status = TestActivateAllSensor(sampleRate1,BatchCount1,sampleRate2,BatchCount2);
         LE_TEST_OK(status ==LE_OK,"Test taf_imuSensor_Activate Succeed %d",status);
     }
     else if(strncmp(testType, "SelfTest", strlen(testType)) == 0){

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -104,6 +104,10 @@ namespace uds{
     #define UDS_AUTH_EXPIRATION_DATA_SIZE 9
     #define AUTH_CFG_NODE_PATH_LEN 128
     #define AUTH_CONF_DATA "tafDiagSvc:/authentication/"
+    #define AUTH_ROLE_READ_PATTERN "read_role"
+    #define AUTH_ROLE_WRITE_PATTERN "write_role"
+    #define AUTH_ROLE_IOCTL_PATTERN "io_role"
+    #define AUTH_ROLE_ROUTINE_PATTERN "routine_role"
 
     // Request length of authentication service
     #define UDS_AUTH_DEAUTHENTICATE_EXACT_LEN 2       //Deauthenticate
@@ -513,8 +517,11 @@ namespace uds{
             void CheckAndRestartTesterStateTimer();
             bool IsSessTypeMatched(cfg::Node& node);
             bool IsSecurityAccessMatched(cfg::Node& node);
-            bool IsAuthRoleMatched(cfg::Node& node);
+            bool IsAuthRoleMatched(taf_UDSReqSvcID_t serviceType, cfg::Node& node);
             bool IsRequestSubFuncSupported(cfg::Node& node, uint8_t subFunc);
+            bool IsControlOptionRecordValid(uint16_t rid, uint8_t subFunc, const uint8_t* dataRec,
+                    size_t dataRecLen);
+            bool IsTotalLengthCheckValid(uint16_t rid, uint8_t subFunc, size_t dataRecLen);
 
             std::map<std::string, uint8_t>& GetSessionMap(void);
             bool IsServiceIDSupported(uint8_t sid);

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -20,25 +20,25 @@ typedef struct
 /**
  * Example commands:
  * Single AP:
- *       app runProc tafWLANAPIntTest wlanAPTest -- DeviceConnectionEvents wlan0
+ *  app runProc tafWlanAPIntTest tafWlanAPIntTest -- DeviceConnectionEvents wlan0
  * Dual AP: Run the command with different proc names and point to the correct wlan interface
- *       app runProc tafWLANAPIntTest wlanAPTest1 --exe=wlanAPTest -- DeviceConnectionEvents wlan1
- *       app runProc tafWLANAPIntTest wlanAPTest2 --exe=wlanAPTest -- DeviceConnectionEvents wlan2
+ *  app runProc tafWlanAPIntTest tafWlanAPIntTest1 --exe=tafWlanAPIntTest -- DeviceConnectionEvents wlan1
+ *  app runProc tafWlanAPIntTest tafWlanAPIntTest2 --exe=tafWlanAPIntTest -- DeviceConnectionEvents wlan2
  */
 
 void PrintUsage(void) {
     puts("\n"
-         "app runProc tafWLANAPIntTest wlanAPTest -- help\n"
-         "app runProc tafWLANAPIntTest wlanAPTest -- Start <AP>\n"
-         "app runProc tafWLANAPIntTest wlanAPTest -- Stop <AP>\n"
-         "app runProc tafWLANAPIntTest wlanAPTest -- Restart <AP>\n"
-         "app runProc tafWLANAPIntTest wlanAPTest -- GetStatus <AP>\n"
-         "app runProc tafWLANAPIntTest wlanAPTest -- SetConfig <AP>\n"
-         "app runProc tafWLANAPIntTest wlanAPTest -- GetConfig <AP>\n"
-         "app runProc tafWLANAPIntTest wlanAPTest -- SetSecurityConfig <AP>\n"
-         "app runProc tafWLANAPIntTest wlanAPTest -- GetSecurityConfig <AP>\n"
-         "app runProc tafWLANAPIntTest wlanAPTest -- GetConnectedDevices <AP>\n"
-         "app runProc tafWLANAPIntTest wlanAPTest -- DeviceConnectionEvents <AP>\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- help\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- Start <AP>\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- Stop <AP>\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- Restart <AP>\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- GetStatus <AP>\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- SetConfig <AP>\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- GetConfig <AP>\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- SetSecurityConfig <AP>\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- GetSecurityConfig <AP>\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- GetConnectedDevices <AP>\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- DeviceConnectionEvents <AP>\n"
          "\n AP: AP interface obtained from taf_wlan_GetIntfInfo\n"
          "\n");
 }
@@ -217,8 +217,8 @@ static le_result_t wlanAPTestGetConnectedDevices(taf_wlanAp_WlanAPRef_t apRef) {
 
     LE_TEST_INFO("Num devices connected             : %d", numDevices);
     LE_TEST_INFO("Num device info elements populated: %" PRIuS "", DevInfoSize);
-    for (int i = 0; i < DevInfoSize; i++) {
-        LE_TEST_INFO("Device : %d", (i + 1));
+    for (size_t i = 0; i < DevInfoSize; i++) {
+        LE_TEST_INFO("Device : %zu", (i + 1));
         LE_TEST_INFO("   Name        : %s", DevInfo[i].Name);
         LE_TEST_INFO("   MACAddress  : %s", DevInfo[i].MACAddress);
         LE_TEST_INFO("   IPv4Address : %s", DevInfo[i].IPv4Address);
@@ -321,8 +321,8 @@ inline void CheckNumArgs(size_t NumArgs, size_t ExpectedNumArgs) {
 
 static taf_wlanAp_WlanAPRef_t getAPRef(const char *apIntfNameStr)
 {
-    taf_wlan_APIntfInfo_t APIntf[TAF_WLAN_MAX_NUM_AP] = {0};
-    taf_wlan_STAIntfInfo_t STAIntf[TAF_WLAN_MAX_NUM_STA] = {0};
+    taf_wlan_APIntfInfo_t APIntf[TAF_WLAN_MAX_NUM_AP] = {TAF_WLAN_AP_ID1, TAF_WLAN_AP_ID2};
+    taf_wlan_STAIntfInfo_t STAIntf[TAF_WLAN_MAX_NUM_STA] = {TAF_WLAN_STA_ID1};
     size_t APIntfSize = TAF_WLAN_MAX_NUM_AP, STAIntfSize = TAF_WLAN_MAX_NUM_STA;
     le_result_t status = taf_wlan_GetIntfInfo(NULL, APIntf, &APIntfSize, STAIntf, &STAIntfSize);
     if (LE_OK != status)
@@ -335,7 +335,7 @@ static taf_wlanAp_WlanAPRef_t getAPRef(const char *apIntfNameStr)
         LE_TEST_FATAL("AP is not enabled");
     }
     int APIdx = -1;
-    for (int i = 0; i < APIntfSize; i++)
+    for (size_t i = 0; i < APIntfSize; i++)
     {
         if (strncasecmp(apIntfNameStr, APIntf[i].IntfName, strlen(apIntfNameStr)) == 0)
         {

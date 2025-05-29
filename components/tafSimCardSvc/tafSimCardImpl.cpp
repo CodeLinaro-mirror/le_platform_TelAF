@@ -28,10 +28,10 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
- */
+*/
 
 
 #include "legato.h"
@@ -65,6 +65,9 @@ void tafCardListener:: onCardInfoChanged(int slotId)
         sim.InitializeSimInfo(nullptr, (taf_sim_Id_t)slotWithCard);
     }
     le_event_Report(sim.NewStateEventId, &simEvent, sizeof(simEvent));
+    if(simEvent.state == TAF_SIM_PRESENT) {
+        sim.CheckAndSendRefreshEvent((taf_sim_Id_t)simEvent.simId);
+    }
 }
 
 void tafSubscriptionListener:: onSubscriptionInfoChanged
@@ -92,8 +95,8 @@ void tafSubscriptionListener:: onSubscriptionInfoChanged
     simIccidEvent.simId = (taf_sim_Id_t)simPtr->simId;
     simIccidEvent.ICCID = simPtr->ICCID;
     le_event_Report(sim.IccidChangeEventId, &simIccidEvent, sizeof(simIccidEvent));
-
     if(!sim.isPsEventInProgress) {
+
         sim.isPsEventInProgress = true;
         sim.CheckAndSendProfileSwitchEvent();
     }
@@ -681,6 +684,10 @@ taf_sim_States_t taf_sim::getState(taf_sim_Id_t simId) {
             return TAF_SIM_STATE_UNKNOWN;
         }
     }
+    if(simId == TAF_SIM_UNSPECIFIED) {
+        LE_INFO("Sim Id as Unknown");
+        simId = taf_sim_GetSelectedCard();
+    }
     auto card = cards[simId];
     telux::tel::CardState cardState = telux::tel::CardState::CARDSTATE_UNKNOWN;
     if(card != nullptr) {
@@ -961,7 +968,7 @@ void taf_sim::CheckAndSendProfileSwitchEvent() {
         iccId = subscription->getIccId();
         le_utf8_Copy(iccid2, iccId.c_str(), TAF_SIM_ICCID_BYTES, NULL);
     }
-
+    std::unique_lock<std::mutex> lock(sim.eventMutex);
     le_ref_IterRef_t iterRef = le_ref_GetIterator(sim.SessionRefMap);
     result = le_ref_NextNode(iterRef);
 
@@ -977,7 +984,6 @@ void taf_sim::CheckAndSendProfileSwitchEvent() {
 
         if (sessionPtr->refreshResetStart)
         {
-            sessionPtr->refreshResetStart = false;
             LE_INFO("Notify: current iccid1: %s, previous iccid1: %s and result: %s", iccid1, sessionPtr->simProfileIccid1, LE_RESULT_TXT(result));
             LE_INFO("Notify: current iccid2: %s, previous iccid2: %s", iccid2, sessionPtr->simProfileIccid2);
 
@@ -1014,13 +1020,38 @@ void taf_sim::CheckAndSendProfileSwitchEvent() {
         result = le_ref_NextNode(iterRef);
     }
     sim.isPsEventInProgress = false;
+
+}
+
+void taf_sim::CheckAndSendRefreshEvent(taf_sim_Id_t SimId) {
+    auto &sim = taf_sim::GetInstance();
+    le_result_t result = LE_FAULT;
+    std::unique_lock<std::mutex> lock(sim.eventMutex);
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(sim.SessionRefMap);
+    result = le_ref_NextNode(iterRef);
+    while (LE_OK == result)
+    {
+        taf_sim_Session_t* sessionPtr = (taf_sim_Session_t*) le_ref_GetValue(iterRef);
+        if(sessionPtr == NULL) {
+            LE_INFO("CheckAndSendRefreshEvent sessionPtr null!");
+            continue;
+        }
+        if((sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV && SimId == TAF_SIM_SLOT_ID_1) ||
+            (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV && SimId == TAF_SIM_SLOT_ID_2))
+        {
+            if (sessionPtr->refreshResetStart )
+            {
+                LE_INFO("Notify RefreshEvent for SimId : %d,SessionType : %d", SimId,sessionPtr->sessionType);
+                le_sem_Post(sessionPtr->semaphore);
+            }
+        }
+        result = le_ref_NextNode(iterRef);
+    }
 }
 
 void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* contextPtr) {
     LE_INFO("RefreshEvent: sessionType = %d, refreshMode = %d, refreshStage = %d", ind->sessionType, ind->refreshMode, ind->refreshStage);
-
     le_result_t res = LE_FAULT;
-
     taf_sim_Session_t* clientRequestPtr = NULL;
     sim_refresh_event_t simRefreshEvent;
     simRefreshEvent.refreshStatus = 0;
@@ -1049,6 +1080,20 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
     } else if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_START && ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_RESET) {
         LE_INFO("RefreshStart for reset mode");
         clientRequestPtr->refreshResetStart = true;
+        le_clk_Time_t timeToWait = {5, 0};
+        res = le_sem_WaitWithTimeOut(clientRequestPtr->semaphore, timeToWait);
+        if (res == LE_OK )
+        {
+           simRefreshEvent.refreshStatus |= TAF_SIM_REFRESH_STATUS_SUCCESS;
+        }
+        else
+        {
+           simRefreshEvent.refreshStatus |= TAF_SIM_REFRESH_STATUS_FAILURE;
+        }
+
+        le_event_Report(clientRequestPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
+        clientRequestPtr->refreshResetStart = false;
+        LE_INFO("Notify simRefreshEvent:refreshStatus : %d", simRefreshEvent.refreshStatus);
         return;
     }
 
@@ -1086,7 +1131,6 @@ void taf_sim::FirstLayerNewRefreshChangeHandler(void* reportPtr, void* secondLay
 
     taf_sim_RefreshChangeHandlerFunc_t clientHandlerFunc =
         (taf_sim_RefreshChangeHandlerFunc_t)secondLayerHandlerFunc;
-
     clientHandlerFunc(simRefreshPtr->refreshStatus, le_event_GetContextPtr());
 }
 
@@ -1135,6 +1179,7 @@ taf_sim_Session_t* taf_sim::DiscoverSessionRef
 )
 {
     auto &sim = taf_sim::GetInstance();
+    std::unique_lock<std::mutex> lock(sim.eventMutex);
     le_ref_IterRef_t iterRef = le_ref_GetIterator(sim.SessionRefMap);
     le_result_t result = le_ref_NextNode(iterRef);
 
@@ -1458,37 +1503,52 @@ le_result_t taf_sim::getIMSI(taf_sim_Id_t simId, char *imsi, int length) {
 }
 
 le_result_t taf_sim::getHomeNetworkOperator(taf_sim_Id_t simId, char *name, int length) {
+    taf_sim_info_t* simPtr = NULL;
     string nameString = "";
     if (selectSimSlot(simId) != LE_OK) {
         return LE_BAD_PARAMETER;
     }
-    auto subscription = getSubscription(simId);
-    if (!subscription) {
-        LE_ERROR("subscription is null");
-        return LE_NOT_FOUND;
+    simPtr = GetSimContext(simId);
+    if(simPtr != NULL)
+    {
+        auto subscription = getSubscription(simPtr->simId);
+        if (!subscription) {
+            LE_ERROR("subscription is null");
+            return LE_NOT_FOUND;
+        }
+        nameString = subscription->getCarrierName();
     }
-
-    nameString = subscription->getCarrierName();
-
+    else
+    {
+        return LE_BAD_PARAMETER;
+    }
     return le_utf8_Copy(name, nameString.c_str(), length, NULL);
 }
 
 le_result_t taf_sim::getHomeNetworkMccMnc(taf_sim_Id_t simId, char *mccPtr,
         int mccPtrSize, char *mncPtr, int mncPtrSize) {
+    taf_sim_info_t* simPtr = NULL;
     int mcc = 0;
     int mnc = 0;
     if (selectSimSlot(simId) != LE_OK) {
         return LE_BAD_PARAMETER;
     }
-    auto subscription = getSubscription(simId);
-    if (!subscription) {
-        LE_ERROR("subscription is null");
-        return LE_NOT_FOUND;
+
+    simPtr = GetSimContext(simId);
+    if(simPtr != NULL)
+    {
+        auto subscription = getSubscription(simPtr->simId);
+        if (!subscription) {
+            LE_ERROR("subscription is null");
+            return LE_NOT_FOUND;
+        }
+        mcc = subscription->getMcc();
+        mnc = subscription->getMnc();
     }
-
-    mcc = subscription->getMcc();
-    mnc = subscription->getMnc();
-
+    else
+    {
+        return LE_BAD_PARAMETER;
+    }
     le_utf8_Copy(mccPtr, to_string(mcc).c_str(), mccPtrSize, NULL);
     le_utf8_Copy(mncPtr, to_string(mnc).c_str(), mncPtrSize, NULL);
     return LE_OK;

@@ -26,6 +26,9 @@ did_item:
     routine_did: bool()
   did_accessibility: include('diag_session_ref17_item', required=True)
   access: include('access_item', required=False)
+  read_role: list(enum('b1','b2','b3','b4','b5','b6'),required=False)
+  write_role: list(enum('b1','b2','b3','b4','b5','b6'),required=False)
+  io_role: list(enum('b1','b2','b3','b4','b5','b6'),required=False)
   service_data_mapping: include('service_data_mapping_item', required=False)
   client_server_interface_use_case: include('client_server_interface_use_case_item', required=False)
   functional_specification: str(max=200)
@@ -45,7 +48,6 @@ diagnostic_sub_session: map(include('diagnostic_sub_session_level'),key=enum('R'
 diagnostic_sub_session_level:
   security: bool(required=False)
   security_level: list(str(),required=False)
-  role: list(enum('R1','R2','R3','R4','R5'),required=False)
 ---
 
 io_control_item:

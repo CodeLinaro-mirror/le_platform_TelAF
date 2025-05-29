@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -70,6 +70,32 @@
             (taf_diagDTC_AllStatusHandlerFunc_t)allDtcStatusChangeHandler, NULL);
    @endcode
  *
+ * The following example illustrates how to register a clear DTC status change handler for single
+ * DTC.
+ *
+ * @code
+   clearDtcStatusRef = taf_diagDTC_AddClearStatusHandler(singleSvcRef,
+            (taf_diagDTC_ClearStatusHandlerFunc_t)clearDtcStatusChangeHandler, NULL);
+   @endcode
+ *
+ * The following example illustrates how to register a clear all DTC status change handler for
+ * all DTC.
+ *
+ * @code
+   clearAllDtcStatusRef = taf_diagDTC_AddClearAllStatusHandler(allSvcRef,
+            (taf_diagDTC_ClearAllStatusHandlerFunc_t)clearAllDtcStatusChangeHandler, NULL);
+   @endcode
+ * An application can call taf_diagDTC_AddActivationStatusHandler() to register an activation
+ * status change handler.
+ *
+ * The following example illustrates how to register an activation status change handler for the
+ * single DTC.
+ *
+ * @code
+   dtcActStatusRef = taf_diagDTC_AddActivationStatusHandler(singleSvcRef,
+            (taf_diagDTC_ActivationStatusHandlerFunc_t)dtcActStatusChangeHandler, NULL);
+   @endcode
+ *
  * The following APIs are supported for single DTC:
  *
  * - taf_diagDTC_GetService() -- Gets service reference for single DTC.
@@ -82,6 +108,10 @@
  * - taf_diagDTC_ClearInfo() -- Clears DTC information.
  * - taf_diagDTC_AddStatusHandler() -- Adds handler function for EVENT 'taf_diagDTC_Status'
  * - taf_diagDTC_RemoveStatusHandler() -- Removes handler function.
+ * - taf_diagDTC_AddClearStatusHandler() -- Adds handler function for EVENT  'taf_diagDTC_ClearDTCStatus'
+ * - taf_diagDTC_RemoveClearStatusHandler() -- Removes handler function.
+ * - taf_diagDTC_AddActivationStatusHandler() -- Adds handler function for EVENT 'taf_diagDTC_ActivationStatus'.
+ * - taf_diagDTC_RemoveActivationStatusHandler() -- Removes handler function.
  * - taf_diagDTC_GetDataList() -- Gets DTC data list.
  * - taf_diagDTC_GetFirstData() -- Gets the first DTC data reference.
  * - taf_diagDTC_GetNextData() -- Gets the next DTC data reference.
@@ -100,6 +130,9 @@
  * - taf_diagDTC_ClearAllInfo() -- Clears all DTC information.
  * - taf_diagDTC_AddAllStatusHandler() -- Adds handler function for EVENT 'taf_diagDTC_AllStatus'
  * - taf_diagDTC_RemoveAllStatusHandler() -- Removes handler function.
+ * - taf_diagDTC_AddClearAllStatusHandler() -- Adds handler function for EVENT
+ * 'taf_diagDTC_ClearAllDTCStatus'
+ * - taf_diagDTC_RemoveClearAllStatusHandler() -- Removes handler function.
  * - taf_diagDTC_RemoveAllSvc() -- Removes the all DTC service.
  *
  * <HR>
@@ -135,6 +168,17 @@ ENUM DataType
     SNAPSHOT_DATA = 0x00,              ///< Snapshot data.
     EXTENDED_DATA,                     ///< Extended data.
     UNKNOWN_DATA                       ///< Unknown data.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Request Client type.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ReqClientType
+{
+    APP,            ///< Request from application.
+    DTOOL,          ///< Request from DTool.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -183,6 +227,32 @@ FUNCTION Service GetService
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for a DTC activation status.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER ActivationStatusHandler
+(
+    Service svcRef  IN,                ///< Service reference.
+    ActivationStatus status  IN        ///< DTC status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on DTC status.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT ActivationStatus
+(
+    Service  svcRef,                   ///< Service reference.
+    ActivationStatusHandler  handler   ///< DTC activation status handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for a DTC status.
  *
  * @instaging
@@ -205,6 +275,32 @@ EVENT Status
 (
     Service  svcRef,                   ///< Service reference.
     StatusHandler  handler             ///< DTC handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for a Clear DTC status.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER ClearStatusHandler
+(
+    Service svcRef  IN,                   ///< Service reference.
+    ReqClientType clientType IN           ///< Client type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on Clear DTC status.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT ClearStatus
+(
+    Service  svcRef,                        ///< Service reference.
+    ClearStatusHandler  handler             ///< Clear DTC status handler.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -563,6 +659,32 @@ EVENT AllStatus
 (
     AllService  svcRef,                 ///< Service reference for all DTC.
     AllStatusHandler  handler           ///< All DTC handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for a Clear All DTC status.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER ClearAllStatusHandler
+(
+    AllService svcRef  IN,                   ///< Service reference for all DTC.
+    ReqClientType clientType IN
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on Clear All DTC status.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT ClearAllStatus
+(
+    AllService  svcRef,                        ///< Service reference for all DTC.
+    ClearAllStatusHandler  handler             ///< DTC handler.
 );
 
 //--------------------------------------------------------------------------------------------------

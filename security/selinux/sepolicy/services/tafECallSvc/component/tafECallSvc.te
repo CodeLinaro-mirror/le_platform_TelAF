@@ -30,3 +30,17 @@ ifdef(`sa525m',`
 
 # use VHAL driver object
 telaf_load_vhal_modules(telaf_tafECallSvc_t)
+
+require {
+    type mm_socket_device_t;
+    type modem_monitor_t;
+    type telaf_tafECallSvc_t;
+    class sock_file write;
+    class unix_stream_socket connectto;
+}
+
+# Allow tafECallSvc to write to ssr_notify
+allow telaf_tafECallSvc_t mm_socket_device_t:sock_file write;
+
+# Allow tafECallSvc to connect to modem_monitor
+allow telaf_tafECallSvc_t modem_monitor_t:unix_stream_socket connectto;

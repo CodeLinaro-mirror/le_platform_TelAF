@@ -34,6 +34,6 @@ On device, run the following commands to set external library path and bind the 
 
 Lastly run the executable file.
 ```bash
-sdir bind "<root>.taf_dcs" "<root>.taf_dcs"
+sdir bind "<root>.taf_dcs" "<telaf>.taf_dcs"
 ./DataAppDemo
 ```

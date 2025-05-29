@@ -23,6 +23,7 @@
 #include "telux/common/DeviceConfig.hpp"
 #include "common/Logger.hpp"
 
+namespace telux {
 namespace tel {
 
 struct RemoteSimProfileUserData {
@@ -171,5 +172,5 @@ class SimProfileManagerBypass : public ISimProfileManager,
 
 };  // end of SimProfileManagerBypass class
 }
-
+}
 #endif

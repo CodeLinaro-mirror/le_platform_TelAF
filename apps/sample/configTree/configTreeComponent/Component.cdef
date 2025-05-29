@@ -11,12 +11,21 @@ bundles:
 {
     file:
     {
-        // File with ".cfg" extension will be considered as  config tree data
-        // and will be imported to the config tree of this APP.
+        // File with ".cfg" extension will be considered as config tree data
+        // and will be imported into the config tree using its filename as the
+        // root node according to below condition:
+
+        // If the ".cfg" file is bundled as [r] attribute, the framework will
+        // delete the existing root node which has the same name as the file
+        // and then import this new data under this root node.
         [r] readOnlyConfig.cfg         /
 
-        // Currently, only support bundling the config tree file with ".scissors" extension.
-        [r] TestConfigTree.scissors    /
+
+        // If the ".cfg" file is bundled as [w] attribute, the framework will
+        // import this data to the config tree with the cfg file name as the
+        // root node, but if there is a same root node name already exist in
+        // the tree file, the import action will be stopped.
+        [w] readWriteConfig.cfg        /
     }
 }
 

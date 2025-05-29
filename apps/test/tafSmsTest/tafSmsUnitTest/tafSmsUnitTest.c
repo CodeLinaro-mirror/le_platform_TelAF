@@ -444,6 +444,62 @@ __attribute__((unused)) static void Test_taf_sms_SetGetPreferredStorage
 
 /*======================================================================
 
+ FUNCTION        FullStorageHandler
+
+ DESCRIPTION     Function to receive storage events from SMS service
+
+ DEPENDENCIES    None
+
+ PARAMETERS      [IN] type      : Storage full type
+                 [IN] contextPtr: Context
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+__attribute__((unused)) static void FullStorageHandler
+(
+    taf_sms_StorageFullType_t type,
+    void* contextPtr
+)
+{
+    if(type == TAF_SMS_FULL_HLOS)
+    {
+        LE_INFO("Case TAF_SMS_FULL_HLOS for full storage");
+    }
+    else if(type == TAF_SMS_FULL_HLOS_ALERT)
+    {
+        LE_INFO("Case TAF_SMS_FULL_HLOS_ALERT for full storage");
+    }
+    else if(type == TAF_SMS_FULL_HLOS_STORE_TO_SIM)
+    {
+        LE_INFO("Case TAF_SMS_FULL_HLOS_STORE_TO_SIM for full storage");
+    }
+    else if(type == TAF_SMS_FULL_BOTH_HLOS_AND_SIM)
+    {
+        LE_INFO("Case TAF_SMS_FULL_BOTH_HLOS_AND_SIM for full storage");
+    }
+    else if(type == TAF_SMS_FULL_NV)
+    {
+        LE_INFO("Case TAF_SMS_FULL_NV for full storage");
+    }
+    else if(type == TAF_SMS_FULL_SIM)
+    {
+        LE_INFO("Case TAF_SMS_FULL_SIM for full storage");
+    }
+    else if(type == TAF_SMS_FULL_SIM2)
+    {
+        LE_INFO("Case TAF_SMS_FULL_SIM2 for full storage");
+    }
+    else if(type == TAF_SMS_FULL_UNKNOWN)
+    {
+        LE_INFO("Case TAF_SMS_FULL_UNKNOWN for full storage");
+    }
+}
+
+/*======================================================================
+
  FUNCTION        Test_taf_sms_AddRemoveFullStorageHandler
 
  DESCRIPTION     Test adding/removing full storage handler API of SMS service.
@@ -457,16 +513,6 @@ __attribute__((unused)) static void Test_taf_sms_SetGetPreferredStorage
  SIDE EFFECTS
 
 ======================================================================*/
-
-__attribute__((unused)) static void FullStorageHandler
-(
-    taf_sms_StorageFullType_t type,
-    void* contextPtr
-)
-{
-    LE_INFO("Storage is %d", type);
-}
-
 __attribute__((unused)) static void Test_taf_sms_AddRemoveFullStorageHandler
 (
     void
@@ -574,11 +620,66 @@ __attribute__((unused)) static void Callback_MsgSendStatus
     taf_sms_Delete(msgRef);
 }
 
+/*======================================================================
+
+ FUNCTION        HandlerThread
+
+ DESCRIPTION     Thread for adding state handler
+
+ DEPENDENCIES    None
+
+ PARAMETERS      [IN] contextPtr: Context
+
+ RETURN VALUE    void*
+
+ SIDE EFFECTS
+
+======================================================================*/
+void* HandlerThread(void* contextPtr)
+{
+    taf_sms_ConnectService();
+
+    taf_sms_FullStorageEventHandlerRef_t handlerRef =
+        taf_sms_AddFullStorageEventHandler(FullStorageHandler, NULL);
+    LE_TEST_OK(handlerRef != NULL, "taf_sms_AddFullStorageEventHandler - OK");
+
+    le_sem_Post((le_sem_Ref_t)contextPtr);
+    le_event_RunLoop();
+
+    return NULL;
+}
+
+/*======================================================================
+
+ FUNCTION        CreateHandlerThread
+
+ DESCRIPTION     Create thread for adding handler.
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+void CreateHandlerThread(void)
+{
+    le_sem_Ref_t sem = le_sem_Create("sem", 0);
+    le_thread_Ref_t ref = le_thread_Create("ref", HandlerThread, (void*)sem);
+    le_thread_Start(ref);
+    le_sem_Wait(sem);
+    le_sem_Delete(sem);
+}
+
 __attribute__((unused)) static void* SmsTxThread
 (
     void* contextPtr
 )
 {
+    CreateHandlerThread();
+
     taf_sms_ConnectService();
 
     taf_sms_MsgRef_t tmpMsg_alphabet;

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -124,6 +124,83 @@ bool taf_FwUpdate::GetUnpackDir
 
     le_utf8_Copy(unpackDir, json_string_value(js_directory), dirLen, NULL);
     return true;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get post script.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::GetPostScript
+(
+    taf_update_State_t state, ///< [IN] Update state.
+    char* scriptPath,         ///< [OUT] Script path.
+    size_t pathLen            ///< [IN] Script path length.
+)
+{
+    json_t *root;
+    json_error_t error;
+
+    // Load entire JSON file.
+    root = json_load_file(TAF_FWUPDATE_CFG_FILE, 0, &error);
+    if (root == NULL)
+    {
+        LE_ERROR("JSON file error: line: %d, column: %d, position: %d, source: '%s', error: %s",
+            error.line, error.column, error.position, error.source, error.text);
+        return LE_FAULT;
+    }
+
+    // Check if "root" is an object.
+    if (!json_is_object(root))
+    {
+        LE_ERROR("root is not an object.");
+        json_decref(root);
+        return LE_FAULT;
+    }
+
+    // Load the 'firmware' object.
+    json_t* js_firmware = json_object_get(root, "firmware");
+    if (!json_is_object(js_firmware))
+    {
+        LE_ERROR("firmware object is not set in JSON file %s.", TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    json_t* js_post;
+    if (state == TAF_UPDATE_INSTALL_SUCCESS)
+    {
+        // Load the 'post-install' object.
+        js_post = json_object_get(js_firmware, "post-install");
+    }
+    else if (state == TAF_UPDATE_ROLLBACK_SUCCESS)
+    {
+        // Load the 'post-rollback' object.
+        js_post = json_object_get(js_firmware, "post-rollback");
+    }
+    else
+    {
+        LE_ERROR("Invalid state for hook function.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (!json_is_object(js_post))
+    {
+        LE_ERROR("post-install or post-rollback object is not set in JSON file %s.",
+            TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    // Load the 'user-script' object.
+    json_t* js_user_script = json_object_get(js_post, "user-script");
+    if (!json_is_string(js_user_script))
+    {
+        LE_ERROR("user-script string is not set in JSON file %s.", TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    le_utf8_Copy(scriptPath, json_string_value(js_user_script), pathLen, NULL);
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1429,6 +1506,14 @@ bool taf_FwUpdate::UnpackImage
         return false;
     }
 
+    struct stat st;
+    if (stat(filePath, &st) == -1)
+    {
+        LE_WARN("%s not exists.", filePath);
+        *pageNum = 0;
+        return false;
+    }
+
     snprintf(tmp, sizeof(tmp), "unzip -o %s %s -d %s", filePath, imagePath, dir);
 
     tafFwUpdate.SendPipeCmd(tmp, "w");
@@ -1436,7 +1521,6 @@ bool taf_FwUpdate::UnpackImage
 
     snprintf(tmp, sizeof(tmp), "%s/%s", dir, imagePath);
 
-    struct stat st;
     if (stat(tmp, &st) == -1)
     {
         LE_WARN("%s not exists.", tmp);
@@ -1757,8 +1841,15 @@ void taf_FwUpdate::UpdateImage
             tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
             return;
         }
-
+        // Post process for install success.
+        result = tafFwUpdate.PostProcess(TAF_UPDATE_INSTALL_SUCCESS);
+        if (result != LE_OK)
+        {
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+            return;
+        }
         tafFwUpdate.SetActivationContext(TAF_UPDATE_INSTALL_SUCCESS, bank);
+
         tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
     }
 }
@@ -2372,7 +2463,13 @@ void taf_FwUpdate::InstallFirmware
         return;
     }
 
-    // 7. Install successfully.
+    // 7. Post process for install success.
+    ret = tafFwUpdate.PostProcess(TAF_UPDATE_INSTALL_SUCCESS);
+    if (ret != LE_OK)
+    {
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        return;
+    }
     tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
 
     // 8. Synchronize state to storage.
@@ -2395,13 +2492,6 @@ le_result_t taf_FwUpdate::CalFileHash
     unsigned int* hashLen ///< [OUT] Hash length.
 )
 {
-    FILE *file = fopen(filePath, "rb");
-    if (!file)
-    {
-        LE_ERROR("Fail to open %s.", filePath);
-        return LE_FAULT;
-    }
-
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
     if (md_ctx == NULL)
     {
@@ -2419,16 +2509,22 @@ le_result_t taf_FwUpdate::CalFileHash
 
     uint8_t content[TAF_FWUPDATE_FLASH_PAGE_SIZE];
     int bytes = 0;
+    FILE *file = fopen(filePath, "rb");
+    if (!file)
+    {
+        LE_ERROR("Fail to open %s.", filePath);
+        return LE_FAULT;
+    }
     while ((bytes = fread(content, 1, TAF_FWUPDATE_FLASH_PAGE_SIZE, file)) != 0)
     {
         EVP_DigestUpdate(md_ctx, content, bytes);
         *calSize += bytes;
     }
+    fclose(file);
 
     EVP_DigestFinal_ex(md_ctx, hash, hashLen);
     EVP_MD_CTX_free(md_ctx);
 
-    fclose(file);
     LE_INFO("%s sha1 hash calculated.", filePath);
     for (unsigned int i = 0; i < *hashLen; ++i)
     {
@@ -2889,7 +2985,7 @@ le_result_t taf_FwUpdate::PerformBankSync
 
     if (tafFwUpdate.GetActiveBank(&bootBank) != LE_OK)
     {
-        LE_ERROR("Fail to get active bank.");
+        LE_ERROR("Failed to get active bank.");
         return LE_FAULT;
     }
 
@@ -2922,14 +3018,27 @@ le_result_t taf_FwUpdate::PerformBankSync
 
                 result = taf_lib_flash_OpenPartition(
                     &tafFwUpdate.pList.partition[i], O_RDONLY, &errCode);
-                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
-                    "Fail to open MTD partition, error: %s", strerror(errCode));
+                if(result != LE_OK)
+                {
+                    LE_ERROR("Failed to open source MTD partition, error: %s",
+                        strerror(errCode));
+                    return result;
+                }
 
                 errCode = 0;
                 result = taf_lib_flash_OpenPartition(
                     &tafFwUpdate.pList.partition[j], O_RDWR, &errCode);
-                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
-                    "Fail to open MTD partition, error: %s", strerror(errCode));
+                if(result != LE_OK)
+                {
+                    result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
+                    if(result != LE_OK)
+                    {
+                        LE_ERROR("Failed to close source MTD partition.");
+                    }
+                    LE_ERROR("Failed to open destination MTD partition, error: %s",
+                        strerror(errCode));
+                    return result;
+                }
 
                 uint32_t blockNum = tafFwUpdate.pList.partition[j].size /
                     TAF_LIB_FLASH_MTD_BLOCK_SIZE;
@@ -2941,7 +3050,7 @@ le_result_t taf_FwUpdate::PerformBankSync
                     result = taf_lib_flash_EraseMtdBlock(
                         &tafFwUpdate.pList.partition[j], k, &errCode);
                     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
-                        "Fail to erase block %d, error: %s", k, strerror(errCode));
+                        "Failed to erase block %d, error: %s", k, strerror(errCode));
                 }
                 for (uint32_t k = 0; k < pageNum; k++)
                 {
@@ -2981,20 +3090,20 @@ le_result_t taf_FwUpdate::PerformBankSync
                     result = taf_lib_flash_ReadPartition(&tafFwUpdate.pList.partition[i],
                         k * TAF_FWUPDATE_FLASH_PAGE_SIZE, data, &rdSize, &err);
                     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
-                        "Fail to read page %d, error: %s", k, strerror(err));
+                        "Failed to read page %d, error: %s", k, strerror(err));
 
                     err = 0;
                     result = taf_lib_flash_WritePartition(&tafFwUpdate.pList.partition[j],
                         k * TAF_FWUPDATE_FLASH_PAGE_SIZE, data, rdSize, &err);
                     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
-                        "Fail to write page %d, error: %s", k, strerror(err));
+                        "Failed to write page %d, error: %s", k, strerror(err));
                 }
 
                 result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
-                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Failed to close MTD partition.");
 
                 result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
-                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Failed to close MTD partition.");
             }
             else
             {
@@ -3004,14 +3113,27 @@ le_result_t taf_FwUpdate::PerformBankSync
                 errCode = 0;
                 result = taf_lib_flash_OpenPartition(
                     &tafFwUpdate.pList.partition[i], O_RDONLY, &errCode);
-                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
-                    "Fail to open UBI volume, error: %s", strerror(errCode));
+                if(result != LE_OK)
+                {
+                    LE_ERROR("Failed to open source UBI volume, error: %s",
+                        strerror(errCode));
+                    return result;
+                }
 
                 errCode = 0;
                 result = taf_lib_flash_OpenPartition(
                     &tafFwUpdate.pList.partition[j], O_RDWR, &errCode);
-                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
-                "Fail to open UBI volume, error: %s", strerror(errCode));
+                if(result != LE_OK)
+                {
+                    result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
+                    if(result != LE_OK)
+                    {
+                        LE_ERROR("Failed to close source UBI volume");
+                    }
+                    LE_ERROR("Failed to open destination UBI volume, error: %s",
+                        strerror(errCode));
+                    return result;
+                }
 
                 uint32_t pageNum = tafFwUpdate.pList.partition[j].size /
                     TAF_FWUPDATE_FLASH_PAGE_SIZE;
@@ -3019,7 +3141,7 @@ le_result_t taf_FwUpdate::PerformBankSync
                 result = taf_lib_flash_SetUbiVolUpSize(&tafFwUpdate.pList.partition[j],
                     tafFwUpdate.pList.partition[j].size, &errCode);
                 TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
-                    "Fail to set UBI upgrade size, error: %s", strerror(errCode));
+                    "Failed to set UBI upgrade size, error: %s", strerror(errCode));
 
                 for (uint32_t k = 0; k < pageNum; k++)
                 {
@@ -3029,20 +3151,20 @@ le_result_t taf_FwUpdate::PerformBankSync
                     result = taf_lib_flash_ReadPartition(&tafFwUpdate.pList.partition[i],
                         k * TAF_FWUPDATE_FLASH_PAGE_SIZE, data, &rdSize, &err);
                     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
-                        "Fail to read page %d, error: %s", k, strerror(err));
+                        "Failed to read page %d, error: %s", k, strerror(err));
 
                     err = 0;
                     result = taf_lib_flash_WritePartition(&tafFwUpdate.pList.partition[j],
                         k * TAF_FWUPDATE_FLASH_PAGE_SIZE, data, rdSize, &err);
                     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
-                        "Fail to write page %d, error: %s", k, strerror(err));
+                        "Failed to write page %d, error: %s", k, strerror(err));
                 }
 
                 result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[i]);
-                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Failed to close MTD partition.");
 
                 result = taf_lib_flash_ClosePartition(&tafFwUpdate.pList.partition[j]);
-                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Failed to close MTD partition.");
             }
         }
     }
@@ -3378,13 +3500,18 @@ void taf_FwUpdate::FwUpdateHandler
             else if (updateReq->event == TAF_FWUPDATE_EV_INSTALL_POST_CHECK)
             {
                 LE_INFO("Installation post check.");
+                tafFwUpdate.GetPackageDataPath(updateReq->filePath, TAF_UPDATE_FILE_PATH_LEN);
                 tafFwUpdate.InstallPostCheck(updateReq->filePath);
             }
             else if (updateReq->event == TAF_FWUPDATE_EV_ROLLBACK)
             {
                 LE_INFO("Start to rollback.");
                 tafFwUpdate.SetState(TAF_UPDATE_ROLLBACK);
-                if (tafFwUpdate.Rollback() != LE_OK)
+                le_result_t result = tafFwUpdate.Rollback();
+                if (result == LE_OK)
+                    result = tafFwUpdate.PostProcess(TAF_UPDATE_ROLLBACK_SUCCESS);
+
+                if (result != LE_OK)
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_FAIL);
                 else
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_SUCCESS);
@@ -3467,6 +3594,47 @@ void* taf_FwUpdate::FwUpdateThread
 
     le_event_RunLoop();
     return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Post process.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::PostProcess
+(
+    taf_update_State_t state ///< [IN] Update state.
+)
+{
+    char script[TAF_FWUPDATE_POST_SCRIPT_PATH_LEN];
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    le_result_t result = tafFwUpdate.GetPostScript(state, script, TAF_FWUPDATE_POST_SCRIPT_PATH_LEN);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Can not get user script.");
+        return LE_FAULT;
+    }
+
+    if (access(TAF_FWUPDATE_POST_HOOK, 0) == 0 && access(script, 0) == 0)
+    {
+        LE_INFO("Post processing...");
+
+        char cmd[TAF_FWUPDATE_CMD_LEN];
+        snprintf(cmd, sizeof(cmd), "%s %s", TAF_FWUPDATE_POST_HOOK, script);
+
+        result = tafFwUpdate.SendPipeCmd(cmd, "w");
+        if (result != LE_OK)
+        {
+            LE_ERROR("Post processing failed.");
+            return LE_FAULT;
+        }
+
+        LE_INFO("Post processing successfully.");
+        return LE_OK;
+    }
+
+    LE_INFO("Skip post processing.");
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------

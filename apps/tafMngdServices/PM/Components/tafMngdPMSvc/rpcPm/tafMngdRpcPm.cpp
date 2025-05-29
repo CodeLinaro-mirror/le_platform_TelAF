@@ -736,6 +736,8 @@ void tafMngdRpcPm::Init(void)
     auto &rpcPm = tafMngdRpcPm::GetInstance();
 
     RpcConnectTimerRef = le_timer_Create("RPC Connection Retry timer");
+    le_timer_SetWakeup(RpcConnectTimerRef, false);
+
     le_timer_SetMsInterval(RpcConnectTimerRef, RPC_CONNECT_TIMEOUT);
     le_timer_SetHandler(RpcConnectTimerRef, RpcConnectTimerHandler);
 

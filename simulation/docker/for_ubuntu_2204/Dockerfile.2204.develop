@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 ARG UBUNTU_DISTRO_ORIGIN
@@ -45,6 +45,10 @@ RUN apt-get -y --no-install-recommends install libsqlite3-dev
 RUN apt-get -y --no-install-recommends install libasound2-dev
 RUN apt-get -y --no-install-recommends install nano
 RUN apt-get -y --no-install-recommends install libglib2.0-dev
+
+RUN apt-get -y --no-install-recommends install attr
+RUN apt-get -y --no-install-recommends install squashfs-tools
+RUN apt-get -y --no-install-recommends install mtd-utils
 
 # Note that the order of the installation, put those after python3 virtual environment
 # MakeTool 'ifgen' just depend on python version 2, keep it.

@@ -35,11 +35,12 @@ BASEDIR=$(dirname $(realpath $0))
 SEPOLICY_SYS_DIR=$(dirname ${BASEDIR})/sepolicy/sys
 SEPOLICY_SERVICE_DIR=$(dirname ${BASEDIR})/sepolicy/services
 SEPOLICY_TEST_DIR=$(dirname ${BASEDIR})/sepolicy/test
+SEPOLICY_SAMPLE_DIR=$(dirname ${BASEDIR})/sepolicy/sample
 
 FILE_CONTEXTS_DIR=$(dirname ${BASEDIR})/sepolicy/files
 FILE_CONTEXTS_FILE=${FILE_CONTEXTS_DIR}/file_contexts
 
-FC_FILES=$(find ${SEPOLICY_SYS_DIR} ${SEPOLICY_SERVICE_DIR} ${SEPOLICY_TEST_DIR} -type f -name "*.fc")
+FC_FILES=$(find ${SEPOLICY_SYS_DIR} ${SEPOLICY_SERVICE_DIR} ${SEPOLICY_TEST_DIR} ${SEPOLICY_SAMPLE_DIR} -type f -name "*.fc")
 
 if [ ! -z "$FC_FILES" ]
 then

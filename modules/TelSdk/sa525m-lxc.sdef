@@ -7,7 +7,7 @@
 apps:
 {
     // Sample Applications
-    $LEGATO_ROOT/apps/sample/helloWorld/helloWorld.adef
+    //$LEGATO_ROOT/apps/sample/helloWorld/helloWorld.adef
 
     // Platform Services
     $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
@@ -15,13 +15,13 @@ apps:
     // RPC proxy
     $TELAF_ROOT/apps/rpc/rpcProxy/tafRpcProxy
 
-     // eCall Application
+    // eCall Application
     $TELAF_ROOT/apps/sample/eCallDemo/tafECallAppLxc.adef
 }
 
 bindings:
 {
-    <telaf>.sdirTool -> <root>.sdirTool
+    <telaf>.sdirTool -> <tafcore>.sdirTool
 }
 
 interfaceSearch:

@@ -1,36 +1,7 @@
 /*
-* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted (subject to the limitations in the
-* disclaimer below) provided that the following conditions are met:
-*
-* * Redistributions of source code must retain the above copyright
-* notice, this list of conditions and the following disclaimer.
-*
-* * Redistributions in binary form must reproduce the above
-* copyright notice, this list of conditions and the following
-* disclaimer in the documentation and/or other materials provided
-* with the distribution.
-*
-* * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
-* contributors may be used to endorse or promote products derived
-* from this software without specific prior written permission.
-*
-* NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
-* GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
-* HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-* IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-* GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
-* IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-* OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include "legato.h"
 #include "interfaces.h"
@@ -348,7 +319,7 @@ static void Test_ECall_DialRedial() {
 
     uint16_t dialIntervalErr[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH] = {60, 60, 60};
     res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialIntervalErr, 3);
-    LE_TEST_OK(res == LE_OK, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    LE_TEST_OK(res == LE_FAULT, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
     uint16_t dialInterval[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH] = {5, 60, 60};
     res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialInterval, 3);
     LE_TEST_OK(res == LE_OK, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
@@ -422,12 +393,6 @@ static void Test_ECall_StartPrivate() {
             res = taf_ecall_StartAutomatic(eCallRef);
             LE_TEST_OK(res == LE_BUSY, "Test_ECall_StartAutomatic is busy");
 
-            //Waits the TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE/TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS event
-            res = le_sem_WaitWithTimeOut(testSemaphoreRef, timeToWait);
-            if (res == LE_OK)
-            {
-                LE_INFO("Test_ECall_StartPrivate TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAULURE/SUCESS received");
-            }
 
             taf_ecall_State_t retrievedState = taf_ecall_GetState(eCallRef);
             LE_INFO("Test taf_ecall_StartPrivate callState = %d", (int) retrievedState);
@@ -793,8 +758,6 @@ static void Test_ECall_StartManual() {
     retrievedState = taf_ecall_GetState(eCallRef);
     LE_INFO("Test_ECall_StartManual callState = %d", (int) retrievedState);
 
-    Test_ECall_GetHlapTimerState();
-
     //Waits the TAF_ECALL_STATE_T9_EXPIRED event
     res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
     if(res != LE_OK) {
@@ -806,6 +769,7 @@ static void Test_ECall_StartManual() {
     if (res == LE_OK)
     {
         LE_INFO("Test_ECall_StartTest TAF_ECALL_STATE_T9_EXPIRED received");
+        Test_ECall_GetHlapTimerState();
     }
 
     taf_ecall_Delete(eCallRef);
@@ -996,13 +960,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS:
         {
             LE_INFO("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS");
-            le_sem_Post(testSemaphoreRef);
             break;
         }
         case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE:
         {
             LE_INFO("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE");
-            le_sem_Post(testSemaphoreRef);
             break;
         }
         case TAF_ECALL_STATE_T2_STARTED:
@@ -1073,6 +1035,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_INCOMING:
         {
             LE_INFO("TAF_ECALL_STATE_INCOMING");
+            break;
+        }
+        case TAF_ECALL_STATE_T9_RESUMED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T9_RESUMED");
             break;
         }
         default:

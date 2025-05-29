@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import oyaml as yaml
@@ -377,7 +377,8 @@ expected_files_mapping = {
         "datas_enable_conditions",
         "debounce_algorithm",
         "extended_data_records",
-        "authentication_roles",
+        "authentication_antibruteforce",
+        "authentication_timeout"
     ],
     "drc_services.yaml": ["services_all"],
     "drc_data_identifiers.yaml": ["did_all"],

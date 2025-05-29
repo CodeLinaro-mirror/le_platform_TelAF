@@ -2,7 +2,7 @@ username: telaf
 startGroup: 20
 
 sandboxed: false
-start: auto
+start: manual
 maxThreads: 600
 
 capability:
@@ -51,5 +51,5 @@ extern:
 
 bindings:
 {
-    tafWlanSvc.tafWlanSvc.le_appInfo -> <root>.le_appInfo
+    tafWlanSvc.tafWlanSvc.le_appInfo -> <tafcore>.le_appInfo
 }

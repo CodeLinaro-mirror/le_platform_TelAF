@@ -28,8 +28,8 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -89,16 +89,29 @@ void Handler::PaEventListener(taf_pa_voicecall_Ref_t reference, taf_pa_voicecall
     taf_pa_voicecall_dir_t direction = taf_pa_voicecall_GetCallDirection(reference);
     char destinationPtr[PA_MAX_DESTINATION_LEN_BYTE];
     TAF_ERROR_IF_RET_NIL(taf_pa_voicecall_GetCallDestination(reference, destinationPtr, PA_MAX_DESTINATION_LEN_BYTE) != LE_OK, "Cannot get dest ID");
+    if (event == TAF_PA_VOICECALL_EVENT_ENDED)
+    {
+        taf_pa_voicecall_termination_t termination;
+        if (taf_pa_voicecall_GetCallTermination(reference, &termination) == LE_OK)
+        {
+            msgCallEvent.termination = myCall.EndCauseConvert(termination);
+        }
+        else
+        {
+            LE_ERROR("Cannot get termination code from: %p!", reference);
+        }
+    }
+
     taf_pa_voicecall_DeleteReference(reference);
 
-    LE_INFO("On call phoneId: %d, %s, event: %s", phoneId, destinationPtr, myCall.PaEventToString(event));
+    LE_INFO("PA event phone %d, dest %s, event %s", phoneId, destinationPtr, myCall.PaEventToString(event));
 
     // To fix the corner case, iCall is released later when testing with telsdk app,
     // callRef is used for the event report.
     taf_VoiceCtrl_t* callCtxPtr = myCall.GetCallCtx(phoneId, destinationPtr, myCall.DirConvert(direction));
     if ((callCtxPtr == NULL) && (event != TAF_PA_VOICECALL_EVENT_INCOMING) && (event != TAF_PA_VOICECALL_EVENT_WAITING))
     {
-        LE_ERROR("Cannot get ctx from phone %d and dest: %s, state: %s", phoneId, destinationPtr, myCall.PaEventToString(event));
+        LE_ERROR("Cannot get ctx from phone %d and dest: %s, event: %s", phoneId, destinationPtr, myCall.PaEventToString(event));
         return;
     }
     else
@@ -220,6 +233,26 @@ const char * VoiceCallSvc::EventToString(taf_voicecall_Event_t event)
             retPtr = "ended";
         break;
 
+        case TAF_VOICECALL_EVENT_CALL_END_FAILED:
+            retPtr = "end_failed";
+        break;
+
+        case TAF_VOICECALL_EVENT_CALL_ANSWER_FAILED:
+            retPtr = "answer_failed";
+        break;
+
+        case TAF_VOICECALL_EVENT_CALL_HOLD_FAILED:
+            retPtr = "hold_failed";
+        break;
+
+        case TAF_VOICECALL_EVENT_CALL_RESUME_FAILED:
+            retPtr = "resume_failed";
+        break;
+
+        case TAF_VOICECALL_EVENT_CALL_SWAP_FAILED:
+            retPtr = "swap_failed";
+        break;
+
         default:
         break;
     }
@@ -280,14 +313,14 @@ const char * VoiceCallSvc::TerminationToString(taf_voicecall_CallEndCause_t term
 le_result_t VoiceCallSvc::SendCallEventToClient(taf_VoiceCtrl_t *callCtxPtr)
 {
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_BAD_PARAMETER, "callCtxPtr is null");
-    bool isIncomingCall = false;
+    bool isIncomingCallWaiting = false;
     if ((callCtxPtr->event == TAF_VOICECALL_EVENT_INCOMING) || (callCtxPtr->event == TAF_VOICECALL_EVENT_WAITING))
     {
-        isIncomingCall = true;
+        isIncomingCallWaiting = true;
     }
 
-    // for incoming call, boardcast its events to all sessions if not session is link to this callCtx
-    if ((isIncomingCall == true) && (le_dls_NumLinks(&callCtxPtr->sessionRefList) == 0))
+    // for incoming call, boardcast its events to all sessions
+    if (isIncomingCallWaiting == true)
     {
         LE_DEBUG("link sessionRef to callCtx for incoming call");
         le_dls_Link_t* linkPtr = le_dls_Peek(&SessionCtxList);
@@ -341,7 +374,7 @@ le_result_t VoiceCallSvc::SendCallEventToClient(taf_VoiceCtrl_t *callCtxPtr)
         // if the call have been ended, unlink this session from the call context
         if (callCtxPtr->event == TAF_VOICECALL_EVENT_ENDED)
         {
-            LE_INFO("Unlink sessionCtxPtr->sessionRef %p from CallCtx %p", sessionCtxPtr->sessionRef, callCtxPtr);
+            LE_INFO("Unbind sessionRef %p from callCtx %p: %s in ENDED", sessionCtxPtr->sessionRef, callCtxPtr, callCtxPtr->destId);
             UnsetSessionRefToCallCtx(callCtxPtr, sessionCtxPtr->sessionRef);
         }
     }
@@ -365,7 +398,7 @@ void VoiceCallSvc::CallHandler(CallEvent_t *eventVoicePtr)
         ((eventVoicePtr->event == TAF_VOICECALL_EVENT_INCOMING) ||
          (eventVoicePtr->event == TAF_VOICECALL_EVENT_WAITING)))
     {
-        LE_INFO("No callCtx found, create one");
+        LE_INFO("No callCtx for event %s, create one", EventToString(eventVoicePtr->event));
         callCtxPtr = CreateCallCtx(eventVoicePtr->phoneId, eventVoicePtr->dest, taf_voicecall_Direction_t::INCOMING);
         TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL, "Cannot create call context");
     }
@@ -573,6 +606,7 @@ taf_VoiceCtrl_t* VoiceCallSvc::GetCallCtx(int8_t phoneId, const char* destinatio
 taf_VoiceCtrl_t* VoiceCallSvc::GetCallCtx(taf_voicecall_CallRef_t reference)
 {
     taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(CallCtrlRefMap, (void*)reference);
+    TAF_ERROR_IF_RET_VAL(reference == NULL, NULL, "This reference is NULL, maybe incoming call");
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, NULL, "Cannot get callCtx from ref(%p)", reference);
 
     return callCtxPtr;
@@ -582,7 +616,7 @@ taf_VoiceCtrl_t* VoiceCallSvc::CreateCallCtx(int8_t phoneId, const char* destina
 {
     taf_VoiceCtrl_t* callCtx = NULL;
 
-    LE_INFO("Create ctx for phoneId: %d, dest： %s", phoneId, destinationPtr);
+    LE_DEBUG("Create ctx for phoneId: %d, dest： %s, dir: %d", phoneId, destinationPtr, (int)dir);
 
     callCtx = (taf_VoiceCtrl_t*)le_mem_ForceAlloc(CallCtrlPool);
     TAF_ERROR_IF_RET_VAL(!callCtx, NULL, "cannot alloc callCtr");
@@ -630,7 +664,7 @@ le_result_t VoiceCallSvc::SetSessionRefToCallCtx(taf_VoiceCtrl_t* callCtxPtr, le
 {
     taf_SessionRef_t* newSessionRefPtr = (taf_SessionRef_t *)le_mem_ForceAlloc(SessionRefPool);
     TAF_ERROR_IF_RET_VAL(newSessionRefPtr == NULL, LE_NO_MEMORY, "Cannot alloc mem for sessionRefNode");
-    LE_INFO("Setting sessionRef %p to callCtx %p...", sessionRef, callCtxPtr);
+    LE_DEBUG("Binding session %p to callCtx %p...", sessionRef, callCtxPtr);
     newSessionRefPtr->sessionRef = sessionRef;
     newSessionRefPtr->link = LE_DLS_LINK_INIT;
     le_dls_Queue(&callCtxPtr->sessionRefList, &(newSessionRefPtr->link));
@@ -648,20 +682,21 @@ taf_SessionRef_t* VoiceCallSvc::GetSessionRefNodeFromCallCtx(taf_VoiceCtrl_t* ca
         linkPtr = le_dls_Peek(&(callCtxPtr->sessionRefList));
     }
 
-    LE_INFO("linkPtr： %p, sessionRef: %p, callCtxPtr: %p", linkPtr, sessionRef, callCtxPtr);
+    TAF_ERROR_IF_RET_VAL(linkPtr == NULL, NULL, "This callCtx %p doesn't bind with any session", callCtxPtr);
+
     while ( linkPtr )
     {
         taf_SessionRef_t* sessionRefPtr = CONTAINER_OF(linkPtr, taf_SessionRef_t, link);
         linkPtr = le_dls_PeekNext(&(callCtxPtr->sessionRefList), linkPtr);
 
-        LE_INFO("callPtr %p sessionRef %p, sessionRefPtr->sessionRef: %p",
-            callCtxPtr, sessionRef, sessionRefPtr->sessionRef);
         if (sessionRefPtr->sessionRef == sessionRef)
         {
+            LE_DEBUG("Got session node with sessionRef %p and callPtr %p", sessionRef, callCtxPtr);
             return sessionRefPtr;
         }
     }
 
+    LE_ERROR("Cannot get session node with sessionRef: %p and callCtx: %p", sessionRef, callCtxPtr);
     return NULL;
 }
 
@@ -787,7 +822,12 @@ le_result_t VoiceCallSvc::StopCall(taf_voicecall_CallRef_t callRef, le_msg_Sessi
     TAF_ERROR_IF_RET_VAL(callInfoRef == nullptr, LE_FAULT, "Cannot create call reference");
     le_result_t result = taf_pa_voicecall_Stop(callInfoRef, callCallback, callCtxPtr->callRef);
     TAF_ERROR_IF_RET_VAL(taf_pa_voicecall_DeleteReference(callInfoRef) != LE_OK, LE_FAULT,  "Cannot free call reference");
-    if (result != LE_OK)
+    if ((result == LE_DUPLICATE) || (result == LE_NOT_FOUND))
+    {
+        LE_INFO("The call %p has been already stopped previously", callCtxPtr);
+        return LE_OK;
+    }
+    else if (result != LE_OK)
     {
         LE_ERROR("Stop call failed, return value: 0x%x", (uint32_t)result);
         CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
@@ -796,6 +836,7 @@ le_result_t VoiceCallSvc::StopCall(taf_voicecall_CallRef_t callRef, le_msg_Sessi
         le_event_Report(CallEvent, &msgCallEvent, sizeof(CallEvent_t));
         return LE_OK; /* return OK as the error event will be reported by listener */
     }
+
     return LE_OK;
 }
 
@@ -872,9 +913,10 @@ le_result_t VoiceCallSvc::DeleteCall(taf_voicecall_CallRef_t callRef, le_msg_Ses
     taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(CallCtrlRefMap, (void*)callRef);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot found callCtxPtr");
 
-    if ((callCtxPtr->event != TAF_VOICECALL_EVENT_ENDED) || (callCtxPtr->isInProgress == true))
+    if (!((callCtxPtr->event == TAF_VOICECALL_EVENT_ENDED) || (callCtxPtr->event == TAF_VOICECALL_EVENT_CALL_END_FAILED)) ||
+        (callCtxPtr->isInProgress == true))
     {
-        LE_ERROR("Error state: Event(%s) inprogress(%d), cannot delete", EventToString(callCtxPtr->event), callCtxPtr->isInProgress);
+        LE_ERROR("Error state: event(%s) inprogress(%d), cannot delete", EventToString(callCtxPtr->event), callCtxPtr->isInProgress);
         return LE_FAULT;
     }
 
@@ -886,8 +928,11 @@ le_result_t VoiceCallSvc::DeleteCall(taf_voicecall_CallRef_t callRef, le_msg_Ses
     }
     else
     {
-        LE_ERROR("Cannot get SessionRefNode from callCtrl, skip");
+        LE_ERROR("SessionRef %p does not bind with callRef %p, skip", sessionRef, callRef);
     }
+
+    size_t refCount = le_mem_GetRefCount(callCtxPtr);
+    LE_INFO("CallRef %p has been used by %ld sessions", callRef, refCount);
 
     le_mem_Release(callCtxPtr);
 
@@ -986,6 +1031,22 @@ taf_pa_voicecall_dir_t VoiceCallSvc::DirToPADir(taf_voicecall_Direction_t dir)
         case taf_voicecall_Direction_t::OUTGOING: return TAF_PA_VOICECALL_DIR_OUTGOING;
         case taf_voicecall_Direction_t::NONE: return TAF_PA_VOICECALL_DIR_NONE;
         default: return TAF_PA_VOICECALL_DIR_NONE;
+    }
+}
+
+taf_voicecall_CallEndCause_t VoiceCallSvc::EndCauseConvert(taf_pa_voicecall_termination_t paTerm)
+{
+    switch (paTerm) {
+        case TAF_PA_VOICECALL_TERM_NORMAL: return TAF_VOICECALL_END_NORMAL;
+        case TAF_PA_VOICECALL_TERM_NETWORK_FAIL: return TAF_VOICECALL_END_NETWORK_FAIL;
+        case TAF_PA_VOICECALL_TERM_UNOBTAINABLE_NUMBER: return TAF_VOICECALL_END_UNOBTAINABLE_NUMBER;
+        case TAF_PA_VOICECALL_TERM_BUSY: return TAF_VOICECALL_END_BUSY;
+        case TAF_PA_VOICECALL_TERM_LOCAL: return TAF_VOICECALL_END_LOCAL;
+        case TAF_PA_VOICECALL_TERM_REMOTE: return TAF_VOICECALL_END_REMOTE;
+        case TAF_PA_VOICECALL_TERM_UNDEFINED: return TAF_VOICECALL_END_UNDEFINED;
+        case TAF_PA_VOICECALL_TERM_REJECTED: return TAF_VOICECALL_END_REJECTED;
+        case TAF_PA_VOICECALL_TERM_NORESPONSE: return TAF_VOICECALL_END_NORESPONSE;
+        default: return TAF_VOICECALL_END_UNDEFINED;
     }
 }
 

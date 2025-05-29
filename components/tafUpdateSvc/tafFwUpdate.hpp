@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -34,8 +34,8 @@
 
 #define TAF_FWUPDATE_INSTALL_CONTEXT "install_context"
 #define TAF_FWUPDATE_INSTALL_IMGAE_NODE "install_context/image/%s"
-#define TAF_FWUPDATE_POST_CHECK_SCRIPT "META-INF/com/google/android/updater-post-install-script"
-#define TAF_FWUPDATE_POST_CHECK_SCRIPT_PATH "/data/updater-post-install-script"
+#define TAF_FWUPDATE_POST_HOOK "/legato/systems/current/bin/install-hook"
+#define TAF_FWUPDATE_POST_SCRIPT_PATH_LEN 128
 
 #define TAF_FWUPDATE_ACTIVATE_CONTEXT "activate_context"
 #define TAF_FWUPDATE_ACTIVATE_ITEM_NODE "activate_context/item/%s"
@@ -140,6 +140,8 @@ namespace tafsvc {
         void StartInstall(const char* filePath);
         void StartSync(void);
         void InstallFirmware(const char* filePath);
+        le_result_t GetPostScript(taf_update_State_t state, char* scriptPath, size_t pathLen);
+        le_result_t PostProcess(taf_update_State_t state);
 
         le_result_t CalFileHash (const char* filePath, uint32_t* calSize, uint8_t* hash,
             unsigned int* hashLen);

@@ -12,11 +12,12 @@ io:
   minimum_execution_time: int(min=0, max=60, required=False)
   maximum_execution_time: int(min=0, max=60, required=False)
   execution_conditions: str(matches='^([\d\w\W\s\(\)\.=]+)$',max=200)
+  diagnostic_session: map(include('io_diagnostic_sub_session'),key=str(),required=False)
   access:
     session: list(enum('default_session', 'programming_session', 'extended_diagnostic_session', 'vehicle_manufacturer_specific_session', 'fota_session', 'downloaded_enumlation_session', 'system_supplier_specific_session'), required=False)
     security_type: hexa(required=False)
     security_level: list(str(),required=False)
-    role: enum('R1','R2','R3','R4','R5',required=False)
+  io_role: list(enum('b1','b2','b3','b4','b5','b6'),required=False)
   enable_condition: list(str(), required=False)
   request:
     control_option_record: include('io_control_option_record_item')
@@ -32,4 +33,13 @@ io_control_option_record_item:
   io_control_parameter: list(hexa())
   control_state: mnemonic(required=False)
   did_size: int()
+
+---
+io_diagnostic_sub_session: map(include('io_diagnostic_sub_session_level'),key=enum('R','W','IO'),required=False)
+
+---
+io_diagnostic_sub_session_level:
+  security: bool(required=False)
+  security_level: list(str(),required=False)
+---
 

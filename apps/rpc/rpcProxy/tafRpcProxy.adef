@@ -10,9 +10,11 @@ capability:
 {
     CAP_WAKE_ALARM
     CAP_BLOCK_SUSPEND
-    CAP_DAC_OVERRIDE
     CAP_SYS_ADMIN
+#if ${LE_CONFIG_TEST_COVERAGE} = y
     CAP_DAC_READ_SEARCH
+    CAP_DAC_OVERRIDE
+#endif
 }
 
 executables:
@@ -34,5 +36,5 @@ bindings:
 {
     tafRpcProxy.component.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
     tafRpcProxy.component.taf_someipSvr -> tafSomeipGWSvc.taf_someipSvr
-    tafRpcProxy.component.le_instStat -> <root>.le_instStat
+    tafRpcProxy.component.le_instStat -> <tafcore>.le_instStat
 }

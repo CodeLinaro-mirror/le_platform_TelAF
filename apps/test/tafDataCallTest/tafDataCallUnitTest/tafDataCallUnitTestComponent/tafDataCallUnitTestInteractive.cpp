@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -22,6 +22,7 @@ using namespace tafsvc;
 static taf_dcs_RoamingStatusHandlerRef_t                                g_roamingStatusHandlerRef;
 static std::map<uint32_t, taf_dcs_SessionStateHandlerRef_t>  g_Profile_SessionStateHandlerRef_Map;
 static std::map<uint32_t, taf_dcs_QosStatusHandlerRef_t>    g_Profile_QosStatusHandlerRef_Map;
+static std::map<uint32_t, taf_dcs_HwAccelerationStateHandlerRef_t> g_Profile_HwAccelHandlerRef_Map;
 
 // Callback thread reference
 le_thread_Ref_t callbackThreadRef = nullptr;
@@ -37,18 +38,20 @@ typedef enum
     PROFILE_SET_APN_TYPE_MASK,      //
     PROFILE_SET_PDP,                //
     PROFILE_SET_AUTHENTICATION,     //
+    PROFILE_SET_DEFAULT,            //
     PROFILE_GET_ID,                 //
-    PROFILE_GET_APN,               //
+    PROFILE_GET_APN,                //
     PROFILE_GET_NAME,               //
     PROFILE_GET_TECH_PREF,          //
     PROFILE_GET_APN_TYPE_MASK,      //
     PROFILE_GET_PDP,                //
     PROFILE_GET_AUTHENTICATION,     //
+    PROFILE_GET_DEFAULT,            //
     SESSION_GET_DATA_BEARER_TECH,   //
     SESSION_GET_ROAMING_STATUS,     //
     SESSION_GET_MAX_DATA_BIT_RATES, //
-    SESSION_CALL_END_REASON,         //
-    APN_GET_THROTTLE_INFO,           //
+    SESSION_CALL_END_REASON,        //
+    APN_GET_THROTTLE_INFO,          //
     PROFILE_GET_MTU
 } dcsAPIs;
 
@@ -73,6 +76,10 @@ static void ShowMenu()
               << std::endl
               << PROFILE_SET_PDP                << " -> Profile: Set PDP(IP family type)"
               << std::endl
+              << PROFILE_SET_AUTHENTICATION     << " -> Profile: Set authentication"
+              << std::endl
+              << PROFILE_SET_DEFAULT            << " -> Profile: Set default"
+              << std::endl
               << PROFILE_GET_ID                 << " -> Profile: Get Id"
               << std::endl
               << PROFILE_GET_APN                << " -> Profile: Get APN"
@@ -86,6 +93,8 @@ static void ShowMenu()
               << PROFILE_GET_PDP                << " -> Profile: Get PDP(IP family type)"
               << std::endl
               << PROFILE_GET_AUTHENTICATION     << " -> Profile: Get authentication"
+              << std::endl
+              << PROFILE_GET_DEFAULT            << " -> Profile: Get default"
               << std::endl
               << SESSION_GET_DATA_BEARER_TECH   << " -> Session: Get data bearer technology"
               << std::endl
@@ -485,6 +494,7 @@ static le_result_t SetProfileName(taf_dcs_ProfileRef_t ProfileRef)
     char profileName[TAF_DCS_NAME_MAX_LEN + 1] = {0}; // 1 for trailing null
     std::cout << "Enter profile name(max " << TAF_DCS_NAME_MAX_LEN << " characters):  ";
     std::cin.clear();
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     std::cin.getline(profileName, (TAF_DCS_NAME_MAX_LEN));
     result = taf_dcs_SetProfileName(ProfileRef, profileName);
     if (LE_OK != result)
@@ -929,6 +939,22 @@ static le_result_t GetMtu()
     return result;
 }
 
+static void HwAccStateHandlerFunc(  taf_dcs_ProfileRef_t profileRef,
+                                    taf_dcs_HwAccelerationState_t state,
+                                    void *contextPtr)
+{
+    LE_UNUSED(contextPtr);
+
+    uint32_t profileId = 0;
+    le_result_t result = taf_dcs_GetProfileId(profileRef, &profileId);
+    LE_TEST_INFO("taf_dcs_GetProfileId result: %d", result);
+
+    LE_TEST_INFO("Profile %d Hw accel state : %d(%s)", profileId, state,
+                                                            (state ? "ACTIVE" : "INACTIVE"));
+    std::cout   << "Profile " << profileId
+                << " Hw accel state    : " << state << "(" << (state ? "ACTIVE" : "INACTIVE") << ")"
+                << std::endl;
+}
 
 void RoamingStatusHandlerFunc(
     const taf_dcs_RoamingStatusInd_t *LE_NONNULL roamingStatusIndPtr,
@@ -1045,6 +1071,44 @@ void QosStatusHandlerFunc
     std::cout << "****Handler for qos status Indication (End)****" << std::endl;
 }
 
+static le_result_t GetDefaultProfileIndex()
+{
+    uint32_t profileId = 1;
+    int phoneID = 1;
+
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+
+    le_result_t result = taf_dcs_GetDefaultProfileIndexEx(static_cast<uint8_t>(phoneID),
+                                                        &profileId);
+    LE_TEST_INFO("taf_dcs_SetDefaultProfileIndex result: %d", result);
+    if (LE_OK == result)
+    {
+        LE_TEST_INFO("Default profile: %d", profileId);
+        std::cout << "Default profile : " << profileId << std::endl;
+    }
+    return result;
+}
+
+static le_result_t SetDefaultProfileIndex()
+{
+    int profileId = 1;
+    int phoneID = 1;
+
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+
+    std::cout << "Enter profile id:  ";
+    std::cin.clear();
+    std::cin >> profileId;
+
+    le_result_t result = taf_dcs_SetDefaultProfileIndexEx(static_cast<uint8_t>(phoneID),
+                                                        static_cast<uint32_t>(profileId));
+    LE_TEST_INFO("taf_dcs_SetDefaultProfileIndex result: %d", result);
+    return result;
+}
 
 static void *callback_thread_handler(void *ctxPtr)
 {
@@ -1056,7 +1120,7 @@ static void *callback_thread_handler(void *ctxPtr)
     le_result_t result;
 
     // Add roaming status handler
-    g_roamingStatusHandlerRef = taf_dcs_AddRoamingStatusHandler(RoamingStatusHandlerFunc, NULL);
+    g_roamingStatusHandlerRef  = taf_dcs_AddRoamingStatusHandler(RoamingStatusHandlerFunc, NULL);
 
     // Add session state handler for all existing profiles for PHONE_ID_1
     result = taf_dcs_GetProfileListEx(phoneId, profilesInfoPtr, &listSize);
@@ -1067,6 +1131,7 @@ static void *callback_thread_handler(void *ctxPtr)
     {
         taf_dcs_SessionStateHandlerRef_t handlerRef = nullptr;
         taf_dcs_QosStatusHandlerRef_t handlerQosRef = nullptr;
+        taf_dcs_HwAccelerationStateHandlerRef_t handlerHwAccelRef = nullptr;
 
         taf_dcs_ProfileRef_t profileRef = nullptr;
         const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
@@ -1085,16 +1150,27 @@ static void *callback_thread_handler(void *ctxPtr)
         LE_TEST_ASSERT(nullptr != handlerQosRef, "taf_dcs_AddQosStatusHandler: phone id(%d), \
                                                 profile id: %d", phoneId, profileInfoPtr->index);
 
+        // Add HW acceleration state handler
+        handlerHwAccelRef = taf_dcs_AddHwAccelerationStateHandler(profileRef, HwAccStateHandlerFunc,
+                                                                                              NULL);
+        LE_TEST_ASSERT(nullptr != handlerHwAccelRef, "taf_dcs_AddHwAccelerationStateHandler: \
+                                                                    phone id(%d),profile id: %d",
+                                                                    phoneId, profileInfoPtr->index);
+
         // Add the handler ref to the profile and session handler map
         g_Profile_SessionStateHandlerRef_Map[profileInfoPtr->index] = handlerRef;
 
         // Add the handler ref to the profile and qos handler map
         g_Profile_QosStatusHandlerRef_Map[profileInfoPtr->index] = handlerQosRef;
 
+        // Add the handler ref to the profile and HW acceleration handler map
+        g_Profile_HwAccelHandlerRef_Map[profileInfoPtr->index] = handlerHwAccelRef;
+
         // Set the references to nullptr
         profileRef = nullptr;
         handlerRef = nullptr;
         handlerQosRef = nullptr;
+        handlerHwAccelRef = nullptr;
     }
 
     // Start the event loop
@@ -1132,6 +1208,7 @@ static void UnRegister_Callbacks()
 
     // Remove handlers
     taf_dcs_RemoveRoamingStatusHandler(g_roamingStatusHandlerRef);
+
     for (const auto &pair : g_Profile_SessionStateHandlerRef_Map)
     {
         uint32_t profileId = pair.first;
@@ -1150,6 +1227,16 @@ static void UnRegister_Callbacks()
         // Remove the qos state handler
         LE_TEST_INFO("Removed qos state hander for profile ID: %d", profileId);
         taf_dcs_RemoveQosStatusHandler(handlerRef);
+    }
+
+    for (const auto &pair : g_Profile_HwAccelHandlerRef_Map)
+    {
+        uint32_t profileId = pair.first;
+        taf_dcs_HwAccelerationStateHandlerRef_t handlerRef = pair.second;
+
+        // Remove the qos state handler
+        LE_TEST_INFO("Removed HW accel state hander for profile ID: %d", profileId);
+        taf_dcs_RemoveHwAccelerationStateHandler(handlerRef);
     }
 
 
@@ -1414,6 +1501,26 @@ void tafDCSUnitTest_RunInteractiveTests()
                 result = GetMtu();
                 logStr.clear();
                 logStr = logStr + "taf_dcs_GetMtu: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case PROFILE_SET_DEFAULT:
+            {
+                result = SetDefaultProfileIndex();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_SetDefaultProfileIndexEx: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case PROFILE_GET_DEFAULT:
+            {
+                result = GetDefaultProfileIndex();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetDefaultProfileIndexEx: " +
                          std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
                 LE_TEST_INFO("%s", logStr.c_str());
                 std::cout << logStr << std::endl;

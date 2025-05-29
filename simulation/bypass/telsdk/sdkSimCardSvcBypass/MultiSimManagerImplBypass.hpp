@@ -15,7 +15,7 @@
 #include "common/ListenerManager.hpp"
 
 #define INVALID_SLOT_COUNT -1
-
+namespace telux {
 namespace tel {
 
 struct MultiSimUserData {
@@ -84,5 +84,5 @@ private:
 };
 
 }  // end of namespace tel
-
+}
 #endif

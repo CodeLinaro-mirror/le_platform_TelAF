@@ -64,6 +64,9 @@ using namespace std;
 // For reset reason
 #define TAF_HMS_BOOT_REASON_PATH "/sys/kernel/reboot_reason/reason"
 
+// For reset sub-reason
+#define TAF_HMS_BOOT_SUB_REASON_PATH "/data/telaf/bootReason"
+
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -316,7 +319,9 @@ namespace tafsvc {
             le_mem_PoolRef_t ModemEventInfoPool;
 
             le_result_t ReadReason(const std::string& filePath,
-                taf_hms_SubReason_t* reason, char* reasonStr);
+                taf_hms_SubReason_t* reason, char* reasonStr, size_t reasonSize);
+            le_result_t ReadSubReason(const std::string& filePath, char* subReasonStr,
+                size_t subReasonSize);
             le_result_t GetResetInformation(taf_hms_Reset_t* resetPtr,
                 char* resetSpecificInfoStr, size_t resetSpecificInfoStrSize);
 

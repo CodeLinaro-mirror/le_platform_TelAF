@@ -1,7 +1,9 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
- */
+*
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+
 
 
 #include "legato.h"
@@ -33,6 +35,7 @@
 #define CFG_NODE_MAJORVERSION_FULLPATH TAF_MNGD_CFG_STORAGE_SVC_PATH CFG_NODE_MAJORVERSION
 #define CFG_NODE_MINORVERSION_FULLPATH TAF_MNGD_CFG_STORAGE_SVC_PATH CFG_NODE_MINORVERSION
 #define CFG_NODE_PATCHVERSION_FULLPATH TAF_MNGD_CFG_STORAGE_SVC_PATH CFG_NODE_PATCHVERSION
+#define DATA_LABEL_ACTIVATED_CONFIG_HASH "ActivatedConfigHash"
 
     namespace tafsvc
     {
@@ -140,6 +143,14 @@ class tafMngdStorageSvc: public ITafSvc
         le_result_t Update(taf_mngdStorCfg_ConfigRef_t,const char*);
 
         le_result_t Activate(taf_mngdStorCfg_ConfigRef_t);
+
+        le_result_t VerifyActivation(taf_mngdStorCfg_ConfigRef_t);
+
+        void CalculateSHA256(const char* filePath, unsigned char* hash);
+
+        le_result_t SetActivatedConfigHash();
+
+        le_result_t CheckActivatedConfigHash();
 
         le_result_t GetConfigStoragePath(char* storagePtr, size_t storageSize);
 

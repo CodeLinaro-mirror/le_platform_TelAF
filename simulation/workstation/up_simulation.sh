@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 if [[ "$0" = "$BASH_SOURCE" ]]; then
@@ -14,11 +14,11 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     # Once again to ensure the 'ssh-server' to be accessed normally
     export TELAF_IN_CONTAINER=yes
 
-    PATH=/legato/systems/current/bin:$PATH
-    PATH=/legato/taf_rootfs/bin:$PATH
-    PATH=/legato/sdk_rootfs/bin:$PATH
-    PATH=/venv/bin:$PATH
-    export PATH
+    # Modify global environment variables for all users
+    TOP_ENV=/etc/environment
+    echo 'PATH="/legato/systems/current/bin:/legato/taf_rootfs/bin:/legato/sdk_rootfs/bin:/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"' >> $TOP_ENV
+    echo 'TELAF_IN_CONTAINER=yes' >> $TOP_ENV
+    source "$TOP_ENV"
 
     source $HOME/simulation/framework/environ.sh
 
@@ -122,9 +122,18 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     groupadd sensors
 
     # Create some default users
+    useradd -m --shell /bin/bash tafcore
     useradd -M --no-log-init --shell /bin/bash telaf
     useradd -M --no-log-init --shell /bin/bash appdefault
     useradd -M --no-log-init --gid root --shell /bin/bash securityunpack
+
+    usermod -aG root tafcore
+    usermod -aG tafcore root
+
+    # Add 'tafcore' to sudoer list
+    echo 'tafcore:simula' | chpasswd
+    echo "tafcore ALL=(ALL:ALL) ALL" >> /etc/sudoers
+    echo 'tafcore ALL=(ALL:ALL) NOPASSWD: /usr/sbin/setcap' >> /etc/sudoers
 
     echo "/mnt/legato/system/lib" > /tmp/ld.so.conf
 
@@ -149,6 +158,12 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     # Also be used for syslog tag
     hostname simulation
 
+    # Maping 'simulation' to localhost
+    echo '127.0.1.1   simulation' >> /etc/hosts
+
+    # Initialize the 'locale' for system
+    echo 'LANG="en_US.UTF-8"' >> /etc/default/locale
+
     # Busybox syslogd on Ubuntu
     /sbin/syslogd -C20000
 
@@ -165,6 +180,7 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     mkdir -p /data/le_fs
     mkdir -p /data/persist
     mkdir -p /data/ManagedServices
+
     chmod 0777 /data/le_fs
 
     MOUNTPOINT_TELAF="/mnt/legato"
@@ -306,12 +322,14 @@ else # [Non-Docker-Container-Env]
     SML_DATA_VOLUME=${CONTAINER_NAME}_sml_data
     SML_PERSIST_VOLUME=${CONTAINER_NAME}_sml_persist
     SML_MNT_LEGATO_VOLUME=${CONTAINER_NAME}_sml_mnt_legato
+    SML_SSH_INFO_VOLUME=telaf_simulation_common_sml_ssh_info
 
     echo "[Prepare] Create or Reuse docker volumes for persistently data"
     try_to_create_volume $SML_APP_VOLUME
     try_to_create_volume $SML_DATA_VOLUME
     try_to_create_volume $SML_PERSIST_VOLUME
     try_to_create_volume $SML_MNT_LEGATO_VOLUME
+    try_to_create_volume $SML_SSH_INFO_VOLUME
 
     networks=$(docker network ls --format "{{.Name}}")
 
@@ -337,6 +355,7 @@ else # [Non-Docker-Container-Env]
         -v $SML_DATA_VOLUME:/data:rw \
         -v $SML_PERSIST_VOLUME:/persist:rw \
         -v $SML_MNT_LEGATO_VOLUME:/mnt/legato:rw \
+        -v $SML_SSH_INFO_VOLUME:/root/simulation/.ssh:rw \
         $IMG_NAME:$IMG_VERSION /bin/bash"
     echo
     echo "> "$CMD
@@ -357,15 +376,21 @@ else # [Non-Docker-Container-Env]
     # master record the container names & IP addresses from slave-x.
     if [ "$CONTAINER_WHO_AM_I" == "master" ]; then
         if [ -f $SML_WORKSPACE/.slavex ]; then
+
+            # Ensure the .slavex was deleted after stop-actions
+            cp -af $SML_WORKSPACE/.slavex /tmp/.slavex
+            rm -f $SML_WORKSPACE/.slavex
+
             while IFS=' ' read -r cname ipaddr;
             do
                 echo "> Stop [$cname] partner @ [$ipaddr] ..."
                 docker stop $cname > /dev/null 2>&1
                 echo "> Stop [$cname] partner @ [$ipaddr] done."
-            done < "$SML_WORKSPACE/.slavex"
+            done < /tmp/.slavex
 
-            rm -f $SML_WORKSPACE/.slavex $SML_WORKSPACE/.simula.slave $SML_WORKSPACE/.simula.master
+            rm -f /tmp/.slavex $SML_WORKSPACE/.simula.slave $SML_WORKSPACE/.simula.master
             exit $?
+
         else
             # no partner ? ok, exit directly.
             exit 0

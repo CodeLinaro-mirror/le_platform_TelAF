@@ -28,11 +28,10 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 
 #include "legato.h"
 #include "interfaces.h"
@@ -236,6 +235,7 @@ namespace tafsvc {
           void onTrafficFlowTemplateChange(
               const std::shared_ptr<telux::data::IDataCall> &dataCall,
               const std::vector<std::shared_ptr<telux::data::TftChangeInfo>> &tft) override;
+          void onHwAccelerationChanged(const telux::data::ServiceState state) override;
 
       private:
           SlotId slotId;
@@ -306,7 +306,7 @@ namespace tafsvc {
             ~taf_DataConnection() {};
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             void onInitCompleted(telux::common::ServiceStatus status);
-        #endif
+#endif
             void Init(void);
             static taf_DataConnection &GetInstance();
             le_result_t PreProcessDataCall( uint8_t slotId, int32_t profileId,
@@ -350,6 +350,7 @@ namespace tafsvc {
                                      le_msg_SessionRef_t sessionRef);
             le_result_t SetDefaultProfileIdSync(uint8_t slotId, uint32_t profileId);
             le_result_t GetDefaultProfileIdSync(uint8_t *slotId, uint32_t *profileId);
+            le_result_t GetDefaultProfileIdForSlotIdSync(uint8_t slotId, uint32_t& profileIdGet);
 
             static void DataCnxCallEventHandler(void *reportPtr);
             void InternalDataCallEventHandler(void* reportPtr);
@@ -365,7 +366,7 @@ namespace tafsvc {
             le_result_t StopCall(uint8_t slotId, int32_t profileId,
                                  telux::data::IpFamilyType ipType);
             le_result_t SendSettingDefaultProfileIdCmd(uint8_t slotId, int32_t profileId);
-            le_result_t SendGettingDefaultProfileIdCmd();
+            le_result_t SendGettingDefaultProfileIdCmd(uint8_t slotId);
             bool IsCallCtxCreated(uint8_t slotId, int32_t profileId);
             le_result_t AddSessionToCallCtx(taf_dcs_CallCtx_t* callCtxPtr,
                                             le_msg_SessionRef_t sessionRef);
@@ -456,6 +457,10 @@ namespace tafsvc {
                                                     telux::data::ServiceStatus &serviceStatus);
             taf_dcs_DataBearerTechnology_t MapNwRatToDataBearerTech(telux::data::NetworkRat nwRAT);
 #endif
+            // Function to convert HW acceleration state.
+            static taf_dcs_HwAccelerationState_t ConvertHwAccelSate(
+                                                            const telux::data::ServiceState state);
+
             std::map<SlotId, std::shared_ptr<telux::data::IDataConnectionManager>>
                                                                             dataConnectionManagers;
             std::map<SlotId, std::shared_ptr<telux::data::IDataConnectionListener>>
@@ -476,8 +481,10 @@ namespace tafsvc {
             le_mutex_Ref_t handlerlistMutex = NULL; // Mutex for HandlerSessionMappingList
             taf_dcs_SessionStateFunc_t SessionStateFunc = NULL;
             le_thread_Ref_t ConnectionEventThreadRef = NULL;
-            int32_t DefaultProfileId = TAF_DCS_DEFAULT_PROFILE;
+            //int32_t DefaultProfileId = TAF_DCS_DEFAULT_PROFILE;
+            std::map<uint8_t, int32_t> DefaultProfileIdMap;
             int32_t DefaultSlotId = SLOT_ID_1;
             int32_t ConvertCEReason(taf_dcs_callEndReason_t ceReason);
+            bool bMultiSimSupported;
     };
 }

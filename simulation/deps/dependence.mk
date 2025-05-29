@@ -160,9 +160,12 @@ vsomeip_: _cmake _boost
 	  && cd $(SIMULATION_DEPS_SOURCE) \
 	  && tar xfz $(_VSOMEIP_VERSION) && mv $(VSOMEIP_VERSION) $@
 #-> 3. [compile]
-	$Q echo "[$@] patch to  support multiple routing managers in single process"
+	$Q echo "[$@] patch to support multiple routing managers in single process"
 	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
 	&& patch -p1 < $(SIMULATION_HOME)/deps/patches/0001-Fix-bug-to-support-multiple-routing-managers.patch
+	$Q echo "[$@] patch to fix vsomeip client not returning to initial wait phase"
+	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
+	&& patch -p1 < $(SIMULATION_HOME)/deps/patches/0002-Fix-vsomeip-client-not-returning-to-initial-wait-phase.patch
 	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
 	  && echo "[$@] configure firstly" \
 	    && mkdir -p build && cd build \

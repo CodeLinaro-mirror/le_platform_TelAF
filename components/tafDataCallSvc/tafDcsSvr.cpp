@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1364,7 +1364,7 @@ le_result_t taf_dcs_SetDefaultProfileIndex(uint32_t profileId)
 }
 
 /**
- * Set the deafult data profile index and phone id.
+ * Set the default data profile index and phone id.
  *
  * @param [in] phoneId                      The default phone id.
  * @param [in] profileId                    The default profile index.
@@ -1397,7 +1397,37 @@ le_result_t taf_dcs_SetDefaultProfileIndexEx(uint8_t phoneId, uint32_t profileId
 }
 
 /**
- * Get the deafult data profile index.
+ * Gets the default data profile index and for the specified phone id.
+ *
+ * @param [in] phoneId                      The default phone id.
+ * @param [in] profileId                    The default profile index.
+ *
+ * @returns LE_OK                       Success.
+ *          OTHER                       Failed to set default profile.
+ */
+le_result_t taf_dcs_GetDefaultProfileIndexEx(uint8_t phoneId, uint32_t *profileIdPtr)
+{
+    TAF_ERROR_IF_RET_VAL(nullptr == profileIdPtr, LE_BAD_PARAMETER, "Null ptr(profileIdPtr)");
+
+    le_result_t result = LE_OK;
+    uint32_t profileIdGet;
+    uint8_t slotId;
+
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    result = dataProfile.getSlotIdFromPhoneId(phoneId, &slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Failed to get slot id from phone id");
+
+    result = dataConnection.GetDefaultProfileIdForSlotIdSync(slotId, profileIdGet);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting default profile failed");
+
+    *profileIdPtr = profileIdGet;
+    return result;
+}
+
+/**
+ * Get the default data profile index.
  *
  * @returns default profile index
  */
@@ -1859,6 +1889,90 @@ le_result_t taf_dcs_GetCallEndReason
     auto &dataConnection = taf_DataConnection::GetInstance();
     return dataConnection.GetCallEndReason(profileRef, pdpType, callEndReasonTypePtr,
                                                                         callEndReasonPtr);
+}
+
+/**
+ * First event handler used by taf_dcs_AddHwAccelerationStateHandler().
+ *
+ * @param [in] reportPtr          event pointer.
+ * @param [in] subHandlerFunc     Callback function from taf_dcs_AddHwAccelerationStateHandler().
+ */
+static void FirstHwAccelerationStateHandler(void *reportPtr, void *subHandlerFunc)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
+
+    TAF_ERROR_IF_RET_NIL(subHandlerFunc == nullptr, "Null ptr(subHandlerFunc)");
+
+    taf_dcs_HwAccelerationStateHandlerFunc_t handlerFunc =
+                                (taf_dcs_HwAccelerationStateHandlerFunc_t)subHandlerFunc;
+    HwAccelStatus_t *statePtr = static_cast<HwAccelStatus_t *>(reportPtr);
+    handlerFunc(statePtr->profileRef, statePtr->state, le_event_GetContextPtr());
+
+    // Release memory back to the hw acceleration event pool
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_dcs_HwAccelerationState'
+ *
+ * Event to report when a change occurs in hardware acceleration state.<br>
+ * If reported state is TAF_DCS_HW_ACCELERATION_INACTIVE: All existing data calls will take software
+ * acceleration path.<br>
+ * If reported state is TAF_DCS_HW_ACCELERATION_ACTIVE: All new data calls that are started after
+ * this event invocation will be hardware accelerated. Data calls that are already started will
+ * continue without hardware acceleration. Clients could stop and restart active data calls in
+ * order to use hardware acceleration.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+taf_dcs_HwAccelerationStateHandlerRef_t taf_dcs_AddHwAccelerationStateHandler(
+    taf_dcs_ProfileRef_t profileRef,
+    ///< [IN] The profile reference.
+    taf_dcs_HwAccelerationStateHandlerFunc_t handlerPtr,
+    ///< [IN] Handler for hardware acceleration state.
+    void *contextPtr
+    ///< [IN]
+)
+{
+    TAF_ERROR_IF_RET_VAL((profileRef == nullptr), nullptr, "Null ptr(profileRef)");
+    TAF_ERROR_IF_RET_VAL((handlerPtr == nullptr), nullptr, "Null ptr(handlerPtr)");
+    auto &dataProfile    = taf_DataProfile::GetInstance();
+
+    int32_t profileId;
+    uint8_t slotId;
+    char nameStr[24] = {0};
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, nullptr, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, nullptr,
+                                                            "Profile not created yet.");
+
+    le_event_Id_t HwAccelStateEvent = dataProfile.GetProfileCtxHWAccelStateEvent(slotId, profileId);
+    snprintf(nameStr, sizeof(nameStr) - 1, "HwAccelStateHdlr-%d-%d", slotId, profileId);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler(nameStr,
+                                                                  HwAccelStateEvent,
+                                                                  FirstHwAccelerationStateHandler,
+                                                                  (void *)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_dcs_HwAccelerationStateHandlerRef_t)(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_dcs_HwAccelerationState'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_dcs_RemoveHwAccelerationStateHandler
+(
+    taf_dcs_HwAccelerationStateHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    TAF_ERROR_IF_RET_NIL((handlerRef == NULL), "Null ptr(handlerRef)");
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+    return;
 }
 
 /**

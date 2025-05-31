@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 The Linux Foundation. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted provided that the following conditions are
@@ -26,15 +26,11 @@
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- *  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2022, 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -209,8 +205,6 @@ namespace tafsvc {
    class tafSmsCallback : public ICommandResponseCallback {
    public:
       void commandResponse(ErrorCode error) override;
-      static void sendSmsResponse(std::vector<int> msgRefs,
-         telux::common::ErrorCode errorCode);
       taf_sms_MsgRef_t msgRef;
    };
 
@@ -361,8 +355,6 @@ namespace tafsvc {
       std::promise<le_result_t> CBRequestIdsSyncPromise;
       std::promise<le_result_t> CBAddIdsSyncPromise;
       std::promise<le_result_t> CBRemoveIdsSyncPromise;
-
-      std::promise<telux::common::ErrorCode> SendMessageSyncPromise;
 
       std::promise<le_result_t> PreferredStorageSyncPromise;
 

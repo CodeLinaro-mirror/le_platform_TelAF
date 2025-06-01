@@ -14,7 +14,7 @@ requires:
     component:
     {
         $TELAF_PA_DEFAULT/component/keyStore/taf_pa_fscrypt_default
-        $TELAF_PA_DEFAULT/component/keyStore/stub/taf_pa_fscrypt
+        $LEGATO_BUILD/stub/component/taf_pa_fscrypt
     }
 
     api:

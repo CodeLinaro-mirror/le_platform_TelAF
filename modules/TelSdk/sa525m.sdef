@@ -157,6 +157,7 @@ bindings:
     <root>.DeviceManagerTool -> <tafcore>.DeviceManagerTool
     <telaf>.sdirTool -> <tafcore>.sdirTool
     <telaf>.le_cfg -> <tafcore>.le_cfg
+    <telaf>.le_appInfo -> <tafcore>.le_appInfo
     <system>.taf_flash -> <telaf>.taf_flash
 }
 

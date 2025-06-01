@@ -22,7 +22,7 @@ requires:
         $TELAF_ROOT/simulation/stub/keyStore/taf_pa_keystore
 #else
         $TELAF_PA_DEFAULT/component/keyStore/taf_pa_keystore_default
-        $TELAF_PA_DEFAULT/component/keyStore/stub/taf_pa_keystore
+        $LEGATO_BUILD/stub/component/taf_pa_keystore
 #endif
     }
 }

@@ -25,6 +25,28 @@ cd ${LEGATO_ROOT} && source ${LEGATO_ROOT}/bin/configlegatoenv
 
 TARGET_STAGE_DIR=${LEGATO_ROOT}/build/${TARGET}/_staging_system.${TARGET}.update_ro/
 
+prop_lib_prefix="libComponent_taf_prop_"
+echo "*** searching path: ${PA_BUILD_DIR} ***"
+for full_name_pa in `find ${PA_BUILD_DIR} -maxdepth 1 -type f -name "*.so"`
+do
+    base_name=`basename ${full_name_pa}`
+    echo "*** try to use ${base_name} replace telaf-pa stub library ***"
+    full_name_telaf=`find ${TARGET_STAGE_DIR} -type f -name ${base_name}`
+    if [ -n "${full_name_telaf}" ]; then
+        for each_lib_name in ${full_name_telaf}
+        do
+            ${OBJCOPY} --only-keep-debug  ${full_name_pa} ${OUTPUT}/${base_name}.debug
+            echo "stripping ${full_name_pa}"
+            ${STRIP} --strip-unneeded ${full_name_pa}
+            cp -rf ${full_name_pa} ${each_lib_name}
+        done
+    fi
+    if [[ $base_name == $prop_lib_prefix* ]]; then
+        echo "Packaging telaf-prop stub library ${base_name} for runtime..."
+        cp ${full_name_pa} ${TARGET_STAGE_DIR}systems/current/lib/
+    fi
+done
+
 echo "*** searching path: ${PROP_BUILD_DIR} ***"
 for full_name_prop in `find ${PROP_BUILD_DIR} -maxdepth 1 -type f -name "*.so"`
 do
@@ -36,6 +58,10 @@ do
         echo "stripping ${full_name_prop}"
         ${STRIP} --strip-unneeded ${full_name_prop}
         cp -rf ${full_name_prop} ${full_name_telaf}
+    fi
+    if [[ $base_name == $prop_lib_prefix* ]]; then
+        echo "Packaging telaf-prop library ${base_name} for runtime..."
+        cp ${full_name_prop} ${TARGET_STAGE_DIR}systems/current/lib/
     fi
 done
 
@@ -54,22 +80,9 @@ do
             cp -rf ${full_name_noship} ${each_lib_name}
         done
     fi
-done
-
-echo "*** searching path: ${PA_BUILD_DIR} ***"
-for full_name_pa in `find ${PA_BUILD_DIR} -maxdepth 1 -type f -name "*.so"`
-do
-    base_name=`basename ${full_name_pa}`
-    echo "*** try to use ${base_name} replace telaf-pa stub library ***"
-    full_name_telaf=`find ${TARGET_STAGE_DIR} -type f -name ${base_name}`
-    if [ -n "${full_name_telaf}" ]; then
-        for each_lib_name in ${full_name_telaf}
-        do
-            ${OBJCOPY} --only-keep-debug  ${full_name_pa} ${OUTPUT}/${base_name}.debug
-            echo "stripping ${full_name_pa}"
-            ${STRIP} --strip-unneeded ${full_name_pa}
-            cp -rf ${full_name_pa} ${each_lib_name}
-        done
+    if [[ $base_name == $prop_lib_prefix* ]]; then
+        echo "Packaging telaf-noship library ${base_name} for runtime..."
+        cp ${full_name_noship} ${TARGET_STAGE_DIR}systems/current/lib/
     fi
 done
 

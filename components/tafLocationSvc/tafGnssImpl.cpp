@@ -340,8 +340,7 @@ void taf_locGnss::CopyPositionData
     LastDataPtr->satsInViewCount = CurrentDataPtr->satsInViewCount;
     LastDataPtr->satsTrackingCount = CurrentDataPtr->satsTrackingCount;
     LastDataPtr->satsUsedCount = CurrentDataPtr->satsUsedCount;
-    uint8_t i;
-    for(i=0; i<TAF_LOCGNSS_SV_INFO_MAX_LEN; i++)
+    for(auto i=0; i<TAF_LOCGNSS_SV_INFO_MAX_LEN; i++)
     {
         LastDataPtr->satInfo[i].satId = CurrentDataPtr->satInfo[i].satId;
         LastDataPtr->satInfo[i].satConst = CurrentDataPtr->satInfo[i].satConst;
@@ -355,7 +354,7 @@ void taf_locGnss::CopyPositionData
         LastDataPtr->satInfo[i].baseBandCnr = CurrentDataPtr->satInfo[i].baseBandCnr;
     }
 
-    for(i=0; i<TAF_LOCGNSS_SV_INFO_MAX_LEN; i++)
+    for(auto i=0; i<TAF_LOCGNSS_SV_INFO_MAX_LEN; i++)
     {
         LastDataPtr->satMeas[i].satId = CurrentDataPtr->satMeas[i].satId;
         LastDataPtr->satMeas[i].satLatency = CurrentDataPtr->satMeas[i].satLatency;
@@ -435,7 +434,7 @@ void taf_locGnss::CopyPositionData
     LastDataPtr->realTimeUncValid = CurrentDataPtr->realTimeUncValid;
     LastDataPtr->techMask = CurrentDataPtr->techMask;
     LastDataPtr->techMaskValid = CurrentDataPtr->techMaskValid;
-    for(i=0; i<TAF_LOCGNSS_MEASUREMENT_INFO_MAX; i++)
+    for(auto i=0; i<TAF_LOCGNSS_MEASUREMENT_INFO_MAX; i++)
     {
         LastDataPtr->measInfo[i].gnssSignalType = CurrentDataPtr->measInfo[i].gnssSignalType;
         LastDataPtr->measInfo[i].gnssConstellation = CurrentDataPtr->measInfo[i].gnssConstellation;
@@ -444,11 +443,11 @@ void taf_locGnss::CopyPositionData
     LastDataPtr->measInfoCount = CurrentDataPtr->measInfoCount;
     LastDataPtr->reportStatus = CurrentDataPtr->reportStatus;
     LastDataPtr->altMeanSeaLevel = CurrentDataPtr->altMeanSeaLevel;
-    for (i = 0; i < TAF_LOCGNSS_MEASUREMENT_INFO_MAX; i++) {
+    for (auto i = 0; i < TAF_LOCGNSS_MEASUREMENT_INFO_MAX; i++) {
         LastDataPtr->SVIds[i] = CurrentDataPtr->SVIds[i];
     }
     LastDataPtr->SVIdsCount = CurrentDataPtr->SVIdsCount;
-    for(i=0; i<TAF_LOCGNSS_NUMBER_OF_SIGNAL_TYPES_MAX; i++)
+    for(auto i=0; i<TAF_LOCGNSS_NUMBER_OF_SIGNAL_TYPES_MAX; i++)
     {
         LastDataPtr->gnssData[i].gnssDataMask = CurrentDataPtr->gnssData[i].gnssDataMask;
         LastDataPtr->gnssData[i].jammerInd = CurrentDataPtr->gnssData[i].jammerInd;

@@ -1188,7 +1188,7 @@ DEFINE MIN_ELEVATION_MAX_DEGREE = 90;
  * Define the maximum number of measurement usages information.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MEASUREMENT_INFO_MAX = 30;
+DEFINE MEASUREMENT_INFO_MAX = 176;
 
 //--------------------------------------------------------------------------------------------------
 /**

@@ -279,6 +279,13 @@ le_result_t taf_verInfo_GetLXCVersion
 {
     TAF_ERROR_IF_RET_VAL(versionPtr == NULL, LE_BAD_PARAMETER, "Null ptr(versionPtr)");
 
+    struct stat buffer;
+    if(stat(LXC_VERSION_FILE, &buffer) != 0)
+    {
+        LE_ERROR("LXC not supported");
+        return LE_UNSUPPORTED;
+    }
+
     le_result_t result = LE_OK;
     ifstream ifs(LXC_VERSION_FILE);
     string version;

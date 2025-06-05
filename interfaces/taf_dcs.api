@@ -343,30 +343,6 @@ STRUCT DefaultGatewayAddresses
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The squash DNS addresses used by net APIs.
- *
- * @struct taf_dcs_DnsServerAddresses_t
- * @var taf_dcs_DnsServerAddresses_t::ipv4Addr1
- * The primary IPv4 DNS address.
- * @var taf_dcs_DnsServerAddresses_t::ipv4Addr2
- * The secondary IPv4 DNS address.
- * @var taf_dcs_DnsServerAddresses_t::ipv6Addr1
- * The primary IPv6 DNS address.
- * @var taf_dcs_DnsServerAddresses_t::ipv6Addr2
- * The secondary IPv6 DNS address.
- *
- */
-//--------------------------------------------------------------------------------------------------
-STRUCT DnsServerAddresses
-{
-    string  ipv4Addr1[IPV4_ADDR_MAX_LEN];   ///< The primary IPv4 DNS address.
-    string  ipv4Addr2[IPV4_ADDR_MAX_LEN];   ///< The secondary IPv4 DNS address.
-    string  ipv6Addr1[IPV6_ADDR_MAX_LEN];   ///< The primary IPv6 DNS address.
-    string  ipv6Addr2[IPV6_ADDR_MAX_LEN];   ///< The secondary IPv6 DNS address.
-};
-
-//--------------------------------------------------------------------------------------------------
-/**
  * The supported data bearer technology.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1563,6 +1539,11 @@ FUNCTION le_result_t SetDefaultProfileIndex
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the default profile corresponding to the specified phone ID and profile index.
+ *
+ * Traffic from devices tethered to MDM via default network interfaces such as eth0, ecm0, and mhi0
+ * will be directed to rmnet_data that was brought up with default profile. Traffic initiated within
+ * MDM or EAP that is destined for WAN network and is not bound to a WAN interface will be routed by
+ * default to WAN network corresponding to the default profile index.
  *
  * @return
  *  - LE_OK -- Succeeded.

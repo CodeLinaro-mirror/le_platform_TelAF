@@ -93,31 +93,33 @@ char ApnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
  *      app runProc tafDataCallUnitTest tafDataCallUnitTest -- Profile APN PDP
  *      PDP: IPV4 / IPV6 / IPV4V6
  * To run all other previous unit tests(except new profile management APIs):
- *      app runProc tafDataCallUnitTest tafDataCallUnitTest -- Full <Profile1> <Profile2>
- *          Profile1 -> Profile number to use with phone 1 tests
- *          Profile2 -> Profile number to use with phone 2 tests
+ *   app runProc tafDataCallUnitTest tafDataCallUnitTest -- Full <Phone1ProfileId> <Phone2ProfileId>
+ *          Phone1ProfileId -> Profile number to use with phone 1 tests
+ *          Phone2ProfileId -> Profile number to use with phone 2 tests
  *
  */
 static void PrintUsage()
 {
     std::cout << std::endl
-              << "To run tests interactively:"
-              << std::endl
-              << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Interactive"
-              << std::endl
-              << "To run profile management tests (create/delete, start/stop data):"
-              << std::endl
-              << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Profile APN PDP"
-              << std::endl
-              << "\tPDP: IPV4 / IPV6 / IPV4V6"
-              << std::endl
-              << "To run all unit tests(except profile management APIs):"
-              << std::endl
-              << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Full <Profile1> <Profile2>"
-              << "\t\tProfile1 -> Profile number to use with phone 1 tests"
-              << std::endl
-              << "\t\tProfile2 -> Profile number to use with phone 2 tests"
-              << std::endl;
+        << "To run tests interactively:"
+        << std::endl
+        << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Interactive"
+        << std::endl
+        << "To run profile management tests (create/delete, start/stop data):"
+        << std::endl
+        << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Profile APN PDP"
+        << std::endl
+        << "\tPDP: IPV4 / IPV6 / IPV4V6"
+        << std::endl
+        << "To run all unit tests(except profile management APIs):"
+        << std::endl
+        << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- "
+                                            << "Full <Phone1ProfileId> <Phone2ProfileId>"
+        << std::endl
+        << "\t\tPhone1ProfileId -> Profile number to use with phone 1 tests(optional, default: 5)"
+        << std::endl
+        << "\t\tPhone2ProfileId -> Profile number to use with phone 2 tests (optional, default: 1)"
+        << std::endl;
 }
 
 std::string callEventToString(taf_dcs_ConState_t callEvent)
@@ -1990,10 +1992,28 @@ COMPONENT_INIT
             LE_TEST_INFO("Running unit tests");
             UnitTestThread(NULL);
         }
+        else if (2 == numArgs)
+        {
+            const char *arg1Str = le_arg_GetArg(1);
+            if (NULL == arg1Str)
+            {
+                LE_TEST_INFO("Using predefined profile ID with phone ID 1");
+            }
+            else
+            {
+                TEST_PROFILE_PHONEID_1 = std::stoul(arg1Str);
+            }
+
+            LE_TEST_INFO("Profile ID used for tests with phone ID 1: %d", TEST_PROFILE_PHONEID_1);
+            LE_TEST_INFO("Profile ID used for tests with phone ID 2: %d", TEST_PROFILE_PHONEID_2);
+            LE_TEST_INFO("Running unit tests");
+            UnitTestThread(NULL);
+        }
         else
         {
-            PrintUsage();
-            LE_TEST_FATAL("Invalid number of args");
+            LE_TEST_INFO("Profile ID used for tests with phone ID 1: %d", TEST_PROFILE_PHONEID_1);
+            LE_TEST_INFO("Profile ID used for tests with phone ID 2: %d", TEST_PROFILE_PHONEID_2);
+            UnitTestThread(NULL);
         }
     }
     else if ("Interactive" == testName)

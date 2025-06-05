@@ -449,6 +449,12 @@ COMPONENT_INIT
     else if (strcmp(testType, "setPower") == 0)
     {
         const char* powerStatusPtr = le_arg_GetArg(2);
+        if(NULL == powerStatusPtr)
+        {
+            LE_ERROR("Power status argument is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
         le_onoff_t powerStatus = GetPowerStatus(powerStatusPtr);
         tafSimTest_SetPowerCheck(simId, powerStatus);
     }

@@ -301,6 +301,7 @@ void tafOpenLogicalChannelCallback::onChannelResponse(int channel, IccResult res
    std::unique_lock<std::mutex> lock(sim.eventMutex);
    sim.errorCode = error;
    sim.openChannel = (uint8_t)channel;
+   sim.cardRespReceived = true;
    if(sim.cardEventExpected == CardEvent::OPEN_LOGICAL_CHANNEL) {
        LE_INFO("OpenLogicalChannel callback response sw1: %d, sw2: %d", (uint8_t)result.sw1, (uint8_t)result.sw2);
        if(error == telux::common::ErrorCode::SUCCESS && (uint8_t)result.sw1 == 0x90 && (uint8_t)result.sw2 == 0x00) {
@@ -324,6 +325,7 @@ void tafCloseLogicalChannelCallback::commandResponse(telux::common::ErrorCode er
    auto &sim = taf_sim::GetInstance();
    std::unique_lock<std::mutex> lock(sim.eventMutex);
    sim.errorCode = error;
+   sim.cardRespReceived = true;
    if(sim.cardEventExpected == CardEvent::CLOSE_LOGICAL_CHANNEL) {
       LE_INFO("Card Event CLOSE_LOGICAL_CHANNEL found with code : %d", int(error));
       sim.eventCV.notify_one();
@@ -336,6 +338,7 @@ void tafTransmitApduResponseCallback::onResponse(IccResult result, ErrorCode err
    std::unique_lock<std::mutex> lock(sim.eventMutex);
    sim.errorCode = error;
    sim.apduResponse = result;
+   sim.cardRespReceived = true;
    LE_INFO("onResponse: %s " , result.toString().c_str());
    if(sim.cardEventExpected == CardEvent::TRANSMIT_APDU_CHANNEL) {
       LE_INFO("Card Event TRANSMIT_APDU_CHANNEL found with code : %d", int(error));
@@ -1814,11 +1817,20 @@ le_result_t taf_sim::GetAutomaticSelection( bool* enablePtr) {
 bool taf_sim::waitForCardEvent(CardEvent cardEvent, int timeout) {
    std::unique_lock<std::mutex> lock(eventMutex);
    cardEventExpected = cardEvent;
+
+   if (cardRespReceived)
+   {
+       LE_INFO("Card response already received before wait");
+       cardRespReceived = false;
+       return true;
+   }
+
    auto cvStatus = eventCV.wait_for(lock, std::chrono::seconds(DEFAULT_TIMEOUT_IN_SECONDS));
    if(cvStatus == std::cv_status::timeout) {
       LE_INFO("Event: %d not found with in %d second(s)",  (int)cardEvent, DEFAULT_TIMEOUT_IN_SECONDS);
    }
    cardEventExpected = (CardEvent)0;  // reset message id to avoid further notifications
+   cardRespReceived = false;
    if(cvStatus != std::cv_status::timeout) {
       if(cardEvent == CardEvent::OPEN_LOGICAL_CHANNEL
          || cardEvent == CardEvent::CLOSE_LOGICAL_CHANNEL
@@ -1988,14 +2000,26 @@ le_result_t taf_sim::SendApduOnChannel( taf_sim_Id_t simId, uint8_t channel,
         LE_INFO("Transmit APDU failed ");
         return LE_FAULT;
     }
-    responseApduPtr[0] = (uint8_t)apduResponse.sw1;
-    responseApduPtr[1] = (uint8_t)apduResponse.sw2;
+
     LE_DEBUG("sw1: %d, sw2: %d, payload: %s", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2, apduResponse.payload.c_str());
-    int index = 2;
-    for(auto &i : data) {
-        responseApduPtr[index] = (uint8_t) i;
-        index++;
+
+    if ((apduResponse.data.size()) > (TAF_SIM_RESPONSE_MAX_BYTES-2))
+    {
+        LE_ERROR("The size of APDU response exceeds the max length.");
+        return LE_FAULT;
     }
+
+    size_t i = 0;
+    for (i=0; i<(apduResponse.data.size()); i++)
+    {
+        responseApduPtr[i] = apduResponse.data[i];
+        LE_DEBUG("Response APDU data = %d", responseApduPtr[i]);
+    }
+
+    responseApduPtr[i++] = (uint8_t)apduResponse.sw1;
+    responseApduPtr[i++] = (uint8_t)apduResponse.sw2;
+    *responseApduNumElementsPtr = i;
+    LE_INFO("Response APDU length = %ld", (size_t)i);
 
     return LE_OK;
 }
@@ -2032,9 +2056,30 @@ le_result_t taf_sim::SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr,
         return LE_FAULT;
     }
     if(!waitForCardEvent(CardEvent::TRANSMIT_APDU_CHANNEL)) {
-        LE_INFO("Transmit APDU failed failed ");
+        LE_ERROR("Transmit APDU failed failed ");
         return LE_FAULT;
     }
+
+    LE_DEBUG("sw1: %d, sw2: %d, payload: %s", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2, apduResponse.payload.c_str());
+
+    if ((apduResponse.data.size()) > (TAF_SIM_RESPONSE_MAX_BYTES-2))
+    {
+        LE_ERROR("The size of APDU response exceeds the max length.");
+        return LE_FAULT;
+    }
+
+    size_t i = 0;
+    for (i=0; i<(apduResponse.data.size()); i++)
+    {
+        responseApduPtr[i] = apduResponse.data[i];
+        LE_INFO("Response APDU data = %d", responseApduPtr[i]);
+    }
+
+    responseApduPtr[i++] = (uint8_t)apduResponse.sw1;
+    responseApduPtr[i++] = (uint8_t)apduResponse.sw2;
+    *responseApduNumElementsPtr = i;
+    LE_DEBUG("Response APDU length = %ld", (size_t)i);
+
     return LE_OK;
 }
 
@@ -2105,11 +2150,25 @@ le_result_t taf_sim::SendCommand(
     }
     *sw1 = (uint8_t)apduResponse.sw1;
     *sw2 = (uint8_t)apduResponse.sw2;
-    int index = 0;
-    for(auto &i : data){
-        responsePtr[index] = (uint8_t) i;
-        index++;
+
+    LE_DEBUG("sw1: %d, sw2: %d, payload: %s", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2, apduResponse.payload.c_str());
+
+    if ((apduResponse.data.size()) > (TAF_SIM_RESPONSE_MAX_BYTES-2))
+    {
+        LE_ERROR("The size of APDU response exceeds the max length.");
+        return LE_FAULT;
     }
+
+    size_t i = 0;
+    for (i=0; i<(apduResponse.data.size()); i++)
+    {
+        responsePtr[i] = apduResponse.data[i];
+        LE_DEBUG("Response APDU data = %d", responsePtr[i]);
+    }
+
+    *responseNumElementsPtr = i;
+    LE_DEBUG("Response APDU length = %ld", (size_t)i);
+
     return LE_OK;
 }
 
@@ -2529,8 +2588,8 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
     //First select the file using APDU commands
     //Then read from it in binary form and use payload to get the response as a hex string
     uint8_t selectFPLMNApdu[] = {0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x7B};
-    uint8_t responseAPDU[100];
-    size_t responseLength = 100;
+    uint8_t responseAPDU[TAF_SIM_RESPONSE_MAX_BYTES];
+    size_t responseLength = 0;
     uint8_t channel = 0;
     LE_INFO("Entered here");
     if((selectSimSlot(simId))!=LE_OK) {
@@ -2542,21 +2601,22 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
         return NULL;
     }
     LE_INFO("Logical channel opened channel id: %d", channel);
-
+    selectFPLMNApdu[0] = channel;
     res = SendApduOnChannel((taf_sim_Id_t)slot, channel, selectFPLMNApdu, sizeof(selectFPLMNApdu), responseAPDU, &responseLength);
 
-    if(res != LE_OK || (uint8_t)apduResponse.sw1 != 0x61) {
+    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x61) {
         res = CloseLogicalChannel((taf_sim_Id_t)slot, channel);
         LE_INFO("ReadFplmnList: CloseLogicalChannel channel_id: %d res: %d", channel, res);
         return NULL;
     }
     LE_DEBUG("ReadFplmnList: After selectFPLMNApdu channel id: %d", channel);
-    LE_INFO("selectFPLMNApdu sw1: %d, sw2: %d", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2);
+    LE_INFO("selectFPLMNApdu sw1: %d, sw2: %d", (uint8_t)responseAPDU[responseLength-2], (uint8_t)responseAPDU[responseLength-1]);
 
     uint8_t readBinaryFPLMNApdu[] = {0x00, 0xB0, 0x00, 0x00, 0x00};
+    readBinaryFPLMNApdu[0] = channel;
     res = SendApduOnChannel((taf_sim_Id_t)slot, channel, readBinaryFPLMNApdu, sizeof(readBinaryFPLMNApdu), responseAPDU, &responseLength);
 
-    if(res != LE_OK || (uint8_t)apduResponse.sw1 != 0x90 || (uint8_t)apduResponse.sw2 != 0x00) {
+    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x90 || (uint8_t)responseAPDU[responseLength-1] != 0x00) {
         res = CloseLogicalChannel((taf_sim_Id_t)slot, channel);
         LE_INFO("ReadFplmnList: CloseLogicalChannel channel_id: %d res: %d", channel, res);
         return NULL;
@@ -2568,12 +2628,10 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
     }
 
     taf_sim_FPLMNListRef_t listRef = CreateInternalFPLMNList();
-    LE_INFO("ReadFPLMNList: apduResponse = %s", apduResponse.toString().c_str());
-    int size = apduResponse.payload.length();
-    LE_INFO("ReadFPLMNList: size of payload: %d, payload: %s", size, apduResponse.payload.c_str());
+    int size = responseLength - 2;
 
-    for(int i=0; i<size/6; i++) {
-        int k=6*i;
+    for(int i=0; i<size/3; i++) {
+        int k=3*i;
         char mcc[4], mnc[4];
 
         //1st byte:mcc[1] mcc[0]
@@ -2584,28 +2642,36 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
         //e.g. mcc:246 mnc:81 = 42 F6 18. Here mcc[0] = 2, mcc[1] = 4, mcc[2] = 6 and mnc[0] = 8, mnc[1] = 1
         //e.g. mcc:65 mnc:43 = 40 65 91. Here mcc[0] = 0, mcc[1] = 6, mcc[2] = 5 and mnc[0] = 4, mnc[1] = 3
 
-        mcc[0]=apduResponse.payload[k+1];
-        mcc[1]=apduResponse.payload[k];
-        mcc[2]=apduResponse.payload[k+3];
-        if(apduResponse.payload[k+2]=='F' || apduResponse.payload[k+2]=='f') {
-            mnc[0]=apduResponse.payload[k+5];
-            mnc[1]=apduResponse.payload[k+4];
+        if ((k+2) >= TAF_SIM_RESPONSE_MAX_BYTES)
+        {
+            LE_ERROR("Exceeds the max response bytes");
+            return NULL;
+        }
+        if (responseAPDU[k] == 0xFF && responseAPDU[k+1] == 0xFF && responseAPDU[k+2] == 0xFF) {
+            LE_INFO("Skipping invalid MCC/MNC due to all FF values");
+            continue;
+        }
+        mcc[0] = (responseAPDU[k] & 0x0F) + '0';
+        mcc[1] = ((responseAPDU[k] & 0xF0) >> 4) + '0';
+        mcc[2] = (responseAPDU[k+1] & 0x0F) + '0';
+
+        mnc[0] = (responseAPDU[k+2] & 0x0F) + '0';
+        mnc[1] = ((responseAPDU[k+2] & 0xF0) >> 4) + '0';
+
+        if(((responseAPDU[k+1] & 0xF0) >> 4) == 15) {
             mnc[2] = '\0';
         } else {
-            mnc[0]=apduResponse.payload[k+5];
-            mnc[1]=apduResponse.payload[k+4];
-            mnc[2]=apduResponse.payload[k+2];
+            mnc[2]=((responseAPDU[k+1] & 0xF0) >> 4) + '0';
         }
         mcc[3] = '\0';
         mnc[3] = '\0';
-        if (strncmp(mcc, "FFF", 3) != 0) {
-            res = AddFPLMNOperatorInternal(listRef, mcc, mnc);
-            if(res!=LE_OK) {
-                DeleteFPLMNList(listRef);
-                return NULL;
-            }
-            LE_INFO("FPLMN #%d - MCC:%s MNC:%s", i+1, mcc, mnc);
+
+        res = AddFPLMNOperatorInternal(listRef, mcc, mnc);
+        if(res!=LE_OK) {
+            DeleteFPLMNList(listRef);
+            return NULL;
         }
+        LE_INFO("FPLMN #%d - MCC:%s MNC:%s", i+1, mcc, mnc);
     }
 
     return listRef;
@@ -2638,8 +2704,8 @@ le_result_t taf_sim::WriteFPLMNList
 {
     //Select the EF
     uint8_t selectFPLMNApdu[] = {0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x7B};
-    uint8_t responseAPDU[100];
-    size_t responseLength = 100;
+    uint8_t responseAPDU[TAF_SIM_RESPONSE_MAX_BYTES];
+    size_t responseLength = 0;
     uint8_t channel = 0;
     if(selectSimSlot(simId) != LE_OK) {
         return LE_FAULT;
@@ -2650,14 +2716,15 @@ le_result_t taf_sim::WriteFPLMNList
     }
     LE_INFO("WriteFPLMNList: OpenLogicalChannel channel id: %d", channel);
     const uint8_t channel_id = channel;
+    selectFPLMNApdu[0] = channel;
     res = SendApduOnChannel((taf_sim_Id_t)slot, channel, selectFPLMNApdu, sizeof(selectFPLMNApdu), responseAPDU, &responseLength);
-    if(res != LE_OK || (uint8_t)apduResponse.sw1 != 0x61) {
+    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x61) {
         res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
         LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
         return LE_FAULT;
     }
     LE_DEBUG("WriteFPLMNList: After selectFPLMNApdu channel id: %d and channel_id: %d", channel, channel_id);
-    LE_INFO("selectFPLMNApdu sw1: %d, sw2: %d", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2);
+    LE_INFO("selectFPLMNApdu sw1: %d, sw2: %d", (uint8_t)responseAPDU[responseLength-2], (uint8_t)responseAPDU[responseLength-1]);
 
     taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
     if(ListReference == NULL) {
@@ -2710,9 +2777,9 @@ le_result_t taf_sim::WriteFPLMNList
     uint8_t sizeOfwriteFPLMNListApdu = writeFPLMNListApdu.size();
     LE_INFO("WriteFPLMNList: Total no of data(p3): %d", sizeOfwriteFPLMNListApdu);
     writeFPLMNListApdu.at(4) = sizeOfwriteFPLMNListApdu - 5;
-
+    writeFPLMNListApdu[0] = channel_id;
     res = SendApduOnChannel((taf_sim_Id_t)slot, channel_id, writeFPLMNListApdu.data(), sizeOfwriteFPLMNListApdu, responseAPDU, &responseLength);
-    if(res != LE_OK || (uint8_t)apduResponse.sw1 != 0x90 || (uint8_t)apduResponse.sw2 != 0x00) {
+    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x90 || (uint8_t)responseAPDU[responseLength-1] != 0x00) {
         res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
         LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
         return LE_FAULT;

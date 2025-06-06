@@ -434,7 +434,7 @@ le_result_t taf_sim_SendCommand
         TAF_ERROR_IF_RET_VAL(fileIdentifierPtr == NULL, LE_BAD_PARAMETER, "fileIdentifierPtr is NULL");
         TAF_ERROR_IF_RET_VAL(dataPtr == NULL, LE_BAD_PARAMETER, "dataPtr is NULL");
         TAF_ERROR_IF_RET_VAL(responsePtr==NULL, LE_BAD_PARAMETER, "responsePtr is NULL");
-        TAF_ERROR_IF_RET_VAL(dataNumElements > TAF_SIM_DATA_MAX_BYTES, LE_BAD_PARAMETER, "Too many elements for data");
+        TAF_ERROR_IF_RET_VAL(dataNumElements > TAF_SIM_APDU_MAX_BYTES, LE_BAD_PARAMETER, "Too many elements for data");
         TAF_ERROR_IF_RET_VAL(*responseNumElementsPtr > TAF_SIM_RESPONSE_MAX_BYTES, LE_BAD_PARAMETER, "Too many elements for response");
         TAF_ERROR_IF_RET_VAL(sw1 == NULL, LE_BAD_PARAMETER, "sw1 is NULL");
         TAF_ERROR_IF_RET_VAL(sw2 == NULL, LE_BAD_PARAMETER, "sw2 is NULL");

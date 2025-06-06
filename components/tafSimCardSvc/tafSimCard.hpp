@@ -219,6 +219,7 @@ using namespace std;
                 ErrorCode errorCode;
                 uint8_t openChannel = 0;
                 IccResult apduResponse;
+                bool cardRespReceived = false;
                 bool isEcs=false;
                 int32_t mClientRefCount;
 

@@ -482,6 +482,236 @@ void tafSimTest_sim_closeLogicalChannel
     }
 }
 
+void tafSimTest_sim_sendApduOnChannel
+(
+    taf_sim_Id_t simId,
+    uint8_t channelId,
+    uint8_t* commandApduPtr,
+    size_t commandApduNumElements
+)
+{
+    uint8_t responseAPDU[TAF_SIM_RESPONSE_MAX_BYTES] = {0};
+    size_t responseLength = 0;
+
+    le_result_t status = taf_sim_SendApduOnChannel(simId,
+                                                   channelId,
+                                                   commandApduPtr,
+                                                   commandApduNumElements,
+                                                   responseAPDU,
+                                                   &responseLength);
+
+    if (status != LE_OK) {
+        LE_ERROR("APDU command failed with status: %d", status);
+        return;
+    }
+
+    if (responseLength < 2) {
+        LE_ERROR("Invalid APDU response length: %ld", responseLength);
+        return;
+    }
+
+    LE_INFO("APDU response length = %ld", responseLength);
+    LE_INFO("APDU response sw1 = 0x%02X", responseAPDU[responseLength - 2]);
+    LE_INFO("APDU response sw2 = 0x%02X", responseAPDU[responseLength - 1]);
+
+    printf("APDU response data : ");
+    for(size_t i=0; i < (responseLength-2); i++)
+    {
+        printf("0x%02X ", responseAPDU[i]);
+    }
+    printf("\n");
+
+    return;
+}
+
+void tafSimTest_sim_sendApdu
+(
+    taf_sim_Id_t simId,
+    uint8_t* commandApduPtr,
+    size_t commandApduNumElements
+)
+{
+    uint8_t responseAPDU[TAF_SIM_RESPONSE_MAX_BYTES] = {0};
+    size_t responseLength = 0;
+
+    le_result_t status = taf_sim_SendApdu(simId,
+                                          commandApduPtr,
+                                          commandApduNumElements,
+                                          responseAPDU,
+                                          &responseLength);
+    if (status != LE_OK) {
+        LE_ERROR("APDU command failed with status: %d", status);
+        return;
+    }
+
+    if (responseLength < 2) {
+        LE_ERROR("Invalid APDU response length: %ld", responseLength);
+        return;
+    }
+
+    LE_INFO("APDU response length = %ld",responseLength);
+    LE_INFO("APDU response sw1 = 0x%02X",responseAPDU[responseLength-2]);
+    LE_INFO("APDU response sw2 = 0x%02X",responseAPDU[responseLength-1]);
+
+    printf("APDU response data : ");
+    for(size_t i=0; i < (responseLength-2); i++)
+    {
+        printf("0x%02X ", responseAPDU[i]);
+    }
+    printf("\n");
+
+    return;
+}
+
+void tafSimTest_sim_sendCommand
+(
+    taf_sim_Id_t simId
+)
+{
+    char input_str[2*TAF_SIM_APDU_MAX_BYTES+1];
+    taf_sim_Command_t command;
+    uint8_t p1 = 0;
+    uint8_t p2 = 0;
+    uint8_t p3 = 0;
+    char fileId[TAF_SIM_FILE_ID_BYTES];
+    char filePath[TAF_SIM_PATH_MAX_LEN];
+    uint8_t dataPdu[TAF_SIM_APDU_MAX_BYTES];
+    size_t dataSize = 0;
+    uint8_t sw1=0, sw2=0;
+    uint8_t responseAPDU[TAF_SIM_RESPONSE_MAX_BYTES] = {0};
+    size_t responseSize = 0;
+
+    printf("Input command (Ex: 0 for read binary, 1 for read record, 2 for get response, 3 for update binary, 4 for update record)");
+    char *p = fgets(input_str,sizeof(input_str),stdin);
+    if (p == NULL)
+    {
+        printf("Wrong input!\n");
+        return;
+    }
+    switch (input_str[0]) {
+        case '0': command = TAF_SIM_READ_BINARY; break;
+        case '1': command = TAF_SIM_READ_RECORD; break;
+        case '2': command = TAF_SIM_GET_RESPONSE; break;
+        case '3': command = TAF_SIM_UPDATE_BINARY; break;
+        case '4': command = TAF_SIM_UPDATE_RECORD; break;
+        default:
+            printf("Wrong input command!\n");
+            return;
+    }
+
+    printf("Input file ID (Ex: 6F7B): ");
+    p = fgets(input_str,sizeof(input_str),stdin);
+    if (p == NULL)
+    {
+        printf("Wrong input!\n");
+        return;
+    }
+    le_utf8_Copy((char*) fileId, (char*) input_str, strlen(input_str), NULL);
+    fileId[sizeof(fileId) - 1] = '\0';
+    LE_INFO("fileId: %s\n", fileId);
+
+    printf("Input file path(e.g: 3F007FFF): ");
+    p = fgets(input_str,sizeof(input_str),stdin);
+    if (p == NULL)
+    {
+        printf("Wrong input!\n");
+        return;
+    }
+    le_utf8_Copy((char*) filePath, (char*) input_str, strlen(input_str), NULL);
+    filePath[sizeof(filePath) - 1] = '\0';
+    LE_INFO("filePath: %s\n", filePath);
+
+    printf("Input P1: ");
+    p = fgets(input_str,sizeof(input_str),stdin);
+    if (p == NULL)
+    {
+        printf("Wrong input!\n");
+        return;
+    }
+    p1 = (uint8_t)atoi(input_str);
+
+    printf("Input P2: ");
+    p = fgets(input_str,sizeof(input_str),stdin);
+    if (p == NULL)
+    {
+        printf("Wrong input!\n");
+        return;
+    }
+    p2 = (uint8_t)atoi(input_str);
+
+    printf("Input P3: ");
+    p = fgets(input_str,sizeof(input_str),stdin);
+    if (p == NULL)
+    {
+        printf("Wrong input!\n");
+        return;
+    }
+    p3 = (uint8_t)atoi(input_str);
+
+    printf("Do want to input data (y/n): ");
+    p = fgets(input_str,sizeof(input_str),stdin);
+    if (p == NULL)
+    {
+        printf("Wrong input!\n");
+        return;
+    }
+    if (input_str[0]=='y')
+    {
+        printf("Input data (hex format, e.g: 3F00): ");
+        p = fgets(input_str,sizeof(input_str),stdin);
+        if (p == NULL)
+        {
+            printf("Wrong input!\n");
+            return;
+        }
+
+        size_t len = strlen(input_str);
+        LE_INFO("Input data length = %ld\n", len);
+        LE_INFO("Input data = %s\n", input_str);
+
+        for (size_t i = 0, j = 0; i < len / 2 && i < TAF_SIM_APDU_MAX_BYTES; i++) {
+            int byte = 0;
+            for (; j < (2 * i + 2); j++) {
+                if (input_str[j] >= '0' && input_str[j] <= '9') {
+                    byte = input_str[j] - '0';
+                } else if (input_str[j] >= 'a' && input_str[j] <= 'f') {
+                    byte = input_str[j] - 'a' + 10;
+                } else if (input_str[j] >= 'A' && input_str[j] <= 'F') {
+                    byte = input_str[j] - 'A' + 10;
+                } else {
+                    printf("Invalid hex character detected!\n");
+                    return;
+                }
+                dataPdu[i] = dataPdu[i] * 16 + byte;
+            }
+        }
+        dataSize = len / 2;
+    }
+
+    LE_INFO("APDU request data length %ld\n", dataSize);
+    LE_INFO("APDU response data : ");
+    for (size_t i = 0; i < dataSize; i++) {
+        LE_INFO("0x%02X ", dataPdu[i]);
+    }
+
+    le_result_t  status = taf_sim_SendCommand(simId, command, fileId, p1, p2, p3, dataPdu, dataSize, filePath, &sw1, &sw2, responseAPDU, &responseSize);
+    if(status != LE_OK) {
+        LE_INFO("status is %d", status);
+        return;
+    }
+
+    LE_INFO("\n APDU response sw1 = 0x%02X",sw1);
+    LE_INFO("APDU response sw2 = 0x%02X",sw2);
+    printf("APDU response data length %ld\n", responseSize);
+    printf("APDU response data : ");
+    for(size_t i=0; i < responseSize; i++)
+    {
+        printf("0x%02X ", responseAPDU[i]);
+    }
+    printf("\n");
+
+    return;
+}
 void tafSimTest_sim_access
 (
     taf_sim_Id_t simId
@@ -503,8 +733,8 @@ void tafSimTest_sim_access
                                           sizeof(selectMFAPDU),
                                           responseAPDU,
                                           &responseLength));
-    LE_INFO("APDU response sw1 = 0x%02X",responseAPDU[0]);
-    LE_INFO("APDU response sw2 = 0x%02X",responseAPDU[1]);
+    LE_INFO("APDU response sw1 = 0x%02X",responseAPDU[responseLength-2]);
+    LE_INFO("APDU response sw2 = 0x%02X",responseAPDU[responseLength-1]);
 
     // Close the logical channel
     LE_ASSERT_OK(taf_sim_CloseLogicalChannel(simId,channel));

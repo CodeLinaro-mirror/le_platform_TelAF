@@ -11,8 +11,6 @@
 
 #include "tafFlashPa.hpp"
 
-#define PAGE_ERASED -255
-
 #define MAX_MTD_NUM 64
 #define MAX_UBI_NUM 64
 

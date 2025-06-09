@@ -2276,7 +2276,7 @@ void taf_FwUpdate::SyncPartition
                 ret = taf_pa_flash_CopyMtd(srcPartition, partition,
                     pages * TAF_FWUPDATE_FLASH_PAGE_SIZE);
             }
-            if (ret && ret != TAF_FWUPDATE_FLASH_PAGE_ERASED)
+            if (ret && ret != TAF_PA_NOT_FOUND)
             {
                 LE_ERROR("Fail to copy from %s to %s.", srcPartition, partition);
                 tafFwUpdate.SetErrorCode(errno);
@@ -2518,7 +2518,7 @@ void taf_FwUpdate::StartSync
                     {
                         size_t bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
                         ret = taf_pa_flash_ReadMtdPage(mtdRef, j * pagesPerBlock, buffer, &bytes);
-                        if (ret == TAF_FWUPDATE_FLASH_PAGE_ERASED)
+                        if (ret == TAF_PA_NOT_FOUND)
                             break;
 
                         partitionSize += info.eraseSize;
@@ -2846,7 +2846,7 @@ le_result_t taf_FwUpdate::CalPartitionHash
             ret = taf_pa_flash_ReadUbiVolume(ubiRef, j * TAF_FWUPDATE_FLASH_PAGE_SIZE, content,
                 &bytes);
 
-        if (ret < 0 && ret != TAF_FWUPDATE_FLASH_PAGE_ERASED)
+        if (ret < 0 && ret != TAF_PA_NOT_FOUND)
         {
             LE_ERROR("Fail to read partition %s at iteration %d, ret: %d", partition, j, ret);
             EVP_MD_CTX_free(md_ctx);
@@ -2900,7 +2900,7 @@ le_result_t taf_FwUpdate::CalPartitionHash
             ret = taf_pa_flash_ReadUbiVolume(ubiRef, iteration * TAF_FWUPDATE_FLASH_PAGE_SIZE,
                 content, &bytes);
 
-        if (ret < 0 && ret != TAF_FWUPDATE_FLASH_PAGE_ERASED)
+        if (ret < 0 && ret != TAF_PA_NOT_FOUND)
         {
             LE_ERROR("Fail to read partition %s at iteration %d, ret: %d",
                 partition, iteration, ret);
@@ -3332,7 +3332,7 @@ le_result_t taf_FwUpdate::PerformBankSync
                     {
                         size_t bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
                         ret = taf_pa_flash_ReadMtdPage(mtdRef, i * pagesPerBlock, buffer, &bytes);
-                        if (ret == TAF_FWUPDATE_FLASH_PAGE_ERASED)
+                        if (ret == TAF_PA_NOT_FOUND)
                             break;
 
                         imageSize += info.eraseSize;
@@ -3351,7 +3351,7 @@ le_result_t taf_FwUpdate::PerformBankSync
                 LE_INFO("Sync MTD from %s to %s.", tafFwUpdate.partitions[i].name, partition);
                 ret = taf_pa_flash_CopyMtd(tafFwUpdate.partitions[i].name, partition, imageSize);
             }
-            TAF_ERROR_IF_RET_VAL(ret && ret != TAF_FWUPDATE_FLASH_PAGE_ERASED, LE_FAULT,
+            TAF_ERROR_IF_RET_VAL(ret && ret != TAF_PA_NOT_FOUND, LE_FAULT,
                 "Fail to copy from %s to %s, ret = %d.", tafFwUpdate.partitions[i].name, partition, ret);
         }
     }

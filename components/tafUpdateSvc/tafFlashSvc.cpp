@@ -481,7 +481,7 @@ le_result_t taf_flash_MtdReadPage
     }
 
     taf_pa_result_t ret = taf_pa_flash_ReadMtdPage(*mtdRefPtr, pageIndex, readData, sizePtr);
-    if (ret && ret != PAGE_ERASED)
+    if (ret && ret != TAF_PA_NOT_FOUND)
     {
         LE_ERROR("Fail to read MTD page %d.", pageIndex);
         return LE_FAULT;
@@ -548,7 +548,7 @@ le_result_t taf_flash_MtdRead
     unsigned char* buffer = (unsigned char*)malloc(info.writeSize);
     size_t pageSize = info.writeSize;
     ret = taf_pa_flash_ReadMtdPage(*mtdRefPtr, index, buffer, &pageSize);
-    if (ret && ret != PAGE_ERASED)
+    if (ret && ret != TAF_PA_NOT_FOUND)
     {
         LE_ERROR("Fail to read the MTD page %d.", index);
         free(buffer);
@@ -586,7 +586,7 @@ le_result_t taf_flash_MtdRead
             rdSize = 0;
         }
 
-        if (ret && ret != PAGE_ERASED)
+        if (ret && ret != TAF_PA_NOT_FOUND)
         {
             LE_ERROR("Fail to read MTD page %d.", index);
             return LE_FAULT;
@@ -702,7 +702,7 @@ le_result_t taf_flash_MtdWrite
     unsigned char* buffer = (unsigned char*)malloc(info.writeSize);
     size_t pageSize = info.writeSize;
     ret = taf_pa_flash_ReadMtdPage(*mtdRefPtr, index, buffer, &pageSize);
-    if (ret && ret != PAGE_ERASED)
+    if (ret && ret != TAF_PA_NOT_FOUND)
     {
         LE_ERROR("Fail to read the MTD page %d.", index);
         free(buffer);

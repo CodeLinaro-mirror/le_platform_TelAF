@@ -1,0 +1,13 @@
+
+sources:
+{
+    tafThermIntTest.cpp
+}
+
+requires:
+{
+    api:
+    {
+        taf_therm.api
+    }
+}

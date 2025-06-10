@@ -67,7 +67,7 @@
  *
    @endverbatim
  *
- * @section c_taf_update_ota_function OTA Functions
+ * @section c_taf_update_ota_function OTA functions
  *
  * - taf_update_Download() -- Downloads a package from a cloud server.
  *

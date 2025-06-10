@@ -170,7 +170,7 @@
     totalEncSize = totalEncSize + encryptedDataSize;
     @endcode
  *
- * @b NOTE:The crypto session is automatically deleted after taf_ks_CryptoSessionAbort() or
+ * @b NOTE: The crypto session is automatically deleted after taf_ks_CryptoSessionAbort() or
  * taf_ks_CryptoSessionEnd() is called, or when any error occurs in taf_ks_CryptoSessionStart() and
  * taf_ks_CryptoSessionProcess().
  *

@@ -43,13 +43,13 @@
    }
    @endverbatim
  *
- * @section taf_hms_GetCpuCoreNum Get the total number of CPU core
- * The API of taf_hms_GetCpuCoreNum() provides the total number of CPU core.
+ * @section taf_hms_GetCpuCoreNum Get the total number of CPU cores
+ * The API of taf_hms_GetCpuCoreNum() provides the total number of CPU cores.
  * @verbatim
    uint32_t cpuCoreNum = taf_hms_GetCpuCoreNum(&cpuCoreNum);
    @endverbatim
  *
- * @section taf_hms_GetIndvCoreUsage Get the individual CPU core usage
+ * @section taf_hms_GetIndvCoreUsage Get individual CPU core usage
  * The API of taf_hms_GetIndvCoreUsage() provides the total CPU usage of individual core.
  * @verbatim
    le_result_t result;
@@ -61,7 +61,7 @@
    }
    @endverbatim
  *
- * @section taf_hms_GetRamMemInfo Get the memory information
+ * @section taf_hms_GetRamMemInfo Get memory information
  * The API of taf_hms_GetRamMemInfo() provides the current RAM in total, used and free memory information.
  * @verbatim
    le_result_t result;
@@ -81,7 +81,7 @@
  *
  *
  *
- *  @section taf_hms_GetUbiDevInfoList Get the UBI device information
+ *  @section taf_hms_GetUbiDevInfoList Get UBI device information
  * The following APIs are provided for UBI device information
  * taf_hms_GetUbiDevInfoList()   Gets the list of available UBI device information.
  * taf_hms_DeleteUbiDevInfoList() Deletes the UBI list reference.
@@ -109,7 +109,7 @@
    }
    @endverbatim
  *
- * @section taf_hms_GetUbiVolInfoList  Get the UBI volume information
+ * @section taf_hms_GetUbiVolInfoList  Get UBI volume information
  * The following APIs are provided for UBI volume information
  * taf_hms_GetFirstUbiVolInfo()  Gets the first UBI volume Info object reference in the list.
  * taf_hms_GetNextUbiVolInfo() Gets the next UBI volume Info object reference in the list.
@@ -137,7 +137,7 @@
    }
    @endverbatim
  *
- * @section taf_hms_GetMtdInfoList Get the MTD device information
+ * @section taf_hms_GetMtdInfoList Get MTD device information
  * The following APIs are provided for MTD device information
  * taf_hms_GetMtdInfoList() Gets the list of available MTD information.
  * taf_hms_DeleteMtdInfoList() Deletes the MTD list reference.
@@ -209,7 +209,7 @@
     taf_hms_RemoveModemEvtHandler(modemStatusHandlerRef);
     @endverbatim
  *
- * @section taf_hms_GetResetInformation Get the (re)boot reason
+ * @section taf_hms_GetResetInformation Get (re)boot reason
  * The API of taf_hms_GetResetInformation() provides the (re)boot reason for this boot up.
  * @verbatim
    le_result_t result;

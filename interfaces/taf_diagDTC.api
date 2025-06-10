@@ -26,7 +26,7 @@
    }
    @endverbatim
  *
- * @section c_taf_diagDTC_server_API Server Service APIs
+ * @section c_taf_diagDTC_server_API Server-service APIs
  *
  * A diag DTC service reference should be got using taf_diagDTC_GetService() or
  * taf_diagDTC_GetAllService(). Use the

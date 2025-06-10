@@ -28,7 +28,7 @@
    }
    @endverbatim
  *
- * @section c_taf_someipSvr_configurations System Configuration
+ * @section c_taf_someipSvr_configurations System configuration
  *
  * Before using any API of the service, the user needs to configure the system properly
  * Since the SOME/IP Gateway Server Service is built upon vsomeip library, the configuration follows
@@ -202,7 +202,7 @@
  *          offered by the commonAPI application. Do not call any taf_someipSvr() APIs to offer that service
  *          again in a TelAF application, otherwise it will cause unexpected result.
  *
- * @section c_taf_someipSvr_server_API Server Service APIs
+ * @section c_taf_someipSvr_server_API Server-service APIs
  *
  * Before setting up a server-service-instance, application shall first get the service reference by
  * calling taf_someipSvr_GetService() or taf_someipSvr_GetServiceEx() and use the reference returned

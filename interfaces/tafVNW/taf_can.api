@@ -100,7 +100,7 @@
    }
    @endverbatim
  *
- * @subsection c_taf_can_loopback_EnableDisable Enable or disable loopback
+ * @subsection c_taf_can_loopback_EnableDisable Enable/disable loopback
  *
  * If local loopback is enabled, the messages sent from the given interface (can0/can1/..)
  * are looped back to the same CAN interface, so all applications bound with the given
@@ -123,10 +123,10 @@
    }
    @endverbatim
  *
- * @subsection c_taf_can_rcvOwnMsg_EnableDisable Enable or disable reception of own sent message
+ * @subsection c_taf_can_rcvOwnMsg_EnableDisable Enable/disable reception of own sent message
  *
  * When receiving messages sent from the same CanInterface reference,
- * Reception of the application's own sent CAN frame is usually unwanted, therefore it
+ * reception of the application's own sent CAN frame is usually unwanted, therefore it
  * is disabled by default.
  *
  * @verbatim

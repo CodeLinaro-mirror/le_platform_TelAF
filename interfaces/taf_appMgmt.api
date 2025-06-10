@@ -57,7 +57,7 @@
  *
    @endverbatim
  *
- * @section c_taf_appMgmt_control Application Control
+ * @section c_taf_appMgmt_control Application control
  *
  * - taf_appMgmt_Start() starts an application.
  *
@@ -65,14 +65,14 @@
  *
  * - taf_appMgmt_Uninstall() uninstalls an application.
  *
- * @section c_taf_appMgmt_information Application Information Query
+ * @section c_taf_appMgmt_information Application information query
  *
  * Users can get application information through the app list using the following functions.
  *
  *  - taf_appMgmt_CreateAppList() / taf_appMgmt_DeleteAppList() creates and deletes app list
  *    references.
  *
- *  - taf_appMgmt_GetFirstApp() / taf_appMgmt_GetNextApp() get the first or next app reference.
+ *  - taf_appMgmt_GetFirstApp() / taf_appMgmt_GetNextApp() gets the first or next app reference.
  *
  *  - taf_appMgmt_GetAppDetails() gets the operator details.
  *

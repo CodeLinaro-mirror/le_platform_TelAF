@@ -61,7 +61,7 @@
  *
  * - taf_flash_Init() -- Initiates flash access reference map and memory pool.
  *
- * @section c_taf_flash_Mtd MTD partition Flash Access
+ * @section c_taf_flash_Mtd MTD partition flash access
  *
  * - taf_flash_MtdOpen() -- Opens MTD partition for read or write.
  *

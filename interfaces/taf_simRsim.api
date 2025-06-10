@@ -160,7 +160,6 @@
  *              connected with only one application.
  *
  * @b NOTE:
- *    
  *    - The remote SIM service has to be supported by the modem to be used: check your platform
  *      documentation.
  *    - The remote SIM card should be selected in order to use the remote SIM service.

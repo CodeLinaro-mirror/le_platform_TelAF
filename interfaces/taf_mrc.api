@@ -32,13 +32,13 @@
  *
    @endverbatim
  *
- * @section c_taf_mrc_ota FOTA Supplementary Operations
+ * @section c_taf_mrc_ota FOTA supplementary operations
  *
  * - taf_mrc_SendOtaStartMsg() - Sends an OTA start notification to MRCD before FOTA starts.
  *
  * - taf_mrc_SendOtaResumeMsg() - Sends an OTA resume notification to MRCD when FOTA resumes.
  *
- * - taf_mrc_SendOtaEndMsg() Sends an OTA end notification to MRCD when FOTA completes.
+ * - taf_mrc_SendOtaEndMsg() - Sends an OTA end notification to MRCD when FOTA completes.
  *
  * - taf_mrc_SendOtaAbsyncMsg() - Synchronizes active and inactive slots.
  *

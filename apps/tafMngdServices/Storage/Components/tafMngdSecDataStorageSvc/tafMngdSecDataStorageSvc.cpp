@@ -1,6 +1,7 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 
@@ -262,4 +263,6 @@ COMPONENT_INIT
     auto &mss = tafMngdStorageSvc::GetInstance();
 
     mss.Init();
+
+    LE_INFO("tafMngdStorageSvc COMPONENT initialized");
 }

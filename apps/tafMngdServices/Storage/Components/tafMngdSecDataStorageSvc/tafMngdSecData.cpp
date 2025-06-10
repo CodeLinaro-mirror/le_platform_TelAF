@@ -1,10 +1,8 @@
 /*
-*
-* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
-* SPDX-License-Identifier: BSD-3-Clause-Clear
-*/
-
-
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include "tafMngdStorageSvc.hpp"
 #include "limit.h"
@@ -738,7 +736,12 @@ le_result_t tafMngdStorageSvc::WriteDataStart
     if (dataPtr->writeOp.outputFd < 0)
     {
         LE_ERROR("Failed to open data file '%s'.", dataPtr->path);
-        taf_rfs_Close(dataPtr->writeOp.outputFd);
+
+        // Abort the crypto session when error
+        taf_ks_CryptoSessionAbort(*sessionRefPtr);
+        dataPtr->isInWritingProcess = false;
+        dataPtr->writeOp.sessionRef = NULL;
+
         return LE_FAULT;
     }
 
@@ -790,22 +793,20 @@ le_result_t tafMngdStorageSvc::WriteDataChunk
 
     if(CheckSize(bufferSize, dataPtr->ownerAppName, dataPtr->path) != LE_OK)
     {
-        result = taf_ks_CryptoSessionEnd(*sessionRefPtr,
-                                                    nullptr, 0,
-                                                    encryptedData,
-                                                    encryptedDataSize);
-
         taf_rfs_Close(dataPtr->writeOp.outputFd);
 
         dataPtr->isInWritingProcess = false;
 
         dataPtr->writeOp.clientSessionRef = nullptr;
 
+        dataPtr->writeOp.outputFd = -1;
+
         DeleteTempFile(dataPtr->path);
 
         LE_ERROR("Storage free size is not enough for the data size %" PRIuS, bufferSize);
 
-        return LE_NO_MEMORY;
+        result = LE_NO_MEMORY;
+        goto error_exit;
     }
 
     result = taf_ks_CryptoSessionProcess(*sessionRefPtr,
@@ -814,7 +815,12 @@ le_result_t tafMngdStorageSvc::WriteDataChunk
                                             encryptedData,
                                             encryptedDataSize);
 
-    TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "Process crypto session error");
+    if(LE_OK != result)
+    {
+        LE_ERROR("Process crypto session error");
+        result = LE_FAULT;
+        goto error_exit;
+    }
 
     if (*encryptedDataSize > 0)
     {
@@ -823,8 +829,9 @@ le_result_t tafMngdStorageSvc::WriteDataChunk
                                     *encryptedDataSize) != (ssize_t)*encryptedDataSize)
         {
             LE_ERROR("Failed to write encrypted data to file '%s'.", dataPtr->path);
-            taf_rfs_Close(dataPtr->writeOp.outputFd);
-            return LE_FAULT;
+
+            result = LE_FAULT;
+            goto error_exit;
         }
         LE_INFO("Write encrypted data size = %" PRIuS , *encryptedDataSize);
     }
@@ -832,6 +839,18 @@ le_result_t tafMngdStorageSvc::WriteDataChunk
     LE_INFO("WriteDataChunk operation done");
 
     return LE_OK;
+
+error_exit:
+    // Abort the crypto session when abnormal exit
+    taf_ks_CryptoSessionAbort(*sessionRefPtr);
+    if (dataPtr->writeOp.outputFd >= 0)
+    {
+        taf_rfs_Close(dataPtr->writeOp.outputFd);
+        dataPtr->writeOp.outputFd = -1;
+    }
+    dataPtr->isInWritingProcess = false;
+    dataPtr->writeOp.sessionRef = NULL;
+    return result;
 }
 
 le_result_t tafMngdStorageSvc::WriteDataEnd
@@ -869,7 +888,12 @@ le_result_t tafMngdStorageSvc::WriteDataEnd
                                                     encryptedData,
                                                     encryptedDataSize);
 
-    TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "Failed to end crypto session");
+    if(LE_OK != result)
+    {
+        LE_ERROR("Failed to end crypto session");
+        result = LE_FAULT;
+        goto error_exit;
+    }
 
     if (*encryptedDataSize > 0)
     {
@@ -879,7 +903,9 @@ le_result_t tafMngdStorageSvc::WriteDataEnd
         {
             LE_ERROR("Failed to write encrypted data to file '%s'", dataPtr->path);
             taf_rfs_Close(dataPtr->writeOp.outputFd);
-            return LE_FAULT;
+            dataPtr->writeOp.outputFd = -1;
+            result = LE_FAULT;
+            goto error_exit;
         }
         LE_INFO("Write encrypted data size = %" PRIuS, *encryptedDataSize);
     }
@@ -887,7 +913,8 @@ le_result_t tafMngdStorageSvc::WriteDataEnd
     taf_rfs_Close(dataPtr->writeOp.outputFd);
 
     dataPtr->isInWritingProcess = false;
-
+    dataPtr->writeOp.outputFd = -1;
+    dataPtr->writeOp.sessionRef = NULL;
     dataPtr->writeOp.clientSessionRef = nullptr;
 
     if(RenameTempFile(dataPtr->path) != 0)
@@ -912,6 +939,18 @@ le_result_t tafMngdStorageSvc::WriteDataEnd
     LE_INFO("WriteDataEnd operation done");
 
     return LE_OK;
+
+error_exit:
+
+    if (dataPtr->writeOp.outputFd >= 0)
+    {
+        taf_rfs_Close(dataPtr->writeOp.outputFd);
+        dataPtr->writeOp.outputFd = -1;
+    }
+    dataPtr->isInWritingProcess = false;
+    dataPtr->writeOp.sessionRef = NULL;
+
+    return result;
 }
 
 le_result_t tafMngdStorageSvc::ReadDataFirstChunk
@@ -1053,8 +1092,9 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
     if (dataPtr->readOp.outputFd < 0)
     {
         LE_ERROR("Failed to open data file '%s'.", dataPtr->path);
-        taf_rfs_Close(dataPtr->readOp.outputFd);
-        return LE_FAULT;
+
+        result = LE_FAULT;
+        goto error_exit;
     }
 
     // Check the input data file size.
@@ -1062,12 +1102,12 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
     dataPtr->readOp.fileSize = fileStat.st_size;
     if (dataPtr->readOp.fileSize == 0)
     {
-        LE_DEBUG("data is empty");
+        LE_INFO("data is empty");
 
-        taf_rfs_Close(dataPtr->readOp.outputFd);
         *readSize = 0;
 
-        return LE_OK;
+        result = LE_OK;
+        goto error_exit;
     }
 
     dataPtr->isInReadingProcess = true;
@@ -1081,7 +1121,9 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
             LE_ERROR("Error (%s) reading data file '%s'.", LE_ERRNO_TXT(errno), dataPtr->path);
             taf_rfs_Close(dataPtr->readOp.outputFd);
             dataPtr->isInReadingProcess = false;
-            return LE_FAULT;
+            dataPtr->readOp.outputFd = -1;
+            result = LE_FAULT;
+            goto error_exit;
         }
 
         // Decrypt the data
@@ -1094,7 +1136,12 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
 
         totalDecryptedSize = *decryptedDataSize;
 
-        TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "Failed to process crypto session");
+        if(LE_OK != result)
+        {
+            LE_ERROR("Failed to process crypto session");
+            result = LE_FAULT;
+            goto error_exit;
+        }
 
         if (*decryptedDataSize > 0)
         {
@@ -1114,7 +1161,16 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
 
         totalDecryptedSize += *decryptedDataSize;
 
-        TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "Failed to end crypto session");
+        if(LE_OK != result)
+        {
+            LE_ERROR("Failed to end crypto session");
+
+            taf_rfs_Close(dataPtr->readOp.outputFd);
+            dataPtr->isInReadingProcess = false;
+            dataPtr->readOp.outputFd = -1;
+            result = LE_FAULT;
+            goto error_exit;
+        }
 
         if (*decryptedDataSize > 0)
         {
@@ -1128,8 +1184,9 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
         }
 
         taf_rfs_Close(dataPtr->readOp.outputFd);
-
+        dataPtr->readOp.outputFd = -1;
         dataPtr->isInReadingProcess = false;
+        dataPtr->readOp.sessionRef = NULL;
 
         LE_INFO("Total output data size = %" PRIuS, *readSize);
 
@@ -1151,9 +1208,9 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
         {
             LE_ERROR("Error (%s) reading data file '%s'.",
                         LE_ERRNO_TXT(errno), dataPtr->path);
-            taf_rfs_Close(dataPtr->readOp.outputFd);
-            dataPtr->isInReadingProcess = false;
-            return LE_FAULT;
+
+            result = LE_FAULT;
+            goto error_exit;
         }
 
         // Encrypt the data chunk.
@@ -1166,7 +1223,12 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
 
         totalDecryptedSize = *decryptedDataSize;
 
-        TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "Failed to process crypto session");
+        if(LE_OK != result)
+        {
+            LE_ERROR("Failed to process crypto session");
+            result = LE_FAULT;
+            goto error_exit;
+        }
 
         if (*decryptedDataSize > 0)
         {
@@ -1179,11 +1241,8 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
             {
                 LE_ERROR("Total decrypted data size = %" PRIuS, totalDecryptedSize);
 
-                dataPtr->isInReadingProcess = false;
-
-                taf_rfs_Close(dataPtr->readOp.outputFd);
-
-                return LE_OK;
+                result = LE_OVERFLOW;
+                goto error_exit;
             }
             else
             {
@@ -1195,6 +1254,20 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
     }
 
     return LE_OK;
+
+error_exit:
+    // Abort the crypto session when abnormal exit
+    taf_ks_CryptoSessionAbort(*sessionRefPtr);
+
+    if (dataPtr->readOp.outputFd >= 0)
+    {
+        taf_rfs_Close(dataPtr->readOp.outputFd);
+        dataPtr->readOp.outputFd = -1;
+    }
+    dataPtr->isInReadingProcess = false;
+    dataPtr->readOp.sessionRef = NULL;
+
+    return result;
 }
 
 
@@ -1262,8 +1335,9 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
         {
             LE_ERROR("Error (%s) reading data file '%s'.",
                         LE_ERRNO_TXT(errno), dataPtr->path);
-            taf_rfs_Close(dataPtr->readOp.outputFd);
-            return LE_FAULT;
+
+            result = LE_FAULT;
+            goto error_exit;
         }
 
         // Encrypt the data chunk.
@@ -1274,7 +1348,12 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
                                                 decryptedData,
                                                 decryptedDataSize);
 
-        TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "Failed to process crypto session");
+        if(LE_OK != result)
+        {
+            LE_ERROR("Failed to process crypto session");
+            result = LE_FAULT;
+            goto error_exit;
+        }
 
         if (*decryptedDataSize > 0)
         {
@@ -1291,8 +1370,9 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
             dataPtr->isInReadingProcess = false;
 
             taf_rfs_Close(dataPtr->readOp.outputFd);
-
-            return LE_OK;
+            dataPtr->readOp.outputFd = -1;
+            result = LE_OVERFLOW;
+            goto error_exit;
         }
         else
         {
@@ -1309,7 +1389,12 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
                                          decryptedData,
                                          decryptedDataSize);
 
-        TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "Failed to end crypto session");
+        if(LE_OK != result)
+        {
+            LE_ERROR("Failed to end crypto session");
+            result = LE_FAULT;
+            goto error_exit;
+        }
 
         if (*decryptedDataSize > 0)
         {
@@ -1342,9 +1427,26 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
         dataPtr->readOp.clientSessionRef = nullptr;
 
         taf_rfs_Close(dataPtr->readOp.outputFd);
+
+        dataPtr->readOp.outputFd = -1;
+        dataPtr->readOp.sessionRef = NULL;
     }
 
     return LE_OK;
+
+error_exit:
+    // Abort the crypto session when abnormal exit
+    taf_ks_CryptoSessionAbort(*sessionRefPtr);
+
+    if (dataPtr->readOp.outputFd >= 0)
+    {
+        taf_rfs_Close(dataPtr->readOp.outputFd);
+        dataPtr->readOp.outputFd = -1;
+    }
+    dataPtr->isInReadingProcess = false;
+    dataPtr->readOp.sessionRef = NULL;
+
+    return result;
 }
 
 le_result_t tafMngdStorageSvc::GetDataSize

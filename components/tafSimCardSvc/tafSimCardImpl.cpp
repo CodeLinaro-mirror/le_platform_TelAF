@@ -95,9 +95,9 @@ void tafSubscriptionListener:: onSubscriptionInfoChanged
     simIccidEvent.simId = (taf_sim_Id_t)simPtr->simId;
     simIccidEvent.ICCID = simPtr->ICCID;
     le_event_Report(sim.IccidChangeEventId, &simIccidEvent, sizeof(simIccidEvent));
-    if(!sim.isPsEventInProgress) {
+    if(!sim.IsPsEventInProgress) {
 
-        sim.isPsEventInProgress = true;
+        sim.IsPsEventInProgress = true;
         sim.CheckAndSendProfileSwitchEvent();
     }
 }
@@ -978,30 +978,31 @@ void taf_sim::CheckAndSendProfileSwitchEvent() {
             continue;
         }
 
-        LE_DEBUG("ClientSessionRef %p, refreshResetStart: %d", sessionPtr->clientSessionRef, (int) sessionPtr->refreshResetStart);
+        LE_INFO("ClientSessionRef %p, refreshResetStart: %d", sessionPtr->clientSessionRef, (int) sessionPtr->refreshResetStart);
 
-        if (sessionPtr->refreshResetStart)
+        if (!sessionPtr->notifyProfileSwitch)
         {
-            LE_INFO("Notify: current iccid1: %s, previous iccid1: %s and result: %s", iccid1, sessionPtr->simProfileIccid1, LE_RESULT_TXT(result));
-            LE_INFO("Notify: current iccid2: %s, previous iccid2: %s", iccid2, sessionPtr->simProfileIccid2);
-
             //Send profile switch notification.
             if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV)
             {
                 if (strncmp(iccid1, sessionPtr->simProfileIccid1, TAF_SIM_ICCID_BYTES) != 0)
                 {
+                    LE_INFO("Notify: current iccid1: %s, previous iccid1: %s and result: %s", iccid1, sessionPtr->simProfileIccid1, LE_RESULT_TXT(result));
                     simRefreshEvent.refreshStatus = TAF_SIM_REFRESH_STATUS_PROFILE_SWITCH;
                     le_utf8_Copy(sessionPtr->simProfileIccid1, iccid1, TAF_SIM_ICCID_BYTES, NULL);
                     le_event_Report(sessionPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
+                    sessionPtr->notifyProfileSwitch = true;
                 }
             }
             else if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV)
             {
                 if (strncmp(iccid2, sessionPtr->simProfileIccid2, TAF_SIM_ICCID_BYTES) != 0)
                 {
+                    LE_INFO("Notify: current iccid2: %s, previous iccid2: %s and result: %s", iccid2, sessionPtr->simProfileIccid2, LE_RESULT_TXT(result) );
                     simRefreshEvent.refreshStatus = TAF_SIM_REFRESH_STATUS_PROFILE_SWITCH;
                     le_utf8_Copy(sessionPtr->simProfileIccid2, iccid2, TAF_SIM_ICCID_BYTES, NULL);
                     le_event_Report(sessionPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
+                    sessionPtr->notifyProfileSwitch = true;
                 }
             }
         }
@@ -1017,7 +1018,7 @@ void taf_sim::CheckAndSendProfileSwitchEvent() {
 
         result = le_ref_NextNode(iterRef);
     }
-    sim.isPsEventInProgress = false;
+    sim.IsPsEventInProgress = false;
 
 }
 
@@ -1037,9 +1038,10 @@ void taf_sim::CheckAndSendRefreshEvent(taf_sim_Id_t SimId) {
         if((sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV && SimId == TAF_SIM_SLOT_ID_1) ||
             (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV && SimId == TAF_SIM_SLOT_ID_2))
         {
-            if (sessionPtr->refreshResetStart )
+            if (sessionPtr->refreshResetStart)
             {
                 LE_INFO("Notify RefreshEvent for SimId : %d,SessionType : %d", SimId,sessionPtr->sessionType);
+                sessionPtr->refreshResetStart = false;
                 le_sem_Post(sessionPtr->semaphore);
             }
         }
@@ -1055,25 +1057,43 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
     simRefreshEvent.refreshStatus = 0;
     clientRequestPtr = DiscoverSessionRef((taf_sim_RefreshRef_t) contextPtr);
 
-    LE_INFO("NotifyRefreshEvent contextPtr: %p, clientRequestPtr: %p", contextPtr, clientRequestPtr);
+    LE_INFO("NotifyRefreshEvent contextPtr:%p, clientRequestPtr:%p RefreshVoteSent_Slot1:%d RefreshVoteSent_Slot2:%d", contextPtr, clientRequestPtr,
+              RefreshVoteSent_Slot1, RefreshVoteSent_Slot2);
 
     TAF_ERROR_IF_RET_NIL(NULL == clientRequestPtr, "clientRequestPtr is NULL");
 
     if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_WAIT_FOR_OK) {
-        if (clientRequestPtr != NULL && ((1 << ind->refreshMode) & clientRequestPtr->refreshMode) != 0) {
+        // In WAIT_FOR_OK stage of SIM refresh,refresh vote hasn't been sent for slot 1/slot 2
+        if((clientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV && !RefreshVoteSent_Slot1) ||
+              (clientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV && !RefreshVoteSent_Slot2))
+        {
             LE_INFO("Request Refresh_ok with refreshAllow: %d", (int) clientRequestPtr->refreshAllow);
-            res = taf_pa_sim_RefreshOk(ind->sessionType, clientRequestPtr->refreshAllow);
-        } else {
-            res = taf_pa_sim_RefreshOk(ind->sessionType, true);
+            le_result_t result = CheckRefreshAllow(ind);
+            if(result == LE_FAULT)
+            {
+                res = taf_pa_sim_RefreshOk(ind->sessionType, false);
+                LE_INFO("Refresh_ok as false");
+            }
+            else
+            {
+                res = taf_pa_sim_RefreshOk(ind->sessionType, true);
+                LE_INFO("Refresh_ok as true");
+            }
+            if(clientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV)
+            {
+                RefreshVoteSent_Slot1 = true;
+            }
+            if(clientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV)
+            {
+                RefreshVoteSent_Slot2 = true;
+            }
         }
-        LE_INFO("Refresh_ok: result: %s", LE_RESULT_TXT(res));
-
         return;
-    } else if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_START && ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_FCN) {
+    }
+
+    else if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_START && ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_FCN) {
         res = taf_pa_sim_RefreshComplete(ind->sessionType);
-
         LE_INFO("RefreshComplete: result: %s", LE_RESULT_TXT(res));
-
         return;
     } else if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_START && ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_RESET) {
         LE_INFO("RefreshStart for reset mode");
@@ -1088,12 +1108,13 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
         {
            simRefreshEvent.refreshStatus |= TAF_SIM_REFRESH_STATUS_FAILURE;
         }
-
         le_event_Report(clientRequestPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
         clientRequestPtr->refreshResetStart = false;
+        clientRequestPtr->notifyProfileSwitch = false;
+        ResetRefreshVote(clientRequestPtr);
         LE_INFO("Notify simRefreshEvent:refreshStatus : %d", simRefreshEvent.refreshStatus);
         return;
-    }
+        }
 
     bool notifyClient = (ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_END_WITH_SUCCESS)
             || (ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_END_WITH_FAILURE);
@@ -1115,11 +1136,11 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
                 simRefreshEvent.refreshStatus |= TAF_SIM_REFRESH_STATUS_FILE_CHANGE;
             }
         }
-
         if (clientRequestPtr != NULL) {
             le_event_Report(clientRequestPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
         }
     }
+    ResetRefreshVote(clientRequestPtr);
 }
 
 void taf_sim::FirstLayerNewRefreshChangeHandler(void* reportPtr, void* secondLayerHandlerFunc) {
@@ -1239,7 +1260,7 @@ le_result_t taf_sim::CreateSession(taf_sim_SessionType_t sessionType, taf_sim_Re
     res->refreshRegFilesSize = 0;
     res->RefreshChangeEventId = le_event_CreateId("ClientRefreshEventId", sizeof(sim_refresh_event_t));
     res->semaphore = le_sem_Create("IccidCheckSem", 0);
-
+    res->notifyProfileSwitch = false;
     LE_INFO("res->sessionRef %p, *reference %p", res->ref, *refreshSessionRef);
 
     string iccId = "";
@@ -2747,4 +2768,39 @@ le_result_t taf_sim::getSlotCount(int *count) {
 
     LE_ERROR("GetSlotCount failed because multi sim sub system is not ready");
     return LE_FAULT;
+}
+le_result_t taf_sim::CheckRefreshAllow(taf_pa_sim_RefreshChangeInd_t* ind)
+{
+    auto &sim = taf_sim::GetInstance();
+    std::unique_lock<std::mutex> lock(sim.eventMutex);
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(sim.SessionRefMap);
+    le_result_t result = le_ref_NextNode(iterRef);
+    while (LE_OK == result)
+    {
+        taf_sim_Session_t* sessionPtr = (taf_sim_Session_t*) le_ref_GetValue(iterRef);
+
+        TAF_ERROR_IF_RET_VAL( NULL == sessionPtr, LE_FAULT, "SessionPtr is NULL");
+        // Check if the refresh mode received from the modem  matches with any of the refresh modes requested by the client
+        if (((1 << ind->refreshMode) & sessionPtr->refreshMode) != 0)
+        {
+            if(!sessionPtr->refreshAllow)
+            {
+                LE_INFO("For sessionPtr: %p refreshMode: %d not allow", sessionPtr, (int)sessionPtr->refreshMode);
+                return LE_FAULT;
+            }
+        }
+        result = le_ref_NextNode(iterRef);
+    }
+    return LE_OK;
+}
+void taf_sim::ResetRefreshVote(taf_sim_Session_t* ClientRequestPtr)
+{
+   if(ClientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV){
+        RefreshVoteSent_Slot1 = false;
+        LE_DEBUG("RefreshVoteSent_Slot1 is %d:",RefreshVoteSent_Slot1);
+    }
+    if(ClientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV){
+        RefreshVoteSent_Slot2 = false;
+        LE_DEBUG("RefreshVoteSent_Slot2 is %d:",RefreshVoteSent_Slot2);
+    }
 }

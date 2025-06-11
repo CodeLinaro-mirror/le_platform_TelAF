@@ -211,7 +211,7 @@ EXPORT_SYM size_t get_did_value_size(uint16_t did_code)
         }
     }
 
-    throw std::runtime_error("Not found any [did node] matched did code.");
+    return 0;
 }
 
 EXPORT_SYM std::map<std::string, uint8_t> get_diagnostic_session_map(void)

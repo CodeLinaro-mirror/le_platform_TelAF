@@ -32,6 +32,7 @@ do
     echo "*** try to use ${base_name} replace telaf-prop stub library ***"
     full_name_telaf=`find ${TARGET_STAGE_DIR} -type f -name ${base_name}`
     if [ -n "${full_name_telaf}" ]; then
+        ${OBJCOPY} --only-keep-debug  ${full_name_prop} ${OUTPUT}/${base_name}.debug
         echo "stripping ${full_name_prop}"
         ${STRIP} --strip-unneeded ${full_name_prop}
         cp -rf ${full_name_prop} ${full_name_telaf}
@@ -47,6 +48,7 @@ do
     if [ -n "${full_name_telaf}" ]; then
         for each_lib_name in ${full_name_telaf}
         do
+            ${OBJCOPY} --only-keep-debug  ${full_name_noship} ${OUTPUT}/${base_name}.debug
             echo "stripping ${full_name_noship}"
             ${STRIP} --strip-unneeded ${full_name_noship}
             cp -rf ${full_name_noship} ${each_lib_name}
@@ -63,6 +65,7 @@ do
     if [ -n "${full_name_telaf}" ]; then
         for each_lib_name in ${full_name_telaf}
         do
+            ${OBJCOPY} --only-keep-debug  ${full_name_pa} ${OUTPUT}/${base_name}.debug
             echo "stripping ${full_name_pa}"
             ${STRIP} --strip-unneeded ${full_name_pa}
             cp -rf ${full_name_pa} ${each_lib_name}

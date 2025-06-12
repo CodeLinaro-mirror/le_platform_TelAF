@@ -145,6 +145,44 @@ void taf_pm_RemoveConsolidatedAckInfoHandler(taf_pm_ConsolidatedAckInfoHandlerRe
 }
 
 /**
+ * FUNCTION     : AddModemAwakeHandler
+ * DESCRIPTION  : Add handler for modem awake notification
+ * DEPENDECY    :
+ * PARAMETERS   :
+ * RETURN VALUES: handlerRef if registered successfully or else NULL
+ */
+taf_pm_ModemAwakeHandlerRef_t taf_pm_AddModemAwakeHandler
+(
+    taf_pm_ModemAwakeHandlerFunc_t handlerPtr,
+        ///< [IN] The modem awake event handler.
+    void* contextPtr,
+        ///< [IN]
+    taf_pm_NodeModemWsBitMask_t wsBitmask
+        ///< [IN]
+)
+{
+    // Not implemented yet.
+    return NULL;
+}
+
+/**
+ * FUNCTION     : RemoveModemAwakeHandler
+ * DESCRIPTION  : remove modem awake handler
+ * DEPENDECY    :
+ * PARAMETERS   : Modem awake Handler reference
+ * RETURN VALUES:
+ */
+void taf_pm_RemoveModemAwakeHandler
+(
+    taf_pm_ModemAwakeHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    // Not implemented yet.
+    return;
+}
+
+/**
 * FUNCTION     : SetAllVMPowerState
 * DESCRIPTION  : Sets the power state to all Virtual Machines
 * DEPENDECY    :
@@ -377,13 +415,13 @@ le_result_t taf_pm_SetPowerMode(taf_pm_PowerMode_t powerMode)
 }
 
 /**
- * FUNCTION     : SetNodeModemWs
+ * FUNCTION     : SetModemWs
  * DESCRIPTION  : Sets the whitelisted modem wakeup selection.
  * DEPENDECY    :
  * PARAMETERS   : Modem wakeup selection mask as input.
  * RETURN VALUES:
  */
-le_result_t taf_pm_SetNodeModemWakeupSel
+le_result_t taf_pm_SetModemWakeupSel
 (
     taf_pm_NodeModemWsBitMask_t wsBitmask
 )
@@ -392,16 +430,32 @@ le_result_t taf_pm_SetNodeModemWakeupSel
 }
 
 /**
- * FUNCTION     : GetNodeModemWs
+ * FUNCTION     : GetModemWs
  * DESCRIPTION  : Gets the whitelisted modem wakeup selection.
  * DEPENDECY    :
  * PARAMETERS   : Modem wakeup selection mask as output.
  * RETURN VALUES:
  */
-le_result_t taf_pm_GetNodeModemWakeupSel
+le_result_t taf_pm_GetModemWakeupSel
 (
     taf_pm_NodeModemWsBitMask_t* wsBitmaskPtr
         ///< [OUT] Modem wakeup selection to be whitelisted.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+/**
+ * FUNCTION     : GetModemAwakeReason
+ * DESCRIPTION  : Gets the last modem wakeup reason.
+ * DEPENDECY    :
+ * PARAMETERS   : Modem wakeup reason mask as output.
+ * RETURN VALUES:
+ */
+le_result_t taf_pm_GetModemAwakeReason
+(
+    taf_pm_NodeModemWsBitMask_t* wsBitmaskPtr
+        ///< [OUT] Modem wakeup reason.
 )
 {
     return LE_NOT_IMPLEMENTED;

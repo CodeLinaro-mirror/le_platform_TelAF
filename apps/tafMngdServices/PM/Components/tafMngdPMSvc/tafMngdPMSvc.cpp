@@ -1244,6 +1244,60 @@ le_result_t taf_mngdPm_GetNodeModemWakeupSel
 }
 
 /**
+ * Gets the last modem wakeup reason.
+ */
+le_result_t taf_mngdPm_GetNodeModemAwakeReason
+(
+    uint8_t pmNodeId,
+    taf_mngdPm_NodeModemWsBitMask_t* wsBitmaskPtr
+        ///< [OUT] Modem wakeup reason.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_mngdPm_NodeModemAwake'
+ *
+ * Node modem awake event.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+taf_mngdPm_NodeModemAwakeHandlerRef_t taf_mngdPm_AddNodeModemAwakeHandler
+(
+    taf_mngdPm_NodeModemAwakeHandlerFunc_t handlerPtr,
+        ///< [IN] The modem awake event handler.
+    void* contextPtr,
+        ///< [IN]
+    uint8_t pmNodeId,
+        ///< [IN]
+    taf_mngdPm_NodeModemWsBitMask_t wsBitmask
+        ///< [IN]
+)
+{
+    // Not implemented yet.
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_mngdPm_NodeModemAwake'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_mngdPm_RemoveNodeModemAwakeHandler
+(
+    taf_mngdPm_NodeModemAwakeHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    // Not implemented yet.
+    return;
+}
+
+
+/**
  * Deletes the given wake source.
  */
 le_result_t taf_mngdPm_DeleteWakeupSource

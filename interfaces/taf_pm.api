@@ -286,6 +286,13 @@ REFERENCE ConsolidatedAckInfo;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Reference to modem wakeup event.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE ModemAwakeEvent;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * State change handler.
  */
 //--------------------------------------------------------------------------------------------------
@@ -369,6 +376,32 @@ HANDLER ConsolidatedAckInfoHandler
 EVENT ConsolidatedAckInfo
 (
     ConsolidatedAckInfoHandler handler  ///< The ConsolidatedAck Info handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for modem awake.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER ModemAwakeHandler
+(
+    ModemAwakeEvent ref,
+    NodeModemWsBitMask wsBitmask
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Modem awake event.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT ModemAwake
+(
+    ModemAwakeHandler handler,  ///< The modem awake event handler.
+    NodeModemWsBitMask wsBitmask
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -611,7 +644,7 @@ FUNCTION le_result_t SetPowerMode
  * @instaging
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetNodeModemWakeupSel
+FUNCTION le_result_t SetModemWakeupSel
 (
     NodeModemWsBitMask wsBitmask     ///< Modem wakeup selection to be whitelisted.
 );
@@ -625,7 +658,21 @@ FUNCTION le_result_t SetNodeModemWakeupSel
  * @instaging
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t GetNodeModemWakeupSel
+FUNCTION le_result_t GetModemWakeupSel
 (
     NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup selection to be whitelisted.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the last modem wakeup reason.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetModemAwakeReason
+(
+    NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup reason.
 );

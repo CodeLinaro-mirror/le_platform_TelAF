@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include "tafPiDiagDID.h"
@@ -17,6 +17,7 @@ static le_mem_PoolRef_t ValueRequestPoolRef;
 
 #define DID_NODE_LEN       100
 #define DID_DATA_FORMAT    "data%d"
+#define MAX_DID_REQ_LEN 256
 
 typedef enum
 {
@@ -36,7 +37,7 @@ typedef struct {
 typedef struct {
     uint16_t did;
     size_t len;
-    uint8_t value[256];
+    uint8_t value[MAX_DID_REQ_LEN];
     bool changeNotify;
 } DIDEntry;
 

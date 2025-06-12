@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -142,8 +142,22 @@ static void ValueChangeRequest
             {
                 LE_ERROR("setCallbackFunc is NULL.");
             }
+
+            if(req->len > MAX_DID_REQ_LEN)
+            {
+                LE_ERROR("Incorrect length.");
+                break;
+            }
+
+            DIDEntry didEvent;
+            didEvent.did = req->did;
+            memcpy(didEvent.value, req->value, req->len);
+
+            didEvent.len = req->len;
+            didEvent.changeNotify = true;
+
             // Fire event for DID change notification
-            le_event_Report(NotifyDidEventId, (void*)&req->did, sizeof(req->did));
+            le_event_Report(NotifyDidEventId, &didEvent, sizeof(didEvent));
 
             break;
         }
@@ -226,9 +240,6 @@ le_result_t taf_pi_didStorg_SetAsync
 
     setCallbackFunc = handler;
 
-    // Notify all clients of the DID change
-    LE_INFO("Notifying clients about the DID change: %u", dataID);
-    le_event_Report(NotifyDidEventId, &dataID, sizeof(dataID));
 
     le_event_QueueFunction(ValueChangeRequest, (void*)(req), NULL);
 
@@ -242,8 +253,11 @@ static void NotifyDidRespHandler
 )
 {
     uint16_t did = ((DIDEntry*)context)->did;
-    uint8_t value[] = {((DIDEntry*)context)->value[0]};
+    uint8_t* value = ((DIDEntry*)context)->value;
     uint8_t len = ((DIDEntry*)context)->len;
+
+    LE_DEBUG("NotifyDidRespHandler did=0x%x, len=%d", did,len);
+
     didCallback(did, value, len);
 }
 

@@ -22,6 +22,7 @@
 #include <future>
 
 #include <unordered_map>
+#include <algorithm>
 
 using namespace std;
 using namespace tafsvc;
@@ -1366,55 +1367,151 @@ le_result_t taf_Hms::ReleaseModemEvt(taf_hms_ModemEventRef_t eventRef)
 }
 
 //--------------------------------------------------------------------------------------------------
-/**
- * Reset reason map
- */
+/*
+* | Reset type                | Reset reason               | Description                          |
+* |:-------------------------:|:--------------------------:|:------------------------------------:|
+* | TAF_HMS_RESET_UNKNOWN     | unknown                    | Unknow case                          |
+* | TAF_HMS_RESET_CRASH       | panic                      | Kernel crash                         |
+* | TAF_HMS_RESET_CRASH       | telaf crash                | TelAF crash                          |
+* | TAF_HMS_RESET_CRASH       | ['xxx' crash]              | [Reserved: 'xxx' crash]              |
+* | TAF_HMS_RESET_UPDATE      | recovery                   | System recovery                      |
+* | TAF_HMS_RESET_UPDATE      | ['telaf' update]           | [Reserved: TelAF update]             |
+* | TAF_HMS_RESET_UPDATE      | ['configuration' update]   | [Reserved: Configuration update]     |
+* | TAF_HMS_RESET_UPDATE      | ['xxx' update]             | [Reserved: 'xxx' update]             |
+* | TAF_HMS_RESET_CORRUPTED   | dm-verity device corrupted | dm-verity device was corrupted       |
+* | TAF_HMS_RESET_CORRUPTED   | ['telaf image' corrupted]  | [Reserved: TelAF image was corrupted]|
+* | TAF_HMS_RESET_CORRUPTED   | ['xxx image' corrupted]    | [Reserved: 'xxx' was corrupted]      |
+* | TAF_HMS_RESET_AUTH_FAILED | ['telaf' auth failed]      | [Reserved: TelAF auth failed]        |
+* | TAF_HMS_RESET_AUTH_FAILED | ['xxx' auth failed]        | [Reserved: 'xxx' auth failed]        |
+* | TAF_HMS_RESET_USER        | user                       | Not defined user reboot              |
+* | TAF_HMS_RESET_USER        | bootloader                 | reboot bootloader/fastboot continue  |
+* | TAF_HMS_RESET_USER        | dm-verity enforcing        | dm-verity operation                  |
+* | TAF_HMS_RESET_USER        | keys clear                 | dm-verity operation                  |
+* | TAF_HMS_RESET_WDOG        | watchdog bark              | Watchdog bark                        |
+* | TAF_HMS_RESET_WDOG        | ['xxx' watchdog bark]      | [Reserved: 'xxx' watchdog bark]      |
+* | TAF_HMS_RESET_HARD        | rtc                        | RTC alarm boot                       |
+* | TAF_HMS_RESET_HARD        | [Hardware switch]          | [Reserved: Hardware switch]          |
+* | TAF_HMS_RESET_HARD        | [Power down]               | [Reserved: Power source unplugged]   |
+* | TAF_HMS_RESET_TEMP_CRIT   | [Critical Temp]            | [Reserved: Critical voltage level]   |
+* | TAF_HMS_RESET_VOLT_CRIT   | [Critical Voltage]         | [Reserved: Critical temperature LV]  |
+* | TAF_HMS_xxx               | system-normal      | Triggered by system in a supported scenario" |
+* | TAF_HMS_xxx               | system-abnormal    | Triggered by system in an errorscenario"     |
+*
+* Note, we can use below example command to verify the NOT 'Reserved' feature:
+* 1. "panic" --  reboot panic
+* 2. "recovery" -- reboot recovery
+* 3. "telaf crash" -- killall deviceManager
+* 4. "watchdog bark" -- echo 'k' > /dev/watchdog0
+*/
 //--------------------------------------------------------------------------------------------------
-std::unordered_map<std::string, taf_hms_SubReason_t> BtReasonMap =
+taf_hms_Reset_t taf_Hms::ParseBootReason(const std::string& reasonStrRaw)
 {
-    {"normal", TAF_HMS_BOOTREASON_NORMAL},
-    {"recovery", TAF_HMS_BOOTREASON_RECOVERY},
-    {"bootloader", TAF_HMS_BOOTREASON_BOOTLOADER},
-    {"rtc", TAF_HMS_BOOTREASON_RTC},
-    {"dm-verity device corrupted", TAF_HMS_BOOTREASON_DMVERITY_DEV_CORRUPTED},
-    {"dm-verity enforcing", TAF_HMS_BOOTREASON_DMVERITY_ENFORCING},
-    {"keys clear", TAF_HMS_BOOTREASON_DMVERITY_KEYS_CLEAR},
-    {"panic", TAF_HMS_BOOTREASON_PANIC},
-    {"watchdog bark", TAF_HMS_BOOTREASON_WATCHDOG_BARK},
-    {"admin-trigger", TAF_HMS_BOOTREASON_ADMIN_TRIGGER},
-    {"user", TAF_HMS_BOOTREASON_USER},
-    {"unknown", TAF_HMS_BOOTREASON_UNKNOWN}
-};
+    std::string reasonStr = reasonStrRaw;
 
-std::string BootReasonToString(taf_hms_SubReason_t reason)
+    //Important: Convert the ''string' to lowercase for case-insensitive comparison.
+    //Please use lowercase when trying to add a new reason.
+    std::transform(reasonStr.begin(), reasonStr.end(), reasonStr.begin(), ::tolower);
+
+    LE_DEBUG("Reason string: %s\n", reasonStr.c_str());
+
+    if ((reasonStr.size() >= 5 &&
+             reasonStr.compare(reasonStr.size() - 5, 5, "crash") == 0) ||
+             reasonStr == "panic")
+    {
+        return TAF_HMS_RESET_CRASH;
+    }
+    else if ((reasonStr.size() >= 6 &&
+             reasonStr.compare(reasonStr.size() - 6, 6, "update") == 0) ||
+             reasonStr == "recovery")
+    {
+        return TAF_HMS_RESET_UPDATE;
+    }
+    else if (reasonStr.size() >= 9 &&
+             reasonStr.compare(reasonStr.size() - 9, 9, "corrupted") == 0)
+    {
+        return TAF_HMS_RESET_CORRUPTED;
+    }
+    else if (reasonStr.size() >= 11 &&
+             reasonStr.compare(reasonStr.size() - 11, 11, "auth failed") == 0)
+    {
+        return TAF_HMS_RESET_AUTH_FAILED;
+    }
+    else if (reasonStr == "user" ||
+             reasonStr == "bootloader" ||
+             reasonStr == "dm-verity enforcing" ||
+             reasonStr == "keys clear" ||
+             reasonStr == "system-normal")
+    {
+        return TAF_HMS_RESET_USER;
+    }
+    else if (reasonStr == "hardware switch" ||
+             reasonStr == "rtc" ||
+             reasonStr == "power down")
+    {
+        return TAF_HMS_RESET_HARD;
+    }
+    else if (reasonStr.size() >= 13 &&
+             reasonStr.compare(reasonStr.size() - 13, 13, "watchdog bark") == 0)
+    {
+        return TAF_HMS_RESET_WDOG;
+    }
+    else if (reasonStr == "critical temp")
+    {
+        return TAF_HMS_RESET_TEMP_CRIT;
+    }
+    else if (reasonStr == "critical voltage")
+    {
+        return TAF_HMS_RESET_VOLT_CRIT;
+    }
+    else if (reasonStr == "admin-trigger")
+    {
+        return TAF_HMS_RESET_ADMIN_TRIGGER;
+    }
+    else
+    {
+        return TAF_HMS_RESET_UNKNOWN;
+    }
+}
+
+std::string BootReasonToString(taf_hms_Reset_t reason)
 {
     switch (reason)
     {
-        case TAF_HMS_BOOTREASON_NORMAL:
-            return "Normal";
-        case TAF_HMS_BOOTREASON_RECOVERY:
-            return "Recovery";
-        case TAF_HMS_BOOTREASON_BOOTLOADER:
-            return "Bootloader";
-        case TAF_HMS_BOOTREASON_RTC:
-            return "RTC";
-        case TAF_HMS_BOOTREASON_DMVERITY_DEV_CORRUPTED:
-            return "DM-Verity Device Corrupted";
-        case TAF_HMS_BOOTREASON_DMVERITY_ENFORCING:
-            return "DM-Verity Enforcing";
-        case TAF_HMS_BOOTREASON_DMVERITY_KEYS_CLEAR:
-            return "Keys Clear";
-        case TAF_HMS_BOOTREASON_PANIC:
-            return "Panic";
-        case TAF_HMS_BOOTREASON_WATCHDOG_BARK:
-            return "Watchdog Bark";
-        case TAF_HMS_BOOTREASON_ADMIN_TRIGGER:
-            return "Admin Trigger";
-        case TAF_HMS_BOOTREASON_USER:
-            return "User";
-        case TAF_HMS_BOOTREASON_UNKNOWN:
+        case TAF_HMS_RESET_CRASH:
+            return "TAF_HMS_RESET_CRASH";
+
+        case TAF_HMS_RESET_UPDATE:
+            return "TAF_HMS_RESET_UPDATE";
+
+        case TAF_HMS_RESET_CORRUPTED:
+            return "TAF_HMS_RESET_CORRUPTED";
+
+        case TAF_HMS_RESET_AUTH_FAILED:
+            return "TAF_HMS_RESET_AUTH_FAILED";
+
+        case TAF_HMS_RESET_USER:
+            return "TAF_HMS_RESET_USER";
+
+        case TAF_HMS_RESET_HARD:
+            return "TAF_HMS_RESET_HARD";
+
+        case TAF_HMS_RESET_POWER_DOWN:
+            return "TAF_HMS_RESET_POWER_DOWN";
+
+        case TAF_HMS_RESET_WDOG:
+            return "TAF_HMS_RESET_WDOG";
+
+        case TAF_HMS_RESET_TEMP_CRIT:
+            return "TAF_HMS_RESET_TEMP_CRIT";
+
+        case TAF_HMS_RESET_VOLT_CRIT:
+            return "TAF_HMS_RESET_VOLT_CRIT";
+
+        case TAF_HMS_RESET_ADMIN_TRIGGER:
+            return "TAF_HMS_RESET_ADMIN_TRIGGER";
+
         default:
-            return "Unknown";
+            return "TAF_HMS_RESET_UNKNOWN";
     }
 }
 
@@ -1449,53 +1546,6 @@ le_result_t taf_Hms::ReadSubReason
 
 //--------------------------------------------------------------------------------------------------
 /**
- ** Reads the boot reason for a file.
- **
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_Hms::ReadReason
-(
-    const std::string& filePath,
-    taf_hms_SubReason_t* reason,
-    char* reasonStr,
-    size_t reasonSize
-)
-{
-    std::string tmpStr;
-    std::ifstream file(filePath);
-    if (!file.is_open())
-    {
-        LE_ERROR("Failed to open file: %s", filePath.c_str());
-        *reason = TAF_HMS_BOOTREASON_UNKNOWN;
-        return LE_NOT_FOUND;
-    }
-
-    std::getline(file, tmpStr);
-    file.close();
-    LE_DEBUG("Reboot reason string: %s",tmpStr.c_str());
-
-    auto it = BtReasonMap.find(tmpStr);
-    if (it != BtReasonMap.end())
-    {
-        *reason = it->second;
-    }
-    else
-    {
-        *reason = TAF_HMS_BOOTREASON_UNKNOWN;
-    }
-
-    if (*reason == TAF_HMS_BOOTREASON_ADMIN_TRIGGER)
-    {
-        return  ReadSubReason(TAF_HMS_BOOT_SUB_REASON_PATH, reasonStr, reasonSize);
-    }
-    else
-    {
-        return le_utf8_Copy(reasonStr, tmpStr.c_str(), reasonSize, NULL);
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Get the last reset information reason
  *
  * @return
@@ -1513,61 +1563,47 @@ le_result_t taf_Hms::GetResetInformation
 )
 {
     le_result_t res = LE_OK;
-    taf_hms_SubReason_t subReason = TAF_HMS_BOOTREASON_UNKNOWN;
-
-    if (resetSpecificInfoStrSize <= 0)
+    std::ifstream file(TAF_HMS_BOOT_REASON_PATH);
+    if (!file.is_open())
     {
-        LE_ERROR("resetSpecificInfoStrSize is not correct: %zu", resetSpecificInfoStrSize);
-        return LE_BAD_PARAMETER;
+        LE_ERROR("Failed to open %s", TAF_HMS_BOOT_REASON_PATH);
+        return LE_NOT_FOUND;
     }
-    res = ReadReason(TAF_HMS_BOOT_REASON_PATH, &subReason, resetSpecificInfoStrPtr,
-        resetSpecificInfoStrSize);
-    if (LE_OK != res)
+
+    std::string reasonStr;
+    std::getline(file, reasonStr);
+    file.close();
+
+    taf_hms_Reset_t reason = ParseBootReason(reasonStr);
+    if (reason == TAF_HMS_RESET_ADMIN_TRIGGER)
     {
+        char subReasonBuf[128] = {0};
+        res = ReadSubReason(TAF_HMS_BOOT_SUB_REASON_PATH, subReasonBuf, sizeof(subReasonBuf));
+        if (res != LE_OK)
+        {
+            //Can not read sub-reason, return upper reason later.
+            LE_ERROR("Failed to read sub-reason from %s", TAF_HMS_BOOT_SUB_REASON_PATH);
+        }
+        else
+        {
+            reasonStr = subReasonBuf;
+            reason = ParseBootReason(reasonStr);
+        }
+    }
+
+    res = le_utf8_Copy(resetSpecificInfoStrPtr, reasonStr.c_str(), resetSpecificInfoStrSize, NULL);
+    if (res != LE_OK)
+    {
+        LE_ERROR("Failed to copy reason string to buffer");
         return res;
     }
 
-    taf_hms_Reset_t reason = TAF_HMS_RESET_UNKNOWN;
-    switch(subReason)
-    {
-        case TAF_HMS_BOOTREASON_DMVERITY_DEV_CORRUPTED:
-        case TAF_HMS_BOOTREASON_DMVERITY_ENFORCING:
-        case TAF_HMS_BOOTREASON_DMVERITY_KEYS_CLEAR:
-        case TAF_HMS_BOOTREASON_PANIC:
-            reason = TAF_HMS_RESET_CRASH;
-            break;
+    LE_INFO("Reset info - type: %d - %s: %s",
+            reason, BootReasonToString(reason).c_str(), resetSpecificInfoStrPtr);
 
-        case TAF_HMS_BOOTREASON_WATCHDOG_BARK:
-            reason = TAF_HMS_RESET_WDOG;
-            break;
-
-        case TAF_HMS_BOOTREASON_RECOVERY:
-            reason = TAF_HMS_RESET_UPDATE;
-            break;
-
-        case TAF_HMS_BOOTREASON_RTC:
-        case TAF_HMS_BOOTREASON_BOOTLOADER:
-        case TAF_HMS_BOOTREASON_NORMAL:
-        case TAF_HMS_BOOTREASON_USER:
-            reason = TAF_HMS_RESET_USER;
-            break;
-
-        case TAF_HMS_BOOTREASON_ADMIN_TRIGGER:
-            reason = TAF_HMS_RESET_CRASH;
-            break;
-
-        case TAF_HMS_BOOTREASON_UNKNOWN:
-        default:
-            reason = TAF_HMS_RESET_UNKNOWN;
-            break;
-    }
-
-    LE_INFO("Reset info - type: %d, subType: %d, string: %s",
-                (int)reason, (int)subReason, resetSpecificInfoStrPtr);
     *resetPtr = reason;
     return LE_OK;
 }
-
 
 //--------------------------------------------------------------------------------------------------
 /**

@@ -211,6 +211,36 @@
  *
  * @section taf_hms_GetResetInformation Get (re)boot reason
  * The API of taf_hms_GetResetInformation() provides the (re)boot reason for this boot up.
+ * For each reset reason, an information string is provided to specify the reset cause. These
+ * strings are listed in the table below. This list may be partially supported by some platforms.
+ *
+ * | Reset type                | Reset reason               | Description                          |
+ * |:-------------------------:|:--------------------------:|:------------------------------------:|
+ * | TAF_HMS_RESET_UNKNOWN     | unknown                    | Unknow case                          |
+ * | TAF_HMS_RESET_CRASH       | panic                      | Kernel crash                         |
+ * | TAF_HMS_RESET_CRASH       | telaf crash                | TelAF crash                          |
+ * | TAF_HMS_RESET_CRASH       | ['xxx' crash]              | [Reserved: 'xxx' crash]              |
+ * | TAF_HMS_RESET_UPDATE      | recovery                   | System recovery                      |
+ * | TAF_HMS_RESET_UPDATE      | ['telaf' update]           | [Reserved: TelAF update]             |
+ * | TAF_HMS_RESET_UPDATE      | ['configuration' update]   | [Reserved: Configuration update]     |
+ * | TAF_HMS_RESET_UPDATE      | ['xxx' update]             | [Reserved: 'xxx' update]             |
+ * | TAF_HMS_RESET_CORRUPTED   | dm-verity device corrupted | dm-verity device was corrupted       |
+ * | TAF_HMS_RESET_CORRUPTED   | ['telaf image' corrupted]  | [Reserved: TelAF image was corrupted]|
+ * | TAF_HMS_RESET_CORRUPTED   | ['xxx image' corrupted]    | [Reserved: 'xxx' was corrupted]      |
+ * | TAF_HMS_RESET_AUTH_FAILED | ['telaf' auth failed]      | [Reserved: TelAF auth failed]        |
+ * | TAF_HMS_RESET_AUTH_FAILED | ['xxx' auth failed]        | [Reserved: 'xxx' auth failed]        |
+ * | TAF_HMS_RESET_USER        | user                       | Not defined user reboot              |
+ * | TAF_HMS_RESET_USER        | bootloader                 | reboot bootloader/fastboot continue  |
+ * | TAF_HMS_RESET_USER        | dm-verity enforcing        | dm-verity operation                  |
+ * | TAF_HMS_RESET_USER        | keys clear                 | dm-verity operation                  |
+ * | TAF_HMS_RESET_WDOG        | watchdog bark              | Watchdog bark                        |
+ * | TAF_HMS_RESET_WDOG        | ['xxx' watchdog bark]      | [Reserved: 'xxx' watchdog bark]      |
+ * | TAF_HMS_RESET_HARD        | rtc                        | RTC alarm boot                       |
+ * | TAF_HMS_RESET_HARD        | [Hardware switch]          | [Reserved: Hardware switch]          |
+ * | TAF_HMS_RESET_HARD        | [Power down]               | [Reserved: Power source unplugged]   |
+ * | TAF_HMS_RESET_TEMP_CRIT   | [Critical Temp]            | [Reserved: Critical voltage level]   |
+ * | TAF_HMS_RESET_VOLT_CRIT   | [Critical Voltage]         | [Reserved: Critical temperature LV]  |
+ *
  * @verbatim
    le_result_t result;
    taf_hms_Reset_t reset;
@@ -769,17 +799,19 @@ DEFINE MAX_RESET_LEN   = 50;
 //--------------------------------------------------------------------------------------------------
 ENUM Reset
 {
-    RESET_UNKNOWN,  ///< Unknown
-    RESET_USER,     ///< User request
-    RESET_HARD,     ///< Hardware switch
-    RESET_UPDATE,   ///< Software update
-    RESET_CRASH,    ///< Software crash
-    RESET_WDOG,     ///< Watchdog bark
-    POWER_DOWN,     ///< Power Down
-    VOLT_CRIT,      ///< Power Down due to a critical voltage level
-    TEMP_CRIT       ///< Power Down due to a critical temperature level
+    RESET_UNKNOWN = 0,     ///< Unknown
+    RESET_USER    = 1,     ///< User request
+    RESET_HARD    = 2,     ///< Hardware switch
+    RESET_UPDATE  = 3,     ///< Software update
+    RESET_CRASH   = 4,     ///< Software crash
+    RESET_WDOG    = 5,     ///< Watchdog bark
+    RESET_POWER_DOWN  = 6,     ///< Power Down
+    RESET_VOLT_CRIT   = 7,     ///< Power Down due to a critical voltage level
+    RESET_TEMP_CRIT   = 8,     ///< Power Down due to a critical temperature level
+    RESET_CORRUPTED   = 9,     ///< Image or binary was corrupted
+    RESET_AUTH_FAILED = 10,    ///< Image or binary was authentication failed
+    RESET_ADMIN_TRIGGER = 11   ///< Reserved for sub-reason
 };
-
 
 //--------------------------------------------------------------------------------------------------
 /**

@@ -6,28 +6,25 @@ provides:
         taf_imuSensor.api
     }
 }
+
 requires:
 {
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
-    }
-    lib:
-    {
-        lib/libtelux_sensor.so
+        $TELAF_PA_DEFAULT/component/taf_pa_sensorDef
+        // stub component only for build purpose
+        $LEGATO_BUILD/stub/component/taf_pa_sensor
     }
 }
+
 cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
-    -ltelux_sensor
-    -ltelux_common
+    -I$TELAF_PA_DEFAULT/include
 }
-cflags:
-{
-    -I$LEGATO_ROOT/components/watchdogChain
-}
+
 sources:
 {
     tafImuSensorImpl.cpp

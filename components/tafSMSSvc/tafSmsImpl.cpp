@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 The Linux Foundation. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted provided that the following conditions are
@@ -25,14 +25,14 @@
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 
 #include "legato.h"
 #include "interfaces.h"
@@ -1388,30 +1388,62 @@ le_result_t taf_Sms::SendPDUMessage
    std::vector<telux::tel::PduBuffer> rawPdus;
    rawPdus.emplace_back(buffer);
 
-   SendMessageSyncPromise = std::promise<telux::common::ErrorCode>();
+   auto promisePtr = std::make_shared<std::promise<le_result_t>>();
 
-   std::chrono::seconds span(timeout);
-   auto status = smsManager->sendRawSms(rawPdus,
-        tafSmsCallback::sendSmsResponse);
-   if(status != telux::common::Status::SUCCESS)
+   auto cb = [promisePtr](std::vector<int> msgIDs, telux::common::ErrorCode err)
+   {
+      try
+      {
+         if (err == telux::common::ErrorCode::SUCCESS)
+         {
+            LE_INFO("SMS sent successfully. Number of MsgIDs: %u", (unsigned int)msgIDs.size());
+            for (unsigned int i = 0; i < (unsigned int)msgIDs.size(); ++i)
+            {
+               LE_INFO("MsgID[%u]: %d", i, msgIDs[i]);
+            }
+            promisePtr->set_value(LE_OK);
+         }
+         else
+         {
+            LE_ERROR("Error Code: %s", getErrorCodeAsString(err).c_str());
+            promisePtr->set_value(LE_FAULT);
+         }
+      }
+      catch (const std::future_error& e)
+      {
+         LE_ERROR("Future error in callback: %s", e.what());
+      }
+      catch (const std::exception& e)
+      {
+         LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+         LE_ERROR("Unknown error in SMS callback.");
+      }
+   };
+
+   auto status = smsManager->sendRawSms(rawPdus, cb);
+   if (status != telux::common::Status::SUCCESS)
    {
       LE_INFO("SMS was not sent, a failure occured");
       return LE_FAULT;
    }
 
-   std::future<telux::common::ErrorCode> futResult =
-      SendMessageSyncPromise.get_future();
+   LE_INFO("Waiting for SMS response or timeout...");
+   std::future<le_result_t> futResult = promisePtr->get_future();
+   std::chrono::seconds span(timeout);
    std::future_status waitStatus = futResult.wait_for(span);
-   if (std::future_status::timeout == waitStatus)
+   if (waitStatus == std::future_status::timeout)
    {
-      LE_ERROR("waiting promise timeout for %d seconds", timeout);
+      LE_ERROR("SMS send timed out after %u seconds", timeout);
       return LE_TIMEOUT;
    }
-   telux::common::ErrorCode res = futResult.get();
-   if(res != telux::common::ErrorCode::SUCCESS)
+
+   le_result_t res = futResult.get();
+   if (res != LE_OK)
    {
-      LE_INFO("SMS was NOT sent successfully, Error: %s",
-         getErrorCodeAsString(res).c_str());
+      LE_INFO("SMS sending failed");
       return LE_FAULT;
    }
 
@@ -1829,22 +1861,6 @@ void tafSetSmscAddressResponseCallback::setSmscResponse(telux::common::ErrorCode
       LE_INFO("setSmscAddress failed with errorCode: %d\n", static_cast<int>(error));
       sms.SmsCenterSyncPromise.set_value(LE_FAULT);
    }
-}
-
-// Implementation of set SMS Command callback
-void tafSmsCallback::sendSmsResponse(std::vector<int> msgRefs,
-            telux::common::ErrorCode error)
-{
-   auto &sms = taf_Sms::GetInstance();
-   if(error == telux::common::ErrorCode::SUCCESS)
-   {
-      LE_INFO("MsgRefs Size: %" PRIuS, msgRefs.size());
-      for (int ref: msgRefs)
-      {
-         LE_INFO("MsgRef : %d", ref);
-      }
-   }
-   sms.SendMessageSyncPromise.set_value(error);
 }
 
 // Implementation of set SMS cellbroadcast activate status callback

@@ -263,12 +263,6 @@
  * being used by the GNSS standard position engine (SPE).
  * @verbatim
    taf_locGnss_ConstellationBitMask_t constellationMask;
-   constellationMask = TAF_LOCGNSS_CONSTELLATION_GPS;
-   if(taf_locGnss_SetConstellation(constellationMask)== LE_FAULT)
-   {
-     // Process after successfully blacklisting GPS constellation.
-   }
-
    constellationMask = TAF_LOCGNSS_CONSTELLATION_SBAS | taf_locGnss_CONSTELLATION_BEIDOU;
    if(taf_locGnss_SetConstellation(constellationMask)== LE_OK)
    {
@@ -1811,6 +1805,8 @@ FUNCTION le_result_t Stop
  *  - LE_FAULT         Failed.
  *  - LE_NOT_PERMITTED The Location service state is not ready or active.
  *  - LE_OK            Succeeded.
+ *
+ * @b WARNING: Primary constellations GPS or BEIDOU can not be blacklisted.
  *
  * @b WARNING: Some constellation types are unsupported depending on the platform.
  *

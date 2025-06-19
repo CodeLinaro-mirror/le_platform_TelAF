@@ -777,6 +777,7 @@ taf_therm_ThermalZoneRef_t taf_Therm::GetThermalZoneByName(const char *thermalZo
         boundCoolingDevicePtr->coolingDeviceId = boundCoolingDevice[t].coolingDeviceId;
         std::vector<std::shared_ptr<telux::therm::ITripPoint>> cDevBinding =
             boundCoolingDevice[t].bindingInfo;
+        boundCoolingDevicePtr->tripPointListSize = cDevBinding.size();
         for (size_t idx = 0; idx < cDevBinding.size(); idx++)
         {
             bindingPtr = (taf_TripPoint_t*)le_mem_ForceAlloc(tafTherm.boundTripPointCDPool);

@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "tafSecurityAccess.hpp"
@@ -208,8 +208,8 @@ void TryToCreateStorageFromTree(AO_SecurityAccess_t *self)
     }
     else /* no existing */
     {
-        SecuritySession_t * sess;
-        SecurityLevel_t * level;
+        SecuritySession_t *sess = NULL;
+        SecurityLevel_t *level = NULL;
 
         memset(nodePath, 0, sizeof(nodePath));
 
@@ -372,8 +372,8 @@ static void LoadAttCntAndDelayTimer(AO_SecurityAccess_t * self, MEvent_t const *
 
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn(CFG_SECURITY_ACCESS_TREE);
 
-    SecuritySession_t * sess;
-    SecurityLevel_t * level;
+    SecuritySession_t *sess = NULL;
+    SecurityLevel_t *level = NULL;
     char nodePath[CFG_NODE_PATH_LEN] = {0};
 
     LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
@@ -406,8 +406,8 @@ static bool PreConditionIsNotFulfilled(AO_SecurityAccess_t * self, MEvent_t cons
         return true;
     }
 
-    SecuritySession_t * sess;
-    SecurityLevel_t * level;
+    SecuritySession_t *sess = NULL;
+    SecurityLevel_t *level = NULL;
 
     bool found = false;
     LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
@@ -458,8 +458,8 @@ static bool MsgLengthIsNok(AO_SecurityAccess_t * self, MEvent_t const *ev, SecAc
             uint8_t current_session_id = CURRENT_SESSION_ID(ev);
             uint8_t sub_function = EVENT(ev)->report->mgr->recvBuf[1] & 0x7F;
 
-            SecuritySession_t * sess;
-            SecurityLevel_t * level;
+            SecuritySession_t *sess = NULL;
+            SecurityLevel_t *level = NULL;
 
             LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
             {
@@ -529,8 +529,8 @@ static bool DelayTimerIsNotExpired(AO_SecurityAccess_t * self, MEvent_t const *e
 
     /* When the device reboot, the timer should be recovered based on Att_Cnt == Att_Cnt_Limit */
 
-    SecuritySession_t * sess;
-    SecurityLevel_t * level;
+    SecuritySession_t *sess = NULL;
+    SecurityLevel_t *level = NULL;
 
     LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
     {
@@ -568,8 +568,8 @@ static void ActivateSubfunction(AO_SecurityAccess_t * self, MEvent_t const *ev)
     uint8_t sub_function = EVENT(ev)->report->mgr->recvBuf[1] & 0x7F;
     uint32_t current_session_id = CURRENT_SESSION_ID(ev);
 
-    SecuritySession_t * sess;
-    SecurityLevel_t * level;
+    SecuritySession_t *sess = NULL;
+    SecurityLevel_t *level = NULL;
 
     LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
     {
@@ -634,7 +634,7 @@ static bool RequestedSubFunctionIsStaticSeed(AO_SecurityAccess_t * self, MEvent_
         sub_function = (evp->report->mgr->recvBuf[1] & 0x7F) - 1;
     }
 
-    SecurityLevel_t * level;
+    SecurityLevel_t *level = NULL;
     LE_SLS_FOREACH(&self->current_session->level_list, level, SecurityLevel_t, link)
     {
         LE_ASSERT(level != NULL);
@@ -705,7 +705,7 @@ static void SwitchSessionBasedOnEvent(AO_SecurityAccess_t * self, MEvent_t const
 
         LE_INFO("current session id: %d", CURRENT_SESSION_ID(ev));
 
-        SecuritySession_t * sess;
+        SecuritySession_t *sess = NULL;
         LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
         {
             LE_ASSERT(sess != NULL);
@@ -759,7 +759,7 @@ static void SwitchSessionAfterDelayTimerTimeout(AO_SecurityAccess_t * self)
     else {
         self->current_session = NULL;
 
-        SecuritySession_t * sess;
+        SecuritySession_t *sess = NULL;
         LE_SLS_FOREACH(&self->session_list, sess, SecuritySession_t, link)
         {
             LE_ASSERT(sess != NULL);

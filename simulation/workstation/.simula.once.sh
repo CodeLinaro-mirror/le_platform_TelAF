@@ -7,6 +7,8 @@ MNGD_CONN_SVC_JSON=/legato/taf_rootfs/mngdConnectivity.json
 if [ -e "$MNGD_CONN_SVC_JSON"  ]; then
     # Not overwrite the file that already exists.
     cp -n $MNGD_CONN_SVC_JSON /data/ManagedServices/
+    # Set read and write permission
+    chmod 666 /data/ManagedServices/mngdConnectivity.json
 fi
 
 # Try to export all environment variables for Common API

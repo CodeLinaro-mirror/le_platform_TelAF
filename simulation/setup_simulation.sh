@@ -89,6 +89,8 @@ try_create_dir "simulation_env/legato/3rdParty"
 try_create_dir "simulation_env/legato/3rdParty/Kconfiglib"
 try_create_dir "simulation_env/legato/3rdParty/jansson"
 try_create_dir "simulation_env/sdk"
+try_create_dir "simulation_env/telaf-pa"
+try_create_dir "simulation_env/telaf-pa-default"
 
 remote_server=
 

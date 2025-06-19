@@ -31,10 +31,12 @@ list list-info:
 	@echo "sdk:" && cd sdk && git log --oneline -3
 	@echo "jansson:" && cd legato/3rdParty/jansson && git log --oneline -1
 	@echo "Kconfiglib:" && cd legato/3rdParty/Kconfiglib && git log --oneline -1
+	@echo "telaf-pa:" && cd telaf-pa && git log --oneline -1
+	@echo "telaf-pa-default:" && cd telaf-pa-default && git log --oneline -1
 
 # --- Updating ---
 
-update-all: update-telaf update-legato update-sdk update-jansson update-kconfiglib
+update-all: update-telaf update-legato update-sdk update-jansson update-kconfiglib update-telaf-pa update-telaf-pa-default
 
 PY = python3
 PYTHON_OK := $(shell $(PY) -c 'import sys; print(1) if sys.version_info >= (3, 6) else print(0)')
@@ -62,9 +64,17 @@ update-kconfiglib: legato/3rdParty/Kconfiglib/.git
 	@echo "[$@] <--"
 	@python3 helpme_setup.py --update legato/3rdParty/Kconfiglib
 
+update-telaf-pa: telaf-pa/.git
+	@echo "[$@] <--"
+	@python3 helpme_setup.py --update telaf-pa
+
+update-telaf-pa-default: telaf-pa-default/.git
+	@echo "[$@] <--"
+	@python3 helpme_setup.py --update telaf-pa-default
+
 # --- Patching ---
 
-patch-all: patch-telaf patch-legato patch-sdk patch-jansson patch-kconfiglib
+patch-all: patch-telaf patch-legato patch-sdk patch-jansson patch-kconfiglib patch-telaf-pa patch-telaf-pa-default
 
 patch-telaf: telaf/.git
 	@echo "[$@] <--"
@@ -85,6 +95,15 @@ patch-jansson: legato/3rdParty/jansson/.git
 patch-kconfiglib: legato/3rdParty/Kconfiglib/.git
 	@echo "[$@] <--"
 	@python3 helpme_setup.py --patch legato/3rdParty/Kconfiglib
+
+patch-telaf-pa: telaf-pa/.git
+	@echo "[$@] <--"
+	@python3 helpme_setup.py --patch telaf-pa
+
+patch-telaf-pa-default: telaf-pa-default/.git
+	@echo "[$@] <--"
+	@python3 helpme_setup.py --patch telaf-pa-default
+
 
 DOCKER_HUB ?=
 

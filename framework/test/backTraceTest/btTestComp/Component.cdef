@@ -1,0 +1,9 @@
+sources:
+{
+    btTest.c
+}
+
+cflags:
+{
+    -fno-optimize-sibling-calls
+}

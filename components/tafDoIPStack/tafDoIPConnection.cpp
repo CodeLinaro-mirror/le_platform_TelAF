@@ -545,8 +545,8 @@ taf_doip_Result_t Connection::CheckDoipHeader
     {
         // [DoIP-043] NACK code set to 0x02 if the payload length exceeds
         // the maximum DoIP message size.
-        LE_ERROR("DoIP message is too large! payload len is %d, mds is %d\n",
-            header.payloadLen, mds);
+        LE_ERROR("DoIP message is too large! payload len is %d, mds is %d, header is %d\n",
+            header.payloadLen, mds, TAF_DOIP_HEADER_GENERIC_LENGTH);
         nackCode = TAF_DOIP_HEADER_NACK_MESSAGE_TOO_LARGE;
         goto errOut;
     }
@@ -1425,30 +1425,28 @@ void Connection::ReadAndDiscardMsg
     size_t len
 )
 {
-    LE_DEBUG("ReadAndDiscardMsg");
-
+    le_result_t ret;
     size_t receivedLen;
-    size_t bufPos = 0;
 
     if (len == 0)
     {
         return;
     }
 
-    // Local buffer.
-    char buff[len] = {0};
+    char buf[TAF_DOIP_MAX_BUFFER_SIZE] ={0};
 
     do
     {
-        receivedLen = len;
-        le_result_t ret = le_socket_Read(cliSockRef, buff + bufPos, &receivedLen);
+        (len > TAF_DOIP_MAX_BUFFER_SIZE) ? receivedLen = TAF_DOIP_MAX_BUFFER_SIZE : receivedLen =
+                len;
+
+        ret = le_socket_Read(cliSockRef, buf, &receivedLen);
         if (LE_OK != ret)
         {
             LE_ERROR("Failed to receive data from socket. Error code is %d\n", ret);
             break;
         }
 
-        bufPos += receivedLen;
         len -= receivedLen;
     } while (len > 0);
 

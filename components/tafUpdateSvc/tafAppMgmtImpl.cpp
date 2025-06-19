@@ -1344,6 +1344,7 @@ void taf_AppMgmt::Init
 
     // 8. Create probation timer.
     prbtTimerRef = le_timer_Create("App Probation Timer");
+    le_timer_SetWakeup(prbtTimerRef, false);    // Disable wakeup
     le_timer_SetMsInterval(prbtTimerRef, 1000);
     le_timer_SetHandler(prbtTimerRef, ProbationTimerHandler);
 

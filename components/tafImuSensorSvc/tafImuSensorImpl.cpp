@@ -549,9 +549,75 @@ le_result_t taf_Sensor::Activate(taf_imuSensor_SensorRef_t sensorRef,double samp
     return LE_OK;
 }
 
+le_result_t taf_Sensor::MapErrorCode(telux::common::ErrorCode errorCode)
+{
+    switch(errorCode)
+    {
+        case telux::common::ErrorCode::SUCCESS:
+            LE_INFO("Operation processed successfully");
+            return LE_OK;
+        case telux::common::ErrorCode::GENERIC_FAILURE:
+            LE_ERROR("Operation processing failed");
+            return LE_FAULT;
+        case telux::common::ErrorCode::INVALID_ARGUMENTS:
+            LE_ERROR("Input parameters are invalid");
+            return LE_BAD_PARAMETER;
+        case telux::common::ErrorCode::OPERATION_NOT_ALLOWED:
+            LE_ERROR("Operation not allowed");
+            return LE_NOT_PERMITTED;
+        case telux::common::ErrorCode::TIMEOUT_ERROR:
+            LE_ERROR("TimeOut Error");
+            return LE_TIMEOUT;
+        case telux::common::ErrorCode::INFO_UNAVAILABLE:
+            LE_ERROR("Information not available");
+            return LE_UNAVAILABLE;
+        case telux::common::ErrorCode::SUBSYSTEM_UNAVAILABLE:
+            LE_ERROR("Subsystem Not Available");
+            return LE_UNAVAILABLE;
+        case telux::common::ErrorCode::REQUEST_NOT_SUPPORTED:
+            LE_ERROR("Request Not supported");
+            return LE_UNSUPPORTED;
+        default:
+           return LE_FAULT;
+    }
+}
+
+le_result_t taf_Sensor::MapStatus(telux::common::Status status){
+    switch(status)
+    {
+        case telux::common::Status::SUCCESS:
+            LE_INFO("Operation processed successfully");
+            return LE_OK;
+        case telux::common::Status::FAILED:
+            LE_ERROR("Operation processing failed");
+            return LE_FAULT;
+        case telux::common::Status::INVALIDPARAM:
+            LE_ERROR("Input parameters are invalid");
+            return LE_BAD_PARAMETER;
+        case telux::common::Status::NOTALLOWED:
+            LE_ERROR("Operation not allowed");
+            return LE_NOT_PERMITTED;
+        case telux::common::Status::NOTIMPLEMENTED:
+            LE_ERROR("Feature not supported");
+            return LE_NOT_IMPLEMENTED ;
+        case telux::common::Status::CONNECTIONLOST:
+            LE_ERROR("Connection to Socket server lost");
+            return LE_NOT_FOUND;
+        case telux::common::Status::EXPIRED:
+            LE_ERROR("Operation has expired");
+            return LE_TERMINATED;
+        case telux::common::Status::NOTSUPPORTED:
+            LE_ERROR("Not supported on target platform");
+            return LE_UNSUPPORTED;
+        default:
+           return LE_FAULT;
+    }
+}
+
 le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
     taf_imuSensor_SelfTestMode_t mode,uint64_t* timestamp){
     LE_DEBUG("Self Test");
+    auto& sensorMngr = taf_Sensor::GetInstance();
     taf_SensorClient_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
     TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr,LE_FAULT, "clientRequestPtr is NULL");
@@ -567,14 +633,11 @@ le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
     else if(mode == TAF_IMUSENSOR_NEGATIVE){
         type  = SelfTestType::NEGATIVE;
     }
-    else if(mode == TAF_IMUSENSOR_BOTH){
+    else{
         type = SelfTestType::ALL;
     }
-    else{
-        return LE_FAULT;
-    }
     std::promise<le_result_t> p1;
-    auto cb1 = [&p1,&timestamp](telux::common::ErrorCode error,
+    auto cb1 = [&p1,&timestamp,&sensorMngr](telux::common::ErrorCode error,
         SelfTestResultParams selfTestResultParams) {
         if(error == telux::common::ErrorCode::SUCCESS) {
             *timestamp = selfTestResultParams.timestamp_;
@@ -585,11 +648,9 @@ le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
                 p1.set_value(LE_BUSY);
             }
         }
-        else if (error == telux::common::ErrorCode::INFO_UNAVAILABLE){
-            p1.set_value(LE_UNAVAILABLE);
-        }
-        else {
-            p1.set_value(LE_FAULT);
+        else{
+            le_result_t err = sensorMngr.MapErrorCode(error);
+            p1.set_value(err);
         }
     };
     for(std::shared_ptr<taf_sensorClientInfo_t> clientInfoPtr: clientRequestPtr->clients){
@@ -609,14 +670,10 @@ le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
                     LE_ERROR("Timeout waiting for result..");
                     return LE_TIMEOUT;
                 }
-            }
-            else if(status == telux::common::Status::NOTSUPPORTED){
-                LE_ERROR("Not supported on this target");
-                return  LE_UNSUPPORTED;
+
             }
             else{
-                LE_ERROR("unable to start self test");
-                return LE_FAULT;
+                return MapStatus(status);
             }
         }
     }
@@ -831,8 +888,16 @@ le_result_t taf_Sensor::GetData( taf_imuSensor_SampleRef_t eventList,taf_imuSens
     LE_DEBUG("GetData of list with ref %p",eventList);
     taf_SensorEventInfo_t* ptr =
     (taf_SensorEventInfo_t*)le_ref_Lookup(tSensorEventMap,eventList);
-    TAF_ERROR_IF_RET_VAL(ptr == NULL, LE_NOT_FOUND,
+    TAF_ERROR_IF_RET_VAL(ptr == NULL || ptr->eventPtr == NULL, LE_NOT_FOUND,
         "Invalid reference (%p) provided!", ptr);
+    if(*RawDataSizePtr < ptr->eventPtr->listSize || *BiasDataSizePtr < ptr->eventPtr->listSize){
+        LE_ERROR("Output array size is less then total no of events");
+        return LE_BAD_PARAMETER;
+    }
+    if(*RawDataSizePtr != *BiasDataSizePtr){
+        LE_ERROR("Bias Size ptr not same as raw size ptr.");
+        return LE_BAD_PARAMETER;
+    }
     size_t j = 0;
     for(uint32_t i=0;i<ptr->eventPtr->eventList.size();i++){
         RawData[j].timestamp = ptr->eventPtr->eventList[i]->timestamp;

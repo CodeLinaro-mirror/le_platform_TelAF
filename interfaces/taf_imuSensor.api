@@ -543,9 +543,12 @@ FUNCTION le_result_t Deactivate
  *
  * @instaging
  * @return
- * - LE_NOT_SUPPORTED Not supported on target platform.
- * - LE_UNAVAILABLE   Previous self test info not available.
+ * - LE_NOT_SUPPORTED Self test not supported by sensor.
+ * - LE_UNAVAILABLE   Current self test request can not be performed and
+                      the previous test result is not available.
  * - LE_BUSY          Cannot initiate self test as sensor busy.
+ * - LE_TIMEOUT       Timeout while waiting for result.
+ * - LE_BAD_PARAMETER Self test mode not supported.
  * - LE_FAULT         Self test failed.
  * - LE_OK            Self test passed.
  */

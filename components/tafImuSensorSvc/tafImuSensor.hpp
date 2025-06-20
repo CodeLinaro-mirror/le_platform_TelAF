@@ -177,6 +177,8 @@ namespace tafsvc {
             ,taf_imuSensor_DataValue_t*,size_t*);
             taf_imuSensor_SensorListRef_t GetAvailableSensors();
             le_result_t DeleteData(taf_imuSensor_SampleRef_t);
+            le_result_t MapStatus(telux::common::Status status);
+            le_result_t MapErrorCode(telux::common::ErrorCode errorCode);
             static void DataEventHandler(void* reportPtr);
 
         private:

@@ -1181,10 +1181,10 @@ bool UdsCommunicationMgr::IsAuthReqLenCorrect
         case AUTH_SUBFUNC_VERIFY_CERT_BIDIR:
 
             //Minimum length check
-            if(recvDataLen <= UDS_AUTH_VERIFY_CERT_BIDIR_MIN_LEN)// Must be more than 9 bytes
+            if(recvDataLen < UDS_AUTH_VERIFY_CERT_BIDIR_MIN_LEN)// Must be more than 8 bytes
             {
                 LE_WARN("Received data length is less than %d bytes",
-                        UDS_AUTH_VERIFY_CERT_BIDIR_MIN_LEN+1);
+                        UDS_AUTH_VERIFY_CERT_BIDIR_MIN_LEN);
                 return false;
             }
 
@@ -2411,12 +2411,12 @@ le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
 
     /*
     — General server response behaviour for request messages with SubFunction parameter check
-      from step 1 to step 4.
+      from step 1 to step 6.
     */
-    // Step 1: Subfunction minimum length check. UDS_0x10_NRC_13
-    if(recvDataLen != UDS_SESSION_CTRL_REQ_MIN_LEN)
+    // Step 1: Minimum length check. UDS_0x10_NRC_13
+    if(recvDataLen < UDS_SESSION_CTRL_REQ_MIN_LEN)
     {
-        LE_WARN("recvDataLen is not correct for service ID: 0x%x.", sid);
+        LE_WARN("Received length is less than the minimum length for service ID: 0x%x.", sid);
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
     }
@@ -2432,7 +2432,15 @@ le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
     }
 
-    // Step 3: Subfunction Authentication check. UDS_0x10_NRC_34
+    // Step 3: Mandatory length check. UDS_0x10_NRC_13
+    if(recvDataLen != UDS_SESSION_CTRL_REQ_EXACT_LEN)
+    {
+        LE_WARN("Received length is not equal to the mandatory length for service ID: 0x%x.", sid);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
+    }
+
+    // Step 4: Subfunction Authentication check. UDS_0x10_NRC_34
     if(!IsSubFuncAuthCheckOK(sid, subFunc))
     {
         LE_WARN("Authentication check failed for subfunction: 0x%x", subFunc);
@@ -2440,7 +2448,7 @@ le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr); // NRC 0x34
     }
 
-    // Step 4: Subfunction supported in active session check. UDS_0x10_NRC_7E
+    // Step 5: Subfunction supported in active session check. UDS_0x10_NRC_7E
     if(!IsSubFuncSessTypeValid(sid, subFunc))
     {
         LE_WARN("Current session type does not support subfunction: 0x%x", subFunc);
@@ -2448,7 +2456,7 @@ le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr); // NRC 0x7E
     }
 
-    //  Step 5: Subfunction security access check. UDS_0x10_NRC_33
+    //  Step 6: Subfunction security access check. UDS_0x10_NRC_33
     if (!IsSubFuncSecAccessMatched(sid, subFunc))
     {
         LE_WARN("Subfunction is secured and the server is not unlocked for subfunction: 0x%x",
@@ -2494,12 +2502,12 @@ le_result_t UdsCommunicationMgr::IndicateECUResetReq
 
     /*
     — General server response behaviour for request messages with SubFunction parameter check
-      from step 1 to step 4.
+      from step 1 to step 6.
     */
-    // Step 1: Subfunction minimum length check. UDS_0x11_NRC_13
-    if(recvDataLen != UDS_ECU_RESET_REQ_MIN_LEN)
+    // Step 1: Minimum length check. UDS_0x11_NRC_13
+    if(recvDataLen < UDS_ECU_RESET_REQ_MIN_LEN)
     {
-        LE_WARN("recvDataLen is not correct for service ID: 0x%x.", sid);
+        LE_WARN("Received length is less than the minimum length for service ID: 0x%x.", sid);
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
     }
@@ -2515,7 +2523,15 @@ le_result_t UdsCommunicationMgr::IndicateECUResetReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
     }
 
-    // Step 3: Subfunction Authentication check. UDS_0x11_NRC_34
+    // Step 3: Mandatory length check. UDS_0x11_NRC_13
+    if(recvDataLen != UDS_ECU_RESET_REQ_EXACT_LEN)
+    {
+        LE_WARN("Received length is not equal to the mandatory length for service ID: 0x%x.", sid);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
+    }
+
+    // Step 4: Subfunction Authentication check. UDS_0x11_NRC_34
     if(!IsSubFuncAuthCheckOK(sid, subFunc))
     {
         LE_WARN("Authentication check failed for subfunction: 0x%x", subFunc);
@@ -2523,7 +2539,7 @@ le_result_t UdsCommunicationMgr::IndicateECUResetReq
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr); // NRC 0x34
     }
 
-    // Step 4: Subfunction supported in active session check. UDS_0x11_NRC_7E
+    // Step 5: Subfunction supported in active session check. UDS_0x11_NRC_7E
     if(!IsSubFuncSessTypeValid(sid, subFunc))
     {
         LE_WARN("Current session type does not support subfunction: 0x%x", subFunc);
@@ -2531,7 +2547,7 @@ le_result_t UdsCommunicationMgr::IndicateECUResetReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr); // NRC 0x7E
     }
 
-    //  Step 5: Subfunction security access check. UDS_0x11_NRC_33
+    //  Step 6: Subfunction security access check. UDS_0x11_NRC_33
     if (!IsSubFuncSecAccessMatched(sid, subFunc))
     {
         LE_WARN("Subfunction is secured and the server is not unlocked for subfunction: 0x%x",
@@ -2561,34 +2577,17 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
 
     /*
     — General server response behaviour for request messages with SubFunction parameter check
-      from step 1 to step 4.
+      from step 1 to step 5.
     */
-    // Step 1.1: Request msg minimum length check. UDS_0x27_NRC_13
+    // Step 1: Request msg minimum length check. UDS_0x27_NRC_13
     if(recvDataLen < UDS_SECURITY_ACCESS_REQ_MIN_LEN)
     {
-        LE_WARN("recvDataLen is not correct for service ID: 0x%x.", sid);
+        LE_WARN("Received length is less than the minimum length for service ID: 0x%x.", sid);
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
     }
 
     uint8_t subFunction = recvBuf[1] & 0x7f;
-
-    // Step 1.2: Request seed subfunction msg minimum length check. UDS_0x27_NRC_13
-    if((subFunction % 2 == 1 ) && (recvDataLen < UDS_SECURITY_ACCESS_REQ_SEED_MIN_LEN))
-    {
-        LE_WARN("recvDataLen is not correct for subfunction: 0x%x.", subFunction);
-        *isInternalHandle = true;
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
-    }
-
-    // Step 1.3: Request Key subfunction msg minimum length check. UDS_0x27_NRC_13
-    if((subFunction % 2 == 0 ) && (recvDataLen < UDS_SECURITY_ACCESS_REQ_KEY_MIN_LEN))
-    {
-        LE_WARN("recvDataLen is not correct for subfunction: 0x%x.", subFunction);
-        *isInternalHandle = true;
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
-    }
-
     // Step 2: Subfunction supported check. UDS_0x27_NRC_12
     if(!IsSubFuncSupported(sid, subFunction))
     {
@@ -2597,7 +2596,23 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
     }
 
-    // Step 3: Subfunction Authentication check. UDS_0x27_NRC_34
+    // Step 3.1: Request seed subfunction msg minimum length check. UDS_0x27_NRC_13
+    if((subFunction % 2 == 1 ) && (recvDataLen < UDS_SECURITY_ACCESS_REQ_SEED_MIN_LEN))
+    {
+        LE_WARN("Received length is less than the mandatory length for subfunc: 0x%x", subFunction);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
+    }
+
+    // Step 3.2: Request Key subfunction msg minimum length check. UDS_0x27_NRC_13
+    if((subFunction % 2 == 0 ) && (recvDataLen < UDS_SECURITY_ACCESS_REQ_KEY_MIN_LEN))
+    {
+        LE_WARN("Received length is less than the mandatory length for subfunc: 0x%x", subFunction);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
+    }
+
+    // Step 4: Subfunction Authentication check. UDS_0x27_NRC_34
     if(!IsSubFuncAuthCheckOK(sid, subFunction))
     {
         LE_WARN("Authentication check failed for subfunction: 0x%x", subFunction);
@@ -2605,14 +2620,13 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr); // NRC 0x34
     }
 
-    // Step 4: Subfunction supported in active session check. UDS_0x27_NRC_7E
+    // Step 5: Subfunction supported in active session check. UDS_0x27_NRC_7E
     if(!IsSubFuncSessTypeValid(sid, subFunction))
     {
         LE_WARN("Current session type does not support subfunction: 0x%x",subFunction);
         *isInternalHandle = true;
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr); // NRC 0x7E
     }
-
 
     le_sem_Ref_t SecAccSem = le_sem_Create("sync", 0);
 
@@ -3771,15 +3785,24 @@ le_result_t UdsCommunicationMgr::IndicateReadDTCInfoReq
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
-    // Check negative err code for minimum request msg length
+    // Step 1 : Check negative err code for minimum request msg length
     if(recvDataLen < UDS_READ_DTC_INFO_REQ_MIN_LEN)
     {
-        LE_WARN("recvDataLen is less than the ReadDTC request msg minimum length.");
+        LE_WARN("Received length is less than the minimum length for service ID: 0x%x.", sid);
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     uint8_t subFunc = recvBuf[1] & 0x7F;
+    // Step 2: Subfunction supported check. UDS_0x19_NRC_12
+    if(!IsSubFuncSupported(sid, subFunc))
+    {
+        LE_WARN("Requested subfunction type is not supported/configured: 0x%x", subFunc);
+        *isInternalHandle = true;
+        return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
+    }
+
+    // Step 3: Mandatory length check. UDS_0x19_NRC_13
     bool isReqLenCorrect = true;
     switch (subFunc)
     {
@@ -3921,23 +3944,14 @@ le_result_t UdsCommunicationMgr::IndicateReadDTCInfoReq
 
     }
 
-    // Step 1: Subfunction minimum length check. UDS_0x19_NRC_13
     if(!isReqLenCorrect)
     {
-        LE_WARN("recvDataLen of readDTC subFunction 0x%x is not correct.", subFunc);
+        LE_WARN("Received length is not equal to the mandatory length for subfunc: 0x%x.", subFunc);
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
-    // Step 2: Subfunction supported check. UDS_0x19_NRC_12
-    if(!IsSubFuncSupported(sid, subFunc))
-    {
-        LE_WARN("Requested subfunction type is not supported/configured: 0x%x", subFunc);
-        *isInternalHandle = true;
-        return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
-    }
-
-    // Step 3: Subfunction Authentication check. UDS_0x19_NRC_34
+    // Step 4: Subfunction Authentication check. UDS_0x19_NRC_34
     if(!IsSubFuncAuthCheckOK(sid, subFunc))
     {
         LE_WARN("Authentication check failed for subfunction: 0x%x", subFunc);
@@ -3945,7 +3959,7 @@ le_result_t UdsCommunicationMgr::IndicateReadDTCInfoReq
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr); // NRC 0x34
     }
 
-    // Step 4: Subfunction supported in active session check. UDS_0x19_NRC_7E
+    // Step 5: Subfunction supported in active session check. UDS_0x19_NRC_7E
     if(!IsSubFuncSessTypeValid(sid, subFunc))
     {
         LE_WARN("Current session type does not support subfunction: 0x%x", subFunc);
@@ -3953,7 +3967,7 @@ le_result_t UdsCommunicationMgr::IndicateReadDTCInfoReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr); // NRC 0x7E
     }
 
-    //  Step 5: Subfunction security access check. UDS_0x19_NRC_33
+    //  Step 6: Subfunction security access check. UDS_0x19_NRC_33
     if (!IsSubFuncSecAccessMatched(sid, subFunc))
     {
         LE_WARN("Subfunction is secured and the server is not unlocked for subfunction: 0x%x",

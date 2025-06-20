@@ -52,11 +52,13 @@ namespace uds{
 
     // Session control service (0x10)
     #define UDS_SESSION_CTRL_REQ_MIN_LEN 2
+    #define UDS_SESSION_CTRL_REQ_EXACT_LEN 2
     #define UDS_SESSION_CTRL_RESP_LEN 6
     #define UDS_SESSION_CHANGE_DATA_SIZE 3
 
     // ECUReset service (0x11)
     #define UDS_ECU_RESET_REQ_MIN_LEN 2
+    #define UDS_ECU_RESET_REQ_EXACT_LEN 2
     #define UDS_ECU_RESET_RESP_BASE_LEN 2
     #define HARD_RESET 1
 

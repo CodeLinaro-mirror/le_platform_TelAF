@@ -578,40 +578,6 @@ le_result_t taf_mngdPm_RelaxNode(taf_mngdPm_wsRef_t wsRef)
 }
 
 /**
- * Local api which Keeps the system awake by acquiring wake lock for the given reference.
- */
-le_result_t AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr)
-{
-    LE_INFO("AcquireWakeSource");
-    auto &mpms = tafMngdPMSvc::GetInstance();
-    le_result_t res = LE_FAULT;
-    res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_WAKING_UP);
-    if(res != LE_OK)
-    {
-        return res;
-    }
-    res = tafMngdPMSvc::AcquireWakeLock();
-    if(res == LE_OK)
-    {
-        LE_INFO("Acquired wakelock");
-        wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_ACQUIRED;
-        tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_WAKING_UP);
-        //sending notification to VHAL
-        if((mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
-        {
-            LE_INFO("notify node info for reason:%d", wsRefCtxPtr->reason);
-            (*(mpms.pmInf->nodeInfoNotification))(NODE_ID,
-                HAL_PM_NODE_INFO_LOCK_ACQUIRED, (const uint8_t)wsRefCtxPtr->reason);
-        }
-    }
-    else
-    {
-        LE_INFO("Failed to acquire wake source.");
-    }
-    return res;
-}
-
-/**
  * Creates the system wakeupSource reference for a given StayAwake Reason.
  */
 taf_mngdPm_wsRef_t taf_mngdPm_CreateWakeupSource (
@@ -798,13 +764,23 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
             if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason))
             {
                 LE_INFO("stayAwakeReason is in authorized stayAwakeReasonList");
-                res = AcquireWakeSource(wsRefCtxPtr);
+                res = mpms.AcquireWakeSource(wsRefCtxPtr);
             }
             else
             {
                 LE_INFO("Non authorized StayAwakeReason for stayawake");
-                wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_ACQUIRED;  //IGNORED
-                return LE_OK;
+                if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND)
+                {
+                    wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
+                    LE_INFO("StayAwake LE_NOT_PERMITTED: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
+                    return LE_NOT_PERMITTED;
+                }
+                else
+                {
+                    wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_IGNORED;
+                    LE_INFO("StayAwake: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
+                    return LE_OK;
+                }
             }
             break;
         }
@@ -845,8 +821,9 @@ le_result_t taf_mngdPm_Relax(taf_mngdPm_wsRef_t wsRef)
                 {
                     if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_IGNORED)
                     {
-                        LE_INFO("Non authorized StayAwakeReason for relax");
+                        LE_INFO("Unauthorized StayAwakeReason for relax");
                         wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
+                        LE_INFO("Relax: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
                     }
                     return LE_OK;
                 }

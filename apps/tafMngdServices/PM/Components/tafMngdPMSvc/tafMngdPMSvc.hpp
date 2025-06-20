@@ -320,6 +320,7 @@ class tafMngdPMSvc: public ITafSvc
         bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason);
         void RefreshWakeSources();
         le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
+        le_result_t AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
 
         //resources for clients state change acknowledgement
         static le_timer_Ref_t stateChangeAckTimerRef;

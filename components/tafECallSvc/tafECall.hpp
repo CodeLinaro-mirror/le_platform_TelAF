@@ -60,7 +60,6 @@ using namespace std;
 #define MSD_EURONCAP_OAD_RANGELIMIT_MAX 250
 #define MAX_MSD_MESSAGE_IDENTIFIER 255
 #define MIN_MSD_MESSAGE_IDENTIFIER 1
-#define MAX_SIM_READY_TIMEOUT 2
 
     namespace tafsvc {
 
@@ -142,7 +141,8 @@ using namespace std;
         typedef enum
         {
             EVENT_MODEM_REBOOT,
-            EVENT_SAVE_HLAP_TIMER_ELAPSED
+            EVENT_SAVE_HLAP_TIMER_ELAPSED,
+            EVENT_ECALL_MODE_CHANGE
         }
         Event_t;
 
@@ -163,9 +163,11 @@ using namespace std;
 
         typedef struct
         {
-            Event_t         event;
+            Event_t event;
             HlapTimerType_t hlapTimerType;
             HlapTimerEventType_t hlapTimerEventType;
+            int8_t phoneId;
+            telux::tel::ECallMode eCallMode;
         }ResumeHlapTimerEvent_t;
 
         class tafECallOperatingModeCallback {
@@ -234,6 +236,10 @@ using namespace std;
              taf_ecall_State_t eCallMsdTransmissionStatusToState( ECallMsdTransmissionStatus status);
         };
 
+        class tafECallPhoneListener : public telux::tel::IPhoneListener {
+            void onECallOperatingModeChange(int phoneId, telux::tel::ECallModeInfo info);
+        };
+
         class tafECallModemEvtListener : public telux::platform::ISubsystemListener {
             void onStateChange(telux::common::SubsystemInfo subsystemInfo,
                 telux::common::OperationalStatus newOperationalStatus) override;
@@ -294,8 +300,6 @@ using namespace std;
                 HlapTimerEventType_t ConvertHlapTimerEvent(HlapTimerEvent event);
                 le_result_t ResumeHlapTimer(taf_ecall_HlapTimerType_t timerType);
                 static void ResumeHlapTimerEventHandler(void* reqPtr);
-                static void SimStateHandler(taf_sim_Id_t simId, taf_sim_States_t simState, void* contextPtr);
-                static void* SimStateAddHandlerThread(void* contextPtr);
                 le_result_t IsInProgress(taf_ecall_CallRef_t ecallRef, bool* isInProgress);
                 le_result_t ConfigureInitialDialRedial(std::vector<int> redialPara);
                 le_result_t SetInitialDialAttempts(uint8_t attempts);
@@ -351,9 +355,11 @@ using namespace std;
 
                 le_event_Id_t ResumeHlapTimerEventId;
                 le_timer_Ref_t elapsedTimeT9Ref;
+                bool pendingToResumeHlapTimer = false;
             private:
                 std::shared_ptr<telux::tel::IPhoneManager> PhoneManager;
                 std::shared_ptr<tafECallListener> ECallListener;
+                std::shared_ptr<tafECallPhoneListener> phoneListener;
                 std::shared_ptr<tafECallModemEvtListener> stateListener;
                 std::shared_ptr<tafCallCommandCallback> CallCommandCb;
                 std::shared_ptr<tafUpdateMsdCommandCallback> UpdateMsdCb;

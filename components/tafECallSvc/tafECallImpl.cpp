@@ -15,10 +15,6 @@ LE_REF_DEFINE_STATIC_MAP(ECallMap, MAX_ECALL);
 char fdn[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
 char sdn[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
 
-le_thread_Ref_t ThreadRef;
-le_sem_Ref_t simStateSemaphore;
-taf_sim_NewStateHandlerRef_t simStateThreadRef = NULL;
-
 void tafECallOperatingModeCallback::setECallOperatingModeResponse(
     telux::common::ErrorCode error) {
     auto &eCall = taf_ecall::GetInstance();
@@ -272,6 +268,8 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
         {
             state = TAF_ECALL_STATE_ENDED;
             isCallStateSet = true;
+            eCall.SetCallIndex(-1);
+            eCall.SetCallPhoneId(-1);
         }
 
         eCallPtr->waitForALACKPos = false;
@@ -555,6 +553,16 @@ void tafECallListener::onECallRedial(int phoneId, ECallRedialInfo info) {
     le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
 }
 
+void tafECallPhoneListener::onECallOperatingModeChange(int phoneId, telux::tel::ECallModeInfo info) {
+    LE_INFO("onECallOperatingModeChange operation mode is %d", (int)info.mode);
+    auto &eCall = taf_ecall::GetInstance();
+    ResumeHlapTimerEvent_t resumeEvent;
+    resumeEvent.event  = EVENT_ECALL_MODE_CHANGE;
+    resumeEvent.phoneId  = phoneId;
+    resumeEvent.eCallMode = info.mode;
+    le_event_Report(eCall.ResumeHlapTimerEventId, &resumeEvent, sizeof(ResumeHlapTimerEvent_t));
+}
+
 void tafECallModemEvtListener::onStateChange(telux::common::SubsystemInfo subsystemInfo,
                 telux::common::OperationalStatus newOperationalStatus) {
     LE_INFO("onStateChange Location %d, Subsystem %d, New status %d",
@@ -567,6 +575,7 @@ void tafECallModemEvtListener::onStateChange(telux::common::SubsystemInfo subsys
         {
             eCall.ElapsedTimeT9 = eCall.ElapsedTimeT9 + eCall.ConvertElapsedTime(eCall.t9StartTime);
             LE_INFO("ElapsedTimeT9 is %d when operation status is unavailable", eCall.ElapsedTimeT9);
+            eCall.t9StartTimeSet = false;
         }
     } else if(newOperationalStatus == telux::common::OperationalStatus::OPERATIONAL) {
         ResumeHlapTimerEvent_t resumeEvent;
@@ -682,38 +691,6 @@ void taf_ecall::InitializeECallPtr()
     UpdateMsd();
 }
 
-void taf_ecall::SimStateHandler
-(
-    taf_sim_Id_t     simId,
-    taf_sim_States_t simState,
-    void*            contextPtr
-)
-{
-    LE_INFO("New SIM event for SIM card %d with state %d", simId, simState);
-    if ((simState == TAF_SIM_READY) || (simId == taf_sim_GetSelectedCard()))
-    {
-        LE_INFO("SIM state is ready");
-        le_sem_Post(simStateSemaphore);
-    }
-}
-
-void* taf_ecall::SimStateAddHandlerThread(void* contextPtr)
-{
-    taf_sim_ConnectService();
-
-    simStateThreadRef = taf_sim_AddNewStateHandler(SimStateHandler, NULL);
-    if (simStateThreadRef == NULL)
-    {
-        LE_ERROR("taf_sim_AddNewStateHandler is null");
-    }
-    LE_INFO("Add sim state event handler complete. The handlerRef = %p", simStateThreadRef);
-
-    le_sem_Post(simStateSemaphore);
-
-    le_event_RunLoop();
-    return NULL;
-}
-
 void taf_ecall::Init(void)
 {
     //  Get the PhoneFactory and PhoneManager instances.
@@ -805,14 +782,14 @@ void taf_ecall::Init(void)
     });
 
     if (!subsystemMgr) {
-        LE_ERROR("Couldn't get the subsystemMgr");
+        LE_FATAL("Couldn't get the subsystemMgr");
     }
 
     initFuture = subsystemMgrprom.get_future();
     waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
     if (std::future_status::timeout == waitStatus)
     {
-        LE_ERROR("Timeout waiting for subsystem");
+        LE_FATAL("Timeout waiting for subsystem");
     }
     else
     {
@@ -840,7 +817,14 @@ void taf_ecall::Init(void)
     Status ret = CallManager->registerListener(ECallListener);
     if(ret!= Status::SUCCESS)
     {
-        LE_CRIT("Cannot register Listern for ecall event!\n");
+        LE_CRIT("Cannot register Listener for ecall event!\n");
+    }
+
+    phoneListener =  std::make_shared<tafECallPhoneListener>();
+    ret = PhoneManager->registerListener(phoneListener);
+    if(ret!= Status::SUCCESS)
+    {
+        LE_CRIT("Cannot register Listener for phone event!\n");
     }
 
     CallCommandCb = std::make_shared<tafCallCommandCallback>();
@@ -862,51 +846,45 @@ void taf_ecall::Init(void)
     le_timer_SetRepeat(elapsedTimeT9Ref, 0);
     le_timer_SetWakeup(elapsedTimeT9Ref, false);
 
-    simStateSemaphore = le_sem_Create("SimStateSem", 0);
-    ThreadRef = le_thread_Create("SimStateThread", SimStateAddHandlerThread, NULL);
-    le_thread_Start(ThreadRef);
-    le_clk_Time_t timeToWait = {MAX_SIM_READY_TIMEOUT, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(simStateSemaphore, timeToWait);
-    if (res != LE_OK)
+    uint16_t minNwRegTime = 0;
+    bool needToResumeT9 = false;
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_ECALL_HLAPTIMERELAPSED_PATH );
+    if (le_cfg_NodeExists(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9))
     {
-        LE_ERROR("Wait semaphore timeout");
-    } else {
-        if (taf_sim_GetState(taf_sim_GetSelectedCard()) != TAF_SIM_READY)
+        ElapsedTimeT9 = le_cfg_GetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9, 0);
+        LE_INFO("ElapsedTimeT9 is %d when tafECallSvc is initiated", ElapsedTimeT9);
+        if (LE_OK == GetNadMinNetworkRegistrationTime(&minNwRegTime))
         {
-            le_clk_Time_t timeToWait = {MAX_SIM_READY_TIMEOUT, 0};
-            le_result_t res = le_sem_WaitWithTimeOut(simStateSemaphore, timeToWait);
-            if (res != LE_OK)
+            if (ElapsedTimeT9 < minNwRegTime*60)
             {
-                LE_ERROR("Wait semaphore timeout");
-                return;
+                needToResumeT9 = true;
             }
+        } else {
+            LE_ERROR("GetNadMinNetworkRegistrationTime failed");
         }
+    } else {
+        LE_INFO("CFG_NODE_HLAPTIMERELAPSED_T9 node not exists");
+    }
+    le_cfg_CancelTxn(iteratorRef);
 
+    if (needToResumeT9 == true)
+    {
         taf_ecall_OpMode_t opMode;
-        uint16_t minNwRegTime = 0;
         int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
-        if ((LE_OK == GetECallOperatingMode(phoneId, &opMode)) &&
-            (opMode == TAF_ECALL_MODE_NORMAL))
+        LE_INFO("phoneId is %d", phoneId);
+        if (LE_OK != GetECallOperatingMode(phoneId, &opMode))
         {
-            le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_ECALL_HLAPTIMERELAPSED_PATH );
-            if (le_cfg_NodeExists(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9))
+            LE_INFO("Get eCall operating mode failed");
+            pendingToResumeHlapTimer = true;
+        }
+        else if (opMode == TAF_ECALL_MODE_NORMAL)
+        {
+            if (LE_OK != ResumeHlapTimer(TAF_ECALL_TIMER_TYPE_T9))
             {
-                ElapsedTimeT9 = le_cfg_GetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9, 0);
-                LE_INFO("ElapsedTimeT9 is %d when tafECallSvc is initiated", ElapsedTimeT9);
-                if (LE_OK == GetNadMinNetworkRegistrationTime(&minNwRegTime))
-                {
-                    LE_INFO("minNwRegTime is %d", minNwRegTime);
-                    if ((ElapsedTimeT9 < minNwRegTime*60) &&
-                        (ElapsedTimeT9 != -1))
-                    {
-                        if (LE_OK != ResumeHlapTimer(TAF_ECALL_TIMER_TYPE_T9))
-                        {
-                            LE_ERROR("Resume T9 error");
-                        }
-                    }
-                }
+                LE_CRIT("Resume T9 error");
             }
-            le_cfg_CancelTxn(iteratorRef);
+        } else {
+            LE_INFO("eCall operating mode is not normal mode");
         }
     }
 }
@@ -2449,7 +2427,6 @@ void* taf_ecall::StartHlapElapsedTimer(HlapTimerType_t type, HlapTimerEventType_
     LE_INFO("SaveHlapTimerElapsedInfo, starting timer");
     auto &eCall = taf_ecall::GetInstance();
     taf_ecall_OpMode_t opMode;
-    uint16_t minNwRegTime = 0;
     int phoneId = eCall.PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
 
     if (type == HLAP_TIMER_TYPE_T9)
@@ -2478,14 +2455,7 @@ void* taf_ecall::StartHlapElapsedTimer(HlapTimerType_t type, HlapTimerEventType_
             {
                 le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9, 0);
             } else {
-                if (LE_OK == eCall.GetNadMinNetworkRegistrationTime(&minNwRegTime))
-                {
-                    le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9, minNwRegTime * 60);
-                }
-                else
-                {
-                    le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9, -1);
-                }
+                le_cfg_DeleteNode(iteratorRef, "");
             }
             le_cfg_CommitTxn(iteratorRef);
         }
@@ -2576,7 +2546,7 @@ void taf_ecall::ResumeHlapTimerEventHandler(void* reqPtr)
     telux::common::Status status;
     taf_ecall_OpMode_t opMode;
     int phoneId;
-    le_clk_Time_t timeToWait = {MAX_SIM_READY_TIMEOUT, 0};
+    telux::tel::ECallMode eCallMode;
 
     if(eventReq == NULL)
     {
@@ -2658,32 +2628,53 @@ void taf_ecall::ResumeHlapTimerEventHandler(void* reqPtr)
                 }
             }
 
-            if (taf_sim_GetState(taf_sim_GetSelectedCard()) != TAF_SIM_READY)
+            if(eCall.ElapsedTimeT9 == 0)
             {
-                result = le_sem_WaitWithTimeOut(simStateSemaphore, timeToWait);
-                if (result != LE_OK)
-                {
-                    LE_ERROR("Wait semaphore timeout");
-                    break;
-                }
+                LE_INFO("No need to resume T9 timer");
+                break;
             }
-
             phoneId = eCall.PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
-            if ((LE_OK == eCall.GetECallOperatingMode(phoneId, &opMode)) &&
-                (opMode == TAF_ECALL_MODE_NORMAL) &&
-                (eCall.ElapsedTimeT9 != 0))
+            LE_INFO("phoneId is %d", phoneId);
+            if (LE_OK != eCall.GetECallOperatingMode(phoneId, &opMode))
+            {
+                 eCall.pendingToResumeHlapTimer = true;
+            }
+            else if (opMode == TAF_ECALL_MODE_NORMAL)
             {
                 result = eCall.ResumeHlapTimer(TAF_ECALL_TIMER_TYPE_T9);
                 if (result != LE_OK)
                 {
-                    LE_ERROR("ResumeECallHlapTimer T9 failed");
+                    LE_CRIT("ResumeECallHlapTimer T9 failed");
                 }
+            } else {
+                LE_INFO("eCall operating mode is not normal");
             }
             break;
 
         case EVENT_SAVE_HLAP_TIMER_ELAPSED:
             LE_INFO("Update the hlap timer with elapsed value to config tree");
             eCall.StartHlapElapsedTimer(eventReq->hlapTimerType, eventReq->hlapTimerEventType);
+            break;
+
+        case EVENT_ECALL_MODE_CHANGE:
+            LE_INFO("eCall mode changed");
+            eCallMode = eventReq->eCallMode;
+            phoneId = eventReq->phoneId;
+            if (phoneId == eCall.PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard()))
+            {
+                LE_ERROR("phoneId is different with the select one %d", phoneId);
+                break;
+            }
+
+            if ((eCallMode == telux::tel::ECallMode::NORMAL) && (eCall.pendingToResumeHlapTimer == true))
+            {
+                result = eCall.ResumeHlapTimer(TAF_ECALL_TIMER_TYPE_T9);
+                if (result != LE_OK)
+                {
+                    LE_CRIT("ResumeECallHlapTimer T9 failed");
+                }
+                eCall.pendingToResumeHlapTimer = false;
+            }
             break;
 
         default:

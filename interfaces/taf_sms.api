@@ -159,7 +159,7 @@
  * A message object can only be used once for sending, no matter what the sending result is.
  * Message objects need to be deleted by the caller.
  *
- * @section c_taf_sms_Receive Receiving messages
+ * @section c_taf_sms_Receive Receiving a message
  *
  * To receive incoming messages, register a handler function with taf_sms_AddRxMsgHandler() and follow the
  * handler type definition: void (*taf_sms_RxMsgHandlerFunc_t)(taf_sms_MsgRef_t msg)
@@ -170,7 +170,7 @@
  * To remove the handler function, call taf_sms_RemoveRxMsgHandler(). Callers have to delete the message object
  * when the message is no longer needed.
  *
- * @section c_taf_sms_Get Getting content and information of the message object
+ * @section c_taf_sms_Get Getting content and information of a message object
  *
  * - taf_sms_GetUserdataLen() Gets the data length of the content.
  * - taf_sms_GetText() -- Gets the text content of the message.
@@ -213,7 +213,7 @@
  *
  * To remove the handler function, call taf_sms_RemoveFullStorageEventHandler().
  *
- * @section c_taf_sms_RX Manipulating message in storage
+ * @section c_taf_sms_RX Message manipulation in storage
  *
  * - taf_sms_DeleteFromStorage() -- Deletes a message from its storage location.
  * - taf_sms_MarkRead() -- Marks a message status as read.

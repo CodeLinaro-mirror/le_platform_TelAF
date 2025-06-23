@@ -189,7 +189,7 @@
  *
  * @endcode
  *
-* @section taf_time_GetTimeZone Get the Offset from Universal time
+* @section taf_time_GetTimeZone Get the offset from Universal Time
  *
  * When trying to get the time zone information of a given time source, the application shall
  * first get the source reference by calling taf_time_GetSourceRef(), then call
@@ -336,7 +336,8 @@
  * When trying to set the validity of a source, the application shall first get
  * the source reference by calling taf_time_GetSourceRef(), then call taf_time_SetValidity()
  * to set the validity.
- * @note Client can set validity for RTC and external application only.
+ *
+ * @b NOTE: Client can set validity for RTC and external application only.
  *
  * The following example illustrates how to set the validity of a time source.
  *
@@ -389,13 +390,13 @@ void* TestSetRTCAsync(void* cxtPtr)
  *
  * @endcode
  *
- * @section c_taf_time_TimeValueChangeHandler_API Time notification
+ * @section c_taf_time_TimeValueChangeHandler_API Time change notification
  *
  * With the reference object, taf_time_AddTimeValueChangeHandler() is for the application to
  * register an event handler for the time source. When the time source gets changed, the time
  * service will notify the client through that registered event handler.
  *
- * @note This functionality does not support RTC and external time sources.
+ * @b NOTE: This functionality does not support RTC and external time sources.
  *
  *
  * When the notification is not needed, taf_time_RemoveTimeValueChangeHandler() is to de-register
@@ -500,7 +501,7 @@ void* TestSetRTCAsync(void* cxtPtr)
  *
  * @endcode
  *
- * @section c_taf_time_AddTimeSourceStatusHandler_API Time notification
+ * @section c_taf_time_AddTimeSourceStatusHandler_API Time source status notification
  *
  * With the reference object, taf_time_AddTimeSourceStatusHandler() is for the application to
  * register an event handler for change in availability and/or validity of a time source.

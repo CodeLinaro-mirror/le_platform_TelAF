@@ -38,7 +38,7 @@
    }
    @endverbatim
  *
- * @section taf_ecall_operation Operation modes of eCall
+ * @section taf_ecall_operation eCall operation modes
  *
  * The modem can operate in three different eCall modes.
  *
@@ -71,7 +71,7 @@
  *
  * These configurations take effect at the next test eCall and currently only MSD version 2 and 3 are supported.
  *
- * @section taf_ecall_session Session of eCall
+ * @section taf_ecall_session eCall session
  *
  * taf_ecall_Create() helps to create a new eCall object and returns a reference to the eCall session.
  * taf_ecall_GetType() is used to query the current type of the eCall session.
@@ -167,7 +167,7 @@
  * - taf_ecall_SetInitialDialAttempts() -- Sets the number of dial attempts.
  * - taf_ecall_SetInitialDialIntervalBetweenDialAttempts() -- Sets the dial interval value between dial attempts.
  *
- * @section taf_ecall_concurrency Concurrency of eCall
+ * @section taf_ecall_concurrency eCall concurrency
  *
  * If another application wants to use the eCall service when a session is already active, the
  * taf_ecall_StartManual(), taf_ecall_StartAutomatic(), taf_ecall_StartTest(), taf_ecall_StartPrivate()
@@ -224,7 +224,7 @@
  * The MSD may be modified before calling taf_ecall_SendMsd() by the e_ecall_ImportMsd() API
  * or the taf_ecall_SetMsdXxx() APIs.
  *
- * @section c_taf_ecall_outgoing Start of emergency call
+ * @section c_taf_ecall_outgoing Starting an emergency call
  *
  * An emergency call can be started by using taf_ecall_StartAutomatic() with the ecallRef passed as
  * a parameter.

@@ -150,7 +150,7 @@
  * - taf_dcs_GetPhoneId() -- Gets the phone ID for the given profile reference.
  * - taf_dcs_GetPhoneIdByInterfaceName() -- Gets the phone ID by the interface name.
  *
- * @section c_taf_dcs_manage_profiles Managing Profiles
+ * @section c_taf_dcs_manage_profiles Managing profiles
  *
  * Data call service provides APIs to manage profiles. TelAF applications can create profiles,
  * update profile parameters and delete profiles with the profile management APIs.<br>

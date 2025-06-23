@@ -38,11 +38,11 @@
  * sensor service. The previous data and setting shall not presist for next run/iteration if client
  * thread exits.
  *
- * @note
+ * @b NOTE:
  * Each time client creates a new thread, it needs to connect,
- * call,taf_imuSensor_AddDataHandler(), taf_imuSensor_Activate() for the new session to setup.
+ * call, taf_imuSensor_AddDataHandler(), taf_imuSensor_Activate() for the new session to setup.
  *
- * @section taf_imuSensor_GetSensorList  Get the available sensors
+ * @section taf_imuSensor_GetSensorList  Get available sensors
  *
  * TelAF Sensor Management Service provides APIs to get the available sensors on the device.
  * The client calls taf_imuSensor_GetSensorList() to get the reference of the available sensors.
@@ -50,7 +50,7 @@
  * the information of each sensor and also to delete the list using
  * taf_imuSensor_DeleteSensorList().
  *
- * @note
+ * @b NOTE:
  * If the sensor type is ACCELEROMETER, the resolution value should be in meter per second
  * per second and if sensor type is GYROSCOPE then values should be in radians per second.
  *
@@ -92,7 +92,7 @@
     result = taf_imuSensor_DeleteSensorList(headTSensorListRef)
   @endverbatim
  *
- * @section taf_imuSensor_SetRefCoordinateByEulerAngle  Set the reference coordinate system by euler angle
+ * @section taf_imuSensor_SetRefCoordinateByEulerAngle  Set reference coordinate system by euler angle
  *
  * TelAF Sensor Management Service provides APIs to set the reference coordinate system by
  * euler angle to get rotated sensor data. The client calls
@@ -110,7 +110,7 @@
     result = taf_imuSensor_SetRefCoordinateByEulerAngle(NULL,pitch, roll, yaw);
    @endverbatim
  *
- * @section taf_imuSensor_Activate  Set the configuration and activate the sensor
+ * @section taf_imuSensor_Activate  Set configuration and activate the sensor
  *
  * TelAF Sensor Management Service provides APIs to set configuration of sensor and activate the
  * sensor to get sensor data. The client calls taf_imuSensor_Activate() to

@@ -57,7 +57,7 @@
  *
    @endverbatim
  *
- * @section c_taf_update_fota_function FOTA Functions
+ * @section c_taf_update_fota_function FOTA functions
  *
  * - taf_fwupdate_RebootToActive() -- Reboots the target device to the active slot if firmware
  *   is installed successfully.

@@ -130,7 +130,7 @@
  * - @ref taf_sim_GetHomeNetworkOperator() -- Retrieves the name of the carrier on which this subscription is made.
  * - @ref taf_sim_GetHomeNetworkMccMnc() -- Retrieves the MCC and MNC of the carrier on which this subscription is made.
  *
- * @section taf_sim_auth SIM Authentication
+ * @section taf_sim_auth SIM authentication
  *
  * - @ref taf_sim_EnterPIN() -- Enters the Personal Identification Number (PIN) code which
  *   is required before any mobile device functionality can be used.
@@ -230,7 +230,7 @@
  * Applications must use taf_sim_RemoveNewStateHandler() to release @ref taf_sim_NewStateHandlerRef_t
  * message handler reference object when it is no longer used.
  *
- * @section taf_sim_refresh SIM Refresh
+ * @section taf_sim_refresh SIM refresh
  *
  * - @ref taf_sim_AddRefreshChangeHandler() -- Registers a handler to get notification when SIM refresh state changes.
  * - @ref taf_sim_RemoveRefreshChangeHandler() -- Unregisters the handler.

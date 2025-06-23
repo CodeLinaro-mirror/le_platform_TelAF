@@ -98,9 +98,9 @@
  * needs to connect, call, and set APIs, taf_locGnss_Start(), taf_locGnss_AddPositionHandler() for the
  * new session to set up.
  *
- * @section taf_locGnss_ControlApi GNSS Control APIs
+ * @section taf_locGnss_ControlApi GNSS control APIs
  *
- * @subsection taf_locGnss_EnableDisable Enable or Disable Location service
+ * @subsection taf_locGnss_EnableDisable Enable/disable Location Service
  *
  * The taf_locGnss_Enable API initializes the Location Service and prepares the TelAF
  * location service to serve further requests after setting up internal states.
@@ -123,7 +123,7 @@
    }
    @endverbatim
  *
- * @subsection taf_locGnss_StartStop  Start or Stop Location service
+ * @subsection taf_locGnss_StartStop  Start/stop Location Service
  *
  * taf_locGnss_Start and taf_locGnss_Stop can be used to control the location service.
  * @verbatim
@@ -173,7 +173,7 @@
  * In WARM mode, location session is started after the ephemeris is cleared.
  * In COLD and FACTORY mode, location session is started after all data is cleared except almanac.
  *
- * @subsubsection taf_locGnss_ForceHotRestart Restart location session
+ * @subsubsection taf_locGnss_ForceHotRestart Restart location session in HOT mode
  *
  * The taf_locGnss_ForceHotRestart() function performs a "HOT" restart of the location session.
  * The current GNSS session is restarted.
@@ -194,7 +194,7 @@
    }
    @endverbatim
  *
- * @subsubsection taf_locGnss_ForceColdRestart Restart the Location service in COLD mode
+ * @subsubsection taf_locGnss_ForceColdRestart Restart location session in COLD mode
  *
  * The taf_locGnss_ForceColdRestart() function performs a "COLD" restart of the Location session.
  * The current GNSS session is stopped and then started with GNSS data is cleared.
@@ -236,7 +236,7 @@
    }
    @endverbatim
  *
- * @subsection taf_locGnss_AcquisitionRate Set/Get location acquisition rate
+ * @subsection taf_locGnss_AcquisitionRate Set/get location acquisition rate
  *
  * The acquisition rate defines the time interval that must elapse between
  * two location reports.

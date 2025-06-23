@@ -2121,8 +2121,29 @@ le_result_t taf_mdc_StopSessionAsync(taf_dcs_ProfileRef_t profileRef)
 
 }
 
+// The data call service's signal handler
+static void DcsSigTermEventHandler
+(
+    int sigNum
+)
+{
+    LE_INFO("Signal :%d", sigNum);
+
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    // Call deinit function to cleanup
+    dataConnection.Deinit();
+    dataProfile.Deinit();
+}
+
+
 COMPONENT_INIT
 {
+
+    // Setup signal event handler.
+    le_sig_SetEventHandler(SIGTERM, DcsSigTermEventHandler);
+
     taf_dcs_profile_init();
     taf_dcs_connection_init();
     // Add boot KPI marker

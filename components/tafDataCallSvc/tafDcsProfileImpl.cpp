@@ -357,6 +357,9 @@ le_result_t taf_DataProfile::GetAPNThrottledPLMN(taf_dcs_ProfileRef_t    profile
     TAF_ERROR_IF_RET_VAL((profileRef == NULL) || (areAllPLMNsThrottled == NULL) ||
                          (mccPtr == NULL) || (mncPtr == NULL), LE_BAD_PARAMETER,
                           "some pointers may be null");
+    // Use the lesser of the two sizes.
+    size_t mccBytes = (mccSize < TAF_DCS_MCC_BYTES) ? mccSize : TAF_DCS_MCC_BYTES;
+    size_t mncBytes = (mncSize < TAF_DCS_MNC_BYTES) ? mncSize : TAF_DCS_MNC_BYTES;
 
     taf_dcs_ProfileCtx_t* profileCtx = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap,
                                                                            (void*)profileRef);
@@ -367,10 +370,10 @@ le_result_t taf_DataProfile::GetAPNThrottledPLMN(taf_dcs_ProfileRef_t    profile
                                       "profile is not throttled");
 
     if(profileCtx->throttleInfo.mcc != NULL)
-      le_utf8_Copy(mccPtr,profileCtx->throttleInfo.mcc,TAF_DCS_MCC_BYTES, NULL);
+        le_utf8_Copy(mccPtr, profileCtx->throttleInfo.mcc, mccBytes, NULL);
 
     if(profileCtx->throttleInfo.mnc != NULL)
-      le_utf8_Copy(mncPtr,profileCtx->throttleInfo.mnc,TAF_DCS_MNC_BYTES, NULL);
+        le_utf8_Copy(mncPtr, profileCtx->throttleInfo.mnc, mncBytes, NULL);
 
     *areAllPLMNsThrottled = profileCtx->throttleInfo.isBlocked;
 
@@ -810,7 +813,9 @@ taf_dcs_ProfileRef_t taf_DataProfile::GetProfileRef(uint8_t slotId, int32_t inde
 
     LE_INFO("Creating a profile reference.");
     le_result_t result;
-    taf_dcs_ProfileCtx_t profileCtx = {0};
+    taf_dcs_ProfileCtx_t profileCtx;
+    memset(&profileCtx, 0, sizeof(profileCtx));
+
     profileCtx.slotId = slotId;
     profileCtx.info.index = index;
     result = CreateIndividualProfile(&profileCtx);
@@ -1641,6 +1646,7 @@ void* taf_DataProfile::ProfileEventThread(void* contextPtr)
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 void taf_DataProfile::onInitCompleted(telux::common::ServiceStatus status)
 {
+    LE_INFO("Status: %d", static_cast<int>(status));
     std::lock_guard<std::mutex> lock(mtx);
     subSystemStatusUpdated = true;
     conVar.notify_all();
@@ -1777,4 +1783,28 @@ void taf_DataProfile::Init(void)
     }
 
     return;
+}
+
+// Clean up all profiles
+void taf_DataProfile::CleanupAllProfiles(void)
+{
+    le_dls_Link_t *linkPtr = NULL;
+    linkPtr = le_dls_Peek(&ProfileCtxList);
+    while (linkPtr)
+    {
+        taf_dcs_ProfileCtx_t *profileCtx = CONTAINER_OF(linkPtr, taf_dcs_ProfileCtx_t, link);
+        linkPtr = le_dls_PeekNext(&ProfileCtxList, linkPtr);
+        le_ref_DeleteRef(ProfileRefMap, profileCtx->reference);
+        le_dls_Remove(&ProfileCtxList, &profileCtx->link);
+        le_mem_Release(profileCtx);
+    }
+    return;
+}
+
+void taf_DataProfile::Deinit(void)
+{
+    // Clean up all profile related memory
+    CleanupAllProfiles();
+    // Stop the profile event thread
+    le_thread_Cancel(ProfileEventThreadRef);
 }

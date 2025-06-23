@@ -308,6 +308,7 @@ namespace tafsvc {
             void onInitCompleted(telux::common::ServiceStatus status);
 #endif
             void Init(void);
+            void Deinit(void);
             static taf_DataConnection &GetInstance();
             le_result_t PreProcessDataCall( uint8_t slotId, int32_t profileId,
                                             taf_dcs_CallCtx_t* callCtxPtr,
@@ -486,5 +487,10 @@ namespace tafsvc {
             int32_t DefaultSlotId = SLOT_ID_1;
             int32_t ConvertCEReason(taf_dcs_callEndReason_t ceReason);
             bool bMultiSimSupported;
+
+            // Clean up all handlers
+            void ClearHandlerMappingList(void);
+            // Clear all call contexts
+            void ClearDataCallCtxList(void);
     };
 }

@@ -2752,6 +2752,8 @@ le_result_t taf_DataConnection::SendStatusChangedNotification
     taf_dcs_StateInfo_t stateInfo;
     stateInfo.ipType = TAF_DCS_PDP_UNKNOWN;
 
+    LE_UNUSED(eventPtr);
+
     if (callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTING)
     {
         stateInfo.ipType = GetEvtInfoFromConnStatus(callCtxPtr, callCtxPtr->callStatus);
@@ -3657,6 +3659,8 @@ void taf_DataConnection::CloseEventHandler
     le_dls_Link_t* linkRefPtr = NULL;
     taf_dcs_ProfileRef_t profileRef = NULL;
 
+    LE_UNUSED(contextPtr);
+
     TAF_ERROR_IF_RET_NIL( sessionRef == NULL, "sessionRef is nullptr!");
 
     auto &dataConnection = taf_DataConnection::GetInstance();
@@ -3908,6 +3912,7 @@ void DeregisterListeners()
 
 void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
 {
+    LE_UNUSED(contextPtr);
     if (state == TAF_PM_STATE_RESUME)
     {
         LE_INFO("Power state change to RESUME");
@@ -4132,4 +4137,64 @@ void taf_DataConnection::Init(void)
 #endif
 
     return;
+}
+
+void taf_DataConnection::ClearHandlerMappingList(void)
+{
+    HandlerSessionMapping_t *handlerSessionInfo;
+
+    le_dls_Link_t *handlerLinkPtr = le_dls_Peek(&HandlerSessionMappingList);
+    while (handlerLinkPtr)
+    {
+        handlerSessionInfo = CONTAINER_OF(handlerLinkPtr, HandlerSessionMapping_t, handlerLink);
+        handlerLinkPtr = le_dls_PeekNext(&HandlerSessionMappingList, handlerLinkPtr);
+        le_dls_Remove(&HandlerSessionMappingList, &handlerSessionInfo->handlerLink);
+        le_mem_Release(handlerSessionInfo);
+    }
+}
+
+void taf_DataConnection::ClearDataCallCtxList(void)
+{
+
+    le_dls_Link_t *linkPtr = NULL;
+    linkPtr = le_dls_Peek(&DataCallCtxList);
+
+    while (linkPtr)
+    {
+        taf_dcs_CallCtx_t *callCtxPtr = CONTAINER_OF(linkPtr, taf_dcs_CallCtx_t, link);
+        linkPtr = le_dls_PeekNext(&DataCallCtxList, linkPtr);
+
+        {
+            // Clear session within each call context
+            le_dls_Link_t* sessionLinkPtr = NULL;
+            sessionLinkPtr = le_dls_Peek(&(callCtxPtr->sessionRefList));
+            while (sessionLinkPtr)
+            {
+                taf_SessionRef_t *sessionRefPtr = CONTAINER_OF(sessionLinkPtr, taf_SessionRef_t,
+                                                                                            link);
+                sessionLinkPtr = le_dls_PeekNext(&(callCtxPtr->sessionRefList), sessionLinkPtr);
+                le_dls_Remove(&(callCtxPtr->sessionRefList), &sessionRefPtr->link);
+                le_mem_Release(sessionRefPtr);
+            }
+        }
+
+        le_dls_Remove(&DataCallCtxList, &(callCtxPtr->link));
+        le_mem_Release(callCtxPtr);
+    }
+    return;
+}
+
+void taf_DataConnection::Deinit(void)
+{
+    // Deregister TelSDK listeners
+    DeregisterListeners();
+
+    // Clean up all handlers
+    ClearHandlerMappingList();
+
+    // Clear all call contexts
+    ClearDataCallCtxList();
+
+    // Stop the connection event thread
+    le_thread_Cancel(ConnectionEventThreadRef);
 }

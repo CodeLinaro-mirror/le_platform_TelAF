@@ -687,16 +687,32 @@ le_result_t taf_DataConnection::GetQosMask(taf_dcs_QosFlowRef_t qosFlowRef,
     return LE_OK;
 }
 
+/**
+ * Mutex to protect data received via onTrafficFlowTemplateChange. This is declared globally here
+ * instead of as a class variable because taf_DataConnectionListener can have 2 objects (multi sim)
+ * and there could be a condition where the appropriate mutex is not locked.
+ */
+static std::mutex TftMtx;
+
+/**
+ * The QoS TFT callback implementation.
+ */
+
 void taf_DataConnectionListener::onTrafficFlowTemplateChange(
     const std::shared_ptr<telux::data::IDataCall> &iCall,
     const std::vector<std::shared_ptr<telux::data::TftChangeInfo>> &tfts)
 {
 
     LE_DEBUG("<SDK Callback> taf_DataConnectionListener --> onTrafficFlowTemplateChange");
-    auto &dataConnection = taf_DataConnection::GetInstance();
     TAF_ERROR_IF_RET_NIL(iCall == nullptr, "iCall is null");
     int32_t profileId = iCall->getProfileId();
     uint8_t slotId = (uint8_t)iCall->getSlotId();
+
+    // Get the data connection object.
+    auto &dataConnection = taf_DataConnection::GetInstance();
+
+    // Lock the mutex
+    std::lock_guard<std::mutex> lock(TftMtx);
 
     for (auto tft_iter : tfts)
     {

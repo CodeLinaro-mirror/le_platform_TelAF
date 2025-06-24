@@ -59,6 +59,29 @@ UdsCommunicationMgr* UdsCommunicationMgr::GetInstance
     }
 }
 
+le_result_t UdsCommunicationMgr::GetIfNameByVlanId
+(
+    uint16_t vlanId,
+    char* ifName
+)
+{
+    LE_DEBUG("input vlanid =%d", vlanId);
+    TAF_ERROR_IF_RET_VAL(ifName == NULL, LE_FAULT, "ifName is null");
+    // Store VLAN id in list. In non-VLAN case, vlanId will be 0.
+    for (const auto &pair : instances)
+    {
+        LE_DEBUG("vlanId=%d", pair.second->vlanId);
+
+        if(vlanId == pair.second->vlanId)
+        {
+            le_utf8_Copy(ifName, pair.second->interface, MAX_INTERFACE_NAME_LEN, NULL);
+            return LE_OK;
+        }
+    }
+
+    return LE_FAULT;
+}
+
 UdsCommunicationMgr::UdsCommunicationMgr
 (
     const char* ifName
@@ -540,9 +563,9 @@ void UdsCommunicationMgr::P2StarTimeoutHandler
 
     LE_INFO("P2* timeout");
     //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
-    if(udsCmMgr->readyToRecvData == false)
+    if(!udsCmMgr->readyToRecvData.load())
     {
-        udsCmMgr->readyToRecvData = true;
+        udsCmMgr->readyToRecvData.store(true);
         udsCmMgr->CheckAndSendCancelFileXferEvent();
     }
 
@@ -749,7 +772,7 @@ void UdsCommunicationMgr::CheckAndRestartTesterStateTimer
     float p2StarServerInterval;
     uint32_t maxNumberOfRcrrp, testerStateTimer;
 
-    readyToRecvData = true;
+    readyToRecvData.store(true);
 
     //Get P2* server interval;
     try
@@ -803,9 +826,9 @@ void UdsCommunicationMgr::CheckAndRestartS3Timer
 
     UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0, (char*)interface);
     //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
-    if(readyToRecvData == false)
+    if (!readyToRecvData.load())
     {
-        readyToRecvData = true;
+        readyToRecvData.store(true);
         CheckAndSendCancelFileXferEvent();
     }
 
@@ -4085,7 +4108,7 @@ le_result_t UdsCommunicationMgr::CheckAndSendInd
     SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, addrInfoPtr);
 
     LE_DEBUG("------P2* timer start -------");
-    readyToRecvData = false;
+    readyToRecvData.store(false);
 
     UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_START, 0, interface);
     indAddrInfo.sa = addrInfoPtr->sa;
@@ -4161,9 +4184,9 @@ void UdsCommunicationMgr::DiagIndicationHandler
 
         udsCmMgr->authState = AUTH_STATE_UNKNOWN;
         //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
-        if(udsCmMgr->readyToRecvData == false)
+        if (!udsCmMgr->readyToRecvData.load())
         {
-            udsCmMgr->readyToRecvData = true;
+            udsCmMgr->readyToRecvData.store(true);
             udsCmMgr->CheckAndSendCancelFileXferEvent();
         }
 
@@ -4217,8 +4240,16 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    // Send NRC 0x22 if diag service is paused
+    if (udsCmMgr->isPaused.load())
+    {
+        LE_WARN("In BUB state, dont't receive any requests");
+        udsCmMgr->SendNRC(diagMsgPtr->dataPtr[0], CONDITIONS_NOT_CORRECT, addrInfoPtr);
+        return;
+    }
+
     // General server response behaviour check. NRC Check for 0x21
-    if(!udsCmMgr->readyToRecvData)
+    if (!udsCmMgr->readyToRecvData.load())
     {
         LE_WARN("Handle in progress, can't receive another request");
         udsCmMgr->SendNRC(diagMsgPtr->dataPtr[0], BUSY_REPEAT_REQ, addrInfoPtr);
@@ -4786,7 +4817,7 @@ void UdsCommunicationMgr::cancelFileXferHandler
             }
 
             //No request is handled in progress, change the state.
-            if(udsCmMgr->readyToRecvData == true)
+            if (udsCmMgr->readyToRecvData.load())
             {
                 LE_INFO("Change fileXfer state directly for vlanId:%d", udsCmMgr->vlanId);
                 //Change the state directly
@@ -4889,57 +4920,70 @@ le_result_t UdsCommunicationMgr::SetUDSData
         return LE_FAULT;
     }
 
-    //Set role data
-    if(dataType == UDS_AUTH_DATA_TYPE_ROLE)
+    switch(dataType)
     {
-        if( dataSize != sizeof(currentRoleVal))
-        {
-            LE_ERROR("data size:%d is incorrect ", dataSize);
-            return LE_FAULT;
-        }
+        //Set role data
+        case TAF_UDS_DATA_TYPE_ROLE:
+            if( dataSize != sizeof(currentRoleVal))
+            {
+                LE_ERROR("data size:%d is incorrect ", dataSize);
+                return LE_FAULT;
+            }
 
-        udsCmMgr->currentRoleVal = ((uint64_t)dataPtr[0]<< 56) | ((uint64_t)dataPtr[1]<< 48) |
-                ((uint64_t)dataPtr[2]<< 40) | ((uint64_t)dataPtr[3]<< 32) |
-                ((uint64_t)dataPtr[4]<< 24) | ((uint64_t)dataPtr[5]<< 16) |
-                ((uint64_t)dataPtr[6]<< 8) | dataPtr[7];
+            udsCmMgr->currentRoleVal = ((uint64_t)dataPtr[0]<< 56) | ((uint64_t)dataPtr[1]<< 48) |
+                    ((uint64_t)dataPtr[2]<< 40) | ((uint64_t)dataPtr[3]<< 32) |
+                    ((uint64_t)dataPtr[4]<< 24) | ((uint64_t)dataPtr[5]<< 16) |
+                    ((uint64_t)dataPtr[6]<< 8) | dataPtr[7];
 
-        LE_DEBUG("currentRoleVal: %" PRIuS, udsCmMgr->currentRoleVal);
-        return LE_OK;
-    }
-    else if(dataType == TAF_UDS_DATA_TYPE_FILEXFER_STATE)
-    {
-
-        le_mutex_Lock(fileXferStateMutex);
-        if( dataSize != sizeof(isXferActive))
-        {
-            LE_ERROR("data size:%d is incorrect ", dataSize);
+            LE_DEBUG("currentRoleVal: %" PRIuS, udsCmMgr->currentRoleVal);
+            break;
+        case TAF_UDS_DATA_TYPE_FILEXFER_STATE:
+            le_mutex_Lock(fileXferStateMutex);
+            if( dataSize != sizeof(isXferActive))
+            {
+                LE_ERROR("data size:%d is incorrect ", dataSize);
+                le_mutex_Unlock(fileXferStateMutex);
+                return LE_FAULT;
+            }
             le_mutex_Unlock(fileXferStateMutex);
+
+            if(IsCancelFileXferReqInList(udsCmMgr->vlanId))
+            {
+                LE_ERROR("CancelXferReq is in progress for vlanId %d", udsCmMgr->vlanId);
+                return LE_IN_PROGRESS;
+            }
+
+            LE_INFO("CancelFileXferEvent: vlanId=%d", vlanId);
+            cancelFileXferEvent_t cancelReq;
+            cancelReq.event = TAF_CANCEL_FILEXFER_START;
+            le_utf8_Copy(cancelReq.ifName, ifName, MAX_INTERFACE_NAME_LEN, NULL);
+
+            le_event_Report(UdsCommunicationMgr::cancelFileXferEvId, &cancelReq,
+                    sizeof(cancelFileXferEvent_t));
+
+            break;
+        case TAF_UDS_DATA_TYPE_DIAG_PAUSE:
+            LE_INFO("Pause diag service!");
+            if (!udsCmMgr->isPaused.load())
+            {
+                udsCmMgr->isPaused.store(true);
+                if(!udsCmMgr->readyToRecvData.load())
+                {
+                    LE_INFO("A request is in progress");
+                    return LE_IN_PROGRESS;
+                }
+            }
+            break;
+        case TAF_UDS_DATA_TYPE_DIAG_RESUME:
+        LE_INFO("Resume diag service!");
+            udsCmMgr->isPaused.store(false);
+            break;
+        default:
+            LE_ERROR("data type is not supported");
             return LE_FAULT;
-        }
-        le_mutex_Unlock(fileXferStateMutex);
-
-        if(IsCancelFileXferReqInList(udsCmMgr->vlanId))
-        {
-            LE_ERROR("CancelXferReq is in progress for vlanId %d", udsCmMgr->vlanId);
-            return LE_IN_PROGRESS;
-        }
-
-        LE_INFO("CancelFileXferEvent: vlanId=%d", vlanId);
-        cancelFileXferEvent_t cancelReq;
-        cancelReq.event = TAF_CANCEL_FILEXFER_START;
-        le_utf8_Copy(cancelReq.ifName, ifName, MAX_INTERFACE_NAME_LEN, NULL);
-
-        le_event_Report(UdsCommunicationMgr::cancelFileXferEvId, &cancelReq,
-                sizeof(cancelFileXferEvent_t));
-
-        return LE_OK;
-    }
-    else
-    {
-        LE_ERROR("data type is not supported");
-        return LE_FAULT;
     }
 
+    return LE_OK;
 }
 
 /**
@@ -5153,7 +5197,7 @@ le_result_t UdsCommunicationMgr::ECUResetResp
     }
 
     uint8_t resetType = recvBuf[1] & 0x7F;
-    // Currently it's positive response for hardreset and let's get the attribute, tmp
+    // Currently it's positive response for hardreset and let's get the attribute
     if(ignoreReqForHardReset && (resetType == HARD_RESET))
         isResetInProgress = true;
 

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -64,7 +64,9 @@ typedef enum
 typedef enum
 {
     TAF_UDS_DATA_TYPE_ROLE   = 0x00,              ///< Role.
-    TAF_UDS_DATA_TYPE_FILEXFER_STATE = 0x01       ///< File transfer state
+    TAF_UDS_DATA_TYPE_FILEXFER_STATE = 0x01,      ///< File transfer state
+    TAF_UDS_DATA_TYPE_DIAG_PAUSE = 0x02,          ///< Pause diag service
+    TAF_UDS_DATA_TYPE_DIAG_RESUME = 0x03          ///< Resume diag service
 }taf_uds_DataType_t;
 
 //-------------------------------------------------------------------------------------------------
@@ -141,7 +143,7 @@ LE_SHARED le_result_t taf_uds_SendDiagResp
 //-------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_uds_SetData
 (
-    const taf_uds_AddrInfo_t*  addrInfoPtr,       ///< [IN] Logical address information pointer.
+    taf_uds_AddrInfo_t*  addrInfoPtr,             ///< [IN] Logical address information pointer.
     const taf_uds_DiagMsg_t*   diagMsgPtr,        ///< [IN] Data pointer.
     taf_uds_DataType_t dataType                   ///< [IN] Data type.
 );

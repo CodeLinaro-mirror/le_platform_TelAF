@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -951,6 +951,43 @@ le_result_t taf_DiagSvr::AddCancelFileXferCb
     return LE_OK;
 }
 
+le_result_t taf_DiagSvr::Pause
+(
+    taf_diag_ServiceRef_t svcRef
+)
+{
+    taf_uds_DiagMsg_t diagMsg;
+    taf_uds_AddrInfo_t addrInfo;
+
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+    taf_DiagSvc_t* servicePtr = (taf_DiagSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+
+    addrInfo.vlanId = servicePtr->targetVlanId;
+    memset(addrInfo.ifName, 0, MAX_INTERFACE_NAME_LEN);
+
+    // Pause diag service to not receive any UDS requests.
+    return taf_uds_SetData(&addrInfo, &diagMsg, TAF_UDS_DATA_TYPE_DIAG_PAUSE);
+}
+
+le_result_t taf_DiagSvr::Resume
+(
+    taf_diag_ServiceRef_t svcRef
+)
+{
+    taf_uds_DiagMsg_t diagMsg;
+    taf_uds_AddrInfo_t addrInfo;
+
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+    taf_DiagSvc_t* servicePtr = (taf_DiagSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+
+    addrInfo.vlanId = servicePtr->targetVlanId;
+    memset(addrInfo.ifName, 0, MAX_INTERFACE_NAME_LEN);
+
+    // Resume diag service to receive UDS requests.
+    return taf_uds_SetData(&addrInfo, &diagMsg, TAF_UDS_DATA_TYPE_DIAG_RESUME);
+}
 //-------------------------------------------------------------------------------------------------
 /**
  * Remove the created service and release the alloted memory.

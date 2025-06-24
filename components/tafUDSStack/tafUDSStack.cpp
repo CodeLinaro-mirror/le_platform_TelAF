@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -52,7 +52,7 @@ le_result_t taf_uds_SendDiagResp
 
 le_result_t taf_uds_SetData
 (
-    const taf_uds_AddrInfo_t*  addrInfoPtr,       ///< [IN] Logical address information pointer.
+    taf_uds_AddrInfo_t*  addrInfoPtr,             ///< [IN] Logical address information pointer.
     const taf_uds_DiagMsg_t*   diagMsgPtr,        ///< [IN] Data pointer.
     taf_uds_DataType_t dataType                   ///< [IN] Data type.
 )
@@ -65,7 +65,19 @@ le_result_t taf_uds_SetData
         return LE_BAD_PARAMETER;
     }
 
-    LE_DEBUG("ifName=%s", addrInfoPtr->ifName);
+    //If interface name is not set, get it by VLAN Id
+    if(addrInfoPtr->ifName[0] == '\0')
+    {
+        if(UdsCommunicationMgr::GetIfNameByVlanId(addrInfoPtr->vlanId, addrInfoPtr->ifName) !=
+                LE_OK)
+        {
+            LE_ERROR("Can't get ifName by vlanId %d", addrInfoPtr->vlanId);
+            return LE_FAULT;
+        }
+    }
+
+    LE_DEBUG("ifName=%s, vlanId=%d", addrInfoPtr->ifName, addrInfoPtr->vlanId);
+
     auto udsCmMgr = UdsCommunicationMgr::GetInstance(addrInfoPtr->ifName);
     if(udsCmMgr == NULL)
     {

@@ -4,7 +4,6 @@
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
-
 #include "tafMngdSecFileStorageSvc.hpp"
 
 using namespace tafsvc;
@@ -519,7 +518,7 @@ tafMngdSecFileStorage_DirRef_t tafMngdSecFileStorageSvc::CreateDirRef
 
     tafMngdSecFileStorage_Dir_t *dirPtr = nullptr;
     tafMngdSecFileStorage_DirRef_t dirRef = nullptr;
-    char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
+
     le_result_t res = LE_OK;
 
     // Allocate memory for the directory structure
@@ -540,24 +539,17 @@ tafMngdSecFileStorage_DirRef_t tafMngdSecFileStorageSvc::CreateDirRef
         goto cleanup;
     }
 
+    // Store the storage name
     snprintf(dirPtr->storageName, sizeof(dirPtr->storageName), "%s", storageNamePtr);
 
-    // Get appName from client session
-    if(internal == true)
+    // Get the storage creator name
+    if(GetStorageCreator(storageNamePtr, dirPtr->masterAppName, sizeof(dirPtr->masterAppName)) != LE_OK)
     {
-        snprintf(myAppName, sizeof(myAppName), "%s", SECFILE_CREATOR_NAME);
-    }
-    else
-    {
-        if (LE_OK != GetAppNameBySessionRef(taf_mngdStorSecFile_GetClientSessionRef(),
-                                        myAppName, sizeof(myAppName)))
-        {
-            LE_ERROR("Failed to get client appName.");
-            goto cleanup;
-        }
+        LE_ERROR("Cannot get storage creator name");
+        goto cleanup;
     }
 
-    snprintf(dirPtr->masterAppName, sizeof(dirPtr->masterAppName), "%s", myAppName);
+    LE_INFO("masterAppName: %s", dirPtr->masterAppName);
 
     // Get the default storage path
     if (GetStoragePath(secFileStorage, storageNamePtr,
@@ -696,6 +688,8 @@ le_result_t tafMngdSecFileStorageSvc::SetStorageCreator
 
     res = taf_mngdStorSecData_CreateData(dataName);
 
+    TAF_ERROR_IF_RET_VAL(res == LE_DUPLICATE, LE_DUPLICATE, "Data already exists");
+
     TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Create data failed");
 
     taf_mngdStorSecData_DataRef_t dataRef = taf_mngdStorSecData_GetDataRef(dataName);
@@ -719,19 +713,24 @@ le_result_t tafMngdSecFileStorageSvc::SetStorageCreator
     return LE_OK;
 }
 
-le_result_t tafMngdSecFileStorageSvc::CheckStorageCreator
+le_result_t tafMngdSecFileStorageSvc::GetStorageCreator
 (
     const char* storageNamePtr,
-    const char* checkAppPtr
+    char *appNameBuf,
+    size_t appNameBufSize
 )
 {
     TAF_ERROR_IF_RET_VAL(storageNamePtr == nullptr,
                          LE_BAD_PARAMETER,
                          "Invalid storage string");
 
-    TAF_ERROR_IF_RET_VAL(checkAppPtr == nullptr,
+    TAF_ERROR_IF_RET_VAL(appNameBuf == nullptr,
                          LE_BAD_PARAMETER,
-                         "Invalid checkApp string");
+                         "Invalid app name buffer");
+
+    TAF_ERROR_IF_RET_VAL(appNameBufSize == 0,
+                         LE_BAD_PARAMETER,
+                         "Invalid buffer size");
 
     char sha1Hash[SHA_DIGEST_LENGTH * 2 + 1] = {0};
     char dataName[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES] = {0};
@@ -751,30 +750,28 @@ le_result_t tafMngdSecFileStorageSvc::CheckStorageCreator
     le_result_t res = taf_mngdStorSecData_ReadDataFirstChunk(dataRef, buffer, &readSize);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Read data failed");
 
-    if (strcmp((char*)buffer, checkAppPtr) == 0)
+    snprintf(dataName, sizeof(dataName), "%s", sha1Hash);
+
+    if (readSize > appNameBufSize)
     {
-        LE_INFO("%s is the creator of storage: %s", checkAppPtr, storageNamePtr);
-        return LE_OK; // The app matches
+        LE_INFO("Buffer size %" PRIuS " is not enough for the data lenght %" PRIuS,
+                appNameBufSize, readSize);
+        return LE_OVERFLOW;
     }
-    else
-    {
-        return LE_NOT_FOUND; // The app does not match
-    }
+
+    snprintf(appNameBuf, readSize, "%s", buffer);
+
+    return LE_OK;
 }
 
 le_result_t tafMngdSecFileStorageSvc::ClearStorageCreator
 (
-    const char* storageNamePtr,
-    const char* checkAppPtr
+    const char* storageNamePtr
 )
 {
     TAF_ERROR_IF_RET_VAL(storageNamePtr == nullptr,
                          LE_BAD_PARAMETER,
                          "Invalid storage string");
-
-    TAF_ERROR_IF_RET_VAL(checkAppPtr == nullptr,
-                         LE_BAD_PARAMETER,
-                         "Invalid checkApp string");
 
     char sha1Hash[SHA_DIGEST_LENGTH * 2 + 1] = {0};
     char dataName[TAF_MNGDSTORSECDATA_MAX_DATA_LABEL_BYTES] = {0};
@@ -911,14 +908,13 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
     const char* storageNamePtr
 )
 {
-    // Validate the storage name
+    // Validate the storage name to ensure it follows POSIX file naming rules
     TAF_ERROR_IF_RET_VAL(CheckValidPosixFileName(storageNamePtr) != LE_OK,
                          nullptr,
                          "Invalid storage string");
 
     char dirPath[LIMIT_MAX_PATH_BYTES] = {0};
     char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
-    bool isCreator = false;
 
     // Get the storage path
     if (GetStoragePath(secFileStorage, storageNamePtr, dirPath, sizeof(dirPath)) != LE_OK)
@@ -934,6 +930,7 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
         return nullptr;
     }
 
+    // Get the session reference and retrieve the application name of the caller
     if (LE_OK != GetAppNameBySessionRef(taf_mngdStorSecFile_GetClientSessionRef(),
                                         myAppName, sizeof(myAppName)))
     {
@@ -941,84 +938,50 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
         return nullptr;
     }
 
-    if(CheckStorageCreator(storageNamePtr, myAppName) == LE_OK)
-    {
-        LE_INFO("Calling app is the creator");
-        isCreator = true;
-    }
-    else
-    {
-        LE_INFO("Calling app is not the creator, check if it is accessible");
-        if(IsAppAccessible(storageNamePtr, myAppName) == false)
-        {
-            LE_ERROR("Calling app is not in the access list");
-            return nullptr;
-        }
-    }
-
     taf_mngdStorSecFile_StorageRef_t storageRef;
     tafMngdSecFileStorage_ClientCxt_t* clientCtxPtr = nullptr;
+    tafMngdSecFileStorage_Dir_t* dirPtr = nullptr;
 
     // Find or create the client context reference
     if (FindClientCxtRef(storageNamePtr, &storageRef) == LE_NOT_FOUND)
     {
         LE_INFO("Create new client context reference for '%s'", storageNamePtr);
 
+        // Allocate memory for a new client context
         clientCtxPtr = (tafMngdSecFileStorage_ClientCxt_t*)le_mem_ForceAlloc(ClientPool);
 
         if (clientCtxPtr == nullptr)
         {
             LE_ERROR("Memory allocation failed");
-            return nullptr;
+            goto exit;
         }
 
         memset((void*)clientCtxPtr, 0, sizeof(tafMngdSecFileStorage_ClientCxt_t));
 
+        // Initialize the client context structure
+        memset(clientCtxPtr, 0, sizeof(*clientCtxPtr));
         clientCtxPtr->storageRef =
             (taf_mngdStorSecFile_StorageRef_t)le_ref_CreateRef(ClientRefMap, clientCtxPtr);
-
-        clientCtxPtr->clientSessionRef = taf_mngdStorSecFile_GetClientSessionRef();
-
+        clientCtxPtr->clientSessionRef = taf_mngdStorSecFile_GetClientSessionRef();;
         snprintf(clientCtxPtr->storageName, sizeof(clientCtxPtr->storageName),
-                 "%s", storageNamePtr);
-
-        clientCtxPtr->lockState= true;
-
+                    "%s", storageNamePtr);
+        clientCtxPtr->lockState = true;
         clientCtxPtr->IsReadable = false;
-
         clientCtxPtr->IsWritable = false;
-
-        if(IsReadable(storageNamePtr, myAppName) == true)
-        {
-            LE_DEBUG("This client has read access");
-            clientCtxPtr->IsReadable = true;
-        }
-
-        if(IsWritable(storageNamePtr, myAppName) == true)
-        {
-            LE_DEBUG("This client has write access");
-            clientCtxPtr->IsWritable = true;
-        }
-
-        if(isCreator == true)
-        {
-            clientCtxPtr->IsCreator = true;
-            clientCtxPtr->IsReadable = true;
-            clientCtxPtr->IsWritable = true;
-        }
 
         storageRef = clientCtxPtr->storageRef;
     }
     else
     {
+        // Lookup the existing client context from the reference map
         clientCtxPtr = (tafMngdSecFileStorage_ClientCxt_t*)le_ref_Lookup(ClientRefMap, storageRef);
-
     }
 
+    // If the client context is still null, something went wrong
     if (clientCtxPtr == nullptr)
     {
-        LE_ERROR("Memory allocation failed");
-        return nullptr;
+        LE_ERROR("Client context is null");
+        goto exit;
     }
 
     // Find or create the directory reference
@@ -1028,13 +991,66 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
         if (clientCtxPtr->dirRef == nullptr)
         {
             LE_ERROR("Cannot create directory context reference");
-            le_mem_Release(clientCtxPtr);
-            return nullptr;
+            goto exit;
         }
+    }
+
+    // Lookup the directory using the client context's directory reference
+    dirPtr =(tafMngdSecFileStorage_Dir_t*)le_ref_Lookup(DirRefMap, clientCtxPtr->dirRef);
+
+    // Check if the directory reference is valid
+    if(dirPtr == nullptr)
+    {
+        LE_ERROR("Invalid dir pointer");
+        goto exit;
+    }
+
+    // Check if the calling app is the creator of the storage
+    if (dirPtr->masterAppName != nullptr &&
+        strlen(dirPtr->masterAppName) > 0 &&
+        strcmp(dirPtr->masterAppName, myAppName) == 0)
+    {
+        LE_INFO("Calling app is the creator");
+
+        clientCtxPtr->IsCreator = true;
+        clientCtxPtr->IsReadable = true;
+        clientCtxPtr->IsWritable = true;
+    }
+    else if(IsAppAccessible(storageNamePtr, myAppName))
+    {
+        LE_INFO("Calling app is not the creator, check if it is accessible");
+
+        // If not the creator, check if the app has read/write access
+        if(IsReadable(storageNamePtr, myAppName) == true)
+        {
+            LE_DEBUG("This client has read access");
+            clientCtxPtr->IsReadable = true;
+        }
+        if(IsWritable(storageNamePtr, myAppName) == true)
+        {
+            LE_DEBUG("This client has write access");
+            clientCtxPtr->IsWritable = true;
+        }
+    }
+    else
+    {
+        LE_INFO("Calling app [%s] is not permitted to access the storage [%s]",
+                myAppName, storageNamePtr);
+        goto exit;
     }
 
     LE_INFO("Successfully obtained storage reference for '%s'", storageNamePtr);
     return storageRef;
+
+exit:
+    // Exit from abnormal case, release client context pointer and return null
+    if(clientCtxPtr != nullptr)
+    {
+        le_ref_DeleteRef(ClientRefMap, clientCtxPtr->storageRef);
+        le_mem_Release(clientCtxPtr);
+    }
+
+    return nullptr;
 }
 
 le_result_t tafMngdSecFileStorageSvc::UnlockStorageImpl
@@ -1481,7 +1497,7 @@ le_result_t tafMngdSecFileStorageSvc::DeleteStorageImpl
         return LE_FAULT;
     }
 
-    result = ClearStorageCreator(dirPtr->storageName, dirPtr->masterAppName);
+    result = ClearStorageCreator(dirPtr->storageName);
     if(result == LE_OK)
     {
         LE_INFO("Successfully clear storage creator");
@@ -1512,9 +1528,12 @@ void tafMngdSecFileStorageSvc::CreateServiceStorages()
         res = CreateStorageRefImpl(storage.StorageName, capMask, internal);
         if (res != LE_OK)
         {
-            LE_WARN("Failed to create storage: %s", storage.StorageName);
+            LE_WARN("Failed to create service storage: %s", storage.StorageName);
         }
-        LE_INFO("Successfully created storage: %s", storage.StorageName);
+        else
+        {
+            LE_INFO("Successfully created service storage: %s", storage.StorageName);
+        }
     }
 }
 

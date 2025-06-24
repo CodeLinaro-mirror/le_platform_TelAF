@@ -488,6 +488,11 @@ REFERENCE ws;
 REFERENCE nodePowerState;
 
 /**
+ * NodeModemAwakeEventRef for node modem wakeup.
+ */
+REFERENCE NodeModemAwakeEvent;
+
+/**
  * Handler for async shutdown request.
  *
  * @instaging
@@ -604,6 +609,35 @@ EVENT NodePowerStateChange
     uint8 pmNodeId,
     NodePowerStateChangeBitMask bitmask
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for node modem awake.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER NodeModemAwakeHandler
+(
+    NodeModemAwakeEvent ref,
+    uint8 pmNodeId,
+    NodeModemWsBitMask wsBitmask
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Node modem awake event.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT NodeModemAwake
+(
+    NodeModemAwakeHandler handler,  ///< The modem awake event handler.
+    uint8 pmNodeId,
+    NodeModemWsBitMask wsBitmask
+);
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -896,6 +930,21 @@ FUNCTION le_result_t GetNodeModemWakeupSel
 (
     uint8 pmNodeId IN,                   ///< The Node ID given.
     NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup selection to be whitelisted.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the last modem wakeup reason.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNodeModemAwakeReason
+(
+    uint8 pmNodeId IN,                   ///< The Node ID given.
+    NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup reason.
 );
 
 //--------------------------------------------------------------------------------------------------

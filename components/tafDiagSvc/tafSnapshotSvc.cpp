@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -125,6 +125,24 @@ void taf_SnapshotSvr::storeDidsAsSnapshot
     while (pos < dataSize)
     {
         uint16_t did = (uint16_t) (didRawData[pos] << 8 | didRawData[pos+1]);
+        bool isDidValid = false;
+
+        for(int i=0; i < msgPtr->readDIDLen; i++)
+        {
+            if(did == msgPtr->readDID[i])
+            {
+                isDidValid = true;
+                break;
+            }
+        }
+
+        if(!isDidValid)
+        {
+            LE_ERROR("invalid DID: 0x%x, snapshot data is not correct.", did);
+            ReleaseList(list);
+            return;
+        }
+
         size_t didValLen = cfg::get_did_value_size(did);
         if (pos + 2 + didValLen > dataSize)
         {

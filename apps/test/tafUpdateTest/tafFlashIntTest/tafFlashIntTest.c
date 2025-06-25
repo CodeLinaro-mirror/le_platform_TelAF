@@ -275,7 +275,7 @@ void ReadUbiLeb(const char* volume)
     le_result_t result;
 
     // Open UBI Test
-    result = taf_flash_UbiOpen(volume, TAF_FLASH_READ_WRITE, &volumeRef);
+    result = taf_flash_UbiOpen(volume, TAF_FLASH_READ_ONLY, &volumeRef);
     LE_TEST_ASSERT((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
 
     // UBI Information Test

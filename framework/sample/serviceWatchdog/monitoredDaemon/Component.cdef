@@ -1,0 +1,18 @@
+requires:
+{
+    component:
+    {
+        ${LEGATO_ROOT}/components/watchdogChain
+    }
+}
+
+cflags:
+{
+    -I${LEGATO_ROOT}/components/watchdogChain
+    -DENABLE_TIMEOUT_TEST
+}
+
+sources:
+{
+    daemon.c
+}

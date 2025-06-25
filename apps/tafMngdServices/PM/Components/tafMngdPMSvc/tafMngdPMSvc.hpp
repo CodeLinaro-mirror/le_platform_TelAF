@@ -32,6 +32,9 @@
 #define WAKE_SOURCE_NOT_ACQUIRED 0
 #define WAKE_SOURCE_IGNORED 2
 
+#define MAIN_THREAD_KICK_INTERVAL 13
+#define MONITOR_MAIN_THREAD_LOOP 0
+
 namespace tafsvc {
 
 typedef struct

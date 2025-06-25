@@ -8,6 +8,13 @@
 #include "rpcPm/tafMngdRpcPm.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "watchdogChain.h"
+#ifdef __cplusplus
+}
+#endif
 
 using namespace tafsvc;
 
@@ -1288,6 +1295,14 @@ le_result_t taf_mngdPm_DeleteWakeupSource
 COMPONENT_INIT
 {
     LE_INFO("tafMngdPMSvc COMPONENT init...");
+
+    // Enable bit0 in watchdog chain.
+    le_wdogChain_Init(1);
+
+    // Start watchdog 0 and kick bit0 of watchdog chain in main thread.
+    le_clk_Time_t watchdogInterval = { .sec = MAIN_THREAD_KICK_INTERVAL };
+    le_wdogChain_MonitorEventLoop(MONITOR_MAIN_THREAD_LOOP, watchdogInterval);
+    LE_INFO("Watchdog for main thread is started.");
 
     auto &mpms = tafMngdPMSvc::GetInstance();
 

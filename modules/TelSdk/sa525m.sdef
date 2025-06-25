@@ -56,6 +56,9 @@ apps:
     $LEGATO_ROOT/apps/tools/tools
     $TELAF_ROOT/apps/tools/tafTools
 
+    // framework test
+    // $TELAF_ROOT/framework/test/backTraceTest/backTraceTest.adef
+
     // test apps
     // $TELAF_ROOT/apps/test/tafSensorTest/tafSensorUnitTest/tafSensorUnitTest
     // $TELAF_ROOT/apps/test/tafSensorTest/tafSensorIntTest/tafSensorIntTest

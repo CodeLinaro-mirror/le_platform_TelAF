@@ -46,6 +46,7 @@
 #include "tafSvcIF.hpp"
 
 #define SESSION_TIMEOUT 60
+#define TAF_SIM_SUBSYSTEM_TIMEOUT 30
 
 using namespace telux::tel;
 using namespace telux::common;

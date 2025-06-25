@@ -199,14 +199,14 @@ using namespace std;
                 taf_sim() {};
                 ~taf_sim() {};
 
-                std::shared_ptr<telux::tel::ICardManager> cardManager;
+                std::shared_ptr<telux::tel::ICardManager> cardManager = nullptr;
                 std::shared_ptr<telux::tel::ICardListener> cardListener;
                 std::map<int, std::shared_ptr<telux::tel::ICard>> cards;
-                std::shared_ptr<telux::tel::ISubscriptionManager> subMgr;
+                std::shared_ptr<telux::tel::ISubscriptionManager> subMgr = nullptr;
                 std::shared_ptr<telux::tel::ISubscriptionListener> subscriptionListener;
-                std::shared_ptr<telux::tel::ISimProfileManager> simProfileManager;
+                std::shared_ptr<telux::tel::ISimProfileManager> simProfileManager = nullptr;
                 std::promise<le_result_t> ProfileSyncPromise = std::promise<le_result_t>();
-                std::shared_ptr<telux::tel::IMultiSimManager> multiSimMgr;
+                std::shared_ptr<telux::tel::IMultiSimManager> multiSimMgr = nullptr;
                 std::shared_ptr<telux::tel::IMultiSimListener> multiSimListener;
                 std::promise<telux::common::ErrorCode> slotStatusCbPromise;
 

@@ -8,3 +8,10 @@ cxxflags:
     -I $TELAF_ROOT/include
     -I $LEGATO_ROOT/framework/liblegato/
 }
+requires:
+{
+    lib:
+    {
+        lib/libgptp.so
+    }
+}

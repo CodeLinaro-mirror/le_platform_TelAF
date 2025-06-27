@@ -82,6 +82,95 @@ void taf_Handler::Init()
     return;
 }
 
+void taf_PmsPa::PaPmsErrCallback
+(
+    taf_prop_pms_ErrCode_t errCode,
+    void * cbCtx
+)
+{
+    LE_UNUSED(cbCtx);
+
+    switch (errCode)
+    {
+        case TAF_PROP_PMS_ERR_SVC_GONE:
+        {
+            LE_INFO("prop-pms: SVC_GONE event captured");
+        }
+        break;
+
+        default:
+        {
+            LE_WARN("Unknown error captured: 0x%02x", errCode);
+        }
+    }
+}
+
+le_result_t taf_PmsPa::Init(void)
+{
+    le_result_t result =
+         taf_prop_pms_Init(
+            &paPmsObject,
+            PaPmsErrCallback,
+            paPmsObject);
+
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to taf_prop_pms_Init: %s",
+                 LE_RESULT_TXT(result));
+    }
+
+    return result;
+}
+
+le_result_t taf_PmsPa::Deinit(void)
+{
+    le_result_t result =
+         taf_prop_pms_Deinit(&paPmsObject);
+
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to taf_prop_pms_Deinit: %s",
+                 LE_RESULT_TXT(result));
+    }
+
+    return result;
+}
+
+le_result_t taf_PmsPa::SetModemWakeupFilter
+(
+    taf_pm_NodeModemWsBitMask_t bitset
+)
+{
+    le_result_t result =
+        taf_prop_pms_SetWsFilter(paPmsObject,
+                (taf_prop_pms_ModemWakeupSource_t) bitset);
+
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to taf_prop_pms_SetWsFilter");
+    }
+
+    return result;
+}
+
+le_result_t taf_PmsPa::GetModemWakeupFilter
+(
+    taf_pm_NodeModemWsBitMask_t* bitset
+)
+{
+    le_result_t result =
+        taf_prop_pms_GetWsFilter(paPmsObject,
+                (taf_prop_pms_ModemWakeupSource_t *) bitset);
+
+    if (result != LE_OK)
+    {
+        *bitset = 0;
+        LE_ERROR("Failed to taf_prop_pms_GetWsFilter");
+    }
+
+    return result;
+}
+
 /**
  * Callback on client connection
  */
@@ -196,6 +285,16 @@ taf_PM &taf_PM::GetInstance()
 {
     static taf_PM instance;
     return instance;
+}
+
+void taf_PM::PaInit(void *p1, void *p2)
+{
+    auto& power = taf_PM::GetInstance();
+
+    LE_FATAL_IF(
+        power.paRef->Init() != LE_OK,
+        "Failed to PaInit"
+    );
 }
 
 void taf_PM::Init(void)

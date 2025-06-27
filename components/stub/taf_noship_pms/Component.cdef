@@ -1,0 +1,12 @@
+sources:
+{
+    taf_prop_pms.c
+}
+
+provides:
+{
+    headerDir:
+    {
+        $CURDIR
+    }
+}

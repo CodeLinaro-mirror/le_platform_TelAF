@@ -137,6 +137,7 @@ apps:
     // $TELAF_ROOT/apps/sample/configTree/configTreeSample.adef
     // $TELAF_ROOT/framework/test/linkTest/linkDeviceUnitTest.adef
     // $TELAF_ROOT/framework/test/linkTest/linkRequireUnitTest.adef
+    // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmWsFilterTest/tafMngdPmWsFilterTest.adef
 }
 
 commands:

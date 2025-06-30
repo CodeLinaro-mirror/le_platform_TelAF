@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -150,7 +150,6 @@ void taf_SnapshotSvr::storeDidsAsSnapshot
     if ( (*it)->supplierFaultCodePtr  != NULL &&
          (*it)->supplierFaultCodeSize != 0 )
     {
-        #define DID_OF_SUPPLIER_FC 0xEF01
         size_t sfcSizeFromConf = cfg::get_did_value_size((uint16_t) DID_OF_SUPPLIER_FC);
         size_t sfcSizePassedIn = (*it)->supplierFaultCodeSize;
 

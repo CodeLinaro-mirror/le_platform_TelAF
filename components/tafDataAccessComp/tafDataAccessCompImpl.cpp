@@ -1,6 +1,6 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
@@ -1004,6 +1004,84 @@ le_result_t DemDataHandler::SetSnapshotData
         if (ret != LE_OK)
         {
             LE_ERROR("Failed to save DID record for first occurrence");
+            return LE_FAULT;
+        }
+    }
+
+    return LE_OK;
+}
+
+le_result_t DemDataHandler::UpdateFaultCodeSnapshotData
+(
+    uint32_t dtc,
+    taf_DataAccess_DidNode_t* node
+)
+{
+    le_result_t ret;
+    auto &tafSnapshotDao = SnapshotEntityDao::GetInstance();
+
+    if(node == NULL || node->len == 0 || node->val == NULL)
+    {
+        LE_ERROR("Wrong node or supplier fault code data");
+        return LE_BAD_PARAMETER;
+    }
+
+    // Prepare supplier fault code snapshot data for storage.
+    std::vector<DIDInfoPtr> dids;
+
+    LE_DEBUG("Set snapshot: dtc0x%x, did0x%x, did size=%d", dtc, node->did, (int)node->len);
+    DIDInfoPtr didPtr = std::make_shared<taf_DataAccess_DIDInfo_t>( static_cast<int32_t>(node->did),
+            node->val, static_cast<int32_t>(node->len));
+    dids.push_back(didPtr);
+
+    int firstRn, lastRn;
+    ret = GetSnapshotDataRecordNumByType(dtc, Snapshot_LastOccurrence, lastRn);
+    if (ret == LE_OK)
+    {
+        // Last occurrence is configured.
+        LE_DEBUG("Get last record number%d for DTC0x%x successfully", lastRn, dtc);
+        int32_t count = tafSnapshotDao.ReadDIDCount(static_cast<int32_t>(dtc),
+                static_cast<int32_t>(lastRn));
+        // Last occurrence record exists
+        if (count != 0)
+        {
+            // Only update last occurrence record for supplier fault code in this situation
+            return tafSnapshotDao.SetDIDRecord(static_cast<int32_t>(dtc),
+                static_cast<int32_t>(lastRn), dids);
+        }
+        else
+        {
+            LE_ERROR("No snapshot data present");
+            return LE_FAULT;
+        }
+    }
+    else
+    {
+        // Last occurrence is not configured.
+        ret = GetSnapshotDataRecordNumByType(dtc, Snapshot_FirstOccurrence, firstRn);
+        if (ret != LE_OK)
+        {
+            LE_INFO("No need to save snapshot for DTC0x%x", dtc);
+            return LE_OK;
+        }
+
+        // Only configure to save first occurrence record.
+        int32_t count = tafSnapshotDao.ReadDIDCount(static_cast<int32_t>(dtc),
+                static_cast<int32_t>(firstRn));
+        if (count != 0)
+        {
+            // Save to first occurrence.
+            ret = tafSnapshotDao.SetDIDRecord(static_cast<int32_t>(dtc),
+                        static_cast<int32_t>(firstRn), dids);
+            if (ret != LE_OK)
+            {
+                LE_ERROR("Failed to save DID record for first occurrence");
+                return LE_FAULT;
+            }
+        }
+        else
+        {
+            LE_ERROR("No snapshot data present");
             return LE_FAULT;
         }
     }

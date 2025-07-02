@@ -62,6 +62,9 @@ void tafCardListener:: onCardInfoChanged(int slotId)
     simEvent.simId = (taf_sim_Id_t)slotWithCard;
     simEvent.state =  sim.getState((taf_sim_Id_t)slotWithCard);
     if (simEvent.state == TAF_SIM_ABSENT) {
+        // Revert to original slotId for initialization
+        slotWithCard = slotId;
+        simEvent.simId = (taf_sim_Id_t)slotWithCard;
         sim.InitializeSimInfo(nullptr, (taf_sim_Id_t)slotWithCard);
     }
     le_event_Report(sim.NewStateEventId, &simEvent, sizeof(simEvent));

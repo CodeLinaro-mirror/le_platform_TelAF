@@ -7795,12 +7795,28 @@ void taf_locGnss::Init()
     le_msg_ServiceRef_t msgService = taf_locGnss_GetServiceRef();
     le_msg_AddServiceOpenHandler(msgService, OpenEventHandler, NULL);
     le_msg_AddServiceCloseHandler(msgService, CloseEventHandler, NULL);
-    if (GetNmeaConfig()== 0)
+
+    taf_locGnss_NmeaBitMask_t nmeaMask = GetNmeaConfig();
+    LE_INFO("nmeaMask mask is : %" PRIu64 "", nmeaMask);
+
+    if (nmeaMask == 0)
     {
-       TAF_LOCGNSS_NMEA_DEFAULT = 0x1f8000fc0;//If value is 0 it will set the default NMEA sentences (all sentences enabled)
-       LE_DEBUG("Nmea node doesn't exist, so set default NMEA value");
-       SetNmeaConfig(TAF_LOCGNSS_NMEA_DEFAULT);
+        LE_DEBUG("Nmea node doesn't exist, so set default NMEA value");
+        nmeaMask = TAF_LOCGNSS_NMEA_DEFAULT;
+        SetNmeaConfig(TAF_LOCGNSS_NMEA_DEFAULT);
     }
+    else
+    {
+       LE_DEBUG("Set nmeaMask from config tree");
+    }
+
+    le_result_t result = taf_locGnss_SetNmeaSentences(nmeaMask);
+    if(result != LE_OK)
+    {
+        LE_CRIT("Failed to set NMEA with code: %d", (int)result);
+        SetNmeaConfig(TAF_LOCGNSS_NMEA_CONFIG_DEFAULT);
+    }
+
     return;
 }
 le_result_t taf_locGnss::SetDRConfigValidity(taf_locGnss_DRConfigValidityType_t validMask)

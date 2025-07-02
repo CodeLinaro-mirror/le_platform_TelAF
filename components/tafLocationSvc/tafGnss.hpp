@@ -64,6 +64,8 @@ const int DEFAULT_UNKNOWN = 0;
 #define VERTICAL_SPEED_ACCURACY_INDEX 2
 #define LENGTH_CFG_NODE 50
 #define TTFF_REPORT_COUNT 10
+#define TAF_LOCGNSS_NMEA_DEFAULT 0x1f8000fc0
+#define TAF_LOCGNSS_NMEA_CONFIG_DEFAULT 0
 
 enum DataType
 {
@@ -512,7 +514,6 @@ namespace tafsvc {
             taf_locGnss_ConstellationBitMask_t mConstellationMask;
             taf_locGnss_NmeaBitMask_t mNmeaMask = 0;
             uint8_t mMinSvEle;
-            uint64_t TAF_LOCGNSS_NMEA_DEFAULT = 0;
             std::mutex mtx;
 
         private:

@@ -32,26 +32,6 @@ struct TafDcsClientDisconnectedEvent_t
     le_msg_SessionRef_t clientRef; ///< The client reference
 };
 
-/**
- * The internal data structure for startSessionAsyncRspEvtId_
- */
-struct TafDcsSendStartSessionAsyncRsp_t
-{
-    le_msg_SessionRef_t  clientRef;   ///< The client reference
-    taf_dcs_ProfileRef_t profileRef;  ///< The profile reference
-    le_result_t          result;      ///< The result of the operation
-};
-
-/**
- * The internal data structure for stopSessionAsyncRspEvtId_
- */
-struct TafDcsSendStopSessionAsyncRsp_t
-{
-    le_msg_SessionRef_t clientRef;   ///< The client reference
-    taf_dcs_ProfileRef_t profileRef; ///< The profile reference
-    le_result_t result;              ///< The result of the operation
-};
-
 class TafDcsSvc
 {
 public:
@@ -69,9 +49,6 @@ public:
     inline le_event_Id_t GetUpdateProfileEvtId() const {return updateProfileEvtId_;}
     inline le_event_Id_t GetClientsDisconnectedEvtId() const { return clientDisconnectedEvtId_; }
     inline le_event_Id_t GetSessionStartEvtId() const { return sessionStartEvtId_; }
-    inline le_event_Id_t GetSessionStopEvtId() const { return sessionStopEvtId_; }
-    inline le_event_Id_t GetStartSessionAsyncRspEvtId() const { return startSessionAsyncRspEvtId_; }
-    inline le_event_Id_t GetStopSessionAsyncRspEvtId() const { return stopSessionAsyncRspEvtId_; }
     inline le_event_Id_t GetPaSessionStateChangeEvtId() const { return paSessionStateChangeEvtId_; }
     inline le_event_Id_t GetPaRoamingStatusChangeEvtId() const { return paRoamingChangeEvtId_; }
     inline le_event_Id_t GetPaThrottledAPNsEvtId() const { return paThrottledAPNsEvtId_; }
@@ -104,11 +81,8 @@ private:
 
     // Internal events
     le_event_Id_t clientDisconnectedEvtId_;     // Client disconnected event
-    le_event_Id_t startSessionAsyncRspEvtId_;   // Start session async response event
-    le_event_Id_t stopSessionAsyncRspEvtId_;    // Stop session async response event
     le_event_Id_t updateProfileEvtId_;          // Profile update event
     le_event_Id_t sessionStartEvtId_;           // Session start event
-    le_event_Id_t sessionStopEvtId_;            // Session stop event
 
     // PA events
     le_event_Id_t paSessionStateChangeEvtId_;   // Session state change event from PA

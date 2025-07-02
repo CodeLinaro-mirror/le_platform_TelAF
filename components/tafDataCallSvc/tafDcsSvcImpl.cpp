@@ -153,17 +153,6 @@ void TafDcsSvc::createDCSEvents()
     // Event to start data session
     sessionStartEvtId_ = le_event_CreateId("sessionStartEvtId_", sizeof(TafDcsSessionStartEvent_t));
 
-    // Event to stop data session
-    sessionStopEvtId_ = le_event_CreateId("sessionStopEvtId_", sizeof(TafDcsSessionStopEvent_t));
-
-    // Event to send start session async events
-    startSessionAsyncRspEvtId_ = le_event_CreateId("startSessionAsyncRspEvtId_",
-                                                        sizeof(TafDcsSendStartSessionAsyncRsp_t));
-
-    // Event to send stop session async events
-    stopSessionAsyncRspEvtId_ = le_event_CreateId("stopSessionAsyncRspEvtId_",
-                                                        sizeof(TafDcsSendStopSessionAsyncRsp_t));
-
     LE_INFO("Internal DCS events created.");
 
     // Event for session state changes from PA
@@ -246,7 +235,8 @@ void TafDcsSvc::onDCSClientConnect(le_msg_SessionRef_t sessionRef, void *ctxPtr)
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Client disconnect function. Nothing is done.
+ * Client disconnect function. Clean up the client in the DCS internal event handler thread and
+ * stop the data sessions started by the client.
  */
 //--------------------------------------------------------------------------------------------------
 void TafDcsSvc::onDCSClientDisconnect(le_msg_SessionRef_t sessionRef, void *ctxPtr)
@@ -262,4 +252,8 @@ void TafDcsSvc::onDCSClientDisconnect(le_msg_SessionRef_t sessionRef, void *ctxP
         static_cast<void *>(&event),
         sizeof(TafDcsClientDisconnectedEvent_t)
     );
+
+    // Stop the data sessions in the main thread, as the sync stop blocks until the session is
+    // stopped and the session state event is handled in the DCS internal event handler thread.
+    TafDcsProfileManager::GetInstance().SvcStopClientSessions(sessionRef);
 }

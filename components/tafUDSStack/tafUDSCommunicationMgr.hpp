@@ -295,6 +295,7 @@ namespace uds{
     typedef enum
     {
         POSITIVE_RESPONSE = 0,
+        GENERAL_REJECT = 0x10,
         SERVICE_NOT_SUPPORTED = 0x11,
         SUBFUNCTION_NOT_SUPPORTED = 0x12,
         INCORRECT_MSG_LEN_OR_INVALID_FORMAT = 0x13,

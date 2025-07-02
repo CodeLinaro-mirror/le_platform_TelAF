@@ -408,6 +408,8 @@ static void AuthMsgHandler
     LE_TEST_INFO("AuthMsgHandler!");
     LE_TEST_INFO("Received auth type: %d", authTaskType);
 
+    authTaskType = authTaskType  & 0x7F;
+
     if (authTaskType == TAF_DIAGAUTH_TRANSMIT_CERT)  // 0x04
     {
         AuthTransCertHandle(rxMsgRef);

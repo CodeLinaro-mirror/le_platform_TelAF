@@ -97,6 +97,10 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- CreateMultipleClients\n"
         "------------To  test AllowWakingupDuringSuspending-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- AllowWakingupDuringSuspending\n"
+        "------------To  test AllowAuthorizedWakingupDuringSuspending-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- AllowAuthorizedWakingupDuringSuspending\n"
+        "------------To  test ShouldRejectUnauthorizedWakingupDuringSuspending-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldRejectUnauthorizedWakingupDuringSuspending\n"
         "------------To Test System Resume and Suspend -----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestAuthorizedResumeandSuspend\n"
         "------------To Test Node Resume and Suspend -----------\n"
@@ -1222,6 +1226,89 @@ static void AllowWakingupDuringSuspending()
          LE_ERROR("Failed to create wakeup source!");
         exit(EXIT_FAILURE);
      }
+}
+
+static void AllowAuthorizedWakingupDuringSuspending()
+{
+    LE_INFO("----AllowAuthorizedWakingupDuringSuspending test----");
+    le_result_t result;
+    if(wsRef == NULL)
+        wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRef != NULL) {
+        LE_INFO("WakeupSource ref is created for TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL");
+        if (wsRef != NULL) {
+            result = taf_mngdPm_StayAwake(wsRef);
+            if(result == LE_OK) {
+                LE_INFO("Resumed system with wakeuptype TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL");
+                result = taf_mngdPm_Relax(wsRef);
+                if(result == LE_OK) {
+                    LE_INFO("suspended system with wakeuptype TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL");
+                    result = taf_mngdPm_StayAwake(wsRef);
+                    if(result == LE_OK) {
+                        LE_INFO("Resumed system with wakeuptype TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL");
+                    }
+                }
+            }
+            else {
+                LE_INFO("Failed to acquire Wake source");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+    else {
+        LE_ERROR("Failed to create wakeup source!");
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void ShouldRejectUnauthorizedWakingupDuringSuspending()
+{
+    LE_INFO("----ShouldRejectUnauthorizedWakingupDuringSuspending test----");
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    int unauthorizedReason = TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        taf_mngdPm_wsRef_t wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created WakeupSource ref for authorized stay-awake reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                    res = taf_mngdPm_Relax(wsRefAuthorized);
+                    if(res == LE_OK) {
+                        printf("'Supended system with wsRefAuthorized'\n");
+                        taf_mngdPm_wsRef_t wsRefUnauthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+                        if(wsRefUnauthorized) {
+                            printf("Created WakeupSource ref for unauthorized stay-awake reason %d\n", unauthorizedReason);
+                            taf_mngdPm_StayAwake(wsRefUnauthorized);
+                            if(res == LE_OK) {
+                                printf("'Resumed system with wsRefUnauthorized'\n");
+                            }
+                            else if(res == LE_NOT_PERMITTED){
+                                LE_INFO("Resume system with unauthorized ws is not permitted");
+                                exit(EXIT_SUCCESS);
+                            }
+                        }
+                    }
+                    else {
+                        LE_INFO("Failed to release authorized wake source");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                else {
+                    LE_INFO("Failed to acquire authorized wake source");
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+        else {
+            printf("Failed to create wakeupsource ref for authorized reason %d\n", reason);
+            exit(EXIT_FAILURE);
+        }
+    }
 }
 
 void TestBubCases()
@@ -2567,6 +2654,14 @@ COMPONENT_INIT
         else if(strcmp(testType, "AllowWakingupDuringSuspending") == 0)
         {
             AllowWakingupDuringSuspending();
+        }
+        else if(strcmp(testType, "AllowAuthorizedWakingupDuringSuspending") == 0)
+        {
+            AllowAuthorizedWakingupDuringSuspending();
+        }
+        else if(strcmp(testType, "ShouldRejectUnauthorizedWakingupDuringSuspending") == 0)
+        {
+            ShouldRejectUnauthorizedWakingupDuringSuspending();
         }
         else if(strcmp(testType, "TestNonAuthorizedStayAwake") == 0)
         {

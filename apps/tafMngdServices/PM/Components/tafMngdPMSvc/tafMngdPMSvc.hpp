@@ -11,6 +11,7 @@
 #include <vector>
 #include <sys/reboot.h>
 #include <bitset>
+#include <unordered_set>
 
 #define VEHICHLE_WAKEUP_REASON_DEFAULT 0
 #define VEHICHLE_WAKEUP_STATUS_AWAKE  0
@@ -263,6 +264,9 @@ class tafMngdPMSvc: public ITafSvc
         static le_mem_PoolRef_t vmStatePool;
         static le_hashmap_Ref_t vmStateHashmap;
 
+        //cached awake requests ws reference set
+        static std::unordered_set<taf_mngdPm_wsRef_t>  wsCachedReqsRefSet;
+
         //List for system level wake sources
         static le_mem_PoolRef_t wsRefPool;
         static le_dls_List_t wsRefList;
@@ -323,6 +327,9 @@ class tafMngdPMSvc: public ITafSvc
         std::vector<taf_mngdPm_NodePowerStateChangeCtxt_t>regClientrecrd;
         static int8_t ackClientrecrdSize;
         static int8_t clientSize;
+
+        static void ProcessCachedAwakeReqs();
+
         static void SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_ClientAck_t ackType);
         bool IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState);
         bool IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePowerStateChangeBitMask_t stateMask);

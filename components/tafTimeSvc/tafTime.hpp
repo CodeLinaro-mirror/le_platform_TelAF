@@ -11,6 +11,7 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include "taf_gptpTime.h"
+#include "taf_pa_time.hpp"
 
 // For reading json configuration file
 #include "jansson.h"
@@ -26,22 +27,6 @@
 
 // For RTC
 #include <linux/rtc.h>
-
-//For gnss time listener
-#include <telux/platform/PlatformFactory.hpp>
-#include <telux/platform/TimeManager.hpp>
-#include <telux/platform/TimeListener.hpp>
-#include <condition_variable>
-
-//For network time
-#include <telux/common/CommonDefines.hpp>
-#include <telux/common/DeviceConfig.hpp>
-#include <telux/tel/Phone.hpp>
-#include <telux/tel/PhoneDefines.hpp>
-#include <telux/tel/PhoneFactory.hpp>
-#include <telux/tel/PhoneListener.hpp>
-#include <telux/data/ServingSystemManager.hpp>
-#include <time.h>
 
 #define TAF_TIME_THREAD_STACK_SIZE 0x20000
 #define TAF_TIME_SERVICE_CONF_FILE       "tafTimeSvc.json"
@@ -78,9 +63,6 @@
  * Macro definition for network time.
  */
 //-------------------------------------------------------------------------------------------------
-#define DEFAULT_SIM_SLOT_ID        1
-#define DEFAULT_PHONE_NUM_MAX      2
-#define NITZ_STR_BUF_MAX           60
 #define DEFAULT_TSR_EVENT_CNT      16
 #define DEFAULT_TSR_HANDLER_CNT    TAF_TIME_SRC_NAME_UNKNOWN
 
@@ -91,15 +73,6 @@
 //-------------------------------------------------------------------------------------------------
 #define TAF_TIME_EVENT_TYPE_LOWER_BOUND 0
 #define TAF_TIME_EVENT_TYPE_UPPER_BOUND 3
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Name space for the service.
- */
-//--------------------------------------------------------------------------------------------------
-
-using namespace telux::platform;
-using namespace telux::common;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -159,23 +132,6 @@ typedef struct
  * Network time information structure.
  */
 //--------------------------------------------------------------------------------------------------
-typedef struct
-{
-    uint16_t year;                   ///< Year.
-    uint8_t month;                   ///< Month. 1 is January and 12 is December.
-    uint8_t day;                     ///< Day. Range: 1 to 31.
-    uint8_t hour;                    ///< Hour. Range: 0 to 23.
-    uint8_t minute;                  ///< Minute. Range: 0 to 59.
-    uint8_t second;                  ///< Second. Range: 0 to 59.
-    uint8_t dayOfWeek;               ///< Day of the week. 0 is Monday and 6 is Sunday.
-    int8_t timeZone;                 ///< Offset between UTC and local time in units of 15 minutes.
-                                     ///  Actual value = field value * 15 minutes.
-    uint8_t dstAdj;                  ///< Daylight saving adjustment in hours to obtain local time.
-                                     ///  Possible values: 0, 1, and 2.
-    char nitzTime[NITZ_STR_BUF_MAX]; ///< Network Identity and Time Zone(NITZ) information in
-                                     ///  form "yyyy/mm/dd,hh:mm:ss(+/-)tzh:tzm,dt"
-}taf_time_NetTimeInfo_t;
-
 typedef struct
 {
     taf_time_TimeSources_t sourceId;
@@ -301,9 +257,9 @@ typedef struct
 
 struct NetworkInfoUpdateArgs_t
 {
-    uint8_t networkNumber;
-    telux::tel::NetworkTimeInfo info;   ///< [IN] Network time information.
-    telux::common::ErrorCode error;    ///< [IN] Error code.
+    taf_time_TimeSources_t sourceId; ///< Time source ID.
+    taf_time_NetTimeInfo_t info;     ///< [IN] Network time information.
+    le_result_t error;               ///< [IN] Error code.
 };
 
 struct ValidityParams
@@ -463,19 +419,6 @@ struct ValidityParams
             }
         };
 
-        class taf_TimeGnssListener : public telux::platform::ITimeListener
-        {
-            public:
-                void onGnssUtcTimeUpdate(const uint64_t utc) override;
-        };
-        class taf_TimeServingSystemListener : public telux::tel::IServingSystemListener
-        {
-            public:
-                uint8_t phone = DEFAULT_SIM_SLOT_ID;
-                taf_TimeServingSystemListener(uint8_t phone);
-                void onNetworkTimeChanged(telux::tel::NetworkTimeInfo info) override;
-        };
-
         class taf_Time : public ITafSvc
         {
             public:
@@ -570,8 +513,6 @@ struct ValidityParams
                                                                  taf_time_TimeSources_t sourceId);
                 le_result_t SetTimeToRtc(taf_time_TimeSpec_t timeVal);
 
-                le_result_t RegGnssTimeListener(void);
-                void DeregGnssTimeListener(void);
                 void TimeSourceChangeNotify(taf_time_TimeSources_t PreTimeSource,
                                              taf_time_TimeSources_t NewTimeSource);
 
@@ -580,44 +521,38 @@ struct ValidityParams
 
                 static void* SyncTimeTasks(void* contextPtr);
                 static void SyncTimeTimerHandler(le_timer_Ref_t timerRef);
+                static void SystemTimeUpdateTimerHandler(le_timer_Ref_t timerRef);
                 static void SyncGnssTime(void);
                 static void LayerTimeSourceChangeHandler(void* reportPtr,
                                                                         void* layerHandlerFuncPtr);
 
-                static void RequestNetworkTime(void);
-                void NetworkTimeResponseUpdate(uint8_t phoneId,
-                    telux::tel::NetworkTimeInfo info, telux::common::ErrorCode error);
-                static void SyncNetworkTimeResponse(telux::tel::NetworkTimeInfo info,
-                                                                   telux::common::ErrorCode error);
-                static void SyncNetworkTimeResponse2(telux::tel::NetworkTimeInfo info,
-                                                                   telux::common::ErrorCode error);
+                void NetworkTimeResponseUpdate(taf_time_TimeSources_t sourceId,
+                    taf_time_NetTimeInfo_t info, le_result_t error);
+
                 le_result_t ConvertDateTimeToSec(struct tm dateTime,
                                                                   taf_time_TimeSpec_t* timeValPtr);
 
-                le_result_t ConvertNetworkTimeToSec(telux::tel::NetworkTimeInfo info,
+                le_result_t ConvertNetworkTimeToSec(taf_time_NetTimeInfo_t info,
                                                                   taf_time_TimeSpec_t* timeValPtr);
-                le_result_t RegNetworkTimeListener(void);
-                void DeregNetworkTimeListener(void);
 
                 le_result_t InitGnssBaseData(void);
-                le_result_t InitGnssManager(void);
-
                 le_result_t InitNetworkBaseData(void);
-                le_result_t InitNetworkManager(void);
+
+                le_result_t InitGnssTime(void);
+                le_result_t InitNetworkTime(void);
 
                 taf_time_TimeValueChangeHandlerRef_t AddTimeValueChangeHandler(
                              taf_time_TimeSources_t sourceId,
                              taf_time_TimeValueChangeHandlerFunc_t handlerPtr, void* contextPtr);
 
                 void RemoveTimeValueChangeHandler(taf_time_TimeValueChangeHandlerRef_t handlerRef);
-                void NotifyRefTimeClient(TS_Event_t* tsEventPtr);
-                void StoreDateTimeInfo(telux::tel::NetworkTimeInfo info,
+
+                void StoreDateTimeInfo(taf_time_NetTimeInfo_t info,
                                                                   taf_time_TimeSources_t sourceId);
                 void ReportTimeValueChange(taf_time_TimeSources_t sourceId,
-                                   taf_time_TimeSpec_t timeVal, telux::tel::NetworkTimeInfo* info);
+                                   taf_time_TimeSpec_t timeVal, taf_time_NetTimeInfo_t* info);
                 le_result_t CreateRefTimeForHandler(TimeSourceRef_Event_t* tsrEventPrt,
-                                   taf_time_TimeSpec_t timeVal, telux::tel::NetworkTimeInfo* info);
-                static void EventTimeValueChangeHandler(void* reportPtr);
+                                   taf_time_TimeSpec_t timeVal, taf_time_NetTimeInfo_t* info);
                 le_result_t ReleaseTimeRef(taf_time_TimeRef_t timeSrcRef);
 
                 le_event_Id_t timeSourceChangeId;
@@ -656,12 +591,6 @@ struct ValidityParams
                 le_ref_MapRef_t TsrEventMap;
                 le_mem_PoolRef_t TsrEventPool;
 
-                //For getting network time and notification
-                std::shared_ptr<telux::tel::IPhoneManager> phoneManager;
-                //std::vector<std::shared_ptr<telux::tel::IPhone>> phones;
-                std::vector<std::shared_ptr<taf_TimeServingSystemListener>> servSysListeners;
-                std::vector<std::shared_ptr<telux::tel::IServingSystemManager>> servingSystemManagers;
-
                 time_Inf_t* timeInf = nullptr;
                 bool isDrvPresent = false;
                 static taf_time_getRTCCb_t getRTCCBtoClient;
@@ -695,9 +624,12 @@ struct ValidityParams
                 le_result_t ReleaseSourceRef(taf_time_SourceRef_t SrcRef);
                 void RemoveTimeSourceStatusHandler(taf_time_TimeSourceStatusHandlerRef_t handlerRef);
 
+                le_result_t RegGnssTimeListener(void);
+                le_result_t DeregGnssTimeListener(void);
+
                 le_result_t GetTimeZone(taf_time_SourceRef_t sourceRef, int8_t* timeZone);
                 le_result_t GetTimeDayAdj(taf_time_SourceRef_t sourceRef, uint8_t* dayltSavAdj);
-                le_result_t UpdateNetworkTimeZoneInfo(telux::tel::NetworkTimeInfo info,
+                le_result_t UpdateNetworkTimeZoneInfo(taf_time_NetTimeInfo_t info,
                     taf_time_TimeSources_t sourceIndex);
                 void UpdateFailedLoops(taf_time_TimeSources_t sourceIndex,
                     taf_TimeFailLoopAction_t action);
@@ -724,9 +656,6 @@ struct ValidityParams
                 int sigTermSignalNum = -1;
 
             private:
-                std::shared_ptr<ITimeListener> gnssTimeListener = nullptr;
-                std::shared_ptr<ITimeManager> timeManager;
-                TimeTypeMask SupportTimeMask;
                 int64_t AllowOverrideAfterFail = -1;
                 pthread_mutex_t ProtectlocalTime_mutex;
                 taf_gptpTime_Ref_t gptpTimeRef = NULL;

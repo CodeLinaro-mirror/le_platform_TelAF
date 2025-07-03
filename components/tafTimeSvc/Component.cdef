@@ -8,9 +8,17 @@ cxxflags:
     -ltelux_common
     -ltelux_tel
     -I$TELAF_ROOT/components/tafGptpLibrary
+    -I$TELAF_PA_DEFAULT/include
     -O
     -Wno-error
+    -DTAFPA_ENABLE_LEGACY_MACROS=1
 }
+
+ldflags:
+{
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
+}
+
 sources:
 {
     tafTimeSvc.cpp
@@ -22,7 +30,6 @@ requires:
     component:
     {
         $TELAF_ROOT/components/tafHalComp
-        $LEGATO_ROOT/components/watchdogChain
         $TELAF_ROOT/components/tafGptpLibrary
     }
 
@@ -35,8 +42,8 @@ requires:
 
     lib:
     {
-        lib/libtelux_platform.so
-        lib/libtelux_tel.so
+        libComponent_taf_pa_time.so
+        libComponent_taf_pa_timeDef.so
     }
 }
 provides:

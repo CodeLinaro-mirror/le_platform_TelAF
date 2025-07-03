@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -11,8 +11,6 @@
 #include <setjmp.h>
 #include "tafTime.hpp"
 
-using namespace telux::platform;
-using namespace telux::common;
 using namespace tafsvc;
 
 #define TIMER_SAFECALL 5

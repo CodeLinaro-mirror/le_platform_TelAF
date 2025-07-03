@@ -639,11 +639,11 @@ void TestSetTrustTime(const char* arg2, const char* arg3, const char* arg4)
     taf_time_SourceRef_t srcRef = taf_time_GetSourceRef(sourceId);
     LE_ASSERT(srcRef != NULL);
 
-    le_result_t result = taf_time_SetTrustTime(srcRef, &newTime, validityFlag);
-    LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_SetTrustTime() APIs.");
-
     LE_INFO("Set trust time %"PRIu64".%"PRIu64 ", validity: %d",
         newTime.sec, newTime.nanosec, validityFlag);
+
+    le_result_t result = taf_time_SetTrustTime(srcRef, &newTime, validityFlag);
+    LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_SetTrustTime() APIs.");
 
     validityFlag = taf_time_IsSourceValid(srcRef);
     LE_INFO("Validity of %s is set to %s",

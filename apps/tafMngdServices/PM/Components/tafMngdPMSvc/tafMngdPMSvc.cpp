@@ -1273,16 +1273,55 @@ void taf_mngdPm_RemoveNodeModemAwakeHandler
     return;
 }
 
-
 /**
  * Deletes the given wake source.
  */
-le_result_t taf_mngdPm_DeleteWakeupSource
-(
-    taf_mngdPm_wsRef_t wsRef
-)
+le_result_t taf_mngdPm_DeleteWakeupSource(taf_mngdPm_wsRef_t wsRef)
 {
-    return LE_NOT_IMPLEMENTED;
+    LE_INFO("taf_mngdPm_DeleteWakeupSource");
+
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        LE_ERROR("Invalid client");
+        return LE_UNSUPPORTED;
+    }
+
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    le_result_t res = LE_NOT_FOUND;
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
+
+    while (linkHandlerPtr)
+    {
+        taf_wsRefCtx_t * wsRefCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
+
+        if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef &&
+                wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef())
+        {
+            LE_INFO("wsRef found in wsRefList for %s with sessionRef: %p, stayAwakeReason:%d, wsState:%d", wsRefCtxPtr->wsTag,
+                wsRefCtxPtr->sessionRef, wsRefCtxPtr->reason, wsRefCtxPtr->wakeSourceState);
+            if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_NOT_ACQUIRED) {
+
+                LE_INFO("Delete not acquired wakesource of wsTag:%s for client with sessionRef %p", wsRefCtxPtr->wsTag, wsRefCtxPtr->sessionRef);
+                le_ref_DeleteRef(mpms.wsRefMap, wsRefCtxPtr->wsRef);
+                le_dls_Remove(&(mpms.wsRefList), &wsRefCtxPtr->link);
+                free((void*)wsRefCtxPtr->wsTag);
+                le_mem_Release((void*)wsRefCtxPtr);
+                LE_INFO("Deletion Complete!!!");
+                return LE_OK;
+            }
+            else if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_IGNORED ||
+                wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_ACQUIRED)
+            {
+                LE_WARN("WS of wsTag:%s for client with sessionRef %p is already in use, deletion not permitted", wsRefCtxPtr->wsTag, wsRefCtxPtr->sessionRef);
+                return LE_NOT_PERMITTED;
+            }
+            break;
+        }
+    }
+    LE_INFO("wsRef not found in wsRefList for the sessionRef: %p", taf_mngdPm_GetClientSessionRef());
+    return res;
 }
 
 COMPONENT_INIT

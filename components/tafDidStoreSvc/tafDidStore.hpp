@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -93,6 +93,16 @@ typedef enum
     WRITE_REQUEST_PI
 } ProcessRequest;
 
+typedef enum
+{
+    EVT_LOAD_PLUG_IN_READY = 0,
+    EVT_CONNECT_DIAG_SVC_READY = 1
+} EventType_Ready_t;
+
+typedef struct
+{
+    EventType_Ready_t type;
+}taf_didStore_ReadyEvtType_t;
 
 typedef struct {
     ProcessRequest request;
@@ -160,6 +170,19 @@ class taf_diagDidStore: public ITafSvc
                     uint16_t dataId, void* contextPtr);
             static void readDataIDMsgHandler(taf_diagDataID_RxReadDIDMsgRef_t rxMsgRef,
                     const uint16_t* dataIdPtr, size_t dataIdSize,void* contextPtr);
+
+            le_event_Id_t evtReady;
+            bool isPluginReady = false;
+            bool isDiagSvcReady = false;
+            static void GetSvcReady(void *p1, void *p2);
+            void LoadPlugin();
+            void ConnectDiagSvc();
+            static void RetryHandler(le_timer_Ref_t timerRef);
+            static void ReadyEvtHandler(void * reportPtr);
+
+            static taf_diagDataID_ServiceRef_t DiagDataIDSvcRef;
+            static taf_diagDataID_RxReadDIDMsgHandlerRef_t DiagReadDataIDMsgRef;
+            static taf_diagDataID_RxWriteDIDMsgHandlerRef_t DiagWriteDataIDMsgRef;
 
         private:
             // Internal search function.

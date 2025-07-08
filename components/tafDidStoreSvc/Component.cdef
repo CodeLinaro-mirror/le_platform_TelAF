@@ -2,7 +2,7 @@ provides:
 {
     api:
     {
-        taf_diagDidStore.api
+        taf_diagDidStore.api [manual-start]
     }
 }
 
@@ -14,7 +14,7 @@ requires:
     }
     api:
     {
-        taf_diagDataID.api
+        taf_diagDataID.api [manual-start]
         le_appInfo.api
     }
 }

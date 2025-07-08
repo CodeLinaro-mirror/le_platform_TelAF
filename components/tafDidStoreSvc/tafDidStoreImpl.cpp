@@ -1,22 +1,28 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
 #include "interfaces.h"
 #include "tafDidStore.hpp"
+#include <setjmp.h>
 
 namespace pt = boost::property_tree;
 using namespace tafsvc;
+
+#define MAX_NUM_OF_ATTEMPTS   10
+#define RETRY_TIMER_INTERVAL  3000
+#define TIMER_SAFECALL 5
+DECLARE_SAFE_CALL();
 
 le_sem_Ref_t read_semaphore = NULL;
 le_sem_Ref_t write_semaphore = NULL;
 
 // Diag RDBI/WDBI
-static taf_diagDataID_ServiceRef_t DiagDataIDSvcRef = NULL;
-static taf_diagDataID_RxReadDIDMsgHandlerRef_t DiagReadDataIDMsgRef = NULL;
-static taf_diagDataID_RxWriteDIDMsgHandlerRef_t DiagWriteDataIDMsgRef = NULL;
+taf_diagDataID_ServiceRef_t taf_diagDidStore::DiagDataIDSvcRef = NULL;
+taf_diagDataID_RxReadDIDMsgHandlerRef_t taf_diagDidStore::DiagReadDataIDMsgRef = NULL;
+taf_diagDataID_RxWriteDIDMsgHandlerRef_t taf_diagDidStore::DiagWriteDataIDMsgRef = NULL;
 
 le_dls_List_t didStorageNotifyList = LE_DLS_LIST_INIT;
 
@@ -1005,6 +1011,230 @@ void taf_diagDidStore::OnClientDisconnection
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Load plugin. If succeeded, send EVT_LOAD_PLUG_IN_READY event.
+ */
+ //-------------------------------------------------------------------------------------------------
+void taf_diagDidStore::LoadPlugin()
+{
+    didStorInf = (diagDID_Inf_t*)taf_devMgr_LoadDrv(TAF_DIAGDID_MODULE_NAME, NULL);
+    if (didStorInf == NULL)
+    {
+        LE_ERROR("Failed to load plugin: %s, try it later", TAF_DIAGDID_MODULE_NAME);
+        return;
+    }
+
+    if (didStorInf->init != NULL)
+    {
+        int ret = 0;
+        LE_DEBUG("Before safe call init");
+        ENTER_SAFE_CALL(TIMER_SAFECALL, ret, (*(didStorInf->init)));
+        EXIT_SAFE_CALL();
+
+        if (ret == -1)
+        {
+            LE_CRIT("Failed to init plugin: %s", TAF_DIAGDID_MODULE_NAME);
+            exit(EXIT_SUCCESS);
+        }
+    }
+
+    if (didStorInf->addDataChangeHandler != NULL)
+    {
+        int ret = 0;
+        LE_DEBUG("Before safe call addDataChangeHandler");
+        ENTER_SAFE_CALL(TIMER_SAFECALL, ret, (*(didStorInf->addDataChangeHandler)), DidMsgPluginCB);
+        EXIT_SAFE_CALL();
+
+        if (ret == -1)
+        {
+            LE_CRIT("Failed to add handler for plugin: %s", TAF_DIAGDID_MODULE_NAME);
+            exit(EXIT_SUCCESS);
+        }
+    }
+
+    //Load plugin successfully.
+    LE_INFO("Load plugin successfully");
+    taf_didStore_ReadyEvtType_t readyType;
+    readyType.type = EVT_LOAD_PLUG_IN_READY;
+    isPluginReady = true;
+    le_event_Report(evtReady, &readyType, sizeof(readyType));
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Connect diag service. If succeeded, send EVT_CONNECT_DIAG_SVC_READY event.
+ */
+ //-------------------------------------------------------------------------------------------------
+void taf_diagDidStore::ConnectDiagSvc()
+{
+    le_result_t rst = taf_diagDataID_TryConnectService();
+
+    if (rst != LE_OK)
+    {
+        LE_ERROR("Failed to connect diag service, try it later");
+        return;
+    }
+
+    //Connect Diag service successfully.
+    LE_INFO("Connect Diag service successfully");
+    taf_didStore_ReadyEvtType_t readyType;
+    readyType.type = EVT_CONNECT_DIAG_SVC_READY;
+    isDiagSvcReady = true;
+    le_event_Report(evtReady, &readyType, sizeof(readyType));
+
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle the event when loading plugin or connecting diag service successfully.
+ */
+ //-------------------------------------------------------------------------------------------------
+void taf_diagDidStore::ReadyEvtHandler(void * reportPtr)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
+    taf_didStore_ReadyEvtType_t* evtType =(taf_didStore_ReadyEvtType_t*)reportPtr;
+    auto & inst = GetInstance();
+
+    switch(evtType->type)
+    {
+        case EVT_LOAD_PLUG_IN_READY:
+            // After plugin loaded, advertise the service to client sides
+            LE_INFO("Advertise didStore service");
+            taf_diagDidStore_AdvertiseService();
+
+            // Set session close handler
+            le_msg_AddServiceCloseHandler(taf_diagDidStore_GetServiceRef(), OnClientDisconnection,
+                    NULL);
+        break;
+        case EVT_CONNECT_DIAG_SVC_READY:
+            // Diag service Client request-response handling
+            // Get diag Data ID reference
+            inst.DiagDataIDSvcRef = taf_diagDataID_GetService();
+            if(inst.DiagDataIDSvcRef == NULL)
+            {
+                LE_ERROR("Get diagDataID service error");
+                return;
+            }
+
+            inst.DiagReadDataIDMsgRef =
+                taf_diagDataID_AddRxReadDIDMsgHandler(
+                    inst.DiagDataIDSvcRef,
+                    inst.readDataIDMsgHandler,
+                    NULL);
+
+            TAF_ERROR_IF_RET_NIL(
+                inst.DiagReadDataIDMsgRef == NULL,
+                "Not Registered successfully for readDataIDMsgHandler");
+
+            inst.DiagWriteDataIDMsgRef =
+                taf_diagDataID_AddRxWriteDIDMsgHandler(
+                    inst.DiagDataIDSvcRef,
+                    inst.writeDataIDMsgHandler,
+                    NULL);
+
+            TAF_ERROR_IF_RET_NIL(
+                inst.DiagWriteDataIDMsgRef == NULL,
+                "Not Registered successfully for writeDataIDMsgHandler");
+        break;
+        default:
+            LE_ERROR("Wrong event type");
+        break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Load plugin and connect diag service until retry count has reaches the maximum value.
+ */
+ //-------------------------------------------------------------------------------------------------
+void taf_diagDidStore::RetryHandler(le_timer_Ref_t timerRef)
+{
+    auto & inst = GetInstance();
+
+    uint32_t expiryCount = le_timer_GetExpiryCount(timerRef);
+    LE_DEBUG("expiryCount = %d", expiryCount);
+    if(expiryCount < MAX_NUM_OF_ATTEMPTS)
+    {
+        // Load plugin. IF failed to load plugin, try again later.
+        if(!inst.isPluginReady)
+        {
+            inst.LoadPlugin();
+        }
+
+        //Connect diag service, if failed to connect, try it later.
+        if(!inst.isDiagSvcReady)
+        {
+            inst.ConnectDiagSvc();
+        }
+
+        // Load plugin and connect diag service successfully. Delete the timer.
+        if(inst.isPluginReady && inst.isDiagSvcReady)
+        {
+            LE_INFO("Load plugin and connect diag service successfully");
+            le_timer_Delete(timerRef);
+        }
+
+        return;
+    }
+
+    if(!inst.isPluginReady)
+    {
+        LE_CRIT("Load plugin timeout");
+        //Load plugin timeout.
+        exit(EXIT_SUCCESS);
+    }
+
+    if(!inst.isDiagSvcReady)
+    {
+        LE_CRIT("Connect diag service timeout");
+    }
+
+    le_timer_Delete(timerRef);
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Load plugin and try to connect diag service, if cannot load plugin or connect diag service
+ * successfully, start a timer to try again later.
+ */
+ //-------------------------------------------------------------------------------------------------
+void taf_diagDidStore::GetSvcReady(void *p1, void *p2)
+{
+    LE_UNUSED(p1);
+    LE_UNUSED(p2);
+
+    auto & inst = GetInstance();
+
+    // Load plugin.
+    inst.LoadPlugin();
+
+    //Connect diag service.
+    inst.ConnectDiagSvc();
+
+    if( inst.isPluginReady && inst.isDiagSvcReady)
+    {
+        LE_INFO("Load plugin and connect diag service successfully");
+        return;
+    }
+
+    // Start one timer for the retry-action
+    le_timer_Ref_t retryTimer = le_timer_Create("retry-timer-diagsvc");
+
+    if (retryTimer == NULL)
+    {
+        LE_ERROR("Failed to le_timer_Create for the retry-timer");
+        return;
+    }
+
+    le_timer_SetRepeat(retryTimer, MAX_NUM_OF_ATTEMPTS);
+    le_timer_SetHandler(retryTimer, RetryHandler);
+    le_timer_SetWakeup(retryTimer, false);
+    le_timer_SetMsInterval(retryTimer, RETRY_TIMER_INTERVAL);
+    le_timer_Start(retryTimer);
+    LE_INFO("Retry timer start ...");
+}
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1037,60 +1267,22 @@ void taf_diagDidStore::Init
     //Read DID Plugin thread
     ReadRequestPool = le_mem_CreatePool("Read plugin Request", sizeof(ReadWriteRequest_t));
     ReadDIDRefMap = le_ref_CreateMap("ReadDIDRefMap", DEFAULT_READ_DID_REF_CNT);
-    ReadThreadRef = le_thread_Create("Background Thread", ReadThreadMain, NULL);
+    ReadThreadRef = le_thread_Create("didstoreThR", ReadThreadMain, NULL);
     le_thread_SetPriority(ReadThreadRef, LE_THREAD_PRIORITY_IDLE);
     le_thread_Start(ReadThreadRef);
 
     //write DID Plugin thread
     WriteRequestPool = le_mem_CreatePool("Write plugin Request", sizeof(ReadWriteRequest_t));
     WriteDIDRefMap = le_ref_CreateMap("WriteDIDRefMap", DEFAULT_WRITE_DID_REF_CNT);
-    WriteThreadRef = le_thread_Create("Background Thread", WriteThreadMain, NULL);
+    WriteThreadRef = le_thread_Create("didstoreThW", WriteThreadMain, NULL);
     le_thread_SetPriority(WriteThreadRef, LE_THREAD_PRIORITY_IDLE);
     le_thread_Start(WriteThreadRef);
 
-    // Load plugin.
-    didStorInf = (diagDID_Inf_t*)taf_devMgr_LoadDrv(TAF_DIAGDID_MODULE_NAME, NULL);
-    if (didStorInf == NULL)
-    {
-        LE_WARN("DID storage PI module is not loaded.");
-    }
-    else
-    {
-        if (didStorInf->init != NULL)
-        {
-            LE_INFO("DID storage PI init...");
-            (*(didStorInf->init))();
-        }
-    }
+    // Load plugin and connect diag service to get service ready.
+    le_event_QueueFunction(GetSvcReady, NULL, NULL);
 
-    if (didStorInf)
-    {
-        LE_WARN("DID storage PI addDataChangeHandler.");
-        (*(didStorInf->addDataChangeHandler))(DidMsgPluginCB);
-    }
-
-    // Diag service Client request-response handling
-    // Get diag Data ID reference
-    DiagDataIDSvcRef = taf_diagDataID_GetService();
-    if(DiagDataIDSvcRef == NULL)
-    {
-        LE_ERROR("Get diagDataID service error");
-        return;
-    }
-
-    DiagReadDataIDMsgRef = taf_diagDataID_AddRxReadDIDMsgHandler(DiagDataIDSvcRef,
-            readDataIDMsgHandler, NULL);
-    TAF_ERROR_IF_RET_NIL(DiagReadDataIDMsgRef == NULL,
-            "Not Registered successfully for readDataIDMsgHandler");
-
-    DiagWriteDataIDMsgRef = taf_diagDataID_AddRxWriteDIDMsgHandler(DiagDataIDSvcRef,
-            writeDataIDMsgHandler, NULL);
-    TAF_ERROR_IF_RET_NIL(DiagWriteDataIDMsgRef == NULL,
-            "Not Registered successfully for writeDataIDMsgHandler");
-
-    // Set session close handler
-    le_msg_AddServiceCloseHandler(taf_diagDidStore_GetServiceRef(), OnClientDisconnection, NULL);
+    evtReady = le_event_CreateId("readyEvt", sizeof(taf_didStore_ReadyEvtType_t));
+    le_event_AddHandler("readyEvtHdlr", evtReady, ReadyEvtHandler);
 
     LE_INFO("taf_diagDidStore Init completed!");
-
 }

@@ -537,6 +537,7 @@ void UdsCommunicationMgr::P2StarTimeoutHandler
     }
 
     uint32_t maxNumberOfRcrrp;
+    uint32_t sid = udsCmMgr->recvBuf[0];
 
     LE_DEBUG("P2StarTimeoutHandler count = %d",le_timer_GetExpiryCount(timerRef));
     //Get P2* server count
@@ -556,7 +557,6 @@ void UdsCommunicationMgr::P2StarTimeoutHandler
 
     if(le_timer_GetExpiryCount(timerRef) < maxNumberOfRcrrp)
     {
-        uint32_t sid = udsCmMgr->recvBuf[0];
         udsCmMgr->SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, &udsCmMgr->addrInfo);
         return;
     }
@@ -569,6 +569,7 @@ void UdsCommunicationMgr::P2StarTimeoutHandler
         udsCmMgr->CheckAndSendCancelFileXferEvent();
     }
 
+    udsCmMgr->SendNRC(sid, GENERAL_REJECT, &udsCmMgr->addrInfo);
     memset(udsCmMgr->recvBuf, 0, UDS_MAX_DATA_SIZE);
     udsCmMgr->recvDataLen = 0;
     udsCmMgr->sendDataLen = 0;
@@ -5201,12 +5202,6 @@ le_result_t UdsCommunicationMgr::ECUResetResp
     if(ignoreReqForHardReset && (resetType == HARD_RESET))
         isResetInProgress = true;
 
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-    if (suppressPosRspFlag == 1)
-    {
-        return LE_UNSUPPORTED;
-    }
-
     sendBuf[0] = ECU_RESET_RESPONSE_ID;
     sendBuf[1] = resetType;
     sendDataLen = UDS_ECU_RESET_RESP_BASE_LEN;
@@ -5338,12 +5333,6 @@ le_result_t UdsCommunicationMgr::SecurityAccessResp
         return LE_OK;
     }
 
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-    if (suppressPosRspFlag == 1)
-    {
-        return LE_UNSUPPORTED;
-    }
-
     sendBuf[0] = SECURITY_ACCESS_RESPONSE_ID;
     sendBuf[1] = recvBuf[1] & 0x7F; // Security Access Type
 
@@ -5467,12 +5456,6 @@ le_result_t UdsCommunicationMgr::AuthenticationResp
         break;
     }
 
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-    if (suppressPosRspFlag == 1)
-    {
-        return LE_UNSUPPORTED;
-    }
-
     sendBuf[0] = AUTHENTICATION_RESPONSE_ID;
     sendBuf[1] = authSubFunc;
 
@@ -5507,12 +5490,6 @@ le_result_t UdsCommunicationMgr::RoutineCtrlResp
         LE_DEBUG("Error code reported from Diag service");
         SetNRC(serviceId, err);
         return LE_OK;
-    }
-
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-    if (suppressPosRspFlag == 1)
-    {
-        return LE_UNSUPPORTED;
     }
 
     uint8_t routineControlType = recvBuf[1] & 0x7F;
@@ -5830,12 +5807,6 @@ le_result_t UdsCommunicationMgr::ReadDTCInfoResp
         return LE_OK;
     }
 
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-    if (suppressPosRspFlag == 1)
-    {
-        return LE_UNSUPPORTED;
-    }
-
     uint8_t reportType = recvBuf[1] & 0x7F;  // Equal to subfunction 0~6bit
 
     sendBuf[0] = READ_DTC_INFO_RESPONSE_ID;
@@ -5894,12 +5865,6 @@ le_result_t UdsCommunicationMgr::CtrlDTCSettingResp
         LE_DEBUG("Error code reported from Diag service");
         SetNRC(serviceId, err);
         return LE_OK;
-    }
-
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-    if (suppressPosRspFlag == 1)
-    {
-        return LE_UNSUPPORTED;
     }
 
     uint8_t settingType = recvBuf[1] & 0x7F;  // Equal to subfunction 0~6bit
@@ -5962,17 +5927,6 @@ le_result_t UdsCommunicationMgr::ROEResp
     }
 
     LE_DEBUG("ResponseOnEvent sub function:%d", subFunc);
-
-    //The SuppressPosRspMsg is only available for stopROE, startROE or clearROE
-    if(subFunc == ROE_SUBFUNC_STPROE || subFunc == ROE_SUBFUNC_STRTROE ||
-            subFunc == ROE_SUBFUNC_CLRROE)
-    {
-        uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-        if (suppressPosRspFlag == 1)
-        {
-            return LE_FAULT;
-        }
-    }
 
     sendBuf[0] = RESPONSE_ON_EVENT_RESPONSE_ID;
     sendBuf[1] = subFunc;

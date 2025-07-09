@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -27,9 +27,12 @@ LE_REF_DEFINE_STATIC_MAP(gsbListRefMap, TAF_NET_MAX_GSB_LIST_NUM);
 
 LE_REF_DEFINE_STATIC_MAP(gsbSafeRefMap, TAF_NET_MAX_GSB_NUM);
 
+#if 0
 std::vector<telux::data::net::BridgeInfo> tafGsbCallback::gsbInfo;
+#endif
 
 le_sem_Ref_t tafGsbCallback::semaphore = nullptr;
+
 
 
 /*======================================================================
@@ -47,8 +50,6 @@ le_sem_Ref_t tafGsbCallback::semaphore = nullptr;
 ======================================================================*/
 void taf_Gsb::Init(void)
 {
-
-    bool isReady = false;
 
     // 1. Initiate the semaphore
     tafGsbCallback::semaphore = le_sem_Create("taf_GsbRespCbSem", 0);
@@ -71,6 +72,9 @@ void taf_Gsb::Init(void)
     // 3. Initiate the reference map.
     gsbListRefMap = le_ref_InitStaticMap(gsbListRefMap, TAF_NET_MAX_GSB_LIST_NUM);
     gsbSafeRefMap = le_ref_InitStaticMap(gsbSafeRefMap, TAF_NET_MAX_GSB_NUM);
+
+#if 0
+    bool isReady = false;
 
     // 4. Get the DataFactory and static BridgeManager instances
     if (gsbManager == nullptr)
@@ -130,6 +134,7 @@ void taf_Gsb::Init(void)
     {
         LE_CRIT("unable to init gsb component!");
     }
+#endif
 
     return;
 }
@@ -153,6 +158,7 @@ taf_Gsb &taf_Gsb::GetInstance()
     return instance;
 }
 
+#if 0
 /*======================================================================
 
  FUNCTION        tafGsbCallback::onResponseCallback
@@ -218,6 +224,7 @@ void tafGsbCallback::onBridgeListResponse
     le_sem_Post(semaphore);
 }
 
+
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 /*======================================================================
 
@@ -241,6 +248,8 @@ void taf_Gsb::onInitComplete(telux::common::ServiceStatus status)
     conVar.notify_all();
 }
 #endif
+
+#endif // remove telux
 
 /*======================================================================
 

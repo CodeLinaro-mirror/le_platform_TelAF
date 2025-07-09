@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -18,7 +18,8 @@
 #include "tafL2tpImpl.hpp"
 #include "tafSocksImpl.hpp"
 #include "tafGsbImpl.hpp"
-#include "taf_pa_net.hpp"
+#include "taf_pa_socks.hpp"
+#include "tafNetUtility.hpp"
 
 using namespace tafsvc;
 
@@ -1432,7 +1433,7 @@ le_result_t taf_net_BindVlanWithProfile
 
     TAF_ERROR_IF_RET_VAL(vlanRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
 
-    result = network.getSlotIdFromPhoneId(DEFAULT_PHONE_ID_1, &slotId);
+    result = network.getSlotIdFromPhoneId(DEFAULT_SLOT_ID_1, &slotId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "failed to get slot id from phone id");
 
     result=tafVlan.BindVlanWithProfile(vlanRef, slotId, profileId);
@@ -2084,7 +2085,7 @@ void taf_net_DisableL2tpAsync
 )
 {
      auto &tafL2tp = taf_L2tp::GetInstance();
-     
+
      return tafL2tp.DisableL2tpCmdAsync(handlerPtr, contextPtr, taf_net_GetClientSessionRef());
 }
 
@@ -2309,7 +2310,7 @@ void taf_net_StartTunnelAsync
 )
 {
      auto &tafL2tp = taf_L2tp::GetInstance();
-     
+
      return tafL2tp.StartTunnelCmdAsync(tunnelRef, handlerPtr, contextPtr,
                                      taf_net_GetClientSessionRef());
 
@@ -2352,7 +2353,7 @@ void taf_net_StopTunnelAsync
 )
 {
      auto &tafL2tp = taf_L2tp::GetInstance();
-     
+
      return tafL2tp.StopTunnelCmdAsync(tunnelRef, handlerPtr, contextPtr,
                                        taf_net_GetClientSessionRef());
 }
@@ -2732,10 +2733,14 @@ le_result_t taf_net_SetSocksAuthMethod
     taf_net_AuthMethod_t authMethod
 )
 {
-    if(authMethod != TAF_NET_SOCKS_NONE && authMethod != TAF_NET_SOCKS_USER_PASSWD)
+    taf_pa_net_AuthMethod_t auth = TAF_PA_NET_SOCKS_UNKNOWN;
+
+    auth = static_cast<taf_pa_net_AuthMethod_t>(authMethod);
+
+    if(auth != TAF_PA_NET_SOCKS_NONE && auth != TAF_PA_NET_SOCKS_USER_PASSWD)
         return LE_FAULT;
 
-    return taf_pa_net_SetSocksAuthMethod(authMethod);
+    return PA_TO_LE_RESULT(taf_pa_net_SetSocksAuthMethod(auth));
 }
 
 /**
@@ -2752,7 +2757,12 @@ taf_net_AuthMethod_t taf_net_GetSocksAuthMethod
 (
 )
 {
-    return taf_pa_net_GetSocksAuthMethod();
+    taf_pa_net_AuthMethod_t auth = taf_pa_net_GetSocksAuthMethod();
+
+    taf_net_AuthMethod_t authMethod = static_cast<taf_net_AuthMethod_t>(auth);
+
+    return authMethod;
+
 }
 
 /**
@@ -2769,7 +2779,7 @@ le_result_t taf_net_SetSocksLanInterface
     const char* ifName
 )
 {
-    return taf_pa_net_SetSocksLanInterface(ifName);
+    return PA_TO_LE_RESULT(taf_pa_net_SetSocksLanInterface(ifName));
 }
 
 /**
@@ -2788,7 +2798,7 @@ le_result_t taf_net_GetSocksLanInterface
     size_t ifNameSize
 )
 {
-    return taf_pa_net_GetSocksLanInterface(ifName, ifNameSize);
+    return PA_TO_LE_RESULT(taf_pa_net_GetSocksLanInterface(ifName, ifNameSize));
 }
 
 /**
@@ -2807,7 +2817,7 @@ le_result_t taf_net_AddSocksAssociation
     uint32_t profileId
 )
 {
-    return taf_pa_net_AddSocksAssociation(userName, profileId);
+    return PA_TO_LE_RESULT(taf_pa_net_AddSocksAssociation(userName, profileId));
 }
 
 /**
@@ -2824,7 +2834,7 @@ le_result_t taf_net_RemoveSocksAssociation
     const char* userName
 )
 {
-    return taf_pa_net_RemoveSocksAssociation(userName);
+    return PA_TO_LE_RESULT(taf_pa_net_RemoveSocksAssociation(userName));
 }
 
 /*=========================================GSB=========================================*/

@@ -11,6 +11,78 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * LTE cphy aggregated indication
+ */
+//--------------------------------------------------------------------------------------------------
+#define TAF_PA_RADIO_LTE_CA_IND_BIT_MASK_SCELL_INFO 0x1
+#define TAF_PA_RADIO_LTE_CA_IND_BIT_MASK_PCELL_INFO 0x2
+typedef uint64_t taf_pa_radio_LteCaIndBitMask_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * RF bandwidth type.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_PA_RADIO_RF_BANDWIDTH_INVALID,
+    TAF_PA_RADIO_RF_BANDWIDTH_LTE_BW_1_4,
+    TAF_PA_RADIO_RF_BANDWIDTH_LTE_BW_3,
+    TAF_PA_RADIO_RF_BANDWIDTH_LTE_BW_5,
+    TAF_PA_RADIO_RF_BANDWIDTH_LTE_BW_10,
+    TAF_PA_RADIO_RF_BANDWIDTH_LTE_BW_15,
+    TAF_PA_RADIO_RF_BANDWIDTH_LTE_BW_20
+} taf_pa_radio_RFBandWidth_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Scell state.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_PA_RADIO_SCELL_STATE_UNKNOWN,
+    TAF_PA_RADIO_SCELL_STATE_DECONFIGURED,
+    TAF_PA_RADIO_SCELL_STATE_CONFIGURED_DEACTIVATED,
+    TAF_PA_RADIO_SCELL_STATE_CONFIGURED_ACTIVATED
+} taf_pa_radio_ScellState_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * ENDC status.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_PA_RADIO_ENDC_STATUS_UNKNOWN,
+    TAF_PA_RADIO_ENDC_STATUS_AVAILABLE,
+    TAF_PA_RADIO_ENDC_STATUS_UNAVAILABLE
+} taf_pa_radio_EndcStatus_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * LTE physical carrier aggregation information reference.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct taf_pa_radio_LteCphyCaInfoRef* taf_pa_radio_LteCphyCaInfoRef_t;
+
+typedef void (*taf_pa_radio_LteCaHdlrFunc_t)
+(
+    uint8_t phone,
+    taf_pa_radio_LteCaIndBitMask_t bitmask,
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    void* contextPtr
+);
+
+typedef void (*taf_pa_radio_EndcStatusHdlrFunc_t)
+(
+    uint8_t phone,
+    taf_pa_radio_EndcStatus_t status,
+    void* contextPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Enable indication
  */
 //--------------------------------------------------------------------------------------------------
@@ -176,6 +248,211 @@ LE_SHARED le_result_t taf_pa_radio_GetServingCellRoutingAreaCode
 (
     uint8_t* rac,   ///< [OUT] Routing area code.
     uint8_t phoneId ///< [IN] Phone id.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get LTE physical carrier aggregation information.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetLteCphyCaInformation
+(
+    uint8_t phoneId,
+    taf_pa_radio_LteCphyCaInfoRef_t* infoRefPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the valid status of pcell information.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_IsPcellInfoValid
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    bool* isValid
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the physical cell ID of pcell.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetPcellPci
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    uint32_t* pciPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the absolute radio frequency channel number of pcell.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetPcellFreq
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    uint32_t* freqPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the downlink bandwidth of pcell.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetPcellDownlinkBandwidth
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    taf_pa_radio_RFBandWidth_t* bandwidthPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the active band of pcell.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetPcellActiveBand
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    uint32_t* bandPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the count of scell.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetScellCount
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    uint32_t* countPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the physical cell ID of scell.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetScellPci
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    uint32_t index,
+    uint32_t* pciPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the absolute radio frequency channel number of scell.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetScellFreq
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    uint32_t index,
+    uint32_t* freqPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the downlink bandwidth of scell.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetScellDownlinkBandwidth
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    uint32_t index,
+    taf_pa_radio_RFBandWidth_t* bandwidthPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the active band of scell.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetScellActiveBand
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    uint32_t index,
+    uint32_t* bandPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the state of scell.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetScellState
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    uint32_t index,
+    taf_pa_radio_ScellState_t* statePtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the state of scell.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetScellIndex
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    uint32_t index,
+    uint32_t* indexPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets if the carrier aggregation is uplink configured.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetScellUplinkConfigured
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    uint32_t index,
+    bool* isCongfigured
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Delete LTE physical carrier aggregation information.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_DeleteLteCphyCaInformation
+(
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets ENDC status.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetEndcStatus
+(
+    uint8_t phoneId,                     ///< [IN] Phone id.
+    taf_pa_radio_EndcStatus_t* statusPtr ///< [OUT] ENDC status.
+
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Sets Lte CA information handler.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED void taf_pa_radio_SetLteCaHandler
+(
+    taf_pa_radio_LteCaHdlrFunc_t handlerFuncPtr,
+    void* contextPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Sets ENDC status handler.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED void taf_pa_radio_SetEndcStatusHandler
+(
+    taf_pa_radio_EndcStatusHdlrFunc_t handlerFuncPtr,
+    void* contextPtr
 );
 
 #endif /* TAF_PA_RADIO_HPP */

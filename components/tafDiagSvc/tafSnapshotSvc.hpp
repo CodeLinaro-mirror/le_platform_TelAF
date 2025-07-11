@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -12,6 +12,8 @@
 #include "configuration.hpp"
 #include "tafDataIDSvr.hpp"
 #include "tafDataAccessComp.h"
+
+#define DID_OF_SUPPLIER_FC 0xEF01
 
 namespace tafsvc {
 

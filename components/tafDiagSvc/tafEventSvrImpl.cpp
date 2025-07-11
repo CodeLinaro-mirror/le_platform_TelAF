@@ -1614,7 +1614,7 @@ le_result_t taf_EventSvr::UpdateDtcOnPassed
 #ifdef LE_CONFIG_DIAG_FEATURE_A
 //-------------------------------------------------------------------------------------------------
 /**
- * Update event status when test failed for Nissan.
+ * Update event status when test failed for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateEventOnFailedCustomerN
@@ -1665,7 +1665,7 @@ le_result_t taf_EventSvr::UpdateEventOnFailedCustomerN
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Update DTC status for Nissan.
+ * Update DTC status for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateDtcForCustomerN
@@ -1717,7 +1717,6 @@ le_result_t taf_EventSvr::UpdateDtcForCustomerN
     }
     else if(dtcCtxPtr->occurrenceCounterProcessing  ==  TAF_DIAGEVENT_PROCESS_OCCCTR_CDTC)
     {
-
 
         if(dtcCtxPtr->occurrenceCounter < MAX_OCCURRENCE_COUNTER)
         {
@@ -1771,7 +1770,7 @@ le_result_t taf_EventSvr::UpdateDtcForCustomerN
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Update event status when test passed for Nissan.
+ * Update event status when test passed for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateEventOnPassedCustomerN
@@ -1794,6 +1793,19 @@ le_result_t taf_EventSvr::UpdateEventOnPassedCustomerN
     {
         //Set bit 0 to value 0, don't touch bit 3
         eventCtxPtr->eventUdsStatus &= ~(TAF_DIAGEVENT_UDS_STATUS_TF);
+        //Bit 0 is set or bit 3 is set
+        if(eventCtxPtr->dtcCtxPtr != NULL && ( ((eventCtxPtr->dtcCtxPtr->dtcStatus &
+                TAF_DIAGEVENT_UDS_STATUS_TF) !=0) || ((eventCtxPtr->dtcCtxPtr->dtcStatus &
+                TAF_DIAGEVENT_UDS_STATUS_CDTC) !=0)))
+        {
+            LE_DEBUG("update supplier fault code for passed event");
+            result =UpdateFaultCodeForPassedEvent(eventCtxPtr);
+            if(result != LE_OK)
+            {
+                LE_ERROR("Failed to update supplier fault code for passed event");
+                return result;
+            }
+        }
     }
     else
     {
@@ -1822,7 +1834,7 @@ le_result_t taf_EventSvr::UpdateEventOnPassedCustomerN
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Update event status when test pre passed for Nissan.
+ * Update event status when test pre passed for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateEventOnPrePassedCustomerN
@@ -1883,7 +1895,7 @@ le_result_t taf_EventSvr::UpdateEventOnPrePassedCustomerN
 
         }
 
-        //For Nissan, store fault detection counter with 0 in DB
+        //For FEATURE_A, store fault detection counter with 0 in DB
         result = taf_DataAccess_SetEventFailedCounter(eventCtxPtr->eventId, 0);
         if(result != LE_OK)
         {
@@ -1907,7 +1919,7 @@ le_result_t taf_EventSvr::UpdateEventOnPrePassedCustomerN
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Update event status when test pre failed for Nissan.
+ * Update event status when test pre failed for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateEventOnPreFailedCustomerN
@@ -1964,7 +1976,7 @@ le_result_t taf_EventSvr::UpdateEventOnPreFailedCustomerN
                     eventCtxPtr->debounceCounterBasedConfig.failedThreshold;
         }
 
-        //For Nissan, store fault detection counter in DB
+        //For FEATURE_A, store fault detection counter in DB
         float ratio = (float)MAX_FAULT_DETECTION_COUNTER/eventCtxPtr->debounceCounterBasedConfig.
                 failedThreshold;
         uint8_t faultDetectionCounter = eventCtxPtr->debounceCounter * ratio;
@@ -1994,7 +2006,7 @@ le_result_t taf_EventSvr::UpdateEventOnPreFailedCustomerN
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Update event status when test confirmed for Nissan.
+ * Update event status when test confirmed for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateEventOnConfirmedCustomerN
@@ -2041,7 +2053,7 @@ le_result_t taf_EventSvr::UpdateEventOnConfirmedCustomerN
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Update event status when test confirmed for Nissan.
+ * Update event status when test confirmed for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateEventOnTestNotCmpltCustomerN
@@ -2083,6 +2095,64 @@ le_result_t taf_EventSvr::UpdateEventOnTestNotCmpltCustomerN
 
     return LE_OK;
 }
+
+le_result_t taf_EventSvr::UpdateFaultCodeForPassedEvent
+(
+    taf_diagEvent_EventCtx_t* eventCtxPtr
+)
+{
+    taf_DataAccess_DidNode_t node;
+    le_result_t ret;
+
+    TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_BAD_PARAMETER, "this event context is NULL");
+
+    if(eventCtxPtr->supplierFaultCodeSize <= 0)
+    {
+        LE_WARN("Supplier fault code is not present");
+        return LE_OK;
+    }
+
+    size_t sfcSizeFromConf = cfg::get_did_value_size((uint16_t) DID_OF_SUPPLIER_FC);
+    size_t sfcSizePassedIn = eventCtxPtr->supplierFaultCodeSize;
+
+    if (sfcSizePassedIn > sfcSizeFromConf)
+    {
+        LE_ERROR("Bad Supplier Fault Code Size: (PASSIN: %" PRIuS ") > (YAML:%" PRIuS ")",
+                    sfcSizePassedIn, sfcSizeFromConf);
+        return LE_FAULT;
+    }
+
+    if (sfcSizePassedIn < sfcSizeFromConf)
+    {
+        uint8_t *sfcNewVal = (uint8_t *) le_mem_ForceVarAlloc(FaultCodeDataPool, sfcSizeFromConf);
+        size_t diffSize = sfcSizeFromConf - sfcSizePassedIn;
+
+        memset(sfcNewVal, 0x00, sfcSizeFromConf); // Set all bytes to ZERO
+        memcpy(sfcNewVal + diffSize, eventCtxPtr->supplierFaultCode, sfcSizePassedIn);
+
+        node.len = sfcSizeFromConf;
+        node.val = sfcNewVal;
+    }
+    else
+    {
+        node.len = eventCtxPtr->supplierFaultCodeSize;
+        node.val = eventCtxPtr->supplierFaultCode;
+    }
+
+    node.did = DID_OF_SUPPLIER_FC;
+    node.link = LE_DLS_LINK_INIT;
+    LE_DEBUG("update data length = %d", node.len);
+    ret = taf_DataAccess_UpdateFaultCodeSnapshotData(eventCtxPtr->dtcCode, &node);
+
+    //Release allocated memory
+    if (sfcSizePassedIn < sfcSizeFromConf)
+    {
+        le_mem_Release(node.val);
+    }
+
+    return ret;
+}
+
 #endif
 
 void taf_EventSvr::TriggerSnapshotData
@@ -2112,6 +2182,8 @@ void taf_EventSvr::TriggerSnapshotData
                 eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
     }
 
+    //This won't happen for FEATURE_A. Add the conditional compilation to make code clear
+#ifndef LE_CONFIG_DIAG_FEATURE_A
     //Bit 2(pendingDTC) changes from 0 to 1, trigger snapshot data
     if(((oldEventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_PDTC) == 0) &&
             ((eventCtxPtr->eventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_PDTC) != 0))
@@ -2121,6 +2193,7 @@ void taf_EventSvr::TriggerSnapshotData
         ss.triggerSnapshot(eventCtxPtr->dtcCode, cfg::DEM_TRIGGER_ON_PENDING,
                 eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
     }
+#endif
 
     //Bit 0(testFailed) changes from 0 to 1, trigger snapshot data
     if(((oldEventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_TF) == 0) &&
@@ -2132,6 +2205,8 @@ void taf_EventSvr::TriggerSnapshotData
                 eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
     }
 
+    //This won't happen for FEATURE_A. Add the conditional compilation to make code clear
+#ifndef LE_CONFIG_DIAG_FEATURE_A
     //Bit 1(testFailedThisOperationCycle) changes from 0 to 1, trigger snapshot data
     if(((oldEventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_TFTOC) == 0) &&
             ((eventCtxPtr->eventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_TFTOC) != 0))
@@ -2142,6 +2217,8 @@ void taf_EventSvr::TriggerSnapshotData
                 cfg::DEM_TRIGGER_ON_TEST_FAILED_THIS_OPERATION_CYCLE,
                 eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
     }
+#endif
+
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -4094,6 +4171,10 @@ void taf_EventSvr::Init
 
     // Create event operation cycle state pools.
     OperCycleEvIdPool = le_mem_CreatePool("ocEventIdPool", sizeof(taf_diagEvent_OperCycleState_t));
+
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    FaultCodeDataPool = le_mem_CreatePool("FaultCodeDataPool", FAULT_CODE_DATA_BYTES);
+#endif
 
     // Create session reference pools.
     SessionRefPool = le_mem_InitStaticPool(tafSessionRef, TAF_EVENT_MAX_SESSION_REF,

@@ -1,6 +1,6 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
@@ -582,6 +582,39 @@ le_result_t taf_DataAccess_SetSnapshotData
     return LE_OK;
 }
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * Update the snapshot data for supplier fault code into storage media.
+ *
+ * @return
+ *  - LE_OK                  Funtion success.
+ *  - LE_BAD_PARAMETER       Bad parameter.
+ *  - LE_FAULT               Failed
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_UpdateFaultCodeSnapshotData
+(
+    uint32_t dtc,
+    taf_DataAccess_DidNode_t* node
+)
+{
+    if(node == NULL || node->len == 0 || node->val == NULL)
+    {
+        LE_ERROR("Wrong node or supplier fault code data");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto &demHandler = DemDataHandler::GetInstance();
+    le_result_t ret = demHandler.UpdateFaultCodeSnapshotData(dtc, node);
+
+    if (ret != LE_OK)
+    {
+        LE_ERROR("Failed to update fault code snapshot data, ret=%d.", (int)ret);
+        return ret;
+    }
+
+    return LE_OK;
+}
 //-------------------------------------------------------------------------------------------------
 /**
  * Save the suppression status of all DTCs into storage media.

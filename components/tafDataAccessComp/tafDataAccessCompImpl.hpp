@@ -1,6 +1,6 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef TAF_DATA_HANDLER_HPP
@@ -93,6 +93,7 @@ namespace dataAccess{
             le_result_t GetDTCData(uint32_t dtc, le_dls_List_t *list);
             void ReleaseDTCData(le_dls_List_t *list);
             le_result_t SetSnapshotData(uint32_t dtc, uint8_t triggerType, le_dls_List_t *list);
+            le_result_t UpdateFaultCodeSnapshotData(uint32_t dtc, taf_DataAccess_DidNode_t* node);
         private:
             int mRecNum = 0;
             int mRecMax;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -29,6 +29,7 @@ using namespace tafsvc::cfg;
 #define MAX_TIME_BASED_PARAM_VALUE 3600
 #define FEATURE_A_PROGRAMMING_SESSION 0x2
 #define FEATURE_A_FOTA_SESSION 0x42
+#define FAULT_CODE_DATA_BYTES 32
 //--------------------------------------------------------------------------------------------------
 /**
  * Diag Event Server Service Class
@@ -223,6 +224,7 @@ using namespace tafsvc::cfg;
                 le_result_t UpdateEventOnTestNotCmpltCustomerN(
                         taf_diagEvent_EventCtx_t* eventCtxPtr);
                 le_result_t UpdateDtcForCustomerN(taf_diagEvent_DtcCtx_t *dtcCtxPtr);
+                le_result_t UpdateFaultCodeForPassedEvent(taf_diagEvent_EventCtx_t* eventCtxPtr);
 #endif
                 le_result_t ResetDebounceStatus(taf_diagEvent_ServiceRef_t svcRef,
                         taf_diagEvent_DebounceResetStatus_t status);
@@ -337,6 +339,9 @@ using namespace tafsvc::cfg;
                 le_mem_PoolRef_t SessionRefPool = NULL;
                 le_mem_PoolRef_t EventUdsStatusPool;
                 le_mem_PoolRef_t EnableCondStatePool;
+                #ifdef LE_CONFIG_DIAG_FEATURE_A
+                le_mem_PoolRef_t FaultCodeDataPool;
+                #endif
 
         };
     }

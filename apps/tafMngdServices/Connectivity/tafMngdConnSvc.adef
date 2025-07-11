@@ -7,7 +7,6 @@ capability:
 {
     CAP_WAKE_ALARM
     CAP_NET_ADMIN
-    CAP_BLOCK_SUSPEND
 }
 
 groups:

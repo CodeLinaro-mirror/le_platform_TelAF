@@ -122,7 +122,11 @@ static void PrintUsage ()
         "------------To Test Refresh Authorized Wake Source Cases-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestRefreshAuthorizedWsCases\n"
         "------------To Test stayawake request during shutdown-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdownAndResume\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdownAndResume\n"
+        "------------To Test delete wakeup source if not acquired-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- DeleteWsIfNotAcquired\n"
+        "------------To Test rejecting deletion of wakeup source if acquired/ignored-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldNotDeleteWsIfAcquiredOrIgnored\n");
 }
 
 void NodePowerStateChangeHandlerCB(
@@ -2280,6 +2284,71 @@ static void ForcedSystemShutdownAndResume() //TELAF-3169 [Conti] 07743357 MPMS S
     }
 }
 
+void DeleteWsIfNotAcquired()
+{
+    LE_INFO("DeleteWsIfNotAcquired");
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    taf_mngdPm_wsRef_t wsRefAuthorized = NULL;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created WakeupSource ref for reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                    res = taf_mngdPm_Relax(wsRefAuthorized);
+                    if(res == LE_OK) {
+                        printf("'Suspended system with wsRefAuthorized'\n");
+                        res = taf_mngdPm_DeleteWakeupSource(wsRefAuthorized);
+                        if(res == LE_OK) {
+                            printf("'Deleted WS with wsRefAuthorized'\n");
+                        }
+                    }
+                }
+            }
+        }
+        else
+            printf("Failed to Create WakeupSource ref for authorized reason %d\n", reason);
+    }
+
+}
+
+void ShouldNotDeleteWsIfAcquiredOrIgnored()
+{
+    LE_INFO("ShouldNotDeleteWsIfAcquiredOrIgnored");
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    taf_mngdPm_wsRef_t wsRefAuthorized = NULL;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created WakeupSource ref for reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                    res = taf_mngdPm_DeleteWakeupSource(wsRefAuthorized);
+                    if(res == LE_OK) {
+                        printf("'Deleted WS with wsRefAuthorized'\n");
+                    }
+                    else if(res == LE_NOT_PERMITTED)
+                    {
+                        printf("'Deletion of WS before releasing it, is not permitted '\n");
+                    }
+                }
+            }
+        }
+        else
+            printf("Failed to Create WakeupSource ref for authorized reason %d\n", reason);
+    }
+}
+
 COMPONENT_INIT
 {
     const char* testType = "";
@@ -2474,6 +2543,14 @@ COMPONENT_INIT
         else if(strcmp(testType, "ForcedSystemShutdownAndResume") == 0)
         {
             ForcedSystemShutdownAndResume();
+        }
+        else if(strcmp(testType, "DeleteWsIfNotAcquired") == 0)
+        {
+            DeleteWsIfNotAcquired();
+        }
+        else if(strcmp(testType, "ShouldNotDeleteWsIfAcquiredOrIgnored") == 0)
+        {
+            ShouldNotDeleteWsIfAcquiredOrIgnored();
         }
         else
         {

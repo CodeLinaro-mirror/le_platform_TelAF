@@ -640,10 +640,12 @@ le_result_t ut_tafVoiceCall_CallWaiting()
     START_TIMESTAMP(EndCalls)
     LE_INFO("===== end one call =====");
     ut_tafVoiceCall_ValidCall_End();
+    ut_tafVoiceCall_Call_Delete();
 
     LE_INFO("===== end the another call =====");
     AppCtx.requestRef = firstCallRef;
     ut_tafVoiceCall_ValidCall_End();
+    ut_tafVoiceCall_Call_Delete();
     END_TIMESTAMP(EndCalls)
 
     return LE_OK;
@@ -691,6 +693,7 @@ static void ut_tafVoiceCall_ReturnFailedvalue(void* ctxPtr, void* param)
       LE_INFO("taf_voicecall_Delete return Cannot found callCtx");
     }
 
+    post_call_event();
     return;
 }
 
@@ -761,7 +764,6 @@ static void* UnitTestThread
     LE_INFO("===== call waiting test =====");
     ut_tafVoiceCall_ValidCall_Start();
     ut_tafVoiceCall_CallWaiting();
-    ut_tafVoiceCall_Call_Delete();
 
     LE_INFO("===== call return failed value test =====");
     ut_tafVoiceCall_InvalidCall_ReturnFailedvalue();

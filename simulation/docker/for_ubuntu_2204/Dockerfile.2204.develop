@@ -55,6 +55,9 @@ RUN apt-get -y --no-install-recommends install mtd-utils
 RUN apt-get -y --no-install-recommends install python-pip
 RUN python2 -m pip install jinja2
 
+# Change default shell from dash to bash
+RUN ln -sf /bin/bash /bin/sh
+
 ARG DEVELOPER_UID=1000
 ARG DEVELOPER_GID=1000
 

@@ -54,6 +54,9 @@ RUN apt-get -y --no-install-recommends install attr
 RUN apt-get -y --no-install-recommends install squashfs-tools
 RUN apt-get -y --no-install-recommends install mtd-utils
 
+# Change default shell from dash to bash
+RUN ln -sf /bin/bash /bin/sh
+
 ARG DEVELOPER_UID=1000
 ARG DEVELOPER_GID=1000
 

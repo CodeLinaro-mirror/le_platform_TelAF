@@ -6,30 +6,37 @@
 #ifndef TAF_FLASH_HPP
 #define TAF_FLASH_HPP
 
-#include <string>
-#include <map>
-
 #include "legato.h"
+#include "interfaces.h"
 
-#include "tafSvcIF.hpp"
-#include "tafFlashAccess.hpp"
+#include "taf_pa_flash.h"
 
-    namespace tafsvc
-    {
-        class taf_FlashAccess : public ITafSvc
-        {
-            public:
-                taf_FlashAccess() {};
-                ~taf_FlashAccess() {};
+#define PAGE_ERASED -255
 
-                static taf_FlashAccess &GetInstance();
+#define MAX_MTD_NUM 64
+#define MAX_UBI_NUM 64
 
-                void Init();
-                taf_lib_flash_PartitionList_t partitionList;
-                le_ref_MapRef_t partitionRefMap;
+typedef struct
+{
+    char name[TAF_FLASH_VOLUME_NAME_MAX_BYTES];
+    taf_flash_OpenMode_t mode;
+    taf_pa_flash_UbiRef_t ubiRef;
+} taf_flash_Ubi_t;
 
-                std::map<std::string, uint32_t> partitionMap;
-        };
-    }
+class taf_FlashAccess
+{
+    public:
+        taf_FlashAccess() = default;
+        ~taf_FlashAccess() = default;
+
+        static taf_FlashAccess &GetInstance();
+
+        void Init();
+        le_ref_MapRef_t mtdMap;
+        le_ref_MapRef_t ubiMap;
+
+        le_mem_PoolRef_t mtdPool;
+        le_mem_PoolRef_t ubiPool;
+};
 
 #endif

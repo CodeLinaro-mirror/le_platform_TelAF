@@ -7,12 +7,13 @@
 #ifndef TAFFWUPDATE_HPP
 #define TAFFWUPDATE_HPP
 
-#include <map>
+#include <vector>
 #include "legato.h"
 #include "interfaces.h"
 
 #include "tafSvcIF.hpp"
-#include "tafFlashAccess.hpp"
+
+#include "taf_pa_flash.h"
 
 #define TAF_FWUPDATE_CMD_LEN 256
 #define TAF_FWUPDATE_CMD_RESULT_LEN 32
@@ -55,6 +56,20 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * MTD page is erased
+ */
+//--------------------------------------------------------------------------------------------------
+#define TAF_FWUPDATE_FLASH_PAGE_ERASED -255
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * MTD erased block size.
+ */
+//--------------------------------------------------------------------------------------------------
+#define TAF_FWUPDATE_FLASH_MTD_EB_SIZE 0x40000
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Firmware update event.
  */
 //--------------------------------------------------------------------------------------------------
@@ -91,6 +106,18 @@ typedef struct
     const char* dataPath;
     const char* patchPath;
 } taf_FwUpdateParition_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Partition structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    char name[TAF_FLASH_PARTITION_NAME_MAX_BYTES];
+    taf_update_Bank_t bank;
+    bool isUbi;
+} taf_FlashPartition_t;
 
 namespace tafsvc {
     class taf_FwUpdate : public ITafSvc {
@@ -179,7 +206,7 @@ namespace tafsvc {
 
         static le_event_Id_t fwUpdateEvId;
 
-        taf_lib_flash_PartitionList_t pList;
+        std::vector<taf_FlashPartition_t> partitions;
         uint32_t percent = 0;
         taf_update_Error_t error = TAF_UPDATE_NONE;
     };

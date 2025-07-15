@@ -1318,7 +1318,23 @@ le_result_t taf_mngdPm_GetNodeModemAwakeReason
         ///< [OUT] Modem wakeup reason.
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    le_result_t res = LE_FAULT;
+
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return LE_UNSUPPORTED;
+    }
+
+    if(pmNodeId == 1)
+    {
+        res = taf_rpcPm_GetModemAwakeReason(wsBitmaskPtr);
+    }
+    else
+    {
+        res = taf_pm_GetModemAwakeReason(wsBitmaskPtr);
+    }
+
+    return res;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1342,8 +1358,60 @@ taf_mngdPm_NodeModemAwakeHandlerRef_t taf_mngdPm_AddNodeModemAwakeHandler
         ///< [IN]
 )
 {
-    // Not implemented yet.
-    return NULL;
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        LE_ERROR("Invalid client");
+        return NULL;
+    }
+
+    LE_INFO("AddNodeModemAwakeHandler [add]");
+
+    auto & power = tafMngdPMSvc::GetInstance();
+
+    // Dynamically register the handlers
+    if (pmNodeId == 1)
+    {
+        if (power.enableRemote == false)
+        {
+            LE_DEBUG("-> EnableRemoteOnce");
+            power.EnableRemoteOnce();
+        }
+    }
+    else
+    {
+        if (power.enableLocal == false)
+        {
+            LE_DEBUG("-> EnableLocalOnce");
+            power.EnableLocalOnce();
+        }
+    }
+
+    CallbackHandlerCombo_t *combo =
+        (CallbackHandlerCombo_t *) le_mem_ForceAlloc(power.cbHandlerPool);
+
+    combo->callback = handlerPtr;
+    combo->context = contextPtr;
+    combo->nodeId = pmNodeId;
+    combo->bitset = wsBitmask;
+
+    if (pmNodeId == 1)
+    {
+        // Add 'combo' to remote-cb-map
+        combo->ref =
+            (taf_mngdPm_NodeModemAwakeHandlerRef_t)
+                le_ref_CreateRef(power.cbRemoteMap, combo);
+        LE_DEBUG("Add callback to remote-map [Add]");
+    }
+    else
+    {
+        // Add 'combo' to local-cb-map
+        combo->ref =
+            (taf_mngdPm_NodeModemAwakeHandlerRef_t)
+                le_ref_CreateRef(power.cbLocalMap, combo);
+        LE_DEBUG("Add callback to local-map [Add]");
+    }
+
+    return combo->ref;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1357,8 +1425,40 @@ void taf_mngdPm_RemoveNodeModemAwakeHandler
         ///< [IN]
 )
 {
-    // Not implemented yet.
-    return;
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        LE_ERROR("Invalid client");
+        return;
+    }
+
+    auto & power = tafMngdPMSvc::GetInstance();
+
+    CallbackHandlerCombo_t * combo = NULL;
+
+    // Go through the local-map then remote-map
+    combo = (CallbackHandlerCombo_t *)
+                le_ref_Lookup(power.cbLocalMap, handlerRef);
+
+    if (combo)
+    {
+        LE_INFO("Found ref in local-map [remove]");
+        le_ref_DeleteRef(power.cbLocalMap, handlerRef);
+        le_mem_Release(combo);
+        return; // Fine, stop
+    }
+
+    combo = (CallbackHandlerCombo_t *)
+                le_ref_Lookup(power.cbRemoteMap, handlerRef);
+
+    if (combo)
+    {
+        LE_INFO("Found ref in remote-map [remove]");
+        le_ref_DeleteRef(power.cbRemoteMap, handlerRef);
+        le_mem_Release(combo);
+        return; // Hit, return
+    }
+
+    LE_WARN("Removing the non-existing handler ref");
 }
 
 /**

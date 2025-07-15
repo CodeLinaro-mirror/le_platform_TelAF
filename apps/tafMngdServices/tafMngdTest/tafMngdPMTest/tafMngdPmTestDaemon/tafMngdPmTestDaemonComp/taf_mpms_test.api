@@ -1,0 +1,39 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+REFERENCE MpmsTest;
+
+FUNCTION le_result_t GetMpmsTestObject
+(
+    MpmsTest refPtr OUT
+);
+
+FUNCTION le_result_t GetWakeupFilterFromMpss
+(
+    MpmsTest ref IN,
+    uint32 bitmask OUT
+);
+
+FUNCTION le_result_t SetWakeupFitlerToMpss
+(
+    MpmsTest ref IN,
+    uint32 bitmask IN
+);
+
+FUNCTION le_result_t UpMonitorForWakeup
+(
+    MpmsTest ref IN
+);
+
+FUNCTION DownMonitorForWakeup
+(
+    MpmsTest ref IN
+);
+
+FUNCTION le_result_t QueryLastWakeupReason
+(
+    MpmsTest ref IN,
+    uint32 bitmask OUT
+);

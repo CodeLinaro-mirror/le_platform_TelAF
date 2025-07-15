@@ -1647,6 +1647,78 @@ tafMngdPMSvc &tafMngdPMSvc::GetInstance()
  */
 void tafMngdPMSvc::Init(void)
 {
+    // Local -> node_id => 0, Remote -> node_id => 1
+    cbLocalMap = le_ref_CreateMap("mpms-l-cb-map", TAF_MNGDPM_VM_HASH_SIZE);
+    cbRemoteMap = le_ref_CreateMap("mpms-r-cb-map", TAF_MNGDPM_VM_HASH_SIZE);
+
+    cbHandlerPool = le_mem_CreatePool("mpms-cb-pool", sizeof(CallbackHandlerCombo_t));
+
+    // Flags to indicate if the enable-action was done or not.
+    enableLocal = false;
+    enableRemote = false;
+}
+
+void tafMngdPMSvc::EnableLocalOnce(void)
+{
+    pmsLocalWakeupHandler =
+        taf_pm_AddModemAwakeHandler(
+            tafMngdPMSvc::ClientCallbackDispatcher,
+            cbLocalMap,
+            0);
+
+    LE_FATAL_IF(
+        pmsLocalWakeupHandler == NULL,
+        "Failed to taf_pm_AddModemAwakeHandler"
+    );
+
+    enableLocal = true;
+}
+
+void tafMngdPMSvc::EnableRemoteOnce(void)
+{
+    pmsRemoteWakeupHandler =
+        taf_rpcPm_AddModemAwakeHandler(
+            tafMngdPMSvc::ClientCallbackDispatcher,
+            cbRemoteMap,
+            0);
+
+    LE_FATAL_IF(
+        pmsRemoteWakeupHandler == NULL,
+        "Failed to pmsRemoteWakeupHandler"
+    );
+
+    enableRemote = true;
+}
+
+void tafMngdPMSvc::ClientCallbackDispatcher
+(
+    taf_pm_ModemAwakeEventRef_t ref,
+    taf_pm_NodeModemWsBitMask_t wsBitmask,
+    void * contextPtr
+)
+{
+    LE_UNUSED(ref);
+
+    LE_INFO("Hit: ClientCallbackDispatcher");
+
+    le_ref_MapRef_t cbMap = (le_ref_MapRef_t )contextPtr;
+
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(cbMap);
+
+    CallbackHandlerCombo_t *combo = NULL;
+
+    while ( le_ref_NextNode(iterRef) == LE_OK )
+    {
+        combo = (CallbackHandlerCombo_t *)le_ref_GetValue(iterRef);
+
+        // [t, main-thread]: one by one
+        combo->callback((taf_mngdPm_NodeModemAwakeEventRef_t) NULL,
+                        combo->nodeId,
+                        wsBitmask,
+                        combo->context);
+    }
+
+    LE_INFO("All callback dispatched [done]");
 }
 
 /**
@@ -1708,3 +1780,11 @@ std::bitset<32>  tafMngdPMSvc::stayAwakeReasonMask;
 //resources for clients state change acknowledgement
 le_timer_Ref_t tafMngdPMSvc::stateChangeAckTimerRef;
 taf_mngdPm_NodePowerState_t tafMngdPMSvc::currentStateChangePtr;
+
+le_mem_PoolRef_t tafMngdPMSvc::cbHandlerPool;
+le_ref_MapRef_t tafMngdPMSvc::cbLocalMap;
+le_ref_MapRef_t tafMngdPMSvc::cbRemoteMap;
+bool tafMngdPMSvc::enableLocal;
+bool tafMngdPMSvc::enableRemote;
+taf_pm_ModemAwakeHandlerRef_t tafMngdPMSvc::pmsLocalWakeupHandler;
+taf_pm_ModemAwakeHandlerRef_t tafMngdPMSvc::pmsRemoteWakeupHandler;

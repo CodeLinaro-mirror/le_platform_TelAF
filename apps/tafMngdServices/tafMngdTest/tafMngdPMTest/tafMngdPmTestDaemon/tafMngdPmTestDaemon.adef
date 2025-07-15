@@ -1,0 +1,36 @@
+maxThreads: 700
+start: manual
+sandboxed: false
+
+executables:
+{
+    tafMngdPmTestDaemon = ( tafMngdPmTestDaemonComp )
+}
+capability:
+{
+    CAP_DAC_OVERRIDE
+}
+
+processes:
+{
+    run:
+    {
+        (tafMngdPmTestDaemon)
+    }
+
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+}
+
+bindings:
+{
+    tafMngdPmTestDaemon.tafMngdPmTestDaemonComp.taf_mngdPm -> tafMngdPMSvc.taf_mngdPm
+}
+
+extern:
+{
+    tafMngdPmTestDaemon.tafMngdPmTestDaemonComp.taf_mpms_test
+}
+

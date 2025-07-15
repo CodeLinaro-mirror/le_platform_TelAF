@@ -1,0 +1,21 @@
+
+sources:
+{
+    tafMngdPmTestDaemon.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_mngdPm.api
+    }
+}
+
+provides:
+{
+    api:
+    {
+        taf_mpms_test.api
+    }
+}

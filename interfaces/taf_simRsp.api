@@ -77,6 +77,9 @@
  * A remote SIM profile is needed for applications that want to add, delete, enable, or disable
  * a SIM profile locally or remotely.
  *
+ * @b NOTE: These APIs are designed solely for trial purposes and are not intended for use in
+ * commercial deployments.
+ *
  * @section taf_simRsp_binding IPC interfaces binding
  *
  * The functions this API are provided by the @b tafSimCardSvc application service.

@@ -24,6 +24,7 @@ requires:
 
     component:
     {
+        $LEGATO_ROOT/components/watchdogChain
         $TELAF_ROOT/components/tafHalComp
     }
 }
@@ -36,6 +37,7 @@ cxxflags:
     -I$TELAF_ROOT/components/tafHalComp
     -I${LEGATO_ROOT}/framework/liblegato
     -I$TELAF_ROOT/include/vhal
+    -I${LEGATO_ROOT}/components/watchdogChain
 }
 
 ldflags:

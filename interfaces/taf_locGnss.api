@@ -343,7 +343,7 @@
  * @b NOTE: If many applications register handlers for NMEA notifications, they
  *          will all receive it.
  *
- * An application may unregister a NMEA handler by calling @ref taf_locGnss_RemoveNmeaHandler().
+ * An application may unregister an NMEA handler by calling @ref taf_locGnss_RemoveNmeaHandler().
  *
  * The National Marine Electronics Association (NMEA) standard defines an electrical interface
  * and data protocol for communications between marine instrumentation.
@@ -357,7 +357,7 @@
    nmeaMask = TAF_LOCGNSS_NMEA_MASK_GPGGA;
    if(taf_locGnss_SetNmeaSentences(nmeaMask)== LE_OK)
    {
-     // Process after successfully setting a NMEA sentence type.
+     // Process after successfully setting an NMEA sentence type.
    }
    @endverbatim
  *
@@ -366,7 +366,7 @@
  *
  * @b WARNING: Some NMEA sentences are unsupported depending on the platform.
  *
- * @b NOTE: All supported NMEA sentences are enabled by default.
+ * @b NOTE: All supported NMEA sentences are enabled by default. The configuration set by this API is persistent after device reboots.
  *
  * The taf_locGnss_GetNmeaSentences() function gets the bitmask which are configured by the API taf_locGnss_SetNmeaSentences.
  * @verbatim

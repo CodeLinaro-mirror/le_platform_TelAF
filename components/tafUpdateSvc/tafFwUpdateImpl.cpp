@@ -1894,7 +1894,80 @@ void taf_FwUpdate::UpdateImage
             }
             else
             {
-                LE_INFO("Skip erasing UBI volume %s.", tafFwUpdate.partitions[i].name);
+                taf_pa_flash_UbiRef_t ubiRef = nullptr;
+                int ret = taf_pa_flash_OpenUbi(tafFwUpdate.partitions[i].name, false, &ubiRef);
+                if (ret)
+                {
+                    LE_ERROR("Fail to open partition %s, ret = %d, error: %s",
+                        tafFwUpdate.partitions[i].name, ret, strerror(errno));
+                    tafFwUpdate.SetErrorCode(errno);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                    fclose(fp);
+                    return;
+                }
+
+                ret = taf_pa_flash_SetUbiVolUpSize(ubiRef, pages * TAF_FWUPDATE_FLASH_PAGE_SIZE);
+                if (ret)
+                {
+                    LE_ERROR("Fail to set upgrade size for ubi %s, ret = %d, error: %s",
+                        tafFwUpdate.partitions[i].name, ret, strerror(errno));
+                    tafFwUpdate.SetErrorCode(errno);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                    ret = taf_pa_flash_CloseUbi(ubiRef);
+                    if (ret)
+                        LE_ERROR("Fail to close ubi %s, ret = %d, error: %s",
+                            tafFwUpdate.partitions[i].name, ret, strerror(errno));
+                    fclose(fp);
+                    return;
+                }
+
+                pageUpdated = tafFwUpdate.GetPageNumber(TAF_UPDATE_INSTALLING, false);
+                uint32_t totalPages = tafFwUpdate.GetPageNumber(TAF_UPDATE_INSTALLING, true);
+                uint32_t percent = tafFwUpdate.percent;
+                int error = 0;
+                for (uint32_t j = 0; j < pages; j++)
+                {
+                    ret = fread(buffer, 1, TAF_FWUPDATE_FLASH_PAGE_SIZE, fp);
+                    if (ret < TAF_FWUPDATE_FLASH_PAGE_SIZE)
+                    {
+                        memset(buffer + ret, 0xFF, TAF_FWUPDATE_FLASH_PAGE_SIZE - ret);
+                        LE_INFO("Padding 0xFF in %s at page %d, start at %d.\n",
+                            tafFwUpdate.partitions[i].name, j, ret);
+                    }
+
+                    ret = taf_pa_flash_WriteUbi(ubiRef, buffer, TAF_FWUPDATE_FLASH_PAGE_SIZE);
+                    if (ret)
+                    {
+                        error = errno;
+                        LE_ERROR("Can not to write %s at page %d, ret = %d, error: %s",
+                            tafFwUpdate.partitions[i].name, j, ret, strerror(errno));
+                    }
+
+                    percent = (pageUpdated + j) * 100 / totalPages;
+                    if (percent != tafFwUpdate.percent)
+                    {
+                        tafFwUpdate.percent = percent;
+                        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALLING);
+                    }
+                }
+
+                ret = taf_pa_flash_CloseUbi(ubiRef);
+                if (error)
+                {
+                    LE_ERROR("There was write errors on ubi %s.", tafFwUpdate.partitions[i].name);
+                    tafFwUpdate.SetErrorCode(error);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                    fclose(fp);
+                    return;
+                }
+                if (ret)
+                {
+                    LE_ERROR("Fail to close partition %s.", tafFwUpdate.partitions[i].name);
+                    tafFwUpdate.SetErrorCode(errno);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+                    fclose(fp);
+                    return;
+                }
             }
 
             fclose(fp);
@@ -2503,7 +2576,7 @@ le_result_t taf_FwUpdate::CalPartitionHash
     if (bytes != 0)
     {
         if (!tafFwUpdate.partitions[i].isUbi)
-            ret = taf_pa_flash_ReadMtdPage(mtdRef, content, iteration * TAF_FWUPDATE_FLASH_PAGE_SIZE, bytes);
+            ret = taf_pa_flash_ReadMtdPage(mtdRef, content, iteration, bytes);
         else
             ret = taf_pa_flash_ReadUbi(ubiRef, content,
                 iteration * TAF_FWUPDATE_FLASH_PAGE_SIZE, bytes);

@@ -2559,6 +2559,21 @@ LE_MEM_DEFINE_STATIC_POOL(ngbrCellInfoSafeRefPool, TAF_RADIO_NEIGHBOR_CELL_INFO_
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Static pool for CA information.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(caInfoPool, TAF_RADIO_CA_INFO_MAX_NUM, sizeof(taf_RadioCAInfo_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static pool for connection status.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(connStatusPool, TAF_RADIO_CONN_STATUS_MAX_NUM,
+    sizeof(taf_radio_NREndcAvailability_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Static pool for IMS references.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2599,6 +2614,20 @@ LE_REF_DEFINE_STATIC_MAP(imsRefMap, TAF_RADIO_PHONE_NUM);
  */
 //--------------------------------------------------------------------------------------------------
 LE_REF_DEFINE_STATIC_MAP(netStatusRefMap, TAF_RADIO_PHONE_NUM);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static map for CA information.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(caInfoMap, TAF_RADIO_CA_INFO_MAX_NUM);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static map for connection status.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(connStatusMap, TAF_RADIO_CONN_STATUS_MAX_NUM);
 
 le_event_Id_t taf_Radio::radioCmdEvId = nullptr;
 
@@ -2682,6 +2711,29 @@ taf_radio_NrIconType_t taf_Radio::taf_radio_ConvertNrIconType
     }
 
     return TAF_RADIO_NR_ICON_TYPE_NONE;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert ENDC status.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_NREndcAvailability_t taf_Radio::taf_radio_ConvertEndcStatus
+(
+    taf_pa_radio_EndcStatus_t status
+)
+{
+    switch (status)
+    {
+        case TAF_PA_RADIO_ENDC_STATUS_AVAILABLE:
+            return TAF_RADIO_NR_ENDC_AVAILABLE;
+        case TAF_PA_RADIO_ENDC_STATUS_UNAVAILABLE:
+            return TAF_RADIO_NR_ENDC_UNAVAILABLE;
+        default:
+            LE_ERROR("Unknown status.");
+    }
+
+    return TAF_RADIO_NR_ENDC_UNKNOWN;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2930,6 +2982,148 @@ void taf_Radio::taf_radio_LayerNrIconTypeHandler
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Layered handler for LTE CA information.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::taf_radio_LayerLteCAHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_radio_CAInfoHandlerFunc_t handlerFunc =
+        (taf_radio_CAInfoHandlerFunc_t)layerHandlerFunc;
+
+    if (handlerFunc)
+    {
+        taf_RadioCAInd_t* indPtr = (taf_RadioCAInd_t*)reportPtr;
+        handlerFunc(indPtr->phone, indPtr->infoRef, le_event_GetContextPtr());
+    }
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Layered handler for connection status
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::taf_radio_LayerConnStatusHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_radio_ConnectionStatusHandlerFunc_t handlerFunc =
+        (taf_radio_ConnectionStatusHandlerFunc_t)layerHandlerFunc;
+    if (handlerFunc)
+    {
+        taf_RadioConnStatusInd_t* indPtr = (taf_RadioConnStatusInd_t*)reportPtr;
+        handlerFunc(indPtr->phone, indPtr->bitmask, indPtr->statusRef,
+            le_event_GetContextPtr());
+    }
+
+    le_mem_Release(reportPtr);
+}
+
+static void LteCAHandler
+(
+    uint8_t phone,
+    taf_pa_radio_LteCaIndBitMask_t bitmask,
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
+    void* contextPtr
+)
+{
+    TAF_ERROR_IF_RET_NIL(!phone || phone > TAF_RADIO_PHONE_NUM,
+        "Invalid para(phone:%d)", phone);
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    LE_DEBUG("LteCAHandler phone %d bitmask 0x%lx", phone, bitmask);
+    taf_RadioCAInfo_t lteInfo;
+    lteInfo.status= TAF_RADIO_CA_STATUS_DEACTIVATED;
+    lteInfo.cellCount = 0;
+
+    if (bitmask & TAF_PA_RADIO_LTE_CA_IND_BIT_MASK_PCELL_INFO)
+    {
+        lteInfo.cellCount = 1;
+        LE_DEBUG("Primary cell information.");
+    }
+
+    if (bitmask & TAF_PA_RADIO_LTE_CA_IND_BIT_MASK_SCELL_INFO)
+    {
+        uint32_t scellCount = 0;
+        le_result_t result = taf_pa_radio_GetScellCount(infoRef, &scellCount);
+        if (result != LE_OK)
+            LE_ERROR("Fail to get secondary cell count.");
+        if (scellCount > TAF_RADIO_SCELL_NUMBER)
+        {
+            LE_WARN("Scell number %d is more than limited number %d.", scellCount, TAF_RADIO_SCELL_NUMBER);
+            scellCount = TAF_RADIO_SCELL_NUMBER;
+        }
+        LE_DEBUG("LteCAHandler scellCount %d", scellCount);
+
+        for (uint32_t i = 0; i < scellCount; i++)
+        {
+            taf_pa_radio_ScellState_t state = TAF_PA_RADIO_SCELL_STATE_UNKNOWN;
+            result = taf_pa_radio_GetScellState(infoRef, i, &state);
+            if (result != LE_OK)
+                LE_ERROR("Fail to get secondary cell state at %d.", i);
+
+            if (state == TAF_PA_RADIO_SCELL_STATE_CONFIGURED_ACTIVATED)
+            {
+                lteInfo.status = TAF_RADIO_CA_STATUS_ACTIVATED;
+                lteInfo.cellCount++;
+            }
+            LE_DEBUG("LteCAHandler state[%d] %d", i, state);
+        }
+    }
+
+    taf_RadioCAInfo_t* infoPtr = (taf_RadioCAInfo_t*)le_ref_Lookup(tafRadio.caInfoMap, tafRadio.lteCAInfoRefs[phone -1]);
+    if (infoPtr->status != lteInfo.status || infoPtr->cellCount != lteInfo.cellCount)
+    {
+        taf_RadioCAInd_t* indPtr = (taf_RadioCAInd_t*)le_mem_ForceAlloc(tafRadio.caIndPool);
+        indPtr->phone = phone;
+        infoPtr->status = lteInfo.status;
+        infoPtr->cellCount = lteInfo.cellCount;
+        indPtr->infoRef = tafRadio.lteCAInfoRefs[phone - 1];
+        le_event_ReportWithRefCounting(tafRadio.lteCAIndEvId, (void*)indPtr);
+    }
+}
+
+static void EndcStatusHandler
+(
+    uint8_t phone,
+    taf_pa_radio_EndcStatus_t status,
+    void* contextPtr
+)
+{
+    TAF_ERROR_IF_RET_NIL(!phone || phone > TAF_RADIO_PHONE_NUM,
+        "Invalid para(phone:%d)", phone);
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_radio_NREndcAvailability_t state = tafRadio.taf_radio_ConvertEndcStatus(status);
+    taf_radio_NREndcAvailability_t* statusPtr =
+        (taf_radio_NREndcAvailability_t*)le_ref_Lookup(tafRadio.connStatusMap,
+        tafRadio.endcStatusRefs[phone - 1]);
+    if (*statusPtr != state)
+    {
+        *statusPtr = state;
+
+        taf_RadioConnStatusInd_t* indPtr =
+            (taf_RadioConnStatusInd_t*)le_mem_ForceAlloc(tafRadio.connStatusIndPool);
+        indPtr->phone = phone;
+        indPtr->bitmask = TAF_RADIO_CONN_IND_BIT_MASK_ENDC;
+        indPtr->statusRef = tafRadio.endcStatusRefs[phone -1];
+        le_event_ReportWithRefCounting(tafRadio.connStatusEvId, (void*)indPtr);
+    }
+}
 
 /*======================================================================
 
@@ -3314,6 +3508,8 @@ void taf_Radio::Init(void)
     netStatusEvId = le_event_CreateIdWithRefCounting("netStatus");
     netRegRejEvId = le_event_CreateIdWithRefCounting("NetRegRej");
     nrIconTypeEvId = le_event_CreateIdWithRefCounting("NrIconType");
+    lteCAIndEvId = le_event_CreateIdWithRefCounting("LteCAInd");
+    connStatusEvId = le_event_CreateIdWithRefCounting("ConnStatus");
 
     // 2. Initiate the memory pool
     prefOpsListPool = le_mem_InitStaticPool(prefOpsListPool,
@@ -3337,6 +3533,9 @@ void taf_Radio::Init(void)
     ngbrCellInfoSafeRefPool = le_mem_InitStaticPool(ngbrCellInfoSafeRefPool,
         TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM, sizeof(taf_RadioNgbrCellInfoSafeRef_t));
     phonePool = le_mem_InitStaticPool(phonePool, TAF_RADIO_PHONE_NUM, sizeof(uint8_t));
+    caInfoPool = le_mem_InitStaticPool(caInfoPool, TAF_RADIO_CA_INFO_MAX_NUM, sizeof(taf_RadioCAInfo_t));
+    connStatusPool = le_mem_InitStaticPool(connStatusPool, TAF_RADIO_CONN_STATUS_MAX_NUM,
+        sizeof(taf_radio_NREndcAvailability_t));
 
     opModeChangePool = le_mem_CreatePool("opModeChangePool", sizeof(taf_radio_OpMode_t));
     netRegStatePool = le_mem_CreatePool("netRegStatePool", sizeof(taf_radio_NetRegStateInd_t));
@@ -3348,6 +3547,8 @@ void taf_Radio::Init(void)
     netStatusPool = le_mem_CreatePool("netStatusPool", sizeof(taf_RadioNetStatusInd_t));
     netRegRejPool = le_mem_CreatePool("netRegRejPool", sizeof(taf_radio_NetRegRejInd_t));
     nrIconTypePool = le_mem_CreatePool("nrIconTypePool", sizeof(taf_RadioNrIconTypeInd_t));
+    caIndPool= le_mem_CreatePool("caIndPool", sizeof(taf_RadioCAInd_t));
+    connStatusIndPool= le_mem_CreatePool("connStatusIndPool", sizeof(taf_RadioConnStatusInd_t));
 
     // 3. Initiate the reference map.
     prefOpListRefMap = le_ref_InitStaticMap(prefOpListRefMap,TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);
@@ -3360,15 +3561,30 @@ void taf_Radio::Init(void)
         TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM);
     imsRefMap = le_ref_InitStaticMap(imsRefMap, TAF_RADIO_PHONE_NUM);
     netStatusRefMap = le_ref_InitStaticMap(netStatusRefMap, TAF_RADIO_PHONE_NUM);
+    caInfoMap = le_ref_InitStaticMap(caInfoMap, TAF_RADIO_CA_INFO_MAX_NUM);
+    connStatusMap = le_ref_InitStaticMap(connStatusMap, TAF_RADIO_CONN_STATUS_MAX_NUM);
+
     for (uint8_t phoneId = 1; phoneId <= TAF_RADIO_PHONE_NUM; phoneId++)
     {
         uint8_t* phonePtr = (uint8_t*)le_mem_ForceAlloc(phonePool);
+        taf_RadioCAInfo_t* lteCAInfoPtr = (taf_RadioCAInfo_t*)le_mem_ForceAlloc(caInfoPool);
+        lteCAInfoPtr->cellCount = 0;
+        lteCAInfoPtr->status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+        taf_radio_NREndcAvailability_t* endcStatusPtr =
+            (taf_radio_NREndcAvailability_t*)le_mem_ForceAlloc(connStatusPool);
+        *endcStatusPtr = TAF_RADIO_NR_ENDC_UNKNOWN;
         *phonePtr = phoneId;
         imsRefs[phoneId - 1] = (taf_radio_ImsRef_t)le_ref_CreateRef(imsRefMap, (void*)phonePtr);
         netStatusRefs[phoneId - 1] =
             (taf_radio_NetStatusRef_t)le_ref_CreateRef(netStatusRefMap, (void*)phonePtr);
+        lteCAInfoRefs[phoneId - 1] = (taf_radio_CAInfoRef_t)le_ref_CreateRef(
+            caInfoMap, (void*)lteCAInfoPtr);
+        endcStatusRefs[phoneId - 1] = (taf_radio_ConnStatusRef_t)le_ref_CreateRef(
+             connStatusMap, (void*)endcStatusPtr);
         taf_pa_radio_SetReference(phoneId, netStatusRefs[phoneId - 1]);
     }
+    taf_pa_radio_SetLteCaHandler(LteCAHandler, nullptr);
+    taf_pa_radio_SetEndcStatusHandler(EndcStatusHandler, nullptr);
 
     // 4. Get the PhoneFactory, dataFactory and PhoneManager instances
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();

@@ -527,6 +527,64 @@ void OpModeChangeHandler
     }
 }
 
+void PrintEndcStatus
+(
+    uint8_t phoneId,                      ///< [IN] Phone ID.
+    taf_radio_NREndcAvailability_t status ///< [IN] ENDC status.
+)
+{
+    switch (status)
+    {
+        case TAF_RADIO_NR_ENDC_AVAILABLE:
+            LE_INFO("Phone %d ENDC status : Available.", phoneId);
+            break;
+        case TAF_RADIO_NR_ENDC_UNAVAILABLE:
+            LE_INFO("Phone %d ENDC status : Unavailable.", phoneId);
+            break;
+        default:
+            LE_INFO("Phone %d ENDC status : Unknown.", phoneId);
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for connection status.
+ */
+//--------------------------------------------------------------------------------------------------
+void ConnectionStatusHandler
+(
+    uint8_t phoneId,                     ///< [IN] Phone ID.
+    taf_radio_ConnIndBitMask_t bitmask,  ///< [IN] Connection indication bitmask.
+    taf_radio_ConnStatusRef_t statusRef, ///< [IN] Connection status reference.
+    void* contextPtr                     ///< [IN] Handler context.
+)
+{
+    if (bitmask & TAF_RADIO_CONN_IND_BIT_MASK_ENDC)
+    {
+        taf_radio_NREndcAvailability_t status = TAF_RADIO_NR_ENDC_UNKNOWN;
+        le_result_t result =  taf_radio_GetEndcConnectionStatus(statusRef, &status);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetEndcConnectionStatus - OK");
+        if (result == LE_OK)
+            PrintEndcStatus(phoneId, status);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for LTE CA information
+ */
+//--------------------------------------------------------------------------------------------------
+void LteCaInfoHandler
+(
+    uint8_t phoneId,                  ///< [IN] Phone ID.
+    taf_radio_CAInfoRef_t infoRef,    ///< [IN] CA information reference.
+    void* contextPtr                  ///< [IN] Handler context.
+)
+{
+    LE_INFO("Phone %d LTE CA information changed.", phoneId);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Test power on/off and power status.
@@ -1462,6 +1520,45 @@ void TestTafRadioCellularCaps
     LE_TEST_OK(result == LE_OK, "taf_radio_GetHardwareSIMRatCapabilities - LE_OK");
 }
 
+void TestTafRadioEndcStatus
+(
+    void
+)
+{
+    taf_radio_ConnectionStatusHandlerRef_t connStatusHandlerRef =
+        taf_radio_AddConnectionStatusHandler(
+        (taf_radio_ConnectionStatusHandlerFunc_t)ConnectionStatusHandler, NULL);
+    LE_TEST_OK(connStatusHandlerRef != NULL, "taf_radio_AddConnectionStatusHandler - !NULL");
+
+    taf_radio_ConnStatusRef_t statusRef = NULL;
+    taf_radio_NREndcAvailability_t status = TAF_RADIO_NR_ENDC_UNKNOWN;
+    le_result_t result = taf_radio_GetConnStatus(DEFAULT_PHONE_ID, &statusRef);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetConnStatus - LE_OK");
+    result = taf_radio_GetEndcConnectionStatus(statusRef, &status);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetEndcConnectionStatus - OK");
+    if (result == LE_OK)
+    {
+        PrintEndcStatus(DEFAULT_PHONE_ID, status);
+        result = taf_radio_DeleteConnStatus(statusRef);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetEndcConnectionStatus - OK");
+    }
+}
+
+void TestTafRadioLteCaInformation
+(
+    void
+)
+{
+    taf_radio_CAInfoHandlerRef_t lteCaInfoHandlerRef = taf_radio_AddCAInfoHandler(
+        TAF_RADIO_RAT_LTE, (taf_radio_CAInfoHandlerFunc_t)LteCaInfoHandler, NULL);
+    LE_TEST_OK(lteCaInfoHandlerRef != NULL, "taf_radio_AddCAInfoHandler - !NULL");
+
+    taf_radio_RemoveCAInfoHandler(lteCaInfoHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveCAInfoHandler - void");
+
+}
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Component initialization.
@@ -1494,6 +1591,10 @@ COMPONENT_INIT
     TestTafRadioIms();
     LE_TEST_INFO("======== Radio Cellular Caps Test ========");
     TestTafRadioCellularCaps();
+    LE_TEST_INFO("======== Radio ENDC Test ========");
+    TestTafRadioEndcStatus();
+    LE_TEST_INFO("======== Radio LTE-CA Test ========");
+    TestTafRadioLteCaInformation();
 
     LE_TEST_EXIT;
 }

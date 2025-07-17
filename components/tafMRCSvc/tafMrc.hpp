@@ -19,11 +19,14 @@
 #include <telux/platform/FsManager.hpp>
 
 #include "taf_pa_mrc.hpp"
+#include "taf_prop_hms.hpp"
 
 #include "tafSvcIF.hpp"
 
 #define TAF_MRC_SVC_READY_TIMEOUT 60
 #define TAF_MRC_MSG_RESP_TIMEOUT 180
+
+#define TAF_MRC_METRICS_MAX_NUM 1
 
 typedef enum
 {
@@ -33,6 +36,15 @@ typedef enum
     TAF_MRC_OTA_MSG_TYPE_END_FAILURE,
     TAF_MRC_OTA_MSG_TYPE_ABSYNC
 } taf_MrcOtaMsgType_t;
+
+typedef struct
+{
+    uint32_t maxCount;
+    uint32_t minCount;
+    uint32_t avgCount;
+    uint32_t sdValue;
+    uint32_t badBlockCount;
+} taf_MrcEfsMetrics_t;
 
 namespace tafsvc {
     class taf_MrcOtaOperationsListener : public telux::platform::IFsListener {
@@ -56,6 +68,8 @@ namespace tafsvc {
         le_sem_Ref_t syncSem;
         bool paReady = false;
         static taf_pa_mrc_OpStatusHandlerRef_t opStatusHandlerRef;
+        le_mem_PoolRef_t metricsPool;
+        le_ref_MapRef_t metricsRefMap;
     private:
         std::shared_ptr<taf_MrcOtaOperationsListener> otaOperationsListener;
     };

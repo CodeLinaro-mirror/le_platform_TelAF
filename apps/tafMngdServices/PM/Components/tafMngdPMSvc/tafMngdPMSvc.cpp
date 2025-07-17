@@ -1252,7 +1252,27 @@ le_result_t taf_mngdPm_SetNodeModemWakeupSel
     taf_mngdPm_NodeModemWsBitMask_t wsBitmask
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    le_result_t res = LE_FAULT;
+
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return LE_UNSUPPORTED;
+    }
+
+    if(pmNodeId == 1)
+    {
+        res = taf_rpcPm_SetModemWakeupSel(wsBitmask);
+    }
+    else
+    {
+        res = taf_pm_SetModemWakeupSel(wsBitmask);
+    }
+
+    LE_DEBUG("%s: lowlever return: %s",
+             __FUNCTION__,
+             LE_RESULT_TXT(res));
+
+    return res;
 }
 
 /**
@@ -1265,7 +1285,27 @@ le_result_t taf_mngdPm_GetNodeModemWakeupSel
         ///< [OUT] Modem wakeup selection to be whitelisted.
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    le_result_t res = LE_FAULT;
+
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return LE_UNSUPPORTED;
+    }
+
+    if(pmNodeId == 1)
+    {
+        res = taf_rpcPm_GetModemWakeupSel(wsBitmaskPtr);
+    }
+    else
+    {
+        res = taf_pm_GetModemWakeupSel(wsBitmaskPtr);
+    }
+
+    LE_DEBUG("%s: lowlever return: %s",
+             __FUNCTION__,
+             LE_RESULT_TXT(res));
+
+    return res;
 }
 
 /**

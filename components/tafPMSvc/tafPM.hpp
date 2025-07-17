@@ -14,6 +14,7 @@
 #include <telux/power/TcuActivityListener.hpp>
 #include <telux/power/TcuActivityManager.hpp>
 #include "tafSvcIF.hpp"
+#include "taf_prop_pms.h"
 
 using namespace telux::power;
 using namespace telux::common;
@@ -202,6 +203,46 @@ namespace tafsvc {
             void onServiceStatusChange(telux::common::ServiceStatus status) override;
     };
 
+    class taf_PmsPa {
+    private:
+
+        taf_prop_pms_MpssRef_t paPmsObject;
+
+        taf_PmsPa() { paPmsObject = nullptr; }
+        ~taf_PmsPa() { }
+
+        taf_PmsPa(const taf_PmsPa&) = delete;
+        taf_PmsPa& operator=(const taf_PmsPa&) = delete;
+
+        static void PaPmsErrCallback
+        (
+            taf_prop_pms_ErrCode_t errCode,
+            void * cbCtx
+        );
+
+    public:
+
+        static taf_PmsPa* GetInstance()
+        {
+            static taf_PmsPa* instance = new taf_PmsPa();
+
+            return instance;
+        }
+
+        le_result_t Init(void);
+        le_result_t Deinit(void);
+
+        le_result_t SetModemWakeupFilter
+        (
+            taf_pm_NodeModemWsBitMask_t bitset
+        );
+
+        le_result_t GetModemWakeupFilter
+        (
+            taf_pm_NodeModemWsBitMask_t* bitset
+        );
+    };
+
     // define our class to handler the call with telsdk
     class taf_PM : public ITafSvc {
     private:
@@ -209,8 +250,9 @@ namespace tafsvc {
         taf_pm_Status_t teluxStatustoTafStatus(telux::common::Status status);
         telux::power::TcuActivityState tafStateToTcuState(taf_pm_State_t tafState);
     public:
-        taf_PM() {};
-        ~taf_PM() {};
+        taf_PmsPa * paRef;
+        taf_PM(): paRef(taf_PmsPa::GetInstance()) {}
+        ~taf_PM() { /* paRef->Deinit(); */ }
         std::shared_ptr<telux::power::ITcuActivityManager> tcuActivityMgr;
         std::shared_ptr<telux::power::ITcuActivityManager> tcuSlaveActivityMgr;
         std::shared_ptr<telux::power::ITcuActivityManager> RemoteTcuActivityMgr = nullptr;
@@ -225,6 +267,7 @@ namespace tafsvc {
         static void TafSigTermEventHandler(int tafSigNum);
         static void sendAck(void* reportPtr);
         void Init(void);
+        static void PaInit(void *p1, void *p2);
         static taf_Client_t *to_taf_Client_t(void *c);
         static taf_ws_t *ToTafWakeupSource(taf_pm_WakeupSourceRef_t w);
         taf_pm_WakeupSourceRef_t NewWakeupSource( uint32_t opts, const char *tag);

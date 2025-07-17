@@ -25,6 +25,8 @@ COMPONENT_INIT
     auto &power = taf_PM::GetInstance();
     power.Init();
 
+    le_event_QueueFunction(power.PaInit, NULL, NULL);
+
     // install the handler
     taf_Handler myHandler;
 }
@@ -426,7 +428,8 @@ le_result_t taf_pm_SetModemWakeupSel
     taf_pm_NodeModemWsBitMask_t wsBitmask
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    auto &pmInstance = taf_PM::GetInstance();
+    return pmInstance.paRef->SetModemWakeupFilter(wsBitmask);
 }
 
 /**
@@ -442,7 +445,8 @@ le_result_t taf_pm_GetModemWakeupSel
         ///< [OUT] Modem wakeup selection to be whitelisted.
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    auto &pmInstance = taf_PM::GetInstance();
+    return pmInstance.paRef->GetModemWakeupFilter(wsBitmaskPtr);
 }
 
 /**

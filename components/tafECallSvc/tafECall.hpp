@@ -26,6 +26,9 @@ using namespace std;
 #define CFG_NODE_MSDVERSION "msdVersion"
 #define CFG_NODE_MSDVEHTYPE "msdVehicleType"
 #define CFG_NODE_MSDVIN "msdVehIdentNum"
+#define CFG_NODE_MSDTIMESTAMPSYSTEM "msdTimeStampSystem"
+#define CFG_NODE_MSDTIMESTAMPSET "msdTimeStampSet"
+#define CFG_NODE_MSDMESSAGEIDENTIFIER "msdMessageIdentifier"
 #define CFG_ECALL_PROPULSIONTYPE_PATH "tafeCallSvc:/eCall/msdPropulsionType"
 #define CFG_NODE_PROPULSION_GASOLINE "Gasoline"
 #define CFG_NODE_PROPULSION_DIESEL "Diesel"
@@ -60,6 +63,7 @@ using namespace std;
 #define MSD_EURONCAP_OAD_RANGELIMIT_MAX 250
 #define MAX_MSD_MESSAGE_IDENTIFIER 255
 #define MIN_MSD_MESSAGE_IDENTIFIER 1
+#define MSD_TIMESTAMP_STR_INVALID "INVALID"
 
     namespace tafsvc {
 
@@ -276,6 +280,12 @@ using namespace std;
                 int32_t msd_EncodeOptionalDataForEuroNCAP(taf_EuroNCAPData_t* euroNCAPDataPtr, uint8_t* outDataPtr);
                 static uint16_t PutBits(uint16_t msgOffset, uint16_t elmtLen, uint8_t* elmtPtr, uint8_t* msgPtr);
                 static uint16_t PutTwoBytes(uint16_t  msgOffset, uint16_t  elmtLen,uint16_t* elmtPtr, uint8_t*  msgPtr);
+                static bool ReadMsdTimeStampFromConfigTree(const char* nodeName, uint32_t* outTimeStamp);
+                static void WriteMsdTimeStampToConfigTree(const char* nodeName, const char* timestampStr);
+                le_result_t SetMsdTimeStamp(taf_ecall_CallRef_t ecallRef, uint32_t timeStamp);
+                le_result_t ResetMsdTimeStamp(taf_ecall_CallRef_t ecallRef);
+                static void WriteMsdMsgIdToConfigTree(uint32_t msgId);
+                static uint32_t ReadMsdMsgIdFromConfigTree();
                 le_result_t SetPsapNumber( const char* psapNumber );
                 le_result_t GetPsapNumber( char* psapNumber, size_t psapNumLength );
                 le_result_t UseUSimNumbers();

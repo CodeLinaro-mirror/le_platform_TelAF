@@ -921,7 +921,7 @@ static void PrintUsage ()
             "tafECallApp -- getHlapTimerState <hlap timer type>\n"
             "tafECallApp -- isInProgress\n"
             "tafECallApp -- setInitialDialAttempts <attempts (1-10)>\n"
-            "tafECallApp -- setInitialDialIntervalBetweenDialAttempts <dial interval in minutes in decimal e.g. 5 60 60 ... >\n"
+            "tafECallApp -- setInitialDialIntervalBetweenDialAttempts <dial interval in seconds in decimal e.g. 5 60 60 ... >\n"
             "\n");
 }
 
@@ -1430,6 +1430,8 @@ static int startECall()
     else if (strcmp(eCallType, "TEST") == 0)
     {
         ConnectAudio();
+        taf_ecall_SetMsdTimeStamp(ECallRef, 1751966168);
+        taf_ecall_ResetMsdTimeStamp(ECallRef);
         taf_ecall_StartTest(ECallRef);
     }
     else if (strcmp(eCallType, "PRIVATE") == 0)

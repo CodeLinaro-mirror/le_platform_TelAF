@@ -163,8 +163,16 @@ taf_pm_ModemAwakeHandlerRef_t taf_pm_AddModemAwakeHandler
         ///< [IN]
 )
 {
-    // Not implemented yet.
-    return NULL;
+    LE_UNUSED(wsBitmask);
+
+    if (handlerPtr == NULL)
+    {
+        LE_ERROR("Bad handlerPtr: nullptr");
+        return NULL;
+    }
+
+    return taf_PM::GetInstance().
+                AddModemWakeupHandler(handlerPtr, contextPtr);
 }
 
 /**
@@ -180,8 +188,8 @@ void taf_pm_RemoveModemAwakeHandler
         ///< [IN]
 )
 {
-    // Not implemented yet.
-    return;
+    taf_PM::GetInstance().
+        RemoveModemAwakeHandler(handlerRef);
 }
 
 /**
@@ -462,5 +470,13 @@ le_result_t taf_pm_GetModemAwakeReason
         ///< [OUT] Modem wakeup reason.
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    if(wsBitmaskPtr == NULL)
+    {
+        LE_ERROR("Bad wsBitmaskPtr: nullptr");
+        return LE_BAD_PARAMETER;
+    }
+
+    *wsBitmaskPtr = taf_PM::GetInstance().GetLastModemWsReason();
+
+    return LE_OK;
 }

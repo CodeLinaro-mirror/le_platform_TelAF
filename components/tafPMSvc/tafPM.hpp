@@ -1,6 +1,6 @@
 /*
- *  Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 
@@ -172,6 +172,14 @@ namespace tafsvc {
     }
     taf_powerManager_t;
 
+    typedef struct WakeupCallbackStruct
+    {
+        taf_pm_ModemAwakeHandlerRef_t ref;
+        taf_pm_ModemAwakeHandlerFunc_t callback;
+        void * context;
+    }
+    WakeupCallback_t;
+
     // define the callback class for TCU state change of local proc
     class tafTcuStateListener : public telux::power::ITcuActivityListener {
         public :
@@ -260,6 +268,10 @@ namespace tafsvc {
         std::shared_ptr<telux::power::ITcuActivityListener> tcuSlaveStateListener;
         std::shared_ptr<telux::power::ITcuActivityListener> remoteTcuStateListener;
         std::shared_ptr<telux::common::IServiceStatusListener> tcuServiceStatusListener;
+
+        std::shared_ptr<telux::power::IWakeupManager> tcuWakeupMgr;
+        std::shared_ptr<telux::power::IWakeupListener> tcuWakeupReasonListener;
+
         le_event_Id_t StateChangeEvent;
         le_event_Id_t AckEvent;
         static taf_PM &GetInstance();
@@ -278,6 +290,28 @@ namespace tafsvc {
         taf_pm_StateChangeHandlerRef_t AddStateChangeHandler
                 (taf_pm_StateChangeHandlerFunc_t handlerPtr, void* contextPtr);
         void RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef);
+
+        taf_pm_ModemAwakeHandlerRef_t AddModemWakeupHandler
+        (
+            taf_pm_ModemAwakeHandlerFunc_t handlerPtr,
+            void* contextPtr
+        );
+
+        void RemoveModemAwakeHandler
+        (
+            taf_pm_ModemAwakeHandlerRef_t handlerRef
+        );
+
+        taf_pm_NodeModemWsBitMask_t GetLastModemWsReason();
+
+        static le_event_Id_t wakeupEvt;
+        static void WakeupEvtHandler(void * reportPtr);
+
+        static le_mem_PoolRef_t registeredCallbackPool;
+        static le_ref_MapRef_t registeredCallbackMap; // Unordered!
+
+        // Only main thread updates this value
+        static taf_pm_NodeModemWsBitMask_t lastModemWsReason;
 
         #if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
         taf_pm_State_t curTcuState;

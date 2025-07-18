@@ -1,0 +1,21 @@
+maxThreads: 700
+start: manual
+sandboxed: false
+
+executables:
+{
+    tafMngdPmTestClient = ( tafMngdPmTestClientComp )
+}
+
+processes:
+{
+    run:
+    {
+        (tafMngdPmTestClient)
+    }
+}
+
+bindings:
+{
+    tafMngdPmTestClient.tafMngdPmTestClientComp.taf_mpms_test -> tafMngdPmTestDaemon.taf_mpms_test
+}

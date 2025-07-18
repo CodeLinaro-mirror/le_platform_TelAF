@@ -125,8 +125,10 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdownAndResume\n"
         "------------To Test delete wakeup source if not acquired-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- DeleteWsIfNotAcquired\n"
-        "------------To Test rejecting deletion of wakeup source if acquired/ignored-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldNotDeleteWsIfAcquiredOrIgnored\n");
+        "------------To Test rejecting deletion of wakeup source if acquired-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldNotDeleteWsIfAcquired\n"
+        "------------To Test rejecting deletion of wakeup source if ignored-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldNotDeleteWsIfIgnored\n");
 }
 
 void NodePowerStateChangeHandlerCB(
@@ -2295,7 +2297,7 @@ void DeleteWsIfNotAcquired()
         printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
         wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
         if(wsRefAuthorized) {
-            printf("Created WakeupSource ref for reason %d\n", reason);
+            printf("Created wakeupsource ref for reason %d\n", reason);
             if(wsRefAuthorized != NULL) {
                 res = taf_mngdPm_StayAwake(wsRefAuthorized);
                 if(res == LE_OK) {
@@ -2305,21 +2307,24 @@ void DeleteWsIfNotAcquired()
                         printf("'Suspended system with wsRefAuthorized'\n");
                         res = taf_mngdPm_DeleteWakeupSource(wsRefAuthorized);
                         if(res == LE_OK) {
-                            printf("'Deleted WS with wsRefAuthorized'\n");
+                            printf("'Deleted not acquired wakesource'\n");
+                            exit(EXIT_SUCCESS);
                         }
                     }
                 }
             }
         }
-        else
-            printf("Failed to Create WakeupSource ref for authorized reason %d\n", reason);
+        else{
+            printf("Failed to create wakeupsource ref for authorized reason %d\n", reason);
+            exit(EXIT_FAILURE);
+        }
     }
 
 }
 
-void ShouldNotDeleteWsIfAcquiredOrIgnored()
+void ShouldNotDeleteWsIfAcquired()
 {
-    LE_INFO("ShouldNotDeleteWsIfAcquiredOrIgnored");
+    LE_INFO("ShouldNotDeleteWsIfAcquired");
     int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
     taf_mngdPm_wsRef_t wsRefAuthorized = NULL;
     // Authorized the reason for bit0
@@ -2328,25 +2333,82 @@ void ShouldNotDeleteWsIfAcquiredOrIgnored()
         printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
         wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
         if(wsRefAuthorized) {
-            printf("Created WakeupSource ref for reason %d\n", reason);
+            printf("Created wakeupsource ref for reason %d\n", reason);
             if(wsRefAuthorized != NULL) {
                 res = taf_mngdPm_StayAwake(wsRefAuthorized);
                 if(res == LE_OK) {
                     printf("'Resumed system with wsRefAuthorized'\n");
                     res = taf_mngdPm_DeleteWakeupSource(wsRefAuthorized);
                     if(res == LE_OK) {
-                        printf("'Deleted WS with wsRefAuthorized'\n");
+                        printf("'Error: deleted acquired wakesource'\n");
+                        exit(EXIT_FAILURE);
                     }
                     else if(res == LE_NOT_PERMITTED)
                     {
-                        printf("'Deletion of WS before releasing it, is not permitted '\n");
+                        printf("'Deletion of ws before releasing it, is not permitted '\n");
+                        exit(EXIT_SUCCESS);
                     }
                 }
             }
         }
-        else
-            printf("Failed to Create WakeupSource ref for authorized reason %d\n", reason);
+        else{
+            printf("Failed to create wakeupsource ref for authorized reason %d\n", reason);
+            exit(EXIT_FAILURE);
+        }
     }
+}
+
+void ShouldNotDeleteWsIfIgnored()
+{
+    LE_INFO("ShouldNotDeleteWsIfIgnored");
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    taf_mngdPm_wsRef_t wsRefUnauthorized = NULL;
+    le_result_t res = LE_FAULT;
+    // Authorized the reason for bit0
+    res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        taf_mngdPm_wsRef_t wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created wakeupsource ref for wsRefUnauthorized reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                }
+            }
+        }
+        else{
+            printf("Failed to create wakeupsource ref for authorized reason %d\n", reason);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    reason = TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE;
+    wsRefUnauthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRefUnauthorized) {
+        printf("Created wakeupsource ref for wsRefUnauthorized reason %d\n", reason);
+        if(wsRefUnauthorized != NULL) {
+            res = taf_mngdPm_StayAwake(wsRefUnauthorized);
+            if(res == LE_OK) {
+                res = taf_mngdPm_DeleteWakeupSource(wsRefUnauthorized);
+                if(res == LE_OK) {
+                    printf("'Error: deleted ignored wakesource'\n");
+                    exit(EXIT_FAILURE);
+                }
+                else if(res == LE_NOT_PERMITTED)
+                {
+                    printf("'Deletion of ws before releasing it, is not permitted '\n");
+                    exit(EXIT_SUCCESS);
+                }
+            }
+        }
+    }
+    else{
+        printf("Failed to create wakeupsource ref for unauthorized reason %d\n", reason);
+        exit(EXIT_FAILURE);
+    }
+
+
 }
 
 COMPONENT_INIT
@@ -2548,9 +2610,13 @@ COMPONENT_INIT
         {
             DeleteWsIfNotAcquired();
         }
-        else if(strcmp(testType, "ShouldNotDeleteWsIfAcquiredOrIgnored") == 0)
+        else if(strcmp(testType, "ShouldNotDeleteWsIfAcquired") == 0)
         {
-            ShouldNotDeleteWsIfAcquiredOrIgnored();
+            ShouldNotDeleteWsIfAcquired();
+        }
+        else if(strcmp(testType, "ShouldNotDeleteWsIfIgnored") == 0)
+        {
+            ShouldNotDeleteWsIfIgnored();
         }
         else
         {

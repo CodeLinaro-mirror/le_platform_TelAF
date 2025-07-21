@@ -2529,7 +2529,7 @@ le_result_t taf_FwUpdate::CalPartitionHash
         ret = taf_pa_flash_OpenUbi(partition, true, &ubiRef);
     else
         ret = taf_pa_flash_OpenMtd(partition, &mtdRef);
-    if (ret && ret != TAF_FWUPDATE_FLASH_PAGE_ERASED)
+    if (ret)
     {
         LE_ERROR("Fail to open partition %s, ret: %d", partition, ret);
         return LE_FAULT;
@@ -2553,11 +2553,57 @@ le_result_t taf_FwUpdate::CalPartitionHash
     uint8_t content[TAF_FWUPDATE_FLASH_PAGE_SIZE];
     size_t bytes = 0;
     uint32_t iteration = calSize / TAF_FWUPDATE_FLASH_PAGE_SIZE;
+    uint32_t pagesPerBlock = TAF_FWUPDATE_FLASH_MTD_EB_SIZE / TAF_FWUPDATE_FLASH_PAGE_SIZE;
+    uint32_t block = 0;
+    uint32_t totalBlock = 0;
+    mtd_info_t info;
+
+    if (!tafFwUpdate.partitions[i].isUbi)
+    {
+        ret = taf_pa_flash_GetMtdInfo(mtdRef, &info);
+        if (ret)
+        {
+            LE_ERROR("Fail to get info of mtd %s, ret: %d", partition, ret);
+            taf_pa_flash_CloseMtd(mtdRef);
+            EVP_MD_CTX_free(md_ctx);
+            return LE_FAULT;
+        }
+        totalBlock = info.size / info.erasesize;
+    }
+
     for (uint32_t j = 0; j < iteration; j++)
     {
         bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
         if (!tafFwUpdate.partitions[i].isUbi)
-            ret = taf_pa_flash_ReadMtdPage(mtdRef, content, j, bytes);
+        {
+            // If it is the 1st page of the block, check the block status.
+            if (j % pagesPerBlock == 0)
+            {
+                // Get the next good block.
+                ret = taf_pa_flash_IsGoodBlock(mtdRef, block);
+                while (ret == 0)
+                {
+                    LE_WARN("Skip reading bad block at %d", block);
+                    block++;
+
+                    if (block >= totalBlock)
+                    {
+                        LE_ERROR("Invalid block index %d.", block);
+                        EVP_MD_CTX_free(md_ctx);
+                        taf_pa_flash_CloseMtd(mtdRef);
+                        break;
+                    }
+                    ret = taf_pa_flash_IsGoodBlock(mtdRef, block);
+                }
+            }
+
+            ret = taf_pa_flash_ReadMtdPage(mtdRef, content,
+                j % pagesPerBlock + block * pagesPerBlock, bytes);
+
+            // If it is the last page of the block, move to the next block.
+            if (j % pagesPerBlock == pagesPerBlock - 1)
+                block++;
+        }
         else
             ret = taf_pa_flash_ReadUbi(ubiRef, content, j * TAF_FWUPDATE_FLASH_PAGE_SIZE, bytes);
 
@@ -2566,6 +2612,14 @@ le_result_t taf_FwUpdate::CalPartitionHash
             LE_ERROR("Fail to read partition %s at iteration %d, ret: %d",
                 partition, j, ret);
             EVP_MD_CTX_free(md_ctx);
+            if (!tafFwUpdate.partitions[i].isUbi)
+                taf_pa_flash_CloseMtd(mtdRef);
+            else
+            {
+                ret = taf_pa_flash_CloseUbi(ubiRef);
+                if (ret)
+                    LE_ERROR("Fail to close ubi %s, ret = %d.", partition, ret);
+            }
             return LE_FAULT;
         }
 
@@ -2576,7 +2630,31 @@ le_result_t taf_FwUpdate::CalPartitionHash
     if (bytes != 0)
     {
         if (!tafFwUpdate.partitions[i].isUbi)
-            ret = taf_pa_flash_ReadMtdPage(mtdRef, content, iteration, bytes);
+        {
+            // If it is the 1st page of the block, check the block status.
+            if (iteration % pagesPerBlock == 0)
+            {
+                // Get the next good block.
+                ret = taf_pa_flash_IsGoodBlock(mtdRef, block);
+                while (ret == 0)
+                {
+                    LE_WARN("Skip reading bad block at %d", block);
+                    block++;
+
+                    if (block >= totalBlock)
+                    {
+                        LE_ERROR("Invalid block index %d.", block);
+                        EVP_MD_CTX_free(md_ctx);
+                        taf_pa_flash_CloseMtd(mtdRef);
+                        break;
+                    }
+                    ret = taf_pa_flash_IsGoodBlock(mtdRef, block);
+                }
+            }
+
+            ret = taf_pa_flash_ReadMtdPage(mtdRef, content,
+                iteration % pagesPerBlock + block * pagesPerBlock, bytes);
+        }
         else
             ret = taf_pa_flash_ReadUbi(ubiRef, content,
                 iteration * TAF_FWUPDATE_FLASH_PAGE_SIZE, bytes);
@@ -2586,6 +2664,14 @@ le_result_t taf_FwUpdate::CalPartitionHash
             LE_ERROR("Fail to read partition %s at iteration %d, ret: %d",
                 partition, iteration, ret);
             EVP_MD_CTX_free(md_ctx);
+            if (!tafFwUpdate.partitions[i].isUbi)
+                taf_pa_flash_CloseMtd(mtdRef);
+            else
+            {
+                ret = taf_pa_flash_CloseUbi(ubiRef);
+                if (ret)
+                    LE_ERROR("Fail to close ubi %s, ret = %d.", partition, ret);
+            }
             return LE_FAULT;
         }
 

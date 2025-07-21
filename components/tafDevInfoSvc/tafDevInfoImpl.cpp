@@ -78,10 +78,26 @@ void taf_devInfo::Init() {
     // Get platform factory.
     auto& platformFactory = PlatformFactory::getInstance();
 
-    std::promise<ServiceStatus> p;
-    auto cb = [&p](ServiceStatus status) {
-        LE_INFO("Received service status: %d", static_cast<int>(status));
-        p.set_value(status);
+    auto prom = std::make_shared<std::promise<ServiceStatus>>();
+    std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
+
+    auto cb = [prom](ServiceStatus status) {
+        try {
+            if (status == ServiceStatus::SERVICE_AVAILABLE) {
+                prom->set_value(ServiceStatus::SERVICE_AVAILABLE);
+            } else {
+                prom->set_value(ServiceStatus::SERVICE_UNAVAILABLE);
+            }
+        }
+        catch (const std::future_error& e) {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e) {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...) {
+            LE_ERROR("Unknown error in callback.");
+        }
     };
 
     deviceInfoManager = platformFactory.getDeviceInfoManager(cb);
@@ -89,12 +105,19 @@ void taf_devInfo::Init() {
         LE_FATAL("Failed to get Device Info Manager instance");
     }
 
-    LE_INFO("Obtained deviceInfo manager");
+    startTime = std::chrono::system_clock::now();
+    ServiceStatus devInfoMgrStatus = deviceInfoManager->getServiceStatus();
+    if(devInfoMgrStatus != ServiceStatus::SERVICE_AVAILABLE) {
+        LE_INFO( "DevInfoManager subsystem is not ready, Please wait");
+    }
 
-    // Wait until initialization is complete.
-    p.get_future().get();
-    if (deviceInfoManager->getServiceStatus() != ServiceStatus::SERVICE_AVAILABLE) {
-        LE_FATAL("DeviceInfo service not available");
+    devInfoMgrStatus = prom->get_future().get();
+    if(devInfoMgrStatus == ServiceStatus::SERVICE_AVAILABLE) {
+        endTime = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsedTime = endTime - startTime;
+        LE_INFO( "Elapsed Time for DevInfoManager subsystems to ready : %lf", elapsedTime.count());
+    } else {
+        LE_ERROR( "ERROR - Unable to initialize DevInfoManager subsystem");
     }
 
     // Register for Device information service status change

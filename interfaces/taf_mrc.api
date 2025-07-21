@@ -93,6 +93,12 @@ ENUM SyncStatus
     SYNC_STATUS_FAILURE      ///< Sync status is failure.
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * The EFS metrics reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Metrics;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -159,4 +165,100 @@ FUNCTION le_result_t SendOtaAbsyncMsg
 FUNCTION le_result_t SendSyncStatusMsg
 (
     SyncStatus status IN ///< Sync status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Measures the EFS metrics.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t MeasureEfsMetrics
+(
+    Metrics MetricsRef OUT ///< The EFS metrics reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Deletes the EFS metrics.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteEfsMetrics
+(
+    Metrics MetricsRef IN ///< The EFS metrics reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the maximum Program/Erase(PE) count in EFS.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetEfsMaxPECount
+(
+    Metrics MetricsRef IN, ///< The EFS metrics reference.
+    uint32 count OUT       ///< The maximum Program/Erase(PE) count in EFS.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the minimum Program/Erase(PE) count in EFS.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetEfsMinPECount
+(
+    Metrics MetricsRef IN, ///< The EFS metrics reference.
+    uint32 count OUT       ///< The minimum Program/Erase(PE) count in EFS.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the average program and erase count in EFS.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetEfsAvgPECount
+(
+    Metrics MetricsRef IN, ///< The EFS metrics reference.
+    uint32 count OUT       ///< The average Program/Erase(PE) count in EFS.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the standard deviation of Program/Erase(PE) count in EFS.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetEfsPEStandardDeviation
+(
+    Metrics MetricsRef IN, ///< The EFS metrics reference.
+    uint32 value OUT       ///< The standard deviation which rounds up to the closest integer.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the bad block count in EFS.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetEfsBadBlocks
+(
+    Metrics MetricsRef IN, ///< The EFS metrics reference.
+    uint32 count OUT       ///< The bad block count in EFS.
 );

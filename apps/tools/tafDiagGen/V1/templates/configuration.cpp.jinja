@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -12,7 +12,6 @@
 #include <iostream>
 #include <typeinfo>
 
-namespace telux {
 namespace tafsvc {
 namespace cfg {
 
@@ -208,7 +207,7 @@ EXPORT_SYM size_t get_did_value_size(uint16_t did_code)
         }
     }
 
-    throw std::runtime_error("Not found any [did node] matched did code.");
+    return 0;
 }
 
 EXPORT_SYM std::map<std::string, uint8_t> get_diagnostic_session_map(void)
@@ -284,7 +283,60 @@ EXPORT_SYM bool is_forbidden(uint16_t did_code, const uint8_t *payload, uint32_t
     return false; /*  skipping forbidden check */
 }
 
+EXPORT_SYM std::map<std::string, uint64_t> get_authentication_roles()
+{
+    NEED_INITED();
+
+    std::map<std::string, uint64_t> authentication_roles;
+
+    Node & roles = root.get_child("authentication_timeout_extended");
+
+    for (const auto& role : roles)
+    {
+        uint64_t roleValue = role.second.get<int>("value");
+
+        authentication_roles[role.first] = roleValue;
+
+    }
+
+    return authentication_roles;
 }
+
+EXPORT_SYM uint32_t get_authentication_timeout()
+{
+    NEED_INITED();
+
+    return {{ root.authentication_antibruteforce["authentication_antibruteforce_default"]["AuthenticationTimeout"] }};
+}
+
+EXPORT_SYM int get_operation_cycle_count()
+{
+    NEED_INITED();
+
+    return {{ root.operation_cycle | length }};
+}
+
+EXPORT_SYM std::string get_routine_record(uint16_t rid, uint8_t subFunc)
+{
+    NEED_INITED();
+
+    return "null";
+}
+
+EXPORT_SYM size_t get_routine_record_size(std::string recordName)
+{
+    NEED_INITED();
+
+    return 0;
+}
+
+EXPORT_SYM bool validate_base_record(const uint8_t* dataRecord, size_t recordLength, const std::string nodeName)
+{
+    NEED_INITED();
+
+    return false;
+}
+
 }
 }
 

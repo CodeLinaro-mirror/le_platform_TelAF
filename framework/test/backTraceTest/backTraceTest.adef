@@ -1,0 +1,15 @@
+start: manual
+sandboxed: false
+
+executables:
+{
+     backTraceTest = (btTestComp)
+}
+
+processes:
+{
+    run:
+    {
+        (backTraceTest)
+    }
+}

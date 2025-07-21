@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -7,12 +7,13 @@
 #ifndef TAFFWUPDATE_HPP
 #define TAFFWUPDATE_HPP
 
-#include <map>
+#include <vector>
 #include "legato.h"
 #include "interfaces.h"
 
 #include "tafSvcIF.hpp"
-#include "tafFlashAccess.hpp"
+
+#include "taf_pa_flash.h"
 
 #define TAF_FWUPDATE_CMD_LEN 256
 #define TAF_FWUPDATE_CMD_RESULT_LEN 32
@@ -34,8 +35,8 @@
 
 #define TAF_FWUPDATE_INSTALL_CONTEXT "install_context"
 #define TAF_FWUPDATE_INSTALL_IMGAE_NODE "install_context/image/%s"
-#define TAF_FWUPDATE_POST_CHECK_SCRIPT "META-INF/com/google/android/updater-post-install-script"
-#define TAF_FWUPDATE_POST_CHECK_SCRIPT_PATH "/data/updater-post-install-script"
+#define TAF_FWUPDATE_POST_HOOK "/legato/systems/current/bin/install-hook"
+#define TAF_FWUPDATE_POST_SCRIPT_PATH_LEN 128
 
 #define TAF_FWUPDATE_ACTIVATE_CONTEXT "activate_context"
 #define TAF_FWUPDATE_ACTIVATE_ITEM_NODE "activate_context/item/%s"
@@ -52,6 +53,20 @@
  */
 //--------------------------------------------------------------------------------------------------
 #define TAF_FWUPDATE_FLASH_PAGE_SIZE 0x1000
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * MTD page is erased
+ */
+//--------------------------------------------------------------------------------------------------
+#define TAF_FWUPDATE_FLASH_PAGE_ERASED -255
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * MTD erased block size.
+ */
+//--------------------------------------------------------------------------------------------------
+#define TAF_FWUPDATE_FLASH_MTD_EB_SIZE 0x40000
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -91,6 +106,18 @@ typedef struct
     const char* dataPath;
     const char* patchPath;
 } taf_FwUpdateParition_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Partition structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    char name[TAF_FLASH_PARTITION_NAME_MAX_BYTES];
+    taf_update_Bank_t bank;
+    bool isUbi;
+} taf_FlashPartition_t;
 
 namespace tafsvc {
     class taf_FwUpdate : public ITafSvc {
@@ -140,6 +167,8 @@ namespace tafsvc {
         void StartInstall(const char* filePath);
         void StartSync(void);
         void InstallFirmware(const char* filePath);
+        le_result_t GetPostScript(taf_update_State_t state, char* scriptPath, size_t pathLen);
+        le_result_t PostProcess(taf_update_State_t state);
 
         le_result_t CalFileHash (const char* filePath, uint32_t* calSize, uint8_t* hash,
             unsigned int* hashLen);
@@ -177,7 +206,7 @@ namespace tafsvc {
 
         static le_event_Id_t fwUpdateEvId;
 
-        taf_lib_flash_PartitionList_t pList;
+        std::vector<taf_FlashPartition_t> partitions;
         uint32_t percent = 0;
         taf_update_Error_t error = TAF_UPDATE_NONE;
     };

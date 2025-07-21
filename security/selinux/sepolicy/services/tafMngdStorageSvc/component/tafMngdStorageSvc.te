@@ -74,7 +74,7 @@ telaf_load_rfs_component(telaf_tafMngdSecFileStorageSvc_t)
 telaf_load_rfs_component(telaf_tafMngdCfgStorageSvc_t)
 
 allow telaf_admin_t telaf_tafMngdSecDataStorageSvc_exec_t:lnk_file { read };
-allow telaf_tafMngdSecDataStorageSvc_t self:capability { sys_admin };
+allow telaf_tafMngdSecDataStorageSvc_t self:capability { sys_admin sys_ptrace };
 allow telaf_tafMngdSecDataStorageSvc_t data_t:file { relabel_file_perms };
 
 allow telaf_admin_t telaf_tafMngdCfgStorageSvc_exec_t:lnk_file { read };
@@ -87,6 +87,6 @@ telaf_load_vhal_modules(telaf_tafMngdCfgStorageSvc_t)
 telaf_tafKeyStoreSvc_FscInit(telaf_tafMngdCfgStorageSvc_t, telaf_tafMngdCfgStorageSvc_data_t)
 telaf_tafKeyStoreSvc_FscInit(telaf_tafMngdSecFileStorageSvc_t, telaf_tafMngdSecFileStorageSvc_data_t)
 
-allow telaf_tafMngdSecFileStorageSvc_t self:capability { sys_admin };
+allow telaf_tafMngdSecFileStorageSvc_t self:capability { sys_admin sys_ptrace };
 allow telaf_tafMngdSecFileStorageSvc_t init_t:key { search };
 allow telaf_tafMngdSecFileStorageSvc_t fs_t:filesystem { getattr };

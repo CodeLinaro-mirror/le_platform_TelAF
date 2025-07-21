@@ -8,6 +8,7 @@
 #include "interfaces.h"
 #include "legato.h"
 #include "tafSmsHlos.hpp"
+#include "tafSms.hpp"
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -90,9 +91,8 @@ LE_SHARED void taf_sms_hlos_StoreNewMsgToHLOS(void* newMsg)
 {
     LE_DEBUG("taf_sms_hlos_StoreNewMsgToHLOS");
 
-    auto& sms = taf_sms_hlos::GetInstance();
-
-    if (sms.sysPrefStorage == TAF_SMS_STORAGE_HLOS)
+    auto& hlosSms = taf_sms_hlos::GetInstance();
+    if (hlosSms.sysPrefStorage == TAF_SMS_STORAGE_HLOS)
     {
         taf_sms_Pdu_t* pduPtr = (taf_sms_Pdu_t*)newMsg;
 
@@ -117,7 +117,8 @@ LE_SHARED void taf_sms_hlos_StoreNewMsgToHLOS(void* newMsg)
 
         if (storageInd.fullType != TAF_SMS_FULL_UNKNOWN)
         {
-            le_event_Report(sms.StorageEventId, &storageInd, sizeof(storageInd));
+            auto &smsInstance = tafsvc::taf_Sms::GetInstance();
+            le_event_Report(smsInstance.StorageEvent, (void*)&storageInd, sizeof(storageInd));
         }
     }
 }

@@ -1005,18 +1005,39 @@ void TimeSourceStatusHandlerTest(void)
  //------------------------------------------------------------------------------------------------
 void TestGptpComponent()
 {
+    long loopNum = 1, waitSec = 0;
     le_result_t res;
     struct timespec gptpTimeValPtr;
     taf_gptpTime_Ref_t gptpTimeRef;
 
+    const char* arg1 = le_arg_GetArg(1);
+    if (arg1 != NULL)
+    {
+        loopNum = strtol(arg1, NULL, 10);
+        if (loopNum <= 0 ) loopNum = 1;
+    }
+
+    const char* arg2 = le_arg_GetArg(2);
+    if (arg2 != NULL)
+    {
+        waitSec = strtol(arg2, NULL, 10);
+        if (waitSec <= 0 ) waitSec = 0;
+    }
+
+    LE_INFO("Test loop: %ld, wait seconds: %ld", loopNum, waitSec);
+
     gptpTimeRef = taf_gptpTime_CreateRef(TAF_GPTP_DEVICE_0);
     LE_ASSERT(gptpTimeRef != NULL);
 
-    res = taf_gptpTime_GetTimeValue(gptpTimeRef, &gptpTimeValPtr);
-    LE_ASSERT(res == LE_OK);
+    while(loopNum--)
+    {
+        sleep(waitSec);
+        res = taf_gptpTime_GetTimeValue(gptpTimeRef, &gptpTimeValPtr);
+        LE_ASSERT(res == LE_OK);
 
-    LE_INFO("Reference gptp time is %lld.%ld", (long long)gptpTimeValPtr.tv_sec,
-        gptpTimeValPtr.tv_nsec);
+        LE_INFO("Reference gptp time is %lld.%ld", (long long)gptpTimeValPtr.tv_sec,
+            gptpTimeValPtr.tv_nsec);
+    }
 
     taf_gptpTime_DeleteRef(gptpTimeRef);
     LE_ASSERT(res == LE_OK);

@@ -27,8 +27,8 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /*
- *  Changes from Qualcomm Innovation Center, Inc are provided under the following license:
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -93,31 +93,33 @@ char ApnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
  *      app runProc tafDataCallUnitTest tafDataCallUnitTest -- Profile APN PDP
  *      PDP: IPV4 / IPV6 / IPV4V6
  * To run all other previous unit tests(except new profile management APIs):
- *      app runProc tafDataCallUnitTest tafDataCallUnitTest -- Full <Profile1> <Profile2>
- *          Profile1 -> Profile number to use with phone 1 tests
- *          Profile2 -> Profile number to use with phone 2 tests
+ *   app runProc tafDataCallUnitTest tafDataCallUnitTest -- Full <Phone1ProfileId> <Phone2ProfileId>
+ *          Phone1ProfileId -> Profile number to use with phone 1 tests
+ *          Phone2ProfileId -> Profile number to use with phone 2 tests
  *
  */
 static void PrintUsage()
 {
     std::cout << std::endl
-              << "To run tests interactively:"
-              << std::endl
-              << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Interactive"
-              << std::endl
-              << "To run profile management tests (create/delete, start/stop data):"
-              << std::endl
-              << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Profile APN PDP"
-              << std::endl
-              << "\tPDP: IPV4 / IPV6 / IPV4V6"
-              << std::endl
-              << "To run all unit tests(except profile management APIs):"
-              << std::endl
-              << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Full <Profile1> <Profile2>"
-              << "\t\tProfile1 -> Profile number to use with phone 1 tests"
-              << std::endl
-              << "\t\tProfile2 -> Profile number to use with phone 2 tests"
-              << std::endl;
+        << "To run tests interactively:"
+        << std::endl
+        << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Interactive"
+        << std::endl
+        << "To run profile management tests (create/delete, start/stop data):"
+        << std::endl
+        << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- Profile APN PDP"
+        << std::endl
+        << "\tPDP: IPV4 / IPV6 / IPV4V6"
+        << std::endl
+        << "To run all unit tests(except profile management APIs):"
+        << std::endl
+        << "\tapp runProc tafDataCallUnitTest tafDataCallUnitTest -- "
+                                            << "Full <Phone1ProfileId> <Phone2ProfileId>"
+        << std::endl
+        << "\t\tPhone1ProfileId -> Profile number to use with phone 1 tests(optional, default: 5)"
+        << std::endl
+        << "\t\tPhone2ProfileId -> Profile number to use with phone 2 tests (optional, default: 1)"
+        << std::endl;
 }
 
 std::string callEventToString(taf_dcs_ConState_t callEvent)
@@ -1616,6 +1618,56 @@ static void ut_check_ret_with_data_apis(taf_dcs_ProfileRef_t ProfileRef, le_resu
                                                                         expResult, result);
 }
 
+static void testDefaultProfileAPIs(taf_types_PhoneId_t phoneID)
+{
+    le_result_t result;
+    uint8_t phoneId = static_cast<uint8_t>(phoneID);
+    uint32_t profileIdDef = 1;
+    uint32_t profileIdSet;
+    uint32_t profileIdRead = 1;
+
+    if (1 == phoneId)
+        profileIdSet = TEST_PROFILE_PHONEID_1;
+    else
+        profileIdSet = TEST_PROFILE_PHONEID_2;
+
+
+    // Read the current default profile ID
+    result = taf_dcs_GetDefaultProfileIndexEx(phoneId, &profileIdDef);
+    LE_TEST_OK(LE_OK == result, "taf_dcs_GetDefaultProfileIndexEx");
+    LE_TEST_INFO("Default profile ID: %d", profileIdDef);
+
+    // Set the default profile ID to 5
+    result = taf_dcs_SetDefaultProfileIndexEx(phoneId, profileIdSet);
+    LE_TEST_OK(LE_OK == result, "taf_dcs_SetDefaultProfileIndexEx");
+
+    // Read the current default profile ID
+    result = taf_dcs_GetDefaultProfileIndexEx(phoneId, &profileIdRead);
+    LE_TEST_OK(LE_OK == result, "taf_dcs_GetDefaultProfileIndexEx");
+    // Validate
+    LE_TEST_OK(profileIdSet == profileIdRead, "profileIdRead is profileIdSet");
+
+    // Set the default profile ID back to the original value
+    result = taf_dcs_SetDefaultProfileIndexEx(phoneId, profileIdDef);
+    LE_TEST_OK(LE_OK == result, "taf_dcs_SetDefaultProfileIndexEx");
+
+    // Read back and validate
+    result = taf_dcs_GetDefaultProfileIndexEx(phoneId, &profileIdRead);
+    LE_TEST_OK(LE_OK == result, "taf_dcs_GetDefaultProfileIndexEx");
+    // Validate
+    LE_TEST_OK(profileIdRead == profileIdDef, "profileIdRead is profileIdDef");
+
+    // Test with a invalid phone IDs
+    result = taf_dcs_GetDefaultProfileIndexEx(0, &profileIdRead);
+    LE_TEST_OK(LE_OK != result, "taf_dcs_GetDefaultProfileIndexEx with invalid phone ID 0");
+    result = taf_dcs_GetDefaultProfileIndexEx(3, &profileIdRead);
+    LE_TEST_OK(LE_OK != result, "taf_dcs_GetDefaultProfileIndexEx with invalid phone ID 3");
+    result = taf_dcs_SetDefaultProfileIndexEx(0, profileIdSet);
+    LE_TEST_OK(LE_OK != result, "taf_dcs_SetDefaultProfileIndexEx with invalid phone ID 0");
+    result = taf_dcs_SetDefaultProfileIndexEx(3, profileIdSet);
+    LE_TEST_OK(LE_OK != result, "taf_dcs_SetDefaultProfileIndexEx with invalid phone ID 3");
+}
+
 static void ut_profile_management_tests(void)
 {
     le_result_t result;
@@ -1679,6 +1731,9 @@ static void ut_profile_management_tests(void)
     // List profiles. New profile should be deleted
     result = testListProfileEx(TAF_TYPES_PHONE_ID_1);
     LE_TEST_OK(LE_OK == result, "taf_dcs_GetProfileListEx");
+
+    // Default profiles. Test for default profiles.
+    testDefaultProfileAPIs(TAF_TYPES_PHONE_ID_1);
 }
 
 // Promise to sync async commands
@@ -1937,10 +1992,28 @@ COMPONENT_INIT
             LE_TEST_INFO("Running unit tests");
             UnitTestThread(NULL);
         }
+        else if (2 == numArgs)
+        {
+            const char *arg1Str = le_arg_GetArg(1);
+            if (NULL == arg1Str)
+            {
+                LE_TEST_INFO("Using predefined profile ID with phone ID 1");
+            }
+            else
+            {
+                TEST_PROFILE_PHONEID_1 = std::stoul(arg1Str);
+            }
+
+            LE_TEST_INFO("Profile ID used for tests with phone ID 1: %d", TEST_PROFILE_PHONEID_1);
+            LE_TEST_INFO("Profile ID used for tests with phone ID 2: %d", TEST_PROFILE_PHONEID_2);
+            LE_TEST_INFO("Running unit tests");
+            UnitTestThread(NULL);
+        }
         else
         {
-            PrintUsage();
-            LE_TEST_FATAL("Invalid number of args");
+            LE_TEST_INFO("Profile ID used for tests with phone ID 1: %d", TEST_PROFILE_PHONEID_1);
+            LE_TEST_INFO("Profile ID used for tests with phone ID 2: %d", TEST_PROFILE_PHONEID_2);
+            UnitTestThread(NULL);
         }
     }
     else if ("Interactive" == testName)

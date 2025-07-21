@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 domain_name: Variant
@@ -129,5 +129,8 @@ services_all:
     supported: false
   0x86:
     supported: true
+    sub_functions:
+      0x01:
+        supported: true
   0x87:
     supported: false

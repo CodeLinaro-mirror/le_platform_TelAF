@@ -25,39 +25,10 @@
 # OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# Changes from Qualcomm Innovation Center are provided under the following license:
+# Changes from Qualcomm Technologies, Inc. are provided under the following license:
 
-# Copyright (c) 2021,2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
-
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted (subject to the limitations in the
-# disclaimer below) provided that the following conditions are met:
-#
-#     * Redistributions of source code must retain the above copyright
-#       notice, this list of conditions and the following disclaimer.
-#
-#     * Redistributions in binary form must reproduce the above
-#       copyright notice, this list of conditions and the following
-#       disclaimer in the documentation and/or other materials provided
-#       with the distribution.
-#
-#     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
-#       contributors may be used to endorse or promote products derived
-#       from this software without specific prior written permission.
-#
-# NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
-# GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
-# HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-# IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-# GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
-# IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-# IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+#SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(telaf, 1.0)
 
@@ -282,7 +253,7 @@ allow telaf_admin_domain { fs_t tmpfs_t }:filesystem { unmount };
 allow telaf_admin_domain device_t:chr_file { manage_file_perms relabelfrom relabelto };
 allow telaf_admin_domain device_t:dir { manage_dir_perms relabelfrom relabelto };
 allow telaf_admin_domain { devlog_t device_t }:sock_file { getattr relabelto relabelfrom write open };
-allow telaf_admin_domain { null_device_t urandom_device_t zero_device_t }:chr_file { unlink };
+allow telaf_admin_domain { null_device_t urandom_device_t zero_device_t }:chr_file { unlink read open mounton };
 
 # Context "telaf_bin_t" will be transition to "telaf_app_t" domain by default
 type telaf_app_t;
@@ -433,6 +404,7 @@ seutil_manage_module_store(telaf_admin_t);
 seutil_manage_file_contexts(telaf_admin_t);
 allow telaf_admin_t semanage_trans_lock_t:file { getattr read lock open };
 allow telaf_admin_t semanage_read_lock_t:file { getattr read lock open };
+auth_read_shadow(telaf_admin_t)
 
 # support system reboot
 allow telaf_admin_domain init_t:file { exec_file_perms };
@@ -543,6 +515,10 @@ allow telaf_core_domain telaf_core_domain:unix_stream_socket *;
 allow telaf_core_domain telaf_core_domain:dir { search_dir_perms };
 allow telaf_core_domain telaf_core_domain:file { read_file_perms };
 
+#Support TelAF deprevilege
+allow telaf_admin_t self:netlink_audit_socket { nlmsg_relay create_netlink_socket_perms };
+su_exec(telaf_admin_t)
+
 # Support Kirkstone Yocto rules
 ifdef(`kirkstone',`
     gen_require(`
@@ -557,6 +533,10 @@ ifdef(`kirkstone',`
     # A workaround to support .update file instsallation
     allow telaf_update_t unconfined_t:fd { use };
     allow telaf_core_domain unconfined_t:fd { use };
+
+    # Support framework to prepare bind mount or link for the application
+    allow telaf_admin_t init_runtime_t:dir { write add_name remove_name };
+    allow telaf_admin_t init_runtime_t:file { create read write open setattr rename };
 ')
 
 # Local rules
@@ -699,6 +679,7 @@ if (telaf_external_dependencies) {
 
     #=========== Update Service Command =============
     allow telaf_sdir_t user_tmp_t:file { manage_file_perms };
+    allow telaf_admin_t user_tmp_t:file { manage_file_perms };
 
     #============ persist path ==================
     allow telaf_admin_t persist_t:dir { write add_name remove_name create setattr getattr};

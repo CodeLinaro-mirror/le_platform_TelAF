@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -23,20 +23,31 @@ static std::promise<taf_wlanSta_State_t> disconnectPromise;
 
 void PrintUsage() {
     printf("\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- Start <STA>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- Stop <STA>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- Restart <STA>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- GetStatus <STA>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- GetMode <STA>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- GetIPConfig <STA>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- SetMode  <STA> <Station Mode>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- DoAPScan <STA>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- GetAPScanResults <STA>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- SetWpa2Psk <STA> <SSID> <psk>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- Connect <STA> <SSID>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- Disconnect <STA> <SSID>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Start <STA>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Stop <STA>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Restart <STA>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetStatus <STA>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetMode <STA>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetIpConfig <STA>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- SetIpConfig <STA> <STATIC|DYNAMIC>"
+                                                    " <IPv4> <GW IPv4> <DNS IPv4> <subnet mask>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- SetMode  <STA> <Station Mode>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- DoAPScan <STA>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetAPScanResults <STA>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- SetWpa2Psk <STA> <SSID> <psk>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Connect <STA> <SSID>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Disconnect <STA> <SSID>\n"
            "\n STA: STA interface obtained from taf_wlan_GetIntfInfo\n"
            "\n");
+}
+
+inline void CheckNumArgs(size_t NumArgs, size_t ExpectedNumArgs)
+{
+    if (NumArgs < ExpectedNumArgs)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("Invalid number of arguments");
+    }
 }
 
 static le_result_t wlanSTATestStart(taf_wlanSta_WlanSTARef_t staRef)
@@ -153,14 +164,17 @@ static void PrintStaIPConfig(taf_wlanSta_IPType_t IPType) {
     switch (IPType) {
         case TAF_WLANSTA_IPTYPE_UNKNOWN:
             LE_TEST_INFO("IPType     : TAF_WLANSTA_IPTYPE_UNKNOWN(%d)", IPType);
+            printf("IPType       : TAF_WLANSTA_IPTYPE_UNKNOWN\n");
             break;
 
         case TAF_WLANSTA_IPTYPE_DYNAMIC:
             LE_TEST_INFO("IPType     : TAF_WLANSTA_IPTYPE_DYNAMIC(%d)", IPType);
+            printf("IPType       : TAF_WLANSTA_IPTYPE_DYNAMIC\n");
             break;
 
         case TAF_WLANSTA_IPTYPE_STATIC:
             LE_TEST_INFO("IPType     : TAF_WLANSTA_IPTYPE_STATIC(%d)", IPType);
+            printf("IPType       : TAF_WLANSTA_IPTYPE_STATIC\n");
             break;
 
         default:
@@ -184,6 +198,61 @@ static le_result_t wlanSTATestGetIPConfig(taf_wlanSta_WlanSTARef_t staRef)
     LE_TEST_INFO("GW Address   : %s", StaStaticIPConfig.GWAddr);
     LE_TEST_INFO("DNS Address  : %s", StaStaticIPConfig.DNSAddr);
     LE_TEST_INFO("Net Mask     : %s", StaStaticIPConfig.NetMask);
+    printf("IPv4 address : %s\n", StaStaticIPConfig.IPv4Addr);
+    printf("GW address   : %s\n", StaStaticIPConfig.GWAddr);
+    printf("DNS address  : %s\n", StaStaticIPConfig.DNSAddr);
+    printf("Subnet mask  : %s\n", StaStaticIPConfig.NetMask);
+    return result;
+}
+
+static le_result_t wlanSTATestSetIPConfig(taf_wlanSta_WlanSTARef_t staRef, size_t numArgs)
+{
+    const char *IpTypeStr = le_arg_GetArg(2);
+    if (nullptr == IpTypeStr)
+    {
+        printf("IpTypeStr is null\n");
+        PrintUsage();
+        LE_TEST_INFO("*ERR* IpTypeStr is null");
+        return LE_BAD_PARAMETER;
+    }
+
+    taf_wlanSta_IPType_t IpType;
+    taf_wlanSta_IPConfig_t IpConfig;
+    if (strncasecmp(IpTypeStr, "DYNAMIC", strlen("DYNAMIC")) == 0)
+    {
+        IpType = TAF_WLANSTA_IPTYPE_DYNAMIC;
+    }
+    else if (strncasecmp(IpTypeStr, "STATIC", strlen("STATIC")) == 0)
+    {
+        IpType = TAF_WLANSTA_IPTYPE_STATIC;
+        // Check the number of arguments
+        CheckNumArgs (numArgs,7);
+        const char *IpV4Str = le_arg_GetArg(3);
+        const char *GwIpV4Str = le_arg_GetArg(4);
+        const char *DnsV4Str = le_arg_GetArg(5);
+        const char *SubnetStr = le_arg_GetArg(6);
+        if (nullptr == IpV4Str  || nullptr == GwIpV4Str ||
+            nullptr == DnsV4Str || nullptr == SubnetStr)
+        {
+            printf("Invalid parameter\n");
+            PrintUsage();
+            LE_TEST_INFO("*ERR* Invalid argument");
+            return LE_BAD_PARAMETER;
+        }
+        le_utf8_Copy(IpConfig.IPv4Addr, IpV4Str,   TAF_NET_IPV4_ADDR_MAX_LEN + 1, NULL);
+        le_utf8_Copy(IpConfig.GWAddr,   GwIpV4Str, TAF_NET_IPV4_ADDR_MAX_LEN + 1, NULL);
+        le_utf8_Copy(IpConfig.DNSAddr,  DnsV4Str,  TAF_NET_IPV4_ADDR_MAX_LEN + 1, NULL);
+        le_utf8_Copy(IpConfig.NetMask,  SubnetStr, TAF_NET_IPV4_ADDR_MAX_LEN + 1, NULL);
+    }
+    else
+    {
+        LE_TEST_INFO("*ERR* Unsupported IPType: %s", IpTypeStr);
+        PrintUsage();
+        return LE_BAD_PARAMETER;
+    }
+
+    le_result_t result = taf_wlanSta_SetIPConfig(staRef, IpType, &IpConfig);
+    fprintf(stderr, "taf_wlanSta_SetIPConfig Return:%d\n", result);
 
     return result;
 }
@@ -217,12 +286,111 @@ static le_result_t wlanSTATestDoAPScan(taf_wlanSta_WlanSTARef_t staRef)
     return result;
 }
 
-static void PrintAllAPInfoOnConsole(taf_wlanSta_APInfo_t* APInfoPtr, size_t APInfoSize) {
-    printf("\nAvailable APs found during Scan: \n\n");
-    printf("SSID\tWPS\n");
-    for (size_t n = 0; n < APInfoSize; ++n) {
-        printf("%s\t%s\n", APInfoPtr[n].SSID, APInfoPtr[n].WPSEnabled ? "Enabled" : "Disabled");
+// Function to get the service set type string
+static const char *getServiceSetType(taf_wlan_ServiceSet_t ss)
+{
+    switch (ss)
+    {
+    case TAF_WLAN_SS_UNKNOWN:
+        return "UNKNOWN";
+    case TAF_WLAN_SS_BASIC:
+        return "BSS";
+    case TAF_WLAN_SS_EXTENDED:
+        return "ESS";
+    default:
+        return "UNKNOWN";
     }
+}
+
+// Function to get the security mode string
+static const char *getSecurityMode(taf_wlan_SecurityMode_t mode)
+{
+    switch (mode)
+    {
+    case TAF_WLAN_SEC_MODE_UNKNOWN:
+        return "UNKNOWN";
+    case TAF_WLAN_SEC_MODE_OPEN:
+        return "OPEN";
+    case TAF_WLAN_SEC_MODE_WEP:
+        return "WEP";
+    case TAF_WLAN_SEC_MODE_WPA:
+        return "WPA";
+    case TAF_WLAN_SEC_MODE_WPA2:
+        return "WPA2";
+    case TAF_WLAN_SEC_MODE_WPA3:
+        return "WPA3";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+// Function to get the security authentication method string
+static const char *getSecurityAuthMethod(taf_wlan_SecurityAuthMethod_t method)
+{
+    switch (method)
+    {
+    case TAF_WLAN_SEC_AUTH_METHOD_UNKNOWN:
+        return "UNKNOWN";
+    case TAF_WLAN_SEC_AUTH_METHOD_NONE:
+        return "NONE";
+    case TAF_WLAN_SEC_AUTH_METHOD_PSK:
+        return "PSK";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_SIM:
+        return "EAP-SIM";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_AKA:
+        return "EAP-AKA";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_LEAP:
+        return "EAP-LEAP";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_TLS:
+        return "EAP-TLS";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_TTLS:
+        return "EAP-TTLS";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_PEAP:
+        return "EAP-PEAP";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_FAST:
+        return "EAP-FAST";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_PSK:
+        return "EAP-PSK";
+    case TAF_WLAN_SEC_AUTH_METHOD_SAE:
+        return "SAE";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+// Function to get the security encryption method string
+static const char *getSecurityEncryptionMethod(taf_wlan_SecurityEncryptionMethod_t method)
+{
+    switch (method)
+    {
+    case TAF_WLAN_SEC_ENCRYPT_METHOD_UNKNOWN:
+        return "UNKNOWN";
+    case TAF_WLAN_SEC_ENCRYPT_METHOD_RC4:
+        return "RC4";
+    case TAF_WLAN_SEC_ENCRYPT_METHOD_TKIP:
+        return "TKIP";
+    case TAF_WLAN_SEC_ENCRYPT_METHOD_AES:
+        return "AES";
+    case TAF_WLAN_SEC_ENCRYPT_METHOD_GCMP:
+        return "GCMP";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static void printAPInfo(const taf_wlanSta_APInfo_t &apInfo)
+{
+    std::cout << "  BSSID          : " << apInfo.BSSID << std::endl;
+    std::cout << "  SSID           : " << apInfo.SSID << std::endl;
+    std::cout << "  Signal Level   : " << apInfo.SignalLevel << " dBm" << std::endl;
+    std::cout << "  Frequency      : " << apInfo.Frequency << " MHz" << std::endl;
+    std::cout << "  Service Set    : " << getServiceSetType(apInfo.SS) << std::endl;
+    std::cout << "  Sec Mode       : " << getSecurityMode(apInfo.secMode) << std::endl;
+    std::cout << "  Auth Method    : " << getSecurityAuthMethod(apInfo.secAuthMethod) << std::endl;
+    std::cout << "  Encrypt Method : " << getSecurityEncryptionMethod(apInfo.secEncryptionMethod)
+                                                                                      << std::endl;
+    std::cout << "  WPS            : " << (apInfo.WPSEnabled ? "ENABLED" : "DISABLED") << std::endl;
+    std::cout << "  ---------------- " << std::endl;
 }
 
 static le_result_t wlanSTATestGetAPScanResults(taf_wlanSta_WlanSTARef_t staRef)
@@ -232,10 +400,21 @@ static le_result_t wlanSTATestGetAPScanResults(taf_wlanSta_WlanSTARef_t staRef)
     taf_wlanSta_APInfo_t ApInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = { 0 };
     le_result_t result = taf_wlanSta_GetAPScanResults(staRef, &numScanedAPs, ApInfo, &APInfoSize);
     fprintf(stderr, "taf_wlanSta_GetAPScanResults Return: %d\n", result);
+    if (LE_OK != result)
+    {
+        LE_TEST_INFO("taf_wlanSta_GetAPScanResults failed: %d", result);
+        return result;
+    }
+
     printf("\nNum APs available     : %d", numScanedAPs);
     printf("\nNum elements populated: %" PRIuS "", APInfoSize);
+    printf("\n");
 
-    PrintAllAPInfoOnConsole(ApInfo, APInfoSize);
+    for (size_t i = 0; i < numScanedAPs; ++i)
+    {
+        std::cout << "AP " << i + 1 << ":" << std::endl;
+        printAPInfo(ApInfo[i]);
+    }
     return result;
 }
 
@@ -426,13 +605,6 @@ static le_result_t wlanSTATestDisconnect(taf_wlanSta_WlanSTARef_t staRef)
     return result;
 }
 
-inline void CheckNumArgs(size_t NumArgs, size_t ExpectedNumArgs) {
-    if (NumArgs < ExpectedNumArgs) {
-        PrintUsage();
-        LE_TEST_FATAL("Invalid number of arguments");
-    }
-}
-
 static void StationEventHandler(taf_wlanSta_WlanSTARef_t wlanSTARef,
                                 taf_wlanSta_State_t staState,
                                 void *CtxPtr)
@@ -558,7 +730,7 @@ COMPONENT_INIT {
     }
 
     const char* testTypeStr = le_arg_GetArg(0);
-    const char *staIntfName = le_arg_GetArg(1);
+    const char* staIntfName = le_arg_GetArg(1);
 
     LE_TEST_INFO("======== WLAN Station Integration Test ========");
     if (NULL == testTypeStr)
@@ -610,11 +782,17 @@ COMPONENT_INIT {
         CheckNumArgs(numArgs, 2);
         status = wlanSTATestGetMode(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetMode");
-    } else if (strncasecmp(testType, "GetIPConfig", strlen("GetIPConfig")) == 0) {
-        LE_TEST_INFO("======== WLAN Test: GetIPConfig ========");
+    } else if (strncasecmp(testType, "GetIpConfig", strlen("GetIpConfig")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: GetIpConfig ========");
         CheckNumArgs(numArgs, 2);
         status = wlanSTATestGetIPConfig(getSTARef(staIntfName));
-        LE_TEST_OK(LE_OK == status, "WLAN Test: GetIPConfig");
+        LE_TEST_OK(LE_OK == status, "WLAN Test: GetIpConfig");
+    } else if (strncasecmp(testType, "SetIpConfig", strlen("SetIpConfig")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: SetIpConfig ========");
+        // At least 3 args are required: testType, staIntfName, ip type
+        CheckNumArgs(numArgs, 3);
+        status = wlanSTATestSetIPConfig(getSTARef(staIntfName), numArgs);
+        LE_TEST_OK(LE_OK == status, "WLAN Test: SetIpConfig");
     } else if (strncasecmp(testType, "SetMode", strlen("SetMode")) == 0) {
         LE_TEST_INFO("======== WLAN Test: SetMode ========");
         CheckNumArgs(numArgs, 3);

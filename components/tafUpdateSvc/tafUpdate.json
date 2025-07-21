@@ -12,6 +12,16 @@
         "unpack":
         {
             "directory": "/tmp"
+        },
+
+        "post-install":
+        {
+            "user-script": "/tmp/firmware/script/post-install"
+        },
+
+        "post-rollback":
+        {
+            "user-script": "/tmp/firmware/script/post-rollback"
         }
     }
 }

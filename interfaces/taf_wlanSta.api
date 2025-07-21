@@ -264,9 +264,10 @@ FUNCTION le_result_t GetMode
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetStaticIPConfig
+FUNCTION le_result_t SetIPConfig
 (
     WlanSTA        wlanSTARef         IN,     ///< The WLAN STA reference.
+    IPType         StaIPType          IN,     ///< Dynamic or static IP address.
     IPConfig       StaIPConfig        IN      ///< IP address to set for static IP address mode.
 );
 

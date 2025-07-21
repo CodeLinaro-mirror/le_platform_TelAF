@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -13,7 +13,7 @@ static taf_diagAuth_AuthStateExpHandlerRef_t expHandlerRef[2] = {NULL};
 static le_sem_Ref_t semRef[2];
 
 static uint8_t challengeSvr[4096];
-static uint64_t role = 0x01;
+static uint64_t role = 0x03;
 
 static void AuthTransCertHandle
 (
@@ -514,10 +514,11 @@ static void *diagAuthMsgThread
 
 le_result_t diagVlanAuth_Init
 (
-    void
+    uint64_t roleValue
 )
 {
-    LE_TEST_INFO("diagVlanAuth_Init");
+    LE_TEST_INFO("diagVlanAuth_Init with role value: %" PRIuS, roleValue);
+    role = roleValue;
 
     semRef[0] = le_sem_Create("SemRef0", 0);
     semRef[1] = le_sem_Create("SemRef1", 0);

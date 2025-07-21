@@ -1,6 +1,6 @@
 /*
- *  Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 
@@ -142,6 +142,44 @@ void taf_pm_RemoveConsolidatedAckInfoHandler(taf_pm_ConsolidatedAckInfoHandlerRe
    LE_DEBUG("taf_pm_RemoveConsolidatedAckInfoHandler");
    auto &power = taf_PM::GetInstance();
    power.RemoveConsolidatedAckInfoHandler(handlerRef);
+}
+
+/**
+ * FUNCTION     : AddModemAwakeHandler
+ * DESCRIPTION  : Add handler for modem awake notification
+ * DEPENDECY    :
+ * PARAMETERS   :
+ * RETURN VALUES: handlerRef if registered successfully or else NULL
+ */
+taf_pm_ModemAwakeHandlerRef_t taf_pm_AddModemAwakeHandler
+(
+    taf_pm_ModemAwakeHandlerFunc_t handlerPtr,
+        ///< [IN] The modem awake event handler.
+    void* contextPtr,
+        ///< [IN]
+    taf_pm_NodeModemWsBitMask_t wsBitmask
+        ///< [IN]
+)
+{
+    // Not implemented yet.
+    return NULL;
+}
+
+/**
+ * FUNCTION     : RemoveModemAwakeHandler
+ * DESCRIPTION  : remove modem awake handler
+ * DEPENDECY    :
+ * PARAMETERS   : Modem awake Handler reference
+ * RETURN VALUES:
+ */
+void taf_pm_RemoveModemAwakeHandler
+(
+    taf_pm_ModemAwakeHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    // Not implemented yet.
+    return;
 }
 
 /**
@@ -374,4 +412,51 @@ le_result_t taf_pm_SetPowerMode(taf_pm_PowerMode_t powerMode)
         pmInstance.IsLowPowerMode = false;
     }
     return LE_OK;
+}
+
+/**
+ * FUNCTION     : SetModemWs
+ * DESCRIPTION  : Sets the whitelisted modem wakeup selection.
+ * DEPENDECY    :
+ * PARAMETERS   : Modem wakeup selection mask as input.
+ * RETURN VALUES:
+ */
+le_result_t taf_pm_SetModemWakeupSel
+(
+    taf_pm_NodeModemWsBitMask_t wsBitmask
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+/**
+ * FUNCTION     : GetModemWs
+ * DESCRIPTION  : Gets the whitelisted modem wakeup selection.
+ * DEPENDECY    :
+ * PARAMETERS   : Modem wakeup selection mask as output.
+ * RETURN VALUES:
+ */
+le_result_t taf_pm_GetModemWakeupSel
+(
+    taf_pm_NodeModemWsBitMask_t* wsBitmaskPtr
+        ///< [OUT] Modem wakeup selection to be whitelisted.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+/**
+ * FUNCTION     : GetModemAwakeReason
+ * DESCRIPTION  : Gets the last modem wakeup reason.
+ * DEPENDECY    :
+ * PARAMETERS   : Modem wakeup reason mask as output.
+ * RETURN VALUES:
+ */
+le_result_t taf_pm_GetModemAwakeReason
+(
+    taf_pm_NodeModemWsBitMask_t* wsBitmaskPtr
+        ///< [OUT] Modem wakeup reason.
+)
+{
+    return LE_NOT_IMPLEMENTED;
 }

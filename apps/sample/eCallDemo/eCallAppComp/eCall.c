@@ -1,36 +1,7 @@
 /*
-* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted (subject to the limitations in the
-* disclaimer below) provided that the following conditions are met:
-*
-* * Redistributions of source code must retain the above copyright
-* notice, this list of conditions and the following disclaimer.
-*
-* * Redistributions in binary form must reproduce the above
-* copyright notice, this list of conditions and the following
-* disclaimer in the documentation and/or other materials provided
-* with the distribution.
-*
-* * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
-* contributors may be used to endorse or promote products derived
-* from this software without specific prior written permission.
-*
-* NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
-* GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
-* HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-* IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-* GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
-* IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-* OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include <sys/time.h>
 
@@ -384,7 +355,7 @@ static void OpenVoiceAudio()
     AudioOutputConnectorRef = taf_audio_CreateConnector();
     LE_ERROR_IF((AudioOutputConnectorRef==NULL), "AudioOutputConnectorRef is NULL!");
 
-#if LE_CONFIG_TARGET_SA525M
+#if LE_CONFIG_TARGET_SA525M || LE_CONFIG_TARGET_SIMULATION
     MdmTxAudioRef =  taf_audio_OpenModemVoiceTx(1, false);
     LE_ERROR_IF((MdmTxAudioRef==NULL), "taf_audio_OpenModemVoiceTx returns NULL!");
     LE_DEBUG("OpenAudio MdmTxAudioRef %p", MdmTxAudioRef);
@@ -623,7 +594,7 @@ static void SignalHandler (int sigNum)
     }
 
     taf_locGnss_Stop();
-    exit(EXIT_SUCCESS);
+    _exit(EXIT_SUCCESS);
 }
 
 static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
@@ -897,6 +868,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY:
         {
             printf("TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY");
+            break;
+        }
+        case TAF_ECALL_STATE_T9_RESUMED:
+        {
+            printf("TAF_ECALL_STATE_T9_RESUMED");
             break;
         }
         default:
@@ -1401,7 +1377,7 @@ static void updateLocationInformation(taf_ecall_CallRef_t eCallRef)
     {
         LE_ERROR("Unable to set location information");
     }
- 
+
     result = taf_ecall_SetMsdPositionN1(eCallRef, -512, -512);
     if (result != LE_OK)
     {

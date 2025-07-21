@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -612,6 +612,7 @@ void taf_Update::Init
 
         // Create download timer.
         sessPtr->dlSess.timerRef = le_timer_Create("Download Timer");
+        le_timer_SetWakeup(sessPtr->dlSess.timerRef, false);    // Disable wakeup
         le_timer_SetMsInterval(sessPtr->dlSess.timerRef, 1000);
         le_timer_SetRepeat(sessPtr->dlSess.timerRef, 0);
         le_timer_SetHandler(sessPtr->dlSess.timerRef, DownloadTimerHandler);
@@ -639,6 +640,7 @@ void taf_Update::Init
 
         // Create update timer.
         sessPtr->upiSess.timerRef = le_timer_Create("Update Timer");
+        le_timer_SetWakeup(sessPtr->upiSess.timerRef, false);    // Disable wakeup
         le_timer_SetMsInterval(sessPtr->upiSess.timerRef, TAF_UPDATE_TIMER_INTERVAL);
         le_timer_SetRepeat(sessPtr->upiSess.timerRef, 0);
         le_timer_SetHandler(sessPtr->upiSess.timerRef, UpdateTimerHandler);

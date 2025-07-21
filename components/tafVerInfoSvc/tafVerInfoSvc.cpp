@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <string>
@@ -279,6 +279,13 @@ le_result_t taf_verInfo_GetLXCVersion
 {
     TAF_ERROR_IF_RET_VAL(versionPtr == NULL, LE_BAD_PARAMETER, "Null ptr(versionPtr)");
 
+    struct stat buffer;
+    if(stat(LXC_VERSION_FILE, &buffer) != 0)
+    {
+        LE_ERROR("LXC not supported");
+        return LE_UNSUPPORTED;
+    }
+
     le_result_t result = LE_OK;
     ifstream ifs(LXC_VERSION_FILE);
     string version;
@@ -549,6 +556,13 @@ le_result_t taf_verInfo_GetLXCHash
 
     le_result_t result = LE_OK;
     auto& tafVerInfo = taf_verInfo::GetInstance();
+
+    struct stat buffer;
+    if(stat(LXC_VERSION_FILE, &buffer) != 0)
+    {
+        LE_ERROR("LXC not supported");
+        return LE_UNSUPPORTED;
+    }
 
     if (tafVerInfo.hashInfPtr != NULL)
     {

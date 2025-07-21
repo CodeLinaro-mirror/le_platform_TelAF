@@ -1,71 +1,6 @@
 /*
-* Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted (subject to the limitations in the
-* disclaimer below) provided that the following conditions are met:
-*
-* * Redistributions of source code must retain the above copyright
-* notice, this list of conditions and the following disclaimer.
-*
-* * Redistributions in binary form must reproduce the above
-* copyright notice, this list of conditions and the following
-* disclaimer in the documentation and/or other materials provided
-* with the distribution.
-*
-* * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
-* contributors may be used to endorse or promote products derived
-* from this software without specific prior written permission.
-*
-* NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
-* GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
-* HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-* IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-* GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
-* IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-* OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
-
-/*
- *  Changes from Qualcomm Innovation Center are provided under the following license:
- *
- *  Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted (subject to the limitations in the
- *  disclaimer below) provided that the following conditions are met:
- *
- *      * Redistributions of source code must retain the above copyright
- *        notice, this list of conditions and the following disclaimer.
- *
- *      * Redistributions in binary form must reproduce the above
- *        copyright notice, this list of conditions and the following
- *        disclaimer in the documentation and/or other materials provided
- *        with the distribution.
- *
- *      * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *        contributors may be used to endorse or promote products derived
- *        from this software without specific prior written permission.
- *
- *  NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- *  GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- *  HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- *  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- *  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- *  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- *  GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- *  IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- *  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 //-------------------------------------------------------------------------------------------------
@@ -103,7 +38,7 @@
    }
    @endverbatim
  *
- * @section taf_ecall_operation Operation modes of eCall
+ * @section taf_ecall_operation eCall operation modes
  *
  * The modem can operate in three different eCall modes.
  *
@@ -136,7 +71,7 @@
  *
  * These configurations take effect at the next test eCall and currently only MSD version 2 and 3 are supported.
  *
- * @section taf_ecall_session Session of eCall
+ * @section taf_ecall_session eCall session
  *
  * taf_ecall_Create() helps to create a new eCall object and returns a reference to the eCall session.
  * taf_ecall_GetType() is used to query the current type of the eCall session.
@@ -223,18 +158,16 @@
  * @section taf_ecall_redial_configuration NAD eCall initial failed
  *
  * The dial parameters for a failed initial call in the Europe regulatory eCall system can be set using the following
- * APIs. Note that this configuration is not persistent after modem reboots. The number of redial attempts and the interval
- * between these attempts follows the 3GPP ESTI 122 001 Annex. The range of the number of redial attempts is [1,10] and
- * the default value is 10. The default dial intervals between dial attempts are follows and users can set the initial
- * dial interval to be equal to or greater than the default value.
- * - 1st redial interval: 5 seconds.
- * - 2nd-4th redial intervals: 60 seconds.
- * - 5th-10th redial intervals: 180 seconds.
+ * APIs. Note that this configuration is not persistent after modem reboots. The range of the number of redial attempts
+ * is [1,10] and the default value is 10. The default dial intervals between dial attempts are follows and users can
+ * set the initial dial interval to be equal to or greater than the default value.
+ * - 1st redial interval: the default value is 5 seconds and the supported range is from 5 to 30 seconds.
+ * - 2nd-10th redial intervals: the default value is 30 seconds and the supported range is from 30 to 60 seconds.
  *
  * - taf_ecall_SetInitialDialAttempts() -- Sets the number of dial attempts.
  * - taf_ecall_SetInitialDialIntervalBetweenDialAttempts() -- Sets the dial interval value between dial attempts.
  *
- * @section taf_ecall_concurrency Concurrency of eCall
+ * @section taf_ecall_concurrency eCall concurrency
  *
  * If another application wants to use the eCall service when a session is already active, the
  * taf_ecall_StartManual(), taf_ecall_StartAutomatic(), taf_ecall_StartTest(), taf_ecall_StartPrivate()
@@ -287,11 +220,11 @@
  * the taf_ecall_ExportMsd() API.
  *
  * @b NOTE: The user application should perform the MSD transmission by using taf_ecall_SendMsd() when the
- * @ref TAF_ECALL_STATE_PSAP_START_RECEIVED event arrives.
+ * @ref TAF_ECALL_STATE_MSD_UPDATE_REQ event arrives.
  * The MSD may be modified before calling taf_ecall_SendMsd() by the e_ecall_ImportMsd() API
  * or the taf_ecall_SetMsdXxx() APIs.
  *
- * @section c_taf_ecall_outgoing Start of emergency call
+ * @section c_taf_ecall_outgoing Starting an emergency call
  *
  * An emergency call can be started by using taf_ecall_StartAutomatic() with the ecallRef passed as
  * a parameter.
@@ -510,7 +443,8 @@ ENUM State
     STATE_T9_STOPPED,                         ///< T9 Timer stopped.
     STATE_T10_STOPPED,                        ///< T10 Timer stopped.
     STATE_INCOMING,                           ///< Incoming eCall.
-    STATE_LL_NACK_DUE_TO_T7_EXPIRY            ///< Link-Layer Acknowledgement (LL-NACK) is received during in-band MSD transmission due to expiry of T7 Timer.
+    STATE_LL_NACK_DUE_TO_T7_EXPIRY,           ///< Link-Layer Acknowledgement (LL-NACK) is received during in-band MSD transmission due to expiry of T7 Timer.
+    STATE_T9_RESUMED                          ///< T9 Timer resumed.
 };
 
 //-------------------------------------------------------------------------------------------------

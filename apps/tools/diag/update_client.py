@@ -20,6 +20,7 @@ import struct
 #logging.basicConfig(level=logging.DEBUG)
 
 key =  b"\x11\x22\x33\x44"
+cert =  b"\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\x00"
 digest_did = 0xA5A5
 digest_did2=0xA5A6
 status_mask=0x24
@@ -43,7 +44,9 @@ config['data_identifiers'] = {
    0xF0D0: AsciiCodec(3),
    0xF0D2: AsciiCodec(6),
    0xEF01: AsciiCodec(10),
-   0xF401: AsciiCodec(1)
+   0xF401: AsciiCodec(1),
+   0xACC8: AsciiCodec(1),
+   0xACC9: AsciiCodec(1)
 }
 
 class LedEcallCodec(DidCodec):
@@ -114,24 +117,15 @@ def update_workflow():
             values = response.service_data.values
             print(values)
 
-            # Step7: InputOutputControl--Short Term Adjustment: 2F 90 06 03 xx xx
-            ioctrlvalues = {'Led_Ecall': 0x3C}
-            response = uds_client.io_control(control_param=3, did=0x9006, values=ioctrlvalues)
-            print('dataId:%#x'%response.service_data.did_echo)
-
-            # Step8. InputOutputControl--returnControlToECU: 2F 90 06 00
-            response = uds_client.io_control(control_param=0, did=0x9006)
-            print(response)
-
-            # Step9: Write digest(WriteDataByIdentifier): 2E xx xx
+            # Step7: Write digest(WriteDataByIdentifier): 2E xx xx
             response = uds_client.write_data_by_identifier(did=digest_did2, value=digest_data)
             print(response)
 
-            # Step10: Read data(ReadDataByIdentifier): 22 xx xx
+            # Step8: Read data(ReadDataByIdentifier): 22 xx xx
             response = uds_client.read_data_by_identifier(didlist=digest_did2)
             values = response.service_data.values
 
-            # Step11: Entering programming session(DiagnosticSessionControl). 10 02
+            # Step9: Entering programming session(DiagnosticSessionControl). 10 02
             response = uds_client.change_session(DiagnosticSessionControl.Session.programmingSession)
             print(response)
 
@@ -142,63 +136,85 @@ def update_workflow():
             response = uds_client.send_key(0x02, key)
             print(response)
 
-            # Step12.1: Read DTC(reportNumberOfDTCByStatusMask). 19 01
+            # Step10.1: Read DTC(reportNumberOfDTCByStatusMask). 19 01
             response = uds_client.get_number_of_dtc_by_status_mask(status_mask)
             print(response)
 
-            # Step12.2: Read DTC(reportDTCByStatusMask). 19 02
+            # Step10.2: Read DTC(reportDTCByStatusMask). 19 02
             response = uds_client.get_dtc_by_status_mask(status_mask)
             print(response)
 
-            # Step12.3: Read DTC(reportDTCSnapshotIdentification). 19 03
+            # Step10.3: Read DTC(reportDTCSnapshotIdentification). 19 03
             response = uds_client.get_dtc_snapshot_identification()
             print(response)
 
-            # Step12.4: Read DTC(reportDTCSnapshotRecordByDTCNumber). 19 04
+            # Step10.4: Read DTC(reportDTCSnapshotRecordByDTCNumber). 19 04
             response = uds_client.get_dtc_snapshot_by_dtc_number(dtc_mask, rcd_num)
             print(response)
 
-            # Step12.5: Read DTC(reportDTCExtDataRecordByDTCNumber). 19 06
+            # Step10.5: Read DTC(reportDTCExtDataRecordByDTCNumber). 19 06
             response = uds_client.get_dtc_extended_data_by_dtc_number(dtc_mask, rcd_num, data_size)
             print(response)
 
-            # Step12.4: Read DTC(reportSupportedDTC). 19 0A
+            # Step10.4: Read DTC(reportSupportedDTC). 19 0A
             response = uds_client.get_supported_dtc()
             print(response)
 
-            # Step12.5: Read DTC(reportDTCFaultDetectionCounter). 19 14
+            # Step10.5: Read DTC(reportDTCFaultDetectionCounter). 19 14
             response = uds_client.get_dtc_fault_counter()
             print(response)
 
-            # Step13: ClearDiagnosticInformation. 14
+            # Step11: ClearDiagnosticInformation. 14
             response = uds_client.clear_dtc(grp_of_dtc)
             print(response)
 
-            # Step14: Transmit_certificate. 29 04
+            # Step12: Transmit_certificate. 29 04
             response = uds_client.transmit_certificate(certificate_evaluation_id=0x1122, certificate_data=bytes(8000),)
             print(response)
 
-            #Step15: Verify_certificate_unidirectional. 29 01
-            response = uds_client.verify_certificate_unidirectional(communication_configuration=0, certificate_client=bytes(4096), challenge_client=bytes(1024),)
+            #Step13: Verify_certificate_unidirectional. 29 01
+            response = uds_client.verify_certificate_unidirectional(communication_configuration=0, certificate_client=cert, challenge_client=b'\xFF\x07\xaa\xbb',)
             print(response)
 
-            #Step16: Proof_of_ownership. 29 03
+            #Step14: Proof_of_ownership. 29 03
             response = uds_client.proof_of_ownership(proof_of_ownership_client=bytes(2048))
             print(response)
 
-            #Step17: Authentication configuration. 29 08
+            #Step15: Authentication configuration. 29 08
             response = uds_client.authentication_configuration()
             print(response)
 
-            #Step18: Routine control. 31 01 02 46 start the routine
+            # Step16: InputOutputControl--Short Term Adjustment: 2F 90 06 03 xx xx
+            ioctrlvalues = {'Led_Ecall': 0x3C}
+            response = uds_client.io_control(control_param=3, did=0x9006, values=ioctrlvalues)
+            print('dataId:%#x'%response.service_data.did_echo)
+
+            # Step17. InputOutputControl--returnControlToECU: 2F 90 06 00
+            response = uds_client.io_control(control_param=0, did=0x9006)
+            print(response)
+
+            # Step18: Read data(ReadDataByIdentifier) with authentication check. 22 AC C8
+            response = uds_client.read_data_by_identifier(didlist=0xACC8)
+            values = response.service_data.values
+            print(values)
+
+            # Step19: Write data(WriteDataByIdentifier) with authentication check: 2E xx xx
+            response = uds_client.write_data_by_identifier(did=0xACC9, value='9')
+            print(response)
+
+            # Step20: Read data(ReadDataByIdentifier) authentication check: 22 xx xx
+            response = uds_client.read_data_by_identifier(didlist=digest_did2)
+            values = response.service_data.values
+
+            #Step21: Routine control with authentication check. 31 01 02 46 start the routine
             response = uds_client.routine_control(routine_id=0x0246, control_type=0x01)
             print(response)
 
-            #Step19: Deauthenticate. 29 00
+            #Step22: Deauthenticate. 29 00
             response = uds_client.deauthenticate()
             print(response)
 
-            # Step20: Security access #1-Request seed(SecurityAccess). 27 01
+            # Step23: Security access #1-Request seed(SecurityAccess). 27 01
             response = uds_client.request_seed(0x01)
             seed = response.service_data.seed
             print("All Zero returned: ", seed)
@@ -208,7 +224,7 @@ def update_workflow():
                 eof = f.tell()
 
                 print(eof)
-                # Step20.1: RequestFileTransfer(0x38)
+                # Step23.1: RequestFileTransfer(0x38)
                 response = uds_client.request_file_transfer(moop=1, path = restore_file, filesize=eof)
                 print(response)
                 print("Max length: %d" % response.service_data.max_length)
@@ -218,7 +234,7 @@ def update_workflow():
                 print("bytes_per_pack=%d" % bytes_per_pack)
                 f.seek(0, 0)
                 sq = 1
-                # Step20.2: Transfer Data(TransferData). 36
+                # Step23.2: Transfer Data(TransferData). 36
                 while f.tell() < eof:
                     bs = f.read(bytes_per_pack)
                     #response = uds_client.transfer_data(sq, bs)
@@ -229,11 +245,11 @@ def update_workflow():
                         sq = 0
                 f.close()
 
-            # Step20.3: Transter Exit(RequestTransferExit). 37
+            # Step24.3: Transter Exit(RequestTransferExit). 37
             response = uds_client.request_transfer_exit()
             print(response)
 
-            # Step21: Switch to extended session(Perform ECU Reset). 10 03
+            # Step25: Switch to extended session(Perform ECU Reset). 10 03
             response = uds_client.change_session(DiagnosticSessionControl.Session.extendedDiagnosticSession)
             print(response)
 

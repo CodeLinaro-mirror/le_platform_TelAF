@@ -19,8 +19,10 @@ capability:
     CAP_FOWNER
     CAP_SYS_ADMIN
     CAP_BLOCK_SUSPEND
+#if ${LE_CONFIG_TEST_COVERAGE} = y
     CAP_DAC_READ_SEARCH
     CAP_DAC_OVERRIDE
+#endif
 }
 
 executables:
@@ -30,8 +32,8 @@ executables:
 
 bindings:
 {
-    configTreeSample.configTreeComponent.le_cfg -> <root>.le_cfg
-    configTreeSample.configTreeComponent.le_cfgAdmin -> <root>.le_cfgAdmin
+    configTreeSample.configTreeComponent.le_cfg -> <tafcore>.le_cfg
+    configTreeSample.configTreeComponent.le_cfgAdmin -> <tafcore>.le_cfgAdmin
 }
 
 processes:

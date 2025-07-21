@@ -35,6 +35,8 @@ constexpr int MAX_PHONE_ID = 2;
 constexpr int TIMEOUT_CALLCOMMAND_CB = 2;
 constexpr int MAX_INIT_TIMEOUT = 5;
 
+constexpr int CMD_TIMEOUT_MS = 5000;
+
 enum class taf_voicecall_Direction_t {
     NONE = 0,
     INCOMING = 1,
@@ -92,6 +94,10 @@ struct CallEvent_t {
     taf_voicecall_CallEndCause_t termination;
 };
 
+struct CallbackContext {
+    std::function<void(le_result_t)> callback;
+};
+
 // Define the class to handle the call with telsdk
 class VoiceCallSvc : public ITafSvc {
 public:
@@ -139,6 +145,7 @@ public:
     taf_voicecall_Event_t EventConvert(taf_pa_voicecall_event_t event);
     taf_voicecall_Direction_t DirConvert(taf_pa_voicecall_dir_t paDir);
     taf_pa_voicecall_dir_t DirToPADir(taf_voicecall_Direction_t dir);
+    taf_voicecall_CallEndCause_t EndCauseConvert(taf_pa_voicecall_termination_t paTerm);
 
     // DFX interfaces
     void ShowAll();
@@ -162,6 +169,81 @@ public:
     // Lists for session and call
     le_dls_List_t SessionCtxList = LE_DLS_LIST_INIT;
     le_dls_List_t CallCtrlList = LE_DLS_LIST_INIT;
+
+    static void commonCallback(taf_pa_voicecall_Ref_t reference, le_result_t result, void* contextPtr)
+    {
+        auto* ctx = static_cast<CallbackContext*>(contextPtr);
+        if (ctx && ctx->callback) {
+            try {
+                LE_INFO("Get result from PA: %d", result);
+                ctx->callback(result);
+            } catch (const std::exception& e) {
+                LE_ERROR("Exception in lambda callback: %s", e.what());
+            } catch (...) {
+                LE_ERROR("Unknown exception in lambda callback.");
+            }
+        }
+    }
+
+    template<typename CallFunc>
+    le_result_t CallWithAsyncCallback(
+        taf_VoiceCtrl_t* callCtxPtr,
+        CallFunc callFunc,
+        taf_pa_voicecall_dir_t direction,
+        taf_voicecall_Event_t failEvent,
+        const char* actionName)
+    {
+        auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+        std::weak_ptr<std::promise<le_result_t>> weakPromise = promisePtr;
+        std::future<le_result_t> futResult = promisePtr->get_future();
+    
+        auto cmdCtx = std::make_shared<CallbackContext>();
+        cmdCtx->callback = [weakPromise](le_result_t result)
+        {
+            if (auto locked = weakPromise.lock()) {
+                locked->set_value(result);
+            }
+        };
+
+        taf_pa_voicecall_Ref_t callInfoRef = taf_pa_voicecall_CreateReference(
+            callCtxPtr->phoneId, callCtxPtr->destId, direction);
+        if (!callInfoRef)
+        {
+            LE_ERROR("Cannot create call reference for %s", actionName);
+            return LE_FAULT;
+        }
+
+        le_result_t result = callFunc(callInfoRef, commonCallback, cmdCtx.get());
+        if (result != LE_OK)
+        {
+            LE_ERROR("%s failed immediately: %d", actionName, result);
+            taf_pa_voicecall_DeleteReference(callInfoRef);
+            CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
+                "", callCtxPtr->callRef, failEvent, TAF_VOICECALL_END_UNDEFINED};
+            le_event_Report(CallEvent, &msgCallEvent, sizeof(CallEvent_t));
+            return result;
+        }
+
+        if (futResult.wait_for(std::chrono::milliseconds(CMD_TIMEOUT_MS)) == std::future_status::timeout)
+        {
+            taf_pa_voicecall_DeleteReference(callInfoRef);
+            LE_ERROR("%s timed out", actionName);
+            return LE_TIMEOUT;
+        }
+
+        le_result_t asyncResult = futResult.get();
+        taf_pa_voicecall_DeleteReference(callInfoRef);
+    
+        if (asyncResult != LE_OK)
+        {
+            LE_ERROR("%s failed in callback", actionName);
+            CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
+                "", callCtxPtr->callRef, failEvent, TAF_VOICECALL_END_UNDEFINED};
+            le_event_Report(CallEvent, &msgCallEvent, sizeof(CallEvent_t));
+        }
+
+        return LE_OK;
+    }
 };
 
 // Define handler class for telaf's callback
@@ -182,7 +264,9 @@ public:
     static void PaEventListener(taf_pa_voicecall_Ref_t reference, taf_pa_voicecall_event_t event, void *contextPtr);
 };
 
+
 } // namespace tafsvc
+
 
 
 

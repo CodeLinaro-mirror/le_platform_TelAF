@@ -28,6 +28,12 @@
 #define INFO_REPORT_MASK_BUB 1
 #define AUTHORIZE_ALL_STAY_AWAKE_REASON 0xFFFFFFFF
 #define TAF_MNGDPM_PROCNAME_LEN 30
+#define WAKE_SOURCE_ACQUIRED 1
+#define WAKE_SOURCE_NOT_ACQUIRED 0
+#define WAKE_SOURCE_IGNORED 2
+
+#define MAIN_THREAD_KICK_INTERVAL 13
+#define MONITOR_MAIN_THREAD_LOOP 0
 
 namespace tafsvc {
 
@@ -102,7 +108,7 @@ typedef struct
     taf_mngdPm_StayAwakeReason_t reason;   // stay awake reason for the wakeup source
     le_dls_Link_t link;                    // Link to handler list
     le_msg_SessionRef_t sessionRef;        // Session reference of a client
-    bool isAcquiredLock;                   // boolean to check wakelock acquired
+    int8_t wakeSourceState;                // Wake source acquiring state
     taf_mngdPm_WsOpt_t option;             // wake source option for calling stay awake and relax
 }taf_wsRefCtx_t;
 
@@ -315,8 +321,9 @@ class tafMngdPMSvc: public ITafSvc
         //authorize stayawake reason
         static std::bitset<32> stayAwakeReasonMask;
         bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason);
-        void ClearUnAuthorizedWakeSources();
+        void RefreshWakeSources();
         le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
+        le_result_t AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
 
         //resources for clients state change acknowledgement
         static le_timer_Ref_t stateChangeAckTimerRef;

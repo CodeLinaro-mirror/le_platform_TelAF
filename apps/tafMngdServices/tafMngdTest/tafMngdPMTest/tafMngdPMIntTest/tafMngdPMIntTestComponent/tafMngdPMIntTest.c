@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -14,6 +14,7 @@
 
 taf_mngdPm_wsRef_t wsRef = NULL;
 taf_mngdPm_wsRef_t wsRef1 = NULL;
+taf_mngdPm_wsRef_t wsRef2 = NULL;
 taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = 0;
 static le_sem_Ref_t tafMpmAppSem;
 le_clk_Time_t Timeout = { 5 , 0 };
@@ -26,7 +27,10 @@ const char* wsTag = "testWsTag";
 
 static le_sem_Ref_t semRef = NULL, queueSemRef = NULL;
 static le_thread_Ref_t threadRef = NULL;
-
+static le_sem_Ref_t semRef1 = NULL;
+static le_thread_Ref_t threadRef1 = NULL;
+static le_sem_Ref_t semRef2 = NULL;
+static le_thread_Ref_t threadRef2 = NULL;
 int stateChangeAck = 1;
 #define VEHICHLE_WAKEUP_REASON_DEFAULT 0
 #define AUTHORIZE_ALL_STAY_AWAKE_REASON 0xFFFFFFFF
@@ -114,7 +118,15 @@ static void PrintUsage ()
         "-----  -1   -> NACK ------------\n"
         "------  2   -> NO_RESP ------------\n"
         "------  3   -> ACK_AFTER_TIMEOUT ------------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GracefulSysSuspendWithAckType <ACK_TYPE>\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GracefulSysSuspendWithAckType <ACK_TYPE>\n"
+        "------------To Test Refresh Authorized Wake Source Cases-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestRefreshAuthorizedWsCases\n"
+        "------------To Test stayawake request during shutdown-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdownAndResume\n"
+        "------------To Test delete wakeup source if not acquired-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- DeleteWsIfNotAcquired\n"
+        "------------To Test rejecting deletion of wakeup source if acquired/ignored-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldNotDeleteWsIfAcquiredOrIgnored\n");
 }
 
 void NodePowerStateChangeHandlerCB(
@@ -1654,6 +1666,552 @@ void TestWakeSourceCases()
         le_sem_Wait(semRef);
 }
 
+static void* acquireWakeLock1(void* ctxPtr)
+{
+    LE_INFO("acquireWakeLock1");
+    taf_mngdPm_ConnectService();
+    int reason = 0;
+    le_result_t res = LE_FAULT;
+    int *entry = (int*)(ctxPtr);
+    LE_INFO("entry %u", *entry);
+    if(*entry == 1)
+        reason = 0;
+    else if(*entry == 5)
+        reason = 2;
+
+    wsRef1 = taf_mngdPm_CreateWakeupSource(reason, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRef1) {
+        printf("Created WakeupSource ref for reason %d\n", reason);
+        if(wsRef1 != NULL) {
+            res = taf_mngdPm_StayAwake(wsRef1);
+            if(res == LE_OK) {
+                printf("'Resumed sysytem with wsRef1'\n");
+             }
+        }
+    }
+    else
+        printf("Failed to Create WakeupSource ref for reason %d\n", reason);
+
+    le_sem_Post(semRef1);
+    le_event_RunLoop();
+}
+
+static void* acquireWakeLock2(void* ctxPtr)
+{
+    LE_INFO("acquireWakeLock2");
+    taf_mngdPm_ConnectService();
+    int reason = 0;
+    le_result_t res = LE_FAULT;
+    int *entry = (int*)(ctxPtr);
+    res = taf_mngdPm_AuthorizeStayAwakeReason(*entry);
+    LE_INFO("entry %u", *entry);
+    if(*entry == 1)
+        reason = 0;
+    else if(*entry == 5)
+        reason = 2;
+
+    wsRef2 = taf_mngdPm_CreateWakeupSource(reason, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRef2) {
+        printf("Created WakeupSource ref for reason %d\n", reason);
+        if(wsRef2 != NULL) {
+            res = taf_mngdPm_StayAwake(wsRef2);
+            if(res == LE_OK) {
+                printf("'Resumed sysytem with wsRef2'\n");
+             }
+        }
+    }
+    else
+        printf("Failed to Create WakeupSource ref for reason %d\n", reason);
+
+    le_sem_Post(semRef2);
+    le_event_RunLoop();
+}
+
+void authorizeAndAcquireLocks(int entry, bool isLocksRequired)
+{
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(entry);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", entry);
+        LE_INFO("entry %u", entry);
+        if(isLocksRequired) {
+            void *ptr = &entry;
+            semRef1 = le_sem_Create("MngdIntTestApp", 0);
+            threadRef1 = le_thread_Create("inttestapp",
+                                        acquireWakeLock1, ptr);
+            le_thread_Start(threadRef1);
+            le_sem_Wait(semRef1);
+
+            semRef2 = le_sem_Create("MngdIntTestApp", 0);
+            threadRef2 = le_thread_Create("inttestapp",
+                                        acquireWakeLock2, ptr);
+            le_thread_Start(threadRef2);
+            le_sem_Wait(semRef2);
+        }
+    }
+}
+
+//-------- UC-2 -----------//
+void StayAwakeWithUnauthorizedWsShouldNotChangeSystemState()
+{
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    //Acquire an unauthorized reason ws
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE);
+    if(res == LE_OK){
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE);
+        taf_mngdPm_wsRef_t wsRefUnauthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefUnauthorized) {
+            printf("Created WakeupSource ref for unauthorized reason %d\n", reason);
+            if(wsRefUnauthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefUnauthorized);
+                if(res == LE_OK) {
+                    printf("'Successfully acquired wsRefUnauthorized'\n");
+                }
+            }
+        }
+        else
+            printf("Failed to Create WakeupSource ref for authorized reason %d\n", reason);
+    }
+}
+
+//-------- UC-4 -----------//
+void StayAwakeWithAuthorizedWsShouldResultInSuspend()
+{
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    taf_mngdPm_wsRef_t wsRefAuthorized = NULL;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created WakeupSource ref for reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                }
+            }
+        }
+        else
+            printf("Failed to Create WakeupSource ref for authorized reason %d\n", reason);
+    }
+
+    reason = TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE;
+    //Acquire an unauthorized reason ws
+    taf_mngdPm_wsRef_t wsRefUnauthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRefUnauthorized) {
+        printf("Created WakeupSource ref for reason %d\n", reason);
+        if(wsRefUnauthorized != NULL) {
+            res = taf_mngdPm_StayAwake(wsRefUnauthorized);
+            if(res == LE_OK) {
+                printf("'Successfully acquired wsRefUnauthorized'\n");
+                printf("'Relax system with wsRefAuthorized'\n");
+                taf_mngdPm_Relax(wsRefAuthorized);
+            }
+        }
+    }
+    else
+        printf("Failed to Create WakeupSource ref for unauthorized reason %d\n", reason);
+}
+
+//-------- UC-5 -----------//
+void UnauthorizedWsShouldNotResultInSuspend()
+{
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        taf_mngdPm_wsRef_t wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created WakeupSource ref for reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                }
+            }
+        }
+        else
+            printf("Failed to Create WakeupSource ref for authorized reason %d\n", reason);
+    }
+
+    reason = TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE;
+    //Acquire an unauthorized reason ws
+    taf_mngdPm_wsRef_t wsRefUnauthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRefUnauthorized) {
+        printf("Created WakeupSource ref for reason %d\n", reason);
+        if(wsRefUnauthorized != NULL) {
+            res = taf_mngdPm_StayAwake(wsRefUnauthorized);
+            if(res == LE_OK) {
+                printf("'Successfully acquired wsRefUnauthorized'\n");
+                printf("'Relax system with wsRefUnauthorized'\n");
+                taf_mngdPm_Relax(wsRefUnauthorized);
+            }
+        }
+    }
+    else
+        printf("Failed to Create WakeupSource ref for unauthorized reason %d\n", reason);
+}
+
+//-------- UC-6 -----------//
+void StayAwakeWithUnauthorizedWsShouldNotResultInSuspend()
+{
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        taf_mngdPm_wsRef_t wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created WakeupSource ref for reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                }
+            }
+        }
+        else
+            printf("Failed to Create WakeupSource ref for authorized reason %d\n", reason);
+    }
+
+    reason = TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE;
+    //Acquire an unauthorized reason ws
+    taf_mngdPm_wsRef_t wsRefUnauthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRefUnauthorized) {
+        printf("Created WakeupSource ref for reason %d\n", reason);
+        if(wsRefUnauthorized != NULL) {
+            res = taf_mngdPm_StayAwake(wsRefUnauthorized);
+            if(res == LE_OK) {
+                printf("'Successfully acquired wsRefUnauthorized'\n");
+            }
+        }
+    }
+    else
+        printf("Failed to Create WakeupSource ref for unauthorized reason %d\n", reason);
+}
+
+//-------- UC-7 -----------//
+void NotifyPmVhalForUnauthorizedSarAndShouldResultInSuspend()
+{
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        taf_mngdPm_wsRef_t wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created WakeupSource ref for reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                    // Unauthorize the reason for bit0
+                    res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE);
+                    if(res == LE_OK)
+                        printf("'Released Unauthorized wakesource'\n");
+                }
+            }
+        }
+        else
+            printf("Failed to Create WakeupSource ref for authorized reason %d\n", reason);
+    }
+}
+
+//-------- UC-8 -----------//
+void NotifyPmVhalForUnauthorizedSarAndShouldNotResultInSuspend()
+{
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        taf_mngdPm_wsRef_t wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created WakeupSource ref for reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                }
+            }
+        }
+        else
+            printf("Failed to Create WakeupSource ref for authorized reason %d\n", reason);
+    }
+
+    reason = TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE;
+    // Authorized the reason for bit 0 & bit 1
+    res = taf_mngdPm_AuthorizeStayAwakeReason(3);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d, %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL, TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE);
+        taf_mngdPm_wsRef_t wsRefAuthorized_1 = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized_1) {
+            printf("Created WakeupSource ref for reason %d\n", reason);
+            if(wsRefAuthorized_1 != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized_1);
+                if(res == LE_OK) {
+                    printf("'Successfully acquired wsRefAuthorized_1'\n");
+                    // Unauthorize the reason for bit1
+                    res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+                    if(res == LE_OK)
+                        printf("'Released Unauthorized wakesource'\n");
+                }
+            }
+        }
+        else
+            printf("Failed to Create WakeupSource ref for unauthorized reason %d\n", reason);
+    }
+}
+
+//-------- UC-9 -----------//
+void NotifyPmVhalForAuthorizedSarAndShouldNotResultInSuspend()
+{
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        taf_mngdPm_wsRef_t wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created WakeupSource ref for reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                }
+            }
+        }
+        else
+            printf("Failed to Create WakeupSource ref for authorized reason %d\n", reason);
+    }
+
+    reason = TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE;
+    //Acquire an unauthorized reason ws
+    taf_mngdPm_wsRef_t wsRefUnauthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRefUnauthorized) {
+        printf("Created WakeupSource ref for reason %d\n", reason);
+        if(wsRefUnauthorized != NULL) {
+            res = taf_mngdPm_StayAwake(wsRefUnauthorized);
+            if(res == LE_OK) {
+                printf("'Successfully acquired wsRefUnauthorized'\n");
+                // Authorize the reason for bit1
+                res = taf_mngdPm_AuthorizeStayAwakeReason(3);
+                if(res == LE_OK){
+                    printf("'AuthorizeStayAwakeReason for bitmask %d, %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL, TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE);
+                }
+            }
+        else
+            printf("Failed to Create WakeupSource ref for unauthorized reason %d\n", reason);
+        }
+    }
+}
+
+void* connect_service1(void* ctxPtr)
+{
+    LE_INFO("TestWakeSourceSampleApp");
+    taf_mngdPm_ConnectService();
+    int input = 1;
+    char buffer[100];
+
+    while(input != -1)
+    {
+        printf("Choose the TestRefreshAuthorizedWakeSources Test Case\n -1.Exit\n "
+        "1:       Authorize 1       -> acquire multiple locks\n "
+        "         Authorize 4 and 1 -> acquire locks with 4\n "
+        "         Authorize only 4  -> mark 1 locks as ignored.\n "
+        "         Authorize 2       -> Should release locks and mark ws as not acquired.\n "
+        "\n"
+        "2:       Authorize 1       -> acquire multiple locks\n "
+        "        Authorize 4 and 1 -> acquire locks with 4\n "
+        "        Authorize only 4  -> mark 1 locks as ignored.\n "
+        "        Authorize 1 and 4 -> Locks of 1 should be unignored.\n "
+        "\n"
+        "3:       Authorize 1       -> acquire multiple locks\n "
+        "        Authorize 4 and 1 -> acquire locks with 4\n "
+        "        Authorize only 4  -> mark 1 locks as ignored.\n "
+        "        Authorize 1 and 4 -> Locks of 1 should be unignored.\n "
+        "        Authorize 2       -> Should release all locks and suspend and mark the locks as not acquired.\n "
+        "        Authorize 1 and 4 -> Should display the old locks as not acquired.\n "
+        "\n"
+        "4:       Authorize 1       -> acquire multiple locks\n "
+        "        Authorize 4 and 1 -> acquire locks with 4\n "
+        "        Authorize 1 and 4 -> Locks of 1 should be unignored.\n "
+        "        Authorize 2       -> Should release all locks and suspend and mark the locks as not acquired.\n "
+        "        Authorize 1 and 4 -> Should display the old locks as not acquired.\n "
+        "        Kill the clients  -> Should clear all the wake sources cache data and should release lock if any active.\n "
+        "\n"
+        "5 :      Authorize 1       -> acquire multiple locks\n "
+        "        Authorize 2       -> Should release locks and mark ws as not acquired.\n "
+        "\n"
+        "6 :      Non authorized stay awake wakelock should not affect the state changes\n "
+        "        Authorize 1       -> acquire multiple locks\n "
+        "        Call from different client, CreateWakeSource()  -> returns wakesource reference of non authorized.\n "
+        "        Acquire wakelock from other client -> Not increase the wsCount, since it is non authorized ws and marked as not acquired.\n "
+        "        Authorize 2       -> Should release locks and mark ws as not acquired.\n "
+        "\n"
+        "7 :     Unauthorized stay awake\n " //UC2
+        "        Stayawake system with unauthorize wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL\n"
+        "        Should return LE_NOT_PERMITTED & keep the system in suspend if in suspend.\n "
+        "        Unauthorized wakeup source: TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL state should be not acquired\n"
+        "        PMVHAL notification: none\n"
+        "\n"
+        "8 :     Relax authorized wakeup source \n " //UC4
+        "        Authorize & acquire wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL\n"
+        "        Acquire unauthorized wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE \n "
+        "        Relax system with the authorized wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL\n"
+        "        Should set the authorized wakeup source: TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL state from acquired -> not acquired\n"
+        "        Should send PMVHAL notification for authorized wakeup source: TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL as LOCK_RELEASED\n"
+        "        Should mark the unauthorized wakeup source state from ignored -> not acquired and keep the system in suspend if in resume.\n "
+        "\n"
+        "9 :     Relax Unauthorized wakeup source \n "  //UC5
+        "        Authorize & acquire wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL\n"
+        "        Acquire unauthorized wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE \n "
+        "        Relax system with the unauthorized wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE\n"
+        "        PMVHAL notification: none\n"
+        "        Should set the unauthorized wakeup source: TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE state from ignored -> not acquired and keep the system in resume if already in resume.\n "
+        "\n"
+        "10 :    Stay awake with unauthorized wakeup source\n "  //UC6
+        "        Authorize & acquire wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL\n"
+        "        Acquire unauthorized wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE \n "
+        "        Stay awake system with the unauthorized wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE\n"
+        "        PMVHAL notification: none\n"
+        "        Should set the unauthorized wakeup source: TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE state from not acquired -> ignored and keep the system in resume if already in resume.\n"
+        "\n"
+        "11 :    Stay awake with unauthorized wakeup source\n " //UC7
+        "        Authorize & acquire wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL\n"
+        "        Unauthorize wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL\n"
+        "        System state: Resume -> Suspend\n"
+        "        WS state: ACQUIRED -> NOT_ACQUIRED\n"
+        "        PMVHAL notification: LOCK_RELEASED\n"
+        "\n"
+        "12 :    Stay awake with unauthorized wakeup source\n "  //UC8
+        "        Authorize & acquire wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL & TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE\n"
+        "        Unauthorize wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE\n"
+        "        System state: Resume -> Resume\n"
+        "        WS state: ACQUIRED -> IGNORED\n"
+        "        PMVHAL notification: LOCK_RELEASED\n"
+        "\n"
+        "13 :    Stay awake with unauthorized wakeup source\n"  //UC9
+        "        Authorize & acquire wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL\n"
+        "        Unauthorize & acquire wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE\n"
+        "        Authorize wakeup source TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE\n"
+        "        System state: Resume -> Resume\n"
+        "        WS state: IGNORED -> ACQUIRED\n"
+        "        PMVHAL notification: LOCK_ACQUIRED\n");
+
+        if(fgets(buffer, sizeof(buffer), stdin))
+            LE_INFO("Value read successfully");
+        buffer[strcspn(buffer, "\n")] = '\0';
+        input = atoi(buffer);
+        LE_INFO("input: %d", input);
+        if(input == -1)
+        {
+            exit(EXIT_SUCCESS);
+        }
+        if(input == 1)
+        {
+            authorizeAndAcquireLocks(1, true);
+            authorizeAndAcquireLocks(5, true);
+            authorizeAndAcquireLocks(4, false);
+            authorizeAndAcquireLocks(2, false);
+        }
+        if(input == 2)
+        {
+            authorizeAndAcquireLocks(1, true);
+            authorizeAndAcquireLocks(5, true);
+            authorizeAndAcquireLocks(4, false);
+            authorizeAndAcquireLocks(5, false);
+        }
+        if(input == 3)
+        {
+            authorizeAndAcquireLocks(1, true);
+            authorizeAndAcquireLocks(5, true);
+            authorizeAndAcquireLocks(4, false);
+            authorizeAndAcquireLocks(5, false);
+            authorizeAndAcquireLocks(2, false);
+            authorizeAndAcquireLocks(5, false);
+        }
+        if(input == 4)
+        {
+            authorizeAndAcquireLocks(1, true);
+            authorizeAndAcquireLocks(5, true);
+            authorizeAndAcquireLocks(4, false);
+            authorizeAndAcquireLocks(5, false);
+            authorizeAndAcquireLocks(2, false);
+            authorizeAndAcquireLocks(5, false);
+            exit(EXIT_SUCCESS);
+        }
+        if(input == 5)
+        {
+            authorizeAndAcquireLocks(1, true);
+            authorizeAndAcquireLocks(2, false);
+        }
+        if(input == 6)
+        {
+            authorizeAndAcquireLocks(1, true);
+            int entry = 4;
+            void *ptr = &entry;
+            semRef1 = le_sem_Create("MngdIntTestApp", 0);
+            threadRef1 = le_thread_Create("inttestapp",
+                                        acquireWakeLock1, ptr);
+            authorizeAndAcquireLocks(2, false);
+        }
+        if(input == 7)
+        {
+            //Do not change system state when Stayawake with unauthorized ws
+            StayAwakeWithUnauthorizedWsShouldNotChangeSystemState();
+
+        }
+        if(input == 8)
+        {
+            //Relax authorized ws
+            StayAwakeWithAuthorizedWsShouldResultInSuspend();
+
+        }
+        if(input == 9)
+        {
+            // Relax unauthorized ws
+            UnauthorizedWsShouldNotResultInSuspend();
+
+        }
+        if(input == 10)
+        {
+            //Stayawake unauthorized ws
+            StayAwakeWithUnauthorizedWsShouldNotResultInSuspend();
+
+        }
+        if(input == 11)
+        {
+            //Notify PM VHAL, when SAR changed from authorized to unauthorized - In case of only one SAR is authorized
+            NotifyPmVhalForUnauthorizedSarAndShouldResultInSuspend();
+        }
+        if(input == 12)
+        {
+            //Notify PM VHAL, when SAR changed from authorized to unauthorized - In case of more than one SARs are authorized
+           NotifyPmVhalForUnauthorizedSarAndShouldNotResultInSuspend();
+        }
+        if(input == 13)
+        {
+            //Notify PM VHAL, when SAR changed from unauthorized to authorized
+            NotifyPmVhalForAuthorizedSarAndShouldNotResultInSuspend();
+        }
+    }
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+}
+
+void TestAuthorizeWakeSourceCases()
+{
+    semRef = le_sem_Create("tafMngdIntTestApp", 0);
+    LE_INFO("createapp1 start");
+        threadRef = le_thread_Create("inttestapp",
+                                    connect_service1, NULL);
+        le_thread_Start(threadRef);
+        le_sem_Wait(semRef);
+}
+
 void TestNonAuthorizedStayAwake()
 {
     uint8_t pmNodeId = 0;
@@ -1684,6 +2242,110 @@ void TestNonAuthorizedStayAwake()
     {
         LE_ERROR("GracefulSysSuspend request failed");
         exit(EXIT_FAILURE);
+    }
+}
+
+static void ForcedSystemShutdownAndResume() //TELAF-3169 [Conti] 07743357 MPMS State Transition Issue: Stay Awake Request During Shutdown
+{
+    LE_INFO("----ForcedSystemShutdown test----");
+    le_result_t result;
+    uint8_t pmNodeId = 0;
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE", pmNodeId);
+
+    result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+            ForcedSystemShutdownCallBack, NULL, TAF_MNGDPM_SHUTDOWN_REASON_NORMAL);
+
+    if(result == LE_OK)
+    {
+         LE_INFO("----ForcedSystemShutdown success----");
+         if(wsRef == NULL)
+             wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+                     TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+         if(wsRef)
+             LE_INFO("CreateWakeupSource for TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL\n");
+
+         if(wsRef != NULL) {
+             result = taf_mngdPm_StayAwake(wsRef);
+             if(result == LE_OK) {
+                 printf("'Resumed sysytem'\n");
+              }
+              else {
+                  LE_INFO("Failed to acquire Wake source");
+              }
+         }
+         else {
+             LE_ERROR("Failed to create wakeup source!");
+         }
+    }
+    else
+    {
+        LE_ERROR("ForcedSystemShutdown request failed");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void DeleteWsIfNotAcquired()
+{
+    LE_INFO("DeleteWsIfNotAcquired");
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    taf_mngdPm_wsRef_t wsRefAuthorized = NULL;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created WakeupSource ref for reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                    res = taf_mngdPm_Relax(wsRefAuthorized);
+                    if(res == LE_OK) {
+                        printf("'Suspended system with wsRefAuthorized'\n");
+                        res = taf_mngdPm_DeleteWakeupSource(wsRefAuthorized);
+                        if(res == LE_OK) {
+                            printf("'Deleted WS with wsRefAuthorized'\n");
+                        }
+                    }
+                }
+            }
+        }
+        else
+            printf("Failed to Create WakeupSource ref for authorized reason %d\n", reason);
+    }
+
+}
+
+void ShouldNotDeleteWsIfAcquiredOrIgnored()
+{
+    LE_INFO("ShouldNotDeleteWsIfAcquiredOrIgnored");
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    taf_mngdPm_wsRef_t wsRefAuthorized = NULL;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created WakeupSource ref for reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                    res = taf_mngdPm_DeleteWakeupSource(wsRefAuthorized);
+                    if(res == LE_OK) {
+                        printf("'Deleted WS with wsRefAuthorized'\n");
+                    }
+                    else if(res == LE_NOT_PERMITTED)
+                    {
+                        printf("'Deletion of WS before releasing it, is not permitted '\n");
+                    }
+                }
+            }
+        }
+        else
+            printf("Failed to Create WakeupSource ref for authorized reason %d\n", reason);
     }
 }
 
@@ -1873,6 +2535,22 @@ COMPONENT_INIT
                 printf("Enter PowerStateChangeAck");
                 exit(EXIT_FAILURE);
             }
+        }
+        else if(strcmp(testType, "TestRefreshAuthorizedWsCases") == 0)
+        {
+            TestAuthorizeWakeSourceCases();
+        }
+        else if(strcmp(testType, "ForcedSystemShutdownAndResume") == 0)
+        {
+            ForcedSystemShutdownAndResume();
+        }
+        else if(strcmp(testType, "DeleteWsIfNotAcquired") == 0)
+        {
+            DeleteWsIfNotAcquired();
+        }
+        else if(strcmp(testType, "ShouldNotDeleteWsIfAcquiredOrIgnored") == 0)
+        {
+            ShouldNotDeleteWsIfAcquiredOrIgnored();
         }
         else
         {

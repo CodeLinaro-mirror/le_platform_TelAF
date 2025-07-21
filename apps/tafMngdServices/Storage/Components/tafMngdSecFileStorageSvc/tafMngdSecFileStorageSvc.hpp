@@ -1,8 +1,8 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
- */
-
+*
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
 
 #include "legato.h"
 #include "interfaces.h"
@@ -28,7 +28,8 @@ namespace tafsvc {
 typedef struct
 {
     char StorageName[TAF_MNGDSTORSECFILE_MAX_STORAGE_NAME_SIZE];
-    std::vector<char*> AccessibleApps;
+    std::vector<char*> ReadAccessibleApps;
+    std::vector<char*> WriteAccessibleApps;
 }
 tafMngdSecFileStorage_StorageCfg_t;
 
@@ -67,14 +68,20 @@ typedef struct
     // Client session reference
     le_msg_SessionRef_t clientSessionRef;
 
-    // Shared client
-    bool masterClient;
-
     // Storage name
     char storageName[TAF_MNGDSTORSECFILE_MAX_STORAGE_NAME_SIZE];
 
-    // lock  State
+    // Lock state
     bool lockState;
+
+    // Is creator
+    bool IsCreator;
+
+    // Can read the file
+    bool IsReadable;
+
+    // Can write
+    bool IsWritable;
 }
 tafMngdSecFileStorage_ClientCxt_t;
 
@@ -152,16 +159,20 @@ class tafMngdSecFileStorageSvc: public ITafSvc
         le_result_t SetStorageCreator(const char* storageNamePtr,
                                         const char* creatorAppPtr);
 
-        le_result_t CheckStorageCreator(const char* storageNamePtr,
-                                        const char* checkAppPtr);
+        le_result_t GetStorageCreator(const char* storageNamePtr,
+                                        char *appNameStr,
+                                        size_t appNameSize);
 
-        le_result_t ClearStorageCreator(const char* storageNamePtr,
-                                        const char* checkAppPtr);
+        le_result_t ClearStorageCreator(const char* storageNamePtr);
 
         le_result_t ParseServiceJsonConfig(char* configPath);
 
         // Check the extension json if not valid, then intialized service with base json
         le_result_t PreCheckExtensionJson();
+
+        bool IsReadable(const char* storageName, const char* appName);
+
+        bool IsWritable(const char* storageName, const char* appName);
 
         bool IsAppAccessible(const char* storageName, const char* appName);
 

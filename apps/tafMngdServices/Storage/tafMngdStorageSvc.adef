@@ -1,7 +1,3 @@
-/*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
- */
 
 maxThreads: 600
 
@@ -13,10 +9,10 @@ capability:
         CAP_WAKE_ALARM
         CAP_NET_ADMIN
         CAP_BLOCK_SUSPEND
-        CAP_DAC_READ_SEARCH
         CAP_DAC_OVERRIDE
         CAP_FOWNER
         CAP_SYS_ADMIN
+        CAP_SYS_PTRACE
 }
 
 groups:
@@ -47,7 +43,7 @@ processes:
         }
 
         maxFileBytes: 8192K
-        faultAction: stopApp
+        faultAction: restart
 }
 
 sandboxed: false
@@ -55,12 +51,13 @@ sandboxed: false
 bindings:
 {
     tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.taf_fsc -> tafKeyStoreSvc.taf_fsc
-    tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_cfg -> <root>.le_cfg
-    tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_cfgAdmin -> <root>.le_cfgAdmin
+    tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_cfg -> <tafcore>.le_cfg
+    tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.le_cfgAdmin -> <tafcore>.le_cfgAdmin
+    tafMngdCfgStorageSvc.tafMngdCfgStorageSvc.taf_mngdStorSecData -> tafMngdStorageSvc.taf_mngdStorSecData
     tafMngdSecDataStorageSvc.tafMngdSecDataStorageSvc.taf_ks -> tafKeyStoreSvc.taf_ks
-    tafMngdSecDataStorageSvc.tafMngdSecDataStorageSvc.le_appInfo -> <root>.le_appInfo
+    tafMngdSecDataStorageSvc.tafMngdSecDataStorageSvc.le_appInfo -> <tafcore>.le_appInfo
     tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.taf_fsc -> tafKeyStoreSvc.taf_fsc
-    tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.le_appInfo -> <root>.le_appInfo
+    tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.le_appInfo -> <tafcore>.le_appInfo
     tafMngdSecFileStorageSvc.tafMngdSecFileStorageSvc.taf_mngdStorSecData -> tafMngdStorageSvc.taf_mngdStorSecData
 }
 

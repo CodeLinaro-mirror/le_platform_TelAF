@@ -28,8 +28,8 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -60,6 +60,13 @@ typedef struct
     char mnc[TAF_DCS_MNC_BYTES];                  /**< Mobile Network Code */
 }throttleInfo_t;
 
+// Internal message structure for onHwAccelerationChanged events
+typedef struct
+{
+    taf_dcs_ProfileRef_t profileRef;
+    taf_dcs_HwAccelerationState_t state;
+} HwAccelStatus_t;
+
 typedef struct
 {
     bool                                     isValid;
@@ -75,6 +82,7 @@ typedef struct
     le_event_Id_t                            throttleStateEvent;
     throttleInfo_t                           throttleInfo;
     le_dls_Link_t                            link;
+    le_event_Id_t                            HwAccelStateEvent;
 } taf_dcs_ProfileCtx_t;
 
 typedef struct
@@ -91,6 +99,55 @@ typedef struct
 } Profile_List_Event_t;
 
 namespace tafsvc {
+
+    // Mapping of taf_dcs_ApnType_t to telux::data::ApnMaskType
+    const std::map<taf_dcs_ApnType_t, ApnMaskType> taf_dcs_ApnType_to_ApnMaskType = {
+        {TAF_DCS_APN_TYPE_DEFAULT  , ApnMaskType::APN_MASK_TYPE_DEFAULT},
+        {TAF_DCS_APN_TYPE_IMS      , ApnMaskType::APN_MASK_TYPE_IMS},
+        {TAF_DCS_APN_TYPE_MMS      , ApnMaskType::APN_MASK_TYPE_MMS},
+        {TAF_DCS_APN_TYPE_DUN      , ApnMaskType::APN_MASK_TYPE_DUN},
+        {TAF_DCS_APN_TYPE_SUPL     , ApnMaskType::APN_MASK_TYPE_SUPL},
+        {TAF_DCS_APN_TYPE_HIPRI    , ApnMaskType::APN_MASK_TYPE_HIPRI},
+        {TAF_DCS_APN_TYPE_FOTA     , ApnMaskType::APN_MASK_TYPE_FOTA},
+        {TAF_DCS_APN_TYPE_CBS      , ApnMaskType::APN_MASK_TYPE_CBS},
+        {TAF_DCS_APN_TYPE_IA       , ApnMaskType::APN_MASK_TYPE_IA},
+        {TAF_DCS_APN_TYPE_EMERGENCY, ApnMaskType::APN_MASK_TYPE_EMERGENCY},
+        {TAF_DCS_APN_TYPE_UT       , ApnMaskType::APN_MASK_TYPE_UT},
+        {TAF_DCS_APN_TYPE_MCX      , ApnMaskType::APN_MASK_TYPE_MCX},
+    };
+
+    // Mapping of telux::data::ApnMaskType to taf_dcs_ApnType_t
+    const std::map<ApnMaskType, taf_dcs_ApnType_t> ApnMaskType_to_taf_dcs_ApnType = {
+        {ApnMaskType::APN_MASK_TYPE_DEFAULT  , TAF_DCS_APN_TYPE_DEFAULT},
+        {ApnMaskType::APN_MASK_TYPE_IMS      , TAF_DCS_APN_TYPE_IMS},
+        {ApnMaskType::APN_MASK_TYPE_MMS      , TAF_DCS_APN_TYPE_MMS},
+        {ApnMaskType::APN_MASK_TYPE_DUN      , TAF_DCS_APN_TYPE_DUN},
+        {ApnMaskType::APN_MASK_TYPE_SUPL     , TAF_DCS_APN_TYPE_SUPL},
+        {ApnMaskType::APN_MASK_TYPE_HIPRI    , TAF_DCS_APN_TYPE_HIPRI},
+        {ApnMaskType::APN_MASK_TYPE_FOTA     , TAF_DCS_APN_TYPE_FOTA},
+        {ApnMaskType::APN_MASK_TYPE_CBS      , TAF_DCS_APN_TYPE_CBS},
+        {ApnMaskType::APN_MASK_TYPE_IA       , TAF_DCS_APN_TYPE_IA},
+        {ApnMaskType::APN_MASK_TYPE_EMERGENCY, TAF_DCS_APN_TYPE_EMERGENCY},
+        {ApnMaskType::APN_MASK_TYPE_UT       , TAF_DCS_APN_TYPE_UT},
+        {ApnMaskType::APN_MASK_TYPE_MCX      , TAF_DCS_APN_TYPE_MCX},
+    };
+
+    // Mapping of telux::data::ApnMaskType to its index
+    const std::map<ApnMaskType, int> apnMaskTypeToIndex = {
+        {ApnMaskType::APN_MASK_TYPE_DEFAULT  , 0},
+        {ApnMaskType::APN_MASK_TYPE_IMS      , 1},
+        {ApnMaskType::APN_MASK_TYPE_MMS      , 2},
+        {ApnMaskType::APN_MASK_TYPE_DUN      , 3},
+        {ApnMaskType::APN_MASK_TYPE_SUPL     , 4},
+        {ApnMaskType::APN_MASK_TYPE_HIPRI    , 5},
+        {ApnMaskType::APN_MASK_TYPE_FOTA     , 6},
+        {ApnMaskType::APN_MASK_TYPE_CBS      , 7},
+        {ApnMaskType::APN_MASK_TYPE_IA       , 8},
+        {ApnMaskType::APN_MASK_TYPE_EMERGENCY, 9},
+        {ApnMaskType::APN_MASK_TYPE_UT       , 10},
+        {ApnMaskType::APN_MASK_TYPE_MCX      , 11},
+    };
+
     class taf_ProfileListCallback : public telux::data::IDataProfileListCallback
     {
         public:
@@ -116,7 +173,9 @@ namespace tafsvc {
     class taf_DataProfile: public ITafSvc
     {
         public:
+
             void Init(void);
+            void Deinit(void);
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
                 void onInitCompleted(telux::common::ServiceStatus status);
 #endif
@@ -128,6 +187,7 @@ namespace tafsvc {
             le_result_t GetSlotIdAndProfileId(taf_dcs_ProfileRef_t profileRef, uint8_t *slotId,
                                               int32_t *profileId);
             le_event_Id_t GetThrottleStateEvent(uint8_t slotId, int32_t profileId);
+            le_event_Id_t GetProfileCtxHWAccelStateEvent(uint8_t slotId, int32_t profileId);
 
             le_result_t MapProfileCtxToParams(taf_dcs_ProfileCtx_t *ctxPtr,
                                               telux::data::ProfileParams &params);
@@ -151,6 +211,7 @@ namespace tafsvc {
                                           char *userNamePtr, size_t userNameSize, char *passwordPtr,
                                           size_t passwordSize);
             void CleanupAllProfiles(Profile_List_Event_t *listEvent);
+            void CleanupAllProfiles();
             le_result_t CreateIndividualProfile(taf_dcs_ProfileCtx_t *info);
             taf_dcs_ProfileCtx_t *GetProfileCtx(uint8_t slotId, uint32_t index);
             void UpdateIndividualProfile(taf_dcs_ProfileCtx_t *distPtr,
@@ -196,6 +257,11 @@ namespace tafsvc {
                 return ListEventPool;
             }
 
+            // Functions for HW acceleration event
+            le_event_Id_t   GetHwAccelStatusEvent();
+            le_mem_PoolRef_t GetHwAccelEventMemPool();
+            static void ProcessHwAccelStatusEvent(void *eventPtr);
+
             le_dls_List_t                     ProfileReqHandlerList = LE_DLS_LIST_INIT;
             taf_dcs_ProfileInfo_t             ProfileInfo[TAF_DCS_PROFILE_LIST_MAX_ENTRY];
             taf_dcs_Pdp_t  MapIpFamily(telux::data::IpFamilyType ipFamily);
@@ -211,15 +277,21 @@ namespace tafsvc {
             le_mem_PoolRef_t ListEventPool = NULL;
             le_mem_PoolRef_t ProfilePool = NULL;
             le_mem_PoolRef_t ListHandlerPool = NULL;
+            le_mem_PoolRef_t HwAccelEvtPoolRef;
             le_ref_MapRef_t  ProfileRefMap = NULL;
             le_event_Id_t    ListReqEvent;
+            le_event_Id_t    HwAccelStatusEvent; // Handle HWAccel events from taf_DataConnection.
             le_dls_List_t    ProfileCtxList;
-            taf_dcs_ProfileCtxs_t ProfilesListPtr = { 0 };
             le_thread_Ref_t ProfileEventThreadRef = NULL;
             std::map<SlotId, uint32_t> ProfileNum;
 
+            // Function to convert from taf_dcs_ApnType_t to telux::data::ApnTypes
+            ApnTypes convertApnTypes(taf_dcs_ApnType_t taf_dcs_ApnType);
+            // Function to convert from telux::data::ApnTypes to taf_dcs_ApnType_t
+            taf_dcs_ApnType_t convertApnTypes(const ApnTypes &apnTypes);
+
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            bool subSystemStatusUpdated;
+                bool subSystemStatusUpdated;
             std::mutex mtx;
             std::condition_variable conVar;
 #endif

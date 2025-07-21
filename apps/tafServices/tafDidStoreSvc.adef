@@ -12,10 +12,12 @@ capability:
         CAP_WAKE_ALARM
         CAP_NET_ADMIN
         CAP_BLOCK_SUSPEND
-        CAP_DAC_READ_SEARCH
-        CAP_DAC_OVERRIDE
         CAP_SYS_ADMIN
         CAP_SYS_PTRACE
+#if ${LE_CONFIG_TEST_COVERAGE} = y
+        CAP_DAC_READ_SEARCH
+        CAP_DAC_OVERRIDE
+#endif
 }
 
 executables:
@@ -40,7 +42,7 @@ processes:
 bindings:
 {
     tafDidStoreSvc.tafDidStoreSvc.taf_diagDataID -> tafDiagSvc.taf_diagDataID
-    tafDidStoreSvc.tafDidStoreSvc.le_appInfo -> <root>.le_appInfo
+    tafDidStoreSvc.tafDidStoreSvc.le_appInfo -> <tafcore>.le_appInfo
 }
 
 extern:

@@ -10,7 +10,7 @@
 #include "MultiSimManagerImplBypass.hpp"
 // #include "MultiSimHelper.hpp"
 #include "common/Logger.hpp"
-
+namespace telux {
 namespace tel {
 
 static SlotId activeSlotId = SlotId::SLOT_ID_1;
@@ -207,4 +207,5 @@ MultiSimManagerBypass::deregisterListener(std::weak_ptr<IMultiSimListener> liste
     return status;
 }
 
+}
 }

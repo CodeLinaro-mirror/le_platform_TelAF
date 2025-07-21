@@ -92,11 +92,20 @@
     taf_ks_KeyRef_t keyRef;
     if (LE_NOT_FOUND == taf_ks_GetKey(keyId, &keyRef))
     {
-        LE_ASSERT(LE_OK == taf_ks_CreateKey(keyId,TAF_KS_AES_ENCRYPT_DECRYPT, &keyRef));
-        LE_ASSERT(LE_OK == taf_ks_ProvisionAesKeyValue(keyRef,
-                                                       TAF_KS_AES_SIZE_256,
-                                                       TAF_KS_AES_MODE_GCM,
-                                                       NULL, 0));
+        if (LE_OK == taf_ks_CreateKey(keyId,TAF_KS_AES_ENCRYPT_DECRYPT, &keyRef))
+        {
+            if (LE_OK != taf_ks_ProvisionAesKeyValue(keyRef,
+                                                     TAF_KS_AES_SIZE_256,
+                                                     TAF_KS_AES_MODE_GCM,
+                                                     NULL, 0))
+            {
+                // Error handling for unsucessful taf_ks_ProvisionAesKeyValue call
+            }
+        }
+        else
+        {
+            // Error handling for unsuccessful taf_ks_CreateKy call
+        }
     }
     @endcode
  *
@@ -128,12 +137,27 @@
  * The following example illustrates how to create a cryptographic session and start the session for
  * data encryption.
  * @code
- *   taf_ks_CryptoSessionRef_t sessionRef;
- *   const uint8_t nonce[12] = {"abcdefghijk"}; // Shall be customized and filled by application.
- *   LE_ASSERT(LE_OK == taf_ks_CryptoSessionCreate(keyRef, &sessionRef));
- *   LE_ASSERT(LE_OK == taf_ks_CryptoSessionSetAesNonce(sessionRef, nonce, sizeof(nonce)));
- *   LE_ASSERT(LE_OK == taf_ks_CryptoSessionStart(sessionRef, TAF_KS_CRYPTO_ENCRYPT));
- *   @endcode
+    taf_ks_CryptoSessionRef_t sessionRef;
+    const uint8_t nonce[12] = {"abcdefghijk"}; // Shall be customized and filled by application.
+    if (LE_OK == taf_ks_CryptoSessionCreate(keyRef, &sessionRef))
+    {
+        if (LE_OK == taf_ks_CryptoSessionSetAesNonce(sessionRef, nonce, sizeof(nonce)))
+        {
+            if (LE_OK != taf_ks_CryptoSessionStart(sessionRef, TAF_KS_CRYPTO_ENCRYPT))
+            {
+                // Error handling for unsucessful taf_ks_CryptoSessionStart call
+            }
+        }
+        else
+        {
+            // Error handling for unsucessful CryptoSessionSetAesNonce call
+        }
+    }
+    else
+    {
+        // Error handling for unsucessful taf_ks_CryptoSessionCreate call
+    }
+    @endcode
  *
  * @subsection c_taf_ks_process_session Process data within the session
  * Call taf_ks_CryptoSessionProcess() to process the input data and get the output data in a running
@@ -155,22 +179,40 @@
     uint8_t encryptedData[TAF_KS_MAX_PACKET_SIZE] = {0};
     size_t encryptedDataSize = sizeof(encryptedData);
     const uint8_t aead[] = {"123456789"}; // Shall be customized and filled by application.
-    LE_ASSERT(LE_OK == taf_ks_CryptoSessionProcessAead(sessionRef, aead, sizeof(aead)));
-    LE_ASSERT(LE_OK == taf_ks_CryptoSessionProcess(sessionRef,
-                                                   plainText,
-                                                   sizeof(plainText),
-                                                   encryptedData,
-                                                   &encryptedDataSize));
-    size_t totalEncSize = encryptedDataSize;
-    encryptedDataSize = sizeof(encryptedData) - totalEncSize;
-    LE_ASSERT(LE_OK == taf_ks_CryptoSessionEnd(sessionRef,
-                                               NULL, 0,
-                                               encryptedData + totalEncSize,
-                                               &encryptedDataSize));
-    totalEncSize = totalEncSize + encryptedDataSize;
+    if (LE_OK == taf_ks_CryptoSessionProcessAead(sessionRef, aead, sizeof(aead)))
+    {
+        if (LE_OK == taf_ks_CryptoSessionProcess(sessionRef,
+                                                 plainText,
+                                                 sizeof(plainText),
+                                                 encryptedData,
+                                                 &encryptedDataSize))
+        {
+            size_t totalEncSize = encryptedDataSize;
+            encryptedDataSize = sizeof(encryptedData) - totalEncSize;
+            if (LE_OK == taf_ks_CryptoSessionEnd(sessionRef,
+                                                 NULL, 0,
+                                                 encryptedData + totalEncSize,
+                                                 &encryptedDataSize))
+            {
+                totalEncSize = totalEncSize + encryptedDataSize;
+            }
+            else
+            {
+                // Error handling for unsucessful taf_ks_CryptoSessionEnd call
+            }
+        }
+        else
+        {
+            // Error handling for unsucessful taf_ks_CryptoSessionProcess call
+        }
+    }
+    else
+    {
+        // Error handling for unsucessful taf_ks_CryptoSessionProcessAead call
+    }
     @endcode
  *
- * @b NOTE:The crypto session is automatically deleted after taf_ks_CryptoSessionAbort() or
+ * @b NOTE: The crypto session is automatically deleted after taf_ks_CryptoSessionAbort() or
  * taf_ks_CryptoSessionEnd() is called, or when any error occurs in taf_ks_CryptoSessionStart() and
  * taf_ks_CryptoSessionProcess().
  *
@@ -385,7 +427,24 @@ ENUM RsaSigPadding
     RSA_SIG_PAD_PSS_SHA2_256,       ///< PSS with SHA2-256 padding, digest is SHA2-256.
     RSA_SIG_PAD_PSS_SHA2_384,       ///< PSS with SHA2-384 padding, digest is SHA2-384.
     RSA_SIG_PAD_PSS_SHA2_512,       ///< PSS with SHA2-512 padding, digest is SHA2-512.
+    RSA_SIG_PAD_PKCS1_V15_AND_PSS_MD5, ///< Support both PKCS1 V1.5 and PSS with MD5.
+    RSA_SIG_PAD_PKCS1_V15_AND_PSS_SHA1, ///< Support both PKCS1 V1.5 and PSS with SHA1.
+    RSA_SIG_PAD_PKCS1_V15_AND_PSS_SHA2_224, ///< Support both PKCS1 V1.5 and PSS with SHA2_224.
+    RSA_SIG_PAD_PKCS1_V15_AND_PSS_SHA2_256, ///< Support both PKCS1 V1.5 and PSS with SHA2_256.
+    RSA_SIG_PAD_PKCS1_V15_AND_PSS_SHA2_384, ///< Support both PKCS1 V1.5 and PSS with SHA2_384.
+    RSA_SIG_PAD_PKCS1_V15_AND_PSS_SHA2_512, ///< Support both PKCS1 V1.5 and PSS with SHA2_512.
     RSA_SIG_PAD_MAX,                ///< Indicates the maximum value.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Defines general padding type for RSA signature keys.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM RsaPaddingType
+{
+    RSA_PKCS1_V15,            /// PKCS1_V1.5 padding
+    RSA_PSS,                  /// PSS padding
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -922,6 +981,26 @@ FUNCTION le_result_t CryptoSessionSetAesNonce
 (
     CryptoSession   sessionRef     IN,  ///< Session reference.
     uint8 data[MAX_AES_NONCE_SIZE] IN   ///< Data buffer to hold the nonce or IV.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the general padding type used for a RSA signing/verification cryptographic session.
+ * By default RSA_PKCS1_V15 is used if this API is not called.
+ *
+ * This API must be called before taf_ks_CryptoSessionStart().
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameters.
+ *     - LE_NOT_FOUND -- Session does not exist.
+ *     - LE_NOT_PERMITTED -- Session is already started or calling application is not session owner.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CryptoSessionSetRsaPadding
+(
+    CryptoSession   sessionRef     IN,  ///< [IN] Session reference for a RSA signing key.
+    RsaPaddingType  paddingType    IN   ///< [IN] General padding type.
 );
 
 //--------------------------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -18,7 +18,12 @@
 #include <telux/platform/FsDefines.hpp>
 #include <telux/platform/FsManager.hpp>
 
+#include "taf_pa_mrc.hpp"
+
 #include "tafSvcIF.hpp"
+
+#define TAF_MRC_SVC_READY_TIMEOUT 60
+#define TAF_MRC_MSG_RESP_TIMEOUT 180
 
 typedef enum
 {
@@ -44,7 +49,13 @@ namespace tafsvc {
         void Init(void);
 
         le_result_t SendOtaMsg(taf_MrcOtaMsgType_t type);
+        static void OpStatusHandler(taf_pa_mrc_OperationIndication_t* indPtr, void* contextPtr);
+        static void* PAEventThread(void* contextPtr);
+
         std::shared_ptr<telux::platform::IFsManager> fsManager;
+        le_sem_Ref_t syncSem;
+        bool paReady = false;
+        static taf_pa_mrc_OpStatusHandlerRef_t opStatusHandlerRef;
     private:
         std::shared_ptr<taf_MrcOtaOperationsListener> otaOperationsListener;
     };

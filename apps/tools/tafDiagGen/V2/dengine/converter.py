@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import copy, os, sys
@@ -174,34 +174,36 @@ def convert_patterns_in_did_all(final_yaml, final_pattern):
 
                 for pattern_attr_name, pattern in diagnostic_session_and_security_level.items():
 
-                    if not final_pattern[pattern]['session']:
-                        logger.error(f"Why doest pattern '{pattern}' have the empty-session-list ?")
-                        sys.exit(1)
+                    if type(pattern) is not list:
 
-                    for s_name, s_id in final_pattern[pattern]['session']:
+                        if not final_pattern[pattern]['session']:
+                            logger.error(f"Why doest pattern '{pattern}' have the empty-session-list ?")
+                            sys.exit(1)
 
-                        if s_name not in generated_diagnostic_session.keys():
-                            generated_diagnostic_session[s_name] = OrderedDict()
-                        else:
-                            pass # Already created for this session
+                        for s_name, s_id in final_pattern[pattern]['session']:
 
-                        if pattern_attr_name == "execution_authorization_pattern_read":
-                            this_attr = 'R'
-                        elif pattern_attr_name == "execution_authorization_pattern_write":
-                            this_attr = 'W'
-                        elif pattern_attr_name == "execution_authorization_pattern_io":
-                            this_attr = 'IO'
+                            if s_name not in generated_diagnostic_session.keys():
+                                generated_diagnostic_session[s_name] = OrderedDict()
+                            else:
+                                pass # Already created for this session
 
-                        attr_dict = generated_diagnostic_session[s_name][this_attr] = OrderedDict()
+                            if pattern_attr_name == "execution_authorization_pattern_read":
+                                this_attr = 'R'
+                            elif pattern_attr_name == "execution_authorization_pattern_write":
+                                this_attr = 'W'
+                            elif pattern_attr_name == "execution_authorization_pattern_io":
+                                this_attr = 'IO'
 
-                        if final_pattern[pattern]['security_level']: # non-empty
-                            attr_dict['security'] = True
-                            attr_dict['security_level'] = [ lvl[0] for lvl in final_pattern[pattern]['security_level'] ] # names
-                            attr_dict['role'] = list() # no role information for now
-                        else: # level list is empty ? OK, mark it as non-secure
-                            attr_dict['security'] = False
-                            attr_dict['security_level'] = list()
-                            attr_dict['role'] = list() # no role information for now
+                            attr_dict = generated_diagnostic_session[s_name][this_attr] = OrderedDict()
+
+                            if final_pattern[pattern]['security_level']: # non-empty
+                                attr_dict['security'] = True
+                                attr_dict['security_level'] = [ lvl[0] for lvl in final_pattern[pattern]['security_level'] ] # names
+                            else: # level list is empty ? OK, mark it as non-secure
+                                attr_dict['security'] = False
+                                attr_dict['security_level'] = list()
+                    else:
+                        pass # Found authentication pattern list skip it
 
             else: # Both 'diagnostic_session' & 'diagnostic_session_and_security_level'
 
@@ -223,40 +225,42 @@ def convert_patterns_in_did_all(final_yaml, final_pattern):
                         attr_dict = generated_diagnostic_session[sess_name][attr] = OrderedDict()
                         attr_dict['security'] = False
                         attr_dict['security_level'] = list()
-                        attr_dict['role'] = list()
 
                 for pattern_attr_name, pattern in diagnostic_session_and_security_level.items():
 
-                    for s_name, s_id in final_pattern[pattern]['session']:
+                    if type(pattern) is not list:
 
-                        assert s_name in final_yaml['diagnostic_session'].keys(), \
-                            f"{s_name} <-- not a valid session name"
+                        for s_name, s_id in final_pattern[pattern]['session']:
 
-                        if s_name not in generated_diagnostic_session.keys():
-                            generated_diagnostic_session[s_name] = OrderedDict()
-                        else:
-                            pass # Already created for this session
+                            assert s_name in final_yaml['diagnostic_session'].keys(), \
+                                f"{s_name} <-- not a valid session name"
 
-                        if pattern_attr_name == "execution_authorization_pattern_read":
-                            this_attr = 'R'
-                        elif pattern_attr_name == "execution_authorization_pattern_write":
-                            this_attr = 'W'
-                        elif pattern_attr_name == "execution_authorization_pattern_io":
-                            this_attr = 'IO'
+                            if s_name not in generated_diagnostic_session.keys():
+                                generated_diagnostic_session[s_name] = OrderedDict()
+                            else:
+                                pass # Already created for this session
 
-                        if this_attr not in generated_diagnostic_session[s_name].keys():
-                            attr_dict = generated_diagnostic_session[s_name][this_attr] = OrderedDict()
-                        else:
-                            attr_dict = generated_diagnostic_session[s_name][this_attr] # Alread created for this session
+                            if pattern_attr_name == "execution_authorization_pattern_read":
+                                this_attr = 'R'
+                            elif pattern_attr_name == "execution_authorization_pattern_write":
+                                this_attr = 'W'
+                            elif pattern_attr_name == "execution_authorization_pattern_io":
+                                this_attr = 'IO'
 
-                        if final_pattern[pattern]['security_level']: # non-empty
-                            attr_dict['security'] = True
-                            attr_dict['security_level'] = [ lvl[0] for lvl in final_pattern[pattern]['security_level'] ]
-                            attr_dict['role'] = list()
-                        else: # Need to cover all cases
-                            attr_dict['security'] = False
-                            attr_dict['security_level'] = list()
-                            attr_dict['role'] = list()
+                            if this_attr not in generated_diagnostic_session[s_name].keys():
+                                attr_dict = generated_diagnostic_session[s_name][this_attr] = OrderedDict()
+                            else:
+                                attr_dict = generated_diagnostic_session[s_name][this_attr] # Alread created for this session
+
+                            if final_pattern[pattern]['security_level']: # non-empty
+                                attr_dict['security'] = True
+                                attr_dict['security_level'] = [ lvl[0] for lvl in final_pattern[pattern]['security_level'] ]
+                            else: # Need to cover all cases
+                                attr_dict['security'] = False
+                                attr_dict['security_level'] = list()
+
+                    else:
+                        pass # skip it as authentication pattern list found
 
         else: # 'diagnostic_session_and_security_level' is not preset, only 'diagnostic_session'
             logger.debug(f"Found 'diagnostic_session' alone -> DID: {hex(did_name)}")
@@ -275,7 +279,6 @@ def convert_patterns_in_did_all(final_yaml, final_pattern):
                     attr_dict = this_session[attr] = OrderedDict()
                     attr_dict['security'] = False # No security checking
                     attr_dict['security_level'] = list()
-                    attr_dict['role'] = list()
 
             # When 'diagnostic_session' exists, backup it
             did_accessibility['origin_diagnostic_session'] = did_accessibility['diagnostic_session']
@@ -298,6 +301,40 @@ def convert_diagnostic_session_security_level(final_yaml):
         sec_node['short_name'] = sec_name # key-name -> short_name
         logger.debug(f"replace the short_name with key-name for security_level")
 
+def extend_roles_in_authentication(final_yaml):
+    logger.info("Conversion -> extend_roles_in_authentication")
+
+    final_yaml["authentication_timeout_extended"] = OrderedDict()
+
+    for key, value in final_yaml["authentication_timeout"].items():
+        bit_position = int(key[1:])     # Extract numeric part from key (e.g., "b0" → 0, "b1" → 1)
+        final_yaml["authentication_timeout_extended"][key] = {
+            "name": key,
+            "value": 1 << bit_position,  # Calculate 2^bit_position
+            **value,  # Retain existing attributes
+        }
+    del final_yaml["authentication_timeout"]
+
+def extend_role_to_did_all(final_yaml):
+    logger.info("Conversion -> extend_role_to_did_all")
+
+    for did_name,did_node in final_yaml["did_all"].items():
+        if 'did_accessibility' in did_node.keys():
+            if 'diagnostic_session_and_security_level' in did_node['did_accessibility'].keys():
+                node_sec_level = did_node['did_accessibility']['diagnostic_session_and_security_level']
+                if 'execution_authentication_pattern_read' in node_sec_level.keys():
+                    did_node['read_role'] = node_sec_level['execution_authentication_pattern_read']
+                if 'execution_authentication_pattern_write' in node_sec_level.keys():
+                    did_node['write_role'] = node_sec_level['execution_authentication_pattern_write']
+                if 'execution_authentication_pattern_io' in node_sec_level.keys():
+                    did_node['io_role'] = node_sec_level['execution_authentication_pattern_io']
+
+def extend_role_to_routines_all(final_yaml):
+    logger.info("Conversion -> extend_role_to_routines_all")
+
+    for key,value in final_yaml["routines_all"].items():
+        if 'execution_authentication_pattern' in value.keys():
+            value['routine_role'] = value['execution_authentication_pattern']
 
 def convert_extended_data_records(final_yaml):
     logger.info(f"Conversion -> extended_data_records")
@@ -410,6 +447,7 @@ def create_io_all(final_yaml):
 
         # Drop 'control_state' item from IO_all_item, add 'did_size' for checking
         control_option_record['did_size'] = did_node['implementation']['did_size'] # unit by byte
+        control_option_record['bytes'] = did_node['implementation']['bytes'] # bytes info
 
         if 'access' in did_node.keys():
             IO_all[did_id]['access'] = copy.deepcopy(did_node['access'])
@@ -423,6 +461,9 @@ def create_io_all(final_yaml):
         for tag_name in ['data_enable_condition']: # Maybe more
             if tag_name in did_node.keys():
                 IO_all[did_id][tag_name] = copy.deepcopy(did_node[tag_name])
+
+        if 'io_role' in did_node.keys():
+            IO_all[did_id]['io_role'] = copy.deepcopy(did_node['io_role'])
 
 
 def convert_routines_all(final_yaml, final_pattern):
@@ -551,6 +592,21 @@ def convert_datas_enable_conditions(final_yaml):
     convert_data_enable_condition(final_yaml, 'IO_all')
     convert_data_enable_condition(final_yaml, 'routines_all')
 
+def extend_size_to_routine_parameters(final_yaml):
+    for node_name, node_info in final_yaml['routine_parameters_all'].items():
+        total_bits = 0
+        reserved = False
+        for bit_offset, element in node_info['bit_offset'].items():
+            if element['dataElement'] != 'Reserved':
+                for data,data_info in final_yaml['datas'].items():
+                    if data == element['dataElement']:
+                        if 'functional_definition' in data_info.keys():
+                            total_bits += data_info['functional_definition']['bit_size']
+            else:
+                reserved = True
+
+        if not reserved:
+            node_info['size'] = total_bits//8
 
 def convert_to_specific_format(with_default, top_build_layer):
 
@@ -567,6 +623,14 @@ def convert_to_specific_format(with_default, top_build_layer):
     convert_debounce_algorithm(final_yaml)
 
     convert_diagnostic_session_security_level(final_yaml)
+
+    extend_roles_in_authentication(final_yaml)
+
+    extend_role_to_did_all(final_yaml)
+
+    extend_role_to_routines_all(final_yaml)
+
+    extend_size_to_routine_parameters(final_yaml)
 
     # Conversion -> execution_authorization_pattern
     logger.info("Conversion -> execution_authorization_pattern")
@@ -621,7 +685,6 @@ def convert_to_specific_format(with_default, top_build_layer):
         for tag, val in l_node['tags'].items():
             if val is True: # Same as 'session'
                 final_pattern[tag]['security_level'].append( (l_name, l_node['id']) )
-
 
     convert_patterns_in_service_all(final_yaml, final_pattern)
 

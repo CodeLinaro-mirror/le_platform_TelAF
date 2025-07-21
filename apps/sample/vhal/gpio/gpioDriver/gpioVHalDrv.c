@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -225,6 +225,7 @@ static le_result_t taf_hal_SetPolarity
 
     if(pinNum >= gpio.numOfGpios)
     {
+        LE_WARN("Invalid pin number: %u", pinNum);
         return LE_UNSUPPORTED;
     }
 
@@ -323,6 +324,7 @@ static le_result_t taf_hal_SetOutputState
 
     if(pinNum >= gpio.numOfGpios)
     {
+        LE_WARN("Invalid pin number: %u", pinNum);
         return LE_UNSUPPORTED;
     }
 
@@ -371,6 +373,7 @@ static le_result_t taf_hal_DisableEdgeSense
 
     if(pinNum >= gpio.numOfGpios)
     {
+        LE_WARN("Invalid pin number: %u", pinNum);
         return LE_UNSUPPORTED;
     }
     if(gpio.pinInfo[pinNum].fdMonitorRef != NULL)
@@ -417,6 +420,7 @@ static le_result_t taf_hal_SetDirection
 
     if(pinNum >= gpio.numOfGpios)
     {
+        LE_WARN("Invalid pin number: %u", pinNum);
         return LE_UNSUPPORTED;
     }
 
@@ -564,6 +568,7 @@ static le_result_t taf_hal_SetEdgeSense
 
     if(pinNum >= gpio.numOfGpios)
     {
+        LE_WARN("Invalid pin number: %u", pinNum);
         return LE_UNSUPPORTED;
     }
 
@@ -666,6 +671,7 @@ static le_result_t taf_hal_RegisterCallback
 
     if(pinNum >= gpio.numOfGpios)
     {
+        LE_WARN("Invalid pin number: %u", pinNum);
         return LE_UNSUPPORTED;
     }
 
@@ -751,6 +757,12 @@ static le_result_t taf_hal_RemoveCallback
     taf_hal_gpio_Edge edgeType
 )
 {
+    if(pinNum >= gpio.numOfGpios)
+    {
+        LE_WARN("Invalid pin number: %u", pinNum);
+        return LE_UNSUPPORTED;
+    }
+
     LE_INFO("gpioVHalDrv: %s", __FUNCTION__);
 
     le_result_t res = LE_BAD_PARAMETER;

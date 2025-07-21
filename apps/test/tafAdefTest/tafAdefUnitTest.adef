@@ -25,5 +25,5 @@ processes:
 
 bindings:
 {
-    tafAdefUnitTest.tafAdefUnitTestComp.le_cfgAdmin -> <root>.le_cfgAdmin
+    tafAdefUnitTest.tafAdefUnitTestComp.le_cfgAdmin -> <tafcore>.le_cfgAdmin
 }

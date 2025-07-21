@@ -226,7 +226,7 @@ le_result_t taf_diagDTC_ClearInfo
 {
     auto &diagDTC = taf_DTCSvr::GetInstance();
 
-    return diagDTC.ClearInfo(svcRef);
+    return diagDTC.ClearInfo(svcRef, TAF_DIAGDTC_APP);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -275,6 +275,57 @@ taf_diagDTC_StatusHandlerRef_t taf_diagDTC_AddStatusHandler
 void taf_diagDTC_RemoveStatusHandler
 (
     taf_diagDTC_StatusHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_diagDTC_ClearDTCStatus'
+ *
+ * This event provides information on Clear DTC status.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_diagDTC_ClearStatusHandlerRef_t taf_diagDTC_AddClearStatusHandler
+(
+    taf_diagDTC_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    taf_diagDTC_ClearStatusHandlerFunc_t handlerPtr,
+        ///< [IN] DTC status handler.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    LE_DEBUG("taf_diagDTC_AddClearStatusHandler!!");
+    auto &diagDTC = taf_DTCSvr::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, NULL, "Null ptr(svcRef)");
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Null ptr(handlerPtr)");
+
+    le_event_Id_t clearDtcStatusEventId = diagDTC.GetClearDtcStatusEvent(svcRef);
+    if(clearDtcStatusEventId == NULL)
+    {
+        LE_ERROR("Clear DTC status event is not initialized");
+        return NULL;
+    }
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ClearDTCStatusHandler",
+        clearDtcStatusEventId, diagDTC.FirstLayerClearDtcStatusHandler, (void*)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_diagDTC_ClearStatusHandlerRef_t)(handlerRef);
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diagDTC_ClearDTCStatus'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_diagDTC_RemoveClearStatusHandler
+(
+    taf_diagDTC_ClearStatusHandlerRef_t handlerRef
         ///< [IN]
 )
 {
@@ -501,6 +552,58 @@ le_result_t taf_diagDTC_GetDataValue
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Add handler function for EVENT 'taf_diagDTC_ActivationStatus'
+ *
+ * This event provides information on DTC activation status.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_diagDTC_ActivationStatusHandlerRef_t taf_diagDTC_AddActivationStatusHandler
+(
+    taf_diagDTC_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    taf_diagDTC_ActivationStatusHandlerFunc_t handlerPtr,
+        ///< [IN] DTC activation status handler.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    auto &diagDTC = taf_DTCSvr::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, NULL, "Null ptr(svcRef)");
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Null ptr(handlerPtr)");
+
+    le_event_Id_t actStatusEvId = diagDTC.GetActStatusEvent(svcRef);
+    if(actStatusEvId == NULL)
+    {
+        LE_ERROR("DTC status event is not initialized");
+        return NULL;
+    }
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ActStatusHandler",
+        actStatusEvId, diagDTC.FirstLayerActStatusHandler, (void*)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_diagDTC_ActivationStatusHandlerRef_t)(handlerRef);
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diagDTC_ActivationStatus'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_diagDTC_RemoveActivationStatusHandler
+(
+    taf_diagDTC_ActivationStatusHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets a reference for all DTC, if there is no service, a new one will be created.
  *
  * @return
@@ -572,6 +675,57 @@ void taf_diagDTC_RemoveAllStatusHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Add handler function for EVENT 'taf_diagDTC_ClearAllDTCStatus'
+ *
+ * This event provides information on Clear All DTC status.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_diagDTC_ClearAllStatusHandlerRef_t taf_diagDTC_AddClearAllStatusHandler
+(
+    taf_diagDTC_AllServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    taf_diagDTC_ClearAllStatusHandlerFunc_t handlerPtr,
+        ///< [IN] DTC handler.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    LE_DEBUG("taf_diagDTC_AddClearAllStatusHandler!!");
+    auto &diagDTC = taf_DTCSvr::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, NULL, "Null ptr(svcRef)");
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Null ptr(handlerPtr)");
+
+    le_event_Id_t clearAllDtcStatusEventId = diagDTC.GetClearAllDtcStatusEvent(svcRef);
+    if(clearAllDtcStatusEventId == NULL)
+    {
+        LE_ERROR("clear all DTC status event is not initialized");
+        return NULL;
+    }
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ClearAllDTCStatusHandler",
+        clearAllDtcStatusEventId, diagDTC.FirstLayerClearAllDtcStatusHandler, (void*)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_diagDTC_ClearAllStatusHandlerRef_t)(handlerRef);
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diagDTC_ClearAllDTCStatus'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_diagDTC_RemoveClearAllStatusHandler
+(
+    taf_diagDTC_ClearAllStatusHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Clears all DTC information.
  *
  * @return
@@ -589,7 +743,7 @@ le_result_t taf_diagDTC_ClearAllInfo
 {
     auto &diagDTC = taf_DTCSvr::GetInstance();
 
-    return diagDTC.ClearAllInfo(svcRef);
+    return diagDTC.ClearAllInfo(svcRef, TAF_DIAGDTC_APP);
 }
 
 //--------------------------------------------------------------------------------------------------

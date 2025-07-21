@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -13,6 +13,7 @@
 #include "configuration.hpp"
 #include <mutex>
 #include "tafUDSStack.h"
+#include <atomic>
 
 using namespace tafsvc;
 
@@ -52,11 +53,13 @@ namespace uds{
 
     // Session control service (0x10)
     #define UDS_SESSION_CTRL_REQ_MIN_LEN 2
+    #define UDS_SESSION_CTRL_REQ_EXACT_LEN 2
     #define UDS_SESSION_CTRL_RESP_LEN 6
     #define UDS_SESSION_CHANGE_DATA_SIZE 3
 
     // ECUReset service (0x11)
     #define UDS_ECU_RESET_REQ_MIN_LEN 2
+    #define UDS_ECU_RESET_REQ_EXACT_LEN 2
     #define UDS_ECU_RESET_RESP_BASE_LEN 2
     #define HARD_RESET 1
 
@@ -100,10 +103,14 @@ namespace uds{
     #define UDS_AUTH_INFO_RESP_BASE_LEN 2
     #define UDS_AUTH_DATA_SIZE_MIN_LEN 1
     #define MAX_AUTH_TIME 30
-    #define UDS_AUTH_DATA_TYPE_ROLE 0
+
     #define UDS_AUTH_EXPIRATION_DATA_SIZE 9
     #define AUTH_CFG_NODE_PATH_LEN 128
     #define AUTH_CONF_DATA "tafDiagSvc:/authentication/"
+    #define AUTH_ROLE_READ_PATTERN "read_role"
+    #define AUTH_ROLE_WRITE_PATTERN "write_role"
+    #define AUTH_ROLE_IOCTL_PATTERN "io_role"
+    #define AUTH_ROLE_ROUTINE_PATTERN "routine_role"
 
     // Request length of authentication service
     #define UDS_AUTH_DEAUTHENTICATE_EXACT_LEN 2       //Deauthenticate
@@ -288,6 +295,7 @@ namespace uds{
     typedef enum
     {
         POSITIVE_RESPONSE = 0,
+        GENERAL_REJECT = 0x10,
         SERVICE_NOT_SUPPORTED = 0x11,
         SUBFUNCTION_NOT_SUPPORTED = 0x12,
         INCORRECT_MSG_LEN_OR_INVALID_FORMAT = 0x13,
@@ -379,6 +387,8 @@ namespace uds{
             ~UdsCommunicationMgr();
 
             static UdsCommunicationMgr * GetInstance(const char* ifName);
+            static le_result_t GetIfNameByVlanId(uint16_t vlanId, char* ifName);
+
             void Init();
             static void InitInstances(le_dls_List_t* interfaceList);
             static void InitAuthData(le_dls_List_t* interfaceList);
@@ -423,7 +433,8 @@ namespace uds{
             uint8_t sendBuf[UDS_MAX_DATA_SIZE];
             uint16_t recvDataLen = 0;
             uint16_t sendDataLen = 0;
-            bool readyToRecvData = true;
+            std::atomic<bool> readyToRecvData = {true};
+            std::atomic<bool> isPaused = {false};
             char interface[MAX_INTERFACE_NAME_LEN];
             uint16_t vlanId = 0;
             le_timer_Ref_t p2StarTimerRef;
@@ -513,8 +524,11 @@ namespace uds{
             void CheckAndRestartTesterStateTimer();
             bool IsSessTypeMatched(cfg::Node& node);
             bool IsSecurityAccessMatched(cfg::Node& node);
-            bool IsAuthRoleMatched(cfg::Node& node);
+            bool IsAuthRoleMatched(taf_UDSReqSvcID_t serviceType, cfg::Node& node);
             bool IsRequestSubFuncSupported(cfg::Node& node, uint8_t subFunc);
+            bool IsControlOptionRecordValid(uint16_t rid, uint8_t subFunc, const uint8_t* dataRec,
+                    size_t dataRecLen);
+            bool IsTotalLengthCheckValid(uint16_t rid, uint8_t subFunc, size_t dataRecLen);
 
             std::map<std::string, uint8_t>& GetSessionMap(void);
             bool IsServiceIDSupported(uint8_t sid);

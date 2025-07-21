@@ -1,12 +1,11 @@
-/*
- *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+/* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /**
  * @page c_tafRadio Radio Service
  *
- * @ref taf_radio_interface.h "API Reference"
+ * @rst :ref:`API reference <File taf_radio_interface.h>` @endrst
  *
  * <HR>
  *
@@ -90,6 +89,75 @@
  *
  *   if (strcmp(mncStr1, mncStr2) != 0)
  *       LE_ERROR("Unexpected MNC.");
+ *
+ *   @endcode
+ ** @section c_taf_radio_service_domain Service Domain
+ *
+ * Users can get the registration domain for the current serving RAT.
+ *
+ *  - taf_radio_GetServiceDomain() -- Get the registration domain for the current serving RAT.
+ *
+ *  - taf_radio_SetServiceDomainPreferences() -- Sets the service domain preferences.
+ *
+ *  - taf_radio_GetServiceDomainPreferences() -- Gets the network register mode.
+ *
+ * The following example illustrates getting service domain.
+ *
+ * @code
+ *
+ *    taf_radio_ServiceDomainState_t domain;
+ *    le_result_t result = taf_radio_GetServiceDomainPreferences(&domain, phoneId);
+ *    if (result != LE_OK)
+ *       LE_ERROR("Fail to get service domain.");
+ *    switch (domain)
+ *    {
+ *        case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_ONLY:
+ *            LE_INFO("Domain : CS Only");
+ *            break;
+ *        case TAF_RADIO_SERVICE_DOMAIN_STATE_PS_ONLY:
+ *            LE_INFO("Domain : PS Only");
+ *            break;
+ *        case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_AND_PS:
+ *            LE_INFO("Domain : CS and PS");
+ *            break;
+ *        default:
+ *            LE_ERROR("Domain : Unknown");
+ *    }
+ *
+ *   @endcode
+ *
+ * @section c_taf_radio_service_domain Service Domain
+ *
+ * Users can get the registration domain for the current serving RAT.
+ *
+ *  - taf_radio_GetServiceDomain() -- Get the registration domain for the current serving RAT.
+ *
+ *  - taf_radio_SetServiceDomainPreferences() -- Sets the service domain preferences.
+ *
+ *  - taf_radio_GetServiceDomainPreferences() -- Gets the network register mode.
+ *
+ * The following example illustrates getting service domain.
+ *
+ * @code
+ *
+ *    taf_radio_ServiceDomainState_t domain;
+ *    le_result_t result = taf_radio_GetServiceDomainPreferences(&domain, phoneId);
+ *    if (result != LE_OK)
+ *       LE_ERROR("Fail to get service domain.");
+ *    switch (domain)
+ *    {
+ *        case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_ONLY:
+ *            LE_INFO("Domain : CS Only");
+ *            break;
+ *        case TAF_RADIO_SERVICE_DOMAIN_STATE_PS_ONLY:
+ *            LE_INFO("Domain : PS Only");
+ *            break;
+ *        case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_AND_PS:
+ *            LE_INFO("Domain : CS and PS");
+ *            break;
+ *        default:
+ *            LE_ERROR("Domain : Unknown");
+ *    }
  *
  *   @endcode
  *
@@ -209,7 +277,11 @@
  *  - taf_radio_GetRatOfSignalMetrics() -- Gets RATs of signal metrics.
  *
  *  - taf_radio_GetGsmSignalMetrics() / taf_radio_GetUmtsSignalMetrics() / taf_radio_GetLteSignalMetrics() /
- *    taf_radio_GetCdmaSignalMetrics() -- Gets GSM/UMTS/LTE/CDMA signal metrics.
+ *    taf_radio_GetCdmaSignalMetrics() / taf_radio_GetNr5gSignalMetrics() -- Gets
+ *    GSM/UMTS/LTE/CDMA/NR5G signal metrics, these APIs should be called after calling
+ *    taf_radio_GetRatOfSignalMetrics to get the valid RAT. If the return value is
+ *    INVALID_SIGNAL_STRENGTH_VALUE, it indicates that the signal metrics are unknown or not
+ *    detectable.
  *
  *  - taf_radio_AddSignalStrengthChangeHandler() / taf_radio_RemoveSignalStrengthChangeHandler() --
  *    Adds/removes signal strength change handler.
@@ -312,28 +384,40 @@
  * Users can get serving cellular network information.
  *
  *  - taf_radio_GetServingCellId() -- Gets the cell ID.
- * @warning Only applicable for GSM/LTE/WCDMA/TDSCDMA.
+ *    @b WARNING: Only applicable for GSM/LTE/WCDMA/TDSCDMA.
  *
  *  - taf_radio_GetServingCellLocAreaCode() -- Gets the location area code.
- * @warning Only applicable for  GSM/WCDMA/TDSCDMA.
+ *     @b WARNING: Only applicable for  GSM/WCDMA/TDSCDMA.
  *
  *  - taf_radio_GetServingCellLteTracAreaCode() -- Gets the tracking area code.
- * @warning Only applicable for LTE.
+ *     @b WARNING: Only applicable for LTE.
  *
  *  - taf_radio_GetServingCellEarfcn() -- Gets the E-UTRA absolute radio frequency channel number.
- * @warning Only applicable for LTE.
+ *     @b WARNING: Only applicable for LTE.
  *
  *  - taf_radio_GetServingCellTimingAdvance() -- Gets the timing advance.
- * @warning Only applicable for GSM/LTE.
+ *     @b WARNING: Only applicable for GSM/LTE.
  *
  *  - taf_radio_GetPhysicalServingLteCellId() -- Gets the physical cell ID.
- * @warning Only applicable for LTE.
+ *     @b WARNING: Only applicable for LTE.
  *
  *  - taf_radio_GetServingCellGsmBsic() -- Gets the base station ID.
- * @warning Only applicable for GSM.
+ *     @b WARNING: Only applicable for GSM.
  *
  *  - taf_radio_GetServingCellScramblingCode() -- Gets the primary scrambling code.
- * @warning Only applicable for WCDMA.
+ *     @b WARNING: Only applicable for WCDMA.
+ *
+ *  - taf_radio_GetServingCellBandInfo() -- Gets 2G/3G band information.
+ *     @b WARNING: Only applicable for GSM/WCDMA/TDSCDMA.
+ *
+ *  - taf_radio_GetServingCellLteBandInfo() -- Gets LTE band information.
+ *     @b WARNING: Only applicable for LTE.
+ *
+ *  - taf_radio_GetServingCellNrBandInfo() -- Gets NR band information.
+ *     @b WARNING: Only applicable for NR.
+ *
+ *  - taf_radio_GetNrIconType() -- Gets NR icon type.
+ *     @b WARNING: Applicable for NR (basic or uwb) and also appliable for LTE and LTE will return NONE.
  *
  * @section c_taf_radio_network Network Information
  *
@@ -433,6 +517,64 @@
  *   result = taf_radio_GetHardwareSimRatCapabilities(&deviceRatCapMask,&simRatCapMask,phoneId);
  *
  *   @endcode
+ *
+ * @section c_taf_radio_ims IMS (IP Multimedia Subsystem) Information
+ *
+ * Users can set and get the IMS registration status, service status and configurations in given slot.
+ *
+ *  - taf_radio_GetImsRegStatus() -- Gets the IMS registration status in given slot.
+ *
+ *  - taf_radio_GetImsSvcStatus() -- Gets the IMS service status (including Voice over IMS and SMS) in given slot.
+ *
+ *  - taf_radio_SetImsSvcCfg() -- Sets the IMS service configurations (including IMS, Voice over IMS, Voice
+ *     over NR, SMS over IMS, RTT) in given slot.
+ *    @b WARNING: Disabling Voice over NR will result in the user equipment (UE) defaulting to support NR5G voice
+ *       over EPS fallback. To enable Voice over NR, both IMS and Voice over IMS must be enabled.
+ *
+ *  - taf_radio_GetImsSvcCfg() -- Gets the IMS service (IMS, Voice over IMS, Voice over NR, SMS over IMS, RTT)
+ *    configurations in given slot.
+ *
+ *  - taf_radio_SetImsUserAgent() -- Sets the IMS SIP User Agent configuration in given slot.
+ *
+ *  - taf_radio_GetImsUserAgent() -- Gets the IMS SIP User Agent configuration in given slot.
+ *
+ *  - taf_radio_GetImsPdpError() -- Gets the IMS PDP error in given slot.
+ *
+ *  - taf_radio_AddImsRegStatusChangeHandler() / taf_radio_RemoveImsRegStatusChangeHandler() -- Adds/removes
+ *    handler for IMS registration status change.
+ *
+ *  - taf_radio_AddImsStatusChangeHandler() / taf_radio_RemoveImsStatusChangeHandler() -- Adds/removes
+ *    handler for IMS status change.
+ *
+ * The following example illustrates the API usage.
+ *
+ * @code
+ *
+ *   // Sets IMS Voice over NR configuration.
+ *   bool enable = false;
+ *   taf_radio_ImsRef_t imsRef = taf_radio_GetIms(phoneId);
+ *   le_result_t result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, enable);
+ *   if (result == LE_OK)
+ *   {
+ *       LE_INFO("VoNR has been successfully disabled.");
+ *   } else {
+ *       LE_ERROR("Failed to disable VoNR.");
+ *   }
+ *
+ *   // Gets IMS Voice over NR configuration.
+ *   result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VONR, &enable);
+ *   if (result == LE_OK)
+ *   {
+ *       if (enable)
+ *       {
+ *           LE_INFO("VoNR is enabled");
+ *       } else {
+ *           LE_INFO("VoNR is disabled");
+ *       }
+ *   } else {
+ *       LE_ERROR("Failed to get the configuration of VoNR.");
+ *   }
+ *   @endcode
  * <HR>
  *
  */
@@ -441,6 +583,31 @@
 #include "legato.h"
 #include "interfaces.h"
 
+#include "jansson.h"
+#include <arpa/inet.h>
+
+typedef struct
+{
+    uint8_t phoneId;
+    taf_radio_ImsRegStatus_t status;
+    taf_radio_ImsIndBitMask_t bitmask;
+    taf_radio_ImsRef_t imsRef;
+} taf_RadioImsStatus_t;
+
+typedef struct Header_ {
+    uint16_t length;
+    uint16_t type;
+} Header_t;
+
+
+#define RADIO_EVENT_NODE "/tmp/radio_event"
+static int RadioEventNodeFd = -1;
+static int DummyFd = -1;
+static le_fdMonitor_Ref_t RadioEventMonitor;
+static le_mem_PoolRef_t ImsEvtPool = NULL;
+static le_event_Id_t ImsEventId;
+
+static taf_radio_ImsSvcStatus_t ImsStatus = TAF_RADIO_IMS_SVC_STATUS_UNKNOWN;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -554,6 +721,35 @@ taf_radio_PacketSwitchedChangeHandlerRef_t taf_radio_AddPacketSwitchedChangeHand
 void taf_radio_RemovePacketSwitchedChangeHandler
 (
     taf_radio_PacketSwitchedChangeHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_radio_NrIconType'
+ *
+ * Event to report NR icon type changes.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_NrIconTypeHandlerRef_t taf_radio_AddNrIconTypeHandler
+(
+    taf_radio_NrIconTypeHandlerFunc_t handlerPtr,
+        ///< [IN] Handler for NR icon type changes.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    return NULL;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_radio_NrIconType'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveNrIconTypeHandler
+(
+    taf_radio_NrIconTypeHandlerRef_t handlerRef
         ///< [IN]
 )
 {
@@ -676,6 +872,32 @@ void taf_radio_RemoveNetStatusChangeHandler
 )
 {
 }
+
+static void LayerImsStateHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    if (reportPtr == NULL)
+    {
+        LE_INFO("Null (reportPtr)");
+        return;
+    }
+
+    taf_radio_ImsStatusChangeHandlerFunc_t handlerFunc =
+        (taf_radio_ImsStatusChangeHandlerFunc_t)layerHandlerFunc;
+
+    taf_RadioImsStatus_t* statusPtr = (taf_RadioImsStatus_t*)reportPtr;
+    if (handlerFunc)
+    {
+        LE_INFO("[simulation]: callback !");
+        handlerFunc(statusPtr->imsRef, statusPtr->bitmask, statusPtr->phoneId,
+            le_event_GetContextPtr());
+    }
+
+    le_mem_Release(reportPtr);
+}
 //--------------------------------------------------------------------------------------------------
 /**
  * Add handler function for EVENT 'taf_radio_ImsStatusChange'
@@ -691,7 +913,14 @@ taf_radio_ImsStatusChangeHandlerRef_t taf_radio_AddImsStatusChangeHandler
         ///< [IN]
 )
 {
-    return NULL;
+    LE_INFO("[simulation]: add ims status change hdlr");
+    le_event_HandlerRef_t handlerRef =
+        le_event_AddLayeredHandler("Ims-Evt-Layer-Hdlr",
+                                    ImsEventId, LayerImsStateHandler,
+                                    (void*)handlerPtr);
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_radio_ImsStatusChangeHandlerRef_t)(handlerRef);
 }
 //--------------------------------------------------------------------------------------------------
 /**
@@ -704,6 +933,8 @@ void taf_radio_RemoveImsStatusChangeHandler
         ///< [IN]
 )
 {
+    LE_INFO("[simulation]: remove ims status change hdlr");
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1091,7 +1322,7 @@ le_result_t taf_radio_DeletePreferredOperatorsList
  *  - Non-null pointer -- The preferred operators list reference.
  *  - Null pointer -- Internal error or no preferred operators list.
  *
- * @note At most 1 preferred operator list per slot.
+ * @b NOTE: At most 1 preferred operator list per slot.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_PreferredOperatorListRef_t taf_radio_GetPreferredOperatorsList
@@ -1266,9 +1497,70 @@ le_result_t taf_radio_GetPacketSwitchedState
         ///< [IN] Phone ID.
 )
 {
-    // Z:FIXME
     *statePtr = TAF_RADIO_NET_REG_STATE_HOME;
     return LE_OK;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the registration domain for the current serving RAT.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServiceDomain
+(
+    taf_radio_ServiceDomainState_t* domainPtr,
+        ///< [OUT] Service domain.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Sets the service domain preferences.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetServiceDomainPreferences
+(
+    taf_radio_ServiceDomainState_t domain,
+        ///< [IN] Service domain preferences.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the service domain preferences.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServiceDomainPreferences
+(
+    taf_radio_ServiceDomainState_t* domainPtrPtr,
+        ///< [OUT] Service domain preferences.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
 }
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1399,6 +1691,8 @@ taf_radio_RatBitMask_t taf_radio_GetRatOfSignalMetrics
  *  - LE_NOT_FOUND -- Reference not found.
  *  - LE_UNAVAILABLE -- GSM unavailable.
  *  - LE_OK -- Succeeded.
+ *
+ * @deprecated The parameter @ber is deprecated.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetGsmSignalMetrics
@@ -1422,6 +1716,8 @@ le_result_t taf_radio_GetGsmSignalMetrics
  *  - LE_NOT_FOUND -- Reference not found.
  *  - LE_UNAVAILABLE -- UMTS unavailable.
  *  - LE_OK -- Succeeded.
+ *
+ * @deprecated The parameter @ber is deprecated.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetUmtsSignalMetrics
@@ -1715,7 +2011,7 @@ le_result_t taf_radio_GetServingCellGsmBsic
  *  - UINT16_MAX -- Internal error.
  *  - Others -- Primary scrambling code.
  *
- * @note Only applicable for WCDMA.
+ * @b NOTE: Only applicable for WCDMA.
  */
 //--------------------------------------------------------------------------------------------------
 uint16_t taf_radio_GetServingCellScramblingCode
@@ -2473,7 +2769,12 @@ le_result_t taf_radio_GetImsSvcStatus
         ///< [OUT] IMS service status.
 )
 {
-    return LE_NOT_IMPLEMENTED;
+
+    LE_ASSERT(statusPtr != NULL);
+
+    *statusPtr = ImsStatus;
+
+    return LE_OK;
 }
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2586,7 +2887,6 @@ le_result_t taf_radio_GetImsUserAgent
 {
     return LE_NOT_IMPLEMENTED;
 }
-
 //--------------------------------------------------------------------------------------------------
 /**
  *  Gets the DCNR and ENDC mode status.
@@ -2720,9 +3020,449 @@ le_result_t taf_radio_SetSignalStrengthIndHysteresisTimer
 {
     return LE_NOT_IMPLEMENTED;
 }
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell absolute radio frequency channel number.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @b NOTE: Only applicable for GSM.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellArfcn
+(
+    int32_t* arfcnPtr,
+        ///< [OUT] Absolute radio frequency channel number.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell UTRA absolute radio frequency channel number.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @b NOTE: Only applicable for UMTS.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellUarfcn
+(
+    int32_t* uarfcnPtr,
+        ///< [OUT] UTRA absolute radio frequency channel number.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the operating mode.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetOperatingMode
+(
+    taf_radio_OpMode_t mode,
+        ///< [IN] Operating mode.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the operating mode.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetOperatingMode
+(
+    taf_radio_OpMode_t* modePtr,
+        ///< [OUT] Operating mode.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets routing area code.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note Only applicable for GSM/WCDMA/TDSCDMA.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellRoutingAreaCode
+(
+    uint8_t* racPtr,
+        ///< [OUT] Routing area code.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets 2G/3G band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ * @b NOTE: Only applicable for GSM/WCDMA/TDSCDMA.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellBandInfo
+(
+    taf_radio_BandBitMask_t* bandPtrPtr,
+        ///< [OUT] 2G/3G active band.
+    taf_radio_RFBandWidth_t* bandWidthPtrPtr,
+        ///< [OUT] RF bandwidth information.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets LTE band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellLteBandInfo
+(
+    uint32_t* bandPtrPtr,
+        ///< [OUT] LTE active band.
+    taf_radio_RFBandWidth_t* bandWidthPtrPtr,
+        ///< [OUT] RF bandwidth information.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NR band information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellNrBandInfo
+(
+    uint32_t* bandPtrPtr,
+        ///< [OUT] NR active band.
+    taf_radio_RFBandWidth_t* bandWidthPtrPtr,
+        ///< [OUT] RF bandwidth information.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NR icon type.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetNrIconType
+(
+    taf_radio_NrIconType_t* typePtr,
+        ///< [OUT] NR icon type.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+
+static void DropAllRest(int fd)
+{
+    char buffer[128];
+    int nRead = -1;
+    while(1)
+    {
+        nRead = le_fd_Read(fd, buffer, sizeof(buffer));
+        if (nRead <= 0)
+        {
+            break;
+        }
+    }
+}
+
+static void FifoEventHandler
+(
+    int     fd,
+    short   events
+)
+{
+    char    buffer[PIPE_BUF];
+    ssize_t readSize;
+
+    LE_ASSERT(fd == RadioEventNodeFd);
+
+    if (events & POLLIN)
+    {
+
+        Header_t * header = (Header_t *)buffer;
+
+        readSize = le_fd_Read(RadioEventNodeFd, header, sizeof(*header));
+
+        if(-1 == readSize)
+        {
+            LE_INFO("Can't read fifo %s: %m", RADIO_EVENT_NODE);
+            return;
+        }
+
+        if (sizeof(Header_t) != readSize) // less than Header size
+        {
+            LE_INFO("Bad header msg to be parsed. (size: %d)", (int) readSize);
+            return;
+        }
+
+        header->length = ntohs(header->length);
+        header->type = ntohs(header->type);
+
+        if (header->length > sizeof(buffer))
+        {
+            LE_INFO("Msg length more than buffer size: %d", (int)PIPE_BUF);
+            DropAllRest(RadioEventNodeFd);
+            return;
+        }
+
+        LE_INFO("len: %d, type: %d", header->length, header->type);
+
+        uint8_t * payload = (uint8_t *) buffer + sizeof(*header);
+
+        size_t payloadTotal = 0;
+        while(payloadTotal < header->length)
+        {
+            ssize_t nRead = le_fd_Read(RadioEventNodeFd,
+                                    payload + payloadTotal,
+                                    header->length - payloadTotal);
+            if (nRead == -1)
+            {
+                if (errno == EINTR)
+                {
+                    continue;
+                }
+                else if (errno == EAGAIN)
+                {
+                    LE_INFO("No more ...");
+                    break;
+                }
+                else {
+                    LE_INFO("read error: %m");
+                    return;
+                }
+            }
+            else if (nRead == 0)
+            {
+                LE_INFO("read EOF: %m");
+                break;
+            }
+
+            payloadTotal += nRead;
+        }
+
+        LE_INFO("payloadTotal = %d", (int)payloadTotal);
+
+        switch (header->type)
+        {
+            case 0x0001: // Json format
+            {
+                json_error_t error;
+                json_t * root = json_loadb((const char *)payload, (header->length - 2), 0, &error);
+                if (root == NULL)
+                {
+                    LE_INFO("JSON error: %s", error.text);
+                    return;
+                }
+
+                json_t * node = json_object_get(root, "ims_status");
+                if (! node)
+                {
+                    LE_INFO("Not found 'ims_status' item.");
+                    json_decref(root);
+                    return;
+                }
+
+                if (!json_is_integer(node))
+                {
+                    LE_INFO("Item 'ims_status' is not <INT>");
+                    json_decref(root);
+                    return;
+                }
+
+                int status = json_integer_value(node);
+
+                json_decref(root);
+
+                if (status < TAF_RADIO_IMS_SVC_STATUS_UNAVAILABLE
+                ||  status > TAF_RADIO_IMS_SVC_STATUS_FULL_SERVICE)
+                {
+                    LE_INFO("Bad status picked from json file.");
+                    return;
+                }
+
+                // To be gotten by another API: taf_radio_GetImsSvcStatus
+                // ENUM ImsSvcStatus
+                // {
+                //     IMS_SVC_STATUS_UNKNOWN = -1, ///< Unknown status.
+                //     IMS_SVC_STATUS_UNAVAILABLE,  ///< Unavailable service status.
+                //     IMS_SVC_STATUS_LIMITED,      ///< Limited service status.
+                //     IMS_SVC_STATUS_FULL_SERVICE  ///< Full service status.
+                // };
+                ImsStatus = status;
+
+                taf_RadioImsStatus_t* statusPtr =
+                        (taf_RadioImsStatus_t*)le_mem_ForceAlloc(ImsEvtPool);
+                statusPtr->bitmask = TAF_RADIO_IMS_IND_BIT_MASK_SVC_INFO;
+                statusPtr->phoneId = 0; // unused
+                statusPtr->imsRef = NULL; // unused
+                le_event_Report(ImsEventId, (void*)statusPtr, sizeof(*statusPtr));
+                LE_INFO("report -> ims event");
+            }
+            break;
+
+            case 0x0002: // String format
+            {
+                LE_INFO("TBD -- String format");
+            }
+            break;
+
+            case 0x0003: // C struct format
+            {
+                LE_INFO("TBD -- C struct format");
+            }
+            break;
+
+            default:
+            {
+                LE_INFO("Unknown format to be parsed.");
+                return;
+            }
+        }
+    }
+    else
+    {
+        LE_INFO("<Unknown Event>");
+    }
+}
+
+static void TermSigHandler(int sigNum)
+{
+    if (access(RADIO_EVENT_NODE, F_OK) == 0)
+    {
+        unlink(RADIO_EVENT_NODE);
+    }
+
+    if (RadioEventMonitor)
+    {
+        le_fdMonitor_Delete(RadioEventMonitor);
+    }
+
+    if (RadioEventNodeFd != -1)
+    {
+        le_fd_Close(RadioEventNodeFd);
+    }
+
+    if (DummyFd != -1)
+    {
+        le_fd_Close(DummyFd);
+    }
+
+    _exit(0);
+}
 
 COMPONENT_INIT
 {
-    LE_INFO("%s --> DONE", __FUNCTION__);
-}
+    mode_t oldMask = umask(0);
 
+    int result = le_fd_MkFifo(RADIO_EVENT_NODE,
+                    S_IRUSR | S_IWUSR |
+                    S_IRGRP | S_IWGRP |
+                    S_IROTH | S_IWOTH);
+
+    if (-1 == result)
+    {
+        if (errno == EEXIST)
+        {
+            LE_INFO("%s was already there", RADIO_EVENT_NODE);
+        }
+        else
+        {
+            LE_FATAL("Can't create radio event fifo node: %m");
+        }
+    }
+
+    umask(oldMask);
+
+    LE_ASSERT(signal(SIGTERM, TermSigHandler) != SIG_ERR);
+
+    RadioEventNodeFd = le_fd_Open(RADIO_EVENT_NODE, O_RDONLY | O_NONBLOCK);
+    if (RadioEventNodeFd == -1)
+    {
+        LE_FATAL("Can't open %s: %m", RADIO_EVENT_NODE);
+    }
+
+    RadioEventMonitor = le_fdMonitor_Create("FIFO", RadioEventNodeFd, &FifoEventHandler, POLLIN);
+
+    DummyFd = le_fd_Open(RADIO_EVENT_NODE, O_WRONLY | O_NONBLOCK);
+    LE_ASSERT(DummyFd != -1);
+
+    LE_FATAL_IF(
+        RadioEventMonitor == NULL,
+        "Create monitor failed."
+    );
+
+    ImsEventId = le_event_CreateId("IMS-Evt", sizeof(taf_RadioImsStatus_t));
+    ImsEvtPool = le_mem_CreatePool("IMS-Evt", sizeof(taf_RadioImsStatus_t));
+
+    LE_INFO("[simulation]: radio init done.");
+}

@@ -1,8 +1,7 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 
 #include <exception>
 #include <stdexcept>
@@ -17,7 +16,6 @@ using std::string;
 using std::to_string;
 using namespace tafsvc;
 
-namespace pt = boost::property_tree;
 using tafsvc::mcs_ConfigurationParser;
 
 /**
@@ -983,21 +981,14 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                                 std::string filename)
 {
     LE_DEBUG ("Parse Configuration Function");
-    // Try opening an input file stream
-    std::ifstream jsonFile(filename);
-    if (!jsonFile.is_open())
-    {
-        LE_WARN("Unable to open %s", filename.c_str());
-        return false;
-    }
 
     // Try parsing the JSON
-    pt::ptree tree;
+    boost::property_tree::ptree tree;
     try
     {
-        read_json(jsonFile, tree);
+        boost::property_tree::read_json(filename, tree);
     }
-    catch (const std::exception &e)
+    catch (const boost::property_tree::json_parser_error &e)
     {
         LE_WARN("read_json exception: %s. Check validity of JSON.", e.what());
         return false;
@@ -1005,7 +996,7 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
 
     std::string log, JSON_Property, JSON_Value;
 
-    //  Keep track of mandatory objets. If they are absent return an error.
+    //  Keep track of mandatory objects. If they are absent return an error.
     bool bSimAvailable              = false;
     bool bNetworkAvailable          = false;
     bool bDataIdAvailable           = false;
@@ -1015,8 +1006,6 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
     bool bDataStartRetryAvailable   = false;
 
     for (auto & element: tree) {
-
-
         if ("ManagedConnectivityService" == element.first ) {
             log.clear();
             log = "Top Element: " + element.first;
@@ -1371,44 +1360,23 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
             LE_DEBUG ("%s", log.c_str() ); log.clear();
         }
     }
-    // Validate presence of mandatory objects
-    // The checking is done separately to return specific error logs.
-    if (!bSimAvailable)
-    {
-        LE_ERROR("Sim object is missing");
-        return false;
-    }
-    if (!bNetworkAvailable)
-    {
-        LE_ERROR("Network object is missing");
-        return false;
-    }
-    if (!bDataIdAvailable)
-    {
-        LE_ERROR("DataId object is missing");
-        return false;
-    }
-    if (!bDataNameAvailable)
-    {
-        LE_ERROR("DataName object is missing");
-        return false;
-    }
-    if (!bAutoStartAvailable)
-    {
-        LE_ERROR("AutoStart object is missing");
-        return false;
-    }
-    if (!bProfileAvailable)
-    {
-        LE_ERROR("Profile object is missing");
-        return false;
-    }
-    if (!bDataStartRetryAvailable)
-    {
-        LE_ERROR("DataStartRetry object is missing");
-        return false;
-    }
 
+    // Validate presence of mandatory objects
+    if (bSimAvailable &&
+        bNetworkAvailable &&
+        bDataIdAvailable &&
+        bDataNameAvailable &&
+        bAutoStartAvailable &&
+        bProfileAvailable &&
+        bDataStartRetryAvailable)
+    {
+        LE_DEBUG("All mandatory objects are present");
+    }
+    else
+    {
+        LE_ERROR("Mandatory objects are missing");
+        return false;
+    }
     return true;
 }
 

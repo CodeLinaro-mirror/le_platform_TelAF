@@ -1,7 +1,9 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
- */
+*
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+
 
 
 #include "tafMngdStorageSvc.hpp"
@@ -33,6 +35,18 @@ le_result_t taf_mngdStorCfg_Activate
     auto &mss = tafMngdStorageSvc::GetInstance();
 
     return mss.Activate(configRef);
+}
+
+/**
+ * Verifies the hash value of the activated configuration file.
+ */
+le_result_t taf_mngdStorCfg_VerifyActivation
+(
+    taf_mngdStorCfg_ConfigRef_t configRef
+){
+    auto &mss = tafMngdStorageSvc::GetInstance();
+
+    return mss.VerifyActivation(configRef);
 }
 
 /**

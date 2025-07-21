@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -102,6 +102,79 @@ le_result_t taf_EventSvr::GetId
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Get Operation Cycle Id by the given service reference.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::GetOperationCycleId
+(
+    taf_diagEvent_ServiceRef_t svcRef,
+    uint8_t* operationCycleIdPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "svcRef is null");
+
+    TAF_ERROR_IF_RET_VAL(operationCycleIdPtr == NULL, LE_BAD_PARAMETER,
+            "operationCycleIdPtr is null");
+
+    taf_diagEvent_EventCtx_t* eventCtxPtr = GetEventCtx(svcRef);
+
+    TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_FAULT, "Fail to get event context");
+
+    *operationCycleIdPtr = eventCtxPtr->operationCycleId;
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get DTC code by the given service reference.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::GetDTCCode
+(
+    taf_diagEvent_ServiceRef_t svcRef,
+    uint32_t* dtcCodePtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "svcRef is null");
+
+    TAF_ERROR_IF_RET_VAL(dtcCodePtr == NULL, LE_BAD_PARAMETER, "dtcCodePtr is null");
+
+    taf_diagEvent_EventCtx_t* eventCtxPtr = GetEventCtx(svcRef);
+
+    TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_FAULT, "Fail to get event context");
+
+    *dtcCodePtr = eventCtxPtr->dtcCode;
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get Enable Condition state by the given service reference.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::GetEnableCondState
+(
+    taf_diagEvent_ServiceRef_t svcRef,
+    bool* statePtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "svcRef is null");
+
+    TAF_ERROR_IF_RET_VAL(statePtr == NULL, LE_BAD_PARAMETER, "statePtr is null");
+
+    taf_diagEvent_EventCtx_t* eventCtxPtr = GetEventCtx(svcRef);
+
+    TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_FAULT, "Fail to get event context");
+
+    *statePtr = eventCtxPtr->eventEnableStatus;
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Set event status.
  */
 //-------------------------------------------------------------------------------------------------
@@ -146,10 +219,11 @@ le_result_t taf_EventSvr::SetStatusWithSupplierFaultCode
     LE_DEBUG("event id=%d, dtc code=0x%x, dtc type=%d", eventCtxPtr->eventId,
         eventCtxPtr->dtcCtxPtr->dtcCode, eventCtxPtr->dtcCtxPtr->dtcType);
     //Check condition
-    if(!IsEventConditionOK(eventCtxPtr))
+    result = CheckEventCondition(eventCtxPtr);
+    if(result != LE_OK)
     {
         LE_ERROR("Condition check is not OK.");
-        return LE_FAULT;
+        return result;
     }
 
     //Store supplier fault code
@@ -211,10 +285,11 @@ le_result_t taf_EventSvr::SetStatusWithSupplierFaultCode
     taf_diagEvent_StatusType_t oldEventFaultStatus = eventCtxPtr->eventFaultStatus;
 
     //Check condition
-    if(!IsEventConditionOK(eventCtxPtr))
+    result = CheckEventCondition(eventCtxPtr);
+    if(result != LE_OK)
     {
         LE_ERROR("Condition check is not OK.");
-        return LE_FAULT;
+        return result;
     }
 
     //Store supplier fault code
@@ -354,34 +429,38 @@ taf_diagEvent_DtcCtx_t * taf_EventSvr::GetDtcCtxByCode
  * Check the condition for the event.
  */
 //-------------------------------------------------------------------------------------------------
-bool taf_EventSvr::IsEventConditionOK
+le_result_t taf_EventSvr::CheckEventCondition
 (
     taf_diagEvent_EventCtx_t* eventCtxPtr
 )
 {
 #ifndef LE_CONFIG_DIAG_FEATURE_A
+    taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr =
+            GetOperCycleCtxById(eventCtxPtr->operationCycleId);
+
+    TAF_ERROR_IF_RET_VAL(operCycleCtxPtr == NULL, LE_FAULT, "Operation cycle not found");
     //Check operation cycle
-    if(OperationCycleStates[eventCtxPtr->operationCycleId] != TAF_DIAGEVENT_CYCLE_START)
+    if(operCycleCtxPtr->state != TAF_DIAGEVENT_CYCLE_START)
     {
         LE_ERROR("Operation cycle is not started.");
-        return false;
+        return LE_NOT_POSSIBLE;
     }
 #endif
     //enable condition
     if (!eventCtxPtr->eventEnableStatus)
     {
         LE_ERROR("Enable condition is not fullfilled.");
-        return false;
+        return LE_NOT_PERMITTED;
     }
 
     //DTC activated
     if(eventCtxPtr->dtcCtxPtr == NULL || (!eventCtxPtr->dtcCtxPtr->activationStatus))
     {
         LE_ERROR("DTC is inactive.");
-        return false;
+        return LE_UNSUPPORTED;
     }
 
-    return true;
+    return LE_OK;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -583,25 +662,28 @@ le_result_t taf_EventSvr::SetEventEnableStatus
  * Sets operation cycle.
  */
 //-------------------------------------------------------------------------------------------------
-le_result_t taf_EventSvr::SetOperationCycleState
+le_result_t taf_EventSvr::SetOperCycleState
 (
-    uint8_t operationCycleId,
+    taf_diagEvent_OpCycleRef_t operCycleRef,
     taf_diagEvent_OperationCycleState_t state
 )
 {
 #ifndef LE_CONFIG_DIAG_FEATURE_A
     le_result_t result;
+    uint8_t operationCycleId;
 
-    if(operationCycleId >= MAX_OPERATION_CYCLE_NUM)
-    {
-        LE_ERROR("operationCycleId is too big");
-        return LE_FAULT;
-    }
+    TAF_ERROR_IF_RET_VAL( operCycleRef == NULL, LE_BAD_PARAMETER, "operCycleRef is invalid");
+
+    taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr = (taf_diagEvent_OperCycleCtx_t*)le_ref_Lookup(
+            OperCycleRefMap, operCycleRef);
+    TAF_ERROR_IF_RET_VAL(operCycleCtxPtr == NULL, LE_FAULT, "Invalid operCycleCtxPtr");
+
+    operationCycleId = operCycleCtxPtr->operCycleId;
 
     switch(state)
     {
         case TAF_DIAGEVENT_CYCLE_RESTART:
-            if(OperationCycleStates[operationCycleId] == TAF_DIAGEVENT_CYCLE_START)
+            if(operCycleCtxPtr->state == TAF_DIAGEVENT_CYCLE_START)
             {
                 result = StopOperationCycle(operationCycleId);
                 if(result != LE_OK)
@@ -614,7 +696,11 @@ le_result_t taf_EventSvr::SetOperationCycleState
                 if(result != LE_OK)
                 {
                     LE_ERROR("Failed to start operation cycle");
+                    return result;
                 }
+
+                //Restart successfully, report state.
+                ReportOperCycleState(operCycleCtxPtr, TAF_DIAGEVENT_CYCLE_RESTART);
                 return result;
             }
             else
@@ -624,7 +710,7 @@ le_result_t taf_EventSvr::SetOperationCycleState
             }
         break;
         case TAF_DIAGEVENT_CYCLE_START:
-            if(OperationCycleStates[operationCycleId] != TAF_DIAGEVENT_CYCLE_START)
+            if(operCycleCtxPtr->state != TAF_DIAGEVENT_CYCLE_START)
             {
                 // Init status value when operation cycle start
                 result = StartOperationCycle(operationCycleId);
@@ -633,11 +719,16 @@ le_result_t taf_EventSvr::SetOperationCycleState
                     LE_ERROR("Failed to start operation cycle");
                     return result;
                 }
-                OperationCycleStates[operationCycleId] = TAF_DIAGEVENT_CYCLE_START;
+
+                operCycleCtxPtr->state = TAF_DIAGEVENT_CYCLE_START;
+
+                //Start successfully, report state.
+                ReportOperCycleState(operCycleCtxPtr, TAF_DIAGEVENT_CYCLE_START);
+                return result;
             }
         break;
         case TAF_DIAGEVENT_CYCLE_STOP:
-            if(OperationCycleStates[operationCycleId] != TAF_DIAGEVENT_CYCLE_STOP)
+            if(operCycleCtxPtr->state != TAF_DIAGEVENT_CYCLE_STOP)
             {
                 result = StopOperationCycle(operationCycleId);
                 if(result != LE_OK)
@@ -645,7 +736,12 @@ le_result_t taf_EventSvr::SetOperationCycleState
                     LE_ERROR("Failed to stop operation cycle");
                     return result;
                 }
-                OperationCycleStates[operationCycleId] = TAF_DIAGEVENT_CYCLE_STOP;
+
+                operCycleCtxPtr->state = TAF_DIAGEVENT_CYCLE_STOP;
+
+                //Stop successfully, report state.
+                ReportOperCycleState(operCycleCtxPtr, TAF_DIAGEVENT_CYCLE_STOP);
+                return result;
             }
         break;
     }
@@ -1518,7 +1614,7 @@ le_result_t taf_EventSvr::UpdateDtcOnPassed
 #ifdef LE_CONFIG_DIAG_FEATURE_A
 //-------------------------------------------------------------------------------------------------
 /**
- * Update event status when test failed for Nissan.
+ * Update event status when test failed for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateEventOnFailedCustomerN
@@ -1569,7 +1665,7 @@ le_result_t taf_EventSvr::UpdateEventOnFailedCustomerN
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Update DTC status for Nissan.
+ * Update DTC status for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateDtcForCustomerN
@@ -1621,7 +1717,6 @@ le_result_t taf_EventSvr::UpdateDtcForCustomerN
     }
     else if(dtcCtxPtr->occurrenceCounterProcessing  ==  TAF_DIAGEVENT_PROCESS_OCCCTR_CDTC)
     {
-
 
         if(dtcCtxPtr->occurrenceCounter < MAX_OCCURRENCE_COUNTER)
         {
@@ -1675,7 +1770,7 @@ le_result_t taf_EventSvr::UpdateDtcForCustomerN
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Update event status when test passed for Nissan.
+ * Update event status when test passed for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateEventOnPassedCustomerN
@@ -1698,6 +1793,19 @@ le_result_t taf_EventSvr::UpdateEventOnPassedCustomerN
     {
         //Set bit 0 to value 0, don't touch bit 3
         eventCtxPtr->eventUdsStatus &= ~(TAF_DIAGEVENT_UDS_STATUS_TF);
+        //Bit 0 is set or bit 3 is set
+        if(eventCtxPtr->dtcCtxPtr != NULL && ( ((eventCtxPtr->dtcCtxPtr->dtcStatus &
+                TAF_DIAGEVENT_UDS_STATUS_TF) !=0) || ((eventCtxPtr->dtcCtxPtr->dtcStatus &
+                TAF_DIAGEVENT_UDS_STATUS_CDTC) !=0)))
+        {
+            LE_DEBUG("update supplier fault code for passed event");
+            result =UpdateFaultCodeForPassedEvent(eventCtxPtr);
+            if(result != LE_OK)
+            {
+                LE_ERROR("Failed to update supplier fault code for passed event");
+                return result;
+            }
+        }
     }
     else
     {
@@ -1726,7 +1834,7 @@ le_result_t taf_EventSvr::UpdateEventOnPassedCustomerN
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Update event status when test pre passed for Nissan.
+ * Update event status when test pre passed for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateEventOnPrePassedCustomerN
@@ -1787,7 +1895,7 @@ le_result_t taf_EventSvr::UpdateEventOnPrePassedCustomerN
 
         }
 
-        //For Nissan, store fault detection counter with 0 in DB
+        //For FEATURE_A, store fault detection counter with 0 in DB
         result = taf_DataAccess_SetEventFailedCounter(eventCtxPtr->eventId, 0);
         if(result != LE_OK)
         {
@@ -1811,7 +1919,7 @@ le_result_t taf_EventSvr::UpdateEventOnPrePassedCustomerN
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Update event status when test pre failed for Nissan.
+ * Update event status when test pre failed for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateEventOnPreFailedCustomerN
@@ -1868,7 +1976,7 @@ le_result_t taf_EventSvr::UpdateEventOnPreFailedCustomerN
                     eventCtxPtr->debounceCounterBasedConfig.failedThreshold;
         }
 
-        //For Nissan, store fault detection counter in DB
+        //For FEATURE_A, store fault detection counter in DB
         float ratio = (float)MAX_FAULT_DETECTION_COUNTER/eventCtxPtr->debounceCounterBasedConfig.
                 failedThreshold;
         uint8_t faultDetectionCounter = eventCtxPtr->debounceCounter * ratio;
@@ -1898,7 +2006,7 @@ le_result_t taf_EventSvr::UpdateEventOnPreFailedCustomerN
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Update event status when test confirmed for Nissan.
+ * Update event status when test confirmed for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateEventOnConfirmedCustomerN
@@ -1945,7 +2053,7 @@ le_result_t taf_EventSvr::UpdateEventOnConfirmedCustomerN
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Update event status when test confirmed for Nissan.
+ * Update event status when test confirmed for FEATURE_A.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::UpdateEventOnTestNotCmpltCustomerN
@@ -1987,6 +2095,64 @@ le_result_t taf_EventSvr::UpdateEventOnTestNotCmpltCustomerN
 
     return LE_OK;
 }
+
+le_result_t taf_EventSvr::UpdateFaultCodeForPassedEvent
+(
+    taf_diagEvent_EventCtx_t* eventCtxPtr
+)
+{
+    taf_DataAccess_DidNode_t node;
+    le_result_t ret;
+
+    TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_BAD_PARAMETER, "this event context is NULL");
+
+    if(eventCtxPtr->supplierFaultCodeSize <= 0)
+    {
+        LE_WARN("Supplier fault code is not present");
+        return LE_OK;
+    }
+
+    size_t sfcSizeFromConf = cfg::get_did_value_size((uint16_t) DID_OF_SUPPLIER_FC);
+    size_t sfcSizePassedIn = eventCtxPtr->supplierFaultCodeSize;
+
+    if (sfcSizePassedIn > sfcSizeFromConf)
+    {
+        LE_ERROR("Bad Supplier Fault Code Size: (PASSIN: %" PRIuS ") > (YAML:%" PRIuS ")",
+                    sfcSizePassedIn, sfcSizeFromConf);
+        return LE_FAULT;
+    }
+
+    if (sfcSizePassedIn < sfcSizeFromConf)
+    {
+        uint8_t *sfcNewVal = (uint8_t *) le_mem_ForceVarAlloc(FaultCodeDataPool, sfcSizeFromConf);
+        size_t diffSize = sfcSizeFromConf - sfcSizePassedIn;
+
+        memset(sfcNewVal, 0x00, sfcSizeFromConf); // Set all bytes to ZERO
+        memcpy(sfcNewVal + diffSize, eventCtxPtr->supplierFaultCode, sfcSizePassedIn);
+
+        node.len = sfcSizeFromConf;
+        node.val = sfcNewVal;
+    }
+    else
+    {
+        node.len = eventCtxPtr->supplierFaultCodeSize;
+        node.val = eventCtxPtr->supplierFaultCode;
+    }
+
+    node.did = DID_OF_SUPPLIER_FC;
+    node.link = LE_DLS_LINK_INIT;
+    LE_DEBUG("update data length = %d", node.len);
+    ret = taf_DataAccess_UpdateFaultCodeSnapshotData(eventCtxPtr->dtcCode, &node);
+
+    //Release allocated memory
+    if (sfcSizePassedIn < sfcSizeFromConf)
+    {
+        le_mem_Release(node.val);
+    }
+
+    return ret;
+}
+
 #endif
 
 void taf_EventSvr::TriggerSnapshotData
@@ -2016,6 +2182,8 @@ void taf_EventSvr::TriggerSnapshotData
                 eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
     }
 
+    //This won't happen for FEATURE_A. Add the conditional compilation to make code clear
+#ifndef LE_CONFIG_DIAG_FEATURE_A
     //Bit 2(pendingDTC) changes from 0 to 1, trigger snapshot data
     if(((oldEventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_PDTC) == 0) &&
             ((eventCtxPtr->eventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_PDTC) != 0))
@@ -2025,6 +2193,7 @@ void taf_EventSvr::TriggerSnapshotData
         ss.triggerSnapshot(eventCtxPtr->dtcCode, cfg::DEM_TRIGGER_ON_PENDING,
                 eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
     }
+#endif
 
     //Bit 0(testFailed) changes from 0 to 1, trigger snapshot data
     if(((oldEventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_TF) == 0) &&
@@ -2036,6 +2205,8 @@ void taf_EventSvr::TriggerSnapshotData
                 eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
     }
 
+    //This won't happen for FEATURE_A. Add the conditional compilation to make code clear
+#ifndef LE_CONFIG_DIAG_FEATURE_A
     //Bit 1(testFailedThisOperationCycle) changes from 0 to 1, trigger snapshot data
     if(((oldEventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_TFTOC) == 0) &&
             ((eventCtxPtr->eventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_TFTOC) != 0))
@@ -2046,6 +2217,8 @@ void taf_EventSvr::TriggerSnapshotData
                 cfg::DEM_TRIGGER_ON_TEST_FAILED_THIS_OPERATION_CYCLE,
                 eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
     }
+#endif
+
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -2195,6 +2368,31 @@ void taf_EventSvr::FirstLayerEnableCondStateHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * FirstLayerOperCycleStateHandler.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_EventSvr::FirstLayerOperCycleStateHandler
+(
+    void* reportPtr,
+    void* secondLayerHandlerFunc
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_diagEvent_OperCycleState_t* operCycleStateEvent =
+            (taf_diagEvent_OperCycleState_t *)reportPtr;
+    TAF_ERROR_IF_RET_NIL(secondLayerHandlerFunc == NULL, "Null ptr(secondLayerHandlerFunc)");
+
+    taf_diagEvent_OpCycleStateHandlerFunc_t handlerFunc =
+            (taf_diagEvent_OpCycleStateHandlerFunc_t)secondLayerHandlerFunc;
+    handlerFunc(operCycleStateEvent->operCycleRef, operCycleStateEvent->state,
+            le_event_GetContextPtr());
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Call data handle module to store data into DB and report Event UDS status.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2312,6 +2510,29 @@ le_result_t taf_EventSvr::StoreAndReportDTCStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Report Operation Cycle state.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_EventSvr::ReportOperCycleState
+(
+    taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr,
+    taf_diagEvent_OperationCycleState_t state
+)
+{
+    TAF_ERROR_IF_RET_NIL(operCycleCtxPtr == NULL, "Invalid operCycleCtxPtr");
+
+    taf_diagEvent_OperCycleState_t* operCycleStateIndPtr =
+                (taf_diagEvent_OperCycleState_t*)le_mem_ForceAlloc(OperCycleEvIdPool);
+
+    operCycleStateIndPtr->operCycleRef = operCycleCtxPtr->operCycleRef;
+    operCycleStateIndPtr->state = state;
+
+    le_event_ReportWithRefCounting(operCycleCtxPtr->operCycleEvId, (void*)operCycleStateIndPtr);
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Report DTC status.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2326,6 +2547,42 @@ void taf_EventSvr::ReportDtcStatus
 
     diagDTC.ReportDTCStatus(dtcCtxPtr->dtcCode, dtcCtxPtr->dtcStatus);
 
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Report Clear DTC status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_EventSvr::ReportClearDtcStatus
+(
+    taf_diagEvent_DtcCtx_t* dtcCtxPtr
+)
+{
+    LE_DEBUG("ReportClearDtcStatus!!");
+    auto &diagDTC = taf_DTCSvr::GetInstance();
+
+    TAF_ERROR_IF_RET_NIL(dtcCtxPtr == NULL, "Null pointer");
+
+    diagDTC.ReportClearDTCStatus(dtcCtxPtr->dtcCode,
+            (taf_diagDTC_ReqClientType_t)dtcCtxPtr->reqClientType);
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Report Clear All DTC status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_EventSvr::ReportClearAllDtcStatus
+(
+    taf_diagDTC_ReqClientType_t clientType
+)
+{
+    LE_DEBUG("ReportClearAllDtcStatus!!");
+    auto &diagDTC = taf_DTCSvr::GetInstance();
+
+    diagDTC.ReportClearAllDTCStatus(clientType);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2665,6 +2922,7 @@ void taf_EventSvr::InitEventContext
         eventCtxPtr->timerRef = le_timer_Create(timerName);
         le_timer_SetHandler(eventCtxPtr->timerRef, TimeBasedDebounceTimerHandler);
         le_timer_SetRepeat(eventCtxPtr->timerRef, 1);
+        le_timer_SetWakeup(eventCtxPtr->timerRef, false);
         le_timer_SetContextPtr(eventCtxPtr->timerRef, eventCtxPtr);
 
         // Create fault detection counter timer for timer based debounce.
@@ -2676,6 +2934,7 @@ void taf_EventSvr::InitEventContext
                 eventCtxPtr->debounceTimeBasedConfig.fdcThreshold);
         le_timer_SetHandler(eventCtxPtr->fdcTimerRef, FdcTimerHandler);
         le_timer_SetRepeat(eventCtxPtr->fdcTimerRef, 1);
+        le_timer_SetWakeup(eventCtxPtr->fdcTimerRef, false);
         le_timer_SetContextPtr(eventCtxPtr->fdcTimerRef, eventCtxPtr);
 
     }
@@ -2973,6 +3232,10 @@ void taf_EventSvr::ClearAllDTCAndEventData
 
     auto &diagEvent = taf_EventSvr::GetInstance();
 
+    taf_diagDTC_ReqClientType_t reqType = (taf_diagDTC_ReqClientType_t)(intptr_t)param1Ptr;
+
+    TAF_ERROR_IF_RET_NIL((int)reqType != 0 && (int)reqType != 1, "reqType is Invalid");
+
     //Init dtc and event data in memory
     linkPtr = le_dls_Peek(&diagEvent.DtcCtxList);
     while (linkPtr)
@@ -2982,7 +3245,7 @@ void taf_EventSvr::ClearAllDTCAndEventData
 
         ClearDTCAndEventData(dtcCtxPtr, NULL);
     }
-
+    diagEvent.ReportClearAllDtcStatus(reqType);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -2992,6 +3255,7 @@ void taf_EventSvr::ClearAllDTCAndEventData
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::ClearAllDtc
 (
+    taf_diagDTC_ReqClientType_t clientType
 )
 {
     //Call data handle module api to delete data from database;
@@ -3004,7 +3268,20 @@ le_result_t taf_EventSvr::ClearAllDtc
         return result;
     }
 
-    le_event_QueueFunctionToThread(mainThrRef, ClearAllDTCAndEventData, NULL, NULL);
+    if(clientType == TAF_DIAGDTC_DTOOL)
+    {
+        le_event_QueueFunctionToThread(mainThrRef, ClearAllDTCAndEventData,
+                (void*)(intptr_t)clientType, NULL);
+    }
+    else if(clientType == TAF_DIAGDTC_APP)
+    {
+        ClearAllDTCAndEventData((void*)(intptr_t)clientType, NULL);
+    }
+    else
+    {
+        LE_ERROR("Unknown Client Type");
+        return LE_UNAVAILABLE;
+    }
 
     return LE_OK;
 }
@@ -3016,13 +3293,19 @@ le_result_t taf_EventSvr::ClearAllDtc
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::ClearSingleDtc
 (
-    uint32_t dtcCode
+    uint32_t dtcCode,
+    taf_diagDTC_ReqClientType_t clientType
 )
 {
+
+    auto &diagEvent = taf_EventSvr::GetInstance();
+
     le_result_t result;
     taf_diagEvent_DtcCtx_t* dtcCtxPtr = GetDtcCtxByCode(dtcCode);
 
     TAF_ERROR_IF_RET_VAL(dtcCtxPtr == NULL, LE_UNSUPPORTED, "DTC code is not supported");
+
+    dtcCtxPtr->reqClientType = (taf_diagDTC_ReqClientType_t)clientType;
 
     //Check if DTC is suppressed
     if(dtcCtxPtr->suppressionStatus == true)
@@ -3040,8 +3323,21 @@ le_result_t taf_EventSvr::ClearSingleDtc
         return result;
     }
 
-    le_event_QueueFunctionToThread(mainThrRef, ClearDTCAndEventData, dtcCtxPtr, NULL);
+    if(clientType == TAF_DIAGDTC_DTOOL)
+    {
+        le_event_QueueFunctionToThread(mainThrRef, ClearDTCAndEventData, dtcCtxPtr, NULL);
+    }
+    else if(clientType == TAF_DIAGDTC_APP)
+    {
+        ClearDTCAndEventData(dtcCtxPtr, NULL);
+    }
+    else
+    {
+        LE_ERROR("Unknown Client Type");
+        return LE_UNAVAILABLE;
+    }
 
+    diagEvent.ReportClearDtcStatus(dtcCtxPtr);
     return LE_OK;
 
 }
@@ -3053,16 +3349,17 @@ le_result_t taf_EventSvr::ClearSingleDtc
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_EventSvr::ClearDtc
 (
-    uint32_t dtcCode
+    uint32_t dtcCode,
+    taf_diagDTC_ReqClientType_t clientType
 )
 {
 
     LE_DEBUG("ClearDtc: DTC CODE:0x%x", dtcCode);
     //All group
     if(dtcCode == 0xFFFFFF)
-        return ClearAllDtc();
+        return ClearAllDtc(clientType);
     else
-        return ClearSingleDtc(dtcCode);
+        return ClearSingleDtc(dtcCode, clientType);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -3444,6 +3741,263 @@ uint8_t taf_EventSvr::CalcTimeBasedDebounceFDC
 
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get operation cycle state event ID, used to notify the Operation Cycle state change.
+ */
+//--------------------------------------------------------------------------------------------------
+le_event_Id_t taf_EventSvr::GetOperCycleStateEvent
+(
+    taf_diagEvent_OpCycleRef_t operCycleRef
+)
+{
+    TAF_ERROR_IF_RET_VAL( operCycleRef == NULL, NULL, "operCycleRef is invalid");
+
+    taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr = (taf_diagEvent_OperCycleCtx_t*)le_ref_Lookup(
+            OperCycleRefMap, operCycleRef);
+    TAF_ERROR_IF_RET_VAL(operCycleCtxPtr == NULL, NULL, "Invalid operCycleCtxPtr");
+
+    return operCycleCtxPtr->operCycleEvId;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get operation cycle state.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::GetOperCycleState
+(
+    taf_diagEvent_OpCycleRef_t operCycleRef,
+    taf_diagEvent_OperationCycleState_t* statePtr
+)
+{
+    TAF_ERROR_IF_RET_VAL( operCycleRef == NULL, LE_BAD_PARAMETER, "operCycleRef is invalid");
+    TAF_ERROR_IF_RET_VAL( statePtr == NULL, LE_BAD_PARAMETER, "statePtr is invalid");
+
+    taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr = (taf_diagEvent_OperCycleCtx_t*)le_ref_Lookup(
+            OperCycleRefMap, operCycleRef);
+    TAF_ERROR_IF_RET_VAL(operCycleCtxPtr == NULL, LE_BAD_PARAMETER, "Invalid operCycleCtxPtr");
+
+    *statePtr = operCycleCtxPtr->state;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get operation cycle ID.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::GetOperCycleIdByRef
+(
+    taf_diagEvent_OpCycleRef_t operCycleRef,
+    uint8_t* operCycleIdPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL( operCycleRef == NULL, LE_BAD_PARAMETER, "operCycleRef is invalid");
+    TAF_ERROR_IF_RET_VAL( operCycleIdPtr == NULL, LE_BAD_PARAMETER, "operCycleIdPtr is invalid");
+
+    taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr = (taf_diagEvent_OperCycleCtx_t*)le_ref_Lookup(
+            OperCycleRefMap, operCycleRef);
+    TAF_ERROR_IF_RET_VAL(operCycleCtxPtr == NULL, LE_BAD_PARAMETER, "Invalid operCycleCtxPtr");
+
+    *operCycleIdPtr = operCycleCtxPtr->operCycleId;
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Add client session into operation cycle context.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::AddSessionToOperCycleCtx
+(
+    taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr,
+    le_msg_SessionRef_t sessionRef
+)
+{
+    le_dls_Link_t* linkPtr = NULL;
+
+    TAF_ERROR_IF_RET_VAL(operCycleCtxPtr == NULL, LE_BAD_PARAMETER, "Oper cycle context is NULL");
+
+    linkPtr = le_dls_Peek(&(operCycleCtxPtr->sessionRefList));
+    while (linkPtr)
+    {
+        taf_diagEvent_SessionRef_t* sessionRefPtr = CONTAINER_OF(linkPtr,
+                taf_diagEvent_SessionRef_t, link);
+        linkPtr = le_dls_PeekNext(&(operCycleCtxPtr->sessionRefList), linkPtr);
+
+        if (sessionRefPtr->sessionRef == sessionRef)
+        {
+            LE_DEBUG("Session(%p) has been added to operation cycle Id %d", sessionRef,
+                operCycleCtxPtr->operCycleId);
+            return LE_DUPLICATE;
+        }
+    }
+
+    LE_DEBUG("add session %p for operation cycle id %d", sessionRef, operCycleCtxPtr->operCycleId );
+    taf_diagEvent_SessionRef_t* newSessionRefPtr =
+            (taf_diagEvent_SessionRef_t *)le_mem_ForceAlloc(SessionRefPool);
+
+    newSessionRefPtr->sessionRef = sessionRef;
+    newSessionRefPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&operCycleCtxPtr->sessionRefList, &(newSessionRefPtr->link));
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Remove client session from operation cycle context.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::RemoveSessionFromOperCycleCtx
+(
+    taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr,
+    le_msg_SessionRef_t sessionRef
+)
+{
+    le_dls_Link_t* linkPtr = NULL;
+
+    TAF_ERROR_IF_RET_VAL(operCycleCtxPtr == NULL, LE_BAD_PARAMETER, "Oper cycle context is NULL");
+
+    linkPtr = le_dls_Peek(&(operCycleCtxPtr->sessionRefList));
+    while (linkPtr)
+    {
+        taf_diagEvent_SessionRef_t* sessionRefPtr = CONTAINER_OF(linkPtr,
+                taf_diagEvent_SessionRef_t, link);
+        linkPtr = le_dls_PeekNext(&(operCycleCtxPtr->sessionRefList), linkPtr);
+
+        if (sessionRefPtr->sessionRef == sessionRef)
+        {
+            LE_DEBUG("remove ref(%p) from operation cycle Id(%d)", sessionRef,
+                    operCycleCtxPtr->operCycleId);
+            le_dls_Remove(&(operCycleCtxPtr->sessionRefList), &(sessionRefPtr->link));
+            le_mem_Release(sessionRefPtr);
+            return LE_OK;
+        }
+    }
+
+    LE_DEBUG("Cannot found session context with ref(%p) from OperCycleId(%d)", sessionRef,
+            operCycleCtxPtr->operCycleId);
+
+    return LE_NOT_FOUND;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get event context by event id.
+ */
+//-------------------------------------------------------------------------------------------------
+taf_diagEvent_OperCycleCtx_t * taf_EventSvr::GetOperCycleCtxById
+(
+    uint8_t operCycleId
+)
+{
+    le_dls_Link_t* linkPtr = NULL;
+
+    linkPtr = le_dls_Peek(&OperCycleCtxList);
+    while (linkPtr)
+    {
+        taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr = CONTAINER_OF(linkPtr,
+            taf_diagEvent_OperCycleCtx_t, link);
+        linkPtr = le_dls_PeekNext(&OperCycleCtxList, linkPtr);
+
+        if (operCycleCtxPtr->operCycleId == operCycleId)
+        {
+            LE_DEBUG("Get opercycleCtxPtr %p by id %d", operCycleCtxPtr, operCycleId);
+            return operCycleCtxPtr;
+        }
+    }
+
+    return NULL;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Create a reference for the operation cycle
+ */
+//-------------------------------------------------------------------------------------------------
+taf_diagEvent_OpCycleRef_t taf_EventSvr::GetOperCycle
+(
+    uint8_t operCycleId
+)
+{
+    // Search the service.
+    taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr = GetOperCycleCtxById(operCycleId);
+
+    TAF_ERROR_IF_RET_VAL(operCycleCtxPtr == NULL, NULL, "Operation cycle id is not supported");
+
+    le_msg_SessionRef_t sessionRef = taf_diagEvent_GetClientSessionRef();
+    //Service reference is not created
+    if(operCycleCtxPtr->operCycleRef== NULL)
+    {
+        // Create a Safe Reference for this service object
+        taf_diagEvent_OpCycleRef_t operCycleRef = (taf_diagEvent_OpCycleRef_t)le_ref_CreateRef(
+                OperCycleRefMap, operCycleCtxPtr);
+        TAF_ERROR_IF_RET_VAL(operCycleRef == NULL, NULL, "cannot alloc operCycleRef");
+
+        operCycleCtxPtr->operCycleRef = operCycleRef;
+
+        operCycleCtxPtr->sessionRefList = LE_DLS_LIST_INIT;
+
+        LE_DEBUG("operaCycleSvcRef %p of client %p is created for operation cycle id %d.",
+            operCycleCtxPtr->operCycleRef, sessionRef, operCycleId);
+    }
+    else
+    {
+        LE_DEBUG("Operation cycle ref %p already created",operCycleCtxPtr->operCycleRef );
+    }
+
+    // Add client reference to the session list
+    AddSessionToOperCycleCtx(operCycleCtxPtr, sessionRef);
+
+    return operCycleCtxPtr->operCycleRef;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Remove the created operation cycle reference and release the allocated memory.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_EventSvr::RemoveOperCycle
+(
+    taf_diagEvent_OpCycleRef_t operCycleRef
+)
+{
+    TAF_ERROR_IF_RET_VAL(operCycleRef == NULL, LE_BAD_PARAMETER, "svcRef is null");
+    le_msg_SessionRef_t sessionRef = taf_diagEvent_GetClientSessionRef();
+
+    //Find event context one by one
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(OperCycleRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr =
+                (taf_diagEvent_OperCycleCtx_t*)le_ref_GetValue(iterRef);
+
+        if(operCycleCtxPtr != NULL)
+        {
+            if (operCycleCtxPtr->operCycleRef == operCycleRef)
+            {
+                //Remove client session reference from event session reference list
+                if( RemoveSessionFromOperCycleCtx(operCycleCtxPtr, sessionRef) == LE_OK)
+                    LE_DEBUG(" remove session %p, from operCycleCtxPtr %p with operCycle ID: %d",
+                            sessionRef, operCycleCtxPtr, operCycleCtxPtr->operCycleId);
+            }
+
+            //If session number of links is 0, release event context
+            if( le_dls_NumLinks(&operCycleCtxPtr->sessionRefList)  == 0)
+            {
+                // Clear service object
+                LE_DEBUG(" clear operation cycle id %d context", operCycleCtxPtr->operCycleId);
+                le_ref_DeleteRef(OperCycleRefMap, (void*)operCycleCtxPtr->operCycleRef);
+                operCycleCtxPtr->operCycleRef = NULL;
+            }
+        }
+    }
+
+    return LE_OK;
+}
+
 //-------------------------------------------------------------------------------------------------
 /**
  * Handle the client disconnection.
@@ -3469,17 +4023,76 @@ void taf_EventSvr::OnClientDisconnection
         {
             //Remove client session reference from event session reference list
             if( diagEvent.RemoveSessionFromEventCtx(eventCtxPtr, sessionRef) == LE_OK)
-                LE_DEBUG("remove event from context, event id %d", eventCtxPtr->eventId);
+                LE_DEBUG("remove client session from context, event id %d", eventCtxPtr->eventId);
 
-            //If session number of links is 0, release event context
+            //If session number of links is 0, release event service reference.
             if( le_dls_NumLinks(&eventCtxPtr->sessionRefList)  == 0)
             {
                 // Clear service object
-                LE_INFO(" clear event id %d context", eventCtxPtr->eventId);
+                LE_INFO(" clear event id %d reference", eventCtxPtr->eventId);
                 le_ref_DeleteRef(diagEvent.SvcRefMap, (void*)eventCtxPtr->svcRef);
                 eventCtxPtr->svcRef = NULL;
             }
         }
+    }
+
+    //Find operation cycle context one by one
+    iterRef = le_ref_GetIterator(diagEvent.OperCycleRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_diagEvent_OperCycleCtx_t* opCycleCtxPtr =
+            (taf_diagEvent_OperCycleCtx_t*)le_ref_GetValue(iterRef);
+
+        if (opCycleCtxPtr != NULL)
+        {
+            //Remove client session reference from oc session reference list
+            if( diagEvent.RemoveSessionFromOperCycleCtx(opCycleCtxPtr, sessionRef) == LE_OK)
+                LE_DEBUG("Remove client session from context, OC id %d",
+                        opCycleCtxPtr->operCycleId);
+
+            //If session number of links is 0, release operation cycle reference.
+            if( le_dls_NumLinks(&opCycleCtxPtr->sessionRefList)  == 0)
+            {
+                // Clear service object
+                LE_INFO("Clear operation cycle id %d reference", opCycleCtxPtr->operCycleId);
+                le_ref_DeleteRef(diagEvent.OperCycleRefMap, (void*)opCycleCtxPtr->operCycleRef);
+                opCycleCtxPtr->operCycleRef = NULL;
+            }
+        }
+    }
+}
+
+void taf_EventSvr::InitOperCycleContext()
+{
+    taf_diagEvent_OperCycleCtx_t* operCycleCtxPtr = NULL;
+    auto& diagEvent = taf_EventSvr::GetInstance();
+    char operCycleStateName [32] = {0};
+
+    //Get maxNumOfOperCycle from config module
+    maxNumOfOperCycle = cfg::get_operation_cycle_count();
+    LE_DEBUG("max number of oper cycle:%d", maxNumOfOperCycle);
+
+    for(int i=0; i < maxNumOfOperCycle; i++)
+    {
+        operCycleCtxPtr = (taf_diagEvent_OperCycleCtx_t *)le_mem_ForceAlloc(
+                diagEvent.OperCyclePool);
+        TAF_ERROR_IF_RET_NIL(operCycleCtxPtr == NULL, "cannot alloc operCycleCtxPtr");
+        memset(operCycleCtxPtr, 0, sizeof(taf_diagEvent_OperCycleCtx_t));
+
+        LE_INFO("create context for operation cycle ID : %d", i);
+        operCycleCtxPtr->operCycleId = i;
+        operCycleCtxPtr->state = TAF_DIAGEVENT_CYCLE_STOP;
+
+        //Create event id for operation cycle
+        snprintf(operCycleStateName, sizeof(operCycleStateName)-1, "ocStateEvId-%x", i);
+        operCycleCtxPtr->operCycleEvId = le_event_CreateIdWithRefCounting(operCycleStateName);
+
+        operCycleCtxPtr->sessionRefList = LE_DLS_LIST_INIT;
+        operCycleCtxPtr->operCycleRef = NULL;
+        operCycleCtxPtr->link = LE_DLS_LINK_INIT;
+
+        // add this operation cycle context to list
+        le_dls_Queue(&diagEvent.OperCycleCtxList, &operCycleCtxPtr->link);
     }
 }
 
@@ -3518,6 +4131,8 @@ void taf_EventSvr::EventConfiguration(cfg::Node & node)
             InitEventContext(dtc, event);
         }
     }
+
+    InitOperCycleContext();
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3547,9 +4162,19 @@ void taf_EventSvr::Init
     // Create event uds status pools.
     EventUdsStatusPool = le_mem_CreatePool("eventUdsStatusPool", sizeof(taf_diagEvent_UdsStatus_t));
 
+    // Create operation cycle memory pools.
+    OperCyclePool = le_mem_CreatePool("OperCycleSvcPool", sizeof(taf_diagEvent_OperCycleCtx_t));
+
     // Create enable condition state pools.
     EnableCondStatePool = le_mem_CreatePool("enableCondStatePool",
             sizeof(taf_diagEvent_EnableCondState_t));
+
+    // Create event operation cycle state pools.
+    OperCycleEvIdPool = le_mem_CreatePool("ocEventIdPool", sizeof(taf_diagEvent_OperCycleState_t));
+
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    FaultCodeDataPool = le_mem_CreatePool("FaultCodeDataPool", FAULT_CODE_DATA_BYTES);
+#endif
 
     // Create session reference pools.
     SessionRefPool = le_mem_InitStaticPool(tafSessionRef, TAF_EVENT_MAX_SESSION_REF,
@@ -3557,6 +4182,9 @@ void taf_EventSvr::Init
 
     // Create reference maps.
     SvcRefMap = le_ref_CreateMap("EventSvcRefMap", DEFAULT_EVENT_SVC_REF_CNT);
+
+    // Create reference maps.
+    OperCycleRefMap = le_ref_CreateMap("OperCycleRefMap", DEFAULT_EVENT_SVC_REF_CNT);
 
     // Set client session close handler.
     le_msg_AddServiceCloseHandler(taf_diagEvent_GetServiceRef(), OnClientDisconnection, NULL);

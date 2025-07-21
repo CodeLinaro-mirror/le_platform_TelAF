@@ -28,9 +28,9 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "main.h"
@@ -118,13 +118,11 @@ static void TestNewSimStateHandler(taf_sim_Id_t simId, taf_sim_States_t simState
         void* contextPtr){
     LE_INFO("New SIM event for SIM card: %d", simId);
     LE_INFO("SIM state: %s", SimStateToString(simState));
-    exit(EXIT_SUCCESS);
 }
 
 static void TestIccidChangeHandler(taf_sim_Id_t simId, const char* Iccid, void* contextPtr) {
     LE_INFO("Iccid Change event for SIM card: %d", simId);
     LE_INFO("ICCID is: %s", (const char*)Iccid);
-    exit(EXIT_SUCCESS);
 }
 
 static void TestAuthenticationResponse
@@ -451,6 +449,12 @@ COMPONENT_INIT
     else if (strcmp(testType, "setPower") == 0)
     {
         const char* powerStatusPtr = le_arg_GetArg(2);
+        if(NULL == powerStatusPtr)
+        {
+            LE_ERROR("Power status argument is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
         le_onoff_t powerStatus = GetPowerStatus(powerStatusPtr);
         tafSimTest_SetPowerCheck(simId, powerStatus);
     }

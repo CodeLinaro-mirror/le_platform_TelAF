@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -140,8 +140,8 @@
             le_result_t Restart(taf_wlanSta_WlanSTARef_t staRef);
             le_result_t SetMode(taf_wlanSta_WlanSTARef_t staRef, taf_wlanSta_Mode_t StaMode);
             le_result_t GetMode(taf_wlanSta_WlanSTARef_t staRef, taf_wlanSta_Mode_t *StaModePtr);
-            le_result_t SetStaticIPConfig(taf_wlanSta_WlanSTARef_t staRef,
-                                  const taf_wlanSta_IPConfig_t *LE_NONNULL StaStaticIPConfigPtr);
+            le_result_t SetIPConfig(taf_wlanSta_WlanSTARef_t staRef, taf_wlanSta_IPType_t StaIPType,
+                                    const taf_wlanSta_IPConfig_t *LE_NONNULL StaStaticIPConfigPtr);
             le_result_t GetIPConfig(taf_wlanSta_WlanSTARef_t staRef,
                                     taf_wlanSta_IPType_t *StaIPTypePtr,
                                     taf_wlanSta_IPConfig_t *StaStaticIPConfigPtr);

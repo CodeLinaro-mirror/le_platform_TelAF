@@ -1,35 +1,7 @@
 /*
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 //--------------------------------------------------------------------------------------------------
@@ -102,7 +74,7 @@
    handlerExRef = taf_pm_AddStateChangeExHandler(TestStateChangeExHandler, NULL);
    @endverbatim
  *
- * @section taf_pm_getMachineList Get the available Virtual Machines
+ * @section taf_pm_getMachineList Get available Virtual Machines
  *
  * TelAF Power Manager Service provides APIs to know the available machines on the device.
  * TelAF Power Manager's client calls taf_pm_GetMachineList() to get the machine available reference.
@@ -123,7 +95,7 @@
    res = taf_pm_DeleteMachineList(vmListRef);
    @endverbatim
  *
- * @section taf_pm_SendStateChangeAck Acknowledge on the state change notification
+ * @section taf_pm_SendStateChangeAck State change acknowledgement notification
  *
  * TelAF Power Manager Service should know the acknowledgement of clients to proceed
  * with the state change.
@@ -245,6 +217,50 @@ ENUM PowerMode
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Bit mask for modem wakeup selection.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK NodeModemWsBitMask
+{
+    NODE_MODEM_WS_BIT_MASK_SMS,        ///< Node Modem Wake Soure bit mask for received SMS.
+    NODE_MODEM_WS_BIT_MASK_VOICE_CALL, ///< Node Modem Wake Soure bit mask for incoming voice call.
+    NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP, ///< Node Modem Wake Source bit mask for remote
+                                                    ///< sim profile swapped based SIM refresh
+                                                    ///< indication wake up.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_3,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_4,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_5,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_6,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_7,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_8,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_9,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_10,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_11,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_12,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_13,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_14,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_15,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_16,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_17,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_18,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_19,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_20,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_21,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_22,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_23,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_24,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_25,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_26,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_27,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_28,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_29,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_30,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_31   ///< Node Modem Wake Soure bit mask Reserved.
+};
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * The struct for the client information.
  */
 //--------------------------------------------------------------------------------------------------
@@ -267,6 +283,13 @@ REFERENCE PowerState;
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE ConsolidatedAckInfo;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference to modem wakeup event.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE ModemAwakeEvent;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -331,6 +354,8 @@ REFERENCE VMList;
 //--------------------------------------------------------------------------------------------------
 /**
  * State change ConsolidatedAck Info handler.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ConsolidatedAckInfoHandler
@@ -344,11 +369,39 @@ HANDLER ConsolidatedAckInfoHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * ConsolidatedAckInfo event.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 EVENT ConsolidatedAckInfo
 (
     ConsolidatedAckInfoHandler handler  ///< The ConsolidatedAck Info handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for modem awake.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER ModemAwakeHandler
+(
+    ModemAwakeEvent ref,
+    NodeModemWsBitMask wsBitmask
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Modem awake event.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT ModemAwake
+(
+    ModemAwakeHandler handler,  ///< The modem awake event handler.
+    NodeModemWsBitMask wsBitmask
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -412,11 +465,14 @@ FUNCTION State GetPowerState
 /**
 * Sets the power state to all the Virtual Machines.
 *
+* @b NOTE: This is supported only on SA525M.
+*
+* @instaging
 * @return
 *     - LE_OK          Successfully changed the state of device.
 *     - LE_FAULT       Failed.
 *
-* @b NOTE: This is supported only on SA525M.
+
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAllVMPowerState
@@ -428,11 +484,14 @@ FUNCTION le_result_t SetAllVMPowerState
 /**
 * Sets the power state to the respective Virtual Machine.
 *
+* @b NOTE: This is supported only on SA525M.
+*
+* @instaging
 * @return
 *     - LE_OK          Successfully changed the state of Virtual Machine.
 *     - LE_FAULT       Failed.
 *
-* @b NOTE: This is supported only on SA525M.
+
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetVMPowerState
@@ -445,11 +504,13 @@ FUNCTION le_result_t SetVMPowerState
 /**
  * Gets the list of available Virtual Machines.
  *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
  * @return
  *     - non-null pointer -- The Virtual Machines List reference.
  *     - null pointer -- Internal error.
  *
- * @b NOTE: This is supported only on SA525M.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION VMList GetMachineList
@@ -460,6 +521,7 @@ FUNCTION VMList GetMachineList
 /**
  * Gets the first Virtual Machine name.
  *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameters.
@@ -478,12 +540,14 @@ FUNCTION le_result_t GetFirstMachineName
 /**
  * Gets the next Virtual Machine name based on the current position in the list.
  *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameters.
  *     - LE_NOT_FOUND -- The end of the list.
  *
- * @b NOTE: This is supported only on SA525M.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNextMachineName
@@ -495,6 +559,8 @@ FUNCTION le_result_t GetNextMachineName
 //--------------------------------------------------------------------------------------------------
 /**
  *  Deletes the Vitual Machine list.
+ *
+ * @instaging
  *
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
@@ -513,6 +579,8 @@ FUNCTION le_result_t DeleteMachineList
  *  Receives the acknowledgement from clients for state change.
  *
  * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION SendStateChangeAck
@@ -528,6 +596,8 @@ FUNCTION SendStateChangeAck
  *  Gets the information of nacked clients for a state change.
  *
  * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNackClientInfo
@@ -542,6 +612,8 @@ FUNCTION le_result_t GetNackClientInfo
  *  Gets the information of unresponsive clients for a state change.
  *
  * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetUnrespClientInfo
@@ -561,4 +633,46 @@ FUNCTION le_result_t GetUnrespClientInfo
 FUNCTION le_result_t SetPowerMode
 (
     PowerMode powerMode     ///< to set system power mode when BUB status has changed.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the whitelisted modem wakeup selection.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetModemWakeupSel
+(
+    NodeModemWsBitMask wsBitmask     ///< Modem wakeup selection to be whitelisted.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the whitelisted modem wakeup selection.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetModemWakeupSel
+(
+    NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup selection to be whitelisted.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the last modem wakeup reason.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetModemAwakeReason
+(
+    NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup reason.
 );

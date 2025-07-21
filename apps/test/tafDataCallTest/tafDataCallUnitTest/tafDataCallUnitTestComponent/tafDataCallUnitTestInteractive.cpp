@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -16,88 +16,176 @@
 #include <future>
 #include <iostream>
 #include <map>
+#include <chrono>
+#include <iomanip> // for std::fixed and std::setprecision
 
 using namespace tafsvc;
+
+static bool bPrintNotifLogsOnConsole = true;
 
 static taf_dcs_RoamingStatusHandlerRef_t                                g_roamingStatusHandlerRef;
 static std::map<uint32_t, taf_dcs_SessionStateHandlerRef_t>  g_Profile_SessionStateHandlerRef_Map;
 static std::map<uint32_t, taf_dcs_QosStatusHandlerRef_t>    g_Profile_QosStatusHandlerRef_Map;
+static std::map<uint32_t, taf_dcs_HwAccelerationStateHandlerRef_t> g_Profile_HwAccelHandlerRef_Map;
+static std::map<uint32_t, taf_dcs_ThrottledStatusHandlerRef_t>
+                                                            g_Profile_ThrottledStatusHandlerRef_Map;
 
 // Callback thread reference
 le_thread_Ref_t callbackThreadRef = nullptr;
 
+// Async commands thread reference
+le_thread_Ref_t asyncCmdThreadRef = nullptr;
+
+/**
+ * Profile management and related API are from 1 to 49.
+ * Session management and related API start from 50, with Start session being the first API.
+ * Add new APIs after this so that the order is not changed to avoid breaking automation scripts.
+ * */
 typedef enum
 {
-    PROFILE_GET_LIST = 1,
-    PROFILE_CREATE,                 //
-    PROFILE_DELETE,                 //
-    PROFILE_SET_APN,                //
-    PROFILE_SET_NAME,               //
-    PROFILE_SET_TECH_PREF,          //
-    PROFILE_SET_APN_TYPE_MASK,      //
-    PROFILE_SET_PDP,                //
-    PROFILE_SET_AUTHENTICATION,     //
-    PROFILE_GET_ID,                 //
-    PROFILE_GET_APN,               //
-    PROFILE_GET_NAME,               //
-    PROFILE_GET_TECH_PREF,          //
-    PROFILE_GET_APN_TYPE_MASK,      //
-    PROFILE_GET_PDP,                //
-    PROFILE_GET_AUTHENTICATION,     //
-    SESSION_GET_DATA_BEARER_TECH,   //
-    SESSION_GET_ROAMING_STATUS,     //
-    SESSION_GET_MAX_DATA_BIT_RATES, //
-    SESSION_CALL_END_REASON,         //
-    APN_GET_THROTTLE_INFO,           //
-    PROFILE_GET_MTU
+    PROFILE_GET_LIST = 1,            // 1
+    PROFILE_CREATE,                  // 2
+    PROFILE_DELETE,                  // 3
+    PROFILE_SET_APN,                 // 4
+    PROFILE_SET_NAME,                // 5
+    PROFILE_SET_TECH_PREF,           // 6
+    PROFILE_SET_APN_TYPE_MASK,       // 7
+    PROFILE_SET_PDP,                 // 8
+    PROFILE_SET_AUTHENTICATION,      // 9
+    PROFILE_SET_DEFAULT,             // 10
+    PROFILE_GET_ID,                  // 11
+    PROFILE_GET_APN,                 // 12
+    PROFILE_GET_NAME,                // 13
+    PROFILE_GET_TECH_PREF,           // 14
+    PROFILE_GET_APN_TYPE_MASK,       // 15
+    PROFILE_GET_PDP,                 // 16
+    PROFILE_GET_AUTHENTICATION,      // 17
+    PROFILE_GET_DEFAULT,             // 18
+    PROFILE_GET_MTU,                 // 19
+    PROFILE_IS_IPV4,                 // 20
+    PROFILE_IS_IPV6,                 // 21
+    PROFILE_GET_PHONE_ID,            // 22
+    GET_DEFAULT_PHONE_AND_PROFILE,   // 23
+    SESSION_START = 50,              // 50
+    SESSION_START_ASYNC,             // 51
+    SESSION_STOP,                    // 52
+    SESSION_STOP_ASYNC,              // 53
+    SESSION_GET_STATE,               // 54
+    SESSION_GET_DATA_BEARER_TECH,    // 55
+    SESSION_GET_ROAMING_STATUS,      // 56
+    SESSION_GET_MAX_DATA_BIT_RATES,  // 57
+    SESSION_GET_CALL_END_REASON,     // 58
+    SESSION_GET_APN_THROTTLE_STATUS, // 59
+    SESSION_GET_APN_THROTTLE_PLMN,   // 60
+    SESSION_GET_IPV4_ADDRESS,        // 61
+    SESSION_GET_IPV6_ADDRESS,        // 62
+    SESSION_GET_IPV4_DNS,            // 63
+    SESSION_GET_IPV6_DNS,            // 64
+    SESSION_GET_IPV4_GATEWAY,        // 65
+    SESSION_GET_IPV6_GATEWAY,        // 66
+    SESSION_GET_IPV4_SUBNET_MASK,    // 67
+    SESSION_GET_IPV6_SUBNET_MASK,    // 68
+    SESSION_GET_INTERFACE_NAME,      // 69
+    SESSION_GET_PH_ID_BY_INTF_NAME,  // 70
+    SESSION_GET_PROF_ID_BY_INTF_NAME // 71
 } dcsAPIs;
 
 static void ShowMenu()
 {
     std::cout << std::endl
-              << "Select an option:" << std::endl
-              << "0 -> Exit  " << std::endl
-              << PROFILE_GET_LIST               << " -> Profile: Get list"
+              << "Select an option:"                           << std::endl
+              << "0  -> Show menu  "                           << std::endl
+              << "98 -> Toggle notification output in console" << std::endl
+              << "99 -> Exit  "                   << std::endl
+              << PROFILE_GET_LIST                 << "  -> Profile: Get list"
               << std::endl
-              << PROFILE_CREATE                 << " -> Profile: Create Profile"
+              << PROFILE_CREATE                   << "  -> Profile: Create Profile"
               << std::endl
-              << PROFILE_DELETE                 << " -> Profile: Delete Profile"
+              << PROFILE_DELETE                   << "  -> Profile: Delete Profile"
               << std::endl
-              << PROFILE_SET_APN                << " -> Profile: Set APN"
+              << PROFILE_SET_APN                  << "  -> Profile: Set APN"
               << std::endl
-              << PROFILE_SET_NAME               << " -> Profile: Set name"
+              << PROFILE_SET_NAME                 << "  -> Profile: Set name"
               << std::endl
-              << PROFILE_SET_TECH_PREF          << " -> Profile: Set technology preference"
+              << PROFILE_SET_TECH_PREF            << "  -> Profile: Set tech preference"
               << std::endl
-              << PROFILE_SET_APN_TYPE_MASK      << " -> Profile: Set APN type mask"
+              << PROFILE_SET_APN_TYPE_MASK        << "  -> Profile: Set APN type mask"
               << std::endl
-              << PROFILE_SET_PDP                << " -> Profile: Set PDP(IP family type)"
+              << PROFILE_SET_PDP                  << "  -> Profile: Set PDP(IP family type)"
               << std::endl
-              << PROFILE_GET_ID                 << " -> Profile: Get Id"
+              << PROFILE_SET_AUTHENTICATION       << "  -> Profile: Set authentication"
               << std::endl
-              << PROFILE_GET_APN                << " -> Profile: Get APN"
+              << PROFILE_SET_DEFAULT              << " -> Profile: Set default"
               << std::endl
-              << PROFILE_GET_NAME               << " -> Profile: Get name"
+              << PROFILE_GET_ID                   << " -> Profile: Get Id"
               << std::endl
-              << PROFILE_GET_TECH_PREF          << " -> Profile: Get tech preference"
+              << PROFILE_GET_APN                  << " -> Profile: Get APN"
               << std::endl
-              << PROFILE_GET_APN_TYPE_MASK      << " -> Profile: Get APN type mask"
+              << PROFILE_GET_NAME                 << " -> Profile: Get name"
               << std::endl
-              << PROFILE_GET_PDP                << " -> Profile: Get PDP(IP family type)"
+              << PROFILE_GET_TECH_PREF            << " -> Profile: Get tech preference"
               << std::endl
-              << PROFILE_GET_AUTHENTICATION     << " -> Profile: Get authentication"
+              << PROFILE_GET_APN_TYPE_MASK        << " -> Profile: Get APN type mask"
               << std::endl
-              << SESSION_GET_DATA_BEARER_TECH   << " -> Session: Get data bearer technology"
+              << PROFILE_GET_PDP                  << " -> Profile: Get PDP(IP family type)"
               << std::endl
-              << SESSION_GET_ROAMING_STATUS     << " -> Session: Get roaming status"
+              << PROFILE_GET_AUTHENTICATION       << " -> Profile: Get authentication"
               << std::endl
-              << SESSION_GET_MAX_DATA_BIT_RATES << " -> Session: Get max data bit rates"
+              << PROFILE_GET_DEFAULT              << " -> Profile: Get default"
               << std::endl
-              << SESSION_CALL_END_REASON        << " -> Session: Get call end reason"
+              << PROFILE_GET_MTU                  << " -> Profile: Get MTU"
               << std::endl
-              << APN_GET_THROTTLE_INFO          << " -> Session: Get apn throttle status"
+              << PROFILE_IS_IPV4                  << " -> Profile: Is IPv4?"
               << std::endl
-              << PROFILE_GET_MTU                << " -> Profile: Get MTU"
+              << PROFILE_IS_IPV6                  << " -> Profile: Is IPv6?"
+              << std::endl
+              << PROFILE_GET_PHONE_ID             << " -> Profile: Get phone ID"
+              << std::endl
+              << GET_DEFAULT_PHONE_AND_PROFILE    << " -> Get default phone ID and profile ID"
+              << std::endl
+              << SESSION_START                    << " -> Session: Start"
+              << std::endl
+              << SESSION_START_ASYNC              << " -> Session: Start asynchronously"
+              << std::endl
+              << SESSION_STOP                     << " -> Session: Stop"
+              << std::endl
+              << SESSION_STOP_ASYNC               << " -> Session: Stop asynchronously"
+              << std::endl
+              << SESSION_GET_STATE                << " -> Session: Get state"
+              << std::endl
+              << SESSION_GET_DATA_BEARER_TECH     << " -> Session: Get data bearer technology"
+              << std::endl
+              << SESSION_GET_ROAMING_STATUS       << " -> Session: Get roaming status"
+              << std::endl
+              << SESSION_GET_MAX_DATA_BIT_RATES   << " -> Session: Get max data bit rates"
+              << std::endl
+              << SESSION_GET_CALL_END_REASON      << " -> Session: Get call end reason"
+              << std::endl
+              << SESSION_GET_APN_THROTTLE_STATUS  << " -> Session: Get apn throttled status"
+              << std::endl
+              << SESSION_GET_APN_THROTTLE_PLMN    << " -> Session: Get apn throttled PLMN"
+              << std::endl
+              << SESSION_GET_IPV4_ADDRESS         << " -> Session: Get IPv4 addresses"
+              << std::endl
+              << SESSION_GET_IPV6_ADDRESS         << " -> Session: Get IPv6 addresses"
+              << std::endl
+              << SESSION_GET_IPV4_DNS             << " -> Session: Get IPv4 DNS addresses"
+              << std::endl
+              << SESSION_GET_IPV6_DNS             << " -> Session: Get IPv6 DNS addresses"
+              << std::endl
+              << SESSION_GET_IPV4_GATEWAY         << " -> Session: Get IPv4 gateway address"
+              << std::endl
+              << SESSION_GET_IPV6_GATEWAY         << " -> Session: Get IPv6 gateway address"
+              << std::endl
+              << SESSION_GET_IPV4_SUBNET_MASK     << " -> Session: Get IPv4 subnet mask"
+              << std::endl
+              << SESSION_GET_IPV6_SUBNET_MASK     << " -> Session: Get IPv6 subnet mask"
+              << std::endl
+              << SESSION_GET_INTERFACE_NAME       << " -> Session: Get interface name"
+              << std::endl
+              << SESSION_GET_PH_ID_BY_INTF_NAME   << " -> Session: Get phone Id by interface name"
+              << std::endl
+              << SESSION_GET_PROF_ID_BY_INTF_NAME << " -> Session: Get profile Id by interface name"
               << std::endl
               << std::endl;
 }
@@ -111,10 +199,12 @@ static taf_dcs_ProfileRef_t GetProfileRef()
     std::cout << "Enter phone id:  ";
     std::cin.clear();
     std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     std::cout << "Enter profile id:  ";
     std::cin.clear();
     std::cin >> profileId;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     LE_TEST_INFO("Phone ID: %d, Profile ID: %d", phoneID, profileId);
 
@@ -277,28 +367,20 @@ static le_result_t GetAuthentication()
     return result;
 }
 
-static le_result_t GetProfileListEx()
+static le_result_t GetProfileListEx(uint8_t phoneId)
 {
-    LE_TEST_INFO("Get profile list");
-    taf_dcs_ProfileInfo_t profilesInfoPtr[TAF_DCS_PROFILE_LIST_MAX_ENTRY];
     size_t listSize = 0;
-    le_result_t result;
-    int phoneID = 1;
+    taf_dcs_ProfileInfo_t profilesInfoPtr[TAF_DCS_PROFILE_LIST_MAX_ENTRY];
     taf_dcs_ProfileRef_t profileRef = NULL;
     std::string logStr;
     char apnStr[TAF_DCS_APN_NAME_MAX_LEN];
     taf_dcs_Pdp_t pdp;
-
-    std::cout << "Enter phone id:  ";
-    std::cin.clear();
-    std::cin >> phoneID;
-
-    result = taf_dcs_GetProfileListEx(static_cast<uint8_t>(phoneID), profilesInfoPtr, &listSize);
+    le_result_t result = taf_dcs_GetProfileListEx(phoneId, profilesInfoPtr, &listSize);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "taf_dcs_GetProfileListEx failed");
 
     logStr.clear();
     logStr = logStr + "Index \t APN \t\t PDP";
-    LE_TEST_INFO ("%s", logStr.c_str());
+    LE_TEST_INFO("%s", logStr.c_str());
     std::cout << logStr << std::endl;
     for (uint32_t i = 0; i < listSize; i++)
     {
@@ -308,18 +390,30 @@ static le_result_t GetProfileListEx()
         pdp = TAF_DCS_PDP_UNKNOWN;
 
         const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
-        profileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID), profileInfoPtr->index);
+        profileRef = taf_dcs_GetProfileEx(phoneId, profileInfoPtr->index);
         TAF_ERROR_IF_RET_VAL(NULL == profileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
         result = taf_dcs_GetAPN(profileRef, apnStr, TAF_DCS_APN_NAME_MAX_LEN);
         TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "taf_dcs_GetAPN failed");
         pdp = taf_dcs_GetPDP(profileRef);
 
-        logStr = logStr + std::to_string(profileInfoPtr->index) + "\t" + apnStr
-                                        + "\t\t" + taf_DCSHelper::IpFamilyTypeToString(pdp);
-        LE_TEST_INFO ("%s", logStr.c_str());
+        logStr = logStr + std::to_string(profileInfoPtr->index) + "\t" + apnStr + "\t\t" +
+                 taf_DCSHelper::IpFamilyTypeToString(pdp);
+        LE_TEST_INFO("%s", logStr.c_str());
         std::cout << logStr << std::endl;
     }
-    return LE_OK;
+    return result;
+}
+
+static le_result_t GetProfileListEx()
+{
+    LE_TEST_INFO("Get profile list");
+    int phoneID = 1;
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    return GetProfileListEx(static_cast<uint8_t>(phoneID));
 }
 
 static le_result_t SetTechPreference(taf_dcs_ProfileRef_t ProfileRef)
@@ -401,6 +495,7 @@ static le_result_t SetApnTypeMask(taf_dcs_ProfileRef_t ProfileRef)
     std::cout << "Enter APN type mask(OR the types needed. e.g DEFAULT|IMS=3): " << std::endl;
     std::cin.clear();
     std::cin >> intInput;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     taf_dcs_ApnType_t apnTypeMask = static_cast<taf_dcs_ApnType_t>(intInput);
     if (0 != intInput)
@@ -448,6 +543,7 @@ static le_result_t SetPDP(taf_dcs_ProfileRef_t ProfileRef)
     std::cout << "Enter PDP: " << std::endl;
     std::cin.clear();
     std::cin >> intInput;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     if (0 != intInput)
     {
@@ -484,7 +580,6 @@ static le_result_t SetProfileName(taf_dcs_ProfileRef_t ProfileRef)
     le_result_t result;
     char profileName[TAF_DCS_NAME_MAX_LEN + 1] = {0}; // 1 for trailing null
     std::cout << "Enter profile name(max " << TAF_DCS_NAME_MAX_LEN << " characters):  ";
-    std::cin.clear();
     std::cin.getline(profileName, (TAF_DCS_NAME_MAX_LEN));
     result = taf_dcs_SetProfileName(ProfileRef, profileName);
     if (LE_OK != result)
@@ -513,9 +608,8 @@ static le_result_t SetAPN(taf_dcs_ProfileRef_t ProfileRef)
 {
     le_result_t result;
     char apnName[TAF_DCS_APN_NAME_MAX_LEN + 1] = {0}; // 1 for trailing null
+
     std::cout << "Enter APN(max " << TAF_DCS_APN_NAME_MAX_LEN << " characters):  ";
-    std::cin.clear();
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     std::cin.getline(apnName, (TAF_DCS_APN_NAME_MAX_LEN));
     result = taf_dcs_SetAPN(ProfileRef, apnName);
     if (LE_OK != result)
@@ -527,7 +621,7 @@ static le_result_t SetAPN(taf_dcs_ProfileRef_t ProfileRef)
         LE_TEST_INFO("APN set: %s", apnName);
     }
     return result;
-}
+    }
 
 static le_result_t SetAPN()
 {
@@ -561,20 +655,20 @@ static le_result_t SetAuthentication(taf_dcs_ProfileRef_t ProfileRef)
     std::cout << "Enter auth type mask(OR the types needed. e.g PAP|CHAP=6): " << std::endl;
     std::cin.clear();
     std::cin >> intInput;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     if (0 == intInput)
     {
-        LE_TEST_INFO("Skip setting authenticaton");
+        LE_TEST_INFO("Skip setting authentication");
         return LE_OK;
     }
 
+    // Get username
     std::cout << "Enter username(max " << TAF_DCS_USER_NAME_MAX_LEN << " characters):  ";
-    std::cin.clear();
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     std::cin.getline(unStr, (TAF_DCS_USER_NAME_MAX_LEN));
+
+    // Get password
     std::cout << "Enter password(max " << TAF_DCS_PASSWORD_NAME_MAX_LEN << " characters):  ";
-    std::cin.clear();
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     std::cin.getline(pwStr, (TAF_DCS_PASSWORD_NAME_MAX_LEN));
 
     auth = static_cast<taf_dcs_Auth_t>(intInput);
@@ -590,7 +684,7 @@ static le_result_t SetAuthentication(taf_dcs_ProfileRef_t ProfileRef)
                      taf_DCSHelper::AuthMaskToString(auth).c_str(), unStr, pwStr);
     }
     return result;
-}
+    }
 
 static le_result_t SetAuthentication()
 {
@@ -614,6 +708,7 @@ static le_result_t CreateProfile()
     std::cout << "Enter phone id:  ";
     std::cin.clear();
     std::cin >> intInput;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     ProfileRef = GetProfileRef(static_cast<uint8_t>(intInput));
     if (nullptr == ProfileRef)
@@ -672,6 +767,19 @@ static le_result_t DeleteProfile()
     return taf_dcs_DeleteProfile(ProfileRef);
 }
 
+static le_result_t GetDefaultPhoneIdAndProfileId()
+{
+    le_result_t result;
+    uint8_t defaultPhoneId = 0;
+    uint32_t defaultProfileId = 0;
+    result = taf_dcs_GetDefaultPhoneIdAndProfileId(&defaultPhoneId, &defaultProfileId);
+    TAF_ERROR_IF_RET_VAL((LE_OK != result), result, "Get default phone id and profile id failed");
+    LE_TEST_INFO("Default phone id: %d, Default profile id: %d", defaultPhoneId, defaultProfileId);
+    std::cout << "Default phone id: " << static_cast<int>(defaultPhoneId)
+              << ", Default profile id: " << defaultProfileId << std::endl;
+    return result;
+}
+
 static le_result_t GetDataBearerTechnology()
 {
     LE_TEST_INFO("Get data bearer technology");
@@ -719,6 +827,7 @@ static le_result_t GetRoamingStatus()
     std::cout << "Enter phone id:  ";
     std::cin.clear();
     std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     result = taf_dcs_GetRoamingStatus(phoneID, &isRoaming, &roamingType);
     if (LE_OK!=result)
@@ -729,7 +838,7 @@ static le_result_t GetRoamingStatus()
     LE_TEST_INFO("Phone id: %d", phoneID);
     LE_TEST_INFO("Is roaming: %s", isRoaming ? "true" : "false");
     LE_TEST_INFO("Roaming type: %s", taf_DCSHelper::RoamingTypeToString(roamingType));
-    std::cout << "Phone id: " << phoneID << std::endl;
+    std::cout << "Phone id: " << static_cast<int>(phoneID) << std::endl;
     std::cout << "Is roaming: " << (isRoaming ? "true" : "false") << std::endl;
     std::cout << "Roaming type: " << taf_DCSHelper::RoamingTypeToString(roamingType) << std::endl;
     return result;
@@ -842,13 +951,7 @@ static le_result_t GetCallEndReason()
 
 static le_result_t GetAPNThrottleStatus()
 {
-    LE_TEST_INFO("Get apn throttle information");
     le_result_t result = LE_OK;
-
-    bool  areAllPLMNsThrottled;
-    char mccStr[TAF_DCS_MCC_BYTES];
-    char mncStr[TAF_DCS_MNC_BYTES];
-
     bool       isThrottled;
     uint32_t     ipv4RemainingTime;
     uint32_t     ipv6RemainingTime;
@@ -862,18 +965,7 @@ static le_result_t GetAPNThrottleStatus()
 
     result = taf_dcs_GetAPNThrottledStatus(ProfileRef,&isThrottled,&ipv4RemainingTime,
                                                                        &ipv6RemainingTime);
-    if(result != LE_OK)
-    {
-      LE_TEST_INFO("Failed to get apn throttle status: %d", result);
-      std::cout << "Failed to get apn throttle status: " << result << std::endl;
-      if(result == LE_UNAVAILABLE)
-       LE_TEST_INFO("Data profile is not throttled");
-      else if(result == LE_NOT_POSSIBLE)
-       LE_TEST_INFO("Data profile is not created");
-      else
-       LE_TEST_INFO("Some other error");
-      return result;
-    }
+    TAF_ERROR_IF_RET_VAL((LE_OK != result), result, "Get throttled status failed");
 
     LE_TEST_INFO("----isThrottled : %d", (bool)isThrottled);
     LE_TEST_INFO("----ipv4 Time : %d", (int)ipv4RemainingTime);
@@ -882,31 +974,35 @@ static le_result_t GetAPNThrottleStatus()
     std::cout << "apn throttle status: " << isThrottled << ",ipv4: " << ipv4RemainingTime
                                                         << ",ipv6: " << ipv6RemainingTime
                                                                      << std::endl;
+    return result;
+}
+
+static le_result_t GetAPNThrottledPLMN()
+{
+    le_result_t result = LE_OK;
+    bool  areAllPLMNsThrottled;
+    char mccStr[TAF_DCS_MCC_BYTES];
+    char mncStr[TAF_DCS_MNC_BYTES];
+
+    taf_dcs_ProfileRef_t ProfileRef = GetProfileRef();
+    if (nullptr == ProfileRef)
+    {
+        LE_TEST_INFO("Failed to get profile ref");
+        return LE_FAULT;
+    }
 
     result = taf_dcs_GetAPNThrottledPLMN(ProfileRef, &areAllPLMNsThrottled,
                                                        mccStr,TAF_DCS_MCC_BYTES,
                                                        mncStr,TAF_DCS_MNC_BYTES);
 
-    if(result != LE_OK)
-    {
-      LE_TEST_INFO("Failed to get apn throttle plmn: %d", result);
-      std::cout << "Failed to get apn throttle plmn: " << result << std::endl;
-      if(result == LE_UNAVAILABLE)
-       LE_TEST_INFO("Data profile is not throttled");
-      else if(result == LE_NOT_POSSIBLE)
-       LE_TEST_INFO("Data profile is not created");
-      else
-       LE_TEST_INFO("Some other error");
-      return result;
-    }
+    TAF_ERROR_IF_RET_VAL((LE_OK != result), result, "Get throttled PLMN failed");
 
     LE_TEST_INFO("----areAllPLMNsThrottled : %d", (bool)areAllPLMNsThrottled);
     LE_TEST_INFO("----MCC : %s", mccStr);
     LE_TEST_INFO("----MNC : %s", mncStr);
 
-    std::cout << "areAllPLMNsThrottled: " << areAllPLMNsThrottled << ",MCC: " << mccStr
-                                                        << ",MNC: " << mncStr
-                                                                     << std::endl;
+    std::cout << "areAllPLMNsThrottled: " << areAllPLMNsThrottled
+              << ", MCC: " << mccStr << ", MNC: " << mncStr << std::endl;
 
     return result;
 }
@@ -929,6 +1025,663 @@ static le_result_t GetMtu()
     return result;
 }
 
+static std::promise<le_result_t> StartSessionDeferredPromise;
+static void StartSessionDeferred(void *valuePtr)
+{
+    taf_dcs_ProfileRef_t ProfileRef = (taf_dcs_ProfileRef_t)valuePtr;
+    le_result_t result = taf_dcs_StartSession(ProfileRef);
+    LE_TEST_INFO("taf_dcs_StartSession result: %d", result);
+    StartSessionDeferredPromise.set_value(result);
+}
+
+static le_result_t StartSession()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    le_result_t result = GetProfileListEx(static_cast<uint8_t>(phoneID));
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetProfileListEx failed");
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    StartSessionDeferredPromise = std::promise<le_result_t>();
+    std::future<le_result_t> fut = StartSessionDeferredPromise.get_future();
+    // Send the command from another thread and wait for the result. If this is not done, the sync
+    // and async data will be started from different contexts and DCS won't be able to find it
+    // properly.
+    le_event_QueueFunctionToThread(asyncCmdThreadRef,
+                                   (le_event_DeferredFunc_t)StartSessionDeferred,
+                                   ProfileRef, NULL);
+    result = fut.get();
+    return result;
+}
+
+static std::promise<le_result_t> StartSessionAsyncPromise;
+static void asyncStartHandler(taf_dcs_ProfileRef_t profileRef, le_result_t result, void *contextPtr)
+{
+    uint32_t profileId = 0;
+    LE_TEST_INFO("Async Handler Result: %d", result);
+    le_result_t getIdResult = taf_dcs_GetProfileId(profileRef, &profileId);
+    LE_TEST_OK(LE_OK == getIdResult, "taf_dcs_GetProfileId: %d", result);
+    LE_TEST_INFO("Profile ID: %d", profileId);
+    StartSessionAsyncPromise.set_value(result);
+}
+
+// Async commands need to be run from a separate Legato thread (not from the main thread)
+static void StartSessionAsyncDeferred(void *valuePtr)
+{
+    taf_dcs_ProfileRef_t ProfileRef = (taf_dcs_ProfileRef_t)valuePtr;
+    taf_dcs_StartSessionAsync(ProfileRef, asyncStartHandler, nullptr);
+    LE_TEST_INFO("Sent taf_dcs_StartSessionAsync");
+}
+
+static le_result_t StartSessionAsync()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    le_result_t result = GetProfileListEx(static_cast<uint8_t>(phoneID));
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetProfileListEx failed");
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    StartSessionAsyncPromise = std::promise<le_result_t>();
+    std::future<le_result_t> fut = StartSessionAsyncPromise.get_future();
+    auto start = std::chrono::high_resolution_clock::now();
+
+    // Send the command from another thread and wait for the result.
+    le_event_QueueFunctionToThread( asyncCmdThreadRef,
+                                    (le_event_DeferredFunc_t)StartSessionAsyncDeferred,
+                                    ProfileRef, NULL);
+    LE_TEST_INFO("Waiting on async response...");
+    std::cout << "Waiting on async response..." << std::endl;
+    result = fut.get();
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    LE_TEST_INFO("taf_dcs_StartSessionAsync result: %d", result);
+    LE_TEST_INFO("taf_dcs_StartSessionAsync time elapsed: %.2f s", elapsed.count());
+    std::cout << "Time elapsed: " << std::fixed << std::setprecision(2)
+                                  << elapsed.count() << " seconds" << std::endl;
+
+    return result;
+}
+
+static std::promise<le_result_t> StopSessionDeferredPromise;
+static void StopSessionDeferred(void *valuePtr)
+{
+    taf_dcs_ProfileRef_t ProfileRef = (taf_dcs_ProfileRef_t)valuePtr;
+    le_result_t result = taf_dcs_StopSession(ProfileRef);
+    LE_TEST_INFO("taf_dcs_StopSession result: %d", result);
+    StopSessionDeferredPromise.set_value(result);
+}
+
+static le_result_t StopSession()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    le_result_t result = GetProfileListEx(static_cast<uint8_t>(phoneID));
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetProfileListEx failed");
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    StopSessionDeferredPromise = std::promise<le_result_t>();
+    std::future<le_result_t> fut = StopSessionDeferredPromise.get_future();
+    // Send the command from another thread and wait for the result. If this is not done, the sync
+    // and async data will be started from different contexts and DCS won't be able to find it
+    // properly.
+    le_event_QueueFunctionToThread(asyncCmdThreadRef,
+                                   (le_event_DeferredFunc_t)StopSessionDeferred,
+                                   ProfileRef, NULL);
+    result = fut.get();
+    return result;
+}
+
+static std::promise<le_result_t> StopSessionAsyncPromise;
+static void asyncStopHandler(taf_dcs_ProfileRef_t profileRef, le_result_t result, void *contextPtr)
+{
+    uint32_t profileId = 0;
+    LE_TEST_INFO("Async Handler Result: %d", result);
+    le_result_t getIdResult = taf_dcs_GetProfileId(profileRef, &profileId);
+    LE_TEST_OK(LE_OK == getIdResult, "taf_dcs_GetProfileId: %d", result);
+    LE_TEST_INFO("Profile ID: %d", profileId);
+    StopSessionAsyncPromise.set_value(result);
+}
+
+// Async commands need to be run from a separate Legato thread (not from the main thread)
+static void StopSessionAsyncDeferred(void *valuePtr)
+{
+    taf_dcs_ProfileRef_t ProfileRef = (taf_dcs_ProfileRef_t)valuePtr;
+    taf_dcs_StopSessionAsync(ProfileRef, asyncStopHandler, nullptr);
+    LE_TEST_INFO("Sent StopSessionAsyncDeferred");
+}
+
+static le_result_t StopSessionAsync()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    le_result_t result = GetProfileListEx(static_cast<uint8_t>(phoneID));
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetProfileListEx failed");
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    StopSessionAsyncPromise = std::promise<le_result_t>();
+    std::future<le_result_t> fut = StopSessionAsyncPromise.get_future();
+    auto start = std::chrono::high_resolution_clock::now();
+    // Send the command from another thread and wait for response
+    le_event_QueueFunctionToThread( asyncCmdThreadRef,
+                                    (le_event_DeferredFunc_t)StopSessionAsyncDeferred,
+                                    ProfileRef, NULL);
+
+    LE_TEST_INFO("Waiting on async response...");
+    std::cout << "Waiting on async response..." << std ::endl;
+    result = fut.get();
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    LE_TEST_INFO("taf_dcs_StopSessionAsync result: %d", result);
+    LE_TEST_INFO("taf_dcs_StopSessionAsync time elapsed: %.2f s", elapsed.count());
+    std::cout << "Time elapsed: " << std::fixed << std::setprecision(2)
+                                  << elapsed.count() << " seconds" << std::endl;
+
+    return result;
+}
+
+static std::string GetStateString(taf_dcs_ConState_t state)
+{
+    switch (state)
+    {
+        case TAF_DCS_CONNECTING:
+            return "TAF_DCS_CONNECTING";
+        case TAF_DCS_CONNECTED:
+            return "TAF_DCS_CONNECTED";
+        case TAF_DCS_DISCONNECTING:
+            return "TAF_DCS_DISCONNECTING";
+        case TAF_DCS_DISCONNECTED:
+        default:
+            return "TAF_DCS_DISCONNECTED";
+    };
+}
+
+static le_result_t GetSessionState()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    taf_dcs_ConState_t state;
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    le_result_t result = taf_dcs_GetSessionState(ProfileRef, &state);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetSessionState");
+    LE_TEST_INFO("State: %d(%s)", state, GetStateString(state).c_str());
+    std::cout << "State: " << state << "(" << GetStateString(state) << ")" << std::endl;
+
+    return result;
+}
+
+static le_result_t GetIPv4Address()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    char ipAddr[TAF_DCS_IPV4_ADDR_MAX_LEN] = {0};
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    le_result_t result = taf_dcs_GetIPv4Address(ProfileRef, ipAddr, TAF_DCS_IPV4_ADDR_MAX_LEN);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4Address");
+    LE_TEST_INFO("IPv4 Address: %s", ipAddr);
+    std::cout << "IPv4 Address: " << ipAddr << std::endl;
+    return result;
+}
+
+static le_result_t GetIPv6Address()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    char ipAddr[TAF_DCS_IPV6_ADDR_MAX_LEN] = {0};
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    le_result_t result = taf_dcs_GetIPv6Address(ProfileRef, ipAddr, TAF_DCS_IPV6_ADDR_MAX_LEN);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6Address");
+    LE_TEST_INFO("IPv6 Address: %s", ipAddr);
+    std::cout << "IPv6 Address: " << ipAddr << std::endl;
+    return result;
+}
+
+static le_result_t GetIPv4DNSAddresses()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    char ipAddr1[TAF_DCS_IPV4_ADDR_MAX_LEN] = {0};
+    char ipAddr2[TAF_DCS_IPV4_ADDR_MAX_LEN] = {0};
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    le_result_t result = taf_dcs_GetIPv4DNSAddresses(ProfileRef, ipAddr1, TAF_DCS_IPV4_ADDR_MAX_LEN,
+                                                     ipAddr2, TAF_DCS_IPV4_ADDR_MAX_LEN);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4DNSAddresses");
+    LE_TEST_INFO("IPv4 Dns1: %s, Dns2: %s", ipAddr1, ipAddr2);
+    std::cout << "IPv4 Dns1: " << ipAddr1 << ", Dns2: " << ipAddr2 << std::endl;
+    return result;
+}
+
+static le_result_t GetIPv6DNSAddresses()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    char ipAddr1[TAF_DCS_IPV6_ADDR_MAX_LEN] = {0};
+    char ipAddr2[TAF_DCS_IPV6_ADDR_MAX_LEN] = {0};
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    le_result_t result = taf_dcs_GetIPv6DNSAddresses(ProfileRef, ipAddr1, TAF_DCS_IPV6_ADDR_MAX_LEN,
+                                                     ipAddr2, TAF_DCS_IPV6_ADDR_MAX_LEN);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6DNSAddresses");
+    LE_TEST_INFO("IPv6 Dns1: %s, Dns2: %s", ipAddr1, ipAddr2);
+    std::cout << "IPv6 Dns1: " << ipAddr1 << ", Dns2: " << ipAddr2 << std::endl;
+    return result;
+}
+
+static le_result_t GetIPv4GatewayAddress()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    char ipAddr[TAF_DCS_IPV4_ADDR_MAX_LEN] = {0};
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    le_result_t result = taf_dcs_GetIPv4GatewayAddress(ProfileRef, ipAddr, TAF_DCS_IPV4_ADDR_MAX_LEN);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4GatewayAddress");
+    LE_TEST_INFO("IPv4 gateway address: %s", ipAddr);
+    std::cout << "IPv4 gateway address: " << ipAddr << std::endl;
+    return result;
+}
+
+static le_result_t GetIPv6GatewayAddress()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    char ipAddr[TAF_DCS_IPV6_ADDR_MAX_LEN] = {0};
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    le_result_t result = taf_dcs_GetIPv6GatewayAddress(ProfileRef, ipAddr, TAF_DCS_IPV6_ADDR_MAX_LEN);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6GatewayAddress");
+    LE_TEST_INFO("IPv6 gateway address: %s", ipAddr);
+    std::cout << "IPv6 gateway address: " << ipAddr << std::endl;
+    return result;
+}
+
+static le_result_t GetIPv4SubnetMask()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    uint32_t mask = 0;
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    le_result_t result = taf_dcs_GetIPv4SubnetMask(ProfileRef, &mask);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4SubnetMask");
+    LE_TEST_INFO("IPv4 subnet mask: %d", mask);
+    std::cout << "IPv4 subnet mask: " << mask << std::endl;
+    return result;
+}
+
+static le_result_t GetIPv6SubnetMask()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    uint32_t mask = 0;
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    le_result_t result = taf_dcs_GetIPv6SubnetMask(ProfileRef, &mask);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6SubnetMask");
+    LE_TEST_INFO("IPv6 subnet mask: %d", mask);
+    std::cout << "IPv6 subnet mask: " << mask << std::endl;
+    return result;
+}
+
+static le_result_t IsIPv4()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    bool bIsIPv4 = taf_dcs_IsIPv4(ProfileRef);
+    LE_TEST_INFO("Is IPv4: %d", bIsIPv4);
+    std::cout << "Is IPv4: " << bIsIPv4 << std::endl;
+    return LE_OK;
+}
+
+static le_result_t IsIPv6()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    bool bIsIPv6 = taf_dcs_IsIPv6(ProfileRef);
+    LE_TEST_INFO("Is IPv6: %d", bIsIPv6);
+    std::cout << "Is IPv6: " << bIsIPv6 << std::endl;
+    return LE_OK;
+}
+
+static le_result_t GetPhoneId()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    uint8_t phoneIDOut = 0;
+
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    le_result_t result = taf_dcs_GetPhoneId(ProfileRef, &phoneIDOut);
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "taf_dcs_GetPhoneId failed");
+
+    LE_TEST_INFO("Phone ID: %d", phoneIDOut);
+    std::cout << "Phone ID: " << static_cast<int>(phoneIDOut) << std::endl;
+    return result;
+}
+
+static le_result_t GetInterfaceName()
+{
+    int phoneID = 1;
+    int profileID = 1;
+    char ifNameStr[TAF_DCS_NAME_MAX_LEN] = {0};
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile index:  ";
+    std::cin.clear();
+    std::cin >> profileID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_ProfileRef_t ProfileRef = taf_dcs_GetProfileEx(static_cast<uint8_t>(phoneID),
+                                                           static_cast<uint32_t>(profileID));
+    TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
+
+    le_result_t result = taf_dcs_GetInterfaceName(ProfileRef, ifNameStr, TAF_DCS_NAME_MAX_LEN);
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "taf_dcs_GetInterfaceName failed");
+
+    LE_TEST_INFO ("Interface name: %s", ifNameStr);
+    std::cout << "Interface name: " << ifNameStr << std::endl;
+    return result;
+}
+
+static le_result_t GetPhoneIdByInterfaceName()
+{
+    uint8_t phoneID = 0;
+    char ifNameStr[TAF_DCS_NAME_MAX_LEN] = {0};
+    std::cout << "Enter interface name:  ";
+    std::cin.getline(ifNameStr, TAF_DCS_NAME_MAX_LEN);
+
+    le_result_t result = taf_dcs_GetPhoneIdByInterfaceName(ifNameStr, &phoneID);
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "taf_dcs_GetPhoneIdByInterfaceName failed");
+
+    LE_TEST_INFO("Phone Id: %d", phoneID);
+    std::cout << "Phone Id: " << static_cast<int>(phoneID) << std::endl;
+    return result;
+}
+
+static le_result_t GetProfileIdByInterfaceName()
+{
+    uint32_t profileID = 0;
+    char ifNameStr[TAF_DCS_NAME_MAX_LEN] = {0};
+    std::cout << "Enter interface name:  ";
+    std::cin.getline(ifNameStr, TAF_DCS_NAME_MAX_LEN);
+
+    le_result_t result = taf_dcs_GetProfileIdByInterfaceName(ifNameStr, &profileID);
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "taf_dcs_GetProfileIdByInterfaceName failed");
+
+    LE_TEST_INFO("Profile Id: %d", profileID);
+    std::cout << "Profile Id: " << static_cast<int>(profileID) << std::endl;
+    return result;
+}
+
+static void HwAccStateHandlerFunc(  taf_dcs_ProfileRef_t profileRef,
+                                    taf_dcs_HwAccelerationState_t state,
+                                    void *contextPtr)
+{
+    LE_UNUSED(contextPtr);
+
+    uint32_t profileId = 0;
+    uint8_t phoneId = 0;
+    le_result_t result = taf_dcs_GetProfileId(profileRef, &profileId);
+    LE_TEST_OK(LE_OK==result, "taf_dcs_GetProfileId result: %d", result);
+    result = taf_dcs_GetPhoneId(profileRef, &phoneId);
+    LE_TEST_OK(LE_OK == result, "taf_dcs_GetPhoneId result: %d", result);
+
+    LE_TEST_INFO("Profile %d Hw accel state : %d(%s)", profileId, state,
+                                                            (state ? "ACTIVE" : "INACTIVE"));
+
+    // Print logs on console only if enabled
+    if (!bPrintNotifLogsOnConsole)
+        return;
+
+    std::cout << "Phone ID: " << static_cast<int>(phoneId)
+              << ", Profile ID: " << profileId
+              << ", Hw accel state: " << state << "(" << (state ? "ACTIVE" : "INACTIVE") << ")"
+              << std::endl;
+}
+
+static void ThrottledStatusHandlerFunc
+(
+    taf_dcs_ProfileRef_t    profileRef,        ///< The profile reference.
+    bool       isThrottled,       ///< True when APN is throttled. False when APN is unthrottled.
+    uint32_t     ipv4RemainingTime, ///< The remaining IPv4 throttled time in milliseconds.
+    uint32_t     ipv6RemainingTime, ///< The remaining IPv6 throttled time in milliseconds.
+    void* contextPtr
+)
+{
+    uint32_t profileId = 0;
+    uint8_t phoneId = 0;
+
+    le_result_t result = taf_dcs_GetProfileId(profileRef, &profileId);
+    LE_TEST_OK(LE_OK == result, "taf_dcs_GetProfileId result: %d", result);
+    result = taf_dcs_GetPhoneId(profileRef, &phoneId);
+    LE_TEST_OK(LE_OK == result, "taf_dcs_GetPhoneId result: %d", result);
+
+
+    LE_TEST_INFO("----Phone ID    : %d", (int)phoneId);
+    LE_TEST_INFO("----Profile ID  : %d", (int)profileId);
+    LE_TEST_INFO("----isThrottled : %d", (bool)isThrottled);
+    LE_TEST_INFO("----IPv4 Time   : %d", (int)ipv4RemainingTime);
+    LE_TEST_INFO("----IPv6 Time   : %d", (int)ipv6RemainingTime);
+
+    // Print logs on console only if enabled
+    if (!bPrintNotifLogsOnConsole)
+        return;
+
+    std::cout << "Phone ID: " << static_cast<int>(phoneId)
+              << ", Profile ID: " << profileId
+              << ", isThrottled: " << isThrottled
+              << ", IPv4 time: " << ipv4RemainingTime
+              << ", IPv6 time: " << ipv6RemainingTime
+              << std::endl;
+}
 
 void RoamingStatusHandlerFunc(
     const taf_dcs_RoamingStatusInd_t *LE_NONNULL roamingStatusIndPtr,
@@ -941,6 +1694,11 @@ void RoamingStatusHandlerFunc(
     LE_TEST_INFO("Is Roaming   : %d", roamingStatusIndPtr->isRoaming);
     LE_TEST_INFO("Roaming type : %s",
                  taf_DCSHelper::RoamingTypeToString(roamingStatusIndPtr->type));
+
+    // Print logs on console only if enabled
+    if (!bPrintNotifLogsOnConsole)
+        return;
+
     std::cout << "\tRoaming status callback" << std::endl;
     std::cout << "\t\tPhone Id     : " << roamingStatusIndPtr->phoneId << std::endl;
     std::cout << "\t\tIs Roaming   : " << roamingStatusIndPtr->isRoaming << std::endl;
@@ -965,6 +1723,11 @@ void SessionStateHandlerFunc
                  profileId,
                  taf_DCSHelper::CallEventToString(callEvent),
                  taf_DCSHelper::IpFamilyTypeToString(infoPtr->ipType));
+
+    // Print logs on console only if enabled
+    if (!bPrintNotifLogsOnConsole)
+        return;
+
     std::cout << "\tSessionStateHandlerFunc" << std::endl;
     std::cout << "\t\tProfile id: " << profileId << std::endl;
     std::cout << "\t\tCall event: " << taf_DCSHelper::CallEventToString(callEvent) << std::endl;
@@ -980,23 +1743,24 @@ void QosStatusHandlerFunc
 )
 {
     LE_TEST_INFO("**** Handler for qos status Indication (Begin)****");
-    std::cout << "**** Handler for qos status Indication (Begin)****" << std::endl;
 
     LE_TEST_INFO("----QOS State : %d", (int)qosState);
-
-    std::cout << "\t\tQOS State id: " << qosState << std::endl;
+    if (bPrintNotifLogsOnConsole)
+        std::cout << "\t\tQOS State id: " << qosState << std::endl;
 
     uint32_t qosFlowId = 0;
     le_result_t result = taf_dcs_GetQosId(qosFlowRef,&qosFlowId);
     if(result == LE_OK)
     {
       LE_TEST_INFO("----Qos ID : %d", (int)qosFlowId);
-      std::cout << "\t\tQos ID id: " << qosFlowId << std::endl;
+      if (bPrintNotifLogsOnConsole)
+        std::cout << "\t\tQos ID id: " << qosFlowId << std::endl;
     }
     else
     {
       LE_TEST_INFO("----qos ID get error---");
-      std::cout << "\t\t---qos ID get error---" << std::endl;
+      if (bPrintNotifLogsOnConsole)
+          std::cout << "\t\t---qos ID get error---" << std::endl;
       return;
     }
 
@@ -1005,46 +1769,93 @@ void QosStatusHandlerFunc
     if(result == LE_OK)
     {
       LE_TEST_INFO("----Qos Mask : %d", (int)mask);
-      std::cout << "\t\tQos Mask id: " << mask << std::endl;
+      if (bPrintNotifLogsOnConsole)
+          std::cout << "\t\tQos Mask id: " << mask << std::endl;
     }
     else
     {
       LE_TEST_INFO("----qos mask get error---");
-      std::cout << "\t\t---Qos Mask get error---" << std::endl;
+      if (bPrintNotifLogsOnConsole)
+          std::cout << "\t\t---Qos Mask get error---" << std::endl;
     }
 
    if(mask & TAF_DCS_QOS_BIT_MASK_FLOW_NONE)
    {
        LE_TEST_INFO("No QOS flow mask installed");
-       std::cout << "\t\tNo QOS flow mask installed" << std::endl;
+       if (bPrintNotifLogsOnConsole)
+           std::cout << "\t\tNo QOS flow mask installed" << std::endl;
 
        return ;
    }
    if (mask & TAF_DCS_QOS_BIT_MASK_FLOW_TX_GRANTED)
    {
        LE_TEST_INFO("QOS Mask == MASK_FLOW_TX_GRANTED");
-       std::cout << "\t\tQOS Mask == MASK_FLOW_TX_GRANTED" << std::endl;
+       if (bPrintNotifLogsOnConsole)
+           std::cout << "\t\tQOS Mask == MASK_FLOW_TX_GRANTED" << std::endl;
    }
    if (mask & TAF_DCS_QOS_BIT_MASK_FLOW_RX_GRANTED)
    {
        LE_TEST_INFO("QOS Mask == MASK_FLOW_RX_GRANTED");
-       std::cout << "\t\tQOS Mask == MASK_FLOW_RX_GRANTED" << std::endl;
+       if (bPrintNotifLogsOnConsole)
+           std::cout << "\t\tQOS Mask == MASK_FLOW_RX_GRANTED" << std::endl;
    }
    if (mask & TAF_DCS_QOS_BIT_MASK_FLOW_TX_FILTERS)
    {
        LE_TEST_INFO("QOS Mask == MASK_FLOW_TX_FILTERS");
-       std::cout << "\t\tQOS Mask == MASK_FLOW_TX_FILTERS" << std::endl;
+       if (bPrintNotifLogsOnConsole)
+           std::cout << "\t\tQOS Mask == MASK_FLOW_TX_FILTERS" << std::endl;
    }
    if (mask & TAF_DCS_QOS_BIT_MASK_FLOW_RX_FILTERS)
    {
        LE_TEST_INFO("QOS Mask == MASK_FLOW_RX_FILTERS");
-       std::cout << "\t\tQOS Mask == MASK_FLOW_RX_FILTERS" << std::endl;
+       if (bPrintNotifLogsOnConsole)
+           std::cout << "\t\tQOS Mask == MASK_FLOW_RX_FILTERS" << std::endl;
    }
 
     LE_TEST_INFO("**** Handler for qos status Indication (End)****");
-    std::cout << "****Handler for qos status Indication (End)****" << std::endl;
 }
 
+static le_result_t GetDefaultProfileIndex()
+{
+    uint32_t profileId = 1;
+    int phoneID = 1;
+
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    le_result_t result = taf_dcs_GetDefaultProfileIndexEx(static_cast<uint8_t>(phoneID),
+                                                        &profileId);
+    LE_TEST_INFO("taf_dcs_SetDefaultProfileIndex result: %d", result);
+    if (LE_OK == result)
+    {
+        LE_TEST_INFO("Default profile: %d", profileId);
+        std::cout << "Default profile : " << profileId << std::endl;
+    }
+    return result;
+}
+
+static le_result_t SetDefaultProfileIndex()
+{
+    int profileId = 1;
+    int phoneID = 1;
+
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter profile id:  ";
+    std::cin.clear();
+    std::cin >> profileId;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    le_result_t result = taf_dcs_SetDefaultProfileIndexEx(static_cast<uint8_t>(phoneID),
+                                                        static_cast<uint32_t>(profileId));
+    LE_TEST_INFO("taf_dcs_SetDefaultProfileIndex result: %d", result);
+    return result;
+}
 
 static void *callback_thread_handler(void *ctxPtr)
 {
@@ -1056,7 +1867,7 @@ static void *callback_thread_handler(void *ctxPtr)
     le_result_t result;
 
     // Add roaming status handler
-    g_roamingStatusHandlerRef = taf_dcs_AddRoamingStatusHandler(RoamingStatusHandlerFunc, NULL);
+    g_roamingStatusHandlerRef  = taf_dcs_AddRoamingStatusHandler(RoamingStatusHandlerFunc, NULL);
 
     // Add session state handler for all existing profiles for PHONE_ID_1
     result = taf_dcs_GetProfileListEx(phoneId, profilesInfoPtr, &listSize);
@@ -1067,6 +1878,8 @@ static void *callback_thread_handler(void *ctxPtr)
     {
         taf_dcs_SessionStateHandlerRef_t handlerRef = nullptr;
         taf_dcs_QosStatusHandlerRef_t handlerQosRef = nullptr;
+        taf_dcs_HwAccelerationStateHandlerRef_t handlerHwAccelRef = nullptr;
+        taf_dcs_ThrottledStatusHandlerRef_t handlerThrottledRef = nullptr;
 
         taf_dcs_ProfileRef_t profileRef = nullptr;
         const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
@@ -1085,21 +1898,63 @@ static void *callback_thread_handler(void *ctxPtr)
         LE_TEST_ASSERT(nullptr != handlerQosRef, "taf_dcs_AddQosStatusHandler: phone id(%d), \
                                                 profile id: %d", phoneId, profileInfoPtr->index);
 
+        // Add HW acceleration state handler
+        handlerHwAccelRef = taf_dcs_AddHwAccelerationStateHandler(profileRef, HwAccStateHandlerFunc,
+                                                                                              NULL);
+        LE_TEST_ASSERT(nullptr != handlerHwAccelRef, "taf_dcs_AddHwAccelerationStateHandler: \
+                                                                    phone id(%d),profile id: %d",
+                                                                    phoneId, profileInfoPtr->index);
+
+        // Throttled status handler
+        handlerThrottledRef = taf_dcs_AddThrottledStatusHandler(profileRef,
+                                                                ThrottledStatusHandlerFunc, NULL);
+        LE_TEST_ASSERT(nullptr != handlerThrottledRef, "taf_dcs_AddThrottledStatusHandler: \
+                                                                    phone id(%d),profile id: %d",
+                       phoneId, profileInfoPtr->index);
+
         // Add the handler ref to the profile and session handler map
         g_Profile_SessionStateHandlerRef_Map[profileInfoPtr->index] = handlerRef;
 
         // Add the handler ref to the profile and qos handler map
         g_Profile_QosStatusHandlerRef_Map[profileInfoPtr->index] = handlerQosRef;
 
+        // Add the handler ref to the profile and HW acceleration handler map
+        g_Profile_HwAccelHandlerRef_Map[profileInfoPtr->index] = handlerHwAccelRef;
+
+        // Add the handler ref to the profile and throttled state handler map
+        g_Profile_ThrottledStatusHandlerRef_Map[profileInfoPtr->index] = handlerThrottledRef;
+
         // Set the references to nullptr
         profileRef = nullptr;
         handlerRef = nullptr;
         handlerQosRef = nullptr;
+        handlerHwAccelRef = nullptr;
+        handlerThrottledRef = nullptr;
     }
 
     // Start the event loop
     le_event_RunLoop();
     return NULL;
+}
+
+// Notification outputs are typically verbose and flood the console. This allows user to turn off
+// console notification logs. "logread" output will not be affected
+static void ToggleNotificationsOutputsOnConsole()
+{
+    char input;
+    std::cout << "Turn off notification logs on console? (y/n): ";
+    std::cin >> input;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    if ('y' == input)
+    {
+        bPrintNotifLogsOnConsole = false;
+        std::cout << "Notification logs will not be printed on console." << std::endl;
+    }
+    else
+    {
+        bPrintNotifLogsOnConsole = true;
+        std::cout << "Notification logs will be printed on console." << std::endl;
+    }
 }
 
 static void Register_Callbacks()
@@ -1132,13 +1987,14 @@ static void UnRegister_Callbacks()
 
     // Remove handlers
     taf_dcs_RemoveRoamingStatusHandler(g_roamingStatusHandlerRef);
+
     for (const auto &pair : g_Profile_SessionStateHandlerRef_Map)
     {
         uint32_t profileId = pair.first;
         taf_dcs_SessionStateHandlerRef_t handlerRef = pair.second;
 
         // Remove the session state handler
-        LE_TEST_INFO("Removed session hander for profile ID: %d", profileId);
+        LE_TEST_INFO("Removed session handler for profile ID: %d", profileId);
         taf_dcs_RemoveSessionStateHandler(handlerRef);
     }
 
@@ -1148,10 +2004,29 @@ static void UnRegister_Callbacks()
         taf_dcs_QosStatusHandlerRef_t handlerRef = pair.second;
 
         // Remove the qos state handler
-        LE_TEST_INFO("Removed qos state hander for profile ID: %d", profileId);
+        LE_TEST_INFO("Removed qos state handler for profile ID: %d", profileId);
         taf_dcs_RemoveQosStatusHandler(handlerRef);
     }
 
+    for (const auto &pair : g_Profile_HwAccelHandlerRef_Map)
+    {
+        uint32_t profileId = pair.first;
+        taf_dcs_HwAccelerationStateHandlerRef_t handlerRef = pair.second;
+
+        // Remove the qos state handler
+        LE_TEST_INFO("Removed HW accel state handler for profile ID: %d", profileId);
+        taf_dcs_RemoveHwAccelerationStateHandler(handlerRef);
+    }
+
+    for (const auto &pair : g_Profile_ThrottledStatusHandlerRef_Map)
+    {
+        uint32_t profileId = pair.first;
+        taf_dcs_ThrottledStatusHandlerRef_t handlerRef = pair.second;
+
+        // Remove the qos state handler
+        LE_TEST_INFO("Removed throttled state handler for profile ID: %d", profileId);
+        taf_dcs_RemoveThrottledStatusHandler (handlerRef);
+    }
 
     // Stop the callback thread
     le_thread_Cancel(callbackThreadRef);
@@ -1170,9 +2045,8 @@ static void *async_cmd_thread_handler(void *ctxPtr)
 void tafDCSUnitTest_RunInteractiveTests()
 {
     bool bRun = true;
-    int option = 0;
+    int option = -1;
     le_result_t result = LE_OK;
-    le_thread_Ref_t asyncCmdThreadRef = nullptr;
     le_sem_Ref_t asyncCmdSemRef = nullptr;
     std::string logStr;
     asyncCmdSemRef = le_sem_Create("asyncCmdSem", 0);
@@ -1184,19 +2058,46 @@ void tafDCSUnitTest_RunInteractiveTests()
     le_sem_Delete(asyncCmdSemRef);
 
     Register_Callbacks();
+    ShowMenu();
     while (bRun)
     {
-        ShowMenu();
-        std::cout << "Enter the option for the test" << std::endl;
-        std::cin.clear();
-        std::cin >> option;
+        std::cout << "Enter option to test: ";
+        if (!(std::cin >> option))
+        {
+            std::cout << "Not a number" << std::endl;
+            std::cin.clear(); // Clear the error flag
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            continue;
+        }
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
         switch (option)
         {
             case 0:
-            case 'q':
+            {
+                ShowMenu();
+                option = -1;
+                break;
+            }
+            case 98:
+            {
+                ToggleNotificationsOutputsOnConsole();
+                break;
+            }
+            case 99:
             {
                 // Stop the test
                 bRun = false;
+                break;
+            }
+            case GET_DEFAULT_PHONE_AND_PROFILE:
+            {
+                result = GetDefaultPhoneIdAndProfileId();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetDefaultPhoneIdAndProfileId: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
                 break;
             }
             case SESSION_GET_DATA_BEARER_TECH:
@@ -1229,7 +2130,7 @@ void tafDCSUnitTest_RunInteractiveTests()
                 std::cout << logStr << std::endl;
                 break;
             }
-            case SESSION_CALL_END_REASON:
+            case SESSION_GET_CALL_END_REASON:
             {
                 result = GetCallEndReason();
                 logStr.clear();
@@ -1399,11 +2300,21 @@ void tafDCSUnitTest_RunInteractiveTests()
                 std::cout << logStr << std::endl;
                 break;
             }
-            case APN_GET_THROTTLE_INFO:
+            case SESSION_GET_APN_THROTTLE_STATUS:
             {
                 result = GetAPNThrottleStatus();
                 logStr.clear();
                 logStr = logStr + "taf_dcs_GetAPNThrottleStatus: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_APN_THROTTLE_PLMN:
+            {
+                result = GetAPNThrottledPLMN();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetAPNThrottledPLMN: " +
                          std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
                 LE_TEST_INFO("%s", logStr.c_str());
                 std::cout << logStr << std::endl;
@@ -1419,9 +2330,219 @@ void tafDCSUnitTest_RunInteractiveTests()
                 std::cout << logStr << std::endl;
                 break;
             }
+            case PROFILE_SET_DEFAULT:
+            {
+                result = SetDefaultProfileIndex();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_SetDefaultProfileIndexEx: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case PROFILE_GET_DEFAULT:
+            {
+                result = GetDefaultProfileIndex();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetDefaultProfileIndexEx: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_START:
+            {
+                result = StartSession();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_StartSession: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_START_ASYNC:
+            {
+                result = StartSessionAsync();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_StartSessionAsync: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_STOP:
+            {
+                result = StopSession();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_StopSession: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_STOP_ASYNC:
+            {
+                result = StopSessionAsync();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_StopSessionAsync: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_STATE:
+            {
+                result = GetSessionState();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetSessionState: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_IPV4_ADDRESS:
+            {
+                result = GetIPv4Address();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetIPv4Address: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_IPV6_ADDRESS:
+            {
+                result = GetIPv6Address();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetIPv6Address: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_IPV4_DNS:
+            {
+                result = GetIPv4DNSAddresses();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetIPv4DNSAddresses: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_IPV6_DNS:
+            {
+                result = GetIPv6DNSAddresses();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetIPv6DNSAddresses: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_IPV4_GATEWAY:
+            {
+                result = GetIPv4GatewayAddress();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetIPv4GatewayAddress: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_IPV6_GATEWAY:
+            {
+                result = GetIPv6GatewayAddress();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetIPv6GatewayAddress: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_IPV4_SUBNET_MASK:
+            {
+                result = GetIPv4SubnetMask();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetIPv4SubnetMask: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_IPV6_SUBNET_MASK:
+            {
+                result = GetIPv6SubnetMask();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetIPv6SubnetMask: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case PROFILE_IS_IPV4:
+            {
+                result = IsIPv4();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_IsIPv4: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case PROFILE_IS_IPV6:
+            {
+                result = IsIPv6();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_IsIPv6: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case PROFILE_GET_PHONE_ID:
+            {
+                result = GetPhoneId();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetPhoneId: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_INTERFACE_NAME:
+            {
+                result = GetInterfaceName();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetInterfaceName: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_PH_ID_BY_INTF_NAME:
+            {
+                result = GetPhoneIdByInterfaceName();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetPhoneIdByInterfaceName: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_PROF_ID_BY_INTF_NAME:
+            {
+                result = GetProfileIdByInterfaceName();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetProfileIdByInterfaceName: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
             default:
             {
-                std::cerr << "You entered an invalid option";
+                std::cerr << "You entered an invalid option." << std::endl;
                 LE_TEST_INFO("Invalid test command %d", option);
                 break;
             }

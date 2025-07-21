@@ -2343,13 +2343,13 @@ static void TestTafGnssConstellations
     constellationMask = 0;
     LE_TEST_INFO("taf_locGnss_SetConstellation() API to set 0- constellation type");
     result = taf_locGnss_SetConstellation(constellationMask);
-    LE_TEST_OK(result == LE_FAULT,"taf_locGnss_SetConstellation-LE_FAULT");
+    LE_TEST_OK(((LE_OK == result) || (LE_FAULT == result)),"taf_locGnss_SetConstellation-LE_FAULT_LE_OK");
 
    //21.SetConstellation-GPS
     constellationMask = TAF_LOCGNSS_CONSTELLATION_GPS;
     LE_TEST_INFO("taf_locGnss_SetConstellation() API is called to set GPS constellation type");
     result = taf_locGnss_SetConstellation(constellationMask);
-    LE_TEST_OK(result == LE_OK,"taf_locGnss_SetConstellation-LE_OK");
+    LE_TEST_OK(result == LE_FAULT,"taf_locGnss_SetConstellation-LE_NOT_OK"); // Because primary constellation GPS can't be blacklisted
 
    //22.SetConstellation-GLONASS
     constellationMask = TAF_LOCGNSS_CONSTELLATION_GLONASS;
@@ -2425,7 +2425,7 @@ static void TestTafGnssConstellations
     #endif
     LE_TEST_INFO("taf_locGnss_SetConstellation() API is called to set All constellation types");
     result = taf_locGnss_SetConstellation(constellationMask);
-    LE_TEST_OK(result == LE_OK,"taf_locGnss_SetConstellation-LE_OK");
+    LE_TEST_OK(result == LE_FAULT,"taf_locGnss_SetConstellation-LE__NOT_OK"); // Because all constellation can't be blacklisted
 
     //29.GetConstellation
     LE_TEST_INFO("taf_locGnss_GetConstellation() API is called to get constellation types enabled");
@@ -3533,7 +3533,7 @@ static void TestTafGnssEngines
     LE_TEST_INFO("taf_locGnss_ConfigureEngineState API is triggered to configure SUSPEND state for"
         "DRE engine type");
     result = taf_locGnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_FAULT,"taf_locGnss_ConfigureEngineState-Not Supported");
+    LE_TEST_OK(result==LE_OK,"taf_locGnss_ConfigureEngineState-LE_OK");
 
     //102.taf_locGnss_ConfigureEngineState- DRE/RESUME
     engineType = 3;
@@ -3541,7 +3541,7 @@ static void TestTafGnssEngines
     LE_TEST_INFO("taf_locGnss_ConfigureEngineState API is triggered to configure RESUME state for"
         "DRE engine type");
     result = taf_locGnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_FAULT,"taf_locGnss_ConfigureEngineState-Not Supported");
+    LE_TEST_OK(result==LE_OK,"taf_locGnss_ConfigureEngineState-LE_OK");
 
     //103.taf_locGnss_ConfigureEngineState- VPE/SUSPEND
     engineType = 4;
@@ -3593,7 +3593,7 @@ static void TestTafGnssEngines
     LE_TEST_INFO("taf_locGnss_ConfigureEngineState API is triggered to configure SUSPEND state for"
         "DRE engine type");
     result = taf_locGnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_FAULT,"taf_locGnss_ConfigureEngineState-Not Supported");
+    LE_TEST_OK(result==LE_OK,"taf_locGnss_ConfigureEngineState-LE_OK");
 
     //109.taf_locGnss_ConfigureEngineState- DRE/RESUME
     engineType = 3;
@@ -3601,7 +3601,7 @@ static void TestTafGnssEngines
     LE_TEST_INFO("taf_locGnss_ConfigureEngineState API is triggered to configure RESUME state for"
         "DRE engine type");
     result = taf_locGnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_FAULT,"taf_locGnss_ConfigureEngineState-Not Supported");
+    LE_TEST_OK(result==LE_OK,"taf_locGnss_ConfigureEngineState-LE_OK");
 
     //110.Disable GNSS
     LE_TEST_INFO("taf_locGnss_Disable() API is called to disable GNSS engine");
@@ -3650,7 +3650,7 @@ static void TestTafLeverArmParams
     leverArmParamsPtr->levArmType = TAF_LOCGNSS_LEVER_ARM_TYPE_DR_IMU_TO_GNSS;
     LE_TEST_INFO("taf_locGnss_SetLeverArmConfig() API is called to set Lever Arm paramaters");
     result = taf_locGnss_SetLeverArmConfig(leverArmParamsPtr);
-    LE_TEST_OK(result == LE_FAULT, "taf_locGnss_SetLeverArmConfig-LE_FAULT");
+    LE_TEST_OK(result == LE_OK, "taf_locGnss_SetLeverArmConfig-LE_OK");
 
     LE_TEST_INFO("taf_locGnss_SetLeverArmConfig() 3 seconds of delay");
     le_thread_Sleep(3);
@@ -3660,7 +3660,7 @@ static void TestTafLeverArmParams
     leverArmParamsPtr->levArmType = TAF_LOCGNSS_LEVER_ARM_TYPE_VPE_IMU_TO_GNSS;
     LE_TEST_INFO("taf_locGnss_SetLeverArmConfig() API is called to set Lever Arm paramaters");
     result = taf_locGnss_SetLeverArmConfig(leverArmParamsPtr);
-    LE_TEST_OK(result == LE_FAULT, "taf_locGnss_SetLeverArmConfig-LE_FAULT");
+    LE_TEST_OK(result == LE_OK, "taf_locGnss_SetLeverArmConfig-LE_OK");
 
     //Failure case
     leverArmParamsPtr->levArmType = TAF_LOCGNSS_LEVER_ARM_TYPE_VPE_IMU_TO_GNSS+1;

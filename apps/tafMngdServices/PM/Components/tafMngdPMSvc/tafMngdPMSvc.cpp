@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -8,6 +8,13 @@
 #include "rpcPm/tafMngdRpcPm.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "watchdogChain.h"
+#ifdef __cplusplus
+}
+#endif
 
 using namespace tafsvc;
 
@@ -578,40 +585,6 @@ le_result_t taf_mngdPm_RelaxNode(taf_mngdPm_wsRef_t wsRef)
 }
 
 /**
- * Local api which Keeps the system awake by acquiring wake lock for the given reference.
- */
-le_result_t AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr)
-{
-    LE_INFO("AcquireWakeSource");
-    auto &mpms = tafMngdPMSvc::GetInstance();
-    le_result_t res = LE_FAULT;
-    res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_WAKING_UP);
-    if(res != LE_OK)
-    {
-        return res;
-    }
-    res = tafMngdPMSvc::AcquireWakeLock();
-    if(res == LE_OK)
-    {
-        LE_INFO("Acquired wakelock");
-        wsRefCtxPtr->isAcquiredLock = true;
-        tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_WAKING_UP);
-        //sending notification to VHAL
-        if((mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
-        {
-            LE_INFO("notify node info for reason:%d", wsRefCtxPtr->reason);
-            (*(mpms.pmInf->nodeInfoNotification))(NODE_ID,
-                HAL_PM_NODE_INFO_LOCK_ACQUIRED, (const uint8_t)wsRefCtxPtr->reason);
-        }
-    }
-    else
-    {
-        LE_INFO("Failed to acquire wake source.");
-    }
-    return res;
-}
-
-/**
  * Creates the system wakeupSource reference for a given StayAwake Reason.
  */
 taf_mngdPm_wsRef_t taf_mngdPm_CreateWakeupSource (
@@ -639,7 +612,7 @@ const char *wsTag
     wsCtxPtr->reason = reason;
     wsCtxPtr->sessionRef = taf_mngdPm_GetClientSessionRef();
     wsCtxPtr->link = LE_DLS_LINK_INIT;
-    wsCtxPtr->isAcquiredLock= false;
+    wsCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
     wsCtxPtr->option = option;
     le_dls_Queue(&(mpms.wsRefList), &wsCtxPtr->link);
     return wsCtxPtr->wsRef;
@@ -761,7 +734,7 @@ taf_mngdPm_StayAwakeReasonBitMask_t stayAwakeReasonBitMask
         LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_16");
         mpms.stayAwakeReasonMask.set(31);
     }
-    mpms.ClearUnAuthorizedWakeSources();
+    mpms.RefreshWakeSources();
     return LE_OK;
 }
 
@@ -790,7 +763,7 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
         {
             LE_INFO("wsRef is valid in wsRefList for StayAwake");
             //check if already a wakelock acquired
-            if(wsRefCtxPtr->isAcquiredLock)
+            if(wsRefCtxPtr->wakeSourceState)
             {
                  LE_INFO("WakeLock already acquired");
                  return LE_DUPLICATE;
@@ -798,13 +771,23 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
             if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason))
             {
                 LE_INFO("stayAwakeReason is in authorized stayAwakeReasonList");
-                res = AcquireWakeSource(wsRefCtxPtr);
+                res = mpms.AcquireWakeSource(wsRefCtxPtr);
             }
             else
             {
                 LE_INFO("Non authorized StayAwakeReason for stayawake");
-                wsRefCtxPtr->isAcquiredLock = true;
-                return LE_OK;
+                if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND)
+                {
+                    wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
+                    LE_INFO("StayAwake LE_NOT_PERMITTED: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
+                    return LE_NOT_PERMITTED;
+                }
+                else
+                {
+                    wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_IGNORED;
+                    LE_INFO("StayAwake: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
+                    return LE_OK;
+                }
             }
             break;
         }
@@ -835,7 +818,7 @@ le_result_t taf_mngdPm_Relax(taf_mngdPm_wsRef_t wsRef)
         if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef &&
                 wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef())
         {
-            if(wsRefCtxPtr->isAcquiredLock)
+            if(wsRefCtxPtr->wakeSourceState)
             {
                 if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason))
                 {
@@ -843,8 +826,12 @@ le_result_t taf_mngdPm_Relax(taf_mngdPm_wsRef_t wsRef)
                 }
                 else
                 {
-                    LE_INFO("Non authorized StayAwakeReason for relax");
-                    wsRefCtxPtr->isAcquiredLock = false;
+                    if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_IGNORED)
+                    {
+                        LE_INFO("Unauthorized StayAwakeReason for relax");
+                        wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
+                        LE_INFO("Relax: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
+                    }
                     return LE_OK;
                 }
             }
@@ -1215,9 +1202,146 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
     return LE_FAULT;
 }
 
+/**
+ * Sets the whitelisted modem wakeup selection.
+ */
+le_result_t taf_mngdPm_SetNodeModemWakeupSel
+(
+    uint8_t pmNodeId,
+    taf_mngdPm_NodeModemWsBitMask_t wsBitmask
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+/**
+ * Gets the whitelisted modem wakeup selection.
+ */
+le_result_t taf_mngdPm_GetNodeModemWakeupSel
+(
+    uint8_t pmNodeId,
+    taf_mngdPm_NodeModemWsBitMask_t* wsBitmaskPtr
+        ///< [OUT] Modem wakeup selection to be whitelisted.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+/**
+ * Gets the last modem wakeup reason.
+ */
+le_result_t taf_mngdPm_GetNodeModemAwakeReason
+(
+    uint8_t pmNodeId,
+    taf_mngdPm_NodeModemWsBitMask_t* wsBitmaskPtr
+        ///< [OUT] Modem wakeup reason.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_mngdPm_NodeModemAwake'
+ *
+ * Node modem awake event.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+taf_mngdPm_NodeModemAwakeHandlerRef_t taf_mngdPm_AddNodeModemAwakeHandler
+(
+    taf_mngdPm_NodeModemAwakeHandlerFunc_t handlerPtr,
+        ///< [IN] The modem awake event handler.
+    void* contextPtr,
+        ///< [IN]
+    uint8_t pmNodeId,
+        ///< [IN]
+    taf_mngdPm_NodeModemWsBitMask_t wsBitmask
+        ///< [IN]
+)
+{
+    // Not implemented yet.
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_mngdPm_NodeModemAwake'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_mngdPm_RemoveNodeModemAwakeHandler
+(
+    taf_mngdPm_NodeModemAwakeHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    // Not implemented yet.
+    return;
+}
+
+/**
+ * Deletes the given wake source.
+ */
+le_result_t taf_mngdPm_DeleteWakeupSource(taf_mngdPm_wsRef_t wsRef)
+{
+    LE_INFO("taf_mngdPm_DeleteWakeupSource");
+
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        LE_ERROR("Invalid client");
+        return LE_UNSUPPORTED;
+    }
+
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    le_result_t res = LE_NOT_FOUND;
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
+
+    while (linkHandlerPtr)
+    {
+        taf_wsRefCtx_t * wsRefCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
+
+        if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef &&
+                wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef())
+        {
+            LE_INFO("wsRef found in wsRefList for %s with sessionRef: %p, stayAwakeReason:%d, wsState:%d", wsRefCtxPtr->wsTag,
+                wsRefCtxPtr->sessionRef, wsRefCtxPtr->reason, wsRefCtxPtr->wakeSourceState);
+            if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_NOT_ACQUIRED) {
+
+                LE_INFO("Delete not acquired wakesource of wsTag:%s for client with sessionRef %p", wsRefCtxPtr->wsTag, wsRefCtxPtr->sessionRef);
+                le_ref_DeleteRef(mpms.wsRefMap, wsRefCtxPtr->wsRef);
+                le_dls_Remove(&(mpms.wsRefList), &wsRefCtxPtr->link);
+                free((void*)wsRefCtxPtr->wsTag);
+                le_mem_Release((void*)wsRefCtxPtr);
+                LE_INFO("Deletion Complete!!!");
+                return LE_OK;
+            }
+            else if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_IGNORED ||
+                wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_ACQUIRED)
+            {
+                LE_WARN("WS of wsTag:%s for client with sessionRef %p is already in use, deletion not permitted", wsRefCtxPtr->wsTag, wsRefCtxPtr->sessionRef);
+                return LE_NOT_PERMITTED;
+            }
+            break;
+        }
+    }
+    LE_INFO("wsRef not found in wsRefList for the sessionRef: %p", taf_mngdPm_GetClientSessionRef());
+    return res;
+}
+
 COMPONENT_INIT
 {
     LE_INFO("tafMngdPMSvc COMPONENT init...");
+
+    // Enable bit0 in watchdog chain.
+    le_wdogChain_Init(1);
+
+    // Start watchdog 0 and kick bit0 of watchdog chain in main thread.
+    le_clk_Time_t watchdogInterval = { .sec = MAIN_THREAD_KICK_INTERVAL };
+    le_wdogChain_MonitorEventLoop(MONITOR_MAIN_THREAD_LOOP, watchdogInterval);
+    LE_INFO("Watchdog for main thread is started.");
 
     auto &mpms = tafMngdPMSvc::GetInstance();
 
@@ -1333,6 +1457,7 @@ COMPONENT_INIT
 
     //creating the timer for vehichle wakeup
     mpms.stateChangeAckTimerRef = le_timer_Create("STATE CHANGE ACK timer");
+    le_timer_SetWakeup(mpms.stateChangeAckTimerRef, false);
     le_timer_SetMsInterval(mpms.stateChangeAckTimerRef, mpms.config.state_change_ack_timeout);
     le_timer_SetHandler(mpms.stateChangeAckTimerRef, mpms.StateChangeAckTimerHandler);
     LE_INFO("COMPONENT end init");

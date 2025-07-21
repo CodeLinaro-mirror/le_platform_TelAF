@@ -60,9 +60,9 @@ commands:
 
 bindings:
 {
-    <root>.taf_update -> tafUpdateSvc.taf_update
-    <root>.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
-    <root>.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
+    <tafcore>.taf_update -> tafUpdateSvc.taf_update
+    <tafcore>.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
+    <tafcore>.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
 }
 
 interfaceSearch:

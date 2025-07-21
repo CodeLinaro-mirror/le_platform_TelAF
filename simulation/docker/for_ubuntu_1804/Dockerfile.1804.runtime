@@ -57,6 +57,9 @@ RUN apt-get -y --no-install-recommends install nano
 RUN apt-get -y --no-install-recommends install libglib2.0-dev
 RUN apt-get -y --no-install-recommends install vlan
 
+# Change default shell from dash to bash
+RUN ln -sf /bin/bash /bin/sh
+
 # Make root password to: [simula]
 RUN echo 'root:simula' | chpasswd
 

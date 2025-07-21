@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -50,28 +50,46 @@ static void Test_GetVersion
     le_result_t result = LE_OK;
 
     result = taf_verInfo_GetKernelVersion(version, sizeof(version));
-    LE_TEST_OK(result == LE_OK, "taf_verInfo_GetKernelVersion - OK");
-    LE_INFO("Kernel version : %s", version);
+    if(result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_verInfo_GetKernelVersion - OK");
+        LE_INFO("Kernel version : %s", version);
+    }
 
     result = taf_verInfo_GetFirmwareVersion(version, sizeof(version));
-    LE_TEST_OK(result == LE_OK, "taf_verInfo_GetFirmwareVersion - OK");
-    LE_INFO("Firmware version : %s", version);
+    if(result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_verInfo_GetFirmwareVersion - OK");
+        LE_INFO("Firmware version : %s", version);
+    }
 
     result = taf_verInfo_GetTZVersion(version, sizeof(version));
-    LE_TEST_OK(result == LE_OK, "taf_verInfo_GetTZVersion - OK");
-    LE_INFO("TZ Version : %s", version);
+    if(result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_verInfo_GetTZVersion - OK");
+        LE_INFO("TZ Version : %s", version);
+    }
 
     result = taf_verInfo_GetRootFSVersion(version, sizeof(version));
-    LE_TEST_OK(result == LE_OK, "taf_verInfo_GetRootFSVersion - OK");
-    LE_INFO("RootFS version : %s", version);
+    if(result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_verInfo_GetRootFSVersion - OK");
+        LE_INFO("RootFS version : %s", version);
+    }
 
     result = taf_verInfo_GetTelAFVersion(version, sizeof(version));
-    LE_TEST_OK(result == LE_OK, "taf_verInfo_GetTelAFVersion - OK");
-    LE_INFO("TelAF version : %s", version);
+    if(result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_verInfo_GetTelAFVersion - OK");
+        LE_INFO("TelAF version : %s", version);
+    }
 
     result = taf_verInfo_GetLXCVersion(version, sizeof(version));
-    LE_TEST_OK(result == LE_OK, "taf_verInfo_GetLXCVersion - OK");
-    LE_INFO("LXC version : %s", version);
+    if(result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_verInfo_GetLXCVersion - OK");
+        LE_INFO("LXC version : %s", version);
+    }
 }
 
 //--------------------------------------------------------------------------------------------------

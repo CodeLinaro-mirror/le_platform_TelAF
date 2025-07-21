@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1344,6 +1344,7 @@ void taf_AppMgmt::Init
 
     // 8. Create probation timer.
     prbtTimerRef = le_timer_Create("App Probation Timer");
+    le_timer_SetWakeup(prbtTimerRef, false);    // Disable wakeup
     le_timer_SetMsInterval(prbtTimerRef, 1000);
     le_timer_SetHandler(prbtTimerRef, ProbationTimerHandler);
 

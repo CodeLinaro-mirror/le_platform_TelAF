@@ -89,7 +89,7 @@
  *
    @endverbatim
  *
- * @section c_taf_radio_power Power Management
+ * @section c_taf_radio_power Power management
  *
  * Users can power on or power off the radio, but by default it is powered on.
  *
@@ -112,7 +112,7 @@
  *
    @endcode
  *
- * @section c_taf_radio_registartion Network Registration
+ * @section c_taf_radio_registartion Network registration
  *
  * Users can register with the network automatically or manually with specific MCC and MNC.
  *
@@ -154,7 +154,7 @@
  *
    @endcode
  *
- * @section c_taf_radio_service_domain Service Domain
+ * @section c_taf_radio_service_domain Service domain
  *
  * Users can get the registration domain for the current serving RAT.
  *
@@ -189,7 +189,7 @@
  *
    @endcode
  *
- * @section c_taf_radio_preferred_operator Preferred Operators
+ * @section c_taf_radio_preferred_operator Preferred operators
  *
  * Users can configure the preferences of operators and get the configuration details
  * with a list.
@@ -238,7 +238,7 @@
  *
    @endcode
  *
- * @section c_taf_radio_rat Radio Access Technology
+ * @section c_taf_radio_rat Radio Access Technology (RAT)
  *
  * Users can get RAT in use, and configure RAT preferences.
  *
@@ -266,7 +266,7 @@
  *
    @endcode
  *
- * @section c_taf_radio_ps Packet-Switched State
+ * @section c_taf_radio_ps Packet-switched state
  *
  * Users can get the packet-switched (PS) state.
  *
@@ -293,7 +293,7 @@
  *
    @endcode
  *
- * @section c_taf_radio_signal_metrics Signal Metrics
+ * @section c_taf_radio_signal_metrics Signal metrics
  *
  * Users can measure signal and get metrics for different RATs.
  *
@@ -407,7 +407,7 @@
  *
    @endcode
  *
- * @section c_taf_radio_serving_cell Serving Cellular Network Information
+ * @section c_taf_radio_serving_cell Serving cellular network information
  *
  * Users can get serving cellular network information.
  *
@@ -447,7 +447,7 @@
  *  - taf_radio_GetNrIconType() -- Gets NR icon type.
  *     @b WARNING: Applicable for NR (basic or uwb) and also appliable for LTE and LTE will return NONE.
  *
- * @section c_taf_radio_network Network Information
+ * @section c_taf_radio_network Network information
  *
  * Users can use the following APIs to get the current network and discover nearby networks
  * by scanning.
@@ -513,7 +513,7 @@
  *
    @endcode
  *
- * @section c_taf_radio_ratCapability RAT Capability Information
+ * @section c_taf_radio_ratCapability RAT capability information
  *
  * Users can get the number of SIMs and RAT capabilities in given slot.
  *
@@ -546,7 +546,7 @@
  *
    @endcode
  *
- * @section c_taf_radio_ims IMS (IP Multimedia Subsystem) Information
+ * @section c_taf_radio_ims IMS (IP multimedia subsystem) information
  *
  * Users can set and get the IMS registration status, service status and configurations in given slot.
  *

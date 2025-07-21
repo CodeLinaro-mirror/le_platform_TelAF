@@ -1,7 +1,7 @@
 /**
-* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
-* SPDX-License-Identifier: BSD-3-Clause-Clear
-**/
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ **/
 //------------------------------------------------------------------------------------------------
 /**
  * @page c_tafwlan Wireless LAN Device Management Service
@@ -24,6 +24,21 @@
    {
        clientExe.clientComponent.taf_wlan -> tafWlanSvc.taf_wlan
    }
+   @endverbatim
+ *
+ * @section taf_wlan_set_interference N79 5G and WLAN 5G interference management
+ *
+ * The N79 5G and WLAN 5G interference management is supported by the WLAN service. The service will
+ * enable or disable either band depending on the priority and wait times specified. Set all
+ * parameters and call taf_wlan_SetBandIntState for them to be applied. After the parameters are
+ * applied, the get APIs can be used to check the current values.
+ * @verbatim
+   taf_wlan_SetBandIntPriority() - Set the band to prioritize.
+   taf_wlan_SetBandIntWaitTime() - Set the wait time for both bands.
+   taf_wlan_SetBandIntState()    - Set the band interference management state.
+   taf_wlan_GetBandIntPriority() - Get the priority band.
+   taf_wlan_GetBandIntWaitTime() - Get the wait time for both bands.
+   taf_wlan_GetBandIntState()    - Get the current band interference state.
    @endverbatim
  *
  */
@@ -82,6 +97,29 @@ ENUM Band
     BAND_UNKNOWN,   ///< To skip setting band, pass UNKNOWN.
     BAND_5_GHZ,     ///< 5 GHz band.
     BAND_2P4_GHZ    ///< 2.4 GHz band.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN 5GHz and 5G N79 band interference configuration state.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM BandIntState
+{
+    BAND_INT_DISABLED = 0, ///< Disable band interference.
+    BAND_INT_ENABLED  = 1  ///< Enable band interference.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Bands used to set interference priority between WLAN 5GHz and 5G N79 bands.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM BandIntPriority
+{
+    PRIO_BAND_UNKNOWN    = 0,  ///< Unknown band priority.
+    PRIO_BAND_N79        = 1,  ///< The 5G N79 band.
+    PRIO_BAND_WLAN_5_GHZ = 2   ///< The Wifi 5 GHz band.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -383,4 +421,143 @@ FUNCTION le_result_t GetIntfInfo
     Wlan WlanRef IN,                           ///< The WLAN reference. Reserved for future use.
     APIntfInfo  APIntfinfo[MAX_NUM_AP] OUT,    ///< The WLAN AP interfaces information.
     STAIntfInfo STAIntfinfo[MAX_NUM_STA] OUT   ///< The WLAN STA interfaces information.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the WLAN 5GHz and N79 5G band interference state.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - LE_NOT_POSSIBLE  The data subsystem has not been initialized.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBandIntState
+(
+    Wlan                         WlanRef    IN,  ///< The WLAN reference. Reserved for future use.
+    BandIntState                 state     OUT   ///< The band interference configuration state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the WLAN 5GHz and N79 5G band interference state. This API should be called after the
+ * priority band and the band wait times are set. If they are not set previously, the default
+ * values will be used.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - LE_NOT_POSSIBLE  The data subsystem has not been initialized.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetBandIntState
+(
+    Wlan                         WlanRef    IN,  ///< The WLAN reference. Reserved for future use.
+    BandIntState                 state      IN   ///< The band interference configuration state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the WLAN 5GHz and N79 5G band interference priority. The value returned is the one that was
+ * activated by called taf_wlan_SetBandIntState.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - LE_NOT_POSSIBLE  The data subsystem has not been initialized.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBandIntPriority
+(
+    Wlan                         WlanRef      IN,  ///< The WLAN reference. Reserved for future use.
+    BandIntPriority              bandPriority OUT  ///< The band interference priority.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the WLAN 5GHz and N79 5G band interference priority. By default N79 5G band will be set as
+ * higher priority.
+ *
+ * The setting will take effect only after taf_wlan_SetBandIntState is called.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - LE_NOT_POSSIBLE  The data subsystem has not been initialized.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetBandIntPriority
+(
+    Wlan                         WlanRef      IN,  ///< The WLAN reference. Reserved for future use.
+    BandIntPriority              bandPriority IN   ///< The band interference priority.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the wait time for WLAN 5GHz and 5G N79 bands. The value returned is the one that was
+ * activated by called taf_wlan_SetBandIntState.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - LE_NOT_POSSIBLE  The data subsystem has not been initialized.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBandIntWaitTime
+(
+    Wlan                         WlanRef   IN,   ///< The WLAN reference. Reserved for future use.
+    BandIntPriority              band      IN,   ///< The band for which wait time is needed.
+    uint32                       waitTime  OUT   ///< The wait time in seconds.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the wait time for WLAN 5GHz and 5G N79 bands if enabled.
+ *
+ * Sets priority for modem to use either 5GHz WLAN or N79 5G band when they are both available to
+ * avoid interference. The expected behavior based on the band priority is as follows:<br>
+ *
+ * N79 5G band is configured as higher priority: If N79 5G band becomes available while 5 GHz WLAN
+ * is enabled, WLAN(AP/Sta) will be moved to 2.4 GHz. If N79 5G band becomes unavailable for the
+ * configured N79 5G band wait time in seconds, WLAN will be moved to 5GHz.
+ *
+ * WLAN 5GHz is configured as higher priority: If WLAN 5GHz (AP/Sta) becomes available while 5G band
+ * N79 is enabled, N79 5G band will be disabled. If WLAN 5GHz becomes unavailable for the
+ * configured WLAN 5G wait time in seconds and N79 5G band is available, N79 5G band will be
+ * enabled.
+ *
+ * By default, the wait time for both bands is set to 30s.
+ *
+ * The setting will take effect only after taf_wlan_SetBandIntState is called.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - LE_NOT_POSSIBLE  The data subsystem has not been initialized.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetBandIntWaitTime
+(
+    Wlan                         WlanRef   IN,  ///< The WLAN reference. Reserved for future use.
+    BandIntPriority              band      IN,  ///< The band for which to set the wait time.
+    uint32                       waitTime  IN   ///< The wait time in seconds.
 );

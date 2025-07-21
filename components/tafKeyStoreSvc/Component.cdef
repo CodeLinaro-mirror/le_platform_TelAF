@@ -5,9 +5,8 @@ sources:
 
 cflags:
 {
-   -I$TELAF_ROOT/components/stub/keyStore/taf_pa_keystore
-   -I$TELAF_ROOT/components/stub/keyStore/Common
-   -I$LEGATO_ROOT/framework/liblegato/
+    -I$TELAF_PA_DEFAULT/include/keyStore
+    -I$LEGATO_ROOT/framework/liblegato/
 }
 
 requires:
@@ -22,7 +21,8 @@ requires:
 #if ${LE_CONFIG_TARGET_SIMULATION} = y
         $TELAF_ROOT/simulation/stub/keyStore/taf_pa_keystore
 #else
-        $TELAF_ROOT/components/stub/keyStore/taf_pa_keystore
+        $TELAF_PA_DEFAULT/component/keyStore/taf_pa_keystore_default
+        $LEGATO_BUILD/stub/component/taf_pa_keystore
 #endif
     }
 }

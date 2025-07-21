@@ -36,6 +36,8 @@ processes:
 
         maxFileBytes: 8192K
         faultAction: restart
+        watchdogTimeout: 61000
+        watchdogAction: restart
 }
 
 sandboxed: false
@@ -43,8 +45,9 @@ sandboxed: false
 bindings:
 {
     tafMngdPMSvc.tafMngdPMSvc.taf_pm -> tafPMSvc.taf_pm
-    tafMngdPMSvc.tafMngdPMSvc.le_appInfo -> <root>.le_appInfo
+    tafMngdPMSvc.tafMngdPMSvc.le_appInfo -> <tafcore>.le_appInfo
     tafMngdPMSvc.tafMngdPMSvc.taf_rpcPm -> <telaf>.rpcServer_102_telaf_taf_pm
+    tafMngdPMSvc.watchdogChain.le_wdog -> <tafcore>.le_wdog
 }
 
 bundles:

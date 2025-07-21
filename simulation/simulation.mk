@@ -35,6 +35,9 @@ export SIMULATION_SCRIPTS := $(SIMULATION_HOME)/scripts
 export SIMULATION_WORKDIR := $(SIMULATION_HOME)/workstation
 SIMULATION_TARBALL := $(SIMULATION_HOME)/workstation/telaf_simulation.tar
 
+# Re-export the variable for subsequent scripts in legato-af project
+export SELINUX_FILE_CONTEXTS := /no/selinux/feature/for/simulation
+
 # Get the distro version of current system, refer to: /etc/os-release
 OS_VERSION=$(shell grep -oP 'VERSION_ID=\K"(.+)"' /etc/os-release | tr -d '"')
 
@@ -74,6 +77,7 @@ export TELAF_SIMULATION_ENABLE_DCS ?= n
 export TELAF_SIMULATION_ENABLE_SIM ?= n
 export TELAF_SIMULATION_ENABLE_LOC ?= n
 export TELAF_SIMULATION_ENABLE_RADIO ?= n
+
 export TELAF_SIMULATION_ENABLE_MNGD_CONN ?= n
 ifneq ($(TELAF_SIMULATION_ENABLE_MNGD_CONN),n)
   TELAF_SIMULATION_ENABLE_DCS := y
@@ -81,7 +85,14 @@ ifneq ($(TELAF_SIMULATION_ENABLE_MNGD_CONN),n)
   TELAF_SIMULATION_ENABLE_RADIO := y
 endif
 
+export TELAF_SIMULATION_ENABLE_ECALL ?= n
+ifneq ($(TELAF_SIMULATION_ENABLE_ECALL),n)
+  TELAF_SIMULATION_ENABLE_RADIO := y
+  TELAF_SIMULATION_ENABLE_SIM := y
+  TELAF_SIMULATION_ENABLE_LOC := y
 endif
+
+endif # (IMPORT_SDK_SIMULATION)
 
 export TELAF_SIMULATION_ENABLE_SOMEIP_GW ?= n
 export TELAF_SIMULATION_ENABLE_DIAG ?= n
@@ -92,6 +103,7 @@ export TELAF_SIMULATION_ENABLE_RPC ?= n
 ifneq ($(TELAF_SIMULATION_ENABLE_RPC),n)
   TELAF_SIMULATION_ENABLE_SOMEIP_GW := y
 endif
+
 
 SIMULATION_SOMEIP_GW_DEPS_y := _vsomeip
 SIMULATION_COMMON_API_DEPS_y := _capi_core_rt _capi_someip_rt _capi_tools
@@ -244,7 +256,7 @@ simula-help:
 	@echo "                                       -- (workstation/.simulation.build) if needed, create and add Makefile variables"
 	@echo "      + simulax| simulacx | simula-cx  -- Incrementally compile simulation open source code in CONTAINER"
 	@echo "                                       -- (workstation/.simula.dev.action.sh) if needed, create and add shell commands"
-	@echo "      + simula-clean                   -- Just clean your simulation project"
+	@echo "      + simula-clean                   -- Just clean your simulation project & tools"
 	@echo "      + simula-distclean               -- Deep clean all telaf project stuff"
 	@echo
 	@echo "    - Build your simulation docker containers cli, depends which system version you selected (see 'simula-list')"
@@ -350,8 +362,11 @@ simula-remove-all-volumes:
 
 simula-clean: simula-clean-config
 	$Q rm -rf $(TELAF_ROOT)/build/simulation
+	$Q rm -rf $(TELAF_ROOT)/build/tools
+	$Q rm -rf $(SIMULATION_WORKDIR)/telaf_simulation.tar.gz
 
 simula-distclean: distclean
+	$Q rm -rf $(SIMULATION_WORKDIR)/telaf_simulation.tar.gz
 
 simula-show-deps-path:
 	$Q realpath $(SIMULATION_HOME)/deps/

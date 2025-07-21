@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -57,6 +57,29 @@ UdsCommunicationMgr* UdsCommunicationMgr::GetInstance
         LE_ERROR("Instance with ifName %s not found", ifName);
         return NULL;
     }
+}
+
+le_result_t UdsCommunicationMgr::GetIfNameByVlanId
+(
+    uint16_t vlanId,
+    char* ifName
+)
+{
+    LE_DEBUG("input vlanid =%d", vlanId);
+    TAF_ERROR_IF_RET_VAL(ifName == NULL, LE_FAULT, "ifName is null");
+    // Store VLAN id in list. In non-VLAN case, vlanId will be 0.
+    for (const auto &pair : instances)
+    {
+        LE_DEBUG("vlanId=%d", pair.second->vlanId);
+
+        if(vlanId == pair.second->vlanId)
+        {
+            le_utf8_Copy(ifName, pair.second->interface, MAX_INTERFACE_NAME_LEN, NULL);
+            return LE_OK;
+        }
+    }
+
+    return LE_FAULT;
 }
 
 UdsCommunicationMgr::UdsCommunicationMgr
@@ -137,6 +160,8 @@ void UdsCommunicationMgr::InitInstances
 
     le_thread_Start(udsTimerThreadRef);
     le_sem_Wait(semRef);
+
+    InitAuthData(interfaceList);
 
     cancelFileXferEvId = le_event_CreateId("cancelFileXferEvId", sizeof(cancelFileXferEvent_t));
     le_event_AddHandler("cancelFileXferHandler", cancelFileXferEvId, cancelFileXferHandler);
@@ -450,6 +475,7 @@ void* UdsCommunicationMgr::UdsTimerThread
         snprintf(p2TimerName, sizeof(p2TimerName)-1, "p2-%s", pair.second->interface);
         pair.second->p2StarTimerRef = le_timer_Create(p2TimerName);
         le_timer_SetHandler(pair.second->p2StarTimerRef, P2StarTimeoutHandler);
+        le_timer_SetWakeup(pair.second->p2StarTimerRef, false);
         le_timer_SetContextPtr(pair.second->p2StarTimerRef, (void*)pair.first.c_str());
 
         //create s3 timer
@@ -457,12 +483,14 @@ void* UdsCommunicationMgr::UdsTimerThread
         pair.second->s3TimerRef = le_timer_Create(s3TimerName);
         le_timer_SetRepeat(pair.second->s3TimerRef, 1);
         le_timer_SetHandler(pair.second->s3TimerRef, S3TimeoutHandler);
+        le_timer_SetWakeup(pair.second->s3TimerRef, false);
         le_timer_SetContextPtr(pair.second->s3TimerRef, (void*)pair.first.c_str());
 
         //create authentication timer
         snprintf(authTimerName, sizeof(authTimerName)-1, "auth-%s", pair.second->interface);
         pair.second->authTimerRef = le_timer_Create(authTimerName);
         le_timer_SetHandler(pair.second->authTimerRef, AuthTimeoutHandler);
+        le_timer_SetWakeup(pair.second->authTimerRef, false);
         le_timer_SetContextPtr(pair.second->authTimerRef, (void*)pair.first.c_str());
 
         //create authentication delay timer
@@ -470,6 +498,7 @@ void* UdsCommunicationMgr::UdsTimerThread
                 pair.second->interface);
         pair.second->authDelayTimerRef = le_timer_Create(authDelayTimerName);
         le_timer_SetHandler(pair.second->authDelayTimerRef, AuthDelayTimeoutHandler);
+        le_timer_SetWakeup(pair.second->authDelayTimerRef, false);
         le_timer_SetContextPtr(pair.second->authDelayTimerRef, (void*)pair.first.c_str());
 
         //create tester state change timer
@@ -477,6 +506,7 @@ void* UdsCommunicationMgr::UdsTimerThread
                 pair.second->interface);
         pair.second->testerStateTimerRef = le_timer_Create(testerStateTimerName);
         le_timer_SetHandler(pair.second->testerStateTimerRef, TesterStateTimeoutHandler);
+        le_timer_SetWakeup(pair.second->testerStateTimerRef, false);
         le_timer_SetContextPtr(pair.second->testerStateTimerRef, (void*)pair.first.c_str());
     }
 
@@ -507,6 +537,7 @@ void UdsCommunicationMgr::P2StarTimeoutHandler
     }
 
     uint32_t maxNumberOfRcrrp;
+    uint32_t sid = udsCmMgr->recvBuf[0];
 
     LE_DEBUG("P2StarTimeoutHandler count = %d",le_timer_GetExpiryCount(timerRef));
     //Get P2* server count
@@ -526,19 +557,19 @@ void UdsCommunicationMgr::P2StarTimeoutHandler
 
     if(le_timer_GetExpiryCount(timerRef) < maxNumberOfRcrrp)
     {
-        uint32_t sid = udsCmMgr->recvBuf[0];
         udsCmMgr->SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, &udsCmMgr->addrInfo);
         return;
     }
 
     LE_INFO("P2* timeout");
     //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
-    if(udsCmMgr->readyToRecvData == false)
+    if(!udsCmMgr->readyToRecvData.load())
     {
-        udsCmMgr->readyToRecvData = true;
+        udsCmMgr->readyToRecvData.store(true);
         udsCmMgr->CheckAndSendCancelFileXferEvent();
     }
 
+    udsCmMgr->SendNRC(sid, GENERAL_REJECT, &udsCmMgr->addrInfo);
     memset(udsCmMgr->recvBuf, 0, UDS_MAX_DATA_SIZE);
     udsCmMgr->recvDataLen = 0;
     udsCmMgr->sendDataLen = 0;
@@ -697,6 +728,8 @@ void UdsCommunicationMgr::AuthTimeoutHandler
     udsCmMgr->dataIndBuf[7] = (udsCmMgr->currentRoleVal >> 8) & 0xff;
     udsCmMgr->dataIndBuf[8] = udsCmMgr->currentRoleVal & 0xff;
 
+    udsCmMgr->currentRoleVal = 0;
+
     udsCmMgr->dataIndMsg.dataPtr = udsCmMgr->dataIndBuf;
     udsCmMgr->dataIndMsg.dataLen = UDS_AUTH_EXPIRATION_DATA_SIZE;
 
@@ -740,7 +773,7 @@ void UdsCommunicationMgr::CheckAndRestartTesterStateTimer
     float p2StarServerInterval;
     uint32_t maxNumberOfRcrrp, testerStateTimer;
 
-    readyToRecvData = true;
+    readyToRecvData.store(true);
 
     //Get P2* server interval;
     try
@@ -794,9 +827,9 @@ void UdsCommunicationMgr::CheckAndRestartS3Timer
 
     UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0, (char*)interface);
     //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
-    if(readyToRecvData == false)
+    if (!readyToRecvData.load())
     {
-        readyToRecvData = true;
+        readyToRecvData.store(true);
         CheckAndSendCancelFileXferEvent();
     }
 
@@ -1172,10 +1205,10 @@ bool UdsCommunicationMgr::IsAuthReqLenCorrect
         case AUTH_SUBFUNC_VERIFY_CERT_BIDIR:
 
             //Minimum length check
-            if(recvDataLen <= UDS_AUTH_VERIFY_CERT_BIDIR_MIN_LEN)// Must be more than 9 bytes
+            if(recvDataLen < UDS_AUTH_VERIFY_CERT_BIDIR_MIN_LEN)// Must be more than 8 bytes
             {
                 LE_WARN("Received data length is less than %d bytes",
-                        UDS_AUTH_VERIFY_CERT_BIDIR_MIN_LEN+1);
+                        UDS_AUTH_VERIFY_CERT_BIDIR_MIN_LEN);
                 return false;
             }
 
@@ -1481,7 +1514,7 @@ bool UdsCommunicationMgr::IsAuthCheckOK
     }
     catch (const std::exception& e)
     {
-        LE_WARN("Authentication is not configured for serivce 0x%02X %s in YAML", sid, e.what());
+        LE_DEBUG("Authentication is not configured for serivce 0x%02X %s in YAML", sid, e.what());
         return true;
     }
 }
@@ -1587,7 +1620,7 @@ bool UdsCommunicationMgr::IsSvcSecAccessMatched
     }
     catch (const std::exception& e)
     {
-        LE_WARN("Exception: %s", e.what());
+        LE_DEBUG("Exception: %s", e.what());
         return true; // Mark the exception as TRUE, to assume security check not require.
     }
 
@@ -1622,8 +1655,19 @@ le_result_t UdsCommunicationMgr::GeneralServerResp
     //Restart authentication timer when receiving any supported UDS request
     if(authState == AUTH_STATE_AUTHENTICATED)
     {
-        uint32_t authTimeVal = MAX_AUTH_TIME*1000;//get auth timeout val with current role from yaml
-        LE_DEBUG("Restart authentication timer");
+        uint32_t authTimeVal;
+
+        try
+        {
+            authTimeVal = cfg::get_authentication_timeout()*1000;
+        }
+        catch (const std::exception& e)
+        {
+            authTimeVal = MAX_AUTH_TIME*1000;
+            LE_ERROR("Exception: %s. Use default value:%d", e.what() , MAX_AUTH_TIME);
+        }
+
+        LE_DEBUG("Restart authentication timer, authentication timeout value=%d", authTimeVal);
         UdsTimerEventReport(TAF_UDS_AUTH_TIMER_RESTART, authTimeVal, interface);
     }
 
@@ -1977,7 +2021,7 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
         }
 
         // Authentication check. UDS_0x22_NRC_34
-        if (!IsAuthRoleMatched(node))
+        if (!IsAuthRoleMatched(READ_DID_REQUEST_ID, node))
         {
             LE_DEBUG("DID0x%x is authenticated and authentication state is incorrect.", dataId);
             return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
@@ -2211,7 +2255,7 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
     }
 
     // Step 5: Authentication check. UDS_0x2E_NRC_34
-    if (!IsAuthRoleMatched(node))
+    if (!IsAuthRoleMatched(WRITE_DID_REQUEST_ID, node))
     {
         LE_DEBUG("DID0x%x is authenticated and authentication state is incorrect.", dataId);
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
@@ -2391,12 +2435,12 @@ le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
 
     /*
     — General server response behaviour for request messages with SubFunction parameter check
-      from step 1 to step 4.
+      from step 1 to step 6.
     */
-    // Step 1: Subfunction minimum length check. UDS_0x10_NRC_13
-    if(recvDataLen != UDS_SESSION_CTRL_REQ_MIN_LEN)
+    // Step 1: Minimum length check. UDS_0x10_NRC_13
+    if(recvDataLen < UDS_SESSION_CTRL_REQ_MIN_LEN)
     {
-        LE_WARN("recvDataLen is not correct for service ID: 0x%x.", sid);
+        LE_WARN("Received length is less than the minimum length for service ID: 0x%x.", sid);
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
     }
@@ -2412,7 +2456,15 @@ le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
     }
 
-    // Step 3: Subfunction Authentication check. UDS_0x10_NRC_34
+    // Step 3: Mandatory length check. UDS_0x10_NRC_13
+    if(recvDataLen != UDS_SESSION_CTRL_REQ_EXACT_LEN)
+    {
+        LE_WARN("Received length is not equal to the mandatory length for service ID: 0x%x.", sid);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
+    }
+
+    // Step 4: Subfunction Authentication check. UDS_0x10_NRC_34
     if(!IsSubFuncAuthCheckOK(sid, subFunc))
     {
         LE_WARN("Authentication check failed for subfunction: 0x%x", subFunc);
@@ -2420,7 +2472,7 @@ le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr); // NRC 0x34
     }
 
-    // Step 4: Subfunction supported in active session check. UDS_0x10_NRC_7E
+    // Step 5: Subfunction supported in active session check. UDS_0x10_NRC_7E
     if(!IsSubFuncSessTypeValid(sid, subFunc))
     {
         LE_WARN("Current session type does not support subfunction: 0x%x", subFunc);
@@ -2428,7 +2480,7 @@ le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr); // NRC 0x7E
     }
 
-    //  Step 5: Subfunction security access check. UDS_0x10_NRC_33
+    //  Step 6: Subfunction security access check. UDS_0x10_NRC_33
     if (!IsSubFuncSecAccessMatched(sid, subFunc))
     {
         LE_WARN("Subfunction is secured and the server is not unlocked for subfunction: 0x%x",
@@ -2474,12 +2526,12 @@ le_result_t UdsCommunicationMgr::IndicateECUResetReq
 
     /*
     — General server response behaviour for request messages with SubFunction parameter check
-      from step 1 to step 4.
+      from step 1 to step 6.
     */
-    // Step 1: Subfunction minimum length check. UDS_0x11_NRC_13
-    if(recvDataLen != UDS_ECU_RESET_REQ_MIN_LEN)
+    // Step 1: Minimum length check. UDS_0x11_NRC_13
+    if(recvDataLen < UDS_ECU_RESET_REQ_MIN_LEN)
     {
-        LE_WARN("recvDataLen is not correct for service ID: 0x%x.", sid);
+        LE_WARN("Received length is less than the minimum length for service ID: 0x%x.", sid);
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
     }
@@ -2495,7 +2547,15 @@ le_result_t UdsCommunicationMgr::IndicateECUResetReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
     }
 
-    // Step 3: Subfunction Authentication check. UDS_0x11_NRC_34
+    // Step 3: Mandatory length check. UDS_0x11_NRC_13
+    if(recvDataLen != UDS_ECU_RESET_REQ_EXACT_LEN)
+    {
+        LE_WARN("Received length is not equal to the mandatory length for service ID: 0x%x.", sid);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
+    }
+
+    // Step 4: Subfunction Authentication check. UDS_0x11_NRC_34
     if(!IsSubFuncAuthCheckOK(sid, subFunc))
     {
         LE_WARN("Authentication check failed for subfunction: 0x%x", subFunc);
@@ -2503,7 +2563,7 @@ le_result_t UdsCommunicationMgr::IndicateECUResetReq
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr); // NRC 0x34
     }
 
-    // Step 4: Subfunction supported in active session check. UDS_0x11_NRC_7E
+    // Step 5: Subfunction supported in active session check. UDS_0x11_NRC_7E
     if(!IsSubFuncSessTypeValid(sid, subFunc))
     {
         LE_WARN("Current session type does not support subfunction: 0x%x", subFunc);
@@ -2511,7 +2571,7 @@ le_result_t UdsCommunicationMgr::IndicateECUResetReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr); // NRC 0x7E
     }
 
-    //  Step 5: Subfunction security access check. UDS_0x11_NRC_33
+    //  Step 6: Subfunction security access check. UDS_0x11_NRC_33
     if (!IsSubFuncSecAccessMatched(sid, subFunc))
     {
         LE_WARN("Subfunction is secured and the server is not unlocked for subfunction: 0x%x",
@@ -2541,34 +2601,17 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
 
     /*
     — General server response behaviour for request messages with SubFunction parameter check
-      from step 1 to step 4.
+      from step 1 to step 5.
     */
-    // Step 1.1: Request msg minimum length check. UDS_0x27_NRC_13
+    // Step 1: Request msg minimum length check. UDS_0x27_NRC_13
     if(recvDataLen < UDS_SECURITY_ACCESS_REQ_MIN_LEN)
     {
-        LE_WARN("recvDataLen is not correct for service ID: 0x%x.", sid);
+        LE_WARN("Received length is less than the minimum length for service ID: 0x%x.", sid);
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
     }
 
     uint8_t subFunction = recvBuf[1] & 0x7f;
-
-    // Step 1.2: Request seed subfunction msg minimum length check. UDS_0x27_NRC_13
-    if((subFunction % 2 == 1 ) && (recvDataLen < UDS_SECURITY_ACCESS_REQ_SEED_MIN_LEN))
-    {
-        LE_WARN("recvDataLen is not correct for subfunction: 0x%x.", subFunction);
-        *isInternalHandle = true;
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
-    }
-
-    // Step 1.3: Request Key subfunction msg minimum length check. UDS_0x27_NRC_13
-    if((subFunction % 2 == 0 ) && (recvDataLen < UDS_SECURITY_ACCESS_REQ_KEY_MIN_LEN))
-    {
-        LE_WARN("recvDataLen is not correct for subfunction: 0x%x.", subFunction);
-        *isInternalHandle = true;
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
-    }
-
     // Step 2: Subfunction supported check. UDS_0x27_NRC_12
     if(!IsSubFuncSupported(sid, subFunction))
     {
@@ -2577,7 +2620,23 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
     }
 
-    // Step 3: Subfunction Authentication check. UDS_0x27_NRC_34
+    // Step 3.1: Request seed subfunction msg minimum length check. UDS_0x27_NRC_13
+    if((subFunction % 2 == 1 ) && (recvDataLen < UDS_SECURITY_ACCESS_REQ_SEED_MIN_LEN))
+    {
+        LE_WARN("Received length is less than the mandatory length for subfunc: 0x%x", subFunction);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
+    }
+
+    // Step 3.2: Request Key subfunction msg minimum length check. UDS_0x27_NRC_13
+    if((subFunction % 2 == 0 ) && (recvDataLen < UDS_SECURITY_ACCESS_REQ_KEY_MIN_LEN))
+    {
+        LE_WARN("Received length is less than the mandatory length for subfunc: 0x%x", subFunction);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
+    }
+
+    // Step 4: Subfunction Authentication check. UDS_0x27_NRC_34
     if(!IsSubFuncAuthCheckOK(sid, subFunction))
     {
         LE_WARN("Authentication check failed for subfunction: 0x%x", subFunction);
@@ -2585,14 +2644,13 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr); // NRC 0x34
     }
 
-    // Step 4: Subfunction supported in active session check. UDS_0x27_NRC_7E
+    // Step 5: Subfunction supported in active session check. UDS_0x27_NRC_7E
     if(!IsSubFuncSessTypeValid(sid, subFunction))
     {
         LE_WARN("Current session type does not support subfunction: 0x%x",subFunction);
         *isInternalHandle = true;
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr); // NRC 0x7E
     }
-
 
     le_sem_Ref_t SecAccSem = le_sem_Create("sync", 0);
 
@@ -2863,6 +2921,25 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
             LE_WARN("Exception: %s", e.what());
             return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);//NRC 0x31
         }
+
+        // Control Option record check for IO Ctrl request. UDS_0x2F_NRC_31
+        try
+        {
+            const uint8_t* controlRecPtr = recvBuf + UDS_IOCBID_REQ_MIN_LEN;
+            bool isForbidden = cfg::is_forbidden(dataId, controlRecPtr, controlStateSize);
+
+            // If controlRecord is forbidden then send NRC.
+            if(isForbidden)
+            {
+                LE_WARN("Control option record is forbidden");
+                return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+            }
+        }
+        catch (const std::exception& e)
+        {
+            // Control Option record check not define. Don't check it.
+            LE_WARN("Exception: %s. ControlRec check not define for dataId 0x%x", e.what(), dataId);
+        }
     }
 
     //Step 5: Total length check. UDS_0x2F_NRC_13
@@ -2873,7 +2950,7 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
     }
 
     //Step 6: Authentication check. UDS_0x2F_NRC_34
-    if (!IsAuthRoleMatched(node))
+    if (!IsAuthRoleMatched(INPUT_OUTPUT_CONTROL_REQUEST_ID, node))
     {
         LE_DEBUG("DID0x%x is authenticated and authentication state is incorrect.", dataId);
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
@@ -2993,7 +3070,7 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
         return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
     }
 
-    if (!IsAuthRoleMatched(node))
+    if (!IsAuthRoleMatched(ROUTINE_CONTROL_REQUEST_ID, node))
     {
         LE_DEBUG("RID0x%x is authenticated and authentication state is incorrect.", rid);
         *isInternalHandle = true;
@@ -3023,6 +3100,32 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
         LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    const uint8_t* dataRecPtr = recvBuf + UDS_ROUTINE_CTRL_REQ_MIN_LEN;
+    size_t dataRecLen = recvDataLen - UDS_ROUTINE_CTRL_REQ_MIN_LEN;
+
+    if (dataRecLen > 0)
+    {
+        if (!IsTotalLengthCheckValid(rid, subFunc, dataRecLen))
+        {
+            LE_DEBUG("Subfunction0x%x RID0x%x Total Lenth check is invalid.",
+                subFunc, rid);
+            *isInternalHandle = true;
+            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+        }
+
+        if (!IsControlOptionRecordValid(rid, subFunc, dataRecPtr, dataRecLen))
+        {
+            LE_DEBUG("Subfunction 0x%x RID: 0x%x Option Record is not valid.",
+                subFunc, rid);
+            *isInternalHandle = true;
+            return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+        }
+    }
+    else
+    {
+        LE_WARN("Control Option Record not found. Skip check!!");
     }
 
     //Will send the indication to the diag service
@@ -3706,15 +3809,24 @@ le_result_t UdsCommunicationMgr::IndicateReadDTCInfoReq
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
-    // Check negative err code for minimum request msg length
+    // Step 1 : Check negative err code for minimum request msg length
     if(recvDataLen < UDS_READ_DTC_INFO_REQ_MIN_LEN)
     {
-        LE_WARN("recvDataLen is less than the ReadDTC request msg minimum length.");
+        LE_WARN("Received length is less than the minimum length for service ID: 0x%x.", sid);
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     uint8_t subFunc = recvBuf[1] & 0x7F;
+    // Step 2: Subfunction supported check. UDS_0x19_NRC_12
+    if(!IsSubFuncSupported(sid, subFunc))
+    {
+        LE_WARN("Requested subfunction type is not supported/configured: 0x%x", subFunc);
+        *isInternalHandle = true;
+        return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
+    }
+
+    // Step 3: Mandatory length check. UDS_0x19_NRC_13
     bool isReqLenCorrect = true;
     switch (subFunc)
     {
@@ -3856,23 +3968,14 @@ le_result_t UdsCommunicationMgr::IndicateReadDTCInfoReq
 
     }
 
-    // Step 1: Subfunction minimum length check. UDS_0x19_NRC_13
     if(!isReqLenCorrect)
     {
-        LE_WARN("recvDataLen of readDTC subFunction 0x%x is not correct.", subFunc);
+        LE_WARN("Received length is not equal to the mandatory length for subfunc: 0x%x.", subFunc);
         *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
-    // Step 2: Subfunction supported check. UDS_0x19_NRC_12
-    if(!IsSubFuncSupported(sid, subFunc))
-    {
-        LE_WARN("Requested subfunction type is not supported/configured: 0x%x", subFunc);
-        *isInternalHandle = true;
-        return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
-    }
-
-    // Step 3: Subfunction Authentication check. UDS_0x19_NRC_34
+    // Step 4: Subfunction Authentication check. UDS_0x19_NRC_34
     if(!IsSubFuncAuthCheckOK(sid, subFunc))
     {
         LE_WARN("Authentication check failed for subfunction: 0x%x", subFunc);
@@ -3880,7 +3983,7 @@ le_result_t UdsCommunicationMgr::IndicateReadDTCInfoReq
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr); // NRC 0x34
     }
 
-    // Step 4: Subfunction supported in active session check. UDS_0x19_NRC_7E
+    // Step 5: Subfunction supported in active session check. UDS_0x19_NRC_7E
     if(!IsSubFuncSessTypeValid(sid, subFunc))
     {
         LE_WARN("Current session type does not support subfunction: 0x%x", subFunc);
@@ -3888,7 +3991,7 @@ le_result_t UdsCommunicationMgr::IndicateReadDTCInfoReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr); // NRC 0x7E
     }
 
-    //  Step 5: Subfunction security access check. UDS_0x19_NRC_33
+    //  Step 6: Subfunction security access check. UDS_0x19_NRC_33
     if (!IsSubFuncSecAccessMatched(sid, subFunc))
     {
         LE_WARN("Subfunction is secured and the server is not unlocked for subfunction: 0x%x",
@@ -4006,7 +4109,7 @@ le_result_t UdsCommunicationMgr::CheckAndSendInd
     SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, addrInfoPtr);
 
     LE_DEBUG("------P2* timer start -------");
-    readyToRecvData = false;
+    readyToRecvData.store(false);
 
     UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_START, 0, interface);
     indAddrInfo.sa = addrInfoPtr->sa;
@@ -4082,9 +4185,9 @@ void UdsCommunicationMgr::DiagIndicationHandler
 
         udsCmMgr->authState = AUTH_STATE_UNKNOWN;
         //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
-        if(udsCmMgr->readyToRecvData == false)
+        if (!udsCmMgr->readyToRecvData.load())
         {
-            udsCmMgr->readyToRecvData = true;
+            udsCmMgr->readyToRecvData.store(true);
             udsCmMgr->CheckAndSendCancelFileXferEvent();
         }
 
@@ -4138,8 +4241,16 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    // Send NRC 0x22 if diag service is paused
+    if (udsCmMgr->isPaused.load())
+    {
+        LE_WARN("In BUB state, dont't receive any requests");
+        udsCmMgr->SendNRC(diagMsgPtr->dataPtr[0], CONDITIONS_NOT_CORRECT, addrInfoPtr);
+        return;
+    }
+
     // General server response behaviour check. NRC Check for 0x21
-    if(!udsCmMgr->readyToRecvData)
+    if (!udsCmMgr->readyToRecvData.load())
     {
         LE_WARN("Handle in progress, can't receive another request");
         udsCmMgr->SendNRC(diagMsgPtr->dataPtr[0], BUSY_REPEAT_REQ, addrInfoPtr);
@@ -4707,7 +4818,7 @@ void UdsCommunicationMgr::cancelFileXferHandler
             }
 
             //No request is handled in progress, change the state.
-            if(udsCmMgr->readyToRecvData == true)
+            if (udsCmMgr->readyToRecvData.load())
             {
                 LE_INFO("Change fileXfer state directly for vlanId:%d", udsCmMgr->vlanId);
                 //Change the state directly
@@ -4810,57 +4921,70 @@ le_result_t UdsCommunicationMgr::SetUDSData
         return LE_FAULT;
     }
 
-    //Set role data
-    if(dataType == UDS_AUTH_DATA_TYPE_ROLE)
+    switch(dataType)
     {
-        if( dataSize != sizeof(currentRoleVal))
-        {
-            LE_ERROR("data size:%d is incorrect ", dataSize);
-            return LE_FAULT;
-        }
+        //Set role data
+        case TAF_UDS_DATA_TYPE_ROLE:
+            if( dataSize != sizeof(currentRoleVal))
+            {
+                LE_ERROR("data size:%d is incorrect ", dataSize);
+                return LE_FAULT;
+            }
 
-        udsCmMgr->currentRoleVal = ((uint64_t)dataPtr[0]<< 56) | ((uint64_t)dataPtr[1]<< 48) |
-                ((uint64_t)dataPtr[2]<< 40) | ((uint64_t)dataPtr[3]<< 32) |
-                ((uint64_t)dataPtr[4]<< 24) | ((uint64_t)dataPtr[5]<< 16) |
-                ((uint64_t)dataPtr[6]<< 8) | dataPtr[7];
+            udsCmMgr->currentRoleVal = ((uint64_t)dataPtr[0]<< 56) | ((uint64_t)dataPtr[1]<< 48) |
+                    ((uint64_t)dataPtr[2]<< 40) | ((uint64_t)dataPtr[3]<< 32) |
+                    ((uint64_t)dataPtr[4]<< 24) | ((uint64_t)dataPtr[5]<< 16) |
+                    ((uint64_t)dataPtr[6]<< 8) | dataPtr[7];
 
-        LE_DEBUG("currentRoleVal: %" PRIuS, udsCmMgr->currentRoleVal);
-        return LE_OK;
-    }
-    else if(dataType == TAF_UDS_DATA_TYPE_FILEXFER_STATE)
-    {
-
-        le_mutex_Lock(fileXferStateMutex);
-        if( dataSize != sizeof(isXferActive))
-        {
-            LE_ERROR("data size:%d is incorrect ", dataSize);
+            LE_DEBUG("currentRoleVal: %" PRIuS, udsCmMgr->currentRoleVal);
+            break;
+        case TAF_UDS_DATA_TYPE_FILEXFER_STATE:
+            le_mutex_Lock(fileXferStateMutex);
+            if( dataSize != sizeof(isXferActive))
+            {
+                LE_ERROR("data size:%d is incorrect ", dataSize);
+                le_mutex_Unlock(fileXferStateMutex);
+                return LE_FAULT;
+            }
             le_mutex_Unlock(fileXferStateMutex);
+
+            if(IsCancelFileXferReqInList(udsCmMgr->vlanId))
+            {
+                LE_ERROR("CancelXferReq is in progress for vlanId %d", udsCmMgr->vlanId);
+                return LE_IN_PROGRESS;
+            }
+
+            LE_INFO("CancelFileXferEvent: vlanId=%d", vlanId);
+            cancelFileXferEvent_t cancelReq;
+            cancelReq.event = TAF_CANCEL_FILEXFER_START;
+            le_utf8_Copy(cancelReq.ifName, ifName, MAX_INTERFACE_NAME_LEN, NULL);
+
+            le_event_Report(UdsCommunicationMgr::cancelFileXferEvId, &cancelReq,
+                    sizeof(cancelFileXferEvent_t));
+
+            break;
+        case TAF_UDS_DATA_TYPE_DIAG_PAUSE:
+            LE_INFO("Pause diag service!");
+            if (!udsCmMgr->isPaused.load())
+            {
+                udsCmMgr->isPaused.store(true);
+                if(!udsCmMgr->readyToRecvData.load())
+                {
+                    LE_INFO("A request is in progress");
+                    return LE_IN_PROGRESS;
+                }
+            }
+            break;
+        case TAF_UDS_DATA_TYPE_DIAG_RESUME:
+        LE_INFO("Resume diag service!");
+            udsCmMgr->isPaused.store(false);
+            break;
+        default:
+            LE_ERROR("data type is not supported");
             return LE_FAULT;
-        }
-        le_mutex_Unlock(fileXferStateMutex);
-
-        if(IsCancelFileXferReqInList(udsCmMgr->vlanId))
-        {
-            LE_ERROR("CancelXferReq is in progress for vlanId %d", udsCmMgr->vlanId);
-            return LE_IN_PROGRESS;
-        }
-
-        LE_INFO("CancelFileXferEvent: vlanId=%d", vlanId);
-        cancelFileXferEvent_t cancelReq;
-        cancelReq.event = TAF_CANCEL_FILEXFER_START;
-        le_utf8_Copy(cancelReq.ifName, ifName, MAX_INTERFACE_NAME_LEN, NULL);
-
-        le_event_Report(UdsCommunicationMgr::cancelFileXferEvId, &cancelReq,
-                sizeof(cancelFileXferEvent_t));
-
-        return LE_OK;
-    }
-    else
-    {
-        LE_ERROR("data type is not supported");
-        return LE_FAULT;
     }
 
+    return LE_OK;
 }
 
 /**
@@ -4875,7 +4999,7 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     float p2StarServerInterval, p2ServerInterval;
     uint32_t maxNumberOfRcrrp, s3ServerInterval;
 
-    LE_INFO("SessionCtrlResp");
+    LE_DEBUG("SessionCtrlResp");
 
     if (POSITIVE_RESPONSE != err)
     {
@@ -4886,10 +5010,8 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
 
     taf_SessionType_t oldSessionType;
     taf_SessionType_t newSessionType;
-    uint8_t suppressPosRspFlag;
 
     newSessionType = (taf_SessionType_t)(recvBuf[1] & 0x7F);
-    suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
 
     // copy the previous session type as old session locally.
     oldSessionType = SessionType;
@@ -5030,22 +5152,16 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     }
 
 out:
-    if (suppressPosRspFlag == 0)
-    {
-        // Fill the response data to send the session response msg to DTool
-        sendBuf[0] = SESSION_CONTROL_RESPONSE_ID;
-        sendBuf[1] = recvBuf[1] & 0x7F;
-        sendBuf[2] = (uint32_t(p2ServerInterval) & 0xff00) >> 8;
-        sendBuf[3] = uint32_t(p2ServerInterval) & 0xff;
-        sendBuf[4] = (uint32_t((p2StarServerInterval)/10) & 0xff00) >> 8; // The resolution for P2* is 10ms
-        sendBuf[5] = (uint32_t(p2StarServerInterval)/10) & 0xff; // The resolution for P2* is 10ms
-        sendDataLen = UDS_SESSION_CTRL_RESP_LEN;
-        return LE_OK;
-    }
-    else
-    {
-        return LE_UNSUPPORTED;
-    }
+    // Fill the response data to send the session response msg to DTool
+    sendBuf[0] = SESSION_CONTROL_RESPONSE_ID;
+    sendBuf[1] = recvBuf[1] & 0x7F;
+    sendBuf[2] = (uint32_t(p2ServerInterval) & 0xff00) >> 8;
+    sendBuf[3] = uint32_t(p2ServerInterval) & 0xff;
+    sendBuf[4] = (uint32_t((p2StarServerInterval)/10) & 0xff00) >> 8;//The resolution for P2* is 10ms
+    sendBuf[5] = (uint32_t(p2StarServerInterval)/10) & 0xff; // The resolution for P2* is 10ms
+    sendDataLen = UDS_SESSION_CTRL_RESP_LEN;
+    //Send a final positive response after NRC 0x78
+    return LE_OK;
 }
 
 /**
@@ -5082,15 +5198,9 @@ le_result_t UdsCommunicationMgr::ECUResetResp
     }
 
     uint8_t resetType = recvBuf[1] & 0x7F;
-    // Currently it's positive response for hardreset and let's get the attribute, tmp
+    // Currently it's positive response for hardreset and let's get the attribute
     if(ignoreReqForHardReset && (resetType == HARD_RESET))
         isResetInProgress = true;
-
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-    if (suppressPosRspFlag == 1)
-    {
-        return LE_UNSUPPORTED;
-    }
 
     sendBuf[0] = ECU_RESET_RESPONSE_ID;
     sendBuf[1] = resetType;
@@ -5223,12 +5333,6 @@ le_result_t UdsCommunicationMgr::SecurityAccessResp
         return LE_OK;
     }
 
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-    if (suppressPosRspFlag == 1)
-    {
-        return LE_UNSUPPORTED;
-    }
-
     sendBuf[0] = SECURITY_ACCESS_RESPONSE_ID;
     sendBuf[1] = recvBuf[1] & 0x7F; // Security Access Type
 
@@ -5327,9 +5431,17 @@ le_result_t UdsCommunicationMgr::AuthenticationResp
             {
                 uint32_t  authTimeVal;
                 authState = AUTH_STATE_AUTHENTICATED;
-                authTimeVal = MAX_AUTH_TIME*1000;//get auth timeout val with current role from yaml
+                try
+                {
+                    authTimeVal = cfg::get_authentication_timeout()*1000;
+                }
+                catch (const std::exception& e)
+                {
+                    authTimeVal = MAX_AUTH_TIME*1000;
+                    LE_ERROR("Exception: %s. Use default value:%d", e.what() , MAX_AUTH_TIME);
+                }
                 //POWN successfully, start authentication timer
-                LE_DEBUG("POWN successful");
+                LE_DEBUG("POWN successful, start authentication timer with value %d", authTimeVal);
                 UdsTimerEventReport(TAF_UDS_AUTH_TIMER_START, authTimeVal, interface);
 
                 //reset counter
@@ -5342,12 +5454,6 @@ le_result_t UdsCommunicationMgr::AuthenticationResp
         break;
         default:
         break;
-    }
-
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-    if (suppressPosRspFlag == 1)
-    {
-        return LE_UNSUPPORTED;
     }
 
     sendBuf[0] = AUTHENTICATION_RESPONSE_ID;
@@ -5384,12 +5490,6 @@ le_result_t UdsCommunicationMgr::RoutineCtrlResp
         LE_DEBUG("Error code reported from Diag service");
         SetNRC(serviceId, err);
         return LE_OK;
-    }
-
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-    if (suppressPosRspFlag == 1)
-    {
-        return LE_UNSUPPORTED;
     }
 
     uint8_t routineControlType = recvBuf[1] & 0x7F;
@@ -5707,12 +5807,6 @@ le_result_t UdsCommunicationMgr::ReadDTCInfoResp
         return LE_OK;
     }
 
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-    if (suppressPosRspFlag == 1)
-    {
-        return LE_UNSUPPORTED;
-    }
-
     uint8_t reportType = recvBuf[1] & 0x7F;  // Equal to subfunction 0~6bit
 
     sendBuf[0] = READ_DTC_INFO_RESPONSE_ID;
@@ -5771,12 +5865,6 @@ le_result_t UdsCommunicationMgr::CtrlDTCSettingResp
         LE_DEBUG("Error code reported from Diag service");
         SetNRC(serviceId, err);
         return LE_OK;
-    }
-
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-    if (suppressPosRspFlag == 1)
-    {
-        return LE_UNSUPPORTED;
     }
 
     uint8_t settingType = recvBuf[1] & 0x7F;  // Equal to subfunction 0~6bit
@@ -5840,17 +5928,6 @@ le_result_t UdsCommunicationMgr::ROEResp
 
     LE_DEBUG("ResponseOnEvent sub function:%d", subFunc);
 
-    //The SuppressPosRspMsg is only available for stopROE, startROE or clearROE
-    if(subFunc == ROE_SUBFUNC_STPROE || subFunc == ROE_SUBFUNC_STRTROE ||
-            subFunc == ROE_SUBFUNC_CLRROE)
-    {
-        uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
-        if (suppressPosRspFlag == 1)
-        {
-            return LE_FAULT;
-        }
-    }
-
     sendBuf[0] = RESPONSE_ON_EVENT_RESPONSE_ID;
     sendBuf[1] = subFunc;
 
@@ -5899,6 +5976,7 @@ bool UdsCommunicationMgr::IsSessTypeMatched
  */
 bool UdsCommunicationMgr::IsAuthRoleMatched
 (
+    taf_UDSReqSvcID_t serviceType,
     cfg::Node& node
 )
 {
@@ -5906,7 +5984,29 @@ bool UdsCommunicationMgr::IsAuthRoleMatched
     cfg::Node roleNames;
     try
     {
-        roleNames = node.get_child("role");
+        LE_DEBUG(" Service type = 0x%x", serviceType);
+        switch(serviceType)
+        {
+            case READ_DID_REQUEST_ID:
+                //Get config roles for read pattern
+                roleNames = node.get_child(AUTH_ROLE_READ_PATTERN);
+            break;
+            case WRITE_DID_REQUEST_ID:
+                //Get config roles for written pattern
+                roleNames = node.get_child(AUTH_ROLE_WRITE_PATTERN);
+            break;
+            case INPUT_OUTPUT_CONTROL_REQUEST_ID:
+                //Get config roles for io control pattern
+                roleNames = node.get_child(AUTH_ROLE_IOCTL_PATTERN);
+            break;
+            case ROUTINE_CONTROL_REQUEST_ID:
+                //Get config roles for routine control pattern
+                roleNames = node.get_child(AUTH_ROLE_ROUTINE_PATTERN);
+            break;
+            default:
+                LE_ERROR("Role check is not supported for service %d", serviceType);
+                return false;
+        }
     }
     catch (const std::exception& e)
     {
@@ -5915,11 +6015,10 @@ bool UdsCommunicationMgr::IsAuthRoleMatched
     }
 
     //Get authentication_roles configuration
-    cfg::Node authRoles;
+    std::map<std::string, uint64_t> authentication_roles;
     try
     {
-        cfg::Node & root = cfg::get_root_node();
-        authRoles = root.get_child("authentication_roles");
+        authentication_roles = cfg::get_authentication_roles();
     }
     catch (const std::exception& e)
     {
@@ -5934,10 +6033,15 @@ bool UdsCommunicationMgr::IsAuthRoleMatched
         for (const auto & roleName: roleNames)
         {
             string name = roleName.second.get_value<string>("");
-            uint64_t role_value = authRoles.get_child(name).get<int>("value");
+            LE_DEBUG(" role name =%s", name.c_str());
+            auto it = authentication_roles.find(name);
+            if (it == authentication_roles.end())
+                continue;
+
+            uint64_t role_value = it->second;
             LE_DEBUG("roleVal= %" PRIuS ", currentRoleVal = %" PRIuS " ", role_value,
                     currentRoleVal);
-            if(role_value == currentRoleVal)
+            if((role_value & currentRoleVal) != 0)
             {
                 isRoleMatched = true;
                 break;
@@ -6022,6 +6126,65 @@ bool UdsCommunicationMgr::IsRequestSubFuncSupported
     LE_DEBUG("subFunction(0x%x) is unsupported for node", subFunc);
 
     return false;
+}
+
+bool UdsCommunicationMgr::IsControlOptionRecordValid
+(
+    uint16_t rid,
+    uint8_t subFunc,
+    const uint8_t* dataRec,
+    size_t dataRecLen
+)
+{
+    LE_DEBUG("dataRecLen: %d", (int)dataRecLen);
+    LE_DEBUG("subFunc: %x", subFunc);
+    LE_DEBUG("Routine DID: %u", rid);
+
+    string recordName = cfg::get_routine_record(rid, subFunc);
+    LE_DEBUG("recordName: %s", recordName.c_str());
+
+    if(recordName != "null")
+    {
+        try
+        {
+            bool IsOptionRecValid = cfg::validate_base_record(dataRec, dataRecLen, recordName);
+            if(IsOptionRecValid)
+            {
+                LE_DEBUG("Forbidden data found!!");
+                return false;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LE_WARN("Exception: %s", e.what());
+        }
+    }
+    else
+    {
+        LE_DEBUG("Routine Control Option check skipped as Record Name not found");
+    }
+    return true;
+}
+
+bool UdsCommunicationMgr::IsTotalLengthCheckValid
+(
+    uint16_t rid,
+    uint8_t subFunc,
+    size_t dataRecLen
+)
+{
+    string recordName = cfg::get_routine_record(rid, subFunc);
+    LE_DEBUG("recordName: %s", recordName.c_str());
+
+    if(recordName != "null")
+    {
+        size_t recordNameLength = cfg::get_routine_record_size(recordName);
+        if(recordNameLength != dataRecLen)
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 void UdsCommunicationMgr::StoreAttCntToTree

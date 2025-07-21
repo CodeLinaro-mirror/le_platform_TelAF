@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -13,7 +13,7 @@ static taf_diagAuth_AuthStateExpHandlerRef_t expHandlerRef = NULL;
 static le_sem_Ref_t semRef;
 
 static uint8_t challengeSvr[4096];
-static uint64_t role = 0x01;
+static uint64_t role = 0x03;
 
 static void AuthTransCertHandle
 (
@@ -408,6 +408,8 @@ static void AuthMsgHandler
     LE_TEST_INFO("AuthMsgHandler!");
     LE_TEST_INFO("Received auth type: %d", authTaskType);
 
+    authTaskType = authTaskType  & 0x7F;
+
     if (authTaskType == TAF_DIAGAUTH_TRANSMIT_CERT)  // 0x04
     {
         AuthTransCertHandle(rxMsgRef);
@@ -472,10 +474,12 @@ static void *diagAuthMsgThread
 
 le_result_t diagAuth_Init
 (
-    void
+    uint64_t roleValue
 )
 {
-    LE_TEST_INFO("diagAuth_Init");
+    LE_TEST_INFO("diagAuth_Init with role value: %" PRIuS, roleValue);
+
+    role = roleValue;
 
     semRef = le_sem_Create("SemRef", 0);
 

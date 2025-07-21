@@ -19,13 +19,13 @@ capability:
         CAP_FOWNER
         CAP_WAKE_ALARM
         CAP_SYS_RESOURCE
-        CAP_DAC_OVERRIDE
         CAP_BLOCK_SUSPEND
         CAP_SYS_BOOT
         CAP_SYS_ADMIN
 
 #if ${LE_CONFIG_TEST_COVERAGE} = y
         CAP_DAC_READ_SEARCH
+        CAP_DAC_OVERRIDE
 #endif
 }
 sandboxed: false

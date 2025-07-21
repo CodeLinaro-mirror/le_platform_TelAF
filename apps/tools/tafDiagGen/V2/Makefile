@@ -7,7 +7,12 @@ endif
 
 diagcfg_of_project=$(shell realpath $(top_of_project)/components/tafDiagSvc/tafDiagCfg)
 
-PY=python3
+ifeq ($(DGTOOL_TARGET),)
+  PY=python3
+else
+  $(info target is $(DGTOOL_TARGET))
+  PY=$(top_of_project)/apps/tools/tafDiagGen/venv/$(DGTOOL_TARGET)/bin/python3
+endif
 
 .PHONY: default install help clean version
 

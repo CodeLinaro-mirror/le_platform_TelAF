@@ -74,6 +74,15 @@ config LIMIT_APP_START_GROUP
   started by another group controller. Applications without a startGroup
   number will be assigned the value 31.
 
+config SUPPORT_APP_UPDATE_WITH_OVERLAY
+  bool "Enable overlaying dir '/app' for individual APP update"
+  default "$(b2k,$(SUPPORT_APP_UPDATE_WITH_OVERLAY))" if !$(empty,$(SUPPORT_APP_UPDATE_WITH_OVERLAY))
+  default n
+  ---help---
+  Support overlay for the 'appsWriteable' and 'current' directories,
+  allowing the APP to be updated individually on the target device.
+  Before enabling this, please ensure that the dir '/app' is writeable.
+
 menu "apps"
 rsource "apps/KConfig"
 endmenu # end "apps"

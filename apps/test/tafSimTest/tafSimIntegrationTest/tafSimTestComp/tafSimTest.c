@@ -28,8 +28,8 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2023-24 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -151,7 +151,6 @@ void tafSimTest_state
     LE_INFO("test: state %d", state);
 
     LE_TEST_OK((state >= TAF_SIM_INSERTED) && (state <= TAF_SIM_ERROR), "taf_sim_GetState");
-    printf("Type: %s\n", simId == TAF_SIM_EXTERNAL_SLOT_1 ? "TAF_SIM_EXTERNAL_SLOT_1": "TAF_SIM_EXTERNAL_SLOT_2");
 
     printf("State: %s\n", SimStateToString(state));
     printf("Is SIM card Ready: %s\n", taf_sim_IsReady(simId) ? "true" : "false");
@@ -227,13 +226,18 @@ void tafSimTest_info
     memset(mnc, 0, 4);
 
     LE_INFO("SimId %d", simId);
+    if(simId == TAF_SIM_UNSPECIFIED)
+    {
+        printf("Default SIM: %s\n", defaultSimId == TAF_SIM_EXTERNAL_SLOT_1 ? "TAF_SIM_EXTERNAL_SLOT_1": "TAF_SIM_EXTERNAL_SLOT_2" );
+    }
+    else
+    {
+        printf("Type: %s\n", simId == TAF_SIM_EXTERNAL_SLOT_1 ? "TAF_SIM_EXTERNAL_SLOT_1": "TAF_SIM_EXTERNAL_SLOT_2");
+        printf("Default SIM: %s\n", defaultSimId == simId ? "Yes": "No");
+    }
 
-    printf("Type: %s\n", simId == TAF_SIM_EXTERNAL_SLOT_1 ? "TAF_SIM_EXTERNAL_SLOT_1": "TAF_SIM_EXTERNAL_SLOT_2");
-    printf("Default SIM: %s\n", defaultSimId == simId ? "Yes": "No");
-
-    bool isSimPreent = taf_sim_IsPresent(simId);
-    printf("SIM Availability: %s\n", isSimPreent ? "Yes": "No");
-
+    bool isSimPresent = taf_sim_IsPresent(simId);
+    printf("SIM Availability: %s\n", isSimPresent ? "Yes": "No");
     printf("SIM State: %s\n", tafSimTest_SimStateToString(taf_sim_GetState(simId)));
 
     bool isSimReady = taf_sim_IsReady(simId);

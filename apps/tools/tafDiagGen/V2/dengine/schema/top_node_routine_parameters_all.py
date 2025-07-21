@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import sys
@@ -36,6 +36,13 @@ def schema__routine_parameters_all(top_node):
                 logger.error(f"{Tname} . {key} . {required_key} <-- Invalid value")
                 need_to_stop = True
                 return
+
+        if 'bit_offset' in value.keys():
+            for bit,data in value['bit_offset'].items():
+                if not Str()(data['dataElement']):
+                    logger.error(f"{Tname} . {bit} . {data['dataElement']} <-- Invalid value")
+                    need_to_stop = True
+                    return
 
     logger.info(f"Checking top-node: [{Tname}]")
     for key, value in top_node.items():

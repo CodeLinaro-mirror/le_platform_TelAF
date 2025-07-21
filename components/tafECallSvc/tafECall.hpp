@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -7,6 +7,8 @@
 #include "interfaces.h"
 #include <telux/tel/PhoneFactory.hpp>
 #include "telux/common/CommonDefines.hpp"
+#include <telux/platform/SubsystemFactory.hpp>
+#include <telux/platform/SubsystemManager.hpp>
 #include "tafSvcIF.hpp"
 
 // For using VHAL
@@ -32,6 +34,8 @@ using namespace std;
 #define CFG_NODE_PROPULSION_ELECTRIC "Electric"
 #define CFG_NODE_PROPULSION_HYDROGEN "Hydrogen"
 #define CFG_NODE_PROPULSION_OTHER "Other"
+#define CFG_ECALL_HLAPTIMERELAPSED_PATH "tafeCallSvc:/eCall/hlapTimerElapsed"
+#define CFG_NODE_HLAPTIMERELAPSED_T9 "T9ElapsedTime"
 #define ISOWMI_START 0
 #define ISOWMI_LENGTH 3
 #define ISOVDS_START (ISOWMI_START + ISOWMI_LENGTH)
@@ -54,6 +58,8 @@ using namespace std;
 #define MSD_EURONCAP_OAD_DELTAVY_MAX 250
 #define MSD_EURONCAP_OAD_RANGELIMIT_MIN 100
 #define MSD_EURONCAP_OAD_RANGELIMIT_MAX 250
+#define MAX_MSD_MESSAGE_IDENTIFIER 255
+#define MIN_MSD_MESSAGE_IDENTIFIER 1
 
     namespace tafsvc {
 
@@ -84,7 +90,6 @@ using namespace std;
 
         typedef struct
         {
-            bool                                isRedial = false;
             uint8_t                             dialAttempts;
             uint16_t                            dialInterval[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH];
         }
@@ -108,7 +113,7 @@ using namespace std;
             taf_ecall_Type_t                    type;
             std::shared_ptr<telux::tel::ICall>  iCall;
             taf_DialRedial_t                    dialRedial;
-            bool                                isReceivedLLACK;
+            bool                                waitForALACKPos;
             int8_t                              phoneId;
         }
         taf_ECall_t;
@@ -132,6 +137,38 @@ using namespace std;
         {
             ALACKTimer_t         alackTimer;
         }ALACKTimerEvent_t;
+
+        typedef enum
+        {
+            EVENT_MODEM_REBOOT,
+            EVENT_SAVE_HLAP_TIMER_ELAPSED,
+            EVENT_ECALL_MODE_CHANGE
+        }
+        Event_t;
+
+        typedef enum
+        {
+            HLAP_TIMER_TYPE_T9
+        }HlapTimerType_t;
+
+        typedef enum
+        {
+            HLAP_TIMER_EVENT_TYPE_UNKNOWN,
+            HLAP_TIMER_EVENT_TYPE_STARTED,
+            HLAP_TIMER_EVENT_TYPE_STOPPED,
+            HLAP_TIMER_EVENT_TYPE_EXPIRED,
+            HLAP_TIMER_EVENT_TYPE_RESUMED
+        }
+        HlapTimerEventType_t;
+
+        typedef struct
+        {
+            Event_t event;
+            HlapTimerType_t hlapTimerType;
+            HlapTimerEventType_t hlapTimerEventType;
+            int8_t phoneId;
+            telux::tel::ECallMode eCallMode;
+        }ResumeHlapTimerEvent_t;
 
         class tafECallOperatingModeCallback {
             public:
@@ -179,6 +216,11 @@ using namespace std;
                 static void configureRedialResponse(telux::common::ErrorCode error);
         };
 
+        class tafResumeHlapTimerCallback {
+            public:
+                static void resumeHlapTimerResponse(telux::common::ErrorCode error);
+        };
+
         class tafECallListener : public telux::tel::ICallListener {
             void onIncomingCall(std::shared_ptr<telux::tel::ICall> call) override;
             void onCallInfoChange(std::shared_ptr<telux::tel::ICall> call) override;
@@ -192,6 +234,15 @@ using namespace std;
             void onECallRedial(int phoneId, ECallRedialInfo info) override;
 
              taf_ecall_State_t eCallMsdTransmissionStatusToState( ECallMsdTransmissionStatus status);
+        };
+
+        class tafECallPhoneListener : public telux::tel::IPhoneListener {
+            void onECallOperatingModeChange(int phoneId, telux::tel::ECallModeInfo info);
+        };
+
+        class tafECallModemEvtListener : public telux::platform::ISubsystemListener {
+            void onStateChange(telux::common::SubsystemInfo subsystemInfo,
+                telux::common::OperationalStatus newOperationalStatus) override;
         };
 
         class taf_ecall :public ITafSvc {
@@ -242,9 +293,13 @@ using namespace std;
                 le_result_t GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, taf_ecall_HlapTimerStatus_t* timerStatus, uint16_t* elapsedTime);
                 taf_ecall_HlapTimerStatus_t GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType);
                 taf_ecall_HlapTimerStatus_t ConvertHlapTimerStatus(telux::tel::HlapTimerStatus status);
-                uint16_t ConvertElapsedTime(std::chrono::time_point<std::chrono::system_clock> startTime);
-                static void ReportPositiveALACKTimerHandler(le_timer_Ref_t timerRef);
-                static void ALACKTimerEventHandler(void* reqPtr);
+                uint16_t ConvertElapsedTime(std::chrono::time_point<std::chrono::steady_clock> startTime);
+                static void T9TimerExpiryHandler(le_timer_Ref_t timerRef);
+                static void T10TimerExpiryHandler(le_timer_Ref_t timerRef);
+                void* StartHlapElapsedTimer(HlapTimerType_t type, HlapTimerEventType_t event);
+                HlapTimerEventType_t ConvertHlapTimerEvent(HlapTimerEvent event);
+                le_result_t ResumeHlapTimer(taf_ecall_HlapTimerType_t timerType);
+                static void ResumeHlapTimerEventHandler(void* reqPtr);
                 le_result_t IsInProgress(taf_ecall_CallRef_t ecallRef, bool* isInProgress);
                 le_result_t ConfigureInitialDialRedial(std::vector<int> redialPara);
                 le_result_t SetInitialDialAttempts(uint8_t attempts);
@@ -281,27 +336,31 @@ using namespace std;
                 std::promise<telux::common::ErrorCode> makeEcallProm;
                 std::promise<telux::common::ErrorCode> makePrieCallProm;
                 std::promise<telux::common::ErrorCode> configRedialProm;
+                std::promise<telux::common::ErrorCode> resumeHlapTimerProm;
                 CallEndCause CallEndError = telux::tel::CallEndCause::NORMAL;
 
-                std::chrono::time_point<std::chrono::system_clock> t2StartTime;
-                std::chrono::time_point<std::chrono::system_clock> t9StartTime;
-                std::chrono::time_point<std::chrono::system_clock> t10StartTime;
+                std::chrono::time_point<std::chrono::steady_clock> t2StartTime;
+                std::chrono::time_point<std::chrono::steady_clock> t9StartTime;
+                std::chrono::time_point<std::chrono::steady_clock> t10StartTime;
                 bool t2StartTimeSet = false;
                 bool t9StartTimeSet = false;
                 bool t10StartTimeSet = false;
-
+                uint16_t ElapsedTimeT9 = 0;
                 eCall_Inf_t *eCallInf = nullptr;
                 bool isDrvPresent = false;
 
                 std::shared_ptr<telux::tel::ICallManager> CallManager;
+                std::shared_ptr<telux::platform::ISubsystemManager> subsystemMgr;
                 le_ref_MapRef_t ECallPtrRefMap = NULL;
 
-                le_timer_Ref_t positiveALACKTimerRef;
-                le_event_Id_t ALACKTimerEventId;
-
+                le_event_Id_t ResumeHlapTimerEventId;
+                le_timer_Ref_t elapsedTimeT9Ref;
+                bool pendingToResumeHlapTimer = false;
             private:
                 std::shared_ptr<telux::tel::IPhoneManager> PhoneManager;
                 std::shared_ptr<tafECallListener> ECallListener;
+                std::shared_ptr<tafECallPhoneListener> phoneListener;
+                std::shared_ptr<tafECallModemEvtListener> stateListener;
                 std::shared_ptr<tafCallCommandCallback> CallCommandCb;
                 std::shared_ptr<tafUpdateMsdCommandCallback> UpdateMsdCb;
                 std::shared_ptr<tafHangupCommandCallback> HangupCb;

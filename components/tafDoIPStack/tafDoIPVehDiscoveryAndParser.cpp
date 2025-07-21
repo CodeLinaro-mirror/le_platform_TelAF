@@ -687,6 +687,7 @@ taf_doip_Result_t VehicleDiscovery::VehicleDiscoveryAnnounce
         le_timer_SetMsInterval(waitTimerRef , waitTime);
         le_timer_SetRepeat(waitTimerRef , 1);
         le_timer_SetHandler(waitTimerRef , VehicleAnnounceTimerHandler);
+        le_timer_SetWakeup(waitTimerRef, false);
         le_timer_Start(waitTimerRef);
         LE_DEBUG("Announcement remaining time: %d", le_timer_GetMsTimeRemaining(waitTimerRef));
         LE_DEBUG("called VehicleAnnounceTimerHandler!");
@@ -770,6 +771,7 @@ taf_doip_Result_t VehicleDiscovery::VehicleIdentityRes
     le_timer_SetRepeat(resTimerRef, 1);
     le_timer_SetHandler(resTimerRef, VehicleIdentityTimerHandler);
     le_timer_SetContextPtr(resTimerRef, (taf_doipLink_t *)linkPtr);
+    le_timer_SetWakeup(resTimerRef, false);
     le_timer_Start(resTimerRef);
 
     return TAF_DOIP_RESULT_OK;

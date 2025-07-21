@@ -13,7 +13,7 @@ datas:
       value_type: uint8
       bit_size: 136
       default_value: 0x0000000000000000000000000000000000
-      forbidden_characters:
-        - (0x00..0x1F)
-        - (0x3A..0x40)
-        - (0x7B..0x7F)
+      forbidden_values:
+        - 0x0000000000000000000000000000000000
+        - 0x3030303030303030303030303030303030
+        - 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF

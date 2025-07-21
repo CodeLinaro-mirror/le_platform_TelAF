@@ -1,35 +1,7 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 //--------------------------------------------------------------------------------------------------
@@ -462,6 +434,49 @@ ENUM NodePowerState
    NODE_STATE_RESUME
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Bit mask for modem wakeup selection.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK NodeModemWsBitMask
+{
+    NODE_MODEM_WS_BIT_MASK_SMS,        ///< Node Modem Wake Soure bit mask for received SMS.
+    NODE_MODEM_WS_BIT_MASK_VOICE_CALL, ///< Node Modem Wake Soure bit mask for incoming voice call.
+    NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP, ///< Node Modem Wake Source bit mask for remote
+                                                    ///< sim profile swapped based SIM refresh
+                                                    ///< indication wake up.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_3,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_4,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_5,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_6,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_7,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_8,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_9,   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_10,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_11,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_12,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_13,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_14,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_15,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_16,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_17,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_18,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_19,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_20,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_21,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_22,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_23,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_24,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_25,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_26,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_27,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_28,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_29,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_30,  ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_31   ///< Node Modem Wake Soure bit mask Reserved.
+};
+
 /**
  * WakeupNodeSourceRef for system wakeup.
  */
@@ -471,6 +486,11 @@ REFERENCE ws;
  * WakeupNodeSourceRef for system wakeup.
  */
 REFERENCE nodePowerState;
+
+/**
+ * NodeModemAwakeEventRef for node modem wakeup.
+ */
+REFERENCE NodeModemAwakeEvent;
 
 /**
  * Handler for async shutdown request.
@@ -592,6 +612,35 @@ EVENT NodePowerStateChange
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for node modem awake.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER NodeModemAwakeHandler
+(
+    NodeModemAwakeEvent ref,
+    uint8 pmNodeId,
+    NodeModemWsBitMask wsBitmask
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Node modem awake event.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT NodeModemAwake
+(
+    NodeModemAwakeHandler handler,  ///< The modem awake event handler.
+    uint8 pmNodeId,
+    NodeModemWsBitMask wsBitmask
+);
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Sets the targeted power mode for the node.
  * Node will initiate the requested power state once all wake sources are released.
  *
@@ -682,6 +731,8 @@ FUNCTION ws NewNodeWakeupSource (
 /**
  * Sets the allowed Modem wakeup source type.
  * Currently the SMS, incoming call, and MCU_VHAL sources are supported to be set.
+ *
+ * @b NOTE: This API will be replaced by SetNodeModemWakeupSel soon.
  *
  * @instaging
  * @return
@@ -850,4 +901,60 @@ FUNCTION le_result_t Relax (
 FUNCTION le_result_t StayAwake(
     ws wsRef IN     ///< The wakesource reference ID given.
 );
+
 //--------------------------------------------------------------------------------------------------
+/**
+ * Sets the whitelisted modem wakeup selection.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetNodeModemWakeupSel
+(
+    uint8 pmNodeId IN,               ///< The Node ID given.
+    NodeModemWsBitMask wsBitmask     ///< Modem wakeup selection to be whitelisted.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the whitelisted modem wakeup selection.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNodeModemWakeupSel
+(
+    uint8 pmNodeId IN,                   ///< The Node ID given.
+    NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup selection to be whitelisted.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the last modem wakeup reason.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNodeModemAwakeReason
+(
+    uint8 pmNodeId IN,                   ///< The Node ID given.
+    NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup reason.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the given wake source.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteWakeupSource
+(
+    ws wsRef IN     ///< The wakesource reference ID given.
+);

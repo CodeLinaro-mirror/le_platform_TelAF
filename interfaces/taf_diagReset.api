@@ -57,7 +57,7 @@
    }
    @endverbatim
  *
- * @section c_taf_diagReset_server_API Server Service APIs
+ * @section c_taf_diagReset_server_API Server-service APIs
  *
  * A diag reset service reference can be got using taf_diagReset_GetService() with the resetType
  * passed as a parameter. If resetType is equal to 0xFF then application shall do all type of
@@ -74,7 +74,7 @@
    LE_ASSERT(svcRef != NULL);
    @endcode
  *
- * @section c_taf_diag_reset_Set_VlanId Set and Get VLAN ID
+ * @section c_taf_diag_reset_Set_VlanId Set/get VLAN ID
  *
  * After getting a service reference, an application can set the VLAN ID to the service to filter
  * ECU reset requests using taf_diagReset_SetVlanId(). It shall be called before registering the

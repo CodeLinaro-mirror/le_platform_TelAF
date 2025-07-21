@@ -1,35 +1,6 @@
 /*
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 //--------------------------------------------------------------------------------------------------
@@ -61,13 +32,13 @@
  *
    @endverbatim
  *
- * @section c_taf_mrc_ota FOTA Supplementary Operations
+ * @section c_taf_mrc_ota FOTA supplementary operations
  *
  * - taf_mrc_SendOtaStartMsg() - Sends an OTA start notification to MRCD before FOTA starts.
  *
  * - taf_mrc_SendOtaResumeMsg() - Sends an OTA resume notification to MRCD when FOTA resumes.
  *
- * - taf_mrc_SendOtaEndMsg() Sends an OTA end notification to MRCD when FOTA completes.
+ * - taf_mrc_SendOtaEndMsg() - Sends an OTA end notification to MRCD when FOTA completes.
  *
  * - taf_mrc_SendOtaAbsyncMsg() - Synchronizes active and inactive slots.
  *
@@ -107,6 +78,21 @@ ENUM OtaOperationStatus
     OTA_OP_STATUS_SUCCESS = 1, ///< OTA operation status is success.
     OTA_OP_STATUS_FAILURE      ///< OTA operation status is failure.
 };
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sync status enum.
+ *
+ * @b NOTE: Sync status notified to MRCD.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SyncStatus
+{
+    SYNC_STATUS_INIT = 0,    ///< Sync is initialized by client.
+    SYNC_STATUS_SUCCESS,     ///< Sync status is success.
+    SYNC_STATUS_FAILURE      ///< Sync status is failure.
+};
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -159,4 +145,18 @@ FUNCTION le_result_t SendOtaEndMsg
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendOtaAbsyncMsg
 (
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends sync staus to MRCD.
+ *
+ * @return
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendSyncStatusMsg
+(
+    SyncStatus status IN ///< Sync status.
 );

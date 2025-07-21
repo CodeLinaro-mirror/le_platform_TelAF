@@ -28,10 +28,11 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
- */
+*/
+
 
 
 #include "legato.h"
@@ -198,14 +199,14 @@ using namespace std;
                 taf_sim() {};
                 ~taf_sim() {};
 
-                std::shared_ptr<telux::tel::ICardManager> cardManager;
+                std::shared_ptr<telux::tel::ICardManager> cardManager = nullptr;
                 std::shared_ptr<telux::tel::ICardListener> cardListener;
                 std::map<int, std::shared_ptr<telux::tel::ICard>> cards;
-                std::shared_ptr<telux::tel::ISubscriptionManager> subMgr;
+                std::shared_ptr<telux::tel::ISubscriptionManager> subMgr = nullptr;
                 std::shared_ptr<telux::tel::ISubscriptionListener> subscriptionListener;
-                std::shared_ptr<telux::tel::ISimProfileManager> simProfileManager;
+                std::shared_ptr<telux::tel::ISimProfileManager> simProfileManager = nullptr;
                 std::promise<le_result_t> ProfileSyncPromise = std::promise<le_result_t>();
-                std::shared_ptr<telux::tel::IMultiSimManager> multiSimMgr;
+                std::shared_ptr<telux::tel::IMultiSimManager> multiSimMgr = nullptr;
                 std::shared_ptr<telux::tel::IMultiSimListener> multiSimListener;
                 std::promise<telux::common::ErrorCode> slotStatusCbPromise;
 
@@ -311,6 +312,7 @@ using namespace std;
                 void RemoveRefreshChangeHandler(taf_sim_RefreshChangeHandlerRef_t handlerRef);
                 void NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* contextPtr);
                 void CheckAndSendProfileSwitchEvent();
+                void CheckAndSendRefreshEvent(taf_sim_Id_t SimId);
                 le_result_t CreateSession(taf_sim_SessionType_t sessionType, taf_sim_RefreshRef_t* refreshSessionRef);
                 le_result_t SetRefreshRegisterFiles(taf_sim_RefreshRef_t refreshSessionRef, const taf_sim_RefreshRegFile_t* filesPtr, size_t filesSize);
                 le_result_t SetRefreshMode(taf_sim_RefreshRef_t refreshSessionRef, taf_sim_RefreshMode_t refreshMode);

@@ -28,8 +28,8 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -65,7 +65,6 @@ LE_MEM_DEFINE_STATIC_POOL(QosStatusPool, TAF_DCS_MAX_SESSION_REF,sizeof(QOSFlowC
 
 LE_REF_DEFINE_STATIC_MAP(QosStatusRefMap, TAF_DCS_MAX_SESSION_REF);
 
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 taf_DataConnServingSystemListener::taf_DataConnServingSystemListener(SlotId slot) : slotId(slot) {}
 
 void taf_DataConnServingSystemListener::onServiceStateChanged(telux::data::ServiceStatus status)
@@ -74,7 +73,8 @@ void taf_DataConnServingSystemListener::onServiceStateChanged(telux::data::Servi
     LE_DEBUG("<SDK Listener> taf_DataConnServingSystemListener --> onServiceStateChanged");
 
     dsStatus = status.serviceState;
-    LE_DEBUG("status = %d", (int)dsStatus);
+    LE_DEBUG("Status = %d", (int)dsStatus);
+    LE_DEBUG("RAT    = %d", (int)status.networkRat);
     if (dsStatus == telux::data::DataServiceState::IN_SERVICE) {
         conVar.notify_all();
     }
@@ -128,8 +128,6 @@ void taf_DataConnRequestServiceStatusCallback::requestServiceStatus(
     status = serviceStatus;
     le_sem_Post(semaphore);
 }
-
-#endif
 
 taf_DataConnectionListener::taf_DataConnectionListener(SlotId slot) : slotId(slot) {}
 
@@ -438,6 +436,28 @@ const std::vector<telux::data::APNThrottleInfo>  &throttleInfoList
 
     dataProfile.ProcessThrottledApnInfoChanged(throttleInfoList, slotId);
 }
+taf_dcs_HwAccelerationState_t taf_DataConnection::ConvertHwAccelSate(
+    const telux::data::ServiceState state)
+{
+    // If active, return TAF_DCS_HW_ACCELERATION_ACTIVE
+    if (telux::data::ServiceState::ACTIVE == state)
+    {
+        return TAF_DCS_HW_ACCELERATION_ACTIVE;
+    }
+
+    // Return TAF_DCS_HW_ACCELERATION_INACTIVE in all other cases
+    return TAF_DCS_HW_ACCELERATION_INACTIVE;
+}
+
+void taf_DataConnectionListener::onHwAccelerationChanged(const telux::data::ServiceState state)
+{
+    LE_DEBUG("HW acceleration state: %d", static_cast<int>(state));
+    // Send event to taf_DataProfile to handle this event
+    HwAccelStatus_t event = {nullptr, TAF_DCS_HW_ACCELERATION_INACTIVE};
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    event.state = taf_DataConnection::ConvertHwAccelSate(state);
+    le_event_Report(dataProfile.GetHwAccelStatusEvent(), &event, sizeof(event));
+}
 
 taf_dcs_QosFlowBitMask_t taf_DataConnection::fillQosFlowMask(
     telux::data::QosFlowMask mask)
@@ -667,16 +687,32 @@ le_result_t taf_DataConnection::GetQosMask(taf_dcs_QosFlowRef_t qosFlowRef,
     return LE_OK;
 }
 
+/**
+ * Mutex to protect data received via onTrafficFlowTemplateChange. This is declared globally here
+ * instead of as a class variable because taf_DataConnectionListener can have 2 objects (multi sim)
+ * and there could be a condition where the appropriate mutex is not locked.
+ */
+static std::mutex TftMtx;
+
+/**
+ * The QoS TFT callback implementation.
+ */
+
 void taf_DataConnectionListener::onTrafficFlowTemplateChange(
     const std::shared_ptr<telux::data::IDataCall> &iCall,
     const std::vector<std::shared_ptr<telux::data::TftChangeInfo>> &tfts)
 {
 
     LE_DEBUG("<SDK Callback> taf_DataConnectionListener --> onTrafficFlowTemplateChange");
-    auto &dataConnection = taf_DataConnection::GetInstance();
     TAF_ERROR_IF_RET_NIL(iCall == nullptr, "iCall is null");
     int32_t profileId = iCall->getProfileId();
     uint8_t slotId = (uint8_t)iCall->getSlotId();
+
+    // Get the data connection object.
+    auto &dataConnection = taf_DataConnection::GetInstance();
+
+    // Lock the mutex
+    std::lock_guard<std::mutex> lock(TftMtx);
 
     for (auto tft_iter : tfts)
     {
@@ -1402,18 +1438,18 @@ le_result_t taf_DataConnection::SendSettingDefaultProfileIdCmd(uint8_t slotId, i
     return LE_OK;
 }
 
-le_result_t taf_DataConnection::SendGettingDefaultProfileIdCmd()
+le_result_t taf_DataConnection::SendGettingDefaultProfileIdCmd(uint8_t slotId)
 {
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
-    if(dataConnectionManagers.find((SlotId)SLOT_ID_1) == dataConnectionManagers.end())
+    if (dataConnectionManagers.find((SlotId)slotId) == dataConnectionManagers.end())
     {
-        LE_ERROR("Connection manager is not init for slot %d", SLOT_ID_1);
+        LE_ERROR("Connection manager is not init for slot %d", slotId);
         return LE_FAULT;
     }
 
     telux::common::Status status =
-                          dataConnectionManagers[static_cast<SlotId>(SLOT_ID_1)]->getDefaultProfile(
+                          dataConnectionManagers[static_cast<SlotId>(slotId)]->getDefaultProfile(
                                                             telux::data::OperationType::DATA_LOCAL,
                                                             GetDefaultProfileCallCallback);
 
@@ -2140,6 +2176,16 @@ void taf_DataConnection::StopSessionCmdAsync
 
 le_result_t taf_DataConnection::SetDefaultProfileIdSync(uint8_t slotId, uint32_t profileId)
 {
+    // Ensure slot id is valid
+    if (bMultiSimSupported)
+    {
+        TAF_ERROR_IF_RET_VAL(slotId != SLOT_ID_1 && slotId != SLOT_ID_2,
+                                                        LE_BAD_PARAMETER, "Invalid slot id.");
+    }
+    else
+    {
+        TAF_ERROR_IF_RET_VAL(slotId != SLOT_ID_1, LE_BAD_PARAMETER, "Invalid slot id.");
+    }
     // initialize the synchronous promise
     CmdSynchronousPromise = std::promise<le_result_t>();
 
@@ -2158,6 +2204,7 @@ le_result_t taf_DataConnection::SetDefaultProfileIdSync(uint8_t slotId, uint32_t
     return result;
 }
 
+// This function returns the default profile ID for the default slot ID 1
 le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint8_t *slotId, uint32_t *profileId)
 {
     TAF_ERROR_IF_RET_VAL(slotId == NULL || profileId == NULL, LE_BAD_PARAMETER, "Null pointer");
@@ -2165,8 +2212,8 @@ le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint8_t *slotId, uint32_
     // initialize the synchronous promise
     CmdSynchronousPromise = std::promise<le_result_t>();
 
-    le_result_t result = SendGettingDefaultProfileIdCmd();
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Setting default profile is failed");
+    le_result_t result = SendGettingDefaultProfileIdCmd(SLOT_ID_1);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting default profile failed");
 
 // In SA415M with old telsdk version, there is no getDefaultProfile function which will not set
 // CmdSynchronousPromise value
@@ -2180,7 +2227,7 @@ le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint8_t *slotId, uint32_
 
     if (result == LE_OK)
     {
-        *profileId = DefaultProfileId;
+        *profileId = DefaultProfileIdMap[SLOT_ID_1];
         *slotId = DefaultSlotId;
     }
     else
@@ -2189,6 +2236,45 @@ le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint8_t *slotId, uint32_
                   SLOT_ID_1, TAF_DCS_DEFAULT_PROFILE);
         *profileId = TAF_DCS_DEFAULT_PROFILE;
         *slotId = SLOT_ID_1;
+    }
+
+    return result;
+}
+
+le_result_t taf_DataConnection::GetDefaultProfileIdForSlotIdSync
+(
+    uint8_t slotId,
+    uint32_t& profileIdGet
+)
+{
+    // Ensure slot id is valid
+    if (bMultiSimSupported)
+    {
+        TAF_ERROR_IF_RET_VAL(slotId != SLOT_ID_1 && slotId != SLOT_ID_2,
+                                                        LE_BAD_PARAMETER, "Invalid slot id.");
+    }
+    else
+    {
+        TAF_ERROR_IF_RET_VAL(slotId != SLOT_ID_1, LE_BAD_PARAMETER, "Invalid slot id.");
+    }
+
+    // initialize the synchronous promise
+    CmdSynchronousPromise = std::promise<le_result_t>();
+
+    le_result_t result = SendGettingDefaultProfileIdCmd(slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting default profile failed");
+    // blocking here to get response
+    std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+    result = futResult.get();
+    if (result == LE_OK)
+    {
+        profileIdGet = DefaultProfileIdMap[slotId];
+    }
+    else
+    {
+        LE_ERROR("Getting default profile failed, set default profileId(%d)",
+                                                                    TAF_DCS_DEFAULT_PROFILE);
+        profileIdGet = TAF_DCS_DEFAULT_PROFILE;
     }
 
     return result;
@@ -2681,6 +2767,8 @@ le_result_t taf_DataConnection::SendStatusChangedNotification
 {
     taf_dcs_StateInfo_t stateInfo;
     stateInfo.ipType = TAF_DCS_PDP_UNKNOWN;
+
+    LE_UNUSED(eventPtr);
 
     if (callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTING)
     {
@@ -3190,14 +3278,14 @@ void taf_DataConnection::InternalDataCallEventHandler(void *reportPtr)
         case EVT_GET_DEFAULT_PROFILE:
             if (eventPtr->errorCode != telux::common::ErrorCode::SUCCESS)
             {
-                LE_ERROR("Setting profile is failed from callback, errorCode: %d",
+                LE_ERROR("Getting profile is failed from callback, errorCode: %d",
                           (uint32_t)eventPtr->errorCode);
                 result = LE_FAULT;
             }
             else
             {
-                DefaultProfileId = profileId;
-                DefaultSlotId = slotId;
+                LE_INFO("Default profile ID for slotId(%d) is %d", slotId, profileId);
+                DefaultProfileIdMap[slotId] = profileId;
             }
             CmdSynchronousPromise.set_value(result);
         break;
@@ -3587,6 +3675,8 @@ void taf_DataConnection::CloseEventHandler
     le_dls_Link_t* linkRefPtr = NULL;
     taf_dcs_ProfileRef_t profileRef = NULL;
 
+    LE_UNUSED(contextPtr);
+
     TAF_ERROR_IF_RET_NIL( sessionRef == NULL, "sessionRef is nullptr!");
 
     auto &dataConnection = taf_DataConnection::GetInstance();
@@ -3597,6 +3687,7 @@ void taf_DataConnection::CloseEventHandler
 
     // Find the data calls brought up by the sessionRef , and then stop them one by one
     le_mutex_Lock(dataConnection.callCtxMutex);
+
     linkPtr = le_dls_Peek(&dataConnection.DataCallCtxList);
     le_mutex_Unlock(dataConnection.callCtxMutex);
     while (linkPtr)
@@ -3837,6 +3928,7 @@ void DeregisterListeners()
 
 void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
 {
+    LE_UNUSED(contextPtr);
     if (state == TAF_PM_STATE_RESUME)
     {
         LE_INFO("Power state change to RESUME");
@@ -3855,14 +3947,22 @@ void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
 void taf_DataConnection::Init(void)
 {
     auto &dataFactory = telux::data::DataFactory::getInstance();
+    bMultiSimSupported = false;
+
+    // Initialize the default profile ID map
+    DefaultProfileIdMap.clear();
+    DefaultProfileIdMap.insert(std::pair<uint8_t, uint32_t>(SLOT_ID_1, TAF_DCS_DEFAULT_PROFILE));
 
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
     int noOfSlots = MIN_SLOT_COUNT;
     if(telux::common::DeviceConfig::isMultiSimSupported())
     {
-       noOfSlots = MAX_SLOT_COUNT;
-       LE_INFO("MultiSim supported");
+        bMultiSimSupported = true;
+        // Update the default profile ID map with the second slot ID
+        DefaultProfileIdMap.insert(std::pair<uint8_t,uint32_t>(SLOT_ID_2, TAF_DCS_DEFAULT_PROFILE));
+        noOfSlots = MAX_SLOT_COUNT;
+        LE_INFO("MultiSim supported");
     }
 
     for(auto slotIdx = 1; slotIdx <= noOfSlots; slotIdx++)
@@ -3980,9 +4080,9 @@ void taf_DataConnection::Init(void)
     reqAPNThrottlingStatusCb = std::make_shared<taf_DataAPNThrottleInfoCallback>();
     reqAPNThrottlingStatusCb->semaphore = le_sem_Create("taf_ConnReqRoamingStatusCbSem", 0);
 
-#else
+#else // #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
-    auto ConnectionMgr = dataFactory.getDataConnectionManager();
+        auto ConnectionMgr = dataFactory.getDataConnectionManager();
 
     bool isReady = ConnectionMgr->isSubsystemReady();
     if(isReady == false)
@@ -4053,4 +4153,64 @@ void taf_DataConnection::Init(void)
 #endif
 
     return;
+}
+
+void taf_DataConnection::ClearHandlerMappingList(void)
+{
+    HandlerSessionMapping_t *handlerSessionInfo;
+
+    le_dls_Link_t *handlerLinkPtr = le_dls_Peek(&HandlerSessionMappingList);
+    while (handlerLinkPtr)
+    {
+        handlerSessionInfo = CONTAINER_OF(handlerLinkPtr, HandlerSessionMapping_t, handlerLink);
+        handlerLinkPtr = le_dls_PeekNext(&HandlerSessionMappingList, handlerLinkPtr);
+        le_dls_Remove(&HandlerSessionMappingList, &handlerSessionInfo->handlerLink);
+        le_mem_Release(handlerSessionInfo);
+    }
+}
+
+void taf_DataConnection::ClearDataCallCtxList(void)
+{
+
+    le_dls_Link_t *linkPtr = NULL;
+    linkPtr = le_dls_Peek(&DataCallCtxList);
+
+    while (linkPtr)
+    {
+        taf_dcs_CallCtx_t *callCtxPtr = CONTAINER_OF(linkPtr, taf_dcs_CallCtx_t, link);
+        linkPtr = le_dls_PeekNext(&DataCallCtxList, linkPtr);
+
+        {
+            // Clear session within each call context
+            le_dls_Link_t* sessionLinkPtr = NULL;
+            sessionLinkPtr = le_dls_Peek(&(callCtxPtr->sessionRefList));
+            while (sessionLinkPtr)
+            {
+                taf_SessionRef_t *sessionRefPtr = CONTAINER_OF(sessionLinkPtr, taf_SessionRef_t,
+                                                                                            link);
+                sessionLinkPtr = le_dls_PeekNext(&(callCtxPtr->sessionRefList), sessionLinkPtr);
+                le_dls_Remove(&(callCtxPtr->sessionRefList), &sessionRefPtr->link);
+                le_mem_Release(sessionRefPtr);
+            }
+        }
+
+        le_dls_Remove(&DataCallCtxList, &(callCtxPtr->link));
+        le_mem_Release(callCtxPtr);
+    }
+    return;
+}
+
+void taf_DataConnection::Deinit(void)
+{
+    // Deregister TelSDK listeners
+    DeregisterListeners();
+
+    // Clean up all handlers
+    ClearHandlerMappingList();
+
+    // Clear all call contexts
+    ClearDataCallCtxList();
+
+    // Stop the connection event thread
+    le_thread_Cancel(ConnectionEventThreadRef);
 }

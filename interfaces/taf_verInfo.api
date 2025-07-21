@@ -31,7 +31,7 @@
    }
    @endverbatim
  *
- * @section taf_verInfo_GetKernelVersion Get the kernel version of the device
+ * @section taf_verInfo_GetKernelVersion Get the kernel version
  *
  * - taf_verInfo_GetKernelVersion() -- Gets the kernel version appended with boot version of the
  * device.
@@ -51,7 +51,7 @@
         }
    @endcode
  *
- * @section taf_verInfo_GetFirmwareVersion Get the firmware version of the device
+ * @section taf_verInfo_GetFirmwareVersion Get the firmware version
  *
  * - taf_verInfo_GetFirmwareVersion() -- Gets the firmware version of device.
  *
@@ -70,7 +70,7 @@
         }
    @endcode
  *
- * @section taf_verInfo_GetTZVersion Get the TrustZone version of the device
+ * @section taf_verInfo_GetTZVersion Get the TrustZone version
  *
  * - taf_verInfo_GetTZVersion() -- Gets the TZ version of device.
  *
@@ -127,7 +127,7 @@
         }
    @endcode
  *
- * @section taf_verInfo_GetFirmwareHash Get the firmware hash of the device
+ * @section taf_verInfo_GetFirmwareHash Get the firmware hash
  *
  * - taf_verInfo_GetFirmwareHash() -- Gets the firmware hash of device.
  *

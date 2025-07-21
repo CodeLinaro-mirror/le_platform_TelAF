@@ -37,7 +37,7 @@ std::string taf_DCSHelper::ApnTypeMaskToString(taf_dcs_ApnType_t apnTypeMask)
         result += (result.empty() ? std::string("") : std::string("|")) + std::string("UT");
     if (apnTypeMask & TAF_DCS_APN_TYPE_MCX)
         result += (result.empty() ? std::string("") : std::string("|")) + std::string("MCX");
-    return result.empty() ? std::string("NONE") : result;
+    return result.empty() ? std::string("UNDEFINED") : result;
 }
 
 std::string taf_DCSHelper::AuthMaskToString(taf_dcs_Auth_t authMask)

@@ -3,9 +3,12 @@
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+#include <fstream>
+#include <string>
+#include <unordered_set>
+#include <mutex>
 #include "legato.h"
 #include "interfaces.h"
-
 #include "tafFlash.hpp"
 
 //--------------------------------------------------------------------------------------------------
@@ -50,6 +53,39 @@ taf_FlashAccess &taf_FlashAccess::GetInstance
 {
     static taf_FlashAccess instance;
     return instance;
+}
+
+bool IsValidPartitionName(const std::string& name)
+{
+    static std::unordered_set<std::string> partitionNameSet;
+    static std::once_flag initFlag;
+
+    std::call_once(initFlag, []()
+    {
+        std::ifstream file("/proc/mtd");
+        if (!file.is_open())
+        {
+            LE_ERROR("Failed to open /proc/mtd");
+            return;
+        }
+
+        std::string line;
+        std::getline(file, line); // Skip header line
+        while (std::getline(file, line))
+        {
+            auto firstQuote = line.find('"'); // position of the first ' " ' in the name
+            auto lastQuote = line.rfind('"'); // position of the last  ' " ' in the name
+            if (firstQuote != std::string::npos &&
+                lastQuote != std::string::npos &&
+                lastQuote > firstQuote)
+            {
+                std::string partName = line.substr(firstQuote + 1, lastQuote - firstQuote - 1);
+                partitionNameSet.insert(partName);
+            }
+        }
+    });
+
+    return partitionNameSet.find(name) != partitionNameSet.end();
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -107,6 +143,12 @@ le_result_t taf_flash_MtdOpen
     if (partitionNameStr == NULL)
     {
         LE_ERROR("Null ptr(partitionNameStr)");
+        return LE_BAD_PARAMETER;
+    }
+
+    if(!IsValidPartitionName(partitionNameStr))
+    {
+        LE_ERROR("Invalid partition name %s", partitionNameStr);
         return LE_BAD_PARAMETER;
     }
 
@@ -706,6 +748,12 @@ le_result_t taf_flash_UbiOpen
     if (volumeNameStr == NULL)
     {
         LE_ERROR("Null ptr(volumeNameStr)");
+        return LE_BAD_PARAMETER;
+    }
+
+    if(!IsValidPartitionName(volumeNameStr))
+    {
+        LE_ERROR("Invalid partition name %s", volumeNameStr);
         return LE_BAD_PARAMETER;
     }
 

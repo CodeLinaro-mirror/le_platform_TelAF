@@ -1214,6 +1214,62 @@ le_result_t taf_ecall_SetMsdEuroNCAPIIDeltaV
 
 /*======================================================================
 
+ FUNCTION       taf_ecall_SetMsdTimeStamp
+
+ DESCRIPTION    Sets the MSD timestamp as the given value.
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN] ecallRef : reference for ecall
+                [IN] timeStamp : timeStamp
+
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+ NOTE           The process exits when an invalid eCall reference is given.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_SetMsdTimeStamp
+(
+    taf_ecall_CallRef_t ecallRef,
+    uint32_t   timeStamp
+)
+{
+    return LE_UNSUPPORTED;
+}
+
+/*======================================================================
+
+ FUNCTION       taf_ecall_ResetMsdTimeStamp
+
+ DESCRIPTION    Resets the MSD timestamp to the current system time.
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN] ecallRef : reference for ecall
+
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+ NOTE           The process exits when an invalid eCall reference is given.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_ResetMsdTimeStamp
+(
+    taf_ecall_CallRef_t ecallRef
+)
+{
+    return LE_UNSUPPORTED;
+}
+
+/*======================================================================
+
  FUNCTION        taf_ecall_StartTest
 
  DESCRIPTION    Initiate a test voice eCall with a configured telephone

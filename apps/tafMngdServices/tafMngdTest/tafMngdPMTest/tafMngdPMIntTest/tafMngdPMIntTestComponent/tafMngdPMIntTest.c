@@ -124,6 +124,8 @@ static void PrintUsage ()
         "------------To Test stayawake request during shutdown-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdownAndResume\n"
         "------------To Test delete wakeup source if not acquired-----------\n"
+        "------------To test waking up vehicle when releasing WS-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- WakeupVehicleWhenReleasingWsTest\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- DeleteWsIfNotAcquired\n"
         "------------To Test rejecting deletion of wakeup source if acquired-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldNotDeleteWsIfAcquired\n"
@@ -2358,6 +2360,73 @@ void ShouldNotDeleteWsIfAcquired()
     }
 }
 
+void WakeupVehicleWhenReleasingWsTest()
+{
+    LE_INFO("----WakeupVehicleWhenReleasingWsTest----");
+    // CreateWS test 0
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    taf_mngdPm_wsRef_t wsRefAuthorized = NULL;
+    taf_mngdPm_wsRef_t wsRefAuthorized1 = NULL;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created wakeupsource ref for reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                // StayAwake test
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                }
+            }
+        }
+    }
+    else{
+        printf("Failed to create wakeupsource ref for authorized reason %d\n", reason);
+        exit(EXIT_FAILURE);
+    }
+
+    reason = TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE;
+    res = taf_mngdPm_AuthorizeStayAwakeReason(3);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE);
+        // CreateWS test1 0
+        wsRefAuthorized1 = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized1) {
+            printf("Created wakeupsource ref for reason %d\n", reason);
+            if(wsRefAuthorized1 != NULL) {
+                // StayAwake test1
+                res = taf_mngdPm_StayAwake(wsRefAuthorized1);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized1'\n");
+                    res = taf_mngdPm_Relax(wsRefAuthorized1);
+                    if(res == LE_OK) {
+                        printf("'Suspended system with wsRefAuthorized1'\n");
+                        // VehicleWakeup 0
+                        int status = WakeupVehicle();
+                        LE_INFO("'WakeupVehicle status:%d'",status);
+                        exit(status);
+                    }
+                    else{
+                        LE_INFO("Failed to resume system with wsRefAuthorized1");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                else{
+                    LE_INFO("Failed to resume system with wsRefAuthorized1");
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+        else{
+            LE_INFO("Failed to create wakeupsource ref for authorized reason %d", reason);
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
 void ShouldNotDeleteWsIfIgnored()
 {
     LE_INFO("ShouldNotDeleteWsIfIgnored");
@@ -2613,6 +2682,10 @@ COMPONENT_INIT
         else if(strcmp(testType, "ShouldNotDeleteWsIfAcquired") == 0)
         {
             ShouldNotDeleteWsIfAcquired();
+        }
+        else if(strcmp(testType, "WakeupVehicleWhenReleasingWsTest") == 0)
+        {
+            WakeupVehicleWhenReleasingWsTest();
         }
         else if(strcmp(testType, "ShouldNotDeleteWsIfIgnored") == 0)
         {

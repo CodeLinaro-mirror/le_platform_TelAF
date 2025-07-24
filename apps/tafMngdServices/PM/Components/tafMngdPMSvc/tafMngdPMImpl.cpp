@@ -753,8 +753,25 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
         if(powerMode.isGraceful)
         {
             powerMode.isGraceful = false;
-            LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_GRACEFUL);
-            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_GRACEFUL, tafMngdPMSvc::NodeStateChangeReqRespCB);
+            // When in graceful power mode, handle state transitions differently based on current state
+            if(stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND){
+                // For suspend state, send a suspend request to VHAL to maintain state consistency
+                LE_DEBUG("Send nodeStateChangeReqAsync %d", HAL_PM_SUSPEND_MODE_FULL);
+                le_result_t result = (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SUSPEND, HAL_PM_SUSPEND_MODE_FULL, tafMngdPMSvc::NodeStateChangeReqRespCB);
+                if (result != LE_OK){
+                    LE_ERROR("Failed to send nodeStateChangeReqAsync for suspend to VHAL: %s", LE_RESULT_TXT(result));
+                }
+            }else if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN){
+                // For shhutdown state, proceed with normal shutdown request
+                LE_DEBUG("Send nodeStateChangeReqAsync %d", HAL_PM_SHUTDOWN_MODE_GRACEFUL);
+                le_result_t result = (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_GRACEFUL, tafMngdPMSvc::NodeStateChangeReqRespCB);
+                if (result != LE_OK) {
+                    LE_ERROR("Failed to send nodeStateChangeReqAsync for shutdown to VHAL: %s", LE_RESULT_TXT(result));
+                }
+            }else {
+                //No further action to be taken for the states apart from graceful suspend & shutdown
+                LE_ERROR("Invalid state: %s for graceful power mode", TafStateToString(stateMachine.currentState));
+            }
         }
         else if(powerMode.isShutDown)
         {

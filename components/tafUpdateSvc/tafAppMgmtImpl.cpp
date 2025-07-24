@@ -1084,6 +1084,12 @@ le_result_t taf_AppMgmt::BackupApp
 
     // 2. Get tarball size.
     ifstream infile(backupBundle);
+    if (!infile.is_open())
+    {
+        LE_ERROR("Failed to open file %s", backupBundle);
+        return LE_FAULT;
+    }
+
     infile.seekg(0, ios::end);
     long size = infile.tellg();
     infile.seekg(0);

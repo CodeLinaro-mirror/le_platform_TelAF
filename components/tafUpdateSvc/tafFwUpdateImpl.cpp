@@ -1319,6 +1319,12 @@ void taf_FwUpdate::GetRootfsVersion
 )
 {
     std::ifstream rootfsFin(TAF_ROOTFS_VERSION_FILE);
+    if (!rootfsFin.is_open())
+    {
+        LE_ERROR("Failed to open file %s", TAF_ROOTFS_VERSION_FILE);
+        return;
+    }
+
     std::string rootfsVer;
 
     getline(rootfsFin, rootfsVer);
@@ -1339,6 +1345,12 @@ void taf_FwUpdate::GetTelafVersion
 )
 {
     std::ifstream telafFin(TAF_TELAF_VERSION_FILE);
+    if (!telafFin.is_open())
+    {
+        LE_ERROR("Failed to open file %s", TAF_TELAF_VERSION_FILE);
+        return;
+    }
+
     std::string telafVer;
 
     getline(telafFin, telafVer);
@@ -1363,6 +1375,12 @@ le_result_t taf_FwUpdate::GetFirmwareVersion
 )
 {
     std::ifstream firmwareFin(TAF_FIRMWARE_VERSION_FILE);
+    if (!firmwareFin.is_open())
+    {
+        LE_ERROR("Failed to open file %s", TAF_FIRMWARE_VERSION_FILE);
+        return LE_FAULT;
+    }
+
     std::string firmwareVer;
 
     size_t start = string::npos;
@@ -1415,6 +1433,12 @@ le_result_t taf_FwUpdate::InstallPreCheck
     }
 
     std::ifstream manifestFin(manifest);
+    if (!manifestFin.is_open())
+    {
+        LE_ERROR("Failed to open file %s", manifest);
+        return LE_FAULT;
+    }
+
     std::string manifestVer;
 
     char rootfsVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
@@ -2389,6 +2413,13 @@ void taf_FwUpdate::InstallFirmware
     // 6. Check log after installation.
     LE_INFO("Checking recovery log.");
     ifstream fin(TAF_FWUPDATE_RECOVERY_LOG_FILE);
+    if (!fin.is_open())
+    {
+        LE_ERROR("Failed to open file %s", TAF_FWUPDATE_RECOVERY_LOG_FILE);
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        return;
+    }
+
     string strline;
     int line = 0;
     le_result_t ret = LE_FAULT;
@@ -3189,6 +3220,13 @@ void taf_FwUpdate::ActivateComponent
         }
 
         std::ifstream manifestFin(manifest);
+        if (!manifestFin.is_open())
+        {
+            LE_ERROR("Failed to open file %s", manifest);
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+            return;
+        }
+
         std::string manifestVer;
 
         // Get rootfs version from manifest file.

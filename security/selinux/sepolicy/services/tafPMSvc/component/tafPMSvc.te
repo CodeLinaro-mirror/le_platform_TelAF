@@ -20,6 +20,7 @@ telaf_admin_manage_all_files_perms(telaf_tafPMSvc_exec_t)
 
 ifdef(`sa525m',`
 telux_allow_power_control_state(telaf_tafPMSvc_t)
+telux_allow_power_wakeup_info(telaf_tafPMSvc_t);
 ')
 
 #Allow system reboot capability for PMS

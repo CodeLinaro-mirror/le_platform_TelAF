@@ -43,13 +43,13 @@
    }
    @endverbatim
  *
- * @section taf_hms_GetCpuCoreNum Get the total number of CPU core
- * The API of taf_hms_GetCpuCoreNum() provides the total number of CPU core.
+ * @section taf_hms_GetCpuCoreNum Get the total number of CPU cores
+ * The API of taf_hms_GetCpuCoreNum() provides the total number of CPU cores.
  * @verbatim
    uint32_t cpuCoreNum = taf_hms_GetCpuCoreNum(&cpuCoreNum);
    @endverbatim
  *
- * @section taf_hms_GetIndvCoreUsage Get the individual CPU core usage
+ * @section taf_hms_GetIndvCoreUsage Get individual CPU core usage
  * The API of taf_hms_GetIndvCoreUsage() provides the total CPU usage of individual core.
  * @verbatim
    le_result_t result;
@@ -61,7 +61,7 @@
    }
    @endverbatim
  *
- * @section taf_hms_GetRamMemInfo Get the memory information
+ * @section taf_hms_GetRamMemInfo Get memory information
  * The API of taf_hms_GetRamMemInfo() provides the current RAM in total, used and free memory information.
  * @verbatim
    le_result_t result;
@@ -81,7 +81,7 @@
  *
  *
  *
- *  @section taf_hms_GetUbiDevInfoList Get the UBI device information
+ *  @section taf_hms_GetUbiDevInfoList Get UBI device information
  * The following APIs are provided for UBI device information
  * taf_hms_GetUbiDevInfoList()   Gets the list of available UBI device information.
  * taf_hms_DeleteUbiDevInfoList() Deletes the UBI list reference.
@@ -109,7 +109,7 @@
    }
    @endverbatim
  *
- * @section taf_hms_GetUbiVolInfoList  Get the UBI volume information
+ * @section taf_hms_GetUbiVolInfoList  Get UBI volume information
  * The following APIs are provided for UBI volume information
  * taf_hms_GetFirstUbiVolInfo()  Gets the first UBI volume Info object reference in the list.
  * taf_hms_GetNextUbiVolInfo() Gets the next UBI volume Info object reference in the list.
@@ -137,7 +137,7 @@
    }
    @endverbatim
  *
- * @section taf_hms_GetMtdInfoList Get the MTD device information
+ * @section taf_hms_GetMtdInfoList Get MTD device information
  * The following APIs are provided for MTD device information
  * taf_hms_GetMtdInfoList() Gets the list of available MTD information.
  * taf_hms_DeleteMtdInfoList() Deletes the MTD list reference.
@@ -209,8 +209,38 @@
     taf_hms_RemoveModemEvtHandler(modemStatusHandlerRef);
     @endverbatim
  *
- * @section taf_hms_GetResetInformation Get the (re)boot reason
+ * @section taf_hms_GetResetInformation Get (re)boot reason
  * The API of taf_hms_GetResetInformation() provides the (re)boot reason for this boot up.
+ * For each reset reason, an information string is provided to specify the reset cause. These
+ * strings are listed in the table below. This list may be partially supported by some platforms.
+ *
+ * | Reset type                | Reset reason               | Description                          |
+ * |:-------------------------:|:--------------------------:|:------------------------------------:|
+ * | TAF_HMS_RESET_UNKNOWN     | unknown                    | Unknown case                         |
+ * | TAF_HMS_RESET_CRASH       | panic                      | Kernel crash                         |
+ * | TAF_HMS_RESET_CRASH       | telaf crash                | TelAF crash                          |
+ * | TAF_HMS_RESET_CRASH       | ['xxx' crash]              | [Reserved: 'xxx' crash]              |
+ * | TAF_HMS_RESET_UPDATE      | recovery                   | System recovery                      |
+ * | TAF_HMS_RESET_UPDATE      | ['telaf' update]           | [Reserved: TelAF update]             |
+ * | TAF_HMS_RESET_UPDATE      | ['configuration' update]   | [Reserved: Configuration update]     |
+ * | TAF_HMS_RESET_UPDATE      | ['xxx' update]             | [Reserved: 'xxx' update]             |
+ * | TAF_HMS_RESET_CORRUPTED   | dm-verity device corrupted | dm-verity device was corrupted       |
+ * | TAF_HMS_RESET_CORRUPTED   | ['telaf image' corrupted]  | [Reserved: TelAF image was corrupted]|
+ * | TAF_HMS_RESET_CORRUPTED   | ['xxx image' corrupted]    | [Reserved: 'xxx' was corrupted]      |
+ * | TAF_HMS_RESET_AUTH_FAILED | ['telaf' auth failed]      | [Reserved: TelAF auth failed]        |
+ * | TAF_HMS_RESET_AUTH_FAILED | ['xxx' auth failed]        | [Reserved: 'xxx' auth failed]        |
+ * | TAF_HMS_RESET_USER        | user                       | Not defined user reboot              |
+ * | TAF_HMS_RESET_USER        | bootloader                 | reboot bootloader/fastboot continue  |
+ * | TAF_HMS_RESET_USER        | dm-verity enforcing        | dm-verity operation                  |
+ * | TAF_HMS_RESET_USER        | keys clear                 | dm-verity operation                  |
+ * | TAF_HMS_RESET_WDOG        | watchdog bark              | Watchdog bark                        |
+ * | TAF_HMS_RESET_WDOG        | ['xxx' watchdog bark]      | [Reserved: 'xxx' watchdog bark]      |
+ * | TAF_HMS_RESET_HARD        | rtc                        | RTC alarm boot                       |
+ * | TAF_HMS_RESET_HARD        | [Hardware switch]          | [Reserved: Hardware switch]          |
+ * | TAF_HMS_RESET_HARD        | [Power down]               | [Reserved: Power source unplugged]   |
+ * | TAF_HMS_RESET_TEMP_CRIT   | [Critical Temp]            | [Reserved: Critical voltage level]   |
+ * | TAF_HMS_RESET_VOLT_CRIT   | [Critical Voltage]         | [Reserved: Critical temperature LV]  |
+ *
  * @verbatim
    le_result_t result;
    taf_hms_Reset_t reset;
@@ -312,6 +342,7 @@ ENUM ModemEvtSeverity
 * Gets the total CPU usage from " /proc/stat ".
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -328,6 +359,7 @@ FUNCTION le_result_t  GetCpuLoad
 * Gets number of CPU core from " /proc/cpuinfo ".
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -345,6 +377,7 @@ FUNCTION uint32 GetCpuCoreNum
 * The coreID range can be 0 - (cpuCoreNum-1), the result value can be LE_OK.
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -362,6 +395,7 @@ FUNCTION le_result_t GetIndvCoreUsage
 * Gets the meminfo value from " /proc/meminfo ".
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -380,6 +414,7 @@ FUNCTION le_result_t  GetRamMemInfo
 * Gets the list of available UBI device information.
 *
 * @instaging
+*
 * @return
  *  - NULL                            No information found.
  *  - taf_hms_UbiDevInfoListRef    The UBI device Info list object reference.
@@ -396,6 +431,7 @@ FUNCTION UbiDevInfoList GetUbiDevInfoList
  * UbiDevInfoList retrieved with taf_hms_GetUbiDevInfoList().
  *
  * @instaging
+ *
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_UbiDevInfoListRef      The UBI device Info object reference.
@@ -412,6 +448,7 @@ FUNCTION UbiDevInfo GetFirstUbiDevInfo
 * Deletes the UbiDevInfoList list retrieved with taf_hms_GetUbiDevInfoList().
 *
 * @instaging
+*
 * @return
 *  - LE_BAD_PARAMETER -- Bad parameters.
 *  - LE_OK -- Succeeded.
@@ -429,6 +466,7 @@ FUNCTION le_result_t DeleteUbiDevInfoList
  * UBIInfoList retrieved with taf_hms_GetUBIInfoList().
  *
  * @instaging
+ *
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_UbiDevInfoListRef      The UBI device Info object reference.
@@ -445,6 +483,7 @@ FUNCTION UbiDevInfo GetNextUbiDevInfo
 * Gets UBI device ID
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -462,6 +501,7 @@ FUNCTION le_result_t GetUbiDevId
 * Gets UBI information for current maximum erase count from " /sys/class/ubi/ubi%d/ ".
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -479,6 +519,7 @@ FUNCTION le_result_t GetUbiDevMaxEraseCnt
 * Gets UBI information for bad block count from " /sys/class/ubi/ubi%d/ ".
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -497,6 +538,7 @@ FUNCTION le_result_t GetUbiDevBadBlkCnt
  * UbiVolInfoList retrieved with taf_hms_GetUbiDevInfoList().
  *
  * @instaging
+ *
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_UbiVolInfoListRef      The UBI device Info object reference.
@@ -514,6 +556,7 @@ FUNCTION UbiVolInfo GetFirstUbiVolInfo
  * UbiVolInfoList retrieved with taf_hms_GetUbiDevInfoList().
  *
  * @instaging
+ *
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_UbiVolInfoListRef      The UBI volume Info object reference.
@@ -530,6 +573,7 @@ FUNCTION UbiVolInfo GetNextUbiVolInfo
 * Gets UBI volume ID.
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -547,6 +591,7 @@ FUNCTION le_result_t GetUbiVolId
 * Gets name of UBI volume.
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -564,6 +609,7 @@ FUNCTION le_result_t GetUbiVolName
 * Gets size of UBI volume in bytes.
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -583,6 +629,7 @@ FUNCTION le_result_t GetUbiVolSize
 * Gets the list of available MTD Node.
 *
 * @instaging
+*
 * @return
  *  - NULL                            No information found.
  *  - taf_hms_MtdInfoListRef    The MtdInfo list object reference.
@@ -598,6 +645,7 @@ FUNCTION MtdDevInfoList GetMtdDevInfoList
 * Deletes the MtdInfoList list retrieved with taf_hms_GetMtdInfoList().
 *
 * @instaging
+*
 * @return
 *  - LE_BAD_PARAMETER -- Bad parameters.
 *  - LE_OK -- Succeeded.
@@ -615,6 +663,7 @@ FUNCTION le_result_t DeleteMtdDevInfoList
  * MtdInfoList retrieved with taf_hms_GetMtdInfoList().
  *
  * @instaging
+ *
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_MtdInfoListRef      The MtdInfo object reference.
@@ -632,6 +681,7 @@ FUNCTION MtdDevInfo GetFirstMtdDevInfo
  * MtdInfoList retrieved with taf_hms_GetMtdInfoList().
  *
  * @instaging
+ *
  * @return
  *  - NULL                          No information found.
  *  - taf_hms_MtdInfoListRef      The MtdInfo object reference.
@@ -648,6 +698,7 @@ FUNCTION MtdDevInfo GetNextMtdDevInfo
 * Gets MTD information for name from " /sys/class/mtd/mtd%d/ ".
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -665,6 +716,7 @@ FUNCTION le_result_t GetMtdDevName
 * Gets MTD information for block size in bytes.
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -682,6 +734,7 @@ FUNCTION le_result_t GetMtdDevBlkSize
 * Gets MTD information for device ID.
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -699,6 +752,7 @@ FUNCTION le_result_t GetMtdDevId
 * Gets MTD information for block count.
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -744,6 +798,7 @@ EVENT ModemEvt
 * Release modem event reference.
 *
 * @instaging
+*
 * @return
 * - LE_FAULT         Failed.
 * - LE_OK            Succeeded.
@@ -769,30 +824,31 @@ DEFINE MAX_RESET_LEN   = 50;
 //--------------------------------------------------------------------------------------------------
 ENUM Reset
 {
-    RESET_UNKNOWN,  ///< Unknown
-    RESET_USER,     ///< User request
-    RESET_HARD,     ///< Hardware switch
-    RESET_UPDATE,   ///< Software update
-    RESET_CRASH,    ///< Software crash
-    RESET_WDOG,     ///< Watchdog bark
-    POWER_DOWN,     ///< Power Down
-    VOLT_CRIT,      ///< Power Down due to a critical voltage level
-    TEMP_CRIT       ///< Power Down due to a critical temperature level
+    RESET_UNKNOWN = 0,     ///< Unknown
+    RESET_USER    = 1,     ///< User request
+    RESET_HARD    = 2,     ///< Hardware switch
+    RESET_UPDATE  = 3,     ///< Software update
+    RESET_CRASH   = 4,     ///< Software crash
+    RESET_WDOG    = 5,     ///< Watchdog bark
+    RESET_POWER_DOWN  = 6,     ///< Power Down
+    RESET_VOLT_CRIT   = 7,     ///< Power Down due to a critical voltage level
+    RESET_TEMP_CRIT   = 8,     ///< Power Down due to a critical temperature level
+    RESET_CORRUPTED   = 9,     ///< Image or binary was corrupted
+    RESET_AUTH_FAILED = 10,    ///< Image or binary was authentication failed
+    RESET_ADMIN_TRIGGER = 11   ///< Reserved for sub-reason
 };
-
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get the last reset information reason
+ *
+ * @instaging
  *
  * @return
  *      - LE_OK          on success
  *      - LE_UNSUPPORTED if it is not supported by the platform
  *        LE_OVERFLOW    specific reset information length exceeds the maximum length.
  *      - LE_FAULT       for any other errors
- *
- * @note If the caller is passing a bad pointer into this function, it is a fatal error, the
- *       function will not return.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetResetInformation

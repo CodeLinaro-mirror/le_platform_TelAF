@@ -63,6 +63,7 @@
 #include <telux/data/ServingSystemManager.hpp>
 
 #include "tafSvcIF.hpp"
+#include "taf_pa_radio.hpp"
 
 #define TAF_RADIO_PHONE_NUM 2
 
@@ -83,6 +84,10 @@
 #define TAF_RADIO_SUBSYSTEM_TIMEOUT 8
 
 #define TAF_RADIO_BAND_NUM_PER_GROUP 64
+
+#define TAF_RADIO_CA_INFO_MAX_NUM 4
+#define TAF_RADIO_CONN_STATUS_MAX_NUM 4
+#define TAF_RADIO_SCELL_NUMBER 4
 
 /*
  * @brief The emum of radio command type.
@@ -464,6 +469,40 @@ typedef struct
     taf_radio_NrIconType_t type;
 } taf_RadioNrIconTypeInd_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * CA information structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_radio_CAStatus_t status;
+    uint32_t cellCount;
+} taf_RadioCAInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * CA indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phone;
+    taf_radio_CAInfoRef_t infoRef;
+} taf_RadioCAInd_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Connection status indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phone;
+    taf_radio_ConnIndBitMask_t bitmask;
+    taf_radio_ConnStatusRef_t statusRef;
+} taf_RadioConnStatusInd_t;
+
 namespace tafsvc {
     /*
      * @brief The network listener is registered for the network selection mode updates.
@@ -838,6 +877,10 @@ namespace tafsvc {
 
         taf_radio_Rat_t taf_radio_CovertRat(telux::tel::RadioTechnology rat);
         taf_radio_NrIconType_t taf_radio_ConvertNrIconType(telux::data::NrIconType type);
+        taf_radio_NREndcAvailability_t taf_radio_ConvertEndcStatus
+        (
+            taf_pa_radio_EndcStatus_t status
+        );
         static void taf_radio_LayerImsRegStateHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerOpModeHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerNetRegStateHandler(void* reportPtr, void* layerHandlerFunc);
@@ -848,6 +891,8 @@ namespace tafsvc {
         static void taf_radio_LayerRatChangeHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerNetRejectHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerNrIconTypeHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerLteCAHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerConnStatusHandler(void* reportPtr, void* layerHandlerFunc);
 
         /*
          * Command thread in radio service.
@@ -891,6 +936,10 @@ namespace tafsvc {
         le_mem_PoolRef_t netStatusPool;
         le_mem_PoolRef_t netRegRejPool;
         le_mem_PoolRef_t nrIconTypePool;
+        le_mem_PoolRef_t caInfoPool;
+        le_mem_PoolRef_t caIndPool;
+        le_mem_PoolRef_t connStatusPool;
+        le_mem_PoolRef_t connStatusIndPool;
 
         le_ref_MapRef_t prefOpListRefMap;
         le_ref_MapRef_t prefOpSafeRefMap;
@@ -901,6 +950,8 @@ namespace tafsvc {
         le_ref_MapRef_t metricsRefMap;
         le_ref_MapRef_t imsRefMap;
         le_ref_MapRef_t netStatusRefMap;
+        le_ref_MapRef_t caInfoMap;
+        le_ref_MapRef_t connStatusMap;
 
         le_event_Id_t imsRegStatusChangeId;
         le_event_Id_t opModeChangeId;
@@ -917,6 +968,8 @@ namespace tafsvc {
         le_event_Id_t netStatusEvId;
         le_event_Id_t netRegRejEvId;
         le_event_Id_t nrIconTypeEvId;
+        le_event_Id_t lteCAIndEvId;
+        le_event_Id_t connStatusEvId;
         static le_event_Id_t radioCmdEvId;
 
         int32_t netRejectCause = TAF_RADIO_NET_REJ_CAUSE_UNDEFINED;
@@ -942,6 +995,8 @@ namespace tafsvc {
         std::map<taf_radio_NetStatusChangeHandlerRef_t, taf_radio_NetStatusChangeHandlerRef_t> netStatRefMap;
         taf_radio_ImsRef_t imsRefs[TAF_RADIO_PHONE_NUM];
         taf_radio_NetStatusRef_t netStatusRefs[TAF_RADIO_PHONE_NUM];
+        taf_radio_CAInfoRef_t lteCAInfoRefs[TAF_RADIO_PHONE_NUM];
+        taf_radio_ConnStatusRef_t endcStatusRefs[TAF_RADIO_PHONE_NUM];
         std::shared_ptr<taf_RadioPhoneListener> phoneListener;
         uint16_t hysteresisTimer[TAF_RADIO_PHONE_NUM] = {0,0};
         std::vector<taf_RadioHysteresisConfig_t> hysteresisConfigs;

@@ -69,7 +69,7 @@
    }
    @endcode
  *
- * @section c_taf_diag_routine_ctrl_Set_VlanId Set and Get VLAN ID
+ * @section c_taf_diag_routine_ctrl_Set_VlanId Set/get VLAN ID
  *
  * After getting a service reference, an application can set the VLAN ID to the service to filter
  * routine control requests using taf_diagRoutineCtrl_SetVlanId(). It shall be called before

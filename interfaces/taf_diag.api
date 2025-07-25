@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -166,6 +166,32 @@
    taf_diag_CancelFileXferAsync(svcRef, CancelFileXferHandlerFunc, NULL);
 
   @endcode
+ *
+ * @section c_taf_diag_state_API State control API
+ *
+ * An application can pause/resume the diag service by calling taf_diag_Pause() and
+ * taf_diag_Resume(). If the service is bound to multiple VLANs, then the application needs to
+ * select a VLAN ID first to pause/resume the diag service of the selected VLAN. If the VLAN ID is
+ * not selected then it will pause/resume the diag service of the last VLAN ID set by
+ * taf_diag_SetVlanId().
+ *
+ * @code
+   //To pause diag service
+   le_result_t result = taf_diag_Pause(svcRef);
+   if ((result != LE_OK) && (result != LE_IN_PROGRESS))
+   {
+      LE_ERROR("Fail to pause diag service.");
+      return result;
+   }
+
+   //To resume diag service
+   le_result_t result = taf_diag_Resume(svcRef);
+   if (result != LE_OK)
+   {
+      LE_ERROR("Fail to resume diag service.");
+      return result;
+   }
+   @endcode
  *
  * An application can remove the diag service reference by calling taf_diag_RemoveSvc().
  *
@@ -367,6 +393,44 @@ FUNCTION CancelFileXferAsync
 (
     Service svcRef                          IN, ///< Service reference.
     CancelFileXferCallback handler          IN  ///< The handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pauses diag service to not receive any diagnostic requests.
+ *
+ * @instaging
+ *
+ * @result
+ *     - LE_OK -- Succeeded.
+ *     - LE_IN_PROGRESS -- Succeeded, but a diagnostic request is being handled.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Pause
+(
+    Service svcRef                          IN  ///< Service reference.
+
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resumes diag service to receive diagnostic requests.
+ *
+ * @instaging
+ *
+ * @result
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Resume
+(
+    Service svcRef                          IN  ///< Service reference.
 );
 
 //-------------------------------------------------------------------------------------------------

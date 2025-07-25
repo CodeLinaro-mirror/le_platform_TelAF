@@ -1,0 +1,23 @@
+maxThreads: 600
+sandboxed: false
+
+executables:
+{
+    tafThermIntTest = ( tafThermIntTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafThermIntTest)
+    }
+    faultAction: stopApp
+}
+
+bindings:
+{
+    tafThermIntTest.tafThermIntTest.taf_therm -> tafThermSvc.taf_therm
+}

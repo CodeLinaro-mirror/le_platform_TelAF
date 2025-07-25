@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -202,6 +202,53 @@ void taf_diag_CancelFileXferAsync
     LE_DEBUG("taf_diag_CancelFileXferAsync");
     auto &diag = taf_DiagSvr::GetInstance();
     return diag.CancelFileXferAsync(svcRef, handlerPtr, contextPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pauses diag service to not receive any diagnostic requests.
+ *
+ * @instaging
+ *
+ * @result
+ *     - LE_OK -- Succeeded.
+ *     - LE_IN_PROGRESS -- Succeeded, but a diagnostic request is being handled.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diag_Pause
+(
+    taf_diag_ServiceRef_t svcRef
+        ///< [IN] Service reference.
+)
+{
+    auto &diag = taf_DiagSvr::GetInstance();
+    return diag.Pause(svcRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resumes diag service to receive diagnostic requests.
+ *
+ * @instaging
+ *
+ * @result
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diag_Resume
+(
+    taf_diag_ServiceRef_t svcRef
+        ///< [IN] Service reference.
+)
+{
+    auto &diag = taf_DiagSvr::GetInstance();
+    return diag.Resume(svcRef);
 }
 
 //--------------------------------------------------------------------------------------------------

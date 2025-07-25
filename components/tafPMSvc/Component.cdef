@@ -10,6 +10,7 @@ requires:
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
+        $TELAF_ROOT/components/stub/taf_noship_pms
     }
 
     lib:

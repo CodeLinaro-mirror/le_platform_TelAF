@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -124,6 +124,10 @@ typedef struct
                 // VLAN ID setting and selecting.
                 le_result_t SetVlanId(taf_diag_ServiceRef_t svcRef, uint16_t vlanId);
                 le_result_t SelectTargetVlanID(taf_diag_ServiceRef_t svcRef, uint16_t vlanId);
+
+                // Pause/Resume diag service to receive UDS requests.
+                le_result_t Pause(taf_diag_ServiceRef_t svcRef);
+                le_result_t Resume(taf_diag_ServiceRef_t svcRef);
 
                 //Asynchrous function from API direction
                 void CancelFileXferAsync(taf_diag_ServiceRef_t svcRef,

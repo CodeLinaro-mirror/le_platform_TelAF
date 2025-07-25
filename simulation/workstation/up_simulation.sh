@@ -210,7 +210,7 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
             cp -a -r -d ${SDK_ROOTFS}/include/* /usr/include/
             cp -a -r -d ${SDK_ROOTFS}/share/* /usr/share/
             cp -a -r -d ${SDK_ROOTFS}/etc/* /etc/
-            cp -a -r -d ${SDK_ROOTFS}/data/* /data/
+            cp -a -r -d -n ${SDK_ROOTFS}/data/* /data/
 
             # Change the dirs' mode for others access
             chmod 0755 /etc/telux

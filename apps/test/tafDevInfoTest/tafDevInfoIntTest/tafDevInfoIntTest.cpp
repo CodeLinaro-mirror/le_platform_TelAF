@@ -4,10 +4,12 @@
  */
 
 /*
- * @file       tafDevInfoIntTest.c
+ * @file       tafDevInfoIntTest.cpp
  * @brief      Integration test functions for Device Info
  */
 
+#include <string>
+#include <array>
 #include "legato.h"
 #include "interfaces.h"
 
@@ -21,31 +23,30 @@ void PrintUsage(void)
 
 static le_result_t Test_GetImei()
 {
-    char imei[TAF_DEVINFO_IMEI_MAX_BYTES];
-    le_result_t result = taf_devInfo_GetImei(imei, sizeof(imei));
-    LE_INFO("taf_devInfo_GetImei Return:%d\n",result);
-    printf("Imei : %s\n", imei);
+    std::array<char, TAF_DEVINFO_IMEI_MAX_BYTES> imei{};
+    le_result_t result = taf_devInfo_GetImei(imei.data(), imei.size());
+    LE_INFO("taf_devInfo_GetImei Return:%d\n", result);
+    printf("Imei : %s\n", imei.data());
     return result;
 }
 
 static le_result_t Test_GetDeviceModel()
 {
-    char model[TAF_DEVINFO_MODEL_MAX_BYTES];
-    le_result_t result = taf_devInfo_GetModel(model, sizeof(model));
+    std::array<char, TAF_DEVINFO_MODEL_MAX_BYTES> model{};
+    le_result_t result = taf_devInfo_GetModel(model.data(), model.size());
     LE_INFO("taf_devInfo_GetModel Return : %d\n", result);
-    printf("Device Model : %s\n", model);
+    printf("Device Model : %s\n", model.data());
     return result;
 }
 
-inline void CheckNumArgs(size_t NumArgs, size_t ExpectedNumArgs)
+inline void CheckNumArgs(size_t numArgs, size_t expectedNumArgs)
 {
-    if (NumArgs!=ExpectedNumArgs)
+    if (numArgs != expectedNumArgs)
     {
         PrintUsage();
         LE_TEST_FATAL("Invalid number of arguments");
     }
 }
-
 
 COMPONENT_INIT
 {
@@ -60,15 +61,15 @@ COMPONENT_INIT
     if(numArgs == 1)
     {
         const char *testType = le_arg_GetArg(0);
-        if(testType == NULL)
+        if(testType == nullptr)
         {
-            LE_ERROR("testType is NULL");
+            LE_ERROR("testType is nullptr");
             return;
         }
-        if (strncmp(testType, "imei", strlen(testType)) == 0)
+        if (std::string(testType) == std::string("imei"))
         {
             LE_TEST_INFO("======== GetImei Test ========");
-            CheckNumArgs(numArgs,1);
+            CheckNumArgs(numArgs, 1);
             status = Test_GetImei();
 #ifdef LE_CONFIG_GET_IMEI_SUPPORT
             LE_TEST_OK(status == LE_OK, "Test taf_devInfo_GetImei: End");
@@ -77,10 +78,10 @@ COMPONENT_INIT
             LE_TEST_OK(status == LE_UNSUPPORTED, "UNSUPPORTED :Test taf_devInfo_GetImei End");
 #endif
        }
-       else if (strncmp(testType, "model", strlen(testType)) == 0)
+       else if (std::string(testType) == std::string("model"))
        {
             LE_TEST_INFO("======== GetDeviceModel========");
-            CheckNumArgs(numArgs,1);
+            CheckNumArgs(numArgs, 1);
             status = Test_GetDeviceModel();
             LE_TEST_OK(LE_OK == status, "GetDeviceModel Test: End");
        }
@@ -93,6 +94,7 @@ COMPONENT_INIT
     {
         LE_ERROR("Arguments are empty!!");
         PrintUsage();
-        LE_TEST_EXIT;
     }
+
+    LE_TEST_EXIT;
 }

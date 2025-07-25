@@ -28,7 +28,7 @@
    }
    @endverbatim
  *
- * @section c_taf_diagEvent_OpCycleState_API Operation Cycle APIs
+ * @section c_taf_diagEvent_OpCycleState_API Operation cycle APIs
  *
  * An operation cycle reference should be got using taf_diagEvent_GetOpCycle(). Use the returned
  * reference for subsequent operations.
@@ -75,7 +75,7 @@
  * - taf_diagEvent_RemoveOpCycleStateHandler() -- Removes handler function for EVENT 'taf_diagEvent_OpCycleState'.
  * - taf_diagEvent_RemoveOpCycle() -- Removes the operation cycle service.
  *
- * @section c_taf_diagEvent_server_API Server Service APIs
+ * @section c_taf_diagEvent_server_API Server-service APIs
  *
  * A diag event service reference should be got using taf_diagEvent_GetService(). Use the
  * returned reference for subsequent operations.

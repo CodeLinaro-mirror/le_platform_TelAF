@@ -27,7 +27,7 @@
    }
    @endverbatim
  *
- * @section taf_therm_GetThermalZonesList Get the available thermal zone information
+ * @section taf_therm_GetThermalZonesList Get available thermal zone information
  *
  * TelAF Thermal Manager Service provides APIs to know the available thermal zones
  * on the device.
@@ -144,7 +144,7 @@
 
    @endverbatim
  *
- * @section taf_therm_GetCoolingDeviceList Get the available cooling devices information
+ * @section taf_therm_GetCoolingDeviceList Get available cooling devices information
  *
  * TelAF Thermal Manager Service provides APIs to know the available cooling devices
  * on the target.

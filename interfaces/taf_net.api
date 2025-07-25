@@ -410,7 +410,7 @@
  * - taf_net_GetGsbInterfaceType()  -- Gets the interface type of the GSB.
  * - taf_net_GetGsbBandWidth()      -- Gets the bandwidth of the GSB.
  *
- * @section c_taf_net_support_phone_id phone ID support.
+ * @section c_taf_net_support_phone_id Phone ID support
  *
  * Network service provides APIs with phone ID as one of the input parameters in the DSSA/DSDA mode.
  * The application can call these APIs on the wanted phone ID
@@ -424,7 +424,7 @@
  * - taf_net_BindVlanWithProfileEx() -- Binds a VLAN with the specified phone ID and profile index.
  * - taf_net_GetVlanBoundPhoneId() -- Gets the phone ID bound with this VLAN.
  *
- * @section c_taf_net_support_vlan_priority VLAN priority.
+ * @section c_taf_net_support_vlan_priority VLAN priority
  *
  * Network service provides APIs to support VLAN priority.
  *

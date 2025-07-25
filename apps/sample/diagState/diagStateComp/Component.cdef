@@ -1,0 +1,13 @@
+sources:
+{
+    diagState.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_diag.api
+    }
+}
+

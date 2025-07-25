@@ -74,7 +74,7 @@
    handlerExRef = taf_pm_AddStateChangeExHandler(TestStateChangeExHandler, NULL);
    @endverbatim
  *
- * @section taf_pm_getMachineList Get the available Virtual Machines
+ * @section taf_pm_getMachineList Get available Virtual Machines
  *
  * TelAF Power Manager Service provides APIs to know the available machines on the device.
  * TelAF Power Manager's client calls taf_pm_GetMachineList() to get the machine available reference.
@@ -95,7 +95,7 @@
    res = taf_pm_DeleteMachineList(vmListRef);
    @endverbatim
  *
- * @section taf_pm_SendStateChangeAck Acknowledge on the state change notification
+ * @section taf_pm_SendStateChangeAck State change acknowledgement notification
  *
  * TelAF Power Manager Service should know the acknowledgement of clients to proceed
  * with the state change.
@@ -286,6 +286,13 @@ REFERENCE ConsolidatedAckInfo;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Reference to modem wakeup event.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE ModemAwakeEvent;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * State change handler.
  */
 //--------------------------------------------------------------------------------------------------
@@ -369,6 +376,32 @@ HANDLER ConsolidatedAckInfoHandler
 EVENT ConsolidatedAckInfo
 (
     ConsolidatedAckInfoHandler handler  ///< The ConsolidatedAck Info handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for modem awake.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER ModemAwakeHandler
+(
+    ModemAwakeEvent ref,
+    NodeModemWsBitMask wsBitmask
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Modem awake event.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT ModemAwake
+(
+    ModemAwakeHandler handler,  ///< The modem awake event handler.
+    NodeModemWsBitMask wsBitmask
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -611,7 +644,7 @@ FUNCTION le_result_t SetPowerMode
  * @instaging
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetNodeModemWakeupSel
+FUNCTION le_result_t SetModemWakeupSel
 (
     NodeModemWsBitMask wsBitmask     ///< Modem wakeup selection to be whitelisted.
 );
@@ -625,7 +658,21 @@ FUNCTION le_result_t SetNodeModemWakeupSel
  * @instaging
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t GetNodeModemWakeupSel
+FUNCTION le_result_t GetModemWakeupSel
 (
     NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup selection to be whitelisted.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the last modem wakeup reason.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetModemAwakeReason
+(
+    NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup reason.
 );

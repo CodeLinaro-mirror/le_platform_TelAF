@@ -182,53 +182,63 @@ void* taf_simRsp::ProfileAddHandlerThread(void* contextPtr)
 
 void taf_simRsp::Init(void)
 {
-    //  Get the PhoneFactory and SimProfileManager instances.
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
     simProfileManager = phoneFactory.getSimProfileManager();
-
-    //  Check if subsystem is ready
-    if (simProfileManager) {
-        //  Check if SimProfile subsystem is ready
-        bool subSystemStatus = simProfileManager->isSubsystemReady();
-
-        //  If subsystem is not ready, wait for it to be ready
-        if(!subSystemStatus) {
-            LE_INFO("SimProfile subsystem is not ready, Please wait");
-            std::future<bool> f = simProfileManager->onSubsystemReady();
-            // If we want to wait unconditionally for SimProfile subsystem to be ready
-            subSystemStatus = f.get();
-        }
-
-        //  Exit the application, if SDK is unable to initialize SimProfile subsystem
-        if(subSystemStatus) {
-            LE_INFO( "Subsystem is ready");
-            rspListener = std::make_shared<tafRspListener>();
-            telux::common::Status status = simProfileManager->registerListener(rspListener);
-            if(status != telux::common::Status::SUCCESS) {
-                LE_INFO( "ERROR - Failed to register listener");
-            }
-
-            ProfileListPool = le_mem_InitStaticPool(tafProfileListPool,
-                        TAF_SIMRSP_MAX_PROFILE, sizeof(taf_simRsp_ProfileListNode_t));
-            ProfileListNodeRefMap = le_ref_CreateMap("tafRspProfileRefMap", TAF_SIMRSP_MAX_PROFILE);
-
-
-            ProfileDownloadEventId = le_event_CreateId("ProfileDownloadEventId", sizeof(taf_simRsp_DownloadEvent_t));
-            ProfileUserConsentEventId = le_event_CreateId("ProfileUserConsentEventId", sizeof(taf_simRsp_UserConsentEvent_t));
-            ProfileConfirmationCodeEventId = le_event_CreateId("ProfileConfirmationCodeEventId", sizeof(taf_simRsp_ConfirmationCodeEvent_t));
-
-            le_sem_Ref_t semRef = le_sem_Create("ProfileListThreadSem", 0);
-            ProfileListEventThreadRef = le_thread_Create("ProfileThread", ProfileAddHandlerThread, (void*)semRef);
-            le_thread_Start(ProfileListEventThreadRef);
-            le_sem_Wait(semRef);
-            le_sem_Delete(semRef);
-
-        } else {
-            LE_FATAL("ERROR - Unable to initialize subsystem");
-        }
-    } else {
-        LE_FATAL("ERROR - SimProfileManger is null");
+    if (!simProfileManager)
+    {
+        LE_FATAL("Failed to get sim profile manager.");
     }
+    else
+    {
+        telux::common::ServiceStatus simProfileMgrStatus = simProfileManager->getServiceStatus();
+        if (simProfileMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_INFO("Sim profile subsystem is not ready, waiting for it to be ready...");
+            std::promise<telux::common::ServiceStatus> simProfileMgrProm;
+            simProfileManager = phoneFactory.getSimProfileManager([&](telux::common::ServiceStatus status) {
+                LE_INFO("Getting status:%d from sim profile manager", (int)status);
+                if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                {
+                    simProfileMgrProm.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+                }
+                else {
+                    simProfileMgrProm.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+                }
+            });
+            std::future<telux::common::ServiceStatus> initFuture = simProfileMgrProm.get_future();
+            std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+                TAF_SIM_SUBSYSTEM_TIMEOUT));
+            if (std::future_status::timeout == waitStatus)
+            {
+                LE_FATAL ("Timeout waiting for sim profile susbsytem");
+            }
+            else
+            {
+                simProfileMgrStatus = initFuture.get();
+            }
+        }
+        if (simProfileMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_INFO("Sim profile subsystem is ready.");
+        }
+        else
+        {
+            LE_FATAL("Fail to init sim profile subsystem");
+        }
+    }
+
+    ProfileListPool = le_mem_InitStaticPool(tafProfileListPool,
+                    TAF_SIMRSP_MAX_PROFILE, sizeof(taf_simRsp_ProfileListNode_t));
+    ProfileListNodeRefMap = le_ref_CreateMap("tafRspProfileRefMap", TAF_SIMRSP_MAX_PROFILE);
+    ProfileDownloadEventId = le_event_CreateId("ProfileDownloadEventId", sizeof(taf_simRsp_DownloadEvent_t));
+    ProfileUserConsentEventId = le_event_CreateId("ProfileUserConsentEventId", sizeof(taf_simRsp_UserConsentEvent_t));
+    ProfileConfirmationCodeEventId = le_event_CreateId("ProfileConfirmationCodeEventId", sizeof(taf_simRsp_ConfirmationCodeEvent_t));
+
+    le_sem_Ref_t semRef = le_sem_Create("ProfileListThreadSem", 0);
+    ProfileListEventThreadRef = le_thread_Create("ProfileThread", ProfileAddHandlerThread, (void*)semRef);
+    le_thread_Start(ProfileListEventThreadRef);
+    le_sem_Wait(semRef);
+    le_sem_Delete(semRef);
     char eidPtr[TAF_SIM_EID_BYTES];
     GetEID((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_2, eidPtr, TAF_SIM_EID_BYTES);
     LE_INFO(" EID = %s", eidPtr);

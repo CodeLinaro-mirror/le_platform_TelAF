@@ -175,6 +175,7 @@ namespace tafsvc {
         public:
 
             void Init(void);
+            void Deinit(void);
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
                 void onInitCompleted(telux::common::ServiceStatus status);
 #endif
@@ -210,6 +211,7 @@ namespace tafsvc {
                                           char *userNamePtr, size_t userNameSize, char *passwordPtr,
                                           size_t passwordSize);
             void CleanupAllProfiles(Profile_List_Event_t *listEvent);
+            void CleanupAllProfiles();
             le_result_t CreateIndividualProfile(taf_dcs_ProfileCtx_t *info);
             taf_dcs_ProfileCtx_t *GetProfileCtx(uint8_t slotId, uint32_t index);
             void UpdateIndividualProfile(taf_dcs_ProfileCtx_t *distPtr,
@@ -280,7 +282,6 @@ namespace tafsvc {
             le_event_Id_t    ListReqEvent;
             le_event_Id_t    HwAccelStatusEvent; // Handle HWAccel events from taf_DataConnection.
             le_dls_List_t    ProfileCtxList;
-            taf_dcs_ProfileCtxs_t ProfilesListPtr = { 0 };
             le_thread_Ref_t ProfileEventThreadRef = NULL;
             std::map<SlotId, uint32_t> ProfileNum;
 

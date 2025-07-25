@@ -349,8 +349,8 @@ void tafSimUnitTest_sendApdu
                                           responseAPDU,
                                           &responseLength), "taf_sim_SendApdu");
 
-    LE_INFO("tafSimUnitTest_sendApdu: APDU response sw1 = 0x%02X",responseAPDU[0]);
-    LE_INFO("tafSimUnitTest_sendApdu: APDU response sw2 = 0x%02X",responseAPDU[1]);
+    LE_INFO("tafSimUnitTest_sendApdu: APDU response sw1 = 0x%02X",responseAPDU[responseLength-2]);
+    LE_INFO("tafSimUnitTest_sendApdu: APDU response sw2 = 0x%02X",responseAPDU[responseLength-1]);
 }
 
 void tafSimUnitTest_GetAppTypes
@@ -399,8 +399,8 @@ void tafSimUnitTest_sim_access
                                           responseAPDU,
                                           &responseLength), "taf_sim_SendApduOnChannel");
 
-    LE_INFO("SendApduOnChannel: APDU response sw1 = 0x%02X",responseAPDU[0]);
-    LE_INFO("SendApduOnChannel: APDU response sw2 = 0x%02X",responseAPDU[1]);
+    LE_INFO("SendApduOnChannel: APDU response sw1 = 0x%02X",responseAPDU[responseLength-2]);
+    LE_INFO("SendApduOnChannel: APDU response sw2 = 0x%02X",responseAPDU[responseLength-1]);
 
     // Close the logical channel
     LE_TEST_OK(LE_OK == taf_sim_CloseLogicalChannel(simId,channel), "taf_sim_CloseLogicalChannel");

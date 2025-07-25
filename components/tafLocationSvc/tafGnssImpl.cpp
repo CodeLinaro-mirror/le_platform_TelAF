@@ -323,12 +323,24 @@ void taf_locGnss::CopyPositionData
     LastDataPtr->satInfoValid = CurrentDataPtr->satInfoValid;
     LastDataPtr->satMeasValid = CurrentDataPtr->satMeasValid;
     LastDataPtr->magneticDeviation = CurrentDataPtr->magneticDeviation;
+
+    uint64_t previousTime = LastDataPtr->epochTime;
+    LE_DEBUG("sessionRef: %p, Previous epochTime: %" PRIu64 "", LastDataPtr->clientSessionRefPtr,
+            LastDataPtr->epochTime);
+
+    uint64_t currentTime = CurrentDataPtr->epochTime;
+    LE_DEBUG("sessionRef: %p, Current epochTime: %" PRIu64 "", CurrentDataPtr->clientSessionRefPtr,
+            CurrentDataPtr->epochTime);
+
+
+    LE_DEBUG("sessionRef: %p, EpochTime Difference: %" PRIu64 "", LastDataPtr->clientSessionRefPtr,
+            (currentTime - previousTime));
+
     LastDataPtr->epochTime = CurrentDataPtr->epochTime;
     LastDataPtr->satsInViewCount = CurrentDataPtr->satsInViewCount;
     LastDataPtr->satsTrackingCount = CurrentDataPtr->satsTrackingCount;
     LastDataPtr->satsUsedCount = CurrentDataPtr->satsUsedCount;
-    uint8_t i;
-    for(i=0; i<TAF_LOCGNSS_SV_INFO_MAX_LEN; i++)
+    for(auto i=0; i<TAF_LOCGNSS_SV_INFO_MAX_LEN; i++)
     {
         LastDataPtr->satInfo[i].satId = CurrentDataPtr->satInfo[i].satId;
         LastDataPtr->satInfo[i].satConst = CurrentDataPtr->satInfo[i].satConst;
@@ -342,7 +354,7 @@ void taf_locGnss::CopyPositionData
         LastDataPtr->satInfo[i].baseBandCnr = CurrentDataPtr->satInfo[i].baseBandCnr;
     }
 
-    for(i=0; i<TAF_LOCGNSS_SV_INFO_MAX_LEN; i++)
+    for(auto i=0; i<TAF_LOCGNSS_SV_INFO_MAX_LEN; i++)
     {
         LastDataPtr->satMeas[i].satId = CurrentDataPtr->satMeas[i].satId;
         LastDataPtr->satMeas[i].satLatency = CurrentDataPtr->satMeas[i].satLatency;
@@ -422,7 +434,7 @@ void taf_locGnss::CopyPositionData
     LastDataPtr->realTimeUncValid = CurrentDataPtr->realTimeUncValid;
     LastDataPtr->techMask = CurrentDataPtr->techMask;
     LastDataPtr->techMaskValid = CurrentDataPtr->techMaskValid;
-    for(i=0; i<TAF_LOCGNSS_MEASUREMENT_INFO_MAX; i++)
+    for(auto i=0; i<TAF_LOCGNSS_MEASUREMENT_INFO_MAX; i++)
     {
         LastDataPtr->measInfo[i].gnssSignalType = CurrentDataPtr->measInfo[i].gnssSignalType;
         LastDataPtr->measInfo[i].gnssConstellation = CurrentDataPtr->measInfo[i].gnssConstellation;
@@ -431,11 +443,11 @@ void taf_locGnss::CopyPositionData
     LastDataPtr->measInfoCount = CurrentDataPtr->measInfoCount;
     LastDataPtr->reportStatus = CurrentDataPtr->reportStatus;
     LastDataPtr->altMeanSeaLevel = CurrentDataPtr->altMeanSeaLevel;
-    for (i = 0; i < TAF_LOCGNSS_MEASUREMENT_INFO_MAX; i++) {
+    for (auto i = 0; i < TAF_LOCGNSS_MEASUREMENT_INFO_MAX; i++) {
         LastDataPtr->SVIds[i] = CurrentDataPtr->SVIds[i];
     }
     LastDataPtr->SVIdsCount = CurrentDataPtr->SVIdsCount;
-    for(i=0; i<TAF_LOCGNSS_NUMBER_OF_SIGNAL_TYPES_MAX; i++)
+    for(auto i=0; i<TAF_LOCGNSS_NUMBER_OF_SIGNAL_TYPES_MAX; i++)
     {
         LastDataPtr->gnssData[i].gnssDataMask = CurrentDataPtr->gnssData[i].gnssDataMask;
         LastDataPtr->gnssData[i].jammerInd = CurrentDataPtr->gnssData[i].jammerInd;
@@ -525,11 +537,11 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
       const std::vector<std::shared_ptr<telux::loc::ILocationInfoEx> > &locationEngineInfo) {
     auto &gnss = taf_locGnss::GetInstance();
     taf_locGnss_Client_t* clientRequestPtr = NULL;
-    LE_INFO("[GAP] onDetailedEngineLocationUpdate before DiscoverSessionRef");
+
     clientRequestPtr = gnss.DiscoverSessionRef(*clientSessionRef);
-    LE_INFO("[GAP] onDetailedEngineLocationUpdate after DiscoverSessionRef");
 
     if (NULL == clientRequestPtr) {
+        LE_ERROR("clientRequestPtr is NULL");
         return;
     }
 
@@ -556,7 +568,8 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LE_DEBUG("TTFF mEndTime = %ld, TTFF value = %d", mEndTime.time_since_epoch().count(), clientRequestPtr->mTtffPtr);
             }
         }
-        LE_INFO("[GAP] onDetailedEngineLocationUpdate after starting a session: epochTime is : %" PRIu64"",locationInfo->getTimeStamp());
+        LE_DEBUG("onDetailedEngineLocationUpdate epochTime for this client is : %" PRIu64"",
+                locationInfo->getTimeStamp());
     }
     le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
     if(gnss.NumOfPositionHandlers )
@@ -758,7 +771,6 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
             }
             LocationData->magneticDeviation = locationInfo->getMagneticDeviation()*10;
             LocationData->epochTime = locationInfo->getTimeStamp();
-            LE_INFO("[GAP] onDetailedEngineLocationUpdate epochTime after getting position handler is : %" PRIu64"",locationInfo->getTimeStamp());
             LocationData->horUncEllipseSemiMajor =
                     locationInfo->getHorizontalUncertaintySemiMajor();
             LocationData->horUncEllipseSemiMinor =
@@ -796,6 +808,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
             LocationData->gdop = locationInfo->getGeometricDop() * 1e+3;
             LocationData->tdop = locationInfo->getTimeDop() * 1e+3;
             if(locationInfo->getTimeStamp() != telux::loc::UNKNOWN_TIMESTAMP) {
+                LE_DEBUG("epochTime in position handler: %" PRIu64"",locationInfo->getTimeStamp());
                 time_t realtime;
                 realtime = (time_t)((locationInfo->getTimeStamp() / 1000));
                 tm *ltm = gmtime(&realtime);
@@ -2021,6 +2034,7 @@ taf_locGnss_Client_t* taf_locGnss::DiscoverSessionRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
+    std::unique_lock<std::mutex> lock(gnss.mtx);
     le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.ClientRequestRefMap);
     le_result_t result = le_ref_NextNode(iterRef);
 
@@ -4217,7 +4231,7 @@ le_result_t taf_locGnss::ForceWarmRestart
                     }
                     else
                     {
-                        LE_ERROR("borqs ForceWarmRestart->Stop() is failed");
+                        LE_ERROR("ForceWarmRestart->Stop() is failed");
                         result = LE_FAULT;
                     }
                 }
@@ -4393,7 +4407,7 @@ le_result_t taf_locGnss::ForceHotRestart
                 };
                 LE_DEBUG("ForceHotRestart->  optInterval: %d",optInterval);
                 if( optInterval == 0  || optInterval < 100) {
-                    LE_INFO("borqs ForceHotRestart()->mAcqRate is zero, so set default to 100ms");
+                    LE_INFO("ForceHotRestart()->mAcqRate is zero, so set default to 100ms");
                     optInterval = 100;
                     clientRequestPtr->mAcqRate = optInterval;
                 }
@@ -7781,12 +7795,28 @@ void taf_locGnss::Init()
     le_msg_ServiceRef_t msgService = taf_locGnss_GetServiceRef();
     le_msg_AddServiceOpenHandler(msgService, OpenEventHandler, NULL);
     le_msg_AddServiceCloseHandler(msgService, CloseEventHandler, NULL);
-    if (GetNmeaConfig()== 0)
+
+    taf_locGnss_NmeaBitMask_t nmeaMask = GetNmeaConfig();
+    LE_INFO("nmeaMask mask is : %" PRIu64 "", nmeaMask);
+
+    if (nmeaMask == 0)
     {
-       TAF_LOCGNSS_NMEA_DEFAULT = 0x1f8000fc0;//If value is 0 it will set the default NMEA sentences (all sentences enabled)
-       LE_DEBUG("Nmea node doesn't exist, so set default NMEA value");
-       SetNmeaConfig(TAF_LOCGNSS_NMEA_DEFAULT);
+        LE_DEBUG("Nmea node doesn't exist, so set default NMEA value");
+        nmeaMask = TAF_LOCGNSS_NMEA_DEFAULT;
+        SetNmeaConfig(TAF_LOCGNSS_NMEA_DEFAULT);
     }
+    else
+    {
+       LE_DEBUG("Set nmeaMask from config tree");
+    }
+
+    le_result_t result = taf_locGnss_SetNmeaSentences(nmeaMask);
+    if(result != LE_OK)
+    {
+        LE_CRIT("Failed to set NMEA with code: %d", (int)result);
+        SetNmeaConfig(TAF_LOCGNSS_NMEA_CONFIG_DEFAULT);
+    }
+
     return;
 }
 le_result_t taf_locGnss::SetDRConfigValidity(taf_locGnss_DRConfigValidityType_t validMask)

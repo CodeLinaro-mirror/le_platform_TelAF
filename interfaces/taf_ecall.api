@@ -38,7 +38,7 @@
    }
    @endverbatim
  *
- * @section taf_ecall_operation Operation modes of eCall
+ * @section taf_ecall_operation eCall operation modes
  *
  * The modem can operate in three different eCall modes.
  *
@@ -71,7 +71,7 @@
  *
  * These configurations take effect at the next test eCall and currently only MSD version 2 and 3 are supported.
  *
- * @section taf_ecall_session Session of eCall
+ * @section taf_ecall_session eCall session
  *
  * taf_ecall_Create() helps to create a new eCall object and returns a reference to the eCall session.
  * taf_ecall_GetType() is used to query the current type of the eCall session.
@@ -167,7 +167,7 @@
  * - taf_ecall_SetInitialDialAttempts() -- Sets the number of dial attempts.
  * - taf_ecall_SetInitialDialIntervalBetweenDialAttempts() -- Sets the dial interval value between dial attempts.
  *
- * @section taf_ecall_concurrency Concurrency of eCall
+ * @section taf_ecall_concurrency eCall concurrency
  *
  * If another application wants to use the eCall service when a session is already active, the
  * taf_ecall_StartManual(), taf_ecall_StartAutomatic(), taf_ecall_StartTest(), taf_ecall_StartPrivate()
@@ -190,6 +190,8 @@
  * - taf_ecall_SetMsdEuroNCAPRolloverDetected() -- Sets the rollover detected for Euro NCAP additional data of the vehicle.
  * - taf_ecall_ResetMsdEuroNCAPLocationOfImpact() -- Resets the rollover detected for Euro NCAP additional data of the vehicle.
  * - taf_ecall_SetMsdEuroNCAPIIDeltaV() -- Sets the IIDeltaV for Euro NCAP additional data of the vehicle.
+ * - taf_ecall_SetMsdTimeStamp() -- Sets the timestamp manually.
+ * - taf_ecall_ResetMsdTimeStamp() -- Resets the timestamp and the system time will be used.
  *
  * The MSD is automatically encoded with the previous MSD values set earlier.
  *
@@ -224,7 +226,7 @@
  * The MSD may be modified before calling taf_ecall_SendMsd() by the e_ecall_ImportMsd() API
  * or the taf_ecall_SetMsdXxx() APIs.
  *
- * @section c_taf_ecall_outgoing Start of emergency call
+ * @section c_taf_ecall_outgoing Starting an emergency call
  *
  * An emergency call can be started by using taf_ecall_StartAutomatic() with the ecallRef passed as
  * a parameter.
@@ -1030,6 +1032,41 @@ FUNCTION le_result_t SetMsdEuroNCAPIIDeltaV
     uint8  rangeLimit IN,             ///< Range limit
     int16  deltaVX IN,                ///< DeltaVX
     int16  deltaVY IN                 ///< DeltaVY
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sets the MSD timestamp as the given value according to the given eCall reference.
+ *
+ * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
+ *
+ * @b NOTE: The process exits when an invalid eCall reference is given.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetMsdTimeStamp
+(
+    Call   ecallRef IN,               ///< eCall reference.
+    uint32 timeStamp IN               ///< TimeStamp in unit of seconds.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Resets the MSD timestamp to the current system time according to the given eCall reference.
+ *
+ * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
+ *
+ * @b NOTE: The process exits when an invalid eCall reference is given.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ResetMsdTimeStamp
+(
+    Call   ecallRef IN                ///< eCall reference.
 );
 
 //-------------------------------------------------------------------------------------------------

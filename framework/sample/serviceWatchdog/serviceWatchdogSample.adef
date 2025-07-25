@@ -1,0 +1,22 @@
+start: manual
+
+executables:
+{
+    serviceWatchdogSample = ( monitoredDaemon )
+}
+
+processes:
+{
+    run:
+    {
+        ( serviceWatchdogSample )
+    }
+
+    watchdogTimeout: 60000
+    watchdogAction: restart
+}
+
+bindings:
+{
+    serviceWatchdogSample.watchdogChain.le_wdog -> <tafcore>.le_wdog
+}

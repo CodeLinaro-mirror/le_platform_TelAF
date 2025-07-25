@@ -58,7 +58,7 @@
  * power state, mute state using HW device APIs. User can also set the configurations for audio
  * devices, can register for node state change events.
  *
- * @subsection c_send_configuration_tovhal Send audio configuration to Vendor
+ * @subsection c_send_configuration_tovhal Send audio configuration to vendor
  *
  * @verbatim
     const char* configurePath = "/data/configure.xml";
@@ -77,7 +77,7 @@
 
    @endverbatim
  *
- * @subsection c_send_audio_device_configuration_tovhal Send audio device configuration to Vendor
+ * @subsection c_send_audio_device_configuration_tovhal Send audio device configuration to vendor
  *
  * @verbatim
     const char* configurePath = "/data/audioConfigure.xml";

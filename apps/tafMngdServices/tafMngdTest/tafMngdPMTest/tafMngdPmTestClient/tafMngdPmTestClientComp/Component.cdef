@@ -1,0 +1,21 @@
+
+sources:
+{
+    tafMngdPmTestClient.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_mpms_test.api [manual-start]
+    }
+}
+
+bundles:
+{
+    file:
+    {
+        [r] $CURDIR/MpmsTestClientEnv.sh   /
+    }
+}

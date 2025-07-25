@@ -78,6 +78,7 @@ using namespace std;
             char simProfileIccid2[TAF_SIM_ICCID_BYTES];
             bool refreshResetStart;
             size_t refreshRegFilesSize;
+            bool notifyProfileSwitch;
             taf_sim_RefreshRegFile_t refreshRegFiles[TAF_SIM_MAX_SIM_REFRESH_FILES];
             le_sem_Ref_t semaphore;
         }taf_sim_Session_t;
@@ -199,14 +200,14 @@ using namespace std;
                 taf_sim() {};
                 ~taf_sim() {};
 
-                std::shared_ptr<telux::tel::ICardManager> cardManager;
+                std::shared_ptr<telux::tel::ICardManager> cardManager = nullptr;
                 std::shared_ptr<telux::tel::ICardListener> cardListener;
                 std::map<int, std::shared_ptr<telux::tel::ICard>> cards;
-                std::shared_ptr<telux::tel::ISubscriptionManager> subMgr;
+                std::shared_ptr<telux::tel::ISubscriptionManager> subMgr = nullptr;
                 std::shared_ptr<telux::tel::ISubscriptionListener> subscriptionListener;
-                std::shared_ptr<telux::tel::ISimProfileManager> simProfileManager;
+                std::shared_ptr<telux::tel::ISimProfileManager> simProfileManager = nullptr;
                 std::promise<le_result_t> ProfileSyncPromise = std::promise<le_result_t>();
-                std::shared_ptr<telux::tel::IMultiSimManager> multiSimMgr;
+                std::shared_ptr<telux::tel::IMultiSimManager> multiSimMgr = nullptr;
                 std::shared_ptr<telux::tel::IMultiSimListener> multiSimListener;
                 std::promise<telux::common::ErrorCode> slotStatusCbPromise;
 
@@ -219,16 +220,17 @@ using namespace std;
                 ErrorCode errorCode;
                 uint8_t openChannel = 0;
                 IccResult apduResponse;
+                bool cardRespReceived = false;
                 bool isEcs=false;
                 int32_t mClientRefCount;
-
                 le_event_Id_t NewStateEventId;
                 le_event_Id_t ResponseEventId;
                 le_event_Id_t ProfileListEventId;
                 le_event_Id_t IccidChangeEventId;
                 bool EnableAutoSelection = false;
-                bool isPsEventInProgress = false;
-
+                bool IsPsEventInProgress = false;
+                bool RefreshVoteSent_Slot1 = false;
+                bool RefreshVoteSent_Slot2 = false;
                 void RemoveStateHandler(taf_sim_NewStateHandlerRef_t handlerRef);
                 taf_sim_States_t getState(taf_sim_Id_t simId);
                 const char* cardStateToString(CardState state);
@@ -317,5 +319,7 @@ using namespace std;
                 le_result_t SetRefreshRegisterFiles(taf_sim_RefreshRef_t refreshSessionRef, const taf_sim_RefreshRegFile_t* filesPtr, size_t filesSize);
                 le_result_t SetRefreshMode(taf_sim_RefreshRef_t refreshSessionRef, taf_sim_RefreshMode_t refreshMode);
                 le_result_t SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, bool isRefreshAllowed);
+                le_result_t CheckRefreshAllow(taf_pa_sim_RefreshChangeInd_t* ind);
+                void ResetRefreshVote(taf_sim_Session_t* sessionPtr);
         };
     }

@@ -55,7 +55,7 @@
    }
    @endverbatim
  *
- * @section c_taf_audio_openRoute Open/Close Route for the requested route type and mode
+ * @section c_taf_audio_openRoute Open/close route for the requested route type and mode
  *
  * TelAF Audio Service helps the user to open the audio connection for the requested route
  * type like ecall, non-ecall or playback/capture or playback of a playlist of audio files and
@@ -63,7 +63,7 @@
  * path of voice call.
  *
  * Once route is opened, connect the sink reference and source reference to the
- * respective Rx/Tx connectors in case of voice call.
+ * respective RX/TX connectors in case of voice call.
  * If the audio VHAL module is available, the VHAL OpenRoute will get called after the requested
  * audio route for the mode is established.
  *
@@ -573,7 +573,7 @@
     }
    @endverbatim
  *
- * @subsection c_open_route_playback Open route for local playback of a playlist of audio files
+ * @subsection c_open_route_playback_playlist Open route for local playback of a playlist of audio files
  *
  * Plays the audio file in the local device selected. For PCM file if number of channels read from
  * the header is 2, channel type will be taken as both left and right. If number of channels read
@@ -797,7 +797,7 @@
  * @section c_taf_audio_set_get_mute Manage the mute status
  * TelAF Audio Service helps to set/get mute status for modem RX/TX, player and recorder.
  *
- * @subsection c_set_get_mute_voice_call Set/get the mute status of Modem RX/TX during voice call
+ * @subsection c_set_get_mute_voice_call Set/get the mute status of modem RX/TX during voice call
  *
  * @verbatim
 
@@ -879,7 +879,7 @@
  * Default volume levels for all the streams will be 0, and the application needs to set the
  * required volume using SetVolume.
  *
- * @subsection c_set_get_vol_voice_call Set/get the volume level of Modem RX
+ * @subsection c_set_get_vol_voice_call Set/get the volume level of modem RX
  *
  * @verbatim
 
@@ -949,9 +949,9 @@
 
    @endverbatim
  *
- * @subsection c_play_stop_DTMF Play/Stop DTMF for voice Rx path.
+ * @subsection c_play_stop_DTMF Play/stop DTMF for voice RX path.
  *
- * Supports DTMF generation in Rx path [On Near End Device]. Prerequisite for DTMF generation is
+ * Supports DTMF generation in RX path [On Near End Device]. Prerequisite for DTMF generation is
  * an active voice call.
  *
  * @verbatim
@@ -1038,9 +1038,9 @@
    @endverbatim
 
 *
- * @subsection c_DTMF_Detection DTMF detection for voice Rx path.
+ * @subsection c_DTMF_Detection DTMF detection for voice RX path.
  *
- * Supports DTMF detection in Rx path [Detection On Far End Voice Samples]. Prerequisite for DTMF
+ * Supports DTMF detection in RX path [Detection On Far End Voice Samples]. Prerequisite for DTMF
  * detection is an active voice call.
  *
  * @verbatim
@@ -1255,7 +1255,7 @@ FUNCTION Disconnect
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Opens an audio stream reference for voice Rx.
+ * Opens an audio stream reference for voice RX.
  *
  * @return
  *    - Reference to an audio stream
@@ -1269,7 +1269,7 @@ FUNCTION Stream OpenModemVoiceRx
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Opens an audio stream reference for voice Tx.
+ * Opens an audio stream reference for voice TX.
  *
  * @return
  *    - Reference to an audio stream
@@ -1329,7 +1329,7 @@ FUNCTION le_result_t CloseRoute
 //--------------------------------------------------------------------------------------------------
 FUNCTION Stream OpenPlayer
 (
-    Direction direction  IN      ///< Rx for local playback and Tx for remote playback.
+    Direction direction  IN      ///< RX for local playback and TX for remote playback.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1359,7 +1359,7 @@ FUNCTION le_result_t PlayFile
 //--------------------------------------------------------------------------------------------------
 FUNCTION Stream OpenRecorder
 (
-    Direction direction  IN      ///< Tx for local recorder and Rx for remote recorder.
+    Direction direction  IN      ///< TX for local recorder and RX for remote recorder.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1439,13 +1439,13 @@ FUNCTION le_result_t PlayFileList
 );
 
 /**
- * Sets the mute status to the modem Rx/Tx, player and recorder stream reference.
+ * Sets the mute status to the modem RX/TX, player and recorder stream reference.
  *
  * @return
  *     - LE_OK                 Success.
  *     - LE_UNSUPPORTED        Given stream is not supported. Applicable for remote player
- *                             stream (with Tx direction) and remote recorder
- *                             stream (with Rx direction).
+ *                             stream (with TX direction) and remote recorder
+ *                             stream (with RX direction).
  *     - LE_BAD_PARAMETER      Invalid stream reference.
  *     - LE_FAULT              Failure.
  */
@@ -1456,13 +1456,13 @@ FUNCTION le_result_t SetMute
 );
 
 /**
- * Gets the mute status of modem Rx/Tx, player and recorder stream reference.
+ * Gets the mute status of modem RX/TX, player and recorder stream reference.
  *
  * @return
  *     - LE_OK                 Success.
  *     - LE_UNSUPPORTED        Given stream is not supported. Applicable for remote player
- *                             stream (with Tx direction) and remote recorder
- *                             stream (with Rx direction).
+ *                             stream (with TX direction) and remote recorder
+ *                             stream (with RX direction).
  *     - LE_BAD_PARAMETER      Invalid stream reference.
  *     - LE_FAULT              Failure.
  */
@@ -1473,13 +1473,13 @@ FUNCTION le_result_t GetMute
 );
 
 /**
- * Sets the volume to the modem Rx, player and recorder stream reference.
+ * Sets the volume to the modem RX, player and recorder stream reference.
  *
  * @return
  *     - LE_OK                 Success.
  *     - LE_UNSUPPORTED        Given stream is not supported. Applicable for remote player
- *                             stream (with Tx direction) and remote recorder
- *                             stream (with Rx direction).
+ *                             stream (with TX direction) and remote recorder
+ *                             stream (with RX direction).
  *     - LE_BAD_PARAMETER      Invalid stream reference.
  *     - LE_FAULT              Failure.
  */
@@ -1490,13 +1490,13 @@ FUNCTION le_result_t SetVolume
 );
 
 /**
- * Gets the volume of modem Rx, player and recorder stream reference.
+ * Gets the volume of modem RX, player and recorder stream reference.
  *
  * @return
  *     - LE_OK                 Success.
  *     - LE_UNSUPPORTED        Given stream is not supported. Applicable for remote player
- *                             stream (with Tx direction) and remote recorder
- *                             stream (with Rx direction).
+ *                             stream (with TX direction) and remote recorder
+ *                             stream (with RX direction).
  *     - LE_BAD_PARAMETER      Invalid stream reference.
  *     - LE_FAULT              Failure.
  */
@@ -1537,7 +1537,7 @@ FUNCTION le_result_t PlaySignallingDtmf
  */
 FUNCTION le_result_t PlayDtmf
 (
-    Stream  streamRef           IN,  ///< Modem Rx stream reference.
+    Stream  streamRef           IN,  ///< Modem RX stream reference.
     string  dtmf[DTMF_MAXLEN]   IN,  ///< DTMFs to play.
     uint16 duration             IN,  ///< DTMF duration in milliseconds, for infinity tone
                                      ///  generation it can be 0xFFFF.
@@ -1555,7 +1555,7 @@ FUNCTION le_result_t PlayDtmf
  */
 FUNCTION le_result_t StopDtmf
 (
-    Stream  streamRef           IN   ///< Modem Rx stream reference.
+    Stream  streamRef           IN   ///< Modem RX stream reference.
 );
 
 /**
@@ -1577,7 +1577,7 @@ FUNCTION le_result_t StopSignallingDtmf
  */
 HANDLER DtmfDetectorHandler
 (
-    Stream     streamRef          IN,  ///< Modem Rx stream reference.
+    Stream     streamRef          IN,  ///< Modem RX stream reference.
     char         dtmf             IN   ///< DTMF char.
 );
 
@@ -1586,6 +1586,6 @@ HANDLER DtmfDetectorHandler
  */
 EVENT DtmfDetector
 (
-    Stream       streamRef         IN, ///< Modem Rx stream reference.
+    Stream       streamRef         IN, ///< Modem RX stream reference.
     DtmfDetectorHandler handler        ///< DTMF handler.
 );

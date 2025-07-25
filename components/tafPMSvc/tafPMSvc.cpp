@@ -25,6 +25,8 @@ COMPONENT_INIT
     auto &power = taf_PM::GetInstance();
     power.Init();
 
+    le_event_QueueFunction(power.PaInit, NULL, NULL);
+
     // install the handler
     taf_Handler myHandler;
 }
@@ -142,6 +144,52 @@ void taf_pm_RemoveConsolidatedAckInfoHandler(taf_pm_ConsolidatedAckInfoHandlerRe
    LE_DEBUG("taf_pm_RemoveConsolidatedAckInfoHandler");
    auto &power = taf_PM::GetInstance();
    power.RemoveConsolidatedAckInfoHandler(handlerRef);
+}
+
+/**
+ * FUNCTION     : AddModemAwakeHandler
+ * DESCRIPTION  : Add handler for modem awake notification
+ * DEPENDECY    :
+ * PARAMETERS   :
+ * RETURN VALUES: handlerRef if registered successfully or else NULL
+ */
+taf_pm_ModemAwakeHandlerRef_t taf_pm_AddModemAwakeHandler
+(
+    taf_pm_ModemAwakeHandlerFunc_t handlerPtr,
+        ///< [IN] The modem awake event handler.
+    void* contextPtr,
+        ///< [IN]
+    taf_pm_NodeModemWsBitMask_t wsBitmask
+        ///< [IN]
+)
+{
+    LE_UNUSED(wsBitmask);
+
+    if (handlerPtr == NULL)
+    {
+        LE_ERROR("Bad handlerPtr: nullptr");
+        return NULL;
+    }
+
+    return taf_PM::GetInstance().
+                AddModemWakeupHandler(handlerPtr, contextPtr);
+}
+
+/**
+ * FUNCTION     : RemoveModemAwakeHandler
+ * DESCRIPTION  : remove modem awake handler
+ * DEPENDECY    :
+ * PARAMETERS   : Modem awake Handler reference
+ * RETURN VALUES:
+ */
+void taf_pm_RemoveModemAwakeHandler
+(
+    taf_pm_ModemAwakeHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    taf_PM::GetInstance().
+        RemoveModemAwakeHandler(handlerRef);
 }
 
 /**
@@ -377,32 +425,58 @@ le_result_t taf_pm_SetPowerMode(taf_pm_PowerMode_t powerMode)
 }
 
 /**
- * FUNCTION     : SetNodeModemWs
+ * FUNCTION     : SetModemWs
  * DESCRIPTION  : Sets the whitelisted modem wakeup selection.
  * DEPENDECY    :
  * PARAMETERS   : Modem wakeup selection mask as input.
  * RETURN VALUES:
  */
-le_result_t taf_pm_SetNodeModemWakeupSel
+le_result_t taf_pm_SetModemWakeupSel
 (
     taf_pm_NodeModemWsBitMask_t wsBitmask
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    auto &pmInstance = taf_PM::GetInstance();
+    return pmInstance.paRef->SetModemWakeupFilter(wsBitmask);
 }
 
 /**
- * FUNCTION     : GetNodeModemWs
+ * FUNCTION     : GetModemWs
  * DESCRIPTION  : Gets the whitelisted modem wakeup selection.
  * DEPENDECY    :
  * PARAMETERS   : Modem wakeup selection mask as output.
  * RETURN VALUES:
  */
-le_result_t taf_pm_GetNodeModemWakeupSel
+le_result_t taf_pm_GetModemWakeupSel
 (
     taf_pm_NodeModemWsBitMask_t* wsBitmaskPtr
         ///< [OUT] Modem wakeup selection to be whitelisted.
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    auto &pmInstance = taf_PM::GetInstance();
+    return pmInstance.paRef->GetModemWakeupFilter(wsBitmaskPtr);
+}
+
+/**
+ * FUNCTION     : GetModemAwakeReason
+ * DESCRIPTION  : Gets the last modem wakeup reason.
+ * DEPENDECY    :
+ * PARAMETERS   : Modem wakeup reason mask as output.
+ * RETURN VALUES:
+ */
+le_result_t taf_pm_GetModemAwakeReason
+(
+    taf_pm_NodeModemWsBitMask_t* wsBitmaskPtr
+        ///< [OUT] Modem wakeup reason.
+)
+{
+    if(wsBitmaskPtr == NULL)
+    {
+        LE_ERROR("Bad wsBitmaskPtr: nullptr");
+        return LE_BAD_PARAMETER;
+    }
+
+    *wsBitmaskPtr = taf_PM::GetInstance().GetLastModemWsReason();
+
+    return LE_OK;
 }

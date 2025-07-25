@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -31,6 +31,9 @@
 #define WAKE_SOURCE_ACQUIRED 1
 #define WAKE_SOURCE_NOT_ACQUIRED 0
 #define WAKE_SOURCE_IGNORED 2
+
+#define MAIN_THREAD_KICK_INTERVAL 13
+#define MONITOR_MAIN_THREAD_LOOP 0
 
 namespace tafsvc {
 
@@ -195,6 +198,19 @@ typedef struct
     bool hal_enabled;
 } taf_mngdPm_config_t;
 
+/*
+ * @brief The struct of the client callback context
+ */
+typedef struct
+{
+    taf_mngdPm_NodeModemAwakeHandlerFunc_t callback;
+    void* context;
+    uint8_t nodeId;
+    taf_mngdPm_NodeModemWsBitMask_t bitset;
+    taf_mngdPm_NodeModemAwakeHandlerRef_t ref;
+}
+CallbackHandlerCombo_t;
+
 class tafMngdPMSvc: public ITafSvc
 {
     public:
@@ -320,10 +336,30 @@ class tafMngdPMSvc: public ITafSvc
         bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason);
         void RefreshWakeSources();
         le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
+        le_result_t AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
 
         //resources for clients state change acknowledgement
         static le_timer_Ref_t stateChangeAckTimerRef;
         static void StateChangeAckTimerHandler(le_timer_Ref_t timerRef);
         static taf_mngdPm_NodePowerState_t currentStateChangePtr;
+
+        static le_mem_PoolRef_t cbHandlerPool;
+
+        static le_ref_MapRef_t cbLocalMap;
+        static le_ref_MapRef_t cbRemoteMap;
+        static bool enableLocal;
+        static bool enableRemote;
+        static taf_pm_ModemAwakeHandlerRef_t pmsLocalWakeupHandler;
+        static taf_pm_ModemAwakeHandlerRef_t pmsRemoteWakeupHandler;
+
+        static void ClientCallbackDispatcher
+        (
+            taf_pm_ModemAwakeEventRef_t ref,
+            taf_pm_NodeModemWsBitMask_t wsBitmask,
+            void * contextPtr
+        );
+
+        static void EnableLocalOnce(void);
+        static void EnableRemoteOnce(void);
 };
 }

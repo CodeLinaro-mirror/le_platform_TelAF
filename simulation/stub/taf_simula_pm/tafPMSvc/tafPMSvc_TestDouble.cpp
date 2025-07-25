@@ -461,6 +461,108 @@ le_result_t taf_pm_GetUnrespClientInfo
 {
     return LE_NOT_IMPLEMENTED;
 }
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_pm_ModemAwake'
+ *
+ * Modem awake event.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+taf_pm_ModemAwakeHandlerRef_t taf_pm_AddModemAwakeHandler
+(
+    taf_pm_ModemAwakeHandlerFunc_t handlerPtr,
+        ///< [IN] The modem awake event handler.
+    void* contextPtr,
+        ///< [IN]
+    taf_pm_NodeModemWsBitMask_t wsBitmask
+        ///< [IN]
+)
+{
+    return NULL;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_pm_ModemAwake'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_pm_RemoveModemAwakeHandler
+(
+    taf_pm_ModemAwakeHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Sets the power mode to facilitate the system level power management.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pm_SetPowerMode
+(
+    taf_pm_PowerMode_t powerMode
+        ///< [IN] to set system power mode when BUB status has changed.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the whitelisted modem wakeup selection.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pm_SetModemWakeupSel
+(
+    taf_pm_NodeModemWsBitMask_t wsBitmask
+        ///< [IN] Modem wakeup selection to be whitelisted.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the whitelisted modem wakeup selection.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pm_GetModemWakeupSel
+(
+    taf_pm_NodeModemWsBitMask_t* wsBitmaskPtr
+        ///< [OUT] Modem wakeup selection to be whitelisted.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the last modem wakeup reason.
+ *
+ * @b NOTE: This is supported only on SA525M.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pm_GetModemAwakeReason
+(
+    taf_pm_NodeModemWsBitMask_t* wsBitmaskPtr
+        ///< [OUT] Modem wakeup reason.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+
 
 COMPONENT_INIT
 {

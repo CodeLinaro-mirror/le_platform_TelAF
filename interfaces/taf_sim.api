@@ -130,7 +130,7 @@
  * - @ref taf_sim_GetHomeNetworkOperator() -- Retrieves the name of the carrier on which this subscription is made.
  * - @ref taf_sim_GetHomeNetworkMccMnc() -- Retrieves the MCC and MNC of the carrier on which this subscription is made.
  *
- * @section taf_sim_auth SIM Authentication
+ * @section taf_sim_auth SIM authentication
  *
  * - @ref taf_sim_EnterPIN() -- Enters the Personal Identification Number (PIN) code which
  *   is required before any mobile device functionality can be used.
@@ -230,7 +230,7 @@
  * Applications must use taf_sim_RemoveNewStateHandler() to release @ref taf_sim_NewStateHandlerRef_t
  * message handler reference object when it is no longer used.
  *
- * @section taf_sim_refresh SIM Refresh
+ * @section taf_sim_refresh SIM refresh
  *
  * - @ref taf_sim_AddRefreshChangeHandler() -- Registers a handler to get notification when SIM refresh state changes.
  * - @ref taf_sim_RemoveRefreshChangeHandler() -- Unregisters the handler.
@@ -305,7 +305,18 @@ DEFINE  PUK_MAX_LEN     = (8);
 DEFINE  PUK_MAX_BYTES   = (PUK_MAX_LEN+1);
 DEFINE  IMSI_LEN    = (15);
 DEFINE  IMSI_BYTES  = (IMSI_LEN+1);
-DEFINE  RESPONSE_MAX_BYTES  = (256);
+/**
+ * Maximum number of response bytes for a short APDU as defined by ISO/IEC 7816-4.
+ * Includes 256 bytes for the maximum length of the response data field in a short APDU,
+ * plus 2 bytes for the response trailer, status words SW1 and SW2.
+ */
+DEFINE  RESPONSE_MAX_BYTES  = (256+2);
+/**
+ * Maximum number of command bytes for a short APDU as defined by ISO/IEC 7816-4.
+ * Includes 1 byte each for CLA, INS, P1, and P2,
+ * 1 byte for Lc, up to 255 bytes for the data field, and 1 byte for Le.
+ */
+DEFINE  APDU_MAX_BYTES  = (255+6);
 DEFINE  PHONE_NUM_MAX_LEN   = (15+2);
 DEFINE  PHONE_NUM_MAX_BYTES = (PHONE_NUM_MAX_LEN+1);
 
@@ -314,10 +325,8 @@ DEFINE  ICCID_BYTES  = (ICCID_LEN+1);
 
 DEFINE  EID_LEN    = (32);
 DEFINE  EID_BYTES  = (EID_LEN+1);
-DEFINE  APDU_MAX_BYTES  = (255);
 DEFINE  FILE_ID_LEN  = (4);
 DEFINE  FILE_ID_BYTES  = (FILE_ID_LEN+1);
-DEFINE  DATA_MAX_BYTES = (100);
 DEFINE  PATH_MAX_LEN  = (100);
 DEFINE  PATH_MAX_BYTES  = (PATH_MAX_LEN+1);
 
@@ -1071,7 +1080,7 @@ FUNCTION le_result_t SendCommand
     uint8          p1 IN,                                   ///< Parameter P1 passed to the SIM.
     uint8          p2 IN,                                   ///< Parameter P2 passed to the SIM.
     uint8          p3 IN,                                   ///< Parameter P3 passed to the SIM.
-    uint8          data[DATA_MAX_BYTES] IN,                 ///< The command data.
+    uint8          data[APDU_MAX_BYTES] IN,                 ///< The command data.
     string         path[PATH_MAX_LEN] IN,                   ///< The path to the elementary file.
     uint8          sw1 OUT,                                 ///< Status word 1 received from the SIM.
     uint8          sw2 OUT,                                 ///< Status word 2 received from the SIM.

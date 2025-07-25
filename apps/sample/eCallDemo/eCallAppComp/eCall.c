@@ -355,7 +355,7 @@ static void OpenVoiceAudio()
     AudioOutputConnectorRef = taf_audio_CreateConnector();
     LE_ERROR_IF((AudioOutputConnectorRef==NULL), "AudioOutputConnectorRef is NULL!");
 
-#if LE_CONFIG_TARGET_SA525M
+#if LE_CONFIG_TARGET_SA525M || LE_CONFIG_TARGET_SIMULATION
     MdmTxAudioRef =  taf_audio_OpenModemVoiceTx(1, false);
     LE_ERROR_IF((MdmTxAudioRef==NULL), "taf_audio_OpenModemVoiceTx returns NULL!");
     LE_DEBUG("OpenAudio MdmTxAudioRef %p", MdmTxAudioRef);
@@ -594,7 +594,7 @@ static void SignalHandler (int sigNum)
     }
 
     taf_locGnss_Stop();
-    exit(EXIT_SUCCESS);
+    _exit(EXIT_SUCCESS);
 }
 
 static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
@@ -1377,7 +1377,7 @@ static void updateLocationInformation(taf_ecall_CallRef_t eCallRef)
     {
         LE_ERROR("Unable to set location information");
     }
- 
+
     result = taf_ecall_SetMsdPositionN1(eCallRef, -512, -512);
     if (result != LE_OK)
     {

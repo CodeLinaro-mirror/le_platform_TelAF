@@ -1,7 +1,7 @@
 /*
-* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
-* SPDX-License-Identifier: BSD-3-Clause-Clear
-*/
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 /*
  * @file       tafThermImpl.cpp
@@ -777,6 +777,7 @@ taf_therm_ThermalZoneRef_t taf_Therm::GetThermalZoneByName(const char *thermalZo
         boundCoolingDevicePtr->coolingDeviceId = boundCoolingDevice[t].coolingDeviceId;
         std::vector<std::shared_ptr<telux::therm::ITripPoint>> cDevBinding =
             boundCoolingDevice[t].bindingInfo;
+        boundCoolingDevicePtr->tripPointListSize = cDevBinding.size();
         for (size_t idx = 0; idx < cDevBinding.size(); idx++)
         {
             bindingPtr = (taf_TripPoint_t*)le_mem_ForceAlloc(tafTherm.boundTripPointCDPool);
@@ -869,9 +870,15 @@ le_result_t taf_Therm::GetTripPointListSize(taf_therm_ThermalZoneRef_t listRef, 
     taf_ThermalZone_t* tZonePtr = (taf_ThermalZone_t*)le_ref_Lookup(tZoneRefMap, listRef);
 
     TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, LE_FAULT, "Invalid reference (%p) provided!", tZonePtr);
+    TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_FAULT,
+        "Invalid address for listsize (%p) provided!", listSize);
 
     *listSize = tZonePtr->tripPointListSize;
-    TAF_ERROR_IF_RET_VAL(*listSize == 0, LE_FAULT, "List does not exist.");
+    if(*listSize == 0)
+    {
+        LE_WARN("List does not exist.");
+        return LE_NOT_FOUND;
+    }
     return LE_OK;
 }
 
@@ -885,9 +892,15 @@ le_result_t taf_Therm::GetThermalZonesListSize
 
     TAF_ERROR_IF_RET_VAL(tZoneListPtr == NULL, LE_FAULT,
             "Invalid reference (%p) provided!",tZoneListPtr);
+    TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_FAULT,
+        "Invalid address for listsize (%p) provided!", listSize);
 
     *listSize = tZoneListPtr->thermalZoneListSize;
-    TAF_ERROR_IF_RET_VAL(*listSize == 0, LE_FAULT, "List does not exist.");
+    if(*listSize == 0)
+    {
+        LE_WARN("List does not exist.");
+        return LE_NOT_FOUND;
+    }
     return LE_OK;
 }
 
@@ -900,11 +913,16 @@ le_result_t taf_Therm::GetBoundCoolingDeviceListSize
 
     TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, LE_FAULT,
             "Invalid reference (%p) provided!", tZonePtr);
+    TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_FAULT,
+        "Invalid address for listsize (%p) provided!", listSize);
 
     *listSize = tZonePtr->boundCoolingDeviceListSize;
 
-    TAF_ERROR_IF_RET_VAL(*listSize == 0, LE_FAULT, "List does not exist.");
-
+    if(*listSize == 0)
+    {
+        LE_WARN("List does not exist.");
+        return LE_NOT_FOUND;
+    }
     return LE_OK;
 }
 
@@ -1056,10 +1074,16 @@ le_result_t taf_Therm::GetCoolingDeviceListSize
 
     TAF_ERROR_IF_RET_VAL(cDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
             cDevPtr);
+    TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_FAULT,
+        "Invalid address for listsize (%p) provided!", listSize);
 
     *listSize = cDevPtr->coolingDeviceListSize;
 
-    TAF_ERROR_IF_RET_VAL(*listSize == 0, LE_FAULT, "List does not exist.");
+    if(*listSize == 0)
+    {
+        LE_WARN("List does not exist.");
+        return LE_NOT_FOUND;
+    }
     return LE_OK;
 }
 
@@ -1138,10 +1162,16 @@ le_result_t taf_Therm::GetBoundTripPointListSize
 
     TAF_ERROR_IF_RET_VAL(boundCevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
             boundCevPtr);
+    TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_FAULT,
+        "Invalid address for listsize (%p) provided!", listSize);
 
     *listSize = boundCevPtr->tripPointListSize;
 
-    TAF_ERROR_IF_RET_VAL(*listSize == 0, LE_FAULT, "List does not exist.");
+    if(*listSize == 0)
+    {
+        LE_WARN("List does not exist.");
+        return LE_NOT_FOUND;
+    }
     return LE_OK;
 }
 

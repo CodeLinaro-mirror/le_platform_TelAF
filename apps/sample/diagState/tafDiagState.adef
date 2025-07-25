@@ -1,0 +1,27 @@
+sandboxed: false
+executables:
+{
+    tafDiagState = ( diagStateComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafDiagState)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    maxFileBytes: 8192K
+}
+
+start: manual
+
+bindings:
+{
+    tafDiagState.diagStateComp.taf_diag -> tafDiagSvc.taf_diag
+}

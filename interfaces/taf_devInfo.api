@@ -27,7 +27,7 @@
    }
    @endverbatim
  *
- * @section taf_devInfo_GetImei Get IMEI of the device
+ * @section taf_devInfo_GetImei Get device IMEI
  *
  * TelAF Device Information Service provides API to get the International Mobile Equipment
  * Identity (IMEI) of the device.
@@ -47,7 +47,7 @@
         }
    @endcode
  *
- * @section taf_devInfo_GetModel Get the model of the device
+ * @section taf_devInfo_GetModel Get device model
  *
  * - taf_devInfo_GetModel() -- Gets the model of the device to see whether it is SA525M or SA515M.
  *

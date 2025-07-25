@@ -286,12 +286,111 @@ static le_result_t wlanSTATestDoAPScan(taf_wlanSta_WlanSTARef_t staRef)
     return result;
 }
 
-static void PrintAllAPInfoOnConsole(taf_wlanSta_APInfo_t* APInfoPtr, size_t APInfoSize) {
-    printf("\nAvailable APs found during Scan: \n\n");
-    printf("SSID\tWPS\n");
-    for (size_t n = 0; n < APInfoSize; ++n) {
-        printf("%s\t%s\n", APInfoPtr[n].SSID, APInfoPtr[n].WPSEnabled ? "Enabled" : "Disabled");
+// Function to get the service set type string
+static const char *getServiceSetType(taf_wlan_ServiceSet_t ss)
+{
+    switch (ss)
+    {
+    case TAF_WLAN_SS_UNKNOWN:
+        return "UNKNOWN";
+    case TAF_WLAN_SS_BASIC:
+        return "BSS";
+    case TAF_WLAN_SS_EXTENDED:
+        return "ESS";
+    default:
+        return "UNKNOWN";
     }
+}
+
+// Function to get the security mode string
+static const char *getSecurityMode(taf_wlan_SecurityMode_t mode)
+{
+    switch (mode)
+    {
+    case TAF_WLAN_SEC_MODE_UNKNOWN:
+        return "UNKNOWN";
+    case TAF_WLAN_SEC_MODE_OPEN:
+        return "OPEN";
+    case TAF_WLAN_SEC_MODE_WEP:
+        return "WEP";
+    case TAF_WLAN_SEC_MODE_WPA:
+        return "WPA";
+    case TAF_WLAN_SEC_MODE_WPA2:
+        return "WPA2";
+    case TAF_WLAN_SEC_MODE_WPA3:
+        return "WPA3";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+// Function to get the security authentication method string
+static const char *getSecurityAuthMethod(taf_wlan_SecurityAuthMethod_t method)
+{
+    switch (method)
+    {
+    case TAF_WLAN_SEC_AUTH_METHOD_UNKNOWN:
+        return "UNKNOWN";
+    case TAF_WLAN_SEC_AUTH_METHOD_NONE:
+        return "NONE";
+    case TAF_WLAN_SEC_AUTH_METHOD_PSK:
+        return "PSK";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_SIM:
+        return "EAP-SIM";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_AKA:
+        return "EAP-AKA";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_LEAP:
+        return "EAP-LEAP";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_TLS:
+        return "EAP-TLS";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_TTLS:
+        return "EAP-TTLS";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_PEAP:
+        return "EAP-PEAP";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_FAST:
+        return "EAP-FAST";
+    case TAF_WLAN_SEC_AUTH_METHOD_EAP_PSK:
+        return "EAP-PSK";
+    case TAF_WLAN_SEC_AUTH_METHOD_SAE:
+        return "SAE";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+// Function to get the security encryption method string
+static const char *getSecurityEncryptionMethod(taf_wlan_SecurityEncryptionMethod_t method)
+{
+    switch (method)
+    {
+    case TAF_WLAN_SEC_ENCRYPT_METHOD_UNKNOWN:
+        return "UNKNOWN";
+    case TAF_WLAN_SEC_ENCRYPT_METHOD_RC4:
+        return "RC4";
+    case TAF_WLAN_SEC_ENCRYPT_METHOD_TKIP:
+        return "TKIP";
+    case TAF_WLAN_SEC_ENCRYPT_METHOD_AES:
+        return "AES";
+    case TAF_WLAN_SEC_ENCRYPT_METHOD_GCMP:
+        return "GCMP";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static void printAPInfo(const taf_wlanSta_APInfo_t &apInfo)
+{
+    std::cout << "  BSSID          : " << apInfo.BSSID << std::endl;
+    std::cout << "  SSID           : " << apInfo.SSID << std::endl;
+    std::cout << "  Signal Level   : " << apInfo.SignalLevel << " dBm" << std::endl;
+    std::cout << "  Frequency      : " << apInfo.Frequency << " MHz" << std::endl;
+    std::cout << "  Service Set    : " << getServiceSetType(apInfo.SS) << std::endl;
+    std::cout << "  Sec Mode       : " << getSecurityMode(apInfo.secMode) << std::endl;
+    std::cout << "  Auth Method    : " << getSecurityAuthMethod(apInfo.secAuthMethod) << std::endl;
+    std::cout << "  Encrypt Method : " << getSecurityEncryptionMethod(apInfo.secEncryptionMethod)
+                                                                                      << std::endl;
+    std::cout << "  WPS            : " << (apInfo.WPSEnabled ? "ENABLED" : "DISABLED") << std::endl;
+    std::cout << "  ---------------- " << std::endl;
 }
 
 static le_result_t wlanSTATestGetAPScanResults(taf_wlanSta_WlanSTARef_t staRef)
@@ -301,10 +400,21 @@ static le_result_t wlanSTATestGetAPScanResults(taf_wlanSta_WlanSTARef_t staRef)
     taf_wlanSta_APInfo_t ApInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = { 0 };
     le_result_t result = taf_wlanSta_GetAPScanResults(staRef, &numScanedAPs, ApInfo, &APInfoSize);
     fprintf(stderr, "taf_wlanSta_GetAPScanResults Return: %d\n", result);
+    if (LE_OK != result)
+    {
+        LE_TEST_INFO("taf_wlanSta_GetAPScanResults failed: %d", result);
+        return result;
+    }
+
     printf("\nNum APs available     : %d", numScanedAPs);
     printf("\nNum elements populated: %" PRIuS "", APInfoSize);
+    printf("\n");
 
-    PrintAllAPInfoOnConsole(ApInfo, APInfoSize);
+    for (size_t i = 0; i < numScanedAPs; ++i)
+    {
+        std::cout << "AP " << i + 1 << ":" << std::endl;
+        printAPInfo(ApInfo[i]);
+    }
     return result;
 }
 

@@ -1,8 +1,8 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
- */
-
+*
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
 
 #include "legato.h"
 #include "interfaces.h"
@@ -159,11 +159,11 @@ class tafMngdSecFileStorageSvc: public ITafSvc
         le_result_t SetStorageCreator(const char* storageNamePtr,
                                         const char* creatorAppPtr);
 
-        le_result_t CheckStorageCreator(const char* storageNamePtr,
-                                        const char* checkAppPtr);
+        le_result_t GetStorageCreator(const char* storageNamePtr,
+                                        char *appNameStr,
+                                        size_t appNameSize);
 
-        le_result_t ClearStorageCreator(const char* storageNamePtr,
-                                        const char* checkAppPtr);
+        le_result_t ClearStorageCreator(const char* storageNamePtr);
 
         le_result_t ParseServiceJsonConfig(char* configPath);
 

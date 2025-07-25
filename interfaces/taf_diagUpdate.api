@@ -56,7 +56,7 @@
    }
    @endverbatim
  *
- * @section c_taf_diagUpdate_server_API Server Service APIs
+ * @section c_taf_diagUpdate_server_API Server-service APIs
  *
  * A diag update service reference can be got using taf_diagUpdate_GetService().
  * Use the returned reference for subsequent operations.
@@ -71,7 +71,7 @@
    LE_ASSERT(svcRef != NULL);
    @endcode
  *
- * @section c_taf_diag_update_Set_VlanId Set and Get VLAN ID
+ * @section c_taf_diag_update_Set_VlanId Set/get VLAN ID
  *
  * After getting a service reference, an application can set VLAN ID to the service to filter
  * RequestFileTransfer/TransferData/RequestTransferExit requests using taf_diagUpdate_SetVlanId().

@@ -1,0 +1,13 @@
+
+sources:
+{
+    tafMngdPmWsFilterTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_mngdPm.api
+    }
+}

@@ -46,6 +46,11 @@ processes:
     faultAction: restart
 }
 
+components:
+{
+    tafRadioHelper
+}
+
 extern:
 {
     tafRadioSvc.tafRadioSvc.taf_radio

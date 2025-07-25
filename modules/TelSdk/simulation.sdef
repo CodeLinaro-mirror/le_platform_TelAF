@@ -57,6 +57,12 @@ apps:
     $TELAF_ROOT/simulation/stub/taf_simula_update/tafUpdateSvc
 #endif
 
+#if ${TELAF_SIMULATION_ENABLE_ECALL} = y
+    $TELAF_ROOT/apps/tafServices/tafECallSvc
+    $TELAF_ROOT/simulation/stub/taf_simula_audio/tafAudioSvc.adef
+    $TELAF_ROOT/simulation/stub/taf_simula_gpio/tafGpioSvc.adef
+#endif
+
     $LEGATO_ROOT/apps/sample/helloIpc/printClient
     $LEGATO_ROOT/apps/sample/helloIpc/printServer
 
@@ -80,6 +86,8 @@ apps:
     // $TELAF_ROOT/apps/sample/diagCancelFileXfer/tafDiagCancelFileXfer
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/multiRoutingManagersTest/multiRoutMgrsTestAppB
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/multiRoutingManagersTest/multiRoutMgrsTestAppA
+    // $TELAF_ROOT/apps/sample/eCallDemo/tafECallApp
+    // $TELAF_ROOT/apps/test/tafECallTest/tafECallUnitTest/tafECallUnitTest
 }
 
 commands:

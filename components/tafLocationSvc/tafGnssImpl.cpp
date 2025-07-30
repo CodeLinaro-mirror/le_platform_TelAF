@@ -7689,23 +7689,12 @@ taf_locGnss::~taf_locGnss() {
         LE_DEBUG("gnssPtr %p, gnssPtr->sessionRef %p",
                  gnssPtr, gnssPtr->sessionRef);
         if(gnssPtr->locationManager && gnssPtr->posListener) {
-            gnssPtr->locationManager->deRegisterListenerEx(gnssPtr->posListener);
-            auto status = gnssPtr->locationManager->deRegisterForSystemInfoUpdates(gnssPtr->posListener);
-            if(status == telux::common::Status::SUCCESS)
-            {
-                LE_DEBUG("Deregistered a listener for location system information");
-            }
-            else
-            {
-                LE_ERROR("Failed to deregister a listener for location system information");
-            }
-        }
-        if(gnssPtr->posListener) {
-            gnssPtr->posListener = nullptr;
-        }
+            gnss.CleanUp(gnssPtr);
+            void* safeRefPtr = (void*)le_ref_GetSafeRef(iterRef);
+            LE_DEBUG("Release taf_locGnss_ReleaseClientRef 0x%p, Session 0x%p",
+                     safeRefPtr, gnssPtr->sessionRef);
 
-        if(gnssPtr->locationManager) {
-            gnssPtr->locationManager = nullptr;
+            gnss.ReleaseClientRef(safeRefPtr);
         }
         result = le_ref_NextNode(iterRef);
    }
@@ -7729,8 +7718,9 @@ void taf_locGnss::CleanUp(taf_locGnss_Client_t* clientPtr)
         }
         else
         {
-            LE_DEBUG("Failed to deRegisterListenerEx");
+            LE_ERROR("Failed to deRegisterListenerEx");
         }
+
         status = clientPtr->locationManager->deRegisterForSystemInfoUpdates(clientPtr->posListener);
         if(status == telux::common::Status::SUCCESS)
         {
@@ -7738,7 +7728,7 @@ void taf_locGnss::CleanUp(taf_locGnss_Client_t* clientPtr)
         }
         else
         {
-            LE_DEBUG("Failed to deregister a listener for location system information");
+            LE_ERROR("Failed to deregister a listener for location system information");
         }
     }
 

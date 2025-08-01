@@ -140,9 +140,11 @@ typedef struct {
         {	\
             safeRun = 1; \
             func(__VA_ARGS__); \
+            alarm(0); \
         } \
         else \
         { \
+            alarm(0); \
             LE_INFO("now recovery\n"); \
             ret = -1; \
         \
@@ -174,9 +176,11 @@ typedef struct {
             {   \
                 safeRun = 1; \
                 funcRet = func; \
+                alarm(0); \
             } \
             else \
             { \
+                alarm(0); \
                 LE_INFO("now recovery\n"); \
                 ret = -1; \
             \

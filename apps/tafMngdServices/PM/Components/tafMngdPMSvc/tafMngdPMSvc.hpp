@@ -211,6 +211,16 @@ typedef struct
 }
 CallbackHandlerCombo_t;
 
+typedef enum
+{
+    EVT_LOAD_PMVHAL_READY = 0,
+} mngdPmEventType_Ready_t;
+
+typedef struct
+{
+    mngdPmEventType_Ready_t type;
+}taf_mngdPm_readyEvtType_t;
+
 class tafMngdPMSvc: public ITafSvc
 {
     public:
@@ -361,5 +371,11 @@ class tafMngdPMSvc: public ITafSvc
 
         static void EnableLocalOnce(void);
         static void EnableRemoteOnce(void);
+
+        static le_event_Id_t pmEvtReady;
+        bool isPmVhalReady = false;
+        static void GetPmVhalReady(void *p1, void *p2);
+        static void RetryHandler(le_timer_Ref_t timerRef);
+        static void PMVhalReadyEvtHandler(void * reportPtr);
 };
 }

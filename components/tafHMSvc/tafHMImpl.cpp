@@ -1232,6 +1232,7 @@ void tafHmsListener::onStateChange(telux::common::SubsystemInfo subsystemInfo,
     if(newOperationalStatus == telux::common::OperationalStatus::UNAVAILABLE)
     {
         ModemAvailability = false;
+        LE_ERROR("Modem status became UNAVAILABLE");
         return;
     }
 
@@ -1239,6 +1240,7 @@ void tafHmsListener::onStateChange(telux::common::SubsystemInfo subsystemInfo,
     if(newOperationalStatus == telux::common::OperationalStatus::OPERATIONAL &&
         ModemAvailability != false)
     {
+        LE_DEBUG("Modem status is OPERATIONAL");
         return;
     }
     ModemAvailability = true;
@@ -1644,32 +1646,35 @@ void taf_Hms::Init()
     //Modem monitor
     telux::common::ErrorCode ec;
     telux::common::ServiceStatus serviceStatus;
-    std::promise<telux::common::ServiceStatus> p{};
+
+    auto promisePtr = std::make_shared<std::promise<telux::common::ServiceStatus>>();
 
     auto &subsystemFact = telux::platform::SubsystemFactory::getInstance();
 
     subsystemMgr = subsystemFact.getSubsystemManager(
-            [&p](telux::common::ServiceStatus srvStatus) {
-        p.set_value(srvStatus);
-    });
+        [promisePtr](telux::common::ServiceStatus srvStatus){
+            try {
+                promisePtr->set_value(srvStatus);
+            } catch (const std::future_error &e) {
+
+                LE_ERROR("Promise already satisfied: %s", e.what());
+            }
+        });
+
     if (!subsystemMgr) {
         LE_ERROR("Couldn't get the subsystemMgr");
         return;
     }
 
-    auto future = p.get_future();
-    if (future.wait_for(std::chrono::seconds(TAF_HMS_SUBSYSTEM_MANAGER_TIMEOUT))
-            == std::future_status::ready)
-    {
+    auto future = promisePtr->get_future();
+    if (future.wait_for(std::chrono::seconds(TAF_HMS_SUBSYSTEM_MANAGER_TIMEOUT)) == std::future_status::ready) {
         serviceStatus = future.get();
-        LE_INFO("serviceStatus get the callback waiting");
+        LE_INFO("serviceStatus received from callback");
         if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
             LE_ERROR("ISubsystemManager unavailable");
             return;
         }
-    }
-    else
-    {
+    } else {
         LE_ERROR("Timeout waiting for serviceStatus callback");
         return;
     }

@@ -750,7 +750,7 @@ void tafMngdRpcPm::Init(void)
         if (rpcPm.rpcHandlerExRef)
             LE_INFO("Register RPC Extended state change handler is successfull");
     }
-    le_msg_AddServiceCloseHandler(taf_mngdPm_GetServiceRef(), tafMngdRpcPm::OnClientDisconnection, NULL);
+
     rpcPm.rpcWsRefPool = le_mem_CreatePool("tafrpcWsRefList", sizeof(taf_nodeWsRefCtx_t));
     rpcPm.rpcWsRefList = LE_DLS_LIST_INIT;
     rpcPm.rpcWsRefMap = le_ref_CreateMap("tafwsRef", TAF_REF_POOL_SIZE);

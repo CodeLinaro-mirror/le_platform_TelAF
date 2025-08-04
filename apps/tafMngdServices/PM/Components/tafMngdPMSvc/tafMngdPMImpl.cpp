@@ -7,10 +7,17 @@
 #include "tafMngdPMCommon.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include "rpcPm/tafMngdRpcPm.hpp"
 #include "limit.h"
+#include <setjmp.h>
 
 using namespace tafsvc;
 namespace pt = boost::property_tree;
+
+#define MAX_NUM_OF_RETRY   10
+#define RETRY_TIMER_INTERVAL  3000
+#define TIMER_SAFECALL 5
+DECLARE_SAFE_CALL();
 
 /**
  * To convert TafState to string
@@ -1008,38 +1015,172 @@ void tafMngdPMSvc::WakeSourceTimerHandler(le_timer_Ref_t timerRef)
         LE_INFO("ReleaseWakeLock after %ld msec timeout", mpms.config.bootup_awake_time);
 }
 
+//--------------------------------------------------------------------------------------------------
 /**
- * Initialize PM VHAL module
+ * Load PM VHAL module. If succeeded, send EVT_LOAD_PMVHAL_READY event.
  */
+ //-------------------------------------------------------------------------------------------------
 le_result_t tafMngdPMSvc::InitVHalModule()
 {
+    auto &mpms = tafMngdPMSvc::GetInstance();
     // Load the driver and does not care the version
     pmInf = (hal_pm_Inf_t *)taf_devMgr_LoadDrv(TAF_PM_MODULE_NAME, nullptr);
 
     if(pmInf == nullptr)
     {
-        LE_ERROR("Can not load the driver %s", TAF_PM_MODULE_NAME);
+        LE_ERROR("Can not load the driver %s, retry later", TAF_PM_MODULE_NAME);
         return LE_FAULT;
     }
-    else // successfully loaded
+
+    if (pmInf->InitHAL != NULL)
     {
-        LE_INFO("Loaded module %s successfully", TAF_PM_MODULE_NAME);
         LE_DEBUG("Call pmInf(%p) init function", pmInf);
-        auto &mpms = tafMngdPMSvc::GetInstance();
-        // init first
-        (*(pmInf->InitHAL))();
-        mpms.vhalAckTimerRef = le_timer_Create("VHAL ACK timer");
-        le_timer_SetWakeup(mpms.vhalAckTimerRef, false);
-        le_timer_SetMsInterval(mpms.vhalAckTimerRef, mpms.config.hal_state_prepare_timeout);
-        le_timer_SetHandler(mpms.vhalAckTimerRef, VhalAckTimerHandler);
-        //creating the timer for vehichle wakeup
-        mpms.wakeupVehicleTimerRef = le_timer_Create("VEHICHLE WAKEUP timer");
-        le_timer_SetWakeup(mpms.wakeupVehicleTimerRef, false);
-        le_timer_SetMsInterval(mpms.wakeupVehicleTimerRef, mpms.config.hal_wakeup_vehicle_timeout);
-        le_timer_SetHandler(mpms.wakeupVehicleTimerRef, VehichleWakeupTimerHandler);
+        int ret = 0;
+        LE_DEBUG("Before safe call init");
+        ENTER_SAFE_CALL(TIMER_SAFECALL, ret, (*(pmInf->InitHAL)));
+        EXIT_SAFE_CALL();
+
+        if (ret == -1)
+        {
+            LE_CRIT("Failed to init PMVHAL: %s", TAF_PM_MODULE_NAME);
+            return LE_FAULT;
+        }
     }
 
+    if ((mpms.pmInf) && (mpms.pmInf->addNodeEventHandler))
+    {
+        LE_INFO("addNodeEventHanlder for node %d", NODE_ID);
+        int ret = 0;
+        LE_DEBUG("Before safe call addNodeEventHandler");
+        ENTER_SAFE_CALL(TIMER_SAFECALL, ret, (*(pmInf->addNodeEventHandler)),NODE_ID, NodeEventCB);
+        EXIT_SAFE_CALL();
+
+        if (ret == -1)
+        {
+            LE_CRIT("Failed to add addNodeEventHandler for %d", NODE_ID);
+            return LE_FAULT;
+        }
+    }
+
+    mpms.vhalAckTimerRef = le_timer_Create("VHAL ACK timer");
+    le_timer_SetWakeup(mpms.vhalAckTimerRef, false);
+    le_timer_SetMsInterval(mpms.vhalAckTimerRef, mpms.config.hal_state_prepare_timeout);
+    le_timer_SetHandler(mpms.vhalAckTimerRef, VhalAckTimerHandler);
+    //creating the timer for vehichle wakeup
+    mpms.wakeupVehicleTimerRef = le_timer_Create("VEHICHLE WAKEUP timer");
+    le_timer_SetWakeup(mpms.wakeupVehicleTimerRef, false);
+    le_timer_SetMsInterval(mpms.wakeupVehicleTimerRef, mpms.config.hal_wakeup_vehicle_timeout);
+    le_timer_SetHandler(mpms.wakeupVehicleTimerRef, VehichleWakeupTimerHandler);
+
+    // PMVHAL successfully loaded
+    LE_INFO("Loaded module %s successfully", TAF_PM_MODULE_NAME);
+
+    taf_mngdPm_readyEvtType_t readyType;
+    readyType.type = EVT_LOAD_PMVHAL_READY;
+    mpms.isPmVhalReady = true;
+    le_event_Report(mpms.pmEvtReady, &readyType, sizeof(readyType));
+
     return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle the event when loading pmvhal is successful.
+ */
+ //-------------------------------------------------------------------------------------------------
+void tafMngdPMSvc::PMVhalReadyEvtHandler(void * reportPtr)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
+    taf_mngdPm_readyEvtType_t* evtType =(taf_mngdPm_readyEvtType_t*)reportPtr;
+
+    switch(evtType->type)
+    {
+        case EVT_LOAD_PMVHAL_READY:
+            // After PMVHAL is loaded, advertise the service to client sides
+            LE_INFO("Advertise MngdPM service");
+            taf_mngdPm_AdvertiseService();
+
+            WaitWakeSourceTimer();
+
+            // Set session open handler
+            le_msg_AddServiceOpenHandler(taf_mngdPm_GetServiceRef(), tafMngdPMSvc::OnClientConnection,
+                NULL);
+            // Set session close handler
+            le_msg_AddServiceCloseHandler(taf_mngdPm_GetServiceRef(), tafMngdPMSvc::OnClientDisconnection,
+                NULL);
+            // Set session close handler  for RPCPM
+            le_msg_AddServiceCloseHandler(taf_mngdPm_GetServiceRef(), tafMngdRpcPm::OnClientDisconnection,
+                NULL);
+
+        break;
+
+        default:
+            LE_ERROR("Wrong event type");
+        break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Load PMVHAL until retry count has reaches the maximum value.
+ */
+ //-------------------------------------------------------------------------------------------------
+void tafMngdPMSvc::RetryHandler(le_timer_Ref_t timerRef)
+{
+    auto &mpms = GetInstance();
+
+    uint32_t expiryCount = le_timer_GetExpiryCount(timerRef);
+    LE_DEBUG("expiryCount = %d", expiryCount);
+    if(expiryCount <= MAX_NUM_OF_RETRY)
+    {
+        // Load PMVHAL. Retry in case of failure.
+        if(!mpms.isPmVhalReady)
+        {
+            le_result_t res = mpms.InitVHalModule();
+            if(res == LE_OK){
+                LE_INFO("PMVHAL loaded successfully");
+                mpms.isPmVhalReady = true;
+
+                // Load PMVHAL successfully. Delete the timer.
+                le_timer_Delete(timerRef);
+            }
+        }
+    }
+
+    if(!mpms.isPmVhalReady && expiryCount == MAX_NUM_OF_RETRY)
+    {
+        //Load PMVHAL timeout.
+        LE_CRIT("Load PMVHAL timeout, failed to load PMVHAL module after all retry attempts!");
+        le_timer_Delete(timerRef);
+        exit(EXIT_SUCCESS);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start a timer to retry loading PMVHAL module again.
+ */
+ //-------------------------------------------------------------------------------------------------
+void tafMngdPMSvc::GetPmVhalReady(void *p1, void *p2)
+{
+    LE_UNUSED(p1);
+    LE_UNUSED(p2);
+
+    // Start a timer for the retry-action
+    le_timer_Ref_t retryTimer = le_timer_Create("retry-timer-pmvhal");
+
+    if (retryTimer == NULL)
+    {
+        LE_ERROR("Failed to le_timer_Create for the retry-timer");
+        return;
+    }
+
+    le_timer_SetRepeat(retryTimer, MAX_NUM_OF_RETRY);
+    le_timer_SetHandler(retryTimer, RetryHandler);
+    le_timer_SetWakeup(retryTimer, false);
+    le_timer_SetMsInterval(retryTimer, RETRY_TIMER_INTERVAL);
+    le_timer_Start(retryTimer);
+    LE_INFO("Retry timer for loading PMVHAL start ...");
 }
 
 /**
@@ -1854,3 +1995,6 @@ bool tafMngdPMSvc::enableLocal;
 bool tafMngdPMSvc::enableRemote;
 taf_pm_ModemAwakeHandlerRef_t tafMngdPMSvc::pmsLocalWakeupHandler;
 taf_pm_ModemAwakeHandlerRef_t tafMngdPMSvc::pmsRemoteWakeupHandler;
+
+le_event_Id_t tafMngdPMSvc::pmEvtReady;
+void tafMngdPMSvc::PMVhalReadyEvtHandler(void * reportPtr);

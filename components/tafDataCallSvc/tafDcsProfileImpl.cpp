@@ -33,1778 +33,750 @@
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-/*
- * @file       tafDcsProfileImpl.cpp
- * @brief      This file provides the implementation of taf data profile management.
+/**
+ * @file tafDcsProfileImpl.hpp
+ * @brief TelAF Data Call Service's profile class(TafDcsProfile) implementation.
+ *
  */
-#include "legato.h"
-#include "interfaces.h"
-#include <iostream>
-#include <string>
-#include <memory>
-#include <telux/tel/PhoneFactory.hpp>
-#include "telux/common/CommonDefines.hpp"
+
+#include "tafDcsProfile.hpp"
+#include "tafDcsUtils.hpp"
 #include "tafSvcIF.hpp"
-#include "tafDcsConnectionImpl.hpp"
-#include "tafDcsProfileImpl.hpp"
 
-using namespace telux::data;
-using namespace telux::common;
-using namespace tafsvc;
+using namespace taf::svc::datacall;
 
-LE_MEM_DEFINE_STATIC_POOL(tafProfilePool, TAF_DCS_PROFILE_LIST_MAX_ENTRY, sizeof(taf_dcs_ProfileCtx_t));
-LE_MEM_DEFINE_STATIC_POOL(tafProfileEvent, TAF_DCS_PROFILE_LIST_MAX_ENTRY, sizeof(taf_dcs_ProfileCtxs_t));
-LE_MEM_DEFINE_STATIC_POOL(HwAccelStateEvtPool, TAF_DCS_PROFILE_LIST_MAX_ENTRY, sizeof(HwAccelStatus_t));
-
-// require profile list handler
-void taf_ProfileListCallback::onProfileListResponse(
-    const std::vector<std::shared_ptr<telux::data::DataProfile>> &profiles,
-    telux::common::ErrorCode error)
-{
-    auto &myProfile = taf_DataProfile::GetInstance();
-    int num = 0;
-    taf_dcs_ProfileCtxs_t *contexts = (taf_dcs_ProfileCtxs_t *)le_mem_ForceAlloc(myProfile.getListEventPool());
-    memset(contexts, 0, sizeof(taf_dcs_ProfileCtxs_t));
-    Profile_List_Event_t listEvent;
-
-    for (auto &profile : profiles) {
-        if (profile) {
-            LE_DEBUG("id: %d, name: %s, apn: %s, username: %s, password: %s",
-                      profile->getId(), profile->getName().c_str(), profile->getApn().c_str(),
-                      profile->getUserName().c_str(), profile->getPassword().c_str());
-            LE_DEBUG("IP Family: %d, Tech Perf: %d, Auth Type: %d",
-                     (uint32_t)profile->getIpFamilyType(), (uint32_t)profile->getTechPreference(),
-                     (uint32_t)profile->getAuthProtocolType());
-
-            contexts->item[num].info.index = profile->getId();
-            contexts->item[num].info.tech  = myProfile.MapTechPreference(profile->getTechPreference());
-            le_utf8_Copy(contexts->item[num].info.name, profile->getName().c_str(), TAF_DCS_NAME_MAX_LEN, NULL);
-            le_utf8_Copy(contexts->item[num].apn, profile->getApn().c_str(), TAF_DCS_NAME_MAX_LEN, NULL);
-
-            contexts->item[num].apnType =0;
-            telux::data::ApnTypes ApnTypes = profile->getApnTypes();
-            uint16_t apnValue = (uint16_t)(ApnTypes.to_ulong());
-            if( (apnValue & TAF_DCS_APN_TYPE_DEFAULT) == TAF_DCS_APN_TYPE_DEFAULT )
-                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_DEFAULT;
-            if( (apnValue & TAF_DCS_APN_TYPE_IMS) == TAF_DCS_APN_TYPE_IMS )
-                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_IMS;
-            if( (apnValue & TAF_DCS_APN_TYPE_MMS) == TAF_DCS_APN_TYPE_MMS )
-                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_MMS;
-            if( (apnValue & TAF_DCS_APN_TYPE_DUN) == TAF_DCS_APN_TYPE_DUN )
-                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_DUN;
-            if( (apnValue & TAF_DCS_APN_TYPE_SUPL) == TAF_DCS_APN_TYPE_SUPL )
-                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_SUPL;
-            if( (apnValue & TAF_DCS_APN_TYPE_HIPRI) == TAF_DCS_APN_TYPE_HIPRI )
-                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_HIPRI;
-            if( (apnValue & TAF_DCS_APN_TYPE_FOTA) == TAF_DCS_APN_TYPE_FOTA )
-                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_FOTA;
-            if( (apnValue & TAF_DCS_APN_TYPE_CBS) == TAF_DCS_APN_TYPE_CBS )
-                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_CBS;
-            if( (apnValue & TAF_DCS_APN_TYPE_IA) == TAF_DCS_APN_TYPE_IA )
-                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_IA;
-            if( (apnValue & TAF_DCS_APN_TYPE_EMERGENCY) == TAF_DCS_APN_TYPE_EMERGENCY )
-                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_EMERGENCY;
-            if( (apnValue & TAF_DCS_APN_TYPE_UT) == TAF_DCS_APN_TYPE_UT )
-                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_UT;
-            if( (apnValue & TAF_DCS_APN_TYPE_MCX) == TAF_DCS_APN_TYPE_MCX )
-                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_MCX;
-
-            contexts->item[num].pdp        = myProfile.MapIpFamily(profile->getIpFamilyType());
-            contexts->item[num].auth       = myProfile.MapAuthProtocol(profile->getAuthProtocolType());
-            le_utf8_Copy(contexts->item[num].authUsername, profile->getUserName().c_str(), TAF_DCS_NAME_MAX_LEN, NULL);
-            le_utf8_Copy(contexts->item[num].authPassword, profile->getPassword().c_str(), TAF_DCS_NAME_MAX_LEN, NULL);
-            contexts->item[num].slotId     = this->slotId;
-            num++;
-        }
-    }
-
-    if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR("response error for slot id: %d! error code: %d", this->slotId, (int32_t)error);
-        listEvent.ret = LE_FAULT;
-    }
-    else
-    {
-        LE_INFO(" Response ok for slot id %d",this->slotId);
-        listEvent.ret = LE_OK;
-    }
-
-    listEvent.num = num;
-    listEvent.slotId = this->slotId;
-    listEvent.profilesListPtr = contexts;
-    le_event_Report(myProfile.getListReqEvent(), (void *)&listEvent, sizeof(Profile_List_Event_t));
-}
-
-void taf_ProfileModifyCallback::commandResponse(telux::common::ErrorCode error)
-{
-    auto &myProfile = taf_DataProfile::GetInstance();
-    le_result_t result;
-
-    if (error == telux::common::ErrorCode::SUCCESS)
-    {
-        LE_DEBUG("profile modification is OK");
-        result = LE_OK;
-    }
-    else
-    {
-        LE_ERROR("profile modification is failed, error code: %d", (int32_t)error);
-        result = LE_FAULT;
-    }
-
-    myProfile.CmdSynchronousPromise.set_value(result);
-}
-
-taf_DataProfile &taf_DataProfile::GetInstance()
-{
-    static taf_DataProfile instance;
-    return instance;
-}
-
-le_result_t taf_DataProfile::getPhoneIdFromSlotId(uint8_t slotId, uint8_t *phoneIdPtr)
-{
-    int retPhoneId;
-    le_result_t result = LE_OK;
-
-    TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(phoneIdPtr)");
-
-    if(PhoneMgr)
-    {
-        retPhoneId = PhoneMgr->getPhoneIdFromSlotId(slotId);
-        if(retPhoneId < 0)
-        {
-            LE_ERROR("Invalid phone id");
-            result = LE_FAULT;
-        }
-        else
-        {
-            *phoneIdPtr = (uint8_t)retPhoneId;
-            result = LE_OK;
-        }
-    }
-    else
-    {
-        LE_ERROR("Phone manager is NULL");
-        result = LE_FAULT;
-    }
-
-    LE_DEBUG("result =%d, slotId = %d, phoneId = %d", result, slotId, *phoneIdPtr);
-
-    return result;
-}
-
-le_result_t taf_DataProfile::getSlotIdFromPhoneId(uint8_t phoneId, uint8_t *slotIdPtr)
-{
-    int retSlotId;
-    le_result_t result = LE_OK;
-
-    TAF_ERROR_IF_RET_VAL(slotIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(slotIdPtr)");
-
-    if(PhoneMgr)
-    {
-        retSlotId = PhoneMgr->getSlotIdFromPhoneId(phoneId);
-        if(retSlotId < 0)
-        {
-            LE_ERROR("Invalid slot id");
-            result = LE_FAULT;
-        }
-        else
-        {
-            *slotIdPtr = (uint8_t)retSlotId;
-            result = LE_OK;
-        }
-    }
-    else
-    {
-        LE_ERROR("Phone manager is NULL");
-        result = LE_FAULT;
-    }
-
-    LE_DEBUG("result =%d, slotId = %d, phoneId = %d",result, *slotIdPtr, phoneId);
-
-    return result;
-}
-
-le_event_Id_t taf_DataProfile::GetThrottleStateEvent(uint8_t slotId, int32_t profileId)
-{
-    taf_dcs_ProfileCtx_t *profileCtxPtr = GetProfileCtx(slotId, profileId);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, NULL,
-                         "Cannot find profile context slotId(%d) profileId(%d)",
-                         slotId, profileId);
-
-    return profileCtxPtr->throttleStateEvent;
-}
-
-void taf_DataProfile::ProcessThrottledApnInfoChanged(const std::vector<telux::data::APNThrottleInfo>  &throttleInfoList,uint8_t slotId)
-{
-    ThrottleStatus_t stateEvent;
-    le_dls_Link_t* linkPtr = NULL;
-
-    if(throttleInfoList.size() == 0)
-    {
-        //List is empty browse through profile list cache's value for each profile and send event
-        //if throttleState was true.
-        LE_INFO("onThrottledApnInfoChanged 0 APNs throttled!");
-
-        linkPtr = le_dls_Peek(&ProfileCtxList);
-        while (linkPtr)
-        {
-          //const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
-          //taf_dcs_ProfileCtx_t* profileCtx = GetProfileCtx(slotId, profileInfoPtr->index);
-          taf_dcs_ProfileCtx_t* profileCtx = CONTAINER_OF(linkPtr, taf_dcs_ProfileCtx_t, link);
-          linkPtr = le_dls_PeekNext(&ProfileCtxList, linkPtr);
-          if(profileCtx == NULL)
-          {
-            LE_DEBUG("Profile context not found slot %d", slotId);
-            continue;
-          }
-          if((slotId == profileCtx->slotId) && (profileCtx->throttleInfo.isThrottled == true))
-          {
-            //If throttle is true in profile context then send notification with false.
-            stateEvent.throttleState = false;
-            stateEvent.slotId = slotId;
-            stateEvent.profileId = profileCtx->info.index;
-            stateEvent.ipv4Time = 0;
-            stateEvent.ipv6Time = 0;
-            LE_INFO("%-6d""%-6d""%-12s", profileCtx->info.index, profileCtx->info.tech,
-                                         profileCtx->info.name);
-
-            le_event_Report(profileCtx->throttleStateEvent, &stateEvent, sizeof(stateEvent));
-            //reset the values in profile's cache.
-            memset(&(profileCtx->throttleInfo), 0, sizeof(throttleInfo_t));
-          }
-        }
-        return;
-    }
-
-    bool profileFound = false;
-    linkPtr = NULL;
-    linkPtr = le_dls_Peek(&ProfileCtxList);
-    while (linkPtr)
-    {
-      taf_dcs_ProfileCtx_t* profileCtxFromList = CONTAINER_OF(linkPtr, taf_dcs_ProfileCtx_t, link);
-      linkPtr = le_dls_PeekNext(&ProfileCtxList, linkPtr);
-      profileFound = false;
-      // Traverse the throttleInfoList to find your slotId and profile ID from profile context
-      for (auto throttleInfo : throttleInfoList)
-      {
-        for (uint8_t tProfId : throttleInfo.profileIds)
-        {
-          // Absence of profile id in throttle info considered as the profile is not throttled
-          taf_dcs_ProfileCtx_t* profileCtx = GetProfileCtx(slotId, tProfId);
-          if(profileCtx == NULL)
-          {
-            LE_DEBUG("Profile context not found slot %d Id %d", slotId,tProfId);
-            continue;
-          }
-          //cache throttle info in profile context.
-          if((profileCtxFromList->info.index == tProfId) && (slotId == profileCtx->slotId))
-          {
-            profileFound = true;
-            profileCtx->throttleInfo.isThrottled = true;
-            stateEvent.throttleState = true;
-            stateEvent.slotId = slotId;
-            stateEvent.profileId = tProfId;
-            le_utf8_Copy(profileCtx->throttleInfo.mnc, throttleInfo.mnc.c_str(),
-                                                     TAF_DCS_MNC_BYTES, NULL);
-            le_utf8_Copy(profileCtx->throttleInfo.mcc, throttleInfo.mcc.c_str(),
-                                                     TAF_DCS_MCC_BYTES, NULL);
-            if (throttleInfo.isBlocked)
-            {
-              LE_DEBUG("APN blocked on all plmns slot %d Id %d", slotId,tProfId);
-              profileCtx->throttleInfo.isBlocked = throttleInfo.isBlocked;
-            }
-            stateEvent.ipv4Time = throttleInfo.ipv4Time;
-            stateEvent.ipv6Time = throttleInfo.ipv6Time;
-            le_event_Report(profileCtx->throttleStateEvent, &stateEvent, sizeof(stateEvent));
-          }
-        }
-      }
-      if(profileFound == false) //check for throttleState. If yes send event with false.
-      {
-        if(profileCtxFromList->throttleInfo.isThrottled == true )
-        {
-          stateEvent.throttleState = false;
-          stateEvent.slotId = slotId;
-          stateEvent.profileId = profileCtxFromList->info.index;
-          stateEvent.ipv4Time = 0;
-          stateEvent.ipv6Time = 0;
-          le_event_Report(profileCtxFromList->throttleStateEvent, &stateEvent, sizeof(stateEvent));
-          memset(&(profileCtxFromList->throttleInfo), 0, sizeof(throttleInfo_t));
-        }
-      }
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Gets the PLMN on which the APN is throttled.
- *
- * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
- *  - LE_NOT_POSSIBLE -- Data profile is not created.
- *  - LE_UNAVAILABLE  -- Data profile is not throttled.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_DataProfile::GetAPNThrottledPLMN(taf_dcs_ProfileRef_t    profileRef,
-                                                 bool       *areAllPLMNsThrottled,
-                                                 char                 *mccPtr,
-                                                 size_t                mccSize,
-                                                 char                 *mncPtr,
-                                                 size_t                mncSize)
-
-{
-    TAF_ERROR_IF_RET_VAL((profileRef == NULL) || (areAllPLMNsThrottled == NULL) ||
-                         (mccPtr == NULL) || (mncPtr == NULL), LE_BAD_PARAMETER,
-                          "some pointers may be null");
-    // Use the lesser of the two sizes.
-    size_t mccBytes = (mccSize < TAF_DCS_MCC_BYTES) ? mccSize : TAF_DCS_MCC_BYTES;
-    size_t mncBytes = (mncSize < TAF_DCS_MNC_BYTES) ? mncSize : TAF_DCS_MNC_BYTES;
-
-    taf_dcs_ProfileCtx_t* profileCtx = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap,
-                                                                           (void*)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtx == NULL, LE_NOT_FOUND,
-                                      "cannot get profile context from reference(%p)", profileRef);
-
-    TAF_ERROR_IF_RET_VAL(profileCtx->throttleInfo.isThrottled == false, LE_UNAVAILABLE,
-                                      "profile is not throttled");
-
-    if(profileCtx->throttleInfo.mcc != NULL)
-        le_utf8_Copy(mccPtr, profileCtx->throttleInfo.mcc, mccBytes, NULL);
-
-    if(profileCtx->throttleInfo.mnc != NULL)
-        le_utf8_Copy(mncPtr, profileCtx->throttleInfo.mnc, mncBytes, NULL);
-
-    *areAllPLMNsThrottled = profileCtx->throttleInfo.isBlocked;
-
-    LE_DEBUG("GetAPNThrottledPLMN mccPtr %s mncPtr %s", mccPtr,mncPtr);
-    LE_DEBUG("GetAPNThrottledPLMN areAllPLMNsThrottled %d", *areAllPLMNsThrottled);
-
-    return LE_OK;
-}
-
-
-le_result_t taf_DataProfile::SendAPNThrottledInfo(uint8_t slotId, int32_t profileId, bool *isThrottledPtr)
-{
-    taf_dcs_ProfileCtx_t* profileCtxPtr = GetProfileCtx(slotId, profileId);
-    le_result_t result = LE_OK;
-    bool         isThrottled = false;
-    uint32_t     ipv4RemainingTime = 0;
-    uint32_t     ipv6RemainingTime = 0;
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                         "Cannot find profile context slotId(%d) profileId(%d)",
-                         slotId, profileId);
-
-    *isThrottledPtr = profileCtxPtr->throttleInfo.isThrottled;
-
-    if(*isThrottledPtr == true)
-    {
-      //send APN throttle event
-      ThrottleStatus_t stateEvent;
-
-      result = taf_dcs_GetAPNThrottledStatus(profileCtxPtr->reference,
-                                             &isThrottled,&ipv4RemainingTime,
-                                             &ipv6RemainingTime);
-      if(result == LE_OK)
-      {
-        stateEvent.throttleState = true;
-        stateEvent.slotId = slotId;
-        stateEvent.profileId = profileId;
-        stateEvent.ipv4Time = ipv4RemainingTime;
-        stateEvent.ipv6Time = ipv6RemainingTime;
-        le_event_Report(profileCtxPtr->throttleStateEvent, &stateEvent, sizeof(stateEvent));
-      }
-    }
-    return LE_OK;
-}
-
-le_result_t taf_DataProfile::IsAPNThrottled(uint8_t slotId, int32_t profileId, bool *isThrottledPtr)
-{
-    taf_dcs_ProfileCtx_t* profileCtxPtr = GetProfileCtx(slotId, profileId);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                         "Cannot find profile context slotId(%d) profileId(%d)",
-                         slotId, profileId);
-
-    *isThrottledPtr = profileCtxPtr->throttleInfo.isThrottled;
-    LE_DEBUG("Profile APN throttled %d", *isThrottledPtr);
-    return LE_OK;
-}
-
-
-taf_dcs_Pdp_t taf_DataProfile::MapIpFamily(telux::data::IpFamilyType ipFamily)
-{
-    if (ipFamily == telux::data::IpFamilyType::IPV4)
-    {
-        return TAF_DCS_PDP_IPV4;
-    }
-    else if (ipFamily == telux::data::IpFamilyType::IPV6)
-    {
-        return TAF_DCS_PDP_IPV6;
-    }
-    else if (ipFamily == telux::data::IpFamilyType::IPV4V6)
-    {
-        return TAF_DCS_PDP_IPV4V6;
-    }
-
-    return TAF_DCS_PDP_UNKNOWN;
-}
-
-telux::data::IpFamilyType taf_DataProfile::MapIpFamily(taf_dcs_Pdp_t ipFamily)
-{
-    if (ipFamily == TAF_DCS_PDP_IPV4)
-    {
-        return telux::data::IpFamilyType::IPV4;
-    }
-    else if (ipFamily == TAF_DCS_PDP_IPV6)
-    {
-        return telux::data::IpFamilyType::IPV6;
-    }
-    else if (ipFamily == TAF_DCS_PDP_IPV4V6)
-    {
-        return telux::data::IpFamilyType::IPV4V6;
-    }
-
-    return telux::data::IpFamilyType::UNKNOWN;
-}
-
-taf_dcs_Auth_t taf_DataProfile::MapAuthProtocol(telux::data::AuthProtocolType authType)
-{
-    if (authType == telux::data::AuthProtocolType::AUTH_PAP)
-    {
-        return TAF_DCS_AUTH_PAP;
-    }
-    else if (authType == telux::data::AuthProtocolType::AUTH_CHAP)
-    {
-        return TAF_DCS_AUTH_CHAP;
-    }
-    else if (authType == telux::data::AuthProtocolType::AUTH_PAP_CHAP)
-    {
-        return TAF_DCS_AUTH_PAP | TAF_DCS_AUTH_CHAP;
-    }
-
-    return TAF_DCS_AUTH_NONE;
-}
-
-telux::data::AuthProtocolType taf_DataProfile::MapAuthProtocol(taf_dcs_Auth_t authType)
-{
-    if (authType == TAF_DCS_AUTH_PAP)
-    {
-        return telux::data::AuthProtocolType::AUTH_PAP;
-    }
-    else if (authType == TAF_DCS_AUTH_CHAP)
-    {
-        return telux::data::AuthProtocolType::AUTH_CHAP;
-    }
-    else if (authType == (TAF_DCS_AUTH_PAP | TAF_DCS_AUTH_CHAP))
-    {
-        return telux::data::AuthProtocolType::AUTH_PAP_CHAP;
-    }
-
-    return telux::data::AuthProtocolType::AUTH_NONE;
-}
-
-taf_dcs_Tech_t taf_DataProfile::MapTechPreference(telux::data::TechPreference techPref)
-{
-    if (techPref == telux::data::TechPreference::TP_3GPP)
-    {
-        return TAF_DCS_TECH_3GPP;
-    }
-    else if (techPref == telux::data::TechPreference::TP_3GPP2)
-    {
-        return TAF_DCS_TECH_3GPP2;
-    }
-    else if (techPref == telux::data::TechPreference::TP_ANY)
-    {
-        return TAF_DCS_TECH_ANY;
-    }
-
-    return TAF_DCS_TECH_UNKNOWN;
-}
-
-telux::data::TechPreference taf_DataProfile::MapTechPreference(taf_dcs_Tech_t techPref)
-{
-    if (techPref == TAF_DCS_TECH_3GPP)
-    {
-        return telux::data::TechPreference::TP_3GPP;
-    }
-    else if (techPref == TAF_DCS_TECH_3GPP2)
-    {
-        return telux::data::TechPreference::TP_3GPP2;
-    }
-    else if (techPref == TAF_DCS_TECH_ANY)
-    {
-        return telux::data::TechPreference::TP_ANY;
-    }
-
-    return telux::data::TechPreference::UNKNOWN;
-}
-
-le_result_t taf_DataProfile::ListProfile
+// The constructor.is private should be called only from TafDcsProfile::Create
+TafDcsProfile::TafDcsProfile
 (
     uint8_t slotId,
-    taf_dcs_ProfileInfo_t *profileList,
-    size_t *listSize
-)
+    uint8_t phoneId,
+    const TafDcsProfileInfo_t &profileInfo
+) : slotId_(slotId), phoneId_(phoneId) // slotId_ and phoneId_ are immutables
 {
-    le_result_t result;
-    le_dls_Link_t* linkPtr = NULL;
-    int profileCnt = 0;
+    LE_INFO("Constructor");
+    profileId_ = profileInfo.id;
+    tech_ = profileInfo.techPref;
+    pdp_ = profileInfo.ipType;
+    authTypeBitmask_ = profileInfo.authTypeBitmask;
+    apnTypeBitmask_ = profileInfo.apnTypeMask;
+    bEmergencyCallSupport_ = profileInfo.emergencyCallSupport;
+    connState_ = TAF_DCS_DISCONNECTED;
+    apn_ = profileInfo.apn;
+    name_ = profileInfo.name;
+    userName_ = profileInfo.userName;
+    password_ = profileInfo.password;
 
-    result = SendProfileListReq(slotId);
-
-    if (result != LE_OK)
-    {
-        LE_ERROR("getting profile list is failed, result: %d", result);
-        return result;
-    }
-
-    linkPtr = le_dls_Peek(&ProfileCtxList);
-    while (linkPtr)
-    {
-        taf_dcs_ProfileCtx_t* profileCtx = CONTAINER_OF(linkPtr, taf_dcs_ProfileCtx_t, link);
-        linkPtr = le_dls_PeekNext(&ProfileCtxList, linkPtr);
-
-        if(slotId == profileCtx->slotId)
-        {
-            memcpy((char *)&profileList[profileCnt], (const char *)&profileCtx->info, sizeof(taf_dcs_ProfileInfo_t));
-            profileCnt++;
-        }
-    }
-
-    *listSize = profileCnt;
-
-    return LE_OK;
+    // Store the pointer to this object
+    thisPtr_ = this;
+    // Create a reference to this object
+    reference_ =
+        (taf_dcs_ProfileRef_t)le_ref_CreateRef(TafDcsProfile::getProfileRefMap(), (void *)thisPtr_);
+    LE_DEBUG("Profile(%p) created with reference: %p", thisPtr_, reference_ );
 }
 
-le_result_t taf_DataProfile::SendProfileListReq(uint8_t slotId)
+TafDcsProfile::~TafDcsProfile()
 {
-    telux::common::Status status;
-    CmdSynchronousPromise = std::promise<le_result_t>();
-
-    if(dataProfileManagers.find((SlotId)slotId) == dataProfileManagers.end())
-    {
-        LE_ERROR("Profile manager is not init for slot id %d", slotId);
-        return LE_FAULT;
-    }
-
-    status = dataProfileManagers[static_cast<SlotId>(slotId)]->requestProfileList(
-        ListProfileCb[static_cast<SlotId>(slotId)]);
-
-    if (status != telux::common::Status::SUCCESS)
-    {
-        return LE_FAULT;
-    }
-
-    // blocking here to get response
-    std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
-    le_result_t result = futResult.get();
-
-    return result;
+    LE_INFO("Destructor");
+    if (reference_)
+        le_ref_DeleteRef(TafDcsProfile::getProfileRefMap(), reference_);
 }
 
-//--------------------------------------------------------------------------------------------------
-/**
- * The createProfile completion callback
- *
- */
-//--------------------------------------------------------------------------------------------------
-void taf_CreateProfileCallback::onResponse(int profileId, telux::common::ErrorCode error)
+void TafDcsProfile::PopulateProfileInfoStruct (taf::pa::data::ProfileInfo_t &profileInfo) const
 {
-    LE_DEBUG("Status: %d, profileId %d", static_cast<int>(error), profileId);
-    auto &myProfile = taf_DataProfile::GetInstance();
-    std::tuple<telux::common::ErrorCode, int> params = std::make_tuple(error, profileId);
-    myProfile.CreateProfileSyncPromise.set_value(params);
+    profileInfo.profileId = static_cast<taf::pa::data::ProfileId_e>(profileId_);
+    memset(profileInfo.apn, 0, taf::pa::data::MAX_APN_LEN);
+    le_utf8_Copy(profileInfo.apn, apn_.c_str(), taf::pa::data::MAX_APN_LEN, NULL);
+    memset(profileInfo.name, 0, taf::pa::data::MAX_NAME_LEN);
+    le_utf8_Copy(profileInfo.name, name_.c_str(), taf::pa::data::MAX_NAME_LEN, NULL);
+    memset(profileInfo.userName, 0, taf::pa::data::MAX_USERNAME_LEN);
+    le_utf8_Copy(profileInfo.userName, userName_.c_str(), taf::pa::data::MAX_USERNAME_LEN, NULL);
+    memset(profileInfo.password, 0, taf::pa::data::MAX_PASSWORD_LEN);
+    le_utf8_Copy(profileInfo.password, password_.c_str(), taf::pa::data::MAX_PASSWORD_LEN, NULL);
+    profileInfo.techPref = TafDcsUtils::ConvertTechPref(tech_);
+    profileInfo.authType = TafDcsUtils::ConvertAuthType(authTypeBitmask_);
+    profileInfo.ipType = TafDcsUtils::ConvertPDP(pdp_);
+    profileInfo.apnTypeMask = TafDcsUtils::ConvertApnTypeMask(apnTypeBitmask_);
+    profileInfo.emergencyCallSupport =
+                                TafDcsUtils::ConvertEmergencyCallSupport(bEmergencyCallSupport_);
+}
+
+// This is a static function that returns the reference map for the profile objects.
+le_ref_MapRef_t TafDcsProfile::getProfileRefMap()
+{
+    if (nullptr == profileRefsMap_)
+    {
+        LE_INFO("Create profile references map");
+        profileRefsMap_ = le_ref_CreateMap("profileRefsMap_", TAF_DCS_PROFILE_LIST_MAX_ENTRY);
+    }
+    LE_DEBUG("Return profile references map: %p", profileRefsMap_);
+    return profileRefsMap_;
+}
+
+void TafDcsProfile::SetCallSetup(const bool bSetup)
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    bCallSetup_ = bSetup;
+    LE_DEBUG("Setup: %d", bCallSetup_);
     return;
 }
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Creates a new profile on the device. Client should have set at least the IP family type for the
- * profile using ::taf_dcs_SetPDP before calling this API.<br>
- * On success creation of profile, the profile reference will be updated with the created profile
- * ID. Clients can use ::taf_dcs_GetProfileId to get the created profile ID.
- *
- * @return
- *  - LE_OK -- Succeeded.
- *  - LE_BAD_PARAMETER -- Bad parameter.
- *  - Others -- Failed.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_DataProfile::CreateProfile(taf_dcs_ProfileRef_t profileRef)
+bool TafDcsProfile::GetCallSetup() const
 {
-    TAF_ERROR_IF_RET_VAL((profileRef == NULL), LE_BAD_PARAMETER, "profileRef is null");
-    taf_dcs_ProfileCtx_t *profileCtxPtr = (taf_dcs_ProfileCtx_t *)le_ref_Lookup(ProfileRefMap,
-                                                                                (void *)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                         "cannot get profile context from reference(%p)", profileRef);
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Setup: %d", bCallSetup_);
+    return bCallSetup_;
+}
 
-    telux::data::ProfileParams params;
-    telux::common::Status status;
-    le_result_t result;
-
-    if (TAF_DCS_UNDEFINED_PROFILE_ID != profileCtxPtr->info.index)
-    {
-        LE_WARN("Profile with id %d already created", profileCtxPtr->info.index);
-        return LE_DUPLICATE;
-    }
-
-    result = MapProfileCtxToParams(profileCtxPtr, params);
-    if (LE_OK != result)
-    {
-        LE_ERROR("Unable to map profile ctx to params");
-        return result;
-    }
-    LE_INFO("SIM slot ID: %d", profileCtxPtr->slotId);
-
-    if (dataProfileManagers.find(static_cast<SlotId>(profileCtxPtr->slotId)) ==
-                                                                  dataProfileManagers.end())
-    {
-        LE_ERROR("Profile manager not initialized for slot id %d", profileCtxPtr->slotId);
-        return LE_FAULT;
-    }
-
-    // initialize the create profile promise
-    CreateProfileSyncPromise = std::promise<std::tuple<telux::common::ErrorCode, int>>();
-
-    // Create a future to wait for callback
-    std::future <std::tuple<telux::common::ErrorCode, int>> CreateProfilefuture =
-                                                        CreateProfileSyncPromise.get_future();
-
-    // Create the profile.
-    status = dataProfileManagers[static_cast<SlotId>(profileCtxPtr->slotId)]->createProfile(params,
-                                                                                CreateProfileCb);
-
-    if (telux::common::Status::SUCCESS != status )
-    {
-        LE_ERROR("createProfile failed: %d", static_cast<int>(status));
-        return LE_FAULT;
-    }
-
-    // Wait for profile creation confirmation
-    auto futResult = CreateProfilefuture.get();
-    telux::common::ErrorCode errCode = static_cast<telux::common::ErrorCode>(std::get<0>(futResult));
-    int profileId = static_cast<int>(std::get<1>(futResult));
-    if (telux::common::ErrorCode::SUCCESS != errCode)
-    {
-        LE_ERROR("Profile creation failed with error : %d", static_cast<int>(errCode));
-        return LE_FAULT;
-    }
-    LE_INFO("Created profile id: %d", profileId);
-
-    //Update the context with the created profile id.
-    profileCtxPtr->info.index = profileId;
-
-    // Update the profile
-    ProfileNum[(SlotId)(profileCtxPtr->slotId)] = profileId;
-    show(profileCtxPtr->slotId);
-
+le_result_t TafDcsProfile::GetId(uint32_t &id) const
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    id = profileId_;
     return LE_OK;
 }
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Deletes the profile that is referenced. Once a profile is deleted, the profile reference is not
- * valid anymore.
- *
- * @return
- *  - LE_OK -- Succeeded.
- *  - LE_BAD_PARAMETER -- Bad parameter.
- *  - LE_NOT_FOUND -- Profile reference was not found.
- *  - LE_FAULT -- Failed.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_DataProfile::DeleteProfile(taf_dcs_ProfileRef_t profileRef)
+le_result_t TafDcsProfile::GetSlotId(uint8_t &id) const
 {
-    TAF_ERROR_IF_RET_VAL((profileRef == NULL), LE_BAD_PARAMETER, "profileRef is null");
-    taf_dcs_ProfileCtx_t *profileCtxPtr = (taf_dcs_ProfileCtx_t *)le_ref_Lookup(ProfileRefMap,
-                                                                                (void *)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                         "cannot get profile context from reference(%p)", profileRef);
-
-    le_result_t result;
-    telux::common::Status status;
-    uint8_t slotId = 0;
-    int32_t profileId = 0;
-    taf_dcs_ConState_t dataState;
-    auto &myProfile = taf_DataProfile::GetInstance();
-    auto &dataConnection = taf_DataConnection::GetInstance();
-
-    result = GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
-    if (LE_OK != result)
-    {
-        LE_ERROR("Unable to get slot ID and profile ID");
-        return LE_FAULT;
-    }
-    LE_INFO("To delete: slot ID %d, profile ID: %d", slotId, profileId);
-
-    // Check if the profile has been created or not.
-    if (TAF_DCS_UNDEFINED_PROFILE_ID == profileId)
-    {
-        LE_WARN("Profile still to be created.");
-        return LE_NOT_POSSIBLE;
-    }
-
-    // Check if a data connection is active with that profile
-    result = dataConnection.GetConnectionState(slotId, profileId, &dataState);
-    if (LE_OK != result)
-    {
-        LE_ERROR("Unable to get connection state of the profile");
-        return LE_FAULT;
-    }
-    if (TAF_DCS_DISCONNECTED != dataState)
-    {
-        // Data connection state with this profile is not in DISCONNETED state
-        LE_ERROR("Profile is not in TAF_DCS_DISCONNECTED state");
-        return LE_BUSY;
-    }
-
-    // initialize the synchronous promise
-    CmdSynchronousPromise = std::promise<le_result_t>();
-
-    // Call the API to delete profile.
-    status = dataProfileManagers[static_cast<SlotId>(slotId)]->deleteProfile(profileId,
-                            myProfile.MapTechPreference(profileCtxPtr->info.tech), ModifyProfileCb);
-
-    if (telux::common::Status::SUCCESS != status)
-    {
-        LE_ERROR("Unable to delete profile: %d. deleteProfile API error: %d", profileId,
-                                                            static_cast<uint32_t>(status));
-        return LE_FAULT;
-    }
-
-    // blocking here to get response
-    std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
-    result = futResult.get();
-    if (LE_OK != result)
-    {
-        LE_ERROR("Unable to delete profile: %d. deleteProfile cb error.", profileId);
-        return LE_FAULT;
-    }
-
-    // Remove references to this profile from DCS
-    le_ref_DeleteRef(ProfileRefMap, profileCtxPtr->reference);
-    le_dls_Remove(&ProfileCtxList, &profileCtxPtr->link);
-    le_mem_Release(profileCtxPtr);
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Slot Id: %d", slotId_);
+    id = slotId_;
     return LE_OK;
 }
 
-taf_dcs_ProfileRef_t taf_DataProfile::GetProfileRef(uint8_t slotId, int32_t index)
+le_result_t TafDcsProfile::GetPhoneId(uint8_t &id) const
 {
-    if (TAF_DCS_UNDEFINED_PROFILE_ID != index)
-    {
-        LE_INFO("Profile ID is %d. Checking available profiles", index);
-        taf_dcs_ProfileCtx_t *profileCtxPtr = GetProfileCtx(slotId, index);
-        TAF_ERROR_IF_RET_VAL(profileCtxPtr == nullptr, nullptr,
-                             "cannot get profile context from index[%d]", index);
-        TAF_ERROR_IF_RET_VAL(profileCtxPtr->reference == nullptr, nullptr,
-                             "reference is invalid from index[%d]", index);
-        return profileCtxPtr->reference;
-    }
-
-    LE_INFO("Profile ID is TAF_DCS_UNDEFINED_PROFILE_ID.");
-    // if TAF_DCS_UNDEFINED_PROFILE_ID is the provided profile index, check if another profile is
-    // already in line to be created
-    taf_dcs_ProfileCtx_t *profileCtxPtr = GetProfileCtx(slotId, index);
-    if (nullptr != profileCtxPtr)
-    {
-        LE_WARN("Profile context with profile ID TAF_DCS_UNDEFINED_PROFILE_ID already present.");
-        return profileCtxPtr->reference;
-    }
-
-    LE_INFO("Creating a profile reference.");
-    le_result_t result;
-    taf_dcs_ProfileCtx_t profileCtx;
-    memset(&profileCtx, 0, sizeof(profileCtx));
-
-    profileCtx.slotId = slotId;
-    profileCtx.info.index = index;
-    result = CreateIndividualProfile(&profileCtx);
-    if (LE_OK != result)
-    {
-        // Client should delete a profile, free up memory and then create profile again.
-        LE_ERROR("Unable to create profile reference");
-        return nullptr;
-    }
-
-    // Get the created reference
-    profileCtxPtr = nullptr;
-    profileCtxPtr = GetProfileCtx(slotId, index);
-    if (nullptr == profileCtxPtr)
-    {
-        LE_ERROR("Created profile reference is NULL");
-        return nullptr;
-    }
-    LE_INFO("Profile reference created and added to DCS ProfileCtxList");
-
-    // Set techinology and PDP to reduce IPC calls for clients. Clients can update these values
-    // using relevant APIs later.
-    profileCtxPtr->info.tech = TAF_DCS_TECH_3GPP;
-    profileCtxPtr->pdp = TAF_DCS_PDP_IPV4;
-    return profileCtxPtr->reference;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    id = phoneId_;
+    return LE_OK;
 }
 
-le_result_t taf_DataProfile::GetSlotIdAndProfileId
+le_result_t TafDcsProfile::GetTech(taf_dcs_Tech_t &tech) const
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG ("Tech: %d", TO_INT(tech_));
+    tech = tech_;
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::GetPdp(taf_dcs_Pdp_t &pdp) const
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("PDP: %d", TO_INT(pdp_));
+    pdp = pdp_;
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::GetAuthTypeBitmask(taf_dcs_Auth_t &authTypeBitmask) const
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Auth Type Bitmask: %d", TO_INT(authTypeBitmask_));
+    authTypeBitmask = authTypeBitmask_;
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::GetApnTypeBitmask(taf_dcs_ApnType_t &apnTypeBitmask) const
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("APN Type Bitmask: %d", TO_INT(apnTypeBitmask_));
+    apnTypeBitmask = apnTypeBitmask_;
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::GetEmergencyCallSupport(bool &bEmerCallSupport) const
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Emergency call supported: %s", bEmergencyCallSupport_ ? "true" : "false");
+    bEmerCallSupport = bEmergencyCallSupport_;
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::GetMaxDataBitRates(uint64_t &rxRate, uint64_t &txRate) const
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Max Rx Rate: %lu, Max Tx Rate: %lu", maxRxBitRate_, maxTxBitRate_);
+    rxRate = maxRxBitRate_;
+    txRate = maxTxBitRate_;
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::SetMaxDataBitRates(const uint64_t &rxRate, const uint64_t &txRate)
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    maxRxBitRate_ = rxRate;
+    maxTxBitRate_ = txRate;
+    LE_DEBUG("Max Rx Rate: %lu, Max Tx Rate: %lu", maxRxBitRate_, maxTxBitRate_);
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::GetSessionState
 (
-    taf_dcs_ProfileRef_t profileRef,
-    uint8_t *slotId,
-    int32_t *profileId
+    taf_dcs_ConState_t &state,
+    taf_dcs_ConState_t &stateIPv4,
+    taf_dcs_ConState_t &stateIPv6
+) const
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Connection state     : %d", TO_INT(connState_));
+    LE_DEBUG("Connection state IPv4: %d", TO_INT(connStateIPv4_));
+    LE_DEBUG("Connection state IPv6: %d", TO_INT(connStateIPv6_));
+    state = connState_;
+    stateIPv4 = connStateIPv4_;
+    stateIPv6 = connStateIPv6_;
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::GetApn(std::string &apn) const
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("APN: %s", apn_.c_str());
+    apn = apn_;
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::GetName(std::string &name) const
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Name: %s", name_.c_str());
+    name = name_;
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::GetUserName(std::string &userName) const
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("User name: %s", userName_.c_str());
+    userName = userName_;
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::GetPassword(std::string &password) const
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Password: %s", password.c_str());
+    password = password_;
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::GetHostInterface(std::string &ifName) const
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    ifName = hostIfName_;
+    LE_DEBUG("Host interface: %s", hostIfName_.c_str());
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::SetHostInterface(const std::string &ifName)
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    hostIfName_ = ifName;
+    LE_DEBUG("Host interface: %s", hostIfName_.c_str());
+    return LE_OK;
+}
+
+void TafDcsProfile::ResetHostInterface()
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    hostIfName_.clear();
+}
+
+le_result_t TafDcsProfile::GetIPv4Addresses
+(
+    std::string &ipv4Addr,
+    std::string &ipv4Gateway,
+    std::string &ipv4DnsPrimary,
+    std::string &ipv4DnsSecondary,
+    unsigned int &ipv4AddrMask,
+    unsigned int &ipv4GatewayMask
+) const
+{
+    ipv4Addr         = ipv4Addr_;
+    ipv4Gateway      = ipv4Gateway_;
+    ipv4DnsPrimary   = ipv4DnsPrimary_;
+    ipv4DnsSecondary = ipv4DnsSecondary_;
+    ipv4AddrMask     = ipv4AddrMask_;
+    ipv4GatewayMask  = ipv4GatewayMask_;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("IPv4 address: %s", ipv4Addr_.c_str());
+    LE_DEBUG("IPv4 gateway: %s", ipv4Gateway_.c_str());
+    LE_DEBUG("IPv4 DNS primary: %s", ipv4DnsPrimary_.c_str());
+    LE_DEBUG("IPv4 DNS secondary: %s", ipv4DnsSecondary_.c_str());
+    LE_DEBUG("IPv4 address mask: %u", ipv4AddrMask_);
+    LE_DEBUG("IPv4 gateway mask: %u", ipv4GatewayMask_);
+    return LE_OK;
+}
+le_result_t TafDcsProfile::GetIPv6Addresses
+(
+    std::string &ipv6Addr,
+    std::string &ipv6Gateway,
+    std::string &ipv6DnsPrimary,
+    std::string &ipv6DnsSecondary,
+    unsigned int &ipv6AddrMask,
+    unsigned int &ipv6GatewayMask
+) const
+{
+    ipv6Addr         = ipv6Addr_;
+    ipv6Gateway      = ipv6Gateway_;
+    ipv6DnsPrimary   = ipv6DnsPrimary_;
+    ipv6DnsSecondary = ipv6DnsSecondary_;
+    ipv6AddrMask     = ipv6AddrMask_;
+    ipv6GatewayMask  = ipv6GatewayMask_;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("IPv6 address: %s", ipv6Addr_.c_str());
+    LE_DEBUG("IPv6 gateway: %s", ipv6Gateway_.c_str());
+    LE_DEBUG("IPv6 DNS primary: %s", ipv6DnsPrimary_.c_str());
+    LE_DEBUG("IPv6 DNS secondary: %s", ipv6DnsSecondary_.c_str());
+    LE_DEBUG("IPv6 address mask: %d", ipv6AddrMask_);
+    LE_DEBUG("IPv6 gateway mask: %d", ipv6GatewayMask_);
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::SetIPv4Addresses
+(
+    const std::string ipv4Addr,
+    const std::string ipv4Gateway,
+    const std::string ipv4DnsPrimary,
+    const std::string ipv4DnsSecondary,
+    const unsigned int ipv4AddrMask,
+    const unsigned int ipv4GatewayMask
 )
 {
-    TAF_ERROR_IF_RET_VAL(profileRef == NULL || profileId == NULL || slotId == NULL,
-                         LE_BAD_PARAMETER, "Null pointer");
-    taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap,
-                                                                                (void*)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                         "cannot get profile context from reference(%p)", profileRef);
-
-    *slotId = profileCtxPtr->slotId;
-    *profileId = profileCtxPtr->info.index;
-
+    ipv4Addr_         = ipv4Addr;
+    ipv4Gateway_      = ipv4Gateway;
+    ipv4DnsPrimary_   = ipv4DnsPrimary;
+    ipv4DnsSecondary_ = ipv4DnsSecondary;
+    ipv4AddrMask_     = ipv4AddrMask;
+    ipv4GatewayMask_  = ipv4GatewayMask;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("IPv4 address: %s", ipv4Addr_.c_str());
+    LE_DEBUG("IPv4 gateway: %s", ipv4Gateway_.c_str());
+    LE_DEBUG("IPv4 DNS primary: %s", ipv4DnsPrimary_.c_str());
+    LE_DEBUG("IPv4 DNS secondary: %s", ipv4DnsSecondary_.c_str());
+    LE_DEBUG("IPv4 address mask: %u", ipv4AddrMask_);
+    LE_DEBUG("IPv4 gateway mask: %u", ipv4GatewayMask_);
     return LE_OK;
 }
 
-le_result_t taf_DataProfile::GetAuthentication(
-    taf_dcs_ProfileRef_t profileRef,
-    taf_dcs_Auth_t *typePtr,
-    char *userNamePtr,
-    size_t userNameSize,
-    char *passwordPtr,
-    size_t passwordSize)
+void TafDcsProfile::ResetIPv4Addresses ()
 {
-    TAF_ERROR_IF_RET_VAL(profileRef == NULL, LE_NOT_FOUND, "reference is invalid");
-    TAF_ERROR_IF_RET_VAL(typePtr == NULL || userNamePtr == NULL || passwordPtr == NULL,
-        LE_OUT_OF_RANGE, "some pointers are null");
-    TAF_ERROR_IF_RET_VAL(userNameSize < TAF_DCS_USER_NAME_MAX_LEN || passwordSize < TAF_DCS_PASSWORD_NAME_MAX_LEN,
-        LE_OUT_OF_RANGE, "the size of user name or password is invalid");
-
-    taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap, (void*)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND, "cannot get profile context from reference(%p)", profileRef);
-
-    *typePtr = profileCtxPtr->auth;
-    LE_INFO("*typePtr is :%d", *typePtr);
-    if (*typePtr != TAF_DCS_AUTH_NONE)
-    {
-        le_utf8_Copy(userNamePtr, profileCtxPtr->authUsername, userNameSize, NULL);
-        le_utf8_Copy(passwordPtr, profileCtxPtr->authPassword, passwordSize, NULL);
-    }
-    return LE_OK;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    ipv4Addr_.clear();
+    ipv4Gateway_.clear();
+    ipv4DnsPrimary_.clear();
+    ipv4DnsSecondary_.clear();
+    ipv4AddrMask_    = 0;
+    ipv4GatewayMask_ = 0;
 }
 
-
-le_result_t taf_DataProfile::GetApn(taf_dcs_ProfileRef_t profileRef, char *apnPtr, size_t apnSize)
-{
-    TAF_ERROR_IF_RET_VAL(apnSize < TAF_DCS_APN_NAME_MAX_LEN, LE_OVERFLOW, "apnSize(%zu) is smaller than NAME_MAX_BYTES(%d)", apnSize, TAF_DCS_APN_NAME_MAX_LEN);
-    TAF_ERROR_IF_RET_VAL((profileRef == NULL) || (apnPtr == NULL), LE_NOT_FOUND, "some pointers may be null");
-    taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap, (void*)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND, "cannot get profile context from reference(%p)", profileRef);
-    LE_INFO("apn: %s...slot id: %d, profile id: %d",
-             apnPtr, profileCtxPtr->slotId, profileCtxPtr->info.index);
-    le_utf8_Copy(apnPtr, profileCtxPtr->apn, apnSize, NULL);
-
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Sets the data profile name.
- *
- * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Profile reference was not found.
- *  - LE_FAULT -- Failed.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_DataProfile::SetProfileName(taf_dcs_ProfileRef_t profileRef, const char * namePtr)
-{
-    telux::data::ProfileParams params;
-    le_result_t result;
-
-    TAF_ERROR_IF_RET_VAL((profileRef == NULL), LE_BAD_PARAMETER, "profileRef is null");
-    TAF_ERROR_IF_RET_VAL((namePtr == NULL), LE_BAD_PARAMETER, "namePtr is null");
-
-    taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap,
-                                                                                 (void*)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                                       "cannot get profile context from reference(%p)", profileRef);
-
-    if (TAF_DCS_UNDEFINED_PROFILE_ID == profileCtxPtr->info.index)
-    {
-        // The profile is still to be created. Just update context with provided profile name.
-        LE_INFO("Profile still to be created. Update context alone with name: %s", namePtr);
-        le_utf8_Copy(profileCtxPtr->info.name, namePtr, TAF_DCS_NAME_MAX_LEN, NULL);
-        return LE_OK;
-    }
-
-    MapProfileCtxToParams(profileCtxPtr, params);
-    params.profileName = namePtr;
-    LE_DEBUG ("Profile name to set: %s", params.profileName.c_str());
-    result = SendProfileModificationReq(profileCtxPtr->slotId, profileCtxPtr->info.index, params);
-    if (result != LE_OK)
-    {
-        LE_ERROR("updating profile infomation failed, result: %d", result);
-        return result;
-    }
-
-    // update new value
-    le_utf8_Copy(profileCtxPtr->info.name, params.profileName.c_str(), TAF_DCS_NAME_MAX_LEN, NULL);
-    LE_DEBUG ("Profile name set successfully");
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Gets the data profile name.
- *
- * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
- *  - LE_OVERFLOW -- Apn size is smaller than APN_NAME_MAX_BYTES.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_DataProfile::GetProfileName(taf_dcs_ProfileRef_t profileRef, char *namePtr,
-                                                                                size_t nameSize)
-{
-    TAF_ERROR_IF_RET_VAL((profileRef == NULL), LE_BAD_PARAMETER, "profileRef is null");
-    TAF_ERROR_IF_RET_VAL((namePtr == NULL), LE_BAD_PARAMETER, "namePtr is null");
-    TAF_ERROR_IF_RET_VAL(nameSize < TAF_DCS_NAME_MAX_LEN, LE_OVERFLOW,
-                                            "nameSize(%zu) is smaller than NAME_MAX_BYTES(%d)",
-                                            nameSize, TAF_DCS_NAME_MAX_LEN);
-
-    taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap,
-                                                                                 (void*)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                                       "cannot get profile context from reference(%p)", profileRef);
-
-    le_utf8_Copy(namePtr, profileCtxPtr->info.name, nameSize, NULL);
-    LE_INFO("name: %s...slot id: %d, profile id: %d",
-                                  namePtr, profileCtxPtr->slotId, profileCtxPtr->info.index);
-
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Gets the data profile APN types.
- *
- * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_DataProfile::GetApnTypes
+le_result_t TafDcsProfile::SetIPv6Addresses
 (
-    taf_dcs_ProfileRef_t profileRef,
-     taf_dcs_ApnType_t *apnTypePtr
+    const std::string ipv6Addr,
+    const std::string ipv6Gateway,
+    const std::string ipv6DnsPrimary,
+    const std::string ipv6DnsSecondary,
+    const unsigned int ipv6AddrMask,
+    const unsigned int ipv6GatewayMask
 )
 {
-    TAF_ERROR_IF_RET_VAL((profileRef == NULL) || (apnTypePtr == NULL), LE_NOT_FOUND,
-                         "some pointers may be null");
-    taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap,
-                                                                                (void*)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                         "can't get profile context from reference(%p)", profileRef);
-    *apnTypePtr = profileCtxPtr->apnType;
-    LE_INFO("apntype: %d...slot id: %d, profile id: %d",
-            (int)*apnTypePtr, profileCtxPtr->slotId, profileCtxPtr->info.index);
+    ipv6Addr_         = ipv6Addr;
+    ipv6Gateway_      = ipv6Gateway;
+    ipv6DnsPrimary_   = ipv6DnsPrimary;
+    ipv6DnsSecondary_ = ipv6DnsSecondary;
+    ipv6AddrMask_     = ipv6AddrMask;
+    ipv6GatewayMask_  = ipv6GatewayMask;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("IPv6 address: %s", ipv6Addr_.c_str());
+    LE_DEBUG("IPv6 gateway: %s", ipv6Gateway_.c_str());
+    LE_DEBUG("IPv6 DNS primary: %s", ipv6DnsPrimary_.c_str());
+    LE_DEBUG("IPv6 DNS secondary: %s", ipv6DnsSecondary_.c_str());
+    LE_DEBUG("IPv6 address mask: %d", ipv6AddrMask_);
+    LE_DEBUG("IPv6 gateway mask: %d", ipv6GatewayMask_);
+    return LE_OK;
+}
+void TafDcsProfile::ResetIPv6Addresses()
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    ipv6Addr_.clear();
+    ipv6Gateway_.clear();
+    ipv6DnsPrimary_.clear();
+    ipv6DnsSecondary_.clear();
+    ipv6AddrMask_    = 0;
+    ipv6GatewayMask_ = 0;
+}
 
+taf_dcs_ProfileRef_t TafDcsProfile::GetReference() const
+{
+
+    LE_DEBUG("Reference: %p", reference_);
+    return reference_;
+};
+
+le_result_t TafDcsProfile::SetId(const uint32_t &id)
+{
+    // Can be updated only if INVALID or UNDEFINED
+    TAF_ERROR_IF_RET_VAL(
+            TAF_DCS_INVALID_PROFILE_ID != profileId_ && TAF_DCS_UNDEFINED_PROFILE_ID != profileId_,
+            LE_NOT_PERMITTED, "Profile ID is set already: %d", profileId_);
+    profileId_ = id;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
     return LE_OK;
 }
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Sets the data profile APN type.
- *
- * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_DataProfile::SetApnTypes
+le_result_t TafDcsProfile::SetTech(const taf_dcs_Tech_t &tech)
+{
+    tech_ = tech;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Tech : %d", TO_INT(tech_));
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::SetPdp(const taf_dcs_Pdp_t &pdp)
+{
+    pdp_ = pdp;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("PDP : %d", TO_INT(pdp_));
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::SetAuthTypeBitmask(taf_dcs_Auth_t authTypeBitmask)
+{
+    authTypeBitmask_ = authTypeBitmask;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Auth type bitmask: %d", TO_INT(authTypeBitmask_));
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::SetApnTypeBitmask(taf_dcs_ApnType_t apnTypeBitmask)
+{
+    apnTypeBitmask_ = apnTypeBitmask;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("APN type bitmask: %d", TO_INT(apnTypeBitmask_));
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::SetEmergencyCallSupport(bool bEmerCallSupport)
+{
+    bEmergencyCallSupport_ = bEmerCallSupport;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Emergency call supported: %s", bEmergencyCallSupport_ ? "true" : "false");
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::SetSessionState
 (
-    taf_dcs_ProfileRef_t profileRef,
-     taf_dcs_ApnType_t apnType
+    const taf_dcs_ConState_t state,
+    const taf_dcs_ConState_t stateIPv4,
+    const taf_dcs_ConState_t stateIPv6
 )
 {
-    telux::data::ProfileParams params;
-    le_result_t result;
-    int32_t profileId;
-    uint8_t slotId;
-
-    TAF_ERROR_IF_RET_VAL((profileRef == NULL), LE_BAD_PARAMETER, "profileRef is null");
-    taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap,
-                                                                                (void*)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                         "can't get profile context from reference(%p)", profileRef);
-    TAF_ERROR_IF_RET_VAL(GetSlotIdAndProfileId(profileRef, &slotId, &profileId) != LE_OK,
-                         LE_NOT_FOUND, "cannot get profile id from reference(%p)", profileRef);
-
-    LE_DEBUG("APN Type to update: %d", apnType);
-    if (TAF_DCS_UNDEFINED_PROFILE_ID == profileCtxPtr->info.index)
-    {
-        // The profile is still to be created. Just update context with provided APN type.
-        LE_INFO("Profile still to be created. Update context alone with APN type: %d", apnType);
-        profileCtxPtr->apnType = apnType;
-        return LE_OK;
-    }
-
-    MapProfileCtxToParams(profileCtxPtr, params);
-    params.apnTypes = convertApnTypes(apnType);
-    if (TAF_DCS_APN_TYPE_UNSPECIFIED == apnType)
-    {
-        LE_INFO("APN type is UNSPECIFIED");
-    }
-    result = SendProfileModificationReq(slotId, profileId, params);
-    if (result != LE_OK)
-    {
-        LE_ERROR("updating profile infomation failed, result: %d", result);
-        return result;
-    }
-
-    // update new value
-    profileCtxPtr->apnType = apnType;
-    LE_DEBUG("APN Type updated");
+    connState_     = state;
+    connStateIPv4_ = stateIPv4;
+    connStateIPv6_ = stateIPv6;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Conn state           : %d", TO_INT(connState_));
+    LE_DEBUG("Connection state IPv4: %d", TO_INT(connStateIPv4_));
+    LE_DEBUG("Connection state IPv6: %d", TO_INT(connStateIPv6_));
     return LE_OK;
 }
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Sets the data profile technology preference.
- *
- * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Profile reference was not found.
- *  - LE_FAULT -- Failed.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_DataProfile::SetTechPreference
+le_result_t TafDcsProfile::GetCallEndReason
 (
-    taf_dcs_ProfileRef_t profileRef,
-        ///< [IN] The profile reference.
-    taf_dcs_Tech_t techPref
-        ///< [IN] The technology preference.
+    taf_dcs_CallEndReasonType_t &type,
+    int32_t                     &code,
+    taf_dcs_CallEndReasonType_t &typeIPv4,
+    taf_dcs_CallEndReasonType_t &typeIPv6
+) const
+{
+    type     = callEndReasonType_;
+    code     = callEndReasonCode_;
+    typeIPv4 = callEndReasonTypeIPv4_;
+    typeIPv6 = callEndReasonTypeIPv6_;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Reason     : %d, Code: %d", TO_INT(callEndReasonType_), callEndReasonCode_);
+    LE_DEBUG("Reason IPv4: %d, IPv4: %d", TO_INT(connStateIPv4_), TO_INT(connStateIPv6_));
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::GetDataBearerTech(taf_dcs_DataBearerTechnology_t &tech) const
+{
+    tech = dataBearerTech_;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Data bearer tech: %d", TO_INT(dataBearerTech_));
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::SetDataBearerTech(const taf_dcs_DataBearerTechnology_t tech)
+{
+    dataBearerTech_  = tech;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Data bearer tech: %d", TO_INT(dataBearerTech_));
+    return LE_OK;
+}
+
+void TafDcsProfile::ResetDataBearerTech()
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    dataBearerTech_ = TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
+}
+
+void TafDcsProfile::ResetCallEndReason()
+{
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    callEndReasonType_ = TAF_DCS_CE_TYPE_UNKNOWN;
+    callEndReasonCode_ = 0;
+    callEndReasonTypeIPv4_ = TAF_DCS_CE_TYPE_UNKNOWN;
+    callEndReasonTypeIPv6_ = TAF_DCS_CE_TYPE_UNKNOWN;
+}
+
+le_result_t TafDcsProfile::SetCallEndReason
+(
+    const taf_dcs_CallEndReasonType_t type,
+    const int32_t                     code,
+    const taf_dcs_CallEndReasonType_t typeIPv4,
+    const taf_dcs_CallEndReasonType_t typeIPv6
 )
 {
-    telux::data::ProfileParams params;
-    le_result_t result;
-    int32_t profileId;
-    uint8_t slotId;
-
-    TAF_ERROR_IF_RET_VAL((profileRef == NULL), LE_BAD_PARAMETER, "profileRef is null");
-    TAF_ERROR_IF_RET_VAL(TAF_DCS_TECH_UNKNOWN == techPref, LE_BAD_PARAMETER,
-                                                            "TAF_DCS_TECH_UNKNOWN not allowed");
-    taf_dcs_ProfileCtx_t *profileCtxPtr = (taf_dcs_ProfileCtx_t *)le_ref_Lookup(ProfileRefMap,
-                                                                                (void *)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                         "can't get profile context from reference(%p)", profileRef);
-    TAF_ERROR_IF_RET_VAL(GetSlotIdAndProfileId(profileRef, &slotId, &profileId) != LE_OK,
-                         LE_NOT_FOUND, "cannot get profile id from reference(%p)", profileRef);
-
-    LE_DEBUG("Tech pref to update: %d", techPref);
-    if (TAF_DCS_UNDEFINED_PROFILE_ID == profileCtxPtr->info.index)
-    {
-        // The profile is still to be created. Just update context with provided tech pref.
-        LE_INFO("Profile still to be created. Update context alone with tech pref: %d", techPref);
-        profileCtxPtr->info.tech = techPref;
-        return LE_OK;
-    }
-
-    MapProfileCtxToParams(profileCtxPtr, params);
-    params.techPref = MapTechPreference(techPref);
-
-    result = SendProfileModificationReq(slotId, profileId, params);
-    if (result != LE_OK)
-    {
-        LE_ERROR("updating profile infomation failed, result: %d", result);
-        return result;
-    }
-
-    // update new value
-    profileCtxPtr->info.tech = techPref;
-    LE_DEBUG("Tech pref updated");
+    callEndReasonType_     = type;
+    callEndReasonCode_     = code;
+    callEndReasonTypeIPv4_ = typeIPv4;
+    callEndReasonTypeIPv6_ = typeIPv6;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Reason     : %d, Code: %d", TO_INT(callEndReasonType_), callEndReasonCode_);
+    LE_DEBUG("Reason IPv4: %d, IPv4: %d", TO_INT(connStateIPv4_), TO_INT(connStateIPv6_));
     return LE_OK;
 }
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Gets the data profile technology preference.
- *
- * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Profile reference was not found.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_DataProfile::GetTechPreference
-(
-    taf_dcs_ProfileRef_t profileRef,
-        ///< [IN] The profile reference.
-    taf_dcs_Tech_t* techPrefPtr
-        ///< [OUT] The technology preference.
-)
+le_result_t TafDcsProfile::SetApn(const std::string &apn)
 {
-    TAF_ERROR_IF_RET_VAL((profileRef == NULL), LE_BAD_PARAMETER, "profileRef is null");
-    TAF_ERROR_IF_RET_VAL((techPrefPtr == NULL), LE_BAD_PARAMETER, "techPrefPtr is null");
-
-    taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap,
-                                                                                (void*)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                         "can't get profile context from reference(%p)", profileRef);
-    *techPrefPtr = profileCtxPtr->info.tech;
-    LE_INFO("Tech pref: %d...slot id: %d, profile id: %d",
-            profileCtxPtr->info.tech, profileCtxPtr->slotId, profileCtxPtr->info.index);
-
+    apn_ = apn;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("APN: %s", apn_.c_str());
     return LE_OK;
 }
 
-/**
- * Converts taf_dcs_ApnType_t to telux::data::ApnTypes.
- *
- * @param taf_dcs_ApnType The taf_dcs_ApnType_t to convert.
- * @return The converted ApnTypes.
- */
-ApnTypes taf_DataProfile::convertApnTypes(taf_dcs_ApnType_t taf_dcs_ApnType)
+le_result_t TafDcsProfile::SetName(const std::string &name)
 {
-    if (TAF_DCS_APN_TYPE_UNSPECIFIED == taf_dcs_ApnType)
-    {
-        LE_INFO("taf_dcs_ApnType is UNSPECIFIED");
-        return ApnTypes(TAF_DCS_APN_TYPE_UNSPECIFIED);
-    }
-    ApnTypes apnTypes;
-    for (const auto& pair : taf_dcs_ApnType_to_ApnMaskType) {
-        if (taf_dcs_ApnType & pair.first) {
-            apnTypes.set(apnMaskTypeToIndex.at(pair.second));
-        }
-    }
-    return apnTypes;
-}
-
-/**
- * Converts telux::data::ApnTypes to taf_dcs_ApnType_t.
- *
- * @param apnTypes The ApnTypes to convert.
- * @return The converted taf_dcs_ApnType_t.
- */
-taf_dcs_ApnType_t taf_DataProfile::convertApnTypes(const ApnTypes &apnTypes)
-{
-    if (ApnTypes(TAF_DCS_APN_TYPE_UNSPECIFIED) == apnTypes)
-    {
-        LE_INFO("ApnTypes is UNSPECIFIED");
-        return TAF_DCS_APN_TYPE_UNSPECIFIED;
-    }
-    taf_dcs_ApnType_t taf_dcs_ApnType = 0;
-    for (size_t i = 0; i < apnTypes.size(); ++i) {
-        if (apnTypes.test(i)) {
-            for (const auto& pair : apnMaskTypeToIndex) {
-                if (pair.second == static_cast<int>(i)) {
-                    taf_dcs_ApnType |= ApnMaskType_to_taf_dcs_ApnType.at(pair.first);
-                }
-            }
-        }
-    }
-    return taf_dcs_ApnType;
-}
-
-le_result_t taf_DataProfile::MapProfileCtxToParams(taf_dcs_ProfileCtx_t *ctxPtr, telux::data::ProfileParams &params)
-{
-    params.profileName = ctxPtr->info.name;
-    params.techPref = MapTechPreference(ctxPtr->info.tech);
-    params.authType = MapAuthProtocol(ctxPtr->auth);
-    params.ipFamilyType = MapIpFamily(ctxPtr->pdp);
-    params.apn = ctxPtr->apn;
-    params.userName = ctxPtr->authUsername;
-    params.password = ctxPtr->authPassword;
-    params.apnTypes = convertApnTypes(ctxPtr->apnType);
+    name_ = name;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Name: %s", name_.c_str());
     return LE_OK;
 }
 
-le_result_t taf_DataProfile::SendProfileModificationReq
-(
-    uint8_t slotId,
-    int32_t profileId,
-    telux::data::ProfileParams &params
-)
+le_result_t TafDcsProfile::SetUserName(const std::string &userName)
 {
-    // need reset promise.
-    CmdSynchronousPromise = std::promise<le_result_t>();
-
-    if(dataProfileManagers.find((SlotId)slotId) == dataProfileManagers.end())
-    {
-        LE_ERROR("Profile manager is not init for slot id %d", slotId);
-        return LE_FAULT;
-    }
-
-    telux::common::Status status =
-                   dataProfileManagers[static_cast<SlotId>(slotId)]->modifyProfile(profileId,
-                                                                          params, ModifyProfileCb);
-
-    if (status != telux::common::Status::SUCCESS)
-    {
-        return LE_FAULT;
-    }
-
-    // blocking here to get response
-    std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
-    le_result_t result = futResult.get();
-
-    return result;
-}
-
-le_result_t taf_DataProfile::SetApn(taf_dcs_ProfileRef_t profileRef, const char *apnPtr)
-{
-    int32_t profileId;
-    uint8_t slotId;
-    taf_dcs_ProfileCtx_t * profileCtxPtr;
-    telux::data::ProfileParams params;
-    le_result_t result;
-
-    TAF_ERROR_IF_RET_VAL((profileRef == NULL) || (apnPtr == NULL), LE_NOT_FOUND,
-                          "some pointers may be null");
-    TAF_ERROR_IF_RET_VAL(GetSlotIdAndProfileId(profileRef, &slotId, &profileId) != LE_OK,
-                         LE_NOT_FOUND, "cannot get profile id from reference(%p)", profileRef);
-
-    profileCtxPtr = GetProfileCtx(slotId, profileId);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                        "cannot get profile context from reference(%p)", profileRef);
-
-    if (TAF_DCS_UNDEFINED_PROFILE_ID == profileCtxPtr->info.index)
-    {
-        // The profile is still to be created. Just update context with provided APN.
-        LE_INFO("Profile still to be created. Update context alone with APN: %s", apnPtr);
-        le_utf8_Copy(profileCtxPtr->apn, apnPtr, TAF_DCS_NAME_MAX_LEN, NULL);
-        return LE_OK;
-    }
-
-    MapProfileCtxToParams(profileCtxPtr, params);
-    params.apn = apnPtr;
-
-    result = SendProfileModificationReq(slotId, profileId, params);
-    if (result != LE_OK)
-    {
-        LE_ERROR("updating profile infomation is failed, result: %d", result);
-        return result;
-    }
-
-    // update new value
-    le_utf8_Copy(profileCtxPtr->apn, params.apn.c_str(), TAF_DCS_NAME_MAX_LEN, NULL);
+    userName_ = userName;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("User name: %s", userName_.c_str());
     return LE_OK;
 }
 
-le_result_t taf_DataProfile::SetPdp(taf_dcs_ProfileRef_t profileRef, taf_dcs_Pdp_t pdp)
+le_result_t TafDcsProfile::SetPassword(const std::string &password)
 {
-    int32_t profileId;
-    uint8_t slotId;
-    taf_dcs_ProfileCtx_t * profileCtxPtr;
-    telux::data::ProfileParams params;
-    le_result_t result;
-
-    TAF_ERROR_IF_RET_VAL(TAF_DCS_PDP_UNKNOWN == pdp, LE_BAD_PARAMETER,
-                                                        "TAF_DCS_PDP_UNKNOWN not allowed");
-    TAF_ERROR_IF_RET_VAL(profileRef == NULL, LE_NOT_FOUND, "some pointers may be null");
-    TAF_ERROR_IF_RET_VAL(GetSlotIdAndProfileId(profileRef, &slotId, &profileId) != LE_OK,
-                         LE_NOT_FOUND, "cannot get profile id from reference(%p)", profileRef);
-
-    profileCtxPtr = GetProfileCtx(slotId, profileId);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                         "cannot get profile context from reference(%p)", profileRef);
-
-    if (TAF_DCS_UNDEFINED_PROFILE_ID == profileCtxPtr->info.index)
-    {
-        // The profile is still to be created. Just update context with provided APN.
-        LE_INFO("Profile still to be created. Update context alone with PDP: %d", pdp);
-        profileCtxPtr->pdp = pdp;
-        return LE_OK;
-    }
-
-    MapProfileCtxToParams(profileCtxPtr, params);
-    params.ipFamilyType = MapIpFamily(pdp);
-
-    result = SendProfileModificationReq(slotId, profileId, params);
-    if (result != LE_OK)
-    {
-        LE_ERROR("updating profile infomation is failed, result: %d", result);
-        return result;
-    }
-
-    // update new value
-    profileCtxPtr->pdp = MapIpFamily(params.ipFamilyType);
+    password_ = password;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Password: %s", password.c_str());
     return LE_OK;
 }
 
-le_result_t taf_DataProfile::SetAuth(taf_dcs_ProfileRef_t profileRef, taf_dcs_Auth_t type, const char *userName, const char *password)
+le_result_t TafDcsProfile::SetReference(taf_dcs_ProfileRef_t ref)
 {
-    int32_t profileId;
-    uint8_t slotId;
-    taf_dcs_ProfileCtx_t * profileCtxPtr;
-    telux::data::ProfileParams params;
-    le_result_t result;
-
-    TAF_ERROR_IF_RET_VAL(profileRef == NULL, LE_NOT_FOUND, "some pointers may be null");
-    TAF_ERROR_IF_RET_VAL(GetSlotIdAndProfileId(profileRef, &slotId, &profileId) != LE_OK,
-                        LE_NOT_FOUND, "cannot get profile id from reference(%p)", profileRef);
-
-    profileCtxPtr = GetProfileCtx(slotId, profileId);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
-                         "cannot get profile context from reference(%p)", profileRef);
-
-    if (TAF_DCS_UNDEFINED_PROFILE_ID == profileCtxPtr->info.index)
-    {
-        // The profile is still to be created. Just update context with provided auth params.
-        LE_INFO("Profile still to be created. Update context alone with authtype:%d, UN:%s, PW:%s",
-                                                                        type,userName, password);
-        profileCtxPtr->auth = type;
-        le_utf8_Copy(profileCtxPtr->authUsername, userName, TAF_DCS_USER_NAME_MAX_LEN, NULL);
-        le_utf8_Copy(profileCtxPtr->authPassword, password, TAF_DCS_PASSWORD_NAME_MAX_LEN, NULL);
-        return LE_OK;
-    }
-
-    MapProfileCtxToParams(profileCtxPtr, params);
-    params.authType = MapAuthProtocol(type);
-    params.userName = userName;
-    params.password = password;
-
-    result = SendProfileModificationReq(slotId, profileId, params);
-    if (result != LE_OK)
-    {
-        LE_ERROR("updating profile infomation is failed, result: %d", result);
-        return result;
-    }
-
-    // update new value
-    profileCtxPtr->auth = MapAuthProtocol(params.authType);
-    le_utf8_Copy(profileCtxPtr->authUsername, params.userName.c_str(), TAF_DCS_USER_NAME_MAX_LEN, NULL);
-    le_utf8_Copy(profileCtxPtr->authPassword, params.password.c_str(), TAF_DCS_PASSWORD_NAME_MAX_LEN, NULL);
+    reference_ = ref;
+    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_DEBUG("Reference: %p", reference_);
     return LE_OK;
 }
 
-
-taf_dcs_Pdp_t taf_DataProfile::GetPdp(taf_dcs_ProfileRef_t profileRef)
+le_result_t TafDcsProfile::AddClient(le_msg_SessionRef_t clientRef, size_t &listSize)
 {
-    TAF_ERROR_IF_RET_VAL(profileRef == NULL, TAF_DCS_PDP_UNKNOWN, "reference is invalid");
-    taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap, (void*)profileRef);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, TAF_DCS_PDP_UNKNOWN, "cannot get profile context from reference(%p)", profileRef);
-
-    return profileCtxPtr->pdp;
-}
-
-void taf_DataProfile::CleanupAllProfiles(Profile_List_Event_t *listEvent)
-{
-    le_dls_Link_t* linkPtr = NULL;
-    uint32_t i;
-
-    linkPtr = le_dls_Peek(&ProfileCtxList);
-    while (linkPtr)
-    {
-        taf_dcs_ProfileCtx_t* profileCtx = CONTAINER_OF(linkPtr, taf_dcs_ProfileCtx_t, link);
-        linkPtr = le_dls_PeekNext(&ProfileCtxList, linkPtr);
-
-        // Only clean the profiles with the same slot id.
-        if(profileCtx->slotId != listEvent->slotId)
-            continue;
-
-        for (i = 0; i < listEvent->num; i++)
-        {
-            if (profileCtx->info.index == listEvent->profilesListPtr->item[i].info.index)
-            {
-                break;
-            }
-        }
-        if (i >= listEvent->num)
-        {
-            le_ref_DeleteRef(ProfileRefMap, profileCtx->reference);
-            le_dls_Remove(&ProfileCtxList, &profileCtx->link);
-            le_mem_Release(profileCtx);
-        }
-    }
-
-    return;
-}
-
-le_result_t taf_DataProfile::CreateIndividualProfile(taf_dcs_ProfileCtx_t *info)
-{
-    taf_dcs_ProfileCtx_t* profileCtx = NULL;
-    char nameStr[18] = {0};
-
-    profileCtx = (taf_dcs_ProfileCtx_t *)le_mem_ForceAlloc(ProfilePool);
-    TAF_ERROR_IF_RET_VAL(profileCtx == NULL, LE_NO_MEMORY, "cannot alloc profileCtx");
-    // Copy the profile info into the Ctx
-    memcpy((char *)profileCtx, (char *)info, sizeof(taf_dcs_ProfileCtx_t));
-
-    // create reference for this profile context
-    taf_dcs_ProfileRef_t profileRef = (taf_dcs_ProfileRef_t)le_ref_CreateRef(ProfileRefMap, (void *)profileCtx);
-    TAF_ERROR_IF_RET_VAL(profileRef == NULL, LE_NO_MEMORY, "cannot alloc profileRef");
-
-    profileCtx->reference = profileRef;
-
-    snprintf(nameStr, sizeof(nameStr)-1, "Throttle-%d-%d", profileCtx->slotId,
-                                                                     profileCtx->info.index);
-    profileCtx->throttleStateEvent = le_event_CreateId(nameStr, sizeof(ThrottleStatus_t));
-
-    snprintf(nameStr, sizeof(nameStr) - 1, "HwAccelEvt-%d-%d", profileCtx->slotId,
-                                                                        profileCtx->info.index);
-    profileCtx->HwAccelStateEvent = le_event_CreateIdWithRefCounting(nameStr);
-
-    // add this profile context to list
-    le_dls_Queue(&ProfileCtxList, &profileCtx->link);
-
-    return LE_OK;
-}
-
-taf_dcs_ProfileCtx_t * taf_DataProfile::GetProfileCtx(uint8_t slotId, uint32_t index)
-{
-    le_dls_Link_t* linkPtr = NULL;
-    LE_INFO("Slot ID: %d, Profile ID: %d", slotId, index);
-
-    linkPtr = le_dls_Peek(&ProfileCtxList);
-    while (linkPtr)
-    {
-        taf_dcs_ProfileCtx_t* profileCtx = CONTAINER_OF(linkPtr, taf_dcs_ProfileCtx_t, link);
-        linkPtr = le_dls_PeekNext(&ProfileCtxList, linkPtr);
-        LE_DEBUG("Ctx: Slot ID: %d, Profile ID: %d", profileCtx->slotId, profileCtx->info.index);
-        if (profileCtx->info.index == index && profileCtx->slotId == slotId)
-        {
-            LE_DEBUG("Get profileCtx %p", profileCtx);
-            return profileCtx;
-        }
-    }
-
-    return NULL;
-}
-
-void taf_DataProfile::UpdateIndividualProfile(taf_dcs_ProfileCtx_t *distPtr, taf_dcs_ProfileCtx_t *srcPtr)
-{
-    TAF_ERROR_IF_RET_NIL(distPtr == NULL, "distPtr is NULL!");
-    TAF_ERROR_IF_RET_NIL(srcPtr == NULL, "srcPtr is NULL!");
-    TAF_ERROR_IF_RET_NIL(distPtr->info.index != srcPtr->info.index, "profile index is different!")
-
-    distPtr->info.tech = srcPtr->info.tech;
-    le_utf8_Copy(distPtr->info.name, srcPtr->info.name, sizeof(distPtr->info.name), NULL);
-    le_utf8_Copy(distPtr->apn, srcPtr->apn, sizeof(distPtr->apn), NULL);
-    distPtr->pdp = srcPtr->pdp;
-    distPtr->auth = srcPtr->auth;
-    le_utf8_Copy(distPtr->authUsername, srcPtr->authUsername, sizeof(distPtr->authUsername), NULL);
-    le_utf8_Copy(distPtr->authPassword, srcPtr->authPassword, sizeof(distPtr->authPassword), NULL);
-
-    return;
-}
-
-le_result_t taf_DataProfile::UpdateAllProfilesFromListEvent(Profile_List_Event_t *listEvent)
-{
-    uint32_t i;
-    taf_dcs_ProfileCtx_t *profilePtr;
-
-    // Cleanup the ProfilesListPtr first, i.e. delete the
-    // profiles that exist in ProfilesListPtr, but not in listEvent
-    CleanupAllProfiles(listEvent);
-
-    for (i = 0; i < listEvent->num; i++)
-    {
-        profilePtr = GetProfileCtx(listEvent->slotId, listEvent->profilesListPtr->item[i].info.index);
-        if (profilePtr != NULL)
-        {
-            UpdateIndividualProfile(profilePtr, &listEvent->profilesListPtr->item[i]);
-        }
-        else
-        {
-            CreateIndividualProfile(&listEvent->profilesListPtr->item[i]);
-        }
-    }
-
-    ProfileNum[(SlotId)(listEvent->slotId)] = listEvent->num;
-
-    return LE_OK;
-}
-
-void taf_DataProfile::show(uint8_t slotId)
-{
-    le_dls_Link_t* linkPtr = NULL;
-
-    LE_DEBUG("total profile number: %d", ProfileNum[(SlotId)slotId]);
-    LE_DEBUG("%-6s""%-6s""%-6s""%-12s""%-6s""%-10s""%-6s", "Index", "Refs", "type", "Name", "Pdp", "Apn", "Auth");
-
-    linkPtr = le_dls_Peek(&ProfileCtxList);
-    while (linkPtr)
-    {
-        taf_dcs_ProfileCtx_t* profileCtx = CONTAINER_OF(linkPtr, taf_dcs_ProfileCtx_t, link);
-        linkPtr = le_dls_PeekNext(&ProfileCtxList, linkPtr);
-
-        if(slotId != profileCtx->slotId)
-            continue;
-
-        LE_DEBUG("%-6d""%-6p""%-6d""%-12s""%-6d""%-10s""%-6d",
-            profileCtx->info.index, profileCtx->reference, profileCtx->info.tech,
-            profileCtx->info.name,  profileCtx->pdp, profileCtx->apn, profileCtx->auth);
-
-    }
-
-    return;
-}
-
-void taf_DataProfile::NotifyProfileListHandler(void *listEvent)
-{
-    uint32_t i, profileNum;
-
-    profileNum = ((Profile_List_Event_t *)listEvent)->num;
-    for (i = 0; i < profileNum; i++)
-    {
-        taf_dcs_ProfileCtx_t *itemPtr = &(((Profile_List_Event_t *)listEvent)->profilesListPtr->item[i]);
-        memcpy((char *)&ProfileInfo[i], (const char *)&itemPtr->info, sizeof(taf_dcs_ProfileInfo_t));
-    }
-
-    le_mem_Release(((Profile_List_Event_t *)listEvent)->profilesListPtr);
-}
-
-void taf_DataProfile::ProcessListReq(void *listEvent)
-{
-    TAF_ERROR_IF_RET_NIL(listEvent == NULL, "listEvent is NULL!");
-    Profile_List_Event_t * profileListEvtPtr = (Profile_List_Event_t *)listEvent;
-
-    auto &myProfile = taf_DataProfile::GetInstance();
-
-    myProfile.UpdateAllProfilesFromListEvent(profileListEvtPtr);
-
-    myProfile.NotifyProfileListHandler(profileListEvtPtr);
-
-    myProfile.show(profileListEvtPtr->slotId);
-
-    LE_DEBUG("getting profile list, profileListEvtPtr->ret: %d", profileListEvtPtr->ret);
-    myProfile.CmdSynchronousPromise.set_value(profileListEvtPtr->ret);
-
-    return;
-}
-
-/**
- * This returns the profile context specific hw acceleration state event that is used to send
- * notifications to registered clients.
- */
-le_event_Id_t taf_DataProfile::GetProfileCtxHWAccelStateEvent(uint8_t slotId, int32_t profileId)
-{
-    taf_dcs_ProfileCtx_t *profileCtxPtr = GetProfileCtx(slotId, profileId);
-    TAF_ERROR_IF_RET_VAL(profileCtxPtr == nullptr, nullptr,
-                         "Cannot find profile context for slotId(%d) profileId(%d)",
-                         slotId, profileId);
-
-    return profileCtxPtr->HwAccelStateEvent;
-}
-
-// This returns the taf_DataProfile object's HW status event id.
-le_event_Id_t taf_DataProfile::GetHwAccelStatusEvent()
-{
-    return HwAccelStatusEvent;
-}
-
-le_mem_PoolRef_t taf_DataProfile::GetHwAccelEventMemPool()
-{
-    return HwAccelEvtPoolRef;
-}
-
-void taf_DataProfile::ProcessHwAccelStatusEvent(void *eventPtr)
-{
-    TAF_ERROR_IF_RET_NIL(eventPtr == NULL, "eventPtr is NULL!");
-    HwAccelStatus_t *hwAccelStatusEventPtr = static_cast<HwAccelStatus_t *>(eventPtr);
-    auto &myProfile = taf_DataProfile::GetInstance();
-
-    LE_DEBUG("HwAccelStatus: %d", hwAccelStatusEventPtr->state);
-
-    le_dls_Link_t *linkPtr = NULL;
-    linkPtr = le_dls_Peek(&myProfile.ProfileCtxList);
-    while (linkPtr)
-    {
-        taf_dcs_ProfileCtx_t *profileCtx = CONTAINER_OF(linkPtr, taf_dcs_ProfileCtx_t, link);
-        {
-            HwAccelStatus_t *reportPtr =
-                static_cast<HwAccelStatus_t *>(le_mem_ForceAlloc(myProfile.GetHwAccelEventMemPool()));
-            reportPtr->state = hwAccelStatusEventPtr->state;
-            reportPtr->profileRef = profileCtx->reference;
-            le_event_ReportWithRefCounting(profileCtx->HwAccelStateEvent, (void *)reportPtr);
-        }
-        linkPtr = le_dls_PeekNext(&myProfile.ProfileCtxList, linkPtr);
-    }
-
-    return;
-}
-
-void* taf_DataProfile::ProfileEventThread(void* contextPtr)
-{
-    auto &myProfile = taf_DataProfile::GetInstance();
-    le_sem_Ref_t semRef = (le_sem_Ref_t)contextPtr;
-
-    // register profile list request event
-    myProfile.ListReqEvent = le_event_CreateId("Profile List Request Event", sizeof(Profile_List_Event_t));
-    le_event_AddHandler("Profile List Request Event", myProfile.ListReqEvent, ProcessListReq);
-
-    myProfile.HwAccelStatusEvent = le_event_CreateId("HwAccelStatusEvent", sizeof(HwAccelStatus_t));
-    le_event_AddHandler("HwAccelStatusEventHdlr", myProfile.HwAccelStatusEvent,
-                                                                        ProcessHwAccelStatusEvent);
-
-    le_sem_Post(semRef);
-
-    LE_INFO("Create event loop for profile events");
-    // start event loop
-    le_event_RunLoop();
-    return NULL;
-}
-
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-void taf_DataProfile::onInitCompleted(telux::common::ServiceStatus status)
-{
-    LE_INFO("Status: %d", static_cast<int>(status));
-    std::lock_guard<std::mutex> lock(mtx);
-    subSystemStatusUpdated = true;
-    conVar.notify_all();
-}
-#endif
-
-void taf_DataProfile::Init(void)
-{
-    auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
-    PhoneMgr = phoneFactory.getPhoneManager();
-    //  Check if telephony subsystem is ready
-    bool PhSubSystemStatus = PhoneMgr->isSubsystemReady();
-
-    if (!PhSubSystemStatus) {
-        LE_INFO("Wait telephony subsystem  to be ready...");
-        std::future<bool> f = PhoneMgr->onSubsystemReady();
-        //  Wait until the subsystem is ready.
-        PhSubSystemStatus = f.get();
-    }
-
-    LE_INFO("Waiting result is OK");
-    if(!PhSubSystemStatus)
-        LE_ERROR("Failed to init telephony subsystem");
-
-    int noOfSlots = MIN_SLOT_COUNT;
-
-    auto &dataFactory = telux::data::DataFactory::getInstance();
-
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-
-    if(telux::common::DeviceConfig::isMultiSimSupported())
-    {
-       noOfSlots = MAX_SLOT_COUNT;
-       LE_INFO("MultiSim supported");
-    }
-
-    for(auto slotIdx = 1; slotIdx <= noOfSlots; slotIdx++)
-    {
-        telux::common::ServiceStatus subSystemStatus = telux::common::ServiceStatus::SERVICE_FAILED;
-        subSystemStatusUpdated = false;
-        auto initCb = std::bind(&taf_DataProfile::onInitCompleted, this, std::placeholders::_1);
-        auto profMgr = dataFactory.getDataProfileManager((SlotId)slotIdx, initCb);
-        bool subSysReady = false;
-
-        if(profMgr)
-        {
-            std::unique_lock<std::mutex> lck(mtx);
-            conVar.wait(lck, [this]{return this->subSystemStatusUpdated;});
-            subSystemStatus = profMgr->getServiceStatus();
-            if (subSystemStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-            {
-                LE_INFO("Profile manager on slot id %d is ready.", (int)slotIdx);
-                subSysReady = true;
-            }
-            else
-            {
-                LE_ERROR("Profile manager on slot id %d is not ready.", (int)slotIdx);
-                subSysReady = false;
-            }
-            //If it is new manager and initialization passed
-            if ( subSysReady &&
-                (dataProfileManagers.find((SlotId)slotIdx) == dataProfileManagers.end()))
-            {
-                dataProfileManagers.emplace((SlotId)slotIdx, profMgr);
-                ListProfileCb.emplace((SlotId)slotIdx, std::make_shared<taf_ProfileListCallback>((SlotId)slotIdx));
-            }
-        }
-        else
-        {
-            LE_CRIT("Failed to get profile Manager instance ");
-        }
-
-        if(subSysReady)
-        {
-            LE_INFO("Data profile component is ready for slot id %d...",(int)slotIdx);
-        }
-        else
-        {
-            LE_FATAL("Unable to init data profile component for slot id %d !",(int)slotIdx);
-        }
-    }
-#else
-    auto profMgr = dataFactory.getDataProfileManager();
-    bool ProfileSubSystemStatus = profMgr->isSubsystemReady();
-
-    // If data subsystem is not ready, wait for it to be ready
-    if (!ProfileSubSystemStatus)
-    {
-        LE_INFO("Data profile manager subsystem is not ready, Please wait");
-        std::future<bool> f = profMgr->onSubsystemReady();
-        // Wait unconditionally for data subsystem to be ready
-        ProfileSubSystemStatus = f.get();
-    }
-
-    if ( ProfileSubSystemStatus &&
-        (dataProfileManagers.find((SlotId)SLOT_ID_1) == dataProfileManagers.end()))
-    {
-        dataProfileManagers.emplace((SlotId)SLOT_ID_1, profMgr);
-        ListProfileCb.emplace((SlotId)SLOT_ID_1, std::make_shared<taf_ProfileListCallback>((SlotId)SLOT_ID_1));
-    }
+    LE_WARN_IF (0 == clientRef, "clientRef is 0");
+    // Insert after locking
+    std::unique_lock lock(dataReqClientsSetMutex_);
+    auto result = dataReqClients_.insert(clientRef);
+    if (result.second)
+        LE_DEBUG("Inserted %p", clientRef);
     else
-    {
-        LE_FATAL("Unable to init data profile component for slot id !");
-    }
-#endif
+        LE_DEBUG("Already in the set: %p", clientRef);
 
-    ModifyProfileCb = std::make_shared<taf_ProfileModifyCallback>();
-    // Add callback for create profile command.
-    CreateProfileCb = std::make_shared<taf_CreateProfileCallback>();
+    // Update the size
+    listSize = dataReqClients_.size();
+    LE_INFO ("Number of clients: %zu", listSize);
 
-    // this pool is for allocing profile items, supports up to 32 profiles
-    ProfilePool = le_mem_InitStaticPool(tafProfilePool, TAF_DCS_PROFILE_LIST_MAX_ENTRY, sizeof(taf_dcs_ProfileCtx_t));
-
-    // this pool is for allocing profile list events, support up to 32 profile list events
-    ListEventPool   = le_mem_InitStaticPool(tafProfileEvent, TAF_DCS_PROFILE_LIST_MAX_ENTRY, sizeof(taf_dcs_ProfileCtxs_t));
-
-    // Data pool for HW accleration related events
-    HwAccelEvtPoolRef = le_mem_InitStaticPool(HwAccelStateEvtPool, TAF_DCS_PROFILE_LIST_MAX_ENTRY,
-                                                                        sizeof(HwAccelStatus_t));
-
-    // this reference map is for profile context
-    ProfileRefMap = le_ref_CreateMap("tafDataProfileRef", TAF_DCS_PROFILE_LIST_MAX_ENTRY);
-
-    le_sem_Ref_t semRef = le_sem_Create("ProfileThreadSem", 0);
-    ProfileEventThreadRef = le_thread_Create("DcsProfileThread", ProfileEventThread, (void*)semRef);
-    le_thread_Start(ProfileEventThreadRef);
-    le_sem_Wait(semRef);
-    le_sem_Delete(semRef);
-
-    // send a profile Req to get default profiles
-    for(auto slotIdx = 1; slotIdx <= noOfSlots; slotIdx++){
-
-        SendProfileListReq(slotIdx);
-    }
-
-    return;
+    return LE_OK;
 }
 
-// Clean up all profiles
-void taf_DataProfile::CleanupAllProfiles(void)
+le_result_t TafDcsProfile::RemoveClient(le_msg_SessionRef_t clientRef, size_t &listSize)
 {
-    le_dls_Link_t *linkPtr = NULL;
-    linkPtr = le_dls_Peek(&ProfileCtxList);
-    while (linkPtr)
-    {
-        taf_dcs_ProfileCtx_t *profileCtx = CONTAINER_OF(linkPtr, taf_dcs_ProfileCtx_t, link);
-        linkPtr = le_dls_PeekNext(&ProfileCtxList, linkPtr);
-        le_ref_DeleteRef(ProfileRefMap, profileCtx->reference);
-        le_dls_Remove(&ProfileCtxList, &profileCtx->link);
-        le_mem_Release(profileCtx);
-    }
-    return;
+    LE_WARN_IF(0 == clientRef, "clientRef is 0");
+    // Erase after locking
+    std::unique_lock lock(dataReqClientsSetMutex_);
+    if (dataReqClients_.erase(clientRef))
+        LE_DEBUG("Erased %p", clientRef);
+    else
+        LE_DEBUG("Not available in the set: %p", clientRef);
+
+    // Update the size
+    listSize = dataReqClients_.size();
+    LE_INFO ("Number of clients: %zu", listSize);
+
+    return LE_OK;
 }
 
-void taf_DataProfile::Deinit(void)
+bool TafDcsProfile::HasClientCalledSessionStart(le_msg_SessionRef_t clientRef)
 {
-    // Clean up all profile related memory
-    CleanupAllProfiles();
-    // Stop the profile event thread
-    le_thread_Cancel(ProfileEventThreadRef);
+    LE_WARN_IF(0 == clientRef, "clientRef is 0");
+
+    // Check after locking
+    std::shared_lock lock(dataReqClientsSetMutex_);
+    auto client = dataReqClients_.find(clientRef);
+    if (client != dataReqClients_.end())
+    {
+        LE_DEBUG("Client %p has requested data.", clientRef);
+        return true;
+    }
+    LE_DEBUG("Client %p has not requested data.", clientRef);
+    return false;
+}
+
+// Async start session clients management.
+bool TafDcsProfile::AddStartSessionAsyncClient
+(
+    le_msg_SessionRef_t client,
+    taf_dcs_AsyncSessionHandlerFunc_t callback,
+    void *context
+)
+{
+    // Get a write lock
+    std::unique_lock<std::shared_mutex> lock(startSessionAsyncRequestorsMapMutex_);
+    auto result = startSessionAsyncRequestorsMap_.emplace(client,std::make_pair(callback, context));
+    LE_DEBUG("Added client %p: %s", client, (result.second ? "true" : "false"));
+    // Returns true if insertion was successful, false if client already exists
+    return result.second;
+}
+
+std::vector<std::tuple<le_msg_SessionRef_t, taf_dcs_AsyncSessionHandlerFunc_t, void *>>
+TafDcsProfile::GetStartSessionAsyncClients() const
+{
+    // Get a read lock
+    std::shared_lock<std::shared_mutex> lock(startSessionAsyncRequestorsMapMutex_);
+
+    std::vector<std::tuple<le_msg_SessionRef_t, taf_dcs_AsyncSessionHandlerFunc_t, void *>> entries;
+    for (const auto &[client, pair] : startSessionAsyncRequestorsMap_)
+    {
+        LE_DEBUG("Add client %p", client);
+        entries.emplace_back(client, pair.first, pair.second);
+    }
+    return entries;
+}
+
+bool TafDcsProfile::RemoveStartSessionAsyncClient(le_msg_SessionRef_t client)
+{
+    //Get a read lock
+    std::shared_lock<std::shared_mutex> lock(startSessionAsyncRequestorsMapMutex_);
+    // Returns true if the entry was removed, false if the key was not found
+    if (startSessionAsyncRequestorsMap_.erase(client))
+    {
+        LE_DEBUG("Client :%p was erased.", client);
+        return true;
+    }
+    LE_DEBUG("Client :%p was not erased.", client);
+    return false;
+}
+
+// Async stop session clients management.
+bool TafDcsProfile::AddStopSessionAsyncClient
+(
+    le_msg_SessionRef_t client,
+    taf_dcs_AsyncSessionHandlerFunc_t callback,
+    void *context
+)
+{
+    // Get a write lock
+    std::unique_lock<std::shared_mutex> lock(stopSessionAsyncRequestorsMapMutex_);
+    auto result = stopSessionAsyncRequestorsMap_.insert({client, {callback, context}});
+    LE_DEBUG("Added client %p: %s", client, (result.second ? "true" : "false"));
+    // Returns true if insertion was successful, false if client already exists
+    return result.second;
+}
+
+std::vector<std::tuple<le_msg_SessionRef_t, taf_dcs_AsyncSessionHandlerFunc_t, void *>>
+TafDcsProfile::GetStopSessionAsyncClients() const
+{
+    // Get a read lock
+    std::shared_lock<std::shared_mutex> lock(stopSessionAsyncRequestorsMapMutex_);
+    std::vector<std::tuple<le_msg_SessionRef_t, taf_dcs_AsyncSessionHandlerFunc_t, void *>> entries;
+    for (const auto &[client, pair] : stopSessionAsyncRequestorsMap_)
+    {
+        LE_DEBUG("Add client %p", client);
+        entries.emplace_back(client, pair.first, pair.second);
+    }
+    return entries;
+}
+
+bool TafDcsProfile::RemoveStopSessionAsyncClient(le_msg_SessionRef_t client)
+{
+    //Get a read lock
+    std::shared_lock<std::shared_mutex> lock(stopSessionAsyncRequestorsMapMutex_);
+    // Returns true if the entry was removed, false if the key was not found
+    if (stopSessionAsyncRequestorsMap_.erase(client))
+    {
+        LE_DEBUG("Client %p was erased.", client);
+        return true;
+    }
+    LE_DEBUG("Client %p was not erased.", client);
+    return false;
+}
+
+le_event_Id_t TafDcsProfile::GetSessionStateChangedEventId()
+{
+    if (sessionStateChangedEventId_)
+        return sessionStateChangedEventId_;
+
+    // Create the event
+    LE_DEBUG("Create session event ID");
+    sessionStateChangedEventId_ = le_event_CreateId("sessionStateChangedEventId_",
+                                                     sizeof(TafDcsSessionStateChangedEvent_t));
+    return sessionStateChangedEventId_;
+}
+
+le_event_Id_t TafDcsProfile::GetRoamingStateChangedEventId()
+{
+    if (roamingStateChangedEventId_)
+        return roamingStateChangedEventId_;
+
+    // Create the event
+    LE_DEBUG("Create roaming event ID");
+    roamingStateChangedEventId_ = le_event_CreateId("roamingStateChangedEventId_",
+                                                            sizeof(taf_dcs_RoamingStatusInd_t));
+    return roamingStateChangedEventId_;
+}
+
+le_event_Id_t TafDcsProfile::GetQosStatusChangedEventId()
+{
+    if (qosStatusChangedEventId_)
+        return qosStatusChangedEventId_;
+    // Create the event
+    LE_DEBUG("Create qos event ID");
+    qosStatusChangedEventId_ = le_event_CreateId("qosStatusChangedEventId_",
+                                                        sizeof(taf_dcs_QosTftEvent_t));
+    return qosStatusChangedEventId_;
+}
+
+le_event_Id_t TafDcsProfile::GetHwAccelStateChangedEventId()
+{
+    if (hwAccelStateChangedEventId_)
+        return hwAccelStateChangedEventId_;
+    // Create the event
+    LE_DEBUG("Create hwAccel event ID");
+    hwAccelStateChangedEventId_ = le_event_CreateId("hwAccelStateChangedEventId_",
+                                                        sizeof(taf_dcs_HwAccelerationEvent_t));
+    return hwAccelStateChangedEventId_;
+}
+
+le_event_Id_t TafDcsProfile::GetThrottledStatusEventId()
+{
+    if (throttledStatusEventId_)
+        return throttledStatusEventId_;
+    // Create the event
+    LE_DEBUG("Create throttled event ID");
+    throttledStatusEventId_ = le_event_CreateId("throttledStatusEventId_",
+                                                            sizeof(taf_dcs_ThrottledApnEvent_t));
+    return throttledStatusEventId_;
 }

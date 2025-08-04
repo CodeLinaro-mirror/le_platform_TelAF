@@ -18,9 +18,11 @@ type telaf_tafTimeUnitTest_t;
 
 init_telaf_app_domain(telaf_tafTimeUnitTest_t,telaf_tafTimeUnitTest_exec_t)
 
-# tafTimeUnitest component necessary rules
+# For accessing gptp device
+gptp_rw_qgptp_device(telaf_tafTimeUnitTest_t)
+gptp_rw_tmpfs_files(telaf_tafTimeUnitTest_t)
+gptp_rw_gptp_sock_file(telaf_tafTimeUnitTest_t)
 
-gptp_rw_qgptp_device(telaf_tafTimeUnitTest_t);
 allow telaf_admin_t telaf_tafTimeUnitTest_exec_t:lnk_file { read };
 
 # Allow time service to create netlink socket

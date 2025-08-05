@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -14,6 +14,13 @@
 #define DEFAULT_SVC_REF_CNT 16
 #define DEFAULT_RXMSG_REF_CNT 16
 #define DEFAULT_RXHANDLER_REF_CNT 16
+#define TAF_DIAG_UPDATE_ADD_FILE        0x01    ///< Add a file.
+#define TAF_DIAG_UPDATE_DELETE_FILE     0x02    ///< Delete a file.
+#define TAF_DIAG_UPDATE_REPLACE_FILE    0x03    ///< Replace or add a file.
+#define TAF_DIAG_UPDATE_READ_FILE       0x04    ///< Read the file data.
+#define TAF_DIAG_UPDATE_READ_DIR        0x05    ///< Read the directory.
+#define TAF_DIAG_UPDATE_RESUME_FILE     0x06    ///< Resume downloading the file.
+#define NRC_NOTIFICATION_MIN_LEN 3              ///< The minimal length of NRC
 
 typedef enum
 {
@@ -22,13 +29,6 @@ typedef enum
     TAF_DIAG_UPDATE_TRANS,
     TAF_DIAG_UPDATE_EXIT
 }tafDiagUpdateState_t;
-
-#define TAF_DIAG_UPDATE_ADD_FILE        0x01    ///< Add a file.
-#define TAF_DIAG_UPDATE_DELETE_FILE     0x02    ///< Delete a file.
-#define TAF_DIAG_UPDATE_REPLACE_FILE    0x03    ///< Replace or add a file.
-#define TAF_DIAG_UPDATE_READ_FILE       0x04    ///< Read the file data.
-#define TAF_DIAG_UPDATE_READ_DIR        0x05    ///< Read the directory.
-#define TAF_DIAG_UPDATE_RESUME_FILE     0x06    ///< Resume downloading the file.
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -146,6 +146,19 @@ typedef struct
     uint16_t        vlanId;
 }taf_UpdateVlanIdNode_t;
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * NRC status message.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_diagUpdate_NrcStatusRef_t nrcStatusRef; ///< Own reference.
+    taf_uds_AddrInfo_t addrInfo;                ///< Rx logical address information structure.
+    uint8_t sid;                                ///< Service ID.
+    uint8_t nrc;                                ///< NRC.
+}taf_UpdateNrcStatusMsg_t;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Diag update Server Service Class
@@ -228,22 +241,34 @@ namespace tafsvc
             le_result_t SetVlanId(taf_diagUpdate_ServiceRef_t svcRef, uint16_t vlanId);
             le_result_t GetVlanIdFromMsg(taf_diagUpdate_RxMsgRef_t rxMsgRef, uint16_t* vlanIdPtr);
 
+            static void FirstLayerNrcStatusHandler(void* reportPtr, void* secondLayerHandlerFunc);
+            le_result_t ReleaseNrcStatusMsg(taf_diagUpdate_NrcStatusRef_t statusRef);
+
+            //Event for NRC
+            le_event_Id_t NrcEventId;
+
         private:
             // Internal search functions.
             taf_UpdateSvc_t* FindSvcInList(le_msg_SessionRef_t sessionRef);
             taf_UpdateSvc_t* FindSvcInList(uint16_t vlanId);
-            le_result_t RspNegativeMsg(taf_uds_AddrInfo_t* addrPtr, uint8_t sid, uint8_t nrc);
+            le_result_t RspNegativeMsg(taf_uds_AddrInfo_t* addrPtr, uint8_t sid, uint8_t nrc,
+                    bool isInternal);
             le_result_t RspPositiveMsg(taf_uds_AddrInfo_t* addrPtr, uint8_t sid,
                 const uint8_t* dataPtr,size_t dataSize);
+
+        #ifdef LE_CONFIG_DIAG_FEATURE_A
+            void ReportNrcStatus(const taf_uds_AddrInfo_t* addrPtr, uint8_t sid, uint8_t nrc);
+        #endif
 
             void ClearFileXferMsgList(taf_UpdateSvc_t* svcPtr);
             void ClearXferDataMsgList(taf_UpdateSvc_t* svcPtr);
             void ClearXferExitMsgList(taf_UpdateSvc_t* svcPtr);
             void ClearVlanList(taf_UpdateSvc_t* svcPtr);
 
-            uint8_t reqFileXferSvcId = 0x38;
-            uint8_t fileDataXferSvcId = 0x36;
-            uint8_t fileXferExitSvcId = 0x37;
+            const uint8_t reqFileXferSvcId = 0x38;
+            const uint8_t fileDataXferSvcId = 0x36;
+            const uint8_t fileXferExitSvcId = 0x37;
+            const uint8_t nrcStatusMsgId = 0xFB;  //NRC status notification ID
 
             // Service and event object
             le_ref_MapRef_t SvcRefMap;
@@ -273,6 +298,10 @@ namespace tafsvc
             le_event_HandlerRef_t XferDataEventHandlerRef;
             le_event_Id_t XferExitEvent;
             le_event_HandlerRef_t XferExitEventHandlerRef;
+
+            // NRC status resource
+            le_mem_PoolRef_t NrcStatusMsgPool;
+            le_ref_MapRef_t RxNrcStatusRefMap;
 
             uint8_t mFilePosition[TAF_DIAGUPDATE_FILE_POSITION_SIZE] = {0};
             uint16_t nCharsToSave = 0;

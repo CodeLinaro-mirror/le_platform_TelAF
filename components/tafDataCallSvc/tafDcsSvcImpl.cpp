@@ -44,19 +44,18 @@ void TafDcsSvc::Init()
         // All good
         LE_INFO("PA is initialized.");
         paInitState_ = paInitState;
-        return;
     }
-    if (LE_NOT_IMPLEMENTED == result)
+    else if (LE_NOT_IMPLEMENTED == result)
     {
         paInitState_ = taf::pa::data::InitState_e::INIT_FAILED;
         LE_ERROR("PA is not implemented.");
     }
-    if (LE_FAULT == result)
+    else if (LE_FAULT == result)
     {
         paInitState_ = taf::pa::data::InitState_e::INIT_FAILED;
         LE_ERROR("PA initialization failed.");
     }
-    if (LE_UNAVAILABLE == result)
+    else if (LE_UNAVAILABLE == result)
     {
         LE_WARN("PA is partially initialized.");
         LE_INFO("PA Initialization state: %d", static_cast<int>(paInitState));
@@ -67,7 +66,15 @@ void TafDcsSvc::Init()
     // is available.
 
     // Add power state change handler
-    taf_pm_AddStateChangeHandler(powerStateChangeHandler, NULL);
+    powerStateChangeHandlerRef_= taf_pm_AddStateChangeHandler(powerStateChangeHandler, NULL);
+    if (nullptr == powerStateChangeHandlerRef_)
+    {
+        LE_ERROR("Unable to register power state change handler.");
+    }
+    else
+    {
+        LE_INFO("Power state change handler registered.");
+    }
 }
 
 void TafDcsSvc::powerStateChangeHandler(taf_pm_State_t state, void *contextPtr)
@@ -82,6 +89,10 @@ void TafDcsSvc::powerStateChangeHandler(taf_pm_State_t state, void *contextPtr)
     {
         LE_INFO("Power state change to SUSPEND");
         taf::pa::data::DeregisterSDKCallbacks();
+    }
+    else
+    {
+        LE_WARN("Unknown power state: %d", TO_INT(state));
     }
 }
 

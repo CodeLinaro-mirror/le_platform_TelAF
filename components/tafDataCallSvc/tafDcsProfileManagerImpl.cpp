@@ -18,7 +18,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <net/if.h>
-
+#include <algorithm>
 #include <chrono>
 
 using namespace taf::svc::datacall;
@@ -159,15 +159,31 @@ void TafDcsProfileManager::Deinit()
     deregisterPACallbacks();
 }
 
+// Check if the provided phone ID is valid based on current configuration.
+bool TafDcsProfileManager::isPhoneIdValid(taf::pa::data::PhoneId_e phoneId) const
+{
+    // Check if the provided phone ID is present in the valid phone IDs list.
+    return std::find(phoneIds_.begin(), phoneIds_.end(), phoneId) != phoneIds_.end();
+}
+
 // Initialize the profile manager
-le_result_t TafDcsProfileManager::SvcGetProfilesList(
+le_result_t TafDcsProfileManager::SvcGetProfilesList
+(
     uint8_t phoneId,
     taf_dcs_ProfileInfo_t *profilesListPtr,
-    size_t *profilesListSizePtr)
+    size_t *profilesListSizePtr
+)
 {
     // TODO: Verify the number of phones supported and validate the phone ID accordingly.
     TAF_ERROR_IF_RET_VAL(TAF_TYPES_PHONE_ID_1 != phoneId && TAF_TYPES_PHONE_ID_2 != phoneId,
                          LE_BAD_PARAMETER, "Unsupported phoneId %d", phoneId);
+
+    // Check if the provided phone ID is supported based on current configuration.
+    if (!isPhoneIdValid(static_cast<taf::pa::data::PhoneId_e>(phoneId)))
+    {
+        LE_WARN ("Phone ID %d is not supported in the current configuration.", phoneId);
+        return LE_FAULT;
+    }
 
     // Get the list of profiles for the specified phone ID.
     std::vector<std::shared_ptr<TafDcsProfile>> profilePtrs = FindProfilesByPhoneId(phoneId);
@@ -1763,7 +1779,7 @@ le_result_t TafDcsProfileManager::SvcStartSessionSync
 
     // Wait for the promise to be fulfilled
 
-    if (fut.wait_for(std::chrono::seconds(syncCmdPromiseTimeout_)) == std::future_status::ready)
+    if (fut.wait_for(std::chrono::seconds(syncSessionCmdTimeout_)) == std::future_status::ready)
     {
         result = fut.get();
     }
@@ -1772,11 +1788,25 @@ le_result_t TafDcsProfileManager::SvcStartSessionSync
         // Timeout. Mark that future is no longer needed.
         LE_WARN("Timeout waiting for result.");
         isSyncCmdPromiseWaiting_.store(false);
+
+        // Update the session state to DISCONNECTED
+        profile.SetSessionState(TAF_DCS_DISCONNECTED, TAF_DCS_DISCONNECTED, TAF_DCS_DISCONNECTED);
         result = LE_TIMEOUT;
     }
     LE_DEBUG("Result: %d", TO_INT(result));
     if (LE_OK == result)
     {
+        // Ensure data state is not disconnected.
+        result = profile.GetSessionState(connState, ipv4state, ipv6state);
+        TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetSessionState failed: %d", TO_INT(result));
+        LE_DEBUG("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId,TO_INT(pdpIpType));
+        LE_DEBUG("State: %d", TO_INT(connState));
+        if (TAF_DCS_DISCONNECTED == connState)
+        {
+            LE_WARN ("StartDataSessionAsync did not succeed.");
+            return LE_TERMINATED;
+        }
+
         // Add the client to the list of clients that have requested data.
         size_t listSize = 0;
         profile.AddClient(clientRef, listSize);
@@ -1969,6 +1999,7 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
     uint8_t  phoneId   = 0;
     taf_dcs_Pdp_t pdpIpType;
     taf_dcs_ConState_t connState;
+    size_t listSize = 0;
 
     le_result_t result = profile.GetId(profileId);
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetId failed: %d", TO_INT(result));
@@ -1986,11 +2017,22 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
     {
         LE_INFO("Already disconnected.");
         // Remove the client from the list of clients that have requested data.
-        size_t listSize = 0;
+        // The return value does not matter in this scenario.
         profile.RemoveClient(clientRef, listSize);
         LE_DEBUG("Client %p removed. Num clients: %zu", clientRef, listSize);
         return LE_OK;
     }
+
+    // Remove the client from the list of clients that had called StartSession before stopping data.
+    listSize = 0;
+    result = profile.RemoveClient(clientRef, listSize);
+    if (LE_OK != result)
+    {
+        LE_WARN("Client %p has not requested data. Num clients: %zu", clientRef, listSize);
+        return LE_NOT_FOUND;
+    }
+    LE_DEBUG("Client %p removed. Num clients: %zu", clientRef, listSize);
+
     if (TAF_DCS_DISCONNECTING == connState)
     {
         LE_INFO("Disconnection in progress");
@@ -2018,7 +2060,7 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
     isSyncCmdPromiseWaiting_.store(true);
 
     // Wait for the promise to be fulfilled.
-    if (fut.wait_for(std::chrono::seconds(syncCmdPromiseTimeout_)) == std::future_status::ready)
+    if (fut.wait_for(std::chrono::seconds(syncSessionCmdTimeout_)) == std::future_status::ready)
     {
         result = fut.get();
     }
@@ -2030,13 +2072,6 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
         result = LE_TIMEOUT;
     }
     LE_DEBUG("Result: %d", TO_INT(result));
-    if (LE_OK == result)
-    {
-        // Remove the client to the list of clients that have requested data.
-        size_t listSize = 0;
-        profile.RemoveClient(clientRef, listSize);
-        LE_DEBUG("Client %p removed. Num clients: %zu", clientRef, listSize);
-    }
     return result;
 }
 
@@ -2068,6 +2103,7 @@ void TafDcsProfileManager::SvcStopSessionASync
     TafDcsSendStopSessionAsyncRsp_t response;
     response.clientRef  = clientRef;
     response.profileRef = profileRef;
+    size_t listSize = 0;
 
     uint32_t profileId = 0;
     uint8_t phoneId = 0;
@@ -2154,7 +2190,7 @@ void TafDcsProfileManager::SvcStopSessionASync
             sizeof(TafDcsSendStartSessionAsyncRsp_t)
         );
         // Remove this client from the list of clients that have requested data.
-        size_t listSize;
+        // The return value does not matter in this scenario.
         profile.RemoveClient(clientRef, listSize);
         LE_DEBUG("Client %p removed. Num clients: %zu", clientRef, listSize);
         return;
@@ -2170,6 +2206,23 @@ void TafDcsProfileManager::SvcStopSessionASync
             sizeof(TafDcsSendStartSessionAsyncRsp_t)
         );
     }
+
+    // Remove the client from the list of clients that had called StartSession before stopping data.
+    listSize = 0;
+    result = profile.RemoveClient(clientRef, listSize);
+    if (LE_OK != result)
+    {
+        LE_WARN("Client %p has not requested data. Num clients: %zu", clientRef, listSize);
+        response.result = LE_NOT_FOUND;
+        le_event_Report
+        (
+            tafDcsSvc.GetStopSessionAsyncRspEvtId(),
+            &response,
+            sizeof(TafDcsSendStartSessionAsyncRsp_t)
+        );
+        return;
+    }
+    LE_DEBUG("Num clients: %zu", listSize);
 
     taf::pa::data::DataCallStartStopParams_t params =
     {
@@ -3871,6 +3924,7 @@ void TafDcsProfileManager::clientDisconnectedEvtHandler(void *reqPtr)
             if (profile->HasClientCalledSessionStart(clientRef))
             {
                 size_t listSize = 0;
+                // The return value does not matter in this scenario.
                 profile->RemoveClient(clientRef, listSize);
                 if (listSize == 0)
                 {
@@ -4068,6 +4122,7 @@ void TafDcsProfileManager::stopSessionAsyncRspEventHandler(void *reqPtr)
 
         // Remove this client from the list of clients that have requested data.
         size_t listSize = 0;
+        // The return value does not matter in this scenario.
         profile.RemoveClient(clientRef, listSize);
     }
 }

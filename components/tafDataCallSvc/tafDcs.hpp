@@ -117,6 +117,9 @@ private:
     // Thread to handle internal events
     le_thread_Ref_t tafDcsEventsThreadRef_ = nullptr;
 
+    // Powerstate change handler
+    taf_pm_StateChangeHandlerRef_t powerStateChangeHandlerRef_ = nullptr;
+
     // Instance
     TafDcsSvc() {};
 };

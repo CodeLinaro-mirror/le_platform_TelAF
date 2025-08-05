@@ -604,19 +604,25 @@ le_result_t TafDcsProfile::AddClient(le_msg_SessionRef_t clientRef, size_t &list
 
 le_result_t TafDcsProfile::RemoveClient(le_msg_SessionRef_t clientRef, size_t &listSize)
 {
+    le_result_t result = LE_OK;
     LE_WARN_IF(0 == clientRef, "clientRef is 0");
     // Erase after locking
     std::unique_lock lock(dataReqClientsSetMutex_);
     if (dataReqClients_.erase(clientRef))
+    {
         LE_DEBUG("Erased %p", clientRef);
+    }
     else
+    {
         LE_DEBUG("Not available in the set: %p", clientRef);
+        result = LE_NOT_FOUND;
+    }
 
     // Update the size
     listSize = dataReqClients_.size();
     LE_INFO ("Number of clients: %zu", listSize);
 
-    return LE_OK;
+    return result;
 }
 
 bool TafDcsProfile::HasClientCalledSessionStart(le_msg_SessionRef_t clientRef)

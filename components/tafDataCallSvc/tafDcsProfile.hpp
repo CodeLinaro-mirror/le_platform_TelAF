@@ -717,6 +717,9 @@ private:
     void registerPACallbacks();
     void deregisterPACallbacks();
 
+    // Check if the provided phone ID is valid based on current configuration.
+    bool isPhoneIdValid(taf::pa::data::PhoneId_e phoneId) const;
+
     // Get the MTU for the specified host inteface
     le_result_t getMtu(const std::string &ifNameStr, uint16_t &mtu);
 
@@ -878,7 +881,7 @@ private:
     // Flag to check if the promise is waiting for the future or not.
     std::atomic<bool> isSyncCmdPromiseWaiting_ = true;
     // TODO: Make this configurable
-    const uint16_t syncCmdPromiseTimeout_ = 30; // 30 seconds timeout for sync commands
+    const uint16_t syncSessionCmdTimeout_ = 60; // 60s timeout for Start and Stop session sync cmd.`
 
     // Private constructor to prevent instantiation from outside the class.
     TafDcsProfileManager() {};

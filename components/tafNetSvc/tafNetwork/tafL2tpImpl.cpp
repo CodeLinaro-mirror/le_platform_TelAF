@@ -121,13 +121,8 @@ void taf_L2tp::Init(void)
     if (l2tpManager == nullptr)
     {
         auto &dataFactory = telux::data::DataFactory::getInstance();
-//SA415 using old telsdk,without initCb parameter
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto initCb = std::bind(&taf_L2tp::onInitComplete, this, std::placeholders::_1);
         l2tpManager = dataFactory.getL2tpManager(initCb);
-#else
-        l2tpManager = dataFactory.getL2tpManager();
-#endif
     }
 
     if(l2tpManager == nullptr )
@@ -135,8 +130,6 @@ void taf_L2tp::Init(void)
         LE_INFO("L2tp manager initialize error...");
         return ;
     }
-
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // 5. Check subsystem status
     std::unique_lock<std::mutex> lck(mMutex);
 
@@ -156,7 +149,6 @@ void taf_L2tp::Init(void)
         l2tpManager = nullptr;
         return ;
     }
-#endif
 
     isReady = l2tpManager->isSubsystemReady();
 
@@ -554,68 +546,6 @@ void* taf_L2tp::L2tpCmdThread(void* contextPtr)
 
 /*======================================================================
 
- FUNCTION        tafL2tpCallback::enableL2tpResponse
-
- DESCRIPTION     Call back function for setting config.
-
- DEPENDENCIES    The initialization of L2tp.
-
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
-
- RETURN VALUE    None.
-
-======================================================================*/
-void tafL2tpCallback::enableL2tpResponse(telux::common::ErrorCode error)
-{
-    le_result_t result = LE_OK;
-    auto &tafL2tp = taf_L2tp::GetInstance();
-
-    if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-        result = LE_FAULT;
-    }
-    else
-    {
-        LE_DEBUG("Request processed successfully \n");
-    }
-
-    tafL2tp.L2tpEnableSyncPromise.set_value(result);
-}
-
-/*======================================================================
-
- FUNCTION        tafL2tpCallback::disableL2tpResponse
-
- DESCRIPTION     Call back function for setting config.
-
- DEPENDENCIES    The initialization of L2tp.
-
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
-
- RETURN VALUE    None.
-
-======================================================================*/
-void tafL2tpCallback::disableL2tpResponse(telux::common::ErrorCode error)
-{
-    le_result_t result = LE_OK;
-    auto &tafL2tp = taf_L2tp::GetInstance();
-
-    if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-        result = LE_FAULT;
-    }
-    else
-    {
-        LE_DEBUG("Request processed successfully \n");
-    }
-
-    tafL2tp.L2tpDisableSyncPromise.set_value(result);
-}
-
-/*======================================================================
-
  FUNCTION        tafL2tpCallback::enableL2tpAsyncResponse
 
  DESCRIPTION     Call back function for setting config.
@@ -663,68 +593,6 @@ void tafL2tpCallback::disableL2tpAsyncResponse(telux::common::ErrorCode error)
     l2tpEvent.errorCode     = error;
 
     le_event_Report(tafL2tp.l2tpEventId, &l2tpEvent,sizeof(taf_L2tpEventReq_t));
-}
-
-/*======================================================================
-
- FUNCTION        tafL2tpCallback::startTunnelSyncResponse
-
- DESCRIPTION     Call back function for synchronous starting tunnel.
-
- DEPENDENCIES    The initialization of L2tp.
-
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
-
- RETURN VALUE    None.
-
-======================================================================*/
-void tafL2tpCallback::startTunnelSyncResponse(telux::common::ErrorCode error)
-{
-    le_result_t result = LE_OK;
-    auto &tafL2tp = taf_L2tp::GetInstance();
-
-    if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-        result = LE_FAULT;
-    }
-    else
-    {
-        LE_DEBUG("Request processed successfully \n");
-    }
-
-    tafL2tp.L2tpStartTunnelSyncPromise.set_value(result);
-}
-
-/*======================================================================
-
- FUNCTION        tafL2tpCallback::stopTunnelSyncResponse
-
- DESCRIPTION     Call back function for synchronous stopping tunnel.
-
- DEPENDENCIES    The initialization of L2tp.
-
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
-
- RETURN VALUE    None.
-
-======================================================================*/
-void tafL2tpCallback::stopTunnelSyncResponse(telux::common::ErrorCode error)
-{
-    le_result_t result = LE_OK;
-    auto &tafL2tp = taf_L2tp::GetInstance();
-
-    if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-        result = LE_FAULT;
-    }
-    else
-    {
-        LE_DEBUG("Request processed successfully \n");
-    }
-
-    tafL2tp.L2tpStopTunnelSyncPromise.set_value(result);
 }
 
 /*======================================================================
@@ -779,7 +647,7 @@ void tafL2tpCallback::stopTunnelAsyncResponse(telux::common::ErrorCode error)
     le_event_Report(tafL2tp.l2tpEventId, &l2tpEvent,sizeof(taf_L2tpEventReq_t));
 }
 
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+
 /*======================================================================
 
  FUNCTION        taf_L2tp::onInitComplete
@@ -799,7 +667,7 @@ void taf_L2tp::onInitComplete(telux::common::ServiceStatus status)
     IsSubSystemStatusUpdated = true;
     conVar.notify_all();
 }
-#endif
+
 
 /*======================================================================
 
@@ -1119,22 +987,46 @@ le_result_t taf_L2tp::EnableL2tpCmdSync(bool enableMss, bool enableMtu, uint32_t
 
     TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, LE_NOT_FOUND, "l2tpManager is null");
 
-    L2tpEnableSyncPromise = std::promise<le_result_t>();
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+
+    auto enableL2tpRespCb = [promisePtr](telux::common::ErrorCode error)
+    {
+        try
+        {
+            if (error != telux::common::ErrorCode::SUCCESS)
+            {
+                LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+            else
+            {
+                LE_DEBUG("Request processed successfully \n");
+                promisePtr->set_value(LE_OK);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in L2TP callback.");
+        }
+    };
 
     if(mtuSize == 0)
         mtuSize=DEFAULT_MTU_SIZE;
 
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = l2tpManager->setConfig(true, enableMss, enableMtu,
-                                                   tafL2tpCallback::enableL2tpResponse, mtuSize);
-#else
-    Status status = l2tpManager->setConfig(true, enableMss, enableMtu,
-                                                   tafL2tpCallback::enableL2tpResponse);
-#endif
+                                                   enableL2tpRespCb, mtuSize);
 
     if (status == Status::SUCCESS)
     {
-        std::future<le_result_t> futureResult = L2tpEnableSyncPromise.get_future();
+        std::future<le_result_t> futureResult = promisePtr->get_future();
         std::future_status waitStatus = futureResult.wait_for(span);
 
         if (std::future_status::timeout == waitStatus)
@@ -1191,19 +1083,43 @@ le_result_t taf_L2tp::DisableL2tpCmdSync(le_msg_SessionRef_t sessionRef)
         return LE_FAULT;
     }
 
-    L2tpDisableSyncPromise = std::promise<le_result_t>();
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
 
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+    auto disableL2tpRespCb = [promisePtr](telux::common::ErrorCode error)
+    {
+        try
+        {
+            if (error != telux::common::ErrorCode::SUCCESS)
+            {
+                LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+            else
+            {
+                LE_DEBUG("Request processed successfully \n");
+                promisePtr->set_value(LE_OK);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in L2TP callback.");
+        }
+    };
+
     Status status = l2tpManager->setConfig(false, false, false,
-                                                   tafL2tpCallback::disableL2tpResponse, 0);
-#else
-    Status status = l2tpManager->setConfig(false, false, false,
-                                                   tafL2tpCallback::disableL2tpResponse);
-#endif
+                                                   disableL2tpRespCb, 0);
 
     if (status == Status::SUCCESS)
     {
-        std::future<le_result_t> futureResult = L2tpDisableSyncPromise.get_future();
+        std::future<le_result_t> futureResult = promisePtr->get_future();
         std::future_status waitStatus = futureResult.wait_for(span);
 
         if (std::future_status::timeout == waitStatus)
@@ -1349,25 +1265,13 @@ le_result_t taf_L2tp::EnableL2tp
     switch(type)
     {
         case ASYNC_ENABLE_L2TP:
-
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             status = l2tpManager->setConfig(true, enableMss, enableMtu,
                                                  tafL2tpCallback::enableL2tpAsyncResponse, mtuSize);
-#else
-            status = l2tpManager->setConfig(true, enableMss, enableMtu,
-                                                   tafL2tpCallback::enableL2tpAsyncResponse);
-#endif
-
         break;
         case ASYNC_DISABLE_L2TP:
-
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             status = l2tpManager->setConfig(false, enableMss, enableMtu,
                                                 tafL2tpCallback::disableL2tpAsyncResponse, mtuSize);
-#else
-            status = l2tpManager->setConfig(false, enableMss, enableMtu,
-                                                   tafL2tpCallback::disableL2tpAsyncResponse);
-#endif
+
 
         break;
         default:
@@ -1931,13 +1835,43 @@ le_result_t taf_L2tp::StartTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
 
     l2tpTunnelConfig.locIface =  tunnelPtr->interfaceName;
 
-    L2tpStartTunnelSyncPromise = std::promise<le_result_t>();
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
 
-    Status status = l2tpManager->addTunnel(l2tpTunnelConfig, tafL2tpCallback::startTunnelSyncResponse);
+    auto startTunnelSyncRespCb = [promisePtr](telux::common::ErrorCode error)
+    {
+        try
+        {
+            if (error != telux::common::ErrorCode::SUCCESS)
+            {
+                LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+            else
+            {
+                LE_DEBUG("Request processed successfully \n");
+                promisePtr->set_value(LE_OK);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in L2TP callback.");
+        }
+    };
+
+
+    Status status = l2tpManager->addTunnel(l2tpTunnelConfig, startTunnelSyncRespCb);
 
     if (status == Status::SUCCESS)
     {
-        std::future<le_result_t> futureResult = L2tpStartTunnelSyncPromise.get_future();
+        std::future<le_result_t> futureResult = promisePtr->get_future();
         std::future_status waitStatus = futureResult.wait_for(span);
 
         if (std::future_status::timeout == waitStatus)
@@ -1994,14 +1928,43 @@ le_result_t taf_L2tp::StopTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
 
     TAF_ERROR_IF_RET_VAL(tunnelPtr == NULL, LE_NOT_FOUND, "tunnel is not present");
 
-    L2tpStopTunnelSyncPromise = std::promise<le_result_t>();
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+
+    auto stopTunnelSyncRespCb = [promisePtr](telux::common::ErrorCode error)
+    {
+        try
+        {
+            if (error != telux::common::ErrorCode::SUCCESS)
+            {
+                LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+            else
+            {
+                LE_DEBUG("Request processed successfully \n");
+                promisePtr->set_value(LE_OK);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in L2TP callback.");
+        }
+    };
 
     Status status = l2tpManager->removeTunnel(tunnelPtr->locTunnelId,
-                                           tafL2tpCallback::stopTunnelSyncResponse);
+                                           stopTunnelSyncRespCb);
 
     if (status == Status::SUCCESS)
     {
-        std::future<le_result_t> futureResult = L2tpStopTunnelSyncPromise.get_future();
+        std::future<le_result_t> futureResult = promisePtr->get_future();
         std::future_status waitStatus = futureResult.wait_for(span);
 
         if (std::future_status::timeout == waitStatus)

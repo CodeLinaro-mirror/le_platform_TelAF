@@ -31,8 +31,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
- 
-/*  
+
+/*
  *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *  Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
@@ -217,12 +217,8 @@ namespace tafsvc {
     class tafL2tpCallback
     {
         public:
-           static void enableL2tpResponse(telux::common::ErrorCode error);
-           static void disableL2tpResponse(telux::common::ErrorCode error);
            static void enableL2tpAsyncResponse(telux::common::ErrorCode error);
            static void disableL2tpAsyncResponse(telux::common::ErrorCode error);
-           static void startTunnelSyncResponse(telux::common::ErrorCode error);
-           static void stopTunnelSyncResponse(telux::common::ErrorCode error);
            static void startTunnelAsyncResponse(telux::common::ErrorCode error);
            static void stopTunnelAsyncResponse(telux::common::ErrorCode error);
            static void requestConfigResponse(const telux::data::net::L2tpSysConfig &l2tpSysConfig,
@@ -339,11 +335,6 @@ namespace tafsvc {
 
             TunnelHandlerMapping_t* FindTunnelAsyncHandler(taf_L2tpCmdType_t type);
             void DeleteTunnelHandlerInfo(taf_net_AsyncTunnelHandlerFunc_t asyncHandler);
-
-            std::promise<le_result_t> L2tpEnableSyncPromise;
-            std::promise<le_result_t> L2tpDisableSyncPromise;
-            std::promise<le_result_t> L2tpStartTunnelSyncPromise;
-            std::promise<le_result_t> L2tpStopTunnelSyncPromise;
 
             le_mem_PoolRef_t tunnelPool = NULL;
             le_ref_MapRef_t tunnelRefMap = NULL;

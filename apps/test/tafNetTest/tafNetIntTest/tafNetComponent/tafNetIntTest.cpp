@@ -88,6 +88,11 @@ static void PrintUsage ()
             "app runProc tafNetIntTest --exe=tafNetIntTest -- bindwithprofileex \
 <vlanid> <phoneid> <profileid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- unbindwithprofile <vlanid>\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- bindwithBackhaul \
+<vlanid> <backhaulVlanId/profileid> <BackhaulType>\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- bindwithBackhaulex \
+<vlanid> <profileid> <BackhaulType> [Optional: phoneid]\n"
+            "app runProc tafDualNadTest --exe=tafDualNadTest -- unbindwithBackhaul <vlanid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getvlanentryinfo\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- enablel2tp <enablemss> <enablemtu> \
 <mtusize>\n"
@@ -1185,6 +1190,144 @@ static int TafGetBackhaulPref()
     return EXIT_SUCCESS;
 }
 
+static int TafVlanBindWithBackhaul()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() != 4)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* vlanIdPtr = le_arg_GetArg(1);
+    const char* backhaulVlanIdPtr = le_arg_GetArg(2);
+    const char* bhPtr = le_arg_GetArg(3);
+
+    if(vlanIdPtr == NULL || backhaulVlanIdPtr == NULL)
+    {
+        LE_ERROR("vlanIdPtr or profileidPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t vlanid = strtol(vlanIdPtr, NULL, 0);
+    uint32_t backhaulVlanId = strtol(backhaulVlanIdPtr, NULL, 0);
+    uint32_t backHaulType = strtol(bhPtr, NULL, 0);
+
+    taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanid);
+
+    ret = taf_net_SetVlanBackhaulVlanId(vlanRef, backhaulVlanId);
+
+    ret = taf_net_SetVlanBackhaulType(vlanRef, (taf_net_BackhaulType_t) backHaulType);
+
+    ret = taf_net_BindVlanWithBackhaul(vlanRef);
+
+    if(ret == LE_OK)
+    {
+        printf("----bind vlan with backhaul OK\n");
+    }
+    else
+    {
+        printf("----bind vlan with backhaul error: %s\n", LE_RESULT_TXT(ret));
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafVlanBindWithBackhaulEx()
+{
+    le_result_t ret;
+    int numArgs = le_arg_NumArgs();
+
+    if (numArgs != 4 && numArgs != 5)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* vlanIdPtr = le_arg_GetArg(1);
+    const char* profileIdPtr = le_arg_GetArg(2);
+    const char* bhPtr = le_arg_GetArg(3);
+
+    const char* phoneIdPtr = "1";
+
+    if (numArgs == 5) {
+        phoneIdPtr = le_arg_GetArg(4);
+    }
+
+    if(vlanIdPtr == NULL || profileIdPtr == NULL || bhPtr == NULL)
+    {
+        LE_ERROR("vlanIdPtr, backHaulType or profileIdPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t vlanid = strtol(vlanIdPtr, NULL, 0);
+    uint32_t profileid = strtol(profileIdPtr, NULL, 0);
+    uint32_t backHaulType = strtol(bhPtr, NULL, 0);
+
+    uint8_t phoneid = strtol(phoneIdPtr, NULL, 0);
+
+    taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanid);
+
+    if (numArgs == 5) {
+        //User input phoneid (i.e. slot id)
+        ret = taf_net_SetVlanBackhaulPhoneId(vlanRef, phoneid);
+    }
+
+    ret = taf_net_SetVlanBackhaulProfileId(vlanRef, profileid);
+
+    ret = taf_net_SetVlanBackhaulType(vlanRef, (taf_net_BackhaulType_t) backHaulType);
+
+    ret = taf_net_BindVlanWithBackhaul(vlanRef);
+
+    if(ret == LE_OK)
+    {
+        printf("----bind vlan with backhaul OK\n");
+    }
+    else
+    {
+        printf("----bind vlan with backhaul error: %s\n", LE_RESULT_TXT(ret));
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafVlanUnBindWithBackhaul()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* vlanIdPtr = le_arg_GetArg(1);
+
+    if(vlanIdPtr == NULL)
+    {
+        LE_ERROR("vlanIdPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t vlanid = strtol(vlanIdPtr, NULL, 0);
+
+    taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanid);
+
+    ret = taf_net_UnbindVlanFromBackhaul(vlanRef);
+    if(ret == LE_OK)
+    {
+        printf("----unbind vlan with backhaul OK\n");
+    }
+    else
+    {
+        printf("----unbind vlan with backhaul error: %s\n", LE_RESULT_TXT(ret));
+    }
+
+    return EXIT_SUCCESS;
+}
+
+
 
 static int TafEnableL2tp()
 {
@@ -2050,6 +2193,18 @@ COMPONENT_INIT
         else if(strcmp(testType, "unbindwithprofile") == 0)
         {
             status=TafVlanUnBindWithProfile();
+        }
+        else if(strcmp(testType, "bindwithbackhaul") == 0)
+        {
+            status=TafVlanBindWithBackhaul();
+        }
+        else if(strcmp(testType, "bindwithbackhaulex") == 0)
+        {
+            status=TafVlanBindWithBackhaulEx();
+        }
+        else if(strcmp(testType, "unbindwithbackhaul") == 0)
+        {
+            status=TafVlanUnBindWithBackhaul();
         }
         else if(strcmp(testType, "enablel2tp") == 0)
         {

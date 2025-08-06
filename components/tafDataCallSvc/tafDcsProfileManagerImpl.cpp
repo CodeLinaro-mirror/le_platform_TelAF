@@ -83,7 +83,7 @@ using namespace taf::svc::datacall;
 /**
  * Check if a profile is created or not by checking the profile ID and return false
  */
-#define TAF_CHECK_IF_PROFILE_IS_CREATED_RET_FALSE(profile)                                         \
+#define TAF_CHECK_IF_PROFILE_IS_CREATED_RET_FALSE(profile)                               \
     do                                                                                   \
     {                                                                                    \
         uint32_t profileId;                                                              \
@@ -91,6 +91,19 @@ using namespace taf::svc::datacall;
         TAF_ERROR_IF_RET_VAL(LE_OK != result, false, "Failed to get profile id");        \
         TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, false,           \
                                                             "Profile not created yet."); \
+    } while (0);
+
+/**
+ * Check if a profile is created or not by checking the profile ID.
+ */
+#define TAF_CHECK_IF_PROFILE_IS_CREATED_RET_VAL(profile, retVal)                                 \
+    do                                                                                           \
+    {                                                                                            \
+        uint32_t profileId;                                                                      \
+        le_result_t result = profile.GetId(profileId);                                           \
+        TAF_ERROR_IF_RET_VAL(LE_OK != result, retVal, "Failed to get profile id");               \
+        TAF_ERROR_IF_RET_VAL(TAF_DCS_UNDEFINED_PROFILE_ID == profileId, retVal,                  \
+                                                                    "Profile not created yet."); \
     } while (0);
 
 /**************************************************************************************************/
@@ -174,7 +187,7 @@ le_result_t TafDcsProfileManager::SvcGetProfilesList
     size_t *profilesListSizePtr
 )
 {
-    // TODO: Verify the number of phones supported and validate the phone ID accordingly.
+    // Verify validity of provided phone ID.
     TAF_ERROR_IF_RET_VAL(TAF_TYPES_PHONE_ID_1 != phoneId && TAF_TYPES_PHONE_ID_2 != phoneId,
                          LE_BAD_PARAMETER, "Unsupported phoneId %d", phoneId);
 
@@ -979,6 +992,8 @@ le_result_t TafDcsProfileManager::SvcGetSessionState
 
     // Get a reference (profile) to TafDcsProfile object object that matches profileRef
     GET_DCS_PROFILE_FROM_REF_RET_VAL(profileRef, LE_NOT_FOUND);
+
+    TAF_CHECK_IF_PROFILE_IS_CREATED(profile);
 
     // Call the TafDcsProfile API with the object reference to get the session state
     taf_dcs_ConState_t connState, ipv4state, ipv6state;
@@ -2015,12 +2030,12 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
 
     if (TAF_DCS_DISCONNECTED == connState)
     {
-        LE_INFO("Already disconnected.");
+        LE_WARN("Already disconnected.  No active data call found.");
         // Remove the client from the list of clients that have requested data.
         // The return value does not matter in this scenario.
         profile.RemoveClient(clientRef, listSize);
         LE_DEBUG("Client %p removed. Num clients: %zu", clientRef, listSize);
-        return LE_OK;
+        return LE_NOT_FOUND;
     }
 
     // Remove the client from the list of clients that had called StartSession before stopping data.
@@ -2181,8 +2196,8 @@ void TafDcsProfileManager::SvcStopSessionASync
 
     if (TAF_DCS_DISCONNECTED == connState)
     {
-        LE_INFO("Already disconnected.");
-        response.result = LE_OK;
+        LE_WARN("Already disconnected. No active data call found.");
+        response.result = LE_NOT_FOUND;
         le_event_Report
         (
             tafDcsSvc.GetStopSessionAsyncRspEvtId(),
@@ -2488,12 +2503,12 @@ void TafDcsProfileManager::firstDataCallSessionStateHandler
     taf_dcs_StateInfo_t stateInfo;
     stateInfo.ipType = eventPtr->ipType;
 
-    LE_DEBUG("Call client function: %p", handlerFunc);
+    LE_DEBUG("Call SessionStateHandler client function: %p", handlerFunc);
     // Call the client callback
     handlerFunc
     (
         eventPtr->profileRef,
-        eventPtr->conState,
+        eventPtr->connState,
         &stateInfo,
         le_event_GetContextPtr()
     );
@@ -2508,6 +2523,8 @@ taf_dcs_SessionStateHandlerRef_t TafDcsProfileManager::SvcAddSessionStateHandler
 {
     // Get a reference (profile) to TafDcsProfile object object that matches profileRef
     GET_DCS_PROFILE_FROM_REF_RET_VAL(profileRef, nullptr);
+    TAF_CHECK_IF_PROFILE_IS_CREATED_RET_VAL(profile, nullptr);
+
     // Call the TafDcsProfile API with the object reference to get the profile's TAF reference
     le_event_Id_t sessionEvent = profile.GetSessionStateChangedEventId();
 
@@ -2517,6 +2534,8 @@ taf_dcs_SessionStateHandlerRef_t TafDcsProfileManager::SvcAddSessionStateHandler
                                                                    firstDataCallSessionStateHandler,
                                                                    (void *)handlerPtr
                                                                 );
+
+    LE_DEBUG("SessionStateHandler client func: %p", handlerPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
@@ -2556,6 +2575,8 @@ taf_dcs_QosStatusHandlerRef_t TafDcsProfileManager::SvcAddQosStatusHandler
 {
     // Get a reference (profile) to TafDcsProfile object object that matches profileRef
     GET_DCS_PROFILE_FROM_REF_RET_VAL(profileRef, nullptr);
+    TAF_CHECK_IF_PROFILE_IS_CREATED_RET_VAL(profile, nullptr);
+
     le_event_Id_t qosEvent = profile.GetQosStatusChangedEventId();
 
     le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler(
@@ -2603,6 +2624,7 @@ taf_dcs_HwAccelerationStateHandlerRef_t TafDcsProfileManager::SvcAddHwAccelerati
 {
     // Get a reference (profile) to TafDcsProfile object object that matches profileRef
     GET_DCS_PROFILE_FROM_REF_RET_VAL(profileRef, nullptr);
+    TAF_CHECK_IF_PROFILE_IS_CREATED_RET_VAL(profile, nullptr);
     // Call the TafDcsProfile API with the object reference to get the profile's TAF reference
     le_event_Id_t hwAccelerationEvent = profile.GetHwAccelStateChangedEventId();
 
@@ -2673,6 +2695,8 @@ taf_dcs_ThrottledStatusHandlerRef_t TafDcsProfileManager::SvcAddThrottledStatusH
 {
     // Get a reference (profile) to TafDcsProfile object object that matches profileRef
     GET_DCS_PROFILE_FROM_REF_RET_VAL(profileRef, nullptr);
+    TAF_CHECK_IF_PROFILE_IS_CREATED_RET_VAL(profile, nullptr);
+
     // Call the TafDcsProfile API with the object reference to get the profile's TAF reference
     le_event_Id_t throttledStatusEvent = profile.GetThrottledStatusEventId();
 
@@ -2855,9 +2879,21 @@ le_result_t TafDcsProfileManager::updateSessionDetails(const TafDcsSessionChange
         profile.ResetHostInterface();
     }
 
-    // Set the max bit rate
-    result = profile.SetMaxDataBitRates(eventPtr->maxRxBitRate, eventPtr->maxTxBitRate);
-    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "SetMaxDataBitRates failed: %d", TO_INT(result));
+    // Set the max bit rate if the data state is conencted or conenction and the values are not 0.
+    if (TAF_DCS_CONNECTED == eventPtr->connState || TAF_DCS_CONNECTING == eventPtr->connState)
+    {
+        if ( 0 != eventPtr->maxRxBitRate || 0 != eventPtr->maxTxBitRate)
+        {
+            LE_DEBUG ("Updated data bit rates.");
+            result = profile.SetMaxDataBitRates(eventPtr->maxRxBitRate, eventPtr->maxTxBitRate);
+            TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "SetMaxDataBitRates failed: %d",
+                                                                                    TO_INT(result));
+        }
+        else
+        {
+            LE_DEBUG ("Skip updating data bit rates.");
+        }
+    }
 
     return result;
 }
@@ -2867,21 +2903,17 @@ le_result_t TafDcsProfileManager::updateSessionDetails(const TafDcsSessionChange
 /**************************************************************************************************/
 
 // Send Session state change events to clients
-le_result_t TafDcsProfileManager::sendSessionSateEvent(const TafDcsSessionChangeEvent_t *eventPtr)
+le_result_t TafDcsProfileManager::sendSessionSateEvent(const TafDcsSessionChangeEvent_t &eventPtr)
 {
-    le_result_t result = LE_OK;
     // Get the profile object based on phone ID and profile ID
-    GET_DCS_PROFILE_FROM_ID_RET_VAL(
-        eventPtr->profile.phoneId, eventPtr->profile.profileId, LE_NOT_FOUND);
+    GET_DCS_PROFILE_FROM_ID_RET_VAL(eventPtr.profile.phoneId, eventPtr.profile.profileId,
+                                                                                    LE_NOT_FOUND);
 
     // Fill in the event to be sent
     TafDcsSessionStateChangedEvent_t event;
     event.profileRef = profile.GetReference();
-    taf_dcs_ConState_t ipv4state, ipv6state;
-    result = profile.GetSessionState(event.conState, ipv4state, ipv6state);
-    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetSessionState failed: %d", TO_INT(result));
-    result = profile.GetPdp(event.ipType);
-    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetPdp failed: %d", TO_INT(result));
+    event.connState  = eventPtr.connState;
+    event.ipType     = eventPtr.ipType_pdp;
 
     // Send the event
     le_event_Report
@@ -2890,7 +2922,6 @@ le_result_t TafDcsProfileManager::sendSessionSateEvent(const TafDcsSessionChange
         &event,
         sizeof(TafDcsSessionStateChangedEvent_t)
     );
-
     return LE_OK;
 }
 
@@ -3501,7 +3532,10 @@ void TafDcsProfileManager::tafPaDataCallEventsCb
 {
     LE_DEBUG("Phone   Id: %d", TO_INT(dataCallEventInfo.phoneId));
     LE_DEBUG("Profile Id: %d", TO_INT(dataCallEventInfo.profileId));
-    LE_DEBUG("State     : %d", TO_INT(dataCallEventInfo.callStatus));
+    LE_DEBUG("IP State  : %d", TO_INT(dataCallEventInfo.callStatus));
+    LE_DEBUG("IPv4 State: %d", TO_INT(dataCallEventInfo.ipv4DataCallInfo.callStatus));
+    LE_DEBUG("IPv6 State: %d", TO_INT(dataCallEventInfo.ipv6DataCallInfo.callStatus));
+    LE_DEBUG("IP Type   : %d", TO_INT(dataCallEventInfo.ipType));
     LE_UNUSED(context);
 
     TafDcsSessionChangeEvent_t event;
@@ -4153,23 +4187,61 @@ void TafDcsProfileManager::paSessionStateChangeEvtHandler(void *reqPtr)
     LE_DEBUG("The paSessionStateChangeEvtId_ handler");
     TAF_ERROR_IF_RET_NIL(nullptr == reqPtr, "reqPtr is NULL");
 
+    le_result_t result;
     TafDcsSessionChangeEvent_t *eventPtr = static_cast<TafDcsSessionChangeEvent_t *>(reqPtr);
+    // The event to send to the client
+    TafDcsSessionChangeEvent_t clientEvent;
+    taf_dcs_ConState_t curState, curIpv4State, curIpv6State;
+    taf_dcs_Pdp_t profileIpType;
+
     LE_DEBUG("Phone   Id: %d", TO_INT(eventPtr->profile.phoneId));
     LE_DEBUG("Profile Id: %d", TO_INT(eventPtr->profile.profileId));
-    LE_DEBUG("State     : %d", TO_INT(eventPtr->connState));
+    LE_DEBUG("IP State  : %d", TO_INT(eventPtr->connState));
+    LE_DEBUG("IPv4 State: %d", TO_INT(eventPtr->ipv4ConnState));
+    LE_DEBUG("IPv6 State: %d", TO_INT(eventPtr->ipv6ConnState));
     LE_DEBUG("IP Type   : %d", TO_INT(eventPtr->ipType_pdp));
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
+    // Get the profile object based on phone ID and profile ID
+    auto profileOptWrapper = tafDcsProfileManager.getProfile(eventPtr->profile.phoneId,
+                                                                    eventPtr->profile.profileId);
+    if (!profileOptWrapper.has_value())
+    {
+        LE_WARN("profile[%d,%d] not found", eventPtr->profile.phoneId,
+                eventPtr->profile.profileId);
+        return;
+    }
+    TafDcsProfile &profile = profileOptWrapper.value().get();
 
-    // Get a write lock
-    std::unique_lock<std::shared_mutex> lock(tafDcsProfileManager.profileReadWriteMutex_);
+    // Get the current call status from the profile object before it is updated.
+    {
+        // Get a read lock here as the profile is updated
+        std::shared_lock<std::shared_mutex> lock(tafDcsProfileManager.profileReadWriteMutex_);
+
+        clientEvent.profile.phoneId   = eventPtr->profile.phoneId;
+        clientEvent.profile.profileId = eventPtr->profile.profileId;
+
+        // Get the current call states
+        result = profile.GetSessionState(curState, curIpv4State, curIpv6State);
+        TAF_ERROR_IF_RET_NIL(LE_OK != result, "GetSessionState failed: %d", TO_INT(result));
+        // Get the profile IP type
+        result = profile.GetPdp(profileIpType);
+        TAF_ERROR_IF_RET_NIL(LE_OK != result, "GetPdp failed: %d", TO_INT(result));
+        LE_DEBUG("Current IP State  : %d", TO_INT(eventPtr->connState));
+        LE_DEBUG("Current IPv4 State: %d", TO_INT(eventPtr->ipv4ConnState));
+        LE_DEBUG("Current IPv6 State: %d", TO_INT(eventPtr->ipv6ConnState));
+    }
 
     // Update internal session state
-    le_result_t result = tafDcsProfileManager.updateSessionDetails(eventPtr);
-    TAF_ERROR_IF_RET_NIL(LE_NOT_FOUND == result, "Profile not found. Create it first!");
-    TAF_ERROR_IF_RET_NIL(LE_OK != result, "updateProfile failed: %d", result);
+    {
+        // Get a write lock here as the profile is updated
+        std::unique_lock<std::shared_mutex> lock(tafDcsProfileManager.profileReadWriteMutex_);
+        result = tafDcsProfileManager.updateSessionDetails(eventPtr);
+        TAF_ERROR_IF_RET_NIL(LE_NOT_FOUND == result, "Profile not found. Create it first!");
+        TAF_ERROR_IF_RET_NIL(LE_OK != result, "updateProfile failed: %d", result);
+    }
 
-    // If it's a TAF_DCS_CONENCTED or TAF_DCS_DISCONNECTED event, complete the promise, if waiting.
+    // If its a TAF_DCS_CONENCTED or TAF_DCS_DISCONNECTED event, complete the promise, if waiting.
     if (TAF_DCS_CONNECTED == eventPtr->connState || TAF_DCS_DISCONNECTED == eventPtr->connState)
     {
         if (tafDcsProfileManager.isSyncCmdPromiseWaiting_.load())
@@ -4181,16 +4253,9 @@ void TafDcsProfileManager::paSessionStateChangeEvtHandler(void *reqPtr)
         else
         {
             LE_DEBUG("syncCmdPromise_ is not waiting.");
-            // Get the profile object based on phone ID and profile ID
-            auto profileOptWrapper = tafDcsProfileManager.getProfile(
-                eventPtr->profile.phoneId, eventPtr->profile.profileId);
-            if (!profileOptWrapper.has_value())
-            {
-                LE_WARN("profile[%d,%d] not found",
-                        eventPtr->profile.phoneId, eventPtr->profile.profileId);
-                return;
-            }
-            TafDcsProfile &profile = profileOptWrapper.value().get();
+
+            // Get a read lock
+            std::shared_lock<std::shared_mutex> lock(tafDcsProfileManager.profileReadWriteMutex_);
 
             // This could be an async command. Send message to notify clients.
             auto &tafDcsSvc = TafDcsSvc::GetInstance();
@@ -4221,9 +4286,60 @@ void TafDcsProfileManager::paSessionStateChangeEvtHandler(void *reqPtr)
         }
     }
 
-    // Send event to registered clients
-    result = tafDcsProfileManager.sendSessionSateEvent(eventPtr);
-    TAF_ERROR_IF_RET_NIL(LE_OK != result, "sendSessionSateEvent failed: %d", result);
+    // Fill and send the client event according to the IP type(PD) and state.
+    if (TAF_DCS_PDP_IPV4V6 == profileIpType)
+    {
+        if (curIpv4State != eventPtr->ipv4ConnState)
+        {
+            clientEvent.connState  = eventPtr->ipv4ConnState;
+            clientEvent.ipType_pdp = TAF_DCS_PDP_IPV4;
+            // Send event to registered clients
+            LE_DEBUG("Sending IPv4v6 IPv4 state(old): %d(%d)", TO_INT(clientEvent.connState),
+                                                                            TO_INT(curIpv4State));
+            // sendSessionSateEvent will only return LE_OK. So no need to check return.
+            tafDcsProfileManager.sendSessionSateEvent(clientEvent);
+        }
+        if (curIpv6State != eventPtr->ipv6ConnState)
+        {
+            clientEvent.connState  = eventPtr->ipv6ConnState;
+            clientEvent.ipType_pdp = TAF_DCS_PDP_IPV6;
+            // Send event to registered clients
+            LE_DEBUG("Sending IPv4v6 IPv6 state(old): %d(%d)", TO_INT(clientEvent.connState),
+                                                                            TO_INT(curIpv6State));
+            // sendSessionSateEvent will only return LE_OK. So no need to check return.
+            tafDcsProfileManager.sendSessionSateEvent(clientEvent);
+        }
+    }
+    else if (TAF_DCS_PDP_IPV4 == profileIpType)
+    {
+        if (curIpv4State != eventPtr->ipv4ConnState)
+        {
+            clientEvent.connState  = eventPtr->ipv4ConnState;
+            clientEvent.ipType_pdp = TAF_DCS_PDP_IPV4;
+            // Send event to registered clients
+            LE_DEBUG("Sending IPv4 state(old): %d(%d)", TO_INT(clientEvent.connState),
+                                                                            TO_INT(curIpv4State));
+            // sendSessionSateEvent will only return LE_OK. So no need to check return.
+            tafDcsProfileManager.sendSessionSateEvent(clientEvent);
+        }
+    }
+    else if (TAF_DCS_PDP_IPV6 == profileIpType)
+    {
+        if (curIpv6State != eventPtr->ipv6ConnState)
+        {
+            clientEvent.connState  = eventPtr->ipv6ConnState;
+            clientEvent.ipType_pdp = TAF_DCS_PDP_IPV6;
+            // Send event to registered clients
+            LE_DEBUG("Sending IPv4v6 IPv6 state(old): %d(%d)", TO_INT(clientEvent.connState),
+                                                                            TO_INT(curIpv6State));
+            // sendSessionSateEvent will only return LE_OK. So no need to check return.
+            tafDcsProfileManager.sendSessionSateEvent(clientEvent);
+        }
+    }
+    else
+    {
+        LE_WARN ("Unknown PDP: %d", TO_INT(profileIpType));
+    }
 }
 
 void TafDcsProfileManager::registerPaRoamingEvtHandler(void *param1Ptr, void *param2Ptr)

@@ -74,7 +74,7 @@ struct TafDcsDataCallState_t
 struct TafDcsSessionStateChangedEvent_t
 {
     taf_dcs_ProfileRef_t  profileRef;
-    taf_dcs_ConState_t    conState;
+    taf_dcs_ConState_t    connState;
     taf_dcs_Pdp_t         ipType;
 };
 
@@ -794,7 +794,7 @@ private:
 
     //Declarations for client event handlers
     static void firstDataCallSessionStateHandler (void *reportPtr, void *clientHandlerFunc);
-    le_result_t sendSessionSateEvent   (const TafDcsSessionChangeEvent_t *eventPtr);
+    le_result_t sendSessionSateEvent   (const TafDcsSessionChangeEvent_t &eventPtr);
     static void firstRoamingStatusHandler        (void *reportPtr, void *clientHandlerFunc);
     le_result_t sendRoamingEvent       (const TafDcsRoamingStatus_t *eventPtr);
     static void firstThrottleStatusHandler        (void *reportPtr, void *clientHandlerFunc);

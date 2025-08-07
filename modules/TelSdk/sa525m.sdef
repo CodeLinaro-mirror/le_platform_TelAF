@@ -102,6 +102,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest/tafPMIntgTest
     // $TELAF_ROOT/apps/test/tafGpioTest/tafGpioUnitTest.adef
     // $TELAF_ROOT/apps/sample/eCallDemo/tafECallApp
+    // $TELAF_ROOT/apps/sample/eCallApp/tafECallRefApp
     // $TELAF_ROOT/apps/test/tafLocationTest/tafLocationUnitTest/tafLocationUnitTest
     // $TELAF_ROOT/apps/test/tafCanTest/tafCanUnitTest
     // $TELAF_ROOT/apps/test/tafFSCryptTest/tafFSCryptUnitTest/tafFSCryptUnitTest

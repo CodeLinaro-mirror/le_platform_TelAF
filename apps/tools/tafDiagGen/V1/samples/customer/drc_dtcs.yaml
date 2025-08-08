@@ -1,0 +1,60 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+events:
+  0x0001:
+    id: 0x0001
+    event_kind: SWC
+    failure_name: Sample_eventId1
+    confirmation_threshold: 3
+    operation_cycle: DC
+    debounce_algorithm: Counter_1
+    enable_condition: Enable_1
+
+  0x0002:
+    id: 0x0002
+    event_kind: SWC
+    failure_name: Sample_eventId2
+    confirmation_threshold: 3
+    operation_cycle: DC
+    debounce_algorithm: Counter_1
+    enable_condition: Enable_1
+
+  0x0005:
+    id: 0x0005
+    event_kind: SWC
+    failure_name: Sample_eventId3
+    confirmation_threshold: 3
+    operation_cycle: DC
+    debounce_algorithm: Counter_1
+    enable_condition: Enable_1
+
+dtc_all:
+  0xAB0000:
+    identification:
+      code: 0xAB0000
+      priority: 3
+      fault_type: 0x00
+      extended_data_records: [OccurrenceCounter]
+    snapshots:
+      snapshot_record_content: base
+      freeze_frames: [firstOccurrence]
+    access:
+      session: ['programming_session']
+      security_type: 0x27
+    events: [ 0x0001, 0x0005 ]
+
+  0xAB00CC:
+    identification:
+      code: 0xAB00CC
+      priority: 3
+      fault_type: 0x00
+      description: Frames XX are missing during XXs
+      extended_data_records: [OccurrenceCounter]
+    snapshots:
+      snapshot_record_content: base
+      freeze_frames: [firstOccurrence]
+    access:
+      session: ['default_session', 'extended_diagnostic_session']
+      security_type: 0x27
+    events: [ 0x0002 ]

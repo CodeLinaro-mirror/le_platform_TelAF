@@ -1,0 +1,31 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+routines_all:
+  0x0246:
+    identifier: 0x0246
+    mnemonic: Sample_rid1
+    type: 1
+    access:
+      session: [ default_session, programming_session, extended_diagnostic_session]
+      security_type: 0x27
+    routine_role: [ b1 ]
+    request:
+      sub_function: [ 0x01, 0x02, 0x03 ]
+    positive_response:
+      status_record: # Byte 5-n (Optional)
+        info: [ 0x30, 0x31, 0x32 ]
+  0x0247:
+    identifier: 0x0247
+    mnemonic: Sample_rid2
+    type: 3
+    execution_conditions: example for 0x0247
+    access:
+      session: [ default_session, extended_diagnostic_session ]
+      security_type: 0x27
+    routine_role: [ b1 ]
+    request:
+      sub_function: [ 0x01, 0x02, 0x03 ]
+
+
+

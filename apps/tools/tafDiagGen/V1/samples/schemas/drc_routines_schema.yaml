@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 service_identifier: hexa()
@@ -17,7 +17,7 @@ Ref17_item:
   category: enum("Ecall",required=False)
   execution_conditions: str(matches='^([\d\w\W\s\(\)\.=]+)$',max=200,required=False)
   access:
-    session: list(enum('default_session', 'programming_session', 'extended_diagnostic_session', 'vehicle_manufacturer_specific_session', 'fota_session', 'downloaded_enumlation_session', 'system_supplier_specific_session'), required=False)
+    session: list(enum('default_session', 'programming_session', 'extended_diagnostic_session', 'vehicle_manufacturer_specific_session', 'fota_session', 'system_supplier_specific_session'), required=False)
     security_type: hexa(required=False)
     security_level: list(str(),required=False)
   routine_role: list(enum('b1','b2','b3','b4','b5','b6'),required=False)

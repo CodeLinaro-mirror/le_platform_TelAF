@@ -1,0 +1,317 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+did_all:
+  0xF0D0:
+    identification:
+      code: 0xF0D0
+      did_mnemonic: Sample_did1
+    implementation:
+      did_size: 3
+      endianness: MSB
+      bytes:
+        0: # byte_start_position
+          0: # bit_start_position
+            data_ref_mnemonic: Sample_did1_ref
+    supported_functions:
+      category: DTC snapshot
+      write_did: False
+      read_did: False
+      snapshot: True
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session:
+          R:
+            security: false
+            security_level: []
+        extended_diagnostic_session:
+          R:
+            security: false
+            security_level: []
+    functional_specification: "Sample_did1 functional_specification"
+    functional_requirement: "Sample_did1 functional_requirement"
+  0xF0D2:
+    identification:
+      code: 0xF0D2
+      did_mnemonic: Sample_did2
+    implementation:
+      did_size: 6
+      endianness: MSB
+      bytes:
+        0: # byte_start_position
+          0: # bit_start_position
+            data_ref_mnemonic: Sample_did2_ref
+    supported_functions:
+      category: DTC snapshot
+      write_did: False
+      read_did: False
+      snapshot: True
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session:
+          R:
+            security: false
+            security_level: []
+        extended_diagnostic_session:
+          R:
+            security: false
+            security_level: []
+    functional_specification: "Sample_did2 functional_specification"
+    functional_requirement: "Sample_did2 functional_requirement"
+  0xEF01:
+    identification:
+      code: 0xEF01
+      did_mnemonic: SupplierFaultCode
+    implementation:
+      did_size: 10
+      endianness: MSB
+      bytes:
+        0: # byte_start_position
+          0: # bit_start_position
+            data_ref_mnemonic: SupplierFaultCode_ref
+    supported_functions:
+      category: DTC snapshot
+      write_did: False
+      read_did: False
+      snapshot: True
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session:
+          R:
+            security: false
+            security_level: []
+        extended_diagnostic_session:
+          R:
+            security: false
+            security_level: []
+    functional_specification: "SupplierFaultCode functional_specification"
+    functional_requirement: "SupplierFaultCode functional_requirement"
+  0xF011:
+    identification:
+      code: 0xF011
+      did_mnemonic: Sample_did3
+    implementation:
+      did_size: 10
+      endianness: MSB
+      bytes:
+        0: # byte_start_position
+          0: # bit_start_position
+            data_ref_mnemonic: Sample_did3_ref
+    supported_functions:
+      category: DTC snapshot
+      write_did: False
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session:
+          R:
+            security: false
+            security_level: []
+        extended_diagnostic_session:
+          R:
+            security: false
+            security_level: []
+        programming_session:
+          R:
+            security: false
+            security_level: []
+    access:
+      session: ['extended_diagnostic_session']
+      security_type: 0x27
+    functional_specification: "Sample_did3 functional_specification"
+    functional_requirement: "Sample_did3 functional_requirement"
+  0xA5A5:
+    identification:
+      code: 0xA5A5
+      did_mnemonic: Sample_did4
+    implementation:
+      did_size: 1
+      endianness: MSB
+      bytes:
+        0: # byte_start_position
+          0: # bit_start_position
+            data_ref_mnemonic: Sample_did4_ref
+    supported_functions:
+      category: DTC snapshot
+      write_did: False
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session:
+          R:
+            security: false
+            security_level: []
+        extended_diagnostic_session:
+          R:
+            security: false
+            security_level: []
+          W:
+            security: true
+            security_level:
+              - SecAcc_Level_AA
+        programming_session:
+          R:
+            security: false
+            security_level: []
+          W:
+            security: true
+            security_level:
+              - SecAcc_Level_AA
+    access:
+      session: ['extended_diagnostic_session']
+      security_type: 0x27
+    functional_specification: "Sample_did4 functional_specification"
+    functional_requirement: "Sample_did4 functional_requirement"
+  0xA5A6:
+    identification:
+      code: 0xA5A6
+      did_mnemonic: Sample_did5
+    implementation:
+      did_size: 1
+      endianness: MSB
+      bytes:
+        0: # byte_start_position
+          0: # bit_start_position
+            data_ref_mnemonic: Sample_did5_ref
+    supported_functions:
+      category: DTC snapshot
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session:
+          R:
+            security: false
+            security_level: []
+          W:
+            security: false
+            security_level: []
+        extended_diagnostic_session:
+          R:
+            security: false
+            security_level: []
+          W:
+            security: true
+            security_level:
+              - SecAcc_Level_AA
+        programming_session:
+          R:
+            security: false
+            security_level: []
+    access:
+      session: ['extended_diagnostic_session']
+      security_type: 0x27
+    functional_specification: "Sample_did5 functional_specification"
+    functional_requirement: "Sample_did5 functional_requirement"
+  0xACC8:
+    identification:
+      code: 0xACC8
+      did_mnemonic: Sample_did6
+    implementation:
+      did_size: 1
+      endianness: MSB
+      bytes:
+        0: # byte_start_position
+          0: # bit_start_position
+            data_ref_mnemonic: Sample_did6_ref
+    supported_functions:
+      category: DTC snapshot
+      write_did: False
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session:
+          R:
+            security: false
+            security_level: []
+          W:
+            security: false
+            security_level: []
+        extended_diagnostic_session:
+          R:
+            security: false
+            security_level: []
+          W:
+            security: true
+            security_level:
+              - SecAcc_Level_AA
+        programming_session:
+          R:
+            security: false
+            security_level: []
+    access:
+      session: ['programming_session']
+      security_type: 0x27
+    read_role: [ b1 ]
+    write_role: [ b1 ]
+    functional_specification: "Sample_did6 functional_specification"
+    functional_requirement: "Sample_did6 functional_requirement"
+  0xACC9:
+    identification:
+      code: 0xACC9
+      did_mnemonic: Sample_did7
+    implementation:
+      did_size: 1
+      endianness: LSB
+      bytes:
+        0: # byte_start_position
+          0: # bit_start_position
+            data_ref_mnemonic: Sample_did7_ref
+    supported_functions:
+      category: DTC snapshot
+      write_did: True
+      read_did: True
+      snapshot: False
+      io_control: False
+      routine_did: False
+    did_accessibility:
+      diagnostic_session:
+        default_session:
+          R:
+            security: false
+            security_level: []
+          W:
+            security: false
+            security_level: []
+        extended_diagnostic_session:
+          R:
+            security: false
+            security_level: []
+          W:
+            security: true
+            security_level:
+              - SecAcc_Level_AA
+        programming_session:
+          R:
+            security: false
+            security_level: []
+          W:
+            security: true
+            security_level:
+              - SecAcc_Level_AA
+    access:
+      session: ['extended_diagnostic_session']
+      security_type: 0x27
+    read_role: [ b1 ]
+    write_role: [ b1 ]
+    functional_specification: "Sample_did7 functional_specification"
+    functional_requirement: "Sample_did7 functional_requirement"
+

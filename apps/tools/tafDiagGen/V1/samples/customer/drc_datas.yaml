@@ -1,0 +1,16 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+datas:
+  VersionID:
+    mnemonic: Sample_VersionID
+    description: |-
+      DID version to track evolutions
+    functional_definition:
+      data_type: Numeric
+      value_type: uint8
+      bit_size: 7
+      min: 1
+      max: 12
+      feature: SW_Update
+

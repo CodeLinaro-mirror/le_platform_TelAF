@@ -1,0 +1,23 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+data_identifier_set:
+  base: [ 0xF0D0, 0xF0D2 ]
+  obd_Freeze_frame_1: [0x1122]
+  Freeze_frame_1: [0x2233]
+
+freeze_frame_trigger_type:
+  - DEM_TRIGGER_ON_CONFIRMED
+  - DEM_TRIGGER_ON_EVERY_TEST_FAILED
+  - DEM_TRIGGER_ON_FDC_THRESHOLD
+  - DEM_TRIGGER_ON_PENDING
+  - DEM_TRIGGER_ON_TEST_FAILED
+  - DEM_TRIGGER_ON_TEST_FAILED_THIS_OPERATION_CYCLE
+
+freeze_frames:
+  firstOccurrence:
+    short_name: firstOccurrence
+    record_number: 0x01
+    trigger: DEM_TRIGGER_ON_TEST_FAILED
+    update: false
+    custom_trigger: WWW

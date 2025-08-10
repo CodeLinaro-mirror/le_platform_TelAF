@@ -169,8 +169,45 @@ build_extras() {
     fi
 }
 
+build_extras_pa() {
+    local EXTRA_SRC_PATH=$1
+    local INSTALL_DIR=$2
+
+    if [ -z "${EXTRA_SRC_PATH}" ]; then
+        echo "Error: Missing EXTRA_SRC_PATH argument"
+        return 1
+    fi
+
+    if [ -f "${EXTRA_SRC_PATH}/build_pa.sh" ]; then
+        echo ">>> Running ${EXTRA_SRC_PATH}/build_pa.sh"
+        (cd "${EXTRA_SRC_PATH}" && ./build_pa.sh "${INSTALL_DIR}")
+        if [ $? -ne 0 ]; then
+            echo "Error: when running ${EXTRA_SRC_PATH}/build_pa.sh"
+            return 1
+        fi
+        echo ">>> Build completed. Output: ${INSTALL_DIR}"
+    else
+        echo "Error: build_pa.sh not found in ${EXTRA_SRC_PATH}"
+        return 1
+    fi
+}
+
 function build_target() {
     local TARGET=$1
+
+    export TELAF_TARGET_PA_LIB_DIR="${TELAF_PA}/staging/"
+    build_extras_pa "${TELAF_PA}" "${TELAF_TARGET_PA_LIB_DIR}/"
+    if [ $? -ne 0 ]; then
+        echo "Error: when building target PA for target ${TARGET}"
+        return
+    fi
+
+    export TELAF_DEFAULT_PA_LIB_DIR="${TELAF_PA_DEFAULT}/staging/"
+    build_extras_pa "${TELAF_PA_DEFAULT}" "${TELAF_DEFAULT_PA_LIB_DIR}/"
+    if [ $? -ne 0 ]; then
+        echo "Error: when building default PA for target ${TARGET}"
+        return
+    fi
 
     # Build TelAF OSS source code
     make "${TARGET}"
@@ -198,7 +235,17 @@ function build_target() {
 
     echo "### telaf-noship dir: ${TELAF_NOSHIP_BUILD_DIR} ###"
     echo "### telaf-prop dir: ${TELAF_PROP_BUILD_DIR} ###"
-    ${TELAF_ROOT}/mkimg.sh "${TARGET}" "$TELAF_REPACK_DIR" "$TELAF_NOSHIP_BUILD_DIR" "$TELAF_PROP_BUILD_DIR" "$TELAF_PA_BUILD_DIR"
+
+    ${TELAF_ROOT}/mkimg.sh \
+      -t "${TARGET}" \
+      -o "${TELAF_REPACK_DIR}" \
+      -s "${TELAF_REPACK_DIR}/_staging_system.${TARGET}.update_ro" \
+      -n "${TELAF_NOSHIP_BUILD_DIR}" \
+      -p "${TELAF_PROP_BUILD_DIR}" \
+      -a "${TELAF_PA_BUILD_DIR}" \
+      -r "${TELAF_ROOT}" \
+      -w "${TELAF_TARGET_PA_LIB_DIR}" \
+      -d "${TELAF_DEFAULT_PA_LIB_DIR}"
     if [ $? -ne 0 ]; then
         echo "Error: ${TELAF_ROOT}/mkimg.sh ${TARGET} "$TELAF_REPACK_DIR" "$TELAF_NOSHIP_BUILD_DIR" "$TELAF_PROP_BUILD_DIR""
         return

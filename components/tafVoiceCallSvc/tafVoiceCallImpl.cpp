@@ -36,13 +36,16 @@
 #include <chrono>
 #include <future>
 #include <unistd.h>
+#include <any>
 #include "legato.h"
 #include "interfaces.h"
 #include "tafVoiceCall.hpp"
-#include "taf_pa_voicecall.h"
+#include "taf_pa_voicecall.hpp"
 
 using namespace std;
 using namespace tafsvc;
+
+using namespace tafpa::voicecall;
 
 #define VoiceCallInfoConfFile "/tmp/.VoiceCallInfo"
 
@@ -79,34 +82,30 @@ void Handler::ProcessStateChanged(void *reportPtr)
     auto &myCall = VoiceCallSvc::GetInstance();
     myCall.CallHandler(eventVoicePtr);
 }
-
+  
 // State changed listener to platform adapter
-void Handler::PaEventListener(taf_pa_voicecall_Ref_t reference, taf_pa_voicecall_event_t event, void *contextPtr)
+void Handler::PaEventListener(const taf_pa_voicecall_CallInfo_t &callInfo, taf_pa_voicecall_event_t event, std::any context)
 {
     auto &myCall = VoiceCallSvc::GetInstance();
     CallEvent_t msgCallEvent;
 
-    int8_t phoneId = taf_pa_voicecall_GetCallPhoneId(reference);
-    taf_pa_voicecall_dir_t direction = taf_pa_voicecall_GetCallDirection(reference);
+    taf_pa_voicecall_dir_t direction = callInfo.direction;
     char destinationPtr[PA_MAX_DESTINATION_LEN_BYTE];
-    TAF_ERROR_IF_RET_NIL(taf_pa_voicecall_GetCallDestination(reference, destinationPtr, PA_MAX_DESTINATION_LEN_BYTE) != LE_OK, "Cannot get dest ID");
+    le_result_t copyRes = le_utf8_Copy(destinationPtr,
+                                       callInfo.destId,
+                                       sizeof(destinationPtr),
+                                       NULL);
+    if (copyRes != LE_OK)
+    {
+        LE_WARN("destId copy result: %d (may be truncated)", copyRes);
+    }
+    int phoneId = callInfo.phoneId;
     if (event == TAF_PA_VOICECALL_EVENT_ENDED)
     {
-        taf_pa_voicecall_termination_t termination;
-        if (taf_pa_voicecall_GetCallTermination(reference, &termination) == LE_OK)
-        {
-            msgCallEvent.termination = myCall.EndCauseConvert(termination);
-            LE_INFO("Termination reason %d for this call: %s", msgCallEvent.termination, destinationPtr);
-        }
-        else
-        {
-            LE_ERROR("Cannot get termination code from: %p!", reference);
-        }
+        msgCallEvent.termination = myCall.EndCauseConvert(callInfo.termination);
     }
 
-    taf_pa_voicecall_DeleteReference(reference);
-
-    LE_INFO("PA event phone %d, dest %s, dir %d, event %s", phoneId, destinationPtr, direction, myCall.PaEventToString(event));
+    LE_INFO("PA event phone %d, dest %s, event %s", phoneId, destinationPtr, myCall.PaEventToString(event));
 
     // To fix the corner case, iCall is released later when testing with telsdk app,
     // callRef is used for the event report.
@@ -731,7 +730,6 @@ le_result_t VoiceCallSvc::UnsetSessionRefToCallCtx(taf_VoiceCtrl_t* callCtxPtr, 
     return LE_OK;
 }
 
-
 le_result_t VoiceCallSvc::MakeCall(taf_VoiceCtrl_t *callCtxPtr, const char *dialNumber, int phoneId)
 {
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot found callCtx");
@@ -755,8 +753,8 @@ le_result_t VoiceCallSvc::MakeCall(taf_VoiceCtrl_t *callCtxPtr, const char *dial
 
     LE_INFO("MakeCall completed successfully");
     return LE_OK;
-
 }
+
 
 le_result_t VoiceCallSvc::AnswerCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef)
 {
@@ -904,7 +902,6 @@ le_result_t VoiceCallSvc::SwapCall(taf_voicecall_CallRef_t callRef, le_msg_Sessi
         TAF_VOICECALL_EVENT_CALL_SWAP_FAILED,
         "SwapCall"
     );
-
 }
 
 const char* VoiceCallSvc::PaEventToString(taf_pa_voicecall_event_t event) 
@@ -1017,11 +1014,16 @@ void VoiceCallSvc::Init(void)
     }
 
     // Register platform adapter listener
-    le_result_t result = taf_pa_voicecall_RegisterEventListener(Handler::PaEventListener, nullptr);
-    if (result != LE_OK)
+    pa_result_t result = taf_pa_voicecall_RegisterEventListener(Handler::PaEventListener, nullptr);
+    if (result != PA_OK)
     {
         LE_ERROR("Failed to register platform adapter listener, ret: %d", result);
     }
+
+    taf_pa_voicecall_CallInfo_t callInfo;
+    taf_pa_voicecall_termination_t termination;
+
+    taf_pa_voicecall_GetCallTermination(callInfo, &termination);
 
     LE_INFO("System ready, start voice call service!\n");
 

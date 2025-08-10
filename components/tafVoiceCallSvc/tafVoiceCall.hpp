@@ -9,7 +9,9 @@
 #include <memory>
 #include <vector>
 #include "tafSvcIF.hpp"
-#include "taf_pa_voicecall.h"
+#include "taf_pa_voicecall.hpp"
+
+using namespace tafpa::voicecall;
 
 namespace tafsvc {
 
@@ -95,7 +97,7 @@ struct CallEvent_t {
 };
 
 struct CallbackContext {
-    std::function<void(le_result_t)> callback;
+    std::function<void(pa_result_t)> callback;
     std::shared_ptr<void> keepAlive;
 };
 
@@ -171,13 +173,17 @@ public:
     le_dls_List_t SessionCtxList = LE_DLS_LIST_INIT;
     le_dls_List_t CallCtrlList = LE_DLS_LIST_INIT;
 
-    static void commonCallback(taf_pa_voicecall_Ref_t reference, le_result_t result, void* contextPtr)
+    static void commonCallback(
+        pa_result_t errorCode,
+        const taf_pa_voicecall_CallInfo_t& callInfo,
+        std::any context
+    )
     {
-        auto* ctx = static_cast<CallbackContext*>(contextPtr);
+        auto ctx = std::any_cast<std::shared_ptr<CallbackContext>>(context);
         if (ctx && ctx->callback) {
             try {
-                LE_INFO("Get result from PA: %d", result);
-                ctx->callback(result);
+                LE_INFO("Get result from PA: %d", errorCode);
+                ctx->callback(errorCode);
             } catch (const std::exception& e) {
                 LE_ERROR("Exception in lambda callback: %s", e.what());
             } catch (...) {
@@ -185,6 +191,11 @@ public:
             }
             ctx->keepAlive.reset();
         }
+    }
+
+    static le_result_t ConvertPaResult(pa_result_t paResult)
+    {
+        return (le_result_t)paResult;
     }
 
     template<typename CallFunc>
@@ -195,49 +206,54 @@ public:
         taf_voicecall_Event_t failEvent,
         const char* actionName)
     {
-        auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-        std::weak_ptr<std::promise<le_result_t>> weakPromise = promisePtr;
-        std::future<le_result_t> futResult = promisePtr->get_future();
+        auto promisePtr = std::make_shared<std::promise<pa_result_t>>();
+        std::weak_ptr<std::promise<pa_result_t>> weakPromise = promisePtr;
+        std::future<pa_result_t> futResult = promisePtr->get_future();
     
         auto cmdCtx = std::make_shared<CallbackContext>();
         cmdCtx->keepAlive = cmdCtx;
-        cmdCtx->callback = [weakPromise](le_result_t result)
+        cmdCtx->callback = [weakPromise](pa_result_t result)
         {
             if (auto locked = weakPromise.lock()) {
                 locked->set_value(result);
             }
         };
 
-        taf_pa_voicecall_Ref_t callInfoRef = taf_pa_voicecall_CreateReference(
-            callCtxPtr->phoneId, callCtxPtr->destId, direction);
-        if (!callInfoRef)
+        taf_pa_voicecall_CallInfo_t callInfo;
+        callInfo.phoneId = callCtxPtr->phoneId;
+        le_result_t copyRes = le_utf8_Copy(
+            callInfo.destId,
+            callCtxPtr->destId,
+            sizeof(callInfo.destId),
+            nullptr
+        );
+        if (copyRes != LE_OK)
         {
-            LE_ERROR("Cannot create call reference for %s", actionName);
-            return LE_FAULT;
+            LE_WARN("destId copy result: %d (dest may be truncated or invalid UTF-8)", copyRes);
         }
+        callInfo.direction = direction;
 
-        le_result_t result = callFunc(callInfoRef, commonCallback, cmdCtx.get());
-        if (result != LE_OK)
+        std::any context = cmdCtx;
+
+        pa_result_t result = callFunc(callInfo, commonCallback, context);
+        if (result != PA_OK)
         {
             LE_ERROR("%s failed immediately: %d", actionName, result);
-            taf_pa_voicecall_DeleteReference(callInfoRef);
             CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
                 "", callCtxPtr->callRef, failEvent, TAF_VOICECALL_END_UNDEFINED};
             le_event_Report(CallEvent, &msgCallEvent, sizeof(CallEvent_t));
-            return result;
+            return ConvertPaResult(result);
         }
 
         if (futResult.wait_for(std::chrono::milliseconds(CMD_TIMEOUT_MS)) == std::future_status::timeout)
         {
-            taf_pa_voicecall_DeleteReference(callInfoRef);
             LE_ERROR("%s timed out", actionName);
             return LE_TIMEOUT;
         }
 
-        le_result_t asyncResult = futResult.get();
-        taf_pa_voicecall_DeleteReference(callInfoRef);
+        pa_result_t asyncResult = futResult.get();
     
-        if (asyncResult != LE_OK)
+        if (asyncResult != PA_OK)
         {
             LE_ERROR("%s failed in callback", actionName);
             CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
@@ -264,7 +280,7 @@ public:
     // Define the call ctrl for release handler
     static void ReleaseCallCtrlHandler(void* objPtr);
 
-    static void PaEventListener(taf_pa_voicecall_Ref_t reference, taf_pa_voicecall_event_t event, void *contextPtr);
+    static void PaEventListener(const taf_pa_voicecall_CallInfo_t &callInfo, taf_pa_voicecall_event_t event, std::any context);
 };
 
 

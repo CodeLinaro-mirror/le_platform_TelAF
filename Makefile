@@ -22,6 +22,8 @@ DGTOOL ?= dgtool-V2
 SE_FILES = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name *.pp -type f)
 SE_MODS = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name tmp -type d)
 
+PA_BUILD_DIRS := $(TELAF_PA)/build $(TELAF_PA)/staging $(TELAF_PA_DEFAULT)/build $(TELAF_PA_DEFAULT)/staging
+
 # Sub-Makefile for TelAF Simulation, but we need to
 # prevent 'simulation' target from affecting other targets.
 ifneq ($(filter simula%,$(MAKECMDGOALS)),)
@@ -72,7 +74,7 @@ $(TARGETS):
 $(UTILITIES):
 	@$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT=$(TELAF_ROOT)
 	@$(MAKE) --no-print-directory -C $(TELAF_ROOT)/apps/tools/tafDiagGen -f dgtool.mk cleanall-venv
-	@rm -rf $(TELAF_BUILD)
+	@rm -rf $(TELAF_BUILD) $(PA_BUILD_DIRS)
 	@rm -fr $(SE_FILES) $(SE_MODS)
 	@rm -f simulation/workstation/.check_done
 

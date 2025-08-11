@@ -10,17 +10,12 @@
 #include <map>
 #include <vector>
 #include <iostream>
-#include <telux/data/DataFactory.hpp>
-#include <telux/data/net/VlanManager.hpp>
 #include "tafSvcIF.hpp"
+#include "taf_pa_vlan.hpp"
 
 #define MIN_VLAN_ID                         1  /*vlan 0 is reserved as per RFC*/
 #define MAX_VLAN_ID                         4094/*vlan 4095 is max and it is reserved*/
 #define MAX_VLAN_PRIORITY                   7  /*The maxium value of vlan priority*/
-
-using namespace telux::data;
-using namespace telux::common;
-
 
 
 /*
@@ -157,61 +152,7 @@ typedef struct
 } VlanHwAccelerationState_t;
 
 namespace tafsvc {
-    /*
-     * @brief A callback class must be provided when invoke teladk API.
-     */
-    class tafVlanCallback
-    {
-        public:
-            static void onVlanListResponse(
-                      const std::vector<telux::data::VlanConfig> &vlanConfigs,
-                      telux::common::ErrorCode error);
 
-            tafVlanCallback(){};
-            ~tafVlanCallback(){};
-            static std::vector<telux::data::VlanConfig> vlanEntryInfo;
-            static le_sem_Ref_t semaphore;
-    };
-
-    /*
-     * @brief A callback class must be provided when invoke teladk API.
-     */
-    class tafVlanMappingCallback
-    {
-        public:
-            void onVlanMappingListResponse(
-                      const std::list<std::pair<int, int>> &mapping,
-                      telux::common::ErrorCode error);
-
-            tafVlanMappingCallback(SlotId slot);
-            ~tafVlanMappingCallback(){};
-            static std::map<SlotId, std::list<std::pair<int, int>>> slotVlanMappingInfo;
-            static le_sem_Ref_t semaphore;
-        private:
-            SlotId slotId;
-    };
-
-    class tafVlanBackhaulPrefCallback
-    {
-        public:
-            static le_sem_Ref_t semaphore;
-            static le_result_t result;
-            static taf_net_BackhaulType_t backhaulPrefListPtr[TAF_NET_MAX_BH_NUM];
-            static size_t backhaulPrefListSize;
-
-            static void backhaulPrefResponse(
-                const std::vector<telux::data::BackhaulType> backhaulPref,
-                telux::common::ErrorCode error);
-            static void setBackhaulPrefResponse(telux::common::ErrorCode error);
-    };
-
-    class taf_VlanListener : public  telux::data::net::IVlanListener
-    {
-        public:
-          taf_VlanListener();
-
-          void onHwAccelerationChanged(const telux::data::ServiceState state) override;
-    };
     /*
      * @brief taf_Vlan class defined as a middleware between interfaces and implementation.
      */
@@ -227,10 +168,8 @@ namespace tafsvc {
             static void ClientCloseSessionHandler(le_msg_SessionRef_t sessionRef, void *contextPtr);
             le_result_t BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint8_t slotId, uint32_t profileId);
             le_result_t UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef);
-            void onInitComplete(telux::common::ServiceStatus status);
-            void onInitCompleteDataSettings(telux::common::ServiceStatus status);
             uint16_t GetBackhaulVlanIdBoundWithVlan(uint16_t vlanId,
-                                         taf_net_BackhaulType_t backhaulType, SlotId slot);
+                                         taf_net_BackhaulType_t backhaulType, uint8_t slot);
             uint16_t GetBoundVlanIdFromSlotAndProfile(uint8_t slotId, uint32_t profileId);
             le_result_t GetBoundSlotIdProfileIdFromVlan(uint16_t vlanId, uint8_t* slotId,
                                                         uint32_t* profileId);
@@ -322,9 +261,8 @@ namespace tafsvc {
             le_result_t SetBackhaulPreference(const taf_net_BackhaulType_t* backhaulPrefListPtr,
                                               size_t backhaulPrefListSize);
 
-
-            static bool sort_vlanId(const telux::data::VlanConfig& s1,
-                                    const telux::data::VlanConfig& s2);
+            static bool sort_vlanId(const taf_pa_Vlan_t& s1,
+                                    const taf_pa_Vlan_t& s2);
 
             le_mem_PoolRef_t vlanPool;
             le_ref_MapRef_t vlanRefMap;
@@ -350,19 +288,10 @@ namespace tafsvc {
             // Hardware acceleration state event related declarations and functions
             le_event_Id_t vlanHwAccelerationStateEvtId;
             le_mem_PoolRef_t vlanHwAccelerationStateEvtPool;
-            static taf_net_VlanHwAccelerationState_t ConvertHwAccelerationSate(
-                                                            const telux::data::ServiceState state);
-            std::shared_ptr<telux::data::net::IVlanListener>   vlanListener;
-            std::shared_ptr<taf_VlanListener>   tafVlanListener;
-            std::shared_ptr<telux::data::net::IVlanManager> vlanManager = nullptr;
 
-        private:
-            std::shared_ptr<telux::data::IDataSettingsManager> dataSettingsManager = nullptr;
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            bool IsSubSystemStatusUpdated=false;
-            std::mutex mMutex;
-            std::condition_variable conVar;
-#endif
+            static std::map<uint8_t, std::list<std::pair<int, int>>> slotVlanMappingInfo;
+            static std::vector<taf_pa_Vlan_t> vlanPAEntryInfo;
+
     };
 
 }

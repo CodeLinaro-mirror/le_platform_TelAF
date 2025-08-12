@@ -967,7 +967,6 @@ void Test_Audio_NodeAPI
     int input;
     string data, dir;
     taf_audioVendor_Direction_t direction;
-    char* p = NULL;
     le_result_t res = LE_FAULT;
     cout<<endl<<"Node API testing:"<<endl;
     cout<<"**************"<<endl;
@@ -1182,8 +1181,6 @@ void Test_Audio_NodeAPI
         }
     }else
         cout<<"Invalid input"<<endl;
-    if(p == NULL)
-        LE_ERROR("Not able to get the input");
 }
 
 void AudioEventHandler(int fd, short events)

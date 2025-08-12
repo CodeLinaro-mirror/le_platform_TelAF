@@ -94,6 +94,57 @@ void taf_Audio::BuBStatusCB(int32_t status, void *contextptr)
     }
 }
 
+/**
+ * Advertise the audio service.
+ */
+void taf_Audio::AdvertiseAndRegisterHandler()
+{
+    taf_audio_AdvertiseService();
+    // Add a handler to the close session service
+    le_msg_AddServiceCloseHandler( taf_audio_GetServiceRef(),
+                                   ClientSessionCloseEventHandler,
+                                   NULL );
+}
+
+/**
+ * Load Audio VHAL until retry count reaches the maximum value.
+ */
+void taf_Audio::RetryHandler(le_timer_Ref_t timerRef)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    auto &audio = taf_Audio::GetInstance();
+    uint32_t expiryCount = le_timer_GetExpiryCount(timerRef);
+    LE_INFO("expiryCount = %d", expiryCount);
+    if(expiryCount < MAX_NUM_OF_ATTEMPTS)
+    {
+        // Load Audio VHAL. IF failed to load Audio VHAL, try again later.
+        if(!audioVhal.isVhalLoaded)
+        {
+            le_result_t res = audioVhal.LoadDriver();
+            if(res == LE_OK){
+                LE_INFO("Audio VHAL loaded successfully, advertise the service.");
+                // Loaded VHAL successfully. Delete the timer.
+                le_timer_Delete(timerRef);
+                audio.AdvertiseAndRegisterHandler();
+            }
+        }
+
+        return;
+    }
+
+    if(!audioVhal.isVhalLoaded)
+    {
+        //Load Audio VHAL timeout, continue without Audio VHAL module.
+        LE_ERROR("Failed to load Audio VHAL module after all retry attempts!");
+    }
+
+    le_timer_Delete(timerRef);
+    // Advertise service after max retries to load VHAL, service to continue without VHAL.
+    LE_INFO("Advertise services after max tries to load VHAL, service to continue without VHAL");
+    audio.AdvertiseAndRegisterHandler();
+    audioVhal.AdvertiseVendorService();
+}
+
 void taf_Audio::Init(void)
 {
     LE_INFO("taf_Audio: Init");
@@ -155,10 +206,34 @@ void taf_Audio::Init(void)
 
     // Load audio VHAL driver
     auto &audioVhal = taf_AudioVhal::GetInstance();
-    audioVhal.Init();
+    le_result_t res = audioVhal.LoadDriver();
 
-    isVhalAvailable = audioVhal.isAudioDrvAvailable();
-    LE_INFO("isVhalAvailable : %s", isVhalAvailable ? "true" : "false");
+    if(res == LE_OK)
+    {
+        AdvertiseAndRegisterHandler();
+
+        isVhalAvailable = audioVhal.isAudioDrvAvailable();
+        LE_INFO("isVhalAvailable : %s", isVhalAvailable ? "true" : "false");
+
+    }
+    else // Failed to load the driver.
+    {
+        // Start one timer for the retry-action
+        le_timer_Ref_t retryTimer = le_timer_Create("retry-timer-audiovhal");
+
+        if (retryTimer == NULL)
+        {
+            LE_ERROR("Failed to le_timer_Create for the retry-timer");
+            return;
+        }
+
+        le_timer_SetRepeat(retryTimer, MAX_NUM_OF_ATTEMPTS);
+        le_timer_SetHandler(retryTimer, RetryHandler);
+        le_timer_SetWakeup(retryTimer, false);
+        le_timer_SetMsInterval(retryTimer, RETRY_TIMER_INTERVAL);
+        le_timer_Start(retryTimer);
+        LE_INFO("Retry timer for loading Audio VHAL start ...");
+    }
 
     ConnectorPool  = le_mem_InitStaticPool(tafAudioConnector, MAX_CONNECTOR,
             sizeof(taf_audio_Connector_t));
@@ -189,11 +264,6 @@ void taf_Audio::Init(void)
             mEventRegSemRef));
     le_sem_Wait(mEventRegSemRef);
     le_sem_Delete(mEventRegSemRef);
-
-    // Add a handler to the close session service
-    le_msg_AddServiceCloseHandler( taf_audio_GetServiceRef(),
-                                   ClientSessionCloseEventHandler,
-                                   NULL );
 
     le_cfg_IteratorRef_t procCfg;
     procCfg = le_cfg_CreateReadTxn(AUDIO_SVC_PROC_CONFIG_PATH);

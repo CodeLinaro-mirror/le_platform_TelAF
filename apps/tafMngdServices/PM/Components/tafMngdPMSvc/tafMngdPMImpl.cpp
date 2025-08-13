@@ -601,11 +601,10 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
         {
             LE_INFO("Client with sessionRef %p", wsRefCtxPtr->sessionRef);
             if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_ACQUIRED) {
-                le_result_t res = tafMngdPMSvc::ReleaseWakeLock();
+                le_result_t res = ReleaseWakeSource(wsRefCtxPtr);
                 if(res == LE_OK)
                 {
                     LE_INFO("Released lock for the client with sessionRef %p", wsRefCtxPtr->sessionRef);
-                    wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
                 }
             }
             else if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_IGNORED) {

@@ -1038,7 +1038,8 @@ void taf_sim::CheckAndSendRefreshEvent(taf_sim_Id_t SimId) {
             LE_INFO("CheckAndSendRefreshEvent sessionPtr null!");
             continue;
         }
-        if((sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV && SimId == TAF_SIM_SLOT_ID_1) ||
+        if(isSingleActive ||
+            (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV && SimId == TAF_SIM_SLOT_ID_1) ||
             (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV && SimId == TAF_SIM_SLOT_ID_2))
         {
             if (sessionPtr->refreshResetStart)

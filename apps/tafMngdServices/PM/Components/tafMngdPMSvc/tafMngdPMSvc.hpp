@@ -335,7 +335,7 @@ class tafMngdPMSvc: public ITafSvc
         static std::bitset<32> stayAwakeReasonMask;
         bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason);
         void RefreshWakeSources();
-        le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
+        static le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
         le_result_t AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
 
         //resources for clients state change acknowledgement

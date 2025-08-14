@@ -170,13 +170,6 @@ using namespace std;
             telux::tel::ECallMode eCallMode;
         }ResumeHlapTimerEvent_t;
 
-        class tafECallOperatingModeCallback {
-            public:
-                static void setECallOperatingModeResponse(telux::common::ErrorCode error);
-                static void getECallOperatingModeResponse(telux::tel::ECallMode eCallMode,
-                                             telux::common::ErrorCode error);
-        };
-
         class tafCallCommandCallback : public telux::tel::IMakeCallCallback {
             public:
                 void makeCallResponse(telux::common::ErrorCode errorCode,
@@ -209,16 +202,6 @@ using namespace std;
         class tafAnswerCommandCallback : public telux::common::ICommandResponseCallback {
             public:
                 void commandResponse(telux::common::ErrorCode error) override;
-        };
-
-        class tafConfigRedialCallback {
-            public:
-                static void configureRedialResponse(telux::common::ErrorCode error);
-        };
-
-        class tafResumeHlapTimerCallback {
-            public:
-                static void resumeHlapTimerResponse(telux::common::ErrorCode error);
         };
 
         class tafECallListener : public telux::tel::ICallListener {
@@ -327,16 +310,12 @@ using namespace std;
                 void SetCallPhoneId(int8_t phoneId);
                 le_event_Id_t StateChangeEventId;
 
-                std::promise<telux::tel::ECallMode> getOpModeProm;
-                std::promise<telux::common::ErrorCode> setOpModeProm;
                 std::promise<telux::common::ErrorCode> updateMsdProm;
                 std::promise<telux::common::ErrorCode> hangupProm;
                 std::promise<telux::common::ErrorCode> rejectProm;
                 std::promise<telux::common::ErrorCode> answerProm;
                 std::promise<telux::common::ErrorCode> makeEcallProm;
                 std::promise<telux::common::ErrorCode> makePrieCallProm;
-                std::promise<telux::common::ErrorCode> configRedialProm;
-                std::promise<telux::common::ErrorCode> resumeHlapTimerProm;
                 CallEndCause CallEndError = telux::tel::CallEndCause::NORMAL;
 
                 std::chrono::time_point<std::chrono::steady_clock> t2StartTime;

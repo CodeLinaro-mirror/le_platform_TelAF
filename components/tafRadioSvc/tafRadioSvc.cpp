@@ -161,8 +161,8 @@ le_result_t taf_radio_GetRadioPower(le_onoff_t* powerPtr, uint8_t phoneId)
     le_result_t res = le_sem_WaitWithTimeOut(tafRadio.getOperatingModeCb->semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.setOperatingModeCb->result != LE_OK,
-        tafRadio.setOperatingModeCb->result, "Fail to get radio power.");
+    TAF_ERROR_IF_RET_VAL(tafRadio.getOperatingModeCb->result != LE_OK,
+        tafRadio.getOperatingModeCb->result, "Fail to get radio power.");
 
     if (tafRadio.getOperatingModeCb->opMode == telux::tel::OperatingMode::ONLINE)
     {
@@ -6038,8 +6038,8 @@ le_result_t taf_radio_GetOperatingMode
     le_result_t res = le_sem_WaitWithTimeOut(tafRadio.getOperatingModeCb->semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.setOperatingModeCb->result != LE_OK,
-        tafRadio.setOperatingModeCb->result, "Fail to get operating mode.");
+    TAF_ERROR_IF_RET_VAL(tafRadio.getOperatingModeCb->result != LE_OK,
+        tafRadio.getOperatingModeCb->result, "Fail to get operating mode.");
 
     switch (tafRadio.getOperatingModeCb->opMode)
     {

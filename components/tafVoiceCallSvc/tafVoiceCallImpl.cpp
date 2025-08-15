@@ -96,6 +96,7 @@ void Handler::PaEventListener(taf_pa_voicecall_Ref_t reference, taf_pa_voicecall
         if (taf_pa_voicecall_GetCallTermination(reference, &termination) == LE_OK)
         {
             msgCallEvent.termination = myCall.EndCauseConvert(termination);
+            LE_INFO("Termination reason %d for this call: %s", msgCallEvent.termination, destinationPtr);
         }
         else
         {
@@ -202,7 +203,7 @@ void VoiceCallSvc::ShowAll()
 
 const char * VoiceCallSvc::EventToString(taf_voicecall_Event_t event)
 {
-    const char *retPtr = "null";
+    const char *retPtr = "unknown_event";
 
     switch (event)
     {
@@ -254,7 +255,16 @@ const char * VoiceCallSvc::EventToString(taf_voicecall_Event_t event)
             retPtr = "swap_failed";
         break;
 
+        case TAF_VOICECALL_EVENT_RESOURCE_BUSY:
+            retPtr = "resource_busy";
+        break;
+
+        case TAF_VOICECALL_EVENT_OFFLINE:
+            retPtr = "event_offline";
+		break;
+
         default:
+            LE_ERROR("Received unexpected event[%d]", event);
         break;
     }
 

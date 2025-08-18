@@ -91,6 +91,10 @@ void Test_ReadFile()
     le_result_t result = taf_mngdStorSecFile_ReadFile(storageRef, filePath, buffer, &bufferSize);
     LE_TEST_ASSERT(result == LE_OK, "Test taf_mngdStorSecFile_ReadFile");
 
+    LE_INFO("Read buffer size: %" PRIuS, bufferSize);
+
+    LE_TEST_ASSERT(bufferSize > 0, "Test taf_mngdStorSecFile_ReadFile - bufferSize");
+
     // Print the content of the buffer
     printf("Read content: %.*s\n", (int)bufferSize, buffer);
 }

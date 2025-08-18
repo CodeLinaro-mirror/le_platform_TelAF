@@ -243,7 +243,7 @@ FUNCTION le_result_t ImportFile
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Reads the file from the storage.
+ * Reads the file from the storage. The read data size is limited by the MAX_DATA_CHUNK_SIZE.
  *
  * @instaging
  * @return

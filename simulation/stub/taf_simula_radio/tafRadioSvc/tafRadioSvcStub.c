@@ -967,6 +967,66 @@ void taf_radio_RemoveCellInfoChangeHandler
 }
 //--------------------------------------------------------------------------------------------------
 /**
+ * Add handler function for EVENT 'taf_radio_CAInfo'
+ *
+ * Event to report Carrier Aggregation(CA) information.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_CAInfoHandlerRef_t taf_radio_AddCAInfoHandler
+(
+    taf_radio_Rat_t rat,
+        ///< [IN] Radio Access Technology.
+    taf_radio_CAInfoHandlerFunc_t handlerPtr,
+        ///< [IN] Handler for CA information.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    return NULL;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_radio_CAInfo'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveCAInfoHandler
+(
+    taf_radio_CAInfoHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_radio_ConnectionStatus'
+ *
+ * Event to report connection status.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_ConnectionStatusHandlerRef_t taf_radio_AddConnectionStatusHandler
+(
+    taf_radio_ConnectionStatusHandlerFunc_t handlerPtr,
+        ///< [IN] Handler for connection status.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    return NULL;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_radio_ConnectionStatus'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveConnectionStatusHandler
+(
+    taf_radio_ConnectionStatusHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+}
+//--------------------------------------------------------------------------------------------------
+/**
  * Sets the radio power state.
  *
  * @return

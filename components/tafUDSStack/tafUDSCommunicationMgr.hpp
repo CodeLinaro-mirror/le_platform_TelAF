@@ -44,6 +44,7 @@ namespace uds{
     #define CANCEL_FILE_TRANSFER_IND_LEN 2
     #define MAX_FILE_TRANSFER_STATE_MTX_NAME_LEN 30
     #define NRC_STATUS_INDICATION_LEN 3
+    #define MAX_DID_NUM_IN_RDBI 10
 
     // UDS minimal len
     #define UDS_REQ_MIN_LEN 1

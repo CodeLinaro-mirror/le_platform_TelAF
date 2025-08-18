@@ -1931,6 +1931,13 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
 
     // Get the DID list in active session
     didNum = (recvDataLen -1)/2;
+    // Check if DID counter exceeds the maximum value. UDS_0x22_NRC_13
+    if(didNum > MAX_DID_NUM_IN_RDBI)
+    {
+        LE_WARN("Number of DIDs (%d) exceeds maximum allowed (%d)", didNum, MAX_DID_NUM_IN_RDBI);
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); //NRC 0x13
+    }
+
     updatedRecvBuf[0] = sid;
     updatedRecvDataLen = sizeof(sid);
     for(uint16_t i = 0; i < didNum; i++)

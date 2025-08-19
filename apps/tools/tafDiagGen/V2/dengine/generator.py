@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import os, re
@@ -117,17 +117,17 @@ def f_forbidden_characters_conversion(forbidden_characters, data_item):
     assert isinstance(forbidden_characters, list)
 
     statement = "{"
-    for forbidden_range in forbidden_characters:
-        hit = range_match.match(forbidden_range)
-        if hit:
-            start_hex, stop_hex = hit.groups()
-            assert stop_hex >= start_hex
-
-            # (0x00..0x1F)  -> closed-range [0x00:0x1F]
-            for val in range(int(start_hex,16), int(stop_hex,16) + 1):
+    for item in forbidden_characters:
+        if (type(item) is int) and (item < 2**8):
+            statement += hex(item) + ","
+        elif (type(item) is str) and range_match.match(item):
+            start_hex, stop_hex = range_match.match(item).groups()
+            if stop_hex < start_hex:
+                raise Exception(f"Invalid range: {item}")
+            for val in range(int(start_hex, 16), int(stop_hex, 16) + 1):
                 statement += hex(val) + ","
         else:
-            raise Exception(f"Bad forbidden_characters range provided: {forbidden_range}!")
+            raise Exception(f"Bad forbidden_characters format: {item}!")
     statement += "}"
     return statement
 

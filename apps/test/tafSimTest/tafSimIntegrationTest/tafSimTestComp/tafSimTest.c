@@ -893,9 +893,12 @@ void tafSimTest_writeFplmnList_test(taf_sim_Id_t simId, const char*  mcc,
         FplmnListRef = taf_sim_CreateFPLMNList();
     }
     le_result_t res = taf_sim_AddFPLMNOperator(FplmnListRef, mcc, mnc);
-    res = taf_sim_WriteFPLMNList(simId, FplmnListRef);
-    LE_TEST_OK(res == LE_OK, "tafSimTest_writeFplmnList_test");
-    LE_INFO("tafSimTest_writeFplmnList_test end\n");
+    if(res == LE_OK)
+    {
+        res = taf_sim_WriteFPLMNList(simId, FplmnListRef);
+        LE_TEST_OK(res == LE_OK, "tafSimTest_writeFplmnList_test");
+        LE_INFO("tafSimTest_writeFplmnList_test end\n");
+    }
     printf("tafSimTest_writeFplmnList completed. Result: %s\n", res == LE_OK ? "PASS":"FAILED");
 }
 

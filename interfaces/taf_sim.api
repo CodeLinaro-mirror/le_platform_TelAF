@@ -744,8 +744,8 @@ FUNCTION le_result_t GetSubscriberPhoneNumber
 FUNCTION le_result_t GetHomeNetworkMccMnc
 (
     Id     slotId IN,        ///< Slot ID.
-    string mccPtr[3] OUT,    ///< MCC string as output.
-    string mncPtr[3] OUT     ///< MNC string as output.
+    string mccPtr[3] OUT,    ///< 3 digit numeric MCC string as output.
+    string mncPtr[3] OUT     ///< 2 or 3 digit numeric MNC string as output.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -1236,8 +1236,8 @@ FUNCTION FPLMNList CreateFPLMNList
 FUNCTION le_result_t AddFPLMNOperator
 (
     FPLMNList fplmnListRef IN,                    ///< FPLMN list reference.
-    string    mcc[3]       IN,                    ///< Mobile Country Code.
-    string    mnc[3]       IN                     ///< Mobile Network Code.
+    string    mcc[3]       IN,                    ///< 3 digit numeric code representing Mobile Country Code.
+    string    mnc[3]       IN                     ///< 2 or 3 digit numeric code representing Mobile Network Code.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -1255,8 +1255,8 @@ FUNCTION le_result_t AddFPLMNOperator
 FUNCTION le_result_t GetFirstFPLMNOperator
 (
     FPLMNList fplmnListRef IN,               ///< FPLMN list reference.
-    string mccPtr[3] OUT,                    ///< Mobile Country Code.
-    string mncPtr[3] OUT                     ///< Mobile Network Code.
+    string mccPtr[3] OUT,                    ///< 3 digit numeric MCC string as output.
+    string mncPtr[3] OUT                     ///< 2 or 3 digit numeric MNC string as output.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -1273,8 +1273,8 @@ FUNCTION le_result_t GetFirstFPLMNOperator
 FUNCTION le_result_t GetNextFPLMNOperator
 (
     FPLMNList fplmnListRef IN,               ///< FPLMN list reference.
-    string mccPtr[3] OUT,                    ///< Mobile Country Code.
-    string mncPtr[3] OUT                     ///< Mobile Network Code.
+    string mccPtr[3] OUT,                    ///< 3 digit numeric code MCC as output.
+    string mncPtr[3] OUT                     ///< 2 or 3 digit numeric code MNC as output.
 );
 
 //-------------------------------------------------------------------------------------------------

@@ -86,6 +86,7 @@ void taf_SnapshotSvr::storeDidsAsSnapshot
 )
 {
     uint32_t dtcCode = 0;
+    taf_DataAccess_DidNode_t * faultCodeNode = NULL;
 
     if (didRawData == NULL || dataSize == 0)
     {
@@ -160,6 +161,13 @@ void taf_SnapshotSvr::storeDidsAsSnapshot
         node->len = didValLen;
         node->link = LE_DLS_LINK_INIT;
 
+        //Save supplier fault code node corresponding to DID DID_OF_SUPPLIER_FC.
+        if(did == DID_OF_SUPPLIER_FC)
+        {
+            LE_DEBUG("Supplier fault code exists in the config");
+            faultCodeNode = node;
+        }
+
         le_dls_Queue(list, &node->link);
 
         pos += 2 + didValLen;
@@ -225,6 +233,17 @@ void taf_SnapshotSvr::storeDidsAsSnapshot
 
         node->did = (uint16_t) DID_OF_SUPPLIER_FC;
         node->link = LE_DLS_LINK_INIT;
+
+        //If fault code node exists, remove from the list and release it to avoid duplicate node.
+        if(faultCodeNode != NULL)
+        {
+            LE_DEBUG("Remove existed fault code node");
+            le_dls_Remove(list, &faultCodeNode->link);
+            le_mem_Release(faultCodeNode->val);
+            le_mem_Release(faultCodeNode);
+        }
+
+        //Add fault code node into the list.
         le_dls_Queue(list, &node->link);
     }
 

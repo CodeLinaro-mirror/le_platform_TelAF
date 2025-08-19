@@ -711,6 +711,49 @@ void tafMngdPMSvc::StateChangeHandler(taf_pm_State_t state, void* contextPtr)
     }
 }
 
+// Process the cached awake requests
+void tafMngdPMSvc::ProcessCachedAwakeReqs()
+{
+    LE_INFO("Check & process cached requests!");
+    auto &mpms = tafMngdPMSvc::GetInstance();
+
+    if(wsCachedReqsRefSet.empty()){
+        LE_INFO("No cached awake requests found!");
+        return;
+    }
+
+    for (auto it = wsCachedReqsRefSet.begin(); it != wsCachedReqsRefSet.end();)
+    {
+        bool found = false;
+        le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
+        while (linkHandlerPtr) {
+            taf_wsRefCtx_t* wsRefCtxPtr = CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
+            linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
+
+            if (wsRefCtxPtr && wsRefCtxPtr->wsRef == *it) {
+                found = true;
+                if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason)) {
+                    LE_INFO("Cached ws for %s with wsReason:%d is authorized", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
+                    le_result_t res = mpms.AcquireWakeSource(wsRefCtxPtr);
+                    if(res != LE_OK) {
+                        LE_ERROR("Failed to acquire ws of %s with wsReason:%d", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
+                    }
+                } else {
+                    LE_INFO("StayAwakeReason:%d for cachedAwakeReqs is unauthorized!, wsState: %d", wsRefCtxPtr->reason, wsRefCtxPtr->wakeSourceState);
+                    wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_IGNORED;
+                }
+                it = wsCachedReqsRefSet.erase(it);
+                break;
+            }
+        }
+
+        if (!found) {
+            LE_WARN("Cached wsRef %p not found in the wsList", *it);
+            it = wsCachedReqsRefSet.erase(it);
+        }
+    }
+}
+
 /**
  * Ex State change callback function for PM service
  */
@@ -797,6 +840,8 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
             powerMode.isForceful = false;
             (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::NodeStateChangeReqRespCB);
         }
+        // Process the cached awake requests
+        ProcessCachedAwakeReqs();
     }
     else if(state == TAF_PM_STATE_SUSPEND)
     {
@@ -1281,7 +1326,8 @@ le_result_t tafMngdPMSvc::RequestStateChange(taf_mngdPm_State_t requestedState)
             if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN
                     || stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING
                             ||  stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN
-                                    ||  stateMachine.currentState == TAF_MNGDPM_STATE_RESTART)
+                                    ||  stateMachine.currentState == TAF_MNGDPM_STATE_RESTART
+                                        ||  stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING)
             {
                 res = LE_NOT_PERMITTED;
             }
@@ -1746,6 +1792,9 @@ le_hashmap_Ref_t tafMngdPMSvc::vmStateHashmap;
 le_mem_PoolRef_t tafMngdPMSvc::wsRefPool;
 le_dls_List_t tafMngdPMSvc::wsRefList;
 le_ref_MapRef_t tafMngdPMSvc::wsRefMap;
+
+//cached awake requests ws reference set
+std::unordered_set<taf_mngdPm_wsRef_t>  tafMngdPMSvc::wsCachedReqsRefSet;
 
 le_mem_PoolRef_t tafMngdPMSvc::nodeWsRefPool;
 le_dls_List_t tafMngdPMSvc::nodeWsRefList;

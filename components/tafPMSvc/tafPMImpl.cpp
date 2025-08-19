@@ -740,7 +740,8 @@ le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
             LE_ERROR("sending cmd to remote process failed");
         }
     }
-    if(tcuActivityMgr->getActivityState() != TcuActivityState::RESUME) {
+
+    if(pmInstance.curTcuState != TAF_PM_STATE_RESUME) {
 #ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
         telux::common::Status status = tcuActivityMgr->setActivityState(
                 TcuActivityState::RESUME, &taf_Handler::commandCallback);
@@ -751,10 +752,16 @@ le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
         }
 #endif
 #if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
+    LE_INFO("PMSvc StayAwake: SetPowerState to TAF_PM_STATE_RESUME");
     le_result_t res;
     res = SetPowerState(TAF_PM_STATE_RESUME, "ALL_MACHINES");
-    if(res == LE_OK)
+    if(res == LE_OK){
         LE_INFO("System resumed on wakesource acquisition");
+    }
+    else
+    {
+        LE_INFO("PMSvc StayAwake: SetPowerState to TAF_PM_STATE_RESUME Failed");
+    }
 #endif
 
     }
@@ -1816,20 +1823,20 @@ taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType )
     }
     if(state == TAF_PM_STATE_ALL_ACKED)
     {
-         LE_INFO("Received ACK from client %s",pClient->name);
-         if(curTcuState == TAF_PM_STATE_RESTART)
-         {
-             if (reboot(RB_AUTOBOOT)) {
-                 LE_INFO("System is rebooted");
-                 return;
-             }
-             else {
-                 LE_INFO("System reboot failed");
-                 return;
-             }
-         }
-         SendAckToPmd(curTcuState);
-         return;
+        LE_INFO("Received ACK from client %s",pClient->name);
+        if(curTcuState == TAF_PM_STATE_RESTART)
+        {
+            if (reboot(RB_AUTOBOOT)) {
+                LE_INFO("System is rebooted");
+                return;
+            }
+            else {
+                LE_INFO("System reboot failed");
+                return;
+            }
+        }
+        SendAckToPmd(curTcuState);
+        return;
     }
     else if(curTcuState == state)
     {

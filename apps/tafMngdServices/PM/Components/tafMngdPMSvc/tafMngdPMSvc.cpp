@@ -792,6 +792,15 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
                  LE_INFO("WakeLock is already acquired for %s with StayAwakeReason:%d, WsState:%d", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason,wsRefCtxPtr->wakeSourceState);
                  return LE_DUPLICATE;
             }
+
+            if(mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING && (mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason)))
+            {
+                LE_INFO("Cache system awake request for %s and wsReason:%d in suspending state", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
+                mpms.wsCachedReqsRefSet.insert(wsRefCtxPtr->wsRef);
+
+                return LE_OK;
+            }
+
             if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason))
             {
                 LE_INFO("stayAwakeReason:%d is in authorized stayAwakeReasonList", wsRefCtxPtr->reason);
@@ -799,8 +808,8 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
             }
             else
             {
-                LE_INFO("Unauthorized StayAwakeReason:%d for stayawake", wsRefCtxPtr->reason);
-                if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND)
+                LE_INFO("Non authorized StayAwakeReason for stayawake");
+                if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND || mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING)
                 {
                     wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
                     LE_ERROR("StayAwake LE_NOT_PERMITTED: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);

@@ -315,9 +315,11 @@ le_result_t taf_mngdPm_WakeupVehicleReqAsync(int32_t reason,
         if(mpms.pmInf && mpms.pmInf->wakeupVehicleReqAsync)
         {
             LE_INFO("Send wakeupVehicleReqAsync %d", HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE);
-            if(mpms.stateMachine.currentState != TAF_MNGDPM_STATE_RESUME)
+            if(mpms.stateMachine.currentState != TAF_MNGDPM_STATE_RESUME &&
+                mpms.stateMachine.currentState != TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE)
             {
-                LE_INFO("Current state is not resume to trigger WakeupVehicleReqAsync");
+                LE_INFO("WakeupVehicleReqAsync not allowed in current state: %d",
+                    mpms.stateMachine.currentState);
                 handlerPtr = nullptr;
                 return LE_UNSUPPORTED;
             }

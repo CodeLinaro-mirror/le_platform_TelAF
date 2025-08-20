@@ -41,6 +41,7 @@
 #include "tafSms.hpp"
 #include <unistd.h>
 #include <stdlib.h>
+#include <iomanip>
 
 using namespace telux::tel;
 using namespace telux::common;
@@ -1420,115 +1421,30 @@ static le_result_t EncodeMsgToPdu
    return result;
 }
 
-le_result_t taf_Sms::SendPDUMessage
+std::vector<telux::tel::PduBuffer> taf_Sms::PrepareRawPdus
 (
-   uint8_t     *pduData,
-   uint32_t    pduLength,
-   uint32_t    timeout,
-   uint8_t     phoneId
+   const uint8_t* pduData,
+   uint32_t pduLength
 )
 {
-   auto smsManager = smsManagers[phoneId - 1];
-   if(smsManager == nullptr)
+   std::ostringstream oss;
+   oss << std::hex << std::setfill('0');
+
+   for (uint32_t i = 0; i < pduLength; ++i)
    {
-      LE_INFO("smsManager is NULL\n");
-      return LE_FAULT;
+      oss << std::setw(2) << static_cast<int>(pduData[i]);
    }
 
-   if(pduLength == 0)
-   {
-      LE_INFO("pduLength is 0");
-      return LE_BAD_PARAMETER;
-   }
+   std::string pduStr = oss.str();
+   LE_DEBUG("pduStr = %s", pduStr.c_str());
 
-   if(pduLength > TAF_SMS_PDU_BYTES)
-   {
-      LE_INFO("pduLength [%u] is greater than TAF_SMS_PDU_BYTES\n",
-        pduLength);
-      return LE_OUT_OF_RANGE;
-   }
-
-   string pduStr = "";
-   for(unsigned int idx = 0; idx < pduLength; ++idx)
-   {
-      std::stringstream ss;
-      ss << std::hex << (int)pduData[idx];
-      std::string num(ss.str());
-      if(num.size() < 2)
-      {
-         num = "0" + num;
-      }
-      pduStr += num;
-   }
-
-   LE_INFO("pduStr = %s", pduStr.c_str());
    std::vector<uint8_t> buffer(pduStr.begin(), pduStr.end());
-
    std::vector<telux::tel::PduBuffer> rawPdus;
    rawPdus.emplace_back(buffer);
 
-   auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-
-   auto cb = [promisePtr](std::vector<int> msgIDs, telux::common::ErrorCode err)
-   {
-      try
-      {
-         if (err == telux::common::ErrorCode::SUCCESS)
-         {
-            LE_INFO("SMS sent successfully. Number of MsgIDs: %u", (unsigned int)msgIDs.size());
-            for (unsigned int i = 0; i < (unsigned int)msgIDs.size(); ++i)
-            {
-               LE_INFO("MsgID[%u]: %d", i, msgIDs[i]);
-            }
-            promisePtr->set_value(LE_OK);
-         }
-         else
-         {
-            LE_ERROR("Error Code: %s", getErrorCodeAsString(err).c_str());
-            promisePtr->set_value(LE_FAULT);
-         }
-      }
-      catch (const std::future_error& e)
-      {
-         LE_ERROR("Future error in callback: %s", e.what());
-      }
-      catch (const std::exception& e)
-      {
-         LE_ERROR("Exception in callback: %s", e.what());
-      }
-      catch (...)
-      {
-         LE_ERROR("Unknown error in SMS callback.");
-      }
-   };
-
-   auto status = smsManager->sendRawSms(rawPdus, cb);
-   if (status != telux::common::Status::SUCCESS)
-   {
-      LE_INFO("SMS was not sent, a failure occured");
-      return LE_FAULT;
-   }
-
-   LE_INFO("Waiting for SMS response or timeout...");
-   std::future<le_result_t> futResult = promisePtr->get_future();
-   std::chrono::seconds span(timeout);
-   std::future_status waitStatus = futResult.wait_for(span);
-   if (waitStatus == std::future_status::timeout)
-   {
-      LE_ERROR("SMS send timed out after %u seconds", timeout);
-      return LE_TIMEOUT;
-   }
-
-   le_result_t res = futResult.get();
-   if (res != LE_OK)
-   {
-      LE_INFO("SMS sending failed");
-      return LE_FAULT;
-   }
-
-   LE_INFO("SMS was sent successfully");
-   return LE_OK;
+   return rawPdus;
 }
+
 
 le_result_t taf_Sms::SendMessage(taf_sms_Msg_t* msgPtr)
 {
@@ -1546,8 +1462,211 @@ le_result_t taf_Sms::SendMessage(taf_sms_Msg_t* msgPtr)
       return LE_BAD_PARAMETER;
    }
 
-   return SendPDUMessage(msgPtr->pdu.data, msgPtr->pdu.length,
+   return SendPDUMessageSync(msgPtr->pdu.data, msgPtr->pdu.length,
       kSendMessageWaitTime, msgPtr->phoneId);
+}
+
+le_result_t taf_Sms::SendPDUMessageSync
+(
+   uint8_t     *pduData,
+   uint32_t    pduLength,
+   uint32_t    timeout,
+   uint8_t     phoneId
+)
+{
+   auto smsManager = smsManagers[phoneId - 1];
+   if (smsManager == nullptr)
+   {
+      LE_INFO("smsManager is NULL\n");
+      return LE_FAULT;
+   }
+
+   if (pduLength == 0)
+   {
+      LE_INFO("pduLength is 0");
+      return LE_BAD_PARAMETER;
+   }
+
+   if (pduLength > TAF_SMS_PDU_BYTES)
+   {
+      LE_INFO("pduLength [%u] is greater than TAF_SMS_PDU_BYTES\n",
+        pduLength);
+      return LE_OUT_OF_RANGE;
+   }
+
+   typedef struct
+   {
+      uint8_t phoneId;
+      uint8_t *pduData;
+   } SmsMetaData;
+
+   SmsMetaData metaData;
+   metaData.phoneId = phoneId;
+   metaData.pduData = pduData;
+
+   auto context = std::make_shared<AsyncContext<SmsMetaData>>(metaData);
+
+   auto cb = MakeCallbackWrapper<SmsMetaData, std::vector<int>, telux::common::ErrorCode>
+   (
+      context,
+      [context](std::vector<int> msgIDs, telux::common::ErrorCode err) -> le_result_t
+      {
+         if (err == telux::common::ErrorCode::SUCCESS)
+         {
+            LE_INFO("SMS sent successfully for context: %p", context.get());
+            for (size_t i = 0; i < msgIDs.size(); ++i)
+            {
+               LE_INFO("MsgID[%zu]: %d", i, msgIDs[i]);
+            }
+            return LE_OK;
+         }
+         else
+         {
+             LE_ERROR("Failed to send SMS for context: %p  Error: %s",
+                   context.get(), getErrorCodeAsString(err).c_str());
+             return LE_FAULT;
+         }
+      }
+   );
+
+   std::vector<telux::tel::PduBuffer> rawPdus = PrepareRawPdus(pduData, pduLength);
+
+   auto status = smsManager->sendRawSms(rawPdus, cb);
+   if (status != telux::common::Status::SUCCESS)
+   {
+      LE_ERROR("sendRawSms failed immediately for context: %p", context.get());
+      return LE_FAULT;
+   }
+
+   LE_INFO("Waiting for SMS response or timeout...");
+   std::future<le_result_t> futResult = context->GetFuture();
+   std::chrono::seconds span(timeout);
+   std::future_status waitStatus = futResult.wait_for(span);
+
+   if (waitStatus == std::future_status::timeout)
+   {
+      LE_ERROR("SMS send timed out after %u seconds for context: %p", timeout, context.get());
+      return LE_TIMEOUT;
+   }
+
+   le_result_t res = futResult.get();
+   if (res != LE_OK)
+   {
+      LE_INFO("SMS sending failed");
+      return LE_FAULT;
+   }
+
+   LE_INFO("SMS was sent successfully");
+   return LE_OK;
+}
+
+le_result_t taf_Sms::SendPDUMessageAsync(taf_sms_MsgRef_t msgRef)
+{
+   auto &sms = taf_Sms::GetInstance();
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(sms.MsgRefMap, msgRef);
+   TAF_ERROR_IF_RET_VAL(msgPtr == nullptr, LE_FAULT, "msgPtr is nullptr!");
+
+   le_result_t result = EncodeMsgToPdu(msgPtr);
+   if (result != LE_OK)
+   {
+      LE_ERROR("Cannot encode Message Object %p", msgPtr);
+      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+      le_event_Report(sms.MsgSendCallbackEvent, &msgRef, sizeof(taf_sms_MsgRef_t));
+      return LE_FORMAT_ERROR;
+   }
+
+   uint8_t *pduData = msgPtr->pdu.data;
+   uint32_t pduLength = msgPtr->pdu.length;
+   uint8_t phoneId = msgPtr->phoneId;
+
+   if (phoneId < 1 || phoneId > 2)
+   {
+      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+      le_event_Report(sms.MsgSendCallbackEvent, &msgRef, sizeof(taf_sms_MsgRef_t));
+      return LE_BAD_PARAMETER;
+   }
+
+   if (pduLength == 0)
+   {
+      LE_INFO("pduLength is 0");
+      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+      le_event_Report(sms.MsgSendCallbackEvent, &msgRef, sizeof(taf_sms_MsgRef_t));
+      return LE_BAD_PARAMETER;
+   }
+
+   if (pduLength > TAF_SMS_PDU_BYTES)
+   {
+      LE_INFO("pduLength [%u] is greater than TAF_SMS_PDU_BYTES\n",
+        pduLength);
+      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+      le_event_Report(sms.MsgSendCallbackEvent, &msgRef, sizeof(taf_sms_MsgRef_t));
+      return LE_OUT_OF_RANGE;
+   }
+
+   auto smsManager = sms.smsManagers[phoneId - 1];
+   if(smsManager == nullptr)
+   {
+      LE_INFO("smsManager is NULL\n");
+      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+      le_event_Report(sms.MsgSendCallbackEvent, &msgRef, sizeof(taf_sms_MsgRef_t));
+      return LE_FAULT;
+   }
+
+   // Metadata structure to be passed to AsyncCallbackUtils
+   struct SmsMetaData
+   {
+      taf_sms_MsgRef_t msgRef;
+      taf_sms_Msg_t* msgPtr;
+   };
+
+   SmsMetaData metaData;
+   metaData.msgRef = msgRef;
+   metaData.msgPtr = msgPtr;
+
+   auto context = std::make_shared<AsyncContext<SmsMetaData>>(metaData);
+   auto cb = MakeCallbackWrapper<SmsMetaData, std::vector<int>, telux::common::ErrorCode>
+   (
+      context,
+      [context](std::vector<int> msgIDs, telux::common::ErrorCode err) -> le_result_t
+      {
+         auto &sms = taf_Sms::GetInstance();
+         LE_INFO("Context ptr: %p", context.get());
+         taf_sms_Msg_t* cbMsgPtr = context->metadata.msgPtr;
+         taf_sms_MsgRef_t cbMsgRef = context->metadata.msgRef;
+         if (err == telux::common::ErrorCode::SUCCESS)
+         {
+            LE_INFO("SMS sent successfully for msgRef: %p", cbMsgRef);
+            for (size_t i = 0; i < msgIDs.size(); ++i)
+            {
+               LE_INFO("MsgID[%zu]: %d", i, msgIDs[i]);
+            }
+
+            cbMsgPtr->sendStatus = TAF_SMS_TXSTS_SENT;
+            le_event_Report(sms.MsgSendCallbackEvent, &cbMsgRef, sizeof(taf_sms_MsgRef_t));
+            return LE_OK;
+         }
+         else
+         {
+            LE_ERROR("Failed to send SMS for msgRef: %p  Error: %s",
+               cbMsgRef, getErrorCodeAsString(err).c_str());
+
+            cbMsgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+            le_event_Report(sms.MsgSendCallbackEvent, &cbMsgRef, sizeof(taf_sms_MsgRef_t));
+            return LE_FAULT;
+         }
+      }
+   );
+
+   std::vector<telux::tel::PduBuffer> rawPdus = PrepareRawPdus(pduData, pduLength);
+
+   auto status = smsManager->sendRawSms(rawPdus, cb);
+   if (status != telux::common::Status::SUCCESS)
+   {
+      LE_ERROR("sendRawSms failed immediately for context: %p", context.get());
+      return LE_FAULT;
+   }
+
+   return LE_OK;
 }
 
 le_result_t taf_Sms::SetTag(taf_sms_Msg_t* msgPtr, telux::tel::SmsTagType tagType)

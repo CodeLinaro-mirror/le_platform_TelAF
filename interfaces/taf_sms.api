@@ -26,7 +26,7 @@
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -929,7 +929,7 @@ FUNCTION size GetUserdataLen
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Send the message.
+ * Sends an SMS synchronously.
  *
  * @return
  * - LE_NOT_FOUND -- Invalid message.
@@ -941,6 +941,23 @@ FUNCTION size GetUserdataLen
 FUNCTION le_result_t Send
 (
     Msg msgRef ///< Message reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends an SMS asynchronously.
+ *
+ * @return
+ * - LE_NOT_FOUND -- Invalid message.
+ * - LE_BAD_PARAMETER -- Invalid phone ID.
+ * - LE_FORMAT_ERROR -- Failed to encode message.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendAsync
+(
+    Msg msgRef,             ///< Message reference.
+    CallbackResult handler  ///< Handler for sending message.
 );
 
 //--------------------------------------------------------------------------------------------------

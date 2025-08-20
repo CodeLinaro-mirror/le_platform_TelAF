@@ -138,6 +138,9 @@ static le_thread_Ref_t TxThreadRef;
 static uint8_t RxCount = 0;
 static uint8_t TxCount = 0;
 
+static int callbackCount = 0;
+static taf_sms_SendStatus_t lastStatus[AMOUNT_MSG_TX];
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Set semaphore timeout
@@ -1105,6 +1108,123 @@ __attribute__((unused)) static void Test_taf_sms_CellBroadcast
 
 /*======================================================================
 
+ FUNCTION        Callback_MsgSendStatusAsync
+
+ DESCRIPTION     handler to get status of sending message asynchronously
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+__attribute__((unused)) static void Callback_MsgSendStatusAsync
+(
+    taf_sms_MsgRef_t msgRef,
+    taf_sms_SendStatus_t status,
+    void* contextPtr
+)
+{
+    LE_INFO("msg: %p, Sendstatus: %d", msgRef, status);
+    int idx = callbackCount;
+    if(idx < AMOUNT_MSG_TX)
+    {
+        lastStatus[idx] = status;
+        callbackCount++;
+    }
+}
+
+/*======================================================================
+
+ FUNCTION        EventLoopThread
+
+ DESCRIPTION     Thread for event loop
+
+ DEPENDENCIES    None
+
+ PARAMETERS      [IN] contextPtr: Context
+
+ RETURN VALUE    void*
+
+ SIDE EFFECTS
+
+======================================================================*/
+static void* EventThread(void* param)
+{
+    LE_INFO("Event thread started");
+
+    taf_sms_ConnectService();
+
+    // Trigger async send in this thread
+    for(int i = 0; i < AMOUNT_MSG_TX; ++i)
+    {
+        taf_sms_MsgRef_t msgRef = taf_sms_Create();
+        LE_TEST_ASSERT(msgRef, "Test taf_sms_Create");
+
+        LE_TEST_ASSERT(taf_sms_SetDestination(msgRef, DEST_TEST) == LE_OK,
+            "Test taf_sms_SetDestination");
+
+        LE_TEST_ASSERT(taf_sms_SetText(msgRef, TEXT_PATTERN_TEST) == LE_OK,
+            "Test taf_sms_SetText");
+
+        LE_TEST_ASSERT(taf_sms_SendAsync(msgRef, Callback_MsgSendStatusAsync, NULL) == LE_OK,
+            "Test taf_sms_Send %s", "#s# + send msg");
+    }
+
+    // Run the Legato event loop (blocks)
+    le_event_RunLoop();
+    return NULL;
+}
+
+/*======================================================================
+
+ FUNCTION        Test_taf_sms_SendAsync
+
+ DESCRIPTION     Test send sms asynchronously
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+__attribute__((unused)) static void Test_taf_sms_SendAsync
+(
+    void
+)
+{
+    taf_sms_ConnectService();
+    le_thread_Ref_t testThread = le_thread_Create("TestThread", EventThread, NULL);
+    le_thread_Start(testThread);
+
+    // Wait for callback to be invoked
+    int retries = 0;
+    while (callbackCount < AMOUNT_MSG_TX && retries < 20)
+    {
+        sleep(1);
+        retries++;
+    }
+
+    // Verify results
+    LE_TEST_ASSERT(callbackCount == AMOUNT_MSG_TX, "Test taf_sms_SendAsync");
+    for(int i = 0; i < AMOUNT_MSG_TX; ++i)
+    {
+        LE_TEST_ASSERT(lastStatus[i] == TAF_SMS_TXSTS_SENT, "Test taf_sms_SendAsync");
+    }
+
+    return;
+}
+
+/*======================================================================
+
  FUNCTION        Test_main
 
  DESCRIPTION     Test main function, call each test sub-function
@@ -1197,6 +1317,10 @@ void Test_main
     LE_INFO("===== Test_taf_sms_DeleteAllMsgFromStorage =====");
     Test_taf_sms_DeleteAllMsgFromStorage();
     LE_INFO("##### Test_taf_sms_DeleteAllMsgFromStorage OK #####");
+
+    LE_INFO("===== Test_taf_sms_SendAsync =====");
+    Test_taf_sms_SendAsync();
+    LE_INFO("##### Test_taf_sms_SendAsync OK #####");
 
     LE_INFO("##### taf SMS unit test PASS #####");
 

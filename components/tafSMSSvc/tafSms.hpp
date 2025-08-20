@@ -47,6 +47,7 @@
 #include <telux/tel/CellBroadcastManager.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
+#include "AsyncCallbackUtils.hpp"
 #include "tafSmsHlos.hpp"
 #include "tafSmsPdu.hpp"
 
@@ -275,14 +276,17 @@ namespace tafsvc {
       le_result_t AddCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint16_t toId);
       le_result_t RemoveCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint16_t toId);
 
-      le_result_t SendPDUMessage(uint8_t *pduData, uint32_t pduLength, uint32_t timeout,
-         uint8_t phoneId);
       le_result_t SendMessage(taf_sms_Msg_t* msgPtr);
+      le_result_t SendPDUMessageSync(uint8_t *pduData, uint32_t pduLength, uint32_t timeout,
+         uint8_t phoneId);
+      le_result_t SendPDUMessageAsync(taf_sms_MsgRef_t msgRef);
       le_result_t ReadFromStorage(taf_sms_Pdu_t* pduMsg,
          uint32_t idx, taf_sms_Storage_t storage);
       le_result_t SetTag(taf_sms_Msg_t* msgPtr, telux::tel::SmsTagType tagType);
       le_result_t DeleteMessage(uint32_t messageIndex);
       le_result_t DeleteAllMessages(taf_sms_Storage_t storage);
+      std::vector<telux::tel::PduBuffer> PrepareRawPdus(const uint8_t* pduData,
+        uint32_t pduLength);
 
       le_ref_MapRef_t MsgRefMap = NULL;
       le_ref_MapRef_t ListRefMap = NULL;

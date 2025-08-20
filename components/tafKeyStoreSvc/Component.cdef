@@ -5,7 +5,11 @@ sources:
 
 cflags:
 {
+#if ${LE_CONFIG_TARGET_SIMULATION} = y
+    -I$TELAF_ROOT/simulation/stub/keyStore/taf_pa_keystore
+#else
     -I$TELAF_PA_DEFAULT/include/keyStore
+#endif
     -I$LEGATO_ROOT/framework/liblegato/
 }
 

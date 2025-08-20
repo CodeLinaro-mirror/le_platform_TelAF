@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 OS_VERSION=$(grep -oP 'VERSION_ID=\K"(.+)"' /etc/os-release | tr -d '"')
@@ -131,18 +131,14 @@ total_packages_checking="
     fakeroot
     file
     libcap-dev
-    libpython2.7-dev
 "
 
 if [ $OS_VERSION = "20.04" ]; then
     total_packages_checking+=" python2"
-    total_packages_checking+=" python-jinja2"
 elif [ $OS_VERSION = "22.04" ]; then
     total_packages_checking+=" python2"
-    total_packages_checking+=" python3-jinja2"
 else # = 18.04
     total_packages_checking+=" python"
-    total_packages_checking+=" python-jinja2"
 fi
 
 

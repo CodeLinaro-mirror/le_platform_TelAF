@@ -94,6 +94,8 @@ using namespace telux::audio;
 #define DEFAULT_MAX_FILE_BYTES 90112
 #define MAX_FILE_BYTES_NODE_NAME "maxFileBytes"
 #define INFINITE_TONE_DURATION 65535
+#define MAX_NUM_OF_ATTEMPTS   10
+#define RETRY_TIMER_INTERVAL  3000
 
 /**
  * Symbols used to populate wave header file.
@@ -509,6 +511,7 @@ class taf_Audio : public ITafSvc
         le_result_t startRecording(taf_audio_Stream_t* streamPtr);
         void PbBufferHandler();
         void RecBufferHandler(taf_audio_Stream_t* streamPtr);
+        void AdvertiseAndRegisterHandler();
 
         static void ClientSessionCloseEventHandler( le_msg_SessionRef_t sessionRef,
                             void* contextPtr);
@@ -541,5 +544,6 @@ class taf_Audio : public ITafSvc
         static void* playAllDtmfTones(void* dtmfTones);
         static void* playDTMFonTX(void* dtmfTones);
         static void BufferEventHandler(void* contextPtr);
+        static void RetryHandler(le_timer_Ref_t timerRef);
 };
 }

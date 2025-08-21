@@ -386,3 +386,71 @@ taf_wlanSta_WlanSTARef_t taf_wlanSta_GetWlanSTA
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
     return myWlanSta.GetWlanSTA (STAid,STAIntfName);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the signal strength of the connected AP in dBm.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK           -- Succeeded.
+ * - LE_UNAVAILABLE  -- The STA is not connected to an access point.
+ * - Others          -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlanSta_GetConnectedApSignalStrength
+(
+    taf_wlanSta_WlanSTARef_t wlanSTARef,
+        ///< [IN] The WLAN STA reference.
+    int16_t* signalStrengthPtr
+        ///< [OUT] The signal strength of the connected AP in dBm.
+)
+{
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.SvcGetConnectedApSignalStrength(wlanSTARef, signalStrengthPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/*
+ * Add handler to monitor signal strength of connected AP.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+taf_wlanSta_ConnectedApSignalStrengthHandlerRef_t taf_wlanSta_AddConnectedApSignalStrengthHandler
+(
+    taf_wlanSta_WlanSTARef_t wlanSTARef,
+        ///< [IN] The WLAN STA reference.
+    int16_t signalThreshold,
+        ///< [IN] The signal threshold below which the handler will be called.
+    uint16_t frequency,
+        ///< [IN] The frequency in seconds at which the handler will be called.
+    bool bAverage,
+        ///< [IN] If true, averages the signal strength values over frequency.
+        ///< If false, reports the most recent signal strength value.
+    taf_wlanSta_ConnectedApSignalStrengthHandlerFunc_t handlerPtr,
+        ///< [IN]
+    void* contextPtr
+        ///< [IN]
+)
+{
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.SvcAddConnectedApSignalStrengthHandler(wlanSTARef, signalThreshold, frequency,
+                                                            bAverage, handlerPtr, contextPtr,
+                                                            taf_wlanSta_GetClientSessionRef()
+                                                        );
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_wlanSta_ConnectedApSignalStrength'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_wlanSta_RemoveConnectedApSignalStrengthHandler
+(
+    taf_wlanSta_ConnectedApSignalStrengthHandlerRef_t handlerRef
+)
+{
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    myWlanSta.SvcRemoveConnectedApSignalStrengthHandler(handlerRef, taf_wlanSta_GetClientSessionRef());
+}

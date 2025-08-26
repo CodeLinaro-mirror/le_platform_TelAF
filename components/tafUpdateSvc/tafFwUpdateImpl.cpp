@@ -247,7 +247,11 @@ taf_update_State_t taf_FwUpdate::GetState
         }
         else
         {
-            fread(&state, sizeof(taf_update_State_t), 1, fp);
+            if (fread(&state, sizeof(taf_update_State_t), 1, fp) <= 0)
+            {
+                LE_WARN("Read %s failed", TAF_FWUPDATE_FOTA_STATE);
+            }
+
             fclose(fp);
         }
     }
@@ -2852,7 +2856,13 @@ le_result_t taf_FwUpdate::GetActiveBank
     FILE* fp = popen("/usr/bin/nad-abctl --boot_slot", "r");
     TAF_ERROR_IF_RET_VAL(fp == NULL, LE_FAULT, "popen failed.");
 
-    fgets(cmdRes, sizeof(cmdRes), fp);
+    if (fgets(cmdRes, sizeof(cmdRes), fp) == NULL)
+    {
+        LE_ERROR("Failed to read fp.");
+        pclose(fp);
+        return LE_FAULT;
+    }
+
     string resStr(cmdRes);
     if (resStr.find("a") != string::npos)
     {

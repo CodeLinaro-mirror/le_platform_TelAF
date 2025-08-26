@@ -653,6 +653,7 @@ le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
             p1.set_value(err);
         }
     };
+
     for(std::shared_ptr<taf_sensorClientInfo_t> clientInfoPtr: clientRequestPtr->clients){
         if(strcmp(sensorPtr->name,clientInfoPtr->sensorName)==0){
             status = clientInfoPtr->sensorClient->selfTest(type,cb1);
@@ -692,7 +693,7 @@ taf_imuSensor_SelfTestFailedHandlerRef_t taf_Sensor::AddSelfTestFailedHandler
     (taf_imuSensor_SensorRef_t sensorRef,taf_imuSensor_SelfTestFailedHandlerFunc_t handlerPtr,
     void* contextPtr){
     LE_DEBUG("AddSelfTestFailedHandler");
-    le_event_HandlerRef_t handlerRef;
+    le_event_HandlerRef_t handlerRef = NULL;
     TAF_KILL_CLIENT_IF_RET_VAL(handlerPtr == NULL, NULL, "Handler pointer is NULL");
     taf_SensorClient_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();

@@ -307,6 +307,11 @@ FUNCTION le_result_t SetVlanId
  * Handler for a tester present state notification.
  *
  * @instaging
+ *
+ * @param[in] stateRef   Tester state reference.
+ * @param[in] vlanId     VLAN ID.
+ * @param[in] state      Tester state.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER StateChangeHandler
@@ -367,6 +372,11 @@ FUNCTION le_result_t SelectTargetVlanID
  * The handler for asynchronous file transfer cancellation result response.
  *
  * @instaging
+ *
+ * @param[in] svcRef     The profile reference.
+ * @param[in] vlanId     VLAN ID. If no valid VLAN ID, input 0.
+ * @param[in] result     The result of canceling file transfer.
+ * @param[in] contextPtr Context pointer.
  *
  * @result
  *     - LE_OK -- Succeeded.

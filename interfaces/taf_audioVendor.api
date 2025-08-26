@@ -348,11 +348,15 @@ ENUM Event
 
 /**
  * Handler for node state change.
+ *
+ * @param[in] nodeId     The audio node ID.
+ * @param[in] event      State event.
+ * @param[in] contextPtr Context pointer.
  */
 HANDLER NodeStateHandler
 (
     uint8   nodeId  IN, ///< The audio node ID.
-    Event   event       ///< State event.
+    Event   event   IN  ///< State event.
 );
 
 /**

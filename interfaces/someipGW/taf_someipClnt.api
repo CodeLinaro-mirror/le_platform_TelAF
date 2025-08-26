@@ -543,6 +543,10 @@ FUNCTION le_result_t GetVersion
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for the service state change.
+ *
+ * @param[in] serviceRef Service Reference.
+ * @param[in] state      Service State.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER StateChangeHandler
@@ -660,6 +664,12 @@ FUNCTION le_result_t DeleteMsg
  * The asynchronous response handler for RequestResponse(). If "result" is not LE_OK, other input
  * parameters can be ignored.
  *
+ * @param[in] result     Result of RequestResponse().
+ * @param[in] isErrRsp   True MT_ERROR(0x81), otherwise MT_RESPONSE(0x80).
+ * @param[in] returnCode Return code of the response.
+ * @param[in] data       Payload data of the response.
+ * @param[in] contextPtr Context pointer.
+ *
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid input parameters for RequestResponse().
@@ -672,7 +682,7 @@ HANDLER RespMsgHandler
 (
     le_result_t result                            IN, ///< Result of RequestResponse().
     bool     isErrRsp                             IN, ///< True MT_ERROR(0x81), otherwise
-                                                      ///  MT_RESPONSE(0x80).
+                                                      ///< MT_RESPONSE(0x80).
     uint8    returnCode                           IN, ///< Return code of the response.
     uint8    data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload data of the response.
 );
@@ -773,6 +783,11 @@ FUNCTION le_result_t UnsubscribeEventGroup
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for an event message.
+ *
+ * @param[in] serviceRef Service Reference.
+ * @param[in] eventId    Event ID.
+ * @param[in] data       Event Data.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER EventMsgHandler

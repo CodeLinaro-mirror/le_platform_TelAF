@@ -355,6 +355,12 @@ FUNCTION le_result_t GetGID
  * Handler for a DoIP event.
  *
  * @instaging
+ *
+ * @param[in] svcRef          Service reference.
+ * @param[in] eventType       DoIP event type.
+ * @param[in] remoteLogicAddr The logical address of remote DoIP client.
+ * @param[in] vlanId          The VLAN ID where the event comes from. If no valid VLAN ID, input 0.
+ * @param[in] contextPtr      Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER EventHandler
@@ -363,7 +369,7 @@ HANDLER EventHandler
     EventType eventType  IN,    ///< DoIP event type.
     uint16 remoteLogicAddr IN,  ///< The logical address of remote DoIP client.
     uint16 vlanId IN            ///< The VLAN ID where the event comes from.
-                                /// If no valid VLAN ID, input 0.
+                                ///< If no valid VLAN ID, input 0.
 );
 
 //--------------------------------------------------------------------------------------------------

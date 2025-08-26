@@ -209,6 +209,10 @@ FUNCTION State Read(
 
 /**
  * State change event handler.
+ *
+ * @param[in] pinNum     Pin number of the state change triggered GPIO.
+ * @param[in] state      New state of the pin.
+ * @param[in] contextPtr Context pointer.
  */
 HANDLER ChangeCallback
 (

@@ -558,6 +558,10 @@ FUNCTION le_result_t GetNextSharedApp
  *
  * @instaging
  *
+ * @param[in] dataName   Data name.
+ * @param[in] appName    Name of the owner app of the data.
+ * @param[in] state      Data state.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER DataStateChangeHandler

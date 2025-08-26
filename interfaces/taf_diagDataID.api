@@ -299,6 +299,10 @@ FUNCTION le_result_t SetVlanId
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a received ReadDID message.
+ *
+ * @param[in] rxMsgRef   Received message reference.
+ * @param[in] dataId     Data identifier.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER RxReadDIDMsgHandler
@@ -343,12 +347,16 @@ FUNCTION le_result_t SendReadDIDResp
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a received WriteDID message.
+ *
+ * @param[in] rxMsgRef   Received message reference.
+ * @param[in] dataId     Data identifier.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER RxWriteDIDMsgHandler
 (
     RxWriteDIDMsg rxMsgRef  IN,    ///< Received message reference.
-    uint16 dataId  IN              ///< Data identifier
+    uint16 dataId  IN              ///< Data identifier.
 );
 
 //-------------------------------------------------------------------------------------------------

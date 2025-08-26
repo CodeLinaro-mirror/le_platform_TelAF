@@ -395,6 +395,10 @@ FUNCTION le_result_t SetVlanId
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a Rx session control type.
+ *
+ * @param[in] rxSesTypeRef Received session type reference.
+ * @param[in] sesCtrlType  Session control type.
+ * @param[in] contextPtr   Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RxSesTypeHandler
@@ -438,6 +442,11 @@ FUNCTION le_result_t SendSesTypeCheckResp
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a session control type change.
+ *
+ * @param[in] sesChangeRef Session change reference.
+ * @param[in] previousType Previous session control type.
+ * @param[in] currentType  Current session control type.
+ * @param[in] contextPtr   Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER SesChangeHandler
@@ -512,6 +521,10 @@ FUNCTION le_result_t ReleaseSesChangeMsg
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a Rx security access message.
+ *
+ * @param[in] rxMsgRef   Received message reference.
+ * @param[in] accessType Security access type.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER RxSecAccessMsgHandler

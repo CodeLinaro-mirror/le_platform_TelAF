@@ -93,6 +93,12 @@ REFERENCE DiagInf;
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a received service request message.
+ *
+ * @param[in] ref        Service reference.
+ * @param[in] addrInfo   Diagnostic message pointer.
+ * @param[in] serviceID  Service ID.
+ * @param[in] msg        Data RequestMsg.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER DiagHandler

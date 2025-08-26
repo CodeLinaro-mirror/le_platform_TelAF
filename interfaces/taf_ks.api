@@ -443,8 +443,8 @@ ENUM RsaSigPadding
 //--------------------------------------------------------------------------------------------------
 ENUM RsaPaddingType
 {
-    RSA_PKCS1_V15,            /// PKCS1_V1.5 padding
-    RSA_PSS,                  /// PSS padding
+    RSA_PKCS1_V15,            ///< PKCS1_V1.5 padding
+    RSA_PSS,                  ///< PSS padding
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -918,6 +918,10 @@ FUNCTION le_result_t GetNextSharedApp
 /**
  * Handler for key sharing assignment.
  *
+ * @param[in] keyId      Key ID.
+ * @param[in] appName    Key owner application name.
+ * @param[in] state      Sharing state.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER KeySharingHandler

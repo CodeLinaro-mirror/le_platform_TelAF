@@ -423,12 +423,16 @@ FUNCTION le_result_t SetVlanId
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a RequestFileTransfer message.
+ *
+ * @param[in] rxMsgRef   Received message reference.
+ * @param[in] modeOfOps  Mode of operation.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RxFileXferMsgHandler
 (
     RxFileXferMsg rxMsgRef IN,     ///< Received message reference.
-    ModeOfOpsType modeOfOps IN     ///< Mode of operation
+    ModeOfOpsType modeOfOps IN     ///< Mode of operation.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -580,6 +584,9 @@ FUNCTION le_result_t SendFileXferResp
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a TransferData message.
+ *
+ * @param[in] rxMsgRef   Received message reference.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RxXferDataMsgHandler
@@ -679,6 +686,9 @@ FUNCTION le_result_t SendXferDataResp
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a RequestTransferExit message.
+ *
+ * @param[in] rxMsgRef   Received message reference.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RxXferExitMsgHandler

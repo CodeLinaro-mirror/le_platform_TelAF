@@ -287,12 +287,15 @@ REFERENCE Wlan;
  *
  * @instaging
  *
+ * @param[in] WlanRef    The WLAN reference. Set to NULL. Reserved for future use.
+ * @param[in] state      The device state.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER DeviceStateHandler
 (
     Wlan WlanRef      IN, ///< The WLAN reference. Set to NULL. Reserved for future use.
-    DeviceState state IN
+    DeviceState state IN  ///< The device state.
 );
 
 //-------------------------------------------------------------------------------------------------

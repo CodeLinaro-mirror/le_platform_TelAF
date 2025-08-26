@@ -428,11 +428,11 @@ FUNCTION le_result_t SetServicePort
 (
    Service serviceRef                IN, ///< Service Reference.
    uint16  udpPort                   IN, ///< Set up an UDP server with the given UDP port for the
-                                         ///  service. 0 means no UDP server is set up.
+                                         ///< service. 0 means no UDP server is set up.
    uint16  tcpPort                   IN, ///< Set up an TCP server with the given TCP port for the
-                                         ///  service. 0 means no TCP server is set up.
+                                         ///< service. 0 means no TCP server is set up.
    bool enableMagicCookies           IN  ///< If TCP magic cookie is enabled when TCP server is set
-                                         ///  up.
+                                         ///< up.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -613,6 +613,9 @@ FUNCTION le_result_t Notify
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a Rx message.
+ *
+ * @param[in] msgRef     Rx Message Reference.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RxMsgHandler
@@ -634,6 +637,11 @@ EVENT RxMsg
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for the event group subscription status.
+ *
+ * @param[in] serviceRef   Service Reference.
+ * @param[in] eventGroupId Event Group ID.
+ * @param[in] isSubscribed True if the event group is subscribed, otherwise unsubscribed.
+ * @param[in] contextPtr   Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER SubscriptionHandler
@@ -641,7 +649,7 @@ HANDLER SubscriptionHandler
     Service  serviceRef               IN, ///< Service Reference.
     uint16 eventGroupId               IN, ///< Event Group ID.
     bool isSubscribed                 IN  ///< True if the event group is subscribed, otherwise
-                                          ///  unsubscribed.
+                                          ///< unsubscribed.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -767,7 +775,7 @@ FUNCTION le_result_t SendResponse
 (
     RxMsg   msgRef                               IN, ///< Rx Message reference.
     bool    isErrRsp                             IN, ///< True with message type MT_ERROR(0x81),
-                                                     ///  otherwise MT_RESPONSE(0x80).
+                                                     ///< otherwise MT_RESPONSE(0x80).
     uint8   returnCode                           IN, ///< Return Code.
     uint8   data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload Data.
 );

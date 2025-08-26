@@ -142,13 +142,16 @@ DEFINE MIN_MSG_SIZE = (200);
 
 //------------------------------------------------------------------------------------------------
 /**
- *  Handler to get SAP response messages for specific requested messages
- *  from the subscibtion module.
+ * Handler to get SAP response messages for specific requested messages
+ * from the subscibtion module.
+ *
+ * @param[in] message    SAP response message.
+ * @param[in] contextPtr Context pointer.
  */
 //------------------------------------------------------------------------------------------------
 HANDLER MessageHandler
 (
-    uint8 message[MAX_MSG_SIZE]    ///< The message.
+    uint8 message[MAX_MSG_SIZE] IN   ///< SAP response message.
 );
 
 //------------------------------------------------------------------------------------------------

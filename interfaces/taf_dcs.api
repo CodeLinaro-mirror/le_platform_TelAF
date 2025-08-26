@@ -980,7 +980,7 @@ STRUCT RoamingStatusInd
 {
     uint8 phoneId;                         ///< The phone ID.
     bool isRoaming;                        ///< True means that roaming is on; False means that
-                                           ///  roaming is off.
+                                           ///< roaming is off.
     RoamingType type;                      ///< The roaming type. Valid only if roaming is on.
 };
 
@@ -1143,12 +1143,12 @@ EVENT RoamingStatus
  *
  * @param[in] profileRef  The profile reference.
  * @param[in] isThrottled True when APN is throttled. False when APN is unthrottled.
- * @param[in] ipv4RemainingTime The remaining ipv4 throttled time if isThrottled is True;
+ * @param[in] ipv4RemainingTime The remaining IPv4 throttled time if isThrottled is True;
  * otherwise 0.
- * @param[in] ipv6RemainingTime The remaining ipv6 throttled time if isThrottled is True;
+ * @param[in] ipv6RemainingTime The remaining IPv6 throttled time if isThrottled is True;
  * otherwise 0.
  * Later remaining time can be fetched by using taf_dcs_GetAPNThrottledStatus()
- *
+ * @param[in] contextPtr Context pointer.
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -1180,10 +1180,9 @@ EVENT ThrottledStatus
  *
  * @instaging
  *
- * @param[in] profileRef The profile reference.
- * @param[in] qosState   The QOS state.
  * @param[in] qosFlowRef The QOS flow reference.
- *
+ * @param[in] qosState   The QOS state.
+ * @param[in] contextPtr Context pointer.
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -1212,6 +1211,9 @@ EVENT QosStatus
  *
  * @instaging
  *
+ * @param[in] profileRef The profile reference.
+ * @param[in] state      The hardware acceleration state.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER HwAccelerationStateHandler
@@ -1255,7 +1257,7 @@ FUNCTION le_result_t GetRoamingStatus
 (
     uint8  phoneId              IN,  ///< The phone ID.
     bool isRoaming              OUT, ///< True means that roaming is on; False means that
-                                     ///  roaming is off.
+                                     ///< roaming is off.
     RoamingType type            OUT  ///< The roaming type. Valid only if roaming is on.
 );
 

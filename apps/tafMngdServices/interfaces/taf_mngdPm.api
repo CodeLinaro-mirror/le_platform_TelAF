@@ -523,6 +523,11 @@ REFERENCE NodeModemAwakeEvent;
  * Handler for async shutdown request.
  *
  * @instaging
+ *
+ * @param[in] requestedMode Requested mode.
+ * @param[in] responseMode  Request response.
+ * @param[in] result        Request response result.
+ * @param[in] contextPtr    Context pointer.
  */
 HANDLER AsyncShutdownReqHandler
 (
@@ -544,6 +549,11 @@ ENUM RestartMode
  * Handler for async restart request.
  *
  * @instaging
+ *
+ * @param[in] restartMode  Restart mode.
+ * @param[in] responseMode Request response.
+ * @param[in] result       Request response result.
+ * @param[in] contextPtr   Context pointer.
  */
 HANDLER AsyncRestartReqHandler
 (
@@ -556,6 +566,11 @@ HANDLER AsyncRestartReqHandler
  * Handler for async Wake up Vehicle request.
  *
  * @instaging
+ *
+ * @param[in] reason     WakeupVehicleReason reason.
+ * @param[in] status     Response status.
+ * @param[in] result     Request response result.
+ * @param[in] contextPtr Context pointer.
  */
 HANDLER AsyncWakeupVehicleReqHandler
 (
@@ -576,6 +591,9 @@ STRUCT StateInd
  * Handler for state change.
  *
  * @instaging
+ *
+ * @param[in] stateInd   The system state indication.
+ * @param[in] contextPtr Context pointer.
  */
 HANDLER StateChangeHandler
 (
@@ -596,6 +614,9 @@ EVENT StateChange
  * Handler for information report.
  *
  * @instaging
+ *
+ * @param[in] report     The status report.
+ * @param[in] contextPtr Context pointer.
  */
 HANDLER InfoReportHandler
 (
@@ -617,12 +638,17 @@ EVENT InfoReport
  * Handler for node power state change.
  *
  * @instaging
+ *
+ * @param[in] pmNodeId   Node ID.
+ * @param[in] ref        Node power state reference.
+ * @param[in] state      Node power state.
+ * @param[in] contextPtr Context pointer.
  */
 HANDLER NodePowerStateChangeHandler
 (
-    uint8 pmNodeId,
-    nodePowerState ref,
-    NodePowerState state
+    uint8 pmNodeId IN,          ///< Node ID.
+    nodePowerState ref IN,      ///< Node power state reference.
+    NodePowerState state IN     ///< Node power state.
 );
 
 /**
@@ -642,13 +668,18 @@ EVENT NodePowerStateChange
  * Handler for node modem awake.
  *
  * @instaging
+ *
+ * @param[in] ref        Node modem awake event reference.
+ * @param[in] pmNodeId   Node ID.
+ * @param[in] wsBitmask  Modem wakeup reason bitmask.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER NodeModemAwakeHandler
 (
-    NodeModemAwakeEvent ref,
-    uint8 pmNodeId,
-    NodeModemWsBitMask wsBitmask
+    NodeModemAwakeEvent ref IN,        ///< Node modem awake event reference.
+    uint8 pmNodeId IN,                 ///< Node ID.
+    NodeModemWsBitMask wsBitmask IN    ///< Modem wakeup reason bitmask.
 );
 
 //--------------------------------------------------------------------------------------------------

@@ -565,6 +565,10 @@ ENUM HlapTimerType {
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for changes in eCall state.
+ *
+ * @param[in] ecallRef   Emergency call reference.
+ * @param[in] state      Emergency call state.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER StateChangeHandler
@@ -842,9 +846,9 @@ FUNCTION le_result_t SetMsdPosition
     int32 latitude   IN,   ///< Latitude value in ms.
     int32 longitude  IN,   ///< Longitude value in ms.
     int32 direction  IN    ///< The direction of the vehicle from magnetic north (0
-                           ///  to 358, clockwise) in 2-degrees unit. Valid range is
-                           ///  0 to 179. If the direction of travel is invalid or
-                           ///  unknown, the value 0xFF shall be used.
+                           ///< to 358, clockwise) in 2-degrees unit. Valid range is
+                           ///< 0 to 179. If the direction of travel is invalid or
+                           ///< unknown, the value 0xFF shall be used.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -1197,10 +1201,10 @@ FUNCTION le_result_t StartPrivate
     Call ecallRef IN,      ///< eCall reference.
     string psap[taf_sim.PHONE_NUM_MAX_LEN] IN,         ///< Public Safely Answering Point number.
     string contentType[CONTENT_TYPE_MAX_LENGTH] IN,    ///< Type of data being transmitted and
-                                                       ///  should be filled as per RFC 8147 i.e
-                                                       ///  MSD. The maximum length is 128 bytes.
+                                                       ///< should be filled as per RFC 8147 i.e
+                                                       ///< MSD. The maximum length is 128 bytes.
     string acceptInfo[ACCEPT_INFO_MAX_LENGTH]   IN     ///< SIP Accept header. The maximum length
-                                                       ///  is 128 bytes.
+                                                       ///< is 128 bytes.
 );
 
 //-------------------------------------------------------------------------------------------------

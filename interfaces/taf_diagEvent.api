@@ -386,6 +386,10 @@ FUNCTION le_result_t ResetDebounceStatus
  * Handler for a UDS status.
  *
  * @instaging
+ *
+ * @param[in] svcRef         Service reference.
+ * @param[in] eventUdsStatus Event UDS status.
+ * @param[in] contextPtr     Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER UdsStatusHandler
@@ -412,6 +416,10 @@ EVENT UdsStatus
  * Handler for a Enable Condition state.
  *
  * @instaging
+ *
+ * @param[in] svcRef     Service reference.
+ * @param[in] state      Enable Condition state.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER EnableCondStateHandler
@@ -469,6 +477,10 @@ FUNCTION OpCycle GetOpCycle
  * Handler for an Operation Cycle state.
  *
  * @instaging
+ *
+ * @param[in] opCycleRef Operation Cycle reference.
+ * @param[in] state      Operation Cycle state.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER OpCycleStateHandler

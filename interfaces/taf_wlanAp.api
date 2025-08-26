@@ -114,6 +114,10 @@ ENUM DeviceConnectionEvent{
  *
  * @instaging
  *
+ * @param[in] wlanAPRef  The WLAN AP reference.
+ * @param[in] event      The device connection event.
+ * @param[in] MACAddress The MAC address of the device.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER DeviceConnectionEventHandler(

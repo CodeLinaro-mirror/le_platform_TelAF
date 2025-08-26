@@ -508,22 +508,29 @@ FUNCTION DeleteList
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for sending messages.
+ *
+ * @param[in] msgRef     Message list reference.
+ * @param[in] status     Sending status.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER CallbackResult
 (
-    Msg msgRef,          ///< Message list reference.
+    Msg msgRef IN,       ///< Message list reference.
     SendStatus status IN ///< Sending status.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for receiving messages.
+ *
+ * @param[in] msgRef     Reference for received message.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RxMsgHandler
 (
-    Msg  msgRef ///< Message reference.
+    Msg msgRef IN ///< Reference for received message.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -539,11 +546,14 @@ EVENT RxMsg
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for full storage notifications.
+ *
+ * @param[in] fullType   Full storage indication type.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER FullStorageHandler
 (
-    StorageFullType  fullType ///< Full storage indication type.
+    StorageFullType fullType IN ///< Full storage indication type.
 );
 
 //--------------------------------------------------------------------------------------------------

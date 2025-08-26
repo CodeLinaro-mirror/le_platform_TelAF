@@ -184,18 +184,25 @@ DEFINE MIN_MSG_SIZE = (200);
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Handler to get notifications for specific messages when there are updates
- *  from the modem.
+ * Handler to get notifications for specific messages when there are updates
+ * from the modem.
+ *
+ * @param[in] message    Updated message.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER MessageHandler
 (
-    uint8 message[MAX_MSG_SIZE]    ///< The message.
+    uint8 message[MAX_MSG_SIZE] IN   ///< Updated message.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
  * Callback to get send message result.
+ *
+ * @param[in] messageId  Message ID.
+ * @param[in] result     Result.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER CallbackHandler

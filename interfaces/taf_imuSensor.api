@@ -245,13 +245,13 @@ ENUM SensorType
 STRUCT DataValue
 {
     uint64 timestamp;      ///< Timestamp when the event was generated on the hardware,
-                           ///  nanosecond since boot-up
+                           ///< nanosecond since boot-up
     double x;              ///< x-axis data, meter per second per second for accelerometer, radians
-                           /// per second for gyroscope.
+                           ///< per second for gyroscope.
     double y;              ///< y-axis data, meter per second per second for accelerometer, radians
-                           /// per second for gyroscope.
+                           ///< per second for gyroscope.
     double z;              ///< z-axis data, meter per second per second for accelerometer, radians
-                           /// per second for gyroscope.
+                           ///< per second for gyroscope.
 };
 
 /**
@@ -340,7 +340,7 @@ FUNCTION le_result_t GetName
 (
     Sensor sensorRef                                IN,   ///< Sensor reference.
     string sensorName[NAME_MAX_SIZE]                OUT   ///< The name of the sensor.This name is
-                                                          ///  used to activate sensor.
+                                                          ///< used to activate sensor.
 );
 
 //------------------------------------------------------------------------------------------------
@@ -373,7 +373,7 @@ FUNCTION le_result_t GetVersion
 (
     Sensor sensorRef                                IN,   ///< Sensor reference.
     string version[NAME_MAX_SIZE]                   OUT   ///< The version of the sensor considering
-                                                          ///  the hardware part and the driver.
+                                                          ///< the hardware part and the driver.
 );
 
 //------------------------------------------------------------------------------------------------
@@ -390,7 +390,7 @@ FUNCTION le_result_t GetType
 (
     Sensor sensorRef                                IN,   ///< Sensor reference.
     SensorType sensorType                           OUT   ///< The type of sensor.
-                                                          ///  @ref taf_imuSensor_SensorType_t.
+                                                          ///< @ref taf_imuSensor_SensorType_t.
 );
 
 //------------------------------------------------------------------------------------------------
@@ -441,9 +441,9 @@ FUNCTION le_result_t GetRange
 (
     Sensor sensorRef    IN,     ///< Sensor reference.
     double range        OUT     ///< The range offered by the sensor. For accelerometers, this is
-                                ///  the number of Gs in either direction (+/-) on each axis and for
-                                ///  gyroscopes, this is the number of degrees per second (dps) in
-                                ///  either direction (+/-) along each axis.
+                                ///< the number of Gs in either direction (+/-) on each axis and for
+                                ///< gyroscopes, this is the number of degrees per second (dps) in
+                                ///< either direction (+/-) along each axis.
 );
 
 //------------------------------------------------------------------------------------------------
@@ -460,8 +460,8 @@ FUNCTION le_result_t GetResolution
 (
     Sensor sensorRef       IN,      ///< Sensor reference.
     double resolution      OUT      ///< This is the smallest difference between two values reported
-                                    ///  by this sensor, in meter per second per second for
-                                    ///  accelerometers and radians per second for gyroscopes.
+                                    ///< by this sensor, in meter per second per second for
+                                    ///< accelerometers and radians per second for gyroscopes.
 );
 
 //------------------------------------------------------------------------------------------------
@@ -515,7 +515,7 @@ FUNCTION le_result_t Activate
 (
     Sensor sensorRef                       IN,   ///< Sensor reference.
     double samplingRate                    IN,   ///< The sampling rate for the sensor,
-                                                 ///  number of samples per second (Hz).
+                                                 ///< number of samples per second (Hz).
     uint32 batchCount                      IN    ///< The batch count of sensor.
 );
 
@@ -565,11 +565,15 @@ FUNCTION le_result_t SelfTest
  * Handler for sensor data.
  *
  * @instaging
+ *
+ * @param[in] sensorRef  Sensor reference.
+ * @param[in] sampleRef  Reference for sensor sample.
+ * @param[in] contextPtr Context pointer.
  */
 //------------------------------------------------------------------------------------------------
 HANDLER DataHandler
 (
-    Sensor sensorRef                                   IN,   ///< Sensor reference
+    Sensor sensorRef                                   IN,   ///< Sensor reference.
     Sample sampleRef                                   IN   ///< Reference for sensor sample.
 );
 
@@ -582,7 +586,7 @@ HANDLER DataHandler
 //------------------------------------------------------------------------------------------------
 EVENT Data
 (
-    Sensor sensorRef,     ///< Sensor reference
+    Sensor sensorRef,     ///< Sensor reference.
     DataHandler handler   ///< The sensor event handler type.
 );
 
@@ -591,13 +595,18 @@ EVENT Data
  * Handler for self test failure.
  *
  * @instaging
+ *
+ * @param[in] eventRef   SelfTestEvent reference.
+ * @param[in] sensorRef  Sensor reference.
+ * @param[in] timestamp  Timestamp of self test.
+ * @param[in] contextPtr Context pointer.
  */
 //------------------------------------------------------------------------------------------------
 HANDLER SelfTestFailedHandler
 (
-SelfTestEvent eventRef                                  IN, ///< SelfTestEvent reference
-Sensor sensorRef                                        IN, ///< Sensor reference
-uint64 timestamp                                        IN  ///< Timestamp of self test
+SelfTestEvent eventRef                                  IN, ///< SelfTestEvent reference.
+Sensor sensorRef                                        IN, ///< Sensor reference.
+uint64 timestamp                                        IN  ///< Timestamp of self test.
 );
 
 //------------------------------------------------------------------------------------------------

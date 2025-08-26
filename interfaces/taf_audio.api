@@ -1397,11 +1397,15 @@ FUNCTION le_result_t Stop
 
 /**
  * Handler for audio stream event.
+ *
+ * @param[in] streamRef  Audio stream reference.
+ * @param[in] event      Media event parameters.
+ * @param[in] contextPtr Context pointer.
  */
 HANDLER MediaHandler
 (
     Stream     streamRef  IN, ///< Audio stream reference.
-    MediaEvent event          ///< Media event parameters.
+    MediaEvent event      IN  ///< Media event parameters.
 );
 
 /**
@@ -1420,7 +1424,7 @@ STRUCT PlayFileConfig
 {
     string srcPath[MAX_SRC_PATH_LEN];  ///< The absolute audio file path.
     int32  repeat;                     ///< -1 to play infinite loop, 0 to play once
-                                       ///  and x to play x+1 times.
+                                       ///< and x to play x+1 times.
 };
 
 /**
@@ -1540,7 +1544,7 @@ FUNCTION le_result_t PlayDtmf
     Stream  streamRef           IN,  ///< Modem RX stream reference.
     string  dtmf[DTMF_MAXLEN]   IN,  ///< DTMFs to play.
     uint16 duration             IN,  ///< DTMF duration in milliseconds, for infinity tone
-                                     ///  generation it can be 0xFFFF.
+                                     ///< generation it can be 0xFFFF.
     uint32  pause               IN,  ///< Pause duration between tones in milliseconds.
     double gain                 IN   ///< Range 0.0 - 1.0.
 );
@@ -1574,6 +1578,10 @@ FUNCTION le_result_t StopSignallingDtmf
 
 /**
  * Handler for DTMF tone detection.
+ *
+ * @param[in] streamRef  Modem RX stream reference.
+ * @param[in] dtmf       DTMF char.
+ * @param[in] contextPtr Context pointer.
  */
 HANDLER DtmfDetectorHandler
 (

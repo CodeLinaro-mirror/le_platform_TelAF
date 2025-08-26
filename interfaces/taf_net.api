@@ -1032,6 +1032,9 @@ REFERENCE Interface;
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for route changes.
+ *
+ * @param[in] routeInd   Route indication.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RouteChangeHandler
@@ -1052,6 +1055,9 @@ EVENT RouteChange
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for gateway changes.
+ *
+ * @param[in] gatewayInd Gateway indication.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER GatewayChangeHandler
@@ -1072,6 +1078,9 @@ EVENT GatewayChange
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for DNS changes.
+ *
+ * @param[in] DNSInd     DNS indication.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER DNSChangeHandler
@@ -1092,6 +1101,9 @@ EVENT DNSChange
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for destination NAT changes.
+ *
+ * @param[in] destNatInd Destination NAT indication.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER DestNatChangeHandler
@@ -1101,8 +1113,11 @@ HANDLER DestNatChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Handler for asynchronous starting or stopping tunnel result response.
+ * Handler for asynchronous starting or stopping tunnel result response.
  *
+ * @param[in] tunnelRef  Tunnel reference.
+ * @param[in] result     The result of starting or stopping tunnel.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER AsyncTunnelHandler
@@ -1113,8 +1128,10 @@ HANDLER AsyncTunnelHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Handler for asynchronous enabling or disabling L2TP result response.
+ * Handler for asynchronous enabling or disabling L2TP result response.
  *
+ * @param[in] result     The result of enabling or disabling L2TP.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER AsyncL2tpHandler
@@ -1124,8 +1141,10 @@ HANDLER AsyncL2tpHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Handler for asynchronous enabling or disabling SOCKS result response.
+ * Handler for asynchronous enabling or disabling SOCKS result response.
  *
+ * @param[in] result     The result of enabling or disabling SOCKS.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER AsyncSocksHandler
@@ -1141,6 +1160,9 @@ HANDLER AsyncSocksHandler
  *
  * @instaging
  *
+ * @param[in] vlanRef    VLAN reference.
+ * @param[in] state      The VLAN hardware acceleration state.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER VlanHwAccelerationStateHandler

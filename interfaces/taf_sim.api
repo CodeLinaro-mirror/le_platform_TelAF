@@ -491,11 +491,14 @@ STRUCT RefreshRegFile
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for SIM refresh changes.
+ *
+ * @param[in] refreshStatus SIM refresh status.
+ * @param[in] contextPtr    Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER RefreshChangeHandler
 (
-    RefreshStatus refreshStatus
+    RefreshStatus refreshStatus IN      ///< SIM refresh status.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -575,12 +578,16 @@ FUNCTION le_result_t SetRefreshAllow
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for SIM card state changes.
+ *
+ * @param[in] slotId     Slot ID.
+ * @param[in] state      SIM card state.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER NewStateHandler
 (
     Id       slotId IN,    ///< Slot ID.
-    States   state IN      ///< State.
+    States   state IN      ///< SIM card state.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -597,12 +604,16 @@ EVENT NewState
 /**
  * Handler for PIN1/PIN2/PUK1/PUK2 changes.
  *
+ * @param[in] slotId       The SIM identifier.
+ * @param[in] responsetype Lock response type.
+ * @param[in] result       Result.
+ * @param[in] contextPtr   Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER AuthenticationResponseHandler
 (
     Id             slotId IN,             ///< The SIM identifier.
-    LockResponse   responsetype,          ///< Lock response type.
+    LockResponse   responsetype IN,       ///< Lock response type.
     le_result_t    result IN              ///< Result.
 );
 
@@ -1184,19 +1195,22 @@ FUNCTION le_result_t IsEmergencyCallSubscriptionSelected
 (
     Id    simId IN,  ///< The SIM identifier.
     bool  isEcs OUT  ///< - True -- Emergency call subscription (ECS) is selected.
-                     ///  - False -- Commercial subscription is selected.
+                     ///< - False -- Commercial subscription is selected.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for ICCID change events.
  *
+ * @param[in] simId      The SIM identifier.
+ * @param[in] iccid      ICCID.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER IccidChangeHandler
 (
     Id       simId IN,               ///< The SIM identifier.
-    string   iccid[ICCID_LEN] IN     ///< ICCID
+    string   iccid[ICCID_LEN] IN     ///< ICCID.
 );
 
 //--------------------------------------------------------------------------------------------------

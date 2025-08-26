@@ -222,6 +222,11 @@ ENUM UserConsentReasonType
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for profile download.
+ *
+ * @param[in] slotId         SIM slot ID.
+ * @param[in] downloadStatus Download status.
+ * @param[in] errorCause     Download error cause.
+ * @param[in] contextPtr     Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER  ProfileDownloadHandler
@@ -244,13 +249,18 @@ EVENT  ProfileDownload
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for consent of profile management.
+ *
+ * @param[in] slotId              SIM slot ID.
+ * @param[in] userConsentRequired Whether user consent is required or not.
+ * @param[in] mask                Mask.
+ * @param[in] contextPtr          Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER  ProfileUserConsentHandler
 (
     taf_sim.Id         slotId  IN,              ///< SIM slot ID.
     bool               userConsentRequired IN,  ///< Whether user consent is required or not.
-    uint8              mask                     ///< Mask.
+    uint8              mask  IN                 ///< Mask.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -266,12 +276,16 @@ EVENT  ProfileUserConsent
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for confirmation code of profile.
+ *
+ * @param[in] slotId      SIM slot ID.
+ * @param[in] profileName Profile name.
+ * @param[in] contextPtr  Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER  ProfileConfirmationCodeHandler
 (
-    taf_sim.Id         slotId  IN,            ///< SIM slot ID.
-    string             profileName[NAME_LEN]  ///< Profile name.
+    taf_sim.Id         slotId  IN,                 ///< SIM slot ID.
+    string             profileName[NAME_LEN]  IN   ///< Profile name.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -316,7 +330,7 @@ FUNCTION le_result_t AddProfile
     string           activationCode[ACTIVATION_CODE_LEN] IN,    ///< Activation code.
     string           confirmationCode[CODE_LEN] IN,             ///< Confirmation code.
     bool             userConsentSupported IN                    ///< Whether user consent is
-                                                                ///  supported or not.
+                                                                ///< supported or not.
 );
 
 //-------------------------------------------------------------------------------------------------

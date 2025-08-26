@@ -205,6 +205,11 @@ FUNCTION le_result_t SetVlanId
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a Rx RoutineControl message.
+ *
+ * @param[in] rxMsgRef        Received message reference.
+ * @param[in] routineCtrlType RoutineControl type.
+ * @param[in] identifier      Routine identifier.
+ * @param[in] contextPtr      Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER RxMsgHandler

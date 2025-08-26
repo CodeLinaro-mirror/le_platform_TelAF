@@ -843,35 +843,35 @@ ENUM NetRejCause
     NET_REJ_CAUSE_AUTH_FAILURE,                      ///< Authentication failure.
     NET_REJ_CAUSE_IMSI_UNKNOWN,                      ///< IMSI unknown in HLR.
     NET_REJ_CAUSE_ILLEGAL_MS,                        ///< Illegal Mobile Station (MS); network
-                                                     ///  refuses service to the MS either because
-                                                     ///  an identity of the MS is not acceptable
-                                                     ///  to the network or because the MS does not
-                                                     ///  pass the authentication check.
+                                                     ///< refuses service to the MS either because
+                                                     ///< an identity of the MS is not acceptable
+                                                     ///< to the network or because the MS does not
+                                                     ///< pass the authentication check.
     NET_REJ_CAUSE_IMSI_UNKNOWN_VLR,                  ///< IMSI unknown in Visitors Location Register
-                                                     ///  (VLR).
+                                                     ///< (VLR).
     NET_REJ_CAUSE_IMEI_NOT_ACCEPTED,                 ///< Network does not accept emergency call
-                                                     ///  establishment using an IMEI or not accept
-                                                     ///  attach procedure for emergency services
-                                                     ///  using an IMEI.
+                                                     ///< establishment using an IMEI or not accept
+                                                     ///< attach procedure for emergency services
+                                                     ///< using an IMEI.
     NET_REJ_CAUSE_ILLEGAL_ME,                        ///< ME used is not acceptable to the network.
     NET_REJ_CAUSE_GPRS_SERVICES_NOT_ALLOWED,         ///< Not allowed to operate GPRS services.
     NET_REJ_CAUSE_GPRS_NON_GPRS_NOT_ALLOWED,         ///< Not allowed to operate either GPRS or
-                                                     ///  non-GPRS services.
+                                                     ///< non-GPRS services.
     NET_REJ_CAUSE_MS_IDENTITY_FAILED,                ///< The network cannot derive the MS's
-                                                     ///  identity from the P-TMSI/GUTI.
+                                                     ///< identity from the P-TMSI/GUTI.
     NET_REJ_CAUSE_IMPLICITLY_DETACHED,               ///< Network has implicitly detached the MS.
     NET_REJ_CAUSE_PLMN_NOT_ALLOWED,                  ///< If the network initiates a detach request
-                                                     ///  or UE requests a services, in a PLMN where
-                                                     ///  the MS, by subscription or due to operator
-                                                     ///  determined barring is not allowed to
-                                                     ///  operate.
+                                                     ///< or UE requests a services, in a PLMN where
+                                                     ///< the MS, by subscription or due to operator
+                                                     ///< determined barring is not allowed to
+                                                     ///< operate.
     NET_REJ_CAUSE_LOCATION_AREA_NOT_ALLOWED,         ///< Network initiates a detach request, in a
-                                                     ///  location area where the HPLMN determines
-                                                     ///  that the MS, by subscription, is not
-                                                     ///  allowed to operate or roaming subscriber
-                                                     ///  the subscriber is denied service even if
-                                                     ///  other PLMNs are available on which
-                                                     ///  registration was possible.
+                                                     ///< location area where the HPLMN determines
+                                                     ///< that the MS, by subscription, is not
+                                                     ///< allowed to operate or roaming subscriber
+                                                     ///< the subscriber is denied service even if
+                                                     ///< other PLMNs are available on which
+                                                     ///< registration was possible.
     NET_REJ_CAUSE_ROAMING_NOT_ALLOWED,               ///< Roaming not allowed in this Location Area.
     NET_REJ_CAUSE_GPRS_NOT_ALLOWED_IN_PLMN,          ///< GPRS services not allowed in this PLMN.
     NET_REJ_CAUSE_NO_SUITABLE_CELLS,                 ///< No Suitable Cells in this Location Area.
@@ -879,15 +879,15 @@ ENUM NetRejCause
     NET_REJ_CAUSE_NETWORK_FAILURE,                   ///< Network Failure.
     NET_REJ_CAUSE_MAC_FAILURE = 20,                  ///< MAC failure.
     NET_REJ_CAUSE_SYNC_FAILURE,                      ///< USIM detects that the SQN in the
-                                                     ///  AUTHENTICATION REQUEST
-                                                     ///  or AUTHENTICATION_AND_CIPHERING REQUEST
-                                                     ///  message is out of range.
+                                                     ///< AUTHENTICATION REQUEST
+                                                     ///< or AUTHENTICATION_AND_CIPHERING REQUEST
+                                                     ///< message is out of range.
     NET_REJ_CAUSE_CONGESTION,                        ///< Network cannot serve a request from the MS
-                                                     ///  because of congestion.
+                                                     ///< because of congestion.
     NET_REJ_CAUSE_GSM_AUTHENTICATION_UNACCEPTABLE,   ///< GSM authentication unacceptable.
     NET_REJ_CAUSE_NOT_AUTHORIZED = 25,               ///< Not authorized for this CSG.
     NET_REJ_CAUSE_SMS_PROVIDED_VIA_GPRS = 28,        ///< SMS provided via GPRS in this routing
-                                                     ///  area.
+                                                     ///< area.
     NET_REJ_CAUSE_SERVICE_OPTION_NOT_SUPPORTED = 32, ///< Service option not supported.
     NET_REJ_CAUSE_SERVICE_OPTION_NOT_SUBCRIBED,      ///< Requested service option not subscribed.
     NET_REJ_CAUSE_SERVICE_OPTION_OUT_OF_ORDER,       ///< Service option temporarily out of order.
@@ -897,14 +897,14 @@ ENUM NetRejCause
     NET_REJ_CAUSE_INCORRECT_MESSAGE = 95,            ///< Semantically incorrect message.
     NET_REJ_CAUSE_INVALID_INFO,                      ///< Invalid mandatory information.
     NET_REJ_CAUSE_MSG_TYPE_NOT_IMPLEMENTED,          ///< Message type non-existent or not
-                                                     ///  implemented.
+                                                     ///< implemented.
     NET_REJ_CAUSE_MSG_TYPE_NOT_COMPATIBLE,           ///< Message type not compatible with protocol
-                                                     ///  state.
+                                                     ///< state.
     NET_REJ_CAUSE_INFO_NOT_IMPLEMENTED,              ///< Information element non-existent or not
-                                                     ///  implemented.
+                                                     ///< implemented.
     NET_REJ_CAUSE_CONDITIONAL_IE_ERROR,              ///< Conditional IE error.
     NET_REJ_CAUSE_MSG_NOT_COMPATIBLE,                ///< Message not compatible with protocol
-                                                     ///  state.
+                                                     ///< state.
     NET_REJ_CAUSE_PROTOCOL_ERROR_UNSPECIFIED = 111   ///< Protocol error; unspecified.
 };
 
@@ -922,13 +922,13 @@ ENUM NetRegState
     NET_REG_STATE_ROAMING,                           ///< Roaming registered.
     NET_REG_STATE_UNKNOWN,                           ///< Unknown registration state.
     NET_REG_STATE_NONE_AND_EMERGENCY_AVAILABLE,      ///< Not registered and not searching, but
-                                                     ///  emergency calls are enabled.
+                                                     ///< emergency calls are enabled.
     NET_REG_STATE_SEARCHING_AND_EMERGENCY_AVAILABLE, ///< Not registered and searching, but
-                                                     ///  emergency calls are enabled.
+                                                     ///< emergency calls are enabled.
     NET_REG_STATE_DENIED_AND_EMERGENCY_AVAILABLE,    ///< Registration denied, but emergency calls
-                                                     ///  are enabled.
+                                                     ///< are enabled.
     NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE,   ///< Unknown registration state, but emergency
-                                                     ///  calls are enabled.
+                                                     ///< calls are enabled.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -1287,6 +1287,9 @@ STRUCT NetRegStateInd
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for manual selection.
+ *
+ * @param[in] result     Result of manual selection.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ManualSelectionHandler
@@ -1297,6 +1300,9 @@ HANDLER ManualSelectionHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for network registration rejection.
+ *
+ * @param[in] rejInd     Network rejection indication.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER NetRegRejectHandler
@@ -1307,6 +1313,9 @@ HANDLER NetRegRejectHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for RAT change.
+ *
+ * @param[in] ratChangeInd RAT change indication.
+ * @param[in] contextPtr   Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RatChangeHandler
@@ -1317,6 +1326,9 @@ HANDLER RatChangeHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for network registration state.
+ *
+ * @param[in] stateInd   Network registration state indication.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER NetRegStateHandler
@@ -1327,6 +1339,9 @@ HANDLER NetRegStateHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for packet switched state changes.
+ *
+ * @param[in] stateInd   Packet switched state indication.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER PacketSwitchedChangeHandler
@@ -1337,6 +1352,10 @@ HANDLER PacketSwitchedChangeHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for NR icon type change.
+ *
+ * @param[in] type       NR icon type.
+ * @param[in] phoneId    Phone ID.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER NrIconTypeHandler
@@ -1348,6 +1367,11 @@ HANDLER NrIconTypeHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for signal strength change.
+ *
+ * @param[in] ss         Signal strength in dBm.
+ * @param[in] rsrp       Reference signal received power in dB.
+ * @param[in] phoneId    Phone ID.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER SignalStrengthChangeHandler
@@ -1360,6 +1384,10 @@ HANDLER SignalStrengthChangeHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for IMS registration status change.
+ *
+ * @param[in] status     IMS registration status.
+ * @param[in] phoneId    Phone ID.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ImsRegStatusChangeHandler
@@ -1371,6 +1399,9 @@ HANDLER ImsRegStatusChangeHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for network scan.
+ *
+ * @param[in] listRef    The network scan information list reference.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER CellularNetworkScanHandler
@@ -1381,17 +1412,24 @@ HANDLER CellularNetworkScanHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for PCI network scan.
+ *
+ * @param[in] listRef    PCI network scan information list reference.
+ * @param[in] phoneId    Phone ID.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER PciNetworkScanHandler
 (
-    PciScanInformationList listRef, ///< PCI network scan information list reference.
-    uint8 phoneId                   ///< Phone ID.
+    PciScanInformationList listRef IN, ///< PCI network scan information list reference.
+    uint8 phoneId IN                   ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for operating mode change.
+ *
+ * @param[in] mode       Operating mode.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER OpModeChangeHandler
@@ -1402,6 +1440,11 @@ HANDLER OpModeChangeHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for network status.
+ *
+ * @param[in] netStatus  Network status reference.
+ * @param[in] bitmask    Network status indication bitmask.
+ * @param[in] phoneId    Phone ID.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER NetStatusHandler
@@ -1414,6 +1457,11 @@ HANDLER NetStatusHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for IMS status change.
+ *
+ * @param[in] imsRef     IMS reference.
+ * @param[in] bitmask    IMS indication bitmask.
+ * @param[in] phoneId    Phone ID.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ImsStatusChangeHandler
@@ -1426,6 +1474,10 @@ HANDLER ImsStatusChangeHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for cell info change.
+ *
+ * @param[in] cellStatus Cell change enum for serving / neighbor / both.
+ * @param[in] phoneId    Phone ID.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER CellInfoChangeHandler
@@ -1437,6 +1489,10 @@ HANDLER CellInfoChangeHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for Carrier Aggregation(CA) information.
+ *
+ * @param[in] phoneId    Phone ID.
+ * @param[in] infoRef    CA information reference.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER CAInfoHandler
@@ -1448,6 +1504,11 @@ HANDLER CAInfoHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for connection status.
+ *
+ * @param[in] phoneId    Phone ID.
+ * @param[in] bitmask    Connection indication bitmask.
+ * @param[in] statusRef  Connection status reference.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ConnectionStatusHandler

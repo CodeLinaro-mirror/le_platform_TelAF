@@ -230,6 +230,10 @@ FUNCTION Service GetService
  * Handler for a DTC activation status.
  *
  * @instaging
+ *
+ * @param[in] svcRef     Service reference.
+ * @param[in] status     DTC status.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ActivationStatusHandler
@@ -256,6 +260,10 @@ EVENT ActivationStatus
  * Handler for a DTC status.
  *
  * @instaging
+ *
+ * @param[in] svcRef     Service reference.
+ * @param[in] status     DTC status.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER StatusHandler
@@ -282,6 +290,10 @@ EVENT Status
  * Handler for a Clear DTC status.
  *
  * @instaging
+ *
+ * @param[in] svcRef     Service reference.
+ * @param[in] clientType Client type.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ClearStatusHandler
@@ -639,6 +651,11 @@ FUNCTION AllService GetAllService
  * Handler for all DTC status.
  *
  * @instaging
+ *
+ * @param[in] svcRef     Service reference for all DTC.
+ * @param[in] dtcCode    DTC code.
+ * @param[in] status     DTC status.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER AllStatusHandler
@@ -666,12 +683,16 @@ EVENT AllStatus
  * Handler for a Clear All DTC status.
  *
  * @instaging
+ *
+ * @param[in] svcRef     Service reference for all DTC.
+ * @param[in] clientType Client type.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ClearAllStatusHandler
 (
     AllService svcRef  IN,                   ///< Service reference for all DTC.
-    ReqClientType clientType IN
+    ReqClientType clientType IN              ///< Client type.
 );
 
 //--------------------------------------------------------------------------------------------------

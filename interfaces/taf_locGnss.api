@@ -1270,8 +1270,8 @@ ENUM SBConstellation
 ENUM FixState
 {
     STATE_FIX_NO_POS,          ///< No fixed GNSS fix position.
-                               ///  Even for TAF_LOCGNSS_REPORT_STATUS_INTERMEDIATE, this fix
-                               ///  state will be returned.
+                               ///< Even for TAF_LOCGNSS_REPORT_STATUS_INTERMEDIATE, this fix
+                               ///< state will be returned.
     STATE_FIX_2D,              ///< 2-dimensional position fix
     STATE_FIX_3D,              ///< 3-dimensional position fix.
     STATE_FIX_ESTIMATED        ///< Estimated position fix.
@@ -1287,7 +1287,7 @@ ENUM AltType
     ALT_TYPE_UNKNOWN,          ///< Unknown altitude type.
     ALT_TYPE_CALCULATED,       ///< Altitude is calculated.
     ALT_TYPE_ASSUMED           ///< Altitude is assumed as there may not be enough satellites to
-                               ///  determine the precise altitude.
+                               ///< determine the precise altitude.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -1321,23 +1321,23 @@ BITMASK LocCapabilityType
   GNSS_MEASUREMENTS,          ///< Receiving GNSS measurement data is supported.
   CONSTELLATION_ENABLEMENT,   ///< Support to configure constellations available.
   CARRIER_PHASE,              ///< Support for carrier phase for Positioning
-                              ///  Measurement Engine (PPME) available.
+                              ///< Measurement Engine (PPME) available.
   QWES_GNSS_SINGLE_FREQUENCY, ///< Supports GNSS Single Frequency feature.
   QWES_GNSS_MULTI_FREQUENCY,  ///< Supports GNSS Multi Frequency feature.
-                              ///  This indicates support for
-                              ///  GNSS single frequency is also available.
+                              ///< This indicates support for
+                              ///< GNSS single frequency is also available.
   QWES_VPE,                   ///< Indicates VEPP license bundle is enabled. VEPP bundle include
-                              ///  Carrier Phase and SV Polynomial.
+                              ///< Carrier Phase and SV Polynomial.
   QWES_CV2X_LOCATION_BASIC,   ///< Indicates support for CV2X Location basic features. This bundle
-                              ///  includes features for GTS Time & Freq,
-                              ///  C-TUNC (Constrained Time uncertainty).
+                              ///< includes features for GTS Time & Freq,
+                              ///< C-TUNC (Constrained Time uncertainty).
   QWES_CV2X_LOCATION_PREMIUM, ///< Indicates support for CV2X Location premium features. This bundle
-                              ///  includes features for CV2X Location Basic features, QDR3 feature,
-                              ///  and PACE. (Position Assisted Clock Estimator).
+                              ///< includes features for CV2X Location Basic features, QDR3 feature,
+                              ///< and PACE. (Position Assisted Clock Estimator).
   QWES_PPE,                   ///< Indicates that PPE (Precise Positioning Engine) library
-                              ///  is enabled or Precise Positioning Framework (PPF) is available.
-                              ///  Framework (PPF) is available. This includes features for
-                              ///  Carrier Phase and SV Ephermeris.
+                              ///< is enabled or Precise Positioning Framework (PPF) is available.
+                              ///< Framework (PPF) is available. This includes features for
+                              ///< Carrier Phase and SV Ephermeris.
   QWES_QDR2,                  ///< Indicates QDR2_C license bundle is enabled.
   QWES_QDR3,                  ///< Indicates QDR3_C license bundle is enabled.
   TIME_BASED_BATCHING,        ///< Time based batching is supported.
@@ -1346,7 +1346,7 @@ BITMASK LocCapabilityType
   OUTDOOR_TRIP_BATCHING,      ///< Outdoor trip batching is supported.
   SV_POLYNOMIAL,              ///< Support for SV polynomial is available.
   NLOS_ML20                   ///< Indicates presence of ML Inference capability for
-                              ///  Pseudo Range Measurements.
+                              ///< Pseudo Range Measurements.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -1359,15 +1359,15 @@ ENUM LocEngineType
 {
     LOC_ENGINE_UNKNOWN,     ///< Unknown engine type bit. Do not use it.
     LOC_ENGINE_FUSED,       ///< Indicate that the fused/default position is needed to be
-                            ///  reported back for the tracking sessions. The default position
-                            ///  is the propagated/aggregated reports from all engines running
-                            ///  on the system (e.g.: DR/SPE/PPE) according to QTI algorithm.
+                            ///< reported back for the tracking sessions. The default position
+                            ///< is the propagated/aggregated reports from all engines running
+                            ///< on the system (e.g.: DR/SPE/PPE) according to QTI algorithm.
     LOC_ENGINE_SPE,         ///< Indicate that the unmodified SPE position is needed to be
-                            ///  reported back for the tracking sessions.
+                            ///< reported back for the tracking sessions.
     LOC_ENGINE_PPE,         ///< Indicate that the unmodified PPE position is needed to be
-                            ///  reported back for the tracking sessions.
+                            ///< reported back for the tracking sessions.
     LOC_ENGINE_VPE          ///< Indicate that the unmodified VPE position is needed to be
-                            ///  reported back for the tracking sessions.
+                            ///< reported back for the tracking sessions.
 };
 
 
@@ -1375,11 +1375,13 @@ ENUM LocEngineType
 /**
  * Handler for position information.
  *
+ * @param[in] positionSampleRef Position sample reference.
+ * @param[in] contextPtr        Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER PositionHandler
 (
- Sample positionSampleRef ///< Position sample reference.
+ Sample positionSampleRef IN ///< Position sample reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1396,6 +1398,9 @@ EVENT Position
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for location capability event notification.
+ *
+ * @param[in] locCapability The location capability.
+ * @param[in] contextPtr    Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER CapabilityChangeHandler
@@ -1506,7 +1511,7 @@ FUNCTION le_result_t GetLocation
     int32 latitude OUT,          ///< WGS84 latitude in degrees with 6 decimal places.
     int32 longitude OUT,         ///< WGS84 longitude in degrees with 6 decimal places.
     int32 hAccuracy OUT          ///< Horizontal accuracy in cm. Uncertainty is defined with 68%
-                                 ///  confidence level.
+                                 ///< confidence level.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1537,7 +1542,7 @@ FUNCTION le_result_t GetDirection
     Sample  positionSampleRef IN,       ///< Position sample reference.
     uint32  direction OUT,              ///< Direction in degrees with 1 decimal place.
     uint32  directionAccuracy OUT       ///< Direction accuracy estimation in degrees with 1 decimal place.
-                                        ///  Uncertainty is defined with 68% confidence level.
+                                        ///< Uncertainty is defined with 68% confidence level.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1595,7 +1600,7 @@ FUNCTION le_result_t GetHorizontalSpeed
     Sample positionSampleRef IN,        ///< Position sample reference.
     uint32 hspeed OUT,                  ///< Horizontal speed in cm/s.
     uint32 hspeedAccuracy OUT           ///< Horizontal accuracy estimation in dm/sec.
-                                        ///  Uncertainty is defined with 68% confidence level.
+                                        ///< Uncertainty is defined with 68% confidence level.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1627,7 +1632,7 @@ FUNCTION le_result_t GetVerticalSpeed
     Sample positionSampleRef IN,         ///< Position sample reference.
     int32  vspeed OUT,                   ///< Vertical speed in cm/sec.
     int32  vspeedAccuracy OUT            ///< Vertical speed's accuracy estimation in dm/sec.
-                                         ///  Uncertainty is defined with 68% confidence level.
+                                         ///< Uncertainty is defined with 68% confidence level.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1739,8 +1744,8 @@ FUNCTION le_result_t Start
 BITMASK ConstellationBitMask
 {
     CONSTELLATION_DEFAULT,                  ///< Reset the constellation configuration
-                                            ///  to device default,which means constellations
-                                            ///  get enabled based on the MBN configuration.
+                                            ///< to device default,which means constellations
+                                            ///< get enabled based on the MBN configuration.
     CONSTELLATION_GPS,                      ///< Global Positioning System constellation.
     CONSTELLATION_GLONASS,                  ///< GLONASS constellation.
     CONSTELLATION_BEIDOU,                   ///< BEIDOU constellation.
@@ -1889,21 +1894,21 @@ ENUM EngineType
 BITMASK NmeaBitMask
 {
     NMEA_MASK_GPGGA,    ///< GPGGA type enabled -- GPS fix data.Deprecate, use NMEA_MASK_GGA.
-                        ///  instead.This is internally mapped to NMEA_MASK_GGA.
+                        ///< instead.This is internally mapped to NMEA_MASK_GGA.
     NMEA_MASK_GPRMC,    ///< GPRMC type enabled -- GPS recommended minimum data.
-                        ///  Deprecate, use NMEA_MASK_RMC instead.This is internally mapped to
-                        ///  NMEA_MASK_RMC.
+                        ///< Deprecate, use NMEA_MASK_RMC instead.This is internally mapped to
+                        ///< NMEA_MASK_RMC.
     NMEA_MASK_GNGSA,    ///< GNGSA type enabled -- GNSS DOP and active satellites.
-                        ///  Deprecate, use NMEA_MASK_GSA instead.This is internally mapped to
-                        ///  NMEA_MASK_GSA.
+                        ///< Deprecate, use NMEA_MASK_GSA instead.This is internally mapped to
+                        ///< NMEA_MASK_GSA.
     NMEA_MASK_GPVTG,    ///< GPVTG type enabled -- GPS vector track and speed over the ground.
-                        ///  Deprecate, use NMEA_MASK_VTG instead.This is internally mapped to
-                        ///  NMEA_MASK_VTG
+                        ///< Deprecate, use NMEA_MASK_VTG instead.This is internally mapped to
+                        ///< NMEA_MASK_VTG
     NMEA_MASK_GPGNS,    ///< GPGNS type enabled -- Fix data for GPS.Deprecate, use NMEA_MASK_GNS.
-                        ///  This is internally mapped to NMEA_MASK_GNS.
+                        ///< This is internally mapped to NMEA_MASK_GNS.
     NMEA_MASK_GPDTM,    ///< GPDTM type enabled -- Local geodetic datum and datum offset from a
-                        ///  reference.Deprecate, use NMEA_MASK_DTM instead.This is internally
-                        ///  mapped to NMEA_MASK_DTM.
+                        ///< reference.Deprecate, use NMEA_MASK_DTM instead.This is internally
+                        ///< mapped to NMEA_MASK_DTM.
     NMEA_MASK_GPGSV,    ///< GPGSV type enabled --  GPS satellites in view.
     NMEA_MASK_GLGSV,    ///< GLGSV type enabled --  GLONASS satellites in view.
     NMEA_MASK_GAGSV,    ///< GAGSV type enabled --  Galileo satellites in view.
@@ -1931,7 +1936,7 @@ BITMASK NmeaBitMask
     NMEA_MASK_VTG,      ///< VTG type enabled -- GNSS vector track and speed over the ground.
     NMEA_MASK_GNS,      ///< GNS type enabled -- Fix data for GNSS.
     NMEA_MASK_DTM       ///< DTM type enabled -- Local geodetic datum and datum offset from a
-                        ///  reference.
+                        ///< reference.
 };
 
 //------------------------------------------------------------------------------------------------
@@ -1942,7 +1947,7 @@ BITMASK NmeaBitMask
 ENUM GeodeticDatumType {
     GEODETIC_TYPE_NONE = -1,  ///< No type.
     GEODETIC_TYPE_WGS_84 = 0, ///< Geodetic datum type to indicate the use of World Geodetic
-                              /// System 1984 (WGS84) system.
+                              ///< System 1984 (WGS84) system.
     GEODETIC_TYPE_PZ_90 = 1   ///< Geodetic datum type to indicate the use of PZ90/GLONASS system.
 };
 
@@ -1968,11 +1973,11 @@ ENUM StartMode
 ENUM LeverArmType
 {
     LEVER_ARM_TYPE_GNSS_TO_VRP = 1,     ///< Vehicle reference point with regard to
-                                        ///  the origin(at the GNSS antenna).
+                                        ///< the origin(at the GNSS antenna).
     LEVER_ARM_TYPE_DR_IMU_TO_GNSS = 2,  ///< GNSS antenna with regard to the origin at
-                                        ///  the IMU for DR Engine.
+                                        ///< the IMU for DR Engine.
     LEVER_ARM_TYPE_VPE_IMU_TO_GNSS = 3  ///< GNSS antenna with regard to the origin at
-                                        ///  the IMU for VPE.
+                                        ///< the IMU for VPE.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -1995,15 +2000,15 @@ ENUM EngineReportsType
 //--------------------------------------------------------------------------------------------------
 ENUM CalibrationType {
     DR_ROLL_CALIBRATION_NEEDED,            ///< Indicate that roll calibration is needed.
-                                           ///  Need to take more turns on level ground.
+                                           ///< Need to take more turns on level ground.
     DR_PITCH_CALIBRATION_NEEDED,           ///< Indicate that pitch calibration is needed.
-                                           ///  Need to take more turns on level ground.
+                                           ///< Need to take more turns on level ground.
     DR_YAW_CALIBRATION_NEEDED,             ///< Indicate that yaw calibration is needed.
-                                           ///  Need to accelerate in a straight line.
+                                           ///< Need to accelerate in a straight line.
     DR_ODO_CALIBRATION_NEEDED,             ///< Indicate that odo calibration is needed.
-                                           ///  Need to accelerate in a straight line.
+                                           ///< Need to accelerate in a straight line.
     DR_GYRO_CALIBRATION_NEEDED,            ///< Indicate that gyro calibration is needed.
-                                           ///  Need to take more turns on level ground.
+                                           ///< Need to take more turns on level ground.
     DR_TURN_CALIBRATION_LOW,               ///< Lot more turns on level ground needed
     DR_TURN_CALIBRATION_MEDIUM,            ///< Some more turns on level ground needed
     DR_TURN_CALIBRATION_HIGH,              ///< Sufficient turns on level ground observed
@@ -2092,16 +2097,16 @@ ENUM KinematicsDataValidityType {
 //--------------------------------------------------------------------------------------------------
 ENUM SbasBitMask {
     SBAS_CORRECTION_IONO,     ///< Specify whether SBAS ionospheric correction
-                              ///  is used.
+                              ///< is used.
     SBAS_CORRECTION_FAST,     ///< Specify whether SBAS fast correction is used.
     SBAS_CORRECTION_LONG,     ///< Specify whether SBAS long correction is used.
     SBAS_INTEGRITY,           ///< Specify whether SBAS integrity information
-                              ///  is used.
+                              ///< is used.
     SBAS_CORRECTION_DGNSS,    ///< Specify whether SBAS DGNSS correction is used.
     SBAS_CORRECTION_RTK,      ///< Specify whether SBAS RTK correction is used.
     SBAS_CORRECTION_PPP,      ///< Specify whether SBAS PPP correction is used.
     SBAS_CORRECTION_RTK_FIXED,///< Specify whether SBAS RTK fixed correction
-                              ///  is used.
+                              ///< is used.
     SBAS_CORRECTED_SV_USED,   ///< Specify only SBAS corrected SV is used
     SBAS_COUNT                ///< Bitset.
 };
@@ -2124,7 +2129,7 @@ BITMASK LocationInfoValidity
     HAS_TIMESTAMP_BIT,            ///< Valid timestamp  via @ref taf_locGnss_GetEpochTime
     HAS_ELAPSED_REAL_TIME_BIT,    ///< Valid elapsed real time via @ref taf_locGnss_GetRealTimeInformation
     HAS_ELAPSED_REAL_TIME_UNC_BIT,///< Valid elapsed real time uncertainty via
-                                  ///  @ref taf_locGnss_GetRealTimeInformation
+                                  ///< @ref taf_locGnss_GetRealTimeInformation
     HAS_GPTP_TIME_BIT,            ///< Valid gptp time via @ref taf_locGnss_GetGptpTime
     HAS_GPTP_TIME_UNC_BIT         ///< Valid gptp time uncertainty via @ref taf_locGnss_GetGptpTime
 };
@@ -2137,67 +2142,67 @@ BITMASK LocationInfoValidity
 ENUM LocationInfoExValidity
 {
     HAS_ALTITUDE_MEAN_SEA_LEVEL,       ///< Valid altitude mean sea level.
-                                       ///  via @ref taf_locGnss_GetAltitudeMeanSeaLevel
+                                       ///< via @ref taf_locGnss_GetAltitudeMeanSeaLevel
     HAS_DOP,                           ///< Valid PDOP, HDOP, and VDOP.
-                                       ///  via @ref taf_locGnss_GetDilutionOfPrecision
+                                       ///< via @ref taf_locGnss_GetDilutionOfPrecision
     HAS_MAGNETIC_DEVIATION,            ///< Valid magnetic deviation.
-                                       ///  via @ref taf_locGnss_GetMagneticDeviation.
+                                       ///< via @ref taf_locGnss_GetMagneticDeviation.
     HAS_HOR_RELIABILITY,               ///< Valid horizontal reliability.
-                                       ///  via @ref taf_locGnss_GetReliabilityInformation
+                                       ///< via @ref taf_locGnss_GetReliabilityInformation
     HAS_VER_RELIABILITY,               ///< Valid vertical reliability.
-                                       ///  via @ref taf_locGnss_GetReliabilityInformation
+                                       ///< via @ref taf_locGnss_GetReliabilityInformation
     HAS_HOR_ACCURACY_ELIP_SEMI_MAJOR,  ///< Valid elipsode semi major.
-                                       ///  via @ref taf_locGnss_GetEllipticalUncertainty
+                                       ///< via @ref taf_locGnss_GetEllipticalUncertainty
     HAS_HOR_ACCURACY_ELIP_SEMI_MINOR,  ///< Valid elipsode semi minor.
-                                       ///  via @ref taf_locGnss_GetEllipticalUncertainty
+                                       ///< via @ref taf_locGnss_GetEllipticalUncertainty
     HAS_HOR_ACCURACY_ELIP_AZIMUTH,     ///< Valid accuracy elipsode azimuth.
-                                       ///  via @ref taf_locGnss_GetStdDeviationAzimuthInfo
+                                       ///< via @ref taf_locGnss_GetStdDeviationAzimuthInfo
     HAS_GNSS_SV_USED_DATA,             ///< Valid GNSS SV information in pos data including
-                                       ///  measurement information
-                                       ///  via @ref taf_locGnss_GetSvUsedInPosition.
+                                       ///< measurement information
+                                       ///< via @ref taf_locGnss_GetSvUsedInPosition.
     HAS_NAV_SOLUTION_MASK,             ///< Valid navSolutionMask.
     HAS_POS_TECH_MASK,                 ///< Valid locGnssTechMask
-                                       ///  via @ref taf_locGnss_GetPositionTechnology
+                                       ///< via @ref taf_locGnss_GetPositionTechnology
     HAS_SV_SOURCE_INFO,                ///< Valid LocSvInfoSource.
     HAS_POS_DYNAMICS_DATA,             ///< Valid position dynamics data.
     HAS_EXT_DOP,                       ///< Valid GDOP and TDOP.
     HAS_NORTH_STD_DEV,                 ///< Valid North standard deviation
-                                       ///  via @ref taf_locGnss_GetStdDeviationAzimuthInfo
+                                       ///< via @ref taf_locGnss_GetStdDeviationAzimuthInfo
     HAS_EAST_STD_DEV,                  ///< Valid East standard deviation
-                                       ///  via @ref taf_locGnss_GetStdDeviationAzimuthInfo
+                                       ///< via @ref taf_locGnss_GetStdDeviationAzimuthInfo
     HAS_NORTH_VEL,                     ///< Valid North Velocity
-                                       /// via @ref taf_locGnss_GetVRPBasedVelocity
+                                       ///<via @ref taf_locGnss_GetVRPBasedVelocity
     HAS_EAST_VEL,                      ///< Valid East Velocity
-                                       ///  via @ref taf_locGnss_GetVRPBasedVelocity
+                                       ///< via @ref taf_locGnss_GetVRPBasedVelocity
     HAS_UP_VEL,                        ///< Valid Up Velocity
-                                       ///  via @ref taf_locGnss_GetVRPBasedVelocity
+                                       ///< via @ref taf_locGnss_GetVRPBasedVelocity
     HAS_NORTH_VEL_UNC,                 ///< Valid North Velocity Uncertainty.
     HAS_EAST_VEL_UNC,                  ///< Valid East Velocity Uncertainty.
     HAS_UP_VEL_UNC,                    ///< Valid Up Velocity Uncertainty.
     HAS_LEAP_SECONDS,                  ///< Valid leap seconds information
-                                       ///  via @ref taf_locGnss_GetGpsLeapSeconds
+                                       ///< via @ref taf_locGnss_GetGpsLeapSeconds
     HAS_TIME_UNC,                      ///< Valid timeUncMs
-                                       ///  via @ref taf_locGnss_GetTimeAccuracy
+                                       ///< via @ref taf_locGnss_GetTimeAccuracy
     HAS_NUM_SV_USED_IN_POSITION,       ///< Valid number of SV used
-                                       ///  via @ref taf_locGnss_GetSvUsedInPosition
+                                       ///< via @ref taf_locGnss_GetSvUsedInPosition
     HAS_CALIBRATION_CONFIDENCE_PERCENT,///< Valid sensor calibrationConfidencePercent
-                                       ///  via @ref taf_locGnss_GetCalibrationData
+                                       ///< via @ref taf_locGnss_GetCalibrationData
     HAS_CALIBRATION_STATUS,            ///< Valid sensor calibrationConfidence
-                                       ///  via @ref taf_locGnss_GetCalibrationData
+                                       ///< via @ref taf_locGnss_GetCalibrationData
     HAS_OUTPUT_ENG_TYPE,               ///< Valid output engine type
-                                       ///  via @ref taf_locGnss_GetLocationOutputEngParams
+                                       ///< via @ref taf_locGnss_GetLocationOutputEngParams
     HAS_OUTPUT_ENG_MASK,               ///< Valid output engine mask.
-                                       ///  via @ref taf_locGnss_GetLocationOutputEngParams
+                                       ///< via @ref taf_locGnss_GetLocationOutputEngParams
     HAS_CONFORMITY_INDEX_FIX,          ///< Valid conformity index
-                                       ///  via @ref taf_locGnss_GetConformityIndex
+                                       ///< via @ref taf_locGnss_GetConformityIndex
     HAS_LLA_VRP_BASED,                 ///< Valid LLA VRP based
-                                       ///  via @ref taf_locGnss_GetVRPBasedLLA
+                                       ///< via @ref taf_locGnss_GetVRPBasedLLA
     HAS_ENU_VELOCITY_VRP_BASED,        ///< Valid ENU VRP based
-                                       ///  via @ref taf_locGnss_GetVRPBasedVelocity
+                                       ///< via @ref taf_locGnss_GetVRPBasedVelocity
     HAS_ALTITUDE_TYPE,                 ///< Valid altitude type
-                                       ///  via @ref taf_locGnss_AltType
+                                       ///< via @ref taf_locGnss_AltType
     HAS_REPORT_STATUS,                 ///< Valid report status
-                                       ///  via @ref taf_locGnss_GetReportStatus
+                                       ///< via @ref taf_locGnss_GetReportStatus
     HAS_INTEGRITY_RISK_USED,           ///< Valid integrity risk.
     HAS_PROTECT_LEVEL_ALONG_TRACK,     ///< Valid protect level along track.
     HAS_PROTECT_LEVEL_CROSS_TRACK,     ///< Valid protect level cross track.
@@ -2228,8 +2233,8 @@ BITMASK EngineMask
 ENUM LocationAggregationType
 {
     LOC_OUTPUT_ENGINE_FUSED,        ///< This is the propagated/aggregated report
-                                    /// from the fixes of all engines running on the
-                                    /// system (e.g., DR/SPE/PPE).
+                                    ///< from the fixes of all engines running on the
+                                    ///< system (e.g., DR/SPE/PPE).
     LOC_OUTPUT_ENGINE_SPE,          ///< This fix is the unmodified fix from modem GNSS engine.
     LOC_OUTPUT_ENGINE_PPE,          ///< This is the unmodified fix from PPP engine.
     LOC_OUTPUT_ENGINE_VPE           ///< This is the unmodified fix from VPE engine.
@@ -2244,12 +2249,12 @@ ENUM LocationReliability
 {
     RELIABILITY_UNKNOWN  = -1,    ///< Unknown location reliability.
     RELIABILITY_NOT_SET  = 0,     ///< Location reliability is not set. The reliability
-                                  /// of this position report could not be determined.
-                                  /// It could be unreliable/reliable.
+                                  ///< of this position report could not be determined.
+                                  ///< It could be unreliable/reliable.
     RELIABILITY_VERY_LOW = 1,     ///< Location reliability is very low.
-                                  ///  Use it at your own risk.
+                                  ///< Use it at your own risk.
     RELIABILITY_LOW = 2,          ///< Location reliability is low, little, or no
-                                  ///  cross-checking is possible.
+                                  ///< cross-checking is possible.
     RELIABILITY_MEDIUM = 3,       ///< Location reliability is medium, limited cross-check passed.
     RELIABILITY_HIGH = 4          ///< Location reliability is high, strong cross-check passed.
 };
@@ -2267,15 +2272,15 @@ BITMASK LocationTechnologyType
     LOC_SENSORS,                  ///< Location was calculated using Sensors-based technology.
     LOC_REFERENCE_LOCATION,       ///< Location was calculated using Reference location.
     LOC_INJECTED_COARSE_POSITION, ///< Location was calculated using Coarse position injected
-                                  ///  into the location engine.
+                                  ///< into the location engine.
     LOC_AFLT,                     ///< Location was calculated using AFLT.
     LOC_HYBRID,                   ///< Location was calculated using GNSS and
-                                  ///  network-provided measurements.
+                                  ///< network-provided measurements.
     LOC_PPE,                      ///< Location was calculated using Precise position engine.
     LOC_VEH,                      ///< Location was calculated using Vehicular data.
     LOC_VIS,                      ///< Location was calculated using Visual data.
     LOC_PROPAGATED                ///< Location was calculated using Propagation logic,
-                                  ///  which uses cached measurements.
+                                  ///< which uses cached measurements.
 };
 
 //------------------------------------------------------------------------------------------------
@@ -2379,14 +2384,14 @@ ENUM GnssDataSignalTypes {
 ENUM ReportStatus {
     REPORT_STATUS_UNKNOWN = -1,      ///< Report status is unknown.
     REPORT_STATUS_SUCCESS = 0,       ///< Report status is successful. The engine is able to calculate the desired fix.
-                                     ///  Most of the fields in position sample will be valid.
+                                     ///< Most of the fields in position sample will be valid.
     REPORT_STATUS_INTERMEDIATE = 1,  ///< Report is still in progress. The engine has not completed its
-                                     ///  calculations when this report was generated. Accuracy of various
-                                     ///  fields is non-optimal. Only some of the fields in position sample
-                                     ///  will be valid.
+                                     ///< calculations when this report was generated. Accuracy of various
+                                     ///< fields is non-optimal. Only some of the fields in position sample
+                                     ///< will be valid.
     REPORT_STATUS_FAILURE = 2        ///< Report status has failed. The engine is not able to calculate the fix.
-                                     ///  Most of the fields in position sample
-                                     ///  will be invalid.
+                                     ///< Most of the fields in position sample
+                                     ///< will be invalid.
 };
 
 //------------------------------------------------------------------------------------------------
@@ -2397,14 +2402,14 @@ ENUM ReportStatus {
 ENUM XtraDataStatus
 {
     XTRA_DATA_STATUS_UNKNOWN,   ///< If XTRA feature is disabled or if XTRA feature is enabled,
-                                ///  but XTRA daemon has not yet retrieved the assistance data status
-                                ///  from modem on early stage of device bootup, XTRA data status
-                                ///  will be unknown.
+                                ///< but XTRA daemon has not yet retrieved the assistance data status
+                                ///< from modem on early stage of device bootup, XTRA data status
+                                ///< will be unknown.
     XTRA_DATA_STATUS_NOT_AVAIL, ///< If XTRA feature is enabled, but XTRA data is not present
-                                ///  on the device.
+                                ///< on the device.
     XTRA_DATA_STATUS_NOT_VALID, ///< If XTRA feature is enabled, but XTRA data is not valid.
     XTRA_DATA_STATUS_VALID      ///< If XTRA feature is enabled, XTRA data has been downloaded,
-                                ///  and is currently valid.
+                                ///< and is currently valid.
 };
 
 //------------------------------------------------------------------------------------------------
@@ -2429,40 +2434,40 @@ BITMASK DRConfigValidityType
 STRUCT DrParams
 {
     double rollOffset;    ///< The misalignment of the sensor board along the horizontal plane of
-                          ///  the vehicle chassis measured looking from the vehicle to forward
-                          ///  direction. In unit of degrees. Range is -180.0 to 180.0.
+                          ///< the vehicle chassis measured looking from the vehicle to forward
+                          ///< direction. In unit of degrees. Range is -180.0 to 180.0.
     double yawOffset;     ///< The misalignment along the horizontal plane of the vehicle chassis
-                          ///  measured looking from the vehicle to the right side. Positive pitch
-                          ///  indicates vehicle is inclined such that the forward wheels are at
-                          ///  higher elevation than the rear wheels. In unit of degrees.
-                          ///  Range is -180.0 to 180.0.
+                          ///< measured looking from the vehicle to the right side. Positive pitch
+                          ///< indicates vehicle is inclined such that the forward wheels are at
+                          ///< higher elevation than the rear wheels. In unit of degrees.
+                          ///< Range is -180.0 to 180.0.
     double pitchOffset;   ///< The angle between the vehicle forward direction and the sensor
-                          ///  axis as seen from the top of the vehicle, and measured in
-                          ///  counterclockwise direction. In unit of degrees.
-                          ///  Range is -180.0 to 180.0.
+                          ///< axis as seen from the top of the vehicle, and measured in
+                          ///< counterclockwise direction. In unit of degrees.
+                          ///< Range is -180.0 to 180.0.
     double offsetUnc;     ///< Single uncertainty number that may be the largest of the
-                          ///  uncertainties for roll offset, pitch offset, and yaw offset.
-                          ///  In unit of degrees. Range is -180.0 to 180.0.
+                          ///< uncertainties for roll offset, pitch offset, and yaw offset.
+                          ///< In unit of degrees. Range is -180.0 to 180.0.
     double speedFactor;   ///< Vehicle speed scale factor configuration input for the
-                          ///  dead reckoning positioning engine. The multiplicative scale factor is
-                          ///  applied to the received vehicle speed value (in meters/second) to
-                          ///  obtain the true vehicle speed. Range is 0.9 to 1.1.
-                          ///  @b NOTE: The scale factor is specific to a given vehicle make and model.
+                          ///< dead reckoning positioning engine. The multiplicative scale factor is
+                          ///< applied to the received vehicle speed value (in meters/second) to
+                          ///< obtain the true vehicle speed. Range is 0.9 to 1.1.
+                          ///< @b NOTE: The scale factor is specific to a given vehicle make and model.
     double speedFactorUnc;///< Vehicle speed scale factor uncertainty (68% confidence) configuration
-                          ///  input for the dead reckoning positioning engine. Range is 0.0 to 0.1.
-                          ///  @b NOTE: The scale factor uncertainty is specific to a given
-                          ///  vehicle make and model.
+                          ///< input for the dead reckoning positioning engine. Range is 0.0 to 0.1.
+                          ///< @b NOTE: The scale factor uncertainty is specific to a given
+                          ///< vehicle make and model.
     double gyroFactor;    ///< Gyroscope scale factor configuration input for the dead reckoning
-                          ///  positioning engine.The multiplicative scale factor is applied
-                          ///  to received gyroscope value to obtain the true value. Range is
-                          ///  0.9 to 1.1. @b NOTE: The scale factor is specific to the Gyroscope
-                          ///  sensor and typically derived from either the sensor's data sheet
-                          ///  or from actual calibration.
+                          ///< positioning engine.The multiplicative scale factor is applied
+                          ///< to received gyroscope value to obtain the true value. Range is
+                          ///< 0.9 to 1.1. @b NOTE: The scale factor is specific to the Gyroscope
+                          ///< sensor and typically derived from either the sensor's data sheet
+                          ///< or from actual calibration.
     double gyroFactorUnc; ///< Gyroscope scale factor uncertainty (68% confidence) configuration
-                          ///  input for the dead reckoning positioning engine. Range is 0.0 to 0.1.
-                          ///  @b NOTE: The scale factor uncertainty is specific to the Gyroscope
-                          ///  sensor and typically derived from either the sensor's data sheet
-                          ///  or from actual calibration.
+                          ///< input for the dead reckoning positioning engine. Range is 0.0 to 0.1.
+                          ///< @b NOTE: The scale factor uncertainty is specific to the Gyroscope
+                          ///< sensor and typically derived from either the sensor's data sheet
+                          ///< or from actual calibration.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2474,9 +2479,9 @@ STRUCT LeverArmParams
 {
     double forwardOffsetMeters;  ///< Offset along the vehicle forward axis, in unit of meters.
     double sidewaysOffsetMeters; ///< Offset along the vehicle starboard axis, in unit of meters.
-                                 /// Left side offset is negative, and right side offset is positive.
-    double upOffsetMeters;       /// Offset along the vehicle up axis, in unit of meters.
-    uint8 levArmType;            /// Type of lever arm parameter.
+                                 ///< Left side offset is negative, and right side offset is positive.
+    double upOffsetMeters;       ///< Offset along the vehicle up axis, in unit of meters.
+    uint8 levArmType;            ///< Type of lever arm parameter.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2487,35 +2492,35 @@ STRUCT LeverArmParams
 STRUCT KinematicsData
 {
     uint64 bodyFrameDataMask; ///< The valid bits of the body frame data
-                              /// via @ref taf_locGnss_GetBodyFrameData
+                              ///< via @ref taf_locGnss_GetBodyFrameData
     double longAccel;         ///< Forward acceleration in body frame (meter/second^2).
     double latAccel;          ///< Sideward acceleration in body frame (meter/second^2).
     double vertAccel;         ///< Vertical acceleration in body frame (meter/second^2).
     double yawRate;           ///< Heading rate (rad/sec).
     double pitch;             ///< Body pitch (radians).
     double longAccelUnc;      ///< Uncertainty of forward acceleration in body frame (meter/second^2).
-                              ///  Uncertainty is defined with 68% confidence level.
+                              ///< Uncertainty is defined with 68% confidence level.
     double latAccelUnc;       ///< Uncertainty of side-ward acceleration in body frame (meter/second^2).
-                              ///  Uncertainty is defined with 68% confidence level.
+                              ///< Uncertainty is defined with 68% confidence level.
     double vertAccelUnc;      ///< Uncertainty of vertical acceleration in body frame (meter/second^2).
-                              ///  Uncertainty is defined with 68% confidence level.
+                              ///< Uncertainty is defined with 68% confidence level.
     double yawRateUnc;        ///< Uncertainty of heading rate (rad/second).
-                              ///  Uncertainty is defined with 68% confidence level.
+                              ///< Uncertainty is defined with 68% confidence level.
     double pitchUnc;          ///< Uncertainty of body pitch (radians).
-                              ///  Uncertainty is defined with 68% confidence level.
+                              ///< Uncertainty is defined with 68% confidence level.
     double pitchRate;         ///< Body pitch rate, in unit of rad/sec.
     double pitchRateUnc;      ///< Uncertainty of pitch rate, in unit of rad/sec.
-                              ///  Uncertainty is defined with 68% confidence level.
+                              ///< Uncertainty is defined with 68% confidence level.
     double roll;              ///< Roll of the body frame, clockwise is positive, in unit of radian.
     double rollUnc;           ///< Uncertainty of roll, in unit of radian.
-                              ///  Uncertainty is defined with 68% confidence level.
+                              ///< Uncertainty is defined with 68% confidence level.
     double rollRate;          ///< Roll rate of the body frame, clockwise is positive,
-                              ///  in unit of rad/sec.
+                              ///< in unit of rad/sec.
     double rollRateUnc;       ///< Uncertainty of roll rate, in unit of rad/sec.
-                              ///  Uncertainty is defined with 68% confidence level.
+                              ///< Uncertainty is defined with 68% confidence level.
     double yaw;               ///< Yaw of the body frame, clockwise is positive, in unit of radian.
     double yawUnc;            ///< Uncertainty of yaw, in unit of radian.
-                              ///  Uncertainty is defined with 68% confidence level.
+                              ///< Uncertainty is defined with 68% confidence level.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2526,17 +2531,17 @@ STRUCT KinematicsData
 STRUCT SvUsedInPosition
 {
     uint64 gps;    ///< Specify the set of SVs from GPS constellation that are used to compute the position.
-                   ///  Bit 0 to Bit 31 corresponds to GPS SV ID 1 to 32.
+                   ///< Bit 0 to Bit 31 corresponds to GPS SV ID 1 to 32.
     uint64 glo;    ///< Specify the set of SVs from GLONASS constellation that are used to compute the position.
-                   ///  Bit 0 to Bit 31 corresponds to GLO SV ID 65 to 96.
+                   ///< Bit 0 to Bit 31 corresponds to GLO SV ID 65 to 96.
     uint64 gal;    ///< Specify the set of SVs from GALILEO constellation that are used to compute the position.
-                   ///  Bit 0 to Bit 35 corresponds to GAL SV ID 301 to 336.
+                   ///< Bit 0 to Bit 35 corresponds to GAL SV ID 301 to 336.
     uint64 bds;    ///< Specify the set of SVs from BEIDOU constellation that are used to compute the position.
-                   ///  Bit 0 to Bit 62 corresponds to BDS SV ID 201 to 263.
+                   ///< Bit 0 to Bit 62 corresponds to BDS SV ID 201 to 263.
     uint64 qzss;   ///< Specify the set of SVs from QZSS constellation that are used to compute the position.
-                   ///  Bit 0 to Bit 4 corresponds to QZSS SV ID 193 to 197.
+                   ///< Bit 0 to Bit 4 corresponds to QZSS SV ID 193 to 197.
     uint64 navic;  ///< Specify the set of SVs from NAVIC constellation that are used to compute the position.
-                   ///  Bit 0 to Bit 13 corresponds to NAVIC SV ID 401 to 414.
+                   ///< Bit 0 to Bit 13 corresponds to NAVIC SV ID 401 to 414.
 };
 
 //------------------------------------------------------------------------------------------------
@@ -2549,7 +2554,7 @@ STRUCT GnssMeasurementInfo {
   GnssSystem gnssConstellation; ///< Specifies GNSS Constellation Type
 
   uint16 gnssSvId;              ///< GNSS SV ID
-                                /// For SV ID information, refer to @SvUsedInPosition.
+                                ///< For SV ID information, refer to @SvUsedInPosition.
 };
 
 //------------------------------------------------------------------------------------------------
@@ -2562,26 +2567,30 @@ STRUCT GnssData
   uint32 gnssDataMask; ///< bitwise OR of GnssDataValidityType
   double jammerInd;    ///< Each index represents the signal type in @ref GnssDataSignalTypes.
   double agc;          ///< Automatic gain control for each signal type. Each index
-                       ///  corresponds to the signal type in @ref GnssDataSignalTypes.
+                       ///< corresponds to the signal type in @ref GnssDataSignalTypes.
 };
 
 
 STRUCT XtraStatusParams
 {
     uint8 featureEnabled;     ///< XTRA assistance data and NTP time
-                              ///  download is enabled or disabled.
+                              ///< download is enabled or disabled.
     uint32 xtraDataStatus;    ///< XTRA assistance data status.
-                              ///  If XTRA assistance data download is not enabled,
-                              ///  this field will be set to TAF_LOCGNSS_XTRA_DATA_STATUS_UNKNOWN.
+                              ///< If XTRA assistance data download is not enabled,
+                              ///< this field will be set to TAF_LOCGNSS_XTRA_DATA_STATUS_UNKNOWN.
     uint32 xtraValidForHours; ///< Number of hours that XTRA assistance data will
-                              ///  remain valid. This field will be valid when xtraDataStatus
-                              ///  is set to TAF_LOCGNSS_XTRA_DATA_STATUS_VALID. For all other
-                              ///  XtraDataStatus, this field will be set to 0.
+                              ///< remain valid. This field will be valid when xtraDataStatus
+                              ///< is set to TAF_LOCGNSS_XTRA_DATA_STATUS_VALID. For all other
+                              ///< XtraDataStatus, this field will be set to 0.
 };
 
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for NMEA event notification.
+ *
+ * @param[in] timestamp  The timestamp.
+ * @param[in] nmeaMask   The NMEA string.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER NmeaHandler
@@ -2636,7 +2645,7 @@ FUNCTION le_result_t GetSatellitesStatus
     uint8         satsInViewCount OUT,      ///< Number of satellites in view.
     uint8         satsTrackingCount OUT,    ///< Number of satellites in view when tracking GNSS.
     uint8         satsUsedCount OUT         ///< Number of satellites in view used for
-                                            ///  GNSS navigation.
+                                            ///< GNSS navigation.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -2722,9 +2731,9 @@ FUNCTION le_result_t GetSatellitesInfo
     bool          satUsed[SV_INFO_MAX_LEN] OUT,     ///< True if SV is used for computing position.
     uint8         satSnr[SV_INFO_MAX_LEN] OUT,      ///< Signal-to-noise ratio.Units in dB-Hz.
     uint16        satAzim[SV_INFO_MAX_LEN] OUT,     ///< Azimuth; range is 0
-                                                    ///  to 360 degrees.
+                                                    ///< to 360 degrees.
     uint8         satElev[SV_INFO_MAX_LEN] OUT      ///< Elevation; range is 0
-                                                    ///  to 90 degrees.
+                                                    ///< to 90 degrees.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -2744,7 +2753,7 @@ FUNCTION le_result_t GetTimeAccuracy
 (
     Sample positionSampleRef  IN,       ///< Position sample reference.
     uint32 timeAccuracy OUT             ///< Time accuracy in nanoseconds. For PVT report from SPE
-                                        ///  engine, confidence level is at 99%.
+                                        ///< engine, confidence level is at 99%.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -3218,9 +3227,9 @@ FUNCTION le_result_t GetMagneticDeviation
 (
     Sample positionSampleRef    IN, ///< Position sample reference.
     int32 magneticDeviationPtr  OUT ///< MagneticDeviation in degrees. It is the difference between
-                                    ///  the bearing to true north and the bearing shown on magnetic
-                                    ///  compass. The deviation is positive when the magnetic north
-                                    ///  is east of true north.
+                                    ///< the bearing to true north and the bearing shown on magnetic
+                                    ///< compass. The deviation is positive when the magnetic north
+                                    ///< is east of true north.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -3241,11 +3250,11 @@ FUNCTION le_result_t GetEllipticalUncertainty
 (
     Sample positionSampleRef          IN, ///< Position sample reference.
     uint32 horUncEllipseSemiMajorPtr OUT, ///< Horizontal semi-major elliptical uncertainty. It is
-                                          ///  semi-major axis of horizontal elliptical uncertainty.
-                                          ///  Units: Meters Uncertainty is defined with 39% confidence level.
+                                          ///< semi-major axis of horizontal elliptical uncertainty.
+                                          ///< Units: Meters Uncertainty is defined with 39% confidence level.
     uint32 horUncEllipseSemiMinorPtr OUT, ///< Horizontal semi-minor elliptical uncertainty. It is
-                                          ///  semi-minor axis of horizontal elliptical uncertainty.
-                                          ///  Units: Meters Uncertainty is defined with 39% confidence level.
+                                          ///< semi-minor axis of horizontal elliptical uncertainty.
+                                          ///< Units: Meters Uncertainty is defined with 39% confidence level.
     uint8  horConfidencePtr          OUT  ///< Horizontal confidence level. It is defined with 39% confidence level.
 );
 
@@ -3306,10 +3315,10 @@ FUNCTION le_result_t GetConformityIndex
 (
     Sample positionSampleRef IN, ///< Position sample reference.
     double index OUT             ///< Conformity index. When robust location is enabled, this field
-                                 ///  will indicate how well the various input data considered for
-                                 ///  navigation solution conforms to expectations.
-                                 ///  The range [0.0, 1.0], with 0.0 for least conforming and
-                                 ///  1.0 for most conforming.
+                                 ///< will indicate how well the various input data considered for
+                                 ///< navigation solution conforms to expectations.
+                                 ///< The range [0.0, 1.0], with 0.0 for least conforming and
+                                 ///< 1.0 for most conforming.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -3369,11 +3378,11 @@ FUNCTION le_result_t GetVRPBasedLLA
 (
     Sample positionSampleRef IN,     ///< Position sample reference.
     double vrpLatitudePtr  OUT,      ///< VRP based Latitude, in unit of degrees,
-                                     ///  range [-90.0, 90.0].
+                                     ///< range [-90.0, 90.0].
     double vrpLongitudePtr OUT,      ///< VRP based Longitude,in unit of degrees,
-                                     ///  range [-180.0, 180.0].
+                                     ///< range [-180.0, 180.0].
     double vrpAltitudePtr  OUT       ///< VRP based altitude above the WGS 84
-                                     ///  reference ellipsoid, in unit of meters..
+                                     ///< reference ellipsoid, in unit of meters..
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -3496,8 +3505,8 @@ FUNCTION le_result_t GetLocationOutputEngParams
 (
     Sample positionSampleRef IN,    ///< Position sample reference.
     uint16 engMaskPtr OUT,          ///< Engine type bit mask. @ref EngineMask
-                                    ///  This parameter is valid only when engine
-                                    ///  type is TAF_LOCGNSS_LOC_OUTPUT_ENGINE_FUSED.
+                                    ///< This parameter is valid only when engine
+                                    ///< type is TAF_LOCGNSS_LOC_OUTPUT_ENGINE_FUSED.
     uint16 engTypePtr OUT           ///< Location engine type. @ref LocationAggregationType
 );
 
@@ -3540,17 +3549,17 @@ FUNCTION le_result_t GetStdDeviationAzimuthInfo
 (
     Sample positionSampleRef IN,    ///< Position sample reference.
     double azimuthPtr OUT,          ///< Retrieves elliptical horizontal uncertainty azimuth of orientation.
-                                    /// Units: Decimal degrees
-                                    /// Range: 0 to 180
-                                    /// Confidence for uncertainty is not specified.
+                                    ///< Units: Decimal degrees
+                                    ///< Range: 0 to 180
+                                    ///< Confidence for uncertainty is not specified.
     double eastDevPtr OUT,          ///< East standard deviation.
-                                    /// Retrieves east standard deviation.
-                                    /// Units: Meters
-                                    /// Uncertainty is defined with 68% confidence level.
+                                    ///< Retrieves east standard deviation.
+                                    ///< Units: Meters
+                                    ///< Uncertainty is defined with 68% confidence level.
     double northDevPtr OUT          ///< North standard deviation.
-                                    /// Retrieves north standard deviation.
-                                    /// Units: Meters
-                                    /// Uncertainty is defined with 68% confidence level.
+                                    ///< Retrieves north standard deviation.
+                                    ///< Units: Meters
+                                    ///< Uncertainty is defined with 68% confidence level.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -3770,7 +3779,7 @@ FUNCTION le_result_t SetNmeaConfiguration
     NmeaBitMask nmeaMask          IN,  ///< Bitmask for enabled NMEA sentence types.
     GeodeticDatumType datumType   IN,  ///< Specify the datum type to be configured.
     LocEngineType engineType      IN   ///< Specify the Engine type for which Nmea sentences
-                                       ///  should be generated. Also refer to @ref LocEngineType
+                                       ///< should be generated. Also refer to @ref LocEngineType
 );
 
 //------------------------------------------------------------------------------------------------
@@ -3787,7 +3796,7 @@ FUNCTION le_result_t SetNmeaConfiguration
 FUNCTION le_result_t GetXtraStatus
 (
     XtraStatusParams xtraParams OUT ///< Specify XTRA assistant data's current status,
-                                    ///  validity, and whether it is enabled.
+                                    ///< validity, and whether it is enabled.
 );
 
 //------------------------------------------------------------------------------------------------

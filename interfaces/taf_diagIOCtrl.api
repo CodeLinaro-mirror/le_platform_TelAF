@@ -208,6 +208,11 @@ FUNCTION le_result_t SetVlanId
  * Handler for a Rx InputOutputControlByIdentifier message.
  *
  * @instaging
+ *
+ * @param[in] rxMsgRef        Received message reference.
+ * @param[in] dataId          Data identifier.
+ * @param[in] ioCtrlParameter Input output control parameter.
+ * @param[in] contextPtr      Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER RxMsgHandler

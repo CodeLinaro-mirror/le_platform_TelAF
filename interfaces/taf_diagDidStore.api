@@ -113,6 +113,10 @@ FUNCTION le_result_t Write
  * Handler for a Data ID change notification.
  *
  * @instaging
+ *
+ * @param[in] dataId     Data identifier.
+ * @param[in] dataRecord Data record.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER DataIdChangeHandler

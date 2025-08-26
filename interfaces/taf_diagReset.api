@@ -219,6 +219,10 @@ FUNCTION le_result_t SetVlanId
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a Rx Reset message.
+ *
+ * @param[in] rxMsgRef   Received message reference.
+ * @param[in] resetType  Reset type.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RxMsgHandler

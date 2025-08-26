@@ -404,6 +404,10 @@ FUNCTION le_result_t SetVlanId
  * Handler for an Rx Authentication message.
  *
  * @instaging
+ *
+ * @param[in] rxMsgRef     Received message reference.
+ * @param[in] authTaskType Authentication task type.
+ * @param[in] contextPtr   Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER RxMsgHandler
@@ -430,6 +434,11 @@ EVENT RxMsg
  * Handler for the authentication expiry.
  *
  * @instaging
+ *
+ * @param[in] expMsg     Authentication expiry notification message.
+ * @param[in] vlanId     VLAN ID.
+ * @param[in] roleId     Role ID.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER AuthStateExpHandler

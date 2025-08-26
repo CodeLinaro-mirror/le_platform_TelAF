@@ -294,6 +294,9 @@ REFERENCE ModemAwakeEvent;
 //--------------------------------------------------------------------------------------------------
 /**
  * State change handler.
+ *
+ * @param[in] state      The system state.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER StateChangeHandler
@@ -316,6 +319,11 @@ EVENT StateChange
  * StateChangeEx change handler.
  *
  * @b NOTE: This is supported only on SA525M.
+ *
+ * @param[in] powerStateRef PowerstateRef for StateChangeExHandler.
+ * @param[in] vm            The VM ID of the machine.
+ * @param[in] state         The system state.
+ * @param[in] contextPtr    Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER StateChangeExHandler
@@ -356,6 +364,11 @@ REFERENCE VMList;
  * State change ConsolidatedAck Info handler.
  *
  * @instaging
+ *
+ * @param[in] consolidatedAckInfoRef The reference of the consolidated acknowledgement information.
+ * @param[in] isAllAcked             Is all clients acked.
+ * @param[in] state                  The acknowledged PM state.
+ * @param[in] contextPtr             Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ConsolidatedAckInfoHandler
@@ -383,12 +396,16 @@ EVENT ConsolidatedAckInfo
  * Handler for modem awake.
  *
  * @instaging
+ *
+ * @param[in] ref        Modem wakeup event reference.
+ * @param[in] wsBitmask  Modem wakeup reason bitmask.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ModemAwakeHandler
 (
-    ModemAwakeEvent ref,
-    NodeModemWsBitMask wsBitmask
+    ModemAwakeEvent ref IN,                             ///< Modem wakeup event reference.
+    NodeModemWsBitMask wsBitmask IN                     ///< Modem wakeup reason bitmask.
 );
 
 //--------------------------------------------------------------------------------------------------

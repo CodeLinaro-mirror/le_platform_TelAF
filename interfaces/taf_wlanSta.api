@@ -126,6 +126,9 @@ REFERENCE WlanSTA;
  *
  * @instaging
  *
+ * @param[in] wlanSTARef The WLAN STA reference.
+ * @param[in] staState   WLAN STA states.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER Handler

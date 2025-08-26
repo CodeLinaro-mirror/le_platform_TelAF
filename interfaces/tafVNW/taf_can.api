@@ -511,6 +511,11 @@ FUNCTION bool GetFdStatus
 
 /**
  * Callback handler.
+ *
+ * @param[in] canInfRef    Reference of the created CAN interface.
+ * @param[in] isCanFdFrame True if received frame type is canfd_frame, otherwise false.
+ * @param[in] frameId      Received frame ID.
+ * @param[in] data         Received data.
  */
 //-------------------------------------------------------------------------------------------------
 
@@ -518,7 +523,7 @@ HANDLER Callback
 (
     CanInterface canInfRef IN,        ///< Reference of the created CAN interface.
     bool isCanFdFrame IN,             ///< True if received frame type is canfd_frame,
-                                      ///  otherwise false.
+                                      ///< otherwise false.
     uint32 frameId IN,                ///< Received frame ID.
     uint8 data[DATA_MAX_LENGTH] IN    ///< Received data.
 );

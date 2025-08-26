@@ -770,13 +770,18 @@ FUNCTION le_result_t GetMtdDevBlkCnt
  * Handler for change in modem event.
  *
  * @instaging
+ *
+ * @param[in] eventType     Modem event.
+ * @param[in] eventSeverity Modem event level.
+ * @param[in] eventRef      Modem status change event reference.
+ * @param[in] contextPtr    Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ModemEvtHandler
 (
-    ModemEvtType eventType   IN,             ///< Modem event
-    ModemEvtSeverity eventSeverity IN,       ///< Modem event level
-    ModemEvent eventRef                  ///< Modem status change event reference
+    ModemEvtType eventType   IN,             ///< Modem event.
+    ModemEvtSeverity eventSeverity IN,       ///< Modem event level.
+    ModemEvent eventRef   IN                 ///< Modem status change event reference.
 );
 
 

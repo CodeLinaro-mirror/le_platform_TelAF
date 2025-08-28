@@ -148,6 +148,7 @@ ENUM State
  * @return
  *     - LE_OK           Succeeded.
  *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_OUT_OF_RANGE GPIO pin is not available.
  *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -166,6 +167,7 @@ FUNCTION le_result_t SetInput
  * @return
  *     - LE_OK           Succeeded.
  *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_OUT_OF_RANGE GPIO pin is not available.
  *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -182,6 +184,7 @@ FUNCTION le_result_t Activate(
  * @return
  *     - LE_OK           Succeeded.
  *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_OUT_OF_RANGE GPIO pin is not available.
  *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -255,6 +258,7 @@ EVENT ChangeEvent
  * @return
  *     - LE_OK           Succeeded.
  *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_OUT_OF_RANGE GPIO pin is not available.
  *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -272,6 +276,7 @@ FUNCTION le_result_t SetEdgeSense
  * @return
  *     - LE_OK           Succeeded.
  *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_OUT_OF_RANGE GPIO pin is not available.
  *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -309,7 +314,11 @@ FUNCTION bool IsInput(
  * Returns the I/O name.
  *
  * @return
- * Name in string format
+ *     - LE_OK              Succeeded.
+ *     - LE_BAD_PARAMETER   String name is NULL.
+ *     - LE_FAULT           GPIO driver is installed, but GetName is not implemented.
+ *     - LE_OVERFLOW        name array size is more than PIN_NAME_MAX_BYTE.
+ *     - LE_NOT_IMPLEMENTED GetName is not implemented by service.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetName(

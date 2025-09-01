@@ -454,3 +454,22 @@ le_result_t taf_mrc_GetEfsBadBlocks
 
     return LE_OK;
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set the period of EFS backup.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_SetEfsBackupPeriod
+(
+    uint32_t period ///< Period in second.
+)
+{
+    return taf_pa_mrc_ConfigTimer(TAF_PA_MRC_TIMER_TYPE_EFS_BACKUP, period);
+}

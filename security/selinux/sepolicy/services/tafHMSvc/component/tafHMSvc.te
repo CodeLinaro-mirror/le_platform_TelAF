@@ -20,6 +20,9 @@ kernel_read_system_state(telaf_tafHMSvc_t)
 telaf_admin_manage_all_files_perms(telaf_tafHMSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafHMSvc_exec_t)
 
+# Allow tafHMSvc to access telux private info
+telux_allow_tel_private_info_read(telaf_tafHMSvc_t)
+
 require {
     type mm_socket_device_t;
     type modem_monitor_t;

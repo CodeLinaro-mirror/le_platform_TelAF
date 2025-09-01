@@ -180,6 +180,9 @@ const char* ModemEventTypeToStr
 {
     switch (eventType)
     {
+        case TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_LOST:
+            return "CONNECTION_LOST";
+
         case TAF_HMS_MODEM_EVENT_TYPE_CONTINUE_REBOOT:
             return "CONTINUE_REBOOT";
     }

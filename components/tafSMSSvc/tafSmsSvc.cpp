@@ -41,22 +41,8 @@
  *             handler etc.
  */
 
-#include "legato.h"
-
-#include "interfaces.h"
-#include <iostream>
-#include <memory>
-#include <string>
-#include <vector>
-
-#include <telux/common/CommonDefines.hpp>
-#include <telux/tel/PhoneFactory.hpp>
-#include <unistd.h>
-
 #include "tafSms.hpp"
 
-using namespace telux::tel;
-using namespace telux::common;
 using namespace tafsvc;
 using namespace std;
 
@@ -258,7 +244,7 @@ taf_sms_MsgRef_t taf_sms_Create
    msgPtr->tel[0] = '\0';
    msgPtr->text[0] = '\0';
    msgPtr->timestamp[0] = '\0';
-   msgPtr->phoneId = DEFAULT_SLOT_ID;
+   msgPtr->phoneId = DEFAULT_PHONE_ID;
 
    msgPtr->type = TAF_SMS_TYPE_TX;
    msgPtr->sendStatus = TAF_SMS_TXSTS_UNSENT;
@@ -623,7 +609,7 @@ le_result_t taf_sms_SetPhoneId
 
    if (phoneId < 1 || phoneId > 2)
    {
-      msgPtr->phoneId = DEFAULT_SLOT_ID;
+      msgPtr->phoneId = DEFAULT_PHONE_ID;
    }
    else
    {
@@ -1529,48 +1515,14 @@ le_result_t taf_sms_GetSmsCenterAddress
 {
    TAF_KILL_CLIENT_IF_RET_VAL(addr == NULL, LE_BAD_PARAMETER, "Invalid address pointer");
 
-   // initialize the synchronous promise
-   auto &sms = taf_Sms::GetInstance();
-   sms.SmsCenterSyncPromise = std::promise<le_result_t>();
-   std::chrono::seconds span(TIMEOUT_GET_SMSC);
-   auto smsManager = sms.smsManagers[phoneId - 1];
-
-   if (smsManager)
+   pa_result_t paRes = taf_pa_sms_GetSmsCenterAddress(phoneId,
+      addr, len, TIMEOUT_GET_SMSC);
+   if (paRes != PA_OK)
    {
-      telux::common::Status reqStatus = smsManager->requestSmscAddress(sms.getSmscCb);
-
-      if (reqStatus != telux::common::Status::SUCCESS)
-      {
-         LE_INFO("Set Activation status request failed");
-         return LE_FAULT;
-      }
-
-      // blocking here to get call event response
-      std::future<le_result_t> futResult = sms.SmsCenterSyncPromise.get_future();
-      std::future_status waitStatus = futResult.wait_for(span);
-      if (std::future_status::timeout == waitStatus)
-      {
-        LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_GET_SMSC);
-        return LE_TIMEOUT;
-      }
-      else
-      {
-         TAF_KILL_CLIENT_IF_RET_VAL(strlen(addr) > len, LE_OVERFLOW, "address length overflow");
-
-         TAF_KILL_CLIENT_IF_RET_VAL(len > TAF_SMS_SMSC_ADDR_BYTES - 1, LE_OVERFLOW, "len is greater than TAF_SMS_SMSC_ADDR_LEN");
-
-         le_utf8_Copy(addr, sms.smscAddr, len, NULL);
-
-         LE_DEBUG("returned smsc address: %s", addr);
-
-         return futResult.get();
-      }
-   }
-   else
-   {
-      LE_ERROR("Cell broadcast service error");
+      LE_ERROR("taf_pa_sms_GetSmsCenterAddress failed, paRes: %d", (int)paRes);
       return LE_FAULT;
    }
+   return LE_OK;
 }
 
 /*======================================================================
@@ -1600,40 +1552,19 @@ le_result_t taf_sms_SetSmsCenterAddress
    const char* addr
 )
 {
-   // initialize the synchronous promise
-   auto &sms = taf_Sms::GetInstance();
-   sms.SmsCenterSyncPromise = std::promise<le_result_t>();
-   std::chrono::seconds span(TIMEOUT_SET_SMSC);
-   auto smsManager = sms.smsManagers[phoneId - 1];
-
-   if (smsManager)
+   if (addr == nullptr)
    {
-      telux::common::Status reqStatus = smsManager->setSmscAddress(addr, tafSetSmscAddressResponseCallback::setSmscResponse);
-
-      if (reqStatus != telux::common::Status::SUCCESS)
-      {
-         LE_INFO("Set Activation status request failed");
-         return LE_FAULT;
-      }
-
-      // blocking here to get call event response
-      std::future<le_result_t> futResult = sms.SmsCenterSyncPromise.get_future();
-      std::future_status waitStatus = futResult.wait_for(span);
-      if (std::future_status::timeout == waitStatus)
-      {
-        LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_ACTIVATE_CB);
-        return LE_TIMEOUT;
-      }
-      else
-      {
-         return futResult.get();
-      }
+      return LE_BAD_PARAMETER;
    }
-   else
+
+   pa_result_t paRes = taf_pa_sms_SetSmsCenterAddress(phoneId,
+      addr, TIMEOUT_SET_SMSC);
+   if (paRes != PA_OK)
    {
-      LE_ERROR("Cell broadcast service error");
+      LE_ERROR("taf_pa_sms_SetSmsCenterAddress failed, paRes: %d", (int)paRes);
       return LE_FAULT;
    }
+   return LE_OK;
 }
 
 /*======================================================================
@@ -1670,7 +1601,7 @@ void taf_sms_MarkRead
    }
    else
    {
-      res = mySms.SetTag(msgPtr, telux::tel::SmsTagType::MT_READ);
+      res = mySms.SetTag(msgPtr, taf_pa_sms_Tag::TAF_PA_READ);
    }
    if(res == LE_OK)
    {
@@ -1712,7 +1643,7 @@ void taf_sms_MarkUnread
    }
    else
    {
-      res = mySms.SetTag(msgPtr, telux::tel::SmsTagType::MT_NOT_READ);
+      res = mySms.SetTag(msgPtr, taf_pa_sms_Tag::TAF_PA_NOT_READ);
    }
    if(res == LE_OK)
    {

@@ -458,14 +458,15 @@ le_result_t taf_sms_hlos_ReadPDUMsgFromStorage(uint32_t index,
         le_result_t decryptRes = taf_sms_hlos_decryptMsg(
             cypherData, cypherLen, decryptedData, &decryptedDataSize);
         LE_DEBUG("taf_sms_hlos_decryptMsg res: %d", decryptRes);
-
-        if (LE_OK == decryptRes)
+        if (LE_OK != decryptRes)
         {
-            for (uint i = 0; i < decryptedDataSize; i++)
-            {
-                LE_DEBUG("decryptedData[%d] = 0x%.2X", i, decryptedData[i]);
-                pduMsg->data[i] = decryptedData[i];
-            }
+            return LE_FAULT; // FIX: fail fast on decrypt error
+        }
+
+        for (uint i = 0; i < decryptedDataSize; i++)
+        {
+            LE_DEBUG("decryptedData[%d] = 0x%.2X", i, decryptedData[i]);
+            pduMsg->data[i] = decryptedData[i];
         }
         pduMsg->length = decryptedDataSize;
     }
@@ -547,7 +548,7 @@ uint32_t ComputeHeaderCRC32(uint8_t* data, uint8_t dataLen)
 
 le_result_t SetHeaderStatus(uint32_t index, uint8_t statusMask, bool enable)
 {
-    char smsPath[HLOS_PATH_MAX_BYTE] = { 0 };
+    char smsPath[HLOS_PATH_MAX_BYTE] = {0};
     snprintf(smsPath, sizeof(smsPath), "%s/%d", SMS_STORAGE_PATH, index);
 
     if (!le_fs_Exists(smsPath))
@@ -557,42 +558,34 @@ le_result_t SetHeaderStatus(uint32_t index, uint8_t statusMask, bool enable)
 
     le_fs_FileRef_t fileRef;
     le_result_t res = le_fs_Open(smsPath, LE_FS_RDONLY, &fileRef);
-
     TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to open sms file");
 
-    uint8_t header[HLOS_SMS_HEADER_LEN] = { 0 };
+    uint8_t header[HLOS_SMS_HEADER_LEN] = {0};
     size_t headerSize = sizeof(header);
-    char fHeader[(HLOS_SMS_HEADER_LEN * 2) + 1] = { 0 };
+
+    char fHeader[(HLOS_SMS_HEADER_LEN * 2) + 1] = {0};
     size_t fHeaderSize = sizeof(fHeader);
 
-    res = le_fs_Read(fileRef, (uint8_t*)fHeader, &fHeaderSize);
-
+    res = le_fs_Read(fileRef, (uint8_t *)fHeader, &fHeaderSize);
     if (res != LE_OK)
     {
         LE_DEBUG("Fail to read sms file");
         le_fs_Close(fileRef);
         return LE_FAULT;
     }
-    LE_DEBUG("headerSize: %" PRIuS, fHeaderSize);
+    LE_DEBUG("header hex bytes read: %" PRIuS, fHeaderSize);
 
-    if (fHeaderSize <= HLOS_SMS_HEADER_LEN * 2)
-    {
-        fHeader[fHeaderSize] = '\0';
-    }
-    else
-    {
-        fHeader[HLOS_SMS_HEADER_LEN * 2] = '\0';
-    }
+    // Compute the effective hex string length (max header length in hex)
+    size_t headerHexLen = HLOS_SMS_HEADER_LEN * 2;
+    size_t hexLen = (fHeaderSize < headerHexLen) ? fHeaderSize : headerHexLen;
+    fHeader[hexLen] = '\0';
 
-    le_hex_StringToBinary(fHeader, fHeaderSize - 1, header, headerSize);
-
-    for (uint i = 0; i < headerSize; i++)
-    {
-        LE_DEBUG("read header: 0x%.2X", header[i]);
-    }
+    // Decode hex header to binary
+    le_hex_StringToBinary(fHeader, hexLen, header, headerSize);
 
     le_fs_Close(fileRef);
 
+    // Modify status bit
     if (enable)
     {
         header[HLOS_SMS_HEADER_INDEX_STATUS] |= statusMask;
@@ -602,23 +595,20 @@ le_result_t SetHeaderStatus(uint32_t index, uint8_t statusMask, bool enable)
         header[HLOS_SMS_HEADER_INDEX_STATUS] &= (~statusMask);
     }
 
+    // Recompute CRC and update header
     uint32_t crcWrite = ComputeHeaderCRC32(header, HLOS_SMS_CONFIG_LEN);
     memcpy(&header[HLOS_SMS_HEADER_INDEX_CRC], &crcWrite, HLOS_SMS_CRC_LEN);
 
-    le_hex_BinaryToString(header, headerSize, fHeader, fHeaderSize);
+    // Encode header back to hex string
+    // Note: fHeader buffer is large enough ((HLOS_SMS_HEADER_LEN * 2) + 1)
+    le_hex_BinaryToString(header, headerSize, fHeader, sizeof(fHeader));
 
-    for (uint i = 0; i < headerSize; i++)
-    {
-        LE_DEBUG("write header: 0x%.2X", header[i]);
-    }
-
+    // Write back only the header portion (hex without terminating NUL)
     res = le_fs_Open(smsPath, LE_FS_WRONLY, &fileRef);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to open sms file for write");
 
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to open sms file");
-
-    fHeaderSize = (HLOS_SMS_HEADER_LEN * 2); // Force set writing length as SMS header length
-    res = le_fs_Write(fileRef, (uint8_t*)fHeader, fHeaderSize);
-
+    size_t toWrite = headerHexLen; // exact number of hex chars for header
+    res = le_fs_Write(fileRef, (uint8_t *)fHeader, toWrite);
     if (res != LE_OK)
     {
         LE_DEBUG("Fail to write sms file");
@@ -627,27 +617,25 @@ le_result_t SetHeaderStatus(uint32_t index, uint8_t statusMask, bool enable)
     }
 
     le_fs_Close(fileRef);
-
     return LE_OK;
 }
 
 bool IsHeaderStatusEnable(uint32_t index, uint8_t statusMask)
 {
-    char smsPath[HLOS_PATH_MAX_BYTE] = { 0 };
+    char smsPath[HLOS_PATH_MAX_BYTE] = {0};
     snprintf(smsPath, sizeof(smsPath), "%s/%d", SMS_STORAGE_PATH, index);
 
     le_fs_FileRef_t fileRef;
     le_result_t res = le_fs_Open(smsPath, LE_FS_RDONLY, &fileRef);
-
     TAF_ERROR_IF_RET_VAL(res != LE_OK, false, "Fail to open sms file");
 
-    uint8_t header[HLOS_SMS_HEADER_LEN] = { 0 };
+    uint8_t header[HLOS_SMS_HEADER_LEN] = {0};
     size_t headerSize = sizeof(header);
 
-    char fHeader[(HLOS_SMS_HEADER_LEN * 2) + 1] = { 0 };
+    char fHeader[(HLOS_SMS_HEADER_LEN * 2) + 1] = {0};
     size_t fHeaderSize = sizeof(fHeader);
-    res = le_fs_Read(fileRef, (uint8_t*)fHeader, &fHeaderSize);
 
+    res = le_fs_Read(fileRef, (uint8_t *)fHeader, &fHeaderSize);
     if (res != LE_OK)
     {
         LE_DEBUG("Fail to read sms file");
@@ -655,40 +643,27 @@ bool IsHeaderStatusEnable(uint32_t index, uint8_t statusMask)
         return false;
     }
 
-    if (fHeaderSize <= HLOS_SMS_HEADER_LEN * 2)
-    {
-        fHeader[fHeaderSize] = '\0';
-    }
-    else
-    {
-        fHeader[HLOS_SMS_HEADER_LEN * 2] = '\0';
-    }
+    // Compute the effective hex string length (max header length in hex)
+    size_t headerHexLen = HLOS_SMS_HEADER_LEN * 2;
+    size_t hexLen = (fHeaderSize < headerHexLen) ? fHeaderSize : headerHexLen;
+    fHeader[hexLen] = '\0';
 
-    LE_DEBUG("fHeaderSize: %" PRIuS, fHeaderSize);
+    le_hex_StringToBinary(fHeader, hexLen, header, headerSize);
+    le_fs_Close(fileRef);
 
-    le_hex_StringToBinary(fHeader, fHeaderSize - 1, header, headerSize);
-
+    // CRC validation
     uint32_t crcRead = 0;
     memcpy(&crcRead, &header[HLOS_SMS_HEADER_INDEX_CRC], HLOS_SMS_CRC_LEN);
 
     uint32_t crcCheck = ComputeHeaderCRC32(header, HLOS_SMS_CONFIG_LEN);
-
     if (crcRead != crcCheck)
     {
-        LE_DEBUG("CRC check error, crc read: 0x%.8X, crc check: 0x%.8X", crcRead,
-            crcCheck);
-        le_fs_Close(fileRef);
+        LE_DEBUG("CRC check error, crc read: 0x%.8X, crc check: 0x%.8X", crcRead, crcCheck);
         return false;
     }
 
-    le_fs_Close(fileRef);
-
-    if (statusMask & header[HLOS_SMS_HEADER_INDEX_STATUS])
-    {
-        return true;
-    }
-
-    return false;
+    // Check status bit
+    return (statusMask & header[HLOS_SMS_HEADER_INDEX_STATUS]) != 0;
 }
 
 le_result_t taf_sms_hlos_setReadStatus(uint32_t index,

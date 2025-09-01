@@ -42,17 +42,12 @@
 #include <string>
 #include <memory>
 #include <vector>
-#include <telux/tel/PhoneFactory.hpp>
-#include <telux/tel/SmsManager.hpp>
-#include <telux/tel/CellBroadcastManager.hpp>
-#include "telux/common/CommonDefines.hpp"
+
 #include "tafSvcIF.hpp"
 #include "AsyncCallbackUtils.hpp"
 #include "tafSmsHlos.hpp"
 #include "tafSmsPdu.hpp"
-
-using namespace telux::tel;
-using namespace telux::common;
+#include "taf_pa_sms.hpp"
 
 #define MIN_SIM_SLOT_COUNT 1
 #define MAX_SIM_SLOT_COUNT 2
@@ -85,6 +80,8 @@ constexpr uint8_t kSendMessageWaitTime = 30;
 constexpr uint8_t kDeleteMessageWaitTime = 5;
 constexpr uint8_t kReadFromStorageWaitTime = 5;
 constexpr uint8_t kPreferredStorageWaitTime = 5;
+
+using namespace tafpa::sms;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -194,36 +191,8 @@ typedef struct
 }
 HandlerNode_t;
 
-
-namespace tafsvc {
-
-   class tafSmsListener : public telux::tel::ISmsListener {
-   public:
-      void onMemoryFull(int phoneId, telux::tel::StorageType type) override;
-      void onIncomingSms(int phoneId, std::shared_ptr<telux::tel::SmsMessage> message) override;
-   };
-
-   class tafSmsCallback : public ICommandResponseCallback {
-   public:
-      void commandResponse(ErrorCode error) override;
-      taf_sms_MsgRef_t msgRef;
-   };
-
-   class tafSmscAddressCallback : public telux::tel::ISmscAddressCallback {
-   public:
-      void smscAddressResponse(const std::string &address, telux::common::ErrorCode error) override;
-   };
-
-   class tafSetSmscAddressResponseCallback {
-   public:
-      static void setSmscResponse(telux::common::ErrorCode error);
-   };
-
-   class tafSmsDeliveryCallback : public telux::common::ICommandResponseCallback {
-   public:
-      void commandResponse(telux::common::ErrorCode error) override;
-   };
-
+namespace tafsvc
+{
    typedef struct
    {
       char     timestamp[TAF_SMS_TIMESTAMP_BYTES];
@@ -231,11 +200,6 @@ namespace tafsvc {
       uint8_t  phoneId;
       uint32_t storageIdx;
    } newSms_t;
-
-   typedef struct
-   {
-      telux::common::ErrorCode errcode;
-   } tafSmsErrorCode_t;
 
    class taf_Sms : public ITafSvc {
    public:
@@ -281,12 +245,10 @@ namespace tafsvc {
          uint8_t phoneId);
       le_result_t SendPDUMessageAsync(taf_sms_MsgRef_t msgRef);
       le_result_t ReadFromStorage(taf_sms_Pdu_t* pduMsg,
-         uint32_t idx, taf_sms_Storage_t storage);
-      le_result_t SetTag(taf_sms_Msg_t* msgPtr, telux::tel::SmsTagType tagType);
+         uint32_t idx, taf_sms_Storage_t storage, uint8_t phoneId);
+      le_result_t SetTag(taf_sms_Msg_t* msgPtr, taf_pa_sms_Tag tagType);
       le_result_t DeleteMessage(uint32_t messageIndex);
       le_result_t DeleteAllMessages(taf_sms_Storage_t storage);
-      std::vector<telux::tel::PduBuffer> PrepareRawPdus(const uint8_t* pduData,
-        uint32_t pduLength);
 
       le_ref_MapRef_t MsgRefMap = NULL;
       le_ref_MapRef_t ListRefMap = NULL;
@@ -307,8 +269,6 @@ namespace tafsvc {
       le_event_Id_t StorageEvent;
 
       le_sem_Ref_t SmsSendSem = nullptr;
-      le_sem_Ref_t SmscGetSem = nullptr;
-      le_sem_Ref_t SmscSetSem = nullptr;
 
       taf_sms_MsgRef_t sendingMsgRef = nullptr;
 
@@ -316,22 +276,8 @@ namespace tafsvc {
 
       uint8_t NumOfSlot = MIN_SIM_SLOT_COUNT;
 
-      // objects used by telSdk interfaces
-      std::shared_ptr<tafSmsCallback> smsSentCb;
-      std::shared_ptr<tafSmsDeliveryCallback> smsDeliveryCb;
-      std::shared_ptr<tafSmsListener> mySmsListener;
-      std::shared_ptr<tafSmscAddressCallback> getSmscCb;
-
-      std::vector<std::shared_ptr<telux::tel::ISmsManager>> smsManagers;
-      std::vector<std::shared_ptr<telux::tel::ICellBroadcastManager>> CbManagers;
-
       //for SMS center address
       char smscAddr[TAF_SMS_SMSC_ADDR_BYTES];
-
-      // for cell broadcast
-      std::vector<telux::tel::CellBroadcastFilter> CBFilterList;
-
-      std::promise<le_result_t> SmsCenterSyncPromise;
    };
 
 

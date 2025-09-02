@@ -16,7 +16,7 @@ The multiple routing manager test apps are running on 2 devices (Device A and De
 --------------------------------------------------------------------
 
 --------------------------------------------------------------------
-|           routing 1 interface: "eth0.1"                          |
+|           routing 1 interface: "bridge1"                         |
 |           routing 1 multicast: "225.0.0.1"                       |
 |           routing 1 VLAN ID : 1                                  |
 --------------------------------------------------------------------
@@ -25,12 +25,25 @@ The multiple routing manager test apps are running on 2 devices (Device A and De
 --------------------------------------------------------------------
 
 --------------------------------------------------------------------
-|           routing 2 interface: "eth0.2"                          |
+|           routing 2 interface: "bridge2"                         |
 |           routing 2 multicast: "226.0.0.1"                       |
 |           routing 2 VLAN ID : 2                                  |
 --------------------------------------------------------------------
 |unicast: "10.10.2.1"                       unicast:"10.10.2.2"    |
 |clientID: "0x0301"                         clientID: "0x0302"     |
 --------------------------------------------------------------------
+
+# NOTE: The TelAF multi-routing managers test can performed between 2 SA525Ms,
+# To build telaf image of SA525M Device A, run:
+
+source set_af_env.sh sa525m
+export SDEF_TO_USE=${TELAF_ROOT}/apps/test/tafSomeipGWTest/multiRoutingManagersTest/sa525m_A.sdef
+build-distclean-af; build-sa525m-af
+
+# To build telaf image of SA525M Device B, run:
+
+source set_af_env.sh sa525m
+export SDEF_TO_USE=${TELAF_ROOT}/apps/test/tafSomeipGWTest/multiRoutingManagersTest/sa525m_B.sdef
+build-distclean-af; build-sa525m-af
 
 

@@ -516,9 +516,6 @@ class taf_Audio : public ITafSvc
         static void ClientSessionCloseEventHandler( le_msg_SessionRef_t sessionRef,
                             void* contextPtr);
         static void DestructStream( void *objPtr );
-        static void StartAudioCallback(ErrorCode error);
-        static void StopAudioCallback(ErrorCode error);
-        static void DeleteVoiceCallback(ErrorCode error);
         static void DeletePlayCallback(ErrorCode error);
         static void FirstLayerEventHandler( void* reportPtr, void* secondLayerHandlerFunc );
         static le_event_Id_t CreateEventId();
@@ -532,11 +529,8 @@ class taf_Audio : public ITafSvc
                     telux::common::ErrorCode error);
         static void WriteCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
                 uint32_t bytes, telux::common::ErrorCode error);
-        static void StreamMuteUnmuteCallback(ErrorCode error);
         static void BuBStatusCB(int32_t status, void *contextPtr);
         static void RegisterDtmfListenerCallback(ErrorCode error);
-        static void PlayDtmfCallback(ErrorCode error);
-        static void StopDtmfCallback(ErrorCode error);
         std::shared_ptr<tafSignallingDtmfListener> onStartDtmfTone = nullptr;
         std::shared_ptr<tafSignallingDtmfListener> onStopDtmfTone = nullptr;
         std::shared_ptr<telux::tel::ICallManager> callManager = nullptr;

@@ -5244,7 +5244,40 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
         sesChangeMsg.dataLen = UDS_SESSION_CHANGE_DATA_SIZE;
         udsHandler->funcPtr(&addrInfo, &sesChangeMsg, TAF_DOIP_RESULT_OK, udsHandler->ctxPtr);
     }
+    else
+    {
+        //Non-deafult session switched to itself
+        if(newSessionType != DEFAULT_SESSION)
+        {
+            char mainSemName[UDS_SEC_SEM_NAME_MAX_LEN] = "mSem";
+            snprintf(mainSemName, sizeof(mainSemName)-1, "mSem-%d-%d", vlanId, mainSemCnt);
+            mainSemCnt++;
+            le_sem_Ref_t SecAccSem = le_sem_Create(mainSemName, 0);
 
+            LE_INFO("report -> SESSION_CONTROL_SIG (d-tool relock)");
+            SecAccReport_t report = {
+                .type = SESSION_CONTROL_SIG,
+                .sem = SecAccSem,
+                .mgr = this,
+            };
+
+            le_utf8_Copy(report.semName, mainSemName, UDS_SEC_SEM_NAME_MAX_LEN, NULL);
+            le_event_Report(SecAccEventIdRef, &report, sizeof(report));
+
+            le_clk_Time_t time = {SEC_ACC_TIME_TO_WAIT, 0};
+            le_result_t ret = le_sem_WaitWithTimeOut(SecAccSem, time);
+
+            if (ret != LE_OK)
+            {
+                LE_ERROR("SecAcc thread timeout");
+                le_sem_Delete(SecAccSem);
+                return LE_TIMEOUT;
+            }
+
+            le_sem_Delete(SecAccSem);
+
+        }
+    }
 out:
     // Fill the response data to send the session response msg to DTool
     sendBuf[0] = SESSION_CONTROL_RESPONSE_ID;

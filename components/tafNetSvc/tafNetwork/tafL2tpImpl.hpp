@@ -44,13 +44,11 @@
 #include <memory>
 #include <vector>
 #include <iostream>
-#include <telux/data/DataFactory.hpp>
-#include <telux/data/net/L2tpManager.hpp>
+
+#include "taf_pa_l2tp.hpp"
 #include "tafSvcIF.hpp"
 
 #define DEFAULT_MTU_SIZE       1422
-using namespace telux::data;
-using namespace telux::common;
 
 /*
  * @brief The struct of l2tp configuration.
@@ -187,7 +185,7 @@ typedef enum
 typedef struct
 {
     taf_L2tpEvtType_t                      event;
-    telux::common::ErrorCode                errorCode;
+    le_result_t                errorCode;
 } taf_L2tpEventReq_t;
 
 typedef struct
@@ -211,25 +209,27 @@ typedef struct
 
 namespace tafsvc {
 
-    /*
-     * @brief A callback class must be provided when invoke telsdk API.
-     */
-    class tafL2tpCallback
-    {
-        public:
-           static void enableL2tpAsyncResponse(telux::common::ErrorCode error);
-           static void disableL2tpAsyncResponse(telux::common::ErrorCode error);
-           static void startTunnelAsyncResponse(telux::common::ErrorCode error);
-           static void stopTunnelAsyncResponse(telux::common::ErrorCode error);
-           static void requestConfigResponse(const telux::data::net::L2tpSysConfig &l2tpSysConfig,
-                                                     telux::common::ErrorCode error);
 
-            tafL2tpCallback(){};
-            ~tafL2tpCallback(){};
-            static taf_L2tpConfig_t l2tpConfig;
-            static std::vector<telux::data::net::L2tpTunnelConfig> configList;
-            static le_sem_Ref_t semaphore;
+
+    // Each async flow gets an isolated callback class.
+    //TBD: Add semaphore
+    class tafEnableL2tpCallback {
+        public:
+            static void Response(pa_result_t error, void *contextPtr);
     };
+    class tafDisableL2tpCallback {
+        public:
+            static void Response(pa_result_t error, void *contextPtr);
+    };
+    class tafStartTunnelCallback {
+        public:
+            static void Response(pa_result_t error, void *contextPtr);
+    };
+    class tafStopTunnelCallback {
+        public:
+            static void Response(pa_result_t error, void *contextPtr);
+    };
+
 
     /*
      * @brief taf_L2tp class defined as a middleware between interfaces and implementation.
@@ -268,17 +268,14 @@ namespace tafsvc {
                                     le_msg_SessionRef_t sessionRef);
 
             static void ClientCloseSessionHandler(le_msg_SessionRef_t sessionRef, void *contextPtr);
-            void onInitComplete(telux::common::ServiceStatus status);
             le_result_t CleanListRef(taf_net_TunnelEntryListRef_t tunnelEntryListRef);
-            uint16_t GetCurSessionNum(taf_net_TunnelRef_t tunnelRef);
             bool IsSessionIdValid(taf_net_TunnelRef_t tunnelRef, uint32_t locSessionId,
                                         uint32_t peerSessionId);
             bool IsTunnelStartedByOtherClient(le_msg_SessionRef_t sessionRef);
             taf_net_TunnelRef_t CreateTunnelIfExistsInDb(uint32_t tunnelId,
                                                                    le_msg_SessionRef_t sessionRef);
             le_result_t EnableL2tp(bool enableMss, bool enableMtu, uint32_t mtuSize,
-                                   taf_L2tpCmdType_t type);
-            le_result_t DisableL2tp(le_msg_SessionRef_t sessionRef);
+                                   taf_L2tpCmdType_t type, void* contextPtr);
             bool IsL2tpEnabled(void);
             bool IsL2tpMssEnabled(void);
             bool IsL2tpMtuEnabled(void);
@@ -294,8 +291,8 @@ namespace tafsvc {
                                        uint32_t peerSessionId);
             le_result_t RemoveSession(taf_net_TunnelRef_t tunnelRef, uint32_t locId,
                                            uint32_t peerId);
-            le_result_t AddTunnelAsync(taf_net_TunnelRef_t tunnelRef);
-            le_result_t RemoveTunnelAsync(taf_net_TunnelRef_t tunnelRef);
+            le_result_t AddTunnelAsync(taf_net_TunnelRef_t tunnelRef, void* contextPtr);
+            le_result_t RemoveTunnelAsync(taf_net_TunnelRef_t tunnelRef, void* contextPtr);
             taf_net_TunnelRef_t GetTunnelRefById(uint32_t locTunnelId,
                                                  le_msg_SessionRef_t sessionRef);
             taf_net_TunnelEntryListRef_t GetTunnelEntryList(void);
@@ -335,6 +332,13 @@ namespace tafsvc {
 
             TunnelHandlerMapping_t* FindTunnelAsyncHandler(taf_L2tpCmdType_t type);
             void DeleteTunnelHandlerInfo(taf_net_AsyncTunnelHandlerFunc_t asyncHandler);
+            taf_pa_net_L2tpEncapProtocol_t ConvertTafEncaProtoToPA(taf_net_L2tpEncapProtocol_t tafEncaProto);
+            taf_net_L2tpEncapProtocol_t ConvertPAEncaProtoToTaf(taf_pa_net_L2tpEncapProtocol_t paEncaProto);
+
+             // New declarations for IP Family Type conversion
+            taf_pa_net_IpFamilyType_t ConvertTafIpTypeToPA(taf_net_IpFamilyType_t tafIpType);
+            taf_net_IpFamilyType_t ConvertPAIpTypeToTaf(taf_pa_net_IpFamilyType_t paIpType);
+
 
             le_mem_PoolRef_t tunnelPool = NULL;
             le_ref_MapRef_t tunnelRefMap = NULL;
@@ -352,13 +356,6 @@ namespace tafsvc {
             le_dls_List_t TunnelHandlerMappingList = LE_DLS_LIST_INIT;
             le_mem_PoolRef_t TunnelHandlerMappingPool = NULL;
 
-        private:
-            std::shared_ptr<telux::data::net::IL2tpManager> l2tpManager = nullptr;
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            bool IsSubSystemStatusUpdated=false;
-            std::mutex mMutex;
-            std::condition_variable conVar;
-#endif
     };
 
 }

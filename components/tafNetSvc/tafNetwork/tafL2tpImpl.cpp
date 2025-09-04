@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include "tafL2tpImpl.hpp"
+#include "tafNetUtility.hpp"
 #include "tafSvcIF.hpp"
 
 #define REQUEST_L2TP_CONF_TIMEOUT 30
@@ -52,11 +53,6 @@ LE_MEM_DEFINE_STATIC_POOL(L2tpHandlerMappingPool, TAF_NET_L2TP_MAX_TUNNEL_NUMBER
 LE_MEM_DEFINE_STATIC_POOL(TunnelHandlerMappingPool, TAF_NET_L2TP_MAX_TUNNEL_NUMBER,
                           sizeof(TunnelHandlerMapping_t));
 
-std::vector<telux::data::net::L2tpTunnelConfig> tafL2tpCallback::configList;
-taf_L2tpConfig_t tafL2tpCallback::l2tpConfig;
-
-le_sem_Ref_t tafL2tpCallback::semaphore = nullptr;
-
 le_event_Id_t taf_L2tp::l2tpEventId = nullptr;
 
 le_event_Id_t taf_L2tp::l2tpCmdId = nullptr;
@@ -79,10 +75,8 @@ void taf_L2tp::Init(void)
 
     bool isReady = false;
 
-    // 1. Initiate the semaphore
-    tafL2tpCallback::semaphore = le_sem_Create("taf_L2tpRespCbSem", 0);
 
-    // 2. Initiate the memory pool
+    // Initiate the memory pool
 
     tunnelPool = le_mem_InitStaticPool(tunnelPool,
                            TAF_NET_L2TP_MAX_TUNNEL_NUMBER, sizeof(taf_Tunnel_t));
@@ -100,7 +94,7 @@ void taf_L2tp::Init(void)
     tunnelEntrySafeRefPool = le_mem_InitStaticPool(tunnelEntrySafeRefPool,
                                   TAF_NET_L2TP_MAX_TUNNEL_NUMBER, sizeof(taf_TunnelEntrySafeRef_t));
 
-    // 3. Initiate the reference map.
+    // Initiate the reference map.
 
     tunnelRefMap = le_ref_InitStaticMap(tunnelRefMap, TAF_NET_L2TP_MAX_TUNNEL_NUMBER);
 
@@ -117,47 +111,7 @@ void taf_L2tp::Init(void)
                                                      TAF_NET_L2TP_MAX_TUNNEL_NUMBER,
                                                sizeof(TunnelHandlerMapping_t));
 
-    // 4. Get the DataFactory and l2tpManager instances
-    if (l2tpManager == nullptr)
-    {
-        auto &dataFactory = telux::data::DataFactory::getInstance();
-        auto initCb = std::bind(&taf_L2tp::onInitComplete, this, std::placeholders::_1);
-        l2tpManager = dataFactory.getL2tpManager(initCb);
-    }
-
-    if(l2tpManager == nullptr )
-    {
-        LE_INFO("L2tp manager initialize error...");
-        return ;
-    }
-    // 5. Check subsystem status
-    std::unique_lock<std::mutex> lck(mMutex);
-
-    telux::common::ServiceStatus subSystemStatus = l2tpManager->getServiceStatus();
-
-    if (subSystemStatus == telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
-    {
-        LE_INFO("L2tp manager initialize...");
-        conVar.wait(lck, [this]{return this->IsSubSystemStatusUpdated;});
-        subSystemStatus = l2tpManager->getServiceStatus();
-    }
-
-    //At this point, initialization should be either AVAILABLE or Failure
-    if (subSystemStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
-    {
-        LE_ERROR("L2tp Manager initialization failed");
-        l2tpManager = nullptr;
-        return ;
-    }
-
-    isReady = l2tpManager->isSubsystemReady();
-
-    if(isReady == false)
-    {
-        LE_INFO("L2tp component is not ready, wait for it unconditionally...");
-        std::future<bool> readyFunc = l2tpManager->onSubsystemReady();
-        isReady = readyFunc.get();
-    }
+    isReady = taf_pa_l2tp_Init();
 
     if(isReady)
     {
@@ -167,7 +121,6 @@ void taf_L2tp::Init(void)
     {
         LE_CRIT("unable to init l2tpManager component!");
     }
-
     // Create and start l2tp event thread.
     le_sem_Ref_t l2tpEvtThreadSem = le_sem_Create("l2tpEvtThreadSem", 0);
     l2tpEventId = le_event_CreateId("l2tpEvent", sizeof(taf_L2tpEventReq_t));
@@ -269,7 +222,7 @@ void taf_L2tp::L2tpProcEvtHandler(void* cmdReqPtr)
     switch(cmdReq->event)
     {
         case EVT_ENABLE_L2TP_ASYNC_CALLBACK:
-            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS)
+            if (cmdReq->errorCode != LE_OK)
             {
                 LE_ERROR( "EVT_ENABLE_L2TP_ASYNC_CALLBACK failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
@@ -293,7 +246,7 @@ void taf_L2tp::L2tpProcEvtHandler(void* cmdReqPtr)
 
         break;
         case EVT_DISABLE_L2TP_ASYNC_CALLBACK:
-            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS)
+            if (cmdReq->errorCode != LE_OK)
             {
                 LE_ERROR( "EVT_DISABLE_L2TP_ASYNC_CALLBACK failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
@@ -314,8 +267,9 @@ void taf_L2tp::L2tpProcEvtHandler(void* cmdReqPtr)
                 l2tpHandlerMappingPtr->asyncHandler(result,l2tpHandlerMappingPtr->contextPtr);
                 tafL2tp.DeleteL2tpHandlerInfo(l2tpHandlerMappingPtr->asyncHandler);
             }
+        break;
         case EVT_START_TUNNEL_ASYNC_CALLBACK:
-            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS)
+            if (cmdReq->errorCode != LE_OK)
             {
                 LE_ERROR( "EVT_START_TUNNEL_ASYNC_CALLBACK failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
@@ -343,7 +297,7 @@ void taf_L2tp::L2tpProcEvtHandler(void* cmdReqPtr)
         break;
 
         case EVT_STOP_TUNNEL_ASYNC_CALLBACK:
-            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS)
+            if (cmdReq->errorCode != LE_OK)
             {
                 LE_ERROR( "EVT_STOP_TUNNEL_ASYNC_CALLBACK failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
@@ -438,7 +392,7 @@ void taf_L2tp::L2tpProcCmdHandler(void* cmdReqPtr)
             //Call telsdk API
             result = tafL2tp.EnableL2tp(cmdReq->enableParam.enableMss,
                                         cmdReq->enableParam.enableMtu, cmdReq->enableParam.mtuSize,
-                                        ASYNC_ENABLE_L2TP);
+                                        ASYNC_ENABLE_L2TP, cmdReq->contextPtr);
 
             if (result != LE_OK)
             {
@@ -468,7 +422,7 @@ void taf_L2tp::L2tpProcCmdHandler(void* cmdReqPtr)
                                                   cmdReq->sessionRef, ASYNC_DISABLE_L2TP);
 
             //Call telsdk API
-            result = tafL2tp.EnableL2tp(0, 0, 0, ASYNC_DISABLE_L2TP);
+            result = tafL2tp.EnableL2tp(0, 0, 0, ASYNC_DISABLE_L2TP, cmdReq->contextPtr);
 
             if (result != LE_OK)
             {
@@ -486,7 +440,7 @@ void taf_L2tp::L2tpProcCmdHandler(void* cmdReqPtr)
                                                        cmdReq->sessionRef, ASYNC_START_TUNNEL);
 
             //Call telsdk API
-            result = tafL2tp.AddTunnelAsync(cmdReq->tunnelRef);
+            result = tafL2tp.AddTunnelAsync(cmdReq->tunnelRef, cmdReq->contextPtr);
 
             if (result != LE_OK)
             {
@@ -504,7 +458,7 @@ void taf_L2tp::L2tpProcCmdHandler(void* cmdReqPtr)
                                                        cmdReq->sessionRef, ASYNC_STOP_TUNNEL);
 
             //Call telsdk API
-            result = tafL2tp.RemoveTunnelAsync(cmdReq->tunnelRef);
+            result = tafL2tp.RemoveTunnelAsync(cmdReq->tunnelRef, cmdReq->contextPtr);
 
             if (result != LE_OK)
             {
@@ -546,127 +500,102 @@ void* taf_L2tp::L2tpCmdThread(void* contextPtr)
 
 /*======================================================================
 
- FUNCTION        tafL2tpCallback::enableL2tpAsyncResponse
+ FUNCTION        tafEnableL2tpCallback::Response
 
  DESCRIPTION     Call back function for setting config.
 
  DEPENDENCIES    The initialization of L2tp.
 
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
+ PARAMETERS      [IN] le_result_t error: The error code.
 
  RETURN VALUE    None.
 
 ======================================================================*/
-void tafL2tpCallback::enableL2tpAsyncResponse(telux::common::ErrorCode error)
+
+void tafEnableL2tpCallback::Response(pa_result_t error, void * contextPtr)
 {
+    LE_UNUSED(contextPtr);
     auto &tafL2tp = taf_L2tp::GetInstance();
-
     taf_L2tpEventReq_t l2tpEvent;
-
-    l2tpEvent.event         = EVT_ENABLE_L2TP_ASYNC_CALLBACK;
-    l2tpEvent.errorCode     = error;
-
+    l2tpEvent.event = EVT_ENABLE_L2TP_ASYNC_CALLBACK;
+    l2tpEvent.errorCode = PA_TO_LE_RESULT(error);
     le_event_Report(tafL2tp.l2tpEventId, &l2tpEvent,sizeof(taf_L2tpEventReq_t));
 }
 
+
 /*======================================================================
 
- FUNCTION        tafL2tpCallback::disableL2tpAsyncResponse
+ FUNCTION        tafDisableL2tpCallback::Response
 
  DESCRIPTION     Call back function for setting config.
 
  DEPENDENCIES    The initialization of L2tp.
 
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
+ PARAMETERS      [IN] le_result_t  error: The error code.
 
  RETURN VALUE    None.
 
 ======================================================================*/
-void tafL2tpCallback::disableL2tpAsyncResponse(telux::common::ErrorCode error)
+
+void tafDisableL2tpCallback::Response(pa_result_t error, void * contextPtr)
 {
-
     auto &tafL2tp = taf_L2tp::GetInstance();
-
     taf_L2tpEventReq_t l2tpEvent;
-
-    l2tpEvent.event         = EVT_DISABLE_L2TP_ASYNC_CALLBACK;
-    l2tpEvent.errorCode     = error;
-
+    l2tpEvent.event = EVT_DISABLE_L2TP_ASYNC_CALLBACK;
+    l2tpEvent.errorCode = PA_TO_LE_RESULT(error);
     le_event_Report(tafL2tp.l2tpEventId, &l2tpEvent,sizeof(taf_L2tpEventReq_t));
 }
 
+
 /*======================================================================
 
- FUNCTION        tafL2tpCallback::startTunnelAsyncResponse
+ FUNCTION        tafStartTunnelCallback::Response
 
  DESCRIPTION     Call back function for asynchronous starting tunnel.
 
  DEPENDENCIES    The initialization of L2tp.
 
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
+ PARAMETERS      [IN] le_result_t  error: The error code.
 
  RETURN VALUE    None.
 
 ======================================================================*/
-void tafL2tpCallback::startTunnelAsyncResponse(telux::common::ErrorCode error)
+
+void tafStartTunnelCallback::Response(pa_result_t error, void * contextPtr)
 {
-
+    LE_UNUSED(contextPtr);
     auto &tafL2tp = taf_L2tp::GetInstance();
-
     taf_L2tpEventReq_t l2tpEvent;
-
-    l2tpEvent.event         = EVT_START_TUNNEL_ASYNC_CALLBACK;
-    l2tpEvent.errorCode     = error;
-
-    le_event_Report(tafL2tp.l2tpEventId, &l2tpEvent,sizeof(taf_L2tpEventReq_t));
+    l2tpEvent.event = EVT_START_TUNNEL_ASYNC_CALLBACK;
+    l2tpEvent.errorCode = PA_TO_LE_RESULT(error);
+    le_event_Report(tafL2tp.l2tpEventId, &l2tpEvent, sizeof(taf_L2tpEventReq_t));
 }
+
 
 /*======================================================================
 
- FUNCTION        tafL2tpCallback::stopTunnelAsyncResponse
+ FUNCTION        tafStopTunnelCallback::Response
 
  DESCRIPTION     Call back function for asynchronous stopping tunnel.
 
  DEPENDENCIES    The initialization of L2tp.
 
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
+ PARAMETERS      [IN] le_result_t  error: The error code.
 
  RETURN VALUE    None.
 
 ======================================================================*/
-void tafL2tpCallback::stopTunnelAsyncResponse(telux::common::ErrorCode error)
-{
 
+void tafStopTunnelCallback::Response(pa_result_t error, void * contextPtr)
+{
+    LE_UNUSED(contextPtr);
     auto &tafL2tp = taf_L2tp::GetInstance();
-
     taf_L2tpEventReq_t l2tpEvent;
-
-    l2tpEvent.event         = EVT_STOP_TUNNEL_ASYNC_CALLBACK;
-    l2tpEvent.errorCode     = error;
-
-    le_event_Report(tafL2tp.l2tpEventId, &l2tpEvent,sizeof(taf_L2tpEventReq_t));
+    l2tpEvent.event = EVT_STOP_TUNNEL_ASYNC_CALLBACK;
+    l2tpEvent.errorCode = PA_TO_LE_RESULT(error);
+    le_event_Report(tafL2tp.l2tpEventId, &l2tpEvent, sizeof(taf_L2tpEventReq_t));
 }
 
-
-/*======================================================================
-
- FUNCTION        taf_L2tp::onInitComplete
-
- DESCRIPTION     Call back function of l2tpManager.
-
- DEPENDENCIES    The initialization of L2tp.
-
- PARAMETERS      [IN] telux::common::ServiceStatus status : L2tp manager service status.
-
- RETURN VALUE    None
-
-======================================================================*/
-void taf_L2tp::onInitComplete(telux::common::ServiceStatus status)
-{
-    std::lock_guard<std::mutex> lock(mMutex);
-    IsSubSystemStatusUpdated = true;
-    conVar.notify_all();
-}
 
 
 /*======================================================================
@@ -741,26 +670,18 @@ taf_net_TunnelRef_t taf_L2tp::CreateTunnelIfExistsInDb
 {
     taf_Tunnel_t* tunnelPtr = NULL;
     taf_L2tpSession_t* l2tpSessionInfo = NULL;
+    taf_pa_net_L2tpConfig_t pal2tpConfig;
+    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RequestL2tpConfig(pal2tpConfig));
 
-    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, NULL, "l2tpManager is null");
-
-    telux::common::Status status = l2tpManager->requestConfig(
-                                                tafL2tpCallback::requestConfigResponse);
-
-    if (status == telux::common::Status::SUCCESS)
+    if (result == LE_OK)
     {
-        le_clk_Time_t timeToWait = {REQUEST_L2TP_CONF_TIMEOUT, 0};
-        le_result_t res = le_sem_WaitWithTimeOut(tafL2tpCallback::semaphore, timeToWait);
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, NULL, "Wait semaphore timeout\n");
-
-        if(tafL2tpCallback::l2tpConfig.enableL2tp == false ||
-           tafL2tpCallback::configList.size() == 0)
+        if(!pal2tpConfig.enableL2tp || pal2tpConfig.configList.empty())
         {
             LE_DEBUG("No tunnel entry");
             return NULL;
         }
 
-        for (auto info : tafL2tpCallback::configList)
+        for (auto info : pal2tpConfig.configList)
         {
             //found tunnel info
             if(tunnelId == info.locId)
@@ -772,15 +693,15 @@ taf_net_TunnelRef_t taf_L2tp::CreateTunnelIfExistsInDb
                 tunnelPtr->peerTunnelId = info.peerId;
                 tunnelPtr->localUdpPort = info.localUdpPort;
                 tunnelPtr->peerUdpPort = info.peerUdpPort;
-                tunnelPtr->encaProto = (taf_net_L2tpEncapProtocol_t)info.prot;
-                if(info.ipType == telux::data::IpFamilyType::IPV4)
-                    le_utf8_Copy(tunnelPtr->peerIpAddr, info.peerIpv4Addr.c_str(),
+                tunnelPtr->encaProto = ConvertPAEncaProtoToTaf(info.prot);
+                if(info.ipType == TAF_PA_NET_L2TP_IPV4)
+                    le_utf8_Copy(tunnelPtr->peerIpAddr, info.peerIpv4Addr,
                                  TAF_NET_IP_ADDR_MAX_LEN, NULL);
-                else if(info.ipType == telux::data::IpFamilyType::IPV6)
-                    le_utf8_Copy(tunnelPtr->peerIpAddr, info.peerIpv6Addr.c_str(),
+                else if(info.ipType == TAF_PA_NET_L2TP_IPV6)
+                    le_utf8_Copy(tunnelPtr->peerIpAddr, info.peerIpv6Addr,
                                  TAF_NET_IP_ADDR_MAX_LEN, NULL);
 
-                le_utf8_Copy(tunnelPtr->interfaceName, info.locIface.c_str(),
+                le_utf8_Copy(tunnelPtr->interfaceName, info.locIface,
                              TAF_NET_INTERFACE_NAME_MAX_LEN, NULL);
 
                 for (auto session : info.sessionConfig)
@@ -804,7 +725,7 @@ taf_net_TunnelRef_t taf_L2tp::CreateTunnelIfExistsInDb
     }
     else
     {
-        LE_ERROR("Request tunnel info failed, status: %d",int(status));
+        LE_ERROR("Request tunnel info failed");
         return NULL;
     }
 
@@ -982,71 +903,29 @@ bool taf_L2tp::IsSessionIdValid
 le_result_t taf_L2tp::EnableL2tpCmdSync(bool enableMss, bool enableMtu, uint32_t mtuSize)
 {
     le_result_t result;
+    taf_pa_net_L2tpConfig_t l2tpConfig;
 
-    std::chrono::seconds span(ENABLE_L2TP_TIMEOUT);
+    l2tpConfig.enableL2tp = true;
+    l2tpConfig.enableTcpMss = enableMss;
+    l2tpConfig.enableMtu = enableMtu;
+    l2tpConfig.mtuSize = mtuSize;
 
-    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, LE_NOT_FOUND, "l2tpManager is null");
+     // Log all configuration values before applying
+    LE_DEBUG("L2TP config: enableL2tp=%d, enableTcpMss=%d, enableMtu=%d, mtuSize=%u",
+             l2tpConfig.enableL2tp,
+             l2tpConfig.enableTcpMss,
+             l2tpConfig.enableMtu,
+             l2tpConfig.mtuSize);
 
-    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+    result = PA_TO_LE_RESULT(taf_pa_net_SetL2tpConfigSync(l2tpConfig));
 
-    auto enableL2tpRespCb = [promisePtr](telux::common::ErrorCode error)
+    if (result == LE_FAULT)
     {
-        try
-        {
-            if (error != telux::common::ErrorCode::SUCCESS)
-            {
-                LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-                promisePtr->set_value(LE_FAULT);
-            }
-            else
-            {
-                LE_DEBUG("Request processed successfully \n");
-                promisePtr->set_value(LE_OK);
-            }
-        }
-        catch (const std::future_error& e)
-        {
-            LE_ERROR("Future error in callback: %s", e.what());
-        }
-        catch (const std::exception& e)
-        {
-            LE_ERROR("Exception in callback: %s", e.what());
-        }
-        catch (...)
-        {
-            LE_ERROR("Unknown error in L2TP callback.");
-        }
-    };
-
-    if(mtuSize == 0)
-        mtuSize=DEFAULT_MTU_SIZE;
-
-    Status status = l2tpManager->setConfig(true, enableMss, enableMtu,
-                                                   enableL2tpRespCb, mtuSize);
-
-    if (status == Status::SUCCESS)
-    {
-        std::future<le_result_t> futureResult = promisePtr->get_future();
-        std::future_status waitStatus = futureResult.wait_for(span);
-
-        if (std::future_status::timeout == waitStatus)
-        {
-            LE_ERROR("Enable l2tp timeout for %d seconds", ENABLE_L2TP_TIMEOUT);
-            result = LE_TIMEOUT;
-        }
-        else
-        {
-            result = futureResult.get();
-        }
-
-        return result;
-    }
-    else
-    {
-        LE_ERROR( "ERROR - Failed to enable l2tp, Status:%d ", static_cast<int>(status));
+        LE_ERROR( "ERROR - Failed to enable l2tp");
         return LE_FAULT;
     }
 
+    return result;
 }
 
 /*======================================================================
@@ -1070,10 +949,6 @@ le_result_t taf_L2tp::DisableL2tpCmdSync(le_msg_SessionRef_t sessionRef)
 {
     le_result_t result;
 
-    std::chrono::seconds span(ENABLE_L2TP_TIMEOUT);
-
-    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, LE_NOT_FOUND, "l2tpManager is null");
-
     TAF_ERROR_IF_RET_VAL(sessionRef == NULL, LE_BAD_PARAMETER, "sessionRef is null");
 
     //check if another client session enabled the tunnel
@@ -1083,63 +958,22 @@ le_result_t taf_L2tp::DisableL2tpCmdSync(le_msg_SessionRef_t sessionRef)
         return LE_FAULT;
     }
 
-    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+    taf_pa_net_L2tpConfig_t l2tpConfig;
 
-    auto disableL2tpRespCb = [promisePtr](telux::common::ErrorCode error)
+    l2tpConfig.enableL2tp = false;
+    l2tpConfig.enableTcpMss = false;
+    l2tpConfig.enableMtu = false;
+    l2tpConfig.mtuSize = 0;
+
+    result = PA_TO_LE_RESULT(taf_pa_net_SetL2tpConfigSync(l2tpConfig));
+
+    if (result == LE_FAULT)
     {
-        try
-        {
-            if (error != telux::common::ErrorCode::SUCCESS)
-            {
-                LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-                promisePtr->set_value(LE_FAULT);
-            }
-            else
-            {
-                LE_DEBUG("Request processed successfully \n");
-                promisePtr->set_value(LE_OK);
-            }
-        }
-        catch (const std::future_error& e)
-        {
-            LE_ERROR("Future error in callback: %s", e.what());
-        }
-        catch (const std::exception& e)
-        {
-            LE_ERROR("Exception in callback: %s", e.what());
-        }
-        catch (...)
-        {
-            LE_ERROR("Unknown error in L2TP callback.");
-        }
-    };
-
-    Status status = l2tpManager->setConfig(false, false, false,
-                                                   disableL2tpRespCb, 0);
-
-    if (status == Status::SUCCESS)
-    {
-        std::future<le_result_t> futureResult = promisePtr->get_future();
-        std::future_status waitStatus = futureResult.wait_for(span);
-
-        if (std::future_status::timeout == waitStatus)
-        {
-            LE_ERROR("Disable l2tp timeout for %d seconds", ENABLE_L2TP_TIMEOUT);
-            result = LE_TIMEOUT;
-        }
-        else
-        {
-            result = futureResult.get();
-        }
-
-        return result;
-    }
-    else
-    {
-        LE_ERROR( "ERROR - Failed to disable l2tp, Status:%d ", static_cast<int>(status));
+        LE_ERROR( "ERROR - Failed to disable l2tp");
         return LE_FAULT;
     }
 
+    return result;
 }
 
 /*======================================================================
@@ -1243,6 +1077,7 @@ void taf_L2tp::DisableL2tpCmdAsync
                  [IN] bool enableMtu : Enable or disable MTU.
                  [IN] uint32_t mtuSize : Mtu size, if value is 0, then use default size 1422.
                  [IN] taf_L2tpCmdType_t type : The command type.
+                 [IN] void* contextPtr : Context pointer.
 
  RETURN VALUE    le_result_t
                      LE_OK:                      Succeeded to enable l2tp
@@ -1255,36 +1090,40 @@ le_result_t taf_L2tp::EnableL2tp
     bool enableMss,
     bool enableMtu,
     uint32_t mtuSize,
-    taf_L2tpCmdType_t type
+    taf_L2tpCmdType_t type,
+    void* contextPtr
 )
 {
-    Status status = Status::SUCCESS;
-
-    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, LE_NOT_FOUND, "l2tpManager is null");
+    le_result_t result = LE_OK;
+    taf_pa_net_L2tpConfig_t paConfig; // Create an instance of the PA config struct
 
     switch(type)
     {
         case ASYNC_ENABLE_L2TP:
-            status = l2tpManager->setConfig(true, enableMss, enableMtu,
-                                                 tafL2tpCallback::enableL2tpAsyncResponse, mtuSize);
+            paConfig.enableL2tp = true;
+            paConfig.enableTcpMss = enableMss;
+            paConfig.enableMtu = enableMtu;
+            paConfig.mtuSize = mtuSize;
+            result = PA_TO_LE_RESULT(taf_pa_net_SetL2tpConfigAsync(paConfig, tafEnableL2tpCallback::Response, contextPtr));
         break;
         case ASYNC_DISABLE_L2TP:
-            status = l2tpManager->setConfig(false, enableMss, enableMtu,
-                                                tafL2tpCallback::disableL2tpAsyncResponse, mtuSize);
-
-
+            paConfig.enableL2tp = false; // Disable L2TP
+            paConfig.enableTcpMss = enableMss;
+            paConfig.enableMtu = enableMtu;
+            paConfig.mtuSize = mtuSize;
+            result = PA_TO_LE_RESULT(taf_pa_net_SetL2tpConfigAsync(paConfig, tafDisableL2tpCallback::Response, contextPtr));
         break;
         default:
             return LE_FAULT;
     }
 
-    if (status == Status::SUCCESS)
+    if (result == LE_OK)
     {
         return LE_OK;
     }
     else
     {
-        LE_ERROR( "ERROR - Failed to enable/disable L2TP, Status:%d ", static_cast<int>(status));
+        LE_ERROR( "ERROR - Failed to enable/disable L2TP, Status:%d ", static_cast<int>(result));
         return LE_FAULT;
     }
 }
@@ -1309,23 +1148,16 @@ bool taf_L2tp::IsL2tpEnabled
     void
 )
 {
-    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, false, "l2tpManager is null");
+    taf_pa_net_L2tpConfig_t pal2tpConfig;
+    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RequestL2tpConfig(pal2tpConfig));
 
-    telux::common::Status status = l2tpManager->requestConfig(
-                                                tafL2tpCallback::requestConfigResponse);
-
-    if (status == telux::common::Status::SUCCESS)
+    if (result == LE_OK)
     {
-        le_clk_Time_t timeToWait = {REQUEST_L2TP_CONF_TIMEOUT, 0};
-        le_result_t res = le_sem_WaitWithTimeOut(tafL2tpCallback::semaphore, timeToWait);
-
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, false, "Wait semaphore timeout\n");
-
-        return tafL2tpCallback::l2tpConfig.enableL2tp;
+        return pal2tpConfig.enableL2tp;
     }
     else
     {
-        LE_ERROR("Request l2tp info failed, status: %d",int(status));
+        LE_ERROR("Request l2tp info failed");
         return false;
     }
 }
@@ -1350,23 +1182,16 @@ bool taf_L2tp::IsL2tpMssEnabled
     void
 )
 {
-    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, false, "l2tpManager is null");
+    taf_pa_net_L2tpConfig_t pal2tpConfig;
+    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RequestL2tpConfig(pal2tpConfig));
 
-    telux::common::Status status = l2tpManager->requestConfig(
-                                                tafL2tpCallback::requestConfigResponse);
-
-    if (status == telux::common::Status::SUCCESS)
+    if (result == LE_OK)
     {
-        le_clk_Time_t timeToWait = {REQUEST_L2TP_CONF_TIMEOUT, 0};
-        le_result_t res = le_sem_WaitWithTimeOut(tafL2tpCallback::semaphore, timeToWait);
-
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, false, "Wait semaphore timeout\n");
-
-        return tafL2tpCallback::l2tpConfig.enableTcpMss;
+        return pal2tpConfig.enableTcpMss;
     }
     else
     {
-        LE_ERROR("Request l2tp info failed, status: %d",int(status));
+        LE_ERROR("Request l2tp info failed");
         return false;
     }
 }
@@ -1391,23 +1216,16 @@ bool taf_L2tp::IsL2tpMtuEnabled
     void
 )
 {
-    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, false, "l2tpManager is null");
+    taf_pa_net_L2tpConfig_t pal2tpConfig;
+    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RequestL2tpConfig(pal2tpConfig));
 
-    telux::common::Status status = l2tpManager->requestConfig(
-                                                tafL2tpCallback::requestConfigResponse);
-
-    if (status == telux::common::Status::SUCCESS)
+    if (result == LE_OK)
     {
-        le_clk_Time_t timeToWait = {REQUEST_L2TP_CONF_TIMEOUT, 0};
-        le_result_t res = le_sem_WaitWithTimeOut(tafL2tpCallback::semaphore, timeToWait);
-
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, false, "Wait semaphore timeout\n");
-
-        return tafL2tpCallback::l2tpConfig.enableMtu;
+        return pal2tpConfig.enableMtu;
     }
     else
     {
-        LE_ERROR("Request l2tp info failed, status: %d",int(status));
+        LE_ERROR("Request l2tp info failed");
         return false;
     }
 }
@@ -1432,23 +1250,16 @@ uint32_t taf_L2tp::GetL2tpMtuSize
     void
 )
 {
-    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, 0, "l2tpManager is null");
+    taf_pa_net_L2tpConfig_t pal2tpConfig;
+    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RequestL2tpConfig(pal2tpConfig));
 
-    telux::common::Status status = l2tpManager->requestConfig(
-                                                tafL2tpCallback::requestConfigResponse);
-
-    if (status == telux::common::Status::SUCCESS)
+    if (result == LE_OK)
     {
-        le_clk_Time_t timeToWait = {REQUEST_L2TP_CONF_TIMEOUT, 0};
-        le_result_t res = le_sem_WaitWithTimeOut(tafL2tpCallback::semaphore, timeToWait);
-
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, 0, "Wait semaphore timeout\n");
-
-        return tafL2tpCallback::l2tpConfig.mtuSize;
+        return pal2tpConfig.mtuSize;
     }
     else
     {
-        LE_ERROR("Request l2tp info failed, status: %d",int(status));
+        LE_ERROR("Request l2tp info failed");
         return 0;
     }
 }
@@ -1546,7 +1357,7 @@ taf_net_TunnelRef_t taf_L2tp::CreateTunnel
     if(encaProto == TAF_NET_L2TP_IP)
     {
         tunnelPtr->localUdpPort = 0;
-        tunnelPtr->localUdpPort = 0;
+        tunnelPtr->peerUdpPort = 0;
     }
     tunnelPtr->peerTunnelId = peerId;
     le_utf8_Copy(tunnelPtr->peerIpAddr, peerIpAddrPtr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
@@ -1774,15 +1585,13 @@ le_result_t taf_L2tp::StartTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
 {
     le_result_t result;
     le_dls_Link_t* linkPtr = NULL;
-    telux::data::net::L2tpTunnelConfig l2tpTunnelConfig;
+    taf_pa_net_L2tpTunnel_t l2tpTunnelConfig;
     struct sockaddr_in6 addr6;
     struct sockaddr_in addr;
     int sessionNum=0;
-    std::chrono::seconds span(START_TUNNEL_TIMEOUT);
     taf_Tunnel_t *tunnelPtr = NULL;
 
     TAF_ERROR_IF_RET_VAL(tunnelRef == NULL, LE_BAD_PARAMETER, "tunnelRef is null");
-    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, LE_NOT_FOUND, "l2tpManager is null");
 
     tunnelPtr = (taf_Tunnel_t*)le_ref_Lookup(tunnelRefMap, tunnelRef);
 
@@ -1791,7 +1600,7 @@ le_result_t taf_L2tp::StartTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
     linkPtr = le_dls_Peek(&(tunnelPtr->l2tpSessionList));
 
     if((tunnelPtr->encaProto == TAF_NET_L2TP_UDP) &&
-       ((tunnelPtr->localUdpPort == 0) || (tunnelPtr->localUdpPort == 0)))
+       ((tunnelPtr->localUdpPort == 0) || (tunnelPtr->peerUdpPort == 0)))
     {
         LE_ERROR( "Local or peer udp port is not set");
         return LE_FAULT;
@@ -1799,7 +1608,7 @@ le_result_t taf_L2tp::StartTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
 
     while (linkPtr)
     {
-        telux::data::net::L2tpSessionConfig l2tpSessionConfig;
+        taf_pa_net_L2tpSessionConfig_t l2tpSessionConfig;
         taf_L2tpSession_t* sessionPtr = CONTAINER_OF(linkPtr, taf_L2tpSession_t, link);
         linkPtr = le_dls_PeekNext(&(tunnelPtr->l2tpSessionList), linkPtr);
 
@@ -1815,7 +1624,7 @@ le_result_t taf_L2tp::StartTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
         return LE_FAULT;
     }
 
-    l2tpTunnelConfig.prot = (telux::data::net::L2tpProtocol) tunnelPtr->encaProto;
+    l2tpTunnelConfig.prot = ConvertTafEncaProtoToPA(tunnelPtr->encaProto);
     l2tpTunnelConfig.locId = tunnelPtr->locTunnelId;
     l2tpTunnelConfig.peerId = tunnelPtr->peerTunnelId;
 
@@ -1824,78 +1633,33 @@ le_result_t taf_L2tp::StartTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
 
     if (inet_pton(AF_INET, tunnelPtr->peerIpAddr, &(addr.sin_addr)))
     {
-        l2tpTunnelConfig.peerIpv4Addr = tunnelPtr->peerIpAddr;
-        l2tpTunnelConfig.ipType = telux::data::IpFamilyType::IPV4;
+        le_utf8_Copy(l2tpTunnelConfig.peerIpv4Addr, tunnelPtr->peerIpAddr,
+                     TAF_PA_NET_IPV4_ADDR_MAX_LEN, NULL);
+        l2tpTunnelConfig.ipType = TAF_PA_NET_L2TP_IPV4;
     }
     else if (inet_pton(AF_INET6, tunnelPtr->peerIpAddr, &(addr6.sin6_addr)))
     {
-        l2tpTunnelConfig.peerIpv6Addr = tunnelPtr->peerIpAddr;
-        l2tpTunnelConfig.ipType = telux::data::IpFamilyType::IPV6;
+        le_utf8_Copy(l2tpTunnelConfig.peerIpv6Addr, tunnelPtr->peerIpAddr,
+                     TAF_PA_NET_IPV6_ADDR_MAX_LEN, NULL);
+        l2tpTunnelConfig.ipType = TAF_PA_NET_L2TP_IPV6;
     }
 
-    l2tpTunnelConfig.locIface =  tunnelPtr->interfaceName;
+    le_utf8_Copy(l2tpTunnelConfig.locIface, tunnelPtr->interfaceName,
+                 TAF_PA_NET_INTERFACE_NAME_MAX_LEN, NULL);
 
-    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+    result = PA_TO_LE_RESULT(taf_pa_net_AddTunnelSync(l2tpTunnelConfig));
 
-    auto startTunnelSyncRespCb = [promisePtr](telux::common::ErrorCode error)
+    if (result == LE_FAULT)
     {
-        try
-        {
-            if (error != telux::common::ErrorCode::SUCCESS)
-            {
-                LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-                promisePtr->set_value(LE_FAULT);
-            }
-            else
-            {
-                LE_DEBUG("Request processed successfully \n");
-                promisePtr->set_value(LE_OK);
-            }
-        }
-        catch (const std::future_error& e)
-        {
-            LE_ERROR("Future error in callback: %s", e.what());
-        }
-        catch (const std::exception& e)
-        {
-            LE_ERROR("Exception in callback: %s", e.what());
-        }
-        catch (...)
-        {
-            LE_ERROR("Unknown error in L2TP callback.");
-        }
-    };
-
-
-    Status status = l2tpManager->addTunnel(l2tpTunnelConfig, startTunnelSyncRespCb);
-
-    if (status == Status::SUCCESS)
-    {
-        std::future<le_result_t> futureResult = promisePtr->get_future();
-        std::future_status waitStatus = futureResult.wait_for(span);
-
-        if (std::future_status::timeout == waitStatus)
-        {
-            LE_ERROR("Start tunnel timeout for %d seconds", START_TUNNEL_TIMEOUT);
-            result = LE_TIMEOUT;
-        }
-        else
-        {
-            result = futureResult.get();
-            if(result == LE_OK)
-                tunnelPtr->isStarted = true;
-        }
-
-        return result;
-    }
-    else
-    {
-        LE_ERROR( "ERROR - Failed to start tunnel, Status:%d ", static_cast<int>(status));
+        LE_ERROR( "ERROR - Failed to Start l2tp tunnel");
         return LE_FAULT;
     }
+    else if (result == LE_OK)
+    {
+        SetTunnelStatus(tunnelRef, true); // Set isStarted to true on success
+    }
 
-    return LE_OK;
-
+    return result;
 }
 
 /*======================================================================
@@ -1919,76 +1683,26 @@ le_result_t taf_L2tp::StopTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
 {
     le_result_t result;
     taf_Tunnel_t *tunnelPtr = NULL;
-    std::chrono::seconds span(START_TUNNEL_TIMEOUT);
 
     TAF_ERROR_IF_RET_VAL(tunnelRef == NULL, LE_BAD_PARAMETER, "tunnelRef is null");
-    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, LE_NOT_FOUND, "l2tpManager is null");
 
     tunnelPtr = (taf_Tunnel_t*)le_ref_Lookup(tunnelRefMap, tunnelRef);
 
     TAF_ERROR_IF_RET_VAL(tunnelPtr == NULL, LE_NOT_FOUND, "tunnel is not present");
 
-    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+    result = PA_TO_LE_RESULT(taf_pa_net_RemoveTunnelSync(tunnelPtr->locTunnelId));
 
-    auto stopTunnelSyncRespCb = [promisePtr](telux::common::ErrorCode error)
+    if (result == LE_FAULT)
     {
-        try
-        {
-            if (error != telux::common::ErrorCode::SUCCESS)
-            {
-                LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-                promisePtr->set_value(LE_FAULT);
-            }
-            else
-            {
-                LE_DEBUG("Request processed successfully \n");
-                promisePtr->set_value(LE_OK);
-            }
-        }
-        catch (const std::future_error& e)
-        {
-            LE_ERROR("Future error in callback: %s", e.what());
-        }
-        catch (const std::exception& e)
-        {
-            LE_ERROR("Exception in callback: %s", e.what());
-        }
-        catch (...)
-        {
-            LE_ERROR("Unknown error in L2TP callback.");
-        }
-    };
-
-    Status status = l2tpManager->removeTunnel(tunnelPtr->locTunnelId,
-                                           stopTunnelSyncRespCb);
-
-    if (status == Status::SUCCESS)
-    {
-        std::future<le_result_t> futureResult = promisePtr->get_future();
-        std::future_status waitStatus = futureResult.wait_for(span);
-
-        if (std::future_status::timeout == waitStatus)
-        {
-            LE_ERROR("Stop tunnel timeout for %d seconds", START_TUNNEL_TIMEOUT);
-            result = LE_TIMEOUT;
-        }
-        else
-        {
-            result = futureResult.get();
-            if(result == LE_OK)
-                tunnelPtr->isStarted = false;
-        }
-
-        return result;
-    }
-    else
-    {
-        LE_ERROR( "ERROR - Failed to stop tunnel, Status:%d ", static_cast<int>(status));
+        LE_ERROR( "ERROR - Failed to Stop l2tp tunnel");
         return LE_FAULT;
     }
+    else if (result == LE_OK)
+    {
+        SetTunnelStatus(tunnelRef, false); // Set isStarted to false on success
+    }
 
-    return LE_OK;
-
+    return result;
 }
 
 /*======================================================================
@@ -2072,6 +1786,7 @@ void taf_L2tp::StopTunnelCmdAsync
     cmdReq.cmdType = ASYNC_STOP_TUNNEL;
     cmdReq.tunnelRef = tunnelRef;
     cmdReq.contextPtr = contextPtr;
+    cmdReq.sessionRef = sessionRef;
     cmdReq.tunnelHandlerFuncPtr = handlerPtr;
 
     // Send ASYNC_STOP_TUNNEL command
@@ -2088,6 +1803,7 @@ void taf_L2tp::StopTunnelCmdAsync
  DEPENDENCIES    The creation of tunnel.
 
  PARAMETERS      [IN] taf_net_TunnelRef_t tunnelRef : Tunnel reference.
+                 [IN] void* contextPtr : Context pointer.
 
  RETURN VALUE    le_result_t
                      LE_OK:                      Success
@@ -2096,20 +1812,18 @@ void taf_L2tp::StopTunnelCmdAsync
                      LE_FAULT                    Failed to start a tunnel.
 
 ======================================================================*/
-le_result_t taf_L2tp::AddTunnelAsync(taf_net_TunnelRef_t tunnelRef)
+le_result_t taf_L2tp::AddTunnelAsync(taf_net_TunnelRef_t tunnelRef, void* contextPtr)
 {
     le_result_t result;
     le_dls_Link_t* linkPtr = NULL;
-    telux::data::net::L2tpTunnelConfig l2tpTunnelConfig;
+    taf_pa_net_L2tpTunnel_t paL2tpTunnelConfig;
     struct sockaddr_in6 addr6;
     struct sockaddr_in addr;
     int sessionNum=0;
 
     taf_Tunnel_t *tunnelPtr = NULL;
-    Status status = Status::SUCCESS;
 
     TAF_ERROR_IF_RET_VAL(tunnelRef == NULL, LE_BAD_PARAMETER, "tunnelRef is null");
-    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, LE_NOT_FOUND, "l2tpManager is null");
 
     tunnelPtr = (taf_Tunnel_t*)le_ref_Lookup(tunnelRefMap, tunnelRef);
 
@@ -2118,7 +1832,7 @@ le_result_t taf_L2tp::AddTunnelAsync(taf_net_TunnelRef_t tunnelRef)
     linkPtr = le_dls_Peek(&(tunnelPtr->l2tpSessionList));
 
     if((tunnelPtr->encaProto == TAF_NET_L2TP_UDP) &&
-       ((tunnelPtr->localUdpPort == 0) || (tunnelPtr->localUdpPort == 0)))
+       ((tunnelPtr->localUdpPort == 0) || (tunnelPtr->peerUdpPort == 0)))
     {
         LE_ERROR( "Local or peer udp port is not set");
         return LE_FAULT;
@@ -2126,13 +1840,13 @@ le_result_t taf_L2tp::AddTunnelAsync(taf_net_TunnelRef_t tunnelRef)
 
     while (linkPtr)
     {
-        telux::data::net::L2tpSessionConfig l2tpSessionConfig;
+        taf_pa_net_L2tpSessionConfig_t paL2tpSessionConfig; // Use PA layer struct
         taf_L2tpSession_t* sessionPtr = CONTAINER_OF(linkPtr, taf_L2tpSession_t, link);
         linkPtr = le_dls_PeekNext(&(tunnelPtr->l2tpSessionList), linkPtr);
 
-        l2tpSessionConfig.locId = sessionPtr->locSessionId;
-        l2tpSessionConfig.peerId = sessionPtr->peerSessionId;
-        l2tpTunnelConfig.sessionConfig.emplace_back(l2tpSessionConfig);
+        paL2tpSessionConfig.locId = sessionPtr->locSessionId;
+        paL2tpSessionConfig.peerId = sessionPtr->peerSessionId;
+        paL2tpTunnelConfig.sessionConfig.emplace_back(paL2tpSessionConfig);
         sessionNum++;
     }
 
@@ -2142,40 +1856,48 @@ le_result_t taf_L2tp::AddTunnelAsync(taf_net_TunnelRef_t tunnelRef)
         return LE_FAULT;
     }
 
-    l2tpTunnelConfig.prot = (telux::data::net::L2tpProtocol) tunnelPtr->encaProto;
-    l2tpTunnelConfig.locId = tunnelPtr->locTunnelId;
-    l2tpTunnelConfig.peerId = tunnelPtr->peerTunnelId;
+    paL2tpTunnelConfig.prot = ConvertTafEncaProtoToPA(tunnelPtr->encaProto);
+    paL2tpTunnelConfig.locId = tunnelPtr->locTunnelId;
+    paL2tpTunnelConfig.peerId = tunnelPtr->peerTunnelId;
 
-    l2tpTunnelConfig.localUdpPort = tunnelPtr->localUdpPort;
-    l2tpTunnelConfig.peerUdpPort = tunnelPtr->peerUdpPort;
+    paL2tpTunnelConfig.localUdpPort = tunnelPtr->localUdpPort;
+    paL2tpTunnelConfig.peerUdpPort = tunnelPtr->peerUdpPort;
 
     if (inet_pton(AF_INET, tunnelPtr->peerIpAddr, &(addr.sin_addr)))
     {
-        l2tpTunnelConfig.peerIpv4Addr = tunnelPtr->peerIpAddr;
-        l2tpTunnelConfig.ipType = telux::data::IpFamilyType::IPV4;
+        le_utf8_Copy(paL2tpTunnelConfig.peerIpv4Addr, tunnelPtr->peerIpAddr,
+                     TAF_PA_NET_IPV4_ADDR_MAX_LEN, NULL);
+        paL2tpTunnelConfig.ipType = TAF_PA_NET_L2TP_IPV4;
     }
     else if (inet_pton(AF_INET6, tunnelPtr->peerIpAddr, &(addr6.sin6_addr)))
     {
-        l2tpTunnelConfig.peerIpv6Addr = tunnelPtr->peerIpAddr;
-        l2tpTunnelConfig.ipType = telux::data::IpFamilyType::IPV6;
-    }
-
-    l2tpTunnelConfig.locIface =  tunnelPtr->interfaceName;
-
-    status = l2tpManager->addTunnel(l2tpTunnelConfig,
-                                    tafL2tpCallback::startTunnelAsyncResponse);
-
-    if (status == Status::SUCCESS)
-    {
-        result = LE_OK;
+        le_utf8_Copy(paL2tpTunnelConfig.peerIpv6Addr, tunnelPtr->peerIpAddr,
+                     TAF_PA_NET_IPV6_ADDR_MAX_LEN, NULL);
+        paL2tpTunnelConfig.ipType = TAF_PA_NET_L2TP_IPV6;
     }
     else
     {
-        LE_ERROR( "ERROR - Failed to start tunnel, Status:%d ", static_cast<int>(status));
-        result = LE_FAULT;
+        LE_ERROR("Invalid Peer IP Address: %s", tunnelPtr->peerIpAddr);
+        return LE_FAULT;
     }
 
-    return result;
+    le_utf8_Copy(paL2tpTunnelConfig.locIface, tunnelPtr->interfaceName,
+                 TAF_PA_NET_INTERFACE_NAME_MAX_LEN, NULL);
+
+
+    result = PA_TO_LE_RESULT(taf_pa_net_AddTunnelAsync(paL2tpTunnelConfig,
+                                       tafStartTunnelCallback::Response, contextPtr));
+
+
+    if (result == LE_OK)
+    {
+        return LE_OK;
+    }
+    else
+    {
+        LE_ERROR( "ERROR - Failed to start tunnel, Status:%d ", static_cast<int>(result));
+        return LE_FAULT;
+    }
 }
 
 /*======================================================================
@@ -2187,6 +1909,7 @@ le_result_t taf_L2tp::AddTunnelAsync(taf_net_TunnelRef_t tunnelRef)
  DEPENDENCIES    The creation of tunnel.
 
  PARAMETERS      [IN] taf_net_TunnelRef_t tunnelRef : Tunnel reference.
+                 [IN] void* contextPtr : Context pointer.
 
  RETURN VALUE    le_result_t
                      LE_OK:                      Success
@@ -2195,34 +1918,29 @@ le_result_t taf_L2tp::AddTunnelAsync(taf_net_TunnelRef_t tunnelRef)
                      LE_FAULT                    Failed to stop a tunnel.
 
 ======================================================================*/
-le_result_t taf_L2tp::RemoveTunnelAsync(taf_net_TunnelRef_t tunnelRef)
+le_result_t taf_L2tp::RemoveTunnelAsync(taf_net_TunnelRef_t tunnelRef, void* contextPtr)
 {
     le_result_t result;
     taf_Tunnel_t *tunnelPtr = NULL;
 
-    Status status = Status::SUCCESS;
-
     TAF_ERROR_IF_RET_VAL(tunnelRef == NULL, LE_BAD_PARAMETER, "tunnelRef is null");
-    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, LE_NOT_FOUND, "l2tpManager is null");
 
     tunnelPtr = (taf_Tunnel_t*)le_ref_Lookup(tunnelRefMap, tunnelRef);
 
     TAF_ERROR_IF_RET_VAL(tunnelPtr == NULL, LE_NOT_FOUND, "tunnel is not present");
 
-    status = l2tpManager->removeTunnel(tunnelPtr->locTunnelId,
-                                           tafL2tpCallback::stopTunnelAsyncResponse);
+    result = PA_TO_LE_RESULT(taf_pa_net_RemoveTunnelAsync(tunnelPtr->locTunnelId,
+                                           tafStopTunnelCallback::Response, contextPtr));
 
-    if (status == Status::SUCCESS)
+    if (result == LE_OK)
     {
-        result = LE_OK;
+        return LE_OK;
     }
     else
     {
-        LE_ERROR( "ERROR - Failed to stop tunnel, Status:%d ", static_cast<int>(status));
-        result = LE_FAULT;
+        LE_ERROR( "ERROR - Failed to stop tunnel, Status:%d ", static_cast<int>(result));
+        return LE_FAULT;
     }
-
-    return result;
 }
 
 /*======================================================================
@@ -2248,19 +1966,12 @@ taf_net_TunnelEntryListRef_t taf_L2tp::GetTunnelEntryList
     le_ref_IterRef_t iterRef;
     int sessionIndex = 0;
 
-    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, NULL, "l2tpManager is null");
+    taf_pa_net_L2tpConfig_t pal2tpConfig;
+    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RequestL2tpConfig(pal2tpConfig));
 
-    telux::common::Status status = l2tpManager->requestConfig(
-                                                tafL2tpCallback::requestConfigResponse);
-
-    if (status == telux::common::Status::SUCCESS)
+    if (result == LE_OK)
     {
-        le_clk_Time_t timeToWait = {REQUEST_L2TP_CONF_TIMEOUT, 0};
-        le_result_t res = le_sem_WaitWithTimeOut(tafL2tpCallback::semaphore, timeToWait);
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, NULL, "Wait semaphore timeout\n");
-
-        if(tafL2tpCallback::l2tpConfig.enableL2tp == false ||
-           tafL2tpCallback::configList.size() == 0)
+       if(!pal2tpConfig.enableL2tp || pal2tpConfig.configList.size() == 0)
         {
             LE_DEBUG("No tunnel entry");
             return NULL;
@@ -2283,30 +1994,30 @@ taf_net_TunnelEntryListRef_t taf_L2tp::GetTunnelEntryList
 
         taf_TunnelEntry_t* tunnelEntryPtr;
 
-        for (auto info : tafL2tpCallback::configList)
+        for (auto info : pal2tpConfig.configList)
         {
             tunnelEntryPtr = (taf_TunnelEntry_t*)le_mem_ForceAlloc(tunnelEntryPool);
             tunnelEntryPtr->info.locTunnelId=info.locId;
             tunnelEntryPtr->info.peerTunnelId=info.peerId;
             tunnelEntryPtr->info.localUdpPort=info.localUdpPort;
             tunnelEntryPtr->info.peerUdpPort=info.peerUdpPort;
-            tunnelEntryPtr->info.encaProto=(taf_net_L2tpEncapProtocol_t)info.prot;
+            tunnelEntryPtr->info.encaProto = ConvertPAEncaProtoToTaf(info.prot);
 
-            if(info.ipType == telux::data::IpFamilyType::IPV4)
+            if(info.ipType == TAF_PA_NET_L2TP_IPV4)
             {
-                le_utf8_Copy(tunnelEntryPtr->info.peerIpv4Addr, info.peerIpv4Addr.c_str(),
+                le_utf8_Copy(tunnelEntryPtr->info.peerIpv4Addr, info.peerIpv4Addr,
                              TAF_NET_IPV4_ADDR_MAX_LEN, NULL);
             }
-            else if(info.ipType == telux::data::IpFamilyType::IPV6)
+            else if(info.ipType == TAF_PA_NET_L2TP_IPV6)
             {
-                le_utf8_Copy(tunnelEntryPtr->info.peerIpv6Addr, info.peerIpv6Addr.c_str(),
+                le_utf8_Copy(tunnelEntryPtr->info.peerIpv6Addr, info.peerIpv6Addr,
                              TAF_NET_IPV6_ADDR_MAX_LEN, NULL);
             }
 
-            le_utf8_Copy(tunnelEntryPtr->info.interfaceName, info.locIface.c_str(),
+            le_utf8_Copy(tunnelEntryPtr->info.interfaceName, info.locIface,
                          TAF_NET_INTERFACE_NAME_MAX_LEN, NULL);
 
-            tunnelEntryPtr->info.ipType = (taf_net_IpFamilyType_t)info.ipType;
+            tunnelEntryPtr->info.ipType = ConvertPAIpTypeToTaf(info.ipType);
 
             sessionIndex = 0;
 
@@ -2335,7 +2046,7 @@ taf_net_TunnelEntryListRef_t taf_L2tp::GetTunnelEntryList
     }
     else
     {
-        LE_ERROR("Request tunnel entry list failed, status: %d",int(status));
+        LE_ERROR("Request tunnel entry list failed");
         return NULL;
     }
 
@@ -2824,53 +2535,7 @@ le_result_t taf_L2tp::GetSessionConfig
     return LE_OK;
 }
 
-/*======================================================================
 
- FUNCTION        tafL2tpCallback::requestConfigResponse
-
- DESCRIPTION     Call back function for request l2tp config.
-
- DEPENDENCIES    The initialization of l2tp.
-
- PARAMETERS      [IN] const telux::data::net::L2tpSysConfig &l2tpSysConfig:
-                      L2tp Config information.
-                 [IN] telux::common::ErrorCode error: error code.
- RETURN VALUE    None.
-
-======================================================================*/
-void tafL2tpCallback::requestConfigResponse
-(
-    const telux::data::net::L2tpSysConfig &l2tpSysConfig,
-    telux::common::ErrorCode error
-)
-{
-    LE_DEBUG("<SDK Callback> tafL2tpCallback --> requestConfigResponse");
-    LE_INFO("Get L2TP Config Response from SDK %s",
-                        (telux::common::ErrorCode::SUCCESS == error) ? "is successful" : "failed");
-    // SUCCESS means that L2TP is enabled
-    if(error == telux::common::ErrorCode::SUCCESS)
-    {
-        l2tpConfig.enableL2tp = l2tpSysConfig.enableMtu || l2tpSysConfig.enableTcpMss;
-        l2tpConfig.enableMtu=l2tpSysConfig.enableMtu;
-        l2tpConfig.enableTcpMss=l2tpSysConfig.enableTcpMss;
-        l2tpConfig.mtuSize=l2tpSysConfig.mtuSize;
-        configList.assign(l2tpSysConfig.configList.begin(), l2tpSysConfig.configList.end());
-        le_sem_Post(semaphore);
-        return;
-    }
-    // ERROR
-    LE_ERROR("ErrorCode %d", static_cast<int>(error));
-    // NOT_SUPPORTED means that L2TP is disabled
-    if(error == telux::common::ErrorCode::NOT_SUPPORTED){
-        LE_ERROR("L2TP Unmanaged tunnel state is not enabled");
-    }
-    l2tpConfig.enableL2tp = false;
-    l2tpConfig.enableMtu=false;
-    l2tpConfig.enableTcpMss=false;
-    l2tpConfig.mtuSize=0;
-    configList.clear();
-    le_sem_Post(semaphore);
-}
 
 /*======================================================================
 
@@ -3209,3 +2874,127 @@ void taf_L2tp::ClientCloseSessionHandler(le_msg_SessionRef_t sessionRef, void  *
 }
 
 
+/*======================================================================
+
+ FUNCTION        taf_L2tp::ConvertTafEncaProtoToPA
+
+ DESCRIPTION     Converts taf_net_L2tpEncapProtocol_t to taf_pa_net_L2tpEncapProtocol_t.
+
+ DEPENDENCIES    None.
+
+ PARAMETERS      [IN] tafEncaProto : The encapsulation protocol from taf_net.
+
+ RETURN VALUE    taf_pa_net_L2tpEncapProtocol_t: The corresponding PA encapsulation protocol.
+
+======================================================================*/
+taf_pa_net_L2tpEncapProtocol_t taf_L2tp::ConvertTafEncaProtoToPA(taf_net_L2tpEncapProtocol_t tafEncaProto)
+{
+    // You'll need to define the exact mapping based on your enum values.
+    // For now, assuming direct numerical correspondence or similar names.
+    switch (tafEncaProto)
+    {
+        case TAF_NET_L2TP_IP:
+            return TAF_PA_NET_L2TP_IP;
+        case TAF_NET_L2TP_UDP:
+            return TAF_PA_NET_L2TP_UDP;
+        // Add other cases as needed for your specific enum values
+        case TAF_NET_L2TP_NONE: // Handle unknown or default case
+        default:
+            LE_ERROR("Unknown taf_net_L2tpEncapProtocol_t value: %d", static_cast<int>(tafEncaProto));
+            return TAF_PA_NET_L2TP_NONE; // Or an appropriate default/error value for PA
+    }
+}
+
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::ConvertPAEncaProtoToTaf
+
+ DESCRIPTION     Converts taf_pa_net_L2tpEncapProtocol_t to taf_net_L2tpEncapProtocol_t.
+                 This function maps the Platform Adaption (PA) layer L2TP
+                 encapsulation protocol enum value to the TAF network service
+                 L2TP encapsulation protocol enum value.
+
+ DEPENDENCIES    None.
+
+ PARAMETERS      [IN] paEncaProto : The encapsulation protocol from taf_pa_net.
+
+ RETURN VALUE    taf_net_L2tpEncapProtocol_t: The corresponding TAF encapsulation protocol.
+
+======================================================================*/
+taf_net_L2tpEncapProtocol_t taf_L2tp::ConvertPAEncaProtoToTaf(taf_pa_net_L2tpEncapProtocol_t paEncaProto)
+{
+    switch (paEncaProto)
+    {
+        case TAF_PA_NET_L2TP_IP:
+            return TAF_NET_L2TP_IP;
+        case TAF_PA_NET_L2TP_UDP:
+            return TAF_NET_L2TP_UDP;
+        // Add other cases as needed for your specific enum values
+        case TAF_PA_NET_L2TP_NONE: // Handle unknown or default case
+        default:
+            LE_ERROR("Unknown taf_pa_net_L2tpEncapProtocol_t value: %d", static_cast<int>(paEncaProto));
+            return TAF_NET_L2TP_NONE; // Or an appropriate default/error value for TAF
+    }
+}
+
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::ConvertTafIpTypeToPA
+
+ DESCRIPTION     Converts taf_net_IpFamilyType_t to taf_pa_net_IpFamilyType_t.
+
+ DEPENDENCIES    None.
+
+ PARAMETERS      [IN] tafIpType : The IP family type from taf_net.
+
+ RETURN VALUE    taf_pa_net_IpFamilyType_t: The corresponding PA IP family type.
+
+======================================================================*/
+taf_pa_net_IpFamilyType_t taf_L2tp::ConvertTafIpTypeToPA(taf_net_IpFamilyType_t tafIpType)
+{
+    switch (tafIpType)
+    {
+        case TAF_NET_L2TP_IPV4:
+            return TAF_PA_NET_L2TP_IPV4;
+        case TAF_NET_L2TP_IPV6:
+            return TAF_PA_NET_L2TP_IPV6;
+        case TAF_NET_L2TP_IPV4V6:
+            return TAF_PA_NET_L2TP_IPV4V6;
+        case TAF_NET_L2TP_UNKNOWN: // Handle unknown or default case
+        default:
+            LE_ERROR("Unknown taf_net_IpFamilyType_t value: %d", static_cast<int>(tafIpType));
+            return TAF_PA_NET_L2TP_UNKNOWN; // Or an appropriate default/error value for PA
+    }
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::ConvertPAIpTypeToTaf
+
+ DESCRIPTION     Converts taf_pa_net_IpFamilyType_t to taf_net_IpFamilyType_t.
+
+ DEPENDENCIES    None.
+
+ PARAMETERS      [IN] paIpType : The IP family type from taf_pa_net.
+
+ RETURN VALUE    taf_net_IpFamilyType_t: The corresponding TAF IP family type.
+
+======================================================================*/
+taf_net_IpFamilyType_t taf_L2tp::ConvertPAIpTypeToTaf(taf_pa_net_IpFamilyType_t paIpType)
+{
+    switch (paIpType)
+    {
+        case TAF_PA_NET_L2TP_IPV4:
+            return TAF_NET_L2TP_IPV4;
+        case TAF_PA_NET_L2TP_IPV6:
+            return TAF_NET_L2TP_IPV6;
+        case TAF_PA_NET_L2TP_IPV4V6:
+            return TAF_NET_L2TP_IPV4V6;
+        case TAF_PA_NET_L2TP_UNKNOWN: // Handle unknown or default case
+        default:
+            LE_ERROR("Unknown taf_pa_net_IpFamilyType_t value: %d", static_cast<int>(paIpType));
+            return TAF_NET_L2TP_UNKNOWN; // Or an appropriate default/error value for TAF
+    }
+}

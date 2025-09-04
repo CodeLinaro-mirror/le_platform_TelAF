@@ -26,6 +26,16 @@ routines_all:
     routine_role: [ b1 ]
     request:
       sub_function: [ 0x01, 0x02, 0x03 ]
-
+  0x0249:
+    identifier: 0x0249
+    mnemonic: Sample_rid3
+    type: 3
+    execution_conditions: example for 0x0249
+    access:
+      session: [ default_session, extended_diagnostic_session ]
+      security_type: 0x27
+    routine_role: [ b1 ]
+    request:
+      sub_function: [ 0x01, 0x02, 0x03]
 
 

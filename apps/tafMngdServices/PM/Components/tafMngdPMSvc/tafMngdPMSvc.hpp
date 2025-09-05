@@ -11,6 +11,7 @@
 #include <vector>
 #include <sys/reboot.h>
 #include <bitset>
+#include <unordered_set>
 
 #define VEHICHLE_WAKEUP_REASON_DEFAULT 0
 #define VEHICHLE_WAKEUP_STATUS_AWAKE  0
@@ -211,6 +212,16 @@ typedef struct
 }
 CallbackHandlerCombo_t;
 
+typedef enum
+{
+    EVT_LOAD_PMVHAL_READY = 0,
+} mngdPmEventType_Ready_t;
+
+typedef struct
+{
+    mngdPmEventType_Ready_t type;
+}taf_mngdPm_readyEvtType_t;
+
 class tafMngdPMSvc: public ITafSvc
 {
     public:
@@ -262,6 +273,9 @@ class tafMngdPMSvc: public ITafSvc
 
         static le_mem_PoolRef_t vmStatePool;
         static le_hashmap_Ref_t vmStateHashmap;
+
+        //cached awake requests ws reference set
+        static std::unordered_set<taf_mngdPm_wsRef_t>  wsCachedReqsRefSet;
 
         //List for system level wake sources
         static le_mem_PoolRef_t wsRefPool;
@@ -323,6 +337,9 @@ class tafMngdPMSvc: public ITafSvc
         std::vector<taf_mngdPm_NodePowerStateChangeCtxt_t>regClientrecrd;
         static int8_t ackClientrecrdSize;
         static int8_t clientSize;
+
+        static void ProcessCachedAwakeReqs();
+
         static void SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_ClientAck_t ackType);
         bool IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState);
         bool IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePowerStateChangeBitMask_t stateMask);
@@ -335,7 +352,7 @@ class tafMngdPMSvc: public ITafSvc
         static std::bitset<32> stayAwakeReasonMask;
         bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason);
         void RefreshWakeSources();
-        le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
+        static le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
         le_result_t AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
 
         //resources for clients state change acknowledgement
@@ -361,5 +378,11 @@ class tafMngdPMSvc: public ITafSvc
 
         static void EnableLocalOnce(void);
         static void EnableRemoteOnce(void);
+
+        static le_event_Id_t pmEvtReady;
+        bool isPmVhalReady = false;
+        static void GetPmVhalReady(void *p1, void *p2);
+        static void RetryHandler(le_timer_Ref_t timerRef);
+        static void PMVhalReadyEvtHandler(void * reportPtr);
 };
 }

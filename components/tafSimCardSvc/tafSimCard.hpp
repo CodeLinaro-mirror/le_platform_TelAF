@@ -78,7 +78,6 @@ using namespace std;
             char simProfileIccid2[TAF_SIM_ICCID_BYTES];
             bool refreshResetStart;
             size_t refreshRegFilesSize;
-            bool notifyProfileSwitch;
             taf_sim_RefreshRegFile_t refreshRegFiles[TAF_SIM_MAX_SIM_REFRESH_FILES];
             le_sem_Ref_t semaphore;
         }taf_sim_Session_t;

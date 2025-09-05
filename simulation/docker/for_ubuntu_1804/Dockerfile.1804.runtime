@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 ARG UBUNTU_DISTRO_ORIGIN
@@ -26,8 +26,6 @@ RUN apt-get -y --no-install-recommends install iproute2
 RUN apt-get -y --no-install-recommends install iputils-ping
 RUN apt-get -y --no-install-recommends install strace
 RUN apt-get -y --no-install-recommends install cgroup-tools
-RUN apt-get -y --no-install-recommends install python3
-RUN apt-get -y --no-install-recommends install python
 RUN apt-get -y --no-install-recommends install less
 RUN apt-get -y --no-install-recommends install gdb
 RUN apt-get -y --no-install-recommends install tcpdump
@@ -37,14 +35,18 @@ RUN apt-get -y --no-install-recommends install libasound2-dev
 RUN apt-get -y --no-install-recommends install alsa alsa-utils alsa-tools
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install pulseaudio pulseaudio-utils
 
+RUN apt-get -y --no-install-recommends install python
+RUN apt-get -y --no-install-recommends install python3
 RUN apt-get -y --no-install-recommends install python3-venv
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        software-properties-common \
-    && add-apt-repository -y ppa:deadsnakes \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        python3.8-venv python3.8 python3.8-dev python3.8-dbg
-RUN /usr/bin/python3.8 -m venv /venv
-ENV PATH=/venv/bin:$PATH
+RUN apt-get -y --no-install-recommends install python3-pip
+RUN apt-get -y --no-install-recommends install python3-setuptools
+RUN apt-get -y --no-install-recommends install python3.8
+RUN apt-get -y --no-install-recommends install python3.8-venv
+
+RUN sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.6 10
+RUN sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 20
+RUN sudo update-alternatives --set python3 /usr/bin/python3.8
+
 RUN python3 -m pip install doipclient==1.1.1
 RUN python3 -m pip install udsoncan==1.23.2
 RUN python3 -m pip install pyyaml==6.0.1

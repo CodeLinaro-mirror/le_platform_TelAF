@@ -1,0 +1,25 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+IO_all:
+  0x9006:
+    identifier: 0x9006
+    mnemonic: Sample_IO
+    description: |-
+      Sample IO
+    execution_conditions: |-
+      - Conditions to execute this IO control
+    request:
+      control_option_record:
+        io_control_parameter: [ 0x00, 0x03 ]         # Byte 4 (Mandatory)(0x00: ReturnControlToECU, 0x03: ShortTermAdjustment)
+        did_size: 1
+    io_role: [ b1 ]
+    diagnostic_session:
+      default_session:
+        IO:
+          security: false
+          security_level: []
+      programming_session:
+        IO:
+          security: false
+          security_level: []

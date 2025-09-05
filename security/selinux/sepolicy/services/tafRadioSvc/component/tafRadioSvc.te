@@ -12,6 +12,12 @@ type telaf_tafRadioSvc_t;
 type telaf_tafRadioSvc_data_t;
 files_type(telaf_tafRadioSvc_data_t);
 
+gen_require(`
+    type sysctl_t;
+    type sysctl_vm_t;
+    type sysctl_vm_overcommit_t;
+')
+
 ifdef(`sa525m',`
     telux_allow_tel_network_selection_read(telaf_tafRadioSvc_t)
     telux_allow_tel_srv_system_read(telaf_tafRadioSvc_t)
@@ -31,3 +37,9 @@ init_telaf_app_domain(telaf_tafRadioSvc_t,telaf_tafRadioSvc_exec_t)
 telaf_admin_manage_all_files_perms(telaf_tafRadioSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafRadioSvc_exec_t)
 
+# Allow radio service to search sys and vm directory to read and open vm overcommit memory
+allow telaf_tafRadioSvc_t sysctl_t:dir search;
+allow telaf_tafRadioSvc_t sysctl_vm_t:dir search;
+
+# Allow radio service to open and read vm overcommit memory
+allow telaf_tafRadioSvc_t sysctl_vm_overcommit_t:file { read open };

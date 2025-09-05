@@ -46,9 +46,13 @@ python-version-check:
 	fi
 
 setup setup-py-environment: python-version-check
+	$(PY) --version
+	which $(PY) | xargs -r ls -l
+	$(PY) -m pip list
 	@echo "[Setup] Install python3 required packages..."
 	@$(PY) -m pip install -r $(CURDIR)/requirements.txt
 	@echo "[Setup] Installed."
+	$(PY) -m pip list
 
 install: do-install
 do-install:

@@ -156,6 +156,12 @@ static void Test_ECall_MSD_Information()
     LE_TEST_OK(res == LE_OK || res == LE_DUPLICATE || res == LE_FAULT, "Test taf_ecall_SetMsdPassengersCount done");
     LE_INFO("Set number of passengers completed");
 
+    res = taf_ecall_SetMsdTimeStamp(eCallRef, 4294967295);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetMsdTimeStamp done");
+    LE_INFO("Set msd timestamp completed");
+    res = taf_ecall_ResetMsdTimeStamp(eCallRef);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_ResetMsdTimeStamp done");
+    LE_INFO("Reset msd timestamp completed");
     res = taf_ecall_SetMsdAdditionalData(eCallRef, "8.1", oadDataFirst, oadDataLengthFirst);
     LE_TEST_OK(res == LE_OK || res == LE_FAULT, "Test taf_ecall_SetMsdAdditionalData done");
     res = taf_ecall_SetMsdAdditionalData(eCallRef, "8.1.2", oadDataFirst, oadDataLengthFirst);
@@ -193,6 +199,9 @@ static void Test_ECall_MSD_Information()
     res = taf_ecall_ResetMsdAdditionalData(eCallRef);
     LE_TEST_OK(res != LE_OK, "Test taf_ecall_ResetMsdAdditionalData done");
     LE_INFO("Set additional data completed");
+    res = taf_ecall_SetMsdTimeStamp(eCallRef, 4294967295);
+    LE_TEST_OK(res == LE_DUPLICATE, "Test taf_ecall_SetMsdTimeStamp done");
+    LE_INFO("Set msd timestamp completed");
 
     LE_INFO("Set msd information test completed");
 }

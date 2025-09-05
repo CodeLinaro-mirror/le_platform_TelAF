@@ -468,7 +468,17 @@ int taf_piVersion_GetTelafVersion
     }
     else if (tier == TAF_PI_VERSION_PATCH)
     {
-        le_utf8_Copy(version, patchPtr, TELAF_VERSION_PATCH_LEN + 1, NULL);
+        // If 1st character of patch verison is a digit, i.e., the 2nd '0' in
+        // "telaf.lnx.1.1-250600", "00" is the patch version.
+
+        // If 1st character of patch verison is not a digit, i.e., the 'c' in
+        // "telaf.lnx.1.1-2507c301", "c3" is the branch, and "01" is the patch version.
+
+        if (isdigit((unsigned char)*patchPtr))
+            le_utf8_Copy(version, patchPtr, TELAF_VERSION_PATCH_LEN + 1, NULL);
+        else
+            le_utf8_Copy(version, patchPtr + TELAF_VERSION_BRANCH_LEN,
+                TELAF_VERSION_PATCH_LEN + 1, NULL);
     }
     else
     {

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -87,7 +87,7 @@ void ProtocolParser::VehicleAnnounceOrIdRes
 
     uint8_t headerPos = TAF_DOIP_HEADER_GENERIC_LENGTH;
 
-    char vin[TAF_DOIP_VIN_SIZE];
+    char vin[TAF_DOIP_VIN_SIZE+1];
     vehicleMgr.GetVin(vin);
 
     char eid[TAF_DOIP_EID_SIZE];
@@ -139,6 +139,7 @@ void ProtocolParser::RoutingActivationRes
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
+        return;
     }
 
     auto &parser = ProtocolParser::GetInstance();
@@ -180,6 +181,7 @@ void ProtocolParser::AliveCheckReq
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
+        return;
     }
 
     auto &parser = ProtocolParser::GetInstance();
@@ -206,6 +208,7 @@ void ProtocolParser::AliveCheckRes
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
+        return;
     }
 
     auto &parser = ProtocolParser::GetInstance();
@@ -237,6 +240,7 @@ void ProtocolParser::DiagPowerModeRes
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
+        return;
     }
 
     auto &parser = ProtocolParser::GetInstance();
@@ -271,6 +275,7 @@ void ProtocolParser::DoIPEntityStatusRes
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
+        return;
     }
 
     auto &parser = ProtocolParser::GetInstance();
@@ -311,6 +316,7 @@ void ProtocolParser::HeaderNegativeACK
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
+        return;
     }
 
     auto &parser = ProtocolParser::GetInstance();
@@ -350,6 +356,7 @@ void ProtocolParser::DiagNegativeACK
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
+        return;
     }
 
     auto &parser = ProtocolParser::GetInstance();
@@ -398,6 +405,7 @@ void ProtocolParser::DiagPositiveACK
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
+        return;
     }
 
     auto &parser = ProtocolParser::GetInstance();

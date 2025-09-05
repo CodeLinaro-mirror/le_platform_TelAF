@@ -190,6 +190,8 @@
  * - taf_ecall_SetMsdEuroNCAPRolloverDetected() -- Sets the rollover detected for Euro NCAP additional data of the vehicle.
  * - taf_ecall_ResetMsdEuroNCAPLocationOfImpact() -- Resets the rollover detected for Euro NCAP additional data of the vehicle.
  * - taf_ecall_SetMsdEuroNCAPIIDeltaV() -- Sets the IIDeltaV for Euro NCAP additional data of the vehicle.
+ * - taf_ecall_SetMsdTimeStamp() -- Sets the timestamp manually.
+ * - taf_ecall_ResetMsdTimeStamp() -- Resets the timestamp and the system time will be used.
  *
  * The MSD is automatically encoded with the previous MSD values set earlier.
  *
@@ -1030,6 +1032,41 @@ FUNCTION le_result_t SetMsdEuroNCAPIIDeltaV
     uint8  rangeLimit IN,             ///< Range limit
     int16  deltaVX IN,                ///< DeltaVX
     int16  deltaVY IN                 ///< DeltaVY
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sets the MSD timestamp as the given value according to the given eCall reference.
+ *
+ * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
+ *
+ * @b NOTE: The process exits when an invalid eCall reference is given.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetMsdTimeStamp
+(
+    Call   ecallRef IN,               ///< eCall reference.
+    uint32 timeStamp IN               ///< TimeStamp in unit of seconds.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Resets the MSD timestamp to the current system time according to the given eCall reference.
+ *
+ * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
+ *
+ * @b NOTE: The process exits when an invalid eCall reference is given.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ResetMsdTimeStamp
+(
+    Call   ecallRef IN                ///< eCall reference.
 );
 
 //-------------------------------------------------------------------------------------------------

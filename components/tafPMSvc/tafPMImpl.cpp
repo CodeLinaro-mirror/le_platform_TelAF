@@ -1,6 +1,6 @@
 /*
- *  Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 
@@ -9,6 +9,14 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafPM.hpp"
+
+#define TAF_MODEM_WMS_SVC_ID              (0x05)
+#define TAF_MODEM_VOICE_CALL_SVC_ID       (0x09)
+#define TAF_MODEM_SIM_SVC_ID              (0x0B)
+
+#define TAF_MODEM_SMS_COMING_MSG_ID       (0x0001)
+#define TAF_MODEM_VCALL_COMING_MSG_ID     (0x002E)
+#define TAF_MODEM_SIM_PROFILE_SWAP_MSG_ID (0x0033)
 
 static taf_powerManager_t pm_recrd;
 
@@ -31,6 +39,86 @@ std::vector<taf_pm_PowerStateRef_t>ackClientrecrd;
 LE_REF_DEFINE_STATIC_MAP(tafPMVmListRef, TAF_PM_VM_LIST_POOL_SIZE);
 std::promise<le_result_t> stateChangePromise;
 static bool isNack = false;
+#endif
+
+#ifdef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
+
+// [t:sdk-thread]
+class tafWakeupReasonListener : public telux::power::IWakeupListener {
+public:
+    void onWakeup(telux::power::WakeupInfo wakeupInfo) override {
+
+        LE_INFO("SDK wakeup event is coming");
+
+        taf_pm_NodeModemWsBitMask_t wsBitset = 0;
+
+        if (wakeupInfo.wakeupType != telux::power::WakeupType::QMI) {
+            LE_WARN("Bad info type from wakeup event");
+            return;
+        }
+
+        LE_INFO("svc_id : 0x%04x", wakeupInfo.qmiWakeupInfo.serviceId);
+        LE_INFO("sourceNodeId : 0x%04x", wakeupInfo.qmiWakeupInfo.sourceNodeId);
+        LE_INFO("destinationNodeId : 0x%04x", wakeupInfo.qmiWakeupInfo.destinationNodeId);
+
+        if (wakeupInfo.qmiWakeupInfo.isPIDValid)
+        {
+            LE_INFO("pid : 0x%04x", wakeupInfo.qmiWakeupInfo.pid);
+        }
+
+        if (wakeupInfo.qmiWakeupInfo.isProcessNameValid)
+        {
+            LE_INFO("processName : %s", wakeupInfo.qmiWakeupInfo.processName.c_str());
+        }
+
+        if (wakeupInfo.qmiWakeupInfo.isMsgIdValid)
+        {
+            LE_INFO("msg_id : 0x%04x", wakeupInfo.qmiWakeupInfo.msgId);
+
+            if (TAF_MODEM_WMS_SVC_ID == wakeupInfo.qmiWakeupInfo.serviceId
+            &&  TAF_MODEM_SMS_COMING_MSG_ID == wakeupInfo.qmiWakeupInfo.msgId)
+            {
+                LE_DEBUG("Combo [svc_id:0x%04x, msg_id:0x%04x] received <-",
+                         wakeupInfo.qmiWakeupInfo.serviceId,
+                         wakeupInfo.qmiWakeupInfo.msgId);
+                wsBitset = TAF_PM_NODE_MODEM_WS_BIT_MASK_SMS;
+            }
+            else if (TAF_MODEM_VOICE_CALL_SVC_ID == wakeupInfo.qmiWakeupInfo.serviceId
+            &&       TAF_MODEM_VCALL_COMING_MSG_ID == wakeupInfo.qmiWakeupInfo.msgId)
+            {
+                LE_DEBUG("Combo [svc_id:0x%04x, msg_id:0x%04x] received <-",
+                         wakeupInfo.qmiWakeupInfo.serviceId,
+                         wakeupInfo.qmiWakeupInfo.msgId);
+                wsBitset = TAF_PM_NODE_MODEM_WS_BIT_MASK_VOICE_CALL;
+            }
+            else if (TAF_MODEM_SIM_SVC_ID == wakeupInfo.qmiWakeupInfo.serviceId
+            &&       TAF_MODEM_SIM_PROFILE_SWAP_MSG_ID == wakeupInfo.qmiWakeupInfo.msgId)
+            {
+                LE_DEBUG("Combo [svc_id:0x%04x, msg_id:0x%04x] received <-",
+                         wakeupInfo.qmiWakeupInfo.serviceId,
+                         wakeupInfo.qmiWakeupInfo.msgId);
+                wsBitset = TAF_PM_NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP;
+            }
+            else
+            {
+                LE_WARN("Combo [svc_id:0x%04x, msg_id:0x%04x] is NOT in range <-",
+                        wakeupInfo.qmiWakeupInfo.serviceId,
+                        wakeupInfo.qmiWakeupInfo.msgId);
+
+                return; // No need to raise the event
+            }
+
+            auto & pm = taf_PM::GetInstance();
+            le_event_Report(pm.wakeupEvt, &wsBitset, sizeof(wsBitset));
+        }
+        else
+        {
+            LE_ERROR("No valid msg_id for svc_id: 0x%04x",
+                     wakeupInfo.qmiWakeupInfo.serviceId);
+        }
+    }
+};
+
 #endif
 
 /**
@@ -80,6 +168,95 @@ taf_Handler::~taf_Handler()
 void taf_Handler::Init()
 {
     return;
+}
+
+void taf_PmsPa::PaPmsErrCallback
+(
+    taf_prop_pms_ErrCode_t errCode,
+    void * cbCtx
+)
+{
+    LE_UNUSED(cbCtx);
+
+    switch (errCode)
+    {
+        case TAF_PROP_PMS_ERR_SVC_GONE:
+        {
+            LE_INFO("prop-pms: SVC_GONE event captured");
+        }
+        break;
+
+        default:
+        {
+            LE_WARN("Unknown error captured: 0x%02x", errCode);
+        }
+    }
+}
+
+le_result_t taf_PmsPa::Init(void)
+{
+    le_result_t result =
+         taf_prop_pms_Init(
+            &paPmsObject,
+            PaPmsErrCallback,
+            paPmsObject);
+
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to taf_prop_pms_Init: %s",
+                 LE_RESULT_TXT(result));
+    }
+
+    return result;
+}
+
+le_result_t taf_PmsPa::Deinit(void)
+{
+    le_result_t result =
+         taf_prop_pms_Deinit(&paPmsObject);
+
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to taf_prop_pms_Deinit: %s",
+                 LE_RESULT_TXT(result));
+    }
+
+    return result;
+}
+
+le_result_t taf_PmsPa::SetModemWakeupFilter
+(
+    taf_pm_NodeModemWsBitMask_t bitset
+)
+{
+    le_result_t result =
+        taf_prop_pms_SetWsFilter(paPmsObject,
+                (taf_prop_pms_ModemWakeupSource_t) bitset);
+
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to taf_prop_pms_SetWsFilter");
+    }
+
+    return result;
+}
+
+le_result_t taf_PmsPa::GetModemWakeupFilter
+(
+    taf_pm_NodeModemWsBitMask_t* bitset
+)
+{
+    le_result_t result =
+        taf_prop_pms_GetWsFilter(paPmsObject,
+                (taf_prop_pms_ModemWakeupSource_t *) bitset);
+
+    if (result != LE_OK)
+    {
+        *bitset = 0;
+        LE_ERROR("Failed to taf_prop_pms_GetWsFilter");
+    }
+
+    return result;
 }
 
 /**
@@ -198,6 +375,16 @@ taf_PM &taf_PM::GetInstance()
     return instance;
 }
 
+void taf_PM::PaInit(void *p1, void *p2)
+{
+    auto& power = taf_PM::GetInstance();
+
+    LE_FATAL_IF(
+        power.paRef->Init() != LE_OK,
+        "Failed to PaInit"
+    );
+}
+
 void taf_PM::Init(void)
 {
     // Get power factory instance
@@ -206,6 +393,9 @@ void taf_PM::Init(void)
     std::promise<telux::common::ServiceStatus> prom = std::promise<telux::common::ServiceStatus>();
     std::promise<telux::common::ServiceStatus> slaveProm
                         = std::promise<telux::common::ServiceStatus>();
+    // Get Wakeup-activity manager object
+    std::promise<telux::common::ServiceStatus> p{};
+
 #ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
     tcuActivityMgr = powerFactory.getTcuActivityManager(ClientType::MASTER, ProcType::LOCAL_PROC,
                         [&](telux::common::ServiceStatus status) {
@@ -230,7 +420,45 @@ void taf_PM::Init(void)
                         [&](telux::common::ServiceStatus status) {
                              slaveProm.set_value(status);
                         });
+
+    tcuWakeupMgr = powerFactory.getWakeupManager(
+            [&p](telux::common::ServiceStatus srvStatus) {
+            p.set_value(srvStatus);
+        });
+
+    LE_DEBUG("Try to get getWakeupManager");
+
+    LE_FATAL_IF(
+        tcuWakeupMgr == nullptr,
+        "No memery for the WakeupManager"
+    );
+
+    bool isPMReady = (p.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
+
+    if(isPMReady)
+    {
+        tcuWakeupReasonListener = std::make_shared<tafWakeupReasonListener>();
+
+        telux::common::ErrorCode reterr =
+             tcuWakeupMgr->registerListener(tcuWakeupReasonListener);
+
+        LE_FATAL_IF(
+            reterr != telux::common::ErrorCode::SUCCESS,
+            "Failed to register wakeup listener"
+        );
+
+        LE_DEBUG("The tcuWakeupReasonListener is registered");
+    }
+    else
+    {
+        LE_ERROR("SDK WakeupManager is unavailable");
+        return; // FIXME: Return ?
+    }
+
+    LE_INFO("SDK power wakeup service is ready");
+
 #endif
+
     if(tcuActivityMgr == nullptr)
     {
         LE_INFO("tafPowerMgr is null Init...\n");
@@ -332,6 +560,14 @@ void taf_PM::Init(void)
     // Register client connect/disconnect handlers
     le_msg_AddServiceOpenHandler(taf_pm_GetServiceRef(), taf_Handler::OnClientConnection, NULL);
     le_msg_AddServiceCloseHandler(taf_pm_GetServiceRef(), taf_Handler::OnClientDisconnection, NULL);
+
+    wakeupEvt = le_event_CreateId("wakeup-evt", sizeof(taf_pm_NodeModemWsBitMask_t));
+    le_event_AddHandler("wakeup-evt-hdlr", wakeupEvt, WakeupEvtHandler);
+
+    registeredCallbackMap = le_ref_CreateMap("cb-map", TAF_PM_CLIENT_DEFAULT_POOL_SIZE);
+    registeredCallbackPool = le_mem_CreatePool("cb-pool", sizeof(WakeupCallback_t));
+
+    lastModemWsReason = 0;
 
     le_sig_Block(SIGTERM);
     le_sig_SetEventHandler(SIGTERM, taf_PM::TafSigTermEventHandler);
@@ -1029,6 +1265,94 @@ void taf_PM::RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef)
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
     LE_INFO("Removed StateChangeHandler");
 }
+
+/**
+ * To add handler for modem awake notification
+ */
+taf_pm_ModemAwakeHandlerRef_t taf_PM::AddModemWakeupHandler
+(
+    taf_pm_ModemAwakeHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    WakeupCallback_t * cb =
+        (WakeupCallback_t *) le_mem_ForceAlloc(registeredCallbackPool);
+    cb->callback = handlerPtr;
+    cb->context = contextPtr;
+    cb->ref = (taf_pm_ModemAwakeHandlerRef_t)
+        le_ref_CreateRef(registeredCallbackMap, cb);
+
+    LE_DEBUG("-> Register modem wakeup handler [add]");
+
+    return (taf_pm_ModemAwakeHandlerRef_t) cb->ref;
+}
+
+/**
+ * Removes the modem wakeup handler
+ */
+void taf_PM::RemoveModemAwakeHandler(taf_pm_ModemAwakeHandlerRef_t handlerRef)
+{
+    WakeupCallback_t * cb =
+        (WakeupCallback_t *)le_ref_Lookup(
+                                registeredCallbackMap,
+                                handlerRef);
+
+    if (cb != NULL)
+    {
+        le_ref_DeleteRef(registeredCallbackMap, cb->ref);
+        le_mem_Release(cb);
+    }
+
+    LE_DEBUG("-> Deregister modem wakeup handler [remove]");
+}
+
+// [t, main-thread]: API sync-calling
+taf_pm_NodeModemWsBitMask_t taf_PM::GetLastModemWsReason(void)
+{
+    uint32_t mask = 0;
+
+    mask = (TAF_PM_NODE_MODEM_WS_BIT_MASK_SMS |
+            TAF_PM_NODE_MODEM_WS_BIT_MASK_VOICE_CALL |
+            TAF_PM_NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP);
+
+    LE_DEBUG("mask: 0x%08x, value: 0x%08x [get]",
+             mask,
+             lastModemWsReason & mask);
+
+    return (taf_pm_NodeModemWsBitMask_t) lastModemWsReason & mask;
+}
+
+// [t, main-thread]
+void taf_PM::WakeupEvtHandler(void * reportPtr)
+{
+    LE_INFO("Received: ev(wakeup)");
+
+    auto & inst = GetInstance();
+
+    inst.lastModemWsReason =
+        * (taf_pm_NodeModemWsBitMask_t *) reportPtr;
+
+    LE_INFO("lastModemWsReason: 0x%0x", inst.lastModemWsReason);
+
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(inst.registeredCallbackMap);
+    WakeupCallback_t * cb = NULL;
+
+    // Unordered
+    while ( le_ref_NextNode(iterRef) == LE_OK )
+    {
+        cb = (WakeupCallback_t *)le_ref_GetValue(iterRef);
+
+        // [t, main-thread] one by one, sync calling
+        cb->callback(NULL, inst.lastModemWsReason, cb->context);
+    }
+
+    LE_INFO("All callback were done");
+}
+
+le_event_Id_t taf_PM::wakeupEvt;
+le_mem_PoolRef_t taf_PM::registeredCallbackPool;
+le_ref_MapRef_t taf_PM::registeredCallbackMap;
+taf_pm_NodeModemWsBitMask_t taf_PM::lastModemWsReason;
 
 /**
  * To add handler for ConsolidatedAck Info notification

@@ -6340,3 +6340,296 @@ void taf_radio_RemoveNrIconTypeHandler
 {
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for CA information changes.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_CAInfoHandlerRef_t taf_radio_AddCAInfoHandler
+(
+    taf_radio_Rat_t rat,
+        ///< [IN] Radio Access Technology.
+    taf_radio_CAInfoHandlerFunc_t handlerFuncPtr,
+        ///< [IN] Handler function for CA information changes.
+    void* contextPtr
+        ///< [IN] Context.
+)
+{
+    TAF_ERROR_IF_RET_VAL(rat != TAF_RADIO_RAT_LTE, nullptr, "Invalid para(RAT:%d)", rat);
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("LteCAInfoHandler",
+        tafRadio.lteCAIndEvId, taf_Radio::taf_radio_LayerLteCAHandler,
+        (void*)handlerFuncPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_radio_CAInfoHandlerRef_t)(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for CA information changes.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveCAInfoHandler
+(
+    taf_radio_CAInfoHandlerRef_t handlerRef  ///< [IN] Handler reference.
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get carrier aggregation information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetCAInformation
+(
+    uint8_t phoneId,
+    taf_radio_Rat_t rat,
+    taf_radio_CAInfoRef_t* infoRefPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(rat != TAF_RADIO_RAT_LTE, LE_BAD_PARAMETER, "Invalid para(RAT:%d)", rat);
+
+    taf_pa_radio_LteCphyCaInfoRef_t infoRef = nullptr;
+    le_result_t result = taf_pa_radio_GetLteCphyCaInformation(phoneId, &infoRef);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result,
+        "Fail to get LTE CA information(phoneId:%d)", phoneId);
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioCAInfo_t* infoPtr = (taf_RadioCAInfo_t*)le_mem_ForceAlloc(tafRadio.caInfoPool);
+
+    bool isPCellValid = false;
+    infoPtr->cellCount = 0;
+    result = taf_pa_radio_IsPcellInfoValid(infoRef, &isPCellValid);
+    if (result == LE_OK && isPCellValid)
+        infoPtr->cellCount = 1;
+    else
+        LE_ERROR("Primary cell is invalid.");
+
+    uint32_t scellCount = 0;
+    result = taf_pa_radio_GetScellCount(infoRef, &scellCount);
+    if (result != LE_OK)
+        LE_ERROR("Fail to get secondary cell count.");
+
+    if (scellCount > TAF_RADIO_SCELL_NUMBER)
+    {
+        LE_WARN("Scell number %d is more than limited number %d.", scellCount, TAF_RADIO_SCELL_NUMBER);
+        scellCount = TAF_RADIO_SCELL_NUMBER;
+    }
+
+    infoPtr->status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+    for (uint32_t i = 0; i < scellCount; i++)
+    {
+        taf_pa_radio_ScellState_t state = TAF_PA_RADIO_SCELL_STATE_UNKNOWN;
+        result = taf_pa_radio_GetScellState(infoRef, i, &state);
+        if (result != LE_OK)
+            LE_ERROR("Fail to get secondary cell state at %d.", i);
+
+        if (state == TAF_PA_RADIO_SCELL_STATE_CONFIGURED_ACTIVATED)
+        {
+            infoPtr->status = TAF_RADIO_CA_STATUS_ACTIVATED;
+            infoPtr->cellCount++;
+        }
+    }
+
+    result = taf_pa_radio_DeleteLteCphyCaInformation(infoRef);
+    if (result != LE_OK)
+        LE_ERROR("Fail to delete LTE CA information.");
+
+    *infoRefPtr = (taf_radio_CAInfoRef_t)le_ref_CreateRef(tafRadio.caInfoMap, (void*)infoPtr);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Delete carrier aggregation information.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_DeleteCAInformation
+(
+    taf_radio_CAInfoRef_t infoRef
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioCAInfo_t* infoPtr = (taf_RadioCAInfo_t*)le_ref_Lookup(tafRadio.caInfoMap, infoRef);
+    TAF_ERROR_IF_RET_VAL(infoPtr == nullptr, LE_NOT_FOUND, "Invalid para(null ptr)");
+
+    le_ref_DeleteRef(tafRadio.caInfoMap, infoRef);
+
+    le_mem_Release(infoPtr);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the CA status and active CC count of LTE.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCAStatus
+(
+    taf_radio_CAInfoRef_t infoRef,
+    taf_radio_CAStatus_t* statusPtr,
+    uint32_t* activeCCNumPtr
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioCAInfo_t* infoPtr = (taf_RadioCAInfo_t*)le_ref_Lookup(tafRadio.caInfoMap, infoRef);
+    TAF_ERROR_IF_RET_VAL(infoPtr == nullptr, LE_NOT_FOUND, "Invalid para(null ptr)");
+
+    *statusPtr = infoPtr->status;
+    *activeCCNumPtr = infoPtr->cellCount;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for connection status
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_ConnectionStatusHandlerRef_t taf_radio_AddConnectionStatusHandler
+(
+    taf_radio_ConnectionStatusHandlerFunc_t handlerFuncPtr,
+        ///< [IN] Handler function for connection status.
+    void* contextPtr
+        ///< [IN] Context.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ConnectionStatus",
+        tafRadio.connStatusEvId, taf_Radio::taf_radio_LayerConnStatusHandler,
+        (void*)handlerFuncPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_radio_ConnectionStatusHandlerRef_t)(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for connection status
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveConnectionStatusHandler
+(
+    taf_radio_ConnectionStatusHandlerRef_t handlerRef  ///< [IN] Handler reference.
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of connection status.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetConnStatus
+(
+    uint8_t phoneId,
+    taf_radio_ConnStatusRef_t* statusRefPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    taf_pa_radio_EndcStatus_t endcStatus = TAF_PA_RADIO_ENDC_STATUS_UNKNOWN;
+    le_result_t result = taf_pa_radio_GetEndcStatus(phoneId, &endcStatus);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Fail to get ENDC status.");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_radio_NREndcAvailability_t* statusPtr =
+        (taf_radio_NREndcAvailability_t*)le_mem_ForceAlloc(tafRadio.connStatusPool);
+    *statusPtr = tafRadio.taf_radio_ConvertEndcStatus(endcStatus);
+
+    *statusRefPtr = (taf_radio_ConnStatusRef_t)le_ref_CreateRef(tafRadio.connStatusMap,
+        (void*)statusPtr);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Delete the reference of connection status.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_DeleteConnStatus
+(
+    taf_radio_ConnStatusRef_t statusRef
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_radio_NREndcAvailability_t* statusPtr =
+        (taf_radio_NREndcAvailability_t*)le_ref_Lookup(tafRadio.connStatusMap, statusRef);
+    TAF_ERROR_IF_RET_VAL(statusPtr == nullptr, LE_NOT_FOUND, "Invalid para(null ptr)");
+
+    le_ref_DeleteRef(tafRadio.connStatusMap, statusRef);
+
+    le_mem_Release(statusPtr);
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ *  Gets the ENDC connection status.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetEndcConnectionStatus
+(
+    taf_radio_ConnStatusRef_t statusRef,
+    taf_radio_NREndcAvailability_t* statusPtr
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_radio_NREndcAvailability_t* statePtr =
+        (taf_radio_NREndcAvailability_t*)le_ref_Lookup(tafRadio.connStatusMap, statusRef);
+    TAF_ERROR_IF_RET_VAL(statePtr == nullptr, LE_NOT_FOUND, "Invalid para(null ptr)");
+
+    *statusPtr = *statePtr;
+
+    return LE_OK;
+}

@@ -95,9 +95,9 @@ void tafSubscriptionListener:: onSubscriptionInfoChanged
     simIccidEvent.simId = (taf_sim_Id_t)simPtr->simId;
     simIccidEvent.ICCID = simPtr->ICCID;
     le_event_Report(sim.IccidChangeEventId, &simIccidEvent, sizeof(simIccidEvent));
-    if(!sim.isPsEventInProgress) {
+    if(!sim.IsPsEventInProgress) {
 
-        sim.isPsEventInProgress = true;
+        sim.IsPsEventInProgress = true;
         sim.CheckAndSendProfileSwitchEvent();
     }
 }
@@ -301,6 +301,7 @@ void tafOpenLogicalChannelCallback::onChannelResponse(int channel, IccResult res
    std::unique_lock<std::mutex> lock(sim.eventMutex);
    sim.errorCode = error;
    sim.openChannel = (uint8_t)channel;
+   sim.cardRespReceived = true;
    if(sim.cardEventExpected == CardEvent::OPEN_LOGICAL_CHANNEL) {
        LE_INFO("OpenLogicalChannel callback response sw1: %d, sw2: %d", (uint8_t)result.sw1, (uint8_t)result.sw2);
        if(error == telux::common::ErrorCode::SUCCESS && (uint8_t)result.sw1 == 0x90 && (uint8_t)result.sw2 == 0x00) {
@@ -324,6 +325,7 @@ void tafCloseLogicalChannelCallback::commandResponse(telux::common::ErrorCode er
    auto &sim = taf_sim::GetInstance();
    std::unique_lock<std::mutex> lock(sim.eventMutex);
    sim.errorCode = error;
+   sim.cardRespReceived = true;
    if(sim.cardEventExpected == CardEvent::CLOSE_LOGICAL_CHANNEL) {
       LE_INFO("Card Event CLOSE_LOGICAL_CHANNEL found with code : %d", int(error));
       sim.eventCV.notify_one();
@@ -336,6 +338,7 @@ void tafTransmitApduResponseCallback::onResponse(IccResult result, ErrorCode err
    std::unique_lock<std::mutex> lock(sim.eventMutex);
    sim.errorCode = error;
    sim.apduResponse = result;
+   sim.cardRespReceived = true;
    LE_INFO("onResponse: %s " , result.toString().c_str());
    if(sim.cardEventExpected == CardEvent::TRANSMIT_APDU_CHANNEL) {
       LE_INFO("Card Event TRANSMIT_APDU_CHANNEL found with code : %d", int(error));
@@ -978,30 +981,31 @@ void taf_sim::CheckAndSendProfileSwitchEvent() {
             continue;
         }
 
-        LE_DEBUG("ClientSessionRef %p, refreshResetStart: %d", sessionPtr->clientSessionRef, (int) sessionPtr->refreshResetStart);
+        LE_INFO("ClientSessionRef %p, refreshResetStart: %d", sessionPtr->clientSessionRef, (int) sessionPtr->refreshResetStart);
 
-        if (sessionPtr->refreshResetStart)
+        if (!sessionPtr->notifyProfileSwitch)
         {
-            LE_INFO("Notify: current iccid1: %s, previous iccid1: %s and result: %s", iccid1, sessionPtr->simProfileIccid1, LE_RESULT_TXT(result));
-            LE_INFO("Notify: current iccid2: %s, previous iccid2: %s", iccid2, sessionPtr->simProfileIccid2);
-
             //Send profile switch notification.
             if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV)
             {
                 if (strncmp(iccid1, sessionPtr->simProfileIccid1, TAF_SIM_ICCID_BYTES) != 0)
                 {
+                    LE_INFO("Notify: current iccid1: %s, previous iccid1: %s and result: %s", iccid1, sessionPtr->simProfileIccid1, LE_RESULT_TXT(result));
                     simRefreshEvent.refreshStatus = TAF_SIM_REFRESH_STATUS_PROFILE_SWITCH;
                     le_utf8_Copy(sessionPtr->simProfileIccid1, iccid1, TAF_SIM_ICCID_BYTES, NULL);
                     le_event_Report(sessionPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
+                    sessionPtr->notifyProfileSwitch = true;
                 }
             }
             else if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV)
             {
                 if (strncmp(iccid2, sessionPtr->simProfileIccid2, TAF_SIM_ICCID_BYTES) != 0)
                 {
+                    LE_INFO("Notify: current iccid2: %s, previous iccid2: %s and result: %s", iccid2, sessionPtr->simProfileIccid2, LE_RESULT_TXT(result) );
                     simRefreshEvent.refreshStatus = TAF_SIM_REFRESH_STATUS_PROFILE_SWITCH;
                     le_utf8_Copy(sessionPtr->simProfileIccid2, iccid2, TAF_SIM_ICCID_BYTES, NULL);
                     le_event_Report(sessionPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
+                    sessionPtr->notifyProfileSwitch = true;
                 }
             }
         }
@@ -1017,7 +1021,7 @@ void taf_sim::CheckAndSendProfileSwitchEvent() {
 
         result = le_ref_NextNode(iterRef);
     }
-    sim.isPsEventInProgress = false;
+    sim.IsPsEventInProgress = false;
 
 }
 
@@ -1037,9 +1041,10 @@ void taf_sim::CheckAndSendRefreshEvent(taf_sim_Id_t SimId) {
         if((sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV && SimId == TAF_SIM_SLOT_ID_1) ||
             (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV && SimId == TAF_SIM_SLOT_ID_2))
         {
-            if (sessionPtr->refreshResetStart )
+            if (sessionPtr->refreshResetStart)
             {
                 LE_INFO("Notify RefreshEvent for SimId : %d,SessionType : %d", SimId,sessionPtr->sessionType);
+                sessionPtr->refreshResetStart = false;
                 le_sem_Post(sessionPtr->semaphore);
             }
         }
@@ -1055,25 +1060,43 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
     simRefreshEvent.refreshStatus = 0;
     clientRequestPtr = DiscoverSessionRef((taf_sim_RefreshRef_t) contextPtr);
 
-    LE_INFO("NotifyRefreshEvent contextPtr: %p, clientRequestPtr: %p", contextPtr, clientRequestPtr);
+    LE_INFO("NotifyRefreshEvent contextPtr:%p, clientRequestPtr:%p RefreshVoteSent_Slot1:%d RefreshVoteSent_Slot2:%d", contextPtr, clientRequestPtr,
+              RefreshVoteSent_Slot1, RefreshVoteSent_Slot2);
 
     TAF_ERROR_IF_RET_NIL(NULL == clientRequestPtr, "clientRequestPtr is NULL");
 
     if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_WAIT_FOR_OK) {
-        if (clientRequestPtr != NULL && ((1 << ind->refreshMode) & clientRequestPtr->refreshMode) != 0) {
+        // In WAIT_FOR_OK stage of SIM refresh,refresh vote hasn't been sent for slot 1/slot 2
+        if((clientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV && !RefreshVoteSent_Slot1) ||
+              (clientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV && !RefreshVoteSent_Slot2))
+        {
             LE_INFO("Request Refresh_ok with refreshAllow: %d", (int) clientRequestPtr->refreshAllow);
-            res = taf_pa_sim_RefreshOk(ind->sessionType, clientRequestPtr->refreshAllow);
-        } else {
-            res = taf_pa_sim_RefreshOk(ind->sessionType, true);
+            le_result_t result = CheckRefreshAllow(ind);
+            if(result == LE_FAULT)
+            {
+                res = taf_pa_sim_RefreshOk(ind->sessionType, false);
+                LE_INFO("Refresh_ok as false");
+            }
+            else
+            {
+                res = taf_pa_sim_RefreshOk(ind->sessionType, true);
+                LE_INFO("Refresh_ok as true");
+            }
+            if(clientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV)
+            {
+                RefreshVoteSent_Slot1 = true;
+            }
+            if(clientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV)
+            {
+                RefreshVoteSent_Slot2 = true;
+            }
         }
-        LE_INFO("Refresh_ok: result: %s", LE_RESULT_TXT(res));
-
         return;
-    } else if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_START && ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_FCN) {
+    }
+
+    else if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_START && ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_FCN) {
         res = taf_pa_sim_RefreshComplete(ind->sessionType);
-
         LE_INFO("RefreshComplete: result: %s", LE_RESULT_TXT(res));
-
         return;
     } else if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_START && ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_RESET) {
         LE_INFO("RefreshStart for reset mode");
@@ -1088,12 +1111,13 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
         {
            simRefreshEvent.refreshStatus |= TAF_SIM_REFRESH_STATUS_FAILURE;
         }
-
         le_event_Report(clientRequestPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
         clientRequestPtr->refreshResetStart = false;
+        clientRequestPtr->notifyProfileSwitch = false;
+        ResetRefreshVote(clientRequestPtr);
         LE_INFO("Notify simRefreshEvent:refreshStatus : %d", simRefreshEvent.refreshStatus);
         return;
-    }
+        }
 
     bool notifyClient = (ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_END_WITH_SUCCESS)
             || (ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_END_WITH_FAILURE);
@@ -1115,11 +1139,11 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
                 simRefreshEvent.refreshStatus |= TAF_SIM_REFRESH_STATUS_FILE_CHANGE;
             }
         }
-
         if (clientRequestPtr != NULL) {
             le_event_Report(clientRequestPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
         }
     }
+    ResetRefreshVote(clientRequestPtr);
 }
 
 void taf_sim::FirstLayerNewRefreshChangeHandler(void* reportPtr, void* secondLayerHandlerFunc) {
@@ -1239,7 +1263,7 @@ le_result_t taf_sim::CreateSession(taf_sim_SessionType_t sessionType, taf_sim_Re
     res->refreshRegFilesSize = 0;
     res->RefreshChangeEventId = le_event_CreateId("ClientRefreshEventId", sizeof(sim_refresh_event_t));
     res->semaphore = le_sem_Create("IccidCheckSem", 0);
-
+    res->notifyProfileSwitch = false;
     LE_INFO("res->sessionRef %p, *reference %p", res->ref, *refreshSessionRef);
 
     string iccId = "";
@@ -1812,11 +1836,20 @@ le_result_t taf_sim::GetAutomaticSelection( bool* enablePtr) {
 bool taf_sim::waitForCardEvent(CardEvent cardEvent, int timeout) {
    std::unique_lock<std::mutex> lock(eventMutex);
    cardEventExpected = cardEvent;
+
+   if (cardRespReceived)
+   {
+       LE_INFO("Card response already received before wait");
+       cardRespReceived = false;
+       return true;
+   }
+
    auto cvStatus = eventCV.wait_for(lock, std::chrono::seconds(DEFAULT_TIMEOUT_IN_SECONDS));
    if(cvStatus == std::cv_status::timeout) {
       LE_INFO("Event: %d not found with in %d second(s)",  (int)cardEvent, DEFAULT_TIMEOUT_IN_SECONDS);
    }
    cardEventExpected = (CardEvent)0;  // reset message id to avoid further notifications
+   cardRespReceived = false;
    if(cvStatus != std::cv_status::timeout) {
       if(cardEvent == CardEvent::OPEN_LOGICAL_CHANNEL
          || cardEvent == CardEvent::CLOSE_LOGICAL_CHANNEL
@@ -1986,14 +2019,26 @@ le_result_t taf_sim::SendApduOnChannel( taf_sim_Id_t simId, uint8_t channel,
         LE_INFO("Transmit APDU failed ");
         return LE_FAULT;
     }
-    responseApduPtr[0] = (uint8_t)apduResponse.sw1;
-    responseApduPtr[1] = (uint8_t)apduResponse.sw2;
+
     LE_DEBUG("sw1: %d, sw2: %d, payload: %s", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2, apduResponse.payload.c_str());
-    int index = 2;
-    for(auto &i : data) {
-        responseApduPtr[index] = (uint8_t) i;
-        index++;
+
+    if ((apduResponse.data.size()) > (TAF_SIM_RESPONSE_MAX_BYTES-2))
+    {
+        LE_ERROR("The size of APDU response exceeds the max length.");
+        return LE_FAULT;
     }
+
+    size_t i = 0;
+    for (i=0; i<(apduResponse.data.size()); i++)
+    {
+        responseApduPtr[i] = apduResponse.data[i];
+        LE_DEBUG("Response APDU data = %d", responseApduPtr[i]);
+    }
+
+    responseApduPtr[i++] = (uint8_t)apduResponse.sw1;
+    responseApduPtr[i++] = (uint8_t)apduResponse.sw2;
+    *responseApduNumElementsPtr = i;
+    LE_INFO("Response APDU length = %ld", (size_t)i);
 
     return LE_OK;
 }
@@ -2030,9 +2075,30 @@ le_result_t taf_sim::SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr,
         return LE_FAULT;
     }
     if(!waitForCardEvent(CardEvent::TRANSMIT_APDU_CHANNEL)) {
-        LE_INFO("Transmit APDU failed failed ");
+        LE_ERROR("Transmit APDU failed failed ");
         return LE_FAULT;
     }
+
+    LE_DEBUG("sw1: %d, sw2: %d, payload: %s", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2, apduResponse.payload.c_str());
+
+    if ((apduResponse.data.size()) > (TAF_SIM_RESPONSE_MAX_BYTES-2))
+    {
+        LE_ERROR("The size of APDU response exceeds the max length.");
+        return LE_FAULT;
+    }
+
+    size_t i = 0;
+    for (i=0; i<(apduResponse.data.size()); i++)
+    {
+        responseApduPtr[i] = apduResponse.data[i];
+        LE_INFO("Response APDU data = %d", responseApduPtr[i]);
+    }
+
+    responseApduPtr[i++] = (uint8_t)apduResponse.sw1;
+    responseApduPtr[i++] = (uint8_t)apduResponse.sw2;
+    *responseApduNumElementsPtr = i;
+    LE_DEBUG("Response APDU length = %ld", (size_t)i);
+
     return LE_OK;
 }
 
@@ -2103,11 +2169,25 @@ le_result_t taf_sim::SendCommand(
     }
     *sw1 = (uint8_t)apduResponse.sw1;
     *sw2 = (uint8_t)apduResponse.sw2;
-    int index = 0;
-    for(auto &i : data){
-        responsePtr[index] = (uint8_t) i;
-        index++;
+
+    LE_DEBUG("sw1: %d, sw2: %d, payload: %s", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2, apduResponse.payload.c_str());
+
+    if ((apduResponse.data.size()) > (TAF_SIM_RESPONSE_MAX_BYTES-2))
+    {
+        LE_ERROR("The size of APDU response exceeds the max length.");
+        return LE_FAULT;
     }
+
+    size_t i = 0;
+    for (i=0; i<(apduResponse.data.size()); i++)
+    {
+        responsePtr[i] = apduResponse.data[i];
+        LE_DEBUG("Response APDU data = %d", responsePtr[i]);
+    }
+
+    *responseNumElementsPtr = i;
+    LE_DEBUG("Response APDU length = %ld", (size_t)i);
+
     return LE_OK;
 }
 
@@ -2527,8 +2607,8 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
     //First select the file using APDU commands
     //Then read from it in binary form and use payload to get the response as a hex string
     uint8_t selectFPLMNApdu[] = {0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x7B};
-    uint8_t responseAPDU[100];
-    size_t responseLength = 100;
+    uint8_t responseAPDU[TAF_SIM_RESPONSE_MAX_BYTES];
+    size_t responseLength = 0;
     uint8_t channel = 0;
     LE_INFO("Entered here");
     if((selectSimSlot(simId))!=LE_OK) {
@@ -2540,21 +2620,22 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
         return NULL;
     }
     LE_INFO("Logical channel opened channel id: %d", channel);
-
+    selectFPLMNApdu[0] = channel;
     res = SendApduOnChannel((taf_sim_Id_t)slot, channel, selectFPLMNApdu, sizeof(selectFPLMNApdu), responseAPDU, &responseLength);
 
-    if(res != LE_OK || (uint8_t)apduResponse.sw1 != 0x61) {
+    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x61) {
         res = CloseLogicalChannel((taf_sim_Id_t)slot, channel);
         LE_INFO("ReadFplmnList: CloseLogicalChannel channel_id: %d res: %d", channel, res);
         return NULL;
     }
     LE_DEBUG("ReadFplmnList: After selectFPLMNApdu channel id: %d", channel);
-    LE_INFO("selectFPLMNApdu sw1: %d, sw2: %d", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2);
+    LE_INFO("selectFPLMNApdu sw1: %d, sw2: %d", (uint8_t)responseAPDU[responseLength-2], (uint8_t)responseAPDU[responseLength-1]);
 
     uint8_t readBinaryFPLMNApdu[] = {0x00, 0xB0, 0x00, 0x00, 0x00};
+    readBinaryFPLMNApdu[0] = channel;
     res = SendApduOnChannel((taf_sim_Id_t)slot, channel, readBinaryFPLMNApdu, sizeof(readBinaryFPLMNApdu), responseAPDU, &responseLength);
 
-    if(res != LE_OK || (uint8_t)apduResponse.sw1 != 0x90 || (uint8_t)apduResponse.sw2 != 0x00) {
+    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x90 || (uint8_t)responseAPDU[responseLength-1] != 0x00) {
         res = CloseLogicalChannel((taf_sim_Id_t)slot, channel);
         LE_INFO("ReadFplmnList: CloseLogicalChannel channel_id: %d res: %d", channel, res);
         return NULL;
@@ -2566,12 +2647,10 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
     }
 
     taf_sim_FPLMNListRef_t listRef = CreateInternalFPLMNList();
-    LE_INFO("ReadFPLMNList: apduResponse = %s", apduResponse.toString().c_str());
-    int size = apduResponse.payload.length();
-    LE_INFO("ReadFPLMNList: size of payload: %d, payload: %s", size, apduResponse.payload.c_str());
+    int size = responseLength - 2;
 
-    for(int i=0; i<size/6; i++) {
-        int k=6*i;
+    for(int i=0; i<size/3; i++) {
+        int k=3*i;
         char mcc[4], mnc[4];
 
         //1st byte:mcc[1] mcc[0]
@@ -2582,28 +2661,36 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
         //e.g. mcc:246 mnc:81 = 42 F6 18. Here mcc[0] = 2, mcc[1] = 4, mcc[2] = 6 and mnc[0] = 8, mnc[1] = 1
         //e.g. mcc:65 mnc:43 = 40 65 91. Here mcc[0] = 0, mcc[1] = 6, mcc[2] = 5 and mnc[0] = 4, mnc[1] = 3
 
-        mcc[0]=apduResponse.payload[k+1];
-        mcc[1]=apduResponse.payload[k];
-        mcc[2]=apduResponse.payload[k+3];
-        if(apduResponse.payload[k+2]=='F' || apduResponse.payload[k+2]=='f') {
-            mnc[0]=apduResponse.payload[k+5];
-            mnc[1]=apduResponse.payload[k+4];
+        if ((k+2) >= TAF_SIM_RESPONSE_MAX_BYTES)
+        {
+            LE_ERROR("Exceeds the max response bytes");
+            return NULL;
+        }
+        if (responseAPDU[k] == 0xFF && responseAPDU[k+1] == 0xFF && responseAPDU[k+2] == 0xFF) {
+            LE_INFO("Skipping invalid MCC/MNC due to all FF values");
+            continue;
+        }
+        mcc[0] = (responseAPDU[k] & 0x0F) + '0';
+        mcc[1] = ((responseAPDU[k] & 0xF0) >> 4) + '0';
+        mcc[2] = (responseAPDU[k+1] & 0x0F) + '0';
+
+        mnc[0] = (responseAPDU[k+2] & 0x0F) + '0';
+        mnc[1] = ((responseAPDU[k+2] & 0xF0) >> 4) + '0';
+
+        if(((responseAPDU[k+1] & 0xF0) >> 4) == 15) {
             mnc[2] = '\0';
         } else {
-            mnc[0]=apduResponse.payload[k+5];
-            mnc[1]=apduResponse.payload[k+4];
-            mnc[2]=apduResponse.payload[k+2];
+            mnc[2]=((responseAPDU[k+1] & 0xF0) >> 4) + '0';
         }
         mcc[3] = '\0';
         mnc[3] = '\0';
-        if (strncmp(mcc, "FFF", 3) != 0) {
-            res = AddFPLMNOperatorInternal(listRef, mcc, mnc);
-            if(res!=LE_OK) {
-                DeleteFPLMNList(listRef);
-                return NULL;
-            }
-            LE_INFO("FPLMN #%d - MCC:%s MNC:%s", i+1, mcc, mnc);
+
+        res = AddFPLMNOperatorInternal(listRef, mcc, mnc);
+        if(res!=LE_OK) {
+            DeleteFPLMNList(listRef);
+            return NULL;
         }
+        LE_INFO("FPLMN #%d - MCC:%s MNC:%s", i+1, mcc, mnc);
     }
 
     return listRef;
@@ -2636,8 +2723,8 @@ le_result_t taf_sim::WriteFPLMNList
 {
     //Select the EF
     uint8_t selectFPLMNApdu[] = {0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x7B};
-    uint8_t responseAPDU[100];
-    size_t responseLength = 100;
+    uint8_t responseAPDU[TAF_SIM_RESPONSE_MAX_BYTES];
+    size_t responseLength = 0;
     uint8_t channel = 0;
     if(selectSimSlot(simId) != LE_OK) {
         return LE_FAULT;
@@ -2648,14 +2735,15 @@ le_result_t taf_sim::WriteFPLMNList
     }
     LE_INFO("WriteFPLMNList: OpenLogicalChannel channel id: %d", channel);
     const uint8_t channel_id = channel;
+    selectFPLMNApdu[0] = channel;
     res = SendApduOnChannel((taf_sim_Id_t)slot, channel, selectFPLMNApdu, sizeof(selectFPLMNApdu), responseAPDU, &responseLength);
-    if(res != LE_OK || (uint8_t)apduResponse.sw1 != 0x61) {
+    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x61) {
         res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
         LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
         return LE_FAULT;
     }
     LE_DEBUG("WriteFPLMNList: After selectFPLMNApdu channel id: %d and channel_id: %d", channel, channel_id);
-    LE_INFO("selectFPLMNApdu sw1: %d, sw2: %d", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2);
+    LE_INFO("selectFPLMNApdu sw1: %d, sw2: %d", (uint8_t)responseAPDU[responseLength-2], (uint8_t)responseAPDU[responseLength-1]);
 
     taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
     if(ListReference == NULL) {
@@ -2708,9 +2796,9 @@ le_result_t taf_sim::WriteFPLMNList
     uint8_t sizeOfwriteFPLMNListApdu = writeFPLMNListApdu.size();
     LE_INFO("WriteFPLMNList: Total no of data(p3): %d", sizeOfwriteFPLMNListApdu);
     writeFPLMNListApdu.at(4) = sizeOfwriteFPLMNListApdu - 5;
-
+    writeFPLMNListApdu[0] = channel_id;
     res = SendApduOnChannel((taf_sim_Id_t)slot, channel_id, writeFPLMNListApdu.data(), sizeOfwriteFPLMNListApdu, responseAPDU, &responseLength);
-    if(res != LE_OK || (uint8_t)apduResponse.sw1 != 0x90 || (uint8_t)apduResponse.sw2 != 0x00) {
+    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x90 || (uint8_t)responseAPDU[responseLength-1] != 0x00) {
         res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
         LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
         return LE_FAULT;
@@ -2747,4 +2835,39 @@ le_result_t taf_sim::getSlotCount(int *count) {
 
     LE_ERROR("GetSlotCount failed because multi sim sub system is not ready");
     return LE_FAULT;
+}
+le_result_t taf_sim::CheckRefreshAllow(taf_pa_sim_RefreshChangeInd_t* ind)
+{
+    auto &sim = taf_sim::GetInstance();
+    std::unique_lock<std::mutex> lock(sim.eventMutex);
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(sim.SessionRefMap);
+    le_result_t result = le_ref_NextNode(iterRef);
+    while (LE_OK == result)
+    {
+        taf_sim_Session_t* sessionPtr = (taf_sim_Session_t*) le_ref_GetValue(iterRef);
+
+        TAF_ERROR_IF_RET_VAL( NULL == sessionPtr, LE_FAULT, "SessionPtr is NULL");
+        // Check if the refresh mode received from the modem  matches with any of the refresh modes requested by the client
+        if (((1 << ind->refreshMode) & sessionPtr->refreshMode) != 0)
+        {
+            if(!sessionPtr->refreshAllow)
+            {
+                LE_INFO("For sessionPtr: %p refreshMode: %d not allow", sessionPtr, (int)sessionPtr->refreshMode);
+                return LE_FAULT;
+            }
+        }
+        result = le_ref_NextNode(iterRef);
+    }
+    return LE_OK;
+}
+void taf_sim::ResetRefreshVote(taf_sim_Session_t* ClientRequestPtr)
+{
+   if(ClientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV){
+        RefreshVoteSent_Slot1 = false;
+        LE_DEBUG("RefreshVoteSent_Slot1 is %d:",RefreshVoteSent_Slot1);
+    }
+    if(ClientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV){
+        RefreshVoteSent_Slot2 = false;
+        LE_DEBUG("RefreshVoteSent_Slot2 is %d:",RefreshVoteSent_Slot2);
+    }
 }

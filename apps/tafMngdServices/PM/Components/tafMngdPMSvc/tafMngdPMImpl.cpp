@@ -126,6 +126,7 @@ le_result_t tafMngdPMSvc::ShutdownNAD()
     }
     else
     {
+        LE_INFO("Shutting down the NAD!");
         le_hashmap_It_Ref_t hashIter =
                 (le_hashmap_It_Ref_t)le_hashmap_GetIterator(vmStateHashmap);
         while (LE_OK == le_hashmap_NextNode(hashIter))
@@ -153,6 +154,7 @@ le_result_t tafMngdPMSvc::RestartNAD()
     }
     else
     {
+        LE_INFO("Restarting the NAD!");
         le_hashmap_It_Ref_t hashIter =
                 (le_hashmap_It_Ref_t)le_hashmap_GetIterator(vmStateHashmap);
         while (LE_OK == le_hashmap_NextNode(hashIter))
@@ -181,6 +183,7 @@ le_result_t tafMngdPMSvc::SuspendNAD()
     }
     else
     {
+        LE_INFO("Suspending the NAD!");
         le_hashmap_It_Ref_t hashIter =
                 (le_hashmap_It_Ref_t)le_hashmap_GetIterator(vmStateHashmap);
         while (LE_OK == le_hashmap_NextNode(hashIter))
@@ -508,7 +511,7 @@ void tafMngdPMSvc::NodeEventCB
     }
     else
     {
-        LE_INFO("Received not supported mode from VHAL");
+        LE_ERROR("Received unsupported mode from VHAL");
     }
 }
 
@@ -546,7 +549,6 @@ void tafMngdPMSvc::OnClientConnection(le_msg_SessionRef_t sessionRef, void *ctxP
 void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ctxPtr)
 {
     LE_DEBUG("OnClientDisconnection");
-
     taf_mngdPm_SessionNode_t* sessionNodePtr =
             (taf_mngdPm_SessionNode_t*)le_hashmap_Remove(mngdPmClientInfo.clients, sessionRef);
 
@@ -602,7 +604,7 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
                 le_result_t res = tafMngdPMSvc::ReleaseWakeLock();
                 if(res == LE_OK)
                 {
-                    LE_INFO("Released lock");
+                    LE_INFO("Released lock for the client with sessionRef %p", wsRefCtxPtr->sessionRef);
                     wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
                 }
             }
@@ -994,7 +996,7 @@ le_result_t tafMngdPMSvc::AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr)
     res = tafMngdPMSvc::AcquireWakeLock();
     if(res == LE_OK)
     {
-        LE_INFO("Acquired wakelock");
+        LE_INFO("Acquired wake source for %s with the stayawakeReason:%d, wakeSourceState set to: WAKE_SOURCE_ACQUIRED ", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
         wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_ACQUIRED;
         tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_WAKING_UP);
         //sending notification to VHAL
@@ -1007,7 +1009,7 @@ le_result_t tafMngdPMSvc::AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr)
     }
     else
     {
-        LE_INFO("Failed to acquire wake source.");
+        LE_ERROR("Failed to acquire wake source for the stayawakeReason:%d", wsRefCtxPtr->reason);
     }
     return res;
 }
@@ -1031,7 +1033,7 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
             }
             else
             {
-                LE_INFO("failed to acquire ws");
+                LE_ERROR("failed to acquire ws");
             }
         }
         else
@@ -1089,10 +1091,9 @@ void tafMngdPMSvc::RefreshWakeSources()
             {
                 if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason))
                 {
-                    LE_INFO("stayAwakeReason is in authorized stayAwakeReasonList");
                     if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_IGNORED)
                     {
-                        LE_INFO("wakeSource unignored , it is in authorized stayAwakeReasonList");
+                        LE_INFO("wakeSource of %s with the authorized stayawakeReason:%d changed from WAKE_SOURCE_IGNORED to WAKE_SOURCE_ACQUIRED", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
                         AcquireWakeSource(wsRefCtxPtr);
                     }
                     else
@@ -1102,7 +1103,7 @@ void tafMngdPMSvc::RefreshWakeSources()
                 }
                 else if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_ACQUIRED)
                 {
-                    LE_INFO("stayAwakeReason is not in authorized stayAwakeReasonList");
+                    LE_INFO("wakeSource of %s with the unauthorized stayawakeReason:%d changed from WAKE_SOURCE_ACQUIRED to WAKE_SOURCE_IGNORED", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
                     ReleaseWakeSource(wsRefCtxPtr);
                     wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_IGNORED;
                     LE_INFO("RefreshWakeSource: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
@@ -1110,7 +1111,7 @@ void tafMngdPMSvc::RefreshWakeSources()
             }
             else
             {
-                LE_INFO("WakeLock not acquired");
+                LE_INFO("wakeSource state: %d for the %s with the stayawakeReason:%d not acquired", wsRefCtxPtr->wakeSourceState, wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
                 continue;
             }
         }
@@ -1142,7 +1143,7 @@ le_result_t tafMngdPMSvc::ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr)
     res = tafMngdPMSvc::ReleaseWakeLock();
     if(res == LE_OK)
     {
-        LE_INFO("client Released WakeLock");
+        LE_INFO("client released wakesource for %s the with reason: %d, wakeSourceState set to: WAKE_SOURCE_NOT_ACQUIRED ", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
         tafMngdPMSvc::ProcessStateChange(
                 TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
         wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
@@ -1215,7 +1216,7 @@ void tafMngdPMSvc::SetModemWakeupSource(taf_mngdPm_WakeupType_t wakeupType)
             }
         }
     }
-    LE_INFO("SetModemWakeupSource type %d", wakeupType);
+    LE_INFO("SetModemWakeupSource type %d for session Reference: %p", wakeupType,taf_mngdPm_GetClientSessionRef());
     mpms.wsWhiteList.push_back({wakeupType, taf_mngdPm_GetClientSessionRef()});
 }
 
@@ -1276,11 +1277,11 @@ le_result_t tafMngdPMSvc::RequestStateChange(taf_mngdPm_State_t requestedState)
 
     if(res == LE_NOT_PERMITTED)
     {
-        LE_INFO("RequestStateChange NOT PERMITTED");
+        LE_ERROR("RequestStateChange for %d is NOT PERMITTED", requestedState);
         return res;
     }
 
-    LE_INFO("RequestStateChange OK");
+    LE_INFO("RequestStateChange for %d is OK", requestedState);
     return LE_OK;
 }
 
@@ -1365,6 +1366,7 @@ bool tafMngdPMSvc::IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, t
     }
     else
     {
+        LE_ERROR("Not same as the current State!");
         return false;
     }
 }
@@ -1383,7 +1385,6 @@ bool tafMngdPMSvc::IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mn
     }
     else if(state == TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE && (stateMask & (1 << 2)) !=0)
     {
-       LE_INFO("IsConfiguredBitMask");
         isSameBitMask = true;
     }
     else if(state == TAF_MNGDPM_NODE_STATE_RESUME && (stateMask & (1 << 3)) !=0)
@@ -1392,7 +1393,7 @@ bool tafMngdPMSvc::IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mn
     }
     else
     {
-        LE_INFO("IsConfiguredBitMask");
+        LE_ERROR("IsConfiguredBitMask: false");
         isSameBitMask = false;
     }
     return isSameBitMask;
@@ -1537,7 +1538,7 @@ void tafMngdPMSvc::NodePowerStateChanged(void* reportPtr)
     }
     else
     {
-        LE_INFO("Invalid state");
+        LE_ERROR("Invalid state");
     }
 }
 
@@ -1610,10 +1611,15 @@ bool tafMngdPMSvc::IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stay
     std::bitset<32> clientStayAwakeReasonMask(clientMask);
     if((clientStayAwakeReasonMask & mpms.stayAwakeReasonMask) == clientStayAwakeReasonMask)
     {
-        LE_INFO("stayAwakeReason is authorized");
+        LE_INFO("stayAwakeReason: %d is authorized", stayAwakeReason);
         return true;
     }
-    return false;
+    else
+    {
+        LE_ERROR("stayAwakeReason: %d is unauthorized", stayAwakeReason);
+        return false;
+    }
+
 }
 
 /**
@@ -1641,6 +1647,78 @@ tafMngdPMSvc &tafMngdPMSvc::GetInstance()
  */
 void tafMngdPMSvc::Init(void)
 {
+    // Local -> node_id => 0, Remote -> node_id => 1
+    cbLocalMap = le_ref_CreateMap("mpms-l-cb-map", TAF_MNGDPM_VM_HASH_SIZE);
+    cbRemoteMap = le_ref_CreateMap("mpms-r-cb-map", TAF_MNGDPM_VM_HASH_SIZE);
+
+    cbHandlerPool = le_mem_CreatePool("mpms-cb-pool", sizeof(CallbackHandlerCombo_t));
+
+    // Flags to indicate if the enable-action was done or not.
+    enableLocal = false;
+    enableRemote = false;
+}
+
+void tafMngdPMSvc::EnableLocalOnce(void)
+{
+    pmsLocalWakeupHandler =
+        taf_pm_AddModemAwakeHandler(
+            tafMngdPMSvc::ClientCallbackDispatcher,
+            cbLocalMap,
+            0);
+
+    LE_FATAL_IF(
+        pmsLocalWakeupHandler == NULL,
+        "Failed to taf_pm_AddModemAwakeHandler"
+    );
+
+    enableLocal = true;
+}
+
+void tafMngdPMSvc::EnableRemoteOnce(void)
+{
+    pmsRemoteWakeupHandler =
+        taf_rpcPm_AddModemAwakeHandler(
+            tafMngdPMSvc::ClientCallbackDispatcher,
+            cbRemoteMap,
+            0);
+
+    LE_FATAL_IF(
+        pmsRemoteWakeupHandler == NULL,
+        "Failed to pmsRemoteWakeupHandler"
+    );
+
+    enableRemote = true;
+}
+
+void tafMngdPMSvc::ClientCallbackDispatcher
+(
+    taf_pm_ModemAwakeEventRef_t ref,
+    taf_pm_NodeModemWsBitMask_t wsBitmask,
+    void * contextPtr
+)
+{
+    LE_UNUSED(ref);
+
+    LE_INFO("Hit: ClientCallbackDispatcher");
+
+    le_ref_MapRef_t cbMap = (le_ref_MapRef_t )contextPtr;
+
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(cbMap);
+
+    CallbackHandlerCombo_t *combo = NULL;
+
+    while ( le_ref_NextNode(iterRef) == LE_OK )
+    {
+        combo = (CallbackHandlerCombo_t *)le_ref_GetValue(iterRef);
+
+        // [t, main-thread]: one by one
+        combo->callback((taf_mngdPm_NodeModemAwakeEventRef_t) NULL,
+                        combo->nodeId,
+                        wsBitmask,
+                        combo->context);
+    }
+
+    LE_INFO("All callback dispatched [done]");
 }
 
 /**
@@ -1702,3 +1780,11 @@ std::bitset<32>  tafMngdPMSvc::stayAwakeReasonMask;
 //resources for clients state change acknowledgement
 le_timer_Ref_t tafMngdPMSvc::stateChangeAckTimerRef;
 taf_mngdPm_NodePowerState_t tafMngdPMSvc::currentStateChangePtr;
+
+le_mem_PoolRef_t tafMngdPMSvc::cbHandlerPool;
+le_ref_MapRef_t tafMngdPMSvc::cbLocalMap;
+le_ref_MapRef_t tafMngdPMSvc::cbRemoteMap;
+bool tafMngdPMSvc::enableLocal;
+bool tafMngdPMSvc::enableRemote;
+taf_pm_ModemAwakeHandlerRef_t tafMngdPMSvc::pmsLocalWakeupHandler;
+taf_pm_ModemAwakeHandlerRef_t tafMngdPMSvc::pmsRemoteWakeupHandler;

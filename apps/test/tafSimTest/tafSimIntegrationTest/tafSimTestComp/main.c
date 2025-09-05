@@ -53,6 +53,9 @@ static void DisplayAppUsage(void) {
     printf("SIM unlock test: app runProc tafSimIntTest --exe=tafSimIntTest -- unlock <slot1/slot2/unknown> <pin1/fdn> pin\n");
     printf("SIM open logical channel test: app runProc tafSimIntTest --exe=tafSimIntTest -- openLogicalChannel <slot1/slot2/unknown> <AID>\n");
     printf("SIM close logical channel test: app runProc tafSimIntTest --exe=tafSimIntTest -- closeLogicalChannel <slot1/slot2/unknown> <Channel ID>\n");
+    printf("SIM send APDU on logical channel test: app runProc tafSimIntTest --exe=tafSimIntTest -- sendApduOnChannel <slot1/slot2/unknown> <Channel ID> <CLA> <INS> <P1> <P2> <P3> [Data bytes in decimal e.g. 0 164 8 4 4 127 255 111 ...]\n");
+    printf("SIM send APDU on logical channel test: app runProc tafSimIntTest --exe=tafSimIntTest -- sendApdu <slot1/slot2/unknown> <CLA> <INS> <P1> <P2> <P3> [Data bytes in decimal e.g. 0 164 0 4 2 63 0 ...]\n");
+    printf("SIM send command test: app runProc tafSimIntTest --exe=tafSimIntTest -- sendCommand <slot1/slot2/unknown>\n");
     printf("SIM get app types: app runProc tafSimIntTest --exe=tafSimIntTest -- getAppType <slot1/slot2/unknown>\n");
     printf("SIM access test: app runProc tafSimIntTest --exe=tafSimIntTest -- access <slot1/slot2/unknown>\n");
     printf("SIM SetPower test: app runProc tafSimIntTest --exe=tafSimIntTest -- setPower <slot1/slot2/unknown> <ON/OFF>\n");
@@ -433,6 +436,117 @@ COMPONENT_INIT
         }
         uint8_t channelId = atoi(channelIdPtr);
         tafSimTest_sim_closeLogicalChannel(simId, channelId);
+    }
+    else if (strcmp(testType, "sendApduOnChannel") == 0)
+    {
+        int count = le_arg_NumArgs();
+        if (count < 8) {
+            LE_ERROR("Insufficient arguments provided.\n");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        const char* channelIdPtr = le_arg_GetArg(2);
+        const char* claPtr = le_arg_GetArg(3);
+        const char* insPtr = le_arg_GetArg(4);
+        const char* p1Ptr = le_arg_GetArg(5);
+        const char* p2Ptr = le_arg_GetArg(6);
+        const char* p3Ptr = le_arg_GetArg(7);
+        if (!channelIdPtr || !claPtr
+            || !insPtr || !p1Ptr
+            || !p2Ptr || !p3Ptr)
+        {
+            LE_ERROR("One or more input parameters are NULL.\n");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+
+        uint8_t channelId = atoi(channelIdPtr);
+        uint8_t cla = atoi(claPtr);
+        uint8_t ins = atoi(insPtr);
+        uint8_t p1 = atoi(p1Ptr);
+        uint8_t p2 = atoi(p2Ptr);
+        uint8_t p3 = atoi(p3Ptr);
+
+        uint8_t requestApdu[TAF_SIM_APDU_MAX_BYTES] = {0};
+        requestApdu[0] = cla;
+        requestApdu[1] = ins;
+        requestApdu[2] = p1;
+        requestApdu[3] = p2;
+        requestApdu[4] = p3;
+        for (int i = 0; i < (count-8) && i < (TAF_SIM_APDU_MAX_BYTES-5); i++) {
+            const char* bytePtr = le_arg_GetArg(i+8);
+            if (!bytePtr) {
+                LE_ERROR("Invalid byte argument at index %d.\n", i + 8);
+                exit(EXIT_FAILURE);
+            }
+
+            int byte = atoi(bytePtr);
+            if (byte < 0 || byte > 255) {
+                printf("Invalid input %d (Valid range: 0 to 255).\n", byte);
+                printf("Failed! Please try again...\n");
+                exit(EXIT_FAILURE);
+            }
+
+            requestApdu[i+5] = (uint8_t) byte;
+        }
+        requestApdu[0] = channelId;
+        tafSimTest_sim_sendApduOnChannel(simId, channelId, requestApdu, (count-3));
+    }
+    else if (strcmp(testType, "sendApdu") == 0)
+    {
+        int count = le_arg_NumArgs();
+        if (count < 7) {
+            LE_ERROR("Insufficient arguments provided.\n");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+
+        const char* claPtr = le_arg_GetArg(2);
+        const char* insPtr = le_arg_GetArg(3);
+        const char* p1Ptr = le_arg_GetArg(4);
+        const char* p2Ptr = le_arg_GetArg(5);
+        const char* p3Ptr = le_arg_GetArg(6);
+        if (!claPtr || !insPtr ||
+            !p1Ptr || !p2Ptr || !p3Ptr)
+        {
+            LE_ERROR("One or more input parameters are NULL.\n");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+
+        uint8_t cla = atoi(claPtr);
+        uint8_t ins = atoi(insPtr);
+        uint8_t p1 = atoi(p1Ptr);
+        uint8_t p2 = atoi(p2Ptr);
+        uint8_t p3 = atoi(p3Ptr);
+
+        uint8_t requestApdu[TAF_SIM_APDU_MAX_BYTES] = {0};
+        requestApdu[0] = cla;
+        requestApdu[1] = ins;
+        requestApdu[2] = p1;
+        requestApdu[3] = p2;
+        requestApdu[4] = p3;
+        for (int i = 0; i < (count-7) && i < (TAF_SIM_APDU_MAX_BYTES-5); i++) {
+            const char* bytePtr = le_arg_GetArg(i+7);
+            if (!bytePtr) {
+               LE_ERROR("Invalid byte argument at index %d.\n", i + 7);
+               exit(EXIT_FAILURE);
+            }
+            int byte = atoi(bytePtr);
+            if (byte < 0 || byte > 255) {
+                printf("Invalid input %d (Valid range: 0 to 255).\n", byte);
+                printf("Failed! Please try again...\n");
+                exit(EXIT_FAILURE);
+            }
+
+            requestApdu[i+5] = (uint8_t) byte;
+        }
+
+        tafSimTest_sim_sendApdu(simId, requestApdu, (count-2));
+    }
+    else if (strcmp(testType, "sendCommand") == 0)
+    {
+        tafSimTest_sim_sendCommand(simId);
     }
     else if(strcmp(testType, "swapProfiles") == 0)
     {

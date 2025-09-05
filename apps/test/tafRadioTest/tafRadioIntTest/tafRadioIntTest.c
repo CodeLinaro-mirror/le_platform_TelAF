@@ -24,6 +24,8 @@ taf_radio_NetStatusChangeHandlerRef_t netStatusChangeHandlerRef;
 taf_radio_ImsStatusChangeHandlerRef_t imsStatusChangeHandlerRef;
 taf_radio_CellInfoChangeHandlerRef_t cellInfoChangeHandlerRef;
 taf_radio_NrIconTypeHandlerRef_t nrIconTypeHandlerRef;
+taf_radio_CAInfoHandlerRef_t lteCaInfoHandlerRef;
+taf_radio_ConnectionStatusHandlerRef_t connStatusHandlerRef;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1060,6 +1062,101 @@ void PrintRFBandwidth
     }
 }
 
+void PrintCAStatus
+(
+    uint8_t phoneId,             ///< [IN] Phone ID.
+    taf_radio_CAStatus_t status ///< [IN] CA status.
+)
+{
+    switch (status)
+    {
+        case TAF_RADIO_CA_STATUS_DEACTIVATED:
+            LE_INFO("Phone %d CA status : Deactivated.", phoneId);
+            break;
+        case TAF_RADIO_CA_STATUS_ACTIVATED:
+            LE_INFO("Phone %d CA status : Activated.", phoneId);
+            break;
+        default:
+            LE_INFO("Phone %d CA status : Unknown.", phoneId);
+            break;
+    }
+}
+
+void PrintLteCAInfo
+(
+    uint8_t phoneId,              ///< [IN] Phone ID.
+    taf_radio_CAInfoRef_t infoRef ///< [IN] CA information reference.
+)
+{
+    taf_radio_CAStatus_t status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+    uint32_t count = 0;
+    le_result_t result =  taf_radio_GetLteCAStatus(infoRef, &status, &count);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCAStatus - OK");
+    if (result == LE_OK)
+    {
+        PrintCAStatus(phoneId, status);
+        LE_INFO("Phone %d CA activated CC number : %d", phoneId, count);
+    }
+}
+
+void PrintEndcStatus
+(
+    uint8_t phoneId,                      ///< [IN] Phone ID.
+    taf_radio_NREndcAvailability_t status ///< [IN] ENDC status.
+)
+{
+    switch (status)
+    {
+        case TAF_RADIO_NR_ENDC_AVAILABLE:
+            LE_INFO("Phone %d ENDC status : Available.", phoneId);
+            break;
+        case TAF_RADIO_NR_ENDC_UNAVAILABLE:
+            LE_INFO("Phone %d ENDC status : Unavailable.", phoneId);
+            break;
+        default:
+            LE_INFO("Phone %d ENDC status : Unknown.", phoneId);
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for connection status.
+ */
+//--------------------------------------------------------------------------------------------------
+void ConnectionStatusHandler
+(
+    uint8_t phoneId,                     ///< [IN] Phone ID.
+    taf_radio_ConnIndBitMask_t bitmask,  ///< [IN] Connection indication bitmask.
+    taf_radio_ConnStatusRef_t statusRef, ///< [IN] Connection status reference.
+    void* contextPtr                     ///< [IN] Handler context.
+)
+{
+    if (bitmask & TAF_RADIO_CONN_IND_BIT_MASK_ENDC)
+    {
+        taf_radio_NREndcAvailability_t status = TAF_RADIO_NR_ENDC_UNKNOWN;
+        le_result_t result = taf_radio_GetEndcConnectionStatus(statusRef, &status);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetEndcConnectionStatus - OK");
+        if (result == LE_OK)
+            PrintEndcStatus(phoneId, status);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for LTE CA information
+ */
+//--------------------------------------------------------------------------------------------------
+void LteCaInfoHandler
+(
+    uint8_t phoneId,                  ///< [IN] Phone ID.
+    taf_radio_CAInfoRef_t infoRef,    ///< [IN] CA information reference.
+    void* contextPtr                  ///< [IN] Handler context.
+)
+{
+    PrintLteCAInfo(phoneId, infoRef);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Configurations on GSM signal indication.
@@ -1778,6 +1875,14 @@ void* HandlerTestThread
         (taf_radio_NrIconTypeHandlerFunc_t)NrIconTypeHandler, NULL);
     LE_TEST_OK(nrIconTypeHandlerRef != NULL, "taf_radio_AddNrIconTypeHandler - !NULL");
 
+    lteCaInfoHandlerRef = taf_radio_AddCAInfoHandler(TAF_RADIO_RAT_LTE,
+        (taf_radio_CAInfoHandlerFunc_t)LteCaInfoHandler, NULL);
+    LE_TEST_OK(lteCaInfoHandlerRef != NULL, "taf_radio_AddCAInfoHandler - !NULL");
+
+    connStatusHandlerRef = taf_radio_AddConnectionStatusHandler(
+        (taf_radio_ConnectionStatusHandlerFunc_t)ConnectionStatusHandler, NULL);
+    LE_TEST_OK(connStatusHandlerRef != NULL, "taf_radio_AddConnectionStatusHandler - !NULL");
+
     le_sem_Post((le_sem_Ref_t)contextPtr);
     le_event_RunLoop();
 
@@ -1840,6 +1945,12 @@ void RemoveTestHandler
 
     taf_radio_RemoveNrIconTypeHandler(nrIconTypeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveNrIconTypeHandler - void");
+
+    taf_radio_RemoveCAInfoHandler(lteCaInfoHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveCAInfoHandler - void");
+
+    taf_radio_RemoveConnectionStatusHandler(connStatusHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveConnectionStatusHandler - void");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1933,7 +2044,6 @@ void RemoveSignalTestHandler
 
     taf_radio_RemoveCellInfoChangeHandler(cellInfoChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveCellInfoChangeHandler - OK");
-
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2937,6 +3047,53 @@ COMPONENT_INIT
         long phoneId = strtol(phone, NULL, 10);
 
         PrintCellularCapabilityStatus(phoneId);
+    }
+    else if (strncmp(cmd, "endc", strlen("endc")) == 0)
+    {
+        CheckArgs(2);
+        LE_TEST_INFO("======== ENDC Status========");
+
+        const char* phone = le_arg_GetArg(1);
+        if (phone == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(phone, NULL, 10);
+
+        taf_radio_ConnStatusRef_t statusRef = NULL;
+        taf_radio_NREndcAvailability_t status = TAF_RADIO_NR_ENDC_UNKNOWN;
+        result = taf_radio_GetConnStatus(phoneId, &statusRef);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetConnStatus - LE_OK");
+        result = taf_radio_GetEndcConnectionStatus(statusRef, &status);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetEndcConnectionStatus - OK");
+        if (result == LE_OK)
+        {
+            PrintEndcStatus(phoneId, status);
+            result = taf_radio_DeleteConnStatus(statusRef);
+            LE_TEST_OK(result == LE_OK, "taf_radio_DeleteConnStatus - OK");
+        }
+    }
+    else if (strncmp(cmd, "lte-ca", strlen("lte-ca")) == 0)
+    {
+        CheckArgs(2);
+        LE_TEST_INFO("======== LTE CA========");
+
+        const char* phone = le_arg_GetArg(1);
+        if (phone == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(phone, NULL, 10);
+
+        taf_radio_CAInfoRef_t infoRef = NULL;
+        result = taf_radio_GetCAInformation(phoneId, TAF_RADIO_RAT_LTE, &infoRef);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetCAInformation - LE_OK");
+        if (result == LE_OK)
+        {
+            PrintLteCAInfo(phoneId, infoRef);
+            result = taf_radio_DeleteCAInformation(infoRef);
+            LE_TEST_OK(result == LE_OK, "taf_radio_DeleteCAInformation - LE_OK");
+        }
     }
     else
     {

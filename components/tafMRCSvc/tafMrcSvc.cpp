@@ -101,3 +101,120 @@ le_result_t taf_mrc_SendSyncStatusMsg
 
     return LE_OK;
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Measures the EFS metrics.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_MeasureEfsMetrics
+(
+    taf_mrc_MetricsRef_t* referencePtr ///< [OUT] The EFS metrics reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Deletes the EFS metrics.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_DeleteEfsMetrics
+(
+    taf_mrc_MetricsRef_t reference ///< [IN] The EFS metrics reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the maximum program and erase count in EFS.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_GetEfsMaxPECount
+(
+    taf_mrc_MetricsRef_t reference, ///< [IN] The EFS metrics reference.
+    uint32_t* countPtr              ///< [OUT] The maximum program and erase count in EFS.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the minimum program and erase count in EFS.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_GetEfsMinPECount
+(
+    taf_mrc_MetricsRef_t reference, ///< [IN] The EFS metrics reference.
+    uint32_t* countPtr              ///< [OUT] The minimum program and erase count in EFS.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the average program and erase count in EFS.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_GetEfsAvgPECount
+(
+    taf_mrc_MetricsRef_t reference, ///< [IN] The EFS metrics reference.
+    uint32_t* countPtr              ///< [OUT] The average program and erase count in EFS.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the standard deviation of program and erase count in EFS.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_GetEfsPEStandardDeviation
+(
+    taf_mrc_MetricsRef_t reference, ///< [IN] The EFS metrics reference.
+    uint32_t* sdPtr                 ///< [OUT] The standard deviation
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the bad block count in EFS.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_GetEfsBadBlocks
+(
+    taf_mrc_MetricsRef_t reference, ///< [IN] The EFS metrics reference.
+    uint32_t* countPtr              ///< [OUT] The bad block count in EFS.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}

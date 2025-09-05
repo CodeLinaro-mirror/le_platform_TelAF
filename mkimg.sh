@@ -84,6 +84,12 @@ do
         echo "Packaging telaf-noship library ${base_name} for runtime..."
         cp ${full_name_noship} ${TARGET_STAGE_DIR}systems/current/lib/
     fi
+
+    # For cases: libComponent_taf_noship_*.so
+    if [[ $base_name == "libComponent_taf_noship_"* ]]; then
+        echo "Packaging telaf-noship library ${base_name} for runtime..."
+        cp ${full_name_noship} ${TARGET_STAGE_DIR}systems/current/lib/
+    fi
 done
 
 if [ -n "${VENDOR_ROOT}" ] && [ -d "${VENDOR_ROOT}" ]; then

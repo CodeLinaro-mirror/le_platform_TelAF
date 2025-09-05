@@ -105,9 +105,32 @@
     }
    @endverbatim
  *
+ * @section taf_mngdPm_ModemWakesource Modem wake source configuration
+ *
+ * TelAF Managed Power Management Service's client calls taf_mngdPm_SetNodeModemWakeupSel() to
+ * set the whitelisted modem wake sources within modem services of SMS, SIM and voice call.
+ * By default, there's no whitelist control for modem wake sources from TelAF Managed Power
+ * Management Service if there's no client calling the API.
+ *
+ * Supported modem wake sources control are defined with NodeModemWsBitMask:
+ * -- SMS: Modem wake up due to incoming SMS.
+ * -- VOICE_CALL: Modem wake up due to incoming voice call.
+ * -- REMOTE_SIM_PROFILE_SWAP: Modem wake up due to remote SIM profile swap.
+ *
+ * taf_mngdPm_SetNodeModemWakeupSel() is used to query the configured whitelisted modem wake
+ * sources by taf_mngdPm_SetNodeModemWakeupSel().
+ *
+ * When there is a NAD wakeup triggered due to the supported modem wake sources, the API of
+ * taf_mngdPm_GetNodeModemAwakeReason() is used to query it. If there are clients registering
+ * for the wake up event by taf_mngdPm_AddNodeModemAwakeHandler(),
+ * the wake up event will be sent to the clients with node ID and wake up reason.
+ *
  * @section taf_mngdPm_SetModemWakeupSource Configure the allowed Modem wakeup source type
  *
- * The API of taf_mngdPm_SetModemWakeupSource() is used to configure the allowed Modem wakeup source type.
+ * @b NOTE: This section is obsolete and will be removed soon.
+ *
+ * The API of taf_mngdPm_SetModemWakeupSource() is used to configure the allowed Modem wakeup
+ * source type.
  * The input parameter is taken as the bitmap to set to the service.
  * The service takes the union of multiple API calls to set the allowed wakeup sources.
  * Bit 0 is for SMS, bit 1 is for incoming call, bit 2 is for MCU_VHAL.
@@ -125,7 +148,8 @@
  *
  * TelAF Managed Power Management Service's client calls taf_mngdPm_CreateWakeupSource() and
  * taf_mngdPm_StayAwake() to acquire a wake source to keep the system awake.
- * The reason parameter in taf_mngdPm_CreateWakeupSource() is authenticated based on the mask given by
+ * The reason parameter in taf_mngdPm_CreateWakeupSource() is authenticated based on the mask
+ * given by
  * taf_mngdPm_AuthorizeStayAwakeReason() and passed to VHAL.
  * The authorized wake source keeps the system awake when taf_mngdPm_StayAwake() is called.
  * By default, all the stake awake reasons are authorized.
@@ -134,7 +158,10 @@
     void CreateWakeupSource()
     {
         const char* wsTag = "OEM_Normal";
-        taf_mngdPm_wsRef_t ref = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        taf_mngdPm_wsRef_t ref = taf_mngdPm_CreateWakeupSource(
+                       TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+                       TAF_MNGDPM_WS_OPT_DEFAULT, wsTag
+                       );
         if(ref != NULL)
             LE_INFO("taf_mngdPm_CreateWakeupSource created a wake source successfully");
     }

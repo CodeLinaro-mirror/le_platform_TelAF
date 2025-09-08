@@ -303,8 +303,8 @@ void taf_radio_SetManualRegisterModeAsync
     cmdReq.handlerFuncPtr = (void*)handlerPtr;
     cmdReq.contextPtr = contextPtr;
     cmdReq.phoneId = phoneId;
-    cmdReq.mccPtr = mccPtr;
-    cmdReq.mncPtr = mncPtr;
+    le_utf8_Copy(cmdReq.mccPtr, mccPtr, TAF_RADIO_MCC_BYTES, NULL);
+    le_utf8_Copy(cmdReq.mncPtr, mncPtr, TAF_RADIO_MNC_BYTES, NULL);
 
     le_event_Report(taf_Radio::radioCmdEvId, &cmdReq, sizeof(taf_RadioCmdReq_t));
 }

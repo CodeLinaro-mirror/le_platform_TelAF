@@ -169,8 +169,8 @@ typedef struct
     void* contextPtr;
     taf_radio_RatBitMask_t ratMask;
     uint8_t phoneId;
-    const char* mccPtr;
-    const char* mncPtr;
+    char mccPtr[TAF_RADIO_MCC_BYTES];
+    char mncPtr[TAF_RADIO_MNC_BYTES];
 } taf_RadioCmdReq_t;
 
 /*

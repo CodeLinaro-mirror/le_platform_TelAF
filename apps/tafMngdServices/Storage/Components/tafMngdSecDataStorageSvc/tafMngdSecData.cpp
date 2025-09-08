@@ -482,8 +482,41 @@ int tafMngdStorageSvc::RenameTempFile
 {
     char temp_filename[LIMIT_MAX_PATH_BYTES + sizeof(SECURE_DATA_TEMP_EXTENSION)];
     snprintf(temp_filename, sizeof(temp_filename), "%s%s", filename, SECURE_DATA_TEMP_EXTENSION);
-    return taf_rfs_Rename(temp_filename, filename);
+
+    if (taf_rfs_Rename(temp_filename, filename) != 0)
+    {
+        return -1;
+    }
+
+    LE_INFO("Renamed to data label: %s", filename);
+
+    // Ensure rename is synced
+    char dirPath[LIMIT_MAX_PATH_BYTES];
+    snprintf(dirPath, sizeof(dirPath), "%s", filename);
+    dirPath[LIMIT_MAX_PATH_BYTES - 1] = '\0'; // Ensure null termination
+    char* dirName = dirname(dirPath);
+
+    int dirFd = open(dirName, O_DIRECTORY | O_RDONLY);
+    if (dirFd >= 0)
+    {
+        if (fsync(dirFd) != 0)
+        {
+            LE_WARN("Failed to fsync directory '%s'", dirName);
+            close(dirFd);
+            return -1;
+        }
+        close(dirFd);
+    }
+    else
+    {
+        LE_WARN("Failed to open directory '%s' for fsync", dirName);
+        return -1;
+    }
+    LE_INFO("fsync for %s finished", filename);
+
+    return 0;
 }
+
 
 /**
  * Delete temp file
@@ -740,7 +773,10 @@ le_result_t tafMngdStorageSvc::WriteDataStart
         // Abort the crypto session when error
         taf_ks_CryptoSessionAbort(*sessionRefPtr);
         dataPtr->isInWritingProcess = false;
-        dataPtr->writeOp.sessionRef = NULL;
+        dataPtr->writeOp.sessionRef = nullptr;
+        dataPtr->writeOp.clientSessionRef = nullptr;
+
+        DeleteTempFile(dataPtr->path);
 
         return LE_FAULT;
     }
@@ -848,8 +884,12 @@ error_exit:
         taf_rfs_Close(dataPtr->writeOp.outputFd);
         dataPtr->writeOp.outputFd = -1;
     }
+
+    DeleteTempFile(dataPtr->path);
     dataPtr->isInWritingProcess = false;
-    dataPtr->writeOp.sessionRef = NULL;
+    dataPtr->writeOp.sessionRef = nullptr;
+    dataPtr->writeOp.clientSessionRef = nullptr;
+
     return result;
 }
 
@@ -910,11 +950,16 @@ le_result_t tafMngdStorageSvc::WriteDataEnd
         LE_INFO("Write encrypted data size = %" PRIuS, *encryptedDataSize);
     }
 
+    // Sync to disk before closing the file
+    if (fsync(dataPtr->writeOp.outputFd) != 0)
+    {
+        LE_WARN("Failed to fsync file '%s'", dataPtr->path);
+    }
     taf_rfs_Close(dataPtr->writeOp.outputFd);
 
     dataPtr->isInWritingProcess = false;
     dataPtr->writeOp.outputFd = -1;
-    dataPtr->writeOp.sessionRef = NULL;
+    dataPtr->writeOp.sessionRef = nullptr;
     dataPtr->writeOp.clientSessionRef = nullptr;
 
     if(RenameTempFile(dataPtr->path) != 0)
@@ -947,8 +992,10 @@ error_exit:
         taf_rfs_Close(dataPtr->writeOp.outputFd);
         dataPtr->writeOp.outputFd = -1;
     }
+
+    DeleteTempFile(dataPtr->path);
     dataPtr->isInWritingProcess = false;
-    dataPtr->writeOp.sessionRef = NULL;
+    dataPtr->writeOp.sessionRef = nullptr;
 
     return result;
 }
@@ -1186,7 +1233,7 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
         taf_rfs_Close(dataPtr->readOp.outputFd);
         dataPtr->readOp.outputFd = -1;
         dataPtr->isInReadingProcess = false;
-        dataPtr->readOp.sessionRef = NULL;
+        dataPtr->readOp.sessionRef = nullptr;
 
         LE_INFO("Total output data size = %" PRIuS, *readSize);
 
@@ -1265,7 +1312,7 @@ error_exit:
         dataPtr->readOp.outputFd = -1;
     }
     dataPtr->isInReadingProcess = false;
-    dataPtr->readOp.sessionRef = NULL;
+    dataPtr->readOp.sessionRef = nullptr;
 
     return result;
 }
@@ -1429,7 +1476,7 @@ le_result_t tafMngdStorageSvc::ReadDataNextChunk
         taf_rfs_Close(dataPtr->readOp.outputFd);
 
         dataPtr->readOp.outputFd = -1;
-        dataPtr->readOp.sessionRef = NULL;
+        dataPtr->readOp.sessionRef = nullptr;
     }
 
     return LE_OK;
@@ -1444,7 +1491,7 @@ error_exit:
         dataPtr->readOp.outputFd = -1;
     }
     dataPtr->isInReadingProcess = false;
-    dataPtr->readOp.sessionRef = NULL;
+    dataPtr->readOp.sessionRef = nullptr;
 
     return result;
 }

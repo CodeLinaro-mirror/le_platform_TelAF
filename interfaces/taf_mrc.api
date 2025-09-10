@@ -262,3 +262,19 @@ FUNCTION le_result_t GetEfsBadBlocks
     Metrics MetricsRef IN, ///< The EFS metrics reference.
     uint32 count OUT       ///< The bad block count in EFS.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Sets the period of EFS backup.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetEfsBackupPeriod
+(
+    uint32 period IN       ///< Period in second.
+);

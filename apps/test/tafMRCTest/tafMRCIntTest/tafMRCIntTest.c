@@ -43,6 +43,9 @@ void PrintHelpMenu
         "    app runProc tafMRCIntTest tafMRCIntTest -- sync <init/forced/success/failure>\n"
         "       Send OTA sync message.\n"
         "\n"
+        "    app runProc tafMRCIntTest tafMRCIntTest -- efs <status/period>\n"
+        "       Get EFS partition status or set EFS backup period.\n"
+        "\n"
     );
 
     exit(EXIT_SUCCESS);
@@ -154,8 +157,8 @@ COMPONENT_INIT
     else if (strncmp(cmd, "efs", strlen("efs")) == 0)
     {
         CheckArgs(2);
-        const char* status = le_arg_GetArg(1);
-        if (status != NULL && strncmp(status, "status", strlen("status")) == 0)
+        const char* option = le_arg_GetArg(1);
+        if (option != NULL && strncmp(option, "status", strlen("status")) == 0)
         {
             taf_mrc_MetricsRef_t metrics = NULL;
             result = taf_mrc_MeasureEfsMetrics(&metrics);
@@ -185,6 +188,19 @@ COMPONENT_INIT
 
             result = taf_mrc_DeleteEfsMetrics(metrics);
             LE_TEST_OK(result == LE_OK, "taf_mrc_DeleteEfsMetrics - LE_OK");
+        }
+        else if (option != NULL && strncmp(option, "period", strlen("period")) == 0)
+        {
+            CheckArgs(3);
+            const char* period = le_arg_GetArg(2);
+            if (period == NULL)
+            {
+                PrintHelpMenu();
+            }
+
+            long time = strtol(period, NULL, 10);
+            result = taf_mrc_SetEfsBackupPeriod(time);
+            LE_TEST_OK(result == LE_OK, "taf_mrc_SetEfsBackupPeriod - LE_OK");
         }
         else
         {

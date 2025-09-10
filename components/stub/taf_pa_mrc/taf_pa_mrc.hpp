@@ -131,6 +131,24 @@ taf_pa_mrc_OperationStatus_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Timer type.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_PA_MRC_TIMER_TYPE_SCRUB = 0,
+        ///< Timer for flash srubbing.
+    TAF_PA_MRC_TIMER_TYPE_EFS_BACKUP = 1,
+        ///< Timer for EFS backup.
+    TAF_PA_MRC_TIMER_TYPE_SUSPEND = 2,
+        ///< Timer for suspend.
+    TAF_PA_MRC_TIMER_TYPE_DEFER = 3
+        ///< Timer for defer.
+}
+taf_pa_mrc_TimerType_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Operation indication structure.
  */
 //--------------------------------------------------------------------------------------------------
@@ -357,6 +375,23 @@ LE_SHARED le_result_t taf_pa_mrc_Initialize
 (
     uint32_t sysTime, ///< [IN] Timeout for readiness of service.
     uint32_t respTime ///< [IN] Timeout for QMI response.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Config timer.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_mrc_ConfigTimer
+(
+    taf_pa_mrc_TimerType_t type,
+    uint32_t time
 );
 
 #endif /* TAF_PA_MRC_HPP */

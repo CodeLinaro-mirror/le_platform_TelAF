@@ -113,6 +113,27 @@ le_result_t taf_pa_mrc_PerformEFSBackup
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Config timer.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_mrc_ConfigTimer
+(
+    taf_pa_mrc_TimerType_t type,
+    uint32_t time
+)
+{
+    LE_WARN("Unsupported");
+    return LE_UNSUPPORTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Get MRC state.
  *
  * @return

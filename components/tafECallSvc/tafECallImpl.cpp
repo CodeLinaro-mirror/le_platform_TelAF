@@ -15,197 +15,250 @@ LE_REF_DEFINE_STATIC_MAP(ECallMap, MAX_ECALL);
 char fdn[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
 char sdn[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
 
-void tafECallOperatingModeCallback::setECallOperatingModeResponse(
-    telux::common::ErrorCode error) {
-    auto &eCall = taf_ecall::GetInstance();
-    if (error == telux::common::ErrorCode::SUCCESS) {
-        LE_DEBUG("Set eCall operating mode request executed successfully");
-    } else {
-        LE_ERROR( "Set eCall operating mode request failed error = %d", (int)error);
-    }
-    eCall.setOpModeProm.set_value(error);
-}
-
-void tafECallOperatingModeCallback::getECallOperatingModeResponse(
-    telux::tel::ECallMode eCallMode, telux::common::ErrorCode error) {
-
-    auto &eCall = taf_ecall::GetInstance();
-    if (error == telux::common::ErrorCode::SUCCESS) {
-        LE_DEBUG("eCall operating mode request executed successfully");
-    } else {
-        LE_ERROR("Request eCall Operating Mode failed, errorCode: ");
-    }
-    eCall.getOpModeProm.set_value(eCallMode);
-}
-
 void tafCallCommandCallback::makeCallResponse(telux::common::ErrorCode errorCode,
         std::shared_ptr<telux::tel::ICall> call) {
     auto &eCall = taf_ecall::GetInstance();
-    if(errorCode == telux::common::ErrorCode::SUCCESS) {
-        LE_INFO("Call is successful ");
-        if (call)
-        {
-            int32_t callIndex = call->getCallIndex();;
-            int8_t phoneId = call->getPhoneId();
-            eCall.SetCallIndex(callIndex);
-            eCall.SetCallPhoneId(phoneId);
-            LE_INFO("makeCallResponse %d, %d", callIndex, phoneId);
+    try
+    {
+        if(errorCode == telux::common::ErrorCode::SUCCESS) {
+            LE_INFO("Call is successful ");
+            if (call)
+            {
+                int32_t callIndex = call->getCallIndex();;
+                int8_t phoneId = call->getPhoneId();
+                eCall.SetCallIndex(callIndex);
+                eCall.SetCallPhoneId(phoneId);
+                LE_INFO("makeCallResponse %d, %d", callIndex, phoneId);
+            }
+        } else {
+            LE_ERROR("Call failed with error code: %d ", (static_cast<int>(errorCode)));
         }
-    } else {
-        LE_ERROR("Call failed with error code: %d ", (static_cast<int>(errorCode)));
+        eCall.makeEcallProm.set_value(errorCode);
     }
-    eCall.makeEcallProm.set_value(errorCode);
+    catch (const std::exception &e)
+    {
+       LE_ERROR("Exception: %s", e.what());
+    }
+    catch (...)
+    {
+        LE_ERROR("Unknown error in callback.");
+    }
 }
 
 void tafCallCommandCallback::makeECallResponse(telux::common::ErrorCode errorCode,
                                                       std::shared_ptr<telux::tel::ICall> call) {
     auto &eCall = taf_ecall::GetInstance();
-    if(errorCode == telux::common::ErrorCode::SUCCESS) {
-        LE_INFO("Call is successful ");
-        if (call)
-        {
-            int32_t callIndex = call->getCallIndex();;
-            int8_t phoneId = call->getPhoneId();
-            eCall.SetCallIndex(callIndex);
-            eCall.SetCallPhoneId(phoneId);
-            LE_INFO("makeCallResponse %d, %d", callIndex, phoneId);
+    try
+    {
+        if(errorCode == telux::common::ErrorCode::SUCCESS) {
+            LE_INFO("Call is successful ");
+            if (call)
+            {
+                int32_t callIndex = call->getCallIndex();;
+                int8_t phoneId = call->getPhoneId();
+                eCall.SetCallIndex(callIndex);
+                eCall.SetCallPhoneId(phoneId);
+                LE_INFO("makeCallResponse %d, %d", callIndex, phoneId);
+            }
+        } else {
+            LE_ERROR("Call failed with error code: %d ", (static_cast<int>(errorCode)));
         }
-    } else {
-        LE_ERROR("Call failed with error code: %d ", (static_cast<int>(errorCode)));
+        eCall.makeEcallProm.set_value(errorCode);
     }
-    eCall.makeEcallProm.set_value(errorCode);
+    catch (const std::exception &e)
+    {
+       LE_ERROR("Exception: %s", e.what());
+    }
+    catch (...)
+    {
+        LE_ERROR("Unknown error in callback.");
+    }
 }
 
 void tafPrieCallCommandCallback::makeECallResponse(telux::common::ErrorCode errorCode,
                                                       std::shared_ptr<telux::tel::ICall> call) {
     auto &eCall = taf_ecall::GetInstance();
-    if(errorCode == telux::common::ErrorCode::SUCCESS) {
-        LE_INFO("Call is successful ");
-        if (call)
-        {
-            int32_t callIndex = call->getCallIndex();;
-            int8_t phoneId = call->getPhoneId();
-            eCall.SetCallIndex(callIndex);
-            eCall.SetCallPhoneId(phoneId);
-            LE_INFO("makeCallResponse %d, %d", callIndex, phoneId);
-        }
+    try
+    {
+        if(errorCode == telux::common::ErrorCode::SUCCESS) {
+            LE_INFO("Call is successful ");
+            if (call)
+            {
+                int32_t callIndex = call->getCallIndex();;
+                int8_t phoneId = call->getPhoneId();
+                eCall.SetCallIndex(callIndex);
+                eCall.SetCallPhoneId(phoneId);
+                LE_INFO("makeCallResponse %d, %d", callIndex, phoneId);
+            }
 
-    } else {
-        LE_ERROR("Call failed with error code: %d ", (static_cast<int>(errorCode)));
+        } else {
+            LE_ERROR("Call failed with error code: %d ", (static_cast<int>(errorCode)));
+        }
+        eCall.makePrieCallProm.set_value(errorCode);
     }
-    eCall.makePrieCallProm.set_value(errorCode);
+    catch (const std::exception &e)
+    {
+       LE_ERROR("Exception: %s", e.what());
+    }
+    catch (...)
+    {
+        LE_ERROR("Unknown error in callback.");
+    }
 }
 
 void tafUpdateMsdCommandCallback::commandResponse(telux::common::ErrorCode errorCode) {
     auto &eCall = taf_ecall::GetInstance();
-    eCall.updateMsdProm.set_value(errorCode);
+    try
+    {
+        if(errorCode == telux::common::ErrorCode::SUCCESS) {
+            LE_INFO("Update MSD is successful ");
+        } else {
+            LE_ERROR("Update MSD failed with error code: %d ", (static_cast<int>(errorCode)));
+        }
+        eCall.updateMsdProm.set_value(errorCode);
+    }
+    catch (const std::exception &e)
+    {
+       LE_ERROR("Exception: %s", e.what());
+    }
+    catch (...)
+    {
+        LE_ERROR("Unknown error in callback.");
+    }
 }
 
 void tafHangupCommandCallback::commandResponse(telux::common::ErrorCode errorCode) {
-   if(errorCode == telux::common::ErrorCode::SUCCESS) {
-      LE_INFO("Call hangup is successful ");
-   } else {
-      LE_ERROR("Call hangup failed with error code: %d ", (static_cast<int>(errorCode)));
-   }
-   auto &eCall = taf_ecall::GetInstance();
-   eCall.hangupProm.set_value(errorCode);
+    auto &eCall = taf_ecall::GetInstance();
+    try
+    {
+        if(errorCode == telux::common::ErrorCode::SUCCESS) {
+            LE_INFO("Call hangup is successful ");
+        } else {
+            LE_ERROR("Call hangup failed with error code: %d ", (static_cast<int>(errorCode)));
+        }
+        eCall.hangupProm.set_value(errorCode);
+    }
+    catch (const std::exception &e)
+    {
+       LE_ERROR("Exception: %s", e.what());
+    }
+    catch (...)
+    {
+        LE_ERROR("Unknown error in callback.");
+    }
 }
 
 void tafRejectCommandCallback::commandResponse(telux::common::ErrorCode errorCode) {
-   if(errorCode == telux::common::ErrorCode::SUCCESS) {
-      LE_INFO("Call reject is successful ");
-   } else {
-      LE_ERROR("Call reject failed with error code: %d ", (static_cast<int>(errorCode)));
-   }
-   auto &eCall = taf_ecall::GetInstance();
-   eCall.rejectProm.set_value(errorCode);
+    auto &eCall = taf_ecall::GetInstance();
+    try
+    {
+        if(errorCode == telux::common::ErrorCode::SUCCESS) {
+            LE_INFO("Call reject is successful ");
+        } else {
+            LE_ERROR("Call reject failed with error code: %d ", (static_cast<int>(errorCode)));
+        }
+        eCall.rejectProm.set_value(errorCode);
+    }
+    catch (const std::exception &e)
+    {
+       LE_ERROR("Exception: %s", e.what());
+    }
+    catch (...)
+    {
+        LE_ERROR("Unknown error in callback.");
+    }
 }
 
 void tafAnswerCommandCallback::commandResponse(telux::common::ErrorCode errorCode) {
-   if(errorCode == telux::common::ErrorCode::SUCCESS) {
-      LE_INFO("Call answer is successful ");
-   } else {
-      LE_ERROR("Call answer failed with error code: %d ", (static_cast<int>(errorCode)));
-   }
-   auto &eCall = taf_ecall::GetInstance();
-   eCall.answerProm.set_value(errorCode);
-}
-
-void tafConfigRedialCallback::configureRedialResponse(
-    telux::common::ErrorCode error) {
     auto &eCall = taf_ecall::GetInstance();
-    if (error == telux::common::ErrorCode::SUCCESS) {
-        LE_INFO("Configure redial executed successfully");
-    } else {
-        LE_ERROR( "Configure redial failed error = %d", (int)error);
+    try
+    {
+        if(errorCode == telux::common::ErrorCode::SUCCESS) {
+            LE_INFO("Call answer is successful ");
+        } else {
+            LE_ERROR("Call answer failed with error code: %d ", (static_cast<int>(errorCode)));
+        }
+        eCall.answerProm.set_value(errorCode);
     }
-    eCall.configRedialProm.set_value(error);
-}
-
-void tafResumeHlapTimerCallback::resumeHlapTimerResponse(telux::common::ErrorCode error) {
-    auto &eCall = taf_ecall::GetInstance();
-    if (error == telux::common::ErrorCode::SUCCESS) {
-        LE_INFO("Resume hlap timer executed successfully");
-    } else {
-        LE_ERROR( "Restart hlap timer failed error = %d", (int)error);
+    catch (const std::exception &e)
+    {
+       LE_ERROR("Exception: %s", e.what());
     }
-    eCall.resumeHlapTimerProm.set_value(error);
+    catch (...)
+    {
+        LE_ERROR("Unknown error in callback.");
+    }
 }
 
 void tafECallListener::onIncomingCall(std::shared_ptr<telux::tel::ICall> call) {
     TAF_ERROR_IF_RET_NIL(call == nullptr, "call is nullptr!");
 
     auto &eCall = taf_ecall::GetInstance();
-    int8_t phoneId = call->getPhoneId(); 
-    std::promise<telux::common::ErrorCode> p;
-        std::promise<int> q;
-        std::promise<ECallHlapTimerStatus> r;
-        telux::tel::ECallHlapTimerStatusCallback cb =
-            [&p, &q, &r](telux::common::ErrorCode error, int phoneId, ECallHlapTimerStatus hlapTimerStatus) {
-            p.set_value(error);
-            q.set_value(phoneId);
-            r.set_value(hlapTimerStatus);
-        };
-
-    if (eCall.CallManager->requestECallHlapTimerStatus(phoneId, cb) == Status::SUCCESS)
-    {
-        if (p.get_future().get() == ErrorCode::SUCCESS) {
-            if (phoneId == q.get_future().get() &&
-                telux::tel::HlapTimerStatus::ACTIVE == r.get_future().get().t9)
+    int8_t phone_Id = call->getPhoneId();
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+    auto cb = [promisePtr, &phone_Id](telux::common::ErrorCode error, int phoneId, ECallHlapTimerStatus hlapTimerStatus) {
+        try
+        {
+            if((error == telux::common::ErrorCode::SUCCESS) &&
+               (phone_Id == phoneId) &&
+               (hlapTimerStatus.t9 == telux::tel::HlapTimerStatus::ACTIVE))
             {
-                if (telux::tel::CallState::CALL_INCOMING == call->getCallState())
-                {
-                    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(eCall.ECallPtrRefMap, eCall.GetECallReference());
-                    if (eCallPtr != NULL)
-                    {
-                        eCallPtr->iCall= call;
-                        taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
-                        tafECallSession_t sessionState = ECALL_INIT;
-                        state = TAF_ECALL_STATE_INCOMING;
-                        eCall.SetECallState(state);
-                        sessionState = ECALL_INCOMING;
-                        eCall.SetSessionState(sessionState);
-                        eCall.SetCallIndex(call->getCallIndex());
-                        eCall.SetCallPhoneId(call->getPhoneId());
+                promisePtr->set_value(LE_OK);
+            }
+            else
+            {
+                LE_ERROR("requestECallHlapTimerStatus failed errorCode: %d ", int(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
 
-                        StateChangeEvent_t stateEvent = { 0 };
-                        le_utf8_Copy(stateEvent.dest, call->getRemotePartyNumber().c_str(), MAX_DESTINATION_LEN, NULL);
-                        stateEvent.eCallRef = eCall.GetECallReference();
-                        stateEvent.state = state;
-                        stateEvent.phoneId = phoneId;
-                        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
-                    } else {
-                        LE_ERROR("eCallPtr is nullPtr");
-                    }
+    telux::common::Status status = eCall.CallManager->requestECallHlapTimerStatus(phone_Id, cb);
+    if(status == telux::common::Status::SUCCESS) {
+        std::future<le_result_t> futResult = promisePtr->get_future();
+        if (futResult.get() == LE_OK) {
+            if (telux::tel::CallState::CALL_INCOMING == call->getCallState())
+            {
+                taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(eCall.ECallPtrRefMap, eCall.GetECallReference());
+                if (eCallPtr != NULL)
+                {
+                    eCallPtr->iCall= call;
+                    taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
+                    tafECallSession_t sessionState = ECALL_INIT;
+                    state = TAF_ECALL_STATE_INCOMING;
+                    eCall.SetECallState(state);
+                    sessionState = ECALL_INCOMING;
+                    eCall.SetSessionState(sessionState);
+                    eCall.SetCallIndex(call->getCallIndex());
+                    eCall.SetCallPhoneId(call->getPhoneId());
+
+                    StateChangeEvent_t stateEvent = { 0 };
+                    le_utf8_Copy(stateEvent.dest, call->getRemotePartyNumber().c_str(), MAX_DESTINATION_LEN, NULL);
+                    stateEvent.eCallRef = eCall.GetECallReference();
+                    stateEvent.state = state;
+                    stateEvent.phoneId = phone_Id;
+                    le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+                } else {
+                    LE_ERROR("eCallPtr is nullPtr");
                 }
-            } else {
-                LE_ERROR("T9 is not in active state when receives the incoming call event");
             }
         } else {
-            LE_ERROR("Get eCall hlap timer failed with error code = %d", static_cast<int>(p.get_future().get()));
+            LE_ERROR("Get eCall hlap timer failed.");
         }
     } else {
-        LE_ERROR("Get eCall hlap timer failed");
+        LE_ERROR("Get eCall hlap timer failed with status: %d", static_cast<int>(status));
     }
 }
 
@@ -711,70 +764,95 @@ void taf_ecall::Init(void)
 {
     //  Get the PhoneFactory and PhoneManager instances.
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
-    std::promise<telux::common::ServiceStatus> prom;
 
-    CallManager = phoneFactory.getCallManager([&](telux::common::ServiceStatus status) {
-        LE_INFO("Getting status: %d from call manager", (int)status);
-        // If the status is SERVICE_UNAVAILABLE, the call manager will also update the status through initCB
-        if (status != telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
-        {
-            prom.set_value(status);
-        }
-    });
-    if (!CallManager)
+    auto callMgrPromisePtr = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+    auto callMgrCb = [callMgrPromisePtr](telux::common::ServiceStatus status)
     {
-        LE_FATAL("Can't get call manager");
-    }
+        try {
+            LE_INFO("Getting status: %d from call manager.", static_cast<int>(status));
+            if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+                callMgrPromisePtr->set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+            } else {
+                callMgrPromisePtr->set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+            }
+        } catch (const std::future_error &e) {
+            LE_ERROR("Future error in call manager callback: %s", e.what());
+        } catch (const std::exception &e) {
+            LE_ERROR("Exception in call manager callback: %s", e.what());
+        } catch (...) {
+            LE_ERROR("Unknown error in call manager callback.");
+        }
+    };
 
-    std::future<telux::common::ServiceStatus> initFuture = prom.get_future();
-    std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
-    telux::common::ServiceStatus serviceStatus;
-    if (std::future_status::timeout == waitStatus)
-    {
-        LE_FATAL ("Timeout waiting for susbsytem");
-    }
-    else
-    {
-        serviceStatus = initFuture.get();
-        if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
-        {
-            LE_FATAL(" *** ERROR - Unable to initialize call subsystem");
-        }
-    }
+    CallManager = phoneFactory.getCallManager(callMgrCb);
+    if (!CallManager) {
+        LE_FATAL("Can't get call manager.");
+    } else {
+        telux::common::ServiceStatus serviceStatus = CallManager->getServiceStatus();
+        if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+            LE_INFO("Call subsystem is not ready, wait for it to be ready.");
 
-    std::promise<telux::common::ServiceStatus> phoneMgrprom;
-    PhoneManager = PhoneFactory::getInstance().getPhoneManager([&] (telux::common::ServiceStatus status) {
-        LE_INFO("Getting status: %d from phone manager", (int)status);
-        // If the status is SERVICE_UNAVAILABLE, the call manager will also update the status through initCB
-        if (status != telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
-        {
-            phoneMgrprom.set_value(status);
-        }
-    });
-    if (!PhoneManager)
-    {
-        LE_FATAL("Can't get phone manager");
-    }
+            std::future<telux::common::ServiceStatus> initFuture = callMgrPromisePtr->get_future();
+            std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
 
-    telux::common::ServiceStatus phoneMgrStatus = PhoneManager->getServiceStatus();
-    if (phoneMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-        LE_INFO("telephony subsystem is not ready, wait for it to be ready");
-        std::future<telux::common::ServiceStatus> initFuture = phoneMgrprom.get_future();
-        std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
-        if (std::future_status::timeout == waitStatus)
-        {
-            LE_FATAL("Timeout waiting for susbsytem");
-        }
-        else
-        {
-            serviceStatus = initFuture.get();
-            if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
-            {
-                LE_FATAL(" *** ERROR - Unable to initialize phone subsystem");
+            if (waitStatus == std::future_status::timeout) {
+                LE_FATAL("Timeout waiting for call subsystem.");
+            } else {
+                serviceStatus = initFuture.get();
             }
         }
+
+        if (serviceStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+            LE_INFO("Call subsystem is ready.");
+        } else {
+            LE_FATAL("Fail to init call subsystem.");
+        }
     }
-    //  Exit the service, if SDK is unable to initialize telephony subsystems
+
+    auto phoneMgrPromisePtr = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+    auto phoneMgrCb = [phoneMgrPromisePtr](telux::common::ServiceStatus status)
+    {
+        try {
+            LE_INFO("Getting status: %d from phone manager.", static_cast<int>(status));
+            if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+                phoneMgrPromisePtr->set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+            } else {
+                phoneMgrPromisePtr->set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+            }
+        } catch (const std::future_error &e) {
+            LE_ERROR("Future error in phone manager callback: %s", e.what());
+        } catch (const std::exception &e) {
+            LE_ERROR("Exception in phone manager callback: %s", e.what());
+        } catch (...) {
+            LE_ERROR("Unknown error in phone manager callback.");
+        }
+    };
+
+    PhoneManager = phoneFactory.getPhoneManager(phoneMgrCb);
+    if (!PhoneManager) {
+        LE_FATAL("Can't get phone manager.");
+    } else {
+        telux::common::ServiceStatus serviceStatus = PhoneManager->getServiceStatus();
+        if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+            LE_INFO("Phone subsystem is not ready, wait for it to be ready.");
+
+            std::future<telux::common::ServiceStatus> initFuture = phoneMgrPromisePtr->get_future();
+            std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
+
+            if (waitStatus == std::future_status::timeout) {
+                LE_FATAL("Timeout waiting for phone subsystem.");
+            } else {
+                serviceStatus = initFuture.get();
+            }
+        }
+
+        if (serviceStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+            LE_INFO("Phone subsystem is ready.");
+        } else {
+            LE_FATAL("Fail to init phone subsystem.");
+        }
+    }
+
     std::vector<int> phoneIds;
     telux::common::Status status = PhoneManager->getPhoneIds(phoneIds);
     if (status == telux::common::Status::SUCCESS)
@@ -790,40 +868,48 @@ void taf_ecall::Init(void)
     }
 
     auto &subsystemFact = telux::platform::SubsystemFactory::getInstance();
-    std::promise<telux::common::ServiceStatus> subsystemMgrprom{};
 
-    subsystemMgr = subsystemFact.getSubsystemManager(
-            [&subsystemMgrprom](telux::common::ServiceStatus srvStatus) {
-        subsystemMgrprom.set_value(srvStatus);
-    });
-
-    if (!subsystemMgr) {
-        LE_FATAL("Couldn't get the subsystemMgr");
-    }
-
-    initFuture = subsystemMgrprom.get_future();
-    waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
-    if (std::future_status::timeout == waitStatus)
+    auto subsystemMgrPromisePtr = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+    auto subsystemMgrCb = [subsystemMgrPromisePtr](telux::common::ServiceStatus status)
     {
-        LE_FATAL("Timeout waiting for subsystem");
-    }
-    else
-    {
-        serviceStatus = initFuture.get();
-        if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-            LE_ERROR("*** ERROR - Unable to initialize subsystem");
-        } else {
-            telux::common::SubsystemInfo subsysInfo{};
-            std::vector<telux::common::SubsystemInfo> listOfSubsystems;
-            stateListener = std::make_shared<tafECallModemEvtListener>();
-
-            subsysInfo.location = telux::common::ProcType::LOCAL_PROC;
-            subsysInfo.subsystems = telux::common::Subsystem::MPSS;
-            listOfSubsystems.push_back(subsysInfo);
-            telux::common::ErrorCode ec = subsystemMgr->registerListener(stateListener, listOfSubsystems);
-            if (ec!= telux::common::ErrorCode::SUCCESS) {
-                LE_ERROR("Can't register listener for modem event!\n");
+        try {
+            LE_INFO("Getting status: %d from subsystem manager", static_cast<int>(status));
+            if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+                subsystemMgrPromisePtr->set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+            } else {
+                subsystemMgrPromisePtr->set_value(telux::common::ServiceStatus::SERVICE_FAILED);
             }
+        } catch (const std::future_error &e) {
+            LE_ERROR("Future error in subsystem manager callback: %s", e.what());
+        } catch (const std::exception &e) {
+            LE_ERROR("Exception in subsystem manager callback: %s", e.what());
+        } catch (...) {
+            LE_ERROR("Unknown error in subsystem manager callback.");
+        }
+    };
+
+    subsystemMgr = subsystemFact.getSubsystemManager(subsystemMgrCb);
+    if (!subsystemMgr) {
+        LE_FATAL("Can't get the subsystem manager.");
+    } else {
+        telux::common::ServiceStatus serviceStatus = subsystemMgr->getServiceStatus();
+        if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+            LE_INFO("Subsystem is not ready, wait for it to be ready.");
+
+            std::future<telux::common::ServiceStatus> initFuture = subsystemMgrPromisePtr->get_future();
+            std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
+
+            if (waitStatus == std::future_status::timeout) {
+                LE_FATAL("Timeout waiting for subsystem.");
+            } else {
+                serviceStatus = initFuture.get();
+            }
+        }
+
+        if (serviceStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+            LE_INFO("Subsystem is ready.");
+        } else {
+            LE_FATAL("Fail to init subsystem.");
         }
     }
 
@@ -841,6 +927,19 @@ void taf_ecall::Init(void)
     if(ret!= Status::SUCCESS)
     {
         LE_CRIT("Cannot register Listener for phone event!\n");
+    }
+
+    telux::common::SubsystemInfo subsysInfo{};
+    subsysInfo.location = telux::common::ProcType::LOCAL_PROC;
+    subsysInfo.subsystems = telux::common::Subsystem::MPSS;
+
+    std::vector<telux::common::SubsystemInfo> listOfSubsystems;
+    listOfSubsystems.push_back(subsysInfo);
+
+    stateListener = std::make_shared<tafECallModemEvtListener>();
+    telux::common::ErrorCode ec = subsystemMgr->registerListener(stateListener, listOfSubsystems);
+    if (ec != telux::common::ErrorCode::SUCCESS) {
+        LE_CRIT("Cannot register listener for modem event!\n");
     }
 
     CallCommandCb = std::make_shared<tafCallCommandCallback>();
@@ -992,17 +1091,49 @@ le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
     if (Phones.size() >= phoneId) {
         auto phone = Phones[phoneId - 1];
         if(phone) {
-            setOpModeProm = std::promise<telux::common::ErrorCode>();
             if(eCallMode == TAF_ECALL_MODE_NORMAL  || eCallMode == TAF_ECALL_MODE_ECALL) {
-                auto ret = phone->setECallOperatingMode(
-                        static_cast<telux::tel::ECallMode>(eCallMode),
-                        tafECallOperatingModeCallback::setECallOperatingModeResponse);
-                if(ret == telux::common::Status::SUCCESS) {
+                auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+                auto cb = [promisePtr](telux::common::ErrorCode error)
+                {
+                    try
+                    {
+                        if (error == telux::common::ErrorCode::SUCCESS)
+                        {
+                            LE_INFO("Set eCall operating mode successfully done");
+                            promisePtr->set_value(LE_OK);
+                        }
+                        else
+                        {
+                            LE_INFO("Set eCall operating mode failed, errorCode: %d", static_cast<int>(error));
+                            promisePtr->set_value(LE_FAULT);
+                        }
+                    }
+                    catch (const std::future_error& e)
+                    {
+                        LE_ERROR("Future error in callback: %s", e.what());
+                    }
+                    catch (const std::exception& e)
+                    {
+                        LE_ERROR("Exception in callback: %s", e.what());
+                    }
+                    catch (...)
+                    {
+                        LE_ERROR("Unknown error in callback.");
+                    }
+                };
+
+                telux::common::Status status = phone->setECallOperatingMode(
+                        static_cast<telux::tel::ECallMode>(eCallMode), cb);
+
+                if(status == telux::common::Status::SUCCESS) {
                     LE_INFO("Set eCall operating mode %d request sent successfully in phoneId: %d\n",
                             (int) eCallMode, phoneId);
-                    telux::common::ErrorCode error = setOpModeProm.get_future().get();
-                    if (error == telux::common::ErrorCode::SUCCESS)
+
+                    std::future<le_result_t> futResult = promisePtr->get_future();
+                    le_result_t res = futResult.get();
+                    if (res == LE_OK)
                     {
+                        LE_INFO("Set eCall operating mode successfully done");
                         return LE_OK;
                     }
                 } else {
@@ -1025,21 +1156,55 @@ le_result_t taf_ecall::GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
     if (Phones.size() >= phoneId) {
         auto phone = Phones[phoneId - 1];
         if(phone) {
-            getOpModeProm = std::promise<telux::tel::ECallMode>();
-            auto ret = phone->requestECallOperatingMode(
-                    tafECallOperatingModeCallback::getECallOperatingModeResponse);
-            if(ret == telux::common::Status::SUCCESS) {
-                LE_INFO("Get eCall op mode request sent successfully in phoneId: %d\n", phoneId);
-                telux::tel::ECallMode mode = getOpModeProm.get_future().get();
-                if (telux::tel::ECallMode::NORMAL == mode)
+            telux::tel::ECallMode eCallOpMode;
+            auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+            auto cb = [promisePtr,  &eCallOpMode](telux::tel::ECallMode eCallMode, telux::common::ErrorCode error)
+            {
+                try
                 {
-                    *opMode = TAF_ECALL_MODE_NORMAL;
-                    return LE_OK;
-                } else if (telux::tel::ECallMode::ECALL_ONLY == mode) {
-                    *opMode = TAF_ECALL_MODE_ECALL;
-                    return LE_OK;
-                } else {
-                    LE_ERROR("Invalid mode");
+                    if(error == telux::common::ErrorCode::SUCCESS)
+                    {
+                        eCallOpMode = eCallMode;
+                        promisePtr->set_value(LE_OK);
+                    }
+                    else
+                    {
+                        LE_ERROR("requestECallHlapTimerStatus failed errorCode: %d ", int(error));
+                        promisePtr->set_value(LE_FAULT);
+                    }
+                }
+                catch (const std::future_error& e)
+                {
+                    LE_ERROR("Future error in callback: %s", e.what());
+                }
+                catch (const std::exception& e)
+                {
+                    LE_ERROR("Exception in callback: %s", e.what());
+                }
+                catch (...)
+                {
+                    LE_ERROR("Unknown error in callback.");
+                }
+            };
+
+            telux::common::Status status = phone->requestECallOperatingMode(cb);
+            if(status == telux::common::Status::SUCCESS) {
+                LE_INFO("Get eCall op mode request sent successfully in phoneId: %d\n", phoneId);
+                std::future<le_result_t> futResult = promisePtr->get_future();
+                le_result_t res = futResult.get();
+                if (res == LE_OK)
+                {
+                    LE_INFO("Get eCall op mode successfully done");
+                    if (telux::tel::ECallMode::NORMAL == eCallOpMode)
+                    {
+                        *opMode = TAF_ECALL_MODE_NORMAL;
+                        return LE_OK;
+                    } else if (telux::tel::ECallMode::ECALL_ONLY == eCallOpMode) {
+                        *opMode = TAF_ECALL_MODE_ECALL;
+                        return LE_OK;
+                    } else {
+                        LE_ERROR("Invalid mode");
+                    }
                 }
             } else {
                 LE_ERROR("Get eCall Operating mode request failed in phoneId: %d\n", phoneId);
@@ -1940,7 +2105,6 @@ le_result_t taf_ecall::ExportMsd( taf_ecall_CallRef_t ecallRef, uint8_t* pdumsd,
 
     if (eCallPtr->pduMsdSize == 0)
     {
-        pdumsd = nullptr;
         *msdLength = 0;
         return LE_NOT_FOUND;
     } else {
@@ -1958,7 +2122,6 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
     telux::common::Status status;
-    std::promise<telux::common::ErrorCode> p;
     int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
 
     if ((eCallPtr->msd.messageIdentifier >= MIN_MSD_MESSAGE_IDENTIFIER) && (eCallPtr->msd.messageIdentifier < MAX_MSD_MESSAGE_IDENTIFIER))
@@ -1981,13 +2144,47 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
         {
             eCallMsdData.push_back(eCallPtr->msdPdu[i]);
         }
-        telux::common::ResponseCallback cb = [&p](telux::common::ErrorCode error) { p.set_value(error); };
-        status = CallManager->updateECallMsd(phoneId, eCallMsdData, cb);
-        if (status == Status::SUCCESS) {
-            telux::common::ErrorCode error = p.get_future().get();
-            if (error == ErrorCode::SUCCESS) {
+        auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+        auto cb = [promisePtr](telux::common::ErrorCode error)
+        {
+            try
+            {
+                if (error == telux::common::ErrorCode::SUCCESS)
+                {
+                    LE_INFO("Send eCall MSD successfully done");
+                    promisePtr->set_value(LE_OK);
+                }
+                else
+                {
+                    LE_INFO("Send eCall MSD failed, errorCode: %d", static_cast<int>(error));
+                    promisePtr->set_value(LE_FAULT);
+            }
+            }
+            catch (const std::future_error& e)
+            {
+                LE_ERROR("Future error in callback: %s", e.what());
+            }
+            catch (const std::exception& e)
+            {
+                LE_ERROR("Exception in callback: %s", e.what());
+            }
+            catch (...)
+            {
+                LE_ERROR("Unknown error in callback.");
+            }
+        };
+
+        telux::common::Status  status = CallManager->updateECallMsd(phoneId, eCallMsdData, cb);
+        if(status == telux::common::Status::SUCCESS) {
+            std::future<le_result_t> futResult = promisePtr->get_future();
+            le_result_t res = futResult.get();
+            if (res == LE_OK)
+            {
+                LE_INFO("Send eCall MSD successfully done");
                 return LE_OK;
             }
+        } else {
+            LE_ERROR("Send eCall MSD failed");
         }
     }
     else
@@ -2034,7 +2231,6 @@ le_result_t taf_ecall::RetrieveEncodedMsdPdu(ECallMsdData eCallMsdData, uint8_t*
          LE_ERROR("Failed to retrieve the encoded eCall MSD PDU with error code: %d", (static_cast<int>(errorCode)));
     }
 
-    pduMsd = nullptr;
     *msdLength = 0;
     return LE_FAULT;
 }
@@ -2158,20 +2354,51 @@ le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
     }
 
     uint32_t t10 = (uint32_t) deregTime;
-    LE_INFO("Set NAD deregistration time (in minutes): %d", t10);
+    LE_INFO("Set eCall NAD deregistration time (in minutes): %d", t10);
 
-    std::promise<telux::common::ErrorCode> p;
     int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
 
-    telux::common::ResponseCallback cb = [&p](telux::common::ErrorCode error) { p.set_value(error); };
-    Status status = CallManager->updateEcallHlapTimer(phoneId, HlapTimerType::T10_TIMER, t10, cb);
-    if (status == Status::SUCCESS) {
-        LE_INFO("SetNadDeregistrationTime: status %d", (int) status);
-        telux::common::ErrorCode error = p.get_future().get();
-        LE_INFO("SetNadDeregistrationTime: error code %d", (int) error);
-        if (error == ErrorCode::SUCCESS) {
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+    auto cb = [promisePtr](telux::common::ErrorCode error)
+    {
+        try
+        {
+            if (error == telux::common::ErrorCode::SUCCESS)
+            {
+                LE_INFO("Set eCall NAD deregistration time successfully done");
+                promisePtr->set_value(LE_OK);
+            }
+            else
+            {
+                LE_INFO("Send eCall NAD deregistration time failed, errorCode: %d", static_cast<int>(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
+
+    telux::common::Status status = CallManager->updateEcallHlapTimer(phoneId, HlapTimerType::T10_TIMER, t10, cb);
+    if(status == telux::common::Status::SUCCESS) {
+        std::future<le_result_t> futResult = promisePtr->get_future();
+        le_result_t res = futResult.get();
+        if (res == LE_OK)
+        {
+            LE_INFO("Set eCall NAD deregistration time successfully.");
             return LE_OK;
         }
+    } else {
+        LE_ERROR("eCall NAD deregistration time failed");
     }
 
     return LE_FAULT;
@@ -2183,28 +2410,50 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
         LE_ERROR("deregTime is null.");
         return LE_FAULT;
     }
-
-    std::promise<telux::common::ErrorCode> p;
-    std::promise<uint32_t> q;
+    uint32_t dereg_Time;
     int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
-    telux::tel::ECallHlapTimerCallback cb =
-            [&p, &q](telux::common::ErrorCode error, uint32_t timeDuration) {
-                p.set_value(error);
-                q.set_value(timeDuration);
-            };
-    Status status = CallManager->requestEcallHlapTimer(phoneId, HlapTimerType::T10_TIMER, cb);
 
-    if (status == Status::SUCCESS) {
-        LE_INFO("GetNadDeregistrationTime: status %d", (int) status);
-        telux::common::ErrorCode error = p.get_future().get();
-        LE_INFO("GetNadDeregistrationTime: error code %d", (int) error);
-        if (error == ErrorCode::SUCCESS) {
-            uint32_t t10 = q.get_future().get();
-            LE_INFO("Get NAD deregistration time (T10 in minutes) fetched as: %d", t10);
-            *deregTime =  (uint16_t) t10;
-            LE_INFO("Get NAD deregistration time (in minutes): %d", *deregTime);
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+    auto cb = [promisePtr, &dereg_Time](telux::common::ErrorCode error, uint32_t timeDuration)
+    {
+        try
+        {
+            if(error == telux::common::ErrorCode::SUCCESS)
+            {
+                promisePtr->set_value(LE_OK);
+                dereg_Time = timeDuration;
+                LE_INFO("Get NAD deregistration time (T10 in minutes) fetched as: %d", timeDuration);
+            }
+            else
+            {
+                LE_ERROR("Get eCall hlap timer status failed errorCode: %d ", int(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
+
+    telux::common::Status status = CallManager->requestEcallHlapTimer(phoneId, HlapTimerType::T10_TIMER, cb);
+
+    if (status == telux::common::Status::SUCCESS) {
+        std::future<le_result_t> futResult = promisePtr->get_future();
+        if (futResult.get() == LE_OK) {
+            *deregTime =  (uint16_t) dereg_Time;
             return LE_OK;
         }
+    } else {
+        LE_ERROR("GetNadDeregistrationTime: status %d", (int) status);
     }
 
     return LE_FAULT;
@@ -2212,18 +2461,49 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
 
 le_result_t taf_ecall::TerminateRegistration()
 {
-    std::promise<telux::common::ErrorCode> p;
     int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
 
-    telux::common::ResponseCallback cb = [&p](telux::common::ErrorCode error) { p.set_value(error); };
-    Status status = CallManager->requestNetworkDeregistration(phoneId, cb);
-    LE_INFO("TerminateRegistration: status %d", (int) status);
-    if (status == Status::SUCCESS) {
-        telux::common::ErrorCode error = p.get_future().get();
-        LE_INFO("TerminateRegistration: error code %d", (int) error);
-        if (error == ErrorCode::SUCCESS) {
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+    auto cb = [promisePtr](telux::common::ErrorCode error)
+    {
+        try
+        {
+            if (error == telux::common::ErrorCode::SUCCESS)
+            {
+                LE_INFO("Terminate registration successfully done");
+                promisePtr->set_value(LE_OK);
+            }
+            else
+            {
+                LE_INFO("Terminate registration failed, errorCode: %d", static_cast<int>(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
+
+    telux::common::Status status = CallManager->requestNetworkDeregistration(phoneId, cb);
+    if(status == telux::common::Status::SUCCESS) {
+        std::future<le_result_t> futResult = promisePtr->get_future();
+        le_result_t res = futResult.get();
+        if (res == LE_OK)
+        {
+            LE_INFO("Terminate registration successfully.");
             return LE_OK;
         }
+    } else {
+        LE_ERROR("Terminate registration failed");
     }
 
     return LE_FAULT;
@@ -2473,39 +2753,54 @@ le_result_t taf_ecall::GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, ta
 
 taf_ecall_HlapTimerStatus_t taf_ecall::GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType) {
     taf_ecall_HlapTimerStatus_t timerStatus;
-    std::promise<telux::common::ErrorCode> p;
-    std::promise<int> q;
-    std::promise<ECallHlapTimerStatus> r;
+    ECallHlapTimerStatus receivedTimerStatus;
     int phone_id = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
-    telux::tel::ECallHlapTimerStatusCallback cb =
-        [&p, &q, &r](telux::common::ErrorCode error, int phoneId, ECallHlapTimerStatus hlapTimerStatus) {
-        p.set_value(error);
-        q.set_value(phoneId);
-        r.set_value(hlapTimerStatus);
+
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+    auto cb = [promisePtr, &phone_id, &receivedTimerStatus](telux::common::ErrorCode error, int phoneId, ECallHlapTimerStatus hlapTimerStatus) {
+        try
+        {
+            if((error == telux::common::ErrorCode::SUCCESS) && (phone_id == phoneId))
+            {
+                receivedTimerStatus = hlapTimerStatus;
+                promisePtr->set_value(LE_OK);
+            }
+            else
+            {
+                LE_ERROR("Get eCall hlap timer status failed errorCode: %d ", int(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
+        }
     };
 
-    Status status = CallManager->requestECallHlapTimerStatus(phone_id, cb);
-    if (status == Status::SUCCESS) {
+    telux::common::Status status = CallManager->requestECallHlapTimerStatus(phone_id, cb);
+    if (status == telux::common::Status::SUCCESS) {
         LE_INFO("Get eCall hlap timer successfully.");
-        telux::common::ErrorCode error = p.get_future().get();
-        LE_INFO("Get eCall hlap timer state: error code %d", (int) error);
+        std::future<le_result_t> futResult = promisePtr->get_future();
 
-        if (error == ErrorCode::SUCCESS) {
-            if (phone_id != q.get_future().get())
-            {
-                LE_ERROR("Wrong phoneId.");
-                return TAF_ECALL_TIMER_STATUS_UNKNOWN;
-            }
+        if (futResult.get() == LE_OK) {
             switch (timerType)
             {
                 case TAF_ECALL_TIMER_TYPE_T2:
-                    timerStatus = ConvertHlapTimerStatus(r.get_future().get().t2);
+                    timerStatus = ConvertHlapTimerStatus(receivedTimerStatus.t2);
                     break;
                 case TAF_ECALL_TIMER_TYPE_T9:
-                    timerStatus = ConvertHlapTimerStatus(r.get_future().get().t9);
+                    timerStatus = ConvertHlapTimerStatus(receivedTimerStatus.t9);
                     break;
                 case TAF_ECALL_TIMER_TYPE_T10:
-                    timerStatus = ConvertHlapTimerStatus(r.get_future().get().t10);
+                    timerStatus = ConvertHlapTimerStatus(receivedTimerStatus.t10);
                     break;
                 case TAF_ECALL_TIMER_TYPE_UNKNOWN:
                 default:
@@ -2649,29 +2944,56 @@ le_result_t taf_ecall::ResumeHlapTimer(taf_ecall_HlapTimerType_t timerType) {
     LE_INFO("Resume the hlap timer with the value = %d", duration);
     if (duration > 0) {
         if (CallManager) {
-            resumeHlapTimerProm = std::promise<telux::common::ErrorCode>();
-            Status status = CallManager->restartECallHlapTimer(phoneId, timerId, duration, tafResumeHlapTimerCallback::resumeHlapTimerResponse);
-            if (status == Status::SUCCESS) {
-                LE_INFO("restartECallHlapTimer success");
-                telux::common::ErrorCode error = resumeHlapTimerProm.get_future().get();
-                if (error != ErrorCode::SUCCESS) {
-                    LE_ERROR("Restarting eCall HLAP timer failed");
-                    return LE_FAULT;
+            auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+            auto cb = [promisePtr](telux::common::ErrorCode error)
+            {
+                try
+                {
+                    if (error == telux::common::ErrorCode::SUCCESS)
+                    {
+                        LE_INFO("Resume the hlap timer successfully done");
+                        promisePtr->set_value(LE_OK);
+                    }
+                    else
+                    {
+                        LE_INFO("Resume the hlap timer failed, errorCode: %d", static_cast<int>(error));
+                        promisePtr->set_value(LE_FAULT);
+                    }
+                }
+                catch (const std::future_error& e)
+                {
+                    LE_ERROR("Future error in callback: %s", e.what());
+                }
+                catch (const std::exception& e)
+                {
+                    LE_ERROR("Exception in callback: %s", e.what());
+                }
+                catch (...)
+                {
+                    LE_ERROR("Unknown error in callback.");
+                }
+            };
+
+            telux::common::Status status = CallManager->restartECallHlapTimer(phoneId, timerId, duration, cb);
+            if(status == telux::common::Status::SUCCESS) {
+                std::future<le_result_t> futResult = promisePtr->get_future();
+                le_result_t res = futResult.get();
+                if (res == LE_OK)
+                {
+                    LE_INFO("Resume the hlap timer successfully done");
+                    return LE_OK;
                 }
             } else {
                 LE_ERROR("Restarting eCall HLAP timer failed");
-                return LE_FAULT;
             }
         } else {
             LE_ERROR("CallManager is nullptr");
-            return LE_FAULT;
         }
     } else {
         LE_ERROR("The duration is incorrect");
-        return LE_FAULT;
     }
 
-    return LE_OK;
+    return LE_FAULT;
 }
 
 void taf_ecall::ResumeHlapTimerEventHandler(void* reqPtr)
@@ -2681,17 +3003,52 @@ void taf_ecall::ResumeHlapTimerEventHandler(void* reqPtr)
     le_result_t result = LE_FAULT;
 
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
-    std::promise<telux::common::ServiceStatus> prom;
     telux::common::ServiceStatus serviceStatus;
+    telux::common::Status status;
     std::future<telux::common::ServiceStatus> initFuture;
     std::future_status waitStatus;
-    std::promise<telux::common::ServiceStatus> phoneMgrprom;
-    telux::common::ServiceStatus phoneMgrStatus;
     std::vector<int> phoneIds;
-    telux::common::Status status;
     taf_ecall_OpMode_t opMode;
     int phoneId;
     telux::tel::ECallMode eCallMode;
+
+    auto callMgrPromisePtr = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+    auto callMgrCb = [callMgrPromisePtr](telux::common::ServiceStatus status)
+    {
+        try {
+            LE_INFO("Getting status: %d from subscription manager", static_cast<int>(status));
+            if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+                callMgrPromisePtr->set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+            } else {
+                callMgrPromisePtr->set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+            }
+        } catch (const std::future_error &e) {
+            LE_ERROR("Future error in call manager callback: %s", e.what());
+        } catch (const std::exception &e) {
+            LE_ERROR("Exception in call manager callback: %s", e.what());
+        } catch (...) {
+            LE_ERROR("Unknown error in call manager callback.");
+        }
+    };
+
+    auto phoneMgrPromisePtr = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+    auto phoneMgrCb = [phoneMgrPromisePtr](telux::common::ServiceStatus status)
+    {
+        try {
+            LE_INFO("Getting status: %d from phone manager", static_cast<int>(status));
+            if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+                phoneMgrPromisePtr->set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+            } else {
+                phoneMgrPromisePtr->set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+            }
+        } catch (const std::future_error &e) {
+            LE_ERROR("Future error in phone manager callback: %s", e.what());
+        } catch (const std::exception &e) {
+            LE_ERROR("Exception in phone manager callback: %s", e.what());
+        } catch (...) {
+            LE_ERROR("Unknown error in phone manager callback.");
+        }
+    };
 
     if(eventReq == NULL)
     {
@@ -2702,61 +3059,56 @@ void taf_ecall::ResumeHlapTimerEventHandler(void* reqPtr)
     switch (eventReq->event) {
         case EVENT_MODEM_REBOOT:
             LE_INFO("Resume hlap timer when modem reboots");
-            eCall.CallManager = phoneFactory.getCallManager([&](telux::common::ServiceStatus status) {
-            LE_INFO("Getting status: %d from call manager %p", (int)status, eCall.CallManager.get());
-            if (status != telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
-            {
-                prom.set_value(status);
-            }
-            });
-            if (!eCall.CallManager)
-            {
-                LE_ERROR("Can't get call manager");
-            }
-
-            initFuture = prom.get_future();
-            waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
-            if (std::future_status::timeout == waitStatus)
-            {
-                LE_ERROR ("Timeout waiting for susbsytem");
-            }
-            else
-            {
-                serviceStatus = initFuture.get();
-                if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
-                {
-                    LE_ERROR(" *** ERROR - Unable to initialize call subsystem");
-                }
-            }
-
-            eCall.PhoneManager = PhoneFactory::getInstance().getPhoneManager([&] (telux::common::ServiceStatus status) {
-                LE_INFO("Getting status: %d from phone manager", (int)status);
-                if (status != telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
-                {
-                    phoneMgrprom.set_value(status);
-                }
-            });
-            if (!eCall.PhoneManager)
-            {
-                LE_ERROR("Can't get phone manager");
-            }
-
-            phoneMgrStatus = eCall.PhoneManager->getServiceStatus();
-            if (phoneMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-                LE_INFO("telephony subsystem is not ready, wait for it to be ready");
-                initFuture = phoneMgrprom.get_future();
-                waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
-                if (std::future_status::timeout == waitStatus)
-                {
-                    LE_ERROR("Timeout waiting for susbsytem");
-                }
-                else
-                {
-                    serviceStatus = initFuture.get();
-                    if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
-                    {
-                        LE_ERROR(" *** ERROR - Unable to initialize phone subsystem");
+            eCall.CallManager = phoneFactory.getCallManager(callMgrCb);
+            if (!eCall.CallManager) {
+                LE_CRIT("ResumeECallHlapTimer T9 failed as can't get call manager.");
+                break;
+            } else {
+                serviceStatus = eCall.CallManager->getServiceStatus();
+                if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+                    LE_INFO("Call subsystem is not ready, wait for it to be ready");
+                     initFuture = callMgrPromisePtr->get_future();
+                     waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
+                    if (waitStatus == std::future_status::timeout) {
+                        LE_CRIT("ResumeECallHlapTimer T9 failed as timeout waiting for call subsystem.");
+                        break;
+                    } else {
+                        serviceStatus = initFuture.get();
                     }
+                }
+
+                if (serviceStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+                    LE_INFO("Call subsystem is ready.");
+                } else {
+                    LE_CRIT("ResumeECallHlapTimer T9 failed as fail to init call subsystem.");
+                    break;
+                }
+            }
+
+
+            eCall.PhoneManager = phoneFactory.getPhoneManager(phoneMgrCb);
+            if (!eCall.PhoneManager) {
+                LE_CRIT("ResumeECallHlapTimer T9 failed as can't get phone manager.");
+                break;
+            } else {
+                serviceStatus = eCall.PhoneManager->getServiceStatus();
+                if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+                    LE_INFO("Phone subsystem is not ready, wait for it to be ready");
+                    initFuture = phoneMgrPromisePtr->get_future();
+                    waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
+                    if (waitStatus == std::future_status::timeout) {
+                        LE_CRIT("ResumeECallHlapTimer T9 failed as timeout waiting for phone subsystem.");
+                        break;
+                    } else {
+                        serviceStatus = initFuture.get();
+                    }
+                }
+
+                if (serviceStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+                    LE_INFO("Phone subsystem is ready.");
+                } else {
+                    LE_CRIT("ResumeECallHlapTimer T9 failed as fail to init phone subsystem.");
+                    break;
                 }
             }
 
@@ -2805,12 +3157,11 @@ void taf_ecall::ResumeHlapTimerEventHandler(void* reqPtr)
             LE_INFO("eCall mode changed");
             eCallMode = eventReq->eCallMode;
             phoneId = eventReq->phoneId;
-            if (phoneId == eCall.PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard()))
+            if (phoneId != eCall.PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard()))
             {
                 LE_ERROR("phoneId is different with the select one %d", phoneId);
                 break;
             }
-
             if ((eCallMode == telux::tel::ECallMode::NORMAL) && (eCall.pendingToResumeHlapTimer == true))
             {
                 result = eCall.ResumeHlapTimer(TAF_ECALL_TIMER_TYPE_T9);
@@ -2898,39 +3249,39 @@ le_result_t taf_ecall::UpdateMsdVehicleInfo()
             ECallObject.msd.vehiclePropulsionStorage.dieselTankPresent = false;
         }
 
-        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_GASOLINE_TANK) == ECALL_HAL_BITMASK_PROP_TYPE_COMPRESSED_NATURALGAS)
+        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_COMPRESSED_NATURALGAS) == ECALL_HAL_BITMASK_PROP_TYPE_COMPRESSED_NATURALGAS)
         {
             ECallObject.msd.vehiclePropulsionStorage.compressedNaturalGas = true;
         } else {
             ECallObject.msd.vehiclePropulsionStorage.compressedNaturalGas = false;
         }
 
-        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_DIESEL_TANK) == ECALL_HAL_BITMASK_PROP_TYPE_PROPANE_GAS)
+        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_PROPANE_GAS) == ECALL_HAL_BITMASK_PROP_TYPE_PROPANE_GAS)
         {
             ECallObject.msd.vehiclePropulsionStorage.liquidPropaneGas = true;
         } else {
             ECallObject.msd.vehiclePropulsionStorage.liquidPropaneGas = false;
         }
 
-        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_DIESEL_TANK) == ECALL_HAL_BITMASK_PROP_TYPE_ELECTRIC)
+        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_ELECTRIC) == ECALL_HAL_BITMASK_PROP_TYPE_ELECTRIC)
         {
             ECallObject.msd.vehiclePropulsionStorage.electricEnergyStorage = true;
         } else {
             ECallObject.msd.vehiclePropulsionStorage.electricEnergyStorage = false;
         }
 
-        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_GASOLINE_TANK) == ECALL_HAL_BITMASK_PROP_TYPE_HYDROGEN)
+        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_HYDROGEN) == ECALL_HAL_BITMASK_PROP_TYPE_HYDROGEN)
         {
             ECallObject.msd.vehiclePropulsionStorage.hydrogenStorage = true;
         } else {
             ECallObject.msd.vehiclePropulsionStorage.hydrogenStorage = false;
         }
 
-        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_DIESEL_TANK) == ECALL_HAL_BITMASK_PROP_TYPE_OTHER)
+        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_OTHER) == ECALL_HAL_BITMASK_PROP_TYPE_OTHER)
         {
             ECallObject.msd.vehiclePropulsionStorage.otherStorage = true;
         } else {
-            ECallObject.msd.vehiclePropulsionStorage.liquidPropaneGas = false;
+            ECallObject.msd.vehiclePropulsionStorage.otherStorage = false;
         }
 
         if (CheckVIN((char *)vehInfo.vin))
@@ -3152,17 +3503,50 @@ le_result_t taf_ecall::ConfigureInitialDialRedial(std::vector<int> redialPara)
         {
             LE_DEBUG("ConfigureInitialDialRedial redialPara = %d", redialPara[i]);
         }
-        configRedialProm = std::promise<telux::common::ErrorCode>();
-        Status status = CallManager->configureECallRedial(RedialConfigType::CALL_ORIG, redialPara, tafConfigRedialCallback::configureRedialResponse);
-        if (status == Status::SUCCESS) {
-            telux::common::ErrorCode error = configRedialProm.get_future().get();
-            if (error == ErrorCode::SUCCESS) {
+        auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+        auto cb = [promisePtr](telux::common::ErrorCode error)
+        {
+            try
+            {
+                if (error == telux::common::ErrorCode::SUCCESS)
+                {
+                    LE_INFO("Set eCall redial parameter successfully done");
+                    promisePtr->set_value(LE_OK);
+                }
+                else
+                {
+                    LE_INFO("Send eCall redial parameter failed, errorCode: %d", static_cast<int>(error));
+                    promisePtr->set_value(LE_FAULT);
+                }
+            }
+            catch (const std::future_error& e)
+            {
+                LE_ERROR("Future error in callback: %s", e.what());
+            }
+            catch (const std::exception& e)
+            {
+                LE_ERROR("Exception in callback: %s", e.what());
+            }
+            catch (...)
+            {
+                LE_ERROR("Unknown error in callback.");
+            }
+        };
+
+        telux::common::Status status = CallManager->configureECallRedial(RedialConfigType::CALL_ORIG, redialPara, cb);
+        if(status == telux::common::Status::SUCCESS) {
+            std::future<le_result_t> futResult = promisePtr->get_future();
+            le_result_t res = futResult.get();
+            if (res == LE_OK)
+            {
+                LE_INFO("Set eCall redial parameter successfully.");
                 return LE_OK;
             }
+        } else {
+            LE_ERROR("Set eCall redial parameter failed");
         }
     } else {
         LE_ERROR("CallManager is null");
-        return LE_FAULT;
     }
     return LE_FAULT;
 }

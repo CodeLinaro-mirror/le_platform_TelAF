@@ -11,11 +11,9 @@
 #define MAX_PHONE_ID 2
 
 using namespace tafsvc;
-
 // Boolean variable to indicate if we are waiting for a promise to be fulfilled
 // This tracks if async data start/stop times out and the promise is not needed anymore.
-static std::atomic<bool>
-    bWaitingForPromise = {false};
+static std::atomic<bool> bWaitingForPromise = {false};
 
 //Initialize static variables
 std::promise<le_result_t> tafMngdConnData::AsyncAPIPromise;
@@ -103,10 +101,9 @@ void tafMngdConnData::SessionStateChangeHandler
             else
             {
                 const char *CallEndReasonTypeStr4 =
-                    taf::svc::datacall::tafDCSHelper::CallEndReasonTypeToString(callEndReasonType);
-                const char *CallEndReasonCodeStr4 =
-                                taf::svc::datacall::tafDCSHelper::CallEndReasonCodeToString(
-                                                            callEndReasonType, callEndReasonCode);
+                                        taf_DCSHelper::CallEndReasonTypeToString(callEndReasonType);
+                const char *CallEndReasonCodeStr4 = taf_DCSHelper::CallEndReasonCodeToString(
+                                                    callEndReasonType, callEndReasonCode);
 
                 LE_INFO("IPv4 Call end reason type: %d(%s)",
                         callEndReasonType, CallEndReasonTypeStr4);

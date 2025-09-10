@@ -19,7 +19,7 @@
 #include <chrono>
 #include <iomanip> // for std::fixed and std::setprecision
 
-using namespace taf::svc::datacall;
+using namespace tafsvc;
 
 static bool bPrintNotifLogsOnConsole = true;
 
@@ -291,9 +291,9 @@ static le_result_t GetTechPref()
     result = taf_dcs_GetTechPreference(ProfileRef, &techPref);
     TAF_ERROR_IF_RET_VAL((LE_OK != result), result, "Get tech preference failed");
 
-    LE_TEST_INFO("Tech Pref: %d(%s)", techPref, tafDCSHelper::TechPreferenceToString(techPref));
+    LE_TEST_INFO("Tech Pref: %d(%s)", techPref, taf_DCSHelper::TechPreferenceToString(techPref));
     std::cout << "Tech Pref: " << techPref << "("
-                        << tafDCSHelper::TechPreferenceToString(techPref) << ")" << std::endl;
+                        << taf_DCSHelper::TechPreferenceToString(techPref) << ")" << std::endl;
     return result;
 }
 
@@ -311,9 +311,9 @@ static le_result_t GetApnTypeMask()
     TAF_ERROR_IF_RET_VAL((LE_OK != result), result, "Get APN types failed");
 
     LE_TEST_INFO("APN types mask: %d(%s)", apnTypeMask,
-                        tafDCSHelper::ApnTypeMaskToString(apnTypeMask).c_str());
+                        taf_DCSHelper::ApnTypeMaskToString(apnTypeMask).c_str());
     std::cout << "APN types mask: " << apnTypeMask << "("
-                     << tafDCSHelper::ApnTypeMaskToString(apnTypeMask) << ")" << std::endl;
+                     << taf_DCSHelper::ApnTypeMaskToString(apnTypeMask) << ")" << std::endl;
     return result;
 }
 
@@ -328,9 +328,9 @@ static le_result_t GetPDP()
     }
     pdp = taf_dcs_GetPDP(ProfileRef);
     LE_TEST_INFO("PDP(IP family): %d(%s)", pdp,
-                 tafDCSHelper::IpFamilyTypeToString(pdp));
+                 taf_DCSHelper::IpFamilyTypeToString(pdp));
     std::cout << "PDP(IP family): " << pdp << "("
-              << tafDCSHelper::IpFamilyTypeToString(pdp) << ")" << std::endl;
+              << taf_DCSHelper::IpFamilyTypeToString(pdp) << ")" << std::endl;
     return LE_OK;
 }
 
@@ -351,8 +351,8 @@ static le_result_t GetAuthentication()
                                        pwStr, TAF_DCS_PASSWORD_NAME_MAX_LEN);
     TAF_ERROR_IF_RET_VAL((LE_OK != result), result, "Get authentication failed");
 
-    LE_TEST_INFO("Auth Type : %s", tafDCSHelper::AuthMaskToString(auth).c_str());
-    std::cout << "Auth Type : " << tafDCSHelper::AuthMaskToString(auth) << std::endl;
+    LE_TEST_INFO("Auth Type : %s", taf_DCSHelper::AuthMaskToString(auth).c_str());
+    std::cout << "Auth Type : " << taf_DCSHelper::AuthMaskToString(auth) << std::endl;
     if (strlen(unStr)>0)
     {
         LE_TEST_INFO("Username  : %s", unStr);
@@ -397,7 +397,7 @@ static le_result_t GetProfileListEx(uint8_t phoneId)
         pdp = taf_dcs_GetPDP(profileRef);
 
         logStr = logStr + std::to_string(profileInfoPtr->index) + "\t" + apnStr + "\t\t" +
-                 tafDCSHelper::IpFamilyTypeToString(pdp);
+                 taf_DCSHelper::IpFamilyTypeToString(pdp);
         LE_TEST_INFO("%s", logStr.c_str());
         std::cout << logStr << std::endl;
     }
@@ -423,11 +423,11 @@ static le_result_t SetTechPreference(taf_dcs_ProfileRef_t ProfileRef)
     std::cout << "Tech preference: " << std::endl;
     std::cout << 0 << "-" << "skip setting tech preference" << std::endl;
     std::cout << TAF_DCS_TECH_3GPP << "-"
-                        << tafDCSHelper::TechPreferenceToString(TAF_DCS_TECH_3GPP)  << std::endl;
+                        << taf_DCSHelper::TechPreferenceToString(TAF_DCS_TECH_3GPP)  << std::endl;
     std::cout << TAF_DCS_TECH_3GPP2 << "-"
-                        << tafDCSHelper::TechPreferenceToString(TAF_DCS_TECH_3GPP2) << std::endl;
+                        << taf_DCSHelper::TechPreferenceToString(TAF_DCS_TECH_3GPP2) << std::endl;
     std::cout << TAF_DCS_TECH_ANY << "-"
-                        << tafDCSHelper::TechPreferenceToString(TAF_DCS_TECH_ANY)   << std::endl;
+                        << taf_DCSHelper::TechPreferenceToString(TAF_DCS_TECH_ANY)   << std::endl;
     std::cout << "Enter tech preference: " << std::endl;
     std::cin  >> intInput;
 
@@ -441,7 +441,7 @@ static le_result_t SetTechPreference(taf_dcs_ProfileRef_t ProfileRef)
         else
         {
             LE_TEST_INFO("Tech pref set: %d(%s)", intInput,
-                    tafDCSHelper::TechPreferenceToString(static_cast<taf_dcs_Tech_t>(intInput)));
+                    taf_DCSHelper::TechPreferenceToString(static_cast<taf_dcs_Tech_t>(intInput)));
         }
     }
     {
@@ -469,29 +469,29 @@ static le_result_t SetApnTypeMask(taf_dcs_ProfileRef_t ProfileRef)
     std::cout << "APN type mask: " << std::endl;
     std::cout << 0 << "-" << "skip setting APN type" << std::endl;
     std::cout << TAF_DCS_APN_TYPE_DEFAULT << "-"
-              << tafDCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_DEFAULT) << std::endl;
+              << taf_DCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_DEFAULT) << std::endl;
     std::cout << TAF_DCS_APN_TYPE_IMS << "-"
-              << tafDCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_IMS) << std::endl;
+              << taf_DCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_IMS) << std::endl;
     std::cout << TAF_DCS_APN_TYPE_MMS << "-"
-              << tafDCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_MMS) << std::endl;
+              << taf_DCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_MMS) << std::endl;
     std::cout << TAF_DCS_APN_TYPE_DUN << "-"
-              << tafDCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_DUN) << std::endl;
+              << taf_DCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_DUN) << std::endl;
     std::cout << TAF_DCS_APN_TYPE_SUPL << "-"
-              << tafDCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_SUPL) << std::endl;
+              << taf_DCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_SUPL) << std::endl;
     std::cout << TAF_DCS_APN_TYPE_HIPRI << "-"
-              << tafDCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_HIPRI) << std::endl;
+              << taf_DCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_HIPRI) << std::endl;
     std::cout << TAF_DCS_APN_TYPE_FOTA << "-"
-              << tafDCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_FOTA) << std::endl;
+              << taf_DCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_FOTA) << std::endl;
     std::cout << TAF_DCS_APN_TYPE_CBS << "-"
-              << tafDCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_CBS) << std::endl;
+              << taf_DCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_CBS) << std::endl;
     std::cout << TAF_DCS_APN_TYPE_IA << "-"
-              << tafDCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_IA) << std::endl;
+              << taf_DCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_IA) << std::endl;
     std::cout << TAF_DCS_APN_TYPE_EMERGENCY << "-"
-              << tafDCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_EMERGENCY) << std::endl;
+              << taf_DCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_EMERGENCY) << std::endl;
     std::cout << TAF_DCS_APN_TYPE_UT << "-"
-              << tafDCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_UT) << std::endl;
+              << taf_DCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_UT) << std::endl;
     std::cout << TAF_DCS_APN_TYPE_MCX << "-"
-              << tafDCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_MCX) << std::endl;
+              << taf_DCSHelper::ApnTypeMaskToString(TAF_DCS_APN_TYPE_MCX) << std::endl;
     std::cout << "Enter APN type mask(OR the types needed. e.g DEFAULT|IMS=3): " << std::endl;
     std::cin.clear();
     std::cin >> intInput;
@@ -508,7 +508,7 @@ static le_result_t SetApnTypeMask(taf_dcs_ProfileRef_t ProfileRef)
         else
         {
             LE_TEST_INFO("APN type mask set: %d(%s)", intInput,
-                         tafDCSHelper::ApnTypeMaskToString(apnTypeMask).c_str());
+                         taf_DCSHelper::ApnTypeMaskToString(apnTypeMask).c_str());
         }
     }
     {
@@ -535,11 +535,11 @@ static le_result_t SetPDP(taf_dcs_ProfileRef_t ProfileRef)
     std::cout << "Packet Data Protocol(PDP) type: " << std::endl;
     std::cout << 0 << "-" << "skip setting PDP" << std::endl;
     std::cout << TAF_DCS_PDP_IPV4 << "-"
-              << tafDCSHelper::IpFamilyTypeToString(TAF_DCS_PDP_IPV4) << std::endl;
+              << taf_DCSHelper::IpFamilyTypeToString(TAF_DCS_PDP_IPV4) << std::endl;
     std::cout << TAF_DCS_PDP_IPV6 << "-"
-              << tafDCSHelper::IpFamilyTypeToString(TAF_DCS_PDP_IPV6) << std::endl;
+              << taf_DCSHelper::IpFamilyTypeToString(TAF_DCS_PDP_IPV6) << std::endl;
     std::cout << TAF_DCS_PDP_IPV4V6 << "-"
-              << tafDCSHelper::IpFamilyTypeToString(TAF_DCS_PDP_IPV4V6) << std::endl;
+              << taf_DCSHelper::IpFamilyTypeToString(TAF_DCS_PDP_IPV4V6) << std::endl;
     std::cout << "Enter PDP: " << std::endl;
     std::cin.clear();
     std::cin >> intInput;
@@ -555,7 +555,7 @@ static le_result_t SetPDP(taf_dcs_ProfileRef_t ProfileRef)
         else
         {
             LE_TEST_INFO("PDP set: %d(%s)", intInput,
-                        tafDCSHelper::IpFamilyTypeToString(static_cast<taf_dcs_Pdp_t>(intInput)));
+                        taf_DCSHelper::IpFamilyTypeToString(static_cast<taf_dcs_Pdp_t>(intInput)));
         }
     }
     {
@@ -646,11 +646,11 @@ static le_result_t SetAuthentication(taf_dcs_ProfileRef_t ProfileRef)
     std::cout << "Authentication mask: " << std::endl;
     std::cout << 0 << "-" << "skip setting authentication" << std::endl;
     std::cout << TAF_DCS_AUTH_NONE << "-"
-              << tafDCSHelper::AuthMaskToString(TAF_DCS_AUTH_NONE) << std::endl;
+              << taf_DCSHelper::AuthMaskToString(TAF_DCS_AUTH_NONE) << std::endl;
     std::cout << TAF_DCS_AUTH_PAP << "-"
-              << tafDCSHelper::AuthMaskToString(TAF_DCS_AUTH_PAP) << std::endl;
+              << taf_DCSHelper::AuthMaskToString(TAF_DCS_AUTH_PAP) << std::endl;
     std::cout << TAF_DCS_AUTH_CHAP << "-"
-              << tafDCSHelper::AuthMaskToString(TAF_DCS_AUTH_CHAP) << std::endl;
+              << taf_DCSHelper::AuthMaskToString(TAF_DCS_AUTH_CHAP) << std::endl;
 
     std::cout << "Enter auth type mask(OR the types needed. e.g PAP|CHAP=6): " << std::endl;
     std::cin.clear();
@@ -681,7 +681,7 @@ static le_result_t SetAuthentication(taf_dcs_ProfileRef_t ProfileRef)
     else
     {
         LE_TEST_INFO("Authentication set: %s, %s, %s",
-                     tafDCSHelper::AuthMaskToString(auth).c_str(), unStr, pwStr);
+                     taf_DCSHelper::AuthMaskToString(auth).c_str(), unStr, pwStr);
     }
     return result;
     }
@@ -804,14 +804,14 @@ static le_result_t GetDataBearerTechnology()
         return result;
     }
     LE_TEST_INFO("Data bearer technology: uplink=%s",
-                                            tafDCSHelper::DataBearerTechnologyToString(upTech));
+                                            taf_DCSHelper::DataBearerTechnologyToString(upTech));
     LE_TEST_INFO("Data bearer technology: downlink=%s",
-                                            tafDCSHelper::DataBearerTechnologyToString(downTech));
+                                            taf_DCSHelper::DataBearerTechnologyToString(downTech));
     std::cout << "Data bearer tech: uplink   = " <<
-                                            tafDCSHelper::DataBearerTechnologyToString(upTech) <<
+                                            taf_DCSHelper::DataBearerTechnologyToString(upTech) <<
                                             std::endl;
     std::cout << "Data bearer tech: downlink = " <<
-                                            tafDCSHelper::DataBearerTechnologyToString(downTech) <<
+                                            taf_DCSHelper::DataBearerTechnologyToString(downTech) <<
                                             std::endl;
     return result;
 }
@@ -837,10 +837,10 @@ static le_result_t GetRoamingStatus()
     }
     LE_TEST_INFO("Phone id: %d", phoneID);
     LE_TEST_INFO("Is roaming: %s", isRoaming ? "true" : "false");
-    LE_TEST_INFO("Roaming type: %s", tafDCSHelper::RoamingTypeToString(roamingType));
+    LE_TEST_INFO("Roaming type: %s", taf_DCSHelper::RoamingTypeToString(roamingType));
     std::cout << "Phone id: " << static_cast<int>(phoneID) << std::endl;
     std::cout << "Is roaming: " << (isRoaming ? "true" : "false") << std::endl;
-    std::cout << "Roaming type: " << tafDCSHelper::RoamingTypeToString(roamingType) << std::endl;
+    std::cout << "Roaming type: " << taf_DCSHelper::RoamingTypeToString(roamingType) << std::endl;
     return result;
 }
 
@@ -903,8 +903,8 @@ static le_result_t GetCallEndReason()
         LE_TEST_OK(LE_OK == result, "%s", logStr.c_str());
         std::cout << logStr << std::endl;
     }
-    const char *CallEndReasonTypeStr4 = tafDCSHelper::CallEndReasonTypeToString(callEndReasonType);
-    const char *CallEndReasonCodeStr4 = tafDCSHelper::CallEndReasonCodeToString(
+    const char *CallEndReasonTypeStr4 = taf_DCSHelper::CallEndReasonTypeToString(callEndReasonType);
+    const char *CallEndReasonCodeStr4 = taf_DCSHelper::CallEndReasonCodeToString(
                                                              callEndReasonType, callEndReasonCode);
 
     LE_TEST_INFO("IPv4 Call end reason type: %d(%s)", callEndReasonType, CallEndReasonTypeStr4);
@@ -931,8 +931,8 @@ static le_result_t GetCallEndReason()
         std::cout << logStr << std::endl;
         return result;
     }
-    const char *CallEndReasonTypeStr6 = tafDCSHelper::CallEndReasonTypeToString(callEndReasonType);
-    const char *CallEndReasonCodeStr6 = tafDCSHelper::CallEndReasonCodeToString(
+    const char *CallEndReasonTypeStr6 = taf_DCSHelper::CallEndReasonTypeToString(callEndReasonType);
+    const char *CallEndReasonCodeStr6 = taf_DCSHelper::CallEndReasonCodeToString(
         callEndReasonType, callEndReasonCode);
 
     LE_TEST_INFO("IPv6 Call end reason type: %d(%s)", callEndReasonType, CallEndReasonTypeStr6);
@@ -1693,7 +1693,7 @@ void RoamingStatusHandlerFunc(
     LE_TEST_INFO("Phone Id     : %d", roamingStatusIndPtr->phoneId);
     LE_TEST_INFO("Is Roaming   : %d", roamingStatusIndPtr->isRoaming);
     LE_TEST_INFO("Roaming type : %s",
-                 tafDCSHelper::RoamingTypeToString(roamingStatusIndPtr->type));
+                 taf_DCSHelper::RoamingTypeToString(roamingStatusIndPtr->type));
 
     // Print logs on console only if enabled
     if (!bPrintNotifLogsOnConsole)
@@ -1703,7 +1703,7 @@ void RoamingStatusHandlerFunc(
     std::cout << "\t\tPhone Id     : " << roamingStatusIndPtr->phoneId << std::endl;
     std::cout << "\t\tIs Roaming   : " << roamingStatusIndPtr->isRoaming << std::endl;
     std::cout << "\t\tRoaming type : " <<
-                    tafDCSHelper::RoamingTypeToString(roamingStatusIndPtr->type) << std::endl;
+                    taf_DCSHelper::RoamingTypeToString(roamingStatusIndPtr->type) << std::endl;
 }
 
 void SessionStateHandlerFunc
@@ -1721,8 +1721,8 @@ void SessionStateHandlerFunc
     LE_TEST_OK(LE_OK == result, "taf_dcs_GetProfileId: %d", result);
     LE_TEST_INFO("SessionStateHandlerFunc. Profile id: %d, callEvent: %s, ip type: %s",
                  profileId,
-                 tafDCSHelper::CallEventToString(callEvent),
-                 tafDCSHelper::IpFamilyTypeToString(infoPtr->ipType));
+                 taf_DCSHelper::CallEventToString(callEvent),
+                 taf_DCSHelper::IpFamilyTypeToString(infoPtr->ipType));
 
     // Print logs on console only if enabled
     if (!bPrintNotifLogsOnConsole)
@@ -1730,8 +1730,8 @@ void SessionStateHandlerFunc
 
     std::cout << "\tSessionStateHandlerFunc" << std::endl;
     std::cout << "\t\tProfile id: " << profileId << std::endl;
-    std::cout << "\t\tCall event: " << tafDCSHelper::CallEventToString(callEvent) << std::endl;
-    std::cout << "\t\tIP type   : " << tafDCSHelper::IpFamilyTypeToString(infoPtr->ipType)
+    std::cout << "\t\tCall event: " << taf_DCSHelper::CallEventToString(callEvent) << std::endl;
+    std::cout << "\t\tIP type   : " << taf_DCSHelper::IpFamilyTypeToString(infoPtr->ipType)
                                     << std::endl;
 }
 
@@ -1746,7 +1746,7 @@ void QosStatusHandlerFunc
 
     LE_TEST_INFO("----QOS State : %d", (int)qosState);
     if (bPrintNotifLogsOnConsole)
-        std::cout << "\t\tQOS State: " << qosState << std::endl;
+        std::cout << "\t\tQOS State id: " << qosState << std::endl;
 
     uint32_t qosFlowId = 0;
     le_result_t result = taf_dcs_GetQosId(qosFlowRef,&qosFlowId);
@@ -1754,7 +1754,7 @@ void QosStatusHandlerFunc
     {
       LE_TEST_INFO("----Qos ID : %d", (int)qosFlowId);
       if (bPrintNotifLogsOnConsole)
-        std::cout << "\t\tQos ID: " << qosFlowId << std::endl;
+        std::cout << "\t\tQos ID id: " << qosFlowId << std::endl;
     }
     else
     {
@@ -1770,7 +1770,7 @@ void QosStatusHandlerFunc
     {
       LE_TEST_INFO("----Qos Mask : %d", (int)mask);
       if (bPrintNotifLogsOnConsole)
-          std::cout << "\t\tQos Mask: " << mask << std::endl;
+          std::cout << "\t\tQos Mask id: " << mask << std::endl;
     }
     else
     {

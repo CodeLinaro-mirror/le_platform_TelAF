@@ -249,11 +249,18 @@ static le_result_t TestActivateSensor(const char* name,double SamplingRate,
             configList[0] = c1;
             SensorConfig c2 = {NULL,0,0};
             configList[1] = c2;
+            result  =  taf_imuSensor_Activate(sensorRef,SamplingRate,BatchCount);
+            LE_TEST_OK(result == LE_OK,"Activate %s",name);
+            if(result!=LE_OK) return result;
+            le_thread_Sleep(3);
             threadRef1 = le_thread_Create("Thread1", SensorHandler,&c1);
             le_thread_Start(threadRef1);
             le_thread_Sleep(30);
             taf_imuSensor_RemoveSelfTestFailedHandler(selfTestHandlerRef);
             taf_imuSensor_RemoveDataHandler(eventHandlerRef);
+            result = taf_imuSensor_Deactivate(sensorRef);
+            LE_TEST_OK(result == LE_OK,"Deactivate %s",name);
+            if(result!=LE_OK) return result;
             return LE_OK;
         }
     }

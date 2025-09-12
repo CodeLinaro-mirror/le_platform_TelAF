@@ -517,6 +517,7 @@ le_result_t tafMngdConnAdmin::Startdata(taf_mngdConn_DataRef_t dataRef)
     le_result_t result = LE_OK;
     mcs_DataCtx_t* dataCtxPtr = NULL;
     CmdSynchronousPromise = std::promise<le_result_t>();
+    std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
 
     TAF_ERROR_IF_RET_VAL(dataRef == NULL, LE_BAD_PARAMETER, "Null ptr(dataRef)");
 
@@ -542,7 +543,6 @@ le_result_t tafMngdConnAdmin::Startdata(taf_mngdConn_DataRef_t dataRef)
     le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
 
     // blocking here to get response
-    std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
     result = futResult.get();
 
     // If data start is success and the data id is not auto started, then add this client to the
@@ -576,6 +576,7 @@ le_result_t tafMngdConnAdmin::Stopdata(taf_mngdConn_DataRef_t dataRef)
     le_result_t result = LE_OK;
     mcs_DataCtx_t* dataCtxPtr = NULL;
     CmdSynchronousPromise = std::promise<le_result_t>();
+    std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
 
     TAF_ERROR_IF_RET_VAL(dataRef == NULL, LE_BAD_PARAMETER, "Null ptr(dataRef)");
 
@@ -616,7 +617,6 @@ le_result_t tafMngdConnAdmin::Stopdata(taf_mngdConn_DataRef_t dataRef)
     le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
 
     //wait until return
-    std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
     result = futResult.get();
 
     // Regardless of data stop result, check if connectivity recovery is scheduled and send
@@ -784,6 +784,9 @@ le_result_t tafMngdConnAdmin::StartDataRetry(taf_mngdConn_DataRef_t dataRef)
     mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)le_ref_Lookup(DataRefMap, (void *)dataRef);
     TAF_ERROR_IF_RET_VAL(nullptr == dataCtxPtr, LE_NOT_FOUND, "Data reference not found");
 
+    CmdSynchronousPromise = std::promise<le_result_t>();
+    std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+
     // Data start should be called first when AutoStart: No
     if (TAF_MNGDCONN_DATA_DISCONNECTED == dataCtxPtr->dataState && !dataCtxPtr->autoStart)
     {
@@ -800,7 +803,10 @@ le_result_t tafMngdConnAdmin::StartDataRetry(taf_mngdConn_DataRef_t dataRef)
     stateMachineEvt.dataId = dataCtxPtr->dataId;
     stateMachineEvt.sessionRef = sessionRef;
     le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
-    return LE_OK;
+    // Blocking here to get response
+    le_result_t result = futResult.get();
+
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1351,8 +1357,7 @@ le_result_t tafMngdConnAdmin::EventStartDataRetryAppReq(uint8_t dataId,
         stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
         stateMachineEvt.event = MCS_EVT_DATA_STOP;
         stateMachineEvt.dataId = dataCtxPtr->dataId;
-        le_event_Report(StateMachineEventId, &stateMachineEvt,
-                        sizeof(stateMachineEvent_t));
+        le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
     }
 
     return LE_OK;
@@ -2023,7 +2028,8 @@ void tafMngdConnAdmin::StateMachineEvtHandlerFunc(void *reqPtr)
             break;
 
         case MCS_EVT_DATA_START_RETRY_APP_REQ:
-            mngdConnAdmin.EventStartDataRetryAppReq(eventReq->dataId, eventReq->sessionRef);
+            result = mngdConnAdmin.EventStartDataRetryAppReq(eventReq->dataId, eventReq->sessionRef);
+            mngdConnAdmin.CmdSynchronousPromise.set_value(result);
             break;
 
         case MCS_EVT_DATA_STOP_SYNC:

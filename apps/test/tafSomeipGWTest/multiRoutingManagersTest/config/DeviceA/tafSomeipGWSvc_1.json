@@ -1,6 +1,6 @@
 {
     "unicast" : "10.10.1.1",
-    "device" : "eth0.1",
+    "device" : "bridge1",
     "logging" :
     {
         "level" : "error",

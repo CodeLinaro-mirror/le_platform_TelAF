@@ -389,7 +389,7 @@ files_manage_generic_tmp_files(telaf_admin_domain)
 
 # user ability and sandbox support
 allow telaf_admin_domain self:capability { dac_read_search sys_admin sys_resource sys_nice setgid kill setuid net_admin sys_boot mknod sys_chroot sys_ptrace dac_override };
-allow telaf_admin_domain self:capability { chown fowner fsetid };
+allow telaf_admin_domain self:capability { chown fowner fsetid setpcap };
 allow telaf_admin_domain self:capability2 { block_suspend mac_admin wake_alarm };
 allow telaf_admin_domain self:capability2 { syslog };
 

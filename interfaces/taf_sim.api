@@ -128,7 +128,7 @@
  * <b>Home Network Information</b>
  *
  * - @ref taf_sim_GetHomeNetworkOperator() -- Retrieves the name of the carrier on which this subscription is made.
- * - @ref taf_sim_GetHomeNetworkMccMnc() -- Retrieves the MCC and MNC of the carrier on which this subscription is made.
+ * - @ref taf_sim_GetHomeNetworkMccMnc() -- Retrieves the Mobile Country Code(MCC) and Mobile Network Code(MNC) of the carrier on which this subscription is made.
  *
  * @section taf_sim_auth SIM authentication
  *
@@ -731,7 +731,7 @@ FUNCTION le_result_t GetSubscriberPhoneNumber
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Retrieves the MNC and MCC of the carrier to which the phone is connected.
+ * Retrieves the Moblie Network Code(MNC) and Mobile Country Code(MCC) of the carrier to which the phone is connected.
  *
  * @return
  * - LE_OVERFLOW         Buffer size is too small.
@@ -744,8 +744,8 @@ FUNCTION le_result_t GetSubscriberPhoneNumber
 FUNCTION le_result_t GetHomeNetworkMccMnc
 (
     Id     slotId IN,        ///< Slot ID.
-    string mccPtr[3] OUT,    ///< 3 digit numeric MCC string as output.
-    string mncPtr[3] OUT     ///< 2 or 3 digit numeric MNC string as output.
+    string mccPtr[3] OUT,    ///< 3 digit numeric Mobile Country Code(MCC) string as output.
+    string mncPtr[3] OUT     ///< 2 or 3 digit numeric Mobile Network Code(MNC) string as output.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -1236,8 +1236,8 @@ FUNCTION FPLMNList CreateFPLMNList
 FUNCTION le_result_t AddFPLMNOperator
 (
     FPLMNList fplmnListRef IN,                    ///< FPLMN list reference.
-    string    mcc[3]       IN,                    ///< 3 digit numeric code representing Mobile Country Code.
-    string    mnc[3]       IN                     ///< 2 or 3 digit numeric code representing Mobile Network Code.
+    string    mcc[3]       IN,                    ///< 3 digit numeric code representing Mobile Country Code(MCC).
+    string    mnc[3]       IN                     ///< 2 or 3 digit numeric code representing Mobile Network Code(MNC).
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -1248,15 +1248,15 @@ FUNCTION le_result_t AddFPLMNOperator
  * @return
  *      - LE_FAULT         Failed.
  *      - LE_OK            Succeeded.
- *      - LE_OVERFLOW      MCC/MNC string size is greater than the string length parameter that has
+ *      - LE_OVERFLOW      Mobile Country Code(MCC)/Mobile Network Code(MNC) string size is greater than the string length parameter that has
  *                         been given to this function.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetFirstFPLMNOperator
 (
     FPLMNList fplmnListRef IN,               ///< FPLMN list reference.
-    string mccPtr[3] OUT,                    ///< 3 digit numeric MCC string as output.
-    string mncPtr[3] OUT                     ///< 2 or 3 digit numeric MNC string as output.
+    string mccPtr[3] OUT,                    ///< 3 digit numeric Mobile Country Code(MCC) string as output.
+    string mncPtr[3] OUT                     ///< 2 or 3 digit numeric Mobile Network Code(MNC) string as output.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -1266,15 +1266,15 @@ FUNCTION le_result_t GetFirstFPLMNOperator
  * @return
  *      - LE_FAULT         Failed.
  *      - LE_OK            Succeeded.
- *      - LE_OVERFLOW      MCC/MNC string size is greater than string length parameter that has
+ *      - LE_OVERFLOW      Mobile Country Code(MCC)/Mobile Network Code(MNC) string size is greater than string length parameter that has
  *                         been given to this function.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNextFPLMNOperator
 (
     FPLMNList fplmnListRef IN,               ///< FPLMN list reference.
-    string mccPtr[3] OUT,                    ///< 3 digit numeric code MCC as output.
-    string mncPtr[3] OUT                     ///< 2 or 3 digit numeric code MNC as output.
+    string mccPtr[3] OUT,                    ///< 3 digit numeric code Mobile Country Code(MCC) as output.
+    string mncPtr[3] OUT                     ///< 2 or 3 digit numeric code Mobile Network Code(MNC) as output.
 );
 
 //-------------------------------------------------------------------------------------------------

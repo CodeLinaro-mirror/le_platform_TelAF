@@ -320,5 +320,6 @@ using namespace std;
                 le_result_t SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, bool isRefreshAllowed);
                 le_result_t CheckRefreshAllow(taf_pa_sim_RefreshChangeInd_t* ind);
                 void ResetRefreshVote(taf_sim_Session_t* sessionPtr);
+                bool IsValidMCCAndMNC(const char* mccPtr, const char* mncPtr);
         };
     }

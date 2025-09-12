@@ -28,11 +28,10 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 
 
 #include "legato.h"
@@ -438,10 +437,17 @@ taf_locPosCtrl_ActivationRef_t taf_locPos::locPosCtrl_Request
 
     if (pos.CurrentActivationsCount == 0)
     {
-        /*if (taf_locGnss_SetAcquisitionRate(AcqRate) != LE_OK)
+#ifdef LE_CONFIG_ENABLE_GNSS_ACQUISITION_RATE_SETTING
+        le_cfg_IteratorRef_t posConfig = le_cfg_CreateWriteTxn(CFG_POSITIONING_PATH);
+        le_cfg_SetInt(posConfig, CFG_NODE_RATE, AcqRate);
+        le_cfg_CommitTxn(posConfig);
+
+        LE_DEBUG("acquisition rate (%" PRIu32 ") for positioning", AcqRate);
+#endif
+        if (taf_locGnss_SetAcquisitionRate(AcqRate) != LE_OK)
         {
             LE_WARN("Failed to set GNSS's acquisition rate (%" PRIu32 ")", AcqRate);
-        }*/
+        }
 
         if (taf_locGnss_Start() != LE_OK)
         {
@@ -1489,6 +1495,8 @@ void taf_locPos::PosCloseSessionEventHandler
 
 void taf_locPos::Init()
 {
+   LE_INFO("taf_locPos Init!!");
+
    PosPoolRef = le_mem_InitStaticPool(PosSample, TAF_LOCPOS_MAX_OBJ, sizeof(taf_locPos_Sample_t));
    PosRequestPoolRef = le_mem_InitStaticPool(PosSampleRequest, TAF_LOCPOS_MAX_OBJ, sizeof(PosSampleRequest_t));
 

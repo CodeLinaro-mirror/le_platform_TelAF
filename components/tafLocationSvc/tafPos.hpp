@@ -28,11 +28,10 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 
 
 #include "legato.h"
@@ -58,7 +57,7 @@ using namespace telux::common;
 #define POSITIONING_SAMPLE_MAX       1
 #define HIGH_POS_HANDLER_COUNT       1
 #define SUPPOSED_AVERAGE_SPEED       50
-#define DEFAULT_ACQUISITION_RATE     100 //100msec
+#define DEFAULT_ACQUISITION_RATE     1000 //1000msec
 #define DEFAULT_POWER_STATE          true
 #define SEC_TO_MSEC            1000
 #define HOURS_TO_SEC           3600

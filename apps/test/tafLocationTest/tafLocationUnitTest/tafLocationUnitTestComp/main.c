@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1765,10 +1765,16 @@ static void* SamplePositionThread
     LE_TEST_INFO("======== Sample Position Handler thread  ========");
     taf_locPos_ConnectService();
 
+    uint32_t acqRate = taf_locPos_GetAcquisitionRate();
+    LE_TEST_INFO("Acqusition Rate before Adding Handler: (%" PRIu32 ")", acqRate);
+
     //174.Sample Position Handler
     SamplePositionHandlerRef = taf_locPos_AddMovementHandler(0, 0, SamplePositionHandler, NULL);
     LE_TEST_OK((SamplePositionHandlerRef != NULL),
         "Confirm sample position handler was added successfully");
+
+    acqRate = taf_locPos_GetAcquisitionRate();
+    LE_TEST_INFO("Acqusition Rate After Adding Handler: (%" PRIu32 ")", acqRate);
 
     LE_TEST_INFO("======== Sample Position Handler thread before le_event_RunLoop ========");
     le_event_RunLoop();

@@ -84,9 +84,14 @@ static taf_hms_CPUCore_t GetCpuUsage()
     }
 
     taf_hms_CPUCore_t usage;
-    fscanf(file, "cpu %d %d %d %d %d %d %d %d %d %d",
+
+    if (fscanf(file, "cpu %d %d %d %d %d %d %d %d %d %d",
         &usage.user, &usage.nice, &usage.system, &usage.idle, &usage.iowait,
-        &usage.irq, &usage.softirq, &usage.steal, &usage.guest, &usage.guest_nice);
+        &usage.irq, &usage.softirq, &usage.steal, &usage.guest, &usage.guest_nice) <= 0)
+    {
+        LE_WARN("Failed to scan data from file");
+    }
+
     fclose(file);
     return usage;
 }

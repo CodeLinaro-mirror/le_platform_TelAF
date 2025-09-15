@@ -6,7 +6,7 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#define TREE_PATH_MAX 128
+#define TREE_PATH_MAX 64
 
 le_result_t GetConfigIntNodeValue
 (
@@ -91,7 +91,7 @@ static bool IsNodeEmpty(char *rootNode, char* item)
 //--------------------------------------------------------------------------------------------------
 static void TestTree_customer(void)
 {
-    char treePath[TREE_PATH_MAX] = "customer:/dynamic";
+    char treePath[TREE_PATH_MAX*2] = "customer:/dynamic";
     char config_node[TREE_PATH_MAX] = "testItem0";
     le_result_t ret = LE_OK;
 
@@ -135,9 +135,9 @@ static void TestTree_customer(void)
 //--------------------------------------------------------------------------------------------------
 static void TestNode_readOnlyConfig(void)
 {
-    char treePath[TREE_PATH_MAX] = "";
-    char config_node1[TREE_PATH_MAX] = "";
-    char config_node2[TREE_PATH_MAX] = "";
+    char treePath[TREE_PATH_MAX*2] = "";
+    char config_node1[TREE_PATH_MAX*2] = "";
+    char config_node2[TREE_PATH_MAX*2] = "";
     char config_path1[TREE_PATH_MAX] = "/readOnlyConfig/private";
     char config_path2[TREE_PATH_MAX] = "/readOnlyConfig/newWrite";
 
@@ -181,9 +181,9 @@ static void TestNode_readOnlyConfig(void)
 //--------------------------------------------------------------------------------------------------
 static void TestNode_readWriteConfig(void)
 {
-    char treePath[TREE_PATH_MAX] = "";
-    char config_node1[TREE_PATH_MAX] = "";
-    char config_node2[TREE_PATH_MAX] = "";
+    char treePath[TREE_PATH_MAX*2] = "";
+    char config_node1[TREE_PATH_MAX*2] = "";
+    char config_node2[TREE_PATH_MAX*2] = "";
     char config_path1[TREE_PATH_MAX] = "/readWriteConfig/private";
     char config_path2[TREE_PATH_MAX] = "/readWriteConfig/newWrite";
 

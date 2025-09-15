@@ -828,7 +828,7 @@ le_result_t taf_Can::SendFrame
         return LE_FAULT;
     }
 
-    int send;
+    int send = -1;
     taf_can_FrameType_t frameType;
 
     struct can_frame nFrame;

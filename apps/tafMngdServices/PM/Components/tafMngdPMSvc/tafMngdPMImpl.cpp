@@ -1803,7 +1803,7 @@ bool tafMngdPMSvc::IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stay
 {
     LE_INFO("AuthorizeStayAwakeReason");
     auto &mpms = tafMngdPMSvc::GetInstance();
-    unsigned int clientMask;
+    unsigned int clientMask = 0;
 
     if(stayAwakeReason < 32)
     {

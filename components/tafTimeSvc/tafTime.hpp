@@ -663,7 +663,7 @@ struct ValidityParams
                     taf_time_SourceRef_t SrcRef, taf_time_StatusEventType_t eventType,
                     taf_time_TimeSourceStatusHandlerFunc_t handlerPtr, void* contextPtr);
                 taf_time_SourceRef_t GetSourceRef(taf_time_TimeSources_t sourceId);
-                taf_SourceInf_t* SearchAvailableSourceInfList(taf_time_TimeSources_t sourceId,
+                taf_SourceInf_t* SearchSourceMap(taf_time_TimeSources_t sourceId,
                     le_msg_SessionRef_t sessionRef = NULL, bool checkSessionRef = false);
                 void printSourceInfo();
                 le_result_t GetFailedLoops(taf_time_SourceRef_t sourceRef, int32_t* failedLoops,

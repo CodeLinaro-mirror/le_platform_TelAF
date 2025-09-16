@@ -32,53 +32,89 @@ uds("27 02" + key.hex())
 
 # positive resp
 uds("31 01 02 46")
+print("Exp      <71 01 02 46>")
 
 # NRC 0x13
 uds("31 01 02 46 08 08")
+print("Exp      <7f 31 13>")
 
 # positive resp as forbidden_characters not configured
 uds("31 01 02 46 08")
+print("Exp      <71 01 02 46>")
 
 # positive resp
 uds("31 02 02 46")
+print("Exp      <71 02 02 46>")
 
 # NRC 0x13
 uds("31 02 02 46 02 02")
+print("Exp      <7f 31 13>")
 
 # NRC 0x31
 uds("31 02 02 46 02")
+print("Exp      <7f 31 31>")
 
 # positive resp
 uds("31 03 02 46")
+print("Exp      <71 03 02 46>")
 
 # NRC 0x13
 uds("31 03 02 46 02 02")
+print("Exp      <7f 31 13>")
 
 # NRC 0x31
 uds("31 03 02 46 30")
+print("Exp      <7f 31 31>")
 
 # positive resp
 uds("31 03 02 46 10")
+print("Exp      <71 03 02 46>")
 
-# positive resp
+# NRC 0x72
 uds("31 01 02 47")
+print("Exp      <7f 31 72>")
 
 # NRC 0x13
 uds("31 01 02 47 08 08")
+print("Exp      <7f 31 13>")
 
 # NRC 0x31
 uds("31 02 02 47 08")
+print("Exp      <7f 31 31>")
 
 # NRC 0x31
 uds("31 03 02 47 0B")
+print("Exp      <7f 31 31>")
 
 # NRC 0x21
 uds("31 01 02 48")
+print("Exp      <7f 31 21>")
 
 uds("31 01 02 48 02")
+print("Exp      <7f 31 21>")
 
+# empty value for item stop
 uds("31 02 02 48 01")
+print("Exp      <7f 31 13>")
 
-uds("31 03 02 48 02")
+# item result is not configured
+uds("31 03 02 48 03")
+print("Exp      <7f 31 13>")
+
+# Positive Resp
+uds("31 01 02 49")
+print("Exp      <71 01 02 49>")
+
+# NRC 0x13. Empty value for item start
+uds("31 01 02 49 000000")
+print("Exp      <7f 31 13>")
+
+# NRC 0x13. Empty value for item stop
+uds("31 02 02 49 FFFFFFFFFF")
+print("Exp      <7f 31 13>")
+
+# NRC 0x13. Empty value for item result
+uds("31 03 02 49 FFFFFFFFFFFFFF")
+print("Exp      <7f 31 13>")
 
 tcpdump_stop()

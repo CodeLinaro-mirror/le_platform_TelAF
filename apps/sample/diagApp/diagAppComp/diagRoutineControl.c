@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -9,6 +9,7 @@
 #define ROUTINE_CONTROL_RECORD_LENGTH 100
 #define UPDATE_PRE_DOWNLOAD_CHECK_IDENTIFIER 0x0246
 #define UPDATE_POST_DOWNLOAD_CHECK_IDENTIFIER 0x0247
+#define EMPTY_DATA_RECORD_IDENTIFIER 0x0249
 #define UPDATE_SESSION_CONF_FILE "/data/nad_update.conf"
 #define PRE_DOWNLOAD_CHECK_OK 1
 
@@ -21,6 +22,7 @@ taf_update_SessionRef_t updateSessRef = NULL;
 //Diag Routine Control
 static taf_diagRoutineCtrl_ServiceRef_t diagRCPreDlSvcRef = NULL;
 static taf_diagRoutineCtrl_ServiceRef_t diagRCPostDlSvcRef = NULL;
+static taf_diagRoutineCtrl_ServiceRef_t diagEmptyRecordSvcRef = NULL;
 static taf_diagRoutineCtrl_RxMsgHandlerRef_t diagRoutineCtrlMsgRef = NULL;
 
 static le_sem_Ref_t semRef;
@@ -152,6 +154,26 @@ void routineCtrl_0246_MsgHandler
                 LE_ERROR("Send response error");
             }
             break;
+    }
+
+}
+
+// Callback function for routine control request message
+void routineCtrl_0249_MsgHandler
+(
+    taf_diagRoutineCtrl_RxMsgRef_t rxMsgRef,
+    taf_diagRoutineCtrl_Type_t routineCtrlType,
+    uint16_t identifier,
+    void* contextPtr
+)
+{
+    LE_TEST_INFO("Received routine control req id 0x%x, type = %s",
+                 identifier, tafRoutineCtrlTypeToString(routineCtrlType));
+
+    if(taf_diagRoutineCtrl_SendResp( rxMsgRef, TAF_DIAGROUTINECTRL_NO_ERROR,
+            NULL, 0 ) != LE_OK)
+    {
+        LE_ERROR("Send response error");
     }
 
 }
@@ -305,6 +327,11 @@ static void* diagRoutingCtrlMsgThread(void* ctxPtr)
     LE_TEST_OK(diagRoutineCtrlMsgRef != NULL,
             "Registered successfully for routineCtrl_0247_MsgHandler");
 
+    diagRoutineCtrlMsgRef = taf_diagRoutineCtrl_AddRxMsgHandler( diagEmptyRecordSvcRef,
+            routineCtrl_0249_MsgHandler, NULL);
+    LE_TEST_OK(diagRoutineCtrlMsgRef != NULL,
+            "Registered successfully for routineCtrl_0249_MsgHandler");
+
     le_sem_Post(semRef);
     le_event_RunLoop();
     return NULL;
@@ -342,6 +369,14 @@ le_result_t diagRoutineControl_Init(void)
     if(diagRCPostDlSvcRef == NULL)
     {
         LE_ERROR("Get diagRoutineCtrl service for post-download");
+        return LE_FAULT;
+    }
+
+    //get diag routinectrl svc reference for empty record rid
+    diagEmptyRecordSvcRef = taf_diagRoutineCtrl_GetService(EMPTY_DATA_RECORD_IDENTIFIER);
+    if(diagEmptyRecordSvcRef == NULL)
+    {
+        LE_ERROR("Get diagRoutineCtrl service for empty record rid");
         return LE_FAULT;
     }
 

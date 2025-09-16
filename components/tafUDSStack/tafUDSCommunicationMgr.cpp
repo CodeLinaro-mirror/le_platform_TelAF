@@ -6328,6 +6328,15 @@ bool UdsCommunicationMgr::IsTotalLengthCheckValid
             return false;
         }
     }
+    //tafDiagGenTool always returns NULL for V1, don't check it.
+#ifndef LE_CONFIG_DIAG_FEATURE_A
+    else
+    {
+        //If data record is empty in yaml but present in UDS request, send NRC 0x13.
+        LE_DEBUG("The Option record config of Subfunction 0x%x RID: 0x%x is empty.", subFunc, rid);
+        return false;
+    }
+#endif
     return true;
 }
 

@@ -319,7 +319,8 @@ REFERENCE ModemEvent;
 //--------------------------------------------------------------------------------------------------
 ENUM ModemEvtType
 {
-    MODEM_EVENT_TYPE_CONTINUE_REBOOT
+    MODEM_EVENT_TYPE_CONTINUE_REBOOT = 0,
+    MODEM_EVENT_TYPE_CONNECTION_LOST = 1
 };
 
 

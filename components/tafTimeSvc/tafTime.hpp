@@ -523,8 +523,10 @@ struct ValidityParams
                 le_result_t GetAsyncRtcSetTimeStatus(void);
                 le_result_t GetSystemTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetInternalRtcTime(taf_time_TimeSpec_t* timeVal);
+
+                le_result_t ReadDeltaTimeFromStorage(int64_t* deltaTimeMSec);
                 le_result_t UpdateDeltaTimeToStorage(taf_time_TimeSpec_t timeVal);
-                void UpdateDeltaTimeToRAM(void);
+
                 le_result_t GetNetworkTime(taf_time_TimeSpec_t* timeValPtr,
                                                               taf_time_TimeSources_t sourceId);
 
@@ -699,7 +701,6 @@ struct ValidityParams
                 int64_t AllowOverrideAfterFail = -1;
                 pthread_mutex_t ProtectlocalTime_mutex;
                 taf_gptpTime_Ref_t gptpTimeRef = NULL;
-                int64_t deltaTimeMSec = 0;
         };
     }
 #endif

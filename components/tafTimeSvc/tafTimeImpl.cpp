@@ -1714,22 +1714,36 @@ bool taf_Time::IsThresholdSetTimeAllow
     return true;
 }
 
-void taf_Time::UpdateDeltaTimeToRAM(void)
+#define DELTA_THRESHOLD_MS 1000
+le_result_t taf_Time::ReadDeltaTimeFromStorage
+(
+    int64_t* deltaTimeMSec
+)
 {
-    auto &tafTime = taf_Time::GetInstance();
-    int fd = open(TAF_TIME_DELTA_TIME_PATH, O_RDWR | O_CREAT, 0666);
+    int fd = open(TAF_TIME_DELTA_TIME_PATH, O_RDONLY);
     if (fd == -1) {
-        LE_WARN("Open file: %s failed, %s\n", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
-        return;
+        LE_ERROR("Open file: %s failed, %s", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
+        *deltaTimeMSec = 0;
+        return LE_FAULT;
     }
 
-    ssize_t bytesRead = read(fd, &tafTime.deltaTimeMSec, sizeof(uint64_t));
-    if (bytesRead <= 0)
-    {
-        LE_WARN("Read file %s failed, bytes read: %zd\n", TAF_TIME_DELTA_TIME_PATH, bytesRead);
+    if (lseek(fd, 0, SEEK_SET) == -1) {
+        LE_ERROR("lseek failed: %s", strerror(errno));
+        *deltaTimeMSec = 0;
+        close(fd);
+        return LE_FAULT;
     }
+
+    ssize_t bytesRead = read(fd, deltaTimeMSec, sizeof(int64_t));
+    if (bytesRead != sizeof(int64_t)) {
+        LE_ERROR("Read file %s failed, bytes read: %zd", TAF_TIME_DELTA_TIME_PATH, bytesRead);
+        *deltaTimeMSec = 0;
+        close(fd);
+        return LE_FAULT;
+    }
+
     close(fd);
-    return;
+    return LE_OK;
 }
 
 le_result_t taf_Time::UpdateDeltaTimeToStorage
@@ -1737,42 +1751,54 @@ le_result_t taf_Time::UpdateDeltaTimeToStorage
     taf_time_TimeSpec_t timeVal
 )
 {
-    auto &tafTime = taf_Time::GetInstance();
-    le_result_t result = LE_OK;
-    int64_t oldDelta_Msec = tafTime.deltaTimeMSec, newDelta_Msec = 0;
     taf_time_TimeSpec_t rtcTimeVal;
-
-    result = GetInternalRtcTime(&rtcTimeVal);
-    if(result != LE_OK)
+    le_result_t result = GetInternalRtcTime(&rtcTimeVal);
+    if (result != LE_OK)
     {
-        LE_ERROR("Read RTC failed %d\n", result);
+        LE_ERROR("Read RTC failed %d", result);
         return result;
     }
-    newDelta_Msec = (timeVal.sec * 1000) + (timeVal.nanosec/1000)
-                  - (rtcTimeVal.sec * 1000) - (rtcTimeVal.nanosec/1000);
 
-    //Check if the delta time is any different
-    if((newDelta_Msec > tafTime.deltaTimeMSec + 1000) || (tafTime.deltaTimeMSec > newDelta_Msec + 1000))
+    int64_t oldDeltaMSec = 0;
+    if (ReadDeltaTimeFromStorage(&oldDeltaMSec) != LE_OK)
     {
-        int fd = open(TAF_TIME_DELTA_TIME_PATH, O_RDWR | O_CREAT, 0666);
-        if (fd == -1) {
-            LE_ERROR("Open file: %s failed, %s\n", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
+        oldDeltaMSec = 0;
+        LE_WARN("Read delta time from storage failed");
+    }
+
+    int64_t newDelta_Msec = (timeVal.sec * 1000LL + timeVal.nanosec / 1000000LL) -
+                            (rtcTimeVal.sec * 1000LL + rtcTimeVal.nanosec / 1000000LL);
+
+    int64_t diff = newDelta_Msec - oldDeltaMSec;
+    if ((diff < 0 ? -diff : diff) > DELTA_THRESHOLD_MS)
+    {
+        int fd = open(TAF_TIME_DELTA_TIME_PATH, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+        if (fd == -1)
+        {
+            LE_ERROR("Open file: %s failed, %s", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
             return LE_FAULT;
         }
-        tafTime.deltaTimeMSec = newDelta_Msec;
-        /* Move the file pointer to the beginning */
-        lseek(fd, 0, SEEK_SET);
-        if (write(fd, &tafTime.deltaTimeMSec, sizeof(uint64_t)) < 0)
-        {
-            LE_ERROR("Write file: %s failed, %s\n", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
+        if (lseek(fd, 0, SEEK_SET) == -1) {
+            LE_ERROR("lseek failed: %s", strerror(errno));
             close(fd);
             return LE_FAULT;
         }
+
+        ssize_t written = write(fd, &newDelta_Msec, sizeof(int64_t));
+        if (written != sizeof(int64_t))
+        {
+            LE_ERROR("Write file: %s failed, %s", TAF_TIME_DELTA_TIME_PATH, strerror(errno));
+            close(fd);
+            return LE_FAULT;
+        }
+
+        fsync(fd);
         close(fd);
+        LE_INFO("Successfully updated delta time to %" PRId64 " ms", newDelta_Msec);
     }
 
-    LE_DEBUG("RTC sec %" PRIu64 ", System sec %" PRIu64 ", oldDlt sec %" PRId64 ", newDlt sec "
-             "%" PRId64 "\n", rtcTimeVal.sec, timeVal.sec, oldDelta_Msec/1000, newDelta_Msec/1000);
+    LE_DEBUG("RTC sec %" PRIu64 ", System sec %" PRIu64 ", oldDlt sec %" PRId64 ", newDlt sec %"
+              PRId64, rtcTimeVal.sec, timeVal.sec, oldDeltaMSec / 1000, newDelta_Msec / 1000);
 
     return LE_OK;
 }
@@ -4114,10 +4140,6 @@ void taf_Time::Init(void)
     le_event_AddHandler("TimeSourceStatusHandlerRef",
         timeSourceStatusEventId, timeSourceStatusHandler);
 
-    if(access(TAF_TIME_DELTA_TIME_DIR, F_OK) != -1)
-    {
-        UpdateDeltaTimeToRAM();
-    }
 }
 
 taf_time_setRTCCb_t tafsvc::taf_Time::setRTCCB;

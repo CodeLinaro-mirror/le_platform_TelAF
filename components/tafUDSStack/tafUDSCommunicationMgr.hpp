@@ -45,6 +45,8 @@ namespace uds{
     #define MAX_FILE_TRANSFER_STATE_MTX_NAME_LEN 30
     #define NRC_STATUS_INDICATION_LEN 3
     #define MAX_DID_NUM_IN_RDBI 10
+    #define SEC_ACC_TIME_TO_WAIT 3 //// Semaphore SecAccSem wait time
+    #define UDS_SEC_SEM_NAME_MAX_LEN 32 /// Semaphore name
 
     // UDS minimal len
     #define UDS_REQ_MIN_LEN 1
@@ -436,6 +438,8 @@ namespace uds{
             uint8_t sendBuf[UDS_MAX_DATA_SIZE];
             uint16_t recvDataLen = 0;
             uint16_t sendDataLen = 0;
+            uint8_t recvSid = 0;
+            uint8_t recvSubFunc = 0;
             std::atomic<bool> readyToRecvData = {true};
             std::atomic<bool> isPaused = {false};
             char interface[MAX_INTERFACE_NAME_LEN];
@@ -572,6 +576,9 @@ namespace uds{
             taf_UDSReqAuthSubFunc_t authPreSucReq = AUTH_SUBFUNC_UNKNOWN;
             uint8_t authAttCnt = 0;
             uint16_t authDelayTime = 60; // 1 minute
+
+            //Semphore counter
+            uint32_t mainSemCnt = 0;
 
             // Tester present state change notification.
             static void IndicateTesterStateChange(const char* ifName,

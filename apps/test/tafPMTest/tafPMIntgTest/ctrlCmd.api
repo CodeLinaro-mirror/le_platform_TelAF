@@ -199,5 +199,14 @@ FUNCTION le_result_t shutdown
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetPowerMode
 (
-    PowerMode powerMode     ///< to set syatem power mode when BUB status has changed.
+    PowerMode powerMode     ///< To set system power mode when BUB status has changed.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+* To test the future/promise implentation.
+*/
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t futurePromiseTest
+(
 );

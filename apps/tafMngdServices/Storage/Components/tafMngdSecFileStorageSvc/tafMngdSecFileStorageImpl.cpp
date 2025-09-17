@@ -1326,7 +1326,10 @@ le_result_t tafMngdSecFileStorageSvc::ReadFileImpl
     }
 
     // Read the file content into the buffer
-    taf_rfs_Read(fd, (uint8_t*)bufPtr, bufSize);
+    size_t bytesRead = taf_rfs_Read(fd, (uint8_t*)bufPtr, bufSize);
+
+    // Update the bufSize variable to reflect the actual number of bytes read
+    *bufSize = bytesRead;
 
     // Close the file
     taf_rfs_Close(fd);

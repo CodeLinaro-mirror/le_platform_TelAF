@@ -14,6 +14,7 @@
 #include <linux/rtnetlink.h>
 #include <net/if.h>
 #include <errno.h>
+#include <gptp_helper.h>
 
 #define TAF_TIME_CLOCKFD                   3
 #define TAF_TIME_FD_TO_CLOCKID(fd)        ((~(clockid_t) (fd) << 3) | TAF_TIME_CLOCKFD)
@@ -33,6 +34,7 @@ bool isPTPDevDown = false;
 int sockfd = -1;
 le_fdMonitor_Ref_t netlinkMonitorRef = NULL;
 int clientRefCount = 0;
+bool gptpInitStatus = false;
 
 typedef struct
 {
@@ -142,6 +144,25 @@ LE_SHARED le_result_t taf_gptpTime_GetTimeValue
     struct timespec* gptpTimeValuePtr
 )
 {
+    gptpTimeValuePtr->tv_sec = 0;
+    gptpTimeValuePtr->tv_nsec = 0;
+
+    if (!gptpInitStatus && !(gptpInitStatus = gptpInit()))
+    {
+        LE_ERROR("Not able to initialise gptp time scaling component.");
+        return LE_UNAVAILABLE;
+    }
+
+    bool gptpSyncStatus = gptpGetSyncStatus();
+    LE_INFO("gptpSyncStatus: %d", gptpSyncStatus);
+
+    if (!gptpSyncStatus)
+    {
+        LE_ERROR("Gptp time is not synced.");
+        return LE_UNAVAILABLE;
+    }
+
+
     taf_GptpTime_t* gptpPtr = (taf_GptpTime_t*)le_ref_Lookup(GptpTimeRefMap, gptpTimeRef);
     if(gptpPtr == NULL)
     {
@@ -506,6 +527,10 @@ COMPONENT_INIT {
         LE_ERROR("Unable to allocate memory for gptp time. Please try again.");
         return;
     }
-
+    gptpInitStatus = gptpInit();
+    if(gptpInitStatus == false)
+    {
+        LE_ERROR("Not able to initialise gptp time scaling component.");
+    }
     LE_INFO("GPTP component initialization done.");
 }

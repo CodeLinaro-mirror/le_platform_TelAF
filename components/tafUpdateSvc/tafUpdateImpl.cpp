@@ -124,14 +124,20 @@ le_result_t taf_Update::RemoveQotaHeader
             break;
         }
         lseek(fd, pos - TAF_UPDATE_QOTA_HEADER_SIZE, SEEK_SET);
-        write(fd, buffer, rdSize);
+        if (write(fd, buffer, rdSize) == -1)
+        {
+            LE_WARN("write buffer error, for size: %ld.", rdSize);
+        }
+
         pos += rdSize;
     }
 
     if (ret == LE_OK)
     {
-        ftruncate(fd, size - TAF_UPDATE_QOTA_HEADER_SIZE);
-        LE_INFO("QOTA header removed.");
+        if (ftruncate(fd, size - TAF_UPDATE_QOTA_HEADER_SIZE) == 0)
+        {
+            LE_INFO("QOTA header removed.");
+        }
     }
 
     delete[] buffer;

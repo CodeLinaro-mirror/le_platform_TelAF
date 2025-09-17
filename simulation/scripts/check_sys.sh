@@ -75,21 +75,6 @@ function check_gcc_gxx_version ()
     return $RESULT
 }
 
-function check_cgroup_version ()
-{
-    RESULT=0
-
-    if [ -d "/sys/fs/cgroup/freezer" ]
-    then
-        printf "%-30s ... %-20s ... [OK]\n" "CGROUP version" "V1"
-    else
-        printf "%-30s ... %-20s ... [NOK] <-- CGROUP V1 on the HOST is required\n" "CGROUP version" "V1"
-        RESULT=1
-    fi
-
-    return $RESULT
-}
-
 function check_docker_version ()
 {
     RESULT=0
@@ -153,8 +138,6 @@ elif ! check_package_install $total_packages_checking ; then
 elif ! check_docker_version ; then
     eval $ERR_EXIT
 elif ! check_gcc_gxx_version ; then
-    eval $ERR_EXIT
-elif ! check_cgroup_version ; then
     eval $ERR_EXIT
 elif ! check_user_umask ; then
     eval $ERR_EXIT

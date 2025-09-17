@@ -3020,7 +3020,8 @@ void taf_Time::DeregNetworkTimeListener
     auto &tafTime = taf_Time::GetInstance();
     LE_DEBUG("Tring to deregister the servSysListeners");
 
-    for (size_t i = 0; i < tafTime.servingSystemManagers.size(); i++)
+    for (size_t i = 0; i < tafTime.servingSystemManagers.size()
+                       && i < servSysListeners.size(); i++)
     {
         if (tafTime.servingSystemManagers[i] != nullptr
             && tafTime.servSysListeners[i] != nullptr)

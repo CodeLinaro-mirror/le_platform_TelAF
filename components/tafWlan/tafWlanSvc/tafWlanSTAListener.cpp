@@ -24,24 +24,23 @@ void taf_WlanSTAListener::onStationBandChanged(telux::wlan::BandType radio)
     LE_INFO ("WLAN STA band changed to: %d", (int) radio);
 }
 
-static void PrintStaState(taf_wlanSta_State_t State)
+static const char* GetStaState(taf_wlanSta_State_t State)
 {
-    if (TAF_WLANSTA_STATE_UNKNOWN==State)
-        LE_INFO("State: TAF_WLANSTA_STATE_UNKNOWN(%d)", State);
-    else if (TAF_WLANSTA_STATE_CONNECTING==State)
-        LE_INFO("State: TAF_WLANSTA_STATE_CONNECTING(%d)", State);
+    if (TAF_WLANSTA_STATE_CONNECTING==State)
+        return "TAF_WLANSTA_STATE_CONNECTING";
     else if (TAF_WLANSTA_STATE_CONNECTED==State)
-        LE_INFO("State: TAF_WLANSTA_STATE_CONNECTED(%d)", State);
+        return "TAF_WLANSTA_STATE_CONNECTED";
     else if (TAF_WLANSTA_STATE_DISCONNECTED==State)
-        LE_INFO("State: TAF_WLANSTA_STATE_DISCONNECTED(%d)", State);
+        return "TAF_WLANSTA_STATE_DISCONNECTED";
     else if (TAF_WLANSTA_STATE_ASSOCIATION_FAILED==State)
-        LE_INFO("State: TAF_WLANSTA_STATE_ASSOCIATION_FAILED(%d)", State);
+        return "TAF_WLANSTA_STATE_ASSOCIATION_FAILED";
     else if (TAF_WLANSTA_STATE_IP_ASSIGNMENT_FAILED==State)
-        LE_INFO("State: TAF_WLANSTA_STATE_IP_ASSIGNMENT_FAILED(%d)", State);
+        return "TAF_WLANSTA_STATE_IP_ASSIGNMENT_FAILED";
     else {
         // Control should not reach here
         LE_WARN("*ERR* Unsupported State: %d", State);
     }
+    return "TAF_WLANSTA_STATE_UNKNOWN";
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -54,7 +53,8 @@ void taf_WlanSTAListener::onStationStatusChanged(std::vector<telux::wlan::StaSta
     for (auto element : staStatus)
     {
         LE_INFO ("STA Id             : %d", (int) element.id);
-        PrintStaState (taf_WlanHelper::StaIntfStatusToTAF(element.status));
+        LE_INFO ("STA State          : %s", GetStaState(
+                                               taf_WlanHelper::StaIntfStatusToTAF(element.status)));
         LE_INFO ("STA Interface Name : %s", element.name.c_str());
         LE_INFO ("STA MAC Address    : %s", element.macAddress.c_str());
         LE_INFO ("STA IPv4 Address   : %s", element.ipv4Address.c_str());

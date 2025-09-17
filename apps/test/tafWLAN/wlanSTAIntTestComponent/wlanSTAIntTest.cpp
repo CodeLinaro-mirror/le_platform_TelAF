@@ -30,13 +30,15 @@ void PrintUsage() {
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetMode <STA>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetIpConfig <STA>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- SetIpConfig <STA> <STATIC|DYNAMIC>"
-                                                    " <IPv4> <GW IPv4> <DNS IPv4> <subnet mask>\n"
+           " <IPv4> <GW IPv4> <DNS IPv4> <subnet mask>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- SetMode  <STA> <Station Mode>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- DoAPScan <STA>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetAPScanResults <STA>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- SetWpa2Psk <STA> <SSID> <psk>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Connect <STA> <SSID>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Disconnect <STA> <SSID>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetApSignalStrength <STA>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- ApSigStrengthEvents <STA>\n"
            "\n STA: STA interface obtained from taf_wlan_GetIntfInfo\n"
            "\n");
 }
@@ -594,7 +596,7 @@ static le_result_t wlanSTATestDisconnect(taf_wlanSta_WlanSTARef_t staRef)
         taf_wlanSta_State_t state = fut.get();
         if (state == TAF_WLANSTA_STATE_DISCONNECTED)
         {
-            printf("Disconnection from AP %s was successful..", APInfo.SSID);
+            printf("Disconnection from AP %s was successful.\n", APInfo.SSID);
         }
     }
     if (status == std::future_status::timeout)
@@ -603,6 +605,103 @@ static le_result_t wlanSTATestDisconnect(taf_wlanSta_WlanSTARef_t staRef)
         result = LE_TIMEOUT;
     }
     return result;
+}
+
+static le_result_t wlanSTATestGetConnectedApSignalStrength(taf_wlanSta_WlanSTARef_t staRef)
+{
+    if (!staRef)
+    {
+        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
+        return LE_FAULT;
+    }
+    int16_t sigStrength;
+    le_result_t result = taf_wlanSta_GetConnectedApSignalStrength(staRef, &sigStrength);
+    fprintf(stderr, "taf_wlanSta_GetConnectedApSignalStrength Return: %d\n", result);
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("Signal strength of connected AP is %ddBm", sigStrength);
+        fprintf(stderr, "Connected AP signal strength: %ddBm\n", sigStrength);
+    }
+    return result;
+}
+
+static void SignalStrengthHandler
+(
+    taf_wlanSta_WlanSTARef_t staRef,
+    int16_t signalStrength,
+    void *contextPtr
+)
+{
+    LE_UNUSED(staRef);
+    uint8_t *numPtr = nullptr;
+    if (contextPtr)
+    {
+        numPtr = static_cast<uint8_t*>(contextPtr);
+        LE_TEST_INFO("Context                 : %d", *numPtr);
+    }
+    LE_TEST_INFO("Signal Strength Callback: %d dBm", signalStrength);
+}
+
+
+static le_result_t wlanSTATestAddConnectedApSignalStrengthHandler
+(
+    taf_wlanSta_WlanSTARef_t staRef
+)
+{
+    if (!staRef)
+    {
+        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
+        return LE_FAULT;
+    }
+
+    // STA should be connected.
+    taf_wlanSta_State_t state;
+    char IntfName[TAF_NET_INTERFACE_NAME_MAX_LEN] = {0};
+    char IPv4Address[TAF_NET_IPV4_ADDR_MAX_LEN] = {0};
+    char IPv6Address[TAF_NET_IPV6_ADDR_MAX_LEN] = {0};
+    char MACAddress[TAF_NET_MAC_ADDR_MAX_LEN] = {0};
+    le_result_t result = taf_wlanSta_GetStatus(staRef, &state, IntfName,
+                TAF_NET_INTERFACE_NAME_MAX_LEN, IPv4Address, TAF_NET_IPV4_ADDR_MAX_LEN, IPv6Address,
+                TAF_NET_IPV6_ADDR_MAX_LEN, MACAddress, TAF_NET_MAC_ADDR_MAX_LEN);
+    LE_TEST_ASSERT(LE_OK == result, "taf_wlanSta_GetStatus() should pass.");
+    LE_TEST_ASSERT(state == TAF_WLANSTA_STATE_CONNECTED, "STA should be connected.");
+
+    LE_TEST_INFO("Register handler 1");
+    uint8_t num1 = 1;
+    taf_wlanSta_ConnectedApSignalStrengthHandlerRef_t signalStrengthHandlerRef1 = nullptr;
+    signalStrengthHandlerRef1 = taf_wlanSta_AddConnectedApSignalStrengthHandler(staRef, -70, 10, false, SignalStrengthHandler, static_cast<void *>(&num1));
+    LE_TEST_OK(nullptr != signalStrengthHandlerRef1, "Handler 1 should register. Service should switch to active monitoring.");
+    // Sleep and check for active signal monitoring in logs
+    sleep(5);
+
+    LE_TEST_INFO("Register handler 2");
+    uint8_t num2 = 2;
+    taf_wlanSta_ConnectedApSignalStrengthHandlerRef_t signalStrengthHandlerRef2 = nullptr;
+    signalStrengthHandlerRef2 = taf_wlanSta_AddConnectedApSignalStrengthHandler(staRef, -75, 5, true, SignalStrengthHandler, static_cast<void *>(&num2));
+    LE_TEST_OK(nullptr != signalStrengthHandlerRef2, "Handler 2 should register.");
+    sleep(5);
+
+    LE_TEST_INFO("Try to register handler 3");
+    uint8_t num3 = 3;
+    taf_wlanSta_ConnectedApSignalStrengthHandlerRef_t signalStrengthHandlerRef3 = nullptr;
+    signalStrengthHandlerRef3 = taf_wlanSta_AddConnectedApSignalStrengthHandler(staRef, -85, 15, true, SignalStrengthHandler, static_cast<void *>(&num3));
+    LE_TEST_OK(nullptr == signalStrengthHandlerRef3, "Handler 3 should not register.");
+    sleep(5);
+
+    LE_TEST_INFO("Unregister handler 1");
+    taf_wlanSta_RemoveConnectedApSignalStrengthHandler(signalStrengthHandlerRef1);
+    // Sleep and check for active signal monitoring in logs
+    LE_TEST_OK(true, "Handler 1 should deregister. Service should continue active monitoring.");
+    sleep(5);
+
+    LE_TEST_INFO("Register handler 3");
+    signalStrengthHandlerRef3 = taf_wlanSta_AddConnectedApSignalStrengthHandler(staRef, -85, 15, true, SignalStrengthHandler, static_cast<void *>(&num3));
+    LE_TEST_OK(nullptr != signalStrengthHandlerRef2, "Handler 3 should register.");
+    sleep(5);
+
+    LE_TEST_INFO("Service should switch to passive monitoring.");
+
+    return LE_OK;
 }
 
 static void StationEventHandler(taf_wlanSta_WlanSTARef_t wlanSTARef,
@@ -823,6 +922,16 @@ COMPONENT_INIT {
         CheckNumArgs(numArgs, 3);
         status = wlanSTATestDisconnect(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: Disconnect");
+    } else if (strncasecmp(testType, "GetApSignalStrength", strlen("GetApSignalStrength")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: GetApSignalStrength ========");
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestGetConnectedApSignalStrength(getSTARef(staIntfName));
+        LE_TEST_OK(LE_OK == status, "WLAN Test: GetApSignalStrength");
+    } else if (strncasecmp(testType, "ApSigStrengthEvents", strlen("ApSigStrengthEvents")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: ApSigStrengthEvents ========");
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestAddConnectedApSignalStrengthHandler(getSTARef(staIntfName));
+        LE_TEST_OK(LE_OK == status, "WLAN Test: ApSigStrengthEvents");
     } else {
         PrintUsage();
         LE_TEST_FATAL("Invalid test type %s", testType);

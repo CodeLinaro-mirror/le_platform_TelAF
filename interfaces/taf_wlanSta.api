@@ -2,7 +2,7 @@
 * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 **/
-//------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 /**
  * @page c_tafwlansta Wireless LAN Station Management Service
  *
@@ -41,6 +41,13 @@ DEFINE MAX_APSCAN_RESULT_NUM = 24;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Maximum number of clients that can register for connected AP signal strength events.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_CONNECTED_AP_SIGNAL_STRENGTH_CLIENTS = 2;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * WLAN STA status.
  */
 //--------------------------------------------------------------------------------------------------
@@ -71,7 +78,7 @@ ENUM Mode
 
 //--------------------------------------------------------------------------------------------------
 /**
- * WLAN STA IP adddress type.
+ * WLAN STA IP address type.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM IPType
@@ -102,7 +109,7 @@ STRUCT IPConfig
 STRUCT APInfo
 {
     string  BSSID[taf_wlan.MAX_BSSID_LENGTH];              ///< BSSID of the AP.
-    string  SSID[taf_wlan.MAX_SSID_LENGTH];                ///< IPv4 address of the gateway.
+    string  SSID[taf_wlan.MAX_SSID_LENGTH];                ///< SSID of the AP.
     int16 SignalLevel;                                     ///< Signal level in dBm.
     uint16 Frequency;                                      ///< Frequency in MHz.
     taf_wlan.ServiceSet SS;                                ///< Service Set.
@@ -120,9 +127,12 @@ STRUCT APInfo
 //--------------------------------------------------------------------------------------------------
 REFERENCE WlanSTA;
 
-//-------------------------------------------------------------------------------------------------
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * The WLAN STA event handler.
+ *
+ * @param[in] wlanSTARef   The WLAN STA reference.
+ * @param[in] staState     The WLAN STA state.
  *
  * @instaging
  *
@@ -130,28 +140,80 @@ REFERENCE WlanSTA;
  * @param[in] staState   WLAN STA states.
  * @param[in] contextPtr Context pointer.
  */
-//-------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 HANDLER Handler
 (
     WlanSTA wlanSTARef IN, ///< The WLAN STA reference.
-    State staState IN      ///< WLAN STA states.
+    State staState     IN  ///< The WLAN STA state.
 );
 
-//-------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 /*
  * STA events to report.
  *
  * @instaging
  *
  */
-//-------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 EVENT Event
 (
     WlanSTA wlanSTARef IN, ///< The WLAN STA reference.
     Handler handler IN
 );
 
-//-------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
+/**
+ * Connected AP signal strength event handler.
+ *
+ * @param[in] wlanSTARef         The WLAN STA reference.
+ * @param[in] signalStrength     The signal strength in dBm.
+ *
+ * @instaging
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER ConnectedApSignalStrengthHandler
+(
+    WlanSTA  wlanSTARef     IN,  ///< The WLAN STA reference.
+    int16    signalStrength IN   ///< The signal strength in dBm.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Connected AP signal strength event. When STA is connected to an AP, clients can register to this
+ * event to receive the signal strength of the connected AP.
+ *
+ * The handler will be called when the signal strength of the connected AP drops below the
+ * configured threshold at the configured frequency. The service will not trigger the event after
+ * the signal strength goes above the threshold.
+ *
+ * If bAverage is true, the average of signal strength over the frequency is reported. The service
+ * uses the average signal strength to stop triggering the event once the events are triggered.
+ *
+ * If bAverage is false, the most recent signal strength value is reported.
+ *
+ * The maximum number of clients that can register for this event is controlled by
+ * TAF_WLANSTA_MAX_CONNECTED_AP_SIGNAL_STRENGTH_CLIENTS. The default value is 2.
+ *
+ * @instaging
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT ConnectedApSignalStrength
+(
+    WlanSTA  wlanSTARef      IN,  ///< The WLAN STA reference.
+    int16    signalThreshold IN,  ///< The signal threshold below which the handler will be called.
+                                  ///< Values outside 0 and -100, will default to -70.
+    uint16   frequency       IN,  ///< The frequency, in seconds, at which the handler will be
+                                  ///< called.
+                                  ///< The default minimum frequency is 5 sec and maximum is
+                                  ///<  300 sec. Any other value will be set to the default.
+    bool     bAverage        IN,  ///< If true, averages the signal strength values over frequency.
+                                  ///< If false, reports the most recent signal strength value.
+    ConnectedApSignalStrengthHandler handler IN ///< The event handler.
+);
+
+//--------------------------------------------------------------------------------------------------
 /*
  * APIs available in WLAN Access Point Management service.
  */
@@ -305,12 +367,12 @@ FUNCTION le_result_t GetIPConfig
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetStatus
 (
-    WlanSTA        wlanSTARef              IN, ///< The WLAN STA reference.
-    State          StaSate                           OUT, ///< Station state.
-    string IntfName[taf_net.INTERFACE_NAME_MAX_LEN]  OUT, ///< Associated host interface name.
-    string IPv4Address[taf_net.IPV4_ADDR_MAX_LEN]    OUT, ///< Associated IPv4 address.
-    string IPv6Address[taf_net.IPV6_ADDR_MAX_LEN]    OUT, ///< Associated IPv6 address.
-    string MACAddress[taf_net.MAC_ADDR_MAX_LEN]      OUT  ///< Associated MAC address.
+    WlanSTA wlanSTARef                                IN,  ///< The WLAN STA reference.
+    State   staState                                  OUT, ///< Station state.
+    string  IntfName[taf_net.INTERFACE_NAME_MAX_LEN]  OUT, ///< Associated host interface name.
+    string  IPv4Address[taf_net.IPV4_ADDR_MAX_LEN]    OUT, ///< Associated IPv4 address.
+    string  IPv6Address[taf_net.IPV6_ADDR_MAX_LEN]    OUT, ///< Associated IPv6 address.
+    string  MACAddress[taf_net.MAC_ADDR_MAX_LEN]      OUT  ///< Associated MAC address.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -347,7 +409,7 @@ FUNCTION le_result_t GetAPScanResults
 (
     WlanSTA wlanSTARef IN,                      ///< The WLAN STA reference.
     uint16  numAP      OUT,                     ///< Number of APs found in the scan.
-    APInfo  ApInfo[MAX_APSCAN_RESULT_NUM] OUT   ///< Available AP information.
+    APInfo  apInfo[MAX_APSCAN_RESULT_NUM] OUT   ///< Available AP information.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -361,9 +423,10 @@ FUNCTION le_result_t GetAPScanResults
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetWpa2Psk(
+FUNCTION le_result_t SetWpa2Psk
+(
     WlanSTA wlanSTARef IN,                              ///< The WLAN STA reference.
-    APInfo ApInfo IN,                                   ///< AP for which PSK needs to be set.
+    APInfo  apInfo IN,                                   ///< AP for which PSK needs to be set.
     string Wpa2Psk[taf_wlan.MAX_PASSPHRASE_LENGTH] IN   ///< PSK to use for authentication.
 );
 
@@ -379,9 +442,10 @@ FUNCTION le_result_t SetWpa2Psk(
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t Connect(
+FUNCTION le_result_t Connect
+(
     WlanSTA wlanSTARef IN,                              ///< The WLAN STA reference.
-    APInfo ApInfo IN                                    ///< The AP to connect to.
+    APInfo  apInfo IN                                    ///< The AP to connect to.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -396,7 +460,26 @@ FUNCTION le_result_t Connect(
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t Disconnect(
+FUNCTION le_result_t Disconnect
+(
     WlanSTA wlanSTARef IN,                              ///< The WLAN STA reference.
-    APInfo ApInfo IN                                    ///< The AP to disconnect from.
+    APInfo  apInfo IN                                   ///< The AP to disconnect from.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the latest signal strength of the connected AP in dBm.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK           -- Succeeded.
+ * - LE_UNAVAILABLE  -- The STA is not connected to an access point.
+ * - Others          -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetConnectedApSignalStrength
+(
+    WlanSTA wlanSTARef         IN,   ///< The WLAN STA reference.
+    int16   signalStrength     OUT  ///< The signal strength of the connected AP in dBm.
 );

@@ -887,6 +887,7 @@ void taf_RadioPhoneListener::onSignalStrengthChanged
         taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
         ssPtr->phoneId = phoneId;
         ssPtr->rssi = signalStrength->getGsmSignalStrength()->getDbm();
+        ssPtr->rsrp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         le_event_ReportWithRefCounting(tafRadio.gsmSsChangeEvId, (void*)ssPtr);
     }
 
@@ -896,6 +897,7 @@ void taf_RadioPhoneListener::onSignalStrengthChanged
         taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
         ssPtr->phoneId = phoneId;
         ssPtr->rssi = signalStrength->getCdmaSignalStrength()->getDbm();
+        ssPtr->rsrp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         le_event_ReportWithRefCounting(tafRadio.cdmaSsChangeEvId, (void*)ssPtr);
     }
 
@@ -906,6 +908,7 @@ void taf_RadioPhoneListener::onSignalStrengthChanged
         taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
         ssPtr->phoneId = phoneId;
         ssPtr->rssi = signalStrength->getWcdmaSignalStrength()->getDbm();
+        ssPtr->rsrp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         le_event_ReportWithRefCounting(tafRadio.umtsSsChangeEvId, (void*)ssPtr);
     }
 
@@ -915,6 +918,7 @@ void taf_RadioPhoneListener::onSignalStrengthChanged
     {
         taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
         ssPtr->phoneId = phoneId;
+        ssPtr->rssi = signalStrength->getLteSignalStrength()->getRssi();
         ssPtr->rsrp = signalStrength->getLteSignalStrength()->getDbm();
         le_event_ReportWithRefCounting(tafRadio.lteSsChangeEvId, (void*)ssPtr);
     }
@@ -924,6 +928,7 @@ void taf_RadioPhoneListener::onSignalStrengthChanged
     {
         taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
         ssPtr->phoneId = phoneId;
+        ssPtr->rssi = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         ssPtr->rsrp = signalStrength->getNr5gSignalStrength()->getDbm();
         le_event_ReportWithRefCounting(tafRadio.nr5gSsChangeEvId, (void*)ssPtr);
     }

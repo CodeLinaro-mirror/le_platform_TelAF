@@ -10,6 +10,21 @@
 
 using namespace tafsvc;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static pool for EFS metrics.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(metricsPool, TAF_MRC_METRICS_MAX_NUM, sizeof(taf_MrcEfsMetrics_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static map for EFS metrics.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(metricsRefMap, TAF_MRC_METRICS_MAX_NUM);
+
+
 taf_Mrc &taf_Mrc::GetInstance()
 {
     static taf_Mrc instance;
@@ -172,6 +187,10 @@ void taf_Mrc::OpStatusHandler
 
 void taf_Mrc::Init(void)
 {
+    metricsRefMap = le_ref_InitStaticMap(metricsRefMap, TAF_MRC_METRICS_MAX_NUM);
+    metricsPool = le_mem_InitStaticPool(metricsPool, TAF_MRC_METRICS_MAX_NUM,
+        sizeof(taf_MrcEfsMetrics_t));
+
     // 1. Get platform factory.
     auto &platformFactory = telux::platform::PlatformFactory::getInstance();
 
@@ -236,6 +255,14 @@ void taf_Mrc::Init(void)
             paReady = true;
             LE_INFO("MRC platform adaptor is ready.");
         }
-       
     }
+
+    result = taf_prop_hms_Initialize(TAF_MRC_SVC_READY_TIMEOUT, TAF_MRC_MSG_RESP_TIMEOUT);
+    if (result != LE_OK)
+    {
+        paReady = false;
+        LE_WARN("Fail to initialize HMS platform adaptor.");
+    }
+    else
+        LE_INFO("HMS platform adaptor is ready.");
 }

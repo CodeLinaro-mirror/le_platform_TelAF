@@ -2,8 +2,8 @@ provides:
 {
     api:
     {
-        taf_dcs.api
-        taf_mdc.api
+        $TELAF_ROOT/interfaces/taf_dcs.api
+        $TELAF_ROOT/interfaces/taf_mdc.api
     }
 }
 
@@ -11,45 +11,31 @@ requires:
 {
     component:
     {
-        $LEGATO_ROOT/components/watchdogChain
+        $TELAF_PA_DEFAULT/component/taf_pa_dataDef
+        // stub component only for build purpose
+        $LEGATO_BUILD/stub/component/taf_pa_data
     }
 
     api:
     {
         taf_pm.api
     }
-
-    lib:
-    {
-        lib/libtelux_tel.so
-        lib/libtelux_data.so
-        lib/libtelux_common.so
-    }
-
 }
 
 cxxflags:
 {
-    -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
-    -ltelux_tel
-    -ltelux_data
-    -ltelux_common
-}
-
-cflags:
-{
-    -I$LEGATO_ROOT/components/watchdogChain
-    -I$TELAF_ROOT/include
-    -ltelux_tel
-    -ltelux_data
-    -ltelux_common
+    -I$TELAF_PA_DEFAULT/include
+    -I$TELAF_PA_DEFAULT/include/data
+    -std=c++17
 }
 
 sources:
 {
-    tafDcsSvr.cpp
-    tafDcsConnectionImpl.cpp
+    main.cpp
+    tafDcsSvc.cpp
+    tafDcsSvcImpl.cpp
     tafDcsProfileImpl.cpp
-    tafDcsHelper.cpp
+    tafDcsProfileManagerImpl.cpp
+    tafDcsUtils.cpp
 }

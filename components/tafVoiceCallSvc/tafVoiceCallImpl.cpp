@@ -105,7 +105,7 @@ void Handler::PaEventListener(taf_pa_voicecall_Ref_t reference, taf_pa_voicecall
 
     taf_pa_voicecall_DeleteReference(reference);
 
-    LE_INFO("PA event phone %d, dest %s, event %s", phoneId, destinationPtr, myCall.PaEventToString(event));
+    LE_INFO("PA event phone %d, dest %s, dir %d, event %s", phoneId, destinationPtr, direction, myCall.PaEventToString(event));
 
     // To fix the corner case, iCall is released later when testing with telsdk app,
     // callRef is used for the event report.
@@ -117,7 +117,7 @@ void Handler::PaEventListener(taf_pa_voicecall_Ref_t reference, taf_pa_voicecall
     }
     else
     {
-        LE_DEBUG("Incoming or waiting call Id: %d, CtxPtr: %p, event: %s", phoneId, callCtxPtr, myCall.PaEventToString(event));
+        LE_INFO("Incoming or waiting call Id: %d, CtxPtr: %p, event: %s", phoneId, callCtxPtr, myCall.PaEventToString(event));
     }
 
     if (callCtxPtr != NULL)
@@ -597,9 +597,9 @@ taf_VoiceCtrl_t* VoiceCallSvc::GetCallCtx(int8_t phoneId, const char* destinatio
     {
         taf_VoiceCtrl_t* callCtx = CONTAINER_OF( linkPtr, taf_VoiceCtrl_t, link);
         linkPtr = le_dls_PeekNext(&CallCtrlList, linkPtr);
-        LE_INFO("Link phoneId: %d, dest： %s, dir: %d", callCtx->phoneId, callCtx->destId, static_cast<int>(callCtx->dir));
+        LE_INFO("Link phoneId: %d, dest: %s, dir: %d", callCtx->phoneId, callCtx->destId, static_cast<int>(callCtx->dir));
         // Check phone number and only return the client call object.
-        if ((strncmp(destinationPtr, callCtx->destId, sizeof(callCtx->destId)) == 0) &&
+        if ((strncmp(destinationPtr, callCtx->destId, MAX_DESTINATION_LEN_BYTE) == 0) &&
             (callCtx->phoneId == phoneId) && (callCtx->dir == dir))
         {
             LE_DEBUG("Getcall ctrl %p", callCtx);
@@ -607,6 +607,7 @@ taf_VoiceCtrl_t* VoiceCallSvc::GetCallCtx(int8_t phoneId, const char* destinatio
         }
     }
 
+    LE_ERROR("Cannot find ctx from phone %d, dir %d, dest %s", phoneId, static_cast<int>(dir), destinationPtr);
     return NULL;
 }
 
@@ -624,12 +625,14 @@ taf_VoiceCtrl_t* VoiceCallSvc::CreateCallCtx(int8_t phoneId, const char* destina
 {
     taf_VoiceCtrl_t* callCtx = NULL;
 
-    LE_DEBUG("Create ctx for phoneId: %d, dest： %s, dir: %d", phoneId, destinationPtr, (int)dir);
+    LE_DEBUG("Create ctx for phoneId: %d, dest: %s, dir: %d", phoneId, destinationPtr, (int)dir);
 
     callCtx = (taf_VoiceCtrl_t*)le_mem_ForceAlloc(CallCtrlPool);
     TAF_ERROR_IF_RET_VAL(!callCtx, NULL, "cannot alloc callCtr");
 
-    le_utf8_Copy(callCtx->destId, destinationPtr, sizeof(callCtx->destId), NULL);
+    if (le_utf8_Copy(callCtx->destId, destinationPtr, sizeof(callCtx->destId), NULL) == LE_OVERFLOW) {
+        LE_WARN("Destination truncated: %s", destinationPtr);
+    }
     callCtx->phoneId = phoneId;
     callCtx->dir = dir;
     callCtx->event = TAF_VOICECALL_EVENT_ENDED;

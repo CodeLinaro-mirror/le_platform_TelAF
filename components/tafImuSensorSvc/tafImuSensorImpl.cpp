@@ -564,7 +564,7 @@ le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
                 resPtr->timestamp = timestamp_;
             }
     };
-    le_result_t res;
+    le_result_t res = LE_OK;
     for(std::shared_ptr<taf_sensorClientInfo_t> clientInfoPtr: clientRequestPtr->clients){
         if(strcmp(sensorPtr->name,clientInfoPtr->sensorName)==0){
             taf_SelfTestResult_t resCallback = {};

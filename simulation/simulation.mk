@@ -124,6 +124,16 @@ MKTOOLS_FLAGS_SIMULATION_EX += \
 
 export MKTOOLS_FLAGS_SIMULATION_EX
 
+# Command line can override the option of CGROUP feature
+export ENABLE_CGROUP_V2 ?= y
+
+# Check and record to tar ball within file cg.version
+ifeq ($(ENABLE_CGROUP_V2),y)
+  $(shell echo -n "V2" > $(SIMULATION_HOME)/workstation/cg.version)
+else
+  $(shell echo -n "V1" > $(SIMULATION_HOME)/workstation/cg.version)
+endif
+
 .PHONY: simulation
 
 ifeq ($(XDEBUG),on)
@@ -161,6 +171,7 @@ post-simulation-build:
 	$Q tar cf $(SIMULATION_TARBALL) -C $(TELAF_BUILD)/simulation/_staging_system.simulation.update_ro .
 	$Q tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ up_simulation.sh
 	$Q tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ .check_done
+	$Q tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ cg.version
 ifneq ($(TELAF_SIMULATION_ENABLE_MNGD_CONN),n)
 	$Q cp $(TELAF_ROOT)/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/Config/mngdConnectivity.json $(SIMULATION_HOME)/deps/taf_rootfs
 endif

@@ -1230,6 +1230,7 @@ FUNCTION Close
  *
  * @return
  *     - LE_OK            Success.
+ *     - LE_BUSY          If already connected.
  *     - LE_BAD_PARAMETER On bad references.
  *     - LE_FAULT         Failure.
  */
@@ -1289,6 +1290,8 @@ FUNCTION Stream OpenModemVoiceTx
  * audio route for the mode is established.
  *
  * Reference created is used to close the route using CloseRoute.
+ *
+ * @b NOTE: This API will only support single active client.
  *
  * @return
  *     - Route reference on success.

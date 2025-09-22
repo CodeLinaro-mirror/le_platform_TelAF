@@ -193,6 +193,7 @@ ENUM Direction
  *
  * @return
  *     - LE_OK                 Success.
+ *     - LE_UNSUPPORTED        Audio driver is not available.
  *     - LE_BAD_PARAMETER      Node ID is not valid.
  *     - LE_FAULT              Failure.
  */
@@ -210,6 +211,7 @@ FUNCTION le_result_t GetNodeType
  *
  * @return
  *     - LE_OK                 Success.
+ *     - LE_UNSUPPORTED        Audio driver is not available.
  *     - LE_BAD_PARAMETER      Node ID is not valid.
  *     - LE_FAULT              Failure.
  */
@@ -226,6 +228,7 @@ FUNCTION le_result_t SendNodeVendorConfig
  *
  * @return
  *     - LE_OK                 Success.
+ *     - LE_UNSUPPORTED        Audio driver is not available.
  *     - LE_FAULT              Failure.
  */
 //--------------------------------------------------------------------------------------------------
@@ -240,6 +243,7 @@ FUNCTION le_result_t SendVendorConfig
  *
  * @return
  *     - LE_OK                 Success.
+ *     - LE_UNSUPPORTED        Audio driver is not available.
  *     - LE_BAD_PARAMETER      Node ID is not valid.
  *     - LE_FAULT              Failure.
  */
@@ -256,6 +260,7 @@ FUNCTION le_result_t SetNodePowerState
  *
  * @return
  *     - LE_OK                 Success.
+ *     - LE_UNSUPPORTED        Audio driver is not available.
  *     - LE_BAD_PARAMETER      Node ID is not valid.
  *     - LE_FAULT              Failure.
  */
@@ -272,6 +277,7 @@ FUNCTION le_result_t GetNodePowerState
  *
  * @return
  *     - LE_OK                 Success.
+ *     - LE_UNSUPPORTED        Audio driver is not available.
  *     - LE_BAD_PARAMETER      Node ID is not valid.
  *     - LE_FAULT              Failure.
  */
@@ -288,6 +294,7 @@ FUNCTION le_result_t SetNodeMuteState
  *
  * @return
  *     - LE_OK                 Success.
+ *     - LE_UNSUPPORTED        Audio driver is not available.
  *     - LE_BAD_PARAMETER      Node ID is not valid.
  *     - LE_FAULT              Failure.
  */
@@ -305,7 +312,8 @@ FUNCTION le_result_t GetNodeMuteState
  * @return
  *     - LE_OK                 Success.
  *     - LE_BAD_PARAMETER      Node ID is not valid.
- *     - LE_UNSUPPORTED        If direction is not valid for the audio node device.
+ *     - LE_UNSUPPORTED        Audio driver is not available/ direction is not valid for the audio
+ *                             node device.
  *                             Eg., TX for PA and RX/TX for A2B.
  *     - LE_FAULT              Failure.
  */
@@ -324,7 +332,8 @@ FUNCTION le_result_t SetNodeGain
  * @return
  *     - LE_OK                 Success.
  *     - LE_BAD_PARAMETER      Node ID is not valid.
- *     - LE_UNSUPPORTED        If direction is not valid for the audio node device.
+ *     - LE_UNSUPPORTED        Audio driver is not available/ direction is not valid for the audio
+ *                             node device.
  *                             Eg., TX for PA and RX/TX for A2B.
  *     - LE_FAULT              Failure.
  */

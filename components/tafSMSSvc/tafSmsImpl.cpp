@@ -293,6 +293,21 @@ static std::string getErrorCodeAsString(telux::common::ErrorCode error) {
    return "UNKNOWN_ERROR";
 }
 
+static std::string convertTagTypeToString(telux::tel::SmsTagType type)
+{
+   switch (type)
+   {
+      case telux::tel::SmsTagType::UNKNOWN:
+         return "Unknown";
+      case telux::tel::SmsTagType::MT_READ:
+         return "MT_READ";
+      case telux::tel::SmsTagType::MT_NOT_READ:
+         return "MT_NOT_READ";
+      default:
+         return "Unknown";
+   }
+}
+
 //-----------------------------------------------------------------------------
 // Class Handler Implementations
 //
@@ -1035,17 +1050,44 @@ uint32_t taf_Sms::ListRxMsg
             smsTagType = telux::tel::SmsTagType::UNKNOWN;
       }
 
-      MessageListSyncPromise = std::promise<std::vector<telux::tel::SmsMetaInfo>>();
+      auto prom = std::make_shared<std::promise<std::vector<telux::tel::SmsMetaInfo>>>();
+      auto cb = [prom](std::vector<telux::tel::SmsMetaInfo> infos, telux::common::ErrorCode err)
+      {
+         try
+         {
+            if (err != telux::common::ErrorCode::SUCCESS)
+            {
+               LE_INFO("Request for message list failed with errorCode: %d",
+                  static_cast<int>(err));
+               return;
+            }
+            LE_INFO("Request for message list sent successfully ");
+            LE_INFO("SMS List Size: %zu", infos.size());
+            for (auto& info : infos)
+            {
+               LE_INFO(" Msg Index: %d, Tag Type: %s",
+                  info.msgIndex, convertTagTypeToString(info.tagType).c_str());
+            }
+            prom->set_value(infos);
+         }
+         catch (const std::exception& e)
+         {
+            LE_ERROR("Exception in callback: %s", e.what());
+         }
+         catch (...)
+         {
+            LE_ERROR("Unknown error in SMS callback.");
+         }
+      };
+
       std::chrono::seconds span(kListRxMsgWaitTime);
-      auto status = smsManager->requestSmsMessageList(smsTagType,
-            tafSetSmsStorageCallback::reqMessageListResponse);
+      auto status = smsManager->requestSmsMessageList(smsTagType, cb);
       if(status != telux::common::Status::SUCCESS)
       {
          LE_INFO("requestSmsMessageList failed");
          return LE_FAULT;
       }
-      std::future<std::vector<telux::tel::SmsMetaInfo>> futResult =
-         MessageListSyncPromise.get_future();
+      std::future<std::vector<telux::tel::SmsMetaInfo>> futResult = prom->get_future();
       std::future_status waitStatus = futResult.wait_for(span);
       if (std::future_status::timeout == waitStatus)
       {
@@ -1190,8 +1232,6 @@ void taf_Sms::ReleaseSession
 le_result_t taf_Sms::ReadFromStorage(taf_sms_Pdu_t* pduMsg,
    uint32_t idx, taf_sms_Storage_t storage)
 {
-   ReadMessageSyncPromise = std::promise<telux::tel::SmsMessage>();
-   std::chrono::seconds span(kReadFromStorageWaitTime);
    auto smsManager = smsManagers[DEFAULT_SLOT_ID - 1];
    if (smsManager == nullptr)
    {
@@ -1199,8 +1239,46 @@ le_result_t taf_Sms::ReadFromStorage(taf_sms_Pdu_t* pduMsg,
       return LE_FAULT;
    }
 
-   telux::common::Status status = smsManager->readMessage(idx,
-      tafSetSmsStorageCallback::readMsgResponse);
+   auto promisePtr = std::make_shared<std::promise<telux::tel::SmsMessage>>();
+   auto cb = [promisePtr](telux::tel::SmsMessage smsMsg, telux::common::ErrorCode err)
+   {
+      try
+      {
+         if (err != telux::common::ErrorCode::SUCCESS)
+         {
+            LE_INFO("Request for read message failed with errorCode: %d",
+               static_cast<int>(err));
+            return;
+         }
+         std::shared_ptr<telux::tel::MessagePartInfo> partInfo =
+            smsMsg.getMessagePartInfo();
+         if (partInfo)
+         {
+            LE_INFO("Multi Part Message ");
+            LE_INFO("Message: %s", smsMsg.getText().c_str());
+            LE_DEBUG("PDU: %s", smsMsg.getPdu().c_str());
+            LE_DEBUG("RefNumber: %d", static_cast <int>(partInfo->refNumber));
+            LE_DEBUG("NumberOfSegments: %d", static_cast <int>(partInfo->numberOfSegments));
+            LE_DEBUG("SegmentNumber: %d", static_cast <int>(partInfo->segmentNumber));
+         }
+         else
+         {
+            LE_INFO("Message: %s", smsMsg.getText().c_str());
+            LE_DEBUG("PDU: %s", smsMsg.getPdu().c_str());
+         }
+         promisePtr->set_value(smsMsg);
+      }
+      catch (const std::exception& e)
+      {
+         LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+         LE_ERROR("Unknown error in SMS callback.");
+      }
+   };
+
+   telux::common::Status status = smsManager->readMessage(idx, cb);
    if(status != telux::common::Status::SUCCESS)
    {
       LE_ERROR("Read message request failed");
@@ -1208,7 +1286,8 @@ le_result_t taf_Sms::ReadFromStorage(taf_sms_Pdu_t* pduMsg,
    }
 
    LE_INFO("Read message request succeeded");
-   std::future<telux::tel::SmsMessage> futResult = ReadMessageSyncPromise.get_future();
+   std::future<telux::tel::SmsMessage> futResult = promisePtr->get_future();
+   std::chrono::seconds span(kReadFromStorageWaitTime);
    std::future_status waitStatus = futResult.wait_for(span);
    if (std::future_status::timeout == waitStatus)
    {
@@ -1473,8 +1552,6 @@ le_result_t taf_Sms::SendMessage(taf_sms_Msg_t* msgPtr)
 
 le_result_t taf_Sms::SetTag(taf_sms_Msg_t* msgPtr, telux::tel::SmsTagType tagType)
 {
-   SetTagSyncPromise = std::promise<le_result_t>();
-   std::chrono::seconds span(kSetTagWaitTime);
    auto smsManager = smsManagers[DEFAULT_SLOT_ID - 1];
    if (smsManager == nullptr)
    {
@@ -1482,15 +1559,45 @@ le_result_t taf_Sms::SetTag(taf_sms_Msg_t* msgPtr, telux::tel::SmsTagType tagTyp
       return LE_UNSUPPORTED;
    }
 
-   telux::common::Status status = smsManager->setTag(msgPtr->storageIdx, tagType,
-      tafSetSmsStorageCallback::setTagResponse);
+   auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+   auto cb = [promisePtr]( telux::common::ErrorCode err)
+   {
+      try
+      {
+         if (err == telux::common::ErrorCode::SUCCESS)
+         {
+            LE_INFO("Set tag successfully done");
+            promisePtr->set_value(LE_OK);
+         }
+         else
+         {
+            LE_INFO("Set tag failed, errorCode: %d", static_cast<int>(err));
+            promisePtr->set_value(LE_FAULT);
+         }
+      }
+      catch (const std::future_error& e)
+      {
+         LE_ERROR("Future error in callback: %s", e.what());
+      }
+      catch (const std::exception& e)
+      {
+         LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+         LE_ERROR("Unknown error in SMS callback.");
+      }
+   };
+
+   telux::common::Status status = smsManager->setTag(msgPtr->storageIdx, tagType, cb);
    if (status != telux::common::Status::SUCCESS)
    {
       LE_INFO("setTag failed");
       return LE_FAULT;
    }
 
-   std::future<le_result_t> futResult = SetTagSyncPromise.get_future();
+   std::future<le_result_t> futResult = promisePtr->get_future();
+   std::chrono::seconds span(kSetTagWaitTime);
    std::future_status waitStatus = futResult.wait_for(span);
    if (std::future_status::timeout == waitStatus)
    {
@@ -1507,9 +1614,6 @@ le_result_t taf_Sms::SetTag(taf_sms_Msg_t* msgPtr, telux::tel::SmsTagType tagTyp
 
 le_result_t taf_Sms::DeleteMessage(uint32_t messageIndex)
 {
-   DeleteMessageSyncPromise = std::promise<le_result_t>();
-   std::chrono::seconds span(kDeleteMessageWaitTime);
-
    auto smsManager = smsManagers[DEFAULT_SLOT_ID - 1];
    if (smsManager == nullptr)
    {
@@ -1521,14 +1625,46 @@ le_result_t taf_Sms::DeleteMessage(uint32_t messageIndex)
    info.tagType = telux::tel::SmsTagType::UNKNOWN;
    info.delType = telux::tel::DeleteType::DELETE_MSG_AT_INDEX;
    info.msgIndex = messageIndex;
-   telux::common::Status status = smsManager->deleteMessage(info,
-      tafSetSmsStorageCallback::deleteResponse);
+
+   auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+   auto cb = [promisePtr](telux::common::ErrorCode err)
+   {
+      try
+      {
+         if (err == telux::common::ErrorCode::SUCCESS)
+         {
+            LE_INFO("delete successfully done");
+            promisePtr->set_value(LE_OK);
+         }
+         else
+         {
+            LE_INFO("delete failed, errorCode: %d", static_cast<int>(err));
+            promisePtr->set_value(LE_FAULT);
+         }
+      }
+      catch (const std::future_error& e)
+      {
+         LE_ERROR("Future error in callback: %s", e.what());
+      }
+      catch (const std::exception& e)
+      {
+         LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+         LE_ERROR("Unknown error in SMS callback.");
+      }
+   };
+
+   telux::common::Status status = smsManager->deleteMessage(info, cb);
    if (status != telux::common::Status::SUCCESS)
    {
       LE_INFO("DeleteMessage failed");
       return LE_FAULT;
    }
-   std::future<le_result_t> futResult = DeleteMessageSyncPromise.get_future();
+
+   std::future<le_result_t> futResult = promisePtr->get_future();
+   std::chrono::seconds span(kDeleteMessageWaitTime);
    std::future_status waitStatus = futResult.wait_for(span);
    if (std::future_status::timeout == waitStatus)
    {
@@ -1545,9 +1681,6 @@ le_result_t taf_Sms::DeleteMessage(uint32_t messageIndex)
 
 le_result_t taf_Sms::DeleteAllMessages(taf_sms_Storage_t storage)
 {
-   DeleteMessageSyncPromise = std::promise<le_result_t>();
-   std::chrono::seconds span(kDeleteMessageWaitTime);
-
    auto smsManager = smsManagers[DEFAULT_SLOT_ID - 1];
    if (smsManager == nullptr)
    {
@@ -1832,17 +1965,23 @@ void tafSmscAddressCallback::smscAddressResponse(const std::string &address,
                                                  telux::common::ErrorCode error)
 {
    auto &sms = taf_Sms::GetInstance();
-
-   if(error == telux::common::ErrorCode::SUCCESS)
+   try
    {
-      LE_INFO("requestSmscAddress smscAddressResponse:%s\n", address.c_str());
-      le_utf8_Copy(sms.smscAddr, address.c_str(), TAF_SMS_SMSC_ADDR_BYTES - 1, NULL);
-      sms.SmsCenterSyncPromise.set_value(LE_OK);
+      if(error == telux::common::ErrorCode::SUCCESS)
+      {
+         LE_INFO("requestSmscAddress smscAddressResponse:%s\n", address.c_str());
+         le_utf8_Copy(sms.smscAddr, address.c_str(), TAF_SMS_SMSC_ADDR_BYTES - 1, NULL);
+         sms.SmsCenterSyncPromise.set_value(LE_OK);
+      }
+      else
+      {
+         LE_INFO("requestSmscAddress failed, errorCode: %d\n", static_cast<int>(error));
+         sms.SmsCenterSyncPromise.set_value(LE_FAULT);
+      }
    }
-   else
+   catch (const std::exception &e)
    {
-      LE_INFO("requestSmscAddress failed, errorCode: %d\n", static_cast<int>(error));
-      sms.SmsCenterSyncPromise.set_value(LE_FAULT);
+      LE_ERROR("Exception: %s", e.what());
    }
 }
 
@@ -1863,100 +2002,8 @@ void tafSetSmscAddressResponseCallback::setSmscResponse(telux::common::ErrorCode
    }
 }
 
-// Implementation of set SMS cellbroadcast activate status callback
-void tafSetSmsCBResponseCallback::setSmsCBResponse(telux::common::ErrorCode error)
-{
-   auto &sms = taf_Sms::GetInstance();
-   if(error == telux::common::ErrorCode::SUCCESS)
-   {
-      LE_INFO("Set Activation status request sent successfully\n");
-      sms.CBActivateSyncPromise.set_value(LE_OK);
-   }
-   else
-   {
-      LE_INFO("Set Activation status request failed with errorCode: %d\n", static_cast<int>(error));
-      sms.CBActivateSyncPromise.set_value(LE_FAULT);
-   }
-}
-
-// Implementation of set tag response callback
-void tafSetSmsStorageCallback::setTagResponse(telux::common::ErrorCode error)
-{
-   auto &sms = taf_Sms::GetInstance();
-   if (error == telux::common::ErrorCode::SUCCESS)
-   {
-      LE_INFO("Set tag successfully done");
-      sms.SetTagSyncPromise.set_value(LE_OK);
-   }
-   else
-   {
-      LE_INFO("Set tag failed, errorCode: %d", static_cast<int>(error));
-      sms.SetTagSyncPromise.set_value(LE_FAULT);
-   }
-}
-
-void tafSetSmsStorageCallback::deleteResponse(telux::common::ErrorCode error)
-{
-   auto &sms = taf_Sms::GetInstance();
-   if (error == telux::common::ErrorCode::SUCCESS)
-   {
-      LE_INFO("delete successfully done");
-      sms.DeleteMessageSyncPromise.set_value(LE_OK);
-   }
-   else
-   {
-      LE_INFO("delete failed, errorCode: %d", static_cast<int>(error));
-      sms.DeleteMessageSyncPromise.set_value(LE_FAULT);
-   }
-}
-
-void tafSetSmsCBResponseCallback::requestFilterResponse(
-    std::vector<telux::tel::CellBroadcastFilter> filters,
-    telux::common::ErrorCode errorCode)
-{
-   auto &sms = taf_Sms::GetInstance();
-
-   if (errorCode == telux::common::ErrorCode::SUCCESS)
-   {
-      LE_INFO("Request for get msg filters successfully");
-      for (uint index = 0; index < filters.size(); index++)
-      {
-         LE_INFO("Filter[%d]:", index);
-         LE_INFO("Start msg id: %d", filters[index].startMessageId);
-         LE_INFO("End msg id: %d", filters[index].endMessageId);
-      }
-      sms.CBFilterList = filters;
-      sms.CBRequestIdsSyncPromise.set_value(LE_OK);
-   }
-   else
-   {
-      LE_INFO("Request for msg filters failed with errorCode: %d", static_cast<int>(errorCode));
-      sms.CBRequestIdsSyncPromise.set_value(LE_FAULT);
-   }
-}
-
-void tafSetSmsCBResponseCallback::updateFilterResponse(telux::common::ErrorCode error)
-{
-   auto &sms = taf_Sms::GetInstance();
-
-   if(error == telux::common::ErrorCode::SUCCESS)
-   {
-      LE_INFO("Set Activation status request sent successfully");
-      sms.CBAddIdsSyncPromise.set_value(LE_OK);
-   }
-   else
-   {
-      LE_INFO("Set Activation status request failed with errorCode: %d", static_cast<int>(error));
-      sms.CBAddIdsSyncPromise.set_value(LE_FAULT);
-   }
-}
-
 le_result_t taf_Sms::ActivateCellBroadcast(uint8_t phoneId, bool activate)
 {
-   // initialize the synchronous promise
-   CBActivateSyncPromise = std::promise<le_result_t>();
-   std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
-
    auto &sms = taf_Sms::GetInstance();
    if (sms.CbManagers.empty())
    {
@@ -1965,34 +2012,58 @@ le_result_t taf_Sms::ActivateCellBroadcast(uint8_t phoneId, bool activate)
    }
 
    auto CbMgr = sms.CbManagers[phoneId - 1];
-
-   if (CbMgr)
-   {
-      telux::common::Status reqStatus = CbMgr->setActivationStatus(activate, tafSetSmsCBResponseCallback::setSmsCBResponse);
-
-      if (reqStatus != telux::common::Status::SUCCESS)
-      {
-         LE_INFO("Set Activation status request failed");
-         return LE_FAULT;
-      }
-
-      // blocking here to get call event response
-      std::future<le_result_t> futResult = CBActivateSyncPromise.get_future();
-      std::future_status waitStatus = futResult.wait_for(span);
-      if (std::future_status::timeout == waitStatus)
-      {
-        LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_ACTIVATE_CB);
-        return LE_TIMEOUT;
-      }
-      else
-      {
-        return futResult.get();
-      }
-   }
-   else
+   if (!CbMgr)
    {
       LE_ERROR("Cell broadcast service error");
       return LE_FAULT;
+   }
+
+   auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+   auto cb = [promisePtr](telux::common::ErrorCode err)
+   {
+      try
+      {
+         if (err == telux::common::ErrorCode::SUCCESS)
+         {
+            LE_INFO("Set Activation status request sent successfully\n");
+            promisePtr->set_value(LE_OK);
+         }
+         else
+         {
+            LE_INFO("Set Activation status request failed with errorCode: %d\n",
+               static_cast<int>(err));
+            promisePtr->set_value(LE_FAULT);
+         }
+      }
+      catch (const std::exception& e)
+      {
+         LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+         LE_ERROR("Unknown error in SMS callback.");
+      }
+   };
+
+   telux::common::Status reqStatus = CbMgr->setActivationStatus(activate, cb);
+   if (reqStatus != telux::common::Status::SUCCESS)
+   {
+      LE_INFO("Set Activation status request failed");
+      return LE_FAULT;
+   }
+
+   // blocking here to get call event response
+   std::future<le_result_t> futResult = promisePtr->get_future();
+   std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
+   std::future_status waitStatus = futResult.wait_for(span);
+   if (std::future_status::timeout == waitStatus)
+   {
+      LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_ACTIVATE_CB);
+      return LE_TIMEOUT;
+   }
+   else
+   {
+      return futResult.get();
    }
 }
 
@@ -2003,9 +2074,6 @@ le_result_t taf_Sms::RequestBroadcastIds(uint8_t phoneId)
       return LE_BAD_PARAMETER;
    }
 
-   CBRequestIdsSyncPromise = std::promise<le_result_t>();
-   std::chrono::seconds span(TIMEOUT_RQUEST_CB_FILTER);
-
    auto &sms = taf_Sms::GetInstance();
    if (sms.CbManagers.empty())
    {
@@ -2015,36 +2083,67 @@ le_result_t taf_Sms::RequestBroadcastIds(uint8_t phoneId)
 
    auto CbMgr = sms.CbManagers[phoneId - 1];
 
-   if (CbMgr)
-   {
-      telux::common::Status reqStatus = CbMgr->requestMessageFilters(tafSetSmsCBResponseCallback::requestFilterResponse);
-
-      if (reqStatus != telux::common::Status::SUCCESS)
-      {
-         LE_INFO("Set Activation status request failed");
-         return LE_FAULT;
-      }
-
-      // blocking here to get call event response
-      std::future<le_result_t> futResult = CBRequestIdsSyncPromise.get_future();
-      std::future_status waitStatus = futResult.wait_for(span);
-      if (std::future_status::timeout == waitStatus)
-      {
-        LE_ERROR("Waiting promise timeout for %d seconds", TIMEOUT_RQUEST_CB_FILTER);
-        return LE_TIMEOUT;
-      }
-      else
-      {
-        return futResult.get();
-      }
-   }
-   else
+   if (!CbMgr)
    {
       LE_ERROR("Cell broadcast service error");
       return LE_FAULT;
    }
 
+   auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+   auto cb = [promisePtr](std::vector<telux::tel::CellBroadcastFilter> filters,
+      telux::common::ErrorCode err)
+   {
+      try
+      {
+         auto &sms = taf_Sms::GetInstance();
+         if (err == telux::common::ErrorCode::SUCCESS)
+         {
+            LE_INFO("Request for get msg filters successfully");
+            for (uint index = 0; index < filters.size(); index++)
+            {
+               LE_INFO("Filter[%d]:", index);
+               LE_INFO("Start msg id: %d", filters[index].startMessageId);
+               LE_INFO("End msg id: %d", filters[index].endMessageId);
+            }
+            sms.CBFilterList = filters;
+            promisePtr->set_value(LE_OK);
+         }
+         else
+         {
+            LE_INFO("Request for msg filters failed with errorCode: %d", static_cast<int>(err));
+            promisePtr->set_value(LE_FAULT);
+         }
+      }
+      catch (const std::exception& e)
+      {
+         LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+         LE_ERROR("Unknown error in SMS callback.");
+      }
+   };
 
+   telux::common::Status reqStatus = CbMgr->requestMessageFilters(cb);
+   if (reqStatus != telux::common::Status::SUCCESS)
+   {
+      LE_INFO("Set Activation status request failed");
+      return LE_FAULT;
+   }
+
+   // blocking here to get call event response
+   std::future<le_result_t> futResult = promisePtr->get_future();
+   std::chrono::seconds span(TIMEOUT_RQUEST_CB_FILTER);
+   std::future_status waitStatus = futResult.wait_for(span);
+   if (std::future_status::timeout == waitStatus)
+   {
+      LE_ERROR("Waiting promise timeout for %d seconds", TIMEOUT_RQUEST_CB_FILTER);
+      return LE_TIMEOUT;
+   }
+   else
+   {
+      return futResult.get();
+   }
 }
 
 le_result_t taf_Sms::AddCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint16_t toId)
@@ -2069,10 +2168,6 @@ le_result_t taf_Sms::AddCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint1
    filter.endMessageId = toId;
    CBFilterList.emplace_back(filter);
 
-   // initialize the synchronous promise
-   CBAddIdsSyncPromise = std::promise<le_result_t>();
-   std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
-
    auto &sms = taf_Sms::GetInstance();
    if (sms.CbManagers.empty())
    {
@@ -2081,34 +2176,59 @@ le_result_t taf_Sms::AddCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint1
    }
 
    auto CbMgr = sms.CbManagers[phoneId - 1];
-
-   if (CbMgr)
-   {
-      telux::common::Status reqStatus = CbMgr->updateMessageFilters(CBFilterList, tafSetSmsCBResponseCallback::updateFilterResponse);
-
-      if (reqStatus != telux::common::Status::SUCCESS)
-      {
-         LE_INFO("Update message filters failed");
-         return LE_FAULT;
-      }
-
-      // blocking here to get call event response
-      std::future<le_result_t> futResult = CBAddIdsSyncPromise.get_future();
-      std::future_status waitStatus = futResult.wait_for(span);
-      if (std::future_status::timeout == waitStatus)
-      {
-        LE_ERROR("Waiting promise timeout for %d seconds", TIMEOUT_UPDATE_CB_FILTER);
-        return LE_TIMEOUT;
-      }
-      else
-      {
-        return futResult.get();
-      }
-   }
-   else
+   if (!CbMgr)
    {
       LE_ERROR("Cell broadcast service error");
       return LE_FAULT;
+   }
+
+   auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+   auto cb = [promisePtr](telux::common::ErrorCode err)
+   {
+      try
+      {
+         if (err == telux::common::ErrorCode::SUCCESS)
+         {
+            LE_INFO("Update message filters request sent successfully");
+            promisePtr->set_value(LE_OK);
+         }
+         else
+         {
+            LE_INFO("Update message filters request failed with errorCode: %d",
+               static_cast<int>(err));
+            promisePtr->set_value(LE_FAULT);
+         }
+      }
+      catch (const std::exception& e)
+      {
+         LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+         LE_ERROR("Unknown error in SMS callback.");
+      }
+   };
+
+   telux::common::Status reqStatus = CbMgr->updateMessageFilters(CBFilterList, cb);
+
+   if (reqStatus != telux::common::Status::SUCCESS)
+   {
+      LE_INFO("Update message filters failed");
+      return LE_FAULT;
+   }
+
+   // blocking here to get call event response
+   std::future<le_result_t> futResult = promisePtr->get_future();
+   std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
+   std::future_status waitStatus = futResult.wait_for(span);
+   if (std::future_status::timeout == waitStatus)
+   {
+      LE_ERROR("Waiting promise timeout for %d seconds", TIMEOUT_UPDATE_CB_FILTER);
+      return LE_TIMEOUT;
+   }
+   else
+   {
+      return futResult.get();
    }
 }
 
@@ -2178,10 +2298,6 @@ le_result_t taf_Sms::RemoveCellBroadcastIds(uint8_t phoneId, uint16_t fromId, ui
       return LE_OK;
    }
 
-   // initialize the synchronous promise
-   CBAddIdsSyncPromise = std::promise<le_result_t>();
-   std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
-
    auto &sms = taf_Sms::GetInstance();
    if (sms.CbManagers.empty())
    {
@@ -2190,149 +2306,59 @@ le_result_t taf_Sms::RemoveCellBroadcastIds(uint8_t phoneId, uint16_t fromId, ui
    }
 
    auto CbMgr = sms.CbManagers[phoneId - 1];
-
-   if (CbMgr)
-   {
-      telux::common::Status reqStatus = CbMgr->updateMessageFilters(CBFilterList, tafSetSmsCBResponseCallback::updateFilterResponse);
-
-      if (reqStatus != telux::common::Status::SUCCESS)
-      {
-         LE_INFO("Update message filters failed");
-         return LE_FAULT;
-      }
-
-      // blocking here to get call event response
-      std::future<le_result_t> futResult = CBAddIdsSyncPromise.get_future();
-      std::future_status waitStatus = futResult.wait_for(span);
-      if (std::future_status::timeout == waitStatus)
-      {
-        LE_ERROR("Waiting promise timeout for %d seconds", TIMEOUT_UPDATE_CB_FILTER);
-        return LE_TIMEOUT;
-      }
-      else
-      {
-        return futResult.get();
-      }
-   }
-   else
+   if (!CbMgr)
    {
       LE_ERROR("Cell broadcast service error");
       return LE_FAULT;
    }
-}
 
-void tafSetSmsStorageCallback::readMsgResponse(telux::tel::SmsMessage smsMsg,
-   telux::common::ErrorCode error)
-{
-   auto &sms = taf_Sms::GetInstance();
-   if (error != telux::common::ErrorCode::SUCCESS)
+   auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+   auto cb = [promisePtr](telux::common::ErrorCode err)
    {
-      LE_INFO("Request for read message failed with errorCode: %d",
-         static_cast<int>(error));
-      return;
+      try
+      {
+         if (err == telux::common::ErrorCode::SUCCESS)
+         {
+            LE_INFO("Update message filters request sent successfully");
+            promisePtr->set_value(LE_OK);
+         }
+         else
+         {
+            LE_INFO("Update message filters request failed with errorCode: %d",
+               static_cast<int>(err));
+            promisePtr->set_value(LE_FAULT);
+         }
+      }
+      catch (const std::exception& e)
+      {
+         LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+         LE_ERROR("Unknown error in SMS callback.");
+      }
+   };
+
+   telux::common::Status reqStatus = CbMgr->updateMessageFilters(CBFilterList, cb);
+   if (reqStatus != telux::common::Status::SUCCESS)
+   {
+      LE_INFO("Update message filters failed");
+      return LE_FAULT;
    }
-   std::shared_ptr<telux::tel::MessagePartInfo> partInfo =
-      smsMsg.getMessagePartInfo();
-   if (partInfo)
+
+   // blocking here to get call event response
+   std::future<le_result_t> futResult = promisePtr->get_future();
+   std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
+   std::future_status waitStatus = futResult.wait_for(span);
+   if (std::future_status::timeout == waitStatus)
    {
-      LE_INFO("Multi Part Message ");
-      LE_INFO("Message: %s", smsMsg.getText().c_str());
-      LE_DEBUG("PDU: %s", smsMsg.getPdu().c_str());
-      LE_DEBUG("RefNumber: %d", static_cast <int>(partInfo->refNumber));
-      LE_DEBUG("NumberOfSegments: %d", static_cast <int>(partInfo->numberOfSegments));
-      LE_DEBUG("SegmentNumber: %d", static_cast <int>(partInfo->segmentNumber));
+      LE_ERROR("Waiting promise timeout for %d seconds", TIMEOUT_UPDATE_CB_FILTER);
+      return LE_TIMEOUT;
    }
    else
    {
-      LE_INFO("Message: %s", smsMsg.getText().c_str());
-      LE_DEBUG("PDU: %s", smsMsg.getPdu().c_str());
+      return futResult.get();
    }
-   sms.ReadMessageSyncPromise.set_value(smsMsg);
-}
-
-static std::string convertTagTypeToString(telux::tel::SmsTagType type)
-{
-   switch (type)
-   {
-      case telux::tel::SmsTagType::UNKNOWN:
-         return "Unknown";
-      case telux::tel::SmsTagType::MT_READ:
-         return "MT_READ";
-      case telux::tel::SmsTagType::MT_NOT_READ:
-         return "MT_NOT_READ";
-      default:
-         return "Unknown";
-   }
-}
-
-// Implementation of request message list callback
-void tafSetSmsStorageCallback::reqMessageListResponse(
-   std::vector<telux::tel::SmsMetaInfo> infos, telux::common::ErrorCode error)
-{
-   auto &sms = taf_Sms::GetInstance();
-   if (error != telux::common::ErrorCode::SUCCESS)
-   {
-      LE_INFO("Request for message list failed with errorCode: %d",
-         static_cast<int>(error));
-      return;
-   }
-   LE_INFO("Request for message list sent successfully ");
-   LE_INFO("SMS List Size: %zu", infos.size());
-   for (auto& info : infos)
-   {
-      LE_INFO(" Msg Index: %d, Tag Type: %s",
-         info.msgIndex, convertTagTypeToString(info.tagType).c_str());
-   }
-   sms.MessageListSyncPromise.set_value(infos);
-}
-
-// Implementation of get preferred storage callback
-void tafSetSmsStorageCallback::getPreferredStorageResponse(telux::tel::StorageType type,
-   telux::common::ErrorCode errorCode)
-{
-    auto &sms = taf_Sms::GetInstance();
-
-    if(errorCode == telux::common::ErrorCode::SUCCESS)
-    {
-        LE_INFO("Request for get preferred storage sent successfully");
-
-        switch(type)
-        {
-            case telux::tel::StorageType::NONE:
-                sms.sysPrefStorage = TAF_SMS_STORAGE_NONE;
-                break;
-            case telux::tel::StorageType::SIM:
-                sms.sysPrefStorage = TAF_SMS_STORAGE_SIM;
-                break;
-            default:
-                sms.sysPrefStorage = TAF_SMS_STORAGE_UNKNOWN;
-                break;
-        }
-        sms.PreferredStorageSyncPromise.set_value(LE_OK);
-    }
-    else
-    {
-        LE_INFO("Request for get preferred storage failed with errorCode: %d", static_cast<int>(errorCode));
-        sms.PreferredStorageSyncPromise.set_value(LE_FAULT);
-    }
-}
-
-// Implementation of set preferred storage callback
-void tafSetSmsStorageCallback::setPreferredStorageResponse(telux::
-   common::ErrorCode errorCode)
-{
-    auto &sms = taf_Sms::GetInstance();
-
-    if(errorCode == telux::common::ErrorCode::SUCCESS)
-    {
-        LE_INFO("Request for set preferred storage sent successfully");
-        sms.PreferredStorageSyncPromise.set_value(LE_OK);
-    }
-    else
-    {
-        LE_INFO("Request for set preferred storage failed with errorCode: %d", static_cast<int>(errorCode));
-        sms.PreferredStorageSyncPromise.set_value(LE_FAULT);
-    }
 }
 
 le_result_t taf_Sms::GetPreferredStorage(taf_sms_Storage_t* storage)
@@ -2343,44 +2369,81 @@ le_result_t taf_Sms::GetPreferredStorage(taf_sms_Storage_t* storage)
       return LE_OK;
    }
 
-   // initialize the synchronous promise
-   PreferredStorageSyncPromise = std::promise<le_result_t>();
    std::chrono::seconds span(kPreferredStorageWaitTime);
    auto smsManager = smsManagers[DEFAULT_SLOT_ID - 1];
-
-   if(smsManager != nullptr)
+   if(smsManager == nullptr)
    {
-      telux::common::Status reqStatus = smsManager->requestPreferredStorage(
-         tafSetSmsStorageCallback::getPreferredStorageResponse);
+      return LE_FAULT;
+   }
 
-      if (reqStatus != telux::common::Status::SUCCESS)
+   auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+   auto cb = [promisePtr](telux::tel::StorageType type, telux::common::ErrorCode err)
+   {
+      try
       {
-         LE_INFO("Get preferred storage failed");
-         return LE_FAULT;
-      }
-
-      // blocking here to get preferred storage
-      std::future<le_result_t> futResult = PreferredStorageSyncPromise.get_future();
-      std::future_status waitStatus = futResult.wait_for(span);
-      if (std::future_status::timeout == waitStatus)
-      {
-        LE_ERROR("waiting promise timeout for %d seconds", kPreferredStorageWaitTime);
-        return LE_TIMEOUT;
-      }
-      else
-      {
-         le_result_t res = futResult.get();
-         if(res == LE_OK)
+         auto &sms = taf_Sms::GetInstance();
+         if(err == telux::common::ErrorCode::SUCCESS)
          {
-            *storage = sysPrefStorage;
-            LE_INFO("Get preferred storage = %d", sysPrefStorage);
+             LE_INFO("Request for get preferred storage sent successfully");
+             switch(type)
+             {
+                 case telux::tel::StorageType::NONE:
+                     sms.sysPrefStorage = TAF_SMS_STORAGE_NONE;
+                     break;
+                 case telux::tel::StorageType::SIM:
+                     sms.sysPrefStorage = TAF_SMS_STORAGE_SIM;
+                     break;
+                 default:
+                     sms.sysPrefStorage = TAF_SMS_STORAGE_UNKNOWN;
+                     break;
+             }
+             promisePtr->set_value(LE_OK);
          }
-         return res;
+         else
+         {
+             LE_INFO("Request for get preferred storage failed with errorCode: %d",
+                static_cast<int>(err));
+             promisePtr->set_value(LE_FAULT);
+         }
       }
+      catch (const std::future_error& e)
+      {
+         LE_ERROR("Future error in callback: %s", e.what());
+      }
+      catch (const std::exception& e)
+      {
+         LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+         LE_ERROR("Unknown error in SMS callback.");
+      }
+   };
+
+   telux::common::Status reqStatus = smsManager->requestPreferredStorage(cb);
+   if (reqStatus != telux::common::Status::SUCCESS)
+   {
+      LE_INFO("Get preferred storage failed");
+      return LE_FAULT;
+   }
+
+   // blocking here to get preferred storage
+   std::future<le_result_t> futResult = promisePtr->get_future();
+   std::future_status waitStatus = futResult.wait_for(span);
+   if (std::future_status::timeout == waitStatus)
+   {
+     LE_ERROR("waiting promise timeout for %d seconds", kPreferredStorageWaitTime);
+     return LE_TIMEOUT;
    }
    else
    {
-      return LE_FAULT;
+      le_result_t res = futResult.get();
+      if(res == LE_OK)
+      {
+         *storage = sysPrefStorage;
+         LE_INFO("Get preferred storage = %d", sysPrefStorage);
+      }
+      return res;
    }
 }
 
@@ -2411,12 +2474,39 @@ le_result_t taf_Sms::SetPreferredStorage(taf_sms_Storage_t storage)
       if(smsManager != nullptr)
       {
          // initialize the synchronous promise
-         PreferredStorageSyncPromise = std::promise<le_result_t>();
+         auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+         auto cb = [promisePtr](telux::common::ErrorCode err)
+         {
+             try
+             {
+                if(err == telux::common::ErrorCode::SUCCESS)
+                {
+                    LE_INFO("Request for set preferred storage sent successfully");
+                    promisePtr->set_value(LE_OK);
+                }
+                else
+                {
+                    LE_INFO("Request for set preferred storage failed with errorCode: %d",
+                       static_cast<int>(err));
+                    promisePtr->set_value(LE_FAULT);
+                }
+             }
+             catch (const std::future_error& e)
+             {
+                 LE_ERROR("Future error in callback: %s", e.what());
+             }
+             catch (const std::exception& e)
+             {
+                 LE_ERROR("Exception in callback: %s", e.what());
+             }
+             catch (...)
+             {
+                 LE_ERROR("Unknown error in SMS callback.");
+             }
+         };
 
          telux::common::Status reqStatus =
-            smsManager->setPreferredStorage(static_cast<telux::tel::StorageType>(type),
-               tafSetSmsStorageCallback::setPreferredStorageResponse);
-
+            smsManager->setPreferredStorage(static_cast<telux::tel::StorageType>(type), cb);
          if (reqStatus != telux::common::Status::SUCCESS)
          {
             LE_INFO("Set preferred storage failed");
@@ -2424,7 +2514,7 @@ le_result_t taf_Sms::SetPreferredStorage(taf_sms_Storage_t storage)
          }
 
          // blocking here to set preferred storage
-         std::future<le_result_t> futResult = PreferredStorageSyncPromise.get_future();
+         std::future<le_result_t> futResult = promisePtr->get_future();
          std::future_status waitStatus = futResult.wait_for(span);
          if (std::future_status::timeout == waitStatus)
          {

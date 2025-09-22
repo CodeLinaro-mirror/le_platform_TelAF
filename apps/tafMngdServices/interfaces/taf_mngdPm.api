@@ -113,11 +113,14 @@
  * Management Service if there's no client calling the API.
  *
  * Supported modem wake sources control are defined with NodeModemWsBitMask:
+ *
  * -- SMS: Modem wake up due to incoming SMS.
+ *
  * -- VOICE_CALL: Modem wake up due to incoming voice call.
+ *
  * -- REMOTE_SIM_PROFILE_SWAP: Modem wake up due to remote SIM profile swap.
  *
- * taf_mngdPm_SetNodeModemWakeupSel() is used to query the configured whitelisted modem wake
+ * taf_mngdPm_GetNodeModemWakeupSel() is used to query the configured whitelisted modem wake
  * sources by taf_mngdPm_SetNodeModemWakeupSel().
  *
  * When there is a NAD wakeup triggered due to the supported modem wake sources, the API of

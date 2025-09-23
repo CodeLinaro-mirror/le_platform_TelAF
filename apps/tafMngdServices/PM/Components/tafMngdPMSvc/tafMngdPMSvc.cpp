@@ -1612,6 +1612,10 @@ COMPONENT_INIT
 
     mpms.Init();
 
+    // Initialize new internal event ID and handler for thread-safe processing of NodeEventCB
+    mpms.nodeInternalEvent = le_event_CreateId("NodeInternalEvent", sizeof(taf_mngdPm_NodeEventData_t));
+    le_event_AddHandler("NodeInternalEventHandler", mpms.nodeInternalEvent, mpms.NodeInternalEventHandler);
+
     //Init RPC
     auto &rpcPm = tafMngdRpcPm::GetInstance();
 

@@ -225,6 +225,19 @@ typedef struct
     mngdPmEventType_Ready_t type;
 }taf_mngdPm_readyEvtType_t;
 
+typedef enum
+{
+    EVT_NODE_EVENT_STAYAWAKE,
+    EVT_NODE_EVENT_RELAX,
+    EVT_NODE_EVENT_SHUTDOWN
+} taf_mngdPm_InternalEventType_t;
+
+typedef struct
+{
+    taf_mngdPm_InternalEventType_t type;
+} taf_mngdPm_NodeEventData_t;
+
+
 class tafMngdPMSvc: public ITafSvc
 {
     public:
@@ -395,5 +408,10 @@ class tafMngdPMSvc: public ITafSvc
         // Helpers for snapshot mapping and initialization
         static taf_mngdPm_NodePowerState_t ToNodePowerStateFromPm(taf_pm_State_t s);
         static void InitializeCurrentNodePowerState();
+        // Internal event ID for node events, to be processed on the main thread
+        static le_event_Id_t nodeInternalEvent;
+
+        // Handler for node internal events
+        static void NodeInternalEventHandler(void *reportPtr);
 };
 }

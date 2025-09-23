@@ -121,6 +121,7 @@ apps:
     // $TELAF_ROOT/apps/sample/diagState/tafDiagState.adef
     // $TELAF_ROOT/apps/test/tafDidStoreTest/tafDidStoreUnitTest
     // $TELAF_ROOT/apps/test/tafAdefTest/tafAdefUnitTest
+    // $TELAF_ROOT/apps/test/tafMaxThreadsTest/tafMaxThreadsUnitTest
     // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeUnitTest
     // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeIntTest
     // $TELAF_ROOT/apps/test/tafLXCIntTest/tafLXCIntTest.adef

@@ -1,0 +1,12 @@
+
+cflags:
+{
+    -I.
+    -DHAVE_GETRLIMIT
+    -DHAVE_SETRLIMIT
+}
+
+sources:
+{
+    tafMaxThreadsUnitTest.c
+}

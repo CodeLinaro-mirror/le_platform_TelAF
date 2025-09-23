@@ -386,7 +386,7 @@ taf_dcs_ProfileRef_t taf_dcs_GetProfile
 )
 {
     LE_WARN("This API is deprecated. Use taf_dcs_GetProfileEx().");
-    LE_WARN("Get reference with phone ID 1.");
+    LE_INFO("Get reference with phone ID 1.");
 
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
     TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),

@@ -200,10 +200,10 @@ le_result_t TafDcsProfile::GetMaxDataBitRates(uint64_t &rxRate, uint64_t &txRate
 
 le_result_t TafDcsProfile::SetMaxDataBitRates(const uint64_t &rxRate, const uint64_t &txRate)
 {
-    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_INFO("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
     maxRxBitRate_ = rxRate;
     maxTxBitRate_ = txRate;
-    LE_DEBUG("Max Rx Rate: %lu, Max Tx Rate: %lu", maxRxBitRate_, maxTxBitRate_);
+    LE_INFO("Max Rx Rate: %lu, Max Tx Rate: %lu", maxRxBitRate_, maxTxBitRate_);
     return LE_OK;
 }
 
@@ -319,8 +319,8 @@ le_result_t TafDcsProfile::GetIPv6Addresses
     ipv6DnsSecondary = ipv6DnsSecondary_;
     ipv6AddrMask     = ipv6AddrMask_;
     ipv6GatewayMask  = ipv6GatewayMask_;
-    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
-    LE_DEBUG("IPv6 address: %s", ipv6Addr_.c_str());
+    LE_INFO("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_INFO("IPv6 address: %s", ipv6Addr_.c_str());
     LE_DEBUG("IPv6 gateway: %s", ipv6Gateway_.c_str());
     LE_DEBUG("IPv6 DNS primary: %s", ipv6DnsPrimary_.c_str());
     LE_DEBUG("IPv6 DNS secondary: %s", ipv6DnsSecondary_.c_str());
@@ -345,8 +345,8 @@ le_result_t TafDcsProfile::SetIPv4Addresses
     ipv4DnsSecondary_ = ipv4DnsSecondary;
     ipv4AddrMask_     = ipv4AddrMask;
     ipv4GatewayMask_  = ipv4GatewayMask;
-    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
-    LE_DEBUG("IPv4 address: %s", ipv4Addr_.c_str());
+    LE_INFO("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_INFO("IPv4 address: %s", ipv4Addr_.c_str());
     LE_DEBUG("IPv4 gateway: %s", ipv4Gateway_.c_str());
     LE_DEBUG("IPv4 DNS primary: %s", ipv4DnsPrimary_.c_str());
     LE_DEBUG("IPv4 DNS secondary: %s", ipv4DnsSecondary_.c_str());
@@ -506,8 +506,8 @@ le_result_t TafDcsProfile::GetDataBearerTech(taf_dcs_DataBearerTechnology_t &tec
 le_result_t TafDcsProfile::SetDataBearerTech(const taf_dcs_DataBearerTechnology_t tech)
 {
     dataBearerTech_  = tech;
-    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
-    LE_DEBUG("Data bearer tech: %d", TO_INT(dataBearerTech_));
+    LE_INFO("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_INFO("Data bearer tech: %d", TO_INT(dataBearerTech_));
     return LE_OK;
 }
 
@@ -538,9 +538,9 @@ le_result_t TafDcsProfile::SetCallEndReason
     callEndReasonCode_     = code;
     callEndReasonTypeIPv4_ = typeIPv4;
     callEndReasonTypeIPv6_ = typeIPv6;
-    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
-    LE_DEBUG("Reason     : %d, Code: %d", TO_INT(callEndReasonType_), callEndReasonCode_);
-    LE_DEBUG("Reason IPv4: %d, IPv4: %d", TO_INT(connStateIPv4_), TO_INT(connStateIPv6_));
+    LE_INFO("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_INFO("Reason     : %d, Code: %d", TO_INT(callEndReasonType_), callEndReasonCode_);
+    LE_INFO("Reason IPv4: %d, IPv6: %d", TO_INT(connStateIPv4_), TO_INT(connStateIPv6_));
     return LE_OK;
 }
 

@@ -42,7 +42,7 @@
 #include "tafSvcIF.hpp"
 #include "taf_pa_sim.hpp"
 
-#define DEFAULT_TIMEOUT_IN_SECONDS 5
+#define DEFAULT_TIMEOUT_IN_SECONDS 10
 #define TAF_SIM_SUBSYSTEM_TIMEOUT 30
 
 using namespace telux::tel;

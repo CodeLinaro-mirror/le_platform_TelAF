@@ -16,7 +16,6 @@ config TAFMNGDCONNSVC_MAX_CLIENT_SESSIONS
 config TAFMNGDCONNSVC_USE_CURL
   bool "Configures whether the service uses curl to make data connection tests."
   default n
-  range 1 20
   help
     If enabled, the service will use curl to make data connection tests. If disabled, the service
     will use ping. Using curl requires the curl library to be installed on the target and it may

@@ -24,6 +24,7 @@
 #define TAF_THERM_MAX_LIST_POOL_SIZE 100
 #define TAF_THERM_MAX_ZONE_POOL_SIZE 50
 #define TAF_THERM_ZONE_TYPE_MAX_SIZE 32
+#define TAF_THERM_MANAGER_TIMEOUT 30
 
 typedef struct {
     uint32_t coolingDeviceId;

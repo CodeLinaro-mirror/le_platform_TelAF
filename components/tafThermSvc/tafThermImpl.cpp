@@ -176,28 +176,45 @@ telux::common::Status manageIndication(bool registerInd)
 void taf_Therm::Init(void)
 {
     telux::common::ProcType procType = telux::common::ProcType::LOCAL_PROC;
-    // Get thermal factory instance
     auto& thermalFactory = telux::therm::ThermalFactory::getInstance();
-    // Get thermal manager instance
-    std::promise<telux::common::ServiceStatus> prom = std::promise<telux::common::ServiceStatus>();
-    thermalManager = thermalFactory.getThermalManager([&](telux::common::ServiceStatus status)
-            { prom.set_value(status); }, procType);
+
+    auto promisePtr = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+
+    thermalManager = thermalFactory.getThermalManager(
+        [promisePtr](telux::common::ServiceStatus status) {
+            try {
+                promisePtr->set_value(status);
+            } catch (const std::future_error &e) {
+                LE_FATAL("Promise already satisfied: %s", e.what());
+            }
+        },
+        procType
+    );
 
     if (thermalManager == nullptr)
     {
-        LE_ERROR(" ERROR - Failed to get thermal manager instance.");
-        return;
+        LE_FATAL("ERROR - Failed to get thermal manager instance.");
     }
-    telux::common::ServiceStatus mgrStatus = prom.get_future().get();
-    if (mgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+
+    auto future = promisePtr->get_future();
+
+    if (future.wait_for(std::chrono::seconds(TAF_THERM_MANAGER_TIMEOUT)) == std::future_status::ready)
     {
-        LE_INFO("Thermal Subsystem is ready.");
+        telux::common::ServiceStatus mgrStatus = future.get();
+        if (mgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_INFO("Thermal Subsystem is ready.");
+        }
+        else
+        {
+            LE_FATAL("ERROR - Unable to initialize Thermal subsystem.");
+        }
     }
     else
     {
-        LE_ERROR("ERROR - Unable to initialize Thermal subsystem.");
-        return;
+        LE_FATAL("Timeout waiting for serviceStatus callback");
     }
+
     LE_INFO("Thermal manager instance returned for proc type: %d", static_cast<int>(procType));
 
     tZoneListPool = le_mem_InitStaticPool(tZoneListPool, TAF_THERM_MAX_LIST_POOL_SIZE,

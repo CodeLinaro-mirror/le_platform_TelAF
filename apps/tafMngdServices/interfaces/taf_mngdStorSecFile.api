@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -128,6 +128,10 @@
 //--------------------------------------------------------------------------------------------------
 
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 USETYPES taf_fsc.api;
 USETYPES le_limit.api;
 
@@ -171,7 +175,7 @@ FUNCTION le_result_t CreateStorage
 (
     string storageName[MAX_STORAGE_NAME_SIZE]  IN,   ///< Storage name.
     ManagedCapMask ManagedCapMask              IN    ///< Managed capability.
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -187,7 +191,7 @@ FUNCTION le_result_t CreateStorage
 FUNCTION Storage GetStorageRef
 (
     string storageName[MAX_STORAGE_NAME_SIZE]  IN   ///< Storage name.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -203,7 +207,7 @@ FUNCTION Storage GetStorageRef
 FUNCTION le_result_t UnlockStorage
 (
     Storage storageRef IN   ///< Storage reference.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -219,7 +223,7 @@ FUNCTION le_result_t UnlockStorage
 FUNCTION le_result_t LockStorage
 (
     Storage storageRef IN   ///< Storage reference.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -239,7 +243,7 @@ FUNCTION le_result_t ImportFile
                                                        ///< storage.
     string targetFilePath[le_limit.MAX_PATH_LEN] IN    ///< Target file path is the relative path
                                                        ///< to the file storage reference
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -258,7 +262,7 @@ FUNCTION le_result_t ReadFile
     string filePath[le_limit.MAX_PATH_LEN] IN,   ///< File path is the relative path to the file
                                                  ///< storage reference
     uint8 bufPtr[MAX_DATA_CHUNK_SIZE]      OUT   ///< Output buffer.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -276,7 +280,7 @@ FUNCTION le_result_t DeleteFile
     Storage storageRef                     IN,   ///< Storage reference.
     string filePath[le_limit.MAX_PATH_LEN] IN    ///< File path is the relative path to the file
                                                  ///< storage reference
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -293,7 +297,7 @@ FUNCTION le_result_t GetBasePath
 (
     Storage storageRef                     IN,   ///< Storage reference.
     string basePath[le_limit.MAX_PATH_LEN] OUT   ///< Storage base path to the file storage reference
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -309,4 +313,4 @@ FUNCTION le_result_t GetBasePath
 FUNCTION le_result_t DeleteStorage
 (
     Storage storageRef                     IN  ///< Storage reference.
-);
+) = 8;

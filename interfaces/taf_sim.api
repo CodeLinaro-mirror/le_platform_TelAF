@@ -273,6 +273,9 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 /**
  * FPLMN list.
  */
@@ -509,7 +512,7 @@ HANDLER RefreshChangeHandler
 EVENT RefreshChange
 (
     RefreshChangeHandler handler    ///< Refresh change handler.
-);
+) = (0,1);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -525,7 +528,7 @@ FUNCTION le_result_t CreateSession
 (
     SessionType sessionType     IN,  ///< Session type.
     Refresh refreshSessionRef   OUT  ///< Refresh session reference.
-);
+) = 2;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -541,7 +544,7 @@ FUNCTION le_result_t SetRefreshRegisterFiles
 (
     Refresh refreshSessionRef      IN,                  ///< Refresh session reference.
     RefreshRegFile files[MAX_SIM_REFRESH_FILES] IN     ///< Files to be registered for the refresh notifications.
-);
+) = 3;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -557,7 +560,7 @@ FUNCTION le_result_t SetRefreshMode
 (
     Refresh refreshSessionRef      IN,  ///< Refresh session reference.
     RefreshMode refreshMode        IN   ///< Refresh mode.
-);
+) = 4;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -573,7 +576,7 @@ FUNCTION le_result_t SetRefreshAllow
 (
     Refresh refreshSessionRef     IN,  ///< Refresh session reference.
     bool isRefreshAllowed         IN   ///< Refresh allow or disallow flag.
-);
+) = 5;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -598,7 +601,7 @@ HANDLER NewStateHandler
 EVENT NewState
 (
     NewStateHandler handler    ///< State change handler.
-);
+) = (6,7);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -626,7 +629,7 @@ HANDLER AuthenticationResponseHandler
 EVENT AuthenticationResponse
 (
     AuthenticationResponseHandler handler    ///< Authentication response handler.
-);
+) = (8,9);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -640,7 +643,7 @@ EVENT AuthenticationResponse
 FUNCTION bool IsPresent
 (
     Id      slotId IN    ///< Slot ID.
-);
+) = 10;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -652,7 +655,7 @@ FUNCTION bool IsPresent
 FUNCTION States GetState
 (
     Id slotId IN    ///< Slot ID.
-);
+) = 11;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -666,7 +669,7 @@ FUNCTION States GetState
 FUNCTION bool IsReady
 (
     Id slotId IN    ///< Slot ID.
-);
+) = 12;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -684,7 +687,7 @@ FUNCTION le_result_t GetICCID
 (
     Id        slotId IN,                 ///< Slot ID.
     string    iccid[ICCID_LEN] OUT       ///< ICC ID as output.
-);
+) = 13;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -702,7 +705,7 @@ FUNCTION le_result_t GetIMSI
 (
     Id        slotId IN,             ///< Slot ID.
     string    imsi[IMSI_LEN] OUT     ///< IMSI as output.
-);
+) = 14;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -720,7 +723,7 @@ FUNCTION le_result_t GetHomeNetworkOperator
 (
     Id        slotId IN,             ///< Slot ID.
     string    nameStr[100] OUT       ///< Network name as output.
-);
+) = 15;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -738,7 +741,7 @@ FUNCTION le_result_t GetSubscriberPhoneNumber
 (
     Id        slotId IN,                                ///< Slot ID.
     string    phoneNumberStr[PHONE_NUM_MAX_LEN] OUT     ///< Phone number as output.
-);
+) = 16;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -757,7 +760,7 @@ FUNCTION le_result_t GetHomeNetworkMccMnc
     Id     slotId IN,        ///< Slot ID.
     string mccPtr[3] OUT,    ///< 3 digit numeric MCC string as output.
     string mncPtr[3] OUT     ///< 2 or 3 digit numeric MNC string as output.
-);
+) = 17;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -768,7 +771,7 @@ FUNCTION le_result_t GetHomeNetworkMccMnc
 //-------------------------------------------------------------------------------------------------
 FUNCTION Id GetSelectedCard
 (
-);
+) = 18;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -783,7 +786,7 @@ FUNCTION Id GetSelectedCard
 FUNCTION le_result_t SelectCard
 (
     Id    slotId IN    ///< Slot ID.
-);
+) = 19;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -803,7 +806,7 @@ FUNCTION le_result_t EnterPIN
     Id        slotId IN,           ///< Slot ID of SIM.
     LockType  lockType IN,         ///< Applicable lock types are PIN1/PIN2.
     string    pin[PIN_MAX_LEN] IN  ///< PIN1/PIN2.
-);
+) = 20;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -823,7 +826,7 @@ FUNCTION le_result_t ChangePIN
     LockType  lockType IN,                ///< Applicable lock types are PIN1 and PIN2.
     string    oldpin[PIN_MAX_LEN] IN,     ///< Old PIN1/PIN2.
     string    newpin[PIN_MAX_LEN] IN      ///< New PIN1/PIN2.
-);
+) = 21;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -838,7 +841,7 @@ FUNCTION le_result_t ChangePIN
 FUNCTION int32 GetRemainingPINTries
 (
     Id      slotId IN        ///< Slot ID.
-);
+) = 22;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -854,7 +857,7 @@ FUNCTION le_result_t GetRemainingPUKTries
 (
     Id      slotId                 IN,    ///< Slot ID.
     uint32  remainingPukTriesPtr  OUT     ///< Number of PUK retries remaining.
-);
+) = 23;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -873,7 +876,7 @@ FUNCTION le_result_t Unlock
     Id        slotId IN,           ///< Slot ID of SIM.
     LockType  lockType IN,         ///< Applicable lock types are PIN1/PIN2.
     string    pin[PIN_MAX_LEN] IN  ///< PIN1/PIN2.
-);
+) = 24;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -893,7 +896,7 @@ FUNCTION le_result_t Lock
     Id        slotId IN,           ///< Slot ID of SIM.
     LockType  lockType IN,         ///< Applicable lock types are PIN1/PIN2.
     string    pin[PIN_MAX_LEN] IN  ///< PIN1/PIN2.
-);
+) = 25;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -915,7 +918,7 @@ FUNCTION le_result_t Unblock
     LockType  lockType IN,            ///< Applicable lock types are PUK1/PUK2.
     string    puk[PUK_MAX_LEN] IN,    ///< PUK1/PUK2.
     string    newpin[PIN_MAX_LEN] IN  ///< New PIN1/PIN2.
-);
+) = 26;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -932,7 +935,7 @@ FUNCTION le_result_t GetEID
 (
     Id       slotId IN,            ///< Slot ID.
     string   eid[EID_LEN] OUT      ///< eID
-);
+) = 27;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -947,7 +950,7 @@ FUNCTION le_result_t GetEID
 FUNCTION le_result_t SetAutomaticSelection
 (
     bool enable IN      ///< Enable flag
-);
+) = 28;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -962,7 +965,7 @@ FUNCTION le_result_t SetAutomaticSelection
 FUNCTION le_result_t GetAutomaticSelection
 (
     bool enable OUT        ///< Enable flag as output.
-);
+) = 29;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -979,7 +982,7 @@ FUNCTION le_result_t GetAppTypes
 (
      Id slotId IN,                         ///< Slot ID.
      AppType apptype[MAX_APP_TYPE] OUT     ///< Application type.
-);
+) = 30;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -997,7 +1000,7 @@ FUNCTION le_result_t OpenLogicalChannel
      Id slotId IN,           ///< Slot ID.
      AppType apptype IN,     ///< App type.
      uint8 channelPtr OUT    ///< Channel as output.
-);
+) = 31;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1016,7 +1019,7 @@ FUNCTION le_result_t OpenLogicalChannelByAid
      Id slotId IN,                  ///< Slot ID.
      string aid[AID_BYTES] IN,      ///< Application identifier (AID)
      uint8 channelPtr OUT           ///< Channel as output.
-);
+) = 32;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1033,7 +1036,7 @@ FUNCTION le_result_t CloseLogicalChannel
 (
     Id    slotId IN,      ///< Slot ID.
     uint8 channel IN      ///< The channel ID to be closed.
-);
+) = 33;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1052,7 +1055,7 @@ FUNCTION le_result_t SendApduOnChannel
     uint8        channel IN,                              ///< Channel.
     uint8        commandApdu[APDU_MAX_BYTES] IN,          ///< APDU.
     uint8        responseApdu[RESPONSE_MAX_BYTES] OUT     ///< Response of APDU as output.
-);
+) = 34;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1070,7 +1073,7 @@ FUNCTION le_result_t SendApdu
     Id           simId IN,                                 ///< Slot ID.
     uint8        commandApdu[APDU_MAX_BYTES] IN,           ///< APDU command.
     uint8        responseApdu[RESPONSE_MAX_BYTES] OUT      ///< Response of APDU as output.
-);
+) = 35;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1096,7 +1099,7 @@ FUNCTION le_result_t SendCommand
     uint8          sw1 OUT,                                 ///< Status word 1 received from the SIM.
     uint8          sw2 OUT,                                 ///< Status word 2 received from the SIM.
     uint8          response[RESPONSE_MAX_BYTES] OUT         ///< SIM response.
-);
+) = 36;
 
 /**
  * Switches the given SIM to the emergency call subscription.
@@ -1119,7 +1122,7 @@ FUNCTION le_result_t LocalSwapToEmergencyCallSubscription
 (
     Id           simId IN,                ///< The SIM identifier.
     Manufacturer manufacturer IN          ///< The card manufacturer.
-);
+) = 37;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1143,7 +1146,7 @@ FUNCTION le_result_t LocalSwapToCommercialSubscription
 (
     Id           simId IN,                ///< The SIM identifier.
     Manufacturer manufacturer IN          ///< The card manufacturer.
-);
+) = 38;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1163,7 +1166,7 @@ FUNCTION le_result_t SetPower
 (
     Id           simId IN,                  ///< The SIM identifier.
     le_onoff_t   power IN                   ///< The power state.
-);
+) = 43;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1177,7 +1180,7 @@ FUNCTION le_result_t SetPower
 FUNCTION le_result_t Reset
 (
     Id simId IN                          ///< The SIM identifier.
-);
+) = 44;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1196,7 +1199,7 @@ FUNCTION le_result_t IsEmergencyCallSubscriptionSelected
     Id    simId IN,  ///< The SIM identifier.
     bool  isEcs OUT  ///< - True -- Emergency call subscription (ECS) is selected.
                      ///< - False -- Commercial subscription is selected.
-);
+) = 45;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1222,7 +1225,7 @@ HANDLER IccidChangeHandler
 EVENT IccidChange
 (
     IccidChangeHandler handler
-);
+) = (46,47);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1235,7 +1238,7 @@ EVENT IccidChange
 //-------------------------------------------------------------------------------------------------
 FUNCTION FPLMNList CreateFPLMNList
 (
-);
+) = 48;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1252,7 +1255,7 @@ FUNCTION le_result_t AddFPLMNOperator
     FPLMNList fplmnListRef IN,                    ///< FPLMN list reference.
     string    mcc[3]       IN,                    ///< 3 digit numeric code representing Mobile Country Code.
     string    mnc[3]       IN                     ///< 2 or 3 digit numeric code representing Mobile Network Code.
-);
+) = 49;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1271,7 +1274,7 @@ FUNCTION le_result_t GetFirstFPLMNOperator
     FPLMNList fplmnListRef IN,               ///< FPLMN list reference.
     string mccPtr[3] OUT,                    ///< 3 digit numeric MCC string as output.
     string mncPtr[3] OUT                     ///< 2 or 3 digit numeric MNC string as output.
-);
+) = 50;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1289,7 +1292,7 @@ FUNCTION le_result_t GetNextFPLMNOperator
     FPLMNList fplmnListRef IN,               ///< FPLMN list reference.
     string mccPtr[3] OUT,                    ///< 3 digit numeric code MCC as output.
     string mncPtr[3] OUT                     ///< 2 or 3 digit numeric code MNC as output.
-);
+) = 51;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1303,7 +1306,7 @@ FUNCTION le_result_t GetNextFPLMNOperator
 FUNCTION FPLMNList ReadFPLMNList
 (
     Id       simId IN                       ///< SIM identifier.
-);
+) = 52;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1317,7 +1320,7 @@ FUNCTION FPLMNList ReadFPLMNList
 FUNCTION DeleteFPLMNList
 (
     FPLMNList fplmnListRef IN               ///< FPLMN list reference.
-);
+) = 53;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1333,7 +1336,7 @@ FUNCTION le_result_t WriteFPLMNList
 (
     Id        simId IN,                     ///< SIM identifier.
     FPLMNList fplmnListRef IN               ///< FPLMN list reference.
-);
+) = 54;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -1347,4 +1350,4 @@ FUNCTION le_result_t WriteFPLMNList
 FUNCTION le_result_t GetSlotCount
 (
     int32     count OUT        ///< Slot count.
-);
+) = 55;

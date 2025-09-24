@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -236,6 +236,10 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 USETYPES taf_types.api;
 
 //-------------------------------------------------------------------------------------------------
@@ -375,7 +379,7 @@ REFERENCE StateExpMsg;
 //-------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
 (
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -397,7 +401,7 @@ FUNCTION le_result_t SetVlanId
 (
     Service svcRef IN,      ///< Service reference.
     uint16 vlanId IN        ///< VLAN ID
-);
+) = 1;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -427,7 +431,7 @@ EVENT RxMsg
 (
     Service svcRef IN,      ///< Service reference.
     RxMsgHandler handler
-);
+) = (2,3);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -459,7 +463,7 @@ EVENT AuthStateExp
 (
     Service svcRef IN,              ///< Service reference.
     AuthStateExpHandler handler
-);
+) = (4,5);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -480,7 +484,7 @@ FUNCTION le_result_t GetCommConf
 (
     RxMsg rxMsgRef  IN,                       ///< Received message reference.
     uint8 commConf  OUT                       ///< Communication configuration.
-);
+) = 6;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -501,7 +505,7 @@ FUNCTION le_result_t GetCertSize
 (
     RxMsg rxMsgRef  IN,                       ///< Received message reference.
     uint16 size  OUT                          ///< The size of certificate.
-);
+) = 7;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -522,7 +526,7 @@ FUNCTION le_result_t GetCert
 (
     RxMsg rxMsgRef  IN,                     ///< Received message reference.
     uint8 cert[MAX_CERT_SIZE]  OUT          ///< The client certificate.
-);
+) = 8;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -543,7 +547,7 @@ FUNCTION le_result_t GetChallengeSize
 (
     RxMsg rxMsgRef  IN,                       ///< Received message reference.
     uint16 size  OUT                          ///< The size of client challenge.
-);
+) = 9;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -563,7 +567,7 @@ FUNCTION le_result_t GetChallenge
 (
     RxMsg rxMsgRef  IN,                       ///< Received message reference.
     uint8 challenge[MAX_CHALLENGE_SIZE] OUT   ///< The client challenge.
-);
+) = 10;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -583,7 +587,7 @@ FUNCTION le_result_t GetPOWNSize
 (
     RxMsg rxMsgRef  IN,                       ///< Received message reference.
     uint16 size  OUT                          ///< The size of proof of ownership.
-);
+) = 11;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -604,7 +608,7 @@ FUNCTION le_result_t GetPOWN
 (
     RxMsg rxMsgRef  IN,                       ///< Received message reference.
     uint8 proof[MAX_POWN_SIZE]  OUT           ///< The data of proof of ownership.
-);
+) = 12;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -625,7 +629,7 @@ FUNCTION le_result_t GetPublicKeySize
 (
     RxMsg rxMsgRef  IN,                       ///< Received message reference.
     uint16 size  OUT                          ///< The size of ephemeral public key.
-);
+) = 13;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -646,7 +650,7 @@ FUNCTION le_result_t GetPublicKey
 (
     RxMsg rxMsgRef  IN,                       ///< Received message reference.
     uint8 publicKey[MAX_PUBIC_KEY_SIZE]  OUT  ///< The ephemeral public key.
-);
+) = 14;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -666,7 +670,7 @@ FUNCTION le_result_t SetRole
 (
     RxMsg rxMsgRef  IN,                       ///< Received message reference.
     uint64 role  IN                           ///< The role of proof of ownership.
-);
+) = 15;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -687,7 +691,7 @@ FUNCTION le_result_t GetCertEvalId
 (
     RxMsg rxMsgRef  IN,                       ///< Received message reference.
     uint16 id  OUT                             ///< The certificate evaluation ID.
-);
+) = 16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -707,7 +711,7 @@ FUNCTION le_result_t GetVlanIdFromMsg
 (
     RxMsg rxMsgRef  IN,    ///< Receive message reference.
     uint16 vlanId   OUT    ///< VLAN ID.
-);
+) = 17;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -727,7 +731,7 @@ FUNCTION le_result_t SetChallenge
 (
     RxMsg rxMsgRef  IN,                       ///< Received message reference.
     uint8 challenge[MAX_CHALLENGE_SIZE] IN    ///< The server challenge.
-);
+) = 18;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -748,7 +752,7 @@ FUNCTION le_result_t SetPublicKey
 (
     RxMsg rxMsgRef  IN,                       ///< Received message reference.
     uint8 publicKey[MAX_PUBIC_KEY_SIZE] IN    ///< The server public key.
-);
+) = 19;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -769,7 +773,7 @@ FUNCTION le_result_t SetSessKeyInfo
 (
     RxMsg rxMsgRef  IN,                       ///< Received message reference.
     uint8 sessKeyInfo[MAX_PUBIC_KEY_SIZE] IN  ///< The session key information.
-);
+) = 20;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -793,7 +797,7 @@ FUNCTION le_result_t SendResp
     RxMsg rxMsgRef  IN,                  ///< Received message reference.
     uint8 errCode  IN,                   ///< Error code type.
     uint8 retVal  IN                     ///< Authentication result.
-);
+) = 21;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -808,7 +812,7 @@ FUNCTION le_result_t SendResp
 FUNCTION le_result_t ReleaseAuthExpMsg
 (
     StateExpMsg expMsg IN    ///< Authentication expiry notification reference.
-);
+) = 22;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -823,4 +827,4 @@ FUNCTION le_result_t ReleaseAuthExpMsg
 FUNCTION le_result_t RemoveSvc
 (
     Service svcRef  IN    ///< Service reference.
-);
+) = 23;

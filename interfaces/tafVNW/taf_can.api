@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -277,6 +277,9 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 
 //-------------------------------------------------------------------------------------------------
 
@@ -358,7 +361,7 @@ FUNCTION CanInterface CreateCanInf
 (
     string infName[INTERFACE_NAME_MAX_LEN] IN,    ///< CAN interface name, e.g., can0, can1, etc.
     InfProtocol canInfType IN                     ///< CAN interface type.
-);
+) = 0; 
 
 //-------------------------------------------------------------------------------------------------
 
@@ -378,7 +381,7 @@ FUNCTION le_result_t SetFilter
 (
     CanInterface canInfRef IN,    ///< Reference of the created CAN interface.
     uint32 frameId IN             ///< Frame ID.
-);
+) = 1;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -396,7 +399,7 @@ FUNCTION le_result_t SetFilter
 FUNCTION le_result_t EnableLoopback
 (
     CanInterface canInfRef IN    ///< Reference of the created CAN interface.
-);
+) = 2;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -414,7 +417,7 @@ FUNCTION le_result_t EnableLoopback
 FUNCTION le_result_t DisableLoopback
 (
     CanInterface canInfRef IN    ///< Reference of the created CAN interface.
-);
+) = 3;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -432,7 +435,7 @@ FUNCTION le_result_t DisableLoopback
 FUNCTION le_result_t EnableRcvOwnMsg
 (
     CanInterface canInfRef IN    ///< Reference of the created CAN interface.
-);
+) = 4;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -450,7 +453,7 @@ FUNCTION le_result_t EnableRcvOwnMsg
 FUNCTION le_result_t DisableRcvOwnMsg
 (
     CanInterface canInfRef IN    ///< Reference of the created CAN interface.
-);
+) = 5;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -468,7 +471,7 @@ FUNCTION le_result_t DisableRcvOwnMsg
 FUNCTION bool IsFdSupported
 (
     CanInterface canInfRef IN    ///< Reference of the created CAN interface.
-);
+) = 6;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -487,7 +490,7 @@ FUNCTION bool IsFdSupported
 FUNCTION le_result_t EnableFdFrame
 (
     CanInterface canInfRef IN    ///< Reference of the created CAN interface.
-);
+) = 7;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -505,7 +508,7 @@ FUNCTION le_result_t EnableFdFrame
 FUNCTION bool GetFdStatus
 (
     CanInterface canInfRef IN    ///< Reference of the created CAN interface.
-);
+) = 8;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -541,7 +544,7 @@ EVENT CanEvent
     uint32 frameId IN,            ///< Frame ID.
     uint32 frIdMask IN,           ///< Frame ID mask for message filtering.
     Callback handler
-);
+) = (9,10);
 
 //-------------------------------------------------------------------------------------------------
 
@@ -560,7 +563,7 @@ FUNCTION CanFrame CreateCanFrame
 (
     CanInterface canInfRef IN,    ///< Reference of the created CAN interface.
     uint32 frameId IN             ///< frame ID.
-);
+) = 11;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -579,7 +582,7 @@ FUNCTION le_result_t SetPayload
 (
     CanFrame frameRef IN,             ///< Reference of the created CAN frame.
     uint8 data[DATA_MAX_LENGTH] IN    ///< Data payload.
-);
+) = 12;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -598,7 +601,7 @@ FUNCTION le_result_t SetFrameType
 (
     CanFrame frameRef IN,     ///< Reference of the created CAN frame.
     FrameType frameType IN    ///< CAN frame type.
-);
+) = 13;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -616,7 +619,7 @@ FUNCTION le_result_t SetFrameType
 FUNCTION le_result_t SendFrame
 (
     CanFrame frameRef IN    ///< Reference of the created CAN frame to send.
-);
+) = 14;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -634,7 +637,7 @@ FUNCTION le_result_t SendFrame
 FUNCTION le_result_t DeleteCanInf
 (
     CanInterface canInfRef IN    ///< Reference of the created CAN interface to delete.
-);
+) = 15;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -652,4 +655,4 @@ FUNCTION le_result_t DeleteCanInf
 FUNCTION le_result_t DeleteCanFrame
 (
     CanFrame frameRef IN    ///< Reference of the created CAN frame to delete.
-);
+) = 16;

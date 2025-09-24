@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -157,6 +157,10 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Maximum OTA package name length with null character.
@@ -313,7 +317,7 @@ HANDLER StateHandler
 EVENT State
 (
     StateHandler handler ///< Handler for update state.
-);
+) = (0,1);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -325,7 +329,7 @@ EVENT State
 //--------------------------------------------------------------------------------------------------
 FUNCTION Download
 (
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -342,7 +346,7 @@ FUNCTION le_result_t Install
 (
     OTA ota IN,                      ///< OTA workflow.
     string name[MAX_PKG_NAME_LEN] IN ///< OTA package name.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -357,7 +361,7 @@ FUNCTION le_result_t GetDownloadSession
 (
     string cfgFile[FILE_PATH_LEN] IN, ///< Configuration file for download session.
     Session session OUT               ///< Download session reference.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -371,7 +375,7 @@ FUNCTION le_result_t GetDownloadSession
 FUNCTION le_result_t StartDownload
 (
     Session session IN ///< Download session reference.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -385,7 +389,7 @@ FUNCTION le_result_t StartDownload
 FUNCTION le_result_t PauseDownload
 (
     Session session IN ///< Download session reference.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -399,7 +403,7 @@ FUNCTION le_result_t PauseDownload
 FUNCTION le_result_t ResumeDownload
 (
     Session session IN ///< Download session reference.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -413,7 +417,7 @@ FUNCTION le_result_t ResumeDownload
 FUNCTION le_result_t CancelDownload
 (
     Session session IN ///< Download session reference.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -429,7 +433,7 @@ FUNCTION le_result_t GetInstallationSession
     PackageType pkgType IN,           ///< Package type for installation.
     string cfgFile[FILE_PATH_LEN] IN, ///< Configuration file for installation session.
     Session session OUT               ///< Installation session reference.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -444,7 +448,7 @@ FUNCTION le_result_t InstallPreCheck
 (
     Session session IN,               ///< Installation session reference.
     string manifest[FILE_PATH_LEN] IN ///< Manifest for pre-check.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -459,7 +463,7 @@ FUNCTION le_result_t StartInstall
 (
     Session session IN,              ///< Installation session reference.
     string pkgPath[FILE_PATH_LEN] IN ///< Package path.
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -473,7 +477,7 @@ FUNCTION le_result_t StartInstall
 FUNCTION le_result_t PauseInstall
 (
     Session session IN ///< Installation session reference.
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -487,7 +491,7 @@ FUNCTION le_result_t PauseInstall
 FUNCTION le_result_t ResumeInstall
 (
     Session session IN ///< Installation session reference.
-);
+) = 13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -501,7 +505,7 @@ FUNCTION le_result_t ResumeInstall
 FUNCTION le_result_t CancelInstall
 (
     Session session IN ///< Installation session reference.
-);
+) = 14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -515,7 +519,7 @@ FUNCTION le_result_t CancelInstall
 FUNCTION le_result_t InstallPostCheck
 (
     Session session IN ///< Installation session reference.
-);
+) = 15;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -530,7 +534,7 @@ FUNCTION le_result_t GetActiveBank
 (
     Session session IN, ///< Installation session reference.
     Bank bank OUT       ///< The active bank.
-);
+) = 16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -548,7 +552,7 @@ FUNCTION le_result_t EraseBank
 (
     Session session IN, ///< Installation session reference.
     Bank bank IN        ///< The bank to be erased.
-);
+) = 17;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -563,7 +567,7 @@ FUNCTION le_result_t VerifyActivation
 (
     Session session IN,               ///< Installation session reference.
     string manifest[FILE_PATH_LEN] IN ///< Manifest for activation verification.
-);
+) = 18;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -577,7 +581,7 @@ FUNCTION le_result_t VerifyActivation
 FUNCTION le_result_t PauseActivation
 (
     Session session IN ///< Installation session reference.
-);
+) = 19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -591,7 +595,7 @@ FUNCTION le_result_t PauseActivation
 FUNCTION le_result_t ResumeActivation
 (
     Session session IN ///< Installation session reference.
-);
+) = 20;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -605,7 +609,7 @@ FUNCTION le_result_t ResumeActivation
 FUNCTION le_result_t Rollback
 (
     Session session IN ///< Installation session reference.
-);
+) = 21;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -619,7 +623,7 @@ FUNCTION le_result_t Rollback
 FUNCTION le_result_t Sync
 (
     Session session IN ///< Installation session reference.
-);
+) = 22;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -633,7 +637,7 @@ FUNCTION le_result_t Sync
 FUNCTION le_result_t StartSync
 (
     Session session IN ///< Sync session reference.
-);
+) = 23;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -647,7 +651,7 @@ FUNCTION le_result_t StartSync
 FUNCTION le_result_t PauseSync
 (
     Session session IN ///< Sync session reference.
-);
+) = 24;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -661,7 +665,7 @@ FUNCTION le_result_t PauseSync
 FUNCTION le_result_t ResumeSync
 (
     Session session IN ///< Sync session reference.
-);
+) = 25;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -675,4 +679,4 @@ FUNCTION le_result_t ResumeSync
 FUNCTION le_result_t CancelSync
 (
     Session session IN ///< Sync session reference.
-);
+) = 26;

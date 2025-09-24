@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -547,6 +547,11 @@ void* TestSetRTCAsync(void* cxtPtr)
  *
 */
 
+
+API_VERSION  = 1;
+SERVING_VERSION = 1;
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Reference for a time source instance, time service uses it to maintain related information.
@@ -605,7 +610,7 @@ FUNCTION le_result_t SetSystemTime
 (
     TimeSpec timeVal IN, ///< Time in seconds/nanoseconds
     bool ackTimeSvc  IN  ///< True acknowledge time service, otherwise not
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -634,7 +639,7 @@ HANDLER TimeSourceChangeHandler
 EVENT TimeSourceChange
 (
     TimeSourceChangeHandler handler ///< Handler for time source change notification.
-);
+) = (1,2);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -664,7 +669,7 @@ EVENT TimeValueChange
 (
     TimeSources sourceId IN,           ///< Time source ID
     TimeValueChangeHandler    handler  ///< Handler for time source change notification.
-);
+) = (3,4);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -679,7 +684,7 @@ EVENT TimeValueChange
 FUNCTION Time GetTimeRef
 (
     TimeSources sourceId IN  ///< Time source ID
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -695,7 +700,7 @@ FUNCTION le_result_t GetTime
 (
     Time timeRef    IN,  ///< Time reference
     TimeSpec timeVal         OUT  ///< Time in seconds/nanoseconds
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -719,7 +724,7 @@ FUNCTION le_result_t GetRefSystemTime
 (
     Time  timeRef IN,   ///< Time reference
     TimeSpec  timeVal      OUT   ///< Time in seconds/nanoseconds
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -743,7 +748,7 @@ FUNCTION le_result_t GetRefGptpTime
 (
     Time  timeSrcRef IN,   ///< Time source reference.
     TimeSpec  timeVal      OUT   ///< Time in seconds/nanoseconds
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -758,7 +763,7 @@ FUNCTION le_result_t GetRefGptpTime
 FUNCTION le_result_t ReleaseTimeRef
 (
     Time  timeSrcRef  IN  ///< Time source reference.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -794,7 +799,7 @@ HANDLER AsyncGetTimeReqHandler
 FUNCTION le_result_t GetRtcTimeReqAsync
 (
     AsyncGetTimeReqHandler    handlerRef   IN    ///< Handler
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -810,7 +815,7 @@ FUNCTION le_result_t GetRtcTimeReqAsync
 FUNCTION le_result_t SetTimeToRtc
 (
     TimeSpec timeVal IN ///< Time in seconds/nanoseconds
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -841,7 +846,7 @@ FUNCTION le_result_t SetRtcTimeReqAsync
 (
     TimeSpec timeVal                      IN,        ///< Time in seconds/nanoseconds
     AsyncSetTimeReqHandler handlerRef     IN         ///< Handler
-);
+) = 14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -856,7 +861,7 @@ FUNCTION le_result_t SetRtcTimeReqAsync
 FUNCTION Source GetSourceRef
 (
     TimeSources sourceId IN    ///< Source ID.
-);
+) = 15;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -873,7 +878,7 @@ FUNCTION le_result_t GetFailedLoops
     Source sourceRef       IN,    ///< Source reference.
     int32 faileLoops       OUT,   ///< Number of failed loops.
     int64 LoopIntervalSec  OUT    ///< Seconds per loop.
-);
+) = 16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -888,7 +893,7 @@ FUNCTION le_result_t GetFailedLoops
 FUNCTION bool IsAvailable
 (
     Source sourceRef     IN    ///< Source reference.
-);
+) = 17;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -903,7 +908,7 @@ FUNCTION bool IsAvailable
 FUNCTION le_result_t GetSystemTimeSourceID
 (
     TimeSources timeSource    OUT   ///< Time Source.
-);
+) = 18;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -938,7 +943,7 @@ EVENT TimeSourceStatus
     Source sourceRef        IN,
     StatusEventType eventType   IN,
     TimeSourceStatusHandler handler
-);
+) = (19,20);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -956,7 +961,7 @@ FUNCTION le_result_t GetTimeZone
 (
    Source sourceRef  IN,   ///< Source reference.
    int8 timeZone     OUT   ///< Time zone.
-);
+) = 21;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -981,7 +986,7 @@ FUNCTION le_result_t GetTimeDayAdj
 (
    Source sourceRef        IN,    ///< Source reference.
    uint8 dayltSavAdj       OUT    ///< Daylight saving adjustment.
-);
+) = 22;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -996,7 +1001,7 @@ FUNCTION le_result_t GetTimeDayAdj
 FUNCTION bool IsSourceValid
 (
     Source sourceRef     IN    ///< Source reference.
-);
+) = 23;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1014,4 +1019,4 @@ FUNCTION le_result_t SetValidity
 (
     Source sourceRef     IN,   ///< Source reference.
     bool   validity      IN    ///< Validity to set.
-);
+) = 24;

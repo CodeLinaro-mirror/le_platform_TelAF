@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -86,7 +86,7 @@
    taf_diagEvent_ServiceRef_t svcRef;    // Service reference
  *
    // Get the service reference.
-   svcRef = taf_diagEvent_GetService(eventId);
+   svcRef = taf_diagEvent_GetService(eventId) = (1,2);
    LE_ASSERT(svcRef != NULL);
    @endcode
  *
@@ -126,6 +126,9 @@
  *
  */
 //-------------------------------------------------------------------------------------------------
+
+API_VERSION = 1;
+SERVING_VERSION = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -232,7 +235,7 @@ REFERENCE OpCycle;
 FUNCTION Service GetService
 (
     uint16 eventId IN
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -249,7 +252,7 @@ FUNCTION le_result_t GetId
 (
     Service svcRef  IN,           ///< The event reference.
     uint16 eventId  OUT           ///< The event ID.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -267,7 +270,7 @@ FUNCTION le_result_t SetStatus
 (
     Service svcRef  IN,           ///< Service reference.
     StatusType eventStatus  IN    ///< Event status.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -289,7 +292,7 @@ FUNCTION le_result_t SetStatusWithSupplierFaultCode
     Service svcRef  IN,                                          ///< Service reference.
     StatusType eventStatus  IN,                                  ///< Event status.
     uint8 supplierFaultCode[SUPPLIER_FAULT_CODE_MAX_LEN]  IN     ///< Supplier Fault Code.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -307,7 +310,7 @@ FUNCTION le_result_t GetUdsStatus
 (
     Service svcRef  IN,              ///< Service reference.
     uint8 eventUdsStatus  OUT        ///< Event UDS status.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -325,7 +328,7 @@ FUNCTION le_result_t GetOperationCycleId
 (
     Service svcRef  IN,              ///< Service reference.
     uint8 operationCycleId  OUT      ///< Operation cycle ID.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -343,7 +346,7 @@ FUNCTION le_result_t GetDTCCode
 (
     Service svcRef  IN,              ///< Service reference.
     uint32 dtcCode  OUT              ///< DTC code.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -361,7 +364,7 @@ FUNCTION le_result_t GetEnableCondState
 (
     Service svcRef  IN,              ///< Service reference.
     bool state  OUT                  ///< Enable Condition state.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -379,7 +382,7 @@ FUNCTION le_result_t ResetDebounceStatus
 (
     Service svcRef  IN,               ///< Service reference.
     DebounceResetStatus status  IN    ///< Event UDS status.
-);
+) =8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -409,7 +412,7 @@ EVENT UdsStatus
 (
     Service  svcRef,             ///< Service reference.
     UdsStatusHandler  handler    ///< UDS status handler.
-);
+) =(9,10);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -439,7 +442,7 @@ EVENT EnableCondState
 (
     Service  svcRef,                        ///< Service reference.
     EnableCondStateHandler  handler         ///< Enable Condition state handler.
-);
+) =(11,12);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -454,7 +457,7 @@ EVENT EnableCondState
 FUNCTION le_result_t RemoveSvc
 (
     Service svcRef  IN    ///< Service reference.
-);
+) =13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -470,7 +473,7 @@ FUNCTION le_result_t RemoveSvc
 FUNCTION OpCycle GetOpCycle
 (
     uint8 opCycleId IN
-);
+) =14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -500,7 +503,7 @@ EVENT OpCycleState
 (
     OpCycle  opCycleRef  ,                       ///< Operation Cycle reference.
     OpCycleStateHandler  handler                 ///< Operation Cycle state handler.
-);
+) =(15,16);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -518,7 +521,7 @@ FUNCTION le_result_t SetOpCycleState
 (
     OpCycle  opCycleRef IN,                        ///< Operation Cycle reference.
     OperationCycleState state  IN                  ///< Operation Cycle state.
-);
+) =17;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -535,7 +538,7 @@ FUNCTION le_result_t GetOpCycleState
 (
     OpCycle  opCycleRef IN,                        ///< Operation Cycle reference.
     OperationCycleState state  OUT                 ///< Operation Cycle state.
-);
+) =18;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -552,7 +555,7 @@ FUNCTION le_result_t GetOpCycleIdByRef
 (
     OpCycle  opCycleRef IN,                      ///< Operation Cycle reference.
     uint8 opCycleId  OUT                         ///< Operation Cycle state.
-);
+) =19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -569,5 +572,5 @@ FUNCTION le_result_t GetOpCycleIdByRef
 FUNCTION le_result_t RemoveOpCycle
 (
     OpCycle  opCycleRef IN                       ///< Operation Cycle reference.
-);
+) =20;
 

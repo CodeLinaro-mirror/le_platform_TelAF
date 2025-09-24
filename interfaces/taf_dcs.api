@@ -173,6 +173,9 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 USETYPES taf_types.api;
 USETYPES taf_radio.api;
 
@@ -1002,7 +1005,7 @@ STRUCT RoamingStatusInd
 FUNCTION le_result_t StartSession
 (
     Profile profileRef                      IN ///< The profile reference.
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1033,7 +1036,7 @@ FUNCTION StartSessionAsync
 (
     Profile profileRef                      IN, ///< The profile reference.
     AsyncSessionHandler handler             IN  ///< The handler.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1053,7 +1056,7 @@ FUNCTION StartSessionAsync
 FUNCTION le_result_t StopSession
 (
     Profile profileRef                      IN ///< The profile reference.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1065,7 +1068,7 @@ FUNCTION StopSessionAsync
 (
     Profile profileRef                      IN, ///< The profile reference.
     AsyncSessionHandler handler             IN  ///< The handler.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1082,7 +1085,7 @@ FUNCTION le_result_t GetInterfaceName
 (
     Profile profileRef                      IN, ///< The profile reference.
     string  ifName[NAME_MAX_LEN]            OUT ///< The interface name.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1111,7 +1114,7 @@ EVENT SessionState
 (
     Profile             profileRef, ///< The profile reference.
     SessionStateHandler handler     ///< The event handler reference.
-);
+) = (5,6);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1135,7 +1138,7 @@ HANDLER RoamingStatusHandler
 EVENT RoamingStatus
 (
     RoamingStatusHandler handler            ///< Handler for roaming status.
-);
+) = (7,8);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1171,7 +1174,7 @@ EVENT ThrottledStatus
 (
     Profile                profileRef,         ///< The profile reference.
     ThrottledStatusHandler handler             ///< Handler for throttled status.
-);
+) = (9,10);
 
 
 //--------------------------------------------------------------------------------------------------
@@ -1203,7 +1206,7 @@ EVENT QosStatus
 (
     Profile profileRef,      ///< The profile reference.
     QosStatusHandler handler ///< Handler for QOS flow status.
-);
+) = (66,67);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1240,7 +1243,7 @@ EVENT HwAccelerationState
 (
     Profile profileRef,                            ///< The profile reference.
     HwAccelerationStateHandler handler             ///< Handler for hardware acceleration state.
-);
+) = (11,12);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1259,7 +1262,7 @@ FUNCTION le_result_t GetRoamingStatus
     bool isRoaming              OUT, ///< True means that roaming is on; False means that
                                      ///< roaming is off.
     RoamingType type            OUT  ///< The roaming type. Valid only if roaming is on.
-);
+) =13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1275,7 +1278,7 @@ FUNCTION le_result_t GetIPv4Address
 (
     Profile profileRef,                     ///< The profile reference.
     string  ipAddr[IPV4_ADDR_MAX_LEN] OUT   ///< The IPv4 address.
-);
+) =14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1291,7 +1294,7 @@ FUNCTION le_result_t GetIPv4GatewayAddress
 (
     Profile profileRef                      IN,  ///< The profile reference.
     string  gatewayAddr[IPV4_ADDR_MAX_LEN]  OUT  ///< The IPv4 gateway address.
-);
+) =15;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1308,7 +1311,7 @@ FUNCTION le_result_t GetIPv4DNSAddresses
     Profile profileRef                     IN,  ///< The profile reference.
     string  dns1AddrStr[IPV4_ADDR_MAX_LEN] OUT, ///< The IPv4 primary DNS address.
     string  dns2AddrStr[IPV4_ADDR_MAX_LEN] OUT  ///< The IPv4 secondary DNS address.
-);
+) =16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1324,7 +1327,7 @@ FUNCTION le_result_t GetIPv6Address
 (
     Profile profileRef                      IN, ///< The profile reference.
     string  ipAddr[IPV6_ADDR_MAX_LEN]       OUT ///< The IPv6 address.
-);
+) =17;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1340,7 +1343,7 @@ FUNCTION le_result_t GetIPv6GatewayAddress
 (
     Profile profileRef                      IN, ///< The profile reference.
     string  gatewayAddr[IPV6_ADDR_MAX_LEN] OUT  ///< The IPv6 gateway address.
-);
+) =18;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1357,7 +1360,7 @@ FUNCTION le_result_t GetIPv6DNSAddresses
     Profile profileRef                      IN, ///< The profile reference.
     string  dns1AddrStr[IPV6_ADDR_MAX_LEN] OUT, ///< The IPv6 primary DNS address.
     string  dns2AddrStr[IPV6_ADDR_MAX_LEN] OUT  ///< The IPv6 secondary DNS address.
-);
+) =19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1373,7 +1376,7 @@ FUNCTION le_result_t GetSessionState
 (
     Profile       profileRef                IN, ///< The profile reference.
     ConState      connectionState           OUT ///< The connection state.
-);
+) = 25;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1387,7 +1390,7 @@ FUNCTION le_result_t GetSessionState
 FUNCTION bool IsIPv4
 (
     Profile profileRef                      IN ///< The profile reference.
-);
+) = 26;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1401,7 +1404,7 @@ FUNCTION bool IsIPv4
 FUNCTION bool IsIPv6
 (
     Profile profileRef                      IN ///< The profile reference.
-);
+) = 27;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1419,7 +1422,7 @@ FUNCTION le_result_t GetDataBearerTechnology
     Profile profileRef                       IN,  ///< The profile reference.
     DataBearerTechnology dlDataBearerTechPtr OUT, ///< The downlink data bearer technology.
     DataBearerTechnology ulDataBearerTechPtr OUT  ///< The uplink data bearer technology.
-);
+) = 28;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1473,7 +1476,7 @@ HANDLER ProfileListHandler
 FUNCTION le_result_t GetProfileList
 (
     ProfileInfo profileList[PROFILE_LIST_MAX_ENTRY]  OUT    ///< The profile list information.
-);
+) = 29;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1488,7 +1491,7 @@ FUNCTION le_result_t GetProfileListEx
 (
     uint8 phoneId                                    IN,    ///< The phone ID.
     ProfileInfo profileList[PROFILE_LIST_MAX_ENTRY]  OUT    ///< The profile list information.
-);
+) = 30;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1500,7 +1503,7 @@ FUNCTION le_result_t GetProfileListEx
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetDefaultProfileIndex
 (
-);
+) = 31;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1519,7 +1522,7 @@ FUNCTION le_result_t GetDefaultPhoneIdAndProfileId
 (
     uint8  phoneId                          OUT, ///< The phone ID.
     uint32 profileId                        OUT  ///< The profile index.
-);
+) = 32;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1536,7 +1539,7 @@ FUNCTION le_result_t GetDefaultPhoneIdAndProfileId
 FUNCTION le_result_t SetDefaultProfileIndex
 (
     uint32 profileId                        IN ///< The profile index.
-);
+) = 33;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1556,7 +1559,7 @@ FUNCTION le_result_t SetDefaultProfileIndexEx
 (
     uint8 phoneId                           IN,///< The phone ID.
     uint32 profileId                        IN ///< The profile index.
-);
+) = 34;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1573,7 +1576,7 @@ FUNCTION le_result_t GetDefaultProfileIndexEx
 (
     uint8 phoneId                           IN, ///< The phone ID.
     uint32 profileId                        OUT ///< The profile index.
-);
+) = 20;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1592,7 +1595,7 @@ FUNCTION le_result_t GetDefaultProfileIndexEx
 FUNCTION Profile GetProfile
 (
     uint32 profileId                        IN ///< The profile index.
-);
+) = 35;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1613,7 +1616,7 @@ FUNCTION Profile GetProfileEx
                         ///< and PDP respectively.<br>
                         ///< After creating the profile, clients can call taf_dcs_GetProfileId()
                         ///< to get the created profile's ID.
-);
+) = 36;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1631,7 +1634,7 @@ FUNCTION Profile GetProfileEx
 FUNCTION le_result_t CreateProfile
 (
     Profile profileRef                      IN ///< The profile reference.
-);
+) = 37;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1650,7 +1653,7 @@ FUNCTION le_result_t CreateProfile
 FUNCTION le_result_t DeleteProfile
 (
     Profile profileRef                      IN ///< The profile reference.
-);
+) = 38;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1666,7 +1669,7 @@ FUNCTION le_result_t DeleteProfile
 FUNCTION uint32 GetProfileIndex
 (
     Profile profileRef                      IN ///< The profile reference.
-);
+) = 39;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1684,7 +1687,7 @@ FUNCTION le_result_t GetProfileId
     uint32 profileId   OUT  ///< The profile ID. <br>
                             ///< #TAF_DCS_UNDEFINED_PROFILE_ID indicates the profile is not yet
                             ///< created.
-);
+) = 40;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1701,7 +1704,7 @@ FUNCTION le_result_t GetPhoneId
 (
     Profile profileRef                      IN,  ///< The profile reference.
     uint8 phoneId                           OUT  ///< The phone ID.
-);
+) = 41;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1717,7 +1720,7 @@ FUNCTION le_result_t SetAPN
 (
     Profile profileRef                      IN, ///< The profile reference.
     string  apnName[APN_NAME_MAX_LEN]       IN  ///< The APN name.
-);
+) = 42;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1733,7 +1736,7 @@ FUNCTION le_result_t GetAPN
 (
     Profile profileRef                      IN, ///< The profile reference.
     string  apnName[APN_NAME_MAX_LEN]       OUT ///< The APN name.
-);
+) = 43;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1749,7 +1752,7 @@ FUNCTION le_result_t SetProfileName
 (
     Profile profileRef                      IN, ///< The profile reference.
     string  name[NAME_MAX_LEN]              IN  ///< The profile name.
-);
+) = 44;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1765,7 +1768,7 @@ FUNCTION le_result_t GetProfileName
 (
     Profile profileRef                      IN, ///< The profile reference.
     string  name[NAME_MAX_LEN]              OUT ///< The profile name.
-);
+) = 45;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1781,7 +1784,7 @@ FUNCTION le_result_t SetTechPreference
 (
     Profile profileRef                      IN, ///< The profile reference.
     Tech    techPref                        IN  ///< The technology preference.
-);
+) = 46;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1796,7 +1799,7 @@ FUNCTION le_result_t GetTechPreference
 (
     Profile profileRef                      IN, ///< The profile reference.
     Tech    techPref                       OUT  ///< The technology preference.
-);
+) = 47;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1811,7 +1814,7 @@ FUNCTION le_result_t SetApnTypes
 (
     Profile profileRef                      IN, ///< The profile reference.
     ApnType  apnType                        IN ///< The APN type.
-);
+) = 48;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1826,7 +1829,7 @@ FUNCTION le_result_t GetApnTypes
 (
     Profile profileRef                      IN, ///< The profile reference.
     ApnType  apnType                        OUT ///< The APN type.
-);
+) = 49;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1842,7 +1845,7 @@ FUNCTION le_result_t SetPDP
 (
     Profile profileRef                      IN, ///< The profile reference.
     Pdp     pdp                             IN  ///< The PDP type.
-);
+) = 50;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1858,7 +1861,7 @@ FUNCTION le_result_t SetPDP
 FUNCTION Pdp GetPDP
 (
     Profile profileRef                      IN ///< The profile reference.
-);
+) = 51;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1876,7 +1879,7 @@ FUNCTION le_result_t SetAuthentication
     Auth    auth                            IN, ///< The authentication type.
     string  userName[USER_NAME_MAX_LEN]     IN, ///< The username.
     string  password[PASSWORD_NAME_MAX_LEN] IN  ///< The password.
-);
+) = 52;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1894,7 +1897,7 @@ FUNCTION le_result_t GetAuthentication
     Auth    auth                            OUT, ///< The authentication type.
     string  userName[USER_NAME_MAX_LEN]     OUT, ///< The username.
     string  password[PASSWORD_NAME_MAX_LEN] OUT  ///< The password.
-);
+) = 53;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1910,7 +1913,7 @@ FUNCTION le_result_t GetProfileIdByInterfaceName
 (
     string        ifName[NAME_MAX_LEN]      IN, ///< The interface name.
     uint32        profileId                 OUT ///< The profile index.
-);
+) = 54;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1926,7 +1929,7 @@ FUNCTION le_result_t GetPhoneIdByInterfaceName
 (
     string        ifName[NAME_MAX_LEN]      IN,  ///< The interface name.
     uint8         phoneId                   OUT  ///< The phone ID.
-);
+) = 55;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1942,7 +1945,7 @@ FUNCTION le_result_t GetIPv6SubnetMask
 (
     Profile profileRef                      IN, ///< The profile reference.
     uint32  mask                            OUT ///< The IPv6 mask.
-);
+) = 56;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1958,7 +1961,7 @@ FUNCTION le_result_t GetIPv4SubnetMask
 (
     Profile profileRef                      IN, ///< The profile reference.
     uint32  mask                            OUT ///< The IPv4 mask.
-);
+) = 57;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1980,7 +1983,7 @@ FUNCTION le_result_t GetAPNThrottledStatus
     bool       isThrottled       OUT, ///< True when APN is throttled. False when APN is unthrottled.
     uint32     ipv4RemainingTime OUT, ///< The remaining IPv4 throttled time in milliseconds.
     uint32     ipv6RemainingTime OUT  ///< The remaining IPv6 throttled time in milliseconds.
-);
+) = 58;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1999,7 +2002,7 @@ FUNCTION le_result_t GetAPNThrottledPLMN
     bool       areAllPLMNsThrottled   OUT, ///< True if APN is throttled on all PLMNs.
     string mcc[MCC_BYTES] OUT, ///< MCC of the PLMN on which the APN is throttled.
     string mnc[MNC_BYTES] OUT  ///< MNC of the PLMN on which the APN is throttled.
-);
+) = 59;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2018,7 +2021,7 @@ FUNCTION le_result_t GetMaxDataBitRates
     Profile    profileRef             IN,  ///< The profile reference.
     uint64     maxRxBitRate           OUT, ///< The maximum receive data rate in bits/second.
     uint64     maxTxBitRate           OUT  ///< The maximum transmit data rate in bits/second.
-);
+) = 60;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2042,7 +2045,7 @@ FUNCTION le_result_t GetCallEndReason
     Pdp               pdpType           IN,  ///< The packet data protocol type.
     CallEndReasonType callEndReasonType OUT, ///< The call end reason type.
     int32             callEndReason     OUT  ///< The call end reason.
-);
+) = 61;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2060,7 +2063,7 @@ FUNCTION le_result_t GetMtu
 (
     Profile profileRef                      IN,  ///< The profile reference.
     uint16  mtu                             OUT  ///< The MTU value.
-);
+) = 62;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2078,7 +2081,7 @@ FUNCTION le_result_t GetQosId
 (
     QosFlow qosFlowRef IN,           ///< The QOS flow reference.
     uint32 qosFlowId OUT             ///< QOS ID.
-);
+) = 63;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2096,7 +2099,7 @@ FUNCTION le_result_t GetQosParameterMask
 (
     QosFlow qosFlowRef IN,                     ///< The QOS flow reference.
     QosFlowBitMask qosFlowMask OUT             ///< QOS flow bitmask.
-);
+) = 64;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2114,4 +2117,4 @@ FUNCTION le_result_t GetQosProfile
 (
     QosFlow qosFlowRef IN,                     ///< The QOS flow reference.
     Profile profileRef OUT
-);
+) = 65;

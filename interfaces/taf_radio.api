@@ -28,9 +28,9 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- *  Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -607,6 +607,9 @@
  *
  */
 //--------------------------------------------------------------------------------------------------
+
+API_VERSION = 1;
+SERVING_VERSION = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1526,7 +1529,7 @@ HANDLER ConnectionStatusHandler
 EVENT NetRegReject
 (
     NetRegRejectHandler handler ///< Handler for network registration rejection.
-);
+) = (0,1);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1536,7 +1539,7 @@ EVENT NetRegReject
 EVENT RatChange
 (
     RatChangeHandler handler ///< Handler for RAT change.
-);
+) = (2,3);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1546,7 +1549,7 @@ EVENT RatChange
 EVENT NetRegStateEvent
 (
     NetRegStateHandler handler ///< Handler for network registration state.
-);
+) = (4,5);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1556,7 +1559,7 @@ EVENT NetRegStateEvent
 EVENT PacketSwitchedChange
 (
     PacketSwitchedChangeHandler handler ///< Handler for packet switched state changes.
-);
+) = (6,7);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1566,7 +1569,7 @@ EVENT PacketSwitchedChange
 EVENT NrIconType
 (
     NrIconTypeHandler handler ///< Handler for NR icon type changes.
-);
+) = (162,163);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1577,7 +1580,7 @@ EVENT SignalStrengthChange
 (
     Rat rat IN,                         ///< Radio Access Technology.
     SignalStrengthChangeHandler handler ///< Handler for signal strength change.
-);
+) = (8,9);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1587,7 +1590,7 @@ EVENT SignalStrengthChange
 EVENT ImsRegStatusChange
 (
     ImsRegStatusChangeHandler handler ///< Handler for IMS registration status change.
-);
+) = (10,11);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1597,7 +1600,7 @@ EVENT ImsRegStatusChange
 EVENT OpModeChange
 (
     OpModeChangeHandler handler ///< Handler for operating mode changes.
-);
+) = (12,13);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1607,7 +1610,7 @@ EVENT OpModeChange
 EVENT NetStatusChange
 (
     NetStatusHandler handler ///< Handler for network status changes.
-);
+) = (14,15);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1617,7 +1620,7 @@ EVENT NetStatusChange
 EVENT ImsStatusChange
 (
     ImsStatusChangeHandler handler ///< Handler for IMS status change.
-);
+) = (16,17);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1627,7 +1630,7 @@ EVENT ImsStatusChange
 EVENT CellInfoChange
 (
     CellInfoChangeHandler handler ///< Handler for registered cell info change.
-);
+) = (18,19);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1638,7 +1641,7 @@ EVENT CAInfo
 (
     Rat rat IN,           ///< Radio Access Technology.
     CAInfoHandler handler ///< Handler for CA information.
-);
+) = (20,21);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1648,7 +1651,7 @@ EVENT CAInfo
 EVENT ConnectionStatus
 (
     ConnectionStatusHandler handler ///< Handler for connection status.
-);
+) = (22,23);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1664,7 +1667,7 @@ FUNCTION le_result_t SetRadioPower
 (
     le_onoff_t power IN, ///< Power state.
     uint8 phoneId IN     ///< Phone ID.
-);
+) =24;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1680,7 +1683,7 @@ FUNCTION le_result_t GetRadioPower
 (
     le_onoff_t power OUT, ///< Power state.
     uint8 phoneId IN      ///< Phone ID.
-);
+) =25;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1696,7 +1699,7 @@ FUNCTION le_result_t GetRadioPower
 FUNCTION le_result_t SetAutomaticRegisterMode
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) =26;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1714,7 +1717,7 @@ FUNCTION le_result_t SetManualRegisterMode
     string mcc[MCC_LEN] IN,     ///< MCC.
     string mnc[MNC_MAX_LEN] IN, ///< MNC.
     uint8 phoneId IN            ///< Phone ID.
-);
+) =27;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1727,7 +1730,7 @@ FUNCTION SetManualRegisterModeAsync
     string mnc[MNC_MAX_LEN] IN,     ///< MNC.
     ManualSelectionHandler handler, ///< Handler for manual selection.
     uint8 phoneId IN                ///< Phone ID.
-);
+) =28;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1746,7 +1749,7 @@ FUNCTION le_result_t GetRegisterMode
     string mccPtr[MCC_LEN] OUT,     ///< MCC.
     string mncPtr[MNC_MAX_LEN] OUT, ///< MNC.
     uint8 phoneId IN                ///< Phone ID.
-);
+) =29;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1758,7 +1761,7 @@ FUNCTION le_result_t GetRegisterMode
 //--------------------------------------------------------------------------------------------------
 FUNCTION int32 GetPlatformSpecificRegistrationErrorCode
 (
-);
+) =30;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1774,7 +1777,7 @@ FUNCTION le_result_t GetBandCapabilities
 (
     BandBitMask bandMaskPtr OUT, ///< 2G/3G band capabilities.
     uint8 phoneId IN             ///< Phone ID.
-);
+) =31;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1790,7 +1793,7 @@ FUNCTION le_result_t GetLteBandCapabilities
 (
     uint64 bandMaskPtr[LTE_BAND_GROUP_NUM] OUT, ///< LTE band capabilities.
     uint8 phoneId IN                            ///< Phone ID.
-);
+) =32;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1806,7 +1809,7 @@ FUNCTION le_result_t SetBandPreferences
 (
     BandBitMask bandMask IN, ///< 2G/3G band preferences.
     uint8 phoneId IN         ///< Phone ID.
-);
+) =33;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1822,7 +1825,7 @@ FUNCTION le_result_t GetBandPreferences
 (
     BandBitMask bandMaskPtr OUT, ///< 2G/3G band preferences.
     uint8 phoneId IN             ///< Phone ID.
-);
+) =34;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1838,7 +1841,7 @@ FUNCTION le_result_t SetLteBandPreferences
 (
     uint64 bandMask[LTE_BAND_GROUP_NUM] IN, ///< LTE band preferences.
     uint8 phoneId IN                        ///< Phone ID.
-);
+) =35;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1854,7 +1857,7 @@ FUNCTION le_result_t GetLteBandPreferences
 (
     uint64 bandMask[LTE_BAND_GROUP_NUM] OUT, ///< LTE band preferences.
     uint8 phoneId IN                         ///< Phone ID.
-);
+) =36;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1874,7 +1877,7 @@ FUNCTION le_result_t AddPreferredOperator
     string mnc[MNC_MAX_LEN] IN, ///< MNC.
     RatBitMask ratMask IN,      ///< RAT bitmask, applicable for GSM/UMTS/LTE/NR5G.
     uint8 phoneId IN            ///< Phone ID.
-);
+) =37;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1893,7 +1896,7 @@ FUNCTION le_result_t RemovePreferredOperator
     string mcc[MCC_LEN] IN,     ///< MCC.
     string mnc[MNC_MAX_LEN] IN, ///< MNC.
     uint8 phoneId IN            ///< Phone ID.
-);
+) =38;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1908,7 +1911,7 @@ FUNCTION le_result_t RemovePreferredOperator
 FUNCTION le_result_t DeletePreferredOperatorsList
 (
     PreferredOperatorList preferredOperatorListRef IN ///< The preferred operators list reference.
-);
+) =39;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1924,7 +1927,7 @@ FUNCTION le_result_t DeletePreferredOperatorsList
 FUNCTION PreferredOperatorList GetPreferredOperatorsList
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) =40;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1938,7 +1941,7 @@ FUNCTION PreferredOperatorList GetPreferredOperatorsList
 FUNCTION PreferredOperator GetFirstPreferredOperator
 (
     PreferredOperatorList  preferredOperatorListRef IN ///< The preferred operators list reference.
-);
+) =41;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1952,7 +1955,7 @@ FUNCTION PreferredOperator GetFirstPreferredOperator
 FUNCTION PreferredOperator GetNextPreferredOperator
 (
     PreferredOperatorList  preferredOperatorListRef IN ///< The preferred operators list reference.
-);
+) =42;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1970,7 +1973,7 @@ FUNCTION le_result_t GetPreferredOperatorDetails
     string mccPtr[MCC_LEN] OUT,                ///< MCC.
     string mncPtr[MNC_MAX_LEN] OUT,            ///< MNC.
     RatBitMask ratMask OUT                     ///< RAT bitmask.
-);
+) =43;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1987,7 +1990,7 @@ FUNCTION le_result_t GetRadioAccessTechInUse
 (
     Rat rat OUT,     ///< RAT in use.
     uint8 phoneId IN ///< Phone ID.
-);
+) =44;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2003,7 +2006,7 @@ FUNCTION le_result_t SetRatPreferences
 (
     RatBitMask ratMask IN, ///< Bitmask for RAT prefences.
     uint8 phoneId IN       ///< Phone ID.
-);
+) =45;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2020,7 +2023,7 @@ FUNCTION le_result_t GetRatPreferences
 (
     RatBitMask ratMaskPtr OUT, ///< Bitmask for RAT prefences.
     uint8 phoneId IN           ///< Phone ID.
-);
+) =46;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2037,7 +2040,7 @@ FUNCTION le_result_t GetNetRegState
 (
     NetRegState state OUT, ///< Network registration state.
     uint8 phoneId IN       ///< Phone ID.
-);
+) =47;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2054,7 +2057,7 @@ FUNCTION le_result_t GetPacketSwitchedState
 (
     NetRegState state OUT, ///< Packet switch state.
     uint8 phoneId IN       ///< Phone ID.
-);
+) =48;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2070,7 +2073,7 @@ FUNCTION le_result_t GetServiceDomain
 (
     ServiceDomainState domain OUT, ///< Service domain.
     uint8 phoneId IN               ///< Phone ID.
-);
+) =49;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2087,7 +2090,7 @@ FUNCTION le_result_t SetServiceDomainPreferences
 (
     ServiceDomainState domain IN, ///< Service domain preferences.
     uint8 phoneId IN              ///< Phone ID.
-);
+) =50;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2104,7 +2107,7 @@ FUNCTION le_result_t GetServiceDomainPreferences
 (
     ServiceDomainState domainPtr OUT, ///< Service domain preferences.
     uint8 phoneId IN                  ///< Phone ID.
-);
+) =51;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2123,7 +2126,7 @@ FUNCTION le_result_t SetSignalStrengthIndThresholds
     int32 lowerRangeThreshold IN, ///< Lower range threshold in 0.1 dBm.
     int32 upperRangeThreshold IN, ///< Upper range threshold in 0.1 dBm.
     uint8 phoneId IN              ///< Phone ID.
-);
+) =52;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2141,7 +2144,7 @@ FUNCTION le_result_t SetSignalStrengthIndDelta
     SigType sigType IN, ///< Signal type.
     uint16 delta IN,    ///< Delta in uints of 0.1 dBm
     uint8 phoneId IN    ///< Phone ID.
-);
+) =53;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2158,7 +2161,7 @@ FUNCTION le_result_t GetSignalQual
 (
     uint32 quality OUT, ///< Signal qulity level, ranges from 1 to 5, 0 is unknown.
     uint8 phoneId IN    ///< Phone ID.
-);
+) =54;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2172,7 +2175,7 @@ FUNCTION le_result_t GetSignalQual
 FUNCTION Metrics MeasureSignalMetrics
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) =55;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2187,7 +2190,7 @@ FUNCTION Metrics MeasureSignalMetrics
 FUNCTION le_result_t DeleteSignalMetrics
 (
     Metrics MetricsRef IN ///< The signal metrics reference.
-);
+) =56;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2200,7 +2203,7 @@ FUNCTION le_result_t DeleteSignalMetrics
 FUNCTION RatBitMask GetRatOfSignalMetrics
 (
     Metrics MetricsRef IN ///< The signal metrics reference.
-);
+) =57;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2220,7 +2223,7 @@ FUNCTION le_result_t GetGsmSignalMetrics
     Metrics MetricsRef IN, ///< The signal metrics reference.
     int32 rssi OUT,        ///< Received signal strength indicator in dBm.
     uint32 ber OUT         ///< Bit error rate, valid from 0 to 7.
-);
+) =58;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2241,7 +2244,7 @@ FUNCTION le_result_t GetUmtsSignalMetrics
     int32 ss OUT,          ///< Signal strength in dBm.
     uint32 ber OUT,        ///< WCDMA bit error rate, valid from 0 to 7, 0x7FFFFFFF is unavailable.
     int32 rscp OUT         ///< Receive signal channel power in dBm.
-);
+) =59;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2261,7 +2264,7 @@ FUNCTION le_result_t GetLteSignalMetrics
     int32 rsrq OUT,        ///< Reference signal receive quality in dB.
     int32 rsrp OUT,        ///< Reference signal receive power in dBm.
     int32 snr OUT          ///< Signal-to-noise ratio in units of 0.1 dB.
-);
+) =60;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2281,7 +2284,7 @@ FUNCTION le_result_t GetCdmaSignalMetrics
     int32 ecio OUT,        ///< CDMA Ec/Io in dB.
     int32 snr OUT,         ///< EVDO signal-to-noise ratio in dB.
     int32 io OUT           ///< EVDO Ec/Io in dB.
-);
+) =61;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2299,7 +2302,7 @@ FUNCTION le_result_t GetNr5gSignalMetrics
     int32 rsrq OUT,        ///< Reference Signal Receive Quality in dB.
     int32 rsrp OUT,        ///< Reference Signal Receive Power in dBm.
     int32 snr OUT          ///< Signal-to-Noise Ratio in units of 0.1 dB.
-);
+) =62;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2313,7 +2316,7 @@ FUNCTION le_result_t GetNr5gSignalMetrics
 FUNCTION uint32 GetServingCellId
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) =63;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2327,7 +2330,7 @@ FUNCTION uint32 GetServingCellId
 FUNCTION uint64 GetServingNrCellId
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) =64;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2341,7 +2344,7 @@ FUNCTION uint64 GetServingNrCellId
 FUNCTION uint32 GetServingCellLocAreaCode
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) =65;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2355,7 +2358,7 @@ FUNCTION uint32 GetServingCellLocAreaCode
 FUNCTION uint16 GetServingCellLteTracAreaCode
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) =66;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2369,7 +2372,7 @@ FUNCTION uint16 GetServingCellLteTracAreaCode
 FUNCTION int32 GetServingCellNrTracAreaCode
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) =67;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2383,7 +2386,7 @@ FUNCTION int32 GetServingCellNrTracAreaCode
 FUNCTION uint32 GetServingCellEarfcn
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) =68;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2397,7 +2400,7 @@ FUNCTION uint32 GetServingCellEarfcn
 FUNCTION int32 GetServingCellNrArfcn
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) =69;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2411,7 +2414,7 @@ FUNCTION int32 GetServingCellNrArfcn
 FUNCTION uint32 GetServingCellTimingAdvance
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) =70;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2425,7 +2428,7 @@ FUNCTION uint32 GetServingCellTimingAdvance
 FUNCTION uint16 GetPhysicalServingLteCellId
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) =71;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2439,7 +2442,7 @@ FUNCTION uint16 GetPhysicalServingLteCellId
 FUNCTION uint32 GetPhysicalServingNrCellId
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) =72;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2456,7 +2459,7 @@ FUNCTION le_result_t GetServingCellGsmBsic
 (
     uint8 bsic OUT,  ///< GSM base station identity code.
     uint8 phoneId IN ///< Phone ID.
-);
+) =73;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2472,7 +2475,7 @@ FUNCTION le_result_t GetServingCellGsmBsic
 FUNCTION uint16 GetServingCellScramblingCode
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) = 100;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2489,7 +2492,7 @@ FUNCTION le_result_t GetCurrentNetworkName
 (
     string nameStr[NETWORK_NAME_MAX_LEN] OUT, ///< Current network's short name.
     uint8 phoneId IN                          ///< Phone ID.
-);
+) = 101;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2506,7 +2509,7 @@ FUNCTION le_result_t GetCurrentNetworkMccMnc
     string mccStr[MCC_LEN] OUT,     ///< MCC.
     string mncStr[MNC_MAX_LEN] OUT, ///< MNC.
     uint8 phoneId IN                ///< Phone ID.
-);
+) = 102;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2520,7 +2523,7 @@ FUNCTION le_result_t GetCurrentNetworkMccMnc
 FUNCTION ScanInformationList PerformCellularNetworkScan
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) = 103;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2531,7 +2534,7 @@ FUNCTION PerformCellularNetworkScanAsync
 (
     CellularNetworkScanHandler handler, ///< Handler for network scan.
     uint8 phoneId IN                    ///< Phone ID.
-);
+) = 104;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2545,7 +2548,7 @@ FUNCTION PerformCellularNetworkScanAsync
 FUNCTION ScanInformation GetFirstCellularNetworkScan
 (
     ScanInformationList scanInformationListRef IN ///< The network scan information list reference.
-);
+) = 105;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2560,7 +2563,7 @@ FUNCTION ScanInformation GetFirstCellularNetworkScan
 FUNCTION ScanInformation GetNextCellularNetworkScan
 (
     ScanInformationList scanInformationListRef IN ///< The network scan information list reference.
-);
+) = 106;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2575,7 +2578,7 @@ FUNCTION ScanInformation GetNextCellularNetworkScan
 FUNCTION le_result_t DeleteCellularNetworkScan
 (
     ScanInformationList scanInformationListRef IN ///< The network scan information list reference.
-);
+) = 107;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2592,7 +2595,7 @@ FUNCTION le_result_t GetCellularNetworkMccMnc
     ScanInformation scanInformationRef IN, ///< The scan information list reference.
     string mccPtr[MCC_LEN] OUT,            ///< MCC.
     string mncPtr[MNC_MAX_LEN] OUT         ///< MNC.
-);
+) = 108;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2608,7 +2611,7 @@ FUNCTION le_result_t GetCellularNetworkName
 (
     ScanInformation scanInformationRef IN,   ///< The scan information list reference.
     string namePtr[NETWORK_NAME_MAX_LEN] OUT ///< Network name.
-);
+) = 109;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2623,7 +2626,7 @@ FUNCTION le_result_t GetCellularNetworkName
 FUNCTION Rat GetCellularNetworkRat
 (
     ScanInformation scanInformationRef IN ///< The scan information list reference.
-);
+) = 110;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2637,7 +2640,7 @@ FUNCTION Rat GetCellularNetworkRat
 FUNCTION bool IsCellularNetworkInUse
 (
     ScanInformation scanInformationRef IN ///< The network scan operator reference.
-);
+) = 111;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2651,7 +2654,7 @@ FUNCTION bool IsCellularNetworkInUse
 FUNCTION bool IsCellularNetworkAvailable
 (
     ScanInformation scanInformationRef IN ///< The network scan operator reference.
-);
+) = 112;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2665,7 +2668,7 @@ FUNCTION bool IsCellularNetworkAvailable
 FUNCTION bool IsCellularNetworkHome
 (
     ScanInformation scanInformationRef IN ///< The network scan operator reference.
-);
+) = 113;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2679,7 +2682,7 @@ FUNCTION bool IsCellularNetworkHome
 FUNCTION bool IsCellularNetworkForbidden
 (
     ScanInformation scanInformationRef IN ///< The network scan operator reference.
-);
+) = 114;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2694,7 +2697,7 @@ FUNCTION PciScanInformationList PerformPciNetworkScan
 (
     RatBitMask ratMask IN, ///< Radio Access Technology bitmask.
     uint8 phoneId IN       ///< Phone ID.
-);
+) = 115;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2706,7 +2709,7 @@ FUNCTION PerformPciNetworkScanAsync
     RatBitMask ratMask IN,         ///< Radio Access Technology bitmask.
     PciNetworkScanHandler handler, ///< Handler for PCI network scan.
     uint8 phoneId IN               ///< Phone ID.
-);
+) = 116;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2721,7 +2724,7 @@ FUNCTION PciScanInformation GetFirstPciScanInfo
 (
     PciScanInformationList  scanInformationListRef IN ///< PCI network scan information list
                                                       ///< reference.
-);
+) = 117;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2736,7 +2739,7 @@ FUNCTION PciScanInformation GetNextPciScanInfo
 (
     PciScanInformationList  scanInformationListRef IN ///< PCI network scan information list
                                                       ///< reference.
-);
+) = 118;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2752,7 +2755,7 @@ FUNCTION le_result_t DeletePciNetworkScan
 (
     PciScanInformationList  scanInformationListRef IN ///< PCI network scan information list
                                                       ///< reference.
-);
+) = 119;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2766,7 +2769,7 @@ FUNCTION le_result_t DeletePciNetworkScan
 FUNCTION PlmnInformation GetFirstPlmnInfo
 (
     PciScanInformation pciScanInformationRef IN ///< PCI network scan information reference.
-);
+) = 120;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2780,7 +2783,7 @@ FUNCTION PlmnInformation GetFirstPlmnInfo
 FUNCTION PlmnInformation GetNextPlmnInfo
 (
     PciScanInformation pciScanInformationRef IN ///< PCI network scan information reference.
-);
+) = 121;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2792,7 +2795,7 @@ FUNCTION PlmnInformation GetNextPlmnInfo
 FUNCTION uint16 GetPciScanCellId
 (
     PciScanInformation pciScanInformationRef IN ///< PCI network scan information reference.
-);
+) = 122;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2804,7 +2807,7 @@ FUNCTION uint16 GetPciScanCellId
 FUNCTION uint32 GetPciScanGlobalCellId
 (
     PciScanInformation pciScanInformationRef IN ///< PCI network scan information reference.
-);
+) = 123;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2820,7 +2823,7 @@ FUNCTION le_result_t GetPciScanMccMnc
     PlmnInformation plmnRef IN,   ///< PLMN information reference.
     string mccPtr[MCC_BYTES] OUT, ///< MCC.
     string mncPtr[MNC_BYTES] OUT  ///< MNC.
-);
+) = 124;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2834,7 +2837,7 @@ FUNCTION le_result_t GetPciScanMccMnc
 FUNCTION NeighborCells GetNeighborCellsInfo
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) = 125;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2849,7 +2852,7 @@ FUNCTION NeighborCells GetNeighborCellsInfo
 FUNCTION le_result_t DeleteNeighborCellsInfo
 (
     NeighborCells ngbrCellsRef IN ///< Neighbor cells reference.
-);
+) = 126;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2863,7 +2866,7 @@ FUNCTION le_result_t DeleteNeighborCellsInfo
 FUNCTION CellInfo GetFirstNeighborCellInfo
 (
     NeighborCells ngbrCellsRef IN ///< Neighbor cells reference.
-);
+) = 127;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2877,7 +2880,7 @@ FUNCTION CellInfo GetFirstNeighborCellInfo
 FUNCTION CellInfo GetNextNeighborCellInfo
 (
     NeighborCells ngbrCellsRef IN  ///< Neighbor cells reference.
-);
+) = 128;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2889,7 +2892,7 @@ FUNCTION CellInfo GetNextNeighborCellInfo
 FUNCTION uint64 GetNeighborCellId
 (
     CellInfo ngbrCellInfoRef IN ///< Cell information reference.
-);
+) = 129;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2901,7 +2904,7 @@ FUNCTION uint64 GetNeighborCellId
 FUNCTION uint32 GetNeighborCellLocAreaCode
 (
     CellInfo ngbrCellInfoRef IN ///< Neighboring cell information reference.
-);
+) = 130;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2913,7 +2916,7 @@ FUNCTION uint32 GetNeighborCellLocAreaCode
 FUNCTION int32 GetNeighborCellRxLevel
 (
     CellInfo ngbrCellInfoRef IN ///< Neighbor cell information reference.
-);
+) = 131;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2925,7 +2928,7 @@ FUNCTION int32 GetNeighborCellRxLevel
 FUNCTION Rat GetNeighborCellRat
 (
     CellInfo ngbrCellInfoRef IN ///< Neighbor cell information reference.
-);
+) = 132;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2937,7 +2940,7 @@ FUNCTION Rat GetNeighborCellRat
 FUNCTION uint16 GetPhysicalNeighborLteCellId
 (
     CellInfo ngbrCellInfoRef IN ///< Neighbor cell information reference
-);
+) = 133;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2949,7 +2952,7 @@ FUNCTION uint16 GetPhysicalNeighborLteCellId
 FUNCTION uint32 GetPhysicalNeighborNrCellId
 (
     CellInfo ngbrCellInfoRef IN ///< Neighbor cell information reference
-);
+) = 134;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2965,7 +2968,7 @@ FUNCTION le_result_t GetNeighborCellGsmBsic
 (
     CellInfo ngbrCellInfoRef IN, ///< Neighbor cell information reference
     uint8 bsic OUT               ///< Base Station Identity Code
-);
+) = 135;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2979,7 +2982,7 @@ FUNCTION le_result_t GetNeighborCellGsmBsic
 FUNCTION NetStatus GetNetStatus
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) = 136;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2996,7 +2999,7 @@ FUNCTION le_result_t GetRatSvcStatus
 (
     NetStatus netRef IN,    ///< Network status reference.
     RatSvcStatus status OUT ///< RAT service status.
-);
+) = 137;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3013,7 +3016,7 @@ FUNCTION le_result_t GetLteCsCap
 (
     NetStatus netRef IN, ///< Network status reference.
     CsCap capability OUT ///< CS capabilitiy of LTE network.
-);
+) = 138;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3027,7 +3030,7 @@ FUNCTION le_result_t GetLteCsCap
 FUNCTION Ims GetIms
 (
     uint8 phoneId IN ///< Phone ID.
-);
+) = 139;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3044,7 +3047,7 @@ FUNCTION le_result_t GetImsRegStatus
 (
     ImsRegStatus status OUT, ///< IMS registration status.
     uint8 phoneId IN         ///< Phone ID.
-);
+) = 140;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3062,7 +3065,7 @@ FUNCTION le_result_t GetImsSvcStatus
     Ims imsRef IN,          ///< IMS reference.
     ImsSvcType service IN,  ///< IMS service type.
     ImsSvcStatus status OUT ///< IMS service status.
-);
+) = 141;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3079,7 +3082,7 @@ FUNCTION le_result_t GetImsPdpError
 (
     Ims imsRef IN,     ///< IMS reference.
     PdpError error OUT ///< PDP error code.
-);
+) = 142;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3097,7 +3100,7 @@ FUNCTION le_result_t SetImsSvcCfg
     Ims imsRef IN,         ///< IMS reference.
     ImsSvcType service IN, ///< IMS service type.
     bool enable IN         ///< True if enabling service, false if disabling service.
-);
+) = 143;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3115,7 +3118,7 @@ FUNCTION le_result_t GetImsSvcCfg
     Ims imsRef IN,         ///< IMS reference.
     ImsSvcType service IN, ///< IMS service type.
     bool enable OUT        ///< True if service is enabled, false if service is disabled.
-);
+) = 144;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3132,7 +3135,7 @@ FUNCTION le_result_t SetImsUserAgent
 (
     Ims imsRef IN,                            ///< IMS reference.
     string userAgent[IMS_USER_AGENT_BYTES] IN ///< User agent string to be sent with SIP message.
-);
+) = 145;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3149,7 +3152,7 @@ FUNCTION le_result_t GetImsUserAgent
 (
     Ims imsRef IN,                             ///< IMS reference.
     string userAgent[IMS_USER_AGENT_BYTES] OUT ///< User agent string to be sent with SIP message.
-);
+) = 146;
 
 /**
  *  Gets the DCNR and ENDC mode status.
@@ -3165,7 +3168,7 @@ FUNCTION le_result_t GetNrDualConnectivityStatus
     NREndcAvailability statusEndc OUT,         ///< ENDC availability status.
     NRDcnrRestriction statusDcnr OUT,          ///< DCNR restriction status.
     uint8 phoneId IN                           ///< Phone ID.
-);
+) = 147;
 
 /**
  *  Gets the long name of the network.
@@ -3181,7 +3184,7 @@ FUNCTION le_result_t GetCurrentNetworkLongName
 (
     string longNameStr[NETWORK_NAME_MAX_LEN] OUT,   ///< Long network name.
     uint8 phoneId IN                                ///< Phone ID.
-);
+) = 148;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3198,7 +3201,7 @@ FUNCTION le_result_t GetHardwareSimConfig
 (
     uint8 totalSimCount OUT,   ///< The maximum number of SIMs supported simultaneously.
     uint8 maxActiveSims OUT    ///< The maximum number of SIMs that can be active simultaneously.
-);
+) = 149;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3216,7 +3219,7 @@ FUNCTION le_result_t GetHardwareSimRatCapabilities
     RatBitMask deviceRatCapMask OUT,     ///< Device RAT capability bitmask.
     RatBitMask simRatCapMask OUT,        ///< SIM RAT capability bitmask.
     uint8 phoneId IN                     ///< Phone ID.
-);
+) = 150;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3235,7 +3238,7 @@ FUNCTION le_result_t SetSignalStrengthIndHysteresis
     SigType sigType,                ///< Signal type.
     uint16 hysteresis IN,           ///< Hysteresis dBm in units of 0.1 dBm.
     uint8 phoneId IN                ///< Phone ID.
-);
+) = 151;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3253,7 +3256,7 @@ FUNCTION le_result_t SetSignalStrengthIndHysteresisTimer
 (
     uint16 hysteresisTimer IN,     ///< Hysteresis time in milliseconds.
     uint8 phoneId IN               ///< Phone ID.
-);
+) = 152;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3271,7 +3274,7 @@ FUNCTION le_result_t GetServingCellArfcn
 (
     int32 arfcn OUT, ///< Absolute radio frequency channel number.
     uint8 phoneId IN ///< Phone ID.
-);
+) = 153;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3289,7 +3292,7 @@ FUNCTION le_result_t GetServingCellUarfcn
 (
     int32 uarfcn OUT, ///< UTRA absolute radio frequency channel number.
     uint8 phoneId IN  ///< Phone ID.
-);
+) = 154;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3305,7 +3308,7 @@ FUNCTION le_result_t SetOperatingMode
 (
     OpMode mode IN,  ///< Operating mode.
     uint8 phoneId IN ///< Phone ID.
-);
+) = 155;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3321,7 +3324,7 @@ FUNCTION le_result_t GetOperatingMode
 (
     OpMode mode OUT, ///< Operating mode.
     uint8 phoneId IN ///< Phone ID.
-);
+) = 156;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3340,7 +3343,7 @@ FUNCTION le_result_t GetServingCellRoutingAreaCode
 (
     uint8 rac OUT,   ///< Routing area code.
     uint8 phoneId IN ///< Phone ID.
-);
+) = 157;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3360,7 +3363,7 @@ FUNCTION le_result_t GetServingCellBandInfo
     BandBitMask bandPtr OUT,      ///< 2G/3G active band.
     RFBandWidth bandWidthPtr OUT, ///< RF bandwidth information.
     uint8 phoneId IN              ///< Phone ID.
-);
+) = 158;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3378,7 +3381,7 @@ FUNCTION le_result_t GetServingCellLteBandInfo
     uint32 bandPtr OUT,           ///< LTE active band.
     RFBandWidth bandWidthPtr OUT, ///< RF bandwidth information.
     uint8 phoneId IN              ///< Phone ID.
-);
+) = 159;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3396,7 +3399,7 @@ FUNCTION le_result_t GetServingCellNrBandInfo
     uint32 bandPtr OUT,           ///< NR active band.
     RFBandWidth bandWidthPtr OUT, ///< RF bandwidth information.
     uint8 phoneId IN              ///< Phone ID.
-);
+) = 160;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3413,7 +3416,7 @@ FUNCTION le_result_t GetNrIconType
 (
     NrIconType type OUT, ///< NR icon type.
     uint8 phoneId IN     ///< Phone ID.
-);
+) =74;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3430,7 +3433,7 @@ FUNCTION le_result_t GetCAInformation
     uint8 phoneId IN,     ///< Phone ID.
     Rat rat IN,           ///< RAT.
     CAInfo infoRef OUT    ///< CA information reference.
-);
+) =75;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3444,7 +3447,7 @@ FUNCTION le_result_t GetCAInformation
 FUNCTION le_result_t DeleteCAInformation
 (
     CAInfo infoRef IN ///< CA information reference.
-);
+) =76;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3460,7 +3463,7 @@ FUNCTION le_result_t GetLteCAStatus
     CAInfo infoRef IN,     ///< CA information reference.
     CAStatus status OUT,   ///< CA status
     uint32 activeCCNum OUT ///< Numbers of active component carriers
-);
+) =77;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3476,7 +3479,7 @@ FUNCTION le_result_t GetConnStatus
 (
     uint8 phoneId IN,        ///< Phone ID.
     ConnStatus statusRef OUT ///< Connection status reference.
-);
+) =78;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3490,7 +3493,7 @@ FUNCTION le_result_t GetConnStatus
 FUNCTION le_result_t DeleteConnStatus
 (
     ConnStatus statusRef IN ///< Connection status reference.
-);
+) =79;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -3505,4 +3508,4 @@ FUNCTION le_result_t GetEndcConnectionStatus
 (
     ConnStatus statusRef IN,      ///< Reference
     NREndcAvailability status OUT ///< ENDC connection status
-);
+) =80;

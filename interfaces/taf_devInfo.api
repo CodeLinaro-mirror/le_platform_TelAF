@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 **/
 
@@ -72,6 +72,10 @@
  */
 //------------------------------------------------------------------------------------------------
 
+API_VERSION =  1;
+SERVING_VERSION = 1;
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Maximum IMEI length including null termination character.
@@ -101,7 +105,7 @@ DEFINE MODEL_MAX_BYTES = 256;
 FUNCTION le_result_t GetImei
 (
     string imei[IMEI_MAX_BYTES] OUT     ///< IMEI number.
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -116,4 +120,4 @@ FUNCTION le_result_t GetImei
 FUNCTION le_result_t GetModel
 (
     string model[MODEL_MAX_BYTES] OUT   ///< Device Model
-);
+) = 1;

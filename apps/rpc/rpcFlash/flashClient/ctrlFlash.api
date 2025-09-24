@@ -1,7 +1,10 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -37,7 +40,7 @@ FUNCTION Info
 (
     Partition type IN,                        // Partition type.
     string partition[PARTITION_NAME_BYTES] IN // Partition name.
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -48,7 +51,7 @@ FUNCTION Erase
 (
     Partition type IN,                         // Partition type.
     string partition[PARTITION_NAME_BYTES] IN  // Partition name.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -60,7 +63,7 @@ FUNCTION Read
     Partition type IN,                         // Partition type.
     string partition[PARTITION_NAME_BYTES] IN, // Partition name.
     string file[FILE_PATH_BYTES] IN            // File name.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -72,4 +75,4 @@ FUNCTION Write
     Partition type IN,                         // Partition type.
     string partition[PARTITION_NAME_BYTES] IN, // Partition name.
     string file[FILE_PATH_BYTES] IN            // File name.
-);
+) = 3;

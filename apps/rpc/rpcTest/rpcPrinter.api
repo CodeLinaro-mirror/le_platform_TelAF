@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -31,6 +31,9 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 
 FUNCTION Print
 (
@@ -38,7 +41,7 @@ FUNCTION Print
     string reqMsg[100]  IN,   // Send a request message
     uint16 rspSystemId  OUT,  // Response/peer system ID
     string rspMsg[100]  OUT   // Receive a response message
-);
+) = 0;
 
 HANDLER ChangeHandler
 (
@@ -50,5 +53,5 @@ EVENT Change
 (
     uint32 chgId,            // Change ID
     ChangeHandler handler    // handler
-);
+) = (1,2);
 

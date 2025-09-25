@@ -425,7 +425,11 @@ taf_doip_Result_t Connection::ReceiveTCPData
             }
 
             ProcessDoipMessage(hdr.payloadType, buffer, hdr.payloadLen);
-            break;
+
+            if (buffer->dataSize == 0)
+            {
+                break;  // For next reception.
+            }
         }
     }
 

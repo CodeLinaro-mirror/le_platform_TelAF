@@ -2305,6 +2305,11 @@ le_result_t taf_ecall::SetMsdTimeStamp( taf_ecall_CallRef_t ecallRef, uint32_t t
         return LE_DUPLICATE;
     }
 
+    if (!isIdle()) {
+        LE_INFO("ECall session is in progress, try it later when session is not active");
+        return LE_BUSY;
+    }
+
     eCallPtr->msd.timestamp = timeStamp;
 
     char timeStampStr[16];
@@ -2324,6 +2329,11 @@ le_result_t taf_ecall::ResetMsdTimeStamp( taf_ecall_CallRef_t ecallRef)
     {
         LE_ERROR("MSD timeStamp is set by importing MSD");
         return LE_DUPLICATE;
+    }
+
+    if (!isIdle()) {
+        LE_INFO("ECall session is in progress, try it later when session is not active");
+        return LE_BUSY;
     }
 
     uint32_t timeStamp = 0;

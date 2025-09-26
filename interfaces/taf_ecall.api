@@ -190,8 +190,8 @@
  * - taf_ecall_SetMsdEuroNCAPRolloverDetected() -- Sets the rollover detected for Euro NCAP additional data of the vehicle.
  * - taf_ecall_ResetMsdEuroNCAPLocationOfImpact() -- Resets the rollover detected for Euro NCAP additional data of the vehicle.
  * - taf_ecall_SetMsdEuroNCAPIIDeltaV() -- Sets the IIDeltaV for Euro NCAP additional data of the vehicle.
- * - taf_ecall_SetMsdTimeStamp() -- Sets the timestamp manually.
- * - taf_ecall_ResetMsdTimeStamp() -- Resets the timestamp and the system time will be used.
+ * - taf_ecall_SetMsdTimeStamp() -- Sets the MSD timestamp as the given value.
+ * - taf_ecall_ResetMsdTimeStamp() -- Resets the MSD timestamp to the system time before session start.
  *
  * The MSD is automatically encoded with the previous MSD values set earlier.
  *
@@ -1045,8 +1045,13 @@ FUNCTION le_result_t SetMsdEuroNCAPIIDeltaV
  *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
+ *      - LE_BUSY -- An eCall session is in progress.
  *
- * @b NOTE: The process exits when an invalid eCall reference is given.
+ * @b NOTE: The process exits when an invalid eCall reference is given. This API should be called
+ *       before eCall session starts and the same timestamp should be consistently used within
+ *       the given incident. The MSD timestamp will be populated using the configured value
+ *       during the initial message generation and in all subsequent MSD transmissions within
+ *       the given incident.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdTimeStamp
@@ -1057,14 +1062,19 @@ FUNCTION le_result_t SetMsdTimeStamp
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Resets the MSD timestamp to the current system time according to the given eCall reference.
+ * Resets the MSD timestamp to the system time before session start according to the given eCall reference.
  *
  * @return
  *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
+ *      - LE_BUSY -- An eCall session is in progress.
  *
- * @b NOTE: The process exits when an invalid eCall reference is given.
+ * @b NOTE: The process exits when an invalid eCall reference is given. This API should be called
+ *       before eCall session starts and the same timestamp should be consistently used within
+ *       the given incident. The eCall service will automatically populate the MSD timestamp with
+ *       the current system time of eCall session starts during the initial message generation
+ *       and in all subsequent MSD transmissions within the given incident.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ResetMsdTimeStamp

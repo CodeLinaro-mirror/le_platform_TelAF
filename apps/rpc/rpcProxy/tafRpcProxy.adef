@@ -29,6 +29,8 @@ processes:
         (tafRpcProxy)
     }
 
+    maxCoreDumpFileBytes: 100000K
+    maxFileBytes: 100000K
     faultAction: restart
 }
 

@@ -143,6 +143,11 @@ apps:
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmWsFilterTest/tafMngdPmWsFilterTest.adef
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestDaemon/tafMngdPmTestDaemon.adef
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestClient/tafMngdPmTestClient.adef
+    // $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeysEncrDecrIntTest/tafKeysEncrDecrIntTest
+    // $TELAF_ROOT/apps/test/ConfigTreeAccessKPITest/ConfigTreeAccessKPIAppDefaultTest
+    // $TELAF_ROOT/apps/test/ConfigTreeAccessKPITest/ConfigTreeAccessKPIRootTest
+    // $TELAF_ROOT/apps/test/ConfigTreeAccessKPITest/ConfigTreeAccessKPITelafTest
+    // $TELAF_ROOT/apps/test/tafReturnTypesTest/tafReturnTypesUnitTest
 }
 
 commands:

@@ -395,6 +395,8 @@ allow telaf_admin_domain self:capability2 { syslog };
 
 allow telaf_admin_domain self:process { setsched setrlimit sigkill signal getattr };
 
+allow telaf_admin_domain { telaf_core_domain telaf_app_domain }:process { setrlimit rlimitinh };
+
 # support killall command
 domain_read_all_domains_state(telaf_admin_domain);
 domain_kill_all_domains(telaf_admin_domain);

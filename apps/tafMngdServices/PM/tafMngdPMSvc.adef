@@ -34,7 +34,8 @@ processes:
                 (tafMngdPMSvc)
         }
 
-        maxFileBytes: 8192K
+        maxCoreDumpFileBytes: 100000K
+        maxFileBytes: 100000K
         faultAction: restart
         watchdogTimeout: 61000
         watchdogAction: restart

@@ -26,6 +26,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install op
 RUN apt-get -y --no-install-recommends install python
 RUN apt-get -y --no-install-recommends install python-setuptools
 RUN apt-get -y --no-install-recommends install python-jinja2
+RUN apt-get -y --no-install-recommends install python-dev
 
 RUN apt-get -y --no-install-recommends install python3
 RUN apt-get -y --no-install-recommends install python3-venv

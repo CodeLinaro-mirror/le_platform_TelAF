@@ -416,7 +416,9 @@ ENUM State
     STATE_ENDED,                              ///< Call stopped.
     STATE_RESET,                              ///< Not supported.
     STATE_COMPLETED,                          ///< Not supported.
-    STATE_FAILED,                             ///< Not supported.
+    STATE_FAILED,                             ///< If the modem crashes or reboots while an eCall is in progress, the system will report
+                                              ///< a "modem unavailable" event to eCall service. This state indicates that the modem is
+                                              ///< temporarily inaccessible and cannot continue the eCall operation.
     STATE_END_OF_REDIAL_PERIOD,               ///< Ended call of the redial period.
     STATE_T2_EXPIRED,                         ///< T2 timer expired.
     STATE_TIMEOUT_T3,                         ///< Not  supported.
@@ -446,7 +448,8 @@ ENUM State
     STATE_T10_STOPPED,                        ///< T10 Timer stopped.
     STATE_INCOMING,                           ///< Incoming eCall.
     STATE_LL_NACK_DUE_TO_T7_EXPIRY,           ///< Link-Layer Acknowledgement (LL-NACK) is received during in-band MSD transmission due to expiry of T7 Timer.
-    STATE_T9_RESUMED                          ///< T9 Timer resumed.
+    STATE_T9_RESUMED,                         ///< T9 Timer resumed.
+    STATE_T10_RESUMED                         ///< T10 Timer resumed.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -1082,6 +1085,7 @@ FUNCTION le_result_t ResetMsdTimeStamp
  * @b NOTE: The process exits if an invalid eCall reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ImportMsd
 (
     Call  ecallRef IN,              ///< eCall reference.
@@ -1509,6 +1513,7 @@ FUNCTION le_result_t IsInProgress
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Failed.
  *  - LE_OVERFLOW -- The size of the dial attempt length is wrong.
+ *  - LE_BUSY -- An eCall session is in progress.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetInitialDialAttempts
@@ -1526,6 +1531,7 @@ FUNCTION le_result_t SetInitialDialAttempts
  *  - LE_FAULT -- Failed.
  *  - LE_BAD_PARAMETER -- Invalid parameters.
  *  - LE_OVERFLOW -- The size of the dial interval length is wrong.
+ *  - LE_BUSY -- An eCall session is in progress.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetInitialDialIntervalBetweenDialAttempts

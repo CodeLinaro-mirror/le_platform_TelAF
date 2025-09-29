@@ -717,7 +717,6 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_FAILED:
         {
             printf("TAF_ECALL_STATE_FAILED");
-            exitApp = false;
             break;
         }
         case TAF_ECALL_STATE_END_OF_REDIAL_PERIOD:
@@ -873,6 +872,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_T9_RESUMED:
         {
             printf("TAF_ECALL_STATE_T9_RESUMED");
+            break;
+        }
+        case TAF_ECALL_STATE_T10_RESUMED:
+        {
+            printf("TAF_ECALL_STATE_T10_RESUMED");
             break;
         }
         default:

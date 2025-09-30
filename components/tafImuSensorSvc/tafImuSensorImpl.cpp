@@ -635,21 +635,36 @@ le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
     else{
         type = SelfTestType::ALL;
     }
-    std::promise<le_result_t> p1;
-    auto cb1 = [&p1,&timestamp,&sensorMngr](telux::common::ErrorCode error,
+    auto promiseptr = std::make_shared<std::promise<le_result_t>>();
+    auto timestampPtr = std::make_shared<uint64_t>(0);
+    auto cb1 = [promiseptr,timestampPtr,&sensorMngr](telux::common::ErrorCode error,
         SelfTestResultParams selfTestResultParams) {
-        if(error == telux::common::ErrorCode::SUCCESS) {
-            *timestamp = selfTestResultParams.timestamp_;
-            if(selfTestResultParams.sensorResultType_ == SensorResultType::CURRENT){
-                p1.set_value(LE_OK);
+        try{
+            if(error == telux::common::ErrorCode::SUCCESS) {
+                *timestampPtr = selfTestResultParams.timestamp_;
+                if(selfTestResultParams.sensorResultType_ == SensorResultType::CURRENT){
+                    promiseptr->set_value(LE_OK);
+                }
+                else{
+                    promiseptr->set_value(LE_BUSY);
+                }
             }
             else{
-                p1.set_value(LE_BUSY);
+                le_result_t err = sensorMngr.MapErrorCode(error);
+                promiseptr->set_value(err);
             }
         }
-        else{
-            le_result_t err = sensorMngr.MapErrorCode(error);
-            p1.set_value(err);
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in self test callback.");
         }
     };
 
@@ -657,11 +672,12 @@ le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
         if(strcmp(sensorPtr->name,clientInfoPtr->sensorName)==0){
             status = clientInfoPtr->sensorClient->selfTest(type,cb1);
             if(status == telux::common::Status::SUCCESS){
-                std::future<le_result_t> futResult = p1.get_future();
+                std::future<le_result_t> futResult = promiseptr->get_future();
                 //wait for result with 3 second time out.
                 if(futResult.wait_for(std::chrono::seconds(MAX_TIME_OUT)) ==
                     std::future_status::ready){
                     le_result_t selfResult = futResult.get();
+                    *timestamp = *timestampPtr;
                     return selfResult;
                 }else{
                     LE_ERROR("Timeout waiting for result..");

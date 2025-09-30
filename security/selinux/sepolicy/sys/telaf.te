@@ -202,7 +202,7 @@ allow telaf_cfgtree_t shell_exec_t:file { exec_file_perms };
 allow telaf_cfgtree_t proc_t:file read_file_perms;
 allow telaf_cfgtree_t proc_t:dir list_dir_perms;
 allow telaf_cfgtree_t mnt_t:dir list_dir_perms;
-allow telaf_cfgtree_t self:capability { sys_ptrace };
+allow telaf_cfgtree_t self:capability { sys_ptrace sys_resource };
 allow telaf_cfgtree_t kernel_t:dir list_dir_perms;
 allow telaf_cfgtree_t persist_t:dir { search };
 allow telaf_cfgtree_t persist_t:file { read getattr open };

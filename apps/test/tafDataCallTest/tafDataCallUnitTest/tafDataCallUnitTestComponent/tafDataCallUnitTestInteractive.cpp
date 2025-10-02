@@ -1557,7 +1557,7 @@ static le_result_t GetPhoneId()
     TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
 
     le_result_t result = taf_dcs_GetPhoneId(ProfileRef, &phoneIDOut);
-    TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "taf_dcs_GetPhoneId failed");
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "taf_dcs_GetPhoneId failed");
 
     LE_TEST_INFO("Phone ID: %d", phoneIDOut);
     std::cout << "Phone ID: " << static_cast<int>(phoneIDOut) << std::endl;
@@ -1584,7 +1584,7 @@ static le_result_t GetInterfaceName()
     TAF_ERROR_IF_RET_VAL(nullptr == ProfileRef, LE_FAULT, "taf_dcs_GetProfileEx failed");
 
     le_result_t result = taf_dcs_GetInterfaceName(ProfileRef, ifNameStr, TAF_DCS_NAME_MAX_LEN);
-    TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "taf_dcs_GetInterfaceName failed");
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "taf_dcs_GetInterfaceName failed");
 
     LE_TEST_INFO ("Interface name: %s", ifNameStr);
     std::cout << "Interface name: " << ifNameStr << std::endl;
@@ -1599,7 +1599,7 @@ static le_result_t GetPhoneIdByInterfaceName()
     std::cin.getline(ifNameStr, TAF_DCS_NAME_MAX_LEN);
 
     le_result_t result = taf_dcs_GetPhoneIdByInterfaceName(ifNameStr, &phoneID);
-    TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "taf_dcs_GetPhoneIdByInterfaceName failed");
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "taf_dcs_GetPhoneIdByInterfaceName failed");
 
     LE_TEST_INFO("Phone Id: %d", phoneID);
     std::cout << "Phone Id: " << static_cast<int>(phoneID) << std::endl;
@@ -1614,7 +1614,7 @@ static le_result_t GetProfileIdByInterfaceName()
     std::cin.getline(ifNameStr, TAF_DCS_NAME_MAX_LEN);
 
     le_result_t result = taf_dcs_GetProfileIdByInterfaceName(ifNameStr, &profileID);
-    TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "taf_dcs_GetProfileIdByInterfaceName failed");
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "taf_dcs_GetProfileIdByInterfaceName failed");
 
     LE_TEST_INFO("Profile Id: %d", profileID);
     std::cout << "Profile Id: " << static_cast<int>(profileID) << std::endl;

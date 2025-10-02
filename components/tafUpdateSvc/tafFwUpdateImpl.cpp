@@ -2141,6 +2141,7 @@ void taf_FwUpdate::SyncPartition
                 else
                     srcPartition[strlen(srcPartition) - 2] = '\0';
 
+                LE_INFO("Sync MTD from %s to %s with %d bytes.", srcPartition, partition, pages * TAF_FWUPDATE_FLASH_PAGE_SIZE);
                 ret = taf_pa_flash_CopyMtd(srcPartition, partition,
                     pages * TAF_FWUPDATE_FLASH_PAGE_SIZE);
             }
@@ -2343,12 +2344,22 @@ void taf_FwUpdate::StartSync
             }
             else
             {
+                char partition[TAF_FLASH_PARTITION_NAME_MAX_BYTES];
+                le_utf8_Copy(partition, tafFwUpdate.partitions[i].name,
+                    TAF_FLASH_PARTITION_NAME_MAX_BYTES, NULL);
+                if (tafFwUpdate.partitions[i].bank == TAF_UPDATE_BANK_A)
+                {
+                    le_utf8_Append(partition, "_b", TAF_FLASH_PARTITION_NAME_MAX_BYTES, NULL);
+                }
+                else
+                    partition[strlen(tafFwUpdate.partitions[i].name) - 2] = '\0';
+
                 taf_pa_flash_MtdRef_t mtdRef = nullptr;
-                ret = taf_pa_flash_OpenMtd(tafFwUpdate.partitions[i].name,
-                    TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_ONLY, &mtdRef);
+                ret = taf_pa_flash_OpenMtd(partition, TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_ONLY,
+                    &mtdRef);
                 if (ret)
                 {
-                    LE_ERROR("Fail to open mtd %s.", tafFwUpdate.partitions[i].name);
+                    LE_ERROR("Fail to open mtd %s.", partition);
                     continue;
                 }
 
@@ -2356,17 +2367,37 @@ void taf_FwUpdate::StartSync
                 ret = taf_pa_flash_GetMtdInfo(mtdRef, &info);
                 if (ret)
                 {
-                    LE_ERROR("Fail to get info of mtd %s.", tafFwUpdate.partitions[i].name);
+                    LE_ERROR("Fail to get info of mtd %s.", partition);
                     ret = taf_pa_flash_CloseMtd(mtdRef);
                     if (ret)
                         LE_ERROR("Fail to close mtd %s.", tafFwUpdate.partitions[i].name);
                     continue;
                 }
 
+                uint8_t buffer[TAF_FWUPDATE_FLASH_PAGE_SIZE];
+                uint32_t blocks = info.size / info.eraseSize;
+                uint32_t pagesPerBlock = info.eraseSize / info.writeSize;
+                for (uint32_t i = 0; i < blocks; i++)
+                {
+                    bool isGood = false;
+                    ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, i, &isGood);
+                    if (ret != 0 || !isGood)
+                        continue;
+                    else
+                    {
+                        size_t bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
+                        ret = taf_pa_flash_ReadMtdPage(mtdRef, i * pagesPerBlock, buffer, &bytes);
+                        if (ret == TAF_FWUPDATE_FLASH_PAGE_ERASED)
+                            break;
+
+                        partitionSize += info.eraseSize;
+                    }
+                }
+
                 ret = taf_pa_flash_CloseMtd(mtdRef);
                 if (ret)
                     LE_ERROR("Fail to close mtd %s.", tafFwUpdate.partitions[i].name);
-                partitionSize = info.size;
+                continue;
             }
 
             partitionPage =  partitionSize / TAF_FWUPDATE_FLASH_PAGE_SIZE;
@@ -3119,9 +3150,28 @@ le_result_t taf_FwUpdate::PerformBankSync
                 TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not open MTD %s, ret = %d.", tafFwUpdate.partitions[i].name, ret);
 
                 taf_pa_flash_MtdInfo_t info;
+                uint8_t buffer[TAF_FWUPDATE_FLASH_PAGE_SIZE];
                 ret = taf_pa_flash_GetMtdInfo(mtdRef, &info);
                 TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not get MTD %s info, ret = %d.", tafFwUpdate.partitions[i].name, ret);
-                imageSize = info.size;
+                imageSize = 0;
+                uint32_t blocks = info.size / info.eraseSize;
+                uint32_t pagesPerBlock = info.eraseSize / info.writeSize;
+                for (uint32_t i = 0; i < blocks; i++)
+                {
+                    bool isGood = false;
+                    ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, i, &isGood);
+                    if (ret != 0 || ! isGood)
+                        continue;
+                    else
+                    {
+                        size_t bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
+                        ret = taf_pa_flash_ReadMtdPage(mtdRef, i * pagesPerBlock, buffer, &bytes);
+                        if (ret == TAF_FWUPDATE_FLASH_PAGE_ERASED)
+                            break;
+
+                        imageSize += info.eraseSize;
+                    }
+                }
 
                 ret = taf_pa_flash_CloseMtd(mtdRef);
                 TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not close MTD %s, ret = %d.",

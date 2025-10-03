@@ -92,40 +92,48 @@ void tafRemoteSimListener::onServiceStatusChange(ServiceStatus status) {
 }
 
 void taf_simRsim:: Init(void) {
-    remoteSimMgr = PhoneFactory::getInstance().getRemoteSimManager(DEFAULT_SLOT_ID);
-    listener = std::make_shared<tafRemoteSimListener>();
-    if (remoteSimMgr != nullptr) {
+    auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
+    remoteSimMgr = phoneFactory.getRemoteSimManager(DEFAULT_SLOT_ID);
+    if (!remoteSimMgr)
+    {
+        LE_FATAL("Failed to create RemoteSimManager!\n");
+    }
+    else
+    {
+        bool subSystemStatus = remoteSimMgr->isSubsystemReady();
+        if(!subSystemStatus) {
+            LE_INFO("Remote Sim subsystem is not ready wait for it to be ready");
+            std::future<bool> f = remoteSimMgr->onSubsystemReady();
+            std::future_status waitStatus = f.wait_for(std::chrono::seconds(TAF_RSIM_SUBSYSTEM_TIMEOUT));
+            if (std::future_status::timeout == waitStatus)
+            {
+                LE_FATAL ("Timeout waiting for Remote Sim Manager");
+            }
+            else
+            {
+                LE_INFO("Remotesim subsystem is ready");
+                subSystemStatus = f.get();
+            }
+        }
+        if(subSystemStatus) {
+            MainThread = le_thread_GetCurrent();
+            MessageEventId = le_event_CreateId("MessageEventId", sizeof(taf_RsimMsg_t));
+            memset(&RsimObj, 0, sizeof(RsimObj));
+            RsimObj.handlerRef = NULL;
+            RsimObj.sapState = SAP_STATE_NOT_CONNECTED;
+            RsimObj.sapSubState = SAP_CONNECTED_IDLE;
+            RsimObj.maxMsgSize = TAF_SIMRSIM_MAX_MSG_SIZE;
+            RSimMsgPool = le_mem_InitStaticPool(RsimMsgs, MSG_POOL_SIZE,sizeof(taf_RsimMsg_Client_t));
+        }
+        else{
+             LE_FATAL("Fail to init remote subscription subsystem");
+        }
+        listener = std::make_shared<tafRemoteSimListener>();
         if (remoteSimMgr->registerListener(listener) != Status::SUCCESS) {
             LE_ERROR("Listener registration failed!\n");
             return;
         }
-    } else {
-        LE_ERROR("Failed to create RemoteSimManager!\n");
-        return;
     }
-    bool subSystemStatus = remoteSimMgr->isSubsystemReady();
-    if(!subSystemStatus) {
-        LE_INFO("Subscription subsystem is not ready" );
-        LE_INFO( "wait for it to be ready " );
-        std::future<bool> f = remoteSimMgr->onSubsystemReady();
-        subSystemStatus = f.get();
-    }
-
-    if(subSystemStatus) {
-        MainThread = le_thread_GetCurrent();
-        MessageEventId = le_event_CreateId("MessageEventId", sizeof(taf_RsimMsg_t));
-
-        memset(&RsimObj, 0, sizeof(RsimObj));
-        RsimObj.handlerRef = NULL;
-        RsimObj.sapState = SAP_STATE_NOT_CONNECTED;
-        RsimObj.sapSubState = SAP_CONNECTED_IDLE;
-        RsimObj.maxMsgSize = TAF_SIMRSIM_MAX_MSG_SIZE;
-
-        RSimMsgPool = le_mem_InitStaticPool(RsimMsgs, MSG_POOL_SIZE,
-                                             sizeof(taf_RsimMsg_Client_t));
-
-    }
-
 }
 
 taf_simRsim &taf_simRsim::GetInstance()

@@ -153,8 +153,6 @@ typedef struct
                 le_ref_MapRef_t ProfileListNodeRefMap = NULL;
 
             public:
-                std::promise<std:: string> EidSynchronousPromise;
-                std::promise<le_result_t> ProfileSyncPromise;
                 le_result_t  GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen);
                 le_result_t AddProfile(taf_sim_Id_t slotId, const char* activationCode,
                      const char* confirmationCode, bool userConsentSupported);

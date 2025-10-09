@@ -46,6 +46,87 @@ bool isVoiceStreamCreated = false, isPbStreamCreated = false, isRecordStreamCrea
         isDtmfToneStarted = false,  isTxPbStreamCreated = false, isTxRpbStreamCreated = false,
         isRxRecordStreamCreated = false, isDtmfToneStartedTx = false;
 
+static void AudioServerDisconnectHandler(void* contextPtr)
+{
+    LE_INFO("SessionDisconnectHandler: server disconnected");
+    playerHandlerRef = NULL;
+    recorderHandlerRef = NULL;
+    txPlayerHandlerRef = NULL;
+    rxRecorderHandlerRef = NULL;
+    dtmfDetectHandlerRef = NULL;
+    sinkRef = NULL;
+    recorderRef = NULL;
+    playerRef = NULL;
+    txPlayerRef = NULL;
+    sourceRef = NULL;
+    rxStreamRef = NULL;
+    txStreamRef = NULL;
+    rxRecorderRef = NULL;
+    routeRef = NULL;
+    rxConn = NULL;
+    txConn = NULL;
+    playerConnRef = NULL;
+    connRef = NULL;
+    txPlayerConnRef = NULL;
+    rxConnRef = NULL;
+    handlerRef = NULL;
+    if (Player_thread_ref)
+    {
+        le_thread_Cancel(Player_thread_ref);
+        Player_thread_ref = NULL;
+    }
+    if (Recorder_thread_ref)
+    {
+        le_thread_Cancel(Recorder_thread_ref);
+        Recorder_thread_ref = NULL;
+    }
+    if (node_thread_ref)
+    {
+        le_thread_Cancel(node_thread_ref);
+        node_thread_ref = NULL;
+    }
+    routeId = (taf_audio_RouteId_t)-1;
+    isVoiceActive = false;
+    isPbActive = false;
+    isRpbActive = false;
+    isRecordingActive = false;
+    isTxPbActive = false;
+    isTxRpbActive = false;
+    isRxRecActive = false;
+    isVoiceStreamCreated = false;
+    isPbStreamCreated = false;
+    isRecordStreamCreated = false;
+    isRpbStreamCreated = false;
+    isLbStreamCreated = false;
+    isDtmfRegistered = false;
+    isDtmfToneStarted = false;
+    isTxPbStreamCreated = false;
+    isTxRpbStreamCreated = false;
+    isRxRecordStreamCreated = false;
+    isDtmfToneStartedTx = false;
+    le_result_t res = taf_audio_TryConnectService();
+    while (res != LE_OK)
+    {
+        res = taf_audio_TryConnectService();
+        LE_INFO("TryConnectService res is %d", res);
+        le_thread_Sleep(3);
+    }
+    taf_audio_SetNonExitServerDisconnectHandler(AudioServerDisconnectHandler, NULL);
+}
+
+static void AudioVendorDisconnectHandler(void* contextPtr)
+{
+    LE_INFO("AudioVendorDisconnectHandler: server disconnected");
+    le_result_t res = taf_audioVendor_TryConnectService();
+    while (res != LE_OK)
+    {
+        res = taf_audioVendor_TryConnectService();
+        LE_INFO("TryConnectService res is %d", res);
+        le_thread_Sleep(3);
+    }
+    taf_audioVendor_SetNonExitServerDisconnectHandler(AudioVendorDisconnectHandler, NULL);
+}
+
 static void MyDtmfDetectorHandler
 (
     taf_audio_StreamRef_t streamRef,
@@ -129,6 +210,8 @@ void* Test_taf_audio_AddHandler(void* ctxPtr)
     le_sem_Ref_t sem=NULL;
     taf_audio_ConnectService();
 
+    taf_audio_SetNonExitServerDisconnectHandler(AudioServerDisconnectHandler, NULL);
+    LE_INFO("Successfully register for taf_audio_SetNonExitServerDisconnectHandler");
     taf_audio_StreamRef_t streamRef = (taf_audio_StreamRef_t)ctxPtr;
     if (streamRef == playerRef) {
         playerHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
@@ -174,6 +257,8 @@ void* Test_taf_audio_NodeHandler(void* ctxPtr)
 {
     le_sem_Ref_t sem=NULL;
     taf_audioVendor_ConnectService();
+
+    taf_audioVendor_SetNonExitServerDisconnectHandler(AudioVendorDisconnectHandler, NULL);
     int *input = (int*)ctxPtr;
     LE_DEBUG("Test taf_audioVendor_AddNodeStateChangeHandler of node %d", *input);
     handlerRef = taf_audioVendor_AddNodeStateChangeHandler(*input,
@@ -188,7 +273,6 @@ void* Test_taf_audio_NodeHandler(void* ctxPtr)
         cout<<"Failed to register the node event"<<endl;
         return NULL;
     }
-
     sem = le_sem_FindSemaphore("tafAudioAppSem");
     if(sem != NULL)
     {
@@ -2274,6 +2358,7 @@ void AudioEventHandler(int fd, short events)
         printf("Error or hang-up detected\n");
     }
 }
+
 COMPONENT_INIT
 {
 
@@ -2291,4 +2376,6 @@ COMPONENT_INIT
     {
         LE_DEBUG("FdMonitor creation is failed monitorRef:%p",monitorRef);
     }
+    taf_audio_SetNonExitServerDisconnectHandler(AudioServerDisconnectHandler, NULL);
+    taf_audioVendor_SetNonExitServerDisconnectHandler(AudioVendorDisconnectHandler, NULL);
 }

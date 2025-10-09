@@ -10,6 +10,7 @@
 #include <telux/platform/SubsystemFactory.hpp>
 #include <telux/platform/SubsystemManager.hpp>
 #include "tafSvcIF.hpp"
+#include <unordered_map>
 
 // For using VHAL
 #include "tafHalLib.hpp"
@@ -66,6 +67,7 @@ using namespace std;
 #define MAX_MSD_MESSAGE_IDENTIFIER 255
 #define MIN_MSD_MESSAGE_IDENTIFIER 1
 #define MSD_TIMESTAMP_STR_INVALID "INVALID"
+#define RX_ECALL_EVENT_POOL_SIZE 50
 
     namespace tafsvc {
 
@@ -176,6 +178,60 @@ using namespace std;
             HlapTimerEventType_t hlapTimerEventType;
         }ResumeHlapTimerEvent_t;
 
+        typedef enum {
+            ECALL_EVENT_INCOMING_CALL,
+            ECALL_EVENT_CALL_INFO_CHANGE,
+            ECALL_EVENT_MSD_TRANSMISSION_STATUS,
+            ECALL_EVENT_HLAP_TIMER,
+            ECALL_EVENT_MSD_UPDATE_REQ,
+            ECALL_EVENT_REDIAL,
+            ECALL_EVENT_MAKECALL_RESP
+        } RxECallEventType_t;
+
+        typedef struct {
+            uint64_t callToken;
+            int32_t callIndex;
+            telux::tel::CallState callState;
+            char remotePartyNumber[MAX_DESTINATION_LEN];
+        } RxECallIncomingCallParam_t;
+
+        typedef struct {
+            uint64_t callToken;
+            int32_t callIndex;
+            telux::tel::CallState callState;
+            telux::tel::CallDirection callDirection;
+            telux::tel::CallEndCause callEndCause;
+        } RxECallInfoChangeParam_t;
+
+        typedef struct {
+            telux::tel::ECallMsdTransmissionStatus msdTransmissionStatus;
+        } RxECallMsdTransmissionStatusParam_t;
+
+        typedef struct {
+            ECallHlapTimerEvents timerEvents;
+        } RxECallHlapTimerParam_t;
+
+        typedef struct {
+            ECallRedialInfo redialInfo;
+        } RxECallRedialParam_t;
+
+        typedef struct {
+            int32_t callIndex;
+        } RxECallMakeCallResponse;
+
+        typedef struct {
+            RxECallEventType_t eventType;
+            int phoneId;
+            union {
+                RxECallIncomingCallParam_t incomingCall;
+                RxECallInfoChangeParam_t infoChange;
+                RxECallMsdTransmissionStatusParam_t msdTransmissionStatus;
+                RxECallHlapTimerParam_t hlapTimer;
+                RxECallRedialParam_t redial;
+                RxECallMakeCallResponse response;
+            } param;
+        } RxECallEvent_t;
+
         class tafCallCommandCallback : public telux::tel::IMakeCallCallback {
             public:
                 void makeCallResponse(telux::common::ErrorCode errorCode,
@@ -221,8 +277,6 @@ using namespace std;
             void onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEvents) override;
             void OnMsdUpdateRequest(int phoneId);
             void onECallRedial(int phoneId, ECallRedialInfo info) override;
-
-             taf_ecall_State_t eCallMsdTransmissionStatusToState( ECallMsdTransmissionStatus status);
         };
 
         class tafECallPhoneListener : public telux::tel::IPhoneListener {
@@ -305,6 +359,16 @@ using namespace std;
                 le_result_t ConfigureInitialDialRedial(std::vector<int> redialPara);
                 le_result_t SetInitialDialAttempts(uint8_t attempts);
                 le_result_t SetInitialDialIntervalBetweenDialAttempts(const uint16_t* interval, size_t intervalLength);
+                uint64_t StashCall(std::shared_ptr<telux::tel::ICall> sp);
+                std::shared_ptr<telux::tel::ICall> TakeCall(uint64_t token);
+                void HandleIncomingCall(int phoneId, const RxECallIncomingCallParam_t& incomingCall);
+                void HandleCallInfoChange(int phoneId, const RxECallInfoChangeParam_t& infoChange);
+                void HandleMsdTransmissionStatus(int phoneId, telux::tel::ECallMsdTransmissionStatus status);
+                void HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEvents);
+                void HandleMsdUpdateRequest(int phoneId);
+                void HandleRedial(int phoneId, ECallRedialInfo redialInfo);
+                void HandleMakeCallResp(int phoneId, RxECallMakeCallResponse resp);
+                static void ProcessRxECallEvent(void* msgPtr);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);
@@ -329,6 +393,8 @@ using namespace std;
                 void SetLastCallPhoneId(int8_t phoneId);
                 int8_t GetLastCallPhoneId();
                 le_event_Id_t StateChangeEventId;
+                le_event_Id_t RxECallEventId;
+                le_mem_PoolRef_t RxECallEventPool = NULL;
 
                 std::promise<telux::common::ErrorCode> updateMsdProm;
                 std::promise<telux::common::ErrorCode> hangupProm;
@@ -373,6 +439,9 @@ using namespace std;
                 std::shared_ptr<tafAnswerCommandCallback> AnswerCb;
                 std::vector<std::shared_ptr<telux::tel::IPhone>> Phones;
 
+                std::mutex callMtx_;
+                std::unordered_map<uint64_t, std::shared_ptr<telux::tel::ICall>> callStore_;
+                std::atomic<uint64_t> callNextToken_{1};
                 taf_ECall_t ECallObject;
                 void InitializeECallPtr();
 

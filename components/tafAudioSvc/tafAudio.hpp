@@ -534,5 +534,8 @@ class taf_Audio : public ITafSvc
         static void MpmsDelayHandler(le_timer_Ref_t timerRef);
         static void MpmsDisconnectHandler(void* contextPtr);
         static void TafSigTermEventHandler(int tafSigNum);
+        static void SubsystemStateChangeCallback(SubsystemState_e state,
+                                            std::shared_ptr<void> context);
+
 };
 }

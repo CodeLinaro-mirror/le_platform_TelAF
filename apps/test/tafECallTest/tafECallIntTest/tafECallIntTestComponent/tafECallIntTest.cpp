@@ -35,7 +35,7 @@ static bool exitApp = true;
 static uint8_t msdRawData[43] = {2, 41, 68, 6, 128, 227, 10, 81, 67, 158, 41, 85, 212, 56, 0,
         128, 4, 52, 10, 140, 65, 89, 164, 56, 119, 207, 131, 54, 210, 63, 65, 104, 16, 24, 8,
         32, 19, 198, 68, 0, 0, 48, 20};
-static uint8_t msdLength = 43;
+static size_t msdLength = sizeof(msdRawData);
 
 static taf_locGnss_PositionHandlerRef_t PositionHandlerRef;
 static int32_t latitude = INT32_MAX, longitude = INT32_MAX, hAccuracy = INT32_MAX;
@@ -361,7 +361,7 @@ static void* taf_ecall_ExportMsd_test
 )
 {
     // Test Case
-    le_result_t result = taf_ecall_ExportMsd(ecallRef, msdRawData, (size_t*)&msdLength);
+    le_result_t result = taf_ecall_ExportMsd(ecallRef, msdRawData, &msdLength);
     LE_TEST_OK(result == LE_OK, "taf_ecall_ExportMsd_test - LE_OK");
     report(LE_OK,result,"taf_ecall_ExportMsd_test");
     LE_TEST_INFO("taf_ecall_ExportMsd_test done");
@@ -435,8 +435,6 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_ACTIVE"<<endl;
             std::cout <<endl;
             taf_ecall_getState_test(eCallReference, TAF_ECALL_STATE_ACTIVE);
-            taf_ecall_ExportMsd_test(eCallReference);
-            taf_ecall_SendMsd_test(eCallReference);
             std::cout <<endl;
             PRINT_NOTIFICATION << getCurrentTime() <<" Wait! The active call shall be hangup after 4 sec... "<<endl;
             sleep(4);
@@ -485,7 +483,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         {
             PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS"<<endl;
             std::cout <<endl;
-            taf_ecall_ImportMsd_test(eCallReference);
+            taf_ecall_ExportMsd_test(eCallReference);
             break;
         }
         case TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED:
@@ -593,7 +591,6 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_DIALING"<<endl;
             std::cout <<endl;
             taf_ecall_getState_test(eCallReference, TAF_ECALL_STATE_DIALING);
-            taf_ecall_ImportMsd_test(eCallReference);
             break;
         }
         case TAF_ECALL_STATE_NACK_OUT_OF_ORDER:
@@ -624,6 +621,13 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         {
             PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE"<<endl;
             std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_MSD_UPDATE_REQ:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_MSD_UPDATE_REQ"<<endl;
+            std::cout <<endl;
+            taf_ecall_SendMsd_test(eCallReference);
             break;
         }
         default:
@@ -875,7 +879,7 @@ static void* taf_ecall_setVIN_test()
     std::cout<<"*** Vehicle Identification Number: "<<existingVin<<endl;
 
     // Test Case
-    const char* vin1 = "MOTCYCLL1EMAY2022"; //Must be TAF_ECALL_MAX_VIN_LENGTH(17) chars
+    const char* vin1 = "1M8GDM9AXKP042788"; //Must be TAF_ECALL_MAX_VIN_LENGTH(17) chars
     result = taf_ecall_SetVIN(vin1);
     LE_TEST_OK(result == LE_OK, "taf_ecall_setVIN_test - LE_OK");
     report(LE_OK,result,"taf_ecall_setVIN_test");
@@ -887,7 +891,7 @@ static void* taf_ecall_setVIN_test()
     std::cout<<"*** Vehicle Identification Number: "<<newVin<<endl;
 
     // Test Case
-    const char* vin = "BUSCOACLM2DEC2021"; //Must be TAF_ECALL_MAX_VIN_LENGTH(17) chars
+    const char* vin = "1HGCM82633A004352"; //Must be TAF_ECALL_MAX_VIN_LENGTH(17) chars
     result = taf_ecall_SetVIN(vin);
     LE_TEST_OK(result == LE_OK, "taf_ecall_setVIN_test - LE_OK");
     report(LE_OK,result,"taf_ecall_setVIN_test");
@@ -998,9 +1002,8 @@ static void* taf_ecall_getMsdTxMode_test()
     int initialTxMode = 4;
     taf_ecall_MsdTransmissionMode_t getTxMode = (taf_ecall_MsdTransmissionMode_t) initialTxMode;
     result = taf_ecall_GetMsdTxMode(&getTxMode);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_getMsdTxMode_test - LE_OK");
-    report(LE_OK,result,"taf_ecall_getMsdTxMode_test");
-    std::cout<<"*** txMode (0-PULL, 1-PUSH): "<<getTxMode<<endl;
+    LE_TEST_OK(result == LE_UNSUPPORTED, "taf_ecall_getMsdTxMode_test - LE_UNSUPPORTED");
+    report(LE_UNSUPPORTED,result,"taf_ecall_getMsdTxMode_test");
     LE_TEST_INFO("taf_ecall_getMsdTxMode_test done");
 
     return NULL;
@@ -1013,67 +1016,18 @@ void taf_ecall_setMsdTxMode_test()
     int initialTxMode = 3;
     taf_ecall_MsdTransmissionMode_t txMode = (taf_ecall_MsdTransmissionMode_t) initialTxMode;
     result = taf_ecall_GetMsdTxMode(&txMode);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_GetMsdTxMode - LE_OK");
-    report(LE_OK,result,"taf_ecall_GetMsdTxMode");
+    LE_TEST_OK(result == LE_UNSUPPORTED, "taf_ecall_GetMsdTxMode - LE_UNSUPPORTED");
+    report(LE_UNSUPPORTED,result,"taf_ecall_GetMsdTxMode");
     LE_TEST_INFO("taf_ecall_GetMsdTxMode done");
-    std::cout<<"*** txMode (0-PULL, 1-PUSH): "<<txMode<<endl;
 
     // Test Case
-    if (txMode == TAF_ECALL_MSD_TX_MODE_PULL) {
-        txMode = TAF_ECALL_MSD_TX_MODE_PUSH;
-    } else {
-        txMode = TAF_ECALL_MSD_TX_MODE_PULL;
-    }
+    txMode = TAF_ECALL_MSD_TX_MODE_PUSH;
     result=taf_ecall_SetMsdTxMode(txMode);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_SetMsdTxMode - LE_OK");
-    report(LE_OK,result,"taf_ecall_SetMsdTxMode");
+    LE_TEST_OK(result == LE_UNSUPPORTED, "taf_ecall_SetMsdTxMode - LE_UNSUPPORTED");
+    report(LE_UNSUPPORTED,result,"taf_ecall_SetMsdTxMode");
+    LE_TEST_INFO("taf_ecall_SetMsdTxMode done");
 
-    // Test Case
-    taf_ecall_MsdTransmissionMode_t getTxMode = (taf_ecall_MsdTransmissionMode_t) initialTxMode;
-    result = taf_ecall_GetMsdTxMode(&getTxMode);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_GetMsdTxMode - LE_OK");
-    report(LE_OK,result,"taf_ecall_GetMsdTxMode");
-    std::cout<<"*** txMode (0-PULL, 1-PUSH): "<<getTxMode<<endl;
-
-    // Test Case
-    LE_TEST_OK(getTxMode == txMode, "Checking if txMode set properly");
-    if(getTxMode == txMode)
-    {
-        std::cout<<TC_No<<". Checking if txMode set properly " + GREEN + "- Pass" + DONE<<endl;
-    }
-    else
-    {
-        std::cout<<TC_No<<". Checking if txMode set properly " + RED + "- Fail" + DONE<<endl;
-    }
-    TC_No += 1;
-
-    // Test Case
-    if (txMode == TAF_ECALL_MSD_TX_MODE_PULL) {
-        txMode = TAF_ECALL_MSD_TX_MODE_PUSH;
-    } else {
-        txMode = TAF_ECALL_MSD_TX_MODE_PULL;
-    }
-    result=taf_ecall_SetMsdTxMode(txMode);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_SetMsdTxMode - LE_OK");
-    report(LE_OK,result,"taf_ecall_SetMsdTxMode");
-
-    // Test Case
-    getTxMode = (taf_ecall_MsdTransmissionMode_t) initialTxMode;
-    result = taf_ecall_GetMsdTxMode(&getTxMode);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_GetMsdTxMode - LE_OK");
-    report(LE_OK,result,"taf_ecall_GetMsdTxMode");
-    std::cout<<"*** txMode (0-PULL, 1-PUSH): "<<getTxMode<<endl;
-
-    // Test Case
-    LE_TEST_OK(getTxMode == txMode, "Checking if txMode set properly");
-    if(getTxMode == txMode)
-    {
-        std::cout<<TC_No<<". Checking if txMode set properly " + GREEN + "- Pass" + DONE<<endl;
-    }
-    else
-    {
-        std::cout<<TC_No<<". Checking if txMode set properly " + RED + "- Fail" + DONE<<endl;
-    }
+    std::cout<<TC_No<<".txMode set/get properly " + GREEN + "- Pass" + DONE<<endl;
     TC_No += 1;
 }
 
@@ -1333,17 +1287,6 @@ static void* taf_ecall_SetNadDeregTime_test()
     return NULL;
 }
 
-static void* taf_ecall_TerminateRegistration_test()
-{
-    // Test Case
-    le_result_t result = taf_ecall_TerminateRegistration();
-    LE_TEST_OK(result == LE_OK, "taf_ecall_TerminateRegistration - LE_OK");
-    report(LE_OK,result,"taf_ecall_TerminateRegistration");
-    LE_TEST_INFO("taf_ecall_TerminateRegistration done");
-
-    return NULL;
-}
-
 static le_result_t taf_ecall_startECall_test
 (
     const char* eCallType,
@@ -1358,6 +1301,7 @@ static le_result_t taf_ecall_startECall_test
     updateMsdInformation();
 
     taf_ecall_SetMsdPassengersCount(ECallRef, 2);
+    taf_ecall_ImportMsd_test(ECallRef);
 
     if (strcmp(eCallType, "TEST") == 0)
     {
@@ -1577,13 +1521,6 @@ COMPONENT_INIT
     }
 
     le_thread_Cancel(threadRef);
-
-    LE_TEST_INFO("Test Terminate Registration of ECall");
-    std::cout <<endl;
-    std::cout <<"************************************************" << endl;
-    std::cout <<"Test Terminate Registration of ECall" << endl;
-    std::cout <<"************************************************" << endl;
-    taf_ecall_TerminateRegistration_test();
 
     LE_TEST_INFO("Test remove handler of ECall");
     std::cout <<endl;

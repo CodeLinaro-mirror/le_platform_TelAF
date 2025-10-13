@@ -624,6 +624,22 @@ void taf_locGnss_RemovePositionHandler
 }
 
 /**
+* FUNCTION     : RemoveMeasurementHandler
+* DESCRIPTION  : This function must be called to remove a handler for measurement notifications
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: Doesn't return on failure, so there's no need to check the return value for errors
+*/
+void taf_locGnss_RemoveMeasurementHandler
+(
+ taf_locGnss_MeasurementHandlerRef_t handlerRef
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.RemoveMeasurementHandler(handlerRef);
+}
+
+/**
 * FUNCTION     : AddPositionHandler
 * DESCRIPTION  : This function must be called to register an handler for position notifications
 * DEPENDECY    :
@@ -638,6 +654,23 @@ taf_locGnss_PositionHandlerRef_t taf_locGnss_AddPositionHandler
 {
     auto &gnss = taf_locGnss::GetInstance();
     return (taf_locGnss_PositionHandlerRef_t)gnss.AddPositionHandler(handlerPtr, contextPtr);
+}
+
+/**
+* FUNCTION     : AddMeasurementHandler
+* DESCRIPTION  : This function must be called to register an handler for measurement notifications
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: A handler reference, which is only needed for later removal of the handler
+*/
+taf_locGnss_MeasurementHandlerRef_t taf_locGnss_AddMeasurementHandler
+(
+ taf_locGnss_MeasurementHandlerFunc_t handlerPtr,
+ void* contextPtr
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return (taf_locGnss_MeasurementHandlerRef_t)gnss.AddMeasurementHandler(handlerPtr, contextPtr);
 }
 
 /**
@@ -1979,4 +2012,128 @@ le_result_t taf_locGnss_GetLeapSecondsUncertainty
 {
     auto &gnss = taf_locGnss::GetInstance();
     return gnss.GetLeapSecondsUncertainty(positionSampleRef,leapSecondsUncPtr);
+}
+
+/**
+* FUNCTION     : GetIsNHz
+* DESCRIPTION  : Gets the frequency for GNSS measurements generated at NHz or not.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success and LE_FAULT on failed
+*/
+le_result_t taf_locGnss_GetIsNHz
+(
+    taf_locGnss_MeasSampleRef_t measSampleRef,
+        ///< [IN] Measurement sample reference.
+    bool* isNHZPtr
+        ///< [OUT] Frequency generated at NHz or not .
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetIsNHz(measSampleRef,isNHZPtr);
+}
+
+/**
+* FUNCTION     : GetClockValidityMask
+* DESCRIPTION  : Gets the values of GnssMeasurements Clock validity mask.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success and LE_FAULT on failed
+*/
+//--------------------------------------------------------------------------------------------------
+/**
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_locGnss_GetClockValidityMask
+(
+    taf_locGnss_MeasSampleRef_t measSampleRef,
+        ///< [IN] Measurement sample reference.
+    uint32_t* clockValidityMaskPtr
+        ///< [OUT] ClockValidity Mask.
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetClockValidityMask(measSampleRef,clockValidityMaskPtr);
+}
+
+/**
+* FUNCTION     : GetClockData
+* DESCRIPTION  : Gets the GNSS measurements clock data.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success and LE_FAULT on failed
+*/
+//--------------------------------------------------------------------------------------------------
+/**
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_locGnss_GetClockData
+(
+    taf_locGnss_MeasSampleRef_t measSampleRef,
+        ///< [IN] Measurement sample reference.
+    taf_locGnss_ClockData_t * clockDataPtr
+        ///< [OUT] GnssMeasurementClockData
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetClockData(measSampleRef,clockDataPtr);
+}
+
+/**
+* FUNCTION     : GetMeasurementsData
+* DESCRIPTION  : Gets the Specify the signal measurement information such as satellite vehicle pseudo range,
+*                satellite vehicle time, carrier phase measurement etc. from GNSS positioning engine.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success and LE_FAULT on failed
+*/
+//--------------------------------------------------------------------------------------------------
+/**
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_locGnss_GetMeasurementsData
+(
+    taf_locGnss_MeasSampleRef_t measSampleRef,
+        ///< [IN] Measurement sample reference.
+    taf_locGnss_MeasurementsData_t* measDataPtr,
+        ///< [OUT] GnssMeasurementData
+    size_t* measDataSizePtr
+        ///< [INOUT]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetMeasurementsData(measSampleRef,measDataPtr, measDataSizePtr);
+}
+
+/**
+* FUNCTION     : ReleaseMeasSampleRef
+* DESCRIPTION  : This function must be called to release the measurement sample
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: If the caller is passing an invalid measurement reference into this function,
+*                it is a fatal error, the function will not return.
+*/
+void taf_locGnss_ReleaseMeasSampleRef
+(
+    taf_locGnss_MeasSampleRef_t    measSampleRef
+    ///< [IN] Measurement sample reference.
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.ReleaseMeasSampleRef(measSampleRef);
+}
+
+le_result_t taf_locGnss_GetMeasDataValidityMask
+(
+    taf_locGnss_MeasSampleRef_t measSampleRef,
+        ///< [IN] Measurement sample reference.
+    uint32_t* measDataValidityMaskPtr,
+        ///< [OUT] GnssMeasurementData
+    size_t* measDataValidityMaskSizePtr
+        ///< [INOUT]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetMeasDataValidityMask(measSampleRef, measDataValidityMaskPtr,
+            measDataValidityMaskSizePtr);
 }

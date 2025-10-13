@@ -1136,6 +1136,13 @@ REFERENCE Sample;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  GNSS measurement sample reference type.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE MeasSample;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Defines the maximum length of the satellite vehicle information.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3911,3 +3918,297 @@ FUNCTION le_result_t  GetLeapSecondsUncertainty
     Sample positionSampleRef  IN,       ///< Position sample reference.
     uint8  leapSecondsUncPtr OUT        ///< The leap seconds uncertainty in unit of seconds.
 ) = 86;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Indicates the RF automatic gain control status.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM AgcStatus {
+  AGC_STATUS_UNKNOWN = 0,                            ///< AGC status is unknown.
+  AGC_STATUS_NO_SATURATION = 1,                      ///< Not saturated.
+  AGC_STATUS_FRONT_END_GAIN_MAXIMUM_SATURATION = 2,  ///< Front end gain is at maximum saturation.
+  AGC_STATUS_FRONT_END_GAIN_MINIMUM_SATURATION = 3   ///< Front end gain is at minimum saturation.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Specifies the GNSS multipath indicator state.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM GnssMeasurementsMultipathIndicator {
+    UNKNOWN_INDICATOR     = 0,                    ///< Multipath indicator is unknown.
+    PRESENT               = 1,                    ///< Multipath indicator is present.
+    NOT_PRESENT           = 2                     ///< Multipath indicator is not present.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Specifies the valid fields in GnssMeasurementsData.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK GnssMeasurementsDataValidityType{
+    SV_ID_BIT,                                ///< Validity of svId.
+    SV_TYPE_BIT,                              ///< Validity of svType.
+    STATE_BIT,                                ///< Validity of stateMask.
+    RECEIVED_SV_TIME_BIT,                     ///< Validity of receivedSvTimeNs and receivedSvTimeSubNs.
+    RECEIVED_SV_TIME_UNCERTAINTY_BIT,         ///< Validity of receivedSvTimeUncertaintyNs.
+    CARRIER_TO_NOISE_BIT,                     ///< Validity of carrierToNoiseDbHz.
+    PSEUDORANGE_RATE_BIT,                     ///< Validity of pseudorangeRateMps.
+    PSEUDORANGE_RATE_UNCERTAINTY_BIT,         ///< Validity of pseudorangeRateUncertaintyMps.
+    ADR_STATE_BIT,                            ///< Validity of adrStateMask.
+    ADR_BIT,                                  ///< Validity of adrMeters.
+    ADR_UNCERTAINTY_BIT,                      ///< Validity of adrUncertaintyMeters.
+    CARRIER_FREQUENCY_BIT,                    ///< Validity of carrierFrequencyHz.
+    CARRIER_CYCLES_BIT,                       ///< Validity of carrierCycles.
+    CARRIER_PHASE_BIT,                        ///< Validity of carrierPhase.
+    CARRIER_PHASE_UNCERTAINTY_BIT,            ///< Validity of carrierPhaseUncertainty.
+    MULTIPATH_INDICATOR_BIT,                  ///< Validity of multipathIndicator.
+    SIGNAL_TO_NOISE_RATIO_BIT,                ///< Validity of signalToNoiseRatioDb.
+    AUTOMATIC_GAIN_CONTROL_BIT,               ///< Validity of agcLevelDb.
+    GNSS_SIGNAL_TYPE,                         ///< Validity of signal type.
+    BASEBAND_CARRIER_TO_NOISE,                ///< Validity of basebandCarrierToNoise.
+    FULL_ISB,                                 ///< Validity of fullInterSignalBias.
+    FULL_ISB_UNCERTAINTY                      ///< Validity of fullInterSignalBiasUncertainty.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Specifies the GNSS measurement state.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM GnssMeasurementsStateValidityType {
+    UNKNOWN_BIT                 = 0,      ///< State is unknown.
+    CODE_LOCK_BIT               = 1,      ///< State is code lock.
+    BIT_SYNC_BIT                = 2,      ///< State is bit sync.
+    SUBFRAME_SYNC_BIT           = 4,      ///< State is subframe sync.
+    TOW_DECODED_BIT             = 8,      ///< State is tow decoded.
+    MSEC_AMBIGUOUS_BIT          = 16,     ///< State is msec ambiguous.
+    SYMBOL_SYNC_BIT             = 32,     ///< State is symbol sync.
+    GLO_STRING_SYNC_BIT         = 64,     ///< State is GLONASS string sync.
+    GLO_TOD_DECODED_BIT         = 128,    ///< State is GLONASS TOD decoded.
+    BDS_D2_BIT_SYNC_BIT         = 256,    ///< State is BDS D2 bit sync.
+    BDS_D2_SUBFRAME_SYNC_BIT    = 512,    ///< State is BDS D2 subframe sync.
+    GAL_E1BC_CODE_LOCK_BIT      = 1024,   ///< State is Galileo E1BC code lock.
+    GAL_E1C_2ND_CODE_LOCK_BIT   = 2048,   ///< State is Galileo E1C second code lock.
+    GAL_E1B_PAGE_SYNC_BIT       = 4096,   ///< State is Galileo E1B page sync.
+    SBAS_SYNC_BIT               = 8192    ///< State is SBAS sync.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Specifies the accumulated delta range state.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM GnssMeasurementsAdrStateValidityType {
+    UNKNOWN_STATE   = 0,    ///< State is unknown.
+    VALID_BIT       = 1,    ///< State is valid.
+    RESET_BIT       = 2,    ///< State is reset.
+    CYCLE_SLIP_BIT  = 4     ///< State is cycle slip.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Specifies the valid fields in GnssMeasurementsClock.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK GnssMeasurementsClockValidityType {
+    LEAP_SECOND_BIT,                    ///< Validity of leapSecond.
+    TIME_BIT,                           ///< Validity of timeNs.
+    TIME_UNCERTAINTY_BIT,               ///< Validity of timeUncertaintyNs.
+    FULL_BIAS_BIT,                      ///< Validity of fullBiasNs.
+    BIAS_BIT,                           ///< Validity of biasNs.
+    BIAS_UNCERTAINTY_BIT,               ///< Validity of biasUncertaintyNs.
+    DRIFT_BIT,                          ///< Validity of driftNsps.
+    DRIFT_UNCERTAINTY_BIT,              ///< Validity of driftUncertaintyNsps.
+    HW_CLOCK_DISCONTINUITY_COUNT_BIT,   ///< Validity of hwClockDiscontinuityCount.
+    ELAPSED_REAL_TIME_BIT,              ///< Validity of realTime.
+    ELAPSED_REAL_TIME_UNC_BIT,          ///< Validity of realTimeUncertainty.
+    ELAPSED_GPTP_TIME_BIT,              ///< Validity of gPTPTime.
+    ELAPSED_GPTP_TIME_UNC_BIT           ///< Validity of gPTPTimeUncertainty.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Specifies the GNSS measurements clock.
+ * 40 bytes reserved for future usage.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT ClockData {
+    int16 leapSecond;                 ///< Leap second, in unit of seconds.
+    int64 timeNs;                     ///< Time, in unit of nanoseconds.
+    double timeUncertaintyNs;         ///< Time uncertainty, in unit of nanoseconds.
+    int64 fullBiasNs;                 ///< Full bias, in unit of nanoseconds.
+    double biasNs;                    ///< Sub-nanoseconds bias, in unit of nanoseconds.
+    double biasUncertaintyNs;         ///< Bias uncertainty, in unit of nanoseconds.
+    double driftNsps;                 ///< Clock drift, in unit of nanoseconds/second.
+    double driftUncertaintyNsps;      ///< Clock drift uncertainty, in unit of nanoseconds/second.
+    uint32 hwClockDiscontinuityCount; ///< Hardware clock discontinuity count.
+    uint64 elapsedRealTime;           ///< Elapsed time since boot, in unit of nanoseconds.
+    uint64 elapsedRealTimeUnc;        ///< Uncertainty of elapsedRealTime, in unit of nanoseconds.
+    uint64 elapsedgPTPTime;           ///< gPTP since boot, in unit of nanoseconds.
+    uint64 elapsedgPTPTimeUnc;        ///< Uncertainty of elapsedgPTPTime, in unit of nanoseconds.
+    uint64 reserved0;                 ///< Bytes reserved for future usage.
+    uint64 reserved1;                 ///< Bytes reserved for future usage.
+    uint64 reserved2;                 ///< Bytes reserved for future usage.
+    uint64 reserved3;                 ///< Bytes reserved for future usage.
+    uint64 reserved4;                 ///< Bytes reserved for future usage.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Specifies the signal measurement information such as satellite vehicle pseudo range,
+ *  satellite vehicle time, carrier phase measurement etc. from GNSS positioning engine.
+ *  40 bytes reserved for future usage.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT MeasurementsData {
+    int16 svId;                                              ///< Specifies satellite vehicle ID number.
+    SBConstellation svType;                                  ///< SV constellation type.
+    double timeOffsetNs;                                     ///< Time offset in unit of nanoseconds.
+    GnssMeasurementsStateValidityType stateMask;             ///< GNSS measurement state.
+    int64 receivedSvTimeNs;                                  ///< Received GNSS time of the week in nanoseconds.
+    double receivedSvTimeSubNs;                              ///< Sub nanoseconds portion of the received GNSS time of the week.
+    int64 receivedSvTimeUncertaintyNs;                       ///< All SV times in the current measurement block are already
+                                                             ///< propagated to a common reference time epoch, in unit of nanoseconds.
+    double carrierToNoiseDbHz;                               ///< Signal strength, carrier to noise ratio, in unit of dB-Hz.
+    double pseudorangeRateMps;                               ///< Uncorrected pseudorange rate, in unit of metres/second.
+    double pseudorangeRateUncertaintyMps;                    ///< Uncorrected pseudorange rate uncertainty, in unit of meters/second.
+    GnssMeasurementsAdrStateValidityType adrStateMask;       ///< GnssMeasurementsAdrStateValidityType.
+    double adrMeters;                                        ///< Accumulated delta range, in unit of meters.
+    double adrUncertaintyMeters;                             ///< Accumulated delta range uncertainty, in unit of meters.
+    double carrierFrequencyHz;                               ///< Carrier frequency of the tracked signal, in unit of Hertz.
+    int64 carrierCycles;                                     ///< The number of full carrier cycles between the receiver and the satellite.
+    double carrierPhase;                                     ///< The RF carrier phase that the receiver has detected.
+    double carrierPhaseUncertainty;                          ///< The RF carrier phase uncertainty.
+    GnssMeasurementsMultipathIndicator multipathIndicator;   ///< Multipath indicator state.
+    double signalToNoiseRatioDb;                             ///< Signal to noise ratio, in unit of dB.
+    double agcLevelDb;                                       ///< Automatic gain control level, in unit of dB.
+    GnssSignalType gnssSignalType;                           ///< GnssSignalType mask.
+    double basebandCarrierToNoise;                           ///< Carrier-to-noise ratio of the signal measured at baseband, in unit of dB-Hz. 
+    double fullInterSignalBias;                              ///< The full inter-signal bias (ISB) in nanoseconds.
+                                                             ///< This value is the sum of the estimated receiver-side and the
+                                                             ///< space-segment-side inter-system bias, inter-frequency bias and inter-code bias.
+    double fullInterSignalBiasUncertainty;                   ///< Uncertainty associated with the full inter-signal bias in nanoseconds.
+    double reserved0;                                        ///< Bytes reserved for future usage.
+    double reserved1;                                        ///< Bytes reserved for future usage.
+    double reserved2;                                        ///< Bytes reserved for future usage.
+    double reserved3;                                        ///< Bytes reserved for future usage.
+    double reserved4;                                        ///< Bytes reserved for future usage.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for measurement information.
+ *
+ * @param[in] measSampleRef Measurement sample reference.
+ * @param[in] contextPtr Context pointer.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER MeasurementHandler
+(
+ MeasSample measSampleRef ///< Measurement sample reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on position.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT Measurement
+(
+ MeasurementHandler handler
+) = (87,88);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the frequency for GNSS measurements generated at NHz or not per client session.
+ * For NHz, we only support 10-NHz here for the HIGH_RATE_MEASUREMENT and 1HZ for MEASUREMENT in GnssReportType.
+ *
+ * @return
+ *  - LE_FAULT         Failed to get the NHz value.
+ *  - LE_OK            Succeeded.
+ *
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t  GetIsNHz
+(
+    MeasSample measSampleRef  IN,    ///< Measurement sample reference.
+    bool  isNHZ OUT                  ///< The frequency for GNSS measurements generated at NHz or not.
+) = 89;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the values of the GnssMeasurements Clock validity mask per client session.
+ *
+ * @return
+ *  - LE_FAULT         Failed to get the validity mask of the measurement clock data.
+ *  - LE_OK            Succeeded.
+ *
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t  GetClockValidityMask
+(
+    MeasSample measSampleRef  IN,       ///< Measurement sample reference.
+    uint32 clockValidityMask OUT        ///< clockValidityMask.
+) = 90;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the GNSS measurements clock data per client session.
+ *
+ * @return
+ *  - LE_FAULT         Failed to get the clock data.
+ *  - LE_OK            Succeeded.
+ *
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetClockData
+(
+    MeasSample measSampleRef  IN,      ///< Measurement sample reference.
+    ClockData clockData  OUT           ///< GnssMeasurementClockData.
+) = 91;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the GNSS measurements data per client session.
+ *
+ * @return
+ *  - LE_FAULT         Failed to get the measurements data.
+ *  - LE_OK            Succeeded.
+ *
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetMeasurementsData
+(
+    MeasSample measSampleRef  IN,                        ///< Measurement sample reference.
+    MeasurementsData measData[MEASUREMENT_INFO_MAX]  OUT ///< GnssMeasurementData.
+) = 92;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases the measurement sample as per client session.
+ *
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION ReleaseMeasSampleRef
+(
+    MeasSample MeasurementSampleRef IN        ///< Position sample reference.
+) = 93;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the values of GnssMeasurements clock validity mask per client session.
+ *
+ * @return
+ *  - LE_FAULT         Failed to get the validity mask of the measurement clock data.
+ *  - LE_OK            Succeeded.
+ *
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t  GetMeasDataValidityMask
+(
+    MeasSample measSampleRef  IN,                       ///< Measurement sample reference.
+    uint32 measDataValidityMask[MEASUREMENT_INFO_MAX] OUT  ///< GetMeasDataValidityMask.
+) = 97;

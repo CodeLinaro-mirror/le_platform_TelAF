@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -118,6 +118,10 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * GPIO pin name length.
@@ -148,6 +152,7 @@ ENUM State
  * @return
  *     - LE_OK           Succeeded.
  *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_OUT_OF_RANGE GPIO pin is not available.
  *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -156,7 +161,7 @@ FUNCTION le_result_t SetInput
     uint8    pinNum     IN,   ///< GPIO pin number.
     Polarity polarity   IN,   ///< Active-high or active-low.
     bool     lock       IN    ///< Set to True to lock this GPIO pin from being used by other clients.
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -166,13 +171,14 @@ FUNCTION le_result_t SetInput
  * @return
  *     - LE_OK           Succeeded.
  *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_OUT_OF_RANGE GPIO pin is not available.
  *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Activate(
     uint8    pinNum     IN,    ///< GPIO pin number.
     bool     lock       IN     ///< Set to True to lock this GPIO pin from being used by other clients.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -182,13 +188,14 @@ FUNCTION le_result_t Activate(
  * @return
  *     - LE_OK           Succeeded.
  *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_OUT_OF_RANGE GPIO pin is not available.
  *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Deactivate(
     uint8    pinNum     IN,    ///< GPIO pin number.
     bool     lock       IN     ///< Set to True to lock this GPIO pin from being used by other clients.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -205,10 +212,14 @@ FUNCTION le_result_t Deactivate(
 FUNCTION State Read(
     uint8    pinNum     IN,    ///< GPIO pin number.
     bool     lock       IN     ///< Set to True to lock this GPIO pin from being used by other clients.
-);
+) = 3;
 
 /**
  * State change event handler.
+ *
+ * @param[in] pinNum     Pin number of the state change triggered GPIO.
+ * @param[in] state      New state of the pin.
+ * @param[in] contextPtr Context pointer.
  */
 HANDLER ChangeCallback
 (
@@ -241,7 +252,7 @@ EVENT ChangeEvent
     Edge           trigger    IN,    ///< Change(s) that should trigger the callback to be called.
     bool           lock       IN,    ///< Set to True to lock this GPIO pin from being used by other clients.
     ChangeCallback handler           ///< The callback function.
-);
+) = (4,5);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -251,6 +262,7 @@ EVENT ChangeEvent
  * @return
  *     - LE_OK           Succeeded.
  *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_OUT_OF_RANGE GPIO pin is not available.
  *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -259,7 +271,7 @@ FUNCTION le_result_t SetEdgeSense
     uint8    pinNum     IN,    ///< GPIO pin number.
     Edge     trigger    IN,    ///< Change(s) that should trigger the callback to be called.
     bool     lock       IN     ///< Set to True to lock this GPIO pin from being used by other clients.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -268,13 +280,14 @@ FUNCTION le_result_t SetEdgeSense
  * @return
  *     - LE_OK           Succeeded.
  *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_OUT_OF_RANGE GPIO pin is not available.
  *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DisableEdgeSense(
     uint8    pinNum     IN,    ///< GPIO pin number.
     bool     lock       IN     ///< Set to True to lock this GPIO pin from being used by other clients.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -286,7 +299,7 @@ FUNCTION le_result_t DisableEdgeSense(
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsOutput(
     uint8    pinNum     IN    ///< GPIO pin number.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -298,20 +311,24 @@ FUNCTION bool IsOutput(
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsInput(
     uint8    pinNum     IN    ///< GPIO pin number.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Returns the I/O name.
  *
  * @return
- * Name in string format
+ *     - LE_OK              Succeeded.
+ *     - LE_BAD_PARAMETER   String name is NULL.
+ *     - LE_FAULT           GPIO driver is installed, but GetName is not implemented.
+ *     - LE_OVERFLOW        name array size is more than PIN_NAME_MAX_BYTE.
+ *     - LE_NOT_IMPLEMENTED GetName is not implemented by service.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetName(
     uint8   pinNum                  IN,     ///< GPIO pin number.
     string  name[PIN_NAME_MAX_BYTE] OUT     ///< I/O name as output
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -325,7 +342,7 @@ FUNCTION le_result_t GetName(
 //--------------------------------------------------------------------------------------------------
 FUNCTION Edge GetEdgeSense(
     uint8    pinNum     IN    ///< GPIO pin number.
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -337,7 +354,7 @@ FUNCTION Edge GetEdgeSense(
 //--------------------------------------------------------------------------------------------------
 FUNCTION Polarity GetPolarity(
     uint8    pinNum     IN    ///< GPIO pin number.
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -351,4 +368,4 @@ FUNCTION Polarity GetPolarity(
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsActive(
     uint8    pinNum     IN    ///< GPIO pin number.
-);
+) = 13;

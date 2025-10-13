@@ -295,6 +295,10 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 USETYPES taf_types.api;
 USETYPES taf_sim.api;
 REFERENCE Call;
@@ -565,6 +569,10 @@ ENUM HlapTimerType {
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for changes in eCall state.
+ *
+ * @param[in] ecallRef   Emergency call reference.
+ * @param[in] state      Emergency call state.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER StateChangeHandler
@@ -581,7 +589,7 @@ HANDLER StateChangeHandler
 EVENT StateChange
 (
     StateChangeHandler handler ///< State change handler for emergency calls.
-);
+) = (0,1);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -594,7 +602,7 @@ EVENT StateChange
 //-------------------------------------------------------------------------------------------------
 FUNCTION Call Create
 (
-);
+) = 2;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -605,7 +613,7 @@ FUNCTION Call Create
 FUNCTION Delete
 (
     Call ecallRef IN   ///< Emergency call reference.
-);
+) = 3;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -620,7 +628,7 @@ FUNCTION Delete
 FUNCTION le_result_t ForceOnlyMode
 (
      uint8              phoneId  IN     ///< Phone ID.
-);
+) = 4;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -636,7 +644,7 @@ FUNCTION le_result_t ForceOnlyMode
 FUNCTION le_result_t ForcePersistentOnlyMode
 (
      uint8              phoneId  IN     ///< Phone ID.
-);
+) = 5;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -651,7 +659,7 @@ FUNCTION le_result_t ForcePersistentOnlyMode
 FUNCTION le_result_t ExitOnlyMode
 (
      uint8              phoneId  IN     ///< Phone ID.
-);
+) = 6;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -667,7 +675,7 @@ FUNCTION le_result_t GetConfiguredOperationMode
 (
     uint8             phoneId  IN,     ///< Phone ID.
     OpMode             opMode  OUT     ///< Operating mode.
-);
+) = 7;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -683,7 +691,7 @@ FUNCTION le_result_t GetConfiguredOperationMode
 FUNCTION le_result_t SetMsdVersion
 (
     uint32 msdVersion IN
-);
+) = 8;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -699,7 +707,7 @@ FUNCTION le_result_t SetMsdVersion
 FUNCTION le_result_t GetMsdVersion
 (
     uint32 msdVer OUT    ///< MSD version as output.
-);
+) = 9;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -714,7 +722,7 @@ FUNCTION le_result_t GetMsdVersion
 FUNCTION le_result_t SetVehicleType
 (
     MsdVehicleType vehType   IN     ///< Vehicle type.
-);
+) = 10;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -730,7 +738,7 @@ FUNCTION le_result_t SetVehicleType
 FUNCTION le_result_t GetVehicleType
 (
     MsdVehicleType vehType   OUT  ///< Vehicle type as output.
-);
+) = 11;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -746,7 +754,7 @@ FUNCTION le_result_t GetVehicleType
 FUNCTION le_result_t SetVIN
 (
     string vin[MAX_VIN_LENGTH] IN    ///< Vehicle identification number.
-);
+) = 12;
 
 /**
  *  Gets the vehicle identification number.
@@ -760,7 +768,7 @@ FUNCTION le_result_t SetVIN
 FUNCTION le_result_t GetVIN
 (
     string vin[MAX_VIN_BYTES]  OUT    ///< Vehicle identification number as output.
-);
+) = 13;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -775,7 +783,7 @@ FUNCTION le_result_t GetVIN
 FUNCTION le_result_t SetPropulsionType
 (
     PropulsionStorageType propulsionType IN    ///< Vehicle propulsion storage type.
-);
+) = 14;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -790,7 +798,7 @@ FUNCTION le_result_t SetPropulsionType
 FUNCTION le_result_t GetPropulsionType
 (
     PropulsionStorageType propulsionType OUT    ///< Vehicle propulsion storage type as output.
-);
+) = 15;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -806,7 +814,7 @@ FUNCTION le_result_t GetPropulsionType
 FUNCTION le_result_t SetMsdTxMode
 (
     MsdTransmissionMode mode IN    ///< MSD transmission mode.
-);
+) = 16;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -822,7 +830,7 @@ FUNCTION le_result_t SetMsdTxMode
 FUNCTION le_result_t GetMsdTxMode
 (
     MsdTransmissionMode mode OUT    ///< MSD transmission mode as output.
-);
+) = 17;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -842,10 +850,10 @@ FUNCTION le_result_t SetMsdPosition
     int32 latitude   IN,   ///< Latitude value in ms.
     int32 longitude  IN,   ///< Longitude value in ms.
     int32 direction  IN    ///< The direction of the vehicle from magnetic north (0
-                           ///  to 358, clockwise) in 2-degrees unit. Valid range is
-                           ///  0 to 179. If the direction of travel is invalid or
-                           ///  unknown, the value 0xFF shall be used.
-);
+                           ///< to 358, clockwise) in 2-degrees unit. Valid range is
+                           ///< 0 to 179. If the direction of travel is invalid or
+                           ///< unknown, the value 0xFF shall be used.
+) = 18;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -871,7 +879,7 @@ FUNCTION le_result_t SetMsdPositionN1
                                 ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
                                 ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
                                 ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
-);
+) = 19;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -897,7 +905,7 @@ FUNCTION le_result_t SetMsdPositionN2
                                 ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
                                 ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
                                 ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
-);
+) = 20;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -916,7 +924,7 @@ FUNCTION le_result_t SetMsdPassengersCount
 (
     Call   ecallRef IN,        ///< SIM slot ID.
     uint32 passengersCount IN  ///< Passenger count.
-);
+) = 21;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -936,7 +944,7 @@ FUNCTION le_result_t SetMsdAdditionalData
     Call   ecallRef IN,               ///< eCall reference.
     string oid[MAX_OID_LENGTH] IN,    ///< Oid
     uint8  data[MAX_DATA_LENGTH] IN   ///< Data
-);
+) = 22;
 
 
 //-------------------------------------------------------------------------------------------------
@@ -955,7 +963,7 @@ FUNCTION le_result_t SetMsdAdditionalData
 FUNCTION le_result_t ResetMsdAdditionalData
 (
     Call  ecallRef IN               ///< eCall reference.
-);
+) = 23;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -974,7 +982,7 @@ FUNCTION le_result_t SetMsdEuroNCAPLocationOfImpact
 (
     Call  ecallRef IN,               ///< eCall reference.
     IILocations iiLocations IN       ///< Location of impact
-);
+) = 24;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -993,7 +1001,7 @@ FUNCTION le_result_t SetMsdEuroNCAPRolloverDetected
 (
     Call  ecallRef IN,               ///< eCall reference.
     bool  rolloverDetected IN        ///< Rollover detected
-);
+) = 25;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1011,7 +1019,7 @@ FUNCTION le_result_t SetMsdEuroNCAPRolloverDetected
 FUNCTION le_result_t ResetMsdEuroNCAPRolloverDetected
 (
     Call  ecallRef IN               ///< eCall reference.
-);
+) = 26;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1032,7 +1040,7 @@ FUNCTION le_result_t SetMsdEuroNCAPIIDeltaV
     uint8  rangeLimit IN,             ///< Range limit
     int16  deltaVX IN,                ///< DeltaVX
     int16  deltaVY IN                 ///< DeltaVY
-);
+) = 27;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1050,7 +1058,7 @@ FUNCTION le_result_t SetMsdTimeStamp
 (
     Call   ecallRef IN,               ///< eCall reference.
     uint32 timeStamp IN               ///< TimeStamp in unit of seconds.
-);
+) = 28;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1067,7 +1075,7 @@ FUNCTION le_result_t SetMsdTimeStamp
 FUNCTION le_result_t ResetMsdTimeStamp
 (
     Call   ecallRef IN                ///< eCall reference.
-);
+) = 29;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1086,7 +1094,7 @@ FUNCTION le_result_t ImportMsd
 (
     Call  ecallRef IN,              ///< eCall reference.
     uint8 msd[MAX_MSD_LENGTH] IN    ///< MSD.
-);
+) =30;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1106,7 +1114,7 @@ FUNCTION le_result_t ExportMsd
 (
     Call  ecallRef IN,              ///< eCall reference.
     uint8 msd[MAX_MSD_LENGTH] OUT   ///< MSD output.
-);
+) =31;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1122,7 +1130,7 @@ FUNCTION le_result_t ExportMsd
 FUNCTION le_result_t SendMsd
 (
     Call   ecallRef   IN    ///< eCall reference.
-);
+) =32;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1141,7 +1149,7 @@ FUNCTION le_result_t SendMsd
 FUNCTION le_result_t StartAutomatic
 (
     Call   ecallRef  IN   ///< eCall reference.
-);
+) =33;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1160,7 +1168,7 @@ FUNCTION le_result_t StartAutomatic
 FUNCTION le_result_t StartManual
 (
     Call ecallRef IN      ///< eCall reference.
-);
+) =34;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1177,7 +1185,7 @@ FUNCTION le_result_t StartManual
 FUNCTION le_result_t StartTest
 (
     Call ecallRef IN      ///< eCall reference.
-);
+) =35;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1197,11 +1205,11 @@ FUNCTION le_result_t StartPrivate
     Call ecallRef IN,      ///< eCall reference.
     string psap[taf_sim.PHONE_NUM_MAX_LEN] IN,         ///< Public Safely Answering Point number.
     string contentType[CONTENT_TYPE_MAX_LENGTH] IN,    ///< Type of data being transmitted and
-                                                       ///  should be filled as per RFC 8147 i.e
-                                                       ///  MSD. The maximum length is 128 bytes.
+                                                       ///< should be filled as per RFC 8147 i.e
+                                                       ///< MSD. The maximum length is 128 bytes.
     string acceptInfo[ACCEPT_INFO_MAX_LENGTH]   IN     ///< SIP Accept header. The maximum length
-                                                       ///  is 128 bytes.
-);
+                                                       ///< is 128 bytes.
+) =36;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1217,7 +1225,7 @@ FUNCTION le_result_t StartPrivate
 FUNCTION le_result_t End
 (
     Call ecallRef IN      ///< eCall reference.
-);
+) =37;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1233,7 +1241,7 @@ FUNCTION le_result_t End
 FUNCTION le_result_t Answer
 (
     Call ecallRef IN      ///< eCall reference.
-);
+) =38;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1248,7 +1256,7 @@ FUNCTION le_result_t Answer
 FUNCTION State GetState
 (
     Call ecallRef IN      ///< eCall reference.
-);
+) =39;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1264,7 +1272,7 @@ FUNCTION State GetState
 FUNCTION  Type GetType
 (
     Call ecallRef IN       ///< eCall reference.
-);
+) =40;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1280,7 +1288,7 @@ FUNCTION  Type GetType
 FUNCTION int32 GetPlatformSpecificTerminationCode
 (
     Call ecallRef IN      ///< eCall reference.
-);
+) =41;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -1295,7 +1303,7 @@ FUNCTION int32 GetPlatformSpecificTerminationCode
 FUNCTION TerminationReason GetTerminationReason
 (
     Call ecallRef IN        ///< eCall reference.
-);
+) =42;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1318,7 +1326,7 @@ FUNCTION TerminationReason GetTerminationReason
  FUNCTION le_result_t SetPsapNumber
  (
      string psap[taf_sim.PHONE_NUM_MAX_LEN] IN ///< Public Safely Answering Point number
- );
+ ) =43;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1340,7 +1348,7 @@ FUNCTION TerminationReason GetTerminationReason
 FUNCTION le_result_t GetPsapNumber
 (
     string psap[taf_sim.PHONE_NUM_MAX_LEN] OUT ///< PSAP number.
-);
+) =44;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1355,7 +1363,7 @@ FUNCTION le_result_t GetPsapNumber
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t UseUSimNumbers
 (
-);
+) =45;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1373,7 +1381,7 @@ FUNCTION le_result_t UseUSimNumbers
 FUNCTION le_result_t SetNadDeregistrationTime
 (
     uint16 deregTime IN ///< The eCall deregistration time (in minutes).
-);
+) =46;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1387,7 +1395,7 @@ FUNCTION le_result_t SetNadDeregistrationTime
 FUNCTION le_result_t GetNadDeregistrationTime
 (
     uint16    deregTime  OUT  ///< The eCall deregistration time (in minutes).
-);
+) =47;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1403,7 +1411,7 @@ FUNCTION le_result_t GetNadDeregistrationTime
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t TerminateRegistration
 (
-);
+) =48;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1421,7 +1429,7 @@ FUNCTION le_result_t TerminateRegistration
 FUNCTION le_result_t SetNadClearDownFallbackTime
 (
     uint16 ccftTime IN ///< The eCall clear down fallback time (in minutes).
-);
+) =49;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1435,7 +1443,7 @@ FUNCTION le_result_t SetNadClearDownFallbackTime
 FUNCTION le_result_t GetNadClearDownFallbackTime
 (
     uint16 ccftTime OUT ///< The eCall clear down fallback time (in minutes).
-);
+) =50;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1453,7 +1461,7 @@ FUNCTION le_result_t GetNadClearDownFallbackTime
 FUNCTION le_result_t SetNadMinNetworkRegistrationTime
 (
     uint16 minNwRegTime IN ///< The eCall minimum network registration time (in minutes).
-);
+) =51;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1467,7 +1475,7 @@ FUNCTION le_result_t SetNadMinNetworkRegistrationTime
 FUNCTION le_result_t GetNadMinNetworkRegistrationTime
 (
     uint16 minNwRegTime OUT ///< The eCall minimum network registration time (in minutes).
-);
+) =52;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1484,7 +1492,7 @@ FUNCTION le_result_t GetHlapTimerState
     HlapTimerType timer IN,          ///<HLAP timer Type.
     HlapTimerStatus timerStatus OUT, ///<The status of the HLAP timer.
     uint16 elapsedTime OUT            ///<The elapsed time of the HLAP timer in unit of seconds.
-);
+) =53;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1499,7 +1507,7 @@ FUNCTION le_result_t IsInProgress
 (
     Call ecallRef IN,       ///< eCall reference.
     bool isInProgress OUT   ///eCall is in progress or not.
-);
+) =54;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1514,7 +1522,7 @@ FUNCTION le_result_t IsInProgress
 FUNCTION le_result_t SetInitialDialAttempts
 (
     uint8 attempts IN   ///< The number of dial attempts
-);
+) =55;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1531,4 +1539,4 @@ FUNCTION le_result_t SetInitialDialAttempts
 FUNCTION le_result_t SetInitialDialIntervalBetweenDialAttempts
 (
     uint16 interval[MAX_DIAL_ATTEMPTS_LENGTH] IN   ///< Interval in unit of seconds.
-);
+) =56;

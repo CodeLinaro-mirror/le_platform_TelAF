@@ -12,6 +12,7 @@ requires:
     {
         $LEGATO_ROOT/components/watchdogChain
         $TELAF_ROOT/components/stub/taf_pa_mrc
+        $TELAF_ROOT/components/stub/taf_prop_hms
     }
 
     lib:
@@ -25,6 +26,7 @@ cxxflags:
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
     -I$TELAF_ROOT/components/stub/taf_pa_mrc
+    -I$TELAF_ROOT/components/stub/taf_prop_hms
     -ltelux_platform
 }
 

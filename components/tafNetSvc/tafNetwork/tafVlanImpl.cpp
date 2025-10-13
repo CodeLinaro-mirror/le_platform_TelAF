@@ -443,72 +443,6 @@ taf_Vlan &taf_Vlan::GetInstance()
     return instance;
 }
 
-/*======================================================================
-
- FUNCTION        tafVlanCallback::removeVlanResponse
-
- DESCRIPTION     Call back function for removing vlan.
-
- DEPENDENCIES    The initialization of Vlan.
-
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
-
- RETURN VALUE    None.
-
- SIDE EFFECTS
-
-======================================================================*/
-void tafVlanCallback::removeVlanResponse(telux::common::ErrorCode error)
-{
-    le_result_t result = LE_OK;
-    auto &tafVlan = taf_Vlan::GetInstance();
-
-    if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-        result = LE_FAULT;
-    }
-    else
-    {
-        LE_DEBUG("Request processed successfully \n");
-    }
-
-    tafVlan.VlanSyncPromise.set_value(result);
-}
-
-/*======================================================================
-
- FUNCTION        tafVlanCallback::createVlanResponse
-
- DESCRIPTION     Call back function for create vlan.
-
- DEPENDENCIES    The initialization of Vlan.
-
- PARAMETERS      [IN] isAccelerated: Is accelerated.
-                 [IN] telux::common::ErrorCode error: The error code.
-
- RETURN VALUE    None.
-
- SIDE EFFECTS
-
-======================================================================*/
-void tafVlanCallback::createVlanResponse(bool isAccelerated, telux::common::ErrorCode error)
-{
-    le_result_t result = LE_OK;
-    auto &tafVlan = taf_Vlan::GetInstance();
-
-    if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-        result = LE_FAULT;
-    }
-    else
-    {
-        LE_DEBUG("Request processed successfully \n");
-    }
-
-    tafVlan.VlanSyncPromise.set_value(result);
-}
 
 /*======================================================================
 
@@ -542,39 +476,6 @@ void tafVlanCallback::onVlanListResponse(const std::vector<telux::data::VlanConf
 }
 
 tafVlanMappingCallback::tafVlanMappingCallback(SlotId slot) : slotId(slot) {}
-
-/*======================================================================
-
- FUNCTION        tafVlanMappingCallback::onResponseCallback
-
- DESCRIPTION     Call back function for mapping profile.
-
- DEPENDENCIES    The initialization of Vlan.
-
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
-
- RETURN VALUE    None.
-
- SIDE EFFECTS
-
-======================================================================*/
-void tafVlanMappingCallback::onResponseCallback(telux::common::ErrorCode error)
-{
-    le_result_t result = LE_OK;
-    auto &tafVlan = taf_Vlan::GetInstance();
-
-    if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-        result = LE_FAULT;
-    }
-    else
-    {
-        LE_DEBUG("Request processed successfully \n");
-    }
-
-    tafVlan.VlanSyncPromise.set_value(result);
-}
 
 
 /*======================================================================
@@ -1010,18 +911,42 @@ le_result_t taf_Vlan::AddVlanInterface
     if(interfacePresent)
         return LE_DUPLICATE;
 
-    VlanSyncPromise = std::promise<le_result_t>();
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
 
-    std::shared_ptr<tafVlanCallback> addVlanIfCb = std::make_shared<tafVlanCallback>();
+    auto addVlanRespCb = [promisePtr](bool isAccelerated, telux::common::ErrorCode error)
+    {
+        try
+        {
+          if (error != telux::common::ErrorCode::SUCCESS)
+          {
+              LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
+              promisePtr->set_value(LE_FAULT);
+          }
+          else
+          {
+               LE_DEBUG("Request processed successfully \n");
+               promisePtr->set_value(LE_OK);
+          }
+      }
+      catch (const std::future_error& e)
+      {
+          LE_ERROR("Future error in callback: %s", e.what());
+      }
+      catch (const std::exception& e)
+      {
+         LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+         LE_ERROR("Unknown error in VLAN callback.");
+      }
+   };
 
-    auto  addVlanIfRespCb = std::bind(&tafVlanCallback::createVlanResponse, addVlanIfCb,
-                                          std::placeholders::_1, std::placeholders::_2);
-
-    Status status = vlanManager->createVlan(vconfig, addVlanIfRespCb);
+    Status status = vlanManager->createVlan(vconfig, addVlanRespCb);
 
     if (status == Status::SUCCESS)
     {
-        std::future<le_result_t> futureResult = VlanSyncPromise.get_future();
+        std::future<le_result_t> futureResult = promisePtr->get_future();
         std::future_status waitStatus = futureResult.wait_for(span);
 
         if (std::future_status::timeout == waitStatus)
@@ -1311,19 +1236,43 @@ le_result_t taf_Vlan::RemoveVlanInterface
 
     interfaceType=(telux::data::InterfaceType) ifType;
 
-    VlanSyncPromise = std::promise<le_result_t>();
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
 
-    std::shared_ptr<tafVlanCallback> removeVlanIfCb = std::make_shared<tafVlanCallback>();
-
-    auto  removeVlanIfRespCb = std::bind(&tafVlanCallback::removeVlanResponse,
-                                             removeVlanIfCb, std::placeholders::_1);
+    auto removeVlanIfRespCb = [promisePtr](telux::common::ErrorCode error)
+    {
+        try
+        {
+         if (error != telux::common::ErrorCode::SUCCESS)
+         {
+             LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
+             promisePtr->set_value(LE_FAULT);
+         }
+         else
+         {
+             LE_DEBUG("Request processed successfully \n");
+             promisePtr->set_value(LE_OK);
+         }
+      }
+      catch (const std::future_error& e)
+      {
+          LE_ERROR("Future error in callback: %s", e.what());
+      }
+      catch (const std::exception& e)
+      {
+         LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+         LE_ERROR("Unknown error in VLAN callback.");
+      }
+   };
 
     Status status = vlanManager->removeVlan(vlanPtr->vlanId, interfaceType,
                                                   removeVlanIfRespCb);
 
     if (status == Status::SUCCESS)
     {
-        std::future<le_result_t> futureResult = VlanSyncPromise.get_future();
+        std::future<le_result_t> futureResult = promisePtr->get_future();
         std::future_status waitStatus = futureResult.wait_for(span);
 
         if (std::future_status::timeout == waitStatus)
@@ -2307,17 +2256,13 @@ le_result_t taf_Vlan::CleanVlanInterfaceListRef
 ======================================================================*/
 le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint8_t slotId, uint32_t profileId)
 {
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = (SlotId)slotId;
-#endif
 
     le_result_t result;
     uint16_t vlanId=0;
     std::chrono::seconds span(OPERATION_TIMEOUT);
 
     TAF_ERROR_IF_RET_VAL(vlanRef == NULL , LE_BAD_PARAMETER, "vlanRef is null");
-
-    VlanSyncPromise = std::promise<le_result_t>();
 
    // fix telsdk bug:when the profile is already bound with VLAN,bindWithProfile api from telsdk
    // always return OK
@@ -2332,19 +2277,42 @@ le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint8_t slo
     TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "Vlan not found");
     vlanId = vlanPtr->vlanId;
 
-    std::shared_ptr<tafVlanMappingCallback> bindVlanWithProfileCb =
-                                                   std::make_shared<tafVlanMappingCallback>(slot);
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
 
-    auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
-                                                bindVlanWithProfileCb, std::placeholders::_1);
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    Status status = vlanManager->bindWithProfile(profileId, vlanId, bindVlanWithProfileRespCb,slot);
-#else
-    Status status = vlanManager->bindWithProfile(profileId, vlanId, bindVlanWithProfileRespCb);
-#endif
+    auto bindVlanRespCb = [promisePtr](telux::common::ErrorCode error)
+    {
+        try
+        {
+            if (error != telux::common::ErrorCode::SUCCESS)
+            {
+                LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+            else
+            {
+                LE_DEBUG("Request processed successfully \n");
+                promisePtr->set_value(LE_OK);
+            }
+      }
+      catch (const std::future_error& e)
+      {
+          LE_ERROR("Future error in callback: %s", e.what());
+      }
+      catch (const std::exception& e)
+      {
+          LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+          LE_ERROR("Unknown error in VLAN callback.");
+      }
+   };
+
+    Status status = vlanManager->bindWithProfile(profileId, vlanId, bindVlanRespCb,slot);
+
     if (status == Status::SUCCESS)
     {
-        std::future<le_result_t> futureResult = VlanSyncPromise.get_future();
+        std::future<le_result_t> futureResult = promisePtr->get_future();
         std::future_status waitStatus = futureResult.wait_for(span);
 
         if (std::future_status::timeout == waitStatus)
@@ -2398,8 +2366,6 @@ le_result_t taf_Vlan::BindVlanWithBackhaul(taf_net_VlanRef_t vlanRef)
 
     TAF_ERROR_IF_RET_VAL(vlanRef == NULL , LE_BAD_PARAMETER, "vlanRef is null");
 
-    VlanSyncPromise = std::promise<le_result_t>();
-
     taf_Vlan_t* vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
     TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "Vlan not found");
 
@@ -2429,11 +2395,37 @@ le_result_t taf_Vlan::BindVlanWithBackhaul(taf_net_VlanRef_t vlanRef)
     }
 
     vlanId = vlanPtr->vlanId;
-    std::shared_ptr<tafVlanMappingCallback> bindVlanWithProfileCb =
-                                                   std::make_shared<tafVlanMappingCallback>(slot);
 
-    auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
-                                                bindVlanWithProfileCb, std::placeholders::_1);
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+
+    auto bindVlanRespCb = [promisePtr](telux::common::ErrorCode error)
+    {
+        try
+        {
+            if (error != telux::common::ErrorCode::SUCCESS)
+            {
+                LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+            else
+            {
+                LE_DEBUG("Request processed successfully \n");
+                promisePtr->set_value(LE_OK);
+            }
+      }
+      catch (const std::future_error& e)
+      {
+          LE_ERROR("Future error in callback: %s", e.what());
+      }
+      catch (const std::exception& e)
+      {
+          LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+          LE_ERROR("Unknown error in VLAN callback.");
+      }
+   };
 
     vlanBind.vlanId = vlanId;
 
@@ -2459,11 +2451,11 @@ le_result_t taf_Vlan::BindVlanWithBackhaul(taf_net_VlanRef_t vlanRef)
             return LE_BAD_PARAMETER;
     }
 
-    Status status = vlanManager->bindToBackhaul(vlanBind, bindVlanWithProfileRespCb);
+    Status status = vlanManager->bindToBackhaul(vlanBind, bindVlanRespCb);
 
     if (status == Status::SUCCESS)
     {
-        std::future<le_result_t> futureResult = VlanSyncPromise.get_future();
+        std::future<le_result_t> futureResult = promisePtr->get_future();
         std::future_status waitStatus = futureResult.wait_for(span);
 
         if (std::future_status::timeout == waitStatus)
@@ -2516,8 +2508,6 @@ le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
 
     TAF_ERROR_IF_RET_VAL(vlanRef == NULL , LE_BAD_PARAMETER, "vlanRef is null");
 
-    VlanSyncPromise = std::promise<le_result_t>();
-
     taf_Vlan_t* vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
     TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
     vlanId = vlanPtr->vlanId;
@@ -2528,21 +2518,43 @@ le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting slotId and profileId failed");
 
-    std::shared_ptr<tafVlanMappingCallback> bindVlanWithProfileCb =
-                                          std::make_shared<tafVlanMappingCallback>((SlotId)slotId);
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
 
-    auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
-                                                bindVlanWithProfileCb, std::placeholders::_1);
+    auto unbindVlanRespCb = [promisePtr](telux::common::ErrorCode error)
+    {
+        try
+        {
+            if (error != telux::common::ErrorCode::SUCCESS)
+            {
+                LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+            else
+            {
+                LE_DEBUG("Request processed successfully \n");
+                promisePtr->set_value(LE_OK);
+            }
+      }
+      catch (const std::future_error& e)
+      {
+          LE_ERROR("Future error in callback: %s", e.what());
+      }
+      catch (const std::exception& e)
+      {
+          LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+          LE_ERROR("Unknown error in VLAN callback.");
+      }
+   };
 
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = vlanManager->unbindFromProfile(profileId, vlanId,
-                                                   bindVlanWithProfileRespCb, (SlotId)slotId);
-#else
-    Status status = vlanManager->unbindFromProfile(profileId, vlanId, bindVlanWithProfileRespCb);
-#endif
+                                                   unbindVlanRespCb, (SlotId)slotId);
+
     if (status == Status::SUCCESS)
     {
-        std::future<le_result_t> futureResult = VlanSyncPromise.get_future();
+        std::future<le_result_t> futureResult = promisePtr->get_future();
         std::future_status waitStatus = futureResult.wait_for(span);
 
         if (std::future_status::timeout == waitStatus)
@@ -2597,8 +2609,6 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
 
     TAF_ERROR_IF_RET_VAL(vlanRef == NULL , LE_BAD_PARAMETER, "vlanRef is null");
 
-    VlanSyncPromise = std::promise<le_result_t>();
-
     taf_Vlan_t* vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
     TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
     vlanId = vlanPtr->vlanId;
@@ -2624,11 +2634,37 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
         vlanBind.bhInfo.vlanId = bhvlanid;
     }
 
-    std::shared_ptr<tafVlanMappingCallback> bindVlanWithProfileCb =
-                                 std::make_shared<tafVlanMappingCallback>(slot);
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
 
-    auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
-                                                bindVlanWithProfileCb, std::placeholders::_1);
+    auto unbindVlanRespCb = [promisePtr](telux::common::ErrorCode error)
+    {
+        try
+        {
+            if (error != telux::common::ErrorCode::SUCCESS)
+            {
+                LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+            else
+            {
+                LE_DEBUG("Request processed successfully \n");
+                promisePtr->set_value(LE_OK);
+            }
+      }
+      catch (const std::future_error& e)
+      {
+          LE_ERROR("Future error in callback: %s", e.what());
+      }
+      catch (const std::exception& e)
+      {
+          LE_ERROR("Exception in callback: %s", e.what());
+      }
+      catch (...)
+      {
+          LE_ERROR("Unknown error in VLAN callback.");
+      }
+   };
+
     vlanBind.vlanId = vlanId;
 
     switch (backhaulType)
@@ -2653,11 +2689,11 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
             return LE_BAD_PARAMETER;
     }
 
-    Status status = vlanManager->unbindFromBackhaul(vlanBind,bindVlanWithProfileRespCb);
+    Status status = vlanManager->unbindFromBackhaul(vlanBind,unbindVlanRespCb);
 
     if (status == Status::SUCCESS)
     {
-        std::future<le_result_t> futureResult = VlanSyncPromise.get_future();
+        std::future<le_result_t> futureResult = promisePtr->get_future();
         std::future_status waitStatus = futureResult.wait_for(span);
 
         if (std::future_status::timeout == waitStatus)
@@ -2857,13 +2893,10 @@ le_result_t taf_Vlan::GetBoundSlotIdProfileIdFromVlan(uint16_t vlanId, uint8_t* 
 ======================================================================*/
 le_result_t taf_Vlan::GetBindingInfo(uint8_t slotId)
 {
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = SlotId(slotId);
-#endif
+
     TAF_ERROR_IF_RET_VAL(vlanManager == NULL, LE_FAULT, "vlanManager is null");
     std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-
 
     std::shared_ptr<tafVlanMappingCallback> vlanMappingCb =
                                                      std::make_shared<tafVlanMappingCallback>(slot);
@@ -2872,15 +2905,7 @@ le_result_t taf_Vlan::GetBindingInfo(uint8_t slotId)
                                        vlanMappingCb, std::placeholders::_1, std::placeholders::_2);
 
     telux::common::Status status = vlanManager->queryVlanMappingList(vlanMappingRespCb, slot);
-#else
 
-    std::shared_ptr<tafVlanMappingCallback> vlanMappingCb =
-                                                     std::make_shared<tafVlanMappingCallback>(1);
-
-    auto  vlanMappingRespCb = std::bind(&tafVlanMappingCallback::onVlanMappingListResponse,
-                                       vlanMappingCb, std::placeholders::_1, std::placeholders::_2);
-    telux::common::Status status = vlanManager->queryVlanMappingList(vlanMappingRespCb);
-#endif
     if (status == telux::common::Status::SUCCESS)
     {
         le_clk_Time_t timeToWait = {1, 0};

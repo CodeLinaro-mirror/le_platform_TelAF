@@ -10,6 +10,21 @@
 
 using namespace tafsvc;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static pool for EFS metrics.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(metricsPool, TAF_MRC_METRICS_MAX_NUM, sizeof(taf_MrcEfsMetrics_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static map for EFS metrics.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(metricsRefMap, TAF_MRC_METRICS_MAX_NUM);
+
+
 taf_Mrc &taf_Mrc::GetInstance()
 {
     static taf_Mrc instance;
@@ -40,8 +55,23 @@ le_result_t taf_Mrc::SendOtaMsg(taf_MrcOtaMsgType_t type)
     telux::platform::OtaOperation op;
     telux::platform::OperationStatus opStatus;
     telux::common::Status status;
-    std::promise<telux::common::ErrorCode> p;
-    telux::common::ResponseCallback cb = [&p](telux::common::ErrorCode error) { p.set_value(error); };
+
+    auto promisePtr = std::make_shared<std::promise<telux::common::ErrorCode>>();
+    auto cb = [promisePtr](telux::common::ErrorCode err) {
+        try {
+            promisePtr->set_value(err);
+        }
+        catch (const std::future_error& e) {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e) {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...) {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
+
     auto &tafMrc = taf_Mrc::GetInstance();
 
     std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
@@ -73,7 +103,7 @@ le_result_t taf_Mrc::SendOtaMsg(taf_MrcOtaMsgType_t type)
     TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
         "Send OTA message failed(status = %d type = %d)", (int)status, (int)type);
 
-    telux::common::ErrorCode error = p.get_future().get();
+    telux::common::ErrorCode error = promisePtr->get_future().get();
     TAF_ERROR_IF_RET_VAL(error != telux::common::ErrorCode::SUCCESS, LE_FAULT,
         "Callback with error(error = %d)", (int)error);
 
@@ -157,14 +187,29 @@ void taf_Mrc::OpStatusHandler
 
 void taf_Mrc::Init(void)
 {
+    metricsRefMap = le_ref_InitStaticMap(metricsRefMap, TAF_MRC_METRICS_MAX_NUM);
+    metricsPool = le_mem_InitStaticPool(metricsPool, TAF_MRC_METRICS_MAX_NUM,
+        sizeof(taf_MrcEfsMetrics_t));
+
     // 1. Get platform factory.
     auto &platformFactory = telux::platform::PlatformFactory::getInstance();
 
     // 2. Prepare a callback that is invoked when the filesystem sub-system initialization is complete.
-    std::promise<telux::common::ServiceStatus> p;
-    auto initCb = [&p](telux::common::ServiceStatus status) {
-        LE_INFO("Received service status: %d.", (int)status);
-        p.set_value(status);
+    auto promisePtr = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+    auto initCb = [promisePtr](telux::common::ServiceStatus status) {
+        try {
+            LE_INFO("Received service status: %d", (int)status);
+            promisePtr->set_value(status);
+        }
+        catch (const std::future_error& e) {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e) {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...) {
+            LE_ERROR("Unknown error in callback.");
+        }
     };
 
     // 3. Get the filesystem manager.
@@ -173,7 +218,7 @@ void taf_Mrc::Init(void)
     LE_INFO("Obtained filesystem manager.");
 
     // 4. Wait until initialization is complete.
-    p.get_future().get();
+    promisePtr->get_future().get();
     TAF_ERROR_IF_RET_NIL(fsManager->getServiceStatus() != telux::common::ServiceStatus::SERVICE_AVAILABLE,
         "Filesystem service not available.");
     LE_INFO("Filesystem service is now available.");
@@ -210,6 +255,14 @@ void taf_Mrc::Init(void)
             paReady = true;
             LE_INFO("MRC platform adaptor is ready.");
         }
-       
     }
+
+    result = taf_prop_hms_Initialize(TAF_MRC_SVC_READY_TIMEOUT, TAF_MRC_MSG_RESP_TIMEOUT);
+    if (result != LE_OK)
+    {
+        paReady = false;
+        LE_WARN("Fail to initialize HMS platform adaptor.");
+    }
+    else
+        LE_INFO("HMS platform adaptor is ready.");
 }

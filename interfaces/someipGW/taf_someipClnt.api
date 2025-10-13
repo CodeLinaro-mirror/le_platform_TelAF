@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -222,6 +222,7 @@
    {
        // Logging the new service state.
        LE_INFO("Service is '%s'.", state == TAF_SOMEIPCLNT_AVAILABLE ? "AVAILABLE" : "UNAVAILABLE");
+> sys.path.append('/pkg/qct/lint/py2mod/')
 
        // Get the service version if it's available.
        if (state == TAF_SOMEIPCLNT_AVAILABLE)
@@ -377,6 +378,9 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1 ;
+SERVING_VERSION = 1;
+
 USETYPES taf_someipDef.api;
 //--------------------------------------------------------------------------------------------------
 /**
@@ -413,7 +417,7 @@ ENUM State
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint16 GetClientId
 (
-);
+) = 0 ;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -430,7 +434,7 @@ FUNCTION le_result_t GetClientIdEx
 (
     string   ifName[taf_someipDef.MAX_IFNAME_LENGTH]  IN,  ///< Network interface name.
     uint16   clientId                                 OUT  ///< SOME/IP Client ID.
-);
+) = 1 ;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -446,7 +450,7 @@ FUNCTION Service RequestService
 (
     uint16   serviceId                IN, ///< Service ID.
     uint16   instanceId               IN  ///< Instance ID.
-);
+) = 2 ;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -464,7 +468,7 @@ FUNCTION Service RequestServiceEx
     uint16   serviceId                                IN, ///< Service ID.
     uint16   instanceId                               IN, ///< Instance ID.
     string   ifName[taf_someipDef.MAX_IFNAME_LENGTH]  IN  ///< Network interface name.
-);
+) = 3 ;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -488,7 +492,7 @@ FUNCTION Service RequestServiceWithVersion
     uint8    majorVer                                 IN, ///< Major version.
     uint32   minorVer                                 IN, ///< Minor version.
     string   ifName[taf_someipDef.MAX_IFNAME_LENGTH]  IN  ///< Network interface name.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -504,7 +508,7 @@ FUNCTION Service RequestServiceWithVersion
 FUNCTION le_result_t ReleaseService
 (
     Service serviceRef                IN  ///< Service Reference.
-);
+) =5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -520,7 +524,7 @@ FUNCTION le_result_t GetState
 (
     Service serviceRef                IN, ///< Service Reference.
     State state                       OUT ///< Service State.
-);
+) =6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -538,11 +542,15 @@ FUNCTION le_result_t GetVersion
     Service serviceRef                IN, ///< Service Reference.
     uint8 majVer                      OUT,///< Major Version.
     uint32 minVer                     OUT ///< Minor Version.
-);
+) =7;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for the service state change.
+ *
+ * @param[in] serviceRef Service Reference.
+ * @param[in] state      Service State.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER StateChangeHandler
@@ -560,7 +568,7 @@ EVENT StateChange
 (
     Service               serviceRef  IN, ///< Service Reference.
     StateChangeHandler    handler
-);
+) = (8,9);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -575,7 +583,7 @@ FUNCTION TxMsg CreateMsg
 (
     Service serviceRef                IN, ///< Service Reference.
     uint16  methodId                  IN  ///< Method ID.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -590,7 +598,7 @@ FUNCTION TxMsg CreateMsg
 FUNCTION le_result_t SetNonRet
 (
     TxMsg msgRef                      IN  ///< Tx message reference.
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -605,7 +613,7 @@ FUNCTION le_result_t SetNonRet
 FUNCTION le_result_t SetReliable
 (
     TxMsg msgRef                      IN  ///< Tx message reference.
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -622,7 +630,7 @@ FUNCTION le_result_t SetTimeout
 (
     TxMsg msgRef                      IN, ///< Tx message reference.
     uint32 timeOut                    IN  ///< Timeout in milliseconds.
-);
+) = 13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -638,7 +646,7 @@ FUNCTION le_result_t SetPayload
 (
     TxMsg msgRef                               IN, ///< Tx message reference.
     uint8 data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload data.
-);
+) = 14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -653,12 +661,18 @@ FUNCTION le_result_t SetPayload
 FUNCTION le_result_t DeleteMsg
 (
     TxMsg msgRef                      IN  ///< Tx message reference.
-);
+) = 15;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * The asynchronous response handler for RequestResponse(). If "result" is not LE_OK, other input
  * parameters can be ignored.
+ *
+ * @param[in] result     Result of RequestResponse().
+ * @param[in] isErrRsp   True MT_ERROR(0x81), otherwise MT_RESPONSE(0x80).
+ * @param[in] returnCode Return code of the response.
+ * @param[in] data       Payload data of the response.
+ * @param[in] contextPtr Context pointer.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -672,7 +686,7 @@ HANDLER RespMsgHandler
 (
     le_result_t result                            IN, ///< Result of RequestResponse().
     bool     isErrRsp                             IN, ///< True MT_ERROR(0x81), otherwise
-                                                      ///  MT_RESPONSE(0x80).
+                                                      ///< MT_RESPONSE(0x80).
     uint8    returnCode                           IN, ///< Return code of the response.
     uint8    data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload data of the response.
 );
@@ -689,7 +703,7 @@ FUNCTION RequestResponse
 (
     TxMsg msgRef                      IN, ///< Tx message reference.
     RespMsgHandler handler            IN  ///< Response message handler.
-);
+) = 16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -714,7 +728,7 @@ FUNCTION le_result_t EnableEventGroup
     uint16    eventGroupId             IN, ///< Event Group ID.
     uint16    eventId                  IN, ///< Event ID.
     taf_someipDef.EventType eventType  IN  ///< Event Type.
-);
+) = 17;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -732,7 +746,7 @@ FUNCTION le_result_t DisableEventGroup
 (
     Service   serviceRef               IN, ///< Service Reference.
     uint16    eventGroupId             IN  ///< Event Group ID.
-);
+) = 18;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -750,7 +764,7 @@ FUNCTION le_result_t SubscribeEventGroup
 (
     Service   serviceRef              IN, ///< Service Reference.
     uint16    eventGroupId            IN  ///< Event Group ID.
-);
+) = 19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -768,11 +782,16 @@ FUNCTION le_result_t UnsubscribeEventGroup
 (
     Service   serviceRef              IN, ///< Service Reference.
     uint16    eventGroupId            IN  ///< Event Group ID.
-);
+) = 20;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for an event message.
+ *
+ * @param[in] serviceRef Service Reference.
+ * @param[in] eventId    Event ID.
+ * @param[in] data       Event Data.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER EventMsgHandler
@@ -792,4 +811,4 @@ EVENT EventMsg
     Service         serviceRef        IN, ///< Service Reference.
     uint16          eventGroupId      IN, ///< Event Group ID.
     EventMsgHandler handler           IN  ///< Event Handler.
-);
+) = (21,22);

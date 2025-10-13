@@ -12,31 +12,33 @@ RUN apt-get -y --no-install-recommends install ca-certificates
 RUN update-ca-certificates
 RUN apt-get -y --no-install-recommends install build-essential
 RUN apt-get -y --no-install-recommends install curl
-RUN apt-get -y --no-install-recommends install python3
 RUN apt-get -y --no-install-recommends install ninja-build
-RUN apt-get -y --no-install-recommends install python-jinja2
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install cmake
-RUN apt-get -y --no-install-recommends install python-setuptools
-RUN apt-get -y --no-install-recommends install python
 RUN apt-get -y --no-install-recommends install git
 RUN apt-get -y --no-install-recommends install fakeroot
 RUN apt-get -y --no-install-recommends install file
 RUN apt-get -y --no-install-recommends install libcap-dev
 RUN apt-get -y --no-install-recommends install libssl-dev
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install wget
-RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install git
-RUN apt-get -y --no-install-recommends install python-dev
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install unzip
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install openjdk-8-jre-headless
 
+RUN apt-get -y --no-install-recommends install python
+RUN apt-get -y --no-install-recommends install python-setuptools
+RUN apt-get -y --no-install-recommends install python-jinja2
+RUN apt-get -y --no-install-recommends install python-dev
+
+RUN apt-get -y --no-install-recommends install python3
 RUN apt-get -y --no-install-recommends install python3-venv
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        software-properties-common \
-    && add-apt-repository -y ppa:deadsnakes \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        python3.8-venv python3.8 python3.8-dev python3.8-dbg
-RUN /usr/bin/python3.8 -m venv /venv
-ENV PATH=/venv/bin:$PATH
+RUN apt-get -y --no-install-recommends install python3-pip
+RUN apt-get -y --no-install-recommends install python3-setuptools
+RUN apt-get -y --no-install-recommends install python3.8
+RUN apt-get -y --no-install-recommends install python3.8-venv
+
+RUN sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.6 10
+RUN sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 20
+RUN sudo update-alternatives --set python3 /usr/bin/python3.8
+
 RUN python3 -m pip install doipclient==1.1.1
 RUN python3 -m pip install udsoncan==1.23.2
 RUN python3 -m pip install pyyaml==6.0.1

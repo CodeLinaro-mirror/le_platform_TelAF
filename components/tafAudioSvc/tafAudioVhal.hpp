@@ -48,7 +48,8 @@ class taf_AudioVhal
         taf_AudioVhal() {};
         ~taf_AudioVhal() {};
 
-        void Init(void);
+        le_result_t LoadDriver();
+        void AdvertiseVendorService();
         bool isAudioDrvAvailable();
         le_result_t OpenRoute(bool status, taf_audio_RouteId_t route,
                 taf_audio_Mode_t mode);

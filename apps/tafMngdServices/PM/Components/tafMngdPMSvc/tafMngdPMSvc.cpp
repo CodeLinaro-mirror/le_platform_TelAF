@@ -315,9 +315,11 @@ le_result_t taf_mngdPm_WakeupVehicleReqAsync(int32_t reason,
         if(mpms.pmInf && mpms.pmInf->wakeupVehicleReqAsync)
         {
             LE_INFO("Send wakeupVehicleReqAsync %d", HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE);
-            if(mpms.stateMachine.currentState != TAF_MNGDPM_STATE_RESUME)
+            if(mpms.stateMachine.currentState != TAF_MNGDPM_STATE_RESUME &&
+                mpms.stateMachine.currentState != TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE)
             {
-                LE_INFO("Current state is not resume to trigger WakeupVehicleReqAsync");
+                LE_INFO("WakeupVehicleReqAsync not allowed in current state: %d",
+                    mpms.stateMachine.currentState);
                 handlerPtr = nullptr;
                 return LE_UNSUPPORTED;
             }
@@ -790,6 +792,15 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
                  LE_INFO("WakeLock is already acquired for %s with StayAwakeReason:%d, WsState:%d", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason,wsRefCtxPtr->wakeSourceState);
                  return LE_DUPLICATE;
             }
+
+            if(mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING && (mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason)))
+            {
+                LE_INFO("Cache system awake request for %s and wsReason:%d in suspending state", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
+                mpms.wsCachedReqsRefSet.insert(wsRefCtxPtr->wsRef);
+
+                return LE_OK;
+            }
+
             if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason))
             {
                 LE_INFO("stayAwakeReason:%d is in authorized stayAwakeReasonList", wsRefCtxPtr->reason);
@@ -797,8 +808,8 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
             }
             else
             {
-                LE_INFO("Unauthorized StayAwakeReason:%d for stayawake", wsRefCtxPtr->reason);
-                if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND)
+                LE_INFO("Non authorized StayAwakeReason for stayawake");
+                if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND || mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING)
                 {
                     wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
                     LE_ERROR("StayAwake LE_NOT_PERMITTED: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
@@ -1528,6 +1539,7 @@ COMPONENT_INIT
 
     mpms.Init();
 
+    //Init RPC
     auto &rpcPm = tafMngdRpcPm::GetInstance();
 
     rpcPm.Init();
@@ -1545,12 +1557,6 @@ COMPONENT_INIT
     {
         LE_FATAL("Failed to create client hashmap");
     }
-
-    le_msg_AddServiceOpenHandler(taf_mngdPm_GetServiceRef(), tafMngdPMSvc::OnClientConnection,
-            NULL);
-
-    le_msg_AddServiceCloseHandler(taf_mngdPm_GetServiceRef(), tafMngdPMSvc::OnClientDisconnection,
-            NULL);
 
     mpms.stateChange = le_event_CreateId("stateChange", sizeof(taf_mngdPm_StateInd_t));
 
@@ -1577,6 +1583,38 @@ COMPONENT_INIT
     catch (const std::exception &e)
     {
         LE_ERROR("Exception while parsing the ParseJsonConfiguration");
+    }
+
+    mpms.pmEvtReady = le_event_CreateId("readyEvt", sizeof(taf_mngdPm_readyEvtType_t));
+    le_event_AddHandler("readyEvtHdlr", mpms.pmEvtReady, mpms.PMVhalReadyEvtHandler);
+
+    //PMVHAL
+    if(mpms.config.hal_enabled)
+    {
+        // Load PMVHAL module.
+        le_result_t res = tafMngdPMSvc::InitVHalModule();
+        if(res != LE_OK) {
+            // Retry loading PMVHAL module when failed.
+            le_event_QueueFunction(mpms.GetPmVhalReady, NULL, NULL);
+        }
+    }
+    else {
+        // Advertise MngdPMSvc in case hal_enabled is set to false
+        LE_INFO("Start MngdPM service without PMVHAL module");
+        taf_mngdPm_AdvertiseService();
+
+        mpms.WaitWakeSourceTimer();
+
+        // Set session open handler
+        le_msg_AddServiceOpenHandler(taf_mngdPm_GetServiceRef(), tafMngdPMSvc::OnClientConnection,
+            NULL);
+        // Set session close handler
+        le_msg_AddServiceCloseHandler(taf_mngdPm_GetServiceRef(), tafMngdPMSvc::OnClientDisconnection,
+            NULL);
+
+        // Set session close handler  for RPCPM
+        le_msg_AddServiceCloseHandler(taf_mngdPm_GetServiceRef(), tafMngdRpcPm::OnClientDisconnection,
+            NULL);
     }
 
     mpms.wsRefPool = le_mem_CreatePool("tafwsRefList", sizeof(taf_wsRefCtx_t));
@@ -1615,19 +1653,11 @@ COMPONENT_INIT
         LE_INFO("Register state change handler is successfull");
 
     mpms.stateMachine.currentState = TAF_MNGDPM_STATE_RESUME;
-    if(mpms.config.hal_enabled) {
-        res = tafMngdPMSvc::InitVHalModule();
-        if((res == LE_OK) && (mpms.pmInf) && (mpms.pmInf->addNodeEventHandler))
-        {
-            LE_INFO("addNodeEventHanlder for node %d", NODE_ID);
-            (*(mpms.pmInf->addNodeEventHandler))(NODE_ID, tafMngdPMSvc::NodeEventCB);
-        }
-    }
+
     mpms.handlerExRef = taf_pm_AddStateChangeExHandler(tafMngdPMSvc::StateChangeExHandler, NULL);
     if (mpms.handlerExRef)
         LE_INFO("Register Extended state change handler is successfull");
 
-    mpms.WaitWakeSourceTimer();
     mpms.infoReportHandlerPool = le_mem_CreatePool("infoReportHandlerList", sizeof(taf_mngdPm_InfoReportCb_t));
     mpms.infoReportHandlerList = LE_DLS_LIST_INIT;
     mpms.infoReportHandlerRefMap = le_ref_CreateMap("infoReportHandlerRef", TAF_REF_POOL_SIZE);

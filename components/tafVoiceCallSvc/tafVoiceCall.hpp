@@ -96,6 +96,7 @@ struct CallEvent_t {
 
 struct CallbackContext {
     std::function<void(le_result_t)> callback;
+    std::shared_ptr<void> keepAlive;
 };
 
 // Define the class to handle the call with telsdk
@@ -182,6 +183,7 @@ public:
             } catch (...) {
                 LE_ERROR("Unknown exception in lambda callback.");
             }
+            ctx->keepAlive.reset();
         }
     }
 
@@ -198,6 +200,7 @@ public:
         std::future<le_result_t> futResult = promisePtr->get_future();
     
         auto cmdCtx = std::make_shared<CallbackContext>();
+        cmdCtx->keepAlive = cmdCtx;
         cmdCtx->callback = [weakPromise](le_result_t result)
         {
             if (auto locked = weakPromise.lock()) {

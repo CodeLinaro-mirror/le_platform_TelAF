@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -128,6 +128,11 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Maximum partition name length with null character(s).
@@ -231,7 +236,7 @@ ENUM OpenMode
 //--------------------------------------------------------------------------------------------------
 FUNCTION Init
 (
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -248,7 +253,7 @@ FUNCTION le_result_t MtdOpen
     string partitionName[PARTITION_NAME_MAX_BYTES] IN, ///< MTD partition name.
     OpenMode mode IN,                                  ///< Opening mode.
     Partition partitionRef OUT                         ///< The MTD partition reference.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -263,7 +268,7 @@ FUNCTION le_result_t MtdOpen
 FUNCTION le_result_t MtdClose
 (
     Partition partitionRef IN ///< The MTD partition reference.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -282,7 +287,7 @@ FUNCTION le_result_t MtdInformation
     uint32 badBlocksNumber OUT, ///< Bad blocks number.
     uint32 blockSize OUT,       ///< Block size.
     uint32 pageSize OUT         ///< Page size.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -298,7 +303,7 @@ FUNCTION le_result_t MtdEraseBlock
 (
     Partition partitionRef IN, ///< The MTD partition reference.
     uint32 blockIndex IN       ///< Logical block index.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -315,7 +320,7 @@ FUNCTION le_result_t MtdReadPage
     Partition partitionRef IN,                 ///< The MTD partition reference.
     uint32 pageIndex IN,                       ///< Page index.
     uint8 readData[MTD_PAGE_MAX_READ_SIZE] OUT ///< Buffer read from the MTD page.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -332,7 +337,7 @@ FUNCTION le_result_t MtdWritePage
     Partition partitionRef IN,                  ///< The MTD partition reference.
     uint32 pageIndex IN,                        ///< Page index.
     uint8 writeData[MTD_PAGE_MAX_WRITE_SIZE] IN ///< Buffer to be written to the MTD block.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -349,7 +354,7 @@ FUNCTION le_result_t MtdRead
     Partition partitionRef IN,            ///< The MTD partition reference.
     uint32 offset IN,                     ///< The MTD partition offset.
     uint8 readData[MTD_MAX_READ_SIZE] OUT ///< Buffer read from the MTD page.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -366,7 +371,7 @@ FUNCTION le_result_t MtdWrite
     Partition partitionRef IN,             ///< The MTD partition reference.
     uint32 offset IN,                      ///< The MTD partition offset.
     uint8 writeData[MTD_MAX_WRITE_SIZE] IN ///< Buffer to be written to the MTD block.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -381,7 +386,7 @@ FUNCTION le_result_t MtdWrite
 FUNCTION le_result_t MtdErase
 (
     Partition partitionRef IN ///< The MTD partition reference.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -397,7 +402,7 @@ FUNCTION bool MtdIsBlockGood
 (
     Partition partitionRef IN, ///< The MTD partition reference.
     uint32 blockIndex IN       ///< Logical block index.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -414,7 +419,7 @@ FUNCTION le_result_t UbiOpen
     string volumeName[VOLUME_NAME_MAX_BYTES] IN, ///< UBI volume name.
     OpenMode mode IN,                            ///< Opening mode.
     Volume volumeRef OUT                         ///< The UBI volume reference.
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -429,7 +434,7 @@ FUNCTION le_result_t UbiOpen
 FUNCTION le_result_t UbiClose
 (
     Volume volumeRef IN ///< The UBI volume reference.
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -447,7 +452,7 @@ FUNCTION le_result_t UbiInformation
     uint32 lebNumber OUT,     ///< Total logical erase blocks number.
     uint32 freeLebNumber OUT, ///< Free logical erase blocks number.
     uint32 volumeSize OUT     ///< Volume size.
-);
+) = 13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -464,7 +469,7 @@ FUNCTION le_result_t UbiRead
     Volume volumeRef IN,                  ///< The UBI volume reference.
     uint32 offset IN,                     ///< The UBI volume offset.
     uint8 readData[UBI_MAX_READ_SIZE] OUT ///< Buffer read from UBI volume.
-);
+) = 14;
 
 /**
  * Initiates write size of UBI volume.
@@ -482,7 +487,7 @@ FUNCTION le_result_t UbiInitWrite
 (
     Volume volumeRef IN, ///< The UBI volume reference.
     int64 writeBytes IN  ///< The number of bytes set to write to UBI volume.
-);
+) = 15;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -500,7 +505,7 @@ FUNCTION le_result_t UbiWrite
 (
     Volume volumeRef IN,                   ///< The UBI volume reference.
     uint8 writeData[UBI_MAX_WRITE_SIZE] IN ///< Buffer to be written to UBI volume.
-);
+) = 16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -515,4 +520,4 @@ FUNCTION le_result_t UbiWrite
 FUNCTION le_result_t UbiErase
 (
     Volume volumeRef IN ///< The UBI volume reference.
-);
+) = 17;

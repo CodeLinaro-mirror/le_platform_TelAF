@@ -102,6 +102,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest/tafPMIntgTest
     // $TELAF_ROOT/apps/test/tafGpioTest/tafGpioUnitTest.adef
     // $TELAF_ROOT/apps/sample/eCallDemo/tafECallApp
+    // $TELAF_ROOT/apps/sample/eCallApp/tafECallRefApp
     // $TELAF_ROOT/apps/test/tafLocationTest/tafLocationUnitTest/tafLocationUnitTest
     // $TELAF_ROOT/apps/test/tafCanTest/tafCanUnitTest
     // $TELAF_ROOT/apps/test/tafFSCryptTest/tafFSCryptUnitTest/tafFSCryptUnitTest
@@ -120,6 +121,7 @@ apps:
     // $TELAF_ROOT/apps/sample/diagState/tafDiagState.adef
     // $TELAF_ROOT/apps/test/tafDidStoreTest/tafDidStoreUnitTest
     // $TELAF_ROOT/apps/test/tafAdefTest/tafAdefUnitTest
+    // $TELAF_ROOT/apps/test/tafMaxThreadsTest/tafMaxThreadsUnitTest
     // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeUnitTest
     // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeIntTest
     // $TELAF_ROOT/apps/test/tafLXCIntTest/tafLXCIntTest.adef
@@ -129,6 +131,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafWLAN/tafWlanIntTest.adef
     // $TELAF_ROOT/apps/test/tafWLAN/tafWlanAPIntTest.adef
     // $TELAF_ROOT/apps/test/tafWLAN/tafWlanSTAIntTest.adef
+    // $TELAF_ROOT/apps/test/tafWLAN/tafWlanInteractiveTest.adef
     // $TELAF_ROOT/apps/test/tafRFSTest/tafRFSUnitTest/tafRFSUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdStorageUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSecSharedApp

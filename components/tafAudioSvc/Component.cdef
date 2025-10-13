@@ -9,8 +9,8 @@ provides:
 {
     api:
     {
-        taf_audio.api
-        taf_audioVendor.api
+        taf_audio.api       [manual-start]
+        taf_audioVendor.api [manual-start]
     }
 }
 

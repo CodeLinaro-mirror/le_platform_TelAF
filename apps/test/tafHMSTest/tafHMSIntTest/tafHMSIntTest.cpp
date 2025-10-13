@@ -72,6 +72,9 @@ const char* ModemEventTypeToStr(taf_hms_ModemEvtType_t eventType)
 {
     switch (eventType)
     {
+        case TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_LOST:
+            return "CONNECTION_LOST";
+
         case TAF_HMS_MODEM_EVENT_TYPE_CONTINUE_REBOOT:
             return "CONTINUE_REBOOT";
     }
@@ -108,7 +111,7 @@ void ModemStatusHandler(
 void* ModemEventHandlerTestThread(void* contextPtr)
 {
     taf_hms_ConnectService();
-    modemStatusHandlerRef = 
+    modemStatusHandlerRef =
         taf_hms_AddModemEvtHandler((taf_hms_ModemEvtHandlerFunc_t)ModemStatusHandler,NULL);
     LE_TEST_OK(modemStatusHandlerRef != NULL, "taf_hms_AddModemEvtHandler - OK");
 

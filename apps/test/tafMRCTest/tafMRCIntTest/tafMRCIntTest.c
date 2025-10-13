@@ -151,6 +151,46 @@ COMPONENT_INIT
             PrintHelpMenu();
         }
     }
+    else if (strncmp(cmd, "efs", strlen("efs")) == 0)
+    {
+        CheckArgs(2);
+        const char* status = le_arg_GetArg(1);
+        if (status != NULL && strncmp(status, "status", strlen("status")) == 0)
+        {
+            taf_mrc_MetricsRef_t metrics = NULL;
+            result = taf_mrc_MeasureEfsMetrics(&metrics);
+            LE_TEST_OK(result == LE_OK, "taf_mrc_MeasureEfsMetrics - LE_OK");
+
+            uint32_t max = 0, min = 0, avg = 0, sd = 0, badblocks = 0;
+            result = taf_mrc_GetEfsMaxPECount(metrics, &max);
+            LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsMaxPECount - LE_OK");
+
+            result = taf_mrc_GetEfsMinPECount(metrics, &min);
+            LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsMinPECount - LE_OK");
+
+            result = taf_mrc_GetEfsAvgPECount(metrics, &avg);
+            LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsAvgPECount - LE_OK");
+
+            result = taf_mrc_GetEfsPEStandardDeviation(metrics, &sd);
+            LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsPEStandardDeviation - LE_OK");
+
+            result = taf_mrc_GetEfsBadBlocks(metrics, &badblocks);
+            LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsBadBlocks - LE_OK");
+
+            LE_INFO("PE Max: %d", max);
+            LE_INFO("PE Min: %d", min);
+            LE_INFO("PE Average: %d", avg);
+            LE_INFO("PE Standard Deviation: %d", sd);
+            LE_INFO("Bad blocks: %d", badblocks);
+
+            result = taf_mrc_DeleteEfsMetrics(metrics);
+            LE_TEST_OK(result == LE_OK, "taf_mrc_DeleteEfsMetrics - LE_OK");
+        }
+        else
+        {
+            PrintHelpMenu();
+        }
+    }
     else
     {
         PrintHelpMenu();

@@ -32,11 +32,11 @@ cxxflags:
     -I$TELAF_ROOT/../external/wpa_supplicant_8/src/common
     -I$TELAF_ROOT/../external/wpa_supplicant_8/src/utils
     -I$LEGATO_ROOT/framework/liblegato
+    -std=c++17
 }
 
 ldflags:
 {
-
 }
 
 cflags:
@@ -58,6 +58,8 @@ sources:
     tafWlanSTASvc.cpp
     tafWlanSTASvcImpl.cpp
     tafWlanSTAListener.cpp
+    tafWlanSTAApSignalStrengthImpl.cpp
+    tafWlanStaWpaSupplicantIntfImpl.cpp
     taf_WlanHelper.cpp
     $TELAF_ROOT/../external/wpa_supplicant_8/src/common/wpa_ctrl.c
     $TELAF_ROOT/../external/wpa_supplicant_8/src/utils/os_unix.c

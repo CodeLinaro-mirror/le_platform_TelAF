@@ -62,6 +62,9 @@ void tafCardListener:: onCardInfoChanged(int slotId)
     simEvent.simId = (taf_sim_Id_t)slotWithCard;
     simEvent.state =  sim.getState((taf_sim_Id_t)slotWithCard);
     if (simEvent.state == TAF_SIM_ABSENT) {
+        // Revert to original slotId for initialization
+        slotWithCard = slotId;
+        simEvent.simId = (taf_sim_Id_t)slotWithCard;
         sim.InitializeSimInfo(nullptr, (taf_sim_Id_t)slotWithCard);
     }
     le_event_Report(sim.NewStateEventId, &simEvent, sizeof(simEvent));
@@ -2506,8 +2509,11 @@ le_result_t taf_sim::AddFPLMNOperator
     char* mncPtr
 )
 {
+    if ((mccPtr == NULL) || (mncPtr == NULL)) {
+        LE_INFO("MCC or MNC pointer is NULL");
+        return LE_OVERFLOW;
+    }
     fplmnListRefs = FPLMNListRef;
-
     return AddFPLMNOperatorInternal(FPLMNListRef, mccPtr, mncPtr);
 }
 
@@ -2518,9 +2524,13 @@ le_result_t taf_sim::AddFPLMNOperatorInternal
     char* mncPtr
 )
 {
+    if (!IsValidMCCAndMNC(mccPtr, mncPtr)) {
+        return LE_OVERFLOW;
+    }
+
     taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
-    if((ListReference == NULL) || (mccPtr == NULL) || (mncPtr == NULL)) {
-        LE_INFO("Issue with ListReference or mcc or mnc");
+    if((ListReference == NULL)) {
+        LE_INFO("Issue with ListReference ");
         return LE_OVERFLOW;
     }
     FPLMNNode_t* nodeFPLMN = (FPLMNNode_t*)le_mem_ForceAlloc(FPLMNNodePool);
@@ -2544,9 +2554,13 @@ le_result_t taf_sim::GetFirstFPLMNOperator
     size_t mncLen
 )
 {
+    if ((mccPtr == NULL) || (mncPtr == NULL)) {
+        LE_INFO("MCC or MNC pointer is NULL");
+        return LE_OVERFLOW;
+    }
     taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
-    if((ListReference == NULL) | (mccPtr == NULL) | (mncPtr == NULL)) {
-        LE_INFO("Issue with ListReference or mcc or mnc");
+    if((ListReference == NULL)) {
+        LE_INFO("Issue with ListReference ");
         return LE_OVERFLOW;
     }
     le_dls_Link_t* linkPtr = le_dls_Peek(&(ListReference->link));
@@ -2572,9 +2586,13 @@ le_result_t taf_sim::GetNextFPLMNOperator
     size_t mncLen
 )
 {
+    if ((mccPtr == NULL) || (mncPtr == NULL)) {
+        LE_INFO("MCC or MNC pointer is NULL");
+        return LE_OVERFLOW;
+    }
     taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
-    if((ListReference == NULL) | (mccPtr == NULL) | (mncPtr == NULL)) {
-        LE_INFO("Issue with ListReference or mcc or mnc");
+    if((ListReference == NULL)) {
+        LE_INFO("Issue with ListReference ");
         return LE_OVERFLOW;
     }
     le_dls_Link_t* linkPtr = le_dls_Peek(&(ListReference->link));
@@ -2870,4 +2888,37 @@ void taf_sim::ResetRefreshVote(taf_sim_Session_t* ClientRequestPtr)
         RefreshVoteSent_Slot2 = false;
         LE_DEBUG("RefreshVoteSent_Slot2 is %d:",RefreshVoteSent_Slot2);
     }
+}
+
+bool taf_sim::IsValidMCCAndMNC(const char* mccPtr, const char* mncPtr)
+{
+    if (mccPtr == NULL || mncPtr == NULL) {
+        LE_INFO("MCC or MNC pointer is NULL");
+        return false;
+    }
+    // Validate MCC
+    if (strlen(mccPtr) != 3) {
+        LE_INFO("Invalid MCC length");
+        return false;
+    }
+    for (int i = 0; i < 3; ++i) {
+        if (!isdigit(mccPtr[i])) {
+            LE_DEBUG("Invalid MCC digit %c", mccPtr[i]);
+            return false;
+        }
+    }
+    // Validate MNC
+    size_t len = strlen(mncPtr);
+    if (len != 2 && len != 3) {
+        LE_INFO("Invalid MNC length");
+        return false;
+    }
+    for (size_t i = 0; i < len; ++i) {
+        if (!isdigit(mncPtr[i])) {
+            LE_INFO("Invalid MNC digit %c",mncPtr[i]);
+            return false;
+        }
+    }
+    LE_INFO("Valid MCC:%s and MNC:%s", mccPtr,mncPtr);
+    return true;
 }

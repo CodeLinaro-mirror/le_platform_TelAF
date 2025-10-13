@@ -1238,7 +1238,8 @@ le_result_t taf_ecall_SetMsdTimeStamp
     uint32_t   timeStamp
 )
 {
-    return LE_UNSUPPORTED;
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetMsdTimeStamp(ecallRef, timeStamp);
 }
 
 /*======================================================================
@@ -1265,7 +1266,8 @@ le_result_t taf_ecall_ResetMsdTimeStamp
     taf_ecall_CallRef_t ecallRef
 )
 {
-    return LE_UNSUPPORTED;
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.ResetMsdTimeStamp(ecallRef);
 }
 
 /*======================================================================

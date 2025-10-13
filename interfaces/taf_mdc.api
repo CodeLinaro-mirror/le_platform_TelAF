@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -34,6 +34,9 @@
 
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 USETYPES taf_types.api;
 
 USETYPES taf_dcs.api;
@@ -55,7 +58,7 @@ USETYPES taf_dcs.api;
 FUNCTION le_result_t StartSession
 (
     taf_dcs.Profile profileRef                  IN ///< The taf_dcs profile reference.
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -74,7 +77,7 @@ FUNCTION le_result_t StartSession
 FUNCTION le_result_t StartSessionAsync
 (
     taf_dcs.Profile profileRef                  IN ///< The taf_dcs profile reference.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -93,7 +96,7 @@ FUNCTION le_result_t StartSessionAsync
 FUNCTION le_result_t StopSession
 (
     taf_dcs.Profile profileRef                  IN ///< The taf_dcs profile reference.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -112,4 +115,4 @@ FUNCTION le_result_t StopSession
 FUNCTION le_result_t StopSessionAsync
 (
     taf_dcs.Profile profileRef                  IN ///< The taf_dcs profile reference.
-);
+) = 3;

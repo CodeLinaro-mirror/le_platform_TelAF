@@ -94,6 +94,8 @@ using namespace telux::audio;
 #define DEFAULT_MAX_FILE_BYTES 90112
 #define MAX_FILE_BYTES_NODE_NAME "maxFileBytes"
 #define INFINITE_TONE_DURATION 65535
+#define MAX_NUM_OF_ATTEMPTS   10
+#define RETRY_TIMER_INTERVAL  3000
 
 /**
  * Symbols used to populate wave header file.
@@ -276,6 +278,8 @@ typedef struct {
     std::vector<std::pair<int, int>> frequencyList{};
     const char* dtmfChars;
     le_result_t result;
+    le_msg_SessionRef_t sessionRef;
+    taf_audio_StreamRef_t streamRef;
 }taf_Dtmf_t;
 
 /**
@@ -509,13 +513,11 @@ class taf_Audio : public ITafSvc
         le_result_t startRecording(taf_audio_Stream_t* streamPtr);
         void PbBufferHandler();
         void RecBufferHandler(taf_audio_Stream_t* streamPtr);
+        void AdvertiseAndRegisterHandler();
 
         static void ClientSessionCloseEventHandler( le_msg_SessionRef_t sessionRef,
                             void* contextPtr);
         static void DestructStream( void *objPtr );
-        static void StartAudioCallback(ErrorCode error);
-        static void StopAudioCallback(ErrorCode error);
-        static void DeleteVoiceCallback(ErrorCode error);
         static void DeletePlayCallback(ErrorCode error);
         static void FirstLayerEventHandler( void* reportPtr, void* secondLayerHandlerFunc );
         static le_event_Id_t CreateEventId();
@@ -529,11 +531,8 @@ class taf_Audio : public ITafSvc
                     telux::common::ErrorCode error);
         static void WriteCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
                 uint32_t bytes, telux::common::ErrorCode error);
-        static void StreamMuteUnmuteCallback(ErrorCode error);
         static void BuBStatusCB(int32_t status, void *contextPtr);
         static void RegisterDtmfListenerCallback(ErrorCode error);
-        static void PlayDtmfCallback(ErrorCode error);
-        static void StopDtmfCallback(ErrorCode error);
         std::shared_ptr<tafSignallingDtmfListener> onStartDtmfTone = nullptr;
         std::shared_ptr<tafSignallingDtmfListener> onStopDtmfTone = nullptr;
         std::shared_ptr<telux::tel::ICallManager> callManager = nullptr;
@@ -541,5 +540,6 @@ class taf_Audio : public ITafSvc
         static void* playAllDtmfTones(void* dtmfTones);
         static void* playDTMFonTX(void* dtmfTones);
         static void BufferEventHandler(void* contextPtr);
+        static void RetryHandler(le_timer_Ref_t timerRef);
 };
 }

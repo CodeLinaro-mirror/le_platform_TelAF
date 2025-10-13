@@ -94,6 +94,57 @@ void taf_Audio::BuBStatusCB(int32_t status, void *contextptr)
     }
 }
 
+/**
+ * Advertise the audio service.
+ */
+void taf_Audio::AdvertiseAndRegisterHandler()
+{
+    taf_audio_AdvertiseService();
+    // Add a handler to the close session service
+    le_msg_AddServiceCloseHandler( taf_audio_GetServiceRef(),
+                                   ClientSessionCloseEventHandler,
+                                   NULL );
+}
+
+/**
+ * Load Audio VHAL until retry count reaches the maximum value.
+ */
+void taf_Audio::RetryHandler(le_timer_Ref_t timerRef)
+{
+    auto &audioVhal = taf_AudioVhal::GetInstance();
+    auto &audio = taf_Audio::GetInstance();
+    uint32_t expiryCount = le_timer_GetExpiryCount(timerRef);
+    LE_INFO("expiryCount = %d", expiryCount);
+    if(expiryCount < MAX_NUM_OF_ATTEMPTS)
+    {
+        // Load Audio VHAL. IF failed to load Audio VHAL, try again later.
+        if(!audioVhal.isVhalLoaded)
+        {
+            le_result_t res = audioVhal.LoadDriver();
+            if(res == LE_OK){
+                LE_INFO("Audio VHAL loaded successfully, advertise the service.");
+                // Loaded VHAL successfully. Delete the timer.
+                le_timer_Delete(timerRef);
+                audio.AdvertiseAndRegisterHandler();
+            }
+        }
+
+        return;
+    }
+
+    if(!audioVhal.isVhalLoaded)
+    {
+        //Load Audio VHAL timeout, continue without Audio VHAL module.
+        LE_ERROR("Failed to load Audio VHAL module after all retry attempts!");
+    }
+
+    le_timer_Delete(timerRef);
+    // Advertise service after max retries to load VHAL, service to continue without VHAL.
+    LE_INFO("Advertise services after max tries to load VHAL, service to continue without VHAL");
+    audio.AdvertiseAndRegisterHandler();
+    audioVhal.AdvertiseVendorService();
+}
+
 void taf_Audio::Init(void)
 {
     LE_INFO("taf_Audio: Init");
@@ -104,15 +155,30 @@ void taf_Audio::Init(void)
     auto &audioFactory = AudioFactory::getInstance();
     bool isReady = false;
 
-    std::promise<telux::common::ServiceStatus> p{};
+    auto p = std::make_shared<std::promise<ServiceStatus>>();
     mAudioManager = audioFactory.getAudioManager(
             [&p](telux::common::ServiceStatus status) {
         LE_INFO("Getting status: %d from call manager", (int)status);
-        // If the status is SERVICE_UNAVAILABLE,
-        // the call manager will also update the status through initCB
-        if (status != telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
+        try
         {
-            p.set_value(status);
+            // If the status is SERVICE_UNAVAILABLE,
+            // the call manager will also update the status through initCB
+            if (status != telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
+            {
+                p->set_value(status);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
         }
     });
 
@@ -120,7 +186,7 @@ void taf_Audio::Init(void)
         LE_FATAL("Can't get IAudioManager");
     }
 
-    std::future<telux::common::ServiceStatus> initFuture = p.get_future();
+    std::future<telux::common::ServiceStatus> initFuture = p->get_future();
     std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(SUBSYSTEM_TIMEOUT));
     telux::common::ServiceStatus serviceStatus;
     if (std::future_status::timeout == waitStatus)
@@ -155,10 +221,34 @@ void taf_Audio::Init(void)
 
     // Load audio VHAL driver
     auto &audioVhal = taf_AudioVhal::GetInstance();
-    audioVhal.Init();
+    le_result_t res = audioVhal.LoadDriver();
 
-    isVhalAvailable = audioVhal.isAudioDrvAvailable();
-    LE_INFO("isVhalAvailable : %s", isVhalAvailable ? "true" : "false");
+    if(res == LE_OK)
+    {
+        AdvertiseAndRegisterHandler();
+
+        isVhalAvailable = audioVhal.isAudioDrvAvailable();
+        LE_INFO("isVhalAvailable : %s", isVhalAvailable ? "true" : "false");
+
+    }
+    else // Failed to load the driver.
+    {
+        // Start one timer for the retry-action
+        le_timer_Ref_t retryTimer = le_timer_Create("retry-timer-audiovhal");
+
+        if (retryTimer == NULL)
+        {
+            LE_ERROR("Failed to le_timer_Create for the retry-timer");
+            return;
+        }
+
+        le_timer_SetRepeat(retryTimer, MAX_NUM_OF_ATTEMPTS);
+        le_timer_SetHandler(retryTimer, RetryHandler);
+        le_timer_SetWakeup(retryTimer, false);
+        le_timer_SetMsInterval(retryTimer, RETRY_TIMER_INTERVAL);
+        le_timer_Start(retryTimer);
+        LE_INFO("Retry timer for loading Audio VHAL start ...");
+    }
 
     ConnectorPool  = le_mem_InitStaticPool(tafAudioConnector, MAX_CONNECTOR,
             sizeof(taf_audio_Connector_t));
@@ -189,11 +279,6 @@ void taf_Audio::Init(void)
             mEventRegSemRef));
     le_sem_Wait(mEventRegSemRef);
     le_sem_Delete(mEventRegSemRef);
-
-    // Add a handler to the close session service
-    le_msg_AddServiceCloseHandler( taf_audio_GetServiceRef(),
-                                   ClientSessionCloseEventHandler,
-                                   NULL );
 
     le_cfg_IteratorRef_t procCfg;
     procCfg = le_cfg_CreateReadTxn(AUDIO_SVC_PROC_CONFIG_PATH);
@@ -243,8 +328,21 @@ void taf_Audio::ClientSessionCloseEventHandler
 )
 {
     auto &audio = taf_Audio::GetInstance();
-
+    le_result_t result = LE_FAULT;
     LE_DEBUG("ClientSessionCloseEventHandler sessionRef : %p", sessionRef);
+
+    if(audio.mDtmfStarted && audio.dtmfDataRx.sessionRef == sessionRef)
+    {
+        LE_DEBUG("Stop on going DTMF");
+        result = audio.StopDtmf(audio.dtmfDataRx.streamRef);
+        TAF_ERROR_IF_RET_NIL( result != LE_OK, "Failed to stop dtmf");
+    }
+    if(audio.mDtmfStartedTx && audio.dtmfDataTx.sessionRef == sessionRef)
+    {
+        LE_DEBUG("Stop on going DTMF signalling");
+        result = audio.StopSignallingDtmf(audio.dtmfDataTx.slotId);
+        TAF_ERROR_IF_RET_NIL( result != LE_OK, "Failed to stop dtmf signalling");
+    }
 
     // Close audio streams
     // This is a two stage process: parse audio stream reference map
@@ -317,7 +415,7 @@ void taf_Audio::ClientSessionCloseEventHandler
 
     iteratorRef = le_ref_GetIterator(audio.ConnectorRefMap);
 
-    le_result_t result = le_ref_NextNode(iteratorRef);
+    result = le_ref_NextNode(iteratorRef);
     // Close connectors
     while ( result == LE_OK )
     {
@@ -1431,40 +1529,54 @@ le_result_t taf_Audio::CloseRoute( taf_audio_RouteRef_t routeRef )
             return LE_FAULT;
         }
 
-        std::promise<telux::common::ErrorCode> p{};
+        auto p = std::make_shared<std::promise<ErrorCode>>();
+        auto cb = [p](ErrorCode error) {
+            try {
+                p->set_value(error);
+            } catch (const std::future_error& e) {
+                LE_ERROR("Future error in callback: %s", e.what());
+            } catch (...) {
+                LE_ERROR("Unknown error in callback.");
+            }
+        };
         telux::common::Status status;
         telux::common::ErrorCode ec;
 
-        status = mAudioLoopbackStream->stopLoopback([&p] (telux::common::ErrorCode result) {
-            p.set_value(result);
-        });
+        status = mAudioLoopbackStream->stopLoopback(cb);
 
         if (status != telux::common::Status::SUCCESS) {
             LE_ERROR("Request to stop loopback failed error : %d", (int)status);
             return LE_FAULT;
         }
 
-        ec = p.get_future().get();
+        ec = p->get_future().get();
         if (ec != telux::common::ErrorCode::SUCCESS) {
             LE_ERROR("Failed to stop loopback, error : %d", (int)ec);
             return LE_FAULT;
         }
         LE_DEBUG("Loopback stopped");
 
-        p = std::promise<telux::common::ErrorCode>();
-        status = mAudioManager->deleteStream(mAudioLoopbackStream, [&p, this] (
-            telux::common::ErrorCode result) {
-            p.set_value(result);
-            this->mAudioLoopbackStream.reset();
-            this->mAudioLoopbackStream = nullptr;
-        });
+        auto prom = std::make_shared<std::promise<telux::common::ErrorCode>>();
+        auto delCb = [prom](ErrorCode error) {
+            try {
+                prom->set_value(error);
+                auto &audio = taf_Audio::GetInstance();
+                audio.mAudioLoopbackStream.reset();
+                audio.mAudioLoopbackStream = nullptr;
+            } catch (const std::future_error& e) {
+                LE_ERROR("Future error in callback: %s", e.what());
+            } catch (...) {
+                LE_ERROR("Unknown error in callback.");
+            }
+        };
+        status = mAudioManager->deleteStream(mAudioLoopbackStream, delCb);
 
         if (status != telux::common::Status::SUCCESS) {
             LE_ERROR("Request to delete loopback failed error : %d", (int)status);
             return LE_FAULT;
         }
 
-        ec = p.get_future().get();
+        ec = prom->get_future().get();
         if (ec != telux::common::ErrorCode::SUCCESS) {
             LE_ERROR("Failed to delete loopback, error : %d", (int)ec);
             return LE_FAULT;
@@ -1663,60 +1775,6 @@ le_result_t taf_Audio::ConnectStreamPaths( taf_audio_Stream_t* streamPtr,
     return res;
 }
 
-void taf_Audio::StartAudioCallback(ErrorCode error)
-{
-    auto &audio = taf_Audio::GetInstance();
-    if (ErrorCode::SUCCESS == error) {
-        audio.mVoiceEnabled1 = true;
-        LE_INFO("audio started successfully");
-    }
-    audio.gCallbackPromise.set_value(error);
-    return;
-}
-
-void taf_Audio::DeleteVoiceCallback(ErrorCode error) {
-    auto &audio = taf_Audio::GetInstance();
-    if (ErrorCode::SUCCESS == error) {
-        LE_DEBUG("deleteStream() succeeded.");
-        audio.mAudioVoiceStream.reset();
-        audio.mAudioVoiceStream = nullptr;
-        audio.mCallStarted = false;
-    }
-    audio.gDelCbPromise.set_value(error);
-    return;
-}
-
-void taf_Audio::StopAudioCallback(ErrorCode error)
-{
-    auto &audio = taf_Audio::GetInstance();
-    if (ErrorCode::SUCCESS == error) {
-        audio.mVoiceEnabled1 = false;
-        LE_INFO("audio stopped successfully");
-    }
-    audio.gCallbackPromise.set_value(error);
-    return;
-}
-
-void taf_Audio::PlayDtmfCallback(ErrorCode error)
-{
-    auto &audio = taf_Audio::GetInstance();
-    if (ErrorCode::SUCCESS == error) {
-        LE_DEBUG("Dtmf tone playing !!");
-    }
-    audio.gCallbackPromise.set_value(error);
-    return;
-}
-
-void taf_Audio::StopDtmfCallback(ErrorCode error)
-{
-    auto &audio = taf_Audio::GetInstance();
-    if (ErrorCode::SUCCESS == error) {
-        LE_DEBUG("Dtmf tone stopped !!");
-    }
-    audio.gCallbackPromise.set_value(error);
-    return;
-}
-
 le_result_t taf_Audio::StartAudio
 (
     StreamConfig config
@@ -1725,8 +1783,8 @@ le_result_t taf_Audio::StartAudio
     LE_DEBUG("Create and Start audio\n");
     resetCallbackPromise();
     auto status = Status::FAILED;
-    std::promise<bool> p;
-    std::promise<telux::common::ErrorCode> prom{};
+    auto p = std::make_shared<std::promise<bool>>();
+    auto prom = std::make_shared<std::promise<ErrorCode>>();
     telux::common::ErrorCode ec;
     std::shared_ptr<telux::audio::IAudioStream> tafAudioStream;
     if (!mAudioManager){
@@ -1737,12 +1795,27 @@ le_result_t taf_Audio::StartAudio
     Status audioStatus = mAudioManager->createStream(config,
             [&p,&tafAudioStream,this](std::shared_ptr<telux::audio::IAudioStream> &stream,
                 telux::common::ErrorCode error) {
-        if (error == telux::common::ErrorCode::SUCCESS) {
-            tafAudioStream = stream;
-            p.set_value(true);
-        } else {
-            p.set_value(false);
-            LE_INFO("failed to Create a stream");
+        try
+        {
+            if (error == telux::common::ErrorCode::SUCCESS) {
+                tafAudioStream = stream;
+                p->set_value(true);
+            } else {
+                p->set_value(false);
+                LE_INFO("failed to Create a stream");
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
         }
     });
     if(audioStatus == Status::SUCCESS) {
@@ -1752,7 +1825,7 @@ le_result_t taf_Audio::StartAudio
         return LE_FAULT;
     }
 
-    if (p.get_future().get()) {
+    if (p->get_future().get()) {
         LE_DEBUG("Audio Stream is Created" );
         if(tafAudioStream->getType() == StreamType::VOICE_CALL) {
             if (config.slotId == SLOT_ID_1) {
@@ -1762,11 +1835,34 @@ le_result_t taf_Audio::StartAudio
             LE_DEBUG("Voice Stream is Created on slot id %d ",config.slotId );
 
             if(mAudioVoiceStream && (config.slotId == SLOT_ID_1) && !mVoiceEnabled1) {
-                status = mAudioVoiceStream->startAudio(StartAudioCallback);
+                auto cb = [prom](ErrorCode error) {
+                    try
+                    {
+                        auto &audio = taf_Audio::GetInstance();
+                        if (ErrorCode::SUCCESS == error) {
+                            audio.mVoiceEnabled1 = true;
+                            LE_INFO("audio started successfully");
+                        }
+                        prom->set_value(error);
+                    }
+                    catch (const std::future_error& e)
+                    {
+                        LE_ERROR("Future error in callback: %s", e.what());
+                    }
+                    catch (const std::exception& e)
+                    {
+                        LE_ERROR("Exception in callback: %s", e.what());
+                    }
+                    catch (...)
+                    {
+                        LE_ERROR("Unknown error in callback.");
+                    }
+                };
+                status = mAudioVoiceStream->startAudio(cb);
                 voiceStreamConfig = {};
                 if (status == Status::SUCCESS) {
                     LE_DEBUG("Request to start voice stream sent");
-                    ErrorCode error = gCallbackPromise.get_future().get();
+                    ErrorCode error = prom->get_future().get();
                     if (ErrorCode::SUCCESS != error) {
                         LE_ERROR("Request to start failed error : %d", (int)error);
                         return LE_FAULT;
@@ -1809,14 +1905,29 @@ le_result_t taf_Audio::StartAudio
                     telux::audio::IAudioLoopbackStream>(tafAudioStream);
             LE_DEBUG("Audio Loopback Stream is Created" );
             //Start loopback stream.
-            status = mAudioLoopbackStream->startLoopback([&prom] (telux::common::ErrorCode result) {
-                prom.set_value(result);
+            status = mAudioLoopbackStream->startLoopback([prom] (telux::common::ErrorCode result) {
+                try
+                {
+                    prom->set_value(result);
+                }
+                catch (const std::future_error& e)
+                {
+                    LE_ERROR("Future error in callback: %s", e.what());
+                }
+                catch (const std::exception& e)
+                {
+                    LE_ERROR("Exception in callback: %s", e.what());
+                }
+                catch (...)
+                {
+                    LE_ERROR("Unknown error in callback.");
+                }
             });
             if (status != telux::common::Status::SUCCESS) {
                 LE_ERROR("Request to start loopback failed.\n");
                 return LE_FAULT;
             }
-            ec = prom.get_future().get();
+            ec = prom->get_future().get();
             if (ec != telux::common::ErrorCode::SUCCESS) {
                 LE_ERROR("start loopback failed error : %d", (int)ec);
                 return LE_FAULT;
@@ -2700,21 +2811,46 @@ le_result_t taf_Audio::Stop(taf_audio_StreamRef_t streamRef)
 le_result_t taf_Audio::StopAudio(taf_audio_Stream_t* streamPtr)
 {
     LE_DEBUG("Stop audio stream %d\n", streamPtr->interface);
-    resetCallbackPromise();
+    auto prom = std::make_shared<std::promise<ErrorCode>>();
+    auto cb = [prom](ErrorCode error)
+    {
+        try
+        {
+            prom->set_value(error);
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
     auto status = Status::FAILED;
     if(streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX
             || streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX)
     {
         if (mAudioVoiceStream && mVoiceEnabled1) {
-            status = mAudioVoiceStream->stopAudio(StopAudioCallback);
+            status = mAudioVoiceStream->stopAudio(cb);
         }
 
         if (status == Status::SUCCESS) {
             LE_DEBUG("Stop voice call audio successful");
-            ErrorCode error = gCallbackPromise.get_future().get();
+            ErrorCode error = prom->get_future().get();
             if (ErrorCode::SUCCESS != error) {
                 LE_ERROR("Request to Stop stream failed error: %d", int (error));
                 return LE_FAULT;
+            }
+            else
+            {
+                auto &audio = taf_Audio::GetInstance();
+                audio.mVoiceEnabled1 = false;
+                LE_INFO("audio stopped successfully");
             }
         }
     }
@@ -2762,10 +2898,10 @@ le_result_t taf_Audio::StopAudio(taf_audio_Stream_t* streamPtr)
             {
                 LE_INFO("Stop WAV file successful");
             } else {
-                status = mAudioPlayStream->stopAudio(StopType::FORCE_STOP, StopAudioCallback);
+                status = mAudioPlayStream->stopAudio(StopType::FORCE_STOP, cb);
                 if (status == Status::SUCCESS) {
                     LE_DEBUG("Stop playback successful");
-                    ErrorCode error = gCallbackPromise.get_future().get();
+                    ErrorCode error = prom->get_future().get();
                     if (ErrorCode::SUCCESS != error) {
                         LE_ERROR("Request to Stop stream failed error: %d", int (error));
                         return LE_FAULT;
@@ -2808,17 +2944,44 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
 {
     LE_DEBUG("Delete stream %d\n", streamPtr->interface);
     auto status = Status::FAILED;
-
+    auto prom = std::make_shared<std::promise<ErrorCode>>();
+    auto cb = [prom](ErrorCode error)
+    {
+        try
+        {
+            prom->set_value(error);
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
     if(mAudioVoiceStream && (streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX
             || streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX))
     {
         gDelCbPromise = promise<ErrorCode>();
-        status = mAudioManager->deleteStream(mAudioVoiceStream, DeleteVoiceCallback);
+        status = mAudioManager->deleteStream(mAudioVoiceStream, cb);
         if (status == Status::SUCCESS) {
-            ErrorCode error = gDelCbPromise.get_future().get();
+            ErrorCode error = prom->get_future().get();
             if (ErrorCode::SUCCESS != error) {
                 LE_ERROR("Request to delete voice stream failed error: %d", int (error));
                 return LE_FAULT;
+            }
+            else
+            {
+                auto &audio = taf_Audio::GetInstance();
+                LE_DEBUG("deleteStream() succeeded.");
+                audio.mAudioVoiceStream.reset();
+                audio.mAudioVoiceStream = nullptr;
+                audio.mCallStarted = false;
             }
         } else {
             LE_ERROR("Error in disabling voice audio ");
@@ -2848,14 +3011,28 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
             mIsCaptureStreamCreated = false;
             status = mAudioManager->deleteStream(mAudioCaptureStream,
                     [&p,this](telux::common::ErrorCode error) {
-                if (error == telux::common::ErrorCode::SUCCESS) {
-                    LE_INFO("DeleteCaptureCallback() succeeded");
-                    mAudioCaptureStream.reset();
-                    mAudioCaptureStream = nullptr;
+                try
+                {
+                    if (error == telux::common::ErrorCode::SUCCESS) {
+                        LE_INFO("DeleteCaptureCallback() succeeded");
+                        mAudioCaptureStream.reset();
+                        mAudioCaptureStream = nullptr;
+                    } else {
+                        LE_ERROR("Failed to delete the capture stream");
+                    }
                     gCallbackPromise.set_value(error);
-                } else {
-                    gCallbackPromise.set_value(error);
-                    LE_ERROR("Failed to delete the capture stream");
+                }
+                catch (const std::future_error& e)
+                {
+                    LE_ERROR("Future error in callback: %s", e.what());
+                }
+                catch (const std::exception& e)
+                {
+                    LE_ERROR("Exception in callback: %s", e.what());
+                }
+                catch (...)
+                {
+                    LE_ERROR("Unknown error in callback.");
                 }
             });
         }
@@ -2864,14 +3041,28 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
             mIsRxCaptureStreamCreated = false;
             status = mAudioManager->deleteStream(mAudioRxCaptureStream,
                     [&p,this](telux::common::ErrorCode error) {
-                if (error == telux::common::ErrorCode::SUCCESS) {
-                    LE_INFO("DeleteCaptureCallback() succeeded");
-                    mAudioRxCaptureStream.reset();
-                    mAudioRxCaptureStream = nullptr;
+                try
+                {
+                    if (error == telux::common::ErrorCode::SUCCESS) {
+                        LE_INFO("DeleteCaptureCallback() succeeded");
+                        mAudioRxCaptureStream.reset();
+                        mAudioRxCaptureStream = nullptr;
+                    } else {
+                        LE_ERROR("Failed to delete capture stream");
+                    }
                     gCallbackPromise.set_value(error);
-                } else {
-                    gCallbackPromise.set_value(error);
-                    LE_ERROR("Failed to delete capture stream");
+                }
+                catch (const std::future_error& e)
+                {
+                    LE_ERROR("Future error in callback: %s", e.what());
+                }
+                catch (const std::exception& e)
+                {
+                    LE_ERROR("Exception in callback: %s", e.what());
+                }
+                catch (...)
+                {
+                    LE_ERROR("Unknown error in callback.");
                 }
             });
         }
@@ -2879,17 +3070,6 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
     if(status == Status::SUCCESS)
         LE_INFO("status is success");
     return LE_OK;
-}
-
-void taf_Audio::StreamMuteUnmuteCallback(ErrorCode error)
-{
-    auto &audio = taf_Audio::GetInstance();
-    if (error != ErrorCode::SUCCESS) {
-        LE_INFO("returned with error %d ", uint32_t(error));
-    }
-    LE_DEBUG("Mute/Unmute succeeded");
-    audio.gCallbackPromise.set_value(error);
-    return;
 }
 
 le_result_t taf_Audio::setVhalRouteStatus(taf_audio_Mode_t mode, bool status)
@@ -3031,7 +3211,22 @@ void taf_Audio::DeletePlayCallback(ErrorCode error) {
     } else {
         LE_ERROR("Delete PlayStream error: %d", int (error));
     }
-    audio.gDelCbPromise.set_value(error);
+    try
+    {
+        audio.gDelCbPromise.set_value(error);
+    }
+    catch (const std::future_error& e)
+    {
+        LE_ERROR("Future error in callback: %s", e.what());
+    }
+    catch (const std::exception& e)
+    {
+        LE_ERROR("Exception in callback: %s", e.what());
+    }
+    catch (...)
+    {
+        LE_ERROR("Unknown error in callback.");
+    }
     return;
 }
 
@@ -3499,19 +3694,19 @@ void taf_Audio::PbBufferHandler
         if ((mPbFileFormat == AudioFormat::AMRWB_PLUS) ||
                 (mPbFileFormat == AudioFormat::AMRWB) ||
                 (mPbFileFormat == AudioFormat::AMRNB)){
-            std::promise<bool> p;
+            auto p = std::make_shared<std::promise<bool>>();
             auto status = mAudioPlayStream->stopAudio(
-                    StopType::STOP_AFTER_PLAY, [&p](telux::common::ErrorCode error) {
+                    StopType::STOP_AFTER_PLAY, [p](telux::common::ErrorCode error) {
                 if (error == telux::common::ErrorCode::SUCCESS) {
-                    p.set_value(true);
+                    p->set_value(true);
                 } else {
-                    p.set_value(false);
+                    p->set_value(false);
                     LE_ERROR("Failed to stop after playing buffers" );
                 }
             });
             if(status == telux::common::Status::SUCCESS){
                 LE_INFO("Request to stop playback after pending buffers Sent");
-                if (p.get_future().get()) {
+                if (p->get_future().get()) {
                     LE_INFO("Pending buffers played successfully" );
                     mPlayCompletedSemRef = le_sem_Create("mPlayCompletedSemRef", 0);
                     le_sem_Wait(mPlayCompletedSemRef);
@@ -3722,7 +3917,26 @@ le_result_t taf_Audio::SetMute
             streamRef);
     TAF_ERROR_IF_RET_VAL((streamPtr == NULL), LE_FAULT, "Invalid reference");
 
-    resetCallbackPromise();
+    auto prom = std::make_shared<std::promise<ErrorCode>>();
+    auto cb = [prom](ErrorCode error)
+    {
+        try
+        {
+            prom->set_value(error);
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
     le_result_t res = LE_FAULT;
     auto status = Status::FAILED;
 
@@ -3760,7 +3974,7 @@ le_result_t taf_Audio::SetMute
             return LE_OK;
         }
         muteObj.dir = StreamDirection::RX;
-        status = mAudioPlayStream->setMute(muteObj, StreamMuteUnmuteCallback);
+        status = mAudioPlayStream->setMute(muteObj, cb);
 #endif
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)
     {
@@ -3774,7 +3988,7 @@ le_result_t taf_Audio::SetMute
             return LE_OK;
         }
         muteObj.dir = StreamDirection::TX;
-        status = mAudioCaptureStream->setMute(muteObj, StreamMuteUnmuteCallback);
+        status = mAudioCaptureStream->setMute(muteObj, cb);
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX)
     {
         LE_DEBUG("Set the mute status to voice RX stream reference");
@@ -3784,7 +3998,7 @@ le_result_t taf_Audio::SetMute
             return LE_OK;
         }
         muteObj.dir = StreamDirection::RX;
-        status = mAudioVoiceStream->setMute(muteObj, StreamMuteUnmuteCallback);
+        status = mAudioVoiceStream->setMute(muteObj, cb);
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX)
     {
         LE_DEBUG("Set the mute status to voice TX stream reference");
@@ -3794,7 +4008,7 @@ le_result_t taf_Audio::SetMute
             return LE_OK;
         }
         muteObj.dir = StreamDirection::TX;
-        status = mAudioVoiceStream->setMute(muteObj, StreamMuteUnmuteCallback);
+        status = mAudioVoiceStream->setMute(muteObj, cb);
     } else
     {
         LE_ERROR("Invalid stream reference");
@@ -3802,7 +4016,7 @@ le_result_t taf_Audio::SetMute
     }
 
     if (status == Status::SUCCESS) {
-        ErrorCode error = gCallbackPromise.get_future().get();
+        ErrorCode error = prom->get_future().get();
         if (ErrorCode::SUCCESS != error) {
             if (muteObj.enable) {
                 LE_ERROR("Request to Mute failed error: %d", int (error));
@@ -3810,6 +4024,10 @@ le_result_t taf_Audio::SetMute
                 LE_ERROR("Request to UnMute failed");
             }
             return LE_FAULT;
+        }
+        else
+        {
+            LE_DEBUG("Successfully set the mute status");
         }
         streamPtr->isMute = isMute;
         res = LE_OK;
@@ -3837,7 +4055,7 @@ le_result_t taf_Audio::GetMute
 
     auto status = Status::FAILED;
     auto responseStatus = Status::FAILED;
-    std::promise<bool> p;
+    auto p = std::make_shared<std::promise<bool>>();
     StreamMute muteObj = {};
 
     if(streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY)
@@ -3867,14 +4085,26 @@ le_result_t taf_Audio::GetMute
         }
         status = mAudioPlayStream->getMute(StreamDirection::RX,
                 [&p, &responseStatus, &muteObj, this](StreamMute mute, ErrorCode error) {
-            if (error == ErrorCode::SUCCESS) {
-                responseStatus = telux::common::Status::SUCCESS;
-                muteObj = mute;
-                p.set_value(true);
-            } else {
-                LE_ERROR("Failed to get mute status, error : %d", (int)error);
-                responseStatus = telux::common::Status::FAILED;
-                p.set_value(false);
+            try
+            {
+                if (error == ErrorCode::SUCCESS) {
+                    responseStatus = telux::common::Status::SUCCESS;
+                    muteObj = mute;
+                    p->set_value(true);
+                } else {
+                    LE_ERROR("Failed to get mute status, error : %d", (int)error);
+                    responseStatus = telux::common::Status::FAILED;
+                    p->set_value(false);
+                }
+            }
+            catch (const std::future_error& e) {
+                LE_ERROR("Future error in callback: %s", e.what());
+            }
+            catch (const std::exception& e) {
+                LE_ERROR("Exception in callback: %s", e.what());
+            }
+            catch (...) {
+                LE_ERROR("Unknown error in callback.");
             }
         });
 #endif
@@ -3891,14 +4121,26 @@ le_result_t taf_Audio::GetMute
         StreamDirection dir = StreamDirection::TX;
         status = mAudioCaptureStream->getMute(dir,
                 [&p, &responseStatus, &muteObj, this](StreamMute mute, ErrorCode error) {
-            if (error == ErrorCode::SUCCESS) {
-                responseStatus = telux::common::Status::SUCCESS;
-                muteObj = mute;
-                p.set_value(true);
-            } else {
-                LE_ERROR("Failed to get mute status, error : %d", (int)error);
-                responseStatus = telux::common::Status::FAILED;
-                p.set_value(false);
+            try
+            {
+                if (error == ErrorCode::SUCCESS) {
+                    responseStatus = telux::common::Status::SUCCESS;
+                    muteObj = mute;
+                    p->set_value(true);
+                } else {
+                    LE_ERROR("Failed to get mute status, error : %d", (int)error);
+                    responseStatus = telux::common::Status::FAILED;
+                    p->set_value(false);
+                }
+            }
+            catch (const std::future_error& e) {
+                LE_ERROR("Future error in callback: %s", e.what());
+            }
+            catch (const std::exception& e) {
+                LE_ERROR("Exception in callback: %s", e.what());
+            }
+            catch (...) {
+                LE_ERROR("Unknown error in callback.");
             }
         });
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX)
@@ -3911,14 +4153,26 @@ le_result_t taf_Audio::GetMute
         }
         status = mAudioVoiceStream->getMute(StreamDirection::RX,
                 [&p, &responseStatus, &muteObj, this](StreamMute mute, ErrorCode error) {
-            if (error == ErrorCode::SUCCESS) {
-                responseStatus = telux::common::Status::SUCCESS;
-                muteObj = mute;
-                p.set_value(true);
-            } else {
-                LE_ERROR("Failed to get mute status, error : %d", (int)error);
-                responseStatus = telux::common::Status::FAILED;
-                p.set_value(false);
+            try
+            {
+                if (error == ErrorCode::SUCCESS) {
+                    responseStatus = telux::common::Status::SUCCESS;
+                    muteObj = mute;
+                    p->set_value(true);
+                } else {
+                    LE_ERROR("Failed to get mute status, error : %d", (int)error);
+                    responseStatus = telux::common::Status::FAILED;
+                    p->set_value(false);
+                }
+            }
+            catch (const std::future_error& e) {
+                LE_ERROR("Future error in callback: %s", e.what());
+            }
+            catch (const std::exception& e) {
+                LE_ERROR("Exception in callback: %s", e.what());
+            }
+            catch (...) {
+                LE_ERROR("Unknown error in callback.");
             }
         });
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX)
@@ -3931,14 +4185,26 @@ le_result_t taf_Audio::GetMute
         }
         status = mAudioVoiceStream->getMute(StreamDirection::TX,
                 [&p, &responseStatus, &muteObj, this](StreamMute mute, ErrorCode error) {
-            if (error == ErrorCode::SUCCESS) {
-                responseStatus = telux::common::Status::SUCCESS;
-                muteObj = mute;
-                p.set_value(true);
-            } else {
-                LE_ERROR("Failed to get mute status, error : %d", (int)error);
-                responseStatus = telux::common::Status::FAILED;
-                p.set_value(false);
+            try
+            {
+                if (error == ErrorCode::SUCCESS) {
+                    responseStatus = telux::common::Status::SUCCESS;
+                    muteObj = mute;
+                    p->set_value(true);
+                } else {
+                    LE_ERROR("Failed to get mute status, error : %d", (int)error);
+                    responseStatus = telux::common::Status::FAILED;
+                    p->set_value(false);
+                }
+            }
+            catch (const std::future_error& e) {
+                LE_ERROR("Future error in callback: %s", e.what());
+            }
+            catch (const std::exception& e) {
+                LE_ERROR("Exception in callback: %s", e.what());
+            }
+            catch (...) {
+                LE_ERROR("Unknown error in callback.");
             }
         });
     } else
@@ -3947,7 +4213,7 @@ le_result_t taf_Audio::GetMute
         return LE_BAD_PARAMETER;
     }
     if(status == Status::SUCCESS) {
-        p.get_future().wait();
+        p->get_future().wait();
         LE_INFO("Successfully got the mute status %s", muteObj.enable ? "true" : "false");
         *isMute = muteObj.enable;
         return LE_OK;
@@ -3975,8 +4241,31 @@ le_result_t taf_Audio::SetVolume
     }
 
     auto status = Status::FAILED;
-    std::promise<bool> p;
-
+    auto p = std::make_shared<std::promise<bool>>();
+    auto cb = [p](ErrorCode error)
+    {
+        try
+        {
+            if (error == ErrorCode::SUCCESS) {
+                p->set_value(true);
+            } else {
+                LE_ERROR("Failed to set volume, error : %d", (int)error);
+                p->set_value(false);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
     telux::audio::StreamVolume streamVol;
     ChannelVolume leftChannelVol, rightChannelVol;
     leftChannelVol.vol = volLevel;
@@ -4017,15 +4306,7 @@ le_result_t taf_Audio::SetVolume
         {
             streamVol.volume.pop_back();
         }
-        status = mAudioPlayStream->setVolume(streamVol,
-                [&p, this](ErrorCode error) {
-            if (error == ErrorCode::SUCCESS) {
-                p.set_value(true);
-            } else {
-                LE_ERROR("Failed to set volume, error : %d", (int)error);
-                p.set_value(false);
-            }
-        });
+        status = mAudioPlayStream->setVolume(streamVol, cb);
 #endif
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)
     {
@@ -4038,15 +4319,7 @@ le_result_t taf_Audio::SetVolume
             return LE_OK;
         }
         streamVol.dir = StreamDirection::TX;
-        status = mAudioCaptureStream->setVolume(streamVol,
-                [&p, this](ErrorCode error) {
-            if (error == ErrorCode::SUCCESS) {
-                p.set_value(true);
-            } else {
-                LE_ERROR("Failed to set volume, error : %d", (int)error);
-                p.set_value(false);
-            }
-        });
+        status = mAudioCaptureStream->setVolume(streamVol, cb);
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX)
     {
         LE_DEBUG("Set volume to modem RX stream reference");
@@ -4056,15 +4329,7 @@ le_result_t taf_Audio::SetVolume
             return LE_OK;
         }
         streamVol.dir = StreamDirection::RX;
-        status = mAudioVoiceStream->setVolume(streamVol,
-                [&p, this](ErrorCode error) {
-            if (error == ErrorCode::SUCCESS) {
-                p.set_value(true);
-            } else {
-                LE_ERROR("Failed to set volume, error : %d", (int)error);
-                p.set_value(false);
-            }
-        });
+        status = mAudioVoiceStream->setVolume(streamVol, cb);
     } else
     {
         LE_ERROR("Invalid stream reference");
@@ -4076,7 +4341,7 @@ le_result_t taf_Audio::SetVolume
         LE_ERROR("Request to set volume failed");
         return LE_FAULT;
     }
-    if (p.get_future().get()) {
+    if (p->get_future().get()) {
         LE_INFO("setVolume successful.");
         streamPtr->volLevel = volLevel;
     }
@@ -4094,8 +4359,33 @@ le_result_t taf_Audio::GetVolume
     TAF_ERROR_IF_RET_VAL((streamPtr == NULL), LE_FAULT, "Invalid reference");
 
     auto status = Status::FAILED;
-    std::promise<bool> p;
     telux::audio::StreamVolume streamVol;
+    auto p = std::make_shared<std::promise<bool>>();
+    auto cb = [p, &streamVol](telux::audio::StreamVolume volume, ErrorCode error)
+    {
+        try
+        {
+            if (error == ErrorCode::SUCCESS) {
+                streamVol = volume;
+                p->set_value(true);
+            } else {
+                LE_ERROR("Failed to get volume, error : %d", (int)error);
+                p->set_value(false);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
 
     if(streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY)
     {
@@ -4125,16 +4415,7 @@ le_result_t taf_Audio::GetVolume
             *volLevel = streamPtr->volLevel;
             return LE_OK;
         }
-        status = mAudioPlayStream->getVolume(StreamDirection::RX,
-                [&p, &streamVol, this](telux::audio::StreamVolume volume, ErrorCode error) {
-            if (error == ErrorCode::SUCCESS) {
-                streamVol = volume;
-                p.set_value(true);
-            } else {
-                LE_ERROR("Failed to get volume, error : %d", (int)error);
-                p.set_value(false);
-            }
-        });
+        status = mAudioPlayStream->getVolume(StreamDirection::RX, cb);
 #endif
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)
     {
@@ -4147,16 +4428,7 @@ le_result_t taf_Audio::GetVolume
             return LE_OK;
         }
         StreamDirection dir = StreamDirection::TX;;
-        status = mAudioCaptureStream->getVolume(dir,
-                [&p, &streamVol, this](telux::audio::StreamVolume volume, ErrorCode error) {
-            if (error == ErrorCode::SUCCESS) {
-                streamVol = volume;
-                p.set_value(true);
-            } else {
-                LE_ERROR("Failed to get volume, error : %d", (int)error);
-                p.set_value(false);
-            }
-        });
+        status = mAudioCaptureStream->getVolume(dir, cb);
     } else if (streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX)
     {
         LE_DEBUG("Get volume to modem RX stream reference");
@@ -4165,16 +4437,7 @@ le_result_t taf_Audio::GetVolume
             *volLevel = streamPtr->volLevel;
             return LE_OK;
         }
-        status = mAudioVoiceStream->getVolume(StreamDirection::RX,
-                [&p, &streamVol, this](telux::audio::StreamVolume volume, ErrorCode error) {
-            if (error == ErrorCode::SUCCESS) {
-                streamVol = volume;
-                p.set_value(true);
-            } else {
-                LE_ERROR("Failed to get volume, error : %d", (int)error);
-                p.set_value(false);
-            }
-        });
+        status = mAudioVoiceStream->getVolume(StreamDirection::RX, cb);
     } else
     {
         LE_ERROR("Invalid stream reference");
@@ -4186,7 +4449,7 @@ le_result_t taf_Audio::GetVolume
         LE_ERROR("Request to get volume failed");
         return LE_FAULT;
     }
-    if (p.get_future().get()) {
+    if (p->get_future().get()) {
         LE_INFO("getVolume successful.");
         for (auto channelVolume : streamVol.volume) {
             LE_INFO("vol is %f", channelVolume.vol);
@@ -4212,10 +4475,30 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
     auto &audio = taf_Audio::GetInstance();
     taf_Dtmf_t* dtmfData = (taf_Dtmf_t*)dtmfTones;
     bool playingFirstDtmf = true;
-
     for(auto frequencies : dtmfData->frequencyList) {
         if(audio.mVoiceEnabled1 && (audio.mDtmfStarted || playingFirstDtmf)) {
-            resetCallbackPromise();
+            auto prom = std::make_shared<std::promise<ErrorCode>>();
+            auto cb = [prom](ErrorCode error) {
+                try
+                {
+                    if (ErrorCode::SUCCESS == error) {
+                        LE_DEBUG("Dtmf tone playing !!");
+                    }
+                    prom->set_value(error);
+                }
+                catch (const std::future_error& e)
+                {
+                    LE_ERROR("Future error in callback: %s", e.what());
+                }
+                catch (const std::exception& e)
+                {
+                    LE_ERROR("Exception in callback: %s", e.what());
+                }
+                catch (...)
+                {
+                    LE_ERROR("Unknown error in callback.");
+                }
+            };
             auto status = Status::FAILED;
             DtmfTone dtmfTone = {};
             dtmfTone.direction = StreamDirection::RX;
@@ -4226,7 +4509,7 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
             uint16_t gain_new = dtmfData->dtmfGain*MAX_DTMF_GAIN;
             if(audio.mAudioVoiceStream) {
                 status = audio.mAudioVoiceStream->playDtmfTone(
-                            dtmfTone, dtmfData->durationRx, gain_new, PlayDtmfCallback);
+                            dtmfTone, dtmfData->durationRx, gain_new, cb);
             } else {
                 LE_ERROR("No voice stream found");
                 if(playingFirstDtmf) {
@@ -4237,14 +4520,14 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
             }
 
             if(status == Status::SUCCESS) {
-                ErrorCode error = audio.gCallbackPromise.get_future().get();
+                ErrorCode error = prom->get_future().get();
                 if (ErrorCode::SUCCESS != error) {
                     LE_ERROR("Play Dtmf Tone failed");
                     if(playingFirstDtmf) {
                         le_sem_Post(audio.mDtmfStartedSemRef);
                         playingFirstDtmf = false;
                     }
-                    return NULL;
+                    break;
                 }
                 audio.mDtmfStarted = true;
                 if(playingFirstDtmf) {
@@ -4257,7 +4540,7 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
                     le_sem_Post(audio.mDtmfStartedSemRef);
                     playingFirstDtmf = false;
                 }
-                return NULL;
+                break;
             }
 
             if(dtmfData->durationRx == INFINITE_TONE_DURATION) {
@@ -4286,7 +4569,7 @@ void* taf_Audio::playDTMFonTX(void* dtmfTones) {
     auto &audio = taf_Audio::GetInstance();
     taf_Dtmf_t* dtmfData = (taf_Dtmf_t*)dtmfTones;
     bool playingFirstDtmf = true;
-    std::promise<ServiceStatus> callMgrprom;
+    auto callMgrprom = std::make_shared<std::promise<ServiceStatus>>();
     std::shared_ptr<telux::tel::ICall> spCall = nullptr;
     std::vector<std::shared_ptr<telux::tel::ICall>> inProgressCalls;
 
@@ -4295,7 +4578,22 @@ void* taf_Audio::playDTMFonTX(void* dtmfTones) {
 
         //  Get the PhoneFactory and CallManager instances.
         audio.callManager = phoneFactory.getCallManager([&](ServiceStatus status) {
-            callMgrprom.set_value(status);
+            try
+            {
+                callMgrprom->set_value(status);
+            }
+            catch (const std::future_error& e)
+            {
+                LE_ERROR("Future error in callback: %s", e.what());
+            }
+            catch (const std::exception& e)
+            {
+                LE_ERROR("Exception in callback: %s", e.what());
+            }
+            catch (...)
+            {
+                LE_ERROR("Unknown error in callback.");
+            }
         });
         if(!audio.callManager) {
             LE_ERROR(" Failed to get CallManager instance");
@@ -4307,7 +4605,7 @@ void* taf_Audio::playDTMFonTX(void* dtmfTones) {
         }
         LE_DEBUG("CallManager subsystem is not ready, Please wait ");
 
-        ServiceStatus callMgrsubSystemStatus = callMgrprom.get_future().get();
+        ServiceStatus callMgrsubSystemStatus = callMgrprom->get_future().get();
         if(callMgrsubSystemStatus == ServiceStatus::SERVICE_AVAILABLE) {
             LE_DEBUG("CallManager subsystem is ready ");
             audio.onStartDtmfTone = std::make_shared<tafsvc::tafSignallingDtmfListener>(
@@ -4345,7 +4643,7 @@ void* taf_Audio::playDTMFonTX(void* dtmfTones) {
                         dtmfData->result = LE_FAULT;
                         le_sem_Post(audio.mDtmfStartedSemRefTx);
                     }
-                    return NULL;
+                    break;
                 }
                 if(playingFirstDtmf) {
                     dtmfData->result = LE_OK;
@@ -4400,6 +4698,7 @@ le_result_t taf_Audio::PlaySignallingDtmf
     dtmfDataTx.dtmfChars = dtmfPtr;
     dtmfDataTx.slotId = slotId;
     dtmfDataTx.result = LE_FAULT;
+    dtmfDataTx.sessionRef = taf_audio_GetClientSessionRef();
 
     mDtmfStartedSemRefTx = le_sem_Create("tafDtmfStartedSemRefTx", 0);
     le_thread_Start(le_thread_Create("DtmfThreadTx", playDTMFonTX, &dtmfDataTx));
@@ -4436,6 +4735,8 @@ le_result_t taf_Audio::PlayDtmf
     dtmfDataRx.pause = upause;
     dtmfDataRx.dtmfGain = gain;
     dtmfDataRx.frequencyList.clear();
+    dtmfDataRx.sessionRef = taf_audio_GetClientSessionRef();
+    dtmfDataRx.streamRef = rStreamRef;
 
     if (mAudioVoiceStream && mVoiceEnabled1) {
         while (*dtmfPtr != '\0') {
@@ -4467,16 +4768,38 @@ le_result_t taf_Audio::StopDtmf(taf_audio_StreamRef_t streamRef)
 {
     resetCallbackPromise();
     auto status = Status::FAILED;
-
+    auto prom = std::make_shared<std::promise<ErrorCode>>();
+    auto cb = [prom](ErrorCode error) {
+        try
+        {
+            if (ErrorCode::SUCCESS == error)
+            {
+                LE_DEBUG("Dtmf tone stopped !!");
+            }
+            prom->set_value(error);
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
     taf_audio_Stream_t* streamPtr = (taf_audio_Stream_t*)le_ref_Lookup(StreamRefMap,
             streamRef);
     TAF_ERROR_IF_RET_VAL( streamPtr == NULL, LE_BAD_PARAMETER,"streamPtr is nullptr!");
     TAF_ERROR_IF_RET_VAL(streamPtr->interface != TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX,
             LE_BAD_PARAMETER, "Invalid stream reference");
     if (mAudioVoiceStream && mVoiceEnabled1 && mDtmfStarted) {
-        status = mAudioVoiceStream->stopDtmfTone(StreamDirection::RX, StopDtmfCallback);
+        status = mAudioVoiceStream->stopDtmfTone(StreamDirection::RX, cb);
         if(status == Status::SUCCESS) {
-            ErrorCode error = gCallbackPromise.get_future().get();
+            ErrorCode error = prom->get_future().get();
             if (ErrorCode::SUCCESS != error) {
                 LE_ERROR("Stop Dtmf Tone failed");
                 return LE_FAULT;

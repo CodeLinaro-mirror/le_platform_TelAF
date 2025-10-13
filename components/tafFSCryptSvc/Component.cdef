@@ -13,8 +13,12 @@ requires:
 {
     component:
     {
+#if ${LE_CONFIG_TARGET_SIMULATION} = y
+        $TELAF_ROOT/simulation/stub/keyStore/taf_pa_fscrypt
+#else
         $TELAF_PA_DEFAULT/component/keyStore/taf_pa_fscrypt_default
         $LEGATO_BUILD/stub/component/taf_pa_fscrypt
+#endif
     }
 
     api:

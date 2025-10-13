@@ -1382,7 +1382,10 @@ static void ScanStoredDriversAndCopy(const char* path)
         else
         {
             LE_INFO("Try to create hard link to %s", linkStr);
-            link(destStr, linkStr);
+            if(link(destStr, linkStr))
+            {
+                LE_WARN("Failed to create the link");
+            }
 
             // remove the copied file, only keep the hard link
             unlink(destStr);

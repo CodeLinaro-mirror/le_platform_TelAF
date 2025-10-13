@@ -67,16 +67,27 @@ taf_locGnss &taf_locGnss::GetInstance()
 
 telux::common::Status taf_locGnss::DgnssManagerInit() {
     if(mDgnssManager == nullptr) {
-        std::promise<ServiceStatus> prom = std::promise<ServiceStatus>();
+        auto prom = std::make_shared<std::promise<ServiceStatus>>();
         std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto &locationFactory = LocationFactory::getInstance();
         mDgnssManager = locationFactory.getDgnssManager(DgnssDataFormat::DATA_FORMAT_RTCM_3,
-            [&](ServiceStatus status) {
-                if (status == ServiceStatus::SERVICE_AVAILABLE) {
-                    prom.set_value(ServiceStatus::SERVICE_AVAILABLE);
-                } else {
-                    prom.set_value(ServiceStatus::SERVICE_UNAVAILABLE);
+            [prom](ServiceStatus status) {
+                try {
+                    if (status == ServiceStatus::SERVICE_AVAILABLE) {
+                        prom->set_value(ServiceStatus::SERVICE_AVAILABLE);
+                    } else {
+                        prom->set_value(ServiceStatus::SERVICE_UNAVAILABLE);
+                    }
+                }
+                catch (const std::future_error& e) {
+                    LE_ERROR("Future error in callback: %s", e.what());
+                }
+                catch (const std::exception& e) {
+                    LE_ERROR("Exception in callback: %s", e.what());
+                }
+                catch (...) {
+                    LE_ERROR("Unknown error in callback.");
                 }
             });
         if (!mDgnssManager) {
@@ -89,7 +100,8 @@ telux::common::Status taf_locGnss::DgnssManagerInit() {
         if(dgnssMgrStatus != ServiceStatus::SERVICE_AVAILABLE) {
             LE_DEBUG( "Dgnss subsystem is not ready, Please wait");
         }
-        dgnssMgrStatus = prom.get_future().get();
+
+        dgnssMgrStatus = prom->get_future().get();
         if(dgnssMgrStatus == ServiceStatus::SERVICE_AVAILABLE) {
             endTime = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsedTime = endTime - startTime;
@@ -127,23 +139,35 @@ telux::common::Status taf_locGnss::DgnssManagerInit() {
 
 telux::common::Status taf_locGnss::LocationManagerInit(taf_locGnss_Client_t* clientRequestPtr) {
     if(clientRequestPtr->locationManager == nullptr) {
-        std::promise<ServiceStatus> prom = std::promise<ServiceStatus>();
+        auto prom = std::make_shared<std::promise<ServiceStatus>>();
         std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto &locationFactory = LocationFactory::getInstance();
         clientRequestPtr->locationManager = locationFactory.getLocationManager([&](ServiceStatus status) {
-                if (status == ServiceStatus::SERVICE_AVAILABLE) {
-                    prom.set_value(ServiceStatus::SERVICE_AVAILABLE);
-                } else {
-                    prom.set_value(ServiceStatus::SERVICE_UNAVAILABLE);
+                try {
+                    if (status == ServiceStatus::SERVICE_AVAILABLE) {
+                        prom->set_value(ServiceStatus::SERVICE_AVAILABLE);
+                    } else {
+                        prom->set_value(ServiceStatus::SERVICE_UNAVAILABLE);
+                    }
                 }
-                });
+                catch (const std::future_error& e) {
+                    LE_ERROR("Future error in callback: %s", e.what());
+                }
+                catch (const std::exception& e) {
+                    LE_ERROR("Exception in callback: %s", e.what());
+                }
+                catch (...) {
+                    LE_ERROR("Unknown error in callback.");
+                }
+            });
         startTime = std::chrono::system_clock::now();
         ServiceStatus locMgrStatus = clientRequestPtr->locationManager->getServiceStatus();
         if(locMgrStatus != ServiceStatus::SERVICE_AVAILABLE) {
             LE_DEBUG("Location subsystem is not ready, Please wait");
         }
-        locMgrStatus = prom.get_future().get();
+
+        locMgrStatus = prom->get_future().get();
         if(locMgrStatus == ServiceStatus::SERVICE_AVAILABLE) {
             endTime = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsedTime = endTime - startTime;
@@ -197,30 +221,41 @@ telux::common::Status taf_locGnss::LocationManagerInit(taf_locGnss_Client_t* cli
 
 telux::common::Status taf_locGnss::LocationConfiguratorInit() {
     if(mLocationConfigurator == nullptr) {
-        std::promise<ServiceStatus> prom = std::promise<ServiceStatus>();
+        auto prom = std::make_shared<std::promise<ServiceStatus>>();
         std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto &locationFactory = LocationFactory::getInstance();
         mLocationConfigurator = locationFactory.getLocationConfigurator([&](ServiceStatus status) {
-                if (status == ServiceStatus::SERVICE_AVAILABLE) {
-                prom.set_value(ServiceStatus::SERVICE_AVAILABLE);
-                } else {
-                prom.set_value(ServiceStatus::SERVICE_UNAVAILABLE);
-                }
-                });
+             try {
+                 if (status == ServiceStatus::SERVICE_AVAILABLE) {
+                     prom->set_value(ServiceStatus::SERVICE_AVAILABLE);
+                 } else {
+                     prom->set_value(ServiceStatus::SERVICE_UNAVAILABLE);
+                 }
+             }
+             catch (const std::future_error& e) {
+                 LE_ERROR("Future error in callback: %s", e.what());
+             }
+             catch (const std::exception& e) {
+                 LE_ERROR("Exception in callback: %s", e.what());
+             }
+             catch (...) {
+                 LE_ERROR("Unknown error in callback.");
+             }
+        });
         startTime = std::chrono::system_clock::now();
         ServiceStatus locCfgStatus = mLocationConfigurator->getServiceStatus();
         if(locCfgStatus != ServiceStatus::SERVICE_AVAILABLE) {
             LE_DEBUG("Location configuration subsystem is not ready, Please wait");
         }
-        locCfgStatus = prom.get_future().get();
+
+        locCfgStatus = prom->get_future().get();
         if(locCfgStatus == ServiceStatus::SERVICE_AVAILABLE) {
             endTime = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsedTime = endTime - startTime;
             LE_DEBUG("Elapsed Time for configuration subsystems to ready : %lf",elapsedTime.count());
         } else {
-            LE_DEBUG("ERROR - Unable to initialize Location configuration subsystem"
-                   );
+            LE_DEBUG("ERROR - Unable to initialize Location configuration subsystem");
             return telux::common::Status::FAILED;
         }
 #endif
@@ -2384,15 +2419,10 @@ le_result_t taf_locGnss::SetConstellation
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
             // Set GNSS constellation
-            std::promise<le_result_t> p;
-            auto cb = [&p](telux::common::ErrorCode error) {
-                if(error == telux::common::ErrorCode::SUCCESS) {
-                    p.set_value(LE_OK);
-                }
-                else {
-                    p.set_value(LE_FAULT);
-                }
-            };
+            std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                GetCallbackWithPromise();
+            auto cb = pr.first;
+            auto futResult = pr.second;
 
             telux::common::Status status =
                 mLocationConfigurator->configureConstellations(svBlackList, cb, deviceReset);
@@ -2403,7 +2433,14 @@ le_result_t taf_locGnss::SetConstellation
             }
             else
             {
-                if(p.get_future().get() == LE_OK)
+                std::chrono::seconds span(TIMEOUT_SECONDS);
+                std::future_status waitStatus = futResult.wait_for(span);
+                if (waitStatus == std::future_status::timeout)
+                {
+                    LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                    result = LE_TIMEOUT;
+                }
+                else if(futResult.get() == LE_OK)
                 {
                     result = LE_OK;
                     mConstellationMask = constellationMask;
@@ -2465,15 +2502,11 @@ le_result_t taf_locGnss::Start
                 LE_DEBUG("Start->mEngineType : %d",clientRequestPtr->mEngineType);
                 engineType |= (1UL << clientRequestPtr->mEngineType);//FUSED mode is supported by default
 
-                std::promise<le_result_t> p;
-                auto cb = [&p](telux::common::ErrorCode error) {
-                    if(error == telux::common::ErrorCode::SUCCESS) {
-                        p.set_value(LE_OK);
-                    }
-                    else {
-                        p.set_value(LE_FAULT);
-                    }
-                };
+                std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                    GetCallbackWithPromise();
+                auto cb = pr.first;
+                auto futResult = pr.second;
+
                 auto status = clientRequestPtr->locationManager->startDetailedEngineReports(
                         (uint32_t)optInterval, engineType, cb, reportMask);
                 if(telux::common::Status::SUCCESS != status)
@@ -2484,7 +2517,14 @@ le_result_t taf_locGnss::Start
                 }
                 else
                 {
-                    if(p.get_future().get() == LE_OK)
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
+                    {
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_TIMEOUT;
+                    }
+                    else if(futResult.get() == LE_OK)
                     {
                         ConfigureAcqStartInfo(clientRequestPtr);
                         result = LE_OK;
@@ -3586,40 +3626,44 @@ le_result_t taf_locGnss::DeleteDRSensorCalData
         break;
         case TAF_LOCGNSS_STATE_READY:
         {
-                std::promise<le_result_t> p1;
+            std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                GetCallbackWithPromise();
+            auto cb = pr.first;
+            auto futResult = pr.second;
 
-                auto cb1 = [&p1](telux::common::ErrorCode error) {
-                    if(error == telux::common::ErrorCode::SUCCESS) {
-                        p1.set_value(LE_OK);
-                    }
-                    else {
-                        p1.set_value(LE_FAULT);
-                    }
-                };
+            /* Specifies AidingDataType mask */
+            /* 0 - EPHEMERIS 1 - DR_SENSOR_CALIBRATION
+               AidingData |1UL << 1 which is 2*/
 
-                /* Specifies AidingDataType mask */
-                /* 0 - EPHEMERIS 1 - DR_SENSOR_CALIBRATION
-                   AidingData |1UL << 1 which is 2*/
-
-                uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_DR_SENSOR_CALIBRATION;
-                telux::common::Status status =
-                                            mLocationConfigurator->deleteAidingData(AidingData,cb1);
-                if (status != telux::common::Status::SUCCESS)
+            uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_DR_SENSOR_CALIBRATION;
+            telux::common::Status status =
+                mLocationConfigurator->deleteAidingData(AidingData, cb);
+            if (status != telux::common::Status::SUCCESS)
+            {
+                if (status == telux::common::Status::NOTIMPLEMENTED)
                 {
-                    if (status == telux::common::Status::NOTIMPLEMENTED)
-                    {
-                        LE_ERROR("DeleteDRSensorCalData failed or Not Implemented");
-                    }
-                    result = LE_FAULT;
+                    LE_ERROR("DeleteDRSensorCalData failed or Not Implemented");
+                }
+                result = LE_FAULT;
+            }
+            else
+            {
+                std::chrono::seconds span(TIMEOUT_SECONDS);
+                std::future_status waitStatus = futResult.wait_for(span);
+                if (waitStatus == std::future_status::timeout)
+                {
+                    LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                    result = LE_TIMEOUT;
+                }
+                else if(futResult.get() == LE_OK)
+                {
+                    result = LE_OK;
                 }
                 else
                 {
-                    std::future<le_result_t> futResult = p1.get_future();
-                    if(futResult.get() != LE_OK)
-                    {
-                        result = LE_FAULT;
-                    }
+                    result = LE_FAULT;
                 }
+            }
         }
         break;
         default:
@@ -4051,15 +4095,11 @@ le_result_t taf_locGnss::ForceColdRestart
             // stop Detailed Reports
             if (clientRequestPtr->mStarted)
             {
-                std::promise<le_result_t> p;
-                auto cb = [&p](telux::common::ErrorCode error) {
-                    if(error == telux::common::ErrorCode::SUCCESS) {
-                        p.set_value(LE_OK);
-                    }
-                    else {
-                        p.set_value(LE_FAULT);
-                    }
-                };
+                std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                    GetCallbackWithPromise();
+                auto cb = pr.first;
+                auto futResult = pr.second;
+
                 telux::common::Status status = clientRequestPtr->locationManager->stopReports(cb);
                 if(status != telux::common::Status::SUCCESS)
                 {
@@ -4067,12 +4107,19 @@ le_result_t taf_locGnss::ForceColdRestart
                 }
                 else
                 {
-                    std::future<le_result_t> futResult = p.get_future();
-                    if(futResult.get() == LE_OK)
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
+                    {
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_TIMEOUT;
+                    }
+                    else if(futResult.get() == LE_OK)
                     {
                         clientRequestPtr->mStarted = false;
                         clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
                         LE_DEBUG("ForceColdRestart->Stop() is success");
+                        result = LE_OK;
                     }
                     else
                     {
@@ -4085,19 +4132,14 @@ le_result_t taf_locGnss::ForceColdRestart
             if(result == LE_OK)
             {
                //Delete All Aiding Data
-                std::promise<le_result_t> p1;
-                auto cb1 = [&p1](telux::common::ErrorCode error) {
-                    if(error == telux::common::ErrorCode::SUCCESS) {
-                        p1.set_value(LE_OK);
-                    }
-                    else {
-                        p1.set_value(LE_FAULT);
-                    }
-                };
+                std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                    GetCallbackWithPromise();
+                auto cb = pr.first;
+                auto futResult = pr.second;
 
                 LE_DEBUG("ForceColdRestart mStarted: %d", clientRequestPtr->mStarted);
 
-                telux::common::Status status = mLocationConfigurator->deleteAllAidingData(cb1);
+                telux::common::Status status = mLocationConfigurator->deleteAllAidingData(cb);
                 if (status != telux::common::Status::SUCCESS)
                 {
                     if (status == telux::common::Status::NOTIMPLEMENTED)
@@ -4108,8 +4150,18 @@ le_result_t taf_locGnss::ForceColdRestart
                 }
                 else
                 {
-                    std::future<le_result_t> futResult = p1.get_future();
-                    if(futResult.get() != LE_OK)
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
+                    {
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_TIMEOUT;
+                    }
+                    else if(futResult.get() == LE_OK)
+                    {
+                        result = LE_OK;
+                    }
+                    else
                     {
                         result = LE_FAULT;
                     }
@@ -4133,27 +4185,29 @@ le_result_t taf_locGnss::ForceColdRestart
                     LE_DEBUG("ForceColdRestart->reportMask : %u",reportMask);
                     engineType |= (1UL << clientRequestPtr->mEngineType);
 
-                    std::promise<le_result_t> p2;
-                    auto cb2 = [&p2](telux::common::ErrorCode error) {
-                        if(error == telux::common::ErrorCode::SUCCESS) {
-                            p2.set_value(LE_OK);
-                        }
-                        else {
-                            p2.set_value(LE_FAULT);
-                        }
-                    };
+                    std::pair<telux::common::ResponseCallback, std::shared_future<le_result_t>> rp =
+                        GetCallbackWithPromise();
+                    auto cb = rp.first;
+                    auto futResult = rp.second;
+
                     sleep(1);
                     LE_DEBUG("ForceColdRestart ->startDetailedEngineReports()");
                     telux::common::Status status = clientRequestPtr->locationManager->startDetailedEngineReports(
-                        (uint32_t)optInterval, engineType, cb2, reportMask);
+                        (uint32_t)optInterval, engineType, cb, reportMask);
                     if(status != telux::common::Status::SUCCESS)
                     {
                         result = LE_FAULT;
                     }
                     else
                     {
-                        std::future<le_result_t> futResult = p2.get_future();
-                        if(futResult.get() == LE_OK)
+                        std::chrono::seconds span(TIMEOUT_SECONDS);
+                        std::future_status waitStatus = futResult.wait_for(span);
+                        if (waitStatus == std::future_status::timeout)
+                        {
+                            LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                            result = LE_TIMEOUT;
+                        }
+                        else if(futResult.get() == LE_OK)
                         {
                             ConfigureAcqStartInfo(clientRequestPtr);
                             LE_DEBUG("ForceColdRestart->Start() is success");
@@ -4205,15 +4259,10 @@ le_result_t taf_locGnss::ForceWarmRestart
             // stop Detailed Reports
             if (clientRequestPtr->mStarted)
             {
-                std::promise<le_result_t> p;
-                auto cb = [&p](telux::common::ErrorCode error) {
-                    if(error == telux::common::ErrorCode::SUCCESS) {
-                        p.set_value(LE_OK);
-                    }
-                    else {
-                         p.set_value(LE_FAULT);
-                    }
-                };
+                std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                    GetCallbackWithPromise();
+                auto cb = pr.first;
+                auto futResult = pr.second;
 
                 telux::common::Status status = clientRequestPtr->locationManager->stopReports(cb);
                 if(status != telux::common::Status::SUCCESS)
@@ -4222,12 +4271,19 @@ le_result_t taf_locGnss::ForceWarmRestart
                 }
                 else
                 {
-                    std::future<le_result_t> futResult = p.get_future();
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
+                    {
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_TIMEOUT;
+                    }
                     if(futResult.get() == LE_OK)
                     {
                         clientRequestPtr->mStarted = false;
                         clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
                         LE_DEBUG("ForceWarmRestart->Stop() is success");
+                        result = LE_OK;
                     }
                     else
                     {
@@ -4242,19 +4298,13 @@ le_result_t taf_locGnss::ForceWarmRestart
             }
             if(result == LE_OK)
             {
-                std::promise<le_result_t> p1;
-
-                auto cb1 = [&p1](telux::common::ErrorCode error) {
-                    if(error == telux::common::ErrorCode::SUCCESS) {
-                        p1.set_value(LE_OK);
-                    }
-                    else {
-                        p1.set_value(LE_FAULT);
-                    }
-                };
+                std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                    GetCallbackWithPromise();
+                auto cb = pr.first;
+                auto futResult = pr.second;
 
                 uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_EPHEMERIS;
-                telux::common::Status status = mLocationConfigurator->deleteAidingData(AidingData, cb1);
+                telux::common::Status status = mLocationConfigurator->deleteAidingData(AidingData, cb);
                 if (status != telux::common::Status::SUCCESS)
                 {
                     if (status == telux::common::Status::NOTIMPLEMENTED)
@@ -4265,63 +4315,77 @@ le_result_t taf_locGnss::ForceWarmRestart
                 }
                 else
                 {
-                    std::future<le_result_t> futResult = p1.get_future();
-                    if(futResult.get() != LE_OK)
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
+                    {
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_TIMEOUT;
+                    }
+                    else if(futResult.get() == LE_OK)
+                    {
+                        result = LE_OK;
+                    }
+                    else
                     {
                         result = LE_FAULT;
                     }
                 }
             }
-                if(result == LE_OK)
-                {
-                    //start Detailed Engine report
-                    if (!clientRequestPtr->mStarted) {
-                        int optInterval = clientRequestPtr->mAcqRate;
-                        std::promise<le_result_t> p2;
-                        auto cb2 = [&p2](telux::common::ErrorCode error) {
-                            if(error == telux::common::ErrorCode::SUCCESS) {
-                                p2.set_value(LE_OK);
-                            }
-                            else {
-                                p2.set_value(LE_FAULT);
-                            }
-                        };
-                        LE_DEBUG("ForceWarmRestart->  optInterval: %d",optInterval);
-                        if( optInterval == 0  || optInterval < 100) {
-                            LE_DEBUG("ForceWarmRestart mAcqRate is zero, so set default to 100ms");
-                            optInterval = 100;
-                            clientRequestPtr->mAcqRate = optInterval;
-                        }
-                        LocReqEngine engineType = DEFAULT_UNKNOWN;
-                        GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
-                        reportMask = 0x7f;//all reports are enabled
-                        LE_DEBUG("ForceWarmRestart->reportMask : %u",reportMask);
-                        engineType |= (1UL << clientRequestPtr->mEngineType);
-                        sleep(1);
-                        LE_DEBUG("ForceWarmRestart ->startDetailedEngineReports()");
-                        telux::common::Status status = clientRequestPtr->locationManager->startDetailedEngineReports((uint32_t)optInterval,
-                            engineType, cb2, reportMask);
 
-                        if(status != telux::common::Status::SUCCESS)
+            if(result == LE_OK)
+            {
+                //start Detailed Engine report
+                if (!clientRequestPtr->mStarted) {
+                    std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                        GetCallbackWithPromise();
+                    auto cb = pr.first;
+                    auto futResult = pr.second;
+
+                    int optInterval = clientRequestPtr->mAcqRate;
+                    LE_DEBUG("ForceWarmRestart->  optInterval: %d", optInterval);
+                    if( optInterval == 0  || optInterval < 100) {
+                        LE_DEBUG("ForceWarmRestart mAcqRate is zero, so set default to 100ms");
+                        optInterval = 100;
+                        clientRequestPtr->mAcqRate = optInterval;
+                    }
+                    LocReqEngine engineType = DEFAULT_UNKNOWN;
+                    GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
+                    reportMask = 0x7f;//all reports are enabled
+                    LE_DEBUG("ForceWarmRestart->reportMask : %u",reportMask);
+                    engineType |= (1UL << clientRequestPtr->mEngineType);
+                    sleep(1);
+                    LE_DEBUG("ForceWarmRestart ->startDetailedEngineReports()");
+                    telux::common::Status status = clientRequestPtr->locationManager->startDetailedEngineReports((uint32_t)optInterval,
+                        engineType, cb, reportMask);
+
+                    if(status != telux::common::Status::SUCCESS)
+                    {
+                        result = LE_FAULT;
+                    }
+                    else
+                    {
+                        std::chrono::seconds span(TIMEOUT_SECONDS);
+                        std::future_status waitStatus = futResult.wait_for(span);
+                        if (waitStatus == std::future_status::timeout)
                         {
-                            result = LE_FAULT;
+                            LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                            result = LE_TIMEOUT;
+                        }
+                        else if(futResult.get() == LE_OK)
+                        {
+                            ConfigureAcqStartInfo(clientRequestPtr);
+                            LE_DEBUG("ForceWarmRestart->Start() is success");
+                            result = LE_OK;
                         }
                         else
                         {
-                            std::future<le_result_t> futResult = p2.get_future();
-                            if(futResult.get() == LE_OK)
-                            {
-                                ConfigureAcqStartInfo(clientRequestPtr);
-                                LE_DEBUG("ForceWarmRestart->Start() is success");
-                            }
-                            else
-                            {
-                                LE_DEBUG("ForceWarmRestart->Start() is failed");
-                                result = LE_FAULT;
-                            }
+                            LE_DEBUG("ForceWarmRestart->Start() is failed");
+                            result = LE_FAULT;
                         }
                     }
                 }
+            }
         }
         break;
         default:
@@ -4357,54 +4421,55 @@ le_result_t taf_locGnss::ForceHotRestart
         }
         break;
         case TAF_LOCGNSS_STATE_ACTIVE:
+        {
+            // stop Detailed Reports
+            if (clientRequestPtr->mStarted)
             {
-                // stop Detailed Reports
-                if (clientRequestPtr->mStarted) {
-                    std::promise<le_result_t> p;
-                    auto cb = [&p](telux::common::ErrorCode error) {
-                        if(error == telux::common::ErrorCode::SUCCESS) {
-                            p.set_value(LE_OK);
-                        }
-                        else {
-                            p.set_value(LE_FAULT);
-                        }
-                    };
-                    auto status = clientRequestPtr->locationManager->stopReports(cb);
-                    if(status != telux::common::Status::SUCCESS)
+                std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                    GetCallbackWithPromise();
+                auto cb = pr.first;
+                auto futResult = pr.second;
+
+                auto status = clientRequestPtr->locationManager->stopReports(cb);
+                if(status != telux::common::Status::SUCCESS)
+                {
+                    result = LE_FAULT;
+                    return result;
+                }
+                else
+                {
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
                     {
-                        result = LE_FAULT;
-                        return result;
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_TIMEOUT;
+                    }
+                    else if(futResult.get() == LE_OK)
+                    {
+                        clientRequestPtr->mStarted = false;
+                        clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
+                        LE_DEBUG("ForceHotRestart->Stop() is success");
+                        result = LE_OK;
                     }
                     else
                     {
-                        std::future<le_result_t> futResult = p.get_future();
-                        if(futResult.get() == LE_OK)
-                        {
-                            clientRequestPtr->mStarted = false;
-                            clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
-                            LE_DEBUG("ForceHotRestart->Stop() is success");
-                        }
-                        else
-                        {
-                            LE_DEBUG("ForceHotRestart->Stop() is failed");
-                            result = LE_FAULT;
-                            return result;
-                        }
+                        LE_DEBUG("ForceHotRestart->Stop() is failed");
+                        result = LE_FAULT;
+                        return result;
                     }
                 }
+            }
+
             //start Detailed report
             if (!clientRequestPtr->mStarted)
             {
+                std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                    GetCallbackWithPromise();
+                auto cb = pr.first;
+                auto futResult = pr.second;
+
                 int optInterval = clientRequestPtr->mAcqRate;
-                std::promise<le_result_t> p1;
-                auto cb1 = [&p1](telux::common::ErrorCode error) {
-                    if(error == telux::common::ErrorCode::SUCCESS) {
-                        p1.set_value(LE_OK);
-                    }
-                    else {
-                        p1.set_value(LE_FAULT);
-                    }
-                };
                 LE_DEBUG("ForceHotRestart->  optInterval: %d",optInterval);
                 if( optInterval == 0  || optInterval < 100) {
                     LE_INFO("ForceHotRestart()->mAcqRate is zero, so set default to 100ms");
@@ -4418,7 +4483,7 @@ le_result_t taf_locGnss::ForceHotRestart
                 sleep(1);
                 engineType |= (1UL << clientRequestPtr->mEngineType);
                 telux::common::Status status = clientRequestPtr->locationManager->startDetailedEngineReports((uint32_t)optInterval,
-                    engineType, cb1, reportMask);
+                    engineType, cb, reportMask);
 
                 if(status != telux::common::Status::SUCCESS)
                 {
@@ -4427,11 +4492,18 @@ le_result_t taf_locGnss::ForceHotRestart
                 else
                 {
                     LE_DEBUG("ForceHotRestart()->startDetailedEngineReports");
-                    std::future<le_result_t> futResult = p1.get_future();
-                    if(futResult.get() == LE_OK)
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
+                    {
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_TIMEOUT;
+                    }
+                    else if(futResult.get() == LE_OK)
                     {
                         ConfigureAcqStartInfo(clientRequestPtr);
                         LE_DEBUG("ForceHotRestart->Start() is success");
+                        result = LE_OK;
                     }
                     else
                     {
@@ -4523,15 +4595,11 @@ le_result_t taf_locGnss::SetMinElevation
         break;
         case TAF_LOCGNSS_STATE_READY:
         {
-            std::promise<le_result_t> p;
-            auto cb = [&p](telux::common::ErrorCode error) {
-                if(error == telux::common::ErrorCode::SUCCESS) {
-                    p.set_value(LE_OK);
-                }
-                else {
-                    p.set_value(LE_FAULT);
-                }
-            };
+            std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                GetCallbackWithPromise();
+            auto cb = pr.first;
+            auto futResult = pr.second;
+
             auto status = mLocationConfigurator->configureMinSVElevation(minElevation, cb);
             if(status != telux::common::Status::SUCCESS)
             {
@@ -4539,8 +4607,14 @@ le_result_t taf_locGnss::SetMinElevation
             }
             else
             {
-                std::future<le_result_t> futResult = p.get_future();
-                if(futResult.get() == LE_OK)
+                std::chrono::seconds span(TIMEOUT_SECONDS);
+                std::future_status waitStatus = futResult.wait_for(span);
+                if (waitStatus == std::future_status::timeout)
+                {
+                    LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                    result = LE_TIMEOUT;
+                }
+                else if(futResult.get() == LE_OK)
                 {
                     LE_DEBUG("SetMinElevation is success");
                     result = LE_OK;
@@ -4607,15 +4681,11 @@ le_result_t taf_locGnss::StartMode
             else if(mode == TAF_LOCGNSS_WARM_START) //Warm Start
             {
                 LE_DEBUG("Warm Start Mode");
-                std::promise<le_result_t> p1;
-                auto cb1 = [&p1](telux::common::ErrorCode error) {
-                    if(error == telux::common::ErrorCode::SUCCESS) {
-                        p1.set_value(LE_OK);
-                    }
-                    else {
-                        p1.set_value(LE_FAULT);
-                    }
-                };
+
+                std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                    GetCallbackWithPromise();
+                auto cb = pr.first;
+                auto futResult = pr.second;
 
                 /* Specifies AidingDataType mask */
                 /* 0 - EPHEMERIS 1 - DR_SENSOR_CALIBRATION
@@ -4623,7 +4693,7 @@ le_result_t taf_locGnss::StartMode
 
                 uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_EPHEMERIS;
                 telux::common::Status status = mLocationConfigurator->deleteAidingData(
-                        AidingData, cb1);
+                        AidingData, cb);
                 if(status != telux::common::Status::SUCCESS)
                 {
                     if (status == telux::common::Status::NOTIMPLEMENTED)
@@ -4634,25 +4704,29 @@ le_result_t taf_locGnss::StartMode
                 }
                 else
                 {
-                    std::future<le_result_t> futResult = p1.get_future();
-                    result = futResult.get();
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
+                    {
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_TIMEOUT;
+                    }
+                    else
+                    {
+                        result = futResult.get();
+                    }
                 }
             }
             //Cold or Factory Start
             else if((mode == TAF_LOCGNSS_COLD_START) || (mode == TAF_LOCGNSS_FACTORY_START))
             {
-                std::promise<le_result_t> p2;
-                auto cb2 = [&p2](telux::common::ErrorCode error) {
-                    if(error == telux::common::ErrorCode::SUCCESS) {
-                        p2.set_value(LE_OK);
-                    }
-                    else {
-                        p2.set_value(LE_FAULT);
-                    }
-                };
+                std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                    GetCallbackWithPromise();
+                auto cb = pr.first;
+                auto futResult = pr.second;
 
                 LE_DEBUG("Cold/Factory called");
-                telux::common::Status status = mLocationConfigurator->deleteAllAidingData(cb2);
+                telux::common::Status status = mLocationConfigurator->deleteAllAidingData(cb);
                 if(status != telux::common::Status::SUCCESS)
                 {
                     if (status == telux::common::Status::NOTIMPLEMENTED)
@@ -4663,8 +4737,17 @@ le_result_t taf_locGnss::StartMode
                 }
                 else
                 {
-                    std::future<le_result_t> futResult = p2.get_future();
-                    result = futResult.get();
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
+                    {
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_TIMEOUT;
+                    }
+                    else
+                    {
+                        result = futResult.get();
+                    }
                 }
             }
             else
@@ -4679,15 +4762,12 @@ le_result_t taf_locGnss::StartMode
                 if (!clientRequestPtr->mStarted)
                 {
                     int optInterval = clientRequestPtr->mAcqRate;
-                    std::promise<le_result_t> p;
-                    auto cb = [&p](telux::common::ErrorCode error) {
-                        if(error == telux::common::ErrorCode::SUCCESS) {
-                            p.set_value(LE_OK);
-                        }
-                        else {
-                            p.set_value(LE_FAULT);
-                        }
-                    };
+
+                    std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                        GetCallbackWithPromise();
+                    auto cb = pr.first;
+                    auto futResult = pr.second;
+
                     LE_DEBUG("StartMode()->  mAcqRate: %d",clientRequestPtr->mAcqRate);
                     if( optInterval == 0  || optInterval < 100)
                     {
@@ -4708,11 +4788,18 @@ le_result_t taf_locGnss::StartMode
                     }
                     else
                     {
-                        std::future<le_result_t> futResult = p.get_future();
-                        if(futResult.get() == LE_OK)
+                        std::chrono::seconds span(TIMEOUT_SECONDS);
+                        std::future_status waitStatus = futResult.wait_for(span);
+                        if (waitStatus == std::future_status::timeout)
+                        {
+                            LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                            result = LE_TIMEOUT;
+                        }
+                        else if(futResult.get() == LE_OK)
                         {
                             ConfigureAcqStartInfo(clientRequestPtr);
                             LE_DEBUG("StartMode->Start() is success");
+                            result = LE_OK;
                         }
                         else
                         {
@@ -4770,20 +4857,35 @@ le_result_t taf_locGnss::GetMinElevation
         break;
         case TAF_LOCGNSS_STATE_READY:
         {
-            std::promise<le_result_t> p;
-            auto cb = [&p](uint8_t minSVElevation, telux::common::ErrorCode error) {
+            auto p = std::make_shared<std::promise<le_result_t>>();
+            auto cb = [p](uint8_t minSVElevation, telux::common::ErrorCode error) {
                 LE_DEBUG("***Request minimum SV Elevation Info ****");
                 auto &gnss = taf_locGnss::GetInstance();
-                if(error == telux::common::ErrorCode::SUCCESS)
+                try
                 {
-                    gnss.mRequestMinEle = minSVElevation;
-                    LE_DEBUG("onMinSVElevationInfo gnss.mRequestMinEle: %d",gnss.mRequestMinEle);
-                    p.set_value(LE_OK);
+                    if(error == telux::common::ErrorCode::SUCCESS)
+                    {
+                        gnss.mRequestMinEle = minSVElevation;
+                        LE_DEBUG("onMinSVElevationInfo gnss.mRequestMinEle: %d",gnss.mRequestMinEle);
+                        p->set_value(LE_OK);
+                    }
+                    else
+                    {
+                        LE_DEBUG(" onMinSVElevationInfo failed errorCode: %d ", int(error));
+                        p->set_value(LE_FAULT);
+                    }
                 }
-                else
+                catch (const std::future_error& e)
                 {
-                    LE_DEBUG(" onMinSVElevationInfo failed errorCode: %d ", int(error));
-                    p.set_value(LE_FAULT);
+                    LE_ERROR("Future error in callback: %s", e.what());
+                }
+                catch (const std::exception& e)
+                {
+                    LE_ERROR("Exception in callback: %s", e.what());
+                }
+                catch (...)
+                {
+                    LE_ERROR("Unknown error in callback.");
                 }
             };
 
@@ -4794,7 +4896,14 @@ le_result_t taf_locGnss::GetMinElevation
             }
             else
             {
-                std::future<le_result_t> futResult = p.get_future();
+                std::future<le_result_t> futResult = p->get_future();
+                std::chrono::seconds span(TIMEOUT_SECONDS);
+                std::future_status waitStatus = futResult.wait_for(span);
+                if (waitStatus == std::future_status::timeout)
+                {
+                    LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                    result = LE_TIMEOUT;
+                }
                 if(futResult.get() == LE_OK)
                 {
                     LE_DEBUG("requestMinSVElevation is Success");
@@ -4883,15 +4992,11 @@ le_result_t taf_locGnss::Stop
 
                 if (clientRequestPtr->mStarted)
                 {
-                    std::promise<le_result_t> p;
-                    auto cb = [&p](telux::common::ErrorCode error) {
-                        if(error == telux::common::ErrorCode::SUCCESS) {
-                            p.set_value(LE_OK);
-                        }
-                        else {
-                            p.set_value(LE_FAULT);
-                        }
-                    };
+                    std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                        GetCallbackWithPromise();
+                    auto cb = pr.first;
+                    auto futResult = pr.second;
+
                     auto status = clientRequestPtr->locationManager->stopReports(cb);
                     if(status != telux::common::Status::SUCCESS)
                     {
@@ -4899,8 +5004,14 @@ le_result_t taf_locGnss::Stop
                     }
                     else
                     {
-                        std::future<le_result_t> futResult = p.get_future();
-                        if(futResult.get() == LE_OK)
+                        std::chrono::seconds span(TIMEOUT_SECONDS);
+                        std::future_status waitStatus = futResult.wait_for(span);
+                        if (waitStatus == std::future_status::timeout)
+                        {
+                            LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                            result = LE_TIMEOUT;
+                        }
+                        else if(futResult.get() == LE_OK)
                         {
                             clientRequestPtr->mStarted = false;
                             clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
@@ -4967,16 +5078,11 @@ le_result_t taf_locGnss::SetNmeaSentences
             case TAF_LOCGNSS_STATE_READY:
             case TAF_LOCGNSS_STATE_ACTIVE:
             {
-                // Set the enabled NMEA sentences
-                std::promise<le_result_t> p;
-                auto cb = [&p](telux::common::ErrorCode error) {
-                    if(error == telux::common::ErrorCode::SUCCESS) {
-                        p.set_value(LE_OK);
-                    }
-                    else {
-                        p.set_value(LE_FAULT);
-                    }
-                };
+                std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                    GetCallbackWithPromise();
+                auto cb = pr.first;
+                auto futResult = pr.second;
+
                 if ((nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGSA) ||
                     (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGGA) ||
                     (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGSA) ||
@@ -5066,8 +5172,14 @@ le_result_t taf_locGnss::SetNmeaSentences
                 }
                 else
                 {
-                    std::future<le_result_t> futResult = p.get_future();
-                    if(futResult.get() == LE_OK)
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
+                    {
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_TIMEOUT;
+                    }
+                    else if(futResult.get() == LE_OK)
                     {
                         result = LE_OK;
                         LE_DEBUG("SetNmeaSentences() is success");
@@ -5306,29 +5418,39 @@ le_result_t taf_locGnss::SetDRConfig(const taf_locGnss_DrParams_t* drParamsPtr)
             {
                 return gyroScale_Result;
             }
-            std::promise<le_result_t> p;
-            auto cb = [&p](telux::common::ErrorCode error) {
-                if(error == telux::common::ErrorCode::SUCCESS) {
-                    p.set_value(LE_OK);
-                }
-                else {
-                    p.set_value(LE_FAULT);
-                }
-            };
+
+            std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                GetCallbackWithPromise();
+            auto cb = pr.first;
+            auto futResult = pr.second;
 
             // Set the DR Configuration
             telux::common::Status status = mLocationConfigurator->configureDR(drConfig, cb);
-            if (status == telux::common::Status::FAILED) {
+            if(telux::common::Status::SUCCESS != status)
+            {
                 LE_DEBUG("SetDRConfig is failed");
                 result = LE_FAULT;
-            } else if (telux::common::Status::SUCCESS == status) {
-                std::future<le_result_t> futResult = p.get_future();
-                result = futResult.get();
-                if(result == LE_OK)
+            }
+            else
+            {
+                std::chrono::seconds span(TIMEOUT_SECONDS);
+                std::future_status waitStatus = futResult.wait_for(span);
+                if (waitStatus == std::future_status::timeout)
+                {
+                    LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                    result = LE_TIMEOUT;
+                }
+                else if(futResult.get() == LE_OK)
                 {
                     LE_DEBUG("SetDRConfig is Success");
+                    result = LE_OK;
+                }
+                else
+                {
+                    result = LE_FAULT;
                 }
             }
+
             if (LE_OK != result)
             {
                 LE_ERROR("Unable to set the DR Configuration , error = %d (%s)",
@@ -5561,15 +5683,11 @@ le_result_t taf_locGnss::ConfigureEngineState
         case TAF_LOCGNSS_STATE_READY:
         case TAF_LOCGNSS_STATE_ACTIVE:
             {
-                std::promise<le_result_t> p;
-                auto cb = [&p](telux::common::ErrorCode error) {
-                    if(error == telux::common::ErrorCode::SUCCESS) {
-                        p.set_value(LE_OK);
-                    }
-                    else {
-                        p.set_value(LE_FAULT);
-                    }
-                };
+                std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                    GetCallbackWithPromise();
+                auto cb = pr.first;
+                auto futResult = pr.second;
+
                 telux::common::Status status = mLocationConfigurator->configureEngineState(
                         engineType, engineState, cb);
                 if(status != telux::common::Status::SUCCESS)
@@ -5578,8 +5696,14 @@ le_result_t taf_locGnss::ConfigureEngineState
                 }
                 else
                 {
-                    std::future<le_result_t> futResult = p.get_future();
-                    if(futResult.get() == LE_OK)
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
+                    {
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_TIMEOUT;
+                    }
+                    else if(futResult.get() == LE_OK)
                     {
                         LE_DEBUG("ConfigureEngineState succeed.");
                     }
@@ -5663,15 +5787,11 @@ le_result_t taf_locGnss::ConfigureRobustLocation
         case TAF_LOCGNSS_STATE_READY:
         case TAF_LOCGNSS_STATE_ACTIVE:
             {
-                std::promise<le_result_t> p;
-                auto cb = [&p](telux::common::ErrorCode error) {
-                    if(error == telux::common::ErrorCode::SUCCESS) {
-                        p.set_value(LE_OK);
-                    }
-                    else {
-                        p.set_value(LE_FAULT);
-                    }
-                };
+                std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                    GetCallbackWithPromise();
+                auto cb = pr.first;
+                auto futResult = pr.second;
+
                 telux::common::Status status = mLocationConfigurator->configureRobustLocation(
                     enableRobustloc, enableE911loc, cb);
                 if(status != telux::common::Status::SUCCESS)
@@ -5681,8 +5801,17 @@ le_result_t taf_locGnss::ConfigureRobustLocation
                 }
                 else
                 {
-                    std::future<le_result_t> futResult = p.get_future();
-                    result = futResult.get();
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
+                    {
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_TIMEOUT;
+                    }
+                    else
+                    {
+                        result = futResult.get();
+                    }
                 }
             }
         break;
@@ -5728,8 +5857,8 @@ le_result_t taf_locGnss::RobustLocationInformation
         case TAF_LOCGNSS_STATE_READY:
         case TAF_LOCGNSS_STATE_ACTIVE:
             {
-                std::promise<le_result_t> p;
-                auto cb = [&p](const telux::loc::RobustLocationConfiguration
+                auto p = std::make_shared<std::promise<le_result_t>>();
+                auto cb = [p](const telux::loc::RobustLocationConfiguration
                     rLConfig, telux::common::ErrorCode error) {
                     auto &gnss = taf_locGnss::GetInstance();
                     LE_DEBUG("****onRobustLocationInfo **");
@@ -5752,12 +5881,12 @@ le_result_t taf_locGnss::RobustLocationInformation
                         LE_DEBUG("***onRobustLocationInfo gnss.enabled911: %d", gnss.mEnabled911);
                         LE_DEBUG("***onRobustLocationInfo gnss.majorVersion: %d", gnss.mMajorVersion);
                         LE_DEBUG("***onRobustLocationInfo gnss.minorVersion: %d", gnss.mMinorVersion);
-                        p.set_value(LE_OK);
+                        p->set_value(LE_OK);
                     }
                     else
                     {
                         LE_DEBUG(" onRobustLocationInfo failed errorCode: %d ", int(error));
-                        p.set_value(LE_FAULT);
+                        p->set_value(LE_FAULT);
                     }
                 };
 
@@ -5768,8 +5897,15 @@ le_result_t taf_locGnss::RobustLocationInformation
                 }
                 else
                 {
-                    std::future<le_result_t> futResult = p.get_future();
-                    if(futResult.get() == LE_OK)
+                    std::future<le_result_t> futResult = p->get_future();
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
+                    {
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_FAULT;
+                    }
+                    else if(futResult.get() == LE_OK)
                     {
                         LE_DEBUG("RobustLocationInformation is Success");
                         *enable = mEnable;
@@ -5820,30 +5956,34 @@ le_result_t taf_locGnss::DefaultSecondaryBandConstellations
         break;
         case TAF_LOCGNSS_STATE_READY:
         {
-            std::promise<le_result_t> p;
-            auto cb = [&p](telux::common::ErrorCode error) {
-                if(error == telux::common::ErrorCode::SUCCESS) {
-                    p.set_value(LE_OK);
-                }
-                else {
-                    p.set_value(LE_FAULT);
-                }
-            };
+            std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                GetCallbackWithPromise();
+            auto cb = pr.first;
+            auto futResult = pr.second;
 
             // Set GNSS Request Secondary Band constellation
             mRequestSB = 0;//reset the value before configuring
             telux::loc::ConstellationSet constellationSet{};
             telux::common::Status status = mLocationConfigurator->configureSecondaryBand(
                 constellationSet, cb);
-            if (status == telux::common::Status::NOTIMPLEMENTED) {
+            if (status == telux::common::Status::NOTIMPLEMENTED)
+            {
                 LE_DEBUG("Not implemented");
                 result = LE_FAULT;
-            } else if (telux::common::Status::SUCCESS == status) {
-                std::future<le_result_t> futResult = p.get_future();
-                result = futResult.get();
-                if(result == LE_OK)
+            }
+            else if (telux::common::Status::SUCCESS == status)
+            {
+                std::chrono::seconds span(TIMEOUT_SECONDS);
+                std::future_status waitStatus = futResult.wait_for(span);
+                if (waitStatus == std::future_status::timeout)
+                {
+                    LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                    result = LE_TIMEOUT;
+                }
+                else if(futResult.get() == LE_OK)
                 {
                     LE_DEBUG("Success");
+                    result = LE_OK;
                 }
             }
         }
@@ -5889,8 +6029,8 @@ le_result_t taf_locGnss::RequestSecondaryBandConstellations
         case TAF_LOCGNSS_STATE_READY:
         {
             // Set GNSS Request Secondary Band constellation
-            std::promise<le_result_t> p;
-            auto cb = [&p](telux::loc::ConstellationSet set, telux::common::ErrorCode error) {
+            auto p = std::make_shared<std::promise<le_result_t>>();
+            auto cb = [p](telux::loc::ConstellationSet set, telux::common::ErrorCode error) {
                 auto &gnss = taf_locGnss::GetInstance();
                 LE_DEBUG("***Request Secondary Band Info ****");
                 if(error == telux::common::ErrorCode::SUCCESS)
@@ -5942,20 +6082,27 @@ le_result_t taf_locGnss::RequestSecondaryBandConstellations
                             LE_DEBUG("onSecondaryBandInfo: Not supported");
                         }
                     }
-                    p.set_value(LE_OK);
+                    p->set_value(LE_OK);
                 }
                 else
                 {
                     LE_DEBUG("onSecondaryBandInfo failed errorCode: %d ", int(error));
-                    p.set_value(LE_FAULT);
+                    p->set_value(LE_FAULT);
                 }
             };
             auto status = mLocationConfigurator->requestSecondaryBandConfig(cb);
             if(status != telux::common::Status::SUCCESS) {
                 return LE_FAULT;
             }
-            std::future<le_result_t> futResult = p.get_future();
-            if(futResult.get() == LE_OK)
+            std::future<le_result_t> futResult = p->get_future();
+            std::chrono::seconds span(TIMEOUT_SECONDS);
+            std::future_status waitStatus = futResult.wait_for(span);
+            if (waitStatus == std::future_status::timeout)
+            {
+                LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                result = LE_TIMEOUT;
+            }
+            else if(futResult.get() == LE_OK)
             {
                 LE_DEBUG("Request secondary band constellations is success");
                 result = LE_OK;
@@ -6042,29 +6189,33 @@ le_result_t taf_locGnss::ConfigureSecondaryBandConstellations
         break;
         case TAF_LOCGNSS_STATE_READY:
         {
-            std::promise<le_result_t> p;
-            auto cb = [&p](telux::common::ErrorCode error) {
-                if(error == telux::common::ErrorCode::SUCCESS) {
-                    p.set_value(LE_OK);
-                }
-                else {
-                    p.set_value(LE_FAULT);
-                }
-            };
+            std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                GetCallbackWithPromise();
+            auto cb = pr.first;
+            auto futResult = pr.second;
 
             // Configure Secondary Band constellation
             mRequestSB = 0;//reset the value before configuring
             telux::common::Status status = mLocationConfigurator->configureSecondaryBand(
                 constellationSet, cb);
-            if (status == telux::common::Status::NOTIMPLEMENTED) {
+            if (status == telux::common::Status::NOTIMPLEMENTED)
+            {
                 LE_DEBUG("Not implemented");
                 result = LE_FAULT;
-            } else if (telux::common::Status::SUCCESS == status) {
-                std::future<le_result_t> futResult = p.get_future();
-                result = futResult.get();
-                if(result == LE_OK)
+            }
+            else if (telux::common::Status::SUCCESS == status)
+            {
+                std::chrono::seconds span(TIMEOUT_SECONDS);
+                std::future_status waitStatus = futResult.wait_for(span);
+                if (waitStatus == std::future_status::timeout)
+                {
+                    LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                    result = LE_TIMEOUT;
+                }
+                else if(futResult.get() == LE_OK)
                 {
                     LE_DEBUG("Success");
+                    result = LE_OK;
                 }
             }
         }
@@ -6124,15 +6275,11 @@ le_result_t taf_locGnss::SetLeverArmConfig(const taf_locGnss_LeverArmParams_t* L
             configInfo.insert({leverArmType, leverArmParams});
 
             //Set the Lever Arm Configuration
-            std::promise<le_result_t> p;
-            auto cb = [&p](telux::common::ErrorCode error) {
-                if(error == telux::common::ErrorCode::SUCCESS) {
-                    p.set_value(LE_OK);
-                }
-                else {
-                    p.set_value(LE_FAULT);
-                }
-            };
+            std::pair<ResponseCB, std::shared_future<le_result_t>> pr =
+                GetCallbackWithPromise();
+            auto cb = pr.first;
+            auto futResult = pr.second;
+
             auto status = mLocationConfigurator->configureLeverArm(configInfo, cb);
             if (status != telux::common::Status::SUCCESS)
             {
@@ -6140,8 +6287,14 @@ le_result_t taf_locGnss::SetLeverArmConfig(const taf_locGnss_LeverArmParams_t* L
             }
             else
             {
-                std::future<le_result_t> futResult = p.get_future();
-                if(futResult.get() == LE_OK)
+                std::chrono::seconds span(TIMEOUT_SECONDS);
+                std::future_status waitStatus = futResult.wait_for(span);
+                if (waitStatus == std::future_status::timeout)
+                {
+                    LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                    result = LE_TIMEOUT;
+                }
+                else if(futResult.get() == LE_OK)
                 {
                     LE_DEBUG("Set Lever Arm parameters is OK");
                     result = LE_OK;
@@ -7147,7 +7300,6 @@ le_result_t taf_locGnss::SetMinGpsWeek
 )
 {
     le_result_t result = LE_FAULT;
-    std::promise<telux::common::ErrorCode> p;
     taf_locGnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
 
@@ -7165,13 +7317,29 @@ le_result_t taf_locGnss::SetMinGpsWeek
         break;
         case TAF_LOCGNSS_STATE_READY:
         {
-            telux::common::ResponseCallback cb = [&p](telux::common::ErrorCode error) { p.set_value(error); };
+            std::pair<telux::common::ResponseCallback, std::shared_future<le_result_t>> resPair =
+                GetCallbackWithPromise();
+            auto cb = resPair.first;
+            auto futResult = resPair.second;
+
             telux::common::Status status = mLocationConfigurator->configureMinGpsWeek(minGpsWeek, cb);
 
-            if (status == Status::SUCCESS) {
-                telux::common::ErrorCode error = p.get_future().get();
-                if (error == ErrorCode::SUCCESS) {
-                    return LE_OK;
+            if (status == Status::SUCCESS)
+            {
+                std::chrono::seconds span(TIMEOUT_SECONDS);
+                std::future_status waitStatus = futResult.wait_for(span);
+                if (waitStatus == std::future_status::timeout)
+                {
+                    LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                    result = LE_TIMEOUT;
+                }
+                else if(futResult.get() == LE_OK)
+                {
+                    result = LE_OK;
+                }
+                else
+                {
+                    result = LE_FAULT;
                 }
             }
             else
@@ -7215,29 +7383,58 @@ le_result_t taf_locGnss::GetMinGpsWeek
         case TAF_LOCGNSS_STATE_READY:
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
-            std::promise<uint16_t> p;
-            std::promise<telux::common::ErrorCode> q;
+            auto p = std::make_shared<std::promise<uint16_t>>();
+            auto q = std::make_shared<std::promise<telux::common::ErrorCode>>();
             telux::loc::ILocationConfigurator::GetMinGpsWeekCallback cb =
-                [&p, &q](uint16_t minGpsWeek, telux::common::ErrorCode error) {
-                    p.set_value(minGpsWeek);
-                    q.set_value(error);
+                [p, q](uint16_t minGpsWeek, telux::common::ErrorCode error) {
+                    try {
+                        p->set_value(minGpsWeek);
+                        q->set_value(error);
+                    }
+                    catch (const std::future_error& e) {
+                        LE_ERROR("Future error in callback: %s", e.what());
+                    }
+                    catch (const std::exception& e) {
+                        LE_ERROR("Exception in callback: %s", e.what());
+                    }
+                    catch (...) {
+                        LE_ERROR("Unknown error in callback.");
+                    }
                 };
 
             telux::common::Status status = mLocationConfigurator->requestMinGpsWeek(cb);
             if (status != telux::common::Status::SUCCESS) {
                 return result;
             }
-            telux::common::ErrorCode error = q.get_future().get();
-            LE_DEBUG("GetMinGpsWeek: error code %d", (int) error);
-            if (error == ErrorCode::SUCCESS) {
-                LE_DEBUG("GetMinGpsWeek is Success.");
-                result = LE_OK;
-                *minGpsWeekPtr = p.get_future().get();
+
+            auto futureP = p->get_future();
+            auto futureQ = q->get_future();
+
+            std::chrono::seconds span(TIMEOUT_SECONDS);
+            std::future_status waitStatusP = futureP.wait_for(span);
+            std::future_status waitStatusQ = futureQ.wait_for(span);
+
+            if ((waitStatusP != std::future_status::timeout) &&
+                (waitStatusQ != std::future_status::timeout))
+            {
+                telux::common::ErrorCode error = futureQ.get();
+                LE_DEBUG("GetMinGpsWeek: error code %d", (int) error);
+                if (error == ErrorCode::SUCCESS)
+                {
+                    LE_DEBUG("GetMinGpsWeek is Success.");
+                    result = LE_OK;
+                    *minGpsWeekPtr = futureP.get();
+                }
+                else
+                {
+                    LE_DEBUG("GetMinGpsWeek is Failed!");
+                    result = LE_FAULT;
+                }
             }
             else
             {
-                LE_DEBUG("GetMinGpsWeek is Failed!");
-                result = LE_FAULT;
+                LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                result = LE_TIMEOUT;
             }
         }
         break;
@@ -7278,7 +7475,6 @@ le_result_t taf_locGnss::SetNmeaConfiguration
 )
 {
     le_result_t result = LE_NOT_PERMITTED;
-    std::promise<telux::common::ErrorCode> p;
     taf_locGnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
 
@@ -7323,12 +7519,27 @@ le_result_t taf_locGnss::SetNmeaConfiguration
             case TAF_LOCGNSS_STATE_ACTIVE:
             {
                 // Configure the NMEA sentences
-                telux::common::ResponseCallback cb = [&p](telux::common::ErrorCode error) { p.set_value(error); };
+                std::pair<telux::common::ResponseCallback, std::shared_future<le_result_t>> resPair =
+                    GetCallbackWithPromise();
+                auto cb = resPair.first;
+                auto futResult = resPair.second;
+
                 telux::common::Status status = mLocationConfigurator->configureNmea(nmeaConfig, cb);
                 if (status == Status::SUCCESS) {
-                    telux::common::ErrorCode error = p.get_future().get();
-                    if (error == ErrorCode::SUCCESS) {
-                        return LE_OK;
+                    std::chrono::seconds span(TIMEOUT_SECONDS);
+                    std::future_status waitStatus = futResult.wait_for(span);
+                    if (waitStatus == std::future_status::timeout)
+                    {
+                        LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                        result = LE_TIMEOUT;
+                    }
+                    else if(futResult.get() == LE_OK)
+                    {
+                        result = LE_OK;
+                    }
+                    else
+                    {
+                        result = LE_FAULT;
                     }
                 }
                 else
@@ -7381,8 +7592,8 @@ le_result_t taf_locGnss::GetXtraStatus
         case TAF_LOCGNSS_STATE_READY:
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
-            std::promise<le_result_t> p;
-            auto cb = [&p](telux::loc::XtraStatus xtraStatus, telux::common::ErrorCode error)
+            auto p = std::make_shared<std::promise<le_result_t>>();
+            auto cb = [p](telux::loc::XtraStatus xtraStatus, telux::common::ErrorCode error)
             {
                 auto &gnss = taf_locGnss::GetInstance();
                 if(error == telux::common::ErrorCode::SUCCESS)
@@ -7411,20 +7622,27 @@ le_result_t taf_locGnss::GetXtraStatus
                         gnss.mXtraDataStatus = TAF_LOCGNSS_XTRA_DATA_STATUS_VALID;
                         break;
                     }
-                    p.set_value(LE_OK);
+                    p->set_value(LE_OK);
                 }
                 else
                 {
                     LE_DEBUG("*Request xtra status failed errorCode: %d ", int(error));
-                    p.set_value(LE_FAULT);
+                    p->set_value(LE_FAULT);
                 }
             };
             auto status = mLocationConfigurator->requestXtraStatus(cb);
             if (status != telux::common::Status::SUCCESS) {
                 return LE_FAULT;
             }
-            std::future<le_result_t> futResult = p.get_future();
-            if(futResult.get() == LE_OK)
+            std::future<le_result_t> futResult = p->get_future();
+            std::chrono::seconds span(TIMEOUT_SECONDS);
+            std::future_status waitStatus = futResult.wait_for(span);
+            if (waitStatus == std::future_status::timeout)
+            {
+                LE_ERROR("Timed out after %u seconds", TIMEOUT_SECONDS);
+                result = LE_TIMEOUT;
+            }
+            else if (futResult.get() == LE_OK)
             {
                 LE_DEBUG("Request xtra status is success");
                 result = LE_OK;
@@ -7689,23 +7907,12 @@ taf_locGnss::~taf_locGnss() {
         LE_DEBUG("gnssPtr %p, gnssPtr->sessionRef %p",
                  gnssPtr, gnssPtr->sessionRef);
         if(gnssPtr->locationManager && gnssPtr->posListener) {
-            gnssPtr->locationManager->deRegisterListenerEx(gnssPtr->posListener);
-            auto status = gnssPtr->locationManager->deRegisterForSystemInfoUpdates(gnssPtr->posListener);
-            if(status == telux::common::Status::SUCCESS)
-            {
-                LE_DEBUG("Deregistered a listener for location system information");
-            }
-            else
-            {
-                LE_ERROR("Failed to deregister a listener for location system information");
-            }
-        }
-        if(gnssPtr->posListener) {
-            gnssPtr->posListener = nullptr;
-        }
+            gnss.CleanUp(gnssPtr);
+            void* safeRefPtr = (void*)le_ref_GetSafeRef(iterRef);
+            LE_DEBUG("Release taf_locGnss_ReleaseClientRef 0x%p, Session 0x%p",
+                     safeRefPtr, gnssPtr->sessionRef);
 
-        if(gnssPtr->locationManager) {
-            gnssPtr->locationManager = nullptr;
+            gnss.ReleaseClientRef(safeRefPtr);
         }
         result = le_ref_NextNode(iterRef);
    }
@@ -7729,8 +7936,9 @@ void taf_locGnss::CleanUp(taf_locGnss_Client_t* clientPtr)
         }
         else
         {
-            LE_DEBUG("Failed to deRegisterListenerEx");
+            LE_ERROR("Failed to deRegisterListenerEx");
         }
+
         status = clientPtr->locationManager->deRegisterForSystemInfoUpdates(clientPtr->posListener);
         if(status == telux::common::Status::SUCCESS)
         {
@@ -7738,7 +7946,7 @@ void taf_locGnss::CleanUp(taf_locGnss_Client_t* clientPtr)
         }
         else
         {
-            LE_DEBUG("Failed to deregister a listener for location system information");
+            LE_ERROR("Failed to deregister a listener for location system information");
         }
     }
 

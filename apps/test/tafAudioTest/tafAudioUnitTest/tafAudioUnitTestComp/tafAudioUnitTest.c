@@ -268,6 +268,10 @@ void TEST_AUDIO_PLAYBACK()
     res = taf_audio_Connect(playerConnRef, sinkRef);
     LE_TEST_OK(res == LE_OK, "Successfully connected sinkRef to ConnectorRef");
 
+    LE_TEST_INFO("Test LE_BUSY while taf_audio_Connect on already connected ref");
+    res = taf_audio_Connect(playerConnRef, sinkRef);
+    LE_TEST_OK(res == LE_BUSY, "Successfully got busy while calling connect on connected ref");
+
     LE_TEST_INFO("Test taf_audio_Connect to connect playerRef and playerConnRef");
     res = taf_audio_Connect(playerConnRef, playerRef);
     LE_TEST_OK(res == LE_OK, "Successfully connected playerRef to playerConnRef");

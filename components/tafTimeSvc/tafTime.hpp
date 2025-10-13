@@ -239,6 +239,8 @@ typedef struct
                                                  ///  Actual value = field value * 15 minutes.
     uint8_t dstAdj = 0;                          ///< Daylight saving adjustment in hours to obtain
                                                  ///  local time. Possible values: 0, 1, and 2.
+    bool isBaseStruct = false;                   /// Variable to distinguish between base structure
+                                                 /// and event handler structure
     taf_mngdStorSecData_DataRef_t secStrgdataRef = nullptr; ///< Managed storage service reference
                                                  /// for storing
     le_msg_SessionRef_t sessionRef;              ///< Client that connected to the service.
@@ -523,8 +525,10 @@ struct ValidityParams
                 le_result_t GetAsyncRtcSetTimeStatus(void);
                 le_result_t GetSystemTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetInternalRtcTime(taf_time_TimeSpec_t* timeVal);
+
+                le_result_t ReadDeltaTimeFromStorage(int64_t* deltaTimeMSec);
                 le_result_t UpdateDeltaTimeToStorage(taf_time_TimeSpec_t timeVal);
-                void UpdateDeltaTimeToRAM(void);
+
                 le_result_t GetNetworkTime(taf_time_TimeSpec_t* timeValPtr,
                                                               taf_time_TimeSources_t sourceId);
 
@@ -659,13 +663,14 @@ struct ValidityParams
                     taf_time_SourceRef_t SrcRef, taf_time_StatusEventType_t eventType,
                     taf_time_TimeSourceStatusHandlerFunc_t handlerPtr, void* contextPtr);
                 taf_time_SourceRef_t GetSourceRef(taf_time_TimeSources_t sourceId);
-                taf_SourceInf_t* SearchAvailableSourceInfList(taf_time_TimeSources_t sourceId);
+                taf_SourceInf_t* SearchSourceMap(taf_time_TimeSources_t sourceId,
+                    le_msg_SessionRef_t sessionRef = NULL, bool checkSessionRef = false);
                 void printSourceInfo();
                 le_result_t GetFailedLoops(taf_time_SourceRef_t sourceRef, int32_t* failedLoops,
                     int64_t* loopIntervalSec);
                 bool IsAvailable(taf_time_SourceRef_t sourceRef);
                 le_result_t GetSystemTimeSourceID(taf_time_TimeSources_t* timeSource);
-                void SourceAvailabilityUpdate(le_result_t result,taf_time_TimeSources_t sourceIndex);
+                void SourceStatusUpdate(le_result_t result,taf_time_TimeSources_t sourceIndex);
                 le_result_t ReleaseSourceRef(taf_time_SourceRef_t SrcRef);
                 void RemoveTimeSourceStatusHandler(taf_time_TimeSourceStatusHandlerRef_t handlerRef);
 
@@ -699,7 +704,6 @@ struct ValidityParams
                 int64_t AllowOverrideAfterFail = -1;
                 pthread_mutex_t ProtectlocalTime_mutex;
                 taf_gptpTime_Ref_t gptpTimeRef = NULL;
-                int64_t deltaTimeMSec = 0;
         };
     }
 #endif

@@ -597,7 +597,13 @@ void taf_ecall::InitializeECallPtr()
 #if defined(LE_CONFIG_ENABLE_ECALL_MSD_V3)
     ECallObject.msd.msdVersion = MSD_VERSION_TWO;
 #endif
-    ECallObject.msd.messageIdentifier = 0;
+    ECallObject.msd.messageIdentifier = ReadMsdMsgIdFromConfigTree();
+    if (ECallObject.msd.messageIdentifier < MIN_MSD_MESSAGE_IDENTIFIER || ECallObject.msd.messageIdentifier > MAX_MSD_MESSAGE_IDENTIFIER)
+    {
+        ECallObject.msd.messageIdentifier = 0;
+        LE_WARN("Out-of-range messageIdentifier recovered to default");
+    }
+    LE_DEBUG("MSD messageIdentifier is %d", ECallObject.msd.messageIdentifier);
 
     ECallObject.msd.control.automaticActivation = false;
     ECallObject.msd.control.testCall = false;
@@ -617,7 +623,17 @@ void taf_ecall::InitializeECallPtr()
     ECallObject.msd.vehiclePropulsionStorage.hydrogenStorage = false;
     ECallObject.msd.vehiclePropulsionStorage.otherStorage = false;
 
-    ECallObject.msd.timestamp = 0;
+    uint32_t timeStamp = 0;
+    if (!ReadMsdTimeStampFromConfigTree(CFG_NODE_MSDTIMESTAMPSET, &timeStamp))
+    {
+        LE_DEBUG("Failed to read the MSD timeStamp from config tree msdTimeStampSet.");
+        if (!ReadMsdTimeStampFromConfigTree(CFG_NODE_MSDTIMESTAMPSYSTEM, &timeStamp))
+        {
+            LE_DEBUG("Failed to read the MSD timeStamp from config tree msdTimeStampSystem.");
+        }
+    }
+    ECallObject.msd.timestamp = timeStamp;
+    LE_DEBUG("InitializeECallPtr timestamp = %d", ECallObject.msd.timestamp);
 
     ECallObject.msd.vehicleLocation.positionLatitude = 0;
     ECallObject.msd.vehicleLocation.positionLongitude = 0;
@@ -1054,7 +1070,16 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
     }
     makeEcallProm = std::promise<telux::common::ErrorCode>();
 
-    ECallObject.msd.timestamp = (uint32_t)time(NULL);
+    uint32_t timeStamp = 0;
+    if (!ReadMsdTimeStampFromConfigTree(CFG_NODE_MSDTIMESTAMPSET, &timeStamp))
+    {
+        timeStamp = (uint32_t)time(NULL);
+        char timeStampStr[16];
+        snprintf(timeStampStr, sizeof(timeStampStr), "%" PRIu32, timeStamp);
+        WriteMsdTimeStampToConfigTree(CFG_NODE_MSDTIMESTAMPSYSTEM, timeStampStr);
+    }
+    ECallObject.msd.timestamp = timeStamp;
+    LE_DEBUG("StartECall timestamp = %d", ECallObject.msd.timestamp);
 
     Status ret;
     EcallConfig eCallConfig = {};
@@ -1138,6 +1163,7 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
             LE_ERROR("Unable to update the msd information via VHAL");
         }
         eCallPtr->msd.messageIdentifier = 1;
+        WriteMsdMsgIdToConfigTree(eCallPtr->msd.messageIdentifier);
         ECallMsdData eCallMsdData = (ECallMsdData) eCallPtr->msd;
 
 
@@ -1778,6 +1804,121 @@ int32_t taf_ecall::msd_EncodeOptionalDataForEuroNCAP(taf_EuroNCAPData_t* euroNCA
     return msdMsgLen;
 }
 
+bool taf_ecall::ReadMsdTimeStampFromConfigTree(const char* nodeName, uint32_t* outTimeStamp)
+{
+    if (!nodeName || !outTimeStamp)
+    {
+        LE_ERROR("nodeName or outTimeStamp is nullptr");
+        return false;
+    }
+
+    char timeStampStr[16];
+    le_cfg_IteratorRef_t readTxn = le_cfg_CreateReadTxn(CFG_MODEMSERVICE_ECALL_PATH);
+    if (le_cfg_NodeExists(readTxn, nodeName))
+    {
+        le_cfg_GetString(readTxn, nodeName, timeStampStr, sizeof(timeStampStr), MSD_TIMESTAMP_STR_INVALID);
+    } else {
+        LE_WARN("No timeStamp found; using default: %d", 0);
+        le_cfg_CancelTxn(readTxn);
+        *outTimeStamp = 0;
+        return false;
+    }
+    le_cfg_CancelTxn(readTxn);
+
+    if (strcmp(timeStampStr, MSD_TIMESTAMP_STR_INVALID) == 0)
+    {
+        *outTimeStamp = 0;
+        return false;
+    }
+
+    *outTimeStamp = (uint32_t)strtoul(timeStampStr, NULL, 10);
+    return true;
+}
+
+void taf_ecall::WriteMsdTimeStampToConfigTree(const char* nodeName, const char* timestampStr)
+{
+    if (!nodeName || !timestampStr)
+    {
+        LE_ERROR("nodeName or timestampStr is nullptr");
+        return;
+    }
+
+    le_cfg_IteratorRef_t writeTxn = le_cfg_CreateWriteTxn(CFG_MODEMSERVICE_ECALL_PATH);
+    le_cfg_SetString(writeTxn, nodeName, timestampStr);
+    le_cfg_CommitTxn(writeTxn);
+
+    return;
+}
+
+le_result_t taf_ecall::SetMsdTimeStamp( taf_ecall_CallRef_t ecallRef, uint32_t timeStamp)
+{
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    if (eCallPtr->isMsdUpdated)
+    {
+        LE_ERROR("MSD timeStamp is set by importing MSD");
+        return LE_DUPLICATE;
+    }
+
+    eCallPtr->msd.timestamp = timeStamp;
+
+    char timeStampStr[16];
+    snprintf(timeStampStr, sizeof(timeStampStr), "%" PRIu32, timeStamp);
+    WriteMsdTimeStampToConfigTree(CFG_NODE_MSDTIMESTAMPSET, timeStampStr);
+
+    return LE_OK;
+}
+
+le_result_t taf_ecall::ResetMsdTimeStamp( taf_ecall_CallRef_t ecallRef)
+{
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    if (eCallPtr->isMsdUpdated)
+    {
+        LE_ERROR("MSD timeStamp is set by importing MSD");
+        return LE_DUPLICATE;
+    }
+
+    uint32_t timeStamp = 0;
+    if (!ReadMsdTimeStampFromConfigTree(CFG_NODE_MSDTIMESTAMPSYSTEM, &timeStamp))
+    {
+        LE_INFO("Failed to read the MSD timeStamp from config tree msdTimeStampSystem.");
+    }
+    eCallPtr->msd.timestamp = timeStamp;
+    LE_INFO("ResetMsdTimeStamp timestamp = %d", eCallPtr->msd.timestamp);
+
+    WriteMsdTimeStampToConfigTree(CFG_NODE_MSDTIMESTAMPSET, MSD_TIMESTAMP_STR_INVALID);
+    return LE_OK;
+}
+
+void taf_ecall::WriteMsdMsgIdToConfigTree(uint32_t msgId)
+{
+    le_cfg_IteratorRef_t writeTxn = le_cfg_CreateWriteTxn(CFG_MODEMSERVICE_ECALL_PATH);
+    le_cfg_SetInt(writeTxn, CFG_NODE_MSDMESSAGEIDENTIFIER, msgId);
+    le_cfg_CommitTxn(writeTxn);
+}
+
+uint32_t taf_ecall::ReadMsdMsgIdFromConfigTree()
+{
+    le_cfg_IteratorRef_t readTxn = le_cfg_CreateReadTxn(CFG_MODEMSERVICE_ECALL_PATH);
+    uint32_t messageIdentifier = 0;
+
+    if (le_cfg_NodeExists(readTxn, CFG_NODE_MSDMESSAGEIDENTIFIER))
+    {
+        messageIdentifier = le_cfg_GetInt(readTxn, CFG_NODE_MSDMESSAGEIDENTIFIER, 0);
+    }
+    else
+    {
+        LE_WARN("No messageIdentifier found; using default: %d", MIN_MSD_MESSAGE_IDENTIFIER);
+    }
+    le_cfg_CancelTxn(readTxn);
+    return messageIdentifier;
+}
+
 le_result_t taf_ecall::ImportMsd( taf_ecall_CallRef_t ecallRef, const uint8_t* pduMsd, size_t msdLength)
 {
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
@@ -1826,6 +1967,10 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
     } else {
         eCallPtr->msd.messageIdentifier = MIN_MSD_MESSAGE_IDENTIFIER;
     }
+
+    WriteMsdMsgIdToConfigTree(eCallPtr->msd.messageIdentifier);
+    LE_DEBUG("SendMsd message identifier = %d", eCallPtr->msd.messageIdentifier);
+    LE_DEBUG("SendMsd timestamp = %d", eCallPtr->msd.timestamp);
 
     LE_INFO("Send msd in phoneId: %d, isMsdUpdated: %d\n", phoneId, (int)eCallPtr->isMsdUpdated);
 

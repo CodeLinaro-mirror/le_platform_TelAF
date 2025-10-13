@@ -55,7 +55,10 @@
 using namespace telux::loc;
 using GnssReportTypeMask = uint32_t;
 using LocReqEngine = uint16_t;
+using ResponseCB = telux::common::ResponseCallback;
+
 const int DEFAULT_UNKNOWN = 0;
+
 #define TAF_CONFIG_POSITIONING_ACTIVATION_MAX 13
 #define GNSS_POSITION_SAMPLE_MAX         1
 #define GNSS_POSITION_HANDLER_HIGH       1
@@ -66,6 +69,7 @@ const int DEFAULT_UNKNOWN = 0;
 #define TTFF_REPORT_COUNT 10
 #define TAF_LOCGNSS_NMEA_DEFAULT 0x1f8000fc0
 #define TAF_LOCGNSS_NMEA_CONFIG_DEFAULT 0
+#define TIMEOUT_SECONDS 5
 
 enum DataType
 {
@@ -80,6 +84,33 @@ enum AidingDataType
     TAF_LOCGNSS_AIDING_DATA_EPHEMERIS = (1<<0),
     TAF_LOCGNSS_AIDING_DATA_DR_SENSOR_CALIBRATION = (1<<1)
 };
+
+
+inline std::pair<ResponseCB, std::shared_future<le_result_t>>
+GetCallbackWithPromise()
+{
+    auto pr = std::make_shared<std::promise<le_result_t>>();
+    std::shared_future<le_result_t> fut = pr->get_future().share();
+    auto cb = [pr](telux::common::ErrorCode error)
+    {
+        try
+        {
+            if (error == telux::common::ErrorCode::SUCCESS)
+            {
+                pr->set_value(LE_OK);
+            }
+            else
+            {
+                pr->set_value(LE_FAULT);
+            }
+        }
+        catch (...)
+        {
+            LE_ERROR("Error while setting promise value");
+        }
+    };
+    return {cb, fut};
+}
 
 namespace tafsvc {
 

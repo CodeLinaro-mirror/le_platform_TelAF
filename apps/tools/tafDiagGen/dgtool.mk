@@ -26,11 +26,11 @@ dgtool-v2%: dgtool-V2%
 
 DGTOOL_PY ?= /usr/bin/python3
 
-# Mush use '/usr/bin/python3' to specify the HOST python environment
+# Must use '/usr/bin/python3' to specify the HOST python environment
 $(TELAF_ROOT)/apps/tools/tafDiagGen/venv/$(DGTOOL_TARGET):
 	@echo "Create the python virtual envionment for dgtool"
 	@mkdir -p $(TELAF_ROOT)/apps/tools/tafDiagGen/venv/$(DGTOOL_TARGET)
-	$(DGTOOL_PY) -m venv $(TELAF_ROOT)/apps/tools/tafDiagGen/venv/$(DGTOOL_TARGET)
+	$(DGTOOL_PY) -m venv --system-site-packages $(TELAF_ROOT)/apps/tools/tafDiagGen/venv/$(DGTOOL_TARGET)
 
 cleanall-venv:
 	@echo "Clean the python virtual environment for dgtool"

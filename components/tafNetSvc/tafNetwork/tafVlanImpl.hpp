@@ -167,9 +167,6 @@ namespace tafsvc {
                       const std::vector<telux::data::VlanConfig> &vlanConfigs,
                       telux::common::ErrorCode error);
 
-            void removeVlanResponse(telux::common::ErrorCode error);
-            void createVlanResponse(bool isAccelerated, telux::common::ErrorCode error);
-
             tafVlanCallback(){};
             ~tafVlanCallback(){};
             static std::vector<telux::data::VlanConfig> vlanEntryInfo;
@@ -185,7 +182,6 @@ namespace tafsvc {
             void onVlanMappingListResponse(
                       const std::list<std::pair<int, int>> &mapping,
                       telux::common::ErrorCode error);
-            void onResponseCallback(telux::common::ErrorCode error);
 
             tafVlanMappingCallback(SlotId slot);
             ~tafVlanMappingCallback(){};
@@ -329,7 +325,6 @@ namespace tafsvc {
 
             static bool sort_vlanId(const telux::data::VlanConfig& s1,
                                     const telux::data::VlanConfig& s2);
-            std::promise<le_result_t> VlanSyncPromise;
 
             le_mem_PoolRef_t vlanPool;
             le_ref_MapRef_t vlanRefMap;

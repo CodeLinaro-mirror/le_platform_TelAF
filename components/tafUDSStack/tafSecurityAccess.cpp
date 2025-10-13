@@ -192,7 +192,7 @@ void TryToCreateStorageFromTree(AO_SecurityAccess_t *self)
 
     snprintf(nodePath, sizeof(nodePath), "%s", self->ifname);
 
-    LE_DEBUG("Security config tree: %s", nodePath);
+    LE_INFO("Security config tree: %s", nodePath);
 
     if (le_cfg_NodeExists(iteratorRef, nodePath))
     {
@@ -226,7 +226,7 @@ void TryToCreateStorageFromTree(AO_SecurityAccess_t *self)
                          "%s/%02X/%02X/Att_Cnt", self->ifname,
                          sess->session_id, level->Security_Level);
                 le_cfg_SetInt(iteratorRef, nodePath, level->Att_Cnt);
-                LE_DEBUG("Tree node: [ %s ] created", nodePath);
+                LE_INFO("Tree node: [ %s ] created", nodePath);
             }
         }
         le_cfg_CommitTxn(iteratorRef);
@@ -306,6 +306,34 @@ static void AO_SecurityAccess_ctor
     LE_INFO("[%s] Done", __FUNCTION__);
 }
 
+static void TryToPostSemaphore
+(
+    MEvent_t const * ev
+)
+{
+    if (ev == NULL)
+    {
+        LE_ERROR("ev: nullptr");
+        return;
+    }
+
+    if (EVENT(ev)->report == NULL)
+    {
+        LE_ERROR("ev->report : nullptr");
+        return;
+    }
+
+    if (EVENT(ev)->report->sem != NULL)
+    {
+        LE_INFO("POST -> /semaphore");
+        le_sem_Post(EVENT(ev)->report->sem);
+    }
+    else
+    {
+        LE_ERROR("Can NOT post the /semaphore, it is invalid");
+    }
+}
+
 static void ResponseAllZeroSeed(AO_SecurityAccess_t * self, MEvent_t const * ev)
 {
     SecAccEvent_t const * evp = (SecAccEvent_t *)ev;
@@ -328,13 +356,15 @@ static void ResponseAllZeroSeed(AO_SecurityAccess_t * self, MEvent_t const * ev)
     evp->report->mgr->SendData(&evp->report->mgr->udsRespAddrInfo);
     *evp->report->is_internal = true;
     evp->report->mgr->remoteError = LE_OK;
-    le_sem_Post(evp->report->sem);
+    TryToPostSemaphore(ev);
 }
 
 
 static void ResponseNRC(AO_SecurityAccess_t * self, MEvent_t const * ev, uint8_t nrc)
 {
     SecAccEvent_t const * evp = (SecAccEvent_t *)ev;
+
+    LE_INFO("Response NRC: 0x%02x", nrc);
 
     if (nrc != 0x00)
     {
@@ -352,7 +382,7 @@ static void ResponseNRC(AO_SecurityAccess_t * self, MEvent_t const * ev, uint8_t
     }
 
     SECACC_ASSERT_FATAL(evp->report->sem != NULL);
-    le_sem_Post(evp->report->sem);
+    TryToPostSemaphore(ev);
 }
 
 
@@ -363,7 +393,7 @@ static void SetResponseNRC(AO_SecurityAccess_t * self, MEvent_t const * ev, uint
     evp->report->mgr->nrcCode = nrc;
 
     SECACC_ASSERT_FATAL(evp->report->sem != NULL);
-    le_sem_Post(evp->report->sem);
+    TryToPostSemaphore(ev);
 }
 
 static void LoadAttCntAndDelayTimer(AO_SecurityAccess_t * self, MEvent_t const *ev)
@@ -523,7 +553,7 @@ static bool DelayTimerIsNotExpired(AO_SecurityAccess_t * self, MEvent_t const *e
     if (le_timer_IsRunning(self->delay_timer_ref))
     {
         uint32_t remaining = le_timer_GetMsTimeRemaining(self->delay_timer_ref);
-        LE_DEBUG("Delay_Timer remains: %u(ms)", remaining);
+        LE_INFO("Delay_Timer remains: %u(ms)", remaining);
         return true;
     }
 
@@ -618,7 +648,13 @@ static void SaveAttCntToTree(AO_SecurityAccess_t * self)
              self->ifname,
              self->current_session->session_id,
              self->current_session->active_level->Security_Level);
+
+    LE_INFO("Try to save Att-Cnt to configTree: %s (%d)",
+            nodePath,
+            self->current_session->active_level->Att_Cnt);
+
     le_cfg_QuickSetInt(nodePath, self->current_session->active_level->Att_Cnt);
+    LE_INFO("Save done for node: %s", nodePath);
 }
 
 static bool RequestedSubFunctionIsStaticSeed(AO_SecurityAccess_t * self, MEvent_t const *ev)
@@ -793,6 +829,40 @@ static void MarkLastPendingSession(AO_SecurityAccess_t * self, MEvent_t const *e
     }
 }
 
+static const char * to_EventString
+(
+    uint8_t evt
+)
+{
+    switch (evt)
+    {
+        case REQUEST_SEED_SIG: return "REQUEST_SEED_SIG";
+        case SEND_KEY_SIG: return "SEND_KEY_SIG";
+
+        case REQUEST_SEED_RESPONSE_SIG: return "REQUEST_SEED_RESPONSE_SIG";
+        case SEND_KEY_RESPONSE_SIG: return "SEND_KEY_RESPONSE_SIG";
+        case DELAY_TIMER_EXPIRED_SIG: return "DELAY_TIMER_EXPIRED_SIG";
+        case SESSION_CONTROL_SIG: return "SESSION_CONTROL_SIG";
+        case SESSION_TIMEOUT_SIG: return "SESSION_TIMEOUT_SIG";
+
+        case M_ENTRY_SIG: return "M_ENTRY_SIG";
+        case M_EXIT_SIG: return "M_EXIT_SIG";
+        case M_INIT_SIG: return "M_INIT_SIG";
+
+        case INVALID_SIG:
+        default:
+            return "INVALID_SIG";
+    }
+}
+
+static void CaptureIgnoreEvent
+(
+    MEvent_t const *ev
+)
+{
+    LE_INFO("Ignore event: %s ?", to_EventString(ev->sig));
+}
+
 /* Dispatch the task to the Diag-Application */
 #define GenerateSeed(self, ev) /* Nothing to do in stack */
 #define StoreSeed(self, ev) /* Nothing to do in stack */
@@ -813,7 +883,8 @@ MState_t State_initial(AO_SecurityAccess_t * self, MEvent_t const *ev)
 
 MState_t State_LockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *ev)
 {
-    LE_DEBUG("S-Function [%s]", __FUNCTION__);
+    LE_INFO("S-Function [%s]", __FUNCTION__);
+
     switch(ev->sig) {
         case REQUEST_SEED_SIG: {
             if (MsgLengthIsNok(self, ev, REQUEST_SEED_SIG)) {
@@ -829,13 +900,14 @@ MState_t State_LockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *ev
                 return M_Handled();
             }
             else {
-                LE_DEBUG("TO -> APP");
+                LE_INFO("TO -> APP");
                 /* Pass REQ to APP, wait for REQUEST_SEED_RESPONSE_SIG from APP */
                 ResponseNRC(self, ev, 0x00);
                 return M_Handled();
             }
         }
         case REQUEST_SEED_RESPONSE_SIG: {
+            LE_INFO("FROM <- APP");
             uint8_t nrc = ((SecAccEvent_t *) ev)->report->mgr->nrcCode;
             if (nrc == 0x00) {
                 GenerateSeed(self, ev);
@@ -878,30 +950,32 @@ MState_t State_LockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *ev
                 SwitchSessionBasedOnEvent(self, ev);
             }
 
-            le_sem_Post(EVENT(ev)->report->sem);
+            TryToPostSemaphore(ev);
             return M_Handled();
         }
         case SESSION_TIMEOUT_SIG: {
             if (DelayTimerIsNotExpired(self, ev)) {
                 MarkLastPendingSession(self, ev, SESSION_TIMEOUT_SIG);
-                le_sem_Post(EVENT(ev)->report->sem);
+                TryToPostSemaphore(ev);
                 return M_Handled();
             }
             else {
                 DeactivateAndLock(self);
                 self->current_session = self->default_session;
-                le_sem_Post(EVENT(ev)->report->sem);
+                TryToPostSemaphore(ev);
                 return M_Handled();
             }
         }
     }
 
+    CaptureIgnoreEvent(ev);
     return M_Ignored();
 }
 
 MState_t State_LockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const *ev)
 {
-    LE_DEBUG("S-Function [%s]", __FUNCTION__);
+    LE_INFO("S-Function [%s]", __FUNCTION__);
+
     switch(ev->sig) {
         case REQUEST_SEED_SIG: {
             if (MsgLengthIsNok(self, ev, REQUEST_SEED_SIG)) {
@@ -909,13 +983,14 @@ MState_t State_LockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const *e
                 return M_Translate(&State_LockedNoActiveSeed);
             }
             else {
-                LE_DEBUG("TO -> APP");
+                LE_INFO("TO -> APP");
                 /* Pass to APP, wait for REQUEST_SEED_RESPONSE_SIG */
                 ResponseNRC(self, ev, 0x00);
                 return M_Handled();
             }
         }
         case REQUEST_SEED_RESPONSE_SIG: {
+            LE_INFO("FROM <- APP");
             uint8_t nrc = ((SecAccEvent_t *) ev)->report->mgr->nrcCode;
             if (nrc == 0x00) {
                 if (RequestedSubFunctionIsStaticSeed(self, ev)) {
@@ -963,12 +1038,13 @@ MState_t State_LockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const *e
             }
             else { /* Pass to the APP and wait for SEND_KEY_RESPONSE_SIG */
 
-                LE_DEBUG("TO -> APP");
+                LE_INFO("TO -> APP");
                 ResponseNRC(self, ev, 0x00);
                 return M_Handled();
             }
         }
         case SEND_KEY_RESPONSE_SIG: {
+            LE_INFO("FROM <- APP");
             /* Note: for event -> :SEND_KEY_RESPONSE_SIG:
              * SetResponseNRC is need instead ResponseNRC */
             if (KeyIsNok(self, ev)) {
@@ -1011,23 +1087,25 @@ MState_t State_LockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const *e
         case SESSION_CONTROL_SIG: {
             DeactivateAndLock(self);
             SwitchSessionBasedOnEvent(self, ev);
-            le_sem_Post(EVENT(ev)->report->sem);
+            TryToPostSemaphore(ev);
             return M_Translate(&State_LockedNoActiveSeed);
         }
         case SESSION_TIMEOUT_SIG: {
             DeactivateAndLock(self);
             self->current_session = self->default_session;
-            le_sem_Post(EVENT(ev)->report->sem);
+            TryToPostSemaphore(ev);
             return M_Translate(&State_LockedNoActiveSeed);
         }
     }
 
+    CaptureIgnoreEvent(ev);
     return M_Ignored();
 }
 
 MState_t State_UnlockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *ev)
 {
-    LE_DEBUG("S-Function [%s]", __FUNCTION__);
+    LE_INFO("S-Function [%s]", __FUNCTION__);
+
     switch(ev->sig) {
         case REQUEST_SEED_SIG: {
             if (MsgLengthIsNok(self, ev, REQUEST_SEED_SIG)) {
@@ -1050,13 +1128,14 @@ MState_t State_UnlockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *
                 GenerateSeed(self, ev);
                 StoreSeed(self, ev);
 
-                LE_DEBUG("To -> APP");
+                LE_INFO("To -> APP");
                 /* Pass to APP, wait for REQUEST_SEED_RESPONSE_SIG */
                 ResponseNRC(self, ev, 0x00);
                 return M_Handled();
             }
         }
         case REQUEST_SEED_RESPONSE_SIG: {
+            LE_INFO("FROM <- APP");
             uint8_t nrc = ((SecAccEvent_t *) ev)->report->mgr->nrcCode;
             if (nrc == 0x00) {
                 ActivateSubfunction(self, ev);
@@ -1097,7 +1176,7 @@ MState_t State_UnlockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *
 
                 /* In unlocked state, lock current-session */
                 LockCurrentSession(self);
-                le_sem_Post(EVENT(ev)->report->sem);
+                TryToPostSemaphore(ev);
 
                 /* Keep current state, wait for: DELAY_TIMER_EXPIRED_SIG */
                 return M_Handled();
@@ -1105,7 +1184,7 @@ MState_t State_UnlockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *
             else {
                 DeactivateAndLock(self);
                 SwitchSessionBasedOnEvent(self, ev);
-                le_sem_Post(EVENT(ev)->report->sem);
+                TryToPostSemaphore(ev);
                 return M_Translate(&State_LockedNoActiveSeed);
             }
         }
@@ -1116,7 +1195,7 @@ MState_t State_UnlockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *
                 /* In unlocked state, lock current-session */
                 LockCurrentSession(self);
 
-                le_sem_Post(EVENT(ev)->report->sem);
+                TryToPostSemaphore(ev);
 
                 /* Keep current state, wait for: DELAY_TIMER_EXPIRED_SIG */
                 return M_Handled();
@@ -1124,18 +1203,20 @@ MState_t State_UnlockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *
             else {
                 DeactivateAndLock(self);
                 self->current_session = self->default_session;
-                le_sem_Post(EVENT(ev)->report->sem);
+                TryToPostSemaphore(ev);
                 return M_Translate(&State_LockedNoActiveSeed);
             }
         }
     }
 
+    CaptureIgnoreEvent(ev);
     return M_Ignored();
 }
 
 MState_t State_UnlockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const *ev)
 {
-    LE_DEBUG("S-Function [%s]", __FUNCTION__);
+    LE_INFO("S-Function [%s]", __FUNCTION__);
+
     switch(ev->sig) {
         case REQUEST_SEED_SIG: {
             if (MsgLengthIsNok(self, ev, REQUEST_SEED_SIG)) {
@@ -1147,13 +1228,14 @@ MState_t State_UnlockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const 
                 return M_Translate(&State_UnlockedNoActiveSeed);
             }
             else {
-                LE_DEBUG("TO -> APP");
+                LE_INFO("TO -> APP");
                 /* Pass task to APP, wait for REQUEST_SEED_RESPONSE_SIG */
                 ResponseNRC(self, ev, 0x00);
                 return M_Handled();
             }
         }
         case REQUEST_SEED_RESPONSE_SIG: {
+            LE_INFO("FROM <- APP");
             uint8_t nrc = ((SecAccEvent_t *) ev)->report->mgr->nrcCode;
             if (nrc == 0x00) {
                 if (RequestedSubFunctionIsStaticSeed(self, ev)) {
@@ -1198,12 +1280,13 @@ MState_t State_UnlockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const 
                 return M_Translate(&State_UnlockedNoActiveSeed);
             }
             else { /* Pass to the APP and wait for SEND_KEY_RESPONSE_SIG */
-                LE_DEBUG("TO -> APP");
+                LE_INFO("TO -> APP");
                 ResponseNRC(self, ev, 0x00);
                 return M_Handled();
             }
         }
         case SEND_KEY_RESPONSE_SIG: {
+            LE_INFO("FROM <- APP");
             /* Note: for event -> :SEND_KEY_RESPONSE_SIG:
              * SetResponseNRC is need instead ResponseNRC */
             if (KeyIsNok(self, ev)) {
@@ -1252,17 +1335,18 @@ MState_t State_UnlockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const 
         case SESSION_CONTROL_SIG: {
             DeactivateAndLock(self);
             SwitchSessionBasedOnEvent(self, ev);
-            le_sem_Post(EVENT(ev)->report->sem);
+            TryToPostSemaphore(ev);
             return M_Translate(&State_LockedNoActiveSeed);
         }
         case SESSION_TIMEOUT_SIG: {
             DeactivateAndLock(self);
             self->current_session = self->default_session;
-            le_sem_Post(EVENT(ev)->report->sem);
+            TryToPostSemaphore(ev);
             return M_Translate(&State_LockedNoActiveSeed);
         }
     }
 
+    CaptureIgnoreEvent(ev);
     return M_Ignored();
 }
 
@@ -1306,11 +1390,17 @@ static void SecAcc_DelayTimerHandler(le_timer_Ref_t timerRef)
 static void SecurityAccessEventHandler(void * reportPayLoadPtr)
 {
     SecAccReport_t * report = (SecAccReport_t *) reportPayLoadPtr;
+
+    LE_INFO(" Event: [%s] is coming <--", to_EventString((uint8_t)report->type));
+
     SecAccEvent_t ev = {
         .event = { report->type },
         .report = report,
     };
+
+    LE_INFO("RTC: [start] dispatching");
     MFsm_dispatch((MFsm_t *)report->mgr->mSecurityAccess, (MEvent_t *)&ev);
+    LE_INFO("RTC: [done] dispatching ");
 }
 
 /* Thread for security access service */

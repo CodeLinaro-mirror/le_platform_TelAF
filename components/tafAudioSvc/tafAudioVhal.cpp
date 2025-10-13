@@ -6,6 +6,10 @@
 
 #include "tafAudioVhal.hpp"
 #include "tafSvcIF.hpp"
+#include <setjmp.h>
+
+#define TIMER_SAFECALL 5
+DECLARE_SAFE_CALL();
 
 using namespace taf::audioVhal;
 
@@ -21,7 +25,11 @@ taf_AudioVhal &taf_AudioVhal::GetInstance()
     return instance;
 }
 
-void taf_AudioVhal::Init()
+
+/**
+ * Load Audio VHAL driver.
+ */
+le_result_t taf_AudioVhal::LoadDriver()
 {
     // load driver
     audioInf = (hal_audio_Inf_t *)taf_devMgr_LoadDrv(TAF_AUDIO_MODULE_NAME, nullptr);
@@ -30,18 +38,41 @@ void taf_AudioVhal::Init()
     {
         LE_ERROR("Can not load the driver %s", TAF_AUDIO_MODULE_NAME);
         isVhalLoaded = false;
+        return LE_FAULT;
     }
     else // successfully loaded
     {
         LE_INFO("Driver loaded successfully....");
         isVhalLoaded = true;
 
-        // init first
-        (*(audioInf->InitHAL))();
+        int ret = 0;
+        LE_DEBUG("Before safe call init");
+        ENTER_SAFE_CALL(TIMER_SAFECALL, ret, (*(audioInf->InitHAL)));
+        EXIT_SAFE_CALL();
+
+        if (ret == -1)
+        {
+            LE_ERROR("Failed to init Audio VHAL : %s", TAF_AUDIO_MODULE_NAME);
+            return LE_FAULT;
+        }
+
         NodeEventHandlerRefPool = le_mem_InitStaticPool(NodeEventHandlerRef, MAX_VENDOR_NODES,
                 sizeof(NodeEventHandlerRefNode_t));
         NodeEventHandlerList = LE_DLS_LIST_INIT;
+        LE_DEBUG("Advertise Audio vendor service");
+        AdvertiseVendorService();
+        return LE_OK;
     }
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Advertise audioVendor service.
+ */
+ //------------------------------------------------------------------------------------------------
+void taf_AudioVhal::AdvertiseVendorService()
+{
+    taf_audioVendor_AdvertiseService();
 }
 
 bool taf_AudioVhal::isAudioDrvAvailable()
@@ -54,7 +85,17 @@ le_result_t taf_AudioVhal::OpenRoute(bool status, taf_audio_RouteId_t routeId,
         taf_audio_Mode_t mode)
 {
     LE_DEBUG("OpenRoute status %s route %d mode %d", (status ? "true" : "false"), routeId, mode);
-    return audioInf->CtlSetAudioStatus(status, (uint32_t)routeId, (hal_audio_Mode_t)mode);
+    le_result_t result;
+    int ret = 0;
+    ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, result, audioInf->CtlSetAudioStatus(status,
+            (uint32_t)routeId, (hal_audio_Mode_t)mode));
+    EXIT_SAFE_CALL();
+    if(ret == -1)
+    {
+        LE_ERROR("Failed to call OpenRoute");
+        return LE_FAULT;
+    }
+    return result;
 }
 
 le_result_t taf_AudioVhal::GetNodeType( uint8_t audioNodeId,
@@ -63,7 +104,16 @@ le_result_t taf_AudioVhal::GetNodeType( uint8_t audioNodeId,
     LE_DEBUG("GetNodeType %d", audioNodeId);
     TAF_ERROR_IF_RET_VAL(nodeType == NULL, LE_BAD_PARAMETER, "nodeType pointer is NULL");
     hal_audio_NodeType_t halNodeType;
-    le_result_t res = audioInf->GetNodeType(audioNodeId, &halNodeType);
+    le_result_t res = LE_FAULT;
+    int ret = 0;
+    ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, res, audioInf->GetNodeType(audioNodeId,
+            &halNodeType));
+    EXIT_SAFE_CALL();
+    if(ret == -1)
+    {
+        LE_ERROR("Failed to call GetNodeType");
+        return res;
+    }
     if(res == LE_OK)
     {
         if(halNodeType == HAL_AUDIO_NODE_TYPE_CODEC)
@@ -81,14 +131,32 @@ le_result_t taf_AudioVhal::GetNodeType( uint8_t audioNodeId,
 le_result_t taf_AudioVhal::SendNodeVendorConfig(uint8_t audioNodeId, const char* configPath)
 {
     LE_DEBUG("SendNodeVendorConfig Node id : %d configPath : %s", audioNodeId, configPath);
-    return audioInf->SendNodeVendorConfig(audioNodeId, configPath);
+    le_result_t res = LE_FAULT;
+    int ret = 0;
+    ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, res,
+            audioInf->SendNodeVendorConfig(audioNodeId, configPath));
+    EXIT_SAFE_CALL();
+    if(ret == -1)
+    {
+        LE_ERROR("Failed to call SendNodeVendorConfig");
+    }
+    return res;
 }
 
 le_result_t taf_AudioVhal::SetNodePowerState(uint8_t audioNodeId,
         taf_audioVendor_NodePowerState_t state)
 {
     LE_DEBUG("SetNodePowerState node id : %d state : %d", audioNodeId, state);
-    return audioInf->SetNodePowerState(audioNodeId, (hal_audio_PowerState_t)state);
+    le_result_t res = LE_FAULT;
+    int ret = 0;
+    ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, res,
+            audioInf->SetNodePowerState(audioNodeId, (hal_audio_PowerState_t)state));
+    EXIT_SAFE_CALL();
+    if(ret == -1)
+    {
+        LE_ERROR("Failed to call SetNodePowerState");
+    }
+    return res;
 }
 
 le_result_t taf_AudioVhal::GetNodePowerState(uint8_t audioNodeId,
@@ -97,7 +165,16 @@ le_result_t taf_AudioVhal::GetNodePowerState(uint8_t audioNodeId,
     LE_DEBUG("GetNodePowerState node id : %d audioInf %p", audioNodeId, audioInf);
     TAF_ERROR_IF_RET_VAL(state == NULL, LE_BAD_PARAMETER, "state pointer is NULL");
     hal_audio_PowerState_t vhalState;
-    le_result_t res = audioInf->GetNodePowerState(audioNodeId, &vhalState);
+    le_result_t res = LE_FAULT;
+    int ret = 0;
+    ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, res,
+            audioInf->GetNodePowerState(audioNodeId, &vhalState));
+    EXIT_SAFE_CALL();
+    if(ret == -1)
+    {
+        LE_ERROR("Failed to call GetNodePowerState");
+        return res;
+    }
 
     *state = (taf_audioVendor_NodePowerState_t)vhalState;
     LE_DEBUG("state is %d", *state);
@@ -107,13 +184,33 @@ le_result_t taf_AudioVhal::GetNodePowerState(uint8_t audioNodeId,
 le_result_t taf_AudioVhal::SetNodeMuteState(uint8_t audioNodeId, bool mute)
 {
     LE_DEBUG("SetNodeMuteState node id : %d mute : %s", audioNodeId, mute ? "true" : "false");
-    return audioInf->SetNodeMuteState(audioNodeId, mute);
+    le_result_t res = LE_FAULT;
+    int ret = 0;
+    ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, res,
+            audioInf->SetNodeMuteState(audioNodeId, mute));
+    EXIT_SAFE_CALL();
+    if(ret == -1)
+    {
+        LE_ERROR("Failed to call SetNodeMuteState");
+        return res;
+    }
+    return res;
 }
 
 le_result_t taf_AudioVhal::GetNodeMuteState(uint8_t audioNodeId, bool *isMuted)
 {
     LE_DEBUG("GetNodeMuteState node id : %d ", audioNodeId);
-    return audioInf->GetNodeMuteState(audioNodeId, isMuted);
+    le_result_t res = LE_FAULT;
+    int ret = 0;
+    ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, res,
+            audioInf->GetNodeMuteState(audioNodeId, isMuted));
+    EXIT_SAFE_CALL();
+    if(ret == -1)
+    {
+        LE_ERROR("Failed to call GetNodeMuteState");
+        return res;
+    }
+    return res;
 }
 
 le_result_t taf_AudioVhal::SetNodeGain (uint8_t nodeId, taf_audioVendor_Direction_t direction,
@@ -122,7 +219,17 @@ le_result_t taf_AudioVhal::SetNodeGain (uint8_t nodeId, taf_audioVendor_Directio
     LE_DEBUG("SetNodeGain node id : %d direction: %d gain: %f", nodeId, direction, gain);
 
     if (audioInf->SetNodeGain) {
-        return audioInf->SetNodeGain(nodeId, (hal_audio_direction_t)direction, gain);
+        le_result_t res = LE_FAULT;
+        int ret = 0;
+        ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, res,
+                audioInf->SetNodeGain(nodeId, (hal_audio_direction_t)direction, gain));
+        EXIT_SAFE_CALL();
+        if(ret == -1)
+        {
+            LE_ERROR("Failed to call SetNodeGain");
+            return res;
+        }
+        return res;
     }
 
     return LE_UNSUPPORTED;
@@ -134,7 +241,17 @@ le_result_t taf_AudioVhal::GetNodeGain (uint8_t nodeId, taf_audioVendor_Directio
     LE_DEBUG("GetNodeGain node id : %d direction: %d", nodeId, direction);
 
     if (audioInf->GetNodeGain) {
-        return audioInf->GetNodeGain(nodeId, (hal_audio_direction_t)direction, gain);
+        le_result_t res = LE_FAULT;
+        int ret = 0;
+        ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, res,
+                audioInf->GetNodeGain(nodeId, (hal_audio_direction_t)direction, gain));
+        EXIT_SAFE_CALL();
+        if(ret == -1)
+        {
+            LE_ERROR("Failed to call GetNodeGain");
+            return res;
+        }
+        return res;
     }
 
     return LE_UNSUPPORTED;
@@ -193,7 +310,16 @@ taf_audioVendor_NodeStateChangeHandlerRef_t taf_AudioVhal::AddNodeStateChangeHan
 
     LE_DEBUG("Add handler for node %d.", audioNodeId);
 
-    le_result_t res = (*(audioInf->AddNodeStateChangeHandler))(audioNodeId, NodeEventCB);
+    le_result_t res = LE_FAULT;
+    int ret = 0;
+    ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, res,
+            audioInf->AddNodeStateChangeHandler(audioNodeId, NodeEventCB));
+    EXIT_SAFE_CALL();
+    if(ret == -1)
+    {
+        LE_ERROR("Failed to call AddNodeStateChangeHandler");
+        return NULL;
+    }
     TAF_ERROR_IF_RET_VAL(res != LE_OK, NULL, "Failed to register for node event change");
 
     NodeEventHandlerRefNode_t* nodeHandlerRefPtr =
@@ -243,11 +369,31 @@ void taf_AudioVhal::RemoveNodeStateChangeHandler(
 le_result_t taf_AudioVhal::SendVendorConfig(const char* configPath)
 {
     LE_DEBUG("SendVendorConfig %s", configPath);
-    return audioInf->SendVendorConfig(configPath);
+    le_result_t res = LE_FAULT;
+    int ret = 0;
+    ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, res,
+            audioInf->SendVendorConfig(configPath));
+    EXIT_SAFE_CALL();
+    if(ret == -1)
+    {
+        LE_ERROR("Failed to call SendVendorConfig");
+        return res;
+    }
+    return res;
 }
 
 le_result_t taf_AudioVhal::CtlReportBubStatus(hal_audio_bubStatus_t bubStatus)
 {
     LE_DEBUG("CtlReportBubStatus %d", bubStatus);
-    return audioInf->CtlReportBubStatus(bubStatus);
+    le_result_t res = LE_FAULT;
+    int ret = 0;
+    ENTER_SAFE_CALL_EX(TIMER_SAFECALL, ret, res,
+            audioInf->CtlReportBubStatus(bubStatus));
+    EXIT_SAFE_CALL();
+    if(ret == -1)
+    {
+        LE_ERROR("Failed to call CtlReportBubStatus");
+        return res;
+    }
+    return res;
 }

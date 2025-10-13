@@ -1359,6 +1359,50 @@ le_result_t taf_sms_Send
 
 /*======================================================================
 
+FUNCTION       taf_sms_SendAsync
+
+DESCRIPTION    Sends an asynchronous SMS message.
+
+DEPENDENCIES   Create new message and set sending paremeters
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+
+RETURN VALUE   le_result_t
+                  LE_NOT_FOUND: Invalid message
+                  LE_BAD_PARAMETER: Invalid phone ID
+                  LE_FORMAT_ERROR: Fail to encode message
+                  LE_OK: Success
+
+SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_sms_SendAsync
+(
+   taf_sms_MsgRef_t              msgRef,
+   taf_sms_CallbackResultFunc_t  handlerPtr,
+   void* contextPtr
+)
+{
+   auto &sms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(sms.MsgRefMap, msgRef);
+
+   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
+
+   TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, LE_BAD_PARAMETER, "Invalid handlerPtr");
+
+   msgPtr->callBackPtr = (void*)handlerPtr;
+
+   msgPtr->ctxPtr = (void*)contextPtr;
+
+   LE_DEBUG("Assign handler %p", handlerPtr);
+
+   le_result_t result = sms.SendPDUMessageAsync(msgRef);
+   return result;
+}
+
+/*======================================================================
+
 FUNCTION       taf_sms_DeleteFromStorage
 
 DESCRIPTION    Delete message from storage
@@ -1834,7 +1878,7 @@ le_result_t taf_sms_SendPduMsg
 )
 {
    auto &sms = taf_Sms::GetInstance();
-   return sms.SendPDUMessage(const_cast<uint8_t*>(dataPtr), dataSize,
+   return sms.SendPDUMessageSync(const_cast<uint8_t*>(dataPtr), dataSize,
       timeout, DEFAULT_PHONE_ID);
 }
 
@@ -1866,7 +1910,7 @@ le_result_t taf_sms_SendPduMsgEx
 )
 {
    auto &sms = taf_Sms::GetInstance();
-   return sms.SendPDUMessage(const_cast<uint8_t*>(dataPtr), dataSize,
+   return sms.SendPDUMessageSync(const_cast<uint8_t*>(dataPtr), dataSize,
       timeout, phoneId);
 }
 

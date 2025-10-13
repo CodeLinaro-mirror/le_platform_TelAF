@@ -887,6 +887,7 @@ void taf_RadioPhoneListener::onSignalStrengthChanged
         taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
         ssPtr->phoneId = phoneId;
         ssPtr->rssi = signalStrength->getGsmSignalStrength()->getDbm();
+        ssPtr->rsrp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         le_event_ReportWithRefCounting(tafRadio.gsmSsChangeEvId, (void*)ssPtr);
     }
 
@@ -896,6 +897,7 @@ void taf_RadioPhoneListener::onSignalStrengthChanged
         taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
         ssPtr->phoneId = phoneId;
         ssPtr->rssi = signalStrength->getCdmaSignalStrength()->getDbm();
+        ssPtr->rsrp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         le_event_ReportWithRefCounting(tafRadio.cdmaSsChangeEvId, (void*)ssPtr);
     }
 
@@ -906,6 +908,7 @@ void taf_RadioPhoneListener::onSignalStrengthChanged
         taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
         ssPtr->phoneId = phoneId;
         ssPtr->rssi = signalStrength->getWcdmaSignalStrength()->getDbm();
+        ssPtr->rsrp = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         le_event_ReportWithRefCounting(tafRadio.umtsSsChangeEvId, (void*)ssPtr);
     }
 
@@ -915,6 +918,7 @@ void taf_RadioPhoneListener::onSignalStrengthChanged
     {
         taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
         ssPtr->phoneId = phoneId;
+        ssPtr->rssi = signalStrength->getLteSignalStrength()->getRssi();
         ssPtr->rsrp = signalStrength->getLteSignalStrength()->getDbm();
         le_event_ReportWithRefCounting(tafRadio.lteSsChangeEvId, (void*)ssPtr);
     }
@@ -924,6 +928,7 @@ void taf_RadioPhoneListener::onSignalStrengthChanged
     {
         taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
         ssPtr->phoneId = phoneId;
+        ssPtr->rssi = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         ssPtr->rsrp = signalStrength->getNr5gSignalStrength()->getDbm();
         le_event_ReportWithRefCounting(tafRadio.nr5gSsChangeEvId, (void*)ssPtr);
     }
@@ -3589,11 +3594,24 @@ void taf_Radio::Init(void)
     // 4. Get the PhoneFactory, dataFactory and PhoneManager instances
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
     auto &dataFactory = telux::data::DataFactory::getInstance();
-    std::promise<telux::common::ServiceStatus> promPhone;
-    phoneManager = phoneFactory.getPhoneManager([&](telux::common::ServiceStatus svcStatus)
-        {
-            promPhone.set_value(svcStatus);
-        });
+
+    auto phoneProm = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+    auto cbPhone = [phoneProm](telux::common::ServiceStatus status) {
+        try {
+            phoneProm->set_value(status);
+        }
+        catch (const std::future_error& e) {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e) {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...) {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
+
+    phoneManager = phoneFactory.getPhoneManager(cbPhone);
 
     // 5. Check if telephony subsystem is ready
     bool isReady = false;
@@ -3603,7 +3621,7 @@ void taf_Radio::Init(void)
     }
     else
     {
-        std::future<telux::common::ServiceStatus> initFuture = promPhone.get_future();
+        std::future<telux::common::ServiceStatus> initFuture = phoneProm->get_future();
         std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
             TAF_RADIO_SUBSYSTEM_TIMEOUT));
         telux::common::ServiceStatus serviceStatus;
@@ -3642,20 +3660,32 @@ void taf_Radio::Init(void)
 
                 // 7. Initialize network subsystem.
                 isReady = false;
-                std::promise<telux::common::ServiceStatus> promNet;
+                auto netProm = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+                auto cbNet = [netProm](telux::common::ServiceStatus status) {
+                    try {
+                        netProm->set_value(status);
+                    }
+                    catch (const std::future_error& e) {
+                        LE_ERROR("Future error in callback: %s", e.what());
+                    }
+                    catch (const std::exception& e) {
+                        LE_ERROR("Exception in callback: %s", e.what());
+                    }
+                    catch (...) {
+                        LE_ERROR("Unknown error in callback.");
+                    }
+                };
+
                 auto networkManager =
                     telux::tel::PhoneFactory::getInstance().getNetworkSelectionManager(index,
-                    [&](telux::common::ServiceStatus svcStatus)
-                    {
-                        promNet.set_value(svcStatus);
-                    });
+                    cbNet);
                 if (!networkManager)
                 {
                     LE_FATAL("Invalid network manager.");
                 }
                 else
                 {
-                    std::future<telux::common::ServiceStatus> initFuture = promNet.get_future();
+                    std::future<telux::common::ServiceStatus> initFuture = netProm->get_future();
                     std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
                         TAF_RADIO_SUBSYSTEM_TIMEOUT));
                     if (std::future_status::timeout == waitStatus)
@@ -3684,20 +3714,33 @@ void taf_Radio::Init(void)
 
                 // 8. Initialize serving subsystem.
                 isReady = false;
-                std::promise<telux::common::ServiceStatus> promSrv;
+                auto telSrvProm = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+                auto cbTelSrv = [telSrvProm](telux::common::ServiceStatus status) {
+                    try {
+                        telSrvProm->set_value(status);
+                    }
+                    catch (const std::future_error& e) {
+                        LE_ERROR("Future error in callback: %s", e.what());
+                    }
+                    catch (const std::exception& e) {
+                        LE_ERROR("Exception in callback: %s", e.what());
+                    }
+                    catch (...) {
+                        LE_ERROR("Unknown error in callback.");
+                    }
+                };
+
                 auto servingSystemManager =
-                     telux::tel::PhoneFactory::getInstance().getServingSystemManager(index,
-                    [&](telux::common::ServiceStatus svcStatus)
-                    {
-                        promSrv.set_value(svcStatus);
-                    });
+                    telux::tel::PhoneFactory::getInstance().getServingSystemManager(index,
+                    cbTelSrv);
                 if (!servingSystemManager)
                 {
                     LE_FATAL("Invalid serving manager.");
                 }
                 if (servingSystemManager != nullptr)
                 {
-                    std::future<telux::common::ServiceStatus> initFuture = promSrv.get_future();
+                    std::future<telux::common::ServiceStatus> initFuture =
+                        telSrvProm->get_future();
                     std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
                         TAF_RADIO_SUBSYSTEM_TIMEOUT));
                     if (std::future_status::timeout == waitStatus)
@@ -3746,19 +3789,23 @@ void taf_Radio::Init(void)
             // 10. Initialize data serving subsystem.
             isReady = false;
             int slot = (int)phoneManager->getSlotIdFromPhoneId(index);
-            std::promise<telux::common::ServiceStatus> dataSrvProm;
+            auto dataSrvProm = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+            auto cbDataSrv = [dataSrvProm](telux::common::ServiceStatus status) {
+                try {
+                    dataSrvProm->set_value(status);
+                }
+                catch (const std::future_error& e) {
+                    LE_ERROR("Future error in callback: %s", e.what());
+                }
+                catch (const std::exception& e) {
+                    LE_ERROR("Exception in callback: %s", e.what());
+                }
+                catch (...) {
+                    LE_ERROR("Unknown error in callback.");
+                }
+            };
             auto servingSystemMgr = dataFactory.getServingSystemManager(
-                (SlotId)slot,[&](telux::common::ServiceStatus svcStatus)
-                {
-                    if (svcStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-                    {
-                        dataSrvProm.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
-                    }
-                    else
-                    {
-                        dataSrvProm.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
-                    }
-                });
+                (SlotId)slot,cbDataSrv);
             if (!servingSystemMgr)
             {
                 LE_ERROR("Failed to get Data Serving System instance.");
@@ -3770,7 +3817,8 @@ void taf_Radio::Init(void)
                 if (dataServSysMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
                 {
                     LE_INFO("Data serving subsystem wait to be ready...");
-                    std::future<telux::common::ServiceStatus> initFuture = dataSrvProm.get_future();
+                    std::future<telux::common::ServiceStatus> initFuture =
+                        dataSrvProm->get_future();
                     std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
                         TAF_RADIO_SUBSYSTEM_TIMEOUT));
                     if (std::future_status::timeout == waitStatus)
@@ -3798,19 +3846,23 @@ void taf_Radio::Init(void)
 
             // 11. Initialize IMS serving subsystem.
             isReady = false;
-            std::promise<telux::common::ServiceStatus> prom;
+            auto imsSrvProm = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+            auto cbImsSrv = [imsSrvProm](telux::common::ServiceStatus status) {
+                try {
+                    imsSrvProm->set_value(status);
+                }
+                catch (const std::future_error& e) {
+                    LE_ERROR("Future error in callback: %s", e.what());
+                }
+                catch (const std::exception& e) {
+                    LE_ERROR("Exception in callback: %s", e.what());
+                }
+                catch (...) {
+                    LE_ERROR("Unknown error in callback.");
+                }
+            };
             auto imsServingSystemMgr = phoneFactory.getImsServingSystemManager(
-                (SlotId)slot,[&](telux::common::ServiceStatus svcStatus)
-                {
-                    if (svcStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-                    {
-                        prom.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
-                    }
-                    else
-                    {
-                        prom.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
-                    }
-                });
+                (SlotId)slot,cbImsSrv);
 
             if (!imsServingSystemMgr)
             {
@@ -3823,7 +3875,8 @@ void taf_Radio::Init(void)
                 if (imsServSysMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
                 {
                     LE_INFO("IMS serving subsystem wait to be ready...");
-                    std::future<telux::common::ServiceStatus> initFuture = prom.get_future();
+                    std::future<telux::common::ServiceStatus> initFuture =
+                        imsSrvProm->get_future();
                     std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
                         TAF_RADIO_SUBSYSTEM_TIMEOUT));
                     if (std::future_status::timeout == waitStatus)
@@ -3854,19 +3907,23 @@ void taf_Radio::Init(void)
 
     // 12. Initialize IMS settings subsystem.
     isReady = false;
-    std::promise<telux::common::ServiceStatus> promSetting;
-    imsSettingMgr = phoneFactory.getImsSettingsManager(
-        [&](telux::common::ServiceStatus svcStatus)
-        {
-            if (svcStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-            {
-                promSetting.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
-            }
-            else
-            {
-                promSetting.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
-            }
-        });
+    auto imsSetProm = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+    auto cbImsSet = [imsSetProm](telux::common::ServiceStatus status) {
+        try {
+            imsSetProm->set_value(status);
+        }
+        catch (const std::future_error& e) {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e) {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...) {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
+
+    imsSettingMgr = phoneFactory.getImsSettingsManager(cbImsSet);
 
     if (!imsSettingMgr)
     {
@@ -3878,7 +3935,7 @@ void taf_Radio::Init(void)
         if (imsSettingMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
         {
             LE_INFO("IMS setting subsystem wait to be ready...");
-            std::future<telux::common::ServiceStatus> initFuture = promSetting.get_future();
+            std::future<telux::common::ServiceStatus> initFuture = imsSetProm->get_future();
             std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
                 TAF_RADIO_SUBSYSTEM_TIMEOUT));
             if (std::future_status::timeout == waitStatus)

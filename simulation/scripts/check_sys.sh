@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 OS_VERSION=$(grep -oP 'VERSION_ID=\K"(.+)"' /etc/os-release | tr -d '"')
@@ -75,21 +75,6 @@ function check_gcc_gxx_version ()
     return $RESULT
 }
 
-function check_cgroup_version ()
-{
-    RESULT=0
-
-    if [ -d "/sys/fs/cgroup/freezer" ]
-    then
-        printf "%-30s ... %-20s ... [OK]\n" "CGROUP version" "V1"
-    else
-        printf "%-30s ... %-20s ... [NOK] <-- CGROUP V1 on the HOST is required\n" "CGROUP version" "V1"
-        RESULT=1
-    fi
-
-    return $RESULT
-}
-
 function check_docker_version ()
 {
     RESULT=0
@@ -131,18 +116,14 @@ total_packages_checking="
     fakeroot
     file
     libcap-dev
-    libpython2.7-dev
 "
 
 if [ $OS_VERSION = "20.04" ]; then
     total_packages_checking+=" python2"
-    total_packages_checking+=" python-jinja2"
 elif [ $OS_VERSION = "22.04" ]; then
     total_packages_checking+=" python2"
-    total_packages_checking+=" python3-jinja2"
 else # = 18.04
     total_packages_checking+=" python"
-    total_packages_checking+=" python-jinja2"
 fi
 
 
@@ -153,8 +134,6 @@ elif ! check_package_install $total_packages_checking ; then
 elif ! check_docker_version ; then
     eval $ERR_EXIT
 elif ! check_gcc_gxx_version ; then
-    eval $ERR_EXIT
-elif ! check_cgroup_version ; then
     eval $ERR_EXIT
 elif ! check_user_umask ; then
     eval $ERR_EXIT

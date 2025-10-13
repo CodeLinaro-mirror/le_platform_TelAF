@@ -7,7 +7,7 @@
  *
  * @file       tafWlanSvcImpl.cpp
  *
- * @brief      Implemenation of TelAF WLAN Device Management Service APIs.
+ * @brief      Implementation of TelAF WLAN Device Management Service APIs.
  *
  */
 

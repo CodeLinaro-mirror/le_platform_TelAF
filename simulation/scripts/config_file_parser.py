@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import json, argparse
@@ -16,7 +16,7 @@ def doit(args):
         root = json.load(fd)
         if args.master_opt is True:
             print("{}".format(root["master_tarball"]), end="")
-        elif args.slavex_opt in True:
+        elif args.slavex_opt is True:
             print("{}".format(root["slavex_tarball"]), end="")
         else:
             return -2

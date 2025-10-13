@@ -247,7 +247,11 @@ taf_update_State_t taf_FwUpdate::GetState
         }
         else
         {
-            fread(&state, sizeof(taf_update_State_t), 1, fp);
+            if (fread(&state, sizeof(taf_update_State_t), 1, fp) <= 0)
+            {
+                LE_WARN("Read %s failed", TAF_FWUPDATE_FOTA_STATE);
+            }
+
             fclose(fp);
         }
     }
@@ -1319,6 +1323,12 @@ void taf_FwUpdate::GetRootfsVersion
 )
 {
     std::ifstream rootfsFin(TAF_ROOTFS_VERSION_FILE);
+    if (!rootfsFin.is_open())
+    {
+        LE_ERROR("Failed to open file %s", TAF_ROOTFS_VERSION_FILE);
+        return;
+    }
+
     std::string rootfsVer;
 
     getline(rootfsFin, rootfsVer);
@@ -1339,6 +1349,12 @@ void taf_FwUpdate::GetTelafVersion
 )
 {
     std::ifstream telafFin(TAF_TELAF_VERSION_FILE);
+    if (!telafFin.is_open())
+    {
+        LE_ERROR("Failed to open file %s", TAF_TELAF_VERSION_FILE);
+        return;
+    }
+
     std::string telafVer;
 
     getline(telafFin, telafVer);
@@ -1363,6 +1379,12 @@ le_result_t taf_FwUpdate::GetFirmwareVersion
 )
 {
     std::ifstream firmwareFin(TAF_FIRMWARE_VERSION_FILE);
+    if (!firmwareFin.is_open())
+    {
+        LE_ERROR("Failed to open file %s", TAF_FIRMWARE_VERSION_FILE);
+        return LE_FAULT;
+    }
+
     std::string firmwareVer;
 
     size_t start = string::npos;
@@ -1415,6 +1437,12 @@ le_result_t taf_FwUpdate::InstallPreCheck
     }
 
     std::ifstream manifestFin(manifest);
+    if (!manifestFin.is_open())
+    {
+        LE_ERROR("Failed to open file %s", manifest);
+        return LE_FAULT;
+    }
+
     std::string manifestVer;
 
     char rootfsVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
@@ -2389,6 +2417,13 @@ void taf_FwUpdate::InstallFirmware
     // 6. Check log after installation.
     LE_INFO("Checking recovery log.");
     ifstream fin(TAF_FWUPDATE_RECOVERY_LOG_FILE);
+    if (!fin.is_open())
+    {
+        LE_ERROR("Failed to open file %s", TAF_FWUPDATE_RECOVERY_LOG_FILE);
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        return;
+    }
+
     string strline;
     int line = 0;
     le_result_t ret = LE_FAULT;
@@ -2852,7 +2887,13 @@ le_result_t taf_FwUpdate::GetActiveBank
     FILE* fp = popen("/usr/bin/nad-abctl --boot_slot", "r");
     TAF_ERROR_IF_RET_VAL(fp == NULL, LE_FAULT, "popen failed.");
 
-    fgets(cmdRes, sizeof(cmdRes), fp);
+    if (fgets(cmdRes, sizeof(cmdRes), fp) == NULL)
+    {
+        LE_ERROR("Failed to read fp.");
+        pclose(fp);
+        return LE_FAULT;
+    }
+
     string resStr(cmdRes);
     if (resStr.find("a") != string::npos)
     {
@@ -3189,6 +3230,13 @@ void taf_FwUpdate::ActivateComponent
         }
 
         std::ifstream manifestFin(manifest);
+        if (!manifestFin.is_open())
+        {
+            LE_ERROR("Failed to open file %s", manifest);
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+            return;
+        }
+
         std::string manifestVer;
 
         // Get rootfs version from manifest file.

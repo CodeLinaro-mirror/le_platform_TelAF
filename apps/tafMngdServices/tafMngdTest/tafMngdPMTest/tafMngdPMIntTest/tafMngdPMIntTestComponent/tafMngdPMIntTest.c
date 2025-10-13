@@ -97,6 +97,10 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- CreateMultipleClients\n"
         "------------To  test AllowWakingupDuringSuspending-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- AllowWakingupDuringSuspending\n"
+        "------------To  test AllowAuthorizedWakingupDuringSuspending-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- AllowAuthorizedWakingupDuringSuspending\n"
+        "------------To  test ShouldRejectUnauthorizedWakingupDuringSuspending-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldRejectUnauthorizedWakingupDuringSuspending\n"
         "------------To Test System Resume and Suspend -----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestAuthorizedResumeandSuspend\n"
         "------------To Test Node Resume and Suspend -----------\n"
@@ -124,11 +128,15 @@ static void PrintUsage ()
         "------------To Test stayawake request during shutdown-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdownAndResume\n"
         "------------To Test delete wakeup source if not acquired-----------\n"
+        "------------To test waking up vehicle when releasing WS-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- WakeupVehicleWhenReleasingWsTest\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- DeleteWsIfNotAcquired\n"
         "------------To Test rejecting deletion of wakeup source if acquired-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldNotDeleteWsIfAcquired\n"
         "------------To Test rejecting deletion of wakeup source if ignored-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldNotDeleteWsIfIgnored\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldNotDeleteWsIfIgnored\n"
+        "------------To Test PMVHAL notification on client disconnection-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- NotifyVhalOnClientDisconnectionForReleaseWS\n");
 }
 
 void NodePowerStateChangeHandlerCB(
@@ -1222,6 +1230,89 @@ static void AllowWakingupDuringSuspending()
          LE_ERROR("Failed to create wakeup source!");
         exit(EXIT_FAILURE);
      }
+}
+
+static void AllowAuthorizedWakingupDuringSuspending()
+{
+    LE_INFO("----AllowAuthorizedWakingupDuringSuspending test----");
+    le_result_t result;
+    if(wsRef == NULL)
+        wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRef != NULL) {
+        LE_INFO("WakeupSource ref is created for TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL");
+        if (wsRef != NULL) {
+            result = taf_mngdPm_StayAwake(wsRef);
+            if(result == LE_OK) {
+                LE_INFO("Resumed system with wakeuptype TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL");
+                result = taf_mngdPm_Relax(wsRef);
+                if(result == LE_OK) {
+                    LE_INFO("suspended system with wakeuptype TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL");
+                    result = taf_mngdPm_StayAwake(wsRef);
+                    if(result == LE_OK) {
+                        LE_INFO("Resumed system with wakeuptype TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL");
+                    }
+                }
+            }
+            else {
+                LE_INFO("Failed to acquire Wake source");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+    else {
+        LE_ERROR("Failed to create wakeup source!");
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void ShouldRejectUnauthorizedWakingupDuringSuspending()
+{
+    LE_INFO("----ShouldRejectUnauthorizedWakingupDuringSuspending test----");
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    int unauthorizedReason = TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        taf_mngdPm_wsRef_t wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created WakeupSource ref for authorized stay-awake reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                    res = taf_mngdPm_Relax(wsRefAuthorized);
+                    if(res == LE_OK) {
+                        printf("'Supended system with wsRefAuthorized'\n");
+                        taf_mngdPm_wsRef_t wsRefUnauthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+                        if(wsRefUnauthorized) {
+                            printf("Created WakeupSource ref for unauthorized stay-awake reason %d\n", unauthorizedReason);
+                            taf_mngdPm_StayAwake(wsRefUnauthorized);
+                            if(res == LE_OK) {
+                                printf("'Resumed system with wsRefUnauthorized'\n");
+                            }
+                            else if(res == LE_NOT_PERMITTED){
+                                LE_INFO("Resume system with unauthorized ws is not permitted");
+                                exit(EXIT_SUCCESS);
+                            }
+                        }
+                    }
+                    else {
+                        LE_INFO("Failed to release authorized wake source");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                else {
+                    LE_INFO("Failed to acquire authorized wake source");
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+        else {
+            printf("Failed to create wakeupsource ref for authorized reason %d\n", reason);
+            exit(EXIT_FAILURE);
+        }
+    }
 }
 
 void TestBubCases()
@@ -2358,6 +2449,73 @@ void ShouldNotDeleteWsIfAcquired()
     }
 }
 
+void WakeupVehicleWhenReleasingWsTest()
+{
+    LE_INFO("----WakeupVehicleWhenReleasingWsTest----");
+    // CreateWS test 0
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    taf_mngdPm_wsRef_t wsRefAuthorized = NULL;
+    taf_mngdPm_wsRef_t wsRefAuthorized1 = NULL;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created wakeupsource ref for reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                // StayAwake test
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                }
+            }
+        }
+    }
+    else{
+        printf("Failed to create wakeupsource ref for authorized reason %d\n", reason);
+        exit(EXIT_FAILURE);
+    }
+
+    reason = TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE;
+    res = taf_mngdPm_AuthorizeStayAwakeReason(3);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE);
+        // CreateWS test1 0
+        wsRefAuthorized1 = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized1) {
+            printf("Created wakeupsource ref for reason %d\n", reason);
+            if(wsRefAuthorized1 != NULL) {
+                // StayAwake test1
+                res = taf_mngdPm_StayAwake(wsRefAuthorized1);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized1'\n");
+                    res = taf_mngdPm_Relax(wsRefAuthorized1);
+                    if(res == LE_OK) {
+                        printf("'Suspended system with wsRefAuthorized1'\n");
+                        // VehicleWakeup 0
+                        int status = WakeupVehicle();
+                        LE_INFO("'WakeupVehicle status:%d'",status);
+                        exit(status);
+                    }
+                    else{
+                        LE_INFO("Failed to resume system with wsRefAuthorized1");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                else{
+                    LE_INFO("Failed to resume system with wsRefAuthorized1");
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+        else{
+            LE_INFO("Failed to create wakeupsource ref for authorized reason %d", reason);
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
 void ShouldNotDeleteWsIfIgnored()
 {
     LE_INFO("ShouldNotDeleteWsIfIgnored");
@@ -2409,6 +2567,54 @@ void ShouldNotDeleteWsIfIgnored()
     }
 
 
+}
+
+void NotifyVhalOnClientDisconnectionForReleaseWS()
+{
+    LE_INFO("--NotifyVhalOnClientDisconnectionForReleaseWS--");
+    le_result_t res = LE_FAULT;
+
+    res = taf_mngdPm_AuthorizeStayAwakeReason(3);
+    if(res != LE_OK) {
+     LE_INFO("Failed to AuthorizeStayAwakeReason for bitmask %d \n", 3);
+    }
+
+    taf_mngdPm_wsRef_t wsRefAuthorized1 = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRefAuthorized1) {
+        printf("Created wakeupsource ref for wsRefAuthorized1 reason %d\n", TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE);
+        if(wsRefAuthorized1 != NULL) {
+            res = taf_mngdPm_StayAwake(wsRefAuthorized1);
+            if(res == LE_OK) {
+                printf("'Resumed system with wsRefAuthorized1'\n");
+            }
+        }
+    }
+    else{
+        printf("Failed to create wakeupsource ref for authorized reason %d\n", TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE);
+        exit(EXIT_FAILURE);
+    }
+
+    taf_mngdPm_wsRef_t wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+    if(wsRefAuthorized) {
+        printf("Created wakeupsource ref for wsRefAuthorized reason %d\n", TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL);
+        if(wsRefAuthorized != NULL) {
+            res = taf_mngdPm_StayAwake(wsRefAuthorized);
+            if(res != LE_OK) {
+                printf("'Failed to resumed system with wsRefAuthorized'\n");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+    else{
+        printf("Failed to create wakeupsource ref for authorized reason %d\n", TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL);
+        exit(EXIT_FAILURE);
+    }
+
+    res = taf_mngdPm_Relax(wsRefAuthorized);
+    if(res == LE_OK) {
+        printf("'Suspended system with wsRefAuthorized'\n");
+        exit(EXIT_SUCCESS);
+    }
 }
 
 COMPONENT_INIT
@@ -2568,6 +2774,14 @@ COMPONENT_INIT
         {
             AllowWakingupDuringSuspending();
         }
+        else if(strcmp(testType, "AllowAuthorizedWakingupDuringSuspending") == 0)
+        {
+            AllowAuthorizedWakingupDuringSuspending();
+        }
+        else if(strcmp(testType, "ShouldRejectUnauthorizedWakingupDuringSuspending") == 0)
+        {
+            ShouldRejectUnauthorizedWakingupDuringSuspending();
+        }
         else if(strcmp(testType, "TestNonAuthorizedStayAwake") == 0)
         {
             TestNonAuthorizedStayAwake();
@@ -2614,9 +2828,17 @@ COMPONENT_INIT
         {
             ShouldNotDeleteWsIfAcquired();
         }
+        else if(strcmp(testType, "WakeupVehicleWhenReleasingWsTest") == 0)
+        {
+            WakeupVehicleWhenReleasingWsTest();
+        }
         else if(strcmp(testType, "ShouldNotDeleteWsIfIgnored") == 0)
         {
             ShouldNotDeleteWsIfIgnored();
+        }
+        else if(strcmp(testType, "NotifyVhalOnClientDisconnectionForReleaseWS") == 0)
+        {
+            NotifyVhalOnClientDisconnectionForReleaseWS();
         }
         else
         {

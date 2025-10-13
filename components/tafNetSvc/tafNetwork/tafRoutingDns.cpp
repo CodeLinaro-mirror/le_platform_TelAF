@@ -750,7 +750,11 @@ le_result_t net_SetLinuxDnsNameServers(const char *dns1Ptr, const char *dns2Ptr,
     {
         if(strncmp(temp_str, matchNameserver, strlen(matchNameserver))==0)
         {
-            fscanf(resolvFPtr, "%s", temp_str);
+            if (fscanf(resolvFPtr, "%s", temp_str) <= 0)
+            {
+                LE_WARN("Failed to scan data from resolvFPtr");
+            }
+
             // save old IPV4 DNS address
             if (inet_pton(AF_INET, temp_str, &(addr.sin_addr)) == 1)
             {
@@ -853,7 +857,11 @@ le_result_t net_SetLinuxDnsNameServers(const char *dns1Ptr, const char *dns2Ptr,
     }
     //rewrite the dns file
     file_handle=fileno(resolvFPtr);
-    ftruncate(file_handle, 0);
+    if (ftruncate(file_handle, 0) != 0)
+    {
+        LE_WARN("Can not ftruncate the file to 0");
+    }
+
     //sets the file position of the stream to the head.
     fseek(resolvFPtr, 0, SEEK_SET);
 

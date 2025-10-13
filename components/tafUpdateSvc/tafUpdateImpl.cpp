@@ -60,6 +60,12 @@ le_result_t taf_Update::CheckQotaHeader
 {
     // 1. Get the file size.
     ifstream infile(file);
+    if (!infile.is_open())
+    {
+        LE_ERROR("Failed to open file %s", file);
+        return LE_FAULT;
+    }
+
     infile.seekg (0, ios::end);
     long size = infile.tellg();
     infile.seekg (0);
@@ -124,14 +130,20 @@ le_result_t taf_Update::RemoveQotaHeader
             break;
         }
         lseek(fd, pos - TAF_UPDATE_QOTA_HEADER_SIZE, SEEK_SET);
-        write(fd, buffer, rdSize);
+        if (write(fd, buffer, rdSize) == -1)
+        {
+            LE_WARN("write buffer error, for size: %ld.", rdSize);
+        }
+
         pos += rdSize;
     }
 
     if (ret == LE_OK)
     {
-        ftruncate(fd, size - TAF_UPDATE_QOTA_HEADER_SIZE);
-        LE_INFO("QOTA header removed.");
+        if (ftruncate(fd, size - TAF_UPDATE_QOTA_HEADER_SIZE) == 0)
+        {
+            LE_INFO("QOTA header removed.");
+        }
     }
 
     delete[] buffer;

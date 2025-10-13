@@ -1,0 +1,63 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafIvssSensorSvc, 1.0)
+
+gen_require(`
+  type sysfs_t;
+  type systemd_tmpfiles_t;
+  type tmp_t;
+  type proc_net_t;
+  type unreserved_port_t;
+  type node_t;
+')
+
+# Framework definition for telaf
+type telaf_tafIvssSensorSvc_exec_t;
+files_type(telaf_tafIvssSensorSvc_exec_t);
+
+type telaf_tafIvssSensorSvc_t;
+
+type telaf_tafIvssSensorSvc_data_t;
+files_type(telaf_tafIvssSensorSvc_data_t);
+
+# Run the service in its own confined domain
+init_telaf_app_domain(telaf_tafIvssSensorSvc_t,telaf_tafIvssSensorSvc_exec_t)
+
+# Allow update daemon to install/uninstall this service
+telaf_admin_manage_all_files_perms(telaf_tafIvssSensorSvc_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafIvssSensorSvc_exec_t)
+
+# Allow systemd to get attribute of /tmp/vsomeip-0
+allow systemd_tmpfiles_t tmp_t:sock_file { getattr };
+
+# Allow tafIvssSensorSvc to manipulate dir in tmpfs
+allow telaf_tafIvssSensorSvc_t tmp_t:dir manage_dir_perms;
+
+# Allow tafIvssSensorSvc to manipulate file in tmpfs
+allow telaf_tafIvssSensorSvc_t tmp_t:file manage_file_perms;
+
+# Allow tafIvssSensorSvc to manipulate sock file in tmpfs
+allow telaf_tafIvssSensorSvc_t tmp_t:sock_file manage_sock_file_perms;
+
+# Allow tafIvssSensorSvc to manipulate udp/tcp socket
+allow telaf_tafIvssSensorSvc_t self:udp_socket create_socket_perms;
+allow telaf_tafIvssSensorSvc_t self:tcp_socket create_stream_socket_perms;
+
+# Allow tafIvssSensorSvc to manipulate netlink_route_socket
+allow telaf_tafIvssSensorSvc_t self:netlink_route_socket rw_netlink_socket_perms;
+
+# Allow telaf_tafIvssSensorSvc_t to manipulate capabilites
+allow telaf_tafIvssSensorSvc_t self:capability { net_admin };
+allow telaf_tafIvssSensorSvc_t self:capability { sys_resource };
+
+# Misc rules for network socket
+allow telaf_tafIvssSensorSvc_t proc_net_t:file read_file_perms;
+allow telaf_tafIvssSensorSvc_t { unreserved_port_t node_t }:udp_socket { name_bind node_bind };
+allow telaf_tafIvssSensorSvc_t { unreserved_port_t node_t }:tcp_socket { name_bind node_bind name_connect };
+
+# Allow telaf_tafIvssSensorSvc_t and telaf_tafSomeipGWSvc_t connect to each other
+telaf_tafSomeipGWSvc_connect(telaf_tafIvssSensorSvc_t)
+
+# Allow telaf_tafIvssSensorSvc_t and telaf_tafSomeipGWSvc_t write to each other
+telaf_tafSomeipGWSvc_write(telaf_tafIvssSensorSvc_t)

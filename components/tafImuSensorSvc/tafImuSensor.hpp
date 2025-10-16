@@ -6,23 +6,17 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "le_singlyLinkedList.h"
-#include <telux/sensor/SensorManager.hpp>
-#include "telux/common/CommonDefines.hpp"
-#include "telux/sensor/SensorDefines.hpp"
-#include "telux/sensor/SensorClient.hpp"
 #include "tafSvcIF.hpp"
+#include "taf_pa_sensor.hpp"
 
 #define SENSOR_EVENT_HANDLER_HIGH 11
 #define TAF_SENSOR_MAX_EVENTS_SIZE 100
 #define TAF_SENSOR_CLIENT_ACTIVATION_MAX 23
 #define TAF_SENSOR_LIST_POOL_SIZE 20
 #define TAF_SENSOR_POOL_SIZE 10
-#define NAME_MAX_SIZE 50
+#define NAME_MAX_SIZE 100
 #define SEC_TO_NANOS 1000000000
 #define MAX_TIME_OUT 5
-
-using namespace telux::sensor;
-
 
 typedef struct
 {
@@ -85,17 +79,6 @@ typedef struct{
     le_dls_Link_t next;
 }taf_SensorEventHandler_t;
 
-class tafSensorListener: public ISensorEventListener
-{
-    public:
-        void onEvent(std::shared_ptr<std::vector<SensorEvent>> events) override;
-        void onConfigurationUpdate(SensorConfiguration configuration) override;
-        void onSelfTestFailed();
-        le_msg_SessionRef_t* clientSessionRef;
-        taf_imuSensor_SensorRef_t sensorRef;
-        ~tafSensorListener() {};
-};
-
 typedef struct
 {
     uint64_t timestamp;
@@ -104,14 +87,14 @@ typedef struct
 taf_SensorSelfTest_t;
 
 typedef struct{
-    std::shared_ptr<ISensorClient> sensorClient;
-    std::shared_ptr<tafSensorListener> eventListener;
+    taf_pa_sensor_Ref_t sensorClient;
+    taf_pa_sensor_EventListener eventListener;
     bool isSensorActivated;
-    bool isCalibrated;
     le_event_Id_t SensorOnEventId;
     le_event_Id_t SelfTestEventId;
     le_mutex_Ref_t mSensorMutexRef;
     le_event_HandlerRef_t HandlerRef;
+    taf_imuSensor_SensorRef_t sensorRef;
     char sensorName[NAME_MAX_SIZE];
 }taf_sensorClientInfo_t;
 
@@ -121,6 +104,12 @@ typedef struct
     le_msg_SessionRef_t sessionRef;
     std::vector<std::shared_ptr<taf_sensorClientInfo_t>> clients;
 }taf_SensorClient_t;
+
+typedef struct{
+    taf_pa_sensor_basicInfo_t basicInfo;
+    taf_pa_sensor_configInfo_t configInfo;
+    taf_pa_sensor_capabilities_t capInfo;
+}taf_SensorPAInfo_t;
 
 namespace tafsvc {
     class taf_Sensor: public ITafSvc
@@ -143,7 +132,7 @@ namespace tafsvc {
             le_ref_MapRef_t tSensorEventMap;
             static taf_Sensor &GetInstance();
             le_result_t SetEulerAngle(double,double,double);
-            static le_result_t InitializeSensorList(taf_SensorClient_t* clientRequestPtr);
+            static le_result_t InitializeSensorClientList(taf_SensorClient_t* clientRequestPtr);
             static taf_SensorClient_t* DiscoverSessionRef(le_msg_SessionRef_t sessionRef);
             static taf_SensorClient_t* AcquireSessionRef(void);
             void ReleaseClientRef(void* RefPtr);
@@ -177,15 +166,24 @@ namespace tafsvc {
             ,taf_imuSensor_DataValue_t*,size_t*);
             taf_imuSensor_SensorListRef_t GetAvailableSensors();
             le_result_t DeleteData(taf_imuSensor_SampleRef_t);
-            le_result_t MapStatus(telux::common::Status status);
-            le_result_t MapErrorCode(telux::common::ErrorCode errorCode);
             static void DataEventHandler(void* reportPtr);
+            le_result_t GetSensorList(int8_t listSize);
 
         private:
             le_mem_PoolRef_t ClientPoolRef;
             le_ref_MapRef_t ClientRequestRefMap;
-            std::vector<telux::sensor::SensorInfo> sList;
-            std::shared_ptr<ISensorManager> mSensorManager;
-            telux::common::ServiceStatus SensorManagerInit();
+            std::vector<taf_SensorPAInfo_t> sList;
     };
+
+    class Handler : public ITafSvc
+    {
+    public:
+        void Init() {
+            return;
+        }
+        static void onSelfTestFailed(taf_pa_sensor_Ref_t reference,uint64_t timestamp,
+            void *contextPtr);
+        static void onEvent(taf_pa_sensor_Ref_t reference,taf_pa_sensor_event_t* events,int count,
+            void *contextPtr);
+};
 }

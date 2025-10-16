@@ -209,6 +209,10 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+API_VERSION  = 1;
+SERVING_VERSION = 1;
+
+
 //-------------------------------------------------------------------------------------------------
 /**
  * Sets an enable condition.
@@ -224,7 +228,7 @@ FUNCTION le_result_t SetEnableCondition
 (
     uint8 enableConditionID  IN,     ///< Enable condition ID.
     bool conditionFulfilled  IN      ///< The enable condition is fulfilled (TRUE) or not.
-);
+) = 0;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -240,7 +244,7 @@ FUNCTION le_result_t SetEnableCondition
 FUNCTION bool GetEnableConditionStatus
 (
     uint8 enableConditionID  IN     ///< Enable condition ID.
-);
+) = 1;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -281,7 +285,7 @@ REFERENCE TesterState;
 //-------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
 (
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -300,13 +304,18 @@ FUNCTION le_result_t SetVlanId
 (
     Service svcRef IN,      ///< Service reference.
     uint16 vlanId IN        ///< VLAN ID.
-);
+) = 3;
 
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a tester present state notification.
  *
  * @instaging
+ *
+ * @param[in] stateRef   Tester state reference.
+ * @param[in] vlanId     VLAN ID.
+ * @param[in] state      Tester state.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER StateChangeHandler
@@ -327,7 +336,7 @@ EVENT TesterState
 (
     Service svcRef,               ///< Service reference.
     StateChangeHandler handler    ///< Tester present state change handler.
-);
+) = (4,5);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -342,7 +351,7 @@ EVENT TesterState
 FUNCTION le_result_t ReleaseTesterStateMsg
 (
     TesterState stateRef  IN    ///< Tester state reference.
-);
+) = 6;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -360,13 +369,18 @@ FUNCTION le_result_t SelectTargetVlanID
 (
     Service svcRef IN,    ///< Service reference.
     uint16 vlanId IN      ///< VLAN ID.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * The handler for asynchronous file transfer cancellation result response.
  *
  * @instaging
+ *
+ * @param[in] svcRef     The profile reference.
+ * @param[in] vlanId     VLAN ID. If no valid VLAN ID, input 0.
+ * @param[in] result     The result of canceling file transfer.
+ * @param[in] contextPtr Context pointer.
  *
  * @result
  *     - LE_OK -- Succeeded.
@@ -393,7 +407,7 @@ FUNCTION CancelFileXferAsync
 (
     Service svcRef                          IN, ///< Service reference.
     CancelFileXferCallback handler          IN  ///< The handler.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -413,7 +427,7 @@ FUNCTION le_result_t Pause
 (
     Service svcRef                          IN  ///< Service reference.
 
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -431,7 +445,7 @@ FUNCTION le_result_t Pause
 FUNCTION le_result_t Resume
 (
     Service svcRef                          IN  ///< Service reference.
-);
+) = 10;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -446,4 +460,4 @@ FUNCTION le_result_t Resume
 FUNCTION le_result_t RemoveSvc
 (
     Service svcRef  IN    ///< Service reference.
-);
+) =11;

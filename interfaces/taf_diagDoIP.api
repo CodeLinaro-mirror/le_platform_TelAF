@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -166,6 +166,10 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 2;
+
+
 USETYPES taf_types.api;
 
 //-------------------------------------------------------------------------------------------------
@@ -224,7 +228,7 @@ REFERENCE Service;
 FUNCTION Service GetService
 (
     uint16 Identifier  IN    ///< For DoIP node, it is logical address.
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -244,7 +248,7 @@ FUNCTION Service GetService
 FUNCTION le_result_t SetVIN
 (
     string vin[VIN_SIZE]  IN    ///< VIN.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -264,7 +268,7 @@ FUNCTION le_result_t SetVIN
 FUNCTION le_result_t GetVIN
 (
     string vin[VIN_SIZE]  OUT   ///< VIN.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -286,7 +290,7 @@ FUNCTION le_result_t GetVIN
 FUNCTION le_result_t SetEID
 (
     string eid[EID_SIZE]  IN    ///< EID.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -306,7 +310,7 @@ FUNCTION le_result_t SetEID
 FUNCTION le_result_t GetEID
 (
     string eid[EID_SIZE]  OUT   ///< EID.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -328,7 +332,7 @@ FUNCTION le_result_t GetEID
 FUNCTION le_result_t SetGID
 (
     string gid[GID_SIZE]  IN    ///< GID.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -348,13 +352,19 @@ FUNCTION le_result_t SetGID
 FUNCTION le_result_t GetGID
 (
     string gid[GID_SIZE]  OUT   ///< GID.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a DoIP event.
  *
  * @instaging
+ *
+ * @param[in] svcRef          Service reference.
+ * @param[in] eventType       DoIP event type.
+ * @param[in] remoteLogicAddr The logical address of remote DoIP client.
+ * @param[in] vlanId          The VLAN ID where the event comes from. If no valid VLAN ID, input 0.
+ * @param[in] contextPtr      Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER EventHandler
@@ -363,7 +373,7 @@ HANDLER EventHandler
     EventType eventType  IN,    ///< DoIP event type.
     uint16 remoteLogicAddr IN,  ///< The logical address of remote DoIP client.
     uint16 vlanId IN            ///< The VLAN ID where the event comes from.
-                                /// If no valid VLAN ID, input 0.
+                                ///< If no valid VLAN ID, input 0.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -382,7 +392,7 @@ EVENT Event
     uint16 vlanId IN,           ///< Rx event of specific interface's VLAN ID.
                                 ///< If the interface does not have a VLAN ID, input 0.
     EventHandler handler IN     ///< DoIP event handler.
-);
+) = (7,8);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -397,4 +407,4 @@ EVENT Event
 FUNCTION le_result_t RemoveSvc
 (
     Service svcRef  IN    ///< Service reference.
-);
+) = 9;

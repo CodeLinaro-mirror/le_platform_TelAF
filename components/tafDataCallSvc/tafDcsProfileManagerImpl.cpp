@@ -4194,12 +4194,12 @@ void TafDcsProfileManager::paSessionStateChangeEvtHandler(void *reqPtr)
     taf_dcs_ConState_t curState, curIpv4State, curIpv6State;
     taf_dcs_Pdp_t profileIpType;
 
-    LE_DEBUG("Phone   Id: %d", TO_INT(eventPtr->profile.phoneId));
-    LE_DEBUG("Profile Id: %d", TO_INT(eventPtr->profile.profileId));
-    LE_DEBUG("IP State  : %d", TO_INT(eventPtr->connState));
-    LE_DEBUG("IPv4 State: %d", TO_INT(eventPtr->ipv4ConnState));
-    LE_DEBUG("IPv6 State: %d", TO_INT(eventPtr->ipv6ConnState));
-    LE_DEBUG("IP Type   : %d", TO_INT(eventPtr->ipType_pdp));
+    LE_INFO("Phone   Id: %d", TO_INT(eventPtr->profile.phoneId));
+    LE_INFO("Profile Id: %d", TO_INT(eventPtr->profile.profileId));
+    LE_INFO("IP State  : %d", TO_INT(eventPtr->connState));
+    LE_INFO("IPv4 State: %d", TO_INT(eventPtr->ipv4ConnState));
+    LE_INFO("IPv6 State: %d", TO_INT(eventPtr->ipv6ConnState));
+    LE_INFO("IP Type   : %d", TO_INT(eventPtr->ipType_pdp));
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     // Get the profile object based on phone ID and profile ID
@@ -4227,9 +4227,9 @@ void TafDcsProfileManager::paSessionStateChangeEvtHandler(void *reqPtr)
         // Get the profile IP type
         result = profile.GetPdp(profileIpType);
         TAF_ERROR_IF_RET_NIL(LE_OK != result, "GetPdp failed: %d", TO_INT(result));
-        LE_DEBUG("Current IP State  : %d", TO_INT(eventPtr->connState));
-        LE_DEBUG("Current IPv4 State: %d", TO_INT(eventPtr->ipv4ConnState));
-        LE_DEBUG("Current IPv6 State: %d", TO_INT(eventPtr->ipv6ConnState));
+        LE_INFO("Current IP State  : %d", TO_INT(curState));
+        LE_INFO("Current IPv4 State: %d", TO_INT(curIpv4State));
+        LE_INFO("Current IPv6 State: %d", TO_INT(curIpv6State));
     }
 
     // Update internal session state
@@ -4246,7 +4246,7 @@ void TafDcsProfileManager::paSessionStateChangeEvtHandler(void *reqPtr)
     {
         if (tafDcsProfileManager.isSyncCmdPromiseWaiting_.load())
         {
-            LE_INFO("syncCmdPromise_.set_value as its waiting.");
+            LE_DEBUG("syncCmdPromise_.set_value as its waiting.");
             tafDcsProfileManager.isSyncCmdPromiseWaiting_.store(false);
             tafDcsProfileManager.syncCmdPromise_.set_value(result);
         }
@@ -4286,7 +4286,7 @@ void TafDcsProfileManager::paSessionStateChangeEvtHandler(void *reqPtr)
         }
     }
 
-    // Fill and send the client event according to the IP type(PD) and state.
+    // Fill and send the client event according to the IP type(PDP) and state.
     if (TAF_DCS_PDP_IPV4V6 == profileIpType)
     {
         if (curIpv4State != eventPtr->ipv4ConnState)

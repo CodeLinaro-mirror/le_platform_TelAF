@@ -28,9 +28,9 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- *  Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -171,6 +171,8 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
 
 /**
  * Maximum message size.
@@ -184,18 +186,25 @@ DEFINE MIN_MSG_SIZE = (200);
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Handler to get notifications for specific messages when there are updates
- *  from the modem.
+ * Handler to get notifications for specific messages when there are updates
+ * from the modem.
+ *
+ * @param[in] message    Updated message.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER MessageHandler
 (
-    uint8 message[MAX_MSG_SIZE]    ///< The message.
+    uint8 message[MAX_MSG_SIZE] IN   ///< Updated message.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
  * Callback to get send message result.
+ *
+ * @param[in] messageId  Message ID.
+ * @param[in] result     Result.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER CallbackHandler
@@ -212,7 +221,7 @@ HANDLER CallbackHandler
 EVENT Message
 (
     MessageHandler handler    ///< The message handler.
-);
+) = (0,1);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -228,4 +237,4 @@ FUNCTION le_result_t SendMessage
 (
     uint8 message[MAX_MSG_SIZE]     IN,    ///< The message.
     CallbackHandler callback        IN     ///< The callback handler.
-);
+) = 2;

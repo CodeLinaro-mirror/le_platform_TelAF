@@ -47,6 +47,7 @@
 #include <telux/tel/CellBroadcastManager.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
+#include "AsyncCallbackUtils.hpp"
 #include "tafSmsHlos.hpp"
 #include "tafSmsPdu.hpp"
 
@@ -223,27 +224,6 @@ namespace tafsvc {
       void commandResponse(telux::common::ErrorCode error) override;
    };
 
-   class tafSetSmsCBResponseCallback {
-   public:
-      static void setSmsCBResponse(telux::common::ErrorCode error);
-      static void requestFilterResponse(std::vector<telux::tel::CellBroadcastFilter> filters,
-                                        telux::common::ErrorCode errorCode);
-      static void updateFilterResponse(telux::common::ErrorCode error);
-   };
-
-   class tafSetSmsStorageCallback {
-   public:
-      static void getPreferredStorageResponse(telux::tel::StorageType type,
-         telux::common::ErrorCode errorCode);
-      static void setPreferredStorageResponse(telux::common::ErrorCode errorCode);
-      static void setTagResponse(telux::common::ErrorCode errorCode);
-      static void deleteResponse(telux::common::ErrorCode errorCode);
-      static void readMsgResponse(telux::tel::SmsMessage smsMsg,
-         telux::common::ErrorCode errorCode);
-      static void reqMessageListResponse(std::vector<telux::tel::SmsMetaInfo> infos,
-         telux::common::ErrorCode errorCode);
-   };
-
    typedef struct
    {
       char     timestamp[TAF_SMS_TIMESTAMP_BYTES];
@@ -261,9 +241,6 @@ namespace tafsvc {
    public:
       void Init(void);
       static taf_Sms &GetInstance();
-
-      taf_Sms() {};
-      ~taf_Sms() {};
 
       SessionNode_t* CreateSessionCtx(void);
       SessionNode_t* GetSessionNode(le_msg_SessionRef_t sessionRef);
@@ -299,25 +276,28 @@ namespace tafsvc {
       le_result_t AddCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint16_t toId);
       le_result_t RemoveCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint16_t toId);
 
-      le_result_t SendPDUMessage(uint8_t *pduData, uint32_t pduLength, uint32_t timeout,
-         uint8_t phoneId);
       le_result_t SendMessage(taf_sms_Msg_t* msgPtr);
+      le_result_t SendPDUMessageSync(uint8_t *pduData, uint32_t pduLength, uint32_t timeout,
+         uint8_t phoneId);
+      le_result_t SendPDUMessageAsync(taf_sms_MsgRef_t msgRef);
       le_result_t ReadFromStorage(taf_sms_Pdu_t* pduMsg,
          uint32_t idx, taf_sms_Storage_t storage);
       le_result_t SetTag(taf_sms_Msg_t* msgPtr, telux::tel::SmsTagType tagType);
       le_result_t DeleteMessage(uint32_t messageIndex);
       le_result_t DeleteAllMessages(taf_sms_Storage_t storage);
+      std::vector<telux::tel::PduBuffer> PrepareRawPdus(const uint8_t* pduData,
+        uint32_t pduLength);
 
       le_ref_MapRef_t MsgRefMap = NULL;
       le_ref_MapRef_t ListRefMap = NULL;
       le_ref_MapRef_t HandlerRefMap = NULL;
 
-      le_mem_PoolRef_t   MsgRefPool = NULL;        // Memory Pool for msgRef context (for client)
-      le_mem_PoolRef_t   MsgPool = NULL;           // Memory Pool for stored SMS messages
-      le_mem_PoolRef_t   MsgListPool = NULL;          // Memory Pool for Listed SMS messages
-      le_mem_PoolRef_t   MsgRefNodePool = NULL;    // Memory Pool for message references
-      le_mem_PoolRef_t   HandlerNodePool = NULL;   // Memory Pool for sessions context
-      le_mem_PoolRef_t   SessionNodePool = NULL;   // Memory Pool for sessions context
+      le_mem_PoolRef_t MsgRefPool = NULL;        // Memory Pool for msgRef context (for client)
+      le_mem_PoolRef_t MsgPool = NULL;           // Memory Pool for stored SMS messages
+      le_mem_PoolRef_t MsgListPool = NULL;          // Memory Pool for Listed SMS messages
+      le_mem_PoolRef_t MsgRefNodePool = NULL;    // Memory Pool for message references
+      le_mem_PoolRef_t HandlerNodePool = NULL;   // Memory Pool for sessions context
+      le_mem_PoolRef_t SessionNodePool = NULL;   // Memory Pool for sessions context
 
       le_dls_List_t  SessionList;
 
@@ -347,26 +327,11 @@ namespace tafsvc {
 
       //for SMS center address
       char smscAddr[TAF_SMS_SMSC_ADDR_BYTES];
-      std::promise<le_result_t> CmdSynchronousPromise;
 
       // for cell broadcast
       std::vector<telux::tel::CellBroadcastFilter> CBFilterList;
-      std::promise<le_result_t> CBActivateSyncPromise;
-      std::promise<le_result_t> CBRequestIdsSyncPromise;
-      std::promise<le_result_t> CBAddIdsSyncPromise;
-      std::promise<le_result_t> CBRemoveIdsSyncPromise;
-
-      std::promise<le_result_t> PreferredStorageSyncPromise;
 
       std::promise<le_result_t> SmsCenterSyncPromise;
-
-      std::promise<le_result_t> SetTagSyncPromise;
-
-      std::promise<le_result_t> DeleteMessageSyncPromise;
-
-      std::promise<telux::tel::SmsMessage> ReadMessageSyncPromise;
-
-      std::promise<std::vector<telux::tel::SmsMetaInfo>> MessageListSyncPromise;
    };
 
 

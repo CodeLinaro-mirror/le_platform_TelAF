@@ -248,7 +248,25 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
                 source $HOME/simulation/.simula.once.sh
             fi
 
-            # here we go, happy to simulate
+            # For CGROUP V2, change-root-cgroup is needed
+            if [ -e "${MOUNTPOINT_TELAF}/cg.version" ];then
+
+                CG_VERSION=`cat ${MOUNTPOINT_TELAF}/cg.version`
+
+                echo -e "cg.version is [${CG_VERSION}]\n"
+
+                if [ "${CG_VERSION}" == "V2" ]; then
+                    bash $HOME/simulation/relocate_cgroup_v2_root.sh
+                    if [ $? -ne 0 ]; then
+                        exit 1 # Exception ?
+                    fi
+                fi
+
+            else
+                echo -e "No cg.version to be recorded, [legacy]\n"
+            fi
+
+            # here we go, happy to simulate <..
 
         else
             echo "Tarball NOT contains .check_done, this is a bad ball, please rebuild right one."
@@ -266,7 +284,11 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
 
     ldconfig
 
+# ---------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------
 else # [Non-Docker-Container-Env]
+# ---------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------
 
     trap : INT TERM
 
@@ -314,9 +336,55 @@ else # [Non-Docker-Container-Env]
     IMG_VERSION=${IMG_VERSION:="1.0.0"}
     IPV6_NETWORK_NAME=${IPV6_NETWORK_NAME:="${CONTAINER_NAME%??}_ipv6net"}
     IPV6_DEFAULT_SUBNET=${IPV6_DEFAULT_SUBNET:="2001:0DB8::/112"}
-    BUILTIN_CONTAINER_OPTIONS=${BUILTIN_CONTAINER_OPTIONS:="-i -t --privileged=true --cgroupns=private --net=$IPV6_NETWORK_NAME"}
+    BUILTIN_CONTAINER_OPTIONS=${BUILTIN_CONTAINER_OPTIONS:="-i -t --privileged=true --net=$IPV6_NETWORK_NAME"}
     CONTAINER_OPTIONS=${CONTAINER_OPTIONS:="-p 9022:22 --rm"}
     SIMULATION_TARBALL_NAME=${SIMULATION_TARBALL_NAME:="telaf_simulation.tar.gz"}
+
+    # Get recorded CGROUP version
+    CG_VERSION=`tar -xOzf $SML_WORKSPACE/telaf_simulation.tar.gz cg.version`
+    if [ $? -ne 0 ]; then
+        echo "cg.version does NOT exist in telaf_simulation.tar.gz, mark as CGROUP VERSION as V1"
+        CG_VERSION=V1
+    else
+        echo "cg.version is [${CG_VERSION}]"
+    fi
+
+    # Get current target machine CGROUP version
+    if [ -d "/sys/fs/cgroup/freezer" ]; then
+        MACHINE_CG_VERSION=V1
+    elif [ -e "/sys/fs/cgroup/cgroup.controllers"  ]; then
+        MACHINE_CG_VERSION=V2
+    else
+        echo "CGROUP on target machine is not identified"
+        exit 1
+    fi
+
+    # Check CGROUP version
+    if [ "${CG_VERSION}" != "${MACHINE_CG_VERSION}" ]; then
+        echo
+        echo "cg.version in tar.ball  : [${CG_VERSION}]"
+        echo "current machine version : [${MACHINE_CG_VERSION}]"
+        echo "[Mismatched], please rebuild simulation within proper 'ENABLE_CGROUP_V2' option"
+        exit 1
+    fi
+
+    if [ "${MACHINE_CG_VERSION}" == "V1" ]; then
+        CGROUP_OPTIONS="--cgroupns=private"
+
+    else # MACHINE_CG_VERSION == V2
+        # For CGROUP V2, use 'user.slice' to be root cgroup,
+        # then systemd will manage the different groups according to
+        # different scopes.
+        # Check with: ' systemd-cgls -u user.slice '
+        # Example:
+        # Unit user.slice (/user.slice):
+        # ├─docker-3cab3d4597b48c8ffda9f36ba2a91f95c8d784808a1f3028ed3e7989f3c7831c.scope
+        # │ └─_cgroot__
+        # │   ├─787361 /bin/bash
+        # │   ├─787549 sshd: /usr/sbin/sshd [listener] 0 of 10-100 startups
+        # │   └─787669 /sbin/syslogd -C20000
+        CGROUP_OPTIONS="--cgroupns=private --cgroup-parent=user.slice"
+    fi
 
     SML_APP_VOLUME=${CONTAINER_NAME}_sml_app
     SML_DATA_VOLUME=${CONTAINER_NAME}_sml_data
@@ -339,7 +407,7 @@ else # [Non-Docker-Container-Env]
         echo "[Network Create] --> $IPV6_NETWORK_NAME"
         docker network create --driver bridge --ipv6 --subnet "$IPV6_DEFAULT_SUBNET" "$IPV6_NETWORK_NAME" > /dev/null
         if [ $? -ne 0 ]; then
-            echo "There is a conficting network [address: $IPV6_DEFAULT_SUBNET is reused], check docker network and delete that for continuing"
+            echo "There is a conflicting network [address: $IPV6_DEFAULT_SUBNET is reused], check docker network and delete that for continuing"
             exit 1
         fi
     fi
@@ -347,6 +415,7 @@ else # [Non-Docker-Container-Env]
     CMD="docker run --name $CONTAINER_NAME \
         $BUILTIN_CONTAINER_OPTIONS \
         $CONTAINER_OPTIONS \
+        $CGROUP_OPTIONS \
         -e CONTAINER_WHO_AM_I=$CONTAINER_WHO_AM_I \
         -e CONTAINER_NAME=$CONTAINER_NAME \
         -e SIMULATION_TARBALL_NAME=$SIMULATION_TARBALL_NAME \

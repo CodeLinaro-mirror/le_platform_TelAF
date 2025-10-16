@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -184,6 +184,10 @@
  */
 //------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * The maximum size for the sensor Name and sensor vendor.
@@ -245,13 +249,13 @@ ENUM SensorType
 STRUCT DataValue
 {
     uint64 timestamp;      ///< Timestamp when the event was generated on the hardware,
-                           ///  nanosecond since boot-up
+                           ///< nanosecond since boot-up
     double x;              ///< x-axis data, meter per second per second for accelerometer, radians
-                           /// per second for gyroscope.
+                           ///< per second for gyroscope.
     double y;              ///< y-axis data, meter per second per second for accelerometer, radians
-                           /// per second for gyroscope.
+                           ///< per second for gyroscope.
     double z;              ///< z-axis data, meter per second per second for accelerometer, radians
-                           /// per second for gyroscope.
+                           ///< per second for gyroscope.
 };
 
 /**
@@ -276,7 +280,7 @@ ENUM SelfTestMode
 //------------------------------------------------------------------------------------------------
 FUNCTION SensorList GetSensorList
 (
-);
+) = 0;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -292,7 +296,7 @@ FUNCTION SensorList GetSensorList
 FUNCTION Sensor GetFirstSensor
 (
     SensorList sensorListRef        IN        ///< Sensor list reference.
-);
+) = 1;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -308,7 +312,7 @@ FUNCTION Sensor GetFirstSensor
 FUNCTION Sensor GetNextSensor
 (
     SensorList sensorListRef        IN        ///< Sensor list reference.
-);
+) = 2;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -324,7 +328,7 @@ FUNCTION le_result_t GetId
 (
     Sensor sensorRef                                IN,   ///< Sensor reference.
     uint32 sensorId                                 OUT   ///< Unique identifier for the sensor.
-);
+) = 3;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -340,8 +344,8 @@ FUNCTION le_result_t GetName
 (
     Sensor sensorRef                                IN,   ///< Sensor reference.
     string sensorName[NAME_MAX_SIZE]                OUT   ///< The name of the sensor.This name is
-                                                          ///  used to activate sensor.
-);
+                                                          ///< used to activate sensor.
+) = 4;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -357,7 +361,7 @@ FUNCTION le_result_t GetVendorName
 (
     Sensor sensorRef                                IN,   ///< Sensor reference.
     string sensorVendorName[NAME_MAX_SIZE]          OUT   ///< The name of the vendor.
-);
+) = 5;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -373,8 +377,8 @@ FUNCTION le_result_t GetVersion
 (
     Sensor sensorRef                                IN,   ///< Sensor reference.
     string version[NAME_MAX_SIZE]                   OUT   ///< The version of the sensor considering
-                                                          ///  the hardware part and the driver.
-);
+                                                          ///< the hardware part and the driver.
+) = 6;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -390,8 +394,8 @@ FUNCTION le_result_t GetType
 (
     Sensor sensorRef                                IN,   ///< Sensor reference.
     SensorType sensorType                           OUT   ///< The type of sensor.
-                                                          ///  @ref taf_imuSensor_SensorType_t.
-);
+                                                          ///< @ref taf_imuSensor_SensorType_t.
+) = 7;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -407,7 +411,7 @@ FUNCTION le_result_t GetSupportedSamplingRate
 (
     Sensor sensorRef                                         IN,  ///< Sensor reference.
     double samplingRatesList[MAX_NUM_SUPPORTED_SAMPLE_RATE]  OUT  ///< Supported sampling rates.
-);
+) = 8;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -425,7 +429,7 @@ FUNCTION le_result_t GetSupportedBatchCount
     Sensor sensorRef                        IN,        ///< Sensor reference.
     uint32 maxBatchCountSupported           OUT,       ///< Maximum batch count supported by sensor.
     uint32 minBatchCountSupported           OUT        ///< Minimum batch count supported by sensor.
-);
+) = 9;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -441,10 +445,10 @@ FUNCTION le_result_t GetRange
 (
     Sensor sensorRef    IN,     ///< Sensor reference.
     double range        OUT     ///< The range offered by the sensor. For accelerometers, this is
-                                ///  the number of Gs in either direction (+/-) on each axis and for
-                                ///  gyroscopes, this is the number of degrees per second (dps) in
-                                ///  either direction (+/-) along each axis.
-);
+                                ///< the number of Gs in either direction (+/-) on each axis and for
+                                ///< gyroscopes, this is the number of degrees per second (dps) in
+                                ///< either direction (+/-) along each axis.
+) = 10;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -460,9 +464,9 @@ FUNCTION le_result_t GetResolution
 (
     Sensor sensorRef       IN,      ///< Sensor reference.
     double resolution      OUT      ///< This is the smallest difference between two values reported
-                                    ///  by this sensor, in meter per second per second for
-                                    ///  accelerometers and radians per second for gyroscopes.
-);
+                                    ///< by this sensor, in meter per second per second for
+                                    ///< accelerometers and radians per second for gyroscopes.
+) = 11;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -477,7 +481,7 @@ FUNCTION le_result_t GetResolution
 FUNCTION le_result_t DeleteSensorList
 (
     SensorList  sensorListRef        IN        ///< Sensor list reference.
-);
+) = 12;
 
 //-----------------------------------------------------------------------------------------------
 /**
@@ -497,7 +501,7 @@ FUNCTION le_result_t SetRefCoordinateByEulerAngle
     double pitch      IN,      ///< Rotation around X [0 , 360] degrees, Positive counter-clockwise.
     double roll       IN,      ///< Rotation around Y [0 , 360] degrees, Positive counter-clockwise.
     double yaw        IN       ///< Rotation around Z [0 , 360] degrees, Positive counter-clockwise.
-);
+) = 13;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -515,9 +519,9 @@ FUNCTION le_result_t Activate
 (
     Sensor sensorRef                       IN,   ///< Sensor reference.
     double samplingRate                    IN,   ///< The sampling rate for the sensor,
-                                                 ///  number of samples per second (Hz).
+                                                 ///< number of samples per second (Hz).
     uint32 batchCount                      IN    ///< The batch count of sensor.
-);
+) = 14;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -532,7 +536,7 @@ FUNCTION le_result_t Activate
 FUNCTION le_result_t Deactivate
 (
    Sensor sensorRef                       IN   ///< Sensor reference.
-);
+) = 15;
 
 //------------------------------------------------------------------------------------------------
 /**
@@ -558,18 +562,22 @@ FUNCTION le_result_t SelfTest
    Sensor sensorRef                       IN,   ///< Sensor reference.
    SelfTestMode mode                      IN,   ///< Self test mode.
    uint64 timestamp                       OUT   ///< timestamp at which self test performed.
-);
+) = 16;
 
 //------------------------------------------------------------------------------------------------
 /**
  * Handler for sensor data.
  *
  * @instaging
+ *
+ * @param[in] sensorRef  Sensor reference.
+ * @param[in] sampleRef  Reference for sensor sample.
+ * @param[in] contextPtr Context pointer.
  */
 //------------------------------------------------------------------------------------------------
 HANDLER DataHandler
 (
-    Sensor sensorRef                                   IN,   ///< Sensor reference
+    Sensor sensorRef                                   IN,   ///< Sensor reference.
     Sample sampleRef                                   IN   ///< Reference for sensor sample.
 );
 
@@ -582,22 +590,27 @@ HANDLER DataHandler
 //------------------------------------------------------------------------------------------------
 EVENT Data
 (
-    Sensor sensorRef,     ///< Sensor reference
+    Sensor sensorRef,     ///< Sensor reference.
     DataHandler handler   ///< The sensor event handler type.
-);
+) = (17,18);
 
 //------------------------------------------------------------------------------------------------
 /**
  * Handler for self test failure.
  *
  * @instaging
+ *
+ * @param[in] eventRef   SelfTestEvent reference.
+ * @param[in] sensorRef  Sensor reference.
+ * @param[in] timestamp  Timestamp of self test.
+ * @param[in] contextPtr Context pointer.
  */
 //------------------------------------------------------------------------------------------------
 HANDLER SelfTestFailedHandler
 (
-SelfTestEvent eventRef                                  IN, ///< SelfTestEvent reference
-Sensor sensorRef                                        IN, ///< Sensor reference
-uint64 timestamp                                        IN  ///< Timestamp of self test
+SelfTestEvent eventRef                                  IN, ///< SelfTestEvent reference.
+Sensor sensorRef                                        IN, ///< Sensor reference.
+uint64 timestamp                                        IN  ///< Timestamp of self test.
 );
 
 //------------------------------------------------------------------------------------------------
@@ -611,7 +624,7 @@ EVENT SelfTestFailed
 (
 Sensor sensorRef,                     ///< Sensor reference
 SelfTestFailedHandler handler         ///< Self test event handler
-);
+) = (19,20);
 
 //-----------------------------------------------------------------------------------------------
 /**
@@ -628,7 +641,7 @@ FUNCTION le_result_t GetRotatedData
     Sample           sampleRef                               IN,   ///< Sensor sample reference.
     DataValue        RawData[MAX_SUPPORTED_BATCH_COUNT]     OUT,   ///< The data of the events.
     DataValue        BiasData[MAX_SUPPORTED_BATCH_COUNT]    OUT    ///< The data of the events.
-);
+) = 21;
 
 //-----------------------------------------------------------------------------------------------
 /**
@@ -643,7 +656,7 @@ FUNCTION le_result_t GetRotatedData
 FUNCTION le_result_t DeleteData
 (
     Sample  sampleRef                               IN   ///< Sensor sample reference.
-);
+) = 22;
 
 //-----------------------------------------------------------------------------------------------
 /**
@@ -658,4 +671,4 @@ FUNCTION le_result_t DeleteData
 FUNCTION le_result_t ReleaseSelfTestRef
 (
     SelfTestEvent  eventRef                               IN   ///< Self test event reference.
-);
+) = 23;

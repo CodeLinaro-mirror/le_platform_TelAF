@@ -343,7 +343,6 @@ static void TryToPostSemaphore
     {
         LE_ERROR("Can NOT post the /semaphore, it is invalid");
     }
-
 }
 
 static void ResponseAllZeroSeed(AO_SecurityAccess_t * self, MEvent_t const * ev)

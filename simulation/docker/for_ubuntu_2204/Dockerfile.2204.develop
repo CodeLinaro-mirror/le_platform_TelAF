@@ -20,7 +20,6 @@ RUN apt-get -y --no-install-recommends install file
 RUN apt-get -y --no-install-recommends install libcap-dev
 RUN apt-get -y --no-install-recommends install libssl-dev
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install wget
-RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install git
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install unzip
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install openjdk-8-jre-headless
 

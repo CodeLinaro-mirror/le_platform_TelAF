@@ -494,6 +494,10 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 USETYPES taf_types.api;
 
 //--------------------------------------------------------------------------------------------------
@@ -1032,6 +1036,9 @@ REFERENCE Interface;
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for route changes.
+ *
+ * @param[in] routeInd   Route indication.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RouteChangeHandler
@@ -1047,11 +1054,14 @@ HANDLER RouteChangeHandler
 EVENT RouteChange
 (
     RouteChangeHandler handler                ///< Handler for route changes.
-);
+) = (0,1);
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for gateway changes.
+ *
+ * @param[in] gatewayInd Gateway indication.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER GatewayChangeHandler
@@ -1067,11 +1077,14 @@ HANDLER GatewayChangeHandler
 EVENT GatewayChange
 (
     GatewayChangeHandler handler              ///< Handler for gateway changes.
-);
+) = (2,3);
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for DNS changes.
+ *
+ * @param[in] DNSInd     DNS indication.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER DNSChangeHandler
@@ -1087,11 +1100,14 @@ HANDLER DNSChangeHandler
 EVENT DNSChange
 (
     DNSChangeHandler handler                  ///< Handler for DNS changes.
-);
+) = (4,5);
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for destination NAT changes.
+ *
+ * @param[in] destNatInd Destination NAT indication.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER DestNatChangeHandler
@@ -1101,8 +1117,11 @@ HANDLER DestNatChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Handler for asynchronous starting or stopping tunnel result response.
+ * Handler for asynchronous starting or stopping tunnel result response.
  *
+ * @param[in] tunnelRef  Tunnel reference.
+ * @param[in] result     The result of starting or stopping tunnel.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER AsyncTunnelHandler
@@ -1113,8 +1132,10 @@ HANDLER AsyncTunnelHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Handler for asynchronous enabling or disabling L2TP result response.
+ * Handler for asynchronous enabling or disabling L2TP result response.
  *
+ * @param[in] result     The result of enabling or disabling L2TP.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER AsyncL2tpHandler
@@ -1124,8 +1145,10 @@ HANDLER AsyncL2tpHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Handler for asynchronous enabling or disabling SOCKS result response.
+ * Handler for asynchronous enabling or disabling SOCKS result response.
  *
+ * @param[in] result     The result of enabling or disabling SOCKS.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER AsyncSocksHandler
@@ -1141,6 +1164,9 @@ HANDLER AsyncSocksHandler
  *
  * @instaging
  *
+ * @param[in] vlanRef    VLAN reference.
+ * @param[in] state      The VLAN hardware acceleration state.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER VlanHwAccelerationStateHandler
@@ -1170,7 +1196,7 @@ EVENT VlanHwAccelerationState
 (
     Vlan vlanRef,                              ///< VLAN reference.
     VlanHwAccelerationStateHandler handler     ///< Handler for hardware acceleration state.
-);
+) = (128,129);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1180,7 +1206,7 @@ EVENT VlanHwAccelerationState
 EVENT DestNatChange
 (
     DestNatChangeHandler handler              ///< Handler for destination NAT changes.
-);
+) = (6,7);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1194,7 +1220,7 @@ EVENT DestNatChange
 FUNCTION le_result_t GetInterfaceList
 (
     InterfaceInfo ifInfoList[INTERFACE_NAME_MAX_NUM]  OUT ///< Interface information list.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1213,7 +1239,7 @@ FUNCTION le_result_t ChangeRoute
     string subnetMask[IP_ADDR_MAX_LEN]                IN, ///< Destination's subnet mask or length string.
     uint16 metric                                     IN, ///< Metric.
     NetAction isAdd                                   IN  ///< Add or delete.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1226,7 +1252,7 @@ FUNCTION le_result_t ChangeRoute
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t BackupDefaultGW
 (
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 
@@ -1242,7 +1268,7 @@ FUNCTION le_result_t BackupDefaultGW
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RestoreDefaultGW
 (
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1258,7 +1284,7 @@ FUNCTION le_result_t RestoreDefaultGW
 FUNCTION le_result_t SetDefaultGW
 (
     string  ifName[INTERFACE_NAME_MAX_LEN]    IN ///< The interface from which to get the default gateway addresses.
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1276,7 +1302,7 @@ FUNCTION le_result_t GetInterfaceGW
     string  ifName[INTERFACE_NAME_MAX_LEN]           IN,  ///< Interaface name to get the gateway.
     string  ipv4Addr[IPV4_ADDR_MAX_LEN]              OUT, ///< IPv4 address.
     string  ipv6Addr[IPV6_ADDR_MAX_LEN]              OUT  ///< IPv6 address.
-);
+) = 13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1292,7 +1318,7 @@ FUNCTION le_result_t GetInterfaceGW
 FUNCTION le_result_t SetDNS
 (
     string  ifName[INTERFACE_NAME_MAX_LEN]    IN ///< The interface from which to get the DNS addresses.
-);
+) = 14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1309,7 +1335,7 @@ FUNCTION le_result_t GetInterfaceDNS
 (
     string  ifName[INTERFACE_NAME_MAX_LEN]    IN, ///< The interface name from which to get the DNS addresses.
     DnsServerAddresses  dnsServerAddresses    OUT ///< DNS addresses structure.
-);
+) = 15;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1327,7 +1353,7 @@ FUNCTION le_result_t AddDestNatEntryOnDefaultPdn
     uint16 privatePort                        IN, ///< Private port.
     uint16 globalPort                         IN, ///< Global port.
     IpProto ipProto                           IN  ///< IP protocol number.
-);
+) = 16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1345,7 +1371,7 @@ FUNCTION le_result_t RemoveDestNatEntryOnDefaultPdn
     uint16 privatePort                        IN, ///< Private port.
     uint16 globalPort                         IN, ///< Global port.
     IpProto ipProto                           IN  ///< IP protocol number.
-);
+) = 17;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1364,7 +1390,7 @@ FUNCTION le_result_t AddDestNatEntryOnDemandPdn
     uint16 privatePort                        IN, ///< Private port.
     uint16 globalPort                         IN, ///< Global port.
     IpProto ipProto                           IN  ///< IP protocol number.
-);
+) = 18;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1383,7 +1409,7 @@ FUNCTION le_result_t RemoveDestNatEntryOnDemandPdn
     uint16 privatePort                        IN, ///< Private port.
     uint16 globalPort                         IN, ///< Global port.
     IpProto ipProto                           IN  ///< IP protocol number.
-);
+) = 19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1396,7 +1422,7 @@ FUNCTION le_result_t RemoveDestNatEntryOnDemandPdn
 //--------------------------------------------------------------------------------------------------
 FUNCTION DestNatEntryList GetDestNatEntryListOnDefaultPdn
 (
-);
+) = 20;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1410,7 +1436,7 @@ FUNCTION DestNatEntryList GetDestNatEntryListOnDefaultPdn
 FUNCTION DestNatEntryList GetDestNatEntryListOnDemandPdn
 (
     uint32 profileId                          IN ///< The profile ID.
-);
+) = 21;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1424,7 +1450,7 @@ FUNCTION DestNatEntryList GetDestNatEntryListOnDemandPdn
 FUNCTION DestNatEntry GetFirstDestNatEntry
 (
     DestNatEntryList  destNatEntryListRef     IN ///< The reference of a destination entry list.
-);
+) = 22;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1438,7 +1464,7 @@ FUNCTION DestNatEntry GetFirstDestNatEntry
 FUNCTION DestNatEntry GetNextDestNatEntry
 (
     DestNatEntryList  destNatEntryListRef     IN ///< The reference of a destination entry list.
-);
+) = 23;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1457,7 +1483,7 @@ FUNCTION le_result_t GetDestNatEntryDetails
     uint16 privatePort                        OUT, ///< Private port.
     uint16 globalPort                         OUT, ///< Global port.
     IpProto ipProto                           OUT  ///< IP protocol number.
-);
+) = 24;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1472,7 +1498,7 @@ FUNCTION le_result_t GetDestNatEntryDetails
 FUNCTION le_result_t DeleteDestNatEntryList
 (
     DestNatEntryList  destNatEntryListRef     IN ///< The reference of a destination entry list.
-);
+) = 25;
 
 
 //--------------------------------------------------------------------------------------------------
@@ -1491,7 +1517,7 @@ FUNCTION Vlan CreateVlan
 (
     uint16 vlanId                             IN, ///< VLAN identifier, i.e., 1-4094.
     bool isAccelerated                        IN  ///< Is acceleration allowed.
-);
+) = 26;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1508,7 +1534,7 @@ FUNCTION le_result_t SetVlanPriority
 (
     Vlan vlanRef                              IN, ///< VLAN reference.
     uint8 priority                            IN  ///< Priority.
-);
+) = 27;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1526,7 +1552,7 @@ FUNCTION le_result_t SetVlanPriority
 FUNCTION le_result_t RemoveVlan
 (
     Vlan vlanRef                              IN ///< VLAN reference.
-);
+) = 28;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1540,7 +1566,7 @@ FUNCTION le_result_t RemoveVlan
 FUNCTION Vlan GetVlanById
 (
     uint16 vlanId                             IN ///< VLAN ID.
-);
+) = 29;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1561,7 +1587,7 @@ FUNCTION le_result_t AddVlanInterface
 (
     Vlan vlanRef                              IN, ///< VLAN reference.
     VlanIfType ifType                         IN  ///< Interface type.
-);
+) = 30;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1581,7 +1607,7 @@ FUNCTION le_result_t RemoveVlanInterface
 (
     Vlan vlanRef                              IN, ///< VLAN reference.
     VlanIfType ifType                         IN  ///< Interface type.
-);
+) = 31;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1595,7 +1621,7 @@ FUNCTION le_result_t RemoveVlanInterface
 FUNCTION VlanIfList GetVlanInterfaceList
 (
     Vlan vlanRef                              IN ///< VLAN reference.
-);
+) = 32;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1609,7 +1635,7 @@ FUNCTION VlanIfList GetVlanInterfaceList
 FUNCTION VlanIf GetFirstVlanInterface
 (
     VlanIfList  vlanIfListRef                 IN ///< Reference of a VLAN interface list.
-);
+) = 33;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1623,7 +1649,7 @@ FUNCTION VlanIf GetFirstVlanInterface
 FUNCTION VlanIf GetNextVlanInterface
 (
     VlanIfList  vlanIfListRef                 IN ///< Reference of a VLAN interface list.
-);
+) = 34;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1638,7 +1664,7 @@ FUNCTION VlanIf GetNextVlanInterface
 FUNCTION le_result_t DeleteVlanInterfaceList
 (
     VlanIfList  vlanIfListRef                 IN ///< Reference of a VLAN interface list.
-);
+) = 35;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1652,7 +1678,7 @@ FUNCTION le_result_t DeleteVlanInterfaceList
 FUNCTION VlanIfType GetVlanInterfaceType
 (
     VlanIf vlanIfRef                          IN ///< VLAN interface reference.
-);
+) = 36;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1668,7 +1694,7 @@ FUNCTION le_result_t GetVlanPriority
 (
     VlanIf vlanIfRef                          IN, ///< VLAN interface reference.
     uint8 priority                            OUT ///< Priority.
-);
+) = 37;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1682,7 +1708,7 @@ FUNCTION le_result_t GetVlanPriority
 FUNCTION VlanEntryList GetVlanEntryList
 (
 
-);
+) = 38;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1696,7 +1722,7 @@ FUNCTION VlanEntryList GetVlanEntryList
 FUNCTION VlanEntry GetFirstVlanEntry
 (
     VlanEntryList  vlanEntryListRef           IN ///< Reference of a VLAN entry list.
-);
+) = 39;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1710,7 +1736,7 @@ FUNCTION VlanEntry GetFirstVlanEntry
 FUNCTION VlanEntry GetNextVlanEntry
 (
     VlanEntryList  vlanEntryListRef           IN ///< Reference of a VLAN entry list.
-);
+) = 40;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1725,7 +1751,7 @@ FUNCTION VlanEntry GetNextVlanEntry
 FUNCTION le_result_t DeleteVlanEntryList
 (
     VlanEntryList  vlanEntryListRef           IN ///< Reference of a VLAN entry list.
-);
+) = 41;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1739,7 +1765,7 @@ FUNCTION le_result_t DeleteVlanEntryList
 FUNCTION int16 GetVlanId
 (
     VlanEntry vlanEntryRef                    IN ///< VLAN entry reference.
-);
+) = 42;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1755,7 +1781,7 @@ FUNCTION le_result_t IsVlanAccelerated
 (
     VlanEntry vlanEntryRef                    IN, ///< VLAN entry reference.
     bool isAccelerated                        OUT  ///< Is accelerated or not.
-);
+) = 43;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1769,7 +1795,7 @@ FUNCTION le_result_t IsVlanAccelerated
 FUNCTION int32 GetVlanBoundProfileId
 (
     VlanEntry vlanEntryRef                    IN ///< VLAN entry reference.
-);
+) = 44;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1785,7 +1811,7 @@ FUNCTION le_result_t GetVlanBoundPhoneId
 (
     VlanEntry vlanEntryRef                    IN,  ///< VLAN entry reference.
     uint8 phoneId                             OUT  ///< Phone ID for VLAN association.
-);
+) = 45;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1805,7 +1831,7 @@ FUNCTION le_result_t BindVlanWithProfile
 (
     Vlan vlanRef                              IN, ///< VLAN reference.
     uint32 profileId                          IN  ///< Profile ID for VLAN association.
-);
+) = 46;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1826,7 +1852,7 @@ FUNCTION le_result_t BindVlanWithProfileEx
     Vlan vlanRef                              IN, ///< VLAN reference.
     uint8 phoneId                             IN, ///< Phone for VLAN association.
     uint32 profileId                          IN  ///< Profile ID for VLAN association.
-);
+) = 47;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1845,7 +1871,7 @@ FUNCTION le_result_t BindVlanWithProfileEx
 FUNCTION le_result_t UnbindVlanFromProfile
 (
     Vlan vlanRef                              IN ///< VLAN reference.
-);
+) = 48;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1864,7 +1890,7 @@ FUNCTION le_result_t EnableL2tp
     bool enableMss                       IN,///< Enable TCP MSS to be clamped on L2TP interfaces.
     bool enableMtu                       IN,///< Enable MTU size to be set on underlying interfaces.
     uint32 mtuSize                       IN ///< Optional MTU size in bytes; default is 1422.
-);
+) = 49;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1877,7 +1903,7 @@ FUNCTION EnableL2tpAsync
     bool enableMtu                       IN,///< Enable MTU size to be set on underlying interfaces.
     uint32 mtuSize                       IN, ///< optional MTU size in bytes; default is 1422.
     AsyncL2tpHandler handler             IN  ///< The handler.
-);
+) = 50;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1891,7 +1917,7 @@ FUNCTION EnableL2tpAsync
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DisableL2tp
 (
-);
+) = 51;
 
 /**
  * Disables (asynchronously) L2TP for unmanaged tunnel state.
@@ -1902,7 +1928,7 @@ FUNCTION le_result_t DisableL2tp
 FUNCTION DisableL2tpAsync
 (
     AsyncL2tpHandler handler                IN  ///< The handler.
-);
+) = 52;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1915,7 +1941,7 @@ FUNCTION DisableL2tpAsync
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsL2tpEnabled
 (
-);
+) = 53;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1928,7 +1954,7 @@ FUNCTION bool IsL2tpEnabled
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsL2tpMssEnabled
 (
-);
+) = 54;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1941,7 +1967,7 @@ FUNCTION bool IsL2tpMssEnabled
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsL2tpMtuEnabled
 (
-);
+) = 55;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1954,7 +1980,7 @@ FUNCTION bool IsL2tpMtuEnabled
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetL2tpMtuSize
 (
-);
+) = 56;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1972,7 +1998,7 @@ FUNCTION Tunnel CreateTunnel
     uint32 peerId                             IN, ///< Peer tunnel ID.
     string peerIpAddr[IPV6_ADDR_MAX_LEN]      IN, ///< Peer IP address.
     string ifName[INTERFACE_NAME_MAX_LEN]     IN  ///< Interface name.
-);
+) = 57;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1988,7 +2014,7 @@ FUNCTION Tunnel CreateTunnel
 FUNCTION le_result_t RemoveTunnel
 (
     Tunnel tunnelRef                          IN ///< Tunnel reference.
-);
+) = 58;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2006,7 +2032,7 @@ FUNCTION le_result_t SetTunnelUdpPort
     Tunnel tunnelRef                          IN, ///< Tunnel reference.
     uint32 localUdpPort                       IN, ///< Local UDP port, if UDP encapsulation is used.
     uint32 peerUdpPort                        IN  ///< Peer UDP port, if IP encapsulation is used.
-);
+) = 59;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2024,7 +2050,7 @@ FUNCTION le_result_t AddSession
     Tunnel tunnelRef                          IN, ///< Tunnel reference.
     uint32 locId                              IN, ///< Local session ID.
     uint32 peerId                             IN  ///< Peer session ID.
-);
+) = 60;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2042,7 +2068,7 @@ FUNCTION le_result_t RemoveSession
     Tunnel tunnelRef                          IN, ///< Tunnel reference.
     uint32 locId                              IN, ///< Local session ID.
     uint32 peerId                             IN  ///< Peer session ID.
-);
+) = 61;
 
 /**
  * Starts (synchronously) a tunnel.
@@ -2057,7 +2083,7 @@ FUNCTION le_result_t RemoveSession
 FUNCTION le_result_t StartTunnel
 (
     Tunnel tunnelRef                          IN ///< Tunnel reference.
-);
+) = 62;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2068,7 +2094,7 @@ FUNCTION StartTunnelAsync
 (
     Tunnel tunnelRef                          IN, ///< Tunnel reference.
     AsyncTunnelHandler handler                IN  ///< The handler.
-);
+) = 63;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2084,7 +2110,7 @@ FUNCTION StartTunnelAsync
 FUNCTION le_result_t StopTunnel
 (
     Tunnel tunnelRef                          IN ///< Tunnel reference.
-);
+) = 64;
 
 /**
  * Stops (asynchronously) a tunnel.
@@ -2096,7 +2122,7 @@ FUNCTION StopTunnelAsync
 (
     Tunnel tunnelRef                          IN, ///< Tunnel reference.
     AsyncTunnelHandler handler                IN  ///< The handler.
-);
+) = 65;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2110,7 +2136,7 @@ FUNCTION StopTunnelAsync
 FUNCTION Tunnel GetTunnelRefById
 (
     uint32 locId                              IN ///< Local tunnel ID.
-);
+) = 66;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2123,7 +2149,7 @@ FUNCTION Tunnel GetTunnelRefById
 //--------------------------------------------------------------------------------------------------
 FUNCTION TunnelEntryList GetTunnelEntryList
 (
-);
+) = 67;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2137,7 +2163,7 @@ FUNCTION TunnelEntryList GetTunnelEntryList
 FUNCTION TunnelEntry GetFirstTunnelEntry
 (
     TunnelEntryList  tunnelEntryListRef       IN ///< Reference of a tunnel entry list.
-);
+) = 68;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2151,7 +2177,7 @@ FUNCTION TunnelEntry GetFirstTunnelEntry
 FUNCTION TunnelEntry GetNextTunnelEntry
 (
     TunnelEntryList  tunnelEntryListRef       IN ///< Reference of a tunnel entry list.
-);
+) = 69;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2167,7 +2193,7 @@ FUNCTION TunnelEntry GetNextTunnelEntry
 FUNCTION le_result_t DeleteTunnelEntryList
 (
     TunnelEntryList  tunnelEntryListRef            IN ///< Reference of a tunnel entry list.
-);
+) = 70;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2181,7 +2207,7 @@ FUNCTION le_result_t DeleteTunnelEntryList
 FUNCTION L2tpEncapProtocol GetTunnelEncapProto
 (
     TunnelEntry tunnelEntryRef                IN ///< Tunnel entry reference.
-);
+) = 71;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2195,7 +2221,7 @@ FUNCTION L2tpEncapProtocol GetTunnelEncapProto
 FUNCTION uint32 GetTunnelLocalId
 (
     TunnelEntry tunnelEntryRef                IN ///< Tunnel entry reference.
-);
+) = 72;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2209,7 +2235,7 @@ FUNCTION uint32 GetTunnelLocalId
 FUNCTION uint32 GetTunnelPeerId
 (
     TunnelEntry tunnelEntryRef                IN ///< Tunnel entry reference.
-);
+) = 73;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2223,7 +2249,7 @@ FUNCTION uint32 GetTunnelPeerId
 FUNCTION uint32 GetTunnelLocalUdpPort
 (
     TunnelEntry tunnelEntryRef                IN ///< Tunnel entry reference.
-);
+) = 74;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2237,7 +2263,7 @@ FUNCTION uint32 GetTunnelLocalUdpPort
 FUNCTION uint32 GetTunnelPeerUdpPort
 (
     TunnelEntry tunnelEntryRef                IN ///< Tunnel entry reference.
-);
+) = 75;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2254,7 +2280,7 @@ FUNCTION le_result_t GetTunnelPeerIpv6Addr
 (
     TunnelEntry tunnelEntryRef                IN, ///< Tunnel entry reference.
     string peerIpv6Addr[IPV6_ADDR_MAX_LEN]    OUT ///< Peer IPv6 address.
-);
+) = 76;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2271,7 +2297,7 @@ FUNCTION le_result_t GetTunnelPeerIpv4Addr
 (
     TunnelEntry tunnelEntryRef                IN, ///< Tunnel entry reference.
     string peerIpv4Addr[IPV6_ADDR_MAX_LEN]    OUT ///< Peer IPv4 address.
-);
+) = 77;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2287,7 +2313,7 @@ FUNCTION le_result_t GetTunnelInterfaceName
 (
     TunnelEntry tunnelEntryRef                IN, ///< Tunnel entry reference.
     string ifName[INTERFACE_NAME_MAX_LEN]     OUT ///< Interface name.
-);
+) = 78;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2301,7 +2327,7 @@ FUNCTION le_result_t GetTunnelInterfaceName
 FUNCTION IpFamilyType GetTunnelIpType
 (
     TunnelEntry tunnelEntryRef                IN ///< Tunnel entry reference.
-);
+) = 79;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2318,7 +2344,7 @@ FUNCTION le_result_t GetSessionConfig
 (
     TunnelEntry tunnelEntryRef                IN, ///< Tunnel entry reference.
     L2tpSessionConfig sessionConfig[L2TP_MAX_SESSION_NUMBER_PER_TUNNEL]  OUT ///< Session configuration.
-);
+) = 80;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2333,7 +2359,7 @@ FUNCTION le_result_t GetSessionConfig
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t EnableSocks
 (
-);
+) = 81;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2345,7 +2371,7 @@ FUNCTION le_result_t EnableSocks
 FUNCTION EnableSocksAsync
 (
     AsyncSocksHandler handler                 IN  ///< The handler.
-);
+) = 82;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2358,7 +2384,7 @@ FUNCTION EnableSocksAsync
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DisableSocks
 (
-);
+) = 83;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2370,7 +2396,7 @@ FUNCTION le_result_t DisableSocks
 FUNCTION DisableSocksAsync
 (
     AsyncSocksHandler handler                 IN  ///< The handler.
-);
+) = 84;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2384,7 +2410,7 @@ FUNCTION DisableSocksAsync
 FUNCTION le_result_t SetSocksAuthMethod
 (
     AuthMethod authMethod                     IN ///< Authentication method.
-);
+) = 85;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2398,7 +2424,7 @@ FUNCTION le_result_t SetSocksAuthMethod
 //--------------------------------------------------------------------------------------------------
 FUNCTION AuthMethod GetSocksAuthMethod
 (
-);
+) = 86;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2412,7 +2438,7 @@ FUNCTION AuthMethod GetSocksAuthMethod
 FUNCTION le_result_t SetSocksLanInterface
 (
     string ifName[INTERFACE_NAME_MAX_LEN]     IN ///< Interface name.
-);
+) = 87;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2426,7 +2452,7 @@ FUNCTION le_result_t SetSocksLanInterface
 FUNCTION le_result_t GetSocksLanInterface
 (
     string ifName[INTERFACE_NAME_MAX_LEN]     OUT ///< Interface name.
-);
+) = 88;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2441,7 +2467,7 @@ FUNCTION le_result_t AddSocksAssociation
 (
     string userName[SOCKSV5_MAX_USERNAME_LEN] IN,///< Username.
     uint32  profileId                         IN ///< Profile ID.
-);
+) = 89;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2455,7 +2481,7 @@ FUNCTION le_result_t AddSocksAssociation
 FUNCTION le_result_t RemoveSocksAssociation
 (
     string userName[SOCKSV5_MAX_USERNAME_LEN]    IN ///< Username.
-);
+) = 90;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2472,7 +2498,7 @@ FUNCTION le_result_t AddGsb
     string ifName[INTERFACE_NAME_MAX_LEN]     IN, ///< Interface name.
     GsbIfType ifType                          IN, ///< Interface type.
     uint32 bandwidth                          IN  ///< Bandwidth (in Mbps).
-);
+) = 91;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2487,7 +2513,7 @@ FUNCTION le_result_t AddGsb
 FUNCTION le_result_t RemoveGsb
 (
     string ifName[INTERFACE_NAME_MAX_LEN]     IN ///< Interface name.
-);
+) = 92;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2500,7 +2526,7 @@ FUNCTION le_result_t RemoveGsb
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t EnableGsb
 (
-);
+) = 93;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2513,7 +2539,7 @@ FUNCTION le_result_t EnableGsb
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DisableGsb
 (
-);
+) = 94;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2526,7 +2552,7 @@ FUNCTION le_result_t DisableGsb
 //--------------------------------------------------------------------------------------------------
 FUNCTION GsbList GetGsbList
 (
-);
+) = 95;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2540,7 +2566,7 @@ FUNCTION GsbList GetGsbList
 FUNCTION Gsb GetFirstGsb
 (
     GsbList  gsbListRef                    IN ///< Reference of a GSB list.
-);
+) = 96;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2554,7 +2580,7 @@ FUNCTION Gsb GetFirstGsb
 FUNCTION Gsb GetNextGsb
 (
     GsbList  gsbListRef                    IN ///< Reference of a GSB list.
-);
+) = 97;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2570,7 +2596,7 @@ FUNCTION Gsb GetNextGsb
 FUNCTION le_result_t DeleteGsbList
 (
     GsbList  gsbListRef                    IN ///< Reference of a GSB list.
-);
+) = 98;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2587,7 +2613,7 @@ FUNCTION le_result_t GetGsbInterfaceName
 (
     Gsb gsbRef                                IN,  ///< GSB reference.
     string IfName[INTERFACE_NAME_MAX_LEN]     OUT  ///< Interface name.
-);
+) = 99;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2603,7 +2629,7 @@ FUNCTION le_result_t GetGsbInterfaceName
 FUNCTION GsbIfType GetGsbInterfaceType
 (
     Gsb gsbRef                                IN  ///< GSB reference.
-);
+) = 100;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2617,7 +2643,7 @@ FUNCTION GsbIfType GetGsbInterfaceType
 FUNCTION int32 GetGsbBandWidth
 (
     Gsb gsbRef                                IN  ///< GSB reference.
-);
+) = 101;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2639,7 +2665,7 @@ FUNCTION le_result_t GetBackhaulPreference
 (
     Vlan       vlanRef                         IN,     ///< VLAN reference.
     BackhaulType backhaulPrefList[MAX_BH_NUM]  OUT     ///< Backhaul preference list.
-);
+) = 102;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2661,7 +2687,7 @@ FUNCTION le_result_t SetBackhaulPreference
 (
    Vlan       vlanRef                         IN, ///< VLAN reference.
    BackhaulType backhaulPrefList[MAX_BH_NUM]  IN  ///< Backhaul preference list.
-);
+) = 103;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2682,7 +2708,7 @@ FUNCTION le_result_t SetVlanNetworkType
 (
     Vlan vlanRef                                      IN, ///< VLAN reference.
     NetworkType nwType                                IN  ///< Network type.
-);
+) = 104;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2700,7 +2726,7 @@ FUNCTION le_result_t GetVlanNetworkType
 (
     VlanEntry vlanEntryRef                            IN,  ///< VLAN entry reference.
     NetworkType nwType                                OUT  ///< Network type.
-);
+) = 105;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2719,7 +2745,7 @@ FUNCTION le_result_t SetVlanBackhaulType
 (
     Vlan vlanRef                                      IN, ///< VLAN reference.
     BackhaulType bhType                               IN ///< Backhaul type.
-);
+) = 106;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2738,7 +2764,7 @@ FUNCTION le_result_t SetVlanBackhaulVlanId
 (
     Vlan vlanRef                                IN, ///< VLAN reference.
     uint16 vlanId                               IN  ///< VLAN identifier for backhaul, i.e., 1-4094.
-);
+) = 107;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2757,7 +2783,7 @@ FUNCTION le_result_t SetVlanBackhaulPhoneId
 (
     Vlan vlanRef                              IN, ///< VLAN reference.
     uint8 phoneId                             IN  ///< Phone ID of backhaul for VLAN association.
-);
+) = 108;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2776,7 +2802,7 @@ FUNCTION le_result_t SetVlanBackhaulProfileId
 (
     Vlan vlanRef                              IN, ///< VLAN reference.
     uint32 profileId                          IN ///< Profile ID of backhaul for VLAN association.
-);
+) = 109;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2801,7 +2827,7 @@ FUNCTION le_result_t SetVlanBackhaulProfileId
 FUNCTION le_result_t BindVlanWithBackhaul
 (
     Vlan vlanRef                            IN ///< VLAN reference.
-);
+) = 110;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2823,7 +2849,7 @@ FUNCTION le_result_t BindVlanWithBackhaul
 FUNCTION le_result_t UnbindVlanFromBackhaul
 (
     Vlan vlanRef                              IN ///< VLAN reference.
-);
+) = 111;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2839,7 +2865,7 @@ FUNCTION le_result_t UnbindVlanFromBackhaul
 FUNCTION Interface GetInterface
 (
     VlanIfType ifType                     IN ///< Interface type.
-);
+) = 112;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2856,7 +2882,7 @@ FUNCTION Interface GetInterface
 FUNCTION le_result_t RemoveInterface
 (
     Interface interfaceRef                        IN ///< Interface reference.
-);
+) = 113;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2875,7 +2901,7 @@ FUNCTION le_result_t SetIPPTOperation
 (
     Interface interfaceRef               IN,///< Interface reference.
     Operation  operation                 IN ///< IP passthrough operation.
-);
+) = 114;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2895,7 +2921,7 @@ FUNCTION le_result_t SetIPPTDeviceMacAddress
     Interface interfaceRef                IN,///< Interface reference.
     VlanIfType ifType                     IN, ///< Interface type.
     string macAddr[MAC_ADDR_MAX_LEN]      IN  ///< Device MAC address.
-);
+) = 115;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2919,7 +2945,7 @@ FUNCTION le_result_t SetIPPassThroughConfig
 (
     Interface interfaceRef                IN,///< Interface reference.
     uint16 vlanId                         IN ///< VLAN identifier i.e., 1-4094.
-);
+) = 116;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2935,7 +2961,7 @@ FUNCTION le_result_t SetIPPassThroughConfig
 FUNCTION Interface GetIPPassThroughConfig
 (
     uint16 vlanId                          IN ///< VLAN identifier i.e., 1-4094.
-);
+) = 117;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2953,7 +2979,7 @@ FUNCTION le_result_t GetIPPTOperation
 (
     Interface  interfaceRef                      IN, ///< VLAN interface reference.
     Operation  operation                         OUT ///< IP passthrough operation.
-);
+) = 118;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2972,7 +2998,7 @@ FUNCTION le_result_t GetIPPTDeviceMacAddress
     Interface  interfaceRef               IN, ///< VLAN interface reference.
     VlanIfType ifType                     OUT,///< Interface type.
     string macAddr[MAC_ADDR_MAX_LEN]      OUT ///< Device MAC address.
-);
+) = 119;
 
 
 //--------------------------------------------------------------------------------------------------
@@ -3002,7 +3028,7 @@ FUNCTION le_result_t SetIPConfig
     NetIpType  ipType                         IN,///< IP type.
     VlanIfType ifType                         IN,///< Interface type.
     uint16 vlanId                             IN ///< VLAN identifier i.e., 1-4094.
-);
+) = 120;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3022,7 +3048,7 @@ FUNCTION le_result_t SetIPConfigParams
     Interface  interfaceRef           IN, ///< Interface reference.
     IpAssignOperation ipOpr           IN, ///< IP assign operation.
     IpAssignType ipType               IN  ///< IP assign type.
-);
+) = 121;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3041,7 +3067,7 @@ FUNCTION le_result_t SetIPConfigAddressParams
 (
     Interface  interfaceRef       IN, ///< Interface reference.
     IpAddressInfo  ipAddrInfo     IN  ///< IP configuration. This is needed only for STATIC type IP.
-);
+) = 122;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3060,7 +3086,7 @@ FUNCTION le_result_t GetIPConfigParams
     Interface  interfaceRef           IN,  ///< VLAN interface reference.
     IpAssignOperation ipOpr           OUT, ///< IP assign operation.
     IpAssignType ipType               OUT  ///< IP assign type.
-);
+) = 123;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3078,7 +3104,7 @@ FUNCTION le_result_t GetIPConfigAddressParams
 (
     Interface  interfaceRef      IN,  ///< VLAN interface reference.
     IpAddressInfo  ipAddrInfo    OUT  ///< IP configuration. This is needed only for STATIC type IP.
-);
+) = 124;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3101,7 +3127,7 @@ FUNCTION Interface GetIPConfig
     NetIpType  ipType                 IN,///< IP type.
     VlanIfType ifType                 IN,///< Interface type.
     uint16 vlanId                     IN ///< VLAN identifier i.e., 1-4094.
-);
+) = 125;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3121,7 +3147,7 @@ FUNCTION le_result_t GetIPPTNatConfig
 (
     Vlan vlanRef          IN, ///< VLAN reference.
     bool isNATEnabled     OUT ///< True when NAT enabled.
-);
+) = 126;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3142,4 +3168,4 @@ FUNCTION le_result_t SetIPPTNatConfig
 (
     Vlan  vlanRef            IN, ///< VLAN reference.
     bool  isNATEnabled       IN  ///< True to enable NAT. False to disable NAT.
-);
+) = 127;

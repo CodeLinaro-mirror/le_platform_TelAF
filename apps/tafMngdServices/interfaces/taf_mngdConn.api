@@ -822,8 +822,12 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 //--------------------------------------------------------------------------------------------------
-/**
+/*
  * Include Managed Services common definitions.
  */
 //--------------------------------------------------------------------------------------------------
@@ -966,7 +970,7 @@ EVENT DataState
 (
     Data dataRef,                                            ///< The data reference.
     DataStateHandler handler                                 ///< The event handler reference.
-);
+) = (0,1);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1018,7 +1022,7 @@ HANDLER RecoveryEventHandler
 EVENT RecoveryEvent
 (
     RecoveryEventHandler handler ///< The recovery event handler reference.
-);
+) = (2,3);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1032,7 +1036,7 @@ EVENT RecoveryEvent
 FUNCTION Data GetData
 (
     uint8 dataId                                         IN ///< The data ID to use.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1046,7 +1050,7 @@ FUNCTION Data GetData
 FUNCTION Data GetDataByName
 (
     string dataName[MAX_NAME_LEN]                        IN ///< The data name to use.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1062,7 +1066,7 @@ FUNCTION le_result_t GetDataIdByRef
 (
     Data dataRef IN, ///< The data reference.
     uint8 dataId OUT ///< The data object ID from the configuration JSON.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1077,7 +1081,7 @@ FUNCTION le_result_t GetDataIdByRef
 FUNCTION le_result_t GetDataNameByRef(
     Data dataRef IN,                  ///< The data reference.
     string dataName[MAX_NAME_LEN] OUT ///< The data object name from the configuration JSON.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1094,7 +1098,7 @@ FUNCTION le_result_t GetDataNameByRef(
 FUNCTION le_result_t GetProfileNumberByRef(
     Data  dataRef IN,                 ///< The data reference.
     uint8 dataProfileNumber OUT       ///< The data profile number from the configuration JSON.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1110,7 +1114,7 @@ FUNCTION le_result_t GetPhoneIdByRef
 (
     Data  dataRef IN,                 ///< The data reference.
     uint8 phoneId OUT                 ///< The phone ID used by the provided data reference.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1132,7 +1136,7 @@ FUNCTION le_result_t GetPhoneIdByRef
 FUNCTION le_result_t StartData
 (
     Data dataRef                                          IN ///< The data reference.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1156,7 +1160,7 @@ FUNCTION le_result_t StartData
 FUNCTION le_result_t StopData
 (
     Data dataRef                                          IN ///< The data reference.
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1172,7 +1176,7 @@ FUNCTION le_result_t GetDataConnectionState
 (
     Data dataRef                                          IN,  ///< The data reference.
     DataState state                                       OUT ///< The data state.
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1190,7 +1194,7 @@ FUNCTION le_result_t GetDataConnectionIPAddresses
     Data dataRef IN,                                ///< The data reference.
     string IPv4Addr[taf_dcs.IPV4_ADDR_MAX_LEN] OUT, ///< IPv4 Address.
     string IPv6Addr[taf_dcs.IPV6_ADDR_MAX_LEN] OUT  ///< IPv6 Address.
-);
+) = 13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1208,7 +1212,7 @@ FUNCTION le_result_t GetDataConnectionIPAddresses
 FUNCTION le_result_t StartDataRetry
 (
     Data dataRef IN                                ///< The data reference.
-);
+) = 14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1226,4 +1230,4 @@ FUNCTION le_result_t StartDataRetry
 FUNCTION le_result_t CancelRecovery
 (
     Data               dataRef    IN ///< The data reference.
-);
+) = 15;

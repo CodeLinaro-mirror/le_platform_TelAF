@@ -113,11 +113,14 @@
  * Management Service if there's no client calling the API.
  *
  * Supported modem wake sources control are defined with NodeModemWsBitMask:
+ *
  * -- SMS: Modem wake up due to incoming SMS.
+ *
  * -- VOICE_CALL: Modem wake up due to incoming voice call.
+ *
  * -- REMOTE_SIM_PROFILE_SWAP: Modem wake up due to remote SIM profile swap.
  *
- * taf_mngdPm_SetNodeModemWakeupSel() is used to query the configured whitelisted modem wake
+ * taf_mngdPm_GetNodeModemWakeupSel() is used to query the configured whitelisted modem wake
  * sources by taf_mngdPm_SetNodeModemWakeupSel().
  *
  * When there is a NAD wakeup triggered due to the supported modem wake sources, the API of
@@ -213,6 +216,10 @@
  *
  */
 //--------------------------------------------------------------------------------------------------
+
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 
 /**
  * Maximum string length for the Virtual Machine name.
@@ -523,6 +530,11 @@ REFERENCE NodeModemAwakeEvent;
  * Handler for async shutdown request.
  *
  * @instaging
+ *
+ * @param[in] requestedMode Requested mode.
+ * @param[in] responseMode  Request response.
+ * @param[in] result        Request response result.
+ * @param[in] contextPtr    Context pointer.
  */
 HANDLER AsyncShutdownReqHandler
 (
@@ -544,6 +556,11 @@ ENUM RestartMode
  * Handler for async restart request.
  *
  * @instaging
+ *
+ * @param[in] restartMode  Restart mode.
+ * @param[in] responseMode Request response.
+ * @param[in] result       Request response result.
+ * @param[in] contextPtr   Context pointer.
  */
 HANDLER AsyncRestartReqHandler
 (
@@ -556,6 +573,11 @@ HANDLER AsyncRestartReqHandler
  * Handler for async Wake up Vehicle request.
  *
  * @instaging
+ *
+ * @param[in] reason     WakeupVehicleReason reason.
+ * @param[in] status     Response status.
+ * @param[in] result     Request response result.
+ * @param[in] contextPtr Context pointer.
  */
 HANDLER AsyncWakeupVehicleReqHandler
 (
@@ -576,6 +598,9 @@ STRUCT StateInd
  * Handler for state change.
  *
  * @instaging
+ *
+ * @param[in] stateInd   The system state indication.
+ * @param[in] contextPtr Context pointer.
  */
 HANDLER StateChangeHandler
 (
@@ -590,12 +615,15 @@ HANDLER StateChangeHandler
 EVENT StateChange
 (
     StateChangeHandler handler  ///< The state change handler.
-);
+) =(0,1);
 
 /**
  * Handler for information report.
  *
  * @instaging
+ *
+ * @param[in] report     The status report.
+ * @param[in] contextPtr Context pointer.
  */
 HANDLER InfoReportHandler
 (
@@ -611,18 +639,23 @@ EVENT InfoReport
 (
     InfoReportBitMask infoReportMask,  ///< Bit mask for the data report.
     InfoReportHandler handler    ///< The data report handler.
-);
+) =(2,3);
 
 /**
  * Handler for node power state change.
  *
  * @instaging
+ *
+ * @param[in] pmNodeId   Node ID.
+ * @param[in] ref        Node power state reference.
+ * @param[in] state      Node power state.
+ * @param[in] contextPtr Context pointer.
  */
 HANDLER NodePowerStateChangeHandler
 (
-    uint8 pmNodeId,
-    nodePowerState ref,
-    NodePowerState state
+    uint8 pmNodeId IN,          ///< Node ID.
+    nodePowerState ref IN,      ///< Node power state reference.
+    NodePowerState state IN     ///< Node power state.
 );
 
 /**
@@ -635,20 +668,25 @@ EVENT NodePowerStateChange
     NodePowerStateChangeHandler handler,  ///< The state change handler.
     uint8 pmNodeId,
     NodePowerStateChangeBitMask bitmask
-);
+) =(4,5);
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for node modem awake.
  *
  * @instaging
+ *
+ * @param[in] ref        Node modem awake event reference.
+ * @param[in] pmNodeId   Node ID.
+ * @param[in] wsBitmask  Modem wakeup reason bitmask.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER NodeModemAwakeHandler
 (
-    NodeModemAwakeEvent ref,
-    uint8 pmNodeId,
-    NodeModemWsBitMask wsBitmask
+    NodeModemAwakeEvent ref IN,        ///< Node modem awake event reference.
+    uint8 pmNodeId IN,                 ///< Node ID.
+    NodeModemWsBitMask wsBitmask IN    ///< Modem wakeup reason bitmask.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -663,7 +701,7 @@ EVENT NodeModemAwake
     NodeModemAwakeHandler handler,  ///< The modem awake event handler.
     uint8 pmNodeId,
     NodeModemWsBitMask wsBitmask
-);
+) =(6,7);
 
 
 //--------------------------------------------------------------------------------------------------
@@ -682,7 +720,7 @@ FUNCTION le_result_t SetNodeTargetedPowerMode
 (
     uint8 pmNodeId IN,               ///< The Node ID given.
     TargetedPowerMode powerMode IN   ///< The power mode to be set.
-);
+) =8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -700,7 +738,7 @@ FUNCTION le_result_t ShutdownReqAsync
     ShutdownMode              requstedMode  IN,   ///< Requested mode.
     AsyncShutdownReqHandler   handlerRef    IN,   ///< Handler Reference.
     ShutdownReason            reason        IN    ///< Shutdown reason.
-);
+) =9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -718,7 +756,7 @@ FUNCTION le_result_t RestartReqAsync
     RestartMode             restartMode  IN,   ///< Restart mode.
     AsyncRestartReqHandler  handlerRef   IN,   ///< Handler reference.
     RestartReason            reason      IN    ///< Restart reason.
-);
+) =10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -735,7 +773,7 @@ FUNCTION le_result_t WakeupVehicleReqAsync
 (
     int32           reason  IN,   ///< WakeupVehicle Reason.
     AsyncWakeupVehicleReqHandler  handlerRef   IN    ///< AsyncWakeupVehicleReq Handler reference.
-);
+) =11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -752,7 +790,7 @@ FUNCTION ws NewNodeWakeupSource (
     uint8 pmNodeId IN,               ///< The Node ID given.
     WakeupType  wakeupType IN,       ///< The wakeup type given.
     string vhalTag[WSREF_MAXLEN] IN  ///< The HAL tag information.
-);
+) =12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -771,7 +809,7 @@ FUNCTION ws NewNodeWakeupSource (
 FUNCTION le_result_t SetModemWakeupSource (
     uint32 wakeupSource IN       ///< The allowed wakeup sources bit map.
                                  ///< Bit 0 is for SMS, bit 1 is for incoming call, bit 2 is for MCU_VHAL.
-);
+) =13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -785,7 +823,7 @@ FUNCTION le_result_t SetModemWakeupSource (
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RelaxNode (
     ws wsRef IN    ///< The wakesource reference ID given.
-);
+) =14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -799,7 +837,7 @@ FUNCTION le_result_t RelaxNode (
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StayAwakeNode(
     ws wsRef IN     ///< The wakesource reference ID given.
-);
+) =15;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -815,7 +853,7 @@ FUNCTION le_result_t StayAwakeNode(
 FUNCTION le_result_t ShutdownNode
 (
     uint8 pmNodeId IN   ///< The Node ID given.
-);
+) =16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -831,7 +869,7 @@ FUNCTION le_result_t ShutdownNode
 FUNCTION le_result_t RestartNode
 (
     uint8 pmNodeId IN   ///< The Node ID given.
-);
+) =17;
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the status information report based on the given report ID.
@@ -847,7 +885,7 @@ FUNCTION le_result_t GetInfoReport
 (
     InfoDataId reportId IN,  ///< The status report ID.
     int32 report  OUT      ///< The status report.
-);
+) =18;
 //--------------------------------------------------------------------------------------------------
 /**
  * Sends the acknowledgement for the node power state change notification.
@@ -864,7 +902,7 @@ FUNCTION le_result_t SendNodePowerStateChangeAck
     uint8 pmNodeId IN,   ///< The Node ID given.
     nodePowerState Ref,
     NodeClientAck ack
-);
+) =19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -881,7 +919,7 @@ FUNCTION le_result_t SendNodePowerStateChangeAck
 FUNCTION le_result_t AuthorizeStayAwakeReason
 (
      StayAwakeReasonBitMask stayAwakeReasonMask
-);
+) =20;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -899,7 +937,7 @@ FUNCTION ws CreateWakeupSource (
     StayAwakeReason reason IN,       ///< The wakeup type given.
     WsOpt option,
     string wsTag[WSREF_MAXLEN] IN  ///< The HAL tag information.
-);
+) =21;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -913,7 +951,7 @@ FUNCTION ws CreateWakeupSource (
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Relax (
     ws wsRef IN    ///< The wakesource reference ID given.
-);
+) =22;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -927,7 +965,7 @@ FUNCTION le_result_t Relax (
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StayAwake(
     ws wsRef IN     ///< The wakesource reference ID given.
-);
+) =23;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -942,7 +980,7 @@ FUNCTION le_result_t SetNodeModemWakeupSel
 (
     uint8 pmNodeId IN,               ///< The Node ID given.
     NodeModemWsBitMask wsBitmask     ///< Modem wakeup selection to be whitelisted.
-);
+) =24;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -957,7 +995,7 @@ FUNCTION le_result_t GetNodeModemWakeupSel
 (
     uint8 pmNodeId IN,                   ///< The Node ID given.
     NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup selection to be whitelisted.
-);
+) =25;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -972,7 +1010,7 @@ FUNCTION le_result_t GetNodeModemAwakeReason
 (
     uint8 pmNodeId IN,                   ///< The Node ID given.
     NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup reason.
-);
+) =26;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -984,4 +1022,4 @@ FUNCTION le_result_t GetNodeModemAwakeReason
 FUNCTION le_result_t DeleteWakeupSource
 (
     ws wsRef IN     ///< The wakesource reference ID given.
-);
+) =27;

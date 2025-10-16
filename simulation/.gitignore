@@ -8,6 +8,7 @@ deps/.deps.origin
 workstation/telaf_simulation.tar.gz
 workstation/local_dev_home
 workstation/.check_done
+workstation/cg.version
 workstation/.which_one
 workstation/*.update
 workstation/sdk_rootfs

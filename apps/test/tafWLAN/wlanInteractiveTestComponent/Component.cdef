@@ -1,0 +1,17 @@
+sources:
+{
+    main.cpp
+    wlanInteractive.cpp
+    wlanApInteractive.cpp
+    wlanStaInteractive.cpp
+}
+
+requires:
+{
+    api:
+    {
+        taf_wlan.api
+        taf_wlanAp.api
+        taf_wlanSta.api
+    }
+}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -105,6 +105,10 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * App name length without null characters.
@@ -189,7 +193,7 @@ STRUCT AppInfo
 FUNCTION AppState GetState
 (
     string appName[APP_NAME_BYTES] IN ///< App name.
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -205,7 +209,7 @@ FUNCTION le_result_t GetVersion
 (
     string appName[APP_NAME_BYTES] IN,    ///< App name.
     string version[APP_VERSION_BYTES] OUT ///< App version.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -223,7 +227,7 @@ FUNCTION le_result_t GetVersion
 FUNCTION le_result_t Start
 (
     string appName[APP_NAME_BYTES] IN ///< App name.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -239,7 +243,7 @@ FUNCTION le_result_t Start
 FUNCTION le_result_t Stop
 (
     string appName[APP_NAME_BYTES] IN ///< App name.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -257,7 +261,7 @@ FUNCTION le_result_t Stop
 FUNCTION le_result_t Uninstall
 (
     string appName[APP_NAME_BYTES] IN ///< App name.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -270,7 +274,7 @@ FUNCTION le_result_t Uninstall
 //--------------------------------------------------------------------------------------------------
 FUNCTION AppList CreateAppList
 (
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -285,7 +289,7 @@ FUNCTION AppList CreateAppList
 FUNCTION le_result_t DeleteAppList
 (
     AppList appListRef IN ///< The reference to the app list.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -299,7 +303,7 @@ FUNCTION le_result_t DeleteAppList
 FUNCTION App GetFirstApp
 (
     AppList appListRef IN ///< The reference to the app list.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -313,7 +317,7 @@ FUNCTION App GetFirstApp
 FUNCTION App GetNextApp
 (
     AppList appListRef IN ///< The reference to the app list.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -331,4 +335,4 @@ FUNCTION le_result_t GetAppDetails
 (
     App appRef IN,      ///< The reference to the app.
     AppInfo appInfo OUT ///< App information.
-);
+) = 9;

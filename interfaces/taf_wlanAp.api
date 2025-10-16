@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 **/
 //------------------------------------------------------------------------------------------------
@@ -28,6 +28,13 @@
    @endverbatim
  *
  */
+//--------------------------------------------------------------------------------------------------
+
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
+
 //--------------------------------------------------------------------------------------------------
 USETYPES taf_wlan.api;
 USETYPES taf_net.api;
@@ -114,6 +121,10 @@ ENUM DeviceConnectionEvent{
  *
  * @instaging
  *
+ * @param[in] wlanAPRef  The WLAN AP reference.
+ * @param[in] event      The device connection event.
+ * @param[in] MACAddress The MAC address of the device.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER DeviceConnectionEventHandler(
@@ -134,7 +145,7 @@ EVENT DeviceConnectionEvent
 (
     WlanAP wlanAPRef                        IN,     //< The WLAN AP reference.
     DeviceConnectionEventHandler handler    IN     ///< The event handler reference.
-);
+) = (0,1);
 
 //-------------------------------------------------------------------------------------------------
 /*
@@ -156,7 +167,7 @@ EVENT DeviceConnectionEvent
 FUNCTION WlanAP GetWlanAP(
     taf_wlan.APid APid IN,                                  ///< AP identifier.
     string APIntfName[taf_net.INTERFACE_NAME_MAX_LEN]  IN   ///< AP associated host interface name.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -172,7 +183,7 @@ FUNCTION WlanAP GetWlanAP(
 FUNCTION le_result_t Start
 (
     WlanAP wlanAPRef   IN     ///< The WLAN AP reference.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -188,7 +199,7 @@ FUNCTION le_result_t Start
 FUNCTION le_result_t Stop
 (
     WlanAP wlanAPRef   IN     ///< The WLAN AP reference.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -204,7 +215,7 @@ FUNCTION le_result_t Stop
 FUNCTION le_result_t Restart
 (
     WlanAP wlanAPRef   IN     ///< The WLAN AP reference.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -221,7 +232,7 @@ FUNCTION le_result_t SetConfig
 (
     WlanAP       wlanAPRef   IN,     ///< The WLAN AP reference.
     WlanAPConfig Config      IN      ///< The WLAN AP configuration.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -238,7 +249,7 @@ FUNCTION le_result_t GetConfig
 (
     WlanAP       wlanAPRef  IN,     ///< The WLAN AP reference.
     WlanAPConfig Config     OUT     ///< The WLAN AP configuration.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -255,7 +266,7 @@ FUNCTION le_result_t SetSecurityConfig
 (
     WlanAP               wlanAPRef       IN,     ///< The WLAN AP reference.
     WlanAPSecurityConfig SecurityConfig  IN      ///< The WLAN AP security configuration.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -272,7 +283,7 @@ FUNCTION le_result_t GetSecurityConfig
 (
     WlanAP               wlanAPRef       IN,     ///< The WLAN AP reference.
     WlanAPSecurityConfig SecurityConfig  OUT     ///< The WLAN AP security configuration.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -289,7 +300,7 @@ FUNCTION le_result_t GetStatus
 (
     WlanAP       wlanAPRef  IN,     ///< The WLAN AP reference.
     WlanAPStatus Status     OUT     ///< The WLAN AP status.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -308,4 +319,4 @@ FUNCTION le_result_t GetConnectedDevices
     uint16   numDevices OUT,     ///< Number of devices connected to the AP.
     WlanAPConnectedDeviceInfo DevInfo[MAX_CONNECTED_DEVICES] OUT
                                 ///< Connected device information.
-);
+) = 11;

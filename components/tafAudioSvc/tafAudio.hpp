@@ -278,6 +278,8 @@ typedef struct {
     std::vector<std::pair<int, int>> frequencyList{};
     const char* dtmfChars;
     le_result_t result;
+    le_msg_SessionRef_t sessionRef;
+    taf_audio_StreamRef_t streamRef;
 }taf_Dtmf_t;
 
 /**

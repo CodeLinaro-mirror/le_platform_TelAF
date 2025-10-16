@@ -196,6 +196,10 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 USETYPES taf_ks.api;
 USETYPES le_limit.api;
 
@@ -271,7 +275,7 @@ STRUCT SharedAppInfo
 FUNCTION le_result_t GetUsedSize
 (
     uint32  size       OUT   ///< Used size.
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -287,7 +291,7 @@ FUNCTION le_result_t GetUsedSize
 FUNCTION le_result_t GetFreeSize
 (
     uint32  size       OUT   ///< Free size.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -305,7 +309,7 @@ FUNCTION le_result_t GetFreeSize
 FUNCTION le_result_t CreateData
 (
     string dataName[MAX_DATA_LABEL_BYTES]  IN   ///< Data name.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -321,7 +325,7 @@ FUNCTION le_result_t CreateData
 FUNCTION Data GetDataRef
 (
     string dataLabel[MAX_DATA_LABEL_BYTES]  IN   ///< Data label.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -341,7 +345,7 @@ FUNCTION Data GetDataRef
 FUNCTION le_result_t WriteDataStart
 (
     Data dataRef IN   ///< Data reference.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -364,7 +368,7 @@ FUNCTION le_result_t WriteDataChunk
 (
     Data dataRef                      IN,   ///< Data reference.
     uint8 buffer[MAX_DATA_CHUNK_SIZE] IN    ///< Data buffer.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -383,7 +387,7 @@ FUNCTION le_result_t WriteDataChunk
 FUNCTION le_result_t WriteDataEnd
 (
     Data dataRef IN   ///< Data reference.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -404,7 +408,7 @@ FUNCTION le_result_t ReadDataFirstChunk
 (
     Data dataRef                      IN,   ///< Data reference.
     uint8 buffer[MAX_DATA_CHUNK_SIZE] OUT   ///< Data buffer.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -426,7 +430,7 @@ FUNCTION le_result_t ReadDataNextChunk
 (
     Data dataRef                      IN,   ///< Data reference.
     uint8 buffer[MAX_DATA_CHUNK_SIZE] OUT   ///< Data buffer.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -444,7 +448,7 @@ FUNCTION le_result_t GetDataSize
 (
     Data dataRef    IN,   ///< Data reference.
     uint32 dataSize OUT   ///< Data Size.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -462,7 +466,7 @@ FUNCTION le_result_t GetDataSize
 FUNCTION le_result_t DeleteData
 (
     Data dataRef IN   ///< Data reference.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -490,7 +494,7 @@ FUNCTION le_result_t ShareData
     Data dataRef                            IN, ///< Data reference.
     string appName[le_limit.APP_NAME_LEN]   IN, ///< Name of the app that the data is shared to.
     DataUsage usage                         IN  ///< Data usage shared to use.
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -510,7 +514,7 @@ FUNCTION le_result_t CancelDataSharing
 (
     Data dataRef                            IN, ///< Data reference.
     string appName[le_limit.APP_NAME_LEN]   IN  ///< Name of the app that the data is shared to before.
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -530,7 +534,7 @@ FUNCTION le_result_t GetFirstSharedApp
     Data dataRef                            IN,  ///< Data reference.
     string appName[le_limit.APP_NAME_LEN]   OUT, ///< Name of the app that the data is shared to.
     DataUsage usage                         OUT  ///< Data usage shared to use.
-);
+) = 13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -550,7 +554,7 @@ FUNCTION le_result_t GetNextSharedApp
     Data dataRef                            IN,  ///< Data reference.
     string appName[le_limit.APP_NAME_LEN]   OUT, ///< Name of the app that the data is shared to.
     DataUsage usage                         OUT  ///< Data usage shared to use.
-);
+) = 14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -558,6 +562,10 @@ FUNCTION le_result_t GetNextSharedApp
  *
  * @instaging
  *
+ * @param[in] dataName   Data name.
+ * @param[in] appName    Name of the owner app of the data.
+ * @param[in] state      Data state.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER DataStateChangeHandler
@@ -584,4 +592,4 @@ EVENT DataStateChange
     string appName[le_limit.APP_NAME_LEN]   IN,  ///< Name of the owner app of the data.
     DataStateChangeHandler handler          IN   ///< Handler is called when the required data of the
                                                  ///< application shared to the calling application.
-);
+) = (15,16);

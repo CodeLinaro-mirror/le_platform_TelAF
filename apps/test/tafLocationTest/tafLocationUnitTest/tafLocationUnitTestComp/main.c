@@ -9,11 +9,15 @@ static le_mem_PoolRef_t DrFramePool = NULL;
 static le_mem_PoolRef_t LevArmFramePool = NULL;
 
 static le_sem_Ref_t PositionHandlerSem;
+static le_thread_Ref_t positionThreadRef = NULL;
+static le_thread_Ref_t samplePositionThreadRef = NULL;
 static taf_locGnss_PositionHandlerRef_t PositionHandlerRef = NULL;
 static taf_locPos_MovementHandlerRef_t  SamplePositionHandlerRef = NULL;
 static taf_locGnss_NmeaHandlerRef_t NmeaHandlerRef = NULL;
 static taf_locGnss_CapabilityChangeHandlerRef_t CapabilityChangeHandlerRef = NULL;
 
+int report_count = 0;
+int MaxReportNum = 25;
 
 void PrintGnssSignalType(uint32_t signalTypeMask) {
    LE_TEST_INFO("Signals: ");
@@ -87,6 +91,21 @@ void PrintGnssSignalType(uint32_t signalTypeMask) {
      LE_TEST_INFO("No signal, ");
    }
 }
+
+static void* StopSession()
+{
+    LE_TEST_INFO("Calling StopSession for PositionHandlerRef:%p", PositionHandlerRef);
+
+    LE_TEST_OK(taf_locGnss_Stop() == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    LE_TEST_INFO("Calling taf_locGnss_RemovePositionHandler!!");
+    taf_locGnss_RemovePositionHandler(PositionHandlerRef);
+
+    LE_TEST_INFO("After Removal PositionHandlerRef:%p", PositionHandlerRef);
+
+    return NULL;
+}
+
 
 static void PositionHandlerFunction
 (
@@ -1586,8 +1605,14 @@ static void PositionHandlerFunction
 
     LE_TEST_INFO("taf_locGnss_ReleaseSampleRef is triggered");
     taf_locGnss_ReleaseSampleRef(positionSampleRef);
-    le_sem_Post(PositionHandlerSem);
 
+    report_count++;
+    LE_TEST_INFO("Report count: %d", report_count);
+    if (report_count > MaxReportNum)
+    {
+        LE_TEST_INFO("Max number of reports fetched!!");
+        le_event_QueueFunctionToThread(positionThreadRef, (le_event_DeferredFunc_t)StopSession, NULL, NULL);
+    }
 }
 
 static void SamplePositionHandler
@@ -1787,7 +1812,6 @@ static void TestTafSamplePositionHandler
     void
 )
 {
-    le_thread_Ref_t positionThreadRef;
     taf_locPosCtrl_ActivationRef_t activationRef;
     LE_INFO("TestTafSamplePositionHandler");
 
@@ -1797,16 +1821,16 @@ static void TestTafSamplePositionHandler
     LE_TEST_OK((activationRef!=NULL),"taf_locPosCtrl_Request-LE_OK");
 
     // Add Position Handler Test
-    positionThreadRef = le_thread_Create("PositionThreadTest",SamplePositionThread,NULL);
-    LE_INFO("TestTafSamplePositionHandler positionThreadRef :%p",positionThreadRef);
-    le_thread_Start(positionThreadRef);
-    LE_INFO("TestTafSamplePositionHandler PositionHandlerRef :%p",PositionHandlerRef);
+    samplePositionThreadRef = le_thread_Create("SamplePositionThreadTest",SamplePositionThread,NULL);
+    LE_INFO("TestTafSamplePositionHandler samplePositionThreadRef :%p",samplePositionThreadRef);
+    le_thread_Start(samplePositionThreadRef);
+
     LE_TEST_INFO("Wait for 3 seconds to trigger SamplePositionHandlerfunction");
     le_thread_Sleep(3);
     taf_locPos_RemoveMovementHandler(SamplePositionHandlerRef);
 
-    LE_INFO("TestTafGnssPositionHandler->cancel the thread");
-    le_thread_Cancel(positionThreadRef);
+    LE_INFO("TestTafGnssSamplePositionHandler->cancel the thread");
+    le_thread_Cancel(samplePositionThreadRef);
 
     //183.Stop
     LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting GNSS fixes");
@@ -1822,7 +1846,6 @@ static void TestTafGnssPositionHandler
 )
 {
 
-    le_thread_Ref_t positionThreadRef;
     LE_INFO("TestTafGnssPositionHandler");
 
     //136. taf_locGnss_Start() This will trigger startDetailedEngineReports() TelSDK API
@@ -1834,17 +1857,12 @@ static void TestTafGnssPositionHandler
     positionThreadRef = le_thread_Create("PositionThreadTest",PositionThread,NULL);
     LE_INFO("TestTafGnssPositionHandler positionThreadRef :%p",positionThreadRef);
     le_thread_Start(positionThreadRef);
-    LE_INFO("TestTafGnssPositionHandler PositionHandlerRef :%p",PositionHandlerRef);
-    LE_TEST_INFO("Wait for 3 seconds to trigger PositionHandlerfunction");
-    le_thread_Sleep(3);
-    taf_locGnss_RemovePositionHandler(PositionHandlerRef);
+
+    LE_TEST_INFO("Wait for 10 seconds to trigger PositionHandlerfunction");
+    le_thread_Sleep(10);
 
     LE_INFO("TestTafGnssPositionHandler->cancel the thread");
     le_thread_Cancel(positionThreadRef);
-
-    //156.Stop
-    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting GNSS fixes");
-    LE_TEST_OK(taf_locGnss_Stop() == LE_OK, "taf_locGnss_Stop-LE_OK");
 }
 
 

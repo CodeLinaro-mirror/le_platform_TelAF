@@ -28,8 +28,8 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -331,6 +331,10 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  *  Position sample reference type.
@@ -346,13 +350,15 @@ DEFINE TAF_LOCPOS_MAX_OBJ = 1;
 //--------------------------------------------------------------------------------------------------
 
 /**
- * Handler for movement changes that returns the reference of a reported position sample.
+ * Handler for movement changes that updates the position sample reference passed as a parameter.
  *
+ * @param[in] positionSampleRef  Reference of the reported position sample.
+ * @param[in]  contextPtr         Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER MovementHandler
 (
- Sample positionSampleRef ///< [OUT] Reference of the reported position sample.
+ Sample positionSampleRef IN    ///<  Reference of the reported position sample.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -366,7 +372,7 @@ EVENT Movement
  uint32 horizontalMagnitude IN, ///< Horizontal magnitude in meters.
  uint32 verticalMagnitude IN,   ///< Vertical magnitude in meters.
  MovementHandler handler
-);
+) = (0,1);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -385,7 +391,7 @@ FUNCTION le_result_t Get2DLocation
  int32 latitude OUT,     ///< WGS84 latitude in degrees.
  int32 longitude OUT,    ///< WGS84 longitude in degrees.
  int32 hAccuracy OUT     ///< Horizontal accuracy in meters by default.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -405,7 +411,7 @@ FUNCTION le_result_t GetDate
  uint16 year OUT,             ///< UTC Year A.D., e.g. 2014.
  uint16 month OUT,            ///< UTC Month into the year; range is 1 to 12.
  uint16 day OUT               ///< UTC Days into the month; range is 1 to 31.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -422,7 +428,7 @@ FUNCTION le_result_t GetDate
 FUNCTION le_result_t GetFixState
 (
  taf_locGnss.FixState state OUT              ///< Position fix state.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -445,7 +451,7 @@ FUNCTION le_result_t GetMotion
  uint32 hSpeedAccuracy OUT,   ///< Horizontal speed accuracy in m/sec.
  int32 vSpeed OUT,            ///< Vertical speed in m/sec.
  int32 vSpeedAccuracy OUT     ///< Vertical speed accuracy in m/sec.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -467,7 +473,7 @@ FUNCTION le_result_t GetDirection
 (
  uint32 direction OUT,           ///< Direction indication in degrees; range is 0 to 359.
  uint32 directionAccuracy OUT    ///< Direction's accuracy estimation in degrees.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -486,7 +492,7 @@ FUNCTION le_result_t GetTime
  uint16 minutes OUT,          ///< UTC Minutes of the hour; range is 0 to 59.
  uint16 seconds OUT,          ///< UTC Seconds of the minute; range is 0 to 59.
  uint16 milliseconds OUT      ///< UTC Milliseconds of the second; range is 0 to 999.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -500,7 +506,7 @@ FUNCTION le_result_t GetTime
 FUNCTION le_result_t SetAcquisitionRate
 (
  uint32  acquisitionRate IN  ///< Acquisition Rate in milliseconds.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -512,7 +518,7 @@ FUNCTION le_result_t SetAcquisitionRate
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetAcquisitionRate
 (
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -526,7 +532,7 @@ FUNCTION uint32 GetAcquisitionRate
 FUNCTION sample_Release
 (
  Sample positionSampleRef            ///< Position sample reference.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -562,7 +568,7 @@ FUNCTION le_result_t Get3DLocation
     int32 hAccuracy OUT,    ///< Horizontal accuracy in meters by default.
     int32 altitude OUT,     ///< Altitude above mean sea level in meters by default.
     int32 vAccuracy OUT     ///< Vertical accuracy in meters by default.
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -586,7 +592,7 @@ FUNCTION le_result_t sample_Get2DLocation
     int32 latitude OUT,           ///< WGS84 latitude in degrees.
     int32 longitude OUT,          ///< WGS84 longitude in degrees.
     int32 horizontalAccuracy OUT  ///< Horizontal accuracy in meters by default.
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -608,7 +614,7 @@ FUNCTION le_result_t sample_GetAltitude
     Sample positionSampleRef,           ///< Position sample reference.
     int32 altitude OUT,                 ///< Altitude above mean sea level in meters by default.
     int32 altitudeAccuracy OUT          ///< Vertical accuracy in meters by default.
-);
+) = 13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -627,7 +633,7 @@ FUNCTION le_result_t sample_GetTime
     uint16 minutes OUT,          ///< UTC minutes of the hour; range is 0 to 59.
     uint16 seconds OUT,          ///< UTC seconds of the minute; range is 0 to 59.
     uint16 milliseconds OUT      ///< UTC milliseconds of the second; range is 0 to 999.
-);
+) = 14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -649,7 +655,7 @@ FUNCTION le_result_t sample_GetHorizontalSpeed
     Sample positionSampleRef,           ///< Position sample reference.
     uint32 hSpeed OUT,                  ///< The horizontal speed in m/sec.
     uint32 hSpeedAccuracy OUT           ///< The horizontal accuracy in m/sec.
-);
+) = 15;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -674,7 +680,7 @@ FUNCTION le_result_t sample_GetDirection
     Sample positionSampleRef,           ///< Position sample reference.
     uint32 direction OUT,               ///< Direction indication in degrees.
     uint32 directionAccuracy OUT        ///< Direction's accuracy estimation in degrees.
-);
+) = 16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -696,7 +702,7 @@ FUNCTION le_result_t sample_GetVerticalSpeed
     Sample positionSampleRef,           ///< Position sample reference
     int32 vspeed OUT,                   ///< The vertical speed in m/sec.
     int32 vspeedAccuracy OUT            ///< The vertical speed's accuracy in m/sec.
-);
+) = 17;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -715,7 +721,7 @@ FUNCTION le_result_t sample_GetVerticalSpeed
 FUNCTION le_result_t SetDistanceResolution
 (
     Resolution resolution IN        ///< Resolution.
-);
+) = 18;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -733,7 +739,7 @@ FUNCTION le_result_t sample_GetFixState
 (
     Sample positionSampleRef,           ///< Position sample reference.
     taf_locGnss.FixState state OUT         ///< Position fix state.
-);
+) = 19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -752,4 +758,4 @@ FUNCTION le_result_t sample_GetDate
     uint16 year OUT,             ///< UTC year
     uint16 month OUT,            ///< UTC month of the year; range is 1 to 12.
     uint16 day OUT               ///< UTC day of the month; range is 1 to 31.
-);
+) = 20;

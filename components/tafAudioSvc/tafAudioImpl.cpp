@@ -328,8 +328,21 @@ void taf_Audio::ClientSessionCloseEventHandler
 )
 {
     auto &audio = taf_Audio::GetInstance();
-
+    le_result_t result = LE_FAULT;
     LE_DEBUG("ClientSessionCloseEventHandler sessionRef : %p", sessionRef);
+
+    if(audio.mDtmfStarted && audio.dtmfDataRx.sessionRef == sessionRef)
+    {
+        LE_DEBUG("Stop on going DTMF");
+        result = audio.StopDtmf(audio.dtmfDataRx.streamRef);
+        TAF_ERROR_IF_RET_NIL( result != LE_OK, "Failed to stop dtmf");
+    }
+    if(audio.mDtmfStartedTx && audio.dtmfDataTx.sessionRef == sessionRef)
+    {
+        LE_DEBUG("Stop on going DTMF signalling");
+        result = audio.StopSignallingDtmf(audio.dtmfDataTx.slotId);
+        TAF_ERROR_IF_RET_NIL( result != LE_OK, "Failed to stop dtmf signalling");
+    }
 
     // Close audio streams
     // This is a two stage process: parse audio stream reference map
@@ -402,7 +415,7 @@ void taf_Audio::ClientSessionCloseEventHandler
 
     iteratorRef = le_ref_GetIterator(audio.ConnectorRefMap);
 
-    le_result_t result = le_ref_NextNode(iteratorRef);
+    result = le_ref_NextNode(iteratorRef);
     // Close connectors
     while ( result == LE_OK )
     {
@@ -4514,7 +4527,7 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
                         le_sem_Post(audio.mDtmfStartedSemRef);
                         playingFirstDtmf = false;
                     }
-                    return NULL;
+                    break;
                 }
                 audio.mDtmfStarted = true;
                 if(playingFirstDtmf) {
@@ -4527,7 +4540,7 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
                     le_sem_Post(audio.mDtmfStartedSemRef);
                     playingFirstDtmf = false;
                 }
-                return NULL;
+                break;
             }
 
             if(dtmfData->durationRx == INFINITE_TONE_DURATION) {
@@ -4630,7 +4643,7 @@ void* taf_Audio::playDTMFonTX(void* dtmfTones) {
                         dtmfData->result = LE_FAULT;
                         le_sem_Post(audio.mDtmfStartedSemRefTx);
                     }
-                    return NULL;
+                    break;
                 }
                 if(playingFirstDtmf) {
                     dtmfData->result = LE_OK;
@@ -4685,6 +4698,7 @@ le_result_t taf_Audio::PlaySignallingDtmf
     dtmfDataTx.dtmfChars = dtmfPtr;
     dtmfDataTx.slotId = slotId;
     dtmfDataTx.result = LE_FAULT;
+    dtmfDataTx.sessionRef = taf_audio_GetClientSessionRef();
 
     mDtmfStartedSemRefTx = le_sem_Create("tafDtmfStartedSemRefTx", 0);
     le_thread_Start(le_thread_Create("DtmfThreadTx", playDTMFonTX, &dtmfDataTx));
@@ -4721,6 +4735,8 @@ le_result_t taf_Audio::PlayDtmf
     dtmfDataRx.pause = upause;
     dtmfDataRx.dtmfGain = gain;
     dtmfDataRx.frequencyList.clear();
+    dtmfDataRx.sessionRef = taf_audio_GetClientSessionRef();
+    dtmfDataRx.streamRef = rStreamRef;
 
     if (mAudioVoiceStream && mVoiceEnabled1) {
         while (*dtmfPtr != '\0') {

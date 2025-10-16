@@ -20,13 +20,13 @@ RUN apt-get -y --no-install-recommends install file
 RUN apt-get -y --no-install-recommends install libcap-dev
 RUN apt-get -y --no-install-recommends install libssl-dev
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install wget
-RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install git
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install unzip
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install openjdk-8-jre-headless
 
 RUN apt-get -y --no-install-recommends install python2
 RUN apt-get -y --no-install-recommends install python-setuptools
 RUN apt-get -y --no-install-recommends install python-jinja2
+RUN apt-get -y --no-install-recommends install python-dev
 
 RUN apt-get -y --no-install-recommends install python3
 RUN apt-get -y --no-install-recommends install python3-pip

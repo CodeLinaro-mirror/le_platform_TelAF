@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -184,6 +184,10 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 USETYPES taf_types.api;
 
 //-------------------------------------------------------------------------------------------------
@@ -274,7 +278,7 @@ REFERENCE RxWriteDIDMsg;
 //-------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
 (
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -294,11 +298,15 @@ FUNCTION le_result_t SetVlanId
 (
     Service svcRef IN,      ///< Service reference.
     uint16 vlanId IN        ///< VLAN ID.
-);
+) = 1;
 
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a received ReadDID message.
+ *
+ * @param[in] rxMsgRef   Received message reference.
+ * @param[in] dataId     Data identifier.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER RxReadDIDMsgHandler
@@ -316,7 +324,7 @@ EVENT RxReadDIDMsg
 (
     Service svcRef IN,             ///< Service reference.
     RxReadDIDMsgHandler handler    ///< Received message handler.
-);
+) = (2,3);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -338,17 +346,21 @@ FUNCTION le_result_t SendReadDIDResp
     RxReadDIDMsg rxMsgRef  IN,                   ///< Received message reference.
     uint8 errCode  IN,                           ///< Error code type.
     uint8 data[MAX_READ_DID_PAYLOAD_SIZE]  IN    ///< Data payload.
-);
+) = 4;
 
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a received WriteDID message.
+ *
+ * @param[in] rxMsgRef   Received message reference.
+ * @param[in] dataId     Data identifier.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER RxWriteDIDMsgHandler
 (
     RxWriteDIDMsg rxMsgRef  IN,    ///< Received message reference.
-    uint16 dataId  IN              ///< Data identifier
+    uint16 dataId  IN              ///< Data identifier.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -360,7 +372,7 @@ EVENT RxWriteDIDMsg
 (
     Service svcRef IN,              ///< Service reference.
     RxWriteDIDMsgHandler handler    ///< Received message handler.
-);
+) = (5,6);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -378,7 +390,7 @@ FUNCTION le_result_t GetWriteDataRecord
 (
     RxWriteDIDMsg rxMsgRef  IN,                        ///< Received message reference.
     uint8 dataRecord[MAX_DID_DATA_RECORD_SIZE]  OUT    ///< Data record.
-);
+) = 7;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -400,7 +412,7 @@ FUNCTION le_result_t SendWriteDIDResp
     RxWriteDIDMsg rxMsgRef  IN,       ///< Received message reference.
     uint8 errCode  IN,                ///< Error code type.
     uint16 dataId  IN                 ///< data identifier.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -418,7 +430,7 @@ FUNCTION le_result_t GetVlanIdFromMsg
 (
     RxMsg rxMsgRef  IN,         ///< ReadDID or WriteDID received message reference.
     uint16 vlanId   OUT         ///< VLAN ID.
-);
+) = 9;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -432,4 +444,4 @@ FUNCTION le_result_t GetVlanIdFromMsg
 FUNCTION le_result_t RemoveSvc
 (
     Service svcRef  IN    ///< Service reference.
-);
+) =  10;

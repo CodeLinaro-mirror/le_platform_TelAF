@@ -264,6 +264,9 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 USETYPES taf_types.api;
 
 //--------------------------------------------------------------------------------------------------
@@ -420,7 +423,7 @@ REFERENCE NrcStatus;
 //--------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
 (
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -442,17 +445,21 @@ FUNCTION le_result_t SetVlanId
 (
     Service svcRef IN,      ///< Service reference.
     uint16 vlanId IN        ///< VLAN ID.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a RequestFileTransfer message.
+ *
+ * @param[in] rxMsgRef   Received message reference.
+ * @param[in] modeOfOps  Mode of operation.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RxFileXferMsgHandler
 (
     RxFileXferMsg rxMsgRef IN,     ///< Received message reference.
-    ModeOfOpsType modeOfOps IN     ///< Mode of operation
+    ModeOfOpsType modeOfOps IN     ///< Mode of operation.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -464,7 +471,7 @@ EVENT RxFileXferMsg
 (
     Service svcRef IN,              ///< Service reference.
     RxFileXferMsgHandler handler    ///< Received message handler.
-);
+) = (2,3);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -483,7 +490,7 @@ FUNCTION le_result_t GetFilePathAndName
 (
     RxFileXferMsg rxMsgRef                  IN,    ///< Receive message reference.
     uint8 fileName[MAX_PATH_AND_NAME_SIZE]  OUT    ///< File path and name.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -501,7 +508,7 @@ FUNCTION le_result_t GetDataFormatID
 (
     RxFileXferMsg rxMsgRef  IN,    ///< Receive message reference.
     uint8 dataFormatID      OUT    ///< Data format ID.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -519,7 +526,7 @@ FUNCTION le_result_t GetUnCompFileSize
 (
     RxFileXferMsg rxMsgRef  IN,    ///< Received message reference.
     uint32 unCompFileSize   OUT    ///< Size of the uncompressed file.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -537,7 +544,7 @@ FUNCTION le_result_t GetCompFileSize
 (
     RxFileXferMsg rxMsgRef  IN,    ///< Received message reference.
     uint32 compFileSize     OUT    ///< Size of the compressed file.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -555,7 +562,7 @@ FUNCTION le_result_t SetFilePosition
 (
     RxFileXferMsg rxMsgRef IN,  ///< Received message reference.
     uint64 filePosition    IN   ///< Specifies the byte position for downloading file resume.
-);
+) = 8;
 
 
 //--------------------------------------------------------------------------------------------------
@@ -577,7 +584,7 @@ FUNCTION le_result_t SetFileSizeOrDirInfoLength
     RxFileXferMsg rxMsgRef                     IN, ///< Received message reference.
     uint64 fileSizeUncompressedOrDirInfoLength IN, ///< Specifies the size of the uncompressed file to be uploaded or the length of the directory information to be read in bytes.
     uint64 fileSizeCompressed                  IN  ///< Specifies the size of the compressed file in bytes.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -599,11 +606,14 @@ FUNCTION le_result_t SendFileXferResp
 (
     RxFileXferMsg rxMsgRef       IN,    ///< Received message reference.
     FileXferErrorCode errCode    IN     ///< Error code type.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a TransferData message.
+ *
+ * @param[in] rxMsgRef   Received message reference.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RxXferDataMsgHandler
@@ -620,7 +630,7 @@ EVENT RxXferDataMsg
 (
     Service svcRef IN,              ///< Service reference.
     RxXferDataMsgHandler handler    ///< Received message handler.
-);
+) = (11,12);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -638,7 +648,7 @@ FUNCTION le_result_t GetblockSeqCount
 (
     RxXferDataMsg rxMsgRef IN,    ///< Received message reference.
     uint8 count            OUT    ///< Block sequence counter.
-);
+) = 13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -656,7 +666,7 @@ FUNCTION le_result_t GetXferDataParamRecLen
 (
     RxXferDataMsg rxMsgRef    IN,    ///< Received message reference.
     uint16 xferDataRecLen     OUT    ///< Transfer data request parameter record length.
-);
+) = 14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -675,7 +685,7 @@ FUNCTION le_result_t GetXferDataParamRec
 (
     RxXferDataMsg rxMsgRef                      IN,    ///< Received message reference.
     uint8 xferDataRec[MAX_XFER_PARAM_REC_SIZE]  OUT    ///< Transfer data request parameter record.
-);
+) = 15;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -698,11 +708,14 @@ FUNCTION le_result_t SendXferDataResp
     RxXferDataMsg rxMsgRef        IN,    ///< Received message reference.
     XferDataErrorCode errCode     IN,    ///< Error code type.
     uint8 data[MAX_PAYLOAD_SIZE]  IN     ///< Payload data.
-);
+) = 16;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a RequestTransferExit message.
+ *
+ * @param[in] rxMsgRef   Received message reference.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RxXferExitMsgHandler
@@ -719,7 +732,7 @@ EVENT RxXferExitMsg
 (
     Service svcRef IN,              ///< Service reference.
     RxXferExitMsgHandler handler    ///< Received message handler.
-);
+) = (17,18);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -737,7 +750,7 @@ FUNCTION le_result_t GetXferExitParamRecLen
 (
     RxXferExitMsg rxMsgRef    IN,    ///< Received message reference.
     uint16 exitDataRecLen     OUT    ///< Transfer exit request parameter record length.
-);
+) = 19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -756,7 +769,7 @@ FUNCTION le_result_t GetXferExitParamRec
 (
     RxXferExitMsg rxMsgRef                      IN,    ///< Received message reference.
     uint8 exitDataRec[MAX_XFER_PARAM_REC_SIZE]  OUT    ///< Transfer exit request parameter record.
-);
+) = 20;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -779,7 +792,7 @@ FUNCTION le_result_t SendXferExitResp
     RxXferExitMsg rxMsgRef        IN,    ///< Received message reference.
     XferExitErrorCode errCode     IN,    ///< Error code type.
     uint8 data[MAX_PAYLOAD_SIZE]  IN     ///< Payload data.
-);
+) = 21;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -797,7 +810,21 @@ FUNCTION le_result_t GetVlanIdFromMsg
 (
     RxMsg rxMsgRef  IN,         ///< Received message reference.
     uint16 vlanId   OUT         ///< VLAN ID.
-);
+) = 22;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes the Update server service.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveSvc
+(
+    Service svcRef  IN    ///< Service reference.
+) = 23;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -825,7 +852,7 @@ EVENT NrcStatus
 (
     Service svcRef,               ///< Service reference.
     NrcStatusHandler handler      ///< NRC status handler.
-);
+) = (24,25);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -840,18 +867,5 @@ EVENT NrcStatus
 FUNCTION le_result_t ReleaseNrcStatusMsg
 (
     NrcStatus statusRef  IN    ///< Tester state reference.
-);
+) = 26;
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Removes the Update server service.
- *
- * @return
- *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Invalid svcRef.
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t RemoveSvc
-(
-    Service svcRef  IN    ///< Service reference.
-);

@@ -259,6 +259,10 @@ const char * VoiceCallSvc::EventToString(taf_voicecall_Event_t event)
             retPtr = "resource_busy";
         break;
 
+        case TAF_VOICECALL_EVENT_OFFLINE:
+            retPtr = "event_offline";
+        break;
+
         default:
             LE_ERROR("Received unexpected event[%d]", event);
         break;

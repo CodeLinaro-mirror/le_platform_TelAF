@@ -42,6 +42,41 @@
             "name" : "taf_locPosCtrl",
             "user" : "telaf",
             "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_mngdPm",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_mngdStorSecFile",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_mngdStorCfg",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_diagDataID",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_diagDTC",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_hms",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_sim",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
         }
     ]
 }

@@ -43,6 +43,10 @@
  *
  */
 //--------------------------------------------------------------------------------------------------
+
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 USETYPES taf_net.api;
 
 //--------------------------------------------------------------------------------------------------
@@ -287,12 +291,15 @@ REFERENCE Wlan;
  *
  * @instaging
  *
+ * @param[in] WlanRef    The WLAN reference. Set to NULL. Reserved for future use.
+ * @param[in] state      The device state.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER DeviceStateHandler
 (
     Wlan WlanRef      IN, ///< The WLAN reference. Set to NULL. Reserved for future use.
-    DeviceState state IN
+    DeviceState state IN  ///< The device state.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -307,7 +314,7 @@ EVENT DeviceState
 (
     Wlan WlanRef               IN, ///< The WLAN reference. Reserved for future use.
     DeviceStateHandler handler IN
-);
+) = (0,1);
 
 //-------------------------------------------------------------------------------------------------
 /*
@@ -330,7 +337,7 @@ EVENT DeviceState
 FUNCTION le_result_t TurnOn
 (
     Wlan WlanRef      IN ///< The WLAN reference. Reserved for future use.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -347,7 +354,7 @@ FUNCTION le_result_t TurnOn
 FUNCTION le_result_t TurnOff
 (
     Wlan WlanRef      IN ///< The WLAN reference. Reserved for future use.
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -365,7 +372,7 @@ FUNCTION le_result_t GetState
 (
     Wlan WlanRef      IN,     ///< The WLAN reference. Reserved for future use.
     DeviceState state OUT     ///< WLAN device state.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -383,7 +390,7 @@ FUNCTION le_result_t SetMode
 (
     Wlan WlanRef         IN, ///< The WLAN reference. Reserved for future use.
     DeviceMode wlanMode  IN  ///< The WLAN device mode.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -401,7 +408,7 @@ FUNCTION le_result_t GetMode
 (
     Wlan WlanRef         IN,  ///< The WLAN reference. Reserved for future use.
     DeviceMode wlanMode  OUT  ///< The WLAN device mode.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -421,7 +428,7 @@ FUNCTION le_result_t GetIntfInfo
     Wlan WlanRef IN,                           ///< The WLAN reference. Reserved for future use.
     APIntfInfo  APIntfinfo[MAX_NUM_AP] OUT,    ///< The WLAN AP interfaces information.
     STAIntfInfo STAIntfinfo[MAX_NUM_STA] OUT   ///< The WLAN STA interfaces information.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -440,7 +447,7 @@ FUNCTION le_result_t GetBandIntState
 (
     Wlan                         WlanRef    IN,  ///< The WLAN reference. Reserved for future use.
     BandIntState                 state     OUT   ///< The band interference configuration state.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -461,7 +468,7 @@ FUNCTION le_result_t SetBandIntState
 (
     Wlan                         WlanRef    IN,  ///< The WLAN reference. Reserved for future use.
     BandIntState                 state      IN   ///< The band interference configuration state.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -481,7 +488,7 @@ FUNCTION le_result_t GetBandIntPriority
 (
     Wlan                         WlanRef      IN,  ///< The WLAN reference. Reserved for future use.
     BandIntPriority              bandPriority OUT  ///< The band interference priority.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -503,7 +510,7 @@ FUNCTION le_result_t SetBandIntPriority
 (
     Wlan                         WlanRef      IN,  ///< The WLAN reference. Reserved for future use.
     BandIntPriority              bandPriority IN   ///< The band interference priority.
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -524,7 +531,7 @@ FUNCTION le_result_t GetBandIntWaitTime
     Wlan                         WlanRef   IN,   ///< The WLAN reference. Reserved for future use.
     BandIntPriority              band      IN,   ///< The band for which wait time is needed.
     uint32                       waitTime  OUT   ///< The wait time in seconds.
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -560,4 +567,4 @@ FUNCTION le_result_t SetBandIntWaitTime
     Wlan                         WlanRef   IN,  ///< The WLAN reference. Reserved for future use.
     BandIntPriority              band      IN,  ///< The band for which to set the wait time.
     uint32                       waitTime  IN   ///< The wait time in seconds.
-);
+) = 13;

@@ -66,6 +66,9 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * OTA operation status enum.
@@ -111,7 +114,7 @@ REFERENCE Metrics;
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendOtaStartMsg
 (
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -124,7 +127,7 @@ FUNCTION le_result_t SendOtaStartMsg
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendOtaResumeMsg
 (
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -138,7 +141,7 @@ FUNCTION le_result_t SendOtaResumeMsg
 FUNCTION le_result_t SendOtaEndMsg
 (
     OtaOperationStatus otaStatus IN ///< OTA operation status.
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -151,7 +154,7 @@ FUNCTION le_result_t SendOtaEndMsg
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendOtaAbsyncMsg
 (
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -165,7 +168,7 @@ FUNCTION le_result_t SendOtaAbsyncMsg
 FUNCTION le_result_t SendSyncStatusMsg
 (
     SyncStatus status IN ///< Sync status.
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -178,7 +181,7 @@ FUNCTION le_result_t SendSyncStatusMsg
 FUNCTION le_result_t MeasureEfsMetrics
 (
     Metrics MetricsRef OUT ///< The EFS metrics reference.
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -191,7 +194,7 @@ FUNCTION le_result_t MeasureEfsMetrics
 FUNCTION le_result_t DeleteEfsMetrics
 (
     Metrics MetricsRef IN ///< The EFS metrics reference.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -205,7 +208,7 @@ FUNCTION le_result_t GetEfsMaxPECount
 (
     Metrics MetricsRef IN, ///< The EFS metrics reference.
     uint32 count OUT       ///< The maximum Program/Erase(PE) count in EFS.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -219,7 +222,7 @@ FUNCTION le_result_t GetEfsMinPECount
 (
     Metrics MetricsRef IN, ///< The EFS metrics reference.
     uint32 count OUT       ///< The minimum Program/Erase(PE) count in EFS.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -233,7 +236,7 @@ FUNCTION le_result_t GetEfsAvgPECount
 (
     Metrics MetricsRef IN, ///< The EFS metrics reference.
     uint32 count OUT       ///< The average Program/Erase(PE) count in EFS.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -247,7 +250,7 @@ FUNCTION le_result_t GetEfsPEStandardDeviation
 (
     Metrics MetricsRef IN, ///< The EFS metrics reference.
     uint32 value OUT       ///< The standard deviation which rounds up to the closest integer.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -261,7 +264,7 @@ FUNCTION le_result_t GetEfsBadBlocks
 (
     Metrics MetricsRef IN, ///< The EFS metrics reference.
     uint32 count OUT       ///< The bad block count in EFS.
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -277,4 +280,4 @@ FUNCTION le_result_t GetEfsBadBlocks
 FUNCTION le_result_t SetEfsBackupPeriod
 (
     uint32 period IN       ///< Period in second.
-);
+) = 12;

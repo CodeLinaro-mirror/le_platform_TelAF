@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 **/
 
@@ -228,6 +228,10 @@
  */
 //------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Maximum version length including null termination character.
@@ -268,7 +272,7 @@ ENUM Bank
 FUNCTION le_result_t GetKernelVersion
 (
     string version[VERSION_MAX_BYTES] OUT    ///< Kernel version
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -284,7 +288,7 @@ FUNCTION le_result_t GetKernelVersion
 FUNCTION le_result_t GetFirmwareVersion
 (
     string version[VERSION_MAX_BYTES] OUT    ///< Firmware version
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -300,7 +304,7 @@ FUNCTION le_result_t GetFirmwareVersion
 FUNCTION le_result_t GetTZVersion
 (
     string version[VERSION_MAX_BYTES] OUT     ///< TZ version
-);
+) = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -316,7 +320,7 @@ FUNCTION le_result_t GetTZVersion
 FUNCTION le_result_t GetTelAFVersion
 (
     string version[VERSION_MAX_BYTES] OUT     ///< TelAF version
-);
+) = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -332,7 +336,7 @@ FUNCTION le_result_t GetTelAFVersion
 FUNCTION le_result_t GetRootFSVersion
 (
     string version[VERSION_MAX_BYTES] OUT     ///< RootFS version
-);
+) = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -348,7 +352,7 @@ FUNCTION le_result_t GetRootFSVersion
 FUNCTION le_result_t GetLXCVersion
 (
     string version[VERSION_MAX_BYTES] OUT     ///< LXC version
-);
+) = 5;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -365,7 +369,7 @@ FUNCTION le_result_t GetTelAFHash
 (
     Bank bank IN,                     ///< Bank
     uint8 hash[HASH_MAX_BYTES] OUT    ///< TelAF hash
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -382,7 +386,7 @@ FUNCTION le_result_t GetBootHash
 (
     Bank bank IN,                     ///< Bank
     uint8 hash[HASH_MAX_BYTES] OUT    ///< Boot hash
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -399,7 +403,7 @@ FUNCTION le_result_t GetRootFSHash
 (
     Bank bank IN,                     ///< Bank
     uint8 hash[HASH_MAX_BYTES] OUT    ///< Rootfs hash
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -416,7 +420,7 @@ FUNCTION le_result_t GetFirmwareHash
 (
     Bank bank IN,                     ///< Bank
     uint8 hash[HASH_MAX_BYTES] OUT    ///< Firmware hash
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -433,4 +437,4 @@ FUNCTION le_result_t GetLXCHash
 (
     Bank bank IN,                     ///< Bank
     uint8 hash[HASH_MAX_BYTES] OUT    ///< LXC hash
-);
+) = 10;

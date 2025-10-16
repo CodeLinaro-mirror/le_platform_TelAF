@@ -234,6 +234,9 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 USETYPES taf_types.api;
 
 //-------------------------------------------------------------------------------------------------
@@ -341,7 +344,7 @@ REFERENCE RxSecAccessMsg;
 //-------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
 (
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -361,11 +364,15 @@ FUNCTION le_result_t SetVlanId
 (
     Service svcRef IN,      ///< Service reference.
     uint16 vlanId IN        ///< VLAN ID
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for a Rx session control type.
+ *
+ * @param[in] rxSesTypeRef Received session type reference.
+ * @param[in] sesCtrlType  Session control type.
+ * @param[in] contextPtr   Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RxSesTypeHandler
@@ -383,7 +390,7 @@ EVENT RxSesTypeCheck
 (
     Service svcRef IN,          ///< Service reference.
     RxSesTypeHandler handler    ///< Received message handler.
-);
+) = (2,3);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -405,11 +412,16 @@ FUNCTION le_result_t SendSesTypeCheckResp
 (
     RxSesTypeCheck rxSesTypeRef  IN,    ///< Received session type reference.
     uint8 errCode  IN                   ///< Error code type.
-);
+) = 4;
 
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a session control type change.
+ *
+ * @param[in] sesChangeRef Session change reference.
+ * @param[in] previousType Previous session control type.
+ * @param[in] currentType  Current session control type.
+ * @param[in] contextPtr   Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER SesChangeHandler
@@ -428,7 +440,7 @@ EVENT SesChange
 (
     Service svcRef IN,          ///< Service reference.
     SesChangeHandler handler    ///< Received message handler.
-);
+) = (5,6);
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -446,7 +458,7 @@ FUNCTION le_result_t SelectTargetVlanID
 (
     Service svcRef IN,    ///< Service reference.
     uint16 vlanId IN      ///< VLAN ID.
-);
+) = 16;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -465,7 +477,7 @@ FUNCTION le_result_t GetCurrentSesType
 (
     Service svcRef IN,       ///< Service reference.
     uint8 currentType OUT    ///< Current session control type.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -479,11 +491,15 @@ FUNCTION le_result_t GetCurrentSesType
 FUNCTION le_result_t ReleaseSesChangeMsg
 (
     SesChange sesChangeRef  IN    ///< Session change reference.
-);
+) = 8;
 
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for a Rx security access message.
+ *
+ * @param[in] rxMsgRef   Received message reference.
+ * @param[in] accessType Security access type.
+ * @param[in] contextPtr Context pointer.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER RxSecAccessMsgHandler
@@ -501,7 +517,7 @@ EVENT RxSecAccessMsg
 (
     Service svcRef IN,               ///< Service reference.
     RxSecAccessMsgHandler handler    ///< Received message handler.
-);
+) = (9,10);
 
 /**
  * Gets the payload length of the Rx security access message.
@@ -518,7 +534,7 @@ FUNCTION le_result_t GetSecAccessPayloadLen
 (
     RxSecAccessMsg rxMsgRef  IN,    ///< Received message reference.
     uint16 payloadLen  OUT          ///< Security access payload length.
-);
+) = 11;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -538,7 +554,7 @@ FUNCTION le_result_t GetSecAccessPayload
 (
     RxSecAccessMsg rxMsgRef  IN,                       ///< Received message reference.
     uint8 payload[MAX_SEC_ACCESS_PAYLOAD_SIZE]  OUT    ///< Security access payload.
-);
+) = 12;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -561,7 +577,7 @@ FUNCTION le_result_t SendSecAccessResp
     RxSecAccessMsg rxMsgRef  IN,        ///< Received message reference.
     uint8 errCode  IN,                  ///< Error code type.
     uint8 data[MAX_PAYLOAD_SIZE]  IN    ///< Payload data.
-);
+) = 13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -579,7 +595,7 @@ FUNCTION le_result_t GetVlanIdFromMsg
 (
     RxMsg rxMsgRef  IN,    ///< Receive message reference.
     uint16 vlanId   OUT    ///< VLAN ID.
-);
+) = 14;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -593,4 +609,4 @@ FUNCTION le_result_t GetVlanIdFromMsg
 FUNCTION le_result_t RemoveSvc
 (
     Service svcRef  IN    ///< Service reference.
-);
+) = 15;

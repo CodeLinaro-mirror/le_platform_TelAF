@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 **/
 
@@ -256,6 +256,9 @@
  *
  */
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -352,7 +355,7 @@ ENUM ModemEvtSeverity
 FUNCTION le_result_t  GetCpuLoad
 (
     double  cpuCurrentLoad           OUT      ///< CPU Total Usage.
-);
+) = 0;
 
 
 ///------------------------------------------------------------------------------------------------
@@ -368,7 +371,7 @@ FUNCTION le_result_t  GetCpuLoad
 //------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetCpuCoreNum
 (
-);
+) =  1;
 
 
 ///------------------------------------------------------------------------------------------------
@@ -388,7 +391,7 @@ FUNCTION le_result_t GetIndvCoreUsage
 (
     uint32  coreID       IN,    ///< Core ID
     double  cpuUsage     OUT    ///< cpuUsage
-);
+) = 2;
 
 
 //------------------------------------------------------------------------------------------------
@@ -407,7 +410,7 @@ FUNCTION le_result_t  GetRamMemInfo
     uint32 ramTotalMem           OUT,      ///< Total Memory in kB.
     uint32 ramUsedMem            OUT,      ///< Used Memory in kB.
     uint32 ramFreeMem            OUT      ///< Free memory in kB.
-);
+) = 3;
 
 
 //------------------------------------------------------------------------------------------------
@@ -423,7 +426,7 @@ FUNCTION le_result_t  GetRamMemInfo
 //------------------------------------------------------------------------------------------------
 FUNCTION UbiDevInfoList GetUbiDevInfoList
 (
-);
+) = 4;
 
 
 //------------------------------------------------------------------------------------------------
@@ -441,7 +444,7 @@ FUNCTION UbiDevInfoList GetUbiDevInfoList
 FUNCTION UbiDevInfo GetFirstUbiDevInfo
 (
     UbiDevInfoList ubiDevInfoListRef        IN        ///< UBI device list reference
-);
+) = 5;
 
 
 //------------------------------------------------------------------------------------------------
@@ -458,7 +461,7 @@ FUNCTION UbiDevInfo GetFirstUbiDevInfo
 FUNCTION le_result_t DeleteUbiDevInfoList
 (
     UbiDevInfoList ubiDevInfoListRef        IN        ///< UBI device list reference
-);
+) = 6;
 
 
 //------------------------------------------------------------------------------------------------
@@ -476,7 +479,7 @@ FUNCTION le_result_t DeleteUbiDevInfoList
 FUNCTION UbiDevInfo GetNextUbiDevInfo
 (
     UbiDevInfoList ubiDevInfoListRef        IN        ///< UBI device list reference
-);
+) = 7;
 
 
 ///------------------------------------------------------------------------------------------------
@@ -494,7 +497,7 @@ FUNCTION le_result_t GetUbiDevId
 (
     UbiDevInfo ubiDevInfoRef  IN,      ///< UBI device Info reference.
     uint32 ubiDevId OUT                   ///< UBI device ID
-);
+) = 8;
 
 
 ///------------------------------------------------------------------------------------------------
@@ -512,7 +515,7 @@ FUNCTION le_result_t GetUbiDevMaxEraseCnt
 (
     UbiDevInfo ubiDevInfoRef  IN,      ///< UBI device Info reference.
     uint32 ubiEraseCnt OUT       ///< Erase count.
-);
+) = 9;
 
 
 ///------------------------------------------------------------------------------------------------
@@ -530,7 +533,7 @@ FUNCTION le_result_t GetUbiDevBadBlkCnt
 (
     UbiDevInfo ubiDevInfoRef  IN,      ///< UBI device Info reference.
     uint32 ubiBbCnt OUT       ///< Bad Block count.
-);
+) = 10;
 
 
 //------------------------------------------------------------------------------------------------
@@ -548,7 +551,7 @@ FUNCTION le_result_t GetUbiDevBadBlkCnt
 FUNCTION UbiVolInfo GetFirstUbiVolInfo
 (
    UbiDevInfo ubiDevInfoRef  IN      ///< UBI device Info reference.
-);
+) = 11;
 
 
 //------------------------------------------------------------------------------------------------
@@ -566,7 +569,7 @@ FUNCTION UbiVolInfo GetFirstUbiVolInfo
 FUNCTION UbiVolInfo GetNextUbiVolInfo
 (
     UbiDevInfo ubiDevInfoRef  IN      ///< UBI device Info reference.
-);
+) = 12;
 
 
 //------------------------------------------------------------------------------------------------
@@ -584,7 +587,7 @@ FUNCTION le_result_t GetUbiVolId
 (
     UbiVolInfo ubiVolInfoRef IN,
     uint32 ubiVolId OUT
-);
+) = 13;
 
 
 ///------------------------------------------------------------------------------------------------
@@ -602,7 +605,7 @@ FUNCTION le_result_t GetUbiVolName
 (
     UbiVolInfo ubiVolInfoRef  IN,      ///< UBI device Info reference.
     string ubiVolName[MAX_NAME_SIZE] OUT       ///< UBI volume name.
-);
+) = 14;
 
 
 ///------------------------------------------------------------------------------------------------
@@ -620,7 +623,7 @@ FUNCTION le_result_t GetUbiVolSize
 (
     UbiVolInfo ubiVolInfoRef  IN,      ///< UBI device Info reference.
     uint32 ubiVolSize    OUT      ///< UBI volume size.
-);
+) = 15;
 
 
 
@@ -638,7 +641,7 @@ FUNCTION le_result_t GetUbiVolSize
 //------------------------------------------------------------------------------------------------
 FUNCTION MtdDevInfoList GetMtdDevInfoList
 (
-);
+) = 16;
 
 
 //------------------------------------------------------------------------------------------------
@@ -655,7 +658,7 @@ FUNCTION MtdDevInfoList GetMtdDevInfoList
 FUNCTION le_result_t DeleteMtdDevInfoList
 (
     MtdDevInfoList mtdDevInfoListRef        IN        ///< MTD device list reference
-);
+) = 17;
 
 
 //------------------------------------------------------------------------------------------------
@@ -673,7 +676,7 @@ FUNCTION le_result_t DeleteMtdDevInfoList
 FUNCTION MtdDevInfo GetFirstMtdDevInfo
 (
     MtdDevInfoList mtdDevInfoListRef        IN        ///< MTD node list reference
-);
+) = 18;
 
 
 //------------------------------------------------------------------------------------------------
@@ -691,7 +694,7 @@ FUNCTION MtdDevInfo GetFirstMtdDevInfo
 FUNCTION MtdDevInfo GetNextMtdDevInfo
 (
     MtdDevInfoList mtdDevInfoListRef        IN        ///< MTD node list reference
-);
+) = 19;
 
 
 ///------------------------------------------------------------------------------------------------
@@ -709,7 +712,7 @@ FUNCTION le_result_t GetMtdDevName
 (
     MtdDevInfo mtdDevInfoRef  IN,      ///<  MTD Info reference.
     string mtdName[MAX_NAME_SIZE] OUT        ///< MTD name.
-);
+) = 20;
 
 
 ///------------------------------------------------------------------------------------------------
@@ -727,7 +730,7 @@ FUNCTION le_result_t GetMtdDevBlkSize
 (
     MtdDevInfo mtdDevInfoRef  IN,      ///< MTD Info reference.
     uint32 mtdBlkSize OUT       ///< Bad block size.
-);
+) = 21;
 
 
 ///------------------------------------------------------------------------------------------------
@@ -745,7 +748,7 @@ FUNCTION le_result_t GetMtdDevId
 (
     MtdDevInfo mtdDevInfoRef  IN,      ///< MTD Info reference.
     uint32 mtdDevId OUT       ///< Device ID.
-);
+) = 22;
 
 
 ///------------------------------------------------------------------------------------------------
@@ -763,7 +766,7 @@ FUNCTION le_result_t GetMtdDevBlkCnt
 (
     MtdDevInfo mtdDevInfoRef  IN,      ///< MTD Info reference.
     uint32 mtdBlkCnt OUT       ///< Block count.
-);
+) = 23;
 
 
 //--------------------------------------------------------------------------------------------------
@@ -771,13 +774,18 @@ FUNCTION le_result_t GetMtdDevBlkCnt
  * Handler for change in modem event.
  *
  * @instaging
+ *
+ * @param[in] eventType     Modem event.
+ * @param[in] eventSeverity Modem event level.
+ * @param[in] eventRef      Modem status change event reference.
+ * @param[in] contextPtr    Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ModemEvtHandler
 (
-    ModemEvtType eventType   IN,             ///< Modem event
-    ModemEvtSeverity eventSeverity IN,       ///< Modem event level
-    ModemEvent eventRef                  ///< Modem status change event reference
+    ModemEvtType eventType   IN,             ///< Modem event.
+    ModemEvtSeverity eventSeverity IN,       ///< Modem event level.
+    ModemEvent eventRef   IN                 ///< Modem status change event reference.
 );
 
 
@@ -791,7 +799,7 @@ HANDLER ModemEvtHandler
 EVENT ModemEvt
 (
     ModemEvtHandler handler    ///< Modem status handler.
-);
+) = (24,25);
 
 
 ///------------------------------------------------------------------------------------------------
@@ -808,7 +816,7 @@ EVENT ModemEvt
 FUNCTION le_result_t ReleaseModemEvt
 (
     ModemEvent eventRef                  ///< Modem status change event reference
-);
+) = 26;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -856,4 +864,4 @@ FUNCTION le_result_t GetResetInformation
 (
     Reset reset OUT,                                ///< Reset information
     string resetSpecificInfoStr[MAX_RESET_LEN] OUT  ///< Reset specific information
-);
+) = 27;

@@ -26,7 +26,7 @@
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -286,6 +286,9 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 USETYPES taf_types.api;
 
 //--------------------------------------------------------------------------------------------------
@@ -493,7 +496,7 @@ REFERENCE MsgList;
 //--------------------------------------------------------------------------------------------------
 FUNCTION MsgList CreateRxMsgList
 (
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -503,27 +506,34 @@ FUNCTION MsgList CreateRxMsgList
 FUNCTION DeleteList
 (
     MsgList msgListRef ///< Message list reference.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for sending messages.
+ *
+ * @param[in] msgRef     Message list reference.
+ * @param[in] status     Sending status.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER CallbackResult
 (
-    Msg msgRef,          ///< Message list reference.
+    Msg msgRef IN,       ///< Message list reference.
     SendStatus status IN ///< Sending status.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for receiving messages.
+ *
+ * @param[in] msgRef     Reference for received message.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RxMsgHandler
 (
-    Msg  msgRef ///< Message reference.
+    Msg msgRef IN ///< Reference for received message.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -534,16 +544,19 @@ HANDLER RxMsgHandler
 EVENT RxMsg
 (
     RxMsgHandler handler ///< Handler for receiving messages.
-);
+) = (2,3);
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for full storage notifications.
+ *
+ * @param[in] fullType   Full storage indication type.
+ * @param[in] contextPtr Context pointer.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER FullStorageHandler
 (
-    StorageFullType  fullType ///< Full storage indication type.
+    StorageFullType fullType IN ///< Full storage indication type.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -554,7 +567,7 @@ HANDLER FullStorageHandler
 EVENT FullStorageEvent
 (
     FullStorageHandler handler ///< Handler for full storage indications.
-);
+) = (4,5);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -567,7 +580,7 @@ EVENT FullStorageEvent
 FUNCTION Msg GetFirst
 (
     MsgList msgListRef ///< Message list reference.
-);
+) = 6;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -580,7 +593,7 @@ FUNCTION Msg GetFirst
 FUNCTION Msg GetNext
 (
     MsgList msgListRef ///< Message list reference.
-);
+) = 7;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -593,7 +606,7 @@ FUNCTION Msg GetNext
 FUNCTION SendStatus GetSendStatus
 (
     Msg msgRef ///< Message reference.
-);
+) = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -606,7 +619,7 @@ FUNCTION SendStatus GetSendStatus
 FUNCTION ReadStatus GetReadStatus
 (
     Msg msgRef ///< Message reference.
-);
+) = 9;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -619,7 +632,7 @@ FUNCTION ReadStatus GetReadStatus
 FUNCTION LockStatus GetLockStatus
 (
     Msg msgRef ///< Message reference.
-);
+) = 10;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -631,7 +644,7 @@ FUNCTION LockStatus GetLockStatus
 //--------------------------------------------------------------------------------------------------
 FUNCTION Msg Create
 (
-);
+) = 11;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -648,7 +661,7 @@ FUNCTION le_result_t SetDestination
 (
     Msg     msgRef,                                       ///< Message reference.
     string  dest[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN ///< Destination number.
-);
+) = 12;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -665,7 +678,7 @@ FUNCTION le_result_t SetText
 (
     Msg     msgRef,           ///< Message reference.
     string  text[TEXT_LEN] IN ///< Text message.
-);
+) = 13;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -682,7 +695,7 @@ FUNCTION le_result_t SetBinary
 (
     Msg     msgRef,               ///< Message reference.
     uint8   bin[BINARY_BYTES] IN  ///< Binary data.
-);
+) = 14;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -699,7 +712,7 @@ FUNCTION le_result_t SetUCS2
 (
     Msg     msgRef,              ///< Message reference.
     uint16  ucs2[UCS2_CHARS] IN  ///< UCS2 message.
-);
+) = 15;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -715,7 +728,7 @@ FUNCTION le_result_t SetPDU
 (
     Msg     msgRef,           ///< Message reference.
     uint8   pdu[PDU_BYTES] IN ///< Message in PDU format.
-);
+) = 16;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -731,7 +744,7 @@ FUNCTION le_result_t SetCallback
 (
     Msg     msgRef,        ///< Message reference.
     CallbackResult handler ///< Handler for sending message.
-);
+) = 17;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -746,7 +759,7 @@ FUNCTION le_result_t SetPhoneId
 (
     Msg     msgRef,  ///< Message reference.
     uint8   phoneId  ///< Phone ID.
-);
+) = 18;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -757,7 +770,7 @@ FUNCTION le_result_t SetPhoneId
 FUNCTION Delete
 (
     Msg msgRef ///< Message reference.
-);
+) = 19;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -774,7 +787,7 @@ FUNCTION le_result_t GetPhoneId
 (
     Msg    msgRef,     ///< Message reference.
     uint8  phoneId OUT ///< Pointer to the stored phone ID.
-);
+) = 20;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -792,7 +805,7 @@ FUNCTION le_result_t GetSenderTel
 (
     Msg     msgRef,                                       ///< Message reference.
     string  tel[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] OUT ///< Buffer to store sender's number.
-);
+) = 21;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -809,7 +822,7 @@ FUNCTION le_result_t GetText
 (
     Msg     msgRef,            ///< Message reference.
     string  text[TEXT_LEN] OUT ///< Buffer to store message text.
-);
+) = 22;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -826,7 +839,7 @@ FUNCTION le_result_t GetBinary
 (
     Msg     msgRef,               ///< Message reference.
     uint8   bin[BINARY_BYTES] OUT ///< Buffer to store binary data.
-);
+) = 23;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -843,7 +856,7 @@ FUNCTION le_result_t GetUCS2
 (
     Msg     msgRef,               ///< Message reference.
     uint16  ucs2[UCS2_CHARS] OUT  ///< Buffer to store UCS2 characters.
-);
+) = 24;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -860,7 +873,7 @@ FUNCTION le_result_t GetPDU
 (
     Msg   msgRef,            ///< Message reference.
     uint8 pdu[PDU_BYTES] OUT ///< Buffer to store PDU data.
-);
+) = 25;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -876,7 +889,7 @@ FUNCTION le_result_t GetPDU
 FUNCTION size GetPDULen
 (
     Msg msgRef ///< Message reference.
-);
+) = 26;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -889,7 +902,7 @@ FUNCTION size GetPDULen
 FUNCTION Type GetType
 (
     Msg msgRef ///< Message reference.
-);
+) = 27;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -902,7 +915,7 @@ FUNCTION Type GetType
 FUNCTION Format GetFormat
 (
     Msg msgRef ///< Message reference.
-);
+) = 28;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -915,11 +928,11 @@ FUNCTION Format GetFormat
 FUNCTION size GetUserdataLen
 (
     Msg msgRef ///< Message reference.
-);
+) = 29;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Send the message.
+ * Sends an SMS synchronously.
  *
  * @return
  * - LE_NOT_FOUND -- Invalid message.
@@ -931,7 +944,24 @@ FUNCTION size GetUserdataLen
 FUNCTION le_result_t Send
 (
     Msg msgRef ///< Message reference.
-);
+) = 30;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends an SMS asynchronously.
+ *
+ * @return
+ * - LE_NOT_FOUND -- Invalid message.
+ * - LE_BAD_PARAMETER -- Invalid phone ID.
+ * - LE_FORMAT_ERROR -- Failed to encode message.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendAsync
+(
+    Msg msgRef,             ///< Message reference.
+    CallbackResult handler  ///< Handler for sending message.
+) = 31;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -947,7 +977,7 @@ FUNCTION le_result_t Send
 FUNCTION le_result_t DeleteFromStorage
 (
     Msg msgRef ///< Message reference.
-);
+) = 32;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -964,7 +994,7 @@ FUNCTION le_result_t DeleteFromStorage
 FUNCTION le_result_t DeleteAllFromStorage
 (
     Storage  storage
-);
+) = 33;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -974,7 +1004,7 @@ FUNCTION le_result_t DeleteAllFromStorage
 FUNCTION MarkRead
 (
     Msg msgRef ///< Message reference.
-);
+) = 34;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -984,7 +1014,7 @@ FUNCTION MarkRead
 FUNCTION MarkUnread
 (
     Msg msgRef ///< Message reference.
-);
+) = 35;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1000,7 +1030,7 @@ FUNCTION MarkUnread
 FUNCTION le_result_t LockFromStorage
 (
     Msg msgRef  ///< Message reference.
-);
+) = 36;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1016,7 +1046,7 @@ FUNCTION le_result_t LockFromStorage
 FUNCTION le_result_t UnlockFromStorage
 (
     Msg msgRef  ///< Message reference.
-);
+) = 37;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1032,7 +1062,7 @@ FUNCTION le_result_t UnlockFromStorage
 FUNCTION le_result_t EncryptFromStorage
 (
     Msg msgRef  ///< Message reference.
-);
+) = 38;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1050,7 +1080,7 @@ FUNCTION le_result_t GetSmsCenterAddress
 (
     uint8   phoneId,                                        ///< Phone ID.
     string  addr[SMSC_ADDR_BYTES] OUT                       ///< Buffer to store SMS center address.
-);
+) = 39;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1067,7 +1097,7 @@ FUNCTION le_result_t SetSmsCenterAddress
 (
     uint8   phoneId,                                      ///< Phone ID.
     string  addr[SMSC_ADDR_BYTES] IN                      ///< SMS center address.
-);
+) = 40;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1084,7 +1114,7 @@ FUNCTION le_result_t SetSmsCenterAddress
 FUNCTION le_result_t SetPreferredStorage
 (
     Storage prefStorage IN ///< Preferred storage type.
-);
+) = 41;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1099,7 +1129,7 @@ FUNCTION le_result_t SetPreferredStorage
 FUNCTION le_result_t GetPreferredStorage
 (
     Storage prefStorage OUT ///< Preferred storage type.
-);
+) = 42;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1114,7 +1144,7 @@ FUNCTION le_result_t SendPduMsg
 (
     uint8   dataPtr[PDU_BYTES] IN,  ///< Message in PDU format.
     uint32  timeout                ///< Timeout value message sent.
-);
+) = 43;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1130,7 +1160,7 @@ FUNCTION le_result_t SendPduMsgEx
     uint8   phoneId,                ///< Phone ID.
     uint8   dataPtr[PDU_BYTES] IN,  ///< Message in PDU format.
     uint32  timeout                 ///< Timeout value message sent.
-);
+) = 44;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1145,7 +1175,7 @@ FUNCTION le_result_t SendPduMsgEx
 FUNCTION le_result_t ActivateCellBroadcast
 (
     uint8   phoneId     ///< Phone ID.
-);
+) = 45;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1160,7 +1190,7 @@ FUNCTION le_result_t ActivateCellBroadcast
 FUNCTION le_result_t DeactivateCellBroadcast
 (
     uint8   phoneId     ///< Phone ID.
-);
+) = 46;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1178,7 +1208,7 @@ FUNCTION le_result_t AddCellBroadcastIds
     uint8  phoneId IN,  ///< Phone ID.
     uint16 fromId IN,   ///< Starting point of the filter.
     uint16 toId IN      ///< Ending point of the filter.
-);
+) = 47;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1196,4 +1226,4 @@ FUNCTION le_result_t RemoveCellBroadcastIds
     uint8  phoneId IN,  ///< Phone ID.
     uint16 fromId IN,   ///< Starting point of the range.
     uint16 toId IN      ///< Ending point of the range.
-);
+) = 48;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -71,6 +71,9 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Maximum firmware version length with null characters.
@@ -85,7 +88,7 @@ DEFINE MAX_VERS_LEN = 256;
 //--------------------------------------------------------------------------------------------------
 FUNCTION RebootToActive
 (
-);
+) = 0;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -99,7 +102,7 @@ FUNCTION RebootToActive
 FUNCTION le_result_t GetFirmwareVersion
 (
     string version[MAX_VERS_LEN] OUT ///< Firmware version.
-);
+) = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -113,4 +116,4 @@ FUNCTION le_result_t GetFirmwareVersion
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Install
 (
-);
+) = 2;

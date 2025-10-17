@@ -123,21 +123,24 @@ void taf_WlanSTASvcImpl::RemoveEventHandler(taf_wlanSta_EventHandlerRef_t handle
 //--------------------------------------------------------------------------------------------------
 void *taf_WlanSTASvcImpl::StaWpaSuppMonitorThreadHdlr(void *context)
 {
-
-    struct wpa_ctrl *ctrl;
-    auto &myWlanSta = GetInstance();
-    char rsp[WPA_CTRL_RSP_BUF_LEN] = {0};
-    size_t len = WPA_CTRL_RSP_BUF_LEN;
+    struct wpa_ctrl *ctrl = nullptr;
     SuppThreadCtx_t *ThreadCtxPtr = (SuppThreadCtx_t *)context;
     std::string wpa_supplicant_path(WPA_SUPPLICANT_LOCATION_PATH);
     wpa_supplicant_path = wpa_supplicant_path + ThreadCtxPtr->IntfName;
     LE_DEBUG("Supplicant: %s", wpa_supplicant_path.c_str());
 
+    StaWpaEvt_e resultEvent = EVT_WPA_ERROR;
+    bool eventFound = false;
+
     ctrl = wpa_ctrl_open(wpa_supplicant_path.c_str());
     if (ctrl == nullptr)
     {
-        myWlanSta.PromiseWPA.set_value(EVT_WPA_ERROR);
         LE_ERROR("Failed to open control interface");
+        {
+            std::lock_guard<std::mutex> lock(ThreadCtxPtr->mutex);
+            ThreadCtxPtr->resultEvent = EVT_WPA_ERROR;
+            ThreadCtxPtr->eventCompleted = true;
+        }
         return nullptr;
     }
 
@@ -145,65 +148,89 @@ void *taf_WlanSTASvcImpl::StaWpaSuppMonitorThreadHdlr(void *context)
     if (ret != 0)
     {
         LE_ERROR("Failed to attach to control interface");
-        myWlanSta.PromiseWPA.set_value(EVT_WPA_ERROR);
+        {
+            std::lock_guard<std::mutex> lock(ThreadCtxPtr->mutex);
+            ThreadCtxPtr->resultEvent = EVT_WPA_ERROR;
+            ThreadCtxPtr->eventCompleted = true;
+        }
         wpa_ctrl_close(ctrl);
         return nullptr;
     }
 
-    while(true)
+    while(!eventFound && !ThreadCtxPtr->shouldExit)
     {
         ret = wpa_ctrl_pending(ctrl);
         if (1 == ret)
         {
-            memset(rsp, 0, WPA_CTRL_RSP_BUF_LEN);
-            len = WPA_CTRL_RSP_BUF_LEN;
+            char rsp[WPA_CTRL_RSP_BUF_LEN] = {0};
+            size_t len = WPA_CTRL_RSP_BUF_LEN;
             // Event pending;
             ret = wpa_ctrl_recv(ctrl, rsp, &len);
             if (ret < 0)
             {
-                myWlanSta.PromiseWPA.set_value(EVT_WPA_ERROR);
                 LE_WARN("wpa_ctrl_recv failed");
+                resultEvent = EVT_WPA_ERROR;
+                eventFound = true;
                 break;
             }
             LE_DEBUG("Received response Len: %zu", len);
             LE_DEBUG("Received response    : %s", rsp);
             // Split the received buffer using space as delimiter
             std::vector<std::string> ind = taf_WlanHelper::StrSplit(rsp, ' ');
-            LE_DEBUG("Received Event: %s", ind[0].c_str());
-            // Check if the event that is received is the one we are waiting on
-            for(std::string evt : ThreadCtxPtr->EventsToMonitor)
-            {
-                LE_INFO("Wait for event: %s", evt.c_str());
-                std::string s1 = taf_WlanHelper::StrTrimEndSpace(evt);
-                std::string s2 = taf_WlanHelper::StrTrimEndSpace(ind[0]);
-                if (s2.find(s1) != std::string::npos)
+            if (!ind.empty()) {
+                LE_DEBUG("Received Event: %s", ind[0].c_str());
+                // Check if the event that is received is the one we are waiting on
+                for(const std::string& evt : ThreadCtxPtr->EventsToMonitor)
                 {
-                    if (s1 == taf_WlanHelper::StrTrimEndSpace(WPA_EVENT_SCAN_RESULTS))
+                    LE_INFO("Wait for event: %s", evt.c_str());
+                    std::string s1 = taf_WlanHelper::StrTrimEndSpace(evt);
+                    std::string s2 = taf_WlanHelper::StrTrimEndSpace(ind[0]);
+                    if (s2.find(s1) != std::string::npos)
                     {
-                        // Let the main thread know that scanning is done
-                        myWlanSta.PromiseWPA.set_value(EVT_WPA_AP_SCAN_DONE);
+                        if (s1 == taf_WlanHelper::StrTrimEndSpace(WPA_EVENT_SCAN_RESULTS))
+                        {
+                            // Scanning is done
+                            resultEvent = EVT_WPA_AP_SCAN_DONE;
+                        }
+                        else if (s1 == taf_WlanHelper::StrTrimEndSpace(WPA_EVENT_CONNECTED))
+                        {
+                            // Network connection was successful
+                            LE_DEBUG("Network connection successful");
+                            resultEvent = EVT_WPA_AP_CONNECTED;
+                        }
+                        else if (s1 == taf_WlanHelper::StrTrimEndSpace(WPA_EVENT_TEMP_DISABLED))
+                        {
+                            LE_DEBUG("Network temporarily disabled");
+                            resultEvent = EVT_WPA_AP_TEMP_DISABLED;
+                        }
+                        LE_DEBUG("Found event, Exiting thread");
+                        eventFound = true;
+                        break;
                     }
-                    else if (s1 == taf_WlanHelper::StrTrimEndSpace(WPA_EVENT_CONNECTED))
-                    {
-                        // Let the main thread know that network connection was successful
-                        LE_DEBUG("Network connection successful");
-                        myWlanSta.PromiseConn.set_value(EVT_WPA_AP_CONNECTED);
-                    }
-                    else if (s1 == taf_WlanHelper::StrTrimEndSpace(WPA_EVENT_TEMP_DISABLED))
-                    {
-                        LE_DEBUG(
-                            "Network temporarily disabled (e.g., due to authentication failure)");
-                        myWlanSta.PromiseConn.set_value(EVT_WPA_AP_TEMP_DISABLED);
-                    }
-                    LE_DEBUG("Found event, Exiting thread");
-                    wpa_ctrl_close(ctrl);
-                    return nullptr;
                 }
             }
         }
+        else if (ret < 0) {
+            // Error occurred
+            LE_ERROR("wpa_ctrl_pending failed");
+            resultEvent = EVT_WPA_ERROR;
+            eventFound = true;
+            break;
+        }
+        else {
+            // No events pending, sleep a bit to avoid busy waiting
+            usleep(10000); // 10ms
+        }
     }
 
-    LE_DEBUG("Exiting thread");
+    // Store the result in the thread context
+    {
+        std::lock_guard<std::mutex> lock(ThreadCtxPtr->mutex);
+        ThreadCtxPtr->resultEvent = resultEvent;
+        ThreadCtxPtr->eventCompleted = true;
+    }
+
+    LE_DEBUG("Exiting thread with result: %d", static_cast<int>(resultEvent));
     wpa_ctrl_close(ctrl);
     return nullptr;
 }
@@ -388,10 +415,19 @@ bssid / frequency / signal level / flags / ssid
 //--------------------------------------------------------------------------------------------------
 void taf_WlanSTASvcImpl::PopulateScanResults(StaCtx_t *CtxPtr, const char *ScanResultsPtr)
 {
+    TAF_ERROR_IF_RET_NIL(CtxPtr == nullptr,
+        "Null context pointer provided to PopulateScanResults");
+
+    if (ScanResultsPtr == nullptr)
+    {
+        LE_ERROR("Null scan results pointer provided to PopulateScanResults");
+        CtxPtr->numScannedAPs = 0;
+        return;
+    }
+
     std::string line;
     std::istringstream buf_stream(ScanResultsPtr);
     int iCount = 0;
-    le_result_t ret = LE_OK;
 
     // Clear out earlier results
     CtxPtr->numScannedAPs = 0;
@@ -401,27 +437,22 @@ void taf_WlanSTASvcImpl::PopulateScanResults(StaCtx_t *CtxPtr, const char *ScanR
     char delimiter = '\t';
     std::vector<std::string> tokens;
     std::string token;
-    std::istringstream stream;
+
+    // Temporary vector to hold AP info before sorting
+    std::vector<taf_wlanSta_APInfo_t> tempApInfo;
 
     while (std::getline(buf_stream, line, '\n'))
     {
-        if (CtxPtr->numScannedAPs >= TAF_WLANSTA_MAX_APSCAN_RESULT_NUM)
-        {
-            // Max number of scanned APs supported is reached. Break from loop.
-            LE_WARN("Max number of scanned APs(%d) supported is reached",
-                static_cast<int>(TAF_WLANSTA_MAX_APSCAN_RESULT_NUM));
-            break;
-        }
-
         // Check if the line has "frequency". This is the heading line. skip it.
         if (line.find("frequency") != std::string::npos)
         {
-            LE_DEBUG ("Skip heading line");
+            LE_DEBUG("Skip heading line");
             continue;
         }
+
         // Split line into separate fields
         {
-            std::istringstream stream (line);
+            std::istringstream stream(line);
             tokens.clear();
             // The parameters are tab separated
             // Split the line into components and store in a vector
@@ -429,41 +460,103 @@ void taf_WlanSTASvcImpl::PopulateScanResults(StaCtx_t *CtxPtr, const char *ScanR
             {
                 tokens.push_back(token);
             }
-            // BSSID
-            ret = le_utf8_Copy(CtxPtr->ApInfo[iCount].BSSID, tokens[0].c_str(),
-                               TAF_WLAN_MAX_BSSID_LENGTH+1, NULL);
-            if (LE_OK != ret)
-            {
-                LE_WARN("BSSID copy error: %d", ret);
+
+            // Make sure we have enough tokens
+            if (tokens.size() < 5) {
+                LE_WARN("Invalid scan result line: %s", line.c_str());
+                continue;
             }
-            LE_DEBUG("BSSID[%d]: %s", iCount, CtxPtr->ApInfo[iCount].BSSID);
 
-            // Frequency
-            CtxPtr->ApInfo[iCount].Frequency = std::stoi(tokens[1]);
-            LE_DEBUG("Frequency[%d]: %d MHz", iCount, CtxPtr->ApInfo[iCount].Frequency);
+            // Create a temporary AP info structure
+            taf_wlanSta_APInfo_t apInfo;
+            memset(&apInfo, 0, sizeof(taf_wlanSta_APInfo_t));
 
-            // Signal Level
-            CtxPtr->ApInfo[iCount].SignalLevel = std::stoi(tokens[2]);
-            LE_DEBUG("SignalLevel[%d]: %d dBm", iCount, CtxPtr->ApInfo[iCount].SignalLevel);
+            // BSSID
+            const char* bssidStr = tokens[0].c_str();
+            if (bssidStr != nullptr && strlen(bssidStr) > 0) {
+                if (strlen(bssidStr) >= TAF_WLAN_MAX_BSSID_LENGTH) {
+                    LE_WARN("BSSID truncated (source length: %zu, max length: %d)",
+                            strlen(bssidStr), TAF_WLAN_MAX_BSSID_LENGTH);
+                }
+                le_result_t result = le_utf8_Copy(apInfo.BSSID, bssidStr,
+                                                 TAF_WLAN_MAX_BSSID_LENGTH + 1, NULL);
+                if (result != LE_OK) {
+                    LE_ERROR("Failed to copy BSSID: %s", LE_RESULT_TXT(result));
+                    apInfo.BSSID[0] = '\0';
+                }
+            } else {
+                apInfo.BSSID[0] = '\0';
+            }
+
+            // Frequency - with error checking
+            try {
+                apInfo.Frequency = std::stoi(tokens[1]);
+            } catch (const std::exception& e) {
+                LE_WARN("Failed to parse frequency: %s", e.what());
+                apInfo.Frequency = 0;
+            }
+
+            // Signal Level - with error checking
+            try {
+                apInfo.SignalLevel = std::stoi(tokens[2]);
+            } catch (const std::exception& e) {
+                LE_WARN("Failed to parse signal level: %s", e.what());
+                apInfo.SignalLevel = 0;
+            }
 
             // Parse flags and populate relevant elements
             ParseScanResultsFlags(CtxPtr, iCount, tokens[3]);
 
-            // SSID
-            ret = le_utf8_Copy(CtxPtr->ApInfo[iCount].SSID, tokens[4].c_str(),
-                               TAF_WLAN_MAX_SSID_LENGTH+1, NULL);
-            if (LE_OK != ret)
-            {
-                LE_WARN("SSID copy error: %d", ret);
-            }
-            LE_DEBUG("SSID[%d]: %s", iCount, CtxPtr->ApInfo[iCount].SSID);
+            // Copy the flags parsing results to our temporary AP info
+            apInfo.SS = CtxPtr->ApInfo[iCount].SS;
+            apInfo.secMode = CtxPtr->ApInfo[iCount].secMode;
+            apInfo.secAuthMethod = CtxPtr->ApInfo[iCount].secAuthMethod;
+            apInfo.secEncryptionMethod = CtxPtr->ApInfo[iCount].secEncryptionMethod;
+            apInfo.WPSEnabled = CtxPtr->ApInfo[iCount].WPSEnabled;
 
-            // Increment the number of scanned APs
-            CtxPtr->numScannedAPs++;
+            // SSID
+            const char* ssidStr = tokens[4].c_str();
+            if (ssidStr != nullptr && strlen(ssidStr) > 0) {
+                if (strlen(ssidStr) >= TAF_WLAN_MAX_SSID_LENGTH) {
+                    LE_WARN("SSID truncated (source length: %zu, max length: %d)",
+                            strlen(ssidStr), TAF_WLAN_MAX_SSID_LENGTH);
+                }
+                le_result_t result = le_utf8_Copy(apInfo.SSID, ssidStr,
+                                                 TAF_WLAN_MAX_SSID_LENGTH + 1, NULL);
+                if (result != LE_OK) {
+                    LE_ERROR("Failed to copy SSID: %s", LE_RESULT_TXT(result));
+                    apInfo.SSID[0] = '\0';
+                }
+            } else {
+                apInfo.SSID[0] = '\0';
+            }
+
+            // Add to our temporary vector
+            tempApInfo.push_back(apInfo);
+            iCount++;
         }
-        iCount++;
     }
-    LE_DEBUG("Number of APs found: %d", CtxPtr->numScannedAPs);
+
+    // Sort the AP list by signal strength (strongest signal first)
+    // Note: Signal strength is negative, so we sort in ascending order
+    std::sort(tempApInfo.begin(), tempApInfo.end(),
+        [](const taf_wlanSta_APInfo_t& a, const taf_wlanSta_APInfo_t& b) {
+            return a.SignalLevel > b.SignalLevel;
+        });
+
+    // Copy the sorted results back to the context
+    size_t numAPs = std::min(tempApInfo.size(),
+        static_cast<size_t>(TAF_WLANSTA_MAX_APSCAN_RESULT_NUM));
+    for (size_t i = 0; i < numAPs; ++i) {
+        CtxPtr->ApInfo[i] = tempApInfo[i];
+
+        // Debug output for sorted results
+        LE_DEBUG("Sorted AP[%zu]: SSID=%s, Signal=%d dBm",
+                 i, CtxPtr->ApInfo[i].SSID, CtxPtr->ApInfo[i].SignalLevel);
+    }
+
+    CtxPtr->numScannedAPs = static_cast<uint16_t>(numAPs);
+    LE_INFO("Number of APs found and sorted: %d", CtxPtr->numScannedAPs);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -626,15 +719,37 @@ bool taf_WlanSTASvcImpl::CheckCommunication
 //--------------------------------------------------------------------------------------------------
 void taf_WlanSTASvcImpl::PerformScan(StaCtx_t *CtxPtr)
 {
+    TAF_ERROR_IF_RET_NIL(CtxPtr == nullptr, "Null context pointer provided to PerformScan");
+
+    // Check if interface name is valid
+    if (CtxPtr->IntfName == nullptr || strlen(CtxPtr->IntfName) == 0)
+    {
+        LE_ERROR("Invalid interface name in context");
+        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
+        return;
+    }
+
     // Start a thread of monitoring WPA control events
     le_thread_Ref_t supplicantThreadRef = nullptr;
     // Pass the interface to use and event that we are waiting for.
     SuppThreadCtx_t ThreadCtx;
-    le_utf8_Copy(ThreadCtx.IntfName, CtxPtr->IntfName,
-        TAF_NET_INTERFACE_NAME_MAX_LEN + 1, nullptr);
+
+    le_result_t result = le_utf8_Copy(ThreadCtx.IntfName, CtxPtr->IntfName,
+                                     TAF_NET_INTERFACE_NAME_MAX_LEN + 1, nullptr);
+    if (result != LE_OK) {
+        LE_ERROR("Failed to copy interface name: %s", LE_RESULT_TXT(result));
+        // Ensure null termination
+        ThreadCtx.IntfName[0] = '\0';
+        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
+        return;
+    }
+
+    ThreadCtx.eventCompleted = false;
+    ThreadCtx.shouldExit = false;
+
     ThreadCtx.EventsToMonitor.push_back(WPA_EVENT_SCAN_RESULTS);
-    supplicantThreadRef = le_thread_Create("supplicantThread", StaWpaSuppMonitorThreadHdlr,
-                                                                              (void *)&ThreadCtx);
+    supplicantThreadRef = le_thread_Create("suppThread", StaWpaSuppMonitorThreadHdlr,
+                                                                          (void *)&ThreadCtx);
 
     char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
 
@@ -657,11 +772,43 @@ void taf_WlanSTASvcImpl::PerformScan(StaCtx_t *CtxPtr)
 
     le_thread_Start(supplicantThreadRef);
 
-    // SCAN is running. Wait for it to complete.
-    PromiseWPA = std::promise<StaWpaEvt_e>();
-    StaWpaEvt_e staWpaEvt = PromiseWPA.get_future().get();
-    // Check the SCAN completion return.
-    if (EVT_WPA_AP_SCAN_DONE != staWpaEvt)
+    // SCAN is running. Wait for it to complete with timeout
+    const int MAX_WAIT_TIME_SEC = 15;
+    const int POLL_INTERVAL_MS = 100;
+    int elapsed_ms = 0;
+    bool eventCompleted = false;
+    StaWpaEvt_e resultEvent;
+
+    while (elapsed_ms < (MAX_WAIT_TIME_SEC * 1000))
+    {
+        {
+            // Use mutex to safely check shared state
+            std::lock_guard<std::mutex> lock(ThreadCtx.mutex);
+            eventCompleted = ThreadCtx.eventCompleted;
+            if (eventCompleted)
+            {
+                resultEvent = ThreadCtx.resultEvent;
+                break;
+            }
+        }
+        usleep(POLL_INTERVAL_MS * 1000);
+        elapsed_ms += POLL_INTERVAL_MS;
+    }
+
+    if (!eventCompleted)
+    {
+        LE_ERROR("Scan operation timed out");
+        ThreadCtx.shouldExit = true;
+        le_thread_Join(supplicantThreadRef, nullptr);
+        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
+        return;
+    }
+
+    // Wait for thread to finish
+    le_thread_Join(supplicantThreadRef, nullptr);
+
+    // Check the SCAN completion return
+    if (resultEvent != EVT_WPA_AP_SCAN_DONE)
     {
         LE_ERROR("WPA AP scan failed");
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
@@ -882,13 +1029,35 @@ le_result_t taf_WlanSTASvcImpl::Connect(
     // Start separate thread for monitoring required WPA events
     le_thread_Ref_t networkConnectedThreadRef = nullptr;
     SuppThreadCtx_t ThreadCtx;
-    le_utf8_Copy(ThreadCtx.IntfName, CtxPtr->IntfName,
-        TAF_NET_INTERFACE_NAME_MAX_LEN + 1, nullptr);
+
+    if (CtxPtr->IntfName != nullptr && strlen(CtxPtr->IntfName) > 0)
+    {
+        le_result_t result = le_utf8_Copy(ThreadCtx.IntfName, CtxPtr->IntfName,
+                                         TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
+        if (result != LE_OK)
+        {
+            LE_ERROR("Failed to copy interface name: %s", LE_RESULT_TXT(result));
+            // Ensure null termination
+            ThreadCtx.IntfName[0] = '\0';
+            ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
+            return LE_FAULT;
+        }
+    }
+    else
+    {
+        LE_ERROR("Interface name is null or empty");
+        ThreadCtx.IntfName[0] = '\0';
+        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
+        return LE_FAULT;
+    }
+
+    ThreadCtx.eventCompleted = false;
+    ThreadCtx.shouldExit = false;
 
     ThreadCtx.EventsToMonitor.push_back(WPA_EVENT_CONNECTED);
     ThreadCtx.EventsToMonitor.push_back(WPA_EVENT_TEMP_DISABLED);
 
-    networkConnectedThreadRef = le_thread_Create("networkConnectedThread",
+    networkConnectedThreadRef = le_thread_Create("connThread",
         StaWpaSuppMonitorThreadHdlr, (void *)&ThreadCtx);
     le_thread_Start(networkConnectedThreadRef);
 
@@ -899,12 +1068,16 @@ le_result_t taf_WlanSTASvcImpl::Connect(
     le_result_t res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
     if(res == LE_FAULT)
     {
+        ThreadCtx.shouldExit = true;
+        le_thread_Join(networkConnectedThreadRef, nullptr);
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
     if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
     {
         LE_ERROR("ENABLE_NETWORK failed");
+        ThreadCtx.shouldExit = true;
+        le_thread_Join(networkConnectedThreadRef, nullptr);
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
@@ -915,40 +1088,71 @@ le_result_t taf_WlanSTASvcImpl::Connect(
     res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
     if(res == LE_FAULT)
     {
+        ThreadCtx.shouldExit = true;
+        le_thread_Join(networkConnectedThreadRef, nullptr);
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
     if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
     {
         LE_ERROR("REASSOCIATE failed");
+        ThreadCtx.shouldExit = true;
+        le_thread_Join(networkConnectedThreadRef, nullptr);
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
 
-    // Waiting for maximum of 15 seconds to check if psk authentication failed
-    PromiseConn = std::promise<StaWpaEvt_e>();
-    auto fut = PromiseConn.get_future();
-    auto status = fut.wait_for(std::chrono::seconds(15));
-    if (status == std::future_status::ready)
+    // Wait for connection result with timeout
+    const int MAX_WAIT_TIME_SEC = 15;
+    const int POLL_INTERVAL_MS = 100;
+    int elapsed_ms = 0;
+    bool eventCompleted = false;
+    StaWpaEvt_e resultEvent;
+
+    while (elapsed_ms < (MAX_WAIT_TIME_SEC * 1000))
     {
-        StaWpaEvt_e staWpaEvt = fut.get();
-        if (staWpaEvt == EVT_WPA_AP_CONNECTED)
         {
-            LE_INFO("Connection to AP %s was successful..", ApInfo->SSID);
+            // Use mutex to safely check shared state
+            std::lock_guard<std::mutex> lock(ThreadCtx.mutex);
+            eventCompleted = ThreadCtx.eventCompleted;
+            if (eventCompleted)
+            {
+                resultEvent = ThreadCtx.resultEvent;
+                break;
+            }
         }
-        else if (staWpaEvt == EVT_WPA_AP_TEMP_DISABLED)
-        {
-            LE_ERROR("psk authentication failed for AP %s ..", ApInfo->SSID);
-            ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
-        }
-    }
-    if (status == std::future_status::timeout)
-    {
-        LE_TEST_INFO("Timeout waiting for EVT_WPA_AP_TEMP_DISABLED event");
+        usleep(POLL_INTERVAL_MS * 1000);
+        elapsed_ms += POLL_INTERVAL_MS;
     }
 
-    // TAF_WLANSTA_STATE_CONNECTED event will be sent from onStationStatusChanged
-    return LE_OK;
+    if (!eventCompleted)
+    {
+        LE_TEST_INFO("Timeout waiting for connection event");
+        ThreadCtx.shouldExit = true;
+    }
+
+    // Wait for thread to finish
+    le_thread_Join(networkConnectedThreadRef, nullptr);
+
+    if (eventCompleted)
+    {
+        if (resultEvent == EVT_WPA_AP_CONNECTED)
+        {
+            LE_INFO("Connection to AP %s was successful", ApInfo->SSID);
+            // TAF_WLANSTA_STATE_CONNECTED event will be sent from onStationStatusChanged
+            return LE_OK;
+        }
+        else if (resultEvent == EVT_WPA_AP_TEMP_DISABLED)
+        {
+            LE_ERROR("Authentication failed for AP %s", ApInfo->SSID);
+            ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
+            return LE_FAULT;
+        }
+    }
+
+    // Default case - timeout or other error
+    LE_WARN("Connection attempt to AP %s timed out or failed", ApInfo->SSID);
+    return LE_FAULT;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2312,9 +2516,13 @@ le_result_t taf_WlanSTASvcImpl::GetAPScanResults(
 )
 {
     StaCtx_t *staCtxPtr = NULL;
-    //telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
 
+    // Check for null pointers
     TAF_ERROR_IF_RET_VAL(nullptr == wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
+    TAF_ERROR_IF_RET_VAL(numAPPtr == nullptr, LE_BAD_PARAMETER, "numAPPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(ApInfoPtr == nullptr, LE_BAD_PARAMETER, "ApInfoPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(ApInfoSizePtr == nullptr, LE_BAD_PARAMETER, "ApInfoSizePtr is NULL");
+    TAF_ERROR_IF_RET_VAL(*ApInfoSizePtr == 0, LE_BAD_PARAMETER, "ApInfoSizePtr is 0");
 
     staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(NULL == staCtxPtr, LE_FAULT, "Unable to find context");
@@ -2326,33 +2534,47 @@ le_result_t taf_WlanSTASvcImpl::GetAPScanResults(
     LE_DEBUG("ApInfoSizePtr: %zu", *ApInfoSizePtr);
 
     // Check if enough space is available to store all scanned APs.
-    if (*ApInfoSizePtr >= staCtxPtr->numScannedAPs)
-    {
-        // Update the Info size pointer
-        *ApInfoSizePtr = staCtxPtr->numScannedAPs;
+    size_t copyCount = std::min(static_cast<size_t>(staCtxPtr->numScannedAPs), *ApInfoSizePtr);
+
+    // Update the Info size pointer
+    *ApInfoSizePtr = copyCount;
+
+    if (copyCount < staCtxPtr->numScannedAPs) {
+        LE_WARN("Number of elements(%zu) less than number of available APs(%d)",
+                copyCount, staCtxPtr->numScannedAPs);
     }
-    else
+
+    // Copy AP information
+    for (size_t iCount = 0; iCount < copyCount; ++iCount)
     {
-        LE_WARN("Number of element(%zu) less than number of available APs(%d)", *ApInfoSizePtr,
-                                                                          staCtxPtr->numScannedAPs);
-    }
-    le_result_t ret = LE_OK;
-    for (int iCount = 0; iCount < static_cast<int>(*ApInfoSizePtr); iCount++)
-    {
+        // Initialize destination strings to empty
+        ApInfoPtr[iCount].BSSID[0] = '\0';
+        ApInfoPtr[iCount].SSID[0] = '\0';
+
         // BSSID
-        ret = le_utf8_Copy(ApInfoPtr[iCount].BSSID, staCtxPtr->ApInfo[iCount].BSSID,
-                           TAF_WLAN_MAX_BSSID_LENGTH+1, NULL);
-        if (LE_OK != ret)
+        if (staCtxPtr->ApInfo[iCount].BSSID != nullptr &&
+            strlen(staCtxPtr->ApInfo[iCount].BSSID) > 0)
         {
-            LE_WARN("BSSID copy error: %d", ret);
+            le_result_t result = le_utf8_Copy(ApInfoPtr[iCount].BSSID,
+                staCtxPtr->ApInfo[iCount].BSSID, TAF_WLAN_MAX_BSSID_LENGTH + 1, NULL);
+            if (result != LE_OK)
+            {
+                LE_ERROR("Failed to copy BSSID: %s", LE_RESULT_TXT(result));
+                ApInfoPtr[iCount].BSSID[0] = '\0';
+            }
         }
 
         // SSID
-        ret = le_utf8_Copy(ApInfoPtr[iCount].SSID, staCtxPtr->ApInfo[iCount].SSID,
-                           TAF_WLAN_MAX_SSID_LENGTH+1, NULL);
-        if (LE_OK != ret)
+        if (staCtxPtr->ApInfo[iCount].SSID != nullptr &&
+            strlen(staCtxPtr->ApInfo[iCount].SSID) > 0)
         {
-            LE_WARN("SSID copy error: %d", ret);
+            le_result_t result = le_utf8_Copy(ApInfoPtr[iCount].SSID,
+                staCtxPtr->ApInfo[iCount].SSID,  TAF_WLAN_MAX_SSID_LENGTH + 1, NULL);
+            if (result != LE_OK)
+            {
+                LE_ERROR("Failed to copy SSID: %s", LE_RESULT_TXT(result));
+                ApInfoPtr[iCount].SSID[0] = '\0';
+            }
         }
 
         // Signal Level
@@ -2376,6 +2598,7 @@ le_result_t taf_WlanSTASvcImpl::GetAPScanResults(
         // WPS
         ApInfoPtr[iCount].WPSEnabled = staCtxPtr->ApInfo[iCount].WPSEnabled;
     }
+
     return LE_OK;
 }
 
@@ -2702,7 +2925,7 @@ void taf_WlanSTASvcImpl::Init()
     le_thread_Start(staCmdThreadRef_);
 
     // Start client events thread
-    staClientEventsThreadRef_ = le_thread_Create("StaClientEventsThread",
+    staClientEventsThreadRef_ = le_thread_Create("StaEvtThread",
                                                             staClientEventsThreadHandler, NULL);
     le_thread_Start(staClientEventsThreadRef_);
 

@@ -2838,6 +2838,150 @@ void taf_WlanSTASvcImpl::unregisterClientsConnectDisconnectHandlers()
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Extract estimated throughput value from BSS output string
+ *
+ * @return
+ * - LE_OK if throughput extracted successfully
+ * - LE_FAULT if key not found
+ * - LE_BAD_PARAMETER if value is empty or invalid
+ */
+//--------------------------------------------------------------------------------------------------
+inline le_result_t taf_WlanSTASvcImpl::BSSParser::extractEstThroughput
+(
+    const std::string& bssOutput,
+    int& estTput
+)
+{
+    const std::string key = "est_throughput=";
+    size_t pos = bssOutput.find(key);
+    TAF_ERROR_IF_RET_VAL(pos == std::string::npos, LE_FAULT,
+        "est_throughput key not found in BSS output");
+
+    pos += key.length();
+    size_t end = bssOutput.find_first_not_of("0123456789", pos);
+    std::string numberStr = bssOutput.substr(pos, end - pos);
+    TAF_ERROR_IF_RET_VAL(numberStr.empty(), LE_BAD_PARAMETER,
+        "Empty est_throughput value in BSS output");
+
+    try
+    {
+        estTput = std::stoi(numberStr);
+        return LE_OK;
+    }
+    catch (const std::exception& e)
+    {
+        LE_ERROR("Failed to parse est_throughput value '%s': %s", numberStr.c_str(), e.what());
+        return LE_BAD_PARAMETER;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Extract age of measurement from BSS output string
+ *
+ * @return
+ * - LE_OK if age extracted successfully
+ * - LE_FAULT if key not found
+ * - LE_BAD_PARAMETER if value is empty or invalid
+ */
+//--------------------------------------------------------------------------------------------------
+inline le_result_t taf_WlanSTASvcImpl::BSSParser::extractAge
+(
+    const std::string& bssOutput,
+    int& age
+)
+{
+    const std::string key = "age=";
+    size_t pos = bssOutput.find(key);
+    TAF_ERROR_IF_RET_VAL(pos == std::string::npos, LE_FAULT,
+        "age key not found in BSS output");
+
+    pos += key.length();
+    size_t end = bssOutput.find_first_not_of("0123456789", pos);
+    std::string numberStr = bssOutput.substr(pos, end - pos);
+    TAF_ERROR_IF_RET_VAL(numberStr.empty(), LE_BAD_PARAMETER,
+        "Empty age value in BSS output");
+
+    try
+    {
+        age = std::stoi(numberStr);
+        return LE_OK;
+    }
+    catch (const std::exception& e)
+    {
+        LE_ERROR("Failed to parse age value '%s': %s", numberStr.c_str(), e.what());
+        return LE_BAD_PARAMETER;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the AP estimated throughput.
+ *
+ * @return
+ * - LE_OK           -- Succeeded.
+ * - LE_NOT_FOUND    -- BSSID not found in scan results.
+ * - LE_UNAVAILABLE  -- Estimated throughput information not available.
+ * - Others          -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_WlanSTASvcImpl::GetAPEstimatedThroughput
+(
+    taf_wlanSta_WlanSTARef_t staRef,
+    const char* BSSID,
+    uint32_t* estimatedThroughputPtr,
+    int32_t* agePtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(nullptr == wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
+    TAF_ERROR_IF_RET_VAL(nullptr == BSSID, LE_BAD_PARAMETER, "BSSID is NULL");
+    TAF_ERROR_IF_RET_VAL(nullptr == estimatedThroughputPtr, LE_BAD_PARAMETER,
+        "estimatedThroughputPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(nullptr == agePtr, LE_BAD_PARAMETER, "agePtr is NULL");
+
+    // Initialize age to default negative value
+    *agePtr = -1;
+
+    StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
+    TAF_ERROR_IF_RET_VAL(nullptr == staCtxPtr, LE_FAULT, "Unable to find context");
+
+    char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
+    std::string wpaReqCmd = "BSS " + std::string(BSSID);
+    le_result_t res = runWPACommand(staCtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Failed to execute BSS command");
+
+    // Check if BSSID was found
+    TAF_ERROR_IF_RET_VAL(strncmp(rsp_buf, "FAIL", 4) == 0, LE_NOT_FOUND,
+        "BSSID %s not found in scan results", BSSID);
+
+    // Extract estimated throughput
+    int throughput = 0;
+    le_result_t throughputResult = BSSParser::extractEstThroughput(rsp_buf, throughput);
+    if (throughputResult != LE_OK)
+    {
+        LE_WARN("Failed to extract estimated throughput for BSSID %s: %d",
+        BSSID, throughputResult);
+        return LE_FAULT;
+    }
+
+    // Extract age
+    int age = -1;
+    le_result_t ageResult = BSSParser::extractAge(rsp_buf, age);
+    if (ageResult == LE_OK)
+    {
+        *agePtr = static_cast<int32_t>(age);
+    }
+    else
+    {
+        LE_WARN("Failed to extract age for BSSID %s: %d (using default -1)", BSSID, ageResult);
+    }
+
+    *estimatedThroughputPtr = static_cast<uint32_t>(throughput);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * taf_WlanAPSvcImpl Init function
  */
 //--------------------------------------------------------------------------------------------------

@@ -38,17 +38,32 @@ static taf_wlanSta_WlanSTARef_t wlanStaGetRef()
 
     std::cout << "Enter STA Id (1): ";
     std::cin.clear();
-    std::cin >> intStaId;
+
+    // Check if input is valid integer
+    if (!(std::cin >> intStaId)) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        LE_TEST_INFO("ERR: Invalid STA ID. Please enter a number.");
+        std::cout << "ERR: Invalid STA ID. Please enter a number." << std::endl;
+        return nullptr;
+    }
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     if (1 != intStaId)
     {
         LE_TEST_INFO("ERR: Only STA id 1 is supported.");
+        std::cout << "ERR: Only STA id 1 is supported." << std::endl;
         return nullptr;
     }
 
-    std::cout << "Enter STA interface:  ";
+    std::cout << "Enter STA interface (e.g., wlan0): ";
     std::cin.getline(interfaceStr, 24);
+
+    if (strlen(interfaceStr) == 0) {
+        LE_TEST_INFO("ERR: Interface name cannot be empty.");
+        std::cout << "ERR: Interface name cannot be empty." << std::endl;
+        return nullptr;
+    }
 
     LE_TEST_INFO("STA ID  : %d", intStaId);
     LE_TEST_INFO("STA Intf: %s", interfaceStr);
@@ -56,7 +71,12 @@ static taf_wlanSta_WlanSTARef_t wlanStaGetRef()
     taf_wlan_STAid_t staId = static_cast<taf_wlan_STAid_t>(intStaId);
 
     taf_wlanSta_WlanSTARef_t ref = taf_wlanSta_GetWlanSTA((taf_wlan_STAid_t)staId, interfaceStr);
-    LE_TEST_OK(nullptr != ref, "STA reference should be valid.");
+    if (ref == nullptr) {
+        LE_TEST_INFO("ERR: Failed to get STA reference."
+            " Make sure WLAN is enabled and interface exists.");
+        std::cout << "ERR: Failed to get STA reference."
+            " Make sure WLAN is enabled and interface exists." << std::endl;
+    }
     return ref;
 }
 
@@ -836,4 +856,117 @@ le_result_t WlanStaTestRemoveConnectedApSignalStrengthCb()
         return LE_NOT_FOUND;
     }
     return LE_OK;
+}
+
+le_result_t WlanStaTestGetApEstimatedThroughput()
+{
+    taf_wlanSta_WlanSTARef_t staRef = wlanStaGetRef();
+    if (!staRef)
+    {
+        LE_TEST_INFO("ERR: Failed to get STA reference.");
+        return LE_FAULT;
+    }
+
+    // First, we need to scan for APs to get their BSSIDs
+    LE_TEST_INFO("Performing AP scan to get available BSSIDs...");
+    std::cout << "Performing AP scan to get available BSSIDs..." << std::endl;
+
+    le_result_t result = taf_wlanSta_DoAPScan(staRef);
+    if (result != LE_OK)
+    {
+        LE_TEST_INFO("ERR: Failed to perform AP scan: %d", result);
+        std::cout << "Failed to perform AP scan: " << result << std::endl;
+        return result;
+    }
+
+    // Wait for scan to complete
+    LE_TEST_INFO("Waiting for scan to complete (10 seconds)...");
+    std::cout << "Waiting for scan to complete (10 seconds)..." << std::endl;
+    sleep(10);
+
+    // Get scan results
+    uint16_t numScannedAPs = 0;
+    size_t apInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
+    taf_wlanSta_APInfo_t apInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = { 0 };
+
+    result = taf_wlanSta_GetAPScanResults(staRef, &numScannedAPs, apInfo, &apInfoSize);
+    if (result != LE_OK)
+    {
+        LE_TEST_INFO("ERR: Failed to get AP scan results: %d", result);
+        std::cout << "Failed to get AP scan results: " << result << std::endl;
+        return result;
+    }
+
+    if (numScannedAPs == 0)
+    {
+        LE_TEST_INFO("No APs found in scan results");
+        std::cout << "No APs found in scan results" << std::endl;
+        return LE_NOT_FOUND;
+    }
+
+    // Display available APs for selection
+    std::cout << "\nAvailable APs:" << std::endl;
+    for (size_t i = 0; i < numScannedAPs; ++i)
+    {
+        std::cout << i + 1 << ". SSID: " << apInfo[i].SSID
+                  << ", BSSID: " << apInfo[i].BSSID
+                  << ", Signal: " << apInfo[i].SignalLevel << " dBm" << std::endl;
+    }
+
+    // Let user select an AP
+    size_t selection = 0;
+    std::cout << "\nSelect an AP (1-" << numScannedAPs << "): ";
+    std::cin.clear();
+    std::cin >> selection;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    if (selection < 1 || selection > numScannedAPs)
+    {
+        LE_TEST_INFO("ERR: Invalid selection");
+        std::cout << "Invalid selection" << std::endl;
+        return LE_BAD_PARAMETER;
+    }
+
+    // Get the estimated throughput for the selected AP
+    uint32_t estimatedThroughput = 0;
+    int32_t age = -1;
+    const char* bssid = apInfo[selection - 1].BSSID;
+
+    LE_TEST_INFO("Getting estimated throughput for BSSID: %s", bssid);
+    std::cout << "Getting estimated throughput for BSSID: " << bssid << std::endl;
+
+    result = taf_wlanSta_GetAPEstimatedThroughput(staRef, bssid, &estimatedThroughput, &age);
+
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("Estimated throughput: %u Kbps", estimatedThroughput);
+        LE_TEST_INFO("Age of measurement: %d seconds", age);
+
+        std::cout << "Estimated throughput: " << estimatedThroughput << " Kbps" << std::endl;
+        if (age >= 0)
+        {
+            std::cout << "Age of measurement: " << age << " seconds" << std::endl;
+        }
+        else
+        {
+            std::cout << "Age of measurement: not available" << std::endl;
+        }
+    }
+    else if (result == LE_NOT_FOUND)
+    {
+        LE_TEST_INFO("BSSID not found in scan results");
+        std::cout << "BSSID not found in scan results" << std::endl;
+    }
+    else if (result == LE_UNAVAILABLE)
+    {
+        LE_TEST_INFO("Estimated throughput information not available for this AP");
+        std::cout << "Estimated throughput information not available for this AP" << std::endl;
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to get estimated throughput: %d", result);
+        std::cout << "Failed to get estimated throughput: " << result << std::endl;
+    }
+
+    return result;
 }

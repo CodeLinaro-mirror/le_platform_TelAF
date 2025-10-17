@@ -422,6 +422,8 @@ namespace tafsvc
                             const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo);
         le_result_t Disconnect(StaCtx_t *CtxPtr,
                                 const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo);
+        le_result_t GetAPEstimatedThroughput(taf_wlanSta_WlanSTARef_t staRef,
+                        const char* BSSID, uint32_t* estimatedThroughputPtr, int32_t* agePtr);
         taf_wlanSta_EventHandlerRef_t AddEventHandler(taf_wlanSta_WlanSTARef_t staRef,
                                                         taf_wlanSta_HandlerFunc_t handlerPtr,
                                                         void *contextPtr);
@@ -452,6 +454,34 @@ namespace tafsvc
         int GetNumSignalStrengthHandlersRefForSta(const taf_wlan_STAid_t staId) const;
 
     private:
+        /**
+        * BSS output parser helper class
+        */
+        class BSSParser
+        {
+        public:
+            /**
+            * Extract estimated throughput value from BSS output string
+            *
+            * @return
+            * - LE_OK if throughput extracted successfully
+            * - LE_FAULT if key not found
+            * - LE_BAD_PARAMETER if value is empty or invalid
+            */
+            inline static le_result_t extractEstThroughput(const std::string& bssOutput,
+                int& estTput);
+
+            /**
+            * Extract age of measurement from BSS output string
+            *
+            * @return
+            * - LE_OK if age extracted successfully
+            * - LE_FAULT if key not found
+            * - LE_BAD_PARAMETER if value is empty or invalid
+            */
+            inline static le_result_t extractAge(const std::string& bssOutput, int& age);
+        };
+
         friend class taf_WlanSTAListener;
         std::string mNetID;
 

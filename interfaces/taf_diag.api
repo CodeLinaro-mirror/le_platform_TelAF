@@ -460,4 +460,25 @@ FUNCTION le_result_t Resume
 FUNCTION le_result_t RemoveSvc
 (
     Service svcRef  IN    ///< Service reference.
-) =11;
+) = 11;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Shuts down diag service.
+ *
+ * @instaging
+ *
+ * @b NOTE: The API is only used in restart scenarios. After it is called, the diag service stops
+ * working and TCP communication must be re-established once the system restarts.
+ *
+ * @result
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Shutdown
+(
+    Service svcRef                          IN  ///< Service reference.
+) = 12;

@@ -141,6 +141,22 @@ void TestResumeDiagWithVlan()
     LE_INFO("Resume diag with VLAN Id 110, result: %d", result);
 }
 
+void TestShutdownDoIPConnection()
+{
+    le_result_t result;
+
+    // Get diag svc reference
+    taf_diag_ServiceRef_t svcRef = taf_diag_GetService();
+    if(svcRef == NULL)
+    {
+        LE_ERROR("Get diag service reference error");
+        return;
+    }
+
+    result = taf_diag_Shutdown(svcRef);
+    LE_INFO(" Shutdown diag service, result is %d ", result);
+}
+
 COMPONENT_INIT
 {
     LE_INFO("%s [Test start]", __FUNCTION__);
@@ -148,7 +164,28 @@ COMPONENT_INIT
     int numberOfArgs = le_arg_NumArgs();
     LE_INFO("Total numberOfArgs count: %d", numberOfArgs);
 
-    if (numberOfArgs == 2)
+    if (numberOfArgs == 1)
+    {
+        const char* actionPtr = le_arg_GetArg(0);
+
+        if (actionPtr == NULL)
+        {
+            LE_ERROR("actionPtr is NULL");
+            return;
+        }
+
+        if (strcmp(actionPtr,"shutdown") == 0)
+        {
+            TestShutdownDoIPConnection();
+        }
+        else
+        {
+            printf("\n === action type argument is not correct ===\n");
+            LE_ERROR("action type argument is not correct");
+            return;
+        }
+    }
+    else if (numberOfArgs == 2)
     {
 
         const char* actionPtr = le_arg_GetArg(0);
@@ -216,8 +253,9 @@ COMPONENT_INIT
     else
     {
         printf("Please follow the instructions and passed argument as mentioned\n");
-        printf("Set argument with pause/resume vlan/nonVlan\n");
-        printf("=== eg: app runProc tafDiagState tafDiagState -- pause vlan \n");
+        printf("Set argument with pause/resume vlan/nonVlan or closeDoIPConn\n");
+        printf("=== eg 1: app runProc tafDiagState tafDiagState -- pause vlan \n");
+        printf("=== eg 2: app runProc tafDiagState tafDiagState -- shutdown \n");
         LE_TEST_EXIT;
     }
 

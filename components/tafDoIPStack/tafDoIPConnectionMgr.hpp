@@ -43,6 +43,7 @@ namespace doip{
             std::shared_ptr<Connection> FindConnectionByLogicalAddr(uint16_t logicalAddr);
             std::shared_ptr<Connection> FindConnectionBySocket(le_socket_Ref_t sockRef);
             taf_doip_Result_t DeleteConnection(std::shared_ptr<Connection> connectPtr);
+            void ShutdownAllConnection();
             void DeleteAllConnection();
 
             size_t GetConnectionNum();

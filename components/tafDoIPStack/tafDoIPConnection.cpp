@@ -154,6 +154,49 @@ errOut:
     return TAF_DOIP_RESULT_ERROR;
 }
 
+// Gracefully shutdown the socket.
+taf_doip_Result_t Connection::Shutdown()
+{
+    connState = TAF_DOIP_CONNECT_STATE_FINALIZE;
+
+    if (le_timer_IsRunning(aliveCheckTimerRef))
+    {
+        le_timer_Stop(aliveCheckTimerRef);
+    }
+
+    if (le_timer_IsRunning(generalTimerRef))
+    {
+        le_timer_Stop(generalTimerRef);
+    }
+
+    if (le_timer_IsRunning(initialTimerRef))
+    {
+        le_timer_Stop(initialTimerRef);
+    }
+
+    if (inBuf != NULL)
+    {
+        le_mem_Release(inBuf);
+        inBuf = NULL;
+    }
+
+    if (udsBuf != NULL)
+    {
+        le_mem_Release(udsBuf);
+        udsBuf = NULL;
+    }
+
+    LE_INFO("Shutdown the socket");
+    le_result_t result = le_socket_Shutdown(cliSockRef, SHUT_WR);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to shutdown socket: %d", result);
+        return TAF_DOIP_RESULT_ERROR;
+    }
+
+    return TAF_DOIP_RESULT_OK;
+}
+
 // When the connection is deleting, it shall be called to release resources.
 taf_doip_Result_t Connection::Stop()
 {
@@ -193,6 +236,8 @@ taf_doip_Result_t Connection::Stop()
         le_mem_Release(udsBuf);
         udsBuf = NULL;
     }
+
+    LE_INFO("Delete the socket");
     le_socket_Delete(cliSockRef);
 
     return TAF_DOIP_RESULT_OK;
@@ -352,7 +397,6 @@ taf_doip_Result_t Connection::ReceiveTCPData
 
     if (buffer == NULL)
     {
-        LE_ERROR("Bad parameter.\n");
         return TAF_DOIP_RESULT_PARAM_ERROR;
     }
 

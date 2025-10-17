@@ -217,13 +217,26 @@ taf_doip_Result_t ConnectionManager::DeleteConnection
     return TAF_DOIP_RESULT_OK;
 }
 
+void ConnectionManager::ShutdownAllConnection
+(
+)
+{
+    LE_INFO("ShutdownAllConnection");
+    for (auto iter = connectionBox.begin(); iter != connectionBox.end();iter++)
+    {
+        (*iter)->Shutdown();
+    }
+}
+
 void ConnectionManager::DeleteAllConnection
 (
 )
 {
-    for (auto iter = connectionBox.begin(); iter != connectionBox.end(); iter++)
+    LE_INFO("DeleteAllConnection");
+    for (auto iter = connectionBox.begin(); iter != connectionBox.end();)
     {
-        DeleteConnection(*iter);
+        (*iter)->Stop();
+        iter = connectionBox.erase(iter);
     }
 }
 

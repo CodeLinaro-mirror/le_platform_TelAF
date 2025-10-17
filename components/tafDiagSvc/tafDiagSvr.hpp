@@ -128,6 +128,7 @@ typedef struct
                 // Pause/Resume diag service to receive UDS requests.
                 le_result_t Pause(taf_diag_ServiceRef_t svcRef);
                 le_result_t Resume(taf_diag_ServiceRef_t svcRef);
+                le_result_t Shutdown(taf_diag_ServiceRef_t svcRef);
 
                 //Asynchrous function from API direction
                 void CancelFileXferAsync(taf_diag_ServiceRef_t svcRef,

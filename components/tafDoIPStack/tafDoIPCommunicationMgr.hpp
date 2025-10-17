@@ -29,6 +29,7 @@ namespace taf{
 namespace doip{
     #define TAF_DOIP_MAX_ENTITY_NUM         1
     #define TAF_DOIP_MAX_USER_HANDLER_NUM   10
+    #define TAF_DOIP_CLOSE_SOCKET_INTERVAL  5000
 
     #define TAF_DOIP_MDS_DEFAULT            4096
     #define TAF_DOIP_SA_DEFAULT             0x201
@@ -205,6 +206,8 @@ namespace doip{
 
             le_mutex_Ref_t doipSessionRefMutex;
 
+            le_timer_Ref_t shutdownTimerRef;
+
             taf_doipSession_t*  FindDoipSession(uint16_t sa);
             taf_doip_PowerMode_t QueryPowerMode();
             taf_doip_UserConfirmResult_t ConfirmRoutingActivation(uint16_t sa, uint16_t ta);
@@ -235,6 +238,8 @@ namespace doip{
             static void RequestUdsMessage(void* param1Ptr, void* param2Ptr);
             static void ConfirmUserMessage(void* param1Ptr, void* param2Ptr);
             static void IndicateConnectionEvent(void* param1Ptr, void* param2Ptr);
+
+            static void shutdownTimerHandler( le_timer_Ref_t timerRef);
 
             void RespondHeaderNegativeACK(const char* ipPtr, uint16_t port,
                     taf_doipHeaderNACKCode_t nackCode);

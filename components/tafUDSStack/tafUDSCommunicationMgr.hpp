@@ -398,6 +398,7 @@ namespace uds{
             static void InitInstances(le_dls_List_t* interfaceList);
             static void InitAuthData(le_dls_List_t* interfaceList);
             static le_result_t UdsStart(const char* configPathPtr);
+            static le_result_t UdsStop();
 
             static void GetFileXferActiveStateList(le_dls_List_t* fileXferStateListPtr);
             static void GetVlanIdList(le_dls_List_t* vlanIDListPtr);

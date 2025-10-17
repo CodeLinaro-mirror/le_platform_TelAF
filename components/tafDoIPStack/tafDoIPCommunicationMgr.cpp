@@ -2152,6 +2152,16 @@ taf_doip_Result_t CommunicationMgr::SessionInit
     return TAF_DOIP_RESULT_OK;
 }
 
+void CommunicationMgr::shutdownTimerHandler
+(
+    le_timer_Ref_t timerRef
+)
+{
+    LE_INFO("shutdownTimerHandler");
+    auto&   cmMgr = CommunicationMgr::GetInstance();
+    cmMgr.connectionMgrPtr->DeleteAllConnection();
+}
+
 /*=================================================================================================
  FUNCTION        CommunicationMgr::SessionDeinit
  DESCRIPTION     Deinitialization of DoIP session resource
@@ -2165,6 +2175,16 @@ taf_doip_Result_t CommunicationMgr::SessionDeInit()
     {
         SessionStop();
     }
+
+    auto&   cmMgr = CommunicationMgr::GetInstance();
+
+    LE_INFO("ShutdownAllConnection");
+    cmMgr.connectionMgrPtr->ShutdownAllConnection();
+
+    le_timer_SetHandler(shutdownTimerRef, shutdownTimerHandler);
+    le_timer_SetWakeup(shutdownTimerRef, false);
+    le_timer_SetMsInterval(shutdownTimerRef, TAF_DOIP_CLOSE_SOCKET_INTERVAL);
+    le_timer_Start(shutdownTimerRef);
 
     le_socket_Delete(udpDiscoverSockRef);
     udpDiscoverSockRef = NULL;
@@ -2207,6 +2227,8 @@ void CommunicationMgr::Init
     doipSessionRefMap = le_ref_CreateMap("DoipSessionRefMap", TAF_DOIP_MAX_ENTITY_NUM);
     doipHandlerRefMap = le_ref_CreateMap("DoipHandlerRefMap", TAF_DOIP_MAX_USER_HANDLER_NUM);
     doipSessionRefMutex = le_mutex_CreateRecursive("DoipSessionRefMutex");
+
+    shutdownTimerRef = le_timer_Create("shutdownTimer");
 
     // Initialized vehicle deiscovery.
     auto& vehicleDisovery = VehicleDiscovery::GetInstance();

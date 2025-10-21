@@ -5,7 +5,6 @@
 common_props:
   s3_server_max: 5.0
   ignore_request_for_hardreset: TRUE
-  dtc_status_availability_mask: 0x7F
 
 debounce_algorithm_type: [Counter, Timer, Custom]
 
@@ -17,16 +16,3 @@ freeze_frame_trigger_type:
   - DEM_TRIGGER_ON_TEST_FAILED
   - DEM_TRIGGER_ON_TEST_FAILED_THIS_OPERATION_CYCLE
 
-diagnostic_session:
-  vehicle_manufacturer_specific_session:
-    short_name: vehicle_manufacturer_specific_session
-    id: 0x40
-    p2_server_max: 0.05
-    p2_start_server_max: 5.0
-    execution_authorization_pattern: supplier_specific_security_level
-  fota_session:
-    short_name: fota_session
-    id: 0x42
-    p2_server_max: 0.05
-    p2_start_server_max: 5.0
-    execution_authorization_pattern: supplier_specific_security_level

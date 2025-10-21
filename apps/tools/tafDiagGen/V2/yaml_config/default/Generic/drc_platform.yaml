@@ -6,6 +6,7 @@ domain_name: Generic
 common_props:
   max_number_of_request_correctly_received_response_pending: 0xFF
   occurrence_counter_processing: TEST-FAILED-BIT
+  dtc_status_availability_mask: 0x7F
 
 extended_data_records:
   OccurrenceCounter:

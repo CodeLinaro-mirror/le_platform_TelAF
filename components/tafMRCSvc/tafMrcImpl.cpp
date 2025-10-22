@@ -24,6 +24,67 @@ LE_MEM_DEFINE_STATIC_POOL(metricsPool, TAF_MRC_METRICS_MAX_NUM, sizeof(taf_MrcEf
 //--------------------------------------------------------------------------------------------------
 LE_REF_DEFINE_STATIC_MAP(metricsRefMap, TAF_MRC_METRICS_MAX_NUM);
 
+static void RegisterIndication
+(
+    uint8_t registration
+)
+{
+    pa_result_t result = taf_pa_mrc_RegisterIndication(registration);
+    switch(result)
+    {
+        case 0:
+            if (registration == ENABLE_INDICATION)
+                LE_INFO("Indication is enabled.");
+            else
+                LE_INFO("Indication is disabled.");
+            break;
+        case -ENOSYS:
+        case -ENOTSUP:
+            break;
+        default:
+            LE_ERROR("Failed to register indication.");
+    }
+}
+
+le_result_t Utility::Convert::Result
+(
+    pa_result_t result
+)
+{
+    switch (result)
+    {
+        case 0:
+            return LE_OK;
+        case -EFAULT:
+            return LE_FAULT;
+        case -ETIMEDOUT:
+            return LE_TIMEOUT;
+        case -EINVAL:
+            return LE_BAD_PARAMETER;
+        case -ENOTSUP:
+            return LE_UNSUPPORTED;
+        case -ENOSYS:
+            return LE_NOT_IMPLEMENTED;
+        default:
+            LE_INFO("Unknown result %d.", result);
+    }
+
+    return LE_FAULT;
+}
+
+static void ProcessStatusHandler
+(
+    taf_pa_mrc_ProcessStatusIndication_t indication,
+    void* contextPtr
+)
+{
+    auto& mrc = taf_Mrc::GetInstance();
+    if (indication.processValid && indication.process == TAF_PA_MRC_PROCESS_ABSYNC)
+    {
+        LE_INFO("ABSYNC proceeded by MRC.");
+        le_sem_Post(mrc.syncSem);
+    }
+}
 
 taf_Mrc &taf_Mrc::GetInstance()
 {
@@ -114,77 +175,6 @@ le_result_t taf_Mrc::SendOtaMsg(taf_MrcOtaMsgType_t type)
     return LE_OK;
 }
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Handler preference for operation status.
- */
-//--------------------------------------------------------------------------------------------------
-taf_pa_mrc_OpStatusHandlerRef_t taf_Mrc::opStatusHandlerRef = NULL;
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Platform event thread.
- */
-//--------------------------------------------------------------------------------------------------
-void* taf_Mrc::PAEventThread
-(
-    void* contextPtr ///< [IN] Context
-)
-{
-    opStatusHandlerRef = taf_pa_mrc_AddOpStatusHandler(OpStatusHandler, NULL);
-    le_sem_Post((le_sem_Ref_t)contextPtr);
-
-    le_event_RunLoop();
-    return NULL;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Handler for operation status.
- */
-//--------------------------------------------------------------------------------------------------
-void taf_Mrc::OpStatusHandler
-(
-    taf_pa_mrc_OperationIndication_t* indPtr, ///< [IN] Indication for operation status.
-    void* contextPtr                          ///< [IN] Context.
-)
-{
-    auto &tafMrc = taf_Mrc::GetInstance();
-
-    switch (indPtr->status)
-    {
-        case TAF_PA_MRC_OP_STATUS_SUCCESS:
-            LE_INFO("MRC indicates operation is Successful.");
-            break;
-        case TAF_PA_MRC_OP_STATUS_FAILURE:
-            LE_ERROR("MRC indicates operation is Failed.");
-            break;
-        default:
-            LE_WARN("MRC indicates operation is Unknown.");
-            break;
-    }
-
-    switch (indPtr->operation)
-    {
-        case TAF_PA_MRC_OP_OTA_START:
-            LE_INFO("MRC indicates OTA Started.");
-            break;
-        case TAF_PA_MRC_OP_OTA_RESUME:
-            LE_INFO("MRC indicates OTA resumed.");
-            break;
-        case TAF_PA_MRC_OP_OTA_END:
-            LE_INFO("MRC indicates OTA ended.");
-            break;
-        case TAF_PA_MRC_OP_ABSYNC:
-            LE_INFO("MRC indicates AB sync.");
-            le_sem_Post(tafMrc.syncSem);
-            break;
-        default:
-            LE_WARN("MRC indicates Unknown operation.");
-            break;
-    }
-}
-
 void taf_Mrc::Init(void)
 {
     metricsRefMap = le_ref_InitStaticMap(metricsRefMap, TAF_MRC_METRICS_MAX_NUM);
@@ -228,41 +218,18 @@ void taf_Mrc::Init(void)
     fsManager->registerListener(otaOperationsListener);
 
     syncSem = le_sem_Create("syncSem", 0);
-    le_result_t result = taf_pa_mrc_Initialize(TAF_MRC_SVC_READY_TIMEOUT, TAF_MRC_MSG_RESP_TIMEOUT);
-    if (result != LE_OK)
+    pa_result_t result = taf_pa_mrc_Init();
+    if (result != PA_OK)
     {
         paReady = false;
         LE_WARN("Fail to initialize MRC platform adaptor.");
     }
     else
     {
-        result = taf_pa_mrc_IndicationRegistration(TAF_PA_MRC_IND_BIT_MASK_OTA_ABSYNC_STATUS
-            | TAF_PA_MRC_IND_BIT_MASK_IMMINENT, 1);
-        if (result != LE_OK)
-        {
-            paReady = false;
-            LE_ERROR("Fail to register MRC indications.");
-        }
-        else
-        {
-            // Create thread for platform adaptor event.
-            le_sem_Ref_t semaphore = le_sem_Create("PAEventThreadSem", 0);
-            le_thread_Ref_t threadRef = le_thread_Create("PAEventThread", PAEventThread, (void*)semaphore);
-            le_thread_Start(threadRef);
-            le_sem_Wait(semaphore);
-            le_sem_Delete(semaphore);
+        RegisterIndication(ENABLE_INDICATION);
+        taf_pa_mrc_AddProcessStatusHandler(ProcessStatusHandler, nullptr);
 
-            paReady = true;
-            LE_INFO("MRC platform adaptor is ready.");
-        }
+        paReady = true;
+        LE_INFO("MRC platform adaptor is ready.");
     }
-
-    result = taf_prop_hms_Initialize(TAF_MRC_SVC_READY_TIMEOUT, TAF_MRC_MSG_RESP_TIMEOUT);
-    if (result != LE_OK)
-    {
-        paReady = false;
-        LE_WARN("Fail to initialize HMS platform adaptor.");
-    }
-    else
-        LE_INFO("HMS platform adaptor is ready.");
 }

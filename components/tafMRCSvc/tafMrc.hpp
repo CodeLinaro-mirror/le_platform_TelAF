@@ -19,11 +19,12 @@
 #include <telux/platform/FsManager.hpp>
 
 #include "taf_pa_mrc.hpp"
-#include "taf_prop_hms.hpp"
 
 #include "tafSvcIF.hpp"
 
-#define TAF_MRC_SVC_READY_TIMEOUT 60
+#define DISABLE_INDICATION 0
+#define ENABLE_INDICATION 1
+
 #define TAF_MRC_MSG_RESP_TIMEOUT 180
 
 #define TAF_MRC_METRICS_MAX_NUM 1
@@ -46,6 +47,19 @@ typedef struct
     uint32_t badBlockCount;
 } taf_MrcEfsMetrics_t;
 
+class Utility
+{
+    public:
+        class Convert
+        {
+            public:
+                static le_result_t Result
+                (
+                    pa_result_t result
+                );
+        };
+};
+
 namespace tafsvc {
     class taf_MrcOtaOperationsListener : public telux::platform::IFsListener {
     public:
@@ -61,13 +75,10 @@ namespace tafsvc {
         void Init(void);
 
         le_result_t SendOtaMsg(taf_MrcOtaMsgType_t type);
-        static void OpStatusHandler(taf_pa_mrc_OperationIndication_t* indPtr, void* contextPtr);
-        static void* PAEventThread(void* contextPtr);
 
         std::shared_ptr<telux::platform::IFsManager> fsManager;
         le_sem_Ref_t syncSem;
         bool paReady = false;
-        static taf_pa_mrc_OpStatusHandlerRef_t opStatusHandlerRef;
         le_mem_PoolRef_t metricsPool;
         le_ref_MapRef_t metricsRefMap;
     private:

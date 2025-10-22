@@ -28,8 +28,8 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -44,10 +44,351 @@
 #include <chrono>
 
 #include "tafRadio.hpp"
-#include "taf_pa_radio.hpp"
 
 using namespace std;
 using namespace tafsvc;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static pool for PCI network scan information lists
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(pciInfoListPool, PCI_SCAN_LIST_MAX_COUNT, sizeof(PciInfoList_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static pool for PCI network scan cell information
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(pciCellInfoPool, PCI_CELL_MAX_COUNT, sizeof(PciCellInfo_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static pool for PCI network scan information safe reference
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(pciCellInfoSafeRefPool, PCI_CELL_MAX_COUNT, sizeof(PciCellInfoSafeRef_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static pool for PLMN ID
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(plmnIdPool, PLMN_ID_MAX_COUNT, sizeof(PlmnId_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static pool for PLMN ID safe reference
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(plmnIdSafeRefPool, PLMN_ID_MAX_COUNT, sizeof(PlmnIdSafeRef_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static map for PCI network scan information lists
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(pciInfoListRefMap, PCI_SCAN_LIST_MAX_COUNT);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static map for PCI network scan cell information safe reference
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(pciCellInfoSafeRefMap, PCI_CELL_MAX_COUNT);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static map for PLMN ID safe reference
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(plmnIdSafeRefMap, PLMN_ID_MAX_COUNT);
+
+static void RegisterIndication
+(
+    uint8_t registration
+)
+{
+    for (uint32_t i = 0; i < INSTANCE_MAX_COUNT; i++)
+    {
+        pa_result_t result = taf_pa_radio_RegisterIndication(i, registration);
+        switch(result)
+        {
+            case 0:
+                if (registration == ENABLE_INDICATION)
+                    LE_INFO("Indication is enabled for instance %d.", i);
+                else
+                    LE_INFO("Indication is disabled for instance %d.", i);
+                break;
+            case -ENOTSUP:
+            case -ENOSYS:
+                break;
+            default:
+                LE_ERROR("Failed to register indication for instance %d.", i);
+        }
+    }
+}
+
+le_result_t Utility::Convert::Result
+(
+    pa_result_t result
+)
+{
+    switch (result)
+    {
+        case 0:
+            return LE_OK;
+        case -EFAULT:
+            return LE_FAULT;
+        case -ETIMEDOUT:
+            return LE_TIMEOUT;
+        case -EINVAL:
+            return LE_BAD_PARAMETER;
+        case -ENOTSUP:
+            return LE_UNSUPPORTED;
+        case -ENOSYS:
+            return LE_NOT_IMPLEMENTED;
+        default:
+            LE_INFO("Unknown result %d.", result);
+    }
+
+    return LE_FAULT;
+}
+
+taf_pa_common_LogLevel_t Utility::Convert::Level
+(
+    le_log_Level_t level
+)
+{
+    switch (level)
+    {
+        case LE_LOG_DEBUG:
+            return TAF_PA_COMMON_LOG_LEVEL_DEBUG;
+        case LE_LOG_INFO:
+            return TAF_PA_COMMON_LOG_LEVEL_INFO;
+        case LE_LOG_WARN:
+            return TAF_PA_COMMON_LOG_LEVEL_WARN;
+        case LE_LOG_ERR:
+            return TAF_PA_COMMON_LOG_LEVEL_ERROR;
+        case LE_LOG_CRIT:
+            return TAF_PA_COMMON_LOG_LEVEL_CRIT;
+        case LE_LOG_EMERG:
+            return TAF_PA_COMMON_LOG_LEVEL_EMERG;
+        default:
+            LE_INFO("Unknown level %d.", level);
+    }
+
+    return TAF_PA_COMMON_LOG_LEVEL_INFO;
+}
+
+uint32_t Utility::Convert::PhoneToInstance
+(
+    uint8_t phone
+)
+{
+    switch (phone)
+    {
+        case 1:
+            return 0;
+        case 2:
+            return 1;
+        default:
+            LE_INFO("Invalid phone %d.", phone);
+    }
+
+    return INSTANCE_MAX_COUNT;
+}
+
+uint8_t Utility::Convert::InstanceToPhone
+(
+    uint32_t instance
+)
+{
+    switch (instance)
+    {
+        case 0:
+            return 1;
+        case 1:
+            return 2;
+        default:
+            LE_INFO("Invalid instance %d.", instance);
+    }
+
+    return 0;
+}
+
+taf_pa_radio_RatBitMask_t Utility::Convert::Rat
+(
+    taf_radio_RatBitMask_t bitmask
+)
+{
+    if (bitmask & TAF_RADIO_RAT_BIT_MASK_ALL)
+        return TAF_PA_RADIO_BITMASK_RAT_GSM | TAF_PA_RADIO_BITMASK_RAT_CDMA |
+            TAF_PA_RADIO_BITMASK_RAT_UMTS | TAF_PA_RADIO_BITMASK_RAT_TDSCDMA |
+            TAF_PA_RADIO_BITMASK_RAT_LTE | TAF_PA_RADIO_BITMASK_RAT_NR5G;
+
+    taf_pa_radio_RatBitMask_t result = 0x0;
+
+    if (bitmask & TAF_RADIO_RAT_BIT_MASK_GSM)
+        result |= TAF_PA_RADIO_BITMASK_RAT_GSM;
+
+    if (bitmask & TAF_RADIO_RAT_BIT_MASK_CDMA)
+        result |= TAF_PA_RADIO_BITMASK_RAT_CDMA;
+
+    if (bitmask & TAF_RADIO_RAT_BIT_MASK_UMTS)
+        result |= TAF_PA_RADIO_BITMASK_RAT_UMTS;
+
+    if (bitmask & TAF_RADIO_RAT_BIT_MASK_TDSCDMA)
+        result |= TAF_PA_RADIO_BITMASK_RAT_TDSCDMA;
+
+    if (bitmask & TAF_RADIO_RAT_BIT_MASK_LTE)
+        result |= TAF_PA_RADIO_BITMASK_RAT_LTE;
+
+    if (bitmask & TAF_RADIO_RAT_BIT_MASK_NR5G)
+        result |= TAF_PA_RADIO_BITMASK_RAT_NR5G;
+
+    return result;
+}
+
+taf_radio_RatSvcStatus_t Utility::Convert::RatServiceStatus
+(
+    taf_pa_radio_RatServiceStatus_t status
+)
+{
+    switch (status)
+    {
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_NO_SERVICE:
+            return TAF_RADIO_RAT_SVC_STATUS_NO_SERVICE;
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_LIMITED:
+            return TAF_RADIO_RAT_SVC_STATUS_LIMITED;
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_SERVICE:
+            return TAF_RADIO_RAT_SVC_STATUS_SERVICE;
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_LIMITED_REGIONAL:
+            return TAF_RADIO_RAT_SVC_STATUS_LIMITED_REGIONAL;
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_POWER_SAVE:
+            return TAF_RADIO_RAT_SVC_STATUS_POWER_SAVE;
+        default:
+            LE_INFO("Unknown RAT service status.");
+    }
+
+    return TAF_RADIO_RAT_SVC_STATUS_UNKNOWN;
+}
+
+taf_radio_NREndcAvailability_t Utility::Convert::EndcStatus
+(
+    taf_pa_radio_DataAvailSysStatus_t* statusPtr
+)
+{
+    if (statusPtr == nullptr)
+    {
+        LE_ERROR("statusPtr is nullptr.");
+        return TAF_RADIO_NR_ENDC_UNKNOWN;
+    }
+
+    uint64_t bitmask = 0x0;
+    for (uint32_t i = 0; i < statusPtr->availSysCount && i < TAF_PA_RADIO_DATA_AVAIL_SYS_MAX_COUNT;
+        i++)
+    {
+        if (statusPtr->availSysStatusInfo[i].rat == TAF_PA_RADIO_RAT_LTE)
+            bitmask |= BITMASK_RAT_LTE;
+        else if (statusPtr->availSysStatusInfo[i].rat == TAF_PA_RADIO_RAT_NR5G &&
+            statusPtr->availSysStatusInfo[i].soMask & TAF_PA_RADIO_BITMASK_SO_5G_NSA)
+            bitmask |= BITMASK_RAT_5G_NSA;
+    }
+
+    if (bitmask == (BITMASK_RAT_LTE | BITMASK_RAT_5G_NSA))
+        return TAF_RADIO_NR_ENDC_AVAILABLE;
+
+    return TAF_RADIO_NR_ENDC_UNAVAILABLE;
+}
+
+void Utility::Convert::LteCphyCaInfo
+(
+    taf_pa_radio_LteCphyCaInfo_t* paInfoPtr,
+    taf_RadioCAInfo_t* infoPtr
+)
+{
+    if (paInfoPtr == nullptr)
+    {
+        LE_ERROR("paInfoPtr is nullptr.");
+        return;
+    }
+
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return;
+    }
+
+    infoPtr->cellCount = 1;
+    infoPtr->status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+
+    for (uint32_t i = 0; i < paInfoPtr->scellInfoCount &&
+        i < TAF_PA_RADIO_LTE_CPHY_SCELL_INFO_MAX_COUNT; i++)
+    {
+        if (paInfoPtr->scellInfo[i].scellState ==
+            TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_CONFIGURED_ACTIVATED)
+        {
+            infoPtr->status = TAF_RADIO_CA_STATUS_ACTIVATED;
+            infoPtr->cellCount++;
+        }
+    }
+}
+
+taf_radio_PciScanInformationListRef_t Utility::Common::PciScan
+(
+    uint8_t phone,
+    taf_radio_RatBitMask_t bitmask
+)
+{
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_RatBitMask_t rat = Utility::Convert::Rat(bitmask);
+
+    taf_pa_radio_PciScanInformation_t information;
+    pa_result_t result = taf_pa_radio_PerformPciNetworkScan(instance, rat, &information);
+    if (result != 0)
+    {
+        LE_ERROR("Failed to perform PCI network scan.");
+        return nullptr;
+    }
+
+    auto& radio = taf_Radio::GetInstance();
+    PciInfoList_t* listPtr = (PciInfoList_t*)le_mem_ForceAlloc(radio.pciInfoListPool);
+    listPtr->pciCellInfoList = LE_SLS_LIST_INIT;
+    listPtr->safeRefList = LE_SLS_LIST_INIT;
+    listPtr->currPtr = nullptr;
+
+    PciCellInfo_t* cellPtr = nullptr;
+    PlmnId_t* plmnIdPtr = nullptr;
+    for (uint32_t i = 0; i < information.pciCellCount && i < TAF_PA_RADIO_PCI_SCAN_CELL_MAX_COUNT;
+        i++)
+    {
+        cellPtr = (PciCellInfo_t*)le_mem_ForceAlloc(radio.pciCellInfoPool);
+
+        cellPtr->cellId = information.pciCellInfo[i].cellId;
+        cellPtr->globalCellId = information.pciCellInfo[i].globalCellId;
+
+        for (uint32_t j = 0; j < information.pciCellInfo[i].plmnCount &&
+            j < TAF_PA_RADIO_PCI_SCAN_PLMN_ID_MAX_COUNT; j++)
+        {
+            plmnIdPtr = (PlmnId_t*)le_mem_ForceAlloc(radio.plmnIdPool);
+
+            plmnIdPtr->mcc = information.pciCellInfo[i].plmnId[j].mcc;
+            plmnIdPtr->mnc = information.pciCellInfo[i].plmnId[j].mnc;
+            plmnIdPtr->mncIncludesPcsDigit =
+                information.pciCellInfo[i].plmnId[j].mncIncludesPcsDigit;
+
+            plmnIdPtr->link = LE_SLS_LINK_INIT;
+            le_sls_Queue(&(cellPtr->plmnIdList), &(plmnIdPtr->link));
+        }
+
+        cellPtr->link = LE_SLS_LINK_INIT;
+        le_sls_Queue(&(listPtr->pciCellInfoList), &(cellPtr->link));
+    }
+
+    return (taf_radio_PciScanInformationListRef_t)le_ref_CreateRef(radio.pciInfoListRefMap,
+        (void*)listPtr);
+}
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -799,7 +1140,7 @@ void taf_RadioPhoneListener::onOperatingModeChanged
 
     taf_radio_OpMode_t* modePtr =
         (taf_radio_OpMode_t*)le_mem_ForceAlloc(tafRadio.opModeChangePool);
-	*modePtr = (taf_radio_OpMode_t)mode;
+    *modePtr = (taf_radio_OpMode_t)mode;
     le_event_ReportWithRefCounting(tafRadio.opModeChangeId, (void*)modePtr);
 }
 
@@ -1020,16 +1361,18 @@ void taf_RadioDataServSysListener::onServiceStateChanged
     switch (status.serviceState)
     {
         case telux::data::DataServiceState::IN_SERVICE:
+        {
+            taf_pa_radio_DataRoamingStatus_t roamingStatus =
+                TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN;
+            uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+            pa_result_t result = taf_pa_radio_GetDataCurrRoamingStatus(instance, &roamingStatus);
             inService = true;
-            if (isRoaming)
-            {
+            if (result == 0 && roamingStatus == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
                 nextState = TAF_RADIO_NET_REG_STATE_ROAMING;
-            }
             else
-            {
                 nextState = TAF_RADIO_NET_REG_STATE_HOME;
-            }
             break;
+        }
         case telux::data::DataServiceState::OUT_OF_SERVICE:
             inService = false;
             nextState = TAF_RADIO_NET_REG_STATE_NONE;
@@ -1066,21 +1409,14 @@ void taf_RadioDataServSysListener::onRoamingStatusChanged
     taf_radio_NetRegStateInd_t* indPtr;
     taf_radio_NetRegState_t nextState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
 
-    isRoaming = status.isRoaming;
-    if (isRoaming)
-    {
+    if (status.isRoaming)
         nextState = TAF_RADIO_NET_REG_STATE_ROAMING;
-    }
     else
     {
         if (inService)
-        {
             nextState = TAF_RADIO_NET_REG_STATE_HOME;
-        }
         else
-        {
             nextState = TAF_RADIO_NET_REG_STATE_NONE;
-        }
     }
 
     if (nextState != currState)
@@ -2720,29 +3056,6 @@ taf_radio_NrIconType_t taf_Radio::taf_radio_ConvertNrIconType
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Convert ENDC status.
- */
-//--------------------------------------------------------------------------------------------------
-taf_radio_NREndcAvailability_t taf_Radio::taf_radio_ConvertEndcStatus
-(
-    taf_pa_radio_EndcStatus_t status
-)
-{
-    switch (status)
-    {
-        case TAF_PA_RADIO_ENDC_STATUS_AVAILABLE:
-            return TAF_RADIO_NR_ENDC_AVAILABLE;
-        case TAF_PA_RADIO_ENDC_STATUS_UNAVAILABLE:
-            return TAF_RADIO_NR_ENDC_UNAVAILABLE;
-        default:
-            LE_ERROR("Unknown status.");
-    }
-
-    return TAF_RADIO_NR_ENDC_UNKNOWN;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Layered handler for IMS registration state.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3037,99 +3350,6 @@ void taf_Radio::taf_radio_LayerConnStatusHandler
     le_mem_Release(reportPtr);
 }
 
-static void LteCAHandler
-(
-    uint8_t phone,
-    taf_pa_radio_LteCaIndBitMask_t bitmask,
-    taf_pa_radio_LteCphyCaInfoRef_t infoRef,
-    void* contextPtr
-)
-{
-    TAF_ERROR_IF_RET_NIL(!phone || phone > TAF_RADIO_PHONE_NUM,
-        "Invalid para(phone:%d)", phone);
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    LE_DEBUG("LteCAHandler phone %d bitmask 0x%lx", phone, bitmask);
-    taf_RadioCAInfo_t lteInfo;
-    lteInfo.status= TAF_RADIO_CA_STATUS_DEACTIVATED;
-    lteInfo.cellCount = 0;
-
-    if (bitmask & TAF_PA_RADIO_LTE_CA_IND_BIT_MASK_PCELL_INFO)
-    {
-        lteInfo.cellCount = 1;
-        LE_DEBUG("Primary cell information.");
-    }
-
-    if (bitmask & TAF_PA_RADIO_LTE_CA_IND_BIT_MASK_SCELL_INFO)
-    {
-        uint32_t scellCount = 0;
-        le_result_t result = taf_pa_radio_GetScellCount(infoRef, &scellCount);
-        if (result != LE_OK)
-            LE_ERROR("Fail to get secondary cell count.");
-        if (scellCount > TAF_RADIO_SCELL_NUMBER)
-        {
-            LE_WARN("Scell number %d is more than limited number %d.", scellCount, TAF_RADIO_SCELL_NUMBER);
-            scellCount = TAF_RADIO_SCELL_NUMBER;
-        }
-        LE_DEBUG("LteCAHandler scellCount %d", scellCount);
-
-        for (uint32_t i = 0; i < scellCount; i++)
-        {
-            taf_pa_radio_ScellState_t state = TAF_PA_RADIO_SCELL_STATE_UNKNOWN;
-            result = taf_pa_radio_GetScellState(infoRef, i, &state);
-            if (result != LE_OK)
-                LE_ERROR("Fail to get secondary cell state at %d.", i);
-
-            if (state == TAF_PA_RADIO_SCELL_STATE_CONFIGURED_ACTIVATED)
-            {
-                lteInfo.status = TAF_RADIO_CA_STATUS_ACTIVATED;
-                lteInfo.cellCount++;
-            }
-            LE_DEBUG("LteCAHandler state[%d] %d", i, state);
-        }
-    }
-
-    taf_RadioCAInfo_t* infoPtr = (taf_RadioCAInfo_t*)le_ref_Lookup(tafRadio.caInfoMap, tafRadio.lteCAInfoRefs[phone -1]);
-    if (infoPtr->status != lteInfo.status || infoPtr->cellCount != lteInfo.cellCount)
-    {
-        taf_RadioCAInd_t* indPtr = (taf_RadioCAInd_t*)le_mem_ForceAlloc(tafRadio.caIndPool);
-        indPtr->phone = phone;
-        infoPtr->status = lteInfo.status;
-        infoPtr->cellCount = lteInfo.cellCount;
-        indPtr->infoRef = tafRadio.lteCAInfoRefs[phone - 1];
-        le_event_ReportWithRefCounting(tafRadio.lteCAIndEvId, (void*)indPtr);
-    }
-}
-
-static void EndcStatusHandler
-(
-    uint8_t phone,
-    taf_pa_radio_EndcStatus_t status,
-    void* contextPtr
-)
-{
-    TAF_ERROR_IF_RET_NIL(!phone || phone > TAF_RADIO_PHONE_NUM,
-        "Invalid para(phone:%d)", phone);
-
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    taf_radio_NREndcAvailability_t state = tafRadio.taf_radio_ConvertEndcStatus(status);
-    taf_radio_NREndcAvailability_t* statusPtr =
-        (taf_radio_NREndcAvailability_t*)le_ref_Lookup(tafRadio.connStatusMap,
-        tafRadio.endcStatusRefs[phone - 1]);
-    if (*statusPtr != state)
-    {
-        *statusPtr = state;
-
-        taf_RadioConnStatusInd_t* indPtr =
-            (taf_RadioConnStatusInd_t*)le_mem_ForceAlloc(tafRadio.connStatusIndPool);
-        indPtr->phone = phone;
-        indPtr->bitmask = TAF_RADIO_CONN_IND_BIT_MASK_ENDC;
-        indPtr->statusRef = tafRadio.endcStatusRefs[phone -1];
-        le_event_ReportWithRefCounting(tafRadio.connStatusEvId, (void*)indPtr);
-    }
-}
-
 /*======================================================================
 
  FUNCTION        taf_Radio::GetInstance
@@ -3317,8 +3537,8 @@ void taf_Radio::RadioProcCmdHandler(void* cmdReqPtr)
         }
         case TAF_RADIO_CMD_TYPE_ASYNC_PCI_NETWORK_SCAN:
         {
-            taf_radio_PciScanInformationListRef_t listRef =
-                taf_pa_radio_PerformPciNetworkScan(cmdReq->ratMask, cmdReq->phoneId);
+            taf_radio_PciScanInformationListRef_t listRef = Utility::Common::PciScan(
+                cmdReq->phoneId, cmdReq->ratMask);
             taf_radio_PciNetworkScanHandlerFunc_t handlerFunc =
                 (taf_radio_PciNetworkScanHandlerFunc_t)cmdReq->handlerFuncPtr;
             if (handlerFunc)
@@ -3327,9 +3547,7 @@ void taf_Radio::RadioProcCmdHandler(void* cmdReqPtr)
                 handlerFunc(listRef, phoneId, cmdReq->contextPtr);
             }
             else
-            {
                 LE_WARN("No handler function.");
-            }
             break;
         }
     }
@@ -3450,20 +3668,130 @@ void PowerStateChangeHandler
     void* contextPtr      ///< [IN] Handler context.
 )
 {
-    le_result_t result;
     if (state == TAF_PM_STATE_RESUME)
     {
         LE_INFO("Power state change to RESUME");
         RegisterListener();
-        result = taf_pa_radio_EnableIndication();
-        TAF_ERROR_IF_RET_NIL(result != LE_OK, "Enable indication falied.");
+        RegisterIndication(ENABLE_INDICATION);
     }
     else if (state == TAF_PM_STATE_SUSPEND)
     {
         LE_INFO("Power state change to SUSPEND");
         DeregisterListener();
-        result = taf_pa_radio_DisableIndication();
-        TAF_ERROR_IF_RET_NIL(result != LE_OK, "Disable indication falied.");
+        RegisterIndication(DISABLE_INDICATION);
+    }
+}
+
+static void RatSvcStatusHandler
+(
+    uint32_t instance,
+    taf_pa_radio_RatSvcStatusIndication_t indication,
+    void* contextPtr
+)
+{
+    taf_pa_radio_RatServiceStatus_t status = TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN;
+
+    if (indication.gsmSvcStatusValid && indication.gsmSvcStatus > status)
+        status = indication.gsmSvcStatus;
+
+    if (indication.cdmaSvcStatusValid && indication.cdmaSvcStatus > status)
+        status = indication.cdmaSvcStatus;
+
+    if (indication.umtsSvcStatusValid && indication.umtsSvcStatus > status)
+        status = indication.umtsSvcStatus;
+
+    if (indication.tdscdmaSvcStatusValid && indication.tdscdmaSvcStatus > status)
+        status = indication.tdscdmaSvcStatus;
+
+    if (indication.lteSvcStatusValid && indication.lteSvcStatus > status)
+        status = indication.lteSvcStatus;
+
+    if (indication.nr5gSvcStatusValid && indication.nr5gSvcStatus > status)
+        status = indication.nr5gSvcStatus;
+
+    auto& radio = taf_Radio::GetInstance();
+
+    if (instance < INSTANCE_MAX_COUNT && status != radio.ratSvcState[instance])
+    {
+        taf_RadioNetStatusInd_t* statusPtr =
+            (taf_RadioNetStatusInd_t*)le_mem_ForceAlloc(radio.netStatusPool);
+        statusPtr->phoneId = Utility::Convert::InstanceToPhone(instance);
+        statusPtr->bitmask = TAF_RADIO_NET_STATUS_IND_BIT_MASK_RAT_SVC_STATUS;
+        statusPtr->netStatusRef = radio.netStatusRefs[instance];
+        le_event_ReportWithRefCounting(radio.netStatusEvId, (void*)statusPtr);
+    }
+}
+
+static void LteCphyCaHandler
+(
+    uint32_t instance,
+    taf_pa_radio_LteCphyCaIndication_t indication,
+    void* contextPtr
+)
+{
+    uint32_t count = 0;
+    taf_radio_CAStatus_t status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+
+    if (indication.pcellInfoValid)
+        count++;
+
+    if (indication.scellInfoValid)
+    {
+        for (uint32_t i = 0; i < indication.scellInfoCount &&
+            i < TAF_PA_RADIO_LTE_CPHY_SCELL_INFO_MAX_COUNT; i++)
+        {
+            if (indication.scellInfo[i].scellState ==
+                TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_CONFIGURED_ACTIVATED)
+            {
+                status = TAF_RADIO_CA_STATUS_ACTIVATED;
+                count++;
+            }
+        }
+    }
+
+    auto& radio = taf_Radio::GetInstance();
+    if (instance < INSTANCE_MAX_COUNT)
+    {
+        taf_RadioCAInfo_t* infoPtr = (taf_RadioCAInfo_t*)le_ref_Lookup(radio.caInfoMap,
+            radio.lteCAInfoRefs[instance]);
+        if (count != infoPtr->cellCount || infoPtr->status != status)
+        {
+            taf_RadioCAInd_t* indPtr = (taf_RadioCAInd_t*)le_mem_ForceAlloc(radio.caIndPool);
+            indPtr->phone = Utility::Convert::InstanceToPhone(instance);
+            infoPtr->status = status;
+            infoPtr->cellCount = count;
+            indPtr->infoRef = radio.lteCAInfoRefs[instance];
+            le_event_ReportWithRefCounting(radio.lteCAIndEvId, (void*)indPtr);
+        }
+    }
+}
+
+static void DataAvailSysStatusHandler
+(
+    uint32_t instance,
+    taf_pa_radio_DataAvailSysStatusIndication_t indication,
+    void* contextPtr
+)
+{
+    taf_radio_NREndcAvailability_t status = TAF_RADIO_NR_ENDC_UNAVAILABLE;
+    if (indication.availSysValid)
+        status = Utility::Convert::EndcStatus(&indication.availSys);
+
+    auto& radio = taf_Radio::GetInstance();
+    if (instance < INSTANCE_MAX_COUNT)
+    {
+        taf_radio_NREndcAvailability_t* statusPtr = (taf_radio_NREndcAvailability_t*)le_ref_Lookup(
+            radio.connStatusMap, radio.endcStatusRefs[instance]);
+        if (status != *statusPtr)
+        {
+            *statusPtr = status;
+            taf_RadioConnStatusInd_t* indPtr = (taf_RadioConnStatusInd_t*)le_mem_ForceAlloc(
+                radio.connStatusIndPool);
+            indPtr->phone = Utility::Convert::InstanceToPhone(instance);
+            indPtr->bitmask = TAF_RADIO_CONN_IND_BIT_MASK_ENDC;
+            indPtr->statusRef = radio.endcStatusRefs[instance];
+            le_event_ReportWithRefCounting(radio.connStatusEvId, (void*)indPtr);
+        }
     }
 }
 
@@ -3569,6 +3897,20 @@ void taf_Radio::Init(void)
     caInfoMap = le_ref_InitStaticMap(caInfoMap, TAF_RADIO_CA_INFO_MAX_NUM);
     connStatusMap = le_ref_InitStaticMap(connStatusMap, TAF_RADIO_CONN_STATUS_MAX_NUM);
 
+    pciInfoListPool = le_mem_InitStaticPool(pciInfoListPool, PCI_SCAN_LIST_MAX_COUNT,
+        sizeof(PciInfoList_t));
+    pciCellInfoPool = le_mem_InitStaticPool(pciCellInfoPool, PCI_CELL_MAX_COUNT,
+        sizeof(PciCellInfo_t));
+    pciCellInfoSafeRefPool = le_mem_InitStaticPool(pciCellInfoSafeRefPool, PCI_CELL_MAX_COUNT,
+        sizeof(PciCellInfoSafeRef_t));
+    plmnIdPool = le_mem_InitStaticPool(plmnIdPool, PLMN_ID_MAX_COUNT, sizeof(PlmnId_t));
+    plmnIdSafeRefPool = le_mem_InitStaticPool(plmnIdSafeRefPool, PLMN_ID_MAX_COUNT,
+        sizeof(PlmnIdSafeRef_t));
+
+    pciInfoListRefMap = le_ref_InitStaticMap(pciInfoListRefMap, PCI_SCAN_LIST_MAX_COUNT);
+    pciCellInfoSafeRefMap = le_ref_InitStaticMap(pciCellInfoSafeRefMap, PCI_CELL_MAX_COUNT);
+    plmnIdSafeRefMap = le_ref_InitStaticMap(plmnIdSafeRefMap, PLMN_ID_MAX_COUNT);
+
     for (uint8_t phoneId = 1; phoneId <= TAF_RADIO_PHONE_NUM; phoneId++)
     {
         uint8_t* phonePtr = (uint8_t*)le_mem_ForceAlloc(phonePool);
@@ -3586,10 +3928,10 @@ void taf_Radio::Init(void)
             caInfoMap, (void*)lteCAInfoPtr);
         endcStatusRefs[phoneId - 1] = (taf_radio_ConnStatusRef_t)le_ref_CreateRef(
              connStatusMap, (void*)endcStatusPtr);
-        taf_pa_radio_SetReference(phoneId, netStatusRefs[phoneId - 1]);
     }
-    taf_pa_radio_SetLteCaHandler(LteCAHandler, nullptr);
-    taf_pa_radio_SetEndcStatusHandler(EndcStatusHandler, nullptr);
+    taf_pa_radio_AddRatSvcStatusHandler(0, RatSvcStatusHandler, nullptr);
+    taf_pa_radio_AddLteCphyCaHandler(0, LteCphyCaHandler, nullptr);
+    taf_pa_radio_AddDataAvailSysStatusHandler(0, DataAvailSysStatusHandler, nullptr);
 
     // 4. Get the PhoneFactory, dataFactory and PhoneManager instances
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
@@ -3976,7 +4318,7 @@ void taf_Radio::Init(void)
         if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
         {
             RegisterListener();
-            taf_pa_radio_EnableIndication();
+            RegisterIndication(ENABLE_INDICATION);
         }
     }
 }

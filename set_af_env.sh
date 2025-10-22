@@ -172,6 +172,12 @@ build_extras() {
 build_extras_pa() {
     local EXTRA_SRC_PATH=$1
     local INSTALL_DIR=$2
+    local DLT_LOGGING="false"
+
+    if [ "${ENABLE_DLT_LOGGING:-}" = "1" ]; then
+        echo "ENABLE_DLT_LOGGING is set for building PA."
+        DLT_LOGGING="true"
+    fi
 
     if [ -z "${EXTRA_SRC_PATH}" ]; then
         echo "Error: Missing EXTRA_SRC_PATH argument"
@@ -180,16 +186,30 @@ build_extras_pa() {
 
     if [ -f "${EXTRA_SRC_PATH}/build_pa.sh" ]; then
         echo ">>> Running ${EXTRA_SRC_PATH}/build_pa.sh"
-        (cd "${EXTRA_SRC_PATH}" && ./build_pa.sh "${INSTALL_DIR}")
+        (cd "${EXTRA_SRC_PATH}" && ./build_pa.sh "${INSTALL_DIR}" "${DLT_LOGGING}")
         if [ $? -ne 0 ]; then
             echo "Error: when running ${EXTRA_SRC_PATH}/build_pa.sh"
             return 1
         fi
         echo ">>> Build completed. Output: ${INSTALL_DIR}"
-    else
-        echo "Error: build_pa.sh not found in ${EXTRA_SRC_PATH}"
-        return 1
     fi
+}
+
+clean_extra_build() {
+    local DIRS=("$TELAF_PROP" "$TELAF_NOSHIP")
+    local TARGETS=("build" "staging")
+
+    for base in "${DIRS[@]}"; do
+        if [[ -d "$base" ]]; then
+            for sub in "${TARGETS[@]}"; do
+                local target="$base/$sub"
+                if [[ -d "$target" ]]; then
+                    echo "Cleaning $target"
+                    rm -rf "$target"
+                fi
+            done
+        fi
+    done
 }
 
 function build_target() {
@@ -232,6 +252,18 @@ function build_target() {
 
     [[ ! -d $TELAF_NOSHIP_BUILD_DIR ]] && TELAF_NOSHIP_BUILD_DIR=$TELAF_NOSHIP
     [[ ! -d $TELAF_PROP_BUILD_DIR ]] && TELAF_PROP_BUILD_DIR=$TELAF_PROP
+
+    build_extras_pa "${TELAF_PROP}" "${TELAF_PROP_BUILD_DIR}/"
+    if [ $? -ne 0 ]; then
+        echo "Error: when building target PROP for target ${TARGET}"
+        return
+    fi
+
+    build_extras_pa "${TELAF_NOSHIP}" "${TELAF_NOSHIP_BUILD_DIR}/"
+    if [ $? -ne 0 ]; then
+        echo "Error: when building target NOSHIP for target ${TARGET}"
+        return
+    fi
 
     echo "### telaf-noship dir: ${TELAF_NOSHIP_BUILD_DIR} ###"
     echo "### telaf-prop dir: ${TELAF_PROP_BUILD_DIR} ###"
@@ -346,6 +378,7 @@ function build-clean-af(){
 
 function build-distclean-af(){
     make distclean
+    clean_extra_build
 }
 
 export TARGET_GLOBAL="$1"

@@ -54,9 +54,22 @@
 #include <chrono>
 
 #include "tafRadio.hpp"
-#include "taf_pa_radio.hpp"
 
 using namespace tafsvc;
+using namespace std;
+
+
+static void SetLogLevel
+(
+    le_timer_Ref_t timer
+)
+{
+    le_log_Level_t level = le_log_GetFilterLevel();
+    LE_INFO("Current log level: %d", level);
+
+    taf_pa_common_LogSetlevel(Utility::Convert::Level(level));
+}
+
 
 /*======================================================================
 
@@ -76,6 +89,20 @@ using namespace tafsvc;
 COMPONENT_INIT
 {
     LE_INFO("tafRadio Service Init...");
+    pa_result_t result = taf_pa_radio_Init();
+    if (result != 0)
+    {
+        LE_ERROR("Failed to initialize platform adaptor.");
+        return;
+    }
+
+    le_timer_Ref_t timer = le_timer_Create("SetLogLevelTimer");
+    le_clk_Time_t interval = {10, 0};
+    le_timer_SetInterval(timer, interval); // Check log level after 10s.
+    le_timer_SetRepeat(timer, 1);
+    le_timer_SetHandler(timer, SetLogLevel);
+    le_timer_Start(timer);
+
     auto &tafRadio = taf_Radio::GetInstance();
     tafRadio.Init();
     LE_INFO("tafRadio Service Ready...");
@@ -151,29 +178,14 @@ le_result_t taf_radio_GetRadioPower(le_onoff_t* powerPtr, uint8_t phoneId)
 {
     TAF_ERROR_IF_RET_VAL(powerPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(powerPtr)");
 
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    auto ret = tafRadio.phoneManager->requestOperatingMode(tafRadio.getOperatingModeCb);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {5, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.getOperatingModeCb->semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.getOperatingModeCb->result != LE_OK,
-        tafRadio.getOperatingModeCb->result, "Fail to get radio power.");
-
-    if (tafRadio.getOperatingModeCb->opMode == telux::tel::OperatingMode::ONLINE)
-    {
+    taf_pa_radio_OperatingMode_t mode = TAF_PA_RADIO_OPERATING_MODE_UNKNOWN;
+    pa_result_t result = taf_pa_radio_GetOperatingMode(0, &mode);
+    if (mode == TAF_PA_RADIO_OPERATING_MODE_ONLINE)
         *powerPtr = LE_ON;
-    }
     else
-    {
         *powerPtr = LE_OFF;
-    }
 
-    return LE_OK;
+    return Utility::Convert::Result(result);
 }
 
 /*======================================================================
@@ -4384,10 +4396,7 @@ taf_radio_PciScanInformationListRef_t taf_radio_PerformPciNetworkScan
     uint8_t phoneId                 ///< [IN] Phone ID.
 )
 {
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, NULL,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    return taf_pa_radio_PerformPciNetworkScan(ratMask, phoneId);
+    return Utility::Common::PciScan(phoneId, ratMask);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4432,10 +4441,35 @@ taf_radio_PciScanInformationRef_t taf_radio_GetFirstPciScanInfo
         ///< [IN] PCI network scan information list reference.
 )
 {
-    TAF_ERROR_IF_RET_VAL(pciScanInformationListRef == NULL, NULL,
-        "Null reference(pciScanInformationListRef)");
+    if (pciScanInformationListRef == nullptr)
+    {
+        LE_ERROR("pciScanInformationListRef is nullptr.");
+        return nullptr;
+    }
 
-    return taf_pa_radio_GetFirstPciScanInfo(pciScanInformationListRef);
+    auto& radio = taf_Radio::GetInstance();
+    PciInfoList_t* listPtr = (PciInfoList_t*)le_ref_Lookup(radio.pciInfoListRefMap,
+        pciScanInformationListRef);
+    if (listPtr == nullptr)
+    {
+        LE_ERROR("listPtr is nullptr.");
+        return nullptr;
+    }
+
+    le_sls_Link_t* linkPtr = le_sls_Peek(&(listPtr->pciCellInfoList));
+    if (linkPtr == nullptr)
+        return nullptr;
+
+    PciCellInfo_t* cellPtr = CONTAINER_OF(linkPtr, PciCellInfo_t, link);
+    listPtr->currPtr = linkPtr;
+
+    PciCellInfoSafeRef_t* safeRefPtr = (PciCellInfoSafeRef_t*)le_mem_ForceAlloc(
+        radio.pciCellInfoSafeRefPool);
+    safeRefPtr->safeRef = le_ref_CreateRef(radio.pciCellInfoSafeRefMap, (void*)cellPtr);
+    safeRefPtr->link = LE_SLS_LINK_INIT;
+    le_sls_Queue(&(listPtr->safeRefList), &(safeRefPtr->link));
+
+    return (taf_radio_PciScanInformationRef_t)safeRefPtr->safeRef;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4453,10 +4487,35 @@ taf_radio_PciScanInformationRef_t taf_radio_GetNextPciScanInfo
         ///< [IN] PCI network scan information list reference.
 )
 {
-    TAF_ERROR_IF_RET_VAL(pciScanInformationListRef == NULL, NULL,
-        "Null reference(pciScanInformationListRef)");
+    if (pciScanInformationListRef == nullptr)
+    {
+        LE_ERROR("pciScanInformationListRef is nullptr.");
+        return nullptr;
+    }
 
-    return taf_pa_radio_GetNextPciScanInfo(pciScanInformationListRef);
+    auto& radio = taf_Radio::GetInstance();
+    PciInfoList_t* listPtr = (PciInfoList_t*)le_ref_Lookup(radio.pciInfoListRefMap,
+        pciScanInformationListRef);
+    if (listPtr == nullptr)
+    {
+        LE_ERROR("listPtr is nullptr.");
+        return nullptr;
+    }
+
+    le_sls_Link_t* linkPtr = le_sls_PeekNext(&(listPtr->pciCellInfoList), listPtr->currPtr);
+    if (linkPtr == nullptr)
+        return nullptr;
+
+    PciCellInfo_t* cellPtr = CONTAINER_OF(linkPtr, PciCellInfo_t, link);
+    listPtr->currPtr = linkPtr;
+
+    PciCellInfoSafeRef_t* safeRefPtr = (PciCellInfoSafeRef_t*)le_mem_ForceAlloc(
+        radio.pciCellInfoSafeRefPool);
+    safeRefPtr->safeRef = le_ref_CreateRef(radio.pciCellInfoSafeRefMap, (void*)cellPtr);
+    safeRefPtr->link = LE_SLS_LINK_INIT;
+    le_sls_Queue(&(listPtr->safeRefList), &(safeRefPtr->link));
+
+    return (taf_radio_PciScanInformationRef_t)safeRefPtr->safeRef;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4474,10 +4533,34 @@ taf_radio_PlmnInformationRef_t taf_radio_GetFirstPlmnInfo
         ///< [IN] PCI network scan information reference.
 )
 {
-    TAF_ERROR_IF_RET_VAL(pciScanInformationRef == NULL, NULL,
-        "Null reference(pciScanInformationRef)");
+    if (pciScanInformationRef == nullptr)
+    {
+        LE_ERROR("pciScanInformationRef is nullptr.");
+        return nullptr;
+    }
 
-    return taf_pa_radio_GetFirstPlmnInfo(pciScanInformationRef);
+    auto& radio = taf_Radio::GetInstance();
+    PciCellInfo_t* cellPtr = (PciCellInfo_t*)le_ref_Lookup(radio.pciCellInfoSafeRefMap,
+        pciScanInformationRef);
+    if (cellPtr == nullptr)
+    {
+        LE_ERROR("cellPtr is nullptr.");
+        return nullptr;
+    }
+
+    le_sls_Link_t* linkPtr = le_sls_Peek(&(cellPtr->plmnIdList));
+    if (linkPtr == nullptr)
+        return nullptr;
+
+    PlmnId_t* idPtr = CONTAINER_OF(linkPtr, PlmnId_t, link);
+    cellPtr->currPtr = linkPtr;
+
+    PlmnIdSafeRef_t* safeRefPtr =(PlmnIdSafeRef_t*)le_mem_ForceAlloc(radio.plmnIdSafeRefPool);
+    safeRefPtr->safeRef = le_ref_CreateRef(radio.plmnIdSafeRefMap, (void*)idPtr);
+    safeRefPtr->link = LE_SLS_LINK_INIT;
+    le_sls_Queue(&(cellPtr->safeRefList), &(safeRefPtr->link));
+
+    return (taf_radio_PlmnInformationRef_t)safeRefPtr->safeRef;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4495,10 +4578,34 @@ taf_radio_PlmnInformationRef_t taf_radio_GetNextPlmnInfo
         ///< [IN] PCI network scan information reference.
 )
 {
-    TAF_ERROR_IF_RET_VAL(pciScanInformationRef == NULL, NULL,
-        "Null reference(pciScanInformationRef)");
+    if (pciScanInformationRef == nullptr)
+    {
+        LE_ERROR("pciScanInformationRef is nullptr.");
+        return nullptr;
+    }
 
-    return taf_pa_radio_GetNextPlmnInfo(pciScanInformationRef);
+    auto& radio = taf_Radio::GetInstance();
+    PciCellInfo_t* cellPtr = (PciCellInfo_t*)le_ref_Lookup(radio.pciCellInfoSafeRefMap,
+        pciScanInformationRef);
+    if (cellPtr == nullptr)
+    {
+        LE_ERROR("cellPtr is nullptr.");
+        return nullptr;
+    }
+
+    le_sls_Link_t* linkPtr = le_sls_PeekNext(&(cellPtr->plmnIdList), cellPtr->currPtr);
+    if (linkPtr == nullptr)
+        return nullptr;
+
+    PlmnId_t* idPtr = CONTAINER_OF(linkPtr, PlmnId_t, link);
+    cellPtr->currPtr = linkPtr;
+
+    PlmnIdSafeRef_t* safeRefPtr = (PlmnIdSafeRef_t*)le_mem_ForceAlloc(radio.plmnIdSafeRefPool);
+    safeRefPtr->safeRef = le_ref_CreateRef(radio.plmnIdSafeRefMap, (void*)idPtr);
+    safeRefPtr->link = LE_SLS_LINK_INIT;
+    le_sls_Queue(&(cellPtr->safeRefList), &(safeRefPtr->link));
+
+    return (taf_radio_PlmnInformationRef_t)safeRefPtr->safeRef;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4516,10 +4623,22 @@ uint16_t taf_radio_GetPciScanCellId
         ///< [IN] PCI network scan information reference.
 )
 {
-    TAF_ERROR_IF_RET_VAL(pciScanInformationRef == NULL, UINT16_MAX,
-        "Null reference(pciScanInformationRef)");
+    if (pciScanInformationRef == nullptr)
+    {
+        LE_ERROR("pciScanInformationRef is nullptr.");
+        return UINT16_MAX;
+    }
 
-    return taf_pa_radio_GetPciScanCellId(pciScanInformationRef);
+    auto& radio = taf_Radio::GetInstance();
+    PciCellInfo_t* cellPtr = (PciCellInfo_t*)le_ref_Lookup(radio.pciCellInfoSafeRefMap,
+        pciScanInformationRef);
+    if (cellPtr == nullptr)
+    {
+        LE_ERROR("cellPtr is nullptr.");
+        return UINT16_MAX;
+    }
+
+    return cellPtr->cellId;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4537,10 +4656,22 @@ uint32_t taf_radio_GetPciScanGlobalCellId
         ///< [IN] PCI network scan information reference.
 )
 {
-    TAF_ERROR_IF_RET_VAL(pciScanInformationRef == NULL, UINT32_MAX,
-        "Null reference(pciScanInformationRef)");
+    if (pciScanInformationRef == nullptr)
+    {
+        LE_ERROR("pciScanInformationRef is nullptr.");
+        return UINT32_MAX;
+    }
 
-    return taf_pa_radio_GetPciScanGlobalCellId(pciScanInformationRef);
+    auto& radio = taf_Radio::GetInstance();
+    PciCellInfo_t* cellPtr = (PciCellInfo_t*)le_ref_Lookup(radio.pciCellInfoSafeRefMap,
+        pciScanInformationRef);
+    if (cellPtr == nullptr)
+    {
+        LE_ERROR("cellPtr is nullptr.");
+        return UINT32_MAX;
+    }
+
+    return cellPtr->globalCellId;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4562,19 +4693,58 @@ le_result_t taf_radio_GetPciScanMccMnc
     size_t mncPtrSize                       ///< [IN] The size of Mobile Network Code string.
 )
 {
-    TAF_ERROR_IF_RET_VAL(plmnRef == NULL, LE_BAD_PARAMETER, "Null reference(plmnRef)");
+    if (plmnRef == nullptr)
+    {
+        LE_ERROR("plmnRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(mccPtr == NULL, LE_BAD_PARAMETER, "Null ptr(mccPtr)");
+    if (mccPtr == nullptr)
+    {
+        LE_ERROR("mccPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(mncPtr == NULL, LE_BAD_PARAMETER, "Null ptr(mncPtr)");
+    if (mncPtr == nullptr)
+    {
+        LE_ERROR("mncPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(mccPtrSize < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccPtrSize: %" PRIuS " < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
+    if (mccPtrSize < TAF_RADIO_MCC_BYTES)
+    {
+        LE_ERROR("Invalid mccPtrSize %" PRIuS ".", mccPtrSize);
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncPtrSize: %" PRIuS " < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
+    if (mncPtrSize < TAF_RADIO_MNC_BYTES)
+    {
+        LE_ERROR("Invalid mncPtrSize %" PRIuS ".", mncPtrSize);
+        return LE_BAD_PARAMETER;
+    }
 
-    return taf_pa_radio_GetPciScanMccMnc(plmnRef, mccPtr, mccPtrSize, mncPtr, mncPtrSize);
+    auto& radio = taf_Radio::GetInstance();
+    PlmnId_t* idPtr = (PlmnId_t*)le_ref_Lookup(radio.plmnIdSafeRefMap, plmnRef);
+    if (idPtr == nullptr)
+    {
+        LE_ERROR("idPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    string mcc = to_string(idPtr->mcc);
+    string mnc = to_string(idPtr->mnc);
+    le_utf8_Copy(mccPtr, mcc.c_str(), TAF_RADIO_MCC_BYTES, NULL);
+
+    size_t offset = 0;
+    // If MNC is a two-digit value and has PCS digit.
+    if (idPtr->mncIncludesPcsDigit && idPtr->mnc < 100)
+    {
+        *mncPtr = '0';
+        offset = 1;
+    }
+    le_utf8_Copy(mncPtr + offset, mnc.c_str(), TAF_RADIO_MNC_BYTES - offset, NULL);
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4593,10 +4763,59 @@ le_result_t taf_radio_DeletePciNetworkScan
         ///< [IN] PCI network scan information list reference.
 )
 {
-    TAF_ERROR_IF_RET_VAL(pciScanInformationListRef == NULL, LE_BAD_PARAMETER,
-        "Null reference(pciScanInformationListRef)");
+    if (pciScanInformationListRef == nullptr)
+    {
+        LE_ERROR("pciScanInformationListRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    return taf_pa_radio_DeletePciNetworkScan(pciScanInformationListRef);
+    auto& radio = taf_Radio::GetInstance();
+    PciInfoList_t* listPtr = (PciInfoList_t*)le_ref_Lookup(radio.pciInfoListRefMap,
+        pciScanInformationListRef);
+    if (listPtr == nullptr)
+    {
+        LE_ERROR("listPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    PciCellInfo_t* cellPtr = nullptr;
+    le_sls_Link_t *linkPtr = nullptr;
+    while ((linkPtr = le_sls_Pop(&(listPtr->pciCellInfoList))) != NULL)
+    {
+        cellPtr = CONTAINER_OF(linkPtr, PciCellInfo_t, link);
+
+        PlmnId_t* plmnIdPtr = nullptr;
+        le_sls_Link_t* plmnlinkPtr = nullptr;
+        while ((plmnlinkPtr = le_sls_Pop(&(cellPtr->plmnIdList))) != NULL)
+        {
+            plmnIdPtr = CONTAINER_OF(plmnlinkPtr, PlmnId_t, link);
+            le_mem_Release(plmnIdPtr);
+        }
+
+        PlmnIdSafeRef_t* plmnIdSafeRefPtr = nullptr;
+        while ((plmnlinkPtr = le_sls_Pop(&(cellPtr->safeRefList))) != NULL)
+        {
+            plmnIdSafeRefPtr = CONTAINER_OF(plmnlinkPtr, PlmnIdSafeRef_t, link);
+            le_ref_DeleteRef(radio.plmnIdSafeRefMap, plmnIdSafeRefPtr->safeRef);
+            le_mem_Release(plmnIdSafeRefPtr);
+        }
+
+        le_mem_Release(cellPtr);
+    }
+
+    PciCellInfoSafeRef_t* safeRefPtr = nullptr;
+    while ((linkPtr = le_sls_Pop(&(listPtr->safeRefList))) != NULL)
+    {
+        safeRefPtr = CONTAINER_OF(linkPtr, PciCellInfoSafeRef_t, link);
+        le_ref_DeleteRef(radio.pciCellInfoSafeRefMap, safeRefPtr->safeRef);
+        le_mem_Release(safeRefPtr);
+    }
+
+    le_ref_DeleteRef(radio.pciInfoListRefMap, pciScanInformationListRef);
+
+    le_mem_Release(listPtr);
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4825,18 +5044,29 @@ le_result_t taf_radio_GetLteCsCap
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRatSvcStatus
 (
-    taf_radio_NetStatusRef_t netRef, ///< [IN] Network status reference.
-    taf_radio_RatSvcStatus_t* status ///< [OUT] RAT service status.
+    taf_radio_NetStatusRef_t netRef,    ///< [IN] Network status reference.
+    taf_radio_RatSvcStatus_t* statusPtr ///< [OUT] RAT service status.
 )
 {
     auto &tafRadio = taf_Radio::GetInstance();
     uint8_t* phoneIdPtr = (uint8_t*)le_ref_Lookup(tafRadio.netStatusRefMap, netRef);
     TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Fail to look up reference.");
 
-    TAF_ERROR_IF_RET_VAL(*phoneIdPtr == 0 || *phoneIdPtr > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", *phoneIdPtr);
+    uint32_t instance = Utility::Convert::PhoneToInstance(*phoneIdPtr);
 
-    return taf_pa_radio_GetRatSvcStatus(*phoneIdPtr, status);
+    taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
+    pa_result_t result = taf_pa_radio_GetServingRat(instance, &rat);
+    if (result != 0)
+    {
+        LE_ERROR("Failed to get serving RAT.");
+        return LE_FAULT;
+    }
+
+    taf_pa_radio_RatServiceStatus_t status = TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN;
+    result = taf_pa_radio_GetRatSvcStatus(instance, rat, &status);
+    *statusPtr = Utility::Convert::RatServiceStatus(status);
+
+    return Utility::Convert::Result(result);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4855,17 +5085,13 @@ taf_radio_NetStatusChangeHandlerRef_t taf_radio_AddNetStatusChangeHandler
         ///< [IN] Handler context.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("NetStatusChangeHandler",
-        tafRadio.netStatusEvId, taf_Radio::taf_radio_LayerNetStatusHandler,
+    auto& radio = taf_Radio::GetInstance();
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("netStatusHandler",
+        radio.netStatusEvId, taf_Radio::taf_radio_LayerNetStatusHandler,
         (void*)handlerFuncPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
-    taf_radio_NetStatusChangeHandlerRef_t paHandlerRef =
-        taf_pa_radio_AddNetStatusChangeHandler(handlerFuncPtr, contextPtr);
 
-    tafRadio.netStatRefMap[(taf_radio_NetStatusChangeHandlerRef_t)handlerRef] = paHandlerRef;
     return (taf_radio_NetStatusChangeHandlerRef_t)handlerRef;
 }
 
@@ -4879,16 +5105,6 @@ void taf_radio_RemoveNetStatusChangeHandler
     taf_radio_NetStatusChangeHandlerRef_t handlerRef ///< [IN] Handler reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    std::map<taf_radio_NetStatusChangeHandlerRef_t,
-        taf_radio_NetStatusChangeHandlerRef_t>::iterator it =
-        tafRadio.netStatRefMap.find(handlerRef);
-    if (it != tafRadio.netStatRefMap.end())
-    {
-        taf_pa_radio_RemoveNetStatusChangeHandler(tafRadio.netStatRefMap[handlerRef]);
-        tafRadio.netStatRefMap.erase(it);
-    }
-
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
@@ -6096,7 +6312,19 @@ le_result_t taf_radio_GetServingCellRoutingAreaCode
     TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
         "Invalid para(phoneId:%d)", phoneId);
 
-    return taf_pa_radio_GetServingCellRoutingAreaCode(rac, phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phoneId);
+
+    taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
+    pa_result_t result = taf_pa_radio_GetServingRat(instance, &rat);
+    if (result != 0)
+    {
+        LE_ERROR("Failed to get serving RAT.");
+        return LE_FAULT;
+    }
+
+    result = taf_pa_radio_GetServingCellRac(instance, rat, rac);
+
+    return Utility::Convert::Result(result);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -6404,54 +6632,19 @@ le_result_t taf_radio_GetCAInformation
 
     TAF_ERROR_IF_RET_VAL(rat != TAF_RADIO_RAT_LTE, LE_BAD_PARAMETER, "Invalid para(RAT:%d)", rat);
 
-    taf_pa_radio_LteCphyCaInfoRef_t infoRef = nullptr;
-    le_result_t result = taf_pa_radio_GetLteCphyCaInformation(phoneId, &infoRef);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, result,
-        "Fail to get LTE CA information(phoneId:%d)", phoneId);
-
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    taf_RadioCAInfo_t* infoPtr = (taf_RadioCAInfo_t*)le_mem_ForceAlloc(tafRadio.caInfoPool);
-
-    bool isPCellValid = false;
-    infoPtr->cellCount = 0;
-    result = taf_pa_radio_IsPcellInfoValid(infoRef, &isPCellValid);
-    if (result == LE_OK && isPCellValid)
-        infoPtr->cellCount = 1;
-    else
-        LE_ERROR("Primary cell is invalid.");
-
-    uint32_t scellCount = 0;
-    result = taf_pa_radio_GetScellCount(infoRef, &scellCount);
-    if (result != LE_OK)
-        LE_ERROR("Fail to get secondary cell count.");
-
-    if (scellCount > TAF_RADIO_SCELL_NUMBER)
+    uint32_t instance = Utility::Convert::PhoneToInstance(phoneId);
+    taf_pa_radio_LteCphyCaInfo_t info;
+    pa_result_t result = taf_pa_radio_GetLteCphyCaInfo(instance, &info);
+    if (result != 0)
     {
-        LE_WARN("Scell number %d is more than limited number %d.", scellCount, TAF_RADIO_SCELL_NUMBER);
-        scellCount = TAF_RADIO_SCELL_NUMBER;
+        LE_ERROR("Failed to LTE Control PHY Carrier Aggregation information.");
+        return LE_FAULT;
     }
 
-    infoPtr->status = TAF_RADIO_CA_STATUS_DEACTIVATED;
-    for (uint32_t i = 0; i < scellCount; i++)
-    {
-        taf_pa_radio_ScellState_t state = TAF_PA_RADIO_SCELL_STATE_UNKNOWN;
-        result = taf_pa_radio_GetScellState(infoRef, i, &state);
-        if (result != LE_OK)
-            LE_ERROR("Fail to get secondary cell state at %d.", i);
-
-        if (state == TAF_PA_RADIO_SCELL_STATE_CONFIGURED_ACTIVATED)
-        {
-            infoPtr->status = TAF_RADIO_CA_STATUS_ACTIVATED;
-            infoPtr->cellCount++;
-        }
-    }
-
-    result = taf_pa_radio_DeleteLteCphyCaInformation(infoRef);
-    if (result != LE_OK)
-        LE_ERROR("Fail to delete LTE CA information.");
-
-    *infoRefPtr = (taf_radio_CAInfoRef_t)le_ref_CreateRef(tafRadio.caInfoMap, (void*)infoPtr);
+    auto& radio = taf_Radio::GetInstance();
+    taf_RadioCAInfo_t* infoPtr = (taf_RadioCAInfo_t*)le_mem_ForceAlloc(radio.caInfoPool);
+    Utility::Convert::LteCphyCaInfo(&info, infoPtr);
+    *infoRefPtr = (taf_radio_CAInfoRef_t)le_ref_CreateRef(radio.caInfoMap, (void*)infoPtr);
 
     return LE_OK;
 }
@@ -6565,17 +6758,22 @@ le_result_t taf_radio_GetConnStatus
     TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
         "Invalid para(phoneId:%d)", phoneId);
 
-    taf_pa_radio_EndcStatus_t endcStatus = TAF_PA_RADIO_ENDC_STATUS_UNKNOWN;
-    le_result_t result = taf_pa_radio_GetEndcStatus(phoneId, &endcStatus);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Fail to get ENDC status.");
+    uint32_t instance = Utility::Convert::PhoneToInstance(phoneId);
 
-    auto &tafRadio = taf_Radio::GetInstance();
+    taf_pa_radio_DataAvailSysStatus_t status;
+    pa_result_t result = taf_pa_radio_GetDataAvailSysStatus(instance, &status);
+    if (result != 0)
+    {
+        LE_ERROR("Failed to get data available system status.");
+        return LE_FAULT;
+    }
 
+    auto& radio = taf_Radio::GetInstance();
     taf_radio_NREndcAvailability_t* statusPtr =
-        (taf_radio_NREndcAvailability_t*)le_mem_ForceAlloc(tafRadio.connStatusPool);
-    *statusPtr = tafRadio.taf_radio_ConvertEndcStatus(endcStatus);
+        (taf_radio_NREndcAvailability_t*)le_mem_ForceAlloc(radio.connStatusPool);
+    *statusPtr = Utility::Convert::EndcStatus(&status);
 
-    *statusRefPtr = (taf_radio_ConnStatusRef_t)le_ref_CreateRef(tafRadio.connStatusMap,
+    *statusRefPtr = (taf_radio_ConnStatusRef_t)le_ref_CreateRef(radio.connStatusMap,
         (void*)statusPtr);
 
     return LE_OK;

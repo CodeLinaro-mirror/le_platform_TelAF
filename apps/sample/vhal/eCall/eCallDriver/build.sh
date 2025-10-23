@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 echo "Enter target (sa515m or sa525m):"
@@ -13,7 +13,7 @@ then
         ${MKTOOLS_X_C_FLAGS} \
         -X "-fPIC" \
         -X "-shared" \
-        -X "-std=c++11" \
+        -X "-std=c++17" \
         -o sa525m/eCallVHalDrv.so \
         .
 
@@ -25,8 +25,8 @@ then
         ${MKTOOLS_X_C_FLAGS} \
         -X "-fPIC" \
         -X "-shared" \
-        -X "-std=c++11" \
-        -o sa515m/gpioVHalDrv.so \
+        -X "-std=c++17" \
+        -o sa515m/eCallVHalDrv.so \
         .
 
 else

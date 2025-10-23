@@ -928,20 +928,6 @@ le_result_t UdsCommunicationMgr::UdsStart
         }
     }
 
-    //Get interface list by DoipEntityRef
-    le_dls_List_t* interfaceList=taf_doip_GetIfaces(DoipEntityRef);
-
-    if(interfaceList == NULL || le_dls_NumLinks(interfaceList) == 0)
-    {
-        LE_FATAL("interface list is empty");
-        return LE_FAULT;
-    }
-
-    LE_INFO("Interface list num=%d", (int)le_dls_NumLinks(interfaceList));
-
-    //Initialize instance with interface name
-    InitInstances(interfaceList);
-
     ret = taf_doip_Start(DoipEntityRef);
     if (ret != LE_OK)
     {
@@ -956,6 +942,20 @@ le_result_t UdsCommunicationMgr::UdsStart
         LE_FATAL("Failed to register power mode query handler");
         return LE_FAULT;
     }
+
+    //Get interface list by DoipEntityRef
+    le_dls_List_t* interfaceList=taf_doip_GetIfaces(DoipEntityRef);
+
+    if(interfaceList == NULL || le_dls_NumLinks(interfaceList) == 0)
+    {
+        LE_FATAL("interface list is empty");
+        return LE_FAULT;
+    }
+
+    LE_INFO("Interface list num=%d", (int)le_dls_NumLinks(interfaceList));
+
+    //Initialize instance with interface name
+    InitInstances(interfaceList);
 
     return LE_OK;
 }

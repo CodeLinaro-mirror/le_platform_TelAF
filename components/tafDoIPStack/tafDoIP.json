@@ -14,6 +14,7 @@
         "timer":
         {
             "A_DoIP_Announce_Num": 3,
+            "A_DoIP_Announce_Wait": false,
             "A_DoIP_Announce_Interval": 500,
             "T_TCP_General_Inactivity": 300000,
             "T_TCP_Initial_Inactivity": 2000,

@@ -690,15 +690,24 @@ taf_doip_Result_t VehicleDiscovery::VehicleDiscoveryAnnounce
 
     if (waitTimerRef != NULL)
     {
-        LE_DEBUG("call vehicle Announce Handler!");
-        uint32_t waitTime = le_rand_GetNumBetween(MIN_ANNOUNCE_WAIT_TIME, MAX_ANNOUNCE_WAIT_TIME);
-        le_timer_SetMsInterval(waitTimerRef , waitTime);
-        le_timer_SetRepeat(waitTimerRef , 1);
-        le_timer_SetHandler(waitTimerRef , VehicleAnnounceTimerHandler);
-        le_timer_SetWakeup(waitTimerRef, false);
-        le_timer_Start(waitTimerRef);
-        LE_DEBUG("Announcement remaining time: %d", le_timer_GetMsTimeRemaining(waitTimerRef));
-        LE_DEBUG("called VehicleAnnounceTimerHandler!");
+        //If announceWait is configured, send first announce directly.
+        if(vehicleMgr.GetAnnounceWait())
+        {
+            VehicleAnnounceTimerHandler(waitTimerRef);
+        }
+        else
+        {
+            LE_DEBUG("call vehicle Announce Handler!");
+            uint32_t waitTime = le_rand_GetNumBetween(MIN_ANNOUNCE_WAIT_TIME,
+                    MAX_ANNOUNCE_WAIT_TIME);
+            le_timer_SetMsInterval(waitTimerRef , waitTime);
+            le_timer_SetRepeat(waitTimerRef , 1);
+            le_timer_SetHandler(waitTimerRef , VehicleAnnounceTimerHandler);
+            le_timer_SetWakeup(waitTimerRef, false);
+            le_timer_Start(waitTimerRef);
+            LE_DEBUG("Announcement remaining time: %d", le_timer_GetMsTimeRemaining(waitTimerRef));
+            LE_DEBUG("called VehicleAnnounceTimerHandler!");
+        }
     }
     else
     {
@@ -713,7 +722,7 @@ void VehicleDiscovery::VehicleAnnounceTimerHandler
     le_timer_Ref_t timerRef
 )
 {
-    LE_INFO("VehicleAnnounceTimerHandler!");
+    LE_DEBUG("VehicleAnnounceTimerHandler!");
 
     auto &vehicleMgr = VehicleManager::GetInstance();
     auto &parser = ProtocolParser::GetInstance();
@@ -749,7 +758,7 @@ void VehicleDiscovery::VehicleAnnounceTimerHandler
         le_timer_SetMsInterval(timerRef , announceIntTime);
         le_timer_SetHandler(timerRef, VehicleAnnounceTimerHandler);
         le_timer_Start(timerRef);
-        LE_INFO("Announcement remaining time: %d", le_timer_GetMsTimeRemaining(timerRef));
+        LE_DEBUG("Announcement remaining time: %d", le_timer_GetMsTimeRemaining(timerRef));
     }
     else if (vehicleDis.announceCount == vehicleDis.maxAnnounceCount)
     {

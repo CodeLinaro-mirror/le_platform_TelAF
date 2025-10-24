@@ -22,6 +22,7 @@
 static le_sem_Ref_t wlanSemRef = nullptr;
 static std::promise<taf_wlanSta_State_t> connectPromise;
 static std::promise<taf_wlanSta_State_t> disconnectPromise;
+static std::promise<taf_wlanSta_State_t> removeNetworkPromise;
 
 void PrintUsage() {
     printf("\n"
@@ -39,6 +40,7 @@ void PrintUsage() {
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- SetWpa2Psk <STA> <SSID> <psk>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Connect <STA> <SSID>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Disconnect <STA> <SSID>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- RemoveNetwork <STA> <SSID>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetApSignalStrength <STA>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- ApSigStrengthEvents <STA>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetAPEstimatedThroughput <STA>\n"
@@ -92,6 +94,10 @@ static void PrintStaState(taf_wlanSta_State_t State) {
 
         case TAF_WLANSTA_STATE_DISCONNECTED:
             LE_TEST_INFO("State: TAF_WLANSTA_STATE_DISCONNECTED(%d)", State);
+            break;
+
+        case TAF_WLANSTA_STATE_NETWORK_REMOVED:
+            LE_TEST_INFO("State: TAF_WLANSTA_STATE_NETWORK_REMOVED(%d)", State);
             break;
 
         case TAF_WLANSTA_STATE_ASSOCIATION_FAILED:
@@ -756,6 +762,16 @@ static void StationEventHandler(taf_wlanSta_WlanSTARef_t wlanSTARef,
             // ignore
         }
     }
+    else if (staState == TAF_WLANSTA_STATE_NETWORK_REMOVED)
+    {
+        LE_TEST_INFO("Network was removed");
+        try {
+            removeNetworkPromise.set_value(TAF_WLANSTA_STATE_NETWORK_REMOVED);
+        }
+        catch (std::future_error&) {
+            // ignore
+        }
+    }
 }
 
 static void *wlanThreadHdlr(void *contextPtr)
@@ -928,6 +944,109 @@ static le_result_t wlanSTATestGetAPEstimatedThroughput(taf_wlanSta_WlanSTARef_t 
     return LE_OK;
 }
 
+static le_result_t wlanSTATestRemoveNetwork(taf_wlanSta_WlanSTARef_t staRef)
+{
+    if (!staRef)
+    {
+        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
+        return LE_FAULT;
+    }
+
+    const char* ssidStr = le_arg_GetArg(2);
+    if (ssidStr == nullptr)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("ssid value is NULL");
+    }
+
+    std::string ssid(ssidStr);
+
+    // Build APInfoToRemove: prefer a scanned AP entry, fallback to SSID-only
+    uint16_t numScanedAPs = 0;
+    size_t APInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
+    taf_wlanSta_APInfo_t ApInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = { 0 };
+    taf_wlanSta_APInfo_t APInfoToRemove;
+    le_result_t scanRes = taf_wlanSta_GetAPScanResults(staRef, &numScanedAPs, ApInfo, &APInfoSize);
+    if (scanRes != LE_OK)
+    {
+        LE_WARN("No scan results available, using SSID only");
+        memset(&APInfoToRemove, 0, sizeof(taf_wlanSta_APInfo_t));
+        le_utf8_Copy(APInfoToRemove.SSID, ssid.c_str(), TAF_WLAN_MAX_SSID_LENGTH + 1, nullptr);
+    }
+    else
+    {
+        bool isApFound = false;
+        for (size_t i = 0; i < APInfoSize; ++i)
+        {
+            if (std::string(ApInfo[i].SSID) == ssid)
+            {
+                LE_TEST_INFO("Found %s in the scanned APs list", ApInfo[i].SSID);
+                APInfoToRemove = ApInfo[i];
+                isApFound = true;
+                break;
+            }
+        }
+        if (!isApFound)
+        {
+            LE_WARN("%s not found in scan results, using SSID only", ssid.c_str());
+            memset(&APInfoToRemove, 0, sizeof(taf_wlanSta_APInfo_t));
+            le_utf8_Copy(APInfoToRemove.SSID, ssid.c_str(), TAF_WLAN_MAX_SSID_LENGTH + 1, nullptr);
+        }
+    }
+
+    // Prepare to wait for the NETWORK_REMOVED event
+    removeNetworkPromise = std::promise<taf_wlanSta_State_t>();
+
+    printf("Attempting to remove network: %s\n", ssid.c_str());
+    LE_TEST_INFO("Attempting to remove network: %s", ssid.c_str());
+    le_result_t result = taf_wlanSta_RemoveNetwork(staRef, &APInfoToRemove);
+    fprintf(stderr, "taf_wlanSta_RemoveNetwork Return: %d\n", result);
+    LE_TEST_INFO("taf_wlanSta_RemoveNetwork Return: %d", result);
+
+    if (result == LE_OK)
+    {
+        // Wait up to 10 seconds for NETWORK_REMOVED event from the service
+        auto fut = removeNetworkPromise.get_future();
+        auto status = fut.wait_for(std::chrono::seconds(10));
+        if (status == std::future_status::ready &&
+            fut.get() == TAF_WLANSTA_STATE_NETWORK_REMOVED)
+        {
+            printf("Network %s removed successfully (event received)\n", ssid.c_str());
+            LE_TEST_INFO("Network %s removed successfully (event received)", ssid.c_str());
+        }
+        else
+        {
+            printf("Network %s removed successfully (no event observed within timeout)\n",
+                   ssid.c_str());
+            LE_TEST_INFO("Network %s removed successfully (no event within timeout)",
+                ssid.c_str());
+        }
+    }
+    else if (result == LE_NOT_FOUND)
+    {
+        printf("Network %s was not found in configured networks\n", ssid.c_str());
+        printf("This means the network was never added/configured\n");
+        LE_TEST_INFO("Network %s was not found in configured networks", ssid.c_str());
+    }
+    else if (result == LE_BAD_PARAMETER)
+    {
+        printf("Bad parameter error - check SSID: '%s'\n", ssid.c_str());
+        LE_TEST_INFO("Bad parameter error - check SSID: '%s'", ssid.c_str());
+    }
+    else if (result == LE_FAULT)
+    {
+        printf("System fault occurred while removing network %s\n", ssid.c_str());
+        LE_TEST_INFO("System fault occurred while removing network %s", ssid.c_str());
+    }
+    else
+    {
+        printf("Unexpected error (%d) while removing network %s\n", result, ssid.c_str());
+        LE_TEST_INFO("Unexpected error (%d) while removing network %s", result, ssid.c_str());
+    }
+
+    return result;
+}
+
 COMPONENT_INIT {
     le_result_t status = LE_FAULT;
 
@@ -1031,6 +1150,11 @@ COMPONENT_INIT {
         CheckNumArgs(numArgs, 3);
         status = wlanSTATestDisconnect(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: Disconnect");
+    } else if (strncasecmp(testType, "RemoveNetwork", strlen("RemoveNetwork")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: RemoveNetwork ========");
+        CheckNumArgs(numArgs, 3);
+        status = wlanSTATestRemoveNetwork(getSTARef(staIntfName));
+        LE_TEST_OK(LE_OK == status || LE_NOT_FOUND == status, "WLAN Test: RemoveNetwork");
     } else if (strncasecmp(testType, "GetApSignalStrength", strlen("GetApSignalStrength")) == 0) {
         LE_TEST_INFO("======== WLAN Test: GetApSignalStrength ========");
         CheckNumArgs(numArgs, 2);

@@ -83,6 +83,7 @@ enum InteractiveWlanStaTestType
     WLAN_STA_SET_WPA2_PSK,
     WLAN_STA_CONNECT,
     WLAN_STA_DISCONNECT,
+    WLAN_STA_REMOVE_NETWORK,
     WLAN_STA_GET_AP_SIG_STRENGTH,
     WLAN_STA_ADD_AP_SIG_STRENGTH_CB,
     WLAN_STA_REMOVE_AP_SIG_STRENGTH_CB,
@@ -135,6 +136,7 @@ le_result_t WlanStaTestGetApScanResults();
 le_result_t WlanStaTestSetWpa2Psk();
 le_result_t WlanStaTestConnect();
 le_result_t WlanStaTestDisconnect();
+le_result_t WlanStaTestRemoveNetwork();
 le_result_t WlanStaTestGetConnectedApSignalStrength();
 le_result_t WlanStaTestAddConnectedApSignalStrengthCb();
 le_result_t WlanStaTestRemoveConnectedApSignalStrengthCb();

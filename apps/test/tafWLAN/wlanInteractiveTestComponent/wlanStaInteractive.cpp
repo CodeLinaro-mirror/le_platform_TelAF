@@ -703,6 +703,71 @@ le_result_t WlanStaTestDisconnect()
     return result;
 }
 
+le_result_t WlanStaTestRemoveNetwork()
+{
+    taf_wlanSta_WlanSTARef_t staRef = wlanStaGetRef();
+    if (!staRef)
+    {
+        LE_TEST_INFO("ERR: Failed to get STA reference.");
+        return LE_FAULT;
+    }
+
+    constexpr uint8_t ssidSizeBytes = TAF_WLAN_MAX_SSID_LENGTH + 1;
+    char ssid[ssidSizeBytes] = {0};
+
+    std::cout << "Enter SSID of network to remove: ";
+    std::cin.clear();
+    std::cin.getline(ssid, ssidSizeBytes);
+
+    if (strlen(ssid) == 0)
+    {
+        LE_TEST_INFO("ERR: SSID cannot be empty.");
+        return LE_BAD_PARAMETER;
+    }
+
+    // Create AP info with just the SSID for removal
+    taf_wlanSta_APInfo_t apInfoToRemove;
+    memset(&apInfoToRemove, 0, sizeof(apInfoToRemove));
+    le_utf8_Copy(apInfoToRemove.SSID, ssid, ssidSizeBytes, nullptr);
+
+    LE_TEST_INFO("Attempting to remove network: %s", ssid);
+    std::cout << "Attempting to remove network: " << ssid << std::endl;
+
+    le_result_t result = taf_wlanSta_RemoveNetwork(staRef, &apInfoToRemove);
+    LE_TEST_OK(LE_OK == result || LE_NOT_FOUND == result,
+               "taf_wlanSta_RemoveNetwork result: %d", result);
+
+    if (result == LE_OK)
+    {
+        std::cout << "Network '" << ssid << "' removed successfully" << std::endl;
+        LE_TEST_INFO("Network '%s' removed successfully", ssid);
+    }
+    else if (result == LE_NOT_FOUND)
+    {
+        std::cout << "Network '" << ssid << "' was not found in configured networks" << std::endl;
+        std::cout << "This means the network was never added/configured" << std::endl;
+        LE_TEST_INFO("Network '%s' was not found in configured networks", ssid);
+    }
+    else if (result == LE_BAD_PARAMETER)
+    {
+        std::cout << "Bad parameter error - check SSID: '" << ssid << "'" << std::endl;
+        LE_TEST_INFO("Bad parameter error - check SSID: '%s'", ssid);
+    }
+    else if (result == LE_FAULT)
+    {
+        std::cout << "System fault occurred while removing network '" << ssid << "'" << std::endl;
+        LE_TEST_INFO("System fault occurred while removing network '%s'", ssid);
+    }
+    else
+    {
+        std::cout << "Unexpected error (" << result << ") while removing network '"
+                 << ssid << "'" << std::endl;
+        LE_TEST_INFO("Unexpected error (%d) while removing network '%s'", result, ssid);
+    }
+
+    return result;
+}
+
 le_result_t WlanStaTestGetConnectedApSignalStrength()
 {
     taf_wlanSta_WlanSTARef_t staRef = wlanStaGetRef();

@@ -3248,6 +3248,192 @@ le_result_t taf_WlanSTASvcImpl::GetAPEstimatedThroughput
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Removes a network configuration from the station.
+ *
+ * @return
+ * - LE_OK          -- Succeeded.
+ * - LE_NOT_FOUND   -- Network not found.
+ * - Others         -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_WlanSTASvcImpl::RemoveNetwork(
+    taf_wlanSta_WlanSTARef_t staRef,
+    const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo
+)
+{
+    TAF_ERROR_IF_RET_VAL(!wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
+    TAF_ERROR_IF_RET_VAL(0 == strlen(ApInfo->SSID), LE_BAD_PARAMETER, "SSID is empty");
+
+    StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
+    TAF_ERROR_IF_RET_VAL(!staCtxPtr, LE_FAULT, "Unable to find context");
+
+    // Ensure STA is active
+    std::vector<telux::wlan::StaStatus> status;
+    telux::common::ErrorCode errCode = wlanSTAMgr->getStatus(status);
+    if (telux::common::ErrorCode::SUCCESS != errCode)
+    {
+        LE_WARN("WLAN STA getStatus failed with error : %d", static_cast<int>(errCode));
+        return LE_FAULT;
+    }
+    for (auto &element : status)
+    {
+        LE_DEBUG("------------------------------------------");
+        LE_DEBUG("STA Id: %d", static_cast<int>(element.id));
+        if (taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id) == element.id)
+        {
+            if (telux::wlan::StaInterfaceStatus::UNKNOWN == element.status)
+            {
+                LE_WARN("STA %d status unknown", staCtxPtr->id);
+                return LE_FAULT;
+            }
+            break;
+        }
+    }
+
+    char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
+    std::string wpaReqCmd;
+    le_result_t res;
+
+    // Check if network is added
+    std::string netID = CheckNetworkAdded(staCtxPtr, ApInfo);
+    if (netID == WPA_STA_NET_NOT_ADDED || netID.substr(0, 4) == "FAIL")
+    {
+        LE_INFO("Network %s not found in configured networks", ApInfo->SSID);
+        return LE_NOT_FOUND;
+    }
+
+    LE_INFO("Found network %s with ID: %s", ApInfo->SSID, netID.c_str());
+
+    // If we're connected to this network, disconnect first (event-driven)
+    memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
+    wpaReqCmd = "STATUS";
+    res = runWPACommand(staCtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
+    if (res == LE_OK)
+    {
+        std::string statusOutput(rsp_buf);
+        std::string currentSSID;
+
+        // Extract current SSID from status
+        size_t ssidPos = statusOutput.find("ssid=");
+        if (ssidPos != std::string::npos)
+        {
+            ssidPos += 5; // Length of "ssid="
+            size_t endPos = statusOutput.find('\n', ssidPos);
+            if (endPos != std::string::npos)
+            {
+                currentSSID = statusOutput.substr(ssidPos, endPos - ssidPos);
+            }
+        }
+
+        if (!currentSSID.empty() && currentSSID == std::string(ApInfo->SSID))
+        {
+            LE_INFO("Currently connected to %s, disconnecting first", ApInfo->SSID);
+
+            // Set up monitor for DISCONNECTED event
+            SuppFdCtx_t *fdCtxPtr = nullptr;
+            std::vector<std::string> eventsToMonitor = { WPA_EVENT_DISCONNECTED };
+            if (SetupWpaSupplicantMonitoring(staCtxPtr, eventsToMonitor, &fdCtxPtr) != LE_OK)
+            {
+                LE_WARN("Failed to set up DISCONNECTED monitor; proceeding without wait");
+                fdCtxPtr = nullptr;
+            }
+
+            // Issue DISCONNECT
+            memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
+            wpaReqCmd = "DISCONNECT";
+            res = runWPACommand(staCtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
+            if (res == LE_FAULT)
+            {
+                if (fdCtxPtr) { CleanupWpaSupplicantMonitoring(fdCtxPtr); }
+                LE_ERROR("DISCONNECT failed");
+                return LE_FAULT;
+            }
+            if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
+            {
+                if (fdCtxPtr) { CleanupWpaSupplicantMonitoring(fdCtxPtr); }
+                LE_ERROR("DISCONNECT command failed: %s", rsp_buf);
+                return LE_FAULT;
+            }
+
+            // Wait for DISCONNECTED event (up to 10s), then cleanup monitor
+            bool disconnected = false;
+            if (fdCtxPtr)
+            {
+                StaWpaEvt_e evt = EVT_WPA_ERROR;
+                bool gotEvt = WaitForSupplicantEvent(fdCtxPtr, 10000 /* ms */, evt);
+                CleanupWpaSupplicantMonitoring(fdCtxPtr);
+                if (gotEvt && evt == EVT_WPA_AP_DISCONNECTED)
+                {
+                    LE_INFO("Received DISCONNECTED event.");
+                    disconnected = true;
+                }
+                else
+                {
+                    LE_WARN("No DISCONNECTED event received (timeout or mismatch);"
+                        "verifying status.");
+                }
+            }
+
+            // Fallback: verify STATUS to confirm not connected
+            if (!disconnected)
+            {
+                memset(rsp_buf, 0, sizeof(rsp_buf));
+                if (runWPACommand(staCtxPtr, "STATUS", rsp_buf, sizeof(rsp_buf)) == LE_OK)
+                {
+                    std::string st(rsp_buf);
+                    if (st.find("wpa_state=COMPLETED") == std::string::npos)
+                    {
+                        disconnected = true;
+                    }
+                }
+            }
+
+            // Report DISCONNECTED state to stop link monitoring and notify clients
+            if (disconnected)
+            {
+                ReportStaState(staCtxPtr, TAF_WLANSTA_STATE_DISCONNECTED);
+            }
+        }
+    }
+
+    // Disable the network
+    memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
+    wpaReqCmd = "DISABLE_NETWORK " + netID;
+    res = runWPACommand(staCtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
+    if (res == LE_FAULT)
+    {
+        LE_ERROR("DISABLE_NETWORK failed");
+        return LE_FAULT;
+    }
+    if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
+    {
+        LE_WARN("DISABLE_NETWORK command returned: %s", rsp_buf);
+        // Continue with removal even if disable fails
+    }
+
+    // Remove the network
+    memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
+    wpaReqCmd = "REMOVE_NETWORK " + netID;
+    res = runWPACommand(staCtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
+    if (res == LE_FAULT)
+    {
+        LE_ERROR("REMOVE_NETWORK failed");
+        return LE_FAULT;
+    }
+    if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
+    {
+        LE_ERROR("REMOVE_NETWORK command failed: %s", rsp_buf);
+        return LE_FAULT;
+    }
+
+    LE_INFO("Successfully removed network %s (ID: %s) - use SaveNetworkConfig() to persist",
+            ApInfo->SSID, netID.c_str());
+    ReportStaState(staCtxPtr, TAF_WLANSTA_STATE_NETWORK_REMOVED);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * taf_WlanAPSvcImpl Init function
  */
 //--------------------------------------------------------------------------------------------------

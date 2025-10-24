@@ -66,6 +66,7 @@ ENUM State
     STATE_SCAN_STARTED,         ///< Available access points scan started.
     STATE_SCAN_COMPLETED,       ///< Available access points scan is complete.
     STATE_SCAN_FAILED,          ///< Available access points scan failed.
+    STATE_NETWORK_REMOVED       ///< Station network is removed successfully
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -509,3 +510,24 @@ FUNCTION le_result_t GetAPEstimatedThroughput
     int32   age OUT                              ///< Age of the measured value in seconds.
                                                  ///< A negative age indicates it's not available.
 ) = 19;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes a network configuration from the station. If the station is currently connected
+ * to this network, it will be disconnected first before removing the network configuration.
+ *
+ * @b NOTE: This does not save the configuration persistently. Use SaveNetworkConfig() to save.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK          -- Succeeded.
+ * - LE_NOT_FOUND   -- Network not found in configured networks.
+ * - Others         -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveNetwork
+(
+    WlanSTA wlanSTARef   IN,     ///< The WLAN STA reference.
+    APInfo  apInfo       IN      ///< The AP network to remove.
+) = 20;

@@ -782,14 +782,14 @@ private:
     static void tafPaQosTftEventsCb
     (
         const taf::pa::data::QosTftEventInfo_t &qosTftEventInfo,
-        std::shared_ptr<void>    context
+        std::shared_ptr<void> context
     );
     // The ID of the callback registered for HW acceleration events
     uint16_t hwAccelerationEventsCallbackId_ = 0;
     static void tafPaHwAccelerationEventsCb
     (
         const taf::pa::data::HwAccelerationChangeEvent_t &hwAccelerationEventInfo,
-        std::shared_ptr<void>              context
+        std::shared_ptr<void> context
     );
 
     //Declarations for client event handlers
@@ -808,7 +808,7 @@ private:
     static void getProfilesAsyncCb
     (
         taf::pa::data::PhoneId_e phoneId,                          ///< [IN] The phone id.
-        le_result_t result,                                   ///< [IN] The result of the operation.
+        pa_result_t paResult,                                 ///< [IN] The result of the operation.
         const std::vector<taf::pa::data::ProfileInfo_t> &profiles, ///< [IN] The profile list.
         void *contextPtr                                           ///< [IN] The context pointer.
     );

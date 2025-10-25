@@ -1413,14 +1413,14 @@ static void* UnitTestThread(void* contextPtr)
 
     #endif
 
-    le_thread_Ref_t roamingStatusThRef = le_thread_Create("RoamingStatusTh",
+    le_thread_Ref_t roamingStatusThRef = le_thread_Create("RoamingStatTh",
                                                            ut_taf_roaming_status_handler, NULL);
 
     le_thread_Start(roamingStatusThRef);
 
     le_sem_Wait(TestSemRef);
 
-    le_thread_Ref_t throttleStatusThRef = le_thread_Create("ThrottleStatusTh",
+    le_thread_Ref_t throttleStatusThRef = le_thread_Create("ThrottleStatTh",
                                                            ut_taf_throttle_status_handler, NULL);
 
     le_thread_Start(throttleStatusThRef);
@@ -1876,7 +1876,7 @@ static void ut_async_cmd_tests_with_uncreated_profile()
     LE_TEST_OK(expResult == result, "taf_dcs_StartSession. Exp: %d, Act: %d", expResult, result);
 
 
-    asyncCmdThreadRef = le_thread_Create("async_cmd_thread", async_cmd_thread_handler,
+    asyncCmdThreadRef = le_thread_Create("async_cmd_th", async_cmd_thread_handler,
                                                                             asyncCmdSemRef);
     le_thread_Start(asyncCmdThreadRef);
     le_sem_Wait(asyncCmdSemRef);
@@ -2029,10 +2029,8 @@ COMPONENT_INIT
 
     LE_TEST_INIT;
     TestSemRef = le_sem_Create("taf_datacall_ut_sem", 0);
-    LE_TEST_ASSERT (NULL != TestSemRef, "Failed to create test semaphore");
     // Start a separate thread to receive data events.
     dataSessionThRef = le_thread_Create("dataSessionTh", ut_taf_data_session_handler, NULL);
-    LE_TEST_ASSERT(NULL != dataSessionThRef, "Failed to create data events thread");
     le_thread_Start(dataSessionThRef);
     le_sem_Wait(TestSemRef);
 

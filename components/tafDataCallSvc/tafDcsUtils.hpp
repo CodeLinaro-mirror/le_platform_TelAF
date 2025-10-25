@@ -14,6 +14,7 @@
 
 #include "legato.h"
 #include "interfaces.h"
+#include "taf_pa_common.h"
 #include "taf_pa_dataTypes.hpp"
 
 /**
@@ -24,12 +25,45 @@
 #define TO_INT(value) static_cast<int>(value)
 
 /**
- * @brief Return true if the given "value" is within the specified range
+ * Template tp convert pa_result_t to le_result_t
+ *
  */
 template <typename T>
-bool isValueInRange(T value, T lowerBound, T upperBound)
+le_result_t PA_TO_LE_RESULT(T paResult)
 {
-    return value >= lowerBound && value <= upperBound;
+    switch (static_cast<int32_t>(paResult))
+    {
+        case 0: return LE_OK;                  // PA_OK
+        case -1: return LE_NOT_FOUND;          // PA_NOT_FOUND
+        case -2: return LE_NOT_POSSIBLE;       // PA_NOT_POSSIBLE
+        case -3: return LE_OUT_OF_RANGE;       // PA_OUT_OF_RANGE
+        case -4: return LE_NO_MEMORY;          // PA_NO_MEMORY
+        case -5: return LE_NOT_PERMITTED;      // PA_NOT_PERMITTED
+        case -6: return LE_FAULT;              // PA_FAULT
+        case -7: return LE_COMM_ERROR;         // PA_COMM_ERROR
+        case -8: return LE_TIMEOUT;            // PA_TIMEOUT
+        case -9: return LE_OVERFLOW;           // PA_OVERFLOW
+        case -10: return LE_UNDERFLOW;         // PA_UNDERFLOW
+        case -11: return LE_WOULD_BLOCK;       // PA_WOULD_BLOCK
+        case -12: return LE_DEADLOCK;          // PA_DEADLOCK
+        case -13: return LE_FORMAT_ERROR;      // PA_FORMAT_ERROR
+        case -14: return LE_DUPLICATE;         // PA_DUPLICATE
+        case -15: return LE_BAD_PARAMETER;     // PA_BAD_PARAMETER
+        case -16: return LE_CLOSED;            // PA_CLOSED
+        case -17: return LE_BUSY;              // PA_BUSY
+        case -18: return LE_UNSUPPORTED;       // PA_UNSUPPORTED
+        case -19: return LE_IO_ERROR;          // PA_IO_ERROR
+        case -20: return LE_NOT_IMPLEMENTED;   // PA_NOT_IMPLEMENTED
+        case -21: return LE_UNAVAILABLE;       // PA_UNAVAILABLE
+        case -22: return LE_TERMINATED;        // PA_TERMINATED
+        case -23: return LE_IN_PROGRESS;       // PA_IN_PROGRESS
+        case -24: return LE_SUSPENDED;         // PA_SUSPENDED
+        default:                               // Unknown PA result
+        {
+            LE_WARN("Unknown PA result value: %d", TO_INT(paResult));
+            return LE_FAULT;
+        }
+    }
 }
 
 namespace taf
@@ -79,6 +113,11 @@ namespace datacall
 
         static taf_dcs_QosFlowState_t   ConvertQoSFlowState(taf::pa::data::QosFlowState_e);
         static taf_dcs_QosFlowBitMask_t ConvertQoSFlowBitMask(taf::pa::data::QosFlowMask_e);
+
+        // To string functions
+        static const char *ToString(taf::pa::data::TechPref_e);
+        static const char *ToString(taf::pa::data::Subsystem_e);
+        static const char *ToString(taf::pa::data::SubsystemState_e);
     };
 
 } // namespace datacall

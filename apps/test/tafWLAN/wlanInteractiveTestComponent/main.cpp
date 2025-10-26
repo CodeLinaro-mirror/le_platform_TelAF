@@ -116,6 +116,8 @@ static void printStaUsage(void)
               << "  - Disconnect from AP\n"
               << std::setw(3) << WLAN_STA_REMOVE_NETWORK
               << "  - Remove Network Configuration\n"
+              << std::setw(3) << WLAN_STA_SAVE_NETWORK_CONFIG
+              << "  - Save Network Configuration\n"
               << std::setw(3) << WLAN_STA_GET_AP_SIG_STRENGTH
               << "  - Get Connected AP Signal Strength\n"
               << std::setw(3) << WLAN_STA_ADD_AP_SIG_STRENGTH_CB
@@ -499,6 +501,10 @@ COMPONENT_INIT {
             case WLAN_STA_REMOVE_NETWORK:
                 result = WlanStaTestRemoveNetwork();
                 std::cout << "wlanStaTestRemoveNetwork result: " << result << std::endl;
+                break;
+            case WLAN_STA_SAVE_NETWORK_CONFIG:
+                result = WlanStaTestSaveNetworkConfig();
+                std::cout << "wlanStaTestSaveNetworkConfig result: " << result << std::endl;
                 break;
             case WLAN_STA_GET_AP_SIG_STRENGTH:
                 result = WlanStaTestGetConnectedApSignalStrength();

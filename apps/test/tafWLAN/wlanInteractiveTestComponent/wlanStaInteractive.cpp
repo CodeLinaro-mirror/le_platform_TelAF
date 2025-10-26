@@ -768,6 +768,40 @@ le_result_t WlanStaTestRemoveNetwork()
     return result;
 }
 
+le_result_t WlanStaTestSaveNetworkConfig()
+{
+    taf_wlanSta_WlanSTARef_t staRef = wlanStaGetRef();
+    if (!staRef)
+    {
+        LE_TEST_INFO("ERR: Failed to get STA reference.");
+        return LE_FAULT;
+    }
+
+    LE_TEST_INFO("Attempting to save network configuration");
+    std::cout << "Attempting to save network configuration..." << std::endl;
+
+    le_result_t result = taf_wlanSta_SaveNetworkConfig(staRef);
+    LE_TEST_OK(LE_OK == result, "taf_wlanSta_SaveNetworkConfig result: %d", result);
+
+    if (result == LE_OK)
+    {
+        std::cout << "Network configuration saved successfully" << std::endl;
+        LE_TEST_INFO("Network configuration saved successfully");
+    }
+    else if (result == LE_FAULT)
+    {
+        std::cout << "Failed to save network configuration" << std::endl;
+        LE_TEST_INFO("Failed to save network configuration");
+    }
+    else
+    {
+        std::cout << "Unexpected error (" << result << ") while saving configuration" << std::endl;
+        LE_TEST_INFO("Unexpected error (%d) while saving configuration", result);
+    }
+
+    return result;
+}
+
 le_result_t WlanStaTestGetConnectedApSignalStrength()
 {
     taf_wlanSta_WlanSTARef_t staRef = wlanStaGetRef();

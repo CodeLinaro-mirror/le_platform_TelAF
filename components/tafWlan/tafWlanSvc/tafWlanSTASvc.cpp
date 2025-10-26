@@ -510,3 +510,25 @@ le_result_t taf_wlanSta_RemoveNetwork
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
     return myWlanSta.RemoveNetwork(wlanSTARef, ApInfoPtr);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Saves the current network configuration persistently.
+ *
+ * @return
+ * - LE_OK      -- Succeeded.
+ * - LE_FAULT   -- Failed to save configuration.
+ * - Others     -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlanSta_SaveNetworkConfig
+(
+    taf_wlanSta_WlanSTARef_t wlanSTARef
+        ///< [IN] The WLAN STA reference.
+)
+{
+    TAF_ERROR_IF_RET_VAL(wlanSTARef == nullptr, LE_BAD_PARAMETER, "wlanSTARef is NULL!");
+
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.SaveNetworkConfig(wlanSTARef);
+}

@@ -531,3 +531,21 @@ FUNCTION le_result_t RemoveNetwork
     WlanSTA wlanSTARef   IN,     ///< The WLAN STA reference.
     APInfo  apInfo       IN      ///< The AP network to remove.
 ) = 20;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Saves the current network configuration persistently. This should be called after
+ * network configuration changes to make the changes persistent across reboots.
+ *
+ * @instaging
+ *
+ * @return
+ * - LE_OK          -- Succeeded.
+ * - LE_FAULT       -- Failed to save configuration.
+ * - Others         -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SaveNetworkConfig
+(
+    WlanSTA wlanSTARef   IN      ///< The WLAN STA reference.
+) = 21;

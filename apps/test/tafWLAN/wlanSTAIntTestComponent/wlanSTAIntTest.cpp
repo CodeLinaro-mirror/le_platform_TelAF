@@ -41,6 +41,7 @@ void PrintUsage() {
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Connect <STA> <SSID>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Disconnect <STA> <SSID>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- RemoveNetwork <STA> <SSID>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- SaveNetworkConfig <STA>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetApSignalStrength <STA>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- ApSigStrengthEvents <STA>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetAPEstimatedThroughput <STA>\n"
@@ -1047,6 +1048,40 @@ static le_result_t wlanSTATestRemoveNetwork(taf_wlanSta_WlanSTARef_t staRef)
     return result;
 }
 
+static le_result_t wlanSTATestSaveNetworkConfig(taf_wlanSta_WlanSTARef_t staRef)
+{
+    if (!staRef)
+    {
+        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
+        return LE_FAULT;
+    }
+
+    printf("Attempting to save network configuration...\n");
+    LE_TEST_INFO("Attempting to save network configuration");
+
+    le_result_t result = taf_wlanSta_SaveNetworkConfig(staRef);
+    fprintf(stderr, "taf_wlanSta_SaveNetworkConfig Return: %d\n", result);
+    LE_TEST_INFO("taf_wlanSta_SaveNetworkConfig Return: %d", result);
+
+    if (result == LE_OK)
+    {
+        printf("Network configuration saved successfully\n");
+        LE_TEST_INFO("Network configuration saved successfully");
+    }
+    else if (result == LE_FAULT)
+    {
+        printf("Failed to save network configuration\n");
+        LE_TEST_INFO("Failed to save network configuration");
+    }
+    else
+    {
+        printf("Unexpected error (%d) while saving configuration\n", result);
+        LE_TEST_INFO("Unexpected error (%d) while saving configuration", result);
+    }
+
+    return result;
+}
+
 COMPONENT_INIT {
     le_result_t status = LE_FAULT;
 
@@ -1155,6 +1190,11 @@ COMPONENT_INIT {
         CheckNumArgs(numArgs, 3);
         status = wlanSTATestRemoveNetwork(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status || LE_NOT_FOUND == status, "WLAN Test: RemoveNetwork");
+    } else if (strncasecmp(testType, "SaveNetworkConfig", strlen("SaveNetworkConfig")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: SaveNetworkConfig ========");
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestSaveNetworkConfig(getSTARef(staIntfName));
+        LE_TEST_OK(LE_OK == status, "WLAN Test: SaveNetworkConfig");
     } else if (strncasecmp(testType, "GetApSignalStrength", strlen("GetApSignalStrength")) == 0) {
         LE_TEST_INFO("======== WLAN Test: GetApSignalStrength ========");
         CheckNumArgs(numArgs, 2);

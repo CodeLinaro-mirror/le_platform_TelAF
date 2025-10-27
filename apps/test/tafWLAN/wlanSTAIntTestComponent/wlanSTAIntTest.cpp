@@ -11,6 +11,8 @@
 #include <iostream>
 #include <string>
 #include <future>
+#include <vector>
+#include <map>
 #include "interfaces.h"
 #include "legato.h"
 
@@ -39,6 +41,7 @@ void PrintUsage() {
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Disconnect <STA> <SSID>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetApSignalStrength <STA>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- ApSigStrengthEvents <STA>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetAPEstimatedThroughput <STA>\n"
            "\n STA: STA interface obtained from taf_wlan_GetIntfInfo\n"
            "\n");
 }
@@ -819,6 +822,112 @@ static taf_wlanSta_WlanSTARef_t getSTARef(const char *staIntfNameStr)
     return staRef;
 }
 
+static le_result_t wlanSTATestGetAPEstimatedThroughput(taf_wlanSta_WlanSTARef_t staRef)
+{
+    if (!staRef) {
+        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
+        return LE_FAULT;
+    }
+
+    // First, we need to scan for APs to get their BSSIDs
+    le_result_t result = taf_wlanSta_DoAPScan(staRef);
+    if (result != LE_OK) {
+        fprintf(stderr, "taf_wlanSta_DoAPScan failed: %d\n", result);
+        return result;
+    }
+
+    // Wait for scan to complete with timeout
+    le_clk_Time_t timeout = {20, 0};  // 20 seconds timeout
+    if (le_sem_WaitWithTimeOut(wlanSemRef, timeout) != LE_OK) {
+        LE_TEST_FATAL("Timeout waiting for scan to complete");
+    }
+
+    // Get scan results
+    uint16_t numScanedAPs = 0;
+    size_t APInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
+    taf_wlanSta_APInfo_t ApInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = { 0 };
+    result = taf_wlanSta_GetAPScanResults(staRef, &numScanedAPs, ApInfo, &APInfoSize);
+    if (result != LE_OK) {
+        fprintf(stderr, "taf_wlanSta_GetAPScanResults failed: %d\n", result);
+        return result;
+    }
+
+    if (numScanedAPs == 0) {
+        fprintf(stderr, "No APs found in scan results\n");
+        return LE_NOT_FOUND;
+    }
+
+    printf("\nTesting estimated throughput for %d APs:\n", numScanedAPs);
+
+    int availableCount = 0;
+    int unavailableCount = 0;
+    int errorCount = 0;
+    std::map<uint32_t, int> throughputDistribution;
+    std::map<uint32_t, std::vector<std::string>> throughputToSSIDs;
+
+    // Try to get estimated throughput for each AP
+    for (size_t i = 0; i < numScanedAPs; i++) {
+        uint32_t estimatedThroughput = 0;
+        int32_t age = -1;
+        result = taf_wlanSta_GetAPEstimatedThroughput(staRef, ApInfo[i].BSSID,
+            &estimatedThroughput, &age);
+
+        printf("AP %zu: SSID=%s, BSSID=%s\n", i+1, ApInfo[i].SSID, ApInfo[i].BSSID);
+        printf("  Signal Level: %d dBm, Frequency: %u MHz\n",
+               ApInfo[i].SignalLevel, ApInfo[i].Frequency);
+        printf("  Security: %s, Auth: %s\n",
+               getSecurityMode(ApInfo[i].secMode),
+               getSecurityAuthMethod(ApInfo[i].secAuthMethod));
+
+        if (result == LE_OK) {
+            printf("  Estimated Throughput: %u Kbps", estimatedThroughput);
+            if (age >= 0) {
+                printf(", Age: %d seconds\n", age);
+            } else {
+                printf(", Age: not available\n");
+            }
+            availableCount++;
+            throughputDistribution[estimatedThroughput]++;
+            throughputToSSIDs[estimatedThroughput].push_back(std::string(ApInfo[i].SSID));
+        } else if (result == LE_UNAVAILABLE) {
+            printf("  Estimated Throughput: Not available\n");
+            unavailableCount++;
+        } else if (result == LE_NOT_FOUND) {
+            printf("  BSSID not found in scan results\n");
+            errorCount++;
+        } else {
+            printf("  Error getting estimated throughput: %d\n", result);
+            errorCount++;
+        }
+        printf("  ---------------- \n");
+    }
+
+    printf("\nSummary:\n");
+    printf("  Total APs: %d\n", numScanedAPs);
+    printf("  APs with throughput info: %d\n", availableCount);
+    printf("  APs without throughput info: %d\n", unavailableCount);
+    printf("  Errors: %d\n", errorCount);
+
+    if (!throughputDistribution.empty()) {
+        printf("\nThroughput distribution:\n");
+        for (const auto& pair : throughputDistribution) {
+            printf("  %u Kbps: %d APs\n", pair.first, pair.second);
+
+            printf("    SSIDs: ");
+            const auto& ssids = throughputToSSIDs[pair.first];
+            for (size_t i = 0; i < ssids.size(); i++) {
+                printf("%s", ssids[i].c_str());
+                if (i < ssids.size() - 1) {
+                    printf(", ");
+                }
+            }
+            printf("\n");
+        }
+    }
+
+    return LE_OK;
+}
+
 COMPONENT_INIT {
     le_result_t status = LE_FAULT;
 
@@ -844,8 +953,8 @@ COMPONENT_INIT {
     }
     LE_TEST_INFO("STA Interface to use: %s", staIntfName);
 
-    char testType[20]="";   // NULL appended string
-    le_utf8_Copy(testType,testTypeStr,20,NULL);
+    char testType[30]="";   // NULL appended string
+    le_utf8_Copy(testType, testTypeStr, 30, NULL);
 
     LE_TEST_INIT;
     // Register for events
@@ -932,6 +1041,14 @@ COMPONENT_INIT {
         CheckNumArgs(numArgs, 2);
         status = wlanSTATestAddConnectedApSignalStrengthHandler(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: ApSigStrengthEvents");
+    }
+    else if (strncasecmp(testType, "GetAPEstimatedThroughput",
+            strlen("GetAPEstimatedThroughput")) == 0)
+    {
+        LE_TEST_INFO("======== WLAN Test: GetAPEstimatedThroughput ========");
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestGetAPEstimatedThroughput(getSTARef(staIntfName));
+        LE_TEST_OK(LE_OK == status, "WLAN Test: GetAPEstimatedThroughput");
     } else {
         PrintUsage();
         LE_TEST_FATAL("Invalid test type %s", testType);

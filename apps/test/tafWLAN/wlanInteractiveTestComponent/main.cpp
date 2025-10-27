@@ -120,6 +120,8 @@ static void printStaUsage(void)
               << "  - Add Connected AP Signal Strength CB\n"
               << std::setw(3) << WLAN_STA_REMOVE_AP_SIG_STRENGTH_CB
               << "  - Remove Connected AP Signal Strength CB\n"
+              << std::setw(3) << WLAN_STA_GET_AP_EST_THROUGHPUT
+              << "  - Get AP Estimated Throughput\n"
               << std::endl;
 }
 
@@ -223,9 +225,8 @@ COMPONENT_INIT {
     LE_TEST_INFO("Data Call Interactive Test App");
     le_result_t result;
 
-
     // Start events thread
-    wlanTestEventsThreadRef = le_thread_Create("wlanTestEventsThread",
+    wlanTestEventsThreadRef = le_thread_Create("wlanTstEvtThr",
                                                         wlanTestEventsThreadHandlerFunc, NULL);
     le_thread_Start(wlanTestEventsThreadRef);
 
@@ -236,6 +237,12 @@ COMPONENT_INIT {
                                                                                 << COLOR_RESET;
         std::string line;
         if (!std::getline(std::cin, line)) {
+            LE_TEST_INFO("Failed to read input, exiting.");
+            break;
+        }
+
+        // Check for empty input
+        if (line.empty()) {
             printUsage();
             continue;
         }
@@ -245,9 +252,11 @@ COMPONENT_INIT {
             testType = std::stoi(line);
         } catch (const std::invalid_argument& e) {
             LE_TEST_INFO("ERR: Invalid input: %s", e.what());
+            std::cout << "Invalid input. Please enter a number." << std::endl;
             continue;
         } catch (const std::out_of_range& e) {
             LE_TEST_INFO("ERR: Input out of range: %s", e.what());
+            std::cout << "Input out of range. Please enter a valid number." << std::endl;
             continue;
         }
 
@@ -337,6 +346,7 @@ COMPONENT_INIT {
                 break;
             default:
                 LE_TEST_INFO("Invalid WLAN test type.");
+                std::cout << "Invalid WLAN test type." << std::endl;
                 break;
             };
         }
@@ -403,6 +413,7 @@ COMPONENT_INIT {
                 break;
             default:
                 LE_TEST_INFO("Invalid AP test type.");
+                std::cout << "Invalid AP test type." << std::endl;
                 break;
             };
         }
@@ -488,6 +499,10 @@ COMPONENT_INIT {
                 std::cout << "wlanStaTestGetConnectedApSignalStrength result: " << result
                                                                                     << std::endl;
                 break;
+            case WLAN_STA_GET_AP_EST_THROUGHPUT:
+                result = WlanStaTestGetApEstimatedThroughput();
+                std::cout << "WlanStaTestGetApEstimatedThroughput result: " << result << std::endl;
+                break;
             case WLAN_STA_ADD_AP_SIG_STRENGTH_CB:
                 {
                     wlanTestPromise = std::promise<void>();
@@ -510,14 +525,18 @@ COMPONENT_INIT {
                 break;
             default:
                 LE_TEST_INFO("Invalid STA test type.");
+                std::cout << "Invalid STA test type." << std::endl;
                 break;
             };
         }
         else
         {
             LE_TEST_INFO("Invalid test type. Please refer to the menu.");
-            std::cout << "Invalid test type." << std::endl;
+            std::cout << "Invalid test type. Please enter a number from the menu." << std::endl;
             printUsage();
         }
+
+        // Add a small delay to prevent rapid looping in case of issues
+        usleep(100000); // 100ms delay
     }
 }

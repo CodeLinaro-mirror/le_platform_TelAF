@@ -86,7 +86,12 @@ namespace tafsvc
     {
         char IntfName[TAF_NET_INTERFACE_NAME_MAX_LEN + 1];
         std::vector<std::string> EventsToMonitor;
+        StaWpaEvt_e resultEvent;     // Result of the event monitoring
+        bool eventCompleted;         // Flag to indicate if event processing is complete
+        bool shouldExit;             // Flag to signal thread to exit
+        std::mutex mutex;
     } SuppThreadCtx_t;
+
 
     //----------------------------------------------------------------------------------------------
     /**
@@ -449,12 +454,6 @@ namespace tafsvc
     private:
         friend class taf_WlanSTAListener;
         std::string mNetID;
-
-        // Promise/Future to synchronize WPA indications
-        std::promise<StaWpaEvt_e> PromiseWPA;
-
-        // Promise/Future to check for AP connection status
-        std::promise<StaWpaEvt_e> PromiseConn;
 
         // Functions
         static void StaCmdHandler(void *StaCmdPtr);
